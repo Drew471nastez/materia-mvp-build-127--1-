@@ -132,6 +132,9 @@ export function pricingFor(market: MarketPrice | null | undefined, base: string,
 /** "$48.00" (or "$9.00/month") in the store's currency, as the same price in the market's ("44,50 €/month"). Text with no amount comes back as it was. */
 export function convertPriceText(text: string, pricing: Pricing, locale = "en"): string {
   if (!text) return text
+  // Each available variant endpoint is converted independently. Preserve Free
+  // and intervals instead of silently collapsing a range to its first price.
+  if(text.includes(" – "))return text.split(" – ").map(part=>convertPriceText(part,pricing,locale)).join(" – ")
   const m = text.match(/^([^0-9]*?)([0-9][0-9.,\s]*)(.*)$/)
   if (!m) return text
   const digits = m[2].replace(/\s/g, "")

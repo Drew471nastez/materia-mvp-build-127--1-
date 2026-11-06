@@ -79,6 +79,7 @@ function fakeDb(tables: Record<string, Row[]>, opts: { rpc?: "ok" | "missing" | 
       const rows = () => (tables[table] ?? []).filter((r) => filters.every((f) => f(r)))
       const chain = {
         select: () => chain,
+        then: (resolve: (value: {data: Row[]; error: null}) => unknown) => resolve({data: rows(), error: null}),
         eq: (col: string, v: unknown) => {
           filters.push((r) => r[col] === v)
           if (patch) {

@@ -1,4 +1,5 @@
 import "server-only"
+import type {VariantPriceFacts} from "@/lib/pricing/variant-price"
 
 /**
  * The marketplace's dollar prices on the server (lib/money/marketplace):
@@ -64,7 +65,7 @@ export async function marketplaceRates(db: Db, asOf?: unknown, opts: { cached?: 
 }
 let ratesTriedAt = 0
 
-export interface MarketplaceRowPatch {
+export interface MarketplaceRowPatch extends VariantPriceFacts {
   currency: string | null
   price_cents?: number
   pwyw_min_price_cents?: number | null
@@ -81,7 +82,7 @@ export interface MarketplaceRowPatch {
  * dollars, converted (or the creator's approved dollar price). On with no
  * fresh rate: its own currency, marked paused, never a guessed dollar figure.
  */
-export async function marketplacePricer(db: Db, creatorIds: (string | null | undefined)[], productIds: (string | null | undefined)[] = []): Promise<(row: MarketplaceSource & { id?: string | null; creator_id?: string | null }) => MarketplaceRowPatch> {
+export async function marketplacePricer(db: Db, creatorIds: (string | null | undefined)[], productIds: (string | null | undefined)[] = []): Promise<(row: MarketplaceSource & VariantPriceFacts & { id?: string | null; creator_id?: string | null }) => MarketplaceRowPatch> {
   const gate = await marketplaceGate()
   const currencies = await storeCurrencies(db, creatorIds)
   const anyOpen = gate.mode !== "off" && creatorIds.some((id) => gateOpenFor(gate, id))
@@ -91,7 +92,7 @@ export async function marketplacePricer(db: Db, creatorIds: (string | null | und
     const own: MarketplaceRowPatch = { currency: store }
     if (!store || !gateOpenFor(gate, row.creator_id)) return own
     /* A list that did not read the creator's own dollar price gets it here, so a card and its product page agree. */
-    const withFixed = row.marketplace_usd_approved_at === undefined && row.id && fixed.has(row.id) ? { ...row, ...fixed.get(row.id) } : row
+    const withFixed = !row.variant_count && row.marketplace_usd_approved_at === undefined && row.id && fixed.has(row.id) ? { ...row, ...fixed.get(row.id) } : row
     const m = marketplaceAmounts(withFixed, store, fx)
     if (m.ok === false) return { ...own, marketplace_paused: true }
     return {
@@ -100,6 +101,7 @@ export async function marketplacePricer(db: Db, creatorIds: (string | null | und
       pwyw_min_price_cents: m.pwyw_min_price_cents,
       compare_at_cents: m.compare_at_cents,
       fx_as_of: m.fxAsOf,
+      ...(row.variant_count?{variant_min_price_cents:toUsdMinor(row.variant_min_price_cents??row.price_cents??0,store,fx),variant_max_price_cents:toUsdMinor(row.variant_max_price_cents??row.price_cents??0,store,fx)}:{}),
     }
   }
 }
@@ -126,13 +128,13 @@ async function approvedDollarPrices(db: Db, productIds: (string | null | undefin
 }
 
 /** Rows with their creator's approved dollar price beside them, for a list that did not read it (a product page's More from). */
-export async function withApprovedDollarPrices<R extends { id?: string | null }>(db: Db, rows: R[]): Promise<R[]> {
+export async function withApprovedDollarPrices<R extends { id?: string | null;variant_count?:number }>(db: Db, rows: R[]): Promise<R[]> {
   const fixed = await approvedDollarPrices(db, rows.map((r) => r.id))
-  return fixed.size ? rows.map((r) => (r.id && fixed.has(r.id) ? { ...r, ...fixed.get(r.id) } : r)) : rows
+  return fixed.size ? rows.map((r) => (r.id && !r.variant_count && fixed.has(r.id) ? { ...r, ...fixed.get(r.id) } : r)) : rows
 }
 
 /** The money fields of a product or option row the marketplace shows in dollars. */
-type PricedRow = MarketplaceSource & {
+type PricedRow = MarketplaceSource & VariantPriceFacts & {
   pwyw_suggested_price_cents?: number | null
   compare_at_price_cents?: number | null
 }
@@ -167,7 +169,7 @@ export async function productPageQuote(product: (PricedRow & { creator_id?: stri
     if (m.ok === false) return null
     const out: R = { ...row, price_cents: m.price_cents, pwyw_min_price_cents: m.pwyw_min_price_cents }
     if ("compare_at_cents" in row) out.compare_at_cents = m.compare_at_cents
-    for (const key of ["pwyw_suggested_price_cents", "compare_at_price_cents"] as const) {
+    for (const key of ["pwyw_suggested_price_cents", "compare_at_price_cents", "variant_min_price_cents", "variant_max_price_cents"] as const) {
       const v = row[key]
       if (typeof v !== "number") continue
       const c = toUsdMinor(v, from, fx)

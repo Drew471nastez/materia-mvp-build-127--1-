@@ -8,6 +8,7 @@ async function boot() {
   const state = await fetch("/audit-state").then(r => r.json())
   Object.assign(globalThis, {
     PROBE_AVATAR: state.avatar,
+    ...(state.uploadFixture ? {PROBE_STORAGE: () => ({getPublicUrl: () => ({data: {publicUrl: "https://storelib.com/media/covers/probe/cover.jpg?v="+Date.now()}}),upload: async()=>({error:null})})} : {}),
     PROBE_SESSION: { access_token: "local-probe-token", user: { id: "probe-user" }, expires_at: Math.floor(Date.now() / 1000) + 3600 },
     PROBE_READ_PROFILE: () => fetch("/audit-state").then(r => r.json()).then(state => ({ data: { avatar_url: state.avatar, display_name: "Satori Studio" }, error: null })),
     PROBE_PROFILE: { avatar_url: state.avatar, display_name: "Satori Studio" },

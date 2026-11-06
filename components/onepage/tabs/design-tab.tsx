@@ -1,5 +1,7 @@
 "use client"
 
+import {HeaderCoverEditor} from "../header-cover-editor"
+
 import { ProfileImage } from "@/components/onepage/profile-image"
 
 import type React from "react"
@@ -1807,6 +1809,7 @@ function HeaderSection() {
 
   return (
     <div>
+      <HeaderCoverEditor />
       <PanelSection>
         <SettingRow label={tt("Profile image")} description={avatarVideoUrl ? tt("A video, playing on a loop") : onepage.avatar_url ? tt("An image or GIF") : tt("Add a photo, a logo or a short video")}>
           {/* The picture itself is the button, with a pencil on its corner, as Linktree draws it. */}

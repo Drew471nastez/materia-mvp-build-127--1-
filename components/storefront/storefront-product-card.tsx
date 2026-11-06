@@ -87,6 +87,7 @@ export function StorefrontProductCard({
        */
       showCreator={false}
       product={{
+        ...product,
         id: product.id,
         title: product.title,
         slug: product.slug || "",

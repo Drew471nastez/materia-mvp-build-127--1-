@@ -41,6 +41,7 @@
  */
 
 import * as React from "react"
+import {useAvatarImage} from "@/lib/account/avatar-image"
 
 import {
   DEFAULT_COVER_CROP,
@@ -99,6 +100,7 @@ export interface CoverCropFrameProps {
 }
 
 export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, stage, label, children, className }: CoverCropFrameProps) {
+  const image=useAvatarImage(src)
   const editable = !!onChange
   const frameRef = React.useRef<HTMLDivElement>(null)
   /* The element that takes the gestures: the stage when there is one, else the frame itself. */
@@ -166,7 +168,7 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, stage,
     const n = imgRef.current?.complete ? readNatural(imgRef.current) : null
     naturalRef.current = n
     setNatural(n)
-  }, [src])
+  }, [image.src])
 
   const onLoad = () => {
     const n = readNatural(imgRef.current)
@@ -530,7 +532,8 @@ export function CoverCropFrame({ src, crop, onChange, onActivate, aspect, stage,
     /* eslint-disable-next-line @next/next/no-img-element -- one URL for the life of the frame, decoded before it is drawn; see the note at the top */
     <img
       ref={imgRef}
-      src={src}
+      src={image.src}
+      onError={image.onError}
       alt=""
       draggable={false}
       decoding="async"

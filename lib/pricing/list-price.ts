@@ -1,3 +1,4 @@
+import {withKnownVariantPrices, type PriceVariant, type VariantPriceFacts} from "./variant-price"
 /**
  * ===========================================================================
  *  WHAT A PRODUCT CARD SAYS ITS PRICE IS
@@ -27,7 +28,9 @@
 import { shopMoney, shopMoneyIn } from "@/lib/store/shop-money"
 import { PLAN_CURRENCY, isPlanPriced } from "@/lib/money/product-currency"
 
-export interface ListedPrice {
+export interface ListedPrice extends VariantPriceFacts {
+  product_variants?: PriceVariant[]
+  variants?: PriceVariant[]
   price_cents: number | null | undefined
   compare_at_cents?: number | null
   pay_what_you_want?: boolean | null
@@ -74,6 +77,7 @@ function planMoney(cents: number): string {
 }
 
 export function listPrice(p: ListedPrice, given?: (cents: number) => string): PriceLabel {
+  if((Array.isArray(p.product_variants)||Array.isArray(p.variants))&&(p.product_variants??p.variants??[]).every(v=>v&&"price_cents" in v))p=withKnownVariantPrices(p,p.product_variants??p.variants??[])
   /*
     In the store's own currency when the row carries it: a lei store's 49 is
     49 lei. A membership or a community plan is priced and billed in dollars
@@ -84,6 +88,10 @@ export function listPrice(p: ListedPrice, given?: (cents: number) => string): Pr
   const format = isPlanPriced(p)
     ? planMoney
     : given ?? (p.currency ? (cents: number) => shopMoneyIn(cents || 0, p.currency!, { grouping: true }) : usd)
+  if(p.variant_count && p.variant_count>1 && p.variant_min_price_cents!==null && p.variant_max_price_cents!==null && p.variant_min_price_cents!==undefined && p.variant_max_price_cents!==undefined && p.variant_min_price_cents!==p.variant_max_price_cents){
+    const low=p.variant_min_price_cents===0?"Free":format(p.variant_min_price_cents)
+    return {main:`${low} – ${format(p.variant_max_price_cents)}`,was:null,off:null}
+  }
   if (p.pay_what_you_want) {
     const min = Math.max(0, p.pwyw_min_price_cents ?? p.price_cents ?? 0)
     return { main: min > 0 ? `${format(min)}+` : "Pay what you want", was: null, off: null }

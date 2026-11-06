@@ -111,6 +111,8 @@ export function VariantSelector({
     return `${pageMoney(cents).replace(/\.00$/, "")}+`
   }
 
+  if (variants.length <= 1) return null
+
   return (
     <div className={cn("space-y-2", className)}>
       {/* No heading - removed "Package" / "Choose a package" */}

@@ -1,3 +1,5 @@
+import {withStoreCurrency} from "@/lib/store/store-currencies"
+import {withVariantPrices} from "@/lib/pricing/variant-price"
 /**
  * ===========================================================================
  *  WHAT THE SEARCHES FIND AS YOU TYPE
@@ -103,6 +105,7 @@ type Row = {
   slug: string
   thumbnail_url: string | null
   price_cents: number | null
+  currency?:string|null
   compare_at_cents?: number | null
   pay_what_you_want?: boolean | null
   pwyw_min_price_cents?: number | null
@@ -132,6 +135,7 @@ function toProduct(r: Row): QuickProduct {
     thumb: r.thumbnail_url || null,
     creator: r.creators?.display_name?.trim() || null,
     price: listPrice({
+      ...r,
       price_cents: r.price_cents ?? 0,
       compare_at_cents: r.compare_at_cents ?? null,
       pay_what_you_want: !!r.pay_what_you_want,
@@ -201,8 +205,8 @@ export async function quickSearch(client: Client, query: string, opts: { communi
     ),
   ])
 
-  const textRows: Row[] = (byText?.data as Row[]) || []
-  const creatorRows: Row[] = (byCreator?.data as Row[]) || []
+  const textRows: Row[] = await withVariantPrices(client, (byText?.data as Row[]) || [])
+  const creatorRows: Row[] = await withVariantPrices(client, (byCreator?.data as Row[]) || [])
 
   /* Titles first, then the creator's products that are not already in. */
   const seen = new Set<string>()
@@ -214,7 +218,7 @@ export async function quickSearch(client: Client, query: string, opts: { communi
     })
     .slice(0, PRODUCT_LIMIT)
   /* A yearly only membership says "/year"; asked only when a membership was found (lib/memberships/intervals). */
-  const products = (await withPriceIntervals(client, found)).map(toProduct)
+  const products = (await withPriceIntervals(client, await withStoreCurrency(client,found.map(row=>({...row,creator_id:row.creators?.id}))))).map(toProduct)
 
   /* The creators whose NAME said the word, once each, in the order found. */
   const byId = new Map<string, QuickCreator>()

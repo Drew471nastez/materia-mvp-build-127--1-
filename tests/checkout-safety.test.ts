@@ -47,6 +47,7 @@ function fakeDb(opts: { product?: Record<string, unknown>; variant?: Record<stri
       const q: Record<string, unknown> = {}
       const chain = {
         select: () => chain,
+        then: (resolve: (value: {data: Record<string,unknown>[];error:null}) => unknown) => resolve({data: rows[table]?[rows[table]!]:[],error:null}),
         eq: () => chain,
         ilike: (_c: string, v: string) => {
           q.ilike = v
@@ -134,8 +135,8 @@ async function main() {
 
   console.log("\nOptions")
   {
-    const r = await priceOrder(fakeDb({ variant: { id: "v1", product_id: PRODUCT } }), { productId: PRODUCT })
-    check("a product with options cannot be bought without one", r.ok === false && /option/i.test((r as { error: string }).error))
+    const r = await priceOrder(fakeDb({ variant: { id: "v1", product_id: PRODUCT, price_cents:500 } }), { productId: PRODUCT })
+    check("a sole option is selected and priced automatically on the server", r.ok === true && r.variant?.id === "v1" && r.totals.baseCents === 500)
   }
 
   console.log("\nBaskets written once")

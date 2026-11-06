@@ -1,4 +1,8 @@
 "use client"
+import {NativeActionFrame,NativeFormBlock} from "@/components/forms/native-form-block"
+import {actionHref,normaliseAction,type NativeAction} from "@/lib/forms/actions"
+
+import {coverCropStyle,cropFromSettings} from "@/lib/images/cover-crop"
 
 import { BlockPresentationFrame, BlockSubtitle, VisualLinkCard } from "./block-presentation"
 import { presentationOf } from "@/lib/onepage/block-presentation"
@@ -3043,7 +3047,7 @@ function PublicImageCarousel({
 /** A link marked sensitive: its label, for the box around it (SensitiveLinkQuestion asks before it opens). */
 function sensitiveLabel(block: any): string | undefined {
   if (block?.type !== "link_button" || !block.data?.sensitive) return undefined
-  return String(block.data.label || "")
+  return String(block.data.label ?? "")
 }
 
 /** Is a block on the page? The one rule the editor's preview uses too (lib/onepage/extra-blocks). */
@@ -3053,7 +3057,9 @@ const groupChildrenShown = (children: OnePageBlock[] | undefined, inPreview: boo
   (children || []).filter((c) => isBlockVisible(c) || (inPreview && isIncompleteLink(c)))
 
 function PublicBlockRenderer(props: PublicBlockRendererProps) {
-  return <BlockPresentationFrame block={props.block}><CoreBlockRenderer {...props} /></BlockPresentationFrame>
+  const action=(props.block.data as {action?:NativeAction})?.action
+  const block=props.block.type==="link_button"&&action?{...props.block,data:{...props.block.data,url:actionHref(normaliseAction(action))||""}}:props.block
+  return <NativeActionFrame action={action}><BlockPresentationFrame block={block}><CoreBlockRenderer {...props} block={block} /></BlockPresentationFrame></NativeActionFrame>
 }
 
 function CoreBlockRenderer({
@@ -3197,7 +3203,7 @@ function CoreBlockRenderer({
     const spotifyInfo = getSpotifyInfo(data.url)
     if (spotifyInfo && spotifyModalContext) {
       spotifyModalContext.openSpotifyModal({
-        title: data.label || 'Listen on Spotify',
+        title: data.label ?? 'Listen on Spotify',
         spotifyUrl: data.url,
         embedUrl: spotifyInfo.embedUrl,
         streamingServices: data.streaming_services,
@@ -3243,7 +3249,7 @@ function CoreBlockRenderer({
     const embedUrl = getAppleMusicEmbedUrl(data.url)
     if (embedUrl && appleMusicModalContext) {
       appleMusicModalContext.openAppleMusicModal({
-        title: data.label || 'Listen on Apple Music',
+        title: data.label ?? 'Listen on Apple Music',
         appleMusicUrl: data.url,
         embedUrl: embedUrl
       })
@@ -3429,21 +3435,18 @@ function CoreBlockRenderer({
             <div
               data-cover-image=""
               className={cn(
-                isDesktop ? "-mx-7 w-[calc(100%+56px)]" : "-mx-5 -mt-8 w-[calc(100%+40px)]",
+                (theme as any).cover_profile_layout ? "w-full" : isDesktop ? "-mx-7 w-[calc(100%+56px)]" : "-mx-5 -mt-8 w-[calc(100%+40px)]",
                 "relative",
                 data.show_avatar !== false ? "mb-[calc(-1*var(--cover-pull)-0.75rem)] sm:mb-[calc(-1*var(--cover-pull)-1rem)]" : "",
               )}
               style={{ ["--cover-pull" as string]: `${avatarSize / 2 + (isDesktop ? 25 : 0)}px` }}
             >
-              <div className="relative w-full overflow-hidden" style={{ aspectRatio: isDesktop ? "2 / 1" : "16 / 10", backgroundColor: `color-mix(in srgb, ${theme.text_color || "#000000"} 8%, transparent)` }}>
-                <img
-                  src={cover}
-                  alt=""
+              <div className="relative w-full overflow-hidden" style={{ borderRadius: (theme as any).cover_profile_layout ? 16 : undefined, aspectRatio: (theme as any).cover_profile_layout ? "3 / 1" : isDesktop ? "2 / 1" : "16 / 10", backgroundColor: `color-mix(in srgb, ${theme.text_color || "#000000"} 8%, transparent)` }}>
+                <ProfileImage
+                  src={onePageImageSrc(cover,1200)} fallback={null} alt=""
                   className="absolute inset-0 h-full w-full object-cover"
-                  style={{ objectPosition: `50% ${(theme as any).cover_position_y ?? 50}%` }}
-                  loading="eager"
-                  decoding="async"
-                  onError={(e) => { e.currentTarget.style.display = "none" }}
+                  style={(theme as any).cover_profile_layout ? coverCropStyle(cropFromSettings((theme as any).cover_crop,(theme as any).cover_crop?.zoom)) : {objectPosition:`50% ${(theme as any).cover_position_y ?? 50}%`}}
+                  loading="eager" decoding="async"
                 />
               </div>
             </div>
@@ -3696,6 +3699,7 @@ function CoreBlockRenderer({
       )
     }
 
+    case "form_quiz": { const data=block.data as import("@/lib/onepage/types").FormQuizBlockData; return <NativeFormBlock formId={data.form_id} title={data.title} inline={data.inline}/> }
     case "link_button": {
       const data = (block.data || { label: "", url: "" }) as LinkButtonBlockData
       if (!data.url) return null
@@ -3830,7 +3834,7 @@ function CoreBlockRenderer({
               {/* Title area */}
               <a
                 href={getTargetUrl()}
-                target="_blank"
+                target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
                 rel="noopener noreferrer"
                 onClick={() => trackClick(block.id, getTargetUrl())}
                 className={cn("block w-full px-5 py-3.5 sm:py-4 text-center transition-opacity", !isInsideCarousel && "hover:opacity-80")}
@@ -3841,7 +3845,7 @@ function CoreBlockRenderer({
                 }}
               >
                 <span className="truncate font-medium" style={{ color: theme.button_text_color }} data-block-title="">
-                  {data.label || "Watch on YouTube"}
+                  {data.label ?? "Watch on YouTube"}
                 </span>
               </a>
             </div>
@@ -3904,7 +3908,7 @@ function CoreBlockRenderer({
                 {data.thumbnail_url ? (
                   <img
                     src={data.thumbnail_url}
-                    alt={data.label || ""}
+                    alt={data.label ?? ""}
                     className={cn(
                       "w-full",
                       !isInsideCarousel && "op-media",
@@ -3953,7 +3957,7 @@ function CoreBlockRenderer({
               }}
             >
               <span className="truncate font-medium max-w-full block" style={{ color: theme.button_text_color }} data-block-title="">
-                {data.label || "Link"}
+                {data.label ?? "Link"}
               </span><BlockSubtitle subtitle={p.subtitle} />
               {/* Spotify metadata display for Pro Layout */}
               {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
@@ -4056,7 +4060,7 @@ function CoreBlockRenderer({
         return (
           <a
             href={targetUrl}
-            target="_blank"
+            target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
             rel="noopener noreferrer"
             onClick={() => trackClick(block.id, targetUrl)}
             className={cn("op-card w-full overflow-hidden block", getAnimationClass(data.animation_type))}
@@ -4114,14 +4118,14 @@ function CoreBlockRenderer({
             {data.thumbnail_url ? (
               <img
                 src={data.thumbnail_url}
-                alt={data.label || ""}
+                alt={data.label ?? ""}
                 className={cn(iconPlace, "rounded object-cover")}
               />
             ) : linkIcon ? (
               <LinkIcon name={linkIcon} className={iconPlace} />
             ) : null}
             <div className={labelColumn(hasThumbnail)}>
-              <span className={labelText} data-block-title="">{data.label || "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
+              <span className={labelText} data-block-title="">{data.label ?? "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
               {/* Spotify info display */}
               {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
                 <span
@@ -4169,14 +4173,14 @@ function CoreBlockRenderer({
             {data.thumbnail_url ? (
               <img
                 src={data.thumbnail_url}
-                alt={data.label || ""}
+                alt={data.label ?? ""}
                 className={cn(iconPlace, "rounded object-cover")}
               />
             ) : linkIcon ? (
               <LinkIcon name={linkIcon} className={iconPlace} />
             ) : null}
             <div className={labelColumn(true)}>
-              <span className={labelText} data-block-title="">{data.label || "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
+              <span className={labelText} data-block-title="">{data.label ?? "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
               {/* Apple Music info display */}
               {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
                 <span
@@ -4217,7 +4221,7 @@ function CoreBlockRenderer({
       return (
         <a
           href={data.url}
-          target="_blank"
+          target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
           rel="noopener noreferrer"
           onClick={() => trackClick(block.id, data.url)}
           {...buttonHoverAttrs}
@@ -4233,14 +4237,14 @@ function CoreBlockRenderer({
           {data.thumbnail_url ? (
             <img
               src={data.thumbnail_url}
-              alt={data.label || ""}
+              alt={data.label ?? ""}
               className={cn(iconPlace, "rounded object-cover")}
             />
           ) : linkIcon ? (
             <LinkIcon name={linkIcon} className={iconPlace} />
           ) : null}
           <div className={labelColumn(!!(hasIconOnly || hasThumbnail))}>
-            <span className={labelText} data-block-title="">{data.label || "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
+            <span className={labelText} data-block-title="">{data.label ?? "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
               <span
@@ -4458,7 +4462,7 @@ function CoreBlockRenderer({
             <a
               key={img.id || index}
               href={img.link_url}
-              target="_blank"
+              target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
               rel="noopener noreferrer"
               onClick={() => trackClick(block.id, img.link_url!)}
               className={cn("w-full block transition-opacity", !isInsideCarousel && "hover:opacity-90")}
@@ -4596,7 +4600,7 @@ function CoreBlockRenderer({
           sign_up: 'Sign Up',
           unlock: 'Unlock Now',
         }
-        return presetLabels[data.button_preset || 'subscribe'] || data.button_text || "Subscribe"
+        return presetLabels[data.button_preset || 'subscribe'] || (data.button_text ?? "Subscribe")
       }
 
       // Check if user has exceeded subscription limit (3 per device in 3 days)
@@ -4762,7 +4766,7 @@ function CoreBlockRenderer({
       const afterSignupLink = afterUrl && /^https?:\/\//i.test(afterUrl) ? (
         <a
           href={afterUrl}
-          target="_blank"
+          target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
           rel="noopener noreferrer"
           data-after-signup=""
           onClick={() => trackClick(block.id, afterUrl)}
@@ -4803,7 +4807,7 @@ function CoreBlockRenderer({
                   type="email"
                   value={email}
                   onChange={handleEmailChange}
-                  placeholder={data.placeholder || "Your email"}
+                  placeholder={data.placeholder ?? "Your email"}
                   aria-label={tt("Email")}
                   required
                   disabled={isSubmitting}
@@ -4840,7 +4844,7 @@ function CoreBlockRenderer({
                   type="email"
                   value={email}
                   onChange={handleEmailChange}
-                  placeholder={data.placeholder || "Your email"}
+                  placeholder={data.placeholder ?? "Your email"}
                   aria-label={tt("Email")}
                   required
                   disabled={isSubmitting}
@@ -4877,7 +4881,7 @@ function CoreBlockRenderer({
                 type="email"
                 value={email}
                 onChange={handleEmailChange}
-                placeholder={data.placeholder || "Enter your email"}
+                placeholder={data.placeholder ?? "Enter your email"}
                 aria-label={tt("Email")}
                 required
                 disabled={isSubmitting}
@@ -4908,14 +4912,14 @@ function CoreBlockRenderer({
       return (
         <EmailSignupView
           layout={layout}
-          headline={data.headline || ""}
+          headline={data.headline ?? ""}
           description={data.description}
           image={layoutImage}
           theme={theme}
           stackedForm={emailSignupStacked(layout, getButtonText())}
           renderForm={renderEmailForm}
           submitted={emailSubmitted}
-          successMessage={data.success_message || "Thanks for subscribing!"}
+          successMessage={data.success_message ?? "Thanks for subscribing!"}
           afterSignup={afterSignupLink}
           animationClass={getEmailAnimationClass(data.animation_type)}
           /* Round 43: the creator's picture for Connect, Letter and Bar, and the page's button for Bar's. */
@@ -5104,7 +5108,7 @@ function CoreBlockRenderer({
         // If enable_preview is enabled (or default), show modal via context
         if (data.enable_preview !== false && pdfModalContext) {
           pdfModalContext.openPdfModal({
-            title: data.title || "PDF Document",
+            title: data.title ?? "PDF Document",
             description: data.description,
             pdfUrl: pdfUrl,
             previewButtonText: data.preview_button_text,
@@ -5146,7 +5150,7 @@ function CoreBlockRenderer({
                 {thumbnailUrl ? (
                   <img
                     src={thumbnailUrl}
-                    alt={data.title || ""}
+                    alt={data.title ?? ""}
                     className="w-full h-full object-cover"
                     style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
                   />
@@ -5171,7 +5175,7 @@ function CoreBlockRenderer({
               {/* Content - Title and Description vertically aligned */}
               <div className="flex-1 min-w-0 flex flex-col justify-center">
                 <span className="text-sm sm:text-base font-semibold leading-tight truncate block" style={{ color: textColor }} data-block-title="">
-                  {data.title || "PDF Document"}
+                  {data.title ?? "PDF Document"}
                 </span><BlockSubtitle subtitle={presentationOf(block).subtitle} />
                 {data.description && (
                   <span className="text-xs sm:text-sm leading-tight mt-0.5 opacity-70 truncate block" style={{ color: textColor }}>
@@ -5202,7 +5206,7 @@ function CoreBlockRenderer({
         >
           {/* Title */}
           <span className="font-semibold truncate w-full text-center" style={{ color: textColor }} data-block-title="">
-            {data.title || "PDF Document"}
+            {data.title ?? "PDF Document"}
           </span><BlockSubtitle subtitle={presentationOf(block).subtitle} />
           {/* Button text with PDF icon */}
           <div className="flex items-center justify-center gap-1.5 sm:gap-2 opacity-70">
@@ -5220,7 +5224,7 @@ function CoreBlockRenderer({
               <polyline points="14,2 14,8 20,8" />
             </svg>
             <span className="text-xs sm:text-sm truncate" style={{ color: textColor }}>
-              {data.button_text || "View PDF"}
+              {data.button_text ?? "View PDF"}
             </span>
           </div>
         </button>
@@ -5290,7 +5294,7 @@ function CoreBlockRenderer({
         // If enable_preview is enabled (or default), show modal via context
         if (data.enable_preview !== false && pdfModalContext) {
           pdfModalContext.openPdfModal({
-            title: data.title || "Menu",
+            title: data.title ?? "Menu",
             description: data.description,
             pdfUrl: pdfUrl,
             previewButtonText: data.preview_button_text,
@@ -5332,7 +5336,7 @@ function CoreBlockRenderer({
                 {thumbnailUrl ? (
                   <img
                     src={thumbnailUrl}
-                    alt={data.title || ""}
+                    alt={data.title ?? ""}
                     className="w-full h-full object-cover"
                     style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
                   />
@@ -5357,7 +5361,7 @@ function CoreBlockRenderer({
               {/* Content - Title and Description vertically aligned */}
               <div className="flex-1 min-w-0 flex flex-col justify-center">
                 <span className="text-sm sm:text-base font-semibold leading-tight truncate block" style={{ color: textColor }} data-block-title="">
-                  {data.title || "Menu"}
+                  {data.title ?? "Menu"}
                 </span><BlockSubtitle subtitle={presentationOf(block).subtitle} />
                 {data.description && (
                   <span className="text-xs sm:text-sm leading-tight mt-0.5 opacity-70 truncate block" style={{ color: textColor }}>
@@ -5388,7 +5392,7 @@ function CoreBlockRenderer({
         >
           {/* Title */}
           <span className="font-semibold truncate w-full text-center" style={{ color: textColor }} data-block-title="">
-            {data.title || "Menu"}
+            {data.title ?? "Menu"}
           </span><BlockSubtitle subtitle={presentationOf(block).subtitle} />
           {/* Button text with menu icon */}
           <div className="flex items-center justify-center gap-1.5 sm:gap-2 opacity-70">
@@ -5406,7 +5410,7 @@ function CoreBlockRenderer({
               <polyline points="14,2 14,8 20,8" />
             </svg>
             <span className="text-xs sm:text-sm truncate" style={{ color: textColor }}>
-              {data.button_text || "View Menu"}
+              {data.button_text ?? "View Menu"}
             </span>
           </div>
         </button>
@@ -5519,7 +5523,7 @@ function CoreBlockRenderer({
             <BookingFrame
               url={calendlyUrl}
               radius={Number(theme.button_border_radius) || 0}
-              title={data.title || "Schedule a Meeting"}
+              title={data.title ?? "Schedule a Meeting"}
             />
           </div>
         )
@@ -5555,7 +5559,7 @@ function CoreBlockRenderer({
                   {thumbnailUrl ? (
                     <img
                       src={thumbnailUrl}
-                      alt={data.title || ""}
+                      alt={data.title ?? ""}
                       className="w-full h-full object-cover"
                       style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
                     />
@@ -5566,7 +5570,7 @@ function CoreBlockRenderer({
                 {/* Content - Title and Description vertically aligned */}
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
                   <span className="text-sm sm:text-base font-semibold leading-tight truncate block" style={{ color: textColor }} data-block-title="">
-                    {data.title || "Book a Meeting"}
+                    {data.title ?? "Book a Meeting"}
                   </span><BlockSubtitle subtitle={presentationOf(block).subtitle} />
                   {data.description && (
                     <span className="text-xs sm:text-sm leading-tight mt-0.5 opacity-70 truncate block" style={{ color: textColor }}>
@@ -5604,7 +5608,7 @@ function CoreBlockRenderer({
                       </svg>
                     </button>
                     <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2" data-block-title="">
-                      {data.title || "Book a Meeting"}
+                      {data.title ?? "Book a Meeting"}
                     </h3>
                     <button
                       onClick={handleCloseCalendly}
@@ -5620,7 +5624,7 @@ function CoreBlockRenderer({
                       src={calendlyUrl}
                       className="w-full h-full border-0"
                       style={{ minHeight: '500px' }}
-                      title={data.title || "Book a Meeting"}
+                      title={data.title ?? "Book a Meeting"}
                     />
                   </div>
                 </div>
@@ -5645,13 +5649,13 @@ function CoreBlockRenderer({
           >
             {/* Title */}
             <span className="font-semibold truncate w-full text-center" style={{ color: textColor }} data-block-title="">
-              {data.title || "Book a Meeting"}
+              {data.title ?? "Book a Meeting"}
             </span><BlockSubtitle subtitle={presentationOf(block).subtitle} />
             {/* Button text with Calendar icon */}
             <div className="flex items-center justify-center gap-1.5 sm:gap-2 opacity-70">
               <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: textColor }} />
               <span className="text-xs sm:text-sm truncate" style={{ color: textColor }}>
-                {data.button_text || "Schedule Now"}
+                {data.button_text ?? "Schedule Now"}
               </span>
             </div>
           </button>
@@ -5678,7 +5682,7 @@ function CoreBlockRenderer({
                     </svg>
                   </button>
                   <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2" data-block-title="">
-                    {data.title || "Book a Meeting"}
+                    {data.title ?? "Book a Meeting"}
                   </h3>
                   <button
                     onClick={handleCloseCalendly}
@@ -5694,7 +5698,7 @@ function CoreBlockRenderer({
                     src={calendlyUrl}
                     className="w-full h-full border-0"
                     style={{ minHeight: '500px' }}
-                    title={data.title || "Book a Meeting"}
+                    title={data.title ?? "Book a Meeting"}
                   />
                 </div>
               </div>

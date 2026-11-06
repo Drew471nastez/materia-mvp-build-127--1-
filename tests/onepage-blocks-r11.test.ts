@@ -105,7 +105,7 @@ async function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     /* Changed on purpose (round 41): a group holds every block but the header, another group and the social icons ("show me ... the rest of the blocks from the whole picker"). */
-    check("every block but the header, a group and the social icons goes in a group", GROUP_CHILD_TYPES.length === 24 && canGoInGroup("product") && canGoInGroup("email_capture") && !canGoInGroup("group") && !canGoInGroup("header") && !canGoInGroup("social_row"))
+    check("every block but the header, a group and the social icons goes in a group", GROUP_CHILD_TYPES.length === 25 && canGoInGroup("form_quiz") && canGoInGroup("product") && canGoInGroup("email_capture") && !canGoInGroup("group") && !canGoInGroup("header") && !canGoInGroup("social_row"))
     const page = [b("h", "header"), b("g", "group", { layout: "stack", children: [] }), b("a", "link_button", { url: "https://a.co" }), b("p", "product", { product_id: "p1" }), b("e", "email_capture")]
     const one = moveIntoGroup(page, "a", "g")!
     check("in: off the page and at the end of the group, in one list", one.map((x) => x.id).join() === "h,g,p,e" && kids(one, "g") === "a" && one.every((x, i) => x.sort_order === i))

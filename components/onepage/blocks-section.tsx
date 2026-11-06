@@ -539,7 +539,7 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
           <div className="space-y-2">
             <Label>Description (optional)</Label>
             <Input
-              value={data.description || ""}
+              value={data.description ?? ""}
               onChange={(e) => updateData({ description: e.target.value })}
               placeholder="Get updates and exclusive content"
             />

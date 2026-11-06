@@ -115,7 +115,9 @@ const CollectionBannerSection = lazySection(() => import("./renderers/Collection
 // Keys MUST match the `type` field in each section's schema.
 // These are the sections still described by a JSON schema; the ones that
 // live in a .storelib file are derived below, from the files themselves.
+const NativeFormSection=lazySection(()=>import("./renderers/NativeFormSection").then(m=>m.NativeFormSection))
 const BUILT_IN_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
+  native_form: NativeFormSection,
   header: HeaderSection,
   rich_text: RichTextSection,
   image_banner: ImageBannerSection,

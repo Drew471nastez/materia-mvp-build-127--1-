@@ -1,3 +1,4 @@
+import {withVariantPrices} from "@/lib/pricing/variant-price"
 /**
  * ===========================================================================
  *  THE SHARED HALF OF A PRODUCT PAGE, FETCHED ONCE FOR EVERYBODY
@@ -94,7 +95,8 @@ export const cachedProductBySlug = (slug: string, creatorId?: string | null) =>
       let query = supabase.from("products").select(PRODUCT_SELECT).eq("slug", slug).eq("status", "published")
       if (creatorId) query = query.eq("creator_id", creatorId)
       const { data } = await query.order("created_at", { ascending: true }).limit(1)
-      return (Array.isArray(data) ? data[0] : null) ?? null
+      const product=(Array.isArray(data)?data[0]:null)??null
+      return product ? (await withVariantPrices(supabase,[product]))[0] : null
     },
     ["product-by-slug", slug, creatorId ?? ""],
     { revalidate: PRODUCT_CACHE_TTL, tags: [productTag(slug)] },
@@ -263,12 +265,12 @@ export const cachedVariants = (productId: string) =>
   unstable_cache(
     async () => {
       const supabase = createPublicReadClient()
-      const { data } = await supabase
-        .from("product_variants")
-        .select(VARIANT_SELECT)
-        .eq("product_id", productId)
-        .order("position")
-      return (data ?? []) as unknown as CachedVariant[]
+      let result:any
+      for(const columns of [VARIANT_SELECT+",active,compare_at_price_cents",VARIANT_SELECT]){
+        result=await supabase.from("product_variants").select(columns).eq("product_id",productId).order("position")
+        if(!result.error||!["42703","PGRST204"].includes(result.error.code))break
+      }
+      return ((result.data??[]) as (CachedVariant & {active?:boolean})[]).filter(v=>v.active!==false&&!/^Archived /.test(v.name??""))
     },
     ["product-variants", productId],
     { revalidate: PRODUCT_CACHE_TTL, tags: [productTag(productId)] },
@@ -361,7 +363,7 @@ export const cachedMoreFromCreator = (creatorId: string, excludeProductId: strin
         }
       }
       for (const p of (plain ?? []) as unknown as CachedProductRow[]) if (cards.length < 4) cards.push(p)
-      return cards.slice(0, 4)
+      return withVariantPrices(supabase,cards.slice(0,4))
     },
     ["more-from-creator", creatorId, excludeProductId],
     { revalidate: PRODUCT_CACHE_TTL, tags: [creatorTag(creatorId)] },

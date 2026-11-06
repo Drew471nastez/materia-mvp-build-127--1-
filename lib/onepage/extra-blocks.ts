@@ -119,6 +119,7 @@ export function isBlockShown(block: any, now: number = Date.now()): boolean {
     const images = block.data?.images || (block.data?.image_url ? [{ image_url: block.data.image_url }] : [])
     return images.length > 0 && !!images[0]?.image_url
   }
+  if(block.type === "form_quiz")return !!block.data?.form_id
   if (block.type === "link_button") return hasRealUrl(block.data?.url)
   return extraBlockHasContent(block)
 }

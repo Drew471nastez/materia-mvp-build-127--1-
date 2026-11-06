@@ -187,7 +187,7 @@ export function imageIndexForVariant(images: readonly string[], variant: Pick<Pr
  */
 export function pickerOptions(p: Pick<ProductSectionData, "options" | "variants">, fallbackName = "Option"): ProductOptionData[] {
   const variants = p.variants ?? []
-  if (variants.length === 0) return []
+  if (variants.length <= 1) return []
   const declared = (p.options ?? []).filter((o) => o && typeof o.name === "string" && Array.isArray(o.values) && o.values.length > 0)
   if (declared.length > 0) return declared.slice(0, 3)
   if (variants.some((v) => v.options.some((x) => typeof x === "string" && x !== ""))) {

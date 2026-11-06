@@ -1,4 +1,9 @@
 "use client"
+import {ActionEditor} from "@/components/forms/action-editor"
+import {FormReferenceEditor} from "@/components/forms/form-reference-editor"
+import {actionHref} from "@/lib/forms/actions"
+
+import {HeaderCoverEditor} from "../header-cover-editor"
 
 import { BlockPresentationEditor } from "../block-presentation-editor"
 
@@ -4337,6 +4342,10 @@ function BlockEditor({
   // Helper to render Settings content per block type
   const renderSettingsContent = () => {
     switch (block.type) {
+      case "form_quiz": {
+        const data=block.data as import("@/lib/onepage/types").FormQuizBlockData
+        return <FormReferenceEditor formId={data.form_id} title={data.title} inline={data.inline} onChange={form_id=>updateData({form_id})} onTitleChange={title=>updateData({title})} onInlineChange={inline=>updateData({inline})}/>
+      }
       case "link_button": {
         const data = block.data as LinkButtonBlockData
         return (
@@ -4347,6 +4356,7 @@ function BlockEditor({
               and the picture as a row you press, with the picture itself
               on its left and a chevron on its right.
             */}
+            <ActionEditor value={data.action} onChange={action=>updateData({action,url:action?actionHref(action)||"":data.url})}/>
             <p className="pt-1 text-[16px] font-semibold text-[#1a1a2e]">{tt("Info")}</p>
             <label className="block">
               <span className="sr-only">{tt("Title")}</span>
@@ -4884,7 +4894,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Headline")}</Label>
                 <Input
-                  value={data.headline || "Join my newsletter"}
+                  value={data.headline ?? "Join my newsletter"}
                   onChange={(e) => updateData({ headline: e.target.value })}
                   className="h-9"
                   placeholder={tt("Join my newsletter")}
@@ -4895,7 +4905,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Description")}</Label>
                 <Input
-                  value={data.description || "Get updates and exclusive content"}
+                  value={data.description ?? "Get updates and exclusive content"}
                   onChange={(e) => updateData({ description: e.target.value })}
                   className="h-9"
                   placeholder={tt("Get updates and exclusive content")}
@@ -4971,7 +4981,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Success Message")}</Label>
                 <Input
-                  value={data.success_message || "Thanks for subscribing!"}
+                  value={data.success_message ?? "Thanks for subscribing!"}
                   onChange={(e) => updateData({ success_message: e.target.value })}
                   className="h-9"
                   placeholder={tt("Thanks for subscribing!")}
@@ -5183,6 +5193,7 @@ function BlockEditor({
         const data = block.data as HeaderBlockData
         return (
           <div className="space-y-3">
+            <HeaderCoverEditor />
             <div className="flex items-center justify-between">
               <Label className="text-xs">{tt("Show Avatar")}</Label>
               <Toggle label={tt("Show Avatar")} checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
@@ -5702,7 +5713,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Title")}</Label>
                 <Input
-                  value={data.title || ""}
+                  value={data.title ?? ""}
                   onChange={(e) => updateData({ title: e.target.value })}
                   className="h-9"
                   placeholder={tt("My PDF Document")}
@@ -5713,7 +5724,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Description")}</Label>
                 <Textarea
-                  value={data.description || ""}
+                  value={data.description ?? ""}
                   onChange={(e) => updateData({ description: e.target.value })}
                   className="min-h-[60px] resize-none"
                   placeholder={tt("A brief description of your PDF...")}
@@ -5768,7 +5779,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Button Text")}</Label>
                 <Input
-                  value={data.button_text || "View PDF"}
+                  value={data.button_text ?? "View PDF"}
                   onChange={(e) => updateData({ button_text: e.target.value })}
                   className="h-9"
                   placeholder={tt("View PDF")}
@@ -5779,7 +5790,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Preview Modal Button Text")}</Label>
                 <Input
-                  value={data.preview_button_text || "View full PDF"}
+                  value={data.preview_button_text ?? "View full PDF"}
                   onChange={(e) => updateData({ preview_button_text: e.target.value })}
                   className="h-9"
                   placeholder={tt("View full PDF")}
@@ -5955,7 +5966,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Title")}</Label>
                 <Input
-                  value={data.title || ""}
+                  value={data.title ?? ""}
                   onChange={(e) => updateData({ title: e.target.value })}
                   className="h-9"
                   placeholder={tt("Menu")}
@@ -5966,7 +5977,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Description")}</Label>
                 <Textarea
-                  value={data.description || ""}
+                  value={data.description ?? ""}
                   onChange={(e) => updateData({ description: e.target.value })}
                   className="min-h-[60px] resize-none"
                   placeholder={tt("A brief description of your menu...")}
@@ -6021,7 +6032,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Button Text")}</Label>
                 <Input
-                  value={data.button_text || "View Menu"}
+                  value={data.button_text ?? "View Menu"}
                   onChange={(e) => updateData({ button_text: e.target.value })}
                   className="h-9"
                   placeholder={tt("View Menu")}
@@ -6032,7 +6043,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Preview Modal Button Text")}</Label>
                 <Input
-                  value={data.preview_button_text || "View Menu"}
+                  value={data.preview_button_text ?? "View Menu"}
                   onChange={(e) => updateData({ preview_button_text: e.target.value })}
                   className="h-9"
                   placeholder={tt("View Menu")}
@@ -6208,7 +6219,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Title")}</Label>
                 <Input
-                  value={data.title || ""}
+                  value={data.title ?? ""}
                   onChange={(e) => updateData({ title: e.target.value })}
                   className="h-9"
                   placeholder={tt("Book a Meeting")}
@@ -6238,7 +6249,7 @@ function BlockEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Button Text")}</Label>
                 <Input
-                  value={data.button_text || "Schedule Now"}
+                  value={data.button_text ?? "Schedule Now"}
                   onChange={(e) => updateData({ button_text: e.target.value })}
                   className="h-9"
                   placeholder={tt("Schedule Now")}
@@ -6619,7 +6630,7 @@ function BlockEditor({
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Title")}</Label>
-                <Input value={d.label || ""} onChange={(e) => updateChildData({ label: e.target.value })} className="h-9" placeholder={tt("Link title")} />
+                <Input value={d.label ?? ""} onChange={(e) => updateChildData({ label: e.target.value })} className="h-9" placeholder={tt("Link title")} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">URL</Label>
@@ -6688,11 +6699,11 @@ function BlockEditor({
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Headline")}</Label>
-                <Input value={d.headline || ""} onChange={(e) => updateChildData({ headline: e.target.value })} className="h-9" />
+                <Input value={d.headline ?? ""} onChange={(e) => updateChildData({ headline: e.target.value })} className="h-9" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Button Text")}</Label>
-                <Input value={d.button_text || ""} onChange={(e) => updateChildData({ button_text: e.target.value })} className="h-9" />
+                <Input value={d.button_text ?? ""} onChange={(e) => updateChildData({ button_text: e.target.value })} className="h-9" />
               </div>
             </div>
           )

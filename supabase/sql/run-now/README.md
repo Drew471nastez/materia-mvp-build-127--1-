@@ -533,3 +533,6 @@ query, twice over, and every line as its own query, with no errors except
 `90` refusing as described; the result matches running the source files
 whole; and storage access for anon and signed in users is the same after `90`
 as after Route 1.
+
+| `372_native_forms_leads.sql` | Native reusable forms/quiz definitions, published snapshots, consented submissions, owner-only Leads and integration outbox. Anonymous visitors submit through the bounded server API, never directly to tables. RLS and owner checks apply to every private read/change. Additive; existing OnePages/products are untouched. |
+| `373_variant_catalog_prices.sql` | Read-only public price facts for published products. Available variants are the catalogue source of truth, including Free. Does not rewrite base prices or existing orders. |

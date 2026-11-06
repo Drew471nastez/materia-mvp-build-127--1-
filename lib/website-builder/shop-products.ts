@@ -1,3 +1,5 @@
+import {withKnownVariantPrices} from "@/lib/pricing/variant-price"
+import {listPrice} from "@/lib/pricing/list-price"
 /**
  * ===========================================================================
  *  THE CREATOR'S ACTUAL PRODUCTS, FOR A SECTION TO DRAW
@@ -193,6 +195,7 @@ export interface ProductRow {
   compare_at_cents: number | null
   thumbnail_url: string | null
   status: string | null
+  sold_out?:boolean
   inventory_count?: number | null
   track_inventory?: boolean | null
   /** Named plain values (SQL part 107), when the row was read with them. */
@@ -310,9 +313,12 @@ export function soldOut(row: { inventory_count?: number | null; track_inventory?
 
 /** A row to the card a section draws. Exported so a test can drive it. */
 export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows: OptionRow[] = [], currency: string = SHOP_CURRENCY): ProductCard {
+  const ownVariants=variants.filter(v=>v.product_id===row.id)
+  row=withKnownVariantPrices(row,ownVariants)
+  const priceLabel=listPrice(row,c=>formatPrice(c,currency))
   const cents = askingCents(row)
   const images = pictures(row)
-  const available = !soldOut(row)
+  const available = !soldOut(row) && row.sold_out!==true
   const options = variants
     .filter((v) => v.product_id === row.id && onSale(v))
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || askingCents(a) - askingCents(b))
@@ -324,10 +330,10 @@ export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows:
     settings: {
       title: row.title ?? "",
       /* A membership's price is per month, "$9.00/month", as on Storelib's own cards (lib/pricing/list-price). */
-      price: row.type === "membership" && cents > 0 ? `${formatPrice(cents, currency)}/month` : formatPrice(cents, currency),
+      price: ownVariants.length ? priceLabel.main : row.type === "membership" && cents > 0 ? `${formatPrice(cents, currency)}/month` : formatPrice(cents, currency),
       compare_price: wasPrice(cents, row.compare_at_cents, currency),
       currency,
-      free: cents <= 0 && !row.pay_what_you_want,
+      free: ownVariants.length ? options.length>0 && options.every(v=>v.free) : cents <= 0 && !row.pay_what_you_want,
       pay_what_you_want: row.pay_what_you_want === true,
       image: mediaUrl(row.thumbnail_url) ?? images[0] ?? "",
       images,
@@ -337,7 +343,7 @@ export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows:
       kind: row.type ?? "",
       available,
       tag: available ? "" : "Sold out",
-      checkout_url: available ? checkoutUrl(row.id) : "",
+      checkout_url: available ? checkoutUrl(row.id,options.length===1?options[0].id:undefined) : "",
       variants: options,
       category: typeof row.category === "string" ? row.category : "",
       fields: cleanCustomFields(row.custom_fields),
@@ -681,7 +687,11 @@ function withStockFacts(rows: ProductRow[], cards: ProductCard[], { live, held, 
       return { ...opt, available: !out, checkout_url: out ? "" : checkoutUrl(card.id, opt.id) }
     })
     const available = mine.some((v) => soldOutVariant.get(v.id) === false)
-    return { ...card, settings: { ...card.settings, variants, available, tag: available ? card.settings.tag === "Sold out" ? "" : card.settings.tag : "Sold out", checkout_url: available ? checkoutUrl(card.id) : "" } }
+    const buyable=variants.filter(v=>v.available)
+    const facts=withKnownVariantPrices({price_cents:card.price_cents},variants.map(v=>({id:v.id,price_cents:v.price_cents,available:v.available})))
+    const currency=card.settings.currency||SHOP_CURRENCY
+    const priced=buyable.length?listPrice(facts,c=>formatPrice(c,currency)):null
+    return { ...card, ...(buyable.length?{price_cents:facts.price_cents??card.price_cents}:{}), settings: { ...card.settings, ...(priced?{price:priced.main,compare_price:buyable.length>1?"":card.settings.compare_price,free:buyable.every(v=>v.free)}:{}), variants, available, tag: available ? card.settings.tag === "Sold out" ? "" : card.settings.tag : "Sold out", checkout_url: available ? checkoutUrl(card.id,buyable.length===1?buyable[0].id:undefined) : "" } }
   })
 }
 

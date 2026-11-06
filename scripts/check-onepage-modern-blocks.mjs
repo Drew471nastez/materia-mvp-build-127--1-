@@ -40,7 +40,7 @@ try{
   assert.equal(layout.overflow,false,`${width}: page never overflows`)
   assert.ok(layout.subtitle.includes(initialDescription))
   assert.ok(layout.half.length>=2)
-  if(width>359)assert.ok(layout.half[0]<layout.full*.6,'Half-width and featured sizes render together')
+  if(width>359)assert.ok(layout.half[0]<layout.full*.6,`${width}: Half-width and featured sizes render together ${JSON.stringify(layout)}`)
   else assert.ok(layout.half.every(w=>w>layout.full*.9),'Very narrow phones stack cards safely')
   // A centered Share card only fades: neither its children nor the page move.
   for(let repeat=0;repeat<3;repeat++){
@@ -66,7 +66,7 @@ try{
   await input.click({clickCount:3});await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.type(description)
   const chooseCard=async value=>page.evaluate(value=>{const s=[...document.querySelectorAll('[data-block-appearance] select')].find(e=>e.closest('label').textContent.startsWith('Card presentation'));s.value=value;s.dispatchEvent(new Event('change',{bubbles:true}))},value)
   await chooseCard('original')
-  await page.type('input[aria-label="Background image URL"]','/audit-images/icon-light-32x32.png')
+  const imageInput=await page.$('input[aria-label="Background image URL"]');await imageInput.click({clickCount:3});await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.press('Backspace');await page.type('input[aria-label="Background image URL"]','/audit-images/icon-light-32x32.png')
   await page.waitForFunction(()=>[...document.querySelectorAll('[data-block-appearance] select')].find(e=>e.closest('label').textContent.startsWith('Card presentation'))?.value==='visual')
   await chooseCard('compact')
   await page.select('[data-block-appearance] select','half')

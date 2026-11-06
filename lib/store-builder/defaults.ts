@@ -2206,6 +2206,7 @@ export const defaultCommunitySettings: CommunitySettings = {
 
 // Section library for adding new sections
 export const sectionLibrary: SectionLibraryItem[] = [
+  {type:"native-form",name:"Form or quiz",description:"Collect answers in Audience and follow up with leads",icon:"mail",defaultSettings:{form_id:"",title:"Open form",inline:true,visible:true,spacing:{paddingTop:24,paddingBottom:24},colors:{},typography:{}}},
   {
     type: "image-text",
     name: "Image + Text",

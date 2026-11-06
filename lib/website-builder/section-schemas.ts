@@ -1,3 +1,4 @@
+import native_form from "../../themes/default/sections/native_form.json"
 // ============================================================
 // Website Builder: Section schemas — drives the visual editor
 // ============================================================
@@ -124,6 +125,7 @@ const JSON_SCHEMAS: Record<string, SectionSchema> = {
   size_guide: asSchema(size_guide),
   collection_banner: asSchema(collection_banner),
   video_embed: asSchema(video_embed),
+  native_form: asSchema(native_form),
   contact_form: asSchema(contact_form),
   timeline: asSchema(timeline),
   custom_html: asSchema(custom_html),

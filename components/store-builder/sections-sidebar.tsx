@@ -1,4 +1,5 @@
 "use client"
+import {FormReferenceEditor} from "@/components/forms/form-reference-editor"
 
 import React from "react"
 import { useSellerMoney } from "@/components/platform/price-currency"
@@ -365,6 +366,7 @@ const sectionIcons: Record<
   "sticky-add-to-cart": <ShoppingCart className="h-5 w-5" />,
   "image-text": <ImageIcon className="h-5 w-5" />,
   benefits: <ListChecks className="h-5 w-5" />,
+  "native-form": <Type className="h-5 w-5" />,
   "text-block": <Type className="h-5 w-5" />,
   "announcement-bar": <Megaphone className="h-5 w-5" />,
   "featured-products": <Grid className="h-5 w-5" />,
@@ -393,6 +395,7 @@ const sectionNames: Record<
   "sticky-add-to-cart": "Sticky Add to Cart",
   "image-text": "Image + Text",
   benefits: "Benefits",
+  "native-form": "Form or quiz",
   "text-block": "Text Block",
   "announcement-bar": "Announcement",
   "featured-products": "Featured Products",
@@ -2761,6 +2764,7 @@ function SectionSettingsForm({
 
       {section.type === "image-text" && <ImageTextSettingsForm settings={settings as ImageTextSettings} onChange={onChange} products={products} />}
       {section.type === "benefits" && <BenefitsSettingsForm settings={settings as BenefitsSettings} onChange={onChange} />}
+      {section.type === "native-form" && (()=>{const s=settings as import("@/lib/store-builder/types").NativeFormSettings;return <FormReferenceEditor formId={s.form_id} title={s.title} inline={s.inline} onChange={form_id=>onChange({...s,form_id})} onTitleChange={title=>onChange({...s,title})} onInlineChange={inline=>onChange({...s,inline})}/>})()}
       {section.type === "text-block" && <TextBlockSettingsForm settings={settings as TextBlockSettings} onChange={onChange} />}
       {section.type === "announcement-bar" && (
         <AnnouncementBarSettingsForm

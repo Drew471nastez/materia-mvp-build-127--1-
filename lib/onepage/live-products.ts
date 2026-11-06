@@ -1,3 +1,4 @@
+import {withVariantPrices, type VariantPriceFacts} from "@/lib/pricing/variant-price"
 /**
  * ===========================================================================
  *  A ONEPAGE'S PRODUCTS, READ FROM THE PRODUCT AND NOT FROM A COPY OF IT
@@ -38,7 +39,7 @@ import { planIntervals } from "@/lib/memberships/intervals"
 import { offChannel } from "@/lib/store/channel-filter"
 
 /** What a live product contributes to a block. */
-export type LiveProduct = {
+export type LiveProduct = VariantPriceFacts & {
   id: string
   title?: string | null
   slug?: string | null
@@ -108,6 +109,10 @@ function refreshed(data: Record<string, unknown>, product: LiveProduct): Record<
     product_price_interval: product.price_interval ?? null,
     product_compare_at_cents: typeof product.compare_at_cents === "number" ? product.compare_at_cents : null,
     product_pwyw: product.pay_what_you_want === true,
+    product_variant_min_cents: product.variant_min_price_cents,
+    product_variant_max_cents: product.variant_max_price_cents,
+    product_variant_count: product.variant_count,
+    product_single_variant_id: product.single_variant_id,
     product_pwyw_min_cents: typeof product.pwyw_min_price_cents === "number" ? product.pwyw_min_price_cents : null,
   }
 }
@@ -254,11 +259,11 @@ export async function answersForBlocks(db: ProductsDb, creatorId: string, blocks
       const [{ data, error }, offPage] = await Promise.all([db.from("products").select(cols).eq("creator_id", creatorId).in("id", asked), offChannel(db, creatorId, "creator_page")])
       if (error) continue
       const answers = new Map<string, LiveProduct | null>(asked.map((id) => [id, null]))
-      for (const row of data ?? []) {
+      for (const row of await withVariantPrices(db as never,(data ?? []).filter(row=>typeof row.id==="string").map(row=>({...row,id:String(row.id),community_id:typeof row.community_id==="string"?row.community_id:null})))) {
         const id = idOf(row.id)
         if (!id || !answers.has(id)) continue
         /* Settings › Sales channels: a product taken off the Creator page leaves its one page too. */
-        answers.set(id, live(row) && !sellsCommunity(row) && !offPage.has(id) ? (row as LiveProduct) : null)
+        answers.set(id, live({...row}) && !sellsCommunity(row) && !offPage.has(id) ? (row as LiveProduct) : null)
       }
       /* A yearly only membership says "/year" (lib/memberships/intervals); asked only when a block names a membership. */
       const memberships = [...answers.values()].filter((p): p is LiveProduct => !!p && p.type === "membership")

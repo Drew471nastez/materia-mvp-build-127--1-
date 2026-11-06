@@ -1,3 +1,4 @@
+import {withVariantPrices} from "@/lib/pricing/variant-price"
 import { Metadata } from "next"
 import { salesStandings } from "@/lib/products/sales-standings"
 import { salesSoldOut } from "@/lib/products/sales-limit"
@@ -155,6 +156,7 @@ async function readCatalog(supabase: Supabase, searchQuery: string): Promise<any
   }
   if (error) console.error("[ExplorePage] Products error:", error.message)
   if (!products || products.length === 0) return []
+  products = await withVariantPrices(supabase,products)
 
   const one = (c: any) => (Array.isArray(c) ? c[0] ?? null : c ?? null)
   /* The creators, embedded; only on a refused embed a read of their own. */

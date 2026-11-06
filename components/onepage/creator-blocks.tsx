@@ -1,4 +1,5 @@
 "use client"
+import {CompactInstagramPost} from "./compact-post"
 
 /**
  * ===========================================================================
@@ -120,7 +121,7 @@ function CourseView({ data, look }: { data: CourseBlockData; look: CreatorBlockL
           ) : null}
         </span>
         <span className="inline-flex shrink-0 items-center gap-1 font-medium" style={{ fontSize: px(13.5, look.scale) }}>
-          {(data.button_text || "").trim() || tt("View course")}
+          {(data.button_text ?? "").trim() || tt("View course")}
           <ChevronRight aria-hidden style={{ width: px(16, look.scale), height: px(16, look.scale) }} />
         </span>
       </span>
@@ -195,7 +196,7 @@ function EmbedView({ data, look }: { data: EmbedBlockData; look: CreatorBlockLoo
       ) : null}
       {/* Round 40 (./embed-frame): the post's own width, no box of ours around it, shown once it has its height. */}
       {src ? (
-        <EmbedFrame src={src} kind={source.kind} title={data.title?.trim() || EMBED_PROVIDER_NAME[source.kind]} height={source.height} resizes={!!source.resizes} radius={radius} maxWidth={EMBED_MAX_WIDTH[source.kind]} />
+        source.kind === "instagram" ? <CompactInstagramPost src={src} title={data.title?.trim() || tt("Instagram post")} radius={radius}/> : <EmbedFrame src={src} kind={source.kind} title={data.title?.trim() || EMBED_PROVIDER_NAME[source.kind]} height={source.height} resizes={!!source.resizes} radius={radius} maxWidth={EMBED_MAX_WIDTH[source.kind]} />
       ) : (
         <div aria-hidden className="w-full" style={source.height === null ? { aspectRatio: "16 / 9" } : { height: source.height }} />
       )}
@@ -323,7 +324,7 @@ function ContactFormView({ data, look }: { data: ContactFormBlockData; look: Cre
       {state === "sent" ? (
         <p role="status" className="mt-4 flex items-center justify-center gap-2 text-center font-medium" style={{ color: look.theme.text_color, fontSize: px(14.5, look.scale) }}>
           <Check aria-hidden style={{ width: px(17, look.scale), height: px(17, look.scale) }} />
-          {(data.success_message || "").trim() || tt("Thanks. Your message is sent.")}
+          {(data.success_message ?? "").trim() || tt("Thanks. Your message is sent.")}
         </p>
       ) : (
         <form noValidate onSubmit={submit} className="mt-4 flex flex-col" style={{ gap: px(8, look.scale) }}>
@@ -346,7 +347,7 @@ function ContactFormView({ data, look }: { data: ContactFormBlockData; look: Cre
           {/* Round 41: Send is the page's button, its hover and size too (lib/onepage/block-look). */}
           <button type="submit" disabled={state === "sending"} data-hover={send["data-hover"]} data-shadow={send["data-shadow"]} className={cn(send.className, "inline-flex w-full items-center justify-center gap-2 font-medium disabled:opacity-60")} style={{ ...send.style, padding: `${px(13 * buttonPadScale(look.theme), look.scale)} ${px(16, look.scale)}`, fontSize: px(14.5, look.scale) }}>
             {state === "sending" ? <Loader2 aria-hidden className="animate-spin" style={{ width: px(16, look.scale), height: px(16, look.scale) }} /> : null}
-            <span className="op-label relative">{(data.button_text || "").trim() || tt("Send")}</span>
+            <span className="op-label relative">{(data.button_text ?? "").trim() || tt("Send")}</span>
           </button>
         </form>
       )}
@@ -491,7 +492,7 @@ function CourseEditor({ data, updateData }: { data: CourseBlockData; updateData:
       </div>
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Button text (optional)")}</Label>
-        <Input value={data.button_text || ""} maxLength={30} placeholder={tt("View course")} onChange={(e) => updateData({ button_text: e.target.value })} />
+        <Input value={data.button_text ?? ""} maxLength={30} placeholder={tt("View course")} onChange={(e) => updateData({ button_text: e.target.value })} />
       </div>
       <label className="flex cursor-pointer items-center justify-between gap-3 py-1 text-[13px] text-[#1a1a2e]">
         {tt("Show the price")}
@@ -518,7 +519,7 @@ function MusicEditor({ data, updateData }: { data: MusicBlockData; updateData: (
       </div>
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Title (optional)")}</Label>
-        <Input value={data.title || ""} maxLength={80} placeholder={tt("My new single")} onChange={(e) => updateData({ title: e.target.value })} />
+        <Input value={data.title ?? ""} maxLength={80} placeholder={tt("My new single")} onChange={(e) => updateData({ title: e.target.value })} />
       </div>
     </div>
   )
@@ -531,7 +532,7 @@ function TestimonialsEditor({ data, updateData }: { data: TestimonialsBlockData;
     <div className="space-y-3">
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Title (optional)")}</Label>
-        <Input value={data.title || ""} maxLength={60} placeholder={tt("What people say")} onChange={(e) => updateData({ title: e.target.value })} />
+        <Input value={data.title ?? ""} maxLength={60} placeholder={tt("What people say")} onChange={(e) => updateData({ title: e.target.value })} />
       </div>
       {items.map((item, n) => (
         <div key={item.id} className="space-y-2 rounded-xl border border-[#e3e4e8] p-3">
@@ -570,20 +571,20 @@ function ContactFormEditor({ data, updateData }: { data: ContactFormBlockData; u
     <div className="space-y-3">
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Title")}</Label>
-        <Input value={data.title || ""} maxLength={60} placeholder={tt("Get in touch")} onChange={(e) => updateData({ title: e.target.value })} />
+        <Input value={data.title ?? ""} maxLength={60} placeholder={tt("Get in touch")} onChange={(e) => updateData({ title: e.target.value })} />
       </div>
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Text (optional)")}</Label>
-        <Input value={data.description || ""} maxLength={140} placeholder={tt("Questions, work, or just hi")} onChange={(e) => updateData({ description: e.target.value })} />
+        <Input value={data.description ?? ""} maxLength={140} placeholder={tt("Questions, work, or just hi")} onChange={(e) => updateData({ description: e.target.value })} />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div className={fieldBox}>
           <Label className={fieldLabel}>{tt("Button")}</Label>
-          <Input value={data.button_text || ""} maxLength={24} placeholder={tt("Send")} onChange={(e) => updateData({ button_text: e.target.value })} />
+          <Input value={data.button_text ?? ""} maxLength={24} placeholder={tt("Send")} onChange={(e) => updateData({ button_text: e.target.value })} />
         </div>
         <div className={fieldBox}>
           <Label className={fieldLabel}>{tt("After sending")}</Label>
-          <Input value={data.success_message || ""} maxLength={100} placeholder={tt("Thanks. Your message is sent.")} onChange={(e) => updateData({ success_message: e.target.value })} />
+          <Input value={data.success_message ?? ""} maxLength={100} placeholder={tt("Thanks. Your message is sent.")} onChange={(e) => updateData({ success_message: e.target.value })} />
         </div>
       </div>
       <label className="flex cursor-pointer items-center justify-between gap-3 py-1 text-[13px] text-[#1a1a2e]">
@@ -639,7 +640,7 @@ function EmbedEditor({ data, updateData }: { data: EmbedBlockData; updateData: (
       </div>
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Title (optional)")}</Label>
-        <Input value={data.title || ""} maxLength={80} placeholder={tt("Watch this")} onChange={(e) => updateData({ title: e.target.value })} />
+        <Input value={data.title ?? ""} maxLength={80} placeholder={tt("Watch this")} onChange={(e) => updateData({ title: e.target.value })} />
       </div>
     </div>
   )

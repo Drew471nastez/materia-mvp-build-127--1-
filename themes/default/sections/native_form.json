@@ -1,0 +1,61 @@
+{
+  "type": "native_form",
+  "name": "Form or quiz",
+  "description": "Reuse a published Storelib form and collect responses in Audience → Leads.",
+  "icon": "mail",
+  "category": "marketing",
+  "fields": [
+    {
+      "id": "form_url",
+      "type": "text",
+      "label": "Published form link",
+      "default": "",
+      "placeholder": "Paste the published link from Audience → Forms"
+    },
+    {
+      "id": "inline",
+      "type": "toggle",
+      "label": "Show questions inline",
+      "default": true
+    },
+    {
+      "id": "button_text",
+      "type": "text",
+      "label": "Button text",
+      "default": "Open form"
+    },
+    {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        {
+          "label": "Light",
+          "value": "white"
+        },
+        {
+          "label": "Soft",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Brand",
+          "value": "black"
+        },
+        {
+          "label": "Accent",
+          "value": "highlight"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Form or quiz"
+    }
+  ]
+}

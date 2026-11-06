@@ -19,7 +19,7 @@ import "server-only"
 
 import { selectTolerant } from "@/lib/supabase/tolerant-select"
 import { salesStandings } from "@/lib/products/sales-standings"
-import { MAX_PWYW_CENTS, baseFor, wholeCents } from "@/lib/checkout/pricing"
+import { MAX_PWYW_CENTS, baseFor, wholeCents, variantSoldOut, type PricedVariant } from "@/lib/checkout/pricing"
 import { ownedKey, ownedLines } from "@/lib/checkout/owned"
 import { couponLabel, couponStanding, findCoupon, lineDiscounts, normaliseCode, type CouponRow } from "@/lib/checkout/coupons"
 import { couponMinimumError, needsCollections, productsInCollections, scopeCovers } from "@/lib/checkout/coupon-scope"
@@ -184,14 +184,6 @@ export async function priceCheckout(
   const creatorId = creatorIds[0]
   const byId = new Map(rows.map((p) => [p.id, p]))
 
-  /* What the buyer already owns, per option; a physical product never is (lib/checkout/owned). */
-  const owned = await ownedLines(
-    db,
-    { userId: req.buyerId ?? null, provenEmail: req.ownerEmail ?? null },
-    req.items.map((i) => ({ productId: i.productId, variantId: i.variantId ?? null, type: byId.get(i.productId)?.type ?? "physical" })),
-  )
-  const ownedList: { productId: string; variantId: string | null; title: string; thumbnailUrl: string | null }[] = []
-
   /* The variants of the physical products asked for, all of them: a line with no variant chosen takes the only one. */
   const physicalIds = rows.filter((p) => p.type === "physical").map((p) => p.id)
   const variantsByProduct = new Map<string, Record<string, any>[]>()
@@ -208,12 +200,40 @@ export async function priceCheckout(
       variantsByProduct.set(v.product_id, list)
     }
   }
-  const digitalVariantIds = req.items.filter((i) => i.variantId && byId.get(i.productId)?.type !== "physical").map((i) => i.variantId!) as string[]
-  const digitalVariants = new Map<string, Record<string, any>>()
-  if (digitalVariantIds.length) {
-    const { data: vs } = await db.from("product_variants").select("id, product_id, name, price_cents, pay_what_you_want, pwyw_min_price_cents").in("id", digitalVariantIds)
-    for (const v of (vs ?? []) as Record<string, any>[]) digitalVariants.set(v.id, v)
+  const digitalProductIds = rows.filter(p=>p.type!=="physical").map(p=>p.id)
+  const digitalVariants=new Map<string,Record<string,any>>()
+  const digitalByProduct=new Map<string,Record<string,any>[]>()
+  const hasDigitalVariants=new Set<string>()
+  if(digitalProductIds.length){
+    let result:any
+    for(const columns of ["id, product_id, name, price_cents, pay_what_you_want, pwyw_min_price_cents, max_purchases, active","id, product_id, name, price_cents, pay_what_you_want, pwyw_min_price_cents, max_purchases"]){
+      result=await db.from("product_variants").select(columns).in("product_id",digitalProductIds)
+      if(!result.error||!["42703","PGRST204"].includes(result.error.code))break
+    }
+    if(result.error)return {ok:false,status:503,error:"Options could not be read. Try again."}
+    for(const v of result.data??[]){
+      hasDigitalVariants.add(v.product_id)
+      if(v.active===false||/^Archived /.test(v.name??""))continue
+      digitalVariants.set(v.id,v)
+      const list=digitalByProduct.get(v.product_id)||[];list.push(v);digitalByProduct.set(v.product_id,list)
+    }
   }
+  req={...req,items:req.items.map(i=>({...i}))}
+  for(const item of req.items){
+    if(byId.get(item.productId)?.type==="physical"||item.variantId)continue
+    const options=digitalByProduct.get(item.productId)||[]
+    if(options.length>1)return {ok:false,status:400,error:"Choose an option for each product."}
+    if(options.length===1)item.variantId=options[0].id
+    else if(hasDigitalVariants.has(item.productId))return {ok:false,status:400,error:"A product option is no longer available."}
+  }
+  /* What the buyer already owns, per option; a physical product never is (lib/checkout/owned). */
+  const owned = await ownedLines(
+    db,
+    { userId: req.buyerId ?? null, provenEmail: req.ownerEmail ?? null },
+    req.items.map((i) => ({ productId: i.productId, variantId: i.variantId ?? null, type: byId.get(i.productId)?.type ?? "physical" })),
+  )
+  const ownedList: { productId: string; variantId: string | null; title: string; thumbnailUrl: string | null }[] = []
+
 
   /* A download with a sales limit whose copies have all been sold is left out and named (lib/checkout/sales-limit). The checkout's hold decides the last copies. */
   const digitalIds = rows.filter((p) => p.type !== "physical").map((p) => p.id)
@@ -259,7 +279,7 @@ export async function priceCheckout(
         continue
       }
       const v = item.variantId ? digitalVariants.get(item.variantId) : null
-      if (item.variantId && (!v || v.product_id !== p.id)) {
+      if (item.variantId && (!v || v.product_id !== p.id || await variantSoldOut(db,v as PricedVariant))) {
         dropped.push(p.title)
         continue
       }

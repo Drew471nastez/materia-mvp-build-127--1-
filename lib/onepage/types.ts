@@ -4,6 +4,7 @@
 import type { FollowersBlockData, LeadMagnetBlockData, PromoCodeBlockData, SocialPostsBlockData, StorelibShelfBlockData } from "./storelib-blocks"
 
 export type OnePageBlockType =
+  | "form_quiz"
   | "link_button"
   | "product"
   | "social_row"
@@ -66,6 +67,9 @@ export interface OnePageTheme {
   /* Round 42 (lib/onepage/theme-layout): how product blocks are shown, and a wide cover picture over the classic header. Missing is each block's own layout, and no cover. */
   product_layout?: "own" | "grid" | "rows" | null
   cover_image_url?: string | null
+  cover_crop?: { x: number; y: number; zoom: number } | null
+  cover_previous_header_layout?: "classic" | "hero"
+  cover_profile_layout?: boolean
   font_family: string
   // Title customization
   title_font?: string | null
@@ -177,7 +181,10 @@ export interface StreamingService {
   found: boolean
 }
 
+export interface FormQuizBlockData {form_id:string;title:string;inline?:boolean}
+
 export interface LinkButtonBlockData {
+  action?: import("@/lib/forms/actions").NativeAction
   label: string
   url: string
   icon?: string | null
@@ -248,6 +255,10 @@ export interface ProductBlockData {
   product_title?: string | null
   product_thumbnail?: string | null
   product_description?: string | null
+  product_variant_min_cents?: number | null
+  product_variant_max_cents?: number | null
+  product_variant_count?: number
+  product_single_variant_id?: string | null
   product_price_cents?: number | null
   product_slug?: string | null
   /** Refreshed from the product row (lib/onepage/live-products): a membership's price is per month or year. */
@@ -547,6 +558,7 @@ export interface EmbedBlockData {
 export type { FollowersBlockData, LeadMagnetBlockData, PromoCodeBlockData, SocialPostsBlockData, StorelibShelfBlockData } from "./storelib-blocks"
 
 export type OnePageBlockData =
+  | FormQuizBlockData
   | LinkButtonBlockData
   | ProductBlockData
   | SocialRowBlockData
@@ -773,6 +785,7 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
   }
 
   switch (type) {
+    case "form_quiz": return {...baseBlock,data:{form_id:"",title:"Open form",inline:false} as FormQuizBlockData}
     case "link_button":
       return {
         ...baseBlock,

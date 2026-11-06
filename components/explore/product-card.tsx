@@ -1,4 +1,5 @@
 "use client"
+import {useCanonicalPrice} from "@/components/product/use-canonical-price"
 
 import { personName } from "@/lib/profile/display-name"
 import { listPrice } from "@/lib/pricing/list-price"
@@ -143,7 +144,7 @@ interface ProductCardProps {
 }
 
 export const ProductCard = memo(function ProductCard({
-  product,
+  product: suppliedProduct,
   srcParam = "",
   priority = false,
   sizes = "(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw",
@@ -152,6 +153,7 @@ export const ProductCard = memo(function ProductCard({
   showCreator = true,
   surface,
 }: ProductCardProps) {
+  const product = useCanonicalPrice(suppliedProduct,discoverLayout)
   /* A card on one store's page (its creator page) is in that store's currency when the row does not say (components/platform/price-currency). */
   const pageCurrency = usePageCurrency()
   // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.

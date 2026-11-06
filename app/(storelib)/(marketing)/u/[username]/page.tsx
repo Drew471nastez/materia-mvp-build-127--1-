@@ -1,3 +1,4 @@
+import {withVariantPrices} from "@/lib/pricing/variant-price"
 import { marketplacePricer, type MarketplaceRowPatch } from "@/lib/money/marketplace-server"
 import { personName } from "@/lib/profile/display-name"
 import { salesStandings } from "@/lib/products/sales-standings"
@@ -630,7 +631,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   const offPage = catalogue && catalogue.length ? await offPagePromise : new Set<string>()
   /* In the language the address names (?lang=), when the store published it: approved translations of each product laid over (lib/markets/creator-page-language). The proxy sends a visitor who chose one, or whose browser asks for one in a store that shows visitors their own, to that address (round 49). */
   const pageLanguage = embedded ? null : await creatorPageLanguage(creator.id, typeof lang === "string" ? lang : null).catch(() => null)
-  const products = catalogue ? withoutCommunityProducts(catalogue).filter((p: { id: string }) => !offPage.has(p.id)).map((p) => (pageLanguage ? (pageLanguage.product(p as unknown as Record<string, unknown>) as unknown as typeof p) : p)) : catalogue
+  const pricedCatalogue = catalogue ? await withVariantPrices(supabase,catalogue) : catalogue
+  const products = pricedCatalogue ? withoutCommunityProducts(pricedCatalogue).filter((p: { id: string }) => !offPage.has(p.id)).map((p) => (pageLanguage ? (pageLanguage.product(p as unknown as Record<string, unknown>) as unknown as typeof p) : p)) : catalogue
   const communityCards = await communitiesPromise
   const pageAddress = pageHost ? `https://${pageHost}/` : `https://storelib.com/${profile.username || username}`
 
@@ -860,6 +862,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       title: p.title,
       thumbnail_url: p.thumbnail_url,
       price_cents: p.price_cents,
+      variant_count:p.variant_count,variant_min_price_cents:p.variant_min_price_cents,variant_max_price_cents:p.variant_max_price_cents,variant_prices_known:p.variant_prices_known,single_variant_id:p.single_variant_id,
       type: p.type ?? undefined,
       price_interval: intervals.get(p.id) ?? null,
       compare_at_cents: p.compare_at_cents,
@@ -874,7 +877,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       // for free, and only when there is one to show.
       reviews_count: p.reviews_count,
       reviews_average: p.reviews_average,
-      ...(salesSoldOut(standings.get(p.id)) ? { sold_out: true } : {}),
+      ...((p.sold_out||salesSoldOut(standings.get(p.id))) ? { sold_out: true } : {}),
       ...marketplaceCard(priceOf({ ...p, creator_id: creator.id })),
     })) || []
 
@@ -1884,7 +1887,7 @@ async function readStandings(productIds: string[]) {
 
 /** A card's marketplace price: dollars once the store is switched over (the amounts and the currency), else its store's currency alone. */
 function marketplaceCard(patch: MarketplaceRowPatch): Partial<ProductData> {
-  const out: Partial<ProductData> = { currency: patch.currency }
+  const out: Partial<ProductData> = { currency: patch.currency,...(patch.variant_min_price_cents!==undefined?{variant_min_price_cents:patch.variant_min_price_cents,variant_max_price_cents:patch.variant_max_price_cents}:{}) }
   if (typeof patch.price_cents === "number") out.price_cents = patch.price_cents
   if (patch.pwyw_min_price_cents !== undefined) out.pwyw_min_price_cents = patch.pwyw_min_price_cents
   if (patch.compare_at_cents !== undefined) out.compare_at_cents = patch.compare_at_cents ?? undefined

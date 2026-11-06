@@ -119,6 +119,9 @@ const PROOFS: [string, RegExp][] = [
  * already public.
  */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
+  "forms/[id]/public/route.ts": "A reusable public form: reads only the validated published snapshot for this exact UUID. Drafts, owners, answers and integration configuration are never returned; anonymous access is intentional.",
+  "forms/[id]/submit/route.ts": "Anonymous form submission: bounded, IP rate limited and honeypot guarded, requires consent, validates against the current published revision, derives the owner server-side and deduplicates the submission UUID. Private lead records are not readable here.",
+  "products/prices/route.ts": "Bounded public catalogue prices: products are read through public RLS and filtered to published IDs. The admin reads only currency/rate configuration to show the same store or marketplace prices as public cards; no writes or customer data.",
   /* Round 49: what the creator page, the product page and Explore used to decide per visitor on the server, now asked after load (they are one HTML for everybody, held by the CDN). */
   "creator-page/viewer/route.ts": "the signed in person's own standing on one creator page (currentUserForRequest): owner or team member, bought from them, and the typed contact address to the owner only; a stranger is answered nobody; private, never stored",
   "explore/interests/route.ts": "the signed in person's own For you interests (currentUserForRequest, their own setting first), nobody's for a stranger; private, never stored",

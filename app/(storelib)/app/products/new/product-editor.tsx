@@ -563,7 +563,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     const variantId = `new-variant-${Date.now()}`
     setVariants((prev) => [
       ...prev,
-      { id: variantId, name: "", description: "", price: "", compareAtPrice: "", maxPurchases: "", isExpanded: true, assignedFiles: [], payWhatYouWant: false, pwywMinPrice: "", pwywSuggestedPrice: "" },
+      { id: variantId, name: "", description: "", price: price || "0", compareAtPrice: "", maxPurchases: "", isExpanded: true, assignedFiles: [], payWhatYouWant: false, pwywMinPrice: "", pwywSuggestedPrice: "" },
     ])
     requestAnimationFrame(() => {
       setTimeout(() => {
@@ -2857,7 +2857,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                           }}
                         >
                           <div className="min-w-0 flex-1 truncate">
-                            <span className="text-sm font-medium text-[#1a1a2e]">{variant.name || tt("Untitled")}</span>
+                            <span className="text-sm font-medium text-[#1a1a2e]">{variant.name || (variants.length === 1 ? tt("Standard") : tt("Name this option"))}</span>
                             {variantPriceLabel(variant, creator.currency) ? (
                               <span className="ml-2 text-xs tabular-nums text-[#6b7280]">{variantPriceLabel(variant, creator.currency)}</span>
                             ) : null}

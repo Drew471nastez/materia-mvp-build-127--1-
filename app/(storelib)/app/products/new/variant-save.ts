@@ -53,7 +53,7 @@ export function variantRow(productId: string, v: ProductVariant, position: numbe
   const max = v.maxPurchases ? Number.parseInt(v.maxPurchases, 10) : NaN
   return {
     product_id: productId,
-    name: v.name.trim() || "Untitled",
+    name: v.name.trim() || "Standard",
     description: v.description.trim() ? v.description : null,
     price_cents: price,
     /* Struck through only where it is a real discount on a fixed price, as the product's own compare at is. */
@@ -92,6 +92,7 @@ export async function saveVariants(
   variants: ProductVariant[],
   { keepUnlisted = false }: { keepUnlisted?: boolean } = {},
 ): Promise<Map<string, string>> {
+  if (variants.length > 1 && variants.some(v => !v.name.trim() || v.name.trim() === "Untitled")) throw new Error(tt("Name each option before saving."))
   const { data: existingRows, error: readError } = await supabase.from("product_variants").select("id").eq("product_id", productId)
   /* Not knowing what is saved, nothing is deleted: a write below still says what is wrong. */
   const existing = new Set<string>(((existingRows as { id: string }[] | null) ?? []).map((r) => r.id))

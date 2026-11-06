@@ -12013,7 +12013,15 @@ const words: Record<string, string> = {
  "Purchase conversion label": "Etiqueta de conversión de compra",
  "Google Ads › Goals › Conversions › your purchase › Event snippet, after {id}/ in send_to.": "Google Ads › Objetivos › Conversiones › tu compra › Fragmento de evento, después de {id}/ en send_to.",
  "Saved. Each paid order is now a Google Ads conversion.": "Guardado. Cada pedido pagado es ahora una conversión de Google Ads.",
- "Removed. Orders are no longer sent as conversions.": "Eliminado. Los pedidos ya no se envían como conversiones."
+ "Removed. Orders are no longer sent as conversions.": "Eliminado. Los pedidos ya no se envían como conversiones.",
+ "Name this option": "Nombra esta opción",
+ "Name each option before saving.": "Nombra cada opción antes de guardar.",
+ "Leads": "Clientes potenciales",
+ "Forms and quizzes": "Formularios y cuestionarios",
+ "Form or quiz": "Formulario o cuestionario",
+ "Collect answers and qualify leads": "Recopila respuestas y califica clientes potenciales",
+ "form quiz questionnaire survey lead intake fitness contact": "formulario cuestionario encuesta cliente potencial solicitud entrenamiento contacto",
+ "Instagram post": "Publicación de Instagram"
 }
 
 export default words

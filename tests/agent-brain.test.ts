@@ -553,7 +553,7 @@ async function main() {
       pages: [],
       products: [toCard({ id: "p2", title: "Portrait Pack", slug: "portrait-pack", price_cents: 3900, compare_at_cents: null, thumbnail_url: null, status: "published" }, [{ id: "v1", product_id: "p2", name: "Personal", price_cents: 3900 }])],
     })
-    check("storelib_site carries the product data API: checkout links and options", brief.products[0].checkout_url === "/checkout?productId=p2&src=website" && brief.products[0].variants[0].checkout_url === "/checkout?productId=p2&variantId=v1&src=website" && brief.products[0].currency === "USD")
+    check("storelib_site carries the product data API: checkout links and options", brief.products[0].checkout_url === "/checkout?productId=p2&variantId=v1&src=website" && brief.products[0].variants[0].checkout_url === "/checkout?productId=p2&variantId=v1&src=website" && brief.products[0].currency === "USD")
     const fake: BoundOps = {
       siteName: "Northlight", agentName: "Codex",
       list: async () => ({ ok: true, value: { framework: { engine: 1, schema: 1 }, docs: "", writable: "", files: [] } }),

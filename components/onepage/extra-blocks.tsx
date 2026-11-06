@@ -110,7 +110,7 @@ const px = (n: number, scale: Scale) => `${Math.round(n * k(scale) * 10) / 10}px
 const HEADING_SIZE: Record<HeadingBlockData["size"], number> = { small: 15, medium: 18, large: 22 }
 
 function HeadingView({ data, look }: { data: HeadingBlockData; look: ExtraBlockLook }) {
-  const text = (data.text || "").trim()
+  const text = (data.text ?? "").trim()
   if (!text) return null
   const t = look.theme as OnePageTheme & { title_color?: string | null; title_font?: string | null }
   return (
@@ -342,7 +342,7 @@ function VideoView({ data, look }: { data: VideoBlockData; look: ExtraBlockLook 
           */
           <button
             type="button"
-            aria-label={tt("Play {value}", { value: data.title || "video" })}
+            aria-label={tt("Play {value}", { value: data.title ?? "video" })}
             onClick={() => setPlaying(true)}
             className="group absolute inset-0 flex h-full w-full cursor-pointer items-center justify-center"
           >
@@ -713,7 +713,7 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
         <div className="space-y-3">
           <div className={field}>
             <Label className={label}>{tt("Title (optional)")}</Label>
-            <Input value={d.title || ""} maxLength={80} placeholder={tt("Questions")} onChange={(e) => updateData({ title: e.target.value })} />
+            <Input value={d.title ?? ""} maxLength={80} placeholder={tt("Questions")} onChange={(e) => updateData({ title: e.target.value })} />
           </div>
           {items.map((item, i) => (
             <div key={item.id} className="space-y-2 rounded-xl border border-[#e5e7eb] bg-white p-3">
@@ -749,7 +749,7 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
         <div className="space-y-3">
           <div className={field}>
             <Label className={label}>{tt("Title (optional)")}</Label>
-            <Input value={d.title || ""} maxLength={80} placeholder={tt("New drop in")} onChange={(e) => updateData({ title: e.target.value })} />
+            <Input value={d.title ?? ""} maxLength={80} placeholder={tt("New drop in")} onChange={(e) => updateData({ title: e.target.value })} />
           </div>
           <div className={field}>
             <Label className={label}>{tt("Counts down to")}</Label>
@@ -777,7 +777,7 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
         <div className="space-y-3">
           <div className={field}>
             <Label className={label}>{tt("Title (optional)")}</Label>
-            <Input value={d.title || ""} maxLength={80} placeholder={tt("Visit the studio")} onChange={(e) => updateData({ title: e.target.value })} />
+            <Input value={d.title ?? ""} maxLength={80} placeholder={tt("Visit the studio")} onChange={(e) => updateData({ title: e.target.value })} />
           </div>
           <div className={field}>
             <Label className={label}>{tt("Address or place")}</Label>
@@ -813,7 +813,7 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
           </div>
           <div className={field}>
             <Label className={label}>{tt("Title (optional)")}</Label>
-            <Input value={d.title || ""} maxLength={80} placeholder={tt("Watch the trailer")} onChange={(e) => updateData({ title: e.target.value })} />
+            <Input value={d.title ?? ""} maxLength={80} placeholder={tt("Watch the trailer")} onChange={(e) => updateData({ title: e.target.value })} />
           </div>
         </div>
       )

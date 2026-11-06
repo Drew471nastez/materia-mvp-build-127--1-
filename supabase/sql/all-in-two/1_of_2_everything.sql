@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 371: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 373: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -4694,6 +4694,114 @@ INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('370', '3
 /* The sites warmed after a deploy are the ones visitors used (round 55, lib/website-builder/warm-sites.ts). The server only function `public.warm_visited_websites(since)` adds up the daily analytics rollup (analytics_property_daily, part 61) per creator for websites since that day: creator_id, its page views, and its views of /products, busiest first, in one read instead of a row per site and day. The warm after each deploy then draws only those sites' front pages, and /products where it was opened, instead of every published site's six pages. Only the server may call it (service_role); nothing is stored and no rows change. Until it runs the warm reads the rollup's rows itself and draws front pages only. Needs part 61; skips itself with a notice without it. Safe to run again. */
 DO $do$ BEGIN IF to_regclass('public.analytics_property_daily') IS NULL THEN RAISE NOTICE 'warm_visited_websites skipped: public.analytics_property_daily does not exist here (part 61)'; RETURN; END IF; EXECUTE $q$CREATE OR REPLACE FUNCTION public.warm_visited_websites(p_since date) RETURNS TABLE (creator_id uuid, views bigint, shop_views bigint) LANGUAGE sql STABLE SET search_path = '' AS $f$ SELECT d.creator_id, sum(d.page_views)::bigint AS views, sum(CASE WHEN jsonb_typeof(d.paths -> '/products') = 'number' THEN (d.paths ->> '/products')::numeric ELSE 0 END + CASE WHEN jsonb_typeof(d.paths -> '/products/') = 'number' THEN (d.paths ->> '/products/')::numeric ELSE 0 END)::bigint AS shop_views FROM public.analytics_property_daily d WHERE d.property_type = 'website' AND d.day >= p_since AND d.page_views > 0 GROUP BY d.creator_id ORDER BY 2 DESC, 1 $f$$q$; EXECUTE 'REVOKE ALL ON FUNCTION public.warm_visited_websites(date) FROM PUBLIC, anon, authenticated'; EXECUTE 'GRANT EXECUTE ON FUNCTION public.warm_visited_websites(date) TO service_role'; END $do$;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('371', '371_warm_visited_websites.sql', '25fbab66c2678870c77527f35a0a4d1277e886dfb489587b72c4c8755e9c9102') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 372_native_forms_leads.sql
+/* Native forms/quizzes, private lead answers and prepared integrations. No anonymous direct table access. Public reads and writes use validated, rate-limited server routes. Owners see only their own definitions/leads. New tables only; no existing products, pages, contacts or orders change. Safe to run again. */
+create table if not exists public.native_forms (
+ id uuid primary key default gen_random_uuid(),
+ owner_id uuid not null references auth.users(id) on delete cascade,
+ title text not null default '' check (char_length(title)<=160),
+ draft jsonb not null,
+ published jsonb,
+ revision integer not null default 0 check (revision>=0),
+ status text not null default 'draft' check(status in ('draft','published','archived')),
+ integration_settings jsonb not null default '{}',
+ created_at timestamptz not null default now(),
+ updated_at timestamptz not null default now()
+);
+create index if not exists native_forms_owner_created on public.native_forms(owner_id,created_at desc);
+create table if not exists public.form_submissions (
+ id uuid primary key default gen_random_uuid(),
+ form_id uuid not null references public.native_forms(id) on delete cascade,
+ owner_id uuid not null references auth.users(id) on delete cascade,
+ form_revision integer not null,
+ form_title text not null,
+ answers jsonb not null,
+ contact_name text,contact_email text,contact_phone text,
+ score integer not null default 0,
+ consent jsonb not null,
+ status text not null default 'new' check(status in ('new','contacted','qualified','converted')),
+ source_kind text not null default 'form' check(source_kind in ('onepage','website','creator_page','form')),
+ source_url text check(char_length(source_url)<=2048),
+ dedupe_key uuid not null,
+ submitted_at timestamptz not null default now(),
+ unique(form_id,dedupe_key)
+);
+create index if not exists form_submissions_owner_time on public.form_submissions(owner_id,submitted_at desc,id desc);
+create index if not exists form_submissions_owner_status on public.form_submissions(owner_id,status,submitted_at desc);
+create index if not exists form_submissions_form on public.form_submissions(form_id,submitted_at desc);
+create table if not exists public.form_integration_jobs (
+ id uuid primary key default gen_random_uuid(),
+ owner_id uuid not null references auth.users(id) on delete cascade,
+ form_id uuid not null references public.native_forms(id) on delete cascade,
+ submission_id uuid not null references public.form_submissions(id) on delete cascade,
+ provider text not null check(provider in ('webhook','google_sheets')),
+ state text not null default 'pending_setup' check(state in ('pending_setup','ready','delivered','failed')),
+ attempts integer not null default 0,
+ created_at timestamptz not null default now(),
+ unique(submission_id,provider)
+);
+alter table public.native_forms enable row level security;
+alter table public.form_submissions enable row level security;
+alter table public.form_integration_jobs enable row level security;
+revoke all on public.native_forms,public.form_submissions,public.form_integration_jobs from public,anon,authenticated;
+grant select,insert,update,delete on public.native_forms to authenticated;
+grant select,delete on public.form_submissions to authenticated;
+grant update(status) on public.form_submissions to authenticated;
+grant select on public.form_integration_jobs to authenticated;
+grant all on public.native_forms,public.form_submissions,public.form_integration_jobs to service_role;
+do $f$ begin
+ if not exists(select 1 from pg_policies where schemaname='public' and tablename='native_forms' and policyname='native_forms_owner') then
+ create policy native_forms_owner on public.native_forms for all to authenticated using(owner_id=auth.uid()) with check(owner_id=auth.uid()); end if;
+ if not exists(select 1 from pg_policies where schemaname='public' and tablename='form_submissions' and policyname='form_leads_owner_read') then
+ create policy form_leads_owner_read on public.form_submissions for select to authenticated using(owner_id=auth.uid()); end if;
+ if not exists(select 1 from pg_policies where schemaname='public' and tablename='form_submissions' and policyname='form_leads_owner_update') then
+ create policy form_leads_owner_update on public.form_submissions for update to authenticated using(owner_id=auth.uid()) with check(owner_id=auth.uid() and exists(select 1 from public.native_forms f where f.id=form_id and f.owner_id=auth.uid())); end if;
+ if not exists(select 1 from pg_policies where schemaname='public' and tablename='form_submissions' and policyname='form_leads_owner_delete') then
+ create policy form_leads_owner_delete on public.form_submissions for delete to authenticated using(owner_id=auth.uid()); end if;
+ if not exists(select 1 from pg_policies where schemaname='public' and tablename='form_integration_jobs' and policyname='form_jobs_owner_read') then
+ create policy form_jobs_owner_read on public.form_integration_jobs for select to authenticated using(owner_id=auth.uid()); end if;
+end $f$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('372', '372_native_forms_leads.sql', '3f924617f7153eed4c5a949797ab0d1d8e793eacb971d7b0fef15a6ae3830311') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 373_variant_catalog_prices.sql
+/* Read-only variant price facts for published products. A single Free variant is zero, never its product's old base price. Unavailable limited variants do not set a card's advertised price. No product/variant/order rows are changed. Original base prices remain intact for products with variants removed. Bounded to 500 requested products; no PII or file paths. */
+create or replace function public.variant_catalog_prices(p_products uuid[])
+returns table(id uuid,product_id uuid,name text,price_cents bigint,compare_at_price_cents bigint,pay_what_you_want boolean,pwyw_min_price_cents bigint,active boolean,available boolean)
+language plpgsql stable security definer set search_path=public,pg_temp as $f$
+declare stock_check text := 'true';
+begin
+ if to_regclass('public.inventory_levels') is not null and to_regclass('public.inventory_locations') is not null then
+ stock_check := $stock$ (v.product_type <> 'physical' or not coalesce((to_jsonb(v)->>'track_inventory')::boolean,v.product_tracks,true) or coalesce((to_jsonb(v)->>'inventory_policy')='continue',false) or v.product_continues or coalesce((select sum(greatest(l.available,0)) from public.inventory_levels l join public.inventory_locations loc on loc.id=l.location_id where l.variant_id=v.id and loc.creator_id=v.product_creator and loc.active and loc.fulfills_orders),0)>0) $stock$;
+ end if;
+ return query execute $query$
+ with requested as(select unnest(($1::uuid[])[1:500]) as id),
+ public_variants as (
+ select v.*,coalesce((to_jsonb(v)->>'active')::boolean,true) and coalesce(v.name,'') not like 'Archived %' as is_live,
+ coalesce(to_jsonb(p)->>'type','digital') as product_type,
+ (to_jsonb(p)->>'creator_id')::uuid as product_creator,
+ coalesce((to_jsonb(p)->>'track_inventory')::boolean,true) as product_tracks,
+ coalesce((to_jsonb(p)->>'continue_selling')::boolean,false) as product_continues
+ from public.product_variants v join public.products p on p.id=v.product_id
+ where p.id in(select r.id from requested r) and p.status='published'
+ and coalesce((to_jsonb(p)->>'archived')::boolean,false)=false
+ ),
+ sold as (
+ select o.variant_id,count(*) as n from public.orders o
+ where o.status='completed' and o.variant_id in(select v.id from public_variants v where coalesce(v.max_purchases,0)>0)
+ group by o.variant_id
+ )
+ select v.id,v.product_id,v.name,v.price_cents::bigint,
+ (to_jsonb(v)->>'compare_at_price_cents')::bigint,
+ coalesce((to_jsonb(v)->>'pay_what_you_want')::boolean,false),
+ (to_jsonb(v)->>'pwyw_min_price_cents')::bigint,v.is_live,
+ v.is_live and (coalesce(v.max_purchases,0)<=0 or coalesce(s.n,0)<v.max_purchases) and ($query$ || stock_check || $query$)
+ from public_variants v left join sold s on s.variant_id=v.id $query$ using p_products;
+end;
+$f$;
+revoke all on function public.variant_catalog_prices(uuid[]) from public;
+grant execute on function public.variant_catalog_prices(uuid[]) to anon,authenticated,service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('373', '373_variant_catalog_prices.sql', 'a22d8966a3c721ddac6197f80b2e7005aaa92d0615c5474ff594aecb099dcaa5') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

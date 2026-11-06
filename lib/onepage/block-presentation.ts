@@ -23,7 +23,7 @@ export interface BlockPresentation {
   gradient_to?: string
   media_mode?: "card" | "native"
 }
-export const PRESENTABLE_BLOCKS = new Set(["link_button", "product", "image", "pdf_document", "food_menu", "calendly", "course", "music", "video", "embed", "map", "email_capture", "contact_form", "storelib_shelf", "lead_magnet", "social_posts", "followers", "promo_code", "faq", "countdown", "testimonials", "heading", "text"])
+export const PRESENTABLE_BLOCKS = new Set(["form_quiz", "link_button", "product", "image", "pdf_document", "food_menu", "calendly", "course", "music", "video", "embed", "map", "email_capture", "contact_form", "storelib_shelf", "lead_magnet", "social_posts", "followers", "promo_code", "faq", "countdown", "testimonials", "heading", "text"])
 const color = (v: unknown) => typeof v === "string" && /^#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i.test(v) ? v : undefined
 const number = (v: unknown, min: number, max: number) => typeof v === "number" && Number.isFinite(v) ? Math.max(min, Math.min(max, v)) : undefined
 const choice = <T extends string>(v: unknown, values: readonly T[]): T | undefined => values.includes(v as T) ? v as T : undefined

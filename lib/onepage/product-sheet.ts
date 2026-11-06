@@ -79,6 +79,7 @@ export function sheetValued(m: SheetModel): boolean {
 export function sheetStartChoice(m: SheetModel): (string | null)[] {
   const variants = m.variants ?? []
   if (!variants.length) return []
+  if (variants.length === 1 && !sheetValued(m)) return [variants[0].name]
   if (variants.length === 1 || sheetValued(m)) return initialChoice(m)
   return pickerOptions(m).map(() => null)
 }

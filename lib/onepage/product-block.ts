@@ -97,12 +97,12 @@ export function productCheckoutUrl(productId: string, variantId?: string | null)
  * ships, and the product page for "page" and "sheet" (a sheet is opened by
  * the page's script; without it the link still lands on the product).
  */
-export function productHref(data: Pick<ProductBlockData, "product_id" | "product_slug" | "product_type" | "tap_action">): string {
+export function productHref(data: Pick<ProductBlockData, "product_id" | "product_slug" | "product_type" | "tap_action" | "product_single_variant_id">): string {
   const page = productPageUrl(data.product_slug)
   if (!data.product_id) return page
   const action = productTapAction(data)
   if (action === "page" || action === "sheet") return page
-  return productCheckoutUrl(data.product_id)
+  return productCheckoutUrl(data.product_id,data.product_single_variant_id)
 }
 
 /** What happens on a tap, in order of what wins. */
@@ -221,9 +221,10 @@ export interface PriceParts {
  *   anything else        the price, per month or year for a membership
  */
 export function productPriceParts(
-  data: Pick<ProductBlockData, "product_price_cents" | "product_compare_at_cents" | "product_pwyw" | "product_pwyw_min_cents">,
+  data: Pick<ProductBlockData, "product_price_cents" | "product_compare_at_cents" | "product_pwyw" | "product_pwyw_min_cents" | "product_variant_min_cents" | "product_variant_max_cents" | "product_variant_count">,
   money: (cents: number) => string,
 ): PriceParts {
+  if((data.product_variant_count??0)>1 && data.product_variant_min_cents!=null && data.product_variant_max_cents!=null && data.product_variant_min_cents!==data.product_variant_max_cents) return {now:`${data.product_variant_min_cents===0?"Free":money(data.product_variant_min_cents)} – ${money(data.product_variant_max_cents)}`,was:null,prefix:null,free:false}
   if (data.product_pwyw) {
     const min = Math.max(0, Number(data.product_pwyw_min_cents) || 0)
     return min > 0 ? { now: money(min), was: null, prefix: "from", free: false } : { now: "Free", was: null, prefix: null, free: true }

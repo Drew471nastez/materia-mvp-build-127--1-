@@ -1,4 +1,5 @@
 "use client"
+import {CompactInstagramPost} from "./compact-post"
 
 /**
  * ===========================================================================
@@ -311,7 +312,7 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
   if (!leadMagnetReady(data)) return null
 
   const image = data.image_url || (kind === "download" ? data.product_thumbnail : null) || null
-  const button = (data.button_text || "").trim() || tt(leadMagnetButton(kind))
+  const button = (data.button_text ?? "").trim() || tt(leadMagnetButton(kind))
   const press = pressableProps(look.theme, look.still)
   const radius = radiusOf(look.theme)
   const line = data.description?.trim() || (kind === "discount" && data.coupon_label ? tt("{value} with your email", { value: data.coupon_label }) : kind === "download" && data.product_title ? data.product_title : null)
@@ -378,8 +379,8 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
         ? null
         : tt("You are on the list. This code has ended, so watch your inbox for the next one.")
       : kind === "waitlist"
-        ? (data.success_message || "").trim() || tt("You are on the list. We will email you first.")
-        : (data.success_message || "").trim() || tt("Check your inbox. The download is on its way.")
+        ? (data.success_message ?? "").trim() || tt("You are on the list. We will email you first.")
+        : (data.success_message ?? "").trim() || tt("Check your inbox. The download is on its way.")
 
   return (
     <>
@@ -487,8 +488,8 @@ function PostSlide({ item, look }: { item: SocialPostItem; look: StorelibBlockLo
   const radius = Math.min(Math.max(radiusOf(look.theme), 10), 16)
   if (item.kind === "instagram") {
     return (
-      <div className="shrink-0 snap-start" style={{ width: 326 }}>
-        <EmbedFrame src={`https://www.instagram.com/p/${item.id}/embed/`} kind="instagram" title={tt("Instagram post")} height={470} resizes radius={radius} maxWidth={326} />
+      <div className="shrink-0 snap-start" style={{ width: "min(286px, 85vw)" }}>
+        <CompactInstagramPost src={`https://www.instagram.com/p/${item.id}/embed/`} title={tt("Instagram post")} radius={radius}/>
       </div>
     )
   }
@@ -556,7 +557,7 @@ function FollowersView({ block, look }: { block: OnePageBlock; look: StorelibBlo
   const counted = (data.networks || []).filter((e) => typeof e.count === "number" && e.count > 0)
   const total = followerTotal(data.networks)
   if (total <= 0) return null
-  const label = (data.label || "").trim() || tt("followers")
+  const label = (data.label ?? "").trim() || tt("followers")
   const color = look.theme.text_color
   if (data.style === "card") {
     return (
@@ -744,7 +745,7 @@ function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updat
       </div>
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Title (optional)")}</Label>
-        <Input value={data.title || ""} maxLength={60} placeholder={SHELF_WORD[source]()} onChange={(e) => updateData({ title: e.target.value })} />
+        <Input value={data.title ?? ""} maxLength={60} placeholder={SHELF_WORD[source]()} onChange={(e) => updateData({ title: e.target.value })} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className={fieldBox}>
@@ -892,21 +893,21 @@ function LeadMagnetEditor({ data, updateData }: { data: LeadMagnetBlockData; upd
 
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Title")}</Label>
-        <Input value={data.title || ""} maxLength={60} placeholder={MAGNET_WORD[kind]()} onChange={(e) => updateData({ title: e.target.value })} />
+        <Input value={data.title ?? ""} maxLength={60} placeholder={MAGNET_WORD[kind]()} onChange={(e) => updateData({ title: e.target.value })} />
       </div>
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Text (optional)")}</Label>
-        <Input value={data.description || ""} maxLength={140} onChange={(e) => updateData({ description: e.target.value })} />
+        <Input value={data.description ?? ""} maxLength={140} onChange={(e) => updateData({ description: e.target.value })} />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div className={fieldBox}>
           <Label className={fieldLabel}>{tt("Button")}</Label>
-          <Input value={data.button_text || ""} maxLength={24} placeholder={tt(leadMagnetButton(kind))} onChange={(e) => updateData({ button_text: e.target.value })} />
+          <Input value={data.button_text ?? ""} maxLength={24} placeholder={tt(leadMagnetButton(kind))} onChange={(e) => updateData({ button_text: e.target.value })} />
         </div>
         {kind !== "discount" ? (
           <div className={fieldBox}>
             <Label className={fieldLabel}>{tt("After signing up")}</Label>
-            <Input value={data.success_message || ""} maxLength={100} onChange={(e) => updateData({ success_message: e.target.value })} />
+            <Input value={data.success_message ?? ""} maxLength={100} onChange={(e) => updateData({ success_message: e.target.value })} />
           </div>
         ) : null}
       </div>
@@ -961,7 +962,7 @@ function PostsEditor({ data, updateData }: { data: SocialPostsBlockData; updateD
       </div>
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Title (optional)")}</Label>
-        <Input value={data.title || ""} maxLength={60} placeholder={tt("Latest posts")} onChange={(e) => updateData({ title: e.target.value })} />
+        <Input value={data.title ?? ""} maxLength={60} placeholder={tt("Latest posts")} onChange={(e) => updateData({ title: e.target.value })} />
       </div>
     </div>
   )
@@ -1039,7 +1040,7 @@ function FollowersEditor({ data, updateData }: { data: FollowersBlockData; updat
         </div>
         <div className={fieldBox}>
           <Label className={fieldLabel}>{tt("Word")}</Label>
-          <Input value={data.label || ""} maxLength={24} placeholder={tt("followers")} onChange={(ev) => updateData({ label: ev.target.value })} />
+          <Input value={data.label ?? ""} maxLength={24} placeholder={tt("followers")} onChange={(ev) => updateData({ label: ev.target.value })} />
         </div>
       </div>
       <p className="text-[12px] leading-relaxed text-[#6b7280]">{tt("Bluesky and YouTube counts are read from the network every few hours. Type the others; they stay as you typed them.")}</p>
@@ -1058,11 +1059,11 @@ function PromoCodeEditor({ data, updateData }: { data: PromoCodeBlockData; updat
       </div>
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Title")}</Label>
-        <Input value={data.title || ""} maxLength={60} placeholder={tt("15% off at Gymshark")} onChange={(e) => updateData({ title: e.target.value })} />
+        <Input value={data.title ?? ""} maxLength={60} placeholder={tt("15% off at Gymshark")} onChange={(e) => updateData({ title: e.target.value })} />
       </div>
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Text (optional)")}</Label>
-        <Input value={data.description || ""} maxLength={120} onChange={(e) => updateData({ description: e.target.value })} />
+        <Input value={data.description ?? ""} maxLength={120} onChange={(e) => updateData({ description: e.target.value })} />
       </div>
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Where it is used (optional)")}</Label>

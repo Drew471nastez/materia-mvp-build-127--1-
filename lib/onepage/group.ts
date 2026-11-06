@@ -52,6 +52,7 @@ export const GROUP_CHILD_TYPES: readonly OnePageBlockType[] = [
   "image",
   "divider",
   "email_capture",
+  "form_quiz",
   "pdf_document",
   "food_menu",
   "calendly",

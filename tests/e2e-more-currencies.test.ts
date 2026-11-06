@@ -140,7 +140,7 @@ async function main() {
   const cards = page ? page.cards(await listCards(creator.id)) : []
   const mugCard = cards.find((c) => c.id === mugId)
   /* 99 lei at 4.9775 lei a euro is 19.89 €, rounded to .99: 19.99 €. 129 lei: 25.92 €, 25.99 €. 25 lei shipping at the rate: 5.02 €. */
-  check("the card says €19.99, from 99 lei", mugCard?.settings.price === "€19.99" && mugCard?.settings.currency === "EUR", mugCard?.settings)
+  check("the card shows €19.99–€25.99, from its variant prices", mugCard?.settings.price === "€19.99 – €25.99" && mugCard?.settings.currency === "EUR", mugCard?.settings)
   check("  its large size €25.99", (mugCard?.settings.variants ?? []).some((v) => v.price === "€25.99"), mugCard?.settings.variants)
   const display = page?.display
   const productPage = display ? pricingFor(display.market, display.base, display.fx) : null
@@ -163,7 +163,7 @@ async function main() {
   check("it offers lei, euros and zloty, euros picked", opts.length === 3 && choiceDe?.currency?.current === "eu" && opts.some((o) => o.id === "home") && opts.some((o) => o.id === "pl"), choiceDe?.currency)
   check("  each says its mark: \"RON lei\", \"Europe (EUR €)\", \"Poland (PLN zł)\"", opts.map((o) => o.label).join("|") === "RON lei|Europe (EUR €)|Poland (PLN zł)", opts.map((o) => o.label))
   const homePick = opts.find((o) => o.id === "home")!
-  check("picking lei: the page is in lei, the card 99.00 lei", marketFor(homePick.country, "DE") === null && (await listCards(creator.id)).find((c) => c.id === mugId)?.settings.price === `99.00${NBSP}lei`)
+  check("picking lei: the page is in lei, the card shows the 99–129 lei variant range", marketFor(homePick.country, "DE") === null && (await listCards(creator.id)).find((c) => c.id === mugId)?.settings.price === `99.00${NBSP}lei – 129.00${NBSP}lei`)
   const homeQuote = await j.call("POST /api/checkout/site", { host, headers: { "x-vercel-ip-country": "DE", origin: `https://${host}` }, cookies: { sl_country: chose(homePick.country)! }, body: { action: "quote", items: [{ productId: mugId, variantId: small?.id, quantity: 2 }], country: "DE" } })
   check("  and the checkout too: 2 × 99 lei and 25 lei delivery, in RON", homeQuote.status === 200 && homeQuote.json?.currency === "RON" && homeQuote.json?.totals?.itemsSubtotalCents === 19800 && homeQuote.json?.totals?.shippingCents === 2500, { status: homeQuote.status, cur: homeQuote.json?.currency, totals: homeQuote.json?.totals })
   const euPick = opts.find((o) => o.id === "eu")!
@@ -268,7 +268,7 @@ async function main() {
   const plPage = await siteLocalizer(creator.id, null, "pl")
   const plCard = plPage?.cards(await listCards(creator.id)).find((c) => c.id === mugId)
   /* 99 lei = 19.8895 € = 84.53 zł */
-  check("the card says 84.53 zł", plCard?.settings.price === `84.53${NBSP}zł`, plCard?.settings.price)
+  check("the card shows the 84.53–110.15 zł variant range", plCard?.settings.price === `84.53${NBSP}zł – 110.15${NBSP}zł`, plCard?.settings.price)
   check("  the cart says what checkout charges in", /You'll pay in RON/.test(plPage?.display?.note ?? ""), plPage?.display?.note)
   const plQ = await j.call("POST /api/checkout/site", { host, headers: { ...visitor, "x-vercel-ip-country": "PL" }, cookies: {}, body: { action: "quote", items: [{ productId: mugId, variantId: small?.id, quantity: 1 }], country: "PL" } })
   check("  the checkout is in lei: 99 lei and 25 lei delivery", plQ.status === 200 && plQ.json?.currency === "RON" && plQ.json?.totals?.totalCents === 12400, { status: plQ.status, cur: plQ.json?.currency, t: plQ.json?.totals })
@@ -353,7 +353,7 @@ async function main() {
   const brlCard = brlPage?.cards(await listCards(creator.id)).find((c) => c.id === mugId)
   /* 99 lei at 4.9775 lei and 6.2 reais a euro: 99 / 4.9775 × 6.2 = 123.3149 reais. More reais than lei, as a real is worth less. */
   const reais = Math.round((99 / RON_PER_EUR) * BRL_PER_EUR * 100)
-  check("99 lei is R$123.31: lei to reais, the right way round", reais === 12331 && brlCard?.settings.price === "R$123.31", { reais, card: brlCard?.settings.price })
+  check("99 lei is R$123.31: lei to reais, the right way round", reais === 12331 && brlCard?.settings.price === "R$123.31 – R$160.68", { reais, card: brlCard?.settings.price })
   const brlPricing = converts(live!, "RON", await cachedRates())
   check("  written with R$ in every language: R$ 123,31 in Portuguese, 123,31 R$ in Romanian, never BRL", formatMinor(12331, "BRL", "pt-BR").replace(/\s/g, " ") === "R$ 123,31" && formatMinor(12331, "BRL", "ro").replace(/\s/g, " ") === "123,31 R$" && brlPricing?.format(9900, "ro")?.includes("R$") === true, [formatMinor(12331, "BRL", "pt-BR"), formatMinor(12331, "BRL", "ro"), brlPricing?.format(9900, "ro")])
 

@@ -37,7 +37,7 @@ const SECTION_CATEGORIES = [
 const CATEGORY_FILTER: Record<string, string[]> = {
   "image-text": ["image-text"],
   content: ["text-block", "benefits"],
-  marketing: ["announcement-bar"],
+  marketing: ["native-form", "announcement-bar"],
   commerce: ["featured-products"],
   info: ["reviews"],
   community: ["community"],

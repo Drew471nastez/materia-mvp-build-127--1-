@@ -349,7 +349,10 @@ const extra = (key: keyof typeof EXTRA_BLOCK_CATALOG & keyof typeof KEYWORDS, ca
   return { id: key, type: src.type, category, get label() { return src.label }, get description() { return src.description }, icon: src.icon, keywords: KEYWORDS[key] }
 }
 
+export const ESSENTIAL_ENTRY_IDS = ["link","product","email_capture","form_quiz","coaching","image","youtube","instagram","whatsapp","contact_form","text","social_row"]
+
 export const PICKER_ENTRIES: PickerEntry[] = [
+  {id:"form_quiz",type:"form_quiz",category:"grow",get label() { return tt("Form or quiz") },get description() { return tt("Collect answers and qualify leads") },icon:GlyphEmail,get keywords() { return tt("form quiz questionnaire survey lead intake fitness contact") }},
   /* Essentials */
   { id: "link", type: "link_button", category: "essentials", get label() { return tt("Link") }, get description() { return tt("Add any web address") }, icon: GlyphLink, keywords: KEYWORDS.link },
   extra("heading", "essentials"),
@@ -672,7 +675,7 @@ export function AddBlockPicker({
   const found = React.useMemo(() => (searching ? searchEntries(allowed, query) : []), [allowed, query, searching])
   const recentEntries = React.useMemo(() => recent.map((id) => allowed.find((e) => e.id === id)).filter((e): e is PickerEntry => !!e), [recent, allowed])
   const categories = React.useMemo(() => PICKER_CATEGORIES.filter((c) => allowed.some((e) => e.category === c.id)), [allowed])
-  const byCategory = React.useMemo(() => new Map(categories.map((c) => [c.id, allowed.filter((e) => e.category === c.id)])), [categories, allowed])
+  const byCategory = React.useMemo(() => new Map(categories.map((c) => [c.id, (c.id === "essentials" ? [...ESSENTIAL_ENTRY_IDS.map(id=>allowed.find(e=>e.id===id)).filter((e):e is PickerEntry=>!!e),...allowed.filter(e=>e.category==="essentials"&&!ESSENTIAL_ENTRY_IDS.includes(e.id))] : allowed.filter((e) => e.category === c.id))])), [categories, allowed])
   /* The types at their limit, as a string, so the memoised sections only render again when it really changes. */
   const limited = [...new Set(allowed.map((e) => e.type))].filter((t) => atLimit(t)).join(",")
 

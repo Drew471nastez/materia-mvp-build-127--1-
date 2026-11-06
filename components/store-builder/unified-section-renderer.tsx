@@ -1,4 +1,6 @@
 "use client"
+import type {VariantPriceFacts} from "@/lib/pricing/variant-price"
+import {NativeFormBlock} from "@/components/forms/native-form-block"
 
 import { cleanStoredHtml } from "@/lib/rich-text/html"
 import { useContactShown, useCreatorPageOwner, useCreatorPageViewer } from "@/components/storefront/creator-page-viewer"
@@ -97,7 +99,7 @@ import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 import { imagesOnly } from "@/lib/media/video"
 
 // Shared product type for consistency
-export interface ProductData {
+export interface ProductData extends VariantPriceFacts {
   id: string
   slug?: string
   /** Where the card goes when it is not a product page: a free community's own page. */
@@ -1571,6 +1573,7 @@ export function UnifiedSectionRenderer({
           isPreviewMode={isPreviewMode}
         />
       )}
+      {section.type === "native-form" && (()=>{const s=section.settings as import("@/lib/store-builder/types").NativeFormSettings;return <div className="mx-auto max-w-lg px-4 py-6"><NativeFormBlock formId={s.form_id} title={s.title} inline={s.inline} source="creator_page" preview={isEditorMode||isPreviewMode}/></div>})()}
       {section.type === "text-block" && (
         <UnifiedTextBlockSection
           settings={section.settings as TextBlockSettings}

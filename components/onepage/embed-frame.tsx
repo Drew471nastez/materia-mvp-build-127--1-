@@ -147,6 +147,7 @@ export function EmbedFrame({
   resizes = false,
   radius,
   maxWidth,
+  maxHeight,
 }: {
   src: string
   kind: EmbedKind
@@ -157,6 +158,7 @@ export function EmbedFrame({
   resizes?: boolean
   radius: number
   maxWidth?: number
+  maxHeight?: number
 }) {
   const frameRef = React.useRef<HTMLIFrameElement>(null)
   const wrapRef = React.useRef<HTMLDivElement>(null)
@@ -222,7 +224,7 @@ export function EmbedFrame({
     height === null
       ? { aspectRatio: "16 / 9", borderRadius: radius, maxWidth }
       : {
-          height: h ?? height,
+          height: maxHeight ? Math.min(h ?? height,maxHeight) : h ?? height,
           /* A post: exactly the card's width once the service has said it (X), else the column's, capped at the card's widest. */
           width: post && w ? w : undefined,
           maxWidth: post && w ? "100%" : maxWidth,
@@ -237,7 +239,7 @@ export function EmbedFrame({
       data-embed-shown={shown ? "" : undefined}
       /* A post is not clipped (its corners are the service's own); a player takes the page's corners. */
       className={post ? "relative mx-auto w-full bg-transparent [contain:layout]" : "relative mx-auto w-full overflow-hidden bg-transparent [contain:layout_paint]"}
-      style={post && w ? { ...box, width: w } : box}
+      style={{...(post && w ? { ...box, width: w } : box),...(maxHeight?{overflow:"hidden",borderRadius:radius}:{})}}
     >
       <div aria-hidden className="absolute inset-0 animate-pulse bg-[rgba(127,127,127,0.12)] transition-opacity duration-200 motion-reduce:animate-none" style={{ opacity: shown ? 0 : 1, borderRadius: cornerRadius }} />
       <iframe

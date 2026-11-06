@@ -202,23 +202,22 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
 
   let variant: PricedVariant | null = null
   const noVariant = req.variantId === undefined || req.variantId === null || req.variantId === ""
-  if (noVariant) {
-    /* A product with options is bought as one of them. Without one the
-       order has no variant, which the downloads read as the whole product,
-       so the cheapest price (or none) bought every option's files. */
-    const { data: anyOption } = await db.from("product_variants").select("id").eq("product_id", productId).limit(1).maybeSingle()
-    if (anyOption) return { ok: false, status: 400, error: "Choose an option for this product." }
-  } else {
-    if (typeof req.variantId !== "string") return { ok: false, status: 400, error: "Unknown option." }
-    const { data } = await db
-      .from("product_variants")
-      .select("id, name, price_cents, pay_what_you_want, pwyw_min_price_cents, max_purchases")
-      .eq("id", req.variantId)
-      .eq("product_id", productId)
-      .maybeSingle()
-    if (!data) return { ok: false, status: 400, error: "That option is no longer available." }
-    variant = data as PricedVariant
-    if (await variantSoldOut(db, variant)) return { ok: false, status: 400, error: "That option is sold out." }
+  const fields="id, name, price_cents, pay_what_you_want, pwyw_min_price_cents, max_purchases"
+  let variantsRead:any
+  for(const selected of [fields+", active",fields]) {
+    let query=db.from("product_variants").select(selected).eq("product_id",productId)
+    if(!noVariant){if(typeof req.variantId!=="string")return {ok:false,status:400,error:"Unknown option."};query=query.eq("id",req.variantId)}
+    variantsRead=await query.limit(100)
+    if(!variantsRead.error || !["42703","PGRST204"].includes(variantsRead.error.code))break
+  }
+  if(variantsRead.error)return {ok:false,status:503,error:"Options could not be read. Try again."}
+  const stored=(variantsRead.data||[]) as (PricedVariant & {active?:boolean|null})[]
+  const offered=stored.filter(v=>v.active!==false&&!/^Archived /.test(v.name??""))
+  if(noVariant && offered.length>1)return {ok:false,status:400,error:"Choose an option for this product."}
+  if((!noVariant || stored.length>0) && offered.length===0)return {ok:false,status:400,error:"That option is no longer available."}
+  if(offered.length===1){
+    variant=offered[0]
+    if(await variantSoldOut(db,variant))return {ok:false,status:400,error:"That option is sold out."}
   }
 
   const owner = variant ?? (product as PricedProduct)
@@ -464,6 +463,35 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   }
   if (!products || products.length === 0) return { ok: false, status: 400, error: "Nothing in the cart is on sale any more" }
 
+  // Resolve omitted options before ownership and pricing. A sole option is
+  // selected by the server; multiple options never silently use the base.
+  let variantRead:any
+  for(const columns of ["id, product_id, name, price_cents, pay_what_you_want, pwyw_min_price_cents, max_purchases, active","id, product_id, name, price_cents, pay_what_you_want, pwyw_min_price_cents, max_purchases"]){
+    variantRead=await db.from("product_variants").select(columns).in("product_id",productIds)
+    if(!variantRead.error || !["42703","PGRST204"].includes(variantRead.error.code))break
+  }
+  if(variantRead.error)return {ok:false,status:503,error:"Options could not be read. Try again."}
+  const variantsById = new Map<string, any>()
+  const variantsByProduct = new Map<string, any[]>()
+  const unavailableProducts=new Set<string>()
+  for(const v of variantRead.data??[]){
+    unavailableProducts.add(v.product_id)
+    if(v.active===false||/^Archived /.test(v.name??""))continue
+    variantsById.set(v.id,v)
+    const list=variantsByProduct.get(v.product_id)||[];list.push(v);variantsByProduct.set(v.product_id,list)
+  }
+  const canonical = new Map<string, typeof wanted extends Map<string,infer V>?V:never>()
+  for(const [key,want] of wanted){
+    const productId=key.split("::")[0],options=variantsByProduct.get(productId)||[]
+    if(!want.variantId&&options.length>1)return {ok:false,status:400,error:"Choose an option for each product."}
+    if(!want.variantId&&options.length===1)want.variantId=options[0].id
+    if(!want.variantId&&unavailableProducts.has(productId))return {ok:false,status:400,error:"A product option is no longer available."}
+    const canonicalKey=`${productId}::${want.variantId??""}`
+    const existing=canonical.get(canonicalKey)
+    canonical.set(canonicalKey,existing?{...want,quantity:Math.min(MAX_QUANTITY,existing.quantity+want.quantity)}:want)
+  }
+  wanted.clear();for(const [key,want] of canonical)wanted.set(key,want)
+
   /* Already owned is dropped rather than charged for. A digital product is
      one entitlement per buyer, so paying twice buys nothing. Per option:
      owning one option of a product does not stop buying another, and a
@@ -475,20 +503,6 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
     [...wanted].map(([key, want]) => ({ productId: key.split("::")[0], variantId: want.variantId, type: typeOf.get(key.split("::")[0]) ?? "physical" })),
   )
 
-  /* A line's option is the database's, checked against its product and
-     priced from itself. The client's variantId used to be kept as sent and
-     the line priced at the product's price: the cheapest option paid for
-     the dearest one, and an unknown id failed the order's foreign key after
-     the money was taken. */
-  const variantIds = [...new Set([...wanted.values()].map((w) => w.variantId).filter((v): v is string => !!v))]
-  const variantsById = new Map<string, any>()
-  if (variantIds.length > 0) {
-    const { data: variants } = await db
-      .from("product_variants")
-      .select("id, product_id, name, price_cents, pay_what_you_want, pwyw_min_price_cents, max_purchases")
-      .in("id", variantIds)
-    for (const v of variants ?? []) variantsById.set(v.id, v)
-  }
   /* Options at their limit are left out and named, like anything else that cannot be bought (variantSoldOut). */
   const soldOut = new Set<string>()
   await Promise.all([...variantsById.values()].map(async (v) => { if (await variantSoldOut(db, v)) soldOut.add(v.id) }))

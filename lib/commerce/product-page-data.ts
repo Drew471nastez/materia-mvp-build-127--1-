@@ -1,3 +1,4 @@
+import {withVariantPrices} from "@/lib/pricing/variant-price"
 /**
  * ===========================================================================
  *  ONE REQUEST, ONE QUERY PER ROW
@@ -113,7 +114,7 @@ export const loadProductBySlug = cache(async (slug: string, owner?: string | nul
   const { data: currentRows } = await currentQuery.order("created_at", { ascending: true }).limit(1)
   const current = Array.isArray(currentRows) ? currentRows[0] : null
 
-  if (current) return { product: withSafeDescription(current), viaHistory: false }
+  if (current) return { product: withSafeDescription((await withVariantPrices(supabase,[current]))[0]), viaHistory: false }
 
   /*
     THE RENAMED-PRODUCT PATH, and it is deliberately two queries rather than

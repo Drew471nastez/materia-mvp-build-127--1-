@@ -4,6 +4,7 @@
 export type PageType = "shop" | "product"
 
 export type SectionType =
+  | "native-form"
   | "image-text"
   | "benefits"
   | "text-block"
@@ -401,7 +402,10 @@ export interface CommunitySettings extends BaseSectionSettings {
 }
 
 // Union of all section settings
+export interface NativeFormSettings extends BaseSectionSettings {form_id:string;title:string;inline:boolean}
+
 export type SectionSettings =
+  | NativeFormSettings
   | ImageTextSettings
   | BenefitsSettings
   | TextBlockSettings
