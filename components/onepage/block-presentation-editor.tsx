@@ -19,6 +19,8 @@ export function BlockPresentationEditor({block,onChange,getBlock}:{block:OnePage
   const select=(label:string,key:keyof BlockPresentation,values:readonly string[],labels?:readonly string[])=><Field label={label}><select className={field} value={String(p[key]??"")} onChange={e=>set({[key]:e.target.value||undefined})}><option value="">Page default</option>{values.map((value,i)=><option key={value} value={value}>{labels?.[i]||value}</option>)}</select></Field>
   const numeric=(label:string,key:keyof BlockPresentation,min:number,max:number)=><Field label={label}><input className={field} type="number" min={min} max={max} placeholder="Auto" value={typeof p[key]==="number"?String(p[key]):""} onChange={e=>set({[key]:e.target.value===""?undefined:Math.max(min,Math.min(max,Number(e.target.value)))})} /></Field>
   const color=(label:string,key:keyof BlockPresentation)=><Field label={label}><span className="flex items-center gap-2"><input aria-label={label} className="h-9 w-12 rounded border bg-white" type="color" value={String(p[key]||"#111111").slice(0,7)} onChange={e=>set({[key]:e.target.value})} /><button type="button" className="text-xs underline" onClick={()=>set({[key]:undefined})}>Reset</button></span></Field>
+  const imageVariant=()=>{const variant=current().style?.presentation?.variant;return !variant||variant==="original"?"visual":variant}
+  const visual=p.variant==="visual"||p.variant==="featured"
   const url=(block.data as {url?:string}).url||""
   return <details className="rounded-xl border border-[#e3e4e8] bg-white p-3" data-block-appearance="">
     <summary className="cursor-pointer text-sm font-semibold text-[#1a1a2e]">Appearance & description</summary>
@@ -39,12 +41,14 @@ export function BlockPresentationEditor({block,onChange,getBlock}:{block:OnePage
       {block.type==="link_button" ? <>
         {select("Card presentation","variant",["original","visual","image-first","featured","compact"],["Classic button","Image background","Image-first tile","Featured card","Compact list row"])}
         {socialPresentation(url)?select("Social presentation","media_mode",["card","native"],["Link card","Native embed"]):null}
-        {select("Text position","position",["top","center","bottom"],["Top","Middle","Bottom"])}
-        <Field label="Background image URL"><input aria-label="Background image URL" className={field} type="url" placeholder="https://" value={block.style?.presentation?.image_url||""} onChange={e=>set({image_url:e.target.value})}/></Field>
-        <Field label={busy?"Uploading image…":"Upload a background image"}><input className="text-xs" type="file" accept="image/*" disabled={busy} onChange={async e=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;setBusy(true);setError(null);const controller=new AbortController();upload.current=controller;try {const result=await uploadOnePageMedia(file,{prefix:"link-card",want:"image",signal:controller.signal});if(controller.signal.aborted)return;set({image_url:result.url,variant:current().style?.presentation?.variant||"visual"})}catch(err){if(controller.signal.aborted)return;setError(err instanceof Error?err.message:"Image could not be uploaded")}finally{if(upload.current===controller)setBusy(false)}}}/></Field>
+        {p.media_mode!=="native" ? <>
+        {visual?select("Text position","position",["top","center","bottom"],["Top","Middle","Bottom"]):null}
+        <Field label="Background image URL"><input aria-label="Background image URL" className={field} type="url" placeholder="https://" value={block.style?.presentation?.image_url||""} onChange={e=>set({image_url:e.target.value,variant:imageVariant()})}/></Field>
+        <Field label={busy?"Uploading image…":"Upload a background image"}><input className="text-xs" type="file" accept="image/*" disabled={busy} onChange={async e=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;setBusy(true);setError(null);const controller=new AbortController();upload.current=controller;try {const result=await uploadOnePageMedia(file,{prefix:"link-card",want:"image",signal:controller.signal});if(controller.signal.aborted)return;set({image_url:result.url,variant:imageVariant()})}catch(err){if(controller.signal.aborted)return;setError(err instanceof Error?err.message:"Image could not be uploaded")}finally{if(upload.current===controller)setBusy(false)}}}/></Field>
         {error?<p role="alert" className="text-xs text-red-700">{error}</p>:null}
-        {numeric("Dark overlay (%)","overlay",0,90)}
-        <div className="grid grid-cols-2 gap-3">{color("Gradient start","gradient_from")}{color("Gradient end","gradient_to")}</div>
+        {visual?numeric("Dark overlay (%)","overlay",0,90):null}
+        {visual?<div className="grid grid-cols-2 gap-3">{color("Gradient start","gradient_from")}{color("Gradient end","gradient_to")}</div>:null}
+        </>:null}
       </>:null}
       <button type="button" className="text-xs font-medium underline" onClick={()=>{upload.current?.abort();setBusy(false);setError(null);onChange({style:{...current().style,presentation:undefined}})}}>Reset block appearance</button>
     </div>

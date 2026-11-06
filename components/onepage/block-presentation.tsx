@@ -58,7 +58,7 @@ export function VisualLinkCard({block,theme,onClick}: {block:OnePageBlock;theme:
           {image ? <CardMedia key={image} src={onePageImageSrc(image,960)!} width={1200} height={800} className="absolute inset-0 h-full w-full object-cover" /> : null}
           <span aria-hidden className="absolute inset-0" style={{background:p.gradient_from && p.gradient_to?`linear-gradient(160deg, color-mix(in srgb, ${p.gradient_from} ${p.overlay??55}%, transparent), color-mix(in srgb, ${p.gradient_to} ${p.overlay??75}%, transparent))`:`linear-gradient(to bottom,rgba(0,0,0,${(p.overlay??35)/200}),rgba(0,0,0,${(p.overlay??65)/100}))`}} />
         </> : null}
-        {iconNode}{words}
+        {variant==="compact" && image && !native ? <CardMedia key={image} src={onePageImageSrc(image,96)!} width={48} height={48} className="relative z-[1] h-12 w-12 shrink-0 rounded-lg object-cover" /> : iconNode}{words}
       </span>
     </a>
   </div>
