@@ -7,7 +7,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { AVATAR_CHOSEN, onboardingPhoto } from "@/lib/account/avatar"
-import { announceAvatar } from "@/lib/account/avatar-store"
+import { saveAccountPhoto } from "@/lib/onepage/photo-save"
 import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import {
   ArrowLeft,
@@ -1350,6 +1350,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   }
 
   const uploadAvatarBlob = async (blob: Blob, previewUrl?: string) => {
+    const previousAvatar = avatarUrl
+    setJoinError(null)
     setUploadingAvatar(true)
     try {
       const preview = previewUrl ?? URL.createObjectURL(blob)
@@ -1364,17 +1366,13 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       confirmUpload("avatars", fileName)
 
       const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(fileName)
-      await fetch("/api/account/avatar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: publicUrl }),
-      }).catch(() => null)
-      announceAvatar(publicUrl)
+      await saveAccountPhoto(publicUrl)
       setAvatarUrl(publicUrl)
       if (previewUrl) URL.revokeObjectURL(preview)
     } catch (e) {
       console.error("Error uploading avatar:", e)
-      setAvatarUrl(null)
+      setAvatarUrl(previousAvatar)
+      setJoinError(e instanceof Error ? e.message : tt("Failed to upload image"))
     } finally {
       setUploadingAvatar(false)
       if (avatarInputRef.current) avatarInputRef.current.value = ""
@@ -1494,12 +1492,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       /* One profile photo: what is chosen here IS the account's photo, saved
          where it lives, so the account cannot come out of onboarding with a
          second face (app/api/account/avatar, lib/account/profile-follow). */
-      await fetch("/api/account/avatar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: publicUrl }),
-      }).catch(() => null)
-      announceAvatar(publicUrl)
+      await saveAccountPhoto(publicUrl)
 
       setAvatarUrl(publicUrl)
       URL.revokeObjectURL(preview)

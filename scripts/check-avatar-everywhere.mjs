@@ -251,6 +251,8 @@ for (const [label, viewport] of [
   }, { timeout: 8000 }).catch(() => {})
   await wait(900)
   const up = await avatars(page)
+  await page.waitForFunction(() => !document.querySelector('[data-photo-preview]'), {timeout:10000})
+  expect(await page.$('[data-photo-preview]') === null, "a committed upload releases its temporary preview so later replacements cannot be covered")
   expect(typeof posted[posted.length - 1] === "string" && posted[posted.length - 1].includes("/avatars/user-1/"), "the new photo was uploaded to the person's folder and saved", posted[posted.length - 1])
   expect(what(up.header) === "new" && what(up.settings) === "new", "the header and Settings show the new photo", { header: what(up.header), settings: what(up.settings) })
   const otherUp = await avatars(other)

@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useDrawnByServer } from "@/lib/ui/drawn-by-server"
 import { cn } from "@/lib/utils"
 import { isOptimizableImage, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
-import { toOriginalImageUrl } from "@/lib/storage/image-url"
+import { originalAvatarUrl, useAvatarImage } from "@/lib/account/avatar-image"
 
 /**
  * ===========================================================================
@@ -156,16 +156,17 @@ export function avatarKindFromClass(className: string | null | undefined): Avata
  * the same file, and marked shown once it has decoded, so the sheet draws it
  * on its first frame with no fade.
  */
+const optimizableAvatar = (url: string) => isOptimizableImage(url) && !/\.svg(?:[?#]|$)/i.test(url)
 const preloaded = new Set<string>()
 export function preloadAvatar(src: string | null | undefined, size: number) {
   if (typeof window === "undefined" || typeof Image === "undefined") return
-  const url = src && !src.includes("placeholder.svg") ? toOriginalImageUrl(src) || null : null
+  const url = src && !src.includes("placeholder.svg") ? originalAvatarUrl(src) || null : null
   if (!url) return
   const key = `${url} ${size}`
   if (preloaded.has(key)) return
   preloaded.add(key)
   const img = new Image()
-  if (isOptimizableImage(url)) {
+  if (optimizableAvatar(url)) {
     const set = optimizedSrcSet(url, [...new Set([sizeStep(size), sizeStep(size * 2)])])
     if (set) { img.sizes = `${size}px`; img.srcset = set }
     img.src = optimizedImageUrl(url, size)
@@ -189,6 +190,7 @@ export function AppAvatar({
   markWhileLoading = false,
   lazy = false,
   kind,
+  waitForPhoto = false,
 }: {
   src?: string | null
   /** For the initials and the picture's description. */
@@ -224,70 +226,28 @@ export function AppAvatar({
   lazy?: boolean
   /** A person (the default face without a photo) or a mark (a community's logo: its initials). Read from the shape when not given. */
   kind?: AvatarKind
+  /** OnePage never shows initials while a valid profile photo is still being retried. */
+  waitForPhoto?: boolean
 }) {
   const who = kind ?? avatarKindFromClass(className)
-  const url = src && !src.includes("placeholder.svg") ? toOriginalImageUrl(src) || null : null
-  const [failed, setFailed] = useState<string | null>(null)
-  const [loaded, setLoaded] = useState(() => !!url && shown.has(url))
-  /** In the page's HTML: the photo is shown as soon as the browser has it, over the mark, not hidden until the scripts run (lib/ui/drawn-by-server.ts). */
-  const fromServer = useDrawnByServer()
-  const [firstUrl] = useState(url)
-  /** Whether it arrived after the first paint, which is when it fades. */
-  const [fade, setFade] = useState(false)
+  const url = src && !src.includes("placeholder.svg") ? originalAvatarUrl(src) || null : null
+  const [started, setStarted] = useState(!lazy)
   const imgRef = useRef<HTMLImageElement>(null)
-  /** Whether a photo has kept the circle blank past BLANK_LIMIT_MS. */
-  const [waited, setWaited] = useState(false)
-  const [prevUrl, setPrevUrl] = useState(url)
-  if (url !== prevUrl) {
-    setPrevUrl(url)
-    setLoaded(!!url && shown.has(url))
-    setFade(false)
-    setWaited(false)
-  }
-
-  /* A photo that is taking too long: draw the mark under it rather than a hole. */
-  useEffect(() => {
-    if (!url || loaded || markWhileLoading) return
-    const id = window.setTimeout(() => setWaited(true), BLANK_LIMIT_MS)
-    return () => window.clearTimeout(id)
-  }, [url, loaded, markWhileLoading])
-
-  /* Decoded from the cache before this frame is painted: no fade. */
+  const image = useAvatarImage(url && optimizableAvatar(url) ? optimizedImageUrl(url, size) : url, !lazy || started)
   useLayoutEffect(() => {
-    const img = imgRef.current
-    if (!url || loaded || !img) return
-    if (img.complete && img.naturalWidth > 0) {
-      shown.add(url)
-      setLoaded(true)
-    } else if (img.complete) {
-      /*
-        FAILED BEFORE REACT WAS LISTENING. A page drawn on the server (the
-        checkout) has the <img> in its HTML, so a photo that 404s can fail
-        before hydration attaches onError, and React never hears of it: the
-        circle stayed an empty tint instead of the initials. A finished
-        image with no width is either broken or an SVG with no size of its
-        own, and decode() tells them apart.
-      */
-      let current = true
-      img.decode().then(
-        () => {
-          shown.add(url)
-          if (current) setLoaded(true)
-        },
-        () => {
-          if (current) setFailed(url)
-        },
-      )
-      return () => {
-        current = false
-      }
-    }
-  }, [url, loaded])
-
-  const photo = url && failed !== url
-  const optimized = photo && isOptimizableImage(url)
+    if (lazy && imgRef.current?.complete) setStarted(true)
+  }, [url, lazy])
+  const loaded = image.loaded
+  const [waitedFor, setWaitedFor] = useState<string | null>(null)
+  const waited = !waitForPhoto && waitedFor === url
+  useEffect(() => {
+    if (!url || loaded || markWhileLoading || waitForPhoto) return
+    const timer = window.setTimeout(() => setWaitedFor(url), BLANK_LIMIT_MS)
+    return () => window.clearTimeout(timer)
+  }, [url, loaded, markWhileLoading, waitForPhoto])
+  const photo = !!image.src
+  const fromServer = useDrawnByServer()
   const widthPx = `${size}px`
-
   return (
     <span
       data-app-avatar=""
@@ -303,9 +263,9 @@ export function AppAvatar({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           ref={imgRef}
-          src={optimized ? optimizedImageUrl(url, size) : url}
-          srcSet={optimized ? optimizedSrcSet(url, [...new Set([sizeStep(size), sizeStep(size * 2)])]) || undefined : undefined}
-          sizes={optimized ? widthPx : undefined}
+          src={image.src}
+          onLoad={() => setStarted(true)}
+          onError={() => { setStarted(true); image.onError() }}
           alt={alt ?? name}
           width={size}
           height={size}
@@ -313,15 +273,10 @@ export function AppAvatar({
           loading={lazy ? "lazy" : "eager"}
           fetchPriority={lazy ? "low" : "high"}
           /* A provider's photo (Google's) is loaded from its own host: no referrer, which it can refuse on. */
-          referrerPolicy={optimized ? undefined : "no-referrer"}
+          referrerPolicy="no-referrer"
           draggable={false}
-          onLoad={() => {
-            shown.add(url)
-            if (!loaded) { setFade(true); setLoaded(true) }
-          }}
-          onError={() => setFailed(url)}
           className="absolute inset-0 h-full w-full object-cover"
-          style={{ opacity: loaded || (fromServer && url === firstUrl) ? 1 : 0, transition: fade ? "opacity 150ms ease-out" : undefined }}
+          style={{ opacity: loaded || fromServer ? 1 : 0, transition: "opacity 150ms ease-out" }}
         />
       ) : null}
     </span>
@@ -334,9 +289,9 @@ export function AppAvatar({
  * must come from the same cache entry. Null for no photo.
  */
 export function avatarSource(src: string | null | undefined, size: number): { src: string; srcSet?: string; sizes?: string } | null {
-  const url = src && !src.includes("placeholder.svg") ? toOriginalImageUrl(src) || null : null
+  const url = src && !src.includes("placeholder.svg") ? originalAvatarUrl(src) || null : null
   if (!url) return null
-  if (!isOptimizableImage(url)) return { src: url }
+  if (!optimizableAvatar(url)) return { src: url }
   return { src: optimizedImageUrl(url, size), srcSet: optimizedSrcSet(url, [...new Set([sizeStep(size), sizeStep(size * 2)])]) || undefined, sizes: `${size}px` }
 }
 

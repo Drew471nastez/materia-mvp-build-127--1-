@@ -138,7 +138,7 @@ async function main() {
   {
     check("the live profile wins over the copy taken at publish", creatorPhoto({ published: ONEPAGE_UPLOAD, own: FACE, live: LOUD_LOGO }) === LOUD_LOGO)
     check("and over the page's own copy", creatorPhoto({ published: null, own: ONEPAGE_UPLOAD, live: LOUD_LOGO }) === LOUD_LOGO)
-    check("a copy answers only for a page drawn without the profile to hand", creatorPhoto({ published: null, own: ONEPAGE_UPLOAD, live: null }) === ONEPAGE_UPLOAD)
+    check("a copy answers only for a page drawn without the profile to hand", creatorPhoto({ published: null, own: ONEPAGE_UPLOAD }) === ONEPAGE_UPLOAD)
     check("and a sign in provider's picture is never that answer", creatorPhoto({ published: null, own: "https://lh3.googleusercontent.com/a/ACg8ocK=s96-c", live: null }) === null)
     check("the placeholder is not a photo", keptPhoto("/placeholder.svg") === null)
   }
@@ -188,17 +188,17 @@ async function main() {
   console.log("\nEvery photo control in the app saves the profile")
   {
     const settings = readCode("components/app/settings/profile-photo.tsx")
-    check("Settings › General saves through the account route", settings.includes('fetch("/api/account/avatar"') && settings.includes('from("avatars")'))
+    check("Settings › General saves through the account route", settings.includes('saveAccountPhoto as savePhoto') && settings.includes('from("avatars")'))
 
     const links = readCode("components/onepage/tabs/links-tab.tsx")
     /* Round 11: the crop sheet (components/onepage/crop-upload.tsx) uploads it, into the avatars bucket, in both the Links and the Design tab. */
     check("the OnePage editor uploads into the account's own avatars folder", /prefix="avatar"\s+bucket="avatars"/.test(links) && /prefix="avatar"\s+bucket="avatars"/.test(readCode("components/onepage/tabs/design-tab.tsx")))
-    check("and saves it as the profile photo", links.includes('fetch("/api/account/avatar"'))
+    check("and saves it as the profile photo", links.includes("saveAccountPhoto"))
     check("it no longer keeps its photo in onepage-assets", !/from\("onepage-assets"\)\.upload\(fileName, blob/.test(links))
-    check("removing it there removes the one photo", /url: null/.test(links) && links.includes("announceAvatar(null)"))
+    check("removing it there removes the one photo", links.includes("saveAccountPhoto(null)"))
 
     const pageSection = readCode("components/onepage/profile-section.tsx")
-    check("the OnePage profile section saves it the same way", pageSection.includes('from("avatars")') && pageSection.includes('fetch("/api/account/avatar"'))
+    check("the OnePage profile section saves it the same way", pageSection.includes('from("avatars")') && pageSection.includes("saveAccountPhoto"))
 
     const storefront = readCode("components/storefront/edit-profile-button.tsx")
     check("the storefront's Edit profile uploads to the avatars bucket and saves the profile", storefront.includes('bucket="avatars"') && storefront.includes('fetch("/api/creator-profile"'))
@@ -206,7 +206,7 @@ async function main() {
 
     for (const file of ["components/app/creator-onboarding-modal.tsx", "components/onepage/onboarding-modal.tsx"]) {
       const onboarding = readCode(file)
-      check(`the photo picked in ${file.split("/").pop()} is the one profile photo`, onboarding.includes('from("avatars")') && onboarding.includes('fetch("/api/account/avatar"'))
+      check(`the photo picked in ${file.split("/").pop()} is the one profile photo`, onboarding.includes('from("avatars")') && (onboarding.includes('fetch("/api/account/avatar"') || onboarding.includes("saveAccountPhoto")))
     }
   }
 

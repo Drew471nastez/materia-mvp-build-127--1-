@@ -76,10 +76,10 @@ console.log("\n2. One profile photo")
   const sidebar = readCode("components/app/sidebar.tsx")
   check("every avatar in the shell reads it through the store Settings announces to", /const avatarSrc = toOriginalImageUrl\(useShellAvatar\(avatarUrl\)\)/.test(sidebar))
   const store = readCode("lib/account/avatar-store.ts")
-  check("the store: an announcement wins until the server's own answer changes", /useSyncExternalStore\(subscribe, read, \(\) => null\)/.test(store) && /return announced \? announced\.url : server/.test(store) && /latest = null/.test(store))
+  check("the store: an announcement survives stale props, and a verified read cannot undo a newer write", /useSyncExternalStore\(subscribe, read, \(\) => null\)/.test(store) && /return announced &&/.test(store) && /if \(latest !== started\) return false/.test(store) && /AUTH_SNAPSHOT_EVENT/.test(store))
 
   const photo = readCode("components/app/settings/profile-photo.tsx")
-  check("removing saves through the route and tells the shell at once", /await savePhoto\(null\)[\s\S]{0,200}announceAvatar\(null\)/.test(photo) && /await savePhoto\(publicUrl\)\s*announceAvatar\(publicUrl\)/.test(photo))
+  check("removing saves through the route and tells the shell at once", photo.includes('saveAccountPhoto as savePhoto') && photo.includes('await savePhoto(null)') && photo.includes('await savePhoto(publicUrl)') && readCode('lib/onepage/photo-save.ts').includes('announceAvatar(url)'))
   check("and no longer writes the profile straight from the browser", !/from\("profiles"\)\.update\(\{ avatar_url/.test(photo))
   const route = readCode("app/api/account/avatar/route.ts")
   /* The writes moved into lib/account/avatar-save (the choice first, then the profile, read back): tests/avatar-one-source runs them. */

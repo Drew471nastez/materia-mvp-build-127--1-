@@ -79,7 +79,10 @@ export async function saveProfilePhoto(
   /* 1. The choice, on the account, before the photo. */
   if (user.user_metadata?.[AVATAR_CHOSEN] !== true) {
     const { error } = await supabase.auth.updateUser({ data: { [AVATAR_CHOSEN]: true } })
-    if (error) console.error(`[account/avatar] choice not kept on the account (${error.code ?? error.status ?? "unknown"})`)
+    if (error) {
+      console.error(`[account/avatar] choice not kept on the account (${error.code ?? error.status ?? "unknown"})`)
+      return { ok: false, status: 503, error: "Your photo choice could not be saved. Try again." }
+    }
   }
 
   /* 1b. The photo being replaced, read BEFORE it is overwritten. Every other

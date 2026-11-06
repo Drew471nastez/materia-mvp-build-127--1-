@@ -59,7 +59,8 @@ export async function POST(request: Request) {
       card are built from, so the live page could show a face nobody had used
       for months. Read here, not taken from the request.
     */
-    const { data: ownProfile } = await db.from("profiles").select("avatar_url").eq("id", ownerId).maybeSingle()
+    const { data: ownProfile, error: photoError } = await db.from("profiles").select("avatar_url").eq("id", ownerId).maybeSingle()
+    if (photoError) return NextResponse.json({ error: "Your profile could not be read. Try again." }, { status: 503, headers: { "Cache-Control": "no-store" } })
     const photoNow = typeof ownProfile?.avatar_url === "string" && ownProfile.avatar_url.trim() !== "" ? ownProfile.avatar_url.trim() : null
 
     // If direct data was provided, use it (prevents race conditions)

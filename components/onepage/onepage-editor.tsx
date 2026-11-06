@@ -1,5 +1,7 @@
 "use client"
 
+import { ProfileImage } from "@/components/onepage/profile-image"
+
 import { useOnePage, OnePageProvider } from "@/lib/onepage/context"
 import { onePageImageSrc } from "@/lib/onepage/display-image"
 import { PosterVideo } from "./poster-video"
@@ -88,7 +90,7 @@ export function OnePageEditor({ initialOnePage, team = null }: OnePageEditorProp
   useTeamProductsStore(team)
   return (
     <OnePageTeamProvider team={team}>
-      <OnePageProvider initialOnePage={initialOnePage}>
+      <OnePageProvider initialOnePage={initialOnePage} key={`${initialOnePage?.owner_id}:${initialOnePage?.id}`}>
         {/* Every toast in the editor, its tabs' included, sits clear of its bars and its preview (components/ui/save-notification ToastSpot). */}
         <ToastSpot spot="onepage-editor">
           <EditorLayout />
@@ -356,11 +358,11 @@ function ShareOnePage({
             />
           </span>
         ) : onepage.avatar_url ? (
-          <img
+          <ProfileImage
             src={onePageImageSrc(onepage.avatar_url, 64)}
+            name={onepage.title || ""}
             alt={onepage.title}
             className="mx-auto mb-2 h-14 w-14 rounded-full object-cover"
-            onError={(e) => { e.currentTarget.style.display = "none" }}
           />
         ) : (
           <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full" style={{ backgroundColor: `${theme.text_color}20` }}>

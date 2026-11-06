@@ -104,8 +104,8 @@ async function main() {
     const page = read("app/(storelib)/app/onepage/page.tsx")
     check("the editor page asks teamPageStore(\"onepage\") and draws the access card when refused", page.includes('teamPageStore("onepage")') && /<TeamAreaClosed area="onepage" store=\{access\.acting\.name\} permissions=\{access\.acting\.permissions\} \/>/.test(page))
     check("  a member gets the owner's page, read by the owner's account with the service role", /if \(access\.kind === "store" && !access\.isOwner && access\.acting\)/.test(page) && /admin\.from\("onepages"\)\.select\("\*"\)\.eq\("owner_id", ownerUserId\)/.test(page) && /\.eq\("id", creatorId\)\.eq\("user_id", ownerUserId\)/.test(page))
-    check("  and the editor is told whose store (team prop)", /<OnePageEditor initialOnePage=\{onepage as OnePage\} team=\{team\} \/>/.test(page))
-    check("the owner's own path is the one it was: their session client, their id", /supabase\.from\("onepages"\)\.select\("\*"\)\.eq\("owner_id", user\.id\)/.test(page) && /return <OnePageEditor initialOnePage=\{onepage as OnePage\} \/>/.test(page))
+    check("  and the editor is told whose store (team prop)", /<OnePageEditor initialOnePage=\{\{ \.\.\.onepage, avatar_url: profileAvatar\(ownerRow\?\.avatar_url\) \} as OnePage\} team=\{team\} \/>/.test(page))
+    check("the owner's own path is the one it was: their session client, their id", /supabase\.from\("onepages"\)\.select\("\*"\)\.eq\("owner_id", user\.id\)/.test(page) && /return <OnePageEditor initialOnePage=\{\{ \.\.\.onepage, avatar_url: profileAvatar\(profileRead\.data\?\.avatar_url\) \} as OnePage\} \/>/.test(page))
 
     const editor = read("components/onepage/onepage-editor.tsx")
     check("the editor takes the owner's plan and domain from the page, not the member's account", /if \(team\) \{\s*setConnectedDomain\(team\.domain\)\s*setUserPlan\(team\.plan\)\s*return/.test(editor))

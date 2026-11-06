@@ -1,5 +1,7 @@
 "use client"
 
+import { ProfileImage } from "@/components/onepage/profile-image"
+
 import { hapticTap } from "@/lib/native-bridge"
 import { useProductMoney } from "@/components/platform/price-currency"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
@@ -7,7 +9,6 @@ import { useLinkReorder } from "@/components/onepage/link-reorder"
 
 import { useOnePage } from "@/lib/onepage/context"
 import { onePageImageSrc } from "@/lib/onepage/display-image"
-import { announceAvatar } from "@/lib/account/avatar-store"
 import { photoIsOwners, useOnePageTeam } from "@/lib/onepage/team-context"
 import {
   createDefaultBlock,
@@ -1312,7 +1313,7 @@ export function LinksTab() {
                 still
               />
             ) : avatar_url ? (
-              <img src={onePageImageSrc(avatar_url, 64)} alt={title || tt("Avatar")} className="w-full h-full object-cover" />
+              <ProfileImage src={onePageImageSrc(avatar_url, 64)} name={title || ""} alt={title || tt("Avatar")} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">{title?.trim() ? title.charAt(0) : <AvatarMark name="" size={72} />}</div>
             )}
@@ -2960,12 +2961,8 @@ export function LinksTab() {
                 }
                 /* The one photo, removed everywhere, the same way Settings removes it. */
                 if (onepage.avatar_url) {
-                  await fetch("/api/account/avatar", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ url: null }),
-                  }).catch(() => null)
-                  announceAvatar(null)
+                  try { await saveAccountPhoto(null) }
+                  catch (err) { setAvatarPickError(err instanceof Error ? err.message : tt("The photo was not removed. Try again in a moment.")); return }
                 }
                 updateProfile({ avatar_url: null, avatar_video_url: null })
                 setShowAvatarEditModal(false)
@@ -2973,6 +2970,7 @@ export function LinksTab() {
                 <Trash2 className="h-4 w-4" /><span className="font-medium">{tt("Remove current media")}</span>
               </button>
             )}
+            {avatarPickError ? <p role="alert" className="text-[13px] leading-snug text-[#b42318]">{avatarPickError}</p> : null}
           </div>
         </SheetDialog>
 
@@ -3069,7 +3067,6 @@ export function LinksTab() {
                   if (team) throw new SaveError(photoIsOwners(team.store))
                   /* The route's own reason reaches the sheet when it refuses (lib/onepage/photo-save). */
                   await saveAccountPhoto(result.url)
-                  announceAvatar(result.url)
                   updateProfile({ avatar_url: result.url, avatar_video_url: null })
                   closeAvatarCrop()
                 }}

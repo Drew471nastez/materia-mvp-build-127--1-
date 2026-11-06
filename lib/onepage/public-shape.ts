@@ -126,7 +126,7 @@ export function publicOnePage(
   {
     source,
     displayName = null,
-    liveAvatarUrl = null,
+    liveAvatarUrl = undefined,
     customDomain,
     sellerId,
     now = Date.now(),

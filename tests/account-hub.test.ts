@@ -151,7 +151,7 @@ console.log("\nNo light bar of the profile's own: one header on the screen")
   */
   const header = code("components/platform/platform-header-client.tsx")
   check("the site header reads the shell's copy, so a new photo is there without a reload", /import \{ useShellAvatar \} from "@\/lib\/account\/avatar-store"/.test(header) && /useShellAvatar\(profile \? profile\.avatar_url : cachedAvatarUrl\)/.test(header))
-  check("  and Settings is what announces it, on a save and on a remove", (avatarPhoto.match(/announceAvatar\(/g) ?? []).length >= 2)
+  check("  and Settings is what announces it, on a save and on a remove", avatarPhoto.includes("saveAccountPhoto as savePhoto") && avatarPhoto.includes("await savePhoto(publicUrl)") && avatarPhoto.includes("await savePhoto(null)") && code("lib/onepage/photo-save.ts").includes("announceAvatar(url)"))
 }
 
 console.log("\nOne face per screen")
@@ -164,7 +164,7 @@ console.log("\nOne face per screen")
   check("the profile's circle is only a picture: it is handed no photo control at all", /<AccountAvatar\s+src=\{shown\}\s+name=\{name\}\s+size=\{PROFILE_AVATAR_PX\.wide\}/.test(hub) && !/useAccountPhoto/.test(hub) && !/photo=\{/.test(hub) && !/editable/.test(hub))
   check("Settings' circle is the control: pressed, it opens the picker", /<AccountAvatar src=\{shown\} name=\{name\} photo=\{photo\} editable/.test(settings) && /useAccountPhoto\(userId/.test(settings) && /\{editable && photo \? \(\s*<button[\s\S]{0,120}onClick=\{photo\.pick\}/.test(photo))
   check("Change photo and Remove sit beside it, and the picker is drawn once", /data-photo-change=""/.test(settings) && /data-photo-remove=""/.test(settings) && (settings.match(/\{photo\.input\}/g) ?? []).length === 1)
-  check("uploaded under the owner's folder, through the one photo route, and announced", /`\$\{userId\}\/avatar-\$\{Date\.now\(\)\}\.jpg`/.test(photo) && /fetch\("\/api\/account\/avatar"/.test(photo) && /announceAvatar\(publicUrl\)/.test(photo) && /announceAvatar\(null\)/.test(photo))
+  check("uploaded under the owner's folder, through the one photo route, and announced", /`\$\{userId\}\/avatar-\$\{Date\.now\(\)\}\.jpg`/.test(photo) && photo.includes("saveAccountPhoto as savePhoto") && photo.includes("await savePhoto(publicUrl)") && photo.includes("await savePhoto(null)"))
   check("the camera only fades and grows, on the compositor", /transition-\[opacity,scale\]/.test(photo) && /editable \? "scale-100 opacity-100" : "scale-75 opacity-0"/.test(photo))
   /* Changed on purpose: 89c6f3ba moved the settings route's reads into lib/account/load-account-settings.ts, shared with the settings sheet's bundle route. */
   check("the layout hands the hub whose photo it is, and the settings route hands it the same one", /userId: user\.id,/.test(code("app/(storelib)/account/layout.tsx")) && /loadAccountSettingsForUser\(user,/.test(code("app/(storelib)/account/settings/page.tsx")) && /avatarUrl: profile\?\.avatar_url \|\| null/.test(code("lib/account/load-account-settings.ts")))

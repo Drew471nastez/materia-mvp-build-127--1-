@@ -682,6 +682,7 @@ const SUITES = [
   "tests/avatar-one-source.test.ts",
   "tests/creator-identity.test.ts",
   "tests/onepage-avatar-kept.test.ts",
+  "tests/onepage-avatar-sync.test.ts",
   /* Round 11 media: what a OnePage picture or video may be (2 GB, MOV, HEIC), straight to storage in TUS parts with real progress and Stop, the cropper's maths, and every upload in the editor through the one helper; scripts/check-onepage-media-r11.mjs drives the real cropper and uploads in a browser. */
   "tests/onepage-media-r11.test.ts",
   "tests/profile-photo.test.ts",

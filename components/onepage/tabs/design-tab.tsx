@@ -1,5 +1,7 @@
 "use client"
 
+import { ProfileImage } from "@/components/onepage/profile-image"
+
 import type React from "react"
 
 import { useOnePage } from "@/lib/onepage/context"
@@ -31,7 +33,6 @@ import {
   Upload,
   X,
 } from "lucide-react"
-import { announceAvatar } from "@/lib/account/avatar-store"
 import { photoIsOwners, useOnePageTeam } from "@/lib/onepage/team-context"
 import { ONEPAGE_IMAGE_ACCEPT, ONEPAGE_VIDEO_ACCEPT, checkMedia } from "@/lib/onepage/media-rules"
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
@@ -1704,7 +1705,8 @@ function HeaderSection() {
     is removed the way Settings removes it, and the page's photo, video and
     crop go in one edit, while the sheet closes at once.
   */
-  const handleRemoveMedia = () => {
+  const handleRemoveMedia = async () => {
+    setPickError(null)
     const hadPhoto = !!onepage.avatar_url
     setShowEditModal(false)
     /* A team member removes the page's video only: the photo is the owner's account photo. */
@@ -1712,15 +1714,11 @@ function HeaderSection() {
       updateProfile({ avatar_video_url: null, avatar_video_crop: null })
       return
     }
-    updateProfile({ avatar_url: null, avatar_video_url: null, avatar_video_crop: null })
     if (hadPhoto) {
-      announceAvatar(null)
-      void fetch("/api/account/avatar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: null }),
-      }).catch(() => null)
+      try { await saveAccountPhoto(null) }
+      catch (err) { setPickError(err instanceof Error ? err.message : tt("The photo was not removed. Try again in a moment.")); setShowEditModal(true); return }
     }
+    updateProfile({ avatar_url: null, avatar_video_url: null, avatar_video_crop: null })
   }
 
   /* A picture from Files goes through the same cropper as one from the device; a video from Files is cropped where it is stored, not uploaded again. */
@@ -1773,7 +1771,6 @@ function HeaderSection() {
     if (team) throw new SaveError(photoIsOwners(team.store))
     /* The route's own reason reaches the sheet when it refuses (lib/onepage/photo-save). */
     await saveAccountPhoto(url)
-    announceAvatar(url)
     updateProfile({ avatar_url: url, avatar_video_url: null })
   }
 
@@ -1839,7 +1836,7 @@ function HeaderSection() {
                   still
                 />
               ) : onepage.avatar_url ? (
-                <img src={onePageImageSrc(onepage.avatar_url, 96)} alt={onepage.title} className="w-full h-full object-cover" />
+                <ProfileImage src={onePageImageSrc(onepage.avatar_url, 96)} name={onepage.title || ""} alt={onepage.title} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[28px] font-semibold text-[#6b7280] bg-[#f1f2f4]">{onepage.title?.trim() ? onepage.title.charAt(0) : <AvatarMark name="" size={72} />}</div>
               )}
@@ -1881,6 +1878,7 @@ function HeaderSection() {
                 <Trash2 className="h-4 w-4" /><span className="font-medium">{tt("Remove current media")}</span>
               </button>
             )}
+            {pickError ? <p role="alert" className="text-[13px] leading-snug text-[#b42318]">{pickError}</p> : null}
           </div>
         </SheetDialog>
 
@@ -4034,7 +4032,7 @@ function ButtonsSection() {
               emptyLabel={tt("Automatic")}
               fallback={hoverFallback.fill}
               onChange={(color) => updateTheme({ button_hover_fill: color })}
-              onClear={() => updateTheme({ button_hover_fill: null, button_hover_text: null })}
+              onClear={() => updateTheme({ button_hover_fill: null })}
               suggestions={["#111113", "#ffffff", theme.text_color, theme.button_color, "#d42d17", "#12695e", "#f0a24a"]}
             />
             <ColorRow

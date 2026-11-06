@@ -1,3 +1,4 @@
+import { profileAvatar } from "@/lib/account/avatar"
 import { redirect } from "next/navigation"
 import { after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
@@ -73,8 +74,8 @@ export default async function OnePageEditorPage() {
   }
 
   /*
-    EVERY WAIT HAS AN END, AND THE TWO READS GO TOGETHER. The creator row
-    and the page both depend on nothing but the user, and were asked one
+    EVERY WAIT HAS AN END. The creator row, page and canonical profile photo
+    are read together. The creator and page were previously asked one
     after the other with no ceiling: a read that hung held the router's
     answer, the shell's spinner gave way at its cap, and the editor came
     whenever the read did, or never. Now they are asked at once, each try is
@@ -90,13 +91,14 @@ export default async function OnePageEditorPage() {
     sent to onboarding; a read that failed twice is an error, with its
     own Try again, on the editor's own address.
   */
-  const [creatorRead, pageRead] = await Promise.all([
+  const [creatorRead, pageRead, profileRead] = await Promise.all([
     readTwice((signal) =>
       createAdminClient().from("creators").select("*").eq("user_id", user.id).abortSignal(signal).maybeSingle(),
     ),
     readTwice((signal) =>
       supabase.from("onepages").select("*").eq("owner_id", user.id).abortSignal(signal).maybeSingle(),
     ),
+    readTwice<{ avatar_url: string | null }>((signal) => supabase.from("profiles").select("avatar_url").eq("id", user.id).abortSignal(signal).maybeSingle()),
   ])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const creator = creatorRead.data as any
@@ -287,7 +289,8 @@ export default async function OnePageEditorPage() {
     throw new Error("The OnePage could not be made")
   }
 
-  return <OnePageEditor initialOnePage={onepage as OnePage} />
+  if (profileRead.error) throw new Error("The profile could not be read")
+  return <OnePageEditor initialOnePage={{ ...onepage, avatar_url: profileAvatar(profileRead.data?.avatar_url) } as OnePage} />
 }
 
 /** The plan a creators row is on, as the editor names it: Pro ("growth", or the older "pro") while it still entitles, else free. */
@@ -312,7 +315,7 @@ async function teamOnePage({ creatorId, ownerUserId, store }: { creatorId: strin
   const ownerRow = (ownerRead.data as { display_name?: string | null; avatar_url?: string | null } | null) ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const creator = creatorRead.data as any
-  if (creatorRead.error || pageRead.error) throw new Error("The OnePage could not be read")
+  if (creatorRead.error || pageRead.error || ownerRead.error) throw new Error("The OnePage could not be read")
   if (!creator) throw new Error("This store isn't on Storelib any more")
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let onepage = pageRead.data as any
@@ -328,7 +331,7 @@ async function teamOnePage({ creatorId, ownerUserId, store }: { creatorId: strin
     plan: editorPlan(creator),
     domain: creatorPageHostFromRows((domainsRead.data as { domain?: string | null; status?: string | null; purpose?: string | null; is_primary?: boolean | null }[] | null) ?? null),
     ownerName: ownerRow?.display_name ?? null,
-    ownerAvatar: ownerRow?.avatar_url ?? null,
+    ownerAvatar: profileAvatar(ownerRow?.avatar_url),
   }
-  return <OnePageEditor initialOnePage={onepage as OnePage} team={team} />
+  return <OnePageEditor initialOnePage={{ ...onepage, avatar_url: profileAvatar(ownerRow?.avatar_url) } as OnePage} team={team} />
 }

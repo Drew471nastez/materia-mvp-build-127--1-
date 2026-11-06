@@ -74,7 +74,9 @@ async function readOnePageOwner(sellerId: string | null, creatorId: string | nul
     if (!userId) return { data: null }
     const withVerdict = await supabase.from("profiles").select("avatar_url, display_name, username, spam_state").eq("id", userId).maybeSingle()
     if (!withVerdict.error) return withVerdict
-    return supabase.from("profiles").select("avatar_url, display_name, username").eq("id", userId).maybeSingle()
+    const fallback = await supabase.from("profiles").select("avatar_url, display_name, username").eq("id", userId).maybeSingle()
+    if (fallback.error) throw new SiteReadError("onepage profile", "The profile could not be read")
+    return fallback
   }
   const readCount = (id: string | null) =>
     id ? supabase.from("products").select("id", { count: "exact", head: true }).eq("creator_id", id).eq("status", "published") : Promise.resolve({ count: 0 })

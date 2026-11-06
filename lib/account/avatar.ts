@@ -53,7 +53,8 @@ export const AVATAR_CHOSEN = "storelib_avatar_chosen"
 
 /** A stored address worth drawing: not empty, not the old placeholder. */
 export function profileAvatar(url: string | null | undefined): string | null {
-  return url && !url.includes("placeholder.svg") ? url : null
+  const clean = url?.trim()
+  return clean && !clean.includes("placeholder.svg") ? clean : null
 }
 
 /**

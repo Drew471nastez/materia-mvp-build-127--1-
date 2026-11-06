@@ -119,8 +119,9 @@ async function main() {
   console.log("\nThe editor's page waits for nothing without an end")
   {
     const page = code("app/(storelib)/app/onepage/page.tsx")
-    check("the creator and the page are read at once, each bounded and abortable",
-      /await Promise\.all\(\[\s*readTwice\(\(signal\) =>\s*createAdminClient\(\)\.from\("creators"\)\.select\("\*"\)\.eq\("user_id", user\.id\)\.abortSignal\(signal\)\.maybeSingle\(\),?\s*\),\s*readTwice\(\(signal\) =>\s*supabase\.from\("onepages"\)\.select\("\*"\)\.eq\("owner_id", user\.id\)\.abortSignal\(signal\)\.maybeSingle\(\),?\s*\),?\s*\]\)/.test(page))
+    const parallel = page.slice(page.indexOf("const [creatorRead, pageRead, profileRead] = await Promise.all(["), page.indexOf("const creator = creatorRead.data"))
+    check("the creator, page and canonical photo are read at once, each bounded and abortable", (parallel.match(/readTwice/g) ?? []).length === 3 && ["creators", "onepages", "profiles"].every(table => parallel.includes(`from("${table}")`)) && (parallel.match(/abortSignal\(signal\)/g) ?? []).length === 3)
+
     check("the reads come from the shared bounded helper", /from "@\/lib\/onepage\/bounded-read"/.test(read("app/(storelib)/app/onepage/page.tsx")) && !/async function readTwice/.test(page))
     check("making a new page has a ceiling", /await within\(\s*async \(\) => \(\{ data: await ensureOnePage\(supabase, user\.id, creator\), error: null \}\),\s*MAKE_PAGE_MS,?\s*\)/.test(page))
     check("the store builder's links are waited on for 1.5s at most", /const STORE_SOCIALS_MS = 1500/.test(page) && /\.abortSignal\(signal\)\s*\.maybeSingle\(\),\s*STORE_SOCIALS_MS,?\s*\)/.test(page))

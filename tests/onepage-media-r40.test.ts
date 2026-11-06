@@ -161,7 +161,7 @@ function run() {
     check("the panel's video is the page's own element, through the crop kept in settings", /<PosterVideo/.test(design) && /\(onepage\.settings as any\)\?\.avatar_video_crop/.test(design))
     const blocked = design.slice(design.indexOf("const heroBlockedBy ="), design.indexOf("const heroBlockedBy =") + 400)
     check("Hero is offered with a pattern", !/background_pattern/.test(blocked) && !/Remove the pattern/.test(design))
-    check("Remove is one edit that also removes the account photo", /updateProfile\(\{ avatar_url: null, avatar_video_url: null, avatar_video_crop: null \}\)/.test(design) && /body: JSON\.stringify\(\{ url: null \}\)/.test(design) && /onClick=\{handleRemoveMedia\}/.test(design))
+    check("Remove is one edit that also removes the account photo", /updateProfile\(\{ avatar_url: null, avatar_video_url: null, avatar_video_crop: null \}\)/.test(design) && /await saveAccountPhoto\(null\)/.test(design) && /onClick=\{handleRemoveMedia\}/.test(design))
     check("Your files beside the photo, the video, the logo and the wallpaper", (design.match(/<LibraryRow\b/g) ?? []).length >= 4 && /<LibraryButton\b/.test(design) && (design.match(/<FilesLibraryChooser\b/g) ?? []).length >= 2)
     check("a video from Files is cropped where it is, not uploaded again", /existingUrl=\{tempVideo\.existing\}/.test(design))
     check("the drop boxes say drag and drop and take a drop", (design.match(/onDrop=\{\(e\) => \{\s*e\.preventDefault\(\)\s*void pickImage\(e\.dataTransfer\.files\?\.\[0\]/g) ?? []).length === 2)

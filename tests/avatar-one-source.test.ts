@@ -188,6 +188,14 @@ async function main() {
   console.log("\n6. What the save refuses to call saved")
   {
     const w = googleWorld()
+    const client = clientFor(w)
+    client.auth.updateUser = async () => ({ data: null, error: { code: "08006" } })
+    const refused = await saveProfilePhoto(client, { id: "user-1", user_metadata: {} }, null)
+    check("a failed choice marker cannot report removal as saved or permit a provider to restore it later", "status" in refused && refused.status === 503 && !w.calls.includes("profiles.update"))
+  }
+
+  {
+    const w = googleWorld()
     w.refuseProfile = true
     const r = await saveProfilePhoto(clientFor(w), { id: "user-1", user_metadata: {} }, null)
     check("an update the database turned away (no row changed) is an error, not a quiet success", r.ok === false && (r as { status: number }).status === 409, r)
@@ -233,7 +241,7 @@ async function main() {
       saveSrc.indexOf("supabase.auth.updateUser({ data: { [AVATAR_CHOSEN]: true } })") < saveSrc.indexOf('.from("profiles").update({ avatar_url: url }).eq("id", user.id).select("avatar_url")'))
   const store = readCode("lib/account/avatar-store.ts")
   check("an announcement reaches the other tabs and corrects the public header's snapshot",
-    /new BroadcastChannel\(CHANNEL\)/.test(store) && /tabs\(\)\?\.postMessage\(\{ url: clean \}\)/.test(store) && /writeAuthSnapshot\(\{ \.\.\.snap, avatarUrl: url \}\)/.test(store))
+    /new BroadcastChannel\(CHANNEL\)/.test(store) && /tabs\(\)\?\.postMessage\(\{ url: clean, userId: latest\?\.userId \}\)/.test(store) && /writeAuthSnapshot\(\{ \.\.\.snap, avatarUrl: url \}\)/.test(store))
   const form = readCode("components/app/settings-form-new.tsx")
   check("Settings reads the photo where the header reads it, and the save bar does not ask about it",
     /const avatarUrl = useShellAvatar\(profile\.avatar_url\) \?\? ""/.test(form) && !/setAvatarUrl|avatarUrl !== initialValues/.test(form))
@@ -245,7 +253,7 @@ async function main() {
   check("onboarding starts from onboardingPhoto, not the Google picture", /const start = onboardingPhoto\(\{/.test(onboarding) && !/if \(user\?\.user_metadata\?\.avatar_url\) \{\s*setAvatarUrl/.test(onboarding))
   /* The buyer's profile changes its photo on the big one at its top (components/account/account-photo), through the same route. */
   const account = readCode("components/account/account-settings.tsx") + readCode("components/account/account-photo.tsx")
-  check("the account page's photo is saved through the same route and announced", /fetch\("\/api\/account\/avatar"/.test(account) && /announceAvatar\(publicUrl\)/.test(account) && /fetch\("\/api\/account\/avatar"/.test(readCode("components/app/settings/profile-photo.tsx")) && !/update\(\{ avatar_url/.test(account))
+  check("the account page's photo is saved through the same route and announced", account.includes("saveAccountPhoto as savePhoto") && account.includes("await savePhoto(publicUrl)") && readCode("lib/onepage/photo-save.ts").includes("announceAvatar(url)") && readCode("components/app/settings/profile-photo.tsx").includes("saveAccountPhoto as savePhoto") && !/update\(\{ avatar_url/.test(account))
   const layout = readCode("app/(storelib)/app/layout.tsx")
   check("the /app header's photo is still the profile's, with no fallback", /const avatarUrl = profileAvatar\(profile\?\.avatar_url\)/.test(layout) && !/user_metadata\??\.(avatar_url|picture)/.test(layout))
   /*

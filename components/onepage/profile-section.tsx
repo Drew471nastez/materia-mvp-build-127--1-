@@ -1,27 +1,18 @@
 "use client"
 
+import { ProfileImage } from "./profile-image"
+
 import { useOnePage } from "@/lib/onepage/context"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AvatarMark } from "@/components/app/app-avatar"
+import { Avatar } from "@/components/ui/avatar"
 import { Camera, X } from "lucide-react"
 import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { pickPhoto } from "@/lib/native-camera"
-import { announceAvatar } from "@/lib/account/avatar-store"
-
-/** The one photo, saved where it lives (app/api/account/avatar). */
-async function savePhoto(url: string | null) {
-  await fetch("/api/account/avatar", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
-  }).catch(() => null)
-  announceAvatar(url)
-}
+import { saveAccountPhoto } from "@/lib/onepage/photo-save"
 
 export function ProfileSection() {
   const { onepage, updateProfile, updateSlug } = useOnePage()
@@ -57,7 +48,7 @@ export function ProfileSection() {
         .from("avatars")
         .getPublicUrl(fileName)
 
-      await savePhoto(publicUrl)
+      await saveAccountPhoto(publicUrl)
       updateProfile({ avatar_url: publicUrl })
     } catch (err) {
       console.error("Avatar upload error:", err)
@@ -68,8 +59,10 @@ export function ProfileSection() {
   }
 
   const removeAvatar = async () => {
-    await savePhoto(null)
-    updateProfile({ avatar_url: null })
+    try {
+      await saveAccountPhoto(null)
+      updateProfile({ avatar_url: null })
+    } catch (err) { setUploadError(err instanceof Error ? err.message : "The photo was not removed. Try again in a moment.") }
   }
 
   return (
@@ -89,10 +82,7 @@ export function ProfileSection() {
             {/* The page's initials, or a plain person when it has no title
                 yet. It drew a "?", and for 600ms before that, nothing. */}
             <Avatar className="h-20 w-20">
-              <AvatarImage src={onepage.avatar_url || undefined} />
-              <AvatarFallback delayMs={onepage.avatar_url ? undefined : 0}>
-                <AvatarMark name={(onepage.title || "").trim()} size={80} />
-              </AvatarFallback>
+              <ProfileImage src={onepage.avatar_url} name={onepage.title} className="h-full w-full object-cover" />
             </Avatar>
             <button
               type="button"

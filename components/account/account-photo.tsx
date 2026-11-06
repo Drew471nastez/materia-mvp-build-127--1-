@@ -37,7 +37,8 @@ import { AppAvatar } from "@/components/app/app-avatar"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { createClient } from "@/lib/supabase/client"
 import { uploadWithProgress } from "@/lib/storage/upload-with-progress"
-import { announceAvatar } from "@/lib/account/avatar-store"
+import { useShellAvatar } from "@/lib/account/avatar-store"
+import { saveAccountPhoto as savePhoto } from "@/lib/onepage/photo-save"
 import { cn } from "@/lib/utils"
 import { PHOTO_SIDE, centreSquare } from "@/lib/profile/photo-square"
 
@@ -70,20 +71,6 @@ async function squareJpeg(file: File): Promise<Blob> {
   }
 }
 
-/** The one photo route, which also marks the account as having chosen (lib/account/avatar). */
-async function savePhoto(url: string | null) {
-  const res = await fetch("/api/account/avatar", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
-  }).catch(() => null)
-  if (!res) throw new Error("Could not reach Storelib. Check your connection and try again.")
-  if (!res.ok) {
-    const data = (await res.json().catch(() => null)) as { error?: string } | null
-    throw new Error(data?.error || (url ? "The photo did not upload. Try again in a moment." : "The photo was not removed. Try again in a moment."))
-  }
-}
-
 export interface AccountPhoto {
   /** The picture just chosen, in the circle while it uploads and until the saved one is announced. */
   preview: string | null
@@ -105,6 +92,13 @@ export function useAccountPhoto(userId: string, onChanged: () => void): AccountP
   const [error, setError] = useState<string | null>(null)
   const previewRef = useRef<string | null>(null)
   useEffect(() => () => { if (previewRef.current) URL.revokeObjectURL(previewRef.current) }, [])
+  const canonicalPhoto = useShellAvatar(undefined, userId)
+  useEffect(() => {
+    if (busy || !previewRef.current) return
+    URL.revokeObjectURL(previewRef.current)
+    previewRef.current = null
+    setPreview(null)
+  }, [busy, canonicalPhoto])
 
   const showPreview = (url: string | null) => {
     if (previewRef.current && previewRef.current !== url) URL.revokeObjectURL(previewRef.current)
@@ -152,7 +146,6 @@ export function useAccountPhoto(userId: string, onChanged: () => void): AccountP
         data: { publicUrl },
       } = createClient().storage.from("avatars").getPublicUrl(path)
       await savePhoto(publicUrl)
-      announceAvatar(publicUrl)
       onChanged()
     } catch (err) {
       console.error("[account] photo not saved:", err)
@@ -172,7 +165,6 @@ export function useAccountPhoto(userId: string, onChanged: () => void): AccountP
       await savePhoto(null)
       showPreview(null)
       /* The header and the account sheet show the default face now, not the Google picture. */
-      announceAvatar(null)
       onChanged()
     } catch (err) {
       setError(err instanceof Error && err.message ? err.message : "The photo was not removed. Try again in a moment.")

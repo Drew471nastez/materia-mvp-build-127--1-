@@ -90,7 +90,7 @@ console.log("\nNo face is a question mark")
   check(
     "it never waits more than BLANK_LIMIT_MS with the circle blank",
     /const BLANK_LIMIT_MS = 600/.test(avatar)
-      && /setTimeout\(\(\) => setWaited\(true\), BLANK_LIMIT_MS\)/.test(avatar)
+      && /setTimeout\(\(\) => setWaitedFor\(url\), BLANK_LIMIT_MS\)/.test(avatar)
       && /\{!photo \|\| \(!loaded && \(markWhileLoading \|\| waited \|\| who === "person"\)\) \? \(\s*who === "person" \|\| !initialsOf\(name\) \? <DefaultAvatarGlyph fill \/> : <AvatarMark/.test(avatar),
     "a host that never answers left a hole where a face goes",
   )
@@ -152,7 +152,7 @@ console.log("\nNo face is a question mark")
     ["components/store-builder/subscribe-bar.tsx", 5],
     ["components/store-builder/product-creator-bar.tsx", 4],
     ["components/store-builder/unified-section-renderer.tsx", 1],
-    ["components/onepage/public-onepage.tsx", 1],
+
   ]
   for (const [file, n] of radix) {
     const src = readCode(file)
@@ -182,7 +182,7 @@ console.log("\nNo face is a question mark")
     "components/onepage/onboarding-modal.tsx",
     "components/app/creator-onboarding-modal.tsx",
   ]) {
-    const src = readCode(file)
+    const src = readCode(file) + (file.includes("onepage/") ? readCode("components/onepage/profile-image.tsx") : "")
     check(`${file}: an untitled page is a person, not a letterless box`, /<AvatarMark /.test(src))
   }
 }

@@ -2847,6 +2847,11 @@ html.capacitor .subscribe-bar-spacer {
 .op-btn:is([data-hover="fill"], [data-hover="pop"]):not(.animate-onepage-swipe)::after {
   background: var(--op-fill, currentColor);
 }
+/* A highlighted link's swipe already owns ::after. Its hover fill uses
+   the shadow layer, so the chosen colours still work without losing it. */
+.op-btn.animate-onepage-swipe:is([data-hover="fill"], [data-hover="pop"])::before {
+  background: var(--op-fill, currentColor);
+}
 .op-btn[data-hover="underline"] .op-label {
   position: relative;
   align-self: center;
@@ -2902,6 +2907,7 @@ html.capacitor .subscribe-bar-spacer {
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="glow"]::before { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fill"] { color: var(--op-fill-text, inherit) !important; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fill"]:not(.animate-onepage-swipe)::after { opacity: 1; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn).animate-onepage-swipe[data-hover="fill"]::before { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="underline"] .op-label::after { scale: 1 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"] { translate: 0 -2px; color: var(--op-fill-text, inherit) !important; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"][data-shadow="hard"] { translate: -2px -2px; }
