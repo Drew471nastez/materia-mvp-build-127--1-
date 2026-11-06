@@ -1,3 +1,5 @@
+import type {VariantPriceFacts} from "@/lib/pricing/variant-price"
+import type {ProductBlockData} from "./types"
 // OnePage: the rules behind the blocks that show Storelib's own things and the
 // creator's social reach (components/onepage/storelib-blocks.tsx draws them).
 // Location: lib/onepage/storelib-blocks.ts
@@ -32,7 +34,7 @@ export function isStorelibBlock(block: { type: string }): boolean {
 export const SHELF_SOURCES = ["digital", "physical", "course", "membership", "community", "all"] as const
 export type ShelfSource = (typeof SHELF_SOURCES)[number]
 
-export interface ShelfItem {
+export interface ShelfItem extends VariantPriceFacts {
   id: string
   /** The product's type, or "community". */
   kind: string
@@ -48,9 +50,11 @@ export interface ShelfItem {
 }
 
 export interface StorelibShelfBlockData {
+  product_settings?:Partial<ProductBlockData>
+  product_overrides?:Record<string,Partial<ProductBlockData>>
   source: ShelfSource
   title?: string | null
-  layout?: "carousel" | "list"
+  layout?: "carousel" | "list" | "grid"
   /** How many to show, 1 to 12. */
   limit?: number
   /**
@@ -162,6 +166,9 @@ export interface SocialPostItem {
 }
 
 export interface SocialPostsBlockData {
+  presentation?:"native"|"card"
+  layout?:"carousel"|"grid"|"list"|"single"
+  thumbnails?:Record<string,string|null>
   network: SocialPostsNetwork
   title?: string | null
   /** YouTube: a channel's address. Its latest videos come from the channel's public feed, read again every hour. */

@@ -232,7 +232,7 @@ export async function fetchPublic(raw: string, opts: PublicFetchOptions): Promis
     const problem = trusted ? null : opts.httpsOnly && !/^https:/i.test(current) ? "not https" : publicUrlProblem(current)
     if (problem) throw new Error(`Refused: ${problem}`)
     const answer = await once(new URL(current), opts, trusted)
-    if ("response" in answer) return answer.response
+    if ("response" in answer) {Object.defineProperty(answer.response,"url",{value:current});return answer.response}
     if (hop >= (opts.maxRedirects ?? 3)) throw new Error("Too many redirects")
     current = new URL(answer.redirect, current).toString()
   }

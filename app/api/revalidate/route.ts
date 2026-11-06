@@ -37,7 +37,7 @@ import { productTag, creatorTag } from "@/lib/commerce/product-page-cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { queueProductFanout } from "@/lib/notifications/fanout"
 import { creatorShopTag, revalidatePublishedPages, revalidatePublishedProduct } from "@/lib/website-builder/published-site"
-import { exploreCatalogueChanged } from "@/lib/explore/catalogue-cache"
+import { exploreCatalogueTakenDown } from "@/lib/explore/catalogue-cache"
 import { translationsChanged } from "@/lib/markets/translate-queue"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
@@ -90,14 +90,14 @@ export async function POST(request: NextRequest) {
       Three tags, because the cache keys on three different things: the slug
       (the product row itself), the product id (its variants, files, reviews,
       page config) and the creator id (the theme, and this product's
-      neighbours in "more from seller"). `"max"` so the entry is dropped
-      rather than left to expire.
+      neighbours in "more from seller"). Expire immediately so the next
+      visitor reads the saved settings.
     */
-    revalidateTag(productTag(slug), "max")
-    revalidateTag(productTag(owned.id), "max")
-    revalidateTag(creatorTag(owned.creator_id), "max")
+    revalidateTag(productTag(slug), { expire: 0 })
+    revalidateTag(productTag(owned.id), { expire: 0 })
+    revalidateTag(creatorTag(owned.creator_id), { expire: 0 })
     if (typeof productId === "string" && productId && productId !== owned.id) {
-      revalidateTag(productTag(productId), "max")
+      revalidateTag(productTag(productId), { expire: 0 })
     }
 
     /**
@@ -114,14 +114,14 @@ export async function POST(request: NextRequest) {
       Both were left to their minute because no route told them about a
       save; this is the route the editor calls after every save.
     */
-    revalidateTag(creatorShopTag(owned.creator_id), "max")
+    revalidateTag(creatorShopTag(owned.creator_id), { expire: 0 })
     /* And the OnePage blocks that draw this store's products, expired at once (lib/onepage/public-cache). */
     await onePageProductsChanged(owned.creator_id)
     /* And the rendered pages that drew it: the front page's Featured products, every grid (revalidatePublishedPages). */
     await revalidatePublishedPages(owned.creator_id)
     /* The product's own page on the website, held for a minute, drawn fresh for the next visitor. */
     await revalidatePublishedProduct(owned.creator_id, slug)
-    exploreCatalogueChanged()
+    exploreCatalogueTakenDown()
     /* Its title, description and search engine text, translated in a few minutes when the store has it on (lib/markets/translate-queue.ts). */
     translationsChanged(owned.creator_id)
 

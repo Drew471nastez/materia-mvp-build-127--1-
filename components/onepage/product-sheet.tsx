@@ -111,6 +111,7 @@ export interface ProductSheetProps {
   /** The button opens the checkout window on this page (instant checkout); otherwise the checkout page. */
   instant: boolean
   onBuy: (variantId: string | null) => void
+  onClosed?:()=>void
   onCheckoutLink?: (href: string) => void
   /** The OnePage to come back to from the checkout or the product page (lib/onepage/return-address). */
   back?: string | null
@@ -126,8 +127,16 @@ export interface ProductSheetProps {
 
 const EMPTY_MODEL: SheetModel = { options: [], variants: [] }
 
-export function ProductSheet({ open, onClose, warm = false, productId, title, image, priceText, ctaText, instant, onBuy, onCheckoutLink, back = null, action = "checkout", pageLink = true, priceOnButton = false, font = null }: ProductSheetProps) {
+export function ProductSheet({ open, onClose, warm = false, productId, title, image, priceText, ctaText, instant, onBuy, onClosed, onCheckoutLink, back = null, action = "checkout", pageLink = true, priceOnButton = false, font = null }: ProductSheetProps) {
   const phone = usePhoneWidth()
+  const closedCallback=React.useRef(onClosed);closedCallback.current=onClosed
+  const wasOpen=React.useRef(false)
+  React.useEffect(()=>{
+    if(open){wasOpen.current=true;return}
+    if(phone||!wasOpen.current)return
+    const timer=window.setTimeout(()=>{wasOpen.current=false;closedCallback.current?.()},180)
+    return()=>window.clearTimeout(timer)
+  },[open,phone])
   const [facts, setFacts] = React.useState<ProductFacts | null>(null)
   const [failed, setFailed] = React.useState<string | null>(null)
   /* The value chosen for each option, in the options' order (lib/onepage/product-sheet sheetStartChoice). */
@@ -401,19 +410,19 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
         twoColumns ? "sm:max-w-[920px]" : "sm:max-w-[560px]",
       )}
       /* Kept built once the block is seen (keepMounted): opening is a transform, never a render of the whole product on the tap. */
-      sheet={{ waitForImages: !warm, keepMounted: warm, maxHeight: "calc(var(--vv-h, 100dvh) * 0.92)", className: "op-sheet" }}
+      sheet={{ onClosed:()=>{wasOpen.current=false;closedCallback.current?.()}, waitForImages: !warm, keepMounted: warm, maxHeight: "calc(var(--vv-h, 100dvh) * 0.92)", className: "op-sheet" }}
     >
       {twoColumns ? (
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]" style={bodyFont} data-product-sheet={productId} data-product-sheet-columns="">
-          <div className="min-h-0 overflow-y-auto overscroll-contain">{gallery}</div>
+          <div className="min-h-0 overflow-y-auto overscroll-contain op-subtle-scroll">{gallery}</div>
           <div className="flex min-h-0 flex-col">
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{details}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain op-subtle-scroll">{details}</div>
             {actions}
           </div>
         </div>
       ) : (
         <div className="flex min-h-0 flex-col" style={bodyFont} data-product-sheet={productId}>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain op-subtle-scroll">
             {gallery}
             {details}
           </div>
@@ -572,7 +581,8 @@ function OptionRow({
 function Gallery({ images, title, phone, focus = -1, tall = false, active = true }: { images: string[]; title: string; phone: boolean; focus?: number; tall?: boolean; active?: boolean }) {
   const media = React.useMemo(() => mediaOf(images), [images])
   const count = media.length
-  const ratio = tall ? SHEET_COLUMN_RATIO : SHEET_PHONE_RATIO
+  const [naturalRatio,setNaturalRatio]=React.useState<number|null>(null)
+  const ratio = naturalRatio??(tall ? SHEET_COLUMN_RATIO : SHEET_PHONE_RATIO)
   const strip = React.useRef<HTMLDivElement>(null)
   const lit = React.useRef<HTMLSpanElement>(null)
   const thumbs = React.useRef<HTMLDivElement>(null)
@@ -678,13 +688,15 @@ function Gallery({ images, title, phone, focus = -1, tall = false, active = true
     return () => (w.cancelIdleCallback ? w.cancelIdleCallback(id) : window.clearTimeout(id))
   }, [hasVideo, active])
 
+  React.useEffect(()=>{setNaturalRatio(ratios.current[at]??null)},[at,images])
   if (!count) return null
   const fitOf = (w: number, h: number) => mediaFit(w, h, ratio)
 
   return (
     <div data-product-sheet-gallery="" data-count={count}>
       <div
-        className={cn("relative isolate overflow-hidden rounded-2xl bg-[#f4f4f6]", tall ? "aspect-square" : "aspect-[4/5]")}
+        className="relative isolate mx-auto overflow-hidden rounded-2xl bg-[#f4f4f6]"
+        style={{aspectRatio:String(ratio),width:`min(100%, calc(60dvh * ${ratio}))`}}
         tabIndex={many && !phone ? 0 : undefined}
         aria-roledescription={many ? "carousel" : undefined}
         aria-label={many ? `${title}, ${at + 1} of ${count}` : undefined}
@@ -715,7 +727,7 @@ function Gallery({ images, title, phone, focus = -1, tall = false, active = true
                 near={Math.abs(i - at) <= 1}
                 shown={i === at && active && lightbox === null}
                 fitOf={fitOf}
-                onRatio={(r) => (ratios.current[i] = r)}
+                onRatio={(r) => {ratios.current[i]=r;if(i===atRef.current)setNaturalRatio(r)}}
                 onOpen={() => setLightbox(i)}
               />
             ) : (
@@ -737,7 +749,9 @@ function Gallery({ images, title, phone, focus = -1, tall = false, active = true
                   draggable={false}
                   onLoad={(e) => {
                     const img = e.currentTarget
-                    img.style.objectFit = fitOf(img.naturalWidth, img.naturalHeight)
+                    const r=img.naturalWidth/img.naturalHeight
+                    if(Number.isFinite(r)&&r>0){ratios.current[i]=r;if(i===atRef.current)setNaturalRatio(r)}
+                    img.style.objectFit = "cover"
                   }}
                 />
               </button>

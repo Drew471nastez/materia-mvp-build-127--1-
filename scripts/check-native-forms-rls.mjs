@@ -189,6 +189,19 @@ try {
     true,
     "Fulfilling inventory makes the same variant available",
   )
+  await db.exec('reset role')
+  await db.exec(`create table creators(id uuid primary key,user_id uuid references auth.users(id));insert into creators values('${A}','${A}'),('${B}','${B}')`)
+  await db.exec(readFileSync('supabase/sql/run-now/374_atomic_product_channels.sql','utf8'))
+  await db.exec(readFileSync('supabase/sql/run-now/374_atomic_product_channels.sql','utf8'))
+  await as('service_role')
+  const changed=await db.query('select set_product_channels_atomic($1,$2,$3)',[A,F,['marketplace']]);assert.equal(changed.rows[0].set_product_channels_atomic.length,1)
+  await assert.rejects(db.query('select set_product_channels_atomic($1,$2,$3)',[A,F,['storefront','not-a-channel']]),e=>e.code==='22023')
+  assert.equal((await db.query('select * from product_channel_listings where product_id=$1',[F])).rows.length,1,'Invalid saves do not partially clear the previous selection')
+  await assert.rejects(db.query('select set_product_channels_atomic($1,$2,$3)',[B,F,[]]),e=>e.code==='P0002')
+  await db.exec('reset role;grant select on creators to authenticated');await as('authenticated',B);assert.equal((await db.query('select * from product_channel_listings')).rows.length,0)
+  await assert.rejects(db.query('select set_product_channels_atomic($1,$2,$3)',[A,F,[]]),e=>e.code==='42501')
+  await as('anon');await assert.rejects(db.query('select * from product_channel_listings'),e=>e.code==='42501')
+  await as('service_role');await db.query('select set_product_channels_atomic($1,$2,$3)',[A,F,[]]);assert.equal((await db.query('select * from product_channel_listings where product_id=$1',[F])).rows.length,0)
   console.log(
     "Postgres/RLS passed: owner isolation, no anonymous table access, lead status/delete, idempotency, private price isolation and variant availability",
   )

@@ -1,56 +1,254 @@
 "use client"
+import { useRef, useState } from "react"
+import { ChevronDown } from "lucide-react"
+import type { OnePageBlock, LinkButtonBlockData } from "@/lib/onepage/types"
+import {
+  PRESENTABLE_BLOCKS,
+  presentationOf,
+  socialPresentation,
+  type BlockPresentation,
+} from "@/lib/onepage/block-presentation"
+import { ColorRow, RangeRow, Segmented } from "./editor-kit"
+import { tt } from "@/lib/i18n/text"
 
-import { useEffect, useRef, useState, type ReactNode } from "react"
-import type { OnePageBlock } from "@/lib/onepage/types"
-import { PRESENTABLE_BLOCKS, presentationOf, socialPresentation, type BlockPresentation } from "@/lib/onepage/block-presentation"
-import { uploadOnePageMedia } from "@/lib/onepage/media-upload"
-
-const field="w-full min-w-0 rounded-lg border border-[#e3e4e8] bg-white px-3 py-2 text-sm text-[#1a1a2e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-function Field({label,children}:{label:string;children:ReactNode}) {return <label className="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-[#4b5563]">{label}{children}</label>}
-export function BlockPresentationEditor({block,onChange,getBlock}:{block:OnePageBlock;getBlock?:()=>OnePageBlock|undefined;onChange:(updates:Partial<OnePageBlock>)=>void}) {
-  const latest=useRef(block);latest.current=block
-  const upload=useRef<AbortController|null>(null)
-  useEffect(()=>()=>{upload.current?.abort()},[])
-  const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null)
+/** The editor's own controls, with presets first and optional fine tuning. */
+export function BlockPresentationEditor({
+  block,
+  onChange,
+  getBlock,
+}: {
+  block: OnePageBlock
+  getBlock?: () => OnePageBlock | undefined
+  onChange: (updates: Partial<OnePageBlock>) => void
+}) {
+  const latest = useRef(block)
+  latest.current = block
+  const [advanced, setAdvanced] = useState(false)
   if (!PRESENTABLE_BLOCKS.has(block.type)) return null
-  const p=presentationOf(block)
-  const current=()=>getBlock?.() || latest.current
-  const set=(patch:Partial<BlockPresentation>)=>{const source=current();onChange({style:{...source.style,presentation:{...source.style?.presentation,...patch}}})}
-  const select=(label:string,key:keyof BlockPresentation,values:readonly string[],labels?:readonly string[])=><Field label={label}><select className={field} value={String(p[key]??"")} onChange={e=>set({[key]:e.target.value||undefined})}><option value="">Page default</option>{values.map((value,i)=><option key={value} value={value}>{labels?.[i]||value}</option>)}</select></Field>
-  const numeric=(label:string,key:keyof BlockPresentation,min:number,max:number)=><Field label={label}><input className={field} type="number" min={min} max={max} placeholder="Auto" value={typeof p[key]==="number"?String(p[key]):""} onChange={e=>set({[key]:e.target.value===""?undefined:Math.max(min,Math.min(max,Number(e.target.value)))})} /></Field>
-  const color=(label:string,key:keyof BlockPresentation)=><Field label={label}><span className="flex items-center gap-2"><input aria-label={label} className="h-9 w-12 rounded border bg-white" type="color" value={String(p[key]||"#111111").slice(0,7)} onChange={e=>set({[key]:e.target.value})} /><button type="button" className="text-xs underline" onClick={()=>set({[key]:undefined})}>Reset</button></span></Field>
-  const imageVariant=()=>{const variant=current().style?.presentation?.variant;return !variant||variant==="original"?"visual":variant}
-  const visual=p.variant==="visual"||p.variant==="featured"
-  const url=(block.data as {url?:string}).url||""
-  return <details className="rounded-xl border border-[#e3e4e8] bg-white p-3" data-block-appearance="">
-    <summary className="cursor-pointer text-sm font-semibold text-[#1a1a2e]">Appearance & description</summary>
-    <div className="mt-4 space-y-4">
-      <Field label="Subtitle / description"><textarea data-block-description="" className={field} rows={2} maxLength={600} value={p.subtitle||""} placeholder="Add a little more detail" onChange={e=>set({subtitle:e.target.value})} /></Field>
-      <div className="grid grid-cols-2 gap-3">
-        {select("Block size","size",["auto","full","half","tall"],["Automatic","Full width","Half width","Tall tile"])}
-        {select("Text alignment","align",["left","center","right"],["Left","Center","Right"])}
-        {numeric("Title size","title_size",12,40)}
-      </div>
-      <Field label="Title weight"><select className={field} value={p.title_weight??""} onChange={e=>set({title_weight:e.target.value?Number(e.target.value):undefined})}><option value="">Page default</option><option value="400">Regular</option><option value="500">Medium</option><option value="600">Semibold</option><option value="700">Bold</option><option value="800">Extra bold</option></select></Field>
-      <div className="grid grid-cols-2 gap-3">
-        {color("Title color","title_color")}{color("Subtitle color","subtitle_color")}
-        {numeric("Subtitle size","subtitle_size",11,24)}{numeric("Icon size","icon_size",16,48)}
-        {color("Icon color","icon_color")}{numeric("Content spacing","gap",0,24)}
-        {numeric("Inner padding","padding",8,40)}
-      </div>
-      {block.type==="link_button" ? <>
-        {select("Card presentation","variant",["original","visual","image-first","featured","compact"],["Classic button","Image background","Image-first tile","Featured card","Compact list row"])}
-        {socialPresentation(url)?select("Social presentation","media_mode",["card","native"],["Link card","Native embed"]):null}
-        {p.media_mode!=="native" ? <>
-        {visual?select("Text position","position",["top","center","bottom"],["Top","Middle","Bottom"]):null}
-        <Field label="Background image URL"><input aria-label="Background image URL" className={field} type="url" placeholder="https://" value={block.style?.presentation?.image_url||""} onChange={e=>set({image_url:e.target.value,variant:imageVariant()})}/></Field>
-        <Field label={busy?"Uploading image…":"Upload a background image"}><input className="text-xs" type="file" accept="image/*" disabled={busy} onChange={async e=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;setBusy(true);setError(null);const controller=new AbortController();upload.current=controller;try {const result=await uploadOnePageMedia(file,{prefix:"link-card",want:"image",signal:controller.signal});if(controller.signal.aborted)return;set({image_url:result.url,variant:imageVariant()})}catch(err){if(controller.signal.aborted)return;setError(err instanceof Error?err.message:"Image could not be uploaded")}finally{if(upload.current===controller)setBusy(false)}}}/></Field>
-        {error?<p role="alert" className="text-xs text-red-700">{error}</p>:null}
-        {visual?numeric("Dark overlay (%)","overlay",0,90):null}
-        {visual?<div className="grid grid-cols-2 gap-3">{color("Gradient start","gradient_from")}{color("Gradient end","gradient_to")}</div>:null}
-        </>:null}
-      </>:null}
-      <button type="button" className="text-xs font-medium underline" onClick={()=>{upload.current?.abort();setBusy(false);setError(null);onChange({style:{...current().style,presentation:undefined}})}}>Reset block appearance</button>
-    </div>
-  </details>
+  const p = presentationOf(block),
+    link = block.type === "link_button",
+    data = block.data as LinkButtonBlockData
+  const current = () => getBlock?.() || latest.current
+  const set = (patch: Partial<BlockPresentation>) => {
+    const source = current()
+    onChange({
+      style: {
+        ...source.style,
+        presentation: { ...source.style?.presentation, ...patch },
+      },
+    })
+  }
+  const color = (
+    label: string,
+    key: "title_color" | "subtitle_color" | "icon_color",
+  ) => (
+    <ColorRow
+      label={label}
+      value={p[key]}
+      onChange={(value) => set({ [key]: value })}
+      onClear={() => set({ [key]: undefined })}
+      emptyLabel={tt("Page default")}
+    />
+  )
+  const range = (
+    label: string,
+    key: "title_size" | "subtitle_size" | "icon_size" | "gap" | "padding",
+    min: number,
+    max: number,
+    fallback: number,
+  ) => (
+    <RangeRow
+      compact
+      label={label}
+      value={p[key] ?? fallback}
+      min={min}
+      max={max}
+      step={1}
+      unit="px"
+      onChange={(value) => set({ [key]: value })}
+    />
+  )
+  const visual = ["visual", "featured"].includes(p.variant || "")
+  return (
+    <section
+      className="space-y-4 border-t border-[#eef0f2] pt-4"
+      data-block-appearance=""
+    >
+      <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Style")}</p>
+      <label className="block space-y-1.5 text-[12.5px] font-medium text-[#6b7280]">
+        {tt("Description")}{" "}
+        <span className="font-normal">{tt("(optional)")}</span>
+        <textarea
+          data-block-description=""
+          rows={2}
+          maxLength={600}
+          value={p.subtitle ?? ""}
+          placeholder={tt("Add a little more detail")}
+          onChange={(e) => set({ subtitle: e.target.value })}
+          className="w-full resize-y rounded-xl border border-[#e3e4e8] bg-white px-3 py-2.5 text-[14px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e]"
+        />
+      </label>
+      {link ? (
+        <>
+          <Segmented
+            label={tt("Link layout")}
+            value={p.variant || "original"}
+            options={[
+              { id: "original", label: tt("Classic") },
+              { id: "visual", label: tt("Card") },
+              { id: "featured", label: tt("Featured") },
+              { id: "image-first", label: tt("Photo") },
+              { id: "compact", label: tt("Compact") },
+            ]}
+            onChange={(variant) =>
+              set({ variant: variant as BlockPresentation["variant"] })
+            }
+          />
+          {socialPresentation(data.url || "") ? (
+            <Segmented
+              label={tt("Social presentation")}
+              value={p.media_mode || "card"}
+              options={[
+                { id: "card", label: tt("Open link") },
+                { id: "native", label: tt("Display post") },
+              ]}
+              onChange={(media_mode) =>
+                set({
+                  media_mode: media_mode as "card" | "native",
+                  ...(media_mode === "native" &&
+                  (!p.variant || p.variant === "original")
+                    ? { variant: "image-first" as const }
+                    : {}),
+                })
+              }
+            />
+          ) : null}
+          {p.variant && p.variant !== "original" ? (
+            <Segmented
+              label={tt("Block size")}
+              value={p.size || "full"}
+              options={[
+                { id: "full", label: tt("Full width") },
+                { id: "half", label: tt("Half width") },
+                { id: "tall", label: tt("Tall") },
+              ]}
+              onChange={(size) =>
+                set({ size: size as BlockPresentation["size"] })
+              }
+            />
+          ) : null}
+        </>
+      ) : null}
+      <button
+        type="button"
+        aria-expanded={advanced}
+        className="flex min-h-11 w-full items-center justify-between rounded-xl border border-[#e3e4e8] px-3 text-[13px] font-medium text-[#1a1a2e]"
+        onClick={() => setAdvanced((v) => !v)}
+      >
+        {tt("Text and colors")}
+        <ChevronDown
+          aria-hidden
+          className="h-4 w-4 transition-transform"
+          style={{ transform: advanced ? "rotate(180deg)" : undefined }}
+        />
+      </button>
+      {advanced ? (
+        <div className="space-y-4" data-block-advanced="">
+          <Segmented
+            label={tt("Text alignment")}
+            value={p.align || "center"}
+            options={[
+              { id: "left", label: tt("Left") },
+              { id: "center", label: tt("Center") },
+              { id: "right", label: tt("Right") },
+            ]}
+            onChange={(align) =>
+              set({ align: align as BlockPresentation["align"] })
+            }
+          />
+          {color(tt("Title color"), "title_color")}
+          {color(tt("Description color"), "subtitle_color")}
+          {color(tt("Icon color"), "icon_color")}
+          {range(tt("Title size"), "title_size", 12, 40, 16)}
+          {range(tt("Description size"), "subtitle_size", 11, 24, 13)}
+          {range(tt("Icon size"), "icon_size", 16, 48, 22)}
+          <Segmented
+            label={tt("Title weight")}
+            value={String(p.title_weight || 600)}
+            options={[
+              { id: "400", label: tt("Regular") },
+              { id: "600", label: tt("Semibold") },
+              { id: "700", label: tt("Bold") },
+            ]}
+            onChange={(v) => set({ title_weight: Number(v) })}
+          />
+          {range(tt("Content spacing"), "gap", 0, 24, 8)}
+          {range(tt("Inner padding"), "padding", 8, 40, 16)}
+          {visual ? (
+            <>
+              <Segmented
+                label={tt("Text position")}
+                value={p.position || "bottom"}
+                options={[
+                  { id: "top", label: tt("Top") },
+                  { id: "center", label: tt("Middle") },
+                  { id: "bottom", label: tt("Bottom") },
+                ]}
+                onChange={(position) =>
+                  set({ position: position as BlockPresentation["position"] })
+                }
+              />
+              <RangeRow
+                compact
+                label={tt("Image shade")}
+                value={p.overlay ?? 65}
+                min={0}
+                max={90}
+                step={1}
+                unit="%"
+                onChange={(overlay) => set({ overlay })}
+              />
+              <ColorRow
+                label={tt("Gradient start")}
+                value={p.gradient_from}
+                onChange={(gradient_from) =>
+                  set({
+                    gradient_from,
+                    gradient_to: p.gradient_to ?? gradient_from,
+                  })
+                }
+                onClear={() =>
+                  set({ gradient_from: undefined, gradient_to: undefined })
+                }
+              />
+              <ColorRow
+                label={tt("Gradient end")}
+                value={p.gradient_to}
+                onChange={(gradient_to) =>
+                  set({
+                    gradient_to,
+                    gradient_from: p.gradient_from ?? gradient_to,
+                  })
+                }
+                onClear={() =>
+                  set({ gradient_from: undefined, gradient_to: undefined })
+                }
+              />
+            </>
+          ) : null}
+          <button
+            type="button"
+            className="min-h-10 text-[12.5px] font-medium text-[#6b7280] underline"
+            onClick={() =>
+              onChange({
+                style: { ...current().style, presentation: undefined },
+              })
+            }
+          >
+            {tt("Reset block appearance")}
+          </button>
+        </div>
+      ) : null}
+    </section>
+  )
 }

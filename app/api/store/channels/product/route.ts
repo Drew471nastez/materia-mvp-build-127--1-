@@ -3,7 +3,7 @@ import { revalidateTag } from "next/cache"
 import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
 import { onePageProductsChanged } from "@/lib/onepage/public-cache"
 import { creatorShopTag, revalidatePublishedPages } from "@/lib/website-builder/published-site"
-import { exploreCatalogueChanged } from "@/lib/explore/catalogue-cache"
+import { exploreCatalogueTakenDown } from "@/lib/explore/catalogue-cache"
 import { isUuid, physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { loadChannels, productOff, setProductChannels } from "@/lib/store/channels-server"
 
@@ -33,7 +33,7 @@ export async function PUT(request: Request) {
   const out = await setProductChannels(c.db, c.creatorId, body.productId, body.off)
   if (!out.ok) return physicalJson({ error: out.error }, out.status)
   /* The website's product lists are held for a minute under the shop's tag: taken off (or put back on) a channel shows on the next visit, not a minute later. */
-  revalidateTag(creatorShopTag(c.creatorId), "max")
+  revalidateTag(creatorShopTag(c.creatorId), { expire: 0 })
   /* Off the creator page channel is off the OnePage too: its held blocks are read afresh (lib/onepage/public-cache). */
   await onePageProductsChanged(c.creatorId)
   /* And the creator page, which the CDN holds for everybody (round 49): a product taken off it is gone at once. */
@@ -41,6 +41,6 @@ export async function PUT(request: Request) {
   /* And the pages drawn from it, so the change is on the website at the next visit (revalidatePublishedPages). */
   await revalidatePublishedPages(c.creatorId)
   /* Explore's catalogue is held for everybody the same way (lib/explore/catalogue-cache.ts). */
-  exploreCatalogueChanged()
+  exploreCatalogueTakenDown()
   return physicalJson({ off: out.off })
 }

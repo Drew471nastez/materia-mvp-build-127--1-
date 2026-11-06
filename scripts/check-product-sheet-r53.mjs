@@ -11,7 +11,7 @@
  *   SWIPE      a real touch scroll gesture (CDP): the dot follows the scroll in every frame (its place is the
  *              scroll's place, within a dot), and never goes back.
  *   JUMP       a thumbnail four along: the dot only moves forward, never back to where it started.
- *   RATIO      the box on a phone is 4:5 (width over height 0.8), on a computer square in its column.
+ *   RATIO      the box follows the active media ratio on phones and computers.
  *   ARROWS     on a computer: drawn, their chevron against their disc at 4.5:1 or more and the disc against the
  *              picture's edge visible, in both themes.
  *   QUESTIONS  every line between and around them is the same colour and the same width.
@@ -193,7 +193,8 @@ for (const theme of ["default", "midnight"]) {
         const s = document.querySelector('[data-product-sheet="p-tee"] [data-product-sheet-gallery]').firstElementChild.getBoundingClientRect()
         return Math.round((s.width / s.height) * 1000) / 1000
       })
-      expect(w === 390 ? ratio === 0.8 : ratio === 1, w === 390 ? "the box is 4:5 on a phone" : "the box is square in its column on a computer", ratio)
+      const natural = await p.$eval('[data-product-sheet="p-tee"] [data-product-sheet-gallery] img', img => img.naturalWidth / img.naturalHeight)
+      expect(Math.abs(ratio - natural) < 0.01, "the gallery matches the media ratio without letterboxing or cropping", {ratio,natural})
       if (theme === "default") await p.screenshot({ path: join(SHOTS, `open-${theme}-${w}.png`) })
 
       /* A swipe on a phone with a real touch gesture; the next arrow on a computer. */

@@ -1191,7 +1191,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       /* SALES CHANNELS, after the product exists, so a new product's choice is kept too. Never fails the save. */
       if (finalProductId) {
         const channelsError = await channelsRef.current?.save(finalProductId)
-        if (channelsError) console.warn("Sales channels were not saved:", channelsError)
+        if (channelsError) throw new Error(channelsError)
         const collectionsError = await collectionsRef.current?.save(finalProductId)
         if (collectionsError) console.warn("Collections were not saved:", collectionsError)
       }

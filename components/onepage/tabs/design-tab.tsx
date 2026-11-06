@@ -1661,7 +1661,7 @@ function HeaderSection() {
 
   const { theme } = onepage
   const headerLayout = (theme as any).header_layout || "classic"
-  const effectiveLayout = (theme.background_type === "image" || theme.background_type === "video") ? "classic" : headerLayout
+  const effectiveLayout = headerLayout
   const avatarVideoUrl = (onepage as any).avatar_video_url
   /* The crop (and its first frame) is kept in settings (lib/onepage/context updateProfile); read there, not off the page row. */
   const avatarVideoCrop = (onepage.settings as any)?.avatar_video_crop ?? (onepage as any).avatar_video_crop ?? null
@@ -1777,7 +1777,6 @@ function HeaderSection() {
   }
 
   const handleLayoutChange = (layout: string) => {
-    if (layout === "hero" && (theme.background_type === "image" || theme.background_type === "gradient" || theme.background_type === "video")) return
     /* A pattern no longer stops Hero: the picture fades into the page through a mask, so the pattern shows under it (lib/onepage/poster-video HERO_FADE_MASK). */
     if (layout === "hero") {
       updateTheme({ header_layout: layout, laser_glow_enabled: false } as any)
@@ -2103,10 +2102,7 @@ function HeaderSection() {
             since round 40: the picture fades out through a mask, and the
             pattern carries on under it.
           */
-          const heroBlockedBy =
-            theme.background_type === "image" ? tt("an image wallpaper") :
-            theme.background_type === "gradient" ? tt("a gradient wallpaper") :
-            theme.background_type === "video" ? tt("a video wallpaper") : null
+          const heroBlockedBy: string | null = null
           return (
             <>
               <div className="grid grid-cols-2 gap-3">
@@ -2609,7 +2605,7 @@ function ThemeSection() {
     // Template explicitly requests hero layout (like Midnight)
     const wantsHeroLayout = templateLayout === "hero" || (config as any).header_layout === "hero"
     // Gradient/image backgrounds require classic layout (unless template explicitly specifies otherwise)
-    const needsClassicLayout = !wantsHeroLayout && (config.background_type === "gradient" || config.background_type === "image" || templateLayout === "classic")
+    const needsClassicLayout = !wantsHeroLayout && templateLayout === "classic"
 
     // If current layout is Hero and new template requires classic layout, show dialog (unless skipLayoutDialog is true)
     if (needsClassicLayout && currentHeaderLayout === "hero" && !skipDialog) {
@@ -2804,13 +2800,6 @@ function WallpaperSection() {
   const gradientInfo = parseGradient(theme.background_gradient || DEFAULT_GRADIENT)
 
   const handleBgTypeChange = (type: "solid" | "gradient" | "image" | "video") => {
-    // If switching to gradient, image, or video and Hero layout is active, show dialog
-    if ((type === "gradient" || type === "image" || type === "video") && currentHeaderLayout === "hero") {
-      setPendingBgType(type)
-      setShowLayoutChangeDialog(true)
-      return
-    }
-
     /* Video with none chosen yet opens the device's picker; the page changes once a video is saved. With one, it is simply back. */
     if (type === "video" && !(theme as any).background_video_url) {
       pickWallpaperVideo()
@@ -2871,13 +2860,6 @@ function WallpaperSection() {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    // Hero layout first asks to switch to Classic; the picture is kept and goes up after.
-    if (currentHeaderLayout === "hero") {
-      setPendingImageFile(file)
-      setPendingBgType("image")
-      setShowLayoutChangeDialog(true)
-      return
-    }
     await uploadWallpaperImage(file)
   }
 
@@ -2896,12 +2878,6 @@ function WallpaperSection() {
   }
 
   const handleImageSelect = (url: string) => {
-    // Check if Hero layout is active
-    if (currentHeaderLayout === "hero") {
-      setPendingBgType("image")
-      setShowLayoutChangeDialog(true)
-      return
-    }
     updateTheme({ background_image_url: url })
   }
 

@@ -71,7 +71,7 @@ console.log("\nWhere it is set\n")
 console.log("\nA change shows on the next visit, everywhere it is listed\n")
 {
   const put = read("app/api/store/channels/product/route.ts")
-  check("saving a product's channels clears the website's held lists and Explore's held catalogue", /revalidateTag\(creatorShopTag\(c\.creatorId\), "max"\)/.test(put) && /exploreCatalogueChanged\(\)/.test(put))
+  check("saving a product's channels clears the website's held lists and Explore's held catalogue", /revalidateTag\(creatorShopTag\(c\.creatorId\), \{ expire: 0 \}\)/.test(put) && /exploreCatalogueTakenDown\(\)/.test(put))
   check("the website's sitemap leaves out a product taken off the Online store", /const off = await offChannel\(admin, creatorId, "storefront"\)/.test(read("lib/website-builder/site-seo-data.ts")) && /!off\.has\(p\.id \?\? ""\)/.test(read("lib/website-builder/site-seo-data.ts")))
   check("a duplicated product is taken off the same channels as the one it copies", /\/api\/store\/channels\/product\?productId=\$\{encodeURIComponent\(product\.id\)\}/.test(read("app/(storelib)/app/products/products-client.tsx")) && /body: JSON\.stringify\(\{ productId: data\.id, off: d\.off \}\)/.test(read("app/(storelib)/app/products/products-client.tsx")))
   check("the API the editor uses keeps its shape: GET ?productId= gives channels, New products and off; PUT { productId, off }", /return physicalJson\(\{ \.\.\.setup, off \}\)/.test(put) && /setProductChannels\(c\.db, c\.creatorId, body\.productId, body\.off\)/.test(put) && /return physicalJson\(\{ off: out\.off \}\)/.test(put))

@@ -542,6 +542,16 @@ export function LinksTab() {
   const blocksInOrder = () => [...(onepage?.draft_blocks ?? [])].sort((a, b) => a.sort_order - b.sort_order)
   /* An edit to a block on the page or inside one of its groups (the image library and the thumbnail picker serve both). */
   const updateBlockDeep = (id: string, updates: Partial<OnePageBlock>) => {
+    // Thumbnail edits share one source with visual cards, including older cards
+    // that stored their picture in presentation.image_url.
+    const source = findBlockDeep(onepage?.draft_blocks ?? [], id)?.block
+    if (source?.type === "link_button" && updates.data && Object.prototype.hasOwnProperty.call(updates.data, "thumbnail_url")) {
+      const before = source.data as LinkButtonBlockData
+      const after = updates.data as LinkButtonBlockData
+      if ((before.thumbnail_url !== after.thumbnail_url || source.style?.presentation?.image_url) && before.link_preview?.enabled === after.link_preview?.enabled) {
+        updates = { ...updates, style: { ...source.style, ...updates.style, presentation: { ...source.style?.presentation, ...updates.style?.presentation, image_url: undefined } }, data: { ...after, link_preview: { ...after.link_preview, image_hidden: !after.thumbnail_url } } }
+      }
+    }
     const plan = updatePlanDeep(onepage?.draft_blocks, id, updates)
     if (plan) updateBlock(plan.id, plan.updates)
   }
@@ -647,10 +657,14 @@ export function LinksTab() {
     })
   }, [social_links, draft_blocks])
 
+  const linkPreviewBlocks=useRef(onepage?.draft_blocks);linkPreviewBlocks.current=onepage?.draft_blocks
+  const linkFetchTimers=useRef(new Map<string,ReturnType<typeof setTimeout>>())
+  useEffect(()=>()=>{for(const timer of linkFetchTimers.current.values())clearTimeout(timer)},[])
   // Auto-fetch thumbnail for social media links (Spotify, YouTube, etc.)
   const autoFetchThumbnail = useCallback(async (blockId: string, rawUrl: string) => {
     const url = normalizeUrlInput(rawUrl)
     if (!url) return
+    let urlHost:string;try{urlHost=new URL(url).hostname}catch{return}
 
     /*
       A FETCH THAT COMES BACK LATE DOES NOT UNDO WHAT WAS TYPED MEANWHILE.
@@ -668,9 +682,22 @@ export function LinksTab() {
       )
 
     // Skip if URL is empty or block already has a custom thumbnail
-    const block = onepage?.draft_blocks.find(b => b.id === blockId)
+    const block = linkPreviewBlocks.current ? findBlockDeep(linkPreviewBlocks.current,blockId)?.block : null
     if (!block || block.type !== 'link_button') return
     const data = block.data as LinkButtonBlockData
+    if(data.link_preview?.enabled===false)return
+    if(!/spotify\.com|youtube\.com|youtu\.be|soundcloud\.com|music\.apple\.com|tiktok\.com|vimeo\.com/.test(urlHost)){
+      const requestedLabel=data.label
+      try{
+        const response=await fetch(`/api/onepage/link-preview?url=${encodeURIComponent(url)}`)
+        if(response.ok){const meta=await response.json();landFetched(current=>{
+          if(current.link_preview?.enabled===false)return {}
+          const autoTitle=!current.link_preview?.title_edited&&current.label===requestedLabel&&(!current.label||(/^(?:my\s*link|link)$/i.test(current.label)||[tt("My Link"),tt("Link")].includes(current.label))||current.label===current.link_preview?.title)
+          return {link_preview:{...current.link_preview,...meta},...(autoTitle?{label:meta.title}:{}),...((!current.thumbnail_url||current.thumbnail_url===current.link_preview?.image)&&!current.link_preview?.image_hidden?{thumbnail_url:meta.image||null}:{} )}
+        })}
+      }catch{}
+      return
+    }
     if (data.thumbnail_url) return // Don't override user's custom thumbnail
 
     // Create a unique key for this URL to avoid duplicate fetches
@@ -831,6 +858,7 @@ export function LinksTab() {
 
   // Handle URL change with auto-fetch
   const handleUrlChangeWithAutoFetch = useCallback((blockId: string, rawUrl: string) => {
+    clearTimeout(linkFetchTimers.current.get(blockId))
     const normalizedUrl = normalizeUrlInput(rawUrl)
     const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
     if (currentData) {
@@ -905,9 +933,10 @@ export function LinksTab() {
 
     if (normalizedUrl.length > 10 && (normalizedUrl.startsWith('http://') || normalizedUrl.startsWith('https://') || normalizedUrl.includes('spotify.com') || normalizedUrl.includes('youtube.com') || normalizedUrl.includes('soundcloud.com') || normalizedUrl.includes('music.apple.com') || normalizedUrl.includes('tiktok.com'))) {
       const timeoutId = setTimeout(() => {
-        autoFetchThumbnail(blockId, normalizedUrl)
-      }, 220)
-      return () => clearTimeout(timeoutId)
+        linkFetchTimers.current.delete(blockId)
+        void autoFetchThumbnail(blockId, normalizedUrl)
+      }, 350)
+      linkFetchTimers.current.set(blockId,timeoutId)
     }
   }, [autoFetchThumbnail, onepage?.draft_blocks, updateBlock, updateBlockData])
 
@@ -3463,7 +3492,7 @@ function BlockItem({
       */}
       <div
         className={cn(
-          "flex items-center gap-3 p-3",
+          "flex items-center gap-3 p-3 max-[383px]:flex-wrap max-[383px]:gap-2",
           !isHeaderBlock && "select-none [-webkit-touch-callout:none]"
         )}
         data-reorder-zone={isHeaderBlock ? undefined : ""}
@@ -3543,7 +3572,7 @@ function BlockItem({
           aria-controls={settingsId}
           data-block-open={block.id}
           data-block-fade=""
-          className={cn("flex-1 min-w-0 cursor-pointer rounded-lg outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.35)]", !block.enabled && "opacity-50")}
+          className={cn("flex-1 min-w-0 max-[383px]:min-w-[100px] cursor-pointer rounded-lg outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.35)]", !block.enabled && "opacity-50")}
           onClick={onSelect}
           onKeyDown={(e) => {
             if (e.target !== e.currentTarget) return
@@ -4358,9 +4387,11 @@ function BlockEditor({
             */}
             <ActionEditor value={data.action} onChange={action=>updateData({action,url:action?actionHref(action)||"":data.url})}/>
             <p className="pt-1 text-[16px] font-semibold text-[#1a1a2e]">{tt("Info")}</p>
+            <div className="flex items-center justify-between gap-3"><span className="text-[13px] text-[#6b7280]">{tt("Automatic link preview")}</span><Switch label={tt("Automatic link preview")} checked={data.link_preview?.enabled!==false} onChange={enabled=>{updateData({link_preview:{...data.link_preview,enabled},...(enabled?{}:data.thumbnail_url===data.link_preview?.image?{thumbnail_url:null}:{})});if(enabled)onUrlChangeWithAutoFetch?.(block.id,data.url)}}/></div>
+            {data.link_preview?.image?<button type="button" className="text-xs font-medium text-[#6b7280] underline" onClick={()=>updateData({thumbnail_url:null,link_preview:{...data.link_preview,image_hidden:true}})}>{tt("Remove preview image")}</button>:null}
             <label className="block">
               <span className="sr-only">{tt("Title")}</span>
-              <input value={data.label} onChange={(e) => updateData({ label: e.target.value })} placeholder={tt("Title")} aria-label={tt("Title")} data-link-title="" className={linkField} />
+              <input value={data.label} onChange={(e) => updateData({ label: e.target.value,link_preview:{...data.link_preview,title_edited:true} })} placeholder={tt("Title")} aria-label={tt("Title")} data-link-title="" className={linkField} />
             </label>
             <label className="block">
               <span className="sr-only">URL</span>

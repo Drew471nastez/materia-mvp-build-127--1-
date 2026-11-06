@@ -14,7 +14,6 @@ export function CompactInstagramPost({
   return (
     <div
       className="mx-auto w-full space-y-2"
-      style={{ maxWidth: 326 }}
       data-compact-post=""
     >
       <EmbedFrame
@@ -24,7 +23,8 @@ export function CompactInstagramPost({
         height={380}
         resizes
         radius={radius}
-        maxWidth={326}
+        maxWidth={540}
+        fillWidth
         maxHeight={expanded ? undefined : 380}
       />
       <button

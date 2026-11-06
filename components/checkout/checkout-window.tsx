@@ -1,4 +1,5 @@
 "use client"
+import {useAvatarImage} from "@/lib/account/avatar-image"
 
 /**
  * ===========================================================================
@@ -74,9 +75,10 @@ export function useEscape(onClose: () => void) {
 
 /** The seller's mark: their picture, or the first letter of their name on ink. */
 export function CheckoutMark({ imageUrl, name, size }: { imageUrl?: string | null; name: string; size: number }) {
-  return imageUrl ? (
+  const image=useAvatarImage(imageUrl ? optimizedImageUrl(imageUrl,size*2)??imageUrl : null)
+  return image.src ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={optimizedImageUrl(imageUrl, size * 2) ?? imageUrl} alt="" width={size} height={size} className="shrink-0 rounded-[10px] object-cover shadow-[0_0_0_1px_rgba(17,17,19,0.06)]" style={{ width: size, height: size }} />
+    <img src={image.src} onError={image.onError} alt="" width={size} height={size} className="shrink-0 rounded-[10px] object-cover shadow-[0_0_0_1px_rgba(17,17,19,0.06)]" style={{ width: size, height: size }} />
   ) : (
     <span aria-hidden className="grid shrink-0 place-items-center rounded-[10px] bg-[#1a1a2e] text-[15px] font-semibold text-white" style={{ width: size, height: size }}>
       {name.slice(0, 1).toUpperCase()}

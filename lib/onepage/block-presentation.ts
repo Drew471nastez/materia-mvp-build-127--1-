@@ -73,6 +73,8 @@ export function socialPresentation(url: string): SocialPresentation | null {
       const kind=parts[index], id=parts[index+1]
       if (["track","album","artist","playlist","episode","show"].includes(kind) && /^[a-zA-Z0-9]+$/.test(id || "")) return {platform:"Spotify",embed:`https://open.spotify.com/embed/${kind}/${id}`,aspect:"auto",height:kind === "track" || kind === "episode" ? 152 : 352}
     }
+    if(host==="vimeo.com"&&/^\d+$/.test(parts[0]||""))return {platform:"Vimeo",embed:`https://player.vimeo.com/video/${parts[0]}`,aspect:"16 / 9"}
+    if(["x.com","twitter.com"].includes(host)&&parts[1]==="status"&&/^\d{5,25}$/.test(parts[2]||""))return {platform:"X",embed:`https://platform.twitter.com/embed/Tweet.html?id=${parts[2]}`,aspect:"auto",height:380}
     if (host === "soundcloud.com" && parts.length >= 2) return {platform:"SoundCloud",embed:`https://w.soundcloud.com/player/?url=${encodeURIComponent(u.origin+u.pathname)}&auto_play=false`,aspect:"auto",height:166}
     return null
   } catch { return null }

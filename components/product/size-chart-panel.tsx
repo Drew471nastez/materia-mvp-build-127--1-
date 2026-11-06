@@ -1,4 +1,5 @@
 "use client"
+import {AnimatedDetails} from "@/components/ui/animated-details"
 
 /**
  * ===========================================================================
@@ -23,7 +24,7 @@ const UNIT_KEY = "storelib_size_unit"
 
 export function SizeChartPanel({ chart, label = "Size guide", className, defaultOpen = false }: { chart: SizeChart; label?: string; className?: string; defaultOpen?: boolean }) {
   return (
-    <details className={cn("group/size rounded-xl border border-[#ececf1] bg-white", className)} open={defaultOpen || undefined} data-size-chart-panel="">
+    <AnimatedDetails className={cn("group/size rounded-xl border border-[#ececf1] bg-white", className)} open={defaultOpen || undefined} data-size-chart-panel="">
       <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 text-[14.5px] font-medium text-[#111113] [-webkit-tap-highlight-color:transparent] [&::-webkit-details-marker]:hidden">
         <Ruler aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280]" />
         <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -31,7 +32,7 @@ export function SizeChartPanel({ chart, label = "Size guide", className, default
         <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280] transition-[rotate] duration-200 group-open/size:rotate-180" />
       </summary>
       <SizeChartBody chart={chart} className="px-4 pb-4" />
-    </details>
+    </AnimatedDetails>
   )
 }
 
@@ -133,13 +134,13 @@ export function ProductQuestions({ faqs, heading = "Questions", className }: { f
       */}
       <div className="border-t border-[#f0f0f3]">
         {faqs.map((f, i) => (
-          <details key={i} className="group/faq border-b border-[#f0f0f3]">
+          <AnimatedDetails key={i} className="group/faq border-b border-[#f0f0f3]">
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-3 text-[14.5px] font-medium text-[#111113] [-webkit-tap-highlight-color:transparent] [&::-webkit-details-marker]:hidden">
               <span className="min-w-0">{f.question}</span>
               <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280] transition-[rotate] duration-200 group-open/faq:rotate-180" />
             </summary>
             <p className="whitespace-pre-line pb-3 text-[14px] leading-relaxed text-[#4b5563]">{f.answer}</p>
-          </details>
+          </AnimatedDetails>
         ))}
       </div>
     </div>

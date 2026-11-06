@@ -24,6 +24,7 @@ import { join, basename, dirname, relative } from "node:path"
 execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inherit" })
 
 const SUITES = [
+  "tests/onepage-link-metadata.test.ts",
   "tests/native-forms-actions-prices.test.ts",
   "tests/onepage-modern-blocks.test.ts",
   "tests/admin-sql-updates.test.ts",

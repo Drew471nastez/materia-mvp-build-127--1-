@@ -196,7 +196,7 @@ function EmbedView({ data, look }: { data: EmbedBlockData; look: CreatorBlockLoo
       ) : null}
       {/* Round 40 (./embed-frame): the post's own width, no box of ours around it, shown once it has its height. */}
       {src ? (
-        source.kind === "instagram" ? <CompactInstagramPost src={src} title={data.title?.trim() || tt("Instagram post")} radius={radius}/> : <EmbedFrame src={src} kind={source.kind} title={data.title?.trim() || EMBED_PROVIDER_NAME[source.kind]} height={source.height} resizes={!!source.resizes} radius={radius} maxWidth={EMBED_MAX_WIDTH[source.kind]} />
+        source.kind === "instagram" ? <CompactInstagramPost src={src} title={data.title?.trim() || tt("Instagram post")} radius={radius}/> : <EmbedFrame src={src} kind={source.kind} title={data.title?.trim() || EMBED_PROVIDER_NAME[source.kind]} height={source.height} resizes={!!source.resizes} radius={radius} maxWidth={EMBED_MAX_WIDTH[source.kind]} fillWidth={source.kind === "x"} />
       ) : (
         <div aria-hidden className="w-full" style={source.height === null ? { aspectRatio: "16 / 9" } : { height: source.height }} />
       )}

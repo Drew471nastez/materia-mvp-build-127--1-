@@ -12021,7 +12021,9 @@ const words: Record<string, string> = {
  "Form or quiz": "Modulo o quiz",
  "Collect answers and qualify leads": "Raccogli risposte e qualifica i contatti",
  "form quiz questionnaire survey lead intake fitness contact": "modulo quiz questionario sondaggio contatto richiesta fitness",
- "Instagram post": "Post Instagram"
+ "Instagram post": "Post Instagram",
+ "Automatic link preview": "Anteprima automatica del link",
+ "Remove preview image": "Rimuovi immagine di anteprima"
 }
 
 export default words

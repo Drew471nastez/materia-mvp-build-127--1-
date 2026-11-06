@@ -128,6 +128,7 @@ export interface InstantCheckoutProps {
   title: string
   sellerName?: string | null
   sellerAvatar?: string | null
+  productImage?:string|null
   /** The option chosen in the product sheet, when there was one. */
   variantId?: string | null
   /** The page behind is dark: the window is the community's dark one. */
@@ -143,7 +144,7 @@ export interface InstantCheckoutProps {
   back?: string | null
 }
 
-export function InstantCheckout({ productId, title, sellerName, sellerAvatar, variantId: initialVariant = null, dark = false, themed = false, origin, onClose, onBack = null, back = null }: InstantCheckoutProps) {
+export function InstantCheckout({ productId, title, sellerName, sellerAvatar, productImage, variantId: initialVariant = null, dark = false, themed = false, origin, onClose, onBack = null, back = null }: InstantCheckoutProps) {
   /*
     IN THE EDITOR'S PREVIEW NOTHING IS CHARGED (round 11). The window opens
     exactly as it does live, so the creator sees it, and Pay says it is a
@@ -319,9 +320,9 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, va
 
   return (
     <CheckoutWindow
-      mark={<CheckoutMark imageUrl={facts?.seller.avatarUrl ?? sellerAvatar ?? null} name={shownName || title} size={60} />}
-      title={shownName || title}
-      subtitle={product?.title || title}
+      mark={<CheckoutMark imageUrl={variant?.imageUrl || product?.images?.[0] || productImage || null} name={product?.title || title} size={76} />}
+      title={product?.title || title}
+      subtitle={shownName}
       onBack={onBack}
       backLabel="Back"
       onClose={onClose}

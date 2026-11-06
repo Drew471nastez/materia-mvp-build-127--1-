@@ -184,6 +184,8 @@ export interface StreamingService {
 export interface FormQuizBlockData {form_id:string;title:string;inline?:boolean}
 
 export interface LinkButtonBlockData {
+  link_preview?:{enabled?:boolean;url?:string;title?:string;image?:string|null;description?:string;title_edited?:boolean;image_hidden?:boolean}
+
   action?: import("@/lib/forms/actions").NativeAction
   label: string
   url: string

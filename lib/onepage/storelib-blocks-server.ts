@@ -1,4 +1,5 @@
 import "server-only"
+import {withVariantPrices} from "@/lib/pricing/variant-price"
 
 /**
  * ===========================================================================
@@ -111,7 +112,7 @@ export async function shelfItems(db: Db, creatorId: string, source: ShelfSource,
     const rows = ((data ?? []) as Record<string, unknown>[]).filter(
       (r) => isPubliclyVisible(r as never) && !sellsCommunity(r as never) && !offPage.has(String(r.id)) && shelfTakes(source, r.type as string | null) && typeof r.slug === "string" && r.slug,
     )
-    const picked = rows.slice(0, limit)
+    const picked = await withVariantPrices<Record<string,unknown>&{id:string}>(db,rows.slice(0,limit).map(row=>({...row,id:String(row.id)})))
     const memberships = picked.filter((r) => r.type === "membership").map((r) => String(r.id))
     const intervals = memberships.length ? await planIntervals(db as never, memberships) : new Map()
     return picked.map((r) => ({
@@ -121,6 +122,7 @@ export async function shelfItems(db: Db, creatorId: string, source: ShelfSource,
       href: `/p/${r.slug}`,
       image: typeof r.thumbnail_url === "string" ? r.thumbnail_url : null,
       price_cents: typeof r.price_cents === "number" ? r.price_cents : null,
+      variant_count:r.variant_count,variant_min_price_cents:r.variant_min_price_cents,variant_max_price_cents:r.variant_max_price_cents,single_variant_id:r.single_variant_id,
       interval: r.type === "membership" ? (intervals.get(String(r.id)) ?? "month") : null,
     }))
   } catch {

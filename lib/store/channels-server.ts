@@ -137,10 +137,16 @@ export async function setProductChannels(db: Db, creatorId: string, productId: u
   if (!Array.isArray(off) || off.length > MAX_CHANNELS) return { ok: false, error: "Bad request.", status: 400 }
   const { data: product } = await db.from("products").select("id").eq("id", productId).eq("creator_id", creatorId).maybeSingle()
   if (!product) return { ok: false, error: "That product was not found.", status: 404 }
+  if(typeof db.rpc==="function"){
+    const result=await db.rpc("set_product_channels_atomic",{p_creator:creatorId,p_product:productId,p_off:off})
+    if(!result.error&&Array.isArray(result.data))return {ok:true,off:result.data}
+    if(result.error&&!["PGRST202","42883"].includes(result.error.code))return {ok:false,error:"The sales channels could not be saved. Try again.",status:result.error.code==="22023"?400:503}
+  }
   const ids: string[] = []
   for (const key of off) {
     const id = await channelIdOf(db, creatorId, key)
-    if (id) ids.push(id)
+    if (!id) return {ok:false,error:"The sales channels could not be saved. Reload and try again.",status:503}
+    ids.push(id)
   }
   const keep = [...new Set(ids)]
   let clear = db.from("product_channel_listings").delete().eq("creator_id", creatorId).eq("product_id", productId)

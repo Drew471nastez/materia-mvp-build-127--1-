@@ -148,6 +148,7 @@ export function EmbedFrame({
   radius,
   maxWidth,
   maxHeight,
+  fillWidth = false,
 }: {
   src: string
   kind: EmbedKind
@@ -159,6 +160,8 @@ export function EmbedFrame({
   radius: number
   maxWidth?: number
   maxHeight?: number
+  /** Fit the post to its block while keeping the provider at a supported width. */
+  fillWidth?: boolean
 }) {
   const frameRef = React.useRef<HTMLIFrameElement>(null)
   const wrapRef = React.useRef<HTMLDivElement>(null)
@@ -219,6 +222,8 @@ export function EmbedFrame({
     window.setTimeout(() => setShown(true), SHOW_AFTER_LOAD_MS)
   }
 
+  const naturalWidth = post ? Math.max(kind === "instagram" ? 326 : 250, Math.min(column ?? maxWidth ?? 540, maxWidth ?? 540)) : column
+  const postScale = fillWidth && column && naturalWidth ? column / naturalWidth : 1
   const cornerRadius = post ? POST_RADIUS[kind] ?? 12 : radius
   const box: React.CSSProperties =
     height === null
@@ -239,7 +244,7 @@ export function EmbedFrame({
       data-embed-shown={shown ? "" : undefined}
       /* A post is not clipped (its corners are the service's own); a player takes the page's corners. */
       className={post ? "relative mx-auto w-full bg-transparent [contain:layout]" : "relative mx-auto w-full overflow-hidden bg-transparent [contain:layout_paint]"}
-      style={{...(post && w ? { ...box, width: w } : box),...(maxHeight?{overflow:"hidden",borderRadius:radius}:{})}}
+      style={{...(post && w ? { ...box, width: w } : box),...(maxHeight?{overflow:"hidden",borderRadius:radius}:{}),...(fillWidth?{width:"100%",maxWidth:"none",height:height===null?undefined:(maxHeight?Math.min(h??height,maxHeight):h??height)*postScale}:{})}}
     >
       <div aria-hidden className="absolute inset-0 animate-pulse bg-[rgba(127,127,127,0.12)] transition-opacity duration-200 motion-reduce:animate-none" style={{ opacity: shown ? 0 : 1, borderRadius: cornerRadius }} />
       <iframe
@@ -255,7 +260,7 @@ export function EmbedFrame({
         onLoad={onLoad}
         className="absolute inset-0 block h-full w-full border-0 bg-transparent transition-opacity duration-200"
         /* `normal` is the services' own scheme: matched, the frame's canvas stays transparent (see THE CANVAS). */
-        style={{ colorScheme: "normal", opacity: shown ? 1 : 0 }}
+        style={{ colorScheme: "normal", opacity: shown ? 1 : 0, ...(fillWidth ? {width:`${100/postScale}%`,height:`${100/postScale}%`,transform:`scale(${postScale})`,transformOrigin:"top left"} : {}) }}
       />
     </div>
   )

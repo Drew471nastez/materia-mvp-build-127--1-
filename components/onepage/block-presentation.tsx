@@ -7,6 +7,7 @@ import type { OnePageBlock, OnePageTheme, LinkButtonBlockData } from "@/lib/onep
 import { themeButtonStyle, buttonHoverVars, buttonHover, buttonShadow } from "@/lib/onepage/button-style"
 import { LinkIcon } from "./brand-icons"
 import { resolveLinkIcon } from "./link-icons"
+import { CompactInstagramPost } from "./compact-post"
 import { onePageImageSrc } from "@/lib/onepage/display-image"
 
 /** Native lazy loading starts the bounded optimizer/original retry loader only
@@ -48,7 +49,7 @@ export function VisualLinkCard({block,theme,onClick}: {block:OnePageBlock;theme:
   const textAlign=p.align || (visual ? "left" : "center")
   const style:CSSProperties={...themeButtonStyle(theme),...buttonHoverVars(theme),...colors,borderRadius:Math.min(theme.button_border_radius??16,24),textAlign,overflow:"hidden",position:"relative",width:"100%",padding:0}
   return <div data-visual-link={variant} className="h-full min-w-0">
-    {native ? <div data-native-social={social.platform} className="overflow-hidden rounded-t-[inherit]" style={{borderRadius:`${Math.min(theme.button_border_radius??16,24)}px`,aspectRatio:social.aspect,height:social.height,maxHeight:social.platform==="Instagram"||social.platform==="TikTok"?380:560,background:theme.button_color}}>
+    {native && social.platform === "Instagram" ? <div data-native-social="Instagram"><CompactInstagramPost src={social.embed} title={`${social.platform}: ${d.label ?? "Media"}`} radius={Math.min(theme.button_border_radius??16,24)}/></div> : native ? <div data-native-social={social.platform} className="overflow-hidden rounded-t-[inherit]" style={{borderRadius:`${Math.min(theme.button_border_radius??16,24)}px`,aspectRatio:social.aspect,height:social.height,maxHeight:social.platform==="Instagram"||social.platform==="TikTok"?380:560,background:theme.button_color}}>
       <iframe loading="lazy" title={`${social.platform}: ${d.label ?? "Media"}`} src={social.embed} className="h-full w-full border-0" allow="encrypted-media; fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-popups allow-presentation" />
     </div> : null}
     <a href={d.url} target={d.action?.type==="phone"||d.action?.type==="email"?undefined:"_blank"} rel="noopener noreferrer" onClick={onClick} className="op-btn group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4" style={style} data-hover={buttonHover(theme,true)} data-shadow={buttonShadow(theme)} data-visual-link-action="">
@@ -56,7 +57,7 @@ export function VisualLinkCard({block,theme,onClick}: {block:OnePageBlock;theme:
       <span className="relative flex w-full min-w-0" style={{minHeight:native?undefined:minimum,padding:p.padding??(variant==="compact"?14:22),gap:p.gap??12,flexDirection:visual?"column":"row",alignItems:visual?(textAlign==="center"?"center":textAlign==="right"?"flex-end":"flex-start"):"center",justifyContent:visual?(p.position==="top"?"flex-start":p.position==="center"?"center":"flex-end"):textAlign==="left"?"flex-start":textAlign==="right"?"flex-end":"center"}}>
         {visual && !native ? <>
           {image ? <CardMedia key={image} src={onePageImageSrc(image,960)!} width={1200} height={800} className="absolute inset-0 h-full w-full object-cover" /> : null}
-          <span aria-hidden className="absolute inset-0" style={{background:p.gradient_from && p.gradient_to?`linear-gradient(160deg, color-mix(in srgb, ${p.gradient_from} ${p.overlay??55}%, transparent), color-mix(in srgb, ${p.gradient_to} ${p.overlay??75}%, transparent))`:`linear-gradient(to bottom,rgba(0,0,0,${(p.overlay??35)/200}),rgba(0,0,0,${(p.overlay??65)/100}))`}} />
+          <span aria-hidden className="absolute inset-0" style={{background:p.gradient_from && p.gradient_to?`linear-gradient(160deg, color-mix(in srgb, ${p.gradient_from} ${p.overlay??55}%, transparent), color-mix(in srgb, ${p.gradient_to} ${p.overlay??75}%, transparent))`:`linear-gradient(to bottom,transparent 20%,rgba(0,0,0,${(p.overlay??65)/250}) 58%,rgba(0,0,0,${(p.overlay??65)/100}) 100%)`}} />
         </> : null}
         {variant==="compact" && image && !native ? <CardMedia key={image} src={onePageImageSrc(image,96)!} width={48} height={48} className="relative z-[1] h-12 w-12 shrink-0 rounded-lg object-cover" /> : iconNode}{words}
       </span>

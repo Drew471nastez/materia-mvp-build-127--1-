@@ -152,6 +152,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const data = block.data as ProductBlockData
   const [sheetOpen, setSheetOpen] = React.useState(false)
   const [checkout, setCheckout] = React.useState<{ variantId: string | null; fromSheet: boolean } | null>(null)
+  const pendingCheckout=React.useRef<{variantId:string|null;fromSheet:boolean}|null>(null)
   const pushed = React.useRef(false)
   const [warm, setWarm] = React.useState(false)
   const seen = React.useRef<HTMLSpanElement>(null)
@@ -565,7 +566,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           priceText={showPrice ? now : null}
           ctaText={data.cta_text || "Buy now"}
           instant={instant && !shipsProduct(data.product_type)}
-          onBuy={(variantId) => setCheckout({ variantId, fromSheet: true })}
+          onBuy={(variantId) => {pendingCheckout.current={variantId,fromSheet:true};closeSheet()}}
+          onClosed={()=>{const next=pendingCheckout.current;pendingCheckout.current=null;if(next)setCheckout(next)}}
           onCheckoutLink={(to) => trackClick(block.id, to)}
           back={back}
           /* Round 41: the creator's choice of the sheet's button (lib/onepage/product-block). */
@@ -580,6 +582,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         <InstantCheckout
           productId={data.product_id}
           title={title}
+          productImage={image}
           sellerName={seller.name}
           sellerAvatar={seller.avatarUrl}
           variantId={checkout.variantId}
@@ -588,7 +591,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           themed
           origin={pageOrigin}
           onClose={() => setCheckout(null)}
-          onBack={checkout.fromSheet ? () => setCheckout(null) : null}
+          onBack={checkout.fromSheet ? () => {setCheckout(null);openSheet()} : null}
           back={back}
         />
       ) : null}
