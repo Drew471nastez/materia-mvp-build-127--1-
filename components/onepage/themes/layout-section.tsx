@@ -36,6 +36,7 @@ import { ChoiceCard, PanelSection, SectionTitle, Segmented, SettingRow } from "@
 import { ThemeCardBlocks } from "@/components/onepage/themes/theme-card-blocks"
 
 const LAYOUT_LABEL: Record<BlockLayout, () => string> = {
+  masonry: () => "Mixed tiles",
   list: () => tt("List"),
   grid: () => tt("Grid"),
   cards: () => tt("Cards"),

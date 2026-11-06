@@ -1,5 +1,8 @@
 "use client"
 
+import { BlockSubtitle } from "./block-presentation"
+import { presentationOf } from "@/lib/onepage/block-presentation"
+
 /**
  * ===========================================================================
  *  A PRODUCT ON THE ONEPAGE: EIGHT WAYS TO DRAW IT, THREE THINGS A TAP DOES
@@ -138,6 +141,11 @@ function addReadAhead() {
   } catch {
     /* no read ahead: the press is still one navigation */
   }
+}
+
+function ProductTitle({ block, children }: { block: OnePageBlock; children: React.ReactNode }) {
+  const subtitle = presentationOf(block).subtitle
+  return subtitle ? <span className="flex min-w-0 flex-col">{children}<BlockSubtitle subtitle={subtitle} /></span> : <>{children}</>
 }
 
 export function OnePageProductBlock({ block, theme, quiet = false, inPair = false, seller, pageMoney, plainText, trackClick, animationClass, quick }: OnePageProductBlockProps) {
@@ -371,7 +379,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
             // eslint-disable-next-line @next/next/no-img-element
             <img src={data.product_thumbnail} alt={title} className="relative h-6 w-6 shrink-0 rounded object-cover sm:h-7 sm:w-7" />
           ) : null}
-          <span className="op-label relative truncate">{cta}</span>
+          {presentationOf(block).subtitle ? <span className="relative min-w-0"><span className="op-label block break-words">{cta}</span><BlockSubtitle subtitle={presentationOf(block).subtitle} /></span> : <span className="op-label relative truncate">{cta}</span>}
           {showPrice && !purchased ? (
             <span className="relative shrink-0 text-sm tabular-nums opacity-75">
               {now}
@@ -387,9 +395,11 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         <span className="flex items-center gap-3 p-2.5 sm:p-3">
           {picture("h-12 w-12 sm:h-14 sm:w-14", undefined)}
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-medium sm:text-base" style={{ color: textColor }}>
+            <ProductTitle block={block}>
+              <span className="block truncate text-[15px] font-medium sm:text-base" style={{ color: textColor }} data-block-title="">
               {title}
             </span>
+            </ProductTitle>
             {priceLine("text-[13.5px] font-semibold opacity-80", textColor)}
           </span>
           {ctaButton("h-9 max-w-[45%] shrink-0 px-3.5 text-[13.5px] sm:h-10 sm:px-4 sm:text-sm")}
@@ -403,9 +413,11 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         <span className="flex items-stretch">
           {picture("w-[36%] min-h-[132px] sm:w-[34%]", undefined)}
           <span className="flex min-w-0 flex-1 flex-col gap-1 p-3.5 sm:p-4">
-            <span className="line-clamp-2 text-[15px] font-semibold leading-snug sm:text-base" style={{ color: textColor }}>
+            <ProductTitle block={block}>
+              <span className="line-clamp-2 text-[15px] font-semibold leading-snug sm:text-base" style={{ color: textColor }} data-block-title="">
               {title}
             </span>
+            </ProductTitle>
             {description ? (
               <span className="line-clamp-2 text-[13px] leading-snug opacity-75" style={{ color: textColor }}>
                 {description}
@@ -424,9 +436,11 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         <span className="flex h-full flex-col">
           {picture("w-full", inPair ? "aspect-square" : "aspect-[16/10]")}
           <span className="flex flex-1 flex-col gap-0.5 p-3">
-            <span className="line-clamp-2 text-[14.5px] font-semibold leading-snug" style={{ color: textColor }}>
+            <ProductTitle block={block}>
+              <span className="line-clamp-2 text-[14.5px] font-semibold leading-snug" style={{ color: textColor }} data-block-title="">
               {title}
             </span>
+            </ProductTitle>
             {priceLine("text-[13.5px] font-semibold opacity-85", textColor)}
             <span className="mt-auto pt-2.5">{ctaButton("h-9 w-full px-2 text-[13.5px]")}</span>
           </span>
@@ -443,7 +457,9 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
             <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_35%,rgba(0,0,0,0.72)_100%)]" />
             <span className="absolute inset-x-0 bottom-0 flex items-end gap-3 p-4">
               <span className="min-w-0 flex-1">
-                <span className="line-clamp-2 text-[17px] font-semibold leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.3)]">{title}</span>
+                <ProductTitle block={block}>
+              <span className="line-clamp-2 text-[17px] font-semibold leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.3)]" data-block-title="">{title}</span>
+            </ProductTitle>
                 {priceLine("mt-0.5 text-[14.5px] font-semibold", "#ffffff")}
               </span>
               {ctaButton("h-10 max-w-[48%] shrink-0 px-4 text-sm", true)}
@@ -462,9 +478,11 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         <span className="block">
           {picture("w-full", "aspect-[2/1]")}
           <span className="block space-y-1.5 p-4">
-            <span className="block text-base font-medium sm:text-lg" style={{ color: textColor }}>
+            <ProductTitle block={block}>
+              <span className="block text-base font-medium sm:text-lg" style={{ color: textColor }} data-block-title="">
               {title}
             </span>
+            </ProductTitle>
             {description ? (
               <span className="block text-sm opacity-75" style={{ color: textColor }}>
                 {description}
@@ -484,9 +502,11 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
       body = shell(
         <span className="flex items-center gap-3 px-1 py-3" style={{ borderBottom: `1px solid ${tintOf(theme.text_color, "26")}` }}>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15.5px] font-medium sm:text-base" style={{ color: theme.text_color }}>
+            <ProductTitle block={block}>
+              <span className="block truncate text-[15.5px] font-medium sm:text-base" style={{ color: theme.text_color }} data-block-title="">
               {title}
             </span>
+            </ProductTitle>
             {description ? (
               <span className="block truncate text-[13px] opacity-70" style={{ color: theme.text_color }}>
                 {description}
@@ -510,9 +530,11 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           <span className="flex gap-3 p-3 sm:gap-4 sm:p-4">
             {picture("h-14 w-14 rounded-lg sm:h-16 sm:w-16 sm:rounded-xl", undefined)}
             <span className="min-w-0 flex-1 space-y-0.5 sm:space-y-1">
-              <span className="block truncate text-base font-medium sm:text-lg" style={{ color: textColor }}>
+              <ProductTitle block={block}>
+              <span className="block truncate text-base font-medium sm:text-lg" style={{ color: textColor }} data-block-title="">
                 {title}
               </span>
+            </ProductTitle>
               {description ? (
                 <span className="line-clamp-1 block text-sm opacity-75" style={{ color: textColor }}>
                   {description}

@@ -142,7 +142,7 @@ function FaqView({ data, look }: { data: FaqBlockData; look: ExtraBlockLook }) {
   return (
     <div data-onepage-faq="" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       {data.title?.trim() ? (
-        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }}>
+        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">
           {data.title}
         </p>
       ) : null}
@@ -217,7 +217,7 @@ function CountdownView({ data, look }: { data: CountdownBlockData; look: ExtraBl
   return (
     <div data-onepage-countdown="" className="w-full text-center">
       {data.title?.trim() ? (
-        <p className="mb-2 font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }}>
+        <p className="mb-2 font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">
           {data.title}
         </p>
       ) : null}
@@ -265,7 +265,7 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
   return (
     <div data-onepage-map="" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       {data.title?.trim() ? (
-        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }}>
+        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">
           {data.title}
         </p>
       ) : null}
@@ -317,7 +317,7 @@ function VideoView({ data, look }: { data: VideoBlockData; look: ExtraBlockLook 
   return (
     <div data-onepage-video="" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       {data.title?.trim() ? (
-        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }}>
+        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">
           {data.title}
         </p>
       ) : null}

@@ -97,6 +97,11 @@ function ThemeCardLinks({ c }: { c: CardConfig }) {
       </span>
     )
   }
+  if (layout === "masonry") {
+    return <span className="mt-[11%] grid w-full grid-cols-2 gap-[7px]" data-theme-card-layout="masonry">
+      {[0, 1, 2, 3].map((i) => <span key={i} className={i === 0 ? "col-span-2 flex h-[27px] items-end p-2" : i === 1 ? "row-span-2 flex h-full min-h-[42px] items-end p-1.5" : "flex h-[18px] items-end p-1.5"} style={{...look, borderRadius:6, background:`linear-gradient(140deg, color-mix(in srgb, ${c.button_color} 40%, ${c.background_color || "#fff"}), ${c.button_color})`}}>{line(i === 0 ? "60%" : "80%")}</span>)}
+    </span>
+  }
   if (layout === "cards") {
     return (
       <span className="mt-[11%] flex w-full flex-col gap-[7px]" data-theme-card-layout="cards">

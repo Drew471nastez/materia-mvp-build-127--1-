@@ -38,10 +38,10 @@ const STATIC_TYPES = { ".webp": "image/webp", ".avif": "image/avif", ".png": "im
  * for a call, given the request and its body; null leaves it to the stubs
  * below. It is how a probe sees what Save sent and what a signup posted.
  */
-export async function serveEditorProbe({ root = process.cwd(), entry = "scripts/render-onepage-editor.tsx", blocks = null, theme = {}, liveTheme = null, statics = {}, throttle = null, api = null, fail = (m) => { throw new Error(m) } } = {}) {
+export async function serveEditorProbe({ root = process.cwd(), entry = "scripts/render-onepage-editor.tsx", pathname = "/app/onepage", blocks = null, theme = {}, liveTheme = null, statics = {}, throttle = null, api = null, fail = (m) => { throw new Error(m) } } = {}) {
   const dir = join(root, `.onepage-probe-${process.pid}`)
   mkdirSync(dir, { recursive: true })
-  writeFileSync(join(dir, "navigation.js"), `export const usePathname = () => "/app/onepage"
+  writeFileSync(join(dir, "navigation.js"), `export const usePathname = () => ${JSON.stringify(pathname)}
 export const useSearchParams = () => new URLSearchParams(location.search)
 export const useRouter = () => ({ push() {}, replace() {}, prefetch() {}, refresh() {}, back() {} })
 export const useParams = () => ({})
@@ -62,7 +62,8 @@ const q = new Proxy(function () {}, { get: (_, k) => k === "then" ? (r) => r(glo
 /* A probe that names a catalogue (window.PROBE_PRODUCTS) gets it back from a read of products, the read lib/onepage/live-products makes. */
 const rows = (list) => { const r = { data: list, error: null }; const p = new Proxy(function () {}, { get: (_, k) => k === "then" ? (res) => res(r) : p, apply: () => p }); return p }
 const asyncRows = (read) => { const p = new Proxy(function () {}, { get: (_, k) => k === "then" ? (resolve, reject) => read().then(resolve, reject) : p, apply: () => p }); return p }
-export function createClient() { return { auth: { getUser: async () => ({ data: { user: { id: "probe-user" } } }), getSession: async () => ({ data: { session: globalThis.PROBE_SESSION ?? null } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) }, from: (table) => (table === "profiles" && globalThis.PROBE_READ_PROFILE ? asyncRows(globalThis.PROBE_READ_PROFILE) : table === "profiles" && globalThis.PROBE_PROFILE ? rows(globalThis.PROBE_PROFILE) : table === "products" && Array.isArray(globalThis.PROBE_PRODUCTS) ? rows(globalThis.PROBE_PRODUCTS) : q), storage: { from: () => q }, channel: () => ({ on() { return this }, subscribe() { return this } }), removeChannel() {} } }
+export const isNativePlatform = () => false
+export function createClient() { return { auth: { getUser: async () => ({ data: { user: Object.prototype.hasOwnProperty.call(globalThis,"PROBE_USER") ? globalThis.PROBE_USER : { id: "probe-user" } } }), getSession: async () => ({ data: { session: globalThis.PROBE_SESSION ?? null } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) }, from: (table) => (table === "profiles" && globalThis.PROBE_READ_PROFILE ? asyncRows(globalThis.PROBE_READ_PROFILE) : table === "profiles" && globalThis.PROBE_PROFILE ? rows(globalThis.PROBE_PROFILE) : table === "products" && Array.isArray(globalThis.PROBE_PRODUCTS) ? rows(globalThis.PROBE_PRODUCTS) : q), storage: { from: () => q }, channel: () => ({ on() { return this }, subscribe() { return this } }), removeChannel() {} } }
 `)
   try {
     execFileSync("pnpm", ["exec", "esbuild", join(root, entry),
@@ -113,7 +114,7 @@ export function createClient() { return { auth: { getUser: async () => ({ data: 
       return res.end(body)
     }
     /* /onepage-preview is the editor preview's own frame (components/onepage/live-preview). */
-    if (req.url === "/" || req.url.startsWith("/app") || req.url.startsWith("/onepage-preview")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(html) }
+    if (req.url === "/" || req.url.startsWith("/app") || req.url.startsWith("/onepage-preview") || req.url.startsWith("/receipt/")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(html) }
     if (api) {
       const chunks = []
       req.on("data", (c) => chunks.push(c))

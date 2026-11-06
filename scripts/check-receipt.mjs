@@ -241,10 +241,12 @@ const fileServer = createServer((req, res) => {
        over the receipt. Both shapes are run below. */
     const name = url.searchParams.get("download")
     res.writeHead(200, {
-      "content-type": "application/pdf",
+      "content-type": name === null ? "text/html" : "application/pdf",
       "content-disposition": name === null ? "inline" : `attachment; filename="${name || "signed.pdf"}"`,
     })
-    res.end("%PDF-1.4\n%probe\n")
+    // Headless Chromium has no PDF viewer. HTML models an inline document
+    // that actually loads, exercising the same hidden-frame recovery event.
+    res.end(name === null ? "<!doctype html><title>Inline document</title><p>Signed file</p>" : "%PDF-1.4\n%probe\n")
     return
   }
   res.writeHead(404, { "content-type": "text/plain" })
@@ -296,7 +298,7 @@ const VIOLET_SCAN = `(() => {
   return out
 })()`
 
-const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"], headless: true })
+const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--blink-settings=availableHoverTypes=2,primaryHoverType=2,availablePointerTypes=4,primaryPointerType=4"], headless: true })
 const VIEWPORTS = [
   ["390", { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }],
   ["1440", { width: 1440, height: 900, deviceScaleFactor: 1 }],
@@ -423,17 +425,17 @@ try {
           if (!a) return null
           const r = a.getBoundingClientRect()
           const img = a.querySelector("img, [data-avatar], span")
-          return { href: a.getAttribute("href"), h: Math.round(r.height), bg: getComputedStyle(a).backgroundColor, dur: getComputedStyle(a).transitionDuration, props: getComputedStyle(a).transitionProperty, left: Math.round((img?.getBoundingClientRect().left ?? 0) - (document.querySelector("header")?.getBoundingClientRect().left ?? 0)) }
+          return { href: a.getAttribute("href"), h: Math.round(r.height), bg: getComputedStyle(a).backgroundColor, dur: getComputedStyle(a).transitionDuration, props: getComputedStyle(a).transitionProperty, left: Math.round((img?.getBoundingClientRect().left ?? 0) - (document.querySelector("[data-receipt-back]")?.getBoundingClientRect().right ?? 0)) }
         })
         expect(!!seller && seller.href === "https://storelib.com/andrewrullz", "the seller's photo and name link to their page", JSON.stringify(seller))
         expect(!!seller && seller.h >= 44, "and are a 44px target", JSON.stringify(seller))
         expect(!!seller && /rgba\(0, 0, 0, 0\)|transparent/.test(seller.bg), "with no pill until a pointer arrives", seller?.bg)
         expect(!!seller && /0\.15s/.test(seller.dur) && /background-color/.test(seller.props), "the pill fades in over 150ms", JSON.stringify(seller))
-        expect(!!seller && Math.abs(seller.left) <= 1, "the photo stays on the page's edge", JSON.stringify(seller))
+        expect(!!seller && seller.left >= 0 && seller.left <= 20, "the seller photo stays beside the back control without overlap", JSON.stringify(seller))
         const contact = await page.evaluate(() => [...document.querySelectorAll("[data-receipt-contact] button")].find((b) => /Contact seller/.test(b.textContent || ""))?.getBoundingClientRect().height ?? 0)
         expect(contact >= 36, "Contact seller is there and easy to press", String(contact))
         if (!SIGNED_OUT.has(which) && which !== "refunded") {
-          const lib = await page.$("a[href='/account/library']")
+          const lib = await page.$("a[href='/account/library']:has([data-arrow])")
           if (lib) {
             const before = await page.evaluate((a) => ({ shadow: getComputedStyle(a).boxShadow, arrow: a.querySelector("[data-arrow]")?.getBoundingClientRect().left ?? 0 }), lib)
             await lib.hover()
@@ -807,12 +809,14 @@ try {
     {
       const page = await open(VIEWPORTS[1][1], "free")
       await page.keyboard.press("Tab")
+      expect(await page.evaluate(() => document.activeElement.hasAttribute("data-receipt-back")), "Tab reaches the receipt back control first")
+      await page.keyboard.press("Tab")
       await wait(200)
       const focus = await page.evaluate(() => {
         const a = document.activeElement
         return { seller: a?.hasAttribute("data-seller-link"), shadow: a ? getComputedStyle(a).boxShadow : "" }
       })
-      expect(focus.seller && focus.shadow !== "none", "Tab reaches it first and rings it", JSON.stringify(focus))
+      expect(focus.seller && focus.shadow !== "none", "Tab reaches the seller after Back and rings it", JSON.stringify(focus))
       if (SHOTS) await page.screenshot({ path: join(SHOTS, "receipt-free-1440-seller-focus.png"), clip: { x: 360, y: 0, width: 720, height: 220 } })
       await page.close()
     }
@@ -926,7 +930,7 @@ try {
       expect(/Post review/.test(text) && !/Sign in to post/.test(text), "a guest posts from the receipt link without signing in", text.slice(0, 200))
       expect(asked.some((a) => a.path === "/api/reviews/check" && /receiptToken=/.test(a.query)), "the card asks with the line's receipt token")
       const initial = await page.evaluate(() => document.querySelector("#review [data-reviewer]")?.textContent?.trim() || "")
-      expect(initial === "GH", "a guest's card shows their initials on a neutral circle (AppAvatar's two letters)", initial)
+      expect(initial === "" && await page.$("#review [data-reviewer] [data-avatar-default]"), "a guest reviewer uses the neutral person fallback", initial)
       if (SHOTS) await page.screenshot({ path: join(SHOTS, "receipt-guest-390-review.png"), fullPage: true })
       await page.close()
     }

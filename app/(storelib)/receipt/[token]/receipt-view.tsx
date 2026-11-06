@@ -601,7 +601,7 @@ export function ReceiptView({
       {/* The receipt says who is signed in from the server's read; a different answer in the browser asks again (components/auth/viewer-sync). */}
       <ViewerSync serverSignedIn={viewer.signedIn} />
       {/* The Storelib header above this page carries the inset under the clock now (app/receipt/layout.tsx). */}
-      <div className="mx-auto w-full max-w-[640px] px-4 pb-10 pt-4 sm:px-6 sm:pt-10">
+      <div data-receipt-content="" className="mx-auto w-full max-w-[640px] px-4 pb-[max(2.5rem,env(safe-area-inset-bottom,0px))] pt-4 sm:px-6 sm:pt-8">
         {/*
           The way back, who it is from, and a way to keep a copy. Back goes
           where the person came from (the library, the product, an order),

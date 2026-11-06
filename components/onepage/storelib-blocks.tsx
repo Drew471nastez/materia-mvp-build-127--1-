@@ -400,7 +400,7 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
           </span>
         ) : null}
         <span className="min-w-0 flex-1" style={{ paddingLeft: image ? 0 : px(6, look.scale) }}>
-          <span className="block truncate font-semibold" style={{ fontSize: px(15, look.scale) }}>{data.title || button}</span>
+          <span className="block truncate font-semibold" style={{ fontSize: px(15, look.scale) }} data-block-title="">{data.title || button}</span>
           {line ? <span className="mt-0.5 block truncate opacity-75" style={{ fontSize: px(12.5, look.scale) }}>{line}</span> : null}
         </span>
         <span className="shrink-0 font-medium" style={{ fontSize: px(13, look.scale), padding: `0 ${px(6, look.scale)}` }}>
@@ -608,7 +608,7 @@ function PromoCodeView({ block, look }: { block: OnePageBlock; look: StorelibBlo
     <div data-onepage-code="" className="w-full" style={{ ...look.button, borderRadius: radius, padding: px(12, look.scale) }}>
       <div className="flex items-center" style={{ gap: px(10, look.scale) }}>
         <span className="min-w-0 flex-1 text-left" style={{ paddingLeft: px(4, look.scale) }}>
-          <span className="block truncate font-semibold" style={{ fontSize: px(15, look.scale) }}>{data.title || code}</span>
+          <span className="block truncate font-semibold" style={{ fontSize: px(15, look.scale) }} data-block-title="">{data.title || code}</span>
           {data.description?.trim() ? <span className="mt-0.5 block truncate opacity-75" style={{ fontSize: px(12.5, look.scale) }}>{data.description}</span> : null}
         </span>
         {href ? (

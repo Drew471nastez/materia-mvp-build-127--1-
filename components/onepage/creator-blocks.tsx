@@ -146,7 +146,7 @@ function MusicView({ data, look }: { data: MusicBlockData; look: CreatorBlockLoo
   return (
     <div data-onepage-music={source.kind} className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       {data.title?.trim() ? (
-        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }}>
+        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">
           {data.title}
         </p>
       ) : null}
@@ -189,7 +189,7 @@ function EmbedView({ data, look }: { data: EmbedBlockData; look: CreatorBlockLoo
   return (
     <div data-onepage-embed={source.kind} className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       {data.title?.trim() ? (
-        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }}>
+        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">
           {data.title}
         </p>
       ) : null}
@@ -223,7 +223,7 @@ function TestimonialsView({ data, look }: { data: TestimonialsBlockData; look: C
   return (
     <div data-onepage-testimonials="" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       {data.title?.trim() ? (
-        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }}>
+        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">
           {data.title}
         </p>
       ) : null}
@@ -311,7 +311,7 @@ function ContactFormView({ data, look }: { data: ContactFormBlockData; look: Cre
   return (
     <div data-onepage-contact="" className="w-full" style={{ backgroundColor: tintOf(look.theme.button_color, 6), borderRadius: `${boxRadius(look.theme)}px`, padding: px(18, look.scale) }}>
       {data.title?.trim() ? (
-        <h3 className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(17, look.scale) }}>
+        <h3 className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(17, look.scale) }} data-block-title="">
           {data.title}
         </h3>
       ) : null}

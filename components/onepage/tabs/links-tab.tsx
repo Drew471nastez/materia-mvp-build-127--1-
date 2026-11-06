@@ -1,5 +1,7 @@
 "use client"
 
+import { BlockPresentationEditor } from "../block-presentation-editor"
+
 import { ProfileImage } from "@/components/onepage/profile-image"
 
 import { hapticTap } from "@/lib/native-bridge"
@@ -6994,6 +6996,7 @@ function BlockEditor({
   const settingsWithExtras = () => (
     <>
       {renderSettingsContent()}
+      <BlockPresentationEditor block={block} getBlock={() => findBlockDeep(getLatestOnePage()?.draft_blocks, block.id)?.block} onChange={(updates) => updateBlock(block.id, updates)} />
       {block.type !== "header" ? (
         <BlockExtras
           block={block}
