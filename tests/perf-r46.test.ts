@@ -121,7 +121,8 @@ function main() {
   console.log("\n4. The header's phone search strip waits for the header's height")
   {
     const header = code("components/platform/platform-header-client.tsx")
-    check("the strip renders only once headerH is measured", /\{headerH > 0 && searchInHeader && !tabsHere/.test(header))
+    /* Changed on purpose (r55): main 213cac29d adds !isReceiptRoute. */
+    check("the strip renders only once headerH is measured", /\{headerH > 0 && searchInHeader && (?:!isReceiptRoute && )?!tabsHere/.test(header))
     check("  and its top is that height", /data-header-search-strip=""[\s\S]{0,200}style=\{\{ top: headerH \}\}/.test(header))
     check("  headerH still starts at 0 and is measured in an effect", /const \[headerH, setHeaderH\] = useState\(0\)/.test(header))
   }

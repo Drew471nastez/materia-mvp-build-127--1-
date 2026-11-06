@@ -1488,7 +1488,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
     theme.background_type === "image" ? (theme.background_image_url ? tt("Image") : tt("Image, none chosen yet")) :
     theme.background_type === "video" ? tt("Video") :
     tt("Fill, {value}{value2}", { value: (normalizeHex(theme.background_color) || theme.background_color || "").toUpperCase(), value2: patternName ? `, ${patternName}` : "" })
-  const layoutName = { list: tt("List"), grid: tt("Grid"), cards: tt("Cards"), compact: tt("Compact"), masonry: "Mixed tiles" }[blockLayoutOf(t)]
+  const layoutName = { list: tt("List"), grid: tt("Grid"), cards: tt("Cards"), compact: tt("Compact"), masonry: tt("Mixed tiles") }[blockLayoutOf(t)]
   const layoutSummary = blockLayoutOf(t) === "compact" ? layoutName : tt("{layout}, {spacing} spacing", { layout: layoutName, spacing: blockSpacingOf(t) === "compact" ? tt("tight") : blockSpacingOf(t) === "comfortable" ? tt("roomy") : tt("normal") })
   const swatch = (bg: string) => <span aria-hidden className="h-7 w-7 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]" style={{ background: bg }} />
 

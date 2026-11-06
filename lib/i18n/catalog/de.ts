@@ -4728,6 +4728,7 @@ const words: Record<string, string> = {
  "Missing something they wanted": "Es fehlte etwas, das gewünscht war",
  "Mist": "Nebel",
  "Mixed": "Gemischt",
+ "Mixed tiles": "Mosaik",
  "Mobile": "Mobil",
  "Mockups": "Mockups",
  "Model": "Modell",
