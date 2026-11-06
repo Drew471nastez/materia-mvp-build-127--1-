@@ -67,6 +67,8 @@ import { imagesOnly, isPosterName, isVideoUrl } from "@/lib/media/video"
 import { plainDescription } from "@/lib/products/plain-description"
 import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
+import { NO_ROWS, readLadder } from "@/lib/supabase/missing-memory"
+import { oncePerClient } from "@/lib/supabase/per-client"
 
 /** One product, in the shape a block has. */
 export type ProductBlock = NonNullable<SectionInstanceData["blocks"]>[string] & { id?: string }
@@ -373,15 +375,13 @@ export async function productOptions(db: Db, productIds: string[]): Promise<Opti
   if (productIds.length === 0) return []
   try {
     /* With each value's own swatch (part 286); a database before it is asked again without. */
-    for (const cols of ["product_id, name, values, position, swatches", "product_id, name, values, position"]) {
-      const q = db.from("product_options").select(cols)
-      if (typeof q.in !== "function") return []
-      const { data, error } = await q.in("product_id", productIds).order("position", { ascending: true })
-      if (!error) return (data ?? []) as OptionRow[]
-      const code = String((error as { code?: string }).code ?? "")
-      if (code !== "42703" && code !== "PGRST204") return []
-    }
-    return []
+    if (typeof db.from("product_options").select("product_id").in !== "function") return []
+    /* Remembered ten minutes when the swatches are missing (lib/supabase/missing-memory.ts), not refused on every list. */
+    const { data, error } = await readLadder(
+      "product_options:cards",
+      ["product_id, name, values, position, swatches", "product_id, name, values, position"].map((cols) => () => db.from("product_options").select(cols).in!("product_id", productIds).order("position", { ascending: true })),
+    )
+    return error ? [] : ((data ?? []) as OptionRow[])
   } catch {
     return []
   }
@@ -434,18 +434,17 @@ const VARIANT_COLUMNS_MINIMAL = "id, product_id, name, price_cents, position"
  */
 export async function productVariants(db: Db, productIds: string[]): Promise<VariantRow[]> {
   if (productIds.length === 0) return []
-  for (const cols of [VARIANT_COLUMNS_WITH_OPTIONS, VARIANT_COLUMNS_WITH_IMAGE, VARIANT_COLUMNS, VARIANT_COLUMNS_MINIMAL]) {
-    try {
-      const q = db.from("product_variants").select(cols)
-      if (typeof q.in !== "function") return []
-      const { data, error } = await q.in("product_id", productIds).order("position", { ascending: true })
-      if (error) continue
-      return (data ?? []) as VariantRow[]
-    } catch {
-      return []
-    }
+  try {
+    if (typeof db.from("product_variants").select(VARIANT_COLUMNS_MINIMAL).in !== "function") return []
+    /* Each set fewer only when a column is missing, remembered ten minutes (lib/supabase/missing-memory.ts). */
+    const { data, error } = await readLadder(
+      "product_variants:cards",
+      [VARIANT_COLUMNS_WITH_OPTIONS, VARIANT_COLUMNS_WITH_IMAGE, VARIANT_COLUMNS, VARIANT_COLUMNS_MINIMAL].map((cols) => () => db.from("product_variants").select(cols).in!("product_id", productIds).order("position", { ascending: true })),
+    )
+    return error ? [] : ((data ?? []) as VariantRow[])
+  } catch {
+    return []
   }
-  return []
 }
 
 /**
@@ -558,7 +557,8 @@ type RatingsRead = { byId: Map<string, { count: number; average: number }>; colo
 async function ratingsOf(db: Db, creatorId: string, productIds: string[]): Promise<RatingsRead | null> {
   if (productIds.length === 0) return null
   const any = db as unknown as { from: (t: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
-  const { data: app, error: appError } = await any.from("store_settings").select("reviews").eq("creator_id", creatorId).maybeSingle()
+  /* The Reviews app's settings, once per request and store (lib/supabase/per-client.ts): the catalogue and the shop's list each asked. */
+  const { data: app, error: appError } = await oncePerClient(any, `store-reviews-app:${creatorId}`, async () => (await any.from("store_settings").select("reviews").eq("creator_id", creatorId).maybeSingle()) as { data: unknown; error: unknown })
   if (appError) return null
   const settings = readReviewsApp((app as { reviews?: unknown } | null)?.reviews)
   if (!settings.enabled || !settings.display.showCardRating) return null
@@ -700,7 +700,8 @@ async function customFieldsOf(db: Db, productIds: string[]): Promise<Map<string,
   const any = db as unknown as { from: (t: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
   const byId = new Map<string, Record<string, string>>()
   for (let i = 0; i < productIds.length; i += 80) {
-    const { data, error } = await any.from("products").select("id, custom_fields").eq("status", "published").in("id", productIds.slice(i, i + 80))
+    /* Before part 107: no fields, remembered ten minutes rather than refused on every list (lib/supabase/missing-memory.ts). */
+    const { data, error } = await readLadder("products:custom_fields", [() => any.from("products").select("id, custom_fields").eq("status", "published").in("id", productIds.slice(i, i + 80)), NO_ROWS])
     if (error) return null
     for (const r of (data ?? []) as { id: string; custom_fields?: unknown }[]) byId.set(r.id, cleanCustomFields(r.custom_fields))
   }
@@ -801,21 +802,13 @@ async function readCards(db: Db, creatorId: string, n: number, listedOnly: boole
     const hidden = offChannel(db, creatorId, "storefront")
     const currency = readStoreCurrency(db, creatorId).then((c) => c.currency)
     let rows: ProductRow[] | null = null
-    for (const cols of PRODUCT_COLUMN_SETS) {
-      const { data, error } = await db
-        .from("products")
-        .select(cols)
-        .eq("creator_id", creatorId)
-        .eq("status", "published")
-        .order("created_at", { ascending: false })
-        .limit(n)
-      if (error) {
-        lastError = (error as { code?: string; message?: string }).code || (error as { message?: string }).message || "error"
-        continue
-      }
-      rows = listedOnly ? withoutCommunityProducts((data ?? []) as ProductRow[]) : ((data ?? []) as ProductRow[])
-      break
-    }
+    /* Each set fewer only when a column is missing, and the one that answered remembered ten minutes (lib/supabase/missing-memory.ts): a database without a part is not refused on every list. Any other error is the shop not read, as before. */
+    const { data, error } = await readLadder(
+      "products:cards",
+      PRODUCT_COLUMN_SETS.map((cols) => () => db.from("products").select(cols).eq("creator_id", creatorId).eq("status", "published").order("created_at", { ascending: false }).limit(n)),
+    )
+    if (error) lastError = (error as { code?: string; message?: string }).code || (error as { message?: string }).message || "error"
+    else rows = listedOnly ? withoutCommunityProducts((data ?? []) as ProductRow[]) : ((data ?? []) as ProductRow[])
     if (!rows) {
       if (strict) throw new ShopReadFailed(lastError || "no rows")
       return []

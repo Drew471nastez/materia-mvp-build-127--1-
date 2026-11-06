@@ -1333,6 +1333,8 @@ const STRICT_SUITES = [
   "tests/app-resilience-r53.test.ts",
   /* Round 54 (database load): the SEO cron takes only what is due (a page scored, a site listed and Google asked a day after the last time, a sitemap walk six hours after the last), a read with a missing column is refused once per server and not on every read (lib/supabase/missing-memory, tolerant-select), and the live site and the editor read only the columns they draw. */
   "tests/db-load-r54.test.ts",
+  /* Round 55 (database load): one shop with almost no visitors asked Supabase 630 times a minute. A column a SQL part adds (131, 107, 307, 309) is refused once per server per ten minutes on product pages, card lists and size chart reads (lib/supabase/missing-memory readLadder), a real error is never remembered as missing, the shop's commerce settings, home country, profiles and locations are read once per request and stock every time (lib/supabase/per-client), and "Confirming your payment" (every 4 s, forever) and a website's 503 "One moment" (every 5 s, forever) back off and stop. */
+  "tests/db-bundle-r55.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

@@ -17,6 +17,7 @@ import "server-only"
 import { cardsFromRows, PRODUCT_COLUMN_SETS, type ProductCard, type ProductRow } from "./shop-products"
 import type { CreatorFacts } from "./storefront-data"
 import { offChannel } from "@/lib/store/channel-filter"
+import { readLadder } from "@/lib/supabase/missing-memory"
 
 /** The narrow shape these reads need, so a test can hand in a fake. */
 type Row = Record<string, unknown>
@@ -103,17 +104,23 @@ export async function pickedProducts(
       live site and kept them in the builder. The full columns, falling back
       as the shop's list does, and the options read the same way.
     */
-    for (const cols of PRODUCT_COLUMN_SETS) {
-      const reads: PromiseLike<{ data: Row[] | null; error?: unknown }>[] = []
-      if (ids.length) reads.push(db.from("products").select(cols).eq("creator_id", creatorId).eq("status", "published").in("id", ids).limit(MAX_PICKED_PRODUCTS))
-      if (slugs.length) reads.push(db.from("products").select(cols).eq("creator_id", creatorId).eq("status", "published").in("slug", slugs).limit(MAX_PICKED_PRODUCTS))
-      const [results, offStore] = await Promise.all([Promise.all(reads), offChannel(db, creatorId, "storefront")])
-      if (results.some((r) => r.error)) continue
-      /* A product a section picked and then taken off the Online store (Settings › Sales channels) is left out. */
-      const picked = results.flatMap((r) => (r.data ?? []) as unknown as ProductRow[]).filter((p) => !offStore.has(String(p.id)))
-      return await cardsFromRows(db, picked, creatorId)
-    }
-    return []
+    const offStoreAsked = offChannel(db, creatorId, "storefront")
+    /* Each set fewer only when a column is missing, remembered ten minutes (lib/supabase/missing-memory.ts); any other error is no picked products, as before. */
+    const asked = await readLadder(
+      "products:picked",
+      PRODUCT_COLUMN_SETS.map((cols) => async () => {
+        const reads: PromiseLike<{ data: Row[] | null; error?: unknown }>[] = []
+        if (ids.length) reads.push(db.from("products").select(cols).eq("creator_id", creatorId).eq("status", "published").in("id", ids).limit(MAX_PICKED_PRODUCTS))
+        if (slugs.length) reads.push(db.from("products").select(cols).eq("creator_id", creatorId).eq("status", "published").in("slug", slugs).limit(MAX_PICKED_PRODUCTS))
+        const results = await Promise.all(reads)
+        return { results, error: (results.find((r) => r.error)?.error ?? null) as { code?: string; message?: string } | null }
+      }),
+    )
+    if (asked.error) return []
+    const offStore = await offStoreAsked
+    /* A product a section picked and then taken off the Online store (Settings › Sales channels) is left out. */
+    const picked = asked.results.flatMap((r) => (r.data ?? []) as unknown as ProductRow[]).filter((p) => !offStore.has(String(p.id)))
+    return await cardsFromRows(db, picked, creatorId)
   } catch {
     return []
   }

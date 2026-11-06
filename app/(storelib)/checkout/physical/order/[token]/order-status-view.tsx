@@ -22,6 +22,7 @@ import { checkoutMsg, type CheckoutT } from "@/lib/markets/checkout-words"
 import { LiveStatus } from "./live-status"
 import { splitSavings } from "@/lib/receipts/discount"
 import { StoreLogo } from "@/components/brand/store-logo"
+import { PENDING_TRY_PARAM, pendingDelayMs, pendingRetryUrl } from "@/lib/checkout/pending-poll"
 
 interface Props {
   token: string
@@ -136,18 +137,45 @@ const returnText = (status: string, ct: CheckoutT): string | null =>
 
 export function PendingOrder({ reason }: { reason: string | null }) {
   const ct = useCt()
+  /* Asks again with longer waits, never while the tab is hidden, and stops after PENDING_TRIES (round 55: it reloaded every 4 seconds for as long as the tab was open). The count rides in the address, so it survives the reload. */
+  const [stopped, setStopped] = React.useState(false)
   React.useEffect(() => {
     if (reason === "failed" || reason === "not_found") return
-    const t = window.setTimeout(() => window.location.reload(), 4000)
-    return () => window.clearTimeout(t)
+    const tries = Number(new URL(window.location.href).searchParams.get(PENDING_TRY_PARAM)) || 0
+    const wait = pendingDelayMs(tries)
+    if (wait === null) {
+      setStopped(true)
+      return
+    }
+    const reload = () => window.location.replace(pendingRetryUrl(window.location.href, tries + 1))
+    const whenShown = () => {
+      if (document.visibilityState !== "visible") return
+      document.removeEventListener("visibilitychange", whenShown)
+      reload()
+    }
+    const timer = window.setTimeout(() => {
+      if (document.visibilityState === "visible") reload()
+      else document.addEventListener("visibilitychange", whenShown)
+    }, wait)
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener("visibilitychange", whenShown)
+    }
   }, [reason])
+  const done = reason === "failed" || reason === "not_found" || stopped
+  const again = () => window.location.replace(pendingRetryUrl(window.location.href, 0))
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-[#f8f9fa] px-6 text-center">
-      <RefreshCw className={cn("h-7 w-7 text-[#9ca3af]", reason !== "failed" && "animate-spin")} />
-      <h1 className="mt-4 text-[22px] font-semibold text-[#1a1a2e]">{reason === "failed" || reason === "not_found" ? ct("We couldn't confirm your order here") : ct("Confirming your payment")}</h1>
+      <RefreshCw className={cn("h-7 w-7 text-[#9ca3af]", !done && "animate-spin")} />
+      <h1 className="mt-4 text-[22px] font-semibold text-[#1a1a2e]">{done ? ct("We couldn't confirm your order here") : ct("Confirming your payment")}</h1>
       <p className="mt-2 max-w-[420px] text-[15px] leading-[22px] text-[#6b7280]">
-        {reason === "failed" || reason === "not_found" ? ct("If you paid, your order is safe: you'll get a confirmation email with a link to it in a few minutes.") : ct("This takes a few seconds. Your confirmation email is on its way.")}
+        {done ? ct("If you paid, your order is safe: you'll get a confirmation email with a link to it in a few minutes.") : ct("This takes a few seconds. Your confirmation email is on its way.")}
       </p>
+      {stopped && (
+        <button type="button" onClick={again} className="mt-5 inline-flex h-10 items-center justify-center rounded-[10px] bg-[#1a1a2e] px-4 text-[14px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_1px_rgba(0,0,0,0.12)] transition-[scale,background-color] duration-150 hover:bg-[#262640] active:scale-[0.98]">
+          {ct("Try again")}
+        </button>
+      )}
     </main>
   )
 }

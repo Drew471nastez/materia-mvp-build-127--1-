@@ -19,6 +19,7 @@ import { sizeChartForProduct } from "@/lib/size-charts/storefront"
 import { productSectionData, type ProductSectionRow } from "@/lib/products/product-section-data"
 import { storeOriginFor } from "@/lib/physical/order-link-server"
 import { getMainDomain } from "@/lib/url-helpers"
+import { readLadder } from "@/lib/supabase/missing-memory"
 
 /**
  * GET /api/onepage/product?id=<productId>
@@ -61,12 +62,11 @@ export async function GET(request: Request) {
   const [userRead, variantsRead, creatorRead, store, config, taxSetup, storeName, standing, sizeChart, section, storeOrigin] = await Promise.all([
     supabase.auth.getUser().catch(() => ({ data: { user: null } })),
     /* Round 41: with `active`, so an option taken off a product that ships is not offered in the sheet; without it where the column is missing. */
-    admin
-      .from("product_variants")
-      .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents, active")
-      .eq("product_id", id)
-      .order("price_cents", { ascending: true })
-      .then((r) => (r.error ? admin.from("product_variants").select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents").eq("product_id", id).order("price_cents", { ascending: true }) : r)),
+    /* Without it only when the column is missing, remembered ten minutes (lib/supabase/missing-memory.ts). */
+    readLadder("product_variants:onepage", [
+      () => admin.from("product_variants").select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents, active").eq("product_id", id).order("price_cents", { ascending: true }),
+      () => admin.from("product_variants").select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents").eq("product_id", id).order("price_cents", { ascending: true }),
+    ]),
     admin.from("creators").select("id, user_id, slug").eq("id", creatorId).maybeSingle(),
     readStoreCurrency(admin, creatorId),
     loadCheckoutConfig(admin, creatorId),

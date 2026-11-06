@@ -24,6 +24,7 @@ import { DEPLOYMENT_BUCKET } from "@/lib/sites/publish"
 import { robotsTxt, urlsetXml } from "@/lib/seo/indexing"
 import { isSiteReadError, siteRead } from "@/lib/website-builder/site-read"
 import { within } from "@/lib/onepage/bounded-read"
+import { oneMomentHtml } from "@/lib/net/one-moment"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -127,10 +128,10 @@ function notFound(): NextResponse {
  * subdomain's 301 told them it had moved for good. A 503 with Retry-After is
  * the truth: try again shortly. Never cached, and it reloads by itself.
  */
-const UNAVAILABLE_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="5"><title>One moment</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:15px/1.5 Inter,system-ui,sans-serif;color:#1a1a2e;background:#f8f9fa}p{margin:0;color:#6b7280}</style></head><body><main><h1 style="font-size:20px;margin:0 0 6px">One moment</h1><p>This page will load again by itself.</p></main></body></html>`
+/* A few times, then it stops (lib/net/one-moment.ts). */
 
-function unavailable(): NextResponse {
-  return new NextResponse(UNAVAILABLE_HTML, {
+function unavailable(req: Request): NextResponse {
+  return new NextResponse(oneMomentHtml(new URL(req.url).search), {
     status: 503,
     headers: {
       ...SECURITY_HEADERS,
@@ -250,7 +251,7 @@ export async function GET(
     } catch (e) {
       if (!isSiteReadError(e)) throw e
       console.warn("[sites/serve] site unavailable", { slug, why: e.message })
-      return unavailable()
+      return unavailable(request)
     }
   }
   const objectPath = wantsVendor
@@ -280,7 +281,7 @@ export async function GET(
       } catch (e) {
         if (!isSiteReadError(e)) throw e
         console.warn("[sites/serve] site unavailable", { slug, why: e.message })
-        return unavailable()
+        return unavailable(request)
       }
       if (moved) {
         return NextResponse.redirect(`https://${SITES_HOST}/${moved}${requested ? `/${requested}` : ""}`, 301)
@@ -308,7 +309,7 @@ export async function GET(
     const seoFile = !wantsVendor && (requested === "robots.txt" || requested === "sitemap.xml")
     if (error && (!isMissingObject(error) || (live?.held && !seoFile))) {
       console.warn("[sites/serve] file unavailable", { slug, why: error.message || "storage did not answer" })
-      return unavailable()
+      return unavailable(request)
     }
     /**
      * A SITE WITHOUT ITS OWN ROBOTS.TXT OR SITEMAP GETS ONE. Google treats

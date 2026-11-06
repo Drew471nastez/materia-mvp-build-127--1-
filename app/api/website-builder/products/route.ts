@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { productSectionData, type ProductSectionRow } from "@/lib/products/product-section-data"
 import { catalogCards, shopProducts } from "@/lib/website-builder/shop-products"
 import { pageFactsFor } from "@/lib/storelib-theme/compat/product-facts-server"
+import { readLadder } from "@/lib/supabase/missing-memory"
 
 // GET - Fetch creator's products for the website builder editor
 export async function GET(request: Request) {
@@ -99,8 +100,8 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: false })
       .limit(limit)
     const LIST_COLUMNS = "id, title, slug, thumbnail_url, price_cents, compare_at_cents, description, whats_included, gallery_urls, status, type"
-    let { data: products, error } = await list(`${LIST_COLUMNS}, faqs`)
-    if (error) ({ data: products, error } = await list(LIST_COLUMNS))
+    /* Without the questions only when the column is missing, remembered ten minutes (lib/supabase/missing-memory.ts); any other error is a 500 as before. */
+    const { data: products, error } = await readLadder("products:builder-list-faqs", [() => list(`${LIST_COLUMNS}, faqs`), () => list(LIST_COLUMNS)])
 
     if (error) {
       return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 })

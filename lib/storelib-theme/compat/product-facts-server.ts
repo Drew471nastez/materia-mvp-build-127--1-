@@ -10,9 +10,17 @@
 import "server-only"
 import { productSectionData, type ProductSectionRow } from "@/lib/products/product-section-data"
 import { readOrderLimit } from "@/lib/physical/order-limit"
+import { readLadder } from "@/lib/supabase/missing-memory"
 import type { PageFacts } from "./product-facts"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+
+/** The product row's columns, newest first: Limit sales (part 131), then the low stock line and Continue selling (parts 78, 214). */
+export const PAGE_FACT_COLUMNS = [
+  "id, creator_id, type, price_cents, inventory_count, track_inventory, continue_selling, low_stock_threshold, max_per_order",
+  "id, creator_id, type, price_cents, inventory_count, track_inventory, continue_selling, low_stock_threshold",
+  "id, creator_id, type, price_cents, inventory_count",
+] as const
 
 /**
  * What is true now about each variant of one published product, for its
@@ -24,19 +32,22 @@ type Db = { from: (table: string) => any } // eslint-disable-line @typescript-es
  */
 export async function pageFactsFor(admin: Db, creatorId: string, productId: string, showLeft: boolean, opts: { published?: boolean } = {}): Promise<PageFacts | null> {
   try {
-    let row: Record<string, unknown> | null = null
-    for (const cols of [
-      "id, creator_id, type, price_cents, inventory_count, track_inventory, continue_selling, low_stock_threshold, max_per_order",
-      "id, creator_id, type, price_cents, inventory_count, track_inventory, continue_selling, low_stock_threshold",
-      "id, creator_id, type, price_cents, inventory_count",
-    ]) {
+    /*
+      Asked with the newest columns first and again with fewer only when
+      Postgres says one is missing (Limit sales, part 131; the low stock
+      line, part 214), and the rung that answered is remembered for ten
+      minutes (lib/supabase/missing-memory.ts): a database without the part
+      no longer refuses the first ask on every product page. Any other
+      error is answered as it came, and the page draws from the list copy.
+    */
+    const ask = (cols: string) => () => {
       let q = admin.from("products").select(cols).eq("id", productId).eq("creator_id", creatorId)
       if (opts.published !== false) q = q.eq("status", "published")
-      const { data, error } = await q.maybeSingle()
-      if (error) continue
-      row = (data as Record<string, unknown> | null) ?? null
-      break
+      return q.maybeSingle() as PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>
     }
+    const { data: found, error } = await readLadder("products:page-facts", PAGE_FACT_COLUMNS.map(ask))
+    if (error) return null
+    const row = (found as Record<string, unknown> | null) ?? null
     if (!row) return null
     const [data, own] = await Promise.all([
       productSectionData(admin, row as unknown as ProductSectionRow, { counts: showLeft }),

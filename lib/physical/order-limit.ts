@@ -18,6 +18,8 @@
  * part 131 yet: no limit, as before.
  */
 
+import { NO_ROWS, readLadder } from "@/lib/supabase/missing-memory"
+
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 /** The highest limit a seller can type; the checkout's own line maximum is 999. */
@@ -48,7 +50,13 @@ export async function orderLimits(db: Db, productIds: string[]): Promise<Map<str
   const out = new Map<string, number>()
   if (!productIds.length) return out
   try {
-    const { data, error } = await db.from("products").select("id, max_per_order").in("id", productIds)
+    /*
+      Before part 131 there is no column, and so no limit: remembered for ten
+      minutes (lib/supabase/missing-memory.ts), so a database without it is
+      not refused on every cart, quote and product page. Any other error is
+      no limit for this read only, as before.
+    */
+    const { data, error } = await readLadder("products:max_per_order", [() => db.from("products").select("id, max_per_order").in("id", productIds), NO_ROWS])
     if (error) return out
     for (const r of (data ?? []) as { id: string; max_per_order: unknown }[]) {
       const limit = readOrderLimit(r.max_per_order)

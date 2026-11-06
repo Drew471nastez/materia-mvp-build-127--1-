@@ -13,6 +13,7 @@
 export const SAY_LEFT_FROM = 10
 
 import { cappedQuantity, orderLimits } from "./order-limit"
+import { oncePerClient } from "@/lib/supabase/per-client"
 import { sellsWhenOut } from "./inventory-rules"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -96,19 +97,30 @@ export function liveVariant(v: StockVariant): boolean {
   return v.active !== false && !/^Archived /.test(v.name)
 }
 
+/**
+ * The shop's commerce settings a storefront reads (Settings › Shipping and
+ * delivery, Returns, the low stock line), once per request and shop
+ * (lib/supabase/per-client.ts): one product page asked them three times, a
+ * quote once per product. Every column is part 78's.
+ */
+export function commerceRow(db: Db, creatorId: string): Promise<{ data: { returns_enabled?: boolean | null; return_window_days?: number | null; default_location_id?: string | null; low_stock_default?: number | null } | null; error?: unknown }> {
+  return oncePerClient(db, `commerce-settings:${creatorId}`, async () => (await db.from("commerce_settings").select("returns_enabled, return_window_days, default_location_id, low_stock_default").eq("creator_id", creatorId).maybeSingle()) as never)
+}
+
 /** Stock for each live variant, by id. Never throws: stock that cannot be read sells as untracked would. */
 export async function physicalStock(db: Db, product: StockProduct, variants: StockVariant[]): Promise<Map<string, VariantStock>> {
   const live = variants.filter(liveVariant)
   const available = new Map<string, number>()
   let shopLine: number | null = null
   try {
-    const { data: settings } = await db.from("commerce_settings").select("low_stock_default").eq("creator_id", product.creator_id).maybeSingle()
+    const { data: settings } = await commerceRow(db, product.creator_id)
     if (settings && typeof settings.low_stock_default === "number") shopLine = settings.low_stock_default
   } catch {
     /* The default line, 5. */
   }
   try {
-    const { data: locations } = await db.from("inventory_locations").select("id").eq("creator_id", product.creator_id).eq("active", true).eq("fulfills_orders", true)
+    /* Which locations fulfil orders: once per request (lib/supabase/per-client.ts). What each holds is read below on every call. */
+    const { data: locations } = await oncePerClient(db, `fulfilling-locations:${product.creator_id}`, async () => (await db.from("inventory_locations").select("id").eq("creator_id", product.creator_id).eq("active", true).eq("fulfills_orders", true)) as { data: { id: string }[] | null })
     const locIds = ((locations ?? []) as { id: string }[]).map((l) => l.id)
     if (live.length && locIds.length) {
       const { data: levels } = await db.from("inventory_levels").select("variant_id, available").in("variant_id", live.map((v) => v.id)).in("location_id", locIds)
