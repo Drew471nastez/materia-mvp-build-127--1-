@@ -66,6 +66,7 @@ import { ownIconPath } from "./site-favicon"
 import { faviconOf } from "./favicon-sync"
 import { logEvent } from "@/lib/net/log"
 import { blogFor, readLivePost, readPreviewPost, siteBlogRedirect } from "@/lib/site-blog/public-read"
+import { readLadder } from "@/lib/supabase/missing-memory"
 
 /** Theme settings › Branding's store name, when the website has one of its own. */
 const brandOf = (settings: unknown): string => {
@@ -577,9 +578,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
       const readDescription = async () => {
         const read = (cols: string) => admin.from("products").select(cols).eq("id", card.id).eq("creator_id", creator.creatorId).eq("status", "published").maybeSingle()
         /* Its SEO title too: an imported theme's page_title and the tab say it, as a Storelib theme's product page does (lib/website-builder/tab-title.ts). */
-        let { data, error } = await read("description, faqs, seo_title")
-        if (error) ({ data, error } = await read("description, faqs"))
-        if (error) ({ data, error } = await read("description"))
+        /* Each fewer only when a column is missing, and the rung that answered remembered ten minutes (lib/supabase/missing-memory.ts). */
+        const { data, error } = await readLadder("products:compat-description", [() => read("description, faqs, seo_title"), () => read("description, faqs"), () => read("description")])
         const seoTitle = (data as { seo_title?: unknown } | null)?.seo_title
         return error ? null : { text: (data as { description?: string | null } | null)?.description ?? "", faqs: productFaqs((data as { faqs?: unknown } | null)?.faqs), seoTitle: typeof seoTitle === "string" ? seoTitle.trim().replace(/ \| Storelib$/i, "") : "" }
       }

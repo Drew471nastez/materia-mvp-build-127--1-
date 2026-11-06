@@ -27,6 +27,7 @@
  * Never throws: a read that fails leaves the cards as they were.
  */
 import { productFaqs, type ProductFaq } from "@/lib/products/product-faqs"
+import { NO_ROWS, readLadder } from "@/lib/supabase/missing-memory"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -48,7 +49,7 @@ export async function productExtras(db: Db, creatorId: string, cards: readonly C
   const put = (id: string, patch: ProductExtras[string]) => (out[id.toLowerCase()] = { ...(out[id.toLowerCase()] ?? {}), ...patch })
   const readFaqs = async () => {
     for (let i = 0; i < ids.length; i += 80) {
-      const { data, error } = await db.from("products").select("id, faqs").eq("creator_id", creatorId).eq("status", "published").in("id", ids.slice(i, i + 80))
+      const { data, error } = await readLadder("products:faqs", [() => db.from("products").select("id, faqs").eq("creator_id", creatorId).eq("status", "published").in("id", ids.slice(i, i + 80)), NO_ROWS])
       /* A database without the column: no questions anywhere, as before. */
       if (error) return
       for (const r of (data ?? []) as { id: string; faqs?: unknown }[]) {

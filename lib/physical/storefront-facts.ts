@@ -27,9 +27,10 @@ import { loadLocations, loadProfiles } from "./config-server"
 import { freeShippingFrom } from "./rates"
 import { deliveryPromise } from "./delivery-promise"
 import { PICKUP_READY_LABEL } from "./pickup"
-import { liveVariant } from "./storefront-stock"
+import { commerceRow, liveVariant } from "./storefront-stock"
 import type { Location, ShippingProfile } from "./types"
 import type { PickupPoint, ProductDelivery } from "./delivery-lines"
+import { oncePerClient } from "@/lib/supabase/per-client"
 
 export type { PickupPoint, ProductDelivery } from "./delivery-lines"
 
@@ -41,7 +42,7 @@ export interface ShopFacts {
 }
 
 /** The country the shop ships from: Store details, else its default location's. */
-async function homeCountry(db: Db, creatorId: string, defaultLocationId: string | null | undefined): Promise<string | null> {
+async function readHomeCountry(db: Db, creatorId: string, defaultLocationId: string | null | undefined): Promise<string | null> {
   const { data: store } = await db.from("store_settings").select("default_country").eq("creator_id", creatorId).maybeSingle()
   let country: string | null = (store as { default_country?: string | null } | null)?.default_country ?? null
   if (!country && defaultLocationId) {
@@ -51,11 +52,24 @@ async function homeCountry(db: Db, creatorId: string, defaultLocationId: string 
   return country ? country.trim().toUpperCase() : null
 }
 
+/*
+  ONCE PER REQUEST, NOT PER PRODUCT (round 55): the shop's home country,
+  commerce settings, shipping profiles and locations are the same for every
+  product of one shop, and a page or a quote that asks about several
+  products asked them again for each (lib/supabase/per-client.ts). Stock
+  is never among them: inventory levels are read on every call.
+*/
+const homeCountry = (db: Db, creatorId: string, defaultLocationId: string | null | undefined) =>
+  oncePerClient(db, `home-country:${creatorId}:${defaultLocationId ?? ""}`, () => readHomeCountry(db, creatorId, defaultLocationId))
+const shopProfiles = (db: Db, creatorId: string) => oncePerClient(db, `shipping-profiles:${creatorId}`, () => loadProfiles(db as never, creatorId))
+const shopLocations = (db: Db, creatorId: string) => oncePerClient(db, `locations:${creatorId}`, () => loadLocations(db as never, creatorId))
+const deliverySettings = commerceRow
+
 export async function shopFacts(db: Db, creatorId: string): Promise<ShopFacts> {
   try {
     const [{ data: settings }, profiles] = await Promise.all([
-      db.from("commerce_settings").select("returns_enabled, return_window_days, default_location_id").eq("creator_id", creatorId).maybeSingle(),
-      loadProfiles(db as never, creatorId).catch(() => [] as ShippingProfile[]),
+      deliverySettings(db, creatorId),
+      shopProfiles(db, creatorId).catch(() => [] as ShippingProfile[]),
     ])
     const country = await homeCountry(db, creatorId, settings?.default_location_id).catch(() => null)
     const general = profiles.find((p) => p.isDefault) ?? profiles[0] ?? null
@@ -89,9 +103,9 @@ export async function productDelivery(db: Db, creatorId: string, productId: stri
     if (!product) return null
     const p = product as { price_cents?: number | null; track_inventory?: boolean | null; continue_selling?: boolean | null; shipping_profile_id?: string | null; weight_grams?: number | null; requires_shipping?: boolean | null; fulfillment_method?: string | null }
     const [{ data: settings }, profiles, locations, { data: variantRows }] = await Promise.all([
-      db.from("commerce_settings").select("default_location_id").eq("creator_id", creatorId).maybeSingle(),
-      loadProfiles(db as never, creatorId).catch(() => [] as ShippingProfile[]),
-      loadLocations(db as never, creatorId).catch(() => [] as Location[]),
+      deliverySettings(db, creatorId),
+      shopProfiles(db, creatorId).catch(() => [] as ShippingProfile[]),
+      shopLocations(db, creatorId).catch(() => [] as Location[]),
       db.from("product_variants").select("id, name, active, track_inventory, inventory_policy, price_cents, weight_grams, fulfillment_method").eq("product_id", productId).order("position", { ascending: true }),
     ])
     const variants = ((variantRows ?? []) as VariantRow[]).filter((v) => liveVariant(v))

@@ -95,16 +95,16 @@ type VariantRow = {
 }
 
 async function readVariants(db: Db, productId: string): Promise<VariantRow[]> {
-  for (const cols of VARIANT_TIERS) {
-    try {
-      const { data, error } = await db.from("product_variants").select(cols).eq("product_id", productId).order("position", { ascending: true })
-      if (error) continue
-      return (data ?? []) as VariantRow[]
-    } catch {
-      return []
-    }
+  try {
+    /* Each tier fewer only when a column is missing, and the one that answered remembered ten minutes (lib/supabase/missing-memory.ts). */
+    const { data, error } = await readLadder(
+      "product_variants:section",
+      VARIANT_TIERS.map((cols) => () => db.from("product_variants").select(cols).eq("product_id", productId).order("position", { ascending: true })),
+    )
+    return error ? [] : ((data ?? []) as VariantRow[])
+  } catch {
+    return []
   }
-  return []
 }
 
 async function readOptions(db: Db, productId: string): Promise<ProductOptionData[]> {

@@ -34,6 +34,7 @@
  */
 import { inSmartCollection, readRules, type RuleProduct } from "@/lib/physical/collections"
 import { readSizeChart, type SizeChart } from "./model"
+import { NO_ROWS, readLadder } from "@/lib/supabase/missing-memory"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -75,7 +76,8 @@ function shown(row: Record<string, unknown> | null | undefined, source: SizeChar
 /** The store's charts that are set for a collection or a category (part 309), or none. */
 export async function ruleCharts(db: Db, creatorId: string): Promise<ChartRow[]> {
   try {
-    const { data, error } = await db.from("size_charts").select(RULE_COLUMNS).eq("creator_id", creatorId).order("name", { ascending: true }).limit(200)
+    /* Before part 309 there are no such columns, and so no such charts: remembered for ten minutes (lib/supabase/missing-memory.ts), not refused on every page. */
+    const { data, error } = await readLadder("size_charts:rules", [() => db.from("size_charts").select(RULE_COLUMNS).eq("creator_id", creatorId).order("name", { ascending: true }).limit(200), NO_ROWS])
     if (error || !Array.isArray(data)) return []
     return (data as ChartRow[]).filter((c) => (c.collection_ids?.length ?? 0) > 0 || (c.categories?.length ?? 0) > 0)
   } catch {
@@ -98,8 +100,10 @@ async function membership(db: Db, creatorId: string, collectionIds: string[], pr
     }
     const smart = rows.filter((r) => r.kind === "smart")
     if (smart.length) {
-      let { data: ps, error } = await db.from("products").select(RULE_PRODUCT_COLUMNS).eq("creator_id", creatorId).in("id", productIds)
-      if (error) ({ data: ps } = await db.from("products").select("id, title, type, price_cents, created_at").eq("creator_id", creatorId).in("id", productIds))
+      const { data: ps } = await readLadder("products:size-chart-rules", [
+        () => db.from("products").select(RULE_PRODUCT_COLUMNS).eq("creator_id", creatorId).in("id", productIds),
+        () => db.from("products").select("id, title, type, price_cents, created_at").eq("creator_id", creatorId).in("id", productIds),
+      ])
       for (const p of (ps ?? []) as Record<string, any>[]) { // eslint-disable-line @typescript-eslint/no-explicit-any
         const rp: RuleProduct = { id: p.id, title: p.title ?? "", type: p.type ?? "", tags: p.tags ?? [], vendor: p.vendor ?? null, priceCents: p.price_cents ?? 0, compareAtCents: p.compare_at_price_cents ?? null, inventory: null, weightGrams: p.weight_grams ?? null, createdAt: p.created_at, category: p.category ?? null }
         for (const c of smart) if (inSmartCollection(readRules(c.rules), c.match === "any" ? "any" : "all", rp)) add(p.id, c.id)

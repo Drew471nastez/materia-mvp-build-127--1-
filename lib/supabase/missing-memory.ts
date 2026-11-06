@@ -52,6 +52,14 @@ export function rememberRung(key: string, rung: number, now = Date.now()): void 
   startAt.set(key, { rung, until: now + MISSING_FOR_MS })
 }
 
+/**
+ * The rung below a read of a column only a SQL part adds: no rows, which is
+ * what a database without the part means (no limit, no questions, no fields).
+ * With it, a database without the column is asked once per MISSING_FOR_MS
+ * and answered "none" in between, instead of being refused on every read.
+ */
+export const NO_ROWS = (): Promise<{ data: never[]; error: null }> => Promise.resolve({ data: [] as never[], error: null as null })
+
 /** For the tests: forget everything remembered. */
 export function forgetMissing(): void {
   startAt.clear()

@@ -36,6 +36,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import type { SizeChart } from "../lib/size-charts/model"
 import type { SectionInstance } from "../lib/website-builder/types"
 import { sizeChartForProduct, sizeChartsForProducts, sizeChartsForStore } from "../lib/size-charts/storefront"
+import { forgetMissing } from "../lib/supabase/missing-memory"
 import { sizeChartFromTable, SIZE_GUIDE_TABLE } from "../lib/size-charts/table-text"
 import { productExtras, withExtras } from "../lib/website-builder/product-extras"
 import { productObject } from "../lib/storelib-theme/compat/objects"
@@ -193,6 +194,8 @@ async function main() {
     check("one product, by the same rule (the product section and the OnePage read it so)", (await sizeChartForProduct(fakeDb(tables()), HOODIE, CREATOR))?.name === "Hoodies" && (await sizeChartForProduct(fakeDb(tables()), MUG, CREATOR)) === null)
     check("  and without the owner given, from the product's own store", (await sizeChartForProduct(fakeDb(tables()), POLO))?.name === "Shirts")
     check("before SQL part 309 (no rule columns): only the product's own chart, never an error", (await sizeChartsForProducts(fakeDb(tables(), { missingColumns: ["collection_ids"] }), CREATOR, [{ id: TEE }, { id: POLO }])).size === 1)
+    /* Changed on purpose (r55): a missing column is remembered per server for ten minutes (lib/supabase/missing-memory); this suite's next database has it, as a server would after the part has run and the ten minutes passed. */
+    forgetMissing()
     check("before SQL part 283: nothing, never an error", (await sizeChartsForProducts(fakeDb({}, { missing: ["product_size_charts", "size_charts"] }), CREATOR, [{ id: TEE }])).size === 0)
   }
 
