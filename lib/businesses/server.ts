@@ -90,10 +90,11 @@ type LinkRow = { owner_id: string; member_id: string }
  * businesses, or null for an account on its own. Two reads at most: the
  * rows naming this account, and, for a business, its owner's rows.
  */
-export async function businessGroup(userId: string): Promise<BusinessGroup | null> {
+export async function businessGroup(userId: string, db?: { from: (table: string) => any }): Promise<BusinessGroup | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
   /* The id goes into a filter string below: only ever a UUID, so nothing can reshape the filter. */
   if (!UUID_PATTERN.test(userId)) return null
-  const admin = createAdminClient()
+  /* `db`: the service role client a caller already holds (lib/handoff hands in its own, so its suite can run on a fake). */
+  const admin = db ?? createAdminClient()
   const { data, error } = await admin
     .from("business_links")
     .select("owner_id, member_id")
