@@ -181,10 +181,11 @@ export interface StreamingService {
   found: boolean
 }
 
-export interface FormQuizBlockData {form_id:string;title:string;inline?:boolean}
+export interface FormQuizBlockData {form_id:string;title:string;inline?:boolean;presentation?:"inline"|"card"|"expandable"|"modal"}
 
 export interface LinkButtonBlockData {
-  link_preview?:{enabled?:boolean;url?:string;title?:string;image?:string|null;description?:string;title_edited?:boolean;image_hidden?:boolean}
+  /** The pasted address's public preview (lib/onepage/link-preview). The *_edited and image_hidden marks keep a refresh off what the creator changed. */
+  link_preview?:{enabled?:boolean;url?:string;title?:string;image?:string|null;description?:string;favicon?:string|null;title_edited?:boolean;description_edited?:boolean;image_edited?:boolean;image_hidden?:boolean}
 
   action?: import("@/lib/forms/actions").NativeAction
   label: string
@@ -321,6 +322,8 @@ export interface ImageItem {
   alt_text?: string
   title?: string
   link_url?: string | null
+  /** What a press on the picture does (lib/forms/actions); fills link_url (lib/onepage/block-action). */
+  action?: import("@/lib/forms/actions").NativeAction
   /** The picture's own size, saved with it from round 40 so the page reserves its box before it loads. */
   width?: number
   height?: number
@@ -388,6 +391,8 @@ export interface EmailCaptureBlockData {
   ask_name?: boolean
   // After they join: a link the success message offers (a free guide, a private video, a group)
   after_signup_url?: string | null
+  /** A chat or group the signup leads to (lib/forms/actions); fills after_signup_url. */
+  after_action?: import("@/lib/forms/actions").NativeAction
   after_signup_label?: string | null
   /** The tool the block was added as in the Add block sheet (Mailchimp, Kit, Zapier...): its settings offer to connect that one first. */
   integration_hint?: string | null
@@ -438,6 +443,8 @@ export interface CalendlyBlockData {
   title: string
   description?: string
   calendly_url?: string | null
+  /** A booking (lib/forms/actions): one of the creator's booking forms, drawn in place of the embed, or a booking page that fills calendly_url. */
+  action?: import("@/lib/forms/actions").NativeAction
   layout_type?: PDFDocumentLayoutType
   thumbnail_url?: string | null
   button_text?: string
@@ -454,7 +461,7 @@ export interface HeaderBlockData {
   show_bio: boolean
 }
 
-export type GroupLayoutType = "stack" | "carousel"
+export type GroupLayoutType = "stack" | "carousel" | "grid"
 
 export type CarouselViewType = "1" | "1.2" | "1.5"
 
@@ -464,6 +471,9 @@ export interface GroupBlockData {
   children: OnePageBlock[]
   carousel_view?: CarouselViewType
   carousel_fade_edges?: boolean
+  /** A collection's optional line and picture, drawn above its blocks with a soft fade. */
+  description?: string | null
+  image_url?: string | null
 }
 
 // The blocks drawn by components/onepage/extra-blocks, the same in the editor and on the live page

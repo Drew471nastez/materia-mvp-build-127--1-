@@ -4526,5 +4526,384 @@ revoke all on function public.set_product_channels_atomic(uuid,uuid,text[]) from
 grant execute on function public.set_product_channels_atomic(uuid,uuid,text[]) to service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('374', '374_atomic_product_channels.sql', '0f41aab50031f3114dd2510d648d63d33cc4608f97e9ecb08683854b367b3ed5') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 375_forms_bookings.sql
+/* Forms, bookings and Leads, completing 20271123_native_forms_leads.sql (part 372), which stays as it is. Run after part 372. Adds: lead notes and the block or page a response came from (only status and notes are writable by the owner; answers and consent stay immutable); a retention period per form; the delivery queue for owner emails, booking emails and signed webhooks, with retry timing and a lease so two workers never send the same job; private file uploads (the private `form-uploads` bucket, 4 MB (under the 4.5 MB request limit of a Vercel function), JPEG, PNG, WebP and PDF, no storage policy so only the server reads it, owner downloads go through short signed links); and appointment bookings with the double booking guard: one active booking per owner and start time (unique index) and no overlapping active bookings per owner (exclusion constraint, btree_gist), written together with the response by native_form_book in one transaction; a booking with a payment is held unpaid for 30 minutes and confirmed by the Stripe webhook only when product, currency and amount match. RLS on every new table, owner-scoped; visitors never touch a table directly. New tables and columns only; no existing row, column or policy is removed. Safe to run again. */
+/* ── Leads: notes, source block, retention ───────────────────────────── */
+alter table public.form_submissions add column if not exists notes text;
+alter table public.form_submissions add column if not exists source_block text;
+alter table public.form_submissions add column if not exists updated_at timestamptz;
+do $c$ begin
+  if not exists (select 1 from pg_constraint where conname = 'form_submissions_notes_len' and conrelid = 'public.form_submissions'::regclass) then
+    alter table public.form_submissions add constraint form_submissions_notes_len check (notes is null or char_length(notes) <= 5000);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'form_submissions_source_block_len' and conrelid = 'public.form_submissions'::regclass) then
+    alter table public.form_submissions add constraint form_submissions_source_block_len check (source_block is null or char_length(source_block) <= 160);
+  end if;
+end $c$;
+grant update (status, notes, updated_at) on public.form_submissions to authenticated;
+alter table public.native_forms add column if not exists retention_days integer;
+do $c$ begin
+  if not exists (select 1 from pg_constraint where conname = 'native_forms_retention_days' and conrelid = 'public.native_forms'::regclass) then
+    alter table public.native_forms add constraint native_forms_retention_days check (retention_days is null or retention_days between 7 and 3650);
+  end if;
+end $c$;
+/* Leads search and filters, always inside one owner's rows. */
+create index if not exists form_submissions_owner_form_time on public.form_submissions (owner_id, form_id, submitted_at desc, id desc);
+create index if not exists form_submissions_owner_email on public.form_submissions (owner_id, lower(contact_email));
+create index if not exists form_submissions_retention on public.form_submissions (form_id, submitted_at);
+/* ── Delivery queue (form_integration_jobs from part 372, widened) ───── */
+alter table public.form_integration_jobs add column if not exists next_attempt_at timestamptz not null default now();
+alter table public.form_integration_jobs add column if not exists locked_until timestamptz;
+alter table public.form_integration_jobs add column if not exists last_error text;
+alter table public.form_integration_jobs add column if not exists delivered_at timestamptz;
+alter table public.form_integration_jobs add column if not exists updated_at timestamptz not null default now();
+do $c$ begin
+  if exists (select 1 from pg_constraint where conname = 'form_integration_jobs_provider_check' and conrelid = 'public.form_integration_jobs'::regclass and pg_get_constraintdef(oid) not like '%owner_email%') then
+    alter table public.form_integration_jobs drop constraint form_integration_jobs_provider_check;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'form_integration_jobs_provider_check' and conrelid = 'public.form_integration_jobs'::regclass) then
+    alter table public.form_integration_jobs add constraint form_integration_jobs_provider_check check (provider in ('webhook', 'google_sheets', 'owner_email', 'visitor_email', 'booking_confirmed', 'booking_declined'));
+  end if;
+end $c$;
+create index if not exists form_integration_jobs_due on public.form_integration_jobs (next_attempt_at) where state = 'ready';
+create index if not exists form_integration_jobs_owner on public.form_integration_jobs (owner_id, created_at desc);
+create index if not exists form_integration_jobs_form on public.form_integration_jobs (form_id);
+/* ── Private uploads ──────────────────────────────────────────────────── */
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('form-uploads', 'form-uploads', false, 4194304, array['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
+on conflict (id) do update set public = false, file_size_limit = 4194304, allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+create table if not exists public.form_uploads (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  form_id uuid not null references public.native_forms(id) on delete cascade,
+  submission_id uuid references public.form_submissions(id) on delete set null,
+  field_id text not null check (char_length(field_id) <= 64),
+  file_name text not null check (char_length(file_name) <= 200),
+  content_type text not null check (content_type in ('image/jpeg', 'image/png', 'image/webp', 'application/pdf')),
+  bytes integer not null check (bytes > 0 and bytes <= 4194304),
+  path text not null unique check (char_length(path) <= 300),
+  created_at timestamptz not null default now(),
+  claimed_at timestamptz
+);
+create index if not exists form_uploads_submission on public.form_uploads (submission_id);
+create index if not exists form_uploads_owner on public.form_uploads (owner_id, created_at desc);
+create index if not exists form_uploads_form on public.form_uploads (form_id);
+create index if not exists form_uploads_sweep on public.form_uploads (created_at) where submission_id is null;
+alter table public.form_uploads enable row level security;
+revoke all on public.form_uploads from public, anon, authenticated;
+grant select on public.form_uploads to authenticated;
+grant all on public.form_uploads to service_role;
+/* ── Bookings ─────────────────────────────────────────────────────────── */
+create table if not exists public.form_bookings (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  form_id uuid not null references public.native_forms(id) on delete cascade,
+  submission_id uuid not null unique references public.form_submissions(id) on delete cascade,
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  hold_until timestamptz not null,
+  visitor_timezone text check (visitor_timezone is null or char_length(visitor_timezone) <= 64),
+  status text not null default 'pending' check (status in ('pending', 'confirmed', 'declined', 'cancelled')),
+  payment_product_id uuid,
+  created_at timestamptz not null default now(),
+  decided_at timestamptz,
+  check (ends_at > starts_at and hold_until >= ends_at)
+);
+create unique index if not exists form_bookings_owner_slot
+  on public.form_bookings (owner_id, starts_at) where status in ('pending', 'confirmed');
+create index if not exists form_bookings_owner_time on public.form_bookings (owner_id, starts_at);
+create index if not exists form_bookings_form on public.form_bookings (form_id);
+/* A booking paid through the product checkout: held unpaid until payment_due_at, confirmed by the Stripe webhook only when product, currency and amount match what the checkout recorded, cancelled on a full refund or when the hold runs out (lib/forms/booking-payment.ts). */
+alter table public.form_bookings add column if not exists payment_status text not null default 'none';
+alter table public.form_bookings add column if not exists payment_due_at timestamptz;
+alter table public.form_bookings add column if not exists payment_amount_cents integer;
+alter table public.form_bookings add column if not exists payment_currency text;
+alter table public.form_bookings add column if not exists payment_intent_id text;
+alter table public.form_bookings add column if not exists paid_at timestamptz;
+alter table public.form_bookings add column if not exists payment_note text;
+do $c$ begin
+  if not exists (select 1 from pg_constraint where conname = 'form_bookings_payment_status' and conrelid = 'public.form_bookings'::regclass) then
+    alter table public.form_bookings add constraint form_bookings_payment_status check (payment_status in ('none', 'unpaid', 'paid', 'failed', 'refunded', 'review'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'form_bookings_payment_fields' and conrelid = 'public.form_bookings'::regclass) then
+    alter table public.form_bookings add constraint form_bookings_payment_fields check ((payment_amount_cents is null or payment_amount_cents > 0) and (payment_currency is null or char_length(payment_currency) = 3) and (payment_intent_id is null or char_length(payment_intent_id) <= 255) and (payment_note is null or char_length(payment_note) <= 500));
+  end if;
+end $c$;
+create index if not exists form_bookings_payment_intent on public.form_bookings (payment_intent_id) where payment_intent_id is not null;
+create index if not exists form_bookings_unpaid_due on public.form_bookings (payment_due_at) where status = 'pending' and payment_status in ('unpaid', 'failed');
+/* No two active bookings of one owner may overlap, whatever their forms. Needs btree_gist; without it the unique index above still refuses the same start twice. */
+do $x$ begin
+  begin
+    create extension if not exists btree_gist with schema extensions;
+  exception when others then
+    begin
+      create extension if not exists btree_gist;
+    exception when others then
+      raise notice 'btree_gist is not available: only the same start time is guarded';
+    end;
+  end;
+  if not exists (select 1 from pg_constraint where conname = 'form_bookings_no_overlap' and conrelid = 'public.form_bookings'::regclass) then
+    begin
+      alter table public.form_bookings add constraint form_bookings_no_overlap
+        exclude using gist (owner_id with =, tstzrange(starts_at, hold_until) with &&) where (status in ('pending', 'confirmed'));
+    exception when others then
+      raise notice 'form_bookings_no_overlap was not added: %', sqlerrm;
+    end;
+  end if;
+end $x$;
+alter table public.form_bookings enable row level security;
+revoke all on public.form_bookings from public, anon, authenticated;
+grant select on public.form_bookings to authenticated;
+grant update (status, decided_at) on public.form_bookings to authenticated;
+grant all on public.form_bookings to service_role;
+do $p$ begin
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'form_uploads' and policyname = 'form_uploads_owner_read') then
+    create policy form_uploads_owner_read on public.form_uploads for select to authenticated using (owner_id = auth.uid());
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'form_bookings' and policyname = 'form_bookings_owner_read') then
+    create policy form_bookings_owner_read on public.form_bookings for select to authenticated using (owner_id = auth.uid());
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'form_bookings' and policyname = 'form_bookings_owner_decide') then
+    create policy form_bookings_owner_decide on public.form_bookings for update to authenticated using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+  end if;
+end $p$;
+/*
+  A booking and its response in one transaction. The same submission UUID
+  sent again returns the first response (duplicate = true) and books
+  nothing. A slot another booking holds raises unique_violation (23505) or
+  exclusion_violation (23P01) and the response is not kept either. Server
+  only: the route checks the form, the answers and the slot first.
+*/
+create or replace function public.native_form_book(
+  p_submission jsonb,
+  p_starts_at timestamptz,
+  p_ends_at timestamptz,
+  p_hold_until timestamptz,
+  p_visitor_timezone text,
+  p_status text,
+  p_payment_product_id uuid default null
+) returns table (submission_id uuid, booking_id uuid, duplicate boolean)
+language plpgsql
+security definer
+set search_path = public
+as $f$
+#variable_conflict use_column
+declare
+  v_owner uuid := (p_submission->>'owner_id')::uuid;
+  v_form uuid := (p_submission->>'form_id')::uuid;
+  v_key uuid := (p_submission->>'dedupe_key')::uuid;
+  v_sub uuid;
+  v_book uuid;
+begin
+  if p_status not in ('pending', 'confirmed') then
+    raise exception 'invalid booking status' using errcode = '22023';
+  end if;
+  if not exists (select 1 from public.native_forms f where f.id = v_form and f.owner_id = v_owner and f.status = 'published') then
+    raise exception 'form not found' using errcode = 'P0002';
+  end if;
+  insert into public.form_submissions (owner_id, form_id, form_revision, form_title, answers, contact_name, contact_email, contact_phone, score, consent, source_kind, source_url, source_block, dedupe_key)
+  values (
+    v_owner, v_form, (p_submission->>'form_revision')::integer, p_submission->>'form_title', p_submission->'answers',
+    p_submission->>'contact_name', p_submission->>'contact_email', p_submission->>'contact_phone',
+    coalesce((p_submission->>'score')::integer, 0), p_submission->'consent',
+    coalesce(p_submission->>'source_kind', 'form'), p_submission->>'source_url', p_submission->>'source_block', v_key
+  )
+  on conflict (form_id, dedupe_key) do nothing
+  returning id into v_sub;
+  if v_sub is null then
+    select s.id into v_sub from public.form_submissions s where s.form_id = v_form and s.dedupe_key = v_key;
+    select b.id into v_book from public.form_bookings b where b.submission_id = v_sub;
+    return query select v_sub, v_book, true;
+    return;
+  end if;
+  insert into public.form_bookings (owner_id, form_id, submission_id, starts_at, ends_at, hold_until, visitor_timezone, status, payment_product_id, decided_at, payment_status, payment_due_at)
+  values (
+    v_owner, v_form, v_sub, p_starts_at, p_ends_at, p_hold_until, p_visitor_timezone,
+    case when p_payment_product_id is not null then 'pending' else p_status end,
+    p_payment_product_id,
+    case when p_status = 'confirmed' and p_payment_product_id is null then now() end,
+    case when p_payment_product_id is not null then 'unpaid' else 'none' end,
+    case when p_payment_product_id is not null then now() + interval '30 minutes' end
+  )
+  returning id into v_book;
+  return query select v_sub, v_book, false;
+end
+$f$;
+revoke all on function public.native_form_book(jsonb, timestamptz, timestamptz, timestamptz, text, text, uuid) from public, anon, authenticated;
+grant execute on function public.native_form_book(jsonb, timestamptz, timestamptz, timestamptz, text, text, uuid) to service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('375', '375_forms_bookings.sql', '5912acc666ca111c078911ca3eb035e83e258117a4fc974aac77234507d85f30') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 376_business_handoff.sql
+/* Business handoff: a founder gives a business they built for a client (a business account on the founder's login, part 39) to the client's own login, through a claim link. Two new server only tables: business_handoffs (one open claim link per business, only the SHA-256 of its token kept, optionally bound to the recipient's email, an expiry, and whether the founder stays on the team) and business_handoff_events (created, sent, renewed, viewed, accepted, finished, revoked and failed, with who, from where and when). And business_handoff_accept, which hands the business over in one transaction after checking the link, its expiry and single use, the recipient's email, that the recipient is not the founder, and the recipient's three business limit: the business's link in business_links moves from the founder's login to the recipient's and nothing the business owns is rewritten, so its account id, creator id, username, OnePage, store, domains and file paths stay exactly as they are. The founder's payout accounts (Stripe Connect, PayPal, Airwallex), billing customer and saved cards, AI keys, agent and analytics tokens, GitHub link, devices and pending sign in codes are detached from it, its team is cleared, and the founder is added back as a team member only when they chose to stay. A business on a running paid plan or with live paid memberships is refused, so nobody keeps paying for somebody else's business. Any failed check raises and nothing changes. Only the service role may call it. Additive: no existing column changes, and no existing row changes until a handoff is accepted. */
+create table if not exists public.business_handoffs (id uuid primary key default gen_random_uuid(), business_user_id uuid not null references auth.users(id) on delete cascade, creator_id uuid references public.creators(id) on delete cascade, from_owner_id uuid not null references auth.users(id) on delete cascade, created_by uuid references auth.users(id) on delete set null, token_hash text not null, recipient_email text, keep_founder boolean not null default false, founder_access text not null default 'full', ttl_days integer not null default 7, status text not null default 'pending', expires_at timestamptz not null, created_at timestamptz not null default now(), updated_at timestamptz not null default now(), last_sent_at timestamptz, send_count integer not null default 0, accepted_at timestamptz, accepted_by uuid references auth.users(id) on delete set null, revoked_at timestamptz, revoked_by uuid references auth.users(id) on delete set null, finished_at timestamptz, result jsonb, constraint business_handoffs_token_hash_key unique (token_hash), constraint business_handoffs_token_hash_check check (token_hash ~ '^[0-9a-f]{64}$'), constraint business_handoffs_status_check check (status in ('pending', 'accepted', 'revoked', 'expired')), constraint business_handoffs_access_check check (founder_access in ('full', 'content', 'support')), constraint business_handoffs_ttl_check check (ttl_days between 1 and 30), constraint business_handoffs_send_count_check check (send_count between 0 and 1000), constraint business_handoffs_email_check check (recipient_email is null or (recipient_email = lower(recipient_email) and char_length(recipient_email) between 3 and 254 and position('@' in recipient_email) > 1)), constraint business_handoffs_not_self check (business_user_id <> from_owner_id));
+create unique index if not exists business_handoffs_one_open on public.business_handoffs (business_user_id) where status = 'pending';
+create index if not exists business_handoffs_business_created on public.business_handoffs (business_user_id, created_at desc);
+create index if not exists business_handoffs_owner_created on public.business_handoffs (from_owner_id, created_at desc);
+create index if not exists business_handoffs_accepted_by on public.business_handoffs (accepted_by, accepted_at desc) where status = 'accepted';
+create table if not exists public.business_handoff_events (id bigint generated always as identity primary key, handoff_id uuid references public.business_handoffs(id) on delete set null, business_user_id uuid, event text not null, actor_id uuid, ip text, user_agent text, detail jsonb not null default '{}'::jsonb, created_at timestamptz not null default now(), constraint business_handoff_events_event_check check (event in ('created', 'sent', 'renewed', 'viewed', 'accepted', 'finished', 'revoked', 'failed')), constraint business_handoff_events_ip_check check (ip is null or char_length(ip) <= 64), constraint business_handoff_events_ua_check check (user_agent is null or char_length(user_agent) <= 300));
+create index if not exists business_handoff_events_handoff_created on public.business_handoff_events (handoff_id, created_at desc);
+create index if not exists business_handoff_events_business_created on public.business_handoff_events (business_user_id, created_at desc);
+alter table public.business_handoffs enable row level security;
+alter table public.business_handoff_events enable row level security;
+revoke all on public.business_handoffs, public.business_handoff_events from public, anon, authenticated;
+grant all on public.business_handoffs, public.business_handoff_events to service_role;
+grant usage, select on sequence public.business_handoff_events_id_seq to service_role;
+grant select (id, business_user_id, creator_id, from_owner_id, recipient_email, keep_founder, founder_access, ttl_days, status, expires_at, created_at, updated_at, last_sent_at, send_count, accepted_at, revoked_at, finished_at) on public.business_handoffs to authenticated;
+grant select (id, handoff_id, business_user_id, event, created_at) on public.business_handoff_events to authenticated;
+drop policy if exists business_handoffs_owner_read on public.business_handoffs;
+create policy business_handoffs_owner_read on public.business_handoffs for select to authenticated using ((select auth.uid()) = business_user_id or (select auth.uid()) = from_owner_id);
+drop policy if exists business_handoff_events_owner_read on public.business_handoff_events;
+create policy business_handoff_events_owner_read on public.business_handoff_events for select to authenticated using ((select auth.uid()) = business_user_id);
+create or replace function public.business_handoff_accept(p_handoff uuid, p_token_hash text, p_recipient uuid, p_recipient_email text, p_founder_email text, p_ip text, p_user_agent text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $f$
+declare
+ h public.business_handoffs%rowtype;
+ v_creator uuid;
+ v_row jsonb := '{}'::jsonb;
+ v_stripe text;
+ v_email text := lower(btrim(coalesce(p_recipient_email, '')));
+ v_auth_email text;
+ v_count integer;
+ v_n integer;
+ v_col text;
+ v_val text;
+ v_counts jsonb := '{}'::jsonb;
+ v_detached jsonb := '{}'::jsonb;
+ v_perms text[];
+ v_accounts jsonb;
+ v_result jsonb;
+begin
+ if p_handoff is null or p_recipient is null or coalesce(p_token_hash, '') !~ '^[0-9a-f]{64}$' then
+  raise exception 'handoff_invalid' using errcode = '22023';
+ end if;
+ select * into h from public.business_handoffs where id = p_handoff and token_hash = p_token_hash for update;
+ if not found then raise exception 'handoff_not_found' using errcode = 'P0002'; end if;
+ if h.status = 'accepted' then raise exception 'handoff_used' using errcode = '55000'; end if;
+ if h.status = 'revoked' then raise exception 'handoff_revoked' using errcode = '55000'; end if;
+ if h.status = 'expired' or h.expires_at <= now() then raise exception 'handoff_expired' using errcode = '55000'; end if;
+ perform 1 from public.business_links where member_id = h.business_user_id and owner_id = h.from_owner_id for update;
+ if not found then raise exception 'handoff_stale' using errcode = '55000'; end if;
+ if p_recipient = h.business_user_id or p_recipient = h.from_owner_id or exists (select 1 from public.business_links where owner_id = h.from_owner_id and member_id = p_recipient) then
+  raise exception 'handoff_self' using errcode = '42501';
+ end if;
+ if exists (select 1 from public.business_links where member_id = p_recipient) then
+  raise exception 'handoff_recipient_is_business' using errcode = '42501';
+ end if;
+ select lower(u.email) into v_auth_email from auth.users u where u.id = p_recipient;
+ if not found then raise exception 'handoff_recipient_missing' using errcode = 'P0002'; end if;
+ if v_email <> '' and v_auth_email is distinct from v_email then raise exception 'handoff_wrong_email' using errcode = '42501'; end if;
+ if h.recipient_email is not null and v_email is distinct from h.recipient_email then raise exception 'handoff_wrong_email' using errcode = '42501'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('business_links ' || p_recipient::text, 0));
+ select count(*) into v_count from public.business_links where owner_id = p_recipient;
+ if 1 + v_count >= 3 then raise exception 'handoff_limit' using errcode = '23514'; end if;
+ select c.id into v_creator from public.creators c where c.user_id = h.business_user_id for update;
+ if v_creator is not null then
+  select to_jsonb(c) into v_row from public.creators c where c.id = v_creator;
+  if to_regclass('public.subscriptions') is not null and exists (select 1 from public.subscriptions s where s.creator_id = v_creator and s.stripe_subscription_id is not null and s.status in ('active', 'trialing', 'past_due', 'unpaid', 'incomplete')) then
+   raise exception 'handoff_paid_plan' using errcode = '55000';
+  end if;
+  if to_regclass('public.memberships') is not null and exists (select 1 from public.memberships m where m.creator_id = v_creator and m.status in ('active', 'trialing', 'past_due')) then
+   raise exception 'handoff_live_memberships' using errcode = '55000';
+  end if;
+ end if;
+ delete from public.business_links where member_id = h.business_user_id;
+ insert into public.business_links (owner_id, member_id) values (p_recipient, h.business_user_id);
+ if v_creator is not null then
+  v_stripe := nullif(v_row ->> 'stripe_account_id', '');
+  v_detached := jsonb_strip_nulls(jsonb_build_object('stripe_account_id', v_stripe, 'stripe_customer_id', nullif(v_row ->> 'stripe_customer_id', ''), 'paypal_merchant_id', nullif(v_row ->> 'paypal_merchant_id', '')));
+  for v_col, v_val in select k, v from (values
+   ('stripe_customer_id', null), ('paypal_merchant_id', null)
+  ) as t(k, v) loop
+   if v_row ? v_col then execute format('update public.creators set %I = %L where id = $1', v_col, v_val) using v_creator; end if;
+  end loop;
+  if v_stripe is not null then
+   for v_col, v_val in select k, v from (values
+    ('stripe_account_id', null), ('stripe_onboarding_status', 'not_connected'), ('charges_enabled', 'false'), ('payouts_enabled', 'false'), ('details_submitted', 'false'),
+    ('stripe_requirements', '{}'), ('stripe_requirements_due_at', null), ('stripe_requirements_updated_at', now()::text), ('payments_status', 'NOT_STARTED'), ('last_stripe_sync_at', now()::text),
+    ('can_accept_payments', 'false'), ('stripe_transfers_status', null), ('stripe_disabled_reason', null), ('stripe_pending_verification', '{}'), ('stripe_eventually_due', '{}'),
+    ('stripe_requirement_errors', '{}'), ('payout_destination', null), ('stripe_previous_account_id', v_stripe), ('stripe_account_reset_at', now()::text), ('stripe_account_reset_reason', 'creator_disconnect')
+   ) as t(k, v) loop
+    if v_row ? v_col then execute format('update public.creators set %I = %L where id = $1', v_col, v_val) using v_creator; end if;
+   end loop;
+  end if;
+  if to_regclass('public.payment_accounts') is not null then
+   select coalesce(jsonb_agg(jsonb_build_object('provider', a.provider, 'account', a.provider_account_id, 'status', a.lifecycle_status)), '[]'::jsonb) into v_accounts from public.payment_accounts a where a.creator_id = v_creator;
+   if v_accounts <> '[]'::jsonb then v_detached := v_detached || jsonb_build_object('payment_accounts', v_accounts); end if;
+   delete from public.payment_accounts where creator_id = v_creator;
+   get diagnostics v_n = row_count; v_counts := v_counts || jsonb_build_object('payment_accounts', v_n);
+  end if;
+  if to_regclass('public.payment_balances') is not null then
+   delete from public.payment_balances where creator_id = v_creator;
+   get diagnostics v_n = row_count; v_counts := v_counts || jsonb_build_object('payment_balances', v_n);
+  end if;
+  if to_regclass('public.payment_methods') is not null then
+   delete from public.payment_methods where creator_id = v_creator;
+   get diagnostics v_n = row_count; v_counts := v_counts || jsonb_build_object('payment_methods', v_n);
+  end if;
+  if to_regclass('public.creator_ai_keys') is not null then
+   delete from public.creator_ai_keys where creator_id = v_creator;
+   get diagnostics v_n = row_count; v_counts := v_counts || jsonb_build_object('creator_ai_keys', v_n);
+  end if;
+  if to_regclass('public.theme_github_links') is not null then
+   delete from public.theme_github_links where creator_id = v_creator;
+   get diagnostics v_n = row_count; v_counts := v_counts || jsonb_build_object('theme_github_links', v_n);
+  end if;
+  if to_regclass('public.theme_agent_tokens') is not null then
+   update public.theme_agent_tokens set revoked_at = now() where creator_id = v_creator and revoked_at is null;
+   get diagnostics v_n = row_count; v_counts := v_counts || jsonb_build_object('theme_agent_tokens', v_n);
+  end if;
+  if to_regclass('public.analytics_api_tokens') is not null then
+   update public.analytics_api_tokens set revoked_at = now() where creator_id = v_creator and revoked_at is null;
+   get diagnostics v_n = row_count; v_counts := v_counts || jsonb_build_object('analytics_api_tokens', v_n);
+  end if;
+ end if;
+ if to_regclass('public.store_team_members') is not null then
+  delete from public.store_team_members where creator_id = v_creator or user_id = h.business_user_id;
+  get diagnostics v_n = row_count; v_counts := v_counts || jsonb_build_object('store_team_members', v_n);
+ end if;
+ if to_regclass('public.push_tokens') is not null then
+  delete from public.push_tokens where user_id = h.business_user_id;
+  get diagnostics v_n = row_count; v_counts := v_counts || jsonb_build_object('push_tokens', v_n);
+ end if;
+ if to_regclass('public.account_delete_codes') is not null then
+  delete from public.account_delete_codes where user_id = h.business_user_id;
+  get diagnostics v_n = row_count; v_counts := v_counts || jsonb_build_object('account_delete_codes', v_n);
+ end if;
+ if to_regclass('public.email_change_codes') is not null then
+  delete from public.email_change_codes where user_id = h.business_user_id;
+  get diagnostics v_n = row_count; v_counts := v_counts || jsonb_build_object('email_change_codes', v_n);
+ end if;
+ if to_regclass('public.password_reset_requests') is not null then
+  delete from public.password_reset_requests where user_id = h.business_user_id and coalesce(used, false) = false;
+  get diagnostics v_n = row_count; v_counts := v_counts || jsonb_build_object('password_reset_requests', v_n);
+ end if;
+ if to_regclass('public.verification_codes') is not null then
+  delete from public.verification_codes where user_id = h.business_user_id and used_at is null;
+  get diagnostics v_n = row_count; v_counts := v_counts || jsonb_build_object('verification_codes', v_n);
+ end if;
+ if h.keep_founder and v_creator is not null then
+  if to_regclass('public.store_team_members') is null then raise exception 'handoff_team_missing' using errcode = '55000'; end if;
+  if coalesce(p_founder_email, '') !~ '^[^@[:space:]]+@[^@[:space:]]+$' then raise exception 'handoff_founder_email' using errcode = '22023'; end if;
+  v_perms := case h.founder_access
+   when 'content' then array['website', 'onepage', 'creator_pages', 'products', 'community']
+   when 'support' then array['orders', 'customers']
+   else array['website', 'onepage', 'creator_pages', 'products', 'orders', 'customers', 'marketing', 'community', 'analytics', 'settings'] end;
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'store_team_members' and column_name = 'permissions') then
+   execute 'insert into public.store_team_members (creator_id, email, user_id, role, permissions, status, invited_by, invited_at, accepted_at) values ($1, $2, $3, $4, $5, ''active'', $3, now(), now())'
+    using v_creator, lower(btrim(p_founder_email)), h.from_owner_id, case h.founder_access when 'content' then 'staff' else 'manager' end, v_perms;
+  else
+   insert into public.store_team_members (creator_id, email, user_id, role, status, invited_by, invited_at, accepted_at) values (v_creator, lower(btrim(p_founder_email)), h.from_owner_id, 'manager', 'active', h.from_owner_id, now(), now());
+  end if;
+ end if;
+ v_result := jsonb_build_object('business_user_id', h.business_user_id, 'creator_id', v_creator, 'from_owner_id', h.from_owner_id, 'recipient_id', p_recipient, 'kept_founder', h.keep_founder and v_creator is not null, 'founder_access', h.founder_access, 'cleared', v_counts, 'detached', v_detached);
+ update public.business_handoffs set status = 'accepted', accepted_at = now(), accepted_by = p_recipient, updated_at = now(), creator_id = coalesce(v_creator, creator_id), result = v_result where id = h.id;
+ insert into public.business_handoff_events (handoff_id, business_user_id, event, actor_id, ip, user_agent, detail) values (h.id, h.business_user_id, 'accepted', p_recipient, left(p_ip, 64), left(p_user_agent, 300), v_result);
+ return v_result;
+end;
+$f$;
+revoke all on function public.business_handoff_accept(uuid, text, uuid, text, text, text, text) from public, anon, authenticated;
+grant execute on function public.business_handoff_accept(uuid, text, uuid, text, text, text, text) to service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('376', '376_business_handoff.sql', 'c23c2e5d02d360a25a8c480af5722829c2390412d5db0b7af0824a668d75fa07') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 2 of 3 ran. Next file.' as done;

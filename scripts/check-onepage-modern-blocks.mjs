@@ -21,10 +21,11 @@ const {base,server}=await serveEditorProbe({entry:'scripts/render-onepage-avatar
  if(req.url.startsWith('/_next/image'))return {status:503,body:{error:'Optimizer unavailable'}}
  return null
 }})
-const browser=await puppeteer.launch({executablePath:process.env.CHROMIUM||'/tmp/chromium',args:['--no-sandbox'],defaultViewport:null})
+const browser=await puppeteer.launch({executablePath:process.env.CHROMIUM||'/opt/pw-browsers/chromium',args:['--no-sandbox'],defaultViewport:null})
 const textClick=async(page,label)=>assert.ok(await page.evaluate(label=>{const e=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()===label&&e.getClientRects().length);e?.click();return !!e},label),label)
+const tap=async(page,selector)=>{await page.$eval(selector,e=>e.scrollIntoView({block:"center"}));await page.click(selector)}
 try{
- for(const width of [1440,390,320]){
+ for(const width of (process.env.WIDTHS?process.env.WIDTHS.split(',').map(Number):[1440,390,320])){
   const description=`A custom plan, saved from the editor at ${width}px`
   const initialDescription=blocks.find(b=>b.id==='plan').style.presentation.subtitle
   const context=await browser.createBrowserContext(),page=await context.newPage(),errors=[]
@@ -60,17 +61,19 @@ try{
   await page.waitForSelector('[data-block-open="plan"]')
   await page.waitForSelector('[data-onepage-loader]',{hidden:true})
   await page.click('[data-block-open="plan"]')
-  await page.waitForSelector('[data-block-appearance]')
+  await page.waitForSelector('[data-block-tabs]')
   const input=await page.waitForSelector('[data-block-description]',{visible:true})
   await input.click({clickCount:3});await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.type(description)
-  await page.click('[data-block-appearance] [data-segment="original"]')
-  await page.click('[data-block-appearance] [data-segment="featured"]')
-  await page.click('[data-block-appearance] [data-segment="compact"]')
-  await page.click('[data-block-appearance] [data-segment="half"]')
+  await tap(page,'[data-block-tab="layout"]')
+  await tap(page,'[data-link-layout-choice="classic"]')
+  await tap(page,'[data-link-layout-choice="cover"]')
+  await tap(page,'[data-link-layout-choice="compact"]')
+  await tap(page,'[data-link-image-options] [data-segment="half"]')
   await Promise.all([page.waitForResponse(r=>r.url()===base+'/api/onepage'&&r.request().method()==='PUT'&&r.ok()),textClick(page,'Save')])
   await page.waitForFunction(()=>document.body.textContent.includes('Saved'))
   assert.equal(blocks.find(b=>b.id==='plan').style.presentation.subtitle,description)
   assert.equal(blocks.find(b=>b.id==='plan').style.presentation.size,'half')
+  assert.equal(blocks.find(b=>b.id==='plan').style.presentation.variant,'compact','the Layout tab picked Compact')
   if(width<640)await textClick(page,'Preview')
   const frame=await page.waitForFrame(f=>f.url().includes('/onepage-preview'))
   assert.ok(frame,'The live preview frame exists')

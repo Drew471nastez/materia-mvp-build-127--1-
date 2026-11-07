@@ -60,6 +60,7 @@ import {
   type MediaItem,
   type ProductVariant,
   type UploadedFile,
+  seoDescriptionFrom,
   swapDefaults,
 } from "./editor-form"
 import { LeaveButton, PRESS_CONTENT_OUT, PRESS_SPINNER_IN, SAVED_CHECK_MS, SaveButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
@@ -902,25 +903,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       return
     }
 
-    // Strip HTML tags, decode entities, and get plain text for SEO description
-    const plainText = description
-      .replace(/<[^>]*>/g, '') // Remove HTML tags
-      .replace(/&nbsp;/g, ' ') // Replace &nbsp;
-      .replace(/&amp;/g, '&')  // Replace &amp;
-      .replace(/&lt;/g, '<')   // Replace &lt;
-      .replace(/&gt;/g, '>')   // Replace &gt;
-      .replace(/&quot;/g, '"') // Replace &quot;
-      .replace(/&#39;/g, "'")  // Replace &#39;
-      .replace(/\s+/g, ' ')    // Normalize whitespace
-      .trim()
-
-    if (plainText) {
-      // Truncate to 155 chars for SEO (meta description limit)
-      const truncated = plainText.length > 155 ? plainText.substring(0, 152) + '...' : plainText
-      setSeoDescription(truncated)
-    } else {
-      setSeoDescription("")
-    }
+    /* Its text, at most 155 characters (./editor-form seoDescriptionFrom), the same rule that tells a written one from this one when it opens again. */
+    setSeoDescription(seoDescriptionFrom(description))
   }, [description])
 
   // Reset the manually edited flag when creating a new product (no edit param)

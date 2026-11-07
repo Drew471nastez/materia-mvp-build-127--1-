@@ -293,7 +293,7 @@ async function channels() {
   for (const [f, re] of surfaces) check(`  filtered on ${f}`, re.test(read(f)))
   check("its link keeps working: the product page and checkout never ask the channels", !/offChannel/.test(read("app/(storelib)/(marketing)/p/[slug]/page.tsx")) && !/offChannel/.test(read("app/api/checkout/stripe-session/route.ts")) && !/offChannel/.test(read("lib/checkout/pricing.ts")))
   const card = read("app/(storelib)/app/products/new/sales-channels-card.tsx")
-  check("a new product saved before its card loaded still starts where Settings says", /if \(!loaded && !productId\) \{/.test(card) && /startingChannels\(d\.channels, d\.defaultKey\)/.test(card))
+  check("a new product saved before its card loaded still starts where Settings says", /if \(!loaded && opened\.current === "new"\) \{/.test(card) && /startingChannels\(shownOf\(d\.channels, physical\), d\.defaultKey\)/.test(card))
   const { setDefaultChannel, loadChannels, setProductChannels, productOff } = await import("@/lib/store/channels-server")
   const P = "a0000000-0000-4000-8000-0000000000aa"
   const db = pgDb({ sales_channels: [], store_settings: [], product_channel_listings: [], products: [{ id: P, creator_id: CREATOR }] })

@@ -1,23 +1,26 @@
 /**
- * A block's destination, from its action (lib/forms/actions).
+ * A block's destinations, from its actions (lib/forms/actions).
  *
- * A block keeps what it does as `data.action`; the field its renderer has
- * always drawn as the link's address (`url` on a link, `link_url` on an
- * image or text block) is filled from that action here, once, for the
- * editor's preview and the published page alike. A block with no action
- * keeps the address it was saved with, so old pages open what they always
- * opened.
+ * A block keeps what a press does as an action; the field its renderer has
+ * always drawn as the address (`url` on a link, `link_url` on a picture,
+ * `after_signup_url` on an email signup, `calendly_url` on a booking block)
+ * is filled from that action here, once, for the editor's preview and the
+ * published page alike. A block with no action keeps the address it was
+ * saved with, so old pages open what they always opened.
  *
- * A block type that gains an action editor adds its address field to
- * ACTION_FIELD and nothing else changes.
+ * Link cards (every presentation of a link, lib/onepage/block-presentation)
+ * are link blocks, so they follow the link's action.
+ *
+ * A block type that gains an action editor adds a row to ACTION_FIELD.
  */
 import { actionHref, normaliseAction, type ActionVars, type NativeAction } from "@/lib/forms/actions"
 
-/** Where each block type draws its destination. */
-export const ACTION_FIELD: Readonly<Record<string, string>> = {
-  link_button: "url",
-  image: "link_url",
-  text: "link_url",
+/** Per block type: which action key fills which address field. The first is the block's own action (the one a press on the whole block uses). */
+export const ACTION_FIELD: Readonly<Record<string, readonly (readonly [actionKey: string, field: string])[]>> = {
+  link_button: [["action", "url"]],
+  image: [["action", "link_url"]],
+  email_capture: [["after_action", "after_signup_url"]],
+  calendly: [["action", "calendly_url"]],
 }
 
 type BlockLike = { type?: string; data?: unknown }
@@ -28,25 +31,42 @@ export function blockActionVars(block: BlockLike, action: NativeAction | null): 
   const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null)
   return {
     product_name: str((action as { title?: unknown } | null)?.title) || str(d.product_title),
-    service: str(d.service) || str(d.label) || str(d.title),
+    service: str(d.service) || str(d.label) || str(d.title) || str(d.headline),
   }
 }
 
-/** The block with its address filled from its action, and the action itself (null when it has none that works). */
-export function withBlockAction<T extends BlockLike>(block: T): { block: T; action: NativeAction | null } {
-  const raw = (block?.data as { action?: unknown } | undefined)?.action
-  if (!raw) return { block, action: null }
+const hrefOf = (raw: unknown, block: BlockLike): string => {
   const action = normaliseAction(raw)
-  const field = ACTION_FIELD[block.type || ""]
-  if (!field) return { block, action }
-  const href = action ? actionHref(action, blockActionVars(block, action)) || "" : ""
-  return { block: { ...block, data: { ...(block.data as object), [field]: href } }, action }
+  return action ? actionHref(action, blockActionVars(block, action)) || "" : ""
 }
 
 /**
- * Every block's address filled from its action, groups included, before the
- * page decides what is shown: a link whose address comes from its action is
- * a link with an address (lib/onepage/extra-blocks isBlockShown).
+ * The block with its addresses filled from its actions, and the block's own
+ * action (null when it has none that works). A picture block's pictures each
+ * carry their own action, which fills that picture's link.
+ */
+export function withBlockAction<T extends BlockLike>(block: T): { block: T; action: NativeAction | null } {
+  const data = (block?.data || {}) as Record<string, unknown>
+  const rows = ACTION_FIELD[block?.type || ""] || [["action", ""] as const]
+  let next: Record<string, unknown> | null = null
+  for (const [key, field] of rows) {
+    if (!data[key] || !field) continue
+    next = { ...(next || data), [field]: hrefOf(data[key], block) }
+  }
+  if (block?.type === "image" && Array.isArray(data.images) && data.images.some((i) => i && (i as { action?: unknown }).action)) {
+    next = {
+      ...(next || data),
+      images: (data.images as Record<string, unknown>[]).map((i) => (i && i.action ? { ...i, link_url: hrefOf(i.action, block) || null } : i)),
+    }
+  }
+  const own = rows[0]?.[0] === "action" && data.action ? normaliseAction(data.action) : null
+  return { block: next ? ({ ...block, data: next } as T) : block, action: own }
+}
+
+/**
+ * Every block's addresses filled from its actions, groups included, before
+ * the page decides what is shown: a link whose address comes from its action
+ * is a link with an address (lib/onepage/extra-blocks isBlockShown).
  */
 export function withBlockActions<T extends BlockLike>(blocks: readonly T[] | null | undefined): T[] {
   return (blocks || []).map((b) => {

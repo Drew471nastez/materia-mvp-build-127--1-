@@ -6,7 +6,7 @@ import {blockActionVars,withBlockAction,withBlockActions} from "@/lib/onepage/bl
 import {coverCropStyle,cropFromSettings} from "@/lib/images/cover-crop"
 
 import { BlockPresentationFrame, BlockSubtitle, VisualLinkCard } from "./block-presentation"
-import { presentationOf } from "@/lib/onepage/block-presentation"
+import { presentationOf, safeCardMedia } from "@/lib/onepage/block-presentation"
 
 import { ProfileImage } from "./profile-image"
 
@@ -55,7 +55,7 @@ import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper
 /* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
 import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
 import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
-import { sheetRootCss } from "@/lib/onepage/sheet-theme"
+import { sheetPalette, sheetRootCss } from "@/lib/onepage/sheet-theme"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
@@ -2460,10 +2460,7 @@ function GroupBlockRenderer({
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={handleMouseLeave}
       >
-        {/* Fade on left edge */}
-        {data.carousel_fade_edges && (
-          <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-8 bg-gradient-to-r from-black/20 to-transparent z-10 pointer-events-none" />
-        )}
+        {/* Soft edges: the scroller itself fades out at both sides (its mask below), so the slides melt into any page background. */}
 
         {/* Left Arrow Navigation - Desktop only, smooth fade in */}
         {isDesktop && canScrollLeft && (
@@ -2509,6 +2506,7 @@ function GroupBlockRenderer({
             margin: `-${CAROUSEL_ROOM}px -${CAROUSEL_ROOM - 8}px`,
             padding: `${CAROUSEL_ROOM + 12}px ${CAROUSEL_ROOM}px ${CAROUSEL_ROOM + 20}px`,
             scrollPaddingInline: `${CAROUSEL_ROOM}px`,
+            ...(data.carousel_fade_edges ? { maskImage: SOFT_EDGES, WebkitMaskImage: SOFT_EDGES } : {}),
           }}
           onScroll={handleScroll}
         >
@@ -2566,10 +2564,6 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Fade on right edge */}
-        {data.carousel_fade_edges && (
-          <div className="absolute right-0 top-0 bottom-0 w-6 sm:w-8 bg-gradient-to-l from-black/20 to-transparent z-10 pointer-events-none" />
-        )}
 
         {/* Dots navigation - clickable, updates based on scroll position */}
         {enabledChildren.length > 1 && (
@@ -2642,6 +2636,7 @@ function GroupBlockRenderer({
           {data.title}
         </h3>
       )}
+      <CollectionIntro data={data} theme={theme} />
       {data.layout === "carousel" ? renderCarousel() : renderStack()}
     </div>
   )
@@ -2649,6 +2644,35 @@ function GroupBlockRenderer({
 
 /** The room a group carousel's scroller keeps around its slides: the widest glow or hard shadow a button draws, and a lift. */
 const CAROUSEL_ROOM = 16
+/* A group carousel's soft edges, as a mask: no colour of its own, so it suits any page background. */
+const SOFT_EDGES = `linear-gradient(to right, transparent 0, #000 ${CAROUSEL_ROOM + 12}px, #000 calc(100% - ${CAROUSEL_ROOM + 12}px), transparent 100%)`
+
+/**
+ * A COLLECTION'S OPTIONAL PICTURE AND LINE (GroupBlockData image_url and
+ * description), above its blocks. The picture fades into the page at its
+ * foot, so there is no hard edge; with neither set, nothing is drawn and the
+ * group looks as it always did.
+ */
+function CollectionIntro({ data, theme }: { data: GroupBlockData; theme: OnePageTheme }) {
+  const image = safeCardMedia(data.image_url || undefined)
+  const description = data.description?.trim()
+  if (!image && !description) return null
+  return (
+    <div data-collection-intro="" className="flex w-full flex-col items-center gap-2 px-3">
+      {image ? (
+        <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16 / 7", borderRadius: Math.min(Number(theme.button_border_radius) || 16, 24), WebkitMaskImage: "linear-gradient(to bottom, #000 55%, transparent 100%)", maskImage: "linear-gradient(to bottom, #000 55%, transparent 100%)" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={onePageImageSrc(image, 960)} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+        </div>
+      ) : null}
+      {description ? (
+        <p className="max-w-[46ch] whitespace-pre-wrap break-words text-center text-[13.5px] leading-snug opacity-75" style={{ color: theme.text_color }}>
+          {description}
+        </p>
+      ) : null}
+    </div>
+  )
+}
 
 /** One slide's width, asked of the slide itself (the scroller's padding is not the slides' room). */
 function carouselSlideWidth(container: HTMLElement, percent: number): number {
@@ -3067,7 +3091,11 @@ const groupChildrenShown = (children: OnePageBlock[] | undefined, inPreview: boo
 /* A block's destination comes from its action (lib/onepage/block-action): the address is filled in once, and the frame opens a form, a pre-chat form or a product sheet on the page. */
 function PublicBlockRenderer(props: PublicBlockRendererProps) {
   const { block, action } = withBlockAction(props.block)
-  return <NativeActionFrame action={action} vars={action ? blockActionVars(block, action) : undefined}><BlockPresentationFrame block={block}><CoreBlockRenderer {...props} block={block} /></BlockPresentationFrame></NativeActionFrame>
+  /* A booking block whose booking is one of the creator's forms: that form's own button and pop-up, under the block's title. */
+  if (block.type === "calendly" && action?.type === "booking" && (action as { form_id?: string }).form_id) {
+    return <BlockPresentationFrame block={block}><NativeFormBlock formId={(action as { form_id: string }).form_id} title={((block.data as { title?: string }).title ?? "").trim() || "Book a time"} presentation="modal" /></BlockPresentationFrame>
+  }
+  return <NativeActionFrame action={action} vars={action ? blockActionVars(block, action) : undefined} sourceBlock={blockActionVars(block, action).service || undefined} dark={action?.type === "product" ? sheetPalette(props.theme as never).dark : false} seller={action?.type === "product" ? { name: props.profile?.title, avatarUrl: props.profile?.avatar_url } : null}><BlockPresentationFrame block={block}><CoreBlockRenderer {...props} block={block} /></BlockPresentationFrame></NativeActionFrame>
 }
 
 function CoreBlockRenderer({
@@ -3733,7 +3761,7 @@ function CoreBlockRenderer({
       )
     }
 
-    case "form_quiz": { const data=block.data as import("@/lib/onepage/types").FormQuizBlockData; return <NativeFormBlock formId={data.form_id} title={data.title} inline={data.inline}/> }
+    case "form_quiz": { const data=block.data as import("@/lib/onepage/types").FormQuizBlockData; return <NativeFormBlock formId={data.form_id} title={data.title} inline={data.inline} presentation={data.presentation}/> }
     case "link_button": {
       const data = (block.data || { label: "", url: "" }) as LinkButtonBlockData
       if (!data.url) return null
@@ -5009,6 +5037,21 @@ function CoreBlockRenderer({
               {data.title}
             </h3>
           )}
+          <CollectionIntro data={data} theme={theme} />
+          {layout === "grid" ? (
+            /* A collection as a grid: two to a row, each block at half the column. */
+            <div className="grid w-full grid-cols-2 gap-3 px-3 py-3" data-group-grid="">
+              {enabledChildren.map((child) => (
+                <div key={child.id} className="min-w-0" data-sensitive-label={sensitiveLabel(child)}>
+                  {inGroupPreview && isIncompleteLink(child) ? (
+                    <IncompleteLinkPlaceholder label={(child.data as LinkButtonBlockData)?.label} theme={theme} />
+                  ) : (
+                    <PublicBlockRenderer block={child} theme={theme} profile={profile} onepageId={onepageId} sellerId={sellerId} isDesktop={isDesktop} settings={settings} isInsideGroup={true} inPair={true} />
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className="w-full flex flex-col gap-4 sm:gap-5 py-3">
             {/*
               Round 43: product tiles in a group sit two to a row, as on the page (lib/onepage/product-block
@@ -5052,6 +5095,7 @@ function CoreBlockRenderer({
               )
             })}
           </div>
+          )}
         </div>
       )
     }

@@ -105,9 +105,10 @@ console.log("\nWho ships it: the store's setting, unless the product has its own
 console.log("\nSales channels a physical product sells on")
 {
   const ch = read("app/(storelib)/app/products/new/sales-channels-card.tsx")
-  check("Creator page and Explore are not listed for a physical product", /const shown = physical \? loaded\.channels\.filter\(forPhysical\) : loaded\.channels/.test(ch))
-  check("a new one never starts on no channel when Settings starts new products on the creator page", /physical \? startingChannels\(d\.channels\.filter\(forPhysical\), d\.defaultKey\)/.test(ch))
-  check("the API is unchanged: the same PUT with the channels it is off", /body: JSON\.stringify\(\{ productId: id, off \}\)/.test(ch))
+  check("Creator page and Explore are not listed for a physical product", /const shownOf = \(channels: Channel\[\], physical: boolean\) => \(physical \? channels\.filter\(forPhysical\) : channels\)/.test(ch) && /const shown = shownOf\(loaded\.channels, physical\)/.test(ch))
+  check("a new one never starts on no channel when Settings starts new products on the creator page", /startingChannels\(shownOf\(d\.channels, physical\), d\.defaultKey\)/.test(ch))
+  /* Changed on purpose (round AK): the card sends the channels it changed among those it shows, so the creator page and Explore of a thing that ships are never sent and keep what is saved. */
+  check("the channels it does not show are never sent", /channelChanges\(shownOf\(loaded\.channels, physical\)/.test(ch) && /put\(\{ productId: id, \.\.\.sent \}\)/.test(ch))
 }
 
 console.log("\nCustom fields, typed")

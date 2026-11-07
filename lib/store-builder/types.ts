@@ -402,7 +402,7 @@ export interface CommunitySettings extends BaseSectionSettings {
 }
 
 // Union of all section settings
-export interface NativeFormSettings extends BaseSectionSettings {form_id:string;title:string;inline:boolean}
+export interface NativeFormSettings extends BaseSectionSettings {form_id:string;title:string;inline:boolean;presentation?:"inline"|"card"|"expandable"|"modal"}
 
 export type SectionSettings =
   | NativeFormSettings

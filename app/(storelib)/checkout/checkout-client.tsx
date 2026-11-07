@@ -824,6 +824,8 @@ export default function CheckoutPageClient({
          pressed, when the page before this one is surely known. */
       origin: checkoutOrigin(creator.id),
       pricing,
+      /* A booking paid with this product: its signed token, checked by the server (lib/forms/booking-payment.ts). */
+      ...(searchParams.get("booking") ? { booking: searchParams.get("booking") } : {}),
     }
   }
 

@@ -1,11 +1,14 @@
 "use client"
 import {VisualLinkCard} from "./block-presentation"
-import {Segmented} from "./editor-kit"
-import {OnePageProductBlock} from "./product-block"
-import {ProductLayoutPicker,useCreatorProducts} from "./tabs/product-block-editor"
-import {ColorRow,Switch} from "./editor-kit"
-import {ImageUpload} from "@/components/app/image-upload"
-import type {ProductBlockData} from "@/lib/onepage/types"
+import { ColorRow, Segmented, Switch } from "./editor-kit"
+import { OnePageProductBlock } from "./product-block"
+import { ProductLayoutThumb, layoutHasCard, layoutLabel, useCreatorProducts } from "./tabs/product-block-editor"
+import { ImageUpload } from "@/components/app/image-upload"
+import type { ProductBlockData, ProductBlockStyle } from "@/lib/onepage/types"
+import { useBlockPart } from "./block-part"
+import { ChoiceMark } from "./choice-marks"
+import { PRODUCT_LAYOUTS, productLayoutOf } from "@/lib/onepage/product-block"
+import type { BlockPresentation } from "@/lib/onepage/block-presentation"
 import {CompactInstagramPost} from "./compact-post"
 
 /**
@@ -80,6 +83,7 @@ import {
   promoCode,
   shelfLimit,
   shelfSource,
+  shelfUsesProductCards,
   socialPost,
   youtubeChannel,
   type FollowerEntry,
@@ -182,6 +186,8 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
   const limit = shelfLimit(data.limit)
   const items = (data.items ?? []).slice(0, limit)
   const list = data.layout === "list"
+  /* Plain cards two to a row; before the Layout tab offered it, Grid without product cards slid as a row. */
+  const simpleGrid = data.layout === "grid"
   const radius = radiusOf(look.theme)
   if (!loading && items.length === 0) {
     /* The preview says why it is empty; the live page leaves it out (lib/onepage/storelib-blocks storelibBlockHasContent). */
@@ -195,7 +201,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
   return (
     <div data-onepage-shelf={shelfSource(data.source)} className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       <BlockTitle text={data.title} look={look} />
-      {data.product_settings && shelfSource(data.source)!=="community" ? <div className={data.layout==="carousel"?"flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none]":data.layout==="grid"?"grid grid-cols-2 gap-3":"flex flex-col gap-3"}>
+      {shelfUsesProductCards(data) && shelfSource(data.source)!=="community" ? <div className={data.layout==="carousel"?"flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none]":data.layout==="grid"?"grid grid-cols-2 gap-3":"flex flex-col gap-3"}>
        {items.map(item=><div key={item.id} className={data.layout==="carousel"?"w-[85%] shrink-0 snap-start":"min-w-0"}><OnePageProductBlock block={{id:`${block.id}:${item.id}`,type:"product",enabled:true,sort_order:0,data:{show_price:true,show_description:true,cta_text:tt("View product"),style:"callout",...data.product_settings,...data.product_overrides?.[item.id],product_id:item.id,product_title:item.title,product_thumbnail:item.image,product_slug:item.href.split('/').filter(Boolean).pop(),product_type:item.kind,product_price_cents:item.price_cents,product_variant_min_cents:item.variant_min_price_cents,product_variant_max_cents:item.variant_max_price_cents,product_variant_count:item.variant_count,product_single_variant_id:item.single_variant_id}}} theme={look.theme} quiet={look.still} inPair={data.layout==="grid"} seller={{name:"",avatarUrl:null}} pageMoney={money} plainText={s=>s?.replace(/<[^>]*>/g,'')||''} trackClick={()=>{}} animationClass="" quick={null}/></div>)}
       </div> : list ? (        <div className="flex flex-col" style={{ gap: px(8, look.scale) }}>
           {items.map((item) => (
@@ -216,9 +222,9 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
           ))}
         </div>
       ) : (
-        <div className="-mx-1 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ gap: px(10, look.scale) }}>
+        <div data-shelf-arrange={simpleGrid ? "grid" : "carousel"} className={simpleGrid ? "grid grid-cols-2" : "-mx-1 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
           {items.map((item) => (
-            <a key={item.id} href={platformHref(item.href)} className="op-card flex shrink-0 snap-start flex-col no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, width: px(158, look.scale), borderRadius: radius, padding: px(6, look.scale) }}>
+            <a key={item.id} href={platformHref(item.href)} className="op-card flex shrink-0 snap-start flex-col no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, width: simpleGrid ? "100%" : px(158, look.scale), minWidth: 0, borderRadius: radius, padding: px(6, look.scale) }}>
               <span className="relative block w-full overflow-hidden bg-black/10" style={{ aspectRatio: "1 / 1", borderRadius: Math.max(radius - 4, 6) }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {item.image ? <img src={item.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" /> : null}
@@ -230,7 +236,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
             </a>
           ))}
           {ghosts.map((i) => (
-            <span key={`g${i}`} aria-hidden className="block shrink-0 animate-pulse motion-reduce:animate-none" style={{ ...look.button, width: px(158, look.scale), height: px(230, look.scale), borderRadius: radius, opacity: 0.5 }} />
+            <span key={`g${i}`} aria-hidden className="block shrink-0 animate-pulse motion-reduce:animate-none" style={{ ...look.button, width: simpleGrid ? "100%" : px(158, look.scale), height: px(230, look.scale), borderRadius: radius, opacity: 0.5 }} />
           ))}
         </div>
       )}
@@ -534,6 +540,13 @@ function PostSlide({ item, look }: { item: SocialPostItem; look: StorelibBlockLo
   )
 }
 
+/** A post drawn as a card or a media tile: the link card's own look (./block-presentation VisualLinkCard), so it matches a link block. */
+function postCardLook(raw: SocialPostsBlockData, image: string | undefined): BlockPresentation {
+  const aspect = raw.aspect && raw.aspect !== "auto" ? raw.aspect : undefined
+  if (raw.presentation === "tile") return { variant: "tile", image_url: image, align: "left", overlay: 70, aspect, fade: raw.fade }
+  return { variant: image ? "visual" : "compact", image_url: image, align: "left", overlay: 70, aspect, fade: raw.fade }
+}
+
 function PostsView({ block, look }: { block: OnePageBlock; look: StorelibBlockLook }) {
   const raw = block.data as SocialPostsBlockData
   /* Pasted posts need no server unless a TikTok wants its picture or a channel is named. */
@@ -542,14 +555,15 @@ function PostsView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
   const items = Array.isArray(data.items) ? data.items : pastedPosts(raw)
   if (!loading && items.length === 0) return null
   const tall = raw.network === "tiktok"
+  const cardish = raw.presentation === "card" || raw.presentation === "tile"
   return (
     <div data-onepage-posts={raw.network} className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       <BlockTitle text={raw.title} look={look} />
-      <div className={raw.layout==="grid"?(raw.presentation==="card"?"grid grid-cols-2 gap-3":"grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-3"):raw.layout==="list"||raw.layout==="single"?"flex flex-col gap-3":"flex w-full snap-x snap-mandatory items-start overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
+      <div className={raw.layout==="grid"?(cardish?"grid grid-cols-2 gap-3":"grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-3"):raw.layout==="list"||raw.layout==="single"?"flex flex-col gap-3":"flex w-full snap-x snap-mandatory items-start overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
         {loading
           ? [0, 1, 2].map((i) => <span key={i} aria-hidden className="block shrink-0 animate-pulse rounded-xl bg-[rgba(127,127,127,0.14)] motion-reduce:animate-none" style={{ width: "100%", maxHeight: tall || raw.network === "instagram" ? 380 : undefined, aspectRatio: tall ? "9 / 16" : raw.network === "instagram" ? "326 / 470" : "16 / 9" }} />)
-          : (raw.layout==="single"?items.slice(0,1):items).map((item) => <div key={`${item.kind}:${item.id}`} className={raw.layout&&raw.layout!=="carousel"?(raw.presentation==="card"?"min-w-0":"min-w-0 flex justify-center"):"w-full min-w-0 shrink-0 snap-start"}>
-            {raw.presentation==="card"?<VisualLinkCard block={{id:item.id,type:"link_button",enabled:true,sort_order:0,data:{url:item.url,label:item.title||item.kind},style:{presentation:{variant:(raw.thumbnails?.[item.url]||item.thumb)?"visual":"compact",image_url:raw.thumbnails?.[item.url]||item.thumb||undefined,align:"left",overlay:70}}}} theme={look.theme} onClick={()=>{}}/>:<PostSlide item={{...item,thumb:raw.thumbnails?.[item.url]||item.thumb}} look={look}/>} </div>)}
+          : (raw.layout==="single"?items.slice(0,1):items).map((item) => <div key={`${item.kind}:${item.id}`} className={raw.layout&&raw.layout!=="carousel"?(cardish?"min-w-0":"min-w-0 flex justify-center"):"w-full min-w-0 shrink-0 snap-start"}>
+            {cardish?<VisualLinkCard block={{id:item.id,type:"link_button",enabled:true,sort_order:0,data:{url:item.url,label:item.title||item.kind},style:{presentation:postCardLook(raw,raw.thumbnails?.[item.url]||item.thumb||undefined)}}} theme={look.theme} onClick={()=>{}}/>:<PostSlide item={{...item,thumb:raw.thumbnails?.[item.url]||item.thumb}} look={look}/>} </div>)}
       </div>
     </div>
   )
@@ -744,15 +758,72 @@ function Chips<T extends string>({ value, options, onChange, label }: { value: T
   )
 }
 
-function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updateData: (u: Partial<StorelibShelfBlockData>) => void }) {
-  const source = shelfSource(data.source)
-  const products=useCreatorProducts(true)
-  const [editing,setEditing]=React.useState("")
-  const settings=data.product_settings||{}
-  const setSettings=(patch:Partial<ProductBlockData>)=>updateData({product_settings:{...settings,...patch}})
-  const [productLook,setProductLook]=React.useState(false)
+/** A plain shelf card drawn small, beside the product layouts. */
+function SimpleShelfThumb() {
   return (
-    <div className="space-y-3">
+    <span aria-hidden className="flex h-full w-full items-center justify-center gap-1.5 overflow-hidden rounded-xl bg-[#f7f7f8] px-[10%]">
+      {[0, 1].map((i) => (
+        <span key={i} className="flex w-[42%] flex-col gap-1 rounded-[6px] bg-white p-1 shadow-[inset_0_0_0_1px_#e3e4e8]" style={{ opacity: i ? 0.55 : 1 }}>
+          <span className="block aspect-square w-full rounded-[4px] bg-[#e5e7eb]" />
+          <span className="block h-[3px] w-[70%] rounded-full bg-[#9ca3af]" />
+          <span className="block h-[3px] w-[40%] rounded-full bg-[#d1d5db]" />
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/** Plain cards or one of the product block's eight layouts, as pictures (components/onepage/tabs/product-block-editor). */
+function ShelfCardPicker({ data, onPick }: { data: StorelibShelfBlockData; onPick: (id: "simple" | ProductBlockStyle) => void }) {
+  const settings = data.product_settings || {}
+  const current = shelfUsesProductCards(data) ? productLayoutOf({ style: settings.style ?? "callout", style_chosen: true }) : "simple"
+  const options: ("simple" | ProductBlockStyle)[] = ["simple", ...PRODUCT_LAYOUTS.filter((id) => id !== "button")]
+  return (
+    <div className="space-y-2.5" data-shelf-cards="">
+      <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Cards")}</p>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        {options.map((id) => {
+          const on = current === id
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onPick(id)}
+              data-shelf-card-choice={id}
+              {...(id === "simple" ? {} : { "data-product-layout-choice": id })}
+              className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-1.5 outline-none hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+            >
+              <ChoiceMark on={on} />
+              <span className="block aspect-[4/3] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
+                {id === "simple" ? <SimpleShelfThumb /> : <ProductLayoutThumb id={id} />}
+              </span>
+              <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{id === "simple" ? tt("Simple") : layoutLabel(id)}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/*
+  THE SHELF'S TWO HALVES (components/onepage/block-settings useBlockPart).
+  Settings: what it shows (the kind, the title, how many, and for product
+  cards the button words, the price and what a tap opens, and a picture of
+  its own for any product). Layout: how the shelf is arranged and how each
+  card is drawn, with the card colours where a card has its own.
+*/
+function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updateData: (u: Partial<StorelibShelfBlockData>) => void }) {
+  const part = useBlockPart()
+  const source = shelfSource(data.source)
+  const products = useCreatorProducts(part !== "layout")
+  const [editing, setEditing] = React.useState("")
+  const settings = data.product_settings || {}
+  const setSettings = (patch: Partial<ProductBlockData>) => updateData({ product_settings: { ...settings, ...patch } })
+  const productCards = source !== "community" && shelfUsesProductCards(data)
+  const settingsHalf = (
+    <div className="space-y-4" data-shelf-settings="">
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Show")}</Label>
         <Chips label={tt("Show")} value={source} options={SHELF_SOURCES.map((s) => ({ id: s, label: SHELF_WORD[s]() }))} onChange={(v) => updateData({ source: v })} />
@@ -761,30 +832,99 @@ function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updat
         <Label className={fieldLabel}>{tt("Title (optional)")}</Label>
         <Input value={data.title ?? ""} maxLength={60} placeholder={SHELF_WORD[source]()} onChange={(e) => updateData({ title: e.target.value })} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className={fieldBox}>
-          <Label className={fieldLabel}>{tt("Layout")}</Label>
-          <Chips label={tt("Layout")} value={data.layout||"carousel"} options={[{ id: "carousel", label: tt("Slide") }, { id: "list", label: tt("List") },{id:"grid",label:tt("Grid")}]} onChange={(v) => updateData({ layout: v,...(v==="grid"&&!data.product_settings?{product_settings:{style:"tile",style_chosen:true}}:{}) })} />
-        </div>
-        <div className={fieldBox}>
-          <Label className={fieldLabel}>{tt("How many")}</Label>
-          <Chips label={tt("How many")} value={String(shelfLimit(data.limit))} options={["3", "6", "9", "12"].map((n) => ({ id: n, label: n }))} onChange={(v) => updateData({ limit: Number(v) })} />
-        </div>
+      <div className={fieldBox}>
+        <Label className={fieldLabel}>{tt("How many")}</Label>
+        <Segmented label={tt("How many")} value={String(shelfLimit(data.limit))} options={["3", "6", "9", "12"].map((n) => ({ id: n, label: n }))} onChange={(v) => updateData({ limit: Number(v) })} />
       </div>
-      {source!=="community"?<div className="space-y-4 border-t border-[#eef0f2] pt-4" data-shelf-product-settings="">
-       <ProductLayoutPicker data={{product_id:"",show_price:true,show_description:true,cta_text:tt("View product"),style:"callout",...settings}} onPick={style=>updateData({product_settings:{...settings,style,style_chosen:true},...(style==="tile"?{layout:"grid" as const}:{})})}/>
-       <label className="block space-y-1 text-xs font-medium text-[#6b7280]">{tt("Button text")}<Input value={settings.cta_text??""} placeholder={tt("View product")} onChange={e=>setSettings({cta_text:e.target.value})}/></label>
-       <div className="flex items-center justify-between"><span className="text-[13px] text-[#6b7280]">{tt("Show price")}</span><Switch label={tt("Show price")} checked={settings.show_price!==false} onChange={show_price=>setSettings({show_price})}/></div>
-       <div className="flex items-center justify-between"><span className="text-[13px] text-[#6b7280]">{tt("Open product sheet")}</span><Switch label={tt("Open product sheet")} checked={settings.tap_action==="sheet"} onChange={on=>setSettings({tap_action:on?"sheet":"page",instant_checkout:on})}/></div>
-       <button type="button" className="min-h-11 w-full rounded-xl border border-[#e3e4e8] text-[13px] font-medium" aria-expanded={productLook} onClick={()=>setProductLook(v=>!v)}>{tt("Colors and thumbnails")}</button>
-       {productLook?<div className="space-y-3">{([[tt("Background"),'block_background_color'],[tt("Text"),'text_color'],[tt("Button"),'button_color'],[tt("Button text"),'button_text_color']] as const).map(([label,key])=><ColorRow key={key} label={label} value={settings[key]} onChange={v=>setSettings({[key]:v})} onClear={()=>setSettings({[key]:null})} emptyLabel={tt("Page default")}/>)}
-        <label className="block space-y-1 text-xs font-medium text-[#6b7280]">{tt("Custom thumbnail")}<select className="w-full rounded-xl border border-[#e3e4e8] bg-white p-2.5 text-[13px]" value={editing} onChange={e=>setEditing(e.target.value)}><option value="">{tt("Choose a product")}</option>{products?.filter(p=>source==="all"||p.type===source).map(p=><option key={p.id} value={p.id}>{p.title}</option>)}</select></label>
-        {editing?<ImageUpload bucket="covers" aspectRatio="compact" value={data.product_overrides?.[editing]?.custom_thumbnail||products?.find(p=>p.id===editing)?.thumbnail_url||undefined} allowRemove onChange={custom_thumbnail=>updateData({product_overrides:{...data.product_overrides,[editing]:{...data.product_overrides?.[editing],custom_thumbnail}}})}/>:null}
-       </div>:null}
-      </div>:null}
-      <p className="text-[12px] leading-relaxed text-[#6b7280]">
-        {source === "community" ? tt("Your public communities, biggest first.") : tt("Published products only, newest first. A product you archive or unpublish leaves the shelf by itself.")}
+      {productCards ? (
+        <div className="space-y-3 border-t border-[#eef0f2] pt-4" data-shelf-product-settings="">
+          <label className="block space-y-1.5 text-xs font-medium text-[#6b7280]">
+            {tt("Button text")}
+            <Input value={settings.cta_text ?? ""} placeholder={tt("View product")} onChange={(e) => setSettings({ cta_text: e.target.value })} />
+          </label>
+          <div className="flex min-h-11 items-center justify-between">
+            <span className="text-[14px] font-medium text-[#1a1a2e]">{tt("Show price")}</span>
+            <Switch label={tt("Show price")} checked={settings.show_price !== false} onChange={(show_price) => setSettings({ show_price })} />
+          </div>
+          <div className="flex min-h-11 items-center justify-between">
+            <span className="text-[14px] font-medium text-[#1a1a2e]">{tt("Show description")}</span>
+            <Switch label={tt("Show description")} checked={settings.show_description !== false} onChange={(show_description) => setSettings({ show_description })} />
+          </div>
+          <div className="flex min-h-11 items-center justify-between">
+            <span className="text-[14px] font-medium text-[#1a1a2e]">{tt("Open product sheet")}</span>
+            <Switch label={tt("Open product sheet")} checked={settings.tap_action === "sheet"} onChange={(on) => setSettings({ tap_action: on ? "sheet" : "page", instant_checkout: on })} />
+          </div>
+        </div>
+      ) : null}
+      {source !== "community" ? (
+        <div className="space-y-2 border-t border-[#eef0f2] pt-4" data-shelf-thumbnails="">
+          <label className="block space-y-1.5 text-xs font-medium text-[#6b7280]">
+            {tt("Custom thumbnail")}
+            <select className="h-11 w-full rounded-xl border border-[#e3e4e8] bg-white px-2.5 text-[14px] text-[#1a1a2e]" value={editing} onChange={(e) => setEditing(e.target.value)}>
+              <option value="">{tt("Choose a product")}</option>
+              {products?.filter((p) => source === "all" || p.type === source).map((p) => (
+                <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
+            </select>
+          </label>
+          {editing ? (
+            <ImageUpload
+              bucket="covers"
+              aspectRatio="compact"
+              value={data.product_overrides?.[editing]?.custom_thumbnail || products?.find((p) => p.id === editing)?.thumbnail_url || undefined}
+              allowRemove
+              onChange={(custom_thumbnail) => updateData({ product_overrides: { ...data.product_overrides, [editing]: { ...data.product_overrides?.[editing], custom_thumbnail } } })}
+            />
+          ) : null}
+        </div>
+      ) : null}
+      <p className="text-[12.5px] leading-relaxed text-[#6b7280]">
+        {source === "community" ? tt("Your public communities, biggest first.") : tt("Published products only, newest first.")}
       </p>
+    </div>
+  )
+  const layoutHalf = (
+    <div className="space-y-5" data-shelf-layout="">
+      <div className="space-y-2.5">
+        <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Arrange")}</p>
+        <Segmented
+          label={tt("Arrange")}
+          /* Product cards with no arrangement saved have always been drawn as a list. */
+          value={data.layout || (productCards ? "list" : "carousel")}
+          options={[
+            { id: "carousel", label: tt("Slide") },
+            { id: "list", label: tt("List") },
+            { id: "grid", label: tt("Grid") },
+          ]}
+          onChange={(v) => updateData({ layout: v as StorelibShelfBlockData["layout"] })}
+        />
+      </div>
+      {source !== "community" ? (
+        <ShelfCardPicker
+          data={data}
+          onPick={(id) =>
+            id === "simple"
+              ? updateData({ card_style: "simple" })
+              : updateData({ card_style: null, product_settings: { ...settings, style: id, style_chosen: true }, ...(id === "tile" ? { layout: "grid" as const } : {}) })
+          }
+        />
+      ) : null}
+      {productCards && layoutHasCard(productLayoutOf({ style: settings.style ?? "callout", style_chosen: true })) ? (
+        <div className="space-y-3 border-t border-[#eef0f2] pt-4" data-shelf-colours="">
+          <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Card colours")}</p>
+          {([[tt("Background"), "block_background_color"], [tt("Text"), "text_color"], [tt("Button"), "button_color"], [tt("Button text"), "button_text_color"]] as const).map(([label, key]) => (
+            <ColorRow key={key} label={label} value={settings[key]} onChange={(v) => setSettings({ [key]: v })} onClear={() => setSettings({ [key]: null })} emptyLabel={tt("Page default")} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+  if (part === "settings") return settingsHalf
+  if (part === "layout") return layoutHalf
+  return (
+    <div className="space-y-5">
+      {settingsHalf}
+      {layoutHalf}
     </div>
   )
 }
@@ -946,17 +1086,17 @@ function LeadMagnetEditor({ data, updateData }: { data: LeadMagnetBlockData; upd
 }
 
 function PostsEditor({ data, updateData }: { data: SocialPostsBlockData; updateData: (u: Partial<SocialPostsBlockData>) => void }) {
-  const [thumbnailPost,setThumbnailPost]=React.useState("")
+  const part = useBlockPart()
+  const [thumbnailPost, setThumbnailPost] = React.useState("")
   const network = (["youtube", "instagram", "tiktok"] as const).includes(data.network) ? data.network : "youtube"
   const urls = Array.isArray(data.post_urls) ? data.post_urls : []
   const [text, setText] = React.useState(urls.join("\n"))
   const valid = pastedPosts({ post_urls: text.split(/\s+/), network })
   const bad = text.split(/\s+/).filter((u) => u.trim() && !socialPost(u)).length
   const channelOk = !data.channel_url?.trim() || youtubeChannel(data.channel_url) !== null
-  return (
-    <div className="space-y-3">
-      <Segmented label={tt("Social presentation")} value={data.presentation||"native"} options={[{id:"card",label:tt("Open link")},{id:"native",label:tt("Display posts")}]} onChange={presentation=>updateData({presentation:presentation as 'card'|'native'})}/>
-      <Segmented label={tt("Content layout")} value={data.layout||"carousel"} options={[{id:"carousel",label:tt("Carousel")},{id:"grid",label:tt("Grid")},{id:"list",label:tt("List")},{id:"single",label:tt("Single card")}]} onChange={layout=>updateData({layout:layout as SocialPostsBlockData['layout']})}/>
+  const shown = data.presentation || "native"
+  const settingsHalf = (
+    <div className="space-y-4" data-posts-settings="">
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Network")}</Label>
         <Chips<SocialPostsNetwork> label={tt("Network")} value={network} options={[{ id: "youtube", label: "YouTube" }, { id: "instagram", label: "Instagram" }, { id: "tiktok", label: "TikTok" }]} onChange={(v) => updateData({ network: v })} />
@@ -992,7 +1132,81 @@ function PostsEditor({ data, updateData }: { data: SocialPostsBlockData; updateD
         <Label className={fieldLabel}>{tt("Title (optional)")}</Label>
         <Input value={data.title ?? ""} maxLength={60} placeholder={tt("Latest posts")} onChange={(e) => updateData({ title: e.target.value })} />
       </div>
-      {urls.length?<div className="space-y-2"><label className="block text-xs font-medium text-[#6b7280]">{tt("Custom thumbnail")}<select value={thumbnailPost} onChange={e=>setThumbnailPost(e.target.value)} className="mt-1 w-full rounded-xl border border-[#e3e4e8] bg-white p-2.5"><option value="">{tt("Choose a post")}</option>{Array.from(new Set(urls)).map(url=><option key={url} value={url}>{url}</option>)}</select></label>{thumbnailPost?<ImageUpload bucket="covers" aspectRatio="compact" allowRemove value={data.thumbnails?.[thumbnailPost]||undefined} onChange={url=>updateData({thumbnails:{...data.thumbnails,[thumbnailPost]:url},...(network==="instagram"&&url?{presentation:"card" as const}:{})})}/>:null}</div>:null}
+      {urls.length ? (
+        <div className="space-y-2" data-posts-covers="">
+          <label className="block space-y-1.5 text-xs font-medium text-[#6b7280]">
+            {tt("Cover picture")}
+            <select value={thumbnailPost} onChange={(e) => setThumbnailPost(e.target.value)} className="h-11 w-full rounded-xl border border-[#e3e4e8] bg-white px-2.5 text-[14px] text-[#1a1a2e]">
+              <option value="">{tt("Choose a post")}</option>
+              {Array.from(new Set(urls)).map((url) => (
+                <option key={url} value={url}>{url}</option>
+              ))}
+            </select>
+          </label>
+          {thumbnailPost ? (
+            <ImageUpload
+              bucket="covers"
+              aspectRatio="compact"
+              allowRemove
+              value={data.thumbnails?.[thumbnailPost] || undefined}
+              onChange={(url) => updateData({ thumbnails: { ...data.thumbnails, [thumbnailPost]: url }, ...(network === "instagram" && url && shown === "native" ? { presentation: "card" as const } : {}) })}
+            />
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+  const layoutHalf = (
+    <div className="space-y-5" data-posts-layout="">
+      <div className="space-y-2.5">
+        <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Show as")}</p>
+        <Segmented
+          label={tt("Show as")}
+          value={shown}
+          options={[
+            { id: "native", label: tt("Embed") },
+            { id: "card", label: tt("Card") },
+            { id: "tile", label: tt("Media tile") },
+          ]}
+          onChange={(presentation) => updateData({ presentation: presentation as SocialPostsBlockData["presentation"] })}
+        />
+      </div>
+      <div className="space-y-2.5">
+        <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Arrange")}</p>
+        <Segmented
+          label={tt("Arrange")}
+          value={data.layout || "carousel"}
+          options={[
+            { id: "carousel", label: tt("Carousel") },
+            { id: "grid", label: tt("Grid") },
+            { id: "list", label: tt("List") },
+            { id: "single", label: tt("Single") },
+          ]}
+          onChange={(layout) => updateData({ layout: layout as SocialPostsBlockData["layout"] })}
+        />
+      </div>
+      {shown !== "native" ? (
+        <div className="space-y-4 border-t border-[#eef0f2] pt-4">
+          <Segmented
+            label={tt("Picture shape")}
+            value={data.aspect || "auto"}
+            options={(["auto", "1/1", "4/5", "16/9", "9/16"] as const).map((a) => ({ id: a, label: a === "auto" ? tt("Auto") : a.replace("/", ":") }))}
+            onChange={(aspect) => updateData({ aspect: aspect as SocialPostsBlockData["aspect"] })}
+          />
+          <div className="flex min-h-11 items-center justify-between gap-3">
+            <span className="text-[14px] font-medium text-[#1a1a2e]">{tt("Fade at the bottom")}</span>
+            <Switch label={tt("Fade at the bottom")} checked={data.fade !== false} onChange={(fade) => updateData({ fade })} />
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+  if (part === "settings") return settingsHalf
+  if (part === "layout") return layoutHalf
+  return (
+    <div className="space-y-5">
+      {settingsHalf}
+      {layoutHalf}
     </div>
   )
 }

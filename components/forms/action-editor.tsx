@@ -11,6 +11,7 @@
  * forms-manager), the form reference editor and the rebuilt block editors
  * all use `value`, `onChange` and `allowNone`. Everything added since is
  * optional:
+ *   noneLabel  the words for no action, where the block keeps its own address
  *   url        an address saved before actions existed; read into the model
  *              (lib/forms/actions actionFromUrl) and shown as what it is
  *   showLabel  a field for the button's words (CTA text), kept on the action
@@ -90,8 +91,8 @@ type FormRow = {
   id: string
   title: string
   status: string
-  draft?: { fields?: { id: string; label?: string; type?: string }[]; kind?: string } | null
-  published?: { fields?: { id: string; label?: string; type?: string }[]; kind?: string } | null
+  draft?: { fields?: { id: string; label?: string; type?: string }[]; booking?: unknown } | null
+  published?: { fields?: { id: string; label?: string; type?: string }[]; booking?: unknown } | null
 }
 
 /** The creator's forms, read once per editor and only when a choice needs them. */
@@ -128,6 +129,7 @@ export function ActionEditor({
   value,
   onChange,
   allowNone = false,
+  noneLabel,
   url,
   showLabel = false,
   types,
@@ -136,6 +138,8 @@ export function ActionEditor({
   value?: NativeAction
   onChange: (action: NativeAction | undefined) => void
   allowNone?: boolean
+  /** The words for "no action": what the block does without one ("Web address" where the block keeps its own address field). */
+  noneLabel?: string
   url?: string | null
   showLabel?: boolean
   types?: ActionType[]
@@ -318,9 +322,9 @@ export function ActionEditor({
   )
 
   const formSelect = (label: string, key: "form_id", bookingFirst = false) => {
-    const list = bookingFirst
-      ? [...forms].sort((x, y) => Number((y.published?.kind || y.draft?.kind) === "booking") - Number((x.published?.kind || x.draft?.kind) === "booking"))
-      : forms
+    /* A form with booking settings (lib/forms/definition BookingSettings, the Appointment template) takes times: those come first, and say so. */
+    const books = (f: FormRow) => !!(f.published?.booking || f.draft?.booking)
+    const list = bookingFirst ? [...forms].sort((x, y) => Number(books(y)) - Number(books(x))) : forms
     return (
       <>
         <label className={labelCls}>
@@ -330,6 +334,7 @@ export function ActionEditor({
             {list.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.title || "Unnamed form"}
+                {bookingFirst && books(f) ? " (takes bookings)" : ""}
                 {f.status !== "published" ? " (draft)" : ""}
               </option>
             ))}
@@ -366,7 +371,7 @@ export function ActionEditor({
             onChange(e.target.value ? empty(e.target.value, { label: a.label }) : undefined)
           }}
         >
-          {allowNone ? <option value="">Success message only</option> : <option value="">Existing link</option>}
+          <option value="">{noneLabel || (allowNone ? "Success message only" : "Existing link")}</option>
           {choices.map(([v, label]) => (
             <option key={v} value={v}>
               {label}

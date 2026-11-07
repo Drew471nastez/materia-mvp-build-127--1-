@@ -52,6 +52,8 @@ const PROOFS: [string, RegExp][] = [
      `current.user`, which is null in both. */
   ["a signed-in session, classified", /await readCurrentUser\(supabase\)[\s\S]*if \(!(current\.)?user\b/],
   ["the creator behind the session", /currentCreatorId\(\)/],
+  /* Round AK5: lib/forms/server formActor is routeUser() with its 401 and 503; the route acts only on `actor.user`, and reads with the owner's own client (RLS). */
+  ["a signed-in form owner", /const actor = await formActor\(\)\s*if \(actor instanceof NextResponse\) return actor/],
   /* Changed on purpose (round rel-auth): lib/auth/route-user routeUser() is getUser() with a ceiling and one retry, a 401 only for Auth's nobody and a 503 when it did not answer; the route acts only on `who.user`. */
   /* Changed on purpose (r52): `{ fresh: true }` names the strict routes and `{ full: true }` the reads that need email_confirmed_at. */
   ["a signed-in session, fresh and classified", /await routeUser\((?:\{ (?:fresh: (?:false|true|!opts\.read)|full: true) \})?\)[\s\S]*(?:who|caller|asker|signIn)\.kind === "unavailable"\) return authUnavailableResponse\(\)/],
@@ -120,6 +122,8 @@ const PROOFS: [string, RegExp][] = [
  */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
   "forms/[id]/public/route.ts": "A reusable public form: reads only the validated published snapshot for this exact UUID. Drafts, owners, answers and integration configuration are never returned; anonymous access is intentional.",
+  "forms/[id]/slots/route.ts": "A published booking form's free times for this exact UUID: only start and end instants are returned, never who booked or which form; limited per address.",
+  "forms/[id]/upload/route.ts": "One visitor file for a file question of a published form: limited per address and form, capped at 4 MB before reading, checked by its bytes, kept in a private bucket; the answer is a reference signed for this form and one submission token, never a link.",
   "forms/[id]/submit/route.ts": "Anonymous form submission: bounded, IP rate limited and honeypot guarded, requires consent, validates against the current published revision, derives the owner server-side and deduplicates the submission UUID. Private lead records are not readable here.",
   "products/prices/route.ts": "Bounded public catalogue prices: products are read through public RLS and filtered to published IDs. The admin reads only currency/rate configuration to show the same store or marketplace prices as public cards; no writes or customer data.",
   /* Round 49: what the creator page, the product page and Explore used to decide per visitor on the server, now asked after load (they are one HTML for everybody, held by the CDN). */

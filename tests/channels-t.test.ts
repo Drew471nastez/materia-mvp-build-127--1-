@@ -54,7 +54,8 @@ console.log("\nWhere it is set\n")
   const editor = read("app/(storelib)/app/products/new/product-editor.tsx")
   check("the product editor has a Sales channels card, saved after the product exists", /<SalesChannelsCard ref=\{channelsRef\}/.test(editor) && /await channelsRef\.current\?\.save\(finalProductId\)/.test(editor))
   const card = read("app/(storelib)/app/products/new/sales-channels-card.tsx")
-  check("  a new product starts where Settings says; nothing is sent when nothing changed", /startingChannels\(d\.channels, d\.defaultKey\)/.test(card) && /if \(!loaded \|\| !loaded\.ready \|\| !dirty\.current\) return null/.test(card))
+  /* Changed on purpose (round AK): the card sends only the ticks it changed (lib/store/channel-changes), so "nothing changed" is an empty change, not a dirty flag. */
+  check("  a new product starts where Settings says; nothing is sent when nothing changed", /startingChannels\(shownOf\(d\.channels, physical\), d\.defaultKey\)/.test(card) && /if \(sent\.list\.length === 0 && sent\.unlist\.length === 0\) return null/.test(card))
   const server = read("lib/store/channels-server.ts")
   check("the product must be the caller's, and its channels are set whole", /from\("products"\)\.select\("id"\)\.eq\("id", productId\)\.eq\("creator_id", creatorId\)/.test(server) && /\.not\("channel_id", "in"/.test(server))
   check("Storelib's channels can't be renamed or removed", /Storelib's own channels keep their names/.test(server) && /Storelib's own channels can't be removed/.test(server))
@@ -74,7 +75,8 @@ console.log("\nA change shows on the next visit, everywhere it is listed\n")
   check("saving a product's channels clears the website's held lists and Explore's held catalogue", /revalidateTag\(creatorShopTag\(c\.creatorId\), \{ expire: 0 \}\)/.test(put) && /exploreCatalogueTakenDown\(\)/.test(put))
   check("the website's sitemap leaves out a product taken off the Online store", /const off = await offChannel\(admin, creatorId, "storefront"\)/.test(read("lib/website-builder/site-seo-data.ts")) && /!off\.has\(p\.id \?\? ""\)/.test(read("lib/website-builder/site-seo-data.ts")))
   check("a duplicated product is taken off the same channels as the one it copies", /\/api\/store\/channels\/product\?productId=\$\{encodeURIComponent\(product\.id\)\}/.test(read("app/(storelib)/app/products/products-client.tsx")) && /body: JSON\.stringify\(\{ productId: data\.id, off: d\.off \}\)/.test(read("app/(storelib)/app/products/products-client.tsx")))
-  check("the API the editor uses keeps its shape: GET ?productId= gives channels, New products and off; PUT { productId, off }", /return physicalJson\(\{ \.\.\.setup, off \}\)/.test(put) && /setProductChannels\(c\.db, c\.creatorId, body\.productId, body\.off\)/.test(put) && /return physicalJson\(\{ off: out\.off \}\)/.test(put))
+  /* Changed on purpose (round AK): PUT also takes { productId, list, unlist }, the editor's changes only, and answers what GET answers, read after the write. { productId, off } still sets them whole. */
+  check("the API the editor uses keeps its shape: GET ?productId= gives channels, New products and off; PUT { productId, off } or { productId, list, unlist }", /return physicalJson\(\{ \.\.\.setup, off \}\)/.test(put) && /setProductChannels\(c\.db, c\.creatorId, body\.productId, body\.off\)/.test(put) && /changeProductChannels\(c\.db, c\.creatorId, body\.productId, \{ list: body\.list, unlist: body\.unlist \}\)/.test(put) && /return physicalJson\(\{ \.\.\.setup, off: out\.off \}\)/.test(put))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

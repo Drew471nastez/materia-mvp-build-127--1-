@@ -24,10 +24,18 @@ import { join, basename, dirname, relative } from "node:path"
 execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inherit" })
 
 const SUITES = [
+  /* Round AK6: a founder hands a business they built to a client's own login: a single use, expiring claim link kept only as its SHA-256, wrong email, self claim and the three business limit refused, every table with a creator_id or user_id decided, every route asks who is signing in, sign up and an existing account through the real route handlers, a failed transfer changes nothing (SQL 20271131, run on the harness by scripts/check-business-handoff-sql.sh). */
+  "tests/business-handoff.test.ts",
   "tests/onepage-link-metadata.test.ts",
   "tests/native-forms-actions-prices.test.ts",
   "tests/native-actions.test.ts",
+  /* Round AK5: the form engine (types, rules, steps, scoring, templates, CSV), bookings across DST with the double booking guard, and public submit security (honeypot, limits, signed webhooks, sealed secrets). */
+  "tests/forms-engine.test.ts",
+  "tests/forms-bookings.test.ts",
+  "tests/forms-security.test.ts",
+  "tests/forms-booking-payment.test.ts",
   "tests/onepage-modern-blocks.test.ts",
+  "tests/onepage-block-settings-ak3.test.ts",
   "tests/admin-sql-updates.test.ts",
   "tests/typecheck-ratchet-process.test.ts",
   "tests/wizard27.test.ts",
@@ -736,6 +744,8 @@ const SUITES = [
   "tests/abandoned-cart-reminder.test.ts",
   "tests/reasons-t.test.ts",
   "tests/channels-t.test.ts",
+  /* Round AK (AK2): a product's sales channels through the real route, before and after SQL 20271125: unticked and ticked again, read back, gone from Explore, the OnePage and the website and back; an older tab sends only its own change, so a newer save stays; a failed read refuses a change instead of writing over it; the editor's Saved after a read back. */
+  "tests/product-channels-ak2.test.ts",
   "tests/integrations-t.test.ts",
   "tests/round-u.test.ts",
   "tests/compat-resilience.test.ts",
@@ -1313,6 +1323,8 @@ const STRICT_SUITES = [
   "tests/onepage-r43-blocks.test.ts",
   /* Round 53: the product sheet's dots ride the scroll, 4:5 on a phone, themed arrows and question lines, videos in the gallery and full screen; scripts/check-product-sheet-r53.mjs measures it frame by frame. */
   "tests/product-sheet-r53.test.ts",
+  /* Round AK: the product sheet closes before the checkout opens on top (one state, one backdrop, focus held, Back and Escape close the checkout alone), the checkout's head is the product's own picture, and the product editor's grey padding is cut off in the sheet and the checkout. scripts/check-onepage-checkout-stack.mjs measures it. */
+  "tests/onepage-checkout-stack.test.ts",
   /* Round 42: a OnePage's embeds with no scrollbar inside them (heights said and rounded up, Tally and Calendly asked for theirs, TikTok's player), buttons with room on every side in a carousel, one copy of a video playing, the social sheet as tall as it holds, a slideshow a mouse drags. scripts/check-onepage-r42.mjs measures them. */
   "tests/onepage-r42.test.ts",
   /* Round 43: the OnePage editor's font sheet as tall as its list, an off block's controls unfaded, Remove's question in one compact line, a block's stats with the period as a popover and See in Analytics, the header's type and picture frame, the cover's ring that follows a Left header, one hold for every window over the live page. scripts/check-onepage-editor-r43.mjs measures them. */

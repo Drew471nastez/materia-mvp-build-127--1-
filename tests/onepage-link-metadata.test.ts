@@ -31,6 +31,11 @@ assert.equal(
   ).title.length,
   200,
 )
+/* The site's icon: its declared icon, else /favicon.ico; a private or http address on a https page is not passed on as such. */
+assert.equal(parseLinkMetadata(`<link rel="icon" href="/static/icon.png">`, url).favicon, "https://example.com/static/icon.png")
+assert.equal(parseLinkMetadata("<title>x</title>", url).favicon, "https://example.com/favicon.ico")
+assert.equal(parseLinkMetadata(`<link rel="shortcut icon" href="http://10.0.0.1/i.png">`, url).favicon, "https://example.com/favicon.ico")
+assert.equal(parseLinkMetadata(`<meta property="og:image" content="http://cdn.example.com/a.jpg">`, url).image, "https://cdn.example.com/a.jpg")
 for (const address of [
   "https://vimeo.com/123456789",
   "https://x.com/creator/status/123456789",

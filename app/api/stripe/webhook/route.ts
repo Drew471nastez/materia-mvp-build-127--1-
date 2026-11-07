@@ -933,6 +933,16 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
   */
   if (event.type === "payment_intent.succeeded") {
     const pi = event.data.object as Stripe.PaymentIntent
+    /* A booking paid with this product (lib/forms/booking-payment.ts): confirmed once, only when product, currency and amount match what the checkout recorded. The order is still made below. */
+    if (pi.metadata?.form_booking) {
+      try {
+        const { bookingPaid } = await import("@/lib/forms/booking-payment-server")
+        await bookingPaid(supabaseAdmin, { id: pi.id, status: pi.status, amount: pi.amount, amount_received: pi.amount_received, currency: pi.currency, metadata: pi.metadata })
+      } catch (e) {
+        console.error("[Webhook] booking payment not applied:", pi.id, e instanceof Error ? e.message : "error")
+        return NextResponse.json({ error: "Booking not updated yet" }, { status: 500 })
+      }
+    }
     /*
       A WEBSITE'S CHECKOUT, paid in Storelib's own form on the site's address
       (app/checkout/site): a basket of downloads (metadata cart + site_basket)
@@ -980,6 +990,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     const pi = event.data.object as Stripe.PaymentIntent
     /* A declined card is the buyer's bank saying no, not a fault here: info. Stripe ids only, no card or person. */
     logEvent("info", "stripe_payment_failed", { msg: "[Webhook] Payment failed", paymentIntent: pi.id, code: pi.last_payment_error?.code ?? null, eventId: event.id })
+    /* A booking's payment failed: it is not confirmed, and its hold runs out as usual (lib/forms/booking-payment.ts). */
+    if (pi.metadata?.form_booking) await (await import("@/lib/forms/booking-payment-server")).bookingPaymentFailed(supabaseAdmin, { id: pi.id, metadata: pi.metadata }).catch(() => false)
     /*
       PAYMENT FAILED, for an order that ships: the buyer is told half an hour
       later if they still haven't paid (lib/physical/jobs-server
@@ -1306,6 +1318,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
       await (await import("@/lib/communities/server/module-sales")).revokeRefundedModule(supabaseAdmin, intentId)
       /* Round 39: a Library sale's record marked; the refund itself takes the product out of the buyer's library (lib/stripe/refund-sync.ts), which locks the item. */
       await (await import("@/lib/communities/server/library-checkout")).revokeRefundedLibrary(supabaseAdmin, intentId)
+      /* A booking paid with a product and refunded in full is cancelled and its time freed (lib/forms/booking-payment.ts). */
+      await (await import("@/lib/forms/booking-payment-server")).bookingRefunded(supabaseAdmin, intentId).catch(() => false)
     }
     try {
       const done = await syncChargeRefund(supabaseAdmin, stripe, charge)

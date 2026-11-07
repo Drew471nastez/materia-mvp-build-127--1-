@@ -25,6 +25,7 @@ import {
   webUrl,
   whatsappGroupUrl,
 } from "../lib/forms/actions"
+import { withBlockAction, withBlockActions } from "../lib/onepage/block-action"
 
 let passed = 0
 const check = (name: string, fn: () => void) => {
@@ -207,6 +208,27 @@ check("labels and tabs", () => {
   assert.equal(actionLabel({ type: "telegram", target: "@abcd" }), "Message on Telegram")
   assert.equal(actionOpensNewTab({ type: "email", email: "a@b.co" }), false)
   assert.equal(actionOpensNewTab({ type: "whatsapp", phone: "+40712345678" }), true)
+})
+
+check("blocks: every destination is filled from its action, old addresses kept", () => {
+  const wa = { type: "whatsapp", phone: "+40712345678", message: "Book {service}" }
+  const [link, image, signup, cal, group, plain] = withBlockActions<any>([
+    { type: "link_button", data: { label: "Massage", url: "", action: wa } },
+    { type: "image", data: { images: [{ id: "a", image_url: "x", action: { type: "phone", phone: "+40712345678" } }, { id: "b", image_url: "y", link_url: "https://old.example" }] } },
+    { type: "email_capture", data: { headline: "News", after_action: { type: "whatsapp_group", url: "https://chat.whatsapp.com/AbCdEf1234567890" } } },
+    { type: "calendly", data: { title: "Book", action: { type: "booking", url: "https://cal.com/me/30" } } },
+    { type: "group", data: { children: [{ type: "link_button", data: { label: "Mail", url: "", action: { type: "email", email: "a@b.co" } } }] } },
+    { type: "link_button", data: { label: "Old", url: "https://wa.me/40712345678?text=Hi+old" } },
+  ])
+  assert.equal(link.data.url, "https://wa.me/40712345678?text=Book%20Massage")
+  assert.equal(image.data.images[0].link_url, "tel:+40712345678")
+  assert.equal(image.data.images[1].link_url, "https://old.example")
+  assert.equal(signup.data.after_signup_url, "https://chat.whatsapp.com/AbCdEf1234567890")
+  assert.equal(cal.data.calendly_url, "https://cal.com/me/30")
+  assert.equal(group.data.children[0].data.url, "mailto:a@b.co")
+  assert.equal(plain.data.url, "https://wa.me/40712345678?text=Hi+old")
+  /* A broken action draws no address, never the script it was given. */
+  assert.equal(withBlockAction<any>({ type: "link_button", data: { url: "javascript:alert(1)", action: { type: "url", url: "javascript:alert(1)" } } }).block.data.url, "")
 })
 
 console.log(`native actions: ${passed} groups passed`)

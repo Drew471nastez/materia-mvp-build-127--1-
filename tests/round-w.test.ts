@@ -149,7 +149,7 @@ console.log("\nThe physical product editor")
   check("advanced fields show an example", /placeholder="MUG-BLK-11"/.test(cards) && /placeholder="5901234123457"/.test(cards))
   const ch = read("app/(storelib)/app/products/new/sales-channels-card.tsx")
   /* Changed on purpose: the owner asked that a physical product is not offered the creator page or Explore at all, rather than shown them greyed out. */
-  check("creator page and Explore are not offered to things that ship", /DIGITAL_ONLY = new Set\(\["creator_page", "marketplace"\]\)/.test(ch) && /physical \? loaded\.channels\.filter\(forPhysical\)/.test(ch) && !/data-channel-not-for-physical/.test(ch) && /physical=\{productType === "physical"\}/.test(ed))
+  check("creator page and Explore are not offered to things that ship", /DIGITAL_ONLY = new Set\(\["creator_page", "marketplace"\]\)/.test(ch) && /physical \? channels\.filter\(forPhysical\)/.test(ch) && !/data-channel-not-for-physical/.test(ch) && /physical=\{productType === "physical"\}/.test(ed))
 }
 
 console.log("\nWhat happens if... (/help/questions)")

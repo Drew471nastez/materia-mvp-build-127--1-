@@ -7,12 +7,18 @@
  * channels › New products says. Saved after the product itself, by the
  * editor calling `save` with the product's id, so a new product's choice is
  * kept too. A database without parts 109 and 111 shows nothing here.
+ *
+ * WHAT IS SENT IS WHAT CHANGED (lib/store/channel-changes.ts): the channels
+ * whose tick differs from what was saved, never the whole list, so a tab
+ * left open does not put back a channel another tab took the product off.
+ * The answer is what is saved now, and the card shows it.
  */
 import * as React from "react"
 import Link from "next/link"
 import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { channelKey, startingChannels, type Channel } from "@/lib/store/channels"
+import { channelChanges, listedKeys } from "@/lib/store/channel-changes"
 import { tt } from "@/lib/i18n/text"
 
 export interface SalesChannelsHandle {
@@ -28,16 +34,34 @@ type Loaded = { channels: Channel[]; defaultKey: string | null; ready: boolean; 
   address, and Explore leaves physical products out), so a physical product
   is not offered them at all: its card lists the Online store and the
   store's own channels (a market stall, a wholesale list), nothing it could
-  never sell on. Their ticks are left as they were, so the API and the
-  stored listings do not change.
+  never sell on. Their ticks are left as they were: they are never sent.
 */
 const DIGITAL_ONLY = new Set(["creator_page", "marketplace"])
 const forPhysical = (c: Channel) => !DIGITAL_ONLY.has(c.kind)
+const shownOf = (channels: Channel[], physical: boolean) => (physical ? channels.filter(forPhysical) : channels)
+
+/** PUT /api/store/channels/product: what is saved after the write, or the error's words. */
+async function put(body: Record<string, unknown>): Promise<{ data: Loaded | null; error: string | null }> {
+  try {
+    const r = await fetch("/api/store/channels/product", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "same-origin", cache: "no-store", body: JSON.stringify(body) })
+    const json = (await r.json().catch(() => null)) as (Loaded & { error?: string }) | null
+    if (!r.ok) return { data: null, error: json?.error ?? tt("The sales channels were not saved.") }
+    return { data: json && Array.isArray(json.channels) && Array.isArray(json.off) ? json : null, error: null }
+  } catch {
+    return { data: null, error: tt("The sales channels were not saved.") }
+  }
+}
 
 export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { productId: string | null; cardClass: string; titleClass: string; onValue?: (on: string[] | undefined, saved: boolean) => void; physical?: boolean }>(function SalesChannelsCard({ productId, cardClass, titleClass, onValue, physical = false }, ref) {
+  /* What is saved, as the server last answered it: a read, or a save's answer. */
   const [loaded, setLoaded] = React.useState<Loaded | null>(null)
   const [on, setOn] = React.useState<Set<string>>(new Set())
-  const dirty = React.useRef(false)
+  /* Ticked or unticked by hand since the card loaded or saved. */
+  const touched = React.useRef(false)
+  /* Each read and each save takes a number; an answer older than the last one asked is dropped. */
+  const asked = React.useRef(0)
+  /* Opened for a new product, an existing one, or saved since. */
+  const opened = React.useRef<"new" | "existing" | "saved">(productId ? "existing" : "new")
   /*
     WHAT IT HOLDS, TOLD TO THE EDITOR: the channels ticked, as a set, with
     whether that is what was loaded. The editor's Save turns on while it
@@ -55,28 +79,63 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
   }, [on, loaded])
   React.useEffect(() => () => told.current?.(undefined, true), [])
 
+  /*
+    READ WHEN THE PRODUCT IS OPENED, not when a new one gets its id. A new
+    product's first save gives it an id while that save is still writing; a
+    read then answered from before the channels were written, put every tick
+    back on and forgot the ones taken off. The save's own answer says what
+    is saved.
+  */
+  const heldFor = React.useRef<string | null | undefined>(undefined)
   React.useEffect(() => {
-    let live = true
+    const before = heldFor.current
+    heldFor.current = productId
+    if (before === null && productId) return
+    const mine = ++asked.current
     const q = productId ? `?productId=${encodeURIComponent(productId)}` : ""
     fetch(`/api/store/channels/product${q}`, { cache: "no-store", credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: Loaded | null) => {
-        if (!live || !d || !Array.isArray(d.channels)) return
+        if (mine !== asked.current || !d || !Array.isArray(d.channels)) return
+        const off = Array.isArray(d.off) ? d.off : []
         asLoaded.current = true
-        setLoaded(d)
-        const offIds = new Set(d.off ?? [])
+        touched.current = false
+        setLoaded({ ...d, off })
         /* A new physical product starts where Settings says when that is a channel it sells on; on all of its channels otherwise, never on none. */
-        const starting = physical ? startingChannels(d.channels.filter(forPhysical), d.defaultKey) : startingChannels(d.channels, d.defaultKey)
-        setOn(productId ? new Set(d.channels.filter((c) => !(c.id && offIds.has(c.id))).map(channelKey)) : starting)
-        /* A new product that starts on one channel has something to save even untouched. */
-        dirty.current = !productId && !!d.defaultKey
+        setOn(productId ? listedKeys(d.channels, off) : startingChannels(shownOf(d.channels, physical), d.defaultKey))
       })
       .catch(() => undefined)
-    return () => {
-      live = false
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, physical])
+  }, [productId])
+
+  /* A new product switched between a download and a thing that ships before any tick: it starts where that kind starts. */
+  React.useEffect(() => {
+    if (opened.current !== "new" || !loaded || touched.current) return
+    asLoaded.current = true
+    setOn(startingChannels(shownOf(loaded.channels, physical), loaded.defaultKey))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [physical])
+
+  /* The ticks as last drawn, for a save's answer to keep a tick changed while it was saving. */
+  const onNow = React.useRef(on)
+  onNow.current = on
+  /* A save's answer, drawn: built-ins named by their new rows' ids, and a tick changed since the save was sent kept as it is. */
+  const showSaved = (answer: Loaded, before: Loaded, sentOn: ReadonlySet<string>) => {
+    const saved = listedKeys(answer.channels, answer.off)
+    const current = onNow.current
+    const next = new Set<string>()
+    for (const c of answer.channels) {
+      const key = channelKey(c)
+      const was = channelKey(c.kind === "custom" ? c : (before.channels.find((o) => o.kind === c.kind) ?? c))
+      const changedSince = current.has(was) !== sentOn.has(was)
+      if (changedSince ? current.has(was) : saved.has(key)) next.add(key)
+    }
+    asLoaded.current = next.size === saved.size && [...next].every((k) => saved.has(k))
+    touched.current = !asLoaded.current
+    opened.current = "saved"
+    setLoaded(answer)
+    setOn(next)
+  }
 
   React.useImperativeHandle(
     ref,
@@ -88,37 +147,45 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
           still applies. The channels are read now and the product starts
           where Settings says, instead of on every channel.
         */
-        if (!loaded && !productId) {
+        if (!loaded && opened.current === "new") {
+          const mine = ++asked.current
           try {
             const r = await fetch("/api/store/channels/product", { cache: "no-store", credentials: "same-origin" })
             const d = r.ok ? ((await r.json()) as Loaded) : null
-            if (!d || !d.ready || !Array.isArray(d.channels) || !d.defaultKey) return null
-            const starting = physical ? startingChannels(d.channels.filter(forPhysical), d.defaultKey) : startingChannels(d.channels, d.defaultKey)
-            const off = d.channels.map(channelKey).filter((k) => !starting.has(k))
-            const put = await fetch("/api/store/channels/product", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ productId: id, off }) })
-            return put.ok ? null : tt("The sales channels were not saved.")
+            if (!d || !d.ready || !Array.isArray(d.channels)) return null
+            const fresh: Loaded = { ...d, off: [] }
+            const starting = startingChannels(shownOf(d.channels, physical), d.defaultKey)
+            const sent = channelChanges(shownOf(d.channels, physical), listedKeys(d.channels, []), starting)
+            if (sent.list.length === 0 && sent.unlist.length === 0) {
+              if (mine === asked.current) showSaved(fresh, fresh, starting)
+              return null
+            }
+            const answer = await put({ productId: id, ...sent })
+            if (answer.error) return answer.error
+            if (answer.data && mine === asked.current) showSaved(answer.data, fresh, starting)
+            return null
           } catch {
             return tt("The sales channels were not saved.")
           }
         }
-        if (!loaded || !loaded.ready || !dirty.current) return null
-        const off = loaded.channels.map(channelKey).filter((k) => !on.has(k))
-        try {
-          const r = await fetch("/api/store/channels/product", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ productId: id, off }) })
-          if (!r.ok) return ((await r.json().catch(() => ({}))) as { error?: string }).error ?? tt("The sales channels were not saved.")
-          dirty.current = false
-          return null
-        } catch {
-          return tt("The sales channels were not saved.")
-        }
+        if (!loaded || !loaded.ready) return null
+        const sentOn = on
+        const sent = channelChanges(shownOf(loaded.channels, physical), listedKeys(loaded.channels, loaded.off), sentOn)
+        if (sent.list.length === 0 && sent.unlist.length === 0) return null
+        const mine = ++asked.current
+        const answer = await put({ productId: id, ...sent })
+        if (answer.error) return answer.error
+        if (answer.data && mine === asked.current) showSaved(answer.data, loaded, sentOn)
+        return null
       },
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [loaded, on, productId, physical],
   )
 
   if (!loaded || !loaded.ready) return null
   const toggle = (key: string) => {
-    dirty.current = true
+    touched.current = true
     setOn((s) => {
       const next = new Set(s)
       if (next.has(key)) next.delete(key)
@@ -126,7 +193,7 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
       return next
     })
   }
-  const shown = physical ? loaded.channels.filter(forPhysical) : loaded.channels
+  const shown = shownOf(loaded.channels, physical)
   const listedCount = shown.filter((c) => on.has(channelKey(c))).length
   const ownChannels = shown.filter((c) => c.kind === "custom").length
 

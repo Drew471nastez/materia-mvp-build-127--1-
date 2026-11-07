@@ -36,6 +36,8 @@ const LOADERS = {
   emails: () => import("@/components/app/settings/customer-emails-panel").then((m) => m.CustomerEmailsPanel),
   activity: () => import("@/components/app/settings/activity-panel").then((m) => m.ActivityPanel),
   team: () => import("@/components/app/settings/team-panel").then((m) => m.TeamPanel),
+  /* Transfer ownership, under the team (lib/handoff): only a business added from the account menu draws anything. */
+  handoff: () => import("@/components/app/settings/handoff-panel").then((m) => m.HandoffPanel),
   reasons: () => import("@/components/app/settings/reasons-panel").then((m) => m.ReasonsPanel),
   integrations: () => import("@/components/app/settings/integrations-directory").then((m) => m.IntegrationsDirectory),
 } as const
@@ -155,7 +157,7 @@ const TAB_PANELS: Record<string, SettingsPanelKey[]> = {
   channels: ["channels"],
   emails: ["emails"],
   activity: ["activity"],
-  team: ["team"],
+  team: ["team", "handoff"],
   returns: ["shipping", "reasons"],
   integrations: ["integrations"],
 }
@@ -216,5 +218,6 @@ export const ChannelsPanel = lazyPanel<object>("channels")
 export const CustomerEmailsPanel = lazyPanel<{ bare?: boolean }>("emails")
 export const ActivityPanel = lazyPanel<object>("activity")
 export const TeamPanel = lazyPanel<object>("team")
+export const HandoffPanel = lazyPanel<object>("handoff")
 export const ReasonsPanel = lazyPanel<{ kinds: ReasonKind[] }>("reasons")
 export const IntegrationsDirectory = lazyPanel<{ page?: boolean; only?: string | null }>("integrations")
