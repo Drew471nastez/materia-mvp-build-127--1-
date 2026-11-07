@@ -30,6 +30,7 @@ const SUITES = [
   "tests/forms-engine.test.ts",
   "tests/forms-bookings.test.ts",
   "tests/forms-security.test.ts",
+  "tests/forms-booking-payment.test.ts",
   "tests/onepage-modern-blocks.test.ts",
   "tests/onepage-block-settings-ak3.test.ts",
   "tests/admin-sql-updates.test.ts",

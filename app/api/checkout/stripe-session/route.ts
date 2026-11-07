@@ -41,6 +41,7 @@ import { timed } from "@/lib/perf/server-timing"
 import { stripeIdempotencyKey, stripeIdentityKey } from "@/lib/stripe/resilience"
 import { applyAttemptTokens, attemptIdFrom, isIdempotencyMismatch, openCheckoutAttempt, orderHash, pruneExpiredAttempts, recordAttemptIntent, renewCheckoutAttempt, type AttemptScope, type AttemptTokens, type CheckoutAttempt } from "@/lib/checkout/checkout-attempts"
 import { trustedRequestOrigin } from "@/lib/billing/return-url"
+import { prepareBookingCheckout } from "@/lib/forms/booking-payment"
 
 /**
  * POST /api/checkout/stripe-session
@@ -312,6 +313,21 @@ async function handlePOST(request: Request) {
     record, never what is charged. The store's own prices add nothing here.
   */
   if (priced.pricing.context === "marketplace") metadata[PRICING_METADATA_KEY] = encodePricing(priced.pricing)
+  /*
+    A BOOKING PAID WITH THIS PRODUCT (lib/forms/booking-payment.ts): the
+    signed booking token checked for this product, the booking still held
+    and unpaid, the amount and currency about to be charged recorded on it,
+    and its id carried to the webhook, which confirms it on payment.
+  */
+  if (body.booking !== undefined && body.booking !== null && body.booking !== "") {
+    const booked = await prepareBookingCheckout(admin, { token: body.booking, productId: product.id, chargeCents, currency: chargeCurrency })
+    if (booked.ok === false) {
+      if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+      if (saleHolder) await releaseSale(admin, product.id, saleHolder)
+      return NextResponse.json({ error: (booked as { error: string }).error, code: "booking_unavailable" }, { status: 409 })
+    }
+    Object.assign(metadata, booked.metadata)
+  }
   /* Stripe's 50 keys, checked once for every key above (lib/checkout/stripe-metadata): never charged without its record. */
   const fitted = fitStripeMetadata(metadata)
   if (!fitted.ok) {

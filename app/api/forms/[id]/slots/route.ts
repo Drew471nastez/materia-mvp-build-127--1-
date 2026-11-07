@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { UUID } from "@/lib/forms/actions"
 import { validateDefinition } from "@/lib/forms/definition"
+import { expireUnpaidBookings } from "@/lib/forms/booking-payment"
 import { PUBLIC_HEADERS, formError, isMissingSchema } from "@/lib/forms/server"
 import { generateSlots, type Interval } from "@/lib/forms/slots"
 
@@ -44,6 +45,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     settings = undefined
   }
   if (!settings) return formError(new Error("This form takes no bookings."), 404, PUBLIC_HEADERS)
+  /* Unpaid holds past their time are released first, so their slots count as free (lib/forms/booking-payment.ts). */
+  if (settings.payment_product_id) await expireUnpaidBookings(db, new Date().toISOString(), form.owner_id).catch(() => 0)
   const { data: rows, error: busyError } = await db
     .from("form_bookings")
     .select("starts_at,hold_until")

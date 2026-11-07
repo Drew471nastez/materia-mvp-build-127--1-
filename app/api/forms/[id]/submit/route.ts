@@ -4,11 +4,14 @@ import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { notifyUser } from "@/lib/notifications/user-inbox"
 import { UUID, actionHref, actionLabel, type NativeAction } from "@/lib/forms/actions"
 import { validateDefinition, validateAnswers, pickResult, fillTemplate, validTimeZone, answerText, type Answer, type FormDefinition } from "@/lib/forms/definition"
+import { expireUnpaidBookings } from "@/lib/forms/booking-payment"
 import { PUBLIC_HEADERS, formError, boundedJson, isMissingSchema, NEEDS_SQL } from "@/lib/forms/server"
 import { MAX_SUBMIT_BYTES, SUBMIT_LIMITS, formSubject, spamVerdict } from "@/lib/forms/spam"
 import { slotOffered, type Interval } from "@/lib/forms/slots"
 import { filesForSubmission } from "@/lib/forms/uploads-server"
 import { jobsFor, queueJobs, runFormJobs, type IntegrationSettings } from "@/lib/forms/delivery-server"
+import { bookingCheckoutToken } from "@/lib/forms/booking-payment"
+import { platformOrigin } from "@/lib/onepage/return-address"
 
 /*
   POST /api/forms/<id>/submit, the only way a response is kept.
@@ -73,7 +76,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (existing) {
       const same = existing.form_revision === form.revision && sameAnswers(existing.answers as Answer[], valid.answers)
       if (!same) return formError(new Error("This response was already received. Reload the form to send different answers."), 409, PUBLIC_HEADERS)
-      const { data: kept } = await db.from("form_bookings").select("starts_at,status").eq("submission_id", existing.id).maybeSingle()
+      const { data: kept } = await db.from("form_bookings").select("id,starts_at,status").eq("submission_id", existing.id).maybeSingle()
       return json(completion(definition, valid, kept || null), 200)
     }
 
@@ -119,12 +122,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     let leadId: string | null = null
     let duplicate = false
-    let booked: { starts_at: string; status: string } | null = null
+    let booked: { id?: string; starts_at: string; status: string } | null = null
     if (definition.booking) {
       const settings = definition.booking
       const slot = typeof body.slot === "string" ? body.slot : ""
       const start = Date.parse(slot)
       if (!Number.isFinite(start)) return formError(new Error("Choose a time."), 400, PUBLIC_HEADERS)
+      /* Unpaid holds past their time are released first, so their slots count as free (lib/forms/booking-payment.ts). */
+      if (settings.payment_product_id) await expireUnpaidBookings(db, new Date().toISOString(), form.owner_id).catch(() => 0)
       const { data: busyRows, error: busyError } = await db
         .from("form_bookings")
         .select("starts_at,hold_until")
@@ -136,7 +141,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const busy: Interval[] = ((busyRows || []) as { starts_at: string; hold_until: string }[]).map((b) => ({ start: Date.parse(b.starts_at), end: Date.parse(b.hold_until) }))
       const offered = slotOffered(settings, slot, Date.now(), busy)
       if (!offered) return json({ error: "That time is no longer available. Choose another.", slot_taken: true }, 409)
-      const status = settings.approval ? "pending" : "confirmed"
+      const status = settings.approval || settings.payment_product_id ? "pending" : "confirmed"
       const { data, error } = await db.rpc("native_form_book", {
         p_submission: row,
         p_starts_at: offered.start,
@@ -152,10 +157,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         if (isMissingSchema(error)) return formError(new Error("Bookings are not available yet."), 503, PUBLIC_HEADERS)
         return formError(new Error("Your booking was not saved. Please try again."), 503, PUBLIC_HEADERS)
       }
-      const first = (Array.isArray(data) ? data[0] : data) as { submission_id: string; duplicate: boolean } | undefined
+      const first = (Array.isArray(data) ? data[0] : data) as { submission_id: string; booking_id: string | null; duplicate: boolean } | undefined
       leadId = first?.submission_id || null
       duplicate = first?.duplicate === true
-      booked = { starts_at: offered.start, status }
+      booked = { id: first?.booking_id || undefined, starts_at: offered.start, status }
     } else {
       const { data: lead, error } = await db.from("form_submissions").insert(row).select("id").single()
       if (error?.code === "23505") duplicate = true
@@ -209,7 +214,7 @@ function sameAnswers(kept: Answer[], now: Answer[]): boolean {
 function completion(
   definition: FormDefinition,
   valid: { answers: Answer[]; name: string | null; email: string | null; phone: string | null; score: number },
-  booking: { starts_at: string; status: string } | null,
+  booking: { id?: string; starts_at: string; status: string } | null,
 ) {
   const result = definition.mode === "quiz" ? pickResult(definition.results, valid.score) : null
   let action: NativeAction | undefined = result?.action || (definition.completion.kind === "action" ? definition.completion.action : undefined)
@@ -219,7 +224,9 @@ function completion(
     action = { ...action, message: [filled, ...extra].filter(Boolean).join("\n").slice(0, 4000) }
   }
   const gated = definition.completion.kind === "gated" && definition.completion.gated?.url ? definition.completion.gated : null
-  const pay = definition.booking?.payment_product_id ? actionHref({ type: "product", product_id: definition.booking.payment_product_id }) : null
+  /* The product checkout, carrying the booking signed for that product: paying confirms it (lib/forms/booking-payment.ts). */
+  const product = definition.booking?.payment_product_id
+  const pay = product && booking?.id ? `${platformOrigin()}/checkout?productId=${encodeURIComponent(product)}&booking=${encodeURIComponent(bookingCheckoutToken(booking.id, product))}` : null
   return {
     ok: true,
     message: definition.completion.message,

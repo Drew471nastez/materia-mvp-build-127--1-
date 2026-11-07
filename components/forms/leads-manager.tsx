@@ -18,6 +18,9 @@ interface Booking {
   ends_at: string
   status: "pending" | "confirmed" | "declined" | "cancelled"
   visitor_timezone: string | null
+  payment_status?: "none" | "unpaid" | "paid" | "failed" | "refunded" | "review"
+  payment_due_at?: string | null
+  payment_note?: string | null
 }
 interface Lead {
   id: string
@@ -41,6 +44,7 @@ const control = "h-9 min-w-0 rounded-lg border border-[#e3e4e8] bg-white px-3 te
 const muted = "text-[13px] text-[#6b7280]"
 const SOURCES: Record<string, string> = { onepage: "OnePage", website: "Website", creator_page: "Creator page", form: "Form link" }
 const BOOKING: Record<Booking["status"], string> = { pending: "Waiting for you", confirmed: "Confirmed", declined: "Declined", cancelled: "Cancelled" }
+const PAYMENT: Record<string, string> = { unpaid: "Waiting for payment", paid: "Paid", failed: "Payment failed", refunded: "Refunded", review: "Payment needs a look" }
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
 
 export function LeadsManager() {
@@ -302,6 +306,13 @@ function LeadRow({ lead, open, onToggle, onPatch, onRemoved, onError }: { lead: 
                   {lead.booking.visitor_timezone ? ` · visitor in ${lead.booking.visitor_timezone.replace(/_/g, " ")}` : ""}
                 </span>
               </p>
+              {lead.booking.payment_status && lead.booking.payment_status !== "none" ? (
+                <p className="text-[13px] text-[#4b5563]" data-booking-payment="">
+                  {PAYMENT[lead.booking.payment_status]}
+                  {lead.booking.payment_status === "unpaid" && lead.booking.status === "pending" && lead.booking.payment_due_at ? `, held until ${when(lead.booking.payment_due_at)}` : ""}
+                  {lead.booking.payment_note ? `. ${lead.booking.payment_note}` : ""}
+                </p>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 {lead.booking.status === "pending" ? (
                   <>
