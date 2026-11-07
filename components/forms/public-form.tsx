@@ -55,7 +55,10 @@ export function PublicFormRenderer({
   source = "form",
   preview = false,
   sourceBlock,
+  onSubmitted,
 }: {
+  /** Called once the answers are saved, or accepted in a preview: a pre-chat form hands them to the chat it opens (components/forms/action-frame). */
+  onSubmitted?: (answers: Record<string, unknown>, fields: { id: string; type?: string }[]) => void
   formId: string
   initial?: PublicForm
   preview?: boolean
@@ -202,6 +205,7 @@ export function PublicFormRenderer({
         gated: d.completion.kind === "gated" ? { url: "", label: d.completion.gated?.label || "Open" } : null,
         booking: slot ? { starts_at: slot.start, status: d.booking?.approval ? "pending" : "confirmed" } : null,
       })
+      onSubmitted?.(answers, d.fields)
       return
     }
     setBusy(true)
@@ -234,6 +238,7 @@ export function PublicFormRenderer({
       }
       if (!r.ok) throw new Error(b.error || "Your answers were not saved. Try again.")
       setDone(b)
+      onSubmitted?.(answers, d.fields)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Your answers were not saved. Try again.")
     } finally {

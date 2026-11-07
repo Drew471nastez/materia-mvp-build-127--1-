@@ -1,9 +1,8 @@
 "use client"
-import { useId, useState, lazy, Suspense, type ReactNode } from "react"
+import { useId, useState } from "react"
 import { PublicFormRenderer } from "./public-form"
-const FormDialog = lazy(() => import("./form-dialog"))
 import { isOnePagePreview } from "@/lib/onepage/preview-notice"
-import { UUID, actionHref, type NativeAction } from "@/lib/forms/actions"
+import { UUID, actionHref } from "@/lib/forms/actions"
 
 export type FormPresentation = "inline" | "card" | "expandable" | "modal"
 export const FORM_PRESENTATIONS: { id: FormPresentation; label: string }[] = [
@@ -20,44 +19,9 @@ export function presentationOf(data: { presentation?: unknown; inline?: unknown 
 
 type Source = "onepage" | "website" | "creator_page"
 
-/** Shared action scope keeps forms native while retaining the anchor as a
- * no-JavaScript fallback and keeping the existing analytics click handler. */
-export function NativeActionFrame({
-  action,
-  children,
-  source = "onepage",
-  preview = false,
-  sourceBlock,
-}: {
-  preview?: boolean
-  action?: NativeAction
-  children: ReactNode
-  source?: Source
-  sourceBlock?: string
-}) {
-  const [open, setOpen] = useState(false)
-  const id = action?.type === "form" && UUID.test(action.form_id) ? action.form_id : null
-  if (!id) return <>{children}</>
-  return (
-    <>
-      <div
-        onClickCapture={(e) => {
-          if ((e.target as Element).closest("a")) {
-            e.preventDefault()
-            setOpen(true)
-          }
-        }}
-      >
-        {children}
-      </div>
-      {open ? (
-        <Suspense fallback={null}>
-          <FormDialog onClose={() => setOpen(false)} formId={id} source={source} preview={preview || isOnePagePreview()} sourceBlock={sourceBlock} />
-        </Suspense>
-      ) : null}
-    </>
-  )
-}
+/* The action frame lives with the action model (components/forms/action-frame): forms, booking forms, pre-chat forms and product sheets. Re-exported for the blocks that import it from here. */
+export { NativeActionFrame } from "./action-frame"
+import { NativeActionFrame } from "./action-frame"
 
 export function NativeFormBlock({
   formId,

@@ -1,7 +1,7 @@
 "use client"
 import {ActionEditor} from "@/components/forms/action-editor"
 import {FormReferenceEditor} from "@/components/forms/form-reference-editor"
-import {actionHref} from "@/lib/forms/actions"
+import {actionHref,readAction,whatsappGroupUrl,type ActionType,type NativeAction} from "@/lib/forms/actions"
 
 import {HeaderCoverEditor} from "../header-cover-editor"
 
@@ -195,6 +195,19 @@ import { GroupExistingBlocks } from "@/components/onepage/group-add-existing"
  * link, and a link from the app's own share button is never refused) is part
  * of that now, per platform.
  */
+/* The link editor's actions: everything but a plain web address, which is the link's own address field. */
+const LINK_ACTION_TYPES: ActionType[] = ["whatsapp", "whatsapp_group", "telegram", "email", "phone", "sms", "product", "form", "booking", "internal"]
+/* An email signup's link after joining is opened in a new tab, so only https chats and groups. */
+const AFTER_SIGNUP_ACTION_TYPES: ActionType[] = ["whatsapp", "whatsapp_group", "telegram"]
+/* A picture's link: anything a link can do. */
+const IMAGE_ACTION_TYPES: ActionType[] = LINK_ACTION_TYPES
+
+/** Whether the link is its address field: no action, a web address action, or an old address that is a plain web address. */
+function linkUsesAddress(data: { action?: unknown; url?: unknown }): boolean {
+  const a = readAction(data)
+  return !a || a.type === "url"
+}
+
 /** How many times the background check asks again for a Spotify or Apple Music link's missing picture before leaving it for the person to add. */
 const THUMBNAIL_RETRIES = 5
 
@@ -4359,12 +4372,32 @@ function BlockEditor({
               and the picture as a row you press, with the picture itself
               on its left and a chevron on its right.
             */}
-            <ActionEditor value={data.action} onChange={action=>updateData({action,url:action?actionHref(action)||"":data.url})}/>
+            {/*
+              What the link does (lib/forms/actions). A plain web address is no
+              action: the address field below is the link, with its preview.
+              Any other action is the source of truth and fills the address
+              itself, so the field is hidden. An old wa.me, t.me or mailto
+              address is read as the action it is.
+            */}
+            <ActionEditor value={data.action} url={data.url} noneLabel={tt("Web address")} types={LINK_ACTION_TYPES} onChange={action=>updateData({action,url:action?actionHref(action)||"":data.action?"":data.url})}/>
+            {(() => {
+              /* A group invite saved by the old "WhatsApp Group URL" field, which the page never showed: kept, and one press makes it the link's action. */
+              const group = whatsappGroupUrl((data as { whatsapp_group_url?: unknown }).whatsapp_group_url)
+              return group && data.action?.type !== "whatsapp_group" ? (
+                <p className="flex flex-wrap items-center gap-x-2 text-[12.5px] text-[#6b7280]" data-saved-group-link="">
+                  {tt("A WhatsApp group link is saved on this link.")}
+                  <button type="button" className="font-medium text-[#1a1a2e] underline" onClick={() => { const action = { type: "whatsapp_group" as const, url: group }; updateData({ action, url: actionHref(action) || data.url }) }}>
+                    {tt("Use it")}
+                  </button>
+                </p>
+              ) : null
+            })()}
             <p className="pt-1 text-[16px] font-semibold text-[#1a1a2e]">{tt("Info")}</p>
             <label className="block">
               <span className="sr-only">{tt("Title")}</span>
               <input value={data.label} onChange={(e) => updateData({ label: e.target.value, link_preview: editedMark.title(data.link_preview) })} placeholder={tt("Title")} aria-label={tt("Title")} data-link-title="" className={linkField} />
             </label>
+            {linkUsesAddress(data) ? (<>
             <label className="block">
               <span className="sr-only">URL</span>
               <input
@@ -4394,6 +4427,7 @@ function BlockEditor({
                 {tt("Add an address to show it. Until then it is only in your preview.")}
               </p>
             ) : null}
+            </>) : null}
             <button
               type="button"
               onClick={() => onOpenThumbnailModal && onOpenThumbnailModal(block.id)}
@@ -4420,18 +4454,6 @@ function BlockEditor({
             <LinkPreviewControls block={block} getBlock={() => findBlockDeep(getLatestOnePage()?.draft_blocks, block.id)?.block} onChange={(updates) => updateBlock(block.id, updates)} onRefresh={() => onUrlChangeWithAutoFetch?.(block.id, data.url, { refresh: true })} />
             <SocialShowAs block={block} getBlock={() => findBlockDeep(getLatestOnePage()?.draft_blocks, block.id)?.block} onChange={(updates) => updateBlock(block.id, updates)} />
 
-            {/* WhatsApp Group URL - Only shown for WhatsApp URLs */}
-            {(data.url?.includes('wa.me') || data.url?.includes('whatsapp.com')) && (
-              <div className="space-y-1.5">
-                <Label className="text-xs">{tt("WhatsApp Group URL")}</Label>
-                <Input
-                  value={(data as any).whatsapp_group_url || ""}
-                  onChange={(e) => updateData({ whatsapp_group_url: e.target.value })}
-                  placeholder="https://chat.whatsapp.com/..."
-                  className="h-9"
-                />
-              </div>
-            )}
 
             {/* YouTube: one choice of two (components/onepage/block-settings-kit ModeChoice), not two switches. */}
             {isYouTubeUrl(data.url) && (
@@ -4994,6 +5016,15 @@ function BlockEditor({
                   <Label className="text-xs">{tt("After they join (optional)")}</Label>
                   <p className="text-[10px] text-muted-foreground">{tt("A link they get right away: a free guide, a video, a group chat.")}</p>
                 </div>
+                {/* A web address, or a chat or group built from a number or a username (lib/forms/actions), which then fills the address. */}
+                <ActionEditor
+                  value={(data as { after_action?: NativeAction }).after_action}
+                  url={data.after_signup_url}
+                  noneLabel={tt("Web address")}
+                  types={AFTER_SIGNUP_ACTION_TYPES}
+                  onChange={(after_action) => updateData({ after_action, after_signup_url: after_action ? actionHref(after_action) || "" : (data as { after_action?: NativeAction }).after_action ? "" : data.after_signup_url } as never)}
+                />
+                {linkUsesAddress({ action: (data as { after_action?: NativeAction }).after_action, url: data.after_signup_url }) ? (<>
                 <Input
                   value={data.after_signup_url || ""}
                   onChange={(e) => updateData({ after_signup_url: e.target.value.trim() })}
@@ -5007,6 +5038,7 @@ function BlockEditor({
                 {data.after_signup_url && !/^https?:\/\/\S+\.\S+/i.test(data.after_signup_url) ? (
                   <p className="text-[11px] text-[#b42318]">{tt("Start the link with https://")}</p>
                 ) : null}
+                </>) : null}
                 {data.after_signup_url ? (
                   <Input
                     value={data.after_signup_label || ""}
@@ -5437,13 +5469,23 @@ function BlockEditor({
                     {/* Link URL for this image */}
                     {data.clickable && (
                       <div className="space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">{tt("Link URL")}</Label>
-                        <Input
-                          value={img.link_url || ''}
-                          onChange={(e) => updateImage(img.id, { link_url: e.target.value || null })}
-                          placeholder="https://..."
-                          className="h-8 text-xs"
+                        {/* What a press on this picture does: its own address, or an action that fills it (lib/onepage/block-action). */}
+                        <ActionEditor
+                          value={img.action}
+                          url={img.link_url}
+                          noneLabel={tt("Web address")}
+                          types={IMAGE_ACTION_TYPES}
+                          onChange={(action) => updateImage(img.id, { action, link_url: action ? actionHref(action) || null : img.action ? null : img.link_url })}
                         />
+                        {linkUsesAddress({ action: img.action, url: img.link_url }) ? (
+                          <Input
+                            value={img.link_url || ''}
+                            onChange={(e) => updateImage(img.id, { link_url: e.target.value || null })}
+                            placeholder="https://..."
+                            aria-label={tt("Link URL")}
+                            className="h-8 text-xs"
+                          />
+                        ) : null}
                       </div>
                     )}
                   </div>
@@ -6214,7 +6256,16 @@ function BlockEditor({
                 />
               </div>
 
-              {/* Calendly URL */}
+              {/* Calendly URL, or one of the creator's booking forms (lib/forms/actions booking). */}
+              <div className="space-y-1.5">
+                <ActionEditor
+                  value={(data as { action?: NativeAction }).action}
+                  noneLabel={tt("Calendly or Cal.com link")}
+                  types={["booking"]}
+                  onChange={(action) => updateData({ action, ...(action?.type === "booking" && (action as { url?: string }).url !== undefined ? { calendly_url: (action as { url?: string }).url || "" } : {}) } as never)}
+                />
+              </div>
+              {!(data as { action?: NativeAction }).action ? (
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Booking link")}</Label>
                 <Input
@@ -6232,6 +6283,7 @@ function BlockEditor({
                   {data.calendly_url && !bookingSource(data.calendly_url) ? tt("Paste a Calendly or Cal.com link to one of your events.") : tt("Paste your Calendly or Cal.com event link")}
                 </p>
               </div>
+              ) : null}
 
               {/* Button Text */}
               <div className="space-y-1.5">

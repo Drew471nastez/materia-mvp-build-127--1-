@@ -28,6 +28,7 @@ const SUITES = [
   "tests/business-handoff.test.ts",
   "tests/onepage-link-metadata.test.ts",
   "tests/native-forms-actions-prices.test.ts",
+  "tests/native-actions.test.ts",
   /* Round AK5: the form engine (types, rules, steps, scoring, templates, CSV), bookings across DST with the double booking guard, and public submit security (honeypot, limits, signed webhooks, sealed secrets). */
   "tests/forms-engine.test.ts",
   "tests/forms-bookings.test.ts",

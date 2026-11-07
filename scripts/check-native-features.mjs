@@ -312,8 +312,10 @@ try {
     }
     await page.goto(base + "/app/probe?mode=action")
     await page.select('select[aria-label="Action type"]', "whatsapp")
-    await byLabel(page, "International phone number", "+40 712 345 678")
-    await byLabel(page, "Prefilled message", "Hi! A&B? 🏋️")
+    /* The number typed with its code: the country follows it (components/forms/action-editor). */
+    await page.click("[data-native-action-editor] input[type=tel]")
+    await page.keyboard.type("+40 712 345 678")
+    await byLabel(page, "Message", "Hi! A&B? 🏋️")
     const href = await page.$eval("[data-action-href]", (e) => e.href)
     assert.equal(new URL(href).pathname, "/40712345678")
     assert.equal(new URL(href).searchParams.get("text"), "Hi! A&B? 🏋️")

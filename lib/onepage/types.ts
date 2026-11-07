@@ -324,6 +324,8 @@ export interface ImageItem {
   alt_text?: string
   title?: string
   link_url?: string | null
+  /** What a press on the picture does (lib/forms/actions); fills link_url (lib/onepage/block-action). */
+  action?: import("@/lib/forms/actions").NativeAction
   /** The picture's own size, saved with it from round 40 so the page reserves its box before it loads. */
   width?: number
   height?: number
@@ -391,6 +393,8 @@ export interface EmailCaptureBlockData {
   ask_name?: boolean
   // After they join: a link the success message offers (a free guide, a private video, a group)
   after_signup_url?: string | null
+  /** A chat or group the signup leads to (lib/forms/actions); fills after_signup_url. */
+  after_action?: import("@/lib/forms/actions").NativeAction
   after_signup_label?: string | null
   /** The tool the block was added as in the Add block sheet (Mailchimp, Kit, Zapier...): its settings offer to connect that one first. */
   integration_hint?: string | null
@@ -441,6 +445,8 @@ export interface CalendlyBlockData {
   title: string
   description?: string
   calendly_url?: string | null
+  /** A booking (lib/forms/actions): one of the creator's booking forms, drawn in place of the embed, or a booking page that fills calendly_url. */
+  action?: import("@/lib/forms/actions").NativeAction
   layout_type?: PDFDocumentLayoutType
   thumbnail_url?: string | null
   button_text?: string

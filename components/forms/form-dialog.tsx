@@ -8,7 +8,10 @@ export default function FormDialog({
   source,
   preview,
   sourceBlock,
+  onSubmitted,
 }: {
+  /** After the answers are saved (a pre-chat form: components/forms/action-frame). */
+  onSubmitted?: (answers: Record<string, unknown>, fields: { id: string; type?: string }[]) => void
   onClose: () => void
   formId: string
   source: "onepage" | "website" | "creator_page"
@@ -25,7 +28,7 @@ export default function FormDialog({
             </svg>
           </button>
         </div>
-        <PublicFormRenderer key={formId} formId={formId} source={source} preview={preview} sourceBlock={sourceBlock} />
+        <PublicFormRenderer key={formId} formId={formId} source={source} preview={preview} sourceBlock={sourceBlock} onSubmitted={onSubmitted} />
       </div>
     </OnePageDialog>
   )

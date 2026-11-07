@@ -1,6 +1,7 @@
 "use client"
 import {NativeActionFrame,NativeFormBlock} from "@/components/forms/native-form-block"
-import {actionHref,normaliseAction,type NativeAction} from "@/lib/forms/actions"
+import {actionOpensNewTab,type NativeAction} from "@/lib/forms/actions"
+import {blockActionVars,withBlockAction,withBlockActions} from "@/lib/onepage/block-action"
 
 import {coverCropStyle,cropFromSettings} from "@/lib/images/cover-crop"
 
@@ -40,7 +41,7 @@ import { resolveLinkIcon } from "@/components/onepage/link-icons"
 import { cn } from "@/lib/utils"
 import { Avatar } from "@/components/ui/avatar"
 import { AvatarMark } from "@/components/app/app-avatar"
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext } from "react"
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, createContext, useContext } from "react"
 import { ArrowRight, Bell, X, Check, Send, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { downloadEntitledFile } from "@/components/download-button"
@@ -53,8 +54,8 @@ import { fontStack } from "@/lib/onepage/fonts"
 import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
 /* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
 import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
-import { blockGapClass, blockLayoutOf, coverImageOf, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
-import { sheetRootCss } from "@/lib/onepage/sheet-theme"
+import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
+import { sheetPalette, sheetRootCss } from "@/lib/onepage/sheet-theme"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
@@ -1236,7 +1237,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     ...theme, // Spread theme to override defaults with actual values
   }
 
-  const safeBlocks = blocks || []
+  /* Addresses from actions first, so a link made from an action counts as a link with an address. */
+  const safeBlocks = useMemo(() => withBlockActions(blocks || []), [blocks])
   // Merge settings with defaults to ensure all fields exist (including verified badge)
   const safeSettings = {
     show_branding: true,
@@ -3068,6 +3070,12 @@ function PublicImageCarousel({
   )
 }
 
+/** A call, a text, an email or a place on this page opens where it is; everything else in a new tab (lib/forms/actions actionOpensNewTab). */
+const linkTarget = (data: unknown): "_blank" | undefined => {
+  const action = (data as { action?: NativeAction } | null)?.action
+  return action && !actionOpensNewTab(action) ? undefined : "_blank"
+}
+
 /** A link marked sensitive: its label, for the box around it (SensitiveLinkQuestion asks before it opens). */
 function sensitiveLabel(block: any): string | undefined {
   if (block?.type !== "link_button" || !block.data?.sensitive) return undefined
@@ -3080,10 +3088,14 @@ const isBlockVisible = (block: any): boolean => isBlockShown(block)
 const groupChildrenShown = (children: OnePageBlock[] | undefined, inPreview: boolean): OnePageBlock[] =>
   (children || []).filter((c) => isBlockVisible(c) || (inPreview && isIncompleteLink(c)))
 
+/* A block's destination comes from its action (lib/onepage/block-action): the address is filled in once, and the frame opens a form, a pre-chat form or a product sheet on the page. */
 function PublicBlockRenderer(props: PublicBlockRendererProps) {
-  const action=(props.block.data as {action?:NativeAction})?.action
-  const block=props.block.type==="link_button"&&action?{...props.block,data:{...props.block.data,url:actionHref(normaliseAction(action))||""}}:props.block
-  return <NativeActionFrame action={action}><BlockPresentationFrame block={block}><CoreBlockRenderer {...props} block={block} /></BlockPresentationFrame></NativeActionFrame>
+  const { block, action } = withBlockAction(props.block)
+  /* A booking block whose booking is one of the creator's forms: that form's own button and pop-up, under the block's title. */
+  if (block.type === "calendly" && action?.type === "booking" && (action as { form_id?: string }).form_id) {
+    return <BlockPresentationFrame block={block}><NativeFormBlock formId={(action as { form_id: string }).form_id} title={((block.data as { title?: string }).title ?? "").trim() || "Book a time"} presentation="modal" /></BlockPresentationFrame>
+  }
+  return <NativeActionFrame action={action} vars={action ? blockActionVars(block, action) : undefined} sourceBlock={blockActionVars(block, action).service || undefined} dark={action?.type === "product" ? sheetPalette(props.theme as never).dark : false} seller={action?.type === "product" ? { name: props.profile?.title, avatarUrl: props.profile?.avatar_url } : null}><BlockPresentationFrame block={block}><CoreBlockRenderer {...props} block={block} /></BlockPresentationFrame></NativeActionFrame>
 }
 
 function CoreBlockRenderer({
@@ -3443,9 +3455,20 @@ function CoreBlockRenderer({
       const avatarSize = look.size
       /* The theme's cover picture, over the classic header (lib/onepage/theme-layout). */
       const cover = coverImageOf(theme)
+      /*
+        Three covers, one rule for the photo: its centre sits on the cover's
+        lower edge. The creator's own cover is a rounded band inside the
+        page's margins, the same margin above it as beside it; on a Hero it
+        is the full width picture instead, fading into the page as the Hero's
+        photo does. A theme's cover runs edge to edge. The band's shape is
+        lib/onepage/theme-layout coverAspect, which the crop editor reads too.
+      */
+      const ownCover = (theme as any).cover_profile_layout === true
+      const heroCover = heroCoverShown(theme as any)
+      const coverRatio = coverAspect(theme as any, isDesktop)
 
       return (
-        <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")} data-op-header="" data-op-cover={cover ? "" : undefined}>
+        <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")} data-op-header="" data-op-cover={cover ? (heroCover ? "hero" : "") : undefined}>
           {cover && (
             /*
               THE COVER (round 42, lib/onepage/theme-layout coverImageOf). A
@@ -3459,17 +3482,32 @@ function CoreBlockRenderer({
             <div
               data-cover-image=""
               className={cn(
-                (theme as any).cover_profile_layout ? "w-full" : isDesktop ? "-mx-7 w-[calc(100%+56px)]" : "-mx-5 -mt-8 w-[calc(100%+40px)]",
+                ownCover && !heroCover ? "w-full" : isDesktop ? "-mx-7 w-[calc(100%+56px)]" : "-mx-5 -mt-8 w-[calc(100%+40px)]",
                 "relative",
                 data.show_avatar !== false ? "mb-[calc(-1*var(--cover-pull)-0.75rem)] sm:mb-[calc(-1*var(--cover-pull)-1rem)]" : "",
               )}
-              style={{ ["--cover-pull" as string]: `${avatarSize / 2 + (isDesktop ? 25 : 0)}px` }}
+              style={{ ["--cover-pull" as string]: `${avatarSize / 2 + (isDesktop ? 25 : 0)}px`, marginTop: ownCover && !heroCover ? (isDesktop ? 28 : 20) : undefined }}
             >
-              <div className="relative w-full overflow-hidden" style={{ borderRadius: (theme as any).cover_profile_layout ? 16 : undefined, aspectRatio: (theme as any).cover_profile_layout ? "3 / 1" : isDesktop ? "2 / 1" : "16 / 10", backgroundColor: `color-mix(in srgb, ${theme.text_color || "#000000"} 8%, transparent)` }}>
+              {/*
+                No tint behind a picture that fades: it would be left as a grey
+                band where the picture has gone. A band that does not fade keeps
+                a faint tint while the picture loads.
+              */}
+              <div
+                className="relative w-full overflow-hidden"
+                data-cover-band={heroCover ? "hero" : ownCover ? "own" : "theme"}
+                style={{
+                  borderRadius: ownCover && !heroCover ? 16 : undefined,
+                  aspectRatio: String(coverRatio),
+                  backgroundColor: heroCover ? undefined : `color-mix(in srgb, ${theme.text_color || "#000000"} 8%, transparent)`,
+                  maskImage: heroCover ? HERO_FADE_MASK : undefined,
+                  WebkitMaskImage: heroCover ? HERO_FADE_MASK : undefined,
+                }}
+              >
                 <ProfileImage
-                  src={onePageImageSrc(cover,1200)} fallback={null} alt=""
+                  src={onePageImageSrc(cover, 1200)} fallback={null} alt=""
                   className="absolute inset-0 h-full w-full object-cover"
-                  style={(theme as any).cover_profile_layout ? coverCropStyle(cropFromSettings((theme as any).cover_crop,(theme as any).cover_crop?.zoom)) : {objectPosition:`50% ${(theme as any).cover_position_y ?? 50}%`}}
+                  style={ownCover ? coverCropStyle(cropFromSettings((theme as any).cover_crop, (theme as any).cover_crop?.zoom)) : { objectPosition: `50% ${(theme as any).cover_position_y ?? 50}%` }}
                   loading="eager" decoding="async"
                 />
               </div>
@@ -3484,7 +3522,7 @@ function CoreBlockRenderer({
               under the cover: with the header set to Left the picture moved
               and the circle stayed, and the page showed two.
             */
-            <div className="relative" data-page-avatar="" style={{ width: avatarSize, height: avatarSize, aspectRatio: "1 / 1", flexShrink: 0, marginTop: isDesktop ? 25 : 0, borderRadius: look.radius, boxShadow: cover && theme.background_type === "solid" && theme.background_color ? `0 0 0 4px ${theme.background_color}` : undefined }} data-avatar-shape={look.shape}>
+            <div className="relative" data-page-avatar="" style={{ width: avatarSize, height: avatarSize, aspectRatio: "1 / 1", flexShrink: 0, marginTop: isDesktop ? 25 : 0, /* Left aligned on a rounded band, the photo sits in from its corner, not on it. */ marginLeft: cover && ownCover && !heroCover && headerAlignOf(theme as any) === "left" ? 16 : undefined, borderRadius: look.radius, boxShadow: cover && theme.background_type === "solid" && theme.background_color ? `0 0 0 4px ${theme.background_color}` : undefined }} data-avatar-shape={look.shape}>
               {/* Laser Glow Effect - rotating gradient on border with trail */}
               {laserGlowEnabled && (
                 <>
@@ -3858,7 +3896,7 @@ function CoreBlockRenderer({
               {/* Title area */}
               <a
                 href={getTargetUrl()}
-                target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
+                target={linkTarget(data)}
                 rel="noopener noreferrer"
                 onClick={() => trackClick(block.id, getTargetUrl())}
                 className={cn("block w-full px-5 py-3.5 sm:py-4 text-center transition-opacity", !isInsideCarousel && "hover:opacity-80")}
@@ -4084,7 +4122,7 @@ function CoreBlockRenderer({
         return (
           <a
             href={targetUrl}
-            target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
+            target={linkTarget(data)}
             rel="noopener noreferrer"
             onClick={() => trackClick(block.id, targetUrl)}
             className={cn("op-card w-full overflow-hidden block", getAnimationClass(data.animation_type))}
@@ -4245,7 +4283,7 @@ function CoreBlockRenderer({
       return (
         <a
           href={data.url}
-          target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
+          target={linkTarget(data)}
           rel="noopener noreferrer"
           onClick={() => trackClick(block.id, data.url)}
           {...buttonHoverAttrs}
@@ -4486,7 +4524,7 @@ function CoreBlockRenderer({
             <a
               key={img.id || index}
               href={img.link_url}
-              target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
+              target={linkTarget(data)}
               rel="noopener noreferrer"
               onClick={() => trackClick(block.id, img.link_url!)}
               className={cn("w-full block transition-opacity", !isInsideCarousel && "hover:opacity-90")}
@@ -4790,7 +4828,7 @@ function CoreBlockRenderer({
       const afterSignupLink = afterUrl && /^https?:\/\//i.test(afterUrl) ? (
         <a
           href={afterUrl}
-          target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
+          target={linkTarget(data)}
           rel="noopener noreferrer"
           data-after-signup=""
           onClick={() => trackClick(block.id, afterUrl)}
