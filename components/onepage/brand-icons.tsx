@@ -85,6 +85,7 @@ import {
   SiYoutube,
 } from "react-icons/si"
 import { SiBrevo, SiCaldotcom, SiGoogleanalytics, SiGooglesheets, SiKit, SiMailchimp, SiMake, SiMeta, SiZapier } from "react-icons/si"
+import { SiAppstore, SiAudiomack, SiGoogleplay, SiRss } from "react-icons/si"
 import { Globe, Link as LinkGlyph, Mail, Webhook, type LucideIcon } from "lucide-react"
 
 import { canonicalSocialPlatform } from "@/lib/onepage/social-url"
@@ -568,4 +569,97 @@ export function IntegrationMark({ id, size = 20, color, className, tone = "brand
   if (m.draw) return m.draw({ size, color: fill, className })
   const Svg = m.brand as unknown as React.ComponentType<SvgProps>
   return <Svg size={size} color={fill} className={className} aria-hidden focusable="false" data-mark={id} />
+}
+
+/* ─── The app blocks' marks (round AL) ────────────────────────────────── */
+
+/**
+ * ROUND AL, the owner: "for the apps that actually are companies, just use
+ * their original icon ... You need to use the original Google Maps icon."
+ * The Add block sheet and the app blocks (lib/onepage/app-blocks) draw each
+ * service's own mark. Google Maps and Google are their own four colours,
+ * drawn here from the published logos; Audiomack, RSS, the App Store and
+ * Google Play are Simple Icons (react-icons/si) like the rest of this file;
+ * every social or brand mark this file already draws (SocialIcon) is used
+ * as is. Cameo, Bonfire and Fourthwall publish no mark in that set, so each
+ * is a plain monogram of its name, never a picture loaded from their sites.
+ */
+function GoogleMapsMark({ size = 20, className }: MarkProps) {
+  return (
+    <svg viewBox="0 0 92.3 132.3" width={size} height={size} className={className} aria-hidden focusable="false" data-mark="google-maps" data-tone="brand">
+      <path fill="#1a73e8" d="M60.2 2.2C55.8.8 51 0 46.1 0 32 0 19.3 6.4 10.8 16.5l21.8 18.3L60.2 2.2z" />
+      <path fill="#ea4335" d="M10.8 16.5C4.1 24.5 0 34.9 0 46.1c0 8.7 1.7 15.7 4.6 22l28-33.3-21.8-18.3z" />
+      <path fill="#4285f4" d="M46.2 28.5c9.8 0 17.7 7.9 17.7 17.7 0 4.3-1.6 8.3-4.2 11.4 0 0 13.9-16.6 27.5-32.7-5.6-10.8-15.3-19-27-22.7L32.6 34.8c3.3-3.8 8.1-6.3 13.6-6.3" />
+      <path fill="#fbbc04" d="M46.2 63.8c-9.8 0-17.7-7.9-17.7-17.7 0-4.3 1.5-8.3 4.1-11.3l-28 33.3c4.8 10.6 12.8 19.2 21 29.9l34.1-40.5c-3.3 3.9-8.1 6.3-13.5 6.3" />
+      <path fill="#34a853" d="M59.1 109.2c15.4-24.1 33.3-35 33.3-63 0-7.7-1.9-14.9-5.2-21.3L25.6 98c2.6 3.4 5.3 7.3 7.9 11.3 9.4 14.5 6.8 23.1 12.8 23.1s3.4-8.7 12.8-23.2" />
+    </svg>
+  )
+}
+
+function GoogleMark({ size = 20, className }: MarkProps) {
+  return (
+    <svg viewBox="0 0 48 48" width={size} height={size} className={className} aria-hidden focusable="false" data-mark="google" data-tone="brand">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  )
+}
+
+/** A brand with no mark in the set: its first letter, bold, in a rounded square. */
+function monogram(letter: string, key: string) {
+  const M = ({ size = 20, color = "currentColor", className }: MarkProps) => (
+    <svg viewBox="0 0 24 24" width={size} height={size} className={className} aria-hidden focusable="false" data-mark={key}>
+      <rect x="2.5" y="2.5" width="19" height="19" rx="6" fill="none" stroke={color} strokeWidth="2" />
+      <text x="12" y="16.6" textAnchor="middle" fontSize="12.5" fontWeight="800" fontFamily="Inter, system-ui, sans-serif" fill={color}>
+        {letter}
+      </text>
+    </svg>
+  )
+  M.displayName = `Monogram(${key})`
+  return M
+}
+
+/* i18n-ignore-start: marks' keys and letters, not words. */
+const APP_MARKS: Record<string, { brand?: IconType; draw?: (p: MarkProps) => React.ReactElement; multicolor?: boolean }> = {
+  "google-maps": { draw: GoogleMapsMark, multicolor: true },
+  google: { draw: GoogleMark, multicolor: true },
+  audiomack: { brand: SiAudiomack },
+  rss: { brand: SiRss },
+  appstore: { brand: SiAppstore },
+  googleplay: { brand: SiGoogleplay },
+  cameo: { draw: monogram("C", "cameo") },
+  bonfire: { draw: monogram("B", "bonfire") },
+  fourthwall: { draw: monogram("4", "fourthwall") },
+}
+/* i18n-ignore-end */
+
+/** Instagram's app icon behind a white mark: its own colours, as the app draws them, on a round tile. */
+export const INSTAGRAM_FILL = "radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%)"
+
+/** Marks drawn in their own several colours: on a white tile, never recoloured. */
+export function isMulticolorMark(key: string): boolean {
+  return !!APP_MARKS[key]?.multicolor
+}
+
+/** Whether AppMark draws a service's mark for this key (otherwise the caller draws its own glyph). */
+export function hasAppMark(key: string): boolean {
+  if (APP_MARKS[key]) return true
+  const canon = canonicalSocialPlatform(key)
+  return !!SOCIAL_MARKS[canon as OnePageSocialPlatform] || isLinkBrandIcon(key) || isLinkBrandIcon(canon)
+}
+
+/**
+ * A service's mark for the app blocks and the Add block sheet: in `color`
+ * (a white mark on its brand colour), or in its own colours with
+ * tone="brand". Instagram's gradient and the Google marks are always their
+ * own. A key it does not know draws nothing.
+ */
+export function AppMark({ id, size = 20, color = "currentColor", className, tone }: MarkProps & { id: string }) {
+  const own = APP_MARKS[id]
+  if (own?.draw) return own.draw({ size, color, className })
+  if (own?.brand) return <BrandSvg Icon={own.brand} size={size} color={color} className={className} aria-hidden focusable="false" data-mark={id} />
+  if (!hasAppMark(id)) return null
+  return <SocialIcon platform={id} size={size} color={color} className={className} tone={tone} />
 }

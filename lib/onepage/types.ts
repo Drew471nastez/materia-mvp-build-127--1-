@@ -1,6 +1,7 @@
 // OnePage Types
 // Location: lib/onepage/types.ts
 
+import type { AppBlockData } from "./app-blocks"
 import type { FollowersBlockData, LeadMagnetBlockData, PromoCodeBlockData, SocialPostsBlockData, StorelibShelfBlockData } from "./storelib-blocks"
 
 export type OnePageBlockType =
@@ -32,6 +33,8 @@ export type OnePageBlockType =
   | "social_posts"
   | "followers"
   | "promo_code"
+  /* Round AL: every service with no block of its own, one engine (./app-blocks). */
+  | "app"
 
 export interface OnePageTheme {
   template_id: string
@@ -600,6 +603,7 @@ export type OnePageBlockData =
   | SocialPostsBlockData
   | FollowersBlockData
   | PromoCodeBlockData
+  | AppBlockData
 
 export interface OnePageBlockStyle {
   presentation?: import("./block-presentation").BlockPresentation
@@ -1016,6 +1020,9 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
       return { ...baseBlock, data: { networks: [], label: "", style: "line" } as FollowersBlockData }
     case "promo_code":
       return { ...baseBlock, data: { title: "", code: "", description: "", url: "" } as PromoCodeBlockData }
+    case "app":
+      /* The picker's entry says which service (./app-blocks appBlockDefaults); a bare one is a text and button. */
+      return { ...baseBlock, data: { provider: "note", url: "", title: "", subtitle: "", button_text: "" } as AppBlockData }
     default:
       return baseBlock as OnePageBlock
   }

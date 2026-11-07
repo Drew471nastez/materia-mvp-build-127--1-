@@ -62,6 +62,7 @@ import { usePhysicalCommerceEnabled } from "@/components/platform/platform-setti
 import { ContactPage } from "./contact-detail"
 import { MessagePage } from "./message-detail"
 import { EmailDetail, type EmailAction, type EmailSeed } from "./email-detail"
+import { LeadsPanel, type LeadsData } from "./leads-panel"
 import { TABS, campaignKey, isTab, loadReport, loadTab, reportKey, tabKey, type MessagesData, type SentData, type SubscribersData } from "./emails-data"
 import { noteListAddress } from "./list-return"
 import { openLayer } from "./layer-nav"
@@ -246,6 +247,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const flows = ((shown === "flows" ? current.data : peek(keyFor("flows"))) as FlowRow[] | undefined) ?? []
   const customerEmails = (shown === "customer" ? current.data : peek(keyFor("customer"))) as CustomerEmailsData | undefined
   const platforms = (shown === "platforms" ? current.data : peek(keyFor("platforms"))) as PlatformsData | undefined
+  const leadsData = (shown === "leads" ? current.data : peek(keyFor("leads"))) as LeadsData | undefined
   const physical = usePhysicalCommerceEnabled()
   const sentData = (shown === "published" ? current.data : undefined) as SentData | undefined
   const campaigns: CampaignRow[] =
@@ -665,6 +667,8 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
           onOpenMessage={onOpenMessage}
           onToggleRead={toggleRead}
           onDeleteMessage={(id) => setConfirm({ type: "message", id })}
+          leads={leadsData ?? null}
+          leadsPanel={shown === "leads" ? <LeadsPanel data={leadsData ?? null} loading={current.loading} onData={(d) => write<LeadsData>(keyFor("leads"), () => d)} onNotice={onNotice} /> : null}
           flows={flows}
           onToggleFlow={(f) => void toggleFlow(f)}
           onDeleteFlow={(id) => setConfirm({ type: "flow", id })}

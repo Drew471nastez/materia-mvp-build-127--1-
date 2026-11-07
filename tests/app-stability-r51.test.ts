@@ -18,7 +18,7 @@
  * scripts/check-app-navigation-r51.mjs measures the navigation itself in a
  * browser against a stand in Supabase that is on time, slow or failing.
  */
-import { keptSetting, readSetting, SettingUnread } from "@/lib/platform/setting-read"
+import { keptSetting, readSetting, SettingUnread, SETTING_READ_MS } from "@/lib/platform/setting-read"
 import { exploreOffTarget, isAppUserAgent } from "@/lib/explore/off-target"
 import { readCode } from "./_source"
 
@@ -60,6 +60,13 @@ async function main() {
   check("a timeout throws, it is not off", await throwsUnread(readSetting("explore_marketplace", client({ data: null, error: { message: "DeadlineExceeded: read" } }))))
   check("a 503 throws, it is not off", await throwsUnread(readSetting("explore_marketplace", client({ data: null, error: { code: "PGRST003", message: "Timed out acquiring connection from connection pool." } }))))
   check("a fetch that threw throws", await throwsUnread(readSetting("explore_marketplace", client(async () => { throw new TypeError("fetch failed") }))))
+  {
+    /* Round AL: a read that never answers ends at SETTING_READ_MS, not at the 20 second read deadline. */
+    const began = Date.now()
+    const hung = await throwsUnread(readSetting("explore_marketplace", client(() => new Promise<Answer>(() => {}))))
+    const took = Date.now() - began
+    check("a read that never answers throws after about three seconds, not twenty", hung && took >= SETTING_READ_MS - 50 && took < SETTING_READ_MS + 1500, took)
+  }
 
   let outcome: "on" | "off" | "down" = "on"
   const kept = keptSetting(async () => {

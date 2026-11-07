@@ -34,6 +34,8 @@ const SUITES = [
   "tests/forms-bookings.test.ts",
   "tests/forms-security.test.ts",
   "tests/forms-booking-payment.test.ts",
+  /* Round AL5: Leads in Emails, Forms beside it, the Audience item gone, missing forms tables said plainly, one retry, the pre-chat and the phone country list. */
+  "tests/forms-leads-al5.test.ts",
   "tests/onepage-modern-blocks.test.ts",
   "tests/onepage-block-settings-ak3.test.ts",
   /* Round AL3: the editor drags past what is on screen, an open block follows its height, Layout draws and Settings says, Storelib fields, every block counted. */
@@ -1149,6 +1151,7 @@ const SUITES = [
   "tests/onepage-editor-r40.test.ts",
   /* Round 41 (OnePage blocks): grey Add block tiles again, settings that glide shut, groups that take any block and delete one, Add to group with the page's own blocks, and every catalogue block checked for settings, a live renderer and the page's look. */
   "tests/onepage-editor-r41.test.ts",
+  "tests/onepage-app-blocks-al.test.ts",
   /* Round 12 (WBPERF): a link typed in a menu draws only what shows a menu, memoised menu rows, a 401 asked about before it is a sign out, a page's sections read again quietly; scripts/check-wb-perf-r12.mjs measures them on 120 sections. */
   "tests/wb-perf-r12.test.ts",
   /* Round 12 (website builder): Add block between two blocks in the canvas, the collection pickers' Add collection, a menu link's new tab on the live site, product descriptions bound to Storelib, the shop's filters from real products; scripts/check-wb-ux-r12.mjs measures them. */

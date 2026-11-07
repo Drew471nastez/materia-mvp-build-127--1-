@@ -4,7 +4,7 @@ import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { UUID } from "@/lib/forms/actions"
 import { validateDefinition } from "@/lib/forms/definition"
 import { expireUnpaidBookings } from "@/lib/forms/booking-payment"
-import { PUBLIC_HEADERS, formError, isMissingSchema } from "@/lib/forms/server"
+import { PUBLIC_HEADERS, formError, isMissingSchema, noteFormsTables } from "@/lib/forms/server"
 import { generateSlots, type Interval } from "@/lib/forms/slots"
 
 /*
@@ -36,6 +36,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const to = from + days * 86_400_000
   const db = createAdminClient()
   const { data: form, error } = await db.from("native_forms").select("owner_id,published").eq("id", id).eq("status", "published").maybeSingle()
+  if (noteFormsTables(error)) return NextResponse.json({ error: "This form is not available.", code: "forms_missing" }, { status: 404, headers: PUBLIC_HEADERS })
   if (error) return formError(new Error("Times could not be loaded. Try again."), 503, PUBLIC_HEADERS)
   if (!form?.published) return formError(new Error("This form is not available."), 404, PUBLIC_HEADERS)
   let settings

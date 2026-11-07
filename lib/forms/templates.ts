@@ -178,6 +178,33 @@ export const FORM_TEMPLATES: Record<string, FormDefinition> = {
       { id: "build", min: 3, max: 1000, title: "Strength plan", message: "Four structured sessions a week with progressive loads." },
     ],
   },
+  /*
+    Asked before a WhatsApp or Telegram chat opens (components/forms/
+    action-editor, "Ask a few questions first"). Its ids are the message's
+    variables: {visitor_name} from the name, {service} from the choice and
+    {answer:message} from the note, so the chat opens already written.
+  */
+  prechat: {
+    ...base,
+    title: "Before we chat",
+    button_text: "Continue to chat",
+    completion: { kind: "message", message: "Opening the chat." },
+    fields: [
+      { ...name, label: "Your name", placeholder: "" },
+      {
+        id: "service",
+        type: "single",
+        label: "What is it about?",
+        required: true,
+        options: [
+          { id: "question", label: "A question" },
+          { id: "booking", label: "A booking" },
+          { id: "order", label: "An order" },
+        ],
+      },
+      { id: "message", type: "textarea", label: "Anything else?", required: false },
+    ],
+  },
   brief: {
     ...base,
     title: "Tell me about your project",

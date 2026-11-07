@@ -54,7 +54,7 @@ import type { ChannelRow, FulfillmentFigures, SalesBreakdown } from "@/lib/analy
 import { COMMERCE_FRESH_MS, askCommerce, commerceKey, commerceQuestionOf, keptCommerce } from "@/lib/analytics/commerce-cache"
 import { percentText } from "@/lib/analytics/percent"
 import { TrendMiniChart } from "@/components/analytics/trend-mini-chart"
-import { EmptyState, GhostLine } from "@/components/analytics/empty-state"
+import { EmptyState } from "@/components/analytics/empty-state"
 import { ReportFill, ReportTabs } from "./analytics-reports"
 import { DetailBody, DetailPanel, OpenDetailContext, ViewReport, type DetailRow, type DetailView } from "./report-detail"
 
@@ -494,7 +494,6 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
             <span className={cn("flex h-8 items-center whitespace-nowrap text-[26px] font-bold leading-8 tabular-nums tracking-tight transition-colors duration-200", f.blank ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{f.value ?? <Pending w="w-20" />}</span>
             <span className="h-[18px] whitespace-nowrap">{f.delta}</span>
-            {f.blank ? <GhostLine shown className="absolute bottom-4 right-5 h-8 w-20" /> : null}
           </div>
         </section>
       ))}
