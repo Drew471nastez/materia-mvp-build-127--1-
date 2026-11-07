@@ -117,13 +117,19 @@ try {
       /* 2: a number pasted whole moves the country. */
       await page.goto(base + "/app/actions?mode=editor")
       await page.select('select[aria-label="Action type"]', "whatsapp")
-      /* Pasted, as a whole number arrives: the field's own prefix stands for the code, so a typed "+" is not how one is entered. */
-      await page.$eval("[data-native-action-editor] input[type=tel]", (el) => {
-        el.focus()
-        document.execCommand("insertText", false, "+44 7700 900123")
-      })
+      /* Typed key by key, the "+" first: kept until the code is known, then the country follows. */
+      await typeInto(page, "[data-native-action-editor] input[type=tel]", "+44 7700 900123")
       assert.equal(await page.$eval("[data-phone-prefix]", (e) => e.getAttribute("data-phone-prefix")), "+44", "a +44 number moves the picker to the UK")
       assert.equal(await probeHref(page), "https://wa.me/447700900123")
+      /* Pasted whole, under another country. */
+      await page.$eval("[data-native-action-editor] input[type=tel]", (el) => {
+        el.focus()
+        el.select()
+        document.execCommand("insertText", false, "0040 712 345 678")
+      })
+      assert.equal(await page.$eval("[data-phone-prefix]", (e) => e.getAttribute("data-phone-prefix")), "+40", "a pasted 0040 number moves the picker to Romania")
+      assert.equal(await probeHref(page), "https://wa.me/40712345678")
+      await typeInto(page, "[data-native-action-editor] input[type=tel]", "+44 7700 900123")
       /* 3: a template, then a chip at the end of it. */
       await page.select('select[aria-label="Start from a template"]', "product")
       const message = await byLabel(page, "Message", "textarea")
@@ -138,6 +144,7 @@ try {
       /* Unfilled variables are removed from the address. */
       assert.equal(await probeHref(page), "https://wa.me/447700900123?text=" + encodeURIComponent("Hi, I'm interested in. Is it available?"))
       assert.ok((await page.$eval("[data-action-opens]", (e) => e.textContent)).startsWith("Opens wa.me/447700900123"))
+      if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/action-editor-${width}.png`, fullPage: true })
       /* The button's words live on the action. */
       await typeInto(page, await byLabel(page, "Button text"), "Ask on WhatsApp")
       assert.equal((await page.evaluate(() => window.__action)).label, "Ask on WhatsApp")
@@ -155,7 +162,7 @@ try {
       assert.equal(overflow, false, "no sideways scroll")
       assert.deepEqual(errors, [])
       await context.close()
-      console.log(`ok ${width}px editor: old wa.me link read back, pasted +44 number moves the country, template and chip encoded, Telegram and group links checked`)
+      console.log(`ok ${width}px editor: old wa.me link read back, typed +44 and pasted 0040 numbers move the country, template and chip encoded, Telegram and group links checked`)
     }
 
     /* ── the page ── */

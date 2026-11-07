@@ -154,7 +154,7 @@ const { base, server } = await serveEditorProbe({
   api,
 })
 const browser = await puppeteer.launch({
-  executablePath: process.env.CHROMIUM || "/tmp/chromium",
+  executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium",
   args: ["--no-sandbox"],
 })
 const click = async (page, text) => {

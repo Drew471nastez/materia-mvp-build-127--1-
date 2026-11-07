@@ -35,9 +35,8 @@ import {
 } from "@/lib/forms/actions"
 import { useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
 import { CountryPicker } from "@/components/app/settings/country-picker"
-import { PhoneField } from "@/components/app/settings/phone-field"
 import { countryOf, countryToSave } from "@/lib/account/country"
-import { callingCode, countryOfInternational } from "@/lib/account/phone"
+import { callingCode, countryOfInternational, digitsFromKept, examplePhone, formatNational, fullNumber, nationalDigits } from "@/lib/account/phone"
 
 const input =
   "w-full rounded-lg border border-[#e3e4e8] bg-white px-3 py-2 text-sm text-[#1a1a2e] outline-none focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]"
@@ -150,6 +149,8 @@ export function ActionEditor({
   const products = useCreatorProducts(type === "product")
   const needsForms = type === "form" || type === "booking" || ((type === "whatsapp" || type === "telegram") && !!a.pre_chat)
   const [askFirst, setAskFirst] = useState(!!a.pre_chat)
+  /* A number being typed with its own code, before the code is known. */
+  const [typing, setTyping] = useState<string | null>(null)
   const { forms, error } = useForms(needsForms || askFirst)
   const message = useRef<HTMLTextAreaElement>(null)
   const [bookingMode, setBookingMode] = useState<"form" | "url">(a.url && !a.form_id ? "url" : "form")
@@ -180,30 +181,55 @@ export function ActionEditor({
   const phone = (
     <div className="space-y-1">
       <span className="block text-xs font-medium text-[#4b5563]">Phone number</span>
-      {/*
-        A whole number pasted or typed with its code (+44 ..., 0044 ...) is
-        read before the field shapes it for the chosen country, and the
-        country follows the number.
-      */}
-      <div
-        className="grid gap-2"
-        onChangeCapture={(e) => {
-          const el = e.target as HTMLInputElement
-          if (el.type !== "tel") return
-          const found = countryOfInternational(el.value, [phoneCountry])
-          if (found && found !== phoneCountry) {
-            e.stopPropagation()
-            set({ country: found, phone: e164(el.value) })
-          }
-        }}
-      >
-        <CountryPicker value={countryToSave(phoneCountry)} onChange={(name) => set({ country: countryOf(name) || undefined })} />
-        <PhoneField
-          country={phoneCountry}
-          value={String(a.phone ?? "")}
-          aria-invalid={!!a.phone && !internationalPhone(a.phone)}
-          onChange={(next) => set({ phone: e164(next), country: phoneCountry })}
+      <div className="grid gap-2">
+        {/* A new country keeps the digits typed and puts its own code in front. */}
+        <CountryPicker
+          value={countryToSave(phoneCountry)}
+          onChange={(name) => {
+            const next = countryOf(name)
+            if (!next) return
+            set({ country: next, phone: e164(fullNumber(digitsFromKept(String(a.phone ?? ""), phoneCountry), next)) })
+          }}
         />
+        {/*
+          The country's code before the field, the number grouped as that
+          country writes it. A number typed or pasted with its code (+44 ...,
+          0044 ...) is kept as typed until its code is known, then the
+          country follows it.
+        */}
+        <div
+          data-phone-field=""
+          className="flex h-10 w-full items-stretch overflow-hidden rounded-lg border border-[#e3e4e8] bg-white text-sm text-[#1a1a2e] focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]"
+        >
+          {!typing && callingCode(phoneCountry) ? (
+            <span data-phone-prefix={`+${callingCode(phoneCountry)}`} className="flex shrink-0 select-none items-center border-r border-[#eceef1] px-3 tabular-nums text-[#4b5563]">
+              +{callingCode(phoneCountry)}
+            </span>
+          ) : null}
+          <input
+            type="tel"
+            inputMode="tel"
+            autoComplete="off"
+            aria-label="Phone number"
+            aria-invalid={!!a.phone && !internationalPhone(a.phone)}
+            placeholder={examplePhone(phoneCountry)}
+            className="min-w-0 flex-1 bg-transparent px-3 tabular-nums outline-none placeholder:text-[#9ca3af]"
+            value={typing ?? formatNational(digitsFromKept(String(a.phone ?? ""), phoneCountry), phoneCountry)}
+            onChange={(e) => {
+              const v = e.target.value
+              if (/^\s*(\+|00)/.test(v)) {
+                const found = countryOfInternational(v, [phoneCountry])
+                if (!found) return setTyping(v.slice(0, 24))
+                setTyping(null)
+                set({ country: found, phone: e164(fullNumber(nationalDigits(v, found), found)) })
+                return
+              }
+              setTyping(null)
+              set({ country: phoneCountry, phone: e164(fullNumber(nationalDigits(v, phoneCountry), phoneCountry)) })
+            }}
+            onBlur={() => setTyping(null)}
+          />
+        </div>
       </div>
       {a.phone && !internationalPhone(a.phone) ? <p className={problem}>Enter the whole number, without a leading 0.</p> : null}
     </div>
@@ -323,7 +349,7 @@ export function ActionEditor({
 
   /* Where it goes, shown once it can go anywhere: the address, short. */
   const shown = href && /^(https?:\/\/(wa\.me|t\.me|chat\.whatsapp\.com|whatsapp\.com)|mailto:|tel:|sms:)/.test(href)
-    ? href.replace(/^https:\/\//, "").replace(/^(mailto|tel|sms):/, "").slice(0, 80) + (href.length > 88 ? "…" : "")
+    ? href.split("?")[0].replace(/^https:\/\//, "").replace(/^(mailto|tel|sms):/, "")
     : null
 
   return (
