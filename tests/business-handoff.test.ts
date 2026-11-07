@@ -428,7 +428,7 @@ async function main() {
     check("one open link per business, by a unique index", /create unique index if not exists business_handoffs_one_open on public\.business_handoffs \(business_user_id\) where status = 'pending';/.test(sql))
     check("the transfer is security definer with a fixed search path, callable by the service role only", /security definer set search_path = public, pg_temp/.test(sql) && /revoke all on function public\.business_handoff_accept\([^)]*\) from public, anon, authenticated;/.test(sql) && /grant execute on function public\.business_handoff_accept\([^)]*\) to service_role;/.test(sql))
     check("it locks the link and the business's row before it checks them", /for update;/.test(sql) && /pg_advisory_xact_lock\(hashtextextended\('business_links ' \|\| p_recipient::text, 0\)\)/.test(sql))
-    check("the check after has a column for it", /as p376_business_handoff;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    check("the check after has a column for it", /as p376_business_handoff[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
     check("and the README a row", /`376_business_handoff\.sql`/.test(read("supabase/sql/run-now/README.md")))
   }
 

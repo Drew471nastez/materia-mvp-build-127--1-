@@ -2662,7 +2662,7 @@ function CollectionIntro({ data, theme }: { data: GroupBlockData; theme: OnePage
       {image ? (
         <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16 / 7", borderRadius: Math.min(Number(theme.button_border_radius) || 16, 24), WebkitMaskImage: "linear-gradient(to bottom, #000 55%, transparent 100%)", maskImage: "linear-gradient(to bottom, #000 55%, transparent 100%)" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={onePageImageSrc(image, 960)} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+          <img src={onePageImageSrc(image, 960)} alt={data.title?.trim() || "Collection"} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
         </div>
       ) : null}
       {description ? (

@@ -21,7 +21,7 @@ const input =
 const button =
   "inline-flex min-h-11 items-center justify-center rounded-xl bg-[#1a1a2e] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
 const tile =
-  "flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-[#e3e4e8] bg-white px-3 py-2.5 text-sm has-[:checked]:border-[#1a1a2e] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#1a1a2e]/20"
+  "flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-[#e3e4e8] bg-white px-3 py-2.5 text-sm has-[:checked]:border-[#1a1a2e] focus-within:ring-2 focus-within:ring-[#1a1a2e]/20"
 
 type Value = string | string[] | boolean
 type Done = {

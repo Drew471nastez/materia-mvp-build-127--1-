@@ -4667,13 +4667,7 @@ do $p$ begin
     create policy form_bookings_owner_decide on public.form_bookings for update to authenticated using (owner_id = auth.uid()) with check (owner_id = auth.uid());
   end if;
 end $p$;
-/*
-  A booking and its response in one transaction. The same submission UUID
-  sent again returns the first response (duplicate = true) and books
-  nothing. A slot another booking holds raises unique_violation (23505) or
-  exclusion_violation (23P01) and the response is not kept either. Server
-  only: the route checks the form, the answers and the slot first.
-*/
+/* A booking and its response in one transaction. The same submission UUID sent again returns the first response (duplicate = true) and books nothing. A slot another booking holds raises unique_violation (23505) or exclusion_violation (23P01) and the response is not kept either. Server only: the route checks the form, the answers and the slot first. */
 create or replace function public.native_form_book(
   p_submission jsonb,
   p_starts_at timestamptz,
@@ -4731,7 +4725,7 @@ end
 $f$;
 revoke all on function public.native_form_book(jsonb, timestamptz, timestamptz, timestamptz, text, text, uuid) from public, anon, authenticated;
 grant execute on function public.native_form_book(jsonb, timestamptz, timestamptz, timestamptz, text, text, uuid) to service_role;
-INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('375', '375_forms_bookings.sql', '5912acc666ca111c078911ca3eb035e83e258117a4fc974aac77234507d85f30') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('375', '375_forms_bookings.sql', 'cc9236591ec1065201291d309c9d87d04289815df8a9d84dff40304285f032ec') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 376_business_handoff.sql
 /* Business handoff: a founder gives a business they built for a client (a business account on the founder's login, part 39) to the client's own login, through a claim link. Two new server only tables: business_handoffs (one open claim link per business, only the SHA-256 of its token kept, optionally bound to the recipient's email, an expiry, and whether the founder stays on the team) and business_handoff_events (created, sent, renewed, viewed, accepted, finished, revoked and failed, with who, from where and when). And business_handoff_accept, which hands the business over in one transaction after checking the link, its expiry and single use, the recipient's email, that the recipient is not the founder, and the recipient's three business limit: the business's link in business_links moves from the founder's login to the recipient's and nothing the business owns is rewritten, so its account id, creator id, username, OnePage, store, domains and file paths stay exactly as they are. The founder's payout accounts (Stripe Connect, PayPal, Airwallex), billing customer and saved cards, AI keys, agent and analytics tokens, GitHub link, devices and pending sign in codes are detached from it, its team is cleared, and the founder is added back as a team member only when they chose to stay. A business on a running paid plan or with live paid memberships is refused, so nobody keeps paying for somebody else's business. Any failed check raises and nothing changes. Only the service role may call it. Additive: no existing column changes, and no existing row changes until a handoff is accepted. */
@@ -4909,7 +4903,7 @@ INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('376', '3
 /* A digital product's cover as it was uploaded. The product editor stores the cover the shop's cards use as a 1280x720 copy with light grey padding around a portrait cover; this column keeps the picture itself, unpadded, for the OnePage, the product page and the checkout. Additive: one nullable column, no row is rewritten, the padded thumbnail_url stays what cards use. The column is on products, so the existing products RLS policies already scope it to the owner for writes and to published rows for reads. Safe to run again. */
 alter table public.products add column if not exists cover_original_url text;
 comment on column public.products.cover_original_url is 'The product cover as uploaded (unpadded). thumbnail_url may be a 16:9 padded copy for cards; null means thumbnail_url is the picture itself.';
-INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('377', '377_product_original_cover.sql', 'ff786ca11a075deba8a4e69c5e62acf0461561f4e2b7099ba08affe757bbecf0') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('377', '377_product_original_cover.sql', '8b350597a60d9fe34c4dea11f515a47fa5111a8c700fa3040a36bb026210ebf4') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

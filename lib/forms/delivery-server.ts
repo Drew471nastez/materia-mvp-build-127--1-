@@ -3,7 +3,8 @@ import https from "node:https"
 import type net from "node:net"
 import { publicLookup } from "@/lib/api/public-fetch"
 import { sendEmail, buildFromHeader } from "@/lib/mail"
-import { escapeHtml, resolveCreatorIdentity } from "@/lib/email"
+import { resolveCreatorIdentity } from "@/lib/email"
+import { platformEmail } from "@/lib/emails/layout"
 import { openSecret } from "@/lib/physical/secrets"
 import { platformOrigin } from "@/lib/onepage/return-address"
 import { answerText, type Answer } from "./definition"
@@ -198,17 +199,8 @@ function when(iso: string, tz: string | null | undefined): string {
   }
 }
 
-function answersHtml(answers: Answer[]): string {
-  return answers
-    .map(
-      (a) =>
-        `<tr><td style="padding:6px 12px 6px 0;color:#6b7280;vertical-align:top">${escapeHtml(a.label)}</td><td style="padding:6px 0;white-space:pre-wrap">${escapeHtml(a.type === "file" ? a.file?.name || "File" : answerText(a) || "No answer")}</td></tr>`,
-    )
-    .join("")
-}
-
-function shell(title: string, body: string): string {
-  return `<!doctype html><html><body style="margin:0;background:#f8f9fa;font-family:Inter,Arial,sans-serif;color:#1a1a2e"><div style="max-width:560px;margin:0 auto;padding:24px"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:24px"><h1 style="font-size:18px;margin:0 0 16px">${escapeHtml(title)}</h1>${body}</div></div></body></html>`
+function answerFacts(answers: Answer[]): { label: string; value: string }[] {
+  return answers.map((a) => ({ label: a.label, value: a.type === "file" ? a.file?.name || "File" : answerText(a) || "No answer" }))
 }
 
 async function ownerEmail(db: Db, job: JobRow, s: SubmissionRow, booking: Booking) {
@@ -217,14 +209,17 @@ async function ownerEmail(db: Db, job: JobRow, s: SubmissionRow, booking: Bookin
   if (!to || !to.includes("@")) throw permanent("No email address on the account.")
   const link = `${platformOrigin()}/app/audience/leads?lead=${encodeURIComponent(s.id)}`
   const who = s.contact_name || s.contact_email || "Someone"
-  const slot = booking ? `<p style="margin:0 0 12px"><strong>Requested time:</strong> ${escapeHtml(when(booking.starts_at, null))}${booking.status === "pending" ? " (waiting for your answer)" : ""}</p>` : ""
   const subject = booking ? `Booking request: ${s.form_title}`.slice(0, 200) : `New response: ${s.form_title}`.slice(0, 200)
-  const html = shell(
+  const slot = booking ? [{ label: "Requested time", value: `${when(booking.starts_at, null)}${booking.status === "pending" ? " (waiting for your answer)" : ""}` }] : []
+  const mail = platformEmail({
     subject,
-    `<p style="margin:0 0 12px">${escapeHtml(who)} sent ${escapeHtml(s.form_title)}.</p>${slot}<table style="border-collapse:collapse;font-size:14px;margin:0 0 16px">${answersHtml(s.answers)}</table><a href="${escapeHtml(link)}" style="display:inline-block;background:#1a1a2e;color:#fff;text-decoration:none;padding:10px 16px;border-radius:10px;font-size:14px">Open in Leads</a>`,
-  )
-  const text = `${who} sent ${s.form_title}.\n\n${s.answers.map((a) => `${a.label}: ${a.type === "file" ? a.file?.name || "File" : answerText(a)}`).join("\n")}\n\n${link}`
-  const sent = await sendEmail({ to, subject, html, text, from: buildFromHeader("Storelib Forms"), replyTo: s.contact_email || undefined, transactional: true, headers: { "X-Storelib-Job": job.id } })
+    heading: subject,
+    paragraphs: [`${who} sent ${s.form_title}.`],
+    facts: [...slot, ...answerFacts(s.answers)],
+    action: { label: "Open in Leads", url: link },
+    fallback: false,
+  })
+  const sent = await sendEmail({ to, subject, html: mail.html, text: mail.text, from: buildFromHeader("Storelib Forms"), replyTo: s.contact_email || undefined, transactional: true, headers: { "X-Storelib-Job": job.id } })
   if (!sent.success) throw new Error(sent.error || "The email was not sent.")
 }
 
@@ -234,16 +229,22 @@ async function visitorEmail(db: Db, job: JobRow, s: SubmissionRow, booking: Book
   const identity = await resolveCreatorIdentity(db, job.owner_id).catch(() => null)
   const confirmed = job.provider === "booking_confirmed"
   const at = when(booking.starts_at, booking.visitor_timezone)
-  const subject = confirmed ? `Confirmed: ${s.form_title}, ${at}` : `Not available: ${s.form_title}`
-  const body = confirmed
-    ? `<p style="margin:0 0 12px">Your booking is confirmed for <strong>${escapeHtml(at)}</strong>.</p><p style="margin:0">Reply to this email if you need to change it.</p>`
-    : `<p style="margin:0 0 12px">The time you asked for, ${escapeHtml(at)}, is not available.</p><p style="margin:0">Reply to this email or book another time.</p>`
+  const subject = (confirmed ? `Confirmed: ${s.form_title}, ${at}` : `Not available: ${s.form_title}`).slice(0, 200)
+  const name = identity?.fromName || "Storelib"
+  const mail = platformEmail({
+    subject,
+    heading: confirmed ? "Your booking is confirmed" : "That time is not available",
+    paragraphs: confirmed
+      ? [`Your booking is confirmed for ${at}.`, "Reply to this email if you need to change it."]
+      : [`The time you asked for, ${at}, is not available.`, "Reply to this email or book another time."],
+    sender: identity?.fromName ? { kind: "store", name } : null,
+  })
   const sent = await sendEmail({
     to: s.contact_email,
-    subject: subject.slice(0, 200),
-    html: shell(subject, body),
-    text: confirmed ? `Your booking is confirmed for ${at}.` : `The time you asked for, ${at}, is not available.`,
-    from: buildFromHeader(identity?.fromName || "Storelib"),
+    subject,
+    html: mail.html,
+    text: mail.text,
+    from: buildFromHeader(name),
     replyTo: identity?.replyTo || identity?.sellerEmail || undefined,
     transactional: true,
     keepBounce: true,

@@ -150,13 +150,7 @@ do $p$ begin
   end if;
 end $p$;
 
-/*
-  A booking and its response in one transaction. The same submission UUID
-  sent again returns the first response (duplicate = true) and books
-  nothing. A slot another booking holds raises unique_violation (23505) or
-  exclusion_violation (23P01) and the response is not kept either. Server
-  only: the route checks the form, the answers and the slot first.
-*/
+/* A booking and its response in one transaction. The same submission UUID sent again returns the first response (duplicate = true) and books nothing. A slot another booking holds raises unique_violation (23505) or exclusion_violation (23P01) and the response is not kept either. Server only: the route checks the form, the answers and the slot first. */
 create or replace function public.native_form_book(
   p_submission jsonb,
   p_starts_at timestamptz,

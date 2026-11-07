@@ -74,7 +74,7 @@ export const RECORD_TABLES: Readonly<Record<string, string>> = {
 /** Rows the transfer function changes or removes, and why. Each is named in business_handoff_accept. */
 export const DETACHED_TABLES: Readonly<Record<string, string>> = {
   creators: "Stays the business's (same id, user id, slug and username). The founder's Stripe Connect account, PayPal merchant id and billing customer are taken off it, so checkout cannot pay the founder; the old Stripe account id is kept in stripe_previous_account_id and the handoff's record.",
-  payment_accounts: "The founder's Airwallex payout account. Removed from the business, and written into the handoff's record.",
+  payment_accounts: "The founder's older payout account (the payment_accounts row). Removed from the business, and written into the handoff's record.",
   payment_balances: "That payout account's cached balances. Removed with it.",
   payment_methods: "The founder's saved cards for Storelib's plan. Removed.",
   creator_ai_keys: "The founder's own AI provider keys. Removed, so the new owner never spends the founder's credits.",
