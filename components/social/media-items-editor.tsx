@@ -170,12 +170,87 @@ function SortableMediaItem({
         />
       ) : null}
 
-      <Input
-        value={item.caption || ""}
-        onChange={(e) => onUpdateCaption(item.id, e.target.value)}
-        placeholder="Add caption (optional)"
-        className="h-8 text-xs"
+      <CaptionField value={item.caption || ""} onChange={(caption) => onUpdateCaption(item.id, caption)} />
+    </div>
+  )
+}
+
+/** The page's own cap (app/api/creator-profile): a caption is a line, not a paragraph. */
+export const CAPTION_MAX = 160
+
+/**
+ * ===========================================================================
+ *  A CAPTION IS WRITTEN WHERE IT WILL BE READ (round 50)
+ * ===========================================================================
+ * It was a boxed 32px input in 12px type reading "Add caption (optional)"
+ * under every picture: a form field per photo, so a drawer with four
+ * pictures was four more empty boxes asking to be filled, and a caption
+ * longer than the box scrolled sideways out of sight.
+ *
+ * Now it reads as text. Empty, it is one quiet line, "Add a caption"; with
+ * a caption it is that caption, wrapping onto as many lines as it has (up
+ * to the cap). Pointing at it or tabbing to it shows it can be edited; Enter
+ * keeps it and leaves, Escape puts back what was there, and the count only
+ * appears near the end of what fits.
+ */
+export function CaptionField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const ref = React.useRef<HTMLTextAreaElement>(null)
+  const before = React.useRef(value)
+  const [focused, setFocused] = React.useState(false)
+
+  /* 16px on a phone: iOS zooms the page into any smaller field it focuses. Grow with the words. `field-sizing: content` does this where it exists; the height is set for the rest. */
+  React.useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = "auto"
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
+
+  const left = CAPTION_MAX - value.length
+  return (
+    <div className="relative">
+      <textarea
+        ref={ref}
+        rows={1}
+        value={value}
+        maxLength={CAPTION_MAX}
+        aria-label="Caption"
+        placeholder="Add a caption"
+        enterKeyHint="done"
+        spellCheck
+        onFocus={() => {
+          before.current = value
+          setFocused(true)
+        }}
+        onBlur={() => {
+          setFocused(false)
+          /* Spaces at either end are not a caption. */
+          if (value !== value.trim()) onChange(value.trim())
+        }}
+        onChange={(e) => onChange(e.target.value.replace(/[\r\n]+/g, " "))}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+            e.preventDefault()
+            e.currentTarget.blur()
+          } else if (e.key === "Escape") {
+            /* Escape here undoes the caption; it does not close the sheet around it. */
+            e.preventDefault()
+            e.stopPropagation()
+            onChange(before.current)
+            e.currentTarget.blur()
+          }
+        }}
+        className={cn(
+          "block w-full resize-none overflow-hidden rounded-md border border-transparent bg-transparent px-2 py-1.5 text-[16px] leading-[22px] text-foreground [field-sizing:content] sm:text-[13px] sm:leading-[18px]",
+          "placeholder:text-muted-foreground/80 transition-colors hover:bg-muted/60",
+          "focus:border-border focus:bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10",
+        )}
       />
+      {focused && left <= 40 ? (
+        <span aria-live="polite" className={cn("pointer-events-none absolute bottom-1 right-2 text-[11px] tabular-nums", left <= 10 ? "text-[#b42318]" : "text-muted-foreground")}>
+          {left}
+        </span>
+      ) : null}
     </div>
   )
 }

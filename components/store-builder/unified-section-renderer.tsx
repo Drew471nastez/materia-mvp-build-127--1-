@@ -3,6 +3,9 @@ import type {VariantPriceFacts} from "@/lib/pricing/variant-price"
 import {NativeFormBlock} from "@/components/forms/native-form-block"
 
 import { cleanStoredHtml } from "@/lib/rich-text/html"
+import { useStoryDraft } from "@/lib/storefront/story-draft"
+import { storyIsEmpty } from "@/lib/storefront/story"
+import { StoryGallery } from "@/components/store-builder/story-gallery"
 import { useContactShown, useCreatorPageOwner, useCreatorPageViewer } from "@/components/storefront/creator-page-viewer"
 import { useProfileDraft, type ProfileDraft } from "@/lib/storefront/profile-draft"
 import { personName } from "@/lib/profile/display-name"
@@ -12,7 +15,7 @@ import type React from "react"
 // `import type React` gives the TYPES only — `React.Fragment` off that binding
 // is undefined at runtime, which is a blank page, not a type error. The meta
 // row below needs the real Fragment, so it is imported by name.
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 
 import type {
   Section,
@@ -552,18 +555,9 @@ const paymentMethodIcons: Record<string, React.FC<{ className?: string }>> = {
   googlepay: GooglePayIcon,
 }
 
-// Skeleton loading component for media
-function MediaSkeleton({ className }: { className?: string }) {
-  return (
-    <div className={cn("animate-pulse bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 bg-[length:200%_100%]", className)}
-      style={{ animation: "shimmer 1.5s ease-in-out infinite" }}
-    />
-  )
-}
-
 // ====== ABOUT SECTION - UNIFIED ======
 function UnifiedAboutSection({
-  settings,
+  settings: storedSettings,
   isMobile,
   isPreviewMode,
   isEditorMode,
@@ -601,90 +595,26 @@ function UnifiedAboutSection({
 }) {
   /* On a creator page, Contact is for somebody who bought from them, asked after load (round 49); elsewhere the caller already decided. */
   const contactShown = useContactShown()
+  /*
+    THE STORY BEING EDITED, OR JUST SAVED (round 50, lib/storefront/story-draft).
+    Only where the owner's controls are, so no other About block picks it up:
+    the sheet's fields show here as they are typed, and a save shows at once,
+    before the page's own refreshed props have arrived.
+  */
+  const storyDraft = useStoryDraft(!!ownerActions)
+  const settings: AboutSettings = storyDraft
+    ? { ...storedSettings, headline: storyDraft.headline, aboutContent: storyDraft.aboutContent, mediaItems: storyDraft.mediaItems as AboutSettings["mediaItems"] }
+    : storedSettings
   const [isExpanded, setIsExpanded] = useState(false)
   const [needsTruncation, setNeedsTruncation] = useState(false)
+  const [collapsedHeight, setCollapsedHeight] = useState(130)
+  const [lineHeight, setLineHeight] = useState(26)
+  const [fullHeight, setFullHeight] = useState<number | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
+  const storyRootRef = useRef<HTMLDivElement>(null)
+  const storyTextId = useId()
   const [hoveredField, setHoveredField] = useState<"headline" | "content" | null>(null)
-  const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const [mediaLoading, setMediaLoading] = useState<Record<string, boolean>>({})
-
-  // Media carousel navigation handlers
   const mediaItems = settings.mediaItems || []
-  const hasMultipleMedia = mediaItems.length > 1
-
-  // Smooth transition handler
-  const handleMediaTransition = (newIndex: number) => {
-    if (isTransitioning || newIndex === currentMediaIndex) return
-    setIsTransitioning(true)
-    setCurrentMediaIndex(newIndex)
-    // Reset transition state after animation completes
-    setTimeout(() => setIsTransitioning(false), 400)
-  }
-
-  const goToPrevMedia = () => {
-    const newIndex = currentMediaIndex === 0 ? mediaItems.length - 1 : currentMediaIndex - 1
-    handleMediaTransition(newIndex)
-  }
-
-  const goToNextMedia = () => {
-    const newIndex = currentMediaIndex === mediaItems.length - 1 ? 0 : currentMediaIndex + 1
-    handleMediaTransition(newIndex)
-  }
-
-  /**
-   * ===========================================================================
-   *  DRAG IT, WITH A FINGER OR WITH A MOUSE
-   * ===========================================================================
-   * The carousel had arrows and dots and nothing else, so on a phone — where
-   * the arrows are small and a swipe is what anybody tries first — it read as
-   * not working. Pointer events rather than separate touch and mouse
-   * handlers: one code path, and a trackpad drag behaves the same as a thumb.
-   *
-   * The threshold is 48px, and it is a distance rather than a velocity so a
-   * slow deliberate drag counts. Below it nothing happens, which is what
-   * makes a tap on the image still a tap.
-   *
-   * A VERTICAL DRAG IS A SCROLL, and taking it would trap the page: on a
-   * phone this thing is as wide as the screen, and a carousel that eats
-   * upward swipes is a carousel somebody cannot scroll past. So the gesture
-   * is claimed only once it is clearly sideways.
-   */
-  const dragRef = useRef<{ x: number; y: number; id: number } | null>(null)
-
-  const onMediaPointerDown = (e: React.PointerEvent) => {
-    if (mediaItems.length < 2) return
-    /** A secondary button is a context menu, not a swipe. */
-    if (e.pointerType === "mouse" && e.button !== 0) return
-    dragRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId }
-  }
-
-  const onMediaPointerUp = (e: React.PointerEvent) => {
-    const start = dragRef.current
-    dragRef.current = null
-    if (!start || start.id !== e.pointerId) return
-
-    const dx = e.clientX - start.x
-    const dy = e.clientY - start.y
-    /** Sideways, and meant: 48px across and further across than down. */
-    if (Math.abs(dx) < 48 || Math.abs(dx) <= Math.abs(dy)) return
-
-    if (dx < 0) goToNextMedia()
-    else goToPrevMedia()
-  }
-
-  const goToMediaIndex = (index: number) => {
-    handleMediaTransition(index)
-  }
-
-  // Track media loading state
-  const handleMediaLoad = (id: string) => {
-    setMediaLoading(prev => ({ ...prev, [id]: false }))
-  }
-
-  const handleMediaLoadStart = (id: string) => {
-    setMediaLoading(prev => ({ ...prev, [id]: true }))
-  }
 
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
 
@@ -703,25 +633,59 @@ function UnifiedAboutSection({
   const displayProductsCount = productsCount ?? 0
   // Use actual memberSince from props
   const displayMemberSince = memberSince
-  // Fixed max height for 4 lines: text-base (16px) * leading-relaxed (1.625) * 4 lines = ~104px
-  const maxContentHeight = 104
-
   // Format member since date to year - show current year as fallback in editor
   const memberSinceYear = displayMemberSince
     ? new Date(displayMemberSince).getFullYear()
     : isEditorMode ? new Date().getFullYear() : undefined
 
-  // Check if content needs truncation (show Read more if more than 4 lines)
+  /*
+    FOUR LINES, MEASURED (round 50). The clamp was a fixed 104px, which is
+    four lines of 16px type and four and a half of the 14px a phone uses,
+    and it was measured once per story: a web font arriving or the column
+    changing width never asked again, so a story could keep a Read more it
+    no longer needed or lose one it did. Four of the text's own line height,
+    and the check runs whenever the text's box changes size.
+  */
   useEffect(() => {
-    if (contentRef.current) {
-      const contentHeight = contentRef.current.scrollHeight
-      setNeedsTruncation(contentHeight > maxContentHeight)
+    const el = contentRef.current
+    if (!el) return
+    const measure = () => {
+      const line = parseFloat(getComputedStyle(el).lineHeight) || 26
+      /* Five lines, the last two under the fade: three read, the fourth says "there is more", and a line the box cuts is never seen cut. */
+      const clamp = Math.round(line * 5)
+      const inner = el.firstElementChild as HTMLElement | null
+      const full = inner ? inner.scrollHeight : el.scrollHeight
+      setCollapsedHeight(clamp)
+      setLineHeight(line)
+      setFullHeight(full)
+      /* A fifth line that would only peek out is shown rather than hidden behind a Read more. */
+      setNeedsTruncation(full > clamp + line * 0.5)
     }
+    measure()
+    if (typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    if (el.firstElementChild) ro.observe(el.firstElementChild)
+    return () => ro.disconnect()
   }, [settings.aboutContent])
+
+  /* Show less returns to the story when its top has scrolled away, rather than leaving the reader below the page's next section. */
+  const toggleStory = () => {
+    const next = !isExpanded
+    setIsExpanded(next)
+    if (next) return
+    const root = storyRootRef.current
+    if (!root) return
+    const top = root.getBoundingClientRect().top
+    if (top < 0) {
+      const reduce = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      window.scrollBy({ top: top - 24, behavior: reduce ? "auto" : "smooth" })
+    }
+  }
 
   // Determine if we have headline or content to show
   const hasHeadline = !!settings.headline
-  const hasContent = !!settings.aboutContent
+  const hasContent = !storyIsEmpty(settings.aboutContent)
 
   // Handle click to open sidebar settings
   const handleEditClick = () => {
@@ -907,178 +871,8 @@ function UnifiedAboutSection({
 
           {/* Right Column - About Content */}
           <div className="flex-1 min-w-0">
-            {/* Media Carousel - displayed above headline and content */}
-            {mediaItems.length > 0 && (
-              <div className="mb-6">
-                {/* Carousel Container */}
-                <div className="relative group">
-                  {/* Carousel Track with smooth sliding animation */}
-                  <div
-                    className="relative aspect-video rounded-lg overflow-hidden bg-muted"
-                    onPointerDown={onMediaPointerDown}
-                    onPointerUp={onMediaPointerUp}
-                    onPointerCancel={() => { dragRef.current = null }}
-                    /* pan-y: the browser keeps vertical scrolling, we take the
-                       horizontal axis. Without it the compositor claims the
-                       gesture before a single pointermove is delivered. */
-                    style={mediaItems.length > 1 ? { touchAction: "pan-y" } : undefined}
-                  >
-                    <div
-                      className="flex h-full transition-transform duration-400 ease-out"
-                      style={{
-                        transform: `translateX(-${currentMediaIndex * 100}%)`,
-                        transitionDuration: '400ms',
-                        transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
-                      }}
-                    >
-                      {mediaItems.map((item, index) => (
-                        <div
-                          key={item.id}
-                          className="relative w-full h-full flex-shrink-0"
-                          style={{ minWidth: '100%' }}
-                        >
-                          {/*
-                            ═══════════════════════════════════════════════
-                             `=== true`, NOT `!== false`, AND THAT IS THE
-                             WHOLE OF THE FLASH ON THE WAY BACK
-                            ═══════════════════════════════════════════════
-                            `mediaLoading` starts as an empty object, so
-                            `!== false` was true for every picture on mount:
-                            a shimmering grey skeleton over each one, and the
-                            picture itself held at opacity 0.
-
-                            That is right the first time. Coming BACK to this
-                            page it is wrong — the component remounts, the
-                            state is empty again, and every picture that is
-                            already in the browser cache shows a loading
-                            skeleton and then fades in over 300ms, on a page
-                            that was on screen a moment ago.
-
-                            Filmed on production, document.getAnimations()
-                            during a back navigation reported a 1500ms
-                            `shimmer` and a 300ms fade still running.
-
-                            Asking for `=== true` inverts the default from
-                            "loading" to "not loading". A picture that has to
-                            be fetched still fires onLoadStart and still gets
-                            its skeleton; one that is already decoded is
-                            simply there.
-                          */}
-                          {mediaLoading[item.id] === true && item.type === "image" && (
-                            <div className="absolute inset-0 z-10">
-                              <MediaSkeleton className="w-full h-full rounded-lg" />
-                            </div>
-                          )}
-
-                          {item.type === "image" ? (
-                            <Image
-                              src={item.url}
-                              alt={item.caption || ""}
-                              fill
-                              /* No `sizes` meant 100vw: a phone at 3x fetched a
-                                 picture wider than a desktop for a slide in a
-                                 column. The column is at most ~600px. */
-                              sizes="(max-width: 768px) 100vw, 600px"
-                              className={cn(
-                                "object-cover transition-opacity duration-300",
-                                /* Same inversion as the skeleton above. */
-                                mediaLoading[item.id] === true ? "opacity-0" : "opacity-100"
-                              )}
-                              onLoadStart={() => handleMediaLoadStart(item.id)}
-                              onLoad={() => handleMediaLoad(item.id)}
-                            />
-                          ) : (
-                            (() => {
-                              const embed = videoEmbedUrl(item.url)
-                              return embed ? (
-                                <iframe
-                                  src={embed}
-                                  title={item.caption || "Video"}
-                                  className="w-full h-full"
-                                  allowFullScreen
-                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                />
-                              ) : null
-                            })()
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Navigation Arrows - always visible on mobile, hover on desktop */}
-                    {hasMultipleMedia && (
-                      <>
-                        {/* Left Arrow */}
-                        <button
-                          onClick={goToPrevMedia}
-                          disabled={isTransitioning}
-                          className={cn(
-                            "absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-all duration-200 z-20",
-                            isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-                            isTransitioning && "cursor-not-allowed opacity-50"
-                          )}
-                          aria-label="Previous media"
-                        >
-                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                          </svg>
-                        </button>
-                        {/* Right Arrow */}
-                        <button
-                          onClick={goToNextMedia}
-                          disabled={isTransitioning}
-                          className={cn(
-                            "absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-all duration-200 z-20",
-                            isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-                            isTransitioning && "cursor-not-allowed opacity-50"
-                          )}
-                          aria-label="Next media"
-                        >
-                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Navigation Dots */}
-                  {hasMultipleMedia && (
-                    <div className="flex justify-center gap-1.5 mt-3">
-                      {mediaItems.map((_, index) => (
-                        <button
-                          key={index}
-                          onClick={() => goToMediaIndex(index)}
-                          disabled={isTransitioning}
-                          className={cn(
-                            "w-2 h-2 rounded-full transition-all duration-300",
-                            index === currentMediaIndex
-                              ? "bg-current w-4"
-                              : "bg-current opacity-40 hover:opacity-60",
-                            isTransitioning && "cursor-not-allowed"
-                          )}
-                          style={{ color: textColor || "#374151" }}
-                          aria-label={`Go to media ${index + 1}`}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Caption for current media */}
-                {mediaItems[currentMediaIndex]?.caption && (
-                  <p
-                    className={cn(
-                      "mt-2 text-center text-xs md:text-sm",
-                      isMobile && "!text-xs"
-                    )}
-                    style={{ color: textColor ? `${textColor}90` : "#6b7280" }}
-                  >
-                    {mediaItems[currentMediaIndex].caption}
-                  </p>
-                )}
-              </div>
-            )}
+            {/* The pictures above the headline: a native scroller that snaps (components/store-builder/story-gallery, round 50). */}
+            {mediaItems.length > 0 && <StoryGallery items={mediaItems} textColor={textColor} />}
 
             {/* Headline - with inline edit placeholder in editor mode */}
             {hasHeadline ? (
@@ -1131,6 +925,7 @@ function UnifiedAboutSection({
             {/* About Content - with inline edit placeholder in editor mode */}
             {hasContent ? (
               <div
+                ref={storyRootRef}
                 className="relative group"
                 onMouseEnter={() => setHoveredField("content")}
                 onMouseLeave={() => setHoveredField(null)}
@@ -1147,17 +942,31 @@ function UnifiedAboutSection({
                     Edit
                   </button>
                 )}
+                {/*
+                  THE FADE IS ON THE TEXT, NOT OVER IT (round 50). A white
+                  gradient was laid over the last lines, so on a dark or
+                  coloured scheme it was a white band with "Read more" lost
+                  in it. The text is masked now (data-clamp-fade, globals.css)
+                  and whatever is behind the section shows through. The box
+                  opens to its measured height, then lets go of the limit.
+                */}
                 <div
                   ref={contentRef}
+                  id={storyTextId}
+                  data-clamp-fade={needsTruncation ? (isExpanded ? "open" : "closed") : undefined}
                   className={cn(
                     "leading-relaxed overflow-hidden text-sm md:text-base",
                     isMobile && "!text-sm",
-                    !isExpanded && needsTruncation && "relative"
                   )}
+                  /* A link further down the story, reached with Tab, opens the story rather than sitting under the fade. */
+                  onFocusCapture={(e) => {
+                    if (!needsTruncation || isExpanded || e.target === e.currentTarget) return
+                    setIsExpanded(true)
+                  }}
                   style={{
-                    maxHeight: !isExpanded && needsTruncation ? `${maxContentHeight}px` : '2000px',
-                    color: textColor ? `${textColor}cc` : "#374151",
-                    transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                    maxHeight: !needsTruncation ? undefined : isExpanded ? `${(fullHeight ?? 4000) + 8}px` : `${collapsedHeight}px`,
+                    color: textColor ? `${textColor}cc` : "inherit",
+                    ["--sl-fade-to" as string]: `${Math.round(lineHeight * 2)}px`,
                   }}
                 >
                   {/*
@@ -1192,42 +1001,18 @@ function UnifiedAboutSection({
                   )}
                 </div>
 
-                {/* Fade gradient and Read more button */}
-                {needsTruncation && (
-                  <div
-                    className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none"
-                    style={{
-                      background: (() => {
-                        // Use section background if set and not transparent
-                        if (backgroundColor && backgroundColor !== "transparent") {
-                          return `linear-gradient(to bottom, transparent, ${backgroundColor})`
-                        }
-                        // Fall back to page background color if available
-                        if (pageBackgroundColor && pageBackgroundColor !== "transparent") {
-                          return `linear-gradient(to bottom, transparent, ${pageBackgroundColor})`
-                        }
-                        // Default to white
-                        return "linear-gradient(to bottom, transparent, white)"
-                      })(),
-                      opacity: isExpanded ? 0 : 1,
-                      transition: 'opacity 0.3s ease-in-out',
-                    }}
-                  />
-                )}
-
                 {needsTruncation && (
                   <button
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className={cn(
-                      "mt-2 text-sm font-medium hover:opacity-80",
-                      !isExpanded && "relative z-10"
-                    )}
-                    style={{
-                      color: textColor || "#374151",
-                      transition: 'opacity 0.2s ease-in-out',
-                    }}
+                    type="button"
+                    onClick={toggleStory}
+                    aria-expanded={isExpanded}
+                    aria-controls={storyTextId}
+                    /* The scheme's own text colour, so it reads on any page. */
+                    className="mt-2 inline-flex items-center gap-1 rounded text-sm font-medium underline-offset-4 transition-opacity hover:underline focus-visible:outline-none focus-visible:ring-2"
+                    style={{ color: textColor || "inherit", ["--tw-ring-color" as string]: textColor ? `${textColor}66` : undefined }}
                   >
                     {isExpanded ? "Show less" : "Read more"}
+                    <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-300", isExpanded && "rotate-180")} />
                   </button>
                 )}
               </div>

@@ -60,7 +60,13 @@ function matches(row, key, raw) {
  * ("media/nova/favicon.png"), each { type, body }, for a probe whose page
  * reads a picture through the server (a website's favicon, round 53).
  */
-export async function serveSupabaseStub({ port = 54321, tables = {}, user = null, users = [], delayMs = 0, files = {} } = {}) {
+/**
+ * `writable`: a PATCH changes the rows its filters pick (the JSON body merged
+ * over each) and a POST adds them, so a probe can save through a real route
+ * and read the page back (round 50, scripts/check-story-r50.mjs). Off by
+ * default: every other probe expects writes to be forgotten.
+ */
+export async function serveSupabaseStub({ port = 54321, tables = {}, user = null, users = [], delayMs = 0, files = {}, writable = false } = {}) {
   const log = []
   const tokenOf = (u) => fakeJwt({ sub: u.id, role: "authenticated", aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 86400, email: u.email })
   const token = user ? tokenOf(user) : null
@@ -108,6 +114,31 @@ export async function serveSupabaseStub({ port = 54321, tables = {}, user = null
 
     const m = url.pathname.match(/^\/rest\/v1\/([a-z_0-9]+)$/)
     if (!m) return send(404, { message: "no route" })
+    if (writable && (req.method === "PATCH" || req.method === "POST")) {
+      let body = ""
+      req.on("data", (d) => { body += d })
+      req.on("end", () => {
+        let input = null
+        try { input = JSON.parse(body || "null") } catch { input = null }
+        const table = (tables[m[1]] = tables[m[1]] || [])
+        if (req.method === "POST") {
+          const added = (Array.isArray(input) ? input : [input]).filter(Boolean)
+          table.push(...added)
+          return send(201, added)
+        }
+        const changed = []
+        for (const row of table) {
+          let hit = true
+          for (const [k, v] of url.searchParams) {
+            if (["select", "order", "limit", "offset", "or", "and", "on_conflict", "columns"].includes(k)) continue
+            if (!matches(row, k, v)) { hit = false; break }
+          }
+          if (hit && input && typeof input === "object") { Object.assign(row, input); changed.push(row) }
+        }
+        return send(200, changed)
+      })
+      return
+    }
     if (req.method !== "GET" && req.method !== "HEAD") {
       /* Written and forgotten. */
       req.resume()

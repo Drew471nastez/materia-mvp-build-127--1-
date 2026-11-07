@@ -42,6 +42,8 @@ import { clampPercent, clampZoom } from "@/lib/images/cover-crop"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { changedLinks, creatorPageLinks, syncCreatorLinksToOnePage } from "@/lib/social/onepage-sync"
 import { onePageChangedFor } from "@/lib/onepage/public-cache"
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
+import { storyIsEmpty } from "@/lib/storefront/story"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -58,7 +60,15 @@ const MAX_NAME = 60
 const MAX_BIO = 500
 const MAX_URL = 300
 const MAX_ABOUT_HEADLINE = 120
-const MAX_ABOUT_STORY = 2000
+/**
+ * THE STORY'S BUDGET IS IN MARKUP, AND IT IS GENEROUS (round 50). It was 2000
+ * characters of the stored value, which since the story became rich text is
+ * HTML: a few paragraphs with a link and some bold came to more than that,
+ * and the save cut the story off mid-sentence (or mid-tag) without a word.
+ * 20000 characters of markup is a long essay; past it the save is refused
+ * with a reason instead of shortened behind the creator's back.
+ */
+const MAX_ABOUT_STORY = 20000
 const MAX_ABOUT_MEDIA = 8
 const MAX_CTA_TEXT = 120
 const MAX_CTA_BUTTON = 30
@@ -138,7 +148,7 @@ export async function PATCH(request: NextRequest) {
    * put through the same URL cleaner as everything else that reaches a src or
    * an href on a public page.
    */
-  const about = (() => {
+  const aboutInput = (() => {
     const raw = body.about
     if (!raw || typeof raw !== "object") return undefined
     const value = raw as Record<string, unknown>
@@ -159,8 +169,11 @@ export async function PATCH(request: NextRequest) {
      * old rows readable.
      */
     if (typeof value.aboutContent === "string") {
-      const raw = value.aboutContent.slice(0, MAX_ABOUT_STORY)
+      if (value.aboutContent.length > MAX_ABOUT_STORY) return "too_long" as const
+      const raw = value.aboutContent
       out.aboutContent = /<[a-z][\s\S]*>/i.test(raw) ? sanitizeRichText(raw).trim() : raw.trim()
+      /* An emptied editor leaves "<p><br></p>" behind: that is no story, and stored as one it drew an empty block. */
+      if (storyIsEmpty(out.aboutContent)) out.aboutContent = ""
     }
     if (Array.isArray(value.mediaItems)) {
       out.mediaItems = value.mediaItems
@@ -181,6 +194,10 @@ export async function PATCH(request: NextRequest) {
     }
     return Object.keys(out).length > 0 ? out : undefined
   })()
+  if (aboutInput === "too_long") {
+    return NextResponse.json({ error: "Your story is too long to save. Shorten it a little and try again." }, { status: 400 })
+  }
+  const about = aboutInput
 
   /**
    * ===========================================================================
@@ -460,6 +477,8 @@ export async function PATCH(request: NextRequest) {
   const announceProfile = () => after(() => announce(() => profileAddresses(announcedCreator)))
 
   if (!config) {
+    /* The bio and the cover live on the creator row too; the default page draws them. */
+    if (Object.keys(creatorUpdate).length > 0) await creatorPagesChanged({ creatorId: creator.id, userId: page.profileId })
     announceProfile()
     return NextResponse.json({ ok: true, storefront: false })
   }
@@ -608,8 +627,21 @@ export async function PATCH(request: NextRequest) {
     if (await syncCreatorLinksToOnePage(db, page.profileId, linksChanged)) await onePageChangedFor(page.profileId).catch(() => {})
   }
 
+  /*
+    THE PAGE SHOWS THE SAVE (round 50). This route wrote the configs and took
+    nothing down unless the name or photo had changed (identityChanged), so
+    a new story, headline, picture, caption, bio, link, scheme or bar text
+    was in the database and NOT on the page: the shared copy the page reads
+    (cachedStoreConfig) and the CDN's copy (round 49) both held the old one
+    for a minute. The creator saved, the sheet closed, the page refreshed
+    into the same old story, and "it doesn't save". Awaited, so the owner's
+    refresh that follows this answer reads the new rows.
+  */
+  await creatorPagesChanged({ creatorId: creator.id, userId: page.profileId })
+
   announceProfile()
   /* A team member's change to the owner's page is on the record with their name (lib/team/areas). */
   if (page.creatorId) await recordTeamAction({ isOwner: page.isOwner, creatorId: page.creatorId, acting: page.acting }, user.id, "creator_pages", "creator_page_changed", { fields: Object.keys(body).slice(0, 20) })
-  return NextResponse.json({ ok: true, storefront: true })
+  /* The story as stored, cleaned, so the owner's page can draw it at once (lib/storefront/story-draft). */
+  return NextResponse.json({ ok: true, storefront: true, ...(about ? { about } : {}) })
 }
