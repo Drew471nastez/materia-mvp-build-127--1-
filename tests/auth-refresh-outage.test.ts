@@ -139,16 +139,26 @@ async function main() {
       await new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason), { once: true }))
       return new Response(null)
     }) as typeof fetch
-    const user = `${URL_BASE}/user`
-    for (let i = 0; i < AUTH_BREAKER.failures; i++) await deadlineFetch(user, { method: "GET" }, { base: hang, ms: 20, retry: false }).catch(() => null)
+    const renew = `${URL_BASE}/token?grant_type=refresh_token`
+    /* Each renewal its own token, so none shares another's answer. */
+    const body = (i: number) => ({ method: "POST", body: JSON.stringify({ refresh_token: `t${i}` }) })
+    for (let i = 0; i < AUTH_BREAKER.failures; i++) await deadlineFetch(renew, body(i), { base: hang, ms: 20, retry: false }).catch(() => null)
     const began = realNow()
     let refused: unknown = null
-    await deadlineFetch(user, { method: "GET" }, { base: hang, ms: 20, retry: false }).catch((e) => (refused = e))
-    check("after four requests with no answer, the next fails at once without asking", asked === AUTH_BREAKER.failures && isCircuitOpen(refused) && realNow() - began < 15, { asked, refused: String(refused) })
+    await deadlineFetch(renew, body(99), { base: hang, ms: 20, retry: false }).catch((e) => (refused = e))
+    check("after four renewals with no answer, the next fails at once without asking", asked === AUTH_BREAKER.failures && isCircuitOpen(refused) && realNow() - began < 15, { asked, refused: String(refused) })
+    let users = 0
+    const userHang = (async (_i: RequestInfo | URL, init?: RequestInit) => {
+      users++
+      await new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason), { once: true }))
+      return new Response(null)
+    }) as typeof fetch
+    for (let i = 0; i < 6; i++) await deadlineFetch(`${URL_BASE}/user`, { method: "GET" }, { base: userHang, ms: 20, retry: false }).catch(() => null)
+    check("getUser is still asked every time: Auth's own no to a forged or revoked token must reach the proxy", users === 6)
     resetBreakers()
     let quick = 0
     const fiveHundred = (async () => { quick++; return new Response("{}", { status: 500 }) }) as typeof fetch
-    for (let i = 0; i < 8; i++) await deadlineFetch(user, { method: "GET" }, { base: fiveHundred, retry: false })
+    for (let i = 0; i < 8; i++) await deadlineFetch(renew, body(100 + i), { base: fiveHundred, retry: false })
     check("a 5xx is an answer: it never opens the breaker, the library's own retries keep going", quick === 8 && breakerFor("supabase-auth").state === "closed")
     let rest = 0
     const restHang = (async (_i: RequestInfo | URL, init?: RequestInit) => {

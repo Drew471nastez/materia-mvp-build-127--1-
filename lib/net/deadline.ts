@@ -42,22 +42,24 @@ import { breakerFor, type CircuitBreaker } from "./breaker"
   same ten second deadline against an Auth that was plainly not answering,
   which is the "infinite loading" the owner saw.
 
-  So on the server Auth gets a breaker (./breaker.ts): four requests in a row
+  So on the server the token renewal gets a breaker (./breaker.ts): four in a row
   that got no answer at all (our deadline, a dropped connection) within half a
-  minute open it, and for the next fifteen seconds an
-  Auth request fails at once instead of waiting ten. Supabase's client turns
+  minute open it, and for the next fifteen seconds a
+  renewal fails at once instead of waiting ten. Supabase's client turns
   that throw into a retryable error with the session kept, the same as a
   timeout (A REFRESH THAT AUTH COULD NOT ANSWER IS NOT A SIGN OUT, below), so
   nobody is signed out by it. Then one request is let through as a trial; an
   answer closes it. A 5xx is an answer that came quickly and is left to the
-  library's own retries, so it never opens the breaker. Not in a browser: one tab is one person, and its own
+  library's own retries, so it never opens the breaker. Only the renewal: a
+  getUser that is a person's yes or no (a revoked session, a forged token) is
+  always asked, so Auth's own no still signs out. Not in a browser: one tab is one person, and its own
   requests already back off.
 */
 export const AUTH_BREAKER = { failures: 4, windowMs: 30_000, cooldownMs: 15_000 } as const
 
-/** The breaker for Supabase Auth on this server instance, or null in a browser. */
+/** The breaker for Supabase Auth's token renewal on this server instance, or null in a browser and for any other request. */
 function authBreaker(url: string, method: string): CircuitBreaker | null {
-  if (typeof window !== "undefined" || kindOf(url, method) !== "auth") return null
+  if (typeof window !== "undefined" || !isRefreshTokenRequest(url, method)) return null
   return breakerFor("supabase-auth", AUTH_BREAKER)
 }
 
