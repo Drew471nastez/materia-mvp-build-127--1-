@@ -2431,6 +2431,8 @@ function UnifiedFeaturedProductsSection({
     () => applyManualOrder(pickFeatured(products, settings.productIds), productsOrder),
     [products, settings.productIds, productsOrder],
   )
+  /* Every product, in the stored order: Arrange on a selection keeps the rest where they are (round 50, mergeArrangement). */
+  const catalogueInOrder = useMemo(() => applyManualOrder(products, productsOrder), [products, productsOrder])
 
   /**
    * "Featured", not "Featured Products".
@@ -2549,7 +2551,7 @@ function UnifiedFeaturedProductsSection({
               `isPreviewMode` is deliberately not consulted: this is gated on
               the session, which the server decided.
             */}
-            {viewerIsOwner ? <ArrangeProductsControl products={sectionProducts} isOwner={viewerIsOwner} /> : null}
+            {viewerIsOwner ? <ArrangeProductsControl products={sectionProducts} allProducts={catalogueInOrder} isOwner={viewerIsOwner} /> : null}
           </CatalogHeader>
 
           {/*
@@ -3319,7 +3321,8 @@ export function UnifiedShopHeader({
             the niche now says what the niche is actually for.
           */}
 
-          {settings.showBio && (settings.bio || creator?.bio) && (
+          {/* Round 50: a header saved without the flag shows its bio, as the defaults say (showBio: true); only an explicit false hides it. */}
+          {settings.showBio !== false && (settings.bio || creator?.bio) && (
             <div className="relative group/bio inline-flex items-center justify-center">
               <p
                 className={cn(

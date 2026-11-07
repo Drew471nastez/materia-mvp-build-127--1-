@@ -155,6 +155,15 @@ export function StorefrontTabs({
     if (id === active) return
     heldAt.current = listRef.current ? listRef.current.getBoundingClientRect().top : null
     setActive(id)
+    /* In a row that scrolls sideways, the tab opened is shown whole (round 50). Only the row moves: the page does not. */
+    const tab = tabRefs.current.get(id)
+    const row = tab?.closest<HTMLElement>(".overflow-x-auto")
+    if (tab && row && row.scrollWidth > row.clientWidth) {
+      const t = tab.getBoundingClientRect()
+      const r = row.getBoundingClientRect()
+      const by = t.left < r.left ? t.left - r.left - 12 : t.right > r.right ? t.right - r.right + 12 : 0
+      if (by !== 0) row.scrollBy({ left: by, behavior: "smooth" })
+    }
   }
 
   /**
@@ -309,11 +318,20 @@ export function StorefrontTabs({
           below, where three stretched tabs across 1100px would read as a
           navigation bar rather than as a filter on the content underneath.
         */}
-        <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/*
+          A ROW LONGER THAN THE SCREEN SWIPES (round 50). Four tabs in a
+          longer language did not fit 390px: the row was `w-full`, so the
+          words ran past its rule and the swipe stopped at the screen's edge
+          with the last tab cut. It is as wide as its words when they need
+          more (`w-max min-w-full`, the three still share the width when they
+          fit), a sideways swipe stays in the row rather than becoming the
+          browser's back gesture, and the tab being opened is brought into view.
+        */}
+        <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div
             ref={listRef}
             className={cn(
-              "relative flex w-full gap-0 border-b border-border",
+              "relative flex w-max min-w-full gap-0 border-b border-border",
               !isMobile && "sm:w-auto sm:min-w-max sm:justify-start sm:gap-7",
             )}
             style={surface?.borderColor ? { borderBottomColor: surface.borderColor } : undefined}

@@ -47,7 +47,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { ArrowLeft, ExternalLink } from "lucide-react"
+import { AlertCircle, ArrowLeft, ExternalLink, Redo2, Undo2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-builder/builder-loader"
@@ -60,6 +60,20 @@ import { cn } from "@/lib/utils"
 import { getMainDomain, getStoreInternalPath } from "@/lib/url-helpers"
 import { HtmlClass } from "@/components/platform/html-class"
 import { tt } from "@/lib/i18n/text"
+import {
+  EMPTY_HISTORY,
+  canRedo as historyCanRedo,
+  canUndo as historyCanUndo,
+  historyKey,
+  isEditorStep,
+  isTextField,
+  pushStep,
+  redone,
+  stepToRedo,
+  stepToUndo,
+  undone,
+  type EditorHistory,
+} from "@/lib/store-builder/editor-history"
 
 export function CreatorPageWorkspace({
   handle,
@@ -161,6 +175,9 @@ export function CreatorPageWorkspace({
   const [shareOpen, setShareOpen] = useState(false)
   /** "Saved", after an editor inside the frame has saved and closed. */
   const [savedToast, setSavedToast] = useState(0)
+  const [toastText, setToastText] = useState("Saved")
+  /* A toast that reports a failure does not carry the tick. */
+  const toastFailed = !["Saved", "Undone", "Redone"].some((w) => toastText === tt(w))
   const [isPhone, setIsPhone] = useState(false)
 
   /**
@@ -310,14 +327,125 @@ export function CreatorPageWorkspace({
       const data = event.data as { channel?: string; kind?: string } | null
       if (!data || data.channel !== CREATOR_EDITOR_CHANNEL) return
       if (data.kind === "saved") {
+        /* Each save the page made is an undo step (round 50). */
+        const steps = (data as { steps?: unknown }).steps
+        if (Array.isArray(steps)) {
+          const kept = steps.filter(isEditorStep)
+          if (kept.length > 0) setHistory((h) => kept.reduce(pushStep, h))
+        }
         reframe()
         /* The frame's own toast would go with the frame it is in; the workspace says it instead. */
+        setToastText(tt("Saved"))
         setSavedToast((n) => n + 1)
+      }
+      if (data.kind === "history") {
+        const action = (data as { action?: unknown }).action
+        if (action === "undo" || action === "redo") runHistoryRef.current(action)
       }
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
   }, [reframe])
+
+  /**
+   * ===========================================================================
+   *  UNDO AND REDO (round 50)
+   * ===========================================================================
+   * Every sheet on the page saves as it closes, so a step here is a save and
+   * undoing it is a save too: the body the route said puts it back, sent to
+   * the same PATCH (lib/store-builder/editor-history). It is on the live page
+   * at once, like any save, and the canvas reloads to show it. Redo sends the
+   * save again. A new save after an undo drops what was undone.
+   *
+   * Kept for the visit in sessionStorage, by handle, so a reload of the
+   * workspace does not forget it.
+   */
+  const storeKey = `cp-history:${handle}`
+  const [history, setHistory] = useState<EditorHistory>(EMPTY_HISTORY)
+  const [historyBusy, setHistoryBusy] = useState(false)
+  const historyRef = useRef(history)
+  historyRef.current = history
+  const loadedHistory = useRef(false)
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem(storeKey)
+      const parsed = raw ? (JSON.parse(raw) as EditorHistory) : null
+      if (parsed && Array.isArray(parsed.steps) && typeof parsed.at === "number" && parsed.steps.every(isEditorStep)) {
+        setHistory({ steps: parsed.steps, at: Math.max(0, Math.min(parsed.at, parsed.steps.length)) })
+      }
+    } catch {
+      /* No storage: the history lasts as long as the screen. */
+    }
+    loadedHistory.current = true
+  }, [storeKey])
+  useEffect(() => {
+    if (!loadedHistory.current) return
+    try {
+      window.sessionStorage.setItem(storeKey, JSON.stringify(history))
+    } catch {
+      /* As above. */
+    }
+  }, [history, storeKey])
+
+  const busyRef = useRef(false)
+  const runHistory = useCallback(async (action: "undo" | "redo") => {
+    if (busyRef.current) return
+    const h = historyRef.current
+    const step = action === "undo" ? stepToUndo(h) : stepToRedo(h)
+    if (!step) return
+    /* A sheet open in the canvas has edits nobody saved, and the reload would take them: it has its own undo. */
+    try {
+      const doc = frames.current[front]?.contentDocument
+      if (doc?.querySelector('[role="dialog"][data-state="open"], [data-sheet-panel]')) {
+        setToastText(tt("Save or cancel the open editor first"))
+        setSavedToast((n) => n + 1)
+        return
+      }
+    } catch {
+      /* Not readable: nothing to protect that can be seen. */
+    }
+    busyRef.current = true
+    setHistoryBusy(true)
+    try {
+      const res = await fetch("/api/creator-profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action === "undo" ? step.undo : step.redo),
+      })
+      if (!res.ok) {
+        setToastText(tt("That could not be undone. Try again."))
+        setSavedToast((n) => n + 1)
+        return
+      }
+      setHistory((cur) => (action === "undo" ? undone(cur) : redone(cur)))
+      reframe()
+      setToastText(action === "undo" ? tt("Undone") : tt("Redone"))
+      setSavedToast((n) => n + 1)
+    } catch {
+      setToastText(tt("Could not reach the server. Check your connection and try again."))
+      setSavedToast((n) => n + 1)
+    } finally {
+      busyRef.current = false
+      setHistoryBusy(false)
+    }
+  }, [reframe, front])
+  const runHistoryRef = useRef(runHistory)
+  runHistoryRef.current = runHistory
+
+  /* The keys, while the focus is in the workspace itself; the canvas hands them up (EmbeddedNavigation). */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const action = historyKey(e)
+      if (!action || isTextField(document.activeElement)) return
+      e.preventDefault()
+      void runHistoryRef.current(action)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
+
+  const undoStep = stepToUndo(history)
+  const redoStep = stepToRedo(history)
 
   return (
     /*
@@ -404,6 +532,33 @@ export function CreatorPageWorkspace({
             {getMainDomain()}{getStoreInternalPath(handle)}
             {published ? "" : tt("  ·  not published yet")}
           </p>
+        </div>
+
+        {/*
+          UNDO AND REDO (round 50): the page's last saves, one per sheet. The
+          title names what each would change; disabled when there is nothing.
+        */}
+        <div className="flex shrink-0 items-center" data-editor-history="">
+          <button
+            type="button"
+            onClick={() => void runHistory("undo")}
+            disabled={!historyCanUndo(history) || historyBusy}
+            aria-label={undoStep ? tt("Undo {what}", { what: undoStep.label }) : tt("Undo")}
+            title={undoStep ? tt("Undo {what}", { what: undoStep.label }) : tt("Nothing to undo")}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#4b5563] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e] disabled:pointer-events-none disabled:text-[#d1d5db]"
+          >
+            <Undo2 className="h-[18px] w-[18px]" strokeWidth={1.75} />
+          </button>
+          <button
+            type="button"
+            onClick={() => void runHistory("redo")}
+            disabled={!historyCanRedo(history) || historyBusy}
+            aria-label={redoStep ? tt("Redo {what}", { what: redoStep.label }) : tt("Redo")}
+            title={redoStep ? tt("Redo {what}", { what: redoStep.label }) : tt("Nothing to redo")}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#4b5563] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e] disabled:pointer-events-none disabled:text-[#d1d5db]"
+          >
+            <Redo2 className="h-[18px] w-[18px]" strokeWidth={1.75} />
+          </button>
         </div>
 
         {/*
@@ -495,7 +650,7 @@ export function CreatorPageWorkspace({
         </div>
       </div>
 
-      <SaveNotification key={savedToast} show={savedToast > 0} message={tt("Saved")} duration={2200} />
+      <SaveNotification key={savedToast} show={savedToast > 0} message={toastText} duration={2200} icon={toastFailed ? <AlertCircle className="h-4 w-4 shrink-0 text-white" aria-hidden /> : undefined} />
 
       <CreatorPageShare open={shareOpen} onClose={() => setShareOpen(false)} handle={handle} isPhone={isPhone} />
 

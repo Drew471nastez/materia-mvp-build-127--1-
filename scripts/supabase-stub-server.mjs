@@ -13,7 +13,8 @@
  * ilike, is, gt/gte/lt/lte; select, order, limit; one row or a list; a count
  * in Content-Range), Auth's /user and /token for one signed in creator (or
  * several people, `users`), and nothing else. Writes are accepted and
- * forgotten. `tables` is read on every request, so a probe can change a row
+ * forgotten, unless `writes: true` (round 50): then PATCH, POST and DELETE
+ * change `tables`, so a save can be read back. `tables` is read on every request, so a probe can change a row
  * between two page loads. Used by scripts/check-creator-page-audit.mjs
  * (LOCAL=1) and scripts/check-archive-lifecycle.mjs.
  *
@@ -60,7 +61,7 @@ function matches(row, key, raw) {
  * ("media/nova/favicon.png"), each { type, body }, for a probe whose page
  * reads a picture through the server (a website's favicon, round 53).
  */
-export async function serveSupabaseStub({ port = 54321, tables = {}, user = null, users = [], delayMs = 0, files = {} } = {}) {
+export async function serveSupabaseStub({ port = 54321, tables = {}, user = null, users = [], delayMs = 0, files = {}, writes = false } = {}) {
   const log = []
   const tokenOf = (u) => fakeJwt({ sub: u.id, role: "authenticated", aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 86400, email: u.email })
   const token = user ? tokenOf(user) : null
@@ -109,9 +110,33 @@ export async function serveSupabaseStub({ port = 54321, tables = {}, user = null
     const m = url.pathname.match(/^\/rest\/v1\/([a-z_0-9]+)$/)
     if (!m) return send(404, { message: "no route" })
     if (req.method !== "GET" && req.method !== "HEAD") {
-      /* Written and forgotten. */
-      req.resume()
-      return send(req.method === "POST" ? 201 : 200, [])
+      /* Written and forgotten, unless `writes`: then a PATCH changes the rows its filters match and a POST adds its rows (round 50, so an editor's save can be read back). */
+      if (!writes) {
+        req.resume()
+        return send(req.method === "POST" ? 201 : 200, [])
+      }
+      let raw = ""
+      req.on("data", (d) => { raw += d })
+      req.on("end", () => {
+        let body = null
+        try { body = JSON.parse(raw || "null") } catch { body = null }
+        const table = (tables[m[1]] ||= [])
+        const filters = [...url.searchParams].filter(([k]) => !["select", "order", "limit", "offset", "or", "and", "on_conflict", "columns"].includes(k))
+        let changed = []
+        if (req.method === "PATCH" && body && typeof body === "object") {
+          changed = table.filter((r) => filters.every(([k, v]) => matches(r, k, v)))
+          for (const r of changed) Object.assign(r, body)
+        } else if (req.method === "POST" && body) {
+          changed = (Array.isArray(body) ? body : [body]).map((r) => ({ ...r }))
+          table.push(...changed)
+        } else if (req.method === "DELETE") {
+          changed = table.filter((r) => filters.every(([k, v]) => matches(r, k, v)))
+          tables[m[1]] = table.filter((r) => !changed.includes(r))
+        }
+        log.push(`  wrote ${changed.length} ${m[1]}`)
+        send(req.method === "POST" ? 201 : 200, changed)
+      })
+      return
     }
     let rows = [...(tables[m[1]] || [])]
     for (const [k, v] of url.searchParams) {
