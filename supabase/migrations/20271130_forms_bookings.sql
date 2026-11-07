@@ -1,4 +1,4 @@
-/* Forms, bookings and Leads, completing 20271123_native_forms_leads.sql (part 372), which stays as it is. Run after part 372. Adds: lead notes and the block or page a response came from (only status and notes are writable by the owner; answers and consent stay immutable); a retention period per form; the delivery queue for owner emails, booking emails and signed webhooks, with retry timing and a lease so two workers never send the same job; private file uploads (the private `form-uploads` bucket, 4 MB (under the 4.5 MB request limit of a Vercel function), JPEG, PNG, WebP and PDF, no storage policy so only the server reads it, owner downloads go through short signed links); and appointment bookings with the double booking guard: one active booking per owner and start time (unique index) and no overlapping active bookings per owner (exclusion constraint, btree_gist), written together with the response by native_form_book in one transaction. RLS on every new table, owner-scoped; visitors never touch a table directly. New tables and columns only; no existing row, column or policy is removed. Safe to run again. */
+/* Forms, bookings and Leads, completing 20271123_native_forms_leads.sql (part 372), which stays as it is. Run after part 372. Adds: lead notes and the block or page a response came from (only status and notes are writable by the owner; answers and consent stay immutable); a retention period per form; the delivery queue for owner emails, booking emails and signed webhooks, with retry timing and a lease so two workers never send the same job; private file uploads (the private `form-uploads` bucket, 4 MB (under the 4.5 MB request limit of a Vercel function), JPEG, PNG, WebP and PDF, no storage policy so only the server reads it, owner downloads go through short signed links); and appointment bookings with the double booking guard: one active booking per owner and start time (unique index) and no overlapping active bookings per owner (exclusion constraint, btree_gist), written together with the response by native_form_book in one transaction; a booking with a payment is held unpaid for 30 minutes and confirmed by the Stripe webhook only when product, currency and amount match. RLS on every new table, owner-scoped; visitors never touch a table directly. New tables and columns only; no existing row, column or policy is removed. Safe to run again. */
 
 /* ── Leads: notes, source block, retention ───────────────────────────── */
 alter table public.form_submissions add column if not exists notes text;
@@ -92,6 +92,25 @@ create unique index if not exists form_bookings_owner_slot
 create index if not exists form_bookings_owner_time on public.form_bookings (owner_id, starts_at);
 create index if not exists form_bookings_form on public.form_bookings (form_id);
 
+/* A booking paid through the product checkout: held unpaid until payment_due_at, confirmed by the Stripe webhook only when product, currency and amount match what the checkout recorded, cancelled on a full refund or when the hold runs out (lib/forms/booking-payment.ts). */
+alter table public.form_bookings add column if not exists payment_status text not null default 'none';
+alter table public.form_bookings add column if not exists payment_due_at timestamptz;
+alter table public.form_bookings add column if not exists payment_amount_cents integer;
+alter table public.form_bookings add column if not exists payment_currency text;
+alter table public.form_bookings add column if not exists payment_intent_id text;
+alter table public.form_bookings add column if not exists paid_at timestamptz;
+alter table public.form_bookings add column if not exists payment_note text;
+do $c$ begin
+  if not exists (select 1 from pg_constraint where conname = 'form_bookings_payment_status' and conrelid = 'public.form_bookings'::regclass) then
+    alter table public.form_bookings add constraint form_bookings_payment_status check (payment_status in ('none', 'unpaid', 'paid', 'failed', 'refunded', 'review'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'form_bookings_payment_fields' and conrelid = 'public.form_bookings'::regclass) then
+    alter table public.form_bookings add constraint form_bookings_payment_fields check ((payment_amount_cents is null or payment_amount_cents > 0) and (payment_currency is null or char_length(payment_currency) = 3) and (payment_intent_id is null or char_length(payment_intent_id) <= 255) and (payment_note is null or char_length(payment_note) <= 500));
+  end if;
+end $c$;
+create index if not exists form_bookings_payment_intent on public.form_bookings (payment_intent_id) where payment_intent_id is not null;
+create index if not exists form_bookings_unpaid_due on public.form_bookings (payment_due_at) where status = 'pending' and payment_status in ('unpaid', 'failed');
+
 /* No two active bookings of one owner may overlap, whatever their forms. Needs btree_gist; without it the unique index above still refuses the same start twice. */
 do $x$ begin
   begin
@@ -180,8 +199,15 @@ begin
     return query select v_sub, v_book, true;
     return;
   end if;
-  insert into public.form_bookings (owner_id, form_id, submission_id, starts_at, ends_at, hold_until, visitor_timezone, status, payment_product_id, decided_at)
-  values (v_owner, v_form, v_sub, p_starts_at, p_ends_at, p_hold_until, p_visitor_timezone, p_status, p_payment_product_id, case when p_status = 'confirmed' then now() end)
+  insert into public.form_bookings (owner_id, form_id, submission_id, starts_at, ends_at, hold_until, visitor_timezone, status, payment_product_id, decided_at, payment_status, payment_due_at)
+  values (
+    v_owner, v_form, v_sub, p_starts_at, p_ends_at, p_hold_until, p_visitor_timezone,
+    case when p_payment_product_id is not null then 'pending' else p_status end,
+    p_payment_product_id,
+    case when p_status = 'confirmed' and p_payment_product_id is null then now() end,
+    case when p_payment_product_id is not null then 'unpaid' else 'none' end,
+    case when p_payment_product_id is not null then now() + interval '30 minutes' end
+  )
   returning id into v_book;
   return query select v_sub, v_book, false;
 end

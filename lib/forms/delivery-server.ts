@@ -9,6 +9,7 @@ import { platformOrigin } from "@/lib/onepage/return-address"
 import { answerText, type Answer } from "./definition"
 import { MAX_ATTEMPTS, retryDelayMs, signWebhook, webhookUrlProblem } from "./webhook"
 import { FORM_UPLOAD_BUCKET } from "./uploads-server"
+import { expireUnpaidBookings } from "./booking-payment"
 
 /*
   EVERYTHING A RESPONSE SENDS, SENT ONCE, RETRIED UNTIL IT IS.
@@ -318,6 +319,8 @@ export async function sweepForms(db: Db, opts: { until: number; now?: number }):
   const now = opts.now ?? Date.now()
   let expired = 0,
     orphans = 0
+  /* Unpaid booking holds past their time: cancelled, so the slot is free again (lib/forms/booking-payment.ts). */
+  expired += await expireUnpaidBookings(db, new Date(now).toISOString()).catch(() => 0)
   const { data: forms, error } = await db.from("native_forms").select("id,owner_id,retention_days").not("retention_days", "is", null).limit(200)
   if (!error) {
     for (const f of (forms || []) as { id: string; owner_id: string; retention_days: number }[]) {

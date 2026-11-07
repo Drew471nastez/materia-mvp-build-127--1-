@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     if (upgraded && rows.length) {
       const { data: b } = await actor.db
         .from("form_bookings")
-        .select("id,submission_id,starts_at,ends_at,status,visitor_timezone,payment_product_id")
+        .select("id,submission_id,starts_at,ends_at,status,visitor_timezone,payment_product_id,payment_status,payment_due_at,payment_note")
         .eq("owner_id", actor.user.id)
         .in("submission_id", rows.map((r) => r.id as string))
       bookings = (b || []) as Record<string, unknown>[]

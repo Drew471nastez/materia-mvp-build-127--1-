@@ -116,6 +116,19 @@ try {
   assert.equal(fails("service_role", "", `update public.native_forms set retention_days = 3 where id = '${FA}'`), "23514")
   assert.equal(fails("service_role", "", `update public.form_submissions set notes = repeat('x', 5001) where owner_id = '${A}'`), "23514")
   ok("retention and notes are bounded")
+
+  /* A booking paid with a product: held unpaid for 30 minutes, whatever status the route asked for. */
+  const state = (key) => `select b.status || '|' || b.payment_status || '|' || coalesce((abs(extract(epoch from (b.payment_due_at - now())) - 1800) < 60)::text, 'none') from public.form_bookings b join public.form_submissions s on s.id = b.submission_id where s.dedupe_key = '${key}'`
+  as("service_role", "", `select 1 from public.native_form_book(${sub(A, FA, "cccccccc-1111-4111-8111-111111111111")}, '2026-06-02T09:00:00Z', '2026-06-02T09:30:00Z', '2026-06-02T09:40:00Z', null, 'confirmed', 'a5000000-0000-4000-8000-0000000000aa')`)
+  assert.equal(as("service_role", "", state("cccccccc-1111-4111-8111-111111111111")), "pending|unpaid|true")
+  as("service_role", "", `select 1 from public.native_form_book(${sub(A, FA, "dddddddd-1111-4111-8111-111111111111")}, '2026-06-03T09:00:00Z', '2026-06-03T09:30:00Z', '2026-06-03T09:40:00Z', null, 'confirmed')`)
+  assert.equal(as("service_role", "", state("dddddddd-1111-4111-8111-111111111111")), "confirmed|none|none")
+  assert.equal(fails("service_role", "", `update public.form_bookings set payment_status = 'free'`), "23514")
+  assert.equal(fails("authenticated", A, `update public.form_bookings set payment_status = 'paid'`), "42501")
+  /* The cron's expiry frees the time: the same start can be booked again. */
+  psql(DB, ["-c", `update public.form_bookings set status = 'cancelled' where status = 'pending' and payment_status in ('unpaid','failed') and payment_due_at < now() + interval '1 hour'`])
+  assert.match(as("service_role", "", book(A, FA, "eeeeeeee-1111-4111-8111-111111111111", "2026-06-02T09:00:00Z")), /\|f$/)
+  ok("a paid booking is held unpaid for 30 minutes, only the server sets payment state, and an expired hold frees its time")
   console.log(`check-forms-sql: ${passed} passed`)
 } finally {
   psql("postgres", ["-c", `drop database if exists ${DB}`])

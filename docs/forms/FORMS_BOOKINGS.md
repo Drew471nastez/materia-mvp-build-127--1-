@@ -22,13 +22,16 @@ With "Confirm each request myself" on, requests wait in Leads; Confirm or Declin
 
 For Calendly or another booking page, use a button action of type Appointment instead.
 
-### Payment: what is missing
+### Payment
 
-A booking form can name a product. After booking, the visitor gets a Pay button that opens that product's existing Stripe checkout. The payment is not linked to the booking: nothing tells the Stripe webhook which booking a checkout belongs to, so a paid booking is not confirmed automatically and an unpaid one is not released. To finish it:
+A booking form can name a product. Such a booking is kept as pending and unpaid, and its time is held for 30 minutes (`payment_due_at`). The visitor's Pay button opens the product's normal checkout with `&booking=<token>`, the booking id signed for that product (`lib/forms/booking-payment.ts`).
 
-1. pass the booking id as checkout metadata when the Pay button opens checkout (`/checkout?productId=...&booking=...`, carried into the Stripe session metadata);
-2. in the Stripe webhook's paid handler, read that metadata and set the booking to confirmed (and queue `booking_confirmed`);
-3. sweep pending paid bookings whose checkout expired and set them to cancelled.
+- `/api/checkout/stripe-session` checks the token, that the booking is still held and unpaid, and that it belongs to this product. It records the amount and currency it is about to charge on the booking, extends the hold to at least 15 more minutes (never past 2 hours from booking), and adds `form_booking` and `form_booking_amount` to the PaymentIntent metadata.
+- The existing Stripe webhook, on `payment_intent.succeeded`, confirms the booking only when the product, the currency and the full amount match what the checkout recorded. A repeated event changes nothing, and the visitor's confirmation email is one job per booking. A mismatch is kept as "Payment needs a look" for the owner and never confirms.
+- `payment_intent.payment_failed` marks it failed and leaves it unconfirmed. A full refund (`charge.refunded`) cancels it and frees the time.
+- An unpaid hold that runs out is cancelled by `/api/cron/notify`, and by the slots and submit routes of that form before they read busy times, so the time is free again. A payment that lands after that confirms only if the time is still free; otherwise it is flagged for the owner to refund.
+
+With a payment, "Confirm each request myself" does not apply: paying confirms the booking. A free product cannot pay a booking (the free checkout path does not carry it), so its bookings run out unpaid; use no payment instead.
 
 ## Leads
 
