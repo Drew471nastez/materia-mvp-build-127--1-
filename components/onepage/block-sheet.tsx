@@ -122,7 +122,12 @@ export function BlockSheetProvider({ children, dark = false }: { children: React
 
 /* ── The sheet ──────────────────────────────────────────────────────────── */
 
-const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),iframe,[tabindex="0"]'
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),iframe,[tabindex="0"]:not([data-focus-guard])'
+
+/** The sheet's own focusable things, in order, drawn ones only. */
+function focusables(panel: HTMLElement | null): HTMLElement[] {
+  return Array.from(panel?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []).filter((el) => el.getClientRects().length > 0)
+}
 
 function reducedMotion(): boolean {
   try {
@@ -185,7 +190,9 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
     }
     const still = reducedMotion()
     const M = SHEET_MOTION
-    const was = getComputedStyle(panel)
+    /* Copied out now: a computed style is live, and cancelling the running animations below would change it. */
+    const live = getComputedStyle(panel)
+    const was = { translate: live.translate, scale: live.scale, opacity: live.opacity }
     const wasBackdrop = getComputedStyle(backdrop).opacity
     const fromRunning = panel.getAnimations().length > 0
     for (const a of [...panel.getAnimations(), ...backdrop.getAnimations()]) a.cancel()
@@ -311,7 +318,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
         return
       }
       if (e.key !== "Tab" || !panel) return
-      const nodes = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.getClientRects().length > 0)
+      const nodes = focusables(panel)
       if (!nodes.length) {
         e.preventDefault()
         return
@@ -330,12 +337,26 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
         first.focus({ preventScroll: true })
       }
     }
+    /* Tab inside an embed's own document never reaches onKey; a step out of it that lands outside the sheet is brought back. */
+    const onFocusIn = (e: FocusEvent) => {
+      const t = e.target as Node | null
+      if (!t || rootRef.current?.contains(t)) return
+      ;(focusables(panel)[0] ?? panel)?.focus({ preventScroll: true })
+    }
     document.addEventListener("keydown", onKey, true)
+    document.addEventListener("focusin", onFocusIn, true)
     return () => {
       cancelAnimationFrame(f)
       document.removeEventListener("keydown", onKey, true)
+      document.removeEventListener("focusin", onFocusIn, true)
     }
   }, [open])
+
+  /* The guards at either end of the sheet: Tab past the last thing (or Shift+Tab out of an embed) comes round again. */
+  const guard = (to: "first" | "last") => () => {
+    const nodes = focusables(panelRef.current)
+    ;(to === "first" ? nodes[0] : nodes[nodes.length - 1])?.focus({ preventScroll: true })
+  }
 
   const { title, body, cta, shareUrl, fill } = request
 
@@ -407,6 +428,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
           fill ? "h-[calc(100dvh-env(safe-area-inset-top)-16px)] sm:h-[min(760px,calc(100dvh-64px))] sm:max-w-[520px]" : "max-h-[calc(100dvh-env(safe-area-inset-top)-16px)] sm:max-h-[min(760px,calc(100dvh-64px))] sm:max-w-[480px]",
         )}
       >
+        <span tabIndex={0} data-focus-guard="" aria-hidden onFocus={guard("last")} className="sr-only" />
         <h2 className="shrink-0 truncate px-14 pb-2.5 pt-4 text-center text-[15px] font-medium text-[var(--sheet-ink)]" data-block-sheet-title="">
           {title}
         </h2>
@@ -463,6 +485,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
             {copied ? tt("Link copied") : ""}
           </span>
         </div>
+        <span tabIndex={0} data-focus-guard="" aria-hidden onFocus={guard("first")} className="sr-only" />
       </div>
     </div>,
     document.body,

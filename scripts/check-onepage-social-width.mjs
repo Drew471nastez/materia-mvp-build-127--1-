@@ -5,7 +5,7 @@ const { base, server } = await serveEditorProbe({
   entry: "scripts/render-onepage-social-width.tsx",
 })
 const browser = await puppeteer.launch({
-  executablePath: "/tmp/chromium",
+  executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
   args: ["--no-sandbox"],
 })
 try {
