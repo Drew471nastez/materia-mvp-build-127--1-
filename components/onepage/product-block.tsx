@@ -57,13 +57,15 @@ import { PLAN_CURRENCY, isPlanPriced } from "@/lib/money/product-currency"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
-import { backThen } from "@/lib/navigation/go-back"
+import { backInFlight, backThen } from "@/lib/navigation/go-back"
 import { instantCheckoutOn, productHref, productLayoutOf, productPriceParts, productSheetAction, productSheetHash, productTapAction, productTapPlan, sheetButtonPrice, sheetShowsPageLink, shipsProduct } from "@/lib/onepage/product-block"
 import { onePageTapCheckoutHref } from "@/lib/onepage/shipped-checkout"
 import { fontStack } from "@/lib/onepage/fonts"
 import { onePageOutboundHref, platformOrigin, currentOnePageAddress } from "@/lib/onepage/return-address"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { ProductSheet } from "./product-sheet"
+import { FramedPicture, readPictureShape } from "@/components/ui/framed-picture"
+import { CHECKOUT_HISTORY_KEY, HANDOFF_MAX_MS, PURCHASE_CLOSED, checkoutEntryOf, purchaseStep, sheetShown, type PurchaseLayer, type PurchaseStep } from "@/lib/onepage/purchase-flow"
 import { InstantCheckout, loadProductFacts } from "@/components/checkout/instant-checkout"
 import { sheetPalette } from "@/lib/onepage/sheet-theme"
 
@@ -143,6 +145,18 @@ function addReadAhead() {
   }
 }
 
+/** The page's address without the sheet's hash. */
+function plainAddress(): string {
+  return window.location.pathname + window.location.search
+}
+
+/** The history entry's state with these keys added and those taken off; what else it holds (Next's own) is kept. */
+function historyWith(add: Record<string, string>, drop: string[]): Record<string, unknown> {
+  const st: Record<string, unknown> = { ...((window.history.state as Record<string, unknown> | null) ?? {}) }
+  for (const k of drop) delete st[k]
+  return { ...st, ...add }
+}
+
 function ProductTitle({ block, children }: { block: OnePageBlock; children: React.ReactNode }) {
   const subtitle = presentationOf(block).subtitle
   return subtitle ? <span className="flex min-w-0 flex-col">{children}<BlockSubtitle subtitle={subtitle} /></span> : <>{children}</>
@@ -150,10 +164,18 @@ function ProductTitle({ block, children }: { block: OnePageBlock; children: Reac
 
 export function OnePageProductBlock({ block, theme, quiet = false, inPair = false, seller, pageMoney, plainText, trackClick, animationClass, quick }: OnePageProductBlockProps) {
   const data = block.data as ProductBlockData
-  const [sheetOpen, setSheetOpen] = React.useState(false)
-  const [checkout, setCheckout] = React.useState<{ variantId: string | null; fromSheet: boolean } | null>(null)
-  const pendingCheckout=React.useRef<{variantId:string|null;fromSheet:boolean}|null>(null)
+  /* One state for both windows (lib/onepage/purchase-flow): the sheet, the handoff while it leaves, the checkout. */
+  const [layer, setLayer] = React.useState<PurchaseLayer>(PURCHASE_CLOSED)
+  const step = React.useCallback((s: PurchaseStep) => setLayer((was) => purchaseStep(was, s)), [])
+  const sheetOpen = sheetShown(layer)
+  const checkout = layer.kind === "checkout" ? layer : null
+  /* The history entries this block stands on: the sheet's #product-<slug>, the checkout's own. */
   const pushed = React.useRef(false)
+  /* The checkout's own entry, by a mark made fresh for each opening: an older entry left behind (a Back that never
+     landed) is never mistaken for this one. Null when the checkout stands on no entry of ours. */
+  const checkoutEntry = React.useRef<string | null>(null)
+  /* The control that started it all, where focus goes back once the checkout closes. */
+  const trigger = React.useRef<HTMLElement | null>(null)
   const [warm, setWarm] = React.useState(false)
   const seen = React.useRef<HTMLSpanElement>(null)
 
@@ -174,46 +196,111 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const hash = productSheetHash(data.product_slug)
   const instant = instantCheckoutOn(data)
 
-  /* ── The sheet in the address: #product-<slug>. A shared link opens it, Back closes it. ── */
-  const openSheet = React.useCallback(() => {
-    setSheetOpen(true)
-    if (hash && typeof window !== "undefined" && window.location.hash !== hash) {
-      try {
-        window.history.pushState({ ...(window.history.state ?? {}), onepageProductSheet: block.id }, "", hash)
-        pushed.current = true
-      } catch {
-        pushed.current = false
+  /* ── The windows in the address. The sheet is #product-<slug>: a shared link opens it, Back closes it. The checkout
+     stands on an entry of its own (round AK), so the browser's Back closes the checkout instead of leaving the page. ── */
+  const openSheet = React.useCallback(
+    (how: "push" | "replace" = "push") => {
+      step({ type: "open" })
+      if (hash && typeof window !== "undefined" && window.location.hash !== hash) {
+        try {
+          const st = historyWith({ onepageProductSheet: block.id }, [CHECKOUT_HISTORY_KEY])
+          if (how === "replace") window.history.replaceState(st, "", hash)
+          else window.history.pushState(st, "", hash)
+          pushed.current = true
+        } catch {
+          pushed.current = false
+        }
       }
-    }
-  }, [hash, block.id])
+    },
+    [hash, block.id, step],
+  )
   const closeSheet = React.useCallback(() => {
-    setSheetOpen(false)
+    step({ type: "close" })
     if (pushed.current) {
       pushed.current = false
       /* Back off the sheet's own entry, watched (lib/navigation/go-back): should it do nothing, the hash is just taken off. */
       backThen(() => {
         try {
-          window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search)
+          window.history.replaceState(window.history.state, "", plainAddress())
         } catch {
           /* the address keeps its hash */
         }
       })
     } else if (hash && window.location.hash === hash) {
       try {
-        window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search)
+        window.history.replaceState(window.history.state, "", plainAddress())
       } catch {
         /* the address keeps its hash */
       }
     }
-  }, [hash])
+  }, [hash, step])
+  /*
+    Buy. From the sheet, the sheet's own entry becomes the checkout's (a replace, never a Back that could land after
+    the checkout's push and close it again); without a sheet, the checkout gets a new entry.
+  */
+  const buy = React.useCallback(
+    (variantId: string | null) => {
+      step({ type: "buy", variantId })
+      const mark = `${block.id}:${Date.now().toString(36)}`
+      try {
+        const st = historyWith({ [CHECKOUT_HISTORY_KEY]: mark }, ["onepageProductSheet"])
+        if (pushed.current) window.history.replaceState(st, "", plainAddress())
+        else {
+          if (hash && window.location.hash === hash) window.history.replaceState(window.history.state, "", plainAddress())
+          window.history.pushState(st, "", plainAddress())
+        }
+        checkoutEntry.current = mark
+      } catch {
+        checkoutEntry.current = null
+      }
+      pushed.current = false
+    },
+    [hash, block.id, step],
+  )
+  const closeCheckout = React.useCallback(() => {
+    step({ type: "close" })
+    if (!checkoutEntry.current) return
+    checkoutEntry.current = null
+    const strip = () => {
+      try {
+        window.history.replaceState(historyWith({}, [CHECKOUT_HISTORY_KEY]), "", plainAddress())
+      } catch {
+        /* the entry stays; Back from it does nothing */
+      }
+    }
+    /* Another Back already on its way: this one would be swallowed, so the entry is just unmarked. */
+    if (backInFlight()) return strip()
+    /* Back off the checkout's entry, watched: should it do nothing, the entry is unmarked instead. */
+    backThen(strip)
+  }, [step])
+  /* The checkout's Back: the sheet again, on the checkout's entry, so one Back from the sheet still leaves both. */
+  const checkoutBack = React.useCallback(() => {
+    const had = !!checkoutEntry.current
+    checkoutEntry.current = null
+    step({ type: "back" })
+    openSheet(had ? "replace" : "push")
+  }, [openSheet, step])
+  /* The handoff: the checkout opens once the sheet has gone (ProductSheet onClosed), or after HANDOFF_MAX_MS regardless. */
   React.useEffect(() => {
-    if (plan !== "sheet" || !hash) return
-    if (window.location.hash === hash) setSheetOpen(true)
+    if (layer.kind !== "handoff") return
+    const t = window.setTimeout(() => step({ type: "too-long" }), HANDOFF_MAX_MS)
+    return () => window.clearTimeout(t)
+  }, [layer.kind, step])
+  React.useEffect(() => {
+    if (plan !== "sheet" && plan !== "instant") return
+    if (plan === "sheet" && hash && window.location.hash === hash) step({ type: "open" })
     const onPop = () => {
+      /* Back from the checkout: its entry is gone. */
+      if (checkoutEntry.current && checkoutEntryOf(window.history.state) !== checkoutEntry.current) {
+        checkoutEntry.current = null
+        step({ type: "close" })
+        return
+      }
+      if (plan !== "sheet" || !hash) return
       if (window.location.hash !== hash) {
         pushed.current = false
-        setSheetOpen(false)
-      } else setSheetOpen(true)
+        setLayer((was) => (was.kind === "sheet" ? PURCHASE_CLOSED : was))
+      } else step({ type: "open" })
     }
     window.addEventListener("popstate", onPop)
     window.addEventListener("hashchange", onPop)
@@ -221,7 +308,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
       window.removeEventListener("popstate", onPop)
       window.removeEventListener("hashchange", onPop)
     }
-  }, [plan, hash])
+  }, [plan, hash, block.id, step])
 
   /*
     WARM BEFORE THE TAP. A block that opens a sheet or the checkout window reads its product once it comes near the
@@ -240,6 +327,9 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         io.disconnect()
         const go = () => {
           setWarm(true)
+          /* The picture's shape (its padding, lib/images/letterbox) read now, so the sheet opens in the right frame. */
+          const picture = data.custom_thumbnail || data.product_cover || data.product_thumbnail
+          if (picture) void readPictureShape(picture)
           if (plan === "instant") void loadProductFacts(data.product_id).catch(() => undefined)
           if (shipsToCheckout)
             void loadProductFacts(data.product_id)
@@ -281,7 +371,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   /* ── Words ── */
   const title = data.product_title || "Product"
   const description = data.show_description !== false ? plainText(data.product_description) : ""
-  const image = data.custom_thumbnail || data.product_thumbnail || null
+  /* The creator's own picture for the block, else the product's cover as uploaded (SQL part 377), else its card copy. */
+  const image = data.custom_thumbnail || data.product_cover || data.product_thumbnail || null
   const planPriced = isPlanPriced({ type: data.product_type })
   const money = (cents: number) => (planPriced ? shopMoneyIn(cents, PLAN_CURRENCY) : pageMoney(cents))
   const parts = productPriceParts(data, money)
@@ -307,12 +398,14 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     }
     if (plan === "sheet" && data.product_id) {
       e.preventDefault()
+      trigger.current = e.currentTarget
       openSheet()
       return
     }
     if (plan === "instant" && data.product_id) {
       e.preventDefault()
-      setCheckout({ variantId: null, fromSheet: false })
+      trigger.current = e.currentTarget
+      buy(null)
       return
     }
     /* The checkout or the product page only make sense live: in the editor's preview, a note instead of leaving it. */
@@ -341,10 +434,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   }
   const picture = (cls: string, ratio?: string) =>
     image ? (
-      <span className={cn("block shrink-0 overflow-hidden bg-black/5", ratio, cls)}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={image} alt={title} className="h-full w-full object-cover" loading="lazy" decoding="async" draggable={false} />
-      </span>
+      /* Round AK: the editor's grey padding is cut off when the picture carries it (components/ui/framed-picture). */
+      <FramedPicture src={image} alt={title} className={cn("shrink-0 bg-black/5", ratio, cls)} imgClassName="object-cover" imgProps={{ loading: "lazy", decoding: "async" }} />
     ) : null
 
   const shell = (children: React.ReactNode, cls: string, style: React.CSSProperties = cardStyle) => (
@@ -376,10 +467,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           data-product-tap={plan}
           data-stays-here={staysHere}
         >
-          {data.product_thumbnail ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={data.product_thumbnail} alt={title} className="relative h-6 w-6 shrink-0 rounded object-cover sm:h-7 sm:w-7" />
-          ) : null}
+          {image ? <FramedPicture src={image} alt={title} frame={1} className="relative h-6 w-6 shrink-0 rounded sm:h-7 sm:w-7" imgClassName="object-cover" /> : null}
           {presentationOf(block).subtitle ? <span className="relative min-w-0"><span className="op-label block break-words">{cta}</span><BlockSubtitle subtitle={presentationOf(block).subtitle} /></span> : <span className="op-label relative truncate">{cta}</span>}
           {showPrice && !purchased ? (
             <span className="relative shrink-0 text-sm tabular-nums opacity-75">
@@ -566,8 +654,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           priceText={showPrice ? now : null}
           ctaText={data.cta_text || "Buy now"}
           instant={instant && !shipsProduct(data.product_type)}
-          onBuy={(variantId) => {pendingCheckout.current={variantId,fromSheet:true};closeSheet()}}
-          onClosed={()=>{const next=pendingCheckout.current;pendingCheckout.current=null;if(next)setCheckout(next)}}
+          onBuy={buy}
+          onClosed={() => step({ type: "sheet-gone" })}
           onCheckoutLink={(to) => trackClick(block.id, to)}
           back={back}
           /* Round 41: the creator's choice of the sheet's button (lib/onepage/product-block). */
@@ -590,8 +678,9 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           dark={sheetPalette(theme).dark}
           themed
           origin={pageOrigin}
-          onClose={() => setCheckout(null)}
-          onBack={checkout.fromSheet ? () => {setCheckout(null);openSheet()} : null}
+          onClose={closeCheckout}
+          onBack={checkout.fromSheet ? checkoutBack : null}
+          returnFocus={() => trigger.current}
           back={back}
         />
       ) : null}

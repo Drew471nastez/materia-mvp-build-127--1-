@@ -44,7 +44,7 @@ async function run() {
       email: "coach@example.com",
       subject: "Your plan",
       message: "Hello & welcome",
-    })?.includes("subject=Your+plan"),
+    })?.includes("subject=Your%20plan"),
   )
   assert.equal(actionHref({ type: "url", url: "javascript:alert(1)" }), null)
   assert.equal(

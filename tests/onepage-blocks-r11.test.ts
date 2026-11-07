@@ -132,7 +132,7 @@ async function main() {
 
     const live = read("components/onepage/public-onepage.tsx")
     check("stacked and sliding read a group's blocks by the page's one rule", (live.match(/groupChildrenShown\(data\.children, /g) ?? []).length === 2 && !/data\.children\.filter\(c => c\.enabled\)/.test(live) && /const groupChildrenShown = \(children: OnePageBlock\[\] \| undefined, inPreview: boolean\): OnePageBlock\[\] =>\s*\(children \|\| \[\]\)\.filter\(\(c\) => isBlockVisible\(c\) \|\| \(inPreview && isIncompleteLink\(c\)\)\)/.test(live))
-    check("a link in a group waiting for its address is its placeholder in the preview", (live.match(/isIncompleteLink\(child\) \? \(\s*<IncompleteLinkPlaceholder/g) ?? []).length === 2)
+    check("a link in a group waiting for its address is its placeholder in the preview", (live.match(/isIncompleteLink\(child\) \? \(\s*<IncompleteLinkPlaceholder/g) ?? []).length === 3) /* Changed on purpose (round AK): a third, a collection's Grid layout. */
   }
 
   // ═══════════════════════════════════════════════════════════════════════

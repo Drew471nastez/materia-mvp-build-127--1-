@@ -1,4 +1,5 @@
 import { withOwnersCommunities } from "@/lib/commerce/owner-communities-server"
+import { withOriginalCover } from "@/lib/products/cover"
 import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { productPriceCurrency } from "@/lib/money/product-currency"
 import { personName } from "@/lib/profile/display-name"
@@ -993,11 +994,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // YouTube thumbnails are only for product listings, not for gallery display
   // If only YouTube embed exists (no real images), galleryImages should be empty
   // The ProductGallery component will show the YouTube embed from youtubeUrls
-  const galleryImages = product.gallery_urls?.length
-    ? (product.gallery_urls.filter((url: string) => url && !isYouTubeThumbnailUrl(url)) as string[])
-    : (product.thumbnail_url && !isYouTubeThumbnailUrl(product.thumbnail_url))
-      ? [product.thumbnail_url]
-      : []
+  /* Round AK: the cover as uploaded (SQL part 377) in the 16:9 card copy's place, so the gallery shows the picture itself. */
+  const galleryImages = withOriginalCover(
+    product.gallery_urls?.length
+      ? (product.gallery_urls.filter((url: string) => url && !isYouTubeThumbnailUrl(url)) as string[])
+      : product.thumbnail_url && !isYouTubeThumbnailUrl(product.thumbnail_url)
+        ? [product.thumbnail_url]
+        : [],
+    product as { thumbnail_url?: string | null; cover_original_url?: string | null },
+  )
 
   const srcParam = src === "platform" ? "?src=platform" : ""
 

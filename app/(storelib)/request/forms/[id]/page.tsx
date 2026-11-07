@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { UUID } from "@/lib/forms/actions"
-import { validateDefinition } from "@/lib/forms/definition"
+import { validateDefinition, publicDefinition } from "@/lib/forms/definition"
 import { PublicFormRenderer } from "@/components/forms/public-form"
 export const dynamic = "force-dynamic"
 export const metadata = {
@@ -25,7 +25,7 @@ export default async function Page({
   if (!data?.published) notFound()
   let definition
   try {
-    definition = validateDefinition(data.published)
+    definition = publicDefinition(validateDefinition(data.published))
   } catch {
     notFound()
   }

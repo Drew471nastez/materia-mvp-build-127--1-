@@ -13,6 +13,8 @@ import { throughWelcome } from "@/lib/account/welcome"
 import { APP_OPEN_USED, destinationWithAppOpen } from "@/lib/account/app-open"
 import { CARRY_COOKIE, CONTINUE_PATH, decodeCarry, destinationAfterAuth } from "@/lib/auth/continue"
 import { INVITE_COOKIE, inviteFallbackNext } from "@/lib/team/invite-links"
+import { CLAIM_COOKIE, claimFallbackNext } from "@/lib/handoff/rules"
+import { handedHomeFor } from "@/lib/handoff/home"
 import { onATeam } from "@/lib/team/server"
 import { attachGuestOrdersByEmail } from "@/lib/orders/attach-guest-orders"
 import { normalisedEmail, providerVerifiedEmails, stampVerifiedEmail, stampedVerifiedEmail } from "@/lib/auth/verified-email"
@@ -176,11 +178,19 @@ export async function GET(request: Request) {
     carry.next = inviteFallbackNext(carry.next, invite)
     jar.delete(INVITE_COOKIE)
   }
+  /* A business handover's claim link opened before signing in, the same way (lib/handoff/rules CLAIM_COOKIE). */
+  const claim = jar.get(CLAIM_COOKIE)?.value
+  if (claim) {
+    carry.next = claimFallbackNext(carry.next, claim)
+    jar.delete(CLAIM_COOKIE)
+  }
   const access = existingProfile ? await readSellerAccess(admin, data.user.id) : { state: "none" as const }
   /* A new account sets its profile once, on its way (lib/account/welcome). A sign-in with nowhere else to go opens the remembered page. */
   /* On a store's team with no store of their own: the dashboard is that store's, never onboarding (lib/team/landing). */
   const teamMember = !hasSellerAccess(access) && (await onATeam(admin, data.user.id))
-  const opened = destinationWithAppOpen(destinationAfterAuth(carry, access, { teamMember }), data.user.user_metadata, carry.next)
+  /* No store of its own and nowhere else to go, but a business was handed to this login: that business opens (lib/handoff/home). */
+  const handed = !hasSellerAccess(access) && !teamMember && !carry.next && !carry.intent ? await handedHomeFor(data.user.id) : null
+  const opened = destinationWithAppOpen(handed ?? destinationAfterAuth(carry, access, { teamMember }), data.user.user_metadata, carry.next)
   if (opened.used) after(() => supabase.auth.updateUser({ data: { [APP_OPEN_USED]: opened.used } }).then(() => undefined))
   const destination = throughWelcome(opened.destination, { createdAt: data.user.created_at, meta: data.user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent })
 

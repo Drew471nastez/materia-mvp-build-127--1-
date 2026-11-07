@@ -24,9 +24,18 @@ import { join, basename, dirname, relative } from "node:path"
 execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inherit" })
 
 const SUITES = [
+  /* Round AK6: a founder hands a business they built to a client's own login: a single use, expiring claim link kept only as its SHA-256, wrong email, self claim and the three business limit refused, every table with a creator_id or user_id decided, every route asks who is signing in, sign up and an existing account through the real route handlers, a failed transfer changes nothing (SQL 20271131, run on the harness by scripts/check-business-handoff-sql.sh). */
+  "tests/business-handoff.test.ts",
   "tests/onepage-link-metadata.test.ts",
   "tests/native-forms-actions-prices.test.ts",
+  "tests/native-actions.test.ts",
+  /* Round AK5: the form engine (types, rules, steps, scoring, templates, CSV), bookings across DST with the double booking guard, and public submit security (honeypot, limits, signed webhooks, sealed secrets). */
+  "tests/forms-engine.test.ts",
+  "tests/forms-bookings.test.ts",
+  "tests/forms-security.test.ts",
+  "tests/forms-booking-payment.test.ts",
   "tests/onepage-modern-blocks.test.ts",
+  "tests/onepage-block-settings-ak3.test.ts",
   "tests/admin-sql-updates.test.ts",
   "tests/typecheck-ratchet-process.test.ts",
   "tests/wizard27.test.ts",
@@ -1207,6 +1216,8 @@ const SUITES = [
  * directory, run after the list above.
  */
 const STRICT_SUITES = [
+  /* Round AK (AK2): a product's sales channels through the real route, before and after SQL 20271125: unticked and ticked again, read back, gone from Explore, the OnePage and the website and back; an older tab sends only its own change, so a newer save stays; a failed read refuses a change instead of writing over it; the editor's Saved after a read back. * Strict: it drives the real routes through tests/_journey, which only type-check strict. */
+  "tests/product-channels-ak2.test.ts",
   /* Creator website blogs (SQL part 353, lib/site-blog): the sanitizer on save and on render (javascript: links, on* attributes, frames only from embedFrameSrc, gallery and button), slugs, status, preview tokens (24 hours, their own namespace), and the admin and public reads against the SQL in memory through supabase-js: a save from an old version answered 409, autosave into a live post's draft, publish/update/schedule, a live slug change's redirect, fifty revisions, bulk, categories, settings, a scheduled post live on time while the cache is held, null/503 before the SQL, and every query filtered by creator_id. Strict: it narrows save results by `ok`. */
   "tests/site-blog-data.test.ts",
   /* Round 10: the course, music, testimonials and contact blocks, the Add block sheet's catalogue and search, the + that turns under a mouse, the email signup's name, link and spam checks (strict: it draws components/onepage/brand-icons, which only type-checks strict); scripts/check-onepage-blocks.mjs measures them. */
@@ -1312,6 +1323,8 @@ const STRICT_SUITES = [
   "tests/onepage-r43-blocks.test.ts",
   /* Round 53: the product sheet's dots ride the scroll, 4:5 on a phone, themed arrows and question lines, videos in the gallery and full screen; scripts/check-product-sheet-r53.mjs measures it frame by frame. */
   "tests/product-sheet-r53.test.ts",
+  /* Round AK: the product sheet closes before the checkout opens on top (one state, one backdrop, focus held, Back and Escape close the checkout alone), the checkout's head is the product's own picture, and the product editor's grey padding is cut off in the sheet and the checkout. scripts/check-onepage-checkout-stack.mjs measures it. */
+  "tests/onepage-checkout-stack.test.ts",
   /* Round 42: a OnePage's embeds with no scrollbar inside them (heights said and rounded up, Tally and Calendly asked for theirs, TikTok's player), buttons with room on every side in a carousel, one copy of a video playing, the social sheet as tall as it holds, a slideshow a mouse drags. scripts/check-onepage-r42.mjs measures them. */
   "tests/onepage-r42.test.ts",
   /* Round 43: the OnePage editor's font sheet as tall as its list, an off block's controls unfaded, Remove's question in one compact line, a block's stats with the period as a popover and See in Analytics, the header's type and picture frame, the cover's ring that follows a Left header, one hold for every window over the live page. scripts/check-onepage-editor-r43.mjs measures them. */

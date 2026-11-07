@@ -345,7 +345,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 914 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 917 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -692,6 +692,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#c9ccd3\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#c9cdd3\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#cfd2d8\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#cfd3da\]:not([data-own-look], [data-own-look] *) { border-color: hsla(218,13%,40%,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#cfe7d8\]:not([data-own-look], [data-own-look] *) { border-color: hsla(143,33%,40%,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#d0d4db\]:not([data-own-look], [data-own-look] *) { border-color: hsla(218,13%,40%,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#d1d5db\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
@@ -907,6 +908,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:border-\[\#c9ccd3\]:not([data-own-look], [data-own-look] *):focus-within { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:border-\[\#d9dce1\]:not([data-own-look], [data-own-look] *):focus-within { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:ring-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):focus-within { --tw-ring-color: rgba(255,255,255,0.24); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .focus-within\:ring-\[\#1a1a2e\]\/20:not([data-own-look], [data-own-look] *):focus-within { --tw-ring-color: rgba(255,255,255,0.048); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:bg-\[\#f1f2f4\]:not([data-own-look], [data-own-look] *):focus { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:bg-\[\#fef1ee\]:not([data-own-look], [data-own-look] *):focus { background-color: hsla(11,60%,50%,0.16); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:bg-\[\#fff6e0\]:not([data-own-look], [data-own-look] *):focus { background-color: hsla(43,60%,50%,0.16); }
@@ -1250,6 +1252,7 @@ html[data-sl-dark] [data-own-look] {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-white\/70:not([data-own-look], [data-own-look] *):hover { background-color: rgba(37,37,42,0.7); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-white\/90:not([data-own-look], [data-own-look] *):hover { background-color: rgba(37,37,42,0.9); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#3a3a44\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.24); }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#c9cbd1\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#c9ccd2\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#c9ccd3\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#c9cdd3\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }

@@ -61,7 +61,7 @@ const VARIANT_COLUMNS_BASIC =
   before, so the page never fails where it used to open.
 */
 const PRODUCT_COLUMNS =
-  "id, creator_id, title, description, price_cents, compare_at_cents, slug, type, status, show_sales_badge, refund_policy_enabled, refund_policy_type, seo_title, seo_description, call_to_action, category, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents, video_url, thumbnail_url, gallery_urls, whats_included, faqs, custom_fields, personalization"
+  "id, creator_id, title, description, price_cents, compare_at_cents, slug, type, status, show_sales_badge, refund_policy_enabled, refund_policy_type, seo_title, seo_description, call_to_action, category, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents, video_url, thumbnail_url, cover_original_url, gallery_urls, whats_included, faqs, custom_fields, personalization"
 
 /** Postgres and PostgREST's "no such column": 42703, or PGRST204 from the schema cache. */
 const missingColumn = (error: { code?: string; message?: string } | null | undefined) =>

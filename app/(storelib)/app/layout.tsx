@@ -24,6 +24,7 @@ import { TimeZoneSync } from "@/components/app/time-zone-sync"
 import { PlanWatch } from "@/components/app/plan-watch"
 import { factsFromRows, homeProgress, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
 import { listBusinesses } from "@/lib/businesses/server"
+import { handedHomeFor } from "@/lib/handoff/home"
 import { within } from "@/lib/website-builder/load-guard"
 import { readSwitchArrival, SWITCH_ARRIVAL_SCRIPT, SWITCH_COOKIE } from "@/lib/businesses/switch-screen"
 import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
@@ -314,6 +315,9 @@ export default async function AppLayout({
   if (known) {
     const landing = appLanding({ acting: !!teamStore, ownAccess, memberships: memberOf.length, path: "/app" })
     if (landing.kind === "adopt") redirect(landing.to)
+    /* A login with no store of its own that took a business over opens that business, never onboarding (lib/handoff/home). */
+    const handed = (!creator || landing.kind === "sell") && !memberRead.failed ? await handedHomeFor(user.id) : null
+    if (handed) redirect(handed)
     if ((!creator || landing.kind === "sell") && !memberRead.failed) {
       redirect("/sell")
     }

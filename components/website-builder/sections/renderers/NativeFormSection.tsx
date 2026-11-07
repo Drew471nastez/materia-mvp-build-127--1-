@@ -1,7 +1,10 @@
 "use client"
-import { SectionWrapper, sectionColors, type SectionProps } from "../_shared"
-import { NativeFormBlock } from "@/components/forms/native-form-block"
+import { SectionWrapper, sectionColors, str, bool, type SectionProps } from "../_shared"
+import { NativeFormBlock, presentationOf } from "@/components/forms/native-form-block"
 import { UUID } from "@/lib/forms/actions"
+/** "Show as", or for a section saved before it, the old inline toggle. */
+const shownAs = (presentation: string, inline: boolean) => presentationOf({ presentation, inline })
+
 export function NativeFormSection({
   section,
   theme,
@@ -35,7 +38,7 @@ export function NativeFormSection({
           <NativeFormBlock
             formId={id}
             title={String(s.button_text ?? "Open form")}
-            inline={s.inline !== false}
+            presentation={shownAs(str(s.presentation, ""), bool(s.inline, true))}
             source="website"
             preview={insideEditor === true}
           />

@@ -26,7 +26,8 @@ type Row = { id: string; title: string; kind: "manual" | "smart"; member: boolea
 export const CollectionsCard = React.forwardRef<CollectionsHandle, { productId: string | null; cardClass: string; titleClass: string; onValue?: (on: string[] | undefined, saved: boolean) => void }>(function CollectionsCard({ productId, cardClass, titleClass, onValue }, ref) {
   const [rows, setRows] = React.useState<Row[] | null>(null)
   const [on, setOn] = React.useState<Set<string>>(new Set())
-  const dirty = React.useRef(false)
+  /* Each read and each save takes a number; an answer older than the last one asked is dropped. */
+  const asked = React.useRef(0)
   /* Told to the editor after each draw, so Save lights while the pills differ from what was loaded (product-editor reportCard). */
   const told = React.useRef(onValue)
   told.current = onValue
@@ -38,32 +39,58 @@ export const CollectionsCard = React.forwardRef<CollectionsHandle, { productId: 
   }, [on, rows])
   React.useEffect(() => () => told.current?.(undefined, true), [])
 
+  /*
+    READ WHEN THE PRODUCT IS OPENED, not when a new one gets its id: that
+    read answered from before this card's save, cleared the pills, and the
+    save then put the new product in no collection. The save's answer says
+    where it is.
+  */
+  const heldFor = React.useRef<string | null | undefined>(undefined)
   React.useEffect(() => {
-    let live = true
+    const before = heldFor.current
+    heldFor.current = productId
+    if (before === null && productId) return
+    const mine = ++asked.current
     const q = productId ? `?productId=${encodeURIComponent(productId)}` : ""
     fetch(`/api/collections/product${q}`, { cache: "no-store", credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { collections?: Row[] } | null) => {
-        if (!live || !d || !Array.isArray(d.collections)) return
+        if (mine !== asked.current || !d || !Array.isArray(d.collections)) return
         asLoaded.current = true
         setRows(d.collections)
         setOn(new Set(d.collections.filter((c) => c.kind === "manual" && c.member).map((c) => c.id)))
       })
       .catch(() => undefined)
-    return () => {
-      live = false
-    }
   }, [productId])
+
+  /* The pills as last drawn, for a save's answer to keep one pressed while it was saving. */
+  const onNow = React.useRef(on)
+  onNow.current = on
 
   React.useImperativeHandle(
     ref,
     () => ({
       save: async (id: string) => {
-        if (!rows || !dirty.current) return null
+        if (!rows) return null
+        /* Only the pills changed since it loaded or saved, so an older tab never takes the product out of a collection it was put in elsewhere. */
+        const was = new Set(rows.filter((c) => c.kind === "manual" && c.member).map((c) => c.id))
+        const sentOn = on
+        const add = [...sentOn].filter((c) => !was.has(c))
+        const remove = [...was].filter((c) => !sentOn.has(c))
+        if (add.length === 0 && remove.length === 0) return null
+        const mine = ++asked.current
         try {
-          const r = await fetch("/api/collections/product", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ productId: id, collectionIds: [...on] }) })
-          if (!r.ok) return ((await r.json().catch(() => ({}))) as { error?: string }).error ?? tt("The collections were not saved.")
-          dirty.current = false
+          const r = await fetch("/api/collections/product", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "same-origin", cache: "no-store", body: JSON.stringify({ productId: id, add, remove }) })
+          const json = (await r.json().catch(() => ({}))) as { error?: string; member?: unknown }
+          if (!r.ok) return json.error ?? tt("The collections were not saved.")
+          if (mine === asked.current && Array.isArray(json.member)) {
+            const member = new Set(json.member.filter((x): x is string => typeof x === "string"))
+            const current = onNow.current
+            const next = new Set(rows.filter((c) => c.kind === "manual" && (current.has(c.id) !== sentOn.has(c.id) ? current.has(c.id) : member.has(c.id))).map((c) => c.id))
+            asLoaded.current = next.size === member.size && [...next].every((c) => member.has(c))
+            setRows(rows.map((c) => (c.kind === "manual" ? { ...c, member: member.has(c.id) } : c)))
+            setOn(next)
+          }
           return null
         } catch {
           return tt("The collections were not saved.")
@@ -75,7 +102,6 @@ export const CollectionsCard = React.forwardRef<CollectionsHandle, { productId: 
 
   if (!rows || rows.length === 0) return null
   const toggle = (id: string) => {
-    dirty.current = true
     hapticTap("soft")
     setOn((s) => {
       const next = new Set(s)

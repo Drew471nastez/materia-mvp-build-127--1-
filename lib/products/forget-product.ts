@@ -46,9 +46,10 @@ type Admin = {
 }
 
 /**
- * Every cache that holds this product or a list it appeared in. `"max"` so
- * the entry is dropped rather than left to expire, which is the same call
- * app/api/revalidate makes after a save.
+ * Every cache that holds this product or a list it appeared in, expired
+ * now, which is the same call app/api/revalidate makes after a save: an
+ * unpublished or deleted product is not shown once more while the list is
+ * read again in the background.
  */
 export function purgeProductCaches({
   creatorId,
@@ -61,11 +62,11 @@ export function purgeProductCaches({
   slug?: string | null
   handle?: string | null
 }): void {
-  if (slug) revalidateTag(productTag(slug), "max")
-  if (productId) revalidateTag(productTag(productId), "max")
-  revalidateTag(creatorTag(creatorId), "max")
+  if (slug) revalidateTag(productTag(slug), { expire: 0 })
+  if (productId) revalidateTag(productTag(productId), { expire: 0 })
+  revalidateTag(creatorTag(creatorId), { expire: 0 })
   /* The website's shop grid, its product count and its SEO product list. */
-  revalidateTag(creatorShopTag(creatorId), "max")
+  revalidateTag(creatorShopTag(creatorId), { expire: 0 })
   /* A OnePage block that drew it, expired at once rather than shown once more (lib/onepage/public-cache). */
   void onePageProductsChanged(creatorId)
   /* The creator page and the product's page, which the CDN holds for everybody (round 49). */

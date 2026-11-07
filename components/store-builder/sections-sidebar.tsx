@@ -2764,7 +2764,7 @@ function SectionSettingsForm({
 
       {section.type === "image-text" && <ImageTextSettingsForm settings={settings as ImageTextSettings} onChange={onChange} products={products} />}
       {section.type === "benefits" && <BenefitsSettingsForm settings={settings as BenefitsSettings} onChange={onChange} />}
-      {section.type === "native-form" && (()=>{const s=settings as import("@/lib/store-builder/types").NativeFormSettings;return <FormReferenceEditor formId={s.form_id} title={s.title} inline={s.inline} onChange={form_id=>onChange({...s,form_id})} onTitleChange={title=>onChange({...s,title})} onInlineChange={inline=>onChange({...s,inline})}/>})()}
+      {section.type === "native-form" && (()=>{const s=settings as import("@/lib/store-builder/types").NativeFormSettings;return <FormReferenceEditor formId={s.form_id} title={s.title} inline={s.inline} presentation={s.presentation} onPresentationChange={presentation=>onChange({...s,presentation,inline:presentation==="inline"||presentation==="card"})} onChange={form_id=>onChange({...s,form_id})} onTitleChange={title=>onChange({...s,title})} onInlineChange={inline=>onChange({...s,inline})}/>})()}
       {section.type === "text-block" && <TextBlockSettingsForm settings={settings as TextBlockSettings} onChange={onChange} />}
       {section.type === "announcement-bar" && (
         <AnnouncementBarSettingsForm

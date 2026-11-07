@@ -50,17 +50,34 @@ async function runJob(request: Request) {
     /* Storelib analytics on to the stores' own tools (lib/analytics/destinations): what is due, retries included, in the time left. */
     const forwardMs = run.share(10_000)
     const forwarded = forwardMs > 0 ? await drainForwarded(forwardMs) : { taken: 0, sent: 0, retried: 0, failed: 0, skipped: 0 }
+    /* Form responses' emails and webhooks that are due, then retention and loose uploads (lib/forms/delivery-server.ts). */
+    const formsMs = run.share(8_000)
+    const forms = formsMs > 0 ? await drainForms(formsMs) : null
     const ms = Date.now() - started
     /* A line only when the run did something; an idle run every few minutes was a log line each time. Changed on purpose (the owner: lower Vercel costs). */
     const didWork = summary.events + summary.eventErrors + summary.planned + summary.cancelled + summary.jobs > 0
     if (didWork) console.log(
       `[cron/notify] ${summary.available ? "ran" : "not available (its SQL has not run)"}: ${summary.events} events (${summary.eventErrors} errors), ${summary.planned} jobs planned, ${summary.cancelled} cancelled, ${summary.jobs} jobs run: ${summary.sent} sent, ${summary.skipped} skipped, ${summary.retried} to retry, ${summary.deferred} deferred, ${summary.failed} failed, ${ms}ms${summary.stoppedForTime ? ", stopped for time" : ""}`,
     )
+    if (forms && forms.taken + forms.expired + forms.orphans > 0) console.log(`[cron/notify] forms: ${forms.delivered} delivered, ${forms.retried} to retry, ${forms.failed} failed, ${forms.expired} expired, ${forms.orphans} loose uploads removed`)
     if (forwarded.taken > 0) console.log(`[cron/notify] analytics forwarded: ${forwarded.sent} sent, ${forwarded.retried} to retry, ${forwarded.failed} failed, ${forwarded.skipped} skipped`)
     return NextResponse.json({ ...summary, analyticsForwarded: forwarded, ms }, { headers: { "Cache-Control": "no-store" } })
   } catch {
     console.error("[cron/notify] the run failed")
     return NextResponse.json({ error: "Run failed" }, { status: 500 })
+  }
+}
+
+async function drainForms(budgetMs: number) {
+  try {
+    const [{ runFormJobs, sweepForms }, { createAdminClient }] = await Promise.all([import("@/lib/forms/delivery-server"), import("@/lib/supabase/admin")])
+    const db = createAdminClient()
+    const until = Date.now() + Math.min(budgetMs, 8_000)
+    const jobs = await runFormJobs(db as never, { limit: 40, until })
+    const swept = jobs.available && Date.now() < until ? await sweepForms(db as never, { until }) : { expired: 0, orphans: 0 }
+    return { ...jobs, ...swept }
+  } catch {
+    return null
   }
 }
 

@@ -160,7 +160,8 @@ check(
     part.includes("GRANT SELECT (id, product_id, file_name, created_at) ON public.digital_assets TO anon;") &&
     part.includes('ALTER POLICY "Anyone can view digital assets metadata" ON public.digital_assets TO anon;'),
 )
-check("nothing in the app reads the indexability view or the partitioned copies", source.every((f) => !/storefront_indexability|_partitioned\b/.test(texts.get(f)!)))
+/* lib/handoff/coverage.ts is the business handoff's list of every table and what happens to it; it names the copies but never reads them. */
+check("nothing in the app reads the indexability view or the partitioned copies", source.filter((f) => f !== "lib/handoff/coverage.ts").every((f) => !/storefront_indexability|_partitioned\b/.test(texts.get(f)!)))
 check(
   "the partitioned copies and every partition of theirs get row level security and lose public access",
   /c\.relname IN \('analytics_events_partitioned', 'onepage_views_partitioned'\)/.test(part) && /pg_inherits/.test(part) && part.includes("ENABLE ROW LEVEL SECURITY', t); EXECUTE format('REVOKE ALL ON %s FROM anon, authenticated', t);"),

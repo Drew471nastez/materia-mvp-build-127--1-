@@ -8,6 +8,8 @@ import { throughWelcome } from "@/lib/account/welcome"
 import { APP_OPEN_USED, destinationWithAppOpen } from "@/lib/account/app-open"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { INVITE_COOKIE, inviteFallbackNext } from "@/lib/team/invite-links"
+import { CLAIM_COOKIE, claimFallbackNext } from "@/lib/handoff/rules"
+import { handedHomeFor } from "@/lib/handoff/home"
 import { onATeam } from "@/lib/team/server"
 import { keepProfileName, type KeepNameDb } from "@/lib/profile/keep-name"
 import { attachGuestOrdersByEmail } from "@/lib/orders/attach-guest-orders"
@@ -79,6 +81,12 @@ export async function GET(request: Request) {
     carry = { ...carry, next: inviteFallbackNext(carry.next, invite) }
     jar.delete(INVITE_COOKIE)
   }
+  /* A business handover's claim link opened before signing in, the same way (lib/handoff/rules CLAIM_COOKIE). */
+  const claim = jar.get(CLAIM_COOKIE)?.value
+  if (claim && user) {
+    carry = { ...carry, next: claimFallbackNext(carry.next, claim) }
+    jar.delete(CLAIM_COOKIE)
+  }
 
   /*
     NOBODY HERE, OR WE COULD NOT TELL. Either way the login page is the
@@ -125,7 +133,9 @@ export async function GET(request: Request) {
   */
   /* On a store's team with no store of their own: the dashboard is that store's, never onboarding (lib/team/landing). */
   const teamMember = !hasSellerAccess(access) && (await onATeam(createAdminClient(), user.id))
-  const opened = destinationWithAppOpen(destinationAfterAuth(carry, access, { teamMember }), user.user_metadata, carry.next)
+  /* No store of its own and nowhere else to go, but a business was handed to this login: that business opens (lib/handoff/home). */
+  const handed = !hasSellerAccess(access) && !teamMember && !carry.next && !carry.intent ? await handedHomeFor(user.id) : null
+  const opened = destinationWithAppOpen(handed ?? destinationAfterAuth(carry, access, { teamMember }), user.user_metadata, carry.next)
   if (opened.used) after(() => supabase.auth.updateUser({ data: { [APP_OPEN_USED]: opened.used } }).then(() => undefined))
   const response = go(throughWelcome(opened.destination, { createdAt: user.created_at, meta: user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent }))
   /* "Account created" or "Welcome back" on the page they land on, from the account's age, not the button pressed (lib/auth/arrival.ts). */

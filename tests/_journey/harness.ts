@@ -39,6 +39,8 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/store/taxes/regions/[id]": () => import("@/app/api/store/taxes/regions/[id]/route"),
   "/api/store/channels": () => import("@/app/api/store/channels/route"),
   "/api/store/channels/product": () => import("@/app/api/store/channels/product/route"),
+  /* Round AK: the product editor's Collections card, changes only (tests/product-channels-ak2.test.ts). */
+  "/api/collections/product": () => import("@/app/api/collections/product/route"),
   "/api/stripe/connect/start": () => import("@/app/api/stripe/connect/start/route"),
   "/api/stripe/connect/status": () => import("@/app/api/stripe/connect/status/route"),
   "/api/stripe/webhook": () => import("@/app/api/stripe/webhook/route"),

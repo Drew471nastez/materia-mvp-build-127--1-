@@ -147,7 +147,7 @@ function main() {
     const live = read("components/onepage/public-onepage.tsx")
     const module = read("components/onepage/extra-blocks.tsx")
     check("the question is on the live page once", (live.match(/<SensitiveLinkQuestion \/>/g) ?? []).length === 1)
-    check("every box a block is drawn in carries the mark, a group's included", (live.match(/data-sensitive-label=\{sensitiveLabel\((block|child)\)\}/g) ?? []).length === 6) /* round 10: a fifth, each tile of a pair of product tiles. Changed on purpose (round 40): a sixth, each link tile of the Grid layout (lib/onepage/theme-layout pairLinkTiles) */
+    check("every box a block is drawn in carries the mark, a group's included", (live.match(/data-sensitive-label=\{sensitiveLabel\((block|child)\)\}/g) ?? []).length === 7) /* Changed on purpose (round AK): a seventh, each tile of a collection's Grid layout. Round 10: a fifth, each tile of a pair of product tiles. Changed on purpose (round 40): a sixth, each link tile of the Grid layout (lib/onepage/theme-layout pairLinkTiles) */
     check("only a link marked sensitive is marked", /if \(block\?\.type !== "link_button" \|\| !block\.data\?\.sensitive\) return undefined/.test(live))
     check("the press is held before the link's own code hears it", /document\.addEventListener\("click", onClick, true\)/.test(module) && /e\.preventDefault\(\)\s*e\.stopPropagation\(\)/.test(module))
     check("Continue presses the same thing again, let through, so the click count and the new tab still happen",
@@ -165,7 +165,7 @@ function main() {
     check("the Add sheet lists all five", ["heading", "faq", "countdown", "map", "video"].every((t) => new RegExp(`extra\\("${t}", "\\w+"\\)`).test(picker)) && /<AddBlockPicker\b/.test(tab))
     check("each has its own form", /return <ExtraBlockEditor block=\{block\} updateData=\{updateData\} \/>/.test(tab))
     check("the schedule and the sensitive switch sit under every block's settings but the header's",
-      /const settingsWithExtras = \(\) => \(/.test(tab) && /block\.type !== "header" \? \(\s*<BlockExtras/.test(tab) && (tab.match(/\{settingsWithExtras\(\)\}|return settingsWithExtras\(\)/g) ?? []).length === 2)
+      /* Changed on purpose (round AK): one extras node, drawn under the plain editor and under the Settings tab (components/onepage/block-settings). */ /const extras =\s*block\.type !== "header" \? \(\s*<BlockExtras/.test(tab) && (tab.match(/\{extras\}/g) ?? []).length === 2)
     check("a block inside a group is not scheduled on its own", /scheduling=\{!updateBlockOverride\}/.test(tab))
     check("the new blocks are not offered inside a group", /const blockedInGroup = \[[^\]]*"heading", "faq", "countdown", "map", "video"\]/.test(tab))
     check("a block's row says when it is scheduled or sensitive", /<BlockBadges block=\{block\} \/>/.test(tab))

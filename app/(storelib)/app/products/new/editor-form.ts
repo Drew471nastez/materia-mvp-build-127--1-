@@ -40,6 +40,12 @@ export interface MediaItem {
   type: "image" | "youtube" | "video"
   url: string
   thumbnailUrl?: string
+  /**
+   * Round AK: a download's or course's cover is stored twice. `url` is the 1280x720 copy with light grey padding the
+   * shop's cards use; `original` is the picture as uploaded, saved as products.cover_original_url (SQL part 377) for
+   * the OnePage, the product page and the checkout. Only when the picture was padded.
+   */
+  original?: string
 }
 
 export interface ProductVariant {
@@ -140,6 +146,8 @@ export interface EditorProductRow {
   pwyw_suggested_price_cents?: number | null
   video_url?: string | null
   thumbnail_url?: string | null
+  /** The cover as uploaded, unpadded (SQL part 377); absent before that part has run. */
+  cover_original_url?: string | null
   gallery_urls?: string[] | null
   whats_included?: unknown
   faqs?: unknown
@@ -199,6 +207,25 @@ export interface EditorCreator {
 
 const dollars = (cents: number | null | undefined, empty = ""): string => (cents ? (cents / 100).toString() : empty)
 
+/**
+ * The search engine description the editor writes from the description
+ * while nobody has typed one: its text, at most 155 characters. Also how a
+ * saved product tells its own written one from one the editor wrote.
+ */
+export function seoDescriptionFrom(description: string | null | undefined): string {
+  const plain = (description ?? "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+  return plain.length > 155 ? plain.substring(0, 152) + "..." : plain
+}
+
 /** A YouTube address's video id, or null. */
 export const parseYouTubeUrl = (url: string): string | null => {
   const patterns = [/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/, /^([a-zA-Z0-9_-]{11})$/]
@@ -220,7 +247,8 @@ export function mediaOf(product: EditorProductRow): MediaItem[] {
   }
   /* A video first in the list leaves its first frame as the thumbnail: that frame is the video's, not a photo of its own. */
   if (product.thumbnail_url && !isYouTubeThumbnail(product.thumbnail_url) && !isPosterName(product.thumbnail_url) && !isVideoUrl(product.thumbnail_url)) {
-    media.push({ id: "image-0", type: "image", url: product.thumbnail_url })
+    const original = typeof product.cover_original_url === "string" && product.cover_original_url ? product.cover_original_url : null
+    media.push({ id: "image-0", type: "image", url: product.thumbnail_url, ...(original ? { original } : {}) })
   }
   if (Array.isArray(product.gallery_urls)) {
     product.gallery_urls.forEach((url, idx) => {
@@ -344,7 +372,8 @@ export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "
     refundPolicyType: product.refund_policy_type || "7_day",
     seoTitle: product.seo_title || "",
     seoDescription: product.seo_description || "",
-    seoEdited: !!product.seo_description?.trim(),
+    /* Typed by the creator: kept. Written by the editor from the description (every save writes one): it follows the description again, instead of staying at the first save's words. */
+    seoEdited: !!product.seo_description?.trim() && product.seo_description.trim() !== seoDescriptionFrom(product.description),
     callToAction: product.call_to_action || "",
     selectedCategory: product.category || null,
     payWhatYouWant: product.pay_what_you_want || false,
@@ -507,14 +536,31 @@ export function reportCardDraft(cards: CardDrafts, key: string, value: unknown, 
   return { ...cards, [key]: { now, saved: nextSaved } }
 }
 
-/** After a save: what each card held when the save was sent is what it has saved. */
+/**
+ * After a save: what each card held when the save was sent is what it has
+ * saved. Unless the card already said what it saved since then (its read
+ * back, which the sales channels card gives with another tab's change in
+ * it): that word is newer than the save's own and is kept.
+ */
 export function cardsSaved(cards: CardDrafts, sent: CardDrafts): CardDrafts {
   const next: CardDrafts = {}
-  for (const [k, v] of Object.entries(cards)) next[k] = { now: v.now, saved: sent[k]?.now ?? v.saved }
+  for (const [k, v] of Object.entries(cards)) {
+    const toldSince = !!sent[k] && v.saved !== sent[k].saved
+    next[k] = { now: v.now, saved: toldSince ? v.saved : (sent[k]?.now ?? v.saved) }
+  }
   return next
 }
 
 /** The cards whose draft is not what they saved. */
 export function changedCards(cards: CardDrafts): string[] {
   return Object.keys(cards).filter((k) => cards[k].now !== cards[k].saved)
+}
+
+/**
+ * The cover as uploaded, for products.cover_original_url (SQL part 377): the first item's own unpadded picture when
+ * the first item is a padded photo, otherwise null (the thumbnail is then the picture itself, or a video's frame).
+ */
+export function coverOriginalOf(media: readonly MediaItem[]): string | null {
+  const first = media[0]
+  return first && first.type === "image" && typeof first.original === "string" && first.original ? first.original : null
 }

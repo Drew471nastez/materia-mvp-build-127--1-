@@ -123,8 +123,17 @@ export async function setDefaultChannel(db: Db, creatorId: string, key: unknown)
 
 /** The channels one product is taken off, as keys. */
 export async function productOff(db: Db, creatorId: string, productId: string): Promise<string[]> {
+  return (await readProductOff(db, creatorId, productId)) ?? []
+}
+
+/**
+ * The same, or null when the read failed. The editor's card is drawn from
+ * this, so a failed read is said rather than shown as "on every channel",
+ * which a save would then have written over the real choice.
+ */
+export async function readProductOff(db: Db, creatorId: string, productId: string): Promise<string[] | null> {
   const { data, error } = await db.from("product_channel_listings").select("channel_id").eq("creator_id", creatorId).eq("product_id", productId).eq("listed", false)
-  if (error) return []
+  if (error) return isMissingTable(error) ? [] : null
   return ((data ?? []) as { channel_id: string }[]).map((r) => r.channel_id)
 }
 
@@ -137,15 +146,26 @@ export async function setProductChannels(db: Db, creatorId: string, productId: u
   if (!Array.isArray(off) || off.length > MAX_CHANNELS) return { ok: false, error: "Bad request.", status: 400 }
   const { data: product } = await db.from("products").select("id").eq("id", productId).eq("creator_id", creatorId).maybeSingle()
   if (!product) return { ok: false, error: "That product was not found.", status: 404 }
-  if(typeof db.rpc==="function"){
-    const result=await db.rpc("set_product_channels_atomic",{p_creator:creatorId,p_product:productId,p_off:off})
-    if(!result.error&&Array.isArray(result.data))return {ok:true,off:result.data}
-    if(result.error&&!["PGRST202","42883"].includes(result.error.code))return {ok:false,error:"The sales channels could not be saved. Try again.",status:result.error.code==="22023"?400:503}
+  if (!off.every((k) => typeof k === "string" && k.length <= 64)) return { ok: false, error: "Bad request.", status: 400 }
+  /*
+    One locked transaction when SQL 20271125 (run-now part 374) has run:
+    the product row is locked, the keys resolved and the listings written
+    together. Before it has run the function is not there (PGRST202, 42883)
+    and the writes below do the same in steps.
+  */
+  if (typeof db.rpc === "function") {
+    const result = await db.rpc("set_product_channels_atomic", { p_creator: creatorId, p_product: productId, p_off: off })
+    if (!result.error && Array.isArray(result.data)) return { ok: true, off: (result.data as unknown[]).map(String) }
+    if (result.error && !RPC_MISSING.has(result.error.code)) {
+      if (isMissingTable(result.error)) return { ok: false, error: CHANNELS_NEED_PART, status: 409 }
+      return { ok: false, error: result.error.code === "22023" ? "That sales channel was not found. Reload and try again." : "The sales channels could not be saved. Try again.", status: result.error.code === "22023" ? 400 : 503 }
+    }
   }
   const ids: string[] = []
   for (const key of off) {
     const id = await channelIdOf(db, creatorId, key)
-    if (!id) return {ok:false,error:"The sales channels could not be saved. Reload and try again.",status:503}
+    /* Not this store's channel (or gone): refused, as the database function refuses it. A built-in whose row could not be made: try again. */
+    if (!id) return isBuiltIn(key) ? { ok: false, error: "The sales channels could not be saved. Reload and try again.", status: 503 } : { ok: false, error: "That sales channel was not found. Reload and try again.", status: 400 }
     ids.push(id)
   }
   const keep = [...new Set(ids)]
@@ -161,6 +181,46 @@ export async function setProductChannels(db: Db, creatorId: string, productId: u
     if (error) return { ok: false, error: "The channels could not be saved.", status: 500 }
   }
   return { ok: true, off: keep }
+}
+
+/** PostgREST's and Postgres' "no such function": the database has not run 20271125 yet. */
+const RPC_MISSING = new Set(["PGRST202", "42883"])
+
+export interface ChannelChanges {
+  /** Channels (keys) to put the product back on. */
+  list?: unknown
+  /** Channels (keys) to take it off. */
+  unlist?: unknown
+}
+
+/**
+ * ONLY WHAT THE EDITOR CHANGED, put on top of what is saved now.
+ *
+ * The editor used to send every channel the product was off, as its form
+ * held them when it opened. A tab left open, or a second person in the
+ * store, then wrote its old ticks over a newer save: Explore turned off in
+ * one tab came back on when the other tab saved the Online store. Now the
+ * card sends the channels whose tick it changed, and every other channel
+ * keeps what is saved at the moment of the write.
+ */
+export async function changeProductChannels(db: Db, creatorId: string, productId: unknown, changes: ChannelChanges): Promise<{ ok: true; off: string[] } | { ok: false; error: string; status: number }> {
+  if (typeof productId !== "string" || !UUID.test(productId)) return { ok: false, error: "That product was not found.", status: 404 }
+  const keys = (v: unknown): string[] | null => (v === undefined || v === null ? [] : Array.isArray(v) && v.length <= MAX_CHANNELS && v.every((k) => typeof k === "string" && k.length <= 64) ? [...new Set(v as string[])] : null)
+  const list = keys(changes.list)
+  const unlist = keys(changes.unlist)
+  if (!list || !unlist || list.some((k) => unlist.includes(k))) return { ok: false, error: "Bad request.", status: 400 }
+  const { data: product } = await db.from("products").select("id").eq("id", productId).eq("creator_id", creatorId).maybeSingle()
+  if (!product) return { ok: false, error: "That product was not found.", status: 404 }
+  const now = await readProductOff(db, creatorId, productId)
+  if (now === null) return { ok: false, error: "The sales channels could not be saved. Try again.", status: 503 }
+  if (list.length === 0 && unlist.length === 0) return { ok: true, off: now }
+  /* A built-in channel named by its kind is the row of that kind, when there is one; with no row the product is on it already. */
+  const { data: rows, error } = await db.from("sales_channels").select("id, kind").eq("creator_id", creatorId).limit(MAX_CHANNELS + 5)
+  if (error) return { ok: false, error: isMissingTable(error) ? CHANNELS_NEED_PART : "The sales channels could not be saved. Try again.", status: isMissingTable(error) ? 409 : 503 }
+  const idOf = (key: string): string | null => (isBuiltIn(key) ? (((rows ?? []) as { id: string; kind: string }[]).find((r) => r.kind === key)?.id ?? null) : UUID.test(key) ? key.toLowerCase() : null)
+  const back = new Set(list.map(idOf).filter((id): id is string => !!id))
+  const off = [...new Set([...now.filter((id) => !back.has(id.toLowerCase())), ...unlist])]
+  return setProductChannels(db, creatorId, productId, off)
 }
 
 export { offChannel, offChannelAmong } from "./channel-filter"

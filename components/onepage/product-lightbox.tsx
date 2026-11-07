@@ -26,6 +26,7 @@
  *
  * Closing hands back the slide it was on, so the sheet stands on it.
  */
+import { FramedPicture, shownRatio, useLetterbox } from "@/components/ui/framed-picture"
 import * as React from "react"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
@@ -130,8 +131,7 @@ export function ProductLightbox({
           {media.map((m, i) => (
             <div key={i} className="relative grid h-full w-full shrink-0 snap-center snap-always place-items-center px-0 sm:px-16" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 56px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 84px)" }}>
               {m.type === "image" ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={m.url} alt={i === 0 ? title : ""} className="h-full w-full select-none object-contain" draggable={false} decoding="async" loading={Math.abs(i - at) <= 1 ? "eager" : "lazy"} />
+                <LightboxPicture src={m.url} alt={i === 0 ? title : ""} eager={Math.abs(i - at) <= 1} />
               ) : i === at && open ? (
                 <div className="w-full" style={{ maxWidth: `min(100%, calc((var(--vv-h, 100dvh) - 140px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) * ${ratios?.[i] || 16 / 9}))` }}>
                   <React.Suspense fallback={<LightboxPoster entry={m} />}>
@@ -190,5 +190,24 @@ function LightboxPoster({ entry }: { entry: Extract<MediaEntry, { type: "video" 
     <img src={entry.poster} alt="" className="h-full w-full select-none object-contain" draggable={false} decoding="async" />
   ) : (
     <video src={firstFrameSrc(entry.url)} muted playsInline preload="metadata" className="h-full w-full object-contain" aria-hidden />
+  )
+}
+
+/**
+ * One picture full screen (round AK): whole, at its own shape. A picture carrying the product editor's grey padding
+ * is drawn without it (lib/images/letterbox): a box of the picture's own shape, as large as the space allows (a size
+ * container, so the box's width can follow the space's height), with the padding outside the box.
+ */
+function LightboxPicture({ src, alt, eager }: { src: string; alt: string; eager: boolean }) {
+  const shape = useLetterbox(src, eager)
+  const own = shape?.box ? shownRatio(shape) : null
+  if (!own) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={src} alt={alt} className="h-full w-full select-none object-contain" draggable={false} decoding="async" loading={eager ? "eager" : "lazy"} />
+  }
+  return (
+    <span className="grid h-full w-full select-none place-items-center [container-type:size]" data-lightbox-trimmed="">
+      <FramedPicture src={src} alt={alt} frame={own} shape={shape} style={{ width: `min(100cqw, calc(100cqh * ${own}))`, aspectRatio: String(own) }} imgProps={{ decoding: "async" }} />
+    </span>
   )
 }

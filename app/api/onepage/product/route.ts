@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { withOriginalCover } from "@/lib/products/cover"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isPubliclyVisible, publicOnly } from "@/lib/products/visibility"
@@ -140,7 +141,8 @@ export async function GET(request: Request) {
 
   const gallery = Array.isArray(p.gallery_urls) ? (p.gallery_urls as unknown[]).filter((u): u is string => typeof u === "string" && !!u && !/ytimg\.com|youtube\.com|youtu\.be/i.test(u)) : []
   const thumb = typeof p.thumbnail_url === "string" && p.thumbnail_url ? p.thumbnail_url : null
-  const images = [...new Set([...(thumb ? [thumb] : []), ...gallery])].slice(0, 12)
+  /* Round AK: the cover as uploaded (SQL part 377) in the card copy's place; select("*") brings it once it exists. */
+  const images = withOriginalCover([...(thumb ? [thumb] : []), ...gallery], p as { thumbnail_url?: string | null; cover_original_url?: string | null }).slice(0, 12)
   const meta = (user?.user_metadata ?? {}) as { full_name?: string; name?: string }
 
   return NextResponse.json(

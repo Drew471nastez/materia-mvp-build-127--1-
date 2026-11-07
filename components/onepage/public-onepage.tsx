@@ -1,11 +1,12 @@
 "use client"
 import {NativeActionFrame,NativeFormBlock} from "@/components/forms/native-form-block"
-import {actionHref,normaliseAction,type NativeAction} from "@/lib/forms/actions"
+import {actionOpensNewTab,type NativeAction} from "@/lib/forms/actions"
+import {blockActionVars,withBlockAction,withBlockActions} from "@/lib/onepage/block-action"
 
 import {coverCropStyle,cropFromSettings} from "@/lib/images/cover-crop"
 
 import { BlockPresentationFrame, BlockSubtitle, VisualLinkCard } from "./block-presentation"
-import { presentationOf } from "@/lib/onepage/block-presentation"
+import { presentationOf, safeCardMedia } from "@/lib/onepage/block-presentation"
 
 import { ProfileImage } from "./profile-image"
 
@@ -40,7 +41,7 @@ import { resolveLinkIcon } from "@/components/onepage/link-icons"
 import { cn } from "@/lib/utils"
 import { Avatar } from "@/components/ui/avatar"
 import { AvatarMark } from "@/components/app/app-avatar"
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext } from "react"
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, createContext, useContext } from "react"
 import { ArrowRight, Bell, X, Check, Send, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { downloadEntitledFile } from "@/components/download-button"
@@ -53,8 +54,8 @@ import { fontStack } from "@/lib/onepage/fonts"
 import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
 /* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
 import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
-import { blockGapClass, blockLayoutOf, coverImageOf, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
-import { sheetRootCss } from "@/lib/onepage/sheet-theme"
+import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
+import { sheetPalette, sheetRootCss } from "@/lib/onepage/sheet-theme"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
@@ -1236,7 +1237,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     ...theme, // Spread theme to override defaults with actual values
   }
 
-  const safeBlocks = blocks || []
+  /* Addresses from actions first, so a link made from an action counts as a link with an address. */
+  const safeBlocks = useMemo(() => withBlockActions(blocks || []), [blocks])
   // Merge settings with defaults to ensure all fields exist (including verified badge)
   const safeSettings = {
     show_branding: true,
@@ -2458,10 +2460,7 @@ function GroupBlockRenderer({
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={handleMouseLeave}
       >
-        {/* Fade on left edge */}
-        {data.carousel_fade_edges && (
-          <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-8 bg-gradient-to-r from-black/20 to-transparent z-10 pointer-events-none" />
-        )}
+        {/* Soft edges: the scroller itself fades out at both sides (its mask below), so the slides melt into any page background. */}
 
         {/* Left Arrow Navigation - Desktop only, smooth fade in */}
         {isDesktop && canScrollLeft && (
@@ -2507,6 +2506,7 @@ function GroupBlockRenderer({
             margin: `-${CAROUSEL_ROOM}px -${CAROUSEL_ROOM - 8}px`,
             padding: `${CAROUSEL_ROOM + 12}px ${CAROUSEL_ROOM}px ${CAROUSEL_ROOM + 20}px`,
             scrollPaddingInline: `${CAROUSEL_ROOM}px`,
+            ...(data.carousel_fade_edges ? { maskImage: SOFT_EDGES, WebkitMaskImage: SOFT_EDGES } : {}),
           }}
           onScroll={handleScroll}
         >
@@ -2564,10 +2564,6 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Fade on right edge */}
-        {data.carousel_fade_edges && (
-          <div className="absolute right-0 top-0 bottom-0 w-6 sm:w-8 bg-gradient-to-l from-black/20 to-transparent z-10 pointer-events-none" />
-        )}
 
         {/* Dots navigation - clickable, updates based on scroll position */}
         {enabledChildren.length > 1 && (
@@ -2640,6 +2636,7 @@ function GroupBlockRenderer({
           {data.title}
         </h3>
       )}
+      <CollectionIntro data={data} theme={theme} />
       {data.layout === "carousel" ? renderCarousel() : renderStack()}
     </div>
   )
@@ -2647,6 +2644,35 @@ function GroupBlockRenderer({
 
 /** The room a group carousel's scroller keeps around its slides: the widest glow or hard shadow a button draws, and a lift. */
 const CAROUSEL_ROOM = 16
+/* A group carousel's soft edges, as a mask: no colour of its own, so it suits any page background. */
+const SOFT_EDGES = `linear-gradient(to right, transparent 0, #000 ${CAROUSEL_ROOM + 12}px, #000 calc(100% - ${CAROUSEL_ROOM + 12}px), transparent 100%)`
+
+/**
+ * A COLLECTION'S OPTIONAL PICTURE AND LINE (GroupBlockData image_url and
+ * description), above its blocks. The picture fades into the page at its
+ * foot, so there is no hard edge; with neither set, nothing is drawn and the
+ * group looks as it always did.
+ */
+function CollectionIntro({ data, theme }: { data: GroupBlockData; theme: OnePageTheme }) {
+  const image = safeCardMedia(data.image_url || undefined)
+  const description = data.description?.trim()
+  if (!image && !description) return null
+  return (
+    <div data-collection-intro="" className="flex w-full flex-col items-center gap-2 px-3">
+      {image ? (
+        <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16 / 7", borderRadius: Math.min(Number(theme.button_border_radius) || 16, 24), WebkitMaskImage: "linear-gradient(to bottom, #000 55%, transparent 100%)", maskImage: "linear-gradient(to bottom, #000 55%, transparent 100%)" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={onePageImageSrc(image, 960)} alt={data.title?.trim() || "Collection"} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+        </div>
+      ) : null}
+      {description ? (
+        <p className="max-w-[46ch] whitespace-pre-wrap break-words text-center text-[13.5px] leading-snug opacity-75" style={{ color: theme.text_color }}>
+          {description}
+        </p>
+      ) : null}
+    </div>
+  )
+}
 
 /** One slide's width, asked of the slide itself (the scroller's padding is not the slides' room). */
 function carouselSlideWidth(container: HTMLElement, percent: number): number {
@@ -3044,6 +3070,12 @@ function PublicImageCarousel({
   )
 }
 
+/** A call, a text, an email or a place on this page opens where it is; everything else in a new tab (lib/forms/actions actionOpensNewTab). */
+const linkTarget = (data: unknown): "_blank" | undefined => {
+  const action = (data as { action?: NativeAction } | null)?.action
+  return action && !actionOpensNewTab(action) ? undefined : "_blank"
+}
+
 /** A link marked sensitive: its label, for the box around it (SensitiveLinkQuestion asks before it opens). */
 function sensitiveLabel(block: any): string | undefined {
   if (block?.type !== "link_button" || !block.data?.sensitive) return undefined
@@ -3056,10 +3088,14 @@ const isBlockVisible = (block: any): boolean => isBlockShown(block)
 const groupChildrenShown = (children: OnePageBlock[] | undefined, inPreview: boolean): OnePageBlock[] =>
   (children || []).filter((c) => isBlockVisible(c) || (inPreview && isIncompleteLink(c)))
 
+/* A block's destination comes from its action (lib/onepage/block-action): the address is filled in once, and the frame opens a form, a pre-chat form or a product sheet on the page. */
 function PublicBlockRenderer(props: PublicBlockRendererProps) {
-  const action=(props.block.data as {action?:NativeAction})?.action
-  const block=props.block.type==="link_button"&&action?{...props.block,data:{...props.block.data,url:actionHref(normaliseAction(action))||""}}:props.block
-  return <NativeActionFrame action={action}><BlockPresentationFrame block={block}><CoreBlockRenderer {...props} block={block} /></BlockPresentationFrame></NativeActionFrame>
+  const { block, action } = withBlockAction(props.block)
+  /* A booking block whose booking is one of the creator's forms: that form's own button and pop-up, under the block's title. */
+  if (block.type === "calendly" && action?.type === "booking" && (action as { form_id?: string }).form_id) {
+    return <BlockPresentationFrame block={block}><NativeFormBlock formId={(action as { form_id: string }).form_id} title={((block.data as { title?: string }).title ?? "").trim() || "Book a time"} presentation="modal" /></BlockPresentationFrame>
+  }
+  return <NativeActionFrame action={action} vars={action ? blockActionVars(block, action) : undefined} sourceBlock={blockActionVars(block, action).service || undefined} dark={action?.type === "product" ? sheetPalette(props.theme as never).dark : false} seller={action?.type === "product" ? { name: props.profile?.title, avatarUrl: props.profile?.avatar_url } : null}><BlockPresentationFrame block={block}><CoreBlockRenderer {...props} block={block} /></BlockPresentationFrame></NativeActionFrame>
 }
 
 function CoreBlockRenderer({
@@ -3419,9 +3455,20 @@ function CoreBlockRenderer({
       const avatarSize = look.size
       /* The theme's cover picture, over the classic header (lib/onepage/theme-layout). */
       const cover = coverImageOf(theme)
+      /*
+        Three covers, one rule for the photo: its centre sits on the cover's
+        lower edge. The creator's own cover is a rounded band inside the
+        page's margins, the same margin above it as beside it; on a Hero it
+        is the full width picture instead, fading into the page as the Hero's
+        photo does. A theme's cover runs edge to edge. The band's shape is
+        lib/onepage/theme-layout coverAspect, which the crop editor reads too.
+      */
+      const ownCover = (theme as any).cover_profile_layout === true
+      const heroCover = heroCoverShown(theme as any)
+      const coverRatio = coverAspect(theme as any, isDesktop)
 
       return (
-        <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")} data-op-header="" data-op-cover={cover ? "" : undefined}>
+        <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")} data-op-header="" data-op-cover={cover ? (heroCover ? "hero" : "") : undefined}>
           {cover && (
             /*
               THE COVER (round 42, lib/onepage/theme-layout coverImageOf). A
@@ -3435,17 +3482,32 @@ function CoreBlockRenderer({
             <div
               data-cover-image=""
               className={cn(
-                (theme as any).cover_profile_layout ? "w-full" : isDesktop ? "-mx-7 w-[calc(100%+56px)]" : "-mx-5 -mt-8 w-[calc(100%+40px)]",
+                ownCover && !heroCover ? "w-full" : isDesktop ? "-mx-7 w-[calc(100%+56px)]" : "-mx-5 -mt-8 w-[calc(100%+40px)]",
                 "relative",
                 data.show_avatar !== false ? "mb-[calc(-1*var(--cover-pull)-0.75rem)] sm:mb-[calc(-1*var(--cover-pull)-1rem)]" : "",
               )}
-              style={{ ["--cover-pull" as string]: `${avatarSize / 2 + (isDesktop ? 25 : 0)}px` }}
+              style={{ ["--cover-pull" as string]: `${avatarSize / 2 + (isDesktop ? 25 : 0)}px`, marginTop: ownCover && !heroCover ? (isDesktop ? 28 : 20) : undefined }}
             >
-              <div className="relative w-full overflow-hidden" style={{ borderRadius: (theme as any).cover_profile_layout ? 16 : undefined, aspectRatio: (theme as any).cover_profile_layout ? "3 / 1" : isDesktop ? "2 / 1" : "16 / 10", backgroundColor: `color-mix(in srgb, ${theme.text_color || "#000000"} 8%, transparent)` }}>
+              {/*
+                No tint behind a picture that fades: it would be left as a grey
+                band where the picture has gone. A band that does not fade keeps
+                a faint tint while the picture loads.
+              */}
+              <div
+                className="relative w-full overflow-hidden"
+                data-cover-band={heroCover ? "hero" : ownCover ? "own" : "theme"}
+                style={{
+                  borderRadius: ownCover && !heroCover ? 16 : undefined,
+                  aspectRatio: String(coverRatio),
+                  backgroundColor: heroCover ? undefined : `color-mix(in srgb, ${theme.text_color || "#000000"} 8%, transparent)`,
+                  maskImage: heroCover ? HERO_FADE_MASK : undefined,
+                  WebkitMaskImage: heroCover ? HERO_FADE_MASK : undefined,
+                }}
+              >
                 <ProfileImage
-                  src={onePageImageSrc(cover,1200)} fallback={null} alt=""
+                  src={onePageImageSrc(cover, 1200)} fallback={null} alt=""
                   className="absolute inset-0 h-full w-full object-cover"
-                  style={(theme as any).cover_profile_layout ? coverCropStyle(cropFromSettings((theme as any).cover_crop,(theme as any).cover_crop?.zoom)) : {objectPosition:`50% ${(theme as any).cover_position_y ?? 50}%`}}
+                  style={ownCover ? coverCropStyle(cropFromSettings((theme as any).cover_crop, (theme as any).cover_crop?.zoom)) : { objectPosition: `50% ${(theme as any).cover_position_y ?? 50}%` }}
                   loading="eager" decoding="async"
                 />
               </div>
@@ -3460,7 +3522,7 @@ function CoreBlockRenderer({
               under the cover: with the header set to Left the picture moved
               and the circle stayed, and the page showed two.
             */
-            <div className="relative" data-page-avatar="" style={{ width: avatarSize, height: avatarSize, aspectRatio: "1 / 1", flexShrink: 0, marginTop: isDesktop ? 25 : 0, borderRadius: look.radius, boxShadow: cover && theme.background_type === "solid" && theme.background_color ? `0 0 0 4px ${theme.background_color}` : undefined }} data-avatar-shape={look.shape}>
+            <div className="relative" data-page-avatar="" style={{ width: avatarSize, height: avatarSize, aspectRatio: "1 / 1", flexShrink: 0, marginTop: isDesktop ? 25 : 0, /* Left aligned on a rounded band, the photo sits in from its corner, not on it. */ marginLeft: cover && ownCover && !heroCover && headerAlignOf(theme as any) === "left" ? 16 : undefined, borderRadius: look.radius, boxShadow: cover && theme.background_type === "solid" && theme.background_color ? `0 0 0 4px ${theme.background_color}` : undefined }} data-avatar-shape={look.shape}>
               {/* Laser Glow Effect - rotating gradient on border with trail */}
               {laserGlowEnabled && (
                 <>
@@ -3699,7 +3761,7 @@ function CoreBlockRenderer({
       )
     }
 
-    case "form_quiz": { const data=block.data as import("@/lib/onepage/types").FormQuizBlockData; return <NativeFormBlock formId={data.form_id} title={data.title} inline={data.inline}/> }
+    case "form_quiz": { const data=block.data as import("@/lib/onepage/types").FormQuizBlockData; return <NativeFormBlock formId={data.form_id} title={data.title} inline={data.inline} presentation={data.presentation}/> }
     case "link_button": {
       const data = (block.data || { label: "", url: "" }) as LinkButtonBlockData
       if (!data.url) return null
@@ -3834,7 +3896,7 @@ function CoreBlockRenderer({
               {/* Title area */}
               <a
                 href={getTargetUrl()}
-                target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
+                target={linkTarget(data)}
                 rel="noopener noreferrer"
                 onClick={() => trackClick(block.id, getTargetUrl())}
                 className={cn("block w-full px-5 py-3.5 sm:py-4 text-center transition-opacity", !isInsideCarousel && "hover:opacity-80")}
@@ -4060,7 +4122,7 @@ function CoreBlockRenderer({
         return (
           <a
             href={targetUrl}
-            target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
+            target={linkTarget(data)}
             rel="noopener noreferrer"
             onClick={() => trackClick(block.id, targetUrl)}
             className={cn("op-card w-full overflow-hidden block", getAnimationClass(data.animation_type))}
@@ -4221,7 +4283,7 @@ function CoreBlockRenderer({
       return (
         <a
           href={data.url}
-          target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
+          target={linkTarget(data)}
           rel="noopener noreferrer"
           onClick={() => trackClick(block.id, data.url)}
           {...buttonHoverAttrs}
@@ -4462,7 +4524,7 @@ function CoreBlockRenderer({
             <a
               key={img.id || index}
               href={img.link_url}
-              target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
+              target={linkTarget(data)}
               rel="noopener noreferrer"
               onClick={() => trackClick(block.id, img.link_url!)}
               className={cn("w-full block transition-opacity", !isInsideCarousel && "hover:opacity-90")}
@@ -4766,7 +4828,7 @@ function CoreBlockRenderer({
       const afterSignupLink = afterUrl && /^https?:\/\//i.test(afterUrl) ? (
         <a
           href={afterUrl}
-          target={data.action?.type==="phone"||data.action?.type==="email"?undefined:"_blank"}
+          target={linkTarget(data)}
           rel="noopener noreferrer"
           data-after-signup=""
           onClick={() => trackClick(block.id, afterUrl)}
@@ -4975,6 +5037,21 @@ function CoreBlockRenderer({
               {data.title}
             </h3>
           )}
+          <CollectionIntro data={data} theme={theme} />
+          {layout === "grid" ? (
+            /* A collection as a grid: two to a row, each block at half the column. */
+            <div className="grid w-full grid-cols-2 gap-3 px-3 py-3" data-group-grid="">
+              {enabledChildren.map((child) => (
+                <div key={child.id} className="min-w-0" data-sensitive-label={sensitiveLabel(child)}>
+                  {inGroupPreview && isIncompleteLink(child) ? (
+                    <IncompleteLinkPlaceholder label={(child.data as LinkButtonBlockData)?.label} theme={theme} />
+                  ) : (
+                    <PublicBlockRenderer block={child} theme={theme} profile={profile} onepageId={onepageId} sellerId={sellerId} isDesktop={isDesktop} settings={settings} isInsideGroup={true} inPair={true} />
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className="w-full flex flex-col gap-4 sm:gap-5 py-3">
             {/*
               Round 43: product tiles in a group sit two to a row, as on the page (lib/onepage/product-block
@@ -5018,6 +5095,7 @@ function CoreBlockRenderer({
               )
             })}
           </div>
+          )}
         </div>
       )
     }

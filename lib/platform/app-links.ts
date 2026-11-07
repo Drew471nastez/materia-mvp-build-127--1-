@@ -97,6 +97,8 @@ export const APP_PATHS = [
   "/reset-password/*",
   /* A team invite opens in the app too, where the person may already be signed in (app/team/join). */
   "/team/join",
+  /* A business handover's claim link (app/team/claim), and where a login whose only store was handed to it opens. */
+  "/team/claim/*",
 ] as const
 
 /**

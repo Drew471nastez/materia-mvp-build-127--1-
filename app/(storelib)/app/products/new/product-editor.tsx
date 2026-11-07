@@ -59,7 +59,9 @@ import {
   type LoadedProduct,
   type MediaItem,
   type ProductVariant,
+  coverOriginalOf,
   type UploadedFile,
+  seoDescriptionFrom,
   swapDefaults,
 } from "./editor-form"
 import { LeaveButton, PRESS_CONTENT_OUT, PRESS_SPINNER_IN, SAVED_CHECK_MS, SaveButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
@@ -466,6 +468,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
   // Media section fields - unified draggable media
   const [mediaItems, setMediaItems] = useState<MediaItem[]>(initial.mediaItems)
+  /* The cover as uploaded, as last saved (products.cover_original_url): written again only when it changes. */
+  const savedCover = useRef<string | null>(coverOriginalOf(initial.mediaItems))
   /* Photos on their way up, each shown as its own preview in the grid. */
   const [pendingMedia, setPendingMedia] = useState<PendingMedia[]>([])
 
@@ -902,25 +906,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       return
     }
 
-    // Strip HTML tags, decode entities, and get plain text for SEO description
-    const plainText = description
-      .replace(/<[^>]*>/g, '') // Remove HTML tags
-      .replace(/&nbsp;/g, ' ') // Replace &nbsp;
-      .replace(/&amp;/g, '&')  // Replace &amp;
-      .replace(/&lt;/g, '<')   // Replace &lt;
-      .replace(/&gt;/g, '>')   // Replace &gt;
-      .replace(/&quot;/g, '"') // Replace &quot;
-      .replace(/&#39;/g, "'")  // Replace &#39;
-      .replace(/\s+/g, ' ')    // Normalize whitespace
-      .trim()
-
-    if (plainText) {
-      // Truncate to 155 chars for SEO (meta description limit)
-      const truncated = plainText.length > 155 ? plainText.substring(0, 152) + '...' : plainText
-      setSeoDescription(truncated)
-    } else {
-      setSeoDescription("")
-    }
+    /* Its text, at most 155 characters (./editor-form seoDescriptionFrom), the same rule that tells a written one from this one when it opens again. */
+    setSeoDescription(seoDescriptionFrom(description))
   }, [description])
 
   // Reset the manually edited flag when creating a new product (no edit param)
@@ -1156,6 +1143,17 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       if (finalProductId) {
         const { error: fieldsError } = await supabase.from("products").update({ custom_fields: storedCustomFields(customFields) }).eq("id", finalProductId)
         if (fieldsError) console.warn("Custom fields were not saved:", fieldsError.message)
+      }
+
+      /*
+        THE COVER AS UPLOADED (round AK), in a request of its own: a database that has not run part 377 has no
+        column, and the product must still save. Only when it changed: a new cover, or the first picture moved.
+      */
+      const cover = coverOriginalOf(mediaItems)
+      if (finalProductId && cover !== savedCover.current) {
+        const { error: coverError } = await supabase.from("products").update({ cover_original_url: cover }).eq("id", finalProductId)
+        if (!coverError) savedCover.current = cover
+        else console.warn("The cover as uploaded was not saved:", coverError.message)
       }
 
       /*
@@ -1469,9 +1467,14 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     for (const { file, pending } of queued) {
       const timestamp = Date.now()
       let fileToUpload = file
+      let padded = false
       try {
         /* A physical product's photos go up as they were taken (the shop shows them whole); a download's or course's cover is widescreen. */
-        if (productType !== "physical") fileToUpload = (await processImageToWidescreen(file)).processedFile
+        if (productType !== "physical") {
+          const processed = await processImageToWidescreen(file)
+          fileToUpload = processed.processedFile
+          padded = processed.wasProcessed
+        }
       } catch (err) {
         console.error("Image processing error:", err)
       }
@@ -1490,9 +1493,21 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       }
 
       const { data: { publicUrl } } = supabase.storage.from("product-images").getPublicUrl(filePath)
+      /*
+        ROUND AK: THE PICTURE ITSELF, KEPT. The padded copy above is for the shop's 16:9 cards; the file as it was
+        chosen goes up beside it, for the OnePage, the product page and the checkout (products.cover_original_url).
+        A failed upload of it only costs that: those places then cut the padding off the copy instead.
+      */
+      let original: string | undefined
+      if (padded) {
+        const originalPath = `${creatorId}/${productId || "temp"}/${timestamp}_original_${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+        const { error: originalError } = await uploadWithProgress(file, originalPath, () => {})
+        if (!originalError) original = supabase.storage.from("product-images").getPublicUrl(originalPath).data.publicUrl
+        else console.warn("The cover as uploaded was not kept:", originalError.message)
+      }
       setProgress(pending.id, 100)
       await warm(publicUrl)
-      setMediaItems(prev => [...prev, { id: `${timestamp}-${Math.random().toString(36).slice(2)}`, type: "image", url: publicUrl }])
+      setMediaItems(prev => [...prev, { id: `${timestamp}-${Math.random().toString(36).slice(2)}`, type: "image", url: publicUrl, ...(original ? { original } : {}) }])
       drop(pending.id, pending.preview)
     }
   }

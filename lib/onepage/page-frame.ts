@@ -24,9 +24,12 @@
  * `pageCanvasColour` is the colour the page's own box ends on, and the page
  * paints the canvas with it.
  */
+import { heroCoverShown } from "./theme-layout"
 
 type ThemeLike = {
   header_layout?: string | null
+  cover_image_url?: unknown
+  cover_profile_layout?: unknown
   background_type?: string | null
   background_color?: string | null
   background_gradient?: string | null
@@ -36,6 +39,8 @@ type ProfileLike = { avatar_url?: string | null; avatar_video_url?: string | nul
 
 /** Whether the header block draws the full width hero: the theme asks for it and there is a picture to draw. */
 export function heroHeaderShown(theme: ThemeLike, profile: ProfileLike): boolean {
+  /* A Hero made from the creator's own cover is drawn by the cover header, with the round photo over it (lib/onepage/theme-layout heroCoverShown). */
+  if (heroCoverShown(theme)) return false
   return (theme?.header_layout || "classic") === "hero" && Boolean(profile?.avatar_url || profile?.avatar_video_url)
 }
 

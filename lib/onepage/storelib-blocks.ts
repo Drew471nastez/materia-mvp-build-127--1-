@@ -52,6 +52,8 @@ export interface ShelfItem extends VariantPriceFacts {
 export interface StorelibShelfBlockData {
   product_settings?:Partial<ProductBlockData>
   product_overrides?:Record<string,Partial<ProductBlockData>>
+  /** "simple": the plain picture cards, even with product card settings saved. */
+  card_style?: "simple" | null
   source: ShelfSource
   title?: string | null
   layout?: "carousel" | "list" | "grid"
@@ -66,6 +68,11 @@ export interface StorelibShelfBlockData {
 }
 
 export const SHELF_LIMIT_MAX = 12
+
+/** Drawn as product blocks (one of the product layouts) rather than the plain picture cards. Saved settings stay when "simple" is picked. */
+export function shelfUsesProductCards(data: Pick<StorelibShelfBlockData, "product_settings" | "card_style"> | null | undefined): boolean {
+  return !!data?.product_settings && data.card_style !== "simple"
+}
 
 export function shelfSource(value: unknown): ShelfSource {
   return typeof value === "string" && (SHELF_SOURCES as readonly string[]).includes(value) ? (value as ShelfSource) : "all"
@@ -166,7 +173,11 @@ export interface SocialPostItem {
 }
 
 export interface SocialPostsBlockData {
-  presentation?:"native"|"card"
+  /** Embedded players (native), cards that open the post, or square media tiles. */
+  presentation?:"native"|"card"|"tile"
+  /** A card's or tile's picture shape, and the soft fade at its foot. */
+  aspect?:"auto"|"1/1"|"4/5"|"16/9"|"9/16"
+  fade?:boolean
   layout?:"carousel"|"grid"|"list"|"single"
   thumbnails?:Record<string,string|null>
   network: SocialPostsNetwork

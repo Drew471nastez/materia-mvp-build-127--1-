@@ -345,7 +345,7 @@ async function explore() {
   check("its own copy, never /explore's", nextCache.cacheEntries().filter((e) => e.tags.includes(EXPLORE_CATALOGUE_TAG)).length === 1)
 
   const saveRoute = code("app/api/revalidate/route.ts")
-  check("a product save clears Explore and the creator's website shop", /exploreCatalogueChanged\(\)/.test(saveRoute) && /revalidateTag\(creatorShopTag\(owned\.creator_id\), "max"\)/.test(saveRoute) && /\.eq\("creator_id", creator\.id\)/.test(saveRoute))
+  check("a product save clears Explore and the creator's website shop", /exploreCatalogueTakenDown\(\)/.test(saveRoute) && /revalidateTag\(creatorShopTag\(owned\.creator_id\), \{ expire: 0 \}\)/.test(saveRoute) && /\.eq\("creator_id", creator\.id\)/.test(saveRoute))
   check("a ban and a closed account take their products off it at once", /exploreCatalogueTakenDown\(\)/.test(code("app/api/admin/creators/moderate/route.ts")) && /exploreCatalogueTakenDown\(\)/.test(code("lib/account/delete-account.ts")))
   const page = code("app/(storelib)/(marketing)/explore/page.tsx")
   check("For you and the visitor stay outside it, per visit", /cachedExploreCatalogue\(\(\) => readCatalog\(createPublicReadClient\(\)/.test(page) && !/cachedExploreCatalogue\([^\n]*(interests|getUser|cookies)/.test(page))
