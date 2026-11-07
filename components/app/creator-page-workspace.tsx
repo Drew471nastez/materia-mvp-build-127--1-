@@ -177,7 +177,7 @@ export function CreatorPageWorkspace({
   const [savedToast, setSavedToast] = useState(0)
   const [toastText, setToastText] = useState("Saved")
   /* A toast that reports a failure does not carry the tick. */
-  const toastFailed = !["Saved", "Undone", "Redone"].some((w) => toastText === tt(w))
+  const toastFailed = ![tt("Saved"), tt("Undone"), tt("Redone")].includes(toastText)
   const [isPhone, setIsPhone] = useState(false)
 
   /**
