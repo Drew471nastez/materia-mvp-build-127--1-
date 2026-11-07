@@ -64,7 +64,7 @@ import { fontStack } from "@/lib/onepage/fonts"
 import { onePageOutboundHref, platformOrigin, currentOnePageAddress } from "@/lib/onepage/return-address"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { ProductSheet } from "./product-sheet"
-import { readPictureShape } from "@/components/ui/framed-picture"
+import { FramedPicture, readPictureShape } from "@/components/ui/framed-picture"
 import { CHECKOUT_HISTORY_KEY, HANDOFF_MAX_MS, PURCHASE_CLOSED, checkoutEntryOf, purchaseStep, sheetShown, type PurchaseLayer, type PurchaseStep } from "@/lib/onepage/purchase-flow"
 import { InstantCheckout, loadProductFacts } from "@/components/checkout/instant-checkout"
 import { sheetPalette } from "@/lib/onepage/sheet-theme"
@@ -328,7 +328,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         const go = () => {
           setWarm(true)
           /* The picture's shape (its padding, lib/images/letterbox) read now, so the sheet opens in the right frame. */
-          const picture = data.custom_thumbnail || data.product_thumbnail
+          const picture = data.custom_thumbnail || data.product_cover || data.product_thumbnail
           if (picture) void readPictureShape(picture)
           if (plan === "instant") void loadProductFacts(data.product_id).catch(() => undefined)
           if (shipsToCheckout)
@@ -371,7 +371,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   /* ── Words ── */
   const title = data.product_title || "Product"
   const description = data.show_description !== false ? plainText(data.product_description) : ""
-  const image = data.custom_thumbnail || data.product_thumbnail || null
+  /* The creator's own picture for the block, else the product's cover as uploaded (SQL part 377), else its card copy. */
+  const image = data.custom_thumbnail || data.product_cover || data.product_thumbnail || null
   const planPriced = isPlanPriced({ type: data.product_type })
   const money = (cents: number) => (planPriced ? shopMoneyIn(cents, PLAN_CURRENCY) : pageMoney(cents))
   const parts = productPriceParts(data, money)
@@ -433,10 +434,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   }
   const picture = (cls: string, ratio?: string) =>
     image ? (
-      <span className={cn("block shrink-0 overflow-hidden bg-black/5", ratio, cls)}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={image} alt={title} className="h-full w-full object-cover" loading="lazy" decoding="async" draggable={false} />
-      </span>
+      /* Round AK: the editor's grey padding is cut off when the picture carries it (components/ui/framed-picture). */
+      <FramedPicture src={image} alt={title} className={cn("shrink-0 bg-black/5", ratio, cls)} imgClassName="object-cover" imgProps={{ loading: "lazy", decoding: "async" }} />
     ) : null
 
   const shell = (children: React.ReactNode, cls: string, style: React.CSSProperties = cardStyle) => (
@@ -468,10 +467,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           data-product-tap={plan}
           data-stays-here={staysHere}
         >
-          {data.product_thumbnail ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={data.product_thumbnail} alt={title} className="relative h-6 w-6 shrink-0 rounded object-cover sm:h-7 sm:w-7" />
-          ) : null}
+          {image ? <FramedPicture src={image} alt={title} frame={1} className="relative h-6 w-6 shrink-0 rounded sm:h-7 sm:w-7" imgClassName="object-cover" /> : null}
           {presentationOf(block).subtitle ? <span className="relative min-w-0"><span className="op-label block break-words">{cta}</span><BlockSubtitle subtitle={presentationOf(block).subtitle} /></span> : <span className="op-label relative truncate">{cta}</span>}
           {showPrice && !purchased ? (
             <span className="relative shrink-0 text-sm tabular-nums opacity-75">

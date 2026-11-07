@@ -107,8 +107,8 @@ export function FramedPicture({
   /** The address drawn, when it differs from the one read (an optimized size of the same picture). */
   displaySrc?: string
   alt?: string
-  /** The frame's width over height. */
-  frame: number
+  /** The frame's width over height; left out, the frame's own box is measured (a card whose shape is its CSS). */
+  frame?: number
   fit?: "cover" | "contain"
   focus?: { x: number; y: number }
   shape?: PictureShape | null
@@ -121,9 +121,27 @@ export function FramedPicture({
   const shape = given === undefined ? read : given
   const drawn = displaySrc || src
   const box = shape?.box ?? null
-  const placed = shape && (box || fit === "contain") ? coverBox(shape.ratio, box ?? { x: 0, y: 0, w: 1, h: 1 }, frame, fit, focus) : null
+  /* Measured only when the caller gave no shape and there is padding to place: a plain picture needs no box. */
+  const host = React.useRef<HTMLSpanElement>(null)
+  const [measured, setMeasured] = React.useState<number | null>(null)
+  const measure = frame === undefined && (!!box || fit === "contain")
+  React.useLayoutEffect(() => {
+    const el = host.current
+    if (!measure || !el) return
+    const read = () => {
+      const r = el.getBoundingClientRect()
+      if (r.width > 0 && r.height > 0) setMeasured(r.width / r.height)
+    }
+    read()
+    if (typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(read)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [measure])
+  const ratio = frame ?? measured
+  const placed = shape && ratio && (box || fit === "contain") ? coverBox(shape.ratio, box ?? { x: 0, y: 0, w: 1, h: 1 }, ratio, fit, focus) : null
   return (
-    <span className={cn("relative isolate block overflow-hidden", className)} style={style} data-framed-picture={box ? "trimmed" : shape ? "plain" : "reading"}>
+    <span ref={host} className={cn("relative isolate block overflow-hidden", className)} style={style} data-framed-picture={box ? "trimmed" : shape ? "plain" : "reading"}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         {...imgProps}
@@ -142,7 +160,7 @@ export function FramedPicture({
           aria-hidden
           draggable={false}
           className={cn("pointer-events-none absolute -z-10 max-w-none scale-110 opacity-70 blur-xl", !box && "object-cover")}
-          style={percent(box ? coverBox(shape!.ratio, box, frame, "cover") : { left: 0, top: 0, width: 100, height: 100 })}
+          style={percent(box ? coverBox(shape!.ratio, box, ratio!, "cover") : { left: 0, top: 0, width: 100, height: 100 })}
           data-framed-fill=""
         />
       ) : null}

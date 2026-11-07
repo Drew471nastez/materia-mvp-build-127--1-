@@ -312,6 +312,79 @@ try {
     rows.push(row)
     await page.close()
   }
+  /*
+    MORE WAYS IN (round AK follow-up):
+      direct   the block's button opens the checkout itself (tap_action "checkout"), no sheet at all
+      link     a shared #product-<slug> link opens the sheet as the page loads; Buy, then the browser's Back
+      cover    the product has its cover as uploaded (SQL part 377): the checkout shows that file, not the padded copy
+  */
+  const extra = []
+  for (const width of [1440, 390]) extra.push({ width, how: "direct" }, { width, how: "link" }, { width, how: "cover" })
+  for (const { width, how } of extra) {
+    const name = `${width}px/${how}`
+    if (process.env.ONLY && !name.startsWith(process.env.ONLY)) continue
+    const page = await browser.newPage()
+    const errors = []
+    page.on("pageerror", (e) => errors.push(e.message))
+    await page.setViewport({ width, height: 860, isMobile: width < 640, hasTouch: width < 640 })
+    await page.evaluateOnNewDocument(() => {
+      window.Stripe = () => ({
+        _registerWrapper() {}, registerAppInfo() {},
+        createToken: async () => ({}), createPaymentMethod: async () => ({}), confirmCardPayment: async () => ({}),
+        paymentRequest: () => ({ canMakePayment: async () => null, on() {}, off() {} }),
+        elements: () => ({ create: () => ({ mount() {}, on() {}, off() {}, destroy() {}, update() {} }), getElement: () => null, update() {} }),
+      })
+    })
+    const query = how === "direct" ? "price=paid&tap=checkout" : how === "cover" ? "price=paid&cover=1" : "price=paid"
+    await page.goto(`${base}/app/probe?${query}${how === "link" ? "#product-gym-guide" : ""}`)
+    await page.waitForSelector("[data-hero-header], [data-onepage-header], h1")
+    await sleep(700)
+    const row = { name }
+    const visibleSheet = () => page.evaluate(() => [...document.querySelectorAll("[data-product-sheet]")].some((e) => { const b = e.getBoundingClientRect(); return e.getClientRects().length && b.top < innerHeight && b.bottom > 0 && !e.closest("[inert],[aria-hidden=true]") }))
+    if (how === "link") {
+      await page.waitForSelector("[data-product-sheet-buy]", { visible: true, timeout: 4000 }).catch(() => null)
+      await sleep(700)
+      row.sheetFromLink = await visibleSheet()
+      check(row.sheetFromLink, `${name}: a shared #product- link opens the sheet`)
+    }
+    await page.evaluate(() => { window.__stack = { frames: 0, notTop: 0 } ; const s = () => { const co = document.querySelector("[data-instant-checkout]"); if (co) { const r = co.querySelector("[data-checkout-head]")?.getBoundingClientRect(); const hit = r ? document.elementFromPoint(r.x + r.width / 2, r.y + Math.min(r.height / 2, 40)) : null; window.__stack.frames++; if (!hit?.closest("[data-instant-checkout]")) window.__stack.notTop++; if (window.__stack.frames > 40) return } requestAnimationFrame(s) }; requestAnimationFrame(s) })
+    if (how === "direct") await page.evaluate(() => [...document.querySelectorAll("a,button")].find((e) => e.textContent.includes("View guide")).click())
+    else {
+      if (how === "cover") {
+        await page.evaluate(() => [...document.querySelectorAll("a,button")].find((e) => e.textContent.includes("View guide")).click())
+        await page.waitForSelector("[data-product-sheet-buy]", { visible: true })
+        await sleep(700)
+      }
+      await page.click("[data-product-sheet-buy]")
+    }
+    await page.waitForSelector("[data-instant-checkout]", { timeout: 4000 }).catch(() => null)
+    await sleep(900)
+    const st = await page.evaluate(() => {
+      const co = document.querySelector("[data-instant-checkout]")
+      const img = co?.querySelector("[data-checkout-head] img")
+      const r = (img?.closest("[data-framed-picture]") ?? img)?.getBoundingClientRect()
+      return { stack: window.__stack, focusIn: !!co && co.contains(document.activeElement), back: !!co?.querySelector("[data-checkout-back]"), src: img?.getAttribute("src") || null, product: window.__productImage, rect: r ? { x: r.x, y: r.y, width: r.width, height: r.height } : null }
+    })
+    Object.assign(row, { frames: st.stack.frames, notTopFrames: st.stack.notTop, sheetVisible: await visibleSheet(), focusInside: st.focusIn, image: st.src === st.product ? "product" : st.src ? "other" : "none" })
+    row.checkoutBars = await barShare(page, st.rect, `${width}-${how}-checkout`)
+    check(st.stack.frames > 0 && st.stack.notTop === 0, `${name}: the checkout opens on top (${st.stack.notTop}/${st.stack.frames})`)
+    check(!row.sheetVisible, `${name}: no sheet under the checkout`)
+    check(st.focusIn, `${name}: focus inside the checkout`)
+    check(row.image === "product", `${name}: the checkout shows ${how === "cover" ? "the cover as uploaded" : "the product's picture"} (${row.image})`)
+    check(row.checkoutBars !== null && row.checkoutBars < 0.02, `${name}: no bars in the checkout picture (${row.checkoutBars})`)
+    if (how === "direct") check(!st.back, `${name}: a checkout opened without the sheet has no Back to it`)
+    /* The browser's Back: the checkout closes and the page stays, usable, with no sheet left up. */
+    await page.evaluate(() => history.back())
+    await sleep(900)
+    const after = await page.evaluate(() => ({ checkout: !!document.querySelector("[data-instant-checkout]"), path: location.pathname, hold: document.documentElement.hasAttribute("data-op-hold") || document.body.hasAttribute("data-scroll-locked"), bodyPointer: getComputedStyle(document.body).pointerEvents }))
+    after.sheet = await visibleSheet()
+    row.backClean = !after.checkout && !after.sheet && !after.hold && after.bodyPointer !== "none" && after.path === "/app/probe"
+    check(row.backClean, `${name}: the browser's Back closes the checkout and stays on the page ${JSON.stringify(after)}`)
+    row.errors = errors.length
+    check(errors.length === 0, `${name}: no page errors ${JSON.stringify(errors)}`)
+    rows.push(row)
+    await page.close()
+  }
 } finally {
   await browser.close()
   await new Promise((r) => server.close(r))

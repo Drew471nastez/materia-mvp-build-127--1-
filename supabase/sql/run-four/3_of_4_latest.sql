@@ -4905,5 +4905,11 @@ revoke all on function public.business_handoff_accept(uuid, text, uuid, text, te
 grant execute on function public.business_handoff_accept(uuid, text, uuid, text, text, text, text) to service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('376', '376_business_handoff.sql', 'c23c2e5d02d360a25a8c480af5722829c2390412d5db0b7af0824a668d75fa07') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 377_product_original_cover.sql
+/* A digital product's cover as it was uploaded. The product editor stores the cover the shop's cards use as a 1280x720 copy with light grey padding around a portrait cover; this column keeps the picture itself, unpadded, for the OnePage, the product page and the checkout. Additive: one nullable column, no row is rewritten, the padded thumbnail_url stays what cards use. The column is on products, so the existing products RLS policies already scope it to the owner for writes and to published rows for reads. Safe to run again. */
+alter table public.products add column if not exists cover_original_url text;
+comment on column public.products.cover_original_url is 'The product cover as uploaded (unpadded). thumbnail_url may be a 16:9 padded copy for cards; null means thumbnail_url is the picture itself.';
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('377', '377_product_original_cover.sql', 'ff786ca11a075deba8a4e69c5e62acf0461561f4e2b7099ba08affe757bbecf0') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

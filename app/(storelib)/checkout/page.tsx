@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { productCover } from "@/lib/products/cover"
 import { trialDaysOf } from "@/lib/memberships/plan"
 import { headers } from "next/headers"
 import { personName } from "@/lib/profile/display-name"
@@ -369,7 +370,8 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
         slug: product.slug,
         description: product.description,
         price_cents: finalPriceCents,
-        thumbnail_url: product.thumbnail_url,
+        /* The cover as uploaded when there is one (SQL part 377), not the 16:9 card copy. */
+        thumbnail_url: productCover(product),
         type: product.type,
       }}
       creator={{

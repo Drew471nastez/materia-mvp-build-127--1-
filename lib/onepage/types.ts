@@ -257,6 +257,8 @@ export interface ProductBlockData {
   // Cached product data for display
   product_title?: string | null
   product_thumbnail?: string | null
+  /** The product's cover as uploaded (products.cover_original_url, SQL part 377): unpadded, unlike the card copy above. */
+  product_cover?: string | null
   product_description?: string | null
   product_variant_min_cents?: number | null
   product_variant_max_cents?: number | null

@@ -40,6 +40,12 @@ export interface MediaItem {
   type: "image" | "youtube" | "video"
   url: string
   thumbnailUrl?: string
+  /**
+   * Round AK: a download's or course's cover is stored twice. `url` is the 1280x720 copy with light grey padding the
+   * shop's cards use; `original` is the picture as uploaded, saved as products.cover_original_url (SQL part 377) for
+   * the OnePage, the product page and the checkout. Only when the picture was padded.
+   */
+  original?: string
 }
 
 export interface ProductVariant {
@@ -140,6 +146,8 @@ export interface EditorProductRow {
   pwyw_suggested_price_cents?: number | null
   video_url?: string | null
   thumbnail_url?: string | null
+  /** The cover as uploaded, unpadded (SQL part 377); absent before that part has run. */
+  cover_original_url?: string | null
   gallery_urls?: string[] | null
   whats_included?: unknown
   faqs?: unknown
@@ -239,7 +247,8 @@ export function mediaOf(product: EditorProductRow): MediaItem[] {
   }
   /* A video first in the list leaves its first frame as the thumbnail: that frame is the video's, not a photo of its own. */
   if (product.thumbnail_url && !isYouTubeThumbnail(product.thumbnail_url) && !isPosterName(product.thumbnail_url) && !isVideoUrl(product.thumbnail_url)) {
-    media.push({ id: "image-0", type: "image", url: product.thumbnail_url })
+    const original = typeof product.cover_original_url === "string" && product.cover_original_url ? product.cover_original_url : null
+    media.push({ id: "image-0", type: "image", url: product.thumbnail_url, ...(original ? { original } : {}) })
   }
   if (Array.isArray(product.gallery_urls)) {
     product.gallery_urls.forEach((url, idx) => {
@@ -545,4 +554,13 @@ export function cardsSaved(cards: CardDrafts, sent: CardDrafts): CardDrafts {
 /** The cards whose draft is not what they saved. */
 export function changedCards(cards: CardDrafts): string[] {
   return Object.keys(cards).filter((k) => cards[k].now !== cards[k].saved)
+}
+
+/**
+ * The cover as uploaded, for products.cover_original_url (SQL part 377): the first item's own unpadded picture when
+ * the first item is a padded photo, otherwise null (the thumbnail is then the picture itself, or a video's frame).
+ */
+export function coverOriginalOf(media: readonly MediaItem[]): string | null {
+  const first = media[0]
+  return first && first.type === "image" && typeof first.original === "string" && first.original ? first.original : null
 }

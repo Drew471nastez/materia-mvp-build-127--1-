@@ -45,6 +45,8 @@ export type LiveProduct = VariantPriceFacts & {
   slug?: string | null
   price_cents?: number | null
   thumbnail_url?: string | null
+  /** The cover as uploaded (SQL part 377), when the product has one. */
+  cover_original_url?: string | null
   /** A "membership" is priced per month or year: its block says "$9/month". */
   type?: string | null
   price_interval?: "month" | "year" | null
@@ -105,6 +107,7 @@ function refreshed(data: Record<string, unknown>, product: LiveProduct): Record<
     product_slug: product.slug ?? null,
     product_price_cents: typeof product.price_cents === "number" ? product.price_cents : null,
     product_thumbnail: product.thumbnail_url ?? null,
+    product_cover: product.cover_original_url ?? null,
     product_type: product.type ?? null,
     product_price_interval: product.price_interval ?? null,
     product_compare_at_cents: typeof product.compare_at_cents === "number" ? product.compare_at_cents : null,
@@ -234,6 +237,8 @@ export type ProductsDb = {
 
 /* With the sale price and pay what you want (round 10), so "Free" is never said of a product with a minimum. */
 const COLUMNS_WITH_PRICES = "id, title, slug, price_cents, thumbnail_url, type, status, archived, community_id, compare_at_cents, pay_what_you_want, pwyw_min_price_cents"
+/* With the cover as uploaded (round AK, SQL part 377); before that part, the next list down. */
+const COLUMNS_WITH_COVER = `${COLUMNS_WITH_PRICES}, cover_original_url`
 /* With the column that marks a product selling a community tier, which a block does not show (lib/communities/listing). */
 const COLUMNS_WITH_COMMUNITY = "id, title, slug, price_cents, thumbnail_url, type, status, archived, community_id"
 const COLUMNS = "id, title, slug, price_cents, thumbnail_url, type, status, archived"
@@ -254,7 +259,7 @@ export async function answersForBlocks(db: ProductsDb, creatorId: string, blocks
   const ids = productIdsInBlocks(blocks)
   if (!creatorId || ids.length === 0) return new Map()
   const asked = ids.slice(0, 200)
-  for (const cols of [COLUMNS_WITH_PRICES, COLUMNS_WITH_COMMUNITY, COLUMNS, COLUMNS_WITHOUT_FLAG]) {
+  for (const cols of [COLUMNS_WITH_COVER, COLUMNS_WITH_PRICES, COLUMNS_WITH_COMMUNITY, COLUMNS, COLUMNS_WITHOUT_FLAG]) {
     try {
       const [{ data, error }, offPage] = await Promise.all([db.from("products").select(cols).eq("creator_id", creatorId).in("id", asked), offChannel(db, creatorId, "creator_page")])
       if (error) continue

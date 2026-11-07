@@ -59,6 +59,7 @@ import {
   type LoadedProduct,
   type MediaItem,
   type ProductVariant,
+  coverOriginalOf,
   type UploadedFile,
   seoDescriptionFrom,
   swapDefaults,
@@ -467,6 +468,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
   // Media section fields - unified draggable media
   const [mediaItems, setMediaItems] = useState<MediaItem[]>(initial.mediaItems)
+  /* The cover as uploaded, as last saved (products.cover_original_url): written again only when it changes. */
+  const savedCover = useRef<string | null>(coverOriginalOf(initial.mediaItems))
   /* Photos on their way up, each shown as its own preview in the grid. */
   const [pendingMedia, setPendingMedia] = useState<PendingMedia[]>([])
 
@@ -1143,6 +1146,17 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       }
 
       /*
+        THE COVER AS UPLOADED (round AK), in a request of its own: a database that has not run part 377 has no
+        column, and the product must still save. Only when it changed: a new cover, or the first picture moved.
+      */
+      const cover = coverOriginalOf(mediaItems)
+      if (finalProductId && cover !== savedCover.current) {
+        const { error: coverError } = await supabase.from("products").update({ cover_original_url: cover }).eq("id", finalProductId)
+        if (!coverError) savedCover.current = cover
+        else console.warn("The cover as uploaded was not saved:", coverError.message)
+      }
+
+      /*
         PERSONALIZATION, in a request of its own as well: a database that has
         not run part 307 has no column, and the product must still save. Only
         a product that ships asks; one that stops shipping keeps none.
@@ -1453,9 +1467,14 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     for (const { file, pending } of queued) {
       const timestamp = Date.now()
       let fileToUpload = file
+      let padded = false
       try {
         /* A physical product's photos go up as they were taken (the shop shows them whole); a download's or course's cover is widescreen. */
-        if (productType !== "physical") fileToUpload = (await processImageToWidescreen(file)).processedFile
+        if (productType !== "physical") {
+          const processed = await processImageToWidescreen(file)
+          fileToUpload = processed.processedFile
+          padded = processed.wasProcessed
+        }
       } catch (err) {
         console.error("Image processing error:", err)
       }
@@ -1474,9 +1493,21 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       }
 
       const { data: { publicUrl } } = supabase.storage.from("product-images").getPublicUrl(filePath)
+      /*
+        ROUND AK: THE PICTURE ITSELF, KEPT. The padded copy above is for the shop's 16:9 cards; the file as it was
+        chosen goes up beside it, for the OnePage, the product page and the checkout (products.cover_original_url).
+        A failed upload of it only costs that: those places then cut the padding off the copy instead.
+      */
+      let original: string | undefined
+      if (padded) {
+        const originalPath = `${creatorId}/${productId || "temp"}/${timestamp}_original_${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+        const { error: originalError } = await uploadWithProgress(file, originalPath, () => {})
+        if (!originalError) original = supabase.storage.from("product-images").getPublicUrl(originalPath).data.publicUrl
+        else console.warn("The cover as uploaded was not kept:", originalError.message)
+      }
       setProgress(pending.id, 100)
       await warm(publicUrl)
-      setMediaItems(prev => [...prev, { id: `${timestamp}-${Math.random().toString(36).slice(2)}`, type: "image", url: publicUrl }])
+      setMediaItems(prev => [...prev, { id: `${timestamp}-${Math.random().toString(36).slice(2)}`, type: "image", url: publicUrl, ...(original ? { original } : {}) }])
       drop(pending.id, pending.preview)
     }
   }

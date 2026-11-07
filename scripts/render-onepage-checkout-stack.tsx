@@ -8,6 +8,9 @@
  *
  *   ?price=free|paid|variants|physical   what is sold
  *   &preview=1                            inside the editor's preview (nothing is charged)
+ *   &tap=checkout                         the block's button opens the checkout itself, no sheet
+ *   &cover=1                              the product has its cover as uploaded (SQL part 377): the block carries
+ *                                         product_cover and the facts' first picture is that unpadded 3:4 file
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -59,6 +62,16 @@ function plain(width: number, height: number, color: string): string {
 }
 
 const image = paddedThumbnail()
+/* The cover as uploaded: the same portrait, unpadded. */
+const uploaded = (() => {
+  const canvas = document.createElement("canvas")
+  canvas.width = 540
+  canvas.height = 720
+  cover(canvas.getContext("2d")!, 0, 0, 540, 720)
+  return canvas.toDataURL("image/jpeg", 0.92)
+})()
+const withCover = !!params.get("cover")
+const tap = params.get("tap") === "checkout" ? "checkout" : "sheet"
 const second = plain(1600, 900, "#187c69")
 const avatar = plain(600, 600, "#af6800")
 process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_probe"
@@ -85,7 +98,7 @@ const facts = {
     pwyw: false,
     pwywMinCents: 0,
     currency: "USD",
-    images: [image, second],
+    images: [withCover ? uploaded : image, second],
     variants,
     soldOut: false,
     left: null,
@@ -108,7 +121,7 @@ window.fetch = async (input, init) => {
   if (url.includes("/api/onepage/product?")) return new Response(JSON.stringify(facts), { headers: { "Content-Type": "application/json" } })
   return original(input, init)
 }
-Object.assign(globalThis, { PROBE_USER: null, __productImage: image, __avatar: avatar })
+Object.assign(globalThis, { PROBE_USER: null, __productImage: withCover ? uploaded : image, __avatar: avatar })
 
 /* A page taller than the screen, scrolled a little before the sheet opens, so a scroll jump shows. */
 document.body.style.paddingBottom = "1600px"
@@ -137,6 +150,7 @@ createRoot(document.getElementById("app")!).render(
               product_id: productId,
               product_title: "Gym Starter Guide",
               product_thumbnail: image,
+              ...(withCover ? { product_cover: uploaded } : {}),
               product_price_cents: kind === "variants" ? 2500 : cost,
               product_slug: "gym-guide",
               product_type: physical ? "physical" : "digital",
@@ -144,7 +158,7 @@ createRoot(document.getElementById("app")!).render(
               show_description: true,
               style: "callout",
               style_chosen: true,
-              tap_action: "sheet",
+              tap_action: tap,
               instant_checkout: true,
               cta_text: "View guide",
             },

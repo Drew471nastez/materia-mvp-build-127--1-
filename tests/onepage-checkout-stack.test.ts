@@ -21,6 +21,8 @@ import { join } from "node:path"
 import { HANDOFF_MAX_MS, PURCHASE_CLOSED, checkoutEntryOf, purchaseStep, sheetShown, type PurchaseLayer } from "@/lib/onepage/purchase-flow"
 import { contentRatio, coverBox, findLetterbox } from "@/lib/images/letterbox"
 import { SHEET_FRAME_MAX, SHEET_FRAME_MIN, sheetFrameRatio } from "@/lib/onepage/product-sheet"
+import { productCover, withOriginalCover } from "@/lib/products/cover"
+import { coverOriginalOf } from "@/app/(storelib)/app/products/new/editor-form"
 
 let passed = 0
 let failed = 0
@@ -158,6 +160,29 @@ console.log("FRAME")
   check("the block reads its picture's shape as it warms, before the tap", /if \(picture\) void readPictureShape\(picture\)/.test(read("components/onepage/product-block.tsx")))
   check("each picture goes through the padding-aware frame", /<SlidePicture/.test(sheet) && /<FramedPicture/.test(sheet))
   check("the sheet scrolls with the compact bar, contained", /overflow-y-auto overscroll-contain op-subtle-scroll/.test(sheet))
+}
+
+console.log("THE COVER AS UPLOADED (SQL part 377)")
+{
+  const thumb = "https://x.supabase.co/storage/v1/object/public/product-images/a/1_cover_processed.jpg"
+  const orig = "https://x.supabase.co/storage/v1/object/public/product-images/a/1_original_cover.jpg"
+  check("the original is the product's picture when there is one", productCover({ thumbnail_url: thumb, cover_original_url: orig }) === orig)
+  check("before part 377 (no column), the card copy", productCover({ thumbnail_url: thumb }) === thumb && productCover({ thumbnail_url: thumb, cover_original_url: "  " }) === thumb)
+  check("in a gallery the original takes the card copy's place, once", JSON.stringify(withOriginalCover([thumb, "b", thumb, orig], { thumbnail_url: thumb, cover_original_url: orig })) === JSON.stringify([orig, "b"]))
+  check("a gallery without the card copy is left as it is", JSON.stringify(withOriginalCover(["b", null, ""], { thumbnail_url: thumb, cover_original_url: orig })) === JSON.stringify(["b"]))
+  check("the editor saves the first item's original only", coverOriginalOf([{ id: "1", type: "image", url: thumb, original: orig }, { id: "2", type: "image", url: "b" }]) === orig && coverOriginalOf([{ id: "2", type: "image", url: "b" }, { id: "1", type: "image", url: thumb, original: orig }]) === null && coverOriginalOf([]) === null)
+  const editor = read("app/(storelib)/app/products/new/product-editor.tsx")
+  check("a padded upload sends the file as chosen up beside the copy", /if \(padded\) \{[\s\S]{0,200}_original_/.test(editor) && /\.\.\.\(original \? \{ original \} : \{\}\)/.test(editor))
+  check("the original is saved in a request of its own, only when it changed (a database without part 377 still saves)", /cover !== savedCover\.current/.test(editor) && /update\(\{ cover_original_url: cover \}\)/.test(editor))
+  check("the editor reads it back with the product", /thumbnail_url, cover_original_url, gallery_urls/.test(read("app/(storelib)/app/products/load-editor.ts")))
+  const live = read("lib/onepage/live-products.ts")
+  check("the OnePage asks for it first and falls back to the lists without it", /for \(const cols of \[COLUMNS_WITH_COVER, COLUMNS_WITH_PRICES/.test(live) && /product_cover: product\.cover_original_url \?\? null/.test(live))
+  check("the block, its sheet and the checkout use it before the card copy", /data\.custom_thumbnail \|\| data\.product_cover \|\| data\.product_thumbnail/.test(read("components/onepage/product-block.tsx")))
+  check("the sheet's facts, the product page and the checkout page use it", /withOriginalCover\(/.test(read("app/api/onepage/product/route.ts")) && /withOriginalCover\(/.test(read("app/(storelib)/(marketing)/p/[slug]/page.tsx")) && /thumbnail_url: productCover\(product\)/.test(read("app/(storelib)/checkout/page.tsx")))
+  check("the full screen viewer, the checkout summary and the seller mark cut padding off", /function LightboxPicture/.test(read("components/onepage/product-lightbox.tsx")) && /<FramedPicture/.test(read("app/(storelib)/checkout/parts/order-summary.tsx")) && /<FramedPicture src=\{image\.src\} frame=\{1\}/.test(read("components/checkout/checkout-window.tsx")))
+  const sql = read("supabase/migrations/20271135_product_original_cover.sql")
+  check("the SQL is one additive, idempotent column, mirrored as run-now part 377", /add column if not exists cover_original_url text/.test(sql) && !/\bdrop\b|\bupdate\b/i.test(sql.replace(/\/\*[\s\S]*?\*\//g, "")) && read("supabase/sql/run-now/377_product_original_cover.sql") === sql)
+  check("the check after reads it", /as p377_product_original_cover;/.test(read("supabase/sql/run-now/99_check_after.sql")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

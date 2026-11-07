@@ -15,8 +15,9 @@
  * is the server's that is charged.
  */
 
+import { FramedPicture } from "@/components/ui/framed-picture"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import * as React from "react"
-import Image from "next/image"
 import { ChevronDown, Tag, X } from "lucide-react"
 import { MissingImage } from "@/components/media/missing-image"
 import { cn } from "@/lib/utils"
@@ -56,7 +57,8 @@ export function LineItem({
     <div data-line-item="" className="flex items-start gap-3.5">
       <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[8px] border border-black/[0.06] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
         {product.thumbnail_url ? (
-          <Image src={product.thumbnail_url} alt="" fill sizes="48px" className="object-cover" />
+          /* Round AK: square, filled, with the product editor's grey padding cut off (components/ui/framed-picture). */
+          <FramedPicture src={product.thumbnail_url} displaySrc={optimizedImageUrl(product.thumbnail_url, 48)} frame={1} className="absolute inset-0 h-full w-full" imgClassName="object-cover" imgProps={{ decoding: "async" }} />
         ) : (
           <MissingImage />
         )}
