@@ -566,7 +566,7 @@ function RulesEditor({ rules, earlier, onChange }: { rules: Condition[]; earlier
         const target = earlier.find((f) => f.id === r.field)
         const needsValue = !["answered", "empty"].includes(r.op)
         return (
-          <div key={i} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_130px_minmax(0,1fr)_auto]">
+          <div key={i} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_156px_minmax(0,1fr)_auto]">
             <select className={select} aria-label="Question" value={r.field} onChange={(e) => set(i, { field: e.target.value, value: "" })}>
               {earlier.map((f) => (
                 <option key={f.id} value={f.id}>

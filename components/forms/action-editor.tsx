@@ -48,7 +48,12 @@ import { PhoneNumberField } from "./phone-number-field"
 
 const input =
   "w-full rounded-lg border border-[#e3e4e8] bg-white px-3 py-2 text-sm text-[#1a1a2e] outline-none focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]"
-const labelCls = "block space-y-1 text-xs font-medium text-[#4b5563]"
+/* A select drawn as the fields are, its one chevron 12px from the right edge (the owner: "selectors, their arrows sit weird"). */
+const selectCls =
+  input +
+  " h-10 cursor-pointer appearance-none truncate py-0 pr-9 bg-[url('data:image/svg+xml;utf8,<svg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2212%22%20height=%2212%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%236b7280%22%20stroke-width=%222%22><path%20d=%22m6%209%206%206%206-6%22/></svg>')] bg-[length:12px] bg-[right_12px_center] bg-no-repeat"
+/* A label sits 6px above its field, never glued to it. */
+const labelCls = "block space-y-1.5 text-xs font-medium text-[#4b5563]"
 const hint = "text-xs text-[#6b7280]"
 const problem = "text-xs font-medium text-[#b54708]"
 
@@ -266,7 +271,7 @@ export function ActionEditor({
         Action
         <select
           aria-label="Action type"
-          className={input}
+          className={selectCls}
           value={type}
           onChange={(e) => {
             setAskProblem(null)
@@ -325,7 +330,7 @@ export function ActionEditor({
           <label className={labelCls}>
             Product
             <select
-              className={input}
+              className={selectCls}
               value={String(a.product_id || "")}
               onChange={(e) => {
                 const p = products?.find((x) => x.id === e.target.value) as { id: string; title?: string; slug?: string; thumbnail_url?: string | null } | undefined

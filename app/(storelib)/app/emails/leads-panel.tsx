@@ -133,7 +133,7 @@ export function LeadsPanel({ data, loading, onData, onNotice }: { data: LeadsDat
   const [reading, setReading] = React.useState(false)
   const [readError, setReadError] = React.useState<string | null>(null)
   const [more, setMore] = React.useState(false)
-  const [openId, setOpenId] = React.useState<string | null>(params.get("lead"))
+  const [openId, setOpenId] = React.useState<string | null>(params?.get("lead") ?? null)
   /* A lead opened by its link (a notification email) that is not on the first page is read on its own. */
   const [linked, setLinked] = React.useState<LeadRow | null>(null)
   const readId = React.useRef(0)
@@ -172,7 +172,7 @@ export function LeadsPanel({ data, loading, onData, onNotice }: { data: LeadsDat
 
   /* ?lead=<id>: opened at once when it is on the page, read on its own when not. */
   React.useEffect(() => {
-    const id = params.get("lead")
+    const id = params?.get("lead")
     if (!id || base.missing || loading) return
     setOpenId(id)
     if (base.leads.some((l) => l.id === id)) return
@@ -204,7 +204,7 @@ export function LeadsPanel({ data, loading, onData, onNotice }: { data: LeadsDat
   }
   const closeLead = () => {
     setOpenId(null)
-    if (params.get("lead")) {
+    if (params?.get("lead")) {
       const url = new URL(window.location.href)
       url.searchParams.delete("lead")
       window.history.replaceState(window.history.state, "", url)
