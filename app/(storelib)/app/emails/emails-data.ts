@@ -12,8 +12,9 @@ import { CUSTOMER_EMAILS_PATH, prefetchCustomerActivity, type CustomerEmailsData
 import { tt } from "@/lib/i18n/text"
 import { MARKETING_PATH, type MarketingState } from "@/components/app/settings/marketing-sync-panel"
 import { SENDING_DOMAIN_PATH, type PlatformsData, type SendingDomainData } from "@/components/email/connected-platforms"
+import { loadLeads } from "./leads-panel"
 
-export const TABS: EmailsTab[] = ["subscribers", "messages", "flows", "customer", "published", "scheduled", "drafts", "platforms"]
+export const TABS: EmailsTab[] = ["subscribers", "messages", "leads", "flows", "customer", "published", "scheduled", "drafts", "platforms"]
 
 export function isTab(v: unknown): v is EmailsTab {
   return typeof v === "string" && (TABS as string[]).includes(v)
@@ -107,6 +108,9 @@ export function loadTab(tab: EmailsTab, rangeQuery: string): Promise<unknown> {
       return loadSubscribers()
     case "messages":
       return loadMessages()
+    /* Answers to the creator's forms (./leads-panel): moved here from the Audience item, beside the people Emails already keeps. */
+    case "leads":
+      return loadLeads()
     case "flows":
       return loadFlows()
     case "published":

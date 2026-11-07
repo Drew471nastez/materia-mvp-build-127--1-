@@ -319,7 +319,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       ],
     },
     ...communityItem,
-    { href: "/app/audience/leads", label: tt("Audience"), icon: NAV_ICONS.emails, children: [{href:"/app/audience/leads",label:tt("Leads")},{href:"/app/audience/forms",label:tt("Forms and quizzes")}] },
+    /* No Audience item (round AL, the owner: "implement it in another place rather than just creating a new menu link"): Leads is a tab of Emails, and forms are made where they are used. */
     { href: "/app/analytics", label: t("nav.analytics"), icon: NAV_ICONS.analytics },
     { href: "/app/orders", label: t("nav.sales"), icon: NAV_ICONS.orders },
     /**

@@ -7,6 +7,12 @@
  * same form on the website, creator page and OnePage, and an encoded
  * WhatsApp action. APIs are local fixtures.
  *
+ * Round AL: the list is Emails › Leads › Forms and Leads is a tab of Emails
+ * (the dialog opens from a row); a WhatsApp button asks its questions first
+ * (the form is made live from the editor); the phone's country is chosen
+ * from the list by its code; and with the forms tables missing every
+ * surface says so after one request, never a loop.
+ *
  *   CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome PROBE_CSS=source node scripts/check-native-features.mjs
  *
  * Screenshots go to SHOTS (default: forms-shots in the system temp folder) for the visual review.
@@ -40,6 +46,9 @@ const publicDef = {
   booking,
   completion: { kind: "message", message: "Request sent. You will get an email when it is confirmed." },
 }
+let missingTables = false,
+  formReads = 0,
+  leadReads = 0
 let form = null,
   publicForm = null,
   leads = [],
@@ -59,7 +68,15 @@ const slotsFrom = (now) => {
 const api = (req, body) => {
   const path = new URL(req.url, "http://fixture").pathname
   if (req.method === "OPTIONS") return { status: 204, body: {} }
-  if (path === "/api/forms" && req.method === "GET") return { body: { forms: form ? [form] : [] } }
+  if (path === "/api/forms" && req.method === "GET") {
+    formReads++
+    return missingTables ? { body: { forms: [], missing: true } } : { body: { forms: form ? [form] : [] } }
+  }
+  if (path === "/api/forms" && req.method === "POST" && JSON.parse(body).publish === true) {
+    const d = JSON.parse(body).definition
+    form = { id, title: d.title, status: "published", revision: 1, draft: d, published: d, updated_at: "v0", integration_settings: { notify_email: true, webhook: { enabled: false, url: "", secret_hint: null }, google_sheets: { prepared: false } } }
+    return { status: 201, body: { form } }
+  }
   if (path === "/api/forms" && req.method === "POST") {
     const t = JSON.parse(body).template
     form = {
@@ -88,7 +105,10 @@ const api = (req, body) => {
     submitted.push(b)
     return { status: 201, body: { ok: true, message: publicForm.completion.message, href: null, action_type: null, booking: b.slot ? { starts_at: b.slot, status: "pending" } : null } }
   }
-  if (path === "/api/leads" && req.method === "GET") return { body: { leads, next: null, upgraded: true } }
+  if (path === "/api/leads" && req.method === "GET") {
+    leadReads++
+    return missingTables ? { body: { leads: [], next: null, upgraded: false, missing: true, totals: null } } : { body: { leads, next: null, upgraded: true, totals: { all: leads.length, fresh: leads.length, week: leads.length } } }
+  }
   if (path.startsWith("/api/leads/") && req.method === "PATCH") {
     const b = JSON.parse(body)
     patches.push(b)
@@ -194,8 +214,8 @@ try {
     await shot("builder")
     await page.reload({ waitUntil: "domcontentloaded" })
     await page.waitForSelector("[data-form-builder]")
-    assert.equal(await page.$eval("[data-form-builder] h1", (e) => e.textContent), "Personal coaching", "?form= in the address reopens the form after a reload")
-    await click(page, "← Forms")
+    assert.equal(await page.$eval("[data-form-builder] h1 span", (e) => e.textContent), "Personal coaching", "?form= in the address reopens the form after a reload")
+    await page.click('[aria-label="Back to forms"]')
     await page.waitForSelector("[data-forms-list] li")
     line.listOverflow = await overflow(page)
     await shot("forms-list")
@@ -268,15 +288,29 @@ try {
       },
     ]
     await page.goto(base + "/app/probe?mode=leads", { waitUntil: "domcontentloaded" })
-    await page.waitForSelector("[data-lead] button")
-    await page.click("[data-lead] > button")
+    await page.waitForSelector("[data-lead-row]:not([hidden])")
+    await page.evaluate(() => [...document.querySelectorAll("[data-lead-row]")].find((e) => e.getClientRects().length)?.click())
     await page.waitForSelector("[data-lead-booking]")
+    await new Promise((r) => setTimeout(r, 1200))
+    line.leadDialogOpacity = await page.evaluate(() => {
+      let e = document.querySelector("[data-lead]"), o = 1
+      while (e) { o *= Number(getComputedStyle(e).opacity); e = e.parentElement }
+      return Math.round(o * 100) / 100
+    })
+    /* What a finger lands on in the middle of the lead's title and its Confirm button is the dialog, not the table under it. */
+    line.leadDialogOnTop = await page.evaluate(() =>
+      ["[data-lead] h2", "[data-lead-booking] button"].every((sel) => {
+        const r = document.querySelector(sel).getBoundingClientRect()
+        return !!document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest("[data-lead]")
+      }),
+    )
+    assert.equal(line.leadDialogOnTop, true, "the lead's dialog is drawn over the table")
     assert.ok(await page.$(`a[href="/api/leads/${leads[0].id}/files/33333333-3333-4333-8333-333333333333"]`), "a file answer links to the owner's signed download")
     await shot("leads-open")
     await click(page, "Confirm")
     await page.waitForFunction(() => document.querySelector("[data-lead-booking]").textContent.includes("Confirmed"))
     await click(page, "Qualified")
-    await page.waitForFunction(() => document.querySelector('[role=radio][aria-checked="true"]')?.textContent === "Qualified")
+    await page.waitForFunction(() => document.querySelector('[data-lead] [role=tab][aria-selected="true"]')?.textContent === "Qualified")
     await page.type("[data-lead] textarea", "Called, sending a proposal")
     await page.$eval("[data-lead] textarea", (e) => e.blur())
     await page.waitForFunction(() => document.body.textContent.includes("Saved"))
@@ -319,6 +353,41 @@ try {
     const href = await page.$eval("[data-action-href]", (e) => e.href)
     assert.equal(new URL(href).pathname, "/40712345678")
     assert.equal(new URL(href).searchParams.get("text"), "Hi! A&B? 🏋️")
+    assert.equal(await page.$eval("[data-phone-country]", (e) => e.dataset.phoneCountry), "RO", "the country followed the typed code")
+    /* The country list: found by its code, with flag and code on the row; choosing it keeps the digits. */
+    await page.click('[data-choice-field="phone-country"]')
+    await page.waitForSelector("[data-choice-search]", { visible: true })
+    await page.type("[data-choice-search]", "+44")
+    await new Promise((r) => setTimeout(r, 250))
+    line.dialRows = await page.evaluate(() => [...document.querySelectorAll('[role=option]')].filter((e) => e.getClientRects().length).map((e) => e.textContent.trim()).slice(0, 4))
+    assert.ok(line.dialRows.some((t) => /United Kingdom/.test(t) && /\+44/.test(t)), JSON.stringify(line.dialRows))
+    await page.evaluate(() => [...document.querySelectorAll('[role=option]')].find((e) => e.getClientRects().length && /United Kingdom/.test(e.textContent))?.click())
+    await page.waitForFunction(() => new URL(document.querySelector("[data-action-href]").href).pathname === "/44712345678")
+    line.phoneFieldHeight = await page.$eval("[data-phone-field]", (e) => Math.round(e.getBoundingClientRect().height))
+    /* Ask a few questions first: the chat's form is made live, the message uses its answers. */
+    form = null
+    await page.evaluate(() => document.querySelector('[data-pre-chat] [role=switch]').click())
+    await page.waitForSelector('[data-pre-chat="on"] [data-form-picker="prechat"]')
+    assert.equal(form.status, "published", "the chat's questions are live at once")
+    assert.deepEqual(form.published.fields.map((f) => f.id), ["name", "service", "message"])
+    assert.equal(await page.$eval("[data-native-action-editor] textarea", (e) => e.value), "Hi! A&B? 🏋️", "a message already written is kept")
+    await shot("action-prechat")
+
+    /* No forms tables: one read each, plain words, no Try again. */
+    missingTables = true
+    formReads = 0
+    leadReads = 0
+    await page.goto(base + "/app/probe?mode=builder", { waitUntil: "domcontentloaded" })
+    await page.waitForSelector("[data-forms-missing]")
+    await page.goto(base + "/app/probe?mode=leads", { waitUntil: "domcontentloaded" })
+    await page.waitForSelector("[data-leads-missing]")
+    await new Promise((r) => setTimeout(r, 1500))
+    line.missingReads = { forms: formReads, leads: leadReads }
+    assert.equal(leadReads, 1, "leads are read once, not again and again")
+    assert.ok(formReads <= 2, `forms read ${formReads} times`)
+    assert.equal(await page.evaluate(() => [...document.querySelectorAll("button")].some((b) => b.textContent.trim() === "Try again")), false)
+    await shot("leads-missing")
+    missingTables = false
     assert.deepEqual(errors, [])
     for (const [k, v] of Object.entries(line)) if (/Overflow$/.test(k)) assert.ok(v <= 0, `${k} at ${width}px: ${v}px of horizontal scroll`)
     if (width < 1000) {

@@ -60,3 +60,53 @@ export function isMissingSchema(error: { code?: unknown; message?: unknown } | n
 }
 
 export const NEEDS_SQL = "This needs the Forms database update (SQL part 375 in Admin › SQL updates). Everything else keeps working."
+
+/*
+  WHEN THE FORMS TABLES ARE NOT THERE AT ALL (parts 372 and 375 not run).
+  Every forms and leads route answers the same way: a list is an empty list
+  marked `missing`, a write is a 503 with code "forms_missing", and the
+  page says so in one plain sentence instead of "could not be loaded, try
+  again" (a retry can never help until the SQL runs). The answer is
+  remembered on this server for a few minutes, so a store without the
+  tables does not send a failing query on every visit; once the SQL runs,
+  it is picked up within MISSING_FOR_MS with no deploy.
+*/
+
+export const FORMS_MISSING = "forms_missing"
+export const FORMS_NOT_SET_UP = "Forms are not switched on for this store yet. They need the Forms database update (SQL parts 372 and 375 in Admin › SQL updates). Everything else keeps working."
+const MISSING_FOR_MS = 5 * 60 * 1000
+let missingUntil = 0
+
+/** A table (not just a column) the forms need is not there. */
+export function isMissingTable(error: { code?: unknown; message?: unknown } | null | undefined): boolean {
+  if (!error) return false
+  const code = String(error.code ?? "")
+  const message = String(error.message ?? "")
+  return code === "42P01" || code === "PGRST205" || /could not find the table|relation "?[\w.]*"? does not exist/i.test(message)
+}
+
+/** The tables were found missing a moment ago on this server: answer without asking again. */
+export function formsKnownMissing(now = Date.now()): boolean {
+  return now < missingUntil
+}
+
+/** Remember (or forget) that the tables are missing. Returns whether they are. */
+export function noteFormsTables(error: { code?: unknown; message?: unknown } | null | undefined, now = Date.now()): boolean {
+  if (isMissingTable(error)) {
+    missingUntil = now + MISSING_FOR_MS
+    return true
+  }
+  if (!error) missingUntil = 0
+  return false
+}
+
+/** A write or a single read while the tables are missing. */
+export function formsMissingResponse(headers: Record<string, string> = NO_STORE) {
+  return NextResponse.json({ error: FORMS_NOT_SET_UP, code: FORMS_MISSING }, { status: 503, headers })
+}
+
+/** An error that is not a missing table, written to the log with its code so the cause can be found later. */
+export function logFormsError(where: string, error: { code?: unknown; message?: unknown } | null | undefined) {
+  if (!error) return
+  console.error(`[forms] ${where}:`, String(error.code ?? ""), String(error.message ?? "").slice(0, 300))
+}

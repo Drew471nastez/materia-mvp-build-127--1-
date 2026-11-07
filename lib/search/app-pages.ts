@@ -74,6 +74,8 @@ export const APP_PAGES: readonly AppPage[] = [
   /* Emails, tab by tab (app/app/emails/emails-home.tsx TABS). */
   { get label() { return tt("Subscribers") }, href: "/app/emails?tab=subscribers", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("contacts list audience") } },
   { get label() { return tt("Messages") }, href: "/app/emails?tab=messages", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("inbox replies contact form") } },
+  { get label() { return tt("Leads") }, href: "/app/emails?tab=leads", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("forms quiz answers responses whatsapp") } },
+  { get label() { return tt("Forms") }, href: "/app/emails/forms", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("form quiz questions booking contact") } },
   { get label() { return tt("Automations") }, href: "/app/emails?tab=flows", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("flows welcome abandoned cart sequence") } },
   { get label() { return tt("Customer emails") }, href: "/app/emails?tab=customer", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("receipt order confirmation shipping notification") } },
   { get label() { return tt("Sent emails") }, href: "/app/emails?tab=published", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("campaigns newsletters opens clicks") } },

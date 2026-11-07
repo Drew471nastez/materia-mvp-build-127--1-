@@ -34,6 +34,8 @@ const SUITES = [
   "tests/forms-bookings.test.ts",
   "tests/forms-security.test.ts",
   "tests/forms-booking-payment.test.ts",
+  /* Round AL5: Leads in Emails, Forms beside it, the Audience item gone, missing forms tables said plainly, one retry, the pre-chat and the phone country list. */
+  "tests/forms-leads-al5.test.ts",
   "tests/onepage-modern-blocks.test.ts",
   "tests/onepage-block-settings-ak3.test.ts",
   "tests/admin-sql-updates.test.ts",
