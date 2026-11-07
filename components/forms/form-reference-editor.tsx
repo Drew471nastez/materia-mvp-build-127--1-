@@ -1,8 +1,13 @@
 "use client"
-import { ActionEditor } from "./action-editor"
+import { FormPicker } from "./form-picker"
+import { tt } from "@/lib/i18n/text"
 import { FORM_PRESENTATIONS, presentationOf, type FormPresentation } from "./native-form-block"
 
-/** The form block's settings, shared by the OnePage block and the creator page section. */
+/**
+ * The form block's settings, shared by the OnePage block and the creator
+ * page section. The form is chosen, started or edited right here
+ * (./form-picker), so a form is made where it is used.
+ */
 export function FormReferenceEditor({
   formId,
   onChange,
@@ -25,7 +30,7 @@ export function FormReferenceEditor({
   const how = presentationOf({ presentation, inline })
   return (
     <div className="space-y-3">
-      <ActionEditor value={{ type: "form", form_id: formId }} onChange={(a) => onChange(a?.type === "form" ? a.form_id : "")} />
+      <FormPicker kind="form" label={tt("Form")} value={formId} onChange={onChange} />
       {onPresentationChange ? (
         <div className="space-y-1.5">
           <span className="block text-xs font-medium text-[#4b5563]">Show as</span>
