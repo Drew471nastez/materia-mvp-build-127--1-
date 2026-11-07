@@ -33,6 +33,8 @@ import { Pencil } from "lucide-react"
 
 import { EditorField, EditorSelect, EditorSheet, useSaveThenRefresh } from "@/components/storefront/editor-sheet"
 import { ColorField } from "@/components/storefront/color-field"
+import { saveCreatorProfile } from "@/lib/storefront/creator-profile-client"
+import { useFormHistory } from "@/lib/store-builder/form-history"
 
 const MAX_TEXT = 120
 const MAX_BUTTON = 30
@@ -105,15 +107,19 @@ export function EditCtaButton({
    * else is left absent, the stored config keeps whatever it had, and the
    * scheme goes on deciding for the ones nobody has chosen.
    */
+  const vRef = React.useRef(v)
+  vRef.current = v
   const [touched, setTouched] = React.useState<Set<keyof CtaValues>>(() => new Set())
 
   const set = <K extends keyof CtaValues>(key: K, value: CtaValues[K]) => {
     setTouched((t) => (t.has(key) ? t : new Set(t).add(key)))
-    setV((s) => {
-      const next = { ...s, [key]: value }
-      onPreview?.(next)
-      return next
-    })
+    /* Outside the updater (round 50): the preview sets the bar's state, and a
+       state update made inside another component's updater is React's
+       "Cannot update a component while rendering a different component". */
+    const next = { ...vRef.current, [key]: value }
+    vRef.current = next
+    setV(next)
+    onPreview?.(next)
   }
 
   /**
@@ -127,6 +133,17 @@ export function EditCtaButton({
     setV(saved)
     setTouched(new Set())
     setError(null)
+  })
+
+  /*
+    UNDO IN THE SHEET (round 50). A field put back to what is saved is
+    untouched again, so Save does not send it (a colour would be stored as
+    chosen); any other stays touched.
+  */
+  const formHistory = useFormHistory(open, v, (back) => {
+    setTouched((t) => new Set([...t].filter((k) => back[k] !== values[k])))
+    setV(back)
+    onPreview?.(back)
   })
 
   const close = () => {
@@ -154,12 +171,8 @@ export function EditCtaButton({
         setOpen(false)
         return
       }
-      const res = await fetch("/api/creator-profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscribeBar: patch }),
-      })
-      if (!res.ok) {
+      const { ok } = await saveCreatorProfile({ subscribeBar: patch }, "bar")
+      if (!ok) {
         setError("That could not be saved. Try again.")
         return
       }
@@ -209,6 +222,7 @@ export function EditCtaButton({
         busy={saving}
         error={error}
         onSave={() => void save()}
+        history={formHistory}
         /* The spinner is the sheet's, beside the word. `busy` already says
            a save is in flight; a label that changes as well took the word
            away at the moment it was pressed. */

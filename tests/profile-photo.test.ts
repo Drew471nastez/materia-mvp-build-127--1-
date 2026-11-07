@@ -201,7 +201,7 @@ async function main() {
     check("the OnePage profile section saves it the same way", pageSection.includes('from("avatars")') && pageSection.includes("saveAccountPhoto"))
 
     const storefront = readCode("components/storefront/edit-profile-button.tsx")
-    check("the storefront's Edit profile uploads to the avatars bucket and saves the profile", storefront.includes('bucket="avatars"') && storefront.includes('fetch("/api/creator-profile"'))
+    check("the storefront's Edit profile uploads to the avatars bucket and saves the profile", storefront.includes('bucket="avatars"') && /* Round 50: the save goes through lib/storefront/creator-profile-client (the editor's undo step). */ storefront.includes("saveCreatorProfile(") && readCode("lib/storefront/creator-profile-client.ts").includes('fetch("/api/creator-profile"'))
     check("and tells the shell at once", storefront.includes("announceAvatar("))
 
     for (const file of ["components/app/creator-onboarding-modal.tsx", "components/onepage/onboarding-modal.tsx"]) {
