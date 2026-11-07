@@ -63,7 +63,8 @@ function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     const c = code(tab)
-    check("the settings sit in the measured box, let go once shut", /<Reveal open=\{isSelected\} id=\{settingsId\} returnFocus=\{titleRef\} unmountWhenShut className="rounded-b-2xl">/.test(c) && !/\{isSelected && \(\s*<div className="space-y-4 rounded-b-2xl/.test(c))
+    /* Changed on purpose (round AL): the box also follows what is inside while open (`follow`), so a late height or a tab switch glides. */
+    check("the settings sit in the measured box, let go once shut", /<Reveal open=\{isSelected\} id=\{settingsId\} returnFocus=\{titleRef\} unmountWhenShut follow className="rounded-b-2xl">/.test(c) && !/\{isSelected && \(\s*<div className="space-y-4 rounded-b-2xl/.test(c))
     check("the row's title is a key: Enter and Space, aria-expanded, aria-controls", /role="button"\s*tabIndex=\{0\}\s*aria-expanded=\{isSelected\}\s*aria-controls=\{settingsId\}/.test(c) && /e\.key === "Enter" \|\| e\.key === " "/.test(c))
     check("focus inside a closing panel goes back to the row, not the page's top", /returnFocus\.current\.focus\(\{ preventScroll: true \}\)/.test(reveal) && /ref=\{titleRef\}/.test(c))
     check("the next card's scroll aims where it will be once the one above has shut", /revealSettledTop\(el\)/.test(c) && /data-reveal-closing/.test(reveal) && /if \(unmountWhenShut\) setBuilt\(false\)/.test(reveal))

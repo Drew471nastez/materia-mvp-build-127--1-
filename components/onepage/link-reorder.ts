@@ -45,6 +45,7 @@
  */
 import * as React from "react"
 import { hapticTap } from "@/lib/native-bridge"
+import { edgeSpeed, edgeStep } from "@/lib/onepage/edge-scroll"
 
 /** A finger held this long on a card, without wandering, lifts it. */
 export const HOLD_MS = 280
@@ -60,9 +61,7 @@ const SHIFT_TRANSITION = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)"
 /** The settle: stiff enough to be quick, a touch under-damped so it lands. */
 const SPRING_K = 540
 const SPRING_C = 38
-/** Near an edge of the pane, it scrolls, up to this many px a frame. */
-const EDGE_PX = 64
-const MAX_SCROLL = 16
+/* Near an edge of the pane, it scrolls: how fast is lib/onepage/edge-scroll. */
 
 const INTERACTIVE = "button, a, input, textarea, select, label, [contenteditable], [role=switch], [role=slider], [data-no-reorder]"
 
@@ -93,6 +92,11 @@ interface Session {
   dy: number
   raf: number
   hold: number
+  /** When the pointer went into an edge's zone (0: not in one), and the last frame's time. */
+  edgeAt: number
+  frameAt: number
+  /** The part of a pixel a slow scroll has not yet moved. */
+  carry: number
 }
 
 export interface LinkReorderOptions {
@@ -108,13 +112,24 @@ export interface LinkReorderOptions {
   onDropInto?: (id: string, targetId: string) => void
 }
 
-function scrollerOf(el: HTMLElement): HTMLElement | null {
-  const marked = el.closest<HTMLElement>("[data-scroll-container]")
+/*
+  THE BOX THAT REALLY SCROLLS (round AL). The Links tab marked its own
+  column `data-scroll-container` too, inside the editor's panel that has the
+  same mark, and the nearest one won: a column that does not scroll, so the
+  edge scroll added to a scrollTop that stayed 0 and a card could never be
+  carried past what was on screen. A marked box counts only if it scrolls.
+*/
+const scrolls = (node: HTMLElement) => {
+  const oy = getComputedStyle(node).overflowY
+  return oy === "auto" || oy === "scroll"
+}
+export function scrollerOf(el: HTMLElement): HTMLElement | null {
+  let marked = el.closest<HTMLElement>("[data-scroll-container]")
+  while (marked && !scrolls(marked)) marked = marked.parentElement?.closest<HTMLElement>("[data-scroll-container]") ?? null
   if (marked) return marked
   let node = el.parentElement
   while (node && node !== document.body) {
-    const oy = getComputedStyle(node).overflowY
-    if ((oy === "auto" || oy === "scroll") && node.scrollHeight > node.clientHeight) return node
+    if (scrolls(node) && node.scrollHeight > node.clientHeight) return node
     node = node.parentElement
   }
   return null
@@ -231,17 +246,38 @@ export function useLinkReorder({ listRef, clampTarget, acceptsInto, onReorder, o
   const frame = React.useCallback((now: number) => {
     const d = s.current
     if (!d || d.phase !== "dragging") return
-    /* Near the top or bottom of the pane, the pane scrolls and the card rides along. */
-    if (d.scroller) {
-      const box = d.scroller.getBoundingClientRect()
+    /*
+      Near the top or bottom of the pane, the pane scrolls and the card rides
+      along: slow at the zone's rim, faster deeper in, eased in as the pointer
+      arrives, in px a second (lib/onepage/edge-scroll). Without a scrolling
+      box (a page that scrolls itself) the window is the pane.
+    */
+    {
+      const box = d.scroller ? d.scroller.getBoundingClientRect() : { top: 0, bottom: window.innerHeight }
       const bar = document.querySelector<HTMLElement>("[data-onepage-tabbar]")
       const barTop = bar && bar.getClientRects().length ? bar.getBoundingClientRect().top : Infinity
       const top = Math.max(0, box.top)
       const bottom = Math.min(box.bottom, window.innerHeight, barTop)
-      let speed = 0
-      if (d.lastY < top + EDGE_PX) speed = -MAX_SCROLL * Math.min(1, (top + EDGE_PX - d.lastY) / EDGE_PX)
-      else if (d.lastY > bottom - EDGE_PX) speed = MAX_SCROLL * Math.min(1, (d.lastY - (bottom - EDGE_PX)) / EDGE_PX)
-      if (speed) d.scroller.scrollTop += speed
+      const dt = d.frameAt ? now - d.frameAt : 16
+      d.frameAt = now
+      const max = d.scroller ? d.scroller.scrollHeight - d.scroller.clientHeight : document.documentElement.scrollHeight - window.innerHeight
+      const at = scrollTopOf(d.scroller)
+      let speed = edgeSpeed(d.lastY, top, bottom, d.edgeAt ? now - d.edgeAt : 0)
+      /* At the end it can go no further: nothing is eased in against a wall. */
+      if ((speed < 0 && at <= 0) || (speed > 0 && at >= max - 0.5)) speed = 0
+      if (speed) {
+        if (!d.edgeAt) d.edgeAt = now
+        d.carry += edgeStep(speed, dt)
+        const whole = Math.trunc(d.carry)
+        if (whole) {
+          d.carry -= whole
+          if (d.scroller) d.scroller.scrollTop = Math.max(0, Math.min(max, at + whole))
+          else window.scrollTo(0, Math.max(0, Math.min(max, at + whole)))
+        }
+      } else {
+        d.edgeAt = 0
+        d.carry = 0
+      }
     }
     d.dy = d.lastY - d.startY + (scrollTopOf(d.scroller) - d.startScroll)
     const k = Math.min(1, (now - d.liftAt) / LIFT_MS)
@@ -519,6 +555,9 @@ export function useLinkReorder({ listRef, clampTarget, acceptsInto, onReorder, o
       dy: 0,
       raf: 0,
       hold: 0,
+      edgeAt: 0,
+      frameAt: 0,
+      carry: 0,
     }
     s.current = d
     onMoveRef.current = onMove

@@ -1360,7 +1360,7 @@ export function LinksTab() {
   const activeSocials = Object.entries(social_links || {}).filter(([_, url]) => url)
 
   return (
-    <div className="space-y-6" data-scroll-container="links-tab" style={{ touchAction: "manipulation" }}>
+    <div className="space-y-6" data-links-tab="" style={{ touchAction: "manipulation" }}>
       {/* Profile Header with Real SVG Icons */}
       <div className="flex items-center gap-4 pt-[8px] sm:pt-0 pb-5 border-b">
         <div className="relative group shrink-0 cursor-pointer" onClick={() => setShowAvatarEditModal(true)}>
@@ -3837,7 +3837,7 @@ function BlockItem({
         nothing (components/onepage/reveal), so the cards under them glide
         instead of jumping; a closed card lets its editor go.
       */}
-      <Reveal open={isSelected} id={settingsId} returnFocus={titleRef} unmountWhenShut className="rounded-b-2xl">
+      <Reveal open={isSelected} id={settingsId} returnFocus={titleRef} unmountWhenShut follow className="rounded-b-2xl">
         <div className="space-y-4 rounded-b-2xl border-t border-[#eef0f2] bg-[#fafafb] p-4" data-block-settings="">
           <BlockEditor
             block={block}
