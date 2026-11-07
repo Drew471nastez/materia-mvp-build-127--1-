@@ -5,9 +5,12 @@ import {actionHref} from "@/lib/forms/actions"
 
 import {HeaderCoverEditor} from "../header-cover-editor"
 
-import { BlockPresentationEditor } from "../block-presentation-editor"
+import { BlockDescriptionField, BlockEditorTabs, BlockPartContext, BlockStyleControls, LinkImageOptions, LinkLayoutPicker, LinkPreviewControls, SocialShowAs, PartContent, PartHidden, PartTabs } from "../block-settings"
+import { layoutControlsFor, linkLayoutOf, presentationOf } from "@/lib/onepage/block-presentation"
+import { editedMark, mergeLinkPreview } from "@/lib/onepage/link-preview"
 
 import { ProfileImage } from "@/components/onepage/profile-image"
+import { ImageUpload } from "@/components/app/image-upload"
 
 import { hapticTap } from "@/lib/native-bridge"
 import { useProductMoney } from "@/components/platform/price-currency"
@@ -85,7 +88,7 @@ function BlockToggle({ checked, onCheckedChange, label }: { checked: boolean; on
 }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { ColorRow, RangeRow, Switch } from "@/components/onepage/editor-kit"
+import { ColorRow, RangeRow, Segmented, Switch } from "@/components/onepage/editor-kit"
 import { accentDepth } from "@/components/ui/depth-button"
 import { DeletedIcon, SaveNotification } from "@/components/ui/save-notification"
 import { DialogHeader } from "@/components/ui/dialog"
@@ -177,7 +180,7 @@ import { PosterVideo } from "@/components/onepage/poster-video"
 import { videoPoster } from "@/lib/onepage/poster-video"
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { FilesLibraryChooser, LibraryRow, fileFromLibrary } from "@/components/onepage/library-pick"
-import { LinkLayoutThumb, ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBadge, ProductStateNote, ProductTapSetting, layoutHasCard, useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
+import { ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBadge, ProductStateNote, ProductTapSetting, layoutHasCard, useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
 import { editorProductState, pickableProducts, productLayoutOf, removePlanFor } from "@/lib/onepage/product-block"
 import { EmailLayoutThumb } from "@/components/onepage/email-signup"
 import { connectButtonPatch, emailSignupImage, emailSignupLayout, type EmailSignupLayout } from "@/lib/onepage/email-signup"
@@ -399,6 +402,7 @@ export function LinksTab() {
     reorderBlocks,
     updateProfile,
     setActiveSection,
+    getLatestOnePage,
   } = useOnePage()
 
   /* Whether Add block is up lives in components/onepage/add-block-picker (setAddSheetOpen), so opening it does not render this tab. */
@@ -549,7 +553,7 @@ export function LinksTab() {
       const before = source.data as LinkButtonBlockData
       const after = updates.data as LinkButtonBlockData
       if ((before.thumbnail_url !== after.thumbnail_url || source.style?.presentation?.image_url) && before.link_preview?.enabled === after.link_preview?.enabled) {
-        updates = { ...updates, style: { ...source.style, ...updates.style, presentation: { ...source.style?.presentation, ...updates.style?.presentation, image_url: undefined } }, data: { ...after, link_preview: { ...after.link_preview, image_hidden: !after.thumbnail_url } } }
+        updates = { ...updates, style: { ...source.style, ...updates.style, presentation: { ...source.style?.presentation, ...updates.style?.presentation, image_url: undefined } }, data: { ...after, link_preview: { ...after.link_preview, image_hidden: !after.thumbnail_url, image_edited: !!after.thumbnail_url && after.thumbnail_url !== after.link_preview?.image } } }
       }
     }
     const plan = updatePlanDeep(onepage?.draft_blocks, id, updates)
@@ -690,11 +694,23 @@ export function LinksTab() {
       const requestedLabel=data.label
       try{
         const response=await fetch(`/api/onepage/link-preview?url=${encodeURIComponent(url)}`)
-        if(response.ok){const meta=await response.json();landFetched(current=>{
-          if(current.link_preview?.enabled===false)return {}
-          const autoTitle=!current.link_preview?.title_edited&&current.label===requestedLabel&&(!current.label||(/^(?:my\s*link|link)$/i.test(current.label)||[tt("My Link"),tt("Link")].includes(current.label))||current.label===current.link_preview?.title)
-          return {link_preview:{...current.link_preview,...meta},...(autoTitle?{label:meta.title}:{}),...((!current.thumbnail_url||current.thumbnail_url===current.link_preview?.image)&&!current.link_preview?.image_hidden?{thumbnail_url:meta.image||null}:{} )}
-        })}
+        if(response.ok){
+          /* What the creator typed, cleared, uploaded or removed stays (lib/onepage/link-preview mergeLinkPreview). */
+          const meta=await response.json()
+          let subtitle:string|undefined
+          landFetched(current=>{
+            const source=findBlockDeep(linkPreviewBlocks.current ?? [],blockId)?.block
+            /* A title typed while this was on its way is the creator's. */
+            const typing=current.label!==requestedLabel
+            const merged=mergeLinkPreview(typing?{...current,link_preview:{...current.link_preview,title_edited:true}}:current,presentationOf(source).subtitle,meta,[tt("My Link"),tt("Link")])
+            subtitle=merged.subtitle
+            return typing&&merged.data.link_preview?{...merged.data,link_preview:{...merged.data.link_preview,title_edited:current.link_preview?.title_edited}}:merged.data
+          })
+          if(subtitle!==undefined){
+            const latest=findBlockDeep(getLatestOnePage()?.draft_blocks ?? [],blockId)?.block
+            if(latest&&normalizeUrlInput((latest.data as LinkButtonBlockData).url||"")===url)updateBlock(blockId,{style:{...latest.style,presentation:{...latest.style?.presentation,subtitle}}},{joinLastStep:true})
+          }
+        }
       }catch{}
       return
     }
@@ -3236,7 +3252,7 @@ interface BlockItemProps {
   onOpenImageLibrary: (blockId: string, fieldType?: string) => void
   onOpenSocialModal: () => void
   onOpenThumbnailModal?: (blockId: string) => void
-  onUrlChangeWithAutoFetch?: (blockId: string, url: string) => void
+  onUrlChangeWithAutoFetch?: (blockId: string, url: string, options?: { refresh?: boolean }) => void
   onOpenStreamingModal?: (platform: string, index: number, data: LinkButtonBlockData, updateFn: (data: Partial<LinkButtonBlockData>) => void) => void
   /** The grip's keys: the arrows move the card (LinksTab moveWithKeys). */
   onGripKeyDown?: (e: React.KeyboardEvent, name: string) => void
@@ -3874,7 +3890,7 @@ function BlockEditor({
   onOpenImageLibrary: (blockId: string, fieldType?: string) => void
   onOpenSocialModal: () => void
   onOpenThumbnailModal?: (blockId: string) => void
-  onUrlChangeWithAutoFetch?: (blockId: string, url: string) => void
+  onUrlChangeWithAutoFetch?: (blockId: string, url: string, options?: { refresh?: boolean }) => void
   onOpenStreamingModal?: (platform: string, index: number, data: LinkButtonBlockData, updateFn: (data: Partial<LinkButtonBlockData>) => void) => void
   onOpenAddBlockModal?: (groupId: string) => void
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
@@ -4110,11 +4126,7 @@ function BlockEditor({
     setDragOverSocialId(null)
   }
 
-  // Determine if this block type supports layout options
-  const supportsLayout = ["link_button", "product"].includes(block.type)
 
-  // Get current layout type from block data
-  const currentLayoutType = (block.data as any).layout_type || 'default'
 
   // Helper to render the Layout tab content
   const renderLayoutContent = () => {
@@ -4302,68 +4314,29 @@ function BlockEditor({
       )
     }
 
-    // Default layout content for link_button and image blocks
+    /* A link: every way it can sit on the page, as pictures in this page's colours (components/onepage/block-settings). */
+    const latest = () => findBlockDeep(getLatestOnePage()?.draft_blocks, block.id)?.block
+    const linkData = block.data as LinkButtonBlockData
     return (
-      <div className="space-y-3">
-        <div>
-          <p className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Display")}</p>
-          <p className="mt-0.5 text-[13.5px] text-[#6b7280]">{tt("How this block sits on your page")}</p>
-        </div>
-
-        {/* Classic and Featured, as Linktree's link editor draws them: a picture of each, the picked one in a thin dark border. */}
-        <div className="grid grid-cols-2 gap-3">
-          {([
-            { id: "default" as const, label: tt("Classic") },
-            { id: "pro" as const, label: tt("Featured") },
-          ]).map((o) => {
-            const on = currentLayoutType === o.id
-            return (
-              <button
-                key={o.id}
-                type="button"
-                aria-pressed={on}
-                data-layout-choice={o.id}
-                onClick={() => updateData({ layout_type: o.id })}
-                className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-2 outline-none hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
-              >
-                <ChoiceMark on={on} />
-                {/* Round 43: drawn in this page's colours and button style, with this link's own picture (./product-block-editor LinkLayoutThumb). */}
-                <span className="block aspect-[4/3] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
-                  <LinkLayoutThumb id={o.id} theme={onepage?.theme as never} image={(block.data as { thumbnail_url?: string | null; custom_thumbnail?: string | null }).thumbnail_url || (block.data as { custom_thumbnail?: string | null }).custom_thumbnail || null} />
-                </span>
-                <span className={cn("block py-2 text-center text-[13.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{o.label}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Display Mode Options - Only shown when Pro Layout is selected and NOT YouTube */}
-        {currentLayoutType === 'pro' && block.type === 'link_button' && !isYouTubeUrl((block.data as LinkButtonBlockData).url) && (
-          <div className="pt-3 mt-1 border-t space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{tt("Display Mode")}</Label>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: 'cover', label: tt("Cover"), desc: tt("Fill & crop") },
-                { id: 'contain', label: tt("Fit"), desc: tt("Show all") },
-                { id: 'full', label: tt("Full"), desc: tt("Original") },
-              ].map((mode) => {
-                const currentDisplayMode = (block.data as LinkButtonBlockData).display_mode || 'cover'
-                return (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    onClick={() => updateData({ display_mode: mode.id as 'cover' | 'contain' | 'full' })}
-                    className="relative p-2.5 rounded-lg border-2 text-center isolate border-gray-200 hover:border-gray-300 bg-white"
-                  >
-                    <CardMark on={currentDisplayMode === mode.id} tint="#f4f4f6" />
-                    <div className="text-xs font-medium">{mode.label}</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5">{mode.desc}</div>
-                  </button>
-                )
-              })}
-            </div>
+      <div className="space-y-4">
+        <LinkLayoutPicker block={block} theme={onepage?.theme} getBlock={latest} onChange={(updates) => updateBlock(block.id, updates)} />
+        {/* Featured keeps its picture modes; a YouTube link plays in its own frame instead. */}
+        {linkLayoutOf(block) === "featured" && !isYouTubeUrl(linkData.url) ? (
+          <div className="space-y-2.5 border-t border-[#eef0f2] pt-4" data-link-display-mode="">
+            <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Picture")}</p>
+            <Segmented
+              label={tt("Picture")}
+              value={linkData.display_mode || "cover"}
+              options={[
+                { id: "cover", label: tt("Fill"), hint: tt("Crops to fit") },
+                { id: "contain", label: tt("Fit"), hint: tt("Shows all") },
+                { id: "full", label: tt("Full"), hint: tt("Its own shape") },
+              ]}
+              onChange={(display_mode) => updateData({ display_mode: display_mode as "cover" | "contain" | "full" })}
+            />
           </div>
-        )}
+        ) : null}
+        <LinkImageOptions block={block} getBlock={latest} onChange={(updates) => updateBlock(block.id, updates)} />
       </div>
     )
   }
@@ -4387,11 +4360,9 @@ function BlockEditor({
             */}
             <ActionEditor value={data.action} onChange={action=>updateData({action,url:action?actionHref(action)||"":data.url})}/>
             <p className="pt-1 text-[16px] font-semibold text-[#1a1a2e]">{tt("Info")}</p>
-            <div className="flex items-center justify-between gap-3"><span className="text-[13px] text-[#6b7280]">{tt("Automatic link preview")}</span><Switch label={tt("Automatic link preview")} checked={data.link_preview?.enabled!==false} onChange={enabled=>{updateData({link_preview:{...data.link_preview,enabled},...(enabled?{}:data.thumbnail_url===data.link_preview?.image?{thumbnail_url:null}:{})});if(enabled)onUrlChangeWithAutoFetch?.(block.id,data.url)}}/></div>
-            {data.link_preview?.image?<button type="button" className="text-xs font-medium text-[#6b7280] underline" onClick={()=>updateData({thumbnail_url:null,link_preview:{...data.link_preview,image_hidden:true}})}>{tt("Remove preview image")}</button>:null}
             <label className="block">
               <span className="sr-only">{tt("Title")}</span>
-              <input value={data.label} onChange={(e) => updateData({ label: e.target.value,link_preview:{...data.link_preview,title_edited:true} })} placeholder={tt("Title")} aria-label={tt("Title")} data-link-title="" className={linkField} />
+              <input value={data.label} onChange={(e) => updateData({ label: e.target.value, link_preview: editedMark.title(data.link_preview) })} placeholder={tt("Title")} aria-label={tt("Title")} data-link-title="" className={linkField} />
             </label>
             <label className="block">
               <span className="sr-only">URL</span>
@@ -4443,6 +4414,10 @@ function BlockEditor({
               </span>
               <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={1.75} />
             </button>
+
+            {/* The preview read from the address, and how a social address shows (components/onepage/block-settings). */}
+            <LinkPreviewControls block={block} getBlock={() => findBlockDeep(getLatestOnePage()?.draft_blocks, block.id)?.block} onChange={(updates) => updateBlock(block.id, updates)} onRefresh={() => onUrlChangeWithAutoFetch?.(block.id, data.url, { refresh: true })} />
+            <SocialShowAs block={block} getBlock={() => findBlockDeep(getLatestOnePage()?.draft_blocks, block.id)?.block} onChange={(updates) => updateBlock(block.id, updates)} />
 
             {/* WhatsApp Group URL - Only shown for WhatsApp URLs */}
             {(data.url?.includes('wa.me') || data.url?.includes('whatsapp.com')) && (
@@ -4908,19 +4883,19 @@ function BlockEditor({
         const emailImage = emailSignupImage(data)
 
         return (
-          <Tabs defaultValue="settings" className="w-full">
-            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
+          <PartTabs>
+            <PartHidden className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <PartHidden value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 {tt("Settings")}
-              </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
+              </PartHidden>
+              <PartHidden value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 {tt("Layout")}
-              </TabsTrigger>
-            </TabsList>
+              </PartHidden>
+            </PartHidden>
 
-            <TabsContent value="settings" className="mt-0 space-y-4">
+            <PartContent value="settings" className="mt-0 space-y-4">
               {/* Headline */}
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Headline")}</Label>
@@ -5179,9 +5154,9 @@ function BlockEditor({
               <div className="pt-3 border-t">
                 <SignupDestination suggest={data.integration_hint ?? null} />
               </div>
-            </TabsContent>
+            </PartContent>
 
-            <TabsContent value="layout" className="mt-0 space-y-3">
+            <PartContent value="layout" className="mt-0 space-y-3">
               {/*
                 FIVE LAYOUTS, EACH DRAWN SMALL AS IT WILL LOOK (components/onepage/email-signup EmailLayoutThumb):
                 in the page's colours, with the block's image or, without one, the mark the layout shows instead.
@@ -5215,8 +5190,8 @@ function BlockEditor({
               <p className="text-[12px] leading-snug text-[#6b7280]">
                 {emailImage ? tt("Featured, Cover, Solid, Simple and Bar show your image.") : tt("No image needed. Add one in Settings to show it in Featured, Cover, Solid, Simple and Bar.")}
               </p>
-            </TabsContent>
-          </Tabs>
+            </PartContent>
+          </PartTabs>
         )
       }
 
@@ -5420,19 +5395,19 @@ function BlockEditor({
         ]
 
         return (
-          <Tabs defaultValue="settings" className="w-full">
-            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
+          <PartTabs>
+            <PartHidden className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <PartHidden value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 {tt("Settings")}
-              </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
+              </PartHidden>
+              <PartHidden value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 {tt("Layout")}
-              </TabsTrigger>
-            </TabsList>
+              </PartHidden>
+            </PartHidden>
 
-            <TabsContent value="settings" className="mt-0 space-y-4">
+            <PartContent value="settings" className="mt-0 space-y-4">
               {/* Images List */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -5529,9 +5504,9 @@ function BlockEditor({
                   onCheckedChange={(checked) => updateData({ show_captions: checked })}
                 />
               </div>
-            </TabsContent>
+            </PartContent>
 
-            <TabsContent value="layout" className="mt-0 space-y-4">
+            <PartContent value="layout" className="mt-0 space-y-4">
               {/* Display Style */}
               <div className="space-y-2">
                 <Label className="text-xs font-medium">{tt("Display Style")}</Label>
@@ -5703,7 +5678,7 @@ function BlockEditor({
                   </button>
                 </div>
               </div>
-            </TabsContent>
+            </PartContent>
 
             {/* Hidden file input for image upload */}
             <input
@@ -5713,7 +5688,7 @@ function BlockEditor({
               onChange={handleImageBlockUpload}
               className="hidden"
             />
-          </Tabs>
+          </PartTabs>
         )
       }
 
@@ -5727,19 +5702,19 @@ function BlockEditor({
         ] as const
 
         return (
-          <Tabs defaultValue="settings" className="w-full">
-            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
+          <PartTabs>
+            <PartHidden className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <PartHidden value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 {tt("Settings")}
-              </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
+              </PartHidden>
+              <PartHidden value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 {tt("Layout")}
-              </TabsTrigger>
-            </TabsList>
+              </PartHidden>
+            </PartHidden>
 
-            <TabsContent value="settings" className="mt-0 space-y-4">
+            <PartContent value="settings" className="mt-0 space-y-4">
               {/* Title */}
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Title")}</Label>
@@ -5855,9 +5830,9 @@ function BlockEditor({
                   }}
                 />
               </div>
-            </TabsContent>
+            </PartContent>
 
-            <TabsContent value="layout" className="mt-0 space-y-3">
+            <PartContent value="layout" className="mt-0 space-y-3">
               <p className="text-xs text-muted-foreground mb-2">{tt("Choose how this block displays on your page")}</p>
 
               {/* Layout Options Grid */}
@@ -5965,8 +5940,8 @@ function BlockEditor({
                   </div>
                 </div>
               )}
-            </TabsContent>
-          </Tabs>
+            </PartContent>
+          </PartTabs>
         )
       }
 
@@ -5980,19 +5955,19 @@ function BlockEditor({
         ] as const
 
         return (
-          <Tabs defaultValue="settings" className="w-full">
-            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
+          <PartTabs>
+            <PartHidden className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <PartHidden value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 {tt("Settings")}
-              </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
+              </PartHidden>
+              <PartHidden value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 {tt("Layout")}
-              </TabsTrigger>
-            </TabsList>
+              </PartHidden>
+            </PartHidden>
 
-            <TabsContent value="settings" className="mt-0 space-y-4">
+            <PartContent value="settings" className="mt-0 space-y-4">
               {/* Title */}
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Title")}</Label>
@@ -6108,9 +6083,9 @@ function BlockEditor({
                   }}
                 />
               </div>
-            </TabsContent>
+            </PartContent>
 
-            <TabsContent value="layout" className="mt-0 space-y-3">
+            <PartContent value="layout" className="mt-0 space-y-3">
               <p className="text-xs text-muted-foreground mb-2">{tt("Choose how this block displays on your page")}</p>
 
               {/* Layout Options Grid */}
@@ -6218,8 +6193,8 @@ function BlockEditor({
                   </div>
                 </div>
               )}
-            </TabsContent>
-          </Tabs>
+            </PartContent>
+          </PartTabs>
         )
       }
 
@@ -6233,19 +6208,19 @@ function BlockEditor({
         ] as const
 
         return (
-          <Tabs defaultValue="settings" className="w-full">
-            <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
+          <PartTabs>
+            <PartHidden className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
+              <PartHidden value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 {tt("Settings")}
-              </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
+              </PartHidden>
+              <PartHidden value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 {tt("Layout")}
-              </TabsTrigger>
-            </TabsList>
+              </PartHidden>
+            </PartHidden>
 
-            <TabsContent value="settings" className="mt-0 space-y-4">
+            <PartContent value="settings" className="mt-0 space-y-4">
               {/* Title */}
               <div className="space-y-1.5">
                 <Label className="text-xs">{tt("Title")}</Label>
@@ -6319,9 +6294,9 @@ function BlockEditor({
                   />
                 </div>
               </div>
-            </TabsContent>
+            </PartContent>
 
-            <TabsContent value="layout" className="mt-0 space-y-3">
+            <PartContent value="layout" className="mt-0 space-y-3">
               <p className="text-xs text-muted-foreground mb-2">{tt("Choose how this block displays on your page")}</p>
 
               {/* Layout Options Grid */}
@@ -6429,8 +6404,8 @@ function BlockEditor({
                   </div>
                 </div>
               )}
-            </TabsContent>
-          </Tabs>
+            </PartContent>
+          </PartTabs>
         )
       }
 
@@ -6758,15 +6733,31 @@ function BlockEditor({
         </TabsList>
 
         <TabsContent value="links" className="mt-0 space-y-4">
-          {/* Group Title */}
+          {/* A collection's optional title, line and picture, drawn above its blocks (components/onepage/public-onepage CollectionIntro). */}
           <div className="space-y-1.5">
-            <Label className="text-xs">{tt("Group Title (optional)")}</Label>
+            <Label className="text-xs">{tt("Title (optional)")}</Label>
             <Input
               value={groupData.title || ""}
               onChange={(e) => updateData({ title: e.target.value || null })}
-              placeholder={tt("Enter group title...")}
+              placeholder={tt("My favourites")}
               className="h-9"
+              data-group-title=""
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">{tt("Description (optional)")}</Label>
+            <Textarea
+              value={groupData.description || ""}
+              rows={2}
+              maxLength={300}
+              onChange={(e) => updateData({ description: e.target.value || null })}
+              placeholder={tt("A line under the title")}
+              data-group-description=""
+            />
+          </div>
+          <div className="space-y-1.5" data-group-image="">
+            <Label className="text-xs">{tt("Picture (optional)")}</Label>
+            <ImageUpload bucket="covers" aspectRatio="video" allowRemove value={groupData.image_url || undefined} onChange={(image_url) => updateData({ image_url: image_url || null })} />
           </div>
 
           {/* Canvas / Block List */}
@@ -6934,97 +6925,54 @@ function BlockEditor({
 
         </TabsContent>
 
-        <TabsContent value="layout" className="mt-0 space-y-3">
-          <p className="text-xs text-muted-foreground mb-2">{tt("Choose how blocks are arranged in this group")}</p>
-
-          {/* Layout Options Grid */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Stack Layout */}
-            <button
-              type="button"
-              onClick={() => updateData({ layout: "stack" as const })}
-              className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
-            >
-              <CardMark on={groupData.layout === "stack"} tint="#f7f7f8" />
-              {/* Visual Preview */}
-              {/* Small, as the signup's layouts are (round 11): the shape, not a big card. */}
-              <div className="w-full h-[60px] bg-gray-100 rounded-lg mb-2 flex flex-col items-center justify-center overflow-hidden px-2.5 gap-1">
-                <div className="w-full h-3 bg-white rounded-[3px] border border-gray-200" />
-                <div className="w-full h-3 bg-white rounded-[3px] border border-gray-200" />
-                <div className="w-full h-3 bg-white rounded-[3px] border border-gray-200" />
-              </div>
-              
-              {/* Label */}
-              <div className="flex items-center gap-2">
-                <div className={cn(
-                  "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
-                  groupData.layout === "stack" ? "border-[#1a1a2e]" : "border-gray-300"
-                )}>
-                  <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", groupData.layout === "stack" ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
-                </div>
-                <span className="font-medium text-sm">{tt("Stack")}</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("Vertical list")}</p>
-            </button>
-
-            {/* Carousel Layout */}
-            <button
-              type="button"
-              onClick={() => updateData({ layout: "carousel" as const })}
-              className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
-            >
-              <CardMark on={groupData.layout === "carousel"} tint="#f7f7f8" />
-              {/* Visual Preview */}
-              <div className="w-full h-[60px] bg-gray-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden p-2 gap-1">
-                <div className="w-[40%] h-full bg-white rounded-[3px] border border-gray-200 shrink-0" />
-                <div className="w-[40%] h-full bg-white rounded-[3px] border border-gray-200 shrink-0" />
-                <div className="w-[20%] h-full bg-white/50 rounded-[3px] border border-gray-100 shrink-0" />
-              </div>
-              
-              {/* Label */}
-              <div className="flex items-center gap-2">
-                <div className={cn(
-                  "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
-                  groupData.layout === "carousel" ? "border-[#1a1a2e]" : "border-gray-300"
-                )}>
-                  <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", groupData.layout === "carousel" ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
-                </div>
-                <span className="font-medium text-sm">{tt("Carousel")}</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("Swipe horizontal")}</p>
-            </button>
+        <TabsContent value="layout" className="mt-0 space-y-5">
+          {/* Stack, Grid or Carousel, drawn small; the picked one in the thin dark border every layout picker uses. */}
+          <div className="space-y-2.5" data-group-layouts="">
+            <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Layout")}</p>
+            <div className="grid grid-cols-3 gap-2.5">
+              {([
+                { id: "stack" as const, label: tt("Stack") },
+                { id: "grid" as const, label: tt("Grid") },
+                { id: "carousel" as const, label: tt("Carousel") },
+              ]).map((o) => {
+                const on = (groupData.layout || "stack") === o.id
+                return (
+                  <button key={o.id} type="button" aria-pressed={on} data-group-layout-choice={o.id} onClick={() => updateData({ layout: o.id })} className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-1.5 outline-none hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]">
+                    <ChoiceMark on={on} />
+                    <span aria-hidden className="flex aspect-[4/3] items-center justify-center gap-1 overflow-hidden rounded-xl bg-[#f4f4f6] p-2.5">
+                      {o.id === "stack" ? (
+                        <span className="flex w-full flex-col gap-1">{[0, 1, 2].map((i) => <span key={i} className="block h-2.5 w-full rounded-[3px] bg-white shadow-[inset_0_0_0_1px_#e3e4e8]" />)}</span>
+                      ) : o.id === "grid" ? (
+                        <span className="grid w-full grid-cols-2 gap-1">{[0, 1, 2, 3].map((i) => <span key={i} className="block h-4 rounded-[3px] bg-white shadow-[inset_0_0_0_1px_#e3e4e8]" />)}</span>
+                      ) : (
+                        <>{[1, 1, 0.5].map((w, i) => <span key={i} className="block h-full shrink-0 rounded-[3px] bg-white shadow-[inset_0_0_0_1px_#e3e4e8]" style={{ width: `${w * 40}%`, opacity: w < 1 ? 0.6 : 1 }} />)}</>
+                      )}
+                    </span>
+                    <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{o.label}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
-          {/* Carousel Options - shown when carousel layout is selected */}
-          {groupData.layout === "carousel" && (
-            <div className="space-y-4 pt-3 border-t">
-              <div className="space-y-2">
-                <Label className="text-xs">{tt("Carousel View")}</Label>
-                <div className="flex gap-2">
-                  {([
-                    { id: "1" as CarouselViewType, label: tt("1 per row") },
-                    { id: "1.2" as CarouselViewType, label: tt("1.2 per row") },
-                    { id: "1.5" as CarouselViewType, label: tt("1.5 per row") },
-                  ]).map((view) => (
-                    <button
-                      key={view.id}
-                      type="button"
-                      onClick={() => updateData({ carousel_view: view.id })}
-                      className={cn(
-                        "flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all",
-                        (groupData.carousel_view || "1") === view.id
-                          ? "bg-[#1a1a2e] text-white"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      )}
-                    >
-                      {view.label}
-                    </button>
-                  ))}
-                </div>
+          {groupData.layout === "carousel" ? (
+            <div className="space-y-4 border-t border-[#eef0f2] pt-4">
+              <Segmented
+                label={tt("Cards in view")}
+                value={(groupData.carousel_view || "1") as string}
+                options={[
+                  { id: "1", label: tt("1 per row") },
+                  { id: "1.2", label: tt("1.2 per row") },
+                  { id: "1.5", label: tt("1.5 per row") },
+                ]}
+                onChange={(view) => updateData({ carousel_view: view as CarouselViewType })}
+              />
+              <div className="flex min-h-11 items-center justify-between gap-3">
+                <span className="text-[14px] font-medium text-[#1a1a2e]">{tt("Soft edges")}</span>
+                <Switch label={tt("Soft edges")} checked={!!groupData.carousel_fade_edges} onChange={(carousel_fade_edges) => updateData({ carousel_fade_edges })} />
               </div>
-
             </div>
-          )}
+          ) : null}
         </TabsContent>
       </Tabs>
     )
@@ -7035,45 +6983,64 @@ function BlockEditor({
     under every block's own settings but the profile header's. A block inside
     a group shows with its group, so it has the switch but not the schedule.
   */
-  const settingsWithExtras = () => (
-    <>
-      {renderSettingsContent()}
-      <BlockPresentationEditor block={block} getBlock={() => findBlockDeep(getLatestOnePage()?.draft_blocks, block.id)?.block} onChange={(updates) => updateBlock(block.id, updates)} />
-      {block.type !== "header" ? (
-        <BlockExtras
-          block={block}
-          scheduling={!updateBlockOverride}
-          updateBlock={(updates) => updateBlock(block.id, updates)}
-          updateData={updateData}
-        />
-      ) : null}
-    </>
-  )
+  const latestBlock = () => findBlockDeep(getLatestOnePage()?.draft_blocks, block.id)?.block
+  const changeBlock = (updates: Partial<OnePageBlock>) => updateBlock(block.id, updates)
+  const extras =
+    block.type !== "header" ? (
+      <BlockExtras
+        block={block}
+        scheduling={!updateBlockOverride}
+        updateBlock={changeBlock}
+        updateData={updateData}
+      />
+    ) : null
 
-  // If block supports layout, render with tabs; otherwise just render settings
-  if (supportsLayout) {
+  /* The profile header, a divider and the social icons are one control each: no Layout tab to fill. */
+  if (!BLOCKS_WITH_TABS(block.type) || (!layoutControlsFor(block.type).length && !PART_AWARE.has(block.type))) {
     return (
-      <Tabs defaultValue="settings" className="w-full">
-        <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-          <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
-            <Settings className="w-3.5 h-3.5" />
-            {tt("Settings")}
-          </TabsTrigger>
-          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
-            <LayoutGrid className="w-3.5 h-3.5" />
-            {tt("Layout")}
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="settings" className="mt-0">
-          {settingsWithExtras()}
-        </TabsContent>
-        <TabsContent value="layout" className="mt-0">
-          {renderLayoutContent()}
-        </TabsContent>
-      </Tabs>
+      <>
+        {renderSettingsContent()}
+        {extras}
+      </>
     )
   }
 
-  // For blocks without layout support, just render settings directly
-  return settingsWithExtras()
+  /*
+    SETTINGS AND LAYOUT, FOR EVERY OTHER BLOCK (components/onepage/block-settings).
+    An editor written in two halves (PART_AWARE) is drawn once per tab and
+    shows the half that tab is for; any other block's editor is all Settings,
+    and its Layout tab is the shared style rows.
+  */
+  const style = <BlockStyleControls block={block} getBlock={latestBlock} onChange={changeBlock} />
+  const layout =
+    block.type === "link_button" || block.type === "product" ? (
+      <>
+        {renderLayoutContent()}
+        {style}
+      </>
+    ) : PART_AWARE.has(block.type) ? (
+      <>
+        <BlockPartContext.Provider value="layout">{renderSettingsContent()}</BlockPartContext.Provider>
+        {style}
+      </>
+    ) : (
+      style
+    )
+  return (
+    <BlockEditorTabs
+      settings={
+        <BlockPartContext.Provider value="settings">
+          {renderSettingsContent()}
+          <BlockDescriptionField block={block} getBlock={latestBlock} onChange={changeBlock} />
+          {extras}
+        </BlockPartContext.Provider>
+      }
+      layout={layout}
+    />
+  )
 }
+
+/** Blocks whose own editor is written in a Settings half and a Layout half (PartContent, useBlockPart). */
+const PART_AWARE = new Set(["email_capture", "image", "pdf_document", "food_menu", "calendly", "storelib_shelf", "social_posts"])
+const BLOCKS_WITHOUT_TABS = new Set(["header", "divider", "social_row", "group"])
+const BLOCKS_WITH_TABS = (type: string) => !BLOCKS_WITHOUT_TABS.has(type)

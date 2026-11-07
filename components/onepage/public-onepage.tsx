@@ -5,7 +5,7 @@ import {actionHref,normaliseAction,type NativeAction} from "@/lib/forms/actions"
 import {coverCropStyle,cropFromSettings} from "@/lib/images/cover-crop"
 
 import { BlockPresentationFrame, BlockSubtitle, VisualLinkCard } from "./block-presentation"
-import { presentationOf } from "@/lib/onepage/block-presentation"
+import { presentationOf, safeCardMedia } from "@/lib/onepage/block-presentation"
 
 import { ProfileImage } from "./profile-image"
 
@@ -2458,10 +2458,7 @@ function GroupBlockRenderer({
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={handleMouseLeave}
       >
-        {/* Fade on left edge */}
-        {data.carousel_fade_edges && (
-          <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-8 bg-gradient-to-r from-black/20 to-transparent z-10 pointer-events-none" />
-        )}
+        {/* Soft edges: the scroller itself fades out at both sides (its mask below), so the slides melt into any page background. */}
 
         {/* Left Arrow Navigation - Desktop only, smooth fade in */}
         {isDesktop && canScrollLeft && (
@@ -2507,6 +2504,7 @@ function GroupBlockRenderer({
             margin: `-${CAROUSEL_ROOM}px -${CAROUSEL_ROOM - 8}px`,
             padding: `${CAROUSEL_ROOM + 12}px ${CAROUSEL_ROOM}px ${CAROUSEL_ROOM + 20}px`,
             scrollPaddingInline: `${CAROUSEL_ROOM}px`,
+            ...(data.carousel_fade_edges ? { maskImage: SOFT_EDGES, WebkitMaskImage: SOFT_EDGES } : {}),
           }}
           onScroll={handleScroll}
         >
@@ -2564,10 +2562,6 @@ function GroupBlockRenderer({
           </button>
         )}
 
-        {/* Fade on right edge */}
-        {data.carousel_fade_edges && (
-          <div className="absolute right-0 top-0 bottom-0 w-6 sm:w-8 bg-gradient-to-l from-black/20 to-transparent z-10 pointer-events-none" />
-        )}
 
         {/* Dots navigation - clickable, updates based on scroll position */}
         {enabledChildren.length > 1 && (
@@ -2640,6 +2634,7 @@ function GroupBlockRenderer({
           {data.title}
         </h3>
       )}
+      <CollectionIntro data={data} theme={theme} />
       {data.layout === "carousel" ? renderCarousel() : renderStack()}
     </div>
   )
@@ -2647,6 +2642,35 @@ function GroupBlockRenderer({
 
 /** The room a group carousel's scroller keeps around its slides: the widest glow or hard shadow a button draws, and a lift. */
 const CAROUSEL_ROOM = 16
+/* A group carousel's soft edges, as a mask: no colour of its own, so it suits any page background. */
+const SOFT_EDGES = `linear-gradient(to right, transparent 0, #000 ${CAROUSEL_ROOM + 12}px, #000 calc(100% - ${CAROUSEL_ROOM + 12}px), transparent 100%)`
+
+/**
+ * A COLLECTION'S OPTIONAL PICTURE AND LINE (GroupBlockData image_url and
+ * description), above its blocks. The picture fades into the page at its
+ * foot, so there is no hard edge; with neither set, nothing is drawn and the
+ * group looks as it always did.
+ */
+function CollectionIntro({ data, theme }: { data: GroupBlockData; theme: OnePageTheme }) {
+  const image = safeCardMedia(data.image_url || undefined)
+  const description = data.description?.trim()
+  if (!image && !description) return null
+  return (
+    <div data-collection-intro="" className="flex w-full flex-col items-center gap-2 px-3">
+      {image ? (
+        <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16 / 7", borderRadius: Math.min(Number(theme.button_border_radius) || 16, 24), WebkitMaskImage: "linear-gradient(to bottom, #000 55%, transparent 100%)", maskImage: "linear-gradient(to bottom, #000 55%, transparent 100%)" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={onePageImageSrc(image, 960)} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+        </div>
+      ) : null}
+      {description ? (
+        <p className="max-w-[46ch] whitespace-pre-wrap break-words text-center text-[13.5px] leading-snug opacity-75" style={{ color: theme.text_color }}>
+          {description}
+        </p>
+      ) : null}
+    </div>
+  )
+}
 
 /** One slide's width, asked of the slide itself (the scroller's padding is not the slides' room). */
 function carouselSlideWidth(container: HTMLElement, percent: number): number {
@@ -4975,6 +4999,21 @@ function CoreBlockRenderer({
               {data.title}
             </h3>
           )}
+          <CollectionIntro data={data} theme={theme} />
+          {layout === "grid" ? (
+            /* A collection as a grid: two to a row, each block at half the column. */
+            <div className="grid w-full grid-cols-2 gap-3 px-3 py-3" data-group-grid="">
+              {enabledChildren.map((child) => (
+                <div key={child.id} className="min-w-0" data-sensitive-label={sensitiveLabel(child)}>
+                  {inGroupPreview && isIncompleteLink(child) ? (
+                    <IncompleteLinkPlaceholder label={(child.data as LinkButtonBlockData)?.label} theme={theme} />
+                  ) : (
+                    <PublicBlockRenderer block={child} theme={theme} profile={profile} onepageId={onepageId} sellerId={sellerId} isDesktop={isDesktop} settings={settings} isInsideGroup={true} inPair={true} />
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className="w-full flex flex-col gap-4 sm:gap-5 py-3">
             {/*
               Round 43: product tiles in a group sit two to a row, as on the page (lib/onepage/product-block
@@ -5018,6 +5057,7 @@ function CoreBlockRenderer({
               )
             })}
           </div>
+          )}
         </div>
       )
     }

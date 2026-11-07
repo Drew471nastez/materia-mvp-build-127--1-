@@ -184,7 +184,8 @@ export interface StreamingService {
 export interface FormQuizBlockData {form_id:string;title:string;inline?:boolean}
 
 export interface LinkButtonBlockData {
-  link_preview?:{enabled?:boolean;url?:string;title?:string;image?:string|null;description?:string;title_edited?:boolean;image_hidden?:boolean}
+  /** The pasted address's public preview (lib/onepage/link-preview). The *_edited and image_hidden marks keep a refresh off what the creator changed. */
+  link_preview?:{enabled?:boolean;url?:string;title?:string;image?:string|null;description?:string;favicon?:string|null;title_edited?:boolean;description_edited?:boolean;image_edited?:boolean;image_hidden?:boolean}
 
   action?: import("@/lib/forms/actions").NativeAction
   label: string
@@ -454,7 +455,7 @@ export interface HeaderBlockData {
   show_bio: boolean
 }
 
-export type GroupLayoutType = "stack" | "carousel"
+export type GroupLayoutType = "stack" | "carousel" | "grid"
 
 export type CarouselViewType = "1" | "1.2" | "1.5"
 
@@ -464,6 +465,9 @@ export interface GroupBlockData {
   children: OnePageBlock[]
   carousel_view?: CarouselViewType
   carousel_fade_edges?: boolean
+  /** A collection's optional line and picture, drawn above its blocks with a soft fade. */
+  description?: string | null
+  image_url?: string | null
 }
 
 // The blocks drawn by components/onepage/extra-blocks, the same in the editor and on the live page

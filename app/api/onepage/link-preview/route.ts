@@ -4,10 +4,40 @@ import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { fetchPublic, publicUrlProblem } from "@/lib/api/public-fetch"
 import { parseLinkMetadata } from "@/lib/onepage/link-metadata"
 export const runtime = "nodejs"
-const cache = new Map<
-  string,
-  { at: number; value: ReturnType<typeof parseLinkMetadata> }
->()
+
+/*
+  A PASTED ADDRESS'S PUBLIC PREVIEW, for a signed-in creator's editor only.
+
+  - Signed in, or 401. Rate limited per user and per address (40 in 10 min).
+  - The address must be http or https on a standard port, with no
+    credentials and no local or private host.
+  - fetchPublic (lib/api/public-fetch) resolves the name AT CONNECT TIME and
+    refuses any private, loopback, link-local or metadata address, and does
+    the same on every redirect hop (at most 2).
+  - At most 512 KB is read; each hop has 4.5 s and the whole lookup 8 s.
+  - Answers are kept 10 minutes (failures 2 minutes) in a bounded cache, so
+    a repeated paste asks the site once.
+  - Only text is returned: the title, description, picture and icon
+    addresses, each checked again (lib/onepage/link-metadata).
+*/
+type Preview = ReturnType<typeof parseLinkMetadata>
+const cache = new Map<string, { at: number; value: Preview | null }>()
+const HIT_MS = 600_000
+const MISS_MS = 120_000
+const TOTAL_MS = 8000
+const CACHE_MAX = 200
+
+function remember(key: string, value: Preview | null) {
+  cache.delete(key)
+  if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value!)
+  cache.set(key, { at: Date.now(), value })
+}
+const noPreview = () =>
+  NextResponse.json(
+    { error: "A preview is not available. Your link still works." },
+    { status: 422, headers: { "Cache-Control": "no-store" } },
+  )
+
 export async function GET(request: Request) {
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
@@ -32,31 +62,40 @@ export async function GET(request: Request) {
   key.hash = ""
   const url = key.href,
     had = cache.get(url)
-  if (had && Date.now() - had.at < 600_000)
-    return NextResponse.json(had.value, {
-      headers: { "Cache-Control": "no-store" },
-    })
+  if (had && Date.now() - had.at < (had.value ? HIT_MS : MISS_MS))
+    return had.value
+      ? NextResponse.json(had.value, { headers: { "Cache-Control": "no-store" } })
+      : noPreview()
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    const r = await fetchPublic(url, {
-      maxBytes: 524_288,
-      timeoutMs: 4500,
-      maxRedirects: 2,
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("timed out")), TOTAL_MS)
     })
-    if (!r.ok || !r.headers.get("content-type")?.includes("text/html"))
+    const r = await Promise.race([
+      fetchPublic(url, {
+        maxBytes: 524_288,
+        timeoutMs: 4500,
+        maxRedirects: 2,
+      }),
+      deadline,
+    ])
+    const type = r.headers.get("content-type") || ""
+    if (!r.ok || !/text\/html|application\/xhtml\+xml/i.test(type)) {
+      remember(url, null)
       return NextResponse.json(
         { error: "This website has no link preview." },
-        { status: 422 },
+        { status: 422, headers: { "Cache-Control": "no-store" } },
       )
+    }
     const value = parseLinkMetadata(await r.text(), r.url || url)
-    if (cache.size >= 200) cache.delete(cache.keys().next().value!)
-    cache.set(url, { at: Date.now(), value })
+    remember(url, value)
     return NextResponse.json(value, {
       headers: { "Cache-Control": "no-store" },
     })
   } catch {
-    return NextResponse.json(
-      { error: "A preview is not available. Your link still works." },
-      { status: 422 },
-    )
+    remember(url, null)
+    return noPreview()
+  } finally {
+    if (timer) clearTimeout(timer)
   }
 }

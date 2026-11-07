@@ -277,16 +277,16 @@ export function ProductTapSetting({ data, onChange }: { data: ProductBlockData; 
 
 /* ── The layout picker ──────────────────────────────────────────────────── */
 
-function layoutLabel(id: ProductBlockStyle): string {
+export function layoutLabel(id: ProductBlockStyle): string {
   switch (id) {
     case "button": return tt("Button")
     case "callout": return tt("Callout")
     case "preview": return tt("Card")
-    case "row": return tt("Compact")
+    case "row": return tt("Compact card")
     case "side": return tt("Side by side")
     case "tile": return tt("Tile")
-    case "overlay": return tt("Photo")
-    case "minimal": return tt("Minimal")
+    case "overlay": return tt("Photo title")
+    case "minimal": return tt("Bottom minimal")
   }
 }
 
