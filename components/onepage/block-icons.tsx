@@ -280,3 +280,139 @@ export function BlockTile({ icon: Icon, size = "md", className, children }: { ic
     </span>
   )
 }
+
+/* ─── Round AL: the app blocks' own glyphs, and the round tile ────────── */
+
+/** A price tag: an affiliate product. */
+export const GlyphTag = glyph("tag", (
+  <>
+    <path d="M3.75 12.6V5.25a1.5 1.5 0 0 1 1.5-1.5h7.35l7.65 7.65a1.5 1.5 0 0 1 0 2.1l-6.15 6.15a1.5 1.5 0 0 1-2.1 0z" />
+    <circle cx="8.25" cy="8.25" r="1.35" />
+  </>
+))
+
+/** An open hand under a coin: tips. */
+export const GlyphTip = glyph("tip", (
+  <>
+    <circle cx="14.5" cy="6.25" r="2.5" />
+    <path d="M3.75 15.5h2.5l3.6-1.6a2 2 0 0 1 1.8.1l2.1 1.2a1.2 1.2 0 0 1-.6 2.25H10" />
+    <path d="M13 17.45h3.2l3.4-2.6a1.3 1.3 0 0 1 1.65 2l-3.9 3.15a2 2 0 0 1-1.25.45H6.25l-2.5-.75" />
+  </>
+))
+
+/** A phone: a mobile app. */
+export const GlyphPhone = glyph("phone", (
+  <>
+    <rect x="6.75" y="2.75" width="10.5" height="18.5" rx="2.6" />
+    <path d="M10.75 18h2.5" />
+  </>
+))
+
+/** A ticket: events and tours. */
+export const GlyphTicket = glyph("ticket", (
+  <>
+    <path d="M3.75 8.25a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 1 1.5-1.5h10.5A1.5 1.5 0 0 1 18.75 6v.75a1.5 1.5 0 0 0 1.5 1.5v7.5a1.5 1.5 0 0 0-1.5 1.5V18a1.5 1.5 0 0 1-1.5 1.5H6.75A1.5 1.5 0 0 1 5.25 18v-.75a1.5 1.5 0 0 0-1.5-1.5z" />
+    <path d="M14.25 4.5v15" strokeDasharray="1.6 2.2" />
+  </>
+))
+
+/** Three bars: stats. */
+export const GlyphStats = glyph("stats", (
+  <>
+    <path d="M5.25 19.5v-6" />
+    <path d="M12 19.5v-15" />
+    <path d="M18.75 19.5v-9.75" />
+  </>
+))
+
+/** Options, one chosen: a poll. */
+export const GlyphPoll = glyph("poll", (
+  <>
+    <rect x="3.75" y="4.5" width="16.5" height="4.5" rx="2.25" />
+    <rect x="3.75" y="15" width="10.5" height="4.5" rx="2.25" />
+    <path d="M6.25 6.75h7" />
+  </>
+))
+
+/** A card with a face: contact details. */
+export const GlyphContactCard = glyph("contact-card", (
+  <>
+    <rect x="2.75" y="4.75" width="18.5" height="14.5" rx="3" />
+    <circle cx="8.75" cy="11" r="2.1" />
+    <path d="M5.75 16.25a3.4 3.4 0 0 1 6 0" />
+    <path d="M14.5 10h3.75M14.5 13.5h2.5" />
+  </>
+))
+
+/** A cloud with an arrow down: a digital product. */
+export const GlyphDownload = glyph("download", (
+  <>
+    <path d="M7.5 17.25H6.75a4.5 4.5 0 0 1-.6-8.96 6 6 0 0 1 11.6 1.46 3.75 3.75 0 0 1-.25 7.5h-.75" />
+    <path d="M12 11.25v8.25m-3-3 3 3 3-3" />
+  </>
+))
+
+/** A box: a product that ships. */
+export const GlyphBox = glyph("box", (
+  <>
+    <path d="M12 3 20.25 7.5v9L12 21 3.75 16.5v-9z" />
+    <path d="M3.75 7.5 12 12l8.25-4.5M12 12v9" />
+  </>
+))
+
+/** Two people: a community or a group chat. */
+export const GlyphPeople = glyph("people", (
+  <>
+    <circle cx="9" cy="8.5" r="3" />
+    <path d="M3.75 19a5.25 5.25 0 0 1 10.5 0" />
+    <path d="M15.5 5.75a3 3 0 0 1 0 5.5M17.25 14.25a5.25 5.25 0 0 1 3 4.75" />
+  </>
+))
+
+/** A star in a circle: a membership. */
+export const GlyphStar = glyph("star", (
+  <>
+    <path d="m12 3.75 2.5 5.1 5.6.8-4.05 3.95.95 5.6L12 16.55 7 19.2l.95-5.6L3.9 9.65l5.6-.8z" />
+  </>
+))
+
+/** Lines and a button under them: text and a button. */
+export const GlyphTextButton = glyph("text-button", (
+  <>
+    <path d="M4.5 5.25h15M4.5 9h10.5" />
+    <rect x="4.5" y="13.5" width="15" height="5.25" rx="2.6" />
+  </>
+))
+
+/* The app blocks' marks that are ours, not a company's (lib/onepage/app-blocks APP_PROVIDERS mark). */
+export const APP_GLYPHS: Record<string, Glyph> = {
+  tag: GlyphTag,
+  tip: GlyphTip,
+  phone: GlyphPhone,
+  ticket: GlyphTicket,
+  stats: GlyphStats,
+  poll: GlyphPoll,
+  contact: GlyphContactCard,
+  mail: GlyphEmail,
+  text: GlyphTextButton,
+}
+
+/**
+ * ROUND AL, THE ADD BLOCK SHEET'S ROUND TILE (the owner: "I don't like that
+ * they're light gray ... more colour and different with the specific
+ * icons", and Linktree's list as the picture). A circle filled with the
+ * entry's own colour and its mark on it, in white or near black, whichever
+ * reads (`ink`). `size` is the circle's diameter.
+ */
+export function RoundTile({ color, ink, size = 44, children, className, style }: { color: string; ink: string; size?: number; children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+  return (
+    <span
+      data-round-tile=""
+      aria-hidden
+      className={cn("grid shrink-0 place-items-center rounded-full", className)}
+      style={{ width: size, height: size, background: color, color: ink, ...style }}
+    >
+      {children}
+    </span>
+  )
+}

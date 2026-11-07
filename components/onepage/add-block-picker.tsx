@@ -5,78 +5,90 @@
  *  ADD BLOCK: WHAT A ONEPAGE CAN HOLD, FOUND IN A SECOND
  * ===========================================================================
  * The sheet (a phone) or dialog (a computer) that + Add opens, drawn inside
- * links-tab's SheetDialog. It was eight categories of rows with a share
- * arrow beside half of them, the same Instagram row in three places, two
- * "Coming soon" rows that could not be pressed, and coloured brand marks
- * next to grey icons. Now:
+ * links-tab's SheetDialog.
+ *
+ * ROUND AL, the owner: "in the add block, in the one page editor, I feel
+ * like there are too many things. Like, why there is digital products and
+ * digital product block? ... We should make it more like Linktree ... I
+ * don't like that they're light gray ... for the apps that actually are
+ * companies, just use their original icon ... organize in the add block
+ * model the categories into ... essentials, commerce, social media,
+ * contact, events, text, and then ... view all ... preserve the recently
+ * used ... one per row instead of two per row". Now, after Linktree's own
+ * list:
  *
  *   SEARCH      one field, matching a block's name, its line and the words
- *               people use for it ("newsletter" finds Email signup).
+ *               people use for it ("newsletter" finds Email signup). Search
+ *               also finds what the lists leave out (a single product, a
+ *               link to Etsy, the email tools), so nothing anyone used is
+ *               gone, it is just not in the way.
  *   RECENT      the last four blocks this person added, first, on this
  *               browser only.
- *   CATEGORIES  Essentials, Sell, Media, Grow, Integrations and Links, as
- *               chips: one press shows that category alone, All shows them
- *               all in that order.
- *   ROWS        one icon set (./block-icons) on one grey tile, brand marks
- *               in the same near black, a name and one line saying what it
- *               does. Two columns from 640px.
+ *   CATEGORIES  Essentials, Commerce, Social, Media, Contact, Events and
+ *               Text, then View all. Essentials is a short pick from all of
+ *               them and is what the sheet opens on.
+ *   ROWS        one per row: a large round tile in the entry's own colour
+ *               (a company's own mark on its own colour: Instagram's
+ *               gradient, Google Maps' four colour pin), a name, one line
+ *               saying what it does, and a chevron.
+ *   ONE ENTRY   for one thing. "Digital products" is the Commerce shelf of
+ *               downloads; the single product block and "All products" are
+ *               found by search and by the shelf's own Show choice. A
+ *               service with a block (YouTube, Spotify, Calendly, Maps)
+ *               adds that block; every other service adds an app block
+ *               (lib/onepage/app-blocks), one engine with the same Settings
+ *               and Layout for all of them.
  *
- * The integrations are real: YouTube, TikTok and Vimeo play in the video
- * block; Spotify, Apple Music and SoundCloud in the music block; Instagram
- * and X posts, Twitch, Loom, Apple Podcasts, Bandcamp, Mixcloud, Typeform,
- * Google Forms, Tally, Substack and Google Calendar in the embed block, each
- * in the service's own public embed (lib/onepage/creator-blocks
- * embedSource, every host in lib/security/csp.ts); Calendly and Cal.com open
- * in the booking block; and Klaviyo or Omnisend receive every signup through
- * Settings › Integrations (lib/integrations/marketing). Nothing here asks
- * for a key, so nothing here pretends to "connect".
+ * Saved blocks of every older entry render and edit exactly as before: an
+ * entry only says what a NEW block starts as.
  *
- * ROUND 40, EVERY INTEGRATION IS A BLOCK: Mailchimp, Kit, beehiiv, Zapier,
- * Make, Google Sheets and a webhook each add an email signup whose settings
- * connect that tool (components/onepage/page-integrations SignupTools), and
- * every signup is sent there as it happens (lib/onepage/integrations).
- * Klaviyo, Omnisend and Tally wear their own marks (brand-icons
- * IntegrationMark). Storelib's own things are blocks too: a shelf of
- * products, courses, memberships or the community, read live; lead magnets
- * (a download, a discount code, a waitlist); posts; followers; a referral
- * code (components/onepage/storelib-blocks).
- *
- * ROUND 11, THE FEEL: the open renders the sheet and nothing else (the open
- * state is a store here, not the Links tab's), the rows are built once and
- * never render again, a chip only hides sections, the chips are the app
- * settings' pills, a row's press is a tint with no scale, brand marks are in
- * their own colours, and the + turns 45 degrees into an x while the sheet
- * it opened is up (round 42).
+ * ROUND 11, THE FEEL (kept): the open renders the sheet and nothing else (the
+ * open state is a store here, not the Links tab's), the rows are built once
+ * and never render again, a chip only hides sections, the chips are the app
+ * settings' pills, a row's press is a tint with no scale, and the + turns 45
+ * degrees into an x while the sheet it opened is up (round 42).
  */
 
 import * as React from "react"
-import { Plus, Search, X } from "lucide-react"
+import { ChevronRight, Plus, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { IntegrationMark, SocialIcon } from "@/components/onepage/brand-icons"
+import { AppMark, INSTAGRAM_FILL, IntegrationMark, brandColor, isMulticolorMark, markOn } from "@/components/onepage/brand-icons"
 import { EXTRA_BLOCK_CATALOG } from "@/components/onepage/extra-blocks"
 import {
-  BlockTile,
+  APP_GLYPHS,
   GlyphBooking,
+  GlyphBox,
   GlyphContact,
+  GlyphCountdown,
   GlyphCourse,
   GlyphDivider,
   GlyphDocument,
+  GlyphDownload,
   GlyphEmail,
+  GlyphFaq,
   GlyphGroup,
+  GlyphHeading,
   GlyphImage,
   GlyphIntegration,
   GlyphLink,
   GlyphMenu,
+  GlyphMusic,
+  GlyphPeople,
   GlyphPodcast,
   GlyphProduct,
   GlyphSocial,
+  GlyphStar,
   GlyphStore,
   GlyphSync,
+  GlyphTag,
   GlyphTestimonials,
   GlyphText,
+  GlyphVideo,
+  RoundTile,
   type Glyph,
 } from "@/components/onepage/block-icons"
 import type { OnePageBlockType } from "@/lib/onepage/types"
+import { APP_PROVIDERS, appBlockDefaults, type AppProviderId } from "@/lib/onepage/app-blocks"
 import { canGoInGroup } from "@/lib/onepage/group"
 import { tt } from "@/lib/i18n/text"
 import { PillTabs } from "@/components/onepage/pill-tabs"
@@ -84,6 +96,7 @@ import { landContent } from "@/lib/ui/pill-switch"
 import { hapticTap, isNativeApp } from "@/lib/native-bridge"
 
 /* ─── The + on + Add ──────────────────────────────────────────────────── */
+
 
 /**
  * THE + TURNS INTO THE SHEET'S x (round 42).
@@ -189,16 +202,43 @@ export function AddBlockButton({ fromButton, className, onPress, children }: { f
 
 /* ─── The catalogue ───────────────────────────────────────────────────── */
 
-export type PickerCategory = "essentials" | "sell" | "media" | "grow" | "integrations" | "links"
+export type PickerCategory = "essentials" | "commerce" | "social" | "media" | "contact" | "events" | "text"
 
 export const PICKER_CATEGORIES: { id: PickerCategory; readonly label: string }[] = [
   { id: "essentials", get label() { return tt("Essentials") } },
-  { id: "sell", get label() { return tt("Sell") } },
+  { id: "commerce", get label() { return tt("Commerce") } },
+  { id: "social", get label() { return tt("Social") } },
   { id: "media", get label() { return tt("Media") } },
-  { id: "grow", get label() { return tt("Grow") } },
-  { id: "integrations", get label() { return tt("Integrations") } },
-  { id: "links", get label() { return tt("Links") } },
+  { id: "contact", get label() { return tt("Contact") } },
+  { id: "events", get label() { return tt("Events") } },
+  { id: "text", get label() { return tt("Text") } },
 ]
+
+/** A round tile's fill and the colour of the glyph on it. */
+export type TileColors = readonly [string, string]
+
+/* i18n-ignore-start: colours. */
+/* Each of our own blocks has a colour of its own, as Linktree's list does; white or near black on it, whichever reads. */
+const TILE = {
+  lavender: ["#E9DDF7", "#3E2470"],
+  orange: ["#F26B1D", "#ffffff"],
+  violet: ["#7C3AED", "#ffffff"],
+  lime: ["#D6EF48", "#1a1a2e"],
+  sky: ["#D3E8FF", "#0B4A8A"],
+  pink: ["#FFD3E4", "#8A1F4F"],
+  mint: ["#CFF3E2", "#0D5C3D"],
+  butter: ["#FFE58A", "#5A4300"],
+  coral: ["#FFB9A8", "#7A2311"],
+  ink: ["#1a1a2e", "#ffffff"],
+  blue: ["#2563EB", "#ffffff"],
+  green: ["#16A34A", "#ffffff"],
+  teal: ["#0F766E", "#ffffff"],
+  rose: ["#F43F5E", "#ffffff"],
+  cyan: ["#0EA5E9", "#ffffff"],
+  amber: ["#F59E0B", "#3D2A00"],
+  stone: ["#EDEBE6", "#3F3A33"],
+} as const satisfies Record<string, TileColors>
+/* i18n-ignore-end */
 
 export interface PickerEntry {
   /** Stable, for the recent list. */
@@ -208,10 +248,12 @@ export interface PickerEntry {
   readonly label: string
   readonly description: string
   icon?: Glyph
-  /** A brand mark (components/onepage/brand-icons), drawn in near black. */
+  /** The tile's colour for an icon of ours. */
+  tile?: TileColors
+  /** A company's own mark (components/onepage/brand-icons AppMark), white on its own colour. */
   brand?: string
   brandIcon?: React.ComponentType<{ size?: number; color?: string; className?: string }>
-  /** A connected tool's own mark (components/onepage/brand-icons IntegrationMark), in its colour; `icon` stays as the fallback. */
+  /** A connected tool's own mark (components/onepage/brand-icons IntegrationMark), in its colour on white. */
   mark?: string
   /** For a link: its first words and address. */
   preset?: { label: string; url: string; icon?: string }
@@ -219,77 +261,97 @@ export interface PickerEntry {
   data?: Record<string, unknown>
   /** What else people call it, for the search. */
   keywords?: string
+  /** Found by search, and kept in Recently used, but not listed under a category: one thing, one entry in the lists. */
+  hidden?: boolean
 }
 
-const link = (id: string, label: string, brand: string, preset: () => { label: string; url: string; icon?: string }, description: () => string, keywords = ""): PickerEntry => ({
+const link = (id: string, label: string, brand: string, preset: () => { label: string; url: string; icon?: string }, description: () => string, keywords = "", category: PickerCategory = "social", hidden = true): PickerEntry => ({
   id,
   type: "link_button",
-  category: "links",
+  category,
   label,
   get description() { return description() },
   brand,
   get preset() { return preset() },
   keywords,
+  hidden,
 })
 
-/* An embed block (lib/onepage/creator-blocks embedSource), started as one service: the field's hint is that service's link. */
+/* An embed block (lib/onepage/creator-blocks embedSource), started as one service. Found by search: the app blocks list these services now. */
 const embed = (id: string, label: string, brand: string | null, provider: string, description: () => string, keywords = "", icon?: Glyph, mark?: string): PickerEntry => ({
   id,
   type: "embed",
-  category: "integrations",
+  category: "media",
   label,
   get description() { return description() },
-  ...(brand ? { brand } : { icon: icon ?? GlyphIntegration }),
+  ...(brand ? { brand } : { icon: icon ?? GlyphIntegration, tile: TILE.stone }),
   ...(mark ? { mark } : {}),
   data: { provider },
   keywords,
+  hidden: true,
 })
 
-/* Round 40: a tool a signup goes to, added as an email signup that offers to connect it (components/onepage/page-integrations SignupTools). */
+/* Round 40: a tool a signup goes to, added as an email signup that offers to connect it (components/onepage/page-integrations SignupTools). Found by search. */
 const tool = (id: string, label: string, mark: string, description: () => string, keywords = ""): PickerEntry => ({
   id,
   type: "email_capture",
-  category: "integrations",
+  category: "contact",
   label,
   get description() { return description() },
   icon: GlyphSync,
   mark,
   data: { integration_hint: mark },
   keywords,
+  hidden: true,
 })
 
+/* Round AL: an app block (lib/onepage/app-blocks), one engine for every service. Its mark and colour are the provider's own. */
+const app = (provider: AppProviderId, category: PickerCategory, label: () => string, description: () => string, keywords = "", extra?: () => Record<string, unknown>, id = `app_${provider}`): PickerEntry => {
+  const p = APP_PROVIDERS[provider]
+  const own = APP_GLYPHS[p.mark]
+  return {
+    id,
+    type: "app",
+    category,
+    get label() { return label() },
+    get description() { return description() },
+    ...(own ? { icon: own, tile: [p.color, markOn(p.color)] as const } : { brand: p.mark }),
+    get data() { return { ...appBlockDefaults(provider), ...(extra ? extra() : {}) } },
+    keywords,
+  }
+}
+
 /* i18n-ignore-start: names of services, and the English words a search also answers to (each entry's own name and line are translated). */
-const BRAND = { sheets: "Google Sheets", kit: "Kit", mailerlite: "MailerLite", brevo: "Brevo", flodesk: "Flodesk", make: "Make", webhook: "Webhook", booking: "Calendly / Cal.com", email: "Klaviyo / Omnisend", threads: "Threads", applemusic: "Apple Music", podcasts: "Apple Podcasts", gforms: "Google Forms", gcal: "Google Calendar", bmac: "Buy Me a Coffee", cashapp: "Cash App", loom: "Loom", bandcamp: "Bandcamp", mixcloud: "Mixcloud", typeform: "Typeform", tally: "Tally", bluesky: "Bluesky", snapchat: "Snapchat", venmo: "Venmo" }
+const BRAND = { sheets: "Google Sheets", kit: "Kit", mailerlite: "MailerLite", brevo: "Brevo", flodesk: "Flodesk", make: "Make", webhook: "Webhook", email: "Klaviyo / Omnisend", threads: "Threads", applemusic: "Apple Music", podcasts: "Apple Podcasts", gforms: "Google Forms", gcal: "Google Calendar", bmac: "Buy Me a Coffee", cashapp: "Cash App", loom: "Loom", bandcamp: "Bandcamp", mixcloud: "Mixcloud", typeform: "Typeform", tally: "Tally", bluesky: "Bluesky", snapchat: "Snapchat", venmo: "Venmo", maps: "Google Maps", calendly: "Calendly", audiomack: "Audiomack", fourthwall: "Fourthwall", bonfire: "Bonfire", cameo: "Cameo" }
 const KEYWORDS = {
-  heading: "title section",
+  heading: "title section header organize",
   faq: "questions answers help",
   course: "class lessons learn",
   video: "youtube vimeo tiktok watch",
-  music: "spotify soundcloud apple song album playlist",
-  map: "address location place google maps",
-  contact_form: "message inquiry form email me",
+  music: "spotify soundcloud apple song album playlist audio",
+  map: "address location place google maps business directions",
+  contact_form: "message inquiry form email me get in touch",
   testimonials: "reviews quotes social proof",
   countdown: "timer launch drop",
   embed: "embed iframe widget post form player instagram twitter typeform tally google forms substack podcast twitch loom mixcloud bandcamp deezer calendar",
   link: "url button website",
   text: "paragraph bio words",
-  social_row: "instagram tiktok youtube profiles",
+  social_row: "instagram tiktok youtube profiles icons",
   image: "picture photo gallery carousel",
   group: "carousel folder",
   divider: "spacer line gap",
-  product: "digital download shop buy",
-  coaching: "booking calendar meeting session consult calendly cal.com",
-  store_link: "store etsy shopify amazon",
-  pdf_document: "document guide file",
+  product: "single product one digital download shop buy",
+  coaching: "booking calendar meeting session consult calendly cal.com one on one 1:1",
+  store_link: "store etsy amazon",
+  pdf_document: "document guide file pdf",
   food_menu: "restaurant cafe bar",
   email_capture: "newsletter subscribe lead magnet form",
-  int_youtube: "video",
+  int_youtube: "video channel",
   int_spotify: "music",
-  int_tiktok: "video",
   int_vimeo: "video",
   int_soundcloud: "music audio",
   int_applemusic: "music song album",
-  int_booking: "booking coaching calendar cal.com",
+  int_booking: "booking coaching calendar cal.com schedule",
   int_email: "newsletter email marketing list sync",
   int_instagram: "post reel embed photo",
   int_x: "twitter tweet post embed",
@@ -317,8 +379,8 @@ const KEYWORDS = {
   int_posts_instagram: "feed carousel reels grid",
   int_posts_tiktok: "feed carousel videos",
   int_posts_youtube: "channel latest videos feed sync",
-  shelf: "shop products store catalog storelib",
-  shelf_digital: "downloads ebooks templates storelib",
+  shelf: "all products shop store catalog storelib",
+  shelf_digital: "digital product downloads ebooks templates guides files storelib",
   shelf_physical: "merch shop ship storelib",
   shelf_course: "online course classes storelib",
   shelf_membership: "subscription monthly storelib",
@@ -328,7 +390,7 @@ const KEYWORDS = {
   magnet_download: "lead magnet freebie ebook guide pdf",
   magnet_discount: "lead magnet coupon offer email",
   magnet_waitlist: "launch early access list",
-  referral: "affiliate promo code discount partner",
+  referral: "affiliate promo code discount partner coupon",
   followers: "audience social proof count total",
   x: "twitter",
   amazon: "storefront shop affiliate",
@@ -340,92 +402,171 @@ const KEYWORDS = {
   venmo: "pay tip money",
   patreon: "membership support",
   substack: "newsletter",
+  app_instagram: "posts reels profile feed",
+  app_tiktok: "profile videos feed",
+  app_tiktok_video: "video clip",
+  app_x: "twitter tweet posts profile",
+  app_threads: "posts profile meta",
+  app_facebook: "page posts videos reels",
+  app_snapchat: "profile snap",
+  app_pinterest: "pins boards",
+  app_twitch: "stream live channel",
+  app_reddit: "subreddit profile post",
+  app_rss: "feed blog news",
+  app_cameo: "personal video shoutout fans",
+  app_google_reviews: "reviews google rating stars business",
+  app_audiomack: "music songs album",
+  app_podcasts: "podcast episode show spotify apple listeners",
+  app_typeform: "form survey quiz",
+  app_discord: "server community chat",
+  app_whatsapp_group: "group channel community telegram",
+  app_bonfire: "merch shirts apparel",
+  app_fourthwall: "merch apparel shop",
+  app_books: "amazon author book",
+  app_affiliate: "affiliate picks products recommend amazon",
+  app_tips: "tip donate support ko-fi paypal coffee",
+  app_mobile_app: "app store google play ios android download",
+  app_events: "tour concerts tickets shows events dates",
+  app_stats: "numbers metrics key figures",
+  app_poll: "vote question survey",
+  app_contact: "vcard business card phone save contact",
+  app_email: "email address mail",
+  app_note: "text button paragraph",
 }
 /* i18n-ignore-end */
 
 /* One of ./extra-blocks' entries, read when it is drawn (spread, its words would be read once, at import, in English). */
-const extra = (key: keyof typeof EXTRA_BLOCK_CATALOG & keyof typeof KEYWORDS, category: PickerCategory): PickerEntry => {
+const extra = (key: keyof typeof EXTRA_BLOCK_CATALOG & keyof typeof KEYWORDS, category: PickerCategory, tile: TileColors, overrides: { label?: () => string; description?: () => string; icon?: Glyph; brand?: string; hidden?: boolean } = {}): PickerEntry => {
   const src = EXTRA_BLOCK_CATALOG[key]
-  return { id: key, type: src.type, category, get label() { return src.label }, get description() { return src.description }, icon: src.icon, keywords: KEYWORDS[key] }
+  return {
+    id: key,
+    type: src.type,
+    category,
+    get label() { return overrides.label ? overrides.label() : src.label },
+    get description() { return overrides.description ? overrides.description() : src.description },
+    ...(overrides.brand ? { brand: overrides.brand } : { icon: overrides.icon ?? src.icon, tile }),
+    keywords: KEYWORDS[key],
+    ...(overrides.hidden ? { hidden: true } : {}),
+  }
 }
 
-export const ESSENTIAL_ENTRY_IDS = ["link","product","email_capture","form_quiz","coaching","image","youtube","instagram","whatsapp","contact_form","text","social_row"]
+/** What the sheet opens on: a short pick from every category, in this order. */
+export const ESSENTIAL_ENTRY_IDS = ["link", "shelf_digital", "app_instagram", "app_tiktok", "int_youtube", "email_capture", "form_quiz", "coaching", "image", "text", "whatsapp", "social_row"]
 
 export const PICKER_ENTRIES: PickerEntry[] = [
-  {id:"form_quiz",type:"form_quiz",category:"grow",get label() { return tt("Form or quiz") },get description() { return tt("Collect answers and qualify leads") },icon:GlyphEmail,get keywords() { return tt("form quiz questionnaire survey lead intake fitness contact") }},
-  /* Essentials */
-  { id: "link", type: "link_button", category: "essentials", get label() { return tt("Link") }, get description() { return tt("Add any web address") }, icon: GlyphLink, keywords: KEYWORDS.link },
-  extra("heading", "essentials"),
-  { id: "text", type: "text", category: "essentials", get label() { return tt("Text") }, get description() { return tt("A few lines about you") }, icon: GlyphText, keywords: KEYWORDS.text },
-  { id: "social_row", type: "social_row", category: "essentials", get label() { return tt("Social icons") }, get description() { return tt("Your profiles as a row of icons") }, icon: GlyphSocial, keywords: KEYWORDS.social_row },
-  { id: "image", type: "image", category: "essentials", get label() { return tt("Image") }, get description() { return tt("A photo or a slideshow") }, icon: GlyphImage, keywords: KEYWORDS.image },
-  { id: "group", type: "group", category: "essentials", get label() { return tt("Group") }, get description() { return tt("Hold links together, stacked or sliding") }, icon: GlyphGroup, keywords: KEYWORDS.group },
-  extra("faq", "essentials"),
-  { id: "divider", type: "divider", category: "essentials", get label() { return tt("Divider") }, get description() { return tt("Space between blocks") }, icon: GlyphDivider, keywords: KEYWORDS.divider },
+  /* Essentials: what nearly every page has. */
+  { id: "link", type: "link_button", category: "essentials", get label() { return tt("Link") }, get description() { return tt("Add any web address") }, icon: GlyphLink, tile: TILE.ink, keywords: KEYWORDS.link },
+  { id: "social_row", type: "social_row", category: "essentials", get label() { return tt("Social icons") }, get description() { return tt("Your profiles as a row of icons") }, icon: GlyphSocial, tile: TILE.sky, keywords: KEYWORDS.social_row },
+  { id: "group", type: "group", category: "essentials", get label() { return tt("Group") }, get description() { return tt("Hold links together, stacked or sliding") }, icon: GlyphGroup, tile: TILE.stone, keywords: KEYWORDS.group },
+  { id: "divider", type: "divider", category: "essentials", get label() { return tt("Divider") }, get description() { return tt("Space between blocks") }, icon: GlyphDivider, tile: TILE.stone, keywords: KEYWORDS.divider },
 
-  /* Sell */
-  { id: "product", type: "product", category: "sell", get label() { return tt("Product") }, get description() { return tt("Sell one of your products") }, icon: GlyphProduct, keywords: KEYWORDS.product },
-  extra("course", "sell"),
-  { id: "coaching", type: "calendly", category: "sell", get label() { return tt("Coaching call") }, get description() { return tt("Let people book a call with you") }, icon: GlyphBooking, get data() { return { title: tt("Book a coaching call"), button_text: tt("Book a call") } }, keywords: KEYWORDS.coaching },
-  /* Round 40: Storelib's own things, read live (components/onepage/storelib-blocks). */
-  { id: "shelf", type: "storelib_shelf", category: "sell", get label() { return tt("All products") }, get description() { return tt("A row of your products, always up to date") }, icon: GlyphStore, data: { source: "all" }, keywords: KEYWORDS.shelf },
-  { id: "shelf_digital", type: "storelib_shelf", category: "sell", get label() { return tt("Digital products") }, get description() { return tt("Your downloads, always up to date") }, icon: GlyphProduct, data: { source: "digital" }, keywords: KEYWORDS.shelf_digital },
-  { id: "shelf_physical", type: "storelib_shelf", category: "sell", get label() { return tt("Physical products") }, get description() { return tt("What you ship, always up to date") }, icon: GlyphStore, data: { source: "physical" }, keywords: KEYWORDS.shelf_physical },
-  { id: "shelf_course", type: "storelib_shelf", category: "sell", get label() { return tt("Courses") }, get description() { return tt("All your courses in a row") }, icon: GlyphCourse, data: { source: "course" }, keywords: KEYWORDS.shelf_course },
-  { id: "shelf_membership", type: "storelib_shelf", category: "sell", get label() { return tt("Memberships") }, get description() { return tt("Your memberships and their price") }, icon: GlyphProduct, data: { source: "membership" }, keywords: KEYWORDS.shelf_membership },
-  { id: "shelf_community", type: "storelib_shelf", category: "sell", get label() { return tt("Community") }, get description() { return tt("Your Storelib community") }, icon: GlyphGroup, data: { source: "community", layout: "list" }, keywords: KEYWORDS.shelf_community },
-  { id: "session_one", type: "calendly", category: "sell", get label() { return tt("One-on-one session") }, get description() { return tt("People book a session with you") }, icon: GlyphBooking, get data() { return { title: tt("Book a 1:1 session"), button_text: tt("Book a session") } }, keywords: KEYWORDS.session_one },
-  { id: "session_bundle", type: "calendly", category: "sell", get label() { return tt("Session bundle") }, get description() { return tt("A pack of sessions, booked by link") }, icon: GlyphBooking, get data() { return { title: tt("Book a pack of sessions"), button_text: tt("See the packs") } }, keywords: KEYWORDS.session_bundle },
-  { id: "store_link", type: "link_button", category: "sell", get label() { return tt("Shop link") }, get description() { return tt("Send people to a shop of yours") }, icon: GlyphStore, get preset() { return { label: tt("Shop now"), url: "" } }, keywords: KEYWORDS.store_link },
+  /* Commerce: Storelib's own things, read live (components/onepage/storelib-blocks), and selling elsewhere. */
+  { id: "shelf_digital", type: "storelib_shelf", category: "commerce", get label() { return tt("Digital products") }, get description() { return tt("Sell guides, templates, files and more") }, icon: GlyphDownload, tile: TILE.orange, data: { source: "digital" }, keywords: KEYWORDS.shelf_digital },
+  { id: "shelf_physical", type: "storelib_shelf", category: "commerce", get label() { return tt("Physical products") }, get description() { return tt("Show what you ship and sell more") }, icon: GlyphBox, tile: TILE.amber, data: { source: "physical" }, keywords: KEYWORDS.shelf_physical },
+  { id: "coaching", type: "calendly", category: "commerce", get label() { return tt("Coaching and bookings") }, get description() { return tt("Sell sessions, consultations and private coaching") }, icon: GlyphBooking, tile: TILE.lavender, get data() { return { title: tt("Book a coaching call"), button_text: tt("Book a call") } }, keywords: KEYWORDS.coaching },
+  { id: "shelf_course", type: "storelib_shelf", category: "commerce", get label() { return tt("Courses") }, get description() { return tt("Sell online courses and lessons") }, icon: GlyphCourse, tile: TILE.pink, data: { source: "course" }, keywords: KEYWORDS.shelf_course },
+  { id: "shelf_membership", type: "storelib_shelf", category: "commerce", get label() { return tt("Memberships") }, get description() { return tt("Your memberships and their price") }, icon: GlyphStar, tile: TILE.violet, data: { source: "membership" }, keywords: KEYWORDS.shelf_membership },
+  { id: "shelf_community", type: "storelib_shelf", category: "commerce", get label() { return tt("Community") }, get description() { return tt("Your Storelib community") }, icon: GlyphPeople, tile: TILE.sky, data: { source: "community", layout: "list" }, keywords: KEYWORDS.shelf_community },
+  app("tips", "commerce", () => tt("Tips"), () => tt("Accept tips from your audience"), KEYWORDS.app_tips),
+  app("affiliate", "commerce", () => tt("Affiliate products"), () => tt("Earn by sharing products you love"), KEYWORDS.app_affiliate),
+  { id: "referral", type: "promo_code", category: "commerce", get label() { return tt("Discount code") }, get description() { return tt("Show a code people can copy") }, icon: GlyphTag, tile: TILE.rose, keywords: KEYWORDS.referral },
+  app("fourthwall", "commerce", () => BRAND.fourthwall, () => tt("Sell your own merch"), KEYWORDS.app_fourthwall),
+  app("bonfire", "commerce", () => BRAND.bonfire, () => tt("Sell shirts and merch"), KEYWORDS.app_bonfire),
+  app("books", "commerce", () => tt("Books"), () => tt("Promote your books"), KEYWORDS.app_books),
+  app("discord", "commerce", () => "Discord", () => tt("Invite people to your server"), KEYWORDS.app_discord),
+  app("whatsapp_group", "commerce", () => tt("WhatsApp group"), () => tt("Grow your group or channel"), KEYWORDS.app_whatsapp_group),
+  app("mobile_app", "commerce", () => tt("Mobile app"), () => tt("Get more downloads of your app"), KEYWORDS.app_mobile_app),
 
-  /* Media */
-  extra("video", "media"),
-  extra("music", "media"),
-  extra("embed", "media"),
-  { id: "posts", type: "social_posts", category: "media", get label() { return tt("Posts") }, get description() { return tt("A row of your latest posts") }, icon: GlyphSocial, keywords: KEYWORDS.int_posts_youtube },
-  { id: "pdf_document", type: "pdf_document", category: "media", get label() { return tt("PDF") }, get description() { return tt("A PDF people can read on your page") }, icon: GlyphDocument, keywords: KEYWORDS.pdf_document },
-  { id: "food_menu", type: "food_menu", category: "media", get label() { return tt("Menu") }, get description() { return tt("A food and drinks menu") }, icon: GlyphMenu, keywords: KEYWORDS.food_menu },
-  extra("map", "media"),
+  /* Social: each network, one entry, drawn as a profile, a card, its posts. */
+  app("instagram", "social", () => "Instagram", () => tt("Show your posts and reels"), KEYWORDS.app_instagram),
+  app("tiktok", "social", () => "TikTok", () => tt("Share your TikTok profile"), KEYWORDS.app_tiktok),
+  app("x", "social", () => "X", () => tt("Show your posts and profile"), KEYWORDS.app_x),
+  app("threads", "social", () => BRAND.threads, () => tt("Show your latest threads"), KEYWORDS.app_threads),
+  app("facebook", "social", () => "Facebook", () => tt("Add your page, posts and videos"), KEYWORDS.app_facebook),
+  app("snapchat", "social", () => BRAND.snapchat, () => tt("Promote your public profile"), KEYWORDS.app_snapchat),
+  app("pinterest", "social", () => "Pinterest", () => tt("Show your pins and boards"), KEYWORDS.app_pinterest),
+  app("twitch", "social", () => "Twitch", () => tt("Get more viewers for your stream"), KEYWORDS.app_twitch),
+  app("reddit", "social", () => "Reddit", () => tt("Show your Reddit profile or a post"), KEYWORDS.app_reddit),
+  app("google_reviews", "social", () => tt("Reviews"), () => tt("Show your Google reviews"), KEYWORDS.app_google_reviews),
+  extra("testimonials", "social", TILE.butter),
+  { id: "followers", type: "followers", category: "social", get label() { return tt("Followers") }, get description() { return tt("Your total followers across networks") }, icon: GlyphTestimonials, tile: TILE.mint, keywords: KEYWORDS.followers },
+  app("cameo", "social", () => BRAND.cameo, () => tt("Let fans book a personal video"), KEYWORDS.app_cameo),
+  app("rss", "social", () => tt("RSS feed"), () => tt("Share your feed"), KEYWORDS.app_rss),
 
-  /* Grow */
-  { id: "email_capture", type: "email_capture", category: "grow", get label() { return tt("Email signup") }, get description() { return tt("Grow your list, give a free file") }, icon: GlyphEmail, keywords: KEYWORDS.email_capture },
-  extra("contact_form", "grow"),
-  extra("testimonials", "grow"),
-  extra("countdown", "grow"),
-  /* Round 40: more lead magnets, a referral code and the follower count (components/onepage/storelib-blocks). */
-  { id: "magnet_download", type: "lead_magnet", category: "grow", get label() { return tt("Free download") }, get description() { return tt("A free file for an email") }, icon: GlyphDocument, data: { kind: "download" }, keywords: KEYWORDS.magnet_download },
-  { id: "magnet_discount", type: "lead_magnet", category: "grow", get label() { return tt("Discount for email") }, get description() { return tt("A code they get for their email") }, icon: GlyphEmail, get data() { return { kind: "discount", title: tt("Get 10% off") } }, keywords: KEYWORDS.magnet_discount },
-  { id: "magnet_waitlist", type: "lead_magnet", category: "grow", get label() { return tt("Waitlist") }, get description() { return tt("Collect emails before you launch") }, icon: GlyphEmail, get data() { return { kind: "waitlist", title: tt("Join the waitlist") } }, keywords: KEYWORDS.magnet_waitlist },
-  { id: "referral", type: "promo_code", category: "grow", get label() { return tt("Referral code") }, get description() { return tt("A code for a brand you work with") }, icon: GlyphProduct, keywords: KEYWORDS.referral },
-  { id: "followers", type: "followers", category: "grow", get label() { return tt("Followers") }, get description() { return tt("Your total followers across networks") }, icon: GlyphTestimonials, keywords: KEYWORDS.followers },
+  /* Media: what plays on the page. A service with a player of its own adds that block. */
+  extra("video", "media", TILE.rose, { label: () => tt("Video"), description: () => tt("Play a video right on your page") }),
+  { id: "int_youtube", type: "video", category: "media", label: "YouTube", get description() { return tt("Share YouTube videos on your page") }, brand: "youtube", keywords: KEYWORDS.int_youtube },
+  app("tiktok", "media", () => tt("TikTok video"), () => tt("Share a TikTok video on your page"), KEYWORDS.app_tiktok_video, () => ({ layout: "single" }), "app_tiktok_video"),
+  { id: "int_vimeo", type: "video", category: "media", label: "Vimeo", get description() { return tt("Add Vimeo videos to your page") }, brand: "vimeo", keywords: KEYWORDS.int_vimeo },
+  { id: "image", type: "image", category: "media", get label() { return tt("Image gallery") }, get description() { return tt("Share a gallery of pictures") }, icon: GlyphImage, tile: TILE.mint, keywords: KEYWORDS.image },
+  { id: "pdf_document", type: "pdf_document", category: "media", get label() { return tt("Document") }, get description() { return tt("Show a PDF people can read") }, icon: GlyphDocument, tile: TILE.coral, keywords: KEYWORDS.pdf_document },
+  extra("music", "media", TILE.violet, { description: () => tt("Share music and get more streams") }),
+  { id: "int_spotify", type: "music", category: "media", label: "Spotify", get description() { return tt("Share your favourite music") }, brand: "spotify", keywords: KEYWORDS.int_spotify },
+  { id: "int_applemusic", type: "music", category: "media", label: BRAND.applemusic, get description() { return tt("Share songs, albums and playlists") }, brand: "applemusic", keywords: KEYWORDS.int_applemusic },
+  { id: "int_soundcloud", type: "music", category: "media", label: "SoundCloud", get description() { return tt("Get your music heard on SoundCloud") }, brand: "soundcloud", keywords: KEYWORDS.int_soundcloud },
+  app("audiomack", "media", () => BRAND.audiomack, () => tt("Share your songs and albums"), KEYWORDS.app_audiomack),
+  app("podcasts", "media", () => tt("Podcasts"), () => tt("Get more listeners and subscribers"), KEYWORDS.app_podcasts),
+  { id: "food_menu", type: "food_menu", category: "media", get label() { return tt("Menu") }, get description() { return tt("A food and drinks menu") }, icon: GlyphMenu, tile: TILE.butter, keywords: KEYWORDS.food_menu },
+
+  /* Contact: forms, a map, a way to reach you. */
+  { id: "form_quiz", type: "form_quiz", category: "contact", get label() { return tt("Form") }, get description() { return tt("Collect answers, contacts and messages") }, icon: GlyphEmail, tile: TILE.blue, get keywords() { return tt("form quiz questionnaire survey lead intake fitness contact") } },
+  extra("contact_form", "contact", TILE.sky, { description: () => tt("Let people get in touch") }),
+  { id: "email_capture", type: "email_capture", category: "contact", get label() { return tt("Email signup") }, get description() { return tt("Grow your email list") }, icon: GlyphEmail, tile: TILE.lime, keywords: KEYWORDS.email_capture },
+  app("poll", "contact", () => tt("Poll"), () => tt("Ask your audience a quick question"), KEYWORDS.app_poll),
+  app("typeform", "contact", () => BRAND.typeform, () => tt("Get answers with a Typeform"), KEYWORDS.app_typeform),
+  extra("map", "contact", TILE.mint, { label: () => BRAND.maps, description: () => tt("Show a map of your place or business"), brand: "google-maps" }),
+  app("contact", "contact", () => tt("Contact details"), () => tt("A contact card people can save"), KEYWORDS.app_contact),
+  extra("faq", "contact", TILE.lavender, { description: () => tt("Share answers to common questions") }),
+  app("email", "contact", () => tt("Email"), () => tt("Share your email address"), KEYWORDS.app_email),
+  link("whatsapp", "WhatsApp", "whatsapp", () => ({ label: tt("Message on WhatsApp"), url: "https://wa.me/" }), () => tt("Let people message you"), "", "contact", false),
+  { id: "int_booking", type: "calendly", category: "contact", label: BRAND.calendly, get description() { return tt("Take bookings right on your page") }, brand: "calendly", get data() { return { title: tt("Book a call"), button_text: tt("Book a call") } }, keywords: KEYWORDS.int_booking },
+  app("stats", "contact", () => tt("Stats"), () => tt("Share key numbers"), KEYWORDS.app_stats),
+  { id: "magnet_download", type: "lead_magnet", category: "contact", get label() { return tt("Free download") }, get description() { return tt("A free file for an email") }, icon: GlyphDocument, tile: TILE.orange, data: { kind: "download" }, keywords: KEYWORDS.magnet_download },
+
+  /* Events */
+  app("events", "events", () => tt("Tour and events"), () => tt("Sell tickets by listing your events"), KEYWORDS.app_events),
+  extra("countdown", "events", TILE.cyan, { icon: GlyphCountdown }),
+
+  /* Text */
+  { id: "text", type: "text", category: "text", get label() { return tt("Text") }, get description() { return tt("A few lines about you") }, icon: GlyphText, tile: TILE.lavender, keywords: KEYWORDS.text },
+  app("note", "text", () => tt("Text and button"), () => tt("Words and an optional button"), KEYWORDS.app_note),
+  extra("heading", "text", TILE.stone, { label: () => tt("Header"), description: () => tt("Organize your links into parts"), icon: GlyphHeading }),
 
   /*
-    Integrations: each one real, a public embed or player with no key
-    (lib/onepage/creator-blocks musicSource, embedSource, bookingSource;
-    lib/onepage/extra-blocks videoSource), or the signup sync of
-    lib/integrations/marketing. Every frame host is in lib/security/csp.ts.
+    FOUND BY SEARCH. Everything below was a row of its own and is one thing
+    another row already is: the single product (the shelves list them), a
+    link to a service (the app blocks, or a Link), the embed block's
+    services (the app blocks), the tools a signup goes to (Email signup's
+    Connect). Search still finds each one, and a saved block of any of them
+    is drawn and edited as before.
   */
-  { id: "int_youtube", type: "video", category: "integrations", label: "YouTube", get description() { return tt("Play your videos on your page") }, brand: "youtube", keywords: KEYWORDS.int_youtube },
-  { id: "int_tiktok", type: "video", category: "integrations", label: "TikTok", get description() { return tt("Play a TikTok on your page") }, brand: "tiktok", keywords: KEYWORDS.int_tiktok },
-  { id: "int_vimeo", type: "video", category: "integrations", label: "Vimeo", get description() { return tt("Play your videos on your page") }, brand: "vimeo", keywords: KEYWORDS.int_vimeo },
+  { id: "product", type: "product", category: "commerce", get label() { return tt("Single product") }, get description() { return tt("Feature one of your products") }, icon: GlyphProduct, tile: TILE.orange, keywords: KEYWORDS.product, hidden: true },
+  { id: "shelf", type: "storelib_shelf", category: "commerce", get label() { return tt("All products") }, get description() { return tt("A row of your products, always up to date") }, icon: GlyphStore, tile: TILE.orange, data: { source: "all" }, keywords: KEYWORDS.shelf, hidden: true },
+  extra("course", "commerce", TILE.pink, { hidden: true }),
+  { id: "session_one", type: "calendly", category: "commerce", get label() { return tt("One-on-one session") }, get description() { return tt("People book a session with you") }, icon: GlyphBooking, tile: TILE.lavender, get data() { return { title: tt("Book a 1:1 session"), button_text: tt("Book a session") } }, keywords: KEYWORDS.session_one, hidden: true },
+  { id: "session_bundle", type: "calendly", category: "commerce", get label() { return tt("Session bundle") }, get description() { return tt("A pack of sessions, booked by link") }, icon: GlyphBooking, tile: TILE.lavender, get data() { return { title: tt("Book a pack of sessions"), button_text: tt("See the packs") } }, keywords: KEYWORDS.session_bundle, hidden: true },
+  { id: "store_link", type: "link_button", category: "commerce", get label() { return tt("Shop link") }, get description() { return tt("Send people to a shop of yours") }, icon: GlyphStore, tile: TILE.orange, get preset() { return { label: tt("Shop now"), url: "" } }, keywords: KEYWORDS.store_link, hidden: true },
+  { id: "magnet_discount", type: "lead_magnet", category: "contact", get label() { return tt("Discount for email") }, get description() { return tt("A code they get for their email") }, icon: GlyphEmail, tile: TILE.rose, get data() { return { kind: "discount", title: tt("Get 10% off") } }, keywords: KEYWORDS.magnet_discount, hidden: true },
+  { id: "magnet_waitlist", type: "lead_magnet", category: "contact", get label() { return tt("Waitlist") }, get description() { return tt("Collect emails before you launch") }, icon: GlyphEmail, tile: TILE.lime, get data() { return { kind: "waitlist", title: tt("Join the waitlist") } }, keywords: KEYWORDS.magnet_waitlist, hidden: true },
+  extra("embed", "media", TILE.stone, { hidden: true }),
+  { id: "posts", type: "social_posts", category: "social", get label() { return tt("Posts") }, get description() { return tt("A row of your latest posts") }, icon: GlyphSocial, tile: TILE.sky, keywords: KEYWORDS.int_posts_youtube, hidden: true },
+  { id: "int_posts_youtube", type: "social_posts", category: "media", get label() { return tt("YouTube channel") }, get description() { return tt("Your latest videos, synced") }, brand: "youtube", data: { network: "youtube" }, keywords: KEYWORDS.int_posts_youtube, hidden: true },
+  { id: "int_posts_instagram", type: "social_posts", category: "social", get label() { return tt("Instagram posts") }, get description() { return tt("Posts and reels in a row") }, brand: "instagram", data: { network: "instagram" }, keywords: KEYWORDS.int_posts_instagram, hidden: true },
+  { id: "int_posts_tiktok", type: "social_posts", category: "social", get label() { return tt("TikTok posts") }, get description() { return tt("Your TikToks in a row") }, brand: "tiktok", data: { network: "tiktok" }, keywords: KEYWORDS.int_posts_tiktok, hidden: true },
   embed("int_instagram", "Instagram", "instagram", "instagram", () => tt("Show a post or reel"), KEYWORDS.int_instagram),
   embed("int_x", "X", "twitter", "x", () => tt("Show a post"), KEYWORDS.int_x),
   embed("int_twitch", "Twitch", "twitch", "twitch", () => tt("Your stream, a video or a clip"), KEYWORDS.int_twitch),
   embed("int_loom", BRAND.loom, "loom", "loom", () => tt("Play a Loom video"), KEYWORDS.int_loom),
-  { id: "int_spotify", type: "music", category: "integrations", label: "Spotify", get description() { return tt("Play a song, album or playlist") }, brand: "spotify", keywords: KEYWORDS.int_spotify },
-  { id: "int_applemusic", type: "music", category: "integrations", label: BRAND.applemusic, get description() { return tt("Play a song, album or playlist") }, brand: "applemusic", keywords: KEYWORDS.int_applemusic },
-  { id: "int_soundcloud", type: "music", category: "integrations", label: "SoundCloud", get description() { return tt("Play a track or a set") }, brand: "soundcloud", keywords: KEYWORDS.int_soundcloud },
   embed("int_podcasts", BRAND.podcasts, "apple-podcasts", "podcasts", () => tt("Play your show or an episode"), KEYWORDS.int_podcasts),
   embed("int_bandcamp", BRAND.bandcamp, "bandcamp", "bandcamp", () => tt("Play an album or a track"), KEYWORDS.int_bandcamp),
   embed("int_mixcloud", BRAND.mixcloud, "mixcloud", "mixcloud", () => tt("Play a mix or a show"), KEYWORDS.int_mixcloud),
-  { id: "int_booking", type: "calendly", category: "integrations", label: BRAND.booking, get description() { return tt("People book a time without leaving") }, brand: "calendly", get data() { return { title: tt("Book a call"), button_text: tt("Book a call") } }, keywords: KEYWORDS.int_booking },
   embed("int_gcal", BRAND.gcal, "google-calendar", "gcal", () => tt("People book a time without leaving"), KEYWORDS.int_gcal),
   embed("int_typeform", BRAND.typeform, "typeform", "typeform", () => tt("A form people fill in on your page"), KEYWORDS.int_typeform),
   embed("int_gforms", BRAND.gforms, "google-forms", "googleforms", () => tt("A form people fill in on your page"), KEYWORDS.int_gforms),
   embed("int_tally", BRAND.tally, null, "tally", () => tt("A form people fill in on your page"), KEYWORDS.int_tally, GlyphContact, "tally"),
   embed("int_substack", "Substack", "substack", "substack", () => tt("People join your newsletter"), KEYWORDS.int_substack),
-  { id: "int_email", type: "email_capture", category: "integrations", label: "Klaviyo", get description() { return tt("Signups go to your email tool too") }, icon: GlyphSync, mark: "klaviyo", data: { integration_hint: "klaviyo" }, keywords: KEYWORDS.int_email },
-  { id: "int_omnisend", type: "email_capture", category: "integrations", label: "Omnisend", get description() { return tt("Signups go to your email tool too") }, icon: GlyphSync, mark: "omnisend", data: { integration_hint: "omnisend" }, keywords: KEYWORDS.int_omnisend },
+  { id: "int_email", type: "email_capture", category: "contact", label: "Klaviyo", get description() { return tt("Signups go to your email tool too") }, icon: GlyphSync, mark: "klaviyo", data: { integration_hint: "klaviyo" }, keywords: KEYWORDS.int_email, hidden: true },
+  { id: "int_omnisend", type: "email_capture", category: "contact", label: "Omnisend", get description() { return tt("Signups go to your email tool too") }, icon: GlyphSync, mark: "omnisend", data: { integration_hint: "omnisend" }, keywords: KEYWORDS.int_omnisend, hidden: true },
   /* Round 40: each signup sent the moment it happens (lib/onepage/integrations). */
   tool("int_mailchimp", "Mailchimp", "mailchimp", () => tt("Signups go to your audience"), KEYWORDS.int_mailchimp),
   tool("int_kit", BRAND.kit, "kit", () => tt("Signups go to your Kit account"), KEYWORDS.int_kit),
@@ -437,11 +578,8 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   tool("int_make", BRAND.make, "make", () => tt("Send each signup to a scenario"), KEYWORDS.int_make),
   tool("int_sheets", BRAND.sheets, "sheets", () => tt("Each signup as a new row"), KEYWORDS.int_sheets),
   tool("int_webhook", BRAND.webhook, "webhook", () => tt("Each signup sent to your own address"), KEYWORDS.int_webhook),
-  { id: "int_posts_youtube", type: "social_posts", category: "integrations", get label() { return tt("YouTube channel") }, get description() { return tt("Your latest videos, synced") }, brand: "youtube", data: { network: "youtube" }, keywords: KEYWORDS.int_posts_youtube },
-  { id: "int_posts_instagram", type: "social_posts", category: "integrations", get label() { return tt("Instagram posts") }, get description() { return tt("Posts and reels in a row") }, brand: "instagram", data: { network: "instagram" }, keywords: KEYWORDS.int_posts_instagram },
-  { id: "int_posts_tiktok", type: "social_posts", category: "integrations", get label() { return tt("TikTok posts") }, get description() { return tt("Your TikToks in a row") }, brand: "tiktok", data: { network: "tiktok" }, keywords: KEYWORDS.int_posts_tiktok },
 
-  /* Links to the places people already are */
+  /* Links to the places people already are: found by search, a Link with the service's mark on it. */
   link("instagram", "Instagram", "instagram", () => ({ label: tt("Follow on Instagram"), url: "https://instagram.com/" }), () => tt("Link to your profile")),
   link("tiktok", "TikTok", "tiktok", () => ({ label: tt("Follow on TikTok"), url: "https://tiktok.com/@" }), () => tt("Link to your profile")),
   link("youtube", "YouTube", "youtube", () => ({ label: tt("Subscribe on YouTube"), url: "https://youtube.com/@" }), () => tt("Link to your channel")),
@@ -456,25 +594,24 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   link("spotify_link", "Spotify", "spotify", () => ({ label: tt("Listen on Spotify"), url: "https://open.spotify.com/" }), () => tt("Link to your music")),
   link("applemusic", BRAND.applemusic, "applemusic", () => ({ label: tt("Listen on Apple Music"), url: "https://music.apple.com/" }), () => tt("Link to your music")),
   link("soundcloud", "SoundCloud", "soundcloud", () => ({ label: tt("Listen on SoundCloud"), url: "https://soundcloud.com/", icon: "soundcloud" }), () => tt("Link to your music")),
-  link("whatsapp", "WhatsApp", "whatsapp", () => ({ label: tt("Message on WhatsApp"), url: "https://wa.me/" }), () => tt("Let people message you")),
-  link("telegram", "Telegram", "telegram", () => ({ label: tt("Message on Telegram"), url: "https://t.me/" }), () => tt("Let people message you")),
+  link("telegram", "Telegram", "telegram", () => ({ label: tt("Message on Telegram"), url: "https://t.me/" }), () => tt("Let people message you"), "", "contact"),
   link("discord", "Discord", "discord", () => ({ label: tt("Join Discord"), url: "https://discord.gg/" }), () => tt("Invite people to your server")),
   link("vimeo", "Vimeo", "vimeo", () => ({ label: tt("Watch on Vimeo"), url: "https://vimeo.com/" }), () => tt("Link to your videos")),
-  link("amazon", "Amazon", "amazon", () => ({ label: tt("Shop my Amazon picks"), url: "https://www.amazon.com/shop/", icon: "amazon" }), () => tt("Link to your storefront"), KEYWORDS.amazon),
-  link("etsy", "Etsy", "etsy", () => ({ label: tt("Shop on Etsy"), url: "https://www.etsy.com/shop/", icon: "etsy" }), () => tt("Link to your shop"), KEYWORDS.etsy),
-  link("patreon", "Patreon", "patreon", () => ({ label: tt("Join on Patreon"), url: "https://patreon.com/", icon: "patreon" }), () => tt("Link to your page"), KEYWORDS.patreon),
+  link("amazon", "Amazon", "amazon", () => ({ label: tt("Shop my Amazon picks"), url: "https://www.amazon.com/shop/", icon: "amazon" }), () => tt("Link to your storefront"), KEYWORDS.amazon, "commerce"),
+  link("etsy", "Etsy", "etsy", () => ({ label: tt("Shop on Etsy"), url: "https://www.etsy.com/shop/", icon: "etsy" }), () => tt("Link to your shop"), KEYWORDS.etsy, "commerce"),
+  link("patreon", "Patreon", "patreon", () => ({ label: tt("Join on Patreon"), url: "https://patreon.com/", icon: "patreon" }), () => tt("Link to your page"), KEYWORDS.patreon, "commerce"),
   link("substack_link", "Substack", "substack", () => ({ label: tt("Read on Substack"), url: "https://substack.com/@", icon: "substack" }), () => tt("Link to your newsletter"), KEYWORDS.substack),
-  link("kofi", "Ko-fi", "kofi", () => ({ label: tt("Buy me a coffee"), url: "https://ko-fi.com/", icon: "kofi" }), () => tt("Let people tip you"), KEYWORDS.kofi),
-  link("bmac", BRAND.bmac, "buymeacoffee", () => ({ label: tt("Buy me a coffee"), url: "https://buymeacoffee.com/", icon: "buymeacoffee" }), () => tt("Let people tip you"), KEYWORDS.bmac),
-  link("paypal", "PayPal", "paypal", () => ({ label: tt("Pay with PayPal"), url: "https://paypal.me/", icon: "paypal" }), () => tt("Let people pay or tip you"), KEYWORDS.paypal),
-  link("cashapp", BRAND.cashapp, "cashapp", () => ({ label: tt("Pay with Cash App"), url: "https://cash.app/$", icon: "cashapp" }), () => tt("Let people pay or tip you"), KEYWORDS.cashapp),
-  link("venmo", BRAND.venmo, "venmo", () => ({ label: tt("Pay with Venmo"), url: "https://venmo.com/u/", icon: "venmo" }), () => tt("Let people pay or tip you"), KEYWORDS.venmo),
+  link("kofi", "Ko-fi", "kofi", () => ({ label: tt("Buy me a coffee"), url: "https://ko-fi.com/", icon: "kofi" }), () => tt("Let people tip you"), KEYWORDS.kofi, "commerce"),
+  link("bmac", BRAND.bmac, "buymeacoffee", () => ({ label: tt("Buy me a coffee"), url: "https://buymeacoffee.com/", icon: "buymeacoffee" }), () => tt("Let people tip you"), KEYWORDS.bmac, "commerce"),
+  link("paypal", "PayPal", "paypal", () => ({ label: tt("Pay with PayPal"), url: "https://paypal.me/", icon: "paypal" }), () => tt("Let people pay or tip you"), KEYWORDS.paypal, "commerce"),
+  link("cashapp", BRAND.cashapp, "cashapp", () => ({ label: tt("Pay with Cash App"), url: "https://cash.app/$", icon: "cashapp" }), () => tt("Let people pay or tip you"), KEYWORDS.cashapp, "commerce"),
+  link("venmo", BRAND.venmo, "venmo", () => ({ label: tt("Pay with Venmo"), url: "https://venmo.com/u/", icon: "venmo" }), () => tt("Let people pay or tip you"), KEYWORDS.venmo, "commerce"),
   link("github", "GitHub", "github", () => ({ label: tt("See my code"), url: "https://github.com/", icon: "github" }), () => tt("Link to your profile")),
   link("notion", "Notion", "notion", () => ({ label: tt("View page"), url: "https://notion.so/", icon: "notion" }), () => tt("Link to a Notion page")),
-  { id: "podcast", type: "link_button", category: "links", get label() { return tt("Podcast") }, get description() { return tt("Link to your show") }, icon: GlyphPodcast, get preset() { return { label: tt("Listen to the podcast"), url: "" } } },
+  { id: "podcast", type: "link_button", category: "media", get label() { return tt("Podcast link") }, get description() { return tt("Link to your show") }, icon: GlyphPodcast, tile: TILE.violet, get preset() { return { label: tt("Listen to the podcast"), url: "" } }, hidden: true },
 ]
 
-/** The entries a search finds, best first: a name that starts with the words, then a name that has them, then the line and the other words. */
+/** The entries a search finds, best first: a name that starts with the words, then a name that has them, then the line and the other words. Listed entries first on a tie. */
 export function searchEntries(entries: PickerEntry[], query: string): PickerEntry[] {
   const words = query.toLowerCase().trim().split(/\s+/).filter(Boolean)
   if (words.length === 0) return entries
@@ -492,7 +629,7 @@ export function searchEntries(entries: PickerEntry[], query: string): PickerEntr
         break
       }
     }
-    if (score > 0) scored.push({ e, score })
+    if (score > 0) scored.push({ e, score: score * 2 + (e.hidden ? 0 : 1) })
   }
   return scored.sort((a, b) => b.score - a.score).map((s) => s.e)
 }
@@ -534,41 +671,74 @@ export function rememberRecent(id: string): void {
 /** How long after the sheet closes its search, chip and scroll go back (it has finished sliding out by then). */
 const RESET_AFTER_CLOSE_MS = 420
 
+/** The view the sheet opens on. */
+export type PickerView = PickerCategory | "all"
+const FIRST_VIEW: PickerView = "essentials"
+
+/** The diameter of a row's round tile, and of the mark on it. */
+export const PICKER_TILE = 46
+const PICKER_MARK = 22
+const HAIRLINE: React.CSSProperties = { boxShadow: "inset 0 0 0 1px rgba(17,17,19,0.1)" }
+
 /*
-  Round 41, the owner: "bring them back how they were, light gray". Every
-  block's own icon sits on the one light grey tile in near black; a brand
-  keeps its colours on white. No category has a colour of its own.
+  Round AL, the owner: "I don't like that they're light gray. You can make
+  them more colour and different with the specific icons ... for the apps
+  that actually are companies, just use their original icon." Each entry
+  sits on a round tile of its own colour; a company's mark is white (or near
+  black, whichever reads) on the company's colour, Instagram on its own
+  gradient, and a mark of several colours (Google Maps, Google) on white.
 */
-function EntryIcon({ entry }: { entry: PickerEntry }) {
+export function EntryIcon({ entry, size = PICKER_TILE }: { entry: PickerEntry; size?: number }) {
+  const inner = Math.round((size * PICKER_MARK) / PICKER_TILE)
   if (entry.mark) {
     return (
-      <BlockTile className="bg-white shadow-[inset_0_0_0_1px_rgba(17,17,19,0.08),0_1px_2px_rgba(17,17,19,0.05)]">
-        <IntegrationMark id={entry.mark} size={19} />
-      </BlockTile>
+      <RoundTile color="#ffffff" ink="#1a1a2e" size={size} style={HAIRLINE}>
+        <IntegrationMark id={entry.mark} size={inner} />
+      </RoundTile>
     )
   }
   if (entry.brandIcon) {
     const B = entry.brandIcon
-    return <BlockTile><B size={18} color="#1a1a2e" /></BlockTile>
-  }
-  if (entry.brand) {
-    /* Round 11: in the brand's own colour, as the owner asked ("use their actual icons"); a black mark stays the tile's near black. */
     return (
-      <BlockTile className="bg-white shadow-[inset_0_0_0_1px_rgba(17,17,19,0.08),0_1px_2px_rgba(17,17,19,0.05)]">
-        <SocialIcon platform={entry.brand} size={19} color="#1a1a2e" strokeWidth={1.8} tone="brand" />
-      </BlockTile>
+      <RoundTile color="#1a1a2e" ink="#ffffff" size={size}>
+        <B size={inner} color="#ffffff" />
+      </RoundTile>
     )
   }
-  return <BlockTile icon={entry.icon ?? GlyphLink} />
+  if (entry.brand) {
+    const key = entry.brand
+    if (isMulticolorMark(key)) {
+      return (
+        <RoundTile color="#ffffff" ink="#1a1a2e" size={size} style={HAIRLINE}>
+          <AppMark id={key} size={inner} />
+        </RoundTile>
+      )
+    }
+    const fill = key === "instagram" ? INSTAGRAM_FILL : brandColor(key) ?? "#111113"
+    const ink = key === "instagram" ? "#ffffff" : markOn(fill)
+    return (
+      <RoundTile color={fill} ink={ink} size={size}>
+        <AppMark id={key} size={inner} color={ink} />
+      </RoundTile>
+    )
+  }
+  const [fill, ink] = entry.tile ?? TILE.lavender
+  const G = entry.icon ?? GlyphLink
+  return (
+    <RoundTile color={fill} ink={ink} size={size} style={fill.toLowerCase() === "#ffffff" ? HAIRLINE : undefined}>
+      <G style={{ width: inner, height: inner }} />
+    </RoundTile>
+  )
 }
 
 /**
- * ONE ROW. A press is a calm tint and nothing else: no scale, no lift (round
- * 11: "each button there, it bumps. I don't want that bump with the finger").
- * The grey under a mouse is only for a mouse (hover: hover, pointer: fine),
- * so a finger sliding over the list never lights a row up. Memoised: the
- * rows never render again when the sheet opens, a chip changes or a search
- * is typed; only `hidden` on their section does.
+ * ONE ROW, ONE PER LINE, as Linktree's list: the tile, the name, one line,
+ * a chevron. A press is a calm tint and nothing else: no scale, no lift
+ * (round 11: "each button there, it bumps. I don't want that bump with the
+ * finger"). The grey under a mouse is only for a mouse (hover: hover), so a
+ * finger sliding over the list never lights a row up. Memoised: the rows
+ * never render again when the sheet opens, a chip changes or a search is
+ * typed; only `hidden` on their section does.
  */
 const EntryRow = React.memo(function EntryRow({ entry, disabled, note, onPick }: { entry: PickerEntry; disabled: boolean; note?: string | null; onPick: (e: PickerEntry) => void }) {
   return (
@@ -578,16 +748,17 @@ const EntryRow = React.memo(function EntryRow({ entry, disabled, note, onPick }:
       disabled={disabled}
       onClick={() => onPick(entry)}
       className={cn(
-        "flex w-full min-w-0 items-center gap-3 rounded-xl p-2 text-left outline-none [-webkit-tap-highlight-color:transparent]",
+        "flex w-full min-w-0 items-center gap-3.5 rounded-2xl px-2 py-2 text-left outline-none [-webkit-tap-highlight-color:transparent]",
         "transition-[background-color] duration-150 ease-out focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.3)] motion-reduce:transition-none",
-        disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer active:bg-[#f0f0f2] hover:bg-[#f6f6f7]",
+        disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer active:bg-[#f0f0f2] [@media(hover:hover)]:hover:bg-[#f6f6f7]",
       )}
     >
       <EntryIcon entry={entry} />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[14px] font-medium leading-5 text-[#111113]">{entry.label}</span>
-        <span className="block truncate text-[12.5px] leading-[18px] text-[#6b7280]">{note || entry.description}</span>
+        <span className="block truncate text-[15px] font-medium leading-5 text-[#111113]">{entry.label}</span>
+        <span className="mt-0.5 block truncate text-[13px] leading-[18px] text-[#6b7280]">{note || entry.description}</span>
       </span>
+      <ChevronRight aria-hidden className="h-[18px] w-[18px] shrink-0 text-[#9ca3af]" strokeWidth={1.8} />
     </button>
   )
 })
@@ -603,13 +774,13 @@ const EntryRow = React.memo(function EntryRow({ entry, disabled, note, onPick }:
  */
 const SECTION_OFF: React.CSSProperties = { contentVisibility: "hidden", height: 0, paddingBottom: 0, overflow: "hidden" }
 
-/** A heading and its rows. Memoised on what it shows, so the open, a chip or a keystroke never renders its rows again. */
+/** A heading and its rows, one per line. Memoised on what it shows, so the open, a chip or a keystroke never renders its rows again. */
 const PickerSection = React.memo(function PickerSection({ id, title, entries, limited, hidden, onPick, prefix = "" }: { id: string; title: string; entries: PickerEntry[]; limited: string; hidden: boolean; onPick: (e: PickerEntry) => void; prefix?: string }) {
   const atLimit = limited ? limited.split(",") : []
   return (
-    <section data-picker-section={id} data-shown={hidden ? undefined : ""} aria-hidden={hidden || undefined} style={hidden ? SECTION_OFF : undefined} className="pb-2">
-      <h3 className="px-2 pb-1 pt-2 text-[12px] font-semibold uppercase tracking-[0.04em] text-[#9ca3af]" data-picker-heading={id}>{title}</h3>
-      <div className="grid grid-cols-1 gap-0.5 sm:grid-cols-2">
+    <section data-picker-section={id} data-shown={hidden ? undefined : ""} aria-hidden={hidden || undefined} style={hidden ? SECTION_OFF : undefined} className="pb-3">
+      <h3 className="px-2 pb-1.5 pt-3 text-[14px] font-semibold text-[#111113]" data-picker-heading={id}>{title}</h3>
+      <div className="flex flex-col gap-0.5" data-picker-rows="">
         {entries.map((e) => {
           const full = atLimit.includes(e.type)
           return <EntryRow key={`${prefix}${e.id}`} entry={e} disabled={full} note={full ? tt("Already on your page twice") : null} onPick={onPick} />
@@ -628,7 +799,7 @@ export function AddBlockPicker({
 }: {
   /** Adding into a group: only what a group holds (lib/onepage/group canGoInGroup). */
   inGroup: boolean
-  /** Round 41: a section over the catalogue in All (Add to group's blocks already on the page, ./group-add-existing). */
+  /** Round 41: a section over the catalogue (Add to group's blocks already on the page, ./group-add-existing). */
   lead?: React.ReactNode
   onPick: (entry: PickerEntry) => void
   /** A type the page has as many of as it may (two rows of social icons). */
@@ -636,7 +807,7 @@ export function AddBlockPicker({
   /** Whether the sheet is up: what was typed and chosen goes back once it has closed. */
   open: boolean
 }) {
-  const [category, setCategory] = React.useState<PickerCategory | "all">("all")
+  const [category, setCategory] = React.useState<PickerView>(FIRST_VIEW)
   const [query, setQuery] = React.useState("")
   /* Read once when it is built, and again after each close: never on the tap that opens it, never while it slides out. */
   const [recent, setRecent] = React.useState<string[]>(() => (typeof window === "undefined" ? [] : readRecent()))
@@ -652,7 +823,7 @@ export function AddBlockPicker({
   React.useEffect(() => {
     if (open) return
     const t = window.setTimeout(() => {
-      setCategory("all")
+      setCategory(FIRST_VIEW)
       setQuery("")
       setRecent(readRecent())
       if (listRef.current) listRef.current.scrollTop = 0
@@ -671,11 +842,14 @@ export function AddBlockPicker({
 
   /* What a group can hold (lib/onepage/group): the same list a card dropped on a group is checked against. */
   const allowed = React.useMemo(() => (inGroup ? PICKER_ENTRIES.filter((e) => canGoInGroup(e.type)) : PICKER_ENTRIES), [inGroup])
+  const listed = React.useMemo(() => allowed.filter((e) => !e.hidden), [allowed])
   const searching = query.trim().length > 0
   const found = React.useMemo(() => (searching ? searchEntries(allowed, query) : []), [allowed, query, searching])
   const recentEntries = React.useMemo(() => recent.map((id) => allowed.find((e) => e.id === id)).filter((e): e is PickerEntry => !!e), [recent, allowed])
-  const categories = React.useMemo(() => PICKER_CATEGORIES.filter((c) => allowed.some((e) => e.category === c.id)), [allowed])
-  const byCategory = React.useMemo(() => new Map(categories.map((c) => [c.id, (c.id === "essentials" ? [...ESSENTIAL_ENTRY_IDS.map(id=>allowed.find(e=>e.id===id)).filter((e):e is PickerEntry=>!!e),...allowed.filter(e=>e.category==="essentials"&&!ESSENTIAL_ENTRY_IDS.includes(e.id))] : allowed.filter((e) => e.category === c.id))])), [categories, allowed])
+  const categories = React.useMemo(() => PICKER_CATEGORIES.filter((c) => listed.some((e) => e.category === c.id)), [listed])
+  const byCategory = React.useMemo(() => new Map(categories.map((c) => [c.id, listed.filter((e) => e.category === c.id)])), [categories, listed])
+  /* Essentials: the short pick, in its own order, from every category. */
+  const essentials = React.useMemo(() => ESSENTIAL_ENTRY_IDS.map((id) => listed.find((e) => e.id === id)).filter((e): e is PickerEntry => !!e), [listed])
   /* The types at their limit, as a string, so the memoised sections only render again when it really changes. */
   const limited = [...new Set(allowed.map((e) => e.type))].filter((t) => atLimit(t)).join(",")
 
@@ -691,12 +865,13 @@ export function AddBlockPicker({
   }, [])
 
   /* PillTabs ticks the haptics and calls this in a transition; the list goes back to its top with it. */
-  const choose = (id: PickerCategory | "all") => {
+  const choose = (id: PickerView) => {
     setCategory(id)
     if (listRef.current) listRef.current.scrollTop = 0
   }
-  /* Round 41: the chips are words only, no dot before them. */
-  const chips = React.useMemo(() => [{ id: "all" as const, label: tt("All") }, ...categories.map((c) => ({ id: c.id, label: c.label }))], [categories])
+  /* Round AL: Essentials first, the categories, then View all, as Linktree's list. */
+  const chips = React.useMemo(() => [...categories.map((c) => ({ id: c.id as PickerView, label: c.label })), { id: "all" as const, label: tt("View all") }], [categories])
+  const atTop = category === "essentials" || category === "all"
 
   return (
     <div data-add-block-picker="" className="flex min-h-0 flex-1 flex-col bg-white">
@@ -739,15 +914,15 @@ export function AddBlockPicker({
       </div>
 
       {/*
-        THE LIST. Every category's rows are built once and kept; a chip only
-        says which sections are `hidden`, so a switch neither builds nor throws
+        THE LIST. Every view's rows are built once and kept; a chip only says
+        which sections are `hidden`, so a switch neither builds nor throws
         away a row. Its own layer of paint (contain), and a scroll that stays
         inside it (overscroll-contain), as the website builder's sheet lists.
       */}
-      <div ref={listRef} data-picker-list="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-[#f0f0f2] px-2 pb-6 pt-2 [contain:content] sm:px-3">
+      <div ref={listRef} data-picker-list="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-[#f0f0f2] px-2 pb-6 pt-1 [contain:content] sm:px-3">
         {searching ? (
           found.length ? (
-            <div className="grid grid-cols-1 gap-0.5 sm:grid-cols-2">
+            <div className="flex flex-col gap-0.5 pt-2" data-picker-found="">
               {found.map((e) => {
                 const full = limited.split(",").includes(e.type)
                 return <EntryRow key={`s-${e.id}`} entry={e} disabled={full} note={full ? tt("Already on your page twice") : null} onPick={pick} />
@@ -760,12 +935,13 @@ export function AddBlockPicker({
             </div>
           )
         ) : null}
-        {lead && !searching && category === "all" ? lead : null}
+        {lead && !searching && atTop ? lead : null}
         {recentEntries.length ? (
-          <PickerSection id="recent" title={tt("Recently used")} entries={recentEntries} limited={limited} hidden={searching || category !== "all"} onPick={pick} prefix="r-" />
+          <PickerSection id="recent" title={tt("Recently used")} entries={recentEntries} limited={limited} hidden={searching || !atTop} onPick={pick} prefix="r-" />
         ) : null}
+        <PickerSection id="essentials-pick" title={tt("Essentials")} entries={essentials} limited={limited} hidden={searching || category !== "essentials"} onPick={pick} prefix="e-" />
         {categories.map((c) => (
-          <PickerSection key={c.id} id={c.id} title={c.label} entries={byCategory.get(c.id) ?? []} limited={limited} hidden={searching || (category !== "all" && category !== c.id)} onPick={pick} />
+          <PickerSection key={c.id} id={c.id} title={c.label} entries={byCategory.get(c.id) ?? []} limited={limited} hidden={searching || (category !== "all" && category !== c.id) || (c.id === "essentials" && category !== "all")} onPick={pick} />
         ))}
       </div>
     </div>

@@ -71,6 +71,7 @@ export const GROUP_CHILD_TYPES: readonly OnePageBlockType[] = [
   "social_posts",
   "followers",
   "promo_code",
+  "app",
 ]
 
 export function canGoInGroup(type: unknown): boolean {
