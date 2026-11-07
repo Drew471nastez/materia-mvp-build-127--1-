@@ -21,7 +21,7 @@ export const EditorThemeContext = React.createContext<Partial<OnePageTheme> | nu
 
 /* ── Layout: how a block of many is arranged ───────────────────────────── */
 
-export type ArrangeKind = "list" | "grid" | "carousel"
+export type ArrangeKind = "list" | "grid" | "carousel" | "single"
 
 /** A few cards drawn as the page draws them: a picture, a name and a price line, in the page's button colours. */
 function ArrangeThumb({ kind, theme, images }: { kind: ArrangeKind; theme?: Partial<OnePageTheme> | null; images?: (string | null | undefined)[] }) {
@@ -58,6 +58,8 @@ function ArrangeThumb({ kind, theme, images }: { kind: ArrangeKind; theme?: Part
         ))}
       </span>
     )
+  } else if (kind === "single") {
+    body = <span className="block w-[46%]">{pic(0, "aspect-[4/5] w-full")}</span>
   } else if (kind === "grid") {
     body = <span className="grid w-[78%] grid-cols-2 gap-[5px]">{[0, 1].map((i) => card(i))}</span>
   } else {
