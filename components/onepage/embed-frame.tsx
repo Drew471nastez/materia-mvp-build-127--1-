@@ -95,7 +95,8 @@ export const EMBED_SETTLE_PX = 4
 const SHOW_AFTER_LOAD_MS = 900
 const STORE_PREFIX = "storelib:embed-h:"
 
-function remembered(src: string): number | null {
+/** The height a frame ended at on this browser's last visit (null when unknown). */
+export function rememberedEmbedHeight(src: string): number | null {
   try {
     const n = Number(window.localStorage.getItem(STORE_PREFIX + src))
     return Number.isFinite(n) && n > 40 && n < 4000 ? n : null
@@ -104,7 +105,7 @@ function remembered(src: string): number | null {
   }
 }
 
-function remember(src: string, h: number): void {
+export function rememberEmbedHeight(src: string, h: number): void {
   try {
     window.localStorage.setItem(STORE_PREFIX + src, String(Math.round(h)))
   } catch {
@@ -180,7 +181,7 @@ export function EmbedFrame({
   /* What this browser saw last time, read after the first render so the server's markup and the first client render agree. */
   React.useEffect(() => {
     if (!resizes) return
-    const r = remembered(src)
+    const r = rememberedEmbedHeight(src)
     if (r) setH(r)
   }, [src, resizes])
 
@@ -199,7 +200,7 @@ export function EmbedFrame({
       const apply = () => {
         setH((cur) => {
           const next = nextEmbedHeight(cur, m, first)
-          if (next !== cur) remember(src, next)
+          if (next !== cur) rememberEmbedHeight(src, next)
           return next
         })
         setShown(true)

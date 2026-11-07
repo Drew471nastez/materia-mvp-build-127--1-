@@ -85,7 +85,9 @@ check("a background it cannot measure keeps the colour", readableOn("linear-grad
 console.log("\nThe editor, the renderer and the pickers use it")
 const ctx = read("lib/onepage/context.tsx")
 check("the editor applies a theme in one commit", ctx.includes("commit(lookFromTemplate(prev, template, headerLayout), null)"))
-check("the theme picker uses it, not a merge", design.includes("applyThemeLook(template as never,") && design.includes('applyThemeLook(pendingTemplate as never, "classic")'))
+/* Changed on purpose (round AL): no "Update to Classic" question any more (a Classic theme keeps a creator's Hero), so the one call is the picker's own. */
+check("the theme picker uses it, not a merge", design.includes("applyThemeLook(template as never,") && !design.includes('applyThemeLook(pendingTemplate as never, "classic")'))
+check("a Classic theme keeps a creator's Hero", /needsClassicLayout = !wantsHeroLayout && templateLayout === "classic" && currentHeaderLayout !== "hero"/.test(design))
 const pub = read("components/onepage/public-onepage.tsx")
 /* Round 10: the product block is drawn by components/onepage/product-block.tsx, where its theme button is `themeButton`. */
 const productBlock = read("components/onepage/product-block.tsx")

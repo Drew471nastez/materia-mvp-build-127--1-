@@ -7,6 +7,7 @@ import { fullyRefunded } from "@/lib/orders/refund-state"
 import { emit } from "@/lib/notify/outbox"
 import { PAST_PROVIDER_REFUND_NOTE, paidThroughAirwallex } from "@/lib/payments/past-provider"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
+import { ownerAddress } from "@/lib/businesses/email-alias"
 
 function tryCreateAdminClient() {
   try {
@@ -276,7 +277,7 @@ export async function POST(request: Request) {
           number and "download links revoked" for a mug.
         */
         buyerEmail: order.checkout_id ? undefined : order.customer_email || order.buyer_email,
-        sellerEmail: user.email,
+        sellerEmail: ownerAddress(user.email) ?? user.email,
         sellerContactEmail,
         productTitle: product.title,
         refundAmount: refundAmountCents,

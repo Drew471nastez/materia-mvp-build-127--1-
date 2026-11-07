@@ -25,6 +25,17 @@
  *
  * Under reduced motion it opens and closes at once.
  *
+ * ROUND AL, `follow` ("make sure that collapsible animation in and out is
+ * very smooth and clean"). A block's settings measured their height in the
+ * frame they were built, but the editor inside keeps growing for a moment
+ * after (a picker that loads, a preview that lands), so the open ran to the
+ * first height and then jumped to the real one when it let go to `auto`;
+ * and Settings to Layout changed the height in one frame. With `follow`,
+ * a ResizeObserver sees the new height after layout and before paint: an
+ * open still running is aimed at it from where it is, with the time it has
+ * left, and an open box glides to it (a change of FOLLOW_MIN_PX or more, so
+ * a line typed into a text box is never held back).
+ *
  * ROUND 41, A BLOCK'S SETTINGS IN THE LINKS TAB ("when I click on a block
  * to close its settings, make it smoother and cleaner"). They were there or
  * not, so a close took the whole panel away in one frame and every card
@@ -50,6 +61,8 @@ export const REVEAL_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
  * which reads as a snap, not a close.
  */
 export const REVEAL_CLOSE_EASE = "cubic-bezier(0.45, 0, 0.2, 1)"
+/** An open box glides to a new height only when it changes by this much. */
+export const FOLLOW_MIN_PX = 40
 
 function reducedMotion(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -61,6 +74,7 @@ export function Reveal({
   className,
   returnFocus,
   unmountWhenShut = false,
+  follow = false,
   children,
 }: {
   open: boolean
@@ -70,6 +84,8 @@ export function Reveal({
   returnFocus?: React.RefObject<HTMLElement | null>
   /** Let go of the children once a close has finished (they are built again on the next open). */
   unmountWhenShut?: boolean
+  /** Keep up with what is inside as it grows or shrinks while open (round AL). */
+  follow?: boolean
   children: React.ReactNode
 }) {
   const [built, setBuilt] = React.useState(open)
@@ -80,6 +96,8 @@ export function Reveal({
   const innerRef = React.useRef<HTMLDivElement>(null)
   const animRef = React.useRef<Animation[]>([])
   const first = React.useRef(true)
+  /* The open that is running: when it started and the height it is going to, so `follow` can aim it again. */
+  const opening = React.useRef<{ began: number; to: number } | null>(null)
 
   React.useLayoutEffect(() => {
     const box = boxRef.current
@@ -98,6 +116,7 @@ export function Reveal({
     else if (returnFocus?.current && box.contains(document.activeElement)) returnFocus.current.focus({ preventScroll: true })
     const to = open ? inner.scrollHeight : 0
     const done = () => {
+      opening.current = null
       box.style.height = open ? "auto" : "0px"
       box.style.willChange = ""
       delete box.dataset.revealClosing
@@ -123,7 +142,71 @@ export function Reveal({
     )
     animRef.current = [a, fade]
     a.onfinish = done
+    opening.current = open ? { began: performance.now(), to } : null
+    /*
+      Round AL: a block's editor is built in the same moment it opens, and
+      its effects run in the next frames; a clock running through them threw
+      half the height into one frame (scripts/check-onepage-editor-al3.mjs).
+      With `follow` the open waits two frames, at its first height, and then
+      plays from the start.
+    */
+    if (open && follow) {
+      a.pause()
+      fade.pause()
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (animRef.current[0] !== a) return
+        a.play()
+        fade.play()
+        if (opening.current) opening.current.began = performance.now()
+      }))
+    }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /*
+    FOLLOWING WHAT IS INSIDE (round AL). Seen after layout and before paint,
+    so the new height is never drawn for a frame before the glide starts.
+  */
+  React.useLayoutEffect(() => {
+    const box = boxRef.current
+    const inner = innerRef.current
+    if (!follow || !open || !box || !inner || typeof ResizeObserver === "undefined") return
+    let last = inner.offsetHeight
+    let glide: Animation | null = null
+    const ro = new ResizeObserver(() => {
+      const next = inner.offsetHeight
+      const run = opening.current
+      if (run) {
+        /* An open still running: from where it is now to the new height, in the time it had left. */
+        if (Math.abs(next - run.to) < 1) return
+        const from = box.getBoundingClientRect().height
+        const left = Math.max(140, REVEAL_OPEN_MS - (performance.now() - run.began))
+        const height = animRef.current[0]
+        height?.cancel()
+        box.style.height = `${next}px`
+        run.to = next
+        const a = box.animate([{ height: `${from}px` }, { height: `${next}px` }], { duration: left, easing: REVEAL_CLOSE_EASE })
+        a.onfinish = () => {
+          opening.current = null
+          box.style.height = "auto"
+          box.style.willChange = ""
+        }
+        animRef.current = [a, ...animRef.current.slice(1)]
+        last = next
+        return
+      }
+      const from = glide ? box.getBoundingClientRect().height : last
+      last = next
+      if (Math.abs(from - next) < FOLLOW_MIN_PX || reducedMotion() || typeof box.animate !== "function") return
+      glide?.cancel()
+      glide = box.animate([{ height: `${from}px` }, { height: `${next}px` }], { duration: REVEAL_OPEN_MS, easing: REVEAL_EASE })
+      glide.onfinish = () => { glide = null }
+    })
+    ro.observe(inner)
+    return () => {
+      ro.disconnect()
+      glide?.cancel()
+    }
+  }, [follow, open])
 
   React.useEffect(() => () => { for (const a of animRef.current) a.cancel() }, [])
 

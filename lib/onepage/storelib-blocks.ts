@@ -57,6 +57,8 @@ export interface StorelibShelfBlockData {
   source: ShelfSource
   title?: string | null
   layout?: "carousel" | "list" | "grid"
+  /** A carousel's cards in view (round AL). Missing: the width each kind of card always had. */
+  carousel_view?: "1" | "1.2" | "1.5" | "2" | null
   /** How many to show, 1 to 12. */
   limit?: number
   /**

@@ -48,6 +48,7 @@ import type { PersonalizationField } from "@/lib/products/personalization"
 import { pixelEvent } from "@/lib/analytics/pixels"
 import { CompactPay, type StartedPayment } from "@/components/community/public/compact-pay"
 import { CheckoutProductMark, CheckoutWindow } from "./checkout-window"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 export interface ProductFacts {
   product: {
@@ -182,7 +183,7 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, pr
         if (!live) return
         setFacts(f)
         if (f.buyer) {
-          setEmail((e) => e || f.buyer!.email)
+          setEmail((e) => e || displayEmail(f.buyer!.email) || "")
           setName((n) => n || f.buyer!.name)
         }
         if (f.product.variants.length && !f.product.variants.some((v) => v.id === initialVariant)) setVariantId(f.product.variants[0].id)

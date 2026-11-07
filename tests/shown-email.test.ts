@@ -57,6 +57,21 @@ console.log("\nEvery screen that prints the person's own address goes through it
 
   const receipt = read("app/(storelib)/receipt/[token]/receipt-view.tsx")
   check("  \"Receipt goes to\" on a receipt", /displayEmail\(viewer\.email\)/.test(receipt) && !/viewer\.email \? viewer\.email :/.test(receipt))
+
+  /* Round AL: the owner still saw "nasties112+slb-66c749a6@gmail.com". These are the places that still printed it. */
+  const area = read("app/api/email/area/route.ts")
+  check("  the composer's sender reads the shown address from the server", /email: displayEmail\(gate\.userEmail\)/.test(area))
+  check("  the Help Center's account menu shows the real address instead of hiding it", /displayEmail\(user\.email\)/.test(read("app/api/help/me/route.ts")) && !/includes\("\+slb-"\)/.test(read("app/api/help/me/route.ts")))
+  check("  and its menu prints it through the helper", /\{displayEmail\(me\.email\)\}/.test(read("components/help/help-account.tsx")))
+  check("  a flow's test line names the real address", /accountEmail: displayEmail\(user\.email\)/.test(read("app/(storelib)/app/emails/flow/[id]/page.tsx")))
+  check("  and the flow test is sent to it", /const to = ownerAddress\(me\.userEmail\)/.test(read("app/api/automations/flows/[id]/test/route.ts")))
+  check("  the store's contact email starts from the real address", /contactEmail: displayEmail\(account\?\.data\?\.user\?\.email\)/.test(read("app/api/store/settings/route.ts")))
+  check("  the dashboard's name made from an address never carries the tag", /emailLocalPart\(user\.email\)/.test(read("app/(storelib)/app/layout.tsx")) && !/user\.email\?\.split\("@"\)\[0\]/.test(read("app/(storelib)/app/layout.tsx")))
+  check("  reset password says which account", /displayEmail\(data\.user\.email\)/.test(read("app/(storelib)/(auth)/reset-password/page.tsx")))
+  check("  the handoff page's \"signed in as\"", /signedInAs: displayEmail\(viewer\.email\)/.test(read("lib/handoff/rules.ts")))
+  check("  the team invite's \"signed in as\"", /signedInAs: displayEmail\(user\.email\)/.test(read("lib/team/invite-state.ts")))
+  check("  checkout prefills the real address", /displayEmail\(userEmail\)/.test(read("app/(storelib)/checkout/checkout-client.tsx")) && /displayEmail\(f\.buyer!\.email\)/.test(read("components/checkout/instant-checkout.tsx")) && /displayEmail\(buyer\?\.email\)/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")))
+  check("  the tax summary names the real address", /sellerEmail: displayEmail\(profile\?\.email\)/.test(read("app/api/stripe/tax-summary/route.ts")))
 }
 
 console.log("\nAnd what is SENT is the owner's own inbox, not the tag\n")

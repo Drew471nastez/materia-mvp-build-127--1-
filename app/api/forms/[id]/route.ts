@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { formActor, NO_STORE, formError, boundedJson, isMissingSchema, NEEDS_SQL } from "@/lib/forms/server"
+import { formActor, NO_STORE, formError, boundedJson, isMissingSchema, NEEDS_SQL, formsKnownMissing, formsMissingResponse, logFormsError, noteFormsTables } from "@/lib/forms/server"
 import { validateDefinition } from "@/lib/forms/definition"
 import { UUID } from "@/lib/forms/actions"
 import { clientForm, mergeIntegrations } from "@/lib/forms/integrations"
@@ -17,6 +17,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!UUID.test(id)) return formError(new Error("Form not found."), 404)
   const actor = await formActor()
   if (actor instanceof NextResponse) return actor
+  if (formsKnownMissing()) return formsMissingResponse()
   try {
     const body = await boundedJson(request, 128 * 1024)
     if (typeof body.updated_at !== "string") return formError(new Error("Reload the form before saving."), 409)
@@ -26,7 +27,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .eq("id", id)
       .eq("owner_id", actor.user.id)
       .maybeSingle()
-    if (readError) return formError(new Error("The form could not be read."), 503)
+    if (noteFormsTables(readError)) return formsMissingResponse()
+    if (readError) {
+      logFormsError("read for save", readError)
+      return formError(new Error("The form could not be read. Try again."), 503)
+    }
     if (!current) return formError(new Error("Form not found."), 404)
     const definition = validateDefinition(body.definition, body.publish === true)
     const changes: Record<string, unknown> = { draft: definition, title: definition.title, updated_at: new Date().toISOString() }
@@ -49,7 +54,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       delete changes.retention_days
       ;({ data, error } = await write(changes))
     }
-    if (error) return formError(new Error("The form did not save. Try again."), 503)
+    if (error) {
+      logFormsError("save", error)
+      return formError(new Error("The form did not save. Try again."), 503)
+    }
     if (!data) return formError(new Error("This form changed in another session. Reload it before saving."), 409)
     return NextResponse.json({ form: { ...clientForm(data), retention_days: changes.retention_days ?? body.retention_days ?? null } }, { headers: NO_STORE })
   } catch (error) {
@@ -70,7 +78,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     .eq("owner_id", actor.user.id)
     .select("id")
     .maybeSingle()
-  if (error) return formError(new Error("The form was not archived."), 503)
+  if (noteFormsTables(error)) return formsMissingResponse()
+  if (error) {
+    logFormsError("archive", error)
+    return formError(new Error("The form was not archived. Try again."), 503)
+  }
   if (!data) return formError(new Error("Form not found."), 404)
   return NextResponse.json({ ok: true }, { headers: NO_STORE })
 }

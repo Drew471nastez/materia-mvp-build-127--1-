@@ -222,6 +222,12 @@ const DIRECTIVES: [string, string[]][] = [
     "https://bandcamp.com",
     "https://widget.deezer.com",
     "https://calendar.google.com",
+    /* The OnePage's app blocks (lib/onepage/app-blocks APP_FRAME_HOSTS): Threads, Facebook, Pinterest, Reddit and Audiomack's own public embeds. */
+    "https://www.threads.net",
+    "https://www.facebook.com",
+    "https://assets.pinterest.com",
+    "https://embed.reddit.com",
+    "https://audiomack.com",
     /* The blog's embed block (lib/blog/embed.ts): a Figma file and a CodePen demo. */
     "https://www.figma.com",
     "https://codepen.io",

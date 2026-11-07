@@ -51,6 +51,7 @@ import { AnalyticsChartWithTooltip, type AnalyticsChartData } from "@/components
 import { bucketLabel, bucketStarts } from "@/lib/analytics/buckets"
 import { combineReports, type Combined } from "@/lib/communities/report-total"
 import type { CommunityReport, Figure, Line } from "@/lib/communities/analytics-report"
+import { fetchWithDeadline } from "@/lib/net/request"
 
 export interface CommunityPlace {
   id: string
@@ -109,7 +110,8 @@ function useCommunityAnswers(communities: CommunityPlace[], span: { start: numbe
       q.set("cend", new Date(compare.end).toISOString())
     }
     for (const c of communities) {
-      fetch(`/api/app/community/${encodeURIComponent(c.id)}/analytics?${q}`, { cache: "no-store" })
+      /* Round AL: with an end (lib/net/request WAIT_MS.read): a community that never answers is "failed" with Try again, not a card waiting for ever. */
+      fetchWithDeadline(`/api/app/community/${encodeURIComponent(c.id)}/analytics?${q}`, { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
         .then((d: CommunityReport) => {
           if (!live) return

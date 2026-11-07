@@ -1,0 +1,85 @@
+/*
+ * ===========================================================================
+ *  A BLOCK'S FIELDS, ONE LOOK (round AL)
+ * ===========================================================================
+ * The owner: "certain selectors, their arrows sit weird, and text is gluing
+ * ... description optional is almost gluing to the textarea input", and
+ * "for inputs and for selectors ... you should inherit from Storelib".
+ *
+ * A block's settings are drawn by many editors (the link's, the product's,
+ * the shelf's, the extra blocks', the forms' action editor), each with its
+ * own copy of the library's small Input, Label and native <select>. Rather
+ * than a field look per editor, the open block's panel ([data-block-settings],
+ * components/onepage/tabs/links-tab BlockItem) gives every one of them the
+ * fields the rest of the editor uses (components/onepage/editor-kit
+ * fieldInput, and /app's SELECT in app/(storelib)/app/offers/offer-fields):
+ *
+ *   a label     13px, medium, ink, with 8px under it when a field follows
+ *   a text box  44px, 12px corners, a hairline, dark when in use, 16px type
+ *               on a phone so iOS does not zoom
+ *   a select    the same box, the platform's arrow taken off and one quiet
+ *               chevron 12px from the right edge, with room for it
+ *
+ * Unlayered, so it wins over the utilities those editors were written with.
+ * Only the library's own fields ([data-slot]) and native selects are
+ * touched; a field an editor drew with its own look is left alone.
+ */
+
+[data-block-settings] [data-slot="label"] {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: #1a1a2e;
+}
+
+[data-block-settings] [data-slot="label"]:has(+ :is(input, textarea, select, [data-slot="input"], [data-slot="textarea"], [role="radiogroup"], [data-field])) {
+  margin-bottom: 8px;
+}
+
+[data-block-settings] :is([data-slot="input"], [data-slot="textarea"]) {
+  border: 1px solid #e3e4e8;
+  border-radius: 12px;
+  background-color: #ffffff;
+  color: #1a1a2e;
+  font-size: 16px;
+  box-shadow: none;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+[data-block-settings] [data-slot="input"] {
+  height: 44px;
+  padding: 0 14px;
+}
+[data-block-settings] [data-slot="textarea"] {
+  padding: 10px 14px;
+  line-height: 1.45;
+}
+[data-block-settings] :is([data-slot="input"], [data-slot="textarea"])::placeholder {
+  color: #9ca3af;
+}
+[data-block-settings] :is([data-slot="input"], [data-slot="textarea"]):focus,
+[data-block-settings] :is([data-slot="input"], [data-slot="textarea"]):focus-visible {
+  border-color: #1a1a2e;
+  box-shadow: 0 0 0 3px rgba(26, 26, 46, 0.08);
+  outline: none;
+}
+[data-block-settings] :is([data-slot="input"], [data-slot="textarea"])[aria-invalid="true"] {
+  border-color: #f0b4ab;
+}
+
+[data-block-settings] select:not([multiple]) {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 12px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+@media (min-width: 640px) {
+  [data-block-settings] :is([data-slot="input"], [data-slot="textarea"]) {
+    font-size: 14px;
+  }
+}

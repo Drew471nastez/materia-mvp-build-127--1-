@@ -24,6 +24,8 @@ import { join, basename, dirname, relative } from "node:path"
 execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inherit" })
 
 const SUITES = [
+  /* Round AL4: the OnePage cover edge to edge at 5:2 and fetched first, Your files for the cover, the pattern kept out from behind the header, the gradient drifting on one composited layer (still for reduced motion, paused in a hidden tab), the avatar viewer, a Classic theme keeping a Hero, the Design tab's sticky way back; scripts/check-onepage-header-al4.mjs measures them. */
+  "tests/onepage-header-al4.test.ts",
   /* Round AK6: a founder hands a business they built to a client's own login: a single use, expiring claim link kept only as its SHA-256, wrong email, self claim and the three business limit refused, every table with a creator_id or user_id decided, every route asks who is signing in, sign up and an existing account through the real route handlers, a failed transfer changes nothing (SQL 20271131, run on the harness by scripts/check-business-handoff-sql.sh). */
   "tests/business-handoff.test.ts",
   "tests/onepage-link-metadata.test.ts",
@@ -34,8 +36,12 @@ const SUITES = [
   "tests/forms-bookings.test.ts",
   "tests/forms-security.test.ts",
   "tests/forms-booking-payment.test.ts",
+  /* Round AL5: Leads in Emails, Forms beside it, the Audience item gone, missing forms tables said plainly, one retry, the pre-chat and the phone country list. */
+  "tests/forms-leads-al5.test.ts",
   "tests/onepage-modern-blocks.test.ts",
   "tests/onepage-block-settings-ak3.test.ts",
+  /* Round AL3: the editor drags past what is on screen, an open block follows its height, Layout draws and Settings says, Storelib fields, every block counted. */
+  "tests/onepage-editor-al3.test.ts",
   "tests/admin-sql-updates.test.ts",
   "tests/typecheck-ratchet-process.test.ts",
   "tests/wizard27.test.ts",
@@ -1147,6 +1153,7 @@ const SUITES = [
   "tests/onepage-editor-r40.test.ts",
   /* Round 41 (OnePage blocks): grey Add block tiles again, settings that glide shut, groups that take any block and delete one, Add to group with the page's own blocks, and every catalogue block checked for settings, a live renderer and the page's look. */
   "tests/onepage-editor-r41.test.ts",
+  "tests/onepage-app-blocks-al.test.ts",
   /* Round 12 (WBPERF): a link typed in a menu draws only what shows a menu, memoised menu rows, a 401 asked about before it is a sign out, a page's sections read again quietly; scripts/check-wb-perf-r12.mjs measures them on 120 sections. */
   "tests/wb-perf-r12.test.ts",
   /* Round 12 (website builder): Add block between two blocks in the canvas, the collection pickers' Add collection, a menu link's new tab on the live site, product descriptions bound to Storelib, the shop's filters from real products; scripts/check-wb-ux-r12.mjs measures them. */
@@ -1329,6 +1336,8 @@ const STRICT_SUITES = [
   "tests/product-sheet-r53.test.ts",
   /* Round AK: the product sheet closes before the checkout opens on top (one state, one backdrop, focus held, Back and Escape close the checkout alone), the checkout's head is the product's own picture, and the product editor's grey padding is cut off in the sheet and the checkout. scripts/check-onepage-checkout-stack.mjs measures it. */
   "tests/onepage-checkout-stack.test.ts",
+  /* Round AL: a block opened in a sheet like Linktree's (rise, fade and slight scale in 300ms, back in 250ms, the page held still, Escape and Back, focus kept), the Interaction choice on the blocks that embed something (saved ones stay on the page), and Instagram posts folded in Instagram's own units with View full post on the fade. scripts/check-onepage-block-sheet.mjs measures them. */
+  "tests/onepage-block-sheet-al.test.ts",
   /* Round 42: a OnePage's embeds with no scrollbar inside them (heights said and rounded up, Tally and Calendly asked for theirs, TikTok's player), buttons with room on every side in a carousel, one copy of a video playing, the social sheet as tall as it holds, a slideshow a mouse drags. scripts/check-onepage-r42.mjs measures them. */
   "tests/onepage-r42.test.ts",
   /* Round 43: the OnePage editor's font sheet as tall as its list, an off block's controls unfaded, Remove's question in one compact line, a block's stats with the period as a popover and See in Analytics, the header's type and picture frame, the cover's ring that follows a Left header, one hold for every window over the live page. scripts/check-onepage-editor-r43.mjs measures them. */

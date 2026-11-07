@@ -88,7 +88,8 @@ function main() {
     check("one counted hold that keeps the scrollbar's room", /holds\+\+/.test(hold) && /setProperty\("scrollbar-gutter", "stable"\)/.test(hold) && /if \(gap > 0\)/.test(hold))
     check("the checkout window uses it, not overflow alone", /return holdPage\(\)/.test(checkout) && !/html\.style\.overflow = "hidden"/.test(code(checkout)))
     check("a Radix lock is followed, and its own margin not added twice", /useEffect\(\(\) => followDialogLocks\(\), \[\]\)/.test(live) && /html\[data-op-hold\] body\[data-scroll-locked\] \{ overflow: visible !important; margin-right: 0 !important; \}/.test(css))
-    check("the centred windows hold the page on a computer", /useHeldPage\(isPhone === false && \(\(spotifyModalOpen/.test(live) && /useHeldPage\(showCalendlyModal && !!isDesktop\)/.test(live))
+    /* Changed on purpose (round AL): Calendly's own pop-up is gone; it opens in the block sheet, which keeps the page still with its scrollbar (components/onepage/block-sheet useStillPage). */
+    check("the centred windows hold the page on a computer", /useHeldPage\(isPhone === false && \(\(spotifyModalOpen/.test(live) && !/showCalendlyModal/.test(live) && /useStillPage\(true, rootRef\)/.test(read("components/onepage/block-sheet.tsx")))
   }
 
   section("6. A block's stats")

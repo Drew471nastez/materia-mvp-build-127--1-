@@ -32,6 +32,7 @@ import { LOGO_FILE_PX } from "@/lib/emails/brand-mark"
 /* Imported, not loaded with import(): an import() gave each of the ~640 routes that reach this file its own async chunk for it, and `next build` outgrew Vercel's 8 GB. */
 import { routeUser, authUnavailableResponse } from "@/lib/auth/route-user"
 import { dataOrThrow, isServiceUnavailable } from "@/lib/net/service-error"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 /** The store's row could not be read: refused with a true reason, and the client may ask again (lib/net/request.ts READ_RETRY_STATUSES). */
 export function storeUnavailableResponse(): NextResponse {
@@ -383,7 +384,7 @@ export async function acceptInvite(db: Db, token: unknown, user: { id: string; e
       creatorId: state.store.id,
       ownerUserId: read.ownerUserId,
       title: `${state.email} joined your team`,
-      message: `They're on ${state.store.name} with ${accessSummaryEn(state.permissions).toLowerCase()}.${user.email && !sameEmail(user.email, state.email) ? ` They signed in as ${user.email}.` : ""}`,
+      message: `They're on ${state.store.name} with ${accessSummaryEn(state.permissions).toLowerCase()}.${user.email && !sameEmail(user.email, state.email) ? ` They signed in as ${displayEmail(user.email) ?? "another account"}.` : ""}`,
     })
   }
   return { ok: true, creatorId: state.store.id, role: state.role, permissions: state.permissions, storeName: state.store.name, home: homeFor(state.permissions) }

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { SocialIcon } from "@/components/onepage/brand-icons"
 import {
+  ArrowLeft,
   AtSign,
   ImageIcon,
   ChevronRight,
@@ -1595,6 +1596,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
               : { display: "none" }
         }
       >
+        {section && section === shownSection ? <StickyPanelBack panelRef={panelRef} section={section} title={SECTION_LABEL[section]} onBack={() => setSection(null)} /> : null}
         <div className={readingClass}>
           {drawnSection ? <PanelHeader title={SECTION_LABEL[drawnSection]} onBack={() => setSection(null)} backLabel={tt("Back to Design")} /> : null}
           {DESIGN_SECTIONS.filter((id) => built.includes(id)).map((id) => (
@@ -1619,6 +1621,68 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
 
 function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+}
+
+/*
+  ===========================================================================
+   THE WAY BACK STAYS IN REACH (round AL)
+  ===========================================================================
+  "I click on wallpaper and then I scroll down, but then I have to scroll up
+  again to find the back button." Once the panel's own header (the back
+  tile and the panel's name) has scrolled up out of the column, a slim bar
+  with the same way back and the name settles at the top of the column. It
+  fades and slides 8px into place over 180ms, and goes the same way when the
+  header comes back into view; with reduced motion it simply appears.
+
+  It is a zero height sticky slot at the top of the panel, so it takes no
+  room and moves nothing under it. Whether to show it is one
+  IntersectionObserver on the panel's header against the editor's scroll
+  box, never a scroll listener.
+*/
+function StickyPanelBack({ panelRef, section, title, onBack }: { panelRef: React.RefObject<HTMLDivElement | null>; section: DesignSection; title: string; onBack: () => void }) {
+  const [stuck, setStuck] = useState(false)
+  useEffect(() => {
+    setStuck(false)
+    const panel = panelRef.current
+    const header = panel?.querySelector<HTMLElement>(":scope > div > [data-panel-header]")
+    if (!panel || !header || typeof IntersectionObserver !== "function") return
+    const scroller = panel.closest<HTMLElement>("[data-scroll-container]")
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        const top = entry.rootBounds?.top ?? 0
+        setStuck(!entry.isIntersecting && entry.boundingClientRect.bottom <= top + 1)
+      },
+      { root: scroller, threshold: 0 },
+    )
+    io.observe(header)
+    return () => io.disconnect()
+  }, [panelRef, section])
+  return (
+    <div data-sticky-back-slot="" className="sticky top-0 z-20 h-0">
+      <div
+        data-sticky-back={stuck ? "shown" : "hidden"}
+        aria-hidden={stuck ? undefined : true}
+        inert={!stuck}
+        className="absolute inset-x-0 top-0 border-b border-[#eef0f2] bg-white transition-[opacity,translate] duration-[180ms] ease-out motion-reduce:transition-none"
+        style={{ opacity: stuck ? 1 : 0, translate: stuck ? "0 0" : "0 -8px", pointerEvents: stuck ? undefined : "none" }}
+      >
+        <div className="mx-auto flex h-14 w-full max-w-xl items-center gap-2.5 px-4 md:px-6">
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label={tt("Back to Design")}
+            data-sticky-back-button=""
+            className="-ml-1 grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-[10px] outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]"
+          >
+            <span aria-hidden className="grid h-9 w-9 place-items-center rounded-[9px] border border-[#d9dbe0] bg-white text-[#1a1a2e] shadow-[inset_0_-2px_0_rgba(0,0,0,0.07),0_1px_2px_rgba(15,23,42,0.08)] transition-colors duration-[120ms] [@media(hover:hover)]:hover:bg-[#f7f7f8] active:bg-[#f1f2f4]">
+              <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
+            </span>
+          </button>
+          <span className="min-w-0 flex-1 truncate text-[16px] font-semibold text-[#1a1a2e]">{title}</span>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function HeaderSection() {
@@ -1808,7 +1872,6 @@ function HeaderSection() {
 
   return (
     <div>
-      <HeaderCoverEditor />
       <PanelSection>
         <SettingRow label={tt("Profile image")} description={avatarVideoUrl ? tt("A video, playing on a loop") : onepage.avatar_url ? tt("An image or GIF") : tt("Add a photo, a logo or a short video")}>
           {/* The picture itself is the button, with a pencil on its corner, as Linktree draws it. */}
@@ -2140,6 +2203,10 @@ function HeaderSection() {
             </>
           )
         })()}
+        {/* Round AL: the cover sits under the layout it belongs to, with "Your files" beside its upload (components/onepage/header-cover-editor). */}
+        <div className="mt-5">
+          <HeaderCoverEditor />
+        </div>
       </PanelSection>
 
       {effectiveLayout !== "hero" ? <AvatarFrameSection /> : null}
@@ -2584,11 +2651,7 @@ function useSteadyFilter(filter: ThemeFilter, setFilter: (f: ThemeFilter) => voi
 
 function ThemeSection() {
   const { onepage, updateBlock, applyThemeLook } = useOnePage()
-  /* Its questions and pickers are the shared sheet on a phone (components/ui/sheet-dialog). */
-  const sheetPhone = usePhone()
   const [filter, setFilter] = useState<ThemeFilter>("all")
-  const [showLayoutChangeDialog, setShowLayoutChangeDialog] = useState(false)
-  const [pendingTemplate, setPendingTemplate] = useState<typeof THEME_TEMPLATES[0] | null>(null)
   const { gridRef, pickFilter } = useSteadyFilter(filter, setFilter)
   const pickRef = useRef<(template: typeof THEME_TEMPLATES[0]) => void>(() => {})
   const onPick = useCallback((template: typeof THEME_TEMPLATES[0]) => pickRef.current(template), [])
@@ -2600,19 +2663,17 @@ function ThemeSection() {
   const handleApplyTemplate = (template: typeof THEME_TEMPLATES[0]) => {
     const config = template.theme_config
     const templateLayout = (template as any).profile_layout
-    const skipDialog = (template as any).skipLayoutDialog
 
     // Template explicitly requests hero layout (like Midnight)
     const wantsHeroLayout = templateLayout === "hero" || (config as any).header_layout === "hero"
-    // Gradient/image backgrounds require classic layout (unless template explicitly specifies otherwise)
-    const needsClassicLayout = !wantsHeroLayout && templateLayout === "classic"
-
-    // If current layout is Hero and new template requires classic layout, show dialog (unless skipLayoutDialog is true)
-    if (needsClassicLayout && currentHeaderLayout === "hero" && !skipDialog) {
-      setPendingTemplate(template)
-      setShowLayoutChangeDialog(true)
-      return
-    }
+    /*
+      Round AL: a Classic theme no longer takes a Hero away. The Hero's
+      picture fades into the page through a mask (HERO_FADE_MASK), so a
+      gradient, a photo, a video or a pattern simply carries on under the
+      fade, and a creator who chose Hero keeps it. The theme's Classic still
+      applies to a page that is Classic already.
+    */
+    const needsClassicLayout = !wantsHeroLayout && templateLayout === "classic" && currentHeaderLayout !== "hero"
 
     /* The whole look in one step: nothing of the old theme left behind, Share
        and Subscribe matched, every block's own colours cleared (lib/onepage/theme-apply). */
@@ -2635,14 +2696,6 @@ function ThemeSection() {
         }
       }
     }
-  }
-
-  const handleConfirmLayoutChange = () => {
-    if (pendingTemplate) {
-      applyThemeLook(pendingTemplate as never, "classic")
-    }
-    setShowLayoutChangeDialog(false)
-    setPendingTemplate(null)
   }
 
   /* One function for every card across renders, so a pick of a kind draws no card again but those that change (ThemeCard is memo). */
@@ -2700,57 +2753,6 @@ function ThemeSection() {
         ))}
       </div>
 
-      {/* Layout Change Dialog */}
-      <SheetDialog
-        open={showLayoutChangeDialog}
-        onClose={() => setShowLayoutChangeDialog(false)}
-        phone={sheetPhone}
-        label={tt("Update profile image style?")}
-        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
-      >
-          <DialogHeader className="p-5 pb-0">
-            <SheetDialogTitle className="text-lg font-semibold text-center">{tt("Update profile image style?")}</SheetDialogTitle>
-          </DialogHeader>
-          
-          <div className="p-5 space-y-4">
-            {/* Preview */}
-            <div className="bg-gray-900 rounded-2xl p-4 flex items-center justify-center">
-              <div className="w-40 rounded-2xl overflow-hidden shadow-xl" style={{ background: pendingTemplate?.theme_config.background_type === "gradient" ? pendingTemplate?.theme_config.background_gradient : pendingTemplate?.theme_config.background_color }}>
-                <div className="p-4 flex flex-col items-center gap-2">
-                  <div data-layout-avatar="" className="w-10 h-10 aspect-square shrink-0 rounded-full bg-white/20" />
-                  <div className="w-16 h-2 rounded bg-white/40" />
-                  <div className="w-12 h-1.5 rounded bg-white/30" />
-                  <div className="flex gap-1 mt-1">
-                    <div className="w-4 h-4 rounded-full bg-white/20" />
-                    <div className="w-4 h-4 rounded-full bg-white/20" />
-                    <div className="w-4 h-4 rounded-full bg-white/20" />
-                  </div>
-                  <div className="w-full h-6 rounded-lg bg-white/80 mt-2" />
-                </div>
-              </div>
-            </div>
-
-            <p className="text-sm text-muted-foreground text-center">
-              <Rich text={tt("This wallpaper option requires a {layout} profile image layout.")} parts={{ layout: <strong>{tt("Classic")}</strong> }} />
-            </p>
-
-            <div className="space-y-2">
-              <button
-                onClick={handleConfirmLayoutChange}
-                className="w-full py-3 px-4 bg-gray-900 text-white font-medium rounded-xl hover:bg-gray-800 transition-colors"
-              >
-                {tt("Update to Classic")}
-              </button>
-              
-              <button
-                onClick={() => { setShowLayoutChangeDialog(false); setPendingTemplate(null); }}
-                className="w-full py-3 px-4 bg-white text-gray-700 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
-              >
-                {tt("Cancel")}
-              </button>
-            </div>
-          </div>
-        </SheetDialog>
     </div>
   )
 }

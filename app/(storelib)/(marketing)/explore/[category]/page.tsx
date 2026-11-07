@@ -112,6 +112,9 @@ export const dynamic = "force-dynamic"
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
 
+/** How long the catalogue's one read may take before the page stops waiting for it. */
+const CATALOGUE_READ_MS = 6000
+
 /*
   THE CATALOGUE THIS PAGE DRAWS, ONE COPY FOR EVERYBODY. The newest hundred
   published products with their creators' faces, the same for every visitor
@@ -131,7 +134,13 @@ async function readCategoryCatalogue(supabase: Supabase): Promise<any[]> {
       .eq("status", "published")
       .neq("type", "physical")
     if (exclude) q = q.is("community_id", null)
-    return q.order("created_at", { ascending: false }).limit(100)
+    /*
+      Round AL: production logged "[CategoryPage] Products error: products took longer than 20s" 58 times in a week,
+      each a render held for the whole read deadline. A hundred newest rows answer in well under a second when the
+      database is there; past CATALOGUE_READ_MS the page draws from what it has, and the held copy
+      (lib/explore/catalogue-cache.ts) is never replaced by an empty one.
+    */
+    return q.order("created_at", { ascending: false }).limit(100).abortSignal(AbortSignal.timeout(CATALOGUE_READ_MS))
   })
 
   if (productsError) {

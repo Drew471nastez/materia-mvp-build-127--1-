@@ -43,7 +43,7 @@ import { boxRadius, buttonPadScale, pressableProps } from "@/lib/onepage/block-l
 import { fontStack } from "@/lib/onepage/fonts"
 import * as React from "react"
 import { useSyncExternalStore } from "react"
-import { CalendarClock, ChevronDown, ChevronRight, Clock, EyeOff, MapPin, Play, Plus, Trash2 } from "lucide-react"
+import { CalendarClock, ChevronDown, ChevronRight, Clock, ExternalLink, EyeOff, LayoutList, MapPin, PanelBottom, Play, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -54,6 +54,8 @@ import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DateTimeField } from "@/components/onepage/date-time-field"
 import { CreatorBlock, CreatorBlockEditor } from "@/components/onepage/creator-blocks"
 import { storelibBlockRow } from "@/components/onepage/storelib-blocks"
+import { AppBlock, appBlockRow } from "@/components/onepage/app-block"
+import { AppBlockEditor } from "@/components/onepage/app-block-editor"
 import { GlyphBooking, GlyphContact, GlyphCountdown, GlyphCourse, GlyphFaq, GlyphHeading, GlyphIntegration, GlyphMap, GlyphMusic, GlyphTestimonials, GlyphVideo } from "@/components/onepage/block-icons"
 import { EMBED_PROVIDER_NAME, MUSIC_PROVIDER_NAME, cleanTestimonials, embedSource, lessonsLabel, musicSource, tiktokPlayerUrl, type EmbedKind } from "@/lib/onepage/creator-blocks"
 import { SocialIcon } from "@/components/onepage/brand-icons"
@@ -76,6 +78,9 @@ import type {
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 import { hapticTap } from "@/lib/native-bridge"
+import { SHEET_BLOCKS, blockInteraction, interactionPatch, offersInteraction, type BlockInteraction } from "@/lib/onepage/block-sheet"
+import { ModeChoice, SettingsGroup } from "@/components/onepage/block-settings-kit"
+import { BlockSheetButton } from "@/components/onepage/block-sheet-trigger"
 
 export { EXTRA_BLOCK_TYPES, extraBlockHasContent, isExtraBlock, isScheduledNow, scheduleLabel, videoSource, type ExtraBlockType } from "@/lib/onepage/extra-blocks"
 
@@ -301,9 +306,9 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
 
 /* ─── Video ────────────────────────────────────────────────────────────── */
 
-function VideoView({ data, look }: { data: VideoBlockData; look: ExtraBlockLook }) {
+function VideoView({ data, look, autoplay = false }: { data: VideoBlockData; look: ExtraBlockLook; /** In the sheet: the tap that opened it was the press. */ autoplay?: boolean }) {
   const source = videoSource(data.url)
-  const [playing, setPlaying] = React.useState(false)
+  const [playing, setPlaying] = React.useState(autoplay)
   if (!source) return null
   const radius = `${boxRadius(look.theme)}px`
   const tall = source.kind === "tiktok"
@@ -377,6 +382,9 @@ export const ExtraBlockPreviewContext = React.createContext(false)
 export function ExtraBlock({ block, look: given }: { block: OnePageBlock; look: ExtraBlockLook }) {
   const inPreview = React.useContext(ExtraBlockPreviewContext)
   const look = inPreview && !given.preview ? { ...given, preview: true } : given
+  /* Round AL: a button that opens the block in the sheet, or goes to the service (lib/onepage/block-sheet). */
+  const how = blockInteraction(block)
+  if (how !== "inline" && offersInteraction(block.type)) return <SheetBlock block={block} look={look} mode={how} />
   switch (block.type) {
     case "heading":
       return <HeadingView data={block.data as HeadingBlockData} look={look} />
@@ -388,9 +396,142 @@ export function ExtraBlock({ block, look: given }: { block: OnePageBlock; look: 
       return <MapView data={block.data as MapBlockData} look={look} />
     case "video":
       return <VideoView data={block.data as VideoBlockData} look={look} />
+    case "app":
+      /* Round AL: every service with no block of its own (./app-block). */
+      return <AppBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, onepageId: look.onepageId, still: look.still }} />
     default:
       /* Course, music, testimonials and the contact form (./creator-blocks). */
       return <CreatorBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, sellerId: look.sellerId, onepageId: look.onepageId, still: look.still, button: themeButtonStyle(look.theme) }} />
+  }
+}
+
+/**
+ * AN EMBEDDING BLOCK AS A BUTTON (round AL). Its Interaction is "In a sheet"
+ * or "Go to the link": the page shows the page's own button with the
+ * service's mark, and a tap raises the block itself in the sheet (drawn as
+ * it would be inline, its title in the sheet's head instead, a video
+ * already playing) or goes to the service's page.
+ */
+function SheetBlock({ block, look, mode }: { block: OnePageBlock; look: ExtraBlockLook; mode: "sheet" | "direct" }) {
+  const plan = sheetPlan(block, look)
+  if (!plan) return null
+  return (
+    <BlockSheetButton
+      blockId={block.id}
+      onepageId={look.onepageId}
+      theme={look.theme}
+      mode={mode}
+      title={plan.title}
+      subtitle={plan.subtitle}
+      icon={plan.icon}
+      href={plan.href}
+      still={look.still}
+      small={look.scale === "small"}
+      sheet={() => ({ title: plan.title, body: plan.body(), cta: plan.cta, shareUrl: plan.href, fill: plan.fill })}
+    />
+  )
+}
+
+type SheetPlan = {
+  title: string
+  subtitle?: string
+  icon: React.ReactNode
+  href: string | null
+  body: () => React.ReactNode
+  cta?: { label: string; href: string; icon?: React.ReactNode } | null
+  fill?: boolean
+}
+
+/* i18n-ignore-start: services' names, not words. */
+const VIDEO_NAME = { youtube: "YouTube", vimeo: "Vimeo", tiktok: "TikTok" } as const
+/* i18n-ignore-end */
+
+/** What the button and the sheet show for each block. Null when the block has nothing to show yet. */
+function sheetPlan(block: OnePageBlock, look: ExtraBlockLook): SheetPlan | null {
+  const inner: ExtraBlockLook = { ...look, scale: "live", still: false }
+  const creatorLook = { theme: inner.theme, scale: "live" as const, preview: inner.preview, sellerId: inner.sellerId, onepageId: inner.onepageId, button: themeButtonStyle(inner.theme) }
+  /* Drawn in the sheet as it would be inline: its title is the sheet's own head. */
+  const inline = { ...block, data: { ...(block.data as object), title: "", open_mode: "inline" } as OnePageBlockData }
+  const mark = (platform: string) => <SocialIcon platform={platform} size={22} color="currentColor" />
+  switch (block.type) {
+    case "video": {
+      const d = block.data as VideoBlockData
+      const s = videoSource(d.url)
+      if (!s) return null
+      const name = VIDEO_NAME[s.kind]
+      const href = d.url.trim()
+      return {
+        title: d.title?.trim() || name,
+        icon: mark(s.kind),
+        href,
+        body: () => <VideoView data={{ ...d, title: "" }} look={inner} autoplay />,
+        cta: { label: tt("Watch on {value}", { value: name }), href, icon: mark(s.kind) },
+      }
+    }
+    case "music": {
+      const d = block.data as MusicBlockData
+      const s = musicSource(d.url)
+      if (!s) return null
+      const name = MUSIC_PROVIDER_NAME[s.kind]
+      const href = d.url.trim()
+      return {
+        title: d.title?.trim() || name,
+        icon: mark(MUSIC_MARK[s.kind]),
+        href,
+        body: () => <CreatorBlock block={inline} look={creatorLook} />,
+        cta: { label: tt("Open in {value}", { value: name }), href, icon: mark(MUSIC_MARK[s.kind]) },
+      }
+    }
+    case "embed": {
+      const d = block.data as EmbedBlockData
+      const s = embedSource(d.url)
+      if (!s) return null
+      const name = EMBED_PROVIDER_NAME[s.kind]
+      const m = EMBED_MARK[s.kind]
+      const href = d.url.trim()
+      return {
+        title: d.title?.trim() || name,
+        icon: m ? mark(m) : <GlyphIntegration className="h-[22px] w-[22px]" />,
+        href,
+        body: () => <CreatorBlock block={inline} look={creatorLook} />,
+        cta: { label: tt("Open in {value}", { value: name }), href, icon: m ? mark(m) : null },
+      }
+    }
+    case "map": {
+      const d = block.data as MapBlockData
+      const address = (d.address || "").trim()
+      if (!address) return null
+      const q = encodeURIComponent(address)
+      const href = `https://www.google.com/maps/search/?api=1&query=${q}`
+      return {
+        title: d.title?.trim() || address,
+        subtitle: d.title?.trim() ? address : undefined,
+        icon: <MapPin aria-hidden className="h-[22px] w-[22px]" />,
+        href,
+        fill: true,
+        body: () => (
+          <iframe
+            title={tt("Map of {address}", { address })}
+            src={`https://maps.google.com/maps?q=${q}&z=15&output=embed`}
+            referrerPolicy="no-referrer-when-downgrade"
+            className="block h-full min-h-[320px] w-full rounded-[16px] border-0"
+          />
+        ),
+        cta: { label: tt("Open in Maps"), href, icon: <MapPin aria-hidden /> },
+      }
+    }
+    case "contact_form": {
+      const d = block.data as ContactFormBlockData
+      return {
+        title: d.title?.trim() || tt("Contact"),
+        subtitle: d.description?.trim() || undefined,
+        icon: <GlyphContact className="h-[22px] w-[22px]" />,
+        href: null,
+        body: () => <CreatorBlock block={inline} look={creatorLook} />,
+      }
+    }
+    default:
+      return null
   }
 }
 
@@ -641,6 +782,8 @@ export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: s
       const mark = s ? EMBED_MARK[s.kind] : undefined
       return { title: d.title?.trim() || (s ? EMBED_PROVIDER_NAME[s.kind] : tt("Embed")), subtitle: s ? EMBED_PROVIDER_NAME[s.kind] : tt("Paste a link"), icon: mark ? brandGlyph(mark) : GlyphIntegration }
     }
+    case "app":
+      return appBlockRow(block)
     default:
       /* The shelf, lead magnets, posts, followers and codes (./storelib-blocks). */
       return storelibBlockRow(block) ?? { title: block.type, subtitle: "", icon: GlyphBooking }
@@ -698,10 +841,7 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
             <Label className={label}>{tt("Size")}</Label>
             <Segmented value={d.size || "medium"} options={[{ id: "small", label: tt("Small") }, { id: "medium", label: tt("Medium") }, { id: "large", label: tt("Large") }]} onChange={(size) => updateData({ size })} />
           </div>
-          <div className={field}>
-            <Label className={label}>{tt("Alignment")}</Label>
-            <Segmented value={d.alignment || "center"} options={[{ id: "left", label: tt("Left") }, { id: "center", label: tt("Center") }, { id: "right", label: tt("Right") }]} onChange={(alignment) => updateData({ alignment })} />
-          </div>
+          {/* Round AL: the alignment is the Layout tab's one Alignment row (components/onepage/block-settings), which writes this block's own. */}
         </div>
       )
     }
@@ -818,6 +958,8 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
         </div>
       )
     }
+    case "app":
+      return <AppBlockEditor block={block} updateData={updateData} />
     default:
       return <CreatorBlockEditor block={block} updateData={updateData} />
   }
@@ -856,6 +998,8 @@ export function BlockExtras({
   React.useEffect(() => setZone(viewerZone()), [])
   const row = "flex min-h-[60px] w-full items-center gap-3.5 py-2 text-left"
   return (
+    <>
+    {offersInteraction(block.type) ? <InteractionChoice block={block} updateData={updateData} /> : null}
     <div data-block-extras="" className="mt-4 border-t border-[#eef0f2] pt-1">
       {isLink ? (
         <div className={row}>
@@ -913,6 +1057,32 @@ export function BlockExtras({
         </div>
       ) : null}
     </div>
+    </>
+  )
+}
+
+/**
+ * INTERACTION (round AL): what a tap on a block that shows another service
+ * does. In a sheet over the page (components/onepage/block-sheet), straight
+ * to the service, or the block drawn on the page itself (lib/onepage/
+ * block-sheet blockInteraction).
+ */
+function InteractionChoice({ block, updateData }: { block: OnePageBlock; updateData: (updates: Partial<OnePageBlockData>) => void }) {
+  const allowed = SHEET_BLOCKS[block.type] ?? []
+  const all: { id: BlockInteraction; label: string; icon: React.ReactNode }[] = [
+    { id: "sheet", label: tt("Open in a sheet"), icon: <PanelBottom className="h-4 w-4" /> },
+    { id: "direct", label: tt("Go to the link"), icon: <ExternalLink className="h-4 w-4" /> },
+    { id: "inline", label: tt("Show on the page"), icon: <LayoutList className="h-4 w-4" /> },
+  ]
+  return (
+    <SettingsGroup title={tt("Interaction")} className="mt-4">
+      <ModeChoice
+        label={tt("Interaction")}
+        value={blockInteraction(block)}
+        options={all.filter((o) => allowed.includes(o.id))}
+        onPick={(mode) => updateData(interactionPatch(block.type, mode) as Partial<OnePageBlockData>)}
+      />
+    </SettingsGroup>
   )
 }
 

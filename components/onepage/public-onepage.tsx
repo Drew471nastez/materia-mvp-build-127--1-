@@ -51,7 +51,7 @@ import { ExtraBlock, ExtraBlockPreviewContext, IncompleteLinkPlaceholder, Sensit
 import { isExtraBlock, isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
-import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import { WallpaperDrift, WallpaperNoise, WallpaperPattern, useHeaderClearance } from "@/components/onepage/wallpaper-layers"
 /* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
 import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
 import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
@@ -60,6 +60,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
+import { noteTracked, postBlockClick, watchBlockActivity } from "@/components/onepage/block-activity"
 import { canvasRule, heroHeaderShown } from "@/lib/onepage/page-frame"
 import { PosterVideo } from "@/components/onepage/poster-video"
 import { HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/lib/onepage/poster-video"
@@ -72,8 +73,10 @@ import { ONEPAGE_COLUMN_PX, onePageImageSrc } from "@/lib/onepage/display-image"
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { followDialogLocks, useHeldPage } from "@/lib/onepage/page-hold"
 import { avatarLook, bioSizeClass, bioTypeStyle, titleSizeClass, titleTypeStyle } from "@/lib/onepage/header-style"
-import { bookingSource, tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
+import { bookingProviderName, bookingSource, tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
 import { BookingFrame } from "@/components/onepage/embed-frame"
+import { BlockSheetProvider, useBlockSheet } from "@/components/onepage/block-sheet"
+import { blockInteraction } from "@/lib/onepage/block-sheet"
 import { useMouseDragScroll } from "@/components/onepage/drag-scroll"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 import { EmailSignupView, type EmailSignupFormOptions } from "@/components/onepage/email-signup"
@@ -82,6 +85,7 @@ import { OnePageSubscribeSheet } from "@/components/onepage/subscribe-sheet"
 import { OnePageShareSheet } from "@/components/onepage/share-sheet"
 import { emailSignupImage, emailSignupLayout, emailSignupStacked } from "@/lib/onepage/email-signup"
 import { pixelLead } from "@/lib/analytics/pixels"
+import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -865,6 +869,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   // Modal visibility state - to hide buttons when fullscreen modals are open
   /* True in the editor's preview frame (components/onepage/preview-document). */
   const inEditorPreview = useContext(ExtraBlockPreviewContext)
+  /* Round AL: every block counted, not only those that count themselves (components/onepage/block-activity). */
+  useEffect(() => {
+    if (inEditorPreview || !onepage.id) return
+    return watchBlockActivity((blockId, url) => postBlockClick(onepage.id, blockId, url, { session: getOrCreateSessionId(), visitor: getOrCreateVisitorId() }))
+  }, [inEditorPreview, onepage.id])
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false)
   const modalVisibilityContextValue = { isAnyModalOpen, setIsAnyModalOpen }
 
@@ -1312,6 +1321,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
    */
   /* The computer's layout or the phone's, not both (lib/onepage/live-layout): the server sends both, the browser keeps one. */
   const liveLayout = useLiveLayout()
+  /* The two boxes that hold the page and its pattern (the computer's card, the phone's page): each measures where its header ends, once, for the pattern to keep out from behind it (components/onepage/wallpaper-layers). */
+  const cardRef = useRef<HTMLDivElement>(null)
+  const phonePageRef = useRef<HTMLDivElement>(null)
+  const patternClears = safeTheme.background_type === "solid" || safeTheme.background_type === "gradient"
+  useHeaderClearance(cardRef, patternClears && liveLayout !== "phone")
+  useHeaderClearance(phonePageRef, patternClears && liveLayout !== "desktop")
   const renderPageContent = ({ isDesktop = false }: { isDesktop?: boolean } = {}) => (
     <div
       className={cn("relative z-10 w-full flex flex-col min-h-full", isDesktop ? "max-w-full" : "max-w-lg mx-auto")}
@@ -1346,7 +1361,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               return (
                 <div key={item.key} className={cn("grid w-full grid-cols-2 gap-3", animClass)} style={animStyle} data-link-pair="">
                   {(item.links as OnePageBlock[]).map((block) => (
-                    <div key={block.id} className="min-w-0" data-link-tile="" data-sensitive-label={sensitiveLabel(block)}>
+                    <div key={block.id} className="min-w-0" data-link-tile="" data-op-block={block.id} data-sensitive-label={sensitiveLabel(block)}>
                       {inEditorPreview && isIncompleteLink(block) ? (
                         <IncompleteLinkPlaceholder label={(block.data as LinkButtonBlockData)?.label} theme={safeTheme} />
                       ) : (
@@ -1370,7 +1385,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               return (
                 <div key={item.key} className={cn("grid w-full gap-3", item.tiles.length > 1 ? "grid-cols-2" : "grid-cols-1", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined} data-product-pair="">
                   {item.tiles.map((block) => (
-                    <div key={block.id} className="min-w-0" data-sensitive-label={sensitiveLabel(block)}>
+                    <div key={block.id} className="min-w-0" data-op-block={block.id} data-sensitive-label={sensitiveLabel(block)}>
                       <PublicBlockRenderer
                         block={block}
                         theme={safeTheme}
@@ -1400,6 +1415,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 className={cn("w-full", animClass)}
                 style={animStyle}
                 data-onepage-enter={animClass ? "" : undefined}
+                data-op-block={block.id}
                 data-sensitive-label={sensitiveLabel(block)}
                 data-block-size={presentationOf(block).size || (blockLayoutOf(safeTheme) === "masonry" && block.type === "link_button" ? "half" : "full")}
               >
@@ -1802,6 +1818,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   )
 
   return (
+    <BlockSheetProvider dark={!pageIsLight(safeTheme)}>
     <ModalVisibilityContext.Provider value={modalVisibilityContextValue}>
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
     <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
@@ -1836,11 +1853,6 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       <style
         dangerouslySetInnerHTML={{
           __html: `
-        @keyframes gradientShiftLive {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
         @keyframes laserGlowRotate {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
@@ -1909,8 +1921,6 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           background: getBackgroundStyle(),
           backgroundColor: safeTheme.background_color || "#000000",
           fontFamily: fontStack(safeTheme.font_family),
-          backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
-          animation: isAnimatedGradient ? "gradientShiftLive 10s ease-in-out infinite" : undefined,
           overscrollBehavior: "none",
         }}
       >
@@ -1982,6 +1992,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           />
         ))}
 
+        {/* Round AL: the gradient drifting, one layer moved by the compositor (components/onepage/wallpaper-layers WallpaperDrift). */}
+        {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} />}
         {/* Noise overlay for gradient backgrounds */}
         {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
         {/* Noise overlay for image backgrounds */}
@@ -1993,12 +2005,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
           {/* Phone-like card - wider than before (500px instead of 420px) */}
           <div
+            ref={cardRef}
             className="w-full max-w-[500px] mx-4 rounded-[40px] overflow-hidden relative"
             style={{
               background: getBackgroundStyle(),
               boxShadow: "0 25px 80px -12px rgba(0, 0, 0, 0.35)",
-              backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
-              animation: isAnimatedGradient ? "gradientShiftLive 12s ease-in-out infinite" : undefined,
             }}
           >
             {safeTheme.background_type === "image" && safeTheme.background_image_url && (
@@ -2039,12 +2050,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 playsInline
               />
             )}
+            {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} className="absolute inset-0 rounded-[40px]" />}
             {/* Noise overlay inside card */}
             {((safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise) || (safeTheme.background_type === "image" && (safeTheme as any).image_noise)) && (
               <WallpaperNoise strength={(safeTheme as any).noise_strength} className="absolute inset-0 rounded-[40px]" />
             )}
             {/* Pattern overlay inside card */}
-            <WallpaperPattern theme={safeTheme} className="absolute inset-0 rounded-[40px]" />
+            <WallpaperPattern theme={safeTheme} className="absolute inset-0 rounded-[40px]" clearHeader />
             {renderPageContent({ isDesktop: true })}
           </div>
         </div>
@@ -2069,12 +2081,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           background: getBackgroundStyle(),
           backgroundColor: safeTheme.background_color || "#000000",
           fontFamily: fontStack(safeTheme.font_family),
-          backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
-          animation: isAnimatedGradient ? "gradientShiftLive 10s ease-in-out infinite" : undefined,
           overscrollBehavior: "none",
         }}
       >
-        <div className="relative min-h-screen">
+        <div ref={phonePageRef} className="relative min-h-screen">
           {safeTheme.background_type === "image" && safeTheme.background_image_url && (
             <WallpaperPhoto
               url={safeTheme.background_image_url}
@@ -2121,11 +2131,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             />
           )}
 
+          {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} />}
           {/* Noise overlays for mobile */}
           {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
           {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
-          {/* Pattern overlay for mobile */}
-          <WallpaperPattern theme={safeTheme} />
+          {/* Pattern overlay for mobile, kept out from behind the header (useHeaderClearance above). */}
+          <WallpaperPattern theme={safeTheme} clearHeader />
           {renderPageContent()}
         </div>
       </div>
@@ -2257,6 +2268,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     </AppleMusicModalContext.Provider>
     </SpotifyModalContext.Provider>
     </ModalVisibilityContext.Provider>
+    </BlockSheetProvider>
   )
 }
 
@@ -2367,6 +2379,7 @@ function GroupBlockRenderer({
   const getCarouselItemWidth = () => {
     const view = data.carousel_view || "1"
     switch (view) {
+      case "2": return 50
       case "1.5": return 67
       case "1.2": return 85
       case "1":
@@ -3182,6 +3195,7 @@ function CoreBlockRenderer({
     keepalive, so a link that leaves the page does not cancel its own count.
   */
   const trackClick = async (blockId: string, url: string) => {
+    noteTracked()
     try {
       await fetch("/api/onepage/track", {
         method: "POST",
@@ -3457,11 +3471,12 @@ function CoreBlockRenderer({
       const cover = coverImageOf(theme)
       /*
         Three covers, one rule for the photo: its centre sits on the cover's
-        lower edge. The creator's own cover is a rounded band inside the
-        page's margins, the same margin above it as beside it; on a Hero it
-        is the full width picture instead, fading into the page as the Hero's
-        photo does. A theme's cover runs edge to edge. The band's shape is
-        lib/onepage/theme-layout coverAspect, which the crop editor reads too.
+        lower edge. Round AL: the creator's own cover runs edge to edge with
+        no rounding, as a theme's does ("it's rounded and it's not full width
+        and looks really weird"); on a Hero it is the full width picture,
+        fading into the page as the Hero's photo does. The band's shape is
+        lib/onepage/theme-layout coverAspect, which the crop editor reads too,
+        so the crop dragged there is the crop drawn here.
       */
       const ownCover = (theme as any).cover_profile_layout === true
       const heroCover = heroCoverShown(theme as any)
@@ -3482,11 +3497,11 @@ function CoreBlockRenderer({
             <div
               data-cover-image=""
               className={cn(
-                ownCover && !heroCover ? "w-full" : isDesktop ? "-mx-7 w-[calc(100%+56px)]" : "-mx-5 -mt-8 w-[calc(100%+40px)]",
+                isDesktop ? "-mx-7 w-[calc(100%+56px)]" : "-mx-5 w-[calc(100%+40px)]",
                 "relative",
                 data.show_avatar !== false ? "mb-[calc(-1*var(--cover-pull)-0.75rem)] sm:mb-[calc(-1*var(--cover-pull)-1rem)]" : "",
               )}
-              style={{ ["--cover-pull" as string]: `${avatarSize / 2 + (isDesktop ? 25 : 0)}px`, marginTop: ownCover && !heroCover ? (isDesktop ? 28 : 20) : undefined }}
+              style={{ ["--cover-pull" as string]: `${avatarSize / 2 + (isDesktop ? 25 : 0)}px` }}
             >
               {/*
                 No tint behind a picture that fades: it would be left as a grey
@@ -3497,7 +3512,6 @@ function CoreBlockRenderer({
                 className="relative w-full overflow-hidden"
                 data-cover-band={heroCover ? "hero" : ownCover ? "own" : "theme"}
                 style={{
-                  borderRadius: ownCover && !heroCover ? 16 : undefined,
                   aspectRatio: String(coverRatio),
                   backgroundColor: heroCover ? undefined : `color-mix(in srgb, ${theme.text_color || "#000000"} 8%, transparent)`,
                   maskImage: heroCover ? HERO_FADE_MASK : undefined,
@@ -3508,7 +3522,8 @@ function CoreBlockRenderer({
                   src={onePageImageSrc(cover, 1200)} fallback={null} alt=""
                   className="absolute inset-0 h-full w-full object-cover"
                   style={ownCover ? coverCropStyle(cropFromSettings((theme as any).cover_crop, (theme as any).cover_crop?.zoom)) : { objectPosition: `50% ${(theme as any).cover_position_y ?? 50}%` }}
-                  loading="eager" decoding="async"
+                  /* The first thing on the page: fetched ahead of everything below it, at the column's width (onePageImageSrc), into a box already its final shape, so nothing moves when it lands. */
+                  loading="eager" fetchPriority="high" decoding="async"
                 />
               </div>
             </div>
@@ -3522,7 +3537,14 @@ function CoreBlockRenderer({
               under the cover: with the header set to Left the picture moved
               and the circle stayed, and the page showed two.
             */
-            <div className="relative" data-page-avatar="" style={{ width: avatarSize, height: avatarSize, aspectRatio: "1 / 1", flexShrink: 0, marginTop: isDesktop ? 25 : 0, /* Left aligned on a rounded band, the photo sits in from its corner, not on it. */ marginLeft: cover && ownCover && !heroCover && headerAlignOf(theme as any) === "left" ? 16 : undefined, borderRadius: look.radius, boxShadow: cover && theme.background_type === "solid" && theme.background_color ? `0 0 0 4px ${theme.background_color}` : undefined }} data-avatar-shape={look.shape}>
+            /*
+              Round AL: pressing the photo opens it, as the creator pages do
+              (components/storefront/avatar-lightbox): it grows out of this
+              circle and goes back into it. On the live page and in the
+              editor's preview alike. A video avatar plays where it is.
+            */
+            <AvatarLightbox src={hasVideo ? null : onePageImageSrc(profile.avatar_url, 640)} name={profile.title || undefined} radius={look.radius === "9999px" ? "9999px" : `${Math.round((parseFloat(look.radius) / avatarSize) * 1000) / 10}%`}>
+            <div className="relative" data-page-avatar="" style={{ width: avatarSize, height: avatarSize, aspectRatio: "1 / 1", flexShrink: 0, marginTop: isDesktop ? 25 : 0, borderRadius: look.radius, boxShadow: cover && theme.background_type === "solid" && theme.background_color ? `0 0 0 4px ${theme.background_color}` : undefined }} data-avatar-shape={look.shape}>
               {/* Laser Glow Effect - rotating gradient on border with trail */}
               {laserGlowEnabled && (
                 <>
@@ -3619,6 +3641,7 @@ function CoreBlockRenderer({
                 )}
               </div>
             </div>
+            </AvatarLightbox>
           )}
           {data.show_name !== false &&
             ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
@@ -3707,6 +3730,8 @@ function CoreBlockRenderer({
           )}
           /* Under a classic header set flush left, the icons are too (app/globals.css [data-op-socials]). */
           data-op-socials={isHeroLayout ? undefined : ""}
+          /* The wallpaper's pattern keeps out from behind a social row right under the header (components/onepage/wallpaper-layers useHeaderClearance). */
+          data-op-social-row=""
           style={{
             marginTop: `${paddingTop}px`,
             marginBottom: `${paddingBottom}px`
@@ -5541,15 +5566,9 @@ function CoreBlockRenderer({
         }
       }
 
-      // State for Calendly modal
-      const [showCalendlyModal, setShowCalendlyModal] = useState(false)
-
-      // Dispatch custom event when modal state changes (for mobile button hiding)
-      useEffect(() => {
-        window.dispatchEvent(new CustomEvent('pdfModalStateChange', { detail: { isOpen: showCalendlyModal } }))
-      }, [showCalendlyModal])
-      /* The page behind keeps its width (lib/onepage/page-hold), as under every other window. */
-      useHeldPage(showCalendlyModal && !!isDesktop)
+      /* Round AL: the pop-up is the block sheet (components/onepage/block-sheet), as the owner's Linktree recording shows it; the choice is the block's Interaction (lib/onepage/block-sheet). */
+      const blockSheet = useBlockSheet()
+      const interaction = blockInteraction(block)
 
       const handleOpenCalendly = () => {
         if (!calendlyUrl) return
@@ -5557,24 +5576,18 @@ function CoreBlockRenderer({
         // Track the click
         trackClick(block.id, calendlyUrl)
 
-        // If direct_link mode, open in new tab
-        if (data.embed_mode === 'direct_link') {
+        if (interaction === "direct" || !blockSheet.available) {
           window.open(calendlyUrl, '_blank')
           return
         }
-
-        // If embedded mode with modal type, show modal
-        if (data.embed_mode === 'embedded' && data.embed_type === 'modal') {
-          setShowCalendlyModal(true)
-          return
-        }
-
-        // Default: open in new tab (for inline embed mode or fallback)
-        window.open(calendlyUrl, '_blank')
-      }
-
-      const handleCloseCalendly = () => {
-        setShowCalendlyModal(false)
+        blockSheet.open({
+          blockId: block.id,
+          title: data.title || bookingProviderName(calendlyUrl) || "Calendly",
+          body: <iframe src={calendlyUrl} title={data.title ?? "Book a Meeting"} className="block h-full min-h-[480px] w-full rounded-[16px] border-0 bg-white" />,
+          cta: { label: data.button_text || "Schedule Now", href: calendlyUrl, icon: <Calendar /> },
+          shareUrl: calendlyUrl,
+          fill: true,
+        })
       }
 
       const textColor = theme.button_text_color
@@ -5583,7 +5596,7 @@ function CoreBlockRenderer({
       const pageHover = { "data-hover": buttonHover(theme, isInsideCarousel || isInsideGroup), "data-shadow": themeButtonShadow(theme) }
 
       // Check if inline embed mode
-      const isInlineEmbed = data.embed_mode === 'embedded' && data.embed_type === 'inline' && calendlyUrl
+      const isInlineEmbed = interaction === "inline" && calendlyUrl
 
       // Inline embed layout
       if (isInlineEmbed) {
@@ -5663,51 +5676,6 @@ function CoreBlockRenderer({
               </div>
             </button>
 
-            {/* Calendly Modal - Clean light UI */}
-            {showCalendlyModal && calendlyUrl && (
-              <div
-                className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 md:p-6 lg:p-8 animate-in fade-in duration-300 ease-out"
-                style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
-                onClick={handleCloseCalendly}
-              >
-                <div
-                  className="relative w-full h-full sm:h-[85vh] sm:max-h-[720px] max-w-lg bg-white sm:rounded-3xl flex flex-col shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
-                style={{ transform: 'translateZ(0)' }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* Top Bar */}
-                  <div className="flex items-center justify-between px-4 py-3 sm:py-4 border-b shrink-0">
-                    <button
-                      onClick={handleCloseCalendly}
-                      className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M19 12H5M12 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2" data-block-title="">
-                      {data.title ?? "Book a Meeting"}
-                    </h3>
-                    <button
-                      onClick={handleCloseCalendly}
-                      className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  {/* Calendly Embed */}
-                  <div className="flex-1 overflow-hidden min-h-0">
-                    <iframe
-                      src={calendlyUrl}
-                      className="w-full h-full border-0"
-                      style={{ minHeight: '500px' }}
-                      title={data.title ?? "Book a Meeting"}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
           </>
         )
       }
@@ -5738,50 +5706,6 @@ function CoreBlockRenderer({
             </div>
           </button>
 
-          {/* Calendly Modal - Clean light UI */}
-          {showCalendlyModal && calendlyUrl && (
-            <div
-              className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 md:p-6 lg:p-8 bg-black/60 sm:bg-black/50 animate-in fade-in duration-300 ease-out"
-              onClick={handleCloseCalendly}
-            >
-              <div
-                className="relative w-full h-full sm:h-[85vh] sm:max-h-[720px] max-w-lg bg-white sm:rounded-3xl flex flex-col shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
-                style={{ transform: 'translateZ(0)' }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Top Bar */}
-                <div className="flex items-center justify-between px-4 py-3 sm:py-4 border-b shrink-0">
-                  <button
-                    onClick={handleCloseCalendly}
-                    className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M19 12H5M12 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2" data-block-title="">
-                    {data.title ?? "Book a Meeting"}
-                  </h3>
-                  <button
-                    onClick={handleCloseCalendly}
-                    className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Calendly Embed */}
-                <div className="flex-1 overflow-hidden min-h-0">
-                  <iframe
-                    src={calendlyUrl}
-                    className="w-full h-full border-0"
-                    style={{ minHeight: '500px' }}
-                    title={data.title ?? "Book a Meeting"}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
         </>
       )
     }

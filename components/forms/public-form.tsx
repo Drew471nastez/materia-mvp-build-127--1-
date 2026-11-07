@@ -5,6 +5,7 @@ import { platformOrigin } from "@/lib/onepage/return-address"
 import { actionLabel } from "@/lib/forms/actions"
 import { formSteps, isChoice, isMulti, pickResult, validDate, type FormField, type PublicForm } from "@/lib/forms/definition"
 import { generateSlots, type Slot } from "@/lib/forms/slots"
+import { formsRequest } from "@/lib/forms/client"
 
 /*
   THE VISITOR'S FORM, the same on a OnePage, a website and a creator page.
@@ -56,7 +57,10 @@ export function PublicFormRenderer({
   preview = false,
   sourceBlock,
   onSubmitted,
+  onUnavailable,
 }: {
+  /** The form could not be shown (not published, no forms on this store, or no answer after a retry): a chat's questions step aside and the chat opens (components/forms/action-frame). */
+  onUnavailable?: () => void
   /** Called once the answers are saved, or accepted in a preview: a pre-chat form hands them to the chat it opens (components/forms/action-frame). */
   onSubmitted?: (answers: Record<string, unknown>, fields: { id: string; type?: string }[]) => void
   formId: string
@@ -84,6 +88,8 @@ export function PublicFormRenderer({
     trap = useRef<HTMLInputElement>(null),
     heading = useRef<HTMLHeadingElement>(null)
   const zone = useMemo(visitorZone, [])
+  const onUnavailableRef = useRef(onUnavailable)
+  onUnavailableRef.current = onUnavailable
 
   useEffect(() => {
     if (initial?.id === formId) return
@@ -91,19 +97,18 @@ export function PublicFormRenderer({
     setLoading(true)
     setError(null)
     setForm(null)
-    fetch(`${platformOrigin()}/api/forms/${encodeURIComponent(formId)}/public`, { credentials: "omit", cache: "no-store", signal: controller.signal })
-      .then(async (r) => {
-        const b = await r.json()
-        if (!r.ok) throw new Error(b.error || "This form could not be loaded.")
-        setForm(b.form)
+    /* A timeout and one retry after a blip (lib/forms/client), so the visitor never waits on a spinner that does not end. */
+    void formsRequest<{ form: PublicForm }>(`${platformOrigin()}/api/forms/${encodeURIComponent(formId)}/public`, { credentials: "omit", signal: controller.signal, fallback: "This form could not be loaded." }).then((r) => {
+      if (controller.signal.aborted) return
+      setLoading(false)
+      if (r.data?.form && !r.missing) {
+        setForm(r.data.form)
         started.current = Date.now()
-      })
-      .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message)
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false)
-      })
+        return
+      }
+      setError(r.missing ? "This form is not available." : r.error || "This form could not be loaded.")
+      onUnavailableRef.current?.()
+    })
     return () => controller.abort()
   }, [formId, initial?.id, retry])
 
@@ -255,9 +260,12 @@ export function PublicFormRenderer({
     return (
       <div className="space-y-3 rounded-xl border border-[#e3e4e8] p-4 text-sm">
         <p role="alert">{error || "This form is not available."}</p>
-        <button type="button" className="min-h-10 underline" onClick={() => setRetry((n) => n + 1)}>
-          Try again
-        </button>
+        {/* Only a failed read is worth another try; a form that is not there stays not there. */}
+        {error && error !== "This form is not available." ? (
+          <button type="button" className="min-h-10 underline" onClick={() => setRetry((n) => n + 1)}>
+            Try again
+          </button>
+        ) : null}
       </div>
     )
 
