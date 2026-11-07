@@ -743,8 +743,6 @@ const SUITES = [
   "tests/abandoned-cart-reminder.test.ts",
   "tests/reasons-t.test.ts",
   "tests/channels-t.test.ts",
-  /* Round AK (AK2): a product's sales channels through the real route, before and after SQL 20271125: unticked and ticked again, read back, gone from Explore, the OnePage and the website and back; an older tab sends only its own change, so a newer save stays; a failed read refuses a change instead of writing over it; the editor's Saved after a read back. */
-  "tests/product-channels-ak2.test.ts",
   "tests/integrations-t.test.ts",
   "tests/round-u.test.ts",
   "tests/compat-resilience.test.ts",
@@ -1217,6 +1215,8 @@ const SUITES = [
  * directory, run after the list above.
  */
 const STRICT_SUITES = [
+  /* Round AK (AK2): a product's sales channels through the real route, before and after SQL 20271125: unticked and ticked again, read back, gone from Explore, the OnePage and the website and back; an older tab sends only its own change, so a newer save stays; a failed read refuses a change instead of writing over it; the editor's Saved after a read back. * Strict: it drives the real routes through tests/_journey, which only type-check strict. */
+  "tests/product-channels-ak2.test.ts",
   /* Creator website blogs (SQL part 353, lib/site-blog): the sanitizer on save and on render (javascript: links, on* attributes, frames only from embedFrameSrc, gallery and button), slugs, status, preview tokens (24 hours, their own namespace), and the admin and public reads against the SQL in memory through supabase-js: a save from an old version answered 409, autosave into a live post's draft, publish/update/schedule, a live slug change's redirect, fifty revisions, bulk, categories, settings, a scheduled post live on time while the cache is held, null/503 before the SQL, and every query filtered by creator_id. Strict: it narrows save results by `ok`. */
   "tests/site-blog-data.test.ts",
   /* Round 10: the course, music, testimonials and contact blocks, the Add block sheet's catalogue and search, the + that turns under a mouse, the email signup's name, link and spam checks (strict: it draws components/onepage/brand-icons, which only type-checks strict); scripts/check-onepage-blocks.mjs measures them. */
