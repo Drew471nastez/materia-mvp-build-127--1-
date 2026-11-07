@@ -12,7 +12,7 @@
  *          each time,
  *          for a list (referrers, pages, channels, downloads...)
  *   none   the line alone, for a card that already draws its own flat
- *          baseline (a chart at nothing) or an error
+ *          purple line (a chart at nothing) or an error
  *
  * No numbers, no illustration: the ghosts are blank bars in the page's
  * lightest grey, hidden from a screen reader, which hears the line.
@@ -38,25 +38,12 @@ export function GhostRows() {
 }
 
 /*
-  A LINE WITH NOTHING TO DRAW (round 51, the owner: "Total sales over time is a flat line at €0.00"). A chart whose
-  every point is nothing drew its full colour line along the floor, its dot at the end, and an axis of 1, 2, 3 for
-  numbers nobody had. Now the line lies on the floor in the placeholder grey (morph-lines' loading line, so the first
-  real answer rises from it) and over it the soft shape a line would take, in the page's lightest grey. It fades out,
-  200ms, the moment there is something to draw. One path for every chart, so they all look alike.
+  A LINE WITH NOTHING TO DRAW. Round 51 laid a grey ghost curve over an empty chart; the owner asked for it back the
+  way it was (round AL): "it should be like how it was before with the purple line flat". So a chart at nothing
+  draws its own line, in its own colour, flat on the floor, with no grid and no axis numbers behind it
+  (components/app/analytics-chart, components/analytics/trend-mini-chart, the home chart). Only the list cards keep
+  their faint ghost rows above.
 */
-const GHOST_PATH = "M0,31 C8,30 13,24 22,25 S36,33 46,26 S60,13 70,17 S86,25 100,12"
-
-/** The faint shape of a line, filling its box; `shown` false fades it out. Hidden from a screen reader. */
-export function GhostLine({ shown, className, style }: { shown: boolean; className?: string; style?: React.CSSProperties }) {
-  return (
-    <div aria-hidden data-ghost-chart={shown ? "" : undefined} className={`pointer-events-none transition-opacity duration-200 ease-out${className ? ` ${className}` : ""}`} style={{ opacity: shown ? 1 : 0, ...style }}>
-      <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="block h-full w-full">
-        <path d={`${GHOST_PATH} L100,40 L0,40 Z`} fill="#f6f7f8" />
-        <path d={GHOST_PATH} fill="none" stroke="#e6e8ec" strokeWidth={1.5} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-      </svg>
-    </div>
-  )
-}
 
 /** Every point of every line is nothing: a chart with nothing to draw. */
 export function nothingToDraw(...lines: ReadonlyArray<ReadonlyArray<number | null | undefined> | null | undefined>): boolean {

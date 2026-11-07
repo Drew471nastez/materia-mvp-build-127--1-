@@ -15,9 +15,11 @@
  *
  *   HEIGHT   each card's height empty against filled: no card moves when data
  *            arrives
- *   SHAPE    every empty card draws a quiet shape of what would be there
- *            ([data-empty-ghost] rows, or a [data-ghost-chart] line), never a
- *            sentence alone in a box, and never a full colour line at zero
+ *   SHAPE    every empty list card draws its ghost rows ([data-empty-ghost]),
+ *            never a sentence alone in a box. Changed on purpose (round AL),
+ *            the owner: "it should be like how it was before with the purple
+ *            line flat". So every empty chart draws its own purple line flat
+ *            at zero, with no grey ghost curve and no grid behind it
  *   ZERO     the figures say their zero ($0.00, 0%), not a sentence in its place
  *   WAIT     every answer 2.5s away: no empty card, chart or figure moves when
  *            its answer lands
@@ -131,7 +133,7 @@ window.__images = [];
         [...document.querySelectorAll("section[data-card]")].map((c) => {
           const r = c.getBoundingClientRect()
           const text = c.innerText.replace(/\s+/g, " ").trim()
-          return [c.getAttribute("data-card"), { h: Math.round(r.height), ghost: !!c.querySelector("[data-empty-ghost], [data-ghost-chart]"), empty: !!c.querySelector("[data-empty], [data-figure-empty]"), sentenceAsValue: !!c.querySelector("[data-figure-empty]"), chart: !!c.querySelector("[data-trend-chart]"), text: text.slice(0, 90) }]
+          return [c.getAttribute("data-card"), { h: Math.round(r.height), ghost: !!c.querySelector("[data-empty-ghost], [data-trend-chart], [data-chart-loading]"), curve: !!c.querySelector("[data-ghost-chart]"), empty: !!c.querySelector("[data-empty], [data-figure-empty]"), sentenceAsValue: !!c.querySelector("[data-figure-empty]"), chart: !!c.querySelector("[data-trend-chart]"), text: text.slice(0, 90) }]
         }),
       ),
     )
@@ -166,14 +168,24 @@ window.__images = [];
     await e.p.waitForFunction(() => document.querySelectorAll("[data-empty]").length > 3, { timeout: 15000 }).catch(() => {})
     await sleep(300)
     const empty = await cardsOf(e.p)
-    const flat = await e.p.evaluate(() => [...document.querySelectorAll("[data-trend-chart] svg path, [data-chart-loading] svg path")].filter((path) => {
-      const s = getComputedStyle(path).stroke
-      return /rgb\(139, 92, 246\)|rgb\(124, 58, 237\)/.test(s) && getComputedStyle(path).opacity !== "0" && path.getAttribute("d")
-    }).length)
+    /* Every chart on the page with nothing to draw: its purple line, flat (one y for every point), and the grid lines behind it. */
+    const charts = await e.p.evaluate(() => [...document.querySelectorAll("[data-trend-chart], [data-chart-loading]")].map((chart) => {
+      const line = chart.querySelector("path[data-trend-line]")
+      const d = line?.getAttribute("d") ?? ""
+      const ys = [...d.matchAll(/[ML,C]\s*-?[\d.]+,(-?[\d.]+)/g)].map((m) => Number(m[1]))
+      const stroke = line ? getComputedStyle(line).stroke : ""
+      return {
+        purple: /rgb\(139, 92, 246\)|rgb\(124, 58, 237\)/.test(stroke),
+        flat: ys.length > 1 && Math.max(...ys) - Math.min(...ys) < 0.5,
+        grid: chart.querySelectorAll(".recharts-cartesian-grid line").length,
+        curve: !!chart.querySelector("[data-ghost-chart]"),
+      }
+    }))
     const axis = await e.p.evaluate(() => [...document.querySelectorAll("[data-chart-loading] *")].filter((n) => n.children.length === 0 && /^\d+$/.test(n.textContent.trim()) && Number(getComputedStyle(n.parentElement).opacity) > 0.01 && Number(getComputedStyle(n).opacity) > 0.01 && n.closest("[style*='opacity: 1']")).length)
     await shot(e.p, "empty", w)
     const moved = Object.keys(empty).filter((k) => filled[k] && FIXED(k, empty[k]) && Math.abs(filled[k].h - empty[k].h) > 1).map((k) => `${k} ${filled[k].h}→${empty[k].h}`)
-    const bare = Object.entries(empty).filter(([, c]) => c.empty && !c.ghost && !/could not be read/.test(c.text)).map(([k, c]) => `${k}: ${c.text}`)
+    /* A figure card's shape is its zero ($0.00, 0%): round AL took the grey curve off its right. */
+    const bare = Object.entries(empty).filter(([k, c]) => c.empty && !c.ghost && !["aov", "returning"].includes(k) && !/could not be read/.test(c.text)).map(([k, c]) => `${k}: ${c.text}`)
     const sentenceValues = Object.entries(empty).filter(([, c]) => c.sentenceAsValue).map(([k]) => k)
     const shiftEmpty = (await arriving(vp, "?seller=both&empty=1")).map((x) => x.text)
     /* Filled, a list grows to what it lists (four channels where three were waiting): only the charts and figures must not move. */
@@ -183,12 +195,14 @@ window.__images = [];
     console.log("  cards:", Object.keys(empty).length, " charts and figures, empty against filled:", JSON.stringify(moved))
     console.log("  moved when the answer came:", JSON.stringify({ empty: shiftEmpty, filled: shiftFull }))
     console.log("  empty without a shape:", JSON.stringify(bare))
-    console.log("  a sentence where the figure goes:", JSON.stringify(sentenceValues), " full colour lines at zero:", flat, " axis numbers over nothing:", axis)
+    console.log("  a sentence where the figure goes:", JSON.stringify(sentenceValues), " empty charts:", charts.length, " purple:", charts.filter((c) => c.purple).length, " flat:", charts.filter((c) => c.flat).length, " grid lines:", charts.reduce((n, c) => n + c.grid, 0), " grey curves:", charts.filter((c) => c.curve).length + Object.values(empty).filter((c) => c.curve).length, " axis numbers over nothing:", axis)
     expect(moved.length === 0, "a chart or figure card is the same height empty and filled", moved)
     expect(shiftEmpty.length === 0 && shiftFull.length === 0, "no empty card, and no chart or figure, changes height when its answer arrives", { shiftEmpty, shiftFull })
-    expect(bare.length === 0, "every empty card draws a quiet shape of what would be there", bare)
+    expect(bare.length === 0, "every empty list or chart card draws a quiet shape of what would be there", bare)
     expect(sentenceValues.length === 0, "every figure says its zero, with a short line under it", sentenceValues)
-    expect(flat === 0, "no full colour line drawn at zero", flat)
+    expect(charts.length > 0 && charts.every((c) => c.purple && c.flat), "every empty chart draws its purple line flat at zero", charts)
+    expect(charts.every((c) => c.grid === 0 && !c.curve) && !Object.values(empty).some((c) => c.curve), "no grid and no grey curve behind an empty chart", charts)
+    expect(axis === 0, "no axis numbers over nothing", axis)
     expect(e.errors.length === 0 && full.errors.length === 0, "no page errors", [...e.errors, ...full.errors])
     await e.ctx.close()
   }
