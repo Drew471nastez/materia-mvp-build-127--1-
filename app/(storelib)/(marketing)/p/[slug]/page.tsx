@@ -2053,7 +2053,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       {inEditorCanvas && (
         <>
           <EmbeddedNavigation />
-          <EmbeddedBackBar />
+          <EmbeddedBackBar handle={creatorUsername} />
         </>
       )}
       <script

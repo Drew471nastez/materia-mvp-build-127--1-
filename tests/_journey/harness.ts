@@ -33,6 +33,8 @@ type RouteModule = Record<string, Handler | unknown>
 const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/onboarding/finalize": () => import("@/app/api/onboarding/finalize/route"),
   "/api/store/settings": () => import("@/app/api/store/settings/route"),
+  /* Round 50: the creator page's own edits (the story, tests/story-r50.test.ts). */
+  "/api/creator-profile": () => import("@/app/api/creator-profile/route"),
   "/api/store/currency": () => import("@/app/api/store/currency/route"),
   "/api/store/taxes": () => import("@/app/api/store/taxes/route"),
   "/api/store/taxes/regions": () => import("@/app/api/store/taxes/regions/route"),

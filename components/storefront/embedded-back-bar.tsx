@@ -22,7 +22,7 @@ import { useEffect, useState } from "react"
 import { ArrowLeft } from "lucide-react"
 import { backThen } from "@/lib/navigation/go-back"
 
-export function EmbeddedBackBar() {
+export function EmbeddedBackBar({ handle }: { handle?: string | null }) {
   const [canGoBack, setCanGoBack] = useState(false)
 
   useEffect(() => {
@@ -41,7 +41,12 @@ export function EmbeddedBackBar() {
           /* Inside a frame a back can do nothing at all and say nothing about
              it, and this bar is the only way out: the page itself, then
              (lib/navigation/go-back). */
-          const page = () => window.location.assign("/creator-page")
+          /*
+            THE CREATOR PAGE, IN THE FRAME (round 50). This went to
+            /creator-page, which is the workspace itself: inside the frame
+            that loaded a second editor, bar and all, inside the first.
+          */
+          const page = () => window.location.assign(handle ? `/${encodeURIComponent(handle)}?embedded=1` : "/creator-page")
           if (canGoBack) backThen(page)
           else page()
         }}

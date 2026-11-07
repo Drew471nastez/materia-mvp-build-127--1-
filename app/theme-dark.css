@@ -345,7 +345,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 917 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 918 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -838,6 +838,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .disabled\:text-\[\#4b5563\]:not([data-own-look], [data-own-look] *):disabled { color: hsla(215,14%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .disabled\:text-\[\#6b7280\]:not([data-own-look], [data-own-look] *):disabled { color: hsla(220,9%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .disabled\:text-\[\#c4c7cd\]:not([data-own-look], [data-own-look] *):disabled { color: #6f7077; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .disabled\:text-\[\#c9ccd3\]:not([data-own-look], [data-own-look] *):disabled { color: #6f7077; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .disabled\:text-neutral-400:not([data-own-look], [data-own-look] *):disabled { color: #6f7077; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .divide-\[\#e5e7eb\] > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .divide-\[\#e5e7eb\]\/60 > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.042); }
