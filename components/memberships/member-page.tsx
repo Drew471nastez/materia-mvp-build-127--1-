@@ -422,9 +422,13 @@ export function MemberPage({ page, welcome = false, cardUpdated = false, now: fi
           ) : null}
           {page.product.description ? (
             <div className={cn(page.benefits.length > 0 && "mt-3 border-t border-[#f0f1f3] pt-3")}>
-              <div className={cn("relative overflow-hidden", !aboutOpen && "max-h-[120px]")}>
+              {/* The text fades itself (data-clamp-fade, round 50): a white band laid over it is wrong on any card that is not white. */}
+              <div
+                data-clamp-fade={aboutOpen ? "open" : "closed"}
+                className={cn("relative overflow-hidden", !aboutOpen && "max-h-[120px]")}
+                style={{ ["--sl-fade-to" as string]: "40px" }}
+              >
                 <PostText body={page.product.description} className="text-[13.5px] text-[#4b5563]" />
-                {!aboutOpen ? <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" /> : null}
               </div>
               <button type="button" onClick={() => setAboutOpen((o) => !o)} className="-mb-2 -mt-1 inline-flex items-center gap-1 py-2 text-[13px] font-medium text-[#6d28d9]">
                 {/* 36px to press on a phone; the margins take the padding back, so it sits where it did. */}
