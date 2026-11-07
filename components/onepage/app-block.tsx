@@ -82,6 +82,11 @@ export interface AppBlockLook {
   still?: boolean
 }
 
+/* i18n-ignore-start: CSS values and the stores' own names. */
+const MIX: Record<number, string> = Object.fromEntries([10, 12, 14, 16, 35].map((n) => [n, `color-mix(in srgb, currentColor ${n}%, transparent)`]))
+const STORE_NAME = { ios: "App Store", android: "Google Play" } as const
+/* i18n-ignore-end */
+
 const k = (scale: Scale) => (scale === "small" ? 0.8 : 1)
 const px = (n: number, scale: Scale) => `${Math.round(n * k(scale) * 10) / 10}px`
 
@@ -599,7 +604,7 @@ function ItemsView({ block, data, provider, look }: ViewProps) {
       /* eslint-disable-next-line @next/next/no-img-element */
       <img src={item.image_url} alt="" loading="lazy" className={cn("block object-cover", cls)} />
     ) : (
-      <span className={cn("grid place-items-center", cls)} style={{ background: "color-mix(in srgb, currentColor 10%, transparent)" }}>
+      <span className={cn("grid place-items-center", cls)} style={{ background: MIX[10] }}>
         <AppTileMark provider={provider} size={Math.round(36 * k(look.scale))} />
       </span>
     )
@@ -704,7 +709,7 @@ function EventsView({ block, data, provider, look }: Omit<ViewProps, "provider">
               className={cn("flex items-center", carousel && "w-[80%] shrink-0 snap-start")}
               style={card ? { ...parts.surface, borderRadius: parts.radius, padding: px(12, look.scale), gap: px(12, look.scale) } : { ...parts.press.style, borderRadius: parts.radius, padding: `${px(10, look.scale)} ${px(12, look.scale)}`, gap: px(12, look.scale) }}
             >
-              <span className="flex shrink-0 flex-col items-center justify-center rounded-xl text-center" style={{ width: px(46, look.scale), height: px(50, look.scale), background: "color-mix(in srgb, currentColor 12%, transparent)" }}>
+              <span className="flex shrink-0 flex-col items-center justify-center rounded-xl text-center" style={{ width: px(46, look.scale), height: px(50, look.scale), background: MIX[12] }}>
                 {day ? (
                   <>
                     <span className="font-semibold tracking-[0.04em] opacity-80" style={{ fontSize: px(10.5, look.scale) }}>{day.month}</span>
@@ -801,7 +806,7 @@ function PollView({ block, data, look }: Omit<ViewProps, "provider">) {
     }
   }
   return (
-    <div data-onepage-app="poll" className="w-full text-left" style={{ ...parts.surface, borderRadius: parts.radius, padding: px(14, look.scale) }}>
+    <div data-onepage-app="poll" data-app-layout="card" className="w-full text-left" style={{ ...parts.surface, borderRadius: parts.radius, padding: px(14, look.scale) }}>
       <p className="font-semibold" style={{ fontSize: px(15.5, look.scale) }} data-block-title="">{data.poll_question}</p>
       <div role="radiogroup" aria-label={data.poll_question} className="mt-3 flex flex-col" style={{ gap: px(8, look.scale) }}>
         {options.map((o) => {
@@ -816,7 +821,7 @@ function PollView({ block, data, look }: Omit<ViewProps, "provider">) {
               onClick={() => vote(o.id)}
               data-poll-option={o.id}
               className={cn("flex w-full items-center justify-between rounded-full border text-left font-medium transition-[background-color,opacity] duration-150 disabled:cursor-default", voted && !on && "opacity-60")}
-              style={{ borderColor: "color-mix(in srgb, currentColor 35%, transparent)", background: on ? "color-mix(in srgb, currentColor 16%, transparent)" : "transparent", padding: `${px(10, look.scale)} ${px(14, look.scale)}`, fontSize: px(14, look.scale) }}
+              style={{ borderColor: MIX[35], background: on ? MIX[16] : "transparent", padding: `${px(10, look.scale)} ${px(14, look.scale)}`, fontSize: px(14, look.scale) }}
             >
               <span className="truncate">{o.label}</span>
               {on ? <Check aria-hidden className="shrink-0" style={{ width: px(16, look.scale), height: px(16, look.scale) }} /> : null}
@@ -915,11 +920,11 @@ function ContactView({ block, data, provider, look }: ViewProps) {
 
 function StoreBadge({ store, href, onClick, scale }: { store: "ios" | "android"; href: string; onClick: () => void; scale: Scale }) {
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} data-app-store={store} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-black text-white" style={{ padding: `${px(8, scale)} ${px(12, scale)}`, minHeight: px(44, scale) }}>
+    <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} data-app-store={store} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-black text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]" style={{ padding: `${px(8, scale)} ${px(12, scale)}`, minHeight: px(44, scale) }}>
       <AppMark id={store === "ios" ? "appstore" : "googleplay"} size={Math.round(20 * k(scale))} color="#ffffff" />
       <span className="flex flex-col text-left leading-tight">
         <span className="opacity-80" style={{ fontSize: px(9.5, scale) }}>{store === "ios" ? tt("Download on the") : tt("Get it on")}</span>
-        <span className="font-semibold" style={{ fontSize: px(14, scale) }}>{store === "ios" ? "App Store" : "Google Play"}</span>
+        <span className="font-semibold" style={{ fontSize: px(14, scale) }}>{STORE_NAME[store]}</span>
       </span>
     </a>
   )
@@ -996,7 +1001,7 @@ function EmailView({ block, data, provider, look }: ViewProps) {
           }
         }}
         className="grid shrink-0 place-items-center rounded-full"
-        style={{ width: px(36, look.scale), height: px(36, look.scale), background: "color-mix(in srgb, currentColor 14%, transparent)" }}
+        style={{ width: px(36, look.scale), height: px(36, look.scale), background: MIX[14] }}
       >
         {copied ? <Check aria-hidden style={{ width: px(16, look.scale), height: px(16, look.scale) }} /> : <Copy aria-hidden style={{ width: px(16, look.scale), height: px(16, look.scale) }} />}
       </button>

@@ -162,7 +162,8 @@ function main() {
     const tab = read("components/onepage/tabs/links-tab.tsx")
     /* Moved on purpose: the Add sheet's catalogue is components/onepage/add-block-picker.tsx now (round 10), which links-tab draws. */
     const picker = read("components/onepage/add-block-picker.tsx")
-    check("the Add sheet lists all five", ["heading", "faq", "countdown", "map", "video"].every((t) => new RegExp(`extra\\("${t}", "\\w+"\\)`).test(picker)) && /<AddBlockPicker\b/.test(tab))
+    /* Changed on purpose (round AL): each extra entry now carries its tile colour too (extra("map", "contact", TILE.mint, ...)). */
+    check("the Add sheet lists all five", ["heading", "faq", "countdown", "map", "video"].every((t) => new RegExp(`extra\\("${t}", "\\w+"`).test(picker)) && /<AddBlockPicker\b/.test(tab))
     check("each has its own form", /return <ExtraBlockEditor block=\{block\} updateData=\{updateData\} \/>/.test(tab))
     check("the schedule and the sensitive switch sit under every block's settings but the header's",
       /* Changed on purpose (round AK): one extras node, drawn under the plain editor and under the Settings tab (components/onepage/block-settings). */ /const extras =\s*block\.type !== "header" \? \(\s*<BlockExtras/.test(tab) && (tab.match(/\{extras\}/g) ?? []).length === 2)

@@ -376,6 +376,15 @@ export const GlyphStar = glyph("star", (
   </>
 ))
 
+/** Two fields and a button: a form. */
+export const GlyphForm = glyph("form", (
+  <>
+    <rect x="4.5" y="3.75" width="15" height="4.5" rx="1.5" />
+    <rect x="4.5" y="10.25" width="15" height="4.5" rx="1.5" />
+    <path d="M4.5 19.25h7" />
+  </>
+))
+
 /** Lines and a button under them: text and a button. */
 export const GlyphTextButton = glyph("text-button", (
   <>

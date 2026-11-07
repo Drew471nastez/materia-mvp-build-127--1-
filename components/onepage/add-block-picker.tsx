@@ -65,6 +65,7 @@ import {
   GlyphDocument,
   GlyphDownload,
   GlyphEmail,
+  GlyphForm,
   GlyphFaq,
   GlyphGroup,
   GlyphHeading,
@@ -222,7 +223,7 @@ export type TileColors = readonly [string, string]
 const TILE = {
   lavender: ["#E9DDF7", "#3E2470"],
   orange: ["#F26B1D", "#ffffff"],
-  violet: ["#7C3AED", "#ffffff"],
+  plum: ["#7C3AED", "#ffffff"],
   lime: ["#D6EF48", "#1a1a2e"],
   sky: ["#D3E8FF", "#0B4A8A"],
   pink: ["#FFD3E4", "#8A1F4F"],
@@ -322,7 +323,7 @@ const app = (provider: AppProviderId, category: PickerCategory, label: () => str
 }
 
 /* i18n-ignore-start: names of services, and the English words a search also answers to (each entry's own name and line are translated). */
-const BRAND = { sheets: "Google Sheets", kit: "Kit", mailerlite: "MailerLite", brevo: "Brevo", flodesk: "Flodesk", make: "Make", webhook: "Webhook", email: "Klaviyo / Omnisend", threads: "Threads", applemusic: "Apple Music", podcasts: "Apple Podcasts", gforms: "Google Forms", gcal: "Google Calendar", bmac: "Buy Me a Coffee", cashapp: "Cash App", loom: "Loom", bandcamp: "Bandcamp", mixcloud: "Mixcloud", typeform: "Typeform", tally: "Tally", bluesky: "Bluesky", snapchat: "Snapchat", venmo: "Venmo", maps: "Google Maps", calendly: "Calendly", audiomack: "Audiomack", fourthwall: "Fourthwall", bonfire: "Bonfire", cameo: "Cameo" }
+const BRAND = { sheets: "Google Sheets", kit: "Kit", mailerlite: "MailerLite", brevo: "Brevo", flodesk: "Flodesk", make: "Make", webhook: "Webhook", email: "Klaviyo / Omnisend", threads: "Threads", applemusic: "Apple Music", podcasts: "Apple Podcasts", gforms: "Google Forms", gcal: "Google Calendar", bmac: "Buy Me a Coffee", cashapp: "Cash App", loom: "Loom", bandcamp: "Bandcamp", mixcloud: "Mixcloud", typeform: "Typeform", tally: "Tally", bluesky: "Bluesky", snapchat: "Snapchat", venmo: "Venmo", maps: "Google Maps", calendly: "Calendly", audiomack: "Audiomack", fourthwall: "Fourthwall", bonfire: "Bonfire", cameo: "Cameo", reddit: "Reddit", discord: "Discord" }
 const KEYWORDS = {
   heading: "title section header organize",
   faq: "questions answers help",
@@ -465,7 +466,7 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   { id: "shelf_physical", type: "storelib_shelf", category: "commerce", get label() { return tt("Physical products") }, get description() { return tt("Show what you ship and sell more") }, icon: GlyphBox, tile: TILE.amber, data: { source: "physical" }, keywords: KEYWORDS.shelf_physical },
   { id: "coaching", type: "calendly", category: "commerce", get label() { return tt("Coaching and bookings") }, get description() { return tt("Sell sessions, consultations and private coaching") }, icon: GlyphBooking, tile: TILE.lavender, get data() { return { title: tt("Book a coaching call"), button_text: tt("Book a call") } }, keywords: KEYWORDS.coaching },
   { id: "shelf_course", type: "storelib_shelf", category: "commerce", get label() { return tt("Courses") }, get description() { return tt("Sell online courses and lessons") }, icon: GlyphCourse, tile: TILE.pink, data: { source: "course" }, keywords: KEYWORDS.shelf_course },
-  { id: "shelf_membership", type: "storelib_shelf", category: "commerce", get label() { return tt("Memberships") }, get description() { return tt("Your memberships and their price") }, icon: GlyphStar, tile: TILE.violet, data: { source: "membership" }, keywords: KEYWORDS.shelf_membership },
+  { id: "shelf_membership", type: "storelib_shelf", category: "commerce", get label() { return tt("Memberships") }, get description() { return tt("Your memberships and their price") }, icon: GlyphStar, tile: TILE.plum, data: { source: "membership" }, keywords: KEYWORDS.shelf_membership },
   { id: "shelf_community", type: "storelib_shelf", category: "commerce", get label() { return tt("Community") }, get description() { return tt("Your Storelib community") }, icon: GlyphPeople, tile: TILE.sky, data: { source: "community", layout: "list" }, keywords: KEYWORDS.shelf_community },
   app("tips", "commerce", () => tt("Tips"), () => tt("Accept tips from your audience"), KEYWORDS.app_tips),
   app("affiliate", "commerce", () => tt("Affiliate products"), () => tt("Earn by sharing products you love"), KEYWORDS.app_affiliate),
@@ -473,7 +474,7 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   app("fourthwall", "commerce", () => BRAND.fourthwall, () => tt("Sell your own merch"), KEYWORDS.app_fourthwall),
   app("bonfire", "commerce", () => BRAND.bonfire, () => tt("Sell shirts and merch"), KEYWORDS.app_bonfire),
   app("books", "commerce", () => tt("Books"), () => tt("Promote your books"), KEYWORDS.app_books),
-  app("discord", "commerce", () => "Discord", () => tt("Invite people to your server"), KEYWORDS.app_discord),
+  app("discord", "commerce", () => BRAND.discord, () => tt("Invite people to your server"), KEYWORDS.app_discord),
   app("whatsapp_group", "commerce", () => tt("WhatsApp group"), () => tt("Grow your group or channel"), KEYWORDS.app_whatsapp_group),
   app("mobile_app", "commerce", () => tt("Mobile app"), () => tt("Get more downloads of your app"), KEYWORDS.app_mobile_app),
 
@@ -486,7 +487,7 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   app("snapchat", "social", () => BRAND.snapchat, () => tt("Promote your public profile"), KEYWORDS.app_snapchat),
   app("pinterest", "social", () => "Pinterest", () => tt("Show your pins and boards"), KEYWORDS.app_pinterest),
   app("twitch", "social", () => "Twitch", () => tt("Get more viewers for your stream"), KEYWORDS.app_twitch),
-  app("reddit", "social", () => "Reddit", () => tt("Show your Reddit profile or a post"), KEYWORDS.app_reddit),
+  app("reddit", "social", () => BRAND.reddit, () => tt("Show your Reddit profile or a post"), KEYWORDS.app_reddit),
   app("google_reviews", "social", () => tt("Reviews"), () => tt("Show your Google reviews"), KEYWORDS.app_google_reviews),
   extra("testimonials", "social", TILE.butter),
   { id: "followers", type: "followers", category: "social", get label() { return tt("Followers") }, get description() { return tt("Your total followers across networks") }, icon: GlyphTestimonials, tile: TILE.mint, keywords: KEYWORDS.followers },
@@ -500,7 +501,7 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   { id: "int_vimeo", type: "video", category: "media", label: "Vimeo", get description() { return tt("Add Vimeo videos to your page") }, brand: "vimeo", keywords: KEYWORDS.int_vimeo },
   { id: "image", type: "image", category: "media", get label() { return tt("Image gallery") }, get description() { return tt("Share a gallery of pictures") }, icon: GlyphImage, tile: TILE.mint, keywords: KEYWORDS.image },
   { id: "pdf_document", type: "pdf_document", category: "media", get label() { return tt("Document") }, get description() { return tt("Show a PDF people can read") }, icon: GlyphDocument, tile: TILE.coral, keywords: KEYWORDS.pdf_document },
-  extra("music", "media", TILE.violet, { description: () => tt("Share music and get more streams") }),
+  extra("music", "media", TILE.plum, { description: () => tt("Share music and get more streams") }),
   { id: "int_spotify", type: "music", category: "media", label: "Spotify", get description() { return tt("Share your favourite music") }, brand: "spotify", keywords: KEYWORDS.int_spotify },
   { id: "int_applemusic", type: "music", category: "media", label: BRAND.applemusic, get description() { return tt("Share songs, albums and playlists") }, brand: "applemusic", keywords: KEYWORDS.int_applemusic },
   { id: "int_soundcloud", type: "music", category: "media", label: "SoundCloud", get description() { return tt("Get your music heard on SoundCloud") }, brand: "soundcloud", keywords: KEYWORDS.int_soundcloud },
@@ -509,7 +510,7 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   { id: "food_menu", type: "food_menu", category: "media", get label() { return tt("Menu") }, get description() { return tt("A food and drinks menu") }, icon: GlyphMenu, tile: TILE.butter, keywords: KEYWORDS.food_menu },
 
   /* Contact: forms, a map, a way to reach you. */
-  { id: "form_quiz", type: "form_quiz", category: "contact", get label() { return tt("Form") }, get description() { return tt("Collect answers, contacts and messages") }, icon: GlyphEmail, tile: TILE.blue, get keywords() { return tt("form quiz questionnaire survey lead intake fitness contact") } },
+  { id: "form_quiz", type: "form_quiz", category: "contact", get label() { return tt("Form") }, get description() { return tt("Collect answers, contacts and messages") }, icon: GlyphForm, tile: TILE.blue, get keywords() { return tt("form quiz questionnaire survey lead intake fitness contact") } },
   extra("contact_form", "contact", TILE.sky, { description: () => tt("Let people get in touch") }),
   { id: "email_capture", type: "email_capture", category: "contact", get label() { return tt("Email signup") }, get description() { return tt("Grow your email list") }, icon: GlyphEmail, tile: TILE.lime, keywords: KEYWORDS.email_capture },
   app("poll", "contact", () => tt("Poll"), () => tt("Ask your audience a quick question"), KEYWORDS.app_poll),
@@ -608,7 +609,7 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   link("venmo", BRAND.venmo, "venmo", () => ({ label: tt("Pay with Venmo"), url: "https://venmo.com/u/", icon: "venmo" }), () => tt("Let people pay or tip you"), KEYWORDS.venmo, "commerce"),
   link("github", "GitHub", "github", () => ({ label: tt("See my code"), url: "https://github.com/", icon: "github" }), () => tt("Link to your profile")),
   link("notion", "Notion", "notion", () => ({ label: tt("View page"), url: "https://notion.so/", icon: "notion" }), () => tt("Link to a Notion page")),
-  { id: "podcast", type: "link_button", category: "media", get label() { return tt("Podcast link") }, get description() { return tt("Link to your show") }, icon: GlyphPodcast, tile: TILE.violet, get preset() { return { label: tt("Listen to the podcast"), url: "" } }, hidden: true },
+  { id: "podcast", type: "link_button", category: "media", get label() { return tt("Podcast link") }, get description() { return tt("Link to your show") }, icon: GlyphPodcast, tile: TILE.plum, get preset() { return { label: tt("Listen to the podcast"), url: "" } }, hidden: true },
 ]
 
 /** The entries a search finds, best first: a name that starts with the words, then a name that has them, then the line and the other words. Listed entries first on a tie. */
@@ -750,7 +751,7 @@ const EntryRow = React.memo(function EntryRow({ entry, disabled, note, onPick }:
       className={cn(
         "flex w-full min-w-0 items-center gap-3.5 rounded-2xl px-2 py-2 text-left outline-none [-webkit-tap-highlight-color:transparent]",
         "transition-[background-color] duration-150 ease-out focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.3)] motion-reduce:transition-none",
-        disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer active:bg-[#f0f0f2] [@media(hover:hover)]:hover:bg-[#f6f6f7]",
+        disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer active:bg-[#f0f0f2] hover:bg-[#f6f6f7]",
       )}
     >
       <EntryIcon entry={entry} />

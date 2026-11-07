@@ -52,10 +52,12 @@ function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     check("the round 40 tints are gone", !existsSync(join(root, "components/onepage/block-tints.ts")) && !/block-tints|tintOf\(|tint=/.test(code(picker)) && !/tint/.test(code(icons)))
-    check("every block's tile is the one grey tile, icon in near black", /bg-\[#f2f2f4\] text-\[#1a1a2e\]/.test(icons) && /return <BlockTile icon=\{entry\.icon \?\? GlyphLink\} \/>/.test(picker) && /<B size=\{18\} color="#1a1a2e" \/>/.test(picker))
-    check("the section headings are the quiet grey again", /text-\[#9ca3af\]" data-picker-heading=\{id\}>\{title\}<\/h3>/.test(picker))
-    check("the category chips are words only", !/dot/.test(code(pills)) && /categories\.map\(\(c\) => \(\{ id: c\.id, label: c\.label \}\)\)/.test(picker))
-    check("brands keep their own colours on white", /tone="brand"/.test(picker) && /<IntegrationMark id=\{entry\.mark\}/.test(picker))
+/* Changed on purpose (round AL): the owner, "I don't like that they're light gray. You can make them more colour ... for the apps that actually are companies, just use their original icon": each entry is a round tile of its own colour (block-icons RoundTile), a company's mark on its own colour; the blocks list keeps the grey tile. */
+    check("the blocks list keeps the grey tile; the Add sheet's tiles are round, each in its own colour", /bg-\[#f2f2f4\] text-\[#1a1a2e\]/.test(icons) && /<RoundTile color=\{fill\} ink=\{ink\} size=\{size\}/.test(picker) && /const \[fill, ink\] = entry\.tile \?\? TILE\.lavender/.test(picker))
+    /* Changed on purpose (round AL): section headings as Linktree's list draws them, the near black name of the section. */
+    check("the section headings are the section's name in near black", /text-\[14px\] font-semibold text-\[#111113\]" data-picker-heading=\{id\}>\{title\}<\/h3>/.test(picker))
+    check("the category chips are words only", !/dot/.test(code(pills)) && /categories\.map\(\(c\) => \(\{ id: c\.id as PickerView, label: c\.label \}\)\)/.test(picker))
+    check("a connected tool keeps its own colours on white", /<IntegrationMark id=\{entry\.mark\}/.test(picker) && /<RoundTile color="#ffffff" ink="#1a1a2e" size=\{size\} style=\{HAIRLINE\}>/.test(picker))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -95,7 +97,7 @@ function main() {
     const c = code(tab)
     check("the editor deletes a child in one edit", /const next = deleteFromGroup\(blocksInOrder\(\), groupId, childId\)\s*if \(next\) reorderBlocks\(next\)/.test(c) && /onDeleteChild=\{handleDeleteChild\}/.test(c) && /onDeleteChild=\{onDeleteChild\}/.test(c))
     check("a child's settings end with the block foot: move, then Move out or Delete", /<BlockFootActions\s*key=\{selectedChild\.id\}/.test(c) && /onRemove=\{\(\) => deleteChild\(selectedChild\.id\)\}/.test(c) && /keep=\{\{ label: tt\("Move out"\)/.test(c) && /keep\.onPick\(\)/.test(foot) && /data-block-keep=""/.test(foot))
-    check("Add to group leads with the page's own blocks, then the whole catalogue", /lead=\{addToGroupId \? \(\s*<GroupExistingBlocks/.test(c) && /groupCandidates\(onepage\.draft_blocks, addToGroupId\)/.test(c) && /onMove=\{moveExistingIntoGroup\}/.test(c) && /\{lead && !searching && category === "all" \? lead : null\}/.test(picker))
+    check("Add to group leads with the page's own blocks, then the whole catalogue", /lead=\{addToGroupId \? \(\s*<GroupExistingBlocks/.test(c) && /groupCandidates\(onepage\.draft_blocks, addToGroupId\)/.test(c) && /onMove=\{moveExistingIntoGroup\}/.test(c) && /* Changed on purpose (round AL): the sheet opens on Essentials, so the page's own blocks lead there and in View all. */ /\{lead && !searching && atTop \? lead : null\}/.test(picker) && /const atTop = category === "essentials" \|\| category === "all"/.test(picker))
     check("moving an existing block in is the same one edit a drop makes", /const next = moveIntoGroup\(blocksInOrder\(\), id, groupId\)\s*if \(next\) reorderBlocks\(next\)\s*closeAddSheet\(\)/.test(c))
     check("a new block in a group starts with its catalogue entry's data", /const newBlock: OnePageBlock = data && !preset \? \{ \.\.\.created, data: \{ \.\.\.created\.data, \.\.\.data \}/.test(c))
     check("a child edit reads the group as it is now", /getLatestOnePage\(\)\?\.draft_blocks\.find\(\(b\) => b\.id === block\.id\)/.test(c))

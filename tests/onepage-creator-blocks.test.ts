@@ -174,23 +174,27 @@ async function main() {
   section("The Add block sheet: categories, search, one icon set, the five integrations")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    check("Essentials, Sell, Media, Grow, Integrations and Links, in that order", PICKER_CATEGORIES.map((c) => c.id).join(",") === "essentials,sell,media,grow,integrations,links")
-    check("every entry has a line saying what it does and an icon", PICKER_ENTRIES.every((e) => e.description.trim().length > 0 && (e.icon || e.brand || e.brandIcon)))
+    /* Changed on purpose (round AL): the owner's categories, after Linktree's ("essentials, commerce, social media, contact, events, text, and then ... view all"). */
+    check("Essentials, Commerce, Social, Media, Contact, Events and Text, in that order", PICKER_CATEGORIES.map((c) => c.id).join(",") === "essentials,commerce,social,media,contact,events,text")
+    check("every entry has a line saying what it does and an icon", PICKER_ENTRIES.every((e) => e.description.trim().length > 0 && (e.icon || e.brand || e.brandIcon || e.mark)))
     check("no entry is a Coming soon that cannot be pressed", PICKER_ENTRIES.every((e) => !("comingSoon" in e)))
     check("ids are unique, for the recent list", new Set(PICKER_ENTRIES.map((e) => e.id)).size === PICKER_ENTRIES.length)
-    const integrations = PICKER_ENTRIES.filter((e) => e.category === "integrations")
+    /* Changed on purpose (round AL): there is no Integrations category; the services are the app blocks, and these entries are found by search (hidden). Each is still the same real block. */
+    const integrations = PICKER_ENTRIES.filter((e) => e.id.startsWith("int_"))
     /* Round 11 added the embeds on purpose ("add more essential integrations ... more embeds"): every one is still a real block, a player, an embed, a booking page or the signup sync (tests/onepage-addblock-r11.test.ts reads each embed). */
     check("the integrations, each a real block: the five of round 10 still there, the rest players, embeds or booking pages",
-      ["int_youtube:video", "int_spotify:music", "int_tiktok:video", "int_booking:calendly", "int_email:email_capture"].every((x) => integrations.some((e) => `${e.id}:${e.type}` === x))
+      ["int_youtube:video", "int_spotify:music", "int_booking:calendly", "int_email:email_capture"].every((x) => integrations.some((e) => `${e.id}:${e.type}` === x))
         /* Round 40 adds the posts row (social_posts) to what an integration may be (pin updated on purpose). */
         && integrations.every((e) => ["video", "music", "calendly", "email_capture", "embed", "social_posts"].includes(e.type)))
-    check("courses and coaching are in Sell", ["course", "coaching"].every((id) => PICKER_ENTRIES.find((e) => e.id === id)?.category === "sell") && PICKER_ENTRIES.find((e) => e.id === "coaching")?.type === "calendly")
-    check("search finds a block by what people call it", searchEntries(PICKER_ENTRIES, "newsletter")[0]?.type === "email_capture" && searchEntries(PICKER_ENTRIES, "reviews")[0]?.id === "testimonials" && searchEntries(PICKER_ENTRIES, "spot")[0]?.label === "Spotify")
+    /* Changed on purpose (round AL): Sell is Commerce, and the courses are the Commerce shelf of courses (the single course block is found by search). */
+    check("courses and coaching are in Commerce", ["shelf_course", "coaching", "course"].every((id) => PICKER_ENTRIES.find((e) => e.id === id)?.category === "commerce") && PICKER_ENTRIES.find((e) => e.id === "coaching")?.type === "calendly")
+    /* Changed on purpose (round AL): "reviews" now finds the Google reviews block first; the testimonials are found by their own name. */
+    check("search finds a block by what people call it", searchEntries(PICKER_ENTRIES, "newsletter")[0]?.type === "email_capture" && searchEntries(PICKER_ENTRIES, "reviews")[0]?.id === "app_google_reviews" && searchEntries(PICKER_ENTRIES, "testimonials")[0]?.id === "testimonials" && searchEntries(PICKER_ENTRIES, "spot")[0]?.label === "Spotify")
     check("and nothing for words nothing has", searchEntries(PICKER_ENTRIES, "zzqx").length === 0)
     const picker = read("components/onepage/add-block-picker.tsx")
     check("the recent list is per browser, guarded, at most four", /localStorage\.getItem\(RECENT_KEY\)/.test(picker) && /\.slice\(0, 4\)/.test(picker) && (picker.match(/\} catch \{/g) ?? []).length >= 2)
-    /* Round 11 changed this on purpose: "for those icons you can actually make them colorful, use their actual icons". Black marks (X, TikTok) keep the near black. */
-    check("brand marks are drawn in their own colours, a black one in near black", /<SocialIcon platform=\{entry\.brand\} size=\{19\} color="#1a1a2e" strokeWidth=\{1\.8\} tone="brand" \/>/.test(picker) && !/#8b5cf6|violet|purple/i.test(picker))
+    /* Changed on purpose (round AL): "for the apps that actually are companies, just use their original icon": the company's mark in white (or near black where that reads) on its own colour, Instagram on its gradient, a mark of several colours on white. */
+    check("brand marks are drawn on their own colours", /const fill = key === "instagram" \? INSTAGRAM_FILL : brandColor\(key\) \?\? "#111113"/.test(picker) && /const ink = key === "instagram" \? "#ffffff" : markOn\(fill\)/.test(picker) && /isMulticolorMark\(key\)/.test(picker) && !/#8b5cf6|violet|purple/i.test(picker))
     const icons = read("components/onepage/block-icons.tsx")
     check("one icon set: one stroke, round ends, no fill", (icons.match(/strokeWidth=\{1\.6\}/g) ?? []).length === 1 && /fill="none"/.test(icons) && /strokeLinecap="round"/.test(icons) && !/fill="(?!none)/.test(icons))
     const tab = read("components/onepage/tabs/links-tab.tsx")
