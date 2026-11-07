@@ -29,6 +29,7 @@
  */
 import { seatLimit, type MemberRole } from "./roles"
 import { permissionsOfRow, type TeamPermission } from "./permissions"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 export interface InviteStore {
   id: string
@@ -108,7 +109,7 @@ export function inviteStateOf(input: {
   const limit = seatLimit(store.pro)
   if (input.teamSize > limit) return { kind: "seats_full", store: shown, role: invite.role, permissions, limit }
   if (!sameEmail(user.email, invite.email)) {
-    return { kind: "wrong_account", store: shown, role: invite.role, permissions, email: invite.email, signedInAs: user.email, inviteId: invite.id }
+    return { kind: "wrong_account", store: shown, role: invite.role, permissions, email: invite.email, signedInAs: displayEmail(user.email), inviteId: invite.id }
   }
   return { kind: "ready", store: shown, role: invite.role, permissions, email: invite.email, inviteId: invite.id }
 }

@@ -11,6 +11,7 @@ import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { revalidateTag } from "next/cache"
 import { readinessChanged } from "@/lib/physical/readiness-server"
 import { creatorShopTag, revalidatePublishedSite } from "@/lib/website-builder/published-site"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -46,9 +47,9 @@ export async function GET() {
   const row = creator?.data as { support_email?: string | null; display_name?: string | null; username?: string | null } | null
   const suggested = {
     storeName: (row?.display_name || row?.username || "").trim().slice(0, 80) || null,
-    contactEmail: account?.data?.user?.email ?? null,
+    contactEmail: displayEmail(account?.data?.user?.email),
   }
-  return physicalJson({ settings, detectedCountry: detectedCountry(h), supportEmail: row?.support_email ?? null, currency: selling.currency, suggested, logoDefault: fallback?.logoUrl ? { url: fallback.logoUrl, from: fallback.logoFrom } : null })
+  return physicalJson({ settings, detectedCountry: detectedCountry(h), supportEmail: row?.support_email ? displayEmail(row.support_email) ?? row.support_email : null, currency: selling.currency, suggested, logoDefault: fallback?.logoUrl ? { url: fallback.logoUrl, from: fallback.logoFrom } : null })
 }
 
 export async function PUT(request: Request) {

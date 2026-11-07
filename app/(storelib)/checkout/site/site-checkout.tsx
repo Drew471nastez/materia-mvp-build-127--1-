@@ -76,6 +76,7 @@ import { optimisticQuote } from "@/lib/checkout/optimistic-quote"
 import { summaryRows } from "@/lib/checkout/summary-rows"
 import { rememberCheckoutCountry } from "@/lib/checkout/checkout-country"
 import { trackFunnelStep } from "@/lib/analytics-utils"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 export interface SiteCheckoutProps {
   shopId: string
@@ -323,7 +324,7 @@ export function SiteCheckout({
   }, [])
 
   /* ── Who ─────────────────────────────────────────────────────────── */
-  const [email, setEmail] = React.useState(lockedEmail ?? buyer?.email ?? "")
+  const [email, setEmail] = React.useState(lockedEmail ?? displayEmail(buyer?.email) ?? "")
   const splitName = config.nameFields === "first_and_last"
   const [fullName, setFullName] = React.useState(buyer?.name ?? "")
   const [firstOnly, setFirstOnly] = React.useState(() => (buyer?.name ?? "").trim().split(/\s+/)[0] || "")
@@ -830,7 +831,7 @@ export function SiteCheckout({
     </div>
   ) : lockedEmail ? (
     <p className="text-[13px] text-[#6b7280]" data-checkout-account="signed-in">
-      {ct("Signed in as {email}.", { email: lockedEmail })}{" "}
+      {ct("Signed in as {email}.", { email: displayEmail(lockedEmail) ?? lockedEmail })}{" "}
       <a href="/account/logout" className="font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-2">
         {ct("Sign out")}
       </a>
