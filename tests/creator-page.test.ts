@@ -599,7 +599,7 @@ function main() {
     const api = read("app/api/creator-profile/route.ts")
 
     check("the CTA bar has an editor", existsSync(join(root, "components/storefront/edit-cta-button.tsx")))
-    check("it writes through the route that already does auth and ownership", cta.includes('"/api/creator-profile"'))
+    check("it writes through the route that already does auth and ownership", /* Round 50: through the one save helper, which keeps the undo step. */ cta.includes("saveCreatorProfile(") && read("lib/storefront/creator-profile-client.ts").includes('"/api/creator-profile"'))
     /**
      * THE PENCIL IS INSIDE THE BAR, not a sibling of it on the page. It has to
      * be: it edits the bar's colours now, the draft it produces is state, and

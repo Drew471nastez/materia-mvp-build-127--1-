@@ -27,6 +27,8 @@
  * ordinary PATCH that has already returned before any of this fires.
  */
 
+import type { EditorStep } from "@/lib/store-builder/editor-history"
+
 export const CREATOR_EDITOR_CHANNEL = "storelib-creator-editor"
 
 /**
@@ -36,11 +38,43 @@ export const CREATOR_EDITOR_CHANNEL = "storelib-creator-editor"
  */
 export function notifyEditorSaved(): void {
   if (typeof window === "undefined") return
+  /* Round 50: the saves since the last message ride with it, as the editor's undo steps. */
+  const steps = pendingSteps.splice(0)
   if (window.parent === window) return
   try {
-    window.parent.postMessage({ channel: CREATOR_EDITOR_CHANNEL, kind: "saved" }, window.location.origin)
+    window.parent.postMessage({ channel: CREATOR_EDITOR_CHANNEL, kind: "saved", steps }, window.location.origin)
   } catch {
     /* A parent on another origin cannot be posted to, and does not need to be. */
+  }
+}
+
+/**
+ * ===========================================================================
+ *  UNDO STEPS, AND THE UNDO KEYS, CROSS THE GAP TOO (round 50)
+ * ===========================================================================
+ * "steps" ride on "saved": each save made in the frame since the last
+ * message, with the body that puts it back (lib/store-builder/editor-history).
+ * The workspace keeps the history, because the frame is replaced after every
+ * save and would forget it.
+ *
+ * "history" is Cmd+Z or Shift+Cmd+Z pressed while the canvas has the focus:
+ * the keys go to the frame's document, so it hands them up. Only when no
+ * sheet is open (an open sheet undoes its own form) and not in a text field.
+ */
+const pendingSteps: EditorStep[] = []
+
+/** A save has landed: keep it for the next "saved" message. */
+export function recordEditorStep(step: EditorStep): void {
+  if (!isInEditorFrame()) return
+  pendingSteps.push(step)
+}
+
+export function forwardHistoryKey(action: "undo" | "redo"): void {
+  if (typeof window === "undefined" || window.parent === window) return
+  try {
+    window.parent.postMessage({ channel: CREATOR_EDITOR_CHANNEL, kind: "history", action }, window.location.origin)
+  } catch {
+    /* Nothing to tell. */
   }
 }
 

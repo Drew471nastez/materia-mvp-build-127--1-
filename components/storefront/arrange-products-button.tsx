@@ -23,6 +23,9 @@ import { ArrowDown, ArrowUp, GripVertical, ListOrdered } from "lucide-react"
 
 import { EditorSheet, useSaveThenRefresh } from "@/components/storefront/editor-sheet"
 import { hapticTap } from "@/lib/native-bridge"
+import { saveCreatorProfile } from "@/lib/storefront/creator-profile-client"
+import { mergeArrangement } from "@/lib/store-builder/featured-order"
+import { useFormHistory } from "@/lib/store-builder/form-history"
 import { cn } from "@/lib/utils"
 
 export interface ArrangeableProduct {
@@ -33,9 +36,16 @@ export interface ArrangeableProduct {
 
 export function ArrangeProductsButton({
   products,
+  allProducts,
   className,
 }: {
   products: ArrangeableProduct[]
+  /**
+   * The whole catalogue in its current order, when `products` is only part of
+   * it (Home's Featured selection). The arranged ones keep the slots they hold
+   * in it, so nothing else moves (round 50, lib/store-builder/featured-order).
+   */
+  allProducts?: ArrangeableProduct[]
   className?: string
 }) {
   const { markSaved, onClosed, toast } = useSaveThenRefresh()
@@ -44,13 +54,27 @@ export function ArrangeProductsButton({
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
-  /* Reopening starts from what the page is showing, not from a stale drag. */
-  React.useEffect(() => {
-    if (open) {
-      setOrder(products)
-      setError(null)
-    }
-  }, [open, products])
+  /*
+    Reopening starts from what the page is showing, not from a stale drag.
+    On the way IN only (round 50): it ran again whenever the page handed a new
+    `products` array, which a refresh behind an open sheet does, and put the
+    rows back under the creator's finger.
+  */
+  const openSheet = () => {
+    /* In the same render as the open, so the sheet's history starts from it. */
+    setOrder(products)
+    setError(null)
+    setOpen(true)
+  }
+
+  /** The order to store: the whole catalogue, with these in their new places. */
+  const orderToSave = (rows: ArrangeableProduct[]) => {
+    const ids = rows.map((p) => p.id)
+    return allProducts && allProducts.length > rows.length ? mergeArrangement(allProducts.map((p) => p.id), ids) : ids
+  }
+  const changed = order.map((p) => p.id).join(",") !== products.map((p) => p.id).join(",")
+  /* Each move is a step: a drag, an arrow, an arrow key (lib/store-builder/form-history). */
+  const formHistory = useFormHistory(open, { order }, (v) => setOrder(v.order))
 
   const listRef = React.useRef<HTMLUListElement>(null)
 
@@ -77,6 +101,30 @@ export function ArrangeProductsButton({
     rowHeight: number
   } | null>(null)
   const startY = React.useRef(0)
+  /* Where the finger is, and how far the form has scrolled since the press: a drag past the edge scrolls the list (round 50). */
+  const pointerY = React.useRef(0)
+  const startScroll = React.useRef(0)
+  const scroller = () => listRef.current?.closest<HTMLElement>("[data-sheet-scroll]") ?? null
+  /*
+    THE DROP DOES NOT JUMP (round 50). On release the order changed and every
+    row's offset went to 0 in the same commit, with a transition on: each row
+    that had stepped aside started its slide from a slot away from where it
+    was drawn, and the lifted row slid from wherever the finger let go plus
+    the whole distance it had travelled. `settling` takes the transitions off
+    for the commit, and the lifted row then glides the last few pixels into
+    its slot from exactly where it was let go.
+  */
+  const [settling, setSettling] = React.useState<{ id: string; residual: number } | null>(null)
+  React.useLayoutEffect(() => {
+    if (!settling) return
+    const el = listRef.current?.querySelector<HTMLElement>(`li[data-id="${CSS.escape(settling.id)}"]`)
+    const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    if (el && !reduce && typeof el.animate === "function" && Math.abs(settling.residual) > 0.5) {
+      el.animate([{ transform: `translateY(${settling.residual}px) scale(1.02)` }, { transform: "translateY(0) scale(1)" }], { duration: 180, easing: "cubic-bezier(0.22, 1, 0.36, 1)" })
+    }
+    const raf = requestAnimationFrame(() => setSettling(null))
+    return () => cancelAnimationFrame(raf)
+  }, [settling])
   /**
    * The drag, readable synchronously. `onPointerMove` needs the current value
    * to compute the next one, and reading it out of the closure means reading
@@ -119,6 +167,8 @@ export function ArrangeProductsButton({
     const box = boxes[index]
     if (!box) return
     startY.current = event.clientY
+    pointerY.current = event.clientY
+    startScroll.current = scroller()?.scrollTop ?? 0
     event.currentTarget.setPointerCapture(event.pointerId)
     event.preventDefault()
     /**
@@ -134,9 +184,16 @@ export function ArrangeProductsButton({
   }
 
   const onPointerMove = (event: React.PointerEvent) => {
+    if (!dragRef.current) return
+    pointerY.current = event.clientY
+    track()
+  }
+
+  /** The drag, from where the finger is and how far the list has scrolled under it. */
+  const track = () => {
     const current = dragRef.current
     if (!current) return
-    const dy = event.clientY - startY.current
+    const dy = pointerY.current - startY.current + ((scroller()?.scrollTop ?? 0) - startScroll.current)
     /*
       Which slot this lands in, from the distance travelled rather than from
       what is under the pointer: the rows are moving out of the way as it
@@ -174,7 +231,66 @@ export function ArrangeProductsButton({
       /* Put down. Only when it actually moved — a press and release that
          changed nothing has nothing to confirm. */
       if (current.to !== current.from) hapticTap("medium")
+      setSettling({ id: current.id, residual: current.dy - (current.to - current.from) * current.rowHeight })
       move(current.from, current.to)
+    }
+  }
+
+  /*
+    A LIST LONGER THAN THE SHEET (round 50). The rows could only be dragged
+    as far as the visible part of the form: past its edge nothing scrolled,
+    so the bottom of a long catalogue could not be reached by dragging. Near
+    the top or bottom edge the form scrolls, faster the closer the finger
+    is, and the drag follows it.
+  */
+  React.useEffect(() => {
+    if (!drag) return
+    let raf = 0
+    const tick = () => {
+      const box = scroller()
+      if (box) {
+        const r = box.getBoundingClientRect()
+        const edge = 56
+        const y = pointerY.current
+        const speed = y < r.top + edge ? -Math.ceil((r.top + edge - y) / 4) : y > r.bottom - edge ? Math.ceil((y - (r.bottom - edge)) / 4) : 0
+        if (speed !== 0) {
+          const before = box.scrollTop
+          box.scrollTop = before + Math.max(-18, Math.min(18, speed))
+          if (box.scrollTop !== before) track()
+        }
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drag?.id])
+
+  /*
+    THE FOCUS STAYS WITH THE ROW (round 50). React moves a row by taking a DOM
+    node out and putting it back, and a focused node that is moved loses its
+    focus: a keyboard user moved a product down once and was then nowhere.
+    After a keyboard move the same control on the same product has it again,
+    or its grip when that control has just become disabled (the top or the
+    bottom of the list).
+  */
+  const refocus = (id: string, which: "grip" | "up" | "down") => {
+    requestAnimationFrame(() => {
+      const row = listRef.current?.querySelector<HTMLElement>(`li[data-id="${CSS.escape(id)}"]`)
+      const want = row?.querySelector<HTMLButtonElement>(`[data-arrange="${which}"]`)
+      ;(want && !want.disabled ? want : row?.querySelector<HTMLButtonElement>('[data-arrange="grip"]'))?.focus()
+    })
+  }
+  const moveBy = (id: string, index: number, step: -1 | 1, which: "grip" | "up" | "down") => {
+    move(index, index + step)
+    refocus(id, which)
+  }
+
+  /** The grip with a keyboard: arrow keys move the row, and the focus stays on it. */
+  const onGripKey = (event: React.KeyboardEvent, id: string, index: number) => {
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      event.preventDefault()
+      moveBy(id, index, event.key === "ArrowUp" ? -1 : 1, "grip")
     }
   }
 
@@ -191,15 +307,8 @@ export function ArrangeProductsButton({
     setSaving(true)
     setError(null)
     try {
-      const res = await fetch("/api/creator-profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productsOrder: order.map((p) => p.id) }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || "That did not save.")
-      }
+      const { ok, data } = await saveCreatorProfile({ productsOrder: orderToSave(order) }, "product order")
+      if (!ok) throw new Error(typeof data.error === "string" ? data.error : "That did not save.")
       setOpen(false)
       /**
        * ===================================================================
@@ -239,7 +348,7 @@ export function ArrangeProductsButton({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openSheet}
         /*
           It read as a disabled label sitting next to the sort control: a thin
           hairline, muted weight, no fill. This is the owner's one way into
@@ -280,9 +389,11 @@ export function ArrangeProductsButton({
         onSave={save}
         busy={saving}
         error={error}
+        saveDisabled={!changed}
+        history={formHistory}
       >
         <p className="text-sm text-muted-foreground">
-          Drag a product by its handle, or use the arrows. This is the order both Home and Products show.
+          Drag a product by its handle, or use the arrows or arrow keys. This is the order both Home and Products show.
         </p>
 
         <ul
@@ -302,7 +413,9 @@ export function ArrangeProductsButton({
                   ? /* Lifted: above its neighbours, shadowed, and not
                        transitioning, because it is tracking a finger. */
                     "relative z-10 border-foreground/25 shadow-[0_8px_24px_-8px_rgba(15,23,42,0.35)]"
-                  : "border-border transition-transform duration-200 ease-sheet",
+                  : settling
+                    ? cn("border-border", settling.id === product.id && "relative z-10")
+                    : "border-border transition-transform duration-200 ease-sheet",
               )}
               style={{
                 transform: `translateY(${rowOffset(index)}px)`,
@@ -315,6 +428,8 @@ export function ArrangeProductsButton({
                 type="button"
                 aria-label={`Drag ${product.title || "product"}`}
                 onPointerDown={(e) => onPointerDown(e, product.id, index)}
+                onKeyDown={(e) => onGripKey(e, product.id, index)}
+                data-arrange="grip"
                 /**
                  * touch-none stops the BROWSER scrolling. It does nothing
                  * about the sheet, which listens for touchmove on itself and
@@ -353,7 +468,8 @@ export function ArrangeProductsButton({
                   type="button"
                   aria-label={`Move ${product.title || "product"} up`}
                   disabled={index === 0}
-                  onClick={() => move(index, index - 1)}
+                  data-arrange="up"
+                  onClick={() => moveBy(product.id, index, -1, "up")}
                   className="rounded p-1 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
                 >
                   <ArrowUp className="h-4 w-4" aria-hidden />
@@ -362,7 +478,8 @@ export function ArrangeProductsButton({
                   type="button"
                   aria-label={`Move ${product.title || "product"} down`}
                   disabled={index === order.length - 1}
-                  onClick={() => move(index, index + 1)}
+                  data-arrange="down"
+                  onClick={() => moveBy(product.id, index, 1, "down")}
                   className="rounded p-1 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
                 >
                   <ArrowDown className="h-4 w-4" aria-hidden />
@@ -404,12 +521,15 @@ export function ArrangeProductsButton({
  */
 export function ArrangeProductsControl({
   products,
+  allProducts,
   isOwner,
 }: {
   products: ArrangeableProduct[]
+  /** The whole catalogue in its current order, when `products` is a selection of it. */
+  allProducts?: ArrangeableProduct[]
   /** From the session, on the server. Never a client-side guess. */
   isOwner?: boolean
 }) {
   if (!isOwner || products.length < 2) return null
-  return <ArrangeProductsButton products={products} />
+  return <ArrangeProductsButton products={products} allProducts={allProducts} />
 }

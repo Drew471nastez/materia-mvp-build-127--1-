@@ -18,6 +18,7 @@
 
 import * as React from "react"
 import { useSavedValues } from "@/lib/store-builder/use-saved-values"
+import { saveCreatorProfile } from "@/lib/storefront/creator-profile-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -28,6 +29,8 @@ import { Pencil, Plus } from "lucide-react"
 import type { AboutMediaItem } from "@/lib/store-builder/types"
 import { parseVideoUrl } from "@/lib/social/video"
 import { MediaItemsEditor } from "@/components/social/media-items-editor"
+import { setStoryDraft } from "@/lib/storefront/story-draft"
+import { storySignature, type StoryValues } from "@/lib/storefront/story"
 
 const MAX_MEDIA = 8
 
@@ -71,6 +74,36 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
     setError(null)
   })
 
+  /*
+    THE PAGE BEHIND SHOWS THE STORY AS IT IS TYPED, AND AS IT WAS SAVED
+    (round 50, lib/storefront/story-draft). While the sheet is open the
+    About block draws these fields. After a save it draws what the server
+    stored until the page's own props say the same, so the owner never looks
+    at the old story under a "Saved" toast while the refresh is on its way.
+    Cancel puts back the last save, or the page's own values.
+  */
+  const savedRef = React.useRef<StoryValues | null>(null)
+  React.useEffect(() => {
+    if (!open) return
+    setStoryDraft({ headline: title, aboutContent: text, mediaItems: items })
+  }, [open, title, text, items])
+
+  const propsSignature = storySignature({ headline, aboutContent: story, mediaItems: media })
+  React.useEffect(() => {
+    if (open || !savedRef.current) return
+    if (storySignature(savedRef.current) === propsSignature) {
+      savedRef.current = null
+      setStoryDraft(null)
+    }
+  }, [open, propsSignature])
+  /* Leaving the page leaves nothing behind for another page's About block. */
+  React.useEffect(() => () => setStoryDraft(null), [])
+
+  const cancel = () => {
+    setOpen(false)
+    setStoryDraft(savedRef.current)
+  }
+
   const addVideo = () => {
     // The same parser the API uses, so the field cannot accept something the
     // server will then silently drop — and it understands Vimeo, which a
@@ -90,17 +123,16 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
     setSaving(true)
     setError(null)
     try {
-      const res = await fetch("/api/creator-profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      /* Through saveCreatorProfile (round 50), so the save is one step of the editor's page-level undo and redo. */
+      const { ok, data } = await saveCreatorProfile(
+        {
           about: { headline: title, aboutContent: text, mediaItems: items },
           /** "" is a real value: it takes the Contact link off the page. */
           contactEmail: email.trim(),
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
+        },
+        "story",
+      )
+      if (!ok) {
         setError(typeof data.error === "string" ? data.error : "Could not save. Try again.")
         return
       }
@@ -108,6 +140,18 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
         setError("Your creator page has not been set up yet. Open Sections and theme once and publish, then this will show on your page.")
         return
       }
+      /* What the server kept, cleaned, drawn at once (the route answers with it). */
+      const kept = (data.about ?? {}) as Partial<StoryValues>
+      const saved: StoryValues = {
+        headline: kept.headline ?? title.trim(),
+        aboutContent: kept.aboutContent ?? text,
+        mediaItems: (kept.mediaItems as StoryValues["mediaItems"] | undefined) ?? items,
+      }
+      savedRef.current = saved
+      setStoryDraft(saved)
+      setTitle(saved.headline)
+      setText(saved.aboutContent)
+      setItems(saved.mediaItems as AboutMediaItem[])
       setOpen(false)
       // The server re-renders and the new story appears without a reload.
       /* The page changes once the sheet has gone, not underneath it on its
@@ -134,7 +178,7 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
       <EditorSheet
         open={open}
         onClosed={onClosed}
-        onClose={() => setOpen(false)}
+        onClose={cancel}
         title="Your story"
         wide
         busy={saving}
