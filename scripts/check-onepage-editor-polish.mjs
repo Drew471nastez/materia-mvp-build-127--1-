@@ -74,10 +74,15 @@ const { base, server } = await serveEditorProbe({
   },
 })
 const browser = await puppeteer.launch({
-  executablePath: "/tmp/chromium",
+  executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium",
   args: ["--no-sandbox"],
 })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+/* A control far down the panel can sit under the phone's fixed bars: bring it to the middle first, as a finger would scroll to it. */
+const tap = async (page, selector) => {
+  await page.$eval(selector, (e) => e.scrollIntoView({ block: "center" }))
+  await page.click(selector)
+}
 const fill = async (page, selector, text) => {
   const el = await page.waitForSelector(selector, { visible: true })
   await el.focus()
@@ -177,10 +182,10 @@ try {
       await page.$eval("[data-link-url]", (e) => e.value),
       "https://example.com/latest",
     )
-    await page.click('[role=switch][aria-label="Automatic link preview"]')
+    await tap(page, '[role=switch][aria-label="Automatic link preview"]')
     await save(page)
     assert.equal(blocks.find((b) => b.id === "link").data.thumbnail_url, null)
-    await page.click('[role=switch][aria-label="Automatic link preview"]')
+    await tap(page, '[role=switch][aria-label="Automatic link preview"]')
     await page.waitForFunction(() =>
       document.querySelector("[data-link-thumbnail] img"),
     )
@@ -196,7 +201,9 @@ try {
       null,
       "Uploading replaces manual URL controls",
     )
-    await page.click('[data-block-appearance] [data-segment="featured"]')
+    await tap(page, '[data-block-id="link"] [data-block-tab="layout"]')
+    await tap(page, '[data-link-layout-choice="cover"]')
+    await tap(page, '[data-block-id="link"] [data-block-tab="settings"]')
     await fill(page, "[data-block-description]", "Tell me your goals")
     await save(page)
     assert.equal(
@@ -205,17 +212,22 @@ try {
     )
     await page.$eval('[data-block-open="shelf"]', (e) => e.focus())
     await page.keyboard.press("Enter")
-    await page.waitForSelector("[data-shelf-product-settings]")
+    await page.waitForSelector('[data-block-id="shelf"] [data-block-tab="layout"]', { visible: true })
+    /* The card opens with a glide; press its tab once it has settled. */
+    await sleep(500)
+    await tap(page, '[data-block-id="shelf"] [data-block-tab="layout"]')
+    await page.waitForSelector('[data-block-id="shelf"] [data-block-tab="layout"][data-state="active"]').catch(async () => { await tap(page, '[data-block-id="shelf"] [data-block-tab="layout"]') })
+    await page.waitForSelector("[data-shelf-cards]")
     assert.equal(
       await page.$$eval(
-        "[data-shelf-product-settings] [data-product-layout-choice]",
+        "[data-shelf-cards] [data-shelf-card-choice]",
         (els) => els.length,
       ),
       8,
-      "Digital-product collections use the actual product layout picker",
+      "Digital-product collections offer Simple and the product layouts, in the Layout tab",
     )
-    await page.click(
-      '[data-shelf-product-settings] [data-product-layout-choice="side"]',
+    await tap(page, 
+      '[data-shelf-cards] [data-product-layout-choice="side"]',
     )
     await save(page)
     assert.equal(

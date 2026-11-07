@@ -12023,7 +12023,19 @@ const words: Record<string, string> = {
  "form quiz questionnaire survey lead intake fitness contact": "formulaire quiz questionnaire sondage prospect demande fitness contact",
  "Instagram post": "Publication Instagram",
  "Automatic link preview": "Aperçu automatique du lien",
- "Remove preview image": "Supprimer l’image de l’aperçu"
+ "Remove preview image": "Supprimer l’image de l’aperçu",
+ "A line under the title": "Une ligne sous le titre",
+ "Bottom minimal": "Minimal en bas",
+ "Cards in view": "Cartes visibles",
+ "Compact card": "Carte compacte",
+ "Crops to fit": "Recadrée",
+ "Description (optional)": "Description (facultatif)",
+ "Its own shape": "Sa propre forme",
+ "My favourites": "Mes favoris",
+ "Photo title": "Photo et titre",
+ "Picture (optional)": "Image (facultatif)",
+ "Shows all": "Tout visible",
+ "Soft edges": "Bords adoucis"
 }
 
 export default words
