@@ -181,7 +181,7 @@ export interface StreamingService {
   found: boolean
 }
 
-export interface FormQuizBlockData {form_id:string;title:string;inline?:boolean}
+export interface FormQuizBlockData {form_id:string;title:string;inline?:boolean;presentation?:"inline"|"card"|"expandable"|"modal"}
 
 export interface LinkButtonBlockData {
   link_preview?:{enabled?:boolean;url?:string;title?:string;image?:string|null;description?:string;title_edited?:boolean;image_hidden?:boolean}

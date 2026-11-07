@@ -36,6 +36,7 @@ export function NativeFormSection({
             formId={id}
             title={String(s.button_text ?? "Open form")}
             inline={s.inline !== false}
+            presentation={["inline", "card", "expandable", "modal"].includes(String(s.presentation)) ? (s.presentation as "inline") : undefined}
             source="website"
             preview={insideEditor === true}
           />

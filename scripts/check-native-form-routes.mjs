@@ -10,6 +10,8 @@ const mocks = {
   "@/lib/auth/route-user": `import {NextResponse} from "next/server";export const routeUser=async()=>globalThis.formAuth;export const authUnavailableResponse=()=>new NextResponse('',{status:503})`,
   "@/lib/api/rate-limit": `export const addressSubject=()=>"test-ip";export const rateLimit=async()=>globalThis.blocked?new Response('',{status:429}):null`,
   "@/lib/notifications/user-inbox": `export const notifyUser=async(...args)=>{globalThis.notified.push(args[1]);return 'ok'}`,
+  "@/lib/forms/delivery-server": `export const jobsFor=(s)=>s&&s.notify_email===false?[]:[{provider:'owner_email',state:'ready'}];export const queueJobs=async(db,i)=>{globalThis.queued.push(i);return ['job-'+globalThis.queued.length]};export const runFormJobs=async(db,o)=>{globalThis.ran.push(o.ids);return {}}`,
+  "@/lib/forms/uploads-server": `export const filesForSubmission=async(db,i)=>i.files.length?{ok:false,error:'Upload your file again.'}:{ok:true,rows:[]}`,
 }
 const load = async (path) => {
   const b = await build({
@@ -83,13 +85,26 @@ let form = {
   lead = null,
   dbError = false,
   filters = [],
-  writes = []
+  writes = [],
+  rpcError = null,
+  rpcCalls = [],
+  bookings = []
 globalThis.afterWork = []
 globalThis.notified = []
+globalThis.queued = []
+globalThis.ran = []
 globalThis.formAuth = { kind: "anonymous" }
 globalThis.formDb = {
+  async rpc(name, args) {
+    rpcCalls.push({ name, args })
+    if (rpcError) return { data: null, error: rpcError }
+    lead = { id: nonce, ...args.p_submission }
+    bookings.push({ starts_at: args.p_starts_at, hold_until: args.p_hold_until, status: args.p_status })
+    return { data: [{ submission_id: nonce, booking_id: "b1", duplicate: false }], error: null }
+  },
   from(table) {
     let op = "read",
+      single = false,
       payload = null,
       where = []
     const q = new Proxy(
@@ -122,9 +137,12 @@ globalThis.formDb = {
               }
               if (table === "form_submissions")
                 return resolve({ data: lead, error: null })
-              return resolve({ data: [], error: null })
+              if (table === "form_bookings")
+                return resolve(single ? { data: null, error: null } : { data: bookings, error: null })
+              return resolve({ data: single ? null : [], error: null })
             }
           return (...args) => {
+            if (k === "maybeSingle" || k === "single") single = true
             if (k === "eq") where.push(args)
             if (k === "insert" || k === "update") {
               op = k
@@ -200,7 +218,6 @@ try {
   )
   for (const patch of [
     { consent: false },
-    { website: "spam" },
     { started_at: Date.now() + 1000 },
     { revision: 1 },
     { answers: { email: "invalid", goal: "fit" } },
@@ -253,7 +270,7 @@ try {
   assert.equal(
     (
       await submit.POST(
-        request({ ...valid, padding: "x".repeat(70000) }),
+        request({ ...valid, padding: "x".repeat(100000) }),
         params,
       )
     ).status,
@@ -264,10 +281,78 @@ try {
       .filter((q) => q.table === "native_forms")
       .every((q) => q.where.some(([k, v]) => k === "id" && v === id)),
   )
+  assert.equal(globalThis.queued.length, 1, "One response queues its deliveries once")
+  assert.deepEqual(globalThis.ran, [["job-1"]])
+
+  /* Round AK5: the honeypot is thanked and nothing is kept. */
+  lead = null
+  writes.length = 0
+  r = await submit.POST(request({ ...valid, submission_id: "33333333-3333-4333-8333-333333333333", website: "http://spam.example" }), params)
+  assert.equal(r.status, 201)
+  assert.equal(lead, null)
+  assert.equal(writes.length, 0)
+
+  /* A hidden question's answer is dropped, a required hidden one is not asked. */
+  form.published = {
+    ...def,
+    mode: "form",
+    completion: { kind: "gated", message: "Here it is", gated: { url: "https://files.example.com/guide.pdf", label: "Get the guide" } },
+    fields: [
+      def.fields[0],
+      { id: "kind", type: "single", required: true, label: "Kind", options: [{ id: "biz", label: "Business" }, { id: "me", label: "Personal" }] },
+      { id: "company", type: "text", required: true, label: "Company", show_if: [{ field: "kind", op: "is", value: "biz" }] },
+    ],
+  }
+  form.revision = 3
+  r = await publicRoute.GET(new Request("https://storelib.com/api/forms/" + id + "/public"), params)
+  assert.ok(!JSON.stringify(await r.json()).includes("files.example.com"), "The gated link is not in the public form")
+  r = await submit.POST(request({ ...valid, revision: 3, submission_id: "44444444-4444-4444-8444-444444444444", answers: { email: "a@b.co", kind: "me", company: "smuggled" } }), params)
+  assert.equal(r.status, 201)
+  body = await r.json()
+  assert.deepEqual(lead.answers.map((a) => a.field_id), ["email", "kind"])
+  assert.equal(body.gated.url, "https://files.example.com/guide.pdf", "The gated link is revealed after the response is kept")
+  lead = null
+  assert.equal((await submit.POST(request({ ...valid, revision: 3, submission_id: "55555555-5555-4555-8555-555555555555", answers: { email: "a@b.co", kind: "biz" } }), params)).status, 400)
+  assert.equal(lead, null)
+
+  /* Bookings: an offered slot is kept with its response in one call; a taken slot is a 409. */
+  const slots = await load("lib/forms/slots.ts")
+  const booking = { duration: 30, buffer: 10, timezone: "Europe/London", weekly: [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, start: "00:00", end: "23:30" })), notice_hours: 0, days_ahead: 30, approval: true }
+  form.published = { ...def, mode: "form", completion: { message: "Requested" }, fields: [def.fields[0]], booking }
+  form.revision = 4
+  const offered = slots.generateSlots(booking, { fromMs: Date.now() + 86_400_000, toMs: Date.now() + 2 * 86_400_000, nowMs: Date.now() })
+  const bookingBody = { ...valid, revision: 4, answers: { email: "a@b.co" }, timezone: "America/New_York" }
+  assert.equal((await submit.POST(request({ ...bookingBody, submission_id: "66666666-6666-4666-8666-666666666666", slot: "2020-01-01T10:00:00.000Z" }), params)).status, 409, "A time in the past was never offered")
+  assert.equal((await submit.POST(request({ ...bookingBody, submission_id: "66666666-6666-4666-8666-666666666666" }), params)).status, 400, "A booking needs a time")
+  r = await submit.POST(request({ ...bookingBody, submission_id: "66666666-6666-4666-8666-666666666666", slot: offered[0].start }), params)
+  assert.equal(r.status, 201)
+  body = await r.json()
+  assert.equal(rpcCalls.length, 1)
+  assert.equal(rpcCalls[0].name, "native_form_book")
+  assert.equal(rpcCalls[0].args.p_status, "pending")
+  assert.equal(rpcCalls[0].args.p_submission.owner_id, "owner")
+  assert.equal(rpcCalls[0].args.p_visitor_timezone, "America/New_York")
+  assert.equal(Date.parse(rpcCalls[0].args.p_hold_until) - Date.parse(rpcCalls[0].args.p_ends_at), 10 * 60_000)
+  assert.equal(body.booking.status, "pending")
+  lead = null
+  /* The slot the first booking holds is no longer offered to a second visitor. */
+  r = await submit.POST(request({ ...bookingBody, submission_id: "77777777-7777-4777-8777-777777777777", slot: offered[0].start }), params)
+  assert.equal(r.status, 409)
+  assert.equal((await r.json()).slot_taken, true)
+  assert.equal(rpcCalls.length, 1, "The route refuses before writing")
+  /* Two visitors at once: both pass the check, the database refuses the second (exclusion or unique violation). */
+  bookings.length = 0
+  for (const code of ["23P01", "23505"]) {
+    rpcError = { code, message: "conflicting key value violates exclusion constraint" }
+    r = await submit.POST(request({ ...bookingBody, submission_id: "88888888-8888-4888-8888-88888888888" + (code === "23505" ? "9" : "8"), slot: offered[1].start }), params)
+    assert.equal(r.status, 409, code)
+    assert.equal((await r.json()).slot_taken, true)
+  }
+  rpcError = null
   console.log(
-    "Native form routes passed: owner auth, private draft isolation, CORS, consent, antispam, strict answers, outage, idempotent retries, notifications and encoded completion",
+    "Native form routes passed: owner auth, private draft isolation, CORS, consent, antispam, honeypot, strict answers with hidden questions dropped, gated link only after sending, outage, idempotent retries, one queued delivery, notifications, encoded completion, bookings kept in one call and slot conflicts as 409",
   )
 } finally {
-  for (const k of ["formDb", "formAuth", "afterWork", "notified", "blocked"])
+  for (const k of ["formDb", "formAuth", "afterWork", "notified", "blocked", "queued", "ran"])
     delete globalThis[k]
 }

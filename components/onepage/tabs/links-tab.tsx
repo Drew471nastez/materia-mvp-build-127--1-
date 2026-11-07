@@ -4373,7 +4373,7 @@ function BlockEditor({
     switch (block.type) {
       case "form_quiz": {
         const data=block.data as import("@/lib/onepage/types").FormQuizBlockData
-        return <FormReferenceEditor formId={data.form_id} title={data.title} inline={data.inline} onChange={form_id=>updateData({form_id})} onTitleChange={title=>updateData({title})} onInlineChange={inline=>updateData({inline})}/>
+        return <FormReferenceEditor formId={data.form_id} title={data.title} inline={data.inline} presentation={data.presentation} onPresentationChange={presentation=>updateData({presentation,inline:presentation==="inline"||presentation==="card"})} onChange={form_id=>updateData({form_id})} onTitleChange={title=>updateData({title})} onInlineChange={inline=>updateData({inline})}/>
       }
       case "link_button": {
         const data = block.data as LinkButtonBlockData
