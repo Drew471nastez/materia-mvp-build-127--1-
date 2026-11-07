@@ -43,13 +43,18 @@ const liveBlocks = [
   { id: "faq", type: "faq", enabled: true, sort_order: 0, data: { title: "Questions", items: [{ id: "q", question: "How long?", answer: "Six weeks." }] }, style: { presentation: { background: "#ffffff", radius: 20, shadow: "soft", padding: 20 } } },
 ].map((b, i) => ({ ...b, sort_order: i }))
 
+editorBlocks.push({ id: "group", type: "group", enabled: true, sort_order: editorBlocks.length, data: { title: "Picks", layout: "stack", children: [{ id: "child", type: "link_button", enabled: true, sort_order: 0, data: { label: "Inside", url: "https://example.com/inside" } }] } })
 let blocks = editorBlocks
 const { base, server } = await serveEditorProbe({
   entry: "scripts/render-onepage-avatar-audit.tsx",
   statics: { "/audit-images/": process.cwd() + "/public/" },
   api(req, body) {
     if (req.url === "/audit-state") return { body: { avatar: "/audit-images/icon-light-32x32.png", blocks, theme: {} } }
-    if (req.url === "/api/onepage" && req.method === "PUT") return { body: { ok: true } }
+    /* Save keeps what was sent, so a reload reads it back as the real API would. */
+    if (req.url === "/api/onepage" && req.method === "PUT") {
+      blocks = JSON.parse(body).draft_blocks
+      return { body: { ok: true } }
+    }
     if (req.url === "/api/onepage/blocks-live") {
       const b = JSON.parse(body)
       return { body: { blocks: b.blocks.map((block) => ({ ...block, data: { ...block.data, items: block.type === "storelib_shelf" ? items : [] } })) } }
@@ -64,7 +69,7 @@ const report = []
 try {
   /* 1. The editor's block cards */
   for (const width of [1280, 390]) {
-    blocks = editorBlocks
+    blocks = structuredClone(editorBlocks)
     const context = await browser.createBrowserContext()
     const page = await context.newPage()
     const errors = []
@@ -112,8 +117,100 @@ try {
       await page.$eval(`[data-block-open="${id}"]`, (e) => e.click())
       await sleep(200)
     }
+    /* A block inside a group: the same two tabs, the same Layout. */
+    const open = async (id) => {
+      await page.$eval(`[data-block-open="${id}"]`, (e) => e.scrollIntoView({ block: "center" }))
+      await page.$eval(`[data-block-open="${id}"]`, (e) => e.focus())
+      await page.keyboard.press("Enter")
+      await page.waitForSelector(`[data-block-id="${id}"] [data-block-tabs], [data-block-id="${id}"] [data-group-child]`, { visible: true, timeout: 5000 })
+      await sleep(450)
+    }
+    const tap = async (selector) => {
+      await page.waitForSelector(selector, { visible: true, timeout: 5000 })
+      await page.$eval(selector, (e) => e.scrollIntoView({ block: "center" }))
+      await page.click(selector)
+      await sleep(120)
+    }
+    const save = async () => {
+      await Promise.all([
+        page.waitForResponse((r) => r.url() === base + "/api/onepage" && r.request().method() === "PUT" && r.ok()),
+        page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Save" && b.getClientRects().length)?.click()),
+      ])
+      await page.waitForFunction(() => document.body.textContent.includes("Saved"))
+    }
+    await open("group")
+    await tap('[data-group-child="child"]')
+    const childCard = '[data-group-child-settings="child"] [data-block-tabs]'
+    const childTabs = await page.$$eval(`${childCard} [data-block-tab]`, (els) => els.filter((e) => e.getClientRects().length).map((e) => e.textContent.trim()))
+    assert.deepEqual(childTabs, ["Settings", "Layout"], "a block inside a group has the same Settings and Layout tabs")
+    await tap(`${childCard} [data-block-tab="layout"]`)
+    assert.equal(await page.$$eval(`${childCard} [data-link-layout-choice]`, (e) => e.length), 8, "and the same eight link layouts")
+    await tap(`${childCard} [data-link-layout-choice="profile"]`)
+    await tap(`${childCard} [data-block-style] [data-segment="soft"]`)
+    await page.$eval('[data-block-open="group"]', (e) => e.click())
+    await sleep(300)
+
+    /* Change settings on top-level blocks too, save, reload: every value holds. */
+    await open("link")
+    await tap('[data-block-id="link"] [data-block-tab="layout"]')
+    await tap('[data-block-id="link"] [data-link-layout-choice="tile"]')
+    await tap('[data-block-id="link"] [data-link-image-options] [data-segment="4/5"]')
+    await page.$eval('[data-block-open="link"]', (e) => e.click())
+    await sleep(300)
+    await open("digital")
+    await tap('[data-block-id="digital"] [data-block-tab="layout"]')
+    await tap('[data-block-id="digital"] [data-shelf-card-choice="side"]')
+    await tap('[data-block-id="digital"] [data-shelf-layout] [data-segment="grid"]')
+    await tap('[data-block-id="digital"] [data-block-tab="settings"]')
+    await tap('[data-block-id="digital"] [role=switch][aria-label="Show price"]')
+    await page.$eval('[data-block-open="digital"]', (e) => e.click())
+    await sleep(300)
+    await open("signup")
+    await page.select('[data-block-id="signup"] [data-email-button-preset]', "join")
+    await sleep(150)
+    await save()
+    const saved = Object.fromEntries(blocks.map((b) => [b.id, b]))
+    const child = saved.group.data.children[0]
+    assert.equal(child.style?.presentation?.variant, "profile", "the group child's layout was saved")
+    assert.equal(child.style?.presentation?.shadow, "soft", "the group child's shadow was saved")
+    assert.equal(child.data.url, "https://example.com/inside", "the child kept its address")
+    assert.equal(saved.link.style.presentation.variant, "tile")
+    assert.equal(saved.link.style.presentation.aspect, "4/5")
+    assert.equal(saved.digital.data.product_settings.style, "side")
+    assert.equal(saved.digital.data.layout, "grid")
+    assert.equal(saved.digital.data.product_settings.show_price, false)
+    assert.equal(saved.signup.data.button_preset, "join")
+    assert.equal(saved.signup.data.button_text, "Join Now")
+
+    await page.reload({ waitUntil: "domcontentloaded" })
+    await page.waitForSelector("[data-onepage-loader]", { hidden: true })
+    await page.waitForSelector('[data-block-open="link"]', { visible: true })
+    await sleep(400)
+    await open("link")
+    await tap('[data-block-id="link"] [data-block-tab="layout"]')
+    const after = {}
+    after.link = await page.$eval('[data-block-id="link"] [data-link-layout-choice="tile"]', (e) => e.getAttribute("aria-pressed"))
+    after.aspect = await page.$eval('[data-block-id="link"] [data-link-image-options] [data-segment="4/5"]', (e) => e.getAttribute("aria-checked"))
+    await page.$eval('[data-block-open="link"]', (e) => e.click())
+    await sleep(300)
+    await open("digital")
+    after.price = await page.$eval('[data-block-id="digital"] [role=switch][aria-label="Show price"]', (e) => e.getAttribute("aria-checked"))
+    await tap('[data-block-id="digital"] [data-block-tab="layout"]')
+    after.card = await page.$eval('[data-block-id="digital"] [data-shelf-card-choice="side"]', (e) => e.getAttribute("aria-pressed"))
+    after.grid = await page.$eval('[data-block-id="digital"] [data-shelf-layout] [data-segment="grid"]', (e) => e.getAttribute("aria-checked"))
+    await page.$eval('[data-block-open="digital"]', (e) => e.click())
+    await sleep(300)
+    await open("signup")
+    after.preset = await page.$eval('[data-block-id="signup"] [data-email-button-preset]', (e) => e.value)
+    await page.$eval('[data-block-open="signup"]', (e) => e.click())
+    await sleep(300)
+    await open("group")
+    await tap('[data-group-child="child"]')
+    await tap('[data-group-child-settings="child"] [data-block-tab="layout"]')
+    after.child = await page.$eval('[data-group-child-settings="child"] [data-link-layout-choice="profile"]', (e) => e.getAttribute("aria-pressed"))
+    assert.deepEqual(after, { link: "true", aspect: "true", price: "false", card: "true", grid: "true", preset: "join", child: "true" }, "after a reload the editor shows what was saved")
     assert.deepEqual(errors, [])
-    report.push(`editor ${width}px: Settings|Layout on ${seen.join(", ")}; no Appearance & description`)
+    report.push(`editor ${width}px: Settings|Layout on ${seen.join(", ")} and a group child; no Appearance & description; saved and reloaded ${JSON.stringify(after)}`)
     await context.close()
   }
 
