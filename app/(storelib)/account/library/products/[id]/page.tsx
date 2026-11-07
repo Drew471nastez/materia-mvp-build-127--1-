@@ -6,6 +6,7 @@ import { fillOwnedProduct } from "@/lib/library/owned-products"
 import { pageUser } from "@/lib/auth/page-user"
 import { accessStateOf, canDeliver, decideAccess, orderNumberOf, overallState, type AccessState } from "@/lib/receipts/rules"
 import { LibraryProduct, type LibraryProductData } from "@/components/library/library-product"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 interface ProductAccessPageProps {
   params: Promise<{ id: string }>
@@ -122,7 +123,7 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
       addedAt: typeof a.created_at === "string" && purchasedAt && a.created_at > purchasedAt ? (a.created_at as string) : null,
     }))
 
-  const support = String(((supportRes as any)?.error ? null : (supportRes as any)?.data?.support_email) ?? "").trim()
+  const support = displayEmail(String(((supportRes as any)?.error ? null : (supportRes as any)?.data?.support_email) ?? "")) ?? ""
   const invoice = orders.some((o) => canDeliver(o) && Number(o.amount_cents) > 0 && !!o.stripe_payment_intent_id)
 
   const data: LibraryProductData = {

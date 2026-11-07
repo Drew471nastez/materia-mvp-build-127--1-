@@ -34,6 +34,7 @@ import { teamStoreForRequest, teamStoresReadForRequest } from "@/lib/team/server
 import { appLanding, ownAccountHref } from "@/lib/team/landing"
 import { TeamBar } from "@/components/app/team-bar"
 import { RAIL_COOKIE, railStateOf, railWidth } from "@/lib/ui/app-rail"
+import { emailLocalPart } from "@/lib/businesses/email-alias"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -349,7 +350,7 @@ export default async function AppLayout({
      /app page reads it before any of them hydrates. */
   const accountZone = accountTimeZone(null, user.user_metadata)
 
-  const displayName = profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || creator?.slug || user.email?.split("@")[0] || ""
+  const displayName = profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || creator?.slug || emailLocalPart(user.email) || ""
 
   /* The ring only from a creator and all four of its reads: otherwise it is left out, never drawn with a wrong count. */
   const setup = creator && ring

@@ -33,7 +33,17 @@ export class SettingUnread extends Error {
   }
 }
 
-type SettingClient = { from: (table: string) => { select: (cols: string) => { eq: (k: string, v: string) => { maybeSingle: () => PromiseLike<{ data: { value?: unknown } | null; error: { code?: string; message?: string } | null }> } } } }
+type SettingAnswer = { data: { value?: unknown } | null; error: { code?: string; message?: string } | null }
+type SettingQuery = { maybeSingle: () => PromiseLike<SettingAnswer>; abortSignal?: (signal: AbortSignal) => SettingQuery }
+type SettingClient = { from: (table: string) => { select: (cols: string) => { eq: (k: string, v: string) => SettingQuery } } }
+
+/*
+  HOW LONG A SWITCH MAY TAKE (round AL). Production, Nov 7 08:28 to 08:32 UTC: every platform_settings read during a
+  database slowdown ran to the 20 second read deadline (lib/net/deadline.ts), 30 of them across /, /explore, /sell,
+  /signup, /developers and /blog, each holding its function for those 20 seconds. One row by its key answers in
+  milliseconds when the database is there, so three seconds is ample; past that the caller keeps its last answer.
+*/
+export const SETTING_READ_MS = 3000
 
 /**
  * One boolean of platform_settings: true or false when it is set, null when
@@ -42,10 +52,24 @@ type SettingClient = { from: (table: string) => { select: (cols: string) => { eq
  */
 export async function readSetting(key: string, client: SettingClient = createAdminClient() as unknown as SettingClient): Promise<boolean | null> {
   let answer: Awaited<ReturnType<ReturnType<ReturnType<ReturnType<SettingClient["from"]>["select"]>["eq"]>["maybeSingle"]>>
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    answer = await client.from("platform_settings").select("value").eq("key", key).maybeSingle()
+    const ctl = new AbortController()
+    const query = client.from("platform_settings").select("value").eq("key", key)
+    const bounded = typeof query.abortSignal === "function" ? query.abortSignal(ctl.signal) : query
+    answer = await Promise.race([
+      bounded.maybeSingle(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          ctl.abort()
+          reject(new Error(`no answer in ${SETTING_READ_MS}ms`))
+        }, SETTING_READ_MS)
+      }),
+    ])
   } catch (e) {
     throw new SettingUnread(key, e instanceof Error ? e.message : String(e))
+  } finally {
+    if (timer) clearTimeout(timer)
   }
   if (answer.error) {
     if (missingTable(answer.error)) return null
