@@ -4,6 +4,7 @@
  *
  *   node scripts/check-onepage-header-al4.mjs
  *   SHOTS=/some/dir  also writes screenshots
+ *   ONLY=5           only the numbered parts given (ONLY=25 for two of them)
  *
  * The real public page, editor and preview frame (components/onepage/*),
  * bundled by scripts/onepage-probe-server.mjs, in headless Chromium.
@@ -88,6 +89,7 @@ const SOLID = { background_type: "solid", background_color: "#f5f1ea", text_colo
 const OWN_COVER = { cover_image_url: COVER, cover_profile_layout: true, cover_crop: { x: 50, y: 50, zoom: 1 } }
 
 try {
+  if (!process.env.ONLY || process.env.ONLY.includes("1")) {
   /* 1. The cover, edge to edge. */
   console.log("\n1. cover")
   for (const width of [320, 390, 1280]) {
@@ -130,6 +132,8 @@ try {
     }
   }
 
+  }
+  if (!process.env.ONLY || process.env.ONLY.includes("2")) {
   /* 2. The pattern keeps out from behind the header. */
   console.log("\n2. pattern")
   const PATTERN = { background_type: "solid", background_color: "#1a3a5a", text_color: "#ffffff", background_pattern: "grid", pattern_color: "#ffffffff", pattern_opacity: "very_hard", social_icon_style: "outline" }
@@ -175,6 +179,8 @@ try {
     await context.close()
   }
 
+  }
+  if (!process.env.ONLY || process.env.ONLY.includes("3")) {
   /* 3. The gradient drifting. */
   console.log("\n3. gradient drift")
   const GRAD = { background_type: "gradient", background_gradient: "linear-gradient(180deg, #f7c59f 0%, #c4553b 100%)", background_color: "#f7c59f", text_color: "#1a1a2e", animated_gradient: true }
@@ -216,6 +222,8 @@ try {
     await context.close()
   }
 
+  }
+  if (!process.env.ONLY || process.env.ONLY.includes("4")) {
   /* 4. The avatar opens. */
   console.log("\n4. avatar viewer")
   for (const width of [390, 1280]) {
@@ -246,14 +254,18 @@ try {
     await context.close()
   }
 
+  }
+  if (!process.env.ONLY || process.env.ONLY.includes("5")) {
   /* 5. The Design tab's way back. */
   console.log("\n5. sticky back")
   for (const [label, vp] of [["1440", { width: 1440, height: 900 }], ["390", { width: 390, height: 844, isMobile: true, hasTouch: true }]]) {
     const { page, context, errors } = await openPage(vp.width, SOLID, "/app/onepage#design", vp)
     await page.evaluate(() => { try { sessionStorage.clear() } catch {} })
+    await page.waitForSelector("[data-onepage-loader]", { hidden: true })
     await page.waitForSelector('[data-nav-row="wallpaper"]', { visible: true })
-    await sleep(600)
-    await page.click('[data-nav-row="wallpaper"]')
+    await sleep(900)
+    /* A press on the row itself: the editor may still be settling into place, and a press at screen coordinates could miss it. */
+    await page.$eval('[data-nav-row="wallpaper"]', (b) => b.click())
     await page.waitForSelector("[data-sticky-back]", { timeout: 5000 }).catch(async (e) => { if (shots) await page.screenshot({ path: `${shots}/al4-sticky-fail-${label}.png` }); throw e })
     await sleep(700)
     const read = () =>
@@ -280,12 +292,19 @@ try {
     assert.equal(up.state, "hidden", `${label}: hidden again at the top`)
     await page.evaluate(() => { const sc = document.querySelector("[data-sticky-back]").closest("[data-scroll-container]"); sc.scrollTop = 600 })
     await sleep(400)
+    const hit = await page.evaluate(() => {
+      const b = document.querySelector("[data-sticky-back-button]").getBoundingClientRect()
+      const at = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2)
+      return !!at?.closest("[data-sticky-back-button]")
+    })
+    assert.ok(hit, `${label}: the way back is on top where it is drawn`)
     await page.click("[data-sticky-back-button]")
     await page.waitForFunction(() => !document.querySelector("[data-sticky-back]"), { timeout: 3000 })
     await page.waitForSelector('[data-nav-row="wallpaper"]', { visible: true })
     note(`${label}px: pressing it went back to Design`)
     assert.deepEqual(errors, [])
     await context.close()
+  }
   }
   console.log(`\nok: ${results.length} measurements`)
 } finally {
