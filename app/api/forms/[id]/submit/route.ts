@@ -5,7 +5,7 @@ import { notifyUser } from "@/lib/notifications/user-inbox"
 import { UUID, actionHref, actionLabel, formVars, type NativeAction } from "@/lib/forms/actions"
 import { validateDefinition, validateAnswers, pickResult, fillTemplate, validTimeZone, answerText, type Answer, type FormDefinition } from "@/lib/forms/definition"
 import { expireUnpaidBookings } from "@/lib/forms/booking-payment"
-import { PUBLIC_HEADERS, formError, boundedJson, isMissingSchema, NEEDS_SQL } from "@/lib/forms/server"
+import { PUBLIC_HEADERS, formError, boundedJson, isMissingSchema, NEEDS_SQL, logFormsError, noteFormsTables } from "@/lib/forms/server"
 import { MAX_SUBMIT_BYTES, SUBMIT_LIMITS, formSubject, spamVerdict } from "@/lib/forms/spam"
 import { slotOffered, type Interval } from "@/lib/forms/slots"
 import { filesForSubmission } from "@/lib/forms/uploads-server"
@@ -65,7 +65,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .eq("id", id)
       .eq("status", "published")
       .maybeSingle()
-    if (readError) return formError(new Error("The form could not be read. Try again."), 503, PUBLIC_HEADERS)
+    if (noteFormsTables(readError)) return NextResponse.json({ error: "This form is not available.", code: "forms_missing" }, { status: 404, headers: PUBLIC_HEADERS })
+    if (readError) {
+      logFormsError("submit read", readError)
+      return formError(new Error("The form could not be read. Try again."), 503, PUBLIC_HEADERS)
+    }
     if (!form?.published) return formError(new Error("This form is not available."), 404, PUBLIC_HEADERS)
     if (body.revision !== form.revision) return formError(new Error("This form has changed. Reload it before sending."), 409, PUBLIC_HEADERS)
     const definition = validateDefinition(form.published)
@@ -192,7 +196,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           source: "system" as const,
           title: booked ? "New booking request" : "New form response",
           body: `${valid.name || valid.email || "Someone"} sent ${definition.title}`.slice(0, 200),
-          url: `/app/audience/leads?lead=${lead}`,
+          url: `/app/emails?tab=leads&lead=${lead}`,
           dedupeKey: `form-response:${lead}`,
         }
         if ((await notifyUser(db as never, notify)) === "unavailable") await notifyUser(db as never, notify)

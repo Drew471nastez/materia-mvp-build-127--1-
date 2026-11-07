@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { UUID } from "@/lib/forms/actions"
 import { validateDefinition, publicDefinition } from "@/lib/forms/definition"
-import { PUBLIC_HEADERS, formError } from "@/lib/forms/server"
+import { PUBLIC_HEADERS, formError, formsKnownMissing, logFormsError, noteFormsTables } from "@/lib/forms/server"
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: PUBLIC_HEADERS })
 }
@@ -13,12 +13,18 @@ export async function GET(
   const { id } = await params
   if (!UUID.test(id))
     return formError(new Error("Form not found."), 404, PUBLIC_HEADERS)
+  /* No forms tables on this store: the form is simply not available, never a "try again" a visitor can not fix. */
+  if (formsKnownMissing())
+    return NextResponse.json({ error: "This form is not available.", code: "forms_missing" }, { status: 404, headers: PUBLIC_HEADERS })
   const { data, error } = await createAdminClient()
     .from("native_forms")
     .select("id,published,revision")
     .eq("id", id)
     .eq("status", "published")
     .maybeSingle()
+  if (noteFormsTables(error))
+    return NextResponse.json({ error: "This form is not available.", code: "forms_missing" }, { status: 404, headers: PUBLIC_HEADERS })
+  if (error) logFormsError("public read", error)
   if (error)
     return formError(
       new Error("This form could not be loaded. Try again."),

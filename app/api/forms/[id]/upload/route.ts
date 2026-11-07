@@ -4,7 +4,7 @@ import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { fileOf } from "@/lib/cart-uploads/image"
 import { UUID } from "@/lib/forms/actions"
 import { validateDefinition } from "@/lib/forms/definition"
-import { PUBLIC_HEADERS, formError, NEEDS_SQL } from "@/lib/forms/server"
+import { PUBLIC_HEADERS, formError, NEEDS_SQL, noteFormsTables } from "@/lib/forms/server"
 import { UPLOAD_LIMITS, formSubject } from "@/lib/forms/spam"
 import { FORM_UPLOAD_MAX_BYTES, keepFormUpload } from "@/lib/forms/uploads-server"
 
@@ -43,6 +43,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!UUID.test(token) || !file) return formError(new Error("Reload the form and try again."), 400, PUBLIC_HEADERS)
   const db = createAdminClient()
   const { data: form, error } = await db.from("native_forms").select("id,owner_id,published").eq("id", id).eq("status", "published").maybeSingle()
+  if (noteFormsTables(error)) return NextResponse.json({ error: "This form is not available.", code: "forms_missing" }, { status: 404, headers: PUBLIC_HEADERS })
   if (error) return formError(new Error("The form could not be read. Try again."), 503, PUBLIC_HEADERS)
   if (!form?.published) return formError(new Error("This form is not available."), 404, PUBLIC_HEADERS)
   let fieldOk = false

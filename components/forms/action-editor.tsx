@@ -18,16 +18,22 @@
  *   types      only these choices, in this order
  *   vars       what {product_name} and {service} mean where this button is,
  *              for the preview of the message
+ *
+ * FORMS ARE CHOSEN AND MADE HERE (round AL). A form, a booking form and a
+ * chat's questions are picked with ./form-picker, which can also start a
+ * new form or edit the chosen one's questions over the editor. A WhatsApp
+ * or Telegram chat can "Ask a few questions first": the answers are saved
+ * as a lead, fill the message's variables, then the chat opens
+ * (./action-frame). The phone number has its country beside it, with flag
+ * and code (./phone-number-field).
  */
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import {
   MESSAGE_TEMPLATES,
   TEMPLATE_VARIABLES,
   UUID,
   actionFromUrl,
   actionHref,
-  e164,
-  internationalPhone,
   telegramTarget,
   whatsappGroupUrl,
   type ActionType,
@@ -35,9 +41,10 @@ import {
   type NativeAction,
 } from "@/lib/forms/actions"
 import { useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
-import { CountryPicker } from "@/components/app/settings/country-picker"
-import { countryOf, countryToSave } from "@/lib/account/country"
-import { callingCode, countryOfInternational, digitsFromKept, examplePhone, formatNational, fullNumber, nationalDigits } from "@/lib/account/phone"
+import { Switch } from "@/components/ui/switch"
+import { tt } from "@/lib/i18n/text"
+import { FormPicker, createForm, useFormsList } from "./form-picker"
+import { PhoneNumberField } from "./phone-number-field"
 
 const input =
   "w-full rounded-lg border border-[#e3e4e8] bg-white px-3 py-2 text-sm text-[#1a1a2e] outline-none focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]"
@@ -87,43 +94,8 @@ const empty = (type: string, keep?: { label?: string }): NativeAction => {
   }
 }
 
-type FormRow = {
-  id: string
-  title: string
-  status: string
-  draft?: { fields?: { id: string; label?: string; type?: string }[]; booking?: unknown } | null
-  published?: { fields?: { id: string; label?: string; type?: string }[]; booking?: unknown } | null
-}
-
-/** The creator's forms, read once per editor and only when a choice needs them. */
-function useForms(needed: boolean) {
-  const [forms, setForms] = useState<FormRow[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  useEffect(() => {
-    if (!needed || forms) return
-    let live = true
-    fetch("/api/forms", { cache: "no-store" })
-      .then(async (r) => {
-        const b = await r.json().catch(() => ({}))
-        if (!r.ok) throw new Error(b.error || "Forms could not be loaded.")
-        if (live) setForms(b.forms || [])
-      })
-      .catch((e) => {
-        if (live) setError(e instanceof Error ? e.message : "Forms could not be loaded.")
-      })
-    return () => {
-      live = false
-    }
-  }, [needed, forms])
-  return { forms: forms || [], error }
-}
-
-/** The visitor's country from the browser, for a number with no code yet. */
-function browserCountry(): string {
-  if (typeof navigator === "undefined") return "US"
-  const region = (navigator.language || "").split("-")[1]
-  return region && callingCode(region) ? region.toUpperCase() : "US"
-}
+/** The message a chat starts with when questions come first: each answer of the "Before a chat" form, in a sentence (lib/forms/templates prechat). */
+const PRECHAT_MESSAGE = "Hi, I'm {visitor_name}. It's about {service}. {answer:message}"
 
 export function ActionEditor({
   value,
@@ -151,11 +123,10 @@ export function ActionEditor({
   const type = current?.type || ""
   const a = (current || {}) as Record<string, any>
   const products = useCreatorProducts(type === "product")
-  const needsForms = type === "form" || type === "booking" || ((type === "whatsapp" || type === "telegram") && !!a.pre_chat)
-  const [askFirst, setAskFirst] = useState(!!a.pre_chat)
-  /* A number being typed with its own code, before the code is known. */
-  const [typing, setTyping] = useState<string | null>(null)
-  const { forms, error } = useForms(needsForms || askFirst)
+  const needsForms = (type === "whatsapp" || type === "telegram") && !!a.pre_chat
+  const { forms } = useFormsList(needsForms)
+  const [asking, setAsking] = useState(false)
+  const [askProblem, setAskProblem] = useState<string | null>(null)
   const message = useRef<HTMLTextAreaElement>(null)
   const [bookingMode, setBookingMode] = useState<"form" | "url">(a.url && !a.form_id ? "url" : "form")
 
@@ -180,64 +151,8 @@ export function ActionEditor({
     </label>
   )
 
-  /* The country beside the number: the saved one, else the one the number's code says, else the browser's. */
-  const phoneCountry = (a.country as string) || (a.phone ? countryOfInternational(String(a.phone), []) : null) || browserCountry()
-  const phone = (
-    <div className="space-y-1">
-      <span className="block text-xs font-medium text-[#4b5563]">Phone number</span>
-      <div className="grid gap-2">
-        {/* A new country keeps the digits typed and puts its own code in front. */}
-        <CountryPicker
-          value={countryToSave(phoneCountry)}
-          onChange={(name) => {
-            const next = countryOf(name)
-            if (!next) return
-            set({ country: next, phone: e164(fullNumber(digitsFromKept(String(a.phone ?? ""), phoneCountry), next)) })
-          }}
-        />
-        {/*
-          The country's code before the field, the number grouped as that
-          country writes it. A number typed or pasted with its code (+44 ...,
-          0044 ...) is kept as typed until its code is known, then the
-          country follows it.
-        */}
-        <div
-          data-phone-field=""
-          className="flex h-10 w-full items-stretch overflow-hidden rounded-lg border border-[#e3e4e8] bg-white text-sm text-[#1a1a2e] focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]"
-        >
-          {!typing && callingCode(phoneCountry) ? (
-            <span data-phone-prefix={`+${callingCode(phoneCountry)}`} className="flex shrink-0 select-none items-center border-r border-[#eceef1] px-3 tabular-nums text-[#4b5563]">
-              +{callingCode(phoneCountry)}
-            </span>
-          ) : null}
-          <input
-            type="tel"
-            inputMode="tel"
-            autoComplete="off"
-            aria-label="Phone number"
-            aria-invalid={!!a.phone && !internationalPhone(a.phone)}
-            placeholder={examplePhone(phoneCountry)}
-            className="min-w-0 flex-1 bg-transparent px-3 tabular-nums outline-none placeholder:text-[#9ca3af]"
-            value={typing ?? formatNational(digitsFromKept(String(a.phone ?? ""), phoneCountry), phoneCountry)}
-            onChange={(e) => {
-              const v = e.target.value
-              if (/^\s*(\+|00)/.test(v)) {
-                const found = countryOfInternational(v, [phoneCountry])
-                if (!found) return setTyping(v.slice(0, 24))
-                setTyping(null)
-                set({ country: found, phone: e164(fullNumber(nationalDigits(v, found), found)) })
-                return
-              }
-              setTyping(null)
-              set({ country: phoneCountry, phone: e164(fullNumber(nationalDigits(v, phoneCountry), phoneCountry)) })
-            }}
-            onBlur={() => setTyping(null)}
-          />
-        </div>
-      </div>
-      {a.phone && !internationalPhone(a.phone) ? <p className={problem}>Enter the whole number, without a leading 0.</p> : null}
-    </div>
-  )
+  /* The country beside the number, with its flag and code, and the number as that country writes it. */
+  const phone = <PhoneNumberField phone={String(a.phone ?? "")} country={a.country as string | undefined} label={tt("Phone number")} onChange={(next) => set(next)} />
 
   const insert = (token: string) => {
     const el = message.current
@@ -300,57 +215,45 @@ export function ActionEditor({
     </div>
   )
 
+  /*
+    ASK A FEW QUESTIONS FIRST. On: the visitor answers a short form on the
+    page (saved as a lead), its answers fill the message, then the chat
+    opens. The first time, the "Before a chat" form is made for the creator,
+    live at once, and the message is written to use its answers; after that
+    the switch reuses it. Off: the chat opens straight away.
+  */
+  const askFirst = async (on: boolean) => {
+    setAskProblem(null)
+    if (!on) return set({ pre_chat: undefined })
+    const kept = forms.find((f) => f.title === "Before we chat" && f.status === "published")
+    if (kept) return set({ pre_chat: { form_id: kept.id }, ...(a.message ? {} : { message: PRECHAT_MESSAGE }) })
+    setAsking(true)
+    const made = await createForm("prechat", true)
+    setAsking(false)
+    if (!made.form) return setAskProblem(made.missing ? tt("Forms are not switched on for this store yet. They need the Forms database update (SQL parts 372 and 375 in Admin › SQL updates).") : made.error)
+    set({ pre_chat: { form_id: made.form.id }, ...(a.message ? {} : { message: PRECHAT_MESSAGE }) })
+  }
   const preChat = (
-    <label className={labelCls}>
-      Before the chat opens
-      <select
-        className={input}
-        value={a.pre_chat?.form_id || ""}
-        onFocus={() => setAskFirst(true)}
-        onPointerDown={() => setAskFirst(true)}
-        onChange={(e) => set({ pre_chat: e.target.value ? { form_id: e.target.value } : undefined })}
-      >
-        <option value="">Open it straight away</option>
-        {forms.map((f) => (
-          <option key={f.id} value={f.id}>
-            Ask first: {f.title || "Unnamed form"}
-            {f.status !== "published" ? " (draft)" : ""}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="space-y-3 rounded-lg border border-[#eceef1] p-3" data-pre-chat={a.pre_chat ? "on" : "off"}>
+      <label className="flex cursor-pointer items-center justify-between gap-3">
+        <span className="min-w-0">
+          <span className="block text-sm font-medium text-[#1a1a2e]">{tt("Ask a few questions first")}</span>
+          <span className="block text-xs text-[#6b7280]">{tt("Answers are saved in Leads and added to the message.")}</span>
+        </span>
+        <Switch checked={!!a.pre_chat} disabled={asking} onCheckedChange={(on) => void askFirst(on)} aria-label={tt("Ask a few questions first")} />
+      </label>
+      {a.pre_chat ? <FormPicker kind="prechat" label={tt("Questions")} value={a.pre_chat.form_id || ""} allowEmpty={false} onChange={(id) => set({ pre_chat: id ? { form_id: id } : undefined })} /> : null}
+      {askProblem ? (
+        <p role="alert" className="text-xs text-[#b42318]">
+          {askProblem}
+        </p>
+      ) : null}
+    </div>
   )
 
-  const formSelect = (label: string, key: "form_id", bookingFirst = false) => {
-    /* A form with booking settings (lib/forms/definition BookingSettings, the Appointment template) takes times: those come first, and say so. */
-    const books = (f: FormRow) => !!(f.published?.booking || f.draft?.booking)
-    const list = bookingFirst ? [...forms].sort((x, y) => Number(books(y)) - Number(books(x))) : forms
-    return (
-      <>
-        <label className={labelCls}>
-          {label}
-          <select className={input} value={String(a[key] || "")} onChange={(e) => set({ [key]: e.target.value })}>
-            <option value="">Choose a form</option>
-            {list.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.title || "Unnamed form"}
-                {bookingFirst && books(f) ? " (takes bookings)" : ""}
-                {f.status !== "published" ? " (draft)" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <a href="/app/audience/forms" target="_blank" rel="noopener noreferrer" className="inline-block text-xs font-medium text-[#4b5563] underline">
-          Create or edit forms
-        </a>
-        {error ? (
-          <p role="alert" className="text-xs text-red-700">
-            {error}
-          </p>
-        ) : null}
-      </>
-    )
-  }
+  const formSelect = (label: string, key: "form_id", bookingFirst = false) => (
+    <FormPicker kind={bookingFirst ? "booking" : "form"} label={label} value={String(a[key] || "")} onChange={(id) => set({ [key]: id })} />
+  )
 
   /* Where it goes, shown once it can go anywhere: the address, short. */
   const shown = href && /^(https?:\/\/(wa\.me|t\.me|chat\.whatsapp\.com|whatsapp\.com)|mailto:|tel:|sms:)/.test(href)
@@ -366,7 +269,7 @@ export function ActionEditor({
           className={input}
           value={type}
           onChange={(e) => {
-            setAskFirst(false)
+            setAskProblem(null)
             setBookingMode("form")
             onChange(e.target.value ? empty(e.target.value, { label: a.label }) : undefined)
           }}

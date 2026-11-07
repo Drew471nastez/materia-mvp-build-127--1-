@@ -55,8 +55,9 @@ import { api as storeApi, peekGet } from "@/components/physical/ui"
 import { emailsOf } from "@/lib/emails/customer-list"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import type { LeadsData } from "./leads-panel"
 
-export type EmailsTab = "subscribers" | "messages" | "flows" | "customer" | "published" | "scheduled" | "drafts" | "platforms"
+export type EmailsTab = "subscribers" | "messages" | "leads" | "flows" | "customer" | "published" | "scheduled" | "drafts" | "platforms"
 
 /** A message from a contact form on one of the creator's websites (site_contact_messages, lib/site-contact). */
 export interface MessageRow {
@@ -176,6 +177,11 @@ export interface EmailsHomeProps {
   onToggleRead: (message: MessageRow) => void
   onDeleteMessage: (id: string) => void
 
+  /** The Leads tab's read (./leads-panel loadLeads), for the figures over it. */
+  leads?: LeadsData | null
+  /** The Leads tab's own table and dialog, drawn by ./emails-client (it owns the cache). */
+  leadsPanel?: React.ReactNode
+
   flows: FlowRow[]
   onToggleFlow: (flow: FlowRow) => void
   onDeleteFlow: (id: string) => void
@@ -201,6 +207,7 @@ export interface EmailsHomeProps {
 export const TABS: { id: EmailsTab; label: string }[] = [
   { id: "subscribers", get label() { return tt("Subscribers") } },
   { id: "messages", get label() { return tt("Messages") } },
+  { id: "leads", get label() { return tt("Leads") } },
   { id: "flows", get label() { return tt("Automations") } },
   { id: "customer", get label() { return tt("Customer emails") } },
   { id: "published", get label() { return tt("Sent") } },
@@ -219,7 +226,7 @@ function formatDay(iso?: string | null): string {
   return d.toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) }))
 }
 
-function formatWhen(iso?: string | null): string {
+export function formatWhen(iso?: string | null): string {
   if (!iso) return ""
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
@@ -238,7 +245,7 @@ function rate(part: number, whole: number): string {
  * darkens a row only after 120ms still on it (round 24, the owner: rows lit
  * up under a scrolling finger): a scroll cancels the pointer before then.
  */
-function usePress() {
+export function usePress() {
   /*
     WRITTEN ON THE ROW, NOT KEPT IN STATE (round 25). A press held in React
     state drew the whole table again on the way down, again on the way up
@@ -294,7 +301,7 @@ function usePress() {
   nothing flashes. null until known.
 */
 const NARROW = "(max-width: 639px)"
-function useNarrow(): boolean | null {
+export function useNarrow(): boolean | null {
   return React.useSyncExternalStore(
     (changed) => {
       const m = window.matchMedia(NARROW)
@@ -306,7 +313,7 @@ function useNarrow(): boolean | null {
   )
 }
 
-const pressable = "group cursor-pointer transition-colors duration-75 hover:bg-[#fafbfb] pointer-fine:active:bg-[#f4f5f7] data-[pressed=true]:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]"
+export const pressable = "group cursor-pointer transition-colors duration-75 hover:bg-[#fafbfb] pointer-fine:active:bg-[#f4f5f7] data-[pressed=true]:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]"
 
 /**
  * A ROW ON A PHONE, AS ORDERS DRAWS ONE (app/app/orders/orders-list.tsx
@@ -314,7 +321,7 @@ const pressable = "group cursor-pointer transition-colors duration-75 hover:bg-[
  * 15px, a quiet line at 14px, then its badges; its menu at the end, where a
  * thumb is. A table to swipe sideways stays a computer's.
  */
-function PhoneItem({ head, aside, line, meta, badges, menu, ...row }: { head: React.ReactNode; aside?: React.ReactNode; line?: React.ReactNode; meta?: React.ReactNode; badges?: React.ReactNode; menu: React.ReactNode } & React.LiHTMLAttributes<HTMLLIElement> & Record<`data-${string}`, string | undefined>) {
+export function PhoneItem({ head, aside, line, meta, badges, menu, ...row }: { head: React.ReactNode; aside?: React.ReactNode; line?: React.ReactNode; meta?: React.ReactNode; badges?: React.ReactNode; menu: React.ReactNode } & React.LiHTMLAttributes<HTMLLIElement> & Record<`data-${string}`, string | undefined>) {
   return (
     <li {...row} className={cn("orders-row", pressable, "flex items-center gap-1 py-3 pl-4 pr-1.5")} data-email-phone-row="">
       <div className="min-w-0 flex-1">
@@ -363,6 +370,7 @@ export function EmailsHome(props: EmailsHomeProps) {
         <section aria-label={TABS.find((t) => t.id === tab)?.label ?? tt("Emails")} className={cn(card, "mt-4 overflow-hidden")}>
           {tab === "subscribers" ? <SubscribersTable {...props} /> : null}
           {tab === "messages" ? <MessagesTable {...props} /> : null}
+          {tab === "leads" ? props.leadsPanel ?? null : null}
           {tab === "flows" ? <FlowsTable {...props} /> : null}
           {/* The emails buyers and members get, in three families: the same list, editor and saved words as Settings › Customer emails. */}
           {tab === "customer" ? <CustomerEmailsPanel bare source={{ data: props.customerEmails ?? null, onChange: props.onCustomerEmails }} /> : null}
@@ -514,6 +522,15 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
       { label: tt("Last 7 days"), help: tt("Messages sent in the last seven days."), value: n(p.messages.filter((m) => Date.parse(m.created_at) >= week).length) },
     ]
   }
+  if (p.tab === "leads") {
+    const t = p.leads?.totals
+    const v = (x: number | undefined) => (t && x !== undefined ? n(x) : "–")
+    return [
+      { label: tt("Leads"), help: tt("Everyone who answered one of your forms: a Form block, a form link, or the questions before a WhatsApp or Telegram chat."), value: v(t?.all) },
+      { label: tt("New"), help: tt("Leads you have not marked as contacted yet."), value: v(t?.fresh) },
+      { label: tt("Last 7 days"), help: tt("Leads from the last seven days."), value: v(t?.week) },
+    ]
+  }
   if (p.tab === "flows") {
     const sum = (k: keyof FlowTotals) => p.flows.reduce((total, f) => total + (f.totals?.[k] ?? 0), 0)
     const sent = sum("sent")
@@ -576,8 +593,8 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
 
 /* ─── Tables ─────────────────────────────────────────────────────────── */
 
-const th = "h-9 whitespace-nowrap px-3 text-left text-[12px] font-medium text-[#4b5563]"
-const td = "h-12 whitespace-nowrap px-3 text-[13px] text-[#1a1a2e]"
+export const th = "h-9 whitespace-nowrap px-3 text-left text-[12px] font-medium text-[#4b5563]"
+export const td = "h-12 whitespace-nowrap px-3 text-[13px] text-[#1a1a2e]"
 /**
  * The first column holds still while the rest scrolls under it, on a phone,
  * on the row's own opaque colour (hover and press included) so nothing shows
@@ -585,10 +602,10 @@ const td = "h-12 whitespace-nowrap px-3 text-[13px] text-[#1a1a2e]"
  * shadow at their right side once the rows have moved
  * (components/app/scroll-edge).
  */
-const sticky = "orders-sticky sticky left-0 z-[1] bg-white transition-colors duration-75 group-hover:bg-[#fafbfb] group-active:bg-[#f4f5f7] group-data-[pressed=true]:bg-[#f4f5f7]"
-const stickyHead = "sticky left-0 z-[1] bg-[#fafbfb]"
+export const sticky = "orders-sticky sticky left-0 z-[1] bg-white transition-colors duration-75 group-hover:bg-[#fafbfb] group-active:bg-[#f4f5f7] group-data-[pressed=true]:bg-[#f4f5f7]"
+export const stickyHead = "sticky left-0 z-[1] bg-[#fafbfb]"
 
-function Empty({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
+export function Empty({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center px-6 py-14 text-center">
       <p className="text-[15px] font-semibold text-[#1a1a2e]">{title}</p>
@@ -603,7 +620,7 @@ function Empty({ title, body, action }: { title: string; body: string; action?: 
  * rows, in light gray (components/ui/shimmer). Nothing for 200ms, so a quick
  * answer shows only the table.
  */
-function Loading() {
+export function Loading() {
   return <ShimmerRows rows={5} header cols={["34%", "16%", "14%", "10%"]} label={tt("Loading")} />
 }
 
@@ -652,7 +669,7 @@ const STATUS_GROUPS: Array<{ value: string; label: string; match: (status: strin
 ]
 
 /** A filter as a chip in the table's toolbar, the way Orders draws its own. */
-function FilterChip({
+export function FilterChip({
   label,
   value,
   options,
