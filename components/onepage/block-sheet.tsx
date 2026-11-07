@@ -46,7 +46,7 @@ import { tt } from "@/lib/i18n/text"
 import { sheetTokens, useStillPage } from "@/components/onepage/onepage-dialog"
 import { BLOCK_SHEET_HISTORY_KEY, SHEET_MOTION, blockSheetEntryOf } from "@/lib/onepage/block-sheet"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
-import { backInFlight } from "@/lib/navigation/go-back"
+import { backInFlight, backThen } from "@/lib/navigation/go-back"
 
 export type OpenMode = "sheet" | "direct"
 
@@ -291,15 +291,14 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
       if (settled) return
       settled = true
       window.removeEventListener("popstate", done)
-      window.clearTimeout(timer)
       then?.()
     }
-    const timer = window.setTimeout(() => {
+    window.addEventListener("popstate", done)
+    /* Back off our entry, watched (lib/navigation/go-back): should it do nothing, the entry is unmarked instead. */
+    backThen(() => {
       strip()
       done()
     }, 500)
-    window.addEventListener("popstate", done)
-    window.history.back()
   }, [])
 
   useEffect(() => {
