@@ -56,6 +56,7 @@ import type { SectionInstance } from "@/lib/website-builder/types"
 import { ACCOUNT_FORMS_SCRIPT, ACCOUNT_FORMS_STYLE } from "@/lib/site-accounts/forms-script"
 import { withAccountWords } from "@/lib/site-accounts/account-sections"
 import { customerInLanguage } from "@/lib/site-accounts/account-language"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 export type AccountPageKey = "account" | "login" | "wishlist" | "contact" | "password" | "reviews"
 
@@ -72,7 +73,7 @@ async function supportEmail(creatorId: string): Promise<string> {
   try {
     const { data } = await createAdminClient().from("creators").select("support_email").eq("id", creatorId).maybeSingle()
     const email = (data as { support_email?: string | null } | null)?.support_email
-    return typeof email === "string" ? email.trim() : ""
+    return typeof email === "string" ? displayEmail(email) ?? "" : ""
   } catch {
     return ""
   }

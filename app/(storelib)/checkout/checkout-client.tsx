@@ -64,6 +64,7 @@ import { useBackFromCache } from "@/hooks/use-back-from-cache"
 import { confirmOutcomeUnknown, intentKey, nextPress, type Held } from "@/lib/checkout/pay-retry"
 import { CHECKING_MESSAGE } from "@/lib/checkout/confirm-outcome"
 import { attemptIdOf } from "@/lib/checkout/attempt-id"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 interface CheckoutPageClientProps {
   product: {
@@ -187,7 +188,7 @@ export default function CheckoutPageClient({
   /* In the store's own currency, the one Pay charges (app/checkout/page.tsx sets it). */
   const money = useMoney()
   const chargeCurrency = useCheckoutCurrency()
-  const [email, setEmail] = React.useState(() => searchParams.get("email") || userEmail || "")
+  const [email, setEmail] = React.useState(() => searchParams.get("email") || displayEmail(userEmail) || "")
   /* One "Full name" box, as Stripe asks for it, or First and Last apart when the store asks for both (Settings › Checkout); the order keeps a first and a last name either way. */
   const splitName = checkoutConfig.nameFields === "first_and_last"
   const [fullName, setFullName] = React.useState(() => [searchParams.get("firstName"), searchParams.get("lastName")].filter(Boolean).join(" "))

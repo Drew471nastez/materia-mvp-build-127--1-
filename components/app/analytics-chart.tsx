@@ -54,7 +54,7 @@ import { MorphLines } from "@/components/app/morph-lines"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { useStoreCurrency } from "@/lib/store/currency-context"
-import { GhostLine, nothingToDraw } from "@/components/analytics/empty-state"
+import { nothingToDraw } from "@/components/analytics/empty-state"
 
 /** How tall the chart is, and the band under the plot that holds the dates. */
 const CHART_H = 200
@@ -222,6 +222,8 @@ interface FrameProps {
   top: number
   ticks: number[]
   plotLeft: number
+  /** False for a chart with nothing to draw: no grid behind the flat line. */
+  grid: boolean
 }
 
 /**
@@ -231,7 +233,7 @@ interface FrameProps {
  * only the numbers never reaches it. The lines are components/app/morph-lines,
  * drawn over it.
  */
-const Frame = memo(function Frame({ dates, top, ticks, plotLeft }: FrameProps) {
+const Frame = memo(function Frame({ dates, top, ticks, plotLeft, grid }: FrameProps) {
   const data = useMemo(() => dates.map((date) => ({ date })), [dates])
   const widest = useMemo(() => Math.max(0, ...dates.map(labelWidth)), [dates])
   return (
@@ -240,11 +242,13 @@ const Frame = memo(function Frame({ dates, top, ticks, plotLeft }: FrameProps) {
         {/* The grid lines at the ticks, placed by us: with the axis drawing no
             text, recharts would keep only the top and the floor. The same
             four heights on every tab. */}
-        <CartesianGrid
-          stroke="#f1f2f4"
-          vertical={false}
-          horizontalPoints={ticks.map((t) => PLOT_TOP + (1 - t / top) * (CHART_H - PLOT_TOP - XAXIS_H))}
-        />
+        {grid ? (
+          <CartesianGrid
+            stroke="#f1f2f4"
+            vertical={false}
+            horizontalPoints={ticks.map((t) => PLOT_TOP + (1 - t / top) * (CHART_H - PLOT_TOP - XAXIS_H))}
+          />
+        ) : null}
         <XAxis
           dataKey="date"
           height={XAXIS_H}
@@ -422,13 +426,16 @@ function AnalyticsChartWithTooltipInner({
   }, [chartDisplayData, visibleKeys, compareKey, format, seriesLabels, color])
   const scrubTitle = useCallback((i: number) => chartDisplayData[i]?.date ?? "", [chartDisplayData])
 
-  /* Round 51: nothing in this period or the one it is compared with is the ghost of a line (components/analytics/empty-state), not a full colour line at zero under an axis of 1, 2, 3. */
+  /*
+    NOTHING IN THIS PERIOD OR THE ONE IT IS COMPARED WITH. Changed on purpose (round AL), the owner: "it should be like
+    how it was before with the purple line flat ... do not use those like gray curve". So the line is the chart's own
+    colour, flat on the floor, with its dot at the end, and nothing else: no grid, no axis numbers, no grey shape.
+  */
   const blank = !isLoading && n > 0 && nothingToDraw(...lines, comparedLine)
 
   return (
     <div data-chart-loading={isLoading ? "true" : "false"} style={{ position: "relative", height: CHART_H }}>
-      <Frame dates={dates} top={scale.top} ticks={scale.ticks} plotLeft={plotLeft} />
-      <GhostLine shown={blank} className="absolute" style={{ left: plotLeft, right: PLOT_RIGHT, top: PLOT_TOP + plotHeight * 0.3, height: plotHeight * 0.7 }} />
+      <Frame dates={dates} top={scale.top} ticks={scale.ticks} plotLeft={plotLeft} grid={!blank} />
 
       {/*
         THE LINE, WHAT IT IS COMPARED WITH, AND THE DOT AT ITS END:
@@ -444,7 +451,7 @@ function AnalyticsChartWithTooltipInner({
         right={PLOT_RIGHT}
         plotTop={PLOT_TOP}
         plotHeight={plotHeight}
-        loading={isLoading || blank}
+        loading={isLoading}
         color={color}
         comparedColor={CHART_COLORS.compared}
       />

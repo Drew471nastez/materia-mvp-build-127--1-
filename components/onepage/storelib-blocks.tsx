@@ -6,6 +6,7 @@ import { ProductLayoutThumb, layoutHasCard, layoutLabel, useCreatorProducts } fr
 import { ImageUpload } from "@/components/app/image-upload"
 import type { ProductBlockData, ProductBlockStyle } from "@/lib/onepage/types"
 import { useBlockPart } from "./block-part"
+import { ArrangePicker, CardsInViewControl, EditorThemeContext, HowManyControl } from "./layout-pickers"
 import { ChoiceMark } from "./choice-marks"
 import { PRODUCT_LAYOUTS, productLayoutOf } from "@/lib/onepage/product-block"
 import type { BlockPresentation } from "@/lib/onepage/block-presentation"
@@ -180,6 +181,17 @@ function priceLine(item: ShelfItem, money: (c: number) => string): string | null
   return p
 }
 
+/** A shelf carousel's card width for its cards in view (round AL); null keeps the width it always had. */
+function shelfSlideWidth(view: StorelibShelfBlockData["carousel_view"], gap: number): string | null {
+  switch (view) {
+    case "1": return "100%"
+    case "1.2": return "82%"
+    case "1.5": return "64%"
+    case "2": return `calc(50% - ${gap / 2}px)`
+    default: return null
+  }
+}
+
 function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLook }) {
   const money = usePageMoney()
   const { data, loading } = useLiveData<StorelibShelfBlockData>(block, look, (d) => Array.isArray(d.items))
@@ -202,7 +214,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
     <div data-onepage-shelf={shelfSource(data.source)} className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       <BlockTitle text={data.title} look={look} />
       {shelfUsesProductCards(data) && shelfSource(data.source)!=="community" ? <div className={data.layout==="carousel"?"flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none]":data.layout==="grid"?"grid grid-cols-2 gap-3":"flex flex-col gap-3"}>
-       {items.map(item=><div key={item.id} className={data.layout==="carousel"?"w-[85%] shrink-0 snap-start":"min-w-0"}><OnePageProductBlock block={{id:`${block.id}:${item.id}`,type:"product",enabled:true,sort_order:0,data:{show_price:true,show_description:true,cta_text:tt("View product"),style:"callout",...data.product_settings,...data.product_overrides?.[item.id],product_id:item.id,product_title:item.title,product_thumbnail:item.image,product_slug:item.href.split('/').filter(Boolean).pop(),product_type:item.kind,product_price_cents:item.price_cents,product_variant_min_cents:item.variant_min_price_cents,product_variant_max_cents:item.variant_max_price_cents,product_variant_count:item.variant_count,product_single_variant_id:item.single_variant_id}}} theme={look.theme} quiet={look.still} inPair={data.layout==="grid"} seller={{name:"",avatarUrl:null}} pageMoney={money} plainText={s=>s?.replace(/<[^>]*>/g,'')||''} trackClick={()=>{}} animationClass="" quick={null}/></div>)}
+       {items.map(item=><div key={item.id} className={data.layout==="carousel"?"w-[85%] shrink-0 snap-start":"min-w-0"} style={data.layout==="carousel"&&shelfSlideWidth(data.carousel_view,12)?{width:shelfSlideWidth(data.carousel_view,12)!}:undefined}><OnePageProductBlock block={{id:`${block.id}:${item.id}`,type:"product",enabled:true,sort_order:0,data:{show_price:true,show_description:true,cta_text:tt("View product"),style:"callout",...data.product_settings,...data.product_overrides?.[item.id],product_id:item.id,product_title:item.title,product_thumbnail:item.image,product_slug:item.href.split('/').filter(Boolean).pop(),product_type:item.kind,product_price_cents:item.price_cents,product_variant_min_cents:item.variant_min_price_cents,product_variant_max_cents:item.variant_max_price_cents,product_variant_count:item.variant_count,product_single_variant_id:item.single_variant_id}}} theme={look.theme} quiet={look.still} inPair={data.layout==="grid"} seller={{name:"",avatarUrl:null}} pageMoney={money} plainText={s=>s?.replace(/<[^>]*>/g,'')||''} trackClick={()=>{}} animationClass="" quick={null}/></div>)}
       </div> : list ? (        <div className="flex flex-col" style={{ gap: px(8, look.scale) }}>
           {items.map((item) => (
             <a key={item.id} href={platformHref(item.href)} className="op-card flex w-full items-center no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, borderRadius: radius, padding: px(8, look.scale), gap: px(12, look.scale) }}>
@@ -224,7 +236,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
       ) : (
         <div data-shelf-arrange={simpleGrid ? "grid" : "carousel"} className={simpleGrid ? "grid grid-cols-2" : "-mx-1 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
           {items.map((item) => (
-            <a key={item.id} href={platformHref(item.href)} className="op-card flex shrink-0 snap-start flex-col no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, width: simpleGrid ? "100%" : px(158, look.scale), minWidth: 0, borderRadius: radius, padding: px(6, look.scale) }}>
+            <a key={item.id} href={platformHref(item.href)} className="op-card flex shrink-0 snap-start flex-col no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, width: simpleGrid ? "100%" : shelfSlideWidth(data.carousel_view, 10) ?? px(158, look.scale), minWidth: 0, borderRadius: radius, padding: px(6, look.scale) }}>
               <span className="relative block w-full overflow-hidden bg-black/10" style={{ aspectRatio: "1 / 1", borderRadius: Math.max(radius - 4, 6) }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {item.image ? <img src={item.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" /> : null}
@@ -774,8 +786,10 @@ function SimpleShelfThumb() {
 }
 
 /** Plain cards or one of the product block's eight layouts, as pictures (components/onepage/tabs/product-block-editor). */
-function ShelfCardPicker({ data, onPick }: { data: StorelibShelfBlockData; onPick: (id: "simple" | ProductBlockStyle) => void }) {
+function ShelfCardPicker({ data, onPick, image }: { data: StorelibShelfBlockData; onPick: (id: "simple" | ProductBlockStyle) => void; image?: string | null }) {
   const settings = data.product_settings || {}
+  /* Round AL: drawn in the page's colours with one of the shelf's own products, as the product block's picker is. */
+  const theme = React.useContext(EditorThemeContext)
   const current = shelfUsesProductCards(data) ? productLayoutOf({ style: settings.style ?? "callout", style_chosen: true }) : "simple"
   const options: ("simple" | ProductBlockStyle)[] = ["simple", ...PRODUCT_LAYOUTS.filter((id) => id !== "button")]
   return (
@@ -796,7 +810,7 @@ function ShelfCardPicker({ data, onPick }: { data: StorelibShelfBlockData; onPic
             >
               <ChoiceMark on={on} />
               <span className="block aspect-[4/3] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
-                {id === "simple" ? <SimpleShelfThumb /> : <ProductLayoutThumb id={id} />}
+                {id === "simple" ? <SimpleShelfThumb /> : <ProductLayoutThumb id={id} theme={theme as never} image={image} />}
               </span>
               <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{id === "simple" ? tt("Simple") : layoutLabel(id)}</span>
             </button>
@@ -817,11 +831,12 @@ function ShelfCardPicker({ data, onPick }: { data: StorelibShelfBlockData; onPic
 function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updateData: (u: Partial<StorelibShelfBlockData>) => void }) {
   const part = useBlockPart()
   const source = shelfSource(data.source)
-  const products = useCreatorProducts(part !== "layout")
+  const products = useCreatorProducts(true)
   const [editing, setEditing] = React.useState("")
   const settings = data.product_settings || {}
   const setSettings = (patch: Partial<ProductBlockData>) => updateData({ product_settings: { ...settings, ...patch } })
   const productCards = source !== "community" && shelfUsesProductCards(data)
+  const arrange: NonNullable<StorelibShelfBlockData["layout"]> = data.layout || (productCards ? "list" : "carousel")
   const settingsHalf = (
     <div className="space-y-4" data-shelf-settings="">
       <div className={fieldBox}>
@@ -831,10 +846,6 @@ function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updat
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Title (optional)")}</Label>
         <Input value={data.title ?? ""} maxLength={60} placeholder={SHELF_WORD[source]()} onChange={(e) => updateData({ title: e.target.value })} />
-      </div>
-      <div className={fieldBox}>
-        <Label className={fieldLabel}>{tt("How many")}</Label>
-        <Segmented label={tt("How many")} value={String(shelfLimit(data.limit))} options={["3", "6", "9", "12"].map((n) => ({ id: n, label: n }))} onChange={(v) => updateData({ limit: Number(v) })} />
       </div>
       {productCards ? (
         <div className="space-y-3 border-t border-[#eef0f2] pt-4" data-shelf-product-settings="">
@@ -885,23 +896,30 @@ function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updat
   )
   const layoutHalf = (
     <div className="space-y-5" data-shelf-layout="">
-      <div className="space-y-2.5">
-        <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Arrange")}</p>
-        <Segmented
-          label={tt("Arrange")}
-          /* Product cards with no arrangement saved have always been drawn as a list. */
-          value={data.layout || (productCards ? "list" : "carousel")}
-          options={[
-            { id: "carousel", label: tt("Slide") },
-            { id: "list", label: tt("List") },
-            { id: "grid", label: tt("Grid") },
-          ]}
-          onChange={(v) => updateData({ layout: v as StorelibShelfBlockData["layout"] })}
-        />
-      </div>
+      {/*
+        Round AL: the arrangement as pictures, then for a carousel its cards
+        in view, then how many (from Settings): everything about how the
+        shelf sits on the page, in one place.
+      */}
+      <ArrangePicker
+        /* Product cards with no arrangement saved have always been drawn as a list. */
+        value={arrange}
+        options={[
+          { id: "list", kind: "list", label: tt("List") },
+          { id: "grid", kind: "grid", label: tt("Grid") },
+          { id: "carousel", kind: "carousel", label: tt("Carousel") },
+        ]}
+        images={products?.filter((p) => source === "all" || p.type === source).slice(0, 3).map((p) => p.thumbnail_url)}
+        onChange={(v) => updateData({ layout: v })}
+      />
+      {arrange === "carousel" ? (
+        <CardsInViewControl value={data.carousel_view || (productCards ? "1.2" : "2")} onChange={(carousel_view) => updateData({ carousel_view })} />
+      ) : null}
+      <HowManyControl value={shelfLimit(data.limit)} options={[3, 6, 9, 12]} onChange={(limit) => updateData({ limit })} />
       {source !== "community" ? (
         <ShelfCardPicker
           data={data}
+          image={products?.find((p) => (source === "all" || p.type === source) && p.thumbnail_url)?.thumbnail_url ?? null}
           onPick={(id) =>
             id === "simple"
               ? updateData({ card_style: "simple" })

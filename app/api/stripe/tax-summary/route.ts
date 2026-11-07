@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
 import { byCreator, ownRows, scopedOrders } from "@/lib/analytics/creator-orders"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 const TAX_SUMMARY_PAGE = 1_000
 const TAX_SUMMARY_MAX_ROWS = 200_000
@@ -61,7 +62,7 @@ export async function GET(request: Request) {
       return NextResponse.json({
         year,
         sellerName: profile?.display_name || "Seller",
-        sellerEmail: profile?.email || "",
+        sellerEmail: displayEmail(profile?.email) || "",
         grossEarnings: 0,
         platformFees: 0,
         netEarnings: 0,
@@ -183,7 +184,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       year,
       sellerName: profile?.display_name || "Seller",
-      sellerEmail: profile?.email || "",
+      sellerEmail: displayEmail(profile?.email) || "",
       grossEarnings,
       platformFees,
       netEarnings,

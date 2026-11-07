@@ -4,6 +4,7 @@ import { AppAvatar } from "@/components/app/app-avatar"
 import * as React from "react"
 import { ArrowUpRight, LayoutGrid, LogOut, Mail, Settings, Compass, Library, UserRound } from "lucide-react"
 import { mainSiteUrl, publicHelpUrl } from "@/lib/help/paths"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 type Me = { signedIn: false } | { signedIn: true; kind?: "seller" | "buyer"; name: string; email: string | null; avatarUrl: string | null }
 
@@ -96,7 +97,7 @@ export function HelpAccount() {
         >
           <div className="px-2.5 pb-2 pt-1.5">
             <p className="truncate text-[13.5px] font-semibold text-[#1a1a2e]">{me.name}</p>
-            {me.email ? <p className="truncate text-[12.5px] text-[#6b7280]">{me.email}</p> : null}
+            {displayEmail(me.email) ? <p className="truncate text-[12.5px] text-[#6b7280]">{displayEmail(me.email)}</p> : null}
           </div>
           <div className="my-1 h-px bg-[#f1f2f4]" />
           {me.kind === "buyer" ? (

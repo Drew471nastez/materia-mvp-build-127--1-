@@ -71,6 +71,7 @@ import { changeOf, percentText, ratio, roundShares } from "@/lib/analytics/perce
 import { TrendMiniChart } from "@/components/analytics/trend-mini-chart"
 import { EmptyState } from "@/components/analytics/empty-state"
 import { DetailBody, DetailPanel, OpenDetailContext, RowLinesContext, ViewReport, type DetailSection, type DetailView, type RowLines } from "./report-detail"
+import { fetchWithDeadline } from "@/lib/net/request"
 
 /** Storelib's accent, the one every /app screen uses: the added reports' columns. */
 const ACCENT = "#8b5cf6"
@@ -1268,7 +1269,8 @@ function askLines(question: string, dim: string): Promise<RowLines> {
   const key = `${question}|${dim}`
   const known = askedLines.get(key)
   if (known) return known
-  const p: Promise<RowLines> = fetch(`/api/analytics/rows?${question}&dim=${encodeURIComponent(dim)}`, { credentials: "same-origin" })
+  /* Round AL: with an end, so a report's lines that never answer say they failed instead of waiting for ever (lib/net/request WAIT_MS.read). */
+  const p: Promise<RowLines> = fetchWithDeadline(`/api/analytics/rows?${question}&dim=${encodeURIComponent(dim)}`, { credentials: "same-origin" })
     .then(async (res) => {
       if (!res.ok) throw new Error(String(res.status))
       const body = (await res.json()) as { series?: Record<string, number[]> }

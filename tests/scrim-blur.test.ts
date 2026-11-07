@@ -166,7 +166,8 @@ function main() {
   */
   /* Links went from 5 to 13 and the Design tab from 0 to 11 when their last centred dialogs (the name and bio, the avatar and video steps, the crops, the image library, the layout questions) became the shared sheet on a phone too. Links 14 in round 11: Choose icon is a sheet of its own on a phone (components/onepage/icon-library), on purpose. */
   for (const [file, count] of [
-    ["components/onepage/tabs/links-tab.tsx", 14],
+    /* Changed on purpose (round AL): 13, a block's animation is picked in its Layout tab, so the row's animation sheet is gone. */
+    ["components/onepage/tabs/links-tab.tsx", 13],
     /* 10 since round 11: the wallpaper's one-button "Upload Video" sheet is gone; Upload and Replace open the device's picker directly. */
     /* Changed on purpose (round AL): 9. Theme's "Update to Classic" question is gone; a Classic theme keeps a creator's Hero now. */
     ["components/onepage/tabs/design-tab.tsx", 9],

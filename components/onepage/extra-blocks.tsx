@@ -54,6 +54,8 @@ import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DateTimeField } from "@/components/onepage/date-time-field"
 import { CreatorBlock, CreatorBlockEditor } from "@/components/onepage/creator-blocks"
 import { storelibBlockRow } from "@/components/onepage/storelib-blocks"
+import { AppBlock, appBlockRow } from "@/components/onepage/app-block"
+import { AppBlockEditor } from "@/components/onepage/app-block-editor"
 import { GlyphBooking, GlyphContact, GlyphCountdown, GlyphCourse, GlyphFaq, GlyphHeading, GlyphIntegration, GlyphMap, GlyphMusic, GlyphTestimonials, GlyphVideo } from "@/components/onepage/block-icons"
 import { EMBED_PROVIDER_NAME, MUSIC_PROVIDER_NAME, cleanTestimonials, embedSource, lessonsLabel, musicSource, tiktokPlayerUrl, type EmbedKind } from "@/lib/onepage/creator-blocks"
 import { SocialIcon } from "@/components/onepage/brand-icons"
@@ -388,6 +390,9 @@ export function ExtraBlock({ block, look: given }: { block: OnePageBlock; look: 
       return <MapView data={block.data as MapBlockData} look={look} />
     case "video":
       return <VideoView data={block.data as VideoBlockData} look={look} />
+    case "app":
+      /* Round AL: every service with no block of its own (./app-block). */
+      return <AppBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, onepageId: look.onepageId, still: look.still }} />
     default:
       /* Course, music, testimonials and the contact form (./creator-blocks). */
       return <CreatorBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, sellerId: look.sellerId, onepageId: look.onepageId, still: look.still, button: themeButtonStyle(look.theme) }} />
@@ -641,6 +646,8 @@ export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: s
       const mark = s ? EMBED_MARK[s.kind] : undefined
       return { title: d.title?.trim() || (s ? EMBED_PROVIDER_NAME[s.kind] : tt("Embed")), subtitle: s ? EMBED_PROVIDER_NAME[s.kind] : tt("Paste a link"), icon: mark ? brandGlyph(mark) : GlyphIntegration }
     }
+    case "app":
+      return appBlockRow(block)
     default:
       /* The shelf, lead magnets, posts, followers and codes (./storelib-blocks). */
       return storelibBlockRow(block) ?? { title: block.type, subtitle: "", icon: GlyphBooking }
@@ -698,10 +705,7 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
             <Label className={label}>{tt("Size")}</Label>
             <Segmented value={d.size || "medium"} options={[{ id: "small", label: tt("Small") }, { id: "medium", label: tt("Medium") }, { id: "large", label: tt("Large") }]} onChange={(size) => updateData({ size })} />
           </div>
-          <div className={field}>
-            <Label className={label}>{tt("Alignment")}</Label>
-            <Segmented value={d.alignment || "center"} options={[{ id: "left", label: tt("Left") }, { id: "center", label: tt("Center") }, { id: "right", label: tt("Right") }]} onChange={(alignment) => updateData({ alignment })} />
-          </div>
+          {/* Round AL: the alignment is the Layout tab's one Alignment row (components/onepage/block-settings), which writes this block's own. */}
         </div>
       )
     }
@@ -818,6 +822,8 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
         </div>
       )
     }
+    case "app":
+      return <AppBlockEditor block={block} updateData={updateData} />
     default:
       return <CreatorBlockEditor block={block} updateData={updateData} />
   }

@@ -5,7 +5,7 @@ import {actionHref,readAction,whatsappGroupUrl,type ActionType,type NativeAction
 
 import {HeaderCoverEditor} from "../header-cover-editor"
 
-import { BlockDescriptionField, BlockEditorTabs, BlockPartContext, BlockStyleControls, LinkImageOptions, LinkLayoutPicker, LinkPreviewControls, SocialShowAs, PartContent, PartHidden, PartTabs } from "../block-settings"
+import { ArrangePicker, CardsInViewControl, EditorThemeContext, BlockAnimationPicker, ANIMATED_BLOCKS, ClassicFeaturedPicker, BlockDescriptionField, BlockEditorTabs, BlockPartContext, BlockStyleControls, LinkImageOptions, LinkLayoutPicker, LinkPreviewControls, SocialShowAs, PartContent, PartHidden, PartTabs } from "../block-settings"
 import { layoutControlsFor, linkLayoutOf, presentationOf } from "@/lib/onepage/block-presentation"
 import { editedMark, mergeLinkPreview } from "@/lib/onepage/link-preview"
 
@@ -143,8 +143,14 @@ import {
 import { LinkStatsChart, type LinkStats } from "@/components/onepage/link-stats-chart"
 import { pageClickCounts } from "@/lib/onepage/stats-client"
 
-/* The blocks whose row shows a count of clicks (sign-ups for an email block) beside it. */
-const ROW_COUNT_TYPES = new Set(["link_button", "email_capture", "group", "product", "pdf_document", "food_menu", "calendly", "image", "social_row"])
+/*
+  The blocks whose row shows a count of clicks (sign-ups for an email block)
+  beside it, and its stats. Round AL: every block the page counts
+  (components/onepage/block-activity), which is every block someone can
+  press, play or send; only the profile header and a divider have nothing.
+*/
+const NO_STATS_TYPES = new Set(["header", "divider"])
+const ROW_COUNT_TYPES = { has: (type: string) => !NO_STATS_TYPES.has(type) }
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import NextLink from "next/link"
@@ -1360,7 +1366,7 @@ export function LinksTab() {
   const activeSocials = Object.entries(social_links || {}).filter(([_, url]) => url)
 
   return (
-    <div className="space-y-6" data-scroll-container="links-tab" style={{ touchAction: "manipulation" }}>
+    <div className="space-y-6" data-links-tab="" style={{ touchAction: "manipulation" }}>
       {/* Profile Header with Real SVG Icons */}
       <div className="flex items-center gap-4 pt-[8px] sm:pt-0 pb-5 border-b">
         <div className="relative group shrink-0 cursor-pointer" onClick={() => setShowAvatarEditModal(true)}>
@@ -3305,8 +3311,6 @@ function BlockItem({
   */
   const rowProducts = useCreatorProducts(block.type === "product" && !!(block.data as ProductBlockData)?.product_id)
   const productGone = block.type === "product" && !!(block.data as ProductBlockData)?.product_id && editorProductState((block.data as ProductBlockData).product_id, rowProducts) === "unavailable"
-  const [showAnimationMenu, setShowAnimationMenu] = useState(false)
-  const [showAnimationSheet, setShowAnimationSheet] = useState(false)
   const [showButtonTextMenu, setShowButtonTextMenu] = useState(false)
   const [showStatsModal, setShowStatsModal] = useState(false)
   const [statsData, setStatsData] = useState<LinkStats | null>(null)
@@ -3319,34 +3323,9 @@ function BlockItem({
   const [statsPeriod, setStatsPeriod] = useState<RangeValue>(() => resolveValue({ preset: 'last_7_days' }, statsToday, 'last_7_days'))
   /* Below 640px the animation and stats dialogs are the shared sheet (see THE PHONE SHEETS at the top). */
   const isMobileStatsViewport = usePhoneWidth()
-  /* A row tapped in the phone sheet: applied once the sheet has slid out, so the page's render does not hold up the slide. */
-  const pendingAnimationRef = useRef<string | null>(null)
-  const animationMenuRef = useRef<HTMLDivElement>(null)
   const buttonTextMenuRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLDivElement>(null)
   const settingsId = `block-settings-${block.id}`
-
-  const animationOptions = [
-    { id: 'none', label: tt("None") },
-    { id: 'pulse', label: tt("Pulse") },
-    { id: 'bounce', label: tt("Bounce") },
-    { id: 'shake', label: tt("Shake") },
-    { id: 'glow', label: tt("Glow") },
-    { id: 'swipe', label: tt("Swipe") },
-  ] as const
-
-  // Close animation menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (animationMenuRef.current && !animationMenuRef.current.contains(e.target as Node)) {
-        setShowAnimationMenu(false)
-      }
-    }
-    if (showAnimationMenu) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showAnimationMenu])
 
   // Close button text menu when clicking outside
   useEffect(() => {
@@ -3361,14 +3340,6 @@ function BlockItem({
     }
   }, [showButtonTextMenu])
 
-  const setAnimation = (id: string) => {
-    updateBlock(block.id, {
-      data: {
-        ...block.data,
-        animation_type: id as 'none' | 'pulse' | 'bounce' | 'shake' | 'glow' | 'swipe'
-      }
-    })
-  }
   /*
     ON A PHONE THE NUMBERS ARE ASKED FOR ONCE THE SHEET HAS ARRIVED, as the
     notifications sheet refreshes after its slide (BottomSheet onOpened):
@@ -3377,7 +3348,6 @@ function BlockItem({
   */
   const [statsSheetArrived, setStatsSheetArrived] = useState(false)
   const closeStatsSheet = useCallback(() => { setShowStatsModal(false); setStatsSheetArrived(false) }, [])
-  const closeAnimationSheet = useCallback(() => setShowAnimationSheet(false), [])
 
   // Fetch stats when modal is opened or timeframe changes
   const fetchStats = async (period: RangeValue) => {
@@ -3494,8 +3464,9 @@ function BlockItem({
   const isCalendly = block.type === "calendly"
   const isImage = block.type === "image"
   const isSocialRow = block.type === "social_row"
-  const hasStats = isLinkButton || isEmailCapture || isGroup || isProduct || isPDFDocument || isFoodMenu || isCalendly || isImage || isSocialRow
-  const hasAnimation = isLinkButton || isProduct || isEmailCapture || isPDFDocument || isFoodMenu || isCalendly
+  const hasStats = ROW_COUNT_TYPES.has(block.type)
+  /* What its stats are called: a link's, a form's, a document's, or the block's. */
+  const statsTitle = isGroup ? tt("Group Stats") : isEmailCapture ? tt("Form Stats") : isPDFDocument ? tt("PDF Stats") : isImage ? tt("Image Stats") : isSocialRow ? tt("Social Stats") : isLinkButton ? tt("Link Stats") : tt("Block stats")
   const hasThumbnail = (preview as any).thumbnail_url || hasLinkIcon((preview as any).iconId)
 
   return (
@@ -3650,118 +3621,12 @@ function BlockItem({
           return null
         })()}
 
-        {/* Animation control for link buttons and product blocks */}
-        {hasAnimation && (
-          <div className="relative" ref={animationMenuRef}>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                if (isMobileStatsViewport) {
-                  setShowAnimationSheet(true)
-                  return
-                }
-                setShowAnimationMenu(!showAnimationMenu)
-              }}
-              className={cn(
-                "p-1.5 rounded-lg transition-colors",
-                (block.data as any).animation_type && (block.data as any).animation_type !== 'none'
-                  ? "text-[#1a1a2e] bg-[#f4f4f6] hover:bg-[#ececef]"
-                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-              )}
-              title={tt("Animation")}
-            >
-              <Sparkles className="h-4 w-4" />
-            </button>
-
-            {/* Animation dropdown menu */}
-            {!isMobileStatsViewport && showAnimationMenu && (
-              <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
-                {animationOptions.map((anim) => {
-                  const currentAnimation = (block.data as any).animation_type || 'none'
-                  return (
-                    <button
-                      key={anim.id}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        updateBlock(block.id, {
-                          data: {
-                            ...block.data,
-                            animation_type: anim.id as 'none' | 'pulse' | 'bounce' | 'shake' | 'glow' | 'swipe'
-                          }
-                        })
-                        setShowAnimationMenu(false)
-                      }}
-                      className={cn(
-                        "w-full px-3 py-1.5 text-left text-sm transition-colors",
-                        currentAnimation === anim.id
-                          ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
-                          : "text-gray-700 hover:bg-gray-50"
-                      )}
-                    >
-                      {anim.label}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {hasAnimation && (
-          <SheetDialog
-            open={showAnimationSheet}
-            onClose={closeAnimationSheet}
-            phone={isMobileStatsViewport}
-            label={tt("Animation")}
-            className="p-0 gap-0 overflow-hidden mx-auto border-[#ececf1] w-[calc(100%-32px)] max-w-[360px] rounded-2xl"
-            sheet={{
-              onClosed: () => {
-                const next = pendingAnimationRef.current
-                pendingAnimationRef.current = null
-                if (next) setAnimation(next)
-              },
-            }}
-          >
-              <DialogHeader className="p-4 border-b">
-                <SheetDialogTitle className="text-base font-semibold">{tt("Animation")}</SheetDialogTitle>
-              </DialogHeader>
-              {/* The sheet keeps clear of the home indicator itself; the dialog needs the room. */}
-              <div className={cn("p-3 max-h-[65vh] overflow-y-auto", !isMobileStatsViewport && "pb-4")}>
-                <div className="space-y-1">
-                  {animationOptions.map((anim) => {
-                    const currentAnimation = (block.data as any).animation_type || 'none'
-                    return (
-                      <button
-                        key={anim.id}
-                        type="button"
-                        /* On a phone the sheet closes itself first (data-sheet-close), and the choice lands once it has gone. */
-                        data-sheet-close={isMobileStatsViewport ? "" : undefined}
-                        onClick={() => {
-                          if (isMobileStatsViewport) {
-                            pendingAnimationRef.current = anim.id
-                            return
-                          }
-                          setAnimation(anim.id)
-                          closeAnimationSheet()
-                        }}
-                        className={cn(
-                          "w-full px-3 py-2.5 rounded-xl text-left text-sm transition-colors",
-                          currentAnimation === anim.id
-                            ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
-                            : "text-gray-700 hover:bg-gray-50"
-                        )}
-                      >
-                        {anim.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-          </SheetDialog>
-        )}
-
+        {/*
+          Round AL: a block's animation is chosen in its Layout tab
+          (components/onepage/block-settings BlockAnimationPicker), with the
+          rest of how it looks; the sparkle button and its menu and sheet
+          that sat in this row are gone.
+        */}
         {/* Stats control for link buttons and email capture */}
         {hasStats && (
           <>
@@ -3787,11 +3652,11 @@ function BlockItem({
               onClose={closeStatsSheet}
               phone={isMobileStatsViewport}
               sheet={{ onOpened: () => setStatsSheetArrived(true) }}
-              label={isGroup ? tt("Group Stats") : isEmailCapture ? tt("Form Stats") : isPDFDocument ? tt("PDF Stats") : isImage ? tt("Image Stats") : isSocialRow ? tt("Social Stats") : tt("Link Stats")}
+              label={statsTitle}
               className="p-0 gap-0 overflow-hidden mx-auto border-[#ececf1] w-[calc(100%-32px)] max-w-[420px] rounded-2xl"
             >
                 <DialogHeader className="p-4 border-b">
-                  <SheetDialogTitle className="text-base font-semibold">{isGroup ? tt("Group Stats") : isEmailCapture ? tt("Form Stats") : isPDFDocument ? tt("PDF Stats") : isImage ? tt("Image Stats") : isSocialRow ? tt("Social Stats") : tt("Link Stats")}</SheetDialogTitle>
+                  <SheetDialogTitle className="text-base font-semibold">{statsTitle}</SheetDialogTitle>
                 </DialogHeader>
 
                 {/* In the sheet this scrolls under the title, and a pull down from its top closes the sheet. */}
@@ -3837,7 +3702,7 @@ function BlockItem({
         nothing (components/onepage/reveal), so the cards under them glide
         instead of jumping; a closed card lets its editor go.
       */}
-      <Reveal open={isSelected} id={settingsId} returnFocus={titleRef} unmountWhenShut className="rounded-b-2xl">
+      <Reveal open={isSelected} id={settingsId} returnFocus={titleRef} unmountWhenShut follow className="rounded-b-2xl">
         <div className="space-y-4 rounded-b-2xl border-t border-[#eef0f2] bg-[#fafafb] p-4" data-block-settings="">
           <BlockEditor
             block={block}
@@ -4143,12 +4008,131 @@ function BlockEditor({
 
 
   // Helper to render the Layout tab content
+  /*
+    A PRODUCT'S OWN WORDS AND PICTURE (round AL). The custom thumbnail and
+    the button's words were in Layout, beside the layouts and colours; they
+    are what the block says, so they sit in Settings now, under the product.
+  */
+  const renderProductContent = () => {
+    const data = block.data as ProductBlockData
+    const ctaOptions = [tt("Get My Guide"), tt("Get it Now"), tt("Buy Now"), tt("Download"), tt("Get Access"), tt("Enroll Now"), tt("Start Learning"), tt("Custom")]
+    return (
+      <div className="space-y-4" data-product-content="">
+        {/* A picture of its own, over the product's. */}
+        <div className="space-y-2 border-t border-[#eef0f2] pt-4">
+          <p className="text-[13px] font-medium leading-[18px] text-[#1a1a2e]">{tt("Custom thumbnail")}</p>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onOpenThumbnailModal && onOpenThumbnailModal(block.id)}
+              className="group relative w-14 h-14 rounded-xl border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-gray-50 hover:bg-gray-100"
+            >
+              {data.custom_thumbnail ? (
+                <img
+                  src={data.custom_thumbnail}
+                  alt={tt("Custom thumbnail")}
+                  className="w-full h-full object-cover rounded-lg"
+                />
+              ) : data.product_thumbnail ? (
+                <img
+                  src={data.product_thumbnail}
+                  alt={tt("Product thumbnail")}
+                  className="w-full h-full object-cover rounded-lg opacity-50"
+                />
+              ) : (
+                <ImageIcon className="w-6 h-6 text-gray-400" />
+              )}
+              {/* Pencil icon */}
+              <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center">
+                <Pencil className="w-3 h-3 text-gray-500" />
+              </div>
+              {/* Hover overlay */}
+              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
+            </button>
+            {data.custom_thumbnail && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => updateData({ custom_thumbnail: null })}
+                className="text-xs text-gray-500 hover:text-red-500"
+              >
+                <X className="h-3 w-3 mr-1" />
+                {tt("Remove")}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* CTA Button Text - Modern Dropdown */}
+        <div className="space-y-2 border-t border-[#eef0f2] pt-4">
+          <Label className="text-xs">{tt("Button text")}</Label>
+          <div className="relative" ref={ctaDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setShowCtaDropdown(!showCtaDropdown)}
+              className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-transparent"
+            >
+              <span className="truncate">{ctaOptions.slice(0, -1).includes(data.cta_text || "") ? data.cta_text : tt("Custom")}</span>
+              <svg className={cn("w-4 h-4 text-gray-400 shrink-0 transition-transform", showCtaDropdown && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showCtaDropdown && (
+              <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150 max-h-[200px] overflow-y-auto">
+                {ctaOptions.slice(0, -1).map((cta) => (
+                  <button
+                    key={cta}
+                    type="button"
+                    onClick={() => {
+                      updateData({ cta_text: cta })
+                      setShowCtaDropdown(false)
+                    }}
+                    className={cn(
+                      "w-full px-3 py-2 text-left text-sm transition-colors",
+                      data.cta_text === cta
+                        ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
+                        : "text-gray-700 hover:bg-gray-50"
+                    )}
+                  >
+                    {cta}
+                  </button>
+                ))}
+                <div className="border-t my-1" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCtaDropdown(false)
+                  }}
+                  className={cn(
+                    "w-full px-3 py-2 text-left text-sm transition-colors",
+                    !ctaOptions.slice(0, -1).includes(data.cta_text || "")
+                      ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
+                      : "text-gray-700 hover:bg-gray-50"
+                  )}
+                >
+                  {tt("Custom")}
+                </button>
+              </div>
+            )}
+          </div>
+          {/* Custom text input - always visible below dropdown */}
+          <Input
+            value={data.cta_text || ""}
+            onChange={(e) => updateData({ cta_text: e.target.value })}
+            placeholder={tt("Enter button text...")}
+            className="h-9 rounded-lg"
+          />
+        </div>
+
+      </div>
+    )
+  }
+
   const renderLayoutContent = () => {
     // Special layout content for product blocks
     if (block.type === "product") {
       const data = block.data as ProductBlockData
       const layout = productLayoutOf(data, onepage?.theme)
-      const ctaOptions = [tt("Get My Guide"), tt("Get it Now"), tt("Buy Now"), tt("Download"), tt("Get Access"), tt("Enroll Now"), tt("Start Learning"), tt("Custom")]
       const blockBackgroundColorPresets = ['#1a1a2e', '#b2846c', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
       const textColorPresets = ['#ffffff', '#000000', '#1a1a1a', '#f5f5f5', '#374151', '#6b7280']
       const buttonColorPresets = ['#ffffff', '#1a1a1a', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
@@ -4164,113 +4148,6 @@ function BlockEditor({
         <div className="space-y-4">
           {/* Eight layouts, each drawn small (./product-block-editor); the live page draws them in components/onepage/product-block. */}
           <ProductLayoutPicker data={data} theme={onepage?.theme} onPick={handleStyleSelect} />
-
-          {/* Custom Thumbnail Section */}
-          <div className="space-y-2 pt-2 border-t">
-            <Label className="text-xs">{tt("Custom Thumbnail")}</Label>
-            <p className="text-xs text-muted-foreground">{tt("Override the product image with a custom thumbnail")}</p>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => onOpenThumbnailModal && onOpenThumbnailModal(block.id)}
-                className="group relative w-14 h-14 rounded-xl border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-gray-50 hover:bg-gray-100"
-              >
-                {data.custom_thumbnail ? (
-                  <img
-                    src={data.custom_thumbnail}
-                    alt={tt("Custom thumbnail")}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                ) : data.product_thumbnail ? (
-                  <img
-                    src={data.product_thumbnail}
-                    alt={tt("Product thumbnail")}
-                    className="w-full h-full object-cover rounded-lg opacity-50"
-                  />
-                ) : (
-                  <ImageIcon className="w-6 h-6 text-gray-400" />
-                )}
-                {/* Pencil icon */}
-                <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center">
-                  <Pencil className="w-3 h-3 text-gray-500" />
-                </div>
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
-              </button>
-              {data.custom_thumbnail && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => updateData({ custom_thumbnail: null })}
-                  className="text-xs text-gray-500 hover:text-red-500"
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  {tt("Remove")}
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* CTA Button Text - Modern Dropdown */}
-          <div className="space-y-2 pt-2 border-t">
-            <Label className="text-xs">{tt("Button Text")}</Label>
-            <div className="relative" ref={ctaDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setShowCtaDropdown(!showCtaDropdown)}
-                className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-transparent"
-              >
-                <span className="truncate">{ctaOptions.slice(0, -1).includes(data.cta_text || "") ? data.cta_text : tt("Custom")}</span>
-                <svg className={cn("w-4 h-4 text-gray-400 shrink-0 transition-transform", showCtaDropdown && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showCtaDropdown && (
-                <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150 max-h-[200px] overflow-y-auto">
-                  {ctaOptions.slice(0, -1).map((cta) => (
-                    <button
-                      key={cta}
-                      type="button"
-                      onClick={() => {
-                        updateData({ cta_text: cta })
-                        setShowCtaDropdown(false)
-                      }}
-                      className={cn(
-                        "w-full px-3 py-2 text-left text-sm transition-colors",
-                        data.cta_text === cta
-                          ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
-                          : "text-gray-700 hover:bg-gray-50"
-                      )}
-                    >
-                      {cta}
-                    </button>
-                  ))}
-                  <div className="border-t my-1" />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCtaDropdown(false)
-                    }}
-                    className={cn(
-                      "w-full px-3 py-2 text-left text-sm transition-colors",
-                      !ctaOptions.slice(0, -1).includes(data.cta_text || "")
-                        ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
-                        : "text-gray-700 hover:bg-gray-50"
-                    )}
-                  >
-                    {tt("Custom")}
-                  </button>
-                </div>
-              )}
-            </div>
-            {/* Custom text input - always visible below dropdown */}
-            <Input
-              value={data.cta_text || ""}
-              onChange={(e) => updateData({ cta_text: e.target.value })}
-              placeholder={tt("Enter button text...")}
-              className="h-9 rounded-lg"
-            />
-          </div>
 
           {/* Colours for the layouts drawn on a card of their own (the button and the minimal line wear the theme). */}
           {layoutHasCard(layout) && (
@@ -4848,22 +4725,7 @@ function BlockEditor({
               <Label className="text-xs">{tt("Text")}</Label>
               <Textarea value={data.content} onChange={(e) => updateData({ content: e.target.value })} rows={3} />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">{tt("Alignment")}</Label>
-              <div className="flex gap-2">
-                {(["left", "center", "right"] as const).map((align) => (
-                  <Button
-                    key={align}
-                    variant={data.alignment === align ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => updateData({ alignment: align })}
-                    className="capitalize h-8 flex-1"
-                  >
-                    {align}
-                  </Button>
-                ))}
-              </div>
-            </div>
+            {/* Round AL: the alignment is the Layout tab's one Alignment row (components/onepage/block-settings), which writes this block's own. */}
           </div>
         )
       }
@@ -5531,27 +5393,18 @@ function BlockEditor({
             </PartContent>
 
             <PartContent value="layout" className="mt-0 space-y-4">
-              {/* Display Style */}
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">{tt("Display Style")}</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {displayStyles.map((style) => (
-                    <button
-                      key={style.id}
-                      type="button"
-                      onClick={() => updateData({ display_style: style.id as any })}
-                      className={cn(
-                        "p-2.5 rounded-xl border-2 text-center transition-all",
-                        (data.display_style || 'single') === style.id
-                          ? "border-gray-900 bg-white"
-                          : "border-gray-200 hover:border-gray-300 bg-white"
-                      )}
-                    >
-                      <div className="text-xs font-medium">{style.label}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Single, Grid or Carousel, drawn with this block's own pictures (components/onepage/layout-pickers, round AL). */}
+              <ArrangePicker
+                label={tt("Display")}
+                value={(data.display_style || "single") as "single" | "grid" | "carousel"}
+                options={[
+                  { id: "single" as const, kind: "single" as const, label: tt("Single") },
+                  { id: "grid" as const, kind: "grid" as const, label: tt("Grid") },
+                  { id: "carousel" as const, kind: "carousel" as const, label: tt("Carousel") },
+                ]}
+                images={images.map((img) => img.image_url).filter(Boolean).slice(0, 3)}
+                onChange={(display_style) => updateData({ display_style })}
+              />
 
               {/* Grid Columns - only show for grid style */}
               {data.display_style === 'grid' && (
@@ -5584,31 +5437,7 @@ function BlockEditor({
               {data.display_style === 'carousel' && (
                 <>
                   <div className="border-t border-gray-100" />
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">{tt("Carousel View")}</Label>
-                    <div className="flex gap-2">
-                      {([
-                        { id: "1" as ImageCarouselViewType, label: "1" },
-                        { id: "1.3" as ImageCarouselViewType, label: "1.3" },
-                        { id: "1.5" as ImageCarouselViewType, label: "1.5" },
-                        { id: "2" as ImageCarouselViewType, label: "2" },
-                      ]).map((viewOption) => (
-                        <button
-                          key={viewOption.id}
-                          type="button"
-                          onClick={() => updateData({ carousel_view: viewOption.id })}
-                          className={cn(
-                            "flex-1 py-2 rounded-lg text-xs font-medium transition-all border",
-                            (data.carousel_view || "1") === viewOption.id
-                              ? "border-gray-900 bg-gray-900 text-white"
-                              : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                          )}
-                        >
-                          {viewOption.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <CardsInViewControl<ImageCarouselViewType> value={data.carousel_view || "1"} options={["1", "1.3", "1.5", "2"]} onChange={(carousel_view) => updateData({ carousel_view })} />
                   <div className="flex items-center justify-between">
                     <div>
                       <Label className="text-xs font-medium">{tt("Autoplay")}</Label>
@@ -5857,74 +5686,8 @@ function BlockEditor({
             </PartContent>
 
             <PartContent value="layout" className="mt-0 space-y-3">
-              <p className="text-xs text-muted-foreground mb-2">{tt("Choose how this block displays on your page")}</p>
-
-              {/* Layout Options Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                {/* Default Layout Option */}
-                <button
-                  type="button"
-                  onClick={() => updateData({ layout_type: 'default' as PDFDocumentLayoutType })}
-                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
-                >
-                  <CardMark on={(data.layout_type || 'default') === 'default'} tint="#f7f7f8" />
-                  {/* Visual Preview */}
-                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
-                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex items-center justify-center gap-2">
-                      <FileText className="w-5 h-5 text-red-500" />
-                      <div className="h-2.5 w-16 bg-gray-300 rounded" />
-                    </div>
-                  </div>
-
-                  {/* Label */}
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
-                      (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
-                    )}>
-                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", (data.layout_type || 'default') === 'default' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
-                    </div>
-                    <span className="font-medium text-sm">{tt("Default")}</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("Button with icon")}</p>
-                </button>
-
-                {/* Pro Layout Option */}
-                <button
-                  type="button"
-                  onClick={() => updateData({ layout_type: 'pro' as PDFDocumentLayoutType })}
-                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
-                >
-                  <CardMark on={data.layout_type === 'pro'} tint="#f7f7f8" />
-                  {/* Visual Preview */}
-                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
-                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-100 to-red-200 shrink-0 flex items-center justify-center">
-                          <FileText className="w-4 h-4 text-red-500" />
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <div className="h-2 w-full bg-gray-200 rounded" />
-                          <div className="h-1.5 w-1/2 bg-gray-100 rounded" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Label */}
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
-                      data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
-                    )}>
-                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", data.layout_type === 'pro' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
-                    </div>
-                    <span className="font-medium text-sm">{tt("Featured")}</span>
-                    <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("With image & details")}</p>
-                </button>
-              </div>
+              {/* Classic or Featured, drawn in this page's colours with this block's own title and picture (components/onepage/block-settings). */}
+              <ClassicFeaturedPicker value={data.layout_type} theme={onepage?.theme} title={data.title} image={data.thumbnail_url} icon={<FileText />} onChange={(layout_type) => updateData({ layout_type })} />
 
               {/* Custom Thumbnail - Only show for Pro layout */}
               {data.layout_type === 'pro' && (
@@ -6110,74 +5873,8 @@ function BlockEditor({
             </PartContent>
 
             <PartContent value="layout" className="mt-0 space-y-3">
-              <p className="text-xs text-muted-foreground mb-2">{tt("Choose how this block displays on your page")}</p>
-
-              {/* Layout Options Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                {/* Default Layout Option */}
-                <button
-                  type="button"
-                  onClick={() => updateData({ layout_type: 'default' as PDFDocumentLayoutType })}
-                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
-                >
-                  <CardMark on={(data.layout_type || 'default') === 'default'} tint="#f7f7f8" />
-                  {/* Visual Preview */}
-                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
-                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex items-center justify-center gap-2">
-                      <FileText className="w-5 h-5 text-red-500" />
-                      <div className="h-2.5 w-16 bg-gray-300 rounded" />
-                    </div>
-                  </div>
-
-                  {/* Label */}
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
-                      (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
-                    )}>
-                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", (data.layout_type || 'default') === 'default' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
-                    </div>
-                    <span className="font-medium text-sm">{tt("Default")}</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("Button with icon")}</p>
-                </button>
-
-                {/* Pro Layout Option */}
-                <button
-                  type="button"
-                  onClick={() => updateData({ layout_type: 'pro' as PDFDocumentLayoutType })}
-                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
-                >
-                  <CardMark on={data.layout_type === 'pro'} tint="#f7f7f8" />
-                  {/* Visual Preview */}
-                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
-                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-100 to-red-200 shrink-0 flex items-center justify-center">
-                          <FileText className="w-4 h-4 text-red-500" />
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <div className="h-2 w-full bg-gray-200 rounded" />
-                          <div className="h-1.5 w-1/2 bg-gray-100 rounded" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Label */}
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
-                      data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
-                    )}>
-                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", data.layout_type === 'pro' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
-                    </div>
-                    <span className="font-medium text-sm">{tt("Featured")}</span>
-                    <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("With image & details")}</p>
-                </button>
-              </div>
+              {/* Classic or Featured, drawn in this page's colours with this block's own title and picture (components/onepage/block-settings). */}
+              <ClassicFeaturedPicker value={data.layout_type} theme={onepage?.theme} title={data.title} image={data.thumbnail_url} icon={<FileText />} onChange={(layout_type) => updateData({ layout_type })} />
 
               {/* Custom Thumbnail - Only show for Pro layout */}
               {data.layout_type === 'pro' && (
@@ -6331,74 +6028,8 @@ function BlockEditor({
             </PartContent>
 
             <PartContent value="layout" className="mt-0 space-y-3">
-              <p className="text-xs text-muted-foreground mb-2">{tt("Choose how this block displays on your page")}</p>
-
-              {/* Layout Options Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                {/* Default Layout Option */}
-                <button
-                  type="button"
-                  onClick={() => updateData({ layout_type: 'default' as PDFDocumentLayoutType })}
-                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
-                >
-                  <CardMark on={(data.layout_type || 'default') === 'default'} tint="#f7f7f8" />
-                  {/* Visual Preview */}
-                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
-                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex items-center justify-center gap-2">
-                      <Calendar className="w-5 h-5 text-blue-500" />
-                      <div className="h-2.5 w-16 bg-gray-300 rounded" />
-                    </div>
-                  </div>
-
-                  {/* Label */}
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
-                      (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
-                    )}>
-                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", (data.layout_type || 'default') === 'default' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
-                    </div>
-                    <span className="font-medium text-sm">{tt("Default")}</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("Button with icon")}</p>
-                </button>
-
-                {/* Pro Layout Option */}
-                <button
-                  type="button"
-                  onClick={() => updateData({ layout_type: 'pro' as PDFDocumentLayoutType })}
-                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
-                >
-                  <CardMark on={data.layout_type === 'pro'} tint="#f7f7f8" />
-                  {/* Visual Preview */}
-                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
-                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 shrink-0 flex items-center justify-center">
-                          <Calendar className="w-4 h-4 text-blue-500" />
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <div className="h-2 w-full bg-gray-200 rounded" />
-                          <div className="h-1.5 w-1/2 bg-gray-100 rounded" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Label */}
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
-                      data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
-                    )}>
-                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", data.layout_type === 'pro' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
-                    </div>
-                    <span className="font-medium text-sm">{tt("Featured")}</span>
-                    <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("With image & details")}</p>
-                </button>
-              </div>
+              {/* Classic or Featured, drawn in this page's colours with this block's own title and picture (components/onepage/block-settings). */}
+              <ClassicFeaturedPicker value={data.layout_type} theme={onepage?.theme} title={data.title} image={data.thumbnail_url} icon={<Calendar />} onChange={(layout_type) => updateData({ layout_type })} />
 
               {/* Custom Thumbnail - Only show for Pro layout */}
               {data.layout_type === 'pro' && (
@@ -6515,6 +6146,9 @@ function BlockEditor({
                 />
               </div>
             </div>
+
+            {/* The picture and the button's words (round AL: from Layout). */}
+            {data.product_id && renderProductContent()}
 
             {/* When someone taps it, and instant checkout (./product-block-editor). It replaces the free-only Quick Checkout. */}
             {data.product_id && <ProductTapSetting data={data} onChange={(patch) => updateData(patch)} />}
@@ -6865,47 +6499,23 @@ function BlockEditor({
         </TabsContent>
 
         <TabsContent value="layout" className="mt-0 space-y-5">
-          {/* Stack, Grid or Carousel, drawn small; the picked one in the thin dark border every layout picker uses. */}
-          <div className="space-y-2.5" data-group-layouts="">
-            <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Layout")}</p>
-            <div className="grid grid-cols-3 gap-2.5">
-              {([
-                { id: "stack" as const, label: tt("Stack") },
-                { id: "grid" as const, label: tt("Grid") },
-                { id: "carousel" as const, label: tt("Carousel") },
-              ]).map((o) => {
-                const on = (groupData.layout || "stack") === o.id
-                return (
-                  <button key={o.id} type="button" aria-pressed={on} data-group-layout-choice={o.id} onClick={() => updateData({ layout: o.id })} className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-1.5 outline-none hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]">
-                    <ChoiceMark on={on} />
-                    <span aria-hidden className="flex aspect-[4/3] items-center justify-center gap-1 overflow-hidden rounded-xl bg-[#f4f4f6] p-2.5">
-                      {o.id === "stack" ? (
-                        <span className="flex w-full flex-col gap-1">{[0, 1, 2].map((i) => <span key={i} className="block h-2.5 w-full rounded-[3px] bg-white shadow-[inset_0_0_0_1px_#e3e4e8]" />)}</span>
-                      ) : o.id === "grid" ? (
-                        <span className="grid w-full grid-cols-2 gap-1">{[0, 1, 2, 3].map((i) => <span key={i} className="block h-4 rounded-[3px] bg-white shadow-[inset_0_0_0_1px_#e3e4e8]" />)}</span>
-                      ) : (
-                        <>{[1, 1, 0.5].map((w, i) => <span key={i} className="block h-full shrink-0 rounded-[3px] bg-white shadow-[inset_0_0_0_1px_#e3e4e8]" style={{ width: `${w * 40}%`, opacity: w < 1 ? 0.6 : 1 }} />)}</>
-                      )}
-                    </span>
-                    <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{o.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          {/* Stack, Grid or Carousel, drawn as the page draws them, with the group's own pictures (components/onepage/layout-pickers). */}
+          <ArrangePicker
+            label={tt("Layout")}
+            value={groupData.layout || "stack"}
+            options={[
+              { id: "stack" as const, kind: "list" as const, label: tt("Stack") },
+              { id: "grid" as const, kind: "grid" as const, label: tt("Grid") },
+              { id: "carousel" as const, kind: "carousel" as const, label: tt("Carousel") },
+            ]}
+            theme={onepage?.theme}
+            images={(groupData.children || []).map((c) => getChildBlockPreview(c).thumbnail_url).filter(Boolean).slice(0, 3)}
+            onChange={(layout) => updateData({ layout })}
+          />
 
           {groupData.layout === "carousel" ? (
             <div className="space-y-4 border-t border-[#eef0f2] pt-4">
-              <Segmented
-                label={tt("Cards in view")}
-                value={(groupData.carousel_view || "1") as string}
-                options={[
-                  { id: "1", label: tt("1 per row") },
-                  { id: "1.2", label: tt("1.2 per row") },
-                  { id: "1.5", label: tt("1.5 per row") },
-                ]}
-                onChange={(view) => updateData({ carousel_view: view as CarouselViewType })}
-              />
+              <CardsInViewControl<CarouselViewType> value={groupData.carousel_view || "1"} onChange={(carousel_view) => updateData({ carousel_view })} />
               <div className="flex min-h-11 items-center justify-between gap-3">
                 <span className="text-[14px] font-medium text-[#1a1a2e]">{tt("Soft edges")}</span>
                 <Switch label={tt("Soft edges")} checked={!!groupData.carousel_fade_edges} onChange={(carousel_fade_edges) => updateData({ carousel_fade_edges })} />
@@ -6950,36 +6560,51 @@ function BlockEditor({
     shows the half that tab is for; any other block's editor is all Settings,
     and its Layout tab is the shared style rows.
   */
+  /* Round AL: the attention animation sits in Layout, after how the block is drawn, on the blocks where one helps (ANIMATED_BLOCKS). */
+  const animation = ANIMATED_BLOCKS.has(block.type) ? (
+    <BlockAnimationPicker
+      value={(block.data as { animation_type?: string }).animation_type}
+      theme={onepage?.theme}
+      onChange={(animation_type) => updateData({ animation_type } as Partial<OnePageBlock["data"]>)}
+    />
+  ) : null
   const style = <BlockStyleControls block={block} getBlock={latestBlock} onChange={changeBlock} />
   const layout =
     block.type === "link_button" || block.type === "product" ? (
       <>
         {renderLayoutContent()}
+        {animation}
         {style}
       </>
     ) : PART_AWARE.has(block.type) ? (
       <>
         <BlockPartContext.Provider value="layout">{renderSettingsContent()}</BlockPartContext.Provider>
+        {animation}
         {style}
       </>
     ) : (
-      style
+      <>
+        {animation}
+        {style}
+      </>
     )
   return (
-    <BlockEditorTabs
-      settings={
-        <BlockPartContext.Provider value="settings">
-          {renderSettingsContent()}
-          <BlockDescriptionField block={block} getBlock={latestBlock} onChange={changeBlock} />
-          {extras}
-        </BlockPartContext.Provider>
-      }
-      layout={layout}
-    />
+    <EditorThemeContext.Provider value={onepage?.theme ?? null}>
+      <BlockEditorTabs
+        settings={
+          <BlockPartContext.Provider value="settings">
+            {renderSettingsContent()}
+            <BlockDescriptionField block={block} getBlock={latestBlock} onChange={changeBlock} />
+            {extras}
+          </BlockPartContext.Provider>
+        }
+        layout={layout}
+      />
+    </EditorThemeContext.Provider>
   )
 }
 
 /** Blocks whose own editor is written in a Settings half and a Layout half (PartContent, useBlockPart). */
-const PART_AWARE = new Set(["email_capture", "image", "pdf_document", "food_menu", "calendly", "storelib_shelf", "social_posts"])
+const PART_AWARE = new Set(["email_capture", "image", "pdf_document", "food_menu", "calendly", "storelib_shelf", "social_posts", "app"])
 const BLOCKS_WITHOUT_TABS = new Set(["header", "divider", "social_row", "group"])
 const BLOCKS_WITH_TABS = (type: string) => !BLOCKS_WITHOUT_TABS.has(type)

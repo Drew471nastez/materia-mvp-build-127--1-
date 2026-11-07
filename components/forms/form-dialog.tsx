@@ -9,7 +9,10 @@ export default function FormDialog({
   preview,
   sourceBlock,
   onSubmitted,
+  onUnavailable,
 }: {
+  /** The form could not be shown: a chat opens without its questions. */
+  onUnavailable?: () => void
   /** After the answers are saved (a pre-chat form: components/forms/action-frame). */
   onSubmitted?: (answers: Record<string, unknown>, fields: { id: string; type?: string }[]) => void
   onClose: () => void
@@ -28,7 +31,7 @@ export default function FormDialog({
             </svg>
           </button>
         </div>
-        <PublicFormRenderer key={formId} formId={formId} source={source} preview={preview} sourceBlock={sourceBlock} onSubmitted={onSubmitted} />
+        <PublicFormRenderer key={formId} formId={formId} source={source} preview={preview} sourceBlock={sourceBlock} onSubmitted={onSubmitted} onUnavailable={onUnavailable} />
       </div>
     </OnePageDialog>
   )
