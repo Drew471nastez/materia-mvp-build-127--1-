@@ -12,7 +12,10 @@ export function PublicFormRenderer({
   initial,
   source = "form",
   preview = false,
+  onSubmitted,
 }: {
+  /** Called once the answers are saved, or accepted in a preview: a pre-chat form hands them to the chat it opens. */
+  onSubmitted?: (answers: Record<string, string | string[]>, fields: FormField[]) => void
   formId: string
   initial?: PublicForm
   preview?: boolean
@@ -100,6 +103,7 @@ export function PublicFormRenderer({
         href: null,
         action_type: null,
       })
+      onSubmitted?.(answers, form.definition.fields)
       return
     }
     setBusy(true)
@@ -128,6 +132,7 @@ export function PublicFormRenderer({
       if (!r.ok)
         throw new Error(b.error || "Your answers were not saved. Try again.")
       setDone(b)
+      onSubmitted?.(answers, form.definition.fields)
     } catch (e) {
       setError(
         e instanceof Error

@@ -26,6 +26,7 @@ execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inhe
 const SUITES = [
   "tests/onepage-link-metadata.test.ts",
   "tests/native-forms-actions-prices.test.ts",
+  "tests/native-actions.test.ts",
   "tests/onepage-modern-blocks.test.ts",
   "tests/admin-sql-updates.test.ts",
   "tests/typecheck-ratchet-process.test.ts",

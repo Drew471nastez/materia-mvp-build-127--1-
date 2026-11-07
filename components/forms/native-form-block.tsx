@@ -1,51 +1,10 @@
 "use client"
-import { useState, lazy, Suspense, type ReactNode } from "react"
 import { PublicFormRenderer } from "./public-form"
-const FormDialog = lazy(() => import("./form-dialog"))
 import { isOnePagePreview } from "@/lib/onepage/preview-notice"
-import { UUID, actionHref, type NativeAction } from "@/lib/forms/actions"
-/** Shared action scope keeps forms native while retaining the anchor as a
- * no-JavaScript fallback and keeping the existing analytics click handler. */
-export function NativeActionFrame({
-  action,
-  children,
-  source = "onepage",
-  preview = false,
-}: {
-  preview?: boolean
-  action?: NativeAction
-  children: ReactNode
-  source?: "onepage" | "website" | "creator_page"
-}) {
-  const [open, setOpen] = useState(false)
-  const id =
-    action?.type === "form" && UUID.test(action.form_id) ? action.form_id : null
-  if (!id) return <>{children}</>
-  return (
-    <>
-      <div
-        onClickCapture={(e) => {
-          if ((e.target as Element).closest("a")) {
-            e.preventDefault()
-            setOpen(true)
-          }
-        }}
-      >
-        {children}
-      </div>
-      {open ? (
-        <Suspense fallback={null}>
-          <FormDialog
-            onClose={() => setOpen(false)}
-            formId={id}
-            source={source}
-            preview={preview || isOnePagePreview()}
-          />
-        </Suspense>
-      ) : null}
-    </>
-  )
-}
+import { UUID, actionHref } from "@/lib/forms/actions"
+import { NativeActionFrame } from "./action-frame"
+/* The action frame lives with the action model's editor (components/forms/action-frame); kept exported here for the blocks that import it from this file. */
+export { NativeActionFrame } from "./action-frame"
 export function NativeFormBlock({
   formId,
   title = "Open form",

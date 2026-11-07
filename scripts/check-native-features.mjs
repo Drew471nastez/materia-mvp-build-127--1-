@@ -376,8 +376,9 @@ try {
     await page.waitForSelector("[data-form-complete]")
     await page.goto(base + "/app/probe?mode=action")
     await page.select('select[aria-label="Action type"]', "whatsapp")
-    await labelInput(page, "International phone number", "+40 712 345 678")
-    await labelInput(page, "Prefilled message", "Hi! A&B? 🏋️")
+    /* The number pasted whole: the country picker follows its code (components/forms/action-editor). */
+    await fill(page, "[data-native-action-editor] input[type=tel]", "+40 712 345 678")
+    await labelInput(page, "Message", "Hi! A&B? 🏋️")
     const href = await page.$eval("[data-action-href]", (e) => e.href)
     assert.equal(new URL(href).pathname, "/40712345678")
     assert.equal(new URL(href).searchParams.get("text"), "Hi! A&B? 🏋️")

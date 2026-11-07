@@ -4385,7 +4385,7 @@ function BlockEditor({
               and the picture as a row you press, with the picture itself
               on its left and a chevron on its right.
             */}
-            <ActionEditor value={data.action} onChange={action=>updateData({action,url:action?actionHref(action)||"":data.url})}/>
+            <ActionEditor value={data.action} url={data.url} onChange={action=>updateData({action,url:action?actionHref(action)||"":data.url})}/>
             <p className="pt-1 text-[16px] font-semibold text-[#1a1a2e]">{tt("Info")}</p>
             <div className="flex items-center justify-between gap-3"><span className="text-[13px] text-[#6b7280]">{tt("Automatic link preview")}</span><Switch label={tt("Automatic link preview")} checked={data.link_preview?.enabled!==false} onChange={enabled=>{updateData({link_preview:{...data.link_preview,enabled},...(enabled?{}:data.thumbnail_url===data.link_preview?.image?{thumbnail_url:null}:{})});if(enabled)onUrlChangeWithAutoFetch?.(block.id,data.url)}}/></div>
             {data.link_preview?.image?<button type="button" className="text-xs font-medium text-[#6b7280] underline" onClick={()=>updateData({thumbnail_url:null,link_preview:{...data.link_preview,image_hidden:true}})}>{tt("Remove preview image")}</button>:null}

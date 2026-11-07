@@ -2,7 +2,7 @@ import { NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { notifyUser } from "@/lib/notifications/user-inbox"
-import { UUID, actionHref, type NativeAction } from "@/lib/forms/actions"
+import { UUID, actionHref, formVars, type NativeAction } from "@/lib/forms/actions"
 import { validateDefinition, validateAnswers } from "@/lib/forms/definition"
 import { PUBLIC_HEADERS, formError, boundedJson } from "@/lib/forms/server"
 export async function OPTIONS() {
@@ -188,7 +188,8 @@ export async function POST(
       {
         ok: true,
         message: definition.completion.message,
-        href: actionHref(action),
+        /* The completion message's {visitor_name}, {service} and {answer:id} from these answers (lib/forms/actions). */
+        href: actionHref(action, { ...formVars(definition.fields, Object.fromEntries(valid.answers.map((a) => [a.field_id, a.value]))), visitor_name: valid.name || null }),
         action_type: action?.type || null,
       },
       { status: error ? 200 : 201, headers: PUBLIC_HEADERS },

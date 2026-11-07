@@ -1,13 +1,17 @@
 "use client"
 import { OnePageDialog } from "@/components/onepage/onepage-dialog"
 import { PublicFormRenderer } from "./public-form"
+import type { FormField } from "@/lib/forms/definition"
 /** The sheet loads on intent, keeping anonymous creator pages light. */
 export default function FormDialog({
   onClose,
   formId,
   source,
   preview,
+  onSubmitted,
 }: {
+  /** After the answers are saved (a pre-chat form: components/forms/action-frame). */
+  onSubmitted?: (answers: Record<string, string | string[]>, fields: FormField[]) => void
   onClose: () => void
   formId: string
   source: "onepage" | "website" | "creator_page"
@@ -35,6 +39,7 @@ export default function FormDialog({
           formId={formId}
           source={source}
           preview={preview}
+          onSubmitted={onSubmitted}
         />
       </div>
     </OnePageDialog>

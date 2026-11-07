@@ -210,12 +210,33 @@ export function themedProductStyle(theme: ProductThemeLike, data: { style?: unkn
   return kind === "grid" ? "tile" : "row"
 }
 
-type CoverThemeLike = { cover_image_url?: unknown; header_layout?: unknown } | null | undefined
+type CoverThemeLike = { cover_image_url?: unknown; header_layout?: unknown; cover_profile_layout?: unknown } | null | undefined
 
-/** The cover picture's address, when the theme has one and the header is the classic one (a Hero is already a picture). */
+/**
+ * The cover picture's address, when the theme has one. A theme's own cover
+ * (a template brings it) stays off a Hero, which is already a picture. The
+ * creator's own cover (Header settings, `cover_profile_layout`) is drawn on
+ * every layout: on a Hero it becomes the full width picture that fades into
+ * the page, with the round photo over its lower edge (heroCoverShown).
+ */
 export function coverImageOf(theme: CoverThemeLike): string | null {
   const v = theme?.cover_image_url
   if (typeof v !== "string" || !/^https:\/\/[^\s"'<>()]+$/.test(v.trim())) return null
-  if (theme?.header_layout === "hero") return null
+  if (theme?.header_layout === "hero" && theme?.cover_profile_layout !== true) return null
   return v.trim()
+}
+
+/** A Hero header drawn from the creator's own cover: the cover fills the top and fades out, the profile photo sits over its edge. */
+export function heroCoverShown(theme: CoverThemeLike): boolean {
+  return theme?.header_layout === "hero" && theme?.cover_profile_layout === true && coverImageOf(theme) !== null
+}
+
+/**
+ * The cover band's shape, width over height. The editor's crop frame and the
+ * page both read it, so the crop dragged into place is the crop drawn.
+ */
+export function coverAspect(theme: CoverThemeLike, isDesktop: boolean): number {
+  if (heroCoverShown(theme)) return 4 / 3
+  if (theme?.cover_profile_layout === true) return 3
+  return isDesktop ? 2 : 16 / 10
 }
