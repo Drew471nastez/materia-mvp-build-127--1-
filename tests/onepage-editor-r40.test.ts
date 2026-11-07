@@ -143,9 +143,11 @@ function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     /* Changed on purpose (round 41): the owner asked for the round 40 tints and the chips' dots to go. */
-    check("the tiles are the one light grey again, no tint", /<BlockTile icon=\{entry\.icon \?\? GlyphLink\} \/>/.test(picker) && !/tint/.test(code(icons)))
+/* Changed on purpose (round AL): the owner, "I don't like that they're light gray. You can make them more colour ... for the apps that actually are companies, just use their original icon": each entry is a round tile of its own colour (block-icons RoundTile), a company's mark on its own colour; the blocks list keeps the grey tile. */
+    check("the tiles are round, each in its entry's own colour, no tint", /<RoundTile color=\{fill\} ink=\{ink\} size=\{size\}/.test(picker) && !/tint/.test(code(icons)))
     check("the chips carry no dot", !/data-pill-dot/.test(pills) && !/dot:/.test(code(picker)))
-    check("a brand keeps its own colours on white", /<BlockTile className="bg-white shadow-\[inset_0_0_0_1px_rgba\(17,17,19,0\.08\),0_1px_2px_rgba\(17,17,19,0\.05\)\]">/.test(picker))
+    /* Changed on purpose (round AL): a company's mark sits on its own colour; a mark of several colours (Google Maps) and a connected tool's stay on white. */
+    check("a mark of several colours keeps them, on white", /isMulticolorMark\(key\)/.test(picker) && /<RoundTile color="#ffffff" ink="#1a1a2e" size=\{size\} style=\{HAIRLINE\}>/.test(picker))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

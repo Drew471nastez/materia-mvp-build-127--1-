@@ -3,13 +3,16 @@ import { useEffect, useMemo, useState } from "react"
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core"
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { ChevronDown, GripVertical, MoreHorizontal } from "lucide-react"
+import { ArrowLeft, ChevronDown, GripVertical, X } from "lucide-react"
 import { ActionEditor } from "./action-editor"
 import { PublicFormRenderer } from "./public-form"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
-import { buttonSecondary, buttonAccent, card, iconButton } from "@/app/(storelib)/app/orders/order-parts"
-import { formTemplate, TEMPLATE_CHOICES } from "@/lib/forms/templates"
+import { buttonSecondary, buttonAccent, card, iconButton, StatusBadge } from "@/app/(storelib)/app/orders/order-parts"
+import { FIELD, SELECT } from "@/app/(storelib)/app/offers/offer-fields"
+import { SegmentedPills } from "@/components/app/segmented-pills"
+import { cn } from "@/lib/utils"
+import { formsRequest } from "@/lib/forms/client"
 import { formPath } from "@/lib/forms/actions"
 import { platformOrigin } from "@/lib/onepage/return-address"
 import {
@@ -27,14 +30,17 @@ import {
 import type { ClientIntegrations } from "@/lib/forms/integrations"
 
 /*
-  Audience › Forms. The list of forms, and one form's builder: questions
+  One form's builder, opened from Emails › Leads › Forms (app/(storelib)/
+  app/emails/forms/forms-list.tsx) and, `embedded`, over the OnePage editor
+  from a Form block or a chat button's questions (./form-builder-dialog).
+  Questions questions
   (dragged into order, each with its rules), how the form is shown, what
   happens after sending, bookings, and where responses go. Saving keeps a
   draft; Publish changes what every page shows. The preview renders the
   draft with the visitor's own renderer and saves nothing.
 */
 
-interface SavedForm {
+export interface SavedForm {
   id: string
   title: string
   status: string
@@ -46,156 +52,31 @@ interface SavedForm {
   retention_days?: number | null
 }
 
-const field = "h-9 w-full min-w-0 rounded-lg border border-[#e3e4e8] bg-white px-3 text-[14px] text-[#1a1a2e] outline-none focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/15"
-const area = "w-full min-w-0 rounded-lg border border-[#e3e4e8] bg-white px-3 py-2 text-[14px] text-[#1a1a2e] outline-none focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/15"
-const label = "block space-y-1 text-[13px] font-medium text-[#1a1a2e]"
-const check = "h-4 w-4 shrink-0 accent-[#1a1a2e]"
-const section = card + " p-4 sm:p-5"
-const heading = "text-[15px] font-semibold text-[#1a1a2e]"
-const muted = "text-[13px] text-[#6b7280]"
+/* Storelib's /app fields (app/(storelib)/app/offers/offer-fields): the same box, focus halo and chevron as Offers and Products. A label sits 6px above its field, never glued to it. */
+const field = cn(FIELD, "font-normal")
+const select = cn(SELECT, "font-normal")
+const area = "w-full min-w-0 rounded-[10px] border border-[#e3e5e8] bg-white px-3.5 py-2.5 text-[16px] font-normal leading-6 text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:rounded-lg sm:text-[14px] sm:leading-5"
+const label = "block space-y-1.5 text-[13px] font-medium text-[#4b5563]"
+const check = "h-4 w-4 shrink-0 cursor-pointer accent-[#1a1a2e]"
+const section = card + " p-4 sm:p-6"
+const heading = "text-[15px] font-semibold text-[#1a1a2e] sm:text-[14px]"
+const muted = "text-[13px] leading-5 text-[#6b7280]"
 const newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 12)
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 const ORDER = [1, 2, 3, 4, 5, 6, 0]
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(url, { cache: "no-store", ...init, headers: init?.body ? { "Content-Type": "application/json" } : undefined })
-  const b = await r.json().catch(() => ({}))
-  if (!r.ok) throw Object.assign(new Error(b.error || "That did not work. Try again."), { status: r.status })
-  return b as T
+  const r = await formsRequest<T>(url, { ...init, fallback: "That did not work. Try again." })
+  if (r.missing) throw Object.assign(new Error("Forms are not switched on for this store yet. They need the Forms database update (SQL parts 372 and 375)."), { status: 503 })
+  if (r.error || !r.data) throw Object.assign(new Error(r.error || "That did not work. Try again."), { status: r.status })
+  return r.data
 }
 
-export function FormsManager() {
-  const [forms, setForms] = useState<SavedForm[]>([]),
-    [loading, setLoading] = useState(true),
-    [error, setError] = useState<string | null>(null),
-    [busy, setBusy] = useState(false),
-    [openId, setOpenId] = useState<string | null>(null)
-  const load = async () => {
-    setLoading(true)
-    try {
-      const b = await api<{ forms: SavedForm[] }>("/api/forms")
-      setForms(b.forms || [])
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Forms could not be loaded.")
-    } finally {
-      setLoading(false)
-    }
-  }
-  useEffect(() => {
-    void load()
-    const id = new URLSearchParams(location.search).get("form")
-    if (id) setOpenId(id)
-  }, [])
-  const create = async (template: string) => {
-    setBusy(true)
-    setError(null)
-    try {
-      const b = await api<{ form: SavedForm }>("/api/forms", { method: "POST", body: JSON.stringify({ template }) })
-      setForms((all) => [b.form, ...all])
-      open(b.form.id)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "The form could not be created.")
-    } finally {
-      setBusy(false)
-    }
-  }
-  const open = (id: string | null) => {
-    setOpenId(id)
-    const url = new URL(location.href)
-    if (id) url.searchParams.set("form", id)
-    else url.searchParams.delete("form")
-    history.replaceState(history.state, "", url)
-  }
-  const archive = async (form: SavedForm) => {
-    if (!window.confirm(`Archive “${form.title || "Untitled form"}”? It stops taking responses on every page. Its leads stay in Leads.`)) return
-    try {
-      await api(`/api/forms/${form.id}`, { method: "DELETE" })
-      setForms((all) => all.filter((f) => f.id !== form.id))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "The form was not archived.")
-    }
-  }
-  const selected = forms.find((f) => f.id === openId) || null
-  if (selected)
-    return <FormEditor key={selected.id} form={selected} onBack={() => open(null)} onSaved={(f) => setForms((all) => all.map((x) => (x.id === f.id ? { ...x, ...f } : x)))} />
-
-  const newMenu = TEMPLATE_CHOICES.map((t) => ({ label: t.label, onClick: () => void create(t.id) }))
-  return (
-    <div className="mx-auto max-w-[1200px] space-y-5 px-4 py-6 sm:px-6 lg:px-8" data-forms-list="">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Forms and quizzes</h1>
-        <div className="flex items-center gap-2">
-          <a className={buttonSecondary} href="/app/audience/leads">
-            Leads
-          </a>
-          <ResponsiveActionMenu
-            title="Start from"
-            align="end"
-            trigger={
-              <button type="button" className={buttonAccent} disabled={busy} data-new-form="">
-                New form
-              </button>
-            }
-            items={newMenu}
-          />
-        </div>
-      </header>
-      {error ? (
-        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          {error}
-        </p>
-      ) : null}
-      {loading && !forms.length ? (
-        <div className={card + " h-40 animate-pulse"} role="status">
-          <span className="sr-only">Loading forms</span>
-        </div>
-      ) : !forms.length ? (
-        <div className={card + " px-6 py-12 text-center"}>
-          <p className="text-[15px] font-semibold text-[#1a1a2e]">No forms yet</p>
-          <p className={muted + " mx-auto mt-1 max-w-sm"}>Contact forms, applications, quizzes and bookings. One form works on your OnePage, website and creator page.</p>
-          <div className="mt-5 flex flex-wrap justify-center gap-2">
-            {TEMPLATE_CHOICES.slice(0, 5).map((t) => (
-              <button key={t.id} type="button" className={buttonSecondary} disabled={busy} onClick={() => void create(t.id)}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <ul className={card + " divide-y divide-[#f1f2f4] overflow-hidden"}>
-          {forms.map((f) => (
-            <li key={f.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[#fafbfb]">
-              <button type="button" className="min-w-0 flex-1 text-left" onClick={() => open(f.id)}>
-                <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{f.title || "Untitled form"}</span>
-                <span className="block text-[13px] text-[#6b7280]">
-                  {f.status === "published" ? "Published" : "Draft"}
-                  {f.draft?.booking ? " · Bookings" : f.draft?.mode === "quiz" ? " · Quiz" : ""} · Edited {new Date(f.updated_at).toLocaleDateString()}
-                </span>
-              </button>
-              <ResponsiveActionMenu
-                title={f.title || "Form"}
-                trigger={
-                  <button type="button" className={iconButton} aria-label={`Actions for ${f.title || "form"}`}>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
-                }
-                items={[
-                  { label: "Edit", onClick: () => open(f.id) },
-                  { label: "View leads", href: `/app/audience/leads?form=${f.id}` },
-                  ...(f.status === "published" ? [{ label: "Open public form", href: formPath(f.id), target: "_blank" as const }] : []),
-                  { label: "Archive", variant: "destructive" as const, separatorBefore: true, onClick: () => void archive(f) },
-                ]}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
-
-function FormEditor({ form, onBack, onSaved }: { form: SavedForm; onBack: () => void; onSaved: (f: SavedForm) => void }) {
+/**
+ * `embedded`: drawn inside the builder dialog over the OnePage editor
+ * (./form-builder-dialog): no page column of its own, and Back reads Done.
+ */
+export function FormEditor({ form, onBack, onSaved, embedded = false }: { form: SavedForm; onBack: () => void; onSaved: (f: SavedForm) => void; embedded?: boolean }) {
   const [saved, setSaved] = useState(form),
     [draft, setDraft] = useState<FormDefinition>(() => withDefaults(form.draft)),
     [integrations, setIntegrations] = useState<ClientIntegrations>(form.integration_settings),
@@ -267,23 +148,30 @@ function FormEditor({ form, onBack, onSaved }: { form: SavedForm; onBack: () => 
   )
 
   return (
-    <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8" data-form-builder="">
+    <div className={embedded ? "px-4 pb-6 pt-3 sm:px-6" : "mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8"} data-form-builder="">
       <header className="mb-5 space-y-3">
-        <button type="button" onClick={back} className="text-[13px] font-medium text-[#6b7280] hover:text-[#1a1a2e]">
-          ← Forms
-        </button>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="truncate text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{draft.title || "Untitled form"}</h1>
-            <p className={muted}>
-              {saved.status === "published" ? (dirty ? "Published, with unsaved changes" : saved.draft && JSON.stringify(saved.draft) !== JSON.stringify(saved.published) ? "Published, draft has changes" : "Published") : "Draft"}
-            </p>
+          <div className="flex min-w-0 items-center gap-1.5">
+            {embedded ? null : (
+              <button type="button" onClick={back} className={cn(iconButton, "-ml-1.5 h-9 w-9")} aria-label="Back to forms">
+                <ArrowLeft className="h-[18px] w-[18px]" />
+              </button>
+            )}
+            <div className="min-w-0">
+              <h1 className="flex min-w-0 items-center gap-2.5 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">
+                <span className="truncate">{draft.title || "Untitled form"}</span>
+                <StatusBadge tone={saved.status === "published" ? "success" : "neutral"}>{saved.status === "published" ? "Published" : "Draft"}</StatusBadge>
+              </h1>
+              {saved.status === "published" && (dirty || (saved.draft && JSON.stringify(saved.draft) !== JSON.stringify(saved.published))) ? (
+                <p className={muted}>{dirty ? "Unsaved changes" : "The draft has changes that are not published"}</p>
+              ) : null}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className={buttonSecondary + " lg:hidden"} onClick={() => setPreview((v) => !v)} aria-pressed={preview}>
               {preview ? "Edit" : "Preview"}
             </button>
-            {saved.status === "published" ? (
+            {saved.status === "published" && !embedded ? (
               <ResponsiveActionMenu
                 title="Share"
                 trigger={
@@ -294,7 +182,7 @@ function FormEditor({ form, onBack, onSaved }: { form: SavedForm; onBack: () => 
                 items={[
                   { label: "Copy form link", onClick: () => void navigator.clipboard.writeText(publicLink).then(() => setNote("Form link copied.")) },
                   { label: "Open public form", href: formPath(saved.id), target: "_blank" },
-                  { label: "View leads", href: `/app/audience/leads?form=${saved.id}` },
+                  { label: "View leads", href: `/app/emails?tab=leads&form=${saved.id}` },
                 ]}
               />
             ) : null}
@@ -302,12 +190,17 @@ function FormEditor({ form, onBack, onSaved }: { form: SavedForm; onBack: () => 
               Save draft
             </button>
             <button type="button" className={buttonAccent} disabled={busy} onClick={() => void save(true)} data-publish-form="">
-              {busy ? "Saving…" : "Publish"}
+              {busy ? "Saving" : "Publish"}
             </button>
+            {embedded ? (
+              <button type="button" className={buttonSecondary} onClick={back} data-form-builder-done="">
+                Done
+              </button>
+            ) : null}
           </div>
         </div>
         {error ? (
-          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <p role="alert" className="text-[13px] font-medium text-[#b42318]">
             {error}
           </p>
         ) : null}
@@ -491,23 +384,9 @@ function dropBrokenRules(fields: FormField[]): FormField[] {
   })
 }
 
+/** Storelib's segmented control (components/app/segmented-pills), as Emails and Analytics draw theirs. */
 function Segmented({ value, options, onChange, label: name }: { value: string; options: [string, string][]; onChange: (v: string) => void; label: string }) {
-  return (
-    <div role="radiogroup" aria-label={name} className="inline-flex max-w-full flex-wrap gap-1 rounded-lg bg-[#f1f2f4] p-1">
-      {options.map(([id, text]) => (
-        <button
-          key={id}
-          type="button"
-          role="radio"
-          aria-checked={value === id}
-          onClick={() => onChange(id)}
-          className={`h-8 rounded-md px-3 text-[13px] font-medium ${value === id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.12)]" : "text-[#4b5563] hover:text-[#1a1a2e]"}`}
-        >
-          {text}
-        </button>
-      ))}
-    </div>
-  )
+  return <SegmentedPills label={name} size="sm" value={value} onChange={onChange} options={options.map(([id, text]) => ({ value: id, label: text }))} />
 }
 
 function QuestionRow({
@@ -580,7 +459,7 @@ function QuestionRow({
             </label>
             <label className={label}>
               Type
-              <select className={field} value={q.type} onChange={(e) => setType(e.target.value as FieldType)}>
+              <select className={select} value={q.type} onChange={(e) => setType(e.target.value as FieldType)}>
                 {FIELD_TYPES.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.label}
@@ -615,7 +494,7 @@ function QuestionRow({
           {q.type === "rating" ? (
             <label className={label}>
               Scale
-              <select className={field + " sm:w-40"} value={q.max || 5} onChange={(e) => onChange({ max: Number(e.target.value) })}>
+              <select className={select + " sm:w-40"} value={q.max || 5} onChange={(e) => onChange({ max: Number(e.target.value) })}>
                 {[3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                   <option key={n} value={n}>
                     1 to {n}
@@ -659,7 +538,7 @@ function OptionsEditor({ q, quiz, onChange }: { q: FormField; quiz: boolean; onC
   const set = (i: number, patch: Partial<NonNullable<FormField["options"]>[number]>) => onChange({ options: options.map((o, j) => (j === i ? { ...o, ...patch } : o)) })
   return (
     <fieldset className="space-y-2">
-      <legend className="mb-1 text-[13px] font-medium text-[#1a1a2e]">Answers{quiz ? " and points" : ""}</legend>
+      <legend className="mb-1.5 text-[13px] font-medium text-[#4b5563]">Answers{quiz ? " and points" : ""}</legend>
       {options.map((o, i) => (
         <div key={o.id} className="flex items-center gap-2">
           <input className={field} aria-label={`Answer ${i + 1}`} value={o.label} maxLength={200} onChange={(e) => set(i, { label: e.target.value })} />
@@ -667,7 +546,7 @@ function OptionsEditor({ q, quiz, onChange }: { q: FormField; quiz: boolean; onC
             <input className={field + " w-20 shrink-0"} type="number" aria-label={`Points for answer ${i + 1}`} value={o.score ?? 0} onChange={(e) => set(i, { score: Number(e.target.value) || 0 })} />
           ) : null}
           <button type="button" className={iconButton} aria-label={`Remove answer ${i + 1}`} disabled={options.length === 1} onClick={() => onChange({ options: options.filter((_, j) => j !== i) })}>
-            ×
+            <X className="h-4 w-4" />
           </button>
         </div>
       ))}
@@ -682,20 +561,20 @@ function RulesEditor({ rules, earlier, onChange }: { rules: Condition[]; earlier
   const set = (i: number, patch: Partial<Condition>) => onChange(rules.map((r, j) => (j === i ? { ...r, ...patch } : r)))
   return (
     <fieldset className="space-y-2" data-rules="">
-      <legend className="mb-1 text-[13px] font-medium text-[#1a1a2e]">{rules.length ? "Show only when" : "Visibility"}</legend>
+      <legend className="mb-1.5 text-[13px] font-medium text-[#4b5563]">{rules.length ? "Show only when" : "Visibility"}</legend>
       {rules.map((r, i) => {
         const target = earlier.find((f) => f.id === r.field)
         const needsValue = !["answered", "empty"].includes(r.op)
         return (
-          <div key={i} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_130px_minmax(0,1fr)_auto]">
-            <select className={field} aria-label="Question" value={r.field} onChange={(e) => set(i, { field: e.target.value, value: "" })}>
+          <div key={i} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_156px_minmax(0,1fr)_auto]">
+            <select className={select} aria-label="Question" value={r.field} onChange={(e) => set(i, { field: e.target.value, value: "" })}>
               {earlier.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.label || "Untitled question"}
                 </option>
               ))}
             </select>
-            <select className={field} aria-label="Comparison" value={r.op} onChange={(e) => set(i, { op: e.target.value as Condition["op"] })}>
+            <select className={select} aria-label="Comparison" value={r.op} onChange={(e) => set(i, { op: e.target.value as Condition["op"] })}>
               {CONDITION_OPS.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.label}
@@ -704,7 +583,7 @@ function RulesEditor({ rules, earlier, onChange }: { rules: Condition[]; earlier
             </select>
             {needsValue ? (
               target && isChoice(target.type) && ["is", "is_not", "includes"].includes(r.op) ? (
-                <select className={field} aria-label="Answer" value={r.value || ""} onChange={(e) => set(i, { value: e.target.value })}>
+                <select className={select} aria-label="Answer" value={r.value || ""} onChange={(e) => set(i, { value: e.target.value })}>
                   <option value="">Choose…</option>
                   {target.options?.map((o) => (
                     <option key={o.id} value={o.id}>
@@ -719,7 +598,7 @@ function RulesEditor({ rules, earlier, onChange }: { rules: Condition[]; earlier
               <span />
             )}
             <button type="button" className={iconButton} aria-label="Remove rule" onClick={() => onChange(rules.filter((_, j) => j !== i))}>
-              ×
+              <X className="h-4 w-4" />
             </button>
           </div>
         )
@@ -737,7 +616,7 @@ function ResultsEditor({ results, onChange }: { results: QuizResult[]; onChange:
   const set = (i: number, patch: Partial<QuizResult>) => onChange(results.map((r, j) => (j === i ? { ...r, ...patch } : r)))
   return (
     <fieldset className="space-y-3">
-      <legend className="mb-1 text-[13px] font-medium text-[#1a1a2e]">Results by total points</legend>
+      <legend className="mb-1.5 text-[13px] font-medium text-[#4b5563]">Results by total points</legend>
       {results.map((r, i) => (
         <div key={r.id} className="space-y-2 border-l-2 border-[#e3e4e8] pl-3">
           <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
@@ -750,7 +629,7 @@ function ResultsEditor({ results, onChange }: { results: QuizResult[]; onChange:
               <input className={field} type="number" value={r.max} onChange={(e) => set(i, { max: Number(e.target.value) || 0 })} />
             </label>
             <button type="button" className={iconButton + " self-end"} aria-label={`Remove result ${i + 1}`} onClick={() => onChange(results.filter((_, j) => j !== i))}>
-              ×
+              <X className="h-4 w-4" />
             </button>
           </div>
           <label className={label}>
@@ -843,7 +722,7 @@ function BookingEditor({ booking, onChange }: { booking?: BookingSettings; onCha
             </label>
             <label className={label + " sm:col-span-2"}>
               Your time zone
-              <select className={field} value={b.timezone} onChange={(e) => set({ timezone: e.target.value })}>
+              <select className={select} value={b.timezone} onChange={(e) => set({ timezone: e.target.value })}>
                 {(tzList.includes(b.timezone) ? tzList : [b.timezone, ...tzList]).map((z) => (
                   <option key={z} value={z}>
                     {z.replace(/_/g, " ")}
@@ -853,7 +732,7 @@ function BookingEditor({ booking, onChange }: { booking?: BookingSettings; onCha
             </label>
           </div>
           <fieldset className="space-y-2">
-            <legend className="mb-1 text-[13px] font-medium text-[#1a1a2e]">Weekly hours</legend>
+            <legend className="mb-1.5 text-[13px] font-medium text-[#4b5563]">Weekly hours</legend>
             {ORDER.map((day) => {
               const windows = b.weekly.filter((w) => w.day === day)
               const others = b.weekly.filter((w) => w.day !== day)
@@ -872,7 +751,7 @@ function BookingEditor({ booking, onChange }: { booking?: BookingSettings; onCha
                         <input className={field + " w-[104px]"} type="time" aria-label={`${DAYS[day]} until`} value={w.end} onChange={(e) => write(windows.map((x, j) => (j === i ? { ...x, end: e.target.value } : x)))} />
                         {windows.length > 1 ? (
                           <button type="button" className={iconButton} aria-label="Remove hours" onClick={() => write(windows.filter((_, j) => j !== i))}>
-                            ×
+                            <X className="h-4 w-4" />
                           </button>
                         ) : null}
                       </span>
@@ -895,7 +774,7 @@ function BookingEditor({ booking, onChange }: { booking?: BookingSettings; onCha
           </label>
           <label className={label}>
             Payment
-            <select className={field} value={b.payment_product_id || ""} onChange={(e) => set({ payment_product_id: e.target.value || undefined })}>
+            <select className={select} value={b.payment_product_id || ""} onChange={(e) => set({ payment_product_id: e.target.value || undefined })}>
               <option value="">No payment</option>
               {products?.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -954,7 +833,7 @@ function IntegrationsEditor({
       </label>
       <label className={label}>
         Keep responses
-        <select className={field + " block sm:w-56"} value={retention ?? ""} onChange={(e) => onRetention(e.target.value ? Number(e.target.value) : null)}>
+        <select className={select + " block sm:w-56"} value={retention ?? ""} onChange={(e) => onRetention(e.target.value ? Number(e.target.value) : null)}>
           <option value="">Until I delete them</option>
           {[30, 90, 180, 365, 730].map((d) => (
             <option key={d} value={d}>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { formActor, formError, NO_STORE, isMissingSchema } from "@/lib/forms/server"
+import { formActor, formError, NO_STORE, isMissingSchema, formsKnownMissing, formsMissingResponse, isMissingTable, noteFormsTables } from "@/lib/forms/server"
 import { csvCell } from "@/lib/forms/definition"
 import { LEAD_CSV_HEADER, leadRow } from "@/lib/forms/lead-csv"
 import { applyLeadFilters, beforeLead, leadCursor } from "@/lib/forms/lead-query"
@@ -32,6 +32,10 @@ export async function GET(request: Request) {
         cursor,
       )
     let { data, error } = await run(upgraded ? BASE + ",notes,source_block" : BASE)
+    if (error && isMissingTable(error)) {
+      noteFormsTables(error)
+      throw Object.assign(new Error("forms_missing"), { missing: true })
+    }
     if (error && upgraded && isMissingSchema(error)) {
       upgraded = false
       ;({ data, error } = await run(BASE))
@@ -44,10 +48,12 @@ export async function GET(request: Request) {
     }
     return rows
   }
+  if (formsKnownMissing()) return formsMissingResponse()
   let batch: Row[]
   try {
     batch = await read(null)
   } catch (error) {
+    if ((error as { missing?: boolean }).missing) return formsMissingResponse()
     return formError(error, 503)
   }
   const encoder = new TextEncoder()

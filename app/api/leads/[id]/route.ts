@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { formActor, formError, boundedJson, NO_STORE, isMissingSchema, NEEDS_SQL } from "@/lib/forms/server"
+import { formActor, formError, boundedJson, NO_STORE, isMissingSchema, NEEDS_SQL, formsKnownMissing, formsMissingResponse, noteFormsTables } from "@/lib/forms/server"
 import { LEAD_STATUSES } from "@/lib/forms/definition"
 import { UUID } from "@/lib/forms/actions"
 import { FORM_UPLOAD_BUCKET } from "@/lib/forms/uploads-server"
@@ -26,6 +26,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     if (!Object.keys(changes).length) return formError(new Error("Nothing to save."))
     const { data, error } = await actor.db.from("form_submissions").update(changes).eq("id", id).eq("owner_id", actor.user.id).select("id,status").maybeSingle()
+    if (noteFormsTables(error)) return formsMissingResponse()
     if (error) return formError(new Error(isMissingSchema(error) || error.code === "42501" ? NEEDS_SQL : "That did not save. Try again."), 503)
     if (!data) return formError(new Error("Lead not found."), 404)
     return NextResponse.json({ lead: { ...data, ...("notes" in changes ? { notes: changes.notes } : {}) } }, { headers: NO_STORE })
@@ -39,6 +40,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (actor instanceof NextResponse) return actor
   const { id } = await params
   if (!UUID.test(id)) return formError(new Error("Lead not found."), 404)
+  if (formsKnownMissing()) return formsMissingResponse()
   const { data: files } = await actor.db.from("form_uploads").select("id,path").eq("owner_id", actor.user.id).eq("submission_id", id)
   const { data, error } = await actor.db.from("form_submissions").delete().eq("id", id).eq("owner_id", actor.user.id).select("id")
   if (error) return formError(new Error("The lead was not deleted."), 503)

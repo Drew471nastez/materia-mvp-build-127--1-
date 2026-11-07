@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { requireTeamPermission, type TeamGate } from "@/lib/team/server"
 import { REPLY_PAGE, threadRows } from "@/lib/site-contact/reply"
+import { displayEmail, ownerAddress } from "@/lib/businesses/email-alias"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -227,8 +228,8 @@ async function sender(gate: TeamGate) {
     name: (p.display_name || p.username || "").trim() || null,
     username: p.username ?? null,
     avatarUrl: p.avatar_url ?? null,
-    email: gate.userEmail,
-    replyTo: (c.support_email || (gate.isOwner ? gate.userEmail : p.email) || "").trim().toLowerCase() || null,
+    email: displayEmail(gate.userEmail),
+    replyTo: (c.support_email || ownerAddress(gate.isOwner ? gate.userEmail : p.email) || "").trim().toLowerCase() || null,
   })
 }
 

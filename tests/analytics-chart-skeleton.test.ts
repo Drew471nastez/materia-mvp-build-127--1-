@@ -121,8 +121,8 @@ function main() {
       && /stroke=\{loading \? PLACEHOLDER_STROKE : color\}/.test(lines)
       && /area\.setAttribute\("d", ys\.length > 1 && !geo\.loading \?/.test(lines)
       && /const shown = ys\.length > 1 && !geo\.loading/.test(lines)
-      /* Changed on purpose (r51): a chart with nothing to draw lies on the floor in the same grey (components/analytics/empty-state GhostLine). */
-      && /loading=\{isLoading \|\| blank\}/.test(chart))
+      /* Changed on purpose (round AL): a chart with nothing to draw is its own purple line flat on the floor again, so only a real wait is grey. */
+      && /loading=\{isLoading\}\n\s*color=\{color\}/.test(chart))
   check("the series goes through them, in the one slot every metric shares",
     /lines=\{lines\}/.test(chart) && /\{lines\.map\(\(_, k\) => \(\s*<g key=\{k\}>/.test(lines) && /data-trend-line/.test(lines),
     "each metric its own series is what made a tab a replacement instead of a move")

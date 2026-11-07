@@ -107,6 +107,16 @@ export function NativeActionFrame({
                   }
                 : undefined
             }
+            onUnavailable={
+              chat
+                ? () => {
+                    /* The questions could not be shown: the chat opens without them, never a visitor stuck on a form that will not load. */
+                    const href = actionHref(action, vars)
+                    setFormOpen(false)
+                    if (href && !inPreview) window.location.assign(href)
+                  }
+                : undefined
+            }
           />
         </Suspense>
       ) : null}

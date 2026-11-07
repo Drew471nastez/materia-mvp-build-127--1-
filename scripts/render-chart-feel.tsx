@@ -16,7 +16,9 @@ import { DashboardTrendChart } from "@/components/app/dashboard-client"
 import { LanguageProvider } from "@/lib/i18n/context"
 
 const days = Array.from({ length: 30 }, (_, i) => `Sep ${i + 1}`)
-const wave = (i: number, k: number) => Math.round(20 + 14 * Math.sin(i / 3 + k) + (i % 5) * 3)
+/* ?empty=1: a store with nothing yet, every point zero (scripts/check-chart-empty-al.mjs). */
+const EMPTY = new URLSearchParams(location.search).get("empty") === "1"
+const wave = (i: number, k: number) => (EMPTY ? 0 : Math.round(20 + 14 * Math.sin(i / 3 + k) + (i % 5) * 3))
 
 const analytics: AnalyticsChartData[] = days.map((date, i) => ({
   date,

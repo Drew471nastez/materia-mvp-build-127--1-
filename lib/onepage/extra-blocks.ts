@@ -18,9 +18,10 @@ import { hasRealUrl } from "./editor-state"
 import { dayLabel, viewerZone, wallAt } from "./schedule"
 import { CREATOR_BLOCK_TYPES, creatorBlockHasContent } from "./creator-blocks"
 import { STORELIB_BLOCK_TYPES, isStorelibBlock, storelibBlockHasContent } from "./storelib-blocks"
+import { APP_BLOCK_TYPES, appBlockHasContent, isAppBlock } from "./app-blocks"
 
 /* The course, music, testimonials and contact blocks (./creator-blocks) are among them: the same lists keep them out of a group and off an empty page. So are the shelf, lead magnet, posts, followers and code blocks (./storelib-blocks). */
-export const EXTRA_BLOCK_TYPES = ["heading", "faq", "countdown", "map", "video", ...CREATOR_BLOCK_TYPES, ...STORELIB_BLOCK_TYPES] as const
+export const EXTRA_BLOCK_TYPES = ["heading", "faq", "countdown", "map", "video", ...CREATOR_BLOCK_TYPES, ...STORELIB_BLOCK_TYPES, ...APP_BLOCK_TYPES] as const
 export type ExtraBlockType = (typeof EXTRA_BLOCK_TYPES)[number]
 
 export function isExtraBlock(block: { type: string }): boolean {
@@ -85,6 +86,8 @@ export function extraBlockHasContent(block: Pick<OnePageBlock, "type" | "data">)
     case "video":
       return videoSource((block.data as VideoBlockData)?.url) !== null
     default:
+      /* Round AL: the app blocks (./app-blocks), one engine for every service. */
+      if (isAppBlock(block)) return appBlockHasContent(block)
       return isStorelibBlock(block) ? storelibBlockHasContent(block) : creatorBlockHasContent(block)
   }
 }

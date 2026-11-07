@@ -6949,6 +6949,6 @@ function BlockEditor({
 }
 
 /** Blocks whose own editor is written in a Settings half and a Layout half (PartContent, useBlockPart). */
-const PART_AWARE = new Set(["email_capture", "image", "pdf_document", "food_menu", "calendly", "storelib_shelf", "social_posts"])
+const PART_AWARE = new Set(["email_capture", "image", "pdf_document", "food_menu", "calendly", "storelib_shelf", "social_posts", "app"])
 const BLOCKS_WITHOUT_TABS = new Set(["header", "divider", "social_row", "group"])
 const BLOCKS_WITH_TABS = (type: string) => !BLOCKS_WITHOUT_TABS.has(type)

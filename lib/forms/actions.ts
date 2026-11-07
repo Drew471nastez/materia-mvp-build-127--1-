@@ -321,12 +321,19 @@ export function fillTemplate(template: unknown, vars: ActionVars = {}): string {
  * {product_name} from a field with that id.
  */
 export function formVars(
-  fields: readonly { id: string; type?: string }[] | null | undefined,
+  fields: readonly { id: string; type?: string; options?: readonly { id: string; label?: string }[] }[] | null | undefined,
   answers: Record<string, unknown> | null | undefined,
 ): ActionVars {
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(answers || {})) {
-    if (/^[\w-]{1,64}$/.test(k)) out[k] = cleanValue(v)
+    if (!/^[\w-]{1,64}$/.test(k)) continue
+    /* A choice is kept as its option's id ("b1"); the message reads its words ("Under 200"). */
+    const options = (fields || []).find((f) => f.id === k)?.options
+    const word = (x: unknown) => {
+      const o = options?.find((opt) => opt.id === x)
+      return o && o.label ? o.label : x
+    }
+    out[k] = cleanValue(options?.length ? (Array.isArray(v) ? v.map(word) : word(v)) : v)
   }
   const nameField = (fields || []).find((f) => f.type === "name")
   return {

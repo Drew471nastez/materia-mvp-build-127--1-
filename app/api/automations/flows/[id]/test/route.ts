@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { cleanSteps, signedInCreator } from "@/lib/automations/flow-io"
 import { drawFlowEmail } from "@/lib/automations/flow-preview"
 import { rateLimit } from "@/lib/api/rate-limit"
+import { ownerAddress } from "@/lib/businesses/email-alias"
 
 export const runtime = "nodejs"
 
@@ -37,9 +38,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!step || step.type !== "email") return NextResponse.json({ error: "Choose an email to test." }, { status: 400 })
   if (!step.config.subject.trim()) return NextResponse.json({ error: "Give the email a subject first." }, { status: 400 })
 
+  /* The owner's own inbox: a second business's account address carries a +slb tag that is Storelib's, not theirs. */
+  const to = ownerAddress(me.userEmail) ?? me.userEmail
   /* Filled and branded exactly as a real send is (lib/automations/flow-preview). */
-  const drawn = await drawFlowEmail({ flowId: id, creatorId: me.creatorId, to: me.userEmail, step, product: body.product })
-  const result = await drawn.mailer.send({ to: me.userEmail, fromName: drawn.identity.fromName, replyTo: drawn.identity.replyTo, subject: `Test: ${drawn.subject}`, html: drawn.html, text: drawn.text, headers: drawn.headers })
+  const drawn = await drawFlowEmail({ flowId: id, creatorId: me.creatorId, to, step, product: body.product })
+  const result = await drawn.mailer.send({ to, fromName: drawn.identity.fromName, replyTo: drawn.identity.replyTo, subject: `Test: ${drawn.subject}`, html: drawn.html, text: drawn.text, headers: drawn.headers })
   if (!result.success) return NextResponse.json({ error: "The test could not be sent. Try again in a minute." }, { status: 502 })
-  return NextResponse.json({ ok: true, to: me.userEmail })
+  return NextResponse.json({ ok: true, to })
 }

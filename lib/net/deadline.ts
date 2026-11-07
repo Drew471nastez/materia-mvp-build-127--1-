@@ -28,6 +28,40 @@
  * multiplied by three.
  */
 import { supabaseRetryBudget, type RetryBudget } from "./retry-budget"
+import { breakerFor, type CircuitBreaker } from "./breaker"
+
+/*
+  ===========================================================================
+   SUPABASE AUTH THAT IS NOT ANSWERING IS ASKED ONCE, NOT BY EVERY REQUEST
+  ===========================================================================
+  Round AL, from production. Nov 3 10:28 to 12:06 UTC, three signed in people:
+  "auth/v1/token took longer than 10s" 1140 times on the proxy, and its
+  AuthRetryableFetchError 510 more, plus the website editor's agent-activity
+  poll; Oct 29 to Nov 2, "auth/v1/user took longer than 10s" 237 times over 40
+  routes. Every page, prefetch and poll of the same few people waited out the
+  same ten second deadline against an Auth that was plainly not answering,
+  which is the "infinite loading" the owner saw.
+
+  So on the server the token renewal gets a breaker (./breaker.ts): four in a row
+  that got no answer at all (our deadline, a dropped connection) within half a
+  minute open it, and for the next fifteen seconds a
+  renewal fails at once instead of waiting ten. Supabase's client turns
+  that throw into a retryable error with the session kept, the same as a
+  timeout (A REFRESH THAT AUTH COULD NOT ANSWER IS NOT A SIGN OUT, below), so
+  nobody is signed out by it. Then one request is let through as a trial; an
+  answer closes it. A 5xx is an answer that came quickly and is left to the
+  library's own retries, so it never opens the breaker. Only the renewal: a
+  getUser that is a person's yes or no (a revoked session, a forged token) is
+  always asked, so Auth's own no still signs out. Not in a browser: one tab is one person, and its own
+  requests already back off.
+*/
+export const AUTH_BREAKER = { failures: 4, windowMs: 30_000, cooldownMs: 15_000 } as const
+
+/** The breaker for Supabase Auth's token renewal on this server instance, or null in a browser and for any other request. */
+function authBreaker(url: string, method: string): CircuitBreaker | null {
+  if (typeof window !== "undefined" || !isRefreshTokenRequest(url, method)) return null
+  return breakerFor("supabase-auth", AUTH_BREAKER)
+}
 
 export type DeadlineKind = "auth" | "read" | "write" | "rpc" | "storage-read" | "storage-write" | "functions" | "other"
 
@@ -335,9 +369,20 @@ export function deadlineFetch(input: RequestInfo | URL, init?: RequestInit, opts
 }
 
 function fetchWithDeadline(input: RequestInfo | URL, init?: RequestInit, opts: DeadlineOptions = {}): Promise<Response> {
-  const base = opts.base ?? ((...a: Parameters<typeof fetch>) => globalThis.fetch(...a))
   const url = urlOf(input)
   const method = methodOf(input, init)
+  const breaker = authBreaker(url, method)
+  if (!breaker) return fetchBounded(input, init, opts, url, method)
+  const caller = init?.signal ?? (typeof Request !== "undefined" && input instanceof Request ? input.signal : undefined)
+  /* Only no answer counts: our deadline or a dropped connection. Any status is an answer; the caller giving up is nobody's failure. */
+  return breaker.call(
+    () => fetchBounded(input, init, opts, url, method),
+    (o) => "error" in o && !caller?.aborted,
+  )
+}
+
+function fetchBounded(input: RequestInfo | URL, init: RequestInit | undefined, opts: DeadlineOptions, url: string, method: string): Promise<Response> {
+  const base = opts.base ?? ((...a: Parameters<typeof fetch>) => globalThis.fetch(...a))
   const ms = opts.ms !== undefined ? opts.ms : deadlineFor(url, method)
   const caller = init?.signal ?? (typeof Request !== "undefined" && input instanceof Request ? input.signal : undefined)
   const ours = ms === null ? null : timeoutSignal(ms, url)

@@ -145,15 +145,17 @@ function main() {
   section("The Add block sheet: the catalogue, the open, the chips, a press")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const embeds = PICKER_ENTRIES.filter((e) => e.type === "embed" && e.category === "integrations")
+    /* Changed on purpose (round AL): no Integrations category; the embed entries are found by search, and still start the block as their service. */
+    const embeds = PICKER_ENTRIES.filter((e) => e.type === "embed" && e.id.startsWith("int_"))
     check("each embed entry starts the block as its service, and that service is one embedSource reads", embeds.length >= 10 && embeds.every((e) => typeof e.data?.provider === "string" && (e.data.provider as string) in EMBED_PROVIDER_NAME))
-    check("search finds them by their names and by what people call them", searchEntries(PICKER_ENTRIES, "typeform")[0]?.id === "int_typeform" && searchEntries(PICKER_ENTRIES, "tweet")[0]?.id === "int_x" && searchEntries(PICKER_ENTRIES, "podcast").some((e) => e.id === "int_podcasts") && searchEntries(PICKER_ENTRIES, "tip").some((e) => e.id === "kofi"))
+    /* Changed on purpose (round AL): "typeform" finds the listed Typeform app block first, then the embed entry; "tweet" finds the X app block and the X embed. */
+    check("search finds them by their names and by what people call them", searchEntries(PICKER_ENTRIES, "typeform")[0]?.id === "app_typeform" && searchEntries(PICKER_ENTRIES, "typeform").some((e) => e.id === "int_typeform") && searchEntries(PICKER_ENTRIES, "tweet").some((e) => e.id === "int_x") && searchEntries(PICKER_ENTRIES, "podcast").some((e) => e.id === "int_podcasts") && searchEntries(PICKER_ENTRIES, "tip").some((e) => e.id === "kofi"))
     check("links for shops and tips wear their brand on the button", ["amazon", "etsy", "kofi", "paypal", "cashapp", "venmo"].every((id) => { const e = PICKER_ENTRIES.find((x) => x.id === id); return !!e?.preset?.icon && e.brand !== undefined }))
     const picker = read("components/onepage/add-block-picker.tsx")
     check("the open state is a store of its own, read by the sheet and the button only", /export function setAddSheetOpen/.test(picker) && /useSyncExternalStore\(addSheetSubscribe/.test(picker) && /export function AddSheetGate/.test(picker))
     const tab = read("components/onepage/tabs/links-tab.tsx")
     check("so the Links tab holds no open state for it", !/useState\(false\)[^\n]*\n?[^\n]*showAddModal/.test(tab) && !/const \[showAddModal/.test(tab) && /<AddSheetGate>\{\(showAddModal\) => \(/.test(tab) && /<AddBlockButton/.test(tab))
-    check("nothing is reset on the open: after the close, once it has gone", /if \(open\) return\n\s*const t = window\.setTimeout\(\(\) => \{\n\s*setCategory\("all"\)/.test(picker) && !/scrollTo\(\{ top: 0 \}\)/.test(picker))
+    check("nothing is reset on the open: after the close, once it has gone", /if \(open\) return\n\s*const t = window\.setTimeout\(\(\) => \{\n\s*setCategory\(FIRST_VIEW\)/.test(picker) /* Changed on purpose (round AL): back to Essentials, the view it opens on. */ && !/scrollTo\(\{ top: 0 \}\)/.test(picker))
     check("the rows are memoised and a chip only hides sections, kept (content-visibility)", /const EntryRow = React\.memo\(/.test(picker) && /const PickerSection = React\.memo\(/.test(picker) && /contentVisibility: "hidden"/.test(picker))
     /* The same row as every other pill row in the editor (agent MOTION's round 11: components/onepage/pill-tabs over lib/ui/pill-switch, Storelib's own pills), so they are one look and one motion. */
     check("the chips are Storelib's pills: the editor's one PillTabs row, kept in view", /<PillTabs\n\s*dataRow="add-block-categories"[\s\S]{0,300}keepInView\n\s*itemAttr="data-picker-chip"/.test(picker))
