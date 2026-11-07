@@ -18,6 +18,7 @@
 
 import * as React from "react"
 import { useSavedValues } from "@/lib/store-builder/use-saved-values"
+import { saveCreatorProfile } from "@/lib/storefront/creator-profile-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -122,17 +123,16 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
     setSaving(true)
     setError(null)
     try {
-      const res = await fetch("/api/creator-profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      /* Through saveCreatorProfile (round 50), so the save is one step of the editor's page-level undo and redo. */
+      const { ok, data } = await saveCreatorProfile(
+        {
           about: { headline: title, aboutContent: text, mediaItems: items },
           /** "" is a real value: it takes the Contact link off the page. */
           contactEmail: email.trim(),
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
+        },
+        "story",
+      )
+      if (!ok) {
         setError(typeof data.error === "string" ? data.error : "Could not save. Try again.")
         return
       }

@@ -43,6 +43,7 @@ export function SectionRenderer({
   sellerContactHandle,
   aboutOwnerActions,
   communityBlocks,
+  productsOrder,
 }: {
   section: Section
   products?: ProductData[]
@@ -81,6 +82,13 @@ export function SectionRenderer({
   aboutOwnerActions?: React.ReactNode
   /** The Community sections' data, read on the server for this page (lib/communities/server/blocks.ts). */
   communityBlocks?: Record<string, CommunityBlockData>
+  /**
+   * The creator's arrangement (headerSettings.productsOrder), which the page
+   * passed and this wrapper dropped, the same way as the contact address
+   * above: Arrange saved, the Products tab followed it, and Home's Featured
+   * row stayed in the builder's order (round 50).
+   */
+  productsOrder?: string[]
 }) {
   // Defensive check - don't render if section or settings are invalid
   if (!section || !section.settings) {
@@ -111,6 +119,7 @@ export function SectionRenderer({
       sellerContactHandle={sellerContactHandle}
       aboutOwnerActions={aboutOwnerActions}
       communityBlocks={communityBlocks}
+      productsOrder={productsOrder}
     />
   )
 }

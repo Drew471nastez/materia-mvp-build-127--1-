@@ -80,3 +80,29 @@ export function applyManualOrder<T extends { id: string }>(
     return pa - pb
   })
 }
+
+/**
+ * ===========================================================================
+ *  AN ARRANGEMENT OF SOME OF THE PRODUCTS, IN THE ORDER OF ALL OF THEM (round 50)
+ * ===========================================================================
+ * Arrange on Home lists the Featured section's products, which can be a
+ * selection. It saved that selection as the whole order, so every product
+ * left out of it had no place any more and jumped to the front of the
+ * Products tab (applyManualOrder puts the unplaced first).
+ *
+ * The arranged products take the slots they already held in the whole
+ * catalogue, in their new order, and everything else stays where it was:
+ * [A,B,C,D,E] with B and D swapped is [A,D,C,B,E].
+ */
+export function mergeArrangement(full: string[], arranged: string[]): string[] {
+  const picked = new Set(arranged)
+  const queue = arranged.filter((id, i) => arranged.indexOf(id) === i)
+  const out: string[] = []
+  for (const id of full) {
+    if (!picked.has(id)) out.push(id)
+    else if (queue.length > 0) out.push(queue.shift()!)
+  }
+  /* Arranged but not in the catalogue as the page knew it: after it, not lost. */
+  out.push(...queue)
+  return out.filter((id, i) => out.indexOf(id) === i)
+}

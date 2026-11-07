@@ -125,10 +125,11 @@ async function main() {
 
     const route = code("app/api/creator-profile/route.ts")
     const write = route.indexOf(".from(\"store_builder_configs\")\n    .update(")
-    const purge = route.indexOf("await creatorPagesChanged({ creatorId: creator.id, userId: page.profileId })", write)
+    /* Changed on purpose (round 50, merge): one `purge()` helper calls creatorPagesChanged, skipped only when the identity change already purged. */
+    const purge = route.indexOf("await purge()", write)
     const answer = route.lastIndexOf("return NextResponse.json({ ok: true, storefront: true")
     check("the route purges the page's copies (data and CDN) after the write and before it answers", write > 0 && purge > write && purge < answer, { write, purge, answer })
-    check("  and on a page with no config when the creator row changed (the default page draws the bio)", /if \(Object\.keys\(creatorUpdate\)\.length > 0\) await creatorPagesChanged/.test(route))
+    check("  and on a page with no config when the creator row changed (the default page draws the bio)", /const purge = \(\) => \(Object\.keys\(profileUpdate\)\.length > 0 \? Promise\.resolve\(\) : creatorPagesChanged\(/.test(route) && (route.match(/await purge\(\)/g) ?? []).length >= 2)
   }
 
   section("2. The owner sees the save at once")
