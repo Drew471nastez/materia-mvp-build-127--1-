@@ -97,7 +97,7 @@ export default async function ClaimPage({ params, searchParams }: Props) {
 
   return (
     <Frame>
-      <ClaimCard state={read.state} token={token} note={note === "accepted" ? "" : note} signedIn={!!sessionUser} preview={read.preview} />
+      <ClaimCard state={read.state} token={token} note={note} signedIn={!!sessionUser} preview={read.preview} />
     </Frame>
   )
 }

@@ -28,9 +28,11 @@ export function AcceptOwnership({ token }: { token: string }) {
   )
 }
 
-export function OpenBusiness({ userId, name }: { userId: string; name: string }) {
+/** `auto`: opens it as soon as the page is here (right after Accept, and for a login whose only store was handed to it), the button staying for a second press. */
+export function OpenBusiness({ userId, name, auto = false }: { userId: string; name: string; auto?: boolean }) {
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const started = React.useRef(false)
   const open = async () => {
     if (busy) return
     setBusy(true)
@@ -42,6 +44,12 @@ export function OpenBusiness({ userId, name }: { userId: string; name: string })
       setBusy(false)
     }
   }
+  React.useEffect(() => {
+    if (!auto || started.current) return
+    started.current = true
+    void open()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto])
   return (
     <div>
       <button type="button" className={JOIN_BTN_PRIMARY} onClick={() => void open()} disabled={busy} data-claim="open">

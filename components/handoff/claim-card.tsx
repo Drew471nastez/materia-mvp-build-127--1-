@@ -2,7 +2,7 @@ import Link from "next/link"
 import { JOIN_BTN_PRIMARY, JOIN_BTN_QUIET } from "@/components/team/join-actions"
 import { Plain, StoreCard } from "@/components/team/join-card"
 import { AcceptOwnership, OpenBusiness, SwitchAccount } from "@/components/handoff/claim-actions"
-import { BLOCKER_TEXT_FOR_RECIPIENT, GOES_WITH_IT, STAYS_BEHIND, claimSignInPath, type ClaimState } from "@/lib/handoff/rules"
+import { BLOCKER_TEXT_FOR_RECIPIENT, GOES_WITH_IT, STAYS_BEHIND, claimSignInHref, type ClaimState } from "@/lib/handoff/rules"
 
 /**
  * The claim page's cards (app/(storelib)/team/claim/[token]), one per state
@@ -107,7 +107,7 @@ export function ClaimCard({ state, token, note, signedIn, preview }: { state: Cl
             <>
               {line("Connect your payout account in Settings, Payments to get paid. You can open it any time from your account menu.")}
               <div className="mt-5">
-                <OpenBusiness userId={state.businessUserId} name={state.business.name} />
+                <OpenBusiness userId={state.businessUserId} name={state.business.name} auto={note === "accepted"} />
               </div>
             </>
           ))
@@ -119,8 +119,8 @@ export function ClaimCard({ state, token, note, signedIn, preview }: { state: Cl
         <>
           {preview ? <ClaimPreviewBox preview={preview} /> : null}
           <div className="mt-5 space-y-2">
-            <a href={claimSignInPath(token, { signup: true, email: state.email })} className={JOIN_BTN_PRIMARY} data-claim="signup">Create account to accept</a>
-            <a href={claimSignInPath(token, { signup: false, email: state.email })} className={JOIN_BTN_QUIET} data-claim="login">Already on Storelib? Log in</a>
+            <a href={claimSignInHref(token, { signup: true })} className={JOIN_BTN_PRIMARY} data-claim="signup">Create account to accept</a>
+            <a href={claimSignInHref(token, { signup: false })} className={JOIN_BTN_QUIET} data-claim="login">Already on Storelib? Log in</a>
           </div>
         </>
       ))

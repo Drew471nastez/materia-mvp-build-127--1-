@@ -52,6 +52,9 @@ import { handoffInviteEmail } from "@/lib/handoff/email"
 import { ClaimCard } from "@/components/handoff/claim-card"
 import { destinationAfterAuth, readCarry } from "@/lib/auth/continue"
 import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
+import { CLAIM_COOKIE, claimFallbackNext, claimSignInHref } from "@/lib/handoff/rules"
+import { HANDED_HOME, handedBusinessOf } from "@/lib/handoff/home"
+import { opensInApp } from "@/lib/platform/app-links"
 import { MAX_BUSINESSES } from "@/lib/businesses/rules"
 
 let passed = 0
@@ -224,6 +227,7 @@ async function main() {
   const oneRoute = await import("@/app/api/handoff/[id]/route")
   const claimRoute = await import("@/app/api/handoff/claim/route")
   const switchRoute = await import("@/app/api/handoff/claim/switch/route")
+  const signInRoute = await import("@/app/api/handoff/claim/sign-in/route")
   const idParams = (id: string) => ({ params: Promise.resolve({ id }) })
 
   console.log("\nThe token: random, long, kept only as its SHA-256")
@@ -417,15 +421,15 @@ async function main() {
   console.log("\nThe SQL: additive, row level security, server only")
   {
     const sql = read("supabase/migrations/20271131_business_handoff.sql")
-    check("the migration and run-now part 380 are the same text", sql === read("supabase/sql/run-now/380_business_handoff.sql"))
+    check("the migration and run-now part 376 are the same text", sql === read("supabase/sql/run-now/376_business_handoff.sql"))
     check("new tables only, each if not exists", (sql.match(/create table if not exists public\.business_handoff/g) ?? []).length === 2 && !/alter table public\.(?!business_handoff)\w+ (add|drop|alter)/i.test(sql) && !/drop table|drop column|truncate/i.test(sql))
     check("row level security on both", /alter table public\.business_handoffs enable row level security;/.test(sql) && /alter table public\.business_handoff_events enable row level security;/.test(sql))
     check("nothing for anon; signed in users read their own business's rows, never the token hash, the result or an address", /revoke all on public\.business_handoffs, public\.business_handoff_events from public, anon, authenticated;/.test(sql) && /grant select \((?![^)]*token_hash)(?![^)]*result)[^)]+\) on public\.business_handoffs to authenticated;/.test(sql) && /grant select \((?![^)]*\bip\b)[^)]+\) on public\.business_handoff_events to authenticated;/.test(sql) && /using \(\(select auth\.uid\(\)\) = business_user_id or \(select auth\.uid\(\)\) = from_owner_id\)/.test(sql))
     check("one open link per business, by a unique index", /create unique index if not exists business_handoffs_one_open on public\.business_handoffs \(business_user_id\) where status = 'pending';/.test(sql))
     check("the transfer is security definer with a fixed search path, callable by the service role only", /security definer set search_path = public, pg_temp/.test(sql) && /revoke all on function public\.business_handoff_accept\([^)]*\) from public, anon, authenticated;/.test(sql) && /grant execute on function public\.business_handoff_accept\([^)]*\) to service_role;/.test(sql))
     check("it locks the link and the business's row before it checks them", /for update;/.test(sql) && /pg_advisory_xact_lock\(hashtextextended\('business_links ' \|\| p_recipient::text, 0\)\)/.test(sql))
-    check("the check after has a column for it", /as p380_business_handoff;/.test(read("supabase/sql/run-now/99_check_after.sql")))
-    check("and the README a row", /`380_business_handoff\.sql`/.test(read("supabase/sql/run-now/README.md")))
+    check("the check after has a column for it", /as p376_business_handoff;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    check("and the README a row", /`376_business_handoff\.sql`/.test(read("supabase/sql/run-now/README.md")))
   }
 
   console.log("\nEvery route asks who is signing in")
@@ -481,7 +485,18 @@ async function main() {
     check("  a brand new account (no store yet) comes back to the claim, not onboarding", destinationAfterAuth(carry, { state: "none" } as never) === claimPath(token))
     check("  and a seller logging in comes back to it too", destinationAfterAuth(readCarry(new URLSearchParams(claimSignInPath(token, { signup: false, email: "a@b.co" }).split("?")[1]), "storelib.com"), { state: "seller" } as never) === claimPath(token))
     const card = renderToStaticMarkup(createElement(ClaimCard, { state: (signedOut as { state: ClaimState }).state, token, note: "", signedIn: false, preview: (signedOut as any).preview }))
-    check("  the card links to sign up and log in with the claim as next", card.includes(`/signup?next=${encodeURIComponent(claimPath(token))}`) && card.includes(`/login?next=${encodeURIComponent(claimPath(token))}`))
+    check("  the card's Create account and Log in go through the route that keeps the claim", card.includes(claimSignInHref(token, { signup: true }).replace(/&/g, "&amp;")) && card.includes(claimSignInHref(token, { signup: false }).replace(/&/g, "&amp;")))
+    const kept = await signInRoute.GET(new Request(`${SITE}${claimSignInHref(token, { signup: true })}`))
+    const keptTo = new URL(kept.headers.get("location") ?? "", SITE)
+    const setCookie = kept.headers.get("set-cookie") ?? ""
+    check("  which opens sign up with the claim as next, and keeps the token in a short lived httpOnly cookie", keptTo.pathname === "/signup" && keptTo.searchParams.get("next") === claimPath(token) && setCookie.includes(`${CLAIM_COOKIE}=${token}`) && /HttpOnly/i.test(setCookie) && /Max-Age=1800/i.test(setCookie), { location: kept.headers.get("location"), setCookie })
+    const forgedKeep = await signInRoute.GET(new Request(`${SITE}/api/handoff/claim/sign-in?token=..%2F..%2Fevil&to=login`))
+    check("  a made up token is not kept", !(forgedKeep.headers.get("set-cookie") ?? "").includes(CLAIM_COOKIE))
+    check("an OAuth round trip that lost next comes back to the claim from the cookie", claimFallbackNext(null, token) === claimPath(token) && claimFallbackNext("/library", token) === "/library" && claimFallbackNext(null, "../evil") === null)
+    const cont = read("app/(storelib)/auth/continue/route.ts")
+    const cb = read("app/(storelib)/auth/callback/route.ts")
+    check("  /auth/continue and /auth/callback both read the claim cookie once", [cont, cb].every((src) => /jar\.get\(CLAIM_COOKIE\)/.test(src) && /jar\.delete\(CLAIM_COOKIE\)/.test(src) && /claimFallbackNext\(carry\.next, claim\)/.test(src)))
+    check("a claim link opens in the iOS and Android apps", opensInApp(claimPath(token)) && opensInApp(HANDED_HOME))
 
     const ready = await readClaim(w.deps, token, await viewerOf(w.deps, { id: NEWBIE, email: "new@example.com" }))
     check("signed up and confirmed: ready, with what comes with it and what stays", ready.ok && ready.state.kind === "ready")
@@ -555,6 +570,29 @@ async function main() {
     check("no em dash and none of the words the owner banned", !/—/.test(all) && !/\b(unlock|elevate|seamless|powerful|effortlessly|supercharge|transform)\b/i.test(all))
     check("the invite email carries the link once, the sender and the days", mail.text.includes(claimPath(token)) && /Lia built Glow Studio/.test(mail.text) && /7 days/.test(mail.text))
     check("the settings panel is in the Team tab, loaded with it", /panelTab === "team" && \([\s\S]{0,120}<HandoffPanel \/>/.test(read("components/app/settings-form-new.tsx")) && /team: \["team", "handoff"\]/.test(read("components/app/settings/lazy-panels.tsx")))
+  }
+
+  console.log("\nA client whose only store was handed to them lands in it")
+  {
+    const w = world()
+    const { token } = await made(w)
+    check("before taking anything, nothing is handed to the login", (await handedBusinessOf(NEWBIE, w.db as never)) === null)
+    await claimRoute.POST(formReq("/api/handoff/claim", NEWBIE, { token }))
+    const handed = await handedBusinessOf(NEWBIE, w.db as never)
+    check("after the claim, the login's handed business is the one it took", handed?.userId === STUDIO && handed?.name === "Glow Studio", handed)
+    check("  nobody else has it handed to them", (await handedBusinessOf(LIA, w.db as never)) === null && (await handedBusinessOf(TOM, w.db as never)) === null)
+    w.db.tables.business_links.splice(w.db.tables.business_links.findIndex((l: any) => l.member_id === STUDIO), 1)
+    check("  and once it is no longer on the login, it is not opened", (await handedBusinessOf(NEWBIE, w.db as never)) === null)
+    const accepted = renderToStaticMarkup(createElement(ClaimCard, { state: { kind: "accepted", business: { name: "Glow Studio", avatarUrl: null }, mine: true, businessUserId: STUDIO }, token, note: "accepted", signedIn: true, preview: null }))
+    check("right after Accept the page opens the business by itself (Open stays for a second press)", /Open Glow Studio/.test(accepted) && !/role="alert"/.test(accepted))
+    const cont = read("app/(storelib)/auth/continue/route.ts")
+    const cb = read("app/(storelib)/auth/callback/route.ts")
+    const layout = read("app/(storelib)/app/layout.tsx")
+    const asked = /const handed = !hasSellerAccess\(access\) && !teamMember && !carry\.next && !carry\.intent \? await handedHomeFor\([^)]+\) : null/
+    check("sign in opens it only for a login with no store, no team and nowhere else to go", asked.test(cont) && asked.test(cb) && [cont, cb].every((src) => /destinationWithAppOpen\(handed \?\? destinationAfterAuth\(/.test(src)))
+    check("/app sends such a login there instead of onboarding", /!memberRead\.failed \? await handedHomeFor\(user\.id\) : null\s*\n\s*if \(handed\) redirect\(handed\)/.test(layout) && layout.indexOf("if (handed) redirect(handed)") < layout.indexOf('redirect("/sell")'))
+    check("the page that opens it switches the way the account menu does", /<OpenBusiness userId=\{handed\.userId\} name=\{handed\.name\} auto \/>/.test(read("app/(storelib)/team/claim/home/page.tsx")))
+    check("the read is indexed", /create index if not exists business_handoffs_accepted_by on public\.business_handoffs \(accepted_by, accepted_at desc\) where status = 'accepted';/.test(read("supabase/migrations/20271131_business_handoff.sql")))
   }
 
   setHandoffDepsForTests(null)

@@ -83,6 +83,30 @@ export function claimPath(token: string): string {
   return `${CLAIM_PREFIX}${encodeURIComponent(token)}`
 }
 
+/**
+ * THE CLAIM, KEPT ACROSS SIGN IN, as the team invite keeps its own
+ * (lib/team/invite-links). `next` rides through every way in, but an OAuth
+ * round trip or a verify step can lose it, so Create account and Log in go
+ * through /api/handoff/claim/sign-in, which keeps the token in a short lived
+ * httpOnly cookie. /auth/continue and /auth/callback send a sign in that has
+ * nowhere else to go back to the claim. The cookie only says which link to
+ * open; the page checks it against its hash, expiry and single use as always.
+ */
+export const CLAIM_COOKIE = "sl_handoff_claim"
+export const CLAIM_COOKIE_MAX_AGE_SECONDS = 30 * 60
+
+/** The claim to go back to after sign in, from the cookie, when nothing else said where to go. */
+export function claimFallbackNext(next: string | null, cookieValue: string | null | undefined): string | null {
+  if (next) return next
+  const token = (cookieValue ?? "").trim()
+  return tokenShapeOk(token) ? claimPath(token) : null
+}
+
+/** The card's Create account and Log in: through the route that keeps the claim for after sign in. */
+export function claimSignInHref(token: string, opts: { signup: boolean }): string {
+  return `/api/handoff/claim/sign-in?token=${encodeURIComponent(token)}&to=${opts.signup ? "signup" : "login"}`
+}
+
 /** Log in or create an account, then straight back to the claim. The email is filled in when the link was sent to one. */
 export function claimSignInPath(token: string, opts: { signup: boolean; email: string | null }): string {
   const params = new URLSearchParams()
