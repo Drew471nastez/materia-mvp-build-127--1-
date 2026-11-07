@@ -297,6 +297,14 @@ try {
       while (e) { o *= Number(getComputedStyle(e).opacity); e = e.parentElement }
       return Math.round(o * 100) / 100
     })
+    /* What a finger lands on in the middle of the lead's title and its Confirm button is the dialog, not the table under it. */
+    line.leadDialogOnTop = await page.evaluate(() =>
+      ["[data-lead] h2", "[data-lead-booking] button"].every((sel) => {
+        const r = document.querySelector(sel).getBoundingClientRect()
+        return !!document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest("[data-lead]")
+      }),
+    )
+    assert.equal(line.leadDialogOnTop, true, "the lead's dialog is drawn over the table")
     assert.ok(await page.$(`a[href="/api/leads/${leads[0].id}/files/33333333-3333-4333-8333-333333333333"]`), "a file answer links to the owner's signed download")
     await shot("leads-open")
     await click(page, "Confirm")
