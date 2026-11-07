@@ -1,5 +1,6 @@
 "use client"
 import {useAvatarImage} from "@/lib/account/avatar-image"
+import { FramedPicture, shownRatio, useLetterbox } from "@/components/ui/framed-picture"
 
 /**
  * ===========================================================================
@@ -66,7 +67,8 @@ export function useEscape(onClose: () => void) {
   ref.current = onClose
   React.useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") ref.current()
+      /* Not an Escape a menu or a field inside already used (Radix marks it), nor one that ends an IME word. */
+      if (e.key === "Escape" && !e.defaultPrevented && !e.isComposing) ref.current()
     }
     window.addEventListener("keydown", key)
     return () => window.removeEventListener("keydown", key)
@@ -84,6 +86,92 @@ export function CheckoutMark({ imageUrl, name, size }: { imageUrl?: string | nul
       {name.slice(0, 1).toUpperCase()}
     </span>
   )
+}
+
+/**
+ * THE PRODUCT IN THE HEAD (round AK). The picture of what is being bought, never the seller's: its own shape within
+ * 3:4 and 4:3 at a fixed height, so a portrait ebook cover shows whole and a wide one is not a sliver, filled with
+ * no bars (the editor's grey padding is cut off, components/ui/framed-picture). `sources` are tried in order when
+ * one fails to load; with none left, the product's first letter.
+ */
+export function CheckoutProductMark({ sources, name, height = 76 }: { sources: (string | null | undefined)[]; name: string; height?: number }) {
+  const key = sources.filter((s): s is string => typeof s === "string" && !!s.trim()).join("\n")
+  const list = React.useMemo(() => [...new Set(key ? key.split("\n") : [])], [key])
+  const [failed, setFailed] = React.useState(0)
+  React.useEffect(() => setFailed(0), [key])
+  const src = list[failed] ?? null
+  const shape = useLetterbox(src)
+  const own = shownRatio(shape)
+  const ratio = Math.min(4 / 3, Math.max(3 / 4, own ?? 1))
+  if (!src) {
+    return (
+      <span aria-hidden className="grid shrink-0 place-items-center rounded-[12px] bg-[#1a1a2e] text-[22px] font-semibold text-white" style={{ width: height, height }} data-checkout-product-mark="">
+        {name.slice(0, 1).toUpperCase()}
+      </span>
+    )
+  }
+  return (
+    <FramedPicture
+      key={src}
+      src={src}
+      displaySrc={optimizedImageUrl(src, 128) ?? src}
+      frame={ratio}
+      shape={shape}
+      focus={{ x: 0.5, y: 0.4 }}
+      className="shrink-0 rounded-[12px] bg-[#eef0f2] shadow-[0_0_0_1px_rgba(17,17,19,0.06)] motion-safe:transition-[width] motion-safe:duration-200"
+      style={{ width: Math.round(height * ratio), height }}
+      imgProps={{ width: Math.round(height * ratio), height, decoding: "async", onError: () => setFailed((n) => n + 1) }}
+    />
+  )
+}
+
+/**
+ * FOCUS STAYS IN THE TOP WINDOW (round AK). The window takes focus when it opens, Tab and Shift+Tab go round its own
+ * controls, and on close focus goes back to `returnFocus` (the control that started the purchase), or to whatever
+ * had it before, when that is still on the page and not hidden.
+ */
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),iframe,[tabindex]:not([tabindex="-1"])'
+
+function useFocusTrap(panel: React.RefObject<HTMLElement | null>, mounted: boolean, returnFocus?: () => HTMLElement | null) {
+  const back = React.useRef(returnFocus)
+  back.current = returnFocus
+  React.useEffect(() => {
+    if (!mounted) return
+    const el = panel.current
+    if (!el) return
+    const before = document.activeElement as HTMLElement | null
+    if (!el.contains(document.activeElement)) el.focus({ preventScroll: true })
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return
+      const items = [...el.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((n) => n.getClientRects().length > 0 && !n.closest("[inert]"))
+      if (!items.length) {
+        e.preventDefault()
+        el.focus({ preventScroll: true })
+        return
+      }
+      const first = items[0]
+      const last = items[items.length - 1]
+      const now = document.activeElement
+      if (!el.contains(now)) {
+        e.preventDefault()
+        ;(e.shiftKey ? last : first).focus({ preventScroll: true })
+      } else if (e.shiftKey && (now === first || now === el)) {
+        e.preventDefault()
+        last.focus({ preventScroll: true })
+      } else if (!e.shiftKey && now === last) {
+        e.preventDefault()
+        first.focus({ preventScroll: true })
+      }
+    }
+    /* Only the Tab key is held: a card check Stripe opens in its own frame over the page keeps the focus it takes. */
+    document.addEventListener("keydown", onKey, true)
+    return () => {
+      document.removeEventListener("keydown", onKey, true)
+      const to = back.current?.() ?? before
+      const usable = (n: HTMLElement | null) => !!n && n.isConnected && n !== document.body && n.getClientRects().length > 0 && !n.closest("[inert],[aria-hidden=true]")
+      if (usable(to)) to!.focus({ preventScroll: true })
+    }
+  }, [mounted, panel])
 }
 
 export function CloseButton({ onClose, label = "Close" }: { onClose: () => void; label?: string }) {
@@ -116,14 +204,18 @@ export interface CheckoutWindowProps {
   themed?: boolean
   /** For tests and probes: data-<name>="" on the window's layer. */
   dataName?: string
+  /** Where focus goes when the window closes (the control that started the purchase); otherwise where it was. */
+  returnFocus?: () => HTMLElement | null
   labelId: string
   children: React.ReactNode
 }
 
-export function CheckoutWindow({ mark, title, subtitle, onBack, backLabel = "All plans", onClose, busy = false, dark = false, themed = false, dataName = "community-checkout", labelId, children }: CheckoutWindowProps) {
+export function CheckoutWindow({ mark, title, subtitle, onBack, backLabel = "All plans", onClose, busy = false, dark = false, themed = false, dataName = "community-checkout", labelId, returnFocus, children }: CheckoutWindowProps) {
   useBodyLock(true)
   const [mounted, setMounted] = React.useState(false)
   React.useEffect(() => setMounted(true), [])
+  const panel = React.useRef<HTMLDivElement>(null)
+  useFocusTrap(panel, mounted, returnFocus)
   const [leaving, closeAnimated] = useExit(onClose)
   const closeIfIdle = React.useCallback(() => {
     if (!busy) closeAnimated()
@@ -135,11 +227,13 @@ export function CheckoutWindow({ mark, title, subtitle, onBack, backLabel = "All
     <div className={cn("fixed inset-0 z-[130] flex items-stretch justify-center sm:items-center sm:p-6", themed && "op-sheet")} {...{ [`data-${dataName}`]: "" }} data-community-theme={dark && !themed ? "dark" : undefined} data-leaving={leaving ? "" : undefined}>
       <div aria-hidden className={cn("absolute inset-0 hidden bg-[#0b0b12]/55 animate-in fade-in duration-150 transition-opacity sm:block motion-reduce:animate-none", leaving && "opacity-0 duration-[140ms]")} onClick={closeIfIdle} />
       <div
+        ref={panel}
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelId}
+        tabIndex={-1}
         className={cn(
-          "relative flex h-full w-full flex-col overflow-hidden bg-white animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out transition-[opacity,translate] motion-reduce:animate-none sm:h-auto sm:max-h-[min(94vh,900px)] sm:max-w-[520px] sm:rounded-[20px] sm:shadow-[0_24px_64px_-12px_rgba(16,24,40,0.35)]",
+          "relative flex h-full w-full flex-col overflow-hidden bg-white outline-none animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out transition-[opacity,translate] motion-reduce:animate-none sm:h-auto sm:max-h-[min(94vh,900px)] sm:max-w-[520px] sm:rounded-[20px] sm:shadow-[0_24px_64px_-12px_rgba(16,24,40,0.35)]",
           leaving && "translate-y-2 opacity-0 duration-[140ms] ease-in",
         )}
       >
@@ -164,7 +258,7 @@ export function CheckoutWindow({ mark, title, subtitle, onBack, backLabel = "All
             {subtitle ? <p className="mt-0.5 text-[13.5px] text-[#6b7280]">{subtitle}</p> : null}
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:px-8 sm:pb-6">
+        <div className="op-subtle-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:px-8 sm:pb-6">
           {children}
           <PoweredByStripe />
         </div>

@@ -47,7 +47,7 @@ import { tt } from "@/lib/i18n/text"
 import type { PersonalizationField } from "@/lib/products/personalization"
 import { pixelEvent } from "@/lib/analytics/pixels"
 import { CompactPay, type StartedPayment } from "@/components/community/public/compact-pay"
-import { CheckoutMark, CheckoutWindow } from "./checkout-window"
+import { CheckoutProductMark, CheckoutWindow } from "./checkout-window"
 
 export interface ProductFacts {
   product: {
@@ -128,7 +128,14 @@ export interface InstantCheckoutProps {
   title: string
   sellerName?: string | null
   sellerAvatar?: string | null
-  productImage?:string|null
+  /**
+   * The picture the OnePage block shows for this product (the creator's own upload there, or the product's cover).
+   * Round AK: the checkout's head shows the product, in this order: the chosen option's own photo, this, the
+   * product's first picture; the seller's avatar only when the product has no picture at all.
+   */
+  productImage?: string | null
+  /** Where focus goes when the window closes: the control that started the purchase. */
+  returnFocus?: () => HTMLElement | null
   /** The option chosen in the product sheet, when there was one. */
   variantId?: string | null
   /** The page behind is dark: the window is the community's dark one. */
@@ -144,7 +151,7 @@ export interface InstantCheckoutProps {
   back?: string | null
 }
 
-export function InstantCheckout({ productId, title, sellerName, sellerAvatar, productImage, variantId: initialVariant = null, dark = false, themed = false, origin, onClose, onBack = null, back = null }: InstantCheckoutProps) {
+export function InstantCheckout({ productId, title, sellerName, sellerAvatar, productImage, returnFocus, variantId: initialVariant = null, dark = false, themed = false, origin, onClose, onBack = null, back = null }: InstantCheckoutProps) {
   /*
     IN THE EDITOR'S PREVIEW NOTHING IS CHARGED (round 11). The window opens
     exactly as it does live, so the creator sees it, and Pay says it is a
@@ -320,7 +327,7 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, pr
 
   return (
     <CheckoutWindow
-      mark={<CheckoutMark imageUrl={variant?.imageUrl || product?.images?.[0] || productImage || null} name={product?.title || title} size={76} />}
+      mark={<CheckoutProductMark sources={[variant?.imageUrl, productImage, product?.images?.[0], product?.images?.length || productImage ? null : facts?.seller.avatarUrl ?? sellerAvatar]} name={product?.title || title} />}
       title={product?.title || title}
       subtitle={shownName}
       onBack={onBack}
@@ -331,6 +338,7 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, pr
       themed={themed}
       dataName="instant-checkout"
       labelId="instant-checkout-title"
+      returnFocus={returnFocus}
     >
       {loadError ? (
         <div className="space-y-3 py-4 text-center" data-checkout-unavailable="">

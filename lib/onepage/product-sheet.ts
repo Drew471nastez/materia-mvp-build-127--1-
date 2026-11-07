@@ -157,6 +157,20 @@ export function savedPercent(nowCents: number, wasCents: number | null | undefin
 export const SHEET_PHONE_RATIO = 4 / 5
 export const SHEET_COLUMN_RATIO = 1
 
+/**
+ * THE GALLERY'S FRAME (round AK): the first picture's own shape, once its padding is off (lib/images/letterbox), kept
+ * between 9:16 and 1.91:1, and the same for every slide, so a swipe never resizes the sheet. Until that shape is
+ * known, the box above. The other slides fill it when little is lost (mediaFit) and sit whole over a soft fill of
+ * themselves when much would be.
+ */
+export const SHEET_FRAME_MIN = 9 / 16
+export const SHEET_FRAME_MAX = 1.91
+
+export function sheetFrameRatio(firstShown: number | null | undefined, fallback: number): number {
+  if (typeof firstShown !== "number" || !(firstShown > 0) || !Number.isFinite(firstShown)) return fallback
+  return Math.min(SHEET_FRAME_MAX, Math.max(SHEET_FRAME_MIN, firstShown))
+}
+
 /** At most this share of a picture is cut off to fill the box; past it the picture is drawn whole. */
 export const SHEET_MAX_CROP = 0.2
 

@@ -69,8 +69,9 @@ import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
 import { ProductQuestions, SizeChartBody, SizeChartPanel } from "@/components/product/size-chart-panel"
 import { pixelEvent } from "@/lib/analytics/pixels"
 import { choose, pickerOptions, valueAvailable, variantFor, type ProductOptionData } from "@/lib/products/product-page-model"
-import { DOT_STEP_PX, SHEET_COLUMN_RATIO, SHEET_PHONE_RATIO, dotPosition, isSizeOption, mediaFit, optionLook, savedPercent, sheetImageFor, sheetImages, sheetModel, sheetStartChoice, sheetValued, valueSwatch, type SheetModel } from "@/lib/onepage/product-sheet"
+import { DOT_STEP_PX, SHEET_COLUMN_RATIO, SHEET_PHONE_RATIO, dotPosition, sheetFrameRatio, isSizeOption, mediaFit, optionLook, savedPercent, sheetImageFor, sheetImages, sheetModel, sheetStartChoice, sheetValued, valueSwatch, type SheetModel } from "@/lib/onepage/product-sheet"
 import { mediaOf, type MediaEntry } from "@/lib/media/video"
+import { FramedPicture, shownRatio, useLetterbox } from "@/components/ui/framed-picture"
 import { firstFrameSrc, prefersStill } from "@/lib/onepage/poster-video"
 import { ProductLightbox, preloadLightboxPlayer } from "./product-lightbox"
 import { PersonalizationFields, usePersonalization } from "@/components/personalization/personalization-fields"
@@ -129,14 +130,38 @@ const EMPTY_MODEL: SheetModel = { options: [], variants: [] }
 
 export function ProductSheet({ open, onClose, warm = false, productId, title, image, priceText, ctaText, instant, onBuy, onClosed, onCheckoutLink, back = null, action = "checkout", pageLink = true, priceOnButton = false, font = null }: ProductSheetProps) {
   const phone = usePhoneWidth()
-  const closedCallback=React.useRef(onClosed);closedCallback.current=onClosed
-  const wasOpen=React.useRef(false)
-  React.useEffect(()=>{
-    if(open){wasOpen.current=true;return}
-    if(phone||!wasOpen.current)return
-    const timer=window.setTimeout(()=>{wasOpen.current=false;closedCallback.current?.()},180)
-    return()=>window.clearTimeout(timer)
-  },[open,phone])
+  /*
+    GONE MEANS GONE (round AK). The checkout opens once the sheet has left (lib/onepage/purchase-flow), so `onClosed`
+    must say when that is. On a phone the sheet says it itself (BottomSheet onClosed). On a computer the Radix dialog
+    fades its content (150ms) and its dimming layer (200ms) separately and says nothing: it is watched, frame by
+    frame, until both are out of the document. A 180ms guess opened the checkout under the fading layer.
+  */
+  const closedCallback = React.useRef(onClosed)
+  closedCallback.current = onClosed
+  const wasOpen = React.useRef(false)
+  const body = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    if (open) {
+      wasOpen.current = true
+      return
+    }
+    if (phone || !wasOpen.current) return
+    let frame = 0
+    const started = performance.now()
+    /* Read now: the content is still in the document while it fades, and React clears the ref when it goes. */
+    const content = body.current
+    const watch = () => {
+      const fading = (content && content.isConnected) || document.querySelector("[data-slot=dialog-overlay]")
+      if (fading && performance.now() - started < 600) {
+        frame = requestAnimationFrame(watch)
+        return
+      }
+      wasOpen.current = false
+      closedCallback.current?.()
+    }
+    frame = requestAnimationFrame(watch)
+    return () => cancelAnimationFrame(frame)
+  }, [open, phone])
   const [facts, setFacts] = React.useState<ProductFacts | null>(null)
   const [failed, setFailed] = React.useState<string | null>(null)
   /* The value chosen for each option, in the options' order (lib/onepage/product-sheet sheetStartChoice). */
@@ -410,10 +435,10 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
         twoColumns ? "sm:max-w-[920px]" : "sm:max-w-[560px]",
       )}
       /* Kept built once the block is seen (keepMounted): opening is a transform, never a render of the whole product on the tap. */
-      sheet={{ onClosed:()=>{wasOpen.current=false;closedCallback.current?.()}, waitForImages: !warm, keepMounted: warm, maxHeight: "calc(var(--vv-h, 100dvh) * 0.92)", className: "op-sheet" }}
+      sheet={{ onClosed: () => { wasOpen.current = false; closedCallback.current?.() }, waitForImages: !warm, keepMounted: warm, maxHeight: "calc(var(--vv-h, 100dvh) * 0.92)", className: "op-sheet" }}
     >
       {twoColumns ? (
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]" style={bodyFont} data-product-sheet={productId} data-product-sheet-columns="">
+        <div ref={body} className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]" style={bodyFont} data-product-sheet={productId} data-product-sheet-columns="">
           <div className="min-h-0 overflow-y-auto overscroll-contain op-subtle-scroll">{gallery}</div>
           <div className="flex min-h-0 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain op-subtle-scroll">{details}</div>
@@ -421,7 +446,7 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
           </div>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-col" style={bodyFont} data-product-sheet={productId}>
+        <div ref={body} className="flex min-h-0 flex-col" style={bodyFont} data-product-sheet={productId}>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain op-subtle-scroll">
             {gallery}
             {details}
@@ -581,8 +606,19 @@ function OptionRow({
 function Gallery({ images, title, phone, focus = -1, tall = false, active = true }: { images: string[]; title: string; phone: boolean; focus?: number; tall?: boolean; active?: boolean }) {
   const media = React.useMemo(() => mediaOf(images), [images])
   const count = media.length
-  const [naturalRatio,setNaturalRatio]=React.useState<number|null>(null)
-  const ratio = naturalRatio??(tall ? SHEET_COLUMN_RATIO : SHEET_PHONE_RATIO)
+  /* The frame: the first slide's own shape, padding off (lib/onepage/product-sheet sheetFrameRatio), for every slide. */
+  const first = media[0]
+  const firstShape = useLetterbox(first?.type === "image" ? first.url : null)
+  const [firstVideoRatio, setFirstVideoRatio] = React.useState<number | null>(null)
+  const wanted = sheetFrameRatio(first?.type === "video" ? firstVideoRatio : shownRatio(firstShape), tall ? SHEET_COLUMN_RATIO : SHEET_PHONE_RATIO)
+  /*
+    The frame is decided as the sheet comes up and kept while it is up: a shape read later (a cold tap, the product's
+    own pictures replacing the block's) waits for the next opening rather than resizing the box under the finger.
+  */
+  const [held, setHeld] = React.useState<number | null>(null)
+  if (active && held === null) setHeld(wanted)
+  else if (!active && held !== null) setHeld(null)
+  const ratio = active ? (held ?? wanted) : wanted
   const strip = React.useRef<HTMLDivElement>(null)
   const lit = React.useRef<HTMLSpanElement>(null)
   const thumbs = React.useRef<HTMLDivElement>(null)
@@ -688,7 +724,6 @@ function Gallery({ images, title, phone, focus = -1, tall = false, active = true
     return () => (w.cancelIdleCallback ? w.cancelIdleCallback(id) : window.clearTimeout(id))
   }, [hasVideo, active])
 
-  React.useEffect(()=>{setNaturalRatio(ratios.current[at]??null)},[at,images])
   if (!count) return null
   const fitOf = (w: number, h: number) => mediaFit(w, h, ratio)
 
@@ -727,7 +762,10 @@ function Gallery({ images, title, phone, focus = -1, tall = false, active = true
                 near={Math.abs(i - at) <= 1}
                 shown={i === at && active && lightbox === null}
                 fitOf={fitOf}
-                onRatio={(r) => {ratios.current[i]=r;if(i===atRef.current)setNaturalRatio(r)}}
+                onRatio={(r) => {
+                  ratios.current[i] = r
+                  if (i === 0) setFirstVideoRatio(r)
+                }}
                 onOpen={() => setLightbox(i)}
               />
             ) : (
@@ -739,20 +777,13 @@ function Gallery({ images, title, phone, focus = -1, tall = false, active = true
                 className="relative block h-full w-full shrink-0 snap-center snap-always cursor-zoom-in outline-none [-webkit-tap-highlight-color:transparent]"
                 data-product-sheet-expand=""
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <SlidePicture
                   src={m.url}
                   alt={i === 0 ? title : ""}
-                  className="h-full w-full object-cover"
-                  loading={i === 0 ? "eager" : "lazy"}
-                  decoding="async"
-                  draggable={false}
-                  onLoad={(e) => {
-                    const img = e.currentTarget
-                    const r=img.naturalWidth/img.naturalHeight
-                    if(Number.isFinite(r)&&r>0){ratios.current[i]=r;if(i===atRef.current)setNaturalRatio(r)}
-                    img.style.objectFit = "cover"
-                  }}
+                  frame={ratio}
+                  eager={i === 0}
+                  near={Math.abs(i - at) <= 1}
+                  onRatio={(r) => (ratios.current[i] = r)}
                 />
               </button>
             ),
@@ -796,8 +827,8 @@ function Gallery({ images, title, phone, focus = -1, tall = false, active = true
                 className={cn("relative h-14 w-14 shrink-0 overflow-hidden rounded-[10px] bg-[#f4f4f6] outline-none transition-opacity duration-200 focus-visible:ring-2 focus-visible:ring-[#111113]/30 sm:h-16 sm:w-16", i === at ? "opacity-100" : "opacity-55 hover:opacity-85")}
               >
                 {still ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={still} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" draggable={false} />
+                  /* Square, filled, the editor's padding cut off as on the slide itself. */
+                  <FramedPicture src={still} frame={1} className="h-full w-full" imgClassName="object-cover" imgProps={{ loading: "lazy", decoding: "async" }} />
                 ) : null}
                 {m.type === "video" ? (
                   <span aria-hidden className="absolute inset-0 grid place-items-center" data-product-sheet-thumb-video="">
@@ -817,6 +848,37 @@ function Gallery({ images, title, phone, focus = -1, tall = false, active = true
         go(i, false)
       }} />
     </div>
+  )
+}
+
+/**
+ * One picture in the gallery (round AK). The editor's grey padding is cut off (components/ui/framed-picture), then the
+ * picture fills the frame when little is lost (mediaFit, at most SHEET_MAX_CROP) and otherwise sits whole over a
+ * soft, blurred fill of itself: never an empty band of grey, white or black either way.
+ */
+function SlidePicture({ src, alt, frame, eager, near, onRatio }: { src: string; alt: string; frame: number; eager: boolean; near: boolean; onRatio: (r: number) => void }) {
+  const shape = useLetterbox(src, near || eager)
+  const own = shownRatio(shape)
+  const fit = own ? mediaFit(own, 1, frame) : "cover"
+  return (
+    <FramedPicture
+      src={src}
+      alt={alt}
+      frame={frame}
+      fit={fit}
+      shape={shape ?? null}
+      className="h-full w-full"
+      imgClassName="object-cover"
+      imgProps={{
+        loading: eager ? "eager" : "lazy",
+        decoding: "async",
+        onLoad: (e) => {
+          const img = e.currentTarget
+          const r = img.naturalWidth / img.naturalHeight
+          if (Number.isFinite(r) && r > 0) onRatio(r)
+        },
+      }}
+    />
   )
 }
 
