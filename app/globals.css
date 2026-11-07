@@ -9683,3 +9683,35 @@ html[data-editor-drawer-open]::-webkit-scrollbar {
 .op-subtle-scroll::-webkit-scrollbar { width:4px; height:4px; }
 .op-subtle-scroll::-webkit-scrollbar-track { background:transparent; }
 .op-subtle-scroll::-webkit-scrollbar-thumb { border-radius:999px; background:color-mix(in srgb,var(--opk-ink,#777) 24%,transparent); }
+
+/*
+  A CLAMPED TEXT FADES INTO WHATEVER IS BEHIND IT (round 50). The About
+  story's "Read more" fade was a gradient to white painted over the text, so
+  on a dark or coloured scheme it was a white band across the last lines.
+  The text itself is faded now, with a mask: what shows through is the
+  section's own background, whatever it is (a colour, a scheme, a picture).
+  `--sl-fade` is registered so the fade can ease out as the text opens; a
+  browser without @property simply drops it at the end.
+*/
+@property --sl-fade {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+[data-clamp-fade] {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--sl-fade)), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--sl-fade)), transparent);
+  transition: max-height 380ms cubic-bezier(0.32, 0.72, 0, 1), --sl-fade 380ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+[data-clamp-fade="closed"] { --sl-fade: var(--sl-fade-to, 52px); }
+[data-clamp-fade="open"] { --sl-fade: 0px; }
+@media (prefers-reduced-motion: reduce) { [data-clamp-fade] { transition: none; } }
+
+/*
+  The story's pictures: a native horizontal scroller that snaps a picture at
+  a time (round 50). The browser does the swipe, its momentum and the snap;
+  the page only keeps the dots in step. No scrollbar under the pictures.
+*/
+[data-story-track] { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+[data-story-track]::-webkit-scrollbar { display: none; }
+[data-story-track][data-dragging] { scroll-snap-type: none; cursor: grabbing; user-select: none; }

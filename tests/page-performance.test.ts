@@ -1719,7 +1719,8 @@ check(
     const css = read("app/globals.css")
     const missing: string[] = []
 
-    if (!/"relative flex w-full gap-0 border-b border-border"/.test(tabs))
+    /* Round 50: `w-max min-w-full`, so a row longer than a phone swipes with its rule under every tab; the tabs still share the width when they fit. */
+    if (!/"relative flex w-max min-w-full gap-0 border-b border-border"/.test(tabs))
       missing.push("the tabs no longer sit on a rule")
     /**
      * THE UNDERLINE SLIDES between tabs, and it is the only motion in a
@@ -2320,7 +2321,7 @@ check(
      * strip. Measured at a 1180px viewport: frame on, three tabs of 351px;
      * frame off, 44/63/91.
      */
-    if (!/"relative flex w-full gap-0 border-b border-border",\s*\n\s*!isMobile && "sm:w-auto sm:min-w-max/.test(tabs))
+    if (!/"relative flex w-max min-w-full gap-0 border-b border-border",\s*\n\s*!isMobile && "sm:w-auto sm:min-w-max/.test(tabs))
       missing.push("the tab strip no longer fills a phone's width, or ignores the builder's phone frame")
     if (!/"-mb-px flex-1 [^"]*text-center text-sm",\s*\n\s*!isMobile && "sm:flex-none sm:text-left"/.test(tabs))
       missing.push("the tabs no longer share that width evenly — one long label would take more than its third")
@@ -3079,7 +3080,8 @@ check(
       if (!about.includes(field)) missing.push(`the story editor lost its ${field} field`)
     }
     if (!/bucket="store-builder-images"/.test(about)) missing.push("the story editor cannot add images")
-    if (!/"\/api\/creator-profile"/.test(about))
+    /* Changed on purpose (round 50, merge): the dialog saves through saveCreatorProfile (lib/storefront/creator-profile-client), which PATCHes the same route and records the undo step. */
+    if (!/"\/api\/creator-profile"/.test(about) && !(/\bsaveCreatorProfile\(/.test(about) && /"\/api\/creator-profile"/.test(code("lib/storefront/creator-profile-client.ts"))))
       missing.push("the story editor writes somewhere other than the shared route")
     if (!/mergeAbout\b/.test(api)) missing.push("the route no longer merges the About story into the config")
 

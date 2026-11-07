@@ -131,7 +131,8 @@ check(
 
 check(
   "Home shows it too",
-  /<ArrangeProductsControl products=\{sectionProducts\} isOwner=\{viewerIsOwner\}/.test(renderer),
+  /* Round 50: with the whole catalogue too, so a selection keeps the rest in place (mergeArrangement). */
+  /<ArrangeProductsControl products=\{sectionProducts\} allProducts=\{catalogueInOrder\} isOwner=\{viewerIsOwner\}/.test(renderer),
 )
 /**
  * IN THE HEADER ROW, WHICH IS WHY IT COSTS NOTHING.
