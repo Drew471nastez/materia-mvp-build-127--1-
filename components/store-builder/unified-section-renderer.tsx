@@ -1573,7 +1573,7 @@ export function UnifiedSectionRenderer({
           isPreviewMode={isPreviewMode}
         />
       )}
-      {section.type === "native-form" && (()=>{const s=section.settings as import("@/lib/store-builder/types").NativeFormSettings;return <div className="mx-auto max-w-lg px-4 py-6"><NativeFormBlock formId={s.form_id} title={s.title} inline={s.inline} source="creator_page" preview={isEditorMode||isPreviewMode}/></div>})()}
+      {section.type === "native-form" && (()=>{const s=section.settings as import("@/lib/store-builder/types").NativeFormSettings;return <div className="mx-auto max-w-lg px-4 py-6"><NativeFormBlock formId={s.form_id} title={s.title} inline={s.inline} presentation={s.presentation} source="creator_page" preview={isEditorMode||isPreviewMode}/></div>})()}
       {section.type === "text-block" && (
         <UnifiedTextBlockSection
           settings={section.settings as TextBlockSettings}

@@ -26,6 +26,10 @@ execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inhe
 const SUITES = [
   "tests/onepage-link-metadata.test.ts",
   "tests/native-forms-actions-prices.test.ts",
+  /* Round AK5: the form engine (types, rules, steps, scoring, templates, CSV), bookings across DST with the double booking guard, and public submit security (honeypot, limits, signed webhooks, sealed secrets). */
+  "tests/forms-engine.test.ts",
+  "tests/forms-bookings.test.ts",
+  "tests/forms-security.test.ts",
   "tests/onepage-modern-blocks.test.ts",
   "tests/onepage-block-settings-ak3.test.ts",
   "tests/admin-sql-updates.test.ts",

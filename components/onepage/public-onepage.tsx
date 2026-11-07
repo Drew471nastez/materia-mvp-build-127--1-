@@ -3723,7 +3723,7 @@ function CoreBlockRenderer({
       )
     }
 
-    case "form_quiz": { const data=block.data as import("@/lib/onepage/types").FormQuizBlockData; return <NativeFormBlock formId={data.form_id} title={data.title} inline={data.inline}/> }
+    case "form_quiz": { const data=block.data as import("@/lib/onepage/types").FormQuizBlockData; return <NativeFormBlock formId={data.form_id} title={data.title} inline={data.inline} presentation={data.presentation}/> }
     case "link_button": {
       const data = (block.data || { label: "", url: "" }) as LinkButtonBlockData
       if (!data.url) return null

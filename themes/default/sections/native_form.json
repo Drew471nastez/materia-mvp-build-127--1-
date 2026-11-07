@@ -13,10 +13,28 @@
       "placeholder": "Paste the published link from Audience → Forms"
     },
     {
-      "id": "inline",
-      "type": "toggle",
-      "label": "Show questions inline",
-      "default": true
+      "id": "presentation",
+      "type": "select",
+      "label": "Show as",
+      "default": "card",
+      "options": [
+        {
+          "label": "Card",
+          "value": "card"
+        },
+        {
+          "label": "Inline",
+          "value": "inline"
+        },
+        {
+          "label": "Expandable",
+          "value": "expandable"
+        },
+        {
+          "label": "Button and pop-up",
+          "value": "modal"
+        }
+      ]
     },
     {
       "id": "button_text",

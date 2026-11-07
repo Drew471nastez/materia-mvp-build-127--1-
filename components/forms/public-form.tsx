@@ -1,51 +1,94 @@
 "use client"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { v4 as uuid } from "uuid"
 import { platformOrigin } from "@/lib/onepage/return-address"
-import type { PublicForm, FormField } from "@/lib/forms/definition"
+import { actionLabel } from "@/lib/forms/actions"
+import { formSteps, isChoice, isMulti, pickResult, validDate, type FormField, type PublicForm } from "@/lib/forms/definition"
+import { generateSlots, type Slot } from "@/lib/forms/slots"
+
+/*
+  THE VISITOR'S FORM, the same on a OnePage, a website and a creator page.
+
+  Steps come from formSteps (lib/forms/definition.ts), the function the
+  server uses to decide which questions count, so a question hidden by an
+  answer is neither shown nor required on either side. A booking form
+  starts with its times. Everything is checked again on the server; the
+  checks here only save the visitor a round trip.
+*/
+
 const input =
-  "w-full rounded-xl border border-[#dfe2e7] bg-white px-3 py-2.5 text-[15px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e] focus:ring-2 focus:ring-[#1a1a2e]/10"
+  "w-full min-w-0 rounded-xl border border-[#dfe2e7] bg-white px-3 py-2.5 text-[15px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:ring-2 focus:ring-[#1a1a2e]/10"
 const button =
-  "inline-flex min-h-11 items-center justify-center rounded-xl bg-[#1a1a2e] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50 focus-visible:outline focus-visible:outline-offset-2"
+  "inline-flex min-h-11 items-center justify-center rounded-xl bg-[#1a1a2e] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+const tile =
+  "flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-[#e3e4e8] bg-white px-3 py-2.5 text-sm has-[:checked]:border-[#1a1a2e] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#1a1a2e]/20"
+
+type Value = string | string[] | boolean
+type Done = {
+  message: string
+  href: string | null
+  action_type: string | null
+  action_label?: string | null
+  result?: { title: string; message: string } | null
+  score?: number | null
+  gated?: { url: string; label: string } | null
+  booking?: { starts_at: string; status: string } | null
+  payment_href?: string | null
+}
+type FileState = { ref?: string; name: string; busy?: boolean; error?: string }
+
+const visitorZone = () => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+  } catch {
+    return "UTC"
+  }
+}
+const dayKey = (iso: string, tz: string) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso))
+const dayLabel = (iso: string, tz: string) => new Intl.DateTimeFormat(undefined, { timeZone: tz, weekday: "short", day: "numeric", month: "short" }).format(new Date(iso))
+const timeLabel = (iso: string, tz: string) => new Intl.DateTimeFormat(undefined, { timeZone: tz, hour: "numeric", minute: "2-digit" }).format(new Date(iso))
+const fullLabel = (iso: string, tz: string) => new Intl.DateTimeFormat(undefined, { timeZone: tz, dateStyle: "full", timeStyle: "short" }).format(new Date(iso))
+
 export function PublicFormRenderer({
   formId,
   initial,
   source = "form",
   preview = false,
+  sourceBlock,
 }: {
   formId: string
   initial?: PublicForm
   preview?: boolean
   source?: "onepage" | "website" | "creator_page" | "form"
+  /** The block or section title, kept with the lead as where it came from. */
+  sourceBlock?: string
 }) {
   const [form, setForm] = useState<PublicForm | null>(initial || null),
     [loading, setLoading] = useState(!initial),
-    [answers, setAnswers] = useState<Record<string, string | string[]>>({}),
+    [values, setValues] = useState<Record<string, Value>>({}),
+    [files, setFiles] = useState<Record<string, FileState>>({}),
     [step, setStep] = useState(0),
     [consent, setConsent] = useState(false),
     [marketing, setMarketing] = useState(false),
     [error, setError] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
-    [done, setDone] = useState<{
-      message: string
-      href: string | null
-      action_type: string | null
-    } | null>(null)
-  const [retry, setRetry] = useState(0)
+    [done, setDone] = useState<Done | null>(null),
+    [retry, setRetry] = useState(0),
+    [slot, setSlot] = useState<Slot | null>(null),
+    [slotsVersion, setSlotsVersion] = useState(0)
   const started = useRef(Date.now()),
     key = useRef(uuid()),
     trap = useRef<HTMLInputElement>(null),
     heading = useRef<HTMLHeadingElement>(null)
+  const zone = useMemo(visitorZone, [])
+
   useEffect(() => {
     if (initial?.id === formId) return
     const controller = new AbortController()
     setLoading(true)
     setError(null)
     setForm(null)
-    fetch(
-      `${platformOrigin()}/api/forms/${encodeURIComponent(formId)}/public`,
-      { credentials: "omit", cache: "no-store", signal: controller.signal },
-    )
+    fetch(`${platformOrigin()}/api/forms/${encodeURIComponent(formId)}/public`, { credentials: "omit", cache: "no-store", signal: controller.signal })
       .then(async (r) => {
         const b = await r.json()
         if (!r.ok) throw new Error(b.error || "This form could not be loaded.")
@@ -60,283 +103,202 @@ export function PublicFormRenderer({
       })
     return () => controller.abort()
   }, [formId, initial?.id, retry])
-  const required = (field: FormField) => {
-    const v = answers[field.id]
-    return field.required && (!v || !v.length)
-      ? `Complete ${field.label}.`
-      : null
-  }
-  const advance = () => {
-    if (!form) return
-    const field = form.definition.fields[step]
-    const e = required(field)
-    if (e) {
-      setError(e)
-      return
-    }
-    const node = document.querySelector(
-      `[data-native-form="${formId}"] fieldset input:not([type=checkbox]):not([type=radio]), [data-native-form="${formId}"] fieldset textarea`,
-    ) as HTMLInputElement | null
-    if (node && !node.reportValidity()) return
+
+  const d = form?.definition
+  const steps = useMemo(() => (d ? formSteps(d, values) : []), [d, values])
+  const bookingStep = d?.booking ? 1 : 0
+  const total = steps.length + bookingStep
+  const current = Math.min(step, Math.max(0, total - 1))
+  const onSlots = bookingStep === 1 && current === 0
+  const fields = onSlots ? [] : steps[current - bookingStep] || []
+  const last = current >= total - 1
+
+  const set = (id: string, v: Value) => {
+    setValues((c) => ({ ...c, [id]: v }))
     setError(null)
-    setStep((n) => n + 1)
-    heading.current?.focus({ preventScroll: true })
   }
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!form || busy) return
-    const missing = form.definition.fields.map(required).find(Boolean)
-    if (missing) {
-      setError(missing)
-      return
+
+  const problem = (f: FormField): string | null => {
+    const v = values[f.id]
+    const empty = v === undefined || v === "" || v === false || (Array.isArray(v) && !v.length)
+    const label = f.label || "this question"
+    if (f.type === "file") {
+      const s = files[f.id]
+      if (s?.busy) return "Wait for the upload to finish."
+      if (s?.error) return s.error
+      if (f.required && !s?.ref && !(preview && s?.name)) return `Add ${label}.`
+      return null
     }
-    if (!consent) {
-      setError("Please accept the consent notice.")
+    if (f.required && empty) return `Complete ${label}.`
+    if (empty || typeof v !== "string") return null
+    if (f.type === "email" && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(v.trim())) return "Enter a valid email address."
+    if (f.type === "phone" && (v.replace(/\D/g, "").length < 7 || v.replace(/\D/g, "").length > 15)) return "Enter a valid phone number."
+    if (f.type === "number") {
+      const n = Number(v)
+      if (!Number.isFinite(n)) return `Enter a number for ${label}.`
+      if (f.min !== undefined && n < f.min) return `${label} must be at least ${f.min}.`
+      if (f.max !== undefined && n > f.max) return `${label} must be at most ${f.max}.`
+    }
+    if (f.type === "date" && !validDate(v)) return `Enter a valid date for ${label}.`
+    return null
+  }
+  const stepProblem = () => (onSlots ? (slot ? null : "Choose a time.") : fields.map(problem).find(Boolean) || null)
+
+  const focusTop = () => requestAnimationFrame(() => heading.current?.focus({ preventScroll: false }))
+  const next = () => {
+    const p = stepProblem()
+    if (p) return setError(p)
+    setError(null)
+    setStep(current + 1)
+    focusTop()
+  }
+
+  const upload = async (field: FormField, file: File | undefined) => {
+    if (!file) return
+    if (file.size > 4 * 1024 * 1024) {
+      setFiles((c) => ({ ...c, [field.id]: { name: file.name, error: "Files can be up to 4 MB." } }))
       return
     }
     if (preview) {
+      setFiles((c) => ({ ...c, [field.id]: { name: file.name } }))
+      return
+    }
+    setFiles((c) => ({ ...c, [field.id]: { name: file.name, busy: true } }))
+    try {
+      const body = new FormData()
+      body.set("file", file)
+      body.set("field", field.id)
+      body.set("token", key.current)
+      const r = await fetch(`${platformOrigin()}/api/forms/${encodeURIComponent(formId)}/upload`, { method: "POST", body, credentials: "omit" })
+      const b = await r.json()
+      if (!r.ok) throw new Error(b.error || "The file was not uploaded.")
+      setFiles((c) => ({ ...c, [field.id]: { name: b.name, ref: b.ref } }))
+      set(field.id, b.ref)
+    } catch (e) {
+      setFiles((c) => ({ ...c, [field.id]: { name: file.name, error: e instanceof Error ? e.message : "The file was not uploaded." } }))
+    }
+  }
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!form || !d || busy) return
+    if (!last) return next()
+    const p = stepProblem() || steps.flat().map(problem).find(Boolean)
+    if (p) return setError(p)
+    if (d.booking && !slot) {
+      setStep(0)
+      return setError("Choose a time.")
+    }
+    if (!consent) return setError("Please accept the consent notice.")
+    const answers: Record<string, Value> = {}
+    for (const f of steps.flat()) if (values[f.id] !== undefined) answers[f.id] = values[f.id]
+    if (preview) {
+      const result = d.mode === "quiz" ? pickResult(d.results, previewScore(d.fields, answers)) : null
       setDone({
-        message: form.definition.completion.message,
+        message: d.completion.message,
         href: null,
         action_type: null,
+        result: result ? { title: result.title, message: result.message } : null,
+        gated: d.completion.kind === "gated" ? { url: "", label: d.completion.gated?.label || "Open" } : null,
+        booking: slot ? { starts_at: slot.start, status: d.booking?.approval ? "pending" : "confirmed" } : null,
       })
       return
     }
     setBusy(true)
     setError(null)
     try {
-      const r = await fetch(
-        `${platformOrigin()}/api/forms/${encodeURIComponent(formId)}/submit`,
-        {
-          method: "POST",
-          credentials: "omit",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            revision: form.revision,
-            submission_id: key.current,
-            answers,
-            consent,
-            marketing,
-            website: trap.current?.value || "",
-            started_at: started.current,
-            source,
-            source_url: window.location.href,
-          }),
-        },
-      )
+      const r = await fetch(`${platformOrigin()}/api/forms/${encodeURIComponent(formId)}/submit`, {
+        method: "POST",
+        credentials: "omit",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          revision: form.revision,
+          submission_id: key.current,
+          answers,
+          consent,
+          marketing,
+          website: trap.current?.value || "",
+          started_at: started.current,
+          source,
+          source_url: window.location.href,
+          source_block: sourceBlock || undefined,
+          ...(d.booking && slot ? { slot: slot.start, timezone: zone } : {}),
+        }),
+      })
       const b = await r.json()
-      if (!r.ok)
-        throw new Error(b.error || "Your answers were not saved. Try again.")
+      if (r.status === 409 && b.slot_taken) {
+        setSlot(null)
+        setStep(0)
+        setSlotsVersion((n) => n + 1)
+        throw new Error(b.error)
+      }
+      if (!r.ok) throw new Error(b.error || "Your answers were not saved. Try again.")
       setDone(b)
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Your answers were not saved. Try again.",
-      )
+      setError(e instanceof Error ? e.message : "Your answers were not saved. Try again.")
     } finally {
       setBusy(false)
     }
   }
   if (loading)
     return (
-      <div
-        role="status"
-        className="min-h-48 animate-pulse rounded-xl bg-[#f3f4f6] p-5"
-      >
+      <div role="status" className="min-h-48 animate-pulse rounded-xl bg-[#f3f4f6] p-5 text-sm text-[#6b7280]">
         Loading form…
       </div>
     )
-  if (!form)
+  if (!form || !d)
     return (
       <div className="space-y-3 rounded-xl border border-[#e3e4e8] p-4 text-sm">
         <p role="alert">{error || "This form is not available."}</p>
-        <button
-          type="button"
-          className="min-h-10 underline"
-          onClick={() => setRetry((n) => n + 1)}
-        >
+        <button type="button" className="min-h-10 underline" onClick={() => setRetry((n) => n + 1)}>
           Try again
         </button>
       </div>
     )
-  const d = form.definition,
-    quiz = d.mode === "quiz",
-    last = step >= d.fields.length - 1
-  if (done)
-    return (
-      <section role="status" className="space-y-4 py-4" data-form-complete="">
-        <p className="whitespace-pre-wrap text-base">{done.message}</p>
-        {done.href ? (
-          <a
-            className={button}
-            href={done.href}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {done.action_type === "whatsapp"
-              ? "Continue on WhatsApp"
-              : done.action_type === "appointment"
-                ? "Book an appointment"
-                : done.action_type === "product"
-                  ? "View product"
-                  : "Continue"}
-          </a>
-        ) : null}
-      </section>
-    )
-  const visible = quiz ? [d.fields[step]] : d.fields
+
+  if (done) return <Completion done={done} zone={zone} preview={preview} />
+
   return (
-    <form
-      data-native-form={formId}
-      className="min-w-0 space-y-5 text-left text-[#1a1a2e]"
-      onSubmit={submit}
-    >
+    <form data-native-form={formId} className="relative min-w-0 space-y-5 text-left text-[#1a1a2e]" onSubmit={submit} noValidate>
       <header>
-        {preview ? (
-          <p className="mb-3 text-xs text-[#6b7280]">
-            Preview. Responses are not saved.
-          </p>
-        ) : null}
-        <h2
-          ref={heading}
-          tabIndex={-1}
-          className="text-xl font-semibold outline-none"
-        >
+        {preview ? <p className="mb-3 text-xs text-[#6b7280]">Preview. Responses are not saved.</p> : null}
+        <h2 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
           {d.title}
         </h2>
-        {d.description ? (
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#6b7280]">
-            {d.description}
-          </p>
-        ) : null}
-        {quiz ? (
-          <p className="mt-3 text-xs text-[#6b7280]">
-            Question {step + 1} of {d.fields.length}
-          </p>
+        {d.description && current === 0 ? <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#6b7280]">{d.description}</p> : null}
+        {total > 1 ? (
+          <div className="mt-4" data-form-progress="">
+            <div className="flex justify-between text-xs text-[#6b7280]">
+              <span>
+                Step {current + 1} of {total}
+              </span>
+            </div>
+            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[#eceef1]" role="progressbar" aria-valuemin={1} aria-valuemax={total} aria-valuenow={current + 1} aria-label="Progress">
+              <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-200 motion-reduce:transition-none" style={{ width: `${((current + 1) / total) * 100}%` }} />
+            </div>
+          </div>
         ) : null}
       </header>
-      <div
-        aria-hidden="true"
-        className="absolute -left-[10000px] h-px w-px overflow-hidden"
-      >
+      <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
         <label>
           Website
-          <input ref={trap} tabIndex={-1} autoComplete="off" />
+          <input ref={trap} tabIndex={-1} autoComplete="off" name="website" />
         </label>
       </div>
-      {visible.map((field) => (
-        <fieldset key={field.id} className="min-w-0 space-y-2">
-          <legend className="mb-2 text-sm font-medium">
-            {field.label}
-            {field.required ? <span aria-label="required"> *</span> : null}
-          </legend>
-          {field.description ? (
-            <p className="text-xs text-[#6b7280]">{field.description}</p>
-          ) : null}
-          {["single", "multiple"].includes(field.type) ? (
-            <div className="space-y-2">
-              {field.options?.map((option) => (
-                <label
-                  key={option.id}
-                  className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-[#e3e4e8] bg-white px-3 py-2.5 text-sm"
-                >
-                  <input
-                    type={field.type === "single" ? "radio" : "checkbox"}
-                    name={`${formId}-${field.id}`}
-                    checked={
-                      field.type === "single"
-                        ? answers[field.id] === option.id
-                        : (answers[field.id] || []).includes(option.id)
-                    }
-                    onChange={(e) =>
-                      setAnswers((current) => ({
-                        ...current,
-                        [field.id]:
-                          field.type === "single"
-                            ? option.id
-                            : e.target.checked
-                              ? [
-                                  ...((current[field.id] || []) as string[]),
-                                  option.id,
-                                ]
-                              : ((current[field.id] || []) as string[]).filter(
-                                  (id) => id !== option.id,
-                                ),
-                      }))
-                    }
-                  />
-                  <span className="min-w-0 break-words">{option.label}</span>
-                </label>
-              ))}
-            </div>
-          ) : field.type === "textarea" ? (
-            <textarea
-              className={input}
-              rows={4}
-              maxLength={4000}
-              required={field.required}
-              aria-label={field.label}
-              value={String(answers[field.id] || "")}
-              onChange={(e) =>
-                setAnswers((current) => ({
-                  ...current,
-                  [field.id]: e.target.value,
-                }))
-              }
-            />
-          ) : (
-            <input
-              className={input}
-              type={
-                field.type === "email"
-                  ? "email"
-                  : field.type === "phone"
-                    ? "tel"
-                    : "text"
-              }
-              autoComplete={
-                field.type === "email"
-                  ? "email"
-                  : field.type === "name"
-                    ? "name"
-                    : field.type === "phone"
-                      ? "tel"
-                      : undefined
-              }
-              maxLength={field.type === "email" ? 254 : 4000}
-              required={field.required}
-              aria-label={field.label}
-              value={String(answers[field.id] || "")}
-              onChange={(e) =>
-                setAnswers((current) => ({
-                  ...current,
-                  [field.id]: e.target.value,
-                }))
-              }
-            />
-          )}
-        </fieldset>
+      {onSlots && d.booking ? (
+        <SlotPicker formId={formId} settings={d.booking} preview={preview} zone={zone} value={slot} version={slotsVersion} onChange={(s) => (setSlot(s), setError(null))} />
+      ) : null}
+      {fields.map((field) => (
+        <Question key={field.id} formId={formId} field={field} value={values[field.id]} file={files[field.id]} onChange={(v) => set(field.id, v)} onFile={(f) => void upload(field, f)} />
       ))}
-      {!quiz || last ? (
+      {last ? (
         <div className="space-y-3">
           <label className="flex items-start gap-2.5 text-xs leading-relaxed text-[#4b5563]">
-            <input
-              type="checkbox"
-              required
-              checked={consent}
-              onChange={(e) => setConsent(e.target.checked)}
-              className="mt-0.5 shrink-0"
-            />
+            <input type="checkbox" checked={consent} onChange={(e) => (setConsent(e.target.checked), setError(null))} className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" />
             <span>
               {d.consent_text}
               {d.privacy_url ? (
-                <a
-                  className="ml-1 underline"
-                  href={d.privacy_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <a className="ml-1 underline" href={d.privacy_url} target="_blank" rel="noopener noreferrer">
                   Privacy policy
                 </a>
               ) : null}
@@ -344,15 +306,8 @@ export function PublicFormRenderer({
           </label>
           {d.marketing_opt_in ? (
             <label className="flex items-start gap-2.5 text-xs text-[#4b5563]">
-              <input
-                type="checkbox"
-                checked={marketing}
-                onChange={(e) => setMarketing(e.target.checked)}
-              />
-              <span>
-                I would also like to receive updates. Optional; unsubscribe any
-                time.
-              </span>
+              <input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" />
+              <span>Send me occasional updates. Optional, and you can unsubscribe any time.</span>
             </label>
           ) : null}
         </div>
@@ -363,28 +318,330 @@ export function PublicFormRenderer({
         </p>
       ) : null}
       <div className="flex items-center gap-3">
-        {quiz && step > 0 ? (
-          <button
-            type="button"
-            className="min-h-11 px-3 text-sm underline"
-            onClick={() => {
-              setStep((n) => n - 1)
-              setError(null)
-            }}
-          >
+        {current > 0 ? (
+          <button type="button" className="min-h-11 px-3 text-sm underline" onClick={() => (setStep(current - 1), setError(null), focusTop())}>
             Back
           </button>
         ) : null}
-        {quiz && !last ? (
-          <button type="button" className={button} onClick={advance}>
-            Next
-          </button>
-        ) : (
-          <button type="submit" className={button} disabled={busy}>
-            {busy ? "Sending…" : d.button_text || "Send"}
-          </button>
-        )}
+        <button type="submit" className={button} disabled={busy || Object.values(files).some((f) => f.busy)}>
+          {busy ? "Sending…" : last ? d.button_text || "Send" : "Next"}
+        </button>
       </div>
     </form>
   )
 }
+
+function previewScore(fields: FormField[], answers: Record<string, Value>): number {
+  let score = 0
+  for (const f of fields) {
+    const v = answers[f.id]
+    const ids = Array.isArray(v) ? v : typeof v === "string" ? [v] : []
+    for (const o of f.options || []) if (ids.includes(o.id)) score += o.score || 0
+  }
+  return score
+}
+
+function Question({
+  formId,
+  field,
+  value,
+  file,
+  onChange,
+  onFile,
+}: {
+  formId: string
+  field: FormField
+  value: Value | undefined
+  file?: FileState
+  onChange: (v: Value) => void
+  onFile: (f: File | undefined) => void
+}) {
+  const id = `${formId}-${field.id}`
+  const help = field.description ? `${id}-help` : undefined
+  const legend = (
+    <legend className="mb-2 text-sm font-medium">
+      {field.label}
+      {field.required ? <span aria-hidden="true"> *</span> : null}
+      {field.required ? <span className="sr-only"> (required)</span> : null}
+    </legend>
+  )
+  const helpText = field.description ? (
+    <p id={help} className="-mt-1 text-xs text-[#6b7280]">
+      {field.description}
+    </p>
+  ) : null
+  if (field.type === "consent")
+    return (
+      <fieldset className="min-w-0" data-question={field.id}>
+        <label className="flex items-start gap-2.5 text-sm">
+          <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" checked={value === true} onChange={(e) => onChange(e.target.checked)} aria-describedby={help} />
+          <span>
+            {field.label}
+            {field.required ? <span aria-hidden="true"> *</span> : null}
+          </span>
+        </label>
+        {helpText}
+      </fieldset>
+    )
+  if (isChoice(field.type) && field.type !== "dropdown") {
+    const multi = isMulti(field.type)
+    const chosen = multi ? ((value as string[]) || []) : value
+    return (
+      <fieldset className="min-w-0 space-y-2" data-question={field.id} aria-describedby={help}>
+        {legend}
+        {helpText}
+        <div className={field.type === "multiple" ? "grid gap-2 sm:grid-cols-2" : "space-y-2"}>
+          {field.options?.map((o) => (
+            <label key={o.id} className={tile}>
+              <input
+                type={multi ? "checkbox" : "radio"}
+                name={id}
+                className="h-4 w-4 shrink-0 accent-[#1a1a2e]"
+                checked={multi ? (chosen as string[]).includes(o.id) : chosen === o.id}
+                onChange={(e) => onChange(multi ? (e.target.checked ? [...(chosen as string[]), o.id] : (chosen as string[]).filter((x) => x !== o.id)) : o.id)}
+              />
+              <span className="min-w-0 break-words">{o.label}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    )
+  }
+  if (field.type === "rating") {
+    const max = field.max || 5
+    return (
+      <fieldset className="min-w-0 space-y-2" data-question={field.id} aria-describedby={help}>
+        {legend}
+        {helpText}
+        <div className="flex flex-wrap gap-2">
+          {Array.from({ length: max }, (_, i) => String(i + 1)).map((n) => (
+            <label key={n} className="relative">
+              <input type="radio" name={id} value={n} checked={value === n} onChange={() => onChange(n)} className="peer absolute inset-0 opacity-0" />
+              <span className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl border border-[#e3e4e8] bg-white text-sm font-medium peer-checked:border-[#1a1a2e] peer-checked:bg-[#1a1a2e] peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-[#1a1a2e]/30">
+                {n}
+              </span>
+            </label>
+          ))}
+        </div>
+        <div className="flex justify-between text-xs text-[#6b7280]" style={{ maxWidth: max * 52 }}>
+          <span>Poor</span>
+          <span>Excellent</span>
+        </div>
+      </fieldset>
+    )
+  }
+  if (field.type === "file")
+    return (
+      <fieldset className="min-w-0 space-y-2" data-question={field.id}>
+        {legend}
+        {helpText}
+        <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-[#cfd3da] bg-white px-3 py-2.5 text-sm focus-within:ring-2 focus-within:ring-[#1a1a2e]/20">
+          <span className="min-w-0 truncate">{file?.busy ? `Uploading ${file.name}…` : file?.name || "Choose a file"}</span>
+          <span className="shrink-0 text-xs text-[#6b7280]">JPG, PNG, WebP, PDF</span>
+          <input type="file" className="sr-only" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => onFile(e.target.files?.[0])} aria-describedby={help} />
+        </label>
+        {file?.error ? (
+          <p role="alert" className="text-xs text-[#b42318]">
+            {file.error}
+          </p>
+        ) : null}
+      </fieldset>
+    )
+  const common = {
+    id,
+    className: input,
+    "aria-describedby": help,
+    "aria-required": field.required || undefined,
+    value: typeof value === "string" ? value : "",
+    placeholder: field.placeholder,
+  }
+  return (
+    <div className="min-w-0 space-y-2" data-question={field.id}>
+      <label htmlFor={id} className="block text-sm font-medium">
+        {field.label}
+        {field.required ? <span aria-hidden="true"> *</span> : null}
+      </label>
+      {helpText}
+      {field.type === "textarea" ? (
+        <textarea {...common} rows={4} maxLength={4000} onChange={(e) => onChange(e.target.value)} />
+      ) : field.type === "dropdown" ? (
+        <select {...common} onChange={(e) => onChange(e.target.value)}>
+          <option value="">Choose…</option>
+          {field.options?.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          {...common}
+          type={field.type === "email" ? "email" : field.type === "phone" ? "tel" : field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+          inputMode={field.type === "number" ? "decimal" : undefined}
+          min={field.type === "number" ? field.min : undefined}
+          max={field.type === "number" ? field.max : undefined}
+          autoComplete={field.type === "email" ? "email" : field.type === "name" ? "name" : field.type === "phone" ? "tel" : "off"}
+          maxLength={field.type === "email" ? 254 : 500}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
+  )
+}
+
+function SlotPicker({
+  formId,
+  settings,
+  preview,
+  zone,
+  value,
+  version,
+  onChange,
+}: {
+  formId: string
+  settings: NonNullable<PublicForm["definition"]["booking"]>
+  preview: boolean
+  zone: string
+  value: Slot | null
+  version: number
+  onChange: (s: Slot) => void
+}) {
+  const [slots, setSlots] = useState<Slot[] | null>(null),
+    [next, setNext] = useState<string | null>(null),
+    [failed, setFailed] = useState<string | null>(null),
+    [day, setDay] = useState<string | null>(null)
+  const load = async (from?: string, append = false) => {
+    if (preview) {
+      const now = Date.now()
+      const start = from ? Date.parse(from) : now
+      const list = generateSlots(settings, { fromMs: start, toMs: start + 14 * 86_400_000, nowMs: now, limit: 500 })
+      setSlots((old) => (append && old ? [...old, ...list] : list))
+      setNext(start + 14 * 86_400_000 < now + settings.days_ahead * 86_400_000 ? new Date(start + 14 * 86_400_000).toISOString() : null)
+      return
+    }
+    try {
+      setFailed(null)
+      const r = await fetch(`${platformOrigin()}/api/forms/${encodeURIComponent(formId)}/slots?days=14${from ? `&from=${encodeURIComponent(from)}` : ""}`, { credentials: "omit", cache: "no-store" })
+      const b = await r.json()
+      if (!r.ok) throw new Error(b.error || "Times could not be loaded.")
+      setSlots((old) => (append && old ? [...old, ...b.slots] : b.slots))
+      setNext(b.next)
+    } catch (e) {
+      setFailed(e instanceof Error ? e.message : "Times could not be loaded.")
+    }
+  }
+  useEffect(() => {
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formId, version])
+  const days = useMemo(() => {
+    const map = new Map<string, Slot[]>()
+    for (const s of slots || []) {
+      const k = dayKey(s.start, zone)
+      map.set(k, [...(map.get(k) || []), s])
+    }
+    return [...map.entries()]
+  }, [slots, zone])
+  const active = day && days.some(([k]) => k === day) ? day : days[0]?.[0] || null
+  if (failed)
+    return (
+      <p role="alert" className="text-sm text-[#b42318]">
+        {failed}{" "}
+        <button type="button" className="underline" onClick={() => void load()}>
+          Try again
+        </button>
+      </p>
+    )
+  if (!slots)
+    return (
+      <div role="status" className="h-32 animate-pulse rounded-xl bg-[#f3f4f6]">
+        <span className="sr-only">Loading times…</span>
+      </div>
+    )
+  return (
+    <fieldset className="min-w-0 space-y-3" data-slot-picker="">
+      <legend className="mb-1 text-sm font-medium">Choose a time</legend>
+      <p className="-mt-1 text-xs text-[#6b7280]">
+        {settings.duration} minutes. Times shown in {zone.replace(/_/g, " ")}.
+      </p>
+      {!days.length ? <p className="text-sm text-[#6b7280]">No free times in the next two weeks.</p> : null}
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]" role="tablist" aria-label="Days">
+        {days.map(([k, list]) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={k === active}
+            onClick={() => setDay(k)}
+            className={`shrink-0 rounded-xl border px-3 py-2 text-sm ${k === active ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e3e4e8] bg-white"}`}
+          >
+            {dayLabel(list[0].start, zone)}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Times">
+        {(days.find(([k]) => k === active)?.[1] || []).map((s) => (
+          <button
+            key={s.start}
+            type="button"
+            role="radio"
+            aria-checked={value?.start === s.start}
+            onClick={() => onChange(s)}
+            className={`min-h-11 rounded-xl border px-2 text-sm font-medium ${value?.start === s.start ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e3e4e8] bg-white"}`}
+          >
+            {timeLabel(s.start, zone)}
+          </button>
+        ))}
+      </div>
+      {next ? (
+        <button type="button" className="text-sm underline" onClick={() => void load(next, true)}>
+          Show later dates
+        </button>
+      ) : null}
+      {value ? <p className="text-sm">Selected: {fullLabel(value.start, zone)}</p> : null}
+    </fieldset>
+  )
+}
+
+function Completion({ done, zone, preview }: { done: Done; zone: string; preview: boolean }) {
+  const label = done.action_label || (done.action_type ? actionLabel({ type: done.action_type } as never) : "Continue")
+  return (
+    <section role="status" className="space-y-4 py-2 text-left text-[#1a1a2e]" data-form-complete="">
+      {done.result ? (
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold">{done.result.title}</h2>
+          {done.result.message ? <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{done.result.message}</p> : null}
+        </div>
+      ) : null}
+      {done.booking ? (
+        <p className="text-[15px]">
+          {done.booking.status === "pending" ? "Requested: " : "Booked: "}
+          <strong>{fullLabel(done.booking.starts_at, zone)}</strong>
+        </p>
+      ) : null}
+      <p className={`whitespace-pre-wrap ${done.result ? "text-sm text-[#6b7280]" : "text-base"}`}>{done.message}</p>
+      <div className="flex flex-wrap gap-2">
+        {done.payment_href ? (
+          <a className={button} href={done.payment_href}>
+            Pay to confirm
+          </a>
+        ) : null}
+        {done.gated ? (
+          done.gated.url ? (
+            <a className={button} href={done.gated.url} target="_blank" rel="noopener noreferrer" data-gated-link="">
+              {done.gated.label}
+            </a>
+          ) : (
+            <span className={button + " opacity-60"}>{done.gated.label}{preview ? " (link appears after sending)" : ""}</span>
+          )
+        ) : null}
+        {done.href ? (
+          <a className={button} href={done.href} target={done.action_type === "product" ? undefined : "_blank"} rel="noopener noreferrer">
+            {label}
+          </a>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+

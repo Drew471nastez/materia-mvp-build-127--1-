@@ -253,6 +253,8 @@ const STRUCTURAL: Record<string, string[]> = {
 const LEGACY_FALLBACK: Record<string, string[]> = {
   /* How a tab's panel switches was `animation`, the key every section's entrance uses, before it became `tab_animation`; a tabs section saved before still switches the way it did. */
   tabs_content: ["animation"],
+  /* A form section saved before "Show as" had only the inline toggle; it is read only when no presentation was ever chosen. */
+  native_form: ["inline"],
   /* Trust logos are blocks now; a bar saved with the four numbered image settings still shows them. */
   social_proof_bar: ["trust_logo_1", "trust_logo_2", "trust_logo_3", "trust_logo_4"],
   /* `show_search` and `show_cart` are what the Header elements panel used

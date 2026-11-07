@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { UUID } from "@/lib/forms/actions"
-import { validateDefinition } from "@/lib/forms/definition"
+import { validateDefinition, publicDefinition } from "@/lib/forms/definition"
 import { PUBLIC_HEADERS, formError } from "@/lib/forms/server"
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: PUBLIC_HEADERS })
@@ -37,7 +37,7 @@ export async function GET(
         form: {
           id: data.id,
           revision: data.revision,
-          definition: validateDefinition(data.published),
+          definition: publicDefinition(validateDefinition(data.published)),
         },
       },
       { headers: PUBLIC_HEADERS },
