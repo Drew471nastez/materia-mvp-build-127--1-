@@ -6296,38 +6296,7 @@ function BlockEditor({
                 />
               </div>
 
-              {/* Embed Mode Options */}
-              <div className="space-y-3 pt-3 border-t">
-                <Label className="text-xs font-medium">{tt("Behavior")}</Label>
-
-                {/* Go Directly To Link */}
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-medium">{tt("Go Directly To Link")}</Label>
-                    <p className="text-[10px] text-muted-foreground">{tt("Open Calendly page in new tab")}</p>
-                  </div>
-                  <Toggle label={tt("Open Calendly page in a new tab")}
-                    checked={data.embed_mode === 'direct_link'}
-                    onCheckedChange={(checked) => {
-                      updateData({ embed_mode: checked ? 'direct_link' : 'embedded' })
-                    }}
-                  />
-                </div>
-
-                {/* Embedded Calendar (Modal) */}
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-medium">{tt("Embedded Calendar")}</Label>
-                    <p className="text-[10px] text-muted-foreground">{tt("Show calendar in popup modal")}</p>
-                  </div>
-                  <Toggle label={tt("Show calendar in a popup")}
-                    checked={data.embed_mode === 'embedded'}
-                    onCheckedChange={(checked) => {
-                      updateData({ embed_mode: checked ? 'embedded' : 'direct_link', embed_type: 'modal' })
-                    }}
-                  />
-                </div>
-              </div>
+              {/* Round AL: what a tap does is the block's Interaction, under these settings (components/onepage/extra-blocks BlockExtras). */}
             </PartContent>
 
             <PartContent value="layout" className="mt-0 space-y-3">
