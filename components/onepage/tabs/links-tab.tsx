@@ -4000,7 +4000,8 @@ function BlockEditor({
      updateBlockData), so two changes in one tick, or an upload that finishes
      after an edit, both land. A block inside a group goes through its group. */
   const updateData = (updates: Partial<OnePageBlock["data"]>) => {
-    if (updateBlockOverride) updateBlockOverride(block.id, { data: { ...block.data, ...updates } })
+    /* Only the fields that changed: the group merges them into the child as it is now, so a second edit in the same tick is not undone by this render's copy. */
+    if (updateBlockOverride) updateBlockOverride(block.id, { data: updates as OnePageBlock["data"] })
     else updateBlockData(block.id, updates as Record<string, any>)
   }
 
@@ -4918,49 +4919,29 @@ function BlockEditor({
                 />
               </div>
 
-              {/* Button Text Selector - Dropdown like Animation */}
+              {/*
+                The button's words: a preset or the creator's own (below). A select in React state;
+                it used to be a list shown and hidden by toggling a CSS class on the DOM, which a
+                re-render put back and a click outside never closed.
+              */}
               <div className="space-y-1.5">
-                <Label className="text-xs">{tt("Button Text")}</Label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      const dropdown = e.currentTarget.nextElementSibling as HTMLElement
-                      if (dropdown) {
-                        dropdown.classList.toggle('hidden')
-                      }
-                    }}
-                    className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-transparent"
-                  >
-                    <span>{buttonTextPresets.find(p => p.id === (data.button_preset || 'subscribe'))?.label || tt("Subscribe")}</span>
-                    <ChevronDown className="h-4 w-4 text-gray-400" />
-                  </button>
-                  <div className="hidden absolute left-0 top-full mt-1 w-full bg-white rounded-lg shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
-                    {buttonTextPresets.map((preset) => {
-                      const isSelected = (data.button_preset || 'subscribe') === preset.id
-                      return (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          onClick={(e) => {
-                            handlePresetChange(preset.id as EmailCaptureButtonPreset)
-                            const dropdown = e.currentTarget.parentElement as HTMLElement
-                            if (dropdown) dropdown.classList.add('hidden')
-                          }}
-                          className={cn(
-                            "w-full px-3 py-1.5 text-left text-sm transition-colors flex items-center justify-between",
-                            isSelected
-                              ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
-                              : "text-gray-700 hover:bg-gray-50"
-                          )}
-                        >
-                          <span>{preset.label}</span>
-                          {isSelected && <Check className="h-3.5 w-3.5" />}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
+                <Label className="text-xs" htmlFor={`email-button-${block.id}`}>{tt("Button Text")}</Label>
+                <select
+                  id={`email-button-${block.id}`}
+                  data-email-button-preset=""
+                  value={data.button_preset || "subscribe"}
+                  onChange={(e) => {
+                    const id = e.target.value as EmailCaptureButtonPreset
+                    if (id === "custom") updateData({ button_preset: "custom" })
+                    else handlePresetChange(id)
+                  }}
+                  className="h-10 w-full rounded-xl border border-[#e3e4e8] bg-white px-2.5 text-[14px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e]"
+                >
+                  {buttonTextPresets.map((preset) => (
+                    <option key={preset.id} value={preset.id}>{preset.label}</option>
+                  ))}
+                  {data.button_preset === "custom" ? <option value="custom">{tt("Custom")}</option> : null}
+                </select>
               </div>
 
               {/* Custom Button Text Input - Always visible */}
@@ -4975,7 +4956,8 @@ function BlockEditor({
                       updateData({ custom_button_text: customText, button_preset: 'custom' })
                     } else {
                       // When cleared, fall back to default
-                      updateData({ custom_button_text: '', button_preset: 'subscribe' })
+                      /* The preset's own words too, or the button kept showing the last preset picked before the custom text. */
+                      updateData({ custom_button_text: '', button_preset: 'subscribe', button_text: tt("Subscribe") })
                     }
                   }}
                   className="h-9"
@@ -6623,102 +6605,6 @@ function BlockEditor({
       ? (groupData.children || []).find(c => c.id === selectedGroupChildId)
       : null
 
-    // Render child block settings
-    const renderChildSettings = (child: OnePageBlock) => {
-      const updateChildData = (updates: Partial<any>) => {
-        updateChildBlock(child.id, { data: { ...child.data, ...updates } })
-      }
-
-      switch (child.type) {
-        case "link_button": {
-          const d = child.data as LinkButtonBlockData
-          return (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">{tt("Title")}</Label>
-                <Input value={d.label ?? ""} onChange={(e) => updateChildData({ label: e.target.value })} className="h-9" placeholder={tt("Link title")} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">URL</Label>
-                <Input value={d.url || ""} onChange={(e) => updateChildData({ url: e.target.value })} className="h-9" placeholder="https://" />
-              </div>
-            </div>
-          )
-        }
-        case "text": {
-          const d = child.data as TextBlockData
-          return (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">{tt("Text Content")}</Label>
-                <Textarea value={d.content || ""} onChange={(e) => updateChildData({ content: e.target.value })} className="min-h-[80px]" placeholder={tt("Enter text...")} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">{tt("Alignment")}</Label>
-                <div className="flex gap-2">
-                  {(["left", "center", "right"] as const).map((align) => (
-                    <Button key={align} variant={d.alignment === align ? "default" : "outline"} size="sm" onClick={() => updateChildData({ alignment: align })} className="flex-1 capitalize h-8">
-                      {align}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )
-        }
-        case "divider": {
-          const d = child.data as DividerBlockData
-          return (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">{tt("Style")}</Label>
-                <div className="flex gap-2">
-                  {(["space", "line", "dots"] as const).map((style) => (
-                    <Button key={style} variant={d.style === style ? "default" : "outline"} size="sm" onClick={() => updateChildData({ style })} className="capitalize h-8 flex-1">
-                      {style}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <RangeRow compact label={tt("Height")} value={d.height || 24} min={8} max={64} step={4} unit="px" onChange={(v) => updateChildData({ height: v })} />
-            </div>
-          )
-        }
-        case "image": {
-          const d = child.data as ImageBlockData
-          return (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">{tt("Image URL")}</Label>
-                <Input value={d.image_url || ""} onChange={(e) => updateChildData({ image_url: e.target.value })} className="h-9" placeholder="https://" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">{tt("Link URL (optional)")}</Label>
-                <Input value={d.link_url || ""} onChange={(e) => updateChildData({ link_url: e.target.value || null })} className="h-9" placeholder="https://" />
-              </div>
-            </div>
-          )
-        }
-        case "email_capture": {
-          const d = child.data as EmailCaptureBlockData
-          return (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">{tt("Headline")}</Label>
-                <Input value={d.headline ?? ""} onChange={(e) => updateChildData({ headline: e.target.value })} className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">{tt("Button Text")}</Label>
-                <Input value={d.button_text ?? ""} onChange={(e) => updateChildData({ button_text: e.target.value })} className="h-9" />
-              </div>
-            </div>
-          )
-        }
-        default:
-          return <p className="text-xs text-muted-foreground">{tt("No settings available")}</p>
-      }
-    }
-
     return (
       <Tabs defaultValue="links" className="w-full">
         <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
@@ -6798,6 +6684,7 @@ function BlockEditor({
                         onDrop={(e) => handleGroupChildDrop(e, child.id)}
                         onDragEnd={() => { setGroupDraggedId(null); setGroupDragOverId(null) }}
                         onClick={() => setSelectedGroupChildId(selectedGroupChildId === child.id ? null : child.id)}
+                        data-group-child={child.id}
                         className={cn(
                           "flex items-center gap-2 p-2.5 bg-white rounded-lg border cursor-pointer transition-all",
                           selectedGroupChildId === child.id ? "border-[#1a1a2e] ring-1 ring-[#1a1a2e]" : "border-gray-200 hover:border-gray-300",
