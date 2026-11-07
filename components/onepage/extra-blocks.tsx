@@ -698,10 +698,7 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
             <Label className={label}>{tt("Size")}</Label>
             <Segmented value={d.size || "medium"} options={[{ id: "small", label: tt("Small") }, { id: "medium", label: tt("Medium") }, { id: "large", label: tt("Large") }]} onChange={(size) => updateData({ size })} />
           </div>
-          <div className={field}>
-            <Label className={label}>{tt("Alignment")}</Label>
-            <Segmented value={d.alignment || "center"} options={[{ id: "left", label: tt("Left") }, { id: "center", label: tt("Center") }, { id: "right", label: tt("Right") }]} onChange={(alignment) => updateData({ alignment })} />
-          </div>
+          {/* Round AL: the alignment is the Layout tab's one Alignment row (components/onepage/block-settings), which writes this block's own. */}
         </div>
       )
     }

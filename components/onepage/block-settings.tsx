@@ -48,6 +48,8 @@ import {
 import type { LinkButtonBlockData, OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
 import { restorePreview } from "@/lib/onepage/link-preview"
 import { useBlockPart } from "./block-part"
+/* Every field in an open block in Storelib's own look (round AL): see the file. */
+import "./block-fields.css"
 
 /* ── The two tabs ───────────────────────────────────────────────────────── */
 
@@ -124,8 +126,9 @@ export function usePresentationWriter(block: OnePageBlock, onChange: Change, get
 }
 
 const heading = "text-[14px] font-semibold text-[#1a1a2e]"
+/* The editor's text box (components/onepage/editor-kit fieldInput), as a box of a few lines. */
 const textArea =
-  "w-full resize-y rounded-xl border border-[#e3e4e8] bg-white px-3 py-2.5 text-[14px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e]"
+  "block w-full resize-y rounded-xl border border-[#e3e4e8] bg-white px-3.5 py-2.5 text-[16px] leading-[1.45] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[14px]"
 
 /* ── Settings: the description line ─────────────────────────────────────── */
 
@@ -136,8 +139,9 @@ export function BlockDescriptionField({ block, onChange, getBlock }: { block: On
   const p = presentationOf(block)
   const link = block.type === "link_button" ? (block.data as LinkButtonBlockData) : null
   return (
-    <label className="mt-4 block space-y-1.5 text-[13px] font-medium text-[#1a1a2e]" data-block-description-field="">
-      <span className="flex items-center justify-between gap-2">
+    <label className="mt-5 block text-[13px] font-medium text-[#1a1a2e]" data-block-description-field="">
+      {/* The words over the box sit on their own line with room under them: "Description (optional)" was glued to the box. */}
+      <span className="mb-2 flex min-h-8 items-center justify-between gap-2 leading-[18px]">
         <span>
           {tt("Description")} <span className="font-normal text-[#6b7280]">{tt("(optional)")}</span>
         </span>
@@ -248,16 +252,20 @@ export function LinkPreviewControls({ block, onChange, getBlock, onRefresh }: { 
 }
 const restoreFrom = (data: LinkButtonBlockData) => restorePreview(data) as { data: Record<string, unknown>; subtitle?: string }
 
-/** How a social address shows: a plain link, the network's own embed, or a profile card. Offered only where the address allows it. */
+/**
+ * How a social address behaves: a link that leaves, or the network's own
+ * embed on the page. Offered only where the address has an embed. Round AL:
+ * "Profile card" was a third choice here and the Profile picture in Layout
+ * too, two controls for one thing; it is in Layout only now.
+ */
 export function SocialShowAs({ block, onChange, getBlock }: { block: OnePageBlock; onChange: Change; getBlock?: () => OnePageBlock | undefined }) {
   const write = usePresentationWriter(block, onChange, getBlock)
   const data = block.data as LinkButtonBlockData
   const embed = socialPresentation(data.url || "")
-  const profile = socialProfile(data.url || "")
-  if (!embed && !profile) return null
+  if (!embed) return null
   const p = presentationOf(block)
-  const value = p.media_mode === "native" && embed ? "embed" : p.variant === "profile" ? "profile" : "link"
-  const options = [{ id: "link", label: tt("Link") }, ...(embed ? [{ id: "embed", label: embed.platform === "YouTube" || embed.platform === "Vimeo" || embed.platform === "TikTok" ? tt("Play here") : tt("Show the post") }] : []), ...(profile ? [{ id: "profile", label: tt("Profile card") }] : [])]
+  const value = p.media_mode === "native" ? "embed" : "link"
+  const options = [{ id: "link", label: tt("Link") }, { id: "embed", label: embed.platform === "YouTube" || embed.platform === "Vimeo" || embed.platform === "TikTok" ? tt("Play here") : tt("Show the post") }]
   return (
     <div className="space-y-1.5" data-social-show-as="">
       <p className="text-[13px] font-medium text-[#1a1a2e]">{tt("Show as")}</p>
@@ -267,8 +275,7 @@ export function SocialShowAs({ block, onChange, getBlock }: { block: OnePageBloc
         options={options}
         onChange={(id) => {
           if (id === "embed") write({ media_mode: "native", ...(!p.variant || p.variant === "original" || p.variant === "profile" ? { variant: "image-first" as const } : {}) })
-          else if (id === "profile") write({ media_mode: undefined, variant: "profile" })
-          else write({ media_mode: undefined, ...(p.variant === "profile" ? { variant: undefined } : {}) })
+          else write({ media_mode: undefined })
         }}
       />
     </div>
@@ -289,12 +296,21 @@ const LINK_LAYOUT_LABEL: Record<LinkLayout, () => string> = {
 }
 
 /** One link layout drawn small, in this page's colours, with this link's picture. */
-export function LinkVariantThumb({ id, theme, image }: { id: LinkLayout; theme?: Partial<OnePageTheme> | null; image?: string | null }) {
+export function LinkVariantThumb({ id, theme, image, title }: { id: LinkLayout; theme?: Partial<OnePageTheme> | null; image?: string | null; title?: string | null }) {
   const btn = theme?.button_color || "#1a1a2e"
   const ink = theme?.button_text_color || "#ffffff"
   const page = theme?.background_color || "#f7f7f8"
   const r = Math.max(2, Math.min(Number(theme?.button_border_radius ?? 8) * 0.4, 9))
   const line = (w: string, c = ink, o = 0.85) => <span className="block h-[3px] shrink-0 rounded-full" style={{ width: w, background: c, opacity: o }} />
+  /* Round AL: the link's own title, small, where it sits on the page; a line only while it has none. */
+  const words = (w: string, c = ink) =>
+    title?.trim() ? (
+      <span className="block min-w-0 truncate text-[8.5px] font-semibold leading-none" style={{ maxWidth: w, color: c }}>
+        {title.trim()}
+      </span>
+    ) : (
+      line(w, c)
+    )
   const pic = (cls: string, style?: React.CSSProperties) =>
     image ? (
       // eslint-disable-next-line @next/next/no-img-element
@@ -309,7 +325,7 @@ export function LinkVariantThumb({ id, theme, image }: { id: LinkLayout; theme?:
       body = (
         <span className="relative flex h-[22px] w-full items-center justify-center" style={card}>
           {pic("absolute left-1 h-[14px] w-[14px]", { borderRadius: Math.max(2, r - 2) })}
-          {line("48%")}
+          {words("62%")}
         </span>
       )
       break
@@ -317,7 +333,7 @@ export function LinkVariantThumb({ id, theme, image }: { id: LinkLayout; theme?:
       body = (
         <span className="flex w-full flex-col overflow-hidden" style={card}>
           {pic("aspect-[16/9] w-full")}
-          <span className="grid h-[16px] place-items-center">{line("50%")}</span>
+          <span className="grid h-[16px] place-items-center px-1">{words("90%")}</span>
         </span>
       )
       break
@@ -327,7 +343,7 @@ export function LinkVariantThumb({ id, theme, image }: { id: LinkLayout; theme?:
         <span className={cn("relative block w-full overflow-hidden", id === "cover" ? "aspect-[4/5] w-[62%]" : "aspect-[16/10]")} style={card}>
           {pic("absolute inset-0 h-full w-full")}
           <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_40%,rgba(0,0,0,0.6)_100%)]" />
-          <span className="absolute inset-x-1.5 bottom-1.5 flex flex-col gap-[3px]">{line("70%", "#ffffff")}{line("40%", "#ffffff", 0.5)}</span>
+          <span className="absolute inset-x-1.5 bottom-1.5 flex flex-col gap-[3px]">{words("90%", "#ffffff")}{line("40%", "#ffffff", 0.5)}</span>
         </span>
       )
       break
@@ -335,7 +351,7 @@ export function LinkVariantThumb({ id, theme, image }: { id: LinkLayout; theme?:
       body = (
         <span className="flex w-full flex-col overflow-hidden" style={card}>
           {pic("aspect-video w-full")}
-          <span className="flex h-[18px] items-center px-1.5">{line("60%")}</span>
+          <span className="flex h-[18px] items-center px-1.5">{words("90%")}</span>
         </span>
       )
       break
@@ -343,7 +359,7 @@ export function LinkVariantThumb({ id, theme, image }: { id: LinkLayout; theme?:
       body = (
         <span className="flex h-[24px] w-full items-center gap-1.5 px-1" style={card}>
           {pic("h-[16px] w-[16px]", { borderRadius: Math.max(2, r - 2) })}
-          {line("55%")}
+          {words("75%")}
         </span>
       )
       break
@@ -402,7 +418,7 @@ export function LinkLayoutPicker({ block, theme, onChange, getBlock }: { block: 
             >
               <ChoiceMark on={on} />
               <span className="block aspect-[4/3] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
-                <LinkVariantThumb id={id} theme={theme} image={image} />
+                <LinkVariantThumb id={id} theme={theme} image={image} title={data.label} />
               </span>
               <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{LINK_LAYOUT_LABEL[id]()}</span>
             </button>
@@ -482,6 +498,13 @@ export function BlockStyleControls({ block, onChange, getBlock }: { block: OnePa
   const panel = blockSurface(block.type) === "panel"
   const shaped = !panel || !!p.background
   const hasDescription = has("description") && !!p.subtitle?.trim()
+  /*
+    A heading and a text block keep their alignment in their own data, and
+    the page reads it there (round AL): this one row writes both, and the
+    duplicate in their Settings is gone, so there is one Alignment.
+  */
+  const ownAlign = block.type === "heading" || block.type === "text"
+  const alignNow = (ownAlign ? ((block.data as { alignment?: BlockPresentation["align"] }).alignment || p.align) : p.align) || "center"
   const touched = (["align", "title_color", "title_size", "title_weight", "subtitle_color", "subtitle_size", "icon_color", "icon_size", "background", "radius", "shadow", "padding", "gap"] as const).some((k) => p[k] !== undefined)
   const color = (label: string, key: "title_color" | "subtitle_color" | "icon_color" | "background") => (
     <ColorRow label={label} value={p[key]} onChange={(value) => write({ [key]: value })} onClear={() => write({ [key]: undefined })} emptyLabel={tt("Page default")} />
@@ -494,13 +517,13 @@ export function BlockStyleControls({ block, onChange, getBlock }: { block: OnePa
           {has("align") ? (
             <Segmented
               label={tt("Alignment")}
-              value={p.align || "center"}
+              value={alignNow}
               options={[
                 { id: "left", label: tt("Left") },
                 { id: "center", label: tt("Center") },
                 { id: "right", label: tt("Right") },
               ]}
-              onChange={(align) => write({ align: align as BlockPresentation["align"] })}
+              onChange={(align) => write({ align: align as BlockPresentation["align"] }, ownAlign ? { alignment: align } : undefined)}
             />
           ) : null}
           {has("title") ? (
@@ -571,3 +594,169 @@ export function BlockStyleControls({ block, onChange, getBlock }: { block: OnePa
     </div>
   )
 }
+
+/* ── Layout: an animation, for the blocks where one helps ───────────────── */
+
+/**
+ * WHICH BLOCKS MOVE (round AL). "Not all of them should have, but some of
+ * them should truly have." A moving block pulls the eye, so it is offered on
+ * the blocks someone is meant to press once: a link, a product, an email
+ * signup, a document, a menu and a booking. A shelf, a gallery, a video or a
+ * row of icons is never animated: many cards moving at once is noise, and a
+ * player already moves. The page draws them with the animate-onepage-*
+ * classes (app/globals.css), which stop under reduced motion.
+ */
+export const ANIMATED_BLOCKS = new Set(["link_button", "product", "email_capture", "pdf_document", "food_menu", "calendly"])
+export const BLOCK_ANIMATIONS = ["none", "pulse", "bounce", "shake", "glow", "swipe"] as const
+export type BlockAnimation = (typeof BLOCK_ANIMATIONS)[number]
+const ANIMATION_LABEL: Record<BlockAnimation, () => string> = {
+  none: () => tt("None"),
+  pulse: () => tt("Pulse"),
+  bounce: () => tt("Bounce"),
+  shake: () => tt("Shake"),
+  glow: () => tt("Glow"),
+  swipe: () => tt("Swipe"),
+}
+
+/** The block's attention animation, each choice drawn as a small button that moves the way the block will. */
+export function BlockAnimationPicker({ value, theme, onChange }: { value: string | null | undefined; theme?: Partial<OnePageTheme> | null; onChange: (animation: BlockAnimation) => void }) {
+  const current = (BLOCK_ANIMATIONS as readonly string[]).includes(value || "") ? (value as BlockAnimation) : "none"
+  const btn = theme?.button_color || "#1a1a2e"
+  const ink = theme?.button_text_color || "#ffffff"
+  const page = theme?.background_color || "#f7f7f8"
+  const r = Math.max(3, Math.min(Number(theme?.button_border_radius ?? 8) * 0.5, 12))
+  const [hover, setHover] = React.useState<BlockAnimation | null>(null)
+  return (
+    <div className="space-y-2.5 border-t border-[#eef0f2] pt-4" data-block-animation="">
+      <p className={heading}>{tt("Animation")}</p>
+      <div role="radiogroup" aria-label={tt("Animation")} className="grid grid-cols-3 gap-2.5">
+        {BLOCK_ANIMATIONS.map((id) => {
+          const on = current === id
+          return (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              data-block-animation-choice={id}
+              onClick={() => onChange(id)}
+              onPointerEnter={(e) => e.pointerType === "mouse" && setHover(id)}
+              onPointerLeave={() => setHover(null)}
+              className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-1.5 outline-none hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+            >
+              <ChoiceMark on={on} />
+              <span aria-hidden className="flex aspect-[16/9] items-center justify-center overflow-hidden rounded-xl px-[14%]" style={{ background: page }}>
+                {/* It moves while chosen, or under a pointer, so six do not move at once. */}
+                <span
+                  className={cn("relative flex h-[38%] w-full items-center justify-center overflow-hidden", id !== "none" && (on || hover === id) && `animate-onepage-${id}`)}
+                  style={{ background: btn, borderRadius: r, color: btn }}
+                >
+                  <span className="block h-[3px] w-[46%] rounded-full" style={{ background: ink, opacity: 0.85 }} />
+                </span>
+              </span>
+              <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{ANIMATION_LABEL[id]()}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ── Layout: Classic or Featured, drawn as the block will be ────────────── */
+
+/**
+ * A DOCUMENT, A MENU AND A BOOKING (round AL). Each had its own pair of
+ * grey sketches (a bar, a picture box with a mountain) the owner found
+ * nothing like the page. Now the two are drawn in this page's button colours,
+ * with this block's own title and picture: Classic is the button, Featured
+ * the picture over the title and its button. The cards keep their shape at
+ * any width (an aspect ratio, never a fixed height).
+ */
+export function ClassicFeaturedPicker({
+  value,
+  theme,
+  title,
+  image,
+  icon,
+  onChange,
+}: {
+  value: string | null | undefined
+  theme?: Partial<OnePageTheme> | null
+  title: string
+  image?: string | null
+  icon?: React.ReactNode
+  onChange: (layout: "default" | "pro") => void
+}) {
+  const current = value === "pro" ? "pro" : "default"
+  const btn = theme?.button_color || "#1a1a2e"
+  const ink = theme?.button_text_color || "#ffffff"
+  const page = theme?.background_color || "#f7f7f8"
+  const r = Math.max(3, Math.min(Number(theme?.button_border_radius ?? 8) * 0.45, 10))
+  const words = (title || "").trim() || tt("Title")
+  const label = (
+    <span className="min-w-0 truncate text-[9px] font-semibold leading-none" style={{ color: ink }}>
+      {words}
+    </span>
+  )
+  const options = [
+    { id: "default" as const, name: tt("Classic") },
+    { id: "pro" as const, name: tt("Featured") },
+  ]
+  return (
+    <div className="space-y-2.5" data-classic-featured="">
+      <p className={heading}>{tt("Layout")}</p>
+      <div className="grid grid-cols-2 gap-2.5">
+        {options.map((o) => {
+          const on = current === o.id
+          return (
+            <button
+              key={o.id}
+              type="button"
+              aria-pressed={on}
+              data-layout-choice={o.id}
+              onClick={() => onChange(o.id)}
+              className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-1.5 outline-none hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+            >
+              <ChoiceMark on={on} />
+              <span aria-hidden className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-xl px-[11%] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]" style={{ background: page }}>
+                {o.id === "default" ? (
+                  <span className="relative flex h-[26%] w-full items-center justify-center gap-1.5 px-6" style={{ background: btn, borderRadius: r }}>
+                    <span className="absolute left-1.5 grid h-[62%] aspect-square place-items-center overflow-hidden [&_svg]:h-3 [&_svg]:w-3" style={{ color: ink, borderRadius: Math.max(2, r - 2) }}>
+                      {image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={image} alt="" className="h-full w-full object-cover" draggable={false} />
+                      ) : (
+                        icon
+                      )}
+                    </span>
+                    {label}
+                  </span>
+                ) : (
+                  <span className="flex w-[86%] flex-col overflow-hidden" style={{ background: btn, borderRadius: r }}>
+                    {image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={image} alt="" className="block aspect-[16/9] w-full object-cover" draggable={false} />
+                    ) : (
+                      <span className="grid aspect-[16/9] w-full place-items-center [&_svg]:h-4 [&_svg]:w-4" style={{ background: `color-mix(in srgb, ${ink} 18%, ${btn})`, color: ink }}>
+                        {icon}
+                      </span>
+                    )}
+                    <span className="flex flex-col items-center gap-1 px-2 py-1.5">
+                      {label}
+                      <span className="block h-[9px] w-[52%] rounded-full" style={{ background: ink, opacity: 0.9 }} />
+                    </span>
+                  </span>
+                )}
+              </span>
+              <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{o.name}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* How a block of many is arranged, its cards in view and how many: components/onepage/layout-pickers. */
+export { ArrangePicker, CardsInViewControl, EditorThemeContext, HowManyControl, CARDS_IN_VIEW, type ArrangeKind, type CardsInView } from "./layout-pickers"

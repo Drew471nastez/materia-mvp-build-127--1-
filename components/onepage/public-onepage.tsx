@@ -60,6 +60,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
+import { noteTracked, postBlockClick, watchBlockActivity } from "@/components/onepage/block-activity"
 import { canvasRule, heroHeaderShown } from "@/lib/onepage/page-frame"
 import { PosterVideo } from "@/components/onepage/poster-video"
 import { HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/lib/onepage/poster-video"
@@ -865,6 +866,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   // Modal visibility state - to hide buttons when fullscreen modals are open
   /* True in the editor's preview frame (components/onepage/preview-document). */
   const inEditorPreview = useContext(ExtraBlockPreviewContext)
+  /* Round AL: every block counted, not only those that count themselves (components/onepage/block-activity). */
+  useEffect(() => {
+    if (inEditorPreview || !onepage.id) return
+    return watchBlockActivity((blockId, url) => postBlockClick(onepage.id, blockId, url, { session: getOrCreateSessionId(), visitor: getOrCreateVisitorId() }))
+  }, [inEditorPreview, onepage.id])
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false)
   const modalVisibilityContextValue = { isAnyModalOpen, setIsAnyModalOpen }
 
@@ -1346,7 +1352,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               return (
                 <div key={item.key} className={cn("grid w-full grid-cols-2 gap-3", animClass)} style={animStyle} data-link-pair="">
                   {(item.links as OnePageBlock[]).map((block) => (
-                    <div key={block.id} className="min-w-0" data-link-tile="" data-sensitive-label={sensitiveLabel(block)}>
+                    <div key={block.id} className="min-w-0" data-link-tile="" data-op-block={block.id} data-sensitive-label={sensitiveLabel(block)}>
                       {inEditorPreview && isIncompleteLink(block) ? (
                         <IncompleteLinkPlaceholder label={(block.data as LinkButtonBlockData)?.label} theme={safeTheme} />
                       ) : (
@@ -1370,7 +1376,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               return (
                 <div key={item.key} className={cn("grid w-full gap-3", item.tiles.length > 1 ? "grid-cols-2" : "grid-cols-1", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined} data-product-pair="">
                   {item.tiles.map((block) => (
-                    <div key={block.id} className="min-w-0" data-sensitive-label={sensitiveLabel(block)}>
+                    <div key={block.id} className="min-w-0" data-op-block={block.id} data-sensitive-label={sensitiveLabel(block)}>
                       <PublicBlockRenderer
                         block={block}
                         theme={safeTheme}
@@ -1400,6 +1406,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 className={cn("w-full", animClass)}
                 style={animStyle}
                 data-onepage-enter={animClass ? "" : undefined}
+                data-op-block={block.id}
                 data-sensitive-label={sensitiveLabel(block)}
                 data-block-size={presentationOf(block).size || (blockLayoutOf(safeTheme) === "masonry" && block.type === "link_button" ? "half" : "full")}
               >
@@ -2367,6 +2374,7 @@ function GroupBlockRenderer({
   const getCarouselItemWidth = () => {
     const view = data.carousel_view || "1"
     switch (view) {
+      case "2": return 50
       case "1.5": return 67
       case "1.2": return 85
       case "1":
@@ -3182,6 +3190,7 @@ function CoreBlockRenderer({
     keepalive, so a link that leaves the page does not cancel its own count.
   */
   const trackClick = async (blockId: string, url: string) => {
+    noteTracked()
     try {
       await fetch("/api/onepage/track", {
         method: "POST",

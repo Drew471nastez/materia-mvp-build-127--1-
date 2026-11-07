@@ -36,6 +36,8 @@ const SUITES = [
   "tests/forms-booking-payment.test.ts",
   "tests/onepage-modern-blocks.test.ts",
   "tests/onepage-block-settings-ak3.test.ts",
+  /* Round AL3: the editor drags past what is on screen, an open block follows its height, Layout draws and Settings says, Storelib fields, every block counted. */
+  "tests/onepage-editor-al3.test.ts",
   "tests/admin-sql-updates.test.ts",
   "tests/typecheck-ratchet-process.test.ts",
   "tests/wizard27.test.ts",

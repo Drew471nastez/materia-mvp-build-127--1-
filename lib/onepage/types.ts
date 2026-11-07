@@ -465,7 +465,7 @@ export interface HeaderBlockData {
 
 export type GroupLayoutType = "stack" | "carousel" | "grid"
 
-export type CarouselViewType = "1" | "1.2" | "1.5"
+export type CarouselViewType = "1" | "1.2" | "1.5" | "2"
 
 export interface GroupBlockData {
   title?: string | null
