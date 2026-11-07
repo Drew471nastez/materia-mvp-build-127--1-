@@ -498,7 +498,8 @@ function main() {
   for (const [file, count] of [
     ["components/onepage/tabs/links-tab.tsx", 14],
     /* 10 since round 11: the wallpaper's one-button "Upload Video" sheet is gone; Upload and Replace open the device's picker directly. */
-    ["components/onepage/tabs/design-tab.tsx", 10],
+    /* Changed on purpose (round AL): 9. Theme's "Update to Classic" question is gone; a Classic theme keeps a creator's Hero now. */
+    ["components/onepage/tabs/design-tab.tsx", 9],
     ["components/onepage/tabs/products-tab.tsx", 1],
   ] as const) {
     const src = read(file)
