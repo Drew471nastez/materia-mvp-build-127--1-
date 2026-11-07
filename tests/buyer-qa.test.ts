@@ -53,7 +53,8 @@ async function membershipPrices() {
     ["components/store-builder/unified-section-renderer.tsx", /priced\(productPrice\)/],
     ["app/(storelib)/(marketing)/p/[slug]/page.tsx", /price_interval: membershipInfo\?\.interval/],
     ["components/store-builder/sticky-add-to-cart.tsx", /barPriceText\(product, pageCurrency\)/],
-    ["lib/nav/quick-search.ts", /withPriceIntervals\(client, found\)/],
+    /* Changed on purpose (round 50): round AK prices the found rows in the store's currency first, inside the same call. */
+    ["lib/nav/quick-search.ts", /withPriceIntervals\(client,\s*(?:found\b|await withStoreCurrency\(client,\s*found\b)/],
     /* The header's results draw the price quick-search already worked out (listPrice, above); the drawing moved out of the header itself. */
     ["components/platform/header-search-results.tsx", /\{hit\.price\}/],
     /* A person without a store has no products to price (components/profile/member-profile-page.tsx passes products={[]}); a creator's are the storefront card's, already checked above. */

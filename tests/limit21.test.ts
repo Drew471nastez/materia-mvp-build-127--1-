@@ -256,7 +256,8 @@ async function main() {
     check("and tells search engines it is out of stock", page.includes("soldOut(product) || salesView?.soldOut"))
     const shop = read("lib/website-builder/shop-products.ts")
     check("the website's cards: Sold out, no checkout, every option off", /* Changed on purpose (round 36): the standings are read beside the card's other reads, then laid over the stocked cards. */ shop.includes("salesStandingsOf(db, rows)") && shop.includes("standings ? withStandings(stocked, standings) : stocked") &&/tag: "Sold out", checkout_url: ""/.test(shop))
-    check("the creator page's cards", read("app/(storelib)/(marketing)/u/[username]/page.tsx").includes("salesSoldOut(standings.get(p.id)) ? { sold_out: true }"))
+    /* Changed on purpose (round 50): round AK also keeps a product's own sold_out flag, `(p.sold_out||salesSoldOut(...))`. */
+    check("the creator page's cards", /\(?(?:p\.sold_out\s*\|\|\s*)?salesSoldOut\(standings\.get\(p\.id\)\)\)? \? \{ sold_out: true \}/.test(read("app/(storelib)/(marketing)/u/[username]/page.tsx")))
     check("Explore and its category pages", read("app/(storelib)/(marketing)/explore/page.tsx").includes("salesSoldOut(standings.get(product.id))") && read("app/(storelib)/(marketing)/explore/[category]/page.tsx").includes("salesSoldOut(standings.get(product.id))"))
     check("the card says Sold out", read("components/explore/product-card.tsx").includes("{product.sold_out && (") && read("components/storefront/storefront-product-card.tsx").includes("sold_out: product.sold_out ?? null"))
     check("what the shop's client code imports carries no server only module", !read("lib/products/sales-standings.ts").includes("server-only") && !read("lib/website-builder/shop-products.ts").includes("checkout/sales-limit") && !read("lib/checkout/pricing.ts").includes('from "./sales-limit"'))

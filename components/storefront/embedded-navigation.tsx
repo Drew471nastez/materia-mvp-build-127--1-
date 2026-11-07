@@ -39,7 +39,9 @@
 
 import { useEffect, useState } from "react"
 
-import { canvasRefusesHref, embeddedHref, isInEditorFrame } from "@/lib/store-builder/editor-channel"
+import { canvasRefusesHref, embeddedHref, forwardHistoryKey, isInEditorFrame } from "@/lib/store-builder/editor-channel"
+import { historyKey, isTextField } from "@/lib/store-builder/editor-history"
+import { showPillToast } from "@/components/storefront/pill-toast"
 
 export function EmbeddedNavigation() {
   const [leaving, setLeaving] = useState(false)
@@ -54,6 +56,9 @@ export function EmbeddedNavigation() {
 
       const anchor = (event.target as Element | null)?.closest?.("a")
       if (!anchor) return
+      /* A control inside a link (a card's owner menu) is that control's click, not the link's. */
+      const control = (event.target as Element).closest("button, [role='button'], input, select, textarea, label")
+      if (control && control !== anchor && anchor.contains(control)) return
       const target = anchor.getAttribute("target")
       /* _top is how a control deliberately leaves the canvas. Leave it alone. */
       if (target && target !== "_self") return
@@ -66,6 +71,8 @@ export function EmbeddedNavigation() {
          framed. See CANVAS_WILL_NOT_FOLLOW. */
       if (canvasRefusesHref(href, window.location.href)) {
         event.preventDefault()
+        /* Not a dead click (round 50): it says why nothing opened. */
+        showPillToast("Opens on your live page, not in the editor", { mark: "link" })
         return
       }
 
@@ -82,10 +89,37 @@ export function EmbeddedNavigation() {
     /* A back/forward arrival from the bfcache would otherwise keep the dim. */
     const onShow = () => setLeaving(false)
 
-    document.addEventListener("click", onClick)
+    /*
+      THE UNDO KEYS, PRESSED WITH THE FOCUS IN THE CANVAS (round 50). They
+      land on this document, not on the workspace that keeps the history, so
+      they are handed up. Not while a sheet is open (its form has its own
+      undo, lib/store-builder/form-history) and not in a text field.
+    */
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return
+      const action = historyKey(event)
+      if (!action || isTextField(document.activeElement)) return
+      if (document.querySelector('[role="dialog"][data-state="open"], [data-sheet-panel]')) return
+      event.preventDefault()
+      forwardHistoryKey(action)
+    }
+
+    /*
+      IN THE CAPTURE PHASE (round 50). A product card is a Next <Link>, whose
+      own handler runs at React's root, before a listener on the document,
+      and calls preventDefault to navigate on the client. So this saw every
+      card click as already handled and stood aside: the card opened
+      /<handle>/<product> WITHOUT the flag, as a client move inside the frame,
+      and the product page drew no way back and no canvas rules. Listening
+      first, a link the canvas follows is a full load with ?embedded=1, and
+      <Link> leaves a prevented click alone.
+    */
+    document.addEventListener("click", onClick, true)
+    document.addEventListener("keydown", onKey)
     window.addEventListener("pageshow", onShow)
     return () => {
-      document.removeEventListener("click", onClick)
+      document.removeEventListener("click", onClick, true)
+      document.removeEventListener("keydown", onKey)
       window.removeEventListener("pageshow", onShow)
     }
   }, [])

@@ -42,6 +42,9 @@ import { clampPercent, clampZoom } from "@/lib/images/cover-crop"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { changedLinks, creatorPageLinks, syncCreatorLinksToOnePage } from "@/lib/social/onepage-sync"
 import { onePageChangedFor } from "@/lib/onepage/public-cache"
+import { creatorPagesChanged } from "@/lib/storefront/creator-page-purge"
+import { storyIsEmpty } from "@/lib/storefront/story"
+import { undoBodyFor } from "@/lib/storefront/creator-profile-undo"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -58,7 +61,15 @@ const MAX_NAME = 60
 const MAX_BIO = 500
 const MAX_URL = 300
 const MAX_ABOUT_HEADLINE = 120
-const MAX_ABOUT_STORY = 2000
+/**
+ * THE STORY'S BUDGET IS IN MARKUP, AND IT IS GENEROUS (round 50). It was 2000
+ * characters of the stored value, which since the story became rich text is
+ * HTML: a few paragraphs with a link and some bold came to more than that,
+ * and the save cut the story off mid-sentence (or mid-tag) without a word.
+ * 20000 characters of markup is a long essay; past it the save is refused
+ * with a reason instead of shortened behind the creator's back.
+ */
+const MAX_ABOUT_STORY = 20000
 const MAX_ABOUT_MEDIA = 8
 const MAX_CTA_TEXT = 120
 const MAX_CTA_BUTTON = 30
@@ -138,7 +149,7 @@ export async function PATCH(request: NextRequest) {
    * put through the same URL cleaner as everything else that reaches a src or
    * an href on a public page.
    */
-  const about = (() => {
+  const aboutInput = (() => {
     const raw = body.about
     if (!raw || typeof raw !== "object") return undefined
     const value = raw as Record<string, unknown>
@@ -159,8 +170,11 @@ export async function PATCH(request: NextRequest) {
      * old rows readable.
      */
     if (typeof value.aboutContent === "string") {
-      const raw = value.aboutContent.slice(0, MAX_ABOUT_STORY)
+      if (value.aboutContent.length > MAX_ABOUT_STORY) return "too_long" as const
+      const raw = value.aboutContent
       out.aboutContent = /<[a-z][\s\S]*>/i.test(raw) ? sanitizeRichText(raw).trim() : raw.trim()
+      /* An emptied editor leaves "<p><br></p>" behind: that is no story, and stored as one it drew an empty block. */
+      if (storyIsEmpty(out.aboutContent)) out.aboutContent = ""
     }
     if (Array.isArray(value.mediaItems)) {
       out.mediaItems = value.mediaItems
@@ -181,6 +195,10 @@ export async function PATCH(request: NextRequest) {
     }
     return Object.keys(out).length > 0 ? out : undefined
   })()
+  if (aboutInput === "too_long") {
+    return NextResponse.json({ error: "Your story is too long to save. Shorten it a little and try again." }, { status: 400 })
+  }
+  const about = aboutInput
 
   /**
    * ===========================================================================
@@ -211,8 +229,14 @@ export async function PATCH(request: NextRequest) {
      * the creator typed" is not a colour.
      */
     const colorChoices: string[] = []
+    /* Round 50: null is "not chosen", back to following the scheme. The editor's undo sends it for a colour nobody had picked. */
+    const colorClears: string[] = []
     for (const key of ["backgroundColor", "textColor", "buttonColor", "buttonTextColor"] as const) {
       const v = value[key]
+      if (v === null) {
+        colorClears.push(key)
+        continue
+      }
       if (typeof v === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(v.trim())) {
         out[key] = v.trim().toLowerCase()
         /**
@@ -232,6 +256,7 @@ export async function PATCH(request: NextRequest) {
       }
     }
     if (colorChoices.length > 0) out.colorChoices = colorChoices
+    if (colorClears.length > 0) out.colorClears = colorClears
     /**
      * THE BAR KEEPS ITS TWO COLOURS IN TWO PLACES, and this wrote only one.
      *
@@ -391,6 +416,40 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "A display name is required" }, { status: 400 })
   }
 
+  /*
+    WHAT THE PAGE HELD BEFORE THIS SAVE (round 50), for the editor's undo:
+    read before anything is written, and answered with the save as the body
+    that puts back exactly the fields this request named
+    (lib/storefront/creator-profile-undo). Never a reason to refuse the save.
+  */
+  const [{ data: profileBefore }, { data: creatorBefore }] = await Promise.all([
+    db.from("profiles").select("display_name, avatar_url").eq("id", page.profileId).maybeSingle(),
+    (page.creatorId
+      ? db.from("creators").select("bio, cover_url, show_total_sales_badge").eq("id", page.creatorId)
+      : db.from("creators").select("bio, cover_url, show_total_sales_badge").eq("user_id", page.profileId)
+    ).maybeSingle(),
+  ]).catch(() => [{ data: null }, { data: null }] as const)
+  const undoFor = (cfg: unknown) => {
+    try {
+      const c = (cfg && typeof cfg === "object" ? cfg : {}) as { headerSettings?: ShopHeaderSettings; globalSettings?: { themePreset?: string }; sections?: unknown }
+      const about = Array.isArray(c.sections) ? (c.sections as Array<{ type?: string; settings?: Record<string, unknown> }>).find((x) => x?.type === "about")?.settings ?? null : null
+      const p = profileBefore as { display_name?: string | null; avatar_url?: string | null } | null
+      const cr = creatorBefore as { bio?: string | null; cover_url?: string | null; show_total_sales_badge?: boolean | null } | null
+      return undoBodyFor(body, {
+        displayName: p?.display_name ?? null,
+        profileAvatarUrl: p?.avatar_url ?? null,
+        creatorBio: cr?.bio ?? null,
+        creatorCoverUrl: cr?.cover_url ?? null,
+        creatorShowsSales: cr?.show_total_sales_badge ?? null,
+        header: c.headerSettings ?? null,
+        themePreset: c.globalSettings?.themePreset ?? null,
+        about,
+      })
+    } catch {
+      return null
+    }
+  }
+
   const profileUpdate: Record<string, unknown> = {}
   if (displayName !== undefined) profileUpdate.display_name = displayName
   if (avatarUrl !== undefined) profileUpdate.avatar_url = avatarUrl
@@ -400,7 +459,7 @@ export async function PATCH(request: NextRequest) {
        every other row that holds a copy of them follows this change, and
        only a copy that still holds the OLD value moves
        (lib/account/profile-follow). */
-    const { data: before } = await db.from("profiles").select("display_name, avatar_url").eq("id", page.profileId).maybeSingle()
+    const before = profileBefore as { display_name?: string | null; avatar_url?: string | null } | null
 
     const { error } = await db.from("profiles").update(profileUpdate).eq("id", page.profileId)
     if (error) {
@@ -425,7 +484,7 @@ export async function PATCH(request: NextRequest) {
   // still theirs to change, so that half is already saved and this is a
   // success, not an error.
   if (!creator) {
-    return NextResponse.json({ ok: true, storefront: false })
+    return NextResponse.json({ ok: true, storefront: false, undo: undoFor(null) })
   }
 
   const creatorUpdate: Record<string, unknown> = {}
@@ -459,9 +518,20 @@ export async function PATCH(request: NextRequest) {
   const announcedCreator = creator.id
   const announceProfile = () => after(() => announce(() => profileAddresses(announcedCreator)))
 
+  /*
+    EVERY SAVE TAKES THE PAGE'S HELD COPIES DOWN (round 50). Only a new name
+    or photo did (identityChanged, above): a bio, a cover, a link, a scheme,
+    an arrangement, the bar or the story stayed on the CDN's copy and in the
+    shared config read (lib/commerce/product-page-cache cachedStoreConfig) for
+    up to five minutes, so the owner pressed Save and saw the old page.
+  */
+  const purge = () => (Object.keys(profileUpdate).length > 0 ? Promise.resolve() : creatorPagesChanged({ userId: page.profileId, creatorId: creator.id }))
+
   if (!config) {
+    /* The bio and the cover live on the creator row too; the default page draws them (round 50: one purge, skipped only when identityChanged already did it). */
+    await purge()
     announceProfile()
-    return NextResponse.json({ ok: true, storefront: false })
+    return NextResponse.json({ ok: true, storefront: false, undo: undoFor(null) })
   }
 
   /**
@@ -492,6 +562,13 @@ export async function PATCH(request: NextRequest) {
     const header = (cfg.headerSettings || {}) as ShopHeaderSettings
     const next: ShopHeaderSettings = { ...header }
     if (bio !== undefined) next.bio = bio
+    /*
+      A BIO TYPED IN EDIT PROFILE IS SHOWN (round 50). The header hides it
+      when `showBio` is false, a switch only the old section editor had, which
+      nothing links to any more: a creator with it off typed a bio, pressed
+      Save, and saw nothing change, with no way to find out why.
+    */
+    if (bio) next.showBio = true
     /**
      * The storefront reads `headerSettings.avatarUrl` and `coverImageUrl`
      * FIRST and only falls back to the profile and creator rows. Writing only
@@ -552,6 +629,7 @@ export async function PATCH(request: NextRequest) {
       const colors = { ...((existing.colors as Record<string, unknown>) || {}) }
       if (subscribeBar.backgroundColor) colors.backgroundColor = subscribeBar.backgroundColor
       if (subscribeBar.textColor) colors.textColor = subscribeBar.textColor
+      const clears = (subscribeBar.colorClears as string[] | undefined) ?? []
       /**
        * A RECORD OF EVERY COLOUR EVER CHOSEN, not of this save's.
        *
@@ -562,13 +640,22 @@ export async function PATCH(request: NextRequest) {
        * the same bug, arriving a day late.
        */
       const existingChosen = Array.isArray(existing.colorChoices) ? (existing.colorChoices as string[]) : []
-      const chosen = Array.from(new Set([...existingChosen, ...((subscribeBar.colorChoices as string[]) || [])]))
-      next.subscribeBar = {
+      const chosen = Array.from(new Set([...existingChosen, ...((subscribeBar.colorChoices as string[]) || [])])).filter((k) => !clears.includes(k))
+      const { colorClears: _clears, ...barFields } = subscribeBar
+      const merged: Record<string, unknown> = {
         ...existing,
-        ...subscribeBar,
-        ...(chosen.length > 0 ? { colorChoices: chosen } : {}),
+        ...barFields,
+        colorChoices: chosen,
         ...(Object.keys(colors).length > 0 ? { colors } : {}),
-      } as unknown as ShopHeaderSettings["subscribeBar"]
+      }
+      /* Not chosen any more: the stored colour goes, so the scheme's shows (resolveStorefrontChrome). */
+      for (const key of clears) {
+        delete merged[key]
+        if (key === "backgroundColor" || key === "textColor") delete colors[key]
+      }
+      if (merged.colors && Object.keys(colors).length === 0) delete merged.colors
+      if (chosen.length === 0) delete merged.colorChoices
+      next.subscribeBar = merged as unknown as ShopHeaderSettings["subscribeBar"]
     }
     /** "" is a real value here: it means take the link off the page. */
     if (contactEmail !== undefined) next.contactEmail = contactEmail || undefined
@@ -608,8 +695,21 @@ export async function PATCH(request: NextRequest) {
     if (await syncCreatorLinksToOnePage(db, page.profileId, linksChanged)) await onePageChangedFor(page.profileId).catch(() => {})
   }
 
+  /*
+    THE PAGE SHOWS THE SAVE (round 50). This route wrote the configs and took
+    nothing down unless the name or photo had changed (identityChanged), so
+    a new story, headline, picture, caption, bio, link, scheme or bar text
+    was in the database and NOT on the page: the shared copy the page reads
+    (cachedStoreConfig) and the CDN's copy (round 49) both held the old one
+    for a minute. The creator saved, the sheet closed, the page refreshed
+    into the same old story, and "it doesn't save". Awaited, so the owner's
+    refresh that follows this answer reads the new rows.
+  */
+  await purge()
+
   announceProfile()
   /* A team member's change to the owner's page is on the record with their name (lib/team/areas). */
   if (page.creatorId) await recordTeamAction({ isOwner: page.isOwner, creatorId: page.creatorId, acting: page.acting }, user.id, "creator_pages", "creator_page_changed", { fields: Object.keys(body).slice(0, 20) })
-  return NextResponse.json({ ok: true, storefront: true })
+  /* The story as stored, cleaned, so the owner's page can draw it at once (lib/storefront/story-draft). */
+  return NextResponse.json({ ok: true, storefront: true, ...(about ? { about } : {}), undo: undoFor(config.published_config ?? config.draft_config) })
 }

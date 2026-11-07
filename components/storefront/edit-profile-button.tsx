@@ -39,6 +39,8 @@ import type { RootPaint } from "@/lib/store-builder/scheme-preview"
 import { SOCIAL_PLATFORM_KEYS, resolveSocialInput, type SocialPlatformKey } from "@/lib/social/platforms"
 import { socialFieldValue } from "@/lib/onepage/social-input"
 import { setProfileDraft } from "@/lib/storefront/profile-draft"
+import { saveCreatorProfile } from "@/lib/storefront/creator-profile-client"
+import { useFormHistory } from "@/lib/store-builder/form-history"
 
 /**
  * THE HEAVY PARTS OF THE FORM DRAW ONLY WHEN THEIR OWN VALUES CHANGE. The
@@ -271,6 +273,27 @@ export function EditProfileButton({
     themePreset,
   ])
   const dirty = formNow !== formSaved
+
+  /*
+    UNDO IN THE SHEET (round 50): every field, the pictures, the crop, the
+    scheme and the switches, typing grouped per field (lib/store-builder/form-history).
+    A scheme put back is shown on the page behind as well, as picking it does.
+  */
+  const formHistory = useFormHistory(
+    open,
+    { name, about, avatar, cover, crop, links, shown, scheme },
+    (v) => {
+      setName(v.name)
+      setAbout(v.about)
+      setAvatar(v.avatar)
+      setCover(v.cover)
+      setCrop(v.crop)
+      setLinks(v.links)
+      setShown(v.shown)
+      if (v.scheme !== scheme) showScheme(v.scheme)
+      setScheme(v.scheme)
+    },
+  )
   const lastForm = React.useRef(formNow)
   React.useEffect(() => {
     if (lastForm.current === formNow) return
@@ -349,10 +372,9 @@ export function EditProfileButton({
     setError(null)
     setNotice(null)
     try {
-      const res = await fetch("/api/creator-profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      /* Through the one save the editor's undo hears about (lib/storefront/creator-profile-client). */
+      const { ok, data } = await saveCreatorProfile(
+        {
           displayName: name,
           bio: about,
           avatarUrl: avatar,
@@ -371,10 +393,10 @@ export function EditProfileButton({
           ),
           display: shown,
           themePreset: scheme,
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
+        },
+        "profile",
+      )
+      if (!ok) {
         setError(typeof data.error === "string" ? data.error : "Could not save. Try again.")
         return
       }
@@ -500,6 +522,7 @@ export function EditProfileButton({
         }}
         peek={peeking ? "[data-scheme-picker]" : null}
         onPeekEnd={() => setPeeking(false)}
+        history={formHistory}
         title="Profile details"
         wide
         busy={saving}

@@ -62,7 +62,8 @@ import { useRouter } from "next/navigation"
 import { isInEditorFrame, notifyEditorSaved } from "@/lib/store-builder/editor-channel"
 import { SaveNotification } from "@/components/ui/save-notification"
 import { cn } from "@/lib/utils"
-import { Check } from "lucide-react"
+import { Check, Redo2, Undo2 } from "lucide-react"
+import type { SheetHistory } from "@/lib/store-builder/form-history"
 
 export function EditorField({
   label,
@@ -206,6 +207,7 @@ export function EditorSheet({
   onClosed,
   peek = null,
   onPeekEnd,
+  history,
 }: {
   open: boolean
   onClose: () => void
@@ -239,8 +241,43 @@ export function EditorSheet({
    */
   peek?: string | null
   onPeekEnd?: () => void
+  /**
+   * The form's own undo and redo (round 50, lib/store-builder/form-history):
+   * two arrows at the right of the title, beside the keys that do the same.
+   */
+  history?: SheetHistory
 }) {
   const phone = useIsPhone()
+  /* The key's name as this computer writes it; read after hydration so the server and the first render agree. */
+  const [mod, setMod] = React.useState<"⌘" | "Ctrl+">("Ctrl+")
+  React.useEffect(() => {
+    if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) setMod("⌘")
+  }, [])
+  const arrows = history ? (
+    <div className="-mr-1.5 flex shrink-0 items-center gap-0.5" data-sheet-history="">
+      {(
+        [
+          ["undo", history.canUndo, history.undo, Undo2, `Undo (${mod}Z)`],
+          ["redo", history.canRedo, history.redo, Redo2, `Redo (${mod === "⌘" ? "⇧⌘Z" : "Ctrl+Y"})`],
+        ] as const
+      ).map(([key, can, run, Icon, label]) => (
+        <button
+          key={key}
+          type="button"
+          aria-label={label}
+          title={label}
+          disabled={!can || busy || saved}
+          onClick={(e) => {
+            e.stopPropagation()
+            run()
+          }}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#4b5563] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e] disabled:pointer-events-none disabled:text-[#c9ccd3]"
+        >
+          <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+        </button>
+      ))}
+    </div>
+  ) : null
   const scrollerRef = React.useRef<HTMLDivElement>(null)
   const [lowered, setLowered] = React.useState(0)
   const peekEndRef = React.useRef(onPeekEnd)
@@ -532,8 +569,9 @@ export function EditorSheet({
         onRaise={() => peekEndRef.current?.()}
         /* The title drags the sheet like the handle does, and a tap on it raises a lowered sheet. */
         header={
-          <div className="border-b border-border px-5 pb-3 pt-2" onClick={endPeek}>
+          <div className="flex items-center justify-between gap-3 border-b border-border px-5 pb-3 pt-2" onClick={endPeek}>
             <h2 className="text-[17px] font-semibold text-foreground">{title}</h2>
+            {arrows}
           </div>
         }
       >
@@ -624,8 +662,9 @@ export function EditorSheet({
           "data-[state=closed]:!pointer-events-none",
         )}
       >
-        <DialogHeader className="shrink-0 border-b border-border px-6 py-4">
+        <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 space-y-0 border-b border-border px-6 py-4">
           <DialogTitle>{title}</DialogTitle>
+          {arrows}
         </DialogHeader>
 
         {/*
