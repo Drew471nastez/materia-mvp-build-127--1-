@@ -15,7 +15,8 @@
  * left in storage afterwards.
  */
 import { AuthClient, isAuthRetryableFetchError } from "@supabase/supabase-js"
-import { deadlineFetch, isRefreshTokenRequest, refreshOutageAsRetryable } from "@/lib/net/deadline"
+import { AUTH_BREAKER, deadlineFetch, isRefreshTokenRequest, refreshOutageAsRetryable } from "@/lib/net/deadline"
+import { breakerFor, isCircuitOpen, resetBreakers } from "@/lib/net/breaker"
 import { readCode } from "./_source"
 
 let passed = 0
@@ -125,6 +126,42 @@ async function main() {
   check("the proxy's session client", /watchRenewals\(deadlineFetch\)/.test(readCode("proxy.ts")) && /global: \{ fetch: renewalWatch\.fetch \}/.test(readCode("proxy.ts")))
 
   Date.now = realNow
+
+  section("Round AL: Auth that does not answer is not waited on by every request")
+  {
+    /* Our deadline's timer is unref'd (never what keeps a process alive): this one keeps the test alive while it runs. */
+    const alive = setInterval(() => {}, 1000)
+    resetBreakers()
+    let asked = 0
+    const hang = (async (_i: RequestInfo | URL, init?: RequestInit) => {
+      asked++
+      /* Never answers: only our deadline ends it. */
+      await new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason), { once: true }))
+      return new Response(null)
+    }) as typeof fetch
+    const user = `${URL_BASE}/user`
+    for (let i = 0; i < AUTH_BREAKER.failures; i++) await deadlineFetch(user, { method: "GET" }, { base: hang, ms: 20, retry: false }).catch(() => null)
+    const began = realNow()
+    let refused: unknown = null
+    await deadlineFetch(user, { method: "GET" }, { base: hang, ms: 20, retry: false }).catch((e) => (refused = e))
+    check("after four requests with no answer, the next fails at once without asking", asked === AUTH_BREAKER.failures && isCircuitOpen(refused) && realNow() - began < 15, { asked, refused: String(refused) })
+    resetBreakers()
+    let quick = 0
+    const fiveHundred = (async () => { quick++; return new Response("{}", { status: 500 }) }) as typeof fetch
+    for (let i = 0; i < 8; i++) await deadlineFetch(user, { method: "GET" }, { base: fiveHundred, retry: false })
+    check("a 5xx is an answer: it never opens the breaker, the library's own retries keep going", quick === 8 && breakerFor("supabase-auth").state === "closed")
+    let rest = 0
+    const restHang = (async (_i: RequestInfo | URL, init?: RequestInit) => {
+      rest++
+      await new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason), { once: true }))
+      return new Response(null)
+    }) as typeof fetch
+    for (let i = 0; i < 6; i++) await deadlineFetch("https://project.supabase.co/rest/v1/products", { method: "GET" }, { base: restHang, ms: 20, retry: false }).catch(() => null)
+    check("only Auth has it: a database read is still asked every time", rest === 6)
+    resetBreakers()
+    clearInterval(alive)
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(failures.map((f) => `  - ${f}`).join("\n"))
