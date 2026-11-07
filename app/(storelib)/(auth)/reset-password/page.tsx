@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Loader2, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { HtmlClass } from "@/components/platform/html-class"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 /**
  * Detect if running in a mobile browser (NOT inside Capacitor WebView).
@@ -201,7 +202,7 @@ function ResetPasswordContent() {
         }
 
         if (data?.user?.email) {
-          setUserEmail(data.user.email)
+          setUserEmail(displayEmail(data.user.email) ?? "")
         }
 
         // Clear the hash from the URL so tokens aren't exposed in browser history

@@ -29,6 +29,7 @@
  */
 import { MAX_BUSINESSES } from "@/lib/businesses/rules"
 import { presetPermissions } from "@/lib/team/permissions"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 /** How long a claim link works, in days, unless the founder picks another. */
 export const DEFAULT_TTL_DAYS = 7
@@ -219,9 +220,9 @@ export function claimStateOf(input: {
   /* The founder, from their login or any business of it (the one being handed over included). */
   if (viewer.groupIds.includes(handoff.from_owner_id) || viewer.groupIds.includes(handoff.business_user_id)) return { kind: "own", business }
   if (handoff.recipient_email && !sameEmail(viewer.email, handoff.recipient_email)) {
-    return { kind: "wrong_email", business, email: handoff.recipient_email, signedInAs: viewer.email }
+    return { kind: "wrong_email", business, email: handoff.recipient_email, signedInAs: displayEmail(viewer.email) }
   }
-  if (!viewer.emailVerified) return { kind: "verify_email", business, signedInAs: viewer.email, userId: viewer.loginId }
+  if (!viewer.emailVerified) return { kind: "verify_email", business, signedInAs: displayEmail(viewer.email), userId: viewer.loginId }
   if (viewer.groupIds.length >= MAX_BUSINESSES) return { kind: "limit", business }
   if (input.blockers.length > 0) return { kind: "not_ready", business, blockers: input.blockers }
   return { kind: "ready", business, email: handoff.recipient_email, keepFounder: handoff.keep_founder }

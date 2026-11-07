@@ -453,7 +453,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   }, [])
 
   // Support Email state - for customer receipts
-  const [supportEmail, setSupportEmail] = useState(creator?.support_email || "")
+  const [supportEmail, setSupportEmail] = useState(creator?.support_email ? displayEmail(creator.support_email) ?? creator.support_email : "")
   const initialSupportEmail = useRef(supportEmail)
 
   /* Typed freely (no length limit shown): the bank line is cut to Stripe's room on its own. */

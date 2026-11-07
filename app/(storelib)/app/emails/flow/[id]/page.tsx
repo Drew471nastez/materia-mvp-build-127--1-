@@ -9,6 +9,7 @@ import { supabaseStore } from "@/lib/automations/supabase-store"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Identity } from "@/lib/automations/engine"
 import { getServerTt } from "@/lib/i18n/server"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 export async function generateMetadata(): Promise<Metadata> {
   const { tt } = await getServerTt()
@@ -105,7 +106,7 @@ export default async function FlowPage({ params }: { params: Promise<{ id: strin
     failedJobs,
     tracking,
     startsRecorded: !starts.error,
-    accountEmail: user.email ?? null,
+    accountEmail: displayEmail(user.email),
     look: look ? { fromName: look.fromName, replyTo: "", storeUrl: look.storeUrl, brand: look.brand, avatarUrl: look.avatarUrl ?? null } : null,
   }
   return <FlowBuilder data={data} />

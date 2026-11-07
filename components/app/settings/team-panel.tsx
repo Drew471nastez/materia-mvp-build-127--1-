@@ -32,6 +32,7 @@ import { PermissionPicker } from "./team-permissions"
 import { Reveal } from "@/components/ui/reveal"
 import { tt } from "@/lib/i18n/text"
 import { formatRelative } from "@/lib/i18n/format"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 interface Member {
   id: string
@@ -286,7 +287,7 @@ export function TeamPanel() {
           <ul className="-mx-1" data-team-list="">
             {team.byOwner ? (
               <li className="flex min-h-[56px] items-center gap-3 rounded-xl px-1 py-2">
-                <Face src={data.me?.avatarUrl ?? null} name={data.me?.name || data.me?.email || tt("You")} />
+                <Face src={data.me?.avatarUrl ?? null} name={data.me?.name || displayEmail(data.me?.email) || tt("You")} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{data.me?.name ? tt("{name} (you)", { name: data.me.name }) : tt("You")}</p>
                   <p className="truncate text-[13px] text-[#6b7280]">{tt("Everything, payouts and billing too")}</p>

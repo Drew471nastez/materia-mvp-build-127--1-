@@ -82,6 +82,7 @@ import { tt } from "@/lib/i18n/text"
 import { appLocale, weekdayNames } from "@/lib/i18n/format"
 import { useStoreCurrency } from "@/lib/store/currency-context"
 import { formatCurrency as formatMoneyIn, minorUnits } from "@/lib/markets/money"
+import { nothingToDraw } from "@/components/analytics/empty-state"
 
 /** The old checklist's shape, still accepted from the probes that render Home with it. */
 interface SetupStep {
@@ -282,10 +283,19 @@ export function DashboardTrendChart({
   )
   const scrubTitle = useCallback((i: number) => displayChartData[i]?.label ?? "", [displayChartData])
 
+  /*
+    NOTHING TO DRAW (round AL, the owner: "the purple line flat ... when there are no analytics"). Every point at
+    nothing is the purple line lying flat on the floor and nothing behind it: no grid and no axis numbers for numbers
+    nobody has. The same rule the Analytics charts follow (components/analytics/empty-state nothingToDraw).
+  */
+  const blank = !loading && displayChartData.length > 0 && nothingToDraw(lines[0])
+
   return (
-    <div style={{ position: "relative", height: CHART_H }}>
-      <DashboardFrame data={frameData} top={scale.top} ticks={scale.ticks} plotLeft={plotLeft} />
-      <AxisLabels labels={axisLabels} top={PLOT_TOP} height={plotHeight} width={plotLeft} />
+    <div data-chart-blank={blank ? "" : undefined} style={{ position: "relative", height: CHART_H }}>
+      <DashboardFrame data={frameData} top={scale.top} ticks={scale.ticks} plotLeft={plotLeft} grid={!blank} />
+      <div style={{ opacity: blank ? 0 : 1, transition: "opacity 200ms ease-out" }}>
+        <AxisLabels labels={axisLabels} top={PLOT_TOP} height={plotHeight} width={plotLeft} />
+      </div>
       <MorphLines
         lines={lines}
         top={scale.top}
@@ -324,11 +334,14 @@ const DashboardFrame = memo(function DashboardFrame({
   top,
   ticks,
   plotLeft,
+  grid,
 }: {
   data: { label: string }[]
   top: number
   ticks: number[]
   plotLeft: number
+  /** False while there is nothing to draw: the flat line alone, no grid behind it. */
+  grid: boolean
 }) {
   const plotHeight = CHART_H - PLOT_TOP - XAXIS_H
   return (
@@ -345,12 +358,14 @@ const DashboardFrame = memo(function DashboardFrame({
           */}
           <AreaChart data={data} margin={{ top: PLOT_TOP, right: PLOT_RIGHT, left: 0, bottom: 0 }}>
             {/* At the ticks, placed by us: the same four heights on every tab. */}
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="#f3f4f6"
-              vertical={false}
-              horizontalPoints={ticks.map((v) => PLOT_TOP + (1 - v / top) * plotHeight)}
-            />
+            {grid ? (
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#f3f4f6"
+                vertical={false}
+                horizontalPoints={ticks.map((v) => PLOT_TOP + (1 - v / top) * plotHeight)}
+              />
+            ) : null}
             <XAxis
               dataKey="label"
               height={XAXIS_H}

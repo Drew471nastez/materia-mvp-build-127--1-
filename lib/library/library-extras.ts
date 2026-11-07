@@ -2,6 +2,7 @@ import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { EMPTY_EXTRAS, type ExtrasCreator, type ExtrasOrder, type ExtrasReview, type LibraryExtras } from "./library-view"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 /**
  * ===========================================================================
@@ -129,7 +130,7 @@ export async function getLibraryExtras(userId: string, db?: Db): Promise<Library
 
     for (const row of (supportRes?.error ? [] : supportRes?.data ?? []) as Array<{ id: string; support_email?: string | null }>) {
       const seller = sellers.get(row.id)
-      const address = String(row.support_email ?? "").trim()
+      const address = displayEmail(String(row.support_email ?? "")) ?? ""
       if (seller && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) seller.supportEmail = address
     }
 
