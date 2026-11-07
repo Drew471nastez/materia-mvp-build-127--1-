@@ -262,11 +262,12 @@ export function useLinkReorder({ listRef, clampTarget, acceptsInto, onReorder, o
       d.frameAt = now
       const max = d.scroller ? d.scroller.scrollHeight - d.scroller.clientHeight : document.documentElement.scrollHeight - window.innerHeight
       const at = scrollTopOf(d.scroller)
-      let speed = edgeSpeed(d.lastY, top, bottom, d.edgeAt ? now - d.edgeAt : 0)
-      /* At the end it can go no further: nothing is eased in against a wall. */
-      if ((speed < 0 && at <= 0) || (speed > 0 && at >= max - 0.5)) speed = 0
+      /* Which way, at full ramp; the ramp starts the frame the pointer is first in a zone with room to go. */
+      const way = edgeSpeed(d.lastY, top, bottom, Infinity)
+      const room = (way < 0 && at > 0) || (way > 0 && at < max - 0.5)
+      if (room && !d.edgeAt) d.edgeAt = now - 16
+      const speed = room ? edgeSpeed(d.lastY, top, bottom, now - d.edgeAt) : 0
       if (speed) {
-        if (!d.edgeAt) d.edgeAt = now
         d.carry += edgeStep(speed, dt)
         const whole = Math.trunc(d.carry)
         if (whole) {

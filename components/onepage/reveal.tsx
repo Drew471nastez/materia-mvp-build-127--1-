@@ -143,6 +143,23 @@ export function Reveal({
     animRef.current = [a, fade]
     a.onfinish = done
     opening.current = open ? { began: performance.now(), to } : null
+    /*
+      Round AL: a block's editor is built in the same moment it opens, and
+      its effects run in the next frames; a clock running through them threw
+      half the height into one frame (scripts/check-onepage-editor-al3.mjs).
+      With `follow` the open waits two frames, at its first height, and then
+      plays from the start.
+    */
+    if (open && follow) {
+      a.pause()
+      fade.pause()
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (animRef.current[0] !== a) return
+        a.play()
+        fade.play()
+        if (opening.current) opening.current.began = performance.now()
+      }))
+    }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /*

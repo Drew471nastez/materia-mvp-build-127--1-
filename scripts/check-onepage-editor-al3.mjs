@@ -11,7 +11,7 @@
  *                 less than the steady ones) and with no frame jumping more
  *                 than MAX_STEP px.
  *   collapse      a block's settings opening and closing: the height moves
- *                 every frame, never jumps more than MAX_JUMP px in a frame,
+ *                 every frame, no frame doing more than MAX_SHARE of the way,
  *                 and ends where it was going (no snap at the end).
  *
  *   node scripts/check-onepage-editor-al3.mjs
@@ -30,7 +30,8 @@ const shots = process.env.SHOTS || mkdtempSync(join(tmpdir(), "storelib-onepage-
 mkdirSync(shots, { recursive: true })
 
 const MAX_STEP = 40
-const MAX_JUMP = 80
+/* A smooth open or close: no single frame does more than this share of the whole move. */
+const MAX_SHARE = 0.25
 const blocks = Array.from({ length: 30 }, (_, i) => ({ id: `b${i + 1}`, type: "link_button", enabled: true, sort_order: i, data: { label: `Link number ${i + 1}`, url: `https://example.com/${i + 1}` } }))
 const { base, server } = await serveEditorProbe({ root, blocks, fail })
 
@@ -80,7 +81,9 @@ function steps(rec) {
   return d
 }
 function judgeScroll(label, rec, sign) {
-  const d = steps(rec).filter((x) => x !== 0)
+  /* A finger on its way from one edge to the other passes the first zone: judged from its first move the right way. */
+  const all = steps(rec).filter((x) => x !== 0)
+  const d = all.slice(Math.max(0, all.findIndex((x) => Math.sign(x) === sign)))
   const moved = rec[rec.length - 1].s - rec[0].s
   const biggest = Math.max(0, ...d.map(Math.abs))
   const firstMoves = d.slice(0, 3).map(Math.abs)
@@ -108,6 +111,7 @@ const numbers = {}
   await record(p)
   await p.mouse.move(g.x, box.bottom - 8, { steps: 12 })
   await sleep(1400)
+  if (process.env.DEBUG) console.log("debug", box, await p.evaluate(() => ({ lifted: document.querySelector("[data-reorder-list]")?.hasAttribute("data-reordering"), panes: [...document.querySelectorAll("[data-scroll-container]")].map((e) => ({ oy: getComputedStyle(e).overflowY, sh: e.scrollHeight, ch: e.clientHeight, st: e.scrollTop })), t: document.querySelector('[data-block-id="b2"]')?.style.transform })))
   numbers.mouseDown = judgeScroll("mouse near the bottom", await stop(p), 1)
   await record(p)
   await p.mouse.move(g.x, box.top + 8, { steps: 12 })
@@ -139,8 +143,14 @@ const numbers = {}
     const peak = sign > 0 ? Math.max(...h) : Math.min(...h)
     const lastStep = moving.length ? Math.abs(moving[moving.length - 1]) : 0
     expect(moving.length >= 8, `${label}: the height moves over several frames`, { frames: moving.length })
-    expect(biggest <= MAX_JUMP, `${label}: no frame jumps more than ${MAX_JUMP}px`, { biggest: Math.round(biggest) })
+    const span = Math.abs(h[h.length - 1] - h[0])
+    if (process.env.DEBUG) console.log(label, moving.map(Math.round).join(" "), rec.slice(1).map((r, i) => Math.round(r.t - rec[i].t)).join(" "))
+    expect(biggest <= span * MAX_SHARE, `${label}: no frame moves more than ${MAX_SHARE * 100}% of the way`, { biggest: Math.round(biggest), span: Math.round(span) })
     expect(against === 0, `${label}: one way, no bounce back`, { against })
+    /* A jump is a frame far bigger than both frames beside it; a curve that speeds up and slows down has none. */
+    const a = moving.map(Math.abs)
+    const spikes = a.filter((x, i) => i > 0 && i < a.length - 1 && x > 2 * Math.max(a[i - 1], a[i + 1])).length
+    expect(spikes === 0, `${label}: no frame jumps past the ones beside it`, { spikes })
     expect(Math.abs(final - peak) < 1 && lastStep < 24, `${label}: lands where it was going, no snap at the end`, { final: Math.round(final), lastStep: Math.round(lastStep) })
     return { frames: moving.length, biggest: Math.round(biggest), final: Math.round(final), lastStep: Math.round(lastStep) }
   }
