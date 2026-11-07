@@ -70,6 +70,7 @@ import {
   ShippingSettings,
   TaxesPanel,
   TeamPanel,
+  HandoffPanel,
   preloadSettingsPanels,
   settingsPanelReady,
   whenSettingsPanel,
@@ -2330,7 +2331,12 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {panelTab === "channels" && <ChannelsPanel />}
           {panelTab === "emails" && <CustomerEmailsPanel />}
           {panelTab === "activity" && <ActivityPanel />}
-          {panelTab === "team" && <TeamPanel />}
+          {panelTab === "team" && (
+            <div className="space-y-4 sm:space-y-6">
+              <TeamPanel />
+              <HandoffPanel />
+            </div>
+          )}
           {panelTab === "returns" && (
             <div className="space-y-4 sm:space-y-6">
               {physicalCommerce && <ShippingSettings part="returns" />}

@@ -242,4 +242,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "373", file: "373_variant_catalog_prices.sql", sha256: "a22d8966a3c721ddac6197f80b2e7005aaa92d0615c5474ff594aecb099dcaa5" },
   { part: "374", file: "374_atomic_product_channels.sql", sha256: "0f41aab50031f3114dd2510d648d63d33cc4608f97e9ecb08683854b367b3ed5" },
   { part: "375", file: "375_forms_bookings.sql", sha256: "5912acc666ca111c078911ca3eb035e83e258117a4fc974aac77234507d85f30" },
+  { part: "376", file: "376_business_handoff.sql", sha256: "c23c2e5d02d360a25a8c480af5722829c2390412d5db0b7af0824a668d75fa07" },
 ]
