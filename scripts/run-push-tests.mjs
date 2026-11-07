@@ -735,6 +735,8 @@ const SUITES = [
   "tests/abandoned-cart-reminder.test.ts",
   "tests/reasons-t.test.ts",
   "tests/channels-t.test.ts",
+  /* Round AK (AK2): a product's sales channels through the real route, before and after SQL 20271125: unticked and ticked again, read back, gone from Explore, the OnePage and the website and back; an older tab sends only its own change, so a newer save stays; a failed read refuses a change instead of writing over it; the editor's Saved after a read back. */
+  "tests/product-channels-ak2.test.ts",
   "tests/integrations-t.test.ts",
   "tests/round-u.test.ts",
   "tests/compat-resilience.test.ts",

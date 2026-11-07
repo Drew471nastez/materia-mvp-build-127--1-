@@ -260,11 +260,11 @@ function main() {
 
     const forget = strip(read("lib/products/forget-product.ts"))
     check("the product page's own entries, by slug and by id",
-      /revalidateTag\(productTag\(slug\), "max"\)/.test(forget) && /revalidateTag\(productTag\(productId\), "max"\)/.test(forget))
+      /revalidateTag\(productTag\(slug\), \{ expire: 0 \}\)/.test(forget) && /revalidateTag\(productTag\(productId\), \{ expire: 0 \}\)/.test(forget))
     check("the creator's, which holds the theme and the seller's other products",
-      /revalidateTag\(creatorTag\(creatorId\), "max"\)/.test(forget))
+      /revalidateTag\(creatorTag\(creatorId\), \{ expire: 0 \}\)/.test(forget))
     check("the website's shop grid and its SEO product list, held for ten minutes",
-      /revalidateTag\(creatorShopTag\(creatorId\), "max"\)/.test(forget))
+      /revalidateTag\(creatorShopTag\(creatorId\), \{ expire: 0 \}\)/.test(forget))
     check("the rendered website pages", /revalidatePublishedSite\(creatorId\)/.test(forget))
     check("and both addresses the product answered on",
       /revalidatePath\(`\/p\/\$\{slug\}`\)/.test(forget) && /revalidatePath\(`\/\$\{handle\}\/\$\{slug\}`\)/.test(forget))
