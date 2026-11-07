@@ -89,6 +89,7 @@ export function AvatarLightbox({
   name,
   children,
   disabled = false,
+  radius,
 }: {
   /** The full-size original, not the cropped thumbnail the header draws. */
   src?: string | null
@@ -96,6 +97,8 @@ export function AvatarLightbox({
   children: React.ReactNode
   /** True in the editor, where a press selects the section instead. */
   disabled?: boolean
+  /** The picture's own corner when it is not a circle (a OnePage's square or rounded photo), as a share of its width. */
+  radius?: string
 }) {
   const [open, setOpen] = React.useState(false)
   const [origin, setOrigin] = React.useState<Origin | null>(null)
@@ -278,7 +281,7 @@ export function AvatarLightbox({
             src={src}
             alt={name ? `${name}'s profile picture` : "Profile picture"}
             className="pointer-events-auto aspect-square h-auto rounded-full object-cover [will-change:transform,opacity]"
-            style={{ width: "min(72vw, 56vh, 320px)" }}
+            style={{ width: "min(72vw, 56vh, 320px)", ...(radius ? { borderRadius: radius } : null) }}
           />
         </DialogContent>
       </Dialog>

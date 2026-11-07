@@ -51,7 +51,7 @@ import { ExtraBlock, ExtraBlockPreviewContext, IncompleteLinkPlaceholder, Sensit
 import { isExtraBlock, isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
-import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import { WallpaperDrift, WallpaperNoise, WallpaperPattern, useHeaderClearance } from "@/components/onepage/wallpaper-layers"
 /* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
 import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
 import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
@@ -82,6 +82,7 @@ import { OnePageSubscribeSheet } from "@/components/onepage/subscribe-sheet"
 import { OnePageShareSheet } from "@/components/onepage/share-sheet"
 import { emailSignupImage, emailSignupLayout, emailSignupStacked } from "@/lib/onepage/email-signup"
 import { pixelLead } from "@/lib/analytics/pixels"
+import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -1312,6 +1313,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
    */
   /* The computer's layout or the phone's, not both (lib/onepage/live-layout): the server sends both, the browser keeps one. */
   const liveLayout = useLiveLayout()
+  /* The two boxes that hold the page and its pattern (the computer's card, the phone's page): each measures where its header ends, once, for the pattern to keep out from behind it (components/onepage/wallpaper-layers). */
+  const cardRef = useRef<HTMLDivElement>(null)
+  const phonePageRef = useRef<HTMLDivElement>(null)
+  const patternClears = safeTheme.background_type === "solid" || safeTheme.background_type === "gradient"
+  useHeaderClearance(cardRef, patternClears && liveLayout !== "phone")
+  useHeaderClearance(phonePageRef, patternClears && liveLayout !== "desktop")
   const renderPageContent = ({ isDesktop = false }: { isDesktop?: boolean } = {}) => (
     <div
       className={cn("relative z-10 w-full flex flex-col min-h-full", isDesktop ? "max-w-full" : "max-w-lg mx-auto")}
@@ -1836,11 +1843,6 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       <style
         dangerouslySetInnerHTML={{
           __html: `
-        @keyframes gradientShiftLive {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
         @keyframes laserGlowRotate {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
@@ -1909,8 +1911,6 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           background: getBackgroundStyle(),
           backgroundColor: safeTheme.background_color || "#000000",
           fontFamily: fontStack(safeTheme.font_family),
-          backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
-          animation: isAnimatedGradient ? "gradientShiftLive 10s ease-in-out infinite" : undefined,
           overscrollBehavior: "none",
         }}
       >
@@ -1982,6 +1982,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           />
         ))}
 
+        {/* Round AL: the gradient drifting, one layer moved by the compositor (components/onepage/wallpaper-layers WallpaperDrift). */}
+        {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} />}
         {/* Noise overlay for gradient backgrounds */}
         {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
         {/* Noise overlay for image backgrounds */}
@@ -1993,12 +1995,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
           {/* Phone-like card - wider than before (500px instead of 420px) */}
           <div
+            ref={cardRef}
             className="w-full max-w-[500px] mx-4 rounded-[40px] overflow-hidden relative"
             style={{
               background: getBackgroundStyle(),
               boxShadow: "0 25px 80px -12px rgba(0, 0, 0, 0.35)",
-              backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
-              animation: isAnimatedGradient ? "gradientShiftLive 12s ease-in-out infinite" : undefined,
             }}
           >
             {safeTheme.background_type === "image" && safeTheme.background_image_url && (
@@ -2039,12 +2040,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 playsInline
               />
             )}
+            {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} className="absolute inset-0 rounded-[40px]" />}
             {/* Noise overlay inside card */}
             {((safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise) || (safeTheme.background_type === "image" && (safeTheme as any).image_noise)) && (
               <WallpaperNoise strength={(safeTheme as any).noise_strength} className="absolute inset-0 rounded-[40px]" />
             )}
             {/* Pattern overlay inside card */}
-            <WallpaperPattern theme={safeTheme} className="absolute inset-0 rounded-[40px]" />
+            <WallpaperPattern theme={safeTheme} className="absolute inset-0 rounded-[40px]" clearHeader />
             {renderPageContent({ isDesktop: true })}
           </div>
         </div>
@@ -2069,12 +2071,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           background: getBackgroundStyle(),
           backgroundColor: safeTheme.background_color || "#000000",
           fontFamily: fontStack(safeTheme.font_family),
-          backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
-          animation: isAnimatedGradient ? "gradientShiftLive 10s ease-in-out infinite" : undefined,
           overscrollBehavior: "none",
         }}
       >
-        <div className="relative min-h-screen">
+        <div ref={phonePageRef} className="relative min-h-screen">
           {safeTheme.background_type === "image" && safeTheme.background_image_url && (
             <WallpaperPhoto
               url={safeTheme.background_image_url}
@@ -2121,11 +2121,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             />
           )}
 
+          {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} />}
           {/* Noise overlays for mobile */}
           {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
           {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
-          {/* Pattern overlay for mobile */}
-          <WallpaperPattern theme={safeTheme} />
+          {/* Pattern overlay for mobile, kept out from behind the header (useHeaderClearance above). */}
+          <WallpaperPattern theme={safeTheme} clearHeader />
           {renderPageContent()}
         </div>
       </div>
@@ -3457,11 +3458,12 @@ function CoreBlockRenderer({
       const cover = coverImageOf(theme)
       /*
         Three covers, one rule for the photo: its centre sits on the cover's
-        lower edge. The creator's own cover is a rounded band inside the
-        page's margins, the same margin above it as beside it; on a Hero it
-        is the full width picture instead, fading into the page as the Hero's
-        photo does. A theme's cover runs edge to edge. The band's shape is
-        lib/onepage/theme-layout coverAspect, which the crop editor reads too.
+        lower edge. Round AL: the creator's own cover runs edge to edge with
+        no rounding, as a theme's does ("it's rounded and it's not full width
+        and looks really weird"); on a Hero it is the full width picture,
+        fading into the page as the Hero's photo does. The band's shape is
+        lib/onepage/theme-layout coverAspect, which the crop editor reads too,
+        so the crop dragged there is the crop drawn here.
       */
       const ownCover = (theme as any).cover_profile_layout === true
       const heroCover = heroCoverShown(theme as any)
@@ -3482,11 +3484,11 @@ function CoreBlockRenderer({
             <div
               data-cover-image=""
               className={cn(
-                ownCover && !heroCover ? "w-full" : isDesktop ? "-mx-7 w-[calc(100%+56px)]" : "-mx-5 -mt-8 w-[calc(100%+40px)]",
+                isDesktop ? "-mx-7 w-[calc(100%+56px)]" : "-mx-5 w-[calc(100%+40px)]",
                 "relative",
                 data.show_avatar !== false ? "mb-[calc(-1*var(--cover-pull)-0.75rem)] sm:mb-[calc(-1*var(--cover-pull)-1rem)]" : "",
               )}
-              style={{ ["--cover-pull" as string]: `${avatarSize / 2 + (isDesktop ? 25 : 0)}px`, marginTop: ownCover && !heroCover ? (isDesktop ? 28 : 20) : undefined }}
+              style={{ ["--cover-pull" as string]: `${avatarSize / 2 + (isDesktop ? 25 : 0)}px` }}
             >
               {/*
                 No tint behind a picture that fades: it would be left as a grey
@@ -3497,7 +3499,6 @@ function CoreBlockRenderer({
                 className="relative w-full overflow-hidden"
                 data-cover-band={heroCover ? "hero" : ownCover ? "own" : "theme"}
                 style={{
-                  borderRadius: ownCover && !heroCover ? 16 : undefined,
                   aspectRatio: String(coverRatio),
                   backgroundColor: heroCover ? undefined : `color-mix(in srgb, ${theme.text_color || "#000000"} 8%, transparent)`,
                   maskImage: heroCover ? HERO_FADE_MASK : undefined,
@@ -3508,7 +3509,8 @@ function CoreBlockRenderer({
                   src={onePageImageSrc(cover, 1200)} fallback={null} alt=""
                   className="absolute inset-0 h-full w-full object-cover"
                   style={ownCover ? coverCropStyle(cropFromSettings((theme as any).cover_crop, (theme as any).cover_crop?.zoom)) : { objectPosition: `50% ${(theme as any).cover_position_y ?? 50}%` }}
-                  loading="eager" decoding="async"
+                  /* The first thing on the page: fetched ahead of everything below it, at the column's width (onePageImageSrc), into a box already its final shape, so nothing moves when it lands. */
+                  loading="eager" fetchPriority="high" decoding="async"
                 />
               </div>
             </div>
@@ -3522,7 +3524,14 @@ function CoreBlockRenderer({
               under the cover: with the header set to Left the picture moved
               and the circle stayed, and the page showed two.
             */
-            <div className="relative" data-page-avatar="" style={{ width: avatarSize, height: avatarSize, aspectRatio: "1 / 1", flexShrink: 0, marginTop: isDesktop ? 25 : 0, /* Left aligned on a rounded band, the photo sits in from its corner, not on it. */ marginLeft: cover && ownCover && !heroCover && headerAlignOf(theme as any) === "left" ? 16 : undefined, borderRadius: look.radius, boxShadow: cover && theme.background_type === "solid" && theme.background_color ? `0 0 0 4px ${theme.background_color}` : undefined }} data-avatar-shape={look.shape}>
+            /*
+              Round AL: pressing the photo opens it, as the creator pages do
+              (components/storefront/avatar-lightbox): it grows out of this
+              circle and goes back into it. On the live page and in the
+              editor's preview alike. A video avatar plays where it is.
+            */
+            <AvatarLightbox src={hasVideo ? null : onePageImageSrc(profile.avatar_url, 640)} name={profile.title || undefined} radius={look.radius === "9999px" ? "9999px" : `${Math.round((parseFloat(look.radius) / avatarSize) * 1000) / 10}%`}>
+            <div className="relative" data-page-avatar="" style={{ width: avatarSize, height: avatarSize, aspectRatio: "1 / 1", flexShrink: 0, marginTop: isDesktop ? 25 : 0, borderRadius: look.radius, boxShadow: cover && theme.background_type === "solid" && theme.background_color ? `0 0 0 4px ${theme.background_color}` : undefined }} data-avatar-shape={look.shape}>
               {/* Laser Glow Effect - rotating gradient on border with trail */}
               {laserGlowEnabled && (
                 <>
@@ -3619,6 +3628,7 @@ function CoreBlockRenderer({
                 )}
               </div>
             </div>
+            </AvatarLightbox>
           )}
           {data.show_name !== false &&
             ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
@@ -3707,6 +3717,8 @@ function CoreBlockRenderer({
           )}
           /* Under a classic header set flush left, the icons are too (app/globals.css [data-op-socials]). */
           data-op-socials={isHeroLayout ? undefined : ""}
+          /* The wallpaper's pattern keeps out from behind a social row right under the header (components/onepage/wallpaper-layers useHeaderClearance). */
+          data-op-social-row=""
           style={{
             marginTop: `${paddingTop}px`,
             marginBottom: `${paddingBottom}px`
