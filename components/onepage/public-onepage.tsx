@@ -73,8 +73,10 @@ import { ONEPAGE_COLUMN_PX, onePageImageSrc } from "@/lib/onepage/display-image"
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { followDialogLocks, useHeldPage } from "@/lib/onepage/page-hold"
 import { avatarLook, bioSizeClass, bioTypeStyle, titleSizeClass, titleTypeStyle } from "@/lib/onepage/header-style"
-import { bookingSource, tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
+import { bookingProviderName, bookingSource, tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
 import { BookingFrame } from "@/components/onepage/embed-frame"
+import { BlockSheetProvider, useBlockSheet } from "@/components/onepage/block-sheet"
+import { blockInteraction } from "@/lib/onepage/block-sheet"
 import { useMouseDragScroll } from "@/components/onepage/drag-scroll"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 import { EmailSignupView, type EmailSignupFormOptions } from "@/components/onepage/email-signup"
@@ -1816,6 +1818,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   )
 
   return (
+    <BlockSheetProvider dark={!pageIsLight(safeTheme)}>
     <ModalVisibilityContext.Provider value={modalVisibilityContextValue}>
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
     <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
@@ -2265,6 +2268,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     </AppleMusicModalContext.Provider>
     </SpotifyModalContext.Provider>
     </ModalVisibilityContext.Provider>
+    </BlockSheetProvider>
   )
 }
 
@@ -5562,15 +5566,9 @@ function CoreBlockRenderer({
         }
       }
 
-      // State for Calendly modal
-      const [showCalendlyModal, setShowCalendlyModal] = useState(false)
-
-      // Dispatch custom event when modal state changes (for mobile button hiding)
-      useEffect(() => {
-        window.dispatchEvent(new CustomEvent('pdfModalStateChange', { detail: { isOpen: showCalendlyModal } }))
-      }, [showCalendlyModal])
-      /* The page behind keeps its width (lib/onepage/page-hold), as under every other window. */
-      useHeldPage(showCalendlyModal && !!isDesktop)
+      /* Round AL: the pop-up is the block sheet (components/onepage/block-sheet), as the owner's Linktree recording shows it; the choice is the block's Interaction (lib/onepage/block-sheet). */
+      const blockSheet = useBlockSheet()
+      const interaction = blockInteraction(block)
 
       const handleOpenCalendly = () => {
         if (!calendlyUrl) return
@@ -5578,24 +5576,18 @@ function CoreBlockRenderer({
         // Track the click
         trackClick(block.id, calendlyUrl)
 
-        // If direct_link mode, open in new tab
-        if (data.embed_mode === 'direct_link') {
+        if (interaction === "direct" || !blockSheet.available) {
           window.open(calendlyUrl, '_blank')
           return
         }
-
-        // If embedded mode with modal type, show modal
-        if (data.embed_mode === 'embedded' && data.embed_type === 'modal') {
-          setShowCalendlyModal(true)
-          return
-        }
-
-        // Default: open in new tab (for inline embed mode or fallback)
-        window.open(calendlyUrl, '_blank')
-      }
-
-      const handleCloseCalendly = () => {
-        setShowCalendlyModal(false)
+        blockSheet.open({
+          blockId: block.id,
+          title: data.title || bookingProviderName(calendlyUrl) || "Calendly",
+          body: <iframe src={calendlyUrl} title={data.title ?? "Book a Meeting"} className="block h-full min-h-[480px] w-full rounded-[16px] border-0 bg-white" />,
+          cta: { label: data.button_text || "Schedule Now", href: calendlyUrl, icon: <Calendar /> },
+          shareUrl: calendlyUrl,
+          fill: true,
+        })
       }
 
       const textColor = theme.button_text_color
@@ -5604,7 +5596,7 @@ function CoreBlockRenderer({
       const pageHover = { "data-hover": buttonHover(theme, isInsideCarousel || isInsideGroup), "data-shadow": themeButtonShadow(theme) }
 
       // Check if inline embed mode
-      const isInlineEmbed = data.embed_mode === 'embedded' && data.embed_type === 'inline' && calendlyUrl
+      const isInlineEmbed = interaction === "inline" && calendlyUrl
 
       // Inline embed layout
       if (isInlineEmbed) {
@@ -5684,51 +5676,6 @@ function CoreBlockRenderer({
               </div>
             </button>
 
-            {/* Calendly Modal - Clean light UI */}
-            {showCalendlyModal && calendlyUrl && (
-              <div
-                className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 md:p-6 lg:p-8 animate-in fade-in duration-300 ease-out"
-                style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
-                onClick={handleCloseCalendly}
-              >
-                <div
-                  className="relative w-full h-full sm:h-[85vh] sm:max-h-[720px] max-w-lg bg-white sm:rounded-3xl flex flex-col shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
-                style={{ transform: 'translateZ(0)' }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* Top Bar */}
-                  <div className="flex items-center justify-between px-4 py-3 sm:py-4 border-b shrink-0">
-                    <button
-                      onClick={handleCloseCalendly}
-                      className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M19 12H5M12 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2" data-block-title="">
-                      {data.title ?? "Book a Meeting"}
-                    </h3>
-                    <button
-                      onClick={handleCloseCalendly}
-                      className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  {/* Calendly Embed */}
-                  <div className="flex-1 overflow-hidden min-h-0">
-                    <iframe
-                      src={calendlyUrl}
-                      className="w-full h-full border-0"
-                      style={{ minHeight: '500px' }}
-                      title={data.title ?? "Book a Meeting"}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
           </>
         )
       }
@@ -5759,50 +5706,6 @@ function CoreBlockRenderer({
             </div>
           </button>
 
-          {/* Calendly Modal - Clean light UI */}
-          {showCalendlyModal && calendlyUrl && (
-            <div
-              className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 md:p-6 lg:p-8 bg-black/60 sm:bg-black/50 animate-in fade-in duration-300 ease-out"
-              onClick={handleCloseCalendly}
-            >
-              <div
-                className="relative w-full h-full sm:h-[85vh] sm:max-h-[720px] max-w-lg bg-white sm:rounded-3xl flex flex-col shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
-                style={{ transform: 'translateZ(0)' }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Top Bar */}
-                <div className="flex items-center justify-between px-4 py-3 sm:py-4 border-b shrink-0">
-                  <button
-                    onClick={handleCloseCalendly}
-                    className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M19 12H5M12 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2" data-block-title="">
-                    {data.title ?? "Book a Meeting"}
-                  </h3>
-                  <button
-                    onClick={handleCloseCalendly}
-                    className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Calendly Embed */}
-                <div className="flex-1 overflow-hidden min-h-0">
-                  <iframe
-                    src={calendlyUrl}
-                    className="w-full h-full border-0"
-                    style={{ minHeight: '500px' }}
-                    title={data.title ?? "Book a Meeting"}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
         </>
       )
     }

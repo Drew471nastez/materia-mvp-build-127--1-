@@ -972,15 +972,16 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           ended_text: "",
         } as CountdownBlockData,
       }
+    /* Round AL: a new block that shows another service opens in the sheet (lib/onepage/block-sheet); saved ones without open_mode stay on the page. */
     case "map":
       return {
         ...baseBlock,
-        data: { title: "", address: "", show_button: true } as MapBlockData,
+        data: { title: "", address: "", show_button: true, open_mode: "sheet" } as MapBlockData,
       }
     case "video":
       return {
         ...baseBlock,
-        data: { url: "", title: "" } as VideoBlockData,
+        data: { url: "", title: "", open_mode: "sheet" } as VideoBlockData,
       }
     case "course":
       return {
@@ -990,7 +991,7 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
     case "music":
       return {
         ...baseBlock,
-        data: { url: "", title: "" } as MusicBlockData,
+        data: { url: "", title: "", open_mode: "sheet" } as MusicBlockData,
       }
     case "testimonials":
       return {
@@ -1003,12 +1004,12 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
     case "contact_form":
       return {
         ...baseBlock,
-        data: { title: "Get in touch", description: "", button_text: "Send", success_message: "Thanks. I will write back soon.", offer_signup: true } as ContactFormBlockData,
+        data: { title: "Get in touch", description: "", button_text: "Send", success_message: "Thanks. I will write back soon.", offer_signup: true, open_mode: "sheet" } as ContactFormBlockData,
       }
     case "embed":
       return {
         ...baseBlock,
-        data: { url: "", title: "", provider: null } as EmbedBlockData,
+        data: { url: "", title: "", provider: null, open_mode: "sheet" } as EmbedBlockData,
       }
     case "storelib_shelf":
       return { ...baseBlock, data: { source: "all", title: "", layout: "carousel", limit: 6 } as StorelibShelfBlockData }
