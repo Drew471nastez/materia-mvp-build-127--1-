@@ -240,7 +240,7 @@ export function isThinkingSignatureError(thrown: unknown): boolean {
   }
   const status = typeof e.status === "number" ? e.status : Number(words.match(/^(\d{3})\s/)?.[1] ?? Number.NaN)
   if (Number.isFinite(status) && status !== 400) return false
-  return /invalid\W*`?signature`?\W*in\W*`?(?:redacted_)?thinking`?\W*block|bound to a different conversation|prefix_mismatch_behavior/i.test(words)
+  return /invalid\W*`?signature`?\W*in\W*`?(?:redacted_)?thinking`?\W*block|bound to a different conversation/i.test(words)
 }
 
 /** The 400 for a request that sent `block_binding` where the beta is not taken: sent again without it. */
