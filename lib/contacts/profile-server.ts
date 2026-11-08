@@ -215,7 +215,23 @@ export interface Profile {
   purchases: { id: string; at: string; product: string | null; amountCents: number; refundCents: number; currency: string; status: string }[]
   spent: { currency: string; cents: number }[]
   memberships: { id: string; title: string | null; status: string; amountCents: number; currency: string; interval: string | null; at: string }[]
-  communities: { memberId: string; communityId: string; name: string; tier: string | null; status: string; joinedAt: string | null }[]
+  communities: {
+    memberId: string
+    communityId: string
+    name: string
+    tier: string | null
+    status: string
+    source: string | null
+    joinedAt: string | null
+    lastActiveAt: string | null
+    expiresAt: string | null
+    /** The answers to the community's join questions, only for those who may approve members (the store's owner). */
+    joinAnswers: { label: string; value: string }[]
+    /** Why they left, and when access ends, when they cancelled. */
+    cancellation: { reason: string | null; endsAt: string | null } | null
+  }[]
+  /** Events of the store's own communities they answered. */
+  communityEvents: { eventId: string; communityId: string; title: string; startsAt: string | null; status: string; attended: boolean }[]
   courses: { id: string; title: string | null; percent: number; startedAt: string | null; completedAt: string | null }[]
   forms: { id: string; formId: string; title: string; at: string; status: string; answers: { label: string; value: string }[] }[]
   leads: { id: string; at: string }[]
@@ -229,7 +245,7 @@ const s = (v: unknown) => (typeof v === "string" ? v : null)
 const n = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
 
 /** Everything the profile shows, each part read for this person only and bounded. */
-export async function readProfile(db: Db, scope: ContactsScope, g: Gathered): Promise<Profile> {
+export async function readProfile(db: Db, scope: ContactsScope, g: Gathered, opts: { joinAnswers?: boolean } = {}): Promise<Profile> {
   const c = scope.creatorId
   const ids = (k: SourceRecord["kind"]) => g.rows.filter((r) => r.kind === k).map((r) => r.id)
   const emails = [...new Set(g.rows.map((r) => r.email).filter((e): e is string => !!e).concat(g.person.email ? [g.person.email] : []))].slice(0, 10)
@@ -241,7 +257,7 @@ export async function readProfile(db: Db, scope: ContactsScope, g: Gathered): Pr
   const [orders, memberships, members, communities, tiers, courses, forms, messages, subscriber, contact] = await Promise.all([
     orderIds.length ? many(inIds(db.from("orders").select("id, created_at, amount_cents, refund_amount_cents, currency, status, product:products(title)").eq("creator_id", c), "id", orderIds).order("created_at", { ascending: false })) : [],
     ids("membership").length ? many(inIds(db.from("memberships").select("id, title, status, amount_cents, currency, billing_interval, created_at").eq("creator_id", c), "id", ids("membership")).order("created_at", { ascending: false })) : [],
-    memberIds.length ? many(inIds(db.from("community_members").select("id, community_id, tier_id, status, joined_at, created_at"), "id", memberIds)) : [],
+    memberIds.length ? many(inIds(db.from("community_members").select("id, community_id, user_id, tier_id, status, source, joined_at, last_active_at, expires_at, created_at"), "id", memberIds)) : [],
     ownCommunities(db, c),
     memberIds.length ? many(db.from("community_tiers").select("id, name, community_id").in("community_id", [...new Set(g.rows.map((r) => r.communityId).filter((x): x is string => !!x))].slice(0, 100))) : [],
     ids("enrollment").length ? many(inIds(db.from("course_enrollments").select("id, percent, started_at, completed_at, products!inner(creator_id, title)").eq("products.creator_id", c), "id", ids("enrollment"))) : [],
@@ -262,6 +278,26 @@ export async function readProfile(db: Db, scope: ContactsScope, g: Gathered): Pr
         g.person.email ? many(db.from("email_suppressions").select("scope").eq("email", g.person.email).is("lifted_at", null)) : Promise.resolve([] as Record<string, unknown>[]),
       ])
     : [[], [], [], []]
+
+  /* Their events, join answers and cancellations, in this store's own communities only, by their account. */
+  const ownIds = [...communities.keys()]
+  const users = [...new Set(g.rows.map((r) => r.userId).filter((u): u is string => !!u))].slice(0, 20)
+  const [rsvps, answers, cancels] = users.length && ownIds.length
+    ? await Promise.all([
+        many(db.from("community_event_rsvps").select("event_id, community_id, status, attended_at, community_events(id, title, starts_at)").in("user_id", users).in("community_id", ownIds).limit(30)),
+        opts.joinAnswers ? many(db.from("community_join_answers").select("community_id, user_id, answers").in("user_id", users).in("community_id", ownIds).limit(20)) : Promise.resolve([] as Record<string, unknown>[]),
+        many(db.from("community_cancellations").select("community_id, user_id, reason, ends_at, created_at").in("user_id", users).in("community_id", ownIds).order("created_at", { ascending: false }).limit(20)),
+      ])
+    : [[], [], []]
+  const answerText2 = (v: unknown) => (Array.isArray(v) ? v.map(String).join(", ") : typeof v === "string" ? v : "")
+  const answersOf = (communityId: string, userId: unknown) => {
+    const hit = answers.find((a) => String(a.community_id).toLowerCase() === communityId && a.user_id === userId)
+    return (Array.isArray(hit?.answers) ? (hit!.answers as Record<string, unknown>[]) : []).slice(0, 8).map((a) => ({ label: String(a?.label ?? "").slice(0, 200), value: answerText2(a?.value).slice(0, 2000) }))
+  }
+  const cancelOf = (communityId: string, userId: unknown) => {
+    const hit = cancels.find((c) => String(c.community_id).toLowerCase() === communityId && c.user_id === userId)
+    return hit ? { reason: s(hit.reason), endsAt: s(hit.ends_at) } : null
+  }
 
   const tierName = new Map<string, string | null>(tiers.map((t): [string, string | null] => [String(t.id).toLowerCase(), s(t.name)]))
   const firstOf = (v: unknown) => (Array.isArray(v) ? v[0] : v) as Record<string, unknown> | null | undefined
@@ -290,7 +326,12 @@ export async function readProfile(db: Db, scope: ContactsScope, g: Gathered): Pr
       name: communities.get(String(m.community_id).toLowerCase()) || "",
       tier: tierName.get(String(m.tier_id ?? "").toLowerCase()) ?? null,
       status: String(m.status ?? ""),
+      source: s(m.source),
       joinedAt: s(m.joined_at) ?? s(m.created_at),
+      lastActiveAt: s(m.last_active_at),
+      expiresAt: s(m.expires_at),
+      joinAnswers: answersOf(String(m.community_id).toLowerCase(), m.user_id),
+      cancellation: cancelOf(String(m.community_id).toLowerCase(), m.user_id),
     }))
 
   const formRows = forms.map((f) => ({
@@ -344,6 +385,10 @@ export async function readProfile(db: Db, scope: ContactsScope, g: Gathered): Pr
     spent: [...by.entries()].sort((a, b) => b[1] - a[1]).map(([currency, cents]) => ({ currency, cents })),
     memberships: memberships.map((m) => ({ id: String(m.id), title: s(m.title), status: String(m.status ?? ""), amountCents: n(m.amount_cents), currency: (s(m.currency) || "USD").toUpperCase(), interval: s(m.billing_interval), at: String(m.created_at ?? "") })),
     communities: communityRows,
+    communityEvents: rsvps.map((r) => {
+      const ev = firstOf(r.community_events)
+      return { eventId: String(r.event_id), communityId: String(r.community_id), title: s(ev?.title) ?? "", startsAt: s(ev?.starts_at), status: String(r.status ?? ""), attended: !!r.attended_at }
+    }),
     courses: courses.map((cr) => ({ id: String(cr.id), title: s(firstOf(cr.products)?.title), percent: n(cr.percent), startedAt: s(cr.started_at), completedAt: s(cr.completed_at) })),
     forms: formRows,
     leads,

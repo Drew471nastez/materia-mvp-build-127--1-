@@ -23,7 +23,8 @@
 import "./_journey/env"
 import { readFileSync } from "node:fs"
 import { Journey } from "./_journey/harness"
-import { contactsForEmail } from "@/lib/contacts/server"
+import { contactsForEmail, lookupContacts } from "@/lib/contacts/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { contactKey, mergePeople, parseContactKey, readPeopleQuery, peopleQueryString, type SourceRecord, type Account } from "@/lib/contacts/identity"
 import { readImport, csvCell } from "@/lib/contacts/csv"
 import { contactsPermitted, memberSees, pathPermits } from "@/lib/team/permissions"
@@ -155,6 +156,8 @@ async function main() {
   check("unsubscribed: not eligible, reason said", after[0]?.marketingEligible === false && after[0]?.reason === "unsubscribed", after)
   Object.assign(anaSub, { status: "subscribed", is_active: true })
 
+  const looked = await lookupContacts(createAdminClient(), A.id, [`u_${ana.id}`, `u_${mo.id}`, `s_${subB.id}`])
+  check("lookupContacts, the composer's shape: own ids only, eligible and no_consent", looked.length === 2 && looked.find((l) => l.contactId === `u_${ana.id}`)?.marketing === "eligible" && looked.find((l) => l.contactId === `u_${mo.id}`)?.marketing === "no_consent", looked)
   section("5. /app/contacts/open: the store's own rows only")
   const mine = await j.call(`GET /app/contacts/open?from=order&id=${order.id}`, { as: seller })
   check("an order of this store opens its buyer", mine.status === 303 && /\/app\/contacts\/u_/.test(mine.location ?? "") && (mine.location ?? "").includes(ana.id), mine.location)
@@ -211,8 +214,8 @@ async function main() {
   check("no route answered with a server error", j.serverErrors.length === 0, j.serverErrors)
 
   section("9. Legacy addresses")
-  const r1 = await redirectOf(() => import("@/app/(storelib)/app/emails/forms/page") as never, { form: "f1", message: "m1" })
-  check("/app/emails/forms keeps ?form and ?message", r1 === "/app/contacts/forms?form=f1&message=m1", r1)
+  const r1 = await redirectOf(() => import("@/app/(storelib)/app/emails/forms/page") as never, { form: "f1", view: "responses", response: "r1", message: "m1", inbox: "1", siteform: "s1", other: "x" })
+  check("/app/emails/forms keeps ?form, ?view, ?response, ?message, ?inbox and ?siteform", r1 === "/app/contacts/forms?form=f1&view=responses&response=r1&message=m1&inbox=1&siteform=s1", r1)
   check("/app/emails/forms alone", (await redirectOf(() => import("@/app/(storelib)/app/emails/forms/page") as never)) === "/app/contacts/forms")
   check("/app/audience: the People list showing leads", (await redirectOf(() => import("@/app/(storelib)/app/audience/page") as never)) === "/app/contacts?filter=leads")
   check("/app/audience/leads?lead= opens that person through the resolver", (await redirectOf(() => import("@/app/(storelib)/app/audience/leads/page") as never, { lead: "abc" })) === "/app/contacts/open?from=lead&id=abc")

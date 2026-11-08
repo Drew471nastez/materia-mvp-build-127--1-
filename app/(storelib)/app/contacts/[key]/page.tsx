@@ -35,6 +35,7 @@ export default async function ContactProfilePage({ params }: { params: Promise<{
   const g = await personByKey(access.db, access.scope, key).catch(() => null)
   if (!g) redirect("/app/contacts?notice=not_found")
   if (g.person.id !== key) redirect(`/app/contacts/${g.person.id}`)
-  const profile = await readProfile(access.db, access.scope, g)
+  /* Join answers only for who may approve members: the store's owner (lib/communities permissions; a team member sees the rest). */
+  const profile = await readProfile(access.db, access.scope, g, { joinAnswers: access.isOwner })
   return <ProfileClient profile={profile} marketing={access.marketing} />
 }

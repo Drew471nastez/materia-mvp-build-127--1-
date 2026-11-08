@@ -362,8 +362,15 @@ function Purchases({ profile }: { profile: Profile }) {
   )
 }
 
+function rsvpLabel(status: string, attended: boolean): string {
+  if (attended) return tt("Attended")
+  if (status === "waitlist") return tt("On the waitlist")
+  if (status === "cancelled") return tt("Cancelled")
+  return tt("Going")
+}
+
 function Communities({ profile }: { profile: Profile }) {
-  if (!profile.communities.length) return null
+  if (!profile.communities.length && !profile.communityEvents.length) return null
   return (
     <Section title={tt("Communities")}>
       <ul className="divide-y divide-[#f1f2f4]">
@@ -376,6 +383,28 @@ function Communities({ profile }: { profile: Profile }) {
             <Link href={`/app/community/${m.communityId}/members?member=${m.memberId}`} className="shrink-0 text-[12px] font-medium text-[#6d4ae0] hover:underline">
               {tt("View in community")}
             </Link>
+            {m.cancellation ? (
+              <p className="w-full text-[12px] text-[#6b7280]">
+                {m.cancellation.endsAt ? tt("Cancelled, access ends {day}", { day: dayOf(m.cancellation.endsAt) }) : tt("Cancelled")}
+                {m.cancellation.reason ? ` · ${m.cancellation.reason}` : ""}
+              </p>
+            ) : null}
+            {m.joinAnswers.length ? (
+              <dl className="mt-1 grid w-full gap-1 rounded-lg bg-[#fafbfb] p-2.5">
+                {m.joinAnswers.map((a, i) => (
+                  <div key={i} className="grid gap-0.5 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)] sm:gap-2">
+                    <dt className="text-[#6b7280]">{a.label}</dt>
+                    <dd className="whitespace-pre-wrap break-words text-[#1a1a2e]">{a.value || "–"}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+          </li>
+        ))}
+        {profile.communityEvents.map((e) => (
+          <li key={`ev:${e.eventId}`} className="flex items-baseline justify-between gap-3 py-2 text-[13px]">
+            <span className="min-w-0 truncate text-[#1a1a2e]">{e.title || tt("Event")}</span>
+            <span className="shrink-0 text-[12px] text-[#6b7280]">{[rsvpLabel(e.status, e.attended), dayOf(e.startsAt)].filter(Boolean).join(" · ")}</span>
           </li>
         ))}
       </ul>

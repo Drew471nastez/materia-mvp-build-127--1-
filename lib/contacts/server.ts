@@ -18,6 +18,14 @@ import "server-only"
  *       purchase or a form answer never make anybody eligible; `reason` says
  *       why not. An id of another store, or of nobody, is "not_found".
  *
+ *   lookupContacts(db, creatorId, ids)
+ *       The same answer in the shape Emails' composer takes
+ *       (lib/emails/recipient-contacts.ts LookupContacts): one ContactLookup
+ *       per id this store owns, `contactId` being the id asked for, and
+ *       `marketing` one of "eligible" | "unsubscribed" | "suppressed" |
+ *       "no_consent". Ids of other stores, or of nobody, are left out.
+ *       Wire it with one line: `export { lookupContacts } from "@/lib/contacts/server"`.
+ *
  * A contact id is any key lib/contacts/identity.ts makes ("u_<uuid>",
  * "s_<uuid>", "c_<uuid>", ...). A link made before two rows were joined into
  * one person still opens that person; `contactId` is their id now.
@@ -45,6 +53,33 @@ export async function contactsForEmail(creatorId: string, ids: readonly string[]
   const scope = await scopeOf(db, creatorId)
   if (!scope) return ids.map((id) => ({ id, contactId: null, email: null, name: null, marketingEligible: false, reason: "not_found" }))
   return targets(db, scope, ids)
+}
+
+export type Eligibility = "eligible" | "unsubscribed" | "suppressed" | "no_consent"
+
+export interface ContactLookup {
+  contactId: string
+  email: string | null
+  name: string | null
+  marketing: Eligibility
+}
+
+/** contactsForEmail's reason as the composer's word for it. */
+export function eligibilityOf(t: EmailTarget): Eligibility {
+  if (t.marketingEligible) return "eligible"
+  if (t.reason === "unsubscribed") return "unsubscribed"
+  if (t.reason === "blocked" || t.reason === "suppressed") return "suppressed"
+  return "no_consent"
+}
+
+/** See the top of this file. `db` is the caller's service role client; every read is filtered by `creatorId`. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function lookupContacts(db: any, creatorId: string, ids: string[]): Promise<ContactLookup[]> {
+  const { data } = await db.from("creators").select("id, user_id").eq("id", creatorId).maybeSingle()
+  if (!data) return []
+  const scope: ContactsScope = { creatorId: String(data.id), ownerUserId: (data.user_id as string | null) ?? null }
+  const found = await targets(db, scope, contactIdsFrom(ids.join(",")))
+  return found.filter((t) => t.reason !== "not_found").map((t) => ({ contactId: t.id, email: t.email, name: t.name, marketing: eligibilityOf(t) }))
 }
 
 /** Whether a contact id is one of this store's people (for a link that should only be drawn when it opens something). */
