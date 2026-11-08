@@ -70,7 +70,8 @@ check("a refused play() leaves it on its frame with the button", /p\.catch\(\(\)
 check("the sheet tells the gallery when it is up", /active=\{open\}/.test(sheet))
 check("Safari: its window's height is of the visible screen (dvh), not of the one under the toolbars (vh)", /max-h-\[min\(90dvh,820px\)\]/.test(sheet) && !/90vh/.test(sheet))
 const live = read("components/onepage/public-onepage.tsx")
-check("and so are the OnePage's own phone windows", /max-h-\[90dvh\] sm:max-h-\[85dvh\]/.test(live) && /sm:max-h-\[90dvh\]/.test(live) && !/ max-h-\[90vh\]/.test(live))
+/* Changed on purpose (round AN): the PDF's own panel (sm:max-h-[90dvh]) is gone; the PDF opens in the block sheet, whose height is in dvh too. */
+check("and so are the OnePage's own phone windows", /max-h-\[90dvh\] sm:max-h-\[85dvh\]/.test(live) && /100dvh/.test(read("components/onepage/block-sheet.tsx")) && !/ max-h-\[90vh\]/.test(live))
 
 console.log("\nFull screen")
 const box = strip(read("components/onepage/product-lightbox.tsx"))
