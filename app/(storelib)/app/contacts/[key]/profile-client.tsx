@@ -4,9 +4,13 @@
  * ===========================================================================
  *  ONE PERSON
  * ===========================================================================
- * Who they are and how they reach the store, then only the sections that
- * have something in them: activity, purchases, communities, courses, form
- * answers, emails. Marketing consent is its own card and never inferred:
+ * Wave 5 (the owner: simpler, Storelib's look): the bar is an order's bar
+ * (Back, the name, Email and one ⋯), then one Details card with what a
+ * creator looks for first (address, where they came from, when, marketing
+ * emails) and their tags and notes; beside it, only the sections that have
+ * something in them: purchases, activity, communities, courses, form
+ * answers, emails. On a phone Details comes first. Marketing consent is
+ * never inferred:
  * being a member of a community, buying, or answering a form does not put
  * anybody on the list, and Email is offered only to people who are on it.
  *
@@ -84,9 +88,7 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
   }
 
   const menu: ActionMenuItem[] = [
-    { label: tt("Edit name and notes"), onClick: () => setEditing(true) },
-    { label: tt("Manage tags"), onClick: () => setEditing(true) },
-    ...(profile.purchases.length ? [{ label: tt("View orders"), href: "#purchases" }] : []),
+    { label: tt("Edit name, tags and notes"), onClick: () => setEditing(true), id: "contact-edit" },
     ...(marketing && profile.consent.state === "subscribed" ? [{ label: tt("Unsubscribe from emails"), onClick: () => void unsubscribe(), separatorBefore: true }] : []),
     ...(p.hasContact ? [{ label: tt("Delete contact"), variant: "destructive" as const, onClick: () => void remove(), separatorBefore: true, disabled: busy }] : []),
   ]
@@ -103,11 +105,6 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
           <h1 className="truncate text-[20px] font-bold text-[#1a1a2e] sm:text-[22px]" data-contact-name="">
             {whoOf(p)}
           </h1>
-          {labels.map((l) => (
-            <span key={l} className="rounded-md bg-[#f1f2f4] px-1.5 py-0.5 text-[11px] font-medium leading-4 text-[#4b5563]">
-              {l}
-            </span>
-          ))}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {blocked ? (
@@ -116,6 +113,9 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
                 <Mail className="h-4 w-4" />
                 <span className="hidden sm:inline">{tt("Email")}</span>
               </button>
+              <span id="email-blocked" className="sr-only">
+                {blocked}
+              </span>
             </span>
           ) : (
             <Link href={`/app/emails/new?to=${encodeURIComponent(p.id)}`} className={buttonAccent} data-contact-email="on">
@@ -128,7 +128,7 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
           </button>
           <ResponsiveActionMenu title={whoOf(p)} align="end" trigger={<button type="button" className={iconButton} aria-label={tt("More actions")}><MoreHorizontal className="h-4 w-4" /></button>} items={menu} />
         </div>
-        <div className="col-span-2 col-start-2 mt-1 min-w-0 truncate text-[14px] text-[#6b7280] sm:text-[13px]">{p.name && p.email ? p.email : originLabel(p.origin)}</div>
+        <div className="col-span-2 col-start-2 mt-1 min-w-0 truncate text-[14px] text-[#6b7280] sm:-mt-0.5 sm:text-[13px]">{[p.name && p.email ? p.email : null, ...labels].filter(Boolean).join(" · ") || originLabel(p.origin)}</div>
       </PaneBar>
 
       <div className={cn("mx-auto pb-24 md:pb-10", ORDER_WIDTH, GUTTER)} data-contact-profile={p.id}>
@@ -137,20 +137,14 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
             {message.text}
           </p>
         ) : null}
-        {blocked ? (
-          <p id="email-blocked" className="mt-3 text-[13px] text-[#6b7280]">
-            {blocked}
-          </p>
-        ) : null}
         <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
           <div className="space-y-3 lg:order-2">
-            <Overview profile={profile} />
-            <Consent profile={profile} />
+            <Details profile={profile} blocked={blocked} />
             <TagsNotes profile={profile} onEdit={() => setEditing(true)} />
           </div>
           <div className="min-w-0 space-y-3 lg:order-1">
-            <Activity profile={profile} />
             <Purchases profile={profile} />
+            <Activity profile={profile} />
             <Communities profile={profile} />
             <Courses profile={profile} />
             <Forms profile={profile} />
@@ -197,46 +191,27 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   )
 }
 
-function Overview({ profile }: { profile: Profile }) {
+function Details({ profile, blocked }: { profile: Profile; blocked: string | null }) {
   const p = profile.person
+  const c = profile.consent
   return (
-    <Section title={tt("Overview")}>
-      <dl className="grid gap-2">
-        <Row label={tt("Name")}>{p.name || <span className="text-[#9ca3af]">{tt("Not given")}</span>}</Row>
+    <Section title={tt("Details")}>
+      <dl className="grid gap-2" data-contact-details="">
         <Row label={tt("Email")}>{p.email || <span className="text-[#9ca3af]">{tt("No email")}</span>}</Row>
         {profile.emails.length > 1 ? <Row label={tt("Other emails")}>{profile.emails.filter((e) => e !== p.email).join(", ")}</Row> : null}
-        {profile.account ? <Row label={tt("Storelib account")}>{profile.account.verified ? tt("Yes, email confirmed") : tt("Yes, email not confirmed")}</Row> : null}
+        <Row label={tt("Marketing emails")}>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <StatusBadge tone={c.state === "subscribed" && !c.suppressed ? "success" : c.state === "blocked" ? "critical" : "neutral"}>{c.suppressed && c.state === "subscribed" ? tt("Asked for no emails") : subscriptionLabel(c.state)}</StatusBadge>
+            {c.state === "subscribed" && c.consentAt ? <span className="text-[#6b7280]">{dayOf(c.consentAt)}</span> : c.unsubscribedAt && c.state !== "subscribed" ? <span className="text-[#6b7280]">{dayOf(c.unsubscribedAt)}</span> : null}
+          </span>
+        </Row>
+        {c.consentText ? <Row label={tt("How they agreed")}>{c.consentText}</Row> : null}
         <Row label={tt("Came from")}>{originLabel(p.origin)}</Row>
         {p.firstSeen ? <Row label={tt("First seen")}>{dayOf(p.firstSeen)}</Row> : null}
         {p.lastSeen ? <Row label={tt("Last activity")}>{dayOf(p.lastSeen)}</Row> : null}
+        {profile.account ? <Row label={tt("Storelib account")}>{profile.account.verified ? tt("Yes, email confirmed") : tt("Yes, email not confirmed")}</Row> : null}
       </dl>
-    </Section>
-  )
-}
-
-function Consent({ profile }: { profile: Profile }) {
-  const c = profile.consent
-  const p = profile.person
-  return (
-    <Section title={tt("Email and community")}>
-      <dl className="grid gap-2">
-        <Row label={tt("Marketing emails")}>
-          <StatusBadge tone={c.state === "subscribed" && !c.suppressed ? "success" : c.state === "blocked" ? "critical" : "neutral"}>{c.suppressed && c.state === "subscribed" ? tt("Asked for no emails") : subscriptionLabel(c.state)}</StatusBadge>
-        </Row>
-        {c.consentText ? <Row label={tt("How they agreed")}>{c.consentText}</Row> : null}
-        {c.state === "subscribed" && c.consentAt ? <Row label={tt("Since")}>{dayOf(c.consentAt)}</Row> : null}
-        {c.unsubscribedAt && c.state !== "subscribed" ? <Row label={tt("Unsubscribed")}>{dayOf(c.unsubscribedAt)}</Row> : null}
-        <Row label={tt("Community")}>
-          {profile.communities.length
-            ? tt("{count, plural, one {Member of # community} other {Member of # communities}}", { count: profile.communities.length })
-            : tt("Not a member")}
-        </Row>
-      </dl>
-      <p className="mt-2.5 text-[12px] leading-[18px] text-[#6b7280]">
-        {p.member && c.state !== "subscribed"
-          ? tt("Community members get community notices, not your marketing emails, unless they subscribe.")
-          : tt("Order emails and community notices are sent whatever this says. Only marketing emails need a subscription.")}
-      </p>
+      {blocked && p.email ? <p className="mt-2.5 text-[12px] leading-[18px] text-[#6b7280]">{p.member && c.state !== "subscribed" ? tt("Community members get community notices, not your marketing emails, unless they subscribe.") : blocked}</p> : null}
     </Section>
   )
 }
@@ -302,7 +277,7 @@ function activityText(a: Profile["activity"][number]): string {
 function Activity({ profile }: { profile: Profile }) {
   const [all, setAll] = React.useState(false)
   if (!profile.activity.length) return null
-  const shown = all ? profile.activity : profile.activity.slice(0, 8)
+  const shown = all ? profile.activity : profile.activity.slice(0, 5)
   return (
     <Section title={tt("Activity")}>
       <ol className="space-y-2">
@@ -319,7 +294,7 @@ function Activity({ profile }: { profile: Profile }) {
           </li>
         ))}
       </ol>
-      {profile.activity.length > 8 ? (
+      {profile.activity.length > 5 ? (
         <button type="button" onClick={() => setAll((x) => !x)} className="mt-2 text-[12px] font-medium text-[#6d4ae0] hover:underline">
           {all ? tt("Show less") : tt("Show all {count}", { count: profile.activity.length })}
         </button>

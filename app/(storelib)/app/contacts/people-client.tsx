@@ -5,29 +5,37 @@
  *  CONTACTS › PEOPLE
  * ===========================================================================
  * One row per person the store knows (lib/contacts/identity.ts decides who
- * is one person). The five pills choose the group, the search and the sort
- * sit under them, and everything else is behind Filters so the list stays
- * the first thing on the page. The address is the state: every change
- * replaces it and the server reads the page again (./page.tsx), so the
- * filters survive a reload and a shared link.
+ * is one person), drawn as Orders draws its list (wave 5, the owner: "make
+ * it more Storelib UI"): the title and Add contact in the list bar, Forms,
+ * Import and Export under one ⋯; one card holding the views, search and
+ * sort on its top row, the filters as chips under it while searching, the
+ * table (name and email, where they came from, tags, last activity) and the
+ * count and pages at its foot. A phone shows each person as one stacked row.
  *
- * Picking people opens a bar with what can be done to them: a tag, an
- * export, an email (the composer, with them chosen; only people on the
- * marketing list get it), and deleting what the creator added. Deleting
- * never touches an order, a membership, a community member, a form answer
- * or the list (lib/contacts/write-server).
+ * The address is the state: every change replaces it and the server reads
+ * the page again (./page.tsx), so the filters survive a reload and a shared
+ * link, and every older link (?filter=leads, ?tag=VIP, ?sub=…) still opens
+ * the same list.
+ *
+ * Picking people puts what can be done to them in the table's head, as on
+ * Orders: a tag, an email (the composer, with them chosen; only people on
+ * the marketing list get it), an export, and deleting what the creator
+ * added. Deleting never touches an order, a membership, a community member,
+ * a form answer or the list (lib/contacts/write-server).
  */
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Search, SlidersHorizontal, X } from "lucide-react"
-import { FilterPills } from "@/components/app/filter-pills"
+import { ArrowUpDown, ChevronLeft, ChevronRight, Download, FileText, ListFilter, MoreHorizontal, Plus, Search, Upload, X } from "lucide-react"
+import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 import {
+  CONTACT_FILTERS,
   LEAD_STATUSES,
   MEMBER_STATUSES,
   ORIGINS,
@@ -41,9 +49,10 @@ import {
   type PersonRow,
 } from "@/lib/contacts/identity"
 import type { PeoplePage } from "@/lib/contacts/people-server"
-import { GUTTER, LIST_WIDTH, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
+import { Checkbox, GUTTER, LIST_WIDTH, MenuOption, MenuSurface, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import { ContactsHeader } from "./contacts-header"
-import { contactsRequest, dayOf, labelsOf, leadStatusLabel, memberStatusLabel, originLabel, subscriptionLabel, whoOf } from "./contact-words"
+import { FilterChip } from "./filter-chip"
+import { contactsRequest, dayOf, leadStatusLabel, memberStatusLabel, originLabel, subscriptionLabel, whoOf } from "./contact-words"
 
 export interface CommunityOption {
   id: string
@@ -55,12 +64,39 @@ const EMAIL_MAX = 200
 const field = "h-9 w-full rounded-lg border border-[#e3e4e8] bg-white px-2.5 text-[14px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e]/40 focus:ring-2 focus:ring-[#1a1a2e]/10"
 const fieldLabel = "mb-1 block text-[12px] font-medium text-[#4b5563]"
 
+function viewLabel(f: ContactFilter): string {
+  switch (f) {
+    case "leads":
+      return tt("Leads")
+    case "customers":
+      return tt("Customers")
+    case "subscribers":
+      return tt("Subscribers")
+    case "members":
+      return tt("Members")
+    default:
+      return tt("All")
+  }
+}
+
+function sortLabel(s: ContactSort): string {
+  switch (s) {
+    case "newest":
+      return tt("Newest first")
+    case "oldest":
+      return tt("Oldest first")
+    case "name":
+      return tt("Name")
+    default:
+      return tt("Last activity")
+  }
+}
+
 export function PeopleClient({ query, page, communities, marketing, notice }: { query: PeopleQuery; page: PeoplePage | null; communities: CommunityOption[]; marketing: boolean; notice: "not_found" | "no_person" | null }) {
   const router = useRouter()
   const phone = usePhoneWidth()
   const [pending, startTransition] = React.useTransition()
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
-  const [filtersOpen, setFiltersOpen] = React.useState(() => advancedCount(query.adv) > 0)
   const [adding, setAdding] = React.useState(false)
   const [importing, setImporting] = React.useState(false)
   const [message, setMessage] = React.useState<{ text: string; failed?: boolean } | null>(null)
@@ -88,6 +124,7 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
   const counts = page?.counts ?? { all: 0, leads: 0, customers: 0, subscribers: 0, members: 0 }
   const total = page?.total ?? 0
   const filtered = !!query.q || advancedCount(query.adv) > 0
+  const [searching, setSearching] = React.useState(filtered)
   const nothingAtAll = !!page && counts.all === 0 && !filtered
 
   const exportHref = (ids?: string[]) => {
@@ -97,29 +134,52 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
     return `/api/contacts/export${p.toString() ? `?${p}` : ""}`
   }
 
-  const headerMenu: ActionMenuItem[] = [
-    { label: tt("Import from a CSV file"), onClick: () => setImporting(true) },
-    { label: tt("Export these people"), href: exportHref() },
+  const moreMenu: ActionMenuItem[] = [
+    ...(phone ? [{ label: tt("Forms"), icon: <FileText className="h-4 w-4" />, href: "/app/contacts/forms", id: "contacts-forms" }] : []),
+    { label: tt("Import from a CSV file"), icon: <Upload className="h-4 w-4" />, onClick: () => setImporting(true), separatorBefore: phone, id: "contacts-import" },
+    { label: tt("Export these people"), icon: <Download className="h-4 w-4" />, href: exportHref(), id: "contacts-export" },
   ]
+  const pageIds = rows.map((r) => r.id)
+  const pickedOnPage = pageIds.filter((id) => selected.has(id)).length
+  const allOnPage = pageIds.length > 0 && pickedOnPage === pageIds.length
+  const pick = (ids: string[], on: boolean) =>
+    setSelected((s) => {
+      const next = new Set(s)
+      for (const id of ids) {
+        if (on) next.add(id)
+        else next.delete(id)
+      }
+      return next
+    })
+  const clearAll = () => {
+    setText("")
+    setSearching(false)
+    go({ q: "", adv: clearedAdv() })
+  }
 
   return (
     <>
       <ContactsHeader
-        tab="people"
+        title={tt("Contacts")}
         actions={
           <>
+            {phone ? null : (
+              <Link href="/app/contacts/forms" className={buttonSecondary} data-contacts-forms-link="">
+                <FileText className="h-4 w-4" />
+                {tt("Forms")}
+              </Link>
+            )}
             <ResponsiveActionMenu
               title={tt("Contacts")}
               align="end"
               trigger={
-                <button type="button" className={cn(buttonSecondary, "w-8 px-0 sm:w-auto sm:px-3")} aria-label={tt("Import and export")}>
-                  <MoreHorizontal className="h-4 w-4 sm:hidden" />
-                  <span className="hidden sm:inline">{tt("Import and export")}</span>
+                <button type="button" className={cn(buttonSecondary, "w-8 px-0 max-sm:h-9 max-sm:w-9")} aria-label={tt("More actions")} data-contacts-more="">
+                  <MoreHorizontal className="h-4 w-4" />
                 </button>
               }
-              items={headerMenu}
+              items={moreMenu}
             />
-            <button type="button" className={buttonAccent} onClick={() => setAdding(true)} data-add-contact="">
+            <button type="button" className={cn(buttonAccent, "max-sm:h-9")} onClick={() => setAdding(true)} data-add-contact="">
               <Plus className="h-4 w-4 shrink-0" />
               {tt("Add contact")}
             </button>
@@ -128,78 +188,94 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
       />
 
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)} data-contacts-people="" aria-busy={pending}>
-        <div className="mt-3">
-          <FilterPills<ContactFilter>
-            label={tt("Show")}
-            value={query.filter}
-            onChange={(filter) => go({ filter })}
-            options={[
-              { value: "all", label: tt("All"), count: counts.all },
-              { value: "leads", label: tt("Leads"), count: counts.leads },
-              { value: "customers", label: tt("Customers"), count: counts.customers },
-              { value: "subscribers", label: tt("Subscribers"), count: counts.subscribers },
-              { value: "members", label: tt("Members"), count: counts.members },
-            ]}
-          />
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <label className="relative min-w-0 flex-1 basis-[220px]">
-            <span className="sr-only">{tt("Search by name or email")}</span>
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
-            <input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder={tt("Search by name or email")} className={cn(field, "pl-8")} data-contacts-search="" />
-          </label>
-          <label className="shrink-0">
-            <span className="sr-only">{tt("Sort")}</span>
-            <select value={query.sort} onChange={(e) => go({ sort: e.target.value as ContactSort })} className={cn(field, "w-auto pr-7")}>
-              <option value="recent">{tt("Last activity")}</option>
-              <option value="newest">{tt("Newest first")}</option>
-              <option value="oldest">{tt("Oldest first")}</option>
-              <option value="name">{tt("Name")}</option>
-            </select>
-          </label>
-          <button type="button" className={cn(buttonSecondary, "h-9")} aria-expanded={filtersOpen} onClick={() => setFiltersOpen((o) => !o)} data-contacts-filters="">
-            <SlidersHorizontal className="h-4 w-4" />
-            {tt("Filters")}
-            {advancedCount(query.adv) > 0 ? <span className="tabular-nums text-[#6b7280]">{advancedCount(query.adv)}</span> : null}
-          </button>
-        </div>
-
-        {filtersOpen ? <AdvancedPanel adv={query.adv} communities={communities} onChange={(adv) => go({ adv })} onClear={() => go({ adv: clearedAdv() })} /> : null}
-
         {notice ? (
-          <p className="mt-3 rounded-xl bg-[#fff8e6] px-3.5 py-2.5 text-[13px] text-[#5c4300]" role="status">
+          <p className="mt-1 rounded-xl bg-[#fff8e6] px-3.5 py-2.5 text-[13px] text-[#5c4300]" role="status">
             {notice === "not_found" ? tt("That person is not in this store's contacts.") : tt("That record has no email address or account, so it is not linked to a person.")}
           </p>
         ) : null}
         {page?.partial ? (
-          <p className="mt-3 text-[13px] text-[#6b7280]" role="status">
+          <p className="mt-1 text-[13px] text-[#6b7280]" role="status">
             {tt("Showing people from your latest 2,000 records of each kind. Run the Contacts database update (SQL part 378) to see everyone.")}
           </p>
         ) : null}
         {message ? (
-          <p className={cn("mt-3 text-[13px]", message.failed ? "text-[#b42318]" : "text-[#14532d]")} role="status">
+          <p className={cn("mt-1 text-[13px]", message.failed ? "text-[#b42318]" : "text-[#14532d]")} role="status">
             {message.text}
           </p>
         ) : null}
 
-        {selected.size > 0 ? (
-          <SelectionBar
-            ids={[...selected]}
-            people={rows.filter((r) => selected.has(r.id))}
-            exportHref={exportHref([...selected])}
-            onClear={() => setSelected(new Set())}
-            onDone={(text, failed) => {
-              setMessage({ text, failed })
-              if (!failed) {
-                setSelected(new Set())
-                refresh()
-              }
-            }}
-          />
-        ) : null}
+        <section aria-label={tt("People")} className={cn(card, "mt-3 overflow-hidden transition-opacity duration-150", pending && "opacity-60")}>
+          {nothingAtAll ? null : (
+            <>
+              {/* The top row: the views, or the search while searching; Sort at its end. One height either way. */}
+              <div className="flex h-12 items-center gap-2 border-b border-[#eef0f2] px-2 max-sm:h-14">
+                {searching ? (
+                  <>
+                    <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#d5d7dd] bg-white px-2.5 transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] max-sm:h-10">
+                      <Search className="h-4 w-4 shrink-0 text-[#6b7280]" />
+                      <input
+                        autoFocus={!query.q && advancedCount(query.adv) === 0}
+                        type="search"
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        placeholder={phone ? tt("Search") : tt("Search by name or email")}
+                        aria-label={tt("Search by name or email")}
+                        className="min-w-0 flex-1 bg-transparent text-[13px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] max-sm:text-[16px] [&::-webkit-search-cancel-button]:hidden"
+                        data-contacts-search=""
+                      />
+                      {text ? (
+                        <button type="button" aria-label={tt("Clear search")} className="text-[#9ca3af] hover:text-[#4b5563]" onClick={() => setText("")}>
+                          <X className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                    </label>
+                    <button type="button" className="h-8 shrink-0 rounded-lg px-2.5 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4] max-sm:h-10 max-sm:text-[15px]" onClick={clearAll}>
+                      {tt("Cancel")}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {/* On a phone the views scroll on their own and fade at the edge; the icons keep a fixed place beside them and never sit over a word. */}
+                    <div role="tablist" aria-label={tt("Views")} className="orders-strip -my-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-2 max-sm:pr-10 max-sm:[mask-image:linear-gradient(to_right,#000_calc(100%-44px),transparent)]" data-contacts-views="">
+                      {CONTACT_FILTERS.map((f) => {
+                        const active = f === query.filter
+                        return (
+                          <button
+                            key={f}
+                            type="button"
+                            role="tab"
+                            aria-selected={active}
+                            onClick={() => go({ filter: f })}
+                            className={cn(
+                              "h-8 shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100 max-sm:h-9 max-sm:text-[15px]",
+                              active ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
+                            )}
+                          >
+                            {viewLabel(f)}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <span aria-hidden className="h-5 w-px shrink-0 bg-[#e5e7eb] sm:hidden" />
+                    <button
+                      type="button"
+                      className={cn(iconButton, "w-auto shrink-0 gap-1 px-2 max-sm:h-10")}
+                      aria-label={tt("Search and filter")}
+                      title={tt("Search and filter")}
+                      onClick={() => setSearching(true)}
+                      data-contacts-filters=""
+                    >
+                      <Search className="h-4 w-4" />
+                      <ListFilter className="h-4 w-4 max-sm:hidden" />
+                    </button>
+                  </>
+                )}
+                <SortMenu value={query.sort} onChange={(sort) => go({ sort })} />
+              </div>
+              {searching ? <FilterRow adv={query.adv} communities={communities} onChange={(adv) => go({ adv })} /> : null}
+            </>
+          )}
 
-        <section className={cn(card, "mt-3 overflow-hidden transition-opacity duration-150", pending && "opacity-60")} aria-label={tt("People")}>
           {!page ? (
             <Empty title={tt("Your contacts could not be loaded.")} body={tt("Nothing was changed. Try again in a moment.")} action={<button type="button" className={buttonSecondary} onClick={refresh}>{tt("Try again")}</button>} />
           ) : nothingAtAll ? (
@@ -207,8 +283,9 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
               title={tt("No people yet")}
               body={tt("People show up here when they buy from you, join your email list, answer one of your forms or join your community.")}
               action={
-                <div className="flex flex-wrap justify-center gap-2">
+                <>
                   <button type="button" className={buttonAccent} onClick={() => setAdding(true)}>
+                    <Plus className="h-4 w-4 shrink-0" />
                     {tt("Add contact")}
                   </button>
                   <button type="button" className={buttonSecondary} onClick={() => setImporting(true)}>
@@ -217,23 +294,82 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
                   <Link href="/app/contacts/forms" className={buttonSecondary}>
                     {tt("Make a form")}
                   </Link>
-                </div>
+                </>
               }
             />
           ) : rows.length === 0 ? (
             <Empty
               title={tt("No one matches")}
               body={filtered ? tt("Try other words, or clear the filters.") : tt("Nobody is in this group yet.")}
-              action={filtered ? <button type="button" className={buttonSecondary} onClick={() => go({ q: "", adv: clearedAdv() })}>{tt("Clear search and filters")}</button> : null}
+              action={filtered ? <button type="button" className={buttonSecondary} onClick={clearAll}>{tt("Clear search and filters")}</button> : null}
             />
-          ) : phone ? (
-            <PhoneList rows={rows} selected={selected} onToggle={(id) => setSelected((s) => toggled(s, id))} />
           ) : (
-            <Table rows={rows} selected={selected} onToggle={(id) => setSelected((s) => toggled(s, id))} onToggleAll={(on) => setSelected(on ? new Set(rows.map((r) => r.id)) : new Set())} />
+            <table className="w-full border-separate border-spacing-0 text-[13px] sm:table-fixed">
+              {/* Fixed on a computer, so picking people (the head turns into the actions) moves no column. */}
+              <colgroup>
+                <col className="sm:w-10" />
+                <col />
+                <col className="sm:w-[18%]" />
+                <col className="sm:w-[26%]" />
+                <col className="sm:w-[132px]" />
+                <col className="sm:w-0" />
+              </colgroup>
+              <thead className="max-sm:hidden">
+                <tr className="h-9 text-left text-[12px] font-medium text-[#4b5563]">
+                  <th scope="col" className="w-10 bg-[#f7f7f8] p-0">
+                    <label className="flex h-9 w-10 cursor-pointer items-center pl-3">
+                      <Checkbox
+                        label={allOnPage ? tt("Deselect all on this page") : tt("Select all on this page")}
+                        checked={allOnPage}
+                        indeterminate={pickedOnPage > 0 && !allOnPage}
+                        onChange={(on) => pick(pageIds, on)}
+                      />
+                    </label>
+                  </th>
+                  {selected.size > 0 ? (
+                    <th scope="col" colSpan={4} className="bg-[#f7f7f8] px-2 font-normal">
+                      <SelectionBar
+                        ids={[...selected]}
+                        people={rows.filter((r) => selected.has(r.id))}
+                        exportHref={exportHref([...selected])}
+                        onClear={() => setSelected(new Set())}
+                        onDone={(text, failed) => {
+                          setMessage({ text, failed })
+                          if (!failed) {
+                            setSelected(new Set())
+                            refresh()
+                          }
+                        }}
+                      />
+                    </th>
+                  ) : (
+                    <>
+                      <th scope="col" className="bg-[#f7f7f8] pl-2 pr-3">
+                        {tt("Name")}
+                      </th>
+                      <th scope="col" className="bg-[#f7f7f8] px-3">
+                        {tt("Came from")}
+                      </th>
+                      <th scope="col" className="bg-[#f7f7f8] px-3">
+                        {tt("Tags")}
+                      </th>
+                      <th scope="col" className="bg-[#f7f7f8] px-3 pr-4">
+                        {tt("Last activity")}
+                      </th>
+                    </>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((p) => (
+                  <PersonLine key={p.id} p={p} picked={selected.has(p.id)} onPick={(on) => pick([p.id], on)} />
+                ))}
+              </tbody>
+            </table>
           )}
-        </section>
 
-        {page && total > PAGE_SIZE ? <Pager page={query.page} total={total} onPage={(p) => go({ page: p })} /> : null}
+          {page && total > 0 && rows.length > 0 ? <Footer page={query.page} total={total} onPage={(p) => go({ page: p })} /> : null}
+        </section>
       </div>
 
       <AddContact open={adding} phone={phone} marketing={marketing} onClose={() => setAdding(false)} onAdded={(t) => { setAdding(false); setMessage({ text: t }); refresh() }} />
@@ -246,263 +382,281 @@ function clearedAdv(): AdvancedFilters {
   return { origin: undefined, tag: undefined, subscription: undefined, community: undefined, tier: undefined, access: undefined, bought: undefined, forms: undefined, course: undefined, from: undefined, to: undefined, leadStatus: undefined }
 }
 
-function toggled(s: Set<string>, id: string): Set<string> {
-  const next = new Set(s)
-  if (next.has(id)) next.delete(id)
-  else next.add(id)
-  return next
-}
-
 function Empty({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
   return (
-    <div className="px-6 py-14 text-center">
+    <div className="flex flex-col items-center px-6 py-14 text-center" data-contacts-empty="">
       <p className="text-[15px] font-semibold text-[#1a1a2e]">{title}</p>
-      <p className="mx-auto mt-1 max-w-[440px] text-[14px] text-[#6b7280]">{body}</p>
-      {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
+      <p className="mt-1 max-w-[380px] text-[13px] text-[#6b7280] max-sm:text-[14px]">{body}</p>
+      {action ? <div className="mt-4 flex flex-wrap justify-center gap-2">{action}</div> : null}
     </div>
   )
 }
 
-/* ─── The filters behind Filters ───────────────────────────────────────── */
+/* ─── Sort ─────────────────────────────────────────────────────────────── */
 
-function AdvancedPanel({ adv, communities, onChange, onClear }: { adv: AdvancedFilters; communities: CommunityOption[]; onChange: (a: AdvancedFilters) => void; onClear: () => void }) {
-  const set = (k: keyof AdvancedFilters, v: string) => onChange({ ...adv, [k]: v || undefined })
-  const [tag, setTag] = React.useState(adv.tag ?? "")
-  React.useEffect(() => setTag(adv.tag ?? ""), [adv.tag])
-  const community = communities.find((c) => c.id === adv.community)
-  const yesNo = (k: "bought" | "forms" | "course", label: string, yes: string, no: string) => (
-    <label>
-      <span className={fieldLabel}>{label}</span>
-      <select className={field} value={adv[k] ?? ""} onChange={(e) => set(k, e.target.value)}>
-        <option value="">{tt("Anyone")}</option>
-        <option value="yes">{yes}</option>
-        <option value="no">{no}</option>
-      </select>
-    </label>
-  )
+function SortMenu({ value, onChange }: { value: ContactSort; onChange: (s: ContactSort) => void }) {
+  const [open, setOpen] = React.useState(false)
   return (
-    <div className={cn(card, "mt-3 grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4")} data-contacts-advanced="">
-      <label>
-        <span className={fieldLabel}>{tt("Came from")}</span>
-        <select className={field} value={adv.origin ?? ""} onChange={(e) => set("origin", e.target.value)}>
-          <option value="">{tt("Anywhere")}</option>
-          {ORIGINS.map((o) => (
-            <option key={o} value={o}>
-              {originLabel(o)}
-            </option>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className={cn(iconButton, "shrink-0 max-sm:h-10 max-sm:w-10", value !== "recent" && "bg-[#eceef1] text-[#1a1a2e]")} aria-label={tt("Sort")} title={tt("Sort")} data-contacts-sort="">
+          <ArrowUpDown className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <MenuSurface align="end" className="w-[200px]">
+        <p className="px-2.5 pb-1 pt-1.5 text-[12px] font-medium text-[#6b7280]">{tt("Sort by")}</p>
+        <div role="menu" aria-label={tt("Sort")}>
+          {(["recent", "newest", "oldest", "name"] as const).map((s) => (
+            <MenuOption
+              key={s}
+              selected={s === value}
+              onSelect={() => {
+                onChange(s)
+                setOpen(false)
+              }}
+            >
+              {sortLabel(s)}
+            </MenuOption>
           ))}
-        </select>
-      </label>
-      <label>
-        <span className={fieldLabel}>{tt("Tag")}</span>
-        <input
-          className={field}
-          value={tag}
-          onChange={(e) => setTag(e.target.value)}
-          onBlur={() => tag.trim() !== (adv.tag ?? "") && set("tag", tag.trim())}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") set("tag", tag.trim())
-          }}
-          placeholder={tt("Any tag")}
-        />
-      </label>
-      <label>
-        <span className={fieldLabel}>{tt("Marketing emails")}</span>
-        <select className={field} value={adv.subscription ?? ""} onChange={(e) => set("subscription", e.target.value)}>
-          <option value="">{tt("Anyone")}</option>
-          {(["subscribed", "none", "unsubscribed", "blocked"] as const).map((s) => (
-            <option key={s} value={s}>
-              {subscriptionLabel(s)}
-            </option>
-          ))}
-        </select>
-      </label>
+        </div>
+      </MenuSurface>
+    </Popover>
+  )
+}
+
+/* ─── The filters, as chips under the search ──────────────────────────── */
+
+function FilterRow({ adv, communities, onChange }: { adv: AdvancedFilters; communities: CommunityOption[]; onChange: (a: AdvancedFilters) => void }) {
+  const set = (k: keyof AdvancedFilters, v: string) => onChange({ ...adv, [k]: v || undefined })
+  const clear = (...ks: (keyof AdvancedFilters)[]) => onChange({ ...adv, ...Object.fromEntries(ks.map((k) => [k, undefined])) })
+  const community = communities.find((c) => c.id === adv.community)
+  const tier = community?.tiers.find((t) => t.id === adv.tier)
+  const yesNo = (k: "bought" | "forms" | "course", label: string, yes: string, no: string) => (
+    <FilterChip
+      id={k}
+      label={label}
+      value={adv[k] === "yes" ? yes : adv[k] === "no" ? no : null}
+      onClear={() => clear(k)}
+      options={[
+        { value: "", label: tt("Anyone") },
+        { value: "yes", label: yes },
+        { value: "no", label: no },
+      ]}
+      selected={adv[k] ?? ""}
+      onSelect={(v) => set(k, v)}
+    />
+  )
+  const dates = adv.from || adv.to ? [adv.from ? dayOf(adv.from) : "…", adv.to ? dayOf(adv.to) : "…"].join(" – ") : null
+  return (
+    <div className="orders-strip flex items-center gap-2 overflow-x-auto border-b border-[#eef0f2] px-3 py-2 max-sm:pr-10 max-sm:[mask-image:linear-gradient(to_right,#000_calc(100%-44px),transparent)]" data-contacts-advanced="">
+      <FilterChip
+        id="origin"
+        label={tt("Came from")}
+        value={adv.origin ? originLabel(adv.origin) : null}
+        onClear={() => clear("origin")}
+        options={[{ value: "", label: tt("Anywhere") }, ...ORIGINS.map((o) => ({ value: o, label: originLabel(o) }))]}
+        selected={adv.origin ?? ""}
+        onSelect={(v) => set("origin", v)}
+      />
+      <FilterChip id="tag" label={tt("Tag")} value={adv.tag ?? null} onClear={() => clear("tag")}>
+        {(close) => <TagField initial={adv.tag ?? ""} onApply={(t) => { set("tag", t); close() }} />}
+      </FilterChip>
+      <FilterChip
+        id="subscription"
+        label={tt("Marketing emails")}
+        value={adv.subscription ? subscriptionLabel(adv.subscription) : null}
+        onClear={() => clear("subscription")}
+        options={[{ value: "", label: tt("Anyone") }, ...(["subscribed", "none", "unsubscribed", "blocked"] as const).map((s) => ({ value: s, label: subscriptionLabel(s) }))]}
+        selected={adv.subscription ?? ""}
+        onSelect={(v) => set("subscription", v)}
+      />
       {yesNo("bought", tt("Purchases"), tt("Bought something"), tt("Never bought"))}
       {communities.length ? (
-        <>
-          <label>
-            <span className={fieldLabel}>{tt("Community")}</span>
-            <select className={field} value={adv.community ?? ""} onChange={(e) => onChange({ ...adv, community: e.target.value || undefined, tier: undefined })}>
-              <option value="">{tt("Any community")}</option>
-              {communities.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name || tt("Untitled community")}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className={fieldLabel}>{tt("Tier")}</span>
-            <select className={field} value={adv.tier ?? ""} disabled={!community || community.tiers.length === 0} onChange={(e) => set("tier", e.target.value)}>
-              <option value="">{community ? tt("Any tier") : tt("Choose a community first")}</option>
-              {(community?.tiers ?? []).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className={fieldLabel}>{tt("Community access")}</span>
-            <select className={field} value={adv.access ?? ""} onChange={(e) => set("access", e.target.value)}>
-              <option value="">{tt("Any status")}</option>
-              {MEMBER_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {memberStatusLabel(s)}
-                </option>
-              ))}
-            </select>
-          </label>
-        </>
+        <FilterChip
+          id="community"
+          label={tt("Community")}
+          value={community ? community.name || tt("Untitled community") : null}
+          onClear={() => clear("community", "tier")}
+          options={[{ value: "", label: tt("Any community") }, ...communities.map((c) => ({ value: c.id, label: c.name || tt("Untitled community") }))]}
+          selected={adv.community ?? ""}
+          onSelect={(v) => onChange({ ...adv, community: v || undefined, tier: undefined })}
+        />
+      ) : null}
+      {community && community.tiers.length ? (
+        <FilterChip
+          id="tier"
+          label={tt("Tier")}
+          value={tier ? tier.name : null}
+          onClear={() => clear("tier")}
+          options={[{ value: "", label: tt("Any tier") }, ...community.tiers.map((t) => ({ value: t.id, label: t.name }))]}
+          selected={adv.tier ?? ""}
+          onSelect={(v) => set("tier", v)}
+        />
+      ) : null}
+      {communities.length ? (
+        <FilterChip
+          id="access"
+          label={tt("Community access")}
+          value={adv.access ? memberStatusLabel(adv.access) : null}
+          onClear={() => clear("access")}
+          options={[{ value: "", label: tt("Any status") }, ...MEMBER_STATUSES.map((s) => ({ value: s, label: memberStatusLabel(s) }))]}
+          selected={adv.access ?? ""}
+          onSelect={(v) => set("access", v)}
+        />
       ) : null}
       {yesNo("forms", tt("Form answers"), tt("Answered a form"), tt("No form answers"))}
       {yesNo("course", tt("Courses"), tt("Enrolled in a course"), tt("No course"))}
-      <label>
-        <span className={fieldLabel}>{tt("Lead status")}</span>
-        <select className={field} value={adv.leadStatus ?? ""} onChange={(e) => set("leadStatus", e.target.value)}>
-          <option value="">{tt("Any status")}</option>
-          {LEAD_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {leadStatusLabel(s)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <span className={fieldLabel}>{tt("First seen from")}</span>
-        <input type="date" className={field} value={adv.from ?? ""} onChange={(e) => set("from", e.target.value)} />
-      </label>
-      <label>
-        <span className={fieldLabel}>{tt("First seen until")}</span>
-        <input type="date" className={field} value={adv.to ?? ""} onChange={(e) => set("to", e.target.value)} />
-      </label>
-      <div className="flex items-end">
-        <button type="button" className={cn(buttonSecondary, "h-9")} onClick={onClear} disabled={advancedCount(adv) === 0}>
+      <FilterChip
+        id="leadStatus"
+        label={tt("Lead status")}
+        value={adv.leadStatus ? leadStatusLabel(adv.leadStatus) : null}
+        onClear={() => clear("leadStatus")}
+        options={[{ value: "", label: tt("Any status") }, ...LEAD_STATUSES.map((s) => ({ value: s, label: leadStatusLabel(s) }))]}
+        selected={adv.leadStatus ?? ""}
+        onSelect={(v) => set("leadStatus", v)}
+      />
+      <FilterChip id="dates" label={tt("First seen")} value={dates} onClear={() => clear("from", "to")}>
+        {(close) => <DatesField from={adv.from ?? ""} to={adv.to ?? ""} onApply={(from, to) => { onChange({ ...adv, from: from || undefined, to: to || undefined }); close() }} />}
+      </FilterChip>
+      {advancedCount(adv) > 1 ? (
+        <button type="button" className="h-7 shrink-0 rounded-lg px-2 text-[12px] font-medium text-[#4b5563] hover:bg-[#f1f2f4]" onClick={() => onChange(clearedAdv())}>
           {tt("Clear filters")}
         </button>
-      </div>
+      ) : null}
     </div>
   )
 }
 
-/* ─── The rows ─────────────────────────────────────────────────────────── */
-
-function Labels({ p }: { p: PersonRow }) {
-  const labels = labelsOf(p)
-  if (!labels.length) return null
+function TagField({ initial, onApply }: { initial: string; onApply: (tag: string) => void }) {
+  const [tag, setTag] = React.useState(initial)
   return (
-    <span className="flex flex-wrap gap-1">
-      {labels.map((l) => (
-        <span key={l} className="rounded-md bg-[#f1f2f4] px-1.5 py-0.5 text-[11px] font-medium leading-4 text-[#4b5563]">
-          {l}
+    <form
+      className="space-y-2 p-1.5"
+      onSubmit={(e) => {
+        e.preventDefault()
+        onApply(tag.trim())
+      }}
+    >
+      <input autoFocus value={tag} onChange={(e) => setTag(e.target.value)} placeholder={tt("Any tag")} maxLength={40} aria-label={tt("Tag")} className={field} />
+      <button type="submit" className={cn(buttonAccent, "w-full")}>
+        {tt("Apply")}
+      </button>
+    </form>
+  )
+}
+
+function DatesField({ from, to, onApply }: { from: string; to: string; onApply: (from: string, to: string) => void }) {
+  const [a, setA] = React.useState(from)
+  const [b, setB] = React.useState(to)
+  return (
+    <form
+      className="space-y-2 p-1.5"
+      onSubmit={(e) => {
+        e.preventDefault()
+        onApply(a, b)
+      }}
+    >
+      <label className="block">
+        <span className={fieldLabel}>{tt("First seen from")}</span>
+        <input type="date" value={a} onChange={(e) => setA(e.target.value)} className={field} />
+      </label>
+      <label className="block">
+        <span className={fieldLabel}>{tt("First seen until")}</span>
+        <input type="date" value={b} onChange={(e) => setB(e.target.value)} className={field} />
+      </label>
+      <button type="submit" className={cn(buttonAccent, "w-full")}>
+        {tt("Apply")}
+      </button>
+    </form>
+  )
+}
+
+/* ─── A person's row ───────────────────────────────────────────────────── */
+
+function Tags({ tags, max = 3 }: { tags: string[]; max?: number }) {
+  if (!tags.length) return null
+  return (
+    <span className="flex min-w-0 flex-wrap gap-1">
+      {tags.slice(0, max).map((t) => (
+        <span key={t} className="max-w-[140px] truncate rounded-md bg-[#f1f2f4] px-1.5 py-0.5 text-[12px] font-medium leading-4 text-[#3f3f46]">
+          {t}
         </span>
       ))}
+      {tags.length > max ? <span className="px-0.5 py-0.5 text-[12px] leading-4 text-[#6b7280]">+{tags.length - max}</span> : null}
     </span>
   )
 }
 
-function Check({ on, label, onChange }: { on: boolean; label: string; onChange: () => void }) {
-  return <input type="checkbox" checked={on} onChange={onChange} onClick={(e) => e.stopPropagation()} aria-label={label} className="h-4 w-4 cursor-pointer rounded border-[#d1d5db] accent-[#1a1a2e]" />
-}
-
-const th = "h-9 whitespace-nowrap px-3 text-left text-[12px] font-medium text-[#4b5563]"
-const td = "px-3 py-2.5 text-[13px] text-[#1a1a2e] align-middle"
-
-function Table({ rows, selected, onToggle, onToggleAll }: { rows: PersonRow[]; selected: Set<string>; onToggle: (id: string) => void; onToggleAll: (on: boolean) => void }) {
+function PersonLine({ p, picked, onPick }: { p: PersonRow; picked: boolean; onPick: (on: boolean) => void }) {
   const router = useRouter()
-  const all = rows.length > 0 && rows.every((r) => selected.has(r.id))
+  const href = `/app/contacts/${p.id}`
+  const rowBg = picked ? "bg-[#f4f4f6]" : "bg-white group-hover:bg-[#fafafb]"
+  const cell = cn("border-t border-[#f0f1f3] max-sm:hidden", rowBg)
   return (
-    <div className="table-scroll">
-      <table className="w-full">
-        <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
-          <tr>
-            <th className={cn(th, "w-10")}>
-              <Check on={all} label={tt("Pick everyone on this page")} onChange={() => onToggleAll(!all)} />
-            </th>
-            <th className={th}>{tt("Person")}</th>
-            <th className={th}>{tt("Marketing emails")}</th>
-            <th className={th}>{tt("Came from")}</th>
-            <th className={cn(th, "text-right")}>{tt("Orders")}</th>
-            <th className={th}>{tt("Last activity")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((p) => (
-            <tr
-              key={p.id}
-              className="cursor-pointer border-b border-[#f1f2f4] last:border-0 hover:bg-[#fafbfb]"
-              onClick={() => router.push(`/app/contacts/${p.id}`)}
-              data-contact-row={p.id}
-            >
-              <td className={cn(td, "w-10")}>
-                <Check on={selected.has(p.id)} label={tt("Pick {name}", { name: whoOf(p) })} onChange={() => onToggle(p.id)} />
-              </td>
-              <td className={cn(td, "max-w-[340px]")}>
-                <Link href={`/app/contacts/${p.id}`} onClick={(e) => e.stopPropagation()} className="block truncate font-medium hover:underline">
-                  {whoOf(p)}
-                </Link>
-                {p.name && p.email ? <span className="block truncate text-[12px] text-[#6b7280]">{p.email}</span> : null}
-                <span className="mt-1 block">
-                  <Labels p={p} />
-                </span>
-              </td>
-              <td className={cn(td, "whitespace-nowrap", p.subscription === "subscribed" ? "" : "text-[#6b7280]")}>{subscriptionLabel(p.subscription)}</td>
-              <td className={cn(td, "whitespace-nowrap text-[#6b7280]")}>{originLabel(p.origin)}</td>
-              <td className={cn(td, "text-right tabular-nums")}>{p.orders || ""}</td>
-              <td className={cn(td, "whitespace-nowrap text-[#6b7280]")}>{dayOf(p.lastSeen)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function PhoneList({ rows, selected, onToggle }: { rows: PersonRow[]; selected: Set<string>; onToggle: (id: string) => void }) {
-  return (
-    <ul className="divide-y divide-[#f1f2f4]">
-      {rows.map((p) => (
-        <li key={p.id} className="flex items-start gap-3 px-4 py-3" data-contact-row={p.id}>
-          <span className="pt-0.5">
-            <Check on={selected.has(p.id)} label={tt("Pick {name}", { name: whoOf(p) })} onChange={() => onToggle(p.id)} />
-          </span>
-          <Link href={`/app/contacts/${p.id}`} className="min-w-0 flex-1">
-            <span className="flex items-baseline justify-between gap-2">
-              <span className="truncate text-[15px] font-medium text-[#1a1a2e]">{whoOf(p)}</span>
-              <span className="shrink-0 text-[12px] text-[#9ca3af]">{dayOf(p.lastSeen)}</span>
-            </span>
-            {p.name && p.email ? <span className="block truncate text-[13px] text-[#6b7280]">{p.email}</span> : null}
-            <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <Labels p={p} />
-              {p.subscription !== "subscribed" && p.subscription !== "none" ? <span className="text-[12px] text-[#9ca3af]">{subscriptionLabel(p.subscription)}</span> : null}
-            </span>
+    <tr
+      className="orders-row group cursor-pointer"
+      data-contact-row={p.id}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest("a,button,input,label")) return
+        router.push(href)
+      }}
+    >
+      <td className={cn(cell, "w-10 p-0")}>
+        <label className="flex h-[52px] w-10 cursor-pointer items-center pl-3">
+          <Checkbox label={tt("Pick {name}", { name: whoOf(p) })} checked={picked} onChange={onPick} />
+        </label>
+      </td>
+      <td className={cn(cell, "max-w-[360px] py-2 pl-2 pr-3")}>
+        <Link href={href} className="block truncate font-semibold text-[#1a1a2e] hover:underline">
+          {whoOf(p)}
+        </Link>
+        {p.name && p.email ? <span className="block truncate text-[12px] text-[#6b7280]">{p.email}</span> : null}
+      </td>
+      <td className={cn(cell, "whitespace-nowrap px-3 text-[#4b5563]")}>{originLabel(p.origin)}</td>
+      <td className={cn(cell, "px-3")}>
+        <Tags tags={p.tags} />
+      </td>
+      <td className={cn(cell, "whitespace-nowrap px-3 pr-4 text-[#4b5563]")}>{dayOf(p.lastSeen)}</td>
+      {/* A phone: one stacked cell, as Orders' PhoneRow. */}
+      <td data-phone-row="" className="relative border-t border-[#f0f1f3] bg-white px-4 py-3 sm:hidden">
+        <div className="flex items-baseline justify-between gap-3">
+          <Link href={href} className="min-w-0 truncate text-[16px] font-semibold text-[#1a1a2e] outline-none after:absolute after:inset-0">
+            {whoOf(p)}
           </Link>
-        </li>
-      ))}
-    </ul>
+          <span className="shrink-0 text-[14px] text-[#6b7280]">{dayOf(p.lastSeen)}</span>
+        </div>
+        {p.name && p.email ? <p className="mt-0.5 truncate text-[15px] text-[#303036]">{p.email}</p> : null}
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-[14px] text-[#6b7280]">{originLabel(p.origin)}</span>
+          <Tags tags={p.tags} max={2} />
+        </div>
+      </td>
+    </tr>
   )
 }
 
-function Pager({ page, total, onPage }: { page: number; total: number; onPage: (p: number) => void }) {
+function Footer({ page, total, onPage }: { page: number; total: number; onPage: (p: number) => void }) {
   const last = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const from = (page - 1) * PAGE_SIZE + 1
   const to = Math.min(total, page * PAGE_SIZE)
   return (
-    <nav className="mt-3 flex items-center justify-between gap-2 text-[13px] text-[#6b7280]" aria-label={tt("Pages")}>
-      <span className="tabular-nums">{tt("{from} to {to} of {total}", { from, to, total })}</span>
-      <span className="flex gap-1">
-        <button type="button" className={iconButton} disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label={tt("Previous page")}>
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <button type="button" className={iconButton} disabled={page >= last} onClick={() => onPage(page + 1)} aria-label={tt("Next page")}>
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </span>
+    <nav className="flex h-11 items-center justify-between gap-3 border-t border-[#eef0f2] bg-[#fafafb] px-3" aria-label={tt("Pages")} data-contacts-pages="">
+      <span className="text-[12px] tabular-nums text-[#6b7280] max-sm:text-[14px]">{tt("{from}–{to} of {value}", { from, to, value: total.toLocaleString(appLocale()) })}</span>
+      {last > 1 ? (
+        <span className="flex items-center gap-1">
+          <button type="button" className={cn(buttonSecondary, "h-7 w-8 px-0 max-sm:h-9 max-sm:w-10")} disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label={tt("Previous page")}>
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button type="button" className={cn(buttonSecondary, "h-7 w-8 px-0 max-sm:h-9 max-sm:w-10")} disabled={page >= last} onClick={() => onPage(page + 1)} aria-label={tt("Next page")}>
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </span>
+      ) : null}
     </nav>
   )
 }
 
-/* ─── What can be done to the people picked ───────────────────────────── */
+/* ─── What can be done to the people picked (in the table's head) ────── */
 
 function SelectionBar({ ids, people, exportHref, onClear, onDone }: { ids: string[]; people: PersonRow[]; exportHref: string; onClear: () => void; onDone: (text: string, failed?: boolean) => void }) {
   const [tagging, setTagging] = React.useState(false)
@@ -510,6 +664,7 @@ function SelectionBar({ ids, people, exportHref, onClear, onDone }: { ids: strin
   const [busy, setBusy] = React.useState(false)
   const reachable = people.filter((p) => p.subscriber)
   const emailHref = `/app/emails/new?contacts=${encodeURIComponent(reachable.slice(0, EMAIL_MAX).map((p) => p.id).join(","))}`
+  const small = cn(buttonSecondary, "h-7 px-2.5 text-[12px]")
   const send = async (action: "tag" | "untag" | "delete") => {
     setBusy(true)
     const r = await contactsRequest<{ changed?: number; deleted?: number; kept?: number }>("/api/contacts/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ids, tag }), fallback: tt("That did not finish. Try again.") })
@@ -529,8 +684,8 @@ function SelectionBar({ ids, people, exportHref, onClear, onDone }: { ids: strin
     }
   }
   return (
-    <div className={cn(card, "mt-3 flex flex-wrap items-center gap-2 px-3 py-2")} data-contacts-selection="">
-      <span className="mr-1 text-[13px] font-medium text-[#1a1a2e]">{tt("{count} picked", { count: ids.length })}</span>
+    <div className="flex items-center gap-2" data-contacts-selection="">
+      <span className="mr-1 whitespace-nowrap font-medium text-[#1a1a2e]">{tt("{size} selected", { size: ids.length })}</span>
       {tagging ? (
         <form
           className="flex items-center gap-1.5"
@@ -539,34 +694,34 @@ function SelectionBar({ ids, people, exportHref, onClear, onDone }: { ids: strin
             if (tag.trim()) void send("tag")
           }}
         >
-          <input autoFocus value={tag} onChange={(e) => setTag(e.target.value)} placeholder={tt("Tag")} maxLength={40} className={cn(field, "h-8 w-[150px]")} />
-          <button type="submit" className={buttonSecondary} disabled={busy || !tag.trim()}>
+          <input autoFocus value={tag} onChange={(e) => setTag(e.target.value)} placeholder={tt("Tag")} aria-label={tt("Tag")} maxLength={40} className={cn(field, "h-7 w-[140px] text-[12px]")} />
+          <button type="submit" className={small} disabled={busy || !tag.trim()}>
             {tt("Add")}
           </button>
-          <button type="button" className={buttonSecondary} disabled={busy || !tag.trim()} onClick={() => void send("untag")}>
+          <button type="button" className={small} disabled={busy || !tag.trim()} onClick={() => void send("untag")}>
             {tt("Remove")}
           </button>
         </form>
       ) : (
-        <button type="button" className={buttonSecondary} onClick={() => setTagging(true)}>
+        <button type="button" className={small} onClick={() => setTagging(true)}>
           {tt("Tag")}
         </button>
       )}
       {reachable.length ? (
-        <Link href={emailHref} className={buttonSecondary} title={tt("Only people subscribed to your emails get it.")}>
+        <Link href={emailHref} className={small} title={tt("Only people subscribed to your emails get it.")}>
           {tt("Email {count}", { count: Math.min(reachable.length, EMAIL_MAX) })}
         </Link>
       ) : (
-        <button type="button" className={buttonSecondary} disabled title={tt("None of them are subscribed to your emails.")}>
+        <button type="button" className={small} disabled title={tt("None of them are subscribed to your emails.")}>
           {tt("Email")}
         </button>
       )}
-      <a href={exportHref} className={buttonSecondary}>
+      <a href={exportHref} className={small}>
         {tt("Export")}
       </a>
       <button
         type="button"
-        className={cn(buttonSecondary, "text-[#b42318]")}
+        className={cn(small, "text-[#b42318]")}
         disabled={busy}
         onClick={() => {
           if (window.confirm(tt("Delete what you added for these people (notes, tags, people you added or imported)? Their orders, memberships, community access, form answers and list sign ups are not deleted.")))
@@ -575,8 +730,8 @@ function SelectionBar({ ids, people, exportHref, onClear, onDone }: { ids: strin
       >
         {tt("Delete")}
       </button>
-      <button type="button" className={cn(iconButton, "ml-auto")} onClick={onClear} aria-label={tt("Clear the selection")}>
-        <X className="h-4 w-4" />
+      <button type="button" className="h-7 rounded-lg px-2 text-[12px] font-medium text-[#4b5563] hover:bg-[#ececef]" onClick={onClear}>
+        {tt("Clear")}
       </button>
     </div>
   )
