@@ -61,6 +61,7 @@ import { pageRowsOf, settingsRowOf } from "./site-releases"
 import { siteIconUrl } from "./site-icon"
 import { draftAssetPass } from "./draft-asset-pass"
 import { LastGood, keyedAs } from "./last-good"
+import { StampedMemo, nameAndStamp, siteStamp } from "./site-stamp"
 import { splitAssetVersion, withDraftPass } from "@/lib/storelib-theme/compat/draft-version"
 import { ownIconPath } from "./site-favicon"
 import { faviconOf } from "./favicon-sync"
@@ -213,6 +214,18 @@ function liveFiles(admin: Admin, installId: string, key: string, tags: string[])
 */
 const SHARED_FILES = "compat-files:v1"
 async function liveFilesKept(admin: Admin, installId: string, key: string, tags: string[]): Promise<Record<string, string>> {
+  /*
+    THE COPY FIRST, THEN THE DATABASE (round AM). Right after a Publish every
+    server is new to the publish (its key names it), so each one read every
+    file of the theme from the database at once, a few megabytes each, at
+    the moment the site's visitors were all waiting on it. The first server
+    to read them keeps them here; every other server takes them from the
+    copy. It is the same publish's files (the key), dropped by any change to
+    the live site (its tags), so it is never older than this server's own
+    copy in memory would be.
+  */
+  const shared = await sharedFiles(SHARED_FILES, [key], tags)
+  if (shared) return shared
   try {
     const files = await installFiles(admin, installId, false)
     await keepSharedFiles(SHARED_FILES, [key], tags, files)
@@ -341,12 +354,40 @@ export type CompatLookup = { kind: "site"; site: SiteData } | { kind: "missing" 
  */
 const lastGoodSite = new LastGood<SiteData>(200)
 
-export async function compatSiteByName(name: string, host: string, previewToken: string | null = null): Promise<CompatLookup> {
+/*
+  THE LIVE SITE AS THIS SERVER LAST ASSEMBLED IT (round AM, ./site-stamp.ts).
+  Assembling it from the shared cache was 339 to 619 ms of "read" on a warm
+  server, every answer a hit, about twenty requests to the cache in five
+  steps. It is kept here under the site's stamp: one small read beside the
+  name's lookup says whether a tag of the site was expired since (Publish,
+  a product, a post, a setting), and while it was not, the site is not
+  assembled again. Never a preview.
+*/
+const siteMemo = new StampedMemo<SiteData>(100)
+
+export async function compatSiteByName(name: string, host: string, previewToken: string | null = null, asked?: Awaited<ReturnType<typeof nameAndStamp>>): Promise<CompatLookup> {
   const key = name.toLowerCase()
+  /* Asked before the site is read, so a change that lands during the read is a new stamp, and what was read is never kept as the newer site. */
+  /* `asked`: the same, already read for this request (the held page's route asks it first): never read twice. */
+  const known = previewToken !== null ? null : (asked ?? (await nameAndStamp(name).catch(() => null)))
+  const memoKey = known ? `${key}|${known.creatorId}` : ""
+  if (known) {
+    const kept = siteMemo.get(memoKey, known.stamp)
+    if (kept) return { kind: "site", site: { ...kept, host } }
+  }
+  /*
+    A name this server had not seen yet has no stamp: it is asked now, beside
+    the read rather than before it, so the first visitor waits for nothing
+    more. A change that lands while both are under way can at worst keep
+    what was read under the older stamp, which the next visitor no longer
+    matches; the shared cache's own entries have the same window.
+  */
+  const stampBeside = known && known.stamp === null ? siteStamp(known.creatorId) : null
   try {
-    const found = await compatSiteFresh(name, host, previewToken)
+    const found = await compatSiteFresh(name, host, previewToken, known?.creator)
     if (found.kind === "site" && previewToken === null) {
       lastGoodSite.remember(key, found.site)
+      if (known && found.site.creatorId === known.creatorId) siteMemo.set(memoKey, known.stamp ?? (await stampBeside), found.site)
     }
     return found
   } catch (e) {
@@ -360,8 +401,9 @@ export async function compatSiteByName(name: string, host: string, previewToken:
   }
 }
 
-async function compatSiteFresh(name: string, host: string, previewToken: string | null): Promise<CompatLookup> {
-  const creator = await creatorByName(name)
+async function compatSiteFresh(name: string, host: string, previewToken: string | null, known?: Awaited<ReturnType<typeof creatorByName>>): Promise<CompatLookup> {
+  /* The name's creator, when the caller has just looked it up (nameAndStamp): not asked of the cache a second time. */
+  const creator = known ?? (await creatorByName(name))
   if (!creator) return { kind: "missing" }
   const admin = createAdminClient()
   const siteTags = [creatorSiteTag(creator.creatorId)]

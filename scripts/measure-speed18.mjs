@@ -113,6 +113,22 @@ const run = (file, env) => {
   return JSON.parse(out.trim().split("\n").filter((l) => l.startsWith("{")).pop())
 }
 const results = []
+/* PUBLISH_FLOW=1: a Publish on one server, as its visitors see it (scripts/speed18/bench.tsx publishFlow, round AM). */
+if (process.env.PUBLISH_FLOW) {
+  try {
+    console.log(`\nRTT ${process.env.RTT || 20}ms per database round trip, CACHE_RTT ${process.env.CACHE_RTT || 0}ms per data cache answer (simulated).\n`)
+    for (const b of builds) {
+      const flow = run(b.file, { PUBLISH_FLOW: "1" }).flow
+      console.log(b.label)
+      for (const s of flow) console.log(`  ${s.step.padEnd(40)} ${String(s.ms).padStart(5)}ms  trips ${String(s.trips).padStart(3)}  held ${String(s.held).padEnd(5)} theme ${s.theme.padEnd(4)} ${s.timing ?? ""}${process.env.TABLES ? `\n      ${s.tables}` : ""}`)
+      results.push({ label: b.label, flow })
+    }
+  } finally {
+    if (!process.env.KEEP) rmSync(dir, { recursive: true, force: true })
+  }
+  if (process.env.JSON_OUT) writeFileSync(process.env.JSON_OUT, JSON.stringify(results, null, 2))
+  process.exit(0)
+}
 try {
   for (const b of builds) {
     const wanted = (process.env.ONLY ?? "").split(",").filter(Boolean)

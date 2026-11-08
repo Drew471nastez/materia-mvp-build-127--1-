@@ -14,6 +14,7 @@ import { translationsChanged } from "@/lib/markets/translate-queue"
 import { pruneReleases, recordRelease } from "@/lib/website-builder/site-releases-server"
 import { mirrorWholeTheme } from "@/lib/github-sync/mirror"
 import { warmAfterPublish } from "@/lib/website-builder/warm-sites"
+import { seenCountry } from "@/lib/markets/visitor-country"
 import { readOwnSectionFields, sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { ensureStoreMenus } from "@/lib/website-builder/store-menus-server"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -330,6 +331,20 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
     await revalidatePublishedSite(creator.id)
 
     /*
+      ITS PAGES DRAWN AT ONCE, BEFORE A VISITOR ASKS (round AM,
+      lib/website-builder/warm-sites.ts warmAfterPublish): for the country of
+      the person who pressed Publish first, who is the one about to open it,
+      then as the warm's own connection is seen. It used to wait for the
+      release below, a few seconds of reading and writing every theme file,
+      while the visitors arriving drew the pages themselves. The pages are
+      the same either way: the release is written from these very rows, and
+      the page's marker names the rows' count, not which of the two it was
+      drawn from (lib/website-builder/live-release.ts).
+    */
+    const publisherCountry = seenCountry(req.headers)
+    after(() => warmAfterPublish(creatorId, { countries: [publisherCountry] }))
+
+    /*
       AND KEPT AS A RELEASE, after the answer (lib/website-builder/
       site-releases-server.ts, SQL part 180): the live rows as they are now,
       written once and never changed, and the website pointed at it. Best
@@ -344,8 +359,6 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
       if (kept.ok === false) {
         if (kept.reason === "failed") console.error("[publish] the release was not written:", kept.detail)
       } else await pruneReleases(admin, installId)
-      /* Then its pages drawn from it, before a visitor asks (lib/website-builder/warm-sites.ts warmAfterPublish). */
-      await warmAfterPublish(creatorId)
     })
 
     /* After the answer: every page of the site, to the search engines that
