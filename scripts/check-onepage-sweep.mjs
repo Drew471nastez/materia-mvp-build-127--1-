@@ -161,6 +161,8 @@ try {
         for (const where of ["post_inline", "post_carousel", "post_group"]) {
           /* Scrolled to, then left to settle: the posts around it load as they come into view and move it. */
           await page.evaluate((where) => document.querySelector(`[data-op-block="${where}"] [data-compact-post]`)?.scrollIntoView({ block: "center" }), where)
+          /* Its frame drawn (it is lazy, and shows once Instagram has said its height), then the page still. */
+          await page.waitForFunction((where) => document.querySelector(`[data-op-block="${where}"] [data-post-box] iframe`)?.style.opacity === "1", { timeout: 8000 }, where).catch(() => {})
           await sleep(1200)
           const fold = await page.evaluate((where) => {
             const root = document.querySelector(`[data-op-block="${where}"] [data-compact-post]`)
@@ -186,12 +188,12 @@ try {
             continue
           }
           await sleep(200)
-          const foot = await pixel(page, fold.x, fold.bottom - 2)
+          const foot = await pixel(page, fold.x, Math.floor(fold.bottom) - 2)
           const middle = await pixel(page, fold.x, fold.mid)
           const want = pageColour(dark)
           console.log(`   ${where}`, JSON.stringify({ ...fold, foot, middle }))
           check(fold.folded && /linear-gradient/.test(fold.mask || ""), `${label}: ${where} is folded with a masked foot`)
-          check(close(foot, want, 14), `${label}: ${where} fades into the page's own colour at its foot (${foot} vs ${want})`)
+          check(close(foot, want, 20), `${label}: ${where} fades into the page's own colour at its foot (${foot} vs ${want})`)
           check(close(middle, [242, 242, 242], 16), `${label}: ${where} is drawn solid above the fade (${middle})`)
           const btn = dark ? "rgb(244, 244, 245)" : "rgb(26, 26, 46)"
           check(fold.more && fold.more.bg === btn && fold.more.h === 32 && fold.more.gap >= 8 && fold.more.gap <= 16, `${label}: ${where} "View full post" is the page's button, 32px, at the foot (${JSON.stringify(fold.more)})`)

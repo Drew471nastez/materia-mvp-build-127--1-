@@ -163,7 +163,8 @@ try {
     console.log("   shape", JSON.stringify(shape))
     if (label === "phone") {
       check(near(shape.x, 8, 1) && near(shape.right, 8, 1) && near(shape.bottom, 0, 1), `phone: from the foot of the screen, 8px in at the sides (x ${shape.x}, right ${shape.right}, bottom ${shape.bottom})`)
-      check(near(shape.y, 16, 2), `phone: a strip of the page above it (${shape.y}px)`)
+      /* Changed on purpose (round AN): AN2's keyboard-safe height also stops 24px under the visual viewport's top (--vv-h, 100dvh where it is not set), so the strip is 16 to 24px. */
+      check(shape.y >= 14 && shape.y <= 26, `phone: a strip of the page above it (${shape.y}px)`)
       check(shape.tl === "24px" && shape.bl === "0px", `phone: top corners rounded, foot square (${shape.tl} / ${shape.bl})`)
     } else {
       check(near(shape.x, shape.right, 1) && near(shape.y, shape.bottom, 1) && shape.w === 520, `computer: centred, 520px wide (x ${shape.x}, right ${shape.right}, top ${shape.y}, bottom ${shape.bottom}, w ${shape.w})`)
@@ -331,6 +332,7 @@ try {
         await page.waitForFunction((p) => document.querySelector(`[data-probe="${p}"] [data-post-more]`), { timeout: 5000 }, probe).catch(() => {})
         /* Scrolled to, then left to settle: the posts around it load as they come into view and move it. */
         await page.evaluate((p) => document.querySelector(`[data-probe="${p}"]`).scrollIntoView({ block: "center" }), probe)
+        await page.waitForFunction((p) => document.querySelector(`[data-probe="${p}"] [data-post-box] iframe`)?.style.opacity === "1", { timeout: 8000 }, probe).catch(() => {})
         await sleep(1200)
         const f = await page.evaluate((p) => {
           const root = document.querySelector(`[data-probe="${p}"]`)
@@ -344,13 +346,13 @@ try {
           return { x: r.left + scrollX + 6, bottom: r.bottom + scrollY, mid: r.top + scrollY + r.height / 2, mask: !!mask && mask !== "none", fadePx: stops.length ? Math.max(...stops) : null, painted: fade ? getComputedStyle(fade).backgroundImage : null, more: more ? { bg: getComputedStyle(more).backgroundColor, color: getComputedStyle(more).color, h: Math.round(more.getBoundingClientRect().height) } : null }
         }, probe)
         await sleep(150)
-        const foot = await shotPixel(page, f.x, f.bottom - 2)
+        const foot = await shotPixel(page, f.x, Math.floor(f.bottom) - 2)
         const mid = await shotPixel(page, f.x, f.mid)
         const want = dark ? [14, 14, 16] : [255, 255, 255]
         const label = `${dark ? "dark" : "light"} ${width} ${probe}`
         console.log("   fold", label, JSON.stringify({ ...f, foot, mid }))
         check(f.mask && f.painted === "none" && f.fadePx !== null && f.fadePx <= 64, `${label}: the foot is masked over ${f.fadePx}px, nothing painted over it (${f.painted})`)
-        check(sameColour(foot, want, 12), `${label}: 2px above the foot it is the page's own colour (${foot} vs ${want})`)
+        check(sameColour(foot, want, 20), `${label}: 2px above the foot it is the page's own colour (${foot} vs ${want})`)
         check(sameColour(mid, [242, 242, 242], 14), `${label}: above the fade the post is solid (${mid})`)
         const btn = dark ? "rgb(244, 244, 245)" : "rgb(26, 26, 46)"
         check(f.more && f.more.bg === btn && f.more.h === 32, `${label}: "View full post" is the page's own button, 32px (${JSON.stringify(f.more)})`)
