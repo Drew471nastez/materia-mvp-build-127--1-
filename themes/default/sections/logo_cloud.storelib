@@ -1,0 +1,372 @@
+{# ===========================================================================
+   Logo cloud: the names that already trust this business, as logos in a
+   ruled grid or a quiet row. A name with no logo yet is set as a wordmark in
+   the heading font, so the section never shows an empty box.
+   =========================================================================== #}
+<template>
+<section class="s lc lc--{{ settings.layout }}{% if settings.muted %} lc--muted{% endif %}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn2: {{ scheme.secondary_btn_bg }}; --s-btn2-text: {{ scheme.secondary_btn_text }}; --s-btn2-border: {{ scheme.secondary_btn_border }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-btn2-hover: {{ scheme.secondary_btn_hover_bg }}; --s-btn2-hover-text: {{ scheme.secondary_btn_hover_text }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; --cols-d: {{ settings.columns.desktop }}; --cols-t: {{ settings.columns.tablet }}; --cols-m: {{ settings.columns.mobile }}; --lc-h: {{ settings.logo_height }}px;">
+  <div class="s__in s__in--{{ settings.max_width }}">
+    {% if settings.eyebrow or settings.heading or settings.subheading %}
+      <div class="s__head{% if settings.align == 'center' %} s__head--center{% endif %}">
+        {% if settings.eyebrow %}<p class="s__eyebrow">{{ settings.eyebrow }}</p>{% endif %}
+        {% if settings.heading %}<h2 class="s__h">{{ settings.heading }}</h2>{% endif %}
+        {% if settings.subheading %}<p class="s__sub">{{ settings.subheading }}</p>{% endif %}
+      </div>
+    {% endif %}
+    {% if blocks.size == 0 %}
+      {% if page.in_editor %}<p class="lc__empty">Add logos in the sidebar</p>{% endif %}
+    {% else %}
+      <ul class="lc__grid" role="list">
+        {% for block in blocks %}
+          <li class="lc__cell" data-block-id="{{ block.id }}">
+            {% if block.settings.link %}<a class="lc__link" href="{{ block.settings.link | url }}">{% endif %}
+            {% if block.settings.image %}<img class="lc__img" src="{{ block.settings.image | asset }}" alt="{{ block.settings.name }}" loading="lazy" decoding="async">{% else %}<span class="lc__word">{{ block.settings.name }}</span>{% endif %}
+            {% if block.settings.link %}</a>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+</section>
+</template>
+
+<style scoped>
+.s { container-type: inline-size; background: var(--s-bg); color: var(--s-text); }
+.s__in {
+  margin: 0 auto;
+  padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--s-pb) * var(--theme-spacing-scale, 1));
+}
+.s__in--narrow { max-width: 720px; }
+.s__in--medium { max-width: 960px; }
+.s__in--wide { max-width: var(--theme-page-width, 1280px); }
+.s__in--full { max-width: none; }
+.s__eyebrow { margin: 0 0 14px; font-family: var(--sl-caption-font); font-size: var(--sl-caption-size, 12px); font-weight: var(--sl-caption-weight, 600); letter-spacing: var(--sl-caption-tracking, 0.14em); text-transform: var(--sl-caption-transform, uppercase); color: var(--s-accent); }
+.s__h {
+  margin: 0;
+  font-size: var(--section-heading-size, 32px);
+  line-height: var(--section-heading-line-height, 1.15);
+  font-weight: var(--section-heading-weight, 700);
+  color: var(--s-heading);
+  letter-spacing: var(--section-heading-tracking, -0.01em);
+  text-transform: var(--section-heading-transform, none);
+  font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
+  text-wrap: balance;
+}
+.s__sub { margin: 16px 0 0; max-width: 38rem; font-size: var(--section-text-size, 17px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); text-wrap: pretty; }
+.s__head { max-width: 46rem; }
+.s__head--center { margin-inline: auto; text-align: center; }
+.s__head--center .s__sub { margin-inline: auto; }
+.s__btns { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+.s__head--center .s__btns { justify-content: center; }
+.s__btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px;
+  padding: var(--sl-button-padding, 13px 24px); font-size: var(--sl-button-size, 15px); line-height: var(--sl-button-line-height); font-weight: var(--theme-button-weight, 600); text-decoration: none;
+  border-radius: var(--s-radius); border: 1px solid transparent; transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+.s__btn--primary:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); border-color: var(--s-btn-hover); }
+.s__btn--secondary:hover { background: var(--s-btn2-hover); color: var(--s-btn2-hover-text); }
+.s__btn--primary { background: var(--s-btn); color: var(--s-btn-text); border-color: var(--s-btn); }
+.s__btn--secondary { background: var(--s-btn2); color: var(--s-btn2-text); border-color: var(--s-btn2-border); }
+.s__btn:focus-visible, .s a:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
+.s__note { margin: 18px 0 0; font-size: 13px; color: var(--s-para); }
+.ph { display: grid !important; place-content: center; justify-items: center; gap: 8px; width: 100%; height: 100%; min-height: 160px; box-sizing: border-box; border: 1px dashed var(--s-border); background: color-mix(in srgb, var(--s-text) 5%, transparent); color: var(--s-para); font-size: 13px; text-align: center; padding: 16px; }
+.ph svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+
+.lc .s__head { margin-bottom: 40px; }
+.lc__empty { margin: 0; padding: 24px; border: 1px dashed var(--s-border); text-align: center; font-size: 13px; color: var(--s-para); }
+.lc__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--cols-m), minmax(0, 1fr)); }
+@container (min-width: 640px) { .lc__grid { grid-template-columns: repeat(var(--cols-t), minmax(0, 1fr)); } }
+@container (min-width: 900px) { .lc__grid { grid-template-columns: repeat(var(--cols-d), minmax(0, 1fr)); } }
+.lc--grid .lc__grid { border-top: 1px solid var(--s-border); border-left: 1px solid var(--s-border); }
+.lc--grid .lc__cell { border-right: 1px solid var(--s-border); border-bottom: 1px solid var(--s-border); min-height: calc(var(--lc-h) * 3); }
+.lc--row .lc__grid { gap: 24px 48px; }
+.lc__cell { display: flex; align-items: center; justify-content: center; padding: 24px 16px; min-width: 0; }
+.lc__link { display: flex; align-items: center; justify-content: center; text-decoration: none; color: inherit; min-height: 44px; }
+.lc__img { display: block; max-width: 100%; height: var(--lc-h); width: auto; object-fit: contain; transition: filter 200ms ease, opacity 200ms ease; }
+.lc__word { color: var(--s-heading); font-family: var(--type-h3-font, var(--theme-font-heading)), ui-sans-serif, system-ui, sans-serif; font-weight: 600; font-size: calc(var(--lc-h) * 0.62); letter-spacing: -0.01em; text-align: center; line-height: 1.1; transition: opacity 200ms ease; }
+.lc--muted .lc__img { filter: grayscale(1); opacity: 0.7; }
+.lc--muted .lc__word { opacity: 0.7; }
+.lc--muted .lc__cell:hover .lc__img { filter: none; opacity: 1; }
+.lc--muted .lc__cell:hover .lc__word { opacity: 1; }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "logo_cloud",
+  "name": "Logo Cloud",
+  "category": "social-proof",
+  "description": "The names that already trust you, as logos in a ruled grid or a quiet row.",
+  "icon": "award",
+  "settings": [
+    {
+      "type": "header",
+      "id": "hdr_content",
+      "label": "Content"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": ""
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Trusted by"
+    },
+    {
+      "type": "textarea",
+      "id": "subheading",
+      "label": "Supporting line",
+      "default": ""
+    },
+    {
+      "type": "radio",
+      "id": "align",
+      "label": "Heading alignment",
+      "default": "center",
+      "options": [
+        {
+          "label": "Left",
+          "value": "left"
+        },
+        {
+          "label": "Centre",
+          "value": "center"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "id": "hdr_layout",
+      "label": "Layout"
+    },
+    {
+      "type": "radio",
+      "id": "layout",
+      "label": "Style",
+      "default": "grid",
+      "options": [
+        {
+          "label": "Ruled grid",
+          "value": "grid"
+        },
+        {
+          "label": "Open row",
+          "value": "row"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "columns",
+      "label": "Columns",
+      "default": {
+        "desktop": 5,
+        "tablet": 3,
+        "mobile": 2
+      },
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "responsive": true
+    },
+    {
+      "type": "range",
+      "id": "logo_height",
+      "label": "Logo height",
+      "default": 32,
+      "min": 16,
+      "max": 72,
+      "step": 4,
+      "unit": "px"
+    },
+    {
+      "type": "toggle",
+      "id": "muted",
+      "label": "Grey until hovered",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "max_width",
+      "label": "Content width",
+      "default": "wide",
+      "options": [
+        {
+          "label": "Narrow",
+          "value": "narrow"
+        },
+        {
+          "label": "Medium",
+          "value": "medium"
+        },
+        {
+          "label": "Wide",
+          "value": "wide"
+        },
+        {
+          "label": "Full",
+          "value": "full"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "id": "hdr_style",
+      "label": "Style"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "default": "white"
+    },
+    {
+      "type": "header",
+      "id": "hdr_spacing",
+      "label": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "default": 80,
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "default": 80,
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "logo",
+      "name": "Logo",
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Logo",
+          "default": "",
+          "info": "A transparent PNG or SVG looks best."
+        },
+        {
+          "type": "text",
+          "id": "name",
+          "label": "Name",
+          "default": "Brand name",
+          "info": "Read aloud, and shown as a wordmark until there is a logo."
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link",
+          "default": ""
+        }
+      ]
+    }
+  ],
+  "max_blocks": 24,
+  "presets": [
+    {
+      "name": "Logo Cloud",
+      "blocks": [
+        {
+          "id": "g1",
+          "type": "logo",
+          "settings": {
+            "name": "Partner 1"
+          }
+        },
+        {
+          "id": "g2",
+          "type": "logo",
+          "settings": {
+            "name": "Partner 2"
+          }
+        },
+        {
+          "id": "g3",
+          "type": "logo",
+          "settings": {
+            "name": "Partner 3"
+          }
+        },
+        {
+          "id": "g4",
+          "type": "logo",
+          "settings": {
+            "name": "Partner 4"
+          }
+        },
+        {
+          "id": "g5",
+          "type": "logo",
+          "settings": {
+            "name": "Partner 5"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Logo Cloud, row",
+      "settings": {
+        "layout": "row",
+        "heading": "",
+        "eyebrow": "As featured in",
+        "padding_top": 56,
+        "padding_bottom": 56
+      },
+      "blocks": [
+        {
+          "id": "r1",
+          "type": "logo",
+          "settings": {
+            "name": "Publication 1"
+          }
+        },
+        {
+          "id": "r2",
+          "type": "logo",
+          "settings": {
+            "name": "Publication 2"
+          }
+        },
+        {
+          "id": "r3",
+          "type": "logo",
+          "settings": {
+            "name": "Publication 3"
+          }
+        },
+        {
+          "id": "r4",
+          "type": "logo",
+          "settings": {
+            "name": "Publication 4"
+          }
+        },
+        {
+          "id": "r5",
+          "type": "logo",
+          "settings": {
+            "name": "Publication 5"
+          }
+        }
+      ]
+    }
+  ]
+}
+</schema>

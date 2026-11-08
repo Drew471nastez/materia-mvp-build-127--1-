@@ -718,6 +718,11 @@ const FILTERS: Record<string, Filter> = {
    */
   lines: (v) => str(v).split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== "").slice(0, 100),
   /**
+   * A list from text typed with a separator, each part trimmed: "yes, no,
+   * 3 GB" | split: "," is three cells. At most 100, like lines.
+   */
+  split: (v, [sep]) => { const s = str(v); if (s === "") return []; return s.split(str(sep ?? ",")).map((p) => p.trim()).slice(0, 100) },
+  /**
    * A Storelib Reviews widget, drawn from the section's settings and the
    * page's reviews: {{ settings | review_widget }} (sections/
    * reviews_widget.storelib, lib/reviews/widgets/render.ts). Markup the

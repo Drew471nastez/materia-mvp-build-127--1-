@@ -234,6 +234,8 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
       { id: "content_padding_x", label: "Side padding", type: "range", min: 8, max: 80, step: 4, default: 24, unit: "px" },
       { id: "section_gap", label: "Section gap", type: "range", min: 0, max: 80, step: 4, default: 0, unit: "px" },
       { id: "spacing_scale", label: "Spacing scale", type: "range", min: 0.5, max: 2.0, step: 0.1, default: 1.0, info: "Multiplies every section's top and bottom padding." },
+      /* On phones, on top of Spacing scale (theme-css.ts themeStylesheet). 1 is what phones have always had. */
+      { id: "spacing_scale_mobile", label: "Phone spacing", type: "range", min: 0.5, max: 1.5, step: 0.05, default: 1.0, info: "On phones, multiplies section padding again. Below 1 is tighter." },
       { id: "hdr_cards", label: "Cards", type: "header" },
       { id: "border_radius", label: "Card corner radius", type: "range", min: 0, max: 24, step: 1, default: 8, unit: "px" },
       { id: "card_shadow", label: "Card shadow", type: "select", default: "none", options: SHADOWS_OPTIONS },
