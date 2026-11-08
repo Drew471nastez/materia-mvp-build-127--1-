@@ -139,6 +139,8 @@ import {
   Calendar,
   Info,
   FolderOpen,
+  PanelBottom,
+  LayoutList,
 } from "lucide-react"
 import { LinkStatsChart, type LinkStats } from "@/components/onepage/link-stats-chart"
 import { pageClickCounts } from "@/lib/onepage/stats-client"
@@ -4377,9 +4379,11 @@ function BlockEditor({
                   accent="#1DB954"
                   value={(data.spotify_mode || 'go_to_url') as SpotifyMode}
                   options={[
-                    { id: 'audio_preview' as SpotifyMode, label: tt("Audio preview"), hint: tt("Open modern preview modal"), icon: <Play className="h-4 w-4" strokeWidth={2} /> },
-                    { id: 'go_to_url' as SpotifyMode, label: tt("Go to URL"), hint: tt("Redirect to Spotify directly"), icon: <ExternalLink className="h-4 w-4" strokeWidth={2} /> },
-                    { id: 'show_streaming' as SpotifyMode, label: tt("Show streaming"), hint: tt("Display all platforms"), icon: <LayoutGrid className="h-4 w-4" strokeWidth={2} /> },
+                    /* Round AN: the same three as every embedding block's Interaction, plus the other services in the sheet. */
+                    { id: 'audio_preview' as SpotifyMode, label: tt("Open in a sheet"), hint: tt("Spotify's player over the page"), icon: <PanelBottom className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'show_streaming' as SpotifyMode, label: tt("Sheet with every service"), hint: tt("The player, and where else it is"), icon: <LayoutGrid className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'go_to_url' as SpotifyMode, label: tt("Go to the link"), hint: tt("Straight to Spotify"), icon: <ExternalLink className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'on_page' as SpotifyMode, label: tt("Show on the page"), hint: tt("The player in place of the button"), icon: <LayoutList className="h-4 w-4" strokeWidth={2} /> },
                   ]}
                   onPick={async (mode) => {
                     updateData({ spotify_mode: mode })
@@ -4615,8 +4619,9 @@ function BlockEditor({
                   accent="#FA233B"
                   value={(data.apple_music_mode || 'go_to_url') as string}
                   options={[
-                    { id: 'audio_preview', label: tt("Audio preview"), hint: tt("Open modern preview modal"), icon: <Play className="h-4 w-4" strokeWidth={2} /> },
-                    { id: 'go_to_url', label: tt("Go to URL"), hint: tt("Redirect to Apple Music directly"), icon: <ExternalLink className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'audio_preview', label: tt("Open in a sheet"), hint: tt("Apple Music's player over the page"), icon: <PanelBottom className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'go_to_url', label: tt("Go to the link"), hint: tt("Straight to Apple Music"), icon: <ExternalLink className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'on_page', label: tt("Show on the page"), hint: tt("The player in place of the button"), icon: <LayoutList className="h-4 w-4" strokeWidth={2} /> },
                   ]}
                   onPick={async (mode) => {
                     updateData({ apple_music_mode: mode as NonNullable<LinkButtonBlockData["apple_music_mode"]> })
@@ -5656,33 +5661,7 @@ function BlockEditor({
                 />
               </div>
 
-              {/* Enable Preview Toggle */}
-              <div className="flex items-center justify-between pt-2 border-t">
-                <div className="space-y-0.5">
-                  <Label className="text-xs font-medium">{tt("Enable Preview")}</Label>
-                  <p className="text-[10px] text-muted-foreground">{tt("Show PDF preview modal when clicked")}</p>
-                </div>
-                <Toggle label={tt("Show PDF preview when clicked")}
-                  checked={data.enable_preview !== false}
-                  onCheckedChange={(checked) => {
-                    updateData({ enable_preview: checked, open_directly: checked ? false : data.open_directly })
-                  }}
-                />
-              </div>
-
-              {/* Open Directly Toggle */}
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-xs font-medium">{tt("Open Directly")}</Label>
-                  <p className="text-[10px] text-muted-foreground">{tt("Open PDF file directly in new tab")}</p>
-                </div>
-                <Toggle label={tt("Open PDF directly in a new tab")}
-                  checked={data.open_directly === true}
-                  onCheckedChange={(checked) => {
-                    updateData({ open_directly: checked, enable_preview: checked ? false : data.enable_preview })
-                  }}
-                />
-              </div>
+              {/* Round AN: "Enable preview" and "Open directly" are the block's Interaction now (components/onepage/extra-blocks InteractionChoice, under its settings). */}
             </PartContent>
 
             <PartContent value="layout" className="mt-0 space-y-3">
@@ -5843,33 +5822,7 @@ function BlockEditor({
                 />
               </div>
 
-              {/* Enable Preview Toggle */}
-              <div className="flex items-center justify-between pt-2 border-t">
-                <div className="space-y-0.5">
-                  <Label className="text-xs font-medium">{tt("Enable Preview")}</Label>
-                  <p className="text-[10px] text-muted-foreground">{tt("Show menu preview modal when clicked")}</p>
-                </div>
-                <Toggle label={tt("Show menu preview when clicked")}
-                  checked={data.enable_preview !== false}
-                  onCheckedChange={(checked) => {
-                    updateData({ enable_preview: checked, open_directly: checked ? false : data.open_directly })
-                  }}
-                />
-              </div>
-
-              {/* Open Directly Toggle */}
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-xs font-medium">{tt("Open Directly")}</Label>
-                  <p className="text-[10px] text-muted-foreground">{tt("Open menu PDF directly in new tab")}</p>
-                </div>
-                <Toggle label={tt("Open menu PDF directly in a new tab")}
-                  checked={data.open_directly === true}
-                  onCheckedChange={(checked) => {
-                    updateData({ open_directly: checked, enable_preview: checked ? false : data.enable_preview })
-                  }}
-                />
-              </div>
+              {/* Round AN: "Enable preview" and "Open directly" are the block's Interaction now (components/onepage/extra-blocks InteractionChoice, under its settings). */}
             </PartContent>
 
             <PartContent value="layout" className="mt-0 space-y-3">
