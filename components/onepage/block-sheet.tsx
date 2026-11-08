@@ -50,40 +50,9 @@ import { backInFlight, backThen } from "@/lib/navigation/go-back"
 
 export type OpenMode = "sheet" | "direct"
 
-export interface BlockSheetRequest {
-  /** The block that opened it, for analytics and to restore focus on close. */
-  blockId: string
-  /** The line at the top of the sheet: "Calendly", the video's title. */
-  title: string
-  /** What the sheet shows. Rendered lazily: only while the sheet is open. */
-  body: ReactNode
-  /** The block's own button in the bar at the foot ("Book a call"), when it has one. */
-  cta?: { label: string; href?: string | null; icon?: ReactNode; onClick?: () => void } | null
-  /** The address Share copies or hands to the system share sheet. Left out, Share is not drawn. */
-  shareUrl?: string | null
-  /** Let the body use the sheet's full height (an embed) instead of its natural height (a form). */
-  fill?: boolean
-  /** Told once when the sheet starts to close, however it was closed. */
-  onClose?: () => void
-  /**
-   * Told once the sheet has gone AND its history entry with it (round AN):
-   * the moment to leave the page (a WhatsApp chat after a form), so the
-   * Back the sheet takes off its own entry never lands after the new page
-   * has been asked for.
-   */
-  onGone?: () => void
-}
-
-export interface BlockSheetApi {
-  open: (request: BlockSheetRequest) => void
-  close: () => void
-  /** False where no provider is drawn (a block rendered on its own): callers then go to the address directly. */
-  available: boolean
-}
-
-const NONE: BlockSheetApi = { open: () => {}, close: () => {}, available: false }
-
-export const BlockSheetContext = createContext<BlockSheetApi>(NONE)
+/* The contract (the request, the API, the context and its hook) lives in ./block-sheet-context (round AN), so asking for the sheet does not load it. */
+import { BlockSheetContext, type BlockSheetApi, type BlockSheetRequest } from "./block-sheet-context"
+export { BlockSheetContext, type BlockSheetApi, type BlockSheetRequest } from "./block-sheet-context"
 
 export function useBlockSheet(): BlockSheetApi {
   return useContext(BlockSheetContext)

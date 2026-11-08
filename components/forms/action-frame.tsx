@@ -33,7 +33,8 @@ import { isOnePagePreview } from "@/lib/onepage/preview-notice"
 import { actionFormId, actionHref, formVars, type ActionVars, type NativeAction } from "@/lib/forms/actions"
 import { HANDOFF_MAX_MS, PURCHASE_CLOSED, purchaseStep, sheetShown, type PurchaseLayer, type PurchaseStep } from "@/lib/onepage/purchase-flow"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
-import { useBlockSheet } from "@/components/onepage/block-sheet"
+/* The contract alone (./block-sheet-context): the sheet itself is the page's, and stays out of a creator page's first script. */
+import { useBlockSheet } from "@/components/onepage/block-sheet-context"
 import { tt } from "@/lib/i18n/text"
 
 const FormDialog = lazy(() => import("./form-dialog"))

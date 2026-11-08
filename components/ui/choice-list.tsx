@@ -435,20 +435,40 @@ export function ChoiceSheet({
   React.useLayoutEffect(() => {
     if (open) centerChecked(listRef.current)
   }, [open])
+  /* A short list with no search (round AN: an action, a template): no keyboard to make room for, and only as tall as its rows. */
+  if (!searchable)
+    return (
+      <BottomSheet
+        isOpen={open}
+        onClose={onClose}
+        label={title}
+        maxHeight={CHOICE_SHEET_HEIGHT}
+        zIndex={sheetZIndex}
+        header={
+          <div data-choice-sheet-header="">
+            <p className="px-5 pb-2 pt-2 text-[16px] font-semibold text-[#1a1a2e]">{title}</p>
+          </div>
+        }
+      >
+        <div data-choice-sheet="" ref={listRef}>
+          <ChoiceListBody choices={choices} value={value} onPick={onPick} compact label={title} lead={lead} leading={leading} uniform={uniform} query="" search={null} scrollClassName={scrollClassName ?? "max-h-[min(440px,52dvh)]"} />
+        </div>
+      </BottomSheet>
+    )
   return (
     <BottomSheet
       isOpen={open}
       onClose={onClose}
       label={title}
-      aboveKeyboard={searchable}
-      height={searchable ? sheetAboveKeyboardHeight(sheetHeight) : undefined}
-      maxHeight={searchable ? SHEET_UNDER_CLOCK : "min(80dvh, 640px)"}
+      aboveKeyboard
+      height={sheetAboveKeyboardHeight(sheetHeight)}
+      maxHeight={SHEET_UNDER_CLOCK}
       scrollKey={query}
       zIndex={sheetZIndex}
       header={
         <div data-choice-sheet-header="">
           <p className="px-5 pb-2 pt-2 text-[16px] font-semibold text-[#1a1a2e]">{title}</p>
-          {searchable ? <ChoiceSearch value={query} onChange={setQuery} placeholder={placeholder} label={title} compact /> : null}
+          <ChoiceSearch value={query} onChange={setQuery} placeholder={placeholder} label={title} compact />
         </div>
       }
     >

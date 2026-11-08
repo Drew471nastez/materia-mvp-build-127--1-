@@ -75,7 +75,7 @@ check("the Action, Templates, Product and Questions lists are ChoicePickers", ()
 check("a short list opens with no search field over it", () => {
   const list = code("components/ui/choice-list.tsx")
   assert.match(list, /searchable = true/)
-  assert.match(list, /\{searchable \? <ChoiceSearch/)
+  assert.match(list, /if \(!searchable\)\s*return \(\s*<BottomSheet/)
   assert.match(code("components/forms/action-editor.tsx"), /name="action-type"[\s\S]*?searchable=\{false\}/)
 })
 
@@ -144,6 +144,9 @@ console.log("\nThe form on the page\n")
 check("a form opens in the block sheet where one is drawn, the dialog elsewhere", () => {
   const frame = code("components/forms/action-frame.tsx")
   assert.match(frame, /const blockSheet = useBlockSheet\(\)/)
+  /* Only the contract: the sheet itself stays out of a creator page's first script (tests/pubperf-r48). */
+  assert.match(frame, /from "@\/components\/onepage\/block-sheet-context"/)
+  assert.doesNotMatch(frame, /from "@\/components\/onepage\/block-sheet"/)
   assert.match(frame, /if \(formId && blockSheet\.available\) return openFormSheet\(formId\)/)
   assert.match(frame, /if \(formId\) return setFormOpen\(true\)/)
 })
@@ -153,7 +156,7 @@ check("the chat opens only once the sheet and its history entry have gone", () =
   assert.match(sheetPart, /onGone: \(\) => \{\s*if \(leaving\.href && !inPreview\) window\.location\.assign\(leaving\.href\)/)
   assert.equal((sheetPart.match(/window\.location\.assign/g) || []).length, 1, "the sheet path leaves the page in one place only")
   const sheet = code("components/onepage/block-sheet.tsx")
-  assert.match(sheet, /onGone\?: \(\) => void/)
+  assert.match(code("components/onepage/block-sheet-context.ts"), /onGone\?: \(\) => void/)
   assert.match(sheet, /if \(!after\.current\.run && requestRef\.current\.onGone\) after\.current\.run = requestRef\.current\.onGone/)
   assert.match(sheet, /after\.current\.left = false\s*leaveHistory\(\(\) => \{\s*after\.current\.left = true\s*runAfter\(\)/)
 })
