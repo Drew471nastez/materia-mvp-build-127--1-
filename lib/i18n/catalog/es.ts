@@ -12753,7 +12753,8 @@ const words: Record<string, string> = {
  "{year} Tax Year": "Año fiscal {year}",
  "“{label}” may": "“{label}” puede",
  "“{term}” is already in your glossary.": "“{term}” ya está en tu glosario.",
- "↻ Refresh thumbnail": "↻ Actualizar miniatura"
+ "↻ Refresh thumbnail": "↻ Actualizar miniatura",
+ "Partly done: some checks still fail. Ask me to fix what is left.": "Hecho en parte: algunas comprobaciones siguen fallando. Pídeme que arregle lo que falta."
 }
 
 export default words

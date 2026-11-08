@@ -24,7 +24,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { ACCENT_FONT_OPTIONS, BODY_FONT_OPTIONS, HEADING_FONT_OPTIONS } from "@/lib/website-builder/font-options"
-import { OFFERED_FAMILIES, fontStylesheetHref } from "@/lib/website-builder/font-link"
+import { OFFERED_FAMILIES, fontStylesheetHref, weightsFor } from "@/lib/website-builder/font-link"
 import { ONEPAGE_FONTS, fontStack, onePageFontHref } from "@/lib/onepage/fonts"
 import { fontObject, fontLinks } from "@/lib/storelib-theme/compat/objects"
 import { THEME_FONT_OPTIONS, fontHandle } from "@/components/website-builder/editor/controls/font-picker-control"
@@ -64,7 +64,8 @@ console.log("\nTen new families, in every picker\n")
 
 console.log("\nLoaded the way the others are\n")
 {
-  const bad = NEW.filter((f) => fontStylesheetHref({ font_heading: f }) !== `https://fonts.googleapis.com/css2?family=${f.replace(/ /g, "+")}:wght@400;500;600;700&display=swap`)
+  /* Changed on purpose (w5 aifix): each family is asked for every weight it has inside 300..900 (lib/website-builder/font-link.ts FAMILY_WEIGHTS), still 400 to 700 included. */
+  const bad = NEW.filter((f) => fontStylesheetHref({ font_heading: f }) !== `https://fonts.googleapis.com/css2?family=${f.replace(/ /g, "+")}:wght@${weightsFor(f)}&display=swap` || !/^(?:[34]00\.\.(?:[7-9]00)|300;400;500;600;700;800;900)$/.test(weightsFor(f)))
   check("a website asks Google for each at 400 to 700 with swap, only when chosen", bad.length === 0 && fontStylesheetHref({ font_heading: "Inter" }) === null, bad)
   check("a OnePage has each on its allow-list, 400 to 700", NEW.every((f) => ONEPAGE_FONTS[f] === "400;500;600;700" && (onePageFontHref(f) ?? "").includes(`family=${f.replace(/ /g, "+")}:wght@400;500;600;700`)))
   check("  with the right generic family behind it while it loads", SERIF.every((f) => fontStack(f).endsWith("Georgia, serif")) && fontStack("Geist Mono").endsWith("monospace") && fontStack("Fredoka").endsWith("sans-serif"))

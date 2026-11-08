@@ -157,7 +157,8 @@ async function main() {
     check("named as Anthropic names them", ENGINES.map((e) => e.label).join(",") === "Claude Opus 5.5,Claude Sonnet 5.5,Claude Haiku 5.5,Claude Opus 4.8")
     check("Haiku is Haiku 5.5, the current Haiku, by its exact id", ENGINES[2].model === "claude-haiku-5-5" && !ENGINES.some((e) => /haiku-4/.test(e.model)))
     check("all Claude, no ChatGPT model", ENGINES.every((e) => e.provider === "anthropic"))
-    check("Opus 5.5 by default, for page work and code alike", DEFAULT_ENGINE === "claude-opus-5-5" && engineFromSaved(undefined) === "claude-opus-5-5")
+    /* Changed on purpose (w5 aifix): Auto by default (Opus 5.5 for page work and code, Sonnet 5.5 for a small edit; lib/website-builder/ask-engines.ts autoModel). */
+    check("Auto by default", DEFAULT_ENGINE === "auto" && engineFromSaved(undefined) === "auto")
     check("each has one line on what it is best for", ENGINES.every((e) => /^Best for /.test(e.detail) && e.detail.length <= 48 && !/—/.test(e.detail)), ENGINES.map((e) => e.detail))
     check("ids are exactly as given, never date suffixed", ENGINES.every((e) => /^claude-(opus|sonnet|haiku)-\d-\d$/.test(e.model) && e.id === e.model))
     check("an older saved choice reads as the default", ["claude", "claude-opus", "openai", "openai-strong", "claude:claude-sonnet-5", 42, null].every((v) => engineFromSaved(v) === DEFAULT_ENGINE))
