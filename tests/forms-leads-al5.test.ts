@@ -58,10 +58,11 @@ async function main() {
     assert.match(panel, /href="\/app\/emails\/forms"/)
   })
   await check("the old addresses redirect, keeping the lead or the form", () => {
-    assert.match(read("app/(storelib)/app/audience/leads/page.tsx"), /redirect\(`\/app\/emails\?\$\{q\}`\)/)
-    assert.match(read("app/(storelib)/app/audience/leads/page.tsx"), /for \(const k of \["lead", "form"\]\)/)
-    assert.match(read("app/(storelib)/app/audience/forms/page.tsx"), /\/app\/emails\/forms\?form=/)
-    assert.match(read("app/(storelib)/app/audience/page.tsx"), /redirect\("\/app\/emails\?tab=leads"\)/)
+    /* Changed on purpose (round 51): leads and forms are Contacts' now; a lead opens its person through /app/contacts/open, which checks the store owns it. */
+    assert.match(read("app/(storelib)/app/audience/leads/page.tsx"), /redirect\(`\/app\/contacts\/open\?from=lead&id=\$\{encodeURIComponent\(sp\.lead\)\}`\)/)
+    assert.match(read("app/(storelib)/app/audience/leads/page.tsx"), /\/app\/contacts\/forms\?form=/)
+    assert.match(read("app/(storelib)/app/audience/forms/page.tsx"), /\/app\/contacts\/forms\?form=/)
+    assert.match(read("app/(storelib)/app/audience/page.tsx"), /redirect\("\/app\/contacts\?filter=leads"\)/)
     assert.ok(existsSync("app/(storelib)/app/emails/forms/page.tsx"))
   })
   await check("notification links go to the lead in Emails", () => {

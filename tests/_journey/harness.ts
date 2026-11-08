@@ -32,6 +32,13 @@ type RouteModule = Record<string, Handler | unknown>
 /* Every route the journey drives, by its folder path. Literal imports, so the compiler takes each one along. */
 const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/onboarding/finalize": () => import("@/app/api/onboarding/finalize/route"),
+  /* Round 51: Contacts, the store's people (tests/contacts-r51.test.ts). */
+  "/api/contacts": () => import("@/app/api/contacts/route"),
+  "/api/contacts/export": () => import("@/app/api/contacts/export/route"),
+  "/api/contacts/import": () => import("@/app/api/contacts/import/route"),
+  "/api/contacts/bulk": () => import("@/app/api/contacts/bulk/route"),
+  "/api/contacts/[key]": () => import("@/app/api/contacts/[key]/route"),
+  "/app/contacts/open": () => import("@/app/(storelib)/app/contacts/open/route"),
   "/api/store/settings": () => import("@/app/api/store/settings/route"),
   /* Round 50: the creator page's own edits (the story, tests/story-r50.test.ts). */
   "/api/creator-profile": () => import("@/app/api/creator-profile/route"),

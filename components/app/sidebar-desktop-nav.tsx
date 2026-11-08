@@ -59,6 +59,9 @@ import { ChartSquareIcon as AnalyticsLinear } from "@solar-icons/react/linear/ch
 import { ChartSquareIcon as AnalyticsBold } from "@solar-icons/react/bold/chart-square"
 import { LetterIcon as EmailsLinear } from "@solar-icons/react/linear/letter"
 import { LetterIcon as EmailsBold } from "@solar-icons/react/bold/letter"
+/* Contacts (round 51): a card with a person on it, the store's people, apart from Community's group of three. */
+import { UserIdIcon as ContactsLinear } from "@solar-icons/react/linear/user-id"
+import { UserIdIcon as ContactsBold } from "@solar-icons/react/bold/user-id"
 /**
  * A BROWSER WINDOW WITH A LAYOUT IN IT, for Website.
  *
@@ -397,6 +400,7 @@ export const NAV_ICONS = {
   onepage: { line: OnePageLineIcon, fill: OnePageFillIcon },
   storeBuilder: { line: CreatorPageLinear, fill: CreatorPageBold },
   websiteBuilder: { line: WebsiteBuilderLinear, fill: WebsiteBuilderBold },
+  contacts: { line: ContactsLinear, fill: ContactsBold },
   emails: { line: EmailsLinear, fill: EmailsBold },
   payouts: { line: PayoutsLineIcon, fill: PayoutsFillIcon },
 } as const satisfies Record<string, NavIconPair>

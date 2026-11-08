@@ -214,6 +214,8 @@ const PATH_AREAS: [prefix: string, area: TeamArea][] = [
   ["/app/orders", "orders"],
   ["/app/sales", "orders"],
   ["/app/customers", "customers"],
+  /* Round 51: Contacts is the store's people, buyers and subscribers alike: Customers or Marketing opens it (pathPermits). */
+  ["/app/contacts", "customers"],
   ["/app/products", "products"],
   ["/app/collections", "products"],
   ["/app/inventory", "products"],
@@ -248,9 +250,31 @@ export function areaOfPath(pathname: string): TeamArea | null {
   return "store"
 }
 
+/**
+ * CONTACTS IS EITHER AREA'S (round 51). The store's buyers were Customers'
+ * and its subscribers and leads were Marketing's (Emails); Contacts shows
+ * both, so a member given either keeps seeing the people they saw. The
+ * server asks the same (lib/contacts/gate requireContacts).
+ */
+export function contactsPermitted(perms: readonly TeamPermission[]): boolean {
+  return permits(perms, "customers") || permits(perms, "marketing")
+}
+
+const isContactsPath = (p: string) => p === "/app/contacts" || p.startsWith("/app/contacts/")
+
+/** May a member with these permissions use this address. null area (home, their own account) is everyone's. */
+export function pathPermits(perms: readonly TeamPermission[], pathname: string): boolean {
+  const p = pathname.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
+  if (isContactsPath(p)) return contactsPermitted(perms)
+  const area = areaOfPath(p)
+  return area === null || permits(perms, area)
+}
+
 /** Whether a member's dashboard shows a link to this address. */
 export function memberSees(perms: readonly TeamPermission[], href: string): boolean {
-  const area = areaOfPath(href.split(/[?#]/)[0])
+  const path = href.split(/[?#]/)[0]
+  if (isContactsPath(path.replace(/\/+$/, ""))) return contactsPermitted(perms)
+  const area = areaOfPath(path)
   return area !== null && permits(perms, area)
 }
 
