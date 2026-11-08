@@ -40,6 +40,7 @@ const SUITES = [
   "tests/forms-booking-payment.test.ts",
   /* Round AL5: Leads in Emails, Forms beside it, the Audience item gone, missing forms tables said plainly, one retry, the pre-chat and the phone country list. */
   "tests/forms-leads-al5.test.ts",
+  "tests/forms-an2.test.ts",
   /* Round 51: Forms in Contacts (kinds, response counts and usages in a fixed number of reads, ?form/?view/?response/?message deep links, Responses, Insights, Settings, View contact through /app/contacts/open) and Community connected (?member deep link, join answers and activity in the member sheet, one membership per person, joining never marketing consent). */
   "tests/forms-community-r51.test.ts",
   "tests/onepage-modern-blocks.test.ts",
@@ -1348,6 +1349,7 @@ const STRICT_SUITES = [
   "tests/onepage-checkout-stack.test.ts",
   /* Round AL: a block opened in a sheet like Linktree's (rise, fade and slight scale in 300ms, back in 250ms, the page held still, Escape and Back, focus kept), the Interaction choice on the blocks that embed something (saved ones stay on the page), and Instagram posts folded in Instagram's own units with View full post on the fade. scripts/check-onepage-block-sheet.mjs measures them. */
   "tests/onepage-block-sheet-al.test.ts",
+  "tests/onepage-sheets-an3.test.ts",
   /* Round 42: a OnePage's embeds with no scrollbar inside them (heights said and rounded up, Tally and Calendly asked for theirs, TikTok's player), buttons with room on every side in a carousel, one copy of a video playing, the social sheet as tall as it holds, a slideshow a mouse drags. scripts/check-onepage-r42.mjs measures them. */
   "tests/onepage-r42.test.ts",
   /* Round 43: the OnePage editor's font sheet as tall as its list, an off block's controls unfaded, Remove's question in one compact line, a block's stats with the period as a popover and See in Analytics, the header's type and picture frame, the cover's ring that follows a Left header, one hold for every window over the live page. scripts/check-onepage-editor-r43.mjs measures them. */

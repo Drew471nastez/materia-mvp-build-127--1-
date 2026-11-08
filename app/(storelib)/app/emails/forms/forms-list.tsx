@@ -40,6 +40,7 @@ import { ShimmerRows } from "@/components/ui/shimmer"
 import { FilterPills } from "@/components/app/filter-pills"
 import { SegmentedPills } from "@/components/app/segmented-pills"
 import { FormEditor, usageWords, type SavedForm } from "@/components/forms/forms-manager"
+import { confirmForm } from "@/components/forms/form-confirm"
 import { formsRequest } from "@/lib/forms/client"
 import { formPath } from "@/lib/forms/actions"
 import { TEMPLATE_CHOICES } from "@/lib/forms/templates"
@@ -168,7 +169,14 @@ export function FormsList({ framed = false }: { framed?: boolean } = {}) {
   }
 
   const archive = async (form: SavedForm) => {
-    if (!window.confirm(tt("Archive “{title}”? It stops taking answers on every page. Its responses are kept.", { title: form.title || tt("Untitled form") }))) return
+    /* Round AN: asked in Storelib's own confirm (components/forms/form-confirm), never the browser's. */
+    const yes = await confirmForm({
+      title: tt("Archive “{title}”?", { title: form.title || tt("Untitled form") }),
+      body: tt("It stops taking answers on every page. Its responses are kept."),
+      confirm: tt("Archive"),
+      cancel: tt("Cancel"),
+    })
+    if (yes !== true) return
     const r = await formsRequest(`/api/forms/${form.id}`, { method: "DELETE", fallback: tt("The form was not archived. Try again.") })
     if (r.error) return setError(r.error)
     setForms((all) => all.filter((f) => f.id !== form.id))
@@ -195,7 +203,8 @@ export function FormsList({ framed = false }: { framed?: boolean } = {}) {
     return null
   }
   const removeMessage = async (id: string) => {
-    if (!window.confirm(tt("Delete this message? The email you got about it stays in your inbox."))) return
+    const yes = await confirmForm({ title: tt("Delete this message?"), body: tt("The email you got about it stays in your inbox."), confirm: tt("Delete"), cancel: tt("Cancel") })
+    if (yes !== true) return
     const res = await fetch(`/api/email/messages/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null)
     if (!res?.ok) return setError(tt("The message was not deleted. Try again."))
     writeRows((rows) => rows.filter((r) => r.id !== id))

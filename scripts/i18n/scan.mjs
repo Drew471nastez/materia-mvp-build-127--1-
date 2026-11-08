@@ -49,6 +49,8 @@ export const SCOPE_INCLUDE = [
   /^components\/billing\/(compare-plans|plan-cards|plan-faq)\.tsx$/,
   /^components\/support\/(case-photos|order-messages-card)\.tsx$/,
   /^components\/ui\/(responsive-action-menu|choice-list|bottom-sheet|save-notification|dialog)\.tsx$/,
+  /* The forms a creator builds and the button actions they choose (round AN): every word in the creator's language. */
+  /^components\/forms\/(action-editor|form-picker|form-builder-dialog|forms-manager|form-reference-editor|phone-number-field|form-confirm)\.tsx$/,
 ]
 
 /**

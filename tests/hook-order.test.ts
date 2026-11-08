@@ -47,8 +47,8 @@ function check(name: string, ok: boolean, detail?: string) {
  * else, NOT because they are acceptable. Deleting a line from this list
  * without fixing the file is how the net gets cut.
  */
-const KNOWN_UNFIXED = new Set([
-  "components/onepage/public-onepage.tsx",
+const KNOWN_UNFIXED = new Set<string>([
+  /* public-onepage.tsx came off in round AN: the hooks of its own PDF, Spotify and Apple Music pop-ups, which sat under an early return, went with the pop-ups (they open in the block sheet). */
   /* design-tab.tsx came off in round 11: the crop sections' hooks that sat under `if (!onepage) return null` went with the old croppers (components/onepage/media-cropper.tsx). */
   /* links-tab.tsx came off in round 10 (AUDIT B2): its hooks all run before `if (!onepage) return null` now. */
   /* settings-tab.tsx came off: its hooks are all above its one return now. */

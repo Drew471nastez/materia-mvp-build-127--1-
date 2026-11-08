@@ -22,10 +22,13 @@ import type { OnePageTheme } from "@/lib/onepage/types"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { useBlockSheet, type BlockSheetRequest } from "./block-sheet"
+import { noteTracked } from "./block-activity"
 
 /** A tap counted as the block's click, as a link's is (app/api/onepage/track). Never in the editor's preview. */
 export function trackBlockTap(onepageId: string | null | undefined, blockId: string, url: string | null | undefined): void {
   if (!onepageId || isOnePagePreview()) return
+  /* Round AN: said, so the page's one listener (./block-activity) does not count the same tap a second time. */
+  noteTracked()
   try {
     void fetch("/api/onepage/track", {
       method: "POST",

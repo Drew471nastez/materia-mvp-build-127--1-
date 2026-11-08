@@ -31,6 +31,13 @@
  *   WAYS OUT      Close, the dimmed page, Escape and the browser's Back. The
  *                 sheet stands on a history entry of its own (not in the
  *                 editor's preview, where Back belongs to the editor).
+ *   SWIPE DOWN    (round AN) on a touch screen the sheet follows a finger
+ *                 drawn down from anywhere on it, and on letting go either
+ *                 leaves (dragged past SWIPE.closeAt of its height, or
+ *                 flicked faster than SWIPE.flick) or springs back. A drag
+ *                 that starts inside something scrolled away from its top
+ *                 scrolls that instead, and a sideways one is left to a
+ *                 carousel. lib/onepage/block-sheet swipeDecision decides.
  *   ONE AT A TIME the block's own button, when it opens something else on
  *                 the page (a product, a checkout), runs once the sheet has
  *                 gone and its history entry with it, so two windows are
@@ -44,39 +51,16 @@ import { Check, Share, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { sheetTokens, useStillPage } from "@/components/onepage/onepage-dialog"
-import { BLOCK_SHEET_HISTORY_KEY, SHEET_MOTION, blockSheetEntryOf } from "@/lib/onepage/block-sheet"
+import { BLOCK_SHEET_HISTORY_KEY, SHEET_MOTION, SWIPE, blockSheetEntryOf, swipeDecision } from "@/lib/onepage/block-sheet"
+import type { ButtonThemeLike } from "@/lib/onepage/button-style"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { backInFlight, backThen } from "@/lib/navigation/go-back"
 
 export type OpenMode = "sheet" | "direct"
 
-export interface BlockSheetRequest {
-  /** The block that opened it, for analytics and to restore focus on close. */
-  blockId: string
-  /** The line at the top of the sheet: "Calendly", the video's title. */
-  title: string
-  /** What the sheet shows. Rendered lazily: only while the sheet is open. */
-  body: ReactNode
-  /** The block's own button in the bar at the foot ("Book a call"), when it has one. */
-  cta?: { label: string; href?: string | null; icon?: ReactNode; onClick?: () => void } | null
-  /** The address Share copies or hands to the system share sheet. Left out, Share is not drawn. */
-  shareUrl?: string | null
-  /** Let the body use the sheet's full height (an embed) instead of its natural height (a form). */
-  fill?: boolean
-  /** Told once when the sheet starts to close, however it was closed. */
-  onClose?: () => void
-}
-
-export interface BlockSheetApi {
-  open: (request: BlockSheetRequest) => void
-  close: () => void
-  /** False where no provider is drawn (a block rendered on its own): callers then go to the address directly. */
-  available: boolean
-}
-
-const NONE: BlockSheetApi = { open: () => {}, close: () => {}, available: false }
-
-export const BlockSheetContext = createContext<BlockSheetApi>(NONE)
+/* The contract (the request, the API, the context and its hook) lives in ./block-sheet-context (round AN), so asking for the sheet does not load it. */
+import { BlockSheetContext, type BlockSheetApi, type BlockSheetRequest } from "./block-sheet-context"
+export { BlockSheetContext, type BlockSheetApi, type BlockSheetRequest } from "./block-sheet-context"
 
 export function useBlockSheet(): BlockSheetApi {
   return useContext(BlockSheetContext)
@@ -91,11 +75,28 @@ export function openModeOf(data: unknown, fallback: OpenMode = "direct"): OpenMo
 /** True inside the sheet's body: a post drawn there shows whole (components/onepage/compact-post). */
 export const InBlockSheetContext = createContext(false)
 
+/**
+ * The page's theme, for what a block draws in the page's own button style
+ * where it is not handed the theme (an Instagram post's "View full post",
+ * components/onepage/compact-post). Null where no page is drawn around it.
+ */
+export const PageThemeContext = createContext<ButtonThemeLike | null>(null)
+
 /* ── The provider ───────────────────────────────────────────────────────── */
 
 type Shown = { request: BlockSheetRequest; key: number }
 
-export function BlockSheetProvider({ children, dark = false }: { children: ReactNode; /** The page is dark: the sheet is too, so a block drawn in the page's text colour reads inside it. */ dark?: boolean }) {
+export function BlockSheetProvider({
+  children,
+  dark = false,
+  theme = null,
+}: {
+  children: ReactNode
+  /** The page is dark: the sheet is too, so a block drawn in the page's text colour reads inside it. */
+  dark?: boolean
+  /** The page's theme, handed on to the blocks inside (PageThemeContext). */
+  theme?: ButtonThemeLike | null
+}) {
   const [shown, setShown] = useState<Shown | null>(null)
   const [open, setOpen] = useState(false)
   const count = useRef(0)
@@ -114,8 +115,10 @@ export function BlockSheetProvider({ children, dark = false }: { children: React
   const gone = useCallback(() => setShown(null), [])
   return (
     <BlockSheetContext.Provider value={api}>
-      {children}
-      {shown ? <BlockSheetView key={shown.key} request={shown.request} open={open} dark={dark} onClose={api.close} onGone={gone} /> : null}
+      <PageThemeContext.Provider value={theme}>
+        {children}
+        {shown ? <BlockSheetView key={shown.key} request={shown.request} open={open} dark={dark} onClose={api.close} onGone={gone} /> : null}
+      </PageThemeContext.Provider>
     </BlockSheetContext.Provider>
   )
 }
@@ -128,6 +131,12 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
 function focusables(panel: HTMLElement | null): HTMLElement[] {
   return Array.from(panel?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []).filter((el) => el.getClientRects().length > 0)
 }
+
+/* What a phone raises its keyboard for. */
+const FIELDS = "input:not([type=button]):not([type=submit]):not([type=checkbox]):not([type=radio]),textarea,select,[contenteditable='true']"
+
+/* A spring back with reduced motion: short, but still a move the finger started. */
+const M_BACK_REDUCED = 120
 
 function reducedMotion(): boolean {
   try {
@@ -163,6 +172,8 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
   }, [])
   const told = useRef(false)
   const mark = useRef<string | null>(null)
+  /* Closed by a swipe: Close's motion then carries on from the finger rather than starting over. */
+  const swipedOut = useRef(false)
   const [copied, setCopied] = useState(false)
   useStillPage(true, rootRef)
 
@@ -209,12 +220,18 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
       backdrop.animate([{ opacity: fromRunning ? wasBackdrop : "0" }, { opacity: "1" }], { duration: ms, easing: "ease-out", fill: "both" })
       return
     }
-    const ms = still ? M.reducedMs : M.closeMs
-    const end = still ? { translate: "0 0", scale: "1" } : { translate: `0 ${M.to.translateY}`, scale: String(M.to.scale) }
-    const move = panel.animate(
-      [{ translate: was.translate === "none" ? "0 0" : was.translate, scale: was.scale === "none" ? "1" : was.scale, opacity: was.opacity }, { ...end, opacity: "0" }],
-      { duration: ms, easing: M.closeEase, fill: "both" },
-    )
+    const from = { translate: was.translate === "none" ? "0 0" : was.translate, scale: was.scale === "none" ? "1" : was.scale, opacity: was.opacity }
+    let move: Animation
+    let ms: number
+    if (swipedOut.current) {
+      /* Let go past the line or flicked: it carries on down from under the finger, off the foot of the screen, and stays solid until late. */
+      ms = still ? M.reducedMs : SWIPE.outMs
+      move = panel.animate([from, { translate: still ? from.translate : "0 100%", scale: from.scale, opacity: "0" }], { duration: ms, easing: still ? "linear" : SWIPE.outEase, fill: "both" })
+    } else {
+      ms = still ? M.reducedMs : M.closeMs
+      const end = still ? { translate: "0 0", scale: "1" } : { translate: `0 ${M.to.translateY}`, scale: String(M.to.scale) }
+      move = panel.animate([from, { ...end, opacity: "0" }], { duration: ms, easing: M.closeEase, fill: "both" })
+    }
     backdrop.animate([{ opacity: wasBackdrop }, { opacity: "0" }], { duration: ms, easing: "ease-in", fill: "both" })
     let done = false
     const finish = () => {
@@ -245,6 +262,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
       const back = opener.current
       if (back && back !== document.body && back.isConnected) back.focus({ preventScroll: true })
       after.current.gone = true
+      if (!after.current.run && requestRef.current.onGone) after.current.run = requestRef.current.onGone
       runAfter()
     }
   }, [runAfter])
@@ -302,8 +320,109 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
   }, [])
 
   useEffect(() => {
-    if (!open && mark.current) leaveHistory()
-  }, [open, leaveHistory])
+    if (!open && mark.current) {
+      /* Whatever runs once the sheet is gone (onGone) waits for this step off our entry as well. */
+      after.current.left = false
+      leaveHistory(() => {
+        after.current.left = true
+        runAfter()
+      })
+    }
+  }, [open, leaveHistory, runAfter])
+
+  /* ── Swipe down to close, on a touch screen. ── */
+  useEffect(() => {
+    const panel = panelRef.current
+    const backdrop = backdropRef.current
+    if (!open || !panel || !backdrop) return
+    let start: { x: number; y: number } | null = null
+    let from = 0
+    let dragging = false
+    let dy = 0
+    let trail: { y: number; t: number }[] = []
+    /* Something between the finger and the sheet scrolled away from its top: the finger scrolls that back first. */
+    const scrolledAbove = (target: EventTarget | null) => {
+      for (let el = target instanceof Element ? target : null; el && el !== panel; el = el.parentElement) if (el.scrollTop > 0) return true
+      return false
+    }
+    const onStart = (e: TouchEvent) => {
+      dragging = false
+      start = null
+      if (e.touches.length !== 1) return
+      const t = e.target instanceof Element ? e.target : null
+      if (t?.closest("input,textarea,select,[contenteditable='true'],[data-no-swipe]") || scrolledAbove(t)) return
+      /* A field has focus, so on a phone the keyboard is up: a drag then belongs to the page under it, never a close. */
+      const focused = document.activeElement
+      if (focused instanceof HTMLElement && focused !== panel && panel.contains(focused) && focused.matches(FIELDS)) return
+      start = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    }
+    const onMove = (e: TouchEvent) => {
+      if (!start) return
+      const p = e.touches[0]
+      if (!dragging) {
+        const dx = p.clientX - start.x
+        const d = p.clientY - start.y
+        if (Math.abs(d) < SWIPE.slopPx && Math.abs(dx) < SWIPE.slopPx) return
+        /* Up, or sideways: the sheet's own scroll or a carousel's, not ours. */
+        if (d <= 0 || Math.abs(dx) > Math.abs(d)) {
+          start = null
+          return
+        }
+        dragging = true
+        from = p.clientY
+        /* Whatever the opening left behind (its fill), written down as the sheet's own style, so the finger moves it from where it is. */
+        for (const a of [...panel.getAnimations(), ...backdrop.getAnimations()]) {
+          try {
+            a.commitStyles()
+          } catch {
+            /* not drawn: nothing to keep */
+          }
+          a.cancel()
+        }
+        panel.dataset.blockSheetDragging = ""
+      }
+      if (e.cancelable) e.preventDefault()
+      dy = Math.max(0, p.clientY - from)
+      const now = performance.now()
+      trail.push({ y: p.clientY, t: now })
+      trail = trail.filter((s) => now - s.t <= 100)
+      panel.style.translate = `0 ${dy}px`
+      backdrop.style.opacity = String(1 - Math.min(1, dy / Math.max(1, panel.offsetHeight)) * 0.9)
+    }
+    const onEnd = () => {
+      if (!dragging) {
+        start = null
+        return
+      }
+      dragging = false
+      start = null
+      delete panel.dataset.blockSheetDragging
+      const first = trail[0]
+      const last = trail[trail.length - 1]
+      const speed = first && last && last.t > first.t ? (last.y - first.y) / (last.t - first.t) : 0
+      trail = []
+      if (swipeDecision(dy, panel.offsetHeight, speed) === "close") {
+        swipedOut.current = true
+        closeRef.current()
+        return
+      }
+      /* Not far enough, nor fast enough: back up into place. */
+      const ms = reducedMotion() ? M_BACK_REDUCED : SWIPE.backMs
+      panel.animate([{ translate: `0 ${dy}px` }, { translate: "0 0" }], { duration: ms, easing: SWIPE.backEase, fill: "both" })
+      backdrop.animate([{ opacity: backdrop.style.opacity || "1" }, { opacity: "1" }], { duration: ms, easing: "ease-out", fill: "both" })
+      dy = 0
+    }
+    panel.addEventListener("touchstart", onStart, { passive: true })
+    panel.addEventListener("touchmove", onMove, { passive: false })
+    panel.addEventListener("touchend", onEnd)
+    panel.addEventListener("touchcancel", onEnd)
+    return () => {
+      panel.removeEventListener("touchstart", onStart)
+      panel.removeEventListener("touchmove", onMove)
+      panel.removeEventListener("touchend", onEnd)
+      panel.removeEventListener("touchcancel", onEnd)
+    }
+  }, [open])
 
   /* ── Focus in, Tab kept inside, Escape out. ── */
   useEffect(() => {
@@ -425,14 +544,31 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
           "relative mx-2 flex w-full origin-bottom flex-col overflow-hidden rounded-t-[24px] bg-[var(--sheet-bg)] text-[var(--sheet-body)] shadow-[0_-8px_40px_rgba(0,0,0,0.18)] outline-none will-change-[translate,scale,opacity]",
           "sm:mx-0 sm:origin-center sm:rounded-[24px] sm:shadow-[0_24px_64px_rgba(0,0,0,0.24),0_2px_8px_rgba(0,0,0,0.08)]",
           fill ? "h-[calc(100dvh-env(safe-area-inset-top)-16px)] sm:h-[min(760px,calc(100dvh-64px))] sm:max-w-[520px]" : "max-h-[calc(100dvh-env(safe-area-inset-top)-16px)] sm:max-h-[min(760px,calc(100dvh-64px))] sm:max-w-[480px]",
+          /*
+            ON THE KEYBOARD ON A PHONE (round AN, a form in the sheet). The
+            panel stays at the foot of the screen and its content is pushed
+            up by the keyboard (--kb-inset, published by ViewportVars), the
+            box grown by the same amount and never taller than what is left
+            on screen, as every shared sheet does (lib/ui/keyboard-safe-sheet
+            sheetOverKeyboard). It eases there with the keyboard rather than
+            jumping; KeyboardGuard then keeps the focused field in view in
+            the body below.
+          */
+          "max-sm:pb-[var(--kb-inset,0px)] max-sm:transition-[padding-bottom,max-height,height] max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
+          fill
+            ? "max-sm:h-[calc(min(100dvh_-_env(safe-area-inset-top)_-_16px,var(--vv-h,100dvh)_-_24px)_+_var(--kb-inset,0px))]"
+            : "max-sm:max-h-[calc(min(100dvh_-_env(safe-area-inset-top)_-_16px,var(--vv-h,100dvh)_-_24px)_+_var(--kb-inset,0px))]",
         )}
       >
         <span tabIndex={0} data-focus-guard="" aria-hidden onFocus={guard("last")} className="sr-only" />
+        {/* The grip on a phone: the sheet can be drawn down. Drawn over the title's top padding, so nothing moves. */}
+        <span aria-hidden data-block-sheet-grip="" className="pointer-events-none absolute left-1/2 top-[6px] h-[4px] w-9 -translate-x-1/2 rounded-full bg-[var(--sheet-muted)] opacity-35 sm:hidden" />
         <h2 className="shrink-0 truncate px-14 pb-2.5 pt-4 text-center text-[15px] font-medium text-[var(--sheet-ink)]" data-block-sheet-title="">
           {title}
         </h2>
         <div
-          className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 sm:px-4", fill ? "flex flex-col" : "pb-2")}
+          /* It scrolls with no bar drawn (round AN): a sheet is a small window, and a bar down its side read as a page squeezed into it. */
+          className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden", fill ? "flex flex-col" : "pb-2")}
           data-onepage-dialog-scroll=""
           data-block-sheet-body=""
         >

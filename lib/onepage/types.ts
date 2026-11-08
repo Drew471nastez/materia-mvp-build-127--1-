@@ -168,8 +168,9 @@ export type BlockLayoutType = 'default' | 'pro'
 export type BlockAnimationType = 'none' | 'pulse' | 'bounce' | 'shake' | 'glow' | 'swipe'
 export type BlockDisplayMode = 'cover' | 'contain' | 'full'
 export type YouTubeMode = 'embed_video' | 'open_profile' | 'open_latest' | 'embed_latest'
-export type SpotifyMode = 'audio_preview' | 'go_to_url' | 'show_streaming'
-export type AppleMusicMode = 'audio_preview' | 'go_to_url' | 'show_streaming'
+/* on_page (round AN): the service's player drawn in place of the button. */
+export type SpotifyMode = 'audio_preview' | 'go_to_url' | 'show_streaming' | 'on_page'
+export type AppleMusicMode = 'audio_preview' | 'go_to_url' | 'show_streaming' | 'on_page'
 export type SoundCloudMode = 'audio_preview' | 'go_to_url'
 
 // Email capture button text presets

@@ -118,6 +118,17 @@ import { hapticTap, isNativeApp } from "@/lib/native-bridge"
  * x lands as the sheet does. It sits in a named group (`group/add`), which
  * app/globals.css's touch rule for `.group` does not reach. Under reduced
  * motion it does not move at all.
+ *
+ * ROUND AN, ONE MOTION ("the rotating of the + ... should be more smooth,
+ * when opened and closed, goes back very smooth"). The + turned over 280ms
+ * while the button under it changed colour over 100ms: the press darkened
+ * it, and the hover tone it wore under a mouse dropped the moment the
+ * dialog covered it, so two clocks ran at once and the colour snapped
+ * before the turn had landed. Now the button keeps its pressed-open tone
+ * while its sheet is up (`data-open`), and its colour and its shade move
+ * on the + 's own time and curve, there and back (a press stays a tint,
+ * never a scale). scripts/check-onepage-editor-an1.mjs samples
+ * every frame of an open and a close, CPU slowed four times.
  */
 export const ADD_PLUS_MS = 280
 export const ADD_PLUS_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
@@ -187,13 +198,19 @@ export function AddBlockButton({ fromButton, className, onPress, children }: { f
     <button
       type="button"
       data-add-block=""
+      data-open={open ? "" : undefined}
       aria-expanded={open}
       onClick={() => {
         /* A light tick in the iOS and Android apps; a browser feels nothing (lib/native-bridge). */
         if (isNativeApp()) hapticTap("light")
         onPress()
       }}
-      className={cn("group/add", className)}
+      className={cn(
+        "group/add",
+        className,
+        /* Round AN: the colour and the shade settle on the + 's clock (ADD_PLUS_MS on ADD_PLUS_EASE); a press is a tint only, never a scale. */
+        "transition-[background-color,box-shadow] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-[open]:bg-[#7c3aed] motion-reduce:transition-none",
+      )}
     >
       <AddBlockPlus open={open} />
       {children}

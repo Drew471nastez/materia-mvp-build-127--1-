@@ -13,9 +13,13 @@ import { ExtraBlock } from "@/components/onepage/extra-blocks"
 import { CompactInstagramPost } from "@/components/onepage/compact-post"
 import { defaultTheme, type OnePageBlock } from "@/lib/onepage/types"
 
-const theme = { ...defaultTheme }
 const block = (id: string, type: OnePageBlock["type"], data: Record<string, unknown>): OnePageBlock => ({ id, type, enabled: true, sort_order: 0, data: data as never })
 const dark = new URLSearchParams(location.search).has("dark")
+/* Round AN: a light and a dark page, each with its own button, which "View full post" is drawn as. */
+const theme = dark
+  ? { ...defaultTheme, button_style: "filled" as const, background_color: "#0e0e10", text_color: "#f4f4f5", button_color: "#f4f4f5", button_text_color: "#111113", button_border_radius: 999 }
+  : { ...defaultTheme, button_style: "filled" as const, background_color: "#ffffff", button_color: "#1a1a2e", button_text_color: "#ffffff", button_border_radius: 12 }
+document.body.style.background = theme.background_color
 
 function CalendlyLike() {
   const sheet = useBlockSheet()
@@ -53,15 +57,17 @@ function Page() {
       <div data-probe="inline-old"><ExtraBlock block={block("o", "video", { url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "Saved before" })} look={look} /></div>
       <section data-probe="inline-post"><CompactInstagramPost src="https://www.instagram.com/p/TALL01/embed/" /></section>
       <section data-probe="group-post" style={{ width: "62%" }}><CompactInstagramPost src="https://www.instagram.com/p/SHORT1/embed/" /></section>
+      {/* A tall post in a group's narrower column, folded. */}
+      <section data-probe="group-tall" style={{ width: "62%" }}><CompactInstagramPost src="https://www.instagram.com/p/TALL02/embed/" /></section>
       {Array.from({ length: 40 }, (_, i) => (
-        <p key={i} style={{ padding: 18, background: "#eceef1", borderRadius: 12 }}>Row {i + 1}</p>
+        <p key={i} style={{ padding: 18, background: dark ? "#1c1c20" : "#eceef1", color: theme.text_color, borderRadius: 12 }}>Row {i + 1}</p>
       ))}
     </main>
   )
 }
 
 createRoot(document.getElementById("app")!).render(
-  <BlockSheetProvider dark={dark}>
+  <BlockSheetProvider dark={dark} theme={theme}>
     <Page />
   </BlockSheetProvider>,
 )

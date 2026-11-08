@@ -108,7 +108,8 @@ function run() {
   console.log("\nthe live page (components/onepage/public-onepage)")
   {
     const live = readCode("components/onepage/public-onepage.tsx")
-    const smooth = live.slice(live.indexOf("function SmoothAvatarVideo"), live.indexOf("const SpotifyModalContext"))
+    /* Changed on purpose (round AN): the Spotify pop-up's context that ended this slice is gone; the checkout's is the next thing after the function. */
+    const smooth = live.slice(live.indexOf("function SmoothAvatarVideo"), live.indexOf("const QuickCheckoutModalContext"))
     check("SmoothAvatarVideo is the poster video now, with no z-index, blur or scale of its own", /<PosterVideo/.test(smooth) && !/z-\[1\]|blur-|scale-\[|setTimeout/.test(smooth))
     const hero = live.slice(live.indexOf('data-hero-header=""'), live.indexOf("// Classic layout"))
     check("the hero is masked into the page, not painted over with its colour", /maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK/.test(hero) && !/background: isGradientBg|fadeColor/.test(hero))

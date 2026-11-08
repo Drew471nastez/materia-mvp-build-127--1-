@@ -1,6 +1,6 @@
 "use client"
 import {VisualLinkCard} from "./block-presentation"
-import { ColorRow, Segmented, Switch } from "./editor-kit"
+import { ColorRow, LabeledRow, Segmented, Switch } from "./editor-kit"
 import { OnePageProductBlock } from "./product-block"
 import { ProductLayoutThumb, layoutHasCard, layoutLabel, useCreatorProducts } from "./tabs/product-block-editor"
 import { ImageUpload } from "@/components/app/image-upload"
@@ -51,9 +51,10 @@ import {CompactInstagramPost} from "./compact-post"
  */
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import { buttonPadScale, pressableProps } from "@/lib/onepage/block-look"
 import { teamStoreForProducts } from "@/lib/onepage/team-context"
-import { Check, ChevronRight, Copy, Loader2, Play, Plus, RefreshCw, Trash2 } from "lucide-react"
+import { Check, ChevronRight, Copy, Loader2, Play, RefreshCw, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -745,30 +746,20 @@ export function storelibBlockRow(block: OnePageBlock): { title: string; subtitle
 
 /* ─── The editors ──────────────────────────────────────────────────────── */
 
-const fieldBox = "space-y-1.5"
+const fieldBox = "space-y-2"
 const fieldLabel = "text-xs"
 
-function Chips<T extends string>({ value, options, onChange, label }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void; label: string }) {
-  return (
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
-      {options.map((o) => (
-        <button
-          key={o.id}
-          type="button"
-          role="radio"
-          aria-checked={value === o.id}
-          onClick={() => onChange(o.id)}
-          className={cn(
-            "h-9 rounded-full border px-3.5 text-[13px] font-medium transition-colors duration-150",
-            value === o.id ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e3e4e8] bg-white text-[#374151] hover:bg-[#f7f7f8]",
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  )
-}
+/*
+  ROUND AN: ONE WAY TO CHOOSE. These editors had their own black pills
+  (Chips) beside the editor kit's Segmented that every other block uses, and
+  native selects that opened the phone's wheel. A few short words are the
+  kit's Segmented now, and a list is Storelib's ChoicePicker
+  (./editor-choice), loaded only when an editor draws one, since this file
+  also draws these blocks on the live page.
+*/
+const FieldStandIn = () => <div aria-hidden className="h-11 w-full rounded-xl border border-[#e5e7eb] bg-white" />
+const EditorSelect = dynamic(() => import("./editor-choice").then((m) => m.EditorSelect), { ssr: false, loading: FieldStandIn })
+const AddFromList = dynamic(() => import("./editor-choice").then((m) => m.AddFromList), { ssr: false, loading: FieldStandIn })
 
 /** A plain shelf card drawn small, beside the product layouts. */
 function SimpleShelfThumb() {
@@ -841,7 +832,7 @@ function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updat
     <div className="space-y-4" data-shelf-settings="">
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Show")}</Label>
-        <Chips label={tt("Show")} value={source} options={SHELF_SOURCES.map((s) => ({ id: s, label: SHELF_WORD[s]() }))} onChange={(v) => updateData({ source: v })} />
+        <EditorSelect name="shelf-source" title={tt("Show")} value={source} choices={SHELF_SOURCES.map((s) => ({ value: s, label: SHELF_WORD[s]() }))} emptyLabel={SHELF_WORD.all()} onChange={(v) => updateData({ source: v as typeof source })} />
       </div>
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Title (optional)")}</Label>
@@ -869,15 +860,17 @@ function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updat
       ) : null}
       {source !== "community" ? (
         <div className="space-y-2 border-t border-[#eef0f2] pt-4" data-shelf-thumbnails="">
-          <label className="block space-y-1.5 text-xs font-medium text-[#6b7280]">
-            {tt("Custom thumbnail")}
-            <select className="h-11 w-full rounded-xl border border-[#e3e4e8] bg-white px-2.5 text-[14px] text-[#1a1a2e]" value={editing} onChange={(e) => setEditing(e.target.value)}>
-              <option value="">{tt("Choose a product")}</option>
-              {products?.filter((p) => source === "all" || p.type === source).map((p) => (
-                <option key={p.id} value={p.id}>{p.title}</option>
-              ))}
-            </select>
-          </label>
+          <div className={fieldBox}>
+            <Label className={fieldLabel}>{tt("Custom thumbnail")}</Label>
+            <EditorSelect
+              name="shelf-thumbnail"
+              title={tt("Choose a product")}
+              value={editing || null}
+              emptyLabel={tt("Choose a product")}
+              choices={(products ?? []).filter((p) => source === "all" || p.type === source).map((p) => ({ value: p.id, label: p.title }))}
+              onChange={setEditing}
+            />
+          </div>
           {editing ? (
             <ImageUpload
               bucket="covers"
@@ -995,7 +988,7 @@ function LeadMagnetEditor({ data, updateData }: { data: LeadMagnetBlockData; upd
     <div className="space-y-3">
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("They get")}</Label>
-        <Chips label={tt("They get")} value={kind} options={(["download", "discount", "waitlist"] as const).map((id) => ({ id, label: MAGNET_WORD[id]() }))} onChange={(v) => updateData({ kind: v })} />
+        <Segmented label={tt("They get")} value={kind} options={(["download", "discount", "waitlist"] as const).map((id) => ({ id, label: MAGNET_WORD[id]() }))} onChange={(v) => updateData({ kind: v })} />
       </div>
 
       {kind === "download" ? (
@@ -1094,10 +1087,11 @@ function LeadMagnetEditor({ data, updateData }: { data: LeadMagnetBlockData; upd
           </div>
         ) : null}
       </div>
-      <label className="flex cursor-pointer items-center justify-between gap-3 py-1 text-[13px] text-[#1a1a2e]">
-        {tt("Ask for a first name")}
-        <input type="checkbox" checked={!!data.ask_name} onChange={(e) => updateData({ ask_name: e.target.checked })} className="h-4 w-4 accent-[#1a1a2e]" />
-      </label>
+      {/* Round AN: the editor's one switch, not a bare checkbox. */}
+      <div className="flex min-h-11 items-center justify-between gap-3">
+        <span className="text-[14px] font-medium text-[#1a1a2e]">{tt("Ask for a first name")}</span>
+        <Switch label={tt("Ask for a first name")} checked={!!data.ask_name} onChange={(ask_name) => updateData({ ask_name })} />
+      </div>
       <p className="text-[12px] text-[#6b7280]">{tt("Everyone who signs up joins Emails, Subscribers and your connected email tools.")}</p>
     </div>
   )
@@ -1117,7 +1111,7 @@ function PostsEditor({ data, updateData }: { data: SocialPostsBlockData; updateD
     <div className="space-y-4" data-posts-settings="">
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Network")}</Label>
-        <Chips<SocialPostsNetwork> label={tt("Network")} value={network} options={[{ id: "youtube", label: "YouTube" }, { id: "instagram", label: "Instagram" }, { id: "tiktok", label: "TikTok" }]} onChange={(v) => updateData({ network: v })} />
+        <Segmented<SocialPostsNetwork> label={tt("Network")} value={network} options={[{ id: "youtube", label: "YouTube" }, { id: "instagram", label: "Instagram" }, { id: "tiktok", label: "TikTok" }]} onChange={(v) => updateData({ network: v })} />
       </div>
       {network === "youtube" ? (
         <div className={fieldBox}>
@@ -1152,15 +1146,17 @@ function PostsEditor({ data, updateData }: { data: SocialPostsBlockData; updateD
       </div>
       {urls.length ? (
         <div className="space-y-2" data-posts-covers="">
-          <label className="block space-y-1.5 text-xs font-medium text-[#6b7280]">
-            {tt("Cover picture")}
-            <select value={thumbnailPost} onChange={(e) => setThumbnailPost(e.target.value)} className="h-11 w-full rounded-xl border border-[#e3e4e8] bg-white px-2.5 text-[14px] text-[#1a1a2e]">
-              <option value="">{tt("Choose a post")}</option>
-              {Array.from(new Set(urls)).map((url) => (
-                <option key={url} value={url}>{url}</option>
-              ))}
-            </select>
-          </label>
+          <div className={fieldBox}>
+            <Label className={fieldLabel}>{tt("Cover picture")}</Label>
+            <EditorSelect
+              name="posts-cover"
+              title={tt("Choose a post")}
+              value={thumbnailPost || null}
+              emptyLabel={tt("Choose a post")}
+              choices={Array.from(new Set(urls)).map((url, i) => ({ value: url, label: tt("Post {n}", { n: i + 1 }), detail: url.replace(/^https?:\/\/(www\.)?/, "") }))}
+              onChange={setThumbnailPost}
+            />
+          </div>
           {thumbnailPost ? (
             <ImageUpload
               bucket="covers"
@@ -1274,37 +1270,31 @@ function FollowersEditor({ data, updateData }: { data: FollowersBlockData; updat
         )
       })}
       {note ? <p className="text-[12px] text-[#b42318]">{note}</p> : null}
+      {/*
+        Round AN (127.png): the networks, then what they are counted in. "Add a
+        network" is Storelib's list, not the phone's wheel; the line about
+        which counts refresh sits under the list it is about, short; Look and
+        the word after the number each have a row of their own, named.
+      */}
       {unused.length ? (
-        <label className="relative flex h-11 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#d9dbe0] text-[13.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]">
-          <Plus aria-hidden className="h-4 w-4" />
-          {tt("Add a network")}
-          <select
-            aria-label={tt("Add a network")}
-            value=""
-            onChange={(ev) => {
-              const n = ev.target.value as FollowerNetwork
-              if (n) updateData({ networks: [...entries, { network: n, handle: "", count: null }] })
-            }}
-            className="absolute inset-0 cursor-pointer opacity-0"
-          >
-            <option value="" />
-            {unused.map((n) => (
-              <option key={n} value={n}>{NETWORK_NAME[n]}</option>
-            ))}
-          </select>
-        </label>
+        <AddFromList
+          name="followers-network"
+          title={tt("Add a network")}
+          label={tt("Add a network")}
+          choices={unused.map((n) => ({ value: n, label: NETWORK_NAME[n], detail: REFRESHABLE_NETWORKS.includes(n) ? tt("Count updates itself") : undefined }))}
+          leading={(c) => <SocialIcon platform={c.value} size={18} color="#1a1a2e" tone="brand" />}
+          onPick={(n) => updateData({ networks: [...entries, { network: n as FollowerNetwork, handle: "", count: null }] })}
+        />
       ) : null}
-      <div className="grid grid-cols-2 gap-3">
-        <div className={fieldBox}>
-          <Label className={fieldLabel}>{tt("Look")}</Label>
-          <Chips label={tt("Look")} value={data.style === "card" ? "card" : "line"} options={[{ id: "line", label: tt("Line") }, { id: "card", label: tt("Card") }]} onChange={(v) => updateData({ style: v })} />
-        </div>
-        <div className={fieldBox}>
-          <Label className={fieldLabel}>{tt("Word")}</Label>
-          <Input value={data.label ?? ""} maxLength={24} placeholder={tt("followers")} onChange={(ev) => updateData({ label: ev.target.value })} />
-        </div>
+      <p className="text-[12.5px] leading-[1.4] text-[#6b7280]">{tt("Bluesky and YouTube counts update every few hours. Others stay as you type them.")}</p>
+      <div className="space-y-4 border-t border-[#eef0f2] pt-4">
+        <LabeledRow label={tt("Look")}>
+          <Segmented label={tt("Look")} value={data.style === "card" ? "card" : "line"} options={[{ id: "line", label: tt("Line") }, { id: "card", label: tt("Card") }]} onChange={(v) => updateData({ style: v })} />
+        </LabeledRow>
+        <LabeledRow label={tt("Word after the number")} htmlFor="followers-word">
+          <Input id="followers-word" value={data.label ?? ""} maxLength={24} placeholder={tt("followers")} onChange={(ev) => updateData({ label: ev.target.value })} />
+        </LabeledRow>
       </div>
-      <p className="text-[12px] leading-relaxed text-[#6b7280]">{tt("Bluesky and YouTube counts are read from the network every few hours. Type the others; they stay as you typed them.")}</p>
     </div>
   )
 }

@@ -42,7 +42,7 @@ import { cn } from "@/lib/utils"
 import { Avatar } from "@/components/ui/avatar"
 import { AvatarMark } from "@/components/app/app-avatar"
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, createContext, useContext } from "react"
-import { ArrowRight, Bell, X, Check, Send, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
+import { ArrowRight, Bell, X, Check, Send, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar, FileText } from "lucide-react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { downloadEntitledFile } from "@/components/download-button"
 import { downloadFile } from "@/lib/downloads/download-file"
@@ -76,7 +76,10 @@ import { avatarLook, bioSizeClass, bioTypeStyle, titleSizeClass, titleTypeStyle 
 import { bookingProviderName, bookingSource, tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
 import { BookingFrame } from "@/components/onepage/embed-frame"
 import { BlockSheetProvider, useBlockSheet } from "@/components/onepage/block-sheet"
+import { MusicPlayer, appleMusicEmbedUrl, musicSheetRequest, spotifyEmbedUrl } from "@/components/onepage/music-sheet"
+import { PdfOnPage, PdfPages } from "@/components/onepage/pdf-pages"
 import { blockInteraction } from "@/lib/onepage/block-sheet"
+import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { useMouseDragScroll } from "@/components/onepage/drag-scroll"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 import { EmailSignupView, type EmailSignupFormOptions } from "@/components/onepage/email-signup"
@@ -160,28 +163,6 @@ function SmoothAvatarVideo({
   )
 }
 
-// Spotify Modal Context - allows modals to render at root level instead of inside blocks
-interface SpotifyModalContextType {
-  openSpotifyModal: (data: {
-    title: string
-    embedUrl: string
-    spotifyUrl: string
-    streamingServices?: { platform: string; url: string | null; found: boolean }[]
-    spotifyMode?: string
-  }) => void
-}
-const SpotifyModalContext = createContext<SpotifyModalContextType | null>(null)
-
-// Apple Music Modal Context - allows modals to render at root level instead of inside blocks
-interface AppleMusicModalContextType {
-  openAppleMusicModal: (data: {
-    title: string
-    embedUrl: string
-    appleMusicUrl: string
-  }) => void
-}
-const AppleMusicModalContext = createContext<AppleMusicModalContextType | null>(null)
-
 // Quick Checkout Modal Context - for free products with quick checkout enabled
 interface QuickCheckoutModalContextType {
   openQuickCheckoutModal: (data: {
@@ -198,17 +179,6 @@ interface QuickCheckoutModalContextType {
   downloadPurchasedAsset: (productId: string) => void
 }
 const QuickCheckoutModalContext = createContext<QuickCheckoutModalContextType | null>(null)
-
-// PDF Modal Context - allows PDF modals to render at root level instead of inside blocks
-interface PDFModalContextType {
-  openPdfModal: (data: {
-    title: string
-    description?: string
-    pdfUrl: string
-    previewButtonText?: string
-  }) => void
-}
-const PDFModalContext = createContext<PDFModalContextType | null>(null)
 
 // Modal visibility context - to hide buttons when fullscreen modals are open
 interface ModalVisibilityContextType {
@@ -897,177 +867,6 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   /* Below 640px the music and checkout panels are the shared sheet (see THE SPOTIFY, APPLE MUSIC below). */
   const isPhone = usePhoneWidth()
 
-  // Spotify modal state - lifted to root level to prevent clipping in groups
-  const [spotifyModalOpen, setSpotifyModalOpen] = useState(false)
-  const [spotifyModalData, setSpotifyModalData] = useState<{
-    title: string
-    embedUrl: string
-    spotifyUrl: string
-    streamingServices?: { platform: string; url: string | null; found: boolean }[]
-    spotifyMode?: string
-  } | null>(null)
-  
-  const openSpotifyModal = useCallback((data: {
-    title: string
-    embedUrl: string
-    spotifyUrl: string
-    streamingServices?: { platform: string; url: string | null; found: boolean }[]
-    spotifyMode?: string
-  }) => {
-    setSpotifyModalData(data)
-    setSpotifyModalOpen(true)
-  }, [])
-  
-  const spotifyModalContextValue = { openSpotifyModal }
-
-  // Apple Music modal state - lifted to root level to prevent clipping in groups
-  const [appleMusicModalOpen, setAppleMusicModalOpen] = useState(false)
-  const [appleMusicModalData, setAppleMusicModalData] = useState<{
-    title: string
-    embedUrl: string
-    appleMusicUrl: string
-  } | null>(null)
-
-  const openAppleMusicModal = useCallback((data: {
-    title: string
-    embedUrl: string
-    appleMusicUrl: string
-  }) => {
-    setAppleMusicModalData(data)
-    setAppleMusicModalOpen(true)
-  }, [])
-
-  const appleMusicModalContextValue = { openAppleMusicModal }
-
-  // Prevent pull-to-refresh when any modal is open
-  useEffect(() => {
-    if (spotifyModalOpen || appleMusicModalOpen) {
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
-    } else {
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-    }
-    return () => {
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-    }
-  }, [spotifyModalOpen, appleMusicModalOpen])
-
-  // PDF modal state - lifted to root level to ensure proper z-index stacking
-  const [pdfModalOpen, setPdfModalOpen] = useState(false)
-  const [pdfModalData, setPdfModalData] = useState<{
-    title: string
-    description?: string
-    pdfUrl: string
-    previewButtonText?: string
-  } | null>(null)
-  const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
-  const [pdfTotalPages, setPdfTotalPages] = useState(1)
-  const [pdfLoading, setPdfLoading] = useState(false)
-  const [pdfPages, setPdfPages] = useState<string[]>([])
-  const pdfContainerRef = useRef<HTMLDivElement>(null)
-  const pdfScrollRef = useRef<HTMLDivElement>(null)
-
-  const openPdfModal = useCallback((data: {
-    title: string
-    description?: string
-    pdfUrl: string
-    previewButtonText?: string
-  }) => {
-    setPdfModalData(data)
-    setPdfModalOpen(true)
-    setPdfLoading(true)
-    setPdfCurrentPage(1)
-    setPdfTotalPages(1)
-    setPdfPages([])
-  }, [])
-
-  const closePdfModal = useCallback(() => {
-    setPdfModalOpen(false)
-  }, [])
-
-  const pdfModalContextValue = { openPdfModal }
-
-  // Load PDF.js and render pages when PDF modal opens
-  useEffect(() => {
-    if (pdfModalOpen && pdfModalData?.pdfUrl) {
-      const loadPdfJs = async () => {
-        try {
-          // Check if already loaded
-          if (!(window as any).pdfjsLib) {
-            const script = document.createElement('script')
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
-            script.async = true
-            await new Promise((resolve, reject) => {
-              script.onload = resolve
-              script.onerror = reject
-              document.head.appendChild(script)
-            })
-          }
-
-          const pdfjsLib = (window as any).pdfjsLib
-          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
-
-          // Load the PDF
-          const loadingTask = pdfjsLib.getDocument(pdfModalData.pdfUrl)
-          const pdf = await loadingTask.promise
-          setPdfTotalPages(pdf.numPages)
-
-          // Render each page to canvas and convert to image
-          const pageImages: string[] = []
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i)
-            const scale = 2 // Higher scale for better quality
-            const viewport = page.getViewport({ scale })
-
-            const canvas = document.createElement('canvas')
-            const context = canvas.getContext('2d')
-            canvas.height = viewport.height
-            canvas.width = viewport.width
-
-            await page.render({
-              canvasContext: context,
-              viewport: viewport
-            }).promise
-
-            pageImages.push(canvas.toDataURL('image/png'))
-          }
-
-          setPdfPages(pageImages)
-          setPdfLoading(false)
-        } catch (error) {
-          console.error('PDF loading error:', error)
-          setPdfLoading(false)
-          // Fallback: just count pages from PDF structure
-          try {
-            const response = await fetch(pdfModalData.pdfUrl)
-            const text = await response.text()
-            const pageMatches = text.match(/\/Type\s*\/Page[^s]/g)
-            if (pageMatches) {
-              setPdfTotalPages(pageMatches.length)
-            }
-          } catch {
-            // Ignore fallback errors
-          }
-        }
-      }
-      loadPdfJs()
-    }
-  }, [pdfModalOpen, pdfModalData?.pdfUrl])
-
-  // Handle PDF scroll to track current page
-  const handlePdfScroll = useCallback(() => {
-    if (!pdfScrollRef.current || pdfPages.length === 0) return
-    const container = pdfScrollRef.current
-    const scrollTop = container.scrollTop
-    const containerHeight = container.clientHeight
-    const pageHeight = container.scrollHeight / pdfTotalPages
-
-    const currentPageIndex = Math.floor((scrollTop + containerHeight / 2) / pageHeight)
-    setPdfCurrentPage(Math.min(Math.max(currentPageIndex + 1, 1), pdfTotalPages))
-  }, [pdfPages.length, pdfTotalPages])
-
   // Quick Checkout modal state - for free products
   const [quickCheckoutModalOpen, setQuickCheckoutModalOpen] = useState(false)
   const [quickCheckoutModalData, setQuickCheckoutModalData] = useState<{
@@ -1202,14 +1001,14 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
   /*
     ROUND 43: EVERY WINDOW OVER THE PAGE HOLDS IT THE SAME WAY (lib/onepage/
-    page-hold). The centred windows below (music, the free checkout, a PDF)
-    let the page scroll behind them; a Radix dialog (the product sheet on a
+    page-hold). The centred window below (the free checkout; music and a PDF
+    open in the block sheet since round AN) let the page scroll behind it; a Radix dialog (the product sheet on a
     computer) hid the scrollbar and the page jumped by its width. Now a
     window on a computer holds the page and keeps the bar's room, and a
     Radix lock is followed into the same hold. A phone's sheet is the shared
     bottom sheet, which holds the page itself.
   */
-  useHeldPage(isPhone === false && ((spotifyModalOpen && !!spotifyModalData) || (appleMusicModalOpen && !!appleMusicModalData) || (quickCheckoutModalOpen && !!quickCheckoutModalData) || (pdfModalOpen && !!pdfModalData)))
+  useHeldPage(isPhone === false && quickCheckoutModalOpen && !!quickCheckoutModalData)
   useEffect(() => followDialogLocks(), [])
 
   // Safe defaults - MERGE theme with defaults to ensure all properties exist
@@ -1453,165 +1252,15 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   )
 
   /*
-    THE SPOTIFY, APPLE MUSIC AND FREE CHECKOUT SHEETS. On a phone each was a
-    panel that animated up with a class, could not be dragged, and vanished
-    on the frame it was closed. Under 640px they are the shared sheet now
+    THE FREE CHECKOUT SHEET. On a phone it is the shared sheet
     (components/ui/bottom-sheet.tsx): the same rise, the same drag and flick,
-    the same slide out as the sheets in the app. From 640px they are the
-    centred dialogs they were. What is inside is written once, below, and
-    drawn in either; a close button in it hands the close to the sheet on a
-    phone (`data-sheet-close`), so the slide starts before the page renders.
-    Each takes its data as an argument of the same name, already known to be
-    there.
+    the same slide out as the sheets in the app. From 640px it is the
+    centred dialog it was. What is inside is written once, below, and drawn
+    in either; a close button in it hands the close to the sheet on a phone
+    (`data-sheet-close`), so the slide starts before the page renders. The
+    Spotify and Apple Music panels that were drawn the same way open in the
+    block sheet since round AN (components/onepage/music-sheet).
   */
-  type SpotifyData = NonNullable<typeof spotifyModalData>
-  const spotifyBody = (spotifyModalData: SpotifyData) => (
-    <>
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b">
-        <div className="flex items-center gap-2">
-          <svg className="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-          </svg>
-          <span className="text-sm font-medium text-gray-600 truncate max-w-[220px]">
-            {spotifyModalData.title}
-          </span>
-        </div>
-        <button
-          data-sheet-close=""
-          onClick={isPhone ? undefined : () => setSpotifyModalOpen(false)}
-          className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
-        >
-          <X className="w-4 h-4 text-gray-500" />
-        </button>
-      </div>
-
-      {/* Spotify Embed - responsive height */}
-      <div className="p-3">
-        <div className="w-full overflow-hidden rounded-xl bg-black/5" style={{ aspectRatio: '1 / 0.85', maxHeight: '352px' }}>
-          <iframe
-            src={spotifyModalData.embedUrl}
-            width="100%"
-            height="100%"
-            frameBorder="0"
-            scrolling="no"
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            loading="lazy"
-            className="block w-full h-full"
-          />
-        </div>
-      </div>
-
-      {/* Streaming Services - text only, no icons */}
-      {spotifyModalData.spotifyMode === 'show_streaming' && spotifyModalData.streamingServices && spotifyModalData.streamingServices.filter(s => s.found && s.url).length > 0 && (
-        <div className="px-3 pb-3">
-          <p className="text-xs font-medium text-gray-700 mb-2">Listen on</p>
-          <div className="space-y-1.5">
-            {spotifyModalData.streamingServices.filter(s => s.found && s.url).map((service) => {
-              const names: Record<string, string> = {
-                apple_music: 'Apple Music',
-                youtube_music: 'YouTube Music',
-                spotify: 'Spotify',
-                youtube: 'YouTube',
-                itunes: 'iTunes',
-                soundcloud: 'SoundCloud',
-                tidal: 'TIDAL',
-                deezer: 'Deezer',
-                amazon_music: 'Amazon Music'
-              }
-              return (
-                <a
-                  key={service.platform}
-                  href={service.url || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
-                >
-                  <span className="text-sm font-medium text-gray-900">{names[service.platform] || service.platform}</span>
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Open in Spotify button */}
-      <div className="p-3 pt-0">
-        <a
-          href={spotifyModalData.spotifyUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block w-full py-2.5 px-4 rounded-full bg-black text-white text-center text-sm font-medium hover:bg-gray-800 transition-colors"
-        >
-          Open in Spotify
-        </a>
-      </div>
-    </>
-  )
-
-  type AppleMusicData = NonNullable<typeof appleMusicModalData>
-  const appleMusicBody = (appleMusicModalData: AppleMusicData) => (
-    <>
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b">
-        <div className="flex items-center gap-2">
-          <svg className="w-5 h-5" viewBox="0 0 512 512">
-            <defs>
-              <linearGradient id="am-public-modal-grad" x1="0.5" y1="0.99" x2="0.5" y2="0.02">
-                <stop offset="0" stopColor="#FA233B"/>
-                <stop offset="1" stopColor="#FB5C74"/>
-              </linearGradient>
-            </defs>
-            <path fill="url(#am-public-modal-grad)" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
-          </svg>
-          <span className="text-sm font-medium text-gray-600 truncate max-w-[220px]">
-            {appleMusicModalData.title}
-          </span>
-        </div>
-        <button
-          data-sheet-close=""
-          onClick={isPhone ? undefined : () => setAppleMusicModalOpen(false)}
-          className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
-        >
-          <X className="w-4 h-4 text-gray-500" />
-        </button>
-      </div>
-
-      {/* Apple Music Embed - responsive */}
-      <div className="p-3">
-        <div className="w-full overflow-hidden rounded-xl bg-black/5" style={{ aspectRatio: '1 / 0.88', maxHeight: '360px' }}>
-          <iframe
-            src={appleMusicModalData.embedUrl}
-            width="100%"
-            height="100%"
-            frameBorder="0"
-            scrolling="no"
-            allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
-            sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-            loading="lazy"
-            className="block w-full h-full"
-            style={{ overflow: 'hidden', background: 'transparent' }}
-          />
-        </div>
-      </div>
-
-      {/* Open in Apple Music button */}
-      <div className="p-3 pt-0">
-        <a
-          href={appleMusicModalData.appleMusicUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block w-full py-2.5 px-4 rounded-full bg-gradient-to-r from-[#FA233B] to-[#FB5C74] text-white text-center text-sm font-medium hover:opacity-90 transition-opacity"
-        >
-          Open in Apple Music
-        </a>
-      </div>
-    </>
-  )
-
   type QuickCheckoutData = NonNullable<typeof quickCheckoutModalData>
   const quickCheckoutBody = (quickCheckoutModalData: QuickCheckoutData) => (
     <>
@@ -1723,107 +1372,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     </>
   )
 
-  /* The PDF panel's contents: in the phone's sheet (whose own close is data-sheet-close) or the centred panel. */
-  const pdfBody = (
-    pdfModalData: { title?: string; description?: string; pdfUrl: string; previewButtonText?: string },
-    closeProps: { onClick?: () => void; "data-sheet-close"?: string },
-  ) => (
-    <>
-      {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
-        <button
-          type="button"
-          {...closeProps}
-          className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
-          {pdfModalData.title || "PDF Document"}
-        </h3>
-        <button
-          type="button"
-          {...closeProps}
-          className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Preview Area */}
-      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-hidden min-h-0">
-        {/* PDF Preview Frame */}
-        <div
-          ref={pdfContainerRef}
-          className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
-        >
-          {/* Page Counter */}
-          <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
-            {pdfLoading ? "Loading..." : `${pdfCurrentPage} of ${pdfTotalPages}`}
-          </div>
-
-          {/* PDF Pages - Scrollable container */}
-          <div
-            ref={pdfScrollRef}
-            className="aspect-[3/4] w-full bg-white overflow-y-auto overflow-x-hidden"
-            onScroll={handlePdfScroll}
-          >
-            {pdfLoading ? (
-              <div className="w-full h-full flex items-center justify-center">
-                <div className="animate-spin w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full" />
-              </div>
-            ) : pdfPages.length > 0 ? (
-              <div className="flex flex-col">
-                {pdfPages.map((pageImg, index) => (
-                  <img
-                    key={index}
-                    src={pageImg}
-                    alt={`Page ${index + 1}`}
-                    className="w-full h-auto"
-                  />
-                ))}
-              </div>
-            ) : (
-              <iframe
-                src={`${pdfModalData.pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
-                className="w-full h-full border-0"
-                title={pdfModalData.title || "PDF Document"}
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Description under preview */}
-        {pdfModalData.description && (
-          <p className="mt-4 text-sm text-gray-500 text-center max-w-xs">
-            {pdfModalData.description}
-          </p>
-        )}
-      </div>
-
-      {/* Bottom View Button */}
-      <div className="px-6 pb-6 sm:pb-8 pt-4 shrink-0">
-        <a
-          href={pdfModalData.pdfUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center w-full py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-semibold rounded-2xl transition-colors"
-        >
-          {pdfModalData.previewButtonText || "View full PDF"}
-        </a>
-      </div>
-    </>
-  )
-
   return (
-    <BlockSheetProvider dark={!pageIsLight(safeTheme)}>
+    <BlockSheetProvider dark={!pageIsLight(safeTheme)} theme={safeTheme}>
     <ModalVisibilityContext.Provider value={modalVisibilityContextValue}>
-    <SpotifyModalContext.Provider value={spotifyModalContextValue}>
-    <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
     <QuickCheckoutModalContext.Provider value={quickCheckoutModalContextValue}>
-    <PDFModalContext.Provider value={pdfModalContextValue}>
       {/* The icon is the page's own picture, or a frame of its video */}
       <OnePageDynamicFavicon avatarUrl={avatar_url} videoUrl={avatar_video_url} />
       {/* The document's canvas in the page's own colour: no white under the footer, in the home indicator's band or past the end of a pull (lib/onepage/page-frame) */}
@@ -2142,60 +1694,6 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       </div>
       )}
       
-      {/* Spotify Modal - clean, compact, responsive design */}
-      {isPhone ? (
-        <BottomSheet
-          isOpen={spotifyModalOpen && !!spotifyModalData}
-          onClose={() => setSpotifyModalOpen(false)}
-          label={spotifyModalData?.title ?? "Spotify"}
-          hideFrom="sm"
-          maxHeight="90svh"
-        >
-          {spotifyModalData && spotifyBody(spotifyModalData)}
-        </BottomSheet>
-      ) : spotifyModalOpen && spotifyModalData && (
-        <div
-          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300 ease-out"
-          style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
-          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSpotifyModalOpen(false); }}
-        >
-          <div
-            className="bg-white w-full rounded-t-2xl sm:rounded-2xl sm:w-[min(92vw,460px)] max-h-[90svh] sm:max-h-[85vh] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
-            style={{ transform: 'translateZ(0)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {spotifyBody(spotifyModalData)}
-          </div>
-        </div>
-      )}
-
-      {/* Apple Music Modal - clean, compact, responsive design */}
-      {isPhone ? (
-        <BottomSheet
-          isOpen={appleMusicModalOpen && !!appleMusicModalData}
-          onClose={() => setAppleMusicModalOpen(false)}
-          label={appleMusicModalData?.title ?? "Apple Music"}
-          hideFrom="sm"
-          maxHeight="90svh"
-        >
-          {appleMusicModalData && appleMusicBody(appleMusicModalData)}
-        </BottomSheet>
-      ) : appleMusicModalOpen && appleMusicModalData && (
-        <div
-          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300 ease-out"
-          style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
-          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setAppleMusicModalOpen(false); }}
-        >
-          <div
-            className="bg-white w-full rounded-t-2xl sm:rounded-2xl sm:w-[min(92vw,460px)] max-h-[90svh] sm:max-h-[85vh] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
-            style={{ transform: 'translateZ(0)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {appleMusicBody(appleMusicModalData)}
-          </div>
-        </div>
-      )}
-
       {/* Quick Checkout Modal */}
       {isPhone ? (
         <BottomSheet
@@ -2228,45 +1726,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         </div>
       )}
 
-      {/*
-        THE PDF (and a menu, which opens the same way) ON A PHONE IS THE SHARED
-        SHEET (components/ui/bottom-sheet.tsx), as the Spotify, Apple Music and
-        checkout panels already were: it rises, follows the thumb, flicks closed
-        and slides out. It was a full screen panel that vanished on close. The
-        editor's phone preview had been given the sheet on its own copy of this
-        panel; the preview is this page now (components/onepage/live-preview),
-        so the page has it, for visitors too. From 640px it is the centred
-        panel it was.
-      */}
-      {isPhone ? (
-        <BottomSheet
-          isOpen={pdfModalOpen && !!pdfModalData}
-          onClose={closePdfModal}
-          label={pdfModalData?.title || "PDF Document"}
-          hideFrom="sm"
-          fill
-          maxHeight="90svh"
-          className="mx-auto max-w-md min-h-[70vh]"
-        >
-          {pdfModalData && pdfBody(pdfModalData, { "data-sheet-close": "" })}
-        </BottomSheet>
-      ) : pdfModalOpen && pdfModalData && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
-          onClick={closePdfModal}
-        >
-          <div
-            className="relative w-full h-full sm:h-auto sm:max-h-[90dvh] max-w-md sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {pdfBody(pdfModalData, { onClick: closePdfModal })}
-          </div>
-        </div>
-      )}
-    </PDFModalContext.Provider>
     </QuickCheckoutModalContext.Provider>
-    </AppleMusicModalContext.Provider>
-    </SpotifyModalContext.Provider>
     </ModalVisibilityContext.Provider>
     </BlockSheetProvider>
   )
@@ -3162,10 +2622,8 @@ function CoreBlockRenderer({
     }
   }, [block.type, block.id, onepageId])
 
-  // Use context for Spotify modal - renders at root level to prevent clipping
-  const spotifyModalContext = useContext(SpotifyModalContext)
-  // Use context for Apple Music modal - renders at root level to prevent clipping
-  const appleMusicModalContext = useContext(AppleMusicModalContext)
+  /* Round AN: a Spotify or Apple Music link's player opens in the block sheet (components/onepage/music-sheet), as every block's does. */
+  const pageSheet = useBlockSheet()
 
   const socialStyle = (theme as any).social_icon_style || "filled"
   const socialColor = (theme as any).social_icon_color || theme.text_color
@@ -3223,43 +2681,18 @@ function CoreBlockRenderer({
     return url.includes('spotify.com') || url.includes('open.spotify.com')
   }
 
-  // Extract Spotify ID and type from URL
-  const getSpotifyInfo = (url: string): { type: string; id: string; embedUrl: string } | null => {
-    try {
-      const patterns = [
-        /spotify\.com\/(track|album|artist|playlist)\/([a-zA-Z0-9]+)/,
-        /open\.spotify\.com\/(track|album|artist|playlist)\/([a-zA-Z0-9]+)/
-      ]
-      for (const pattern of patterns) {
-        const match = url.match(pattern)
-        if (match) {
-          const type = match[1]
-          const id = match[2]
-          return {
-            type,
-            id,
-            embedUrl: `https://open.spotify.com/embed/${type}/${id}?utm_source=generator&theme=0`
-          }
-        }
-      }
-    } catch {
-      return null
-    }
-    return null
-  }
-
-  // Open Spotify modal via context
+  /* The player in the block sheet; with "Show streaming", the other services under it. */
   const openSpotifyModal = (data: LinkButtonBlockData) => {
-    const spotifyInfo = getSpotifyInfo(data.url)
-    if (spotifyInfo && spotifyModalContext) {
-      spotifyModalContext.openSpotifyModal({
-        title: data.label ?? 'Listen on Spotify',
-        spotifyUrl: data.url,
-        embedUrl: spotifyInfo.embedUrl,
-        streamingServices: data.streaming_services,
-        spotifyMode: data.spotify_mode || 'audio_preview'
-      })
-    }
+    if (!spotifyEmbedUrl(data.url)) return
+    pageSheet.open({
+      blockId: block.id,
+      ...musicSheetRequest({
+        service: "spotify",
+        url: data.url,
+        title: data.label || "Spotify",
+        streaming: data.spotify_mode === "show_streaming" ? data.streaming_services : null,
+      }),
+    })
   }
 
   // Apple Music URL helper
@@ -3281,29 +2714,9 @@ function CoreBlockRenderer({
     return match ? match[1] : null
   }
 
-  // Get Apple Music embed URL
-  const getAppleMusicEmbedUrl = (url: string): string | null => {
-    try {
-      if (!url.includes('music.apple.com')) return null
-      // Convert Apple Music URL to embed URL
-      // Example: https://music.apple.com/us/album/song-name/1234567890?i=1234567891
-      // To: https://embed.music.apple.com/us/album/song-name/1234567890?i=1234567891
-      return url.replace('music.apple.com', 'embed.music.apple.com')
-    } catch {
-      return null
-    }
-  }
-
-  // Open Apple Music modal via context
   const openAppleMusicModal = (data: LinkButtonBlockData) => {
-    const embedUrl = getAppleMusicEmbedUrl(data.url)
-    if (embedUrl && appleMusicModalContext) {
-      appleMusicModalContext.openAppleMusicModal({
-        title: data.label ?? 'Listen on Apple Music',
-        appleMusicUrl: data.url,
-        embedUrl: embedUrl
-      })
-    }
+    if (!appleMusicEmbedUrl(data.url)) return
+    pageSheet.open({ blockId: block.id, ...musicSheetRequest({ service: "apple_music", url: data.url, title: data.label || "Apple Music" }) })
   }
 
   // Parse gradient to get colors for fade
@@ -3790,6 +3203,9 @@ function CoreBlockRenderer({
     case "link_button": {
       const data = (block.data || { label: "", url: "" }) as LinkButtonBlockData
       if (!data.url) return null
+      /* Round AN: "Show on the page" draws the service's own player in place of the button (components/onepage/music-sheet). */
+      if (data.spotify_mode === "on_page" && spotifyEmbedUrl(data.url)) return <MusicPlayer service="spotify" url={data.url} title={data.label || "Spotify"} radius={theme.button_border_radius} />
+      if (data.apple_music_mode === "on_page" && appleMusicEmbedUrl(data.url)) return <MusicPlayer service="apple_music" url={data.url} title={data.label || "Apple Music"} radius={theme.button_border_radius} />
 
       /*
         THE BUTTON'S ICON: the one picked in the editor, else its platform's mark
@@ -3944,11 +3360,11 @@ function CoreBlockRenderer({
         
         // Check if Pro layout should open Spotify modal
         const proSpotifyMode = data.spotify_mode || 'go_to_url'
-        const proShouldOpenSpotifyModal = isSpotifyUrl(data.url) && (proSpotifyMode === 'audio_preview' || proSpotifyMode === 'show_streaming') && spotifyModalContext
+        const proShouldOpenSpotifyModal = isSpotifyUrl(data.url) && (proSpotifyMode === 'audio_preview' || proSpotifyMode === 'show_streaming') && pageSheet.available && !!spotifyEmbedUrl(data.url)
 
         // Check if Pro layout should open Apple Music modal
         const proAppleMusicMode = data.apple_music_mode || 'go_to_url'
-        const proShouldOpenAppleMusicModal = isAppleMusicUrl(data.url) && proAppleMusicMode === 'audio_preview' && appleMusicModalContext
+        const proShouldOpenAppleMusicModal = isAppleMusicUrl(data.url) && proAppleMusicMode === 'audio_preview' && pageSheet.available && !!appleMusicEmbedUrl(data.url)
 
         // TikTok embed handling
         const tiktokVideoId = getTikTokVideoId(data.url) || data.tiktok_video_id
@@ -4179,11 +3595,11 @@ function CoreBlockRenderer({
 
       // Check if this is a Spotify link with modal mode
       const spotifyMode = data.spotify_mode || 'go_to_url'
-      const shouldOpenSpotifyModal = isSpotifyUrl(data.url) && (spotifyMode === 'audio_preview' || spotifyMode === 'show_streaming') && spotifyModalContext
+      const shouldOpenSpotifyModal = isSpotifyUrl(data.url) && (spotifyMode === 'audio_preview' || spotifyMode === 'show_streaming') && pageSheet.available && !!spotifyEmbedUrl(data.url)
 
       // Check if this is an Apple Music link with modal mode (default layout)
       const appleMusicMode = data.apple_music_mode || 'go_to_url'
-      const shouldOpenAppleMusicModal = isAppleMusicUrl(data.url) && appleMusicMode === 'audio_preview' && appleMusicModalContext
+      const shouldOpenAppleMusicModal = isAppleMusicUrl(data.url) && appleMusicMode === 'audio_preview' && pageSheet.available && !!appleMusicEmbedUrl(data.url)
 
       if (shouldOpenSpotifyModal) {
         return (
@@ -5193,30 +4609,48 @@ function CoreBlockRenderer({
         }
       }
 
-      // Use PDF modal context - modal renders at root level for proper z-index stacking
-      const pdfModalContext = useContext(PDFModalContext)
+      /*
+        Round AN: the pop-up is the block sheet (components/onepage/block-sheet), the PDF's pages drawn in it
+        (components/onepage/pdf-pages); the choice is the block's Interaction (lib/onepage/block-sheet), which
+        reads the older "Open directly" switch for a block saved before it.
+      */
+      const interaction = blockInteraction(block)
+      const pdfTitle = data.title || "PDF Document"
 
       const handleOpenPdf = () => {
         if (!pdfUrl) return
-
-        // Track the click
         trackClick(block.id, pdfUrl)
-
-        // If open_directly is enabled, open PDF in new tab
-        if (data.open_directly) {
-          window.open(pdfUrl, '_blank')
+        if (interaction === "direct" || !pageSheet.available) {
+          if (isOnePagePreview()) return showPreviewNotice("link")
+          window.open(pdfUrl, '_blank', 'noopener')
           return
         }
+        pageSheet.open({
+          blockId: block.id,
+          title: pdfTitle,
+          body: (
+            <div className="pb-2 pt-1" style={{ flex: "none" }}>
+              {data.description ? <p className="mb-3 px-1 text-[14px] leading-snug text-[var(--sheet-muted)]">{data.description}</p> : null}
+              <PdfPages url={pdfUrl} title={pdfTitle} />
+            </div>
+          ),
+          cta: { label: data.preview_button_text || "View full PDF", href: pdfUrl, icon: <FileText /> },
+          shareUrl: pdfUrl,
+          fill: true,
+        })
+      }
 
-        // If enable_preview is enabled (or default), show modal via context
-        if (data.enable_preview !== false && pdfModalContext) {
-          pdfModalContext.openPdfModal({
-            title: data.title ?? "PDF Document",
-            description: data.description,
-            pdfUrl: pdfUrl,
-            previewButtonText: data.preview_button_text,
-          })
-        }
+      if (interaction === "inline" && pdfUrl) {
+        return (
+          <PdfOnPage
+            url={pdfUrl}
+            title={pdfTitle}
+            radius={theme.button_border_radius}
+            button={pdfTitle}
+            buttonStyle={pdfButtonStyles}
+            onOpen={() => trackClick(block.id, pdfUrl)}
+          />
+        )
       }
 
       const textColor = theme.button_text_color
@@ -5379,30 +4813,48 @@ function CoreBlockRenderer({
         }
       }
 
-      // Use PDF modal context - modal renders at root level for proper z-index stacking
-      const pdfModalContext = useContext(PDFModalContext)
+      /*
+        Round AN: the pop-up is the block sheet (components/onepage/block-sheet), the PDF's pages drawn in it
+        (components/onepage/pdf-pages); the choice is the block's Interaction (lib/onepage/block-sheet), which
+        reads the older "Open directly" switch for a block saved before it.
+      */
+      const interaction = blockInteraction(block)
+      const pdfTitle = data.title || "Menu"
 
       const handleOpenMenu = () => {
         if (!pdfUrl) return
-
-        // Track the click
         trackClick(block.id, pdfUrl)
-
-        // If open_directly is enabled, open PDF in new tab
-        if (data.open_directly) {
-          window.open(pdfUrl, '_blank')
+        if (interaction === "direct" || !pageSheet.available) {
+          if (isOnePagePreview()) return showPreviewNotice("link")
+          window.open(pdfUrl, '_blank', 'noopener')
           return
         }
+        pageSheet.open({
+          blockId: block.id,
+          title: pdfTitle,
+          body: (
+            <div className="pb-2 pt-1" style={{ flex: "none" }}>
+              {data.description ? <p className="mb-3 px-1 text-[14px] leading-snug text-[var(--sheet-muted)]">{data.description}</p> : null}
+              <PdfPages url={pdfUrl} title={pdfTitle} />
+            </div>
+          ),
+          cta: { label: data.preview_button_text || "View Menu", href: pdfUrl, icon: <FileText /> },
+          shareUrl: pdfUrl,
+          fill: true,
+        })
+      }
 
-        // If enable_preview is enabled (or default), show modal via context
-        if (data.enable_preview !== false && pdfModalContext) {
-          pdfModalContext.openPdfModal({
-            title: data.title ?? "Menu",
-            description: data.description,
-            pdfUrl: pdfUrl,
-            previewButtonText: data.preview_button_text,
-          })
-        }
+      if (interaction === "inline" && pdfUrl) {
+        return (
+          <PdfOnPage
+            url={pdfUrl}
+            title={pdfTitle}
+            radius={theme.button_border_radius}
+            button={pdfTitle}
+            buttonStyle={menuButtonStyles}
+            onOpen={() => trackClick(block.id, pdfUrl)}
+          />
+        )
       }
 
       const textColor = theme.button_text_color

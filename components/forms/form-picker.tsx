@@ -16,12 +16,15 @@
  * tables (SQL parts 372 and 375 not run) is told so in one sentence with no
  * Try again, because trying again can not help.
  */
-import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react"
+import { Pencil, Plus } from "lucide-react"
+import { ChoicePicker, type Choice } from "@/components/ui/choice-list"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { formsRequest } from "@/lib/forms/client"
 import { formTemplate, TEMPLATE_CHOICES } from "@/lib/forms/templates"
 import { tt } from "@/lib/i18n/text"
 import { cn } from "@/lib/utils"
+import { ERROR, LABEL, PROBLEM, SMALL_BUTTON } from "./fields"
 import type { SavedForm } from "./forms-manager"
 
 const FormBuilderDialog = lazy(() => import("./form-builder-dialog"))
@@ -44,7 +47,7 @@ export function readForms(force = false): Promise<void> {
   if (inflight) return inflight
   if (state.forms && !force) return Promise.resolve()
   emit({ loading: true, error: null })
-  inflight = formsRequest<{ forms: FormRow[] }>("/api/forms", { fallback: "Forms could not be loaded. Try again." }).then((r) => {
+  inflight = formsRequest<{ forms: FormRow[] }>("/api/forms", { fallback: tt("Forms could not be loaded. Try again.") }).then((r) => {
     inflight = null
     emit({ loading: false, missing: r.missing, error: r.missing ? null : r.error, forms: r.missing ? [] : r.data?.forms ?? (r.error ? state.forms : []) })
   })
@@ -76,7 +79,7 @@ export function useFormsList(needed: boolean) {
 /** Make a form from a template. A chat's questions are live at once (`publish`). */
 export async function createForm(template: string, publish = false): Promise<{ form: FormRow | null; error: string | null; missing: boolean }> {
   const body = publish ? { definition: formTemplate(template), publish: true } : { template }
-  const r = await formsRequest<{ form: FormRow }>("/api/forms", { method: "POST", body: JSON.stringify(body), fallback: "The form could not be created. Try again." })
+  const r = await formsRequest<{ form: FormRow }>("/api/forms", { method: "POST", body: JSON.stringify(body), fallback: tt("The form could not be created. Try again.") })
   if (r.missing) emit({ missing: true })
   if (r.data?.form) keepForm(r.data.form)
   return { form: r.data?.form ?? null, error: r.error, missing: r.missing }
@@ -84,21 +87,25 @@ export async function createForm(template: string, publish = false): Promise<{ f
 
 /* ── the picker ─────────────────────────────────────────────────────────── */
 
-const LABEL = "block text-xs font-medium text-[#4b5563]"
-const SELECT =
-  "h-10 w-full min-w-0 cursor-pointer appearance-none truncate rounded-lg border border-[#e3e4e8] bg-white pl-3 pr-9 text-sm text-[#1a1a2e] outline-none focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] bg-[url('data:image/svg+xml;utf8,<svg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2212%22%20height=%2212%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%236b7280%22%20stroke-width=%222%22><path%20d=%22m6%209%206%206%206-6%22/></svg>')] bg-[length:12px] bg-[right_12px_center] bg-no-repeat"
-export const SMALL_BUTTON =
-  "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e3e4e8] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] disabled:cursor-not-allowed disabled:opacity-50"
+/* Kept for anything that imported it from here: the forms surfaces' small button (./fields). */
+export { SMALL_BUTTON }
 
 /** Plain words for a store without the forms tables, the same everywhere a form is picked. */
 export function FormsNotSetUp({ className }: { className?: string }) {
   return (
-    <p className={cn("rounded-lg bg-[#f6f7f9] px-3 py-2.5 text-xs leading-5 text-[#4b5563]", className)} data-forms-missing="">
+    <p className={cn("rounded-xl bg-[#f6f7f9] px-3.5 py-3 text-[13px] leading-5 text-[#4b5563]", className)} data-forms-missing="">
       {tt("Forms are not switched on for this store yet. They need the Forms database update (SQL parts 372 and 375 in Admin › SQL updates).")}
     </p>
   )
 }
 
+/*
+  ROUND AN: the form is chosen in Storelib's own list (components/ui/
+  choice-list ChoicePicker: a popover on a computer, the shared sheet on a
+  phone), never the native select, with a draft or a booking form said in a
+  quieter line under its name. New form and Edit questions sit under it as
+  two small buttons.
+*/
 export function FormPicker({
   value,
   onChange,
@@ -136,27 +143,48 @@ export function FormPicker({
     [kind, onChange],
   )
 
+  const choices = useMemo<Choice[]>(
+    () => [
+      ...(allowEmpty && value ? [{ value: "", label: tt("No form") }] : []),
+      ...list.map((f) => ({
+        value: f.id,
+        label: f.title || tt("Untitled form"),
+        detail: [kind === "booking" && books(f) ? tt("Takes bookings") : "", f.status !== "published" ? tt("Draft") : ""].filter(Boolean).join(" · ") || undefined,
+      })),
+    ],
+    [list, kind, allowEmpty, value],
+  )
+
   if (missing) return <FormsNotSetUp />
 
   const templates = kind === "prechat" ? [{ id: "prechat", label: tt("Before a chat") }, ...TEMPLATE_CHOICES.filter((t) => t.id === "contact" || t.id === "service")] : kind === "booking" ? TEMPLATE_CHOICES.filter((t) => t.id === "appointment") : TEMPLATE_CHOICES
+  const waiting = loading && !forms.length
   return (
-    <div className="space-y-2" data-form-picker={kind}>
-      <label className="block space-y-1.5">
+    <div className="space-y-2.5" data-form-picker={kind}>
+      <div className="space-y-2">
         <span className={LABEL}>{label}</span>
-        <select className={SELECT} value={value} disabled={loading && !forms.length} onChange={(e) => onChange(e.target.value)}>
-          {allowEmpty || !value ? <option value="">{loading && !forms.length ? tt("Loading forms") : tt("Choose a form")}</option> : null}
-          {list.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.title || tt("Untitled form")}
-              {kind === "booking" && books(f) ? ` (${tt("takes bookings")})` : ""}
-              {f.status !== "published" ? ` (${tt("draft")})` : ""}
-            </option>
-          ))}
-        </select>
-      </label>
+        <ChoicePicker
+          name={`form-${kind}`}
+          title={label}
+          choices={choices}
+          value={value || null}
+          onChange={onChange}
+          placeholder={tt("Search forms")}
+          searchable={choices.length > 7}
+          fieldLabel={chosen ? chosen.title || tt("Untitled form") : waiting ? tt("Loading forms") : tt("Choose a form")}
+          fieldAside={chosen && chosen.status !== "published" ? tt("Draft") : undefined}
+          fieldMuted={!chosen}
+          lead={
+            list.length
+              ? undefined
+              : (compact) => <p className={cn("text-[#6b7280]", compact ? "px-3 py-3 text-[15px]" : "px-2.5 py-2 text-[13px]")}>{waiting ? tt("Loading forms") : tt("No forms yet. Start one with New form.")}</p>
+          }
+        />
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         {templates.length === 1 ? (
           <button type="button" className={SMALL_BUTTON} disabled={busy} onClick={() => void make(templates[0].id)} data-new-form-here="">
+            <Plus aria-hidden className="h-3.5 w-3.5 text-[#6b7280]" />
             {busy ? tt("Creating") : tt("New form")}
           </button>
         ) : (
@@ -165,21 +193,23 @@ export function FormPicker({
             align="start"
             trigger={
               <button type="button" className={SMALL_BUTTON} disabled={busy} data-new-form-here="">
+                <Plus aria-hidden className="h-3.5 w-3.5 text-[#6b7280]" />
                 {busy ? tt("Creating") : tt("New form")}
               </button>
             }
-            items={templates.map((t) => ({ label: t.id === "prechat" ? tt("Before a chat") : t.label, onClick: () => void make(t.id) }))}
+            items={templates.map((t) => ({ label: t.id === "prechat" ? tt("Before a chat") : templateName(t.id, t.label), onClick: () => void make(t.id) }))}
           />
         )}
         {chosen ? (
           <button type="button" className={SMALL_BUTTON} onClick={() => setEditing(chosen.id)} data-edit-form-here="">
+            <Pencil aria-hidden className="h-3.5 w-3.5 text-[#6b7280]" />
             {tt("Edit questions")}
           </button>
         ) : null}
       </div>
-      {chosen && chosen.status !== "published" ? <p className="text-xs font-medium text-[#b54708]">{tt("This form is a draft. Publish it so visitors can answer.")}</p> : null}
+      {chosen && chosen.status !== "published" ? <p className={PROBLEM}>{tt("This form is a draft. Publish it so visitors can answer.")}</p> : null}
       {problem || error ? (
-        <p role="alert" className="text-xs text-[#b42318]">
+        <p role="alert" className={ERROR}>
           {problem || error}
           {error && !problem ? (
             <button type="button" className="ml-1.5 font-medium underline" onClick={retry}>
@@ -195,4 +225,21 @@ export function FormPicker({
       ) : null}
     </div>
   )
+}
+
+/** A starting point's name in the creator's language (the ids are lib/forms/templates'). */
+export function templateName(id: string, fallback?: string): string {
+  const words: Record<string, string> = {
+    contact: tt("Contact"),
+    lead: tt("Lead magnet"),
+    coaching: tt("Coaching application"),
+    service: tt("Service inquiry"),
+    appointment: tt("Appointment booking"),
+    waitlist: tt("Waitlist"),
+    feedback: tt("Feedback"),
+    registration: tt("Registration"),
+    fitness: tt("Quiz with results"),
+    prechat: tt("Before a chat"),
+  }
+  return words[id] ?? fallback ?? TEMPLATE_CHOICES.find((t) => t.id === id)?.label ?? id
 }

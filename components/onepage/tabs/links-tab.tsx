@@ -5,7 +5,7 @@ import {actionHref,readAction,whatsappGroupUrl,type ActionType,type NativeAction
 
 import {HeaderCoverEditor} from "../header-cover-editor"
 
-import { ArrangePicker, CardsInViewControl, EditorThemeContext, BlockAnimationPicker, ANIMATED_BLOCKS, ClassicFeaturedPicker, BlockDescriptionField, BlockEditorTabs, BlockPartContext, BlockStyleControls, LinkImageOptions, LinkLayoutPicker, LinkPreviewControls, SocialShowAs, PartContent, PartHidden, PartTabs } from "../block-settings"
+import { ArrangePicker, CardsInViewControl, EditorThemeContext, BlockAnimationButton, ANIMATED_BLOCKS, ClassicFeaturedPicker, BlockDescriptionField, BlockEditorTabs, BlockPartContext, BlockStyleControls, LinkImageOptions, LinkLayoutPicker, LinkPreviewControls, SocialShowAs, PartContent, PartHidden, PartTabs } from "../block-settings"
 import { layoutControlsFor, linkLayoutOf, presentationOf } from "@/lib/onepage/block-presentation"
 import { editedMark, mergeLinkPreview } from "@/lib/onepage/link-preview"
 
@@ -88,7 +88,8 @@ function BlockToggle({ checked, onCheckedChange, label }: { checked: boolean; on
 }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { ColorRow, RangeRow, Segmented, Switch } from "@/components/onepage/editor-kit"
+import { ColorRow, LabeledRow, RangeRow, Segmented, Switch } from "@/components/onepage/editor-kit"
+import { EditorSelect } from "@/components/onepage/editor-choice"
 import { accentDepth } from "@/components/ui/depth-button"
 import { DeletedIcon, SaveNotification } from "@/components/ui/save-notification"
 import { DialogHeader } from "@/components/ui/dialog"
@@ -139,6 +140,8 @@ import {
   Calendar,
   Info,
   FolderOpen,
+  PanelBottom,
+  LayoutList,
 } from "lucide-react"
 import { LinkStatsChart, type LinkStats } from "@/components/onepage/link-stats-chart"
 import { pageClickCounts } from "@/lib/onepage/stats-client"
@@ -3348,6 +3351,12 @@ function BlockItem({
   */
   const [statsSheetArrived, setStatsSheetArrived] = useState(false)
   const closeStatsSheet = useCallback(() => { setShowStatsModal(false); setStatsSheetArrived(false) }, [])
+  /* The sparkle's choice (BlockAnimationButton), on the block as it is now, not as it was when the menu opened. */
+  const blockNow = useRef(block)
+  blockNow.current = block
+  const setAnimation = useCallback((animation_type: string) => {
+    updateBlock(blockNow.current.id, { data: { ...blockNow.current.data, animation_type } as OnePageBlock["data"] })
+  }, [updateBlock])
 
   // Fetch stats when modal is opened or timeframe changes
   const fetchStats = async (period: RangeValue) => {
@@ -3622,11 +3631,13 @@ function BlockItem({
         })()}
 
         {/*
-          Round AL: a block's animation is chosen in its Layout tab
-          (components/onepage/block-settings BlockAnimationPicker), with the
-          rest of how it looks; the sparkle button and its menu and sheet
-          that sat in this row are gone.
+          Round AN: the animation is the sparkle beside the numbers again, on the
+          blocks the page animates (components/onepage/block-settings
+          BlockAnimationButton): a menu on a computer, the shared sheet on a phone.
         */}
+        {ANIMATED_BLOCKS.has(block.type) && (
+          <BlockAnimationButton value={(block.data as { animation_type?: string }).animation_type} onChange={setAnimation} />
+        )}
         {/* Stats control for link buttons and email capture */}
         {hasStats && (
           <>
@@ -3704,6 +3715,21 @@ function BlockItem({
       */}
       <Reveal open={isSelected} id={settingsId} returnFocus={titleRef} unmountWhenShut follow className="rounded-b-2xl">
         <div className="space-y-4 rounded-b-2xl border-t border-[#eef0f2] bg-[#fafafb] p-4" data-block-settings="">
+          {!isHeaderBlock && (
+            /*
+              Round AN: move and Remove are the first line of an open block, over its
+              Settings | Layout tabs, never under a long editor (components/onepage/block-remove).
+            */
+            <BlockFootActions
+              question={block.type === "group" && ((block.data as GroupBlockData).children?.length ?? 0) > 0 ? tt("Remove this group? Its blocks stay on your page.") : tt("Remove this block?")}
+              isFirst={isFirst}
+              isLast={isLast}
+              onMoveUp={onMoveUp}
+              onMoveDown={onMoveDown}
+              onRemove={onRemove}
+              onArchive={onArchive}
+            />
+          )}
           <BlockEditor
             block={block}
             socialLinks={socialLinks}
@@ -3716,18 +3742,6 @@ function BlockItem({
             onMoveChildToMainList={onMoveChildToMainList}
             onDeleteChild={onDeleteChild}
           />
-          {!isHeaderBlock && (
-            /* Move, archive or delete (components/onepage/block-remove): the question opens under the row to its height. */
-            <BlockFootActions
-              question={block.type === "group" && ((block.data as GroupBlockData).children?.length ?? 0) > 0 ? tt("Remove this group? Its blocks stay on your page.") : tt("Remove this block?")}
-              isFirst={isFirst}
-              isLast={isLast}
-              onMoveUp={onMoveUp}
-              onMoveDown={onMoveDown}
-              onRemove={onRemove}
-              onArchive={onArchive}
-            />
-          )}
         </div>
       </Reveal>
     </div>
@@ -4377,9 +4391,11 @@ function BlockEditor({
                   accent="#1DB954"
                   value={(data.spotify_mode || 'go_to_url') as SpotifyMode}
                   options={[
-                    { id: 'audio_preview' as SpotifyMode, label: tt("Audio preview"), hint: tt("Open modern preview modal"), icon: <Play className="h-4 w-4" strokeWidth={2} /> },
-                    { id: 'go_to_url' as SpotifyMode, label: tt("Go to URL"), hint: tt("Redirect to Spotify directly"), icon: <ExternalLink className="h-4 w-4" strokeWidth={2} /> },
-                    { id: 'show_streaming' as SpotifyMode, label: tt("Show streaming"), hint: tt("Display all platforms"), icon: <LayoutGrid className="h-4 w-4" strokeWidth={2} /> },
+                    /* Round AN: the same three as every embedding block's Interaction, plus the other services in the sheet. */
+                    { id: 'audio_preview' as SpotifyMode, label: tt("Open in a sheet"), hint: tt("Spotify's player over the page"), icon: <PanelBottom className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'show_streaming' as SpotifyMode, label: tt("Sheet with every service"), hint: tt("The player, and where else it is"), icon: <LayoutGrid className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'go_to_url' as SpotifyMode, label: tt("Go to the link"), hint: tt("Straight to Spotify"), icon: <ExternalLink className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'on_page' as SpotifyMode, label: tt("Show on the page"), hint: tt("The player in place of the button"), icon: <LayoutList className="h-4 w-4" strokeWidth={2} /> },
                   ]}
                   onPick={async (mode) => {
                     updateData({ spotify_mode: mode })
@@ -4493,7 +4509,7 @@ function BlockEditor({
                         {tt("Sync")}
                       </button>
                     </div>
-                    <p className="text-[10px] text-muted-foreground">{tt("Visitors may see a different order depending on their location or preferences.")}</p>
+                    <p className="text-[12px] leading-snug text-[#6b7280]">{tt("Visitors may see a different order depending on their location or preferences.")}</p>
                     {(data.streaming_services || [
                       { platform: 'apple_music', found: false, url: null },
                       { platform: 'youtube_music', found: false, url: null },
@@ -4615,8 +4631,9 @@ function BlockEditor({
                   accent="#FA233B"
                   value={(data.apple_music_mode || 'go_to_url') as string}
                   options={[
-                    { id: 'audio_preview', label: tt("Audio preview"), hint: tt("Open modern preview modal"), icon: <Play className="h-4 w-4" strokeWidth={2} /> },
-                    { id: 'go_to_url', label: tt("Go to URL"), hint: tt("Redirect to Apple Music directly"), icon: <ExternalLink className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'audio_preview', label: tt("Open in a sheet"), hint: tt("Apple Music's player over the page"), icon: <PanelBottom className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'go_to_url', label: tt("Go to the link"), hint: tt("Straight to Apple Music"), icon: <ExternalLink className="h-4 w-4" strokeWidth={2} /> },
+                    { id: 'on_page', label: tt("Show on the page"), hint: tt("The player in place of the button"), icon: <LayoutList className="h-4 w-4" strokeWidth={2} /> },
                   ]}
                   onPick={async (mode) => {
                     updateData({ apple_music_mode: mode as NonNullable<LinkButtonBlockData["apple_music_mode"]> })
@@ -4808,24 +4825,25 @@ function BlockEditor({
                 it used to be a list shown and hidden by toggling a CSS class on the DOM, which a
                 re-render put back and a click outside never closed.
               */}
-              <div className="space-y-1.5">
+              {/* Round AN: Storelib's list (components/onepage/editor-choice), not the phone's wheel. */}
+              <div className="space-y-1.5" data-email-button-preset="">
                 <Label className="text-xs" htmlFor={`email-button-${block.id}`}>{tt("Button Text")}</Label>
-                <select
+                <EditorSelect
                   id={`email-button-${block.id}`}
-                  data-email-button-preset=""
+                  name="email-button-preset"
+                  title={tt("Button Text")}
                   value={data.button_preset || "subscribe"}
-                  onChange={(e) => {
-                    const id = e.target.value as EmailCaptureButtonPreset
+                  emptyLabel={tt("Subscribe")}
+                  choices={[
+                    ...buttonTextPresets.map((preset) => ({ value: preset.id, label: preset.label })),
+                    ...(data.button_preset === "custom" ? [{ value: "custom", label: tt("Custom") }] : []),
+                  ]}
+                  onChange={(v) => {
+                    const id = v as EmailCaptureButtonPreset
                     if (id === "custom") updateData({ button_preset: "custom" })
                     else handlePresetChange(id)
                   }}
-                  className="h-10 w-full rounded-xl border border-[#e3e4e8] bg-white px-2.5 text-[14px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e]"
-                >
-                  {buttonTextPresets.map((preset) => (
-                    <option key={preset.id} value={preset.id}>{preset.label}</option>
-                  ))}
-                  {data.button_preset === "custom" ? <option value="custom">{tt("Custom")}</option> : null}
-                </select>
+                />
               </div>
 
               {/* Custom Button Text Input - Always visible */}
@@ -4861,10 +4879,10 @@ function BlockEditor({
               </div>
 
               {/* A first name above the email box: it goes on the subscriber and into the welcome email. */}
-              <div className="flex items-center justify-between gap-3">
-                <div className="space-y-0.5">
-                  <Label className="text-xs">{tt("Ask for a first name")}</Label>
-                  <p className="text-[10px] text-muted-foreground">{tt("Shown above the email box. Your emails can greet them by name.")}</p>
+              <div className="flex min-h-11 items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Ask for a first name")}</p>
+                  <p className="text-[12.5px] leading-snug text-[#6b7280]">{tt("Your emails can greet them by name.")}</p>
                 </div>
                 <Toggle label={tt("Ask for a first name")}
                   checked={data.ask_name === true}
@@ -4873,10 +4891,10 @@ function BlockEditor({
               </div>
 
               {/* After they join: a link (a free guide, a private video, a group chat). A file is under Enable Digital Product. */}
-              <div className="space-y-2 pt-2 border-t">
-                <div className="space-y-0.5">
-                  <Label className="text-xs">{tt("After they join (optional)")}</Label>
-                  <p className="text-[10px] text-muted-foreground">{tt("A link they get right away: a free guide, a video, a group chat.")}</p>
+              <div className="space-y-2 border-t border-[#eef0f2] pt-4">
+                <div>
+                  <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("After they join (optional)")}</p>
+                  <p className="text-[12.5px] leading-snug text-[#6b7280]">{tt("A link they get right away: a free guide, a video, a group chat.")}</p>
                 </div>
                 {/* A web address, or a chat or group built from a number or a username (lib/forms/actions), which then fills the address. */}
                 <ActionEditor
@@ -4913,11 +4931,11 @@ function BlockEditor({
               </div>
 
               {/* Product Image Picker - Always show in settings */}
-              <div className="space-y-2 pt-2 border-t">
-                <Label className="text-xs">{tt("Product Image")}</Label>
-                <p className="text-[10px] text-muted-foreground">
-                  {tt("Shown in the Featured, Cover, Solid, Simple and Bar layouts.")}
-                </p>
+              <div className="space-y-2 border-t border-[#eef0f2] pt-4">
+                <div>
+                  <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Product Image")}</p>
+                  <p className="text-[12.5px] leading-snug text-[#6b7280]">{tt("Shown in the Featured, Cover, Solid, Simple and Bar layouts.")}</p>
+                </div>
                 <div className="flex gap-2 items-center">
                   {data.product_image ? (
                     <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
@@ -4954,7 +4972,7 @@ function BlockEditor({
                 once the address is given, and app/api/onepage/leads answers with the same file, read from the
                 published block (lib/onepage/signup-file). On with no file gives nothing, and says so here.
               */}
-              <div className="space-y-2 border-t border-[#eef0f2] pt-3" data-signup-file="">
+              <div className="space-y-2 border-t border-[#eef0f2] pt-4" data-signup-file="">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Enable Digital Product")}</p>
@@ -4995,7 +5013,7 @@ function BlockEditor({
                           <p className="text-xs font-medium truncate">
                             {data.digital_product_title || tt("Upload file")}
                           </p>
-                          <p className="text-[10px] text-muted-foreground truncate">
+                          <p className="text-[12px] text-[#6b7280] truncate">
                             {data.digital_product_file_url
                               ? tt("Click to change file")
                               : tt("PDF, ZIP, or any file type")}
@@ -5006,7 +5024,7 @@ function BlockEditor({
 
                       {data.digital_product_file_url && (
                         <div className="space-y-1.5 mt-2">
-                          <Label className="text-[10px]">{tt("File Name")}</Label>
+                          <Label className="text-xs">{tt("File Name")}</Label>
                           <Input
                             value={data.digital_product_title || ""}
                             onChange={(e) => updateData({ digital_product_title: e.target.value })}
@@ -5018,7 +5036,7 @@ function BlockEditor({
                     </div>
 
                     {data.digital_product_file_url && (
-                      <p className="text-[10px] text-muted-foreground bg-[#f4f4f6] p-2 rounded-lg">
+                      <p className="text-[12.5px] leading-snug text-[#6b7280]">
                         {tt("When visitors subscribe, they can download \"")}{data.digital_product_title || tt("your file")}{tt("\" directly on this page.")}
                       </p>
                     )}
@@ -5027,18 +5045,20 @@ function BlockEditor({
               </div>
 
               {/* Where the addresses go: Emails › Subscribers, and Klaviyo or Omnisend when connected (components/onepage/creator-blocks). */}
-              <div className="pt-3 border-t">
+              <div className="border-t border-[#eef0f2] pt-4">
                 <SignupDestination suggest={data.integration_hint ?? null} />
               </div>
             </PartContent>
 
-            <PartContent value="layout" className="mt-0 space-y-3">
+            <PartContent value="layout" className="mt-0 space-y-2.5">
               {/*
-                FIVE LAYOUTS, EACH DRAWN SMALL AS IT WILL LOOK (components/onepage/email-signup EmailLayoutThumb):
+                THE LAYOUTS, EACH DRAWN SMALL AS IT WILL LOOK (components/onepage/email-signup EmailLayoutThumb):
                 in the page's colours, with the block's image or, without one, the mark the layout shows instead.
-                Three across, so the choice fits on a phone without a scroll.
+                Round AN: in the shared pickers' look (a link's, a shelf's, an app's): a "Layout" heading, white
+                cards with the picture in a 4:3 frame, the name centred under it, the editor's ChoiceMark.
               */}
-              <div role="radiogroup" aria-label={tt("Layout")} className="grid grid-cols-3 gap-2" data-email-layouts="">
+              <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Layout")}</p>
+              <div role="radiogroup" aria-label={tt("Layout")} className="grid grid-cols-2 gap-2.5 sm:grid-cols-4" data-email-layouts="">
                 {emailLayouts.map((option) => {
                   const on = currentEmailLayout === option.id
                   return (
@@ -5054,18 +5074,20 @@ function BlockEditor({
                         hapticTap("soft")
                         updateData({ layout_type: option.id as EmailCaptureLayoutType, ...(option.id === "connect" ? connectButtonPatch(data, tt("Connect with")) ?? {} : {}) })
                       }}
-                      className="relative isolate flex flex-col gap-1.5 rounded-xl border border-[#e3e4e8] bg-white p-1.5 text-left transition-[border-color] duration-150 [@media(hover:hover)]:hover:border-[#c9cbd1]"
+                      className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-1.5 outline-none transition-[border-color] duration-150 hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
                     >
-                      <CardMark on={on} width={1.5} tint="#ffffff" />
-                      <EmailLayoutThumb layout={option.id} image={emailImage} theme={onepage?.theme ?? {}} avatar={onepage?.avatar_url ?? null} />
-                      <span className="px-1 pb-0.5 text-[12.5px] font-medium text-[#1a1a2e]">{option.label}</span>
+                      <ChoiceMark on={on} />
+                      <span className="flex aspect-[4/3] items-center overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)] [&>[data-email-thumb]]:h-full [&>[data-email-thumb]]:rounded-xl">
+                        <EmailLayoutThumb layout={option.id} image={emailImage} theme={onepage?.theme ?? {}} avatar={onepage?.avatar_url ?? null} />
+                      </span>
+                      <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{option.label}</span>
                     </button>
                   )
                 })}
               </div>
-              <p className="text-[12px] leading-snug text-[#6b7280]">
-                {emailImage ? tt("Featured, Cover, Solid, Simple and Bar show your image.") : tt("No image needed. Add one in Settings to show it in Featured, Cover, Solid, Simple and Bar.")}
-              </p>
+              {emailImage ? null : (
+                <p className="text-[12.5px] leading-[1.4] text-[#6b7280]">{tt("Add an image in Settings to show it in Featured, Cover, Solid, Simple and Bar.")}</p>
+              )}
             </PartContent>
           </PartTabs>
         )
@@ -5248,12 +5270,13 @@ function BlockEditor({
           })
         }
 
+        /* Round AN: the shapes by their ratio, as a link's picture shape is, so five fit one row on a phone. */
         const aspectRatios: { id: string; label: string }[] = [
-          { id: 'original', label: tt("Original") },
-          { id: 'square', label: tt("Square") },
-          { id: 'portrait', label: tt("Portrait") },
-          { id: 'landscape', label: tt("Landscape") },
-          { id: 'wide', label: tt("Wide") },
+          { id: 'original', label: tt("Auto") },
+          { id: 'square', label: "1:1" },
+          { id: 'portrait', label: "3:4" },
+          { id: 'landscape', label: "4:3" },
+          { id: 'wide', label: "2:1" },
         ]
 
         const displayStyles: { id: string; label: string; desc: string }[] = [
@@ -5262,12 +5285,13 @@ function BlockEditor({
           { id: 'carousel', label: tt("Carousel"), desc: tt("Swipeable slideshow") },
         ]
 
+        /* Round AN: the corners by their size in pixels (the page's own map), so five fit one row on a phone. */
         const borderRadiusOptions: { id: string; label: string }[] = [
-          { id: 'none', label: tt("None") },
-          { id: 'sm', label: tt("Small") },
-          { id: 'md', label: tt("Medium") },
-          { id: 'lg', label: tt("Large") },
-          { id: 'full', label: tt("Full") },
+          { id: 'none', label: "0" },
+          { id: 'sm', label: "8" },
+          { id: 'md', label: "12" },
+          { id: 'lg', label: "20" },
+          { id: 'full', label: tt("Round") },
         ]
 
         return (
@@ -5371,7 +5395,7 @@ function BlockEditor({
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-xs font-medium">{tt("Make clickable")}</Label>
-                  <p className="text-[10px] text-muted-foreground">{tt("Add links to images")}</p>
+                  <p className="text-[12px] leading-snug text-[#6b7280]">{tt("Add links to images")}</p>
                 </div>
                 <Toggle label={tt("Add links to images")}
                   checked={data.clickable || false}
@@ -5383,7 +5407,7 @@ function BlockEditor({
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-xs font-medium">{tt("Show captions")}</Label>
-                  <p className="text-[10px] text-muted-foreground">{tt("Display image titles")}</p>
+                  <p className="text-[12px] leading-snug text-[#6b7280]">{tt("Display image titles")}</p>
                 </div>
                 <Toggle label={tt("Display image titles")}
                   checked={data.show_captions || false}
@@ -5406,130 +5430,62 @@ function BlockEditor({
                 onChange={(display_style) => updateData({ display_style })}
               />
 
-              {/* Grid Columns - only show for grid style */}
+              {/*
+                Round AN: the image block's Layout rows in the shared look. Each was its own row of
+                2px-bordered buttons; now each is the editor kit's Segmented under its name
+                (LabeledRow), with the switch the rest of the editor uses, and one hairline between
+                how the pictures are arranged and how each one is drawn.
+              */}
               {data.display_style === 'grid' && (
-                <>
-                  <div className="border-t border-gray-100" />
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">{tt("Grid Columns")}</Label>
-                    <div className="flex gap-2">
-                      {[2, 3, 4].map((cols) => (
-                        <button
-                          key={cols}
-                          type="button"
-                          onClick={() => updateData({ grid_columns: cols as any })}
-                          className={cn(
-                            "flex-1 py-2.5 rounded-xl border-2 text-xs font-medium transition-all",
-                            (data.grid_columns || 2) === cols
-                              ? "border-gray-900 bg-white"
-                              : "border-gray-200 hover:border-gray-300 bg-white"
-                          )}
-                        >
-                          {cols}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
+                <LabeledRow label={tt("Columns")}>
+                  <Segmented
+                    label={tt("Columns")}
+                    value={String(data.grid_columns || 2)}
+                    options={[2, 3, 4].map((n) => ({ id: String(n), label: String(n) }))}
+                    onChange={(cols) => updateData({ grid_columns: Number(cols) as ImageBlockData["grid_columns"] })}
+                  />
+                </LabeledRow>
               )}
 
-              {/* Carousel Options - only show for carousel style */}
               {data.display_style === 'carousel' && (
                 <>
-                  <div className="border-t border-gray-100" />
                   <CardsInViewControl<ImageCarouselViewType> value={data.carousel_view || "1"} options={["1", "1.3", "1.5", "2"]} onChange={(carousel_view) => updateData({ carousel_view })} />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-xs font-medium">{tt("Autoplay")}</Label>
-                      <p className="text-[10px] text-muted-foreground">{tt("Auto-advance slides")}</p>
-                    </div>
-                    <Toggle label={tt("Auto-advance slides")}
-                      checked={data.carousel_autoplay || false}
-                      onCheckedChange={(checked) => updateData({ carousel_autoplay: checked })}
-                    />
+                  <div className="flex min-h-11 items-center justify-between gap-3">
+                    <span className="text-[14px] font-medium text-[#1a1a2e]">{tt("Autoplay")}</span>
+                    <Switch label={tt("Autoplay")} checked={data.carousel_autoplay || false} onChange={(carousel_autoplay) => updateData({ carousel_autoplay })} />
                   </div>
                 </>
               )}
 
-              <div className="border-t border-gray-100" />
-
-              {/* Aspect Ratio */}
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">{tt("Aspect Ratio")}</Label>
-                <div className="flex flex-wrap gap-2">
-                  {aspectRatios.map((ratio) => (
-                    <button
-                      key={ratio.id}
-                      type="button"
-                      onClick={() => updateData({ aspect_ratio: ratio.id as any })}
-                      className={cn(
-                        "px-3 py-2 rounded-xl border-2 text-xs font-medium transition-all",
-                        (data.aspect_ratio || 'original') === ratio.id
-                          ? "border-gray-900 bg-white"
-                          : "border-gray-200 hover:border-gray-300 bg-white"
-                      )}
-                    >
-                      {ratio.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-gray-100" />
-
-              {/* Border Radius */}
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">{tt("Corner Radius")}</Label>
-                <div className="flex flex-wrap gap-2">
-                  {borderRadiusOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => updateData({ border_radius: option.id as any })}
-                      className={cn(
-                        "px-3 py-2 rounded-xl border-2 text-xs font-medium transition-all",
-                        (data.border_radius || 'md') === option.id
-                          ? "border-gray-900 bg-white"
-                          : "border-gray-200 hover:border-gray-300 bg-white"
-                      )}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-gray-100" />
-
-              {/* Image Fit */}
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">{tt("Image Fit")}</Label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => updateData({ image_fit: 'cover' })}
-                    className={cn(
-                      "flex-1 py-2.5 rounded-xl border-2 text-xs font-medium transition-all",
-                      (data.image_fit || 'cover') === 'cover'
-                        ? "border-gray-900 bg-white"
-                        : "border-gray-200 hover:border-gray-300 bg-white"
-                    )}
-                  >
-                    {tt("Cover")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateData({ image_fit: 'contain' })}
-                    className={cn(
-                      "flex-1 py-2.5 rounded-xl border-2 text-xs font-medium transition-all",
-                      data.image_fit === 'contain'
-                        ? "border-gray-900 bg-white"
-                        : "border-gray-200 hover:border-gray-300 bg-white"
-                    )}
-                  >
-                    {tt("Contain")}
-                  </button>
-                </div>
+              <div className="space-y-4 border-t border-[#eef0f2] pt-4" data-image-look="">
+                <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Picture")}</p>
+                <LabeledRow label={tt("Shape")}>
+                  <Segmented
+                    label={tt("Shape")}
+                    value={data.aspect_ratio && data.aspect_ratio !== "auto" ? data.aspect_ratio : "original"}
+                    options={aspectRatios}
+                    onChange={(aspect_ratio) => updateData({ aspect_ratio: aspect_ratio as ImageBlockData["aspect_ratio"] })}
+                  />
+                </LabeledRow>
+                <LabeledRow label={tt("Corners")}>
+                  <Segmented
+                    label={tt("Corners")}
+                    value={data.border_radius || "md"}
+                    options={borderRadiusOptions}
+                    onChange={(border_radius) => updateData({ border_radius: border_radius as ImageBlockData["border_radius"] })}
+                  />
+                </LabeledRow>
+                <LabeledRow label={tt("Fit")} hint={(data.image_fit || "cover") === "cover" ? tt("Fills the frame and trims the edges.") : tt("Shows the whole picture inside the frame.")}>
+                  <Segmented
+                    label={tt("Fit")}
+                    value={data.image_fit || "cover"}
+                    options={[
+                      { id: "cover", label: tt("Fill") },
+                      { id: "contain", label: tt("Whole picture") },
+                    ]}
+                    onChange={(image_fit) => updateData({ image_fit: image_fit as ImageBlockData["image_fit"] })}
+                  />
+                </LabeledRow>
               </div>
             </PartContent>
 
@@ -5611,7 +5567,7 @@ function BlockEditor({
                     <p className="text-xs font-medium truncate">
                       {data.pdf_file_url ? data.title || tt("PDF File") : tt("Upload PDF")}
                     </p>
-                    <p className="text-[10px] text-muted-foreground truncate">
+                    <p className="text-[12px] leading-snug text-[#6b7280] truncate">
                       {data.pdf_file_url
                         ? tt("Click to change file")
                         : tt("Select a PDF from your device")}
@@ -5656,33 +5612,7 @@ function BlockEditor({
                 />
               </div>
 
-              {/* Enable Preview Toggle */}
-              <div className="flex items-center justify-between pt-2 border-t">
-                <div className="space-y-0.5">
-                  <Label className="text-xs font-medium">{tt("Enable Preview")}</Label>
-                  <p className="text-[10px] text-muted-foreground">{tt("Show PDF preview modal when clicked")}</p>
-                </div>
-                <Toggle label={tt("Show PDF preview when clicked")}
-                  checked={data.enable_preview !== false}
-                  onCheckedChange={(checked) => {
-                    updateData({ enable_preview: checked, open_directly: checked ? false : data.open_directly })
-                  }}
-                />
-              </div>
-
-              {/* Open Directly Toggle */}
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-xs font-medium">{tt("Open Directly")}</Label>
-                  <p className="text-[10px] text-muted-foreground">{tt("Open PDF file directly in new tab")}</p>
-                </div>
-                <Toggle label={tt("Open PDF directly in a new tab")}
-                  checked={data.open_directly === true}
-                  onCheckedChange={(checked) => {
-                    updateData({ open_directly: checked, enable_preview: checked ? false : data.enable_preview })
-                  }}
-                />
-              </div>
+              {/* Round AN: "Enable preview" and "Open directly" are the block's Interaction now (components/onepage/extra-blocks InteractionChoice, under its settings). */}
             </PartContent>
 
             <PartContent value="layout" className="mt-0 space-y-3">
@@ -5693,7 +5623,7 @@ function BlockEditor({
               {data.layout_type === 'pro' && (
                 <div className="space-y-2 pt-3 border-t">
                   <Label className="text-xs">{tt("Thumbnail Image")}</Label>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-[12px] leading-snug text-[#6b7280]">
                     {tt("Display an image with your PDF (used in Featured layout)")}
                   </p>
                   <div className="flex gap-2 items-center">
@@ -5798,7 +5728,7 @@ function BlockEditor({
                     <p className="text-xs font-medium truncate">
                       {data.pdf_file_url ? data.title || tt("Menu PDF") : tt("Upload Menu PDF")}
                     </p>
-                    <p className="text-[10px] text-muted-foreground truncate">
+                    <p className="text-[12px] leading-snug text-[#6b7280] truncate">
                       {data.pdf_file_url
                         ? tt("Click to change file")
                         : tt("Select a PDF from your device")}
@@ -5843,33 +5773,7 @@ function BlockEditor({
                 />
               </div>
 
-              {/* Enable Preview Toggle */}
-              <div className="flex items-center justify-between pt-2 border-t">
-                <div className="space-y-0.5">
-                  <Label className="text-xs font-medium">{tt("Enable Preview")}</Label>
-                  <p className="text-[10px] text-muted-foreground">{tt("Show menu preview modal when clicked")}</p>
-                </div>
-                <Toggle label={tt("Show menu preview when clicked")}
-                  checked={data.enable_preview !== false}
-                  onCheckedChange={(checked) => {
-                    updateData({ enable_preview: checked, open_directly: checked ? false : data.open_directly })
-                  }}
-                />
-              </div>
-
-              {/* Open Directly Toggle */}
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-xs font-medium">{tt("Open Directly")}</Label>
-                  <p className="text-[10px] text-muted-foreground">{tt("Open menu PDF directly in new tab")}</p>
-                </div>
-                <Toggle label={tt("Open menu PDF directly in a new tab")}
-                  checked={data.open_directly === true}
-                  onCheckedChange={(checked) => {
-                    updateData({ open_directly: checked, enable_preview: checked ? false : data.enable_preview })
-                  }}
-                />
-              </div>
+              {/* Round AN: "Enable preview" and "Open directly" are the block's Interaction now (components/onepage/extra-blocks InteractionChoice, under its settings). */}
             </PartContent>
 
             <PartContent value="layout" className="mt-0 space-y-3">
@@ -5880,7 +5784,7 @@ function BlockEditor({
               {data.layout_type === 'pro' && (
                 <div className="space-y-2 pt-3 border-t">
                   <Label className="text-xs">{tt("Thumbnail Image")}</Label>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-[12px] leading-snug text-[#6b7280]">
                     {tt("Display an image with your menu (used in Featured layout)")}
                   </p>
                   <div className="flex gap-2 items-center">
@@ -6004,7 +5908,7 @@ function BlockEditor({
               {data.layout_type === 'pro' && (
                 <div className="space-y-2 pt-3 border-t">
                   <Label className="text-xs">{tt("Thumbnail Image")}</Label>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-[12px] leading-snug text-[#6b7280]">
                     {tt("Display an image with your Calendly block (used in Featured layout)")}
                   </p>
                   <div className="flex gap-2 items-center">
@@ -6423,6 +6327,27 @@ function BlockEditor({
                     <X className="h-4 w-4" />
                   </button>
                 </div>
+                {/*
+                  Round 41: the bar every block has (components/onepage/block-remove):
+                  move it within the group, then Move out or Delete. Round AN: at the
+                  top, under the child's name, as on the page's own blocks.
+                */}
+                {(() => {
+                  const at = (groupData.children || []).findIndex((c) => c.id === selectedChild.id)
+                  const last = (groupData.children || []).length - 1
+                  return (
+                    <BlockFootActions
+                      key={selectedChild.id}
+                      question={tt("Remove this block from the group?")}
+                      isFirst={at <= 0}
+                      isLast={at >= last}
+                      onMoveUp={() => moveChild(selectedChild.id, -1)}
+                      onMoveDown={() => moveChild(selectedChild.id, 1)}
+                      onRemove={() => deleteChild(selectedChild.id)}
+                      keep={{ label: tt("Move out"), line: tt("Back on your page, under the group"), onPick: () => removeChildFromGroup(selectedChild.id) }}
+                    />
+                  )
+                })()}
                 {/* Render full BlockEditor for child with custom update function */}
                 {/* Note: onUrlChangeWithAutoFetch is NOT passed because it looks for blocks in main list, not group children */}
                 <BlockEditor
@@ -6441,26 +6366,6 @@ function BlockEditor({
                     updateChildBlock(childId, updates)
                   }}
                 />
-                {/*
-                  Round 41: the foot every block has (components/onepage/block-remove):
-                  move it within the group, then Move out or Delete.
-                */}
-                {(() => {
-                  const at = (groupData.children || []).findIndex((c) => c.id === selectedChild.id)
-                  const last = (groupData.children || []).length - 1
-                  return (
-                    <BlockFootActions
-                      key={selectedChild.id}
-                      question={tt("Remove this block from the group?")}
-                      isFirst={at <= 0}
-                      isLast={at >= last}
-                      onMoveUp={() => moveChild(selectedChild.id, -1)}
-                      onMoveDown={() => moveChild(selectedChild.id, 1)}
-                      onRemove={() => deleteChild(selectedChild.id)}
-                      keep={{ label: tt("Move out"), line: tt("Back on your page, under the group"), onPick: () => removeChildFromGroup(selectedChild.id) }}
-                    />
-                  )
-                })()}
               </div>
             )}
           </div>
@@ -6529,33 +6434,21 @@ function BlockEditor({
     shows the half that tab is for; any other block's editor is all Settings,
     and its Layout tab is the shared style rows.
   */
-  /* Round AL: the attention animation sits in Layout, after how the block is drawn, on the blocks where one helps (ANIMATED_BLOCKS). */
-  const animation = ANIMATED_BLOCKS.has(block.type) ? (
-    <BlockAnimationPicker
-      value={(block.data as { animation_type?: string }).animation_type}
-      theme={onepage?.theme}
-      onChange={(animation_type) => updateData({ animation_type } as Partial<OnePageBlock["data"]>)}
-    />
-  ) : null
+  /* Round AN: the attention animation is the sparkle in the block's row again (BlockAnimationButton), not a row of moving pictures in Layout. */
   const style = <BlockStyleControls block={block} getBlock={latestBlock} onChange={changeBlock} />
   const layout =
     block.type === "link_button" || block.type === "product" ? (
       <>
         {renderLayoutContent()}
-        {animation}
         {style}
       </>
     ) : PART_AWARE.has(block.type) ? (
       <>
         <BlockPartContext.Provider value="layout">{renderSettingsContent()}</BlockPartContext.Provider>
-        {animation}
         {style}
       </>
     ) : (
-      <>
-        {animation}
-        {style}
-      </>
+      style
     )
   return (
     <EditorThemeContext.Provider value={onepage?.theme ?? null}>

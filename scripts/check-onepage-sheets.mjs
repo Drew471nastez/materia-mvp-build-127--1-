@@ -26,8 +26,10 @@
  *
  * The phone preview's PDF (the live page's own, in the preview's frame) and the
  * published page's Spotify player (components/onepage/public-onepage.tsx)
- * are read the same way at 390, and at 1440 it and Add block are still the
- * centred dialogs they were.
+ * open in the block sheet since round AN (components/onepage/block-sheet,
+ * whose motion and swipe scripts/check-onepage-block-sheet.mjs measures):
+ * read here that they open it, at 390 and at 1440, and that Add block is
+ * still the centred dialog it was.
  *
  *   node scripts/check-onepage-sheets.mjs
  *   SHOTS=/some/dir node scripts/check-onepage-sheets.mjs   (a picture of each, open)
@@ -225,7 +227,16 @@ await sheet("links", "A social link (a kept sheet)", "Add Social Link", clickSel
     }
     const cdp = { send: (method, params) => s.cdp.send(method, params?.touchPoints ? { ...params, touchPoints: params.touchPoints.map(at) } : params) }
     const clickPdf = `(() => { const b = [...document.querySelectorAll("button")].find((e) => e.textContent.includes(${JSON.stringify(PDF_TITLE)}) && e.getClientRects().length); if (b) b.click(); return !!b })()`
-    await readSheet({ ...s, p: inFrame, cdp }, { name, label: PDF_TITLE, opener: clickPdf, list: null, expect })
+    /* Changed on purpose (round AN): the PDF opens in the block sheet, with its pages (or the browser's viewer) in it, rising from the foot of the phone. */
+    void inFrame, void cdp
+    const clicked = await frame.evaluate(clickPdf)
+    await sleep(700)
+    const seen = await frame.evaluate((title) => {
+      const panel = document.querySelector("[data-block-sheet-panel]")
+      const r = panel?.getBoundingClientRect()
+      return { panel: !!panel, title: document.querySelector("[data-block-sheet-title]")?.textContent ?? null, pages: !!document.querySelector("[data-block-sheet-body] [data-pdf-pages]"), bottom: r ? Math.round(innerHeight - r.bottom) : null, old: !!document.querySelector("[data-app-sheet]"), want: title }
+    }, PDF_TITLE)
+    expect(clicked && seen.panel && seen.title === PDF_TITLE && seen.pages && seen.bottom === 0 && !seen.old, "the PDF opens in the block sheet with its pages, from the foot of the phone", seen)
   }
   expect(s.errors.length === 0, "no errors on the page", s.errors.slice(0, 3))
   await s.p.close()
@@ -234,14 +245,19 @@ await sheet("links", "A social link (a kept sheet)", "Add Social Link", clickSel
 /* The published page's Spotify player: a sheet on a phone, the dialog it was on a computer. */
 const LIVE = ["/live?live", ".onepage-live"]
 const clickSpotify = `(() => { const b = [...document.querySelectorAll("button")].find((e) => e.textContent.includes(${JSON.stringify(SPOTIFY_LABEL)}) && e.getClientRects().length); if (b) b.click(); return !!b })()`
-await sheet("", "The published page's Spotify player", SPOTIFY_LABEL, clickSpotify, null, LIVE)
-console.log("\nThe Spotify player at 1440")
-{
-  const { p, errors } = await open({ width: 1440, height: 900 }, "", ...LIVE)
+/* Changed on purpose (round AN): the player opens in the block sheet, from the foot on a phone and centred at 1440. */
+for (const [label, vp] of [["390", PHONE], ["1440", { width: 1440, height: 900 }]]) {
+  console.log(`\nThe published page's Spotify player at ${label}`)
+  const { p, errors } = await open(vp, "", ...LIVE)
   const found = await p.evaluate(clickSpotify)
-  await sleep(600)
-  const seen = await p.evaluate(() => ({ dialog: !!document.querySelector(".fixed.inset-0 iframe[src*='open.spotify.com/embed']"), sheet: !!document.querySelector("[data-app-sheet]") }))
-  expect(found && seen.dialog && !seen.sheet, "it is the centred player it was", seen)
+  await sleep(700)
+  const seen = await p.evaluate(() => {
+    const panel = document.querySelector("[data-block-sheet-panel]")
+    const r = panel?.getBoundingClientRect()
+    return { player: !!document.querySelector("[data-block-sheet-body] iframe[src*='open.spotify.com/embed']"), cta: document.querySelector("[data-block-sheet-cta]")?.getAttribute("href") ?? null, bottom: r ? Math.round(innerHeight - r.bottom) : null, left: r ? Math.round(r.left) : null, right: r ? Math.round(innerWidth - r.right) : null, old: !!document.querySelector("[data-app-sheet]") }
+  })
+  const placed = label === "390" ? seen.bottom === 0 : seen.bottom > 0 && Math.abs(seen.left - seen.right) <= 1
+  expect(found && seen.player && /open\.spotify\.com/.test(seen.cta || "") && placed && !seen.old, "it opens in the block sheet, with Open in Spotify at its foot", seen)
   expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
   await p.close()
 }
