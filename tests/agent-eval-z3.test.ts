@@ -98,7 +98,9 @@ const CASES: Case[] = [
   /* Restyle and redesign */
   { name: "tighter spacing, bigger heading", prompt: "make this section's spacing tighter and the heading bigger", sel: hero, chip: true, want: { lock: true, code: false } },
   { name: "motion in own code", prompt: "make the cards slide in on scroll", sel: ownHero, chip: true, want: { lock: true, code: true, kind: "FUNCTIONAL_CHANGE" } },
-  { name: "redesign the home page", prompt: "redesign the home page so it feels premium", sel: null, chip: false, want: { agent: "page", target: "page", kind: "PAGE_REDESIGN" } },
+  /* Changed on purpose (w5 aifix): "feels premium" is how it looks, so the sections stay; a redesign that names structure is still one. */
+  { name: "redesign the home page", prompt: "redesign the home page so it feels premium", sel: null, chip: false, want: { agent: "page", target: "page", kind: "STYLE_CHANGE" } },
+  { name: "redesign the home page's structure", prompt: "redesign the home page with new sections and a different layout", sel: null, chip: false, want: { agent: "page", target: "page", kind: "PAGE_REDESIGN" } },
   { name: "several sections redesigned", prompt: "redesign the hero, the features and the FAQ so they feel premium", sel: null, chip: false, want: { agent: "page", target: "page", lock: false, kindNot: "LOCAL_EDIT" } },
   /* Questions stay questions */
   { name: "a question", prompt: "what can you do?", sel: null, chip: false, want: { kind: "QUESTION" } },

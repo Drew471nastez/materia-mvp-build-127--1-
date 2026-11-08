@@ -158,7 +158,12 @@ async function main() {
     ["Build me a premium dark website for selling a photography course. Editorial, minimal, image-heavy, not AI-looking.", { bodySections: 0 }, "NEW_SITE_GENERATION"],
     ["Build me a premium dark website for selling a photography course.", { bodySections: 4 }, "FULL_SITE_REDESIGN"],
     ["redesign everything", { bodySections: 4 }, "FULL_SITE_REDESIGN"],
-    ["make this look like a real premium fashion brand website", { bodySections: 4 }, "FULL_SITE_REDESIGN"],
+    /* Changed on purpose (w5 aifix): look and feel words with no word about structure are a style change on a site with work on it, never a rebuild that removes sections. */
+    ["make this look like a real premium fashion brand website", { bodySections: 4 }, "STYLE_CHANGE"],
+    ["restyle the whole site to feel more editorial", { bodySections: 4 }, "STYLE_CHANGE"],
+    ["redesign my website to look more modern", { bodySections: 4 }, "STYLE_CHANGE"],
+    ["give the site a whole new look", { bodySections: 4 }, "STYLE_CHANGE"],
+    ["redesign the whole site with new sections and a gallery", { bodySections: 4 }, "FULL_SITE_REDESIGN"],
     ["build me a complete website", { bodySections: 4 }, "FULL_SITE_REDESIGN"],
     ["redesign the home page", { bodySections: 4 }, "PAGE_REDESIGN"],
     ["Make this section better.", { bodySections: 4, selected: true }, "SECTION_REDESIGN"],
@@ -385,15 +390,16 @@ async function main() {
     check("the plan is shown in the chat before any change", events.findIndex((e) => e.type === "plan") < events.findIndex((e) => e.type === "op"))
     const beforeModel = events.findIndex((e) => e.type === "step")
     const structural = events.slice(0, beforeModel).filter((e): e is Extract<ThemeAgentEvent, { type: "op" }> => e.type === "op").map((e) => e.op.kind)
-    check("the structure is built by code before the model's first tool call: removals, additions, palette, fonts", structural.filter((k) => k === "remove_section").length === 3 && structural.filter((k) => k === "add_section").length === 3 && structural.includes("update_theme"), structural.join(","))
+    /* Changed on purpose (w5 aifix): nobody said to remove anything, so the creator's old sections are hidden (Show brings them back), never deleted. */
+    check("the structure is built by code before the model's first tool call: old sections hidden, additions, palette, fonts", structural.filter((k) => k === "remove_section").length === 0 && structural.filter((k) => k === "set_section_visibility").length === 3 && structural.filter((k) => k === "add_section").length === 3 && structural.includes("update_theme"), structural.join(","))
     check("the build turn carries the plan, what was built and the redesign guidance", /CREATIVE PLAN/.test(users[1]) && /ALREADY ON THE PAGE/.test(users[1]) && /NEW CREATIVE DIRECTION/.test(users[1]))
     check("stopping with demo entries is refused, by name", users.some((u) => /exactly as the preset ships them/.test(u)))
     check("the page is drawn in a browser, with pictures the first time", visualCalls[0] === true)
     check("and what it found goes back to the model with the pictures", sent.some((r) => r.turns.some((t) => t.role === "user" && (t as { images?: unknown[] }).images?.length && /sticks out 40px/.test((t as { content: string }).content))))
     check("the run ends healthy", result.status === "succeeded" && (result.unresolved ?? []).length === 0, JSON.stringify(result.unresolved))
     const final = applyOps(state, result.ops)
-    const types = final.sections.map((s) => s.type)
-    check("the old generic sections are gone", !types.includes("hero_centered") && !types.includes("features_cards") && !types.includes("cta_simple"))
+    const types = final.sections.filter((s) => !s.hidden).map((s) => s.type)
+    check("the old generic sections are off the page, hidden and not deleted", !types.includes("hero_centered") && !types.includes("features_cards") && !types.includes("cta_simple") && ["hero_centered", "features_cards", "cta_simple"].every((t) => final.sections.some((s) => s.type === t && s.hidden)))
     check("the planned ones are on the page, in order", JSON.stringify(types) === JSON.stringify(["header", "promo_countdown", "media_collage", "pricing_table", "faq_accordion", "footer"]), types.join(","))
     const schemesNow = final.settings.color_schemes as Record<string, { background: string; text: string; heading: string }>
     check("the palette is written into the built-in dark scheme the header can use", schemesNow.black.background === "#0b0b0f" && final.settings.font_heading === "Bebas Neue")
@@ -463,8 +469,9 @@ async function main() {
       ],
     })
     const final = applyOps(state, result.ops)
-    const types = final.sections.map((s) => s.type)
-    check("every old section is gone, though the plan's remove list was empty", !types.includes("features_cards") && !types.includes("faq_accordion") && !types.includes("cta_simple"), types.join(","))
+    /* Changed on purpose (w5 aifix): hidden, not deleted, since the request never said to remove anything. */
+    const types = final.sections.filter((s) => !s.hidden).map((s) => s.type)
+    check("every old section is off the page (hidden, not deleted), though the plan's remove list was empty", !types.includes("features_cards") && !types.includes("faq_accordion") && !types.includes("cta_simple") && final.sections.some((s) => s.type === "faq_accordion" && s.hidden), types.join(","))
     check("the store's sections are on the page, in the plan's order", JSON.stringify(types) === JSON.stringify(["header", "hero_centered", "product_grid", "collections_grid", "text_image", "features_grid", "promo_newsletter", "footer"]), types.join(","))
     check("the hero is on the dark band the plan gave it, in the brand's own black", final.sections.find((x) => x.type === "hero_centered")?.settings.color_scheme === "dark" && (final.settings.color_schemes as Record<string, { background: string }>).dark.background === "#0a0a0a")
     /* Round 25: a whole store is a header too ("code me a store" means everything), so a header of its own is not refused for being one; this one is refused for what is wrong with it, a header that does not show the site's menu. */

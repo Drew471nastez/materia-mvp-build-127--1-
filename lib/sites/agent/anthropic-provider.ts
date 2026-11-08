@@ -248,7 +248,9 @@ export function isBindingControlRefused(thrown: unknown): boolean {
   if (!thrown || typeof thrown !== "object") return false
   const e = thrown as { status?: unknown; message?: unknown }
   if (typeof e.status === "number" && e.status !== 400) return false
-  return /block_binding|thinking-binding-controls|unknown beta|unexpected value.*anthropic-beta/i.test(String(e.message ?? ""))
+  /* The binding error itself names block_binding as the fix; that one is answered by stripping, not by dropping the setting. */
+  if (isThinkingSignatureError(thrown)) return false
+  return /block_binding[^.]{0,80}(?:extra inputs|not permitted|unknown|unexpected)|thinking-binding-controls[^.]{0,80}(?:unknown|invalid|not (?:supported|available))|unknown beta|unexpected value[^.]{0,40}anthropic-beta/i.test(String(e.message ?? ""))
 }
 
 /** The same conversation with every thinking and redacted_thinking block taken out; text and tool calls stay. */
