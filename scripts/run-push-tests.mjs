@@ -38,6 +38,7 @@ const SUITES = [
   "tests/forms-booking-payment.test.ts",
   /* Round AL5: Leads in Emails, Forms beside it, the Audience item gone, missing forms tables said plainly, one retry, the pre-chat and the phone country list. */
   "tests/forms-leads-al5.test.ts",
+  "tests/forms-an2.test.ts",
   /* Round 51: Forms in Contacts (kinds, response counts and usages in a fixed number of reads, ?form/?view/?response/?message deep links, Responses, Insights, Settings, View contact through /app/contacts/open) and Community connected (?member deep link, join answers and activity in the member sheet, one membership per person, joining never marketing consent). */
   "tests/forms-community-r51.test.ts",
   "tests/onepage-modern-blocks.test.ts",

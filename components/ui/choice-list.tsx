@@ -313,7 +313,7 @@ function ChoiceListBody({
         aria-label={label}
         data-choice-scroll={compact ? undefined : ""}
         data-choice-whole={windowed ? undefined : ""}
-        className={cn(compact ? "px-2 pb-3" : "overflow-y-auto overscroll-contain px-1.5 pb-1.5", compact ? "" : scrollClassName ?? "max-h-[320px]")}
+        className={cn(compact ? "px-2 pb-3" : "overflow-y-auto overscroll-contain px-1.5 pb-1.5", !compact && !search && "pt-1.5", compact ? "" : scrollClassName ?? "max-h-[320px]")}
       >
         {!query.trim() && lead ? lead(compact) : null}
         {/* One keyed list in both states, so the rows drawn first are kept, not drawn again, when the rest arrive. */}
@@ -398,6 +398,7 @@ export function ChoiceSheet({
   scrollClassName,
   sheetZIndex,
   sheetHeight = CHOICE_SHEET_HEIGHT,
+  searchable = true,
 }: {
   open: boolean
   onClose: () => void
@@ -418,6 +419,8 @@ export function ChoiceSheet({
   sheetZIndex?: number
   /** How tall the sheet opens, keyboard down (the country list is a little shorter than the rest). */
   sheetHeight?: string
+  /** False for a short list (an action, a template): no search field, and the sheet only as tall as its rows. */
+  searchable?: boolean
 }) {
   const [query, setQuery] = React.useState("")
   const [prevOpen, setPrevOpen] = React.useState(open)
@@ -432,6 +435,26 @@ export function ChoiceSheet({
   React.useLayoutEffect(() => {
     if (open) centerChecked(listRef.current)
   }, [open])
+  /* A short list with no search (round AN: an action, a template): no keyboard to make room for, and only as tall as its rows. */
+  if (!searchable)
+    return (
+      <BottomSheet
+        isOpen={open}
+        onClose={onClose}
+        label={title}
+        maxHeight={CHOICE_SHEET_HEIGHT}
+        zIndex={sheetZIndex}
+        header={
+          <div data-choice-sheet-header="">
+            <p className="px-5 pb-2 pt-2 text-[16px] font-semibold text-[#1a1a2e]">{title}</p>
+          </div>
+        }
+      >
+        <div data-choice-sheet="" ref={listRef}>
+          <ChoiceListBody choices={choices} value={value} onPick={onPick} compact label={title} lead={lead} leading={leading} uniform={uniform} query="" search={null} scrollClassName={scrollClassName ?? "max-h-[min(440px,52dvh)]"} />
+        </div>
+      </BottomSheet>
+    )
   return (
     <BottomSheet
       isOpen={open}
@@ -480,6 +503,8 @@ export function ChoicePicker({
   sheetZIndex,
   sheetHeight,
   fieldClassName,
+  searchable = true,
+  align = "start",
 }: {
   title: string
   choices: Choice[] | (() => Choice[])
@@ -512,6 +537,10 @@ export function ChoicePicker({
   sheetHeight?: string
   /** The field's look, for a form whose own fields are drawn differently (Set up payments). */
   fieldClassName?: string
+  /** False for a short list (an action, a template): the rows alone, with no search field over them. */
+  searchable?: boolean
+  /** Which edge of the field the popover lines up with: "end" for a small field at the right of a row. */
+  align?: "start" | "end"
 }) {
   const [open, setOpen] = React.useState(false)
   const phone = usePhoneWidth()
@@ -549,7 +578,7 @@ export function ChoicePicker({
     return (
       <>
         {trigger}
-        <ChoiceSheet open={open} onClose={() => setOpen(false)} title={title} choices={list} value={value} onPick={pick} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} scrollClassName={scrollClassName} sheetZIndex={sheetZIndex} sheetHeight={sheetHeight} />
+        <ChoiceSheet open={open} onClose={() => setOpen(false)} title={title} choices={list} value={value} onPick={pick} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} scrollClassName={scrollClassName} sheetZIndex={sheetZIndex} sheetHeight={sheetHeight} searchable={searchable} />
       </>
     )
   }
@@ -557,7 +586,7 @@ export function ChoicePicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent
-        align="start"
+        align={align}
         sideOffset={6}
         collisionPadding={12}
         data-choice-popover={name}
@@ -565,12 +594,13 @@ export function ChoicePicker({
         onOpenAutoFocus={(e) => {
           e.preventDefault()
           const root = e.currentTarget as HTMLElement | null
-          root?.querySelector<HTMLElement>("[data-choice-search]")?.focus({ preventScroll: true })
+          /* With no search, the chosen row (or the first) takes the focus, so the arrows and Enter work at once. */
+          root?.querySelector<HTMLElement>(searchable ? "[data-choice-search]" : "[data-choice][data-checked], [data-choice]")?.focus({ preventScroll: true })
           /* The chosen one in view under the search, not the top of a long list, and nothing else scrolled. */
           centerChecked(root)
         }}
       >
-        <ChoiceList choices={list} value={value} onPick={pick} compact={false} label={title} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} scrollClassName={scrollClassName} />
+        <ChoiceList choices={list} value={value} onPick={pick} compact={false} label={title} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} scrollClassName={scrollClassName} searchInHeader={!searchable} />
       </PopoverContent>
     </Popover>
   )
