@@ -218,7 +218,7 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
                         type="search"
                         value={text}
                         onChange={(e) => setText(e.target.value)}
-                        placeholder={tt("Search by name or email")}
+                        placeholder={phone ? tt("Search") : tt("Search by name or email")}
                         aria-label={tt("Search by name or email")}
                         className="min-w-0 flex-1 bg-transparent text-[13px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] max-sm:text-[16px] [&::-webkit-search-cancel-button]:hidden"
                         data-contacts-search=""
@@ -235,7 +235,8 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
                   </>
                 ) : (
                   <>
-                    <div role="tablist" aria-label={tt("Views")} className="orders-strip -my-2 flex min-w-0 items-center gap-0.5 overflow-x-auto py-2" data-contacts-views="">
+                    {/* On a phone the views scroll on their own and fade at the edge; the icons keep a fixed place beside them and never sit over a word. */}
+                    <div role="tablist" aria-label={tt("Views")} className="orders-strip -my-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-2 max-sm:pr-10 max-sm:[mask-image:linear-gradient(to_right,#000_calc(100%-44px),transparent)]" data-contacts-views="">
                       {CONTACT_FILTERS.map((f) => {
                         const active = f === query.filter
                         return (
@@ -255,16 +256,17 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
                         )
                       })}
                     </div>
+                    <span aria-hidden className="h-5 w-px shrink-0 bg-[#e5e7eb] sm:hidden" />
                     <button
                       type="button"
-                      className={cn(iconButton, "ml-auto w-auto shrink-0 gap-1 px-2 max-sm:h-10")}
+                      className={cn(iconButton, "w-auto shrink-0 gap-1 px-2 max-sm:h-10")}
                       aria-label={tt("Search and filter")}
                       title={tt("Search and filter")}
                       onClick={() => setSearching(true)}
                       data-contacts-filters=""
                     >
                       <Search className="h-4 w-4" />
-                      <ListFilter className="h-4 w-4" />
+                      <ListFilter className="h-4 w-4 max-sm:hidden" />
                     </button>
                   </>
                 )}
@@ -446,7 +448,7 @@ function FilterRow({ adv, communities, onChange }: { adv: AdvancedFilters; commu
   )
   const dates = adv.from || adv.to ? [adv.from ? dayOf(adv.from) : "…", adv.to ? dayOf(adv.to) : "…"].join(" – ") : null
   return (
-    <div className="orders-strip flex items-center gap-2 overflow-x-auto border-b border-[#eef0f2] px-3 py-2" data-contacts-advanced="">
+    <div className="orders-strip flex items-center gap-2 overflow-x-auto border-b border-[#eef0f2] px-3 py-2 max-sm:pr-10 max-sm:[mask-image:linear-gradient(to_right,#000_calc(100%-44px),transparent)]" data-contacts-advanced="">
       <FilterChip
         id="origin"
         label={tt("Came from")}
