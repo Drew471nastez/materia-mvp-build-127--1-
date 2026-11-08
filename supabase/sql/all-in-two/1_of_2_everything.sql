@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 377: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 379: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -5224,6 +5224,12 @@ INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('376', '3
 alter table public.products add column if not exists cover_original_url text;
 comment on column public.products.cover_original_url is 'The product cover as uploaded (unpadded). thumbnail_url may be a 16:9 padded copy for cards; null means thumbnail_url is the picture itself.';
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('377', '377_product_original_cover.sql', '8b350597a60d9fe34c4dea11f515a47fa5111a8c700fa3040a36bb026210ebf4') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 379_email_flow_membership_trigger.sql
+/* Emails › Automations, round 51: a new trigger, "Someone starts a membership" (membership_started), for the Membership onboarding automation. It fires once per membership when a membership sold on its own first gives access (lib/memberships/sync.ts, lib/automations/membership-trigger.ts); the engine's existing unique (flow_id, dedupe_key) on email_flow_runs keeps it to one run per member per automation per membership, so no new table or index is needed. What this does: the check on email_flows.trigger_type (part 51) is replaced by the same list plus 'membership_started'. NOT VALID: a new or changed row is checked, rows already there are left alone. Nothing else changes. Until this runs: every page works, existing automations keep running; only choosing Membership onboarding (or "Someone starts a membership" when building one from scratch) is refused with a plain "not available yet" note, and no membership_started flow can exist, so nothing is sent for it. Safe to run again. */
+ALTER TABLE public.email_flows DROP CONSTRAINT IF EXISTS email_flows_trigger_type_check;
+ALTER TABLE public.email_flows ADD CONSTRAINT email_flows_trigger_type_check CHECK (trigger_type IN ('new_subscriber', 'purchase', 'first_purchase', 'abandoned_checkout', 'membership_started', 'tag_added', 'manual')) NOT VALID;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('379', '379_email_flow_membership_trigger.sql', '105b8228d4c5f030dd8343e4b8bb139bda9d3c798eaab0f20109fa49933fbe9d') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

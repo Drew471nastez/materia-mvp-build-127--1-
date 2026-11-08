@@ -314,8 +314,8 @@ section("No page draws a picture of itself while it loads, inside or out")
   const emails = code("app/(storelib)/app/emails/emails-home.tsx")
   check("Emails' tables wait as their own header and rows, crossfading into the rows, and its figures as shapes, not dashes",
     /function Loading\(\) \{\s*return <ShimmerRows rows=\{5\} header/.test(emails) && !/WaitingArea/.test(emails)
-      /* Four: subscribers, messages, automations and the emails. */
-      && (emails.match(/<ShimmerSwap loading=\{props\.loading\} skeleton=\{<Loading \/>\}>/g) ?? []).length === 4
+      /* Changed on purpose (round 51): two, the automations and the emails; subscribers and messages moved to Contacts. */
+      && (emails.match(/<ShimmerSwap loading=\{props\.loading\} skeleton=\{<Loading \/>\}>/g) ?? []).length === 2
       && !/props\.loading \? "–"/.test(emails) && /\{props\.loading \? \(\s*<ShimmerBlock /.test(emails)
       /* The Sent tab's strip is there on every render, its figures shapes while they come, so the table under it never moves. */
       && /if \(p\.tab === "published"\) \{/.test(emails) && /value: o \? n\(o\.total_sent\) : "–"/.test(emails))
@@ -516,7 +516,8 @@ section("One scrollbar track on a computer, always there, never moving")
   {
     const HALO_WITHIN = /focus-within:border-\[#c9ccd3\] focus-within:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
     const HALO = /focus:border-\[#c9ccd3\] focus:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
-    const within = ["app/(storelib)/app/orders/orders-list.tsx", "app/(storelib)/app/emails/emails-home.tsx"]
+    /* Changed on purpose (round 51): Emails has no search field any more (its subscribers' search moved to Contacts). */
+    const within = ["app/(storelib)/app/orders/orders-list.tsx"]
     /* Settings' country search is the shared list's now (components/app/settings/country-picker), so it is choice-list's halo. */
     const direct = ["components/app/product-picker.tsx", "components/ui/choice-list.tsx"]
     const heavy = /focus-within:border-\[#1a1a2e\] focus-within:shadow-\[0_0_0_1px_#1a1a2e\]/

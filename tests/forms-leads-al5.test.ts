@@ -46,13 +46,10 @@ async function main() {
     assert.doesNotMatch(sidebar, /href: "\/app\/audience/)
     assert.doesNotMatch(sidebar, /label: tt\("Audience"\)/)
   })
-  await check("Emails has a Leads tab, read and drawn like the others", () => {
-    assert.match(read("app/(storelib)/app/emails/emails-data.ts"), /TABS: EmailsTab\[\] = \["subscribers", "messages", "leads",/)
-    assert.match(read("app/(storelib)/app/emails/emails-data.ts"), /case "leads":\s*\n\s*return loadLeads\(\)/)
-    assert.match(read("app/(storelib)/app/emails/page.tsx"), /"leads"/)
-    const home = read("app/(storelib)/app/emails/emails-home.tsx")
-    assert.match(home, /\{ id: "leads", get label\(\) \{ return tt\("Leads"\) \} \}/)
-    assert.match(home, /tab === "leads" \? props\.leadsPanel/)
+  /* Changed on purpose (round 51): Leads moved from Emails to Contacts (?tab=leads redirects to /app/contacts?filter=leads, a lead to its profile); the panel itself is kept for Contacts › Forms. */
+  await check("Emails' old Leads tab goes to Contacts, and the leads panel is kept", () => {
+    assert.match(read("app/(storelib)/app/emails/emails-route.ts"), /if \(tab === "leads" \|\| \(!tab && lead\)\)/)
+    assert.match(read("app/(storelib)/app/emails/emails-route.ts"), /"\/app\/contacts\?filter=leads"/)
     const panel = read("app/(storelib)/app/emails/leads-panel.tsx")
     for (const part of ["FilterChip", "PhoneItem", "ScrollEdge", "SheetDialog", "StatusBadge", "ResponsiveActionMenu"]) assert.match(panel, new RegExp(part), part)
     assert.match(panel, /href="\/app\/emails\/forms"/)

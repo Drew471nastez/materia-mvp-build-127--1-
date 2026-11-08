@@ -533,7 +533,8 @@ async function main() {
   console.log("\nThe same editor in Emails, and the editor itself\n")
   {
     const home = read("app/(storelib)/app/emails/emails-home.tsx")
-    check("Emails has a Customer emails tab", /\{ id: "customer", label: "Customer emails" \}/.test(home) && /"customer"/.test(read("app/(storelib)/app/emails/emails-data.ts")) && /"customer"/.test(read("app/(storelib)/app/emails/page.tsx")))
+    /* Changed on purpose (round 51): Customer emails is a section of Emails › Settings; ?tab=customer redirects there. */
+    check("Emails has a Customer emails section", /\{ value: "customer", label: "Customer emails" \}/.test(home) && /"customer"/.test(read("app/(storelib)/app/emails/emails-data.ts")) && /section=customer/.test(read("app/(storelib)/app/emails/emails-route.ts")))
     check("  showing the same list and editor as Settings", /tab === "customer" \? <CustomerEmailsPanel bare source=\{\{ data: props\.customerEmails \?\? null/.test(home) /* Changed on purpose (round 28): drawn from the tab's own cached read */ && /CUSTOMER_EMAILS_PATH/.test(read("app/(storelib)/app/emails/emails-data.ts")))
     const panel = read("components/app/settings/customer-emails-panel.tsx")
     /* Changed on purpose: the preview frame is shared with the community emails (components/app/emails/email-parts.tsx). */

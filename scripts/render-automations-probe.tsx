@@ -127,9 +127,10 @@ const subscribers = Array.from({ length: 64 }, (_, i) => {
 })
 
 function Subscribers() {
-  const [tab, setTab] = React.useState<EmailsTab>("subscribers")
+  /* Round 51: Subscribers moved to Contacts; the list drawn here is Emails › Automations. */
+  const [tab, setTab] = React.useState<EmailsTab>("flows")
   const [contact, setContact] = React.useState<SubscriberRow | null>(null)
-  const [search, setSearch] = React.useState("")
+  void subscribers
   const [period, setPeriod] = React.useState(() => resolveValue({ preset: "last_30_days" }, today, "last_30_days"))
   /* A contact opens as its own page over the list, as emails-client.tsx does it. */
   if (contact) {
@@ -142,18 +143,15 @@ function Subscribers() {
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]">
       <EmailsHome
-        physical={false} messages={[]} messagesAvailable onOpenMessage={() => {}} onToggleRead={() => {}} onDeleteMessage={() => {}}
-        onOpenContact={setContact}
+        physical={false}
+        pageTab={tab === "flows" ? "automations" : "campaigns"}
+        onPageTab={(t) => { setContact(null); setTab(t === "automations" ? "flows" : "all") }}
+        show="all"
+        onShow={() => {}}
+        section="sending"
+        onSection={() => {}}
         tab={tab}
-        onTab={setTab}
         loading={false}
-        subscribers={subscribers}
-        checkoutBuyersCount={3}
-        search={search}
-        onSearch={setSearch}
-        onExportSubscribers={() => {}}
-        onCopyEmail={() => {}}
-        onRemoveSubscriber={() => {}}
         flows={[
           { id: "f1", name: "Welcome series", trigger_type: "new_subscriber", status: "active", steps: welcome.steps, totals: { sent: 792, opened: 441, clicked: 80, failed: 2, in_progress: 14 } },
           { id: "f2", name: "Bring buyers back", trigger_type: "purchase", status: "paused", steps: winBack.steps, totals: null },

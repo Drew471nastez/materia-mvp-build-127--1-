@@ -24,6 +24,14 @@ export interface SegmentOption {
   id: string
   name: string
   count: number | null
+  /** Round 51: people picked in Contacts for one email (app/api/email/recipients), not one of the creator's segments. */
+  picked?: boolean
+}
+
+/** A segment's name as the picker says it; people picked in Contacts have no name of their own (their count is beside it). */
+export function segmentName(s: SegmentOption): string {
+  if (s.picked) return tt("People you picked")
+  return s.name
 }
 export interface Audience {
   type: string
@@ -35,14 +43,16 @@ const n = (v: number | null | undefined) => (typeof v === "number" ? v.toLocaleS
 export function audienceLabel(a: Audience, options: AudienceOption[], segments: SegmentOption[]): { label: string; count: number | null } {
   if (a.type === "segment") {
     const s = segments.find((x) => x.id === a.segmentId)
-    return { label: s ? s.name : tt("A segment"), count: s?.count ?? null }
+    return { label: s ? segmentName(s) : tt("A segment"), count: s?.count ?? null }
   }
   if (a.type === "last_24h") return { label: tt("Joined in the last 24 hours"), count: null }
   const o = options.find((x) => x.type === a.type) ?? options[0]
   return { label: o?.label ?? tt("All subscribers"), count: o?.count ?? null }
 }
 
-function Rows({ value, options, segments, compact, onPick, onNew }: { value: Audience; options: AudienceOption[]; segments: SegmentOption[]; compact: boolean; onPick: (a: Audience) => void; onNew?: () => void }) {
+function Rows({ value, options, segments: all, compact, onPick, onNew }: { value: Audience; options: AudienceOption[]; segments: SegmentOption[]; compact: boolean; onPick: (a: Audience) => void; onNew?: () => void }) {
+  /* People picked in Contacts are offered only to the email they were picked for. */
+  const segments = all.filter((s) => !s.picked || (value.type === "segment" && value.segmentId === s.id))
   return (
     <div role="menu" aria-label={tt("Audience")} onKeyDown={onRowsKey} className={compact ? "px-2 pb-3" : "max-h-[360px] overflow-y-auto p-1.5"}>
       {options.map((o) => (
@@ -56,7 +66,7 @@ function Rows({ value, options, segments, compact, onPick, onNew }: { value: Aud
           <p className={cn("px-3 pb-1 pt-1.5 font-medium text-[#6b7280]", compact ? "text-[13px]" : "text-[12px]")}>{tt("Segments")}</p>
           {segments.map((s) => (
             <PickerRow key={s.id} rowKey={s.id} compact={compact} checked={value.type === "segment" && value.segmentId === s.id} detail={n(s.count)} onClick={() => onPick({ type: "segment", segmentId: s.id })}>
-              {s.name}
+              {segmentName(s)}
             </PickerRow>
           ))}
         </>

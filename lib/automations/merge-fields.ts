@@ -42,7 +42,8 @@ export interface MergeField {
 }
 
 const ORDERS: TriggerType[] = ["purchase", "first_purchase"]
-const PRODUCTS: TriggerType[] = ["purchase", "first_purchase", "abandoned_checkout"]
+/* A membership's title and its page are known from the membership (round 51). */
+const PRODUCTS: TriggerType[] = ["purchase", "first_purchase", "abandoned_checkout", "membership_started"]
 
 export const MERGE_FIELDS: MergeField[] = [
   { key: "first_name", get label() { return tt("First name") }, get says() { return tt("Their first name, or “there” after Hi") }, link: false },
