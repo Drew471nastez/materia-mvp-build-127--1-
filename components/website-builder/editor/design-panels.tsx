@@ -686,7 +686,16 @@ export function SectionDesignPanel({
   /* A tabs section saved before `tab_animation` is brought up to date as the editor loads it (section-anchors withTabSwitchKey), so `animation` here is always the entrance. */
   const setAnimation = (v: string) => onUpdateSetting("animation", v === "theme" ? undefined : v)
 
-  if (!support.colorScheme && !support.typography && !showAnimation) return null
+  /* SHOW ON: both, desktop only or phones only (SectionRenderer showOnAttr, theme-css.ts). Not for the header, the footer or what floats over the page. */
+  const showOnChoice = !isChromeType(section.type) && section.group !== "overlay"
+  const showOn = s.show_on === "desktop" || s.show_on === "mobile" ? s.show_on : ""
+  const showOnOptions = [
+    { value: "", label: tt("Both") },
+    { value: "desktop", label: tt("Desktop") },
+    { value: "mobile", label: tt("Phone") },
+  ]
+
+  if (!support.colorScheme && !support.typography && !showAnimation && !showOnChoice) return null
 
   return (
     <div className={cn(!compact && "border-b border-border px-3.5 py-3.5", "space-y-3.5")}>
@@ -815,6 +824,14 @@ export function SectionDesignPanel({
           <p className={LABEL}>{tt("Animation")}</p>
           <Select value={animation} onChange={setAnimation} options={animationOptions} />
           {firstBody ? <p className="text-[12px] leading-[17px] text-muted-foreground">{tt("The first section is on screen as the page opens, so it shows without an entrance.")}</p> : null}
+        </div>
+      )}
+
+      {showOnChoice && (
+        <div className="space-y-3">
+          <p className={LABEL}>{tt("Show on")}</p>
+          <Select value={showOn} onChange={(v) => onUpdateSetting("show_on", v || undefined)} options={showOnOptions} />
+          {showOn ? <p className="text-[12px] leading-[17px] text-muted-foreground">{tt("Faint here so you can still pick it. Visitors on the other size do not see it.")}</p> : null}
         </div>
       )}
     </div>

@@ -1,0 +1,288 @@
+{# ===========================================================================
+   Split call to action: the ask on one side, a photograph on the other,
+   inside a panel that can sit on the page or run edge to edge.
+   =========================================================================== #}
+<template>
+<section class="s cs cs--{{ settings.image_side }} cs--{{ settings.style }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn2: {{ scheme.secondary_btn_bg }}; --s-btn2-text: {{ scheme.secondary_btn_text }}; --s-btn2-border: {{ scheme.secondary_btn_border }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-btn2-hover: {{ scheme.secondary_btn_hover_bg }}; --s-btn2-hover-text: {{ scheme.secondary_btn_hover_text }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
+  <div class="s__in s__in--{{ settings.max_width }}">
+    <div class="cs__panel" data-container>
+      <div class="cs__copy">
+        {% if settings.eyebrow %}<p class="s__eyebrow">{{ settings.eyebrow }}</p>{% endif %}
+        {% if settings.heading %}<h2 class="s__h cs__h">{{ settings.heading }}</h2>{% endif %}
+        {% if settings.subheading %}<p class="s__sub">{{ settings.subheading }}</p>{% endif %}
+        {% if settings.button_text or settings.button2_text %}
+          <div class="s__btns">
+            {% if settings.button_text %}<a class="s__btn s__btn--primary" href="{{ settings.button_url | default: '#' | url }}">{{ settings.button_text }}</a>{% endif %}
+            {% if settings.button2_text %}<a class="s__btn s__btn--secondary" href="{{ settings.button2_url | default: '#' | url }}">{{ settings.button2_text }}</a>{% endif %}
+          </div>
+        {% endif %}
+        {% if settings.note %}<p class="s__note">{{ settings.note }}</p>{% endif %}
+      </div>
+      {% if settings.image %}
+        <div class="cs__media"><img src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" loading="lazy" decoding="async" data-media></div>
+      {% elsif page.in_editor %}
+        <div class="cs__media"><div class="ph"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-9 8"/></svg><span>Add a photograph</span></div></div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+</template>
+
+<style scoped>
+.s { container-type: inline-size; background: var(--s-bg); color: var(--s-text); }
+.s__in {
+  margin: 0 auto;
+  padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--s-pb) * var(--theme-spacing-scale, 1));
+}
+.s__in--narrow { max-width: 720px; }
+.s__in--medium { max-width: 960px; }
+.s__in--wide { max-width: var(--theme-page-width, 1280px); }
+.s__in--full { max-width: none; }
+.s__eyebrow { margin: 0 0 14px; font-family: var(--sl-caption-font); font-size: var(--sl-caption-size, 12px); font-weight: var(--sl-caption-weight, 600); letter-spacing: var(--sl-caption-tracking, 0.14em); text-transform: var(--sl-caption-transform, uppercase); color: var(--s-accent); }
+.s__h {
+  margin: 0;
+  font-size: var(--section-heading-size, 32px);
+  line-height: var(--section-heading-line-height, 1.15);
+  font-weight: var(--section-heading-weight, 700);
+  color: var(--s-heading);
+  letter-spacing: var(--section-heading-tracking, -0.01em);
+  text-transform: var(--section-heading-transform, none);
+  font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
+  text-wrap: balance;
+}
+.s__sub { margin: 16px 0 0; max-width: 38rem; font-size: var(--section-text-size, 17px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); text-wrap: pretty; }
+.s__head { max-width: 46rem; }
+.s__head--center { margin-inline: auto; text-align: center; }
+.s__head--center .s__sub { margin-inline: auto; }
+.s__btns { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+.s__head--center .s__btns { justify-content: center; }
+.s__btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px;
+  padding: var(--sl-button-padding, 13px 24px); font-size: var(--sl-button-size, 15px); line-height: var(--sl-button-line-height); font-weight: var(--theme-button-weight, 600); text-decoration: none;
+  border-radius: var(--s-radius); border: 1px solid transparent; transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+.s__btn--primary:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); border-color: var(--s-btn-hover); }
+.s__btn--secondary:hover { background: var(--s-btn2-hover); color: var(--s-btn2-hover-text); }
+.s__btn--primary { background: var(--s-btn); color: var(--s-btn-text); border-color: var(--s-btn); }
+.s__btn--secondary { background: var(--s-btn2); color: var(--s-btn2-text); border-color: var(--s-btn2-border); }
+.s__btn:focus-visible, .s a:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
+.s__note { margin: 18px 0 0; font-size: 13px; color: var(--s-para); }
+.ph { display: grid !important; place-content: center; justify-items: center; gap: 8px; width: 100%; height: 100%; min-height: 160px; box-sizing: border-box; border: 1px dashed var(--s-border); background: color-mix(in srgb, var(--s-text) 5%, transparent); color: var(--s-para); font-size: 13px; text-align: center; padding: 16px; }
+.ph svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+
+.cs__panel { display: grid; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.cs--panel .cs__panel { background: color-mix(in srgb, var(--s-heading) 5%, var(--s-bg)); border-radius: var(--s-radius); }
+.cs--outline .cs__panel { border: 1px solid var(--s-border); border-radius: var(--s-radius); }
+.cs__copy { padding: 40px 28px; display: flex; flex-direction: column; justify-content: center; }
+.cs--plain .cs__copy { padding: 0 0 32px; }
+.cs__h { font-size: clamp(32px, 4.6cqi, var(--type-h2-size, 48px)); }
+.cs__media { min-height: 280px; }
+.cs__media img, .cs__media .ph { display: block; width: 100%; height: 100%; min-height: 280px; object-fit: cover; }
+.cs--plain .cs__media img, .cs--plain .cs__media .ph { border-radius: var(--sl-image-radius, var(--s-radius)); }
+@container (min-width: 860px) {
+  .cs__panel { grid-template-columns: 1fr 1fr; }
+  .cs__copy { padding: 72px 64px; }
+  .cs--plain .cs__copy { padding: 0 64px 0 0; }
+  .cs--left .cs__media { order: -1; }
+  .cs--plain.cs--left .cs__copy { padding: 0 0 0 64px; }
+  .cs__media img, .cs__media .ph { min-height: 440px; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "cta_split",
+  "name": "Split Call to Action",
+  "category": "cta",
+  "description": "The ask on one side, a photograph on the other, in a panel or on the page.",
+  "icon": "columns",
+  "settings": [
+    {
+      "type": "header",
+      "id": "hdr_content",
+      "label": "Content"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": ""
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Ready when you are"
+    },
+    {
+      "type": "textarea",
+      "id": "subheading",
+      "label": "Supporting line",
+      "default": "One sentence on what happens when they click."
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "Button",
+      "default": "Get started"
+    },
+    {
+      "type": "url",
+      "id": "button_url",
+      "label": "Button link",
+      "default": "/products"
+    },
+    {
+      "type": "text",
+      "id": "button2_text",
+      "label": "Second button",
+      "default": ""
+    },
+    {
+      "type": "url",
+      "id": "button2_url",
+      "label": "Second button link",
+      "default": ""
+    },
+    {
+      "type": "text",
+      "id": "note",
+      "label": "Small print",
+      "default": ""
+    },
+    {
+      "type": "header",
+      "id": "hdr_image",
+      "label": "Photograph"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Photograph",
+      "default": ""
+    },
+    {
+      "type": "text",
+      "id": "image_alt",
+      "label": "Photograph description",
+      "default": "",
+      "info": "Read aloud to people who cannot see it."
+    },
+    {
+      "type": "radio",
+      "id": "image_side",
+      "label": "Photograph on",
+      "default": "right",
+      "options": [
+        {
+          "label": "Left",
+          "value": "left"
+        },
+        {
+          "label": "Right",
+          "value": "right"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "id": "hdr_layout",
+      "label": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "style",
+      "label": "Frame",
+      "default": "panel",
+      "options": [
+        {
+          "label": "Tinted panel",
+          "value": "panel"
+        },
+        {
+          "label": "Outlined panel",
+          "value": "outline"
+        },
+        {
+          "label": "On the page",
+          "value": "plain"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "max_width",
+      "label": "Content width",
+      "default": "wide",
+      "options": [
+        {
+          "label": "Narrow",
+          "value": "narrow"
+        },
+        {
+          "label": "Medium",
+          "value": "medium"
+        },
+        {
+          "label": "Wide",
+          "value": "wide"
+        },
+        {
+          "label": "Full",
+          "value": "full"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "id": "hdr_style",
+      "label": "Style"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "default": "white"
+    },
+    {
+      "type": "header",
+      "id": "hdr_spacing",
+      "label": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "default": 80,
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "default": 80,
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Split Call to Action"
+    },
+    {
+      "name": "Split Call to Action, dark",
+      "settings": {
+        "color_scheme": "dark",
+        "style": "plain",
+        "image_side": "left"
+      }
+    }
+  ]
+}
+</schema>

@@ -197,6 +197,7 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   content_padding_x: { does: "The space between content and the screen's edges." },
   section_gap: { does: "Space added between every two sections." },
   spacing_scale: { does: "Multiplies every section's own spacing: below 1 tighter, above 1 roomier." },
+  spacing_scale_mobile: { does: "On phones only, multiplies section spacing again on top of Spacing scale: 1 keeps phones as they are, below 1 tightens them." },
   border_radius: { does: "How round the corners of cards and boxes in sections are, read as `theme.radius.medium`." },
   card_shadow: { does: "How much shadow a card casts: the boxes a section marks `[data-container]`, such as a feature card or a plan. None until you pick one." },
   image_border_radius: { does: "How round the corners of pictures and videos in sections are, on every `[data-media]`." },
