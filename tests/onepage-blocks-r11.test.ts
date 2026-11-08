@@ -95,9 +95,10 @@ async function main() {
     const email = live.slice(live.indexOf('case "email_capture":'), live.indexOf('case "group":'))
     check("the live page draws every layout through the one view, no image needed", /<EmailSignupView/.test(email) && /layout=\{layout\}/.test(email) && !/isPro && showThumbnail/.test(email) && /const layout = emailSignupLayout\(data\.layout_type\)/.test(email))
     const tab = read("components/onepage/tabs/links-tab.tsx")
-    check("the editor's picker: three across, a radio for each, drawn small, and the choice is saved", /role="radiogroup"[^\n]*grid grid-cols-3 gap-2/.test(tab) && /role="radio"/.test(tab) && /<EmailLayoutThumb layout=\{option\.id\}/.test(tab) && /updateData\(\{ layout_type: option\.id as EmailCaptureLayoutType[ ,}]/.test(tab)) /* round 43: Connect's words ride along */
+    /* Changed on purpose (round AN): the layouts in the shared pickers' look (a link's, an app's): two across on a phone, four on a computer, each picture in a 4:3 frame with the editor's ChoiceMark. */
+    check("the editor's picker: two across on a phone and four wider, a radio for each, drawn small, and the choice is saved", /role="radiogroup"[^\n]*grid grid-cols-2 gap-2\.5 sm:grid-cols-4[^\n]*data-email-layouts/.test(tab) && /role="radio"/.test(tab) && /<EmailLayoutThumb layout=\{option\.id\}/.test(tab) && /updateData\(\{ layout_type: option\.id as EmailCaptureLayoutType[ ,}]/.test(tab)) /* round 43: Connect's words ride along */
     check("its old big 4:3 cards are gone", !/aspect-\[4\/3\][\s\S]{0,400}Classic centered form/.test(tab))
-    check("a finger gets a light tap on a change, and no hover fires on touch", /hapticTap\("soft"\)\s*updateData\(\{ layout_type/.test(tab) && /\[@media\(hover:hover\)\]:hover:border-\[#c9cbd1\]/.test(tab))
+    check("a finger gets a light tap on a change, and no hover fires on touch", /hapticTap\("soft"\)\s*updateData\(\{ layout_type/.test(tab) && /* Changed on purpose (round AN): Tailwind 4's hover: is already behind (hover: hover), as the shared pickers use it. */ /data-email-layout-option=\{option\.id\}[\s\S]{0,1200}hover:border-\[#c9cbd1\]/.test(tab))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
