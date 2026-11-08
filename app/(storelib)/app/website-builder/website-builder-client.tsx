@@ -31,7 +31,6 @@ import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { liveSiteLink } from "@/lib/website-builder/live-site-link"
 import { AnalyticsSummaryFact } from "@/components/app/analytics-summary-line"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import {
   ArrowUpRight,
   Check,
@@ -97,6 +96,9 @@ import { HelpLabel } from "@/components/app/help-label"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
 import { LIBRARY_FULL_CODE, LIBRARY_RULE, LIBRARY_RULE_TITLE } from "@/lib/website-builder/library-limit"
 import { LibraryFullDialog, type LibraryAction } from "./library-full-dialog"
+import { StartWebsite } from "./start-website"
+import { saveStartPrompt, withStartParam } from "@/lib/website-builder/start-handoff"
+import type { StartMode } from "@/lib/website-builder/create-website"
 import {
   ARRIVAL_MS,
   IncomingRow,
@@ -1200,6 +1202,71 @@ export function WebsiteBuilderClient({
     )
   }
 
+  /**
+   * ===========================================================================
+   *  CREATE A WEBSITE: WITH AI, OR FROM BLANK (./start-website.tsx)
+   * ===========================================================================
+   * Not through `make`: the new website opens in the editor at once, so it
+   * never needs a row of its own here. The request makes a Storelib Default
+   * website (app/api/website-builder/themes/create); with AI, the
+   * description waits in this tab for the editor's Ask panel
+   * (lib/website-builder/start-handoff.ts). A library the server says is full
+   * opens the full library sheet, as every other way in does.
+   */
+  const [starting, setStarting] = React.useState<StartMode | null>(null)
+  const startFlight = React.useRef(false)
+  /* Back from the editor (the page kept by the browser): the doors are pressable again. */
+  React.useEffect(() => {
+    const back = () => setStarting(null)
+    window.addEventListener("pageshow", back)
+    return () => window.removeEventListener("pageshow", back)
+  }, [])
+  const startWebsite = async (mode: StartMode, prompt?: string) => {
+    if (slotsLeft === 0) {
+      setFull("create")
+      return
+    }
+    if (startFlight.current || making) return
+    startFlight.current = true
+    setStarting(mode)
+    let leaving = false
+    try {
+      const res = await fetch("/api/website-builder/themes/create", json("POST", { mode }))
+      const data = (await res.json().catch(() => ({}))) as { install?: { id?: string }; cover?: Cover | null; cover_pending?: boolean; code?: string; error?: string }
+      if (!res.ok || !data.install?.id) {
+        if (data.code === LIBRARY_FULL_CODE) {
+          setFull("create")
+          refresh()
+          return
+        }
+        toast({ title: typeof data.error === "string" ? data.error : tt("Could not create the website"), variant: "destructive" })
+        return
+      }
+      const id = data.install.id
+      /* Its first picture, for this page when the editor is closed: kept now, or looked for while it is taken. */
+      asked.current.add(id)
+      if (data.cover?.url) seedCover(id, data.cover)
+      else if (data.cover_pending) void watchCover(id)
+      if (mode === "ai" && prompt) {
+        let storage: Storage | null = null
+        try {
+          storage = window.sessionStorage
+        } catch {
+          /* the editor opens the Ask panel empty */
+        }
+        saveStartPrompt(storage, id, prompt)
+      }
+      leaving = true
+      setOpening(true)
+      go(mode === "ai" ? withStartParam(editorHref(username, id)) : editorHref(username, id))
+    } catch {
+      toast({ title: tt("Could not create the website"), variant: "destructive" })
+    } finally {
+      startFlight.current = false
+      if (!leaving && mounted.current) setStarting(null)
+    }
+  }
+
   const exportTheme = async (i: WebsiteSummary) => {
     setBusy(`${i.id}:export`)
     try {
@@ -1442,6 +1509,17 @@ export function WebsiteBuilderClient({
           </div>
           {siteUrl && <SiteAddress url={siteUrl} display={siteDisplay} />}
         </div>
+
+        {/* ── Create a website: Start with AI, Start from blank, Browse themes (./start-website.tsx) ── */}
+        <StartWebsite
+          full={slotsLeft === 0}
+          teamMember={teamMember}
+          starting={starting}
+          blocked={making}
+          onStart={(mode, prompt) => void startWebsite(mode, prompt)}
+          onFull={() => setFull("create")}
+          onBrowse={() => startNavigationLoading()}
+        />
 
         {/* ── Live website ─────────────────────────────────────────
             `data-page-block` marks the three blocks that have to sit on the
@@ -1753,26 +1831,7 @@ export function WebsiteBuilderClient({
               {importing && incoming ? (incoming.phase === "uploading" ? tt("Uploading {value}%", { value: Math.round(incoming.progress * 100) }) : tt("Importing")) : tt("Import theme")}
             </Button>
             )}
-            <Button
-              asChild
-              variant="outline"
-              className="h-11 rounded-xl border-[#e5e7eb] bg-white px-3.5 text-[13px] font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:bg-[#f8f9fa]"
-            >
-              <Link
-                href="/app/website-builder/themes"
-                onClick={(e) => {
-                  if (slotsLeft === 0) {
-                    e.preventDefault()
-                    setFull("add")
-                    return
-                  }
-                  startNavigationLoading()
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                {tt("Add theme")}
-              </Link>
-            </Button>
+            {/* Add theme was here: it is Browse themes in Create a website now, the same page (./start-website.tsx). */}
           </SectionHeading>
           <h2 id="library-heading" className="sr-only">{tt("Library")}</h2>
 
@@ -1805,7 +1864,7 @@ export function WebsiteBuilderClient({
             )}
             {library.length === 0 && !showingIncoming ? (
               <div className="px-6 py-9 text-center text-[13px] text-[#6b7280]">
-                {tt("No drafts. Add a theme to start another website.")}
+                {tt("No drafts. Create a website above to start another.")}
               </div>
             ) : (
               <table className="w-full table-fixed border-collapse text-left">
