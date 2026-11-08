@@ -19,6 +19,7 @@
 import "server-only"
 
 import { checkPageState, type CheckResult } from "@/lib/agent-access/checks"
+import { reviewBuiltPage } from "./review"
 import { takeBackup } from "@/lib/website-builder/backups"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { BUILT_IN_PAGE_KEYS, pagePath, pageTitleFromKey } from "@/lib/website-builder/site-pages"
@@ -43,6 +44,8 @@ export interface PageWrite {
   key?: string
   title?: string
   created?: boolean
+  /** What the checks and the review still found on the page as written: the run reports what is left. */
+  findings?: string[]
 }
 
 export type SitePages = SitePageTools
@@ -122,15 +125,22 @@ export function sitePages(db: Db, installId: string, openPage: string): SitePage
 
       const title = typeof args.title === "string" && args.title.trim() ? args.title.replace(/\s+/g, " ").trim().slice(0, 80) : pageTitleFromKey(key)
       const failed = failedChecks(checkPageState(key, plan.state, schemas, ["page-types", "page-settings", "contrast", "limits"]))
+      /* The same review the open page gets: demo copy, empty and repeated entries, copy rules, contrast (./review.ts). */
+      const reviewed = reviewBuiltPage(plan.state, plan.created, schemas).map((f) => {
+        const s = plan.state.sections.find((x) => x.id === f.sectionId)
+        return `${s ? `${s.type} [${s.id}]` : "the page"}: ${f.message}`
+      })
       return {
         ok: true,
         key,
         title,
         created: !existing,
+        findings: [...failed, ...reviewed],
         text: [
           `${existing ? "Rebuilt" : "Made"} "${key}" (${pagePath(key)}) as a draft: ${plan.created.length} section${plan.created.length === 1 ? "" : "s"}${replace ? ", the old ones removed" : ""}${plan.kept.length ? `, its own ${plan.kept.length === 1 ? "section" : "sections"} kept (${plan.kept.join(", ")})` : ""}.`,
           plan.notes.length ? `Adjusted: ${plan.notes.slice(0, 8).join("; ")}` : "",
           failed.length ? `CHECKS FAILED, fix with another build_page on this page (replace true): ${failed.join("; ")}` : "Checks passed: section types, settings, contrast and limits.",
+          reviewed.length ? `REVIEW FOUND ${reviewed.length} THING${reviewed.length === 1 ? "" : "S"} TO FIX on this page, with another build_page on it (replace true), every section's real content written: ${reviewed.slice(0, 6).join(" | ")}` : "Review passed: no demo copy, empty or repeated entries.",
           !existing && !BUILT_IN_PAGE_KEYS.has(key) ? `Visitors reach it at ${pagePath(key)} once it is in a menu: add it with edit_menu.` : "",
         ]
           .filter(Boolean)

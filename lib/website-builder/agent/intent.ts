@@ -90,6 +90,16 @@ export interface Intent {
   settingsLayout?: boolean
   /** Several sections named by what they are, each to change: "redesign the hero, the features and the FAQ". */
   sections?: number
+  /**
+   * THE PAGE HAS WORK ON IT AND NOBODY SAID TO REMOVE ANY. A section the
+   * creator already has is hidden (they can show it again), never removed,
+   * until they say so: "restyle my site" once deleted half a homepage
+   * (./plan-apply.ts hides instead, and the loop refuses remove_section on a
+   * section that was there before the run). Absent on older callers: false.
+   */
+  confirmRemovals?: boolean
+  /** Look and feel words with no word about structure: kept as a style change (lookOnly below). */
+  lookOnly?: boolean
 }
 
 export interface IntentContext {
@@ -215,6 +225,36 @@ const NAMES_SITE = /\b(web ?site|site|store ?front|online store|shop|everything|
 const THIS_PAGE = /\b(?:this|the|my) (?:page|home ?page|landing ?page)\b/i
 const WHOLE_SITE_WORDS = /\b(?:web ?site|whole site|entire site|every page|all (?:the )?pages|store ?front|online store|everything|rebrand|brand)\b/i
 
+/*
+  ===========================================================================
+   HOW IT LOOKS IS NOT WHAT IT CONTAINS
+  ===========================================================================
+  "Restyle the whole site to feel more editorial" was read as a new direction
+  for the whole site: a creative plan, and the old sections removed. The words
+  are about how it looks. Look and feel words, with no word about structure
+  (sections, layout, pages, content, from scratch, add, remove...), are a
+  STYLE change on a site that already has work on it: colours, fonts, scheme
+  and spacing move; every section and its content stays.
+*/
+const LOOK_WORDS =
+  /\b(re-?style[sd]?|restyling|look(?:s|ing)?|feel(?:s|ing)?|vibe|aesthetic|style|styling|colou?rs?|colou?r scheme|palette|fonts?|typography|type ?face|editorial|minimal(?:ist)?|elegant|premium|luxur\w*|high.?end|sleek|modern|classy|moody|playful|warm(?:er)?|soft(?:er)?|bold(?:er)?|dark(?:er)?|light(?:er)?|brighter|calm(?:er)?|clean(?:er)?)\b/i
+const STRUCTURE_WORDS =
+  /\b(sections?|layouts?|structure|restructure|pages?|content|copy|text|wording|words|rewrite|from scratch|start (?:over|again|fresh)|scrap|rebuild|remake|new (?:site|website|store|sections?|pages?)|add|adding|remove|removing|delete|replace|swap|reorder|rearrange|navigation|menu|products?|blocks?|hero|faq|pricing|gallery|testimonials?|footer|header|for (?:my|our|a|an) [a-z]+ (?:business|brand|shop|store|studio|company|club))\b/i
+/* What the scope words name in a look request: "page" here is where, not what. */
+const LOOK_SCOPE_PAGE = /\b(?:this|the|my) (?:page|home ?page|landing ?page)\b/i
+
+/** Look and feel words, and no word about what the page contains: a style change, never a rebuild. */
+export function lookOnly(prompt: string): boolean {
+  const text = prompt.replace(/\s+/g, " ").trim()
+  if (!LOOK_WORDS.test(text)) return false
+  /* "This page" is the scope of the look, not its structure. */
+  return !STRUCTURE_WORDS.test(text.replace(LOOK_SCOPE_PAGE, "this place"))
+}
+
+/* The creator said, in words, that something may go: only then is a section they have removed rather than hidden. */
+const REMOVAL_CONSENT =
+  /\b(remove|delete|get rid of|drop|replace|swap out|scrap|start (?:over|again|fresh)|from scratch|throw (?:it|this|everything) (?:away|out)|rebuild|remake|brand new|new sections?|fewer sections|cut|take out|lose the|clear (?:the|this|my) page|empty (?:the|this) page)\b/i
+
 function hits(list: RegExp[], text: string): boolean {
   return list.some((re) => re.test(text))
 }
@@ -251,6 +291,8 @@ export function classifyIntent(prompt: string, ctx: IntentContext = {}): Intent 
       recreate: !!ctx.images && kind !== "QUESTION" && (RECREATE.test(text) || text.length === 0),
       settingsLayout: kind !== "QUESTION" && SETTINGS_LAYOUT.test(text),
       sections: namedSections(text),
+      confirmRemovals: body > 1 && kind !== "QUESTION" && !REMOVAL_CONSENT.test(text),
+      lookOnly: lookOnly(text),
     }
   }
 
@@ -285,6 +327,15 @@ export function classifyIntent(prompt: string, ctx: IntentContext = {}): Intent 
   if (correction && !hits(FULL_SITE, text) && !hits(NEW_SITE, text)) {
     reasons.push("a follow up")
     return result(wantsMotion ? "FUNCTIONAL_CHANGE" : "LOCAL_EDIT", ctx.selected ? "section" : "element")
+  }
+
+  /*
+    RESTYLE, REDESIGN THE LOOK, MAKE IT LOOK/FEEL ...: on a site with work on it and no word about structure, how it
+    looks changes and what it contains stays (lookOnly above). Never a plan that removes sections.
+  */
+  if (body > 1 && !hits(NEW_SITE, text) && (hits(FULL_SITE, text) || hits(PAGE, text) || SITE_STYLE.test(text) || /\bre-?styl/i.test(text)) && lookOnly(text)) {
+    reasons.push("how the site looks, its sections kept")
+    return result("STYLE_CHANGE", THIS_PAGE.test(text) && !WHOLE_SITE_WORDS.test(text) ? "page" : "site")
   }
 
   if (SITE_STYLE.test(text) && !DIRECTION.test(text)) {
@@ -466,6 +517,14 @@ export function intentGuidance(intent: Intent): string {
   }
   if (intent.keep?.length) {
     lines.push(`LEAVE ALONE, as they said: ${intent.keep.map((k) => `"${k}"`).join(", ")}. Do not change, move, hide or remove it, even inside a redesign.`)
+  }
+  if (intent.confirmRemovals && intent.kind !== "QUESTION" && (intent.plan || intent.kind === "SECTION_REDESIGN" || intent.kind === "STYLE_CHANGE")) {
+    lines.push(
+      "NOTHING OF THEIRS IS REMOVED. The page already has the creator's sections and they did not say to remove any. A section of theirs that no longer belongs is HIDDEN (set_section_visibility), never removed: it can be shown again. Say in your reply which were hidden.",
+    )
+  }
+  if (intent.lookOnly && intent.kind === "STYLE_CHANGE") {
+    lines.push("HOW IT LOOKS, NOT WHAT IT CONTAINS. Change the theme's colours, fonts, colour schemes, spacing and buttons. Every section, its order and its content stay exactly as they are.")
   }
   if (intent.followUp) lines.push("This message follows your last change. Resolve \"this\", \"that\" and \"the previous one\" against it and the PROJECT STATE.")
   return lines.join("\n")

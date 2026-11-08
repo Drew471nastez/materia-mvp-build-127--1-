@@ -207,9 +207,92 @@ export function anthropicClientFor(key: string): Anthropic {
 
 export const anthropicProvider: AgentProvider = createAnthropicProvider(anthropic)
 
-async function completeWith(client: () => Anthropic, request: ProviderRequest, modelInfo?: Anthropic.ModelInfo): Promise<ProviderTurn> {
-  const rate = rateFor(request.model)
+/**
+ * ===========================================================================
+ *  A THINKING BLOCK IS BOUND TO THE CONVERSATION THAT MADE IT
+ * ===========================================================================
+ * Production, Nov 2026: runs on claude-opus-5-5 died on "messages.N.content.M:
+ * Invalid `signature` in `thinking` block. The block is bound to a different
+ * conversation", after the theme agent shortened an old tool result
+ * (lib/website-builder/agent/run-repair.ts). The API checks that everything
+ * before a replayed thinking block is byte-identical to when it was made.
+ *
+ * Three layers, so the creator never sees that 400 again:
+ *   1. the loop never edits content in front of a replayed block (run-repair
+ *      strips every thinking block when it has to shorten),
+ *   2. every request with thinking on asks the API to DROP a block that fails
+ *      the check instead of refusing the request (`drop_block`, which needs
+ *      the `thinking-binding-controls-2026-08-01` beta header),
+ *   3. and if the 400 still arrives (a platform that does not take the beta),
+ *      the same request is sent once more with every thinking block removed.
+ */
+export const THINKING_BINDING_BETA = "thinking-binding-controls-2026-08-01"
 
+/** The 400 for a replayed thinking block whose conversation changed, or whose signature does not check out. */
+export function isThinkingSignatureError(thrown: unknown): boolean {
+  if (!thrown || typeof thrown !== "object") return false
+  const e = thrown as { status?: unknown; message?: unknown; error?: unknown }
+  let words = String(e.message ?? "")
+  try {
+    if (e.error !== undefined) words += ` ${JSON.stringify(e.error)}`
+  } catch {
+    /* a circular body says nothing */
+  }
+  const status = typeof e.status === "number" ? e.status : Number(words.match(/^(\d{3})\s/)?.[1] ?? Number.NaN)
+  if (Number.isFinite(status) && status !== 400) return false
+  return /invalid\W*`?signature`?\W*in\W*`?(?:redacted_)?thinking`?\W*block|bound to a different conversation|prefix_mismatch_behavior/i.test(words)
+}
+
+/** The 400 for a request that sent `block_binding` where the beta is not taken: sent again without it. */
+export function isBindingControlRefused(thrown: unknown): boolean {
+  if (!thrown || typeof thrown !== "object") return false
+  const e = thrown as { status?: unknown; message?: unknown }
+  if (typeof e.status === "number" && e.status !== 400) return false
+  return /block_binding|thinking-binding-controls|unknown beta|unexpected value.*anthropic-beta/i.test(String(e.message ?? ""))
+}
+
+/** The same conversation with every thinking and redacted_thinking block taken out; text and tool calls stay. */
+export function withoutThinking(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+  return messages.map((m) => {
+    if (m.role !== "assistant" || typeof m.content === "string") return m
+    const kept = m.content.filter((b) => b.type !== "thinking" && b.type !== "redacted_thinking")
+    if (kept.length === m.content.length) return m
+    return { ...m, content: kept.length ? kept : [{ type: "text" as const, text: "(continued)" }] }
+  })
+}
+
+async function completeWith(client: () => Anthropic, request: ProviderRequest, modelInfo?: Anthropic.ModelInfo): Promise<ProviderTurn> {
+  const thinkingOn = modelInfo?.capabilities
+    ? modelInfo.capabilities.thinking.types.adaptive.supported
+    : /claude-(?:sonnet-5|opus-(?:5|4-[678])|sonnet-4-6|fable|mythos)/.test(request.model)
+  try {
+    return await completeOnce(client, request, modelInfo, { thinkingOn, binding: thinkingOn, strip: false })
+  } catch (thrown) {
+    if (request.signal?.aborted || !thinkingOn) throw thrown
+    if (isBindingControlRefused(thrown)) {
+      console.warn("[storelib ai] anthropic: block_binding refused, sent again without it")
+      return completeOnce(client, request, modelInfo, { thinkingOn, binding: false, strip: false }).catch((again: unknown) => {
+        if (!isThinkingSignatureError(again)) throw again
+        console.warn("[storelib ai] anthropic: thinking block bound to another conversation, sent again without thinking blocks")
+        return completeOnce(client, request, modelInfo, { thinkingOn, binding: false, strip: true })
+      })
+    }
+    if (isThinkingSignatureError(thrown)) {
+      console.warn("[storelib ai] anthropic: thinking block bound to another conversation, sent again without thinking blocks")
+      return completeOnce(client, request, modelInfo, { thinkingOn, binding: true, strip: true })
+    }
+    throw thrown
+  }
+}
+
+async function completeOnce(
+  client: () => Anthropic,
+  request: ProviderRequest,
+  modelInfo: Anthropic.ModelInfo | undefined,
+  how: { thinkingOn: boolean; binding: boolean; strip: boolean },
+): Promise<ProviderTurn> {
+  const rate = rateFor(request.model)
+  const messages = requestMessages(request.turns)
   /**
    * STREAMED, always, then collected into one message.
    *
@@ -253,7 +336,7 @@ async function completeWith(client: () => Anthropic, request: ProviderRequest, m
        * parameter to carry the key would be a 400.
        */
       /* With a breakpoint on the last block: see requestMessages. */
-      messages: requestMessages(request.turns),
+      messages: how.strip ? withoutThinking(messages) : messages,
       tools: request.tools.map((tool, i) => ({
         name: tool.name,
         description: tool.description,
@@ -279,9 +362,17 @@ async function completeWith(client: () => Anthropic, request: ProviderRequest, m
        * worth watching, what it is thinking is not something to put on a
        * customer's screen.
        */
-      ...(modelInfo?.capabilities
-        ? modelInfo.capabilities.thinking.types.adaptive.supported ? { thinking: { type: "adaptive" as const } } : {}
-        : /claude-(?:sonnet-5|opus-(?:5|4-[678])|sonnet-4-6|fable|mythos)/.test(request.model) ? { thinking: { type: "adaptive" as const } } : {}),
+      /*
+        With `block_binding: drop_block` (beta header below): a replayed thinking block whose conversation changed is
+        dropped by the API instead of failing the whole request with a 400 (see THINKING_BINDING_BETA above).
+      */
+      ...(how.thinkingOn
+        ? {
+            thinking: (how.binding
+              ? { type: "adaptive" as const, block_binding: { prefix_mismatch_behavior: "drop_block" as const } }
+              : { type: "adaptive" as const }) as Anthropic.ThinkingConfigAdaptive,
+          }
+        : {}),
       /*
         EFFORT, where the model takes it: what the account's Models API says
         when it was read, otherwise the catalogue (lib/website-builder/ask-engines.ts,
@@ -289,7 +380,7 @@ async function completeWith(client: () => Anthropic, request: ProviderRequest, m
       */
       ...(request.effort && (modelInfo?.capabilities ? modelInfo.capabilities.effort?.[request.effort]?.supported : effortSupported(request.model)) ? { output_config: { effort: request.effort } } : {}),
     },
-    { signal: request.signal },
+    { signal: request.signal, ...(how.binding ? { headers: { "anthropic-beta": THINKING_BINDING_BETA } } : {}) },
   )
 
   /*
@@ -398,9 +489,9 @@ export function describeAnthropicError(thrown: unknown): string | null {
     return "Lost the connection to Claude. Anything already changed is still here."
   }
   if (thrown instanceof Anthropic.BadRequestError) {
-    // Worth surfacing verbatim: this one is almost always OUR bug, and hiding
-    // it behind a friendly sentence is how it stays unfixed.
-    return `Claude refused the request: ${thrown.message}`
+    /* Never the provider's JSON on a creator's screen: the detail goes to the log (lib/sites/agent/plain-errors). */
+    console.error("[storelib ai] anthropic 400", String(thrown.message).slice(0, 600))
+    return "That did not go through. Try again."
   }
   if (thrown instanceof Anthropic.APIError) {
     return `Claude returned an error (${thrown.status ?? "no status"}). Try again.`

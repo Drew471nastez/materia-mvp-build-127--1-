@@ -97,7 +97,7 @@ Rules for the plan:
 - Fonts must come from this list: ${[...OFFERED_FAMILIES].join(", ")}.
 - Colours are hex values. Text on its background at 4.5:1 or better.
 - Vary the layouts down the page. Never two sections in a row with the same shape.
-- Real content only: names, prices and products from the store; testimonials and numbers only if they exist, otherwise leave the slot for the creator.
+- Real content only: names, prices and products from the store; testimonials only from the store's real reviews and numbers only if they exist. Never invent a customer, a quote, a rating, a statistic, a client logo or a price. With none to use, leave the proof section out of the plan (or plan it as one the creator fills, said in its "why").
 
 ${DESIGN_DEFAULTS}
 

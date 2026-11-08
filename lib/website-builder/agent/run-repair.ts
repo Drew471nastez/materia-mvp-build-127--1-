@@ -17,6 +17,15 @@
  * Done once the conversation is past a size (`THEME_TRANSCRIPT_BUDGET`), and
  * again whenever the provider says it no longer fits. Between those, it is
  * not rewritten, so the cached prefix is kept.
+ *
+ * A SHORTENED CONVERSATION CARRIES NO THINKING BLOCKS. Claude binds each
+ * thinking block to every byte in front of it; replaying one after an earlier
+ * result was shortened was the production 400 "Invalid `signature` in
+ * `thinking` block ... bound to a different conversation ... first at
+ * messages.2.content.0", which ended whole runs. So whenever anything is
+ * shortened, every thinking block in the conversation goes with it (the
+ * text and tool calls of each turn stay): removing ALL of them is a change
+ * the API accepts, removing some or editing in front of them is not.
  */
 import type { AgentTurn } from "@/lib/sites/agent/types"
 
@@ -65,5 +74,30 @@ export function shortenTurns(turns: AgentTurn[], keepRecent = KEEP_RECENT): { tu
     }
     return turn
   })
-  return { turns: next, saved: before - transcriptSize(next) }
+  const saved = before - transcriptSize(next)
+  return { turns: saved > 0 ? withoutThinking(next) : next, saved }
+}
+
+/** A block of an assistant turn's raw content that is reasoning bound to the conversation it was made in. */
+function isThinkingBlock(block: unknown): boolean {
+  const type = block && typeof block === "object" ? (block as { type?: unknown }).type : undefined
+  return type === "thinking" || type === "redacted_thinking"
+}
+
+/**
+ * The conversation with every thinking block taken out of every assistant
+ * turn's raw content, and nothing else changed. A turn that was only
+ * reasoning is replayed from its text and tool calls instead.
+ */
+export function withoutThinking(turns: AgentTurn[]): AgentTurn[] {
+  return turns.map((turn): AgentTurn => {
+    if (turn.role !== "assistant" || !Array.isArray(turn.raw) || !turn.raw.some(isThinkingBlock)) return turn
+    const kept = (turn.raw as unknown[]).filter((b) => !isThinkingBlock(b))
+    return { ...turn, raw: kept.length ? kept : undefined }
+  })
+}
+
+/** Whether any assistant turn still replays a thinking block. */
+export function carriesThinking(turns: AgentTurn[]): boolean {
+  return turns.some((t) => t.role === "assistant" && Array.isArray(t.raw) && t.raw.some(isThinkingBlock))
 }

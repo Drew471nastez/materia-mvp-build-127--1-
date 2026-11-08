@@ -178,7 +178,7 @@ export const DESIGN_PATTERNS: DesignPattern[] = [
     id: "testimonials",
     label: "Testimonials",
     purpose: "What real customers said. Only real ones, or empty slots for the creator to fill.",
-    builtIn: [{ type: "proof_testimonials", how: "named people, specific results" }, { type: "proof_featured", how: "one quote given space" }],
+    builtIn: [{ type: "proof_testimonials", how: "the store's real reviews, names as given; none: hidden with placeholders" }, { type: "proof_featured", how: "one quote given space" }],
     custom: "A horizontal scroll of quotes with scroll-snap, or one large quote that cycles.",
   },
   {

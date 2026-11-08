@@ -40,7 +40,7 @@ export interface SitePageTools {
   build(
     args: { page?: unknown; title?: unknown; sections?: unknown; replace?: unknown },
     schemas: SchemaMap,
-  ): Promise<{ ok: boolean; text: string; key?: string; title?: string; created?: boolean }>
+  ): Promise<{ ok: boolean; text: string; key?: string; title?: string; created?: boolean; findings?: string[] }>
 }
 
 export interface PageBlockInput {

@@ -39,7 +39,7 @@ const AVOID = `AVOID THE THINGS THAT MAKE A PAGE READ AS MACHINE-MADE, unless as
 - Three cards in a row as the answer to every layout. Use the number the content has.
 - Icon tiles stacked above every heading, and the same four icons everywhere.
 - Headings sized for a screenshot rather than for reading.
-- Invented social proof of any kind: testimonials with made-up names, statistics nobody measured, logos of companies that are not customers, star ratings with no reviews behind them.
+- Invented social proof of any kind: testimonials with made-up names, statistics nobody measured, logos of companies that are not customers, star ratings with no reviews behind them, prices nobody set. Use the store's real reviews and products; with none, leave the proof out or leave it hidden with plain placeholders the creator fills.
 - Copy that would fit any business. "Streamline", "unlock", "elevate", "seamless", "transform", "empower". Write about this business instead.
 - One-hue purple-and-indigo palettes, and neon on near-black, chosen as a default rather than because the brand is that.`
 

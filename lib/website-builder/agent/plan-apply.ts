@@ -185,6 +185,14 @@ export function applyPlan(input: {
   for (const id of going) {
     const s = state.sections.find((x) => x.id === id)
     if (!s || !isBody(s)) continue
+    /*
+      NOBODY SAID TO REMOVE ANY (./intent.ts confirmRemovals): the creator's section is hidden, not deleted. It stays
+      in the page, out of sight, and Show brings it back; the reply says which were hidden.
+    */
+    if (intent.confirmRemovals) {
+      if (!s.hidden) push({ kind: "set_section_visibility", id, hidden: true }, `Hid ${s.name?.trim() || nameOf(schemas, s.type)}`)
+      continue
+    }
     push({ kind: "remove_section", id }, `Removed ${s.name?.trim() || nameOf(schemas, s.type)}`)
   }
 
@@ -264,6 +272,8 @@ export function describeApplied(applied: PlanApplied, plan: CreativePlan, schema
   if (applied.ops.some((o) => o.op.kind === "update_theme" && "font_heading" in o.op.settings)) lines.push(`- Fonts: headings ${plan.typography.heading}, body ${plan.typography.body}.`)
   const removed = applied.ops.filter((o) => o.op.kind === "remove_section").length
   if (removed) lines.push(`- ${removed} old section${removed === 1 ? " was" : "s were"} removed.`)
+  const hid = applied.ops.filter((o) => o.op.kind === "set_section_visibility").length
+  if (hid) lines.push(`- ${hid} old section${hid === 1 ? " was" : "s were"} HIDDEN, not removed: the creator did not ask for anything to be removed. Leave them hidden (never remove_section on them) and say in your reply that the old sections are hidden and can be shown again.`)
   const added = plan.sections
     .map((s, i) => (applied.placed[i] && !s.use.startsWith("keep:") ? `[${applied.placed[i]}] ${plannedLabel(s, schemas)} (${s.use})${s.content ? `: ${s.content}` : ""}` : null))
     .filter(Boolean)

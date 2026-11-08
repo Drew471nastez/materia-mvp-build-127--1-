@@ -95,7 +95,7 @@ import {
 } from "@/components/website-builder/ask-activity"
 import { AskHistory, type DeletedTarget, type HistoryTarget } from "@/components/website-builder/ask-history"
 import { ModelPicker } from "@/components/website-builder/ask-model-picker"
-import { DEFAULT_ENGINE, ENGINE_KEY, ENGINES, engineFromSaved, engineOf, type EngineId } from "@/lib/website-builder/ask-engines"
+import { DEFAULT_ENGINE, ENGINE_KEY, PICKER_ENGINES, engineFromSaved, engineOf, type EngineId } from "@/lib/website-builder/ask-engines"
 import { plainChatError } from "@/lib/sites/agent/plain-errors"
 import { ownFor, useOwnAi } from "@/components/website-builder/use-own-ai"
 import { FadeImage, PictureTray, ProgressRing, type ComposerPicture } from "@/components/website-builder/ask-attachments"
@@ -208,6 +208,8 @@ interface Exchange {
    * the next part, which picks up from this conversation and the page.
    */
   canContinue?: boolean
+  /** The run changed things but ended with checks still failing: said as partly done, never as done. */
+  partial?: boolean
   /** The section the writer wrote, for View code. */
   written?: { path: string; name: string }
   /** What the run kept in AI Memory: the "Remembered: ..." line, each with Undo until it is undone. */
@@ -522,6 +524,13 @@ const ExchangeItem = React.memo(function ExchangeItem({
         >
           {tt("Continue")}
         </button>
+      )}
+
+      {exchange.partial && !exchange.running && !exchange.error && (
+        <p data-ask-partial="" className={cn("flex items-start gap-1.5 text-amber-700", phone ? "text-[13.5px]" : "text-[12px]")}>
+          <TriangleAlert aria-hidden className="mt-0.5 h-3 w-3 shrink-0" />
+          {tt("Partly done: some checks still fail. Ask me to fix what is left.")}
+        </p>
       )}
 
       {exchange.error && (
@@ -909,7 +918,8 @@ function ThemeChatPanel({
    * for medium, on the server.
    */
   const [engine, setEngine] = React.useState<EngineId>(DEFAULT_ENGINE)
-  const engines = ENGINES
+  /* Auto first (the default: the server picks Sonnet 5.5 or Opus 5.5 per request), then the four models. */
+  const engines = PICKER_ENGINES
   const [engineOpen, setEngineOpen] = React.useState(false)
 
   React.useEffect(() => {
@@ -921,7 +931,7 @@ function ThemeChatPanel({
   }, [])
 
   const chooseEngine = React.useCallback((id: string) => {
-    if (!ENGINES.some((e) => e.id === id)) return
+    if (!PICKER_ENGINES.some((e) => e.id === id)) return
     setEngine(id as EngineId)
     setEngineOpen(false)
     try {
@@ -1615,8 +1625,8 @@ function ThemeChatPanel({
             /* The router said the change goes into the selected section's code. */
             ...(opts.codeFocus ? { codeFocus: true } : {}),
             provider: live.current.engine.provider,
-            model: live.current.engine.model,
-            tier: live.current.engine.tier,
+            /* Auto sends no model: the server picks one for the request (lib/website-builder/ask-engines.ts autoModel). A model chosen in the menu is sent and honoured. */
+            ...(live.current.engine.model ? { model: live.current.engine.model, tier: live.current.engine.tier } : { auto: true }),
             /* The conversation on screen; the route opens a new one for null. */
             conversationId: live.current.conversation.id,
             continueEarlier: live.current.conversation.earlier,
@@ -1757,6 +1767,10 @@ function ThemeChatPanel({
                 */
                 if (event.reason === "budget") patch((e) => ({ ...e, canContinue: true }))
                 else carryOn = true
+                return
+              } else if (type === "outcome") {
+                /* Partly done (checks still failing) is said under the reply; a stop the creator made is not an error. */
+                if (event.outcome === "partial") patch((e) => ({ ...e, partial: true }))
                 return
               } else if (type === "message") {
                 const reply = typeof event.text === "string" ? event.text : ""
@@ -1962,8 +1976,8 @@ function ThemeChatPanel({
             settings: live.current.settings,
             sectionTypes: [...new Set(live.current.sections.map((s) => s.type))].slice(0, 40),
             provider: live.current.engine.provider,
-            model: live.current.engine.model,
-            tier: live.current.engine.tier,
+            /* Auto sends no model: the server picks one for the request (lib/website-builder/ask-engines.ts autoModel). A model chosen in the menu is sent and honoured. */
+            ...(live.current.engine.model ? { model: live.current.engine.model, tier: live.current.engine.tier } : { auto: true }),
             conversationId: live.current.conversation.id,
             page: startedOn,
           }),

@@ -49,7 +49,7 @@ import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/lo
 import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { readSelection, selectedShapeOf } from "@/lib/website-builder/agent/selection-intent"
 import { plainRunError } from "@/lib/sites/agent/plain-errors"
-import { EFFORT } from "@/lib/website-builder/ask-engines"
+import { AUTO_STRONG_MODEL, EFFORT, autoModel } from "@/lib/website-builder/ask-engines"
 import { canAnswer, isConfigured, resolveForCreator, substitutionNotice } from "@/lib/sites/agent/provider"
 import { classifyRequest } from "@/lib/website-builder/agent/ambition"
 import { reviewImages } from "@/lib/sites/agent/attachments"
@@ -80,6 +80,9 @@ import { targetClassifier } from "@/lib/website-builder/agent/router-model"
 import { CHECKPOINT_MAX_PROMPT, CHECKPOINT_MAX_SOURCE, type RunCheckpoint } from "@/lib/website-builder/agent/run-clock"
 import { readBrief } from "@/lib/website-builder/agent/project-state"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
+import { SLOW_SAVE_MESSAGE, saveWithRetry } from "@/lib/website-builder/agent/commit-retry"
+import { dataUnavailableResponse, transientReadError } from "@/lib/website-builder/agent/route-guard"
+import { ledgerStatus } from "@/lib/website-builder/agent/run-ledger-status"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -94,13 +97,13 @@ export const maxDuration = 300
 /** Aborts when either does: the reader leaving, or the deadline. */
 function eitherSignal(a: AbortSignal, b: AbortSignal): AbortSignal {
   const both = new AbortController()
+  /* The reason is passed on: the deadline's TimeoutError is a pause the next part picks up, the reader leaving is a stop (loop cancelledBy). */
   if (a.aborted || b.aborted) {
-    both.abort()
+    both.abort(a.aborted ? a.reason : b.reason)
     return both.signal
   }
-  const stop = () => both.abort()
-  a.addEventListener("abort", stop, { once: true })
-  b.addEventListener("abort", stop, { once: true })
+  a.addEventListener("abort", () => both.abort(a.reason), { once: true })
+  b.addEventListener("abort", () => both.abort(b.reason), { once: true })
   return both.signal
 }
 
@@ -126,6 +129,8 @@ type RecordedEvent =
   | { type: "continue"; reason: "time" }
   /** What it kept in AI Memory, for the chat's "Remembered: ..." line with Undo, and what it forgot. */
   | { type: "remembered"; items: KeptNote[]; forgot: string[] }
+  /* Partly done (checks still failing), or stopped by the creator: said as that, never as plain success or an error. */
+  | { type: "outcome"; outcome: "partial" | "stopped"; unresolved?: string[] }
 
 /* The whole tree, blocks inside blocks included: lib/website-builder/block-tree.ts. */
 const BlockSchema = BlockInstanceSchema
@@ -184,6 +189,8 @@ const BodySchema = z.object({
   tier: z.enum(["fast", "strong"]).optional(),
   /** One of the four in the menu (lib/website-builder/ask-engines.ts); resolveForCreator refuses any other. */
   model: z.string().regex(/^claude-[a-z0-9-]{1,100}$/).optional(),
+  /** Auto in the menu: no model sent, the server picks Sonnet 5.5 or Opus 5.5 for this request (ask-engines autoModel). */
+  auto: z.boolean().optional(),
   /**
    * WHICH CONVERSATION THIS CONTINUES. Null or absent starts a new one. An id
    * is honoured only when it is a conversation on THIS install (see
@@ -227,23 +234,26 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   const user = asker.kind === "user" ? asker.user : null
   if (!user) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
 
-  const { data: creator } = await supabase
+  const { data: creator, error: creatorError, status: creatorStatus } = await supabase
     .from("creators")
     .select("id")
     .eq("user_id", user.id)
     .maybeSingle()
+  /* A slow database is a retry, not "only creators" (lib/website-builder/agent/route-guard.ts). */
+  if (!creator && transientReadError(creatorError, creatorStatus)) return dataUnavailableResponse()
   if (!creator) return NextResponse.json({ error: "Only creators can edit themes." }, { status: 403 })
 
   /**
    * RLS decides. A theme somebody else owns reads as absent, which is the
    * right answer to both "does not exist" and "not yours".
    */
-  const { data: install } = await supabase
+  const { data: install, error: installError, status: installStatus } = await supabase
     .from("store_theme_installs")
     .select("id")
     .eq("id", installId)
     .eq("creator_id", (creator as { id: string }).id)
     .maybeSingle()
+  if (!install && transientReadError(installError, installStatus)) return dataUnavailableResponse()
   if (!install) return NextResponse.json({ error: "Theme not found." }, { status: 404 })
 
   /**
@@ -425,12 +435,32 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * badly costs more than the difference between the two models. A
          * tweak, a question and a chat all stay on what they chose.
          */
-        const wantsTier = !body.model && (shape.ambitious || bigIntent || intent.kind === "SECTION_REDESIGN") && body.tier !== "strong" ? "strong" : body.tier
-        const resolved = await resolveForCreator((creator as { id: string }).id, { requested: body.provider, tier: wantsTier, model: body.model })
+        /*
+          AUTO (the menu's default): the model is chosen here, per request. A small local, content or style edit runs on
+          Sonnet 5.5; a plan, a redesign, section code, a new page or a picture to match runs on Opus 5.5. A model the
+          creator picked in the menu is honoured exactly and never changed (lib/website-builder/ask-engines.ts autoModel).
+        */
+        const autoChosen =
+          !body.model && (body.auto === true || !body.tier) && (body.provider ?? "anthropic") === "anthropic"
+            ? autoModel({
+                kind: intent.kind,
+                plan: intent.plan,
+                rebuild: intent.rebuild,
+                newPage: intent.newPage,
+                recreate: intent.recreate,
+                codeFocus: body.codeFocus === true,
+                images: images.length,
+                ambitious: shape.ambitious,
+                wholePage: shape.wholePage,
+                code: asksForNew || intent.kind === "FUNCTIONAL_CHANGE" || !!intent.settingsLayout,
+              })
+            : undefined
+        const wantsTier = !body.model && !autoChosen && (shape.ambitious || bigIntent || intent.kind === "SECTION_REDESIGN") && body.tier !== "strong" ? "strong" : body.tier
+        const resolved = await resolveForCreator((creator as { id: string }).id, { requested: body.provider, tier: autoChosen === AUTO_STRONG_MODEL ? "strong" : wantsTier, model: body.model ?? autoChosen })
         /* Whose account answers, so the chat can say "On your OpenAI key" and not count it as Storelib AI. */
         send({ type: "account", own: resolved.own })
         /* Said out loud: the run is on a model they did not pick, and on their own account it is their bill. */
-        if (wantsTier !== body.tier) send({ type: "thinking", text: "Using the stronger model for this one." })
+        if (!autoChosen && wantsTier !== body.tier) send({ type: "thinking", text: "Using the stronger model for this one." })
         const notice = substitutionNotice(resolved)
         if (notice) send({ type: "thinking", text: notice })
         /**
@@ -966,7 +996,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
             model: resolved.model,
             provider: resolved.provider.id,
             own: resolved.own,
-            status: result.status,
+            auto: !!autoChosen,
+            status: ledgerStatus(result),
             stopped: result.stopped ?? null,
             intent: intent.kind,
             target: { action: target.action, sections: target.sections.map((t) => t.id), kind: target.kind ?? null, confidence: target.confidence, via: target.via },
@@ -998,11 +1029,30 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * who closed the tab mid run comes back to the code it kept.
          */
         let codeLost = false
+        /* Lost to a slow database rather than refused: the chat says to send it again, which works. */
+        let codeLostSlow = false
         if (journal.size > 0) {
           if (result.status === "succeeded") {
+            let slowSave = false
             const committed = await journal.commit({
+              /*
+                A SLOW DATABASE IS ASKED AGAIN (lib/website-builder/agent/commit-retry.ts): production lost a run's code to one
+                "store_theme_custom_files took longer than 30s". The same draft is written again, with backoff, while the
+                function still has room for a whole try; a file that is refused for what it is answers at once.
+              */
               async save(path, source) {
-                const saved = await saveThemeFile(supabase, installId, path, source)
+                const saved = await saveWithRetry(
+                  async () => {
+                    const r = await saveThemeFile(supabase, installId, path, source)
+                    return r.ok === true ? { ok: true } : { ok: false, error: r.error }
+                  },
+                  {
+                    roomMs: () => requestStartedAt + maxDuration * 1000 - Date.now() - 5_000,
+                    perTryMs: 30_000,
+                    onRetry: (attempt, why) => console.warn("[storelib ai] theme agent: code save retried", path, attempt, String(why).slice(0, 200)),
+                  },
+                )
+                if (saved.ok === false && saved.transient) slowSave = true
                 return saved.ok === true ? { ok: true } : { ok: false, error: saved.error }
               },
               async keep(path, previous) {
@@ -1026,6 +1076,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
             })
             if (committed.ok === false) {
               codeLost = true
+              codeLostSlow = slowSave
               console.error("[storelib ai] theme agent: code commit failed", committed.failed, committed.error, committed.stuck)
             }
           } else {
@@ -1040,7 +1091,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         if (result.wroteCode || codeLost) send({ type: "sources-changed" })
         if (codeLost) {
           result.status = "failed"
-          result.error = "The section's code could not be saved, so it is back to how it was. Try again."
+          result.error = codeLostSlow ? SLOW_SAVE_MESSAGE : "The section's code could not be saved, so it is back to how it was. Try again."
           result.message = ""
         }
         /* The reply's first line says what was changed: "Edited: Hero", "Added: Testimonials, after Hero". */
@@ -1067,6 +1118,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           /* The loop says it stopped for time itself (its `continue` is already sent); this is for the backstop. */
           const outOfTime = result.stopped !== "time" && deadline.aborted && !request.signal.aborted && (result.ops.length > 0 || !!result.wroteCode || (result.pages?.length ?? 0) > 0)
           if (outOfTime) send({ type: "continue", reason: "time" })
+          /* PARTLY DONE, said as that: changes made, checks still failing (lib/website-builder/agent/loop.ts `partial`). */
+          if (result.partial && !codeLost) send({ type: "outcome", outcome: "partial", unresolved: (result.unresolved ?? []).slice(0, 3).map((u) => u.slice(0, 200)) })
+          /* Stopped by the person: what was kept stays, and the chat shows a stop, not an error. */
+          if (result.stopped === "cancelled") send({ type: "outcome", outcome: "stopped" })
           result.message = (result.message || "Done.") + (outOfTime ? " Carrying on with the rest." : "")
           send({ type: "message", text: reply(result.message) })
         }
@@ -1076,7 +1131,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           installId,
           creatorId,
           pageKey: body.page,
-          status: result.status,
+          status: ledgerStatus(result),
           intent,
           ops: result.ops.length,
           wroteCode: !!result.wroteCode,

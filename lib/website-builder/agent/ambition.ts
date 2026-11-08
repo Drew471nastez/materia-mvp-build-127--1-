@@ -31,6 +31,8 @@
  * thing to recognise than ambition is.
  */
 
+import { lookOnly } from "./intent"
+
 export type Scope = "tweak" | "build"
 
 export interface RequestShape {
@@ -100,7 +102,8 @@ export function classifyRequest(prompt: string): RequestShape {
     return { scope: "tweak", maxTurns: 10, strong: false, ambitious: false, wholePage: false }
   }
 
-  const wholePage = WHOLE_PAGE.test(prompt)
+  /* "Restyle the whole site": how it looks, not six new sections (./intent.ts lookOnly). */
+  const wholePage = WHOLE_PAGE.test(prompt) && !lookOnly(prompt)
   /* A whole page is ambitious whether or not it says "proper": it is six sections that have to agree. */
   const ambitious = AMBITION.test(prompt) || wholePage
 

@@ -25,7 +25,7 @@
 
 import type { AgentProvider, ProviderRequest, ProviderTurn } from "./types"
 
-export type FailureKind = "unavailable" | "busy" | "timeout" | "network" | "failed"
+export type FailureKind = "unavailable" | "busy" | "timeout" | "network" | "storage" | "failed"
 
 export const PLAIN_MESSAGES: Record<FailureKind, string> = {
   /* Billing, quota, a key that stopped working, a model this account cannot use: all ours to fix, none theirs. */
@@ -33,6 +33,8 @@ export const PLAIN_MESSAGES: Record<FailureKind, string> = {
   busy: "Storelib AI is busy right now. Wait a moment and send it again.",
   timeout: "Storelib AI took too long to answer. Try again, or ask for one part of it.",
   network: "Storelib AI could not be reached. Anything already changed is still here, so try again.",
+  /* Our own database or storage was slow ("store_theme_custom_files took longer than 30s"): nothing about the model. */
+  storage: "Storelib could not reach your site's saved data just now. Anything already changed is still here, so try again in a moment.",
   failed: "That did not go through. Try again.",
 }
 
@@ -109,6 +111,7 @@ export function failureKind(thrown: unknown): FailureKind | null {
   /* Both SDKs start a message with the status ("400 {...}"), which is all a rethrown copy of one still carries. */
   const status = typeof e.status === "number" ? e.status : Number(String(e.message ?? "").match(/^(\d{3})\s/)?.[1] ?? Number.NaN)
 
+  if (name === "DeadlineExceeded" || /took longer than \d+s|pgrst\d|postgrest|supabase/.test(words)) return "storage"
   if (status === 402 || BILLING.test(words)) return "unavailable"
   if (/Timeout/.test(name) || status === 408 || /timed out|timeout/.test(words)) return "timeout"
   if (status === 429 || /rate.?limit/.test(words)) return "busy"
@@ -179,7 +182,8 @@ export function looksRaw(message: string): boolean {
   return (
     /^\s*\d{3}\s*[{[]/.test(message) ||
     /"type"\s*:\s*"error"|invalid_request_error|request_id|req_[a-z0-9]{8,}/i.test(message) ||
-    /credit balance|anthropic|api key|api\.openai|insufficient_quota/i.test(message)
+    /credit balance|anthropic|api key|api\.openai|insufficient_quota/i.test(message) ||
+    /deadlineexceeded|took longer than \d+s|pgrst\d|supabase\.co|invalid `signature`|thinking` block/i.test(message)
   )
 }
 
