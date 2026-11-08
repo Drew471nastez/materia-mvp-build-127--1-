@@ -18,7 +18,9 @@ import * as React from "react"
 import { ArrowLeft, Plus } from "lucide-react"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { ShimmerRows } from "@/components/ui/shimmer"
-import { FormEditor, type SavedForm } from "@/components/forms/forms-manager"
+import type { SavedForm } from "@/components/forms/forms-manager"
+import { templateName } from "@/components/forms/form-picker"
+import { useFormConfirm } from "@/components/forms/form-confirm"
 import { formsRequest } from "@/lib/forms/client"
 import { formPath } from "@/lib/forms/actions"
 import { TEMPLATE_CHOICES } from "@/lib/forms/templates"
@@ -27,20 +29,17 @@ import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 import { RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../../orders/order-parts"
 
+/*
+  ROUND AN: a form opens in the same builder dialog as from the OnePage
+  (components/forms/form-builder-dialog), over the list, rather than
+  replacing the page; ?form=<id> still opens it. Archive asks in the
+  forms' own confirm (components/forms/form-confirm), not confirm().
+*/
+const FormBuilderDialog = React.lazy(() => import("@/components/forms/form-builder-dialog"))
+
 /** The starting points, named for the creator's language (the ids are lib/forms/templates'). */
 export function templateLabel(id: string): string {
-  const words: Record<string, string> = {
-    contact: tt("Contact"),
-    lead: tt("Lead magnet"),
-    coaching: tt("Coaching application"),
-    service: tt("Service inquiry"),
-    appointment: tt("Appointment booking"),
-    waitlist: tt("Waitlist"),
-    feedback: tt("Feedback"),
-    registration: tt("Registration"),
-    fitness: tt("Quiz with results"),
-  }
-  return words[id] ?? TEMPLATE_CHOICES.find((t) => t.id === id)?.label ?? id
+  return templateName(id)
 }
 
 const kindOf = (f: SavedForm) => (f.draft?.booking ? tt("Bookings") : f.draft?.mode === "quiz" ? tt("Quiz") : tt("Form"))
@@ -92,15 +91,26 @@ export function FormsList() {
     open(r.data.form.id)
   }
 
+  const [ask, confirmEl] = useFormConfirm()
   const archive = async (form: SavedForm) => {
-    if (!window.confirm(tt("Archive “{title}”? It stops taking answers on every page. Its leads stay in Leads.", { title: form.title || tt("Untitled form") }))) return
+    const yes = await ask({
+      title: tt("Archive “{title}”?", { title: form.title || tt("Untitled form") }),
+      body: tt("It stops taking answers on every page. Its leads stay in Leads."),
+      confirm: tt("Archive"),
+      cancel: tt("Cancel"),
+    })
+    if (yes !== true) return
     const r = await formsRequest(`/api/forms/${form.id}`, { method: "DELETE", fallback: tt("The form was not archived. Try again.") })
     if (r.error) return setError(r.error)
     setForms((all) => all.filter((f) => f.id !== form.id))
   }
 
   const selected = forms.find((f) => f.id === openId) || null
-  if (selected) return <FormEditor key={selected.id} form={selected} onBack={() => open(null)} onSaved={(f) => setForms((all) => all.map((x) => (x.id === f.id ? { ...x, ...f } : x)))} />
+  const builder = selected ? (
+    <React.Suspense fallback={null}>
+      <FormBuilderDialog key={selected.id} formId={selected.id} form={selected} onClose={() => open(null)} onSaved={(f) => setForms((all) => all.map((x) => (x.id === f.id ? { ...x, ...(f as SavedForm) } : x)))} />
+    </React.Suspense>
+  ) : null
 
   const newMenu: ActionMenuItem[] = TEMPLATE_CHOICES.map((t) => ({ label: templateLabel(t.id), onClick: () => void create(t.id) }))
   const menuFor = (f: SavedForm): ActionMenuItem[] => [
@@ -188,6 +198,8 @@ export function FormsList() {
           {error}
         </p>
       ) : null}
+      {builder}
+      {confirmEl}
     </div>
   )
 }

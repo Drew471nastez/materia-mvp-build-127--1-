@@ -26,8 +26,19 @@
  * as a lead, fill the message's variables, then the chat opens
  * (./action-frame). The phone number has its country beside it, with flag
  * and code (./phone-number-field).
+ *
+ * ROUND AN, THE OWNER ON 125.png: the Action, Templates, Product and
+ * Questions lists are Storelib's ChoicePicker (components/ui/choice-list), a
+ * popover on a computer and the shared sheet on a phone, never the native
+ * select. Every field is the OnePage editor's field (./fields). The variable
+ * chips sit 10px under the message, wrap, and go in where the caret was
+ * (with a space either side when the words around need one), and a keyboard
+ * that is up stays up. A template replaces the message with a short fade,
+ * and Undo puts back what was there for a few seconds.
  */
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react"
+import { Ban, CalendarDays, ClipboardList, Hash, Link2, Mail, MessageSquare, Phone, Plus, ShoppingBag, Users } from "lucide-react"
+import { SiTelegram, SiWhatsapp } from "react-icons/si"
 import {
   MESSAGE_TEMPLATES,
   TEMPLATE_VARIABLES,
@@ -41,35 +52,56 @@ import {
   type NativeAction,
 } from "@/lib/forms/actions"
 import { useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
-import { Switch } from "@/components/ui/switch"
+import { Segmented, Switch } from "@/components/onepage/editor-kit"
+import { ChoicePicker, type Choice } from "@/components/ui/choice-list"
 import { tt } from "@/lib/i18n/text"
+import { cn } from "@/lib/utils"
+import { AREA, ERROR, FIELD, FIELD_STACK, HINT, LABEL, PROBLEM } from "./fields"
 import { FormPicker, createForm, useFormsList } from "./form-picker"
 import { PhoneNumberField } from "./phone-number-field"
 
-const input =
-  "w-full rounded-lg border border-[#e3e4e8] bg-white px-3 py-2 text-sm text-[#1a1a2e] outline-none focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]"
-/* A select drawn as the fields are, its one chevron 12px from the right edge (the owner: "selectors, their arrows sit weird"). */
-const selectCls =
-  input +
-  " h-10 cursor-pointer appearance-none truncate py-0 pr-9 bg-[url('data:image/svg+xml;utf8,<svg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2212%22%20height=%2212%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%236b7280%22%20stroke-width=%222%22><path%20d=%22m6%209%206%206%206-6%22/></svg>')] bg-[length:12px] bg-[right_12px_center] bg-no-repeat"
-/* A label sits 6px above its field, never glued to it. */
-const labelCls = "block space-y-1.5 text-xs font-medium text-[#4b5563]"
-const hint = "text-xs text-[#6b7280]"
-const problem = "text-xs font-medium text-[#b54708]"
+/** The choices, in the creator's language. */
+const choiceWords = (): Record<ActionType, string> => ({
+  url: tt("Web address"),
+  whatsapp: tt("WhatsApp chat"),
+  whatsapp_group: tt("WhatsApp group"),
+  telegram: tt("Telegram"),
+  email: tt("Email"),
+  phone: tt("Phone call"),
+  sms: tt("Text message"),
+  product: tt("Storelib product"),
+  form: tt("Form or quiz"),
+  booking: tt("Booking"),
+  appointment: tt("Booking page"),
+  internal: tt("Page on this site"),
+})
 
-const CHOICES: [ActionType, string][] = [
-  ["url", "Web address"],
-  ["whatsapp", "WhatsApp chat"],
-  ["whatsapp_group", "WhatsApp group"],
-  ["telegram", "Telegram"],
-  ["email", "Email"],
-  ["phone", "Phone call"],
-  ["sms", "Text message"],
-  ["product", "Storelib product"],
-  ["form", "Form or quiz"],
-  ["booking", "Booking"],
-  ["internal", "Page on this site"],
-]
+const ORDER: ActionType[] = ["url", "whatsapp", "whatsapp_group", "telegram", "email", "phone", "sms", "product", "form", "booking", "internal"]
+
+const ICONS: Record<string, ReactNode> = {
+  "": <Ban className="h-4 w-4" />,
+  url: <Link2 className="h-4 w-4" />,
+  whatsapp: <SiWhatsapp className="h-4 w-4 text-[#25D366]" />,
+  whatsapp_group: <Users className="h-4 w-4" />,
+  telegram: <SiTelegram className="h-4 w-4 text-[#26A5E4]" />,
+  email: <Mail className="h-4 w-4" />,
+  phone: <Phone className="h-4 w-4" />,
+  sms: <MessageSquare className="h-4 w-4" />,
+  product: <ShoppingBag className="h-4 w-4" />,
+  form: <ClipboardList className="h-4 w-4" />,
+  booking: <CalendarDays className="h-4 w-4" />,
+  appointment: <CalendarDays className="h-4 w-4" />,
+  internal: <Hash className="h-4 w-4" />,
+}
+
+/** An action's mark: a small square with its icon, the same in the list and in the field. */
+function ActionMark({ type }: { type: string }) {
+  return (
+    <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#f3f4f6] text-[#4b5563]" data-action-mark={type || "none"}>
+      {ICONS[type] ?? ICONS.url}
+    </span>
+  )
+}
 
 const empty = (type: string, keep?: { label?: string }): NativeAction => {
   const label = keep?.label ? { label: keep.label } : {}
@@ -100,7 +132,48 @@ const empty = (type: string, keep?: { label?: string }): NativeAction => {
 }
 
 /** The message a chat starts with when questions come first: each answer of the "Before a chat" form, in a sentence (lib/forms/templates prechat). */
-const PRECHAT_MESSAGE = "Hi, I'm {visitor_name}. It's about {service}. {answer:message}"
+/* The answer to "Anything else?" goes last, as the visitor wrote it. */
+const ANSWER_TOKEN = "{answer:message}"
+const prechatMessage = () => [tt("Hi, I'm {visitor_name}. It's about {service}.", { visitor_name: "{visitor_name}", service: "{service}" }), ANSWER_TOKEN].join(" ")
+
+/* The variables keep their braces in every language: tt() is handed each one as itself. */
+const KEEP = { visitor_name: "{visitor_name}", product_name: "{product_name}", service: "{service}" }
+
+/** The starting messages (lib/forms/actions MESSAGE_TEMPLATES), in the creator's language. */
+const templateWords = (): Record<string, { label: string; text: string }> => ({
+  hello: { label: tt("Say hello"), text: tt("Hi, I found you on your page and have a question.") },
+  product: { label: tt("Ask about a product"), text: tt("Hi, I'm interested in {product_name}. Is it available?", KEEP) },
+  booking: { label: tt("Book a service"), text: tt("Hi, I'd like to book {service}. When are you free?", KEEP) },
+  intro: { label: tt("Introduce the visitor"), text: tt("Hi, my name is {visitor_name}. I'd like to know more about {service}.", KEEP) },
+})
+
+const variableWords = (): Record<string, string> => ({
+  "{visitor_name}": tt("Visitor's name"),
+  "{product_name}": tt("Product"),
+  "{service}": tt("Service"),
+})
+
+function reducedMotion(): boolean {
+  try {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Where a token goes into the words: at the caret, in place of what is
+ * selected, with a space before it when it would touch a word and after it
+ * when a word follows. Pure, so the tests read it.
+ */
+export function insertAtCaret(before: string, token: string, at: number, end: number, max = 4000): { text: string; caret: number } {
+  const a = Math.max(0, Math.min(at, before.length))
+  const b = Math.max(a, Math.min(end, before.length))
+  const lead = a > 0 && !/\s/.test(before[a - 1]) ? " " : ""
+  const tail = b < before.length && !/[\s.,!?;:)]/.test(before[b]) ? " " : ""
+  const text = (before.slice(0, a) + lead + token + tail + before.slice(b)).slice(0, max)
+  return { text, caret: Math.min(text.length, a + lead.length + token.length) }
+}
 
 export function ActionEditor({
   value,
@@ -133,17 +206,29 @@ export function ActionEditor({
   const [asking, setAsking] = useState(false)
   const [askProblem, setAskProblem] = useState<string | null>(null)
   const message = useRef<HTMLTextAreaElement>(null)
+  /* Where the caret was in the message, kept while a chip or the template list has the press. */
+  const caret = useRef<[number, number] | null>(null)
+  const [undo, setUndo] = useState<string | null>(null)
   const [bookingMode, setBookingMode] = useState<"form" | "url">(a.url && !a.form_id ? "url" : "form")
+  const ids = useId()
+  useEffect(() => {
+    if (undo === null) return
+    const t = window.setTimeout(() => setUndo(null), 6000)
+    return () => window.clearTimeout(t)
+  }, [undo])
 
   const set = (patch: Record<string, unknown>) => onChange({ ...(current as object), ...patch } as NativeAction)
-  const choices = (types?.length ? CHOICES.filter(([t]) => types.includes(t)) : CHOICES)
+  const words = choiceWords()
+  const allowed = types?.length ? ORDER.filter((t) => types.includes(t)) : ORDER
+  const noneWords = noneLabel || (allowNone ? tt("Success message only") : tt("Existing link"))
+  const actionChoices: Choice[] = [{ value: "", label: noneWords }, ...allowed.map((t) => ({ value: t, label: words[t] }))]
   const href = current ? actionHref(current, vars) : null
 
   const text = (key: string, label: string, opts: { placeholder?: string; inputMode?: "email" | "url" | "text"; max?: number } = {}) => (
-    <label className={labelCls}>
-      {label}
+    <label className={FIELD_STACK}>
+      <span className={LABEL}>{label}</span>
       <input
-        className={input}
+        className={FIELD}
         value={String(a[key] ?? "")}
         maxLength={opts.max ?? 2048}
         placeholder={opts.placeholder}
@@ -159,63 +244,107 @@ export function ActionEditor({
   /* The country beside the number, with its flag and code, and the number as that country writes it. */
   const phone = <PhoneNumberField phone={String(a.phone ?? "")} country={a.country as string | undefined} label={tt("Phone number")} onChange={(next) => set(next)} />
 
+  const keepCaret = () => {
+    const el = message.current
+    if (el) caret.current = [el.selectionStart ?? el.value.length, el.selectionEnd ?? el.value.length]
+  }
+
   const insert = (token: string) => {
     const el = message.current
     const before = String(a.message ?? "")
-    const at = el ? el.selectionStart ?? before.length : before.length
-    const end = el ? el.selectionEnd ?? at : at
-    const next = (before.slice(0, at) + token + before.slice(end)).slice(0, 4000)
-    set({ message: next })
-    requestAnimationFrame(() => {
-      if (!el) return
-      el.focus()
-      el.setSelectionRange(at + token.length, at + token.length)
-    })
+    const focused = !!el && document.activeElement === el
+    const [at, end] = focused && el ? [el.selectionStart ?? before.length, el.selectionEnd ?? before.length] : caret.current ?? [before.length, before.length]
+    const next = insertAtCaret(before, token, at, end)
+    set({ message: next.text })
+    caret.current = [next.caret, next.caret]
+    /* The keyboard stays as it was: up when typing, down when a chip was the first thing pressed. */
+    if (focused) requestAnimationFrame(() => el?.setSelectionRange(next.caret, next.caret))
   }
+
+  const applyTemplate = (id: string) => {
+    const t = templateWords()[id]
+    if (!t) return
+    const before = String(a.message ?? "")
+    set({ message: t.text })
+    setUndo(before.trim() && before !== t.text ? before : null)
+    caret.current = [t.text.length, t.text.length]
+    const el = message.current
+    if (el && !reducedMotion() && typeof el.animate === "function") el.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 220, easing: "ease-out" })
+  }
+
   const preChatForm = forms.find((f) => f.id === a.pre_chat?.form_id)
   const answerFields = (preChatForm?.published?.fields || preChatForm?.draft?.fields || []).slice(0, 8)
+  const varWords = variableWords()
+  const templates = templateWords()
+  const templateChoices: Choice[] = MESSAGE_TEMPLATES.map((m) => ({ value: m.id, label: templates[m.id]?.label ?? m.label, detail: templates[m.id]?.text ?? m.text }))
+  const messageId = `${ids}-message`
 
   const messageBox = (label: string) => (
-    <div className="space-y-1.5">
-      <label className={labelCls}>
-        {label}
-        <textarea
-          ref={message}
-          className={input}
-          rows={3}
-          maxLength={4000}
-          placeholder="Optional"
-          value={String(a.message ?? "")}
-          onChange={(e) => set({ message: e.target.value })}
-        />
-      </label>
-      <div className="flex flex-wrap items-center gap-1.5" aria-label="Insert a variable">
-        {[...TEMPLATE_VARIABLES.map((v) => ({ token: v.token, label: v.label })), ...answerFields.map((f) => ({ token: `{answer:${f.id}}`, label: f.label || f.id }))].map((v) => (
+    <div data-message-box="">
+      <div className="mb-2 flex min-h-8 items-center justify-between gap-3">
+        <label htmlFor={messageId} className={LABEL}>
+          {label}
+        </label>
+        <div className="flex shrink-0 items-center gap-1">
+          {undo !== null ? (
+            <button
+              type="button"
+              data-template-undo=""
+              className="h-8 rounded-lg px-2 text-[13px] font-medium text-[#4b5563] outline-none hover:bg-[#f3f4f6] hover:text-[#1a1a2e] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.08)]"
+              onClick={() => {
+                set({ message: undo })
+                setUndo(null)
+              }}
+            >
+              {tt("Undo")}
+            </button>
+          ) : null}
+          <div data-template-picker="">
+            <ChoicePicker
+              name="message-template"
+              title={tt("Templates")}
+              choices={templateChoices}
+              value={null}
+              onChange={applyTemplate}
+              placeholder={tt("Search templates")}
+              fieldLabel={tt("Templates")}
+              searchable={false}
+              align="end"
+              fieldClassName="h-8 w-auto gap-1 rounded-lg border-0 bg-transparent px-2 text-[13px] font-medium text-[#4b5563] shadow-none hover:bg-[#f3f4f6] hover:text-[#1a1a2e] focus-visible:border-0"
+            />
+          </div>
+        </div>
+      </div>
+      <textarea
+        ref={message}
+        id={messageId}
+        className={AREA}
+        rows={3}
+        maxLength={4000}
+        placeholder={tt("Optional")}
+        value={String(a.message ?? "")}
+        onSelect={keepCaret}
+        onBlur={keepCaret}
+        onChange={(e) => {
+          setUndo(null)
+          set({ message: e.target.value })
+        }}
+      />
+      <div className="mt-2.5 flex flex-wrap gap-1.5" role="group" aria-label={tt("Insert a variable")} data-variable-chips="">
+        {[...TEMPLATE_VARIABLES.map((v) => ({ token: v.token as string, label: varWords[v.token] ?? v.label })), ...answerFields.map((f) => ({ token: `{answer:${f.id}}`, label: f.label || f.id }))].map((v) => (
           <button
             key={v.token}
             type="button"
+            data-variable={v.token}
+            /* The press does not take the focus: the caret, and a keyboard that is up, stay in the message. */
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => insert(v.token)}
-            className="rounded-md border border-[#e3e4e8] bg-white px-2 py-1 text-[12px] text-[#4b5563] hover:border-[#c9cbd1] hover:text-[#1a1a2e]"
+            className="inline-flex h-8 max-w-full items-center gap-1 rounded-lg border border-[#e3e4e8] bg-white pl-2 pr-2.5 text-[13px] text-[#4b5563] outline-none transition-colors duration-100 hover:border-[#c9cbd1] hover:text-[#1a1a2e] active:bg-[#f7f7f8] focus-visible:border-[#1a1a2e] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.08)]"
           >
-            {v.label}
+            <Plus aria-hidden className="h-3.5 w-3.5 shrink-0 text-[#9ca3af]" />
+            <span className="truncate">{v.label}</span>
           </button>
         ))}
-        <select
-          aria-label="Start from a template"
-          className="ml-auto rounded-md border-0 bg-transparent py-1 text-xs font-medium text-[#6b7280] outline-none hover:text-[#1a1a2e]"
-          value=""
-          onChange={(e) => {
-            const t = MESSAGE_TEMPLATES.find((m) => m.id === e.target.value)
-            if (t) set({ message: t.text })
-          }}
-        >
-          <option value="">Templates</option>
-          {MESSAGE_TEMPLATES.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label}
-            </option>
-          ))}
-        </select>
       </div>
     </div>
   )
@@ -231,25 +360,25 @@ export function ActionEditor({
     setAskProblem(null)
     if (!on) return set({ pre_chat: undefined })
     const kept = forms.find((f) => f.title === "Before we chat" && f.status === "published")
-    if (kept) return set({ pre_chat: { form_id: kept.id }, ...(a.message ? {} : { message: PRECHAT_MESSAGE }) })
+    if (kept) return set({ pre_chat: { form_id: kept.id }, ...(a.message ? {} : { message: prechatMessage() }) })
     setAsking(true)
     const made = await createForm("prechat", true)
     setAsking(false)
     if (!made.form) return setAskProblem(made.missing ? tt("Forms are not switched on for this store yet. They need the Forms database update (SQL parts 372 and 375 in Admin › SQL updates).") : made.error)
-    set({ pre_chat: { form_id: made.form.id }, ...(a.message ? {} : { message: PRECHAT_MESSAGE }) })
+    set({ pre_chat: { form_id: made.form.id }, ...(a.message ? {} : { message: prechatMessage() }) })
   }
   const preChat = (
-    <div className="space-y-3 rounded-lg border border-[#eceef1] p-3" data-pre-chat={a.pre_chat ? "on" : "off"}>
-      <label className="flex cursor-pointer items-center justify-between gap-3">
-        <span className="min-w-0">
-          <span className="block text-sm font-medium text-[#1a1a2e]">{tt("Ask a few questions first")}</span>
-          <span className="block text-xs text-[#6b7280]">{tt("Answers are saved in Leads and added to the message.")}</span>
-        </span>
-        <Switch checked={!!a.pre_chat} disabled={asking} onCheckedChange={(on) => void askFirst(on)} aria-label={tt("Ask a few questions first")} />
-      </label>
+    <div className="space-y-3 border-t border-[#eef0f2] pt-4" data-pre-chat={a.pre_chat ? "on" : "off"}>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Ask a few questions first")}</p>
+          <p className={cn(HINT, "mt-0.5")}>{tt("Answers are saved in Leads and added to the message.")}</p>
+        </div>
+        <Switch checked={!!a.pre_chat} disabled={asking} onChange={(on) => void askFirst(on)} label={tt("Ask a few questions first")} />
+      </div>
       {a.pre_chat ? <FormPicker kind="prechat" label={tt("Questions")} value={a.pre_chat.form_id || ""} allowEmpty={false} onChange={(id) => set({ pre_chat: id ? { form_id: id } : undefined })} /> : null}
       {askProblem ? (
-        <p role="alert" className="text-xs text-[#b42318]">
+        <p role="alert" className={ERROR}>
           {askProblem}
         </p>
       ) : null}
@@ -265,146 +394,140 @@ export function ActionEditor({
     ? href.split("?")[0].replace(/^https:\/\//, "").replace(/^(mailto|tel|sms):/, "")
     : null
 
+  const productChoices = useMemo<Choice[]>(() => (products || []).map((p) => ({ value: p.id, label: p.title || tt("Untitled product") })), [products])
+  const productThumb = useMemo(() => new Map((products || []).map((p) => [p.id, p.thumbnail_url || null])), [products])
+  const chosenProduct = products?.find((p) => p.id === a.product_id)
+
   return (
-    <div className="space-y-3" data-native-action-editor="" data-action-type={type || "none"}>
-      <label className={labelCls}>
-        Action
-        <select
-          aria-label="Action type"
-          className={selectCls}
+    <div className="space-y-4" data-native-action-editor="" data-action-type={type || "none"}>
+      <div className={FIELD_STACK}>
+        <span className={LABEL}>{tt("Action")}</span>
+        <ChoicePicker
+          name="action-type"
+          title={tt("Action")}
+          choices={actionChoices}
           value={type}
-          onChange={(e) => {
+          searchable={false}
+          placeholder={tt("Search actions")}
+          onChange={(next) => {
             setAskProblem(null)
             setBookingMode("form")
-            onChange(e.target.value ? empty(e.target.value, { label: a.label }) : undefined)
+            setUndo(null)
+            caret.current = null
+            onChange(next ? empty(next, { label: a.label }) : undefined)
           }}
-        >
-          <option value="">{noneLabel || (allowNone ? "Success message only" : "Existing link")}</option>
-          {choices.map(([v, label]) => (
-            <option key={v} value={v}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
+          fieldLabel={type ? (words[type as ActionType] ?? type) : noneWords}
+          fieldLeading={<ActionMark type={type} />}
+          leading={(c) => <ActionMark type={c.value} />}
+          fieldClassName="pl-2"
+        />
+      </div>
 
-      {type === "url" ? text("url", "Web address", { placeholder: "https://", inputMode: "url" }) : null}
-      {type === "appointment" ? text("url", "Booking address", { placeholder: "https://", inputMode: "url" }) : null}
-      {type === "internal" ? text("path", "Path or section", { placeholder: "/shop or #faq", max: 512 }) : null}
+      {type === "url" ? text("url", tt("Web address"), { placeholder: "https://", inputMode: "url" }) : null}
+      {type === "appointment" ? text("url", tt("Booking address"), { placeholder: "https://", inputMode: "url" }) : null}
+      {type === "internal" ? text("path", tt("Path or section"), { placeholder: tt("/shop or #faq"), max: 512 }) : null}
 
       {type === "whatsapp" || type === "phone" || type === "sms" ? phone : null}
       {type === "whatsapp" ? (
         <>
-          {messageBox("Message")}
+          {messageBox(tt("Message"))}
           {preChat}
         </>
       ) : null}
-      {type === "sms" ? messageBox("Message") : null}
+      {type === "sms" ? messageBox(tt("Message")) : null}
 
       {type === "whatsapp_group" ? (
         <>
-          {text("url", "Group invite link", { placeholder: "https://chat.whatsapp.com/…", inputMode: "url", max: 300 })}
-          {a.url && !whatsappGroupUrl(a.url) ? <p className={problem}>Paste the invite link from WhatsApp, starting with chat.whatsapp.com.</p> : null}
+          {text("url", tt("Group invite link"), { placeholder: "https://chat.whatsapp.com/…", inputMode: "url", max: 300 })}
+          {a.url && !whatsappGroupUrl(a.url) ? <p className={PROBLEM}>{tt("Paste the invite link from WhatsApp, starting with chat.whatsapp.com.")}</p> : null}
         </>
       ) : null}
 
       {type === "telegram" ? (
         <>
-          {text("target", "Username or link", { placeholder: "@username or t.me/…", max: 300 })}
-          {a.target && !telegramTarget(a.target) ? <p className={problem}>Use a username like @storelib, or a t.me link.</p> : null}
-          {telegramTarget(a.target)?.kind === "username" || !a.target ? messageBox("Message") : null}
+          {text("target", tt("Username or link"), { placeholder: tt("@username or t.me/…"), max: 300 })}
+          {a.target && !telegramTarget(a.target) ? <p className={PROBLEM}>{tt("Use a username like @storelib, or a t.me link.")}</p> : null}
+          {telegramTarget(a.target)?.kind === "username" || !a.target ? messageBox(tt("Message")) : null}
           {preChat}
         </>
       ) : null}
 
       {type === "email" ? (
         <>
-          {text("email", "Email address", { placeholder: "you@example.com", inputMode: "email", max: 254 })}
-          {text("subject", "Subject", { max: 300 })}
-          {messageBox("Message")}
+          {text("email", tt("Email address"), { placeholder: "you@example.com", inputMode: "email", max: 254 })}
+          {text("subject", tt("Subject"), { max: 300 })}
+          {messageBox(tt("Message"))}
         </>
       ) : null}
 
       {type === "product" ? (
         <>
-          <label className={labelCls}>
-            Product
-            <select
-              className={selectCls}
-              value={String(a.product_id || "")}
-              onChange={(e) => {
-                const p = products?.find((x) => x.id === e.target.value) as { id: string; title?: string; slug?: string; thumbnail_url?: string | null } | undefined
-                set({ product_id: e.target.value, title: p?.title || undefined, slug: p?.slug || undefined, image: p?.thumbnail_url || undefined })
+          <div className={FIELD_STACK}>
+            <span className={LABEL}>{tt("Product")}</span>
+            <ChoicePicker
+              name="action-product"
+              title={tt("Product")}
+              choices={productChoices}
+              value={String(a.product_id || "") || null}
+              placeholder={tt("Search products")}
+              searchable={productChoices.length > 7}
+              onChange={(id) => {
+                const p = products?.find((x) => x.id === id) as { id: string; title?: string; slug?: string; thumbnail_url?: string | null } | undefined
+                set({ product_id: id, title: p?.title || undefined, slug: p?.slug || undefined, image: p?.thumbnail_url || undefined })
               }}
-            >
-              <option value="">Choose a product</option>
-              {products?.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <fieldset className="space-y-1">
-            <legend className="text-xs font-medium text-[#4b5563]">Opens</legend>
-            <div className="grid grid-cols-2 gap-2">
-              {(
-                [
-                  ["sheet", "Product details"],
-                  ["checkout", "Checkout"],
-                ] as const
-              ).map(([v, label]) => (
-                <label key={v} className={`flex min-h-10 cursor-pointer items-center justify-center rounded-lg border px-3 text-sm ${(a.open || "sheet") === v ? "border-[#1a1a2e] text-[#1a1a2e]" : "border-[#e3e4e8] text-[#6b7280]"}`}>
-                  <input type="radio" className="sr-only" name="action-product-open" checked={(a.open || "sheet") === v} onChange={() => set({ open: v })} />
-                  {label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+              fieldLabel={chosenProduct?.title || (products === null ? tt("Loading products") : tt("Choose a product"))}
+              fieldMuted={!chosenProduct}
+              leading={(c) => {
+                const src = productThumb.get(c.value)
+                /* eslint-disable-next-line @next/next/no-img-element */
+                return src ? <img src={src} alt="" className="h-7 w-7 shrink-0 rounded-md object-cover" /> : <ActionMark type="product" />
+              }}
+            />
+          </div>
+          <div className={FIELD_STACK}>
+            <span className={LABEL}>{tt("Opens")}</span>
+            <Segmented
+              label={tt("Opens")}
+              value={(a.open || "sheet") as "sheet" | "checkout"}
+              options={[
+                { id: "sheet", label: tt("Product details") },
+                { id: "checkout", label: tt("Checkout") },
+              ]}
+              onChange={(v) => set({ open: v })}
+            />
+          </div>
         </>
       ) : null}
 
-      {type === "form" ? formSelect("Form or quiz", "form_id") : null}
+      {type === "form" ? formSelect(tt("Form or quiz"), "form_id") : null}
 
       {type === "booking" ? (
         <>
-          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Booking with">
-            {(
-              [
-                ["form", "Booking form"],
-                ["url", "Booking page"],
-              ] as const
-            ).map(([v, label]) => (
-              <button
-                key={v}
-                type="button"
-                role="radio"
-                aria-checked={bookingMode === v}
-                onClick={() => {
-                  setBookingMode(v)
-                  onChange((v === "form" ? { type: "booking", form_id: "", ...(a.label ? { label: a.label } : {}) } : { type: "booking", url: "", ...(a.label ? { label: a.label } : {}) }) as NativeAction)
-                }}
-                className={`min-h-10 rounded-lg border px-3 text-sm ${bookingMode === v ? "border-[#1a1a2e] text-[#1a1a2e]" : "border-[#e3e4e8] text-[#6b7280]"}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {bookingMode === "form" ? formSelect("Booking form", "form_id", true) : text("url", "Booking address", { placeholder: "https://cal.com/…", inputMode: "url" })}
+          <Segmented
+            label={tt("Booking with")}
+            value={bookingMode}
+            options={[
+              { id: "form", label: tt("Booking form") },
+              { id: "url", label: tt("Booking page") },
+            ]}
+            onChange={(v) => {
+              setBookingMode(v)
+              onChange((v === "form" ? { type: "booking", form_id: "", ...(a.label ? { label: a.label } : {}) } : { type: "booking", url: "", ...(a.label ? { label: a.label } : {}) }) as NativeAction)
+            }}
+          />
+          {bookingMode === "form" ? formSelect(tt("Booking form"), "form_id", true) : text("url", tt("Booking address"), { placeholder: "https://cal.com/…", inputMode: "url" })}
         </>
       ) : null}
 
-      {showLabel && current ? text("label", "Button text", { max: 80 }) : null}
+      {showLabel && current ? text("label", tt("Button text"), { max: 80 }) : null}
 
       {shown ? (
-        <p className={`${hint} break-all`} data-action-opens={href}>
-          Opens {shown}
+        <p className={cn(HINT, "break-all")} data-action-opens={href}>
+          {tt("Opens {address}", { address: shown })}
         </p>
       ) : null}
-      {current && !actionHref(current) && !(type === "booking" && !a.form_id && !a.url) ? (
-        <p className={hint}>Complete the details above to make this button work.</p>
-      ) : null}
-      {type === "product" && a.product_id && !UUID.test(a.product_id) ? <p className={problem}>Choose the product again.</p> : null}
+      {current && !actionHref(current) && !(type === "booking" && !a.form_id && !a.url) ? <p className={HINT}>{tt("Complete the details above to make this button work.")}</p> : null}
+      {type === "product" && a.product_id && !UUID.test(a.product_id) ? <p className={PROBLEM}>{tt("Choose the product again.")}</p> : null}
     </div>
   )
 }

@@ -26,6 +26,7 @@ import { callingCode, countryOfInternational, digitsFromKept, examplePhone, form
 import { e164, internationalPhone } from "@/lib/forms/actions"
 import { appLocale } from "@/lib/i18n/format"
 import { tt } from "@/lib/i18n/text"
+import { LABEL, PROBLEM } from "./fields"
 
 /** The visitor's or creator's country from the browser, for a number with no code yet. */
 export function browserCountry(): string {
@@ -55,13 +56,14 @@ export function PhoneNumberField({
   const choices = useMemo(() => () => dialChoices(appLocale()), [])
   const invalid = !!phone && !internationalPhone(phone)
   return (
-    <div className="space-y-1.5" data-phone-number-field="">
-      <span className="block text-xs font-medium text-[#4b5563]">{label}</span>
+    <div className="space-y-2" data-phone-number-field="">
+      <span className={LABEL}>{label}</span>
+      {/* The OnePage editor's field (./fields): 44px, 12px corners, a hairline that turns ink while either half is in use. */}
       <div
         data-phone-field=""
-        className="flex h-10 w-full items-stretch rounded-lg border border-[#e3e4e8] bg-white text-sm text-[#1a1a2e] focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]"
+        className="flex h-11 w-full items-stretch rounded-xl border border-[#e3e4e8] bg-white text-[16px] text-[#1a1a2e] transition-[border-color,box-shadow] duration-150 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[14px]"
       >
-        <div className="w-[104px] shrink-0 border-r border-[#eceef1]" data-phone-country={cc}>
+        <div className="w-[108px] shrink-0 border-r border-[#eceef1]" data-phone-country={cc} data-phone-prefix={code ? `+${code}` : ""}>
           {/* A new country keeps the digits typed and puts its own code in front. */}
           <ChoicePicker
             name="phone-country"
@@ -79,7 +81,7 @@ export function PhoneNumberField({
             uniform
             scrollClassName="max-h-[min(400px,min(52dvh,520px))]"
             sheetHeight="min(72dvh, 580px)"
-            fieldClassName="h-full rounded-l-lg rounded-r-none border-0 bg-transparent px-2.5 shadow-none tabular-nums hover:bg-[#f7f7f8] focus-visible:border-0 focus-visible:shadow-none data-[state=open]:border-0 data-[state=open]:shadow-none"
+            fieldClassName="h-full rounded-l-xl rounded-r-none border-0 bg-transparent px-2.5 shadow-none tabular-nums hover:bg-[#f7f7f8] focus-visible:border-0 focus-visible:shadow-none data-[state=open]:border-0 data-[state=open]:shadow-none"
           />
         </div>
         <input
@@ -89,7 +91,7 @@ export function PhoneNumberField({
           aria-label={label}
           aria-invalid={invalid}
           placeholder={examplePhone(cc)}
-          className="min-w-0 flex-1 rounded-r-lg bg-transparent px-3 tabular-nums outline-none placeholder:text-[#9ca3af]"
+          className="min-w-0 flex-1 rounded-r-xl bg-transparent px-3.5 tabular-nums outline-none placeholder:text-[#9ca3af]"
           value={typing ?? formatNational(digitsFromKept(phone, cc), cc)}
           onChange={(e) => {
             const v = e.target.value
@@ -106,7 +108,7 @@ export function PhoneNumberField({
           onBlur={() => setTyping(null)}
         />
       </div>
-      {invalid ? <p className="text-xs font-medium text-[#b54708]">{tt("Enter the whole number, without a leading 0.")}</p> : null}
+      {invalid ? <p className={PROBLEM}>{tt("Enter the whole number, without a leading 0.")}</p> : null}
     </div>
   )
 }

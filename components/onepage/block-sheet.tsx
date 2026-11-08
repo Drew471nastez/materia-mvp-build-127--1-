@@ -65,6 +65,13 @@ export interface BlockSheetRequest {
   fill?: boolean
   /** Told once when the sheet starts to close, however it was closed. */
   onClose?: () => void
+  /**
+   * Told once the sheet has gone AND its history entry with it (round AN):
+   * the moment to leave the page (a WhatsApp chat after a form), so the
+   * Back the sheet takes off its own entry never lands after the new page
+   * has been asked for.
+   */
+  onGone?: () => void
 }
 
 export interface BlockSheetApi {
@@ -245,6 +252,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
       const back = opener.current
       if (back && back !== document.body && back.isConnected) back.focus({ preventScroll: true })
       after.current.gone = true
+      if (!after.current.run && requestRef.current.onGone) after.current.run = requestRef.current.onGone
       runAfter()
     }
   }, [runAfter])
@@ -302,8 +310,15 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
   }, [])
 
   useEffect(() => {
-    if (!open && mark.current) leaveHistory()
-  }, [open, leaveHistory])
+    if (!open && mark.current) {
+      /* Whatever runs once the sheet is gone (onGone) waits for this step off our entry as well. */
+      after.current.left = false
+      leaveHistory(() => {
+        after.current.left = true
+        runAfter()
+      })
+    }
+  }, [open, leaveHistory, runAfter])
 
   /* ── Focus in, Tab kept inside, Escape out. ── */
   useEffect(() => {
@@ -425,6 +440,20 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
           "relative mx-2 flex w-full origin-bottom flex-col overflow-hidden rounded-t-[24px] bg-[var(--sheet-bg)] text-[var(--sheet-body)] shadow-[0_-8px_40px_rgba(0,0,0,0.18)] outline-none will-change-[translate,scale,opacity]",
           "sm:mx-0 sm:origin-center sm:rounded-[24px] sm:shadow-[0_24px_64px_rgba(0,0,0,0.24),0_2px_8px_rgba(0,0,0,0.08)]",
           fill ? "h-[calc(100dvh-env(safe-area-inset-top)-16px)] sm:h-[min(760px,calc(100dvh-64px))] sm:max-w-[520px]" : "max-h-[calc(100dvh-env(safe-area-inset-top)-16px)] sm:max-h-[min(760px,calc(100dvh-64px))] sm:max-w-[480px]",
+          /*
+            ON THE KEYBOARD ON A PHONE (round AN, a form in the sheet). The
+            panel stays at the foot of the screen and its content is pushed
+            up by the keyboard (--kb-inset, published by ViewportVars), the
+            box grown by the same amount and never taller than what is left
+            on screen, as every shared sheet does (lib/ui/keyboard-safe-sheet
+            sheetOverKeyboard). It eases there with the keyboard rather than
+            jumping; KeyboardGuard then keeps the focused field in view in
+            the body below.
+          */
+          "max-sm:pb-[var(--kb-inset,0px)] max-sm:transition-[padding-bottom,max-height,height] max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
+          fill
+            ? "max-sm:h-[calc(min(100dvh_-_env(safe-area-inset-top)_-_16px,var(--vv-h,100dvh)_-_24px)_+_var(--kb-inset,0px))]"
+            : "max-sm:max-h-[calc(min(100dvh_-_env(safe-area-inset-top)_-_16px,var(--vv-h,100dvh)_-_24px)_+_var(--kb-inset,0px))]",
         )}
       >
         <span tabIndex={0} data-focus-guard="" aria-hidden onFocus={guard("last")} className="sr-only" />
@@ -432,7 +461,8 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
           {title}
         </h2>
         <div
-          className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 sm:px-4", fill ? "flex flex-col" : "pb-2")}
+          /* It scrolls with no bar drawn (round AN): a sheet is a small window, and a bar down its side read as a page squeezed into it. */
+          className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden", fill ? "flex flex-col" : "pb-2")}
           data-onepage-dialog-scroll=""
           data-block-sheet-body=""
         >
