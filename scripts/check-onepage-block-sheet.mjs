@@ -329,9 +329,11 @@ try {
       }
       for (const probe of ["inline-post", "group-tall"]) {
         await page.waitForFunction((p) => document.querySelector(`[data-probe="${p}"] [data-post-more]`), { timeout: 5000 }, probe).catch(() => {})
+        /* Scrolled to, then left to settle: the posts around it load as they come into view and move it. */
+        await page.evaluate((p) => document.querySelector(`[data-probe="${p}"]`).scrollIntoView({ block: "center" }), probe)
+        await sleep(1200)
         const f = await page.evaluate((p) => {
           const root = document.querySelector(`[data-probe="${p}"]`)
-          root.scrollIntoView({ block: "center" })
           const box = root.querySelector("[data-post-box]")
           const more = root.querySelector("[data-post-more]")
           const fade = root.querySelector("[data-post-fade]")

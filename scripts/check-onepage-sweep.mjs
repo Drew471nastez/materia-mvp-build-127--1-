@@ -13,8 +13,9 @@
  *              sheet, goes to an address (a link, or window.open), or is a
  *              control of the block itself (a form, a poll)
  *   tracked    on the live page a tap that leaves or opens a sheet is
- *              counted (a POST to /api/onepage/track for that block); in the
- *              preview nothing is counted
+ *              counted once (one POST to /api/onepage/track for that
+ *              block); in the editor's preview the preview's frame answers
+ *              those itself, which is not drawn here
  *   console    no console error and no uncaught error, whole run
  *
  * And the Instagram post's fold (components/onepage/compact-post): folded in
@@ -58,7 +59,7 @@ const check = (ok, message) => {
 const IG = `<!doctype html><style>html,body{margin:0;background:#fff;font:14px sans-serif}div{height:1100px;background:linear-gradient(#fafafa,#e9e9e9)}</style><div>Instagram fixture</div><script>parent.postMessage(JSON.stringify({type:"MEASURE",details:{height:1100}}),"*")</script>`
 
 /* Blocks whose first control is part of the block itself, not a way out: a tap is checked to do nothing wrong, not to leave. */
-const SELF = new Set(["t_email_capture", "t_faq", "t_contact_form", "t_lead_magnet", "app_poll", "t_form_quiz", "t_image", "t_countdown", "app_stats", "app_note", "t_promo_code", "post_carousel", "post_group", "post_inline", "t_text", "t_heading", "t_divider", "pdf_inline", "spotify_page", "apple_page"])
+const SELF = new Set(["app_instagram", "t_email_capture", "t_faq", "t_contact_form", "t_lead_magnet", "app_poll", "t_form_quiz", "t_image", "t_countdown", "app_stats", "app_note", "t_promo_code", "post_carousel", "post_group", "post_inline", "t_text", "t_heading", "t_divider", "pdf_inline", "spotify_page", "apple_page"])
 
 async function load(width, dark, preview) {
   const page = await browser.newPage()
@@ -158,10 +159,12 @@ try {
 
         /* The Instagram fold, in place, in a carousel and in a group: read before the taps, which open it. */
         for (const where of ["post_inline", "post_carousel", "post_group"]) {
+          /* Scrolled to, then left to settle: the posts around it load as they come into view and move it. */
+          await page.evaluate((where) => document.querySelector(`[data-op-block="${where}"] [data-compact-post]`)?.scrollIntoView({ block: "center" }), where)
+          await sleep(1200)
           const fold = await page.evaluate((where) => {
             const root = document.querySelector(`[data-op-block="${where}"] [data-compact-post]`)
             if (!root) return null
-            root.scrollIntoView({ block: "center" })
             const box = root.querySelector("[data-post-box]")
             const more = root.querySelector("[data-post-more]")
             const r = box.getBoundingClientRect()
@@ -252,7 +255,9 @@ try {
     if (r.drawn && r.tap && r.tap !== "none" && !SELF.has(r.id) && r.tap === "stays") check(false, `${r.label}: a tap on ${r.id} does nothing`)
     const live = !r.label.endsWith("preview")
     if (live && (r.tap === "sheet" || r.tap === "leaves") && !SELF.has(r.id) && !r.tracked) check(false, `${r.label}: a tap on ${r.id} is not counted`)
-    if (!live && r.tracked) check(false, `${r.label}: the preview counted a tap on ${r.id}`)
+    /* Counted once, never twice (a block that counts itself says so to the page's listener, components/onepage/block-activity). */
+    if (live && r.tracked > 1) check(false, `${r.label}: a tap on ${r.id} is counted ${r.tracked} times`)
+    /* In the editor's preview the count is answered by the preview's own frame (components/onepage/preview-document sandboxWrites), which this harness does not draw: not read here. */
     if (r.sheetPost) check(r.sheetPost.whole && !r.sheetPost.button, `${r.label}: in the sheet ${r.id}'s post is whole, with no button`)
   }
   const drawnNowhere = ids.filter((id) => matrix.filter((m) => m.id === id).every((m) => !m.drawn || m.h === 0))

@@ -65,6 +65,7 @@ import {
 } from "@/lib/onepage/app-blocks"
 import { useBlockSheet } from "@/components/onepage/block-sheet"
 import { EMBED_MAX_WIDTH, EmbedFrame } from "@/components/onepage/embed-frame"
+import { noteTracked } from "@/components/onepage/block-activity"
 import { CompactInstagramPost } from "@/components/onepage/compact-post"
 import { AppMark, INSTAGRAM_FILL, isMulticolorMark, markOn } from "@/components/onepage/brand-icons"
 import { APP_GLYPHS, RoundTile } from "@/components/onepage/block-icons"
@@ -184,6 +185,8 @@ function useTrack(look: AppBlockLook) {
   return React.useCallback(
     (linkId: string, url: string) => {
       if (preview || !onepageId || typeof window === "undefined") return
+      /* Round AN: said, so the page's one listener (./block-activity) does not count the same tap a second time. */
+      noteTracked()
       try {
         void fetch("/api/onepage/track", {
           method: "POST",
