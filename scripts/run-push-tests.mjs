@@ -1026,6 +1026,8 @@ const SUITES = [
   "tests/live-speed-v.test.ts",
   /* After a Publish no request and no page in the browser shows the old theme: the tag expired at once, the live release and its marker, an imported theme's hold, Back and bfcache, links opened in place, a switch of renderer */
   "tests/publish-shows-new-release.test.ts",
+  /* Round AM: a live website stays fast after a Publish: one stamp per site expired by its tags and what each server keeps in memory under it, a held page from memory and drawn again by a Publish, the release marker by the live rows' count, the pages drawn for the publisher's country right after the caches are cleared (PUBLISH_FLOW=1 node scripts/measure-speed18.mjs measures it). */
+  "tests/live-publish-am.test.ts",
   /* Round W1: an imported theme's live page stored by the CDN (no Vary: Cookie), its body's CSS gathered in the head in order, its flags lazy, plain HTML with no React, links fetched ahead (scripts/check-live-first-load.mjs measures it) */
   "tests/live-first-load-w.test.ts",
   "tests/live-speed-ax.test.ts",

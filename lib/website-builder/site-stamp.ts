@@ -33,11 +33,10 @@ import { unstable_cache } from "next/cache"
 import { keyedAs } from "./last-good"
 import { creatorByName, creatorShopTag, creatorSiteTag } from "./published-site"
 import { siteBlogTag } from "@/lib/site-blog/cache"
+export { MEMO_MAX_MS, StampedMemo } from "./stamped-memo"
 
 /** How long the stamp lives when no tag expires it. Only a backstop: every change that matters expires a tag. */
 export const STAMP_HOLD_S = 3600
-/** How long a server trusts what it keeps in memory for a stamp, for what no tag names. */
-export const MEMO_MAX_MS = 60_000
 
 /** The tags a site's pages are held under (the held stranger's page, the CDN copy): the stamp changes whenever any of them is expired. */
 export function siteStampTags(creatorId: string): string[] {
@@ -79,44 +78,3 @@ export async function nameAndStamp(name: string): Promise<{ creatorId: string; s
   return { creatorId: creator.creatorId, stamp: guess === creator.creatorId ? early : null, creator }
 }
 
-/**
- * What a server keeps in memory under a stamp: a value is handed back only
- * while the stamp it was kept with is the stamp now, and for MEMO_MAX_MS at
- * most. The most recently used are kept.
- */
-export class StampedMemo<T> {
-  private readonly held = new Map<string, { stamp: string; at: number; value: T }>()
-  constructor(
-    private readonly max: number,
-    private readonly maxAgeMs: number = MEMO_MAX_MS,
-    private readonly now: () => number = () => Date.now(),
-  ) {}
-
-  get(key: string, stamp: string | null): T | undefined {
-    if (!stamp) return undefined
-    const e = this.held.get(key)
-    if (!e) return undefined
-    if (e.stamp !== stamp || this.now() - e.at > this.maxAgeMs) {
-      this.held.delete(key)
-      return undefined
-    }
-    this.held.delete(key)
-    this.held.set(key, e)
-    return e.value
-  }
-
-  set(key: string, stamp: string | null, value: T): void {
-    if (!stamp) return
-    this.held.delete(key)
-    this.held.set(key, { stamp, at: this.now(), value })
-    while (this.held.size > this.max) {
-      const oldest = this.held.keys().next().value
-      if (oldest === undefined) break
-      this.held.delete(oldest)
-    }
-  }
-
-  get size(): number {
-    return this.held.size
-  }
-}

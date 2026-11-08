@@ -28,7 +28,7 @@ import "server-only"
  */
 import { gunzipSync, gzipSync } from "node:zlib"
 import { unstable_cache } from "next/cache"
-import { StampedMemo } from "@/lib/website-builder/site-stamp"
+import { StampedMemo } from "@/lib/website-builder/stamped-memo"
 
 /** How long a held page lasts when nothing clears it: the CDN rule's own five minutes (./anonymous-cache.ts SHARED_PAGE_CDN, round 54). */
 export const STRANGER_HOLD_SECONDS = 300
