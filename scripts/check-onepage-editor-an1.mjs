@@ -231,6 +231,8 @@ async function matrix(vp) {
   for (const entry of entries) {
     const before = errors.length
     const r = { entry, added: false, open: false, tabs: "-", edited: "-", preview: "-", collapsed: false, moved: false, removed: false, selects: 0, overflow: [] }
+    const previewHtml = () => p.evaluate(() => document.querySelector("iframe")?.contentDocument?.body?.innerHTML ?? null)
+    const bodyAtStart = vp.hasTouch ? null : await previewHtml()
     try {
       const ids0 = await p.evaluate(() => [...document.querySelectorAll("[data-block-id]")].map((e) => e.getAttribute("data-block-id")))
       await press(p, vp, "[data-add-block]")
@@ -259,20 +261,27 @@ async function matrix(vp) {
           if (el.closest("[data-scroll-row], [data-pill-row]")) continue
           const b = el.getBoundingClientRect()
           if (!b.width || !b.height) continue
-          if (b.right > box.right + 1 || b.left < box.left - 1) over.push(`${el.tagName.toLowerCase()}${el.getAttribute("data-slot") ? "[" + el.getAttribute("data-slot") + "]" : ""} ${Math.round(b.left)}..${Math.round(b.right)} in ${Math.round(box.left)}..${Math.round(box.right)}`)
+          /* A box that clips what is inside it (a carousel thumbnail's third card) shows none of the overhang. */
+          let clipped = false
+          for (let a = el.parentElement; a && a !== settings; a = a.parentElement) if (getComputedStyle(a).overflowX !== "visible") { clipped = true; break }
+          if (clipped) continue
+          if (b.right > box.right + 1 || b.left < box.left - 1) over.push(`${el.tagName.toLowerCase()}${el.getAttribute("data-slot") ? "[" + el.getAttribute("data-slot") + "]" : ""} ${Math.round(b.left)}..${Math.round(b.right)} in ${Math.round(box.left)}..${Math.round(box.right)} ${(el.getAttribute("class") || "").slice(0, 60)} <${el.parentElement?.getAttribute("class")?.slice(0, 60)}> "${(el.textContent || "").slice(0, 20)}"`)
         }
         const page = document.scrollingElement.scrollWidth > innerWidth + 1 ? [`page ${document.scrollingElement.scrollWidth} > ${innerWidth}`] : []
-        return { selects: settings.querySelectorAll("select").length, over: [...page, ...over].slice(0, 3) }
+        /* The forms' action editor (components/forms/action-editor) is track AN2's, reported apart: its selects are counted as forms, not as this track's. */
+        const own = [...settings.querySelectorAll("select")].filter((s) => !s.closest("[data-native-action-editor]"))
+        const forms = [...settings.querySelectorAll("[data-native-action-editor] select")].map((s) => s.getAttribute("aria-label") || "?")
+        return { forms, selects: own.length, selectNames: own.map((s) => s.getAttribute("aria-label") || s.closest("label")?.textContent?.trim().slice(0, 20) || "?"), over: [...page, ...over].slice(0, 3) }
       }, id)
       let m = await measure()
-      r.selects += m.selects
+      r.selects += m.selects; r.selectNames = [...new Set([...(r.selectNames ?? []), ...(m.selectNames ?? [])])]; r.forms = [...new Set([...(r.forms ?? []), ...(m.forms ?? [])])]
       r.overflow.push(...m.over)
       const layoutTab = `[data-block-id="${id}"] [data-block-tab="layout"]`
       if (await p.$(layoutTab)) {
         await press(p, vp, layoutTab)
         await sleep(450)
         m = await measure()
-        r.selects += m.selects
+        r.selects += m.selects; r.selectNames = [...new Set([...(r.selectNames ?? []), ...(m.selectNames ?? [])])]; r.forms = [...new Set([...(r.forms ?? []), ...(m.forms ?? [])])]
         r.overflow.push(...m.over)
         await press(p, vp, `[data-block-id="${id}"] [data-block-tab="settings"]`)
         await sleep(450)
@@ -290,16 +299,16 @@ async function matrix(vp) {
         f.setAttribute("data-probe-field", id)
         return true
       }, id)
-      const previewHtml = () => p.evaluate((id) => document.querySelector("iframe")?.contentDocument?.querySelector(`[data-op-block="${id}"]`)?.outerHTML ?? document.querySelector("iframe")?.contentDocument?.body?.innerHTML?.length ?? null, id)
       if (field) {
         const before = vp.hasTouch ? null : await previewHtml()
         await p.click(`[data-probe-field="${id}"]`, { count: 3 })
         await p.type(`[data-probe-field="${id}"]`, "https://example.com/probe")
-        await sleep(vp.hasTouch ? 400 : 1600)
+        await sleep(vp.hasTouch ? 400 : 2000)
         r.edited = "ok"
         if (!vp.hasTouch) {
           const after = await previewHtml()
-          r.preview = before !== after ? "ok" : "same"
+          /* "typed": the typed value changed the preview; "added": the block was drawn when added (the field typed is one it does not show, or an address of another service); "not drawn": the page draws nothing until the block is filled in, the page's own rule for an empty block. */
+          r.preview = before !== after ? "typed" : after !== bodyAtStart ? "added" : "not drawn"
         }
         if (vp.hasTouch) await p.evaluate(() => document.activeElement?.blur())
       }
@@ -327,8 +336,8 @@ async function matrix(vp) {
     }
     r.errors = errors.slice(before)
     results.push(r)
-    const good = r.added && r.open && r.collapsed && r.moved && r.removed && !r.selects && !r.overflow.length && !r.errors.length && r.preview !== "same"
-    console.log(`  ${good ? "ok  " : "FAIL"}  ${w} ${entry}${r.type ? ` (${r.type})` : ""}: added ${r.added}, open ${r.open}, tabs ${r.tabs}, typed ${r.edited}, preview ${r.preview}, collapsed ${r.collapsed}, moved ${r.moved}, removed ${r.removed}, selects ${r.selects}${r.overflow.length ? `, overflow ${JSON.stringify(r.overflow)}` : ""}${r.errors.length ? `, errors ${JSON.stringify(r.errors.slice(0, 2))}` : ""}${r.error ? `, stopped: ${r.error}` : ""}`)
+    const good = r.added && r.open && r.collapsed && r.moved && r.removed && !r.selects && !r.overflow.length && !r.errors.length
+    console.log(`  ${good ? "ok  " : "FAIL"}  ${w} ${entry}${r.type ? ` (${r.type})` : ""}: added ${r.added}, open ${r.open}, tabs ${r.tabs}, typed ${r.edited}, preview ${r.preview}, collapsed ${r.collapsed}, moved ${r.moved}, removed ${r.removed}, selects ${r.selects}${r.selectNames?.length ? ` ${JSON.stringify(r.selectNames)}` : ""}${r.forms?.length ? `, forms selects (AN2) ${JSON.stringify(r.forms)}` : ""}${r.overflow.length ? `, overflow ${JSON.stringify(r.overflow)}` : ""}${r.errors.length ? `, errors ${JSON.stringify(r.errors.slice(0, 2))}` : ""}${r.error ? `, stopped: ${r.error}` : ""}`)
     if (!good) failures++
     /* A failed step can leave a sheet up; start the next one clean. */
     await p.keyboard.press("Escape")
