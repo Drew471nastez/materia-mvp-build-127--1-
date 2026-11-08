@@ -15,6 +15,7 @@
  * product editor's confirm sits on a layer under it).
  */
 import * as React from "react"
+import { createRoot } from "react-dom/client"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
 import { cn } from "@/lib/utils"
@@ -88,6 +89,36 @@ function FormConfirm({ question, onAnswer }: { question: FormQuestion | null; on
       )}
     </SheetDialog>
   )
+}
+
+/**
+ * The same question for code that has no place in its tree to draw it (a
+ * list with many early returns): mounted on its own root for the question,
+ * and taken down once it has closed.
+ */
+export function confirmForm(q: FormQuestion): Promise<FormAnswer> {
+  return new Promise((resolve) => {
+    const host = document.createElement("div")
+    document.body.appendChild(host)
+    const root = createRoot(host)
+    function Asked() {
+      const [question, setQuestion] = React.useState<FormQuestion | null>(q)
+      return (
+        <FormConfirm
+          question={question}
+          onAnswer={(a) => {
+            setQuestion(null)
+            resolve(a)
+            window.setTimeout(() => {
+              root.unmount()
+              host.remove()
+            }, 400)
+          }}
+        />
+      )
+    }
+    root.render(<Asked />)
+  })
 }
 
 /** Asked like confirm(), answered in the sheet or dialog: `if (!(await ask({...}))) return`. A second question answers the first with no. */

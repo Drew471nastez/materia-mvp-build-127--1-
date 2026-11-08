@@ -21,7 +21,7 @@
 import * as React from "react"
 import CheckoutPageClient from "@/app/(storelib)/checkout/checkout-client"
 import { SiteCheckout } from "@/app/(storelib)/checkout/site/site-checkout"
-import { CheckoutWords } from "@/app/(storelib)/checkout/parts/words"
+import { CheckoutWords } from "@/components/checkout/parts/words"
 import { PhysicalCheckout } from "@/app/(storelib)/checkout/physical/physical-checkout"
 import { ReceiptView } from "@/app/(storelib)/receipt/[token]/receipt-view"
 import { OrderStatusView } from "@/app/(storelib)/checkout/physical/order/[token]/order-status-view"

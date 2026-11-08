@@ -129,12 +129,15 @@ check("nothing is lost by a press outside: every way out asks the builder first"
 })
 check("no browser confirm() in the forms: Storelib's own confirm", () => {
   for (const f of ["components/forms/forms-manager.tsx", "app/(storelib)/app/emails/forms/forms-list.tsx"]) assert.doesNotMatch(code(f), /window\.confirm\(/, f)
-  assert.match(code("app/(storelib)/app/emails/forms/forms-list.tsx"), /useFormConfirm\(\)/)
+  assert.match(code("app/(storelib)/app/emails/forms/forms-list.tsx"), /await confirmForm\(\{/)
 })
-check("/app/emails/forms opens the same builder dialog", () => {
-  const list = code("app/(storelib)/app/emails/forms/forms-list.tsx")
-  assert.match(list, /import\("@\/components\/forms\/form-builder-dialog"\)/)
-  assert.doesNotMatch(list, /<FormEditor /)
+check("Contacts › Forms draws the same one column on its Edit tab, and Settings as cards", () => {
+  const builder = code("components/forms/forms-manager.tsx")
+  assert.match(builder, /const inPage = view !== undefined/)
+  assert.match(builder, /<div className="mx-auto max-w-\[720px\]">\{preview \? previewPane : editor\}<\/div>/)
+  assert.match(builder, /<PublicationCard /)
+  /* Where answers go and privacy live on the Settings tab of the page, and in the dialog's rows. */
+  assert.match(builder, /\{inPage \? null : \(\s*<Disclosure id="responses"/)
 })
 
 console.log("\nThe form on the page\n")

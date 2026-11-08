@@ -697,9 +697,15 @@ function CustomerCard({
     <section className={cn(card, "px-4 py-3.5")}>
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Customer")}</h2>
-        <button type="button" onClick={onEdit} className="-mr-1 rounded-md px-1 text-[12px] font-medium text-[#6d4ae0] hover:underline">
-          {tt("Change email")}
-        </button>
+        <span className="-mr-1 flex items-center gap-1">
+          {/* Round 51: the person behind the order, with everything else they did here (app/app/contacts/open checks the store owns the order). */}
+          <a href={`/app/contacts/open?from=order&id=${encodeURIComponent(order.id)}`} className="rounded-md px-1 text-[12px] font-medium text-[#6d4ae0] hover:underline" data-view-contact="">
+            {tt("View contact")}
+          </a>
+          <button type="button" onClick={onEdit} className="rounded-md px-1 text-[12px] font-medium text-[#6d4ae0] hover:underline">
+            {tt("Change email")}
+          </button>
+        </span>
       </div>
       <dl className="mt-2 grid gap-2.5">
         <Field label={tt("Name")}>{order.customerName || <span className="text-[#9ca3af]">{tt("Not given")}</span>}</Field>

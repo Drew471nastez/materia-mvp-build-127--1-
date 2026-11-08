@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject, type React
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core"
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { ChevronDown, Eye, GripVertical, MoreHorizontal, PenLine, Plus, X } from "lucide-react"
+import { ArrowLeft, ChevronDown, Eye, GripVertical, MoreHorizontal, PenLine, Plus, X } from "lucide-react"
 import { ActionEditor } from "./action-editor"
 import { PublicFormRenderer } from "./public-form"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
@@ -28,6 +28,7 @@ import {
   type QuizResult,
 } from "@/lib/forms/definition"
 import type { ClientIntegrations } from "@/lib/forms/integrations"
+import type { FormUsage } from "@/lib/forms/kind"
 import { AREA, ERROR, FIELD, FIELD_STACK, HINT, LABEL, THIN_SCROLL } from "./fields"
 import { useFormConfirm } from "./form-confirm"
 
@@ -179,21 +180,47 @@ function Toggle({ label, checked, onChange, hint }: { label: string; checked: bo
 }
 
 /**
- * `closeRef`: the dialog's Escape and close go through the builder, which
- * asks before changes are lost. `embedded` is kept for callers from before
- * round AN; the builder is drawn the same way everywhere now.
+ * Two shells around the same builder:
+ *
+ *   the dialog   (no `view`) the builder dialog over the OnePage editor
+ *                (./form-builder-dialog): a top bar, the one column that
+ *                scrolls, Save draft and Publish in a foot bar. `closeRef`
+ *                lets the dialog's Escape and close go through the builder,
+ *                which asks before changes are lost.
+ *   the page     (`view`, round 51, Contacts › Forms › a form) the form's
+ *                tabs: "edit" the same one column (questions, then after
+ *                sending, layout and bookings behind their rows), "settings"
+ *                publication, where answers go, privacy and the follow up,
+ *                "panel" the `panel` given (Responses, Insights), the save
+ *                buttons kept while something is unsaved so a change is
+ *                never lost by changing tab. No side panel in either.
+ *
+ * `embedded` is kept for callers from before round AN.
  */
 export function FormEditor({
   form,
   onBack,
   onSaved,
   closeRef,
+  view,
+  nav,
+  panel,
+  usages,
+  framed = true,
 }: {
   form: SavedForm
   onBack: () => void
   onSaved: (f: SavedForm) => void
   embedded?: boolean
   closeRef?: MutableRefObject<(() => void) | null>
+  view?: "edit" | "settings" | "panel"
+  /** The tabs, drawn under the title. */
+  nav?: ReactNode
+  panel?: ReactNode
+  /** Where the form is used (Settings › Publication). */
+  usages?: FormUsage[]
+  /** False inside a page that already has its own container (Contacts). */
+  framed?: boolean
 }) {
   const [saved, setSaved] = useState(form),
     [draft, setDraft] = useState<FormDefinition>(() => withDefaults(form.draft)),
@@ -300,7 +327,32 @@ export function FormEditor({
 
   const layoutWords: Record<string, string> = { single: tt("One page"), steps: tt("Steps"), one_by_one: tt("One at a time") }
   const afterSummary = draft.completion.kind === "gated" ? tt("Private link") : draft.completion.action ? tt("Message and a button") : tt("Message")
-  const answersSummary = [tt("Leads"), integrations.notify_email ? tt("Email") : "", integrations.webhook.enabled ? tt("Webhook") : ""].filter(Boolean).join(", ")
+  const answersSummary = [tt("Responses"), integrations.notify_email ? tt("Email") : "", integrations.webhook.enabled ? tt("Webhook") : ""].filter(Boolean).join(", ")
+  const inPage = view !== undefined
+
+  const answersBody = (
+    <IntegrationsEditor
+      form={saved}
+      value={integrations}
+      retention={retention}
+      onRetention={(d) => (setRetention(d), setDirty(true))}
+      onChange={(v) => (setIntegrations(v), setDirty(true))}
+      onStamp={(updated_at) => setSaved((s) => ({ ...s, updated_at }))}
+    />
+  )
+  const privacyBody = (
+    <>
+      <label className={FIELD_STACK}>
+        <span className={LABEL}>{tt("Consent notice")}</span>
+        <textarea className={cn(AREA, "min-h-[76px]")} rows={2} maxLength={600} value={draft.consent_text} onChange={(e) => change({ consent_text: e.target.value })} />
+      </label>
+      <label className={FIELD_STACK}>
+        <span className={LABEL}>{tt("Privacy policy address")}</span>
+        <input className={FIELD} type="url" placeholder="https://" value={draft.privacy_url ?? ""} onChange={(e) => change({ privacy_url: e.target.value })} />
+      </label>
+      <Toggle label={tt("Offer a separate opt-in for updates")} checked={draft.marketing_opt_in} onChange={(on) => change({ marketing_opt_in: on })} />
+    </>
+  )
 
   const editor = (
     <div className="space-y-7">
@@ -414,16 +466,11 @@ export function FormEditor({
             )}
           </Disclosure>
 
-          <Disclosure id="responses" title={tt("Where answers go")} summary={answersSummary} open={openSetting === "responses"} onToggle={() => toggleSetting("responses")}>
-            <IntegrationsEditor
-              form={saved}
-              value={integrations}
-              retention={retention}
-              onRetention={(d) => (setRetention(d), setDirty(true))}
-              onChange={(v) => (setIntegrations(v), setDirty(true))}
-              onStamp={(updated_at) => setSaved((s) => ({ ...s, updated_at }))}
-            />
-          </Disclosure>
+          {inPage ? null : (
+            <Disclosure id="responses" title={tt("Where answers go")} summary={answersSummary} open={openSetting === "responses"} onToggle={() => toggleSetting("responses")}>
+              {answersBody}
+            </Disclosure>
+          )}
 
           <Disclosure id="layout" title={tt("Layout and button")} summary={`${layoutWords[draft.layout] ?? ""}${draft.mode === "quiz" ? `, ${tt("Quiz")}` : ""}`} open={openSetting === "layout"} onToggle={() => toggleSetting("layout")}>
             <Segmented
@@ -449,21 +496,113 @@ export function FormEditor({
             <BookingEditor booking={draft.booking} onChange={(booking) => change({ booking })} />
           </Disclosure>
 
-          <Disclosure id="privacy" title={tt("Privacy")} summary={draft.marketing_opt_in ? tt("Opt-in offered") : undefined} open={openSetting === "privacy"} onToggle={() => toggleSetting("privacy")}>
-            <label className={FIELD_STACK}>
-              <span className={LABEL}>{tt("Consent notice")}</span>
-              <textarea className={cn(AREA, "min-h-[76px]")} rows={2} maxLength={600} value={draft.consent_text} onChange={(e) => change({ consent_text: e.target.value })} />
-            </label>
-            <label className={FIELD_STACK}>
-              <span className={LABEL}>{tt("Privacy policy address")}</span>
-              <input className={FIELD} type="url" placeholder="https://" value={draft.privacy_url ?? ""} onChange={(e) => change({ privacy_url: e.target.value })} />
-            </label>
-            <Toggle label={tt("Offer a separate opt-in for updates")} checked={draft.marketing_opt_in} onChange={(on) => change({ marketing_opt_in: on })} />
-          </Disclosure>
+          {inPage ? null : (
+            <Disclosure id="privacy" title={tt("Privacy")} summary={draft.marketing_opt_in ? tt("Opt-in offered") : undefined} open={openSetting === "privacy"} onToggle={() => toggleSetting("privacy")}>
+              {privacyBody}
+            </Disclosure>
+          )}
         </div>
       </section>
     </div>
   )
+
+  const previewPane = (
+    <div className="rounded-xl border border-[#e3e4e8] bg-white p-4 sm:p-5" data-form-preview="">
+      <PublicFormRenderer key={JSON.stringify(draft)} formId={saved.id} preview initial={{ id: saved.id, revision: saved.revision, definition: draft }} />
+    </div>
+  )
+  const status = (
+    <div className="flex min-w-0 items-center gap-2">
+      <StatusBadge tone={live ? "success" : "neutral"}>{live ? tt("Published") : tt("Draft")}</StatusBadge>
+    </div>
+  )
+  const shareMenu = (trigger: ReactNode) => (
+    <ResponsiveActionMenu
+      title={tt("Share")}
+      align="end"
+      trigger={trigger}
+      items={[
+        { label: tt("Copy form link"), onClick: () => void navigator.clipboard.writeText(publicLink).then(() => setNote(tt("Form link copied."))) },
+        { label: tt("Open public form"), href: formPath(saved.id), target: "_blank" },
+        { label: tt("View responses"), href: responsesHref(saved.id) },
+      ]}
+    />
+  )
+  const message = error ? (
+    <p role="alert" className={cn(ERROR, "line-clamp-2")}>
+      {error}
+    </p>
+  ) : note ? (
+    <p role="status" className="truncate text-[13px] text-[#067647]">
+      {note}
+    </p>
+  ) : null
+
+  /* ── The page (Contacts › Forms › a form): its tabs, one column, no side panel. ── */
+  if (inPage) {
+    const card = pageCard
+    return (
+      <div className={framed ? "mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8" : ""} data-form-builder="" data-form-view={view}>
+        <header className="mb-5 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <button type="button" onClick={() => void close()} className={cn(iconButton, "-ml-1.5 h-9 w-9")} aria-label={tt("Back to forms")}>
+                <ArrowLeft className="h-[18px] w-[18px]" />
+              </button>
+              <div className="min-w-0">
+                <h1 className="flex min-w-0 items-center gap-2.5 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">
+                  <span className="truncate">{draft.title || tt("Untitled form")}</span>
+                  {status}
+                </h1>
+                {unpublished ? <p className={muted}>{dirty ? tt("Unsaved changes") : tt("The draft has changes that are not published")}</p> : null}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {view === "edit" ? (
+                <button type="button" className={buttonSecondary} onClick={() => setPreview((v) => !v)} aria-pressed={preview} data-form-preview-toggle="">
+                  {preview ? <PenLine aria-hidden className="h-4 w-4" /> : <Eye aria-hidden className="h-4 w-4" />}
+                  {preview ? tt("Edit") : tt("Preview")}
+                </button>
+              ) : null}
+              {live ? shareMenu(<button type="button" className={buttonSecondary}>{tt("Share")}</button>) : null}
+              {/* On Responses and Insights the save buttons show only while something is unsaved, so a change is never lost by changing tab. */}
+              {view !== "panel" || dirty ? (
+                <>
+                  <button type="button" className={buttonSecondary} disabled={busy || !dirty} onClick={() => void save(false)} data-save-draft="">
+                    {tt("Save draft")}
+                  </button>
+                  <button type="button" className={buttonAccent} disabled={busy} onClick={() => void save(true)} data-publish-form="">
+                    {busy ? tt("Saving") : tt("Publish")}
+                  </button>
+                </>
+              ) : null}
+            </div>
+          </div>
+          {message}
+          {nav}
+        </header>
+        {view === "panel" ? (
+          panel
+        ) : view === "settings" ? (
+          <div className="mx-auto max-w-[720px] space-y-4">
+            <PublicationCard form={saved} draftChanged={dirty || (live && JSON.stringify(saved.draft) !== JSON.stringify(saved.published))} publicLink={publicLink} usages={usages ?? []} onCopied={() => setNote(tt("Form link copied."))} />
+            <section className={cn(card, "space-y-4")}>
+              <h2 className={heading}>{tt("Where answers go")}</h2>
+              {answersBody}
+            </section>
+            <section className={cn(card, "space-y-4")}>
+              <h2 className={heading}>{tt("Privacy")}</h2>
+              {privacyBody}
+            </section>
+            <FollowUpCard />
+          </div>
+        ) : (
+          <div className="mx-auto max-w-[720px]">{preview ? previewPane : editor}</div>
+        )}
+        {confirmEl}
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-white" data-form-builder="">
@@ -471,7 +610,7 @@ export function FormEditor({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
             <h2 className="truncate text-[16px] font-semibold text-[#1a1a2e]">{draft.title || tt("Untitled form")}</h2>
-            <StatusBadge tone={live ? "success" : "neutral"}>{live ? tt("Published") : tt("Draft")}</StatusBadge>
+            {status}
           </div>
           {unpublished ? <p className="truncate text-[12.5px] text-[#6b7280]">{dirty ? tt("Unsaved changes") : tt("The draft has changes that are not published")}</p> : null}
         </div>
@@ -479,48 +618,25 @@ export function FormEditor({
           {preview ? <PenLine aria-hidden className="h-4 w-4" /> : <Eye aria-hidden className="h-4 w-4" />}
           {preview ? tt("Edit") : tt("Preview")}
         </button>
-        {live ? (
-          <ResponsiveActionMenu
-            title={tt("Share")}
-            align="end"
-            trigger={
+        {live
+          ? shareMenu(
               <button type="button" className={cn(iconButton, "h-9 w-9 shrink-0")} aria-label={tt("Share")} data-form-share="">
                 <MoreHorizontal className="h-[18px] w-[18px]" />
-              </button>
-            }
-            items={[
-              { label: tt("Copy form link"), onClick: () => void navigator.clipboard.writeText(publicLink).then(() => setNote(tt("Form link copied."))) },
-              { label: tt("Open public form"), href: formPath(saved.id), target: "_blank" },
-              { label: tt("View leads"), href: `/app/emails?tab=leads&form=${saved.id}` },
-            ]}
-          />
-        ) : null}
+              </button>,
+            )
+          : null}
         <button type="button" onClick={() => void close()} className={cn(iconButton, "h-9 w-9 shrink-0")} aria-label={tt("Close")} data-form-builder-done="">
           <X className="h-[18px] w-[18px]" />
         </button>
       </header>
 
       <div ref={scroller} className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#f8f9fa] px-4 py-5 sm:px-5", THIN_SCROLL)} data-form-builder-scroll="" data-onepage-dialog-scroll="">
-        {preview ? (
-          <div className="rounded-xl border border-[#e3e4e8] bg-white p-4 sm:p-5" data-form-preview="">
-            <PublicFormRenderer key={JSON.stringify(draft)} formId={saved.id} preview initial={{ id: saved.id, revision: saved.revision, definition: draft }} />
-          </div>
-        ) : (
-          editor
-        )}
+        {preview ? previewPane : editor}
       </div>
 
       <footer className="flex shrink-0 items-center gap-2 border-t border-[#eef0f2] bg-white px-4 py-3 sm:px-5">
         <div className="min-w-0 flex-1" aria-live="polite">
-          {error ? (
-            <p role="alert" className={cn(ERROR, "line-clamp-2")}>
-              {error}
-            </p>
-          ) : note ? (
-            <p role="status" className="truncate text-[13px] text-[#067647]">
-              {note}
-            </p>
-          ) : null}
+          {message}
         </div>
         <button type="button" className={cn(buttonSecondary, "h-9 shrink-0 px-3.5")} disabled={busy || !dirty} onClick={() => void save(false)} data-save-draft="">
           {tt("Save draft")}
@@ -531,6 +647,80 @@ export function FormEditor({
       </footer>
       {confirmEl}
     </div>
+  )
+}
+
+/** Where a form's responses are read: Contacts › Forms, the form open on Responses (round 51). */
+export function responsesHref(formId: string): string {
+  return `/app/contacts/forms?form=${encodeURIComponent(formId)}&view=responses`
+}
+
+/** The words for where a form is used, in the creator's language. */
+export function usageWords(u: FormUsage): string {
+  if (u.kind === "creator_page") return tt("Creator Page")
+  if (u.kind === "onepage") return u.label && u.label !== "OnePage" ? tt("OnePage: {name}", { name: u.label }) : tt("OnePage")
+  return tt("Website: {name}", { name: u.label })
+}
+
+const pageCard = "rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6"
+
+/**
+ * SETTINGS › PUBLICATION (round 51). Whether every page shows this form,
+ * which version, its own link, and where it is placed. Publishing stays the
+ * Publish button above: nothing here changes what visitors see.
+ */
+function PublicationCard({ form, draftChanged, publicLink, usages, onCopied }: { form: SavedForm; draftChanged: boolean; publicLink: string; usages: FormUsage[]; onCopied: () => void }) {
+  const live = form.status === "published"
+  return (
+    <section className={pageCard + " space-y-3"} data-form-publication="">
+      <h2 className={heading}>{tt("Publication")}</h2>
+      <p className={muted}>
+        {live
+          ? draftChanged
+            ? tt("Published, version {n}. Your draft has changes; Publish shows them on every page.", { n: form.revision })
+            : tt("Published, version {n}. Every page with this form shows it.", { n: form.revision })
+          : tt("Draft. Publish it to take responses.")}
+      </p>
+      {live ? (
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={buttonSecondary} onClick={() => void navigator.clipboard.writeText(publicLink).then(onCopied)}>
+            {tt("Copy form link")}
+          </button>
+          <a className={buttonSecondary} href={formPath(form.id)} target="_blank" rel="noopener noreferrer">
+            {tt("Open public form")}
+          </a>
+        </div>
+      ) : null}
+      <div className="border-t border-[#f1f2f4] pt-3">
+        <h3 className="text-[13px] font-medium text-[#4b5563]">{tt("Used on")}</h3>
+        {usages.length ? (
+          <ul className="mt-1.5 space-y-1" data-form-usages="">
+            {usages.map((u) => (
+              <li key={`${u.kind}-${u.label}`}>
+                <a className="text-[14px] text-[#1a1a2e] underline-offset-2 hover:underline" href={u.href}>
+                  {usageWords(u)}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={muted + " mt-1"}>{tt("Not placed on a page yet. Add a Form block on your OnePage, website or Creator Page and pick this form.")}</p>
+        )}
+      </div>
+    </section>
+  )
+}
+
+/** SETTINGS › FOLLOW UP (round 51): an email after a response is an automation, made in Emails. */
+function FollowUpCard() {
+  return (
+    <section className={pageCard + " space-y-2"} data-form-follow-up="">
+      <h2 className={heading}>{tt("Email after a response")}</h2>
+      <p className={muted}>{tt("Send an email after someone answers with an automation in Emails.")}</p>
+      <a className={buttonSecondary + " inline-flex"} href="/app/emails?tab=automations">
+        {tt("Open automations")}
+      </a>
+    </section>
   )
 }
 
@@ -930,7 +1120,7 @@ function IntegrationsEditor({
   }
   return (
     <div className="space-y-4" data-integrations="">
-      <p className={HINT}>{tt("Every response is saved in Leads.")}</p>
+      <p className={HINT}>{tt("Every response is kept under Responses.")}</p>
       <Toggle label={tt("Email me each new response")} checked={value.notify_email} onChange={(on) => onChange({ ...value, notify_email: on })} />
       <Pick
         name="keep-responses"
@@ -975,7 +1165,7 @@ function IntegrationsEditor({
       </div>
       <div className="space-y-1 border-t border-[#eef0f2] pt-3">
         <Toggle label={tt("Queue responses for Google Sheets")} checked={value.google_sheets.prepared} onChange={(on) => onChange({ ...value, google_sheets: { prepared: on } })} />
-        <p className={HINT}>{tt("Google Sheets is not connected to Storelib yet. Queued responses are sent once it is. Until then, export CSV from Leads or point the webhook at Zapier or Make.")}</p>
+        <p className={HINT}>{tt("Google Sheets is not connected to Storelib yet. Queued responses are sent once it is. Until then, export CSV from Responses or point the webhook at Zapier or Make.")}</p>
       </div>
     </div>
   )

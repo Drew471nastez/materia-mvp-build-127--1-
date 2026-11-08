@@ -25,9 +25,9 @@ import * as React from "react"
 import { ArrowLeft, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AppAvatar } from "@/components/app/app-avatar"
-import { Spinner } from "./ui"
+import { Spinner } from "@/components/checkout/parts/ui"
 import { backThen } from "@/lib/navigation/go-back"
-import { useCt } from "./words"
+import { useCt } from "@/components/checkout/parts/words"
 import { StoreLogo } from "@/components/brand/store-logo"
 
 export interface ShopBrand {

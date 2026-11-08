@@ -24,7 +24,7 @@
 import { fieldProblems } from "./merge-fields"
 import { tt } from "@/lib/i18n/text"
 
-export type TriggerType = "new_subscriber" | "purchase" | "first_purchase" | "abandoned_checkout"
+export type TriggerType = "new_subscriber" | "purchase" | "first_purchase" | "abandoned_checkout" | "membership_started"
 export type WaitUnit = "minutes" | "hours" | "days"
 export type ConditionCheck = "no_purchase_since_entry" | "purchased_since_entry" | "opened_previous_email" | "not_opened_previous_email"
 
@@ -74,6 +74,12 @@ export interface TriggerConfig {
   entry?: EntryRule
   /** Purchase flows only: which products start it. Empty or missing means any. */
   product_ids?: string[]
+  /**
+   * Purchase flows only (round 51): which kinds of product start it, from
+   * products.type ("course" for Course onboarding). Empty or missing means
+   * any. A kind that cannot be read starts nothing (engine.ts enroll).
+   */
+  product_kinds?: string[]
   /** Purchase flows only. Missing means the template's, or buyers. */
   audience?: Audience
 }
@@ -101,6 +107,12 @@ export interface FlowRecord {
  *                        no order an hour later (lib/automations/abandoned.ts,
  *                        from the hourly cron). Recorded once
  *                        supabase/sql/RUN_CHECKOUT_CONTACTS.sql has run.
+ *   membership_started   a membership sold on its own gives access for the
+ *                        first time (lib/memberships/sync.ts applyEffects,
+ *                        the "started" change, once per membership: its id is
+ *                        the entry's key). Round 51. Not a community's paid
+ *                        plan: the community already welcomes its members by
+ *                        email and in chat. Saved once SQL part 379 has run.
  *
  * `marketing`: the trigger is itself a reason to sell, so only people who
  * agreed to hear from the creator are sent anything, whatever the flow says.
@@ -110,13 +122,15 @@ export const TRIGGERS: Record<TriggerType, { name: string; sentence: string; mar
   purchase: { name: "Buys a product", get sentence() { return tt("Someone buys from you") }, marketing: false, purchase: true },
   first_purchase: { name: "First order", get sentence() { return tt("Someone buys from you for the first time") }, marketing: false, purchase: true },
   abandoned_checkout: { name: "Leaves checkout", get sentence() { return tt("Someone starts checkout and does not pay") }, marketing: true, purchase: false },
+  /* About the access a member just paid for: the people it is about, as a purchase follow-up is. */
+  membership_started: { name: "Starts a membership", get sentence() { return tt("Someone starts a membership") }, marketing: false, purchase: false },
 }
 
 /** The order a person meets them in: joining, checkout, a first order, any order. */
-export const TRIGGER_ORDER: TriggerType[] = ["new_subscriber", "abandoned_checkout", "first_purchase", "purchase"]
+export const TRIGGER_ORDER: TriggerType[] = ["new_subscriber", "abandoned_checkout", "first_purchase", "purchase", "membership_started"]
 
 export function isTriggerType(v: unknown): v is TriggerType {
-  return v === "new_subscriber" || v === "purchase" || v === "first_purchase" || v === "abandoned_checkout"
+  return v === "new_subscriber" || v === "purchase" || v === "first_purchase" || v === "abandoned_checkout" || v === "membership_started"
 }
 
 /** A flow about an order: which products start it can be chosen. */
@@ -244,7 +258,7 @@ export function serializeSteps(steps: FlowStep[]): FlowStep[] {
 }
 
 export function defaultEntry(trigger: TriggerType): EntryRule {
-  if (trigger === "purchase") return { mode: "each" }
+  if (trigger === "purchase" || trigger === "membership_started") return { mode: "each" }
   if (trigger === "first_purchase") return { mode: "once" }
   if (trigger === "abandoned_checkout") return { mode: "after", days: 7 }
   return { mode: "after", days: 30 }
@@ -256,7 +270,7 @@ export function entryRule(trigger: TriggerType, config: TriggerConfig | null | u
   if (trigger === "first_purchase") return { mode: "once" }
   const e = config?.entry as Record<string, unknown> | undefined
   if (e?.mode === "once") return { mode: "once" }
-  if (e?.mode === "each" && trigger === "purchase") return { mode: "each" }
+  if (e?.mode === "each" && (trigger === "purchase" || trigger === "membership_started")) return { mode: "each" }
   if (e?.mode === "after") {
     const days = asAmount(e.days)
     if (days >= 1 && days <= MAX_WAIT_DAYS) return { mode: "after", days }
@@ -267,7 +281,7 @@ export function entryRule(trigger: TriggerType, config: TriggerConfig | null | u
 export function entryText(trigger: TriggerType, rule: EntryRule): string {
   if (trigger === "first_purchase") return tt("Their first order only")
   if (rule.mode === "once") return tt("Once per person")
-  if (rule.mode === "each") return trigger === "purchase" ? tt("Every order") : tt("Every time")
+  if (rule.mode === "each") return trigger === "purchase" ? tt("Every order") : trigger === "membership_started" ? tt("Every membership") : tt("Every time")
   return tt("Again after {days, plural, one {# day} other {# days}}", { days: rule.days })
 }
 

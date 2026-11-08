@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, Users } from "lucide-react"
+import Link from "next/link"
 import { pageUser } from "@/lib/auth/page-user"
 import type { Metadata } from "next"
 import { getServerTt } from "@/lib/i18n/server"
@@ -147,9 +148,15 @@ export default async function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">{tt("Customers")}</h1>
-        <p className="text-muted-foreground">{tt("Manage your customer relationships")}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">{tt("Customers")}</h1>
+          <p className="text-muted-foreground">{tt("Manage your customer relationships")}</p>
+        </div>
+        {/* Round 51: every person the store knows, buyers included, with their whole history. This page stays for what each buyer spent in the store's currency and where they are. */}
+        <Link href="/app/contacts?filter=customers" className="text-sm font-medium text-[#6d4ae0] hover:underline">
+          {tt("Open in Contacts")}
+        </Link>
       </div>
 
       <Card>
@@ -183,6 +190,9 @@ export default async function CustomersPage() {
                           {customer.first_name} {customer.last_name}
                         </p>
                         <p className="text-sm text-muted-foreground truncate">{customer.email}</p>
+                        <Link href={`/app/contacts/open?from=customer&id=${customer.id}`} className="text-xs font-medium text-[#6d4ae0] hover:underline">
+                          {tt("View contact")}
+                        </Link>
                         {customer.city && customer.country && (
                           <p className="text-xs text-muted-foreground">
                             {customer.city}, {customer.country}
@@ -236,6 +246,9 @@ export default async function CustomersPage() {
                               {customer.first_name} {customer.last_name}
                             </div>
                             <div className="text-sm text-muted-foreground">{customer.email}</div>
+                            <Link href={`/app/contacts/open?from=customer&id=${customer.id}`} className="text-xs font-medium text-[#6d4ae0] hover:underline">
+                              {tt("View contact")}
+                            </Link>
                           </td>
                           <td className="px-4 py-3 text-sm text-muted-foreground">
                             {customer.city && customer.country ? `${customer.city}, ${customer.country}` : "—"}

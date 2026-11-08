@@ -8,7 +8,7 @@
  * (lib/checkout/access-link), so it tells nobody what another person bought.
  */
 import * as React from "react"
-import { useCt } from "./words"
+import { useCt } from "@/components/checkout/parts/words"
 
 /**
  * "Bought this before?" for a guest. Sends the receipts of that email's

@@ -274,7 +274,8 @@ async function main() {
     const sidebar = read("components/app/sidebar.tsx")
     check("the sidebar filters by permissions, and lifts a row out of a group they cannot open", /memberSees\(teamPermissions, item\.href\)/.test(sidebar) && /memberSees\(teamPermissions, c\.href\)/.test(sidebar) && /const \{ icon \} = item/.test(sidebar))
     const bar = read("components/app/team-bar.tsx")
-    check("a page outside their permissions is the access card, read from the path", /permits\(permissions, area\)/.test(bar) && /<TeamAreaClosed area=\{area \?\? "store"\} store=\{store\} permissions=\{permissions\} \/>/.test(bar))
+    /* Changed on purpose (round 51): Contacts opens for Customers or Marketing, so the bar asks pathPermits (lib/team/permissions), which is permits(area) for every other path. */
+    check("a page outside their permissions is the access card, read from the path", /pathPermits\(permissions, pathname\)/.test(bar) && /<TeamAreaClosed area=\{area \?\? "store"\} store=\{store\} permissions=\{permissions\} \/>/.test(bar))
     const closed = read("components/app/team-area-closed.tsx")
     check("the card says they don't have access and links to what they can use", /You don't have access to \{area\}/.test(closed) && /homeFor\(perms\)/.test(closed))
     const panel = read("components/app/settings/team-panel.tsx")

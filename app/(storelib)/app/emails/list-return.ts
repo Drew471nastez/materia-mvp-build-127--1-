@@ -21,6 +21,8 @@
  * the last address the list showed, which is the one behind the composer
  * when the list opened it. Module state, in memory, for this tab only.
  */
+import { showOfStatus } from "./emails-route"
+
 let listAddress: string | null = null
 
 /** The list's query, noted by the list whenever it changes. */
@@ -29,15 +31,19 @@ export function noteListAddress(query: string) {
 }
 
 /**
- * Would going back land on the list showing `tab`, with no email or contact
- * open over it? `behindIsList` is whether the page behind is the Emails list
- * at all (lib/navigation/in-app-history canReturnTo), which only the history
- * can say.
+ * Would going back land on the list showing an email that is now `tab`
+ * (the composer's word: "drafts", "scheduled", "published"), with no email
+ * open over it? Round 51: the list is Campaigns, filtered by &show=; All
+ * holds every email, so it shows this one too. `behindIsList` is whether the
+ * page behind is the Emails list at all (lib/navigation/in-app-history
+ * canReturnTo), which only the history can say.
  */
 export function listBehindShows(tab: string, behindIsList: boolean, query: string | null = listAddress): boolean {
   if (!behindIsList || query === null) return false
   const p = new URLSearchParams(query)
   if (p.has("email") || p.has("contact") || p.has("message")) return false
-  /* No ?tab= is the page's own default (./page.tsx). */
-  return (p.get("tab") ?? "subscribers") === tab
+  /* No ?tab= is the page's own default, Campaigns (./emails-route.ts). */
+  if ((p.get("tab") ?? "campaigns") !== "campaigns") return false
+  const show = p.get("show") ?? "all"
+  return show === "all" || show === showOfStatus(tab)
 }

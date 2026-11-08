@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils"
 import { COUNTRIES } from "@/lib/checkout/countries"
 import { FLAG_CODES, FLAG_SPRITE } from "@/lib/account/flag-sprite"
 import { callingCode, countryOfInternational, digitsFromKept, formatNational, fullNumber, nationalDigits } from "@/lib/account/phone"
-import { FIELD_SHADOW } from "./ui"
+import { FIELD_SHADOW } from "@/components/checkout/parts/ui"
 
 /** Every country with a calling code, as the select lists them: "Romania (+40)". */
 const DIALS = COUNTRIES.flatMap((c) => {

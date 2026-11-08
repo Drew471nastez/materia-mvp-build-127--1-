@@ -25,7 +25,7 @@ import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
-import { PoweredByStripe } from "@/app/(storelib)/checkout/parts/ui"
+import { PoweredByStripe } from "@/components/checkout/parts/ui"
 import { holdPage } from "@/lib/onepage/page-hold"
 
 /**

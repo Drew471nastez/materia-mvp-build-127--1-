@@ -40,7 +40,7 @@ export default async function FlowPage({ params }: { params: Promise<{ id: strin
   /* Supabase did not answer in time: the layout's gate recovers the
      session in the browser. Not /login (lib/auth/page-user.ts). */
   if (!user) return null
-  if (!/^[0-9a-f-]{36}$/i.test(id)) redirect("/app/emails?tab=flows")
+  if (!/^[0-9a-f-]{36}$/i.test(id)) redirect("/app/emails?tab=automations")
 
   /* The store, from the same cached reads the /app layout makes for this request: no second query. */
   const access = await teamPageStore("marketing")
@@ -81,7 +81,7 @@ export default async function FlowPage({ params }: { params: Promise<{ id: strin
   if (!creator) redirect("/app")
   const flow = flowRes.data
   /* Row level security keeps other creators' flows out for the owner; for a member this is the check. */
-  if (!flow || flow.creator_id !== creator.id) redirect("/app/emails?tab=flows")
+  if (!flow || flow.creator_id !== creator.id) redirect("/app/emails?tab=automations")
 
   const tracking = !runs.error
   const stepStats: Record<string, StepStats> = {}

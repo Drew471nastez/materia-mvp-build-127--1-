@@ -159,7 +159,7 @@ const PANEL_BUTTON = cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px] max-sm:
 const PANEL_REMOVE =
   "ml-auto inline-flex h-8 cursor-pointer select-none items-center rounded-lg px-3 text-[13px] font-medium text-[#b42318] transition-colors duration-100 hover:bg-[#fef3f2] active:bg-[#fde8e6] max-sm:h-10 [-webkit-tap-highlight-color:transparent]"
 
-const EMAILS = "/app/emails?tab=flows"
+const EMAILS = "/app/emails?tab=automations"
 /** The Emails list's cache key for this tab (app/app/emails/emails-data.ts tabKey). */
 const FLOWS_KEY = "emails:flows"
 

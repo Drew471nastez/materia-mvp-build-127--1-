@@ -24,7 +24,10 @@
  *                            back, the Android gesture and an iOS swipe close
  *                            it, a reload opens it again and a link to it can
  *                            be shared (/app/emails/<id> lands here too)
- *   ?tab=<tab>               replaced, not pushed, so back does not walk
+ *   ?tab=<tab>, &show=, &section=
+ *                            Campaigns | Automations | Settings (round 51),
+ *                            Campaigns' filter and Settings' section;
+ *                            replaced, not pushed, so back does not walk
  *                            through every tab. Next.js syncs history.pushState
  *                            and replaceState into useSearchParams without
  *                            asking the server for anything (a router.replace
@@ -46,7 +49,6 @@ import { TryProStrip } from "@/components/app/announcement-bar-mobile"
 import { ComposeDialog } from "@/components/email/compose/ui"
 import { load, peek, prefetch, refresh, useCached, write } from "@/components/email/emails-cache"
 import { PullToRefresh } from "@/components/ui/pull-to-refresh"
-import { sourceView } from "@/lib/contacts/contact-source"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
@@ -55,19 +57,16 @@ import { buttonPrimary, buttonSecondary } from "../orders/order-parts"
 import { markRow, moveOrder, stillOrder } from "../orders/order-motion"
 import { APP_PAGE_KEPT_MS, holdLanding, isTraversing } from "@/lib/ui/app-navigation"
 import { backThen } from "@/lib/navigation/go-back"
-import { EmailsHome, type CampaignRow, type EmailsTab, type FlowRow, type MessageRow, type SubscriberRow } from "./emails-home"
+import { EmailsHome, type CampaignRow, type EmailsTab, type FlowRow } from "./emails-home"
 import type { CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
 import type { PlatformsData } from "@/components/email/connected-platforms"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { ContactPage } from "./contact-detail"
-import { MessagePage } from "./message-detail"
 import { EmailDetail, type EmailAction, type EmailSeed } from "./email-detail"
-import { LeadsPanel, type LeadsData } from "./leads-panel"
-import { TABS, campaignKey, isTab, loadReport, loadTab, reportKey, tabKey, type MessagesData, type SentData, type SubscribersData } from "./emails-data"
+import { TABS, campaignKey, loadReport, loadTab, mergeCampaigns, reportKey, tabKey, viewOf, type AllData, type SendingData, type SentData } from "./emails-data"
+import { isPageTab, isSection, isShow, type CampaignShow, type EmailsPageTab, type SettingsSection } from "./emails-route"
 import { noteListAddress } from "./list-return"
 import { openLayer } from "./layer-nav"
 import { tt } from "@/lib/i18n/text"
-import { appLocale, zoned } from "@/lib/i18n/format"
 
 function writeAddress(mutate: (p: URLSearchParams) => void, mode: "push" | "replace") {
   const params = new URLSearchParams(window.location.search)
@@ -94,7 +93,7 @@ const ALL_EMAIL_LISTS = ["emails:drafts", "emails:scheduled"]
 /** How long a chosen tab with nothing read yet keeps the last tab's content before its skeleton shows. */
 const HOLD_MS = 300
 
-export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
+export function EmailsClient({ initialTab, initialShow = "all", initialSection = "sending" }: { initialTab: EmailsPageTab; initialShow?: CampaignShow; initialSection?: SettingsSection }) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -120,14 +119,25 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     noteListAddress(address)
   }, [address])
 
-  /* ── The tab ─────────────────────────────────────────────────────────── */
+  /* ── The tab, Campaigns' filter, Settings' section ─────────────────── */
   const urlTab = searchParams.get("tab")
-  const [tab, setTabState] = React.useState<EmailsTab>(isTab(urlTab) ? urlTab : initialTab)
+  const urlShow = searchParams.get("show")
+  const urlSection = searchParams.get("section")
+  const [pageTab, setPageTabState] = React.useState<EmailsPageTab>(isPageTab(urlTab) ? urlTab : initialTab)
+  const [show, setShowState] = React.useState<CampaignShow>(isShow(urlShow) ? urlShow : initialShow)
+  const [section, setSectionState] = React.useState<SettingsSection>(isSection(urlSection) ? urlSection : initialSection)
   /* The browser's own back and forward between tabs a link opened. */
   React.useEffect(() => {
-    if (isTab(urlTab) && urlTab !== tab) setTabState(urlTab)
+    const t = isPageTab(urlTab) ? urlTab : "campaigns"
+    if (t !== pageTab) setPageTabState(t)
+    const sh = isShow(urlShow) ? urlShow : "all"
+    if (sh !== show) setShowState(sh)
+    const se = isSection(urlSection) ? urlSection : "sending"
+    if (se !== section) setSectionState(se)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlTab])
+  }, [urlTab, urlShow, urlSection])
+  /* What is drawn: the view of this tab, filter and section (./emails-data.ts viewOf). */
+  const tab: EmailsTab = viewOf(pageTab, show, section)
 
   /* ── The Sent tab's period: the date picker every page in /app shares ── */
   const timeZone = React.useMemo(() => viewerTimeZone(), [])
@@ -199,11 +209,44 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
 
   /* ── A tab switch ────────────────────────────────────────────────────── */
   const listRef = React.useRef<HTMLDivElement>(null)
-  const setTab = (next: EmailsTab) => {
-    if (next === tab) return
-    setTabState(next)
-    writeAddress((p) => p.set("tab", next), "replace")
+  const setPageTab = (next: EmailsPageTab) => {
+    if (next === pageTab) return
+    setPageTabState(next)
+    writeAddress((p) => {
+      p.set("tab", next)
+      /* Each tab keeps only its own: Campaigns its filter, Settings its section and the editor's family. */
+      if (next !== "campaigns") p.delete("show")
+      else if (show !== "all") p.set("show", show)
+      if (next !== "settings") {
+        p.delete("section")
+        p.delete("kind")
+        p.delete("community")
+      } else p.set("section", section)
+    }, "replace")
   }
+  const setShow = (next: CampaignShow) => {
+    if (next === show) return
+    setShowState(next)
+    writeAddress((p) => {
+      p.set("tab", "campaigns")
+      if (next === "all") p.delete("show")
+      else p.set("show", next)
+    }, "replace")
+  }
+  const setSection = (next: SettingsSection) => {
+    if (next === section) return
+    setSectionState(next)
+    writeAddress((p) => {
+      p.set("tab", "settings")
+      p.set("section", next)
+      if (next !== "customer") {
+        p.delete("kind")
+        p.delete("community")
+      }
+    }, "replace")
+  }
+  /* A tab's view, for reading ahead when a pointer rests on it. */
+  const viewOfTab = (t: EmailsPageTab) => viewOf(t, show, section)
   /*
     THE SCROLL IS LEFT WHERE IT IS. The bar scrolls with the page now (it is
     not sticky), so a tab is only ever pressed with the bar in view, and the
@@ -242,18 +285,23 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   }, [])
 
   /* ── What the list shows ─────────────────────────────────────────────── */
-  const subscribersData = (shown === "subscribers" ? current.data : peek(keyFor("subscribers"))) as SubscribersData | undefined
-  const messagesData = (shown === "messages" ? current.data : peek(keyFor("messages"))) as MessagesData | undefined
   const flows = ((shown === "flows" ? current.data : peek(keyFor("flows"))) as FlowRow[] | undefined) ?? []
   const customerEmails = (shown === "customer" ? current.data : peek(keyFor("customer"))) as CustomerEmailsData | undefined
-  const platforms = (shown === "platforms" ? current.data : peek(keyFor("platforms"))) as PlatformsData | undefined
-  const leadsData = (shown === "leads" ? current.data : peek(keyFor("leads"))) as LeadsData | undefined
+  const platforms = (shown === "platforms" ? current.data : peek(keyFor("platforms"))) as SendingData | undefined
   const physical = usePhysicalCommerceEnabled()
-  const sentData = (shown === "published" ? current.data : undefined) as SentData | undefined
-  const campaigns: CampaignRow[] =
-    shown === "published" ? sentData?.campaigns ?? [] : shown === "scheduled" || shown === "drafts" ? ((current.data as CampaignRow[] | undefined) ?? []) : []
-
-  const [search, setSearch] = React.useState("")
+  const allData = (shown === "all" ? current.data : undefined) as AllData | undefined
+  const sentData = (shown === "published" ? (current.data as SentData | undefined) : allData?.sent) as SentData | undefined
+  const campaigns: CampaignRow[] = React.useMemo(
+    () =>
+      shown === "all"
+        ? mergeCampaigns(allData)
+        : shown === "published"
+          ? sentData?.campaigns ?? []
+          : shown === "scheduled" || shown === "drafts"
+            ? ((current.data as CampaignRow[] | undefined) ?? [])
+            : [],
+    [shown, allData, sentData, current.data],
+  )
 
   /* ── Notices ────────────────────────────────────────────────────────── */
   /*
@@ -271,18 +319,15 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     [toast],
   )
 
-  /* ── An email, or a contact, over the list ──────────────────────────── */
+  /* ── An email over the list ───────────────────────────────────────── */
   /*
-    One page at a time over the list: an email (?email=<id>) or a subscriber
-    (?contact=<id>). Both are one key, "email:<id>" or "contact:<id>", so the
-    move, the leaving page and Back are the same code for either.
+    One page at a time over the list, an email (?email=<id>), under the key
+    "email:<id>". Subscribers and messages opened here before round 51; their
+    addresses now go to Contacts (./emails-route.ts), before this page draws.
   */
   const emailParam = searchParams.get("email")
-  const contactParam = emailParam ? null : searchParams.get("contact")
-  /* A message from a website's contact form (?message=<id>), the bell's and the creator's email's link to it. */
-  const messageParam = emailParam || contactParam ? null : searchParams.get("message")
-  const openId = emailParam ? `email:${emailParam}` : contactParam ? `contact:${contactParam}` : messageParam ? `message:${messageParam}` : null
-  /* The row a page key came from: "email:<id>" and "contact:<id>" both mark row <id>. */
+  const openId = emailParam ? `email:${emailParam}` : null
+  /* The row a page key came from: "email:<id>" marks row <id>. */
   const rowOf = (key: string) => key.slice(key.indexOf(":") + 1)
   const pushed = React.useRef(false)
   const detailRef = React.useRef<HTMLDivElement>(null)
@@ -355,10 +400,10 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
 
   /* What the bar can show on the first frame: the row that was clicked. */
   const seedFor = (id: string): EmailSeed => {
-    const lists = [peek<SentData>(keyFor("published"))?.campaigns, peek<CampaignRow[]>(keyFor("scheduled")), peek<CampaignRow[]>(keyFor("drafts")), campaigns]
+    const lists = [campaigns, peek<SentData>(keyFor("published"))?.campaigns, peek<CampaignRow[]>(keyFor("scheduled")), peek<CampaignRow[]>(keyFor("drafts"))]
     for (const list of lists) {
       const row = list?.find((c) => c.id === id)
-      if (row) return { id, subject: row.subject, status: row.status ?? (shown === "scheduled" ? "scheduled" : shown === "drafts" ? "draft" : "sent"), sent_at: row.sent_at, scheduled_at: row.scheduled_at }
+      if (row) return { id, subject: row.subject, status: row.status ?? (row.kind === "scheduled" ? "scheduled" : row.kind === "draft" ? "draft" : "sent"), sent_at: row.sent_at, scheduled_at: row.scheduled_at }
     }
     const r = peek<{ campaign: { subject: string; status: string } }>(reportKey(id))
     return { id, subject: r?.campaign.subject ?? "", status: r?.campaign.status }
@@ -367,15 +412,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const onOpen = (c: CampaignRow) => {
     prefetch(reportKey(c.id), () => loadReport(c.id))
     pushed.current = true
-    writeAddress((p) => { p.delete("contact"); p.set("email", c.id) }, "push")
-  }
-  const onOpenMessage = (m: MessageRow) => {
-    pushed.current = true
-    writeAddress((p) => { p.delete("email"); p.delete("contact"); p.set("message", m.id) }, "push")
-  }
-  const onOpenContact = (s: SubscriberRow) => {
-    pushed.current = true
-    writeAddress((p) => { p.delete("email"); p.set("contact", s.id) }, "push")
+    writeAddress((p) => p.set("email", c.id), "push")
   }
   /*
     BACK CLOSES IT, AND CLOSES IT EVEN WHEN THE BACK DOES NOTHING. The entry
@@ -387,14 +424,14 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     by the address being cleared, which closes it the same way
     (lib/navigation/go-back backThen).
   */
-  const closeOver = () => writeAddress((p) => { p.delete("email"); p.delete("contact"); p.delete("message") }, "replace")
+  const closeOver = () => writeAddress((p) => p.delete("email"), "replace")
   const onBack = React.useCallback(() => {
     if (pushed.current) backThen(closeOver)
     else closeOver()
   }, [])
 
   const onCampaignIntent = (c: CampaignRow) => {
-    if (shown === "drafts") {
+    if (c.kind === "draft" || (!c.kind && shown === "drafts")) {
       router.prefetch(`/app/emails/edit/${c.id}`)
       prefetch(campaignKey(c.id), () => fetch(`/api/email/campaigns/${c.id}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject(new Error("not ok")))), 5_000)
     } else {
@@ -403,23 +440,17 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   }
 
   /* ── Actions ────────────────────────────────────────────────────────── */
-  const copyEmail = (email: string) => {
-    void navigator.clipboard?.writeText(email).then(
-      () => onNotice(tt("Email copied")),
-      () => onNotice(tt("Could not copy the email")),
-    )
-  }
-  const [confirm, setConfirm] = React.useState<{ type: "campaign" | "subscriber" | "flow" | "flow-off" | "message"; id: string } | null>(null)
+  const [confirm, setConfirm] = React.useState<{ type: "campaign" | "flow" | "flow-off"; id: string } | null>(null)
 
   const refreshCampaignLists = () => {
-    refresh(...ALL_EMAIL_LISTS, keyFor("published"))
+    refresh(...ALL_EMAIL_LISTS, keyFor("published"), keyFor("all"))
   }
 
   const duplicate = async (id: string): Promise<string | null> => {
     const newId = uuid()
     const r = await postJson(`/api/email/campaigns/${id}/duplicate`, { id: newId })
     if (!r.ok) return String(r.data.error ?? "Could not make a copy. Try again.")
-    refresh("emails:drafts")
+    refresh("emails:drafts", keyFor("all"))
     router.push(`/app/emails/edit/${String((r.data.campaign as { id?: string } | undefined)?.id ?? newId)}`)
     return null
   }
@@ -430,6 +461,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     if (!res || !res.ok) return tt("The email was not deleted. Try again.")
     for (const key of ALL_EMAIL_LISTS) write<CampaignRow[]>(key, (prev) => (prev ?? []).filter((c) => c.id !== id))
     write<SentData | undefined>(keyFor("published"), (prev) => (prev ? { ...prev, campaigns: prev.campaigns.filter((c) => c.id !== id) } : prev))
+    write<AllData | undefined>(keyFor("all"), (prev) => (prev ? { sent: { ...prev.sent, campaigns: prev.sent.campaigns.filter((c) => c.id !== id) }, scheduled: prev.scheduled.filter((c) => c.id !== id), drafts: prev.drafts.filter((c) => c.id !== id) } : prev))
     refreshCampaignLists()
     return tt("Email deleted")
   }
@@ -461,76 +493,6 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
       case "test":
         return null
     }
-  }
-
-  /*
-    A MESSAGE, READ OR NEW. Through the server, which changes the creator's
-    own message only (app/api/email/messages/[id]); the row changes at once
-    and goes back if the server says no.
-  */
-  const writeMessages = (fn: (rows: MessageRow[]) => MessageRow[]) =>
-    write<MessagesData>(keyFor("messages"), (prev) => (prev ? { ...prev, rows: fn(prev.rows) } : prev!))
-  const setRead = async (m: MessageRow, read: boolean, quiet = false) => {
-    const before = m.read_at
-    const at = read ? new Date().toISOString() : null
-    writeMessages((rows) => rows.map((r) => (r.id === m.id ? { ...r, read_at: at } : r)))
-    const res = await fetch(`/api/email/messages/${encodeURIComponent(m.id)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ read }),
-    }).catch(() => null)
-    if (!res || !res.ok) {
-      writeMessages((rows) => rows.map((r) => (r.id === m.id ? { ...r, read_at: before } : r)))
-      if (!quiet) onNotice(tt("Not saved. Try again."))
-      return
-    }
-    if (!quiet) onNotice(read ? tt("Marked as read") : tt("Marked as new"))
-  }
-  const toggleRead = (m: MessageRow) => void setRead(m, !m.read_at)
-  /*
-    A REPLY, SENT FROM THE MESSAGE'S PAGE (app/api/email/messages/[id]/reply).
-    It shows in the thread at once, marked as sending, and the message reads
-    as read; the server's answer puts the kept reply in its place, or takes
-    it away again with the reason when it did not go.
-  */
-  const replyTo = async (m: MessageRow, text: string): Promise<string | null> => {
-    const temp = `pending-${Date.now()}`
-    const at = new Date().toISOString()
-    writeMessages((rows) => rows.map((r) => (r.id === m.id ? { ...r, read_at: r.read_at ?? at, replies: [...(r.replies ?? []), { id: temp, message: text, created_at: at, pending: true }] } : r)))
-    const res = await fetch(`/api/email/messages/${encodeURIComponent(m.id)}/reply`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) }).catch(() => null)
-    const out = res ? ((await res.json().catch(() => ({}))) as { reply?: { id: string; message: string; created_at: string }; error?: string }) : { error: tt("You seem to be offline. Try again.") }
-    if (!res || !res.ok || !out.reply) {
-      writeMessages((rows) => rows.map((r) => (r.id === m.id ? { ...r, replies: (r.replies ?? []).filter((x) => x.id !== temp) } : r)))
-      return out.error || tt("Your reply was not sent. Try again.")
-    }
-    const kept = out.reply
-    writeMessages((rows) => rows.map((r) => (r.id === m.id ? { ...r, replies: (r.replies ?? []).map((x) => (x.id === temp ? kept : x)) } : r)))
-    onNotice(tt("Reply sent to {email}", { email: m.email }))
-    return null
-  }
-  const deleteMessage = async (id: string) => {
-    const res = await fetch(`/api/email/messages/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null)
-    if (!res || !res.ok) return onNotice(tt("Not deleted. Try again."))
-    writeMessages((rows) => rows.filter((r) => r.id !== id))
-    if (messageParam === id) onBack()
-    onNotice(tt("Message deleted"))
-  }
-  /* Opening a new message reads it. */
-  const openedMessage = messageParam ? (messagesData?.rows ?? []).find((r) => r.id === messageParam) ?? null : null
-  React.useEffect(() => {
-    if (openedMessage && !openedMessage.read_at) void setRead(openedMessage, true, true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openedMessage?.id, openedMessage?.read_at])
-  /* A link to a message on another tab, or a reload: its list is read so the page has it. */
-  React.useEffect(() => {
-    if (messageParam && !messagesData) prefetch(keyFor("messages"), loaderFor("messages"))
-  }, [messageParam, messagesData, keyFor, loaderFor])
-
-  const removeSubscriber = async (id: string) => {
-    const res = await fetch("/api/email/area", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "unsubscribe", id }) }).catch(() => null)
-    if (!res || !res.ok) return onNotice(tt("Not removed. Try again."))
-    write<SubscribersData>(keyFor("subscribers"), (prev) => (prev ? { ...prev, rows: prev.rows.map((s) => (s.id === id ? { ...s, status: "unsubscribed" } : s)) } : prev!))
-    onNotice(tt("Subscriber removed"))
   }
 
   const deleteFlow = async (id: string) => {
@@ -588,39 +550,16 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     openLayer(router, `/app/emails/flow/${out.id}`)
   }
 
-  /** Every subscribed address as a CSV, named for today. */
-  const exportSubscribers = async () => {
-    const rows = (subscribersData?.rows ?? []).filter((s) => s.status === "subscribed")
-    if (rows.length === 0) return onNotice(tt("There are no subscribers to export"))
-    const headers = [tt("Email"), tt("Name"), tt("Source"), tt("Source detail"), tt("Status"), tt("Subscribed Date")]
-    const lines = rows.map((s) => {
-      const v = sourceView(s.source_detail, s.source)
-      return [s.email, s.name || "", v.label, v.detail, s.status === "subscribed" && s.unsubscribed_at ? "resubscribed" : s.status, s.subscribed_at ? new Date(s.subscribed_at).toLocaleDateString(appLocale(), zoned()) : ""]
-    })
-    const csv = [headers, ...lines].map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")).join("\n")
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }))
-    const link = document.createElement("a")
-    link.href = url
-    link.download = `subscribers-${new Date().toISOString().split("T")[0]}.csv`
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
-    onNotice(tt("Exported {value} subscribers", { value: rows.length.toLocaleString(appLocale()) }))
-  }
-
   const confirmDelete = async () => {
     const target = confirm
     setConfirm(null)
     if (!target) return
     if (target.type === "campaign") onNotice(await deleteCampaign(target.id))
     else if (target.type === "flow") await deleteFlow(target.id)
-    else if (target.type === "message") await deleteMessage(target.id)
     else if (target.type === "flow-off") {
       const flow = flows.find((f) => f.id === target.id)
       if (flow) await toggleFlow(flow, true)
     }
-    else await removeSubscriber(target.id)
   }
 
   /* Under a settled email the list is hidden by the stage (app/globals.css,
@@ -644,38 +583,28 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
         {/* Try Pro, from md up only (none on a phone), stays put; what is under it is what a pull moves (components/ui/pull-to-refresh). */}
         <PullToRefresh onRefresh={onPullRefresh}>
         <EmailsHome
+          pageTab={pageTab}
+          onPageTab={setPageTab}
+          onPageTabIntent={(t) => prefetch(keyFor(viewOfTab(t)), loaderFor(viewOfTab(t)), 30_000)}
+          show={show}
+          onShow={setShow}
+          section={section}
+          onSection={setSection}
           tab={shown}
           chosenTab={tab}
           skeletonAtOnce={heldOut === shown && current.loading}
-          onTab={setTab}
-          onTabIntent={(t) => prefetch(keyFor(t), loaderFor(t), 30_000)}
           loading={current.loading}
-          subscribers={subscribersData?.rows ?? []}
-          checkoutBuyersCount={subscribersData?.buyers ?? 0}
           customerEmails={customerEmails ?? null}
           onCustomerEmails={(d) => write<CustomerEmailsData>(keyFor("customer"), () => d)}
           platforms={platforms ?? null}
-          onPlatforms={(d) => write<PlatformsData>(keyFor("platforms"), () => d)}
+          onPlatforms={(d) => write<SendingData>(keyFor("platforms"), (prev) => ({ ...d, sender: prev?.sender ?? null }))}
           physical={physical}
-          search={search}
-          onSearch={setSearch}
-          onExportSubscribers={() => void exportSubscribers()}
-          onCopyEmail={copyEmail}
-          onRemoveSubscriber={(id) => setConfirm({ type: "subscriber", id })}
-          messages={messagesData?.rows ?? []}
-          messagesAvailable={messagesData?.available ?? true}
-          onOpenMessage={onOpenMessage}
-          onToggleRead={toggleRead}
-          onDeleteMessage={(id) => setConfirm({ type: "message", id })}
-          leads={leadsData ?? null}
-          leadsPanel={shown === "leads" ? <LeadsPanel data={leadsData ?? null} loading={current.loading} onData={(d) => write<LeadsData>(keyFor("leads"), () => d)} onNotice={onNotice} /> : null}
           flows={flows}
           onToggleFlow={(f) => void toggleFlow(f)}
           onDeleteFlow={(id) => setConfirm({ type: "flow", id })}
           onDuplicateFlow={(f) => void duplicateFlow(f)}
           campaigns={campaigns}
           onOpenCampaign={onOpen}
-          onOpenContact={onOpenContact}
           onCampaignIntent={onCampaignIntent}
           onDuplicateCampaign={(c) => void duplicate(c.id).then((m) => m && onNotice(m))}
           onDeleteCampaign={(id) => setConfirm({ type: "campaign", id })}
@@ -693,73 +622,41 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
           ref={detailRef}
           className="orders-pane orders-detail page-scroll absolute inset-0 overflow-y-auto overflow-x-hidden bg-[#f8f9fa]"
           role="region"
-          aria-label={displayedId.startsWith("contact:") ? tt("Contact") : displayedId.startsWith("message:") ? tt("Message") : tt("Email")}
-          data-email-detail={displayedId.startsWith("email:") ? rowOf(displayedId) : undefined}
-          data-contact-page={displayedId.startsWith("contact:") ? rowOf(displayedId) : undefined}
-          data-message-page={displayedId.startsWith("message:") ? rowOf(displayedId) : undefined}
+          aria-label={tt("Email")}
+          data-email-detail={rowOf(displayedId)}
           data-arrival="list"
           data-leaving={openId ? undefined : ""}
           inert={!openId}
           aria-hidden={!openId || undefined}
         >
-          {displayedId.startsWith("message:") ? (
-            <MessagePage
-              key={displayedId}
-              message={(messagesData?.rows ?? []).find((r) => r.id === rowOf(displayedId)) ?? null}
-              gone={!!messagesData && !(messagesData.rows ?? []).some((r) => r.id === rowOf(displayedId))}
-              onBack={onBack}
-              onCopy={copyEmail}
-              onToggleRead={toggleRead}
-              onReply={replyTo}
-              onDelete={(id) => setConfirm({ type: "message", id })}
-              onOpenContact={(m) => {
-                if (!m.subscriber_id) return
-                const id = m.subscriber_id
-                writeAddress((p) => { p.delete("message"); p.set("contact", id) }, "replace")
-              }}
-            />
-          ) : displayedId.startsWith("contact:") ? (
-            <ContactPage
-              key={displayedId}
-              contact={(subscribersData?.rows ?? []).find((r) => r.id === rowOf(displayedId)) ?? null}
-              onBack={onBack}
-              onCopy={copyEmail}
-              onRemove={(id) => setConfirm({ type: "subscriber", id })}
-            />
-          ) : (
-            <EmailDetail key={displayedId} seed={seedFor(rowOf(displayedId))} onBack={onBack} onAction={onEmailAction} onNotice={onNotice} />
-          )}
+          <EmailDetail key={displayedId} seed={seedFor(rowOf(displayedId))} onBack={onBack} onAction={onEmailAction} onNotice={onNotice} />
         </div>
       ) : null}
 
       <ComposeDialog
         open={confirm !== null}
         onClose={() => setConfirm(null)}
-        title={confirm?.type === "message" ? tt("Delete this message?") : confirm?.type === "campaign" ? tt("Delete this email?") : confirm?.type === "flow" ? tt("Delete this automation?") : confirm?.type === "flow-off" ? tt("Turn off {value}?", { value: flows.find((f) => f.id === confirm.id)?.name ?? tt("this automation") }) : tt("Remove this subscriber?")}
+        title={confirm?.type === "campaign" ? tt("Delete this email?") : confirm?.type === "flow" ? tt("Delete this automation?") : tt("Turn off {value}?", { value: flows.find((f) => f.id === confirm?.id)?.name ?? tt("this automation") })}
         footer={
           <>
             <button type="button" className={buttonSecondary} onClick={() => setConfirm(null)}>
               {tt("Cancel")}
             </button>
             <button type="button" className={cn(buttonPrimary, "bg-[#b42318] hover:bg-[#9b1c14] active:bg-[#861912]")} onClick={() => void confirmDelete()}>
-              {confirm?.type === "subscriber" ? tt("Remove") : confirm?.type === "flow-off" ? tt("Turn off") : tt("Delete")}
+              {confirm?.type === "flow-off" ? tt("Turn off") : tt("Delete")}
             </button>
           </>
         }
       >
         <p className="text-[14px] text-[#1a1a2e]">
-          {confirm?.type === "message"
-            ? tt("It is removed from Messages. The email you got about it stays in your inbox, and the sender stays in your contacts.")
-            : confirm?.type === "campaign"
+          {confirm?.type === "campaign"
             ? tt("It is removed with its numbers. Anything already sent stays in people's inboxes.")
             : confirm?.type === "flow"
               ? tt("Everyone partway through it gets nothing more, and it is removed.")
-              : confirm?.type === "flow-off"
-                ? (() => {
-                    const n = flows.find((f) => f.id === confirm.id)?.totals?.in_progress ?? 0
-                    return tt("{n, plural, one {# person is} other {# people are}} partway through. Turning it off stops them where they are, and their remaining emails are not sent, now or if you turn it on again.", { n })
-                  })()
-              : tt("They are unsubscribed and get no more of your emails.")}
+              : (() => {
+                  const n = flows.find((f) => f.id === confirm?.id)?.totals?.in_progress ?? 0
+                  return tt("{n, plural, one {# person is} other {# people are}} partway through. Turning it off stops them where they are, and their remaining emails are not sent, now or if you turn it on again.", { n })
+                })()}
         </p>
       </ComposeDialog>
     </div>
