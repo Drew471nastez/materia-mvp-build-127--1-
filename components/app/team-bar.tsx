@@ -13,7 +13,7 @@
  */
 import * as React from "react"
 import { usePathname } from "next/navigation"
-import { areaOfPath, permits, type TeamPermission } from "@/lib/team/permissions"
+import { areaOfPath, pathPermits, type TeamPermission } from "@/lib/team/permissions"
 import { TeamAreaClosed } from "./team-area-closed"
 import { tt } from "@/lib/i18n/text"
 
@@ -34,7 +34,8 @@ export function TeamBar({ store, permissions, ownStore = true, ownHome = "/app",
   const pathname = usePathname() || "/app"
   const [leaving, setLeaving] = React.useState(false)
   const area = areaOfPath(pathname)
-  const allowed = area === null || permits(permissions, area)
+  /* Contacts opens for Customers or Marketing (round 51, lib/team/permissions pathPermits). */
+  const allowed = pathPermits(permissions, pathname)
   /* Just joined from an invite (app/api/team/join adds ?joined=1): said once in the bar, then the address is tidied. */
   const [joined, setJoined] = React.useState(false)
   React.useEffect(() => {

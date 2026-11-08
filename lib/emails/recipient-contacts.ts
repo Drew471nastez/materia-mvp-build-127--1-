@@ -1,4 +1,5 @@
 import "server-only"
+import { lookupContacts as lookupContactsFromContacts } from "@/lib/contacts/server"
 
 /**
  * ===========================================================================
@@ -27,12 +28,8 @@ import "server-only"
  *  THE ONE PART TO REWIRE WHEN CONTACTS LANDS
  * ---------------------------------------------------------------------------
  * `lookupContacts` is the only function that knows what a contact id is.
- * Until the Contacts builder's server helper exists it reads the ids as
- * subscribers.id, because that is the only "person" table Emails has, and
- * ids it does not find are reported as unknown. Once lib/contacts/server.ts
- * exports its helper (contactsForEmail(creatorId, ids) giving each person's
- * address and marketing eligibility), `lookupContacts` maps that answer to
- * ContactLookup and nothing else changes: the eligible addresses are still
+ * It hands the ids to lib/contacts/server.ts (round 51), which gives each
+ * person's address and marketing eligibility as ContactLookup. After that: the eligible addresses are still
  * matched to a subscribed, active subscribers row of this creator (campaigns
  * are sent to subscriber rows), and anyone without one is no_consent.
  */
@@ -43,7 +40,6 @@ type Db = any
 /** At most this many people in one ?contacts= list (the shared round 51 contract). */
 export const MAX_PICKED = 200
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export type Eligibility = "eligible" | "unsubscribed" | "suppressed" | "no_consent"
 export type LeftOutReason = Exclude<Eligibility, "eligible"> | "unknown"
@@ -102,25 +98,12 @@ function subscriberEligibility(row: { status?: string | null; is_active?: boolea
 }
 
 /**
- * BEFORE CONTACTS IS MERGED: a contact id is a subscribers.id of this
- * creator. Rewire this one function to lib/contacts/server.ts (see above).
+ * A contact id is a Contacts id (`<letter>_<uuid>`, lib/contacts/identity),
+ * resolved by Contacts' own helper: this creator's people only, each with
+ * their address and the campaign eligibility rule. Ids of another creator
+ * or of nobody are left out, and count as unknown below.
  */
-export const lookupContacts: LookupContacts = async (db, creatorId, ids) => {
-  const wanted = ids.filter((id) => UUID.test(id))
-  const out: ContactLookup[] = []
-  for (let i = 0; i < wanted.length; i += 200) {
-    const { data, error } = await db
-      .from("subscribers")
-      .select("id, email, name, status, is_active")
-      .eq("creator_id", creatorId)
-      .in("id", wanted.slice(i, i + 200))
-    if (error) throw new Error("contacts")
-    for (const r of (data ?? []) as Array<{ id: string; email: string | null; name: string | null; status: string | null; is_active: boolean | null }>) {
-      out.push({ contactId: r.id, email: r.email, name: r.name, marketing: subscriberEligibility(r) })
-    }
-  }
-  return out
-}
+export const lookupContacts: LookupContacts = (db, creatorId, ids) => lookupContactsFromContacts(db, creatorId, ids)
 
 const norm = (e: string | null | undefined) => (typeof e === "string" ? e.trim().toLowerCase() : "")
 
