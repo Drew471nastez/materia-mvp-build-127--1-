@@ -18,6 +18,9 @@
  *   MARKER    the page's release marker is the live rows' count, the same
  *             for the rows and for the release written from them, so a page
  *             drawn in the seconds before the release is never reloaded
+ *   POINTER   once the release is pointed at, only the pointer is let go,
+ *             so servers draw from the release's shared files rather than
+ *             reading every theme file from the database for an hour
  *   WARM      a Publish draws its pages as a browser opens them, for the
  *             publisher's country first, right after the caches are cleared
  *
@@ -254,6 +257,31 @@ async function marker() {
   const counted = (await visit(() => liveSiteFor(SITE.creatorId))).value
   check("without a count (part 180's row as an older database has it): the release's marker, as before", counted?.marker === liveMarker(SITE.installId, "e1111111-1111-4111-8111-11111111aaaa"), counted)
   check("never either id, and the shape the page's script accepts", /^[0-9a-f]{16}$/.test(edited?.marker ?? "") && !String(edited?.marker).includes(SITE.installId.slice(0, 8)))
+
+  section("POINTER: the release, once pointed at, is drawn from on every server without a second cold start")
+  const { livePointer, releasePointed, releasePointerTag } = await import("@/lib/website-builder/site-releases-server")
+  const { creatorSiteTag } = await import("@/lib/website-builder/published-site")
+  const { siteStamp } = await import("@/lib/website-builder/site-stamp")
+  nextCache.resetCache()
+  resetReleasesMissing()
+  t.site_live_releases = [{ install_id: SITE.installId, release_id: null, rev: 9 }]
+  const tags = [creatorSiteTag(SITE.creatorId)]
+  /* Read in the seconds between the Publish and its release: no release yet. */
+  const early = (await visit(() => livePointer(SITE.creatorId, tags))).value
+  const markEarly = (await visit(() => liveSiteFor(SITE.creatorId))).value
+  const stampEarly = await siteStamp(SITE.creatorId)
+  check("between the Publish and its release: drawn from the rows", early === null)
+  t.site_live_releases[0].release_id = "e1111111-1111-4111-8111-11111111cccc"
+  const stillHeld = (await visit(() => livePointer(SITE.creatorId, tags))).value
+  check("  which every server would have kept for the pointer's hour", stillHeld === null)
+  releasePointed(SITE.creatorId)
+  const pointed = (await visit(() => livePointer(SITE.creatorId, tags))).value
+  await settle()
+  check("the release pointed at: the next draw reads it", pointed?.releaseId === "e1111111-1111-4111-8111-11111111cccc", pointed)
+  check("  under its own tag beside the site's", nextCache.revalidatedTags.some((r) => r.tag === releasePointerTag(SITE.creatorId)))
+  const markAfter = (await visit(() => liveSiteFor(SITE.creatorId))).value
+  check("  the page's marker is unchanged, so no page in a browser reloads for it", markAfter?.marker === markEarly?.marker, { markEarly, markAfter })
+  check("  and the held pages are kept: the site's stamp did not move", (await siteStamp(SITE.creatorId)) === stampEarly)
 }
 
 async function warm() {
@@ -296,8 +324,9 @@ async function warm() {
 function sources() {
   section("The rest, where it is decided")
   const compat = code("lib/website-builder/compat-site.ts")
-  const kept = compat.slice(compat.indexOf("async function liveFilesKept"))
-  check("a theme's files from the copy every server keeps before the database", kept.indexOf("sharedFiles(SHARED_FILES") > 0 && kept.indexOf("sharedFiles(SHARED_FILES") < kept.indexOf("installFiles(admin"))
+  const publish = code("app/api/website-builder/themes/[installId]/publish/route.ts")
+  const recorded = publish.indexOf("const kept = await recordRelease(admin, { installId, creatorId })")
+  check("once Publish's release is pointed at, only the pointer is let go", publish.indexOf("releasePointed(creatorId)") > recorded && /if \(\(kept as \{ live\?: boolean \}\)\.live\) releasePointed\(creatorId\)/.test(publish))
   check("the site from memory only for the live site, never a preview", /const known = previewToken !== null \? null :/.test(compat) && /siteMemo\.get\(memoKey, known\.stamp\)/.test(compat))
   const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
   check("the held page asks the stamp beside the name, and hands both to its draw", /const creator = await nameAndStamp\(username\)/.test(route) && /askedFor\.set\(req, creator\)/.test(route) && /compatSiteByName\(username, host, token, token \? undefined :/.test(route))

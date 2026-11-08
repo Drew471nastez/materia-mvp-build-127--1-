@@ -215,18 +215,6 @@ function liveFiles(admin: Admin, installId: string, key: string, tags: string[])
 */
 const SHARED_FILES = "compat-files:v1"
 async function liveFilesKept(admin: Admin, installId: string, key: string, tags: string[]): Promise<Record<string, string>> {
-  /*
-    THE COPY FIRST, THEN THE DATABASE (round AM). Right after a Publish every
-    server is new to the publish (its key names it), so each one read every
-    file of the theme from the database at once, a few megabytes each, at
-    the moment the site's visitors were all waiting on it. The first server
-    to read them keeps them here; every other server takes them from the
-    copy. It is the same publish's files (the key), dropped by any change to
-    the live site (its tags), so it is never older than this server's own
-    copy in memory would be.
-  */
-  const shared = await sharedFiles(SHARED_FILES, [key], tags)
-  if (shared) return shared
   try {
     const files = await installFiles(admin, installId, false)
     await keepSharedFiles(SHARED_FILES, [key], tags, files)
