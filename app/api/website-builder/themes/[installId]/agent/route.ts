@@ -60,15 +60,13 @@ import { recentMessages } from "@/lib/website-builder/agent/memory"
 import { describeMemory, memoriesForSite, sameMemory, type MemoryDb } from "@/lib/ai-memory/store"
 import { durableFacts } from "@/lib/website-builder/agent/durable-facts"
 import { keepRunMemory, type KeptNote } from "@/lib/ai-memory/keep"
-import { getWebsiteShareUrl } from "@/lib/url-helpers"
 import { CodeJournal } from "@/lib/website-builder/agent/code-journal"
 import { resolveSelectedSection, SECTION_TYPE, type SectionOrigin } from "@/lib/website-builder/agent/selected-section"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { classifyIntent } from "@/lib/website-builder/agent/intent"
 import { importedSectionWrite } from "@/lib/website-builder/agent/imported-write"
 import { AGENT_LIMITS, loopDeadlineMs } from "@/lib/website-builder/agent/limits"
-import { storeCurrencyOf } from "@/lib/store/currency"
-import { readStoreCurrency } from "@/lib/store/selling-currency-read"
+import { readStoreFacts } from "@/lib/website-builder/agent/store-facts-server"
 import { visualCheck } from "@/lib/website-builder/agent/visual-check"
 import { describeComparison, MATCH_THRESHOLD } from "@/lib/website-builder/agent/reference-diff"
 import { schemaMapFor } from "@/lib/website-builder/agent/schemas"
@@ -791,124 +789,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
            * model as "not available" and the run carries on writing copy that
            * does not depend on it. Failing the edit over it would be worse.
            */
-          readStore: async () => {
-            try {
-              /**
-               * The product data API's fields (lib/website-builder/shop-products):
-               * ids and page addresses for a product picker and a buy button,
-               * sale prices, pay what you want, and the options below. Asked
-               * again with the basic columns when an older database does not
-               * have one of them, so the store is described either way.
-               */
-              const productQuery = (cols: string) =>
-                supabase
-                  .from("products")
-                  .select(cols, { count: "exact" })
-                  .eq("creator_id", (creator as { id: string }).id)
-                  .order("created_at", { ascending: false })
-                  .limit(30)
-              const [{ data: profile }, first] = await Promise.all([
-                supabase
-                  .from("creators")
-                  .select("slug, store_published")
-                  .eq("id", (creator as { id: string }).id)
-                  .maybeSingle(),
-                productQuery("id, title, type, slug, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, status"),
-              ])
-              const { data: rows, count } = first.error ? await productQuery("id, title, type, slug, price_cents, status") : first
-
-              type Row = {
-                id: string
-                title: string
-                type: string
-                slug?: string | null
-                price_cents: number
-                compare_at_cents?: number | null
-                pay_what_you_want?: boolean | null
-                pwyw_min_price_cents?: number | null
-                status: string
-              }
-              const list = (rows as unknown as Row[] | null) ?? []
-              /* The options each product is bought as, read the same way; none if they will not load. */
-              let options: { product_id: string; name: string | null; price_cents: number | null }[] = []
-              if (list.length) {
-                const { data: variantRows } = await supabase
-                  .from("product_variants")
-                  .select("product_id, name, price_cents, position")
-                  .in("product_id", list.map((p) => p.id))
-                  .order("position", { ascending: true })
-                options = (variantRows as typeof options | null) ?? []
-              }
-              const products = list.map((p) => ({
-                id: p.id,
-                title: p.title,
-                type: p.type,
-                priceCents: p.pay_what_you_want ? p.pwyw_min_price_cents ?? 0 : p.price_cents,
-                payWhatYouWant: p.pay_what_you_want === true,
-                compareAtCents: p.compare_at_cents ?? null,
-                url: p.slug ? `/products/${p.slug}` : undefined,
-                published: p.status === "published",
-                options: options
-                  .filter((o) => o.product_id === p.id)
-                  .map((o) => ({ name: o.name ?? "Option", priceCents: o.price_cents ?? 0 })),
-              }))
-
-              /* The creator's collections, for a collection picker; none when the table is not there. */
-              const { data: collectionRows } = await supabase
-                .from("product_collections")
-                .select("id, title, slug, published")
-                .eq("creator_id", (creator as { id: string }).id)
-                .order("created_at", { ascending: false })
-                .limit(30)
-              const collections = ((collectionRows as { id: string; title: string; slug: string; published: boolean }[] | null) ?? []).map((c) => ({ id: c.id, title: c.title, handle: c.slug, published: c.published === true }))
-
-              /*
-                THE CURRENCY AND WHAT BUYERS SAID (round Z3), each read on its own so a database without the column or the
-                table still describes the store: prices were always said to be US dollars, and a testimonials section had no
-                real people to quote. The currency is the store's selling currency (Settings, the one checkout charges in). The reviews are the ones the site shows, through the creator's own client.
-              */
-              const [currencyRow, reviewRows] = await Promise.all([
-                readStoreCurrency(supabase, (creator as { id: string }).id),
-                supabase
-                  .from("reviews")
-                  .select("rating, content, reviewer_name, product_id")
-                  .eq("creator_id", (creator as { id: string }).id)
-                  .eq("status", "published")
-                  .eq("site_status", "shown")
-                  .order("created_at", { ascending: false })
-                  .limit(40),
-              ])
-              const currency = storeCurrencyOf(currencyRow.currency)
-              const shown = reviewRows.error ? [] : ((reviewRows.data ?? []) as { rating: number | null; content: string | null; reviewer_name: string | null; product_id: string | null }[])
-              const rated = shown.filter((r) => typeof r.rating === "number")
-              const titleOf = new Map(list.map((p) => [p.id, p.title]))
-              const reviews = reviewRows.error
-                ? undefined
-                : {
-                    count: shown.length,
-                    average: rated.length ? rated.reduce((sum, r) => sum + (r.rating as number), 0) / rated.length : null,
-                    quotes: shown
-                      .filter((r) => (r.content ?? "").trim().length >= 12 && (r.rating ?? 0) >= 4)
-                      .slice(0, 6)
-                      .map((r) => ({ name: (r.reviewer_name ?? "").trim() || "A buyer", rating: r.rating ?? 5, text: (r.content ?? "").trim(), product: (r.product_id && titleOf.get(r.product_id)) || undefined })),
-                  }
-
-              const slug = (profile as { slug?: string } | null)?.slug ?? null
-              return {
-                currency,
-                reviews,
-                collections,
-                storeName: slug ?? "this store",
-                live: (profile as { store_published?: boolean } | null)?.store_published === true,
-                totalProducts: count ?? products.length,
-                publishedProducts: products.filter((p) => p.published).length,
-                products,
-                address: slug ? getWebsiteShareUrl(slug) : null,
-              }
-            } catch {
-              return null
-            }
-          },
+          /* lib/website-builder/agent/store-facts-server.ts, shared with Start with AI's capability manifest. */
+          readStore: () => readStoreFacts(supabase, (creator as { id: string }).id),
           /*
             THE SITE'S OTHER PAGES, through the creator's own client: a request for a whole site builds the shop, the product
             page, About, Contact and the rest as drafts (lib/website-builder/agent/page-builder-server.ts). Not in a locked edit.

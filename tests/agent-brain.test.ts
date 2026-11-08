@@ -593,7 +593,9 @@ async function main() {
     check("the conversation is read before this request is recorded, so it is never in its own history", route.indexOf("await recentMessages(") > 0 && route.indexOf("await recentMessages(") < route.indexOf("await startThemeExchange("))
     check("through the creator's own client", /recentMessages\(supabase as never, installId, conversationId\)/.test(route))
     check("and handed to the agent", /\n\s*history,\n/.test(route))
-    check("the store is read through the creator's own client, with options, and an older database still answers", /\.from\("product_variants"\)/.test(route) && /first\.error \? await productQuery\(/.test(route) && !/createAdminClient/.test(route))
+    /* The read moved to lib/website-builder/agent/store-facts-server.ts (shared with Start with AI); the route hands it its own client. */
+    const facts = read("lib/website-builder/agent/store-facts-server.ts")
+    check("the store is read through the creator's own client, with options, and an older database still answers", /readStoreFacts\(supabase, /.test(route) && /\.from\("product_variants"\)/.test(facts) && /first\.error \? await productQuery\(/.test(facts) && !/createAdminClient/.test(facts) && !/createAdminClient/.test(route))
     check("no em dash in what the route says to a creator", !/"[^"\n]*—[^"\n]*"/.test(route))
   }
 
