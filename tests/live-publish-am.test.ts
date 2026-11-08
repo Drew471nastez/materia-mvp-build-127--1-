@@ -321,6 +321,74 @@ async function warm() {
   check("putting a published version back draws its pages too", restore.indexOf("warmAfterPublish(creatorId") > restore.indexOf("await revalidatePublishedSite(creator.id)"))
 }
 
+async function backForward() {
+  section("RELOADS: a shared page shown from a prerender or Back waits for the visitor's own part before it compares the cart")
+  const { shopifyBootstrap } = await import("@/lib/storelib-theme/compat/shims")
+  const { runInNewContext } = await import("node:vm")
+  const head = shopifyBootstrap({ shopName: "Maya", currency: "USD", designMode: false, cartCount: 0 })
+  const start = head.indexOf("if(!EDITING){var cartCheck=")
+  const end = head.indexOf("if(!EDITING){var vt=")
+  check("the check is in the page's head script", start > 0 && end > start)
+  const snippet = head.slice(start, end)
+  const run = (o: { filling: boolean; atDraw?: number; cart: number }) => {
+    const out = { reloads: 0, asked: 0 }
+    const doc: Record<string, unknown> = {}
+    const docListeners = new Map<string, () => void>()
+    const winListeners = new Map<string, (e: unknown) => void>()
+    const timers: (() => void)[] = []
+    const S: Record<string, unknown> = o.filling ? { storelibFilling: 1 } : {}
+    if (o.atDraw !== undefined) S.storelibCartAtDraw = o.atDraw
+    doc.prerendering = true
+    doc.addEventListener = (t: string, f: () => void) => docListeners.set(t, f)
+    const ctx = {
+      EDITING: false,
+      CART_AT_DRAW: 0,
+      S,
+      document: doc,
+      window: { addEventListener: (t: string, f: (e: unknown) => void) => winListeners.set(t, f) },
+      location: { reload: () => out.reloads++ },
+      setTimeout: (f: () => void) => (timers.push(f), timers.length),
+      clearTimeout: (n: number) => (timers[n - 1] = () => {}),
+      fetch: async () => {
+        out.asked++
+        return { ok: true, json: async () => ({ item_count: o.cart }) }
+      },
+    }
+    runInNewContext(snippet, ctx)
+    return { out, S, fire: (t: string) => docListeners.get(t)?.(), back: () => winListeners.get("pageshow")?.({ persisted: true }), timers }
+  }
+  const tick = () => new Promise((r) => setTimeout(r, 5))
+  /* A visitor with two things in the cart shows a prerendered page before its own part came. */
+  const early = run({ filling: true, cart: 2 })
+  early.fire("prerenderingchange")
+  await tick()
+  check("shown before the visitor's own part came: no reload, and the cart not compared yet", early.out.reloads === 0 && early.out.asked === 0, early.out)
+  early.S.storelibCartAtDraw = 2
+  early.fire("storelib:personal")
+  await tick()
+  check("  once it came with the same count: compared, and no reload", early.out.asked === 1 && early.out.reloads === 0, early.out)
+  const changed = run({ filling: true, cart: 3 })
+  changed.fire("prerenderingchange")
+  changed.S.storelibCartAtDraw = 2
+  changed.fire("storelib:personal")
+  await tick()
+  check("the cart changed after the page was drawn: it loads itself again, once", changed.out.reloads === 1, changed.out)
+  const never = run({ filling: true, cart: 2 })
+  never.fire("prerenderingchange")
+  never.timers.forEach((f) => f())
+  await tick()
+  check("the visitor's part never came: compared after four seconds at most", never.out.asked === 1)
+  const stranger = run({ filling: false, cart: 0 })
+  stranger.back()
+  await tick()
+  check("a stranger brought back by Back: compared at once, nothing to reload", stranger.out.asked === 1 && stranger.out.reloads === 0)
+  const owner = run({ filling: true, atDraw: 1, cart: 1 })
+  owner.back()
+  await tick()
+  check("a page whose part already came, brought back by Back: compared at once", owner.out.asked === 1 && owner.out.reloads === 0)
+  check("the fill says it is under way", /S\.storelibFilling=1;/.test(read("lib/storelib-theme/compat/personal-fill.ts")))
+}
+
 function sources() {
   section("The rest, where it is decided")
   const compat = code("lib/website-builder/compat-site.ts")
@@ -339,6 +407,7 @@ async function main() {
   await site()
   await marker()
   await warm()
+  await backForward()
   sources()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
