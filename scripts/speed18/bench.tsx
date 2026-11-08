@@ -472,7 +472,71 @@ async function measure(s: Scenario) {
   return out
 }
 
+/*
+  A PUBLISH, AS A VISITOR SEES IT (round AM). One server, the imported
+  theme's front page: the first visitor after boot, the next one (held), a
+  page nobody opened yet on the now warm server, then a Publish (the real
+  revalidatePublishedSite, with a new published_at as Publish writes) and
+  the visitors after it. CACHE_RTT is what each answer from the shared data
+  cache costs (on Vercel a request to it; 0 in memory here otherwise).
+  Each step says its time, its database round trips and the page's own
+  Server-Timing.
+*/
+async function compatTimed(path: string) {
+  const { sealSite } = await import("@/lib/storelib-theme/compat/site-seal")
+  const { strangerMarker } = await import("@/lib/storelib-theme/compat/anonymous-cache")
+  const route = await import("@/app/api/site-theme/site/[username]/[[...path]]/route")
+  const { NextRequest } = await import("next/server")
+  const host = "maya.storelib.com"
+  const marker = strangerMarker({ host, country: "US", locale: null, market: null })!
+  const segs = [marker, ...path.split("/").filter(Boolean)]
+  const headers: Record<string, string> = { host, "x-forwarded-host": host, accept: "text/html", "sec-fetch-dest": "document", "x-storelib-site-country": "US", "user-agent": "Mozilla/5.0 (iPhone)" }
+  const seal = await sealSite(SITE.username, host)
+  if (seal) headers["x-storelib-theme-site"] = seal
+  const res = (await route.GET(new NextRequest(`https://${host}/api/site-theme/site/${SITE.username}/${segs.join("/")}`, { headers }), { params: Promise.resolve({ username: SITE.username, path: segs }) })) as Response
+  const body = await res.text()
+  return { status: res.status, held: res.headers.get("x-storelib-held"), timing: res.headers.get("server-timing"), bytes: body.length, theme: /PUBLISHED-AGAIN/.test(body) ? "new" : "old" }
+}
+
+async function publishFlow() {
+  const { revalidatePublishedSite } = await import("@/lib/website-builder/published-site")
+  const f = buildFixture()
+  compatFixture(f)
+  f.tables.custom_domains = f.tables.custom_domains.filter((r) => r.creator_id !== SITE.creatorId)
+  useFixture(f)
+  await import("@/app/api/site-theme/site/[username]/[[...path]]/route")
+  resetCache()
+  const rtt = Number(process.env.RTT ?? 20)
+  setRtt(rtt)
+  const steps: { step: string; ms: number; trips: number; tables: string; held: string | null; timing: string | null; theme: string }[] = []
+  const step = async (label: string, path: string) => {
+    clock.advance(1_000)
+    const r = await visit(() => compatTimed(path))
+    await Promise.allSettled(pending.splice(0))
+    const v = r.value as Awaited<ReturnType<typeof compatTimed>> | undefined
+    steps.push({ step: label, ms: Math.round(r.ms), trips: r.trips.filter((t) => !t.background).length, tables: r.trips.filter((t) => !t.background).map((t) => t.table).join(" "), held: v?.held ?? null, timing: v?.timing ?? (r.error ? String((r.error as Error).message ?? r.error).slice(0, 80) : null), theme: v?.theme ?? "?" })
+  }
+  await step("first visitor after boot", "/")
+  await step("second visitor (held)", "/")
+  await step("third visitor (held)", "/")
+  await step("a page nobody opened yet, warm server", "/collections/maya-best")
+  /* Publish: the live rows change (a new heading on the front page), published_at moves on, the caches are told. */
+  const install = f.tables.store_theme_installs.find((r) => r.id === SITE.installId) as Record<string, unknown>
+  install.published_at = new Date(clock.now()).toISOString()
+  const files = f.tables.store_theme_custom_files as { path: string; content: string }[]
+  const layout = files.find((r) => /(^|\/)layout\/theme(\.liquid)?$/.test(r.path)) ?? files.find((r) => /layout/.test(r.path))
+  if (layout) layout.content = layout.content.replace(/<\/body>/i, "<span hidden>PUBLISHED-AGAIN</span></body>")
+  if (process.env.FLOW_DEBUG) console.error("layout", files.slice(0, 5).map((r) => r.path).join(" "), layout?.path, layout?.content.includes("PUBLISHED-AGAIN"), install.published_at)
+  await visit(() => revalidatePublishedSite(SITE.creatorId))
+  await Promise.allSettled(pending.splice(0))
+  await step("first visitor after Publish", "/")
+  await step("second visitor after Publish", "/")
+  await step("another page after Publish", "/collections/maya-best")
+  console.log(JSON.stringify({ flow: steps }))
+}
+
 async function main() {
+  if (process.env.PUBLISH_FLOW) return publishFlow()
   if (process.env.SPEED18_LIST) {
     console.log(JSON.stringify({ names: scenarios.map((s) => s.name) }))
     return
