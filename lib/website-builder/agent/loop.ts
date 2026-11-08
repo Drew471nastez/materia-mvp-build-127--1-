@@ -2631,11 +2631,10 @@ export async function* themeAgent(
           every setting and block, and Show brings it back. The model is told, so the reply says it was hidden.
         */
         const keepInstead = removalGuard(call.name, call.argumentsJson, intent, input.state)
-        const executed = execute(keepInstead ? "set_section_visibility" : call.name, keepInstead ?? call.argumentsJson, state, newId, locked, schemas, follow?.scoped && !input.lockToSelection ? "follow-up" : "lock", themeGroupsNow())
-        const { op, failed: refused } = executed
+        const { output: said, op, failed: refused } = execute(keepInstead ? "set_section_visibility" : call.name, keepInstead ?? call.argumentsJson, state, newId, locked, schemas, follow?.scoped && !input.lockToSelection ? "follow-up" : "lock", themeGroupsNow())
         const output = keepInstead && op
-          ? `HIDDEN, NOT REMOVED: the creator did not ask for anything to be removed, so their section stays on the page, hidden, and can be shown again. ${executed.output} Say in your reply that it is hidden. Only remove it if they ask.`
-          : executed.output
+          ? `HIDDEN, NOT REMOVED: the creator did not ask for anything to be removed, so their section stays on the page, hidden, and can be shown again. ${said} Say in your reply that it is hidden. Only remove it if they ask.`
+          : said
         if (readKey && !refused) reads.set(readKey, output)
         if (op) {
           /* What was read of this section is no longer what it holds. */

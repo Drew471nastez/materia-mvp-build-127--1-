@@ -196,7 +196,7 @@ async function main() {
     check("a model that does not take effort is sent none (Haiku 4.5)", !("output_config" in sent[4]), sent[4])
     check("nor one whose Models API says medium is not supported", !("output_config" in sent[5]), sent[5])
     check("the catalogue agrees: effort on the four and the 4.6+ family, not Haiku 4.5 or Sonnet 4.5", ENGINES.every((e) => effortSupported(e.model)) && !effortSupported("claude-haiku-4-5") && !effortSupported("claude-sonnet-4-5") && effortSupported("claude-opus-4-6"))
-    check("Opus 5.5, Sonnet 5.5 and Opus 4.8 think adaptively; nothing sends a thinking budget", [0, 1, 3].every((i) => JSON.stringify(sent[i].thinking) === JSON.stringify({ type: "adaptive" })) && sent.every((b) => !JSON.stringify(b.thinking ?? {}).includes("budget_tokens")))
+    check("Opus 5.5, Sonnet 5.5 and Opus 4.8 think adaptively; nothing sends a thinking budget", [0, 1, 3].every((i) => JSON.stringify(sent[i].thinking) === JSON.stringify({ type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } })) /* changed on purpose (w5 aifix): a mismatched replayed block is dropped, not a 400 */ && sent.every((b) => !JSON.stringify(b.thinking ?? {}).includes("budget_tokens")))
     check("no sampling parameters, which the 5.5 models refuse", sent.every((b) => !("temperature" in b) && !("top_p" in b) && !("top_k" in b)))
     const agent = read("app/api/website-builder/themes/[installId]/agent/route.ts")
     const writer = read("app/api/website-builder/themes/[installId]/sections/code/route.ts")
