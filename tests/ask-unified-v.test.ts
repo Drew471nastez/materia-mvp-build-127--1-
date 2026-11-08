@@ -157,7 +157,8 @@ async function main() {
     check("named as Anthropic names them", ENGINES.map((e) => e.label).join(",") === "Claude Opus 5.5,Claude Sonnet 5.5,Claude Haiku 5.5,Claude Opus 4.8")
     check("Haiku is Haiku 5.5, the current Haiku, by its exact id", ENGINES[2].model === "claude-haiku-5-5" && !ENGINES.some((e) => /haiku-4/.test(e.model)))
     check("all Claude, no ChatGPT model", ENGINES.every((e) => e.provider === "anthropic"))
-    check("Opus 5.5 by default, for page work and code alike", DEFAULT_ENGINE === "claude-opus-5-5" && engineFromSaved(undefined) === "claude-opus-5-5")
+    /* Changed on purpose (w5 aifix): Auto by default (Opus 5.5 for page work and code, Sonnet 5.5 for a small edit; lib/website-builder/ask-engines.ts autoModel). */
+    check("Auto by default", DEFAULT_ENGINE === "auto" && engineFromSaved(undefined) === "auto")
     check("each has one line on what it is best for", ENGINES.every((e) => /^Best for /.test(e.detail) && e.detail.length <= 48 && !/—/.test(e.detail)), ENGINES.map((e) => e.detail))
     check("ids are exactly as given, never date suffixed", ENGINES.every((e) => /^claude-(opus|sonnet|haiku)-\d-\d$/.test(e.model) && e.id === e.model))
     check("an older saved choice reads as the default", ["claude", "claude-opus", "openai", "openai-strong", "claude:claude-sonnet-5", 42, null].every((v) => engineFromSaved(v) === DEFAULT_ENGINE))
@@ -195,7 +196,7 @@ async function main() {
     check("a model that does not take effort is sent none (Haiku 4.5)", !("output_config" in sent[4]), sent[4])
     check("nor one whose Models API says medium is not supported", !("output_config" in sent[5]), sent[5])
     check("the catalogue agrees: effort on the four and the 4.6+ family, not Haiku 4.5 or Sonnet 4.5", ENGINES.every((e) => effortSupported(e.model)) && !effortSupported("claude-haiku-4-5") && !effortSupported("claude-sonnet-4-5") && effortSupported("claude-opus-4-6"))
-    check("Opus 5.5, Sonnet 5.5 and Opus 4.8 think adaptively; nothing sends a thinking budget", [0, 1, 3].every((i) => JSON.stringify(sent[i].thinking) === JSON.stringify({ type: "adaptive" })) && sent.every((b) => !JSON.stringify(b.thinking ?? {}).includes("budget_tokens")))
+    check("Opus 5.5, Sonnet 5.5 and Opus 4.8 think adaptively; nothing sends a thinking budget", [0, 1, 3].every((i) => JSON.stringify(sent[i].thinking) === JSON.stringify({ type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } })) /* changed on purpose (w5 aifix): a mismatched replayed block is dropped, not a 400 */ && sent.every((b) => !JSON.stringify(b.thinking ?? {}).includes("budget_tokens")))
     check("no sampling parameters, which the 5.5 models refuse", sent.every((b) => !("temperature" in b) && !("top_p" in b) && !("top_k" in b)))
     const agent = read("app/api/website-builder/themes/[installId]/agent/route.ts")
     const writer = read("app/api/website-builder/themes/[installId]/sections/code/route.ts")

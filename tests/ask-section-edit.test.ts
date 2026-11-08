@@ -338,12 +338,14 @@ section("3. The run's code is kept together, or put back")
   check(
     "the route stages writes and saves them only when the run succeeded, and discards them otherwise",
     /journal\.stage\(path, source\)/.test(route) &&
-      /if \(result\.status === "succeeded"\) \{\s*\n\s*const committed = await journal\.commit\(/.test(route) &&
+      /* Changed on purpose (w5 aifix): the slow-save flag sits between the check and the commit. */
+      /if \(result\.status === "succeeded"\) \{\s*\n\s*let slowSave = false\s*\n\s*const committed = await journal\.commit\(/.test(route) &&
       /\} else \{\s*\n\s*journal\.discard\(\)/.test(route),
   )
   check(
     "a commit that failed is said in one plain sentence and the canvas reloads what is stored",
-    /result\.error = "The section's code could not be saved, so it is back to how it was\. Try again\."/.test(route) && /if \(result\.wroteCode \|\| codeLost\) send\(\{ type: "sources-changed" \}\)/.test(route),
+    /* Changed on purpose (w5 aifix): a commit lost to a slow database says to send it again (commit-retry SLOW_SAVE_MESSAGE). */
+    /result\.error = codeLostSlow \? SLOW_SAVE_MESSAGE : "The section's code could not be saved, so it is back to how it was\. Try again\."/.test(route) && /if \(result\.wroteCode \|\| codeLost\) send\(\{ type: "sources-changed" \}\)/.test(route),
   )
   const writer = read("app/api/website-builder/themes/[installId]/sections/code/route.ts")
   check(

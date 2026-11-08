@@ -593,7 +593,7 @@ export async function deleteThemeChat(installId: string, target: DeleteTarget, c
  * (lib/website-builder/ask-engines.ts), nothing else. The older ids stay so
  * an answer given on an earlier list can still be reported.
  */
-export const REPORTABLE_ENGINES = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-4-8", "openai", "openai-strong", "claude", "claude-opus"] as const
+export const REPORTABLE_ENGINES = ["auto", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-4-8", "openai", "openai-strong", "claude", "claude-opus"] as const
 
 export type ReportResult =
   | { ok: true }

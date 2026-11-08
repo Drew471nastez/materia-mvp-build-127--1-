@@ -100,7 +100,9 @@ export const WRAP_UP_NOTE =
   "NOTE FROM STORELIB: this run is close to this run's limit. Finish the change you are making now so nothing is left half done, then reply with your one closing sentence: what you changed, and what is still to do. The creator can press Continue and you will carry on from here."
 
 /** The closing words when the ceiling ended a part, said by the chat beside its Continue button. */
-export function stoppedSentence(workDone: boolean, reason: "budget" | "turns" | "interrupted" | "time" = "budget"): string {
+export function stoppedSentence(workDone: boolean, reason: "budget" | "turns" | "interrupted" | "time" | "cancelled" = "budget"): string {
+  /* Stopped by the person (Stop, or the tab closed): what was done is kept, and nothing carries on by itself. */
+  if (reason === "cancelled") return workDone ? "Stopped here. Everything changed so far is kept." : "Stopped. Nothing was changed."
   if (reason === "turns") return "Carrying on with the rest."
   /* The part's time ran out (./run-clock.ts): what is kept stays, and the next part starts by itself, from a checkpoint when nothing was kept. */
   if (reason === "time") return workDone ? "Carrying on with the rest." : "This one needs more than one pass, so I am carrying on from where I got to."

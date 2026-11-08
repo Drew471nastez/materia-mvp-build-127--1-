@@ -292,7 +292,7 @@ function noFaviconFetch() {
 function fonts() {
   section("A Storelib theme's fonts: Inter is not asked of Google again")
   check("a theme set to Inter asks Google for nothing", fontStylesheetHref({ font_heading: "Inter", font_body: "Inter" }) === null)
-  check("one with Lora and Inter asks for Lora alone", fontStylesheetHref({ font_heading: "Lora", font_body: "Inter" }) === "https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap")
+  check("one with Lora and Inter asks for Lora alone", fontStylesheetHref({ font_heading: "Lora", font_body: "Inter" }) === "https://fonts.googleapis.com/css2?family=Lora:wght@400..700&display=swap" /* changed on purpose (w5 aifix): Lora's own range */)
   check("a section that picks Inter adds nothing either", fontStylesheetHref({}, ["Inter"]) === null)
   const layout = code("app/(storelib)/layout.tsx")
   check("because the app's own Inter is on every page: next/font, preloaded, swap", /const inter = Inter\(\{[^}]*subsets: \["latin"\][^}]*display: "swap"[^}]*preload: true/.test(layout) && SELF_HOSTED_FAMILIES.has("Inter"))

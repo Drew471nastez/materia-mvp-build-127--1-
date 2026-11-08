@@ -19,6 +19,7 @@
 import "server-only"
 
 import type { Intent } from "./intent"
+import { legacyStatus } from "./run-ledger-status"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -45,7 +46,7 @@ export function runRow(r: RunRecord): Record<string, unknown> {
     install_id: r.installId,
     creator_id: r.creatorId,
     page_key: r.pageKey.slice(0, 64),
-    status: r.status === "succeeded" || r.status === "refused" ? r.status : "failed",
+    status: ["succeeded", "partial", "stopped", "refused"].includes(r.status) ? r.status : "failed",
     intent_kind: r.intent?.kind ?? null,
     intent_flags: r.intent
       ? {
@@ -72,7 +73,12 @@ export function runRow(r: RunRecord): Record<string, unknown> {
 
 export async function recordRun(db: Db, r: RunRecord): Promise<void> {
   try {
-    const { error } = await db.from("storelib_ai_runs").insert(runRow(r))
+    const row = runRow(r)
+    let { error } = await db.from("storelib_ai_runs").insert(row)
+    /* A database without supabase/sql/RUN_STORELIB_AI_RUN_STATUS.sql refuses "partial" and "stopped": kept as before. */
+    if (error && (error.code === "23514" || /check constraint/i.test(String(error.message ?? ""))) && row.status !== legacyStatus(String(row.status))) {
+      ;({ error } = await db.from("storelib_ai_runs").insert({ ...row, status: legacyStatus(String(row.status)) }))
+    }
     if (error) console.info("[storelib ai] run not recorded", String(error.message ?? error).slice(0, 200))
   } catch (e) {
     console.info("[storelib ai] run not recorded", e instanceof Error ? e.message.slice(0, 200) : "unknown")

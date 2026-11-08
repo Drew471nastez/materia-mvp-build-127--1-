@@ -58,8 +58,9 @@ async function main() {
     assert.deepEqual(ENGINES.map((e) => e.model), ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-4-8"])
     assert.ok(ENGINES.every((engine) => engine.provider === "anthropic"))
     assert.equal(engineFromSaved("claude-haiku-5-5"), "claude-haiku-5-5")
-    assert.equal(engineFromSaved("claude:claude-haiku-4-5"), "claude-opus-5-5")
-    assert.equal(engineFromSaved("claude:https://attacker.invalid"), "claude-opus-5-5")
+    /* Changed on purpose (w5 aifix): an unknown saved choice reads as Auto, the default. */
+    assert.equal(engineFromSaved("claude:claude-haiku-4-5"), "auto")
+    assert.equal(engineFromSaved("claude:https://attacker.invalid"), "auto")
 
     const sent: Record<string, any>[] = []
     const transport = { messages: { stream(body: Record<string, any>) {
@@ -73,7 +74,8 @@ async function main() {
       assert.equal(result.usage.inputTokens, 32, "cached and uncached Anthropic usage must be summed")
     }
     assert.equal(sent[0].max_tokens, 16000)
-    assert.deepEqual(sent[0].thinking, { type: "adaptive" })
+    /* Changed on purpose (w5 aifix): a mismatched replayed thinking block is dropped rather than failing the request. */
+    assert.deepEqual(sent[0].thinking, { type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } })
     assert.equal(sent[0].output_config.effort, "medium")
     assert.equal(sent[1].max_tokens, 8000)
     assert.ok(!("thinking" in sent[1]) && !("output_config" in sent[1]), "Haiku must not receive unsupported reasoning parameters")

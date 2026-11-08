@@ -273,7 +273,13 @@ export interface ThemeAgentResult {
   /** Other pages of the site written as drafts in this run (build_page). */
   pages?: { key: string; title: string; created: boolean }[]
   /** The run ended at a ceiling rather than by finishing (./limits.ts): its work is kept and it can be continued. */
-  stopped?: "budget" | "turns" | "interrupted" | "time" | null
+  stopped?: "budget" | "turns" | "interrupted" | "time" | "cancelled" | null
+  /**
+   * PARTLY DONE, said honestly: the run changed things but ended with checks
+   * still failing (`unresolved`). The route reports it as "partial", never as
+   * a plain success.
+   */
+  partial?: boolean
   /** The reply's first line, from what was changed: "Edited: Hero", "Added: Testimonials, after Hero" (./targeting.ts). */
   headline?: string
   /** A part the clock stopped before it kept anything: what the next part starts from (./run-clock.ts). */
@@ -321,7 +327,7 @@ Rules:
 - WHEN THE ASK IS TO BUILD, DESIGN OR MAKE SOMETHING GOOD, the standard is a section a designer would ship, and it takes ten to twenty operations. Adding the section is the first of them, not the job:
     1. A built-in type that draws what the design wants: read_section_type, then add_section. Anything else (its own layout or interaction, a product or collection page, filters, a cart drawer, a mega menu, a header): create_section. Your own section is normal, not a last resort.
     2. Place it.
-    3. Write ALL of its content. A section that takes blocks needs them FULL — a pricing table with three named tiers, each with its price, its feature list and its button; an FAQ with six real questions and real answers; testimonials with named people; a feature grid with every cell filled. Half-filled is the single most common way this comes out looking cheap.
+    3. Write ALL of its content. A section that takes blocks needs them FULL — a pricing table whose tiers are the store's real products or plans at their real prices (read_store); an FAQ with six real questions and real answers; testimonials that are the store's real reviews (read_store), names as given; a feature grid with every cell filled. NEVER INVENT PROOF OR PRICES: no made-up customer, quote, rating, statistic, logo or price. None real: leave the proof out, or if asked for, add it HIDDEN with placeholders saying what goes there ("Add a customer's quote here") and say it waits for theirs. Half-filled is the single most common way this comes out looking cheap.
     4. Set the controls that make it look designed: heading and subheading, the layout or style option, the columns, the padding, the colours that match this page.
     5. Read it back with read_section and ask yourself whether you would ship it. If a field is empty that should not be, fill it.
 - A WHOLE PAGE IS AN ORDER, NOT A PILE. When the ask is a landing page, a home page or a whole site, decide the running order first and build it in that order: what it is and who it is for, then the proof, then what they get, then what it costs, then the questions, then the ask. Five or six sections, each finished before you start the next, alternating background against the one above it so the page has a rhythm. One long section is not a page, and six sections that each shout is not a page either.
@@ -338,7 +344,7 @@ Rules:
 
 WORKED EXAMPLES, request then the calls that do it:
 - "Create a page for my shipping FAQ": list_pages; build_page (page "shipping-faq", a FAQ section with six real questions as blocks); edit_menu to link /pages/shipping-faq in main-menu; reply with its address.
-- "Add a testimonials section": read_section_type; add_section after the section it belongs beside; three add_block with named people and real quotes; update_section for heading and colour scheme.
+- "Add a testimonials section": the STORE's reviews (or read_store); read_section_type; add_section beside the section it belongs with; one add_block per real review, its words and name as given; update_section for heading and colour scheme. No reviews: hidden, with placeholders.
 - "Add a section with a countdown to our launch" (no built-in draws it): read_section_code on a close built-in for its setting ids; create_section with its own markup, CSS, a script for the timer and a finished preset. On an imported theme the file has no script: the date is a setting and any motion is CSS.
 - "Rearrange this section's settings so the colours come first": read_section_code; one edit_section_code inside <schema> that moves the colour entries to the top under {"type": "header", "id": "hdr_colors", "label": "Colors"}. The page looks the same.
 - "Show my bestsellers here with their prices": the STORE (or read_store); the product section's source "chosen" with those products' ids. Never a typed price.
@@ -1153,7 +1159,7 @@ export async function* themeAgent(
   const limits = input.limits ?? AGENT_LIMITS
   const maxTurns = Math.min(input.maxTurns ?? MAX_TURNS, limits.maxTurns)
   /** Which ceiling ended this part of the work, if one did. */
-  let stopped: "budget" | "turns" | "interrupted" | "time" | null = null
+  let stopped: "budget" | "turns" | "interrupted" | "time" | "cancelled" | null = null
   /** The provider failed part way through, for a reason a moment's wait can fix: see the catch at the end of the loop. */
   let interrupted = false
   /** The model has been told a ceiling is close, once. */
@@ -1373,6 +1379,8 @@ export async function* themeAgent(
   const visual: { ran: number; findings: number; ms: number; score?: number } = { ran: 0, findings: 0, ms: 0 }
   /** Findings still standing when the review budget ran out, said in the reply rather than hidden. */
   let unresolved: string[] = []
+  /** Per page built with build_page, what its checks and review still found after its latest build. */
+  const pageFindings = new Map<string, string[]>()
 
   /**
    * WHAT THE RUN IS ABOUT, said plainly: "Editing Pricing" from the start
@@ -1462,6 +1470,8 @@ export async function* themeAgent(
           planTurns.push({ role: "user", content: "That was not the JSON object asked for. Answer with the one JSON object only, in the shape given." })
         }
       } catch (thrown) {
+        /* Stopped by the person while planning: the main loop below sees the signal and ends as "cancelled", cleanly. */
+        if (cancelledBy(signal)) break
         if (thrown instanceof Error && thrown.name === "AbortError") throw thrown
         /* Out of time while planning: the run stops with a checkpoint rather than ending on an error. */
         if (thrown instanceof OutOfTime) {
@@ -2154,6 +2164,12 @@ export async function* themeAgent(
           }
           const written = await input.pages.build({ page: args.page, title: args.title, replace: args.replace, sections }, schemas).catch(() => ({ ok: false as const, text: "The page could not be written just now. Nothing reached visitors. Say so in your reply." }))
           results.push({ id: call.id, output: written.text })
+          /* What the page's checks and review still found, by page: the latest build of a page is what stands (./review.ts reviewBuiltPage). */
+          if (written.ok && written.key) {
+            const left = (written as { findings?: string[] }).findings ?? []
+            if (left.length) pageFindings.set(written.key, left)
+            else pageFindings.delete(written.key)
+          }
           if (written.ok && written.key) {
             const page = { key: written.key, title: written.title ?? written.key, created: !!written.created }
             const at = pagesWritten.findIndex((p) => p.key === page.key)
@@ -2609,7 +2625,16 @@ export async function* themeAgent(
           if (said) yield said
         }
 
-        const { output, op, failed: refused } = execute(call.name, call.argumentsJson, state, newId, locked, schemas, follow?.scoped && !input.lockToSelection ? "follow-up" : "lock", themeGroupsNow())
+        /*
+          NOT REMOVED WITHOUT BEING ASKED (./intent.ts confirmRemovals). A section the creator already had, on a request
+          that never said to remove anything ("restyle", "redesign", "make it look ..."), is hidden instead: it keeps
+          every setting and block, and Show brings it back. The model is told, so the reply says it was hidden.
+        */
+        const keepInstead = removalGuard(call.name, call.argumentsJson, intent, input.state)
+        const { output: said, op, failed: refused } = execute(keepInstead ? "set_section_visibility" : call.name, keepInstead ?? call.argumentsJson, state, newId, locked, schemas, follow?.scoped && !input.lockToSelection ? "follow-up" : "lock", themeGroupsNow())
+        const output = keepInstead && op
+          ? `HIDDEN, NOT REMOVED: the creator did not ask for anything to be removed, so their section stays on the page, hidden, and can be shown again. ${said} Say in your reply that it is hidden. Only remove it if they ask.`
+          : said
         if (readKey && !refused) reads.set(readKey, output)
         if (op) {
           /* What was read of this section is no longer what it holds. */
@@ -2704,6 +2729,15 @@ export async function* themeAgent(
     if (thrown instanceof OutOfTime) {
       /* The clock, not a failure: what was kept stays, and the next part starts from here (the end of the run). */
       stopped = "time"
+    } else if (cancelledBy(signal)) {
+      /*
+        STOPPED BY THE PERSON (Stop, or the tab closed), NOT A FAILURE. Production logged "theme agent loop: error
+        Request was aborted." and the transcript read "The edit failed" for a run the creator ended themselves. What was
+        done is kept (the route still commits the code journal and pages are already drafts), and the reply says so.
+      */
+      stopped = "cancelled"
+      error = null
+      trace("cancelled", { ops: ops.length })
     } else {
     status = "failed"
     /* Never the provider's own words: they were "400 {"type":"error",...}" on screen once (lib/sites/agent/plain-errors). */
@@ -2754,6 +2788,10 @@ export async function* themeAgent(
       // "your FAQ already covers that" is a useful reply, not a failure.
       status = "succeeded"
       error = null
+    } else if (stopped === "cancelled") {
+      status = "succeeded"
+      error = null
+      message = "Stopped. Nothing was changed."
     } else if (stopped === "time") {
       /*
         OUT OF TIME HAVING KEPT NOTHING: not a failure. The next part starts
@@ -2810,7 +2848,16 @@ export async function* themeAgent(
       error = `Nothing was saved. ${[...refusedCode.keys()].map((p) => fileLabel(p.replace(/^sections\/|\.storelib$/g, ""))).join(" and ")} did not pass ${refusedCode.size > 1 ? "their" : "its"} checks: ${[...refusedCode.values()][0]}`
     }
   }
-  if (status === "succeeded" && unresolved.length && (ops.length > 0 || wroteCode) && (input.projectCheck || codeProblems.length)) {
+  /* Pages built this run that still have findings: reported like the open page's, never hidden (item: build_page review). */
+  for (const [key, left] of pageFindings) {
+    trace("page-unresolved", { key, findings: left.length })
+    for (const f of left.slice(0, 3)) {
+      const line = `On the ${key} page, ${f}`
+      if (!unresolved.includes(line)) unresolved.push(line)
+    }
+  }
+  const partial = status === "succeeded" && !asked && unresolved.length > 0 && (ops.length > 0 || wroteCode || pagesWritten.length > 0)
+  if (status === "succeeded" && unresolved.length && (ops.length > 0 || wroteCode || pagesWritten.length > 0) && (input.projectCheck || codeProblems.length || pageFindings.size)) {
     const first = unresolved[0].replace(/\s+/g, " ").split(/(?<=[.!?])\s/)[0].slice(0, 200)
     message = `${message ? `${message} ` : ""}One thing is still not right: ${first}${unresolved.length > 1 ? ` (and ${unresolved.length - 1} more)` : ""}`
   }
@@ -2885,7 +2932,9 @@ export async function* themeAgent(
     trace("checkpoint", { part: checkpoint.part, read: checkpoint.read.length, draft: !!checkpoint.draft })
     yield { type: "checkpoint", checkpoint }
   }
-  if (stopped && status === "succeeded" && !asked && (workDone || stopped === "budget" || stopped === "time")) {
+  if (stopped === "cancelled" && workDone && status === "succeeded") {
+    message = `${message ? `${message} ` : ""}${stoppedSentence(workDone, "cancelled")}`
+  } else if (stopped && stopped !== "cancelled" && status === "succeeded" && !asked && (workDone || stopped === "budget" || stopped === "time")) {
     message = `${message ? `${message} ` : ""}${stoppedSentence(workDone, stopped)}`
     yield { type: "continue", reason: stopped }
   }
@@ -2905,7 +2954,37 @@ export async function* themeAgent(
         })
       : ""
 
-  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered, rememberedSite, forgotten, pages: pagesWritten, stopped, ...(headline ? { headline } : {}), checkpoint }
+  return { status, partial, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered, rememberedSite, forgotten, pages: pagesWritten, stopped, ...(headline ? { headline } : {}), checkpoint }
+}
+
+/**
+ * A remove_section that must be a hide (./intent.ts confirmRemovals): the
+ * arguments for set_section_visibility, or null when the removal stands
+ * (asked for, or a section this run added itself).
+ */
+export function removalGuard(tool: string, argumentsJson: string, intent: Intent | null | undefined, before: ThemeState): string | null {
+  if (tool !== "remove_section" || !intent?.confirmRemovals) return null
+  let id = ""
+  try {
+    const args = JSON.parse(argumentsJson || "{}") as { id?: unknown }
+    id = typeof args.id === "string" ? args.id : ""
+  } catch {
+    return null
+  }
+  const existed = before.sections.find((s) => s.id === id)
+  if (!existed || existed.type === "header" || existed.type === "footer") return null
+  return JSON.stringify({ id, hidden: true })
+}
+
+/**
+ * The run's signal was aborted by the person (Stop, the tab closed), not by
+ * the route's deadline backstop: that one aborts with a TimeoutError reason
+ * and is carried on as the next part instead.
+ */
+export function cancelledBy(signal: AbortSignal | undefined): boolean {
+  if (!signal?.aborted) return false
+  const reason = signal.reason as { name?: unknown } | undefined
+  return !(reason && typeof reason === "object" && reason.name === "TimeoutError")
 }
 
 /** The clock ended a model call or the part (./run-clock.ts): a pause with a checkpoint, never the run's failure. */

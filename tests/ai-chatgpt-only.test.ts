@@ -157,7 +157,8 @@ async function main() {
   {
     check("four Claude models and no ChatGPT model", ENGINES.length === 4 && ENGINES.every((e) => e.provider === "anthropic"))
     check("each explains its purpose", ENGINES.every((engine) => !!engine.detail))
-    check("Claude Opus 5.5 is the default", DEFAULT_ENGINE === "claude-opus-5-5")
+    /* Changed on purpose (w5 aifix): Auto is the default; it runs Opus 5.5 for plans, redesigns and code and Sonnet 5.5 for a small edit. */
+    check("Auto is the default", DEFAULT_ENGINE === "auto")
     check("a saved choice on the list is kept, an older or malformed one has the default", engineFromSaved("claude-sonnet-5-5") === "claude-sonnet-5-5" && engineFromSaved("claude") === DEFAULT_ENGINE && engineFromSaved("claude-opus") === DEFAULT_ENGINE && engineFromSaved(null) === DEFAULT_ENGINE && engineFromSaved(42) === DEFAULT_ENGINE)
     check("a saved ChatGPT choice reads as the default", engineFromSaved("openai-strong") === DEFAULT_ENGINE && engineFromSaved("openai") === DEFAULT_ENGINE)
     check("a report can name any model on the list, and an answer from before", ENGINES.every((e) => (REPORTABLE_ENGINES as readonly string[]).includes(e.id)) && (REPORTABLE_ENGINES as readonly string[]).includes("claude") && (REPORTABLE_ENGINES as readonly string[]).includes("openai"))

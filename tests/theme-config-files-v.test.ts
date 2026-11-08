@@ -288,7 +288,7 @@ async function main() {
     check("a Storelib theme's run reads its own schema file, or Storelib's to start from", /const ownThemeSchema = importedTheme \? null : await readThemeSchemaText\(supabase, installId\)/.test(route) && /let themeSchemaNow: string = ownThemeSchema \?\? builtInSettingsSchemaText\(\)/.test(route))
     check("  and an edit is checked by the same reader and staged with the run", /const read = readThemeSettingsSchema\(source\)/.test(route) && /journal\.stage\(THEME_SCHEMA_FILE, source\)/.test(route))
     const loop = read("lib/website-builder/agent/loop.ts")
-    check("update_theme is checked against the theme's own settings as the run has them", /checkSettings\(\[\.\.\.themeFieldsFor\(themeGroups\)/.test(loop) && /execute\(call\.name, call\.argumentsJson, state, newId, locked, schemas, [^)]*?, themeGroupsNow\(\)\)/.test(loop))
+    check("update_theme is checked against the theme's own settings as the run has them", /checkSettings\(\[\.\.\.themeFieldsFor\(themeGroups\)/.test(loop) && /execute\(keepInstead \? "set_section_visibility" : call\.name, keepInstead \?\? call\.argumentsJson, state, newId, locked, schemas, [^)]*?, themeGroupsNow\(\)\)/.test(loop) /* changed on purpose (w5 aifix): a remove_section nobody asked for is run as a hide (loop removalGuard) */)
   }
 
   console.log("\nEvery door: GitHub, and a theme package")

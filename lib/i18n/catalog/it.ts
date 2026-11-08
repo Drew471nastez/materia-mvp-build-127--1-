@@ -12770,7 +12770,8 @@ const words: Record<string, string> = {
  "↻ Refresh thumbnail": "↻ Aggiorna miniatura",
  "Both": "Entrambi",
  "Show on": "Mostra su",
- "Faint here so you can still pick it. Visitors on the other size do not see it.": "Sbiadita qui così puoi ancora selezionarla. I visitatori sull’altra dimensione non la vedono."
+ "Faint here so you can still pick it. Visitors on the other size do not see it.": "Sbiadita qui così puoi ancora selezionarla. I visitatori sull’altra dimensione non la vedono.",
+ "Partly done: some checks still fail. Ask me to fix what is left.": "Fatto in parte: alcuni controlli non vanno ancora a buon fine. Chiedimi di sistemare ciò che resta."
 }
 
 export default words

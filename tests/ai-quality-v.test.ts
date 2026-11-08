@@ -320,7 +320,8 @@ async function main() {
     check("and the Main menu links to it", menu)
     let final = state
     for (const op of result.ops) final = applyOp(final, op)
-    check("the page is the plan, in order, between the header and footer", JSON.stringify(final.sections.map((x) => x.type)) === JSON.stringify(["header", "hero_centered", "features_grid", "pricing_table", "faq_accordion", "footer"]), final.sections.map((x) => x.type).join(","))
+    /* Changed on purpose (w5 aifix): "redesign this page" never said to remove anything, so the old sections are hidden (Show brings them back), not deleted. */
+    check("the page is the plan, in order, between the header and footer", JSON.stringify(final.sections.filter((x) => !x.hidden).map((x) => x.type)) === JSON.stringify(["header", "hero_centered", "features_grid", "pricing_table", "faq_accordion", "footer"]) && final.sections.filter((x) => x.hidden).length === 2, final.sections.map((x) => `${x.type}${x.hidden ? "(hidden)" : ""}`).join(","))
 
     /* The editor, applying the run's operations as they stream, seconds apart. */
     let clock = 0

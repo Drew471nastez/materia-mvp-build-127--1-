@@ -1053,6 +1053,8 @@ const SUITES = [
   "tests/agent-targeting-r50.test.ts",
   /* Round 50: no "ran out of time before it changed anything": the run's own clock (lib/website-builder/agent/run-clock.ts), the smallest change first, a per call limit with one retry for a call that hung, `working` lines through a long call, no doubled output room late in a part, and a part that kept nothing pausing with a checkpoint the chat sends back with the next part. */
   "tests/agent-deadline-r50.test.ts",
+  /* Wave 5 (aifix): no thinking block replayed after an edit (drop_block + one stripped retry), a stop keeps the work, slow saves and reads retried, partial said as partial, restyle never deletes, no invented proof, every offered font weight loads, Auto model routing, build_page reviewed. */
+  "tests/aifix-w5.test.ts",
   "tests/round-bc-previews.test.ts",
   /* Round 44: Add section on a slow phone, and the Header card: what is drawn closed stays closed, a card is a still picture, the header drawn ahead, cards kept across groups, drawing between presses (scripts/check-add-section-perf.mjs). */
   "tests/add-section-r44.test.ts",
