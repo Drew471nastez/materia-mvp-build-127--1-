@@ -156,6 +156,44 @@ try {
           matrix.push(row)
         }
 
+        /* The Instagram fold, in place, in a carousel and in a group: read before the taps, which open it. */
+        for (const where of ["post_inline", "post_carousel", "post_group"]) {
+          const fold = await page.evaluate((where) => {
+            const root = document.querySelector(`[data-op-block="${where}"] [data-compact-post]`)
+            if (!root) return null
+            root.scrollIntoView({ block: "center" })
+            const box = root.querySelector("[data-post-box]")
+            const more = root.querySelector("[data-post-more]")
+            const r = box.getBoundingClientRect()
+            const cs = getComputedStyle(box)
+            return {
+              folded: root.hasAttribute("data-post-folded"),
+              mask: cs.maskImage || cs.webkitMaskImage,
+              /* In the document's own coordinates, which a screenshot's clip is read in. */
+              x: r.left + scrollX + 6,
+              bottom: r.bottom + scrollY,
+              mid: r.top + scrollY + r.height / 2,
+              w: Math.round(r.width),
+              h: Math.round(r.height),
+              more: more ? { bg: getComputedStyle(more).backgroundColor, h: Math.round(more.getBoundingClientRect().height), gap: Math.round(r.bottom - more.getBoundingClientRect().bottom) } : null,
+            }
+          }, where)
+          if (!fold) {
+            check(false, `${label}: ${where} draws an Instagram post`)
+            continue
+          }
+          await sleep(200)
+          const foot = await pixel(page, fold.x, fold.bottom - 2)
+          const middle = await pixel(page, fold.x, fold.mid)
+          const want = pageColour(dark)
+          console.log(`   ${where}`, JSON.stringify({ ...fold, foot, middle }))
+          check(fold.folded && /linear-gradient/.test(fold.mask || ""), `${label}: ${where} is folded with a masked foot`)
+          check(close(foot, want, 14), `${label}: ${where} fades into the page's own colour at its foot (${foot} vs ${want})`)
+          check(close(middle, [242, 242, 242], 16), `${label}: ${where} is drawn solid above the fade (${middle})`)
+          const btn = dark ? "rgb(244, 244, 245)" : "rgb(26, 26, 46)"
+          check(fold.more && fold.more.bg === btn && fold.more.h === 32 && fold.more.gap >= 8 && fold.more.gap <= 16, `${label}: ${where} "View full post" is the page's button, 32px, at the foot (${JSON.stringify(fold.more)})`)
+        }
+
         /* Taps. */
         for (const { id } of list) {
           const row = matrix.find((m) => m.label === label && m.id === id)
@@ -192,43 +230,6 @@ try {
             await page.keyboard.press("Escape")
             await sleep(450)
           }
-        }
-
-        /* The Instagram fold, in place, in a carousel and in a group. */
-        for (const where of ["post_inline", "post_carousel", "post_group"]) {
-          const fold = await page.evaluate((where) => {
-            const root = document.querySelector(`[data-op-block="${where}"] [data-compact-post]`)
-            if (!root) return null
-            root.scrollIntoView({ block: "center" })
-            const box = root.querySelector("[data-post-box]")
-            const more = root.querySelector("[data-post-more]")
-            const r = box.getBoundingClientRect()
-            const cs = getComputedStyle(box)
-            return {
-              folded: root.hasAttribute("data-post-folded"),
-              mask: cs.maskImage || cs.webkitMaskImage,
-              x: r.left + 6,
-              bottom: r.bottom,
-              mid: r.top + r.height / 2,
-              w: Math.round(r.width),
-              h: Math.round(r.height),
-              more: more ? { bg: getComputedStyle(more).backgroundColor, h: Math.round(more.getBoundingClientRect().height), gap: Math.round(r.bottom - more.getBoundingClientRect().bottom) } : null,
-            }
-          }, where)
-          if (!fold) {
-            check(false, `${label}: ${where} draws an Instagram post`)
-            continue
-          }
-          await sleep(200)
-          const foot = await pixel(page, fold.x, fold.bottom - 2)
-          const middle = await pixel(page, fold.x, fold.mid)
-          const want = pageColour(dark)
-          console.log(`   ${where}`, JSON.stringify({ ...fold, foot, middle }))
-          check(fold.folded && /linear-gradient/.test(fold.mask || ""), `${label}: ${where} is folded with a masked foot`)
-          check(close(foot, want, 14), `${label}: ${where} fades into the page's own colour at its foot (${foot} vs ${want})`)
-          check(close(middle, [242, 242, 242], 16), `${label}: ${where} is drawn solid above the fade (${middle})`)
-          const btn = dark ? "rgb(244, 244, 245)" : "rgb(26, 26, 46)"
-          check(fold.more && fold.more.bg === btn && fold.more.h === 32 && fold.more.gap >= 8 && fold.more.gap <= 16, `${label}: ${where} "View full post" is the page's button, 32px, at the foot (${JSON.stringify(fold.more)})`)
         }
 
         /* Console. */

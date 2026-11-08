@@ -339,7 +339,7 @@ try {
           const cs = getComputedStyle(box)
           const mask = cs.maskImage || cs.webkitMaskImage || ""
           const stops = [...mask.matchAll(/calc\(100% - (\d+)px\)/g)].map((m) => Number(m[1]))
-          return { x: r.left + 6, bottom: r.bottom, mid: r.top + r.height / 2, mask: !!mask && mask !== "none", fadePx: stops.length ? Math.max(...stops) : null, painted: fade ? getComputedStyle(fade).backgroundImage : null, more: more ? { bg: getComputedStyle(more).backgroundColor, color: getComputedStyle(more).color, h: Math.round(more.getBoundingClientRect().height) } : null }
+          return { x: r.left + scrollX + 6, bottom: r.bottom + scrollY, mid: r.top + scrollY + r.height / 2, mask: !!mask && mask !== "none", fadePx: stops.length ? Math.max(...stops) : null, painted: fade ? getComputedStyle(fade).backgroundImage : null, more: more ? { bg: getComputedStyle(more).backgroundColor, color: getComputedStyle(more).color, h: Math.round(more.getBoundingClientRect().height) } : null }
         }, probe)
         await sleep(150)
         const foot = await shotPixel(page, f.x, f.bottom - 2)
