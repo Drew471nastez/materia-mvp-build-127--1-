@@ -1,3 +1,4 @@
+import { ownOrigin } from "@/lib/website-builder/ai-site/own-origin"
 import { after, NextResponse } from "next/server"
 import { websiteCaller } from "@/lib/team/website"
 import { isUuid } from "@/lib/site-blog/http"
@@ -45,7 +46,7 @@ export async function GET(req: Request, { params }: Params) {
   const row = { ...light, plan: null, state: { seq, ops: Array.isArray(ops) ? ops : [], pages: light.pages ?? [], notes: light.notes ?? [], findings: light.findings ?? [], credits: Array.isArray(light.credits) ? light.credits : [] } } as unknown as Parameters<typeof jobFromRow>[0] & { lease_until: string | null }
   const job = jobFromRow(row)
   if (leaseLapsed(light) && job.status !== "partial") {
-    const origin = new URL(req.url).origin
+    const origin = ownOrigin(req.url) /* storelib.com itself: a deployment address sits behind Vercel protection */
     after(() => driveJob(job.id, origin))
   }
   return NextResponse.json(publicView(job, afterSeq), { headers: { "cache-control": "no-store" } })

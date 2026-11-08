@@ -1,3 +1,4 @@
+import { ownOrigin } from "@/lib/website-builder/ai-site/own-origin"
 import { after, NextResponse } from "next/server"
 import { isUuid } from "@/lib/site-blog/http"
 import { verifyJobToken } from "@/lib/website-builder/ai-site/server"
@@ -22,7 +23,7 @@ type Params = { params: Promise<{ jobId: string }> }
 export async function POST(req: Request, { params }: Params) {
   const { jobId } = await params
   if (!isUuid(jobId) || !verifyJobToken(jobId, req.headers.get("x-ai-job-token"))) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  const origin = new URL(req.url).origin
+  const origin = ownOrigin(req.url) /* storelib.com itself: a deployment address sits behind Vercel protection */
   const started = Date.now()
   after(() => driveJob(jobId, origin, started))
   return NextResponse.json({ ok: true }, { status: 202 })

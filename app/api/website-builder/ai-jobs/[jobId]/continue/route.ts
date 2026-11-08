@@ -1,3 +1,4 @@
+import { ownOrigin } from "@/lib/website-builder/ai-site/own-origin"
 import { after, NextResponse } from "next/server"
 import { websiteCaller } from "@/lib/team/website"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -38,7 +39,7 @@ export async function POST(req: Request, { params }: Params) {
   if (!canContinue(job) || held) return NextResponse.json(publicView(job, Number.MAX_SAFE_INTEGER))
   const admin = createAdminClient()
   await admin.from(JOBS_TABLE).update({ status: "running", error: null, updated_at: new Date().toISOString() }).eq("id", jobId).eq("creator_id", site.creatorId)
-  const origin = new URL(req.url).origin
+  const origin = ownOrigin(req.url) /* storelib.com itself: a deployment address sits behind Vercel protection */
   after(() => driveJob(jobId, origin))
   return NextResponse.json({ ...publicView({ ...job, status: "running", error: null }, Number.MAX_SAFE_INTEGER) }, { status: 202 })
 }

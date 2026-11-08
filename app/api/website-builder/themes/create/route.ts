@@ -1,3 +1,4 @@
+import { ownOrigin } from "@/lib/website-builder/ai-site/own-origin"
 import { after, NextResponse } from "next/server"
 import { websiteCaller } from "@/lib/team/website"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -94,7 +95,7 @@ export async function POST(req: Request) {
   /* No table yet (or it would not take the row): the editor builds the site in its own request. */
   if (job.kind !== "made") return NextResponse.json({ install: made.install, ...first, job: null, fallback: true })
   /* Started on the server now; the editor's progress view polls it, and starts it again itself if this call is lost. */
-  const origin = new URL(req.url).origin
+  const origin = ownOrigin(req.url) /* storelib.com itself: a deployment address sits behind Vercel protection */
   after(() => kickJob(origin, job.id))
   return NextResponse.json({ install: made.install, ...first, job: { id: job.id } })
 }
