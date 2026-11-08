@@ -420,7 +420,7 @@ async function main() {
     const run = code("app/api/website-builder/ai-jobs/[jobId]/run/route.ts")
     check("run: only with this server's token for this job, answers at once, works after", /verifyJobToken\(jobId, req\.headers\.get\("x-ai-job-token"\)\)/.test(run) && /after\(\(\) => driveJob/.test(run) && /status: 202/.test(run) && /maxDuration = 300/.test(run))
     const poll = code("app/api/website-builder/ai-jobs/[jobId]/route.ts")
-    check("poll: the caller's own client and creator, and a lapsed runner is taken over", /site\.supabase\.from\(JOBS_TABLE\)/.test(poll) && /\.eq\("creator_id", site\.creatorId\)/.test(poll) && /leaseLapsed\(row\)/.test(poll) && /driveJob/.test(poll))
+    check("poll: the caller's own client and creator, and a lapsed runner is taken over", /site\.supabase\.from\(JOBS_TABLE\)/.test(poll) && /\.eq\("creator_id", site\.creatorId\)/.test(poll) && /leaseLapsed\(light\)/.test(poll) && /select\(LIGHT\)/.test(poll) && /seq > afterSeq/.test(poll) && /driveJob/.test(poll))
     const gen = code("app/api/website-builder/themes/[installId]/generate/route.ts")
     check("fallback: the same steps in the request, NDJSON, with a checkpoint for Continue", /runUntil\(/.test(gen) && /application\/x-ndjson/.test(gen) && /checkpointOf\(end\)/.test(gen) && /websiteInstallCaller\(installId\)/.test(gen) && /isOwner/.test(gen))
     const runner = code("lib/website-builder/ai-site/runner.ts")
