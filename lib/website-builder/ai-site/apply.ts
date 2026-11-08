@@ -29,7 +29,7 @@
  */
 import { applyOp, fieldsFor, type ThemeOp, type ThemeState } from "../agent/operations"
 import { applyPlan } from "../agent/plan-apply"
-import { toCreativePlan, themeSettingsFor, type SitePlan } from "../agent/site-plan"
+import { rhythmFor, toCreativePlan, themeSettingsFor, type SitePlan } from "../agent/site-plan"
 import type { Intent } from "../agent/intent"
 import type { SchemaMap } from "../agent/schemas"
 import type { SectionInstance } from "../types"
@@ -132,7 +132,7 @@ export function buildSite(input: {
   schemas?: SchemaMap
   addable: string[]
   idSeed: string
-  presets?: DesignPreset[]
+  presets?: readonly DesignPreset[]
   /** Published products exist: the header links to the shop. */
   shop: boolean
 }): Built {
@@ -155,6 +155,8 @@ export function buildSite(input: {
   if (Object.keys(theme.settings).length) push(ANY_PAGE, [{ kind: "update_theme", settings: theme.settings }])
 
   const placed: PlacedSection[] = []
+  const rhythm = rhythmFor(plan, input.presets)
+  const ownPalette = !!plan.palette.colors.background
   for (const [p, page] of plan.pages.entries()) {
     const key = page.key
     if (!site.pages[key]) site.pages[key] = (site.pages.home ?? []).filter(isChrome)
@@ -175,11 +177,15 @@ export function buildSite(input: {
       const chrome = op.kind === "update_theme" || ((op.kind === "update_section" || op.kind === "remove_section") && site.pages[key].some((s) => s.id === op.id && isChrome(s)))
       push(chrome ? ANY_PAGE : key, [op])
     }
+    let band = 0
     applied.placed.forEach((id, i) => {
       if (!id) return
       const planned = page.sections[i]
       placed.push({ page: key, id, type: planned.type, plan: i })
-      if (Object.keys(planned.layout).length) push(key, [{ kind: "update_section", id, settings: planned.layout }])
+      /* The preset's palette: each section on the next scheme of its rhythm, the hero first (unless the plan brought its own colours). */
+      const scheme = !ownPalette && rhythm.length && fieldsFor(planned.type, schemas).some((f) => f.id === "color_scheme") ? { color_scheme: rhythm[band++ % rhythm.length] } : {}
+      const settings = { ...planned.layout, ...scheme }
+      if (Object.keys(settings).length) push(key, [{ kind: "update_section", id, settings }])
     })
   }
 

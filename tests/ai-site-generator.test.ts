@@ -306,7 +306,7 @@ async function main() {
   const gallery = body.find((s) => s.type === "media_gallery")!
   check("the gallery's items each have a photo", (gallery.blocks ?? []).length >= 2 && (gallery.blocks ?? []).every((b) => String(b.settings.image).startsWith("https://")))
   const about = final.pages.about.filter((s) => s.type !== "header" && s.type !== "footer")
-  check("a section whose photo was not found became its words-only sibling (no grey box)", about[0].type === "text_rich" && !!about[0].settings.heading && job.state.notes.some((n) => /about_image became text_rich/.test(n)), about.map((s) => s.type))
+  check("a section whose photo was not found became its words-only sibling (no grey box), said in plain words", about[0].type === "text_rich" && !!about[0].settings.heading && job.state.notes.some((n) => /About \+ Image section became a Rich Text section, without a photo.*the About page/.test(n)), about.map((s) => s.type))
   check("theme settings: the preset's and the plan's, in the draft", final.settings.font_heading === "Fraunces" && final.settings.brand_name === "Clay & Kiln" && !!final.settings.color_schemes)
   check("the photo credits page lists each photo used", job.state.credits.length >= 4 && JSON.stringify(final.pages["photo-credits"]).includes("Openverse"))
   check("the visual check ran on the home page", visualAsked === 1)
@@ -368,7 +368,7 @@ async function main() {
     const s3 = memorySite(startingSite())
     const d3: JobDeps = { ...deps, site: s3, visual: undefined, save: async () => {}, models: models([], { write: (user) => (/faq_columns/.test(user) ? "Sorry, I cannot." : null) }) }
     const j3 = await runUntil(newJob({ id: "2b1c2d3e-4f50-6172-8394-a5b6c7d8e9f0", creatorId: "c1", ownerUserId: "u1", installId: "i1", prompt: PROMPT }), d3)
-    check("a section that cannot be written is taken off the page, not left with demo copy", !s3.state().pages.classes.some((s) => s.type === "faq_columns") && j3.state.notes.some((n) => /faq columns.*could not be written/.test(n)))
+    check("a section that cannot be written is taken off the page, not left with demo copy", !s3.state().pages.classes.some((s) => s.type === "faq_columns") && j3.state.notes.some((n) => /Two Column FAQ section on the Classes page could not be written truthfully and was left out/.test(n)))
     check("and the job says partial, honestly", j3.status === "partial" && j3.step === "done")
 
     /* The plan call fails twice: failed, with the website untouched and Continue offered. */

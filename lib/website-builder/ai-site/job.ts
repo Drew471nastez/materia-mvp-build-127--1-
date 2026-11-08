@@ -27,7 +27,7 @@
  * browser check are handed in, so tests run the whole job with fakes.
  */
 import type { ThemeOp } from "../agent/operations"
-import type { SchemaMap } from "../agent/schemas"
+import { schemaOf, type SchemaMap } from "../agent/schemas"
 import type { VisualFinding } from "../agent/visual-check"
 import type { ThemeState } from "../agent/operations"
 import { readSitePlan, sitePlanTool, sitePlanTurn, SITE_PLANNER_SYSTEM, plannableTypes, planOutline, type SitePlan } from "../agent/site-plan"
@@ -109,7 +109,7 @@ export interface JobDeps {
   visual?: (state: ThemeState) => Promise<VisualFinding[] | null>
   schemas?: SchemaMap
   addable: string[]
-  presets?: DesignPreset[]
+  presets?: readonly DesignPreset[]
   /** Saves the job (and is where the editor's next poll reads it from). */
   save: (job: Job) => Promise<void>
   now?: () => number
@@ -207,7 +207,8 @@ async function stepPlan(job: Job, deps: JobDeps): Promise<Job> {
     plan,
     step: "build",
     progress: STEP_PROGRESS.build[0],
-    state: { ...job.state, caps, spend, pages: planOutline(plan).map((p) => ({ key: p.key, title: p.title })), notes: [...job.state.notes, ...plan.corrections.slice(0, 12)] },
+    /* The plan's own corrections stay with the plan (job.plan.corrections): they are for the logs, not the creator. */
+    state: { ...job.state, caps, spend, pages: planOutline(plan).map((p) => ({ key: p.key, title: p.title })) },
   }
 }
 
@@ -225,7 +226,8 @@ async function stepBuild(job: Job, deps: JobDeps): Promise<Job> {
   const titles = Object.fromEntries(job.plan!.pages.map((p) => [p.key, p.title]))
   await deps.site.write(built.site, Object.keys(built.site.pages), true, titles)
   const next = log(job, built.ops)
-  return { ...next, step: "write", progress: STEP_PROGRESS.write[0], state: { ...next.state, placed: built.placed, notes: [...next.state.notes, ...built.notes.slice(0, 8)] } }
+  if (built.notes.length) console.warn("[ai-site] build notes", { job: job.id, notes: built.notes.slice(0, 8) })
+  return { ...next, step: "write", progress: STEP_PROGRESS.write[0], state: { ...next.state, placed: built.placed } }
 }
 
 function stillPlaced(job: Job, site: SiteState): PlacedSection[] {
@@ -268,7 +270,7 @@ async function stepWrite(job: Job, deps: JobDeps, now: () => number): Promise<Jo
         /* Never left on the page with its demo copy: taken off, and said. */
         items.push({ page: x.p.page, op: { kind: "remove_section", id: x.p.id } })
         failed.push(x.p.id)
-        notes.push(`The ${x.p.type.replace(/_/g, " ")} section on ${x.p.page === "home" ? "the home page" : x.p.page} could not be written and was left out.`)
+        notes.push(`${sectionName(x.p.type, deps.schemas)} on ${pageName(job, x.p.page)} could not be written truthfully and was left out.`)
       }
     }
     const a = apply({ ...job, state: { ...job.state, filled, failed, written, notes, spend } }, site, items, deps.schemas)
@@ -280,6 +282,16 @@ async function stepWrite(job: Job, deps: JobDeps, now: () => number): Promise<Jo
   const left = stillPlaced(job, site).filter((p) => !job.state.filled.includes(p.id) && !job.state.failed.includes(p.id))
   if (left.length) return job
   return { ...job, step: "photos", progress: STEP_PROGRESS.photos[0] }
+}
+
+/** A section as the creator knows it: its name in the Add section list. */
+export function sectionName(type: string, schemas?: SchemaMap): string {
+  return `The ${schemaOf(schemas, type)?.name ?? type.replace(/_/g, " ")} section`
+}
+
+function pageName(job: Job, key: string): string {
+  if (key === "home") return "the home page"
+  return `the ${job.state.pages.find((p) => p.key === key)?.title ?? key} page`
 }
 
 function fallbackQuery(plan: SitePlan, prompt: string): string {
@@ -330,7 +342,7 @@ async function stepPhotos(job: Job, deps: JobDeps, now: () => number): Promise<J
     const items = results.flatMap((r) => r.ops)
     const done = results.map((r) => r.p.id)
     const credits = [...job.state.credits, ...results.flatMap((r) => r.credits)]
-    const notes = [...job.state.notes, ...results.map((r) => r.note).filter(Boolean)]
+    const notes = [...job.state.notes, ...results.filter((r) => r.note).map((r) => `${r.note} (${pageName(job, r.p.page)}).`)]
     /* A section swapped for its words-only sibling is still the plan's section: it keeps its place under its new id, done. */
     const swaps = new Map(results.filter((r) => r.swap).map((r) => [r.p.id, r.swap!]))
     const placed = job.state.placed.map((pl) => (swaps.has(pl.id) ? { ...pl, id: swaps.get(pl.id)!.id, type: swaps.get(pl.id)!.type } : pl))

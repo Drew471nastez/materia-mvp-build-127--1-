@@ -263,6 +263,7 @@ export interface Fallback {
  */
 export function fallbackFor(section: SectionInstance, missing: string[], index: number, ctx: { schemas?: SchemaMap; addable: string[]; newId: (type: string) => string }): Fallback | null {
   if (!missing.length) return null
+  const name = (type: string) => `${schemaOf(ctx.schemas, type)?.name ?? type.replace(/_/g, " ")} section`
   const ids = new Set(fieldsFor(section.type, ctx.schemas).map((f) => f.id))
   const s = section.settings ?? {}
   const ops: ThemeOp[] = []
@@ -276,23 +277,23 @@ export function fallbackFor(section: SectionInstance, missing: string[], index: 
       const gone = new Set(blockMissing.map((m) => m.split("#")[1]).filter(Boolean))
       const left = (section.blocks ?? []).filter((b) => !gone.has(b.id))
       const pictureLed = /gallery|collage|multirow|lookbook|scroll|bento/.test(section.type)
-      if (pictureLed && left.length < 2) return { ops: [{ kind: "remove_section", id: section.id }], note: `${section.type} was left out: no photos were found for it` }
+      if (pictureLed && left.length < 2) return { ops: [{ kind: "remove_section", id: section.id }], note: `The ${name(section.type)} was left out: no photos were found for it` }
       for (const id of gone) ops.push({ kind: "remove_block", sectionId: section.id, blockId: id })
     }
   }
-  if (!field.length) return { ops, note: `${section.type}: items without a photo were adjusted` }
+  if (!field.length) return { ops, note: "" }
 
   /* A picture behind words: back to the colour. */
   if (ids.has("background") && field.includes("image")) {
     ops.push({ kind: "update_section", id: section.id, settings: { background: "colour" } })
-    return { ops, note: `${section.type} uses its colour instead of a photo` }
+    return { ops, note: "" }
   }
   /* An optional background picture: nothing to do, it was never drawn without one. */
   if (field.every((f) => /^bg_|background/.test(f))) return { ops, note: "" }
 
   /* A section that is a picture first: its words-only sibling, with the same words, in the same place. */
   const sibling = WORDS_ONLY.find(([re]) => re.test(section.type))?.[1].find((t) => t !== section.type && ctx.addable.includes(t) && schemaOf(ctx.schemas, t))
-  if (!sibling) return { ops: [{ kind: "remove_section", id: section.id }], note: `${section.type} was left out: no photo was found for it` }
+  if (!sibling) return { ops: [{ kind: "remove_section", id: section.id }], note: `The ${name(section.type)} was left out: no photo was found for it` }
   const theirs = new Set(fieldsFor(sibling, ctx.schemas).map((f) => f.id))
   const carried: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(s)) if (theirs.has(k) && !/image|_alt$|^background$/.test(k)) carried[k] = v
@@ -305,7 +306,7 @@ export function fallbackFor(section: SectionInstance, missing: string[], index: 
       { kind: "remove_section", id: section.id },
       { kind: "add_section", id, sectionType: sibling, index, settings: carried },
     ],
-    note: `${section.type} became ${sibling}: no photo was found for it`,
+    note: `The ${name(section.type)} became a ${name(sibling)}, without a photo: none was found for it`,
   }
 }
 

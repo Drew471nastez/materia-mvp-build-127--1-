@@ -157,8 +157,15 @@ export function describeLibrary(types: string[], schemas?: SchemaMap): string {
     .join("\n")
 }
 
-function describePresets(presets: DesignPreset[]): string {
-  return presets.map((p) => `- ${p.id}: ${p.name}. Mood: ${p.mood.join(", ")}. Rhythm it is made for: ${p.sectionRhythm.join(" > ")}`).join("\n")
+function describePresets(presets: readonly DesignPreset[]): string {
+  return presets
+    .map((p) => {
+      const s = p.settings as Record<string, unknown>
+      const schemes = s.color_schemes && typeof s.color_schemes === "object" ? Object.values(s.color_schemes as Record<string, { name?: string; background?: string; accent?: string }>) : []
+      const palette = schemes.map((x) => `${x.name ?? ""} ${x.background ?? ""}`.trim()).filter(Boolean).join(", ")
+      return `- ${p.id}: ${p.name}. Mood: ${p.mood.join(", ")}.${s.font_heading ? ` Type: ${s.font_heading} / ${s.font_body ?? s.font_heading}.` : ""}${palette ? ` Palette: ${palette}.` : ""}${typeof s.button_shape === "string" ? ` Buttons: ${s.button_shape}.` : ""}`
+    })
+    .join("\n")
 }
 
 /* ── the planner's instructions (stable, so they cache) ─────────────────── */
@@ -180,8 +187,9 @@ RULES THAT ARE NOT TASTE:
 - Layout values are exactly one of the values listed for that control.
 - Picture slots are exactly the ones listed for that type ("image", or "block:picture" for one picture per item).
 - Fonts come from this list: ${[...OFFERED_FAMILIES].join(", ")}.
-- Colours are hex. Text on its background reads at 4.5:1 or better.
-- The design preset is one of the listed ids; adjustments are optional fine tuning of it.
+- Colours, when you give any, are hex. Text on its background reads at 4.5:1 or better.
+- The design preset is one of the listed ids. It is a whole, tested look: its two fonts, its palette of five colour schemes, its corners and spacing. Pick the one whose mood fits this business; adjustments are optional fine tuning of it.
+- Palette: leave every palette colour "" to use the preset's palette, which is the right answer almost always. Give colours only when the brief names the brand's own colours. Typography: the preset's two fonts unless the brief asks otherwise.
 - Real content only. Products, prices, reviews, quotes and numbers come from the store facts, never from you. If the store sells nothing yet, the site sells nothing yet: it tells the story, shows the work and asks people to get in touch or sign up.
 - Pages: home first, then two to five more that this business needs (about, contact, and what the brief implies: services, work, classes, menu, faq...). Keys are lowercase words with hyphens. Never product, products, collections, blogs, article, cart, account, login, search.
 
@@ -194,7 +202,7 @@ export interface SitePlanContext {
   capsText: string
   addable: string[]
   schemas?: SchemaMap
-  presets?: DesignPreset[]
+  presets?: readonly DesignPreset[]
 }
 
 /** The planner's turn: the brief, what is real, the presets and the library. */
@@ -215,7 +223,7 @@ export function sitePlanTurn(ctx: SitePlanContext): string {
 const KV = { type: "object", properties: { id: { type: "string" }, value: { type: "string" } }, required: ["id", "value"], additionalProperties: false }
 
 /** The plan as one strict tool: arguments that parse and have every field, every time. */
-export function sitePlanTool(types: string[], presets: DesignPreset[] = DESIGN_PRESETS): ToolSpec<string> {
+export function sitePlanTool(types: string[], presets: readonly DesignPreset[] = DESIGN_PRESETS): ToolSpec<string> {
   const section = {
     type: "object",
     properties: {
@@ -321,7 +329,7 @@ function checkedChoices(fields: SchemaField[], wanted: Record<string, unknown>, 
  * real. Never throws. Null only when nothing buildable is left (no home page
  * with a section).
  */
-export function readSitePlan(raw: unknown, ctx: { caps: Capabilities; addable: string[]; schemas?: SchemaMap; presets?: DesignPreset[] }): SitePlan | null {
+export function readSitePlan(raw: unknown, ctx: { caps: Capabilities; addable: string[]; schemas?: SchemaMap; presets?: readonly DesignPreset[] }): SitePlan | null {
   const r = (typeof raw === "string" ? extractJson(raw) : raw) as Record<string, unknown> | null
   if (!r || typeof r !== "object") return null
   const presets = ctx.presets ?? DESIGN_PRESETS
@@ -461,25 +469,45 @@ export function toCreativePlan(site: SitePlan, page: SitePlanPage): CreativePlan
 }
 
 /** The preset's settings and the plan's adjustments, as one checked Theme settings write. */
-export function themeSettingsFor(site: SitePlan, presets: DesignPreset[] = DESIGN_PRESETS): { settings: Record<string, unknown>; notes: string[] } {
+/**
+ * Whole objects a preset writes complete (lib/website-builder/design-presets.ts): the five colour schemes, the text
+ * styles and which scheme a page starts on. Written as the preset has them (that library is tested against the
+ * theme's schema and WCAG), never pieced together here.
+ */
+const PRESET_OBJECTS = new Set(["color_schemes", "typography_styles", "default_color_scheme"])
+
+/** The preset's settings and the plan's adjustments, as one checked Theme settings write. */
+export function themeSettingsFor(site: SitePlan, presets: readonly DesignPreset[] = DESIGN_PRESETS): { settings: Record<string, unknown>; notes: string[] } {
   const preset = presets.find((p) => p.id === site.preset) ?? presetById(site.preset)
   const fields = themeFieldsFor()
   const notes: string[] = []
   const settings: Record<string, unknown> = {}
-  const wanted: Record<string, unknown> = { ...(preset?.settings ?? {}), ...site.adjustments, font_heading: site.typography.heading, font_body: site.typography.body }
-  if (site.brand.name) wanted.brand_name = site.brand.name
-  if (site.brand.tagline) wanted.tagline = site.brand.tagline
-  for (const [id, value] of Object.entries(wanted)) {
+  const check = (id: string, value: unknown) => {
     const field = fields.find((f) => f.id === id)
     if (!field) {
       notes.push(`Theme settings have no "${id}"`)
-      continue
+      return
     }
     const checked = checkSettings([field], { [id]: value }, "Theme settings")
     if (checked.error || !checked.settings) notes.push(`Theme settings "${id}" refused ${JSON.stringify(value)}`)
     else Object.assign(settings, checked.settings)
   }
+  for (const [id, value] of Object.entries(preset?.settings ?? {})) {
+    if (PRESET_OBJECTS.has(id) && value && (typeof value === "object" || typeof value === "string")) settings[id] = JSON.parse(JSON.stringify(value))
+    else check(id, value)
+  }
+  const wanted: Record<string, unknown> = { ...site.adjustments, font_heading: site.typography.heading, font_body: site.typography.body }
+  if (site.brand.name) wanted.brand_name = site.brand.name
+  if (site.brand.tagline) wanted.tagline = site.brand.tagline
+  for (const [id, value] of Object.entries(wanted)) check(id, value)
   return { settings, notes }
+}
+
+/** The scheme each section of a page takes, walking the preset's rhythm (the hero first). Empty without one. */
+export function rhythmFor(site: SitePlan, presets: readonly DesignPreset[] = DESIGN_PRESETS): string[] {
+  const preset = presets.find((p) => p.id === site.preset) ?? presetById(site.preset)
+  const schemes = (preset?.settings as { color_schemes?: Record<string, unknown> } | undefined)?.color_schemes
+  return (preset?.sectionRhythm ?? []).filter((k) => !schemes || k in schemes)
 }
 
 /** A short line per page for the progress view and the job record. */
