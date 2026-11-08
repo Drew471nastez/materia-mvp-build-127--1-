@@ -5,6 +5,19 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Planning your design…": "Dein Design wird geplant…",
+ "Writing pages…": "Seiten werden geschrieben…",
+ "Adding photos…": "Fotos werden hinzugefügt…",
+ "Your website is ready": "Deine Website ist fertig",
+ "Your website is ready, with a few gaps": "Deine Website ist fertig, mit ein paar Lücken",
+ "Building stopped part way": "Der Aufbau wurde mittendrin unterbrochen",
+ "Every section is yours to edit. Publish when you are happy with it.": "Jeder Abschnitt lässt sich bearbeiten. Veröffentliche, wenn sie dir gefällt.",
+ "Some parts were left out rather than made up. Ask AI to fix them, or edit them yourself.": "Einige Teile wurden weggelassen statt erfunden. Lass die KI sie ergänzen oder bearbeite sie selbst.",
+ "Everything made so far is kept. Continue picks up where it stopped.": "Alles bisher Erstellte bleibt erhalten. Fortsetzen macht dort weiter, wo es aufgehört hat.",
+ "Keep this tab open while your website is built.": "Lass diesen Tab geöffnet, während deine Website erstellt wird.",
+ "You can keep editing, or close this tab: it keeps going.": "Du kannst weiter bearbeiten oder den Tab schließen: Es geht trotzdem weiter.",
+ "Ask AI to fix": "Von der KI beheben lassen",
+ "Ask AI for a change": "Die KI um eine Änderung bitten",
  "  ·  not published yet": "  ·  noch nicht veröffentlicht",
  " (buyer's reference {orderRef})": " (Referenz des Käufers {orderRef})",
  " (free for them)": " (kostenlos für sie)",

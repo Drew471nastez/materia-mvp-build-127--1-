@@ -63,13 +63,20 @@ export async function POST(req: Request, { params }: Params) {
     async start(controller) {
       let sent = 0
       const line = (value: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(value)}\n`))
+      /* Every operation once: a long wave is sent in pages, as the job route answers a poll. */
       const save = async (j: Job) => {
-        line({ type: "job", job: publicView(j, sent) })
+        for (;;) {
+          const view = publicView(j, sent)
+          line({ type: "job", job: view })
+          if (!view.ops.length || view.ops.length < 400) break
+          sent = view.ops[view.ops.length - 1].seq
+        }
         sent = j.state.seq
       }
       try {
         const deps = await jobDeps(job, { deadline: started + BUDGET_MS, save })
         const end = await runUntil({ ...job, status: "running" }, { ...deps, signal: req.signal })
+        await save(end)
         line({ type: "end", job: publicView(end, sent), checkpoint: end.step === "done" ? null : checkpointOf(end) })
       } catch (e) {
         console.error("[ai-site] generate failed", { install: installId, error: e instanceof Error ? e.message.slice(0, 200) : "" })

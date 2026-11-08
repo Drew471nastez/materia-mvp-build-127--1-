@@ -274,11 +274,11 @@ section("The route, and Add left as it was")
   check("rate limited per person, as a site action", /rateLimit\(\{\s*bucket: "site-create",\s*subjects: \[`user:\$\{site\.userId\}`\],\s*windows: LIMITS\.siteAction/.test(route) && /if \(limited\) return limited/.test(route))
   check("a mode or a 400", /if \(!isStartMode\(mode\)\) return NextResponse\.json\(\{ error: "mode must be ai or blank" \}, \{ status: 400 \}\)/.test(route))
   check("the helper writes, with the caller's client for the count and the service role for the rows",
-    /createStartWebsite\(\{ supabase, admin: createAdminClient\(\) \}, \{ creatorId: creator\.id as string, mode, name: body\?\.name \}\)/.test(route))
+    /const admin = createAdminClient\(\)/.test(route) && /createStartWebsite\(\{ supabase, admin \}, \{ creatorId, mode, name: body\?\.name \}\)/.test(route) && /const creatorId = creator\.id as string/.test(route))
   check("  its refusal keeps the code the page opens the full library sheet for", /made\.code \? \{ error: made\.error, code: made\.code \}/.test(route))
   check("the cover is taken as Add takes it, and the answer carries the install",
-    /coverForNewWebsite\(\{ installId: made\.install\.id, userId: site\.ownerUserId, creatorId: creator\.id as string \}, renderOrigin\(req\.url\), "create", null\)/.test(route) &&
-      /return NextResponse\.json\(\{ install: made\.install, \.\.\.first \}\)/.test(route) && /export const maxDuration = 60/.test(route))
+    /coverForNewWebsite\(\{ installId: made\.install\.id, userId: site\.ownerUserId, creatorId \}, renderOrigin\(req\.url\), "create", null\)/.test(route) &&
+      /if \(!generating\) return NextResponse\.json\(\{ install: made\.install, \.\.\.first \}\)/.test(route) && /export const maxDuration = 60/.test(route))
   check("  and the browser is traced into its function", /'\/api\/website-builder\/themes\/create': \[\s*'\.\/node_modules\/\.pnpm\/@sparticuz\+chromium@\*\/node_modules\/@sparticuz\/chromium\/bin\/\*\*',\s*\]/.test(read("next.config.mjs")))
   const helper = code("lib/website-builder/create-website.ts")
   check("no one-copy check in the new path", !/already in your library/.test(helper + route) && !/\.eq\("theme_id"/.test(helper))
@@ -337,15 +337,16 @@ section("From the page to the editor's Ask panel")
 
   const editor = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const arrive = editor.slice(editor.indexOf("const [startAsk, setStartAsk]"), editor.indexOf("const startTaken"))
-  check("the editor takes start off the address first, then the description, once, on arrival",
-    /const read = readStartParam\(window\.location\.href\)\s*if \(read\.cleaned === null\) return\s*window\.history\.replaceState\(window\.history\.state, "", read\.cleaned\)\s*if \(!read\.wanted\) return/.test(arrive) &&
+  /* Start with AI is a server job now (tests/ai-site-generator.test.ts): job= and start= both come off the address first; a description without a job builds inline. */
+  check("the editor takes start (and job) off the address first, then the description, once, on arrival",
+    /const job = readJobParam\(window\.location\.href\)\s*if \(job\.cleaned !== null\) window\.history\.replaceState\(window\.history\.state, "", job\.cleaned\)\s*const read = readStartParam\(window\.location\.href\)\s*if \(read\.cleaned !== null\) window\.history\.replaceState\(window\.history\.state, "", read\.cleaned\)/.test(arrive) &&
       arrive.indexOf("replaceState") < arrive.indexOf("takeStartPrompt(stored, installId)") && /\}, \[\]\)/.test(arrive))
   check("  opens the Ask panel once the website is up (with or without a description)",
     /if \(!startOpen \|\| loading \|\| teamMember\) return\s*setStartOpen\(false\)\s*setAiOpen\(true\)/.test(arrive) && /setStartOpen\(true\)/.test(arrive))
   check("  and hands it to whichever panel is showing, sent after the website has loaded",
     /startAsk && !loading && !loadFailed && !teamMember \? \{ id: 1, text: startAsk \} : null/.test(arrive) && (editor.match(/sendRequest=\{startSend\}\s*onSendRequestTaken=\{startTaken\}/g) ?? []).length === 2 &&
       /const startTaken = useCallback\(\(\) => setStartAsk\(null\), \[\]\)/.test(editor))
-  check("  the words sent are the creator's, through startMessage", /if \(prompt\) setStartAsk\(startMessage\(prompt\)\)/.test(arrive))
+  check("  a description with no job is built in the editor's own request (the fallback before SQL part 380)", /if \(prompt\) \{\s*setGenSource\(\{ kind: "inline", prompt \}\)/.test(arrive))
   const chat = code("components/website-builder/theme-chat.tsx")
   check("the Ask panel sends it through its own submit, as if typed, after the history is read",
     /const submitRef = React\.useRef\(submit\)/.test(chat) && /if \(text === null \|\| !wanted \|\| loadingHistory\) return\s*pendingSend\.current = null\s*submitRef\.current\(text\)/.test(chat) &&
@@ -384,11 +385,12 @@ section("The Website page's three doors")
   check("  one way to the themes: Add theme is Browse themes now", (client.match(/\/app\/website-builder\/themes/g) ?? []).length === 0 && (read("app/(storelib)/app/website-builder/start-website.tsx").match(/"\/app\/website-builder\/themes"/g) ?? []).length === 1)
   const start = client.slice(client.indexOf("const startWebsite = async"), client.indexOf("const exportTheme = async"))
   check("  pressing creates through the new route, and a full answer opens the sheet",
-    /fetch\("\/api\/website-builder\/themes\/create", json\("POST", \{ mode \}\)\)/.test(start) && /if \(data\.code === LIBRARY_FULL_CODE\) \{\s*setFull\("create"\)/.test(start) && /if \(slotsLeft === 0\) \{\s*setFull\("create"\)/.test(start))
+    /fetch\("\/api\/website-builder\/themes\/create", json\("POST", mode === "ai" && prompt \? \{ mode, prompt, key: startKey\.current!\.key \} : \{ mode \}\)\)/.test(start) && /if \(data\.code === LIBRARY_FULL_CODE\) \{\s*setFull\("create"\)/.test(start) && /if \(slotsLeft === 0\) \{\s*setFull\("create"\)/.test(start))
   check("  with AI the description is kept for that website and the editor opened with start=ai; blank opens it plainly",
-    /saveStartPrompt\(storage, id, prompt\)/.test(start) && /go\(mode === "ai" \? withStartParam\(editorHref\(username, id\)\) : editorHref\(username, id\)\)/.test(start) &&
+    /saveStartPrompt\(storage, id, prompt\)/.test(start) && /go\(mode === "ai" \? \(jobId \? withJobParam\(editorHref\(username, id\), jobId\) : withStartParam\(editorHref\(username, id\)\)\) : editorHref\(username, id\)\)/.test(start) &&
       start.indexOf("saveStartPrompt") < start.indexOf("go(mode"))
-  check("  the description never goes in the address or the request", !/prompt/.test(start.slice(start.indexOf("fetch("), start.indexOf("fetch(") + 80)) && !/encodeURIComponent\(prompt\)/.test(start))
+  /* It goes in the request body now (the server builds the site), still never in the address. */
+  check("  the description never goes in the address", !/encodeURIComponent\(prompt\)/.test(start) && !/[?&]prompt=/.test(start))
   check("the page has no link to /app/sites", !/\/app\/sites|new-site-flow/.test(client + read("app/(storelib)/app/website-builder/start-website.tsx")))
 }
 

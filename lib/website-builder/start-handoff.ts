@@ -122,3 +122,77 @@ export function startMessage(prompt: string): string {
   const kind = classifyIntent(words, { bodySections: 0 }).kind
   return kind === "NEW_SITE_GENERATION" ? words : `${START_LEAD}${words}`
 }
+
+/* ===========================================================================
+ *  START WITH AI AS A JOB (lib/website-builder/ai-site)
+ * ===========================================================================
+ * The Website page now starts the generation on the server and opens the
+ * editor with the job's id among the address's words (`job=<id>`) beside
+ * `start=ai`. The editor takes it off the address at once, like `start`, and
+ * keeps it in this tab's storage under the website's id, so a reload still
+ * shows the progress view while the job runs. The description itself goes
+ * to the server in the request body (create route), never in the address.
+ * When the server could not keep a job (SQL part 380 not run yet) the old
+ * handoff above carries the description, and the editor builds the site in
+ * its own request instead.
+ */
+
+/** The address word that names a generation job: `job=<id>`. */
+export const JOB_PARAM = "job"
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** The editor address for a new AI website and its job. */
+export function withJobParam(editorHref: string, jobId: string): string {
+  const withStart = withStartParam(editorHref)
+  const [path, hash = ""] = withStart.split("#", 2)
+  return `${path}&${JOB_PARAM}=${encodeURIComponent(jobId)}${hash ? `#${hash}` : ""}`
+}
+
+/** The job named in an address, and the address without it. */
+export function readJobParam(href: string): { jobId: string | null; cleaned: string | null } {
+  let url: URL
+  try {
+    url = new URL(href, "https://storelib.invalid")
+  } catch {
+    return { jobId: null, cleaned: null }
+  }
+  if (!url.searchParams.has(JOB_PARAM)) return { jobId: null, cleaned: null }
+  const raw = url.searchParams.get(JOB_PARAM) ?? ""
+  url.searchParams.delete(JOB_PARAM)
+  return { jobId: UUID.test(raw) ? raw.toLowerCase() : null, cleaned: url.pathname + url.search + url.hash }
+}
+
+export function jobKey(installId: string): string {
+  return `storelib:start-ai-job:${installId}`
+}
+
+/** Remembers the website's running job in this tab, so a reload shows its progress. */
+export function rememberJob(storage: StartStorage | null | undefined, installId: string, jobId: string | null): void {
+  if (!storage || !installId) return
+  try {
+    if (jobId) storage.setItem(jobKey(installId), jobId)
+    else storage.removeItem(jobKey(installId))
+  } catch {
+    /* a tab that keeps nothing shows the progress until it is reloaded */
+  }
+}
+
+export function recallJob(storage: StartStorage | null | undefined, installId: string): string | null {
+  if (!storage || !installId) return null
+  try {
+    const v = storage.getItem(jobKey(installId))
+    return v && UUID.test(v) ? v : null
+  } catch {
+    return null
+  }
+}
+
+/** A new key for one press of Create: the server makes one job per key. */
+export function newStartKey(): string {
+  try {
+    return crypto.randomUUID()
+  } catch {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+  }
+}

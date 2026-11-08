@@ -35,6 +35,7 @@ import type { SchemaMap } from "../agent/schemas"
 import type { SectionInstance } from "../types"
 import type { DesignPreset } from "../design-presets"
 import { pagePath } from "../site-pages"
+import { opIsNew } from "./replay"
 
 /** Operations that reach every page the editor might be on: theme settings and the header and footer. */
 export const ANY_PAGE = "*"
@@ -59,20 +60,9 @@ export interface PlacedSection {
 
 const isChrome = (s: { type: string; group?: unknown }) => s.type === "header" || s.type === "footer" || !!s.group
 
-/** An operation that would do nothing new is skipped: an add of an id that is there, a removal of one that is not. Pure. */
+/** An operation that would do nothing new is skipped: an add of an id that is there, a removal of one that is not (./replay.ts). Pure. */
 export function applyOnce(state: ThemeState, op: ThemeOp, schemas?: SchemaMap): { state: ThemeState; applied: boolean } {
-  const section = (id: string) => state.sections.find((s) => s.id === id)
-  if (op.kind === "add_section" && section(op.id)) return { state, applied: false }
-  if (op.kind === "remove_section" && !section(op.id)) return { state, applied: false }
-  if (op.kind === "add_block") {
-    const s = section(op.sectionId)
-    if (!s || (s.blocks ?? []).some((b) => b.id === op.blockId)) return { state, applied: false }
-  }
-  if (op.kind === "remove_block" || op.kind === "update_block") {
-    const s = section(op.sectionId)
-    if (!s || !(s.blocks ?? []).some((b) => b.id === op.blockId)) return { state, applied: false }
-  }
-  if ((op.kind === "update_section" || op.kind === "move_section") && !section(op.id)) return { state, applied: false }
+  if (!opIsNew(state.sections, op)) return { state, applied: false }
   return { state: applyOp(state, op, schemas), applied: true }
 }
 
