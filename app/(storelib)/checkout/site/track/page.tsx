@@ -5,10 +5,10 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { siteOfHost } from "@/lib/checkout/site-checkout-server"
 import { checkoutBrand } from "@/lib/checkout/brand-server"
 import { ShopBar } from "../../parts/shop-bar"
-import { ErrorBanner, Field, TextInput } from "../../parts/ui"
+import { ErrorBanner, Field, TextInput } from "@/components/checkout/parts/ui"
 import { checkoutLanguage } from "@/lib/markets/checkout-language"
 import { checkoutT, type CheckoutT } from "@/lib/markets/checkout-words"
-import { CheckoutWords } from "../../parts/words"
+import { CheckoutWords } from "@/components/checkout/parts/words"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Track your order", robots: { index: false, follow: false }, referrer: "no-referrer" }

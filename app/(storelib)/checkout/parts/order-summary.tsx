@@ -21,8 +21,8 @@ import * as React from "react"
 import { ChevronDown, Tag, X } from "lucide-react"
 import { MissingImage } from "@/components/media/missing-image"
 import { cn } from "@/lib/utils"
-import { Reveal, Spinner, TextInput, useCheckoutCurrency, useCurrencyMark, useMoney } from "./ui"
-import { useCheckoutLang, useCountryName, useCt } from "./words"
+import { Reveal, Spinner, TextInput, useCheckoutCurrency, useCurrencyMark, useMoney } from "@/components/checkout/parts/ui"
+import { useCheckoutLang, useCountryName, useCt } from "@/components/checkout/parts/words"
 
 export interface SummaryVariant {
   id: string

@@ -33,8 +33,8 @@ import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { addressWordsFor, needsPostalCode, taxIdFor, type BusinessDetails } from "@/lib/checkout/business"
 import { COUNTRIES } from "@/lib/checkout/countries"
-import { CheckRow, Field, TextInput, inputClass } from "./ui"
-import { useCheckoutLang, useCountryName, useCt } from "./words"
+import { CheckRow, Field, TextInput, inputClass } from "@/components/checkout/parts/ui"
+import { useCheckoutLang, useCountryName, useCt } from "@/components/checkout/parts/words"
 
 /** The reveal's length, shared by the class below and the wait before scrolling the first box into view. */
 export const BUSINESS_REVEAL_MS = 300
