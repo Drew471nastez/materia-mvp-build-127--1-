@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactElement, type ReactNode } from "react"
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core"
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
@@ -516,7 +516,7 @@ export function FormEditor({
       <StatusBadge tone={live ? "success" : "neutral"}>{live ? tt("Published") : tt("Draft")}</StatusBadge>
     </div>
   )
-  const shareMenu = (trigger: ReactNode) => (
+  const shareMenu = (trigger: ReactElement) => (
     <ResponsiveActionMenu
       title={tt("Share")}
       align="end"
