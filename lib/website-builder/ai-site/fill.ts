@@ -427,7 +427,7 @@ export async function fillSection(t: FillTarget, ctx: FillContext, models: Model
   const ref = isSmall(effective) ? models.small : models.write
   const turn = fillTurn(t, effective, ctx, opts.extra)
   const ask = async (user: string) => {
-    const r = await callOnce(ref, { system: opts.system, user, maxOutputTokens: effective.items ? 6000 : 2500, timeoutMs: opts.timeoutMs ?? 90_000, signal: opts.signal })
+    const r = await callOnce(ref, { system: opts.system, user, maxOutputTokens: effective.items ? 8000 : 4000, timeoutMs: opts.timeoutMs ?? 90_000, signal: opts.signal })
     spend = addSpend(spend, ref.model, r.usage)
     return r.text
   }

@@ -26,13 +26,13 @@ export interface CallLog {
 /** The plan a careful model sends for the ceramics brief, as tool arguments. */
 export function ceramicsPlan(overrides: Record<string, unknown> = {}) {
   return {
-    preset: "editorial_warm",
+    preset: "warm_atelier",
     adjustments: [{ id: "border_radius", value: "4" }, { id: "button_shape", value: "rounded" }],
     brand: { name: "Clay & Kiln", tagline: "Stoneware thrown by hand in Porto" },
     voice: { tone: "warm, plain, unhurried", use: ["thrown", "glaze", "kiln"], avoid: ["luxury", "elevate"] },
     audience: "People who cook and want plates made by a person",
     conversion: "Book a wheel class",
-    palette: { direction: "Clay and ash", background: "#f6f1ea", surface: "#ece3d8", text: "#2b2420", heading: "#1d1714", accent: "#9a4f2c", button: "#1d1714", button_text: "#f6f1ea" },
+    palette: { direction: "The preset's own", background: "", surface: "", text: "", heading: "", accent: "", button: "", button_text: "" },
     typography: { heading: "Fraunces", body: "Inter" },
     imagery: "Hands, wet clay, glazed stoneware in daylight",
     pages: [

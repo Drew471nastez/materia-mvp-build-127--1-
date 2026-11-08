@@ -306,7 +306,7 @@ export function fallbackFor(section: SectionInstance, missing: string[], index: 
       { kind: "remove_section", id: section.id },
       { kind: "add_section", id, sectionType: sibling, index, settings: carried },
     ],
-    note: `The ${name(section.type)} became a ${name(sibling)}, without a photo: none was found for it`,
+    note: `The ${name(section.type)} became ${/^[aeiou]/i.test(name(sibling)) ? "an" : "a"} ${name(sibling)}, without a photo: none was found for it`,
   }
 }
 

@@ -32,7 +32,7 @@ import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section
 import { startRows } from "@/lib/website-builder/create-website"
 import { costOf } from "@/lib/sites/agent/models"
 import { ZERO_USAGE, addUsage } from "@/lib/sites/agent/types"
-import { readSitePlan, sitePlanTool, plannableTypes, unavailableBecause, layoutFields, themeSettingsFor } from "@/lib/website-builder/agent/site-plan"
+import { readSitePlan, sitePlanTool, plannableTypes, unavailableBecause, layoutFields, themeSettingsFor, rhythmFor } from "@/lib/website-builder/agent/site-plan"
 import { DESIGN_PRESETS } from "@/lib/website-builder/design-presets"
 import { describeCapabilities, proofAvailable, realNumbers, readCapabilities } from "@/lib/website-builder/ai-site/capabilities"
 import { applySiteOps, buildSite, syncChrome, ANY_PAGE, type SiteState } from "@/lib/website-builder/ai-site/apply"
@@ -127,7 +127,10 @@ async function main() {
     check("layout choices are select or radio controls (and columns), never colours or bindings", layoutFields("product_grid", schemas).every((f) => f.id !== "source" && f.id !== "color_scheme"))
 
     const themed = themeSettingsFor(plan!)
-    check("theme settings: the preset's, the fonts and the brand, each checked", themed.settings.font_heading === "Fraunces" && themed.settings.brand_name === "Clay & Kiln" && themed.settings.spacing_scale === 1.2 && themed.notes.length === 0, themed)
+    const preset = DESIGN_PRESETS.find((p) => p.id === "warm_atelier")!
+    check("theme settings: the preset's whole look (schemes, text styles), the fonts and the brand, each checked", themed.settings.font_heading === "Fraunces" && themed.settings.brand_name === "Clay & Kiln" && JSON.stringify(themed.settings.color_schemes) === JSON.stringify((preset.settings as Record<string, unknown>).color_schemes) && !!themed.settings.typography_styles && themed.notes.length === 0, themed.notes)
+    check("the plan left the palette to the preset", Object.keys(plan!.palette.colors).length === 0)
+    check("each section takes the preset's scheme rhythm", rhythmFor(plan!).length > 0 && rhythmFor(plan!)[0] === preset.sectionRhythm[0])
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -233,7 +236,7 @@ async function main() {
     let n = 0
     const fb = fallbackFor({ id: "h1", type: "hero_split", name: "", settings: { heading: "Plates", subheading: "Thrown in Porto", button_text: "Book", image: "" } } as never, ["image"], 1, { schemas, addable, newId: (t) => `${t}-new${n++}` })
     const add = fb?.ops.find((o) => o.kind === "add_section")
-    check("a hero with no photo becomes its words-only sibling with the same words, in its place", fb?.ops[0].kind === "remove_section" && add?.kind === "add_section" && add.sectionType === "hero_centered" && add.settings!.heading === "Plates" && add.settings!.background === "colour" && add.index === 1, fb)
+    check("a hero with no photo becomes its words-only sibling with the same words, in its place", fb?.ops[0].kind === "remove_section" && add?.kind === "add_section" && /^hero_(editorial|centered)$/.test(add.sectionType) && add.settings!.heading === "Plates" && add.index === 1 && !Object.keys(add.settings!).some((k) => /image/.test(k)), fb)
     const bg = fallbackFor({ id: "c1", type: "cta_banner", name: "", settings: { background: "image" } } as never, ["image"], 2, { schemas, addable, newId: (t) => t })
     check("a banner over a photo goes back to its colour", bg?.ops.length === 1 && bg.ops[0].kind === "update_section" && bg.ops[0].settings.background === "colour")
     const gl = fallbackFor(gallery as never, ["block:picture#a", "block:picture#b"], 3, { schemas, addable, newId: (t) => t })

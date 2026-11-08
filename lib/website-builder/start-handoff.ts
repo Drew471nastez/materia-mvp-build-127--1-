@@ -1,7 +1,13 @@
 /**
  * ===========================================================================
- *  START WITH AI: FROM THE WEBSITE PAGE TO THE EDITOR'S ASK PANEL
+ *  START WITH AI: FROM THE WEBSITE PAGE TO THE EDITOR
  * ===========================================================================
+ * NOW: the site is built by a job on the server (lib/website-builder/ai-site,
+ * the `job=` helpers at the end of this file). What follows is the path
+ * before SQL part 380 has run: the description waits in this tab and the
+ * editor builds the site in its own request (themes/[installId]/generate).
+ * The steps below are how the description reaches the editor either way.
+ *
  * Start with AI on /app/website-builder takes a description, makes a new
  * website (POST /api/website-builder/themes/create, mode "ai") and opens the
  * editor on it. The website agent runs in the editor, where its changes are

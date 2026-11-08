@@ -8,10 +8,12 @@
  * in the builder they already use:
  *
  *   • Start with AI: a description, and Create. The page makes a new
- *     website (POST /api/website-builder/themes/create, mode "ai") and opens
- *     the editor on it, where the Ask panel builds it from the description
- *     (lib/website-builder/start-handoff.ts). What it makes is an ordinary
- *     website: every section editable, nothing generated as code.
+ *     website and a generation job on the server (POST /api/website-builder/
+ *     themes/create, mode "ai", lib/website-builder/ai-site) and opens the
+ *     editor on it at once, where a progress view shows the site being
+ *     planned, written and illustrated as it lands. Closing the tab does not
+ *     stop it. What it makes is an ordinary website: every section a built-in
+ *     section, editable in the sidebar, nothing generated as code.
  *   • Start from blank: the same website with only its header and footer,
  *     opened in the editor.
  *   • Browse themes: the theme page (/app/website-builder/themes), the way

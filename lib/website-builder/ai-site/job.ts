@@ -184,7 +184,7 @@ async function stepPlan(job: Job, deps: JobDeps): Promise<Job> {
   for (let attempt = 0; attempt < 2 && !plan; attempt++) {
     const user = sitePlanTurn({ prompt: job.prompt, caps, capsText, addable: deps.addable, schemas: deps.schemas, presets }) + (attempt && lastText ? `\n\nYOUR LAST ANSWER COULD NOT BE USED (no page with a section that can be built). Call submit_site_plan again.` : "")
     try {
-      const r = await callOnce(deps.models.plan, { system: SITE_PLANNER_SYSTEM, user, tools: [tool], maxOutputTokens: 16_000, timeoutMs: 170_000, signal: deps.signal })
+      const r = await callOnce(deps.models.plan, { system: SITE_PLANNER_SYSTEM, user, tools: [tool], maxOutputTokens: 32_000, timeoutMs: 170_000, signal: deps.signal })
       spend = addSpend(spend, deps.models.plan.model, r.usage)
       const call = r.toolCalls.find((c) => c.name === tool.name)
       let raw: unknown = null
