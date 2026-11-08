@@ -8,7 +8,7 @@
  */
 import * as React from "react"
 import { Package, Plus } from "lucide-react"
-import { useCt } from "@/app/(storelib)/checkout/parts/words"
+import { useCt } from "@/components/checkout/parts/words"
 import { tierNameIn } from "@/lib/offers/pricing"
 
 export interface Suggestion {

@@ -157,7 +157,8 @@ async function main() {
     const client = read("app/(storelib)/checkout/checkout-client.tsx")
     check("the checkout's ways out are read ahead only once the card form is ready", /const cancelWait = afterPaymentReady\(\(\) => \{[\s\S]{0,200}requestIdleCallback\(warm, \{ timeout: 2000 \}\)/.test(client) && /\}, WARM_WITHOUT_FORM_MS\)/.test(client))
     check("the card form says so when Stripe calls it ready", /setPaymentReady\(true\)\n\s*setFailed\(false\)\n[\s\S]{0,120}notePaymentReady\(\)/.test(read("app/(storelib)/checkout/parts/stripe-pay.tsx")))
-    const loader = read("app/(storelib)/checkout/parts/stripe-loader.ts")
+    /* Changed on purpose (round 51): the checkout's shared ui, words and Stripe loader moved to components/checkout/parts, so a website's stylesheet is built from website code only (tests/site-root-r52). */
+    const loader = read("components/checkout/parts/stripe-loader.ts")
     check("Stripe.js still runs only through loadStripe from the pure entry", /import\("@stripe\/stripe-js\/pure"\)/.test(loader) && !/<script/.test(read("app/(storelib)/checkout/parts/stripe-early.ts")))
   }
 
@@ -198,7 +199,7 @@ async function main() {
     const target = new EventTarget()
     const g = globalThis as unknown as { window?: unknown }
     g.window = Object.assign(target, { setTimeout, clearTimeout })
-    const { afterPaymentReady, notePaymentReady } = await import("@/app/(storelib)/checkout/parts/stripe-loader")
+    const { afterPaymentReady, notePaymentReady } = await import("@/components/checkout/parts/stripe-loader")
     let early = 0
     let late = 0
     let cancelled = 0

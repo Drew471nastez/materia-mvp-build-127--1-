@@ -39,6 +39,8 @@ export const APP_PAGES: readonly AppPage[] = [
   { get label() { return tt("Creator Page") }, href: "/creator-page", group: "Pages", get words() { return tt("profile bio storefront") } },
   { get label() { return tt("Website") }, href: "/app/website-builder", group: "Pages", get words() { return tt("site builder theme") } },
   { label: "OnePage", href: "/app/onepage", group: "Pages", get words() { return tt("link in bio") } },
+  /* Round 51: the store's people (leads, subscribers, buyers, members) and the forms that collect them. */
+  { get label() { return tt("Contacts") }, href: "/app/contacts", group: "Pages", get words() { return tt("people leads subscribers customers members audience list import export") } },
   { get label() { return tt("Emails") }, href: "/app/emails", group: "Pages", get words() { return tt("subscribers contacts campaigns newsletter automations") } },
   { get label() { return tt("Payouts") }, href: "/app/payouts", group: "Pages", get words() { return tt("revenue transactions balance money") } },
   { get label() { return tt("Explore") }, href: "/explore", group: "Pages", words: "discover" },
@@ -70,12 +72,14 @@ export const APP_PAGES: readonly AppPage[] = [
   { get label() { return tt("New offer") }, href: "/app/offers/new", group: "Pages", get under() { return tt("Upsells and bundles") }, get words() { return tt("create add upsell bundle quantity break") } },
   { get label() { return tt("New coupon") }, href: "/app/coupons/new", group: "Pages", get under() { return tt("Coupons") }, get words() { return tt("create add discount code") } },
   /* Orders and the people in them. */
-  { get label() { return tt("Customers") }, href: "/app/customers", group: "Pages", get words() { return tt("buyers people clients") } },
-  /* Emails, tab by tab (app/app/emails/emails-home.tsx TABS). */
-  { get label() { return tt("Subscribers") }, href: "/app/emails?tab=subscribers", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("contacts list audience") } },
-  { get label() { return tt("Messages") }, href: "/app/emails?tab=messages", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("inbox replies contact form") } },
-  { get label() { return tt("Leads") }, href: "/app/emails?tab=leads", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("forms quiz answers responses whatsapp") } },
-  { get label() { return tt("Forms") }, href: "/app/emails/forms", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("form quiz questions booking contact") } },
+  { get label() { return tt("Customers") }, href: "/app/contacts?filter=customers", group: "Pages", get under() { return tt("Contacts") }, get words() { return tt("buyers people clients") } },
+  /* Round 51: the store's people are Contacts' (app/app/contacts): People, by group, and Forms. */
+  { get label() { return tt("People") }, href: "/app/contacts", group: "Pages", get under() { return tt("Contacts") }, get words() { return tt("everyone contacts profile tags notes") } },
+  { get label() { return tt("Subscribers") }, href: "/app/contacts?filter=subscribers", group: "Pages", get under() { return tt("Contacts") }, get words() { return tt("contacts list audience") } },
+  { get label() { return tt("Members") }, href: "/app/contacts?filter=members", group: "Pages", get under() { return tt("Contacts") }, get words() { return tt("community members tiers") } },
+  { get label() { return tt("Messages") }, href: "/app/contacts/forms", group: "Pages", get under() { return tt("Contacts") }, get words() { return tt("inbox replies contact form") } },
+  { get label() { return tt("Leads") }, href: "/app/contacts?filter=leads", group: "Pages", get under() { return tt("Contacts") }, get words() { return tt("forms quiz answers responses whatsapp") } },
+  { get label() { return tt("Forms") }, href: "/app/contacts/forms", group: "Pages", get under() { return tt("Contacts") }, get words() { return tt("form quiz questions booking contact") } },
   { get label() { return tt("Automations") }, href: "/app/emails?tab=flows", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("flows welcome abandoned cart sequence") } },
   { get label() { return tt("Customer emails") }, href: "/app/emails?tab=customer", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("receipt order confirmation shipping notification") } },
   { get label() { return tt("Sent emails") }, href: "/app/emails?tab=published", group: "Pages", get under() { return tt("Emails") }, get words() { return tt("campaigns newsletters opens clicks") } },

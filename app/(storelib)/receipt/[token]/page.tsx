@@ -18,7 +18,7 @@ import { appUrl } from "@/lib/notify/urls"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { buyerPageLanguage } from "@/lib/markets/checkout-language"
 import { buyerChannel } from "@/lib/emails/buyer-channel"
-import { CheckoutWords } from "@/app/(storelib)/checkout/parts/words"
+import { CheckoutWords } from "@/components/checkout/parts/words"
 import { creatorTimeZone } from "@/lib/account/time-zone"
 import { buyerMoneyLocale } from "@/lib/markets/buyer-language"
 

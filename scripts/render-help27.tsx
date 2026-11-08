@@ -17,7 +17,7 @@ import { CaseView } from "@/app/(storelib)/order-help/[id]/case-view"
 import { BuyerCaseThread } from "@/app/(storelib)/app/support/buyer-cases"
 import { SupportClient } from "@/app/(storelib)/app/support/support-client"
 import { ResolutionCenter } from "@/app/(storelib)/admin/resolution/resolution-center"
-import { CheckoutWords } from "@/app/(storelib)/checkout/parts/words"
+import { CheckoutWords } from "@/components/checkout/parts/words"
 import { checkoutWordsIn } from "@/lib/markets/checkout-words"
 import { buyerEscalation, type CaseMessage, type CaseSummary } from "@/lib/support/cases"
 

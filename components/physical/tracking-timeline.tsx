@@ -9,7 +9,7 @@ import type { CheckoutT } from "@/lib/markets/checkout-words"
  * The carrier's scans for one parcel, newest first: what it said, where and
  * when (lib/physical/tracking). The buyer's order page and the seller's
  * order panel show the same list; the newest four, then Show all. The
- * buyer's page hands its translator and language (app/checkout/parts/words.tsx);
+ * buyer's page hands its translator and language (components/checkout/parts/words.tsx);
  * the carrier's own messages stay as the carrier wrote them.
  */
 export interface TimelineCheckpoint {

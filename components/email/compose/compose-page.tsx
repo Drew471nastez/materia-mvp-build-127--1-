@@ -20,18 +20,21 @@ import { canReturnTo } from "@/lib/navigation/in-app-history"
 import { listBehindShows } from "@/app/(storelib)/app/emails/list-return"
 import { leaveLayer } from "@/app/(storelib)/app/emails/layer-nav"
 import { backThen } from "@/lib/navigation/go-back"
-import { EmailComposer } from "./composer"
+import { campaignsHref, showOfStatus } from "@/app/(storelib)/app/emails/emails-route"
+import { EmailComposer, type ComposePreset } from "./composer"
 
-export function ComposePage({ campaignId }: { campaignId: string | null }) {
+export function ComposePage({ campaignId, preset }: { campaignId: string | null; preset?: ComposePreset }) {
   const router = useRouter()
   return (
     <EmailComposer
       key={campaignId ?? "new"}
       campaignId={campaignId}
+      preset={preset}
       onExit={(tab) => {
         refreshMatching("emails:")
         /* On a phone the composer is a layer, and goes off the list the way it came (app/app/emails/layer-nav.ts). */
-        const list = tab ? `/app/emails?tab=${tab}` : "/app/emails"
+        /* Round 51: the list is Campaigns, filtered to where this email now is (app/app/emails/emails-route.ts). */
+        const list = tab ? campaignsHref(showOfStatus(tab)) : "/app/emails"
         leaveLayer(() => {
           /* A back that does nothing leaves the layer up over a dimmed arrow for
              LAYER_PRESS_KEPT_MS and then comes back to life on the composer, so

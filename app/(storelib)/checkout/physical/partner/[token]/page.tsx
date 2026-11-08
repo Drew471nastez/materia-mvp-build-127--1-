@@ -7,7 +7,7 @@ import { partnerLinkHolds, partnerView, verifyPartnerLink } from "@/lib/physical
 import { addressLines } from "@/lib/physical/address"
 import { CARRIERS, SHIPMENT_LABEL } from "@/lib/physical/status"
 import { storeIdentity } from "@/lib/store/identity-server"
-import { ErrorBanner, Field, TextInput } from "../../../parts/ui"
+import { ErrorBanner, Field, TextInput } from "@/components/checkout/parts/ui"
 
 export const dynamic = "force-dynamic"
 /* The token is the partner's key to this order: never indexed, never sent on as a Referer. */

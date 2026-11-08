@@ -22,7 +22,7 @@ import * as React from "react"
 import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js"
 import type { PaymentRequest, Stripe, StripeCardElementChangeEvent } from "@stripe/stripe-js"
 import { cn } from "@/lib/utils"
-import { getStripePromise } from "@/app/(storelib)/checkout/parts/stripe-loader"
+import { getStripePromise } from "@/components/checkout/parts/stripe-loader"
 
 export type WalletKind = "apple" | "google" | "link" | "browser"
 

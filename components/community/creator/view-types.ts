@@ -6,6 +6,7 @@
  * Emails appear only in fields the server fills for an owner or an admin.
  */
 import type { CommunityAction, PermissionKey } from "@/lib/communities/permissions"
+import type { JoinAnswer } from "@/lib/communities/join-questions"
 import type {
   AccessRuleJson,
   CommunityAccess,
@@ -429,6 +430,8 @@ export interface MemberActionTaken {
 
 export interface MemberRowView {
   userId: string
+  /** community_members.id: the deep link /app/community/<id>/members?member=<memberId> and Contacts' View contact (round 51). */
+  memberId?: string
   name: string
   username: string | null
   avatarUrl: string | null
@@ -614,4 +617,10 @@ export interface AnalyticsView {
 export interface RuleOptions {
   tiers: { id: string; name: string }[]
   levels: { level: number; name: string }[]
+}
+
+/** Round 51: what a member's sheet reads beyond the row (lib/communities/server/member-panel.ts). Null figures are tables not there yet. */
+export interface MemberPanelFacts {
+  activity: { posts: number | null; comments: number | null; going: number | null; attended: number | null }
+  answers: { items: JoinAnswer[]; submittedAt: string } | null
 }

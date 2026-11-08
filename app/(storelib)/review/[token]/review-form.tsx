@@ -3,7 +3,7 @@
 import { useRef, useState } from "react"
 import { Loader2, Plus, X } from "lucide-react"
 import { MAX_BODY_CHARS, MAX_PHOTOS, MAX_TITLE_CHARS } from "@/lib/reviews/app-settings"
-import { useCt } from "@/app/(storelib)/checkout/parts/words"
+import { useCt } from "@/components/checkout/parts/words"
 
 export interface ReviewPageProps {
   token: string

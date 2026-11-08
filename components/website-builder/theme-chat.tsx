@@ -695,6 +695,8 @@ function ThemeChatPanel({
   suspended: suspendedProp = false,
   tucked = false,
   openRequest = 0,
+  sendRequest = null,
+  onSendRequestTaken,
   selectedBlockId,
 }: {
   installId: string
@@ -715,6 +717,15 @@ function ThemeChatPanel({
   tucked?: boolean
   /** Dock only: each new value opens the conversation and puts the cursor in it. */
   openRequest?: number
+  /**
+   * A message to send as if it had been typed and sent here, once per `id`:
+   * Start with AI on the Website page hands its description over this way
+   * (lib/website-builder/start-handoff.ts). It waits for the conversation's
+   * history to be read, so the read cannot land on top of it.
+   */
+  sendRequest?: { id: number; text: string } | null
+  /** The sendRequest has been taken and will be sent: the holder lets go of it, so no other panel sends it again. */
+  onSendRequestTaken?: (id: number) => void
   /**
    * WRITING A SECTION, AS THE CANVAS SEES IT. Start holds a spot on the page
    * where the section will go; done puts it there, and answers whether it
@@ -2445,6 +2456,26 @@ function ThemeChatPanel({
     openDock()
     requestAnimationFrame(() => fieldRef.current?.focus({ preventScroll: true }))
   }, [openRequest, dock, openDock])
+
+  /** A message handed in by the editor (sendRequest): opened, then sent through submit once the history is in. */
+  const submitRef = React.useRef(submit)
+  submitRef.current = submit
+  const seenSend = React.useRef(0)
+  const pendingSend = React.useRef<string | null>(null)
+  React.useEffect(() => {
+    if (!sendRequest || sendRequest.id === seenSend.current) return
+    seenSend.current = sendRequest.id
+    pendingSend.current = sendRequest.text
+    setWanted(true)
+    if (dock) openDock()
+    onSendRequestTaken?.(sendRequest.id)
+  }, [sendRequest, dock, openDock, onSendRequestTaken])
+  React.useEffect(() => {
+    const text = pendingSend.current
+    if (text === null || !wanted || loadingHistory) return
+    pendingSend.current = null
+    submitRef.current(text)
+  }, [sendRequest, wanted, loadingHistory])
 
   /* Closed, or the canvas showing something else: the conversation folds away with it. */
   React.useEffect(() => {

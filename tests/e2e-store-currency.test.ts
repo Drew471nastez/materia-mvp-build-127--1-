@@ -178,7 +178,7 @@ async function renderBuyerPage(token: string): Promise<string> {
 async function renderSiteCheckout(quote: any, shopId: string, _host: string): Promise<string> {
   try {
     const { Totals } = await import("@/app/(storelib)/checkout/parts/order-summary")
-    const { money, CheckoutCurrency } = await import("@/app/(storelib)/checkout/parts/ui")
+    const { money, CheckoutCurrency } = await import("@/components/checkout/parts/ui")
     const { readStoreCurrency } = await import("@/lib/store/selling-currency-read")
     const { createAdminClient } = await import("@/lib/supabase/admin")
     const { renderToStaticMarkup } = await import("react-dom/server")

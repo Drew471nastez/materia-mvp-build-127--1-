@@ -16,7 +16,7 @@ import "server-only"
  * the page waits on.
  */
 import { can, meetsRole } from "../permissions"
-import { communityHead, listMembers, loadBadges, loadEvents, loadFeedRows, loadOverview, loadSettings, loadSpaces, memberCounts, ruleOptions, type CreatorPageContext } from "./creator"
+import { communityHead, listMembers, loadBadges, memberById, loadEvents, loadFeedRows, loadOverview, loadSettings, loadSpaces, memberCounts, ruleOptions, type CreatorPageContext } from "./creator"
 import { listInvites } from "./invites"
 import { auditLog, listReports } from "./moderation"
 import { leaveReasonsSummary } from "./leave-reasons"
@@ -77,15 +77,18 @@ export async function eventsReads(ctx: CreatorPageContext) {
 export async function membersReads(ctx: CreatorPageContext, sp: Query) {
   const query = { ...parseMemberQuery(sp), q: "", cursor: null }
   const canEmail = can(ctx.role, "manage_members", ctx.viewer.perms)
-  const [head, page, counts, tiers, invites, badges] = await Promise.all([
+  /* Round 51: ?member=<community_members.id> opens that member, read alone so it does not matter which page they are on. */
+  const focusId = typeof sp.member === "string" ? sp.member : ""
+  const [head, page, counts, tiers, invites, badges, focus] = await Promise.all([
     communityHead(ctx),
     listMembers(ctx.db, ctx.community.id, query, { withEmail: canEmail }),
     memberCounts(ctx.db, ctx.community.id),
     liveTiers(ctx),
     can(ctx.role, "invite", ctx.viewer.perms) ? listInvites(ctx.db, ctx.community.id, null) : Promise.resolve({ rows: [], next: null }),
     ctx.community.gamification_enabled ? loadBadges(ctx.db, ctx.community.id) : Promise.resolve([]),
+    focusId ? memberById(ctx.db, ctx.community.id, focusId, { withEmail: canEmail }).catch(() => null) : Promise.resolve(null),
   ])
-  return { head, query, canEmail, page, counts, tiers: (tiers.data as TierLite[] | null) ?? [], invites, badges }
+  return { head, query, canEmail, page, counts, tiers: (tiers.data as TierLite[] | null) ?? [], invites, badges, focus }
 }
 
 /** Moderation: what a tab needs is read only when the role may use it. */

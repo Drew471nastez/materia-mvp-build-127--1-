@@ -52,8 +52,8 @@ const area = read("app/api/email/area/route.ts")
 check("Messages and a contact's page leave replies out of the list", /threadRows\(/.test(area) && /m\.page !== REPLY_PAGE/.test(area))
 const page = read("app/(storelib)/app/emails/message-detail.tsx")
 check("the message's page shows the thread and the box, and Reply goes to it", /<Thread message=\{message\} onReply=\{onReply\} \/>/.test(page) && /data-reply-box=\{message\.id\}/.test(page) && /data-message-reply=""/.test(page))
-const client = read("app/(storelib)/app/emails/emails-client.tsx")
-check("the reply shows at once as sending, and the message reads as read", /pending: true/.test(client) && /read_at: r\.read_at \?\? at/.test(client))
+/* Changed on purpose (round 51): the messages moved from Emails to Contacts › Forms (the shared contract; the Forms builder draws them there). Emails only sends an old ?message= address on, the message kept. */
+check("an old Emails address for a message lands in Contacts › Forms with that message", /\/app\/contacts\/forms\?message=\$\{enc\(message\)\}/.test(read("app/(storelib)/app/emails/emails-route.ts")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)

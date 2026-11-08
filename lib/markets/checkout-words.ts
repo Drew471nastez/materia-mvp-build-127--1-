@@ -3,7 +3,7 @@
  *  THE CHECKOUT IN THE WEBSITE'S LANGUAGES
  * ===========================================================================
  * The website's own checkout (app/checkout/site) draws its words through
- * ct("…") (app/checkout/parts/words.tsx), the English sentence being the key
+ * ct("…") (components/checkout/parts/words.tsx), the English sentence being the key
  * as in the dashboard. Each sentence is a text of the website like any other
  * (Translate › Checkout, key `checkout:<hash of the sentence>`): drafted by
  * Storelib AI with the rest, translated automatically when that is on, and

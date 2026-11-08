@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { UNTITLED, cleanName, cleanSteps, cleanTrigger, cleanTriggerConfig, signedInCreator } from "@/lib/automations/flow-io"
+import { TRIGGER_NOT_READY, UNTITLED, cleanName, cleanSteps, cleanTrigger, cleanTriggerConfig, signedInCreator, triggerNotReady } from "@/lib/automations/flow-io"
 import { stopFlowRuns } from "@/lib/automations/flow-admin"
 import { isTriggerType, problemsOf, type TriggerType } from "@/lib/automations/flow-model"
 
@@ -49,6 +49,7 @@ export async function PATCH(request: Request, { params }: Params) {
     updated_at: new Date().toISOString(),
   }
   const { data: saved, error } = await me.supabase.from("email_flows").update(patch).eq("id", id).eq("creator_id", me.creatorId).select("id, name, trigger_type, trigger_config, status, steps, updated_at").single()
+  if (triggerNotReady(error)) return NextResponse.json({ error: TRIGGER_NOT_READY }, { status: 409 })
   if (error || !saved) {
     console.error("[automations] could not save a flow:", error?.code, error?.message)
     return NextResponse.json({ error: "Could not save. Try again." }, { status: 500 })

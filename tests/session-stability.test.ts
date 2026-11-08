@@ -273,7 +273,8 @@ async function main() {
     const composer = readCode("components/email/compose/composer.tsx") + readCode("components/email/compose/compose-page.tsx")
     /* Changed on purpose (round 40 team permissions): the composer asks the server who is sending (app/api/email/area?part=sender, which signs the caller in and finds the store), and with no answer it waits the same way it waited with no user. */
     check("the email editor only leaves for /login on a real sign-out",
-      /<ComposePage campaignId=\{null\} \/>/.test(editor) && !/\/login/.test(composer) && /if \(!sender \|\| !live\) return/.test(composer))
+      /* Changed on purpose (round 51): a new email may open with people, a segment or a layout chosen (preset). */
+      /<ComposePage\s+campaignId=\{null\}/.test(editor) && !/\/login/.test(composer) && /if \(!sender \|\| !live\) return/.test(composer))
   }
 
   console.log("\n6. The proxy builds its response one way")

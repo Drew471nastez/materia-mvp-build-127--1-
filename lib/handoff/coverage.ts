@@ -30,7 +30,7 @@ export const BUSINESS_TABLES: Readonly<Record<string, string>> = Object.fromEntr
     "ai_memories", "analytics_daily_rollups", "analytics_events", "analytics_events_partitioned", "analytics_forward_jobs", "analytics_property_daily", "analytics_report_layouts",
     "campaign_recipients", "cart_uploads", "checkout_attempts", "checkout_starts", "checkout_text_overrides",
     "commerce_checkouts", "commerce_jobs", "commerce_order_events", "commerce_reasons", "commerce_returns", "commerce_settings", "commerce_tax_overrides", "commerce_tax_rates",
-    "communities", "community_posts", "coupons", "creator_plan_overrides", "custom_domains", "customers", "default_collections_given", "domain_redirects",
+    "communities", "community_posts", "coupons", "creator_contacts", "creator_plan_overrides", "custom_domains", "customers", "default_collections_given", "domain_redirects",
     "email_campaigns", "email_events", "email_flow_jobs", "email_flow_runs", "email_flow_sends", "email_flows", "email_recipients", "email_segments", "email_templates", "email_usage",
     "file_details", "fulfillments", "fulfilment_variant_links", "inventory_levels", "inventory_locations", "inventory_movements", "inventory_reservations", "inventory_transfers",
     "media_videos", "membership_plans", "membership_posts", "notification_creator_state", "notification_events", "notification_jobs", "notification_preferences", "notifications",

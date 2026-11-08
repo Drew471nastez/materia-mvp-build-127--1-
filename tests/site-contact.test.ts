@@ -320,7 +320,8 @@ async function main() {
     /* Changed on purpose (round 40 team permissions): read on the server (app/api/email/area?part=contact) for the store the session works in, found by requireTeamPermission("marketing") and filtered by its creator id, so a team member given Marketing sees it too and nobody else does. */
     const area = read("app/api/email/area/route.ts")
     check("a contact's page shows what they wrote, read for the session's own store", /\/api\/email\/area\?part=contact&email=/.test(detail) && /data-contact-messages/.test(detail) && /await requireTeamPermission\("marketing"\)/.test(area) && /from\("site_contact_messages"\)[\s\S]{0,120}\.eq\("creator_id", creatorId\)/.test(area))
-    check("and the list has words and a filter for them", /if \(s\.status === "wrote"\) return "Wrote to you"/.test(detail) && /value: "wrote", label: "Wrote to you"/.test(read("app/(storelib)/app/emails/emails-home.tsx")))
+    /* Changed on purpose (round 51): the subscriber list and its filter moved from Emails to Contacts; the contact page keeps the words. */
+    check("and the contact page has words for them", /if \(s\.status === "wrote"\) return "Wrote to you"/.test(detail))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

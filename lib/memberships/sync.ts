@@ -150,6 +150,8 @@ async function applyEffects(admin: Db, before: MembershipRow | null, row: Member
   if (!grantsAccess(row)) await quietly("removing included products", () => revokeIncluded(admin, row.id))
   /* The welcome is the durable record of the EU withdrawal waiver when checkout asked for it (a community's checkout, round 13). */
   if (changed.includes("started")) await quietly("welcome", () => notice(admin, row, "membership.started", `membership:${row.id}:started`, facts.withdrawalWaiver ? { withdrawalWaiver: true } : {}))
+  /* Round 51: the creator's Membership onboarding automations, once per membership (lib/automations/membership-trigger.ts). */
+  if (changed.includes("started")) await quietly("automations", async () => (await import("@/lib/automations/membership-trigger")).membershipStartedAutomations(admin, row))
   if (changed.includes("cancel_scheduled"))
     await quietly("cancel notice", () => notice(admin, row, "membership.canceled", `membership:${row.id}:canceled:${row.current_period_end ?? "now"}`, { endsAt: row.current_period_end }))
   if (changed.includes("ended")) await quietly("ended notice", () => notice(admin, row, "membership.ended", `membership:${row.id}:ended`))

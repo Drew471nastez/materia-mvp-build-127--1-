@@ -26,12 +26,14 @@ import { DRAFT_LIMIT } from "@/lib/website-builder/library-limit"
 import { cn } from "@/lib/utils"
 import { tt, msg } from "@/lib/i18n/text"
 
-export type LibraryAction = "import" | "add" | "duplicate"
+export type LibraryAction = "import" | "add" | "duplicate" | "create"
 
 const VERB: Record<LibraryAction, string> = {
   get import() { return tt("import another theme") },
   get add() { return tt("add another theme") },
   get duplicate() { return tt("make a copy") },
+  /* Create a website: Start with AI and Start from blank (./start-website.tsx). */
+  get create() { return tt("start another website") },
 }
 
 export const LIBRARY_FULL_TITLE = msg("Your library is full")
