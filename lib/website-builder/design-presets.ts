@@ -99,6 +99,11 @@ function ts(font: "heading" | "body" | "accent", weight: W, desktop: number, mob
 
 /* ── the presets ───────────────────────────────────────────────────────── */
 
+/*
+  `as unknown as`: ThemeSettingsValues still types button_style with the shapes
+  it held before Buttons › Default style (filled, outline, ghost) took the key;
+  tests/design-sections-w5.test.ts holds every value here to the settings schema.
+*/
 export const DESIGN_PRESETS: readonly DesignPreset[] = [
   {
     id: "editorial_ink",
@@ -838,7 +843,7 @@ export const DESIGN_PRESETS: readonly DesignPreset[] = [
     },
     sectionRhythm: ["light", "white", "highlight", "white", "dark", "light", "white"],
   },
-]
+] as unknown as DesignPreset[]
 
 const BY_ID = new Map(DESIGN_PRESETS.map((p) => [p.id, p]))
 

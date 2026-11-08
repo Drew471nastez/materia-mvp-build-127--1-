@@ -12766,7 +12766,10 @@ const words: Record<string, string> = {
  "{year} Tax Year": "Steuerjahr {year}",
  "“{label}” may": "„{label}“ kann",
  "“{term}” is already in your glossary.": "„{term}“ ist schon in deinem Glossar.",
- "↻ Refresh thumbnail": "↻ Vorschaubild aktualisieren"
+ "↻ Refresh thumbnail": "↻ Vorschaubild aktualisieren",
+ "Both": "Beide",
+ "Show on": "Anzeigen auf",
+ "Faint here so you can still pick it. Visitors on the other size do not see it.": "Hier blass, damit du sie weiterhin auswählen kannst. Besucher auf der anderen Größe sehen sie nicht."
 }
 
 export default words

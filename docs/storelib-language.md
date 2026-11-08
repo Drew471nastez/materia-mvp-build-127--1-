@@ -188,6 +188,7 @@ read the ends of a list or a string.
 | `date: "short"` | a `datetime` for people to read: `long`, `short`, `time`, `long_time`, `iso` |
 | `strip_html` | the words of some markup, for an alt text made from rich text |
 | `lines` | a `textarea` typed one item per line, as a list to loop over |
+| `split` | text typed with a separator, as a list of trimmed parts: `split: ","` |
 | `review_widget` | a Storelib Reviews widget from the section's settings and the page's reviews: `{{ settings \| review_widget }}` (sections/reviews_widget.storelib). Its markup is built and escaped by the engine |
 | `review_widget_css` | that widget's stylesheet, for the section's `<style>` block: `{{ settings \| review_widget_css }}` |
 | `escape` | escape again; output is already escaped |

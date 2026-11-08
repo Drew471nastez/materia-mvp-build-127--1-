@@ -560,6 +560,7 @@ const SUITES = [
   "tests/editor-fixes.test.ts",
   "tests/builder-round-3.test.ts",
   "tests/contrast.test.ts",
+  "tests/design-sections-w5.test.ts",
   "tests/responsive-settings.test.ts",
   "tests/storelib-security.test.ts",
   "tests/storelib-performance.test.ts",
