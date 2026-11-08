@@ -54,7 +54,7 @@ export default function FormBuilderDialog({
       showCloseButton={false}
       className="flex h-[min(88dvh,820px)] w-[min(640px,calc(100vw-32px))] max-w-none flex-col gap-0 overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white p-0 shadow-[0_24px_64px_-16px_rgba(17,24,39,0.28),0_2px_8px_rgba(17,24,39,0.06)] sm:max-w-none"
       sheet={{ maxHeight: "calc(var(--vv-h, 100dvh) * 0.94)", height: "calc(var(--vv-h, 100dvh) * 0.94)" }}
-      dialog={{ "aria-describedby": undefined, onInteractOutside: (e) => e.preventDefault(), "data-form-builder-dialog": "" } as never}
+      dialog={{ "aria-describedby": undefined, onInteractOutside: (e: Event) => e.preventDefault(), ...({ "data-form-builder-dialog": "" } as object) }}
     >
       <SheetDialogTitle className="sr-only">{form?.title || tt("Form")}</SheetDialogTitle>
       {form ? (

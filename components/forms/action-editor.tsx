@@ -38,7 +38,7 @@
  */
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react"
 import { Ban, CalendarDays, ClipboardList, Hash, Link2, Mail, MessageSquare, Phone, Plus, ShoppingBag, Users } from "lucide-react"
-import { SiTelegram, SiWhatsapp } from "react-icons/si"
+import { SocialIcon } from "@/components/onepage/brand-icons"
 import {
   MESSAGE_TEMPLATES,
   TEMPLATE_VARIABLES,
@@ -55,6 +55,7 @@ import { useCreatorProducts } from "@/components/onepage/tabs/product-block-edit
 import { Segmented, Switch } from "@/components/onepage/editor-kit"
 import { ChoicePicker, type Choice } from "@/components/ui/choice-list"
 import { tt } from "@/lib/i18n/text"
+import { insertAtCaret } from "@/lib/forms/caret"
 import { cn } from "@/lib/utils"
 import { AREA, ERROR, FIELD, FIELD_STACK, HINT, LABEL, PROBLEM } from "./fields"
 import { FormPicker, createForm, useFormsList } from "./form-picker"
@@ -81,9 +82,9 @@ const ORDER: ActionType[] = ["url", "whatsapp", "whatsapp_group", "telegram", "e
 const ICONS: Record<string, ReactNode> = {
   "": <Ban className="h-4 w-4" />,
   url: <Link2 className="h-4 w-4" />,
-  whatsapp: <SiWhatsapp className="h-4 w-4 text-[#25D366]" />,
+  whatsapp: <SocialIcon platform="whatsapp" size={16} color="#25D366" />,
   whatsapp_group: <Users className="h-4 w-4" />,
-  telegram: <SiTelegram className="h-4 w-4 text-[#26A5E4]" />,
+  telegram: <SocialIcon platform="telegram" size={16} color="#26A5E4" />,
   email: <Mail className="h-4 w-4" />,
   phone: <Phone className="h-4 w-4" />,
   sms: <MessageSquare className="h-4 w-4" />,
@@ -161,19 +162,7 @@ function reducedMotion(): boolean {
   }
 }
 
-/**
- * Where a token goes into the words: at the caret, in place of what is
- * selected, with a space before it when it would touch a word and after it
- * when a word follows. Pure, so the tests read it.
- */
-export function insertAtCaret(before: string, token: string, at: number, end: number, max = 4000): { text: string; caret: number } {
-  const a = Math.max(0, Math.min(at, before.length))
-  const b = Math.max(a, Math.min(end, before.length))
-  const lead = a > 0 && !/\s/.test(before[a - 1]) ? " " : ""
-  const tail = b < before.length && !/[\s.,!?;:)]/.test(before[b]) ? " " : ""
-  const text = (before.slice(0, a) + lead + token + tail + before.slice(b)).slice(0, max)
-  return { text, caret: Math.min(text.length, a + lead.length + token.length) }
-}
+export { insertAtCaret }
 
 export function ActionEditor({
   value,

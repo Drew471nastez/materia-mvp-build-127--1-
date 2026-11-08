@@ -7,6 +7,7 @@
 import React from "react"
 import { createRoot } from "react-dom/client"
 import { ActionEditor } from "@/components/forms/action-editor"
+import { FormPicker } from "@/components/forms/form-picker"
 import { actionFromUrl, actionHref, type NativeAction } from "@/lib/forms/actions"
 
 function EditorProbe() {
@@ -22,6 +23,17 @@ function EditorProbe() {
   )
 }
 
+/* Round AN (scripts/check-forms-builder.mjs): the form picker as a block's settings draw it, with Edit questions opening the builder dialog. */
+function BuilderProbe() {
+  const [id, setId] = React.useState(new URLSearchParams(location.search).get("form") || "")
+  return (
+    <main className="mx-auto max-w-[420px] p-4">
+      <FormPicker kind="prechat" label="Questions" value={id} allowEmpty={false} onChange={setId} />
+    </main>
+  )
+}
+
 const mode = new URLSearchParams(location.search).get("mode")
 if (mode === "editor") createRoot(document.getElementById("app")!).render(<EditorProbe />)
+else if (mode === "builder") createRoot(document.getElementById("app")!).render(<BuilderProbe />)
 else void import("./render-onepage-avatar-audit")
