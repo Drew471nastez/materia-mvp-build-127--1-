@@ -409,7 +409,10 @@ async function stepCheck(job: Job, deps: JobDeps): Promise<Job> {
     for (const x of results) {
       if (!x) continue
       spend = mergeSpend(spend, x.r.spend)
-      if (x.r.ok) items.push(...x.r.ops.map((op) => ({ page: x.page, op })))
+      if (x.r.ok) {
+        const before = site.pages[x.page]?.find((sec) => sec.id === x.id)
+        items.push(...keepPhotos(before, x.r.ops).map((op) => ({ page: x.page, op })))
+      }
     }
     const a = apply({ ...job, state: { ...job.state, spend } }, site, items, deps.schemas)
     site = a.site
@@ -420,6 +423,24 @@ async function stepCheck(job: Job, deps: JobDeps): Promise<Job> {
   const remaining = findings.map((f) => `${f.page}: ${f.message}`)
   const partial = remaining.length > 0 || job.state.failed.length > 0
   return { ...job, step: "done", progress: 100, status: partial ? "partial" : "complete", state: { ...job.state, findings: remaining.slice(0, 20) } }
+}
+
+/**
+ * A section written again keeps the photos it already has: its items are replaced in order, and each new item takes
+ * the picture of the item it replaces. Pure.
+ */
+export function keepPhotos(before: SiteState["pages"][string][number] | undefined, ops: ThemeOp[]): ThemeOp[] {
+  if (!before?.blocks?.length) return ops
+  const old = before.blocks
+  const seen: Record<string, number> = {}
+  return ops.map((op) => {
+    if (op.kind !== "add_block" || op.parentId) return op
+    const n = (seen[op.blockType] = (seen[op.blockType] ?? -1) + 1)
+    const was = old.filter((b) => b.type === op.blockType)[n]
+    if (!was) return op
+    const photos = Object.fromEntries(Object.entries(was.settings ?? {}).filter(([k, v]) => /image|alt$/.test(k) && typeof v === "string" && v))
+    return Object.keys(photos).length ? { ...op, settings: { ...photos, ...(op.settings ?? {}), ...photos } } : op
+  })
 }
 
 /* ── running ───────────────────────────────────────────────────────────── */

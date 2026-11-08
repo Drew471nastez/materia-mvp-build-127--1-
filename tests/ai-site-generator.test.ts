@@ -39,7 +39,7 @@ import { applySiteOps, buildSite, syncChrome, ANY_PAGE, type SiteState } from "@
 import { checkFill, fillSpec, bindOps, fillSystem, writeOps, type FillContext } from "@/lib/website-builder/ai-site/fill"
 import { fallbackFor, fillSlot, openverseUrl, rankImages, creditsHtml, OPENVERSE_LICENSES } from "@/lib/website-builder/ai-site/images"
 import { deterministicFindings, visualFindings } from "@/lib/website-builder/ai-site/verify"
-import { newJob, runStep, runUntil, publicView, canContinue, fillContext, type Job, type JobDeps } from "@/lib/website-builder/ai-site/job"
+import { newJob, runStep, runUntil, publicView, canContinue, fillContext, keepPhotos, type Job, type JobDeps } from "@/lib/website-builder/ai-site/job"
 import { PLAN_MODEL, SMALL_MODEL, WRITE_MODEL, pool, type Models } from "@/lib/website-builder/ai-site/models"
 import { isStartKey, startJobRow } from "@/lib/website-builder/ai-site/start"
 import { downloadExternalImage } from "@/lib/blog/copy-image"
@@ -448,6 +448,15 @@ async function main() {
     check("stopped part way: keeps what was made, offers Continue and Ask AI to fix", /Continue/.test(stopped) && /Ask AI to fix/.test(stopped) && /kept/.test(stopped))
     check("the fallback says to keep the tab open", /Keep this tab open/.test(html(base, { mode: "inline" })))
     check("phase helper", generationPhase({ ...base, step: "done", status: "complete" }) === "complete" && generationPhase({ ...base, status: "failed" }) === "stopped" && generationPhase(base) === "working")
+  }
+
+  {
+    const kept = keepPhotos({ id: "g", type: "media_gallery", name: "", settings: {}, blocks: [{ id: "a", type: "picture", settings: { image: "https://cdn/1.jpg", alt: "Bowls" } }, { id: "b", type: "picture", settings: { image: "https://cdn/2.jpg" } }] } as never, [
+      { kind: "remove_block", sectionId: "g", blockId: "a" },
+      { kind: "add_block", sectionId: "g", blockId: "picture-g-0", blockType: "picture", settings: { caption: "New words" } },
+      { kind: "add_block", sectionId: "g", blockId: "picture-g-1", blockType: "picture", settings: { caption: "More", image: "" } },
+    ])
+    check("a section written again by the check keeps its photos, item by item", kept[1].kind === "add_block" && kept[1].settings!.image === "https://cdn/1.jpg" && kept[1].settings!.alt === "Bowls" && kept[1].settings!.caption === "New words" && kept[2].kind === "add_block" && kept[2].settings!.image === "https://cdn/2.jpg")
   }
 
   /* Sanity that the pool helper keeps order and limits. */
