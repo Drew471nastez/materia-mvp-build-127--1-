@@ -378,7 +378,7 @@ async function main() {
     const loop = read("lib/website-builder/agent/loop.ts")
     check("no instruction to write testimonials with named people", !/testimonials with named people/.test(loop) && !/three add_block with named people/.test(loop))
     check("no instruction to invent three named tiers with prices", !/three named tiers, each with its price/.test(loop))
-    check("instead: the store's real reviews and products, or hidden honest placeholders", /NEVER INVENT PROOF OR PRICES/.test(loop) && /store's real reviews from read_store/.test(loop) && /HIDDEN \(set_section_visibility\)/.test(loop))
+    check("instead: the store's real reviews and products, or hidden honest placeholders", /NEVER INVENT PROOF OR PRICES/.test(loop) && /store's real reviews \(read_store\), names as given/.test(loop) && /add it HIDDEN with placeholders/.test(loop))
     check("the planner says the same", /Never invent a customer, a quote, a rating, a statistic, a client logo or a price/.test(read("lib/website-builder/agent/creative-plan.ts")))
     check("and the design rules", /prices nobody set\. Use real ones or none/.test(read("lib/storelib-ai/design.ts")))
   }

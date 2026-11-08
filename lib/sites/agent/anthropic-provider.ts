@@ -294,7 +294,6 @@ async function completeOnce(
   how: { thinkingOn: boolean; binding: boolean; strip: boolean },
 ): Promise<ProviderTurn> {
   const rate = rateFor(request.model)
-  const messages = requestMessages(request.turns)
   /**
    * STREAMED, always, then collected into one message.
    *
@@ -338,7 +337,7 @@ async function completeOnce(
        * parameter to carry the key would be a 400.
        */
       /* With a breakpoint on the last block: see requestMessages. */
-      messages: how.strip ? withoutThinking(messages) : messages,
+      messages: how.strip ? withoutThinking(requestMessages(request.turns)) : requestMessages(request.turns),
       tools: request.tools.map((tool, i) => ({
         name: tool.name,
         description: tool.description,

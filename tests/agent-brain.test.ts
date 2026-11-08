@@ -275,7 +275,8 @@ async function main() {
     /* System 14,350 since the V round: CREATIVE_BRIEF says how a section it codes is designed (one type size, 65 characters a line, one spacing scale, one primary action, one column on a phone, every visible value a setting it reads), about 110 cached tokens (agent/creative-section.ts). */
     /* System 14,700 since round Z3: seven worked examples (a new page, a section the theme has, one of its own on a native and an imported theme, a settings panel rearranged, products with prices, a site wide restyle, motion) and the design latitude line, about 300 cached tokens. */
     /* Tools 6,640 since round Z3: create_section says a new section on an imported theme is this format with no script, about 30 tokens. */
-    check("the first request stays inside its budget", tokens(first.system) <= 14_700 && tokens(JSON.stringify(first.tools)) <= 6_640 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
+    /* System 14,800 since wave 5 (aifix): proof and prices are never invented, real reviews and products or honest hidden placeholders instead, about 90 cached tokens. */
+    check("the first request stays inside its budget", tokens(first.system) <= 14_800 && tokens(JSON.stringify(first.tools)) <= 6_640 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
     check("every request carries a cache breakpoint on its last block, so the transcript is read back cheaply", sent.every((r) => {
       const msgs = requestMessages(r.turns) as Array<{ content: unknown }>
       const last = msgs[msgs.length - 1].content as Array<{ cache_control?: unknown }>
@@ -283,7 +284,7 @@ async function main() {
     }))
     check("and toMessages itself keeps the plain shape the providers' tests pin", typeof toMessages([{ role: "user", content: "Hello" }])[0].content === "string")
     const anthropicSource = read("lib/sites/agent/anthropic-provider.ts")
-    check("the provider sends requestMessages, beside the system block's own breakpoint", /messages: requestMessages\(request\.turns\)/.test(anthropicSource) && /text: request\.system,\s*cache_control: \{ type: "ephemeral" as const \}/.test(anthropicSource))
+    check("the provider sends requestMessages, beside the system block's own breakpoint", /messages: how\.strip \? withoutThinking\(requestMessages\(request\.turns\)\) : requestMessages\(request\.turns\)/.test(anthropicSource) /* changed on purpose (w5 aifix): the one stripped retry after a thinking-binding 400 */ && /text: request\.system,\s*cache_control: \{ type: "ephemeral" as const \}/.test(anthropicSource))
   }
   {
     const { sent, storeReads } = await run("move the FAQ up one place", [{ calls: [["move_section", { id: "faq_accordion-3", index: 2 }]] }, { text: "Moved the FAQ up one place." }])
