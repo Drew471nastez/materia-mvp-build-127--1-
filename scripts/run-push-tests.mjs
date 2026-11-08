@@ -280,6 +280,8 @@ const SUITES = [
   "tests/emails-r51.test.ts",
   /* Wave 5: Contacts in Storelib's list look (the list bar, one ⋯ for import and export, one card with views, search, sort, chips and a footer; a profile on one Details card), every filter, bulk action and address kept. */
   "tests/contacts-simple-w5.test.ts",
+  /* Wave 5: Emails on a phone as it was before round 51: one row of views, Automation and New email on every view, no second row; a computer keeps the three tabs. */
+  "tests/emails-phone-w5.test.ts",
   "tests/orders-view.test.ts",
   /* The Orders page a page at a time (lib/orders/paged.ts): the same orders, numbers, counts and figures as when it read every row. */
   "tests/orders-paging.test.ts",

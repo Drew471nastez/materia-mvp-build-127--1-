@@ -133,6 +133,17 @@ export function viewOf(tab: EmailsPageTab, show: CampaignShow, section: Settings
   return show === "sent" ? "published" : show
 }
 
+/**
+ * Where a view lives, viewOf the other way round (round w5): the tab, and
+ * Campaigns' filter or Settings' section, for a phone's one row of views.
+ */
+export function placeOfView(view: ReturnType<typeof viewOf>): { tab: EmailsPageTab; show?: CampaignShow; section?: SettingsSection } {
+  if (view === "flows") return { tab: "automations" }
+  if (view === "customer") return { tab: "settings", section: "customer" }
+  if (view === "platforms") return { tab: "settings", section: "sending" }
+  return { tab: "campaigns", show: view === "published" ? "sent" : view }
+}
+
 interface ListedEmail {
   kind?: "sent" | "scheduled" | "draft"
   created_at: string
