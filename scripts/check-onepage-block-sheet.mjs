@@ -430,6 +430,22 @@ try {
     check(edge.top > 0 && (inner === 0 || inner === null) && (await isOpen()), `swipe: a drag in a body scrolled ${edge.top}px down does not move the sheet (${inner}px)`)
     await page.keyboard.press("Escape")
     await sleep(500)
+
+    /* A field focused (on a phone, the keyboard up): a drag from the title never closes the form. */
+    await page.click('[data-probe="contact"] [data-block-sheet-trigger]')
+    await sleep(600)
+    const field = await page.evaluate(() => {
+      const f = document.querySelector("[data-block-sheet-body] input, [data-block-sheet-body] textarea")
+      f?.focus()
+      return !!f && document.activeElement === f
+    })
+    at = await titleAt()
+    const typed = await drag(at, 320, { steps: 16, stepMs: 30, hold: true })
+    await page.touchscreen.touchEnd()
+    await sleep(500)
+    check(field && (typed === 0 || typed === null) && (await isOpen()), `swipe: with a field focused the sheet stays (moved ${typed}px)`)
+    await page.keyboard.press("Escape")
+    await sleep(500)
     await page.close()
   }
 } finally {

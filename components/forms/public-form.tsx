@@ -18,11 +18,11 @@ import { formsRequest } from "@/lib/forms/client"
 */
 
 const input =
-  "w-full min-w-0 rounded-xl border border-[#dfe2e7] bg-white px-3 py-2.5 text-[15px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:ring-2 focus:ring-[#1a1a2e]/10"
+  "w-full min-w-0 rounded-xl border border-[var(--form-line,#dfe2e7)] bg-[var(--form-field,#fff)] px-3 py-2.5 text-[15px] text-[var(--sheet-ink,#1a1a2e)] outline-none placeholder:text-[#9ca3af] focus:border-[var(--sheet-ink,#1a1a2e)] focus:ring-2 focus:ring-[var(--sheet-ink,#1a1a2e)]/10"
 const button =
-  "inline-flex min-h-11 items-center justify-center rounded-xl bg-[#1a1a2e] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+  "inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--sheet-ink,#1a1a2e)] px-5 py-3 text-sm font-semibold text-[var(--sheet-on-ink,#fff)] disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
 const tile =
-  "flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-[#e3e4e8] bg-white px-3 py-2.5 text-sm has-[:checked]:border-[#1a1a2e] focus-within:ring-2 focus-within:ring-[#1a1a2e]/20"
+  "flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-[var(--form-line,#e3e4e8)] bg-[var(--form-field,#fff)] px-3 py-2.5 text-sm has-[:checked]:border-[var(--sheet-ink,#1a1a2e)] focus-within:ring-2 focus-within:ring-[var(--sheet-ink,#1a1a2e)]/20"
 
 type Value = string | string[] | boolean
 type Done = {
@@ -50,6 +50,39 @@ const dayLabel = (iso: string, tz: string) => new Intl.DateTimeFormat(undefined,
 const timeLabel = (iso: string, tz: string) => new Intl.DateTimeFormat(undefined, { timeZone: tz, hour: "numeric", minute: "2-digit" }).format(new Date(iso))
 const fullLabel = (iso: string, tz: string) => new Intl.DateTimeFormat(undefined, { timeZone: tz, dateStyle: "full", timeStyle: "short" }).format(new Date(iso))
 
+/*
+  READ BEFORE THE SHEET IS UP (round AN). A button that opens a form starts
+  reading it on the press (components/forms/action-frame), while the sheet
+  rises, so the questions are usually there by the time it settles and the
+  renderer draws them in its first frame instead of a placeholder that is
+  then swapped. Only a form that was read is kept, for this page view; a
+  failure is forgotten, so the next press asks again.
+*/
+type Loaded = { form: PublicForm | null; missing: boolean; error: string | null }
+const reading = new Map<string, Promise<Loaded>>()
+const loadedForms = new Map<string, PublicForm>()
+
+function readPublicForm(formId: string): Promise<Loaded> {
+  /* A timeout and one retry after a blip (lib/forms/client), so the visitor never waits on a spinner that does not end. */
+  return formsRequest<{ form: PublicForm }>(`${platformOrigin()}/api/forms/${encodeURIComponent(formId)}/public`, { credentials: "omit", fallback: "This form could not be loaded." }).then((r) => {
+    const form = r.data?.form && !r.missing ? r.data.form : null
+    if (form) loadedForms.set(formId, form)
+    return { form, missing: r.missing, error: form ? null : r.error }
+  })
+}
+
+/** Start reading a form now, once, for a renderer that is about to need it. */
+export function prefetchPublicForm(formId: string): Promise<Loaded> {
+  const known = loadedForms.get(formId)
+  if (known) return Promise.resolve({ form: known, missing: false, error: null })
+  let p = reading.get(formId)
+  if (!p) {
+    p = readPublicForm(formId).finally(() => reading.delete(formId))
+    reading.set(formId, p)
+  }
+  return p
+}
+
 export function PublicFormRenderer({
   formId,
   initial,
@@ -58,6 +91,7 @@ export function PublicFormRenderer({
   sourceBlock,
   onSubmitted,
   onUnavailable,
+  shownTitle,
 }: {
   /** The form could not be shown (not published, no forms on this store, or no answer after a retry): a chat's questions step aside and the chat opens (components/forms/action-frame). */
   onUnavailable?: () => void
@@ -69,9 +103,11 @@ export function PublicFormRenderer({
   source?: "onepage" | "website" | "creator_page" | "form"
   /** The block or section title, kept with the lead as where it came from. */
   sourceBlock?: string
+  /** The title the sheet around the form already shows: the form's own heading is then for screen readers only, never said twice. */
+  shownTitle?: string
 }) {
-  const [form, setForm] = useState<PublicForm | null>(initial || null),
-    [loading, setLoading] = useState(!initial),
+  const [form, setForm] = useState<PublicForm | null>(() => initial || (formId ? loadedForms.get(formId) : undefined) || null),
+    [loading, setLoading] = useState(() => !initial && !(formId && loadedForms.has(formId))),
     [values, setValues] = useState<Record<string, Value>>({}),
     [files, setFiles] = useState<Record<string, FileState>>({}),
     [step, setStep] = useState(0),
@@ -88,28 +124,35 @@ export function PublicFormRenderer({
     trap = useRef<HTMLInputElement>(null),
     heading = useRef<HTMLHeadingElement>(null)
   const zone = useMemo(visitorZone, [])
+  /* True once the visitor has seen the placeholder: the form then settles in over it. */
+  const waited = useRef(loading)
+  if (loading) waited.current = true
   const onUnavailableRef = useRef(onUnavailable)
   onUnavailableRef.current = onUnavailable
 
   useEffect(() => {
     if (initial?.id === formId) return
-    const controller = new AbortController()
+    /* Read already (the press that opened it started it): drawn from the first frame, nothing to wait for. */
+    if (retry === 0 && form?.id === formId) return
+    let live = true
     setLoading(true)
     setError(null)
     setForm(null)
-    /* A timeout and one retry after a blip (lib/forms/client), so the visitor never waits on a spinner that does not end. */
-    void formsRequest<{ form: PublicForm }>(`${platformOrigin()}/api/forms/${encodeURIComponent(formId)}/public`, { credentials: "omit", signal: controller.signal, fallback: "This form could not be loaded." }).then((r) => {
-      if (controller.signal.aborted) return
+    void (retry === 0 ? prefetchPublicForm(formId) : readPublicForm(formId)).then((r) => {
+      if (!live) return
       setLoading(false)
-      if (r.data?.form && !r.missing) {
-        setForm(r.data.form)
+      if (r.form) {
+        setForm(r.form)
         started.current = Date.now()
         return
       }
       setError(r.missing ? "This form is not available." : r.error || "This form could not be loaded.")
       onUnavailableRef.current?.()
     })
-    return () => controller.abort()
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId, initial?.id, retry])
 
   const d = form?.definition
@@ -250,15 +293,23 @@ export function PublicFormRenderer({
       setBusy(false)
     }
   }
+  /* While it is read: the shape of a form, quietly, so what arrives takes the same room and settles in rather than jumping. */
   if (loading)
     return (
-      <div role="status" className="min-h-48 animate-pulse rounded-xl bg-[#f3f4f6] p-5 text-sm text-[#6b7280]">
-        Loading form…
+      <div role="status" aria-label="Loading form" className="space-y-5 motion-safe:animate-pulse" data-form-loading="">
+        <div className="h-6 w-2/5 rounded-md bg-[var(--form-line,#eef0f2)]" />
+        {[0, 1].map((i) => (
+          <div key={i} className="space-y-2">
+            <div className="h-3.5 w-1/4 rounded bg-[var(--form-line,#eef0f2)]" />
+            <div className="h-11 rounded-xl bg-[var(--form-field,#f6f7f8)]" />
+          </div>
+        ))}
+        <div className="h-11 w-28 rounded-xl bg-[var(--form-line,#eef0f2)]" />
       </div>
     )
   if (!form || !d)
     return (
-      <div className="space-y-3 rounded-xl border border-[#e3e4e8] p-4 text-sm">
+      <div className="space-y-3 rounded-xl border border-[var(--form-line,#e3e4e8)] p-4 text-sm">
         <p role="alert">{error || "This form is not available."}</p>
         {/* Only a failed read is worth another try; a form that is not there stays not there. */}
         {error && error !== "This form is not available." ? (
@@ -272,22 +323,28 @@ export function PublicFormRenderer({
   if (done) return <Completion done={done} zone={zone} preview={preview} />
 
   return (
-    <form data-native-form={formId} className="relative min-w-0 space-y-5 text-left text-[#1a1a2e]" onSubmit={submit} noValidate>
+    <form
+      data-native-form={formId}
+      /* Read after a wait: it settles in over the placeholder (a short fade and a 4px rise), never a cut. Drawn from the first frame, it is simply there. */
+      className={`relative min-w-0 space-y-5 text-left text-[var(--sheet-ink,#1a1a2e)] ${waited.current ? "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-200" : ""}`}
+      onSubmit={submit}
+      noValidate
+    >
       <header>
-        {preview ? <p className="mb-3 text-xs text-[#6b7280]">Preview. Responses are not saved.</p> : null}
-        <h2 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+        {preview ? <p className="mb-3 text-xs text-[var(--sheet-muted,#6b7280)]">Preview. Responses are not saved.</p> : null}
+        <h2 ref={heading} tabIndex={-1} className={`text-xl font-semibold outline-none ${shownTitle && shownTitle.trim().toLowerCase() === (d.title || "").trim().toLowerCase() ? "sr-only" : ""}`}>
           {d.title}
         </h2>
-        {d.description && current === 0 ? <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#6b7280]">{d.description}</p> : null}
+        {d.description && current === 0 ? <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[var(--sheet-muted,#6b7280)]">{d.description}</p> : null}
         {total > 1 ? (
           <div className="mt-4" data-form-progress="">
-            <div className="flex justify-between text-xs text-[#6b7280]">
+            <div className="flex justify-between text-xs text-[var(--sheet-muted,#6b7280)]">
               <span>
                 Step {current + 1} of {total}
               </span>
             </div>
-            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[#eceef1]" role="progressbar" aria-valuemin={1} aria-valuemax={total} aria-valuenow={current + 1} aria-label="Progress">
-              <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-200 motion-reduce:transition-none" style={{ width: `${((current + 1) / total) * 100}%` }} />
+            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--form-line,#eceef1)]" role="progressbar" aria-valuemin={1} aria-valuemax={total} aria-valuenow={current + 1} aria-label="Progress">
+              <div className="h-full rounded-full bg-[var(--sheet-ink,#1a1a2e)] transition-[width] duration-200 motion-reduce:transition-none" style={{ width: `${((current + 1) / total) * 100}%` }} />
             </div>
           </div>
         ) : null}
@@ -306,8 +363,8 @@ export function PublicFormRenderer({
       ))}
       {last ? (
         <div className="space-y-3">
-          <label className="flex items-start gap-2.5 text-xs leading-relaxed text-[#4b5563]">
-            <input type="checkbox" checked={consent} onChange={(e) => (setConsent(e.target.checked), setError(null))} className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" />
+          <label className="flex items-start gap-2.5 text-xs leading-relaxed text-[var(--sheet-body,#4b5563)]">
+            <input type="checkbox" checked={consent} onChange={(e) => (setConsent(e.target.checked), setError(null))} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--sheet-ink,#1a1a2e)]" />
             <span>
               {d.consent_text}
               {d.privacy_url ? (
@@ -318,15 +375,15 @@ export function PublicFormRenderer({
             </span>
           </label>
           {d.marketing_opt_in ? (
-            <label className="flex items-start gap-2.5 text-xs text-[#4b5563]">
-              <input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" />
+            <label className="flex items-start gap-2.5 text-xs text-[var(--sheet-body,#4b5563)]">
+              <input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--sheet-ink,#1a1a2e)]" />
               <span>Send me occasional updates. Optional, and you can unsubscribe any time.</span>
             </label>
           ) : null}
         </div>
       ) : null}
       {error ? (
-        <p role="alert" className="text-sm text-[#b42318]">
+        <p role="alert" className="text-sm text-[var(--sheet-error,#b42318)]">
           {error}
         </p>
       ) : null}
@@ -379,7 +436,7 @@ function Question({
     </legend>
   )
   const helpText = field.description ? (
-    <p id={help} className="-mt-1 text-xs text-[#6b7280]">
+    <p id={help} className="-mt-1 text-xs text-[var(--sheet-muted,#6b7280)]">
       {field.description}
     </p>
   ) : null
@@ -387,7 +444,7 @@ function Question({
     return (
       <fieldset className="min-w-0" data-question={field.id}>
         <label className="flex items-start gap-2.5 text-sm">
-          <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" checked={value === true} onChange={(e) => onChange(e.target.checked)} aria-describedby={help} />
+          <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--sheet-ink,#1a1a2e)]" checked={value === true} onChange={(e) => onChange(e.target.checked)} aria-describedby={help} />
           <span>
             {field.label}
             {field.required ? <span aria-hidden="true"> *</span> : null}
@@ -409,7 +466,7 @@ function Question({
               <input
                 type={multi ? "checkbox" : "radio"}
                 name={id}
-                className="h-4 w-4 shrink-0 accent-[#1a1a2e]"
+                className="h-4 w-4 shrink-0 accent-[var(--sheet-ink,#1a1a2e)]"
                 checked={multi ? (chosen as string[]).includes(o.id) : chosen === o.id}
                 onChange={(e) => onChange(multi ? (e.target.checked ? [...(chosen as string[]), o.id] : (chosen as string[]).filter((x) => x !== o.id)) : o.id)}
               />
@@ -430,13 +487,13 @@ function Question({
           {Array.from({ length: max }, (_, i) => String(i + 1)).map((n) => (
             <label key={n} className="relative">
               <input type="radio" name={id} value={n} checked={value === n} onChange={() => onChange(n)} className="peer absolute inset-0 opacity-0" />
-              <span className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl border border-[#e3e4e8] bg-white text-sm font-medium peer-checked:border-[#1a1a2e] peer-checked:bg-[#1a1a2e] peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-[#1a1a2e]/30">
+              <span className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl border border-[var(--form-line,#e3e4e8)] bg-[var(--form-field,#fff)] text-sm font-medium peer-checked:border-[var(--sheet-ink,#1a1a2e)] peer-checked:bg-[var(--sheet-ink,#1a1a2e)] peer-checked:text-[var(--sheet-on-ink,#fff)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--sheet-ink,#1a1a2e)]/30">
                 {n}
               </span>
             </label>
           ))}
         </div>
-        <div className="flex justify-between text-xs text-[#6b7280]" style={{ maxWidth: max * 52 }}>
+        <div className="flex justify-between text-xs text-[var(--sheet-muted,#6b7280)]" style={{ maxWidth: max * 52 }}>
           <span>Poor</span>
           <span>Excellent</span>
         </div>
@@ -448,13 +505,13 @@ function Question({
       <fieldset className="min-w-0 space-y-2" data-question={field.id}>
         {legend}
         {helpText}
-        <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-[#cfd3da] bg-white px-3 py-2.5 text-sm focus-within:ring-2 focus-within:ring-[#1a1a2e]/20">
+        <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--form-line,#cfd3da)] bg-[var(--form-field,#fff)] px-3 py-2.5 text-sm focus-within:ring-2 focus-within:ring-[var(--sheet-ink,#1a1a2e)]/20">
           <span className="min-w-0 truncate">{file?.busy ? `Uploading ${file.name}…` : file?.name || "Choose a file"}</span>
-          <span className="shrink-0 text-xs text-[#6b7280]">JPG, PNG, WebP, PDF</span>
+          <span className="shrink-0 text-xs text-[var(--sheet-muted,#6b7280)]">JPG, PNG, WebP, PDF</span>
           <input type="file" className="sr-only" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => onFile(e.target.files?.[0])} aria-describedby={help} />
         </label>
         {file?.error ? (
-          <p role="alert" className="text-xs text-[#b42318]">
+          <p role="alert" className="text-xs text-[var(--sheet-error,#b42318)]">
             {file.error}
           </p>
         ) : null}
@@ -558,7 +615,7 @@ function SlotPicker({
   const active = day && days.some(([k]) => k === day) ? day : days[0]?.[0] || null
   if (failed)
     return (
-      <p role="alert" className="text-sm text-[#b42318]">
+      <p role="alert" className="text-sm text-[var(--sheet-error,#b42318)]">
         {failed}{" "}
         <button type="button" className="underline" onClick={() => void load()}>
           Try again
@@ -567,17 +624,17 @@ function SlotPicker({
     )
   if (!slots)
     return (
-      <div role="status" className="h-32 animate-pulse rounded-xl bg-[#f3f4f6]">
+      <div role="status" className="h-32 rounded-xl bg-[var(--form-field,#f3f4f6)] motion-safe:animate-pulse">
         <span className="sr-only">Loading times…</span>
       </div>
     )
   return (
     <fieldset className="min-w-0 space-y-3" data-slot-picker="">
       <legend className="mb-1 text-sm font-medium">Choose a time</legend>
-      <p className="-mt-1 text-xs text-[#6b7280]">
+      <p className="-mt-1 text-xs text-[var(--sheet-muted,#6b7280)]">
         {settings.duration} minutes. Times shown in {zone.replace(/_/g, " ")}.
       </p>
-      {!days.length ? <p className="text-sm text-[#6b7280]">No free times in the next two weeks.</p> : null}
+      {!days.length ? <p className="text-sm text-[var(--sheet-muted,#6b7280)]">No free times in the next two weeks.</p> : null}
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]" role="tablist" aria-label="Days">
         {days.map(([k, list]) => (
           <button
@@ -586,7 +643,7 @@ function SlotPicker({
             role="tab"
             aria-selected={k === active}
             onClick={() => setDay(k)}
-            className={`shrink-0 rounded-xl border px-3 py-2 text-sm ${k === active ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e3e4e8] bg-white"}`}
+            className={`shrink-0 rounded-xl border px-3 py-2 text-sm ${k === active ? "border-[var(--sheet-ink,#1a1a2e)] bg-[var(--sheet-ink,#1a1a2e)] text-[var(--sheet-on-ink,#fff)]" : "border-[var(--form-line,#e3e4e8)] bg-[var(--form-field,#fff)]"}`}
           >
             {dayLabel(list[0].start, zone)}
           </button>
@@ -600,7 +657,7 @@ function SlotPicker({
             role="radio"
             aria-checked={value?.start === s.start}
             onClick={() => onChange(s)}
-            className={`min-h-11 rounded-xl border px-2 text-sm font-medium ${value?.start === s.start ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e3e4e8] bg-white"}`}
+            className={`min-h-11 rounded-xl border px-2 text-sm font-medium ${value?.start === s.start ? "border-[var(--sheet-ink,#1a1a2e)] bg-[var(--sheet-ink,#1a1a2e)] text-[var(--sheet-on-ink,#fff)]" : "border-[var(--form-line,#e3e4e8)] bg-[var(--form-field,#fff)]"}`}
           >
             {timeLabel(s.start, zone)}
           </button>
@@ -619,7 +676,7 @@ function SlotPicker({
 function Completion({ done, zone, preview }: { done: Done; zone: string; preview: boolean }) {
   const label = done.action_label || (done.action_type ? actionLabel({ type: done.action_type } as never) : "Continue")
   return (
-    <section role="status" className="space-y-4 py-2 text-left text-[#1a1a2e]" data-form-complete="">
+    <section role="status" className="space-y-4 py-2 text-left text-[var(--sheet-ink,#1a1a2e)]" data-form-complete="">
       {done.result ? (
         <div className="space-y-1">
           <h2 className="text-xl font-semibold">{done.result.title}</h2>
@@ -632,7 +689,7 @@ function Completion({ done, zone, preview }: { done: Done; zone: string; preview
           <strong>{fullLabel(done.booking.starts_at, zone)}</strong>
         </p>
       ) : null}
-      <p className={`whitespace-pre-wrap ${done.result ? "text-sm text-[#6b7280]" : "text-base"}`}>{done.message}</p>
+      <p className={`whitespace-pre-wrap ${done.result ? "text-sm text-[var(--sheet-muted,#6b7280)]" : "text-base"}`}>{done.message}</p>
       <div className="flex flex-wrap gap-2">
         {done.payment_href ? (
           <a className={button} href={done.payment_href}>

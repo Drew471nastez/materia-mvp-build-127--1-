@@ -83,6 +83,8 @@ console.log("SWIPE")
   check("the finger moves it from where it is (the opening's fill written down)", /a\.commitStyles\(\)/.test(sheet))
   check("a move it takes is not also a scroll", /addEventListener\("touchmove", onMove, \{ passive: false \}\)/.test(sheet) && /if \(e\.cancelable\) e\.preventDefault\(\)/.test(sheet))
   check("closing carries on from the finger", /if \(swipedOut\.current\)/.test(sheet) && /"0 100%"/.test(sheet))
+  check("never while a field has focus (the keyboard is up)", /panel\.contains\(focused\) && focused\.matches\(FIELDS\)\) return/.test(sheet))
+  check("it keeps AN2's keyboard padding", /max-sm:pb-\[var\(--kb-inset,0px\)\]/.test(sheet))
   check("with reduced motion it only fades out", /translate: still \? from\.translate : "0 100%"/.test(sheet))
 }
 

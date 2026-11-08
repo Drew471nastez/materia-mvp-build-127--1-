@@ -58,33 +58,9 @@ import { backInFlight, backThen } from "@/lib/navigation/go-back"
 
 export type OpenMode = "sheet" | "direct"
 
-export interface BlockSheetRequest {
-  /** The block that opened it, for analytics and to restore focus on close. */
-  blockId: string
-  /** The line at the top of the sheet: "Calendly", the video's title. */
-  title: string
-  /** What the sheet shows. Rendered lazily: only while the sheet is open. */
-  body: ReactNode
-  /** The block's own button in the bar at the foot ("Book a call"), when it has one. */
-  cta?: { label: string; href?: string | null; icon?: ReactNode; onClick?: () => void } | null
-  /** The address Share copies or hands to the system share sheet. Left out, Share is not drawn. */
-  shareUrl?: string | null
-  /** Let the body use the sheet's full height (an embed) instead of its natural height (a form). */
-  fill?: boolean
-  /** Told once when the sheet starts to close, however it was closed. */
-  onClose?: () => void
-}
-
-export interface BlockSheetApi {
-  open: (request: BlockSheetRequest) => void
-  close: () => void
-  /** False where no provider is drawn (a block rendered on its own): callers then go to the address directly. */
-  available: boolean
-}
-
-const NONE: BlockSheetApi = { open: () => {}, close: () => {}, available: false }
-
-export const BlockSheetContext = createContext<BlockSheetApi>(NONE)
+/* The contract (the request, the API, the context and its hook) lives in ./block-sheet-context (round AN), so asking for the sheet does not load it. */
+import { BlockSheetContext, type BlockSheetApi, type BlockSheetRequest } from "./block-sheet-context"
+export { BlockSheetContext, type BlockSheetApi, type BlockSheetRequest } from "./block-sheet-context"
 
 export function useBlockSheet(): BlockSheetApi {
   return useContext(BlockSheetContext)
@@ -155,6 +131,9 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
 function focusables(panel: HTMLElement | null): HTMLElement[] {
   return Array.from(panel?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []).filter((el) => el.getClientRects().length > 0)
 }
+
+/* What a phone raises its keyboard for. */
+const FIELDS = "input:not([type=button]):not([type=submit]):not([type=checkbox]):not([type=radio]),textarea,select,[contenteditable='true']"
 
 /* A spring back with reduced motion: short, but still a move the finger started. */
 const M_BACK_REDUCED = 120
@@ -283,6 +262,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
       const back = opener.current
       if (back && back !== document.body && back.isConnected) back.focus({ preventScroll: true })
       after.current.gone = true
+      if (!after.current.run && requestRef.current.onGone) after.current.run = requestRef.current.onGone
       runAfter()
     }
   }, [runAfter])
@@ -340,8 +320,15 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
   }, [])
 
   useEffect(() => {
-    if (!open && mark.current) leaveHistory()
-  }, [open, leaveHistory])
+    if (!open && mark.current) {
+      /* Whatever runs once the sheet is gone (onGone) waits for this step off our entry as well. */
+      after.current.left = false
+      leaveHistory(() => {
+        after.current.left = true
+        runAfter()
+      })
+    }
+  }, [open, leaveHistory, runAfter])
 
   /* ── Swipe down to close, on a touch screen. ── */
   useEffect(() => {
@@ -364,6 +351,9 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
       if (e.touches.length !== 1) return
       const t = e.target instanceof Element ? e.target : null
       if (t?.closest("input,textarea,select,[contenteditable='true'],[data-no-swipe]") || scrolledAbove(t)) return
+      /* A field has focus, so on a phone the keyboard is up: a drag then belongs to the page under it, never a close. */
+      const focused = document.activeElement
+      if (focused instanceof HTMLElement && focused !== panel && panel.contains(focused) && focused.matches(FIELDS)) return
       start = { x: e.touches[0].clientX, y: e.touches[0].clientY }
     }
     const onMove = (e: TouchEvent) => {
@@ -554,6 +544,20 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
           "relative mx-2 flex w-full origin-bottom flex-col overflow-hidden rounded-t-[24px] bg-[var(--sheet-bg)] text-[var(--sheet-body)] shadow-[0_-8px_40px_rgba(0,0,0,0.18)] outline-none will-change-[translate,scale,opacity]",
           "sm:mx-0 sm:origin-center sm:rounded-[24px] sm:shadow-[0_24px_64px_rgba(0,0,0,0.24),0_2px_8px_rgba(0,0,0,0.08)]",
           fill ? "h-[calc(100dvh-env(safe-area-inset-top)-16px)] sm:h-[min(760px,calc(100dvh-64px))] sm:max-w-[520px]" : "max-h-[calc(100dvh-env(safe-area-inset-top)-16px)] sm:max-h-[min(760px,calc(100dvh-64px))] sm:max-w-[480px]",
+          /*
+            ON THE KEYBOARD ON A PHONE (round AN, a form in the sheet). The
+            panel stays at the foot of the screen and its content is pushed
+            up by the keyboard (--kb-inset, published by ViewportVars), the
+            box grown by the same amount and never taller than what is left
+            on screen, as every shared sheet does (lib/ui/keyboard-safe-sheet
+            sheetOverKeyboard). It eases there with the keyboard rather than
+            jumping; KeyboardGuard then keeps the focused field in view in
+            the body below.
+          */
+          "max-sm:pb-[var(--kb-inset,0px)] max-sm:transition-[padding-bottom,max-height,height] max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
+          fill
+            ? "max-sm:h-[calc(min(100dvh_-_env(safe-area-inset-top)_-_16px,var(--vv-h,100dvh)_-_24px)_+_var(--kb-inset,0px))]"
+            : "max-sm:max-h-[calc(min(100dvh_-_env(safe-area-inset-top)_-_16px,var(--vv-h,100dvh)_-_24px)_+_var(--kb-inset,0px))]",
         )}
       >
         <span tabIndex={0} data-focus-guard="" aria-hidden onFocus={guard("last")} className="sr-only" />
@@ -563,7 +567,8 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
           {title}
         </h2>
         <div
-          className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 sm:px-4", fill ? "flex flex-col" : "pb-2")}
+          /* It scrolls with no bar drawn (round AN): a sheet is a small window, and a bar down its side read as a page squeezed into it. */
+          className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden", fill ? "flex flex-col" : "pb-2")}
           data-onepage-dialog-scroll=""
           data-block-sheet-body=""
         >

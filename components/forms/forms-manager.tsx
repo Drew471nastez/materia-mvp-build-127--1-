@@ -1,23 +1,23 @@
 "use client"
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactElement, type ReactNode } from "react"
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core"
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { ArrowLeft, ChevronDown, GripVertical, X } from "lucide-react"
+import { ArrowLeft, ChevronDown, Eye, GripVertical, MoreHorizontal, PenLine, Plus, X } from "lucide-react"
 import { ActionEditor } from "./action-editor"
 import { PublicFormRenderer } from "./public-form"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { ChoicePicker, type Choice } from "@/components/ui/choice-list"
+import { Reveal } from "@/components/ui/reveal"
+import { Segmented, Switch } from "@/components/onepage/editor-kit"
 import { useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
-import { buttonSecondary, buttonAccent, card, iconButton, StatusBadge } from "@/app/(storelib)/app/orders/order-parts"
-import { FIELD, SELECT } from "@/app/(storelib)/app/offers/offer-fields"
-import { SegmentedPills } from "@/components/app/segmented-pills"
+import { buttonSecondary, buttonAccent, iconButton, StatusBadge } from "@/app/(storelib)/app/orders/order-parts"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 import { formsRequest } from "@/lib/forms/client"
 import { formPath } from "@/lib/forms/actions"
 import { platformOrigin } from "@/lib/onepage/return-address"
 import {
-  CONDITION_OPS,
-  FIELD_TYPES,
   MAX_FIELDS,
   isChoice,
   type BookingSettings,
@@ -29,17 +29,28 @@ import {
 } from "@/lib/forms/definition"
 import type { ClientIntegrations } from "@/lib/forms/integrations"
 import type { FormUsage } from "@/lib/forms/kind"
-import { tt } from "@/lib/i18n/text"
+import { AREA, ERROR, FIELD, FIELD_STACK, HINT, LABEL, THIN_SCROLL } from "./fields"
+import { useFormConfirm } from "./form-confirm"
 
 /*
-  One form's builder, opened from Emails › Leads › Forms (app/(storelib)/
-  app/emails/forms/forms-list.tsx) and, `embedded`, over the OnePage editor
-  from a Form block or a chat button's questions (./form-builder-dialog).
-  Questions questions
-  (dragged into order, each with its rules), how the form is shown, what
-  happens after sending, bookings, and where responses go. Saving keeps a
-  draft; Publish changes what every page shows. The preview renders the
-  draft with the visitor's own renderer and saves nothing.
+  ONE FORM'S BUILDER, in the builder dialog (./form-builder-dialog), opened
+  from a OnePage Form block, a button that opens a form, a chat button's
+  questions, and the forms list in Emails › Leads › Forms.
+
+  ROUND AN, the owner: "make it more easy, clean, simple to understand and
+  set up, not complicated ... the scroll bar more modern ... not the right
+  side options". One column:
+
+    the title (and an intro, once asked for)
+    the questions, one compact row each, opening in place; Add question
+    the settings, each a row that opens when it is wanted: after sending,
+    where answers go, layout and button, bookings, privacy
+
+  A bar at the top says what the form is and whether it is live, with
+  Preview (the visitor's own renderer over the draft, saving nothing) and
+  Close; a bar at the foot holds Save draft and Publish. Only the middle
+  scrolls, with a thin scrollbar. Closing with changes not saved asks first
+  (./form-confirm), never the browser's confirm().
 */
 
 export interface SavedForm {
@@ -54,35 +65,143 @@ export interface SavedForm {
   retention_days?: number | null
 }
 
-/* Storelib's /app fields (app/(storelib)/app/offers/offer-fields): the same box, focus halo and chevron as Offers and Products. A label sits 6px above its field, never glued to it. */
-const field = cn(FIELD, "font-normal")
-const select = cn(SELECT, "font-normal")
-const area = "w-full min-w-0 rounded-[10px] border border-[#e3e5e8] bg-white px-3.5 py-2.5 text-[16px] font-normal leading-6 text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:rounded-lg sm:text-[14px] sm:leading-5"
-const label = "block space-y-1.5 text-[13px] font-medium text-[#4b5563]"
 const check = "h-4 w-4 shrink-0 cursor-pointer accent-[#1a1a2e]"
-const section = card + " p-4 sm:p-6"
-const heading = "text-[15px] font-semibold text-[#1a1a2e] sm:text-[14px]"
+const heading = "text-[14px] font-semibold text-[#1a1a2e]"
 const muted = "text-[13px] leading-5 text-[#6b7280]"
+const textButton = "inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-[#1a1a2e] outline-none hover:bg-[#f3f4f6] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] disabled:cursor-not-allowed disabled:opacity-50"
 const newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 12)
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 const ORDER = [1, 2, 3, 4, 5, 6, 0]
 
+const dayWords = (): string[] => [tt("Sun"), tt("Mon"), tt("Tue"), tt("Wed"), tt("Thu"), tt("Fri"), tt("Sat")]
+
+/** The question types, in the creator's language (the ids are lib/forms/definition FIELD_TYPES'). */
+const typeWords = (): [FieldType, string][] => [
+  ["text", tt("Short answer")],
+  ["textarea", tt("Paragraph")],
+  ["name", tt("Name")],
+  ["email", tt("Email")],
+  ["phone", tt("Phone")],
+  ["number", tt("Number")],
+  ["date", tt("Date")],
+  ["dropdown", tt("Dropdown")],
+  ["single", tt("Single choice")],
+  ["multiple", tt("Multiple choice")],
+  ["checkboxes", tt("Checkboxes")],
+  ["rating", tt("Rating")],
+  ["consent", tt("Consent")],
+  ["file", tt("File upload")],
+]
+
+const opWords = (): [Condition["op"], string][] => [
+  ["is", tt("is")],
+  ["is_not", tt("is not")],
+  ["includes", tt("includes")],
+  ["answered", tt("is answered")],
+  ["empty", tt("is empty")],
+  ["gte", tt("is at least")],
+  ["lte", tt("is at most")],
+]
+
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const r = await formsRequest<T>(url, { ...init, fallback: "That did not work. Try again." })
-  if (r.missing) throw Object.assign(new Error("Forms are not switched on for this store yet. They need the Forms database update (SQL parts 372 and 375)."), { status: 503 })
-  if (r.error || !r.data) throw Object.assign(new Error(r.error || "That did not work. Try again."), { status: r.status })
+  const r = await formsRequest<T>(url, { ...init, fallback: tt("That did not work. Try again.") })
+  if (r.missing) throw Object.assign(new Error(tt("Forms are not switched on for this store yet. They need the Forms database update (SQL parts 372 and 375).")), { status: 503 })
+  if (r.error || !r.data) throw Object.assign(new Error(r.error || tt("That did not work. Try again.")), { status: r.status })
   return r.data
 }
 
+/** A list chosen in Storelib's own picker (components/ui/choice-list), never the native select. */
+function Pick<T extends string>({
+  name,
+  label,
+  value,
+  options,
+  onChange,
+  hideLabel = false,
+  placeholder,
+  className,
+}: {
+  name: string
+  label: string
+  value: T | ""
+  options: [T, string][]
+  onChange: (v: T) => void
+  hideLabel?: boolean
+  placeholder?: string
+  className?: string
+}) {
+  const chosen = options.find(([id]) => id === value)
+  const choices: Choice[] = options.map(([id, words]) => ({ value: id, label: words }))
+  return (
+    <div className={cn(hideLabel ? "min-w-0" : FIELD_STACK, className)}>
+      {hideLabel ? null : <span className={LABEL}>{label}</span>}
+      <ChoicePicker
+        name={name}
+        title={label}
+        choices={choices}
+        value={value || null}
+        onChange={(v) => onChange(v as T)}
+        placeholder={tt("Search")}
+        searchable={options.length > 8}
+        uniform={options.length > 40}
+        fieldLabel={chosen?.[1] ?? placeholder ?? tt("Choose")}
+        fieldMuted={!chosen}
+      />
+    </div>
+  )
+}
+
+/** A setting that opens where it is: its name, what it is set to now, and a chevron. */
+function Disclosure({ id, title, summary, open, onToggle, children }: { id: string; title: string; summary?: string; open: boolean; onToggle: () => void; children: ReactNode }) {
+  return (
+    <div data-form-setting={id}>
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left outline-none transition-colors duration-100 hover:bg-[#fafafb] focus-visible:bg-[#f7f7f8]">
+        <span className="min-w-0 flex-1 text-[14px] font-medium text-[#1a1a2e]">{title}</span>
+        {summary && !open ? <span className="min-w-0 max-w-[55%] truncate text-[13px] text-[#6b7280]">{summary}</span> : null}
+        <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-200 motion-reduce:transition-none", open && "rotate-180")} />
+      </button>
+      <Reveal open={open}>
+        <div className="space-y-4 px-4 pb-5 pt-1">{children}</div>
+      </Reveal>
+    </div>
+  )
+}
+
+/** A yes or no, as the OnePage editor draws one: the words on the left, the switch on the right. */
+function Toggle({ label, checked, onChange, hint }: { label: string; checked: boolean; onChange: (on: boolean) => void; hint?: string }) {
+  return (
+    <div className="flex min-h-11 items-center justify-between gap-4">
+      <div className="min-w-0">
+        <p className="text-[14px] text-[#1a1a2e]">{label}</p>
+        {hint ? <p className={cn(HINT, "mt-0.5")}>{hint}</p> : null}
+      </div>
+      <Switch checked={checked} onChange={onChange} label={label} />
+    </div>
+  )
+}
+
 /**
- * `embedded`: drawn inside the builder dialog over the OnePage editor
- * (./form-builder-dialog): no page column of its own, and Back reads Done.
+ * Two shells around the same builder:
+ *
+ *   the dialog   (no `view`) the builder dialog over the OnePage editor
+ *                (./form-builder-dialog): a top bar, the one column that
+ *                scrolls, Save draft and Publish in a foot bar. `closeRef`
+ *                lets the dialog's Escape and close go through the builder,
+ *                which asks before changes are lost.
+ *   the page     (`view`, round 51, Contacts › Forms › a form) the form's
+ *                tabs: "edit" the same one column (questions, then after
+ *                sending, layout and bookings behind their rows), "settings"
+ *                publication, where answers go, privacy and the follow up,
+ *                "panel" the `panel` given (Responses, Insights), the save
+ *                buttons kept while something is unsaved so a change is
+ *                never lost by changing tab. No side panel in either.
+ *
+ * `embedded` is kept for callers from before round AN.
  */
 export function FormEditor({
   form,
   onBack,
   onSaved,
-  embedded = false,
+  closeRef,
   view,
   nav,
   panel,
@@ -93,14 +212,7 @@ export function FormEditor({
   onBack: () => void
   onSaved: (f: SavedForm) => void
   embedded?: boolean
-  /**
-   * Round 51 (Contacts › Forms › a form): which of the form's tabs is drawn.
-   * "edit" the questions and what happens after; "settings" publication,
-   * notifications, integrations, privacy and the follow up; "panel" the
-   * `panel` given (Responses, Insights), the save bar kept so unsaved
-   * changes are never lost by changing tab. Left out: everything, as the
-   * builder over the OnePage editor always drew it.
-   */
+  closeRef?: MutableRefObject<(() => void) | null>
   view?: "edit" | "settings" | "panel"
   /** The tabs, drawn under the title. */
   nav?: ReactNode
@@ -110,8 +222,6 @@ export function FormEditor({
   /** False inside a page that already has its own container (Contacts). */
   framed?: boolean
 }) {
-  const showEdit = !view || view === "edit"
-  const showSettings = !view || view === "settings"
   const [saved, setSaved] = useState(form),
     [draft, setDraft] = useState<FormDefinition>(() => withDefaults(form.draft)),
     [integrations, setIntegrations] = useState<ClientIntegrations>(form.integration_settings),
@@ -121,20 +231,30 @@ export function FormEditor({
     [error, setError] = useState<string | null>(null),
     [note, setNote] = useState<string | null>(null),
     [preview, setPreview] = useState(false),
-    [openQuestion, setOpenQuestion] = useState<string | null>(null)
+    [openQuestion, setOpenQuestion] = useState<string | null>(null),
+    [openSetting, setOpenSetting] = useState<string | null>(null),
+    [intro, setIntro] = useState(() => !!form.draft?.description?.trim())
+  const [ask, confirmEl] = useFormConfirm()
+  const scroller = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!dirty) return
     const hold = (e: BeforeUnloadEvent) => e.preventDefault()
     window.addEventListener("beforeunload", hold)
     return () => window.removeEventListener("beforeunload", hold)
   }, [dirty])
+  /* A note says its piece and goes. */
+  useEffect(() => {
+    if (!note) return
+    const t = window.setTimeout(() => setNote(null), 3200)
+    return () => window.clearTimeout(t)
+  }, [note])
   const change = (patch: Partial<FormDefinition>) => {
     setDraft((d) => ({ ...d, ...patch }))
     setDirty(true)
     setNote(null)
   }
   const editQuestion = (id: string, patch: Partial<FormField>) => change({ fields: draft.fields.map((f) => (f.id === id ? { ...f, ...patch } : f)) })
-  const save = async (publish: boolean) => {
+  const save = async (publish: boolean): Promise<boolean> => {
     setBusy(true)
     setError(null)
     try {
@@ -145,17 +265,34 @@ export function FormEditor({
       setSaved(b.form)
       onSaved(b.form)
       setDirty(false)
-      setNote(publish ? "Published. Every page with this form shows this version." : "Draft saved.")
+      setNote(publish ? tt("Published. Every page with this form shows this version.") : tt("Draft saved."))
+      return true
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The form did not save.")
+      setError(e instanceof Error ? e.message : tt("The form did not save."))
+      return false
     } finally {
       setBusy(false)
     }
   }
-  const back = () => {
-    if (dirty && !window.confirm("Leave without saving your changes?")) return
-    onBack()
+  const close = async () => {
+    if (!dirty) return onBack()
+    const answer = await ask({
+      title: tt("Save your changes?"),
+      body: tt("You changed this form. Save a draft, or leave the changes behind."),
+      confirm: tt("Discard"),
+      cancel: tt("Keep editing"),
+      alt: tt("Save draft"),
+    })
+    if (answer === true) onBack()
+    else if (answer === "alt" && (await save(false))) onBack()
   }
+  useEffect(() => {
+    if (!closeRef) return
+    closeRef.current = () => void close()
+    return () => {
+      closeRef.current = null
+    }
+  })
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }))
   const onDragEnd = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return
@@ -170,258 +307,345 @@ export function FormEditor({
     change({ fields: dropBrokenRules(arrayMove(draft.fields, index, to)) })
   }
   const remove = (id: string) => change({ fields: dropBrokenRules(draft.fields.filter((f) => f.id !== id)) })
+  const duplicate = (index: number) => {
+    const q = draft.fields[index]
+    const copy: FormField = { ...JSON.parse(JSON.stringify(q)), id: newId(), show_if: undefined }
+    const fields = [...draft.fields]
+    fields.splice(index + 1, 0, copy)
+    change({ fields })
+    setOpenQuestion(copy.id)
+  }
   const add = () => {
     const q: FormField = { id: newId(), type: "text", label: "", required: false }
     change({ fields: [...draft.fields, q] })
     setOpenQuestion(q.id)
   }
   const publicLink = platformOrigin() + formPath(saved.id)
-  const previewPane = (
-    <div className={section}>
-      <PublicFormRenderer key={JSON.stringify(draft)} formId={saved.id} preview initial={{ id: saved.id, revision: saved.revision, definition: draft }} />
-    </div>
+  const live = saved.status === "published"
+  const unpublished = live && (dirty || (saved.draft && JSON.stringify(saved.draft) !== JSON.stringify(saved.published)))
+  const toggleSetting = (id: string) => setOpenSetting((was) => (was === id ? null : id))
+
+  const layoutWords: Record<string, string> = { single: tt("One page"), steps: tt("Steps"), one_by_one: tt("One at a time") }
+  const afterSummary = draft.completion.kind === "gated" ? tt("Private link") : draft.completion.action ? tt("Message and a button") : tt("Message")
+  const answersSummary = [tt("Responses"), integrations.notify_email ? tt("Email") : "", integrations.webhook.enabled ? tt("Webhook") : ""].filter(Boolean).join(", ")
+  const inPage = view !== undefined
+
+  const answersBody = (
+    <IntegrationsEditor
+      form={saved}
+      value={integrations}
+      retention={retention}
+      onRetention={(d) => (setRetention(d), setDirty(true))}
+      onChange={(v) => (setIntegrations(v), setDirty(true))}
+      onStamp={(updated_at) => setSaved((s) => ({ ...s, updated_at }))}
+    />
+  )
+  const privacyBody = (
+    <>
+      <label className={FIELD_STACK}>
+        <span className={LABEL}>{tt("Consent notice")}</span>
+        <textarea className={cn(AREA, "min-h-[76px]")} rows={2} maxLength={600} value={draft.consent_text} onChange={(e) => change({ consent_text: e.target.value })} />
+      </label>
+      <label className={FIELD_STACK}>
+        <span className={LABEL}>{tt("Privacy policy address")}</span>
+        <input className={FIELD} type="url" placeholder="https://" value={draft.privacy_url ?? ""} onChange={(e) => change({ privacy_url: e.target.value })} />
+      </label>
+      <Toggle label={tt("Offer a separate opt-in for updates")} checked={draft.marketing_opt_in} onChange={(on) => change({ marketing_opt_in: on })} />
+    </>
   )
 
-  return (
-    <div className={embedded ? "px-4 pb-6 pt-3 sm:px-6" : framed ? "mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8" : ""} data-form-builder="" data-form-view={view ?? "all"}>
-      <header className="mb-5 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-1.5">
-            {embedded ? null : (
-              <button type="button" onClick={back} className={cn(iconButton, "-ml-1.5 h-9 w-9")} aria-label="Back to forms">
-                <ArrowLeft className="h-[18px] w-[18px]" />
-              </button>
-            )}
-            <div className="min-w-0">
-              <h1 className="flex min-w-0 items-center gap-2.5 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">
-                <span className="truncate">{draft.title || "Untitled form"}</span>
-                <StatusBadge tone={saved.status === "published" ? "success" : "neutral"}>{saved.status === "published" ? "Published" : "Draft"}</StatusBadge>
-              </h1>
-              {saved.status === "published" && (dirty || (saved.draft && JSON.stringify(saved.draft) !== JSON.stringify(saved.published))) ? (
-                <p className={muted}>{dirty ? "Unsaved changes" : "The draft has changes that are not published"}</p>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {showEdit ? (
-              <button type="button" className={buttonSecondary + " lg:hidden"} onClick={() => setPreview((v) => !v)} aria-pressed={preview}>
-                {preview ? "Edit" : "Preview"}
-              </button>
-            ) : null}
-            {saved.status === "published" && !embedded ? (
-              <ResponsiveActionMenu
-                title="Share"
-                trigger={
-                  <button type="button" className={buttonSecondary}>
-                    Share
-                  </button>
-                }
-                items={[
-                  { label: "Copy form link", onClick: () => void navigator.clipboard.writeText(publicLink).then(() => setNote("Form link copied.")) },
-                  { label: "Open public form", href: formPath(saved.id), target: "_blank" },
-                  { label: tt("View responses"), href: responsesHref(saved.id) },
-                ]}
-              />
-            ) : null}
-            {/* On Responses and Insights the save bar shows only while something is unsaved, so a change is never lost by changing tab. */}
-            {view !== "panel" || dirty ? (
-              <>
-                <button type="button" className={buttonSecondary} disabled={busy || !dirty} onClick={() => void save(false)}>
-                  Save draft
-                </button>
-                <button type="button" className={buttonAccent} disabled={busy} onClick={() => void save(true)} data-publish-form="">
-                  {busy ? "Saving" : "Publish"}
-                </button>
-              </>
-            ) : null}
-            {embedded ? (
-              <button type="button" className={buttonSecondary} onClick={back} data-form-builder-done="">
-                Done
-              </button>
-            ) : null}
-          </div>
+  const editor = (
+    <div className="space-y-7">
+      <section className="space-y-3">
+        <label className={FIELD_STACK}>
+          <span className={LABEL}>{tt("Title")}</span>
+          <input className={FIELD} value={draft.title} maxLength={160} onChange={(e) => change({ title: e.target.value })} />
+        </label>
+        {intro ? (
+          <label className={FIELD_STACK}>
+            <span className={LABEL}>{tt("Intro")}</span>
+            <textarea className={cn(AREA, "min-h-[76px]")} rows={2} maxLength={1000} value={draft.description} onChange={(e) => change({ description: e.target.value })} autoFocus={!draft.description} />
+          </label>
+        ) : (
+          <button type="button" className={cn(textButton, "-ml-2 text-[#4b5563]")} onClick={() => setIntro(true)} data-add-intro="">
+            <Plus aria-hidden className="h-3.5 w-3.5" />
+            {tt("Add an intro")}
+          </button>
+        )}
+      </section>
+
+      <section aria-labelledby="questions-h">
+        <div className="mb-2.5 flex items-baseline justify-between">
+          <h3 id="questions-h" className={heading}>
+            {tt("Questions")}
+          </h3>
+          <span className="text-[12.5px] tabular-nums text-[#9ca3af]">{tt("{count} of {max}", { count: draft.fields.length, max: MAX_FIELDS })}</span>
         </div>
-        {error ? (
-          <p role="alert" className="text-[13px] font-medium text-[#b42318]">
-            {error}
-          </p>
-        ) : null}
-        {note ? (
-          <p role="status" className="text-[13px] text-[#067647]">
-            {note}
-          </p>
-        ) : null}
-        {nav}
-      </header>
-      {view === "panel" ? (
-        panel
-      ) : (
-      <div className={showEdit ? "grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]" : "grid gap-5"}>
-        <div className={`min-w-0 space-y-4 ${preview && showEdit ? "max-lg:hidden" : ""}`}>
-          {showSettings && view === "settings" ? <PublicationCard form={saved} draftChanged={dirty || (saved.status === "published" && JSON.stringify(saved.draft) !== JSON.stringify(saved.published))} publicLink={publicLink} usages={usages ?? []} onCopied={() => setNote(tt("Form link copied."))} /> : null}
-          {showEdit ? (
-          <>
-          <section className={section + " space-y-3"}>
-            <label className={label}>
-              Title
-              <input className={field} value={draft.title} maxLength={160} onChange={(e) => change({ title: e.target.value })} />
-            </label>
-            <label className={label}>
-              Intro
-              <textarea className={area} rows={2} maxLength={1000} value={draft.description} onChange={(e) => change({ description: e.target.value })} />
-            </label>
-          </section>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={draft.fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+            <ol className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e3e4e8] bg-white" data-form-questions="">
+              {draft.fields.map((q, index) => (
+                <QuestionRow
+                  key={q.id}
+                  q={q}
+                  index={index}
+                  count={draft.fields.length}
+                  earlier={draft.fields.slice(0, index)}
+                  open={openQuestion === q.id}
+                  quiz={draft.mode === "quiz"}
+                  steps={draft.layout === "steps"}
+                  onToggle={() => setOpenQuestion(openQuestion === q.id ? null : q.id)}
+                  onChange={(patch) => editQuestion(q.id, patch)}
+                  onMove={(by) => move(index, by)}
+                  onDuplicate={() => duplicate(index)}
+                  onRemove={() => remove(q.id)}
+                />
+              ))}
+            </ol>
+          </SortableContext>
+        </DndContext>
+        <button
+          type="button"
+          className="mt-2.5 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-[#e3e4e8] bg-white text-[14px] font-medium text-[#1a1a2e] outline-none transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] focus-visible:border-[#1a1a2e] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={draft.fields.length >= MAX_FIELDS}
+          onClick={add}
+          data-add-question=""
+        >
+          <Plus aria-hidden className="h-4 w-4" />
+          {tt("Add question")}
+        </button>
+      </section>
 
-          <section className={section} aria-labelledby="questions-h">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 id="questions-h" className={heading}>
-                Questions
-              </h2>
-              <span className={muted}>
-                {draft.fields.length} of {MAX_FIELDS}
-              </span>
-            </div>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-              <SortableContext items={draft.fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                <ol className="divide-y divide-[#f1f2f4]">
-                  {draft.fields.map((q, index) => (
-                    <QuestionRow
-                      key={q.id}
-                      q={q}
-                      index={index}
-                      count={draft.fields.length}
-                      earlier={draft.fields.slice(0, index)}
-                      open={openQuestion === q.id}
-                      quiz={draft.mode === "quiz"}
-                      steps={draft.layout === "steps"}
-                      onToggle={() => setOpenQuestion(openQuestion === q.id ? null : q.id)}
-                      onChange={(patch) => editQuestion(q.id, patch)}
-                      onMove={(by) => move(index, by)}
-                      onRemove={() => remove(q.id)}
-                    />
-                  ))}
-                </ol>
-              </SortableContext>
-            </DndContext>
-            <button type="button" className={buttonSecondary + " mt-3"} disabled={draft.fields.length >= MAX_FIELDS} onClick={add}>
-              Add question
-            </button>
-          </section>
-
-          <section className={section + " space-y-4"}>
-            <h2 className={heading}>Layout</h2>
-            <Segmented
-              value={draft.layout}
-              options={[
-                ["single", "One page"],
-                ["steps", "Steps"],
-                ["one_by_one", "One at a time"],
-              ]}
-              onChange={(layout) => change({ layout: layout as FormDefinition["layout"] })}
-              label="Layout"
-            />
-            {draft.layout === "steps" ? <p className={muted}>Open a question and tick “Starts a new step” to split the form.</p> : null}
-            <label className={label}>
-              Send button
-              <input className={field} value={draft.button_text} maxLength={80} onChange={(e) => change({ button_text: e.target.value })} />
-            </label>
-            <label className="flex items-center gap-2 text-[14px]">
-              <input type="checkbox" className={check} checked={draft.mode === "quiz"} onChange={(e) => change({ mode: e.target.checked ? "quiz" : "form" })} />
-              Score answers and show a result
-            </label>
-            {draft.mode === "quiz" ? <ResultsEditor results={draft.results || []} onChange={(results) => change({ results })} /> : null}
-          </section>
-
-          <BookingEditor booking={draft.booking} onChange={(booking) => change({ booking })} />
-
-          <section className={section + " space-y-4"}>
-            <h2 className={heading}>After sending</h2>
-            <label className={label}>
-              Message
-              <textarea className={area} rows={2} maxLength={1000} value={draft.completion.message} onChange={(e) => change({ completion: { ...draft.completion, message: e.target.value } })} />
+      <section aria-labelledby="settings-h">
+        <h3 id="settings-h" className={cn(heading, "mb-2.5")}>
+          {tt("Settings")}
+        </h3>
+        <div className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e3e4e8] bg-white">
+          <Disclosure id="after" title={tt("After sending")} summary={afterSummary} open={openSetting === "after"} onToggle={() => toggleSetting("after")}>
+            <label className={FIELD_STACK}>
+              <span className={LABEL}>{tt("Message")}</span>
+              <textarea className={cn(AREA, "min-h-[76px]")} rows={2} maxLength={1000} value={draft.completion.message} onChange={(e) => change({ completion: { ...draft.completion, message: e.target.value } })} />
             </label>
             <Segmented
+              label={tt("After sending")}
               value={draft.completion.kind === "gated" ? "gated" : "message"}
               options={[
-                ["message", "Message and a button"],
-                ["gated", "Private link"],
+                { id: "message", label: tt("Message and a button") },
+                { id: "gated", label: tt("Private link") },
               ]}
               onChange={(v) =>
                 change({
-                  completion: v === "gated" ? { ...draft.completion, kind: "gated", gated: draft.completion.gated || { url: "", label: "Open your download" } } : { ...draft.completion, kind: draft.completion.action ? "action" : "message" },
+                  completion: v === "gated" ? { ...draft.completion, kind: "gated", gated: draft.completion.gated || { url: "", label: tt("Open your download") } } : { ...draft.completion, kind: draft.completion.action ? "action" : "message" },
                 })
               }
-              label="After sending"
             />
             {draft.completion.kind === "gated" ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className={label}>
-                  Private link
-                  <input className={field} type="url" placeholder="https://" value={draft.completion.gated?.url || ""} onChange={(e) => change({ completion: { ...draft.completion, gated: { label: draft.completion.gated?.label || "Open your download", url: e.target.value } } })} />
+                <label className={FIELD_STACK}>
+                  <span className={LABEL}>{tt("Private link")}</span>
+                  <input className={FIELD} type="url" placeholder="https://" value={draft.completion.gated?.url || ""} onChange={(e) => change({ completion: { ...draft.completion, gated: { label: draft.completion.gated?.label || tt("Open your download"), url: e.target.value } } })} />
                 </label>
-                <label className={label}>
-                  Button text
-                  <input className={field} maxLength={80} value={draft.completion.gated?.label || ""} onChange={(e) => change({ completion: { ...draft.completion, gated: { url: draft.completion.gated?.url || "", label: e.target.value } } })} />
+                <label className={FIELD_STACK}>
+                  <span className={LABEL}>{tt("Button text")}</span>
+                  <input className={FIELD} maxLength={80} value={draft.completion.gated?.label || ""} onChange={(e) => change({ completion: { ...draft.completion, gated: { url: draft.completion.gated?.url || "", label: e.target.value } } })} />
                 </label>
-                <p className={muted + " sm:col-span-2"}>Visitors get this link only after their response is saved. It never appears in the page.</p>
+                <p className={cn(HINT, "sm:col-span-2")}>{tt("Visitors get this link only after their response is saved. It never appears in the page.")}</p>
               </div>
             ) : (
               <>
                 <ActionEditor allowNone value={draft.completion.action} onChange={(action) => change({ completion: { ...draft.completion, action, kind: action ? "action" : "message" } })} />
                 {draft.completion.action?.type === "whatsapp" ? (
                   <>
-                    <p className={muted}>
-                      The message can use {"{name}"}, {"{email}"}, {"{phone}"}, {"{score}"}, {"{result}"}, {"{answers}"} or a question ID such as {`{${draft.fields[0]?.id || "goal"}}`}.
+                    <p className={HINT}>
+                      {tt("The message can use {tokens} or a question ID such as {example}.", { tokens: "{name}, {email}, {phone}, {score}, {result}, {answers}", example: `{${draft.fields[0]?.id || "goal"}}` })}
                     </p>
-                    <label className="flex items-center gap-2 text-[14px]">
-                      <input type="checkbox" className={check} checked={draft.completion.include_answers === true} onChange={(e) => change({ completion: { ...draft.completion, include_answers: e.target.checked } })} />
-                      Add every answer under the message
-                    </label>
+                    <Toggle label={tt("Add every answer under the message")} checked={draft.completion.include_answers === true} onChange={(on) => change({ completion: { ...draft.completion, include_answers: on } })} />
                   </>
                 ) : null}
               </>
             )}
-          </section>
-          </>
-          ) : null}
+          </Disclosure>
 
-          {showSettings ? (
-          <>
-          <IntegrationsEditor
-            form={saved}
-            value={integrations}
-            retention={retention}
-            onRetention={(d) => (setRetention(d), setDirty(true))}
-            onChange={(v) => (setIntegrations(v), setDirty(true))}
-            onStamp={(updated_at) => setSaved((s) => ({ ...s, updated_at }))}
-          />
+          {inPage ? null : (
+            <Disclosure id="responses" title={tt("Where answers go")} summary={answersSummary} open={openSetting === "responses"} onToggle={() => toggleSetting("responses")}>
+              {answersBody}
+            </Disclosure>
+          )}
 
-          <section className={section + " space-y-3"}>
-            <h2 className={heading}>Privacy</h2>
-            <label className={label}>
-              Consent notice
-              <textarea className={area} rows={2} maxLength={600} value={draft.consent_text} onChange={(e) => change({ consent_text: e.target.value })} />
+          <Disclosure id="layout" title={tt("Layout and button")} summary={`${layoutWords[draft.layout] ?? ""}${draft.mode === "quiz" ? `, ${tt("Quiz")}` : ""}`} open={openSetting === "layout"} onToggle={() => toggleSetting("layout")}>
+            <Segmented
+              label={tt("Layout")}
+              value={draft.layout}
+              options={[
+                { id: "single", label: tt("One page") },
+                { id: "steps", label: tt("Steps") },
+                { id: "one_by_one", label: tt("One at a time") },
+              ]}
+              onChange={(layout) => change({ layout: layout as FormDefinition["layout"] })}
+            />
+            {draft.layout === "steps" ? <p className={HINT}>{tt("Open a question and switch on Starts a new step to split the form.")}</p> : null}
+            <label className={FIELD_STACK}>
+              <span className={LABEL}>{tt("Send button")}</span>
+              <input className={FIELD} value={draft.button_text} maxLength={80} onChange={(e) => change({ button_text: e.target.value })} />
             </label>
-            <label className={label}>
-              Privacy policy address
-              <input className={field} type="url" placeholder="https://" value={draft.privacy_url ?? ""} onChange={(e) => change({ privacy_url: e.target.value })} />
-            </label>
-            <label className="flex items-center gap-2 text-[14px]">
-              <input type="checkbox" className={check} checked={draft.marketing_opt_in} onChange={(e) => change({ marketing_opt_in: e.target.checked })} />
-              Offer a separate opt-in for updates
-            </label>
-          </section>
-          {view === "settings" ? <FollowUpCard /> : null}
-          </>
-          ) : null}
+            <Toggle label={tt("Score answers and show a result")} checked={draft.mode === "quiz"} onChange={(on) => change({ mode: on ? "quiz" : "form" })} />
+            {draft.mode === "quiz" ? <ResultsEditor results={draft.results || []} onChange={(results) => change({ results })} /> : null}
+          </Disclosure>
+
+          <Disclosure id="bookings" title={tt("Bookings")} summary={draft.booking ? tt("{minutes} min", { minutes: draft.booking.duration }) : tt("Off")} open={openSetting === "bookings"} onToggle={() => toggleSetting("bookings")}>
+            <BookingEditor booking={draft.booking} onChange={(booking) => change({ booking })} />
+          </Disclosure>
+
+          {inPage ? null : (
+            <Disclosure id="privacy" title={tt("Privacy")} summary={draft.marketing_opt_in ? tt("Opt-in offered") : undefined} open={openSetting === "privacy"} onToggle={() => toggleSetting("privacy")}>
+              {privacyBody}
+            </Disclosure>
+          )}
         </div>
-        {showEdit ? (
-          <aside className={`min-w-0 ${preview ? "" : "max-lg:hidden"}`} aria-label="Preview">
-            <div className="lg:sticky lg:top-6">{previewPane}</div>
-          </aside>
-        ) : null}
+      </section>
+    </div>
+  )
+
+  const previewPane = (
+    <div className="rounded-xl border border-[#e3e4e8] bg-white p-4 sm:p-5" data-form-preview="">
+      <PublicFormRenderer key={JSON.stringify(draft)} formId={saved.id} preview initial={{ id: saved.id, revision: saved.revision, definition: draft }} />
+    </div>
+  )
+  const status = (
+    <div className="flex min-w-0 items-center gap-2">
+      <StatusBadge tone={live ? "success" : "neutral"}>{live ? tt("Published") : tt("Draft")}</StatusBadge>
+    </div>
+  )
+  const shareMenu = (trigger: ReactElement) => (
+    <ResponsiveActionMenu
+      title={tt("Share")}
+      align="end"
+      trigger={trigger}
+      items={[
+        { label: tt("Copy form link"), onClick: () => void navigator.clipboard.writeText(publicLink).then(() => setNote(tt("Form link copied."))) },
+        { label: tt("Open public form"), href: formPath(saved.id), target: "_blank" },
+        { label: tt("View responses"), href: responsesHref(saved.id) },
+      ]}
+    />
+  )
+  const message = error ? (
+    <p role="alert" className={cn(ERROR, "line-clamp-2")}>
+      {error}
+    </p>
+  ) : note ? (
+    <p role="status" className="truncate text-[13px] text-[#067647]">
+      {note}
+    </p>
+  ) : null
+
+  /* ── The page (Contacts › Forms › a form): its tabs, one column, no side panel. ── */
+  if (inPage) {
+    const card = pageCard
+    return (
+      <div className={framed ? "mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8" : ""} data-form-builder="" data-form-view={view}>
+        <header className="mb-5 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <button type="button" onClick={() => void close()} className={cn(iconButton, "-ml-1.5 h-9 w-9")} aria-label={tt("Back to forms")}>
+                <ArrowLeft className="h-[18px] w-[18px]" />
+              </button>
+              <div className="min-w-0">
+                <h1 className="flex min-w-0 items-center gap-2.5 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">
+                  <span className="truncate">{draft.title || tt("Untitled form")}</span>
+                  {status}
+                </h1>
+                {unpublished ? <p className={muted}>{dirty ? tt("Unsaved changes") : tt("The draft has changes that are not published")}</p> : null}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {view === "edit" ? (
+                <button type="button" className={buttonSecondary} onClick={() => setPreview((v) => !v)} aria-pressed={preview} data-form-preview-toggle="">
+                  {preview ? <PenLine aria-hidden className="h-4 w-4" /> : <Eye aria-hidden className="h-4 w-4" />}
+                  {preview ? tt("Edit") : tt("Preview")}
+                </button>
+              ) : null}
+              {live ? shareMenu(<button type="button" className={buttonSecondary}>{tt("Share")}</button>) : null}
+              {/* On Responses and Insights the save buttons show only while something is unsaved, so a change is never lost by changing tab. */}
+              {view !== "panel" || dirty ? (
+                <>
+                  <button type="button" className={buttonSecondary} disabled={busy || !dirty} onClick={() => void save(false)} data-save-draft="">
+                    {tt("Save draft")}
+                  </button>
+                  <button type="button" className={buttonAccent} disabled={busy} onClick={() => void save(true)} data-publish-form="">
+                    {busy ? tt("Saving") : tt("Publish")}
+                  </button>
+                </>
+              ) : null}
+            </div>
+          </div>
+          {message}
+          {nav}
+        </header>
+        {view === "panel" ? (
+          panel
+        ) : view === "settings" ? (
+          <div className="mx-auto max-w-[720px] space-y-4">
+            <PublicationCard form={saved} draftChanged={dirty || (live && JSON.stringify(saved.draft) !== JSON.stringify(saved.published))} publicLink={publicLink} usages={usages ?? []} onCopied={() => setNote(tt("Form link copied."))} />
+            <section className={cn(card, "space-y-4")}>
+              <h2 className={heading}>{tt("Where answers go")}</h2>
+              {answersBody}
+            </section>
+            <section className={cn(card, "space-y-4")}>
+              <h2 className={heading}>{tt("Privacy")}</h2>
+              {privacyBody}
+            </section>
+            <FollowUpCard />
+          </div>
+        ) : (
+          <div className="mx-auto max-w-[720px]">{preview ? previewPane : editor}</div>
+        )}
+        {confirmEl}
       </div>
-      )}
+    )
+  }
+
+  return (
+    <div className="flex h-full min-h-0 flex-1 flex-col bg-white" data-form-builder="">
+      <header className="flex shrink-0 items-center gap-1.5 border-b border-[#eef0f2] py-2.5 pl-4 pr-2 sm:pl-5 sm:pr-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="truncate text-[16px] font-semibold text-[#1a1a2e]">{draft.title || tt("Untitled form")}</h2>
+            {status}
+          </div>
+          {unpublished ? <p className="truncate text-[12.5px] text-[#6b7280]">{dirty ? tt("Unsaved changes") : tt("The draft has changes that are not published")}</p> : null}
+        </div>
+        <button type="button" className={cn(textButton, "shrink-0")} onClick={() => (setPreview((v) => !v), scroller.current?.scrollTo({ top: 0 }))} aria-pressed={preview} data-form-preview-toggle="">
+          {preview ? <PenLine aria-hidden className="h-4 w-4" /> : <Eye aria-hidden className="h-4 w-4" />}
+          {preview ? tt("Edit") : tt("Preview")}
+        </button>
+        {live
+          ? shareMenu(
+              <button type="button" className={cn(iconButton, "h-9 w-9 shrink-0")} aria-label={tt("Share")} data-form-share="">
+                <MoreHorizontal className="h-[18px] w-[18px]" />
+              </button>,
+            )
+          : null}
+        <button type="button" onClick={() => void close()} className={cn(iconButton, "h-9 w-9 shrink-0")} aria-label={tt("Close")} data-form-builder-done="">
+          <X className="h-[18px] w-[18px]" />
+        </button>
+      </header>
+
+      <div ref={scroller} className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#f8f9fa] px-4 py-5 sm:px-5", THIN_SCROLL)} data-form-builder-scroll="" data-onepage-dialog-scroll="">
+        {preview ? previewPane : editor}
+      </div>
+
+      <footer className="flex shrink-0 items-center gap-2 border-t border-[#eef0f2] bg-white px-4 py-3 sm:px-5">
+        <div className="min-w-0 flex-1" aria-live="polite">
+          {message}
+        </div>
+        <button type="button" className={cn(buttonSecondary, "h-9 shrink-0 px-3.5")} disabled={busy || !dirty} onClick={() => void save(false)} data-save-draft="">
+          {tt("Save draft")}
+        </button>
+        <button type="button" className={cn(buttonAccent, "h-9 shrink-0 px-3.5")} disabled={busy} onClick={() => void save(true)} data-publish-form="">
+          {busy ? tt("Saving") : tt("Publish")}
+        </button>
+      </footer>
+      {confirmEl}
     </div>
   )
 }
@@ -438,6 +662,8 @@ export function usageWords(u: FormUsage): string {
   return tt("Website: {name}", { name: u.label })
 }
 
+const pageCard = "rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6"
+
 /**
  * SETTINGS › PUBLICATION (round 51). Whether every page shows this form,
  * which version, its own link, and where it is placed. Publishing stays the
@@ -446,7 +672,7 @@ export function usageWords(u: FormUsage): string {
 function PublicationCard({ form, draftChanged, publicLink, usages, onCopied }: { form: SavedForm; draftChanged: boolean; publicLink: string; usages: FormUsage[]; onCopied: () => void }) {
   const live = form.status === "published"
   return (
-    <section className={section + " space-y-3"} data-form-publication="">
+    <section className={pageCard + " space-y-3"} data-form-publication="">
       <h2 className={heading}>{tt("Publication")}</h2>
       <p className={muted}>
         {live
@@ -488,7 +714,7 @@ function PublicationCard({ form, draftChanged, publicLink, usages, onCopied }: {
 /** SETTINGS › FOLLOW UP (round 51): an email after a response is an automation, made in Emails. */
 function FollowUpCard() {
   return (
-    <section className={section + " space-y-2"} data-form-follow-up="">
+    <section className={pageCard + " space-y-2"} data-form-follow-up="">
       <h2 className={heading}>{tt("Email after a response")}</h2>
       <p className={muted}>{tt("Send an email after someone answers with an automation in Emails.")}</p>
       <a className={buttonSecondary + " inline-flex"} href="/app/emails?tab=automations">
@@ -515,11 +741,6 @@ function dropBrokenRules(fields: FormField[]): FormField[] {
   })
 }
 
-/** Storelib's segmented control (components/app/segmented-pills), as Emails and Analytics draw theirs. */
-function Segmented({ value, options, onChange, label: name }: { value: string; options: [string, string][]; onChange: (v: string) => void; label: string }) {
-  return <SegmentedPills label={name} size="sm" value={value} onChange={onChange} options={options.map(([id, text]) => ({ value: id, label: text }))} />
-}
-
 function QuestionRow({
   q,
   index,
@@ -531,6 +752,7 @@ function QuestionRow({
   onToggle,
   onChange,
   onMove,
+  onDuplicate,
   onRemove,
 }: {
   q: FormField
@@ -543,123 +765,101 @@ function QuestionRow({
   onToggle: () => void
   onChange: (patch: Partial<FormField>) => void
   onMove: (by: number) => void
+  onDuplicate: () => void
   onRemove: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: q.id })
-  const typeLabel = FIELD_TYPES.find((t) => t.id === q.type)?.label || q.type
+  const types = typeWords()
+  const typeLabel = types.find(([id]) => id === q.type)?.[1] || q.type
   const setType = (type: FieldType) =>
     onChange({
       type,
       ...(isChoice(type) && !q.options?.length
         ? {
             options: [
-              { id: newId(), label: "Option 1" },
-              { id: newId(), label: "Option 2" },
+              { id: newId(), label: tt("Option 1") },
+              { id: newId(), label: tt("Option 2") },
             ],
           }
         : {}),
       ...(type === "rating" ? { max: q.max && q.max >= 3 && q.max <= 10 ? q.max : 5 } : {}),
     })
+  const line = [typeLabel, q.required ? tt("Required") : "", q.show_if?.length ? tt("Shown by a rule") : "", steps && q.new_step && index > 0 ? tt("New step") : ""].filter(Boolean).join(" · ")
   return (
-    <li ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={`relative bg-white ${isDragging ? "z-10 shadow-[0_8px_24px_rgba(16,24,40,0.12)]" : ""}`} data-form-question={q.id}>
-      <div className="flex items-center gap-1 py-2">
-        <button type="button" className={iconButton + " cursor-grab touch-none active:cursor-grabbing"} aria-label={`Drag question ${index + 1}`} {...attributes} {...listeners}>
+    <li ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={cn("relative bg-white", isDragging && "z-10 shadow-[0_8px_24px_rgba(16,24,40,0.12)]")} data-form-question={q.id}>
+      <div className="flex items-center gap-0.5 py-1 pl-1 pr-1">
+        <button type="button" className={cn(iconButton, "h-9 w-8 shrink-0 cursor-grab touch-none text-[#9ca3af] active:cursor-grabbing")} aria-label={tt("Drag question {n}", { n: index + 1 })} {...attributes} {...listeners}>
           <GripVertical className="h-4 w-4" />
         </button>
-        <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-h-10 min-w-0 flex-1 items-center gap-2 text-left">
+        <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-1 text-left outline-none focus-visible:bg-[#f7f7f8]">
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">
-              {q.label || <span className="text-[#9ca3af]">Untitled question</span>}
-              {q.required ? <span className="text-[#6b7280]"> *</span> : null}
-            </span>
-            <span className="block text-[12px] text-[#6b7280]">
-              {typeLabel}
-              {q.show_if?.length ? " · Shown by a rule" : ""}
-              {steps && q.new_step && index > 0 ? " · New step" : ""}
-            </span>
+            <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{q.label || <span className="font-normal text-[#9ca3af]">{tt("Untitled question")}</span>}</span>
+            <span className="block truncate text-[12.5px] text-[#6b7280]">{line}</span>
           </span>
-          <ChevronDown className={`h-4 w-4 shrink-0 text-[#6b7280] transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+          <ChevronDown className={cn("h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-200 motion-reduce:transition-none", open && "rotate-180")} aria-hidden="true" />
         </button>
+        <ResponsiveActionMenu
+          title={q.label || tt("Untitled question")}
+          align="end"
+          trigger={
+            <button type="button" className={cn(iconButton, "h-9 w-9 shrink-0")} aria-label={tt("Actions for question {n}", { n: index + 1 })} data-question-menu="">
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          }
+          items={[
+            ...(index > 0 ? [{ label: tt("Move up"), onClick: () => onMove(-1) }] : []),
+            ...(index < count - 1 ? [{ label: tt("Move down"), onClick: () => onMove(1) }] : []),
+            ...(count < MAX_FIELDS ? [{ label: tt("Duplicate"), onClick: onDuplicate }] : []),
+            ...(count > 1 ? [{ label: tt("Remove"), variant: "destructive" as const, separatorBefore: true, onClick: onRemove }] : []),
+          ]}
+        />
       </div>
-      {open ? (
-        <div className="space-y-3 pb-4 pl-9">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px]">
-            <label className={label}>
-              Question
-              <input className={field} value={q.label} maxLength={300} autoFocus={!q.label} onChange={(e) => onChange({ label: e.target.value })} />
-            </label>
-            <label className={label}>
-              Type
-              <select className={select} value={q.type} onChange={(e) => setType(e.target.value as FieldType)}>
-                {FIELD_TYPES.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+      <Reveal open={open}>
+        <div className="space-y-4 px-4 pb-5 pt-2">
+          <label className={FIELD_STACK}>
+            <span className={LABEL}>{tt("Question")}</span>
+            <input className={FIELD} value={q.label} maxLength={300} autoFocus={!q.label} onChange={(e) => onChange({ label: e.target.value })} />
+          </label>
+          <Pick name="question-type" label={tt("Type")} value={q.type} options={types} onChange={setType} />
           {!isChoice(q.type) && !["rating", "consent", "file"].includes(q.type) ? (
-            <label className={label}>
-              Placeholder
-              <input className={field} value={q.placeholder ?? ""} maxLength={120} onChange={(e) => onChange({ placeholder: e.target.value })} />
+            <label className={FIELD_STACK}>
+              <span className={LABEL}>{tt("Placeholder")}</span>
+              <input className={FIELD} value={q.placeholder ?? ""} maxLength={120} onChange={(e) => onChange({ placeholder: e.target.value })} />
             </label>
           ) : null}
-          <label className={label}>
-            Help text
-            <input className={field} value={q.description ?? ""} maxLength={500} onChange={(e) => onChange({ description: e.target.value })} />
-          </label>
           {isChoice(q.type) ? <OptionsEditor q={q} quiz={quiz} onChange={onChange} /> : null}
           {q.type === "number" ? (
             <div className="grid grid-cols-2 gap-3">
-              <label className={label}>
-                Lowest
-                <input className={field} type="number" value={q.min ?? ""} onChange={(e) => onChange({ min: e.target.value === "" ? undefined : Number(e.target.value) })} />
+              <label className={FIELD_STACK}>
+                <span className={LABEL}>{tt("Lowest")}</span>
+                <input className={FIELD} type="number" value={q.min ?? ""} onChange={(e) => onChange({ min: e.target.value === "" ? undefined : Number(e.target.value) })} />
               </label>
-              <label className={label}>
-                Highest
-                <input className={field} type="number" value={q.max ?? ""} onChange={(e) => onChange({ max: e.target.value === "" ? undefined : Number(e.target.value) })} />
+              <label className={FIELD_STACK}>
+                <span className={LABEL}>{tt("Highest")}</span>
+                <input className={FIELD} type="number" value={q.max ?? ""} onChange={(e) => onChange({ max: e.target.value === "" ? undefined : Number(e.target.value) })} />
               </label>
             </div>
           ) : null}
           {q.type === "rating" ? (
-            <label className={label}>
-              Scale
-              <select className={select + " sm:w-40"} value={q.max || 5} onChange={(e) => onChange({ max: Number(e.target.value) })}>
-                {[3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                  <option key={n} value={n}>
-                    1 to {n}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <Pick
+              name="rating-scale"
+              label={tt("Scale")}
+              value={String(q.max || 5)}
+              options={[3, 4, 5, 6, 7, 8, 9, 10].map((n) => [String(n), tt("1 to {n}", { n })] as [string, string])}
+              onChange={(v) => onChange({ max: Number(v) })}
+            />
           ) : null}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <label className="flex items-center gap-2 text-[14px]">
-              <input type="checkbox" className={check} checked={q.required} onChange={(e) => onChange({ required: e.target.checked })} />
-              Required
-            </label>
-            {steps && index > 0 ? (
-              <label className="flex items-center gap-2 text-[14px]">
-                <input type="checkbox" className={check} checked={q.new_step === true} onChange={(e) => onChange({ new_step: e.target.checked || undefined })} />
-                Starts a new step
-              </label>
-            ) : null}
+          <label className={FIELD_STACK}>
+            <span className={LABEL}>{tt("Help text")}</span>
+            <input className={FIELD} value={q.description ?? ""} maxLength={500} placeholder={tt("Optional")} onChange={(e) => onChange({ description: e.target.value })} />
+          </label>
+          <div className="space-y-1">
+            <Toggle label={tt("Required")} checked={q.required} onChange={(on) => onChange({ required: on })} />
+            {steps && index > 0 ? <Toggle label={tt("Starts a new step")} checked={q.new_step === true} onChange={(on) => onChange({ new_step: on || undefined })} /> : null}
           </div>
           {earlier.length ? <RulesEditor rules={q.show_if || []} earlier={earlier} onChange={(show_if) => onChange({ show_if: show_if.length ? show_if : undefined })} /> : null}
-          <div className="flex flex-wrap gap-2 pt-1">
-            <button type="button" className={buttonSecondary} disabled={index === 0} onClick={() => onMove(-1)}>
-              Move up
-            </button>
-            <button type="button" className={buttonSecondary} disabled={index === count - 1} onClick={() => onMove(1)}>
-              Move down
-            </button>
-            <button type="button" className={buttonSecondary + " text-[#b42318]"} disabled={count === 1} onClick={onRemove}>
-              Remove
-            </button>
-          </div>
         </div>
-      ) : null}
+      </Reveal>
     </li>
   )
 }
@@ -669,20 +869,19 @@ function OptionsEditor({ q, quiz, onChange }: { q: FormField; quiz: boolean; onC
   const set = (i: number, patch: Partial<NonNullable<FormField["options"]>[number]>) => onChange({ options: options.map((o, j) => (j === i ? { ...o, ...patch } : o)) })
   return (
     <fieldset className="space-y-2">
-      <legend className="mb-1.5 text-[13px] font-medium text-[#4b5563]">Answers{quiz ? " and points" : ""}</legend>
+      <legend className={cn(LABEL, "mb-2")}>{quiz ? tt("Answers and points") : tt("Answers")}</legend>
       {options.map((o, i) => (
         <div key={o.id} className="flex items-center gap-2">
-          <input className={field} aria-label={`Answer ${i + 1}`} value={o.label} maxLength={200} onChange={(e) => set(i, { label: e.target.value })} />
-          {quiz ? (
-            <input className={field + " w-20 shrink-0"} type="number" aria-label={`Points for answer ${i + 1}`} value={o.score ?? 0} onChange={(e) => set(i, { score: Number(e.target.value) || 0 })} />
-          ) : null}
-          <button type="button" className={iconButton} aria-label={`Remove answer ${i + 1}`} disabled={options.length === 1} onClick={() => onChange({ options: options.filter((_, j) => j !== i) })}>
+          <input className={FIELD} aria-label={tt("Answer {n}", { n: i + 1 })} value={o.label} maxLength={200} onChange={(e) => set(i, { label: e.target.value })} />
+          {quiz ? <input className={cn(FIELD, "w-20 shrink-0")} type="number" aria-label={tt("Points for answer {n}", { n: i + 1 })} value={o.score ?? 0} onChange={(e) => set(i, { score: Number(e.target.value) || 0 })} /> : null}
+          <button type="button" className={cn(iconButton, "h-9 w-9 shrink-0")} aria-label={tt("Remove answer {n}", { n: i + 1 })} disabled={options.length === 1} onClick={() => onChange({ options: options.filter((_, j) => j !== i) })}>
             <X className="h-4 w-4" />
           </button>
         </div>
       ))}
-      <button type="button" className="text-[13px] font-medium text-[#1a1a2e] underline" disabled={options.length >= 30} onClick={() => onChange({ options: [...options, { id: newId(), label: `Option ${options.length + 1}` }] })}>
-        Add answer
+      <button type="button" className={cn(textButton, "-ml-2")} disabled={options.length >= 30} onClick={() => onChange({ options: [...options, { id: newId(), label: tt("Option {n}", { n: options.length + 1 }) }] })}>
+        <Plus aria-hidden className="h-3.5 w-3.5" />
+        {tt("Add answer")}
       </button>
     </fieldset>
   )
@@ -690,53 +889,38 @@ function OptionsEditor({ q, quiz, onChange }: { q: FormField; quiz: boolean; onC
 
 function RulesEditor({ rules, earlier, onChange }: { rules: Condition[]; earlier: FormField[]; onChange: (r: Condition[]) => void }) {
   const set = (i: number, patch: Partial<Condition>) => onChange(rules.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  const ops = opWords()
   return (
     <fieldset className="space-y-2" data-rules="">
-      <legend className="mb-1.5 text-[13px] font-medium text-[#4b5563]">{rules.length ? "Show only when" : "Visibility"}</legend>
+      {rules.length ? <legend className={cn(LABEL, "mb-2")}>{tt("Show only when")}</legend> : null}
       {rules.map((r, i) => {
         const target = earlier.find((f) => f.id === r.field)
         const needsValue = !["answered", "empty"].includes(r.op)
         return (
-          <div key={i} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_156px_minmax(0,1fr)_auto]">
-            <select className={select} aria-label="Question" value={r.field} onChange={(e) => set(i, { field: e.target.value, value: "" })}>
-              {earlier.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.label || "Untitled question"}
-                </option>
-              ))}
-            </select>
-            <select className={select} aria-label="Comparison" value={r.op} onChange={(e) => set(i, { op: e.target.value as Condition["op"] })}>
-              {CONDITION_OPS.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            {needsValue ? (
-              target && isChoice(target.type) && ["is", "is_not", "includes"].includes(r.op) ? (
-                <select className={select} aria-label="Answer" value={r.value || ""} onChange={(e) => set(i, { value: e.target.value })}>
-                  <option value="">Choose…</option>
-                  {target.options?.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input className={field} aria-label="Value" value={r.value || ""} maxLength={200} onChange={(e) => set(i, { value: e.target.value })} />
-              )
-            ) : (
-              <span />
-            )}
-            <button type="button" className={iconButton} aria-label="Remove rule" onClick={() => onChange(rules.filter((_, j) => j !== i))}>
-              <X className="h-4 w-4" />
-            </button>
+          <div key={i} className="space-y-2 rounded-xl bg-[#f8f9fa] p-2.5">
+            <div className="flex items-center gap-2">
+              <Pick hideLabel name="rule-question" label={tt("Question")} value={r.field} options={earlier.map((f) => [f.id, f.label || tt("Untitled question")] as [string, string])} onChange={(v) => set(i, { field: v, value: "" })} className="flex-1" />
+              <button type="button" className={cn(iconButton, "h-9 w-9 shrink-0")} aria-label={tt("Remove rule")} onClick={() => onChange(rules.filter((_, j) => j !== i))}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Pick hideLabel name="rule-op" label={tt("Comparison")} value={r.op} options={ops} onChange={(v) => set(i, { op: v })} />
+              {needsValue ? (
+                target && isChoice(target.type) && ["is", "is_not", "includes"].includes(r.op) ? (
+                  <Pick hideLabel name="rule-answer" label={tt("Answer")} value={r.value || ""} options={(target.options || []).map((o) => [o.id, o.label] as [string, string])} onChange={(v) => set(i, { value: v })} placeholder={tt("Choose an answer")} />
+                ) : (
+                  <input className={FIELD} aria-label={tt("Value")} value={r.value || ""} maxLength={200} onChange={(e) => set(i, { value: e.target.value })} />
+                )
+              ) : null}
+            </div>
           </div>
         )
       })}
       {rules.length < 5 ? (
-        <button type="button" className="text-[13px] font-medium text-[#1a1a2e] underline" onClick={() => onChange([...rules, { field: earlier[earlier.length - 1].id, op: "answered" }])}>
-          {rules.length ? "Add another rule" : "Show only when an earlier answer matches"}
+        <button type="button" className={cn(textButton, "-ml-2 text-[#4b5563]")} onClick={() => onChange([...rules, { field: earlier[earlier.length - 1].id, op: "answered" }])}>
+          <Plus aria-hidden className="h-3.5 w-3.5" />
+          {rules.length ? tt("Add another rule") : tt("Show only when an earlier answer matches")}
         </button>
       ) : null}
     </fieldset>
@@ -747,29 +931,29 @@ function ResultsEditor({ results, onChange }: { results: QuizResult[]; onChange:
   const set = (i: number, patch: Partial<QuizResult>) => onChange(results.map((r, j) => (j === i ? { ...r, ...patch } : r)))
   return (
     <fieldset className="space-y-3">
-      <legend className="mb-1.5 text-[13px] font-medium text-[#4b5563]">Results by total points</legend>
+      <legend className={cn(LABEL, "mb-2")}>{tt("Results by total points")}</legend>
       {results.map((r, i) => (
-        <div key={r.id} className="space-y-2 border-l-2 border-[#e3e4e8] pl-3">
-          <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-            <label className={label}>
-              From
-              <input className={field} type="number" value={r.min} onChange={(e) => set(i, { min: Number(e.target.value) || 0 })} />
+        <div key={r.id} className="space-y-3 rounded-xl bg-[#f8f9fa] p-3">
+          <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+            <label className={FIELD_STACK}>
+              <span className={LABEL}>{tt("From")}</span>
+              <input className={FIELD} type="number" value={r.min} onChange={(e) => set(i, { min: Number(e.target.value) || 0 })} />
             </label>
-            <label className={label}>
-              To
-              <input className={field} type="number" value={r.max} onChange={(e) => set(i, { max: Number(e.target.value) || 0 })} />
+            <label className={FIELD_STACK}>
+              <span className={LABEL}>{tt("To")}</span>
+              <input className={FIELD} type="number" value={r.max} onChange={(e) => set(i, { max: Number(e.target.value) || 0 })} />
             </label>
-            <button type="button" className={iconButton + " self-end"} aria-label={`Remove result ${i + 1}`} onClick={() => onChange(results.filter((_, j) => j !== i))}>
+            <button type="button" className={cn(iconButton, "mb-1 h-9 w-9")} aria-label={tt("Remove result {n}", { n: i + 1 })} onClick={() => onChange(results.filter((_, j) => j !== i))}>
               <X className="h-4 w-4" />
             </button>
           </div>
-          <label className={label}>
-            Result
-            <input className={field} value={r.title} maxLength={120} onChange={(e) => set(i, { title: e.target.value })} />
+          <label className={FIELD_STACK}>
+            <span className={LABEL}>{tt("Result")}</span>
+            <input className={FIELD} value={r.title} maxLength={120} onChange={(e) => set(i, { title: e.target.value })} />
           </label>
-          <label className={label}>
-            Message
-            <textarea className={area} rows={2} maxLength={1000} value={r.message} onChange={(e) => set(i, { message: e.target.value })} />
+          <label className={FIELD_STACK}>
+            <span className={LABEL}>{tt("Message")}</span>
+            <textarea className={cn(AREA, "min-h-[76px]")} rows={2} maxLength={1000} value={r.message} onChange={(e) => set(i, { message: e.target.value })} />
           </label>
           <ActionEditor allowNone value={r.action} onChange={(action) => set(i, { action })} />
         </div>
@@ -777,13 +961,14 @@ function ResultsEditor({ results, onChange }: { results: QuizResult[]; onChange:
       {results.length < 10 ? (
         <button
           type="button"
-          className={buttonSecondary}
+          className={cn(textButton, "-ml-2")}
           onClick={() => {
             const top = results.reduce((m, r) => Math.max(m, r.max), -1)
             onChange([...results, { id: newId(), min: top + 1, max: top + 10, title: "", message: "" }])
           }}
         >
-          Add result
+          <Plus aria-hidden className="h-3.5 w-3.5" />
+          {tt("Add result")}
         </button>
       ) : null}
     </fieldset>
@@ -801,123 +986,101 @@ function zones(): string[] {
 function BookingEditor({ booking, onChange }: { booking?: BookingSettings; onChange: (b: BookingSettings | undefined) => void }) {
   const products = useCreatorProducts(!!booking)
   const tzList = useMemo(zones, [])
-  const on = !!booking
   const b = booking
+  const days = dayWords()
   const set = (patch: Partial<BookingSettings>) => b && onChange({ ...b, ...patch })
   return (
-    <section className={section + " space-y-4"} data-booking-editor="">
-      <label className="flex items-center justify-between gap-3">
-        <span className={heading}>Bookings</span>
-        <input
-          type="checkbox"
-          className={check}
-          aria-label="Take bookings with this form"
-          checked={on}
-          onChange={(e) =>
-            onChange(
-              e.target.checked
-                ? {
-                    duration: 30,
-                    buffer: 10,
-                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-                    weekly: [1, 2, 3, 4, 5].map((day) => ({ day, start: "09:00", end: "17:00" })),
-                    notice_hours: 12,
-                    days_ahead: 30,
-                    approval: true,
-                  }
-                : undefined,
-            )
-          }
-        />
-      </label>
-      {!b ? (
-        <p className={muted}>Visitors pick a time before answering. For Calendly or another booking page, use a button action instead.</p>
-      ) : (
+    <div className="space-y-4" data-booking-editor="">
+      <Toggle
+        label={tt("Take bookings with this form")}
+        hint={b ? undefined : tt("Visitors pick a time before answering. For Calendly or another booking page, use a button action instead.")}
+        checked={!!b}
+        onChange={(on) =>
+          onChange(
+            on
+              ? {
+                  duration: 30,
+                  buffer: 10,
+                  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+                  weekly: [1, 2, 3, 4, 5].map((day) => ({ day, start: "09:00", end: "17:00" })),
+                  notice_hours: 12,
+                  days_ahead: 30,
+                  approval: true,
+                }
+              : undefined,
+          )
+        }
+      />
+      {b ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className={label}>
-              Length (minutes)
-              <input className={field} type="number" min={5} max={480} value={b.duration} onChange={(e) => set({ duration: Number(e.target.value) || 30 })} />
+          <div className="grid grid-cols-2 gap-3">
+            <label className={FIELD_STACK}>
+              <span className={LABEL}>{tt("Length (minutes)")}</span>
+              <input className={FIELD} type="number" min={5} max={480} value={b.duration} onChange={(e) => set({ duration: Number(e.target.value) || 30 })} />
             </label>
-            <label className={label}>
-              Break after (minutes)
-              <input className={field} type="number" min={0} max={240} value={b.buffer} onChange={(e) => set({ buffer: Number(e.target.value) || 0 })} />
+            <label className={FIELD_STACK}>
+              <span className={LABEL}>{tt("Break after (minutes)")}</span>
+              <input className={FIELD} type="number" min={0} max={240} value={b.buffer} onChange={(e) => set({ buffer: Number(e.target.value) || 0 })} />
             </label>
-            <label className={label}>
-              Notice (hours)
-              <input className={field} type="number" min={0} max={720} value={b.notice_hours} onChange={(e) => set({ notice_hours: Number(e.target.value) || 0 })} />
+            <label className={FIELD_STACK}>
+              <span className={LABEL}>{tt("Notice (hours)")}</span>
+              <input className={FIELD} type="number" min={0} max={720} value={b.notice_hours} onChange={(e) => set({ notice_hours: Number(e.target.value) || 0 })} />
             </label>
-            <label className={label}>
-              Bookable up to (days ahead)
-              <input className={field} type="number" min={1} max={365} value={b.days_ahead} onChange={(e) => set({ days_ahead: Number(e.target.value) || 30 })} />
-            </label>
-            <label className={label + " sm:col-span-2"}>
-              Your time zone
-              <select className={select} value={b.timezone} onChange={(e) => set({ timezone: e.target.value })}>
-                {(tzList.includes(b.timezone) ? tzList : [b.timezone, ...tzList]).map((z) => (
-                  <option key={z} value={z}>
-                    {z.replace(/_/g, " ")}
-                  </option>
-                ))}
-              </select>
+            <label className={FIELD_STACK}>
+              <span className={LABEL}>{tt("Days ahead")}</span>
+              <input className={FIELD} type="number" min={1} max={365} value={b.days_ahead} onChange={(e) => set({ days_ahead: Number(e.target.value) || 30 })} />
             </label>
           </div>
+          <Pick name="booking-zone" label={tt("Your time zone")} value={b.timezone} options={(tzList.includes(b.timezone) ? tzList : [b.timezone, ...tzList]).map((z) => [z, z.replace(/_/g, " ")] as [string, string])} onChange={(z) => set({ timezone: z })} />
           <fieldset className="space-y-2">
-            <legend className="mb-1.5 text-[13px] font-medium text-[#4b5563]">Weekly hours</legend>
+            <legend className={cn(LABEL, "mb-2")}>{tt("Weekly hours")}</legend>
             {ORDER.map((day) => {
               const windows = b.weekly.filter((w) => w.day === day)
               const others = b.weekly.filter((w) => w.day !== day)
               const write = (list: typeof windows) => set({ weekly: [...others, ...list] })
               return (
                 <div key={day} className="flex flex-wrap items-center gap-2">
-                  <label className="flex w-16 items-center gap-2 text-[14px]">
+                  <label className="flex w-16 items-center gap-2 text-[14px] text-[#1a1a2e]">
                     <input type="checkbox" className={check} checked={windows.length > 0} onChange={(e) => write(e.target.checked ? [{ day, start: "09:00", end: "17:00" }] : [])} />
-                    {DAYS[day]}
+                    {days[day]}
                   </label>
                   {windows.length ? (
                     windows.map((w, i) => (
-                      <span key={i} className="flex items-center gap-1">
-                        <input className={field + " w-[104px]"} type="time" aria-label={`${DAYS[day]} from`} value={w.start} onChange={(e) => write(windows.map((x, j) => (j === i ? { ...x, start: e.target.value } : x)))} />
-                        <span className="text-[13px] text-[#6b7280]">to</span>
-                        <input className={field + " w-[104px]"} type="time" aria-label={`${DAYS[day]} until`} value={w.end} onChange={(e) => write(windows.map((x, j) => (j === i ? { ...x, end: e.target.value } : x)))} />
+                      <span key={i} className="flex items-center gap-1.5">
+                        <input className={cn(FIELD, "h-10 w-[108px] px-2.5")} type="time" aria-label={tt("{day} from", { day: days[day] })} value={w.start} onChange={(e) => write(windows.map((x, j) => (j === i ? { ...x, start: e.target.value } : x)))} />
+                        <span className="text-[13px] text-[#6b7280]">{tt("to")}</span>
+                        <input className={cn(FIELD, "h-10 w-[108px] px-2.5")} type="time" aria-label={tt("{day} until", { day: days[day] })} value={w.end} onChange={(e) => write(windows.map((x, j) => (j === i ? { ...x, end: e.target.value } : x)))} />
                         {windows.length > 1 ? (
-                          <button type="button" className={iconButton} aria-label="Remove hours" onClick={() => write(windows.filter((_, j) => j !== i))}>
+                          <button type="button" className={cn(iconButton, "h-9 w-9")} aria-label={tt("Remove hours")} onClick={() => write(windows.filter((_, j) => j !== i))}>
                             <X className="h-4 w-4" />
                           </button>
                         ) : null}
                       </span>
                     ))
                   ) : (
-                    <span className={muted}>Unavailable</span>
+                    <span className={muted}>{tt("Unavailable")}</span>
                   )}
                   {windows.length && windows.length < 4 ? (
-                    <button type="button" className="text-[13px] text-[#1a1a2e] underline" onClick={() => write([...windows, { day, start: "18:00", end: "20:00" }])}>
-                      Add hours
+                    <button type="button" className={cn(textButton, "text-[#4b5563]")} onClick={() => write([...windows, { day, start: "18:00", end: "20:00" }])}>
+                      {tt("Add hours")}
                     </button>
                   ) : null}
                 </div>
               )
             })}
           </fieldset>
-          <label className="flex items-center gap-2 text-[14px]">
-            <input type="checkbox" className={check} checked={b.approval} onChange={(e) => set({ approval: e.target.checked })} />
-            Confirm each request myself
-          </label>
-          <label className={label}>
-            Payment
-            <select className={select} value={b.payment_product_id || ""} onChange={(e) => set({ payment_product_id: e.target.value || undefined })}>
-              <option value="">No payment</option>
-              {products?.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          {b.payment_product_id ? <p className={muted}>After booking, visitors see a Pay button for this product. Payment does not confirm the booking by itself: check the order, then confirm it in Leads.</p> : null}
+          <Toggle label={tt("Confirm each request myself")} checked={b.approval} onChange={(on) => set({ approval: on })} />
+          <Pick
+            name="booking-payment"
+            label={tt("Payment")}
+            value={b.payment_product_id || "none"}
+            options={[["none", tt("No payment")], ...((products || []).map((p) => [p.id, p.title] as [string, string]))]}
+            onChange={(v) => set({ payment_product_id: v === "none" ? undefined : v })}
+          />
+          {b.payment_product_id ? <p className={HINT}>{tt("After booking, visitors see a Pay button for this product. Payment does not confirm the booking by itself: check the order, then confirm it in Leads.")}</p> : null}
         </>
-      )}
-    </section>
+      ) : null}
+    </div>
   )
 }
 
@@ -948,71 +1111,62 @@ function IntegrationsEditor({
         setSecret(b.secret)
         if (b.updated_at) onStamp(b.updated_at)
         onChange({ ...value, webhook: { ...value.webhook, secret_hint: b.integrations?.webhook.secret_hint || "set" } })
-      } else setState(`Test delivered (${b.status}).`)
+      } else setState(tt("Test delivered ({status}).", { status: b.status ?? "" }))
     } catch (e) {
-      setState(e instanceof Error ? e.message : "That did not work.")
+      setState(e instanceof Error ? e.message : tt("That did not work."))
     } finally {
       setWorking(false)
     }
   }
   return (
-    <section className={section + " space-y-4"} data-integrations="">
-      <h2 className={heading}>Responses</h2>
-      <label className="flex items-center gap-2 text-[14px]">
-        <input type="checkbox" className={check} checked={value.notify_email} onChange={(e) => onChange({ ...value, notify_email: e.target.checked })} />
-        Email me each new response
-      </label>
-      <label className={label}>
-        Keep responses
-        <select className={select + " block sm:w-56"} value={retention ?? ""} onChange={(e) => onRetention(e.target.value ? Number(e.target.value) : null)}>
-          <option value="">Until I delete them</option>
-          {[30, 90, 180, 365, 730].map((d) => (
-            <option key={d} value={d}>
-              {d} days
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="space-y-3 border-t border-[#f1f2f4] pt-4">
-        <label className="flex items-center gap-2 text-[14px] font-medium">
-          <input type="checkbox" className={check} checked={value.webhook.enabled} onChange={(e) => onChange({ ...value, webhook: { ...value.webhook, enabled: e.target.checked } })} />
-          Send each response to a webhook
-        </label>
-        <label className={label}>
-          Webhook address
-          <input className={field} type="url" placeholder="https://" value={value.webhook.url} onChange={(e) => onChange({ ...value, webhook: { ...value.webhook, url: e.target.value } })} />
-        </label>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className={buttonSecondary} disabled={working} onClick={() => void call("secret")}>
-            {value.webhook.secret_hint ? "New signing secret" : "Create signing secret"}
-          </button>
-          <button type="button" className={buttonSecondary} disabled={working || !value.webhook.secret_hint} onClick={() => void call("test")}>
-            Send test
-          </button>
-          {value.webhook.secret_hint && !secret ? <span className={muted}>Secret ends in {value.webhook.secret_hint}</span> : null}
-        </div>
-        {secret ? (
-          <p className="break-all rounded-lg bg-[#f4f5f7] p-3 font-mono text-[12px] text-[#1a1a2e]" data-webhook-secret="">
-            {secret}
-            <span className="mt-1 block font-sans text-[12px] text-[#6b7280]">Copy it now. It is not shown again.</span>
-          </p>
+    <div className="space-y-4" data-integrations="">
+      <p className={HINT}>{tt("Every response is kept under Responses.")}</p>
+      <Toggle label={tt("Email me each new response")} checked={value.notify_email} onChange={(on) => onChange({ ...value, notify_email: on })} />
+      <Pick
+        name="keep-responses"
+        label={tt("Keep responses")}
+        value={retention ? String(retention) : "forever"}
+        options={[["forever", tt("Until I delete them")], ...[30, 90, 180, 365, 730].map((d) => [String(d), tt("{days} days", { days: d })] as [string, string])]}
+        onChange={(v) => onRetention(v === "forever" ? null : Number(v))}
+      />
+      <div className="space-y-3 border-t border-[#eef0f2] pt-3">
+        <Toggle label={tt("Send each response to a webhook")} checked={value.webhook.enabled} onChange={(on) => onChange({ ...value, webhook: { ...value.webhook, enabled: on } })} />
+        {value.webhook.enabled || value.webhook.url ? (
+          <>
+            <label className={FIELD_STACK}>
+              <span className={LABEL}>{tt("Webhook address")}</span>
+              <input className={FIELD} type="url" placeholder="https://" value={value.webhook.url} onChange={(e) => onChange({ ...value, webhook: { ...value.webhook, url: e.target.value } })} />
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" className={buttonSecondary} disabled={working} onClick={() => void call("secret")}>
+                {value.webhook.secret_hint ? tt("New signing secret") : tt("Create signing secret")}
+              </button>
+              <button type="button" className={buttonSecondary} disabled={working || !value.webhook.secret_hint} onClick={() => void call("test")}>
+                {tt("Send test")}
+              </button>
+              {value.webhook.secret_hint && !secret ? <span className={muted}>{tt("Secret ends in {hint}", { hint: value.webhook.secret_hint })}</span> : null}
+            </div>
+            {secret ? (
+              <p className="break-all rounded-lg bg-[#f4f5f7] p-3 font-mono text-[12px] text-[#1a1a2e]" data-webhook-secret="">
+                {secret}
+                <span className="mt-1 block font-sans text-[12px] text-[#6b7280]">{tt("Copy it now. It is not shown again.")}</span>
+              </p>
+            ) : null}
+            {state ? (
+              <p role="status" className={muted}>
+                {state}
+              </p>
+            ) : null}
+            <p className={HINT}>
+              {tt("Signed with HMAC SHA-256: {header} is v1= and the hex of timestamp.body. Failed deliveries are retried for a day. Save the form after changing these.", { header: "x-storelib-signature" })}
+            </p>
+          </>
         ) : null}
-        {state ? (
-          <p role="status" className={muted}>
-            {state}
-          </p>
-        ) : null}
-        <p className={muted}>
-          Signed with HMAC SHA-256: <code className="text-[12px]">x-storelib-signature</code> is v1= and the hex of timestamp.body. Failed deliveries are retried for a day. Save the form after changing these.
-        </p>
       </div>
-      <div className="space-y-2 border-t border-[#f1f2f4] pt-4">
-        <label className="flex items-center gap-2 text-[14px] font-medium">
-          <input type="checkbox" className={check} checked={value.google_sheets.prepared} onChange={(e) => onChange({ ...value, google_sheets: { prepared: e.target.checked } })} />
-          Queue responses for Google Sheets
-        </label>
-        <p className={muted}>Google Sheets is not connected to Storelib yet. Queued responses are sent once it is. Until then, export CSV from Responses or point the webhook at Zapier or Make.</p>
+      <div className="space-y-1 border-t border-[#eef0f2] pt-3">
+        <Toggle label={tt("Queue responses for Google Sheets")} checked={value.google_sheets.prepared} onChange={(on) => onChange({ ...value, google_sheets: { prepared: on } })} />
+        <p className={HINT}>{tt("Google Sheets is not connected to Storelib yet. Queued responses are sent once it is. Until then, export CSV from Responses or point the webhook at Zapier or Make.")}</p>
       </div>
-    </section>
+    </div>
   )
 }
