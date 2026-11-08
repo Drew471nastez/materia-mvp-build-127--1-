@@ -93,8 +93,17 @@ console.log("\n3. Layout draws, Settings says")
   check("a document, a menu, a booking: Classic and Featured drawn as the page draws them", (tab.match(/<ClassicFeaturedPicker value=\{data\.layout_type\}/g) ?? []).length === 3 && !/Choose how this block displays on your page/.test(tab))
   const layoutContent = tab.slice(tab.indexOf("const renderLayoutContent = () => {"), tab.indexOf("const renderSettingsContent = () => {"))
   check("a product: its picture and button words moved to Settings", !/Custom Thumbnail|Button Text/.test(layoutContent) && /\{data\.product_id && renderProductContent\(\)\}/.test(tab))
-  check("the animation is in Layout, not a button in the row", /<BlockAnimationPicker/.test(tab) && !/setShowAnimationMenu|showAnimationSheet|animationMenuRef/.test(tab))
+  /*
+    Changed on purpose (round AN): "the animations should not be as thumbnail previews, they should be
+    positioned in the block next to the analytics icon". The animation is the sparkle in the block's row
+    again (block-settings BlockAnimationButton, a ResponsiveActionMenu: a menu on a computer, the shared
+    sheet on a phone), and Layout has no animation pictures. The old hand-made menu and sheet stay gone.
+  */
   const settings = read("components/onepage/block-settings.tsx")
+  check("the animation is a button in the row beside the numbers, not pictures in Layout",
+    /\{ANIMATED_BLOCKS\.has\(block\.type\) && \(\s*<BlockAnimationButton value=/.test(tab) && !/<BlockAnimationPicker/.test(tab) && !/BlockAnimationPicker|data-block-animation-choice/.test(settings)
+    && /<ResponsiveActionMenu\s+title=\{tt\("Animation"\)\}/.test(settings) && !/setShowAnimationMenu|showAnimationSheet|animationMenuRef/.test(tab)
+    && tab.indexOf("<BlockAnimationButton") < tab.indexOf('title={tt("View Stats")}'))
   check("  only on the blocks where it helps", /ANIMATED_BLOCKS = new Set\(\["link_button", "product", "email_capture", "pdf_document", "food_menu", "calendly"\]\)/.test(settings))
   check("Profile card is a layout only, not a second choice in Settings", !/tt\("Profile card"\)/.test(settings))
   check("one Alignment for a heading and a text, which writes their own field", /ownAlign \? \{ alignment: align \} : undefined/.test(settings) && !/data\.alignment === align/.test(tab) && !/tt\("Alignment"\)/.test(read("components/onepage/extra-blocks.tsx")))

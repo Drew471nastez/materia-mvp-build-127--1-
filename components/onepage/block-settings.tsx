@@ -22,11 +22,12 @@
  * preview and the published page.
  */
 import * as React from "react"
-import { LayoutGrid, RotateCcw, Settings } from "lucide-react"
+import { Check, LayoutGrid, RotateCcw, Settings, Sparkles } from "lucide-react"
+import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ColorRow, RangeRow, Segmented, Switch } from "@/components/onepage/editor-kit"
+import { ColorRow, LabeledRow, RangeRow, Segmented, Switch } from "@/components/onepage/editor-kit"
 import { ChoiceMark } from "@/components/onepage/choice-marks"
 import {
   BLOCK_ASPECTS,
@@ -438,46 +439,53 @@ export function LinkImageOptions({ block, onChange, getBlock }: { block: OnePage
   const p = presentationOf(block)
   const overImage = layout === "visual" || layout === "cover" || layout === "tile"
   const pictured = linkLayoutHasImage(layout)
+  /* Round AN: each row named over its choices (LabeledRow), never three loose words. */
   return (
     <div className="space-y-4 border-t border-[#eef0f2] pt-4" data-link-image-options="">
       <p className={heading}>{pictured ? tt("Picture") : tt("Size")}</p>
       {pictured ? <>
-      <Segmented<BlockAspect>
-        label={tt("Picture shape")}
-        value={p.aspect || "auto"}
-        options={BLOCK_ASPECTS.map((a) => ({ id: a, label: a === "auto" ? tt("Auto") : a.replace("/", ":") }))}
-        onChange={(aspect) => write({ aspect: aspect === "auto" ? undefined : aspect })}
-      />
+      <LabeledRow label={tt("Picture shape")}>
+        <Segmented<BlockAspect>
+          label={tt("Picture shape")}
+          value={p.aspect || "auto"}
+          options={BLOCK_ASPECTS.map((a) => ({ id: a, label: a === "auto" ? tt("Auto") : a.replace("/", ":") }))}
+          onChange={(aspect) => write({ aspect: aspect === "auto" ? undefined : aspect })}
+        />
+      </LabeledRow>
       <div className="flex min-h-11 items-center justify-between gap-3">
         <span className="text-[14px] font-medium text-[#1a1a2e]">{tt("Fade at the bottom")}</span>
         <Switch label={tt("Fade at the bottom")} checked={p.fade ?? overImage} onChange={(fade) => write({ fade })} />
       </div>
       {overImage ? (
         <>
-          <Segmented
-            label={tt("Text position")}
-            value={p.position || "bottom"}
-            options={[
-              { id: "top", label: tt("Top") },
-              { id: "center", label: tt("Middle") },
-              { id: "bottom", label: tt("Bottom") },
-            ]}
-            onChange={(position) => write({ position: position as BlockPresentation["position"] })}
-          />
+          <LabeledRow label={tt("Text position")}>
+            <Segmented
+              label={tt("Text position")}
+              value={p.position || "bottom"}
+              options={[
+                { id: "top", label: tt("Top") },
+                { id: "center", label: tt("Middle") },
+                { id: "bottom", label: tt("Bottom") },
+              ]}
+              onChange={(position) => write({ position: position as BlockPresentation["position"] })}
+            />
+          </LabeledRow>
           <RangeRow compact label={tt("Shade")} value={p.overlay ?? 65} min={0} max={90} step={1} unit="%" onChange={(overlay) => write({ overlay })} />
         </>
       ) : null}
       </> : null}
-      <Segmented
-        label={tt("Width")}
-        value={p.size || "full"}
-        options={[
-          { id: "full", label: tt("Full width") },
-          { id: "half", label: tt("Half width") },
-          { id: "tall", label: tt("Tall") },
-        ]}
-        onChange={(size) => write({ size: size as BlockPresentation["size"] })}
-      />
+      <LabeledRow label={tt("Width")}>
+        <Segmented
+          label={tt("Width")}
+          value={p.size || "full"}
+          options={[
+            { id: "full", label: tt("Full width") },
+            { id: "half", label: tt("Half width") },
+            { id: "tall", label: tt("Tall") },
+          ]}
+          onChange={(size) => write({ size: size as BlockPresentation["size"] })}
+        />
+      </LabeledRow>
     </div>
   )
 }
@@ -515,31 +523,57 @@ export function BlockStyleControls({ block, onChange, getBlock }: { block: OnePa
         <section className="space-y-4 border-t border-[#eef0f2] pt-4">
           <p className={heading}>{tt("Text")}</p>
           {has("align") ? (
-            <Segmented
-              label={tt("Alignment")}
-              value={alignNow}
-              options={[
-                { id: "left", label: tt("Left") },
-                { id: "center", label: tt("Center") },
-                { id: "right", label: tt("Right") },
-              ]}
-              onChange={(align) => write({ align: align as BlockPresentation["align"] }, ownAlign ? { alignment: align } : undefined)}
-            />
+            <LabeledRow label={tt("Alignment")}>
+              <Segmented
+                label={tt("Alignment")}
+                value={alignNow}
+                options={[
+                  { id: "left", label: tt("Left") },
+                  { id: "center", label: tt("Center") },
+                  { id: "right", label: tt("Right") },
+                ]}
+                onChange={(align) => write({ align: align as BlockPresentation["align"] }, ownAlign ? { alignment: align } : undefined)}
+              />
+            </LabeledRow>
           ) : null}
           {has("title") ? (
             <>
               {color(tt("Title colour"), "title_color")}
-              <RangeRow compact label={tt("Title size")} value={p.title_size ?? 16} min={12} max={40} step={1} unit="px" onChange={(title_size) => write({ title_size })} />
-              <Segmented
-                label={tt("Title weight")}
-                value={String(p.title_weight || 600)}
-                options={[
-                  { id: "400", label: tt("Regular") },
-                  { id: "600", label: tt("Semibold") },
-                  { id: "700", label: tt("Bold") },
-                ]}
-                onChange={(v) => write({ title_weight: Number(v) })}
-              />
+              {block.type === "heading" ? (
+                /*
+                  ONE SIZE FOR A HEADING (round AN). Its Settings had Small, Medium and
+                  Large and this tab a Title size slider, and the slider won on the page
+                  ([data-title-size] in app/globals.css), so the first did nothing once
+                  the second was touched. The three sizes are the one control now, here;
+                  picking one lets go of a slider size saved before.
+                */
+                <LabeledRow label={tt("Size")}>
+                  <Segmented
+                    label={tt("Size")}
+                    value={(block.data as { size?: string }).size || "medium"}
+                    options={[
+                      { id: "small", label: tt("Small") },
+                      { id: "medium", label: tt("Medium") },
+                      { id: "large", label: tt("Large") },
+                    ]}
+                    onChange={(size) => write({ title_size: undefined }, { size })}
+                  />
+                </LabeledRow>
+              ) : (
+                <RangeRow compact label={tt("Title size")} value={p.title_size ?? 16} min={12} max={40} step={1} unit="px" onChange={(title_size) => write({ title_size })} />
+              )}
+              <LabeledRow label={tt("Title weight")}>
+                <Segmented
+                  label={tt("Title weight")}
+                  value={String(p.title_weight || 600)}
+                  options={[
+                    { id: "400", label: tt("Regular") },
+                    { id: "600", label: tt("Semibold") },
+                    { id: "700", label: tt("Bold") },
+                  ]}
+                  onChange={(v) => write({ title_weight: Number(v) })}
+                />
+              </LabeledRow>
             </>
           ) : null}
           {hasDescription ? (
@@ -562,16 +596,18 @@ export function BlockStyleControls({ block, onChange, getBlock }: { block: OnePa
           {has("background") ? color(tt("Background"), "background") : null}
           {shaped && has("radius") ? <RangeRow compact label={tt("Corners")} value={p.radius ?? 16} min={0} max={40} step={1} unit="px" onChange={(radius) => write({ radius })} /> : null}
           {shaped && has("shadow") ? (
-            <Segmented<BlockShadow>
-              label={tt("Shadow")}
-              value={p.shadow || "none"}
-              options={[
-                { id: "none", label: tt("None") },
-                { id: "soft", label: tt("Soft") },
-                { id: "lifted", label: tt("Lifted") },
-              ]}
-              onChange={(shadow) => write({ shadow: shadow === "none" ? undefined : shadow })}
-            />
+            <LabeledRow label={tt("Shadow")}>
+              <Segmented<BlockShadow>
+                label={tt("Shadow")}
+                value={p.shadow || "none"}
+                options={[
+                  { id: "none", label: tt("None") },
+                  { id: "soft", label: tt("Soft") },
+                  { id: "lifted", label: tt("Lifted") },
+                ]}
+                onChange={(shadow) => write({ shadow: shadow === "none" ? undefined : shadow })}
+              />
+            </LabeledRow>
           ) : null}
           {shaped && has("padding") ? <RangeRow compact label={tt("Padding")} value={p.padding ?? 16} min={8} max={40} step={1} unit="px" onChange={(padding) => write({ padding })} /> : null}
         </section>
@@ -595,7 +631,7 @@ export function BlockStyleControls({ block, onChange, getBlock }: { block: OnePa
   )
 }
 
-/* ── Layout: an animation, for the blocks where one helps ───────────────── */
+/* ── The row: an animation, for the blocks where one helps ──────────────── */
 
 /**
  * WHICH BLOCKS MOVE (round AL). "Not all of them should have, but some of
@@ -618,48 +654,54 @@ const ANIMATION_LABEL: Record<BlockAnimation, () => string> = {
   swipe: () => tt("Swipe"),
 }
 
-/** The block's attention animation, each choice drawn as a small button that moves the way the block will. */
-export function BlockAnimationPicker({ value, theme, onChange }: { value: string | null | undefined; theme?: Partial<OnePageTheme> | null; onChange: (animation: BlockAnimation) => void }) {
+/**
+ * THE SPARKLE IN THE BLOCK'S ROW (round AN). Round AL moved the animation
+ * into Layout as six moving pictures; the owner: "the animations should not
+ * be as thumbnail previews, they should be positioned in the block next to
+ * the analytics icon". So it is the small button beside the numbers again,
+ * as before round AL: a menu under it on a computer and the shared sheet on
+ * a phone (components/ui/responsive-action-menu), the chosen one checked,
+ * and the button tinted while the block moves. On a phone the choice lands
+ * once the sheet has gone, so the page's render does not hold up the slide.
+ */
+export function BlockAnimationButton({ value, onChange }: { value: string | null | undefined; onChange: (animation: BlockAnimation) => void }) {
   const current = (BLOCK_ANIMATIONS as readonly string[]).includes(value || "") ? (value as BlockAnimation) : "none"
-  const btn = theme?.button_color || "#1a1a2e"
-  const ink = theme?.button_text_color || "#ffffff"
-  const page = theme?.background_color || "#f7f7f8"
-  const r = Math.max(3, Math.min(Number(theme?.button_border_radius ?? 8) * 0.5, 12))
-  const [hover, setHover] = React.useState<BlockAnimation | null>(null)
+  const items = React.useMemo(
+    () =>
+      BLOCK_ANIMATIONS.map((id) => ({
+        id: `animation-${id}`,
+        label: ANIMATION_LABEL[id](),
+        /* The chosen one checked; the rest keep its room so the words line up. */
+        icon: id === current ? <Check aria-hidden strokeWidth={2.25} /> : <span aria-hidden className="block h-4 w-4" />,
+        onClick: () => {
+          if (id !== current) onChange(id)
+        },
+        ...(id === "pulse" ? { separatorBefore: true } : {}),
+      })),
+    [current, onChange],
+  )
+  const moving = current !== "none"
   return (
-    <div className="space-y-2.5 border-t border-[#eef0f2] pt-4" data-block-animation="">
-      <p className={heading}>{tt("Animation")}</p>
-      <div role="radiogroup" aria-label={tt("Animation")} className="grid grid-cols-3 gap-2.5">
-        {BLOCK_ANIMATIONS.map((id) => {
-          const on = current === id
-          return (
-            <button
-              key={id}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              data-block-animation-choice={id}
-              onClick={() => onChange(id)}
-              onPointerEnter={(e) => e.pointerType === "mouse" && setHover(id)}
-              onPointerLeave={() => setHover(null)}
-              className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-1.5 outline-none hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
-            >
-              <ChoiceMark on={on} />
-              <span aria-hidden className="flex aspect-[16/9] items-center justify-center overflow-hidden rounded-xl px-[14%]" style={{ background: page }}>
-                {/* It moves while chosen, or under a pointer, so six do not move at once. */}
-                <span
-                  className={cn("relative flex h-[38%] w-full items-center justify-center overflow-hidden", id !== "none" && (on || hover === id) && `animate-onepage-${id}`)}
-                  style={{ background: btn, borderRadius: r, color: btn }}
-                >
-                  <span className="block h-[3px] w-[46%] rounded-full" style={{ background: ink, opacity: 0.85 }} />
-                </span>
-              </span>
-              <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{ANIMATION_LABEL[id]()}</span>
-            </button>
-          )
-        })}
-      </div>
-    </div>
+    <ResponsiveActionMenu
+      title={tt("Animation")}
+      items={items}
+      menuWidth="w-44"
+      trigger={
+        <button
+          type="button"
+          data-block-animation={current}
+          aria-label={moving ? tt("Animation: {name}", { name: ANIMATION_LABEL[current]() }) : tt("Animation")}
+          title={tt("Animation")}
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            "grid h-7 w-7 shrink-0 place-items-center rounded-lg outline-none transition-colors duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
+            moving ? "bg-[#f4f4f6] text-[#1a1a2e] hover:bg-[#ececef]" : "text-gray-400 hover:bg-gray-100 hover:text-gray-600",
+          )}
+        >
+          <Sparkles aria-hidden className="h-4 w-4" />
+        </button>
+      }
+    />
   )
 }
 

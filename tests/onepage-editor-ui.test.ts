@@ -294,7 +294,13 @@ function main() {
       && /<CheckMark on=\{selected\}/.test(design) && /<CheckMark on=\{on\} small/.test(design) && !/on \? choiceOn : choiceOff/.test(design))
     /* The kinds of theme are the editor's one pill-tab row now (components/onepage/pill-tabs): one pill slides between them instead of each chip fading its own fill. */
     check("a chip's fill and a swatch's ring fade too", /<PillTabs\s+dataRow="theme-kinds"/.test(design) && /<SwatchMark on=\{theme\.background_gradient === grad\}/.test(design) && /<SwatchMark on=\{on\} className="rounded-full" \/>/.test(read("components/onepage/color-picker.tsx")))
-    check("a block's size and alignment are one thumb that slides", /data-segment-thumb=""/.test(read("components/onepage/extra-blocks.tsx")) && /transition-\[translate\]/.test(read("components/onepage/extra-blocks.tsx")))
+    /*
+      Changed on purpose (round AN): "use one consistent segmented control from the editor kit". The heading's
+      sliding size control was the only one of its kind, and its size fought the Layout tab's Title size. Its
+      size is now the kit's Segmented in Layout (block-settings BlockStyleControls), and the sliding one is gone.
+    */
+    check("a heading's size is the kit's Segmented in Layout, one control", !/data-segment-thumb=""/.test(read("components/onepage/extra-blocks.tsx")) && !/function Segmented/.test(read("components/onepage/extra-blocks.tsx"))
+      && /block\.type === "heading" \? \(/.test(read("components/onepage/block-settings.tsx")) && /onChange=\{\(size\) => write\(\{ title_size: undefined \}, \{ size \}\)\}/.test(read("components/onepage/block-settings.tsx")))
     /*
       EVERY SHEET ON A PHONE IS THE SHARED ONE. The name and bio, the
       profile picture's and video's steps, the crops, the image library, the
@@ -310,7 +316,7 @@ function main() {
       /* Round 11: the social sheet keeps one height whose top the keyboard never moves (SOCIAL_SHEET_HEIGHT), on purpose. */
       /sheet=\{\{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT \}\}/.test(linksSrc) && /* Changed on purpose (round 42): SOCIAL_SHEET_HEIGHT for the list only, a field sized to itself. */ /sheet=\{\{ keepMounted: true, height: selectedSocial \? undefined : SOCIAL_SHEET_HEIGHT/.test(linksSrc)
       && /title="Share your OnePage" hideFrom="md" keepMounted/.test(read("components/onepage/onepage-editor.tsx")))
-    check("a block's layout, display and divider cards fade their mark, and the radio dot scales in", /* 11 since round 11: the email signup's two hand-written cards became one card drawn for each of its five layouts. */ /* Changed on purpose (round AK): the display mode and a group's layouts moved to the shared Settings | Layout tabs (components/onepage/block-settings, block-settings-kit) and pick with ChoiceMark. */ /* Changed on purpose (round AL): the document's, menu's and booking's Classic and Featured cards, with their hand drawn radio dots, are one shared picker (ClassicFeaturedPicker), and a group's and a shelf's arrangements another (components/onepage/layout-pickers); each picks with ChoiceMark, which fades and scales its own mark in (components/onepage/choice-marks). */ ([linksSrc, read("components/onepage/block-settings.tsx"), read("components/onepage/block-settings-kit.tsx"), read("components/onepage/layout-pickers.tsx")].join("\n").match(/<(?:CardMark|ChoiceMark) on=\{/g) ?? []).length >= 7 && !/\? "border-\[#1a1a2e\] bg-\[#f7f7f8\]"/.test(linksSrc) && /scale-100 opacity-100/.test(read("components/onepage/choice-marks.tsx")) && /<ClassicFeaturedPicker value=/.test(linksSrc))
+    check("a block's layout, display and divider cards fade their mark, and the radio dot scales in", /* 11 since round 11: the email signup's two hand-written cards became one card drawn for each of its five layouts. */ /* Changed on purpose (round AK): the display mode and a group's layouts moved to the shared Settings | Layout tabs (components/onepage/block-settings, block-settings-kit) and pick with ChoiceMark. */ /* Changed on purpose (round AL): the document's, menu's and booking's Classic and Featured cards, with their hand drawn radio dots, are one shared picker (ClassicFeaturedPicker), and a group's and a shelf's arrangements another (components/onepage/layout-pickers); each picks with ChoiceMark, which fades and scales its own mark in (components/onepage/choice-marks). */ ([linksSrc, read("components/onepage/block-settings.tsx"), read("components/onepage/block-settings-kit.tsx"), read("components/onepage/layout-pickers.tsx")].join("\n").match(/<(?:CardMark|ChoiceMark) on=\{/g) ?? []).length >= 6 /* Changed on purpose (round AN): the animation pictures, one of the seven, left Layout for the sparkle in the row. */ && !/\? "border-\[#1a1a2e\] bg-\[#f7f7f8\]"/.test(linksSrc) && /scale-100 opacity-100/.test(read("components/onepage/choice-marks.tsx")) && /<ClassicFeaturedPicker value=/.test(linksSrc))
     /* Settings' sections are the editor's one pill-tab row now: the pill slides from the press, instead of each chip fading its own fill where it stands. */
     /* Changed on purpose (round 10): one row at every width, named settings-pills. */
     /* Changed on purpose (round 11): Settings' pills are Storelib's own, each fill fading in where it is (lib/ui/pill-switch), the press a light tint. */
@@ -391,7 +397,8 @@ function main() {
       && /transition-\[rotate\] duration-\[280ms\] ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\] motion-reduce:transition-none/.test(plus)
       && /open \? "rotate-45" : "rotate-0"/.test(plus) && !/group-hover\/add:rotate/.test(plus) && !/pointer-fine:rotate/.test(plus)
       && /if \(isNativeApp\(\)\) hapticTap\("light"\)/.test(plus)
-      && /className=\{cn\("group\/add", className\)\}/.test(plus)
+      /* Changed on purpose (round AN): the button's colour and shade move on the + 's own clock and curve, and it keeps its open tone while the sheet is up. */
+      && /className=\{cn\(\s*"group\/add",\s*className,/.test(plus) && /"transition-\[background-color,box-shadow\] duration-\[280ms\] ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\] data-\[open\]:bg-\[#7c3aed\] motion-reduce:transition-none/.test(plus) && /data-open=\{open \? "" : undefined\}/.test(plus)
       && !/rotate-\[(360|405)deg\]/.test(plus)
       && /const addSheetFromButton = insertAfterId === null && addToGroupId === null/.test(links))
     check("the rest of the Links tab stays ink: this is the one violet", (links.match(/accentDepth/g) ?? []).length === 3 && !/bg-violet-500/.test(links))

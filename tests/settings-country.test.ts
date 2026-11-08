@@ -97,7 +97,8 @@ check("the rows are the heights the spacers stand for", /const ROW_PX = \{ compa
 console.log("\n5b. The sheet and the keyboard (round 12)")
 check("the country sheet is a little shorter than the other lists", /sheetHeight="min\(72dvh, 580px\)"/.test(picker) && /export const CHOICE_SHEET_HEIGHT = "min\(80dvh, 640px\)"/.test(choice))
 check("focusing the search keeps the sheet's top where it opened: it is given its height less the keyboard, which the shared sheet adds back",
-  /return `max\(calc\(\$\{height\} - var\(--kb-inset, 0px\)\), \$\{KEYBOARD_ROOM_PX\}px\)`/.test(choice) && /height=\{sheetAboveKeyboardHeight\(sheetHeight\)\}/.test(choice))
+  /* Changed on purpose (round AN): a list with a search keeps this; a short list with no search (searchable false, no keyboard) is as tall as its rows. */
+  /return `max\(calc\(\$\{height\} - var\(--kb-inset, 0px\)\), \$\{KEYBOARD_ROOM_PX\}px\)`/.test(choice) && /height=\{searchable \? sheetAboveKeyboardHeight\(sheetHeight\) : undefined\}/.test(choice) && /searchable = true,/.test(choice))
 check("and it never reaches under the clock's safe area", /export const SHEET_UNDER_CLOCK = "calc\(100dvh - env\(safe-area-inset-top, 0px\) - 12px - var\(--kb-inset, 0px\)\)"/.test(choice) && /maxHeight=\{SHEET_UNDER_CLOCK\}/.test(choice))
 
 console.log("\n6. The header on a phone")
