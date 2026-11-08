@@ -340,8 +340,17 @@ const PREFETCH = `if(!EDITING&&HTMLScriptElement.supports&&HTMLScriptElement.sup
   loads itself again. Nothing happens on an ordinary visit. The same for a
   page prerendered on a desktop (./prerender.ts) when it is shown: it was
   drawn a moment before the click, and the cart may have changed since.
+
+  NOT BEFORE THE VISITOR'S OWN PART HAS COME (round AM). The page every
+  stranger shares is drawn with an empty cart (CART_AT_DRAW is 0), and the
+  visitor's own count arrives a moment later from ./personal-fill.ts
+  (S.storelibCartAtDraw). A page prerendered on hover and shown before that
+  answer came compared the cart with 0 and loaded itself again: anybody with
+  something in the cart who clicked quickly saw the page reload by itself,
+  and wait for a whole new draw. While the fill is under way the check waits
+  for it (storelib:personal), or four seconds at most.
 */
-const BACK_FORWARD = `if(!EDITING){var cartNow=function(){fetch("/cart.js",{credentials:"same-origin",headers:{Accept:"application/json"}}).then(function(r){return r.ok?r.json():null}).then(function(c){if(c&&Number(c.item_count)!==(typeof S.storelibCartAtDraw==="number"?S.storelibCartAtDraw:CART_AT_DRAW))location.reload()}).catch(function(){})};window.addEventListener("pageshow",function(e){if(e.persisted)cartNow()});if(document.prerendering)document.addEventListener("prerenderingchange",cartNow,{once:true})}`
+const BACK_FORWARD = `if(!EDITING){var cartCheck=function(){fetch("/cart.js",{credentials:"same-origin",headers:{Accept:"application/json"}}).then(function(r){return r.ok?r.json():null}).then(function(c){if(c&&Number(c.item_count)!==(typeof S.storelibCartAtDraw==="number"?S.storelibCartAtDraw:CART_AT_DRAW))location.reload()}).catch(function(){})};var cartNow=function(){if(typeof S.storelibCartAtDraw!=="number"&&S.storelibFilling){var t=setTimeout(cartCheck,4000);document.addEventListener("storelib:personal",function(){clearTimeout(t);cartCheck()},{once:true});return}cartCheck()};window.addEventListener("pageshow",function(e){if(e.persisted)cartNow()});if(document.prerendering)document.addEventListener("prerenderingchange",cartNow,{once:true})}`
 
 /*
   ONE PAGE FADES INTO THE NEXT. Between a store's own pages the browser

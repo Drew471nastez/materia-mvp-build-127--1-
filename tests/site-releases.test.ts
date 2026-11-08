@@ -303,7 +303,8 @@ async function main() {
     /* Changed on purpose (round 36): without a release the rows' files are asked at once (rowsSources); a release that cannot be read still falls back to them. */
     check("  the rows when any of it cannot be read", published.includes("const release = manifest && releaseSources ? manifest : null") && published.includes("const rowsSources = pointer && pointer.installId === row.id ? null : sectionSources(admin as never, row.id)") && published.includes("releaseSources ?? rowsSources ?? sectionSources(admin as never, row.id)"))
     const server = read("lib/website-builder/site-releases-server.ts")
-    check("the pointer is the one read under the site's tag, for a minute", /\["site-live-release", creatorId\], \{ tags, revalidate: POINTER_HOLD_S \}/.test(server) && /POINTER_HOLD_S = PUBLISHED_HOLD_S\b/.test(server)) /* Changed on purpose (r54): an hour, Publish expires it at once. */
+    /* Changed on purpose (round AM): under the site's tag and its own, which Publish expires alone once its release is pointed at (releasePointed). */
+    check("the pointer is the one read under the site's tag, for a minute", /\["site-live-release", creatorId\], \{ tags: \[\.\.\.tags, releasePointerTag\(creatorId\)\], revalidate: POINTER_HOLD_S \}/.test(server) && /POINTER_HOLD_S = PUBLISHED_HOLD_S\b/.test(server)) /* Changed on purpose (r54): an hour, Publish expires it at once. */
     check("  a manifest and a group of blobs are held for good, by id and by sha256", /\["site-release", releaseId\], \{ revalidate: false \}/.test(server) && /\["theme-blobs", g\.key\], \{ revalidate: false \}/.test(server))
     const route = read("app/api/website-builder/themes/[installId]/publish/route.ts")
     const at = route.indexOf("await recordRelease(admin, { installId, creatorId })")

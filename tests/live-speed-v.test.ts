@@ -104,7 +104,12 @@ function publishClears() {
   check("a product save clears the shop and the pages drawn from it", /revalidateTag\(creatorShopTag\(owned\.creator_id\), \{ expire: 0 \}\)/.test(save) && /await revalidatePublishedPages\(owned\.creator_id\)/.test(save))
   check("so does taking a product off the website channel", /await revalidatePublishedPages\(c\.creatorId\)/.test(code("app/api/store/channels/product/route.ts")))
   /* Changed on purpose (creator blogs, P3): and the blog's own tag, so a post published shows to strangers at once. */
-  check("an imported theme's held stranger page goes with the site's and the shop's tags", /\[creatorSiteTag\(creator\.creatorId\), creatorShopTag\(creator\.creatorId\)(, siteBlogTag\(creator\.creatorId\))?\]/.test(code("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
+  /* Changed on purpose (round AM): the hold's tags are named once, in lib/website-builder/site-stamp.ts siteStampTags, so the site's stamp is expired by exactly the tags the held page is kept under. */
+  check(
+    "an imported theme's held stranger page goes with the site's and the shop's tags",
+    /\[creatorSiteTag\(creator\.creatorId\), creatorShopTag\(creator\.creatorId\)(, siteBlogTag\(creator\.creatorId\))?\]|siteStampTags\(creator\.creatorId\)/.test(code("app/api/site-theme/site/[username]/[[...path]]/route.ts")) &&
+      /return \[creatorSiteTag\(creatorId\), creatorShopTag\(creatorId\), siteBlogTag\(creatorId\)\]/.test(code("lib/website-builder/site-stamp.ts")),
+  )
 }
 
 async function databaseBudget() {

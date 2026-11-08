@@ -28,6 +28,7 @@ import "server-only"
  */
 import { gunzipSync, gzipSync } from "node:zlib"
 import { unstable_cache } from "next/cache"
+import { StampedMemo } from "@/lib/website-builder/stamped-memo"
 
 /** How long a held page lasts when nothing clears it: the CDN rule's own five minutes (./anonymous-cache.ts SHARED_PAGE_CDN, round 54). */
 export const STRANGER_HOLD_SECONDS = 300
@@ -71,15 +72,35 @@ export function strangerKey(username: string, path: readonly string[], search: s
 */
 const underWay = new Map<string, Promise<DrawnPage & { held: boolean }>>()
 
-export async function heldStrangerPage(key: string[], tags: string[], draw: () => Promise<DrawnPage>): Promise<DrawnPage & { held: boolean }> {
+/*
+  AND IN THIS SERVER'S MEMORY, UNDER THE SITE'S STAMP (round AM,
+  lib/website-builder/site-stamp.ts). A held page came from the shared cache
+  on every visit: a request for a whole page of markup, 0.12 to 0.44 s to
+  the first byte measured live. A page this server already drew or read is
+  kept here too, compressed, and handed out while the site's stamp (expired
+  by the same tags the hold is kept under) is the one it was kept with. A
+  Publish changes the stamp, so it is never served past one.
+*/
+const inMemory = new StampedMemo<{ status: number; headers: [string, string][]; gz: Buffer }>(48)
+
+/* `stamp`: the site's stamp read before this page; a promise of it for a site this server had not seen, read beside the page and used only to keep it. */
+export async function heldStrangerPage(key: string[], tags: string[], draw: () => Promise<DrawnPage>, stamp: string | null | Promise<string | null> = null): Promise<DrawnPage & { held: boolean }> {
   const id = key.join("\u0000")
+  const kept = typeof stamp === "string" ? inMemory.get(id, stamp) : undefined
+  if (kept) return { status: kept.status, headers: kept.headers, body: gunzipSync(kept.gz).toString("utf8"), share: true, held: true }
   const going = underWay.get(id)
   if (going) {
     const page = await going.catch(() => null)
     if (page && page.share) return { ...page, held: true }
     return heldOnce(key, tags, draw)
   }
-  const mine = heldOnce(key, tags, draw).finally(() => underWay.delete(id))
+  const mine = heldOnce(key, tags, draw)
+    .then(async (page) => {
+      /* Kept under the stamp read before (or beside) the page, so a change that landed meanwhile never leaves this copy current for the next visitor. */
+      if (page.share && page.status === 200) inMemory.set(id, await stamp, { status: page.status, headers: page.headers, gz: gzipSync(Buffer.from(page.body, "utf8")) })
+      return page
+    })
+    .finally(() => underWay.delete(id))
   underWay.set(id, mine)
   return mine
 }

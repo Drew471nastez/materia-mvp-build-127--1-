@@ -36,6 +36,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { publishedWebsiteOrigins, publishedWebsiteOriginsOf } from "@/lib/seo/sitemaps"
 import { websiteAddresses } from "@/lib/seo/announce"
 import { backfillSiteCopies } from "@/lib/edge/snapshot-capture"
+import { COUNTRY_COOKIE, countryCookieValue, knownCountry } from "@/lib/markets/visitor-country"
 
 export const WARM_KEY = "website_cache_warmed"
 /** The pages a site can have asked for: its front page always, its products page when its visitors open it (round 55). */
@@ -153,14 +154,56 @@ export function startFrom(saved: unknown, deployment: string, source?: Source): 
   return { offset: typeof p.offset === "number" && p.offset >= 0 ? p.offset : 0, done: p.done === true }
 }
 
-async function ask(url: string, fetcher: typeof fetch, hardStop = Number.POSITIVE_INFINITY): Promise<"held" | "drawn" | "failed"> {
+/*
+  ASKED AS A BROWSER OPENS A PAGE (round AM). A page opened as a page
+  (Sec-Fetch-Dest: document) is drawn ready for its first paint and held
+  apart from the same address fetched by a script (an imported theme's
+  page: lib/storelib-theme/compat/stranger-hold.ts strangerKey, and the CDN's
+  Vary). The warm asked without it, so after every Publish it drew the
+  script's copy, and the first visitor still waited for the one browsers get.
+*/
+export const WARM_HEADERS: Record<string, string> = {
+  accept: "text/html,application/xhtml+xml",
+  "user-agent": "StorelibCacheWarm/1.0",
+  "sec-fetch-dest": "document",
+  "sec-fetch-mode": "navigate",
+  "sec-fetch-site": "none",
+}
+
+/**
+ * The headers a page is asked with, as a visitor from `country` would ask:
+ * the country the visitor chose (sl_country), which the proxy reads before
+ * where the connection is, so the page drawn is the one held for that
+ * country (an imported theme's country selector, a market's prices). No
+ * country: as the warm's own connection is seen. Nothing else of anybody's.
+ */
+export function warmHeaders(country: string | null = null): Record<string, string> {
+  const value = countryCookieValue(country)
+  return value && value !== countryCookieValue("home") ? { ...WARM_HEADERS, cookie: `${COUNTRY_COOKIE}=${value}` } : { ...WARM_HEADERS }
+}
+
+async function ask(url: string, fetcher: typeof fetch, hardStop = Number.POSITIVE_INFINITY, country: string | null = null): Promise<"held" | "drawn" | "failed"> {
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), Math.max(MIN_REQUEST_MS, limitFor(hardStop)))
   try {
-    const r = await fetcher(url, { headers: { accept: "text/html", "user-agent": "StorelibCacheWarm/1.0" }, redirect: "manual", signal: ctl.signal, cache: "no-store" })
+    const headers = warmHeaders(country)
+    let r = await fetcher(url, { headers, redirect: "manual", signal: ctl.signal, cache: "no-store" })
+    /*
+      One step of a redirect on the same site, as the browser takes it: a
+      market's visitors are sent to the page in its language (/fr/...), and
+      that page is the one they wait for. Never another host.
+    */
+    const to = r.status >= 300 && r.status < 400 ? r.headers.get("location") : null
+    if (to) {
+      await r.arrayBuffer().catch(() => undefined)
+      const next = new URL(to, url)
+      if (next.origin !== new URL(url).origin) return "drawn"
+      r = await fetcher(next.toString(), { headers, redirect: "manual", signal: ctl.signal, cache: "no-store" })
+    }
     /* The body is read so the page is drawn to the end and kept. */
     await r.arrayBuffer().catch(() => undefined)
-    return (r.headers.get("x-vercel-cache") ?? "").toUpperCase() === "HIT" ? "held" : "drawn"
+    /* Held by the CDN, or by the hold of an imported theme's pages (X-Storelib-Held). */
+    return (r.headers.get("x-vercel-cache") ?? "").toUpperCase() === "HIT" || r.headers.get("x-storelib-held") === "hit" ? "held" : "drawn"
   } catch {
     return "failed"
   } finally {
@@ -319,20 +362,44 @@ export function publishWarmList(addresses: string[]): string[] {
  * front page, the shop and each page the menu links to, 0.5 to 1.6 s each,
  * and the page a link fetched ahead too (an /about fetched ahead after a
  * Publish answered MISS in 1.1 s on asgardshop.storelib.com). Run from the
- * publish route's `after()`, once the release is recorded, so the pages drawn
- * here are drawn from it: each address on the site's own public host, as a
- * visitor's browser asks, a few at a time and within PUBLISH_WARM_MS. The
- * same request any visitor could make; it changes nothing and a failure is
- * only a page left for the next visitor to draw.
+ * publish route's `after()` straight after the caches are cleared (round AM:
+ * it waited for the release to be recorded first, a few seconds of reading
+ * and writing every theme file, while the visitors arriving drew the pages
+ * themselves): each address on the site's own public host, as a visitor's
+ * browser opens it (WARM_HEADERS), a few at a time and within
+ * PUBLISH_WARM_MS. The same request any visitor could make; it changes
+ * nothing and a failure is only a page left for the next visitor to draw.
+ *
+ * `countries`: the countries each page is drawn for, in order. An imported
+ * theme's page is held per visitor country (its country selector), so the
+ * page drawn from the warm's own connection was not the one the person who
+ * pressed Publish got when they opened their site a moment later. The
+ * publish route names the publisher's country first, then the warm's own.
  */
-export async function warmAfterPublish(creatorId: string, options: { fetcher?: typeof fetch; addresses?: (id: string) => Promise<string[]> } = {}): Promise<{ held: number; drawn: number; failed: number }> {
+export async function warmAfterPublish(creatorId: string, options: { fetcher?: typeof fetch; addresses?: (id: string) => Promise<string[]>; countries?: (string | null)[] } = {}): Promise<{ held: number; drawn: number; failed: number }> {
   const pages = { held: 0, drawn: 0, failed: 0 }
   try {
     const list = publishWarmList(await (options.addresses ?? websiteAddresses)(creatorId))
     const fetcher = options.fetcher ?? fetch
-    await some(list, async (u) => { pages[await ask(u, fetcher)]++ }, Date.now() + PUBLISH_WARM_MS, PUBLISH_AT_ONCE)
+    const countries = publishWarmCountries(options.countries)
+    /* Each page for each country before the next page: the front page first, for whoever opens it first. */
+    const asks = list.flatMap((u) => countries.map((c) => ({ u, c })))
+    await some(asks, async ({ u, c }) => { pages[await ask(u, fetcher, Number.POSITIVE_INFINITY, c)]++ }, Date.now() + PUBLISH_WARM_MS, PUBLISH_AT_ONCE)
   } catch (e) {
     console.warn("[publish] the pages were not drawn ahead:", e instanceof Error ? e.message : e)
   }
   return pages
+}
+
+/** At most this many countries per page after a Publish. */
+export const PUBLISH_WARM_COUNTRIES = 2
+
+/** The countries a Publish draws its pages for: each real one once, in order, then the warm's own connection's (null), never more than PUBLISH_WARM_COUNTRIES. Exported for the tests. */
+export function publishWarmCountries(asked: (string | null | undefined)[] = []): (string | null)[] {
+  const out: (string | null)[] = []
+  for (const c of asked) {
+    const code = knownCountry(c)
+    if (code && !out.includes(code)) out.push(code)
+  }
+  return [...out.slice(0, PUBLISH_WARM_COUNTRIES - 1), null]
 }

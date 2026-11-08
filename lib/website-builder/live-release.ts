@@ -42,6 +42,11 @@ export interface LiveSite {
 }
 
 /** The marker for an install and its release (null: drawn from the rows). Short, and not either id. */
+/** The marker for an install whose live rows are counted (part 180 `site_live_releases.rev`): the same for the rows and for the release written from them. */
+export function liveMarkerAt(installId: string, rev: number): string {
+  return sha256Hex(`${installId}:rev:${rev}`).slice(0, 16)
+}
+
 export function liveMarker(installId: string, releaseId: string | null): string {
   return sha256Hex(`${installId}:${releaseId ?? "rows"}`).slice(0, 16)
 }
@@ -51,7 +56,7 @@ type Answer = { data: unknown; error: { code?: string; message?: string } | null
 type Db = { from(table: string): any }
 type Row = {
   id?: string
-  site_live_releases?: { release_id?: string | null } | { release_id?: string | null }[] | null
+  site_live_releases?: { release_id?: string | null; rev?: number | string | null } | { release_id?: string | null; rev?: number | string | null }[] | null
   store_theme_settings?: { kind?: string | null } | { kind?: string | null }[] | null
 }
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null))
@@ -61,14 +66,30 @@ export async function readLiveSite(db: Db, creatorId: string): Promise<LiveSite 
   const ask = (columns: string): Promise<Answer> =>
     db.from("store_theme_installs").select(columns).eq("creator_id", creatorId).eq("status", "published").order("sort_order", { ascending: true }).limit(1).maybeSingle()
   const kind = "store_theme_settings ( kind:settings->compat->>kind )"
-  let r = await ask(releasesKnownMissing() ? `id, ${kind}` : `id, site_live_releases ( release_id ), ${kind}`)
+  let r = await ask(releasesKnownMissing() ? `id, ${kind}` : `id, site_live_releases ( release_id, rev ), ${kind}`)
   /* Before part 180: no release to name, the install alone. */
   if (r.error && releasesMissing(r.error)) r = await ask(`id, ${kind}`)
   if (r.error) throw new Error(`live site: ${r.error.message ?? r.error.code ?? "the read failed"}`)
   const row = r.data as Row | null
   if (!row?.id) return null
-  const releaseId = one(row.site_live_releases)?.release_id
-  return { marker: liveMarker(row.id, typeof releaseId === "string" && releaseId ? releaseId : null), compat: one(row.store_theme_settings)?.kind === "shopify" }
+  const link = one(row.site_live_releases)
+  const releaseId = link?.release_id
+  /*
+    BY THE LIVE ROWS' COUNT WHEN THERE IS ONE (round AM). The release a
+    Publish records is written from the live rows a few seconds after the
+    Publish, and it is pointed at only while the rows are still what it was
+    written from (site-releases-server.ts recordRelease, `rev`). So the page
+    drawn from the rows in those seconds and the page drawn from the release
+    after are the same page, and they now carry the same marker: a page drawn
+    in between is not reloaded when the pointer moves on (which it did, an
+    hour later, once the pointer's hold ran out). Every change to the live
+    rows counts `rev` up (the trigger of part 180), and so does putting a
+    release back: each one is a new marker, as before. Without the row (part
+    180 not run, or a site never released) the marker is what it always was.
+  */
+  const rev = typeof link?.rev === "number" ? link.rev : typeof link?.rev === "string" && /^\d{1,18}$/.test(link.rev) ? Number(link.rev) : null
+  const marker = rev !== null ? liveMarkerAt(row.id, rev) : liveMarker(row.id, typeof releaseId === "string" && releaseId ? releaseId : null)
+  return { marker, compat: one(row.store_theme_settings)?.kind === "shopify" }
 }
 
 /**
