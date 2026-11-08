@@ -19,7 +19,7 @@ import { fileKindOf, formatFileSize, formatMoney, splitFileName, type AccessStat
 import type { ReceiptItem, ReceiptView as Receipt, ReceiptViewer } from "@/lib/receipts/view"
 import { splitSavings } from "@/lib/receipts/discount"
 import { cn } from "@/lib/utils"
-import { useCt } from "@/app/(storelib)/checkout/parts/words"
+import { useCt } from "@/components/checkout/parts/words"
 import { ViewerSync } from "@/components/auth/viewer-sync"
 import type { CheckoutT } from "@/lib/markets/checkout-words"
 
@@ -149,7 +149,7 @@ function usePlatform(): Platform {
  * says so while it waits, and shows a refusal in the server's words.
  */
 function FileRow({ file, token }: { file: ReceiptItem["files"][number]; token: string }) {
-  /* Every sentence in the buyer's language (app/checkout/parts/words.tsx); English with no provider. */
+  /* Every sentence in the buyer's language (components/checkout/parts/words.tsx); English with no provider. */
   const ct = useCt()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -246,7 +246,7 @@ function ItemBlock({
   viewer: ReceiptViewer
   signInHref: string
 }) {
-  /* In the buyer's language (app/checkout/parts/words.tsx). */
+  /* In the buyer's language (components/checkout/parts/words.tsx). */
   const ct = useCt()
   const status = item.state === "open" ? null : LINE_STATUS[item.state]
   const open = item.state === "open"
@@ -360,7 +360,7 @@ export function ReceiptView({
   /** The seller's page as the server worked it out, so the first render matches it. */
   storeHref?: string | null
 }) {
-  /* Every sentence in the buyer's language (app/checkout/parts/words.tsx); English with no provider. */
+  /* Every sentence in the buyer's language (components/checkout/parts/words.tsx); English with no provider. */
   const ct = useCt()
   const router = useRouter()
   const platform = usePlatform()
@@ -1047,7 +1047,7 @@ function ContactSeller({
   /** The order's address, masked, which is where the seller's reply goes (app/api/receipt/contact). */
   replyTo: string | null
 }) {
-  /* In the buyer's language (app/checkout/parts/words.tsx). */
+  /* In the buyer's language (components/checkout/parts/words.tsx). */
   const ct = useCt()
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState<"idle" | "done" | "failed">("idle")

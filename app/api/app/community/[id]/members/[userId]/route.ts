@@ -6,9 +6,28 @@ import { manageLimit } from "@/lib/communities/server/creator"
 import { MEMBER_ACTIONS, actOnMember, memberActionNeeds } from "@/lib/communities/server/moderation"
 import { isOneOf } from "@/lib/communities/types"
 import { isUuid } from "@/components/community/creator/logic"
+import { can } from "@/lib/communities/permissions"
+import { memberPanelFacts } from "@/lib/communities/server/member-panel"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
+
+/**
+ * GET   /api/app/community/<id>/members/<userId> (round 51)
+ *   { activity, answers }: the member sheet's posts, comments and events,
+ *   and their answers to the questions before joining (approve_member only,
+ *   as Members › Requests). Whoever may open Members (remove_member) may ask.
+ */
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string; userId: string }> }) {
+  const off = await requireCommunitiesOn()
+  if (off) return off
+  const { id, userId } = await params
+  if (!isUuid(userId)) return NextResponse.json({ error: "not_found" }, { status: 404, headers: noStore })
+  const gate = await requireCreatorCommunity(id, "remove_member")
+  if (gate instanceof NextResponse) return gate
+  const facts = await memberPanelFacts(gate.ctx.admin, gate.community.id, userId, { answers: can(gate.role, "approve_member", gate.viewer.perms) })
+  return NextResponse.json(facts, { headers: noStore })
+}
 
 /**
  * PATCH /api/app/community/<id>/members/<userId>

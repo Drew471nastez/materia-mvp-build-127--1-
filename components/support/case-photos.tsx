@@ -41,7 +41,7 @@ export interface PickedPhoto {
   preview: string
 }
 
-/* On a buyer's order page and receipt, the page's translator (app/checkout/parts/words.tsx) says these in the buyer's language; in the dashboard, tt() in the creator's. */
+/* On a buyer's order page and receipt, the page's translator (components/checkout/parts/words.tsx) says these in the buyer's language; in the dashboard, tt() in the creator's. */
 export function useCasePhotos(ct?: CheckoutT) {
   const [photos, setPhotos] = React.useState<PickedPhoto[]>([])
   const [error, setError] = React.useState<string | null>(null)

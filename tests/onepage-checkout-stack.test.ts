@@ -182,7 +182,7 @@ console.log("THE COVER AS UPLOADED (SQL part 377)")
   check("the full screen viewer, the checkout summary and the seller mark cut padding off", /function LightboxPicture/.test(read("components/onepage/product-lightbox.tsx")) && /<FramedPicture/.test(read("app/(storelib)/checkout/parts/order-summary.tsx")) && /<FramedPicture src=\{image\.src\} frame=\{1\}/.test(read("components/checkout/checkout-window.tsx")))
   const sql = read("supabase/migrations/20271135_product_original_cover.sql")
   check("the SQL is one additive, idempotent column, mirrored as run-now part 377", /add column if not exists cover_original_url text/.test(sql) && !/\bdrop\b|\bupdate\b/i.test(sql.replace(/\/\*[\s\S]*?\*\//g, "")) && read("supabase/sql/run-now/377_product_original_cover.sql") === sql)
-  check("the check after reads it", /as p377_product_original_cover;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  check("the check after reads it", /* Changed on purpose (round 51): parts 378 and 379 follow it in the check. */ /as p377_product_original_cover[;,]/.test(read("supabase/sql/run-now/99_check_after.sql")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

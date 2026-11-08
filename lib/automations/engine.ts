@@ -230,6 +230,12 @@ export interface Store {
   firstOrder(creatorId: string, email: string, orderId: string): Promise<boolean>
   /** Ends this person's active runs of flows with this trigger. Returns how many. */
   exitRuns(creatorId: string, email: string, trigger: TriggerType, reason: string): Promise<number>
+  /**
+   * Round 51: each of this creator's products' kind (products.type), for a
+   * flow that starts only on some kinds (Course onboarding). Missing, or a
+   * read that fails, and such a flow starts nobody: never a guess.
+   */
+  productKinds?(creatorId: string, productIds: string[]): Promise<Map<string, string>>
   /** Where the run's product, order and checkout are, for the email's links. */
   links(run: RunRow): Promise<RunLinks>
 }
@@ -394,6 +400,7 @@ export async function enroll(store: Store, input: TriggerInput, now: number): Pr
   }
 
   let first: boolean | null = null
+  let kinds: Map<string, string> | null | undefined
   for (const flow of found) {
     if (!isTriggerType(flow.trigger_type)) continue
     const trigger = flow.trigger_type
@@ -407,9 +414,18 @@ export async function enroll(store: Store, input: TriggerInput, now: number): Pr
     }
     const products = Array.isArray(flow.trigger_config?.product_ids) ? flow.trigger_config!.product_ids!.filter((p) => typeof p === "string") : []
     const bought = [...(input.productIds ?? []), ...(input.productId ? [input.productId] : [])]
-    if (products.length > 0 && (trigger === "purchase" || trigger === "first_purchase") && !bought.some((p) => products.includes(p))) {
+    if (products.length > 0 && (trigger === "purchase" || trigger === "first_purchase" || trigger === "membership_started") && !bought.some((p) => products.includes(p))) {
       out.skipped.push({ flowId: flow.id, why: "another product" })
       continue
+    }
+    /* Only some kinds of product start it (Course onboarding: a course). Read once per trigger. */
+    const wantKinds = Array.isArray(flow.trigger_config?.product_kinds) ? flow.trigger_config!.product_kinds!.filter((k) => typeof k === "string") : []
+    if (wantKinds.length > 0 && (trigger === "purchase" || trigger === "first_purchase")) {
+      if (kinds === undefined) kinds = bought.length && store.productKinds ? await store.productKinds(input.creatorId, bought).catch(() => null) : null
+      if (!kinds || !bought.some((p) => wantKinds.includes(kinds!.get(p) ?? ""))) {
+        out.skipped.push({ flowId: flow.id, why: "another kind of product" })
+        continue
+      }
     }
     if (audienceOf(trigger, flow.trigger_config) === "subscribers" && !(standing.subscribed === true || input.optedIn === true)) {
       out.skipped.push({ flowId: flow.id, why: "did not ask for news" })

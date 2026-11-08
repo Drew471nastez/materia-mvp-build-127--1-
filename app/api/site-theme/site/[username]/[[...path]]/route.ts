@@ -51,6 +51,7 @@ import { withTouchPrefetch } from "@/lib/storelib-theme/compat/touch-prefetch"
 import { creatorByName, creatorShopTag, creatorSiteTag } from "@/lib/website-builder/published-site"
 import { siteBlogTag } from "@/lib/site-blog/cache"
 import { siteLanguages } from "@/lib/markets/live"
+import { nameAndStamp, siteStamp, siteStampTags } from "@/lib/website-builder/site-stamp"
 
 /** A promise started ahead of where it is awaited, never reported as unhandled when the answer leaves first. */
 function quietly<T>(p: Promise<T>): Promise<T> {
@@ -63,6 +64,9 @@ import { freshAddress, liveReleaseScript } from "@/lib/website-builder/live-rele
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
+
+/* The creator and the site's stamp read by handleHeld for this very request, handed to its draw so neither is asked twice (lib/website-builder/site-stamp.ts). */
+const askedFor = new WeakMap<Request, NonNullable<Awaited<ReturnType<typeof nameAndStamp>>>>()
 
 /* A page that tries again by itself, a few times, for the moment the database is away and nothing was kept (lib/net/one-moment.ts). */
 
@@ -214,7 +218,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     asked ? asked.then((a) => (a && a.creatorId === creatorId ? a.value : undefined)) : undefined
   let found: Awaited<ReturnType<typeof compatSiteByName>>
   try {
-    found = await compatSiteByName(username, host, token)
+    found = await compatSiteByName(username, host, token, token ? undefined : (askedFor.get(req) ?? undefined))
     mark("read")
   } catch (e) {
     if (!isSiteReadError(e)) throw e
@@ -584,17 +588,19 @@ async function handleHeld(req: Request, ctx: Params): Promise<Response> {
   */
   const limited = await rateLimit({ bucket: "site-theme-shared", subjects: [addressSubject(req)], windows: [{ limit: 120, seconds: 60 }], memoryFirst: true, message: "Too many requests. Wait a moment and try again." })
   if (limited) return limited
-  const creator = await creatorByName(username).catch(() => null)
+  /* The creator and the site's stamp, asked together: while the stamp is the one a page was kept with, this server's own copy is handed out (lib/website-builder/site-stamp.ts). */
+  const creator = await nameAndStamp(username).catch(() => null)
   if (!creator) return handle(req, ctx)
+  askedFor.set(req, creator)
   const url = new URL(req.url)
   /* Held under the keys a page reads only (sharedQuery), as it is drawn. */
   url.search = sharedQuery(url.searchParams)
-  const page = await heldStrangerPage(strangerKey(username, path, url.search, openedAsDocument(req.headers)),[creatorSiteTag(creator.creatorId), creatorShopTag(creator.creatorId), siteBlogTag(creator.creatorId)], async () => {
+  const page = await heldStrangerPage(strangerKey(username, path, url.search, openedAsDocument(req.headers)), siteStampTags(creator.creatorId), async () => {
     const res = await handle(req, ctx)
     const headers = [...res.headers.entries()]
     const body = await res.text()
     return { status: res.status, headers, body, share: res.status === 200 && res.headers.get(SHAREABLE_HEADER) === "1" && res.headers.get("Cache-Control") === PUBLIC_PAGE_CACHE && !res.headers.has("Set-Cookie") }
-  })
+  }, creator.stamp ?? siteStamp(creator.creatorId))
   const headers = new Headers(page.headers)
   /* A held page says it was held, and what its draw cost when it was drawn. */
   if (page.held) headers.set("Server-Timing", ["hold;desc=hit", headers.get("Server-Timing")?.replace(/(^|, )(\w+);/g, "$1drawn-$2;")].filter(Boolean).join(", "))

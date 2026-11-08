@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { UNTITLED, signedInCreator } from "@/lib/automations/flow-io"
+import { TRIGGER_NOT_READY, UNTITLED, signedInCreator, triggerNotReady } from "@/lib/automations/flow-io"
 import { BLANK_TEMPLATE, templateById } from "@/lib/automations/templates"
 import { defaultEntry, isTriggerType, serializeSteps } from "@/lib/automations/flow-model"
 
@@ -53,6 +53,7 @@ export async function POST(request: Request) {
         template: template?.id ?? BLANK_TEMPLATE,
         entry: template?.entry ?? defaultEntry(trigger),
         ...(template?.audience ? { audience: template.audience } : {}),
+        ...(template?.productKinds ? { product_kinds: template.productKinds } : {}),
       },
       status: "draft",
       steps: serializeSteps(template?.steps ?? []),
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
     .select("id")
     .single()
 
+  if (triggerNotReady(error)) return NextResponse.json({ error: TRIGGER_NOT_READY }, { status: 409 })
   if (error || !data) {
     console.error("[automations] could not create a flow:", error?.code, error?.message)
     return NextResponse.json({ error: "Could not create the flow. Try again." }, { status: 500 })

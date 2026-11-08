@@ -196,7 +196,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           source: "system" as const,
           title: booked ? "New booking request" : "New form response",
           body: `${valid.name || valid.email || "Someone"} sent ${definition.title}`.slice(0, 200),
-          url: `/app/emails?tab=leads&lead=${lead}`,
+          /* Round 51: the response open in Contacts › Forms. */
+          url: `/app/contacts/forms?form=${id}&view=responses&response=${lead}`,
           dedupeKey: `form-response:${lead}`,
         }
         if ((await notifyUser(db as never, notify)) === "unavailable") await notifyUser(db as never, notify)

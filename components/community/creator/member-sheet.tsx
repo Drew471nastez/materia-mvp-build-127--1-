@@ -21,20 +21,52 @@
  * the server applies), grouped as the menu groups them. A choice closes the
  * sheet and runs the way the menu runs it: its confirmation, its mute length
  * or its tier picker opens next.
+ *
+ * ROUND 51. Opened from a link too (?member=<community_members.id>, see
+ * ./members-section). Under the facts, what this community records of them
+ * (posts, comments, events) and their answers to the questions before
+ * joining, read when the sheet opens (GET /api/app/community/<id>/members/
+ * <userId>, lib/communities/server/member-panel.ts); the answers only for
+ * those who may approve members. For the owner and admins, View contact
+ * opens the person in Contacts (/app/contacts/open?from=community_member),
+ * which says so when nothing links them. Membership stays here: Contacts
+ * only points back.
  */
 import * as React from "react"
-import { ExternalLink, Mail, MessageCircle } from "lucide-react"
+import { ExternalLink, Mail, MessageCircle, UserRound } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MemberAvatar } from "@/components/community/member/member-avatar"
 import { StatusBadge } from "@/app/(storelib)/app/orders/order-parts"
 import { relativeTime } from "@/lib/communities/format"
 import type { MemberSource } from "@/lib/communities/types"
-import type { CommunityHead, MemberRowView } from "./view-types"
+import type { CommunityHead, MemberPanelFacts, MemberRowView } from "./view-types"
 import { ROLE_LABEL, takenAwayLine, type MemberChoice } from "./logic"
-import { Dialog, buttonSecondary, shortDate } from "./parts"
+import { Dialog, buttonSecondary, send, shortDate } from "./parts"
 import { Facts } from "./ui-kit"
 import { sectionTitle } from "./member-actions"
 import { tt } from "@/lib/i18n/text"
+import { answerText } from "@/lib/communities/join-questions"
+
+/** Contacts' resolver for this member (round 51): their profile, or the People list with a notice when nothing links. */
+export function contactHrefOf(memberId: string): string {
+  return `/app/contacts/open?from=community_member&id=${encodeURIComponent(memberId)}`
+}
+
+/** The posts, comments, events and answers the sheet shows under the facts, read once per person opened. */
+function useMemberFacts(communityId: string, userId: string | null): MemberPanelFacts | null {
+  const [facts, setFacts] = React.useState<{ userId: string; facts: MemberPanelFacts } | null>(null)
+  React.useEffect(() => {
+    if (!userId) return
+    let live = true
+    void send<MemberPanelFacts>(`/api/app/community/${communityId}/members/${userId}`, "GET").then((r) => {
+      if (live && r.ok) setFacts({ userId, facts: r.data })
+    })
+    return () => {
+      live = false
+    }
+  }, [communityId, userId])
+  return facts && facts.userId === userId ? facts.facts : null
+}
 
 /** How somebody got in, in a word or two. */
 export function sourceWords(source: MemberSource): string {
@@ -63,6 +95,7 @@ export function MemberSheet({
   member,
   choices,
   showLevel,
+  canContact = false,
   onClose,
   onChoose,
 }: {
@@ -70,6 +103,8 @@ export function MemberSheet({
   member: MemberRowView | null
   choices: MemberChoice[]
   showLevel: boolean
+  /** The owner and admins (manage_members): View contact. */
+  canContact?: boolean
   onClose: () => void
   /** A choice from the sheet: it closes, then the choice runs as the menu runs it. */
   onChoose: (choice: MemberChoice) => void
@@ -78,11 +113,21 @@ export function MemberSheet({
   const kept = React.useRef<MemberRowView | null>(member)
   if (member) kept.current = member
   const m = member ?? kept.current
+  const facts = useMemberFacts(head.id, member?.userId ?? null)
   if (!m) return null
+  const activity = facts?.activity
+  const activityItems = activity
+    ? [
+        activity.posts !== null ? { label: tt("Posts"), value: <span className="tabular-nums">{activity.posts}</span> } : null,
+        activity.comments !== null ? { label: tt("Comments"), value: <span className="tabular-nums">{activity.comments}</span> } : null,
+        head.eventsEnabled && activity.going !== null ? { label: tt("Events going"), value: <span className="tabular-nums">{activity.going}</span> } : null,
+        head.eventsEnabled && activity.attended !== null ? { label: tt("Events attended"), value: <span className="tabular-nums">{activity.attended}</span> } : null,
+      ].filter((x): x is { label: string; value: React.ReactElement } => x !== null)
+    : []
   const pending = m.status === "pending"
   const out = m.status !== "active" && m.status !== "pending"
   const active = m.status === "active"
-  const facts: { label: string; value: React.ReactNode }[] = pending
+  const rows: { label: string; value: React.ReactNode }[] = pending
     ? [
         { label: tt("Asked"), value: shortDate(m.requestedAt) || "–" },
         { label: tt("Tier"), value: m.tierName ?? "–" },
@@ -126,7 +171,34 @@ export function MemberSheet({
         {pending && m.requestNote ? <p className="rounded-xl border border-[#eef0f2] px-4 py-3 text-[14px] leading-relaxed text-[#1a1a2e]" data-member-note="">&ldquo;{m.requestNote}&rdquo;</p> : null}
         {(out || m.mutedUntil) && m.acted ? <p className="text-[13.5px] leading-snug text-[#4b5563]" data-member-acted="">{takenAwayLine(m)}</p> : null}
 
-        <Facts items={facts} />
+        <Facts items={rows} />
+
+        {activityItems.length ? (
+          <div data-member-activity="">
+            <Facts items={activityItems} />
+          </div>
+        ) : null}
+
+        {facts?.answers && facts.answers.items.length ? (
+          <section className="rounded-xl border border-[#eef0f2] px-4 py-3" data-member-join-answers="">
+            <h3 className="text-[12px] font-medium text-[#6b7280]">{tt("Answers before joining")}</h3>
+            <dl className="mt-2 space-y-2">
+              {facts.answers.items.map((a) => (
+                <div key={a.id}>
+                  <dt className="text-[12.5px] leading-snug text-[#6b7280]">{a.label}</dt>
+                  <dd className="whitespace-pre-wrap text-[14px] leading-snug text-[#1a1a2e] [overflow-wrap:anywhere]">{answerText(a) || "–"}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : null}
+
+        {canContact && m.memberId && m.role !== "owner" ? (
+          <a href={contactHrefOf(m.memberId)} className={cn(linkClass, "w-full flex-none")} data-member-contact="">
+            <UserRound aria-hidden className="h-4 w-4" />
+            {tt("View contact")}
+          </a>
+        ) : null}
 
         {active ? (
           <div className="flex gap-2" data-member-links="">

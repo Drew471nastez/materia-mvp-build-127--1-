@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getCaseForBuyer } from "@/lib/support/cases-server"
 import { buyerPageLanguage } from "@/lib/markets/checkout-language"
-import { CheckoutWords } from "@/app/(storelib)/checkout/parts/words"
+import { CheckoutWords } from "@/components/checkout/parts/words"
 import { CaseView } from "./case-view"
 
 export const dynamic = "force-dynamic"

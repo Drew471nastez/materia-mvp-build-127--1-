@@ -186,7 +186,7 @@ export const getImageProps = () => ({ props: {} })
 export const useRouter = () => ({ push() {}, replace() {}, prefetch() {}, back() {} })
 export const useSearchParams = () => new URLSearchParams()
 export const useParams = () => globalThis.__PUSH_TEST_PARAMS__ ?? {}
-export const redirect = () => {}
+export const redirect = (url) => { globalThis.__PUSH_TEST_REDIRECTS__?.push(String(url)) }
 export const notFound = () => {}
 export const permanentRedirect = () => {}
 export const RedirectType = { push: "push", replace: "replace" }

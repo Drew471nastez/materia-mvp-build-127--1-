@@ -110,8 +110,10 @@ function filesUnder(dir: string, out: string[] = []): string[] {
 
   const publish = read("app/api/website-builder/themes/[installId]/publish/route.ts")
   const release = publish.indexOf("const kept = await recordRelease(admin, { installId, creatorId })")
-  const warm = publish.indexOf("await warmAfterPublish(creatorId)")
-  check("the publish route draws the pages after the release is recorded, after the answer", release > 0 && warm > release && publish.lastIndexOf("after(async () => {", warm) < warm && publish.lastIndexOf("after(async () => {", warm) > publish.indexOf("await revalidatePublishedSite(creator.id)"))
+  /* Changed on purpose (round AM): the pages are drawn straight after the caches are cleared, in their own after(), for the publisher's country first; they no longer wait seconds for the release, which is the same rows (the marker names the rows' count, lib/website-builder/live-release.ts). */
+  const warm = publish.indexOf("after(() => warmAfterPublish(creatorId, { countries: [publisherCountry] }))")
+  const cleared = publish.indexOf("await revalidatePublishedSite(creator.id)\n\n")
+  check("the publish route draws the pages after the caches are cleared, after the answer, without waiting for the release", release > 0 && cleared > 0 && warm > cleared && warm < release && /const publisherCountry = seenCountry\(req\.headers\)/.test(publish))
 
   console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed) process.exit(1)

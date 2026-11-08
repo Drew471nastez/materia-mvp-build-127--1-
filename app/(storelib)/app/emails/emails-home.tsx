@@ -4,15 +4,17 @@
  * ===========================================================================
  *  EMAILS, IN THE SAME LANGUAGE AS ORDERS AND ANALYTICS
  * ===========================================================================
- * The list screen of /app/emails: subscribers, the messages people wrote
- * through a website's contact form, automations and the emails sent,
- * scheduled and drafted, drawn with the Orders page's parts
+ * The list screen of /app/emails, three tabs since round 51: Campaigns
+ * (every email sent, scheduled and drafted, in one list with All, Sent,
+ * Scheduled and Drafts above it), Automations and Settings (how email goes
+ * out, and the emails buyers get). Subscribers and leads moved to Contacts,
+ * the website's messages to Contacts › Forms. Drawn with the Orders page's parts
  * (app/app/orders/order-parts.tsx): the pane's bar, a metrics strip, a dense
  * table whose first column stays put on a phone, and each row's actions in
  * the menu that is a dropdown on a desktop and a sheet on a phone.
  *
- * THE BAR HOLDS STILL. The title, New automation and New email, and the
- * tabs are all in the pane's bar, which is never unmounted and never
+ * THE BAR HOLDS STILL. The title, the tab's one main action (New email,
+ * Create automation) and the tabs are all in the pane's bar, which is never unmounted and never
  * changes height, so switching tabs moves nothing above the content: the
  * tab row keeps its own sideways scroll on a phone, and only what is under
  * the bar changes. It scrolls away with the page, as every list's bar does
@@ -30,15 +32,13 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronDown, Download, Plus, Search, X } from "lucide-react"
+import { ChevronDown, Plus, X } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { HelpLabel } from "@/components/app/help-label"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
-import { NOT_RECORDED, sourceView } from "@/lib/contacts/contact-source"
 import { TRIGGERS, isTriggerType, normalizeSteps, stepSummary } from "@/lib/automations/flow-model"
-import { contactReady, contactStatusLabel, prefetchContact } from "./contact-detail"
 import type { RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
 import { ShimmerBlock, ShimmerRows, ShimmerSwap } from "@/components/ui/shimmer"
@@ -55,9 +55,18 @@ import { api as storeApi, peekGet } from "@/components/physical/ui"
 import { emailsOf } from "@/lib/emails/customer-list"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
-import type { LeadsData } from "./leads-panel"
+import { FilterPills } from "@/components/app/filter-pills"
+import { ComposeDialog } from "@/components/email/compose/ui"
+import { StarterList } from "@/components/email/compose/starter-list"
+import type { CampaignShow, EmailsPageTab, SettingsSection } from "./emails-route"
+import type { SendingData } from "./emails-data"
 
-export type EmailsTab = "subscribers" | "messages" | "leads" | "flows" | "customer" | "published" | "scheduled" | "drafts" | "platforms"
+/**
+ * What is drawn under the bar (round 51): Campaigns' four filters ("all",
+ * and "published" for Sent), Automations ("flows"), and Settings' two
+ * sections ("platforms" for Sending, "customer").
+ */
+export type EmailsTab = "all" | "published" | "scheduled" | "drafts" | "flows" | "customer" | "platforms"
 
 /** A message from a contact form on one of the creator's websites (site_contact_messages, lib/site-contact). */
 export interface MessageRow {
@@ -111,6 +120,8 @@ export interface FlowRow {
 
 export interface CampaignRow {
   id: string
+  /** Which list it came from: sent, scheduled or a draft (./emails-data.ts). */
+  kind?: "sent" | "scheduled" | "draft"
   subject: string
   /** Where its send is: queued, sending, sent, partially_failed, failed, cancelled. */
   status?: string
@@ -134,53 +145,39 @@ export interface OverviewStats {
 }
 
 export interface EmailsHomeProps {
-  /** The tab whose content is drawn. */
+  /** The page's tab: Campaigns, Automations or Settings. */
+  pageTab: EmailsPageTab
+  onPageTab: (tab: EmailsPageTab) => void
+  /** A pointer resting on a tab: its data can be read ahead. */
+  onPageTabIntent?: (tab: EmailsPageTab) => void
+  /** Campaigns' filter, and Settings' section. */
+  show: CampaignShow
+  onShow: (show: CampaignShow) => void
+  section: SettingsSection
+  onSection: (section: SettingsSection) => void
+  /** The view whose content is drawn. */
   tab: EmailsTab
   /**
-   * The tab chosen in the bar. It runs ahead of `tab` for a moment when the
-   * chosen one has nothing read yet: the content of the last one stays until
-   * the next has its rows (./emails-client.tsx), so a switch never shows an
-   * empty table. Missing, the bar shows `tab`.
+   * The view chosen. It runs ahead of `tab` for a moment when the chosen one
+   * has nothing read yet: the content of the last one stays until the next
+   * has its rows (./emails-client.tsx), so a switch never shows an empty
+   * table. Missing, it is `tab`.
    */
   chosenTab?: EmailsTab
-  /** The last tab's rows were already held for a while: a skeleton now shows at once, with no wait of its own. */
+  /** The last view's rows were already held for a while: a skeleton now shows at once, with no wait of its own. */
   skeletonAtOnce?: boolean
-  onTab: (tab: EmailsTab) => void
-  /** A pointer resting on a tab: its data can be read ahead. */
-  onTabIntent?: (tab: EmailsTab) => void
-  /** Nothing to show for this tab yet. */
+  /** Nothing to show for this view yet. */
   loading: boolean
 
-  subscribers: SubscriberRow[]
-  /** Buyers who are not on the list, counted as reachable from the store. */
-  checkoutBuyersCount: number
-  /** The Customer emails tab's read (the store, its saved words), when it has come. */
+  /** The Customer emails section's read (the store, its saved words), when it has come. */
   customerEmails?: CustomerEmailsData | null
-  /** The Customer emails tab changed what it read (words saved, the reminder switched): kept for its next look. */
+  /** The Customer emails section changed what it read (words saved, the reminder switched): kept for its next look. */
   onCustomerEmails?: (data: CustomerEmailsData) => void
-  /** The Platforms tab's read: the connected email platforms and the sending domain. */
-  platforms?: PlatformsData | null
+  /** The Sending section's read: the connected email platforms, the sending domain and the sender. */
+  platforms?: SendingData | null
   onPlatforms?: (data: PlatformsData) => void
   /** Physical commerce is on: the shipping, pickup and return emails are listed too. */
   physical: boolean
-  search: string
-  onSearch: (q: string) => void
-  onExportSubscribers: () => void
-  onCopyEmail: (email: string) => void
-  onRemoveSubscriber: (id: string) => void
-
-  messages: MessageRow[]
-  /** The messages table exists (its SQL part has run). */
-  messagesAvailable: boolean
-  /** A message's row: the message opens over the list, as a contact does. */
-  onOpenMessage: (message: MessageRow) => void
-  onToggleRead: (message: MessageRow) => void
-  onDeleteMessage: (id: string) => void
-
-  /** The Leads tab's read (./leads-panel loadLeads), for the figures over it. */
-  leads?: LeadsData | null
-  /** The Leads tab's own table and dialog, drawn by ./emails-client (it owns the cache). */
-  leadsPanel?: React.ReactNode
 
   flows: FlowRow[]
   onToggleFlow: (flow: FlowRow) => void
@@ -190,8 +187,6 @@ export interface EmailsHomeProps {
   campaigns: CampaignRow[]
   /** Opens a sent or scheduled email's page over the list. */
   onOpenCampaign: (campaign: CampaignRow) => void
-  /** A subscriber's row: their page opens over the list, as an order's does. */
-  onOpenContact: (contact: SubscriberRow) => void
   /** A pointer arriving on a row, or a finger touching it: read what it opens. */
   onCampaignIntent: (campaign: CampaignRow) => void
   onDuplicateCampaign: (campaign: CampaignRow) => void
@@ -204,16 +199,36 @@ export interface EmailsHomeProps {
   today: string
 }
 
+/** The page's three tabs (round 51). */
+export const PAGE_TAB_LABELS: { id: EmailsPageTab; label: string }[] = [
+  { id: "campaigns", get label() { return tt("Campaigns") } },
+  { id: "automations", get label() { return tt("Automations") } },
+  { id: "settings", get label() { return tt("Settings") } },
+]
+
+/** Campaigns' filter. */
+export const SHOW_LABELS: { value: CampaignShow; label: string }[] = [
+  { value: "all", get label() { return tt("All") } },
+  { value: "sent", get label() { return tt("Sent") } },
+  { value: "scheduled", get label() { return tt("Scheduled") } },
+  { value: "drafts", get label() { return tt("Drafts") } },
+]
+
+/** Settings' two sections. */
+export const SECTION_LABELS: { value: SettingsSection; label: string }[] = [
+  { value: "sending", get label() { return tt("Delivery") } },
+  { value: "customer", get label() { return tt("Customer emails") } },
+]
+
+/** Each view's name, for the region it is drawn in. */
 export const TABS: { id: EmailsTab; label: string }[] = [
-  { id: "subscribers", get label() { return tt("Subscribers") } },
-  { id: "messages", get label() { return tt("Messages") } },
-  { id: "leads", get label() { return tt("Leads") } },
-  { id: "flows", get label() { return tt("Automations") } },
-  { id: "customer", get label() { return tt("Customer emails") } },
+  { id: "all", get label() { return tt("Campaigns") } },
   { id: "published", get label() { return tt("Sent") } },
   { id: "scheduled", get label() { return tt("Scheduled") } },
   { id: "drafts", get label() { return tt("Drafts") } },
-  { id: "platforms", get label() { return tt("Platforms") } },
+  { id: "flows", get label() { return tt("Automations") } },
+  { id: "customer", get label() { return tt("Customer emails") } },
+  { id: "platforms", get label() { return tt("Delivery") } },
 ]
 
 const PAGE_SIZE = 50
@@ -341,45 +356,110 @@ export function PhoneItem({ head, aside, line, meta, badges, menu, ...row }: { h
 }
 
 export function EmailsHome(props: EmailsHomeProps) {
-  const { tab } = props
+  const { tab, pageTab } = props
   const router = useRouter()
+  const [templates, setTemplates] = React.useState(false)
   return (
     <>
-      {/* Flat, as every list's bar (round 28, the owner): the title, the two buttons and the tabs scroll away with the page. */}
+      {/* Flat, as every list's bar (round 28, the owner): the title, the tab's one action and the tabs scroll away with the page. */}
       <PaneBar width={LIST_WIDTH} className="pb-1 pt-2">
         <div className="flex min-h-[48px] items-center justify-between gap-2">
           <h1 className="shrink-0 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Emails")}</h1>
-          <div className="flex min-w-0 items-center gap-2">
-            <Link href="/app/emails/flow/new" prefetch onClick={layerLinkClick(router, "/app/emails/flow/new")} className={cn(buttonSecondary, "px-2.5 sm:px-3")} data-new-automation="">
-              <Plus className="hidden h-4 w-4 shrink-0 sm:block" />
-              <span className="sm:hidden">{tt("Automation")}</span>
-              <span className="hidden sm:inline">{tt("New automation")}</span>
-            </Link>
-            <Link href="/app/emails/new" prefetch onClick={layerLinkClick(router, "/app/emails/new")} className={cn(buttonAccent, "px-2.5 sm:px-3")} data-new-email="">
-              <Plus className="h-4 w-4 shrink-0" />
-              {tt("New email")}
-            </Link>
+          {/* One main action per tab (round 51): Campaigns writes an email, Automations makes one, Settings has none. */}
+          <div className="flex min-h-9 min-w-0 items-center gap-2">
+            {pageTab === "campaigns" ? (
+              <Link href="/app/emails/new" prefetch onClick={layerLinkClick(router, "/app/emails/new")} className={cn(buttonAccent, "px-2.5 sm:px-3")} data-new-email="">
+                <Plus className="h-4 w-4 shrink-0" />
+                {tt("New email")}
+              </Link>
+            ) : pageTab === "automations" ? (
+              <Link href="/app/emails/flow/new" prefetch onClick={layerLinkClick(router, "/app/emails/flow/new")} className={cn(buttonAccent, "px-2.5 sm:px-3")} data-new-automation="">
+                <Plus className="h-4 w-4 shrink-0" />
+                {tt("Create automation")}
+              </Link>
+            ) : null}
           </div>
         </div>
-        <Tabs tab={props.chosenTab ?? tab} onTab={props.onTab} onIntent={props.onTabIntent} counts={{ messages: props.messages.filter((m) => !m.read_at).length }} />
+        <Tabs tab={pageTab} onTab={props.onPageTab} onIntent={props.onPageTabIntent} />
       </PaneBar>
 
       <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER, props.skeletonAtOnce && "shimmer-now")} style={{ minHeight: "var(--pane-h, 100%)" }} data-tab-content={tab} data-tab-pending={props.chosenTab && props.chosenTab !== tab ? props.chosenTab : undefined}>
-        <Metrics {...props} />
+        {/* Campaigns' filter, and its secondary Templates; Settings' two sections. Pills, as Integrations and Customer emails draw them. */}
+        {pageTab === "campaigns" ? (
+          <div className="mt-4 flex items-center justify-between gap-3" data-campaign-filter="">
+            <FilterPills label={tt("Show")} value={props.show} onChange={props.onShow} options={SHOW_LABELS.map((o) => ({ value: o.value, label: o.label }))} />
+            <button type="button" className={cn(buttonSecondary, "shrink-0")} onClick={() => setTemplates(true)} data-email-templates="">
+              {tt("Templates")}
+            </button>
+          </div>
+        ) : pageTab === "settings" ? (
+          <div className="mt-4" data-settings-sections="">
+            <FilterPills label={tt("Settings")} value={props.section} onChange={props.onSection} options={SECTION_LABELS.map((o) => ({ value: o.value, label: o.label }))} />
+          </div>
+        ) : null}
+
+        {tab === "platforms" ? <SenderCard sender={props.platforms?.sender ?? null} domain={props.platforms?.sending.domain ?? null} loading={props.loading} /> : <Metrics {...props} />}
 
         <section aria-label={TABS.find((t) => t.id === tab)?.label ?? tt("Emails")} className={cn(card, "mt-4 overflow-hidden")}>
-          {tab === "subscribers" ? <SubscribersTable {...props} /> : null}
-          {tab === "messages" ? <MessagesTable {...props} /> : null}
-          {tab === "leads" ? props.leadsPanel ?? null : null}
           {tab === "flows" ? <FlowsTable {...props} /> : null}
           {/* The emails buyers and members get, in three families: the same list, editor and saved words as Settings › Customer emails. */}
           {tab === "customer" ? <CustomerEmailsPanel bare source={{ data: props.customerEmails ?? null, onChange: props.onCustomerEmails }} /> : null}
-          {tab === "published" || tab === "scheduled" || tab === "drafts" ? <CampaignsTable {...props} /> : null}
+          {tab === "all" || tab === "published" || tab === "scheduled" || tab === "drafts" ? <CampaignsTable {...props} /> : null}
           {/* Klaviyo, Omnisend, Brevo, MailerLite and Kit kept in step, and the store's own sending domain. */}
           {tab === "platforms" ? <ConnectedPlatforms data={props.platforms ?? null} onChange={props.onPlatforms} /> : null}
         </section>
       </div>
+
+      {/*
+        TEMPLATES, A SECOND PLACE, NOT A TAB (round 51). The layouts an email
+        can start from are chosen in the composer, under an empty email; here
+        they are listed so one can be picked first: it opens a new email with
+        that layout in it (/app/emails/new?layout=<id>).
+      */}
+      <ComposeDialog open={templates} onClose={() => setTemplates(false)} title={tt("Templates")}>
+        <p className="mb-3 text-[13px] text-[#6b7280]">{tt("Pick one to start a new email with it. You can also pick one in a new email, before you write.")}</p>
+        <StarterList
+          bare
+          withBlank
+          className="-mx-4 sm:-mx-5"
+          onPick={(id) => {
+            setTemplates(false)
+            const href = id === "blank" ? "/app/emails/new" : `/app/emails/new?layout=${encodeURIComponent(id)}`
+            openLayer(router, href)
+          }}
+        />
+      </ComposeDialog>
     </>
+  )
+}
+
+/**
+ * Settings › Sending: who the store's emails are from, the address they come
+ * from, and where a reply goes, each with where it is changed. Read with the
+ * platforms (./emails-data.ts loadPlatforms).
+ */
+function SenderCard({ sender, domain, loading }: { sender: { name: string | null; replyTo: string | null } | null; domain: { domain: string; status: string } | null; loading: boolean }) {
+  const rows: Array<{ label: string; value: string; href?: string; action?: string }> = [
+    { label: tt("From name"), value: sender?.name || "–", href: "/app/settings?tab=general", action: tt("Edit") },
+    { label: tt("From address"), value: domain?.status === "verified" ? tt("Your domain, {domain}", { domain: domain.domain }) : tt("Storelib's address") },
+    { label: tt("Replies go to"), value: sender?.replyTo || "–", href: "/app/settings?tab=store", action: tt("Edit") },
+  ]
+  return (
+    <section aria-label={tt("Sender")} className={cn(card, "mt-4 overflow-hidden")} data-sender-card="">
+      <dl className="divide-y divide-[#f1f2f4]">
+        {rows.map((r) => (
+          <div key={r.label} className="flex min-h-12 items-center gap-3 px-4 py-2 sm:px-5">
+            <dt className="w-[120px] shrink-0 text-[13px] font-medium text-[#6b7280]">{r.label}</dt>
+            <dd className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e]">{loading ? <ShimmerBlock className="shimmer-wait h-3.5 w-32 rounded-full" /> : r.value}</dd>
+            {r.href ? (
+              <Link href={r.href} className="shrink-0 text-[13px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+                {r.action}
+              </Link>
+            ) : null}
+          </div>
+        ))}
+      </dl>
+    </section>
   )
 }
 
@@ -388,15 +468,8 @@ export function EmailsHome(props: EmailsHomeProps) {
 /** How far in from a faded end the chosen view is kept: the fade (24px, app/globals.css .edge-fade) and a little air. */
 const TAB_FADE_CLEAR = 28
 
-function Tabs({ tab, onTab, onIntent, counts }: { tab: EmailsTab; onTab: (t: EmailsTab) => void; onIntent?: (t: EmailsTab) => void; counts?: Partial<Record<EmailsTab, number>> }) {
+function Tabs({ tab, onTab, onIntent }: { tab: EmailsPageTab; onTab: (t: EmailsPageTab) => void; onIntent?: (t: EmailsPageTab) => void }) {
   /* Analytics' sliding pill (round 24, the owner: "the pill shapes of the analytics"); the strip scrolls sideways on a phone and keeps the chosen one in view. */
-  /*
-    WIDER THAN A PHONE. The track used to run into its own rounded end with
-    the last label cut there mid word ("Cu"). The track marks the ends that
-    have more past them (components/app/use-edge-fade, inside SegmentedPills)
-    and `edge-fade` (app/globals.css) fades just those ends out, so the row
-    reads as "more this way"; a row that fits has no mask at all.
-  */
   const host = React.useRef<HTMLDivElement>(null)
   /*
     The chosen view clear of a fade. SegmentedPills brings it into view with
@@ -417,23 +490,7 @@ function Tabs({ tab, onTab, onIntent, counts }: { tab: EmailsTab; onTab: (t: Ema
   }, [tab])
   return (
     <div ref={host} className="flex h-11 items-center" data-email-tabs="">
-      <SegmentedPills
-        label={tt("Views")}
-        className="edge-fade"
-        value={tab}
-        onChange={onTab}
-        onIntent={onIntent}
-        options={TABS.map((t) => ({
-          value: t.id,
-          label: (
-            <>
-              {t.label}
-              {/* New messages, counted in the tab's own quiet type: a number, not a pill. */}
-              {counts?.[t.id] ? <span className="ml-1.5 tabular-nums text-[#8b5cf6]" data-tab-count="">{counts[t.id]}</span> : null}
-            </>
-          ),
-        }))}
-      />
+      <SegmentedPills label={tt("Views")} className="edge-fade" value={tab} onChange={onTab} onIntent={onIntent} options={PAGE_TAB_LABELS.map((t) => ({ value: t.id, label: t.label }))} />
     </div>
   )
 }
@@ -464,7 +521,7 @@ function Metrics(props: EmailsHomeProps) {
   return (
     <section aria-label={tt("Email metrics")} className={cn(card, "mt-4 overflow-hidden")}>
       <div className="orders-strip flex overflow-x-auto">
-        {props.tab === "published" ? (
+        {props.tab === "published" || props.tab === "all" ? (
           <div className="flex min-w-[150px] shrink-0 flex-col px-4 py-3">
             <span className="text-[12px] font-medium text-[#4b5563]">{tt("Period")}</span>
             <div className="mt-1 flex h-6 items-center">
@@ -473,7 +530,7 @@ function Metrics(props: EmailsHomeProps) {
           </div>
         ) : null}
         {readings.map((r, i) => (
-          <div key={r.label} className={cn("flex min-w-[140px] flex-1 shrink-0 flex-col px-4 py-3", (i > 0 || props.tab === "published") && "border-l border-[#eef0f2]")}>
+          <div key={r.label} className={cn("flex min-w-[140px] flex-1 shrink-0 flex-col px-4 py-3", (i > 0 || props.tab === "published" || props.tab === "all") && "border-l border-[#eef0f2]")}>
             <HelpLabel label={r.label} description={r.help} className="whitespace-nowrap text-[12px] font-medium text-[#4b5563]" />
             <div className="mt-1 flex h-6 items-baseline gap-2">
               {/* A light gray shape until the figure is in. */}
@@ -493,44 +550,6 @@ function Metrics(props: EmailsHomeProps) {
 
 function readingsFor(p: EmailsHomeProps): Reading[] {
   const n = (v: number) => Math.round(v).toLocaleString(appLocale())
-  if (p.tab === "subscribers") {
-    const on = p.subscribers.filter((s) => s.status === "subscribed")
-    const surface = (s: SubscriberRow) => {
-      const v = sourceView(s.source_detail, s.source)
-      return v.key.startsWith("site:") ? "website" : v.key
-    }
-    const fromSites = on.filter((s) => surface(s) === "website").length
-    const fromStorelib = on.filter((s) => ["profile", "product", "onepage"].includes(surface(s))).length
-    const fromCheckout = on.filter((s) => surface(s) === "checkout").length
-    /* Buyers who never asked for news: the ones kept as contacts, and the
-       ones who bought before contacts were kept (checkoutBuyersCount). */
-    const customers = p.subscribers.filter((s) => s.status === "customer").length + p.checkoutBuyersCount
-    return [
-      { label: tt("Subscribers"), help: tt("People on your list. Your emails go to them."), value: n(on.length) },
-      { label: tt("From your website"), help: tt("People who signed up on a website you built with Storelib."), value: n(fromSites) },
-      { label: tt("From Storelib"), help: tt("People who signed up on your Storelib profile, a product page or your OnePage."), value: n(fromStorelib) },
-      { label: tt("At checkout"), help: tt("Buyers who asked to hear from you when they paid."), value: n(fromCheckout) },
-      { label: tt("Customers"), help: tt("Buyers who did not ask for news. They get emails about what they bought, never one you send to your list."), value: n(customers) },
-      { label: tt("Unsubscribed"), help: tt("People who asked to stop getting your emails. They are never sent another."), value: n(p.subscribers.filter((s) => s.status === "unsubscribed").length) },
-    ]
-  }
-  if (p.tab === "messages") {
-    const week = Date.now() - 7 * 86_400_000
-    return [
-      { label: tt("Messages"), help: tt("Messages people sent through the contact form on your website. Each one is emailed to you too."), value: n(p.messages.length) },
-      { label: tt("New"), help: tt("Messages you have not opened here yet."), value: n(p.messages.filter((m) => !m.read_at).length) },
-      { label: tt("Last 7 days"), help: tt("Messages sent in the last seven days."), value: n(p.messages.filter((m) => Date.parse(m.created_at) >= week).length) },
-    ]
-  }
-  if (p.tab === "leads") {
-    const t = p.leads?.totals
-    const v = (x: number | undefined) => (t && x !== undefined ? n(x) : "–")
-    return [
-      { label: tt("Leads"), help: tt("Everyone who answered one of your forms: a Form block, a form link, or the questions before a WhatsApp or Telegram chat."), value: v(t?.all) },
-      { label: tt("New"), help: tt("Leads you have not marked as contacted yet."), value: v(t?.fresh) },
-      { label: tt("Last 7 days"), help: tt("Leads from the last seven days."), value: v(t?.week) },
-    ]
-  }
   if (p.tab === "flows") {
     const sum = (k: keyof FlowTotals) => p.flows.reduce((total, f) => total + (f.totals?.[k] ?? 0), 0)
     const sent = sum("sent")
@@ -560,6 +579,19 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
       { label: tt("Subscribers sent"), help: tt("Subscribers who said yes, on every connected platform together."), value: p.platforms ? n(on.reduce((t, m) => t + m.counts.subscribed, 0)) : "–" },
       { label: tt("Last sync"), help: tt("The last time a connected platform was brought up to date."), value: last ? formatWhen(last) : "–" },
       { label: tt("Sending domain"), help: tt("The domain your emails come from once it is verified. Without one, they come from Storelib's address."), value: d ? (d.status === "verified" ? d.domain : tt("Not verified")) : tt("Storelib's") },
+    ]
+  }
+  if (p.tab === "all") {
+    /* Campaigns › All: the period's sending, and what is waiting. */
+    const o = p.overview
+    const scheduled = p.campaigns.filter((c) => c.kind === "scheduled")
+    const next = scheduled.map((c) => c.scheduled_at).filter((x): x is string => !!x).sort()[0]
+    return [
+      { label: tt("Sent"), help: tt("Emails delivered to subscribers in this period."), value: o ? n(o.total_sent) : "–" },
+      { label: tt("Open rate"), help: tt("Of the emails sent in this period, how many were opened."), value: o ? `${o.open_rate}%` : "–", note: o ? n(o.total_opened) : undefined },
+      { label: tt("Click rate"), help: tt("Of the emails sent in this period, how many had a link clicked."), value: o ? `${o.click_rate}%` : "–", note: o ? n(o.total_clicked) : undefined },
+      { label: tt("Scheduled"), help: tt("Emails waiting to go out."), value: n(scheduled.length), note: next ? formatWhen(next) : undefined },
+      { label: tt("Drafts"), help: tt("Emails you started and have not sent."), value: n(p.campaigns.filter((c) => c.kind === "draft").length) },
     ]
   }
   if (p.tab === "published") {
@@ -654,20 +686,6 @@ function SendBadge({ status }: { status?: string }) {
   return null
 }
 
-function SubscriberStatus({ s }: { s: SubscriberRow }) {
-  const label = contactStatusLabel(s)
-  return <StatusBadge tone={label === "Resubscribed" ? "attention" : label === "Subscribed" ? "success" : "neutral"}>{label}</StatusBadge>
-}
-
-/** The Status filter's groups: a customer is its own, bounced and spam go with the ones who left. */
-const STATUS_GROUPS: Array<{ value: string; label: string; match: (status: string) => boolean }> = [
-  { value: "subscribed", get label() { return tt("Subscribed") }, match: (s) => s === "subscribed" },
-  { value: "customer", get label() { return tt("Customers") }, match: (s) => s === "customer" },
-  /* People who wrote through a website's contact form and did not ask for news. */
-  { value: "wrote", get label() { return tt("Wrote to you") }, match: (s) => s === "wrote" },
-  { value: "unsubscribed", get label() { return tt("Unsubscribed") }, match: (s) => s !== "subscribed" && s !== "customer" && s !== "wrote" },
-]
-
 /** A filter as a chip in the table's toolbar, the way Orders draws its own. */
 export function FilterChip({
   label,
@@ -724,249 +742,6 @@ export function FilterChip({
   )
 }
 
-function SubscribersTable(props: EmailsHomeProps) {
-  const narrow = useNarrow()
-  const [searching, setSearching] = React.useState(props.search !== "")
-  const [page, setPage] = React.useState(1)
-  const [source, setSource] = React.useState("")
-  const [status, setStatus] = React.useState("")
-  const press = usePress()
-  /* The latest props, for the rows' handlers: the rows are drawn once per page of contacts (below), not once per draw of the page. */
-  const live = React.useRef(props)
-  live.current = props
-  /*
-    A contact's page opens with its content already in it: the tap waits
-    for the contact's automation runs (asked for when the finger landed), at
-    most a moment, and then opens it (./contact-detail). The row stays
-    pressed while it waits. The latest tap wins.
-  */
-  const opening = React.useRef<SubscriberRow | null>(null)
-  const openContact = (s: SubscriberRow, row?: HTMLElement) => {
-    opening.current = s
-    /* The row stays pressed while it waits, on the row itself (usePress). */
-    if (row) {
-      row.dataset.pressed = "true"
-      row.setAttribute("data-waiting", "")
-    }
-    void contactReady(s.email).then(() => {
-      if (row) {
-        row.removeAttribute("data-waiting")
-        delete row.dataset.pressed
-      }
-      if (opening.current !== s) return
-      opening.current = null
-      live.current.onOpenContact(s)
-    })
-  }
-  const q = props.search.trim().toLowerCase()
-  const subscriberMenu = (s: SubscriberRow): ActionMenuItem[] => [
-    { label: tt("Details"), onClick: () => openContact(s) },
-    { label: tt("Copy email"), onClick: () => live.current.onCopyEmail(s.email) },
-    { label: tt("Remove"), variant: "destructive", separatorBefore: true, onClick: () => live.current.onRemoveSubscriber(s.id) },
-  ]
-
-  /* Every contact's source, read once: the column, the filter and its counts. */
-  const views = React.useMemo(() => new Map(props.subscribers.map((s) => [s.id, sourceView(s.source_detail, s.source)])), [props.subscribers])
-  const sources = React.useMemo(() => {
-    const count = new Map<string, { label: string; n: number }>()
-    for (const v of views.values()) {
-      const c = count.get(v.key)
-      if (c) c.n++
-      else count.set(v.key, { label: v.label, n: 1 })
-    }
-    /* Websites first, by size; then Storelib's own pages; Not recorded last. */
-    return [...count.entries()]
-      .sort(([ak, a], [bk, b]) => Number(ak === "none") - Number(bk === "none") || Number(!ak.startsWith("site:")) - Number(!bk.startsWith("site:")) || b.n - a.n)
-      .map(([key, c]) => ({ value: key, label: c.label, hint: tt("{n, plural, one {# contact} other {# contacts}}", { n: c.n }) }))
-  }, [views])
-
-  const rows = React.useMemo(
-    () =>
-      props.subscribers.filter(
-        (s) =>
-          (!q || s.email.toLowerCase().includes(q) || (s.name ?? "").toLowerCase().includes(q)) &&
-          (!source || views.get(s.id)?.key === source) &&
-          (!status || !!STATUS_GROUPS.find((g) => g.value === status)?.match(s.status)),
-      ),
-    [props.subscribers, q, source, status, views],
-  )
-  React.useEffect(() => setPage(1), [q, source, status])
-  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
-  const shown = React.useMemo(() => rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [rows, page])
-  const sourceName = source ? sources.find((o) => o.value === source)?.label ?? null : null
-  const statuses = React.useMemo(
-    () =>
-      STATUS_GROUPS.map((g) => {
-        const n = props.subscribers.filter((s) => g.match(s.status)).length
-        return { value: g.value, label: g.label, hint: tt("{n, plural, one {# contact} other {# contacts}}", { n }) }
-      }),
-    [props.subscribers],
-  )
-  const statusName = status ? STATUS_GROUPS.find((g) => g.value === status)?.label ?? null : null
-
-  /*
-    THE ROWS, DRAWN ONCE PER PAGE OF CONTACTS (round 25). A contact opening
-    over the list, a menu, a search keystroke elsewhere: each drew fifty rows
-    and their fifty menus again, 70 to 100ms on a computer between the click
-    and the contact's first frame. The same element tree is handed back, so
-    React leaves the rows as they are; their handlers read the latest props
-    through live, and press and openContact keep nothing of a draw.
-  */
-  const list = React.useMemo(
-    () => (
-              <>
-              {narrow !== false ? (
-              <ul aria-label={tt("Subscribers")} className="divide-y divide-[#f1f2f4] sm:hidden">
-                {shown.map((s) => {
-                  const v = views.get(s.id)
-                  return (
-                    <PhoneItem
-                      key={s.id}
-                      data-contact-row=""
-                      data-order-id={s.id}
-                      onClick={(e) => openContact(s, e.currentTarget)}
-                      {...press(s.id, () => prefetchContact(s.email))}
-                      head={s.name || s.email}
-                      aside={formatDay(s.subscribed_at)}
-                      line={s.name ? s.email : undefined}
-                      meta={tt(v?.label ?? NOT_RECORDED)}
-                      /* Subscribed is most of them, so only the others are said. */
-                      badges={s.status === "subscribed" ? undefined : <SubscriberStatus s={s} />}
-                      menu={<ResponsiveActionMenu title={s.email} align="end" trigger={<RowMenuButton label={tt("Actions for {email}", { email: s.email })} className="h-11 w-11" />} items={subscriberMenu(s)} />}
-                    />
-                  )
-                })}
-              </ul>
-              ) : null}
-              {narrow !== true ? (
-              <ScrollEdge frameClassName="max-sm:hidden">
-                <table className="w-full min-w-[720px] border-collapse">
-                  <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
-                    <tr>
-                      <th data-scroll-edge="" className={cn(th, stickyHead, "w-px")}>{tt("Email")}</th>
-                      <th className={th}>{tt("Name")}</th>
-                      <th className={th}>{tt("Source")}</th>
-                      <th className={th}>{tt("Status")}</th>
-                      <th className={th}>{tt("Added")}</th>
-                      <th className={cn(th, "w-12")} aria-label={tt("Actions")} />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#f1f2f4]">
-                    {shown.map((s) => {
-                      const v = views.get(s.id)
-                      return (
-                        <tr
-                          key={s.id}
-                          data-contact-row=""
-                          data-order-id={s.id}
-                          className={cn("orders-row", pressable)}
-                          onClick={(e) => openContact(s, e.currentTarget)}
-                          {...press(s.id, () => prefetchContact(s.email))}
-                        >
-                          <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}><span className="block max-w-[180px] truncate sm:max-w-[260px]">{s.email}</span></td>
-                          <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[180px] truncate">{s.name || "–"}</span></td>
-                          <td className={td} title={v ? [v.label, v.detail].filter(Boolean).join(" · ") : undefined}>
-                            {/* The website's address is the part that matters: it keeps its
-                                width, and the detail after it is what gets cut. */}
-                            <span className="flex max-w-[380px] items-baseline gap-1.5">
-                              <span className={cn("max-w-[230px] shrink-0 truncate", v?.label === NOT_RECORDED ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{tt(v?.label ?? NOT_RECORDED)}</span>
-                              {v?.detail ? <span className="min-w-0 truncate text-[12px] text-[#6b7280]">{v.detail}</span> : null}
-                            </span>
-                          </td>
-                          <td className={td}>
-                            <SubscriberStatus s={s} />
-                          </td>
-                          <td className={cn(td, "tabular-nums text-[#4b5563]")}>{formatDay(s.subscribed_at)}</td>
-                          <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
-                            <ResponsiveActionMenu
-                              title={s.email}
-                              align="end"
-                              trigger={<RowMenuButton label={tt("Actions for {email}", { email: s.email })} />}
-                              items={subscriberMenu(s)}
-                            />
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </ScrollEdge>
-              ) : null}
-              </>
-    ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- press, openContact and subscriberMenu read refs only (above)
-    [shown, narrow, views],
-  )
-
-  return (
-    <>
-      {/* One toolbar row, always the same height: the source filter and the tools, or the search. */}
-      <div className="flex h-12 items-center gap-2 border-b border-[#eef0f2] px-2">
-        {searching ? (
-          <>
-            <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#d5d7dd] bg-white px-2.5 transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]">
-              <Search className="h-4 w-4 shrink-0 text-[#6b7280]" />
-              <input
-                autoFocus
-                type="search"
-                value={props.search}
-                onChange={(e) => props.onSearch(e.target.value)}
-                placeholder={tt("Search by email or name")}
-                className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:text-[13px] [&::-webkit-search-cancel-button]:hidden"
-              />
-              {props.search ? (
-                <button type="button" aria-label={tt("Clear search")} className="text-[#9ca3af] hover:text-[#4b5563]" onClick={() => props.onSearch("")}>
-                  <X className="h-4 w-4" />
-                </button>
-              ) : null}
-            </label>
-            <button
-              type="button"
-              className="h-8 shrink-0 rounded-lg px-2.5 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4]"
-              onClick={() => {
-                props.onSearch("")
-                setSearching(false)
-              }}
-            >
-              {tt("Cancel")}
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="orders-strip flex min-w-0 flex-1 items-center gap-2 overflow-x-auto px-1">
-              {props.subscribers.length > 0 ? (
-                <>
-                  <FilterChip label={tt("Status")} value={statusName} options={[{ value: "", label: tt("Any status") }, ...statuses]} selected={status} onSelect={setStatus} />
-                  <FilterChip label={tt("Source")} value={sourceName} options={[{ value: "", label: tt("Any source") }, ...sources]} selected={source} onSelect={setSource} />
-                </>
-              ) : null}
-            </div>
-            <button type="button" aria-label={tt("Search subscribers")} className={iconButton} onClick={() => setSearching(true)}>
-              <Search className="h-4 w-4" />
-            </button>
-            <button type="button" aria-label={tt("Export subscribers")} className={iconButton} onClick={props.onExportSubscribers}>
-              <Download className="h-4 w-4" />
-            </button>
-          </>
-        )}
-      </div>
-
-      <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
-        {props.loading ? null : rows.length === 0 ? (
-          q || source || status ? (
-            <Empty title={tt("No subscribers match")} body={tt("Try another email or name, or another source.")} />
-          ) : (
-            <Empty title={tt("No subscribers yet")} body={tt("People who sign up on your website, your Storelib profile or your OnePage show up here, and so do buyers who ask to hear from you.")} />
-          )
-        ) : (
-          list
-        )}
-      </ShimmerSwap>
-      <Pager page={page} pages={pages} total={rows.length} onPage={setPage} />
-    </>
-  )
-}
-
 /** "maralind.storelib.com/contact": where on which website a message was written. */
 export function messageWhere(m: Pick<MessageRow, "site" | "page">): string {
   const page = m.page && m.page !== "home" ? `/${m.page}` : ""
@@ -977,134 +752,6 @@ export function messageWhere(m: Pick<MessageRow, "site" | "page">): string {
 export function replyHref(m: Pick<MessageRow, "email" | "subject">): string {
   const subject = m.subject ? `?subject=${encodeURIComponent(`Re: ${m.subject}`)}` : ""
   return `mailto:${encodeURIComponent(m.email)}${subject}`
-}
-
-/**
- * THE MESSAGES. What people wrote through the contact form on the creator's
- * websites, newest first, as Shopify keeps a store's contact form messages
- * in its inbox: who, what about, where, when, and new ones in bold with the
- * accent's dot. A row opens the message over the list (./message-detail);
- * its menu replies in the creator's own mail app, marks it read or new, and
- * deletes it.
- */
-function MessagesTable(props: EmailsHomeProps) {
-  const narrow = useNarrow()
-  const press = usePress()
-  const [page, setPage] = React.useState(1)
-  const pages = Math.max(1, Math.ceil(props.messages.length / PAGE_SIZE))
-  const shown = props.messages.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  const messageMenu = (m: MessageRow): ActionMenuItem[] => [
-    { label: tt("Open"), onClick: () => props.onOpenMessage(m) },
-    /* Its page has the reply box (./message-detail.tsx), and the thread of what was sent. */
-    { label: tt("Reply"), onClick: () => props.onOpenMessage(m) },
-    { label: m.read_at ? tt("Mark as new") : tt("Mark as read"), onClick: () => props.onToggleRead(m) },
-    { label: tt("Copy email"), onClick: () => props.onCopyEmail(m.email) },
-    { label: tt("Delete"), variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteMessage(m.id) },
-  ]
-  return (
-    <>
-      <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
-        {props.loading ? null : props.messages.length === 0 ? (
-          <Empty
-            title={tt("No messages yet")}
-            body={
-              props.messagesAvailable
-                ? tt("When somebody writes to you through the contact form on your website, the message shows here and in your email.")
-                : tt("Messages from your website's contact form are emailed to you. They show here once Storelib has finished setting this up.")
-            }
-          />
-        ) : (
-          <>
-          {narrow !== false ? (
-          <ul aria-label={tt("Messages")} className="divide-y divide-[#f1f2f4] sm:hidden">
-            {shown.map((m) => {
-              const fresh = !m.read_at
-              const who = m.name || m.email
-              return (
-                <PhoneItem
-                  key={m.id}
-                  data-message-row={m.id}
-                  data-unread={fresh ? "true" : undefined}
-                  data-order-id={m.id}
-                  onClick={() => props.onOpenMessage(m)}
-                  {...press(m.id)}
-                  head={
-                    <>
-                      {fresh ? <span aria-label={tt("New")} className="mr-1.5 inline-block h-2 w-2 -translate-y-[2px] rounded-full bg-[#8b5cf6] align-middle" /> : null}
-                      <span className={fresh ? undefined : "font-medium"}>{who}</span>
-                    </>
-                  }
-                  aside={formatWhen(m.created_at)}
-                  line={m.subject || undefined}
-                  meta={m.message.replace(/\s+/g, " ").trim()}
-                  menu={<ResponsiveActionMenu title={who} align="end" trigger={<RowMenuButton label={tt("Actions for the message from {who}", { who })} className="h-11 w-11" />} items={messageMenu(m)} />}
-                />
-              )
-            })}
-          </ul>
-          ) : null}
-          {narrow !== true ? (
-          <ScrollEdge frameClassName="max-sm:hidden">
-            <table className="w-full min-w-[720px] border-collapse" data-messages-table="">
-              <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
-                <tr>
-                  <th data-scroll-edge="" className={cn(th, stickyHead, "w-px")}>{tt("From")}</th>
-                  <th className={th}>{tt("Message")}</th>
-                  <th className={th}>{tt("Sent from")}</th>
-                  <th className={th}>{tt("Received")}</th>
-                  <th className={cn(th, "w-12")} aria-label={tt("Actions")} />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#f1f2f4]">
-                {shown.map((m) => {
-                  const fresh = !m.read_at
-                  const who = m.name || m.email
-                  const preview = m.message.replace(/\s+/g, " ").trim()
-                  return (
-                    <tr
-                      key={m.id}
-                      data-message-row={m.id}
-                      data-unread={fresh ? "true" : undefined}
-                      data-order-id={m.id}
-                      className={cn("orders-row", pressable)}
-                      onClick={() => props.onOpenMessage(m)}
-                      {...press(m.id)}
-                    >
-                      <td data-scroll-edge="" className={cn(td, sticky)}>
-                        <span className="flex max-w-[180px] items-center gap-2 sm:max-w-[240px]">
-                          {fresh ? <span aria-label={tt("New")} className="h-2 w-2 shrink-0 rounded-full bg-[#8b5cf6]" /> : <span aria-hidden className="w-2 shrink-0" />}
-                          <span className={cn("truncate", fresh ? "font-semibold" : "font-medium")}>{who}</span>
-                        </span>
-                      </td>
-                      <td className={td}>
-                        <span className="flex max-w-[420px] items-baseline gap-1.5">
-                          {m.subject ? <span className={cn("max-w-[200px] shrink-0 truncate", fresh ? "font-semibold" : "font-medium")}>{m.subject}</span> : null}
-                          <span className="min-w-0 truncate text-[#6b7280]">{preview}</span>
-                        </span>
-                      </td>
-                      <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[220px] truncate">{messageWhere(m) || "–"}</span></td>
-                      <td className={cn(td, "tabular-nums text-[#4b5563]")}>{formatWhen(m.created_at)}</td>
-                      <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
-                        <ResponsiveActionMenu
-                          title={who}
-                          align="end"
-                          trigger={<RowMenuButton label={tt("Actions for the message from {who}", { who })} />}
-                          items={messageMenu(m)}
-                        />
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </ScrollEdge>
-          ) : null}
-          </>
-        )}
-      </ShimmerSwap>
-      <Pager page={page} pages={pages} total={props.messages.length} onPage={setPage} />
-    </>
-  )
 }
 
 /**
@@ -1257,13 +904,27 @@ function FlowsTable(props: EmailsHomeProps) {
   )
 }
 
+/** Which list a row is from: its own mark, or the view it is drawn in. */
+function kindOf(c: CampaignRow, tab: EmailsTab): "sent" | "scheduled" | "draft" {
+  if (c.kind) return c.kind
+  return tab === "drafts" ? "draft" : tab === "scheduled" ? "scheduled" : "sent"
+}
+
+/** In All, each row says what it is: a draft, scheduled, or how its send went. */
+function KindBadge({ kind, status }: { kind: "sent" | "scheduled" | "draft"; status?: string }) {
+  if (kind === "draft") return <StatusBadge tone="neutral">{tt("Draft")}</StatusBadge>
+  if (kind === "scheduled") return <StatusBadge tone="attention">{tt("Scheduled")}</StatusBadge>
+  return <SendBadge status={status} />
+}
+
 function CampaignsTable(props: EmailsHomeProps) {
   const narrow = useNarrow()
   const { tab } = props
   const router = useRouter()
   const press = usePress()
-  const sent = tab === "published"
-  const drafts = tab === "drafts"
+  const all = tab === "all"
+  /* Sent figures (opened, clicked) have columns where sent emails are listed: Sent, and All. */
+  const withStats = tab === "published" || all
   const [page, setPage] = React.useState(1)
   React.useEffect(() => setPage(1), [tab])
   const pages = Math.max(1, Math.ceil(props.campaigns.length / PAGE_SIZE))
@@ -1273,23 +934,41 @@ function CampaignsTable(props: EmailsHomeProps) {
       ? { title: tt("Nothing sent in this period"), body: tt("Emails you send show up here with how many were opened and clicked.") }
       : tab === "scheduled"
         ? { title: tt("Nothing scheduled"), body: tt("Write an email and choose when it goes out, and it waits here until then.") }
-        : { title: tt("No drafts"), body: tt("An email you start and do not send yet is kept here.") }
-  const open = (c: CampaignRow) => (drafts ? openLayer(router, `/app/emails/edit/${c.id}`) : props.onOpenCampaign(c))
-  const campaignMenu = (c: CampaignRow): ActionMenuItem[] =>
-    drafts
+        : tab === "drafts"
+          ? { title: tt("No drafts"), body: tt("An email you start and do not send yet is kept here.") }
+          : { title: tt("No emails yet"), body: tt("Emails you send, schedule or start writing show up here, with how many were opened and clicked.") }
+  const open = (c: CampaignRow) => (kindOf(c, tab) === "draft" ? openLayer(router, `/app/emails/edit/${c.id}`) : props.onOpenCampaign(c))
+  const campaignMenu = (c: CampaignRow): ActionMenuItem[] => {
+    const kind = kindOf(c, tab)
+    return kind === "draft"
       ? [
           { label: tt("Edit"), onClick: () => open(c) },
           { label: tt("Duplicate"), onClick: () => props.onDuplicateCampaign(c) },
           { label: tt("Delete"), variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) },
         ]
       : [
-          { label: sent ? tt("View results") : tt("Open"), onClick: () => open(c) },
-          ...(tab === "scheduled" ? [{ label: tt("Edit"), onClick: () => openLayer(router, `/app/emails/edit/${c.id}`) }] : []),
+          { label: kind === "sent" ? tt("View results") : tt("Open"), onClick: () => open(c) },
+          ...(kind === "scheduled" ? [{ label: tt("Edit"), onClick: () => openLayer(router, `/app/emails/edit/${c.id}`) }] : []),
           { label: tt("Duplicate"), onClick: () => props.onDuplicateCampaign(c) },
           ...(c.status === "queued" || c.status === "sending" ? [] : [{ label: tt("Delete"), variant: "destructive" as const, separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) }]),
         ]
-  const when = (c: CampaignRow) => (sent ? formatDay(c.sent_at) : tab === "scheduled" ? formatWhen(c.scheduled_at) : formatDay(c.updated_at ?? c.created_at))
+  }
+  const when = (c: CampaignRow) => {
+    const kind = kindOf(c, tab)
+    return kind === "sent" ? formatDay(c.sent_at) : kind === "scheduled" ? formatWhen(c.scheduled_at) : formatDay(c.updated_at ?? c.created_at)
+  }
   const titleOf = (c: CampaignRow) => (c.subject ?? "").replace(/\s*\(Resend\)\s*$/, "") || tt("Untitled")
+  const badges = (c: CampaignRow, resent: boolean) => {
+    const kind = kindOf(c, tab)
+    const showKind = all ? kind !== "sent" || (c.status && c.status !== "sent") : kind === "sent" && c.status && c.status !== "sent"
+    if (!resent && !showKind) return null
+    return (
+      <>
+        {resent ? <StatusBadge tone="neutral">{tt("Sent again")}</StatusBadge> : null}
+        {showKind ? <KindBadge kind={kind} status={c.status} /> : null}
+      </>
+    )
+  }
 
   return (
     <>
@@ -1312,11 +991,13 @@ function CampaignsTable(props: EmailsHomeProps) {
               const recipients = c.recipient_count || c.audience_count || 0
               const resent = /\(Resend\)/.test(c.subject ?? "")
               const title = titleOf(c)
+              const sent = kindOf(c, tab) === "sent"
               const people = recipients ? tt("{n, plural, one {# recipient} other {# recipients}}", { n: recipients }) : null
               return (
                 <PhoneItem
                   key={c.id}
                   data-campaign-row={c.id}
+                  data-campaign-kind={kindOf(c, tab)}
                   data-order-id={c.id}
                   onClick={() => open(c)}
                   {...press(c.id, () => props.onCampaignIntent(c))}
@@ -1324,7 +1005,7 @@ function CampaignsTable(props: EmailsHomeProps) {
                   aside={when(c)}
                   line={sent && recipients ? tt("{opened} opened · {clicked} clicked", { opened: rate(c.unique_opens ?? 0, recipients), clicked: rate(c.unique_clicks ?? 0, recipients) }) : undefined}
                   meta={people ?? undefined}
-                  badges={resent || (sent && c.status && c.status !== "sent") ? <>{resent ? <StatusBadge tone="neutral">{tt("Sent again")}</StatusBadge> : null}{sent ? <SendBadge status={c.status} /> : null}</> : undefined}
+                  badges={badges(c, resent) ?? undefined}
                   menu={<ResponsiveActionMenu title={title} align="end" trigger={<RowMenuButton label={tt("Actions for {title}", { title })} className="h-11 w-11" />} items={campaignMenu(c)} />}
                 />
               )
@@ -1337,10 +1018,10 @@ function CampaignsTable(props: EmailsHomeProps) {
               <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
                 <tr>
                   <th data-scroll-edge="" className={cn(th, stickyHead)}>{tt("Subject")}</th>
-                  <th className={th}>{sent ? tt("Sent") : tab === "scheduled" ? tt("Goes out") : tt("Edited")}</th>
+                  <th className={th}>{all ? tt("Date") : tab === "published" ? tt("Sent") : tab === "scheduled" ? tt("Goes out") : tt("Edited")}</th>
                   <th className={cn(th, "text-right")}>{tt("Recipients")}</th>
-                  {sent ? <th className={cn(th, "text-right")}>{tt("Opened")}</th> : null}
-                  {sent ? <th className={cn(th, "text-right")}>{tt("Clicked")}</th> : null}
+                  {withStats ? <th className={cn(th, "text-right")}>{tt("Opened")}</th> : null}
+                  {withStats ? <th className={cn(th, "text-right")}>{tt("Clicked")}</th> : null}
                   <th className={cn(th, "w-12")} aria-label={tt("Actions")} />
                 </tr>
               </thead>
@@ -1350,21 +1031,21 @@ function CampaignsTable(props: EmailsHomeProps) {
                   const resent = /\(Resend\)/.test(c.subject ?? "")
                   const title = titleOf(c)
                   const items = campaignMenu(c)
+                  const sent = kindOf(c, tab) === "sent"
                   return (
-                    <tr key={c.id} className={cn("orders-row", pressable)} data-campaign-row={c.id} data-order-id={c.id} onClick={() => open(c)} {...press(c.id, () => props.onCampaignIntent(c))}>
+                    <tr key={c.id} className={cn("orders-row", pressable)} data-campaign-row={c.id} data-campaign-kind={kindOf(c, tab)} data-order-id={c.id} onClick={() => open(c)} {...press(c.id, () => props.onCampaignIntent(c))}>
                       <td data-scroll-edge="" className={cn(td, sticky)}>
                         {/* The limit is on the span: a table cell's own max-width is ignored.
                             Narrow on a phone, so the columns scrolling under it still show. */}
                         <span className="flex min-w-0 max-w-[180px] items-center gap-2 sm:max-w-[320px]">
                           <span className="truncate font-medium">{title}</span>
-                          {resent ? <StatusBadge tone="neutral">{tt("Sent again")}</StatusBadge> : null}
-                          {sent ? <SendBadge status={c.status} /> : null}
+                          {badges(c, resent)}
                         </span>
                       </td>
                       <td className={cn(td, "tabular-nums text-[#4b5563]")}>{when(c)}</td>
                       <td className={cn(td, "text-right tabular-nums")}>{recipients ? recipients.toLocaleString(appLocale()) : "–"}</td>
-                      {sent ? <td className={cn(td, "text-right tabular-nums")}>{rate(c.unique_opens ?? 0, recipients)}</td> : null}
-                      {sent ? <td className={cn(td, "text-right tabular-nums")}>{rate(c.unique_clicks ?? 0, recipients)}</td> : null}
+                      {withStats ? <td className={cn(td, "text-right tabular-nums")}>{sent ? rate(c.unique_opens ?? 0, recipients) : "–"}</td> : null}
+                      {withStats ? <td className={cn(td, "text-right tabular-nums")}>{sent ? rate(c.unique_clicks ?? 0, recipients) : "–"}</td> : null}
                       <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
                         <ResponsiveActionMenu title={title} align="end" trigger={<RowMenuButton label={tt("Actions for {title}", { title })} />} items={items} />
                       </td>

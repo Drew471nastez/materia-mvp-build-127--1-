@@ -40,6 +40,8 @@ const SUITES = [
   "tests/forms-booking-payment.test.ts",
   /* Round AL5: Leads in Emails, Forms beside it, the Audience item gone, missing forms tables said plainly, one retry, the pre-chat and the phone country list. */
   "tests/forms-leads-al5.test.ts",
+  /* Round 51: Forms in Contacts (kinds, response counts and usages in a fixed number of reads, ?form/?view/?response/?message deep links, Responses, Insights, Settings, View contact through /app/contacts/open) and Community connected (?member deep link, join answers and activity in the member sheet, one membership per person, joining never marketing consent). */
+  "tests/forms-community-r51.test.ts",
   "tests/onepage-modern-blocks.test.ts",
   "tests/onepage-block-settings-ak3.test.ts",
   /* Round AL3: the editor drags past what is on screen, an open block follows its height, Layout draws and Settings says, Storelib fields, every block counted. */
@@ -273,6 +275,8 @@ const SUITES = [
   /* Round 31: a domain connected to one community: what it serves, who may connect it, the canonical, the panels */
   "tests/community-domains-round31.test.ts",
   "tests/emails-page.test.ts",
+  /* Round 51: Emails in three tabs (Campaigns | Automations | Settings), older tabs redirected to Contacts, Campaigns as one list, people from Contacts limited to marketing eligible ones, Membership and Course onboarding entered once per event, templates only for wired triggers, SQL part 379. */
+  "tests/emails-r51.test.ts",
   "tests/orders-view.test.ts",
   /* The Orders page a page at a time (lib/orders/paged.ts): the same orders, numbers, counts and figures as when it read every row. */
   "tests/orders-paging.test.ts",
@@ -1028,6 +1032,8 @@ const SUITES = [
   "tests/live-speed-v.test.ts",
   /* After a Publish no request and no page in the browser shows the old theme: the tag expired at once, the live release and its marker, an imported theme's hold, Back and bfcache, links opened in place, a switch of renderer */
   "tests/publish-shows-new-release.test.ts",
+  /* Round AM: a live website stays fast after a Publish: one stamp per site expired by its tags and what each server keeps in memory under it, a held page from memory and drawn again by a Publish, the release marker by the live rows' count, the pages drawn for the publisher's country right after the caches are cleared (PUBLISH_FLOW=1 node scripts/measure-speed18.mjs measures it). */
+  "tests/live-publish-am.test.ts",
   /* Round W1: an imported theme's live page stored by the CDN (no Vary: Cookie), its body's CSS gathered in the head in order, its flags lazy, plain HTML with no React, links fetched ahead (scripts/check-live-first-load.mjs measures it) */
   "tests/live-first-load-w.test.ts",
   "tests/live-speed-ax.test.ts",
@@ -1227,6 +1233,8 @@ const SUITES = [
  * directory, run after the list above.
  */
 const STRICT_SUITES = [
+  /* Round 51: Contacts, one person per creator (an account first, an address only when verified or given here, never a name), Customers or Marketing opens it, another store's row refused through /app/contacts/open, exports of the store's own only, deleting never touches an order or a membership, an import never resubscribes, the legacy addresses redirected (SQL 378; its parity with lib/contacts/identity.ts on Postgres: scripts/check-contacts-sql.mjs). */
+  "tests/contacts-r51.test.ts",
   /* Round 50: the creator page's About / Your story. The save through the real route (headline, rich story kept whole and cleaned, an emptied editor stored as none, a too long story refused, pictures, captions, both configs), the page purged after the write so the owner and visitors see it; the owner's page drawing the saved story at once (lib/storefront/story-draft); the Read more fade masked into any scheme; the gallery on scroll snap (dots in step while it moves, dots, keys, mouse drag); the inline caption. Strict: it drives the route through tests/_journey. */
   "tests/story-r50.test.ts",
   /* Round AK (AK2): a product's sales channels through the real route, before and after SQL 20271125: unticked and ticked again, read back, gone from Explore, the OnePage and the website and back; an older tab sends only its own change, so a newer save stays; a failed read refuses a change instead of writing over it; the editor's Saved after a read back. * Strict: it drives the real routes through tests/_journey, which only type-check strict. */

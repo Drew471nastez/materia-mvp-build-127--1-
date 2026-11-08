@@ -103,7 +103,7 @@ async function main() {
   check("no text a store's words never reach", !editableBySource("Add a tip") && !editableBySource("Secure checkout"))
   check("the thank you page's heading, with and without the name", editableById("messages.thanks_order_name")?.source === "Thank you, {name}" && editableById("messages.thanks_order")?.source === "Thank you for your order")
   {
-    const site = ["app/(storelib)/checkout/site/site-checkout.tsx", "app/(storelib)/checkout/site/thanks/[token]/thanks-view.tsx", "app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx", ...["ui", "order-summary", "shop-bar", "stripe-pay", "success", "variant-edit", "phone-input", "business-fields"].map((f) => `app/(storelib)/checkout/parts/${f}.tsx`)].map(read).join("\n")
+    const site = ["app/(storelib)/checkout/site/site-checkout.tsx", "app/(storelib)/checkout/site/thanks/[token]/thanks-view.tsx", "app/(storelib)/checkout/physical/order/[token]/order-status-view.tsx", ...["order-summary", "shop-bar", "stripe-pay", "success", "variant-edit", "phone-input", "business-fields"].map((f) => `app/(storelib)/checkout/parts/${f}.tsx`), /* Changed on purpose (round 51): ui.tsx moved to components/checkout/parts, out of the route folder the website stylesheet must not read. */ "components/checkout/parts/ui.tsx"].map(read).join("\n")
     const unseen = EDITABLE_TEXTS.filter((e) => !site.includes(JSON.stringify(e.source)))
     check("every editable text is drawn by the website's checkout, its thank you page or its order page", unseen.length === 0, unseen.map((e) => e.source))
   }

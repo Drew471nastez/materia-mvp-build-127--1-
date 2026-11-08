@@ -22,8 +22,8 @@
 import * as React from "react"
 import { ChevronDown } from "lucide-react"
 import type { VariantChoices } from "@/lib/checkout/variant-choices"
-import { useMoney } from "./ui"
-import { useCt } from "./words"
+import { useMoney } from "@/components/checkout/parts/ui"
+import { useCt } from "@/components/checkout/parts/words"
 
 const SELECT =
   "h-9 w-full cursor-pointer appearance-none truncate rounded-[8px] border border-[#e1e3e7] bg-white py-0 pl-2.5 pr-8 text-[16px] text-[#1a1a2e] shadow-[0_1px_1px_rgba(0,0,0,0.03)] outline-none transition-colors hover:border-[#d2d5da] focus:border-[#1a1a2e]/55 disabled:cursor-default disabled:opacity-60 sm:text-[13.5px]"

@@ -83,6 +83,8 @@ interface Props {
   invites: { rows: InviteView[]; next: string | null }
   openInvite: boolean
   badges: BadgeView[]
+  /** Round 51: the member ?member=<community_members.id> names, read alone by the server; their sheet opens at once. */
+  focus?: MemberRowView | null
 }
 
 const person = (m: MemberRowView): ActOnPerson => ({ userId: m.userId, name: m.name, role: m.role, status: m.status, source: m.source, mutedUntil: m.mutedUntil, approved: m.approved, points: m.points, acted: m.acted ?? null })
@@ -106,7 +108,16 @@ export function MembersSection(p: Props) {
   const [error, setError] = React.useState<string | null>(null)
   const [inviteOpen, setInviteOpen] = React.useState(p.openInvite)
   const [invites, setInvites] = React.useState(p.invites)
-  const [openId, setOpenId] = React.useState<string | null>(null)
+  const [openId, setOpenIdState] = React.useState<string | null>(p.focus?.userId ?? null)
+  /* The member opened is in the address (?member=<community_members.id>), so a link, a reload or Contacts' "Open in community" lands on them (round 51). */
+  const setOpenId = React.useCallback((userId: string | null, row?: MemberRowView | null) => {
+    setOpenIdState(userId)
+    if (typeof window === "undefined") return
+    const url = new URL(window.location.href)
+    if (userId && row?.memberId) url.searchParams.set("member", row.memberId)
+    else url.searchParams.delete("member")
+    if (url.href !== window.location.href) window.history.replaceState(window.history.state, "", url)
+  }, [])
   const [bulkBusy, setBulkBusy] = React.useState(false)
   const [asking, setAsking] = React.useState<Bulk | null>(null)
   const first = React.useRef(true)
@@ -196,7 +207,7 @@ export function MembersSection(p: Props) {
     ...(pending ? [] : [{ value: "active", label: tt("Recently active") }]),
     ...(pending || !showLevel ? [] : [{ value: "points", label: tt("Most points") }]),
   ]
-  const open = openId ? (rows.find((m) => m.userId === openId) ?? null) : null
+  const open = openId ? (rows.find((m) => m.userId === openId) ?? (p.focus && p.focus.userId === openId ? p.focus : null)) : null
 
   /* A choice from the member's sheet: the sheet goes down, then the choice runs as it would from the menu. */
   const chooseFromSheet = (m: MemberRowView, c: MemberChoice) => {
@@ -432,7 +443,7 @@ export function MembersSection(p: Props) {
                 {rows.map((m) => {
                   const on = sel.picked.has(m.userId)
                   return (
-                    <tr key={m.userId} onClick={rowPress(() => setOpenId(m.userId))} className={TR} data-picked={on || undefined} data-member-row="">
+                    <tr key={m.userId} onClick={rowPress(() => setOpenId(m.userId, m))} className={TR} data-picked={on || undefined} data-member-row="">
                       {pickable ? (
                         <td className={cn(TD, "h-14 pr-0")}>
                           <PickOne on={on} label={tt("Select {name}", { name: m.name })} onChange={(v) => sel.set([m.userId], v)} />
@@ -472,7 +483,7 @@ export function MembersSection(p: Props) {
 
             <ul className={WIDE_LIST} data-members-list="">
               {rows.map((m) => (
-                <li key={m.userId} onClick={rowPress(() => setOpenId(m.userId))} className={cn("flex min-h-[64px] items-center gap-3 py-2.5 pl-4 pr-2", ROW_PRESS)} data-member-row="">
+                <li key={m.userId} onClick={rowPress(() => setOpenId(m.userId, m))} className={cn("flex min-h-[64px] items-center gap-3 py-2.5 pl-4 pr-2", ROW_PRESS)} data-member-row="">
                   {who(m, 36)}
                   {rowActions(m, true)}
                 </li>
@@ -499,6 +510,7 @@ export function MembersSection(p: Props) {
         member={open}
         choices={open ? actions.choicesFor(person(open)) : []}
         showLevel={showLevel}
+        canContact={p.canEmail}
         onClose={() => setOpenId(null)}
         onChoose={(c) => open && chooseFromSheet(open, c)}
       />

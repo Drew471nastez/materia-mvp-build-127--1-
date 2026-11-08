@@ -161,6 +161,7 @@ export const TRIGGER_ICON: Record<TriggerType, FlowIcon> = {
   abandoned_checkout: CartIcon,
   first_purchase: FirstBagIcon,
   purchase: ReceiptIcon,
+  membership_started: CalendarTickIcon,
 }
 
 /** Each starting point by what it is for, in the same hand. */
@@ -173,6 +174,8 @@ export const TEMPLATE_ICON: Record<string, FlowIcon> = {
   check_in: CalendarTickIcon,
   review_request: ReviewIcon,
   win_back: ReturnIcon,
+  course_onboarding: BookIcon,
+  membership_onboarding: CalendarTickIcon,
   blank: PlusIcon,
 }
 

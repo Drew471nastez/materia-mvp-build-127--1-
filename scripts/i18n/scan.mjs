@@ -257,7 +257,7 @@ const TECH_METHOD = /^(get|set|has|delete|append|getAll|includes|startsWith|ends
 
 /**
  * Bindings that are themselves translations, so nothing inside is reported.
- * ct is the website checkout's translator (app/(storelib)/checkout/parts/words.tsx): its
+ * ct is the website checkout's translator (components/checkout/parts/words.tsx): its
  * sentences are the website's, listed by scripts/i18n/checkout-sentences.mjs.
  */
 const TRANSLATED_CALL = /^(tt|ttx|msg|t|ct|getT|getServerT|getTranslation|translate|tn|tp)$/

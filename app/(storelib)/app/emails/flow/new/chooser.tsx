@@ -16,7 +16,8 @@
  * black bar, 1200px wide from lg, the product editor's frame.
  *
  * Only automations the platform can actually start are offered
- * (lib/automations/templates.ts). A template you already made opens yours
+ * (lib/automations/templates.ts): every template's trigger is one the
+ * platform fires (tests/emails-r51.test.ts holds this). A template you already made opens yours
  * instead of making a second one that would send alongside it. Start from
  * scratch asks what starts it, then opens an empty flow.
  */
@@ -38,7 +39,7 @@ import { refreshMatching } from "@/components/email/emails-cache"
 import { tt } from "@/lib/i18n/text"
 
 /** Where Back goes: the Emails page, on the tab this flow belongs to. */
-const FLOWS_HREF = "/app/emails?tab=flows"
+const FLOWS_HREF = "/app/emails?tab=automations"
 
 /**
  * The page's width: the 1200px every /app page uses from lg, the product
@@ -51,6 +52,8 @@ const GROUPS: Array<{ title: string; triggers: TriggerType[] }> = [
   { get title() { return tt("When someone joins your list") }, triggers: ["new_subscriber"] },
   { get title() { return tt("When someone leaves checkout") }, triggers: ["abandoned_checkout"] },
   { get title() { return tt("After an order") }, triggers: ["first_purchase", "purchase"] },
+  /* Round 51: a membership sold on its own (lib/automations/membership-trigger.ts). */
+  { get title() { return tt("When someone starts a membership") }, triggers: ["membership_started"] },
 ]
 
 /**

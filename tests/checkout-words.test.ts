@@ -84,7 +84,8 @@ check("the route translates every quote after it", /localizeQuote\(answer\.quote
 /* Changed on purpose (the buyer language rule, lib/markets/buyer-language.ts): after paying, the thank you page asks the one rule, ?lang the checkout names, else the order's checkout language while still published, else the store's default; never the sl_lang cookie. */
 check("the thank you page follows in the same language", /lang=\$\{encodeURIComponent\(pageLang\)\}/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")) && /buyerPageLanguage\(site\.creatorId, \{ channel: "website", named: sp\.lang, order \}\)/.test(read("app/(storelib)/checkout/site/thanks/[token]/page.tsx")) && !/sl_lang/.test(read("app/(storelib)/checkout/site/thanks/[token]/page.tsx")))
 check("the card form in it too, where Stripe has it", /locale,\n\s*\}\),/.test(read("app/(storelib)/checkout/parts/stripe-pay.tsx")))
-check("the page's lang and direction are set", /html\.dir = isRtl\(lang\) \? "rtl" : "ltr"/.test(read("app/(storelib)/checkout/parts/words.tsx")))
+/* Changed on purpose (round 51): the checkout's shared ui, words and Stripe loader moved to components/checkout/parts, so a website's stylesheet is built from website code only (tests/site-root-r52). */
+check("the page's lang and direction are set", /html\.dir = isRtl\(lang\) \? "rtl" : "ltr"/.test(read("components/checkout/parts/words.tsx")))
 check("no checkout part still says a bare English sentence the scanner cannot see", !/>\s*Shipping method\s*</.test(read("app/(storelib)/checkout/site/site-checkout.tsx")) && !/"The smallest card payment is \$0\.50\."/.test(read("app/(storelib)/checkout/site/site-checkout.tsx")))
 
 console.log("\nA website written in another language")
