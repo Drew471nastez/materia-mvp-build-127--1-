@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core"
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
@@ -28,6 +28,8 @@ import {
   type QuizResult,
 } from "@/lib/forms/definition"
 import type { ClientIntegrations } from "@/lib/forms/integrations"
+import type { FormUsage } from "@/lib/forms/kind"
+import { tt } from "@/lib/i18n/text"
 
 /*
   One form's builder, opened from Emails › Leads › Forms (app/(storelib)/
@@ -76,7 +78,40 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
  * `embedded`: drawn inside the builder dialog over the OnePage editor
  * (./form-builder-dialog): no page column of its own, and Back reads Done.
  */
-export function FormEditor({ form, onBack, onSaved, embedded = false }: { form: SavedForm; onBack: () => void; onSaved: (f: SavedForm) => void; embedded?: boolean }) {
+export function FormEditor({
+  form,
+  onBack,
+  onSaved,
+  embedded = false,
+  view,
+  nav,
+  panel,
+  usages,
+  framed = true,
+}: {
+  form: SavedForm
+  onBack: () => void
+  onSaved: (f: SavedForm) => void
+  embedded?: boolean
+  /**
+   * Round 51 (Contacts › Forms › a form): which of the form's tabs is drawn.
+   * "edit" the questions and what happens after; "settings" publication,
+   * notifications, integrations, privacy and the follow up; "panel" the
+   * `panel` given (Responses, Insights), the save bar kept so unsaved
+   * changes are never lost by changing tab. Left out: everything, as the
+   * builder over the OnePage editor always drew it.
+   */
+  view?: "edit" | "settings" | "panel"
+  /** The tabs, drawn under the title. */
+  nav?: ReactNode
+  panel?: ReactNode
+  /** Where the form is used (Settings › Publication). */
+  usages?: FormUsage[]
+  /** False inside a page that already has its own container (Contacts). */
+  framed?: boolean
+}) {
+  const showEdit = !view || view === "edit"
+  const showSettings = !view || view === "settings"
   const [saved, setSaved] = useState(form),
     [draft, setDraft] = useState<FormDefinition>(() => withDefaults(form.draft)),
     [integrations, setIntegrations] = useState<ClientIntegrations>(form.integration_settings),
@@ -148,7 +183,7 @@ export function FormEditor({ form, onBack, onSaved, embedded = false }: { form: 
   )
 
   return (
-    <div className={embedded ? "px-4 pb-6 pt-3 sm:px-6" : "mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8"} data-form-builder="">
+    <div className={embedded ? "px-4 pb-6 pt-3 sm:px-6" : framed ? "mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8" : ""} data-form-builder="" data-form-view={view ?? "all"}>
       <header className="mb-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-1.5">
@@ -168,7 +203,7 @@ export function FormEditor({ form, onBack, onSaved, embedded = false }: { form: 
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className={buttonSecondary + " lg:hidden"} onClick={() => setPreview((v) => !v)} aria-pressed={preview}>
+            <button type="button" className={buttonSecondary + " lg:hidden" + (showEdit ? "" : " hidden")} onClick={() => setPreview((v) => !v)} aria-pressed={preview}>
               {preview ? "Edit" : "Preview"}
             </button>
             {saved.status === "published" && !embedded ? (
@@ -182,7 +217,7 @@ export function FormEditor({ form, onBack, onSaved, embedded = false }: { form: 
                 items={[
                   { label: "Copy form link", onClick: () => void navigator.clipboard.writeText(publicLink).then(() => setNote("Form link copied.")) },
                   { label: "Open public form", href: formPath(saved.id), target: "_blank" },
-                  { label: "View leads", href: `/app/emails?tab=leads&form=${saved.id}` },
+                  { label: tt("View responses"), href: responsesHref(saved.id) },
                 ]}
               />
             ) : null}
@@ -209,9 +244,16 @@ export function FormEditor({ form, onBack, onSaved, embedded = false }: { form: 
             {note}
           </p>
         ) : null}
+        {nav}
       </header>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
-        <div className={`min-w-0 space-y-4 ${preview ? "max-lg:hidden" : ""}`}>
+      {view === "panel" ? (
+        panel
+      ) : (
+      <div className={showEdit ? "grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]" : "grid gap-5"}>
+        <div className={`min-w-0 space-y-4 ${preview && showEdit ? "max-lg:hidden" : ""}`}>
+          {showSettings && view === "settings" ? <PublicationCard form={saved} draftChanged={dirty || (saved.status === "published" && JSON.stringify(saved.draft) !== JSON.stringify(saved.published))} publicLink={publicLink} usages={usages ?? []} onCopied={() => setNote(tt("Form link copied."))} /> : null}
+          {showEdit ? (
+          <>
           <section className={section + " space-y-3"}>
             <label className={label}>
               Title
@@ -333,7 +375,11 @@ export function FormEditor({ form, onBack, onSaved, embedded = false }: { form: 
               </>
             )}
           </section>
+          </>
+          ) : null}
 
+          {showSettings ? (
+          <>
           <IntegrationsEditor
             form={saved}
             value={integrations}
@@ -358,12 +404,90 @@ export function FormEditor({ form, onBack, onSaved, embedded = false }: { form: 
               Offer a separate opt-in for updates
             </label>
           </section>
+          {view === "settings" ? <FollowUpCard /> : null}
+          </>
+          ) : null}
         </div>
-        <aside className={`min-w-0 ${preview ? "" : "max-lg:hidden"}`} aria-label="Preview">
-          <div className="lg:sticky lg:top-6">{previewPane}</div>
-        </aside>
+        {showEdit ? (
+          <aside className={`min-w-0 ${preview ? "" : "max-lg:hidden"}`} aria-label="Preview">
+            <div className="lg:sticky lg:top-6">{previewPane}</div>
+          </aside>
+        ) : null}
       </div>
+      )}
     </div>
+  )
+}
+
+/** Where a form's responses are read: Contacts › Forms, the form open on Responses (round 51). */
+export function responsesHref(formId: string): string {
+  return `/app/contacts/forms?form=${encodeURIComponent(formId)}&view=responses`
+}
+
+/** The words for where a form is used, in the creator's language. */
+export function usageWords(u: FormUsage): string {
+  if (u.kind === "creator_page") return tt("Creator Page")
+  if (u.kind === "onepage") return u.label && u.label !== "OnePage" ? tt("OnePage: {name}", { name: u.label }) : tt("OnePage")
+  return tt("Website: {name}", { name: u.label })
+}
+
+/**
+ * SETTINGS › PUBLICATION (round 51). Whether every page shows this form,
+ * which version, its own link, and where it is placed. Publishing stays the
+ * Publish button above: nothing here changes what visitors see.
+ */
+function PublicationCard({ form, draftChanged, publicLink, usages, onCopied }: { form: SavedForm; draftChanged: boolean; publicLink: string; usages: FormUsage[]; onCopied: () => void }) {
+  const live = form.status === "published"
+  return (
+    <section className={section + " space-y-3"} data-form-publication="">
+      <h2 className={heading}>{tt("Publication")}</h2>
+      <p className={muted}>
+        {live
+          ? draftChanged
+            ? tt("Published, version {n}. Your draft has changes; Publish shows them on every page.", { n: form.revision })
+            : tt("Published, version {n}. Every page with this form shows it.", { n: form.revision })
+          : tt("Draft. Publish it to take responses.")}
+      </p>
+      {live ? (
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={buttonSecondary} onClick={() => void navigator.clipboard.writeText(publicLink).then(onCopied)}>
+            {tt("Copy form link")}
+          </button>
+          <a className={buttonSecondary} href={formPath(form.id)} target="_blank" rel="noopener noreferrer">
+            {tt("Open public form")}
+          </a>
+        </div>
+      ) : null}
+      <div className="border-t border-[#f1f2f4] pt-3">
+        <h3 className="text-[13px] font-medium text-[#4b5563]">{tt("Used on")}</h3>
+        {usages.length ? (
+          <ul className="mt-1.5 space-y-1" data-form-usages="">
+            {usages.map((u) => (
+              <li key={`${u.kind}-${u.label}`}>
+                <a className="text-[14px] text-[#1a1a2e] underline-offset-2 hover:underline" href={u.href}>
+                  {usageWords(u)}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={muted + " mt-1"}>{tt("Not placed on a page yet. Add a Form block on your OnePage, website or Creator Page and pick this form.")}</p>
+        )}
+      </div>
+    </section>
+  )
+}
+
+/** SETTINGS › FOLLOW UP (round 51): an email after a response is an automation, made in Emails. */
+function FollowUpCard() {
+  return (
+    <section className={section + " space-y-2"} data-form-follow-up="">
+      <h2 className={heading}>{tt("Email after a response")}</h2>
+      <p className={muted}>{tt("Send an email after someone answers with an automation in Emails.")}</p>
+      <a className={buttonSecondary + " inline-flex"} href="/app/emails?tab=automations">
+        {tt("Open automations")}
+      </a>
+    </section>
   )
 }
 

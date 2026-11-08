@@ -1769,6 +1769,7 @@ async function memberViews(db: Db, communityId: string, rows: ListMember[], with
     const p = people.get(r.user_id)
     return {
       userId: r.user_id,
+      memberId: r.id,
       name: p?.name ?? "Member",
       username: p?.username ?? null,
       avatarUrl: p?.avatarUrl ?? null,
@@ -1847,6 +1848,23 @@ export async function listMembers(db: Db, communityId: string, query: MemberQuer
   const lastSort = last ? valueOf(last) : null
   const next = all.length > MEMBERS_PAGE && last ? (lastSort !== null ? encodeCursor(lastSort, last.id) : spec.nullable ? encodeCursor(EMPTY_PHASE, last.id) : null) : null
   return { rows: await memberViews(db, communityId, rows, opts.withEmail), next, capped: false }
+}
+
+/**
+ * One member by their community_members.id, in this community only (round 51:
+ * the deep link /app/community/<id>/members?member=<id> opens them whatever
+ * page of the list they are on). Null when the id is not this community's.
+ */
+export async function memberById(db: Db, communityId: string, memberId: string, opts: { withEmail: boolean }): Promise<MemberRowView | null> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(memberId)) return null
+  const { data, error } = await db.from("community_members").select(LIST_MEMBER_COLUMNS).eq("community_id", communityId).eq("id", memberId).maybeSingle()
+  if (error) {
+    if (!missing(error)) console.error(`[communities] member read: ${reasonOf(error)}`)
+    return null
+  }
+  if (!data) return null
+  const [view] = await memberViews(db, communityId, [data as ListMember], opts.withEmail)
+  return view ?? null
 }
 
 /** How many members each status has, for the filter's counts (head requests). */

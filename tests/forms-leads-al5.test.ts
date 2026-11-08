@@ -64,9 +64,10 @@ async function main() {
     assert.match(read("app/(storelib)/app/audience/page.tsx"), /redirect\("\/app\/emails\?tab=leads"\)/)
     assert.ok(existsSync("app/(storelib)/app/emails/forms/page.tsx"))
   })
-  await check("notification links go to the lead in Emails", () => {
-    assert.match(read("lib/forms/delivery-server.ts"), /\/app\/emails\?tab=leads&lead=/)
-    assert.match(read("app/api/forms/[id]/submit/route.ts"), /\/app\/emails\?tab=leads&lead=/)
+  await check("notification links go to the response in Contacts › Forms", () => {
+    /* Changed on purpose (round 51): a response's email and bell link open it in Contacts › Forms, the form on Responses; Emails › Leads is gone. */
+    assert.match(read("lib/forms/delivery-server.ts"), /\/app\/contacts\/forms\?form=\$\{encodeURIComponent\(job\.form_id\)\}&view=responses&response=/)
+    assert.match(read("app/api/forms/[id]/submit/route.ts"), /\/app\/contacts\/forms\?form=\$\{id\}&view=responses&response=\$\{lead\}/)
     for (const f of ["components/forms/forms-manager.tsx", "components/forms/action-editor.tsx", "lib/forms/delivery-server.ts"]) assert.doesNotMatch(read(f), /\/app\/audience/, f)
   })
 
