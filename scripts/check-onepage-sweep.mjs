@@ -112,19 +112,24 @@ async function load(width, dark, preview) {
 
 const pageColour = (dark) => (dark ? [14, 14, 16] : [246, 244, 239])
 
-/* The colour of one pixel of the window, read from a screenshot drawn into a canvas. */
-async function pixel(page, x, y) {
-  const shot = await page.screenshot({ clip: { x: Math.round(x), y: Math.round(y), width: 1, height: 1 }, encoding: "base64" })
-  return page.evaluate(async (b64) => {
+/*
+ * The colour of points of the window, as drawn: a screenshot of the window
+ * alone (a clip far down a long page makes Chromium lay the whole page out
+ * again for the shot, and frames are not drawn into that), read in a canvas.
+ */
+async function pixels(page, points) {
+  const shot = await page.screenshot({ encoding: "base64" })
+  return page.evaluate(async (b64, points) => {
     const img = new Image()
     img.src = `data:image/png;base64,${b64}`
     await img.decode()
     const c = document.createElement("canvas")
-    c.width = c.height = 1
+    c.width = img.width
+    c.height = img.height
     const ctx = c.getContext("2d")
     ctx.drawImage(img, 0, 0)
-    return Array.from(ctx.getImageData(0, 0, 1, 1).data.slice(0, 3))
-  }, shot)
+    return points.map(([x, y]) => Array.from(ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data.slice(0, 3)))
+  }, shot, points)
 }
 const close = (a, b, tol = 10) => a.every((v, i) => Math.abs(v - b[i]) <= tol)
 
@@ -174,10 +179,9 @@ try {
             return {
               folded: root.hasAttribute("data-post-folded"),
               mask: cs.maskImage || cs.webkitMaskImage,
-              /* In the document's own coordinates, which a screenshot's clip is read in. */
-              x: r.left + scrollX + 6,
-              bottom: r.bottom + scrollY,
-              mid: r.top + scrollY + r.height / 2,
+              x: r.left + 6,
+              bottom: r.bottom,
+              mid: r.top + r.height / 2,
               w: Math.round(r.width),
               h: Math.round(r.height),
               more: more ? { bg: getComputedStyle(more).backgroundColor, h: Math.round(more.getBoundingClientRect().height), gap: Math.round(r.bottom - more.getBoundingClientRect().bottom) } : null,
@@ -188,8 +192,7 @@ try {
             continue
           }
           await sleep(200)
-          const foot = await pixel(page, fold.x, Math.floor(fold.bottom) - 2)
-          const middle = await pixel(page, fold.x, fold.mid)
+          const [foot, middle] = await pixels(page, [[fold.x, Math.floor(fold.bottom) - 2], [fold.x, fold.mid]])
           const want = pageColour(dark)
           console.log(`   ${where}`, JSON.stringify({ ...fold, foot, middle }))
           check(fold.folded && /linear-gradient/.test(fold.mask || ""), `${label}: ${where} is folded with a masked foot`)
