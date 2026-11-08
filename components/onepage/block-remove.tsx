@@ -24,6 +24,14 @@
  * Round 41: a block inside a group has the same foot. Its first choice is
  * Move out (back on the page, under the group) instead of Archive, through
  * `keep`; Delete takes it out of the group for good.
+ *
+ * ROUND AN, THE TOP OF AN OPEN BLOCK. The owner: "the remove should not be
+ * at the bottom of the block ... not have to scroll down when I open a block
+ * to understand where the remove button is". A long block (a signup, a
+ * gallery) put Remove a screen or two under the row that opened it. The bar
+ * is now the first line of an open block, over its Settings | Layout tabs:
+ * the move pair on the left, Remove on the right, a hairline under them, and
+ * the question opening under that line.
  */
 import * as React from "react"
 import { Archive, ArrowUpRight, ChevronDown, ChevronUp, Trash2 } from "lucide-react"
@@ -86,7 +94,7 @@ export function BlockFootActions({
   const first = !!archive || !!keep
 
   return (
-    <div data-block-foot="" className="border-t border-[#eef0f2] pt-3">
+    <div data-block-foot="" data-block-bar="top" className="border-b border-[#eef0f2] pb-3">
       <div className="flex items-center justify-between gap-2">
         <div className="inline-flex items-center gap-0.5 rounded-xl bg-[#f4f4f6] p-[3px]" role="group" aria-label={tt("Move")}>
           <button type="button" onClick={onMoveUp} disabled={isFirst} aria-label={tt("Move up")} title={tt("Move up")} className={moveKey} data-block-move="up">

@@ -119,6 +119,9 @@ const nextConfig = {
     '/api/website-builder/themes/add': [
       './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**',
     ],
+    '/api/website-builder/themes/create': [
+      './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**',
+    ],
     '/api/website-builder/themes/import': [
       './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**',
     ],

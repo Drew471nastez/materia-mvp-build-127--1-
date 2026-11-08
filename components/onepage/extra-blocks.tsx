@@ -793,38 +793,7 @@ export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: s
 const field = "space-y-1.5"
 const label = "text-xs"
 
-/**
- * A size or an alignment, as iOS's segmented control: one white thumb that
- * slides under the chosen word (the `translate` property, 220ms), rather
- * than a white background that jumped from one button to the next.
- */
-function Segmented<T extends string>({ value, options, onChange }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void }) {
-  const at = Math.max(0, options.findIndex((o) => o.id === value))
-  return (
-    <div className="relative isolate grid rounded-xl bg-[#f1f2f4] p-1" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
-      <span
-        aria-hidden
-        data-segment-thumb=""
-        className="pointer-events-none absolute bottom-1 left-1 top-1 -z-10 rounded-[9px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_1px_rgba(16,24,40,0.04)] transition-[translate] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
-        style={{ width: `calc((100% - 8px) / ${options.length})`, translate: `${at * 100}% 0` }}
-      />
-      {options.map((o) => (
-        <button
-          key={o.id}
-          type="button"
-          aria-pressed={value === o.id}
-          onClick={() => onChange(o.id)}
-          className={cn(
-            "h-8 cursor-pointer rounded-[9px] text-[13px] font-medium transition-colors duration-150 [-webkit-tap-highlight-color:transparent]",
-            value === o.id ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  )
-}
+/* Round AN: the sliding size control that lived here is gone; a heading's size is the Layout tab's Segmented (components/onepage/editor-kit), as every block's choices are. */
 
 /** The form for one of the blocks in this file, inside the editor's block panel. */
 export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; updateData: (updates: Partial<OnePageBlockData>) => void }) {
@@ -837,11 +806,10 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
             <Label className={label}>{tt("Heading")}</Label>
             <Input value={d.text} maxLength={80} placeholder={tt("Shop my picks")} onChange={(e) => updateData({ text: e.target.value })} />
           </div>
-          <div className={field}>
-            <Label className={label}>{tt("Size")}</Label>
-            <Segmented value={d.size || "medium"} options={[{ id: "small", label: tt("Small") }, { id: "medium", label: tt("Medium") }, { id: "large", label: tt("Large") }]} onChange={(size) => updateData({ size })} />
-          </div>
-          {/* Round AL: the alignment is the Layout tab's one Alignment row (components/onepage/block-settings), which writes this block's own. */}
+          {/*
+            Round AL: the alignment is the Layout tab's one Alignment row (components/onepage/block-settings), which writes this block's own.
+            Round AN: so is the size. Small, Medium and Large sat here and a Title size slider in Layout, and the slider won on the page; one control now, in Layout.
+          */}
         </div>
       )
     }

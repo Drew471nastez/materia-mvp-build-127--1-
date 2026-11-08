@@ -3,12 +3,13 @@
 import { useOnePage } from "@/lib/onepage/context"
 import { cn } from "@/lib/utils"
 import { PillPanels, PillTabs } from "@/components/onepage/pill-tabs"
-import { Copy, Check, ChevronDown, Loader2 } from "lucide-react"
+import { Copy, Check, Loader2 } from "lucide-react"
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle, type ReactNode } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { ProMark, SwitchRow, fieldInput } from "@/components/onepage/editor-kit"
+import { EditorSelect } from "@/components/onepage/editor-choice"
 import { SeoPanel } from "@/components/onepage/seo-panel"
 import { OnePageDomainRow, OnePageIntegrations } from "@/components/onepage/settings-integrations"
 import { SignupDestination } from "@/components/onepage/creator-blocks"
@@ -494,22 +495,17 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
             <label htmlFor="op-badge-type" className="text-[13px] font-medium text-[#374151]">
               {tt("What it says")}
             </label>
-            {/* The phone's own picker on a phone, a list on a computer: a native select, with the editor's box around it. */}
-            <div className="relative">
-              <select
+            {/* Round AN: Storelib's list (components/onepage/editor-choice), a popover on a computer and the shared sheet on a phone, never the phone's wheel. */}
+            <div data-settings-badge="">
+              <EditorSelect
                 id="op-badge-type"
-                data-settings-badge=""
+                name="settings-badge"
+                title={tt("What it says")}
                 value={type}
-                onChange={(e) => updateSettings({ verified_badge_type: e.target.value } as never)}
-                className={cn(fieldInput, "cursor-pointer appearance-none pr-11")}
-              >
-                {BADGE_TYPES.map((id) => (
-                  <option key={id} value={id}>
-                    {BADGE_LABELS[id]}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown aria-hidden className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
+                emptyLabel={BADGE_LABELS[type]}
+                choices={BADGE_TYPES.map((id) => ({ value: id, label: BADGE_LABELS[id] }))}
+                onChange={(v) => updateSettings({ verified_badge_type: v } as never)}
+              />
             </div>
             <div className="flex items-center gap-1.5 pt-2 text-[15px] font-semibold text-[#1a1a2e]" data-badge-preview="">
               <span className="truncate">{onepage.title || tt("Your name")}</span>

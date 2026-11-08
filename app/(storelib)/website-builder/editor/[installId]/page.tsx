@@ -162,6 +162,7 @@ import {
   type WritingAnchor,
 } from "@/lib/website-builder/ai-placement"
 import { WritingSection } from "@/components/website-builder/editor/writing-section"
+import { readStartParam, startMessage, takeStartPrompt } from "@/lib/website-builder/start-handoff"
 import { EditedBuiltInNote, isEditedBuiltIn } from "@/components/website-builder/editor/edited-built-in-note"
 import { SignupDestinationNote } from "@/components/website-builder/editor/signup-destination-note"
 import { DEFAULT_THEME_SOURCES } from "../../../../../themes/default/sources.generated"
@@ -3473,6 +3474,47 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   useEffect(() => {
     if (teamMember) setAiOpen(false)
   }, [teamMember])
+  /**
+   * START WITH AI. The Website page made this website for a description and
+   * opened it with `?start=ai` (lib/website-builder/start-handoff.ts). On
+   * arrival the word comes off the address and the description out of this
+   * tab's storage, both at once, so a reload never sends it again; the Ask
+   * panel opens, and once the website has loaded it sends the description
+   * through its own submit, as if typed there. No description (expired, or
+   * another tab) opens the panel empty.
+   */
+  const [startAsk, setStartAsk] = useState<string | null>(null)
+  const [startOpen, setStartOpen] = useState(false)
+  useEffect(() => {
+    const read = readStartParam(window.location.href)
+    if (read.cleaned === null) return
+    window.history.replaceState(window.history.state, "", read.cleaned)
+    if (!read.wanted) return
+    let stored: Storage | null = null
+    try {
+      stored = window.sessionStorage
+    } catch {
+      /* storage refused: the panel opens empty */
+    }
+    const prompt = takeStartPrompt(stored, installId)
+    if (prompt) setStartAsk(startMessage(prompt))
+    setStartOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  /* Opened once the website is up: before that the phone's own first layout closes the sheet again. */
+  useEffect(() => {
+    if (!startOpen || loading || teamMember) return
+    setStartOpen(false)
+    setAiOpen(true)
+    if (window.innerWidth >= 768) {
+      rememberAskDockClosed(false)
+      setAiAsk((n) => n + 1)
+    }
+  }, [startOpen, loading, teamMember])
+  /* Sent once, when the website is on the canvas: the agent reads the page it is handed. */
+  const startSend = useMemo(() => (startAsk && !loading && !loadFailed && !teamMember ? { id: 1, text: startAsk } : null), [startAsk, loading, loadFailed, teamMember])
+  /* Taken by the panel that sends it: let go, so the other panel (a window resized across the phone width) never sends it again. */
+  const startTaken = useCallback(() => setStartAsk(null), [])
   /**
    * A REQUEST TO THE AI IS NOT STOPPED BY CLOSING ITS PANEL. On a desktop the
    * panel was drawn only while open, so closing it unmounted the chat and the
@@ -11945,6 +11987,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <MobileEditorSheet open={aiOpen} onOpenChange={(next) => setAiOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS} keyboard="composer">
             <ThemeChat
               variant="sheet"
+              sendRequest={startSend}
+              onSendRequestTaken={startTaken}
               installId={installId}
               page={currentPage}
               sections={sections}
@@ -12737,6 +12781,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               /* Full screen: it slides under the canvas's edge as the canvas grows, never fades. */
               tucked={fullView}
               openRequest={aiAsk}
+              sendRequest={startSend}
+              onSendRequestTaken={startTaken}
               installId={installId}
               page={currentPage}
               sections={sections}
