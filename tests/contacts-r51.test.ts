@@ -236,7 +236,7 @@ async function main() {
   check("RLS on, no table or function for anon and authenticated", /alter table public\.creator_contacts enable row level security/.test(sql) && /revoke all on public\.creator_contacts from anon, authenticated/.test(sql) && /revoke all on function public\.creator_people\([^)]*\) from public, anon, authenticated/.test(sql) && /grant execute on function public\.creator_people\([^)]*\) to service_role/.test(sql))
   check("every source read is filtered by the creator", (sql.match(/where [a-z]+\.creator_id = p_creator|where co\.creator_id = p_creator|where pr\.creator_id = p_creator|fs\.owner_id = v_owner|op\.seller_id = p_creator/g) ?? []).length >= 9)
   check("never deletes or rewrites a source row", !/\b(delete from|update public\.(orders|subscribers|community_members|form_submissions|memberships))\b/i.test(sql.replace(/\/\*[\s\S]*?\*\//g, "")))
-  check("listed in the README and the check after", read("supabase/sql/run-now/README.md").includes("`378_creator_contacts.sql`") && /as p378_creator_contacts;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  check("listed in the README and the check after", read("supabase/sql/run-now/README.md").includes("`378_creator_contacts.sql`") && /* Changed on purpose (round 51, merge): part 379 follows it. */ /as p378_creator_contacts[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) process.exit(1)

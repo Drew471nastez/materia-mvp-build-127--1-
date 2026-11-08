@@ -154,7 +154,12 @@ async function main() {
     { id: U(7), creator_id: ME, email: "gus@example.com", name: "Gus", status: "wrote", is_active: true },
   ]
   db.tables.email_suppressions = [{ email: "eve@example.com", scope: "all", lifted_at: null }]
-  const picked = await resolvePickedContacts(db, ME, [U(1), U(2), U(3), U(4), U(5), U(6), U(7), "not-a-contact", U(1)])
+  /* Changed on purpose (round 51, merge): lookupContacts is Contacts' own now (tested in tests/contacts-r51); here a stand-in reads the ids as this creator's subscribers, the rule the pre-merge lookup had, so what follows it is tested on its own. */
+  const bySubscriber: LookupContacts = async (_db, creatorId, ids) =>
+    db.tables.subscribers
+      .filter((r: { id: string; creator_id: string }) => r.creator_id === creatorId && ids.includes(r.id))
+      .map((r: { id: string; email: string; name: string; status: string; is_active: boolean }) => ({ contactId: r.id, email: r.email, name: r.name, marketing: r.status === "subscribed" && r.is_active ? "eligible" : r.status === "bounced" ? "suppressed" : r.status === "unsubscribed" ? "unsubscribed" : "no_consent" }))
+  const picked = await resolvePickedContacts(db, ME, [U(1), U(2), U(3), U(4), U(5), U(6), U(7), "not-a-contact", U(1)], bySubscriber)
   check("only the subscribed, unsuppressed person is kept", picked.recipients.map((x) => x.email).join(",") === "ann@example.com", picked.recipients)
   check("the duplicate id counts once", picked.asked === 8)
   check("left out, by reason: unsubscribed, suppressed (bounced, and a live suppression), never consented (a buyer, a message writer), unknown (another creator's, not an id)",
