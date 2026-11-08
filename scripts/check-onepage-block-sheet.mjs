@@ -30,6 +30,16 @@
  *              post in a narrow column (a group's) is whole with no button;
  *              in a sheet the post is whole with no button
  *
+ *   fold (round AN) on a light and a dark page, 390 and 1440, in place and
+ *              in a group's column: the foot is masked (no paint of ours),
+ *              the pixels 2px above the box's foot are the page's own
+ *              colour, the fade is no taller than 64px, and "View full
+ *              post" is the page's button colour, 32px tall
+ *   swipe      (round AN) on a phone with touch: the sheet follows the
+ *              finger, a short slow drag springs back, a long drag or a
+ *              quick flick closes it, and a drag inside a body scrolled
+ *              away from its top scrolls it instead of moving the sheet
+ *
  *   CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome node scripts/check-onepage-block-sheet.mjs
  *   REPORT=1 prints the numbers without failing.
  */
@@ -50,7 +60,7 @@ const check = (ok, message) => {
 const near = (a, b, tol) => Math.abs(a - b) <= tol
 
 /* What Instagram says its posts' heights are, by the post's id. */
-const HEIGHTS = { ABC123: 1100, TALL01: 1100, SHORT1: 420 }
+const HEIGHTS = { ABC123: 1100, TALL01: 1100, TALL02: 1100, SHORT1: 420 }
 const fixture = (h) =>
   `<!doctype html><style>html,body{margin:0;background:#fff;font:14px sans-serif}div{height:${h}px;background:linear-gradient(#fafafa,#e9e9e9)}</style><div>Instagram fixture ${h}</div><script>parent.postMessage(JSON.stringify({type:"MEASURE",details:{height:${h}}}),"*")</script>`
 
@@ -293,6 +303,135 @@ try {
   const bg = await darkPage.$eval("[data-block-sheet-panel]", (el) => getComputedStyle(el).backgroundColor)
   check(bg === "rgb(24, 24, 28)", `a dark page opens a dark sheet (${bg})`)
   await darkPage.close()
+
+  /* ── Round AN: the fold fades into the page, light and dark. ── */
+  const shotPixel = async (page, x, y) => {
+    const b64 = await page.screenshot({ clip: { x: Math.round(x), y: Math.round(y), width: 1, height: 1 }, encoding: "base64" })
+    return page.evaluate(async (b64) => {
+      const img = new Image()
+      img.src = `data:image/png;base64,${b64}`
+      await img.decode()
+      const c = document.createElement("canvas")
+      c.width = c.height = 1
+      const ctx = c.getContext("2d")
+      ctx.drawImage(img, 0, 0)
+      return Array.from(ctx.getImageData(0, 0, 1, 1).data.slice(0, 3))
+    }, b64)
+  }
+  const sameColour = (a, b, tol) => a.every((v, i) => Math.abs(v - b[i]) <= tol)
+  for (const dark of [false, true]) {
+    for (const width of [390, 1440]) {
+      const page = await browser.newPage()
+      await open(page, { width, height: 900 })
+      if (dark) {
+        await page.goto(base + "/app/onepage?dark", { waitUntil: "domcontentloaded" })
+        await page.waitForSelector("[data-probe-calendly]")
+      }
+      for (const probe of ["inline-post", "group-tall"]) {
+        await page.waitForFunction((p) => document.querySelector(`[data-probe="${p}"] [data-post-more]`), { timeout: 5000 }, probe).catch(() => {})
+        const f = await page.evaluate((p) => {
+          const root = document.querySelector(`[data-probe="${p}"]`)
+          root.scrollIntoView({ block: "center" })
+          const box = root.querySelector("[data-post-box]")
+          const more = root.querySelector("[data-post-more]")
+          const fade = root.querySelector("[data-post-fade]")
+          const r = box.getBoundingClientRect()
+          const cs = getComputedStyle(box)
+          const mask = cs.maskImage || cs.webkitMaskImage || ""
+          const stops = [...mask.matchAll(/calc\(100% - (\d+)px\)/g)].map((m) => Number(m[1]))
+          return { x: r.left + 6, bottom: r.bottom, mid: r.top + r.height / 2, mask: !!mask && mask !== "none", fadePx: stops.length ? Math.max(...stops) : null, painted: fade ? getComputedStyle(fade).backgroundImage : null, more: more ? { bg: getComputedStyle(more).backgroundColor, color: getComputedStyle(more).color, h: Math.round(more.getBoundingClientRect().height) } : null }
+        }, probe)
+        await sleep(150)
+        const foot = await shotPixel(page, f.x, f.bottom - 2)
+        const mid = await shotPixel(page, f.x, f.mid)
+        const want = dark ? [14, 14, 16] : [255, 255, 255]
+        const label = `${dark ? "dark" : "light"} ${width} ${probe}`
+        console.log("   fold", label, JSON.stringify({ ...f, foot, mid }))
+        check(f.mask && f.painted === "none" && f.fadePx !== null && f.fadePx <= 64, `${label}: the foot is masked over ${f.fadePx}px, nothing painted over it (${f.painted})`)
+        check(sameColour(foot, want, 12), `${label}: 2px above the foot it is the page's own colour (${foot} vs ${want})`)
+        check(sameColour(mid, [242, 242, 242], 14), `${label}: above the fade the post is solid (${mid})`)
+        const btn = dark ? "rgb(244, 244, 245)" : "rgb(26, 26, 46)"
+        check(f.more && f.more.bg === btn && f.more.h === 32, `${label}: "View full post" is the page's own button, 32px (${JSON.stringify(f.more)})`)
+      }
+      await page.close()
+    }
+  }
+
+  /* ── Round AN: swipe down to close, on a phone. ── */
+  {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, hasTouch: true, isMobile: true })
+    await page.setRequestInterception(true)
+    page.on("request", (r) => {
+      const u = new URL(r.url())
+      if (u.hostname === "www.instagram.com") return void r.respond({ status: 200, contentType: "text/html", body: fixture(HEIGHTS[u.pathname.split("/")[2]] ?? 700) })
+      if (u.hostname !== "127.0.0.1") return void r.respond({ status: 200, contentType: "text/html", body: "<!doctype html><body style='margin:0;background:#fff'></body>" })
+      void r.continue()
+    })
+    await page.goto(base + "/app/onepage", { waitUntil: "domcontentloaded" })
+    await page.waitForSelector("[data-probe-calendly]")
+    await sleep(300)
+    const panelY = () => page.evaluate(() => {
+      const el = document.querySelector("[data-block-sheet-panel]")
+      if (!el) return null
+      const t = getComputedStyle(el).translate
+      return t === "none" ? 0 : Math.round(parseFloat(t.split(" ")[1] || "0"))
+    })
+    const isOpen = () => page.evaluate(() => !!document.querySelector("[data-block-sheet-open]"))
+    const titleAt = () => page.$eval("[data-block-sheet-title]", (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+    const drag = async (from, dy, { steps = 12, stepMs = 16, hold = false } = {}) => {
+      await page.touchscreen.touchStart(from.x, from.y)
+      for (let i = 1; i <= steps; i++) {
+        await page.touchscreen.touchMove(from.x, from.y + (dy * i) / steps)
+        await sleep(stepMs)
+      }
+      const during = await panelY()
+      if (!hold) await page.touchscreen.touchEnd()
+      return during
+    }
+
+    /* A short slow drag: follows the finger, then springs back. */
+    await press(page, "[data-probe-calendly]")
+    await sleep(420)
+    let at = await titleAt()
+    const following = await drag(at, 90, { steps: 15, stepMs: 30, hold: true })
+    await page.touchscreen.touchEnd()
+    await sleep(450)
+    const back = await panelY()
+    check(following !== null && following >= 70 && following <= 92, `swipe: the sheet follows the finger (${following}px under a 90px drag)`)
+    check((await isOpen()) && back === 0, `swipe: a short slow drag springs back (open, at ${back}px)`)
+
+    /* A long drag: closes. */
+    at = await titleAt()
+    await drag(at, 320, { steps: 16, stepMs: 30 })
+    await sleep(500)
+    check(!(await isOpen()) && !(await page.$("[data-block-sheet]")), "swipe: a long drag closes it")
+
+    /* A quick flick: closes. */
+    await press(page, "[data-probe-calendly]")
+    await sleep(420)
+    at = await titleAt()
+    await drag(at, 70, { steps: 4, stepMs: 8 })
+    await sleep(500)
+    check(!(await page.$("[data-block-sheet]")), "swipe: a quick flick closes it")
+
+    /* Inside a body scrolled down: the finger scrolls it; the sheet does not move. */
+    await page.click('[data-probe="post"] [data-block-sheet-trigger]')
+    await sleep(600)
+    const edge = await page.evaluate(() => {
+      const body = document.querySelector("[data-block-sheet-body]")
+      body.scrollTop = 240
+      const r = body.getBoundingClientRect()
+      return { x: r.left + 4, y: r.top + 60, top: body.scrollTop }
+    })
+    const inner = await drag(edge, 160, { steps: 12, stepMs: 30, hold: true })
+    await page.touchscreen.touchEnd()
+    await sleep(400)
+    check(edge.top > 0 && (inner === 0 || inner === null) && (await isOpen()), `swipe: a drag in a body scrolled ${edge.top}px down does not move the sheet (${inner}px)`)
+    await page.keyboard.press("Escape")
+    await sleep(500)
+    await page.close()
+  }
 } finally {
   await browser.close()
   await new Promise((r) => server.close(r))
