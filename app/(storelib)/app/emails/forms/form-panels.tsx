@@ -253,7 +253,7 @@ export function InsightsPanel({ formId }: { formId: string }) {
           { label: tt("Left contact details"), value: data.identified },
         ].map((f) => (
           <div key={f.label} className="min-w-0">
-            <p className="truncate text-[12.5px] text-[#6b7280]">{f.label}</p>
+            <p className="text-[12.5px] leading-tight text-[#6b7280]">{f.label}</p>
             <p className="mt-0.5 text-[22px] font-semibold tabular-nums text-[#1a1a2e]">{formatNumber(f.value)}</p>
           </div>
         ))}

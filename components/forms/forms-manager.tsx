@@ -203,9 +203,11 @@ export function FormEditor({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className={buttonSecondary + " lg:hidden" + (showEdit ? "" : " hidden")} onClick={() => setPreview((v) => !v)} aria-pressed={preview}>
-              {preview ? "Edit" : "Preview"}
-            </button>
+            {showEdit ? (
+              <button type="button" className={buttonSecondary + " lg:hidden"} onClick={() => setPreview((v) => !v)} aria-pressed={preview}>
+                {preview ? "Edit" : "Preview"}
+              </button>
+            ) : null}
             {saved.status === "published" && !embedded ? (
               <ResponsiveActionMenu
                 title="Share"
@@ -221,12 +223,17 @@ export function FormEditor({
                 ]}
               />
             ) : null}
-            <button type="button" className={buttonSecondary} disabled={busy || !dirty} onClick={() => void save(false)}>
-              Save draft
-            </button>
-            <button type="button" className={buttonAccent} disabled={busy} onClick={() => void save(true)} data-publish-form="">
-              {busy ? "Saving" : "Publish"}
-            </button>
+            {/* On Responses and Insights the save bar shows only while something is unsaved, so a change is never lost by changing tab. */}
+            {view !== "panel" || dirty ? (
+              <>
+                <button type="button" className={buttonSecondary} disabled={busy || !dirty} onClick={() => void save(false)}>
+                  Save draft
+                </button>
+                <button type="button" className={buttonAccent} disabled={busy} onClick={() => void save(true)} data-publish-form="">
+                  {busy ? "Saving" : "Publish"}
+                </button>
+              </>
+            ) : null}
             {embedded ? (
               <button type="button" className={buttonSecondary} onClick={back} data-form-builder-done="">
                 Done
@@ -1004,7 +1011,7 @@ function IntegrationsEditor({
           <input type="checkbox" className={check} checked={value.google_sheets.prepared} onChange={(e) => onChange({ ...value, google_sheets: { prepared: e.target.checked } })} />
           Queue responses for Google Sheets
         </label>
-        <p className={muted}>Google Sheets is not connected to Storelib yet. Queued responses are sent once it is. Until then, export CSV from Leads or point the webhook at Zapier or Make.</p>
+        <p className={muted}>Google Sheets is not connected to Storelib yet. Queued responses are sent once it is. Until then, export CSV from Responses or point the webhook at Zapier or Make.</p>
       </div>
     </section>
   )
