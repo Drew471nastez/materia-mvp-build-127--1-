@@ -149,6 +149,7 @@ console.log("\nEvery setting is read by something")
     content_padding_x: "lib/website-builder/theme-css.ts",
     section_gap: "lib/website-builder/theme-css.ts",
     spacing_scale: "lib/website-builder/theme-css.ts",
+    spacing_scale_mobile: "lib/website-builder/theme-css.ts",
     border_radius: "lib/storelib-theme/resolve.ts",
     card_shadow: "lib/website-builder/theme-css.ts",
     container_border: "lib/website-builder/theme-css.ts",

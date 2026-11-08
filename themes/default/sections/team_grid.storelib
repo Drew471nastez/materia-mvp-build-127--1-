@@ -76,6 +76,7 @@
 .s__btn:focus-visible, .s a:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
 .s__note { margin: 18px 0 0; font-size: 13px; color: var(--s-para); }
 .ph { display: grid !important; place-content: center; justify-items: center; gap: 8px; width: 100%; height: 100%; min-height: 160px; box-sizing: border-box; border: 1px dashed var(--s-border); background: color-mix(in srgb, var(--s-text) 5%, transparent); color: var(--s-para); font-size: 13px; text-align: center; padding: 16px; }
+@media (prefers-reduced-motion: reduce) { .s__btn { transition: none; } }
 .ph svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.5; }
 
 .tg .s__head { margin-bottom: 48px; }
@@ -317,36 +318,36 @@
           "id": "p1",
           "type": "member",
           "settings": {
-            "name": "Team member name",
+            "name": "The founder's name",
             "role": "Their role",
-            "bio": "One line about what they do here."
+            "bio": "How it started, in one line."
           }
         },
         {
           "id": "p2",
           "type": "member",
           "settings": {
-            "name": "Team member name",
+            "name": "A second person's name",
             "role": "Their role",
-            "bio": "One line about what they do here."
+            "bio": "What they look after here."
           }
         },
         {
           "id": "p3",
           "type": "member",
           "settings": {
-            "name": "Team member name",
+            "name": "A third person's name",
             "role": "Their role",
-            "bio": "One line about what they do here."
+            "bio": "What they are known for."
           }
         },
         {
           "id": "p4",
           "type": "member",
           "settings": {
-            "name": "Team member name",
+            "name": "A fourth person's name",
             "role": "Their role",
-            "bio": "One line about what they do here."
+            "bio": "Why customers ask for them."
           }
         }
       ]

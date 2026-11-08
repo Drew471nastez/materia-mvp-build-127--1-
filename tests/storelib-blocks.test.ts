@@ -187,7 +187,8 @@ function main() {
     check("every section in the library that has blocks marks them for the canvas", (() => {
       const missing = ADDABLE_SECTIONS.filter((t) => {
         const s = STORELIB_SCHEMAS[t]
-        if (!(s.blocks ?? []).length) return false
+        /* A JSON-described section in the library (native_form) draws through its own React renderer. */
+        if (!s || !(s.blocks ?? []).length) return false
         const file = join(root, `themes/default/sections/${t}.storelib`)
         return !untt(readFileSync(file, "utf8"), file).includes("data-block-id")
       })

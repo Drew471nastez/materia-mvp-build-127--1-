@@ -14,7 +14,7 @@
    otherwise paint the outer one's colour again.
    =========================================================================== #}
 <template>
-<div class="sl-group sl-group--{{ block.settings.direction }} sl-group--{{ block.settings.align }}{% if block.settings.stack_on_mobile %} sl-group--stack{% endif %}{% if block.settings.ratio and block.settings.ratio != 'equal' %} sl-group--r{{ block.settings.ratio }}{% endif %}{% if block.settings.background_image %} sl-group--photo{% endif %}" style="--g-gap: {{ block.settings.gap }}px; --g-pad: {{ block.settings.padding }}px; --g-bg: {{ block.settings.background | default: 'transparent' }}; --g-radius: {{ block.settings.radius }}px;{% if block.settings.background_image %} --g-ov: {{ block.settings.overlay_color | default: '#000000' }}; --g-ov-a: {{ block.settings.overlay_opacity }}%;{% endif %}">
+<div class="sl-group sl-group--{{ block.settings.direction }} sl-group--{{ block.settings.align }}{% if block.settings.stack_on_mobile %} sl-group--stack{% endif %}{% if block.settings.ratio and block.settings.ratio != 'equal' %} sl-group--r{{ block.settings.ratio }}{% endif %}{% if block.settings.background_image %} sl-group--photo{% endif %}{% if block.settings.text_color %} sl-group--fg{% endif %}" style="--g-gap: {{ block.settings.gap }}px; --g-pad: {{ block.settings.padding }}px; --g-bg: {{ block.settings.background | default: 'transparent' }}; --g-radius: {{ block.settings.radius }}px;{% if block.settings.text_color %} --g-fg: {{ block.settings.text_color }};{% endif %}{% if block.settings.background_image %} --g-ov: {{ block.settings.overlay_color | default: '#000000' }}; --g-ov-a: {{ block.settings.overlay_opacity }}%;{% endif %}">
   {% if block.settings.background_image %}<img class="sl-group__photo" src="{{ block.settings.background_image | asset }}" alt="" loading="lazy" decoding="async" aria-hidden="true"><span class="sl-group__veil" aria-hidden="true"></span>{% endif %}
   {% content_for "blocks" %}
   {% if block.blocks.size == 0 and page.in_editor %}<p class="sl-group__empty">Add blocks to this group</p>{% endif %}
@@ -47,6 +47,8 @@
 .sl-group--photo { position: relative; isolation: isolate; overflow: hidden; }
 .sl-group__photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; display: block; }
 .sl-group__veil { position: absolute; inset: 0; z-index: -1; background: color-mix(in srgb, var(--g-ov) var(--g-ov-a, 40%), transparent); }
+/* Words in a colour of their own, for a group on a picture: headings and text inside it, not its buttons. */
+.sl-group--fg, .sl-group--fg .sl-heading, .sl-group--fg .sl-text, .sl-group--fg .sl-text * { color: var(--g-fg) !important; }
 .sl-group__empty { margin: 0; padding: 16px; border: 1px dashed var(--s-border, currentColor); font-size: 13px; opacity: 0.7; text-align: center; width: 100%; box-sizing: border-box; }
 @media (max-width: 749px) {
   .sl-group--row.sl-group--stack { flex-direction: column; align-items: stretch; }
@@ -95,7 +97,8 @@
     },
     { "type": "image_picker", "id": "background_image", "label": "Background image", "default": "" },
     { "type": "color", "id": "overlay_color", "label": "Overlay colour", "default": "#000000", "info": "Laid over the background image so text stays readable." },
-    { "type": "range", "id": "overlay_opacity", "label": "Overlay strength", "default": 40, "min": 0, "max": 90, "step": 5, "unit": "%" }
+    { "type": "range", "id": "overlay_opacity", "label": "Overlay strength", "default": 40, "min": 0, "max": 90, "step": 5, "unit": "%" },
+    { "type": "color", "id": "text_color", "label": "Text colour", "default": "", "info": "Empty keeps each block's own. Set it for words on a background image." }
   ],
   "presets": [
     {
