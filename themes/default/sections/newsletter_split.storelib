@@ -1,0 +1,351 @@
+{# ===========================================================================
+   Newsletter split: why to join on one side, the sign up form on the
+   other, an optional photograph. With no list address set, sign ups go to
+   Emails, Subscribers (data-storelib-form="subscribe", the same as the
+   Newsletter section), and the thank you replaces the form.
+   =========================================================================== #}
+<template>
+<section class="s ns ns--{{ settings.layout }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn2: {{ scheme.secondary_btn_bg }}; --s-btn2-text: {{ scheme.secondary_btn_text }}; --s-btn2-border: {{ scheme.secondary_btn_border }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-btn2-hover: {{ scheme.secondary_btn_hover_bg }}; --s-btn2-hover-text: {{ scheme.secondary_btn_hover_text }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
+  <div class="s__in s__in--{{ settings.max_width }}">
+    <div class="ns__grid">
+      {% if settings.layout == 'image' %}
+        {% if settings.image %}
+          <div class="ns__media"><img src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" loading="lazy" decoding="async" data-media></div>
+        {% elsif page.in_editor %}
+          <div class="ns__media"><div class="ph"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-9 8"/></svg><span>Add a photograph</span></div></div>
+        {% endif %}
+      {% endif %}
+      <div class="ns__copy">
+        {% if settings.eyebrow %}<p class="s__eyebrow">{{ settings.eyebrow }}</p>{% endif %}
+        {% if settings.heading %}<h2 class="s__h">{{ settings.heading }}</h2>{% endif %}
+        {% if settings.subheading %}<p class="s__sub">{{ settings.subheading }}</p>{% endif %}
+        {% if settings.point_1 or settings.point_2 or settings.point_3 %}
+          <ul class="ns__points">
+            {% if settings.point_1 %}<li>{{ settings.point_1 }}</li>{% endif %}
+            {% if settings.point_2 %}<li>{{ settings.point_2 }}</li>{% endif %}
+            {% if settings.point_3 %}<li>{{ settings.point_3 }}</li>{% endif %}
+          </ul>
+        {% endif %}
+      </div>
+      <div class="ns__formwrap" data-container>
+        <form class="ns__form" method="post" action="{% if settings.action %}{{ settings.action | url }}{% endif %}" target="{% if settings.action %}_blank{% else %}_self{% endif %}" data-storelib-form="{% if settings.action %}native{% else %}subscribe{% endif %}">
+          {% if settings.form_title %}<p class="ns__ftitle">{{ settings.form_title }}</p>{% endif %}
+          {% if settings.show_name %}
+            <label class="ns__label" for="ns-n-{{ section.id }}">{{ settings.name_label }}</label>
+            <input class="ns__input" id="ns-n-{{ section.id }}" type="text" name="name" autocomplete="given-name">
+          {% endif %}
+          <label class="ns__label" for="ns-{{ section.id }}">{{ settings.field_label }}</label>
+          <input class="ns__input" id="ns-{{ section.id }}" type="email" name="{{ settings.field_name }}" placeholder="{{ settings.placeholder }}" required autocomplete="email">
+          <button class="s__btn s__btn--primary ns__go" type="submit">{{ settings.button_text }}</button>
+          {% if settings.success %}<p class="ns__ok" role="status" data-storelib-success hidden>{{ settings.success }}</p>{% endif %}
+          {% if settings.note %}<p class="ns__note">{{ settings.note }}</p>{% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+</template>
+
+<style scoped>
+.s { container-type: inline-size; background: var(--s-bg); color: var(--s-text); }
+.s__in {
+  margin: 0 auto;
+  padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--s-pb) * var(--theme-spacing-scale, 1));
+}
+.s__in--narrow { max-width: 720px; }
+.s__in--medium { max-width: 960px; }
+.s__in--wide { max-width: var(--theme-page-width, 1280px); }
+.s__in--full { max-width: none; }
+.s__eyebrow { margin: 0 0 14px; font-family: var(--sl-caption-font); font-size: var(--sl-caption-size, 12px); font-weight: var(--sl-caption-weight, 600); letter-spacing: var(--sl-caption-tracking, 0.14em); text-transform: var(--sl-caption-transform, uppercase); color: var(--s-accent); }
+.s__h {
+  margin: 0;
+  font-size: var(--section-heading-size, 32px);
+  line-height: var(--section-heading-line-height, 1.15);
+  font-weight: var(--section-heading-weight, 700);
+  color: var(--s-heading);
+  letter-spacing: var(--section-heading-tracking, -0.01em);
+  text-transform: var(--section-heading-transform, none);
+  font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
+  text-wrap: balance;
+}
+.s__sub { margin: 16px 0 0; max-width: 38rem; font-size: var(--section-text-size, 17px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); text-wrap: pretty; }
+.s__head { max-width: 46rem; }
+.s__head--center { margin-inline: auto; text-align: center; }
+.s__head--center .s__sub { margin-inline: auto; }
+.s__btns { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+.s__head--center .s__btns { justify-content: center; }
+.s__btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px;
+  padding: var(--sl-button-padding, 13px 24px); font-size: var(--sl-button-size, 15px); line-height: var(--sl-button-line-height); font-weight: var(--theme-button-weight, 600); text-decoration: none;
+  border-radius: var(--s-radius); border: 1px solid transparent; transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+.s__btn--primary:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); border-color: var(--s-btn-hover); }
+.s__btn--secondary:hover { background: var(--s-btn2-hover); color: var(--s-btn2-hover-text); }
+.s__btn--primary { background: var(--s-btn); color: var(--s-btn-text); border-color: var(--s-btn); }
+.s__btn--secondary { background: var(--s-btn2); color: var(--s-btn2-text); border-color: var(--s-btn2-border); }
+.s__btn:focus-visible, .s a:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
+.s__note { margin: 18px 0 0; font-size: 13px; color: var(--s-para); }
+.ph { display: grid !important; place-content: center; justify-items: center; gap: 8px; width: 100%; height: 100%; min-height: 160px; box-sizing: border-box; border: 1px dashed var(--s-border); background: color-mix(in srgb, var(--s-text) 5%, transparent); color: var(--s-para); font-size: 13px; text-align: center; padding: 16px; }
+@media (prefers-reduced-motion: reduce) { .s__btn { transition: none; } }
+.ph svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+
+.ns__grid { display: grid; gap: 40px; grid-template-columns: minmax(0, 1fr); align-items: center; }
+.ns__media img, .ns__media .ph { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--sl-image-radius, var(--s-radius)); }
+.ns__points { margin: 24px 0 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.ns__points li { position: relative; padding-left: 28px; font-size: 15px; line-height: 1.5; color: var(--s-text); }
+.ns__points li::before { content: ""; position: absolute; left: 0; top: 6px; width: 14px; height: 8px; border-left: 2px solid var(--s-accent); border-bottom: 2px solid var(--s-accent); rotate: -45deg; }
+.ns__formwrap { padding: 28px; border: 1px solid var(--s-border); border-radius: var(--s-radius); background: color-mix(in srgb, var(--s-heading) 3%, var(--s-bg)); }
+.ns__form { display: grid; gap: 10px; }
+.ns__ftitle { margin: 0 0 6px; font-size: 18px; font-weight: 600; color: var(--s-heading); }
+.ns__label { font-size: 13px; font-weight: 600; color: var(--s-heading); }
+.ns__input { width: 100%; box-sizing: border-box; min-height: 48px; padding: 12px 16px; font: inherit; font-size: 16px; color: var(--s-heading); background: var(--s-bg); border: 1px solid var(--s-border); border-radius: var(--s-radius); }
+.ns__input::placeholder { color: var(--s-para); opacity: 0.75; }
+.ns__input:focus { outline: 2px solid var(--s-accent); outline-offset: 1px; }
+.ns__go { width: 100%; margin-top: 6px; min-height: 48px; }
+.ns__ok { margin: 0; font-size: 16px; font-weight: 600; color: var(--s-heading); }
+.ns__ok[hidden] { display: none; }
+.ns__note { margin: 4px 0 0; font-size: 12px; line-height: 1.5; color: var(--s-para); }
+@container (min-width: 860px) {
+  .ns--text .ns__grid { grid-template-columns: 7fr 5fr; gap: 80px; }
+  .ns--image .ns__grid { grid-template-columns: 5fr 4fr 4fr; gap: 48px; }
+  .ns--image .ns__media img, .ns--image .ns__media .ph { aspect-ratio: 4 / 5; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "newsletter_split",
+  "name": "Newsletter Split",
+  "category": "marketing",
+  "description": "Why to join on one side and the sign up form on the other, with an optional photograph.",
+  "icon": "mail",
+  "settings": [
+    {
+      "type": "header",
+      "id": "hdr_content",
+      "label": "Content"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Newsletter"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Letters worth opening"
+    },
+    {
+      "type": "textarea",
+      "id": "subheading",
+      "label": "Supporting line",
+      "default": "Say what people get and how often, in one or two sentences."
+    },
+    {
+      "type": "text",
+      "id": "point_1",
+      "label": "Point 1",
+      "default": ""
+    },
+    {
+      "type": "text",
+      "id": "point_2",
+      "label": "Point 2",
+      "default": ""
+    },
+    {
+      "type": "text",
+      "id": "point_3",
+      "label": "Point 3",
+      "default": ""
+    },
+    {
+      "type": "header",
+      "id": "hdr_form",
+      "label": "Form"
+    },
+    {
+      "type": "text",
+      "id": "form_title",
+      "label": "Form title",
+      "default": ""
+    },
+    {
+      "type": "text",
+      "id": "field_label",
+      "label": "Email label",
+      "default": "Email address"
+    },
+    {
+      "type": "text",
+      "id": "placeholder",
+      "label": "Email placeholder",
+      "default": "you@example.com"
+    },
+    {
+      "type": "toggle",
+      "id": "show_name",
+      "label": "Ask for a first name",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "name_label",
+      "label": "Name label",
+      "default": "First name"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "Button",
+      "default": "Subscribe"
+    },
+    {
+      "type": "text",
+      "id": "success",
+      "label": "Thank you message",
+      "default": "Thank you. Check your inbox to confirm."
+    },
+    {
+      "type": "text",
+      "id": "note",
+      "label": "Small print",
+      "default": "No spam. Unsubscribe in one click."
+    },
+    {
+      "type": "header",
+      "id": "hdr_list",
+      "label": "Your mailing list"
+    },
+    {
+      "type": "url",
+      "id": "action",
+      "label": "Send to another mailing list",
+      "default": "",
+      "info": "Leave this empty and sign-ups go to Subscribers in your dashboard. Paste a Mailchimp, Buttondown or Kit form address only if you want them sent there instead."
+    },
+    {
+      "type": "text",
+      "id": "field_name",
+      "label": "Address field name",
+      "default": "email",
+      "info": "Only used with another mailing list. What that list calls the email box, usually email or EMAIL."
+    },
+    {
+      "type": "header",
+      "id": "hdr_image",
+      "label": "Photograph"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Photograph",
+      "default": "",
+      "info": "Shown with the Photograph layout."
+    },
+    {
+      "type": "text",
+      "id": "image_alt",
+      "label": "Photograph description",
+      "default": "",
+      "info": "Read aloud to people who cannot see it."
+    },
+    {
+      "type": "header",
+      "id": "hdr_layout",
+      "label": "Layout"
+    },
+    {
+      "type": "radio",
+      "id": "layout",
+      "label": "Layout",
+      "default": "text",
+      "options": [
+        {
+          "label": "Words and form",
+          "value": "text"
+        },
+        {
+          "label": "Photograph, words and form",
+          "value": "image"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "max_width",
+      "label": "Content width",
+      "default": "wide",
+      "options": [
+        {
+          "label": "Narrow",
+          "value": "narrow"
+        },
+        {
+          "label": "Medium",
+          "value": "medium"
+        },
+        {
+          "label": "Wide",
+          "value": "wide"
+        },
+        {
+          "label": "Full",
+          "value": "full"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "id": "hdr_style",
+      "label": "Style"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "default": "light"
+    },
+    {
+      "type": "header",
+      "id": "hdr_spacing",
+      "label": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "default": 88,
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "default": 88,
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Newsletter Split"
+    },
+    {
+      "name": "Newsletter Split, with a photograph",
+      "settings": {
+        "layout": "image",
+        "color_scheme": "white"
+      }
+    }
+  ]
+}
+</schema>

@@ -97,7 +97,7 @@ import type { SettingsSection } from "@/components/website-builder/website-setti
 import { LIBRARY_FULL_CODE, LIBRARY_RULE, LIBRARY_RULE_TITLE } from "@/lib/website-builder/library-limit"
 import { LibraryFullDialog, type LibraryAction } from "./library-full-dialog"
 import { StartWebsite } from "./start-website"
-import { saveStartPrompt, withStartParam } from "@/lib/website-builder/start-handoff"
+import { newStartKey, saveStartPrompt, withJobParam, withStartParam } from "@/lib/website-builder/start-handoff"
 import type { StartMode } from "@/lib/website-builder/create-website"
 import {
   ARRIVAL_MS,
@@ -1221,6 +1221,13 @@ export function WebsiteBuilderClient({
     window.addEventListener("pageshow", back)
     return () => window.removeEventListener("pageshow", back)
   }, [])
+  /*
+    START WITH AI IS A JOB ON THE SERVER (lib/website-builder/ai-site): the description goes in the request body with a
+    key for this press (one press, one website and one job, even sent twice after a lost answer), and the editor opens on
+    the new website following the job (`job=` in its address). Without the job table yet the answer says `fallback` and
+    the description waits in this tab for the editor, which builds the site in its own request.
+  */
+  const startKey = React.useRef<{ prompt: string; key: string } | null>(null)
   const startWebsite = async (mode: StartMode, prompt?: string) => {
     if (slotsLeft === 0) {
       setFull("create")
@@ -1230,9 +1237,10 @@ export function WebsiteBuilderClient({
     startFlight.current = true
     setStarting(mode)
     let leaving = false
+    if (mode === "ai" && prompt && startKey.current?.prompt !== prompt) startKey.current = { prompt, key: newStartKey() }
     try {
-      const res = await fetch("/api/website-builder/themes/create", json("POST", { mode }))
-      const data = (await res.json().catch(() => ({}))) as { install?: { id?: string }; cover?: Cover | null; cover_pending?: boolean; code?: string; error?: string }
+      const res = await fetch("/api/website-builder/themes/create", json("POST", mode === "ai" && prompt ? { mode, prompt, key: startKey.current!.key } : { mode }))
+      const data = (await res.json().catch(() => ({}))) as { install?: { id?: string }; cover?: Cover | null; cover_pending?: boolean; code?: string; error?: string; job?: { id?: string } | null; fallback?: boolean }
       if (!res.ok || !data.install?.id) {
         if (data.code === LIBRARY_FULL_CODE) {
           setFull("create")
@@ -1247,7 +1255,8 @@ export function WebsiteBuilderClient({
       asked.current.add(id)
       if (data.cover?.url) seedCover(id, data.cover)
       else if (data.cover_pending) void watchCover(id)
-      if (mode === "ai" && prompt) {
+      const jobId = typeof data.job?.id === "string" ? data.job.id : null
+      if (mode === "ai" && prompt && !jobId) {
         let storage: Storage | null = null
         try {
           storage = window.sessionStorage
@@ -1256,9 +1265,10 @@ export function WebsiteBuilderClient({
         }
         saveStartPrompt(storage, id, prompt)
       }
+      startKey.current = null
       leaving = true
       setOpening(true)
-      go(mode === "ai" ? withStartParam(editorHref(username, id)) : editorHref(username, id))
+      go(mode === "ai" ? (jobId ? withJobParam(editorHref(username, id), jobId) : withStartParam(editorHref(username, id))) : editorHref(username, id))
     } catch {
       toast({ title: tt("Could not create the website"), variant: "destructive" })
     } finally {

@@ -5,6 +5,19 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Planning your design…": "Progettazione del design…",
+ "Writing pages…": "Scrittura delle pagine…",
+ "Adding photos…": "Aggiunta delle foto…",
+ "Your website is ready": "Il tuo sito è pronto",
+ "Your website is ready, with a few gaps": "Il tuo sito è pronto, con qualche lacuna",
+ "Building stopped part way": "La creazione si è fermata a metà",
+ "Every section is yours to edit. Publish when you are happy with it.": "Ogni sezione è modificabile. Pubblica quando ti piace.",
+ "Some parts were left out rather than made up. Ask AI to fix them, or edit them yourself.": "Alcune parti sono state lasciate fuori invece di inventarle. Chiedi all'IA di sistemarle o modificale tu.",
+ "Everything made so far is kept. Continue picks up where it stopped.": "Tutto ciò che è stato creato viene mantenuto. Continua riprende da dove si era fermato.",
+ "Keep this tab open while your website is built.": "Tieni aperta questa scheda mentre il sito viene creato.",
+ "You can keep editing, or close this tab: it keeps going.": "Puoi continuare a modificare o chiudere questa scheda: il lavoro prosegue.",
+ "Ask AI to fix": "Chiedi all'IA di sistemare",
+ "Ask AI for a change": "Chiedi una modifica all'IA",
  "  ·  not published yet": "  ·  non ancora pubblicata",
  " (buyer's reference {orderRef})": " (riferimento dell'acquirente {orderRef})",
  " (free for them)": " (gratis per loro)",
@@ -12754,7 +12767,10 @@ const words: Record<string, string> = {
  "{year} Tax Year": "Anno fiscale {year}",
  "“{label}” may": "“{label}” potrebbe",
  "“{term}” is already in your glossary.": "“{term}” è già nel tuo glossario.",
- "↻ Refresh thumbnail": "↻ Aggiorna miniatura"
+ "↻ Refresh thumbnail": "↻ Aggiorna miniatura",
+ "Both": "Entrambi",
+ "Show on": "Mostra su",
+ "Faint here so you can still pick it. Visitors on the other size do not see it.": "Sbiadita qui così puoi ancora selezionarla. I visitatori sull’altra dimensione non la vedono."
 }
 
 export default words

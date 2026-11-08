@@ -310,6 +310,7 @@ All 27 of them.
 | `date: "short"` | A `datetime` for people to read: `long` (14 March 2026), `short`, `time`, `long_time`, `iso`. Read as written, never moved to another time zone. |
 | `strip_html` | The words of some markup, on one line. For an alt text made from rich text. |
 | `lines` | Each line of a text with something on it, trimmed, as a list of at most 100. For a `textarea` typed one item per line: `{% for line in block.settings.features \| lines %}`. |
+| `split` | The parts of a text typed with a separator, each trimmed, as a list of at most 100. For values typed on one line: `{% for cell in block.settings.values \| split: "," %}`. |
 
 `url` keeps root-relative `/…`, `http://`, `https://`, `mailto:`, `tel:` and
 `#…`. Everything else becomes `#`, including a protocol-relative `//host`,

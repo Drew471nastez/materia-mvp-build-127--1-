@@ -400,6 +400,13 @@ export const LIMITS = {
    */
   siteAi: [{ limit: 6, seconds: 60 }, { limit: 40, seconds: 3600 }],
   /**
+   * Start with AI: a whole website from one description (lib/website-builder/
+   * ai-site), some thirty model calls and a dozen photos each. Three in ten
+   * minutes and ten a day per creator; a job already running is counted
+   * separately by the create route (one at a time).
+   */
+  siteGenerate: [{ limit: 3, seconds: 600 }, { limit: 10, seconds: 86400 }],
+  /**
    * A lab test (Website settings › Performance) asks Google's PageSpeed
    * Insights to load a page, 10 to 40 seconds each, on a shared daily quota.
    * Two strategies of one page and a retry is four; thirty a day is plenty.

@@ -5085,5 +5085,17 @@ ALTER TABLE public.email_flows DROP CONSTRAINT IF EXISTS email_flows_trigger_typ
 ALTER TABLE public.email_flows ADD CONSTRAINT email_flows_trigger_type_check CHECK (trigger_type IN ('new_subscriber', 'purchase', 'first_purchase', 'abandoned_checkout', 'membership_started', 'tag_added', 'manual')) NOT VALID;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('379', '379_email_flow_membership_trigger.sql', '105b8228d4c5f030dd8343e4b8bb139bda9d3c798eaab0f20109fa49933fbe9d') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 380_ai_site_jobs.sql
+/* Start with AI as a job on the server (lib/website-builder/ai-site/job.ts): one row per website generation, so closing the tab does not stop it. The prompt, the plan the model chose, which step it is on (plan, build, write, photos, check), how far along, what it cost, the error when one step failed, and a key the Website page sends so the same press twice is one job. The website's owner reads their own rows (the editor's progress view); only the server writes. Until it runs, Start with AI builds the site inside the editor's own request instead and says to keep the tab open. No rows change. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.ai_site_jobs ( id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, owner_user_id uuid, install_id uuid NOT NULL REFERENCES public.store_theme_installs(id) ON DELETE CASCADE, status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'complete', 'partial', 'failed')), step text NOT NULL DEFAULT 'plan' CHECK (step IN ('plan', 'build', 'write', 'photos', 'check', 'done')), progress integer NOT NULL DEFAULT 0 CHECK (progress BETWEEN 0 AND 100), prompt text NOT NULL CHECK (char_length(prompt) BETWEEN 1 AND 2000), plan jsonb, state jsonb NOT NULL DEFAULT '{}'::jsonb, cost_usd numeric(12,6) NOT NULL DEFAULT 0, error text, idempotency_key text NOT NULL CHECK (char_length(idempotency_key) BETWEEN 8 AND 80), attempts integer NOT NULL DEFAULT 0, lease_until timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), finished_at timestamptz );
+CREATE UNIQUE INDEX IF NOT EXISTS ai_site_jobs_idempotency ON public.ai_site_jobs (creator_id, idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_ai_site_jobs_install ON public.ai_site_jobs (install_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_site_jobs_creator_recent ON public.ai_site_jobs (creator_id, created_at DESC);
+ALTER TABLE public.ai_site_jobs ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.ai_site_jobs FROM anon, authenticated;
+GRANT SELECT ON public.ai_site_jobs TO authenticated;
+DO $p$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ai_site_jobs' AND policyname = 'ai_site_jobs_select_own') THEN CREATE POLICY ai_site_jobs_select_own ON public.ai_site_jobs FOR SELECT TO authenticated USING (creator_id IN (SELECT c.id FROM public.creators c WHERE c.user_id = (SELECT auth.uid()))); END IF; END $p$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('380', '380_ai_site_jobs.sql', 'b8ad5b4162e92093a0ed488f4b947d788132710ec04a80aa0aeab3b973b67cc4') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

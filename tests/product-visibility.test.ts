@@ -327,6 +327,7 @@ async function main() {
       "lib/site-accounts/owned-products.ts": { count: 1, why: "the type of products a signed in customer already owns, nothing shown" },
       "app/api/checkout/access-link/route.ts": { count: 1, why: "the shop of the product asked about, to find that buyer's own receipts; nothing shown" },
       "app/api/checkout/site/route.ts": { count: 1, why: "the type of each line already in an imported theme's cart, to take out what the signed in customer owns" },
+      "lib/website-builder/agent/store-facts-server.ts": { count: 1, why: "the creator's own catalogue (drafts marked as drafts) for their own website AI, read with their own client; nothing shown to visitors" },
       "lib/checkout/coupon-scope.ts": { count: 1, why: "whether a code covers the products being paid for (their type and collections); nothing is shown, and checkout itself refuses what is not on sale" },
       "lib/checkout/sales-limit.ts": { count: 2, why: "the sales limit of a product being paid for or written as an order, to hold its copy (a paid order of a product taken off sale since still counts); nothing shown" },
     }

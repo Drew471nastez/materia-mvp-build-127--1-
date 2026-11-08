@@ -78,7 +78,8 @@ async function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     const mismatched: string[] = []
-    for (const type of ADDABLE_SECTIONS) {
+    /* The .storelib ones: a JSON-described section in the library (native_form) is a React renderer, the same component on both surfaces. */
+    for (const type of ADDABLE_SECTIONS.filter((t) => t in STORELIB_SCHEMAS)) {
       const instance = asAdded(type)
       // The editor's path.
       const inEditor = renderStorelibSection(instance, theme, { template: "index" }, {})
@@ -90,7 +91,7 @@ async function main() {
       if (live.html !== inEditor.html) mismatched.push(`${type}: HTML differs`)
       if (live.css !== inEditor.css) mismatched.push(`${type}: CSS differs`)
     }
-    check(`all ${ADDABLE_SECTIONS.length} sections produce identical HTML and CSS on both surfaces`, mismatched.length === 0, mismatched.slice(0, 6).join("; "))
+    check(`all ${ADDABLE_SECTIONS.filter((t) => t in STORELIB_SCHEMAS).length} sections produce identical HTML and CSS on both surfaces`, mismatched.length === 0, mismatched.slice(0, 6).join("; "))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
