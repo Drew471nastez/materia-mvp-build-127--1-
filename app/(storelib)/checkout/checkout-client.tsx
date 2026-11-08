@@ -43,14 +43,14 @@ import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
 import { adoptCarriedTouches } from "@/lib/attribution/browser"
 import { paidReturnUrl, returnHostLabel } from "@/lib/checkout/return-url"
 import { EMPTY_BUSINESS, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
-import { CheckRow, ErrorBanner, Field, PayButton, PoweredByStripe, Reveal, SectionTitle, Spinner, TextInput, PayDock, useCheckoutCurrency, useMoney } from "./parts/ui"
+import { CheckRow, ErrorBanner, Field, PayButton, PoweredByStripe, Reveal, SectionTitle, Spinner, TextInput, PayDock, useCheckoutCurrency, useMoney } from "@/components/checkout/parts/ui"
 import { minimumChargeMinor } from "@/lib/store/selling-currency"
 import { DiscountForm, LineItem, TipPicker, Totals, type SummaryVariant } from "./parts/order-summary"
 import { BusinessFields } from "./parts/business-fields"
 import { EMPTY_CARD, NativeCardFields, nativeCardComplete, type NativeCard } from "./parts/native-card"
 import { PaidOverlay, holdPaidScreen } from "./parts/success"
 import { StripePay, type IntentResult } from "./parts/stripe-pay"
-import { afterPaymentReady } from "./parts/stripe-loader"
+import { afterPaymentReady } from "@/components/checkout/parts/stripe-loader"
 
 /** How long the ways out wait for a card form that never says it is ready (no Stripe form on this checkout, or Stripe blocked). */
 const WARM_WITHOUT_FORM_MS = 6000

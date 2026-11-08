@@ -7,7 +7,7 @@
 import * as React from "react"
 import { createRoot } from "react-dom/client"
 import { CheckoutPhone } from "@/app/(storelib)/checkout/parts/phone-input"
-import { Field } from "@/app/(storelib)/checkout/parts/ui"
+import { Field } from "@/components/checkout/parts/ui"
 
 function Page() {
   const [country, setCountry] = React.useState("RO")

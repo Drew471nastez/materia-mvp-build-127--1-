@@ -22,7 +22,8 @@ export async function POST(request: Request) {
   if (!name) return NextResponse.json({ error: "Give the segment a name." }, { status: 400, headers: noStore })
   if (namesNoProducts(body.rules)) return NextResponse.json({ error: NO_PRODUCTS_ERROR }, { status: 400, headers: noStore })
   const rules = readRules(body.rules)
-  const { count } = await ctx.admin.from("email_segments").select("id", { count: "exact", head: true }).eq("creator_id", ctx.creatorId)
+  /* People picked in Contacts (round 51, lib/emails/recipient-contacts) are not the creator's segments and do not count against them. */
+  const { count } = await ctx.admin.from("email_segments").select("id", { count: "exact", head: true }).eq("creator_id", ctx.creatorId).is("filters->>picked", null)
   if ((count ?? 0) >= MAX_SEGMENTS) return NextResponse.json({ error: `That's ${MAX_SEGMENTS} segments. Delete one you no longer use first.` }, { status: 400, headers: noStore })
   const { data, error } = await ctx.admin.from("email_segments").insert({ creator_id: ctx.creatorId, name, filters: { rules } }).select("id, name").single()
   if (error || !data) return NextResponse.json({ error: "The segment could not be saved. Try again." }, { status: 500, headers: noStore })

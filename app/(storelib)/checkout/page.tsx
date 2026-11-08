@@ -38,7 +38,7 @@ import { MARKETPLACE_CURRENCY, marketplaceAmounts, marketplaceReferrer } from "@
 import { curatedWords } from "@/lib/checkout-text/words"
 import { checkoutMsg } from "@/lib/markets/checkout-words"
 import { marketplaceRates, marketplaceUsdFor } from "@/lib/money/marketplace-server"
-import { CheckoutCurrency } from "./parts/ui"
+import { CheckoutCurrency } from "@/components/checkout/parts/ui"
 import { stripeEarly } from "./parts/stripe-early"
 
 /*

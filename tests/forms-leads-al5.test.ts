@@ -46,27 +46,26 @@ async function main() {
     assert.doesNotMatch(sidebar, /href: "\/app\/audience/)
     assert.doesNotMatch(sidebar, /label: tt\("Audience"\)/)
   })
-  await check("Emails has a Leads tab, read and drawn like the others", () => {
-    assert.match(read("app/(storelib)/app/emails/emails-data.ts"), /TABS: EmailsTab\[\] = \["subscribers", "messages", "leads",/)
-    assert.match(read("app/(storelib)/app/emails/emails-data.ts"), /case "leads":\s*\n\s*return loadLeads\(\)/)
-    assert.match(read("app/(storelib)/app/emails/page.tsx"), /"leads"/)
-    const home = read("app/(storelib)/app/emails/emails-home.tsx")
-    assert.match(home, /\{ id: "leads", get label\(\) \{ return tt\("Leads"\) \} \}/)
-    assert.match(home, /tab === "leads" \? props\.leadsPanel/)
+  /* Changed on purpose (round 51): Leads moved from Emails to Contacts (?tab=leads redirects to /app/contacts?filter=leads, a lead to its profile); the panel itself is kept for Contacts › Forms. */
+  await check("Emails' old Leads tab goes to Contacts, and the leads panel is kept", () => {
+    assert.match(read("app/(storelib)/app/emails/emails-route.ts"), /if \(tab === "leads" \|\| \(!tab && lead\)\)/)
+    assert.match(read("app/(storelib)/app/emails/emails-route.ts"), /"\/app\/contacts\?filter=leads"/)
     const panel = read("app/(storelib)/app/emails/leads-panel.tsx")
     for (const part of ["FilterChip", "PhoneItem", "ScrollEdge", "SheetDialog", "StatusBadge", "ResponsiveActionMenu"]) assert.match(panel, new RegExp(part), part)
     assert.match(panel, /href="\/app\/emails\/forms"/)
   })
   await check("the old addresses redirect, keeping the lead or the form", () => {
-    assert.match(read("app/(storelib)/app/audience/leads/page.tsx"), /redirect\(`\/app\/emails\?\$\{q\}`\)/)
-    assert.match(read("app/(storelib)/app/audience/leads/page.tsx"), /for \(const k of \["lead", "form"\]\)/)
-    assert.match(read("app/(storelib)/app/audience/forms/page.tsx"), /\/app\/emails\/forms\?form=/)
-    assert.match(read("app/(storelib)/app/audience/page.tsx"), /redirect\("\/app\/emails\?tab=leads"\)/)
+    /* Changed on purpose (round 51): leads and forms are Contacts' now; a lead opens its person through /app/contacts/open, which checks the store owns it. */
+    assert.match(read("app/(storelib)/app/audience/leads/page.tsx"), /redirect\(`\/app\/contacts\/open\?from=lead&id=\$\{encodeURIComponent\(sp\.lead\)\}`\)/)
+    assert.match(read("app/(storelib)/app/audience/leads/page.tsx"), /\/app\/contacts\/forms\?form=/)
+    assert.match(read("app/(storelib)/app/audience/forms/page.tsx"), /\/app\/contacts\/forms\?form=/)
+    assert.match(read("app/(storelib)/app/audience/page.tsx"), /redirect\("\/app\/contacts\?filter=leads"\)/)
     assert.ok(existsSync("app/(storelib)/app/emails/forms/page.tsx"))
   })
-  await check("notification links go to the lead in Emails", () => {
-    assert.match(read("lib/forms/delivery-server.ts"), /\/app\/emails\?tab=leads&lead=/)
-    assert.match(read("app/api/forms/[id]/submit/route.ts"), /\/app\/emails\?tab=leads&lead=/)
+  await check("notification links go to the response in Contacts › Forms", () => {
+    /* Changed on purpose (round 51): a response's email and bell link open it in Contacts › Forms, the form on Responses; Emails › Leads is gone. */
+    assert.match(read("lib/forms/delivery-server.ts"), /\/app\/contacts\/forms\?form=\$\{encodeURIComponent\(job\.form_id\)\}&view=responses&response=/)
+    assert.match(read("app/api/forms/[id]/submit/route.ts"), /\/app\/contacts\/forms\?form=\$\{id\}&view=responses&response=\$\{lead\}/)
     for (const f of ["components/forms/forms-manager.tsx", "components/forms/action-editor.tsx", "lib/forms/delivery-server.ts"]) assert.doesNotMatch(read(f), /\/app\/audience/, f)
   })
 

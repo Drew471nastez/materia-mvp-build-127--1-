@@ -3111,7 +3111,9 @@ check(
    * mark for adding rather than browsing.
    */
   /* Round Z5: Add theme in the Library heading, and Browse themes' own link is the Theme marketplace (storelib.com/themes) in a new tab. */
-  (wbPage.match(/href="\/app\/website-builder\/themes"/g) ?? []).length === 1 &&
+  /* Changed on purpose (Create a website): Add theme is Browse themes, one of the three doors in ./start-website.tsx, so the one link to the theme page lives there and the page itself has none. */
+  (wbPage.match(/\/app\/website-builder\/themes/g) ?? []).length === 0 &&
+    (readFileSync(join(root, "app/(storelib)/app/website-builder/start-website.tsx"), "utf8").match(/"\/app\/website-builder\/themes"/g) ?? []).length === 1 &&
     /href=\{MARKETPLACE_PATH\}\s*target="_blank"/.test(wbPage) &&
     // one button, one "see all" link — and the section is named for it
     /<SectionHeading title="Browse themes">/.test(wbPage) &&

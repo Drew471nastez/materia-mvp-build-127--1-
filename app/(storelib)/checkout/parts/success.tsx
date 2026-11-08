@@ -11,8 +11,8 @@
  * form with Pay on it is never seen, not even for a frame.
  */
 
-import { useMoney } from "./ui"
-import { useCt } from "./words"
+import { useMoney } from "@/components/checkout/parts/ui"
+import { useCt } from "@/components/checkout/parts/words"
 
 export type PaidState = "finishing" | "paid" | null
 

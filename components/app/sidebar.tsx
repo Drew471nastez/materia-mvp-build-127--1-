@@ -319,7 +319,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       ],
     },
     ...communityItem,
-    /* No Audience item (round AL, the owner: "implement it in another place rather than just creating a new menu link"): Leads is a tab of Emails, and forms are made where they are used. */
+    /* No Audience item (round AL, the owner: "implement it in another place rather than just creating a new menu link"). Round 51: leads, subscribers and forms are Contacts' (below, above Emails), and forms are still made where they are used. */
     { href: "/app/analytics", label: t("nav.analytics"), icon: NAV_ICONS.analytics },
     { href: "/app/orders", label: t("nav.sales"), icon: NAV_ICONS.orders },
     /**
@@ -363,6 +363,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       them, and that is not what "take it out of the menu" means. Putting the
       line back is what turns it on again.
     */
+    /*
+      CONTACTS, DIRECTLY ABOVE EMAILS (round 51, the owner: one connected
+      place for the people a store knows). The People and Forms tabs are on
+      the page (/app/contacts, /app/contacts/forms), not rows under this one:
+      no children, as Emails has none. Emails' Subscribers and Leads tabs
+      open here now.
+    */
+    { href: "/app/contacts", label: tt("Contacts"), icon: NAV_ICONS.contacts },
     { href: "/app/emails", label: t("nav.emails"), icon: NAV_ICONS.emails },
     { href: "/app/payouts", label: t("nav.payouts"), icon: NAV_ICONS.payouts },
   ]

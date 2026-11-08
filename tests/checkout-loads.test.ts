@@ -29,7 +29,8 @@ function main() {
   console.log("\nThe Stripe guard is the app's alone")
   const guard = read("lib/stripe-nav-guard.ts")
   check("it is applied only inside the app's shell", /\nif \(isCapacitorShell\(\)\) applyStripeNavGuard\(\)\n/.test(guard) && !/\napplyStripeNavGuard\(\)\n/.test(guard))
-  const loader = read("app/(storelib)/checkout/parts/stripe-loader.ts")
+  /* Changed on purpose (round 51): the checkout's shared ui, words and Stripe loader moved to components/checkout/parts, so a website's stylesheet is built from website code only (tests/site-root-r52). */
+  const loader = read("components/checkout/parts/stripe-loader.ts")
   check("the checkout's loader no longer switches it on by importing it", !/import "@\/lib\/stripe-nav-guard"/.test(loader))
 
   console.log("\nThe ways to pay are named, the same on both sides")
@@ -50,7 +51,8 @@ function main() {
   console.log("\nStripe Checkout's layout")
   const client = read("app/(storelib)/checkout/checkout-client.tsx")
   const summary = read("app/(storelib)/checkout/parts/order-summary.tsx")
-  const ui = read("app/(storelib)/checkout/parts/ui.tsx")
+  /* Changed on purpose (round 51): the checkout's shared ui, words and Stripe loader moved to components/checkout/parts, so a website's stylesheet is built from website code only (tests/site-root-r52). */
+  const ui = read("components/checkout/parts/ui.tsx")
   check("the order on grey at the left, the form on a white half with a shadow", /lg:bg-\[#f8f9fa\]/.test(client) && /fixed inset-y-0 right-0 hidden w-1\/2 bg-white shadow-/.test(client))
   /*
     "Make sure the left side with gray background is just a little bit more

@@ -12,17 +12,24 @@ import { CUSTOMER_EMAILS_PATH, prefetchCustomerActivity, type CustomerEmailsData
 import { tt } from "@/lib/i18n/text"
 import { MARKETING_PATH, type MarketingState } from "@/components/app/settings/marketing-sync-panel"
 import { SENDING_DOMAIN_PATH, type PlatformsData, type SendingDomainData } from "@/components/email/connected-platforms"
-import { loadLeads } from "./leads-panel"
 
-export const TABS: EmailsTab[] = ["subscribers", "messages", "leads", "flows", "customer", "published", "scheduled", "drafts", "platforms"]
+/**
+ * WHAT IS READ FOR EACH VIEW (round 51). The page has three tabs; what is
+ * read is one of these views, each kept under its own key: Campaigns' four
+ * filters (All reads the three others' lists at once), Automations, and
+ * Settings' two sections.
+ */
+export const TABS: EmailsTab[] = ["all", "published", "scheduled", "drafts", "flows", "customer", "platforms"]
 
 export function isTab(v: unknown): v is EmailsTab {
   return typeof v === "string" && (TABS as string[]).includes(v)
 }
 
-/** The cache key a tab's data is kept under. The Sent tab is kept per period. */
+export { viewOf } from "./emails-route"
+
+/** The cache key a view's data is kept under. Sent, and All with it, are kept per period. */
 export function tabKey(tab: EmailsTab, period: string): string {
-  return tab === "published" ? `emails:published:${period}` : `emails:${tab}`
+  return tab === "published" || tab === "all" ? `emails:${tab}:${period}` : `emails:${tab}`
 }
 
 export const reportKey = (id: string) => `emails:report:${id}`
@@ -73,7 +80,7 @@ export function loadFlows(): Promise<FlowRow[]> {
 
 export async function loadCampaigns(status: "draft" | "scheduled"): Promise<CampaignRow[]> {
   const r = await json<{ campaigns: CampaignRow[] }>(`/api/email/campaigns?status=${status}`)
-  return r.campaigns ?? []
+  return (r.campaigns ?? []).map((c) => ({ ...c, kind: status }))
 }
 
 export interface SentData {
@@ -89,7 +96,7 @@ export async function loadSent(rangeQuery: string): Promise<SentData> {
     monthlyUsage?: { sent?: number; limit?: number }
   }>(`/api/email/stats?${rangeQuery}`)
   return {
-    campaigns: r.campaigns ?? [],
+    campaigns: (r.campaigns ?? []).map((c) => ({ ...c, kind: "sent" as const })),
     overview: {
       total_sent: r.stats?.totalSent ?? 0,
       total_opened: r.stats?.totalOpens ?? 0,
@@ -102,15 +109,24 @@ export async function loadSent(rangeQuery: string): Promise<SentData> {
   }
 }
 
+/** Campaigns › All: what is sent in the period, what is scheduled and the drafts, read together. */
+export interface AllData {
+  sent: SentData
+  scheduled: CampaignRow[]
+  drafts: CampaignRow[]
+}
+
+export async function loadAll(rangeQuery: string): Promise<AllData> {
+  const [sent, scheduled, drafts] = await Promise.all([loadSent(rangeQuery), loadCampaigns("scheduled"), loadCampaigns("draft")])
+  return { sent, scheduled, drafts }
+}
+
+export { mergeCampaigns } from "./emails-route"
+
 export function loadTab(tab: EmailsTab, rangeQuery: string): Promise<unknown> {
   switch (tab) {
-    case "subscribers":
-      return loadSubscribers()
-    case "messages":
-      return loadMessages()
-    /* Answers to the creator's forms (./leads-panel): moved here from the Audience item, beside the people Emails already keeps. */
-    case "leads":
-      return loadLeads()
+    case "all":
+      return loadAll(rangeQuery)
     case "flows":
       return loadFlows()
     case "published":
@@ -131,11 +147,25 @@ export function loadTab(tab: EmailsTab, rangeQuery: string): Promise<unknown> {
  * Settings › Integrations makes, so a connect in one is what the other
  * shows) and the store's own sending domain.
  */
-export async function loadPlatforms(): Promise<PlatformsData> {
-  const [m, d] = await Promise.all([api<{ marketing: MarketingState[] }>(MARKETING_PATH), api<SendingDomainData>(SENDING_DOMAIN_PATH)])
+export async function loadPlatforms(): Promise<SendingData> {
+  const [m, d, who] = await Promise.all([
+    api<{ marketing: MarketingState[] }>(MARKETING_PATH),
+    api<SendingDomainData>(SENDING_DOMAIN_PATH),
+    /* Round 51, Settings › Sending: who the emails are from and where replies go (app/api/email/area?part=sender). */
+    json<SenderInfo>("/api/email/area?part=sender").catch(() => null),
+  ])
   if (!m.ok) throw new Error(m.error || tt("Could not load your platforms."))
-  return { marketing: m.data.marketing, sending: d.ok ? d.data : { domain: null, ready: true, available: false } }
+  return { marketing: m.data.marketing, sending: d.ok ? d.data : { domain: null, ready: true, available: false }, sender: who ? { name: who.name ?? null, replyTo: who.replyTo ?? null } : null }
 }
+
+/** Who the store's emails are from, and where a reply goes. */
+export interface SenderInfo {
+  name: string | null
+  replyTo: string | null
+}
+
+/** Settings › Sending: the platforms and the sending domain, and the sender. */
+export type SendingData = PlatformsData & { sender?: SenderInfo | null }
 
 /**
  * The emails a buyer gets from the store, the same read Settings › Customer

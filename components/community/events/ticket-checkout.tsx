@@ -27,7 +27,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { Check, Ticket } from "lucide-react"
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js"
-import { getStripePromise } from "@/app/(storelib)/checkout/parts/stripe-loader"
+import { getStripePromise } from "@/components/checkout/parts/stripe-loader"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { BTN_PRIMARY, BTN_SECONDARY } from "@/components/community/member/ui"
 

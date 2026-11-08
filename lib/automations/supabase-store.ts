@@ -368,6 +368,13 @@ export function supabaseStore(db: Db): Store {
       return (count ?? 0) === 0
     },
 
+    async productKinds(creatorId, productIds) {
+      /* Only this creator's products answer: an id from another store has no kind here. */
+      const { data, error } = await db.from("products").select("id, type").eq("creator_id", creatorId).in("id", productIds.slice(0, 100))
+      if (error) fail("read the products", error)
+      return new Map(((data ?? []) as Array<{ id: string; type: string | null }>).map((p) => [p.id, String(p.type ?? "digital")]))
+    },
+
     exitRuns(creatorId, email, trigger, reason) {
       return exitContactRuns(db, creatorId, email, reason, trigger)
     },

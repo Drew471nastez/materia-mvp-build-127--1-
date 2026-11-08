@@ -87,8 +87,32 @@ export function cleanTriggerConfig(trigger: TriggerType, raw: unknown, existing?
     if (ids.length) out.product_ids = ids
   }
   if (isPurchaseTrigger(trigger) && (r.audience === "buyers" || r.audience === "subscribers")) out.audience = r.audience
+  /* Round 51: the kinds of product a template starts on (Course onboarding: courses), kept through every save. */
+  if (isPurchaseTrigger(trigger)) {
+    const kinds = cleanKinds(r.product_kinds) ?? cleanKinds(existing?.product_kinds)
+    if (kinds) out.product_kinds = kinds
+  }
   return out
 }
+
+const KINDS = new Set(["digital", "course", "membership", "physical", "community"])
+
+function cleanKinds(v: unknown): string[] | null {
+  if (!Array.isArray(v)) return null
+  const kinds = [...new Set(v.filter((k): k is string => typeof k === "string" && KINDS.has(k)))]
+  return kinds.length ? kinds : null
+}
+
+/**
+ * Postgres refused the trigger (23514, the check on email_flows.trigger_type):
+ * a trigger newer than the database, before its SQL part has run (round 51,
+ * part 379 for membership_started). Said plainly instead of "try again".
+ */
+export function triggerNotReady(error: { code?: string | null } | null | undefined): boolean {
+  return error?.code === "23514"
+}
+
+export const TRIGGER_NOT_READY = "This kind of automation is not available yet. Storelib is finishing an update. Try again later, or start from another one."
 
 export function cleanName(v: unknown): string | null {
   const name = cleanLine(v, 80).trim()

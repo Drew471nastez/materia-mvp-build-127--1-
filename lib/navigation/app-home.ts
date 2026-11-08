@@ -32,6 +32,8 @@ export const APP_ROOT_ROUTES = [
   "/app/coupons",
   "/app/reviews",
   "/app/onepage",
+  /* Round 51: the store's people, above Emails in the sidebar. A profile (/app/contacts/<id>) lands back on it. */
+  "/app/contacts",
   "/app/emails",
   "/app/payouts",
   "/app/settings",

@@ -52,7 +52,7 @@ import { ComposeDialog, StatusBadge, buttonAccent, buttonPrimary, buttonSecondar
 import { PreviewLayer } from "./preview-layer"
 import { StarterList, type LayoutChoice } from "./starter-list"
 import { LayoutBar, LayoutDialog, type LayoutDialogState } from "./layout-bar"
-import { starterDraft } from "@/lib/email-campaigns/starters"
+import { STARTERS, starterDraft, type StarterId } from "@/lib/email-campaigns/starters"
 import { appliedLayout, blankBlocks, detectLayout, envelopeAfter, layoutEdited, needsConfirm, readAppliedLayout, trimTrailingEmpty, type AppliedLayout } from "@/lib/email-campaigns/layouts"
 import { useMedia } from "./format-bar"
 import { SendStatus } from "./send-status"
@@ -60,10 +60,42 @@ import { afterLayerMove } from "@/components/app/page-layer"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, appTimeZone, instantAt, wallClockIn, zoned } from "@/lib/i18n/format"
 
+/**
+ * A new email that starts with something chosen (round 51): people picked in
+ * Contacts (?to=<id>, ?contacts=<id,...>), a saved segment (?segment=<id>),
+ * or a layout from Campaigns › Templates (?layout=<id>). Read once, by a new
+ * email only; a draft keeps what it saved.
+ */
+export interface ComposePreset {
+  contacts?: string[]
+  segment?: string | null
+  layout?: string | null
+}
+
 export interface ComposerProps {
   campaignId: string | null
   /** Leave the page; the list opens on the tab that now holds this email. */
   onExit: (tab?: "drafts" | "scheduled" | "published") => void
+  preset?: ComposePreset
+}
+
+/** What the composer says about people picked in Contacts: how many get it, and who was left out and why. */
+interface PickNote {
+  busy: boolean
+  asked: number
+  recipients: number
+  leftOut: { unsubscribed: number; suppressed: number; no_consent: number; unknown: number }
+  error: string | null
+}
+
+/** "2 unsubscribed, 1 never agreed to get your emails": the reasons people were left out, in the creator's words. */
+export function leftOutText(l: PickNote["leftOut"]): string {
+  const parts: string[] = []
+  if (l.unsubscribed) parts.push(tt("{n} unsubscribed", { n: l.unsubscribed }))
+  if (l.suppressed) parts.push(tt("{n} with an address that bounced or reported spam", { n: l.suppressed }))
+  if (l.no_consent) parts.push(tt("{n} never agreed to get your emails", { n: l.no_consent }))
+  if (l.unknown) parts.push(tt("{n} not found in your contacts", { n: l.unknown }))
+  return parts.join(", ")
 }
 
 interface Loaded {
@@ -111,7 +143,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; s
   }
 }
 
-export function EmailComposer({ campaignId, onExit }: ComposerProps) {
+export function EmailComposer({ campaignId, onExit, preset }: ComposerProps) {
   const [loading, setLoading] = React.useState(!!campaignId)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [me, setMe] = React.useState<Me>({ creatorId: null, name: "", username: null, avatarUrl: null, email: null, replyTo: null })
@@ -122,6 +154,12 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   const doc = useDoc([newBlock("rich")])
   const [options, setOptions] = React.useState<AudienceOption[]>([])
   const [segments, setSegments] = React.useState<SegmentOption[]>([])
+  /* Round 51: who was picked in Contacts, and how many of them this email may go to. */
+  const [pickNote, setPickNote] = React.useState<PickNote | null>(() =>
+    !campaignId && preset?.contacts?.length ? { busy: true, asked: preset.contacts.length, recipients: 0, leftOut: { unsubscribed: 0, suppressed: 0, no_consent: 0, unknown: 0 }, error: null } : null,
+  )
+  const [segmentMissing, setSegmentMissing] = React.useState(false)
+  const [audienceRead, setAudienceRead] = React.useState(false)
   /* The creator's products, for New segment's "bought a product you pick". */
   const [segmentProducts, setSegmentProducts] = React.useState<{ id: string; title: string }[]>([])
   const [plan, setPlan] = React.useState<{ limit: number; used: number } | null>(null)
@@ -193,15 +231,17 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
         cancels.push(
           afterLayerMove(() => {
             setOptions(d.options ?? [])
-            setSegments(d.segments ?? [])
+            /* A picked segment that arrived first stays in the list. */
+            setSegments((had) => [...(d.segments ?? []), ...had.filter((x) => x.picked && !(d.segments ?? []).some((y: SegmentOption) => y.id === x.id))])
             setSegmentProducts(Array.isArray(d.products) ? d.products : [])
             setPlan(d.plan ?? null)
             setBrand(d.brand ?? null)
             setCanSetOpens(d.upgraded === true)
+            setAudienceRead(true)
           }),
         )
       })
-      .catch(() => {})
+      .catch(() => setAudienceRead(true))
     return () => {
       live = false
       for (const cancel of cancels) cancel()
@@ -260,6 +300,49 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   React.useEffect(() => {
     if (campaignId) void load(campaignId)
   }, [campaignId, load])
+
+  /*
+    PEOPLE PICKED IN CONTACTS (round 51). The server keeps only the ones who
+    agreed to hear from this creator and are still on the list
+    (app/api/email/recipients, lib/emails/recipient-contacts.ts) as a picked
+    segment, and answers with how many were left out and why. The email goes
+    to that segment, which the send filters again when it goes.
+  */
+  const pickedIds = !campaignId && preset?.contacts?.length ? preset.contacts.join(",") : ""
+  React.useEffect(() => {
+    if (!pickedIds) return
+    let live = true
+    void api<{ segment: { id: string; count: number } | null; asked: number; recipients: number; leftOut: PickNote["leftOut"] }>("/api/email/recipients", {
+      method: "POST",
+      body: JSON.stringify({ contacts: pickedIds.split(",") }),
+    }).then((r) => {
+      if (!live) return
+      if (!r.ok) {
+        setPickNote((n) => ({ ...(n as PickNote), busy: false, error: r.data.error || tt("Could not read the people you picked. Try again.") }))
+        return
+      }
+      const d = r.data
+      setPickNote({ busy: false, asked: d.asked, recipients: d.recipients, leftOut: d.leftOut, error: null })
+      if (d.segment) {
+        const seg = d.segment
+        setSegments((list) => [...list.filter((x) => x.id !== seg.id), { id: seg.id, name: "", count: seg.count, picked: true }])
+        setAudience({ type: "segment", segmentId: seg.id })
+      }
+    })
+    return () => {
+      live = false
+    }
+  }, [pickedIds])
+
+  /* A saved segment named in the address (?segment=<id>), once the creator's segments are read. */
+  const presetSegment = !campaignId ? preset?.segment ?? null : null
+  const segmentPlaced = React.useRef(false)
+  React.useEffect(() => {
+    if (!presetSegment || segmentPlaced.current || !audienceRead) return
+    segmentPlaced.current = true
+    if (segments.some((s) => s.id === presetSegment && !s.picked)) setAudience({ type: "segment", segmentId: presetSegment })
+    else setSegmentMissing(true)
+  }, [presetSegment, audienceRead, segments])
 
   const status: CampaignStatus = loaded?.status ?? "draft"
   const editable = EDITABLE.includes(status) || (status === "failed" && !(loaded?.counts && loaded.counts.sent + loaded.counts.delivered + loaded.counts.bounced > 0))
@@ -668,6 +751,16 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
 
   const canStart = editable && !loading && !hasContent && !layout
 
+  /* A layout chosen in Campaigns › Templates (?layout=<id>), put in once the brand it is drawn in is read. */
+  const presetLayout = !campaignId && preset?.layout && STARTERS.some((x) => x.id === preset.layout) ? (preset.layout as StarterId) : null
+  const layoutPlaced = React.useRef(false)
+  React.useEffect(() => {
+    if (!presetLayout || layoutPlaced.current || !audienceRead || !canStart) return
+    layoutPlaced.current = true
+    applyLayout(presetLayout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetLayout, audienceRead, canStart])
+
   /* ─── Drawing ─── */
 
   const title = subject.trim() || (loaded ? tt("Untitled email") : tt("New email"))
@@ -832,6 +925,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
                           setAudience({ type: "segment", segmentId: s.id })
                         }}
                       />
+                      <PickedNote note={pickNote} segmentMissing={segmentMissing} />
                     </Row>
                     <Row label={tt("From")}>
                       <p className="flex h-11 min-w-0 items-center truncate text-[16px] text-[#1a1a2e] sm:h-9 sm:text-[14px]">
@@ -1188,5 +1282,27 @@ function ComposeSkeleton() {
       </div>
       <div className={cn(card, "hidden h-[520px] lg:block")} />
     </div>
+  )
+}
+
+/**
+ * Under To, for an email opened from Contacts: how many of the people picked
+ * get it, and who was left out and why (round 51). Only people who agreed to
+ * hear from the creator are ever sent a campaign.
+ */
+function PickedNote({ note, segmentMissing }: { note: PickNote | null; segmentMissing: boolean }) {
+  if (segmentMissing) return <p className={cn(helpClass, "pb-1.5")} data-picked-note="">{tt("That segment was not found. Choose who to send to.")}</p>
+  if (!note) return null
+  if (note.busy) return <p className={cn(helpClass, "pb-1.5")} data-picked-note="">{tt("Checking the people you picked…")}</p>
+  if (note.error) return <p className={cn(errorClass, "pb-1.5")} data-picked-note="">{note.error}</p>
+  const left = note.asked - note.recipients
+  return (
+    <p className={cn(helpClass, "pb-1.5")} data-picked-note="" data-left-out={left}>
+      {note.recipients === 0
+        ? tt("None of the {asked, plural, one {# person} other {# people}} you picked can get this email: {why}. Choose who to send to.", { asked: note.asked, why: leftOutText(note.leftOut) })
+        : left > 0
+          ? tt("{n, plural, one {# person gets} other {# people get}} this email. {left, plural, one {# was} other {# were}} left out: {why}.", { n: note.recipients, left, why: leftOutText(note.leftOut) })
+          : tt("{n, plural, one {# person gets} other {# people get}} this email.", { n: note.recipients })}
+    </p>
   )
 }

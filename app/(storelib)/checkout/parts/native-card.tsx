@@ -16,7 +16,7 @@
  */
 
 import * as React from "react"
-import { Field, TextInput } from "./ui"
+import { Field, TextInput } from "@/components/checkout/parts/ui"
 
 export interface NativeCard {
   number: string

@@ -11,5 +11,5 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default async function EmailRedirect({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  redirect(UUID.test(id) ? `/app/emails?tab=published&email=${encodeURIComponent(id)}` : "/app/emails")
+  redirect(UUID.test(id) ? `/app/emails?tab=campaigns&email=${encodeURIComponent(id)}` : "/app/emails")
 }

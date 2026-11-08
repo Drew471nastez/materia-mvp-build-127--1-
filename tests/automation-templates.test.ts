@@ -67,7 +67,8 @@ function world(): World {
   const installId = randomUUID()
   db.tables.creators.push({ id: creatorId, slug: "astrid", headline: null, support_email: "hello@astrid.studio", user_id: "u1" })
   db.tables.profiles.push({ id: "u1", display_name: "Astrid Lens", username: "astrid", email: "astrid@example.com", avatar_url: "https://cdn.example.com/a.png" })
-  db.tables.products.push({ id: productId, creator_id: creatorId, slug: "autumn-presets", title: "Autumn presets" })
+  /* Changed on purpose (round 51): the product is a course, so Course onboarding (product_kinds ["course"]) starts on it; no other template reads the kind. */
+  db.tables.products.push({ id: productId, creator_id: creatorId, slug: "autumn-presets", title: "Autumn presets", type: "course" })
   db.tables.store_theme_installs.push({ id: installId, creator_id: creatorId, status: "published", sort_order: 0 })
   db.tables.store_theme_settings.push({ id: randomUUID(), install_id: installId, settings: { brand_name: BRAND.name, logo_url: BRAND.logo, primary_color: BRAND.color } })
   return { db, store: supabaseStore(db), creatorId, productId }
@@ -80,7 +81,8 @@ function turnOn(w: World, t: FlowTemplate) {
     creator_id: w.creatorId,
     name: t.name,
     trigger_type: t.trigger,
-    trigger_config: { template: t.id, entry: t.entry, ...(t.audience ? { audience: t.audience } : {}) },
+    /* Changed on purpose (round 51): a template's product kinds are part of the flow it makes (app/api/automations/flows). */
+    trigger_config: { template: t.id, entry: t.entry, ...(t.audience ? { audience: t.audience } : {}), ...(t.productKinds ? { product_kinds: t.productKinds } : {}) },
     status: "active",
     steps: serializeSteps(t.steps),
   })
@@ -163,6 +165,11 @@ async function start(w: World, t: FlowTemplate, email: string) {
     return join_(w, email)
   }
   if (t.trigger === "abandoned_checkout") return leaveCheckout(w, email, true)
+  /* Changed on purpose (round 51): a membership starting (lib/automations/membership-trigger.ts), keyed by the membership. */
+  if (t.trigger === "membership_started") {
+    contact(w, email, "customer")
+    return startMembership(w, email)
+  }
   if (audienceOf(t.trigger, { template: t.id, audience: t.audience }) === "subscribers") contact(w, email, "subscribed")
   else contact(w, email, "customer")
   return buy(w, email)
@@ -171,13 +178,19 @@ async function start(w: World, t: FlowTemplate, email: string) {
 async function again(w: World, t: FlowTemplate, email: string) {
   if (t.trigger === "new_subscriber") return join_(w, email)
   if (t.trigger === "abandoned_checkout") return sweepAbandoned({ store: w.store, starts: supabaseStarts(w.db), now: w.db.clock })
+  if (t.trigger === "membership_started") return startMembership(w, email)
   const last = w.db.rows("orders").filter((o) => o.buyer_email === email).at(-1)!
   return buy(w, email, last.id)
 }
 
+function startMembership(w: World, email: string) {
+  return enroll(w.store, { triggerType: "membership_started", creatorId: w.creatorId, email, name: "Ada Lovelace", productId: w.productId, productTitle: "Autumn presets", eventId: "membership:m1" }, w.db.clock)
+}
+
 async function main() {
   console.log("\nThe templates, as written")
-  check("eight starting points", TEMPLATES.length === 8, TEMPLATES.map((t) => t.id))
+  /* Changed on purpose (round 51): Course onboarding and Membership onboarding join the eight. */
+  check("ten starting points", TEMPLATES.length === 10, TEMPLATES.map((t) => t.id))
   check("four of them new: a first order, a checkout reminder, how to use it, a review", ["first_order", "checkout_reminder", "how_to_use", "review_request"].every((id) => templateById(id)))
   const banned = /\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform|game.?changer|journey|delve|leverage)\b/i
   for (const t of TEMPLATES) {

@@ -366,7 +366,8 @@ async function main() {
     /* Changed on purpose (round 40 team permissions): read on the server (app/api/email/area?part=messages) for the session's store, named by its creator id. */
     const area = read("app/api/email/area/route.ts")
     check("the list is read for the session's own store and names its creator id", /\/api\/email\/area\?part=messages/.test(data) && /from\("site_contact_messages"\)[\s\S]{0,120}\.eq\("creator_id", creatorId\)/.test(area) && /await requireTeamPermission\("marketing"\)/.test(area))
-    check("Messages is a tab of Emails, with the new ones counted", /\{ id: "messages", label: "Messages" \}/.test(read("app/(storelib)/app/emails/emails-home.tsx")) && /counts=\{\{ messages:/.test(read("app/(storelib)/app/emails/emails-home.tsx")))
+    /* Changed on purpose (round 51): Messages moved from Emails to Contacts › Forms; ?tab=messages redirects there. */
+    check("Emails' old Messages tab goes to Contacts › Forms", /if \(tab === "messages" \|\| \(!tab && message\)\)/.test(read("app/(storelib)/app/emails/emails-route.ts")))
     const sql = read("supabase/sql/run-now/92_site_password_and_inbox.sql")
     check("part 92 adds read_at where the messages table is, and is safe to run twice", /ADD COLUMN IF NOT EXISTS read_at timestamptz/.test(sql) && /to_regclass\('public\.site_contact_messages'\) IS NOT NULL/.test(sql))
   }

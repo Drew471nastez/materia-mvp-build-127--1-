@@ -38,6 +38,7 @@ export const clock = {
 }
 
 export const cacheStats = { hits: 0, stale: 0, misses: 0 }
+const CACHE_RTT = Number(process.env.CACHE_RTT ?? 0)
 
 export function resetCache() {
   entries.clear()
@@ -81,6 +82,8 @@ export function unstable_cache<A extends unknown[], R>(
   const tags = options.tags ?? []
   const revalidate = typeof options.revalidate === "number" ? options.revalidate : false
   return async (...args: A) => {
+    /* What one answer from the shared data cache costs (CACHE_RTT, ms): on Vercel each is a request to it. Nothing unless asked for. */
+    if (CACHE_RTT > 0) await new Promise((r) => setTimeout(r, CACHE_RTT))
     const key = `${fixedKey}-${JSON.stringify(args)}`
     const held = entries.get(key)
     const write = (value: R) => {

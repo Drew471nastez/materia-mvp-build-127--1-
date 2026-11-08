@@ -434,7 +434,13 @@ async function main() {
   {
     const cs = read("lib/website-builder/compat-site.ts")
     check("compat-site fills site.blog from blogFor, a post, its preview and its redirect", /blogFor\(creator\.creatorId\)/.test(cs) && /readLivePost\(creatorId, slug\)/.test(cs) && /readPreviewPost\(creatorId, token\)/.test(cs) && /siteBlogRedirect\(creatorId, slug\)/.test(cs))
-    check("the stranger hold carries the blog's tag", /\[creatorSiteTag\(creator\.creatorId\), creatorShopTag\(creator\.creatorId\), siteBlogTag\(creator\.creatorId\)\]/.test(read("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
+    /* Changed on purpose (round AM): the hold's tags are named once, lib/website-builder/site-stamp.ts siteStampTags, which the route passes and which still names the blog's tag. */
+    check(
+      "the stranger hold carries the blog's tag",
+      (/\[creatorSiteTag\(creator\.creatorId\), creatorShopTag\(creator\.creatorId\), siteBlogTag\(creator\.creatorId\)\]/.test(read("app/api/site-theme/site/[username]/[[...path]]/route.ts")) ||
+        /heldStrangerPage\(strangerKey\([\s\S]{0,120}\), siteStampTags\(creator\.creatorId\), async/.test(read("app/api/site-theme/site/[username]/[[...path]]/route.ts"))) &&
+        /return \[creatorSiteTag\(creatorId\), creatorShopTag\(creatorId\), siteBlogTag\(creatorId\)\]/.test(read("lib/website-builder/site-stamp.ts")),
+    )
     check("the canvas wants the blog on the Blog and Post templates and with a blog setting", wantsCanvasBlog("blog", []) && wantsCanvasBlog("article", []) && wantsCanvasBlog("index", ["text", "blog"]) && !wantsCanvasBlog("index", ["text"]))
     const data = { settings: SETTINGS, listing: { posts: CARDS.slice(1, 4) }, post: null, sample: true }
     const art = canvasBlogPage(data, "article")

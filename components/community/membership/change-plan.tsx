@@ -18,7 +18,7 @@ import { api, apiBase } from "@/components/community/member/api"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY } from "@/components/community/member/ui"
 import { formatMoney, type CommunityMembershipView } from "@/lib/communities/membership-policy"
 import type { PlanInterval } from "@/lib/communities/plan-change"
-import { getStripePromise } from "@/app/(storelib)/checkout/parts/stripe-loader"
+import { getStripePromise } from "@/components/checkout/parts/stripe-loader"
 import { MembershipSheet } from "./sheet"
 import { confirmLabel, previewSentence, type PlanPreview as Preview } from "./plan-words"
 

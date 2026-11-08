@@ -27,6 +27,8 @@ export interface FlowTemplate {
   entry: EntryRule
   /** Purchase flows that sell rather than serve the order. */
   audience?: Audience
+  /** Purchase flows only (round 51): the kinds of product that start it, products.type. */
+  productKinds?: string[]
   steps: FlowStep[]
 }
 
@@ -204,6 +206,75 @@ export const TEMPLATES: FlowTemplate[] = [
     ],
   },
 ]
+
+/*
+  ROUND 51: ONBOARDING, ONLY WHERE A TRIGGER REALLY FIRES.
+
+  Course onboarding is a purchase flow that starts only when what was bought
+  is a course (trigger_config.product_kinds, engine.ts enroll reads each
+  product's type). Every course order already fires "purchase", free claims
+  included.
+
+  Membership onboarding starts when a membership sold on its own first gives
+  access (lib/memberships/sync.ts, the "started" change), once per
+  membership. The Membership started email (Emails › Settings › Customer
+  emails) already goes out at that moment with what they pay, so this one
+  waits a day and is about using it: not a second email for the same event.
+
+  Left out on purpose: a community welcome (the community already sends its
+  Welcome email and its chat welcome), a renewal reminder and a membership
+  ended note (both are customer emails already), a follow-up after a form
+  (a form's answer with consent already starts "joins your list"; without
+  consent nothing promotional may go).
+*/
+TEMPLATES.push(
+  {
+    id: "course_onboarding",
+    name: "Course onboarding",
+    get purpose() { return tt("Help someone start a course they just got, then check in a few days later.") },
+    trigger: "purchase",
+    entry: { mode: "each" },
+    productKinds: ["course"],
+    steps: [
+      { id: "course_wait", type: "wait", config: { amount: 1, unit: "hours" } },
+      {
+        id: "course_1",
+        type: "email",
+        config: {
+          get subject() { return tt("Start here: {{product_name}}") },
+          get body() { return `<p>Hi {{first_name}},</p><p>You are in {{product_name}}. The best way to start is the first lesson, today, even if it is only ten minutes.</p>${button(tt("Open the course"), "order_url")}<p>Stuck on something? Reply to this email and I will help.</p><p>{{creator_name}}</p>` },
+        },
+      },
+      { id: "course_wait_2", type: "wait", config: { amount: 4, unit: "days" } },
+      {
+        id: "course_2",
+        type: "email",
+        config: {
+          get subject() { return tt("How is {{product_name}} going?") },
+          body: "<p>Hi {{first_name}},</p><p>A few days in. How far have you got with {{product_name}}? If a lesson was unclear, reply and tell me which one.</p><p>{{creator_name}}</p>",
+        },
+      },
+    ],
+  },
+  {
+    id: "membership_onboarding",
+    name: "Membership onboarding",
+    get purpose() { return tt("The day after someone starts a membership, show them what it includes.") },
+    trigger: "membership_started",
+    entry: { mode: "each" },
+    steps: [
+      { id: "member_wait", type: "wait", config: { amount: 1, unit: "days" } },
+      {
+        id: "member_1",
+        type: "email",
+        config: {
+          get subject() { return tt("Getting the most from {{product_name}}") },
+          get body() { return `<p>Hi {{first_name}},</p><p>Thanks for joining {{product_name}}. Here is where everything is, so you can use it from day one.</p>${button(tt("Open your membership"), "product_url")}<p>If you are not sure where to start, reply and tell me what you are after.</p><p>{{creator_name}}</p>` },
+        },
+      },
+    ],
+  },
+)
 
 export const BLANK_TEMPLATE = "blank"
 

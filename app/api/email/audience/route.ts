@@ -45,7 +45,7 @@ export async function GET() {
 
   const n = (r: { count: number | null; error: unknown }) => (r.error ? null : r.count ?? 0)
   /* A segment of rules is counted as it would be sent today; the first twenty, so a long list of segments can't slow the page. */
-  type SegRow = { id: string; name: string; filters: { subscriber_ids?: unknown; rules?: unknown } | null }
+  type SegRow = { id: string; name: string; filters: { subscriber_ids?: unknown; rules?: unknown; picked?: unknown } | null }
   const segRows = (segments.data ?? []) as SegRow[]
   const ruleCounts = new Map<string, number | null>()
   await Promise.all(
@@ -74,6 +74,8 @@ export async function GET() {
         id: s.id,
         name: s.name,
         count: s.filters?.rules ? ruleCounts.get(s.id) ?? null : Array.isArray(s.filters?.subscriber_ids) ? (s.filters?.subscriber_ids as unknown[]).length : null,
+        /* Round 51: people picked in Contacts (app/api/email/recipients), named by the page and offered only to the email that uses them. */
+        ...(s.filters?.picked === true ? { picked: true } : {}),
       })),
       products: ((products.data ?? []) as { id: string; title: string | null }[]).map((p) => ({ id: p.id, title: p.title || "Untitled product" })),
       plan: { limit: monthlyLimit(creator.data?.subscription_plan_id, creator.data?.subscription_status), used },

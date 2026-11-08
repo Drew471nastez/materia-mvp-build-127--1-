@@ -10,6 +10,8 @@ import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { isReleaseId } from "@/lib/website-builder/site-releases"
 import { pruneReleases, releasesMissing, rollbackRelease } from "@/lib/website-builder/site-releases-server"
 import { mirrorWholeTheme } from "@/lib/github-sync/mirror"
+import { warmAfterPublish } from "@/lib/website-builder/warm-sites"
+import { seenCountry } from "@/lib/markets/visitor-country"
 
 type Params = { params: Promise<{ installId: string; releaseId: string }> }
 
@@ -36,7 +38,7 @@ const NOT_SET_UP = "Published versions are not set up yet."
  * working in the store, lib/team/website), the same rate limit,
  * the same caches cleared and the same record after the answer.
  */
-export async function POST(_req: Request, { params }: Params) {
+export async function POST(req: Request, { params }: Params) {
   const { installId, releaseId } = await params
   const admin = createAdminClient()
   /* The owner, or a team member with Website working in the store (lib/team/website): the site in the URL must be the store's. */
@@ -103,6 +105,8 @@ export async function POST(_req: Request, { params }: Params) {
   /* Not optional, and last, as in Publish: the website is held in a cache until this says otherwise. */
   await revalidatePublishedSite(creator.id)
 
+  /* Its pages drawn at once for the person who restored it and as the warm is seen, as after a Publish (lib/website-builder/warm-sites.ts warmAfterPublish). */
+  after(() => warmAfterPublish(creatorId, { countries: [seenCountry(req.headers)] }))
   after(() => announce(() => websiteAddresses(creatorId)))
   after(() => mirrorWholeTheme(installId, "Restored a published version"))
 

@@ -38,6 +38,7 @@ async function membersBody({ ctx, sp, openInvite }: { ctx: CreatorPageContext; s
       invites={r.invites}
       openInvite={openInvite}
       badges={r.badges}
+      focus={r.focus}
     />
   )
 }

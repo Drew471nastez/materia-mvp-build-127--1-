@@ -16,7 +16,7 @@
  * 1024 pixels the order and the shop sit in a column beside the
  * conversation, which stays at a reading width on a large screen.
  *
- * In the language the order was placed in (app/checkout/parts/words.tsx),
+ * In the language the order was placed in (components/checkout/parts/words.tsx),
  * English on storelib.com.
  */
 import * as React from "react"
@@ -25,7 +25,7 @@ import { type CaseMessage, type CaseReason, type CaseStatus, type CaseSummary } 
 import { cn } from "@/lib/utils"
 import { CasePhotoPicker, CasePhotoStrip, caseRequestBody, useCasePhotos } from "@/components/support/case-photos"
 import { reasonLabel } from "@/components/support/order-help"
-import { useCheckoutLang, useCt } from "@/app/(storelib)/checkout/parts/words"
+import { useCheckoutLang, useCt } from "@/components/checkout/parts/words"
 import type { CheckoutT } from "@/lib/markets/checkout-words"
 import { lastMessageId, mergeMessages, useCaseLive } from "@/lib/support/use-case-live"
 import { StoreLogo } from "@/components/brand/store-logo"

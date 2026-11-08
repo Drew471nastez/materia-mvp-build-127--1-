@@ -38,7 +38,7 @@
  * grow by text that is new to Storelib. Collecting them belongs in a nightly
  * job that can take a lock, not in a publish.
  */
-import { unstable_cache } from "next/cache"
+import { revalidateTag, unstable_cache } from "next/cache"
 import { PUBLISHED_HOLD_S } from "@/lib/delivery/holds"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { keyedAs } from "./last-good"
@@ -106,12 +106,36 @@ export async function readLivePointer(db: Db, creatorId: string): Promise<LivePo
   return typeof releaseId === "string" && releaseId ? { installId: row.id, releaseId } : null
 }
 
+/** The pointer's own tag, beside the site's: only it is expired when Publish's release is pointed at (releasePointed). */
+export const releasePointerTag = (creatorId: string) => `site-release-pointer:${creatorId}`
+
+/**
+ * THE RELEASE IS LIVE, SO EVERY SERVER MAY DRAW FROM IT (round AM). Publish
+ * clears the site's caches, then writes its release a few seconds later
+ * (recordRelease, after the answer). A page drawn in between read the
+ * pointer while the trigger had let go of it, and every server kept that
+ * "no release" for the pointer's hour: each new server read every file of
+ * the theme from the database, a few megabytes, instead of the release's
+ * files every server already keeps. Only the pointer is let go here: the
+ * held pages stay (the release is those very rows), and the page's marker
+ * is the rows' count, which pointing at the release does not change
+ * (./live-release.ts), so no page in a browser reloads for it.
+ */
+export function releasePointed(creatorId: string): void {
+  try {
+    revalidateTag(releasePointerTag(creatorId), { expire: 0 })
+  } catch (e) {
+    /* Outside a request (a script): the pointer's own hold runs out instead. */
+    logEvent("warn", "site_release_pointer_not_cleared", { msg: "[site-releases] the release pointer was not cleared", reason: e instanceof Error ? e.message : String(e) })
+  }
+}
+
 /** The pointer, held under the site's tags for a minute. Null on any failure: the rows are drawn instead, as before releases. */
 export async function livePointer(creatorId: string, tags: string[]): Promise<LivePointer | null> {
   if (releasesKnownMissing()) return null
   try {
     /* Named to outlive a deploy (./last-good.ts keyedAs): a cold server reads the pointer every server kept, served stale when the read fails, instead of falling back to the rows (EVD-1). */
-    return await unstable_cache(keyedAs("site-live-release:v1", () => readLivePointer(createAdminClient(), creatorId)), ["site-live-release", creatorId], { tags, revalidate: POINTER_HOLD_S })()
+    return await unstable_cache(keyedAs("site-live-release:v1", () => readLivePointer(createAdminClient(), creatorId)), ["site-live-release", creatorId], { tags: [...tags, releasePointerTag(creatorId)], revalidate: POINTER_HOLD_S })()
   } catch (e) {
     /* The site is still drawn, from the rows: a warning. */
     logEvent("warn", "site_release_pointer_unread", { msg: "[site-releases] the live release could not be read, drawing from the rows", reason: e instanceof Error ? e.message : String(e) })
