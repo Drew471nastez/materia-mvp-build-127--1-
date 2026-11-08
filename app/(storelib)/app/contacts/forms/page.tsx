@@ -1,6 +1,6 @@
 /**
- * /app/contacts/forms: Contacts › Forms (round 51). The page's own bar
- * (Contacts, People | Forms) over the creator's forms, the list Emails ›
+ * /app/contacts/forms: Contacts › Forms (round 51; wave 5, a page under
+ * Contacts with Back, no tabs). The bar (Back, Forms) over the creator's forms, the list Emails ›
  * Leads › Forms drew (app/app/emails/forms/forms-list.tsx, whose insides are
  * the forms' own). FormsList reads its own address (?form, ?view, ?response,
  * ?message, ?inbox, ?siteform), so a link to a form, a response or a message
@@ -24,13 +24,14 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ContactsFormsPage() {
+  const { tt } = await getServerTt()
   const access = await contactsPage()
   if (access.kind === "signed_out") return null
   if (access.kind === "none") redirect("/onboarding")
   if (access.kind === "denied") return <TeamAreaClosed area="customers" store={access.store} permissions={access.permissions} />
   return (
     <>
-      <ContactsHeader tab="forms" />
+      <ContactsHeader title={tt("Forms")} back />
       <div className={cn("mx-auto pb-24 pt-3 md:pb-8", LIST_WIDTH, GUTTER)} data-contacts-forms="">
         <FormsList />
       </div>

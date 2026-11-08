@@ -3024,6 +3024,7 @@ const words: Record<string, string> = {
  "Edit menu": "Edytuj menu",
  "Edit menus": "Edytuj menu",
  "Edit name and notes": "Edytuj imię i notatki",
+ "Edit name, tags and notes": "Edytuj imię, tagi i notatki",
  "Edit navigation": "Edytuj nawigację",
  "Edit offer": "Edytuj ofertę",
  "Edit offer {title}": "Edytuj ofertę {title}",
