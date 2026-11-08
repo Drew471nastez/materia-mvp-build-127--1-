@@ -24,7 +24,7 @@ import { orderPagePath } from "@/lib/physical/order-link"
 import { buyerProperties } from "@/lib/physical/cart-link"
 import { buyerPageLanguage } from "@/lib/markets/checkout-language"
 import { buyerChannel } from "@/lib/emails/buyer-channel"
-import { CheckoutWords } from "@/app/(storelib)/checkout/parts/words"
+import { CheckoutWords } from "@/components/checkout/parts/words"
 import { creditNoteNumber, creditNotePath, creditNotesForReceipt } from "@/lib/checkout/credit-note"
 import { withinTime } from "@/lib/receipts/discount"
 

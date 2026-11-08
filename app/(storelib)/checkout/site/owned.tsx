@@ -24,7 +24,7 @@
 import { Check, ShoppingBag } from "lucide-react"
 import type { SiteOwnedLine } from "@/lib/checkout/site-quote-server"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
-import { useCt } from "../parts/words"
+import { useCt } from "@/components/checkout/parts/words"
 
 function Thumb({ src }: { src: string | null }) {
   return src ? (

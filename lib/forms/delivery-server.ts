@@ -207,7 +207,8 @@ async function ownerEmail(db: Db, job: JobRow, s: SubmissionRow, booking: Bookin
   const identity = await resolveCreatorIdentity(db, job.owner_id).catch(() => null)
   const to = identity?.sellerEmail
   if (!to || !to.includes("@")) throw permanent("No email address on the account.")
-  const link = `${platformOrigin()}/app/emails?tab=leads&lead=${encodeURIComponent(s.id)}`
+  /* Round 51: the response open in Contacts › Forms (the old Emails › Leads link pointed at a tab that is gone). */
+  const link = `${platformOrigin()}/app/contacts/forms?form=${encodeURIComponent(job.form_id)}&view=responses&response=${encodeURIComponent(s.id)}`
   const who = s.contact_name || s.contact_email || "Someone"
   const subject = booking ? `Booking request: ${s.form_title}`.slice(0, 200) : `New response: ${s.form_title}`.slice(0, 200)
   const slot = booking ? [{ label: "Requested time", value: `${when(booking.starts_at, null)}${booking.status === "pending" ? " (waiting for your answer)" : ""}` }] : []

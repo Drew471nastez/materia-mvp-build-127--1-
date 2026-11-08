@@ -12,14 +12,14 @@
  * Storelib can be asked in when a problem with the goods or a refund goes
  * unanswered for three days. An order that already has an open case shows
  * that case first; a new message joins it. In the language of the page it
- * sits on (app/checkout/parts/words.tsx), English elsewhere.
+ * sits on (components/checkout/parts/words.tsx), English elsewhere.
  */
 import * as React from "react"
 import { Mail, Phone } from "lucide-react"
 import { reasonsFor, type CaseReason } from "@/lib/support/cases"
 import { CasePhotoPicker, caseRequestBody, useCasePhotos } from "@/components/support/case-photos"
 import { cn } from "@/lib/utils"
-import { useCt } from "@/app/(storelib)/checkout/parts/words"
+import { useCt } from "@/components/checkout/parts/words"
 import type { CheckoutT } from "@/lib/markets/checkout-words"
 
 /* What a message is about, in the page's language (lib/support/cases.ts CASE_REASON_LABELS, the shop's side of the same list). Also the conversation page's title (app/order-help). */

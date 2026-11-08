@@ -80,7 +80,8 @@ async function main() {
 
   console.log("\nNo checkout pins Buy to the foot of the screen")
   {
-    const ui = code("app/(storelib)/checkout/parts/ui.tsx")
+    /* Changed on purpose (round 51): the checkout's shared ui, words and Stripe loader moved to components/checkout/parts, so a website's stylesheet is built from website code only (tests/site-root-r52). */
+    const ui = code("components/checkout/parts/ui.tsx")
     const dock = ui.slice(ui.indexOf("export function PayDock"), ui.indexOf("export function PayButton"))
     check("Pay's box is a plain block at the end of the form", dock.length > 0 && !/\bsticky\b|\bfixed\b|bottom-0|safe-area/.test(dock) && /data-pay-dock=""/.test(dock) && /"mt-5"/.test(dock))
     const files = [

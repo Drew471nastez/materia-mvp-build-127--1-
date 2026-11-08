@@ -85,7 +85,7 @@ export const runtime = "nodejs"
  *                      as it always was, with `ui_mode: "embedded"`: Stripe's
  *                      form inside the page, under the shop's logo and Back.
  *                      `ui: "hosted"` is the app's shell, where Stripe.js
- *                      cannot run (app/checkout/parts/stripe-loader).
+ *                      cannot run (components/checkout/parts/stripe-loader).
  *
  * The session, its metadata and its fulfilment are the same in every case
  * (checkout.session.completed, lib/checkout/fulfil-cart-session). The buyer

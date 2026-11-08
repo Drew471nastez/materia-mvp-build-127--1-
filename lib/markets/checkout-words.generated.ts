@@ -1,4 +1,4 @@
-/* Written by scripts/i18n/checkout-sentences.mjs from the ct("…") calls under app/(storelib)/checkout and lib/checkout and app/(storelib)/receipt and app/(storelib)/review and app/(storelib)/order-help and components/physical/tracking-timeline.tsx and components/support/order-help.tsx and components/support/case-photos.tsx and components/offers/checkout-suggestions.tsx and the answers of the checkout's server code, and the et("…") calls of a buyer's emails. Do not edit: run it again. */
+/* Written by scripts/i18n/checkout-sentences.mjs from the ct("…") calls under app/(storelib)/checkout and lib/checkout and app/(storelib)/receipt and app/(storelib)/review and app/(storelib)/order-help and components/physical/tracking-timeline.tsx and components/support/order-help.tsx and components/support/case-photos.tsx and components/offers/checkout-suggestions.tsx and components/checkout/parts and the answers of the checkout's server code, and the et("…") calls of a buyer's emails. Do not edit: run it again. */
 export const CHECKOUT_SENTENCES: readonly string[] = [
   "Prices on Storelib are being updated. Try again in a few minutes.",
   "Back to the product",
@@ -80,9 +80,6 @@ export const CHECKOUT_SENTENCES: readonly string[] = [
   "{amount} to pay in cash.",
   "{amount} paid.",
   "Your receipt is in your email.",
-  "Powered by",
-  "Terms",
-  "Privacy",
   "Choose an option",
   "Done changing {title}",
   "Change {title}",
@@ -463,6 +460,7 @@ export const CHECKOUT_SENTENCES: readonly string[] = [
   "Create account",
   "Refunds for {product}: {policy}.",
   "Refunds: {policy}.",
+  "Terms",
   "Write a message first.",
   "The message did not go out. Try again in a minute.",
   "Questions about this order?",
@@ -597,6 +595,8 @@ export const CHECKOUT_SENTENCES: readonly string[] = [
   "Add to your order",
   "{title} option",
   "Add",
+  "Powered by",
+  "Privacy",
   "Something was missing. Refresh the page and try again.",
   "Open the checkout from the shop's website.",
   "Bad request.",
