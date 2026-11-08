@@ -95,6 +95,8 @@ function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     check("the links tab uses it, and the old swap is gone", /<BlockFootActions/.test(tab) && !/showDeleteConfirm/.test(tab) && !/Permanently remove/.test(tab))
+    /* Changed on purpose (round AN): "the remove should not be at the bottom of the block". The same bar opens an open block, over its editor and its Settings | Layout tabs. */
+    check("it is the first line of an open block, before its editor", tab.search(/<BlockFootActions\s+question=/) > 0 && tab.search(/<BlockFootActions\s+question=/) < tab.search(/<BlockEditor\s+block=\{block\}/) && /data-block-bar="top"/.test(foot))
     check("a group's question says its blocks stay", /Remove this group\? Its blocks stay on your page\./.test(tab))
     check("the moves are one pair with names", /aria-label=\{tt\("Move up"\)\}/.test(foot) && /aria-label=\{tt\("Move down"\)\}/.test(foot) && /disabled=\{isFirst\}/.test(foot) && /disabled=\{isLast\}/.test(foot))
     check("Remove is a disclosure, and the question opens under it to its height", /aria-expanded=\{asking\}/.test(foot) && /<Reveal open=\{asking\} id=\{panelId\} returnFocus=\{removeRef\}>/.test(foot))

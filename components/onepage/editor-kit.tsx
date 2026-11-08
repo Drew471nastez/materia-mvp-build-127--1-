@@ -440,6 +440,28 @@ export function ProMark({ title = "Pro" }: { title?: string }) {
   )
 }
 
+/**
+ * A FIELD IN A BLOCK'S SETTINGS (round AN): its name over it with room to
+ * breathe (8px), the control, then at most one short line of help under
+ * it. The owner: "organize the pills and inputs ... make it more Storelib".
+ * A segmented row had no name at all (Alignment, Title weight read as three
+ * loose words), and a help paragraph sat under two fields as if it belonged
+ * to both.
+ */
+export function LabeledRow({ label, hint, children, className, htmlFor }: { label: string; hint?: React.ReactNode; children: React.ReactNode; className?: string; htmlFor?: string }) {
+  return (
+    <div className={cn("min-w-0", className)} data-field-row="">
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className="mb-2 block text-[13px] font-medium leading-[18px] text-[#1a1a2e]">{label}</label>
+      ) : (
+        <p className="mb-2 text-[13px] font-medium leading-[18px] text-[#1a1a2e]">{label}</p>
+      )}
+      {children}
+      {hint ? <p className="mt-1.5 text-[12.5px] leading-[1.4] text-[#6b7280]">{hint}</p> : null}
+    </div>
+  )
+}
+
 /** The text box every panel uses: large, rounded, a hairline, dark when in use. */
 export const fieldInput =
   "h-12 w-full rounded-xl border border-[#e3e4e8] bg-white px-4 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[15px]"

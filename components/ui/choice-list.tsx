@@ -147,6 +147,7 @@ export function ChoiceList({
   autoFocus = false,
   searchInHeader = false,
   scrollClassName,
+  searchable = true,
 }: {
   choices: Choice[]
   value: string | null
@@ -165,6 +166,8 @@ export function ChoiceList({
   searchInHeader?: boolean
   /** Taller scroll area for long lists (countries). */
   scrollClassName?: string
+  /** Round AN: rows alone, no search field (a short list). */
+  searchable?: boolean
 }) {
   const [query, setQuery] = React.useState("")
   return (
@@ -179,7 +182,7 @@ export function ChoiceList({
       uniform={uniform}
       query={query}
       scrollClassName={scrollClassName}
-      search={searchInHeader ? null : <ChoiceSearch value={query} onChange={setQuery} placeholder={placeholder} label={label} compact={compact} autoFocus={autoFocus} />}
+      search={searchInHeader || !searchable ? null : <ChoiceSearch value={query} onChange={setQuery} placeholder={placeholder} label={label} compact={compact} autoFocus={autoFocus} />}
     />
   )
 }
@@ -461,14 +464,14 @@ export function ChoiceSheet({
       onClose={onClose}
       label={title}
       aboveKeyboard
-      height={sheetAboveKeyboardHeight(sheetHeight)}
+      height={searchable ? sheetAboveKeyboardHeight(sheetHeight) : undefined}
       maxHeight={SHEET_UNDER_CLOCK}
       scrollKey={query}
       zIndex={sheetZIndex}
       header={
         <div data-choice-sheet-header="">
           <p className="px-5 pb-2 pt-2 text-[16px] font-semibold text-[#1a1a2e]">{title}</p>
-          <ChoiceSearch value={query} onChange={setQuery} placeholder={placeholder} label={title} compact />
+          {searchable ? <ChoiceSearch value={query} onChange={setQuery} placeholder={placeholder} label={title} compact /> : null}
         </div>
       }
     >
@@ -600,7 +603,7 @@ export function ChoicePicker({
           centerChecked(root)
         }}
       >
-        <ChoiceList choices={list} value={value} onPick={pick} compact={false} label={title} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} scrollClassName={scrollClassName} searchInHeader={!searchable} />
+        <ChoiceList choices={list} value={value} onPick={pick} compact={false} label={title} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} searchable={searchable} scrollClassName={searchable ? scrollClassName : cn("pt-1.5", scrollClassName ?? "max-h-[320px]")} />
       </PopoverContent>
     </Popover>
   )
