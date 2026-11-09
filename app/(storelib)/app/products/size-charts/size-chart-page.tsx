@@ -27,9 +27,9 @@ import type { SavedSizeChart, SizeChartTargets } from "@/components/physical/siz
 import { uploadDescriptionImage } from "@/lib/rich-text/upload-image"
 import { LeaveButton } from "../new/editor-buttons"
 import { useConfirm } from "../new/confirm-sheet"
-import { iconButton } from "../../orders/order-parts"
+import { StatusBadge, iconButton } from "../../orders/order-parts"
 import { CouponSaveButton, quietDanger } from "../../coupons/coupon-parts"
-import { sizeChartsReturn } from "./list-return"
+import { sizeChartInUse, sizeChartsReturn } from "./list-return"
 
 const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:py-6"
 const CARD_TITLE = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
@@ -128,6 +128,7 @@ export function SizeChartPage({ creatorId, chart, ready, rules, targets }: { cre
   const saveState = saving ? "saving" : isNew ? "new" : dirty ? "unsaved" : "saved"
   const stateLine = saveState === "saving" ? tt("Saving") : saveState === "unsaved" ? tt("Unsaved changes") : saveState === "new" ? tt("Not saved yet") : tt("{n, plural, =0 {No products use it} one {# product uses it} other {# products use it}}", { n: chart!.productCount })
   const saveWord = isNew ? tt("Create") : tt("Save")
+  const used = !!chart && sizeChartInUse(chart)
 
   return (
     <div
@@ -154,6 +155,12 @@ export function SizeChartPage({ creatorId, chart, ready, rules, targets }: { cre
             <ArrowLeft className="h-5 w-5" />
           </button>
           <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">{title}</h1>
+          {chart ? (
+            /* Where it stands, beside the name, as a coupon's state sits beside its code (../../coupons/coupon-editor.tsx) and as the list says it. */
+            <span className="ml-1 shrink-0">
+              <StatusBadge tone={used ? "success" : "neutral"}>{used ? tt("In use") : tt("Not in use")}</StatusBadge>
+            </span>
+          ) : null}
         </header>
 
         {!ready ? (
