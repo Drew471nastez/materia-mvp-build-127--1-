@@ -344,7 +344,7 @@ section("From the page to the editor's Ask panel")
   check("  opens the Ask panel once the website is up (with or without a description)",
     /if \(!startOpen \|\| loading \|\| teamMember\) return\s*setStartOpen\(false\)\s*setAiOpen\(true\)/.test(arrive) && /setStartOpen\(true\)/.test(arrive))
   check("  and hands it to whichever panel is showing, sent after the website has loaded",
-    /startAsk && !loading && !loadFailed && !teamMember \? \{ id: 1, text: startAsk \} : null/.test(arrive) && (editor.match(/sendRequest=\{startSend\}\s*onSendRequestTaken=\{startTaken\}/g) ?? []).length === 2 &&
+    /* Round L: a second ask (Edit with AI again, Ask AI to fix) is a new id, so the chat sends it too. */ /startAsk && !loading && !loadFailed && !teamMember \? \{ id: startAskSeq, text: startAsk \} : null/.test(arrive) && (editor.match(/sendRequest=\{startSend\}\s*onSendRequestTaken=\{startTaken\}/g) ?? []).length === 2 &&
       /const startTaken = useCallback\(\(\) => setStartAsk\(null\), \[\]\)/.test(editor))
   check("  a description with no job is built in the editor's own request (the fallback before SQL part 380)", /if \(prompt\) \{\s*setGenSource\(\{ kind: "inline", prompt \}\)/.test(arrive))
   const chat = code("components/website-builder/theme-chat.tsx")

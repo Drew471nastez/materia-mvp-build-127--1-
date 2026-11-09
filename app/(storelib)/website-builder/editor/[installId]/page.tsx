@@ -23,7 +23,7 @@ import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, ArrowUpFromLine, KeyRound, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, ClipboardPaste, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
-  Palette, ShoppingBag, ShoppingCart, Share2, Cookie, WandSparkles,
+  Palette, ShoppingBag, ShoppingCart, Share2, Cookie,
 } from "lucide-react"
 import { componentEditPrompt, requestAgentEdit, browserFileVersion } from "@/lib/ai-builder/edit-request"
 import { arrayMove } from "@dnd-kit/sortable"
@@ -6726,7 +6726,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     */
     const target = codeTargetOf(section.type)
     if (target.kind === "file" && !teamMember) {
-      items.push({ id: "edit-with-ai", label: "Edit with AI", icon: <WandSparkles strokeWidth={1.75} />, onClick: () => { setEditAiText(""); setPendingAction({ kind: "edit-ai", sectionId: section.id, path: target.path, name: sectionDisplayName(section, librarySchemas) }) } })
+      items.push({ id: "edit-with-ai", label: "Edit with AI", icon: <StorelibLogo size={16} alt="" />, onClick: () => { setEditAiText(""); setPendingAction({ kind: "edit-ai", sectionId: section.id, path: target.path, name: sectionDisplayName(section, librarySchemas) }) } })
     }
     if (!chrome) items.push({ id: "duplicate", label: "Duplicate", icon: <Copy strokeWidth={1.75} />, onClick: () => duplicateSection(section.id) })
     items.push({ id: "toggle-hidden", label: section.hidden ? "Show" : "Hide", icon: section.hidden ? <Eye strokeWidth={1.75} /> : <EyeOff strokeWidth={1.75} />, onClick: () => toggleSectionHidden(section.id) })
