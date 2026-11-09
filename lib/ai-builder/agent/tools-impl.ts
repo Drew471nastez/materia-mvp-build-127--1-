@@ -252,6 +252,16 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       seen.add(id)
       const cleaned = cleanSettings(p.type, p.settings, info.settings, c, pageKeys, menus, where)
       issues.push(...cleaned.issues)
+      /*
+        The component's own scheme, saved on the instance. A section with no saved scheme is drawn in the
+        theme's default one whatever its schema's default says (lib/storelib-theme/render.ts, on purpose for
+        theme sections), so a footer written for `site_inverse` and placed without settings drew light
+        (found by tests/ai-builder-journey.test.ts). A new placement keeps what its author asked for.
+      */
+      if (!keep) {
+        const scheme = (info.settings as { id: string; type: string; default?: unknown }[]).find((f) => f.type === "color_scheme")
+        if (scheme && cleaned.settings[scheme.id] === undefined && typeof scheme.default === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(scheme.default)) cleaned.settings[scheme.id] = scheme.default
+      }
       const blocks: BlockInstance[] = []
       for (const b of p.blocks ?? []) {
         const fields = info.blocks[b.type]

@@ -208,6 +208,7 @@ async function main() {
   check("  the components are drawn by the template engine on the server (their markup, the edited heading, the stacked layout)", homeHtml.includes('class="ch"') && homeHtml.includes("Strength for real life") && homeHtml.includes("hx--stacked") && homeHtml.includes('class="pg"'), homeHtml.slice(0, 800))
   check("  the bound product is drawn with its add to cart hook", homeHtml.includes(`data-storelib-add-to-cart="${coach.productId}"`), homeHtml.match(/pg__buy[^>]*>/)?.[0])
   check("  the header's menu lists the new pages", /href="\/programs"/.test(homeHtml) && /href="\/about"/.test(homeHtml), homeHtml.match(/<nav[\s\S]*?<\/nav>/)?.[0])
+  check("  the AI footer is drawn in the inverse scheme its author gave it", /<footer class="cf" data-scheme="site_inverse" style="--s-bg: #1d1b18;/.test(homeHtml), homeHtml.match(/<footer[^>]*>/)?.[0])
   const aboutTypes = liveAbout.kind === "site" ? liveAbout.site.sections.map((x) => x.type) : []
   check("  /about: the AI header and footer around the story, no theme chrome", aboutTypes.join() === "ai_coach_header,ai_coach_story,ai_coach_footer" && aboutHtml.includes('class="ab'), aboutTypes)
   check("  nothing on the live pages is the Foundation theme's header or footer", ![...liveTypes, ...aboutTypes].some((t) => t === "header" || t === "footer") && !/class="site-header|data-section-type="header"/.test(homeHtml))
@@ -219,7 +220,7 @@ async function main() {
     page = `render failed: ${e instanceof Error ? e.stack : String(e)}`
   }
   check("  the live page itself (renderSite, as /w/jocoach serves it) carries the AI's markup", page.includes("Strength for real life") && page.includes('class="ch"') && !page.startsWith("render failed"), page.slice(0, 600))
-  const drawnTypes = [...page.matchAll(/data-section-type="([^"]+)"/g)].map((m) => m[1])
+  const drawnTypes = [...new Set([...page.matchAll(/data-section-type="([^"]+)"/g)].map((m) => m[1]))]
   check("  every section on it is the AI's; its only <header> and <footer> are the AI's", drawnTypes.length === 4 && drawnTypes.every((t) => t.startsWith("ai_")) && (page.match(/<header\b/g) ?? []).length === 1 && /<header class="ch"/.test(page) && (page.match(/<footer\b/g) ?? []).length === 1 && /<footer class="cf"/.test(page), { drawnTypes, headers: page.match(/<header[^>]*>/g), footers: page.match(/<footer[^>]*>/g) })
 
   section("9. Reconnecting: the progress view reads events after the seq it has")
