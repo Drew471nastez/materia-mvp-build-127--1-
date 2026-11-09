@@ -100,13 +100,14 @@ export function chromeOf(homeSections: SectionInstance[] | null | undefined, opt
     footer: g.footer.find((s) => s.type === "footer" && !s.hidden) ?? g.footer.find((s) => s.type === "footer") ?? g.footer.find((s) => !s.hidden),
     ...(g.header.length || opts.homeOnly ? { headerGroup: g.header } : {}),
     ...(g.footer.length || opts.homeOnly ? { footerGroup: g.footer } : {}),
-    ...(g.overlay.length ? { overlayGroup: g.overlay } : {}),
+    /* The Overlay group too on a site whose chrome is home's (round N): a page's stored popup or back to top, left from a preset, is the theme's, not the site's. */
+    ...(g.overlay.length || opts.homeOnly ? { overlayGroup: g.overlay } : {}),
   }
 }
 
 /** A chrome read without the rule above, held to it: no group home lacks is left for a page to fill with its own. */
 export function homeOnlyChrome(c: Chrome): Chrome {
-  return { ...c, headerGroup: c.headerGroup ?? [], footerGroup: c.footerGroup ?? [] }
+  return { ...c, headerGroup: c.headerGroup ?? [], footerGroup: c.footerGroup ?? [], overlayGroup: c.overlayGroup ?? [] }
 }
 
 /**

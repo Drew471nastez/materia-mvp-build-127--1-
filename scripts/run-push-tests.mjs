@@ -1256,6 +1256,8 @@ const SUITES = [
   "tests/site-speed-r53.test.ts",
   /* Round 54: how long the CDN and ISR hold a public page (five minutes fresh and a day stale at the CDN; a website's pages an hour, and every held read in their draw at least the shop's five minutes so the page keeps it; the names a site answers to expired by every change that moves one; the front page no longer sent a five minute stale window), and who gets a shared copy unchanged; scripts/check-cdn-r54.mjs measures a production build. */
   "tests/cdn-r54.test.ts",
+  /* Round N (N2): a free site is headless. The host draws no default theme UI on an AI built site (lib/website-builder/free-site.ts: breadcrumbs, the language switch and the bars only when asked, the Overlay group from home only), and the site's own code gets a search window (this creator's products, pages and posts, rate limited), language and currency lists, and panels opened from any section (sections/own-panels.ts); the render check knows the hooks; in Chromium: results as text, Escape, focus kept and given back, aria-expanded, the canvas, the built-in fallback. */
+  "tests/storefront-headless-n2.test.ts",
 ]
 
 /**

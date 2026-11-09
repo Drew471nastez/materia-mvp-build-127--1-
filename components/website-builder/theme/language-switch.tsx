@@ -73,11 +73,13 @@ export function localizedHref(href: string, code: string, defaultLanguage: strin
   return `${path}${url.search}${url.hash}`
 }
 
-export function LanguageSwitch({ choice, preview }: { choice: SiteLanguageChoice; preview?: LanguageSwitchPreview }) {
-  const id = useId()
+/**
+ * EVERY LINK TO ANOTHER PAGE OF THE WEBSITE, IN THIS PAGE'S LANGUAGE. Drawn
+ * as nothing, so a free site (lib/website-builder/free-site.ts), which has no
+ * built-in switch, keeps its links in the visitor's language as well.
+ */
+export function useLocalizedLinks(choice: SiteLanguageChoice, preview?: LanguageSwitchPreview) {
   const codes = choice.languages.map((l) => l.code)
-
-  /* Every link to another page of the website, in this page's language. */
   useEffect(() => {
     /* In the builder's canvas the document is the editor's: its links are its own. */
     if (preview || choice.code === choice.defaultLanguage) return
@@ -108,37 +110,67 @@ export function LanguageSwitch({ choice, preview }: { choice: SiteLanguageChoice
     return () => seen.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [choice.code, choice.defaultLanguage, codes.join(","), !preview])
+}
+
+/**
+ * Opens the same page in another of the website's languages: the address
+ * changes (/fr/about) and the choice is remembered (sl_lang). In the
+ * builder's canvas the preview changes instead. Shared by the built-in switch
+ * and a section's own language list (sections/site-chrome-hooks.tsx).
+ */
+export function switchLanguage(choice: SiteLanguageChoice, code: string, preview?: LanguageSwitchPreview): void {
+  if (code === choice.code || !choice.languages.some((l) => l.code === code)) return
+  if (preview) return preview.language(code)
+  /* The visitor's language from now on: a market's own no longer greets them (proxy.ts marketLanguageStart). */
+  try {
+    document.cookie = `sl_lang=${encodeURIComponent(code.toLowerCase())}; Path=/; Max-Age=31536000; SameSite=Lax`
+  } catch {
+    /* Cookies off: the address still carries the language. */
+  }
+  const codes = choice.languages.map((l) => l.code)
+  const { pathname, search, hash } = window.location
+  window.location.assign(`${localizedPath(bare(pathname, codes), code, choice.defaultLanguage)}${search}${hash}`)
+}
+
+/** A currency is the visitor's country (the proxy picks the market it is in): remembered for a year, then the page again. */
+export function switchCurrency(choice: SiteLanguageChoice, id: string, preview?: LanguageSwitchPreview): void {
+  const currency = choice.currency
+  const option = currency?.options.find((o) => o.id === id)
+  if (!option || id === currency?.current) return
+  if (preview) return preview.currency(id)
+  /* Marked as chosen (lib/markets/visitor-country.ts): a cookie without the mark is from before and is not read. */
+  const value = countryCookieValue(option.country)
+  if (!value) return
+  try {
+    document.cookie = `${COUNTRY_COOKIE}=${value}; Path=/; Max-Age=31536000; SameSite=Lax`
+  } catch {
+    return
+  }
+  window.location.reload()
+}
+
+/**
+ * A free site's language behaviour without the built-in switch: its links in
+ * the page's language, and the card Show visitors their own language offers
+ * (an explicit Settings › Markets choice). Its own data-storelib-locale-list
+ * is the switch.
+ */
+export function LanguageBehaviour({ choice, preview }: { choice: SiteLanguageChoice; preview?: LanguageSwitchPreview }) {
+  useLocalizedLinks(choice, preview)
+  const codes = choice.languages.map((l) => l.code)
+  return choice.languages.length > 1 && !preview ? <LanguageSuggest conf={{ current: choice.code, defaultLanguage: choice.defaultLanguage, languages: codes, address: "path" }} /> : null
+}
+
+export function LanguageSwitch({ choice, preview }: { choice: SiteLanguageChoice; preview?: LanguageSwitchPreview }) {
+  const id = useId()
+  const codes = choice.languages.map((l) => l.code)
+  useLocalizedLinks(choice, preview)
 
   const hasLanguages = choice.languages.length > 1
   const currency = choice.currency
   if (!hasLanguages && !currency) return null
-  const go = (code: string) => {
-    if (code === choice.code) return
-    if (preview) return preview.language(code)
-    /* The visitor's language from now on: a market's own no longer greets them (proxy.ts marketLanguageStart). */
-    try {
-      document.cookie = `sl_lang=${encodeURIComponent(code.toLowerCase())}; Path=/; Max-Age=31536000; SameSite=Lax`
-    } catch {
-      /* Cookies off: the address still carries the language. */
-    }
-    const { pathname, search, hash } = window.location
-    window.location.assign(`${localizedPath(bare(pathname, codes), code, choice.defaultLanguage)}${search}${hash}`)
-  }
-  /* A currency is the visitor's country (the proxy picks the market it is in): remembered for a year, then the page again. */
-  const pickCurrency = (id: string) => {
-    const option = currency?.options.find((o) => o.id === id)
-    if (!option || id === currency?.current) return
-    if (preview) return preview.currency(id)
-    /* Marked as chosen (lib/markets/visitor-country.ts): a cookie without the mark is from before and is not read. */
-    const value = countryCookieValue(option.country)
-    if (!value) return
-    try {
-      document.cookie = `${COUNTRY_COOKIE}=${value}; Path=/; Max-Age=31536000; SameSite=Lax`
-    } catch {
-      return
-    }
-    window.location.reload()
-  }
+  const go = (code: string) => switchLanguage(choice, code, preview)
+  const pickCurrency = (id: string) => switchCurrency(choice, id, preview)
 
   const pill =
     "h-9 max-w-[60vw] cursor-pointer appearance-none truncate rounded-full border border-current/20 bg-transparent pl-8 pr-8 text-[13px] text-current outline-none transition-colors hover:border-current/40 focus-visible:border-current/60"

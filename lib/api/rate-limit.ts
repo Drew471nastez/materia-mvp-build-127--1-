@@ -434,6 +434,13 @@ export const LIMITS = {
    */
   publicSearch: [{ limit: 60, seconds: 60 }, { limit: 600, seconds: 3600 }],
   /**
+   * A website's own search as the visitor types (/api/website-builder/search:
+   * the built-in search window and a site's own data-storelib-search-panel),
+   * per address. Asked once a pause, a few times a word; a script walking
+   * every creator's shop asks hundreds.
+   */
+  siteSearch: [{ limit: 90, seconds: 60 }, { limit: 900, seconds: 3600 }],
+  /**
    * A website visitor's saved cart priced again (/api/cart/prices), per
    * address: once per cart page or drawer open after a currency change.
    */
