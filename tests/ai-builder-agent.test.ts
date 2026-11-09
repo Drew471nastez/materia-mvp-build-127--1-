@@ -30,6 +30,7 @@ import { createToolSet } from "@/lib/ai-builder/agent/tools-impl"
 import { readConcept } from "@/lib/ai-builder/agent/concept"
 import { AGENT_SYSTEM, briefMessage } from "@/lib/ai-builder/agent/prompts"
 import { tokensToThemeSettings } from "@/lib/ai-builder/agent/tokens"
+import { themeVars as themeVarsN5 } from "@/lib/website-builder/theme-css"
 import { validateFile } from "@/lib/ai-builder/agent/validate"
 import { librarySlop } from "@/lib/ai-builder/agent/knowledge"
 import { versionOf } from "@/lib/ai-builder/agent/version"
@@ -189,7 +190,9 @@ async function main() {
   check("every body section is an ai_ component", all.every((s) => s.type.startsWith("ai_")))
   const menu = (store.project.settings.menus as Record<string, { links: { url: string }[] }>)["main-menu"]
   check("pages are in the Main menu with real addresses", menu?.links.map((l) => l.url).join(",") === "/programs,/about", menu)
-  check("tokens are Theme settings", (store.project.settings.color_schemes as Record<string, unknown>)?.site !== undefined && store.project.settings.font_heading === "Oswald" && (store.project.settings.custom_tokens as Record<string, string>)?.["section-y"] === "96px")
+  check("tokens are Theme settings", (store.project.settings.color_schemes as Record<string, unknown>)?.site !== undefined && store.project.settings.font_heading === "Oswald" && store.project.settings.ai_section_y === 96)
+  /* Round N (N5): the rhythm is the Theme setting ai_section_y. As a custom token "section-y" it was always replaced on the page by the scale's own --t-section-y. */
+  check("the section rhythm is the one the page prints", (themeVarsN5(store.project.settings as never) as Record<string, string>)["--t-section-y"] === "calc(96px * 1.1)")
   const programs = pages.home.find((s) => s.type === "ai_program_list")
   check("a real product is bound; the invented one was refused", programs?.settings.product === "prod_8week" && toolEvents.some((e) => e.tool === "bind_data" && !e.ok))
   check("ids are stable and unique", new Set(all.filter((s) => !s.group).map((s) => s.id)).size === all.filter((s) => !s.group).length && all.every((s) => /-11111111-\d+$/.test(s.id)), all.map((s) => s.id))

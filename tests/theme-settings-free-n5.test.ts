@@ -38,7 +38,8 @@ import { createToolSet } from "@/lib/ai-builder/agent/tools-impl"
 import { memoryStore } from "@/lib/ai-builder/agent/memory-store"
 import { newCheckpoint } from "@/lib/ai-builder/agent/state"
 import { TOOL_SPECS } from "@/lib/ai-builder/agent/tool-specs"
-import { DEFAULT_JOB_BUDGET, type AgentJobInput, type ValidationIssue } from "@/lib/ai-builder/types"
+import { DEFAULT_JOB_BUDGET, type ValidationIssue } from "@/lib/ai-builder/types"
+import type { AgentJobInput } from "@/lib/ai-builder/agent/ports"
 
 let passed = 0
 let failed = 0
