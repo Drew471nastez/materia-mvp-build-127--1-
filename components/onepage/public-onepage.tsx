@@ -1138,7 +1138,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         /* No top padding only above a hero that is really drawn: without a
            picture the header is the classic one and needs the same 50px it
            always has (lib/onepage/page-frame heroHeaderShown). */
-        paddingTop: isDesktop ? "0" : heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) || coverImageOf(safeTheme) ? "0" : "50px",
+        /* Round W8: a header flush left sits under the round Share button in the top left corner; it starts clear of it. */
+        paddingTop: isDesktop ? "0" : heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) || coverImageOf(safeTheme) ? "0" : headerAlignOf(safeTheme) === "left" && safeSettings.share_enabled !== false ? "68px" : "50px",
         paddingBottom: "20px",
         minHeight: isDesktop ? "100%" : "100vh",
       }}
@@ -3236,6 +3237,8 @@ function CoreBlockRenderer({
         "data-hover": buttonHover(theme, isInsideCarousel || isInsideGroup),
         "data-shadow": themeButtonShadow(theme),
         "data-align": align,
+        /* Round W8: the size, for the Grid and Mixed tiles (app/globals.css), whose height is the tile's own. */
+        "data-size": size,
       }
       const iconPlace = cn(BUTTON_ICON_CLASS[size], "shrink-0 absolute", BUTTON_ICON_INSET[size][iconSide])
       /* The label column: clear of the icon on both sides when centred, on the icon's side only when to the left. */
