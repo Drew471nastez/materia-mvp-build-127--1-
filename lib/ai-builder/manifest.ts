@@ -217,7 +217,7 @@ export function propToSettings(p: EditableProp, scope: "section" | "block" = "se
     case "border":
       Object.assign(base, { min: 0, max: 8, step: 1, unit: "px" })
       base.default = p.default ?? 0
-      out.push({ type: "color", id: `${p.id}_color`, label: `${p.label} colour`, ...(p.colorDefault ? { default: p.colorDefault } : {}), visible_if: showWhile(scope, p.id, "> 0") })
+      out.push({ type: "color", id: `${p.id}_color`, label: `${p.label} color`, ...(p.colorDefault ? { default: p.colorDefault } : {}), visible_if: showWhile(scope, p.id, "> 0") })
       break
     case "shadow":
       base.options = optionsOf(SHADOW_LEVELS, SHADOW_LABELS)

@@ -11825,7 +11825,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <p>{`Only this section's code changes. Its settings stay in the sidebar, and you can undo the change.`}</p>
             <textarea
               data-edit-ai-text=""
-              ref={(el) => { if (el && !el.dataset.focused) { el.dataset.focused = "1"; requestAnimationFrame(() => el.focus()) } }}
+              /* Focused once the menu that opened it has handed focus back and the card's own Cancel has taken it. */
+              ref={(el) => { if (el && !el.dataset.focused) { el.dataset.focused = "1"; window.setTimeout(() => el.focus(), 150) } }}
               aria-label="What should change"
               value={editAiText}
               onChange={(e) => setEditAiText(e.target.value)}
