@@ -26,6 +26,7 @@
 import "./_journey/env"
 process.env.CHROMIUM_PATH = "/nonexistent/chromium" /* the cover is not this suite's: fail fast, the answer says pending or none */
 process.env.AI_JOB_SECRET = "journey-ai-job-secret-for-tests-only" /* the signed hand over to the run route (ai-site/server.ts jobToken) */
+process.env.AI_BUILDER_AGENT = "0" /* round N: the agent is on by default; this suite is about the classic start and the switch */
 import { Journey } from "./_journey/harness"
 import {
   START_PRESETS,
@@ -151,7 +152,7 @@ async function main() {
     const old = await startJobRow(db([{ data: null, error: { code: "PGRST204", message: "Could not find the 'options' column of 'ai_site_jobs' in the schema cache" } }, { data: { id: "j2" }, error: null }]) as never, { creatorId: "c", ownerUserId: "u", installId: "i", prompt: "p", key: "abcdefgh", options: opts })
     check("before SQL part 401: made again without the new columns, the prompt kept", old.kind === "made" && writes.length === 2 && !("options" in writes[1]) && writes[1].prompt === "p")
     check("  a missing column is not taken for a missing table", isMissingColumn({ code: "PGRST204", message: "Could not find the 'options' column of 'ai_site_jobs' in the schema cache" }) && !isMissingColumn({ code: "42P01" }))
-    check("the engine: classic unless AI_BUILDER_AGENT=1", startEngine({}) === "classic" && startEngine({ AI_BUILDER_AGENT: "1" }) === "agent")
+    check("the engine: round N, the agent unless AI_BUILDER_AGENT=0", startEngine({}) === "agent" && startEngine({ AI_BUILDER_AGENT: "1" }) === "agent" && startEngine({ AI_BUILDER_AGENT: "0" }) === "classic")
   }
 
   section("4. The journey: Fitness coach, edited, Create twice, one website and one job")

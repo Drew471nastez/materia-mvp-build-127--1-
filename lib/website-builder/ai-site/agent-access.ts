@@ -2,12 +2,15 @@
  * ===========================================================================
  *  WHO GETS THE AGENT ENGINE (round M, M1)
  * ===========================================================================
- * The agent engine used to be all or nothing: AI_BUILDER_AGENT=1 switched it
- * on for every store at once. Andrew wants it on for his own account(s)
- * first. Two switches, read on the server only:
+ * ROUND N: ON FOR EVERY ACCOUNT BY DEFAULT (Andrew: "it should be for all
+ * accounts"). Two switches, read on the server only:
  *
- *   AI_BUILDER_AGENT=1            everybody (as before)
- *   AI_BUILDER_AGENT_ACCOUNTS     a comma separated allowlist. Each entry is
+ *   AI_BUILDER_AGENT              unset or "1": everybody. "0" (or "off",
+ *                                 "false"): the emergency off switch, every
+ *                                 account back on the classic builder except
+ *                                 the allowlist below.
+ *   AI_BUILDER_AGENT_ACCOUNTS     a comma separated allowlist, used when the
+ *                                 switch is off. Each entry is
  *                                 a store's owner user id or creator id (a
  *                                 uuid), or a creator username (with or
  *                                 without "@" in front, any case). Emails are
@@ -32,7 +35,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const USERNAME = /^[a-z0-9][a-z0-9._-]{0,63}$/
 
 export interface AgentAccess {
-  /** AI_BUILDER_AGENT=1: on for every account. */
+  /** On for every account: AI_BUILDER_AGENT unset or anything but the off words (round N). */
   everyone: boolean
   /** Owner user ids and creator ids, lowercase. */
   ids: Set<string>
@@ -42,9 +45,15 @@ export interface AgentAccess {
   ignored: number
 }
 
+/** The global switch: on unless set to "0", "off" or "false" (round N: the default is on). Pure. */
+export function agentOnForEveryone(env: Env = process.env): boolean {
+  const v = String(env.AI_BUILDER_AGENT ?? "").trim().toLowerCase()
+  return !(v === "0" || v === "off" || v === "false")
+}
+
 /** The two switches, parsed. Pure. */
 export function agentAccessFrom(env: Env = process.env): AgentAccess {
-  const out: AgentAccess = { everyone: env.AI_BUILDER_AGENT === "1", ids: new Set(), usernames: new Set(), ignored: 0 }
+  const out: AgentAccess = { everyone: agentOnForEveryone(env), ids: new Set(), usernames: new Set(), ignored: 0 }
   for (const raw of String(env.AI_BUILDER_AGENT_ACCOUNTS ?? "").split(",")) {
     const v = raw.trim().toLowerCase()
     if (!v) continue
