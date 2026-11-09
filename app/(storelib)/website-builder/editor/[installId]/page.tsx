@@ -24,7 +24,7 @@ import { useRouter } from "next/navigation"
 import {
   ArrowLeft, ArrowUpFromLine, KeyRound, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, ClipboardPaste, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
   Palette, ShoppingBag, ShoppingCart, Share2, Cookie,
-  Sparkles,
+  Wand2,
 } from "lucide-react"
 import { componentEditPrompt, requestAgentEdit, browserFileVersion } from "@/lib/ai-builder/edit-request"
 import { arrayMove } from "@dnd-kit/sortable"
@@ -6768,7 +6768,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (!ask.trim()) { toast.error("Say what should change"); return }
     setPendingBusy(true)
     try {
-      if (isDirty && !(await saveDraft({ quiet: true }))) { toast.error("Your latest edits could not be saved yet. Try again in a moment."); return }
+      if (isDirty && !(await saveDraft({ quiet: true }))) { toast.error("Your edits are not saved yet. Try again."); return }
       redesignKey.current = redesignKey.current ?? newStartKey()
       const res = await fetch(`/api/website-builder/themes/${installId}/redesign`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: ask, key: redesignKey.current, scope }) })
       const d = (await res.json().catch(() => ({}))) as { job?: { id?: string }; error?: string }
@@ -6784,7 +6784,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setGenDismissed(false)
       setGenSource({ kind: "job", jobId: d.job.id })
     } catch {
-      toast.error("Storelib could not be reached. Try again.")
+      toast.error("Could not reach Storelib. Try again.")
     } finally {
       setPendingBusy(false)
     }
@@ -11094,7 +11094,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       ...(agentOn && !teamMember
         ? [{
             label: "Redesign with AI",
-            icon: <Sparkles className="h-4 w-4" />,
+            icon: <Wand2 className="h-4 w-4" />,
             onClick: () => actionCalls.current.openRedesign(),
             separatorBefore: true,
           }]
@@ -11393,7 +11393,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     restoreHold.current = true
     if (isDirty && !(await saveDraft({ quiet: true }))) {
       restoreHold.current = false
-      toast.error("Your latest edits could not be saved yet. Try again in a moment.")
+      toast.error("Your edits are not saved yet. Try again.")
       return
     }
     const ok = await generation.agent.undo()
