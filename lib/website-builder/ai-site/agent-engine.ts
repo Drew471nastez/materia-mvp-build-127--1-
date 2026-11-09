@@ -24,6 +24,7 @@ import "server-only"
  * registerAgentStepper replaces the loop (tests, a scripted stepper).
  */
 import type { AgentStepContext, AgentStepper, AgentStepperFactory, AgentStepResult } from "@/lib/ai-builder/agent-step"
+import { agentOnForEveryone } from "./agent-access"
 import type { AgentCheckpoint, StartOptions } from "@/lib/ai-builder/types"
 import type { AgentDeps, AgentJobInput, ProjectStore } from "@/lib/ai-builder/agent/ports"
 import { runAgentSlice } from "@/lib/ai-builder/agent/loop"
@@ -146,11 +147,11 @@ export async function agentStepperFactory(): Promise<AgentStepperFactory | null>
 }
 
 /**
- * The platform's global switch only (AI_BUILDER_AGENT=1). Routes ask agentEnabledFor (./agent-access.ts), which
+ * The platform's global switch only (on unless AI_BUILDER_AGENT is "0", round N). Routes ask agentEnabledFor (./agent-access.ts), which
  * also reads the per-account allowlist AI_BUILDER_AGENT_ACCOUNTS.
  */
 export function agentEngineEnabled(): boolean {
-  return process.env.AI_BUILDER_AGENT === "1"
+  return agentOnForEveryone(process.env)
 }
 
 /** Agent jobs allowed to run at once across every creator. */

@@ -27,7 +27,7 @@
 import "./_journey/env"
 process.env.CHROMIUM_PATH = "/nonexistent/chromium"
 process.env.AI_JOB_SECRET = "journey-ai-job-secret-for-tests-only"
-delete process.env.AI_BUILDER_AGENT
+process.env.AI_BUILDER_AGENT = "0" /* round N: on by default; "0" is the off switch the allowlist works under */
 delete process.env.AI_BUILDER_AGENT_ACCOUNTS
 import { aiWorld, checker, driveTurns, installFiles, installPages, installSettings, jobRow, scriptModels, seller, type Script } from "./ai-builder-e2e-kit"
 import { BANNER, KITCHEN } from "./ai-builder-bench-designs"
@@ -45,7 +45,7 @@ async function main() {
   const a1 = agentAccessFrom({ AI_BUILDER_AGENT_ACCOUNTS: " Andrew , @Drew471, 0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e, someone@example.com, " })
   check("usernames lower case without @, ids, an email ignored and counted", a1.usernames.has("andrew") && a1.usernames.has("drew471") && a1.ids.has("0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e") && a1.ignored === 1 && !a1.everyone, { usernames: [...a1.usernames], ids: [...a1.ids], ignored: a1.ignored })
   check("a listed username, user id or creator id is allowed; anyone else is not", agentAllowed(a1, { ownerUserId: null, creatorId: "c", names: ["ANDREW"] }) && agentAllowed(a1, { ownerUserId: "0F1E2D3C-4B5A-4968-8778-695A4B3C2D1E", creatorId: "c" }) && agentAllowed(a1, { ownerUserId: "u", creatorId: "0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e" }) && !agentAllowed(a1, { ownerUserId: "u", creatorId: "c", names: ["bob", null] }))
-  check("AI_BUILDER_AGENT=1 still turns it on for everyone; nothing set is off", agentAllowed(agentAccessFrom({ AI_BUILDER_AGENT: "1" }), { ownerUserId: "u", creatorId: "c" }) && !agentAllowed(agentAccessFrom({}), { ownerUserId: "u", creatorId: "c" }))
+  check("AI_BUILDER_AGENT=1 turns it on for everyone; round N: nothing set is on too, and 0 is off", agentAllowed(agentAccessFrom({ AI_BUILDER_AGENT: "1" }), { ownerUserId: "u", creatorId: "c" }) && agentAllowed(agentAccessFrom({}), { ownerUserId: "u", creatorId: "c" }) && !agentAllowed(agentAccessFrom({ AI_BUILDER_AGENT: "0" }), { ownerUserId: "u", creatorId: "c" }) && !agentAllowed(agentAccessFrom({ AI_BUILDER_AGENT: "off" }), { ownerUserId: "u", creatorId: "c" }))
   check("an email can never match, even when listed", !agentAllowed(agentAccessFrom({ AI_BUILDER_AGENT_ACCOUNTS: "a@b.co" }), { ownerUserId: "u", creatorId: "c", names: ["a@b.co"] }))
   const req = parseRedesignRequest({ prompt: "  warmer  ", key: "k", scope: "full" })
   check("a redesign request keeps the words exactly; scope changes by default; empty refused", req.ok && req.request.prompt === "  warmer  " && req.request.scope === "full" && (parseRedesignRequest({ prompt: "x" }) as { request: { scope: string } }).request.scope === "changes" && !parseRedesignRequest({ prompt: "  " }).ok && !parseRedesignRequest({ prompt: "x", scope: "all" }).ok)
@@ -119,7 +119,7 @@ async function main() {
     const all = await j.call(`GET /api/website-builder/themes/${bSite}/redesign`, { as: other.person })
     check("AI_BUILDER_AGENT=1: on for every account (the global switch still works)", all.json?.agent === true)
   }
-  delete process.env.AI_BUILDER_AGENT
+  process.env.AI_BUILDER_AGENT = "0" /* round N: on by default; "0" is the off switch the allowlist works under */
   process.env.AI_BUILDER_AGENT_ACCOUNTS = "andrew-m1"
   {
     const notMine = await j.call(`GET /api/website-builder/themes/${bSite}/redesign`, { as: listed.person })

@@ -36,7 +36,7 @@
 import "./_journey/env"
 process.env.CHROMIUM_PATH = "/nonexistent/chromium" /* no browser here: a cover that were waited for would fail fast, not hang */
 process.env.AI_JOB_SECRET = "journey-ai-job-secret-for-tests-only"
-delete process.env.AI_BUILDER_AGENT
+process.env.AI_BUILDER_AGENT = "0" /* round N: on by default; these checks need it off for the account */
 delete process.env.AI_BUILDER_AGENT_ACCOUNTS
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
