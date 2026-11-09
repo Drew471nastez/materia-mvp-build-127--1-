@@ -94,7 +94,7 @@ const STOP = new Set(
 
 /** Lowercase words, light stemming so "coaches", "coaching" and "coach" meet. */
 export function tokenize(text: string): string[] {
-  return (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length > 1 && !STOP.has(w)).map(stem)
+  return ((text.toLowerCase().match(/[a-z0-9]+/g) ?? []) as string[]).filter((w) => w.length > 1 && !STOP.has(w)).map(stem)
 }
 
 function stem(w: string): string {

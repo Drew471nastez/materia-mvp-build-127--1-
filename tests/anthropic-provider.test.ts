@@ -439,7 +439,7 @@ const openObjectsChecked = strictChecked.then(async () => {
   const tools = TOOL_LIST.map((t) => ({ name: t.name, description: t.description, parameters: (t as unknown as { parameters: unknown }).parameters })) as never
   await createAnthropicProvider(fake).complete({ model: "claude-opus-5-5", system: "s", turns: [{ role: "user", content: "hi" }] as never, tools, maxOutputTokens: 100 } as never).catch(() => {})
   const out = (sent as { tools?: { name: string; strict?: boolean; input_schema: unknown }[] } | null)?.tools ?? []
-  check("the AI website builder's tools: every one sent, every strict one ready for it", out.length === TOOL_LIST.length && out.every((t) => !t.strict || strictReady(t.input_schema)), out.filter((t) => t.strict && !strictReady(t.input_schema)).map((t) => t.name))
+  check("the AI website builder's tools: every one sent, every strict one ready for it", out.length === TOOL_LIST.length && out.every((t) => !t.strict || strictReady(t.input_schema)), out.filter((t) => t.strict && !strictReady(t.input_schema)).map((t) => t.name).join(", "))
   check("  write_file (index 2 in the failing request) is not strict; read_file is", out.find((t) => t.name === "write_file")?.strict !== true && out.find((t) => t.name === "read_file")?.strict === true)
 })
 
