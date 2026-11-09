@@ -102,7 +102,12 @@ export interface StartRows {
 /** theme: Storelib Default's header and footer on a blank home page. none: no sections from the theme at all. */
 export type StartChrome = "theme" | "none"
 
-/** A blank page's settings: neutral, no brand name (the store's is used), Inter, small corners. */
+/**
+ * A blank page's settings: neutral, no brand name (the store's is used), Inter, small corners.
+ * No theme Breadcrumbs bar either (theme-breadcrumbs.ts, on unless turned off): on a blank start
+ * every section is the AI's or the person's, and the theme's bar would sit under their own header
+ * on every page but home (found by tests/ai-builder-journey.test.ts). Theme settings turns it on.
+ */
 export const BLANK_SETTINGS: ThemeSettingsValues = {
   primary_color: "#111111",
   secondary_color: "#4b5563",
@@ -117,6 +122,7 @@ export const BLANK_SETTINGS: ThemeSettingsValues = {
   font_size_base: 16,
   button_style: "rounded",
   border_radius: 6,
+  breadcrumbs_enabled: false,
 }
 
 /**

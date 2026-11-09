@@ -1406,6 +1406,8 @@ const STRICT_SUITES = [
   "tests/realtime-warm-r55.test.ts",
   /* Round L (L1): Start with AI from the Fitness coach chip to the job row through the real create route (one website and one job for a press sent twice, the exact prompt, category and blank page in options, the kick, the editor finding the job from the server); the chip never overwrites the person's own words. Strict: tests/_journey. */
   "tests/ai-start-l1.test.ts",
+  /* Round L (L7): the Fitness coach journey end to end with AI_BUILDER_AGENT=1 and a SCRIPTED model (the model is the only fake): chip, Create twice, the agent job's turns chained on a fake clock, events in order, ai_ files compiled, pages, menu, no theme chrome, bindings to this store's products only, a prop saved through the editor and read back, publish, the live site's reader, cancel and Continue, reopen. Strict: tests/_journey. */
+  "tests/ai-builder-journey.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

@@ -128,7 +128,8 @@ export async function agentDeps(job: { creatorId: string; ownerUserId: string | 
   const admin = createAdminClient() as unknown as Db
   return {
     store: supabaseProjectStore(admin, job.installId),
-    models: await agentModels(job.creatorId),
+    /* Given models (a scripted run, tests/ai-builder-e2e-kit.ts) are used as they are: no key is looked up for them. */
+    models: extra.models ?? (await agentModels(job.creatorId)),
     /* L4: this creator's real data with ids (products with variants and Buy now links, collections, communities, forms, pages, menus). */
     capabilities: () => readRuntimeCapabilities(admin, { creatorId: job.creatorId, ownerUserId: job.ownerUserId, installId: job.installId }),
     /* L4: the page as a preview link draws it (draft page in home's chrome, saved files, this creator's data), rendered by the template engine. */

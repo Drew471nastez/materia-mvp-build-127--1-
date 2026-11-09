@@ -461,4 +461,68 @@ export function installRpcs(db: MemoryDb) {
     change.counts = counts
     return { ok: true, repeat: false, id: change.id, from: a.p_from, to: a.p_to, mode: a.p_mode, rate: a.p_mode === "convert" ? a.p_rate : null, counts }
   }
+
+  /*
+    Round L (tests/ai-builder-journey.test.ts). supabase/sql/run-now/401_ai_builder_agent.sql:
+    ai_site_job_add_events. A batch of an AI job's events, numbered after the
+    newest under the job's row lock, only while the job is queued or running
+    (0 otherwise), at most 50 a call; last_event_seq moved with them.
+  */
+  db.rpcs.ai_site_job_add_events = (d, a) => {
+    const events = a.p_events
+    if (!Array.isArray(events) || events.length === 0) return 0
+    const job = d.rows("ai_site_jobs").find((j) => j.id === a.p_job_id && j.creator_id === a.p_creator_id)
+    if (!job || !["queued", "running"].includes(String(job.status))) return 0
+    const top = Math.max(0, ...d.rows("ai_site_job_events").filter((e) => e.job_id === a.p_job_id).map((e) => Number(e.seq) || 0))
+    let seq = Math.max(Number(job.last_event_seq) || 0, top)
+    for (const [n, e] of events.slice(0, 50).entries()) d.insert("ai_site_job_events", { job_id: a.p_job_id, creator_id: a.p_creator_id, seq: seq + n + 1, kind: (e as Row)?.kind, payload: (e as Row)?.payload ?? {} }, {})
+    seq += Math.min(events.length, 50)
+    job.last_event_seq = seq
+    return seq
+  }
+
+  /*
+    supabase/sql/run-now/130_theme_publish_in_one_step.sql: publish_theme_install.
+    One website made live in one step: its settings and pages (a draft equal to
+    what was published is cleared), every file's draft made its live half, the
+    store's other live website taken down. Refused (P0002) for another store's.
+  */
+  const same = (x: unknown, y: unknown) => JSON.stringify(canonical(x ?? null)) === JSON.stringify(canonical(y ?? null))
+  db.rpcs.publish_theme_install = (d, a) => {
+    const install = d.rows("store_theme_installs").find((r) => r.id === a.p_install && r.creator_id === a.p_creator)
+    if (!install) throw new PgError("P0002", "publish: this website is not this creator's")
+    if (a.p_settings !== null && a.p_settings !== undefined) {
+      for (const s of d.rows("store_theme_settings").filter((r) => r.install_id === a.p_install)) {
+        s.draft_settings = same(s.draft_settings, a.p_settings_draft) ? null : s.draft_settings
+        s.settings = a.p_settings
+      }
+    }
+    for (const page of (Array.isArray(a.p_pages) ? a.p_pages : []) as Row[]) {
+      const row = d.rows("store_theme_pages").find((r) => r.id === page.id && r.install_id === a.p_install)
+      if (!row) continue
+      row.draft_sections = same(row.draft_sections, page.draft) ? null : row.draft_sections
+      row.sections = page.sections
+    }
+    const files: Row[] = []
+    for (const f of d.rows("store_theme_custom_files").filter((r) => r.install_id === a.p_install && r.draft_content !== null && r.draft_content !== undefined)) {
+      f.content = f.draft_content
+      f.draft_content = null
+      files.push({ path: f.path, content: f.content })
+    }
+    const was: unknown[] = []
+    for (const other of d.rows("store_theme_installs").filter((r) => r.creator_id === a.p_creator && r.status === "published" && r.id !== a.p_install)) {
+      other.status = "unpublished"
+      was.push(other.id)
+    }
+    install.status = "published"
+    install.published_at = now()
+    return { was_live: was, files }
+  }
+}
+
+/** jsonb equality ignores key order: keys sorted before comparing. */
+function canonical(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(canonical)
+  if (v && typeof v === "object") return Object.fromEntries(Object.keys(v as Row).sort().map((k) => [k, canonical((v as Row)[k])]))
+  return v
 }

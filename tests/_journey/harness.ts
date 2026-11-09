@@ -138,6 +138,19 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   /* Round L (L1): Start with AI, from Create to the job row and back from the editor (tests/ai-start-l1.test.ts). */
   "/api/website-builder/themes/create": () => import("@/app/api/website-builder/themes/create/route"),
   "/api/website-builder/themes/[installId]/ai-start": () => import("@/app/api/website-builder/themes/[installId]/ai-start/route"),
+  /* Round L (L7): the agent job end to end (tests/ai-builder-journey.test.ts, tests/ai-builder-benchmarks.test.ts): progress, the runner's turns, cancel, continue, the canvas's errors, the cron, Edit with AI, the editor's save, its files and publish. */
+  "/api/website-builder/ai-jobs/[jobId]": () => import("@/app/api/website-builder/ai-jobs/[jobId]/route"),
+  "/api/website-builder/ai-jobs/[jobId]/run": () => import("@/app/api/website-builder/ai-jobs/[jobId]/run/route"),
+  "/api/website-builder/ai-jobs/[jobId]/cancel": () => import("@/app/api/website-builder/ai-jobs/[jobId]/cancel/route"),
+  "/api/website-builder/ai-jobs/[jobId]/continue": () => import("@/app/api/website-builder/ai-jobs/[jobId]/continue/route"),
+  "/api/website-builder/ai-jobs/[jobId]/preview-errors": () => import("@/app/api/website-builder/ai-jobs/[jobId]/preview-errors/route"),
+  "/api/cron/ai-jobs": () => import("@/app/api/cron/ai-jobs/route"),
+  "/api/website-builder/themes/[installId]/ai-edit": () => import("@/app/api/website-builder/themes/[installId]/ai-edit/route"),
+  "/api/website-builder/themes/[installId]/sections": () => import("@/app/api/website-builder/themes/[installId]/sections/route"),
+  "/api/website-builder/themes/[installId]/files": () => import("@/app/api/website-builder/themes/[installId]/files/route"),
+  "/api/website-builder/themes/[installId]/publish": () => import("@/app/api/website-builder/themes/[installId]/publish/route"),
+  "/api/website-builder/themes/[installId]/backups": () => import("@/app/api/website-builder/themes/[installId]/backups/route"),
+  "/api/website-builder/themes/[installId]/backups/[backupId]/restore": () => import("@/app/api/website-builder/themes/[installId]/backups/[backupId]/restore/route"),
 }
 
 /* Columns production has that no SQL file created were added by run-now part 165; none are taken on trust any more. */
