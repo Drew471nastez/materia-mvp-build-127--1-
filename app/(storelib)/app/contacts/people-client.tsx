@@ -196,7 +196,7 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
         ) : null}
         {page?.partial ? (
           <p className="mt-1 text-[13px] text-[#6b7280]" role="status">
-            {tt("Showing people from your latest 2,000 records of each kind. Run the Contacts database update (SQL part 378) to see everyone.")}
+            {tt("Showing the most recent people from each source. Older ones appear once setup finishes.")}
           </p>
         ) : null}
         {message ? (
@@ -253,6 +253,8 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
                             )}
                           >
                             {viewLabel(f)}
+                            {/* Round 52: how many are in each view, quiet beside its name, on a computer (a phone's strip stays short). */}
+                            {page ? <span className="ml-1.5 tabular-nums text-[#9ca3af] max-sm:hidden">{counts[f].toLocaleString(appLocale())}</span> : null}
                           </button>
                         )
                       })}
@@ -292,9 +294,6 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
                   <button type="button" className={buttonSecondary} onClick={() => setImporting(true)}>
                     {tt("Import from a CSV file")}
                   </button>
-                  <Link href="/app/contacts/forms" className={buttonSecondary}>
-                    {tt("Make a form")}
-                  </Link>
                 </>
               }
             />
@@ -577,13 +576,14 @@ function DatesField({ from, to, onApply }: { from: string; to: string; onApply: 
 function Tags({ tags, max = 3 }: { tags: string[]; max?: number }) {
   if (!tags.length) return null
   return (
-    <span className="flex min-w-0 flex-wrap gap-1">
+    /* One line, always (round 52): a long tag shortens, the rest are counted, and a row never grows to two. */
+    <span className="flex min-w-0 items-center gap-1 overflow-hidden">
       {tags.slice(0, max).map((t) => (
-        <span key={t} className="max-w-[140px] truncate rounded-md bg-[#f1f2f4] px-1.5 py-0.5 text-[12px] font-medium leading-4 text-[#3f3f46]">
+        <span key={t} className="min-w-0 max-w-[140px] truncate rounded-md border border-[#e5e7eb] bg-white px-1.5 py-px text-[12px] font-medium leading-4 text-[#1a1a2e]">
           {t}
         </span>
       ))}
-      {tags.length > max ? <span className="px-0.5 py-0.5 text-[12px] leading-4 text-[#6b7280]">+{tags.length - max}</span> : null}
+      {tags.length > max ? <span className="shrink-0 px-0.5 py-0.5 text-[12px] leading-4 text-[#6b7280]">+{tags.length - max}</span> : null}
     </span>
   )
 }
@@ -615,11 +615,11 @@ function PersonLine({ p, picked, onPick }: { p: PersonRow; picked: boolean; onPi
       </td>
       <td className={cn(cell, "whitespace-nowrap px-3 text-[#4b5563]")}>{originLabel(p.origin)}</td>
       <td className={cn(cell, "px-3")}>
-        <Tags tags={p.tags} />
+        <Tags tags={p.tags} max={2} />
       </td>
       <td className={cn(cell, "whitespace-nowrap px-3 pr-4 text-[#4b5563]")}>{dayOf(p.lastSeen)}</td>
       {/* A phone: one stacked cell, as Orders' PhoneRow. */}
-      <td data-phone-row="" className="relative border-t border-[#f0f1f3] bg-white px-4 py-3 sm:hidden">
+      <td data-phone-row="" className="relative w-full max-w-0 border-t border-[#f0f1f3] bg-white px-4 py-3 sm:hidden">
         <div className="flex items-baseline justify-between gap-3">
           <Link href={href} className="min-w-0 truncate text-[16px] font-semibold text-[#1a1a2e] outline-none after:absolute after:inset-0">
             {whoOf(p)}
@@ -627,8 +627,8 @@ function PersonLine({ p, picked, onPick }: { p: PersonRow; picked: boolean; onPi
           <span className="shrink-0 text-[14px] text-[#6b7280]">{dayOf(p.lastSeen)}</span>
         </div>
         {p.name && p.email ? <p className="mt-0.5 truncate text-[15px] text-[#303036]">{p.email}</p> : null}
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-[14px] text-[#6b7280]">{originLabel(p.origin)}</span>
+        <div className="mt-1 flex min-w-0 items-center gap-2">
+          <span className="shrink-0 text-[14px] text-[#6b7280]">{originLabel(p.origin)}</span>
           <Tags tags={p.tags} max={2} />
         </div>
       </td>
@@ -864,7 +864,7 @@ function ImportPeople({ open, phone, marketing, onClose, onDone }: { open: boole
               {result.keptOff ? <li>{tt("{count, plural, one {# had unsubscribed, bounced or only bought from you, and was left off the list} other {# had unsubscribed, bounced or only bought from you, and were left off the list}}", { count: result.keptOff })}</li> : null}
               {result.invalid ? <li>{tt("{count, plural, one {# line had no valid email address} other {# lines had no valid email address}}", { count: result.invalid })}</li> : null}
               {result.truncated ? <li>{tt("Only the first 5,000 rows were read. Import the rest in another file.")}</li> : null}
-              {result.contactsMissing ? <li>{tt("Names and tags were not kept: that needs the Contacts database update (SQL part 378).")}</li> : null}
+              {result.contactsMissing ? <li>{tt("Only the email addresses were imported. Names and tags are kept once setup finishes.")}</li> : null}
             </ul>
             <div className="flex justify-end pt-1">
               <button type="button" className={buttonAccent} onClick={onClose}>

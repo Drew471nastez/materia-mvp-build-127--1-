@@ -156,7 +156,7 @@ const clickText = (text) => `(() => { const b = [...document.querySelectorAll("b
 const clickTitle = (title) => `(() => { const b = [...document.querySelectorAll('button[title="${title}"]')].find((e) => e.getClientRects().length); if (b) b.click(); return !!b })()`
 
 await sheet("links", "Add block", "Add Block", clickText("Add"), ".overflow-y-auto")
-await sheet("links", "A link's thumbnail", "Edit Thumbnail", `(() => { const b = [...document.querySelectorAll("[data-scroll-container] button.w-10.h-10.rounded-lg")].find((e) => e.getClientRects().length); if (b) b.click(); return !!b })()`)
+await sheet("links", "A link's thumbnail", "Edit Thumbnail", `(() => { const b = [...document.querySelectorAll("[data-scroll-container] [data-row-thumbnail]")].find((e) => e.getClientRects().length); if (b) b.click(); return !!b })()`)
 await sheet("links", "A block's animation", "Animation", clickTitle("Animation"))
 await sheet("links", "A block's stats", "Link Stats", clickTitle("View Stats"))
 await sheet("products", "Add product", "Add Product", `(() => { const b = [...document.querySelectorAll("button")].find((e) => /^add product$/i.test(e.textContent.trim()) && e.getClientRects().length); if (b) b.click(); return !!b })()`)
