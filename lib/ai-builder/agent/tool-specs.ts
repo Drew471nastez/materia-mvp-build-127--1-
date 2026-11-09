@@ -1,4 +1,6 @@
 /**
+ * Server only (search_knowledge's spec comes with L6's library module).
+ *
  * The 17 tools as the provider sees them: JSON schemas built from the
  * contract's input shapes (lib/ai-builder/agent-tools.ts AgentToolInputs).
  * Keep the two in step; tests/ai-builder-agent.test.ts checks every name has
@@ -7,9 +9,9 @@
 import type { ToolSpec } from "@/lib/sites/agent/types"
 import { AGENT_TOOL_NAMES, type AgentToolName } from "../types"
 import { CONCEPT_SCHEMA } from "./concept"
+import { SEARCH_KNOWLEDGE_TOOL } from "./knowledge"
 
 const PHASES = ["brief", "plan", "build", "verify", "repair", "finish"]
-const KINDS = ["style", "layout", "component", "motion", "industry", "anti_slop", "resource", "core", "storelib", "debugging"]
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required, additionalProperties: false })
 const str = (description: string) => ({ type: "string", description })
 
@@ -72,7 +74,8 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
   },
   list_capabilities: { name: "list_capabilities", description: "This store's real data: products, collections, communities, forms, pages, menus, reviews and switched-on features, with ids. Bind only these ids; never invent one.", parameters: obj({}) },
   bind_data: { name: "bind_data", description: "Point a binding setting (product, products, collection, collections, community, page, menu) of a placed section at real ids from list_capabilities.", parameters: obj({ page: { type: "string" }, sectionId: { type: "string" }, prop: { type: "string" }, kind: { type: "string", enum: ["product", "products", "collection", "collections", "community", "page", "menu", "form"] }, ids: { type: "array", items: { type: "string" } } }, ["page", "sectionId", "prop", "kind", "ids"]) },
-  search_knowledge: { name: "search_knowledge", description: "Search Storelib's design knowledge (styles, layouts, components, motion, industries, anti slop rules, .storelib examples).", parameters: obj({ query: { type: "string" }, kinds: { type: "array", items: { type: "string", enum: KINDS } }, limit: { type: "number" } }, ["query"]) },
+  /* L6's spec (lib/storelib-ai/library/tool.ts): the library's kinds and wording. */
+  search_knowledge: SEARCH_KNOWLEDGE_TOOL as ToolSpec<AgentToolName>,
   validate: { name: "validate", description: "Check one file, or (no path) every file you touched and every page: compile, manifest, remote imports, bindings, links.", parameters: obj({ path: { type: "string" } }) },
   render_check: { name: "render_check", description: "Draw a page with the template engine and read it: empty sections, leftover template code, pictures without alt, heading order, broken internal links, and runtime errors the editor reported.", parameters: obj({ page: { type: "string" } }, ["page"]) },
   report_progress: { name: "report_progress", description: "Say what you are doing, for the progress view. With phase \"plan\", hand in the visual concept (required before the first write on a new website) and the plan as tasks.", parameters: obj({ phase: { type: "string", enum: PHASES }, label: { type: "string" }, concept: CONCEPT_SCHEMA, tasks: { type: "array", items: { type: "string" } } }, ["phase", "label"]) },

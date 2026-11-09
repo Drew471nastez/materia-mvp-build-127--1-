@@ -184,6 +184,7 @@ const BINDING_TYPES = new Set(["product_picker", "product_list", "collection_pic
 
 /** Whether a binding value names only real things. Returns the ids that are not. */
 export function unknownBindingIds(control: string, value: unknown, caps: RuntimeCapabilities | null, pageKeys: string[], menus: string[]): string[] {
+  if (!BINDING_TYPES.has(control)) return []
   const ids = (Array.isArray(value) ? value : [value]).filter((v): v is string => typeof v === "string" && v.trim() !== "")
   if (!ids.length) return []
   const known = new Set<string>(

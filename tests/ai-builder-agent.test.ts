@@ -30,7 +30,7 @@ import { createToolSet } from "@/lib/ai-builder/agent/tools-impl"
 import { readConcept } from "@/lib/ai-builder/agent/concept"
 import { tokensToThemeSettings } from "@/lib/ai-builder/agent/tokens"
 import { validateFile } from "@/lib/ai-builder/agent/validate"
-import { fallbackSlop } from "@/lib/ai-builder/agent/fallback-slop"
+import { librarySlop } from "@/lib/ai-builder/agent/knowledge"
 import { versionOf } from "@/lib/ai-builder/agent/version"
 import type { AgentDeps, AgentJobInput } from "@/lib/ai-builder/agent/ports"
 import type { ProviderRequest } from "@/lib/sites/agent/types"
@@ -67,7 +67,7 @@ function depsFor(store: ReturnType<typeof memoryStore>, steps: Step[], extra: Pa
       requests: [] as ProviderRequest[],
       calls: 0,
       async complete(req: ProviderRequest) {
-        rec.requests.push(req)
+        rec.requests.push({ ...req, turns: [...req.turns] })
         rec.calls++
         return scripted([steps[i++] ?? { calls: [["finish", { summary: "Done." }]] }]).complete(req)
       },
@@ -91,7 +91,7 @@ const files = (store: ReturnType<typeof memoryStore>) => store.project.files
 const kinds = (events: AgentEvent[]) => events.map((e) => e.kind)
 
 /* The fitness coach website, as a model would build it. */
-function fitnessSteps(): Step[] {
+function fitnessSteps(store: ReturnType<typeof memoryStore>): Step[] {
   return [
     /* 1 (plan model): a write before the concept is refused; then the concept. */
     { text: "Planning the look first.", calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }], ["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, tasks: ["Header and footer", "Home: hero and programs", "Programs page", "About page"] }]] },
@@ -129,10 +129,8 @@ function fitnessSteps(): Step[] {
       ],
     },
     /* 6: bind a real product (and try an invented one). */
-    (req) => {
-      const last = req.turns[req.turns.length - 1]
-      const text = last.role === "tool" ? last.results.map((r) => r.output).join("\n") : ""
-      const id = /"ids":\["([^"]+)","([^"]+)"/.exec(text)?.[2] ?? ""
+    () => {
+      const id = store.project.pages.home.find((s) => s.type === "ai_program_list")?.id ?? ""
       return { calls: [["list_pages", {}], ["bind_data", { page: "home", sectionId: id, prop: "product", kind: "product", ids: ["prod_invented"] }], ["bind_data", { page: "home", sectionId: id, prop: "product", kind: "product", ids: ["prod_8week"] }]] }
     },
     /* 7: checks. */
@@ -146,18 +144,18 @@ async function main() {
   console.log("\n0. tool specs and pure parts")
   check("every tool has exactly one spec, named as the contract", AGENT_TOOL_NAMES.every((n) => TOOL_SPECS[n]?.name === n) && TOOL_LIST.length === AGENT_TOOL_NAMES.length)
   check("every spec is a closed JSON schema object", TOOL_LIST.every((t) => (t.parameters as { type?: string; additionalProperties?: boolean }).type === "object" && (t.parameters as { additionalProperties?: boolean }).additionalProperties === false))
-  check("a concept needs every field", readConcept({ name: "x" }).ok === false && readConcept(CONCEPT).ok === true)
+  check("a concept needs every field (L6 validateConcept)", readConcept({ name: "x" }).ok === false && readConcept(CONCEPT).ok === true, readConcept(CONCEPT))
   const mapped = tokensToThemeSettings({ colors: { background: "#ffffff", surface: "#f0f0f0", text: "#111111", muted: "#555555", accent: "#c2410c", accentText: "#ffffff", border: "#dddddd" }, custom: { ok: "4px", bad: "url(https://x.test/a.png)" } }, {})
   check("tokens become schemes and custom tokens; url() refused", !!(mapped.settings.color_schemes as Record<string, unknown>).site && mapped.settings.default_color_scheme === "site" && (mapped.settings.custom_tokens as Record<string, string>).ok === "4px" && !("bad" in (mapped.settings.custom_tokens as Record<string, string>)) && mapped.issues.some((i) => i.code === "token.value"))
   check("remote script refused by validate", validateFile("sections/ai_x.storelib", HERO.replace(/ai_coach_hero/g, "ai_x").replace("</template>", '<script src="https://evil.test/x.js"></script></template>')).some((i) => i.code === "import.script_src"))
   check("a database capability is refused", validateFile("sections/ai_x.storelib", HERO.replace(/ai_coach_hero/g, "ai_x").replace('"category": "hero",', '"category": "hero", "capabilities": ["database"],')).some((i) => i.code === "script.capability"))
-  const slop = await fallbackSlop({ files: [{ path: "sections/ai_t.storelib", text: HERO.replace("Lift with a plan", "Unlock your potential with 10,000+ clients") }], concept: null, capabilities: CAPS })
-  check("anti slop: banned words and invented metrics are high", slop.some((i) => i.code === "slop.banned_words" && i.severity === "error") && slop.some((i) => i.code === "slop.fake_metric"))
+  const slop = await librarySlop({ files: [{ path: "sections/ai_t.storelib", text: HERO.replace("Lift with a plan", "Unlock your potential with 10,000+ clients") }], concept: null, capabilities: CAPS })
+  check("anti slop (L6): invented metrics and empty words are high", slop.some((i) => i.code.startsWith("slop.") && i.severity === "error"))
   check("the worst case of a call is priced, unpriced models at Opus", worstCaseUsd("claude-sonnet-5-5", 30_000, 24_000) > 0.2 && worstCaseUsd("mystery-model", 30_000, 24_000) >= worstCaseUsd("claude-opus-5-5", 30_000, 24_000))
 
   console.log("\n1. a fitness coach website, from blank")
   const store = memoryStore({ pages: { home: [] }, settings: {} })
-  const { deps, plan, loop } = depsFor(store, fitnessSteps())
+  const { deps, plan, loop } = depsFor(store, fitnessSteps(store))
   const r1 = await runAgentSlice(jobInput(), null, deps, { deadline: T0 + 10 * 60_000 })
   check("the job completes", r1.status === "complete", { status: r1.status, summary: r1.summary, events: r1.events.filter((e) => e.kind === "tool" && !e.ok) })
   check("the first call is the plan model, the rest the loop model", plan.calls === 1 && loop.calls >= 7, { plan: plan.calls, loop: loop.calls })
@@ -278,8 +276,16 @@ async function main() {
   }
   {
     const s = memoryStore()
-    const d = depsFor(s, [{ calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT }]] }, { calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }]] }, { calls: [["list_pages", {}]] }])
-    d.clock.t = T0 + DEFAULT_JOB_BUDGET.maxWallMs - 3_500
+    const steps: Step[] = [
+      { calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT }]] },
+      () => {
+        /* Twenty minutes pass while this call answers. */
+        d.clock.t = T0 + DEFAULT_JOB_BUDGET.maxWallMs
+        return { calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }]] }
+      },
+      { calls: [["list_pages", {}]] },
+    ]
+    const d = depsFor(s, steps)
     const r = await runAgentSlice(jobInput(), null, d.deps, { deadline: T0 + 60 * 60_000 })
     check("the wall clock ends the job partial", r.status === "partial" && r.stopped === "wall_clock", { status: r.status, stopped: r.stopped })
   }
@@ -344,7 +350,7 @@ async function main() {
   {
     const cp = newCheckpoint()
     cp.turns.push({ role: "user", text: "BRIEF" })
-    for (let i = 0; i < 300; i++) {
+    for (let i = 0; i < 1500; i++) {
       cp.turns.push({ role: "assistant", text: `step ${i}`, toolCalls: [{ id: `c${i}`, name: "read_file", argumentsJson: JSON.stringify({ path: `sections/ai_${i}.storelib` }) }] })
       cp.turns.push({ role: "tool", toolCallId: `c${i}`, text: "x".repeat(3_000) })
     }
@@ -357,7 +363,7 @@ async function main() {
   }
   {
     const s = memoryStore({ pages: { home: [] } })
-    const steps = fitnessSteps()
+    const steps = fitnessSteps(s)
     const d = depsFor(s, steps)
     const first = await runAgentSlice(jobInput(), null, d.deps, { deadline: T0 + 10 * 60_000, maxIterations: 3 })
     check("a slice stops at its iteration budget and asks to chain", first.status === "running" && first.iteration === 3)

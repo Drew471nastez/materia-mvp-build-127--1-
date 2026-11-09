@@ -29,6 +29,7 @@
  * is unpriced) must fit what is left of the job's cap; after it the real
  * usage is added and reported as a `spend` event.
  */
+import "server-only"
 import { ZERO_USAGE, type AgentTurn, type ProviderTurn, type ToolResult } from "@/lib/sites/agent/types"
 import { costOf, rateFor } from "@/lib/sites/agent/models"
 import { AGENT_TOOL_NAMES, type AgentEvent, type AgentJobStatus, type AgentPhase, type AgentToolName, type BudgetStop, type ValidationIssue } from "../types"
@@ -39,7 +40,7 @@ import { TOOL_LIST } from "./tool-specs"
 import { compactCheckpoint, compactLive, resumeTurns, toCheckpointTurns } from "./compact"
 import { newCheckpoint, type LoopCheckpoint } from "./state"
 import { createToolSet, renderPage, validateAll, type EventDraft } from "./tools-impl"
-import { fallbackSlop } from "./fallback-slop"
+import { directionsFor, libraryKnowledge, librarySlop } from "./knowledge"
 import { errorsOf } from "./validate"
 
 export interface SliceOptions {
@@ -107,11 +108,15 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
   }
 
   /* ── the end of a job, whichever way it ends ───────────────────────── */
-  const finished = (status: Exclude<AgentJobStatus, "queued" | "running">, summary: string, failing: string[] = [], stopped?: BudgetStop, error?: string): SliceResult => {
+  /* The end event of a job finished from inside the finish tool: emitted after that tool's own event, so "finished" is always the last. */
+  let pendingEnd: EventDraft | null = null
+  const finished = (status: Exclude<AgentJobStatus, "queued" | "running">, summary: string, failing: string[] = [], stopped?: BudgetStop, error?: string, defer = false): SliceResult => {
     cp.final = { status, summary, failing }
     if (stopped) cp.stopped = stopped
     if (status === "complete") setPhase("finish", "Done")
-    emit({ kind: "finished", status, ...(stopped ? { stopped } : {}) })
+    const end: EventDraft = { kind: "finished", status, ...(stopped ? { stopped } : {}) }
+    if (defer) pendingEnd = end
+    else emit(end)
     return result(status, summary, stopped, error)
   }
   const result = (status: AgentJobStatus, summary?: string, stopped?: BudgetStop, error?: string): SliceResult => ({
@@ -141,12 +146,11 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     emit({ kind: "phase", phase: "brief", label: "Reading your store" })
     const [caps, pages, files] = await Promise.all([deps.capabilities().catch(() => null), deps.store.listPages(), deps.store.listFiles()])
     cp.caps = caps
-    let knowledge: KnowledgeHit[] = []
-    if (deps.knowledge) {
-      const industry = job.options?.category?.replace(/_/g, " ")
-      knowledge = (await deps.knowledge({ query: job.prompt.slice(0, 500), industry, limit: 6 }).catch(() => [])) as KnowledgeHit[]
-    }
-    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages, files, knowledge }) })
+    const industry = job.options?.category?.replace(/_/g, " ")
+    const search = deps.knowledge ?? libraryKnowledge({ industry, caps: () => caps })
+    const knowledge = (await search({ query: job.prompt.slice(0, 500), industry, limit: 5 }).catch(() => [])) as KnowledgeHit[]
+    const directions = job.edit ? [] : directionsFor(industry ?? job.prompt.slice(0, 80), job.creatorId)
+    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages, files, knowledge, directions }) })
     if (job.edit) setPhase("build", "Making your change")
     else setPhase("plan", "Deciding the look")
   }
@@ -162,7 +166,7 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     const errors = errorsOf(issues)
     emit({ kind: "validation", errors: errors.length, warnings: issues.length - errors.length })
     if (!errors.length) {
-      done.r = finished("complete", String(input.summary ?? "").slice(0, 1_000) || "The website is ready to review.", [])
+      done.r = finished("complete", String(input.summary ?? "").slice(0, 1_000) || "The website is ready to review.", [], undefined, undefined, true)
       return { ok: true }
     }
     const failing = [...new Set(errors.map((e) => e.path ?? (e.sectionId ? `section ${e.sectionId}` : e.code)))]
@@ -173,7 +177,7 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
       return { ok: false, reason: `Not finished: ${errors.length} problem${errors.length === 1 ? "" : "s"} to fix first (round ${cp.verifyCycles} of ${job.budget.maxVerifyCycles}). Fix only these, then call finish again:\n${errors.slice(0, 20).map((e, i) => `${i + 1}. ${e.path ? `${e.path}: ` : e.sectionId ? `[${e.sectionId}] ` : ""}${e.message.slice(0, 600)}`).join("\n")}` }
     }
     const summary = `${String(input.summary ?? "").slice(0, 600)} Not everything passed its checks, so this is a partial website: ${failing.slice(0, 8).join(", ")} still ${failing.length === 1 ? "has a problem" : "have problems"} (${errors.slice(0, 3).map((e) => e.code).join(", ")}). Everything is a draft; nothing is live.`.trim()
-    done.r = finished("partial", summary, failing)
+    done.r = finished("partial", summary, failing, undefined, undefined, true)
     return { ok: false, reason: "The checks still fail and the repair rounds are used up. The job ends as partial and says so." }
   }
 
@@ -264,6 +268,7 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     turns = compactLive(turns)
   }
 
+  if (pendingEnd) emit(pendingEnd)
   /* Built again so the checkpoint holds the last tool results too. */
   const end = done.r as SliceResult | null
   const final = cp.final as LoopCheckpoint["final"]
@@ -318,10 +323,13 @@ function summarise(name: string, args: Record<string, unknown>, output: unknown)
 export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckpoint): Promise<ValidationIssue[]> {
   const ctx = { job, deps, cp }
   const issues = await validateAll(ctx)
-  const pages = job.edit ? cp.pagesTouched : (await deps.store.listPages()).map((p) => p.key)
+  const stored = await deps.store.listPages()
+  const pages = job.edit ? cp.pagesTouched : stored.map((p) => p.key)
+  /* A new website's page that shows nothing of its own is not finished. The theme's template pages (product, search...) are not the agent's to fill. */
+  if (!job.edit) for (const p of stored) if ((p.key === "home" || cp.pagesTouched.includes(p.key)) && !p.sections.some((s) => !s.hidden && !s.group && s.type !== "header" && s.type !== "footer")) issues.push({ severity: "error", code: "page.empty", message: `The page ${p.key} has no sections of its own. Place components on it with set_page_sections.` })
   for (const page of pages) issues.push(...(await renderPage(ctx, page)).issues.map((i) => ({ ...i, message: `${page}: ${i.message}` })))
   const files = (await deps.store.listFiles()).filter((f) => cp.filesTouched.includes(f.path)).map((f) => ({ path: f.path, text: f.text }))
-  if (files.length) issues.push(...(await (deps.slop ?? fallbackSlop)({ files, concept: cp.concept ?? null, capabilities: cp.caps ?? null }).catch(() => [])))
+  if (files.length) issues.push(...(await (deps.slop ?? librarySlop)({ files, concept: cp.concept ?? null, capabilities: cp.caps ?? null }).catch(() => [])))
   if (!job.edit && !cp.concept) issues.push({ severity: "error", code: "plan.concept_missing", message: "There is no visual concept. Hand it in with report_progress phase plan." })
   if (!job.edit && !cp.filesTouched.some((p) => p.startsWith("sections/ai_"))) issues.push({ severity: "error", code: "build.nothing", message: "No component was written. A new website is made of components you write." })
   return issues

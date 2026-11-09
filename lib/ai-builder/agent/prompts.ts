@@ -14,7 +14,10 @@
  */
 import { STORELIB_HOOKS, AGENT_DEFAULT_CAPABILITIES, type RuntimeCapabilities } from "../runtime-contract"
 import type { AgentJobInput, KnowledgeHit, StoredFile, StoredPage } from "./ports"
-import { BANNED_WORDS } from "./fallback-slop"
+import type { Direction } from "@/lib/storelib-ai/library/concept"
+
+/** CLAUDE.md's list, and its shape: words that say nothing. */
+export const BANNED_WORDS = ["unlock", "elevate", "seamless", "powerful", "effortlessly", "supercharge", "transform", "revolutionize", "game-changer"]
 
 export const AGENT_SYSTEM = `You are Storelib's website agent. You build real, original websites for creators by writing code components and composing pages, with tools, until the site is done and checks clean.
 
@@ -36,7 +39,7 @@ REAL DATA ONLY
 - Copy is specific, compact and natural. Never write: ${BANNED_WORDS.slice(0, 9).join(", ")}. No em dashes. No emoji as icons.
 
 DESIGN
-- A new website starts from a visual concept: before any write, call report_progress with phase "plan", a concept (name, mood, type, palette, layout, motion, imagery, signature) and the plan as tasks. Writes are refused until it is accepted.
+- A new website starts from a visual concept: before any write, call report_progress with phase "plan", a concept (name, mood, styles, typeSystem, palette, layout, motion, imagery, signatureMoves; text on background at least 4.5:1) and the plan as tasks. Writes are refused until it is accepted.
 - The theme is optional. Do not think in the theme's section catalogue: design original components for THIS business and concept. Avoid the default AI look: purple gradients, glassmorphism, identical card grids, a giant centred hero over three cards, random pills, icons beside every label, excessive rounding. Vary rhythm, scale and density between sections. If it could belong to any business, redesign it.
 
 WORKING
@@ -60,7 +63,7 @@ function capsSummary(c: RuntimeCapabilities | null): string {
 }
 
 /** The first user turn of a job. */
-export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; pages: StoredPage[]; files: StoredFile[]; knowledge: KnowledgeHit[] }): string {
+export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; pages: StoredPage[]; files: StoredFile[]; knowledge: KnowledgeHit[]; directions?: Direction[] }): string {
   const { job } = input
   const o = job.options
   const prefs = [
@@ -84,6 +87,9 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
     capsSummary(input.caps),
     `PAGES NOW:\n${pages.join("\n") || "home: (empty)"}`,
     own.length ? `YOUR COMPONENT FILES NOW: ${own.join(", ")}` : "",
+    input.directions?.length
+      ? `STARTING DIRECTIONS (seeds, deliberately different; adapt one to this creator or go elsewhere, but do not default to the obvious):\n${input.directions.map((d) => `- ${d.name} [${d.styles.join(" + ")}]: ${d.mood.join(", ")}; ${d.type.display} / ${d.type.body}; ${d.palette.mode} ${d.palette.background} / ${d.palette.text} / accent ${d.palette.accent}; motion ${d.motion}; imagery: ${d.imagery}; signature: ${d.signature}`).join("\n")}`
+      : "",
     input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, 12_000)}` : "",
     job.edit ? "Start by reading what the request is about (list_pages, read_file), then change it." : "Start with report_progress phase \"plan\": the concept and the plan. Then tokens, components, pages, checks, finish.",
   ]

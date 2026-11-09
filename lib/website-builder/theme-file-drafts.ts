@@ -178,9 +178,18 @@ export async function recordVersion(
   path: string,
   content: string,
   kind: "save" | "publish" | "restore" = "save",
+  /**
+   * Who wrote it and in which AI job (SQL part 401 columns). Optional: every
+   * existing caller is unchanged, and before part 401 has run the row is
+   * written without them rather than not at all.
+   */
+  meta?: { author?: "creator" | "ai" | "import" | "restore"; jobId?: string },
 ): Promise<boolean> {
   try {
-    const { error } = await db.from("store_theme_file_versions").insert({ install_id: installId, path, content, kind })
+    const row = { install_id: installId, path, content, kind }
+    const extra = { ...(meta?.author ? { author: meta.author } : {}), ...(meta?.jobId ? { job_id: meta.jobId } : {}) }
+    let { error } = await db.from("store_theme_file_versions").insert({ ...row, ...extra })
+    if (error && Object.keys(extra).length && /author|job_id|does not exist|schema cache/i.test(error.message ?? "")) ({ error } = await db.from("store_theme_file_versions").insert(row))
     if (error) return false
   } catch {
     return false

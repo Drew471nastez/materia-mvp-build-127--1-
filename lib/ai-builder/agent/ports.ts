@@ -10,8 +10,8 @@
  *   models         provider + model per role, through resolveForCreator
  *                  (./server.ts) or a scripted fake
  *   capabilities   this creator's real data, ids included
- *   knowledge      L6's retrieval, or nothing
- *   slop           L6's anti slop evaluator, or ./fallback-slop.ts
+ *   knowledge      L6's retrieval (./knowledge.ts by default)
+ *   slop           L6's anti slop evaluator (./knowledge.ts by default)
  *   renderCheck    L4's render check, or ./render-check.ts
  *
  * so the whole engine runs in a test with a scripted provider and an

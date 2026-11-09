@@ -32,7 +32,8 @@ import { WRITABLE_PATH, type AgentToolInputs, type AgentToolOutputs, type Placed
 import type { RuntimeCapabilities } from "../runtime-contract"
 import { isAiComponentType, type AgentEvent, type AgentPhase, type ComponentManifest, type DataBindingKind, type FileWriteResult, type ValidationIssue } from "../types"
 import type { AgentDeps, AgentJobInput, StoredPage } from "./ports"
-import { readConcept } from "./concept"
+import { describeConcept, readConcept } from "./concept"
+import { libraryKnowledge } from "./knowledge"
 import { renderCheckPage } from "./render-check"
 import { addUnique, type LoopCheckpoint } from "./state"
 import { tokensToThemeSettings } from "./tokens"
@@ -96,7 +97,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
   }
 
   const needsConcept = () => !job.edit && !cp.concept
-  const conceptFirst = "Hand in the visual concept first: report_progress with phase \"plan\" and a concept (name, mood, type, palette, layout, motion, imagery, signature). Nothing was changed."
+  const conceptFirst = "Hand in the visual concept first: report_progress with phase \"plan\" and a concept (name, mood, styles, typeSystem, palette, layout, motion, imagery, signatureMoves). Nothing was changed."
 
   function instancesOf(type: string, pages: StoredPage[]): SectionInstance[] {
     return pages.flatMap((p) => p.sections.filter((s) => s.type === type))
@@ -462,8 +463,8 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     },
 
     async search_knowledge({ query, kinds, limit }) {
-      if (!deps.knowledge) return { entries: [] }
-      const entries = await deps.knowledge({ query: String(query ?? "").slice(0, 300), kinds, limit: Math.min(8, Math.max(1, Number(limit) || 4)) }).catch(() => [])
+      const search = deps.knowledge ?? libraryKnowledge({ industry: job.options?.category?.replace(/_/g, " "), concept: () => cp.concept, caps: () => cp.caps })
+      const entries = await search({ query: String(query ?? "").slice(0, 300), kinds, limit: Math.min(8, Math.max(1, Number(limit) || 4)) }).catch(() => [])
       return { entries: entries.map((e) => ({ id: e.id, kind: e.kind, title: e.title, body: e.body.slice(0, 4000), ...(e.examples?.length ? { examples: e.examples.slice(0, 2).map((x) => x.slice(0, 6000)) } : {}) })) }
     },
 
@@ -485,7 +486,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
         const read = readConcept(concept)
         if (read.ok) {
           cp.concept = read.concept
-          note = `Concept "${read.concept.name}" accepted. You can write now.`
+          note = `Concept "${read.concept.name}" accepted. You can write now. Keep to it:\n${describeConcept(read.concept)}`
           ctx.setPhase("build", `Building ${read.concept.name}`)
           return { ok: true, note }
         }

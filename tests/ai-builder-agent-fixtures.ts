@@ -235,18 +235,19 @@ export const CAPS: RuntimeCapabilities = {
 export const CONCEPT = {
   name: "Chalk and Iron",
   mood: ["blunt", "warm", "exact"],
-  type: { display: "Oswald", body: "Inter", scale: "1.333", rule: "Display in capitals, tracked wide" },
-  palette: { background: "#f4efe6", text: "#1d1b18", accent: "#c2410c", accentUse: "Buttons and times only" },
-  layout: ["Big left aligned display type", "Ruled lists instead of cards"],
-  motion: { stance: "subtle", what: "Headings rise once" },
-  imagery: "Grainy daylight gym photos, chalk dust, no stock smiles",
-  signature: ["Session times set like a train board"],
-  pages: ["home", "programs", "about"],
+  styles: ["industrial", "editorial"],
+  typeSystem: { display: "Oswald", body: "Inter", scaleRatio: 1.333, rule: "Display in capitals, tracked wide" },
+  palette: { mode: "light", background: "#f4efe6", text: "#1d1b18", accent: "#c2410c", muted: "#5c564d", accentUse: "Buttons and session times only" },
+  layout: { principles: ["Big left aligned display type", "Ruled lists instead of cards"], density: "balanced", radius: 2 },
+  motion: { stance: "subtle", moves: ["Headings rise once"] },
+  imagery: { direction: "Grainy daylight gym photos, chalk dust", avoid: ["stock smiles"] },
+  signatureMoves: ["Session times set like a train board"],
 }
 
 /* ── the scripted provider ─────────────────────────────────────────────── */
 
-export type Step = { text?: string; calls?: [string, Record<string, unknown>][]; stop?: ProviderTurn["stop"]; throws?: string; usage?: { input: number; output: number } } | ((req: ProviderRequest) => Step)
+export type PlainStep = { text?: string; calls?: [string, Record<string, unknown>][]; stop?: ProviderTurn["stop"]; throws?: string; usage?: { input: number; output: number } }
+export type Step = PlainStep | ((req: ProviderRequest) => PlainStep)
 
 /** Plays the steps in order, one per call; records every request. After the last step it keeps calling finish. */
 export function scripted(steps: Step[], opts: { id?: string } = {}): AgentProvider & { requests: ProviderRequest[]; calls: number } {
@@ -256,10 +257,10 @@ export function scripted(steps: Step[], opts: { id?: string } = {}): AgentProvid
     requests: [] as ProviderRequest[],
     calls: 0,
     async complete(req: ProviderRequest): Promise<ProviderTurn> {
-      self.requests.push(req)
+      self.requests.push({ ...req, turns: [...req.turns] })
       self.calls++
-      let step: Step = steps[i++] ?? { calls: [["finish", { summary: "Done." }]] }
-      if (typeof step === "function") step = step(req)
+      const next: Step = steps[i++] ?? { calls: [["finish", { summary: "Done." }]] }
+      const step: PlainStep = typeof next === "function" ? next(req) : next
       if (step.throws) throw new Error(step.throws)
       const toolCalls: ToolCall[] = (step.calls ?? []).map(([name, args], n) => ({ id: `call_${self.calls}_${n}`, name, argumentsJson: JSON.stringify(args) }))
       return {
