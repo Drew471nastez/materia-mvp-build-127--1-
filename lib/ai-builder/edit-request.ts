@@ -8,9 +8,11 @@
  * ./types):
  *
  *   1. The agent's edit mode (L2's route, componentEditEndpoint): a job on
- *      that file only, with its progress in the editor. Tried only where
- *      NEXT_PUBLIC_AI_BUILDER_AGENT_EDIT is "1", and an answer of 404 or 501
- *      falls through to 2.
+ *      that file only, with its progress in the editor. Tried only when the
+ *      server said the agent is on for this account (round M: the editor's
+ *      GET .../redesign `agent`, from AI_BUILDER_AGENT or the allowlist
+ *      AI_BUILDER_AGENT_ACCOUNTS; no env variable of the browser's own), and
+ *      an answer of 404 or 501 falls through to 2.
  *   2. Ask Storelib with the section selected, which already reads the
  *      section's file and changes it with exact find and replace edits
  *      (lib/website-builder/agent/selected-section.ts, edit_section_code),
@@ -42,8 +44,8 @@ export async function browserFileVersion(text: string): Promise<string | null> {
 export type AgentEditAnswer = { kind: "job"; jobId: string } | { kind: "unavailable" } | { kind: "error"; message: string }
 
 /** The agent's edit mode, when it is switched on and answers. `unavailable` means use Ask Storelib. */
-export async function requestAgentEdit(installId: string, req: ComponentEditRequest, fetcher: typeof fetch = fetch): Promise<AgentEditAnswer> {
-  if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_AI_BUILDER_AGENT_EDIT !== "1") return { kind: "unavailable" }
+export async function requestAgentEdit(installId: string, req: ComponentEditRequest, fetcher: typeof fetch = fetch, opts: { enabled: boolean } = { enabled: false }): Promise<AgentEditAnswer> {
+  if (!opts.enabled) return { kind: "unavailable" }
   try {
     const res = await fetcher(componentEditEndpoint(installId), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(req) })
     if (res.status === 404 || res.status === 405 || res.status === 501) return { kind: "unavailable" }

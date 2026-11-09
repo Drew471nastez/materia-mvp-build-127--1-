@@ -144,12 +144,15 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/website-builder/ai-jobs/[jobId]/cancel": () => import("@/app/api/website-builder/ai-jobs/[jobId]/cancel/route"),
   "/api/website-builder/ai-jobs/[jobId]/continue": () => import("@/app/api/website-builder/ai-jobs/[jobId]/continue/route"),
   "/api/website-builder/ai-jobs/[jobId]/preview-errors": () => import("@/app/api/website-builder/ai-jobs/[jobId]/preview-errors/route"),
+  "/api/website-builder/ai-jobs/[jobId]/undo": () => import("@/app/api/website-builder/ai-jobs/[jobId]/undo/route"),
+  "/api/website-builder/themes/[installId]/redesign": () => import("@/app/api/website-builder/themes/[installId]/redesign/route"),
   "/api/cron/ai-jobs": () => import("@/app/api/cron/ai-jobs/route"),
   "/api/website-builder/themes/[installId]/ai-edit": () => import("@/app/api/website-builder/themes/[installId]/ai-edit/route"),
   "/api/website-builder/themes/[installId]/sections": () => import("@/app/api/website-builder/themes/[installId]/sections/route"),
   "/api/website-builder/themes/[installId]/files": () => import("@/app/api/website-builder/themes/[installId]/files/route"),
   "/api/website-builder/themes/[installId]/publish": () => import("@/app/api/website-builder/themes/[installId]/publish/route"),
   "/api/website-builder/themes/[installId]/backups": () => import("@/app/api/website-builder/themes/[installId]/backups/route"),
+  "/api/website-builder/themes/[installId]/backups/[backupId]": () => import("@/app/api/website-builder/themes/[installId]/backups/[backupId]/route"),
   "/api/website-builder/themes/[installId]/backups/[backupId]/restore": () => import("@/app/api/website-builder/themes/[installId]/backups/[backupId]/restore/route"),
 }
 

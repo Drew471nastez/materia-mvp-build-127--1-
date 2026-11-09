@@ -121,6 +121,12 @@ export interface AgentJobInput {
    * hero calmer", "add a pricing page"). Only what is asked is touched.
    */
   edit?: boolean
+  /**
+   * REDESIGN (round M): a whole-site job on an existing website. "changes": what was asked, across the site,
+   * keeping every other page, section, binding and word; "full": a new look for the whole site, still with
+   * the site's own words, products and bindings. The job's backup is the way back.
+   */
+  redesign?: "changes" | "full"
   budget: JobBudget
   /** When the job first started running (ms), for the total wall clock. */
   startedAt: number
