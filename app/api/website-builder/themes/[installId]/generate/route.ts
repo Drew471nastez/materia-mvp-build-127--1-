@@ -67,12 +67,17 @@ export async function POST(req: Request, { params }: Params) {
     async start(controller) {
       let sent = 0
       const line = (value: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(value)}\n`))
-      /* Every operation once: a long wave is sent in pages, as the job route answers a poll. */
+      /*
+        Every operation once: a long wave is sent in pages, as the job route answers a poll. Round AQ: the last page
+        of each save carries the checkpoint for what was just saved, so a reload of the editor (which ends this
+        request) carries the build on from here instead of losing it (lib/website-builder/start-handoff.ts).
+      */
       const save = async (j: Job) => {
         for (;;) {
           const view = publicView(j, sent)
-          line({ type: "job", job: view })
-          if (!view.ops.length || view.ops.length < 400) break
+          const last = !view.ops.length || view.ops.length < 400
+          line(last ? { type: "job", job: view, checkpoint: j.step === "done" ? null : checkpointOf(j) } : { type: "job", job: view })
+          if (last) break
           sent = view.ops[view.ops.length - 1].seq
         }
         sent = j.state.seq

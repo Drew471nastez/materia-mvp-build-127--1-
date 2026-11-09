@@ -165,7 +165,7 @@ import {
   type WritingAnchor,
 } from "@/lib/website-builder/ai-placement"
 import { WritingSection } from "@/components/website-builder/editor/writing-section"
-import { clearStartPrompt, peekStartPrompt, readJobParam, readStartParam, recallJob, rememberJob, startMessage } from "@/lib/website-builder/start-handoff"
+import { clearInlineBuild, clearStartPrompt, peekStartPrompt, readInlineBuild, readJobParam, readStartParam, recallJob, rememberJob, saveInlineBuild, startMessage } from "@/lib/website-builder/start-handoff"
 import { useSiteGeneration, type GenerationSource } from "@/lib/website-builder/ai-site/use-generation"
 import { opIsNew } from "@/lib/website-builder/ai-site/replay"
 import { GenerationPanel, generationPhase } from "@/components/website-builder/ai-generation/generation-panel"
@@ -3546,7 +3546,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     /* Without the jobs table: the description this tab keeps, left there until the build starts (onStart below). */
     const waiting = read.wanted || read.cleaned === null ? peekStartPrompt(stored, installId) : null
+    /*
+      ROUND AQ: a build in this request that a reload cut short. This tab kept its description and latest checkpoint
+      (saveInlineBuild, below and in onCheckpoint); the build carries on from there instead of being lost.
+    */
+    const carried = readInlineBuild(stored, installId)
+    if (carried && (carried.checkpoint || !waiting)) {
+      setGenSource({ kind: "inline", prompt: carried.prompt, checkpoint: carried.checkpoint })
+      return
+    }
     if (waiting) {
+      saveInlineBuild(stored, installId, { prompt: waiting.prompt, checkpoint: null })
       setGenSource({ kind: "inline", prompt: waiting.prompt })
       return
     }
@@ -11285,6 +11295,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         rememberJob(window.sessionStorage, installId, jobId)
       } catch {
         /* this tab only */
+      }
+    },
+    /* Round AQ: an inline build's checkpoint, kept in this tab so a reload carries the build on; null once it is done. */
+    onCheckpoint: (checkpoint) => {
+      if (genSource?.kind !== "inline") return
+      try {
+        if (checkpoint) saveInlineBuild(window.sessionStorage, installId, { prompt: genSource.prompt, checkpoint })
+        else clearInlineBuild(window.sessionStorage, installId)
+      } catch {
+        /* storage refused: a reload starts nothing, as before */
       }
     },
   })

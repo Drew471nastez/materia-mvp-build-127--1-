@@ -32,6 +32,9 @@ import type { RuntimeCapabilities } from "../runtime-contract"
 import { AGENT_DEFAULT_CAPABILITIES } from "../runtime-contract"
 import { WRITABLE_PATH } from "../agent-tools"
 import { isAiComponentType, type GenerationMode, type ValidationIssue } from "../types"
+import { schemaProblem, sourceProblem } from "@/lib/website-builder/ai-site/gate"
+import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
+import { declaredChromeKind } from "@/lib/website-builder/agent/operations"
 
 /* ── one file ─────────────────────────────────────────────────────────── */
 
@@ -106,6 +109,9 @@ function tokenIssues(path: string, text: string): ValidationIssue[] {
 export function validateFile(path: string, text: string, ctx: FileCheckContext = {}): ValidationIssue[] {
   if (!WRITABLE_PATH.test(path)) return [{ severity: "error", code: "path.forbidden", message: `${path} is not a path the agent writes (sections/ai_*.storelib, blocks/ai_*.storelib, snippets/ai_*.storelib).`, path }]
   const issues: ValidationIssue[] = [...importIssues(path, text)]
+  /* Round AQ: the classic job's gate, the same words (lib/website-builder/ai-site/gate.ts). A remote script and a typed picture are importIssues' already. */
+  const unsafe = sourceProblem(text)
+  if (unsafe?.code === "secret") issues.push({ severity: "error", code: "gate.secret", message: unsafe.message, path })
   const type = typeOfPath(path)
   if (path.startsWith("sections/")) {
     const checked = checkSectionSource({ path, type, source: text, instances: ctx.instances, theme: ctx.theme, sources: ctx.sources, before: ctx.before ?? null, strict: true, lenient: ctx.lenient })
@@ -116,6 +122,16 @@ export function validateFile(path: string, text: string, ctx: FileCheckContext =
     for (const n of checked.notes ?? []) issues.push({ severity: "warning", code: `render.${n.id}`, message: n.message, path })
     const compiled = compileSection(text, { file: path, expectType: type })
     if (compiled.ok) issues.push(...manifestIssues(path, compiled.value.schema as never, !!ctx.formPicker))
+    /*
+      THE SAME GATE AS THE CLASSIC JOB'S CODE STEP (round AQ). A section with no settings could not be edited; a header
+      reads the site's menu; picture defaults are empty or https; every default is the site's final words, with no
+      placeholder slot, no banned word and no em dash. The agent may design a footer without a menu, as a person might.
+    */
+    const schema = compiled.ok ? schemasFromSources({ [path]: text })[type] : undefined
+    if (schema) {
+      const held = schemaProblem(schema, { role: declaredChromeKind(schema) ?? "section", menuFor: ["header"] })
+      if (held) issues.push({ severity: "error", code: `gate.${held.code}`, message: held.message, path })
+    }
   } else {
     const compiled = compileThemeFile(text, { file: path })
     if (compiled.ok === false) {

@@ -16,6 +16,8 @@ import { STORELIB_HOOKS, AGENT_DEFAULT_CAPABILITIES, type RuntimeCapabilities } 
 import type { AgentJobInput, KnowledgeHit, StoredFile, StoredPage } from "./ports"
 import type { Direction } from "@/lib/storelib-ai/library/concept"
 import { startContext } from "@/lib/website-builder/ai-site/start-options"
+/* Round AQ: the classic job's design rules (round AP), the same text for both engines. */
+import { STUDIO_CRAFT } from "@/lib/website-builder/ai-site/craft"
 
 /** CLAUDE.md's list, and its shape: words that say nothing. */
 export const BANNED_WORDS = ["unlock", "elevate", "seamless", "powerful", "effortlessly", "supercharge", "transform", "revolutionize", "game-changer"]
@@ -36,12 +38,16 @@ HOW A STORELIB WEBSITE IS MADE
 
 REAL DATA ONLY
 - list_capabilities is the truth about this store: its products, collections, communities, forms, pages, menus, reviews. Bind products, collections, communities, forms, pages and menus with binding settings (product_picker, product_list, collection_picker, collection_list, community_picker, form_picker, page_picker, link_list) and bind_data, using ONLY ids from list_capabilities. Never invent an id, a product, a price or a link.
-- Be honest. No fake testimonials, reviews, client counts, ratings, press logos, awards, years in business or results. If the store has no reviews, there is no testimonial section. Where information is missing (a bio, an address, class times), write short, plainly editable draft copy a creator will recognise as theirs to fill ("Your class times go here"), never invented facts.
-- Copy is specific, compact and natural. Never write: ${BANNED_WORDS.slice(0, 9).join(", ")}. No em dashes. No emoji as icons.
+- Be honest. No fake testimonials, reviews, client counts, ratings, press logos, awards, years in business or results. If the store has no reviews, there is no testimonial section. Where a fact is missing (a bio, an address, class times), leave that part out or write copy that does not need it, with a toggle the creator can switch on once they add the fact in the sidebar. Never a slot ("Your class times go here", "Write your story here", lorem ipsum): every default is the site's final words, and write_file refuses a placeholder.
+- Copy is specific, compact and natural. Never write: ${BANNED_WORDS.slice(0, 9).join(", ")}. No em dashes. No emoji as icons. write_file refuses a default with one of these words or an em dash.
 
 DESIGN
 - A new website starts from a visual concept: before any write, call report_progress with phase "plan", a concept (name, mood, styles, typeSystem, palette, layout, motion, imagery, signatureMoves; text on background at least 4.5:1) and the plan as tasks. Writes are refused until it is accepted.
 - The theme is optional. Do not think in the theme's section catalogue: design original components for THIS business and concept. Avoid the default AI look: purple gradients, glassmorphism, identical card grids, a giant centred hero over three cards, random pills, icons beside every label, excessive rounding. Vary rhythm, scale and density between sections. If it could belong to any business, redesign it.
+- A new website has its own frame: write its header and footer as your own components and place them in group "header"/"footer", in place of any theme header or footer. Nothing of the theme's frame is required.
+- Every component is editable: a <schema> with settings for its words, pictures, colour scheme and spacing. write_file refuses a section with no settings.
+
+${STUDIO_CRAFT}
 
 WORKING
 - Work in small verified steps: write a component, place it, check it. A file that does not compile is not saved and you get its errors with line numbers: fix that file only, with edit_file when the fix is small. A file has a limited number of refused attempts.
@@ -74,7 +80,7 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
     ? "EDIT MODE: this website exists. Change only what the request asks for; everything else stays byte for byte as it is. Read before you edit."
     : job.mode === "blank"
       ? "NEW WEBSITE, BLANK: there is no theme layout, no header and no footer. Everything a visitor sees is a component you write. Have a header and footer only if the concept wants them, and then write them yourself."
-      : "NEW WEBSITE INSIDE A THEME: the theme's sections exist and may stay; add your own ai_ components beside them and replace what does not fit the concept."
+      : "NEW WEBSITE INSIDE A THEME: the theme's sections exist and may stay; add your own ai_ components beside them and replace what does not fit the concept. Write the site's own header and footer and put them in place of the theme's: its frame is not this site's."
   return [
     `REQUEST (the creator's words):\n${job.prompt}`,
     choices ? `THEIR CHOICES:\n${choices}` : "",

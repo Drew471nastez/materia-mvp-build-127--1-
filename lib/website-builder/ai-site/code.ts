@@ -51,7 +51,8 @@ import { pagePath } from "../site-pages"
 import type { SectionInstance, SectionSchema } from "../types"
 import type { Menu } from "@/lib/storelib-theme/values"
 import { ANY_PAGE, type PageOp, type PlacedSection, type SiteState } from "./apply"
-import { placeholderIn, slopIn, STUDIO_CRAFT } from "./craft"
+import { STUDIO_CRAFT } from "./craft"
+import { schemaProblem, sourceProblem } from "./gate"
 import type { ModelRef } from "./models"
 
 export type CodeRole = "header" | "footer" | "section"
@@ -89,12 +90,7 @@ export const CODE_START_RESERVE_MS = 100_000
 /** Where a coded section's file lives: one folder, one name, nothing else. */
 export const CODED_PATH = /^sections\/[a-z0-9_]{1,64}\.storelib$/
 
-/** What a written file may never contain: a key, a server secret, an env read, a token. */
-const SECRET = /(sk-ant-[a-z0-9-]+|sk_(?:live|test)_[a-z0-9]+|service_role|SUPABASE_SERVICE|ANTHROPIC_API_KEY|OPENAI_API_KEY|process\.env|eyJhbGciOi[A-Za-z0-9_-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)/i
-/** A script loaded from somewhere else: generated code runs only what is in its own file. */
-const REMOTE_SCRIPT = /<script\b[^>]*\bsrc\s*=/i
-/** A picture typed into the markup: pictures are image settings, filled with real photos and editable. */
-const TYPED_PICTURE = /<img\b[^>]*\bsrc\s*=\s*["']\s*(?:https?:)?\/\//i
+/* What a written file may never contain, and what its schema must give an owner, are ./gate.ts: the agent's write_file holds a file to the same rules (round AQ). */
 
 /* ── the tasks ────────────────────────────────────────────────────────── */
 
@@ -194,31 +190,6 @@ export function codePrompt(task: CodeTask, ctx: CodeContext, extra = ""): string
 
 export type Accepted = { ok: true; type: string; name: string; path: string; schema: SectionSchema } | { ok: false; reason: string }
 
-/** Every text default a schema carries: its settings', its blocks' and its presets'. */
-function schemaTexts(schema: SectionSchema): string[] {
-  const out: string[] = []
-  const take = (v: unknown) => {
-    if (typeof v === "string") out.push(v)
-    else if (Array.isArray(v)) v.forEach(take)
-    else if (v && typeof v === "object") Object.values(v).forEach(take)
-  }
-  for (const f of schema.fields ?? []) if (f.type !== "image_picker" && f.type !== "url" && f.type !== "link_list" && f.type !== "color_scheme") take((f as { default?: unknown }).default)
-  for (const b of schema.blocks ?? []) for (const f of b.fields ?? []) if (f.type !== "image_picker" && f.type !== "url") take((f as { default?: unknown }).default)
-  for (const pr of schema.presets ?? []) take((pr as { settings?: unknown }).settings), take((pr as { blocks?: unknown }).blocks)
-  return out
-}
-
-/** Picture defaults that are not empty and not a real https address. */
-function badPictureDefault(schema: SectionSchema): string | null {
-  const fields = [...(schema.fields ?? []), ...(schema.blocks ?? []).flatMap((b) => b.fields ?? [])]
-  for (const f of fields) {
-    if (f.type !== "image_picker") continue
-    const d = (f as { default?: unknown }).default
-    if (typeof d === "string" && d.trim() && !/^https:\/\/[^\s"'<>]+$/i.test(d.trim())) return f.id
-  }
-  return null
-}
-
 /**
  * The file as written, checked as if nobody had checked it: the path, the
  * strict compile and quality gate, the schema, its kind, its words and what
@@ -228,9 +199,8 @@ export function acceptCoded(source: string, opts: { role: CodeRole; takenTypes: 
   const text = (source ?? "").trim()
   if (!text) return { ok: false, reason: "The file was empty." }
   if (text.length > 120_000) return { ok: false, reason: "The file is too long for one section." }
-  if (SECRET.test(text)) return { ok: false, reason: "The file contains something that looks like a key or a server setting. Generated code never holds one." }
-  if (REMOTE_SCRIPT.test(text)) return { ok: false, reason: "The file loads a script from another address. A section runs only the code in its own file." }
-  if (TYPED_PICTURE.test(text)) return { ok: false, reason: "A picture's address is typed into the markup. Every picture is an image_picker setting, so it can be replaced and is copied into the creator's media." }
+  const unsafe = sourceProblem(text)
+  if (unsafe) return { ok: false, reason: unsafe.message }
   const declared = /"type"\s*:\s*"([a-z0-9_]{1,64})"/.exec(text)
   if (!declared) return { ok: false, reason: 'The schema needs a "type": lower case letters, digits and underscores.' }
   const type = declared[1]
@@ -241,18 +211,8 @@ export function acceptCoded(source: string, opts: { role: CodeRole; takenTypes: 
   if (checked.ok === false) return { ok: false, reason: checked.feedback.slice(0, 800) }
   const schema = schemasFromSources({ [path]: text })[type]
   if (!schema) return { ok: false, reason: "Its schema could not be read." }
-  if ((schema.fields ?? []).length === 0) return { ok: false, reason: "It has no settings, so the owner could not edit it. Every word and picture is a setting." }
-  const kind = declaredChromeKind(schema)
-  if (opts.role === "section" && kind) return { ok: false, reason: `A page section must not say "kind": "${kind}".` }
-  if (opts.role !== "section" && kind !== opts.role) return { ok: false, reason: `The ${opts.role} must say "kind": "${opts.role}" in its schema.` }
-  if (opts.role !== "section" && !(schema.fields ?? []).some((f) => f.type === "link_list")) return { ok: false, reason: `The ${opts.role} must read the site's menu through a link_list setting.` }
-  const picture = badPictureDefault(schema)
-  if (picture) return { ok: false, reason: `The picture setting "${picture}" has a default that is not an https address. Leave it "" for the builder to fill.` }
-  const words = schemaTexts(schema).join("\n")
-  const hold = placeholderIn(words)
-  if (hold) return { ok: false, reason: `A default still says "${hold}". Write the final words for this site.` }
-  const slop = slopIn(words)
-  if (slop) return { ok: false, reason: `A default uses "${slop}". Say what happens in plain words.` }
+  const held = schemaProblem(schema, { role: opts.role })
+  if (held) return { ok: false, reason: held.message }
   return { ok: true, type, name: schema.name || type, path, schema }
 }
 
