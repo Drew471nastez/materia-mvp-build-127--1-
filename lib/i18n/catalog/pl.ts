@@ -12771,7 +12771,9 @@ const words: Record<string, string> = {
  "Both": "Oba",
  "Show on": "Pokaż na",
  "Faint here so you can still pick it. Visitors on the other size do not see it.": "Tutaj jest wyblakła, żeby nadal dało się ją wybrać. Odwiedzający na drugim rozmiarze jej nie widzą.",
- "Partly done: some checks still fail. Ask me to fix what is left.": "Zrobione częściowo: niektóre sprawdzenia nadal nie przechodzą. Poproś mnie, żebym poprawił resztę."
+ "Partly done: some checks still fail. Ask me to fix what is left.": "Zrobione częściowo: niektóre sprawdzenia nadal nie przechodzą. Poproś mnie, żebym poprawił resztę.",
+ "This did not load": "Nie udało się tego wczytać",
+ "Start one with New form. The same form works on your OnePage, website and Creator Page.": "Zacznij od przycisku Nowy formularz. Ten sam formularz działa na Twojej OnePage, stronie i Creator Page."
 }
 
 export default words

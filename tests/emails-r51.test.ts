@@ -111,7 +111,7 @@ async function main() {
     /pageTab === "campaigns" \? \([\s\S]*?data-new-email[\s\S]*?\) : pageTab === "automations" \? \([\s\S]*?Create automation[\s\S]*?\) : null/.test(home))
   check("Subscribers, Leads and Messages are no longer drawn in Emails", !/function SubscribersTable|function MessagesTable|leadsPanel/.test(home) && !/LeadsPanel|MessagePage|ContactPage/.test(read("app/(storelib)/app/emails/emails-client.tsx")))
   check("Settings holds Sending (platforms, domain, sender) and Customer emails, moved intact",
-    /tab === "customer" \? <CustomerEmailsPanel bare/.test(home) && /tab === "platforms" \? <ConnectedPlatforms/.test(home) && /<SenderCard/.test(home))
+    /* Changed on purpose (round 52): a failed read of a section shows Try again instead of the panel. */ /tab === "customer" && !props\.error \? <CustomerEmailsPanel bare/.test(home) && /tab === "platforms" && !props\.error \? <ConnectedPlatforms/.test(home) && /<SenderCard/.test(home))
   check("templates are a second place in Campaigns (opening a new email with a layout), not a tab",
     /data-email-templates/.test(home) && /\/app\/emails\/new\?layout=/.test(home) && !PAGE_TABS.includes("templates" as never))
   check("the composer applies ?layout= once, for a new email only", /presetLayout = !campaignId && preset\?\.layout/.test(read("components/email/compose/composer.tsx")))

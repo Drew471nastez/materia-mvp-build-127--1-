@@ -97,6 +97,11 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (rep) return reply(200, report(rep[1]))
   const one = /^\/api\/email\/campaigns\/([^/?]+)$/.exec(url)
   if (one) return reply(200, { campaign: { id: one[1], subject: "Draft", body: "", status: "draft", updated_at: "2026-09-22T10:00:00Z" }, counts: null, upgraded: true })
+  /* Round 52: Automations reads its list from the server (app/api/email/area), no longer from Supabase in the browser. */
+  if (url.startsWith("/api/email/area?part=flows")) return reply(200, [
+    { id: "f1", name: "Welcome", trigger_type: "new_subscriber", status: "active", steps: [{ id: "a", type: "email", config: { subject: "Hi", body: "<p>Hi</p>" } }], totals: { sent: 412, opened: 252, clicked: 40, failed: 0, in_progress: 6 } },
+    { id: "f2", name: "Thank you for buying", trigger_type: "purchase", status: "paused", steps: [], totals: null },
+  ])
   if (/^\/api\/automations\/flows\/[^/]+\/status$/.test(url) && method === "POST") return reply(200, { ok: true, stopped: 0 })
   return reply(404, { error: "Not in the probe" })
 }
@@ -104,7 +109,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 function App() {
   return (
     <div id="shell" style={{ position: "fixed", inset: 0 }}>
-      <EmailsClient initialTab="subscribers" />
+      <EmailsClient initialTab="campaigns" />
     </div>
   )
 }
