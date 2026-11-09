@@ -50,10 +50,10 @@ import {
 } from "@/lib/contacts/identity"
 import type { PeoplePage } from "@/lib/contacts/people-server"
 import { Checkbox, GUTTER, LIST_WIDTH, MenuOption, MenuSurface, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
-import { ContactsHeader, ContactsPane, PHONE_ACTION } from "./contacts-header"
+import { ContactsHeader, ContactsPane, PHONE_ACTION, notePeopleQuery } from "./contacts-header"
 import { confirmForm } from "@/components/forms/form-confirm"
 import { FilterChip } from "./filter-chip"
-import { contactsRequest, dayOf, leadStatusLabel, memberStatusLabel, originLabel, subscriptionLabel, whoOf } from "./contact-words"
+import { contactsRequest, dayOf, labelsOf, leadStatusLabel, memberStatusLabel, originLabel, subscriptionLabel, whoOf } from "./contact-words"
 
 export interface CommunityOption {
   id: string
@@ -111,6 +111,9 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
     [query, router],
   )
   const refresh = React.useCallback(() => startTransition(() => router.refresh()), [router])
+  /* Wave 7: the list as it is shown, so a person's back arrow returns to this view, search and page (contacts-header backToPeople). */
+  const shownQuery = peopleQueryString(query)
+  React.useEffect(() => notePeopleQuery(shownQuery), [shownQuery])
 
   /* The search box: what is typed, sent a moment after the last key. */
   const [text, setText] = React.useState(query.q)
@@ -309,9 +312,10 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
               <colgroup>
                 <col className="sm:w-10" />
                 <col />
-                <col className="sm:w-[18%]" />
-                <col className="sm:w-[26%]" />
-                <col className="sm:w-[132px]" />
+                <col className="sm:w-[24%]" />
+                <col className="sm:w-[15%]" />
+                <col className="sm:w-[20%]" />
+                <col className="sm:w-[112px]" />
                 <col className="sm:w-0" />
               </colgroup>
               <thead className="max-sm:hidden">
@@ -327,7 +331,7 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
                     </label>
                   </th>
                   {selected.size > 0 ? (
-                    <th scope="col" colSpan={4} className="bg-[#f7f7f8] px-2 font-normal">
+                    <th scope="col" colSpan={5} className="bg-[#f7f7f8] px-2 font-normal">
                       <SelectionBar
                         ids={[...selected]}
                         people={rows.filter((r) => selected.has(r.id))}
@@ -346,6 +350,9 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
                     <>
                       <th scope="col" className="bg-[#f7f7f8] pl-2 pr-3">
                         {tt("Name")}
+                      </th>
+                      <th scope="col" className="bg-[#f7f7f8] px-3">
+                        {tt("Relationship")}
                       </th>
                       <th scope="col" className="bg-[#f7f7f8] px-3">
                         {tt("Came from")}
@@ -588,6 +595,28 @@ function Tags({ tags, max = 3 }: { tags: string[]; max?: number }) {
   )
 }
 
+/**
+ * WAVE 7, WHO THEY ARE TO THE STORE, ON THE ROW. The views (Leads,
+ * Customers, Subscribers, Members) say which list a person is in; the row
+ * says all of them at once, so a lead who bought reads as both, with the
+ * orders that made them a customer. Quiet chips, the tags' size.
+ */
+function Relationship({ p }: { p: PersonRow }) {
+  const labels = labelsOf(p)
+  if (!labels.length) return <span className="text-[#9ca3af]">{tt("Contact")}</span>
+  return (
+    <span className="flex min-w-0 items-center gap-1 overflow-hidden" data-contact-relationship="">
+      {labels.slice(0, 2).map((l) => (
+        <span key={l} className="shrink-0 rounded-md bg-[#f1f2f4] px-1.5 py-px text-[12px] font-medium leading-4 text-[#374151]">
+          {l}
+        </span>
+      ))}
+      {labels.length > 2 ? <span className="shrink-0 text-[12px] leading-4 text-[#6b7280]">+{labels.length - 2}</span> : null}
+      {p.customer && p.orders > 0 && labels.length <= 2 ? <span className="truncate text-[12px] text-[#9ca3af]">{tt("{n, plural, one {# order} other {# orders}}", { n: p.orders })}</span> : null}
+    </span>
+  )
+}
+
 function PersonLine({ p, picked, onPick }: { p: PersonRow; picked: boolean; onPick: (on: boolean) => void }) {
   const router = useRouter()
   const href = `/app/contacts/${p.id}`
@@ -613,6 +642,9 @@ function PersonLine({ p, picked, onPick }: { p: PersonRow; picked: boolean; onPi
         </Link>
         {p.name && p.email ? <span className="block truncate text-[12px] text-[#6b7280]">{p.email}</span> : null}
       </td>
+      <td className={cn(cell, "px-3")}>
+        <Relationship p={p} />
+      </td>
       <td className={cn(cell, "whitespace-nowrap px-3 text-[#4b5563]")}>{originLabel(p.origin)}</td>
       <td className={cn(cell, "px-3")}>
         <Tags tags={p.tags} max={2} />
@@ -628,7 +660,7 @@ function PersonLine({ p, picked, onPick }: { p: PersonRow; picked: boolean; onPi
         </div>
         {p.name && p.email ? <p className="mt-0.5 truncate text-[15px] text-[#303036]">{p.email}</p> : null}
         <div className="mt-1 flex min-w-0 items-center gap-2">
-          <span className="shrink-0 text-[14px] text-[#6b7280]">{originLabel(p.origin)}</span>
+          <span className="min-w-0 shrink truncate text-[14px] text-[#6b7280]" data-phone-relationship="">{labelsOf(p).join(" · ") || originLabel(p.origin)}</span>
           <Tags tags={p.tags} max={2} />
         </div>
       </td>

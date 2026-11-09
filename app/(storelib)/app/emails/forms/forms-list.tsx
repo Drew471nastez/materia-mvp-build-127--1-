@@ -32,6 +32,13 @@
  * the top row; a form wears its editor's own bar (FormEditor); the inbox and
  * an older website form wear the same bar with a Back to Forms.
  *
+ * Wave 7: every back arrow here goes one screen up (./forms-route.ts
+ * formsParent: a message to the inbox, the inbox, a site form and a form to
+ * Forms, Forms to People), by a real history back when this page pushed the
+ * screen behind, else by replacing the entry, so Back never loops. A form
+ * wears an order's bar and the lists' quiet tabs (FormEditor), a message an
+ * order's bar and width (../message-detail).
+ *
  * WHEN FORMS ARE NOT SET UP (SQL parts 372 and 375 not run) the card says so
  * in one sentence; nothing is retried and New form is not offered. The
  * website inbox is still listed.
@@ -40,7 +47,6 @@ import * as React from "react"
 import { Plus } from "lucide-react"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { ShimmerRows } from "@/components/ui/shimmer"
-import { SegmentedPills } from "@/components/app/segmented-pills"
 import { FormEditor, usageWords, type SavedForm } from "@/components/forms/forms-manager"
 import { confirmForm } from "@/components/forms/form-confirm"
 import { formsRequest } from "@/lib/forms/client"
@@ -52,11 +58,11 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { formatNumber } from "@/lib/i18n/format"
 import { GUTTER, LIST_WIDTH, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card } from "../../orders/order-parts"
-import { ContactsHeader, ContactsPane, PHONE_ACTION } from "../../contacts/contacts-header"
+import { ContactsHeader, ContactsPane, ContactsViews, PHONE_ACTION } from "../../contacts/contacts-header"
 import { MessagePage } from "../message-detail"
 import type { MessageRow } from "../emails-home"
 import { InsightsPanel, MessagesInbox, ResponsesPanel, SiteFormPanel, contactOpenHref, when } from "./form-panels"
-import { routeOf, type FormView, type FormsRoute } from "./forms-route"
+import { FORMS_HOME, FORMS_PREV, formsParent, routeOf, screenOf, searchOf, upMove, type FormView, type FormsRoute } from "./forms-route"
 
 /** The starting points, named for the creator's language (the ids are lib/forms/templates'). */
 export function templateLabel(id: string): string {
@@ -119,7 +125,7 @@ export function FormsList() {
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [filter, setFilter] = React.useState<Filter>("all")
-  const [route, setRoute] = React.useState<FormsRoute>({ form: null, view: "edit", response: null, message: null, inbox: false, siteform: null })
+  const [route, setRoute] = React.useState<FormsRoute>(FORMS_HOME)
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -146,24 +152,33 @@ export function FormsList() {
     return () => window.removeEventListener("popstate", back)
   }, [load])
 
-  /** Open something: the address says it, so Back and a reload agree with the page. */
+  /**
+   * Open something: the address says it, so Back and a reload agree with the
+   * page. A push marks, in its history entry, the screen it came from
+   * (FORMS_PREV), so going up can be a real back to it (./forms-route.ts).
+   */
   const go = (next: Partial<FormsRoute>, push = true) => {
-    const r: FormsRoute = { form: null, view: "edit", response: null, message: null, inbox: false, siteform: null, ...next }
+    const r: FormsRoute = { ...FORMS_HOME, ...next }
+    const from = window.location.search
     setRoute(r)
     const url = new URL(window.location.href)
     for (const k of ["form", "view", "response", "message", "inbox", "siteform"]) url.searchParams.delete(k)
-    if (r.form) {
-      url.searchParams.set("form", r.form)
-      if (r.view !== "edit") url.searchParams.set("view", r.view)
-      if (r.view === "responses" && r.response) url.searchParams.set("response", r.response)
-    }
-    if (r.message) url.searchParams.set("message", r.message)
-    if (r.inbox) url.searchParams.set("inbox", "1")
-    if (r.siteform) url.searchParams.set("siteform", r.siteform)
-    if (push) window.history.pushState(window.history.state, "", url)
+    for (const [k, v] of new URLSearchParams(searchOf(r))) url.searchParams.set(k, v)
+    if (push) window.history.pushState({ ...(window.history.state ?? {}), [FORMS_PREV]: from }, "", url)
     else window.history.replaceState(window.history.state, "", url)
   }
-  const home = () => go({})
+  /**
+   * Wave 7, one screen up, never round: back in history when the entry behind
+   * is the parent (this page pushed from it), else the parent replaces this
+   * entry. Forms itself goes up to People in ContactsHeader.
+   */
+  const up = () => {
+    const parent = formsParent(route)
+    if (parent === "contacts") return
+    const behind = (window.history.state as Record<string, unknown> | null)?.[FORMS_PREV]
+    if (upMove(typeof behind === "string" ? behind : null, parent) === "back") window.history.back()
+    else go(parent, false)
+  }
 
   const create = async (template: string) => {
     setBusy(true)
@@ -216,7 +231,7 @@ export function FormsList() {
     const res = await fetch(`/api/email/messages/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null)
     if (!res?.ok) return setError(tt("The message was not deleted. Try again."))
     writeRows((rows) => rows.filter((r) => r.id !== id))
-    go({ inbox: true }, false)
+    up()
   }
 
   /* Opening a new message reads it. */
@@ -228,7 +243,7 @@ export function FormsList() {
 
   /* A new screen (the list, a form, the inbox, a message) opens at its top; a tab inside a form keeps its place. */
   const paneRef = React.useRef<HTMLDivElement>(null)
-  const screen = route.message ? `m:${route.message}` : route.inbox ? "inbox" : route.siteform ? `s:${route.siteform}` : route.form ? `f:${route.form}` : "list"
+  const screen = screenOf(route)
   React.useLayoutEffect(() => {
     paneRef.current?.scrollTo({ top: 0 })
   }, [screen])
@@ -239,14 +254,12 @@ export function FormsList() {
         <MessagePage
           message={openedMessage}
           gone={!!inbox && !loading && !openedMessage}
-          onBack={() => go({ inbox: true })}
+          onBack={up}
           onCopy={(email) => void navigator.clipboard?.writeText(email)}
           onToggleRead={(m) => void markRead(m, !m.read_at)}
           onReply={reply}
           onDelete={(id) => void removeMessage(id)}
-          onOpenContact={(m) => {
-            if (m.subscriber_id) window.location.href = contactOpenHref("subscriber", m.subscriber_id)
-          }}
+          contactHref={(m) => contactOpenHref("message", m.id)}
         />
       </ContactsPane>
     )
@@ -254,26 +267,27 @@ export function FormsList() {
   if (route.inbox)
     return (
       <ContactsPane ref={paneRef}>
-        <MessagesInbox rows={inbox?.rows ?? []} onOpen={(m) => go({ message: m.id })} onBack={home} />
+        <MessagesInbox rows={inbox?.rows ?? []} onOpen={(m) => go({ message: m.id })} onBack={up} />
       </ContactsPane>
     )
   if (route.siteform)
     return (
       <ContactsPane ref={paneRef}>
-        <SiteFormPanel id={route.siteform} onBack={home} />
+        <SiteFormPanel id={route.siteform} onBack={up} />
       </ContactsPane>
     )
 
   const selected = route.form ? forms.find((f) => f.id === route.form) || null : null
   if (selected) {
+    /* The form's tabs: the quiet views every list wears (Orders, Coupons), not a pill band. A tab replaces the entry, so Back leaves the form. */
     const tabs = (
-      <SegmentedPills<FormView>
+      <ContactsViews<FormView>
         label={tt("Form")}
         value={route.view}
         onChange={(view) => go({ form: selected.id, view }, false)}
         options={[
           { value: "edit", label: tt("Edit") },
-          { value: "responses", label: tt("Responses") },
+          { value: "responses", label: tt("Responses"), count: selected.responses ?? 0 },
           { value: "insights", label: tt("Insights") },
           { value: "settings", label: tt("Settings") },
         ]}
@@ -289,8 +303,19 @@ export function FormsList() {
           view={editorView}
           nav={<div data-form-tabs="">{tabs}</div>}
           usages={selected.usages}
-          panel={route.view === "responses" ? <ResponsesPanel formId={selected.id} focus={route.response} quiz={(selected.published || selected.draft)?.mode === "quiz"} /> : route.view === "insights" ? <InsightsPanel formId={selected.id} /> : null}
-          onBack={home}
+          kindLabel={kindWord(selected.kind ?? "form")}
+          responses={selected.responses ?? 0}
+          onView={(view) => go({ form: selected.id, view }, false)}
+          panel={
+            route.view === "responses" ? (
+              <ResponsesPanel
+                formId={selected.id}
+                focus={route.response}
+                quiz={(selected.published || selected.draft)?.mode === "quiz"}
+                onCount={(by) => setForms((all) => all.map((x) => (x.id === selected.id ? { ...x, responses: Math.max(0, (x.responses ?? 0) + by) } : x)))}
+              />
+            ) : route.view === "insights" ? <InsightsPanel formId={selected.id} /> : null}
+          onBack={up}
           onSaved={(f) => setForms((all) => all.map((x) => (x.id === f.id ? { ...x, ...f } : x)))}
         />
       </ContactsPane>
@@ -299,7 +324,7 @@ export function FormsList() {
   if (route.form && loading)
     return (
       <ContactsPane ref={paneRef}>
-        <ContactsHeader title={<span aria-label={tt("Loading")} className="block h-7 w-48 max-w-full animate-pulse rounded-lg bg-[#eceef1]" />} onBack={home} />
+        <ContactsHeader title={<span aria-label={tt("Loading")} className="block h-7 w-48 max-w-full animate-pulse rounded-lg bg-[#eceef1]" />} onBack={up} />
         <div className={SCREEN}>
           <section className={cn(card, "mt-3")}>
             <ShimmerRows rows={4} header={false} cols={["40%", "14%", "12%"]} label={tt("Loading")} />

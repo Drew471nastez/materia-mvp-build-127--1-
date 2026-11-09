@@ -28,10 +28,8 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { formatMinor } from "@/lib/markets/money"
-import { backThen } from "@/lib/navigation/go-back"
-import { canReturnTo } from "@/lib/navigation/in-app-history"
 import type { Profile } from "@/lib/contacts/profile-server"
-import { ContactsPane } from "../contacts-header"
+import { ContactsPane, backToPeople, peopleHref } from "../contacts-header"
 import { confirmForm } from "@/components/forms/form-confirm"
 import { GUTTER, ORDER_WIDTH, PaneBar, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../../orders/order-parts"
 import { contactsRequest, dayOf, labelsOf, leadStatusLabel, memberStatusLabel, membershipStatusLabel, originLabel, subscriptionLabel, whoOf } from "../contact-words"
@@ -62,8 +60,8 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
   const back = (e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey) return
     e.preventDefault()
-    if (canReturnTo("/app/contacts")) backThen(() => router.push("/app/contacts"))
-    else router.push("/app/contacts")
+    /* Wave 7: up to the People list as it was (view, search, page), by history when it is behind, else pushed at its last query. */
+    backToPeople(router)
   }
 
   const unsubscribe = async () => {
@@ -88,7 +86,7 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
     if (r.data.kept) {
       setMessage({ text: tt("Deleted what you added. They stay in your contacts because of their other records.") })
       router.refresh()
-    } else router.push("/app/contacts")
+    } else router.push(peopleHref())
   }
 
   const menu: ActionMenuItem[] = [
@@ -101,7 +99,7 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
     <ContactsPane>
       <PaneBar width={ORDER_WIDTH} sticky className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 pb-2.5 pt-2 lg:pb-3 lg:pt-5">
         <div className="-ml-1.5 flex h-9 w-9 items-center justify-center">
-          <a href="/app/contacts" onClick={back} className={cn(iconButton, "h-9 w-9")} aria-label={tt("Back to contacts")}>
+          <a href={peopleHref()} onClick={back} className={cn(iconButton, "h-9 w-9")} aria-label={tt("Back to contacts")}>
             <ArrowLeft className="h-[18px] w-[18px]" />
           </a>
         </div>
@@ -145,6 +143,7 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
             <TagsNotes profile={profile} onEdit={() => setEditing(true)} />
           </div>
           <div className="min-w-0 space-y-3 lg:order-1">
+            <Journey profile={profile} />
             <Purchases profile={profile} />
             <Activity profile={profile} />
             <Communities profile={profile} />
@@ -306,6 +305,78 @@ function Activity({ profile }: { profile: Profile }) {
   )
 }
 
+/** The earliest of some dates, or null. */
+function earliest(dates: (string | null | undefined)[]): string | null {
+  let best: string | null = null
+  for (const d of dates) {
+    if (!d || Number.isNaN(Date.parse(d))) continue
+    if (!best || Date.parse(d) < Date.parse(best)) best = d
+  }
+  return best
+}
+
+export interface JourneyStep {
+  id: "seen" | "lead" | "subscriber" | "customer" | "member"
+  label: string
+  reached: boolean
+  at: string | null
+  detail: string | null
+}
+
+/**
+ * WAVE 7, THE WAY THEY CAME (the owner: "lead → customer journey visible").
+ * From what the profile already read, nothing new: first seen, then the
+ * steps a person takes with a store, each reached or not yet, with the day
+ * it first happened. A lead is someone who answered a form, sent a message
+ * or signed up on a OnePage; a subscriber is on the email list now (or was:
+ * an unsubscribe says so); a customer bought; a member joined a community.
+ */
+export function journeyOf(profile: Profile): JourneyStep[] {
+  const p = profile.person
+  const leadAt = earliest([...profile.forms.map((f) => f.at), ...profile.messages.map((m) => m.at), ...profile.leads.map((l) => l.at)])
+  const buyAt = earliest([...profile.purchases.map((o) => o.at), ...profile.memberships.map((m) => m.at)])
+  const joinAt = earliest(profile.communities.map((c) => c.joinedAt))
+  const c = profile.consent
+  const orders = profile.purchases.length
+  const answered = profile.forms.length + profile.messages.length + profile.leads.length
+  return [
+    { id: "seen", label: tt("First seen"), reached: true, at: p.firstSeen, detail: originLabel(p.origin) },
+    { id: "lead", label: tt("Lead"), reached: p.lead || answered > 0, at: leadAt, detail: answered ? tt("{n, plural, one {# answer} other {# answers}}", { n: answered }) : null },
+    {
+      id: "subscriber",
+      label: tt("Subscriber"),
+      reached: c.state === "subscribed" || c.state === "unsubscribed" || p.subscriber,
+      at: c.consentAt,
+      detail: c.state === "unsubscribed" ? tt("Unsubscribed") : c.state === "subscribed" ? tt("On your list") : null,
+    },
+    { id: "customer", label: tt("Customer"), reached: p.customer || orders > 0 || profile.memberships.length > 0, at: buyAt, detail: orders ? tt("{n, plural, one {# order} other {# orders}}", { n: orders }) : null },
+    { id: "member", label: tt("Member"), reached: p.member || profile.communities.length > 0, at: joinAt, detail: profile.communities[0]?.name || null },
+  ]
+}
+
+function Journey({ profile }: { profile: Profile }) {
+  const steps = journeyOf(profile)
+  return (
+    <section className={cn(card, "px-4 py-3.5")} aria-label={tt("Journey")} data-contact-journey="">
+      <h2 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Journey")}</h2>
+      <ol className="mt-3 grid gap-x-2 gap-y-2 max-sm:grid-cols-1 sm:grid-cols-5">
+        {steps.map((s, i) => (
+          <li key={s.id} className="relative flex min-w-0 items-center gap-2.5 sm:flex-col sm:items-stretch sm:gap-2" data-journey-step={s.id} data-reached={s.reached ? "yes" : "no"}>
+            <span className="flex items-center sm:w-full" aria-hidden>
+              <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full border-2", s.reached ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#d1d5db] bg-white")} />
+              {i < steps.length - 1 ? <span className={cn("ml-2 hidden h-px flex-1 sm:block", steps[i + 1].reached ? "bg-[#1a1a2e]/40" : "bg-[#e5e7eb]")} /> : null}
+            </span>
+            <span className="flex min-w-0 flex-1 items-baseline justify-between gap-3 sm:block">
+              <span className={cn("block shrink-0 truncate text-[13px] font-medium", s.reached ? "text-[#1a1a2e]" : "text-[#9ca3af]")}>{s.label}</span>
+              <span className="block min-w-0 truncate text-[12px] text-[#6b7280]">{s.reached ? [s.at ? dayOf(s.at) : null, s.detail].filter(Boolean).join(" · ") || tt("Yes") : tt("Not yet")}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
 function Purchases({ profile }: { profile: Profile }) {
   if (!profile.purchases.length && !profile.memberships.length) return null
   return (
@@ -417,8 +488,8 @@ function Forms({ profile }: { profile: Profile }) {
               <span className="font-medium text-[#1a1a2e]">{f.title || tt("Form")}</span>
               <span className="text-[12px] text-[#6b7280]">
                 {leadStatusLabel(f.status)} · {dayOf(f.at)} ·{" "}
-                <Link href={`/app/contacts/forms?form=${f.formId}`} className="font-medium text-[#6d4ae0] hover:underline">
-                  {tt("Responses")}
+                <Link href={`/app/contacts/forms?form=${encodeURIComponent(f.formId)}&view=responses&response=${encodeURIComponent(f.id)}`} className="font-medium text-[#6d4ae0] hover:underline" data-contact-response={f.id}>
+                  {tt("Open response")}
                 </Link>
               </span>
             </div>
