@@ -162,7 +162,7 @@ import {
   type WritingAnchor,
 } from "@/lib/website-builder/ai-placement"
 import { WritingSection } from "@/components/website-builder/editor/writing-section"
-import { readJobParam, readStartParam, recallJob, rememberJob, startMessage, takeStartPrompt } from "@/lib/website-builder/start-handoff"
+import { clearStartPrompt, peekStartPrompt, readJobParam, readStartParam, recallJob, rememberJob, startMessage } from "@/lib/website-builder/start-handoff"
 import { useSiteGeneration, type GenerationSource } from "@/lib/website-builder/ai-site/use-generation"
 import { opIsNew } from "@/lib/website-builder/ai-site/replay"
 import { GenerationPanel, generationPhase } from "@/components/website-builder/ai-generation/generation-panel"
@@ -3508,22 +3508,43 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (read.cleaned !== null) window.history.replaceState(window.history.state, "", read.cleaned)
     if (job.jobId) {
       rememberJob(stored, installId, job.jobId)
-      takeStartPrompt(stored, installId)
+      clearStartPrompt(stored, installId)
       setGenSource({ kind: "job", jobId: job.jobId })
       return
     }
-    if (read.cleaned === null) {
-      const running = recallJob(stored, installId)
-      if (running) setGenSource({ kind: "job", jobId: running })
+    const running = recallJob(stored, installId)
+    if (running) {
+      setGenSource({ kind: "job", jobId: running })
       return
     }
-    if (!read.wanted) return
-    const prompt = takeStartPrompt(stored, installId)
-    if (prompt) {
-      setGenSource({ kind: "inline", prompt })
+    /* Without the jobs table: the description this tab keeps, left there until the build starts (onStart below). */
+    const waiting = read.wanted || read.cleaned === null ? peekStartPrompt(stored, installId) : null
+    if (waiting) {
+      setGenSource({ kind: "inline", prompt: waiting.prompt })
       return
     }
-    setStartOpen(true)
+    /*
+      ROUND L: neither the address nor this tab knows the job (a reload in another tab, a web view that dropped its
+      storage). The server's record says whether this website is being made: a job still queued or running is followed;
+      on the way in from Start with AI (`start=ai`) any job is shown. Nothing found: the Ask panel opens, empty, as before.
+    */
+    let gone = false
+    void fetch(`/api/website-builder/themes/${installId}/ai-start`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then((d: { job?: { id?: unknown; status?: unknown } | null } | null) => {
+        if (gone) return
+        const found = d?.job && typeof d.job.id === "string" ? { id: d.job.id, status: String(d.job.status ?? "") } : null
+        if (found && (read.wanted || found.status === "queued" || found.status === "running")) {
+          rememberJob(stored, installId, found.id)
+          setGenSource({ kind: "job", jobId: found.id })
+          return
+        }
+        if (read.wanted) setStartOpen(true)
+      })
+    return () => {
+      gone = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   /* Opened once the website is up: before that the phone's own first layout closes the sheet again. */
@@ -11071,7 +11092,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     source: teamMember ? null : genSource,
     ready: !loading && !loadFailed,
     page: currentPage,
-    onStart: () => startAiRun(),
+    onStart: () => {
+      /* The build has the description now: this tab stops keeping it, so a reload never starts a second build. */
+      try {
+        clearStartPrompt(window.sessionStorage, installId)
+      } catch {
+        /* storage refused: nothing kept */
+      }
+      startAiRun()
+    },
     onOp: queueAiOp,
     onFinish: () => aiRunFinished([]),
     onPages: (pages) => pages.forEach((p) => p.key !== "home" && aiPageWritten(p.key, p.title)),
