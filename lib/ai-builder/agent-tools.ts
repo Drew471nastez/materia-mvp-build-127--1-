@@ -57,7 +57,12 @@ export interface AgentToolInputs {
   /** No path: every file the job touched and every page. */
   validate: { path?: string }
   render_check: { page: string }
-  report_progress: { phase: AgentPhase; label: string }
+  /**
+   * `concept` (L3 extension): the visual concept, required once with phase
+   * "plan" before a new website's first write (lib/ai-builder/agent/concept.ts).
+   * `tasks`: the plan as short lines, shown as open tasks.
+   */
+  report_progress: { phase: AgentPhase; label: string; concept?: unknown; tasks?: string[] }
   finish: { summary: string; notes?: string[] }
 }
 
@@ -77,7 +82,8 @@ export interface AgentToolOutputs {
   search_knowledge: { entries: Pick<KnowledgeEntry, "id" | "kind" | "title" | "body" | "examples">[] }
   validate: { ok: boolean; issues: ValidationIssue[] }
   render_check: { ok: boolean; issues: ValidationIssue[]; htmlBytes: number }
-  report_progress: { ok: true }
+  /** `note` (L3 extension): what was missing from a concept, or that it was accepted. */
+  report_progress: { ok: true; note?: string }
   /** Refused (ok false) while validate has errors and repairs remain. */
   finish: { ok: boolean; reason?: string }
 }

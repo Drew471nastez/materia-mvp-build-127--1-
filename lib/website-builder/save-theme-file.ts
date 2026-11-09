@@ -184,7 +184,8 @@ export async function saveThemeFile(
   installId: string,
   path: string,
   sent: string,
-  opts: { baseUpdatedAt?: string } = {},
+  /** `author`/`jobId`: recorded on the version row (an AI job's writes, SQL part 401). */
+  opts: { baseUpdatedAt?: string; author?: "creator" | "ai" | "import" | "restore"; jobId?: string } = {},
 ): Promise<SaveResult> {
   let content = sent
   let notes: string[] = []
@@ -329,7 +330,9 @@ export async function saveThemeFile(
    */
   const saved = await saveDraft(db, installId, path, content)
   if (saved.ok === false) return { ok: false, status: 500, error: saved.error }
-  await recordVersion(db, installId, path, content, "save")
+  /* An AI job's save says so on its version row (author, job_id: SQL part 401). */
+  if (opts.author || opts.jobId) await recordVersion(db, installId, path, content, "save", { author: opts.author, jobId: opts.jobId })
+  else await recordVersion(db, installId, path, content, "save")
   if (rebuildsSettingsPanel(path)) notes = [...notes, ...(await rebuildSettingsPanel(db, installId, { path, text: content }))]
   /* A setting the file added, or a default it moved, has its default under the values nobody set, so the live site draws it too. */
   if (path === THEME_SCHEMA_FILE) await fillSchemaDefaults(db, installId, content)
