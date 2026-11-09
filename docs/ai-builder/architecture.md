@@ -240,3 +240,21 @@ All three: removed with the restore (Undo and Backups alike). Anything else adde
 Limits: a backup is pruned after 30 newer ones (the undo then answers 410 and points to Backups); an AI page the person edited afterwards is still the AI's page (pages have no history of their own).
 
 Tests: `tests/ai-builder-redesign-m1.test.ts` (real routes, scripted model).
+
+## 10. Round N (N1): Start with AI lands in the editor and the build is seen live
+
+Andrew: "it needs to open the website builder immediately and start designing in real time. I cannot see it", and "It should NOT take me to the default theme".
+
+What stood in the way, and what replaced it:
+
+| Root cause | Now |
+| --- | --- |
+| `themes/create` waited up to 8 s (`QUICK_COVER_MS`) for a photograph of the empty site before answering; the page showed a spinner in Create | An AI start answers without a cover (`AI_START_COVER`); the Website page takes one later as for any site without one |
+| Nothing between the press and the editor but that spinner, then "Loading the editor" | `StartingShell` (`components/website-builder/ai-generation/building-canvas.tsx`): the editor's frame with the building canvas, from the press; the editor reads `job=` in a layout effect and shows the same building canvas from its first paint |
+| The job was followed only once the editor had loaded, and only after a classic poll said "agent" | `use-generation.ts`: one probe at once; an agent job's events are read from the first frame, draft changes handed to the editor once it is ready (`onAgentChange(finished, events)`); fallback poll 1.5 s backing off to 5 s (was 2 s to 10 s) |
+| The canvas showed the theme's header and footer around "Empty Page", or a white card | `BuildingCanvas` whenever a build is live and the open page has nothing of its own (`showBuilding`) |
+| Drafts read again at most every 8 s, only for the open page | `lib/website-builder/ai-site/live-build.ts`: `liveRefreshDelay` (900 ms after the last change, never more than 3 s after the first), section files before the page, `followPage` switches to the page the agent is on until the person picks a page, `arrivedIds` ring the new sections and the newest glides into view |
+| The progress card was a 440 px card in the middle of the canvas, in the tool's own words | Docked (`GENERATION_DOCK`: top right on a computer, a one line card under the bar on a phone), plain steps (`toolStep`, `currentStep`: "Designing the header", "Writing the product page") |
+| Start with AI built inside Storelib's theme unless a checkbox was ticked; with the agent off a "from scratch" press ran the classic builder on the theme's sections | From scratch is the default (`START_GENERATION = "blank"`), "Inside Storelib's theme" the second option; the Website page knows whether the agent is on (`agentEnabledFor`), says so in one line when it is not, and the create route refuses a blank press without it (409 `agent_off`) before anything is made or counted. The classic progress card says it is built from the theme's sections |
+
+Tests: `tests/ai-builder-start-live-n1.test.ts`. Measured in the real editor with a scripted job (scripts/render-editor-probe.tsx with the job's routes answered locally): building canvas from the first frames, never "Loading the editor" or "Empty Page", a placed section drawn about 1 s after the poll that brought it, the canvas following the agent to the About page, desktop and a 390 px phone.
