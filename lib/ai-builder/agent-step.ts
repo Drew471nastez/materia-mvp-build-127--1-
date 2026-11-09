@@ -41,6 +41,26 @@ export interface AgentJobInfo {
   brief: string
   mode: GenerationMode | null
   options: Partial<StartOptions>
+  /**
+   * An edit of one component from the editor (POST themes/[id]/ai-edit, kept in options.edit): the loop runs in
+   * edit mode and may write only `path`; every other file stays byte for byte.
+   */
+  edit?: AgentEditScope
+}
+
+export interface AgentEditScope {
+  path: string
+  sectionId?: string
+  page?: string
+}
+
+/** The edit scope kept in a job's options, checked. Null for a whole-site job. */
+export function editScopeOf(options: unknown): AgentEditScope | null {
+  const e = options && typeof options === "object" ? (options as { edit?: unknown }).edit : null
+  if (!e || typeof e !== "object") return null
+  const r = e as Record<string, unknown>
+  if (typeof r.path !== "string" || !/^(sections|blocks|snippets)\/[a-z0-9_-]{1,80}\.storelib$/.test(r.path)) return null
+  return { path: r.path, ...(typeof r.sectionId === "string" ? { sectionId: r.sectionId.slice(0, 120) } : {}), ...(typeof r.page === "string" ? { page: r.page.slice(0, 80) } : {}) }
 }
 
 /** Spend so far, across every invocation of the job. */

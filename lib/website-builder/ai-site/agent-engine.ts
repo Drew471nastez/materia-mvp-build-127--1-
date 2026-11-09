@@ -24,7 +24,7 @@ import "server-only"
  */
 import type { AgentStepContext, AgentStepper, AgentStepperFactory, AgentStepResult } from "@/lib/ai-builder/agent-step"
 import type { AgentCheckpoint, StartOptions } from "@/lib/ai-builder/types"
-import type { AgentDeps, AgentJobInput } from "@/lib/ai-builder/agent/ports"
+import type { AgentDeps, AgentJobInput, ProjectStore } from "@/lib/ai-builder/agent/ports"
 import { runAgentSlice } from "@/lib/ai-builder/agent/loop"
 import { agentDeps } from "@/lib/ai-builder/agent/server"
 import { newCheckpoint, readCheckpoint, type LoopCheckpoint } from "@/lib/ai-builder/agent/state"
@@ -37,7 +37,7 @@ export function sliceStepper(deps: AgentDeps, now: () => number = Date.now): Age
     start: () => newCheckpoint(),
     async step(saved: AgentCheckpoint, ctx: AgentStepContext): Promise<AgentStepResult> {
       const cp = readCheckpoint(saved) ?? newCheckpoint()
-      const options = ctx.job.options && ctx.job.options.generation ? (ctx.job.options as StartOptions) : undefined
+      const options = ctx.job.options && ctx.job.options.generation && !ctx.job.edit ? (ctx.job.options as StartOptions) : undefined
       const input: AgentJobInput = {
         jobId: ctx.job.id,
         creatorId: ctx.job.creatorId,
@@ -50,12 +50,14 @@ export function sliceStepper(deps: AgentDeps, now: () => number = Date.now): Age
         startedAt: now() - ctx.usage.activeMs,
         spentUsd: ctx.usage.usd,
         lastEventSeq: cp.seq,
+        ...(ctx.job.edit ? { edit: true } : {}),
       }
       const r = await runAgentSlice(
         input,
         cp,
         {
           ...deps,
+          store: ctx.job.edit ? scopedStore(deps.store, ctx.job.edit.path) : deps.store,
           now,
           emit: (e) => {
             const { seq: _seq, at: _at, ...draft } = e as typeof e & { seq: number; at: string }
@@ -78,6 +80,16 @@ export function sliceStepper(deps: AgentDeps, now: () => number = Date.now): Age
       if (r.status === "running" || r.status === "queued") return result
       return { ...result, done: { status: r.status, ...(r.stopped ? { stopped: r.stopped } : {}), ...(r.summary ? { summary: r.summary } : {}), ...(r.error ? { error: r.error } : {}) } }
     },
+  }
+}
+
+/** A project store for an edit of one file: every other file is refused, so it stays byte for byte. */
+export function scopedStore(store: ProjectStore, path: string): ProjectStore {
+  const refused = `This change may only edit ${path}. Other files stay as they are.`
+  return {
+    ...store,
+    writeFile: (p, text, meta) => (p === path ? store.writeFile(p, text, meta) : Promise.resolve({ ok: false, error: refused })),
+    deleteFile: (p) => (p === path ? Promise.resolve({ ok: false, error: "An edit does not delete the file it changes." }) : Promise.resolve({ ok: false, error: refused })),
   }
 }
 

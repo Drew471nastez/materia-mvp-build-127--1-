@@ -97,7 +97,8 @@ export interface Job {
  * (start-options.ts startContext). A job with no options (before part 401) reads the prompt alone, as before.
  */
 export function jobBrief(job: { prompt: string; options?: Partial<StartOptions> | null }): string {
-  const context = job.options && job.options.generation ? startContext(job.options as StartOptions) : ""
+  /* An edit of one component (options.edit) is about that file, not about how a new website starts. */
+  const context = job.options && job.options.generation && !("edit" in job.options) ? startContext(job.options as StartOptions) : ""
   return context ? `${job.prompt}\n\n${context}` : job.prompt
 }
 

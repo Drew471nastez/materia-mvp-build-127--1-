@@ -12,7 +12,11 @@
  */
 import { runAgentInvocation, emptyRunState, type AgentJobPatch, type AgentJobRecord, type AgentStore, type EventRow } from "@/lib/website-builder/ai-site/agent-runner"
 import { previewErrorsFromEvents } from "@/lib/website-builder/ai-site/agent-view"
-import { sliceStepper } from "@/lib/website-builder/ai-site/agent-engine"
+import { scopedStore, sliceStepper } from "@/lib/website-builder/ai-site/agent-engine"
+import { editJobOptions, editJobPrompt, parseEditRequest } from "@/lib/website-builder/ai-site/edit-job"
+import { editScopeOf } from "@/lib/ai-builder/agent-step"
+import { jobBrief } from "@/lib/website-builder/ai-site/job"
+import { readFileSync } from "node:fs"
 import { memoryStore } from "@/lib/ai-builder/agent/memory-store"
 import type { AgentDeps } from "@/lib/ai-builder/agent/ports"
 import type { ProviderRequest } from "@/lib/sites/agent/types"
@@ -209,6 +213,25 @@ async function main() {
   const second = await runAgentInvocation("job-2", { store: rows2, stepperFor: async () => slowStep, now: () => clock2.t, started: clock2.t, kick: async () => true, log: () => {} })
   const j2 = rows2.jobs.get("job-2")!
   check("cancel pressed between requests: ended cancelled before another call, drafts kept", second.outcome === "ended" && j2.status === "cancelled" && j2.run.usage.iterations === 3 && Object.keys(store2.project.files).length > 0, { second, status: j2.status })
+
+  console.log("\n3. Edit with AI on one component (themes/[id]/ai-edit)")
+  const body = { mode: "edit", path: "sections/ai_coach_hero.storelib", sectionId: "ai_coach_hero-1", page: "home", prompt: "Make the heading calmer", expectedVersion: null }
+  const parsed = parseEditRequest(body)
+  check("the request is read", parsed.ok && parsed.edit.path === body.path && parsed.edit.page === "home")
+  check("paths outside the section files, empty words and odd versions are refused", !parseEditRequest({ ...body, path: "layout/theme.storelib" }).ok && !parseEditRequest({ ...body, path: "../x.storelib" }).ok && !parseEditRequest({ ...body, prompt: "  " }).ok && !parseEditRequest({ ...body, expectedVersion: "abc" }).ok && !parseEditRequest({ ...body, mode: "new" }).ok)
+  const ok = parsed.ok ? parsed.edit : null!
+  const prompt = editJobPrompt({ ...ok, prompt: "x".repeat(5_000) })
+  check("the job's prompt keeps their words first, names the file, fits the row", editJobPrompt(ok).startsWith("Make the heading calmer\n\n(About sections/ai_coach_hero.storelib, section ai_coach_hero-1 on the home page") && prompt.length <= 2_000 && prompt.endsWith("Change only this file.)"))
+  const opts = editJobOptions(ok)
+  check("its options carry the scope, read back the same", JSON.stringify(editScopeOf(opts)) === JSON.stringify({ path: ok.path, sectionId: "ai_coach_hero-1", page: "home" }) && editScopeOf({ generation: "theme" }) === null && editScopeOf({ edit: { path: "../../etc" } }) === null)
+  check("an edit's brief is its words, not how a new website starts", jobBrief({ prompt: "p", options: opts }) === "p")
+  const store3 = memoryStore({ pages: { home: [] }, settings: {}, files: { "sections/ai_coach_hero.storelib": HERO } })
+  const scoped = scopedStore(store3, "sections/ai_coach_hero.storelib")
+  const other = await scoped.writeFile("sections/ai_other.storelib", HERO, { expectedVersion: null, author: "ai", jobId: "j" })
+  const del = await scoped.deleteFile("sections/ai_coach_hero.storelib", { author: "ai", jobId: "j" })
+  check("an edit job cannot write or delete any other file, nor delete its own", !other.ok && !del.ok && !Object.keys(store3.project.files).includes("sections/ai_other.storelib"))
+  const route = readFileSync("app/api/website-builder/themes/[installId]/ai-edit/route.ts", "utf8")
+  check("the route: owner only, rate limited, this creator's website, 501 when the agent is off, a version conflict refused, an agent job on step agent", /if \(!site\.isOwner\)/.test(route) && /rateLimit\(/.test(route) && /\.eq\("creator_id", site\.creatorId\)/.test(route) && /agentEngineEnabled\(\)\) return NextResponse\.json\(\{ error: "Not available" \}, \{ status: 501 \}\)/.test(route) && /expectedVersion !== current/.test(route) && /engine: "agent"/.test(route) && /step: "agent"/.test(route))
 }
 
 main().then(() => {
