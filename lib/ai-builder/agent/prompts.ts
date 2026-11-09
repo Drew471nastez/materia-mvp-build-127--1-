@@ -30,12 +30,12 @@ HOW A STORELIB WEBSITE IS MADE
 - Nothing remote: no <script src>, no <link>, no @import, no iframe, no http(s) address typed into a file. Fonts come from Theme settings (set_tokens fonts).
 - Script capabilities you may declare: ${AGENT_DEFAULT_CAPABILITIES.join(", ")}. Commerce, menus and forms need no script: use the page's hooks as attributes: ${Object.entries(STORELIB_HOOKS)
   .map(([k, v]) => `${v} (${k})`)
-  .join(", ")}. Buy = add to cart (data-storelib-add-to-cart="<product id>") then checkout (data-storelib-checkout).
+  .join(", ")}. Buy now = a link to the product's (or variant's) checkout_url from list_capabilities; add to cart = data-storelib-add-to-cart="<product id>" (data-variant-id for an option), then data-storelib-checkout. A published form is drawn by a form_picker setting and an element with data-storelib-native-form="{{ settings.<id>.id }}".
 - A header of your own: schema "kind": "header", "enabled_on": { "groups": ["header"] }, a link_list setting { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" } looped with {% for link in settings.menu.links %} and {% for child in link.links %}, a menu button with data-storelib-menu, a cart button with data-storelib-cart when the store sells things. A footer: "kind": "footer", "enabled_on": { "groups": ["footer"] }. Place them with set_page_sections and group "header"/"footer": they are site-wide. add_page puts each page in the Main menu for you.
 - Pages: add_page (real addresses: /<key>), then set_page_sections with your components in order. Design tokens: set_tokens (they become Theme settings the creator edits).
 
 REAL DATA ONLY
-- list_capabilities is the truth about this store: its products, collections, communities, forms, pages, menus, reviews. Bind products, collections, communities, pages and menus with binding settings (product_picker, product_list, collection_picker, collection_list, community_picker, page_picker, link_list) and bind_data, using ONLY ids from list_capabilities. Never invent an id, a product, a price or a link.
+- list_capabilities is the truth about this store: its products, collections, communities, forms, pages, menus, reviews. Bind products, collections, communities, forms, pages and menus with binding settings (product_picker, product_list, collection_picker, collection_list, community_picker, form_picker, page_picker, link_list) and bind_data, using ONLY ids from list_capabilities. Never invent an id, a product, a price or a link.
 - Be honest. No fake testimonials, reviews, client counts, ratings, press logos, awards, years in business or results. If the store has no reviews, there is no testimonial section. Where information is missing (a bio, an address, class times), write short, plainly editable draft copy a creator will recognise as theirs to fill ("Your class times go here"), never invented facts.
 - Copy is specific, compact and natural. Never write: ${BANNED_WORDS.slice(0, 9).join(", ")}. No em dashes. No emoji as icons.
 
@@ -53,10 +53,10 @@ function capsSummary(c: RuntimeCapabilities | null): string {
   if (!c) return "STORE DATA: could not be read. Bind nothing; leave product and collection settings empty for the creator."
   const lines = [
     `STORE: ${c.store.name || "(no name: take it from the brief or keep it neutral)"}${c.store.tagline ? `, "${c.store.tagline}"` : ""}, currency ${c.store.currency}.`,
-    c.products.length ? `PRODUCTS (${c.products.length}): ${c.products.slice(0, 30).map((p) => `${p.title} [${p.kind}, ${p.price}, id ${p.id}]`).join("; ")}` : "PRODUCTS: none. No shop sections, no prices.",
+    c.products.length ? `PRODUCTS (${c.products.length}): ${c.products.slice(0, 30).map((p) => `${p.title} [${p.kind}, ${p.price}, id ${p.id}${p.checkout_url ? `, buy now ${p.checkout_url}` : ""}]`).join("; ")}` : "PRODUCTS: none. No shop sections, no prices.",
     c.collections.length ? `COLLECTIONS: ${c.collections.slice(0, 20).map((x) => `${x.title} [id ${x.id}]`).join("; ")}` : "",
     c.communities.length ? `COMMUNITIES: ${c.communities.map((x) => `${x.name} [id ${x.id}]`).join("; ")}` : "",
-    c.forms.length ? `FORMS: ${c.forms.map((f) => `${f.title} [${f.kind}, ${f.url}]`).join("; ")}` : "",
+    c.forms.length ? `FORMS (a form_picker takes the id): ${c.forms.map((f) => `${f.title} [${f.kind}${f.booking ? ", booking" : ""}, id ${f.id}]`).join("; ")}` : "",
     `REVIEWS: ${c.reviews.count ? `${c.reviews.count}, average ${c.reviews.average ?? "n/a"}` : "none. No testimonials, no ratings."}`,
     c.features.length ? `SWITCHED ON: ${c.features.join(", ")}` : "",
   ]

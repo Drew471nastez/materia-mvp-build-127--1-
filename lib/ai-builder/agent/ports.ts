@@ -100,6 +100,7 @@ export type RenderChecker = (input: {
   settings: Record<string, unknown>
   sources: Record<string, string>
   routes: Set<string>
+  capabilities?: RuntimeCapabilities | null
 }) => Promise<{ ok: boolean; issues: ValidationIssue[]; htmlBytes: number }>
 
 /** Turns tokens into Theme settings keys (L5 owns the real one). */
@@ -137,7 +138,7 @@ export interface AgentDeps {
   slop?: SlopEvaluator
   renderCheck?: RenderChecker
   tokensToSettings?: TokensMapper
-  /** Whether the editor can draw form_picker yet (L4/L5). Until then form bindings are refused. */
+  /** Whether the editor draws form_picker (L4 landed it; default: whether the control registry has it). */
   features?: { formPicker?: boolean }
   /** Each event as it happens (L2 writes ai_site_job_events). Never throws into the loop. */
   emit?: (event: AgentEvent) => Promise<void> | void

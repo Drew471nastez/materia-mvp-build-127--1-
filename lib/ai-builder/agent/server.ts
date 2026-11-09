@@ -16,8 +16,8 @@ import "server-only"
  *                 Claude key first, the platform's otherwise; Claude models
  *                 by default (plan claude-opus-5-5, loop claude-sonnet-5-5,
  *                 small claude-haiku-5-5).
- *   capabilities  readCapabilities (ai-site/capabilities.ts) with ids, as the
- *                 contract's RuntimeCapabilities.
+ *   capabilities  L4's readRuntimeCapabilities: creator scoped, real ids.
+ *   renderCheck   L4's renderCheckForInstall: the page as a preview draws it.
  *
  * The admin (service role) client is used only for this job's install: the
  * runner checked ownership when it claimed the job; nothing here takes an id
@@ -28,11 +28,10 @@ import { resolveForCreator } from "@/lib/sites/agent/provider"
 import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { editorContent } from "@/lib/website-builder/theme-file-drafts"
-import { readStoreFacts } from "@/lib/website-builder/agent/store-facts-server"
-import { readCapabilities, type Capabilities } from "@/lib/website-builder/ai-site/capabilities"
+import { readRuntimeCapabilities } from "../capabilities"
+import { renderCheckForInstall } from "../render-check-server"
 import { PLAN_MODEL, SMALL_MODEL, WRITE_MODEL } from "@/lib/website-builder/ai-site/models"
 import type { SectionInstance } from "@/lib/website-builder/types"
-import type { RuntimeCapabilities } from "../runtime-contract"
 import type { AgentDeps, AgentModels, ProjectStore, StoredFile, StoredPage, StoreWriteResult } from "./ports"
 import { versionOf } from "./version"
 
@@ -105,38 +104,6 @@ export function supabaseProjectStore(db: Db, installId: string): ProjectStore {
   }
 }
 
-/** ai-site's capability read, as the contract's shape: ids for everything bindable. Pure. */
-export function toRuntimeCapabilities(c: Capabilities): RuntimeCapabilities {
-  const currency = c.facts?.currency || "USD"
-  const money = (cents: number) => {
-    try {
-      return new Intl.NumberFormat("en", { style: "currency", currency }).format(cents / 100)
-    } catch {
-      return `${(cents / 100).toFixed(2)} ${currency}`
-    }
-  }
-  const features = new Set<string>()
-  if (c.facts?.publishedProducts) features.add("shop")
-  if (c.communities.length) features.add("communities")
-  if (c.blog.posts) features.add("blog")
-  if (c.forms.bookings) features.add("bookings")
-  if (Object.keys(c.productTypes).some((t) => /member/i.test(t))) features.add("memberships")
-  return {
-    store: { name: c.brand.name, currency, brandImage: c.brand.avatarUrl, tagline: c.brand.tagline },
-    products: (c.facts?.products ?? []).filter((p) => p.published && p.id).map((p) => ({ id: p.id!, title: p.title, kind: p.type || "product", price: p.payWhatYouWant ? "Pay what you want" : money(p.priceCents), url: p.url && p.url.startsWith("/") ? p.url : "" })),
-    collections: (c.facts?.collections ?? []).filter((x) => x.published).map((x) => ({ id: x.id, title: x.title, url: `/collections/${x.handle}`, products_count: 0 })),
-    /* A community is bound by id (community_picker); its own address is resolved by the renderer. */
-    communities: c.communities.map((x) => ({ id: x.id, name: x.name, url: "" })),
-    /* TODO(L4): published forms with ids once form_picker exists; counts only until then. */
-    forms: [],
-    pages: [],
-    menus: [],
-    blog: { posts: c.blog.posts },
-    reviews: { count: c.facts?.reviews?.count ?? 0, average: c.facts?.reviews?.average ?? null },
-    features: [...features],
-  }
-}
-
 /** The three models, answered on the creator's own Claude key when they connected one (as ai-site/runner.ts jobModels). */
 export async function agentModels(creatorId: string): Promise<AgentModels> {
   const [plan, loop, small] = await Promise.all([
@@ -162,7 +129,14 @@ export async function agentDeps(job: { creatorId: string; ownerUserId: string | 
   return {
     store: supabaseProjectStore(admin, job.installId),
     models: await agentModels(job.creatorId),
-    capabilities: async () => toRuntimeCapabilities(await readCapabilities(admin, { creatorId: job.creatorId, ownerUserId: job.ownerUserId }, readStoreFacts)),
+    /* L4: this creator's real data with ids (products with variants and Buy now links, collections, communities, forms, pages, menus). */
+    capabilities: () => readRuntimeCapabilities(admin, { creatorId: job.creatorId, ownerUserId: job.ownerUserId, installId: job.installId }),
+    /* L4: the page as a preview link draws it (draft page in home's chrome, saved files, this creator's data), rendered by the template engine. */
+    renderCheck: async ({ page, capabilities }) => {
+      const r = await renderCheckForInstall(admin, { creatorId: job.creatorId, installId: job.installId, page, ...(capabilities ? { capabilities } : {}) })
+      return { ok: r.ok, issues: r.issues, htmlBytes: r.htmlBytes }
+    },
+    features: { formPicker: true },
     ...extra,
   }
 }

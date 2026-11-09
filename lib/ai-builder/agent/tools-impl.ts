@@ -24,6 +24,7 @@
 import { sanitizeSections, ownSectionFields } from "@/lib/website-builder/sanitize-sections"
 import { pagePath, pageTitleFromKey, isPageKey, RESERVED_PAGE_KEYS } from "@/lib/website-builder/site-pages"
 import { compileSection } from "@/lib/storelib-theme/storelib/compile"
+import { controlFor } from "@/lib/storelib-theme/controls/registry"
 import { outOfAttempts } from "@/lib/website-builder/agent/compile-feedback"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import type { BlockInstance, SectionInstance } from "@/lib/website-builder/types"
@@ -40,6 +41,11 @@ import { tokensToThemeSettings } from "./tokens"
 import { schemaInfo, siteRoutes, typeOfPath, unknownBindingIds, validateFile, validateSite, errorsOf } from "./validate"
 import { versionOf } from "./version"
 
+/** Whether form bindings are drawn by the editor: what the job says, else whether the control registry has form_picker (L4). */
+export function formPickerOn(deps: Pick<AgentDeps, "features">): boolean {
+  return deps.features?.formPicker ?? !!controlFor("form_picker")
+}
+
 export const MAX_FILE_BYTES = 64 * 1024
 /** What read_file hands back at most. A component file is far smaller. */
 const MAX_READ_CHARS = 60_000
@@ -55,6 +61,7 @@ export const NO_CAPABILITIES: RuntimeCapabilities = {
   menus: [],
   blog: { posts: 0 },
   reviews: { count: 0, average: null },
+  links: { creatorPage: null, social: [] },
   features: [],
 }
 
@@ -124,7 +131,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       sources: all,
       before: current?.text ?? null,
       lenient: attempts >= 2,
-      formPicker: !!deps.features?.formPicker,
+      formPicker: formPickerOn(deps),
     })
     const errors = errorsOf(issues)
     if (errors.length) {
@@ -171,7 +178,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
         issues.push({ severity: "warning", code: "settings.unknown", message: `${where}: ${type} has no setting "${k}"; it was left out.` })
         continue
       }
-      if (control === "form_picker" && !deps.features?.formPicker) {
+      if (control === "form_picker" && !formPickerOn(deps)) {
         issues.push({ severity: "error", code: "binding.form_unavailable", message: `${where}: forms cannot be bound yet. Link to the form's page instead.` })
         continue
       }
@@ -439,7 +446,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       const menus = Object.entries((settings.menus as Record<string, { title?: string }>) ?? {}).map(([handle, m]) => ({ handle, title: m?.title ?? handle }))
       return {
         ...c,
-        forms: deps.features?.formPicker ? c.forms : [],
+        forms: formPickerOn(deps) ? c.forms : [],
         pages: pages.map((p) => ({ key: p.key, title: seo[p.key]?.title || pageTitleFromKey(p.key), url: pagePath(p.key) })),
         menus,
       }
@@ -448,7 +455,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     async bind_data({ page, sectionId, prop, kind, ids }) {
       const control = BINDING_CONTROL[kind as DataBindingKind]
       if (!control) return { ok: false, issues: [{ severity: "error", code: "binding.kind", message: `Unknown binding kind "${kind}".` }] }
-      if (kind === "form" && !deps.features?.formPicker) return { ok: false, issues: [{ severity: "error", code: "binding.form_unavailable", message: "Forms cannot be bound yet: the editor has no form picker. Link to the form's page with a url setting." }] }
+      if (kind === "form" && !formPickerOn(deps)) return { ok: false, issues: [{ severity: "error", code: "binding.form_unavailable", message: "Forms cannot be bound yet: the editor has no form picker. Link to the form's page with a url setting." }] }
       const list = Array.isArray(ids) ? ids.filter((x) => typeof x === "string") : []
       const single = !kind.endsWith("s")
       if (!list.length || (single && list.length !== 1)) return { ok: false, issues: [{ severity: "error", code: "binding.ids", message: single ? "Give exactly one id." : "Give at least one id." }] }
@@ -522,7 +529,7 @@ export async function validateAll(ctx: Pick<ToolContext, "job" | "deps" | "cp">,
       continue
     }
     const type = typeOfPath(path)
-    issues.push(...validateFile(path, text, { instances: pages.flatMap((p) => p.sections.filter((s) => s.type === type)), theme, sources: src, lenient: (cp.repairs[path] ?? 0) >= 2, formPicker: !!deps.features?.formPicker }))
+    issues.push(...validateFile(path, text, { instances: pages.flatMap((p) => p.sections.filter((s) => s.type === type)), theme, sources: src, lenient: (cp.repairs[path] ?? 0) >= 2, formPicker: formPickerOn(deps) }))
   }
   if (!opts.path) {
     if (cp.caps === undefined) cp.caps = (await deps.capabilities().catch(() => null)) ?? null
@@ -541,7 +548,7 @@ export async function renderPage(ctx: Pick<ToolContext, "deps" | "cp">, page: st
   for (const f of files) if (f.text.trim()) src[f.path] = f.text
   if (cp.caps === undefined) cp.caps = (await deps.capabilities().catch(() => null)) ?? null
   const routes = siteRoutes(pages.map((x) => x.key), cp.caps ?? null)
-  const r = await (deps.renderCheck ?? renderCheckPage)({ page, sections: p.sections, settings, sources: src, routes })
+  const r = await (deps.renderCheck ?? renderCheckPage)({ page, sections: p.sections, settings, sources: src, routes, capabilities: cp.caps ? { ...cp.caps, pages: pages.map((x) => ({ key: x.key, title: x.key, url: pagePath(x.key) })) } : null })
   const runtime = (await deps.previewErrors?.().catch(() => []))?.filter((e) => e.page === page) ?? []
   const issues = [...r.issues, ...runtime.slice(0, 10).map((e) => ({ severity: "error" as const, code: "runtime.preview", message: `The editor's preview hit an error in section ${e.sectionId}: ${e.message.slice(0, 200)}`, sectionId: e.sectionId }))]
   return { ok: r.ok && !runtime.length, issues, htmlBytes: r.htmlBytes }

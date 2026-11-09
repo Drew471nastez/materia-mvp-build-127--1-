@@ -31,7 +31,6 @@ import { readConcept } from "@/lib/ai-builder/agent/concept"
 import { tokensToThemeSettings } from "@/lib/ai-builder/agent/tokens"
 import { validateFile } from "@/lib/ai-builder/agent/validate"
 import { librarySlop } from "@/lib/ai-builder/agent/knowledge"
-import { toRuntimeCapabilities } from "@/lib/ai-builder/agent/server"
 import { versionOf } from "@/lib/ai-builder/agent/version"
 import type { AgentDeps, AgentJobInput } from "@/lib/ai-builder/agent/ports"
 import type { ProviderRequest } from "@/lib/sites/agent/types"
@@ -334,17 +333,22 @@ async function main() {
     check("placing works and settings are kept to the schema", placed.ok && bound.ok)
     const missing = await tools.set_page_sections({ page: "pricing", sections: [] })
     check("a page that does not exist is refused", missing.ok === false)
-    const form = await tools.bind_data({ page: "home", sectionId: placed.ids[0], prop: "photo", kind: "form", ids: ["f1"] })
-    check("forms cannot be bound until form_picker exists", form.ok === false && (form.issues ?? [])[0]?.code === "binding.form_unavailable")
+    const form = await tools.bind_data({ page: "home", sectionId: bound.ids[0], prop: "photo", kind: "form", ids: ["f1"] })
+    check("a form id that is not this store's is refused (form_picker exists, L4)", form.ok === false && (form.issues ?? [])[0]?.code === "binding.control", form)
     const caps = await tools.list_capabilities({})
     check("capabilities are this store's only, pages and menus from the website", caps.products.length === 1 && caps.products[0].id === "prod_8week" && caps.pages.some((p) => p.key === "home" && p.url === "/"))
-    const otherTenant = await tools.bind_data({ page: "home", sectionId: placed.ids[0], prop: "photo", kind: "product", ids: ["prod_of_creator_b"] })
-    check("another creator's product id is refused", otherTenant.ok === false)
+    const otherTenant = await tools.bind_data({ page: "home", sectionId: bound.ids[0], prop: "photo", kind: "product", ids: ["prod_of_creator_b"] })
+    check("a binding must use a setting of that kind", otherTenant.ok === false && (otherTenant.issues ?? [])[0]?.code === "binding.control")
+    await tools.write_file({ path: "sections/ai_program_list.storelib", content: PROGRAMS })
+    const list = await tools.set_page_sections({ page: "home", sections: [{ type: "ai_program_list" }] })
+    const foreign = await tools.bind_data({ page: "home", sectionId: list.ids[0], prop: "product", kind: "product", ids: ["prod_of_creator_b"] })
+    const own = await tools.bind_data({ page: "home", sectionId: list.ids[0], prop: "product", kind: "product", ids: ["prod_8week"] })
+    check("another creator's product id is refused; this store's is bound", foreign.ok === false && (foreign.issues ?? [])[0]?.code === "binding.unknown_id" && own.ok === true && s.project.pages.home[0].settings.product === "prod_8week", { foreign, own })
     const reserved = await tools.add_page({ key: "checkout", title: "Checkout" })
     const badKey = await tools.add_page({ key: "Our Story!", title: "x" })
     check("reserved and malformed page keys are refused", reserved.ok === false && badKey.ok === false)
-    const del = await tools.delete_file({ path: "sections/ai_mine.storelib" })
-    check("a placed component cannot be deleted", del.ok === false && "sections/ai_mine.storelib" in s.project.files)
+    const del = await tools.delete_file({ path: "sections/ai_program_list.storelib" })
+    check("a placed component cannot be deleted", del.ok === false && "sections/ai_program_list.storelib" in s.project.files)
     const del2 = await tools.delete_file({ path: "sections/hero.storelib" })
     check("a theme file cannot be deleted", del2.ok === false && "sections/hero.storelib" in s.project.files)
   }
@@ -381,20 +385,6 @@ async function main() {
     /* Deadline: no call starts inside callReserveMs. */
     const late = await runAgentSlice(jobInput(), null, depsFor(memoryStore(), steps).deps, { deadline: T0 + DEFAULT_JOB_BUDGET.callReserveMs - 1 })
     check("no call starts inside the reserve before the deadline", late.status === "running" && late.usage.calls === 0)
-  }
-
-  console.log("\n7. the real capability read, as the contract's shape")
-  {
-    const rc = toRuntimeCapabilities({
-      facts: { storeName: "S", live: true, totalProducts: 2, publishedProducts: 1, currency: "GBP", products: [{ id: "p1", title: "Block", type: "service", priceCents: 12000, published: true, url: "/products/block" }, { id: "p2", title: "Draft", type: "digital", priceCents: 500, published: false }], collections: [{ id: "c1", title: "All", handle: "all", published: true }], reviews: { count: 0, average: null, quotes: [] } },
-      brand: { name: "S", avatarUrl: null, tagline: null },
-      productTypes: { service: 1 },
-      communities: [{ id: "k1", name: "Club" }],
-      forms: { published: 2, bookings: 1 },
-      blog: { posts: 0 },
-    })
-    check("only published products, with ids, prices and their own addresses", rc.products.length === 1 && rc.products[0].id === "p1" && /120/.test(rc.products[0].price) && rc.products[0].url === "/products/block")
-    check("collections and communities by id; forms wait for form_picker", rc.collections[0]?.url === "/collections/all" && rc.communities[0]?.id === "k1" && rc.forms.length === 0 && rc.features.includes("bookings"))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

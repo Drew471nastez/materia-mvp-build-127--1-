@@ -40,7 +40,7 @@ async function main() {
   const provider = createAnthropicProvider(() => anthropicClientFor(key))
   const caps: RuntimeCapabilities = {
     store: { name: "Iron & Chalk", currency: "GBP", brandImage: null, tagline: null },
-    products: [{ id: "prod_smoke_8week", title: "8 week strength block", kind: "service", price: "£120", url: "/products/8-week-strength-block" }],
+    products: [{ id: "prod_smoke_8week", title: "8 week strength block", kind: "service", price: "£120", url: "/products/8-week-strength-block", checkout_url: "", available: true, variants: [] }],
     collections: [],
     communities: [],
     forms: [],
@@ -48,6 +48,7 @@ async function main() {
     menus: [],
     blog: { posts: 0 },
     reviews: { count: 0, average: null },
+    links: { creatorPage: null, social: [] },
     features: ["shop"],
   }
   const store = memoryStore({ pages: { home: [] } })
