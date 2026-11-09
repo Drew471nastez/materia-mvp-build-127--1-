@@ -891,9 +891,11 @@ section("Nothing typed into this editor is lost without somebody choosing it")
   check("a save carries what this editor loaded", /base_updated_at: savedAt \?\? undefined/.test(codePage) && /base_updated_at: z\.string\(\)\.optional\(\)/.test(route))
   check("and the server refuses one that would overwrite a newer file",
     /current\.updated_at !== opts\.baseUpdatedAt/.test(route) && /baseUpdatedAt: parsed\.data\.base_updated_at/.test(route) && /status: 409/.test(route))
-  check("the refusal carries the other version, so neither is lost", /conflict: \{ updated_at: current\.updated_at, content: current\.content \}/.test(route) && /setConflict\(\{ path: selectedFile\.path/.test(codePage))
-  check("and whoever is here chooses between them", /Show theirs/.test(codePage) && /Keep mine and save/.test(codePage))
-  check("an older client that sends no version still saves", /if \(opts\.baseUpdatedAt && current/.test(route))
+  /* Round L: the other version is the DRAFT (what the other writer wrote, not what is live), with who wrote it. */
+  check("the refusal carries the other version, so neither is lost", /conflict: \{ updated_at: current\?\.updated_at \?\? "", content: draftText \?\? ""/.test(route) && /setConflict\(\{ path: selectedFile\.path/.test(codePage))
+  /* Round L: the buttons are named by who wrote the other version: Keep mine, and Use AI's, Use GitHub's or Use theirs (lib/ai-builder/version-labels.ts). */
+  check("and whoever is here chooses between them", /conflictChoiceLabels\(conflict\.author\)\.theirs/.test(codePage) && /conflictChoiceLabels\(conflict\.author\)\.mine/.test(codePage))
+  check("an older client that sends no version still saves", /!!\(opts\.baseUpdatedAt && current/.test(route) && /opts\.expectedVersion !== undefined &&/.test(route))
 }
 
 // ===========================================================================

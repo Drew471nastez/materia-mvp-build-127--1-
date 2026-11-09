@@ -269,7 +269,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       await record("", saved.error)
       return { status: 500, body: { error: saved.error } }
     }
-    await recordVersion(supabase, installId, written.value.path, written.value.source, "save")
+    await recordVersion(supabase, installId, written.value.path, written.value.source, "save", { author: "ai" })
     /* Also reached from inside the streamed answer; if `after` is not
        available there, the commit is simply started without waiting. */
     const change = { kind: "save" as const, path: written.value.path, content: written.value.source }
