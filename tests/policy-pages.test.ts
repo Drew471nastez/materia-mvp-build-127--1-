@@ -434,7 +434,8 @@ async function main() {
     check("the preview applies it", /withUniversalChrome\(/.test(preview))
     check(
       "and the editor uses the same function rather than a second copy",
-      /const mergeWithHomeHeaderFooter = withUniversalChrome/.test(editor),
+      /* Round L4: wrapped so an AI blank site (site_chrome "home") falls back to nothing; the function inside is still the one. */
+      /const mergeWithHomeHeaderFooter = withUniversalChrome/.test(editor) || /const mergeWithHomeHeaderFooter = useCallback\(\s*\(page: SectionInstance\[\] \| null \| undefined, chrome: Chrome\) => withUniversalChrome\(page,/.test(editor),
     )
     /**
      * AND HOME IS NOT EXEMPT FROM IT.

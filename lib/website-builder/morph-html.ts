@@ -83,7 +83,8 @@ function morphNode(have: Node, want: Node): void {
   syncAttributes(eh, ew)
   /* An island the page draws into (`data-storelib-island`: a Featured product's offers, components/website-builder/sections/offer-islands.tsx): its children are React's, and the markup states none. */
   /* A native form's mark (`data-storelib-native-form`, ./form-islands.ts) is one too, whether or not its author also wrote data-storelib-island. */
-  if (eh.hasAttribute("data-storelib-island") || eh.hasAttribute("data-storelib-native-form")) return
+  if (eh.hasAttribute("data-storelib-native-form")) return
+  if (eh.hasAttribute("data-storelib-island")) return
   morphChildren(eh, ew)
 }
 
