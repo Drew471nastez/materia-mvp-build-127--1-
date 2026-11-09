@@ -32,31 +32,25 @@ import { ANIMATION_STYLES, CUSTOM_TOKEN_PREFIX, CUSTOM_TOKENS_SETTING, SHADOW_LE
 
 /* ── custom tokens: names and values that are safe to print ───────────── */
 
-/** A token name: lowercase, digits and hyphens, a letter first, at most 40. */
+/**
+ * The rules are the page's (lib/website-builder/theme-css.ts customTokenVars, L4), so what the panel and the
+ * mapper keep is exactly what the page prints: a name is lowercase letters, digits and hyphens with a letter
+ * first, at most 40; a value at most 200 characters with nothing that loads, closes the declaration or hides
+ * either behind an escape; at most 64 tokens. tests/ai-builder-editor.test.ts holds the two to agreeing.
+ */
 export const TOKEN_NAME = /^[a-z][a-z0-9-]{0,39}$/
 /** How many custom tokens a site keeps. */
-export const MAX_CUSTOM_TOKENS = 60
+export const MAX_CUSTOM_TOKENS = 64
 const MAX_VALUE = 200
+const TOKEN_VALUE_REFUSED = /url\s*\(|expression\s*\(|javascript:|@import|image-set\s*\(|[\\;{}<>"`]|\/\*|!important/i
 
-/**
- * A custom token's value, if it is one that can be printed into a style
- * attribute and a stylesheet without leaving it: no url(), no expression(),
- * no braces, semicolons, angle brackets, quotes, backslashes or comments, and
- * no @import. A colour, a length, a calc(), a font stack in single words, a
- * cubic-bezier: yes.
- */
+/** A custom token's value, if the page would print it; null if it would be left out. */
 export function cleanTokenValue(v: unknown): string | null {
   if (typeof v === "number" && Number.isFinite(v)) return String(v)
   if (typeof v !== "string") return null
   const t = v.trim()
-  if (!t || t.length > MAX_VALUE) return null
-  if (/url\s*\(|expression\s*\(|@import|javascript:|[;{}<>"'\\`]|\/\*|\*\//i.test(t)) return null
-  let depth = 0
-  for (const ch of t) {
-    if (ch === "(") depth++
-    else if (ch === ")" && --depth < 0) return null
-  }
-  return depth === 0 ? t : null
+  if (!t || t.length > MAX_VALUE || TOKEN_VALUE_REFUSED.test(t)) return null
+  return t
 }
 
 /** The stored custom tokens, cleaned: only names and values that pass, at most MAX_CUSTOM_TOKENS. */
@@ -64,8 +58,9 @@ export function customTokens(theme: Record<string, unknown> | null | undefined):
   const raw = theme?.[CUSTOM_TOKENS_SETTING]
   const out: Record<string, string> = {}
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out
-  for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
+  for (const [raw_name, value] of Object.entries(raw as Record<string, unknown>)) {
     if (Object.keys(out).length >= MAX_CUSTOM_TOKENS) break
+    const name = raw_name.trim().toLowerCase().replace(/^--t-/, "")
     if (!TOKEN_NAME.test(name)) continue
     const v = cleanTokenValue(value)
     if (v !== null) out[name] = v
@@ -84,8 +79,9 @@ const SHADOW_CSS: Record<Exclude<ShadowLevel, "none">, string> = {
 const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : fallback)
 
 /**
- * The `--t-*` properties a site has: the shared scale read from its Theme
- * settings, then its custom tokens (which may not shadow the scale's names).
+ * The shared `--t-*` scale a site has, read from its Theme settings. Its
+ * custom tokens come out beside it through customTokenVars (theme-css.ts,
+ * L4); the scale is spread after them, so a custom token cannot shadow it.
  * Only for a site whose tokens were set (it has `custom_tokens`, even an
  * empty map, or the section rhythm): every other site's page is exactly
  * what it was. A component still writes a fallback, `var(--t-radius-md, 8px)`.
@@ -105,10 +101,6 @@ export function tokenVars(theme: Record<string, unknown> | null | undefined): Re
     [`${CUSTOM_TOKEN_PREFIX}gutter`]: `${num(t.content_padding_x, 24)}px`,
     [`${CUSTOM_TOKEN_PREFIX}page-width`]: `${num(t.page_width, 1280)}px`,
     [`${CUSTOM_TOKEN_PREFIX}section-y`]: `calc(${num(t.ai_section_y, 96)}px * ${num(t.spacing_scale, 1)})`,
-  }
-  for (const [name, value] of Object.entries(customTokens(t))) {
-    const key = `${CUSTOM_TOKEN_PREFIX}${name}`
-    if (!(key in out)) out[key] = value
   }
   return out
 }

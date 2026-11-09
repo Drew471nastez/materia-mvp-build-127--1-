@@ -149,9 +149,60 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
     ...parityVars(t),
     ...buttonSizeVars(t, buttonSize, typo),
 
-    // ── Design tokens (round L): the `--t-*` scale and custom tokens, only on a site whose tokens were set (lib/ai-builder/tokens.ts) ──
+    // ── The website's own design tokens (round L, lib/ai-builder/types.ts DesignTokens.custom) ──
+    ...customTokenVars(t),
+
+    // ── The shared `--t-*` scale (radius, shadow, gutter, page width, section rhythm) read from Theme settings, on a site whose tokens were set (round L, L5, lib/ai-builder/tokens.ts). After the custom ones: a custom token cannot take a scale name. ──
     ...tokenVars(t),
   }
+}
+
+/** The theme setting the website's own tokens are kept under (lib/ai-builder/types.ts CUSTOM_TOKENS_SETTING). */
+export const CUSTOM_TOKENS_KEY = "custom_tokens"
+/** What each comes out as: `--t-<name>` (CUSTOM_TOKEN_PREFIX). */
+export const CUSTOM_TOKEN_VAR_PREFIX = "--t-"
+const TOKEN_NAME = /^[a-z][a-z0-9-]{0,39}$/
+/**
+ * What a token's value may not hold. It is written into a style attribute
+ * on the page root, so nothing that ends a declaration, opens a block, loads
+ * something or hides any of those behind an escape: the same refusal the
+ * sandbox applies to a script's style (lib/storelib-theme/sandbox/protocol.ts),
+ * plus the characters that would break out of the declaration.
+ */
+const TOKEN_VALUE_REFUSED = /url\s*\(|expression\s*\(|javascript:|@import|image-set\s*\(|[\\;{}<>"`]|\/\*|!important/i
+const MAX_CUSTOM_TOKENS = 64
+const MAX_TOKEN_VALUE = 200
+
+/**
+ * ===========================================================================
+ *  A WEBSITE'S OWN TOKENS, AS CSS VARIABLES
+ * ===========================================================================
+ * The values a site's design needs that no Theme setting holds (a hero's
+ * overlay, a second accent, a display size) are kept in the theme setting
+ * `custom_tokens`, `{ name: value }`, and come out here as `--t-<name>` on
+ * the same element as every `--theme-*` variable: the page root, which is
+ * this site's and nobody else's, on the live site, the builder's canvas and
+ * a preview alike. A component reads `var(--t-name, fallback)`.
+ *
+ * A name that is not a plain lowercase name, or a value that could load,
+ * close the declaration or run anything, is left out. Never more than 64.
+ * A site without the setting gets nothing new.
+ */
+export function customTokenVars(t: Record<string, unknown>): Record<string, string> {
+  const raw = t[CUSTOM_TOKENS_KEY]
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {}
+  const out: Record<string, string> = {}
+  let n = 0
+  for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (n >= MAX_CUSTOM_TOKENS) break
+    const key = name.trim().toLowerCase().replace(/^--t-/, "")
+    if (!TOKEN_NAME.test(key)) continue
+    const v = typeof value === "number" && Number.isFinite(value) ? String(value) : typeof value === "string" ? value.trim() : ""
+    if (!v || v.length > MAX_TOKEN_VALUE || TOKEN_VALUE_REFUSED.test(v)) continue
+    out[`${CUSTOM_TOKEN_VAR_PREFIX}${key}`] = v
+    n++
+  }
+  return out
 }
 
 /**

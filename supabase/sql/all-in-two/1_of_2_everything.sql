@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 401: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 405: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -5436,6 +5436,13 @@ DROP TRIGGER IF EXISTS ai_site_job_events_tell ON public.ai_site_job_events;
 CREATE TRIGGER ai_site_job_events_tell AFTER INSERT ON public.ai_site_job_events FOR EACH ROW EXECUTE FUNCTION public.ai_site_job_event_tell();
 ALTER TABLE IF EXISTS public.store_theme_file_versions ADD COLUMN IF NOT EXISTS author text CHECK (author IS NULL OR author IN ('creator', 'ai', 'import', 'restore')), ADD COLUMN IF NOT EXISTS job_id uuid;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('401', '401_ai_builder_agent.sql', '7dc5f8880f030f43ed63c40682f0df51bd7526fe7645ba5ed9fd6760b25f6ed5') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 405_ai_job_preview_errors.sql
+/* AI builder round L, part 405 (run after 401): one way to add an event to an AI website job that is safe beside the job's own writer. public.ai_site_job_add_event(job, creator, kind, payload) takes the job's row lock, numbers the event from ai_site_jobs.last_event_seq (so two writers never pick the same number), and keeps it; it answers the new number, or 0 when the job is not that creator's, is not queued or running, or (for errors the builder's canvas reports, payload source "preview") already has 60 of them. Server only: nobody signed in can call it. No rows change. Safe to run again. */
+CREATE OR REPLACE FUNCTION public.ai_site_job_add_event(p_job_id uuid, p_creator_id uuid, p_kind text, p_payload jsonb) RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $f$ DECLARE v_seq integer; v_status text; v_count integer; BEGIN IF to_regclass('public.ai_site_job_events') IS NULL THEN RETURN 0; END IF; SELECT j.last_event_seq, j.status INTO v_seq, v_status FROM public.ai_site_jobs j WHERE j.id = p_job_id AND j.creator_id = p_creator_id FOR UPDATE; IF NOT FOUND OR v_status NOT IN ('queued', 'running') THEN RETURN 0; END IF; IF coalesce(p_payload->>'source', '') = 'preview' THEN SELECT count(*) INTO v_count FROM public.ai_site_job_events e WHERE e.job_id = p_job_id AND e.kind = 'error' AND e.payload->>'source' = 'preview'; IF v_count >= 60 THEN RETURN 0; END IF; END IF; v_seq := coalesce(v_seq, 0) + 1; UPDATE public.ai_site_jobs SET last_event_seq = v_seq WHERE id = p_job_id; INSERT INTO public.ai_site_job_events (job_id, creator_id, seq, kind, payload) VALUES (p_job_id, p_creator_id, v_seq, p_kind, coalesce(p_payload, '{}'::jsonb)); RETURN v_seq; END $f$;
+REVOKE ALL ON FUNCTION public.ai_site_job_add_event(uuid, uuid, text, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ai_site_job_add_event(uuid, uuid, text, jsonb) TO service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('405', '405_ai_job_preview_errors.sql', 'caec345959a8eb1ce55ad2feffd0ed798f30e660844cd5923cd208b32aaab9fb') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

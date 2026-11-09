@@ -52,7 +52,7 @@ export default async function PreviewShopPage({ params, searchParams }: PageProp
   const home = sanitizeSections(pageSections<SectionInstance[]>(rowOf("home") as never, preview) ?? [])
   const stored = sanitizeSections(pageSections<SectionInstance[]>(rowOf("products") as never, preview) ?? [])
   const arranged = stored.length > 0 ? stored : shopSections(home, themeSettings)
-  const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings)
+  const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings, { cached: false, draft: preview })
   const { sections, data } = await dressPage(owner, arranged, products, productCount, "page.products", "Shop", undefined, { cached: false })
   /* Filtered from the address, as the live shop page is (lib/products/catalog-filters.ts). */
   const catalogue = await siteCatalogue(creatorId, { cached: false }).catch(() => products ?? [])

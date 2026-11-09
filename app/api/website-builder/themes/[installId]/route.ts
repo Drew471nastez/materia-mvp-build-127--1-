@@ -31,6 +31,23 @@ async function creatorCommunitiesForBuilder(creatorId: string) {
   }
 }
 
+/**
+ * The store owner's published forms for a form_picker: the list to choose
+ * from and the facts a section reads, so the canvas draws a form section as
+ * the live site will. Read with the service role, by the store owner's user
+ * id alone (native_forms.owner_id), after the ownership check above.
+ */
+async function creatorFormsForBuilder(creatorId: string, ownerUserId: string | null) {
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin")
+    const { storefrontForms } = await import("@/lib/forms/storefront-forms")
+    const cards = await storefrontForms(createAdminClient(), creatorId, "all", ownerUserId)
+    return { choices: Object.values(cards).map((f) => ({ id: f.id, title: f.title, kind: f.kind })), cards }
+  } catch {
+    return null
+  }
+}
+
 /** The store's menus for the editor; menus stay with the theme when they cannot be read. */
 async function builderStoreMenus(creatorId: string, installId: string) {
   try {
@@ -95,6 +112,7 @@ export async function GET(_req: Request, { params }: Params) {
     creatorFacts(supabase! as never, creator!.id),
     creatorCommunitiesForBuilder(creator!.id),
     creatorCollectionsForBuilder(creator!.id),
+    creatorFormsForBuilder(creator!.id, ownerUserId ?? null),
     /* The store's menus, which every theme shares (lib/website-builder/store-menus-server.ts). */
     builderStoreMenus(creator!.id, installId),
   ])
@@ -155,7 +173,7 @@ export async function GET(_req: Request, { params }: Params) {
     public profile comes along for the canvas to fill `{{ creator.name }}`
     the way the live site will: the same four public facts, nothing else.
   */
-  const [lookup, [{ data: profile }, { data: creatorData }, siteHandle, facts, communities, collections, storeMenus]] = await Promise.all([
+  const [lookup, [{ data: profile }, { data: creatorData }, siteHandle, facts, communities, collections, forms, storeMenus]] = await Promise.all([
     customSchemaLookup(supabase! as never, installId, sectionsOfInstallRow(data), { draft: true }),
     besides,
   ])
@@ -170,7 +188,7 @@ export async function GET(_req: Request, { params }: Params) {
     as written. See lib/website-builder/sanitize-sections.ts.
   */
   /* storeOwner: for a team member, the account whose folder the editor's pictures go into (lib/website-builder/team-upload-owner); null for the owner. */
-  return NextResponse.json({ install: sanitizeInstallRow(data, lookup), username, siteHandle, creatorFacts: facts, communities, collections, storeMenus, storeOwner: isOwner ? null : ownerUserId })
+  return NextResponse.json({ install: sanitizeInstallRow(data, lookup), username, siteHandle, creatorFacts: facts, communities, collections, forms, storeMenus, storeOwner: isOwner ? null : ownerUserId })
 }
 
 // PATCH /api/website-builder/themes/[installId]

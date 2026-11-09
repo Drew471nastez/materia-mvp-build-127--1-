@@ -21,6 +21,7 @@ import { CssControl } from "./css-control"
 import { FontPickerControl } from "./font-picker-control"
 import { NumberControl } from "./number-control"
 import { CommunityPickerControl } from "./community-picker-control"
+import { FormPickerControl } from "./form-picker-control"
 import { DateTimeControl } from "./datetime-control"
 import { FilePickerControl } from "./file-picker-control"
 import { FocalPointControl } from "./focal-point-control"
@@ -33,13 +34,12 @@ import { ProductListControl, ProductPickerControl } from "./product-list-control
 import { VideoPickerControl } from "./video-picker-control"
 import { VideoUrlControl } from "./video-url-control"
 import { ColorSchemeControl } from "./color-scheme-control"
-import { FormPickerControl } from "./form-picker-control"
 import { AnimationControl, isAnimationField } from "./animation-control"
 import { REVIEW_CONFIG_FIELD, ReviewWidgetConfigControl } from "./review-widget-config-control"
 
 export { DynamicSourceField } from "./dynamic-source-field"
 export { CountdownControl } from "./countdown-control"
-export { EditorFieldProvider, SiblingSettingsProvider, type EditorFieldEnv, type PickerCollection, type PickerCommunity, type PickerProduct } from "./context"
+export { EditorFieldProvider, SiblingSettingsProvider, type EditorFieldEnv, type PickerCollection, type PickerCommunity, type PickerForm, type PickerProduct } from "./context"
 
 /** The types this folder draws, for FieldEditor's label rule and the docs. */
 export const REGISTERED_CONTROLS = [

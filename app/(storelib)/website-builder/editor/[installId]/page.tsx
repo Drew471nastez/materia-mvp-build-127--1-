@@ -1,5 +1,6 @@
 "use client"
 
+import { usePreviewErrorBridge } from "@/lib/ai-builder/use-preview-errors"
 import { SectionTitleRename } from "@/components/website-builder/editor/section-title-rename"
 import { explainSaveProblem, type SaveAction, type SaveProblem } from "@/lib/website-builder/save-problem"
 import { SaveProblemBanner } from "@/components/website-builder/editor/save-problem-banner"
@@ -103,7 +104,7 @@ import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { mainProductSection, withDeliveryBlock, withOffersBlock, withProductBlocks, withProductReviews } from "@/lib/website-builder/product-page"
 import { productRating, type StorefrontReviews } from "@/lib/reviews/storefront"
-import { CHROMELESS_PAGES, chromeOf, withoutChrome, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
+import { CHROMELESS_PAGES, chromeOf, homeChromeOnly, homeOnlyChrome, withoutChrome, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
 import {
   groupOf,
   isKind,
@@ -236,11 +237,13 @@ import { DISPLAY_CURRENCY_KEY } from "@/lib/storelib-theme/resolve"
 import type { LanguageSwitchPreview, SiteLanguageChoice } from "@/components/website-builder/theme/language-switch"
 import type { CompatMarkets } from "@/components/website-builder/compat/compat-canvas"
 import { CanvasStillHost, swapCanvasPage } from "@/lib/website-builder/canvas-still"
-import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
-import type { PickerCollection, PickerCommunity } from "@/components/website-builder/editor/controls"
+import type { StorefrontCollection, StorefrontCommunity, StorefrontForm } from "@/lib/storelib-theme/types"
+import type { PickerCollection, PickerCommunity, PickerForm } from "@/components/website-builder/editor/controls"
 
 /** What /api/website-builder/themes/[installId] says about the creator's communities. */
 type BuilderCommunities = { choices: PickerCommunity[]; cards: Record<string, StorefrontCommunity> }
+/** What the same route says about the store's published forms, for a form_picker (lib/forms/storefront-forms.ts). */
+type BuilderForms = { choices: PickerForm[]; cards: Record<string, StorefrontForm> }
 /** And about their collections: every one to pick, the published ones as a section reads them. */
 type BuilderCollections = { choices: PickerCollection[]; cards: Record<string, StorefrontCollection> }
 /** The theme settings schema's fields, so a setting never set (the cookie banner's sentence) is drawn translated, as on the website (lib/markets/live.ts). */
@@ -3038,6 +3041,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   /* The creator's own communities, for a community_picker and the Community card (null while communities are off). */
   const [builderCommunities, setBuilderCommunities] = useState<BuilderCommunities | null>(null)
+  /* The store's published forms, for a form_picker (null when they could not be read). */
+  const [builderForms, setBuilderForms] = useState<BuilderForms | null>(null)
   /* The creator's collections, for a collection_picker, a collection_list and the collections page (null while physical commerce is off). */
   const [builderCollections, setBuilderCollections] = useState<BuilderCollections | null>(null)
   const customSchemas = useMemo(() => customSectionSchemas(storelibSources), [storelibSources])
@@ -3509,6 +3514,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     request ("inline"). A reload while the job runs finds it again in this tab's storage.
   */
   const [genSource, setGenSource] = useState<GenerationSource | null>(null)
+  /* A section script that throws in the canvas while an AI job builds this site goes back to the job (lib/ai-builder/preview-errors.ts). */
+  usePreviewErrorBridge({
+    jobId: genSource?.kind === "job" ? genSource.jobId : null,
+    installId,
+    page: currentPage,
+    typeOf: (id) => sectionsRef.current.find((s) => s.id === id)?.type ?? null,
+  })
   useEffect(() => {
     let stored: Storage | null = null
     try {
@@ -4372,7 +4384,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * chrome and the live site rendered each page's own, so a stale footer was
    * invisible in the one place somebody would check it.
    */
-  const mergeWithHomeHeaderFooter = withUniversalChrome
+  /*
+    A SITE WHOSE CHROME IS HOME'S ONLY (an AI blank start, theme setting
+    site_chrome "home", lib/website-builder/universal-chrome.ts): a page's
+    own stored header is never drawn in place of home having none, here as on
+    the live site. Read from a ref, so the function stays the same one.
+  */
+  const homeChromeOnlyRef = useRef(false)
+  homeChromeOnlyRef.current = homeChromeOnly(settingsDraft as Record<string, unknown>)
+  const mergeWithHomeHeaderFooter = useCallback(
+    (page: SectionInstance[] | null | undefined, chrome: Chrome) => withUniversalChrome(page, homeChromeOnlyRef.current ? homeOnlyChrome(chrome) : chrome),
+    [],
+  )
 
   /** Which pages the server answered with sections it built rather than stored (fetchPageSections). */
   const generatedPages = useRef(new Set<string>())
@@ -4663,6 +4686,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (data.username) setUsername(data.username)
     if (data.creatorFacts && typeof data.creatorFacts === "object") setCreatorFacts(data.creatorFacts as CreatorFacts)
     setBuilderCommunities(data.communities && typeof data.communities === "object" ? (data.communities as BuilderCommunities) : null)
+    setBuilderForms(data.forms && typeof data.forms === "object" ? (data.forms as BuilderForms) : null)
     setBuilderCollections(data.collections && typeof data.collections === "object" ? (data.collections as BuilderCollections) : null)
     setSiteHandle(typeof data.siteHandle === "string" && data.siteHandle ? data.siteHandle : null)
 
@@ -4729,6 +4753,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (stale()) return false
     if (!asked.ok) throw asked.e
     const [loadedRaw, homeHF] = asked.v
+    /* Before the page is dressed in home's chrome below: whether home's is the only chrome (settingsDraft is set after). */
+    homeChromeOnlyRef.current = homeChromeOnly(loadedSettings as Record<string, unknown>)
     /**
      * HOME GETS THE RULE TOO, and that is not a no-op.
      *
@@ -9958,6 +9984,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       header: headerSection,
       linkHeaderToMain,
       communities: builderCommunities?.choices ?? null,
+      forms: builderForms?.choices ?? null,
       /* With each one's words and address, for a setting bound to the picked collection (lib/storelib-theme/collection-binding.ts). */
       collections: builderCollections ? builderCollections.choices.map((c) => ({ ...c, description: builderCollections.cards[c.id]?.description ?? "", url: builderCollections.cards[c.id]?.url ?? "" })) : null,
       /* Round 12: New collection / Add collection in a picker makes one and picks it (app/api/website-builder/collections). */
@@ -9987,7 +10014,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       },
       pictureMedia: compatInstall ? compatMedia : null,
     }),
-    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, createCollection, compatSchemes, compatInstall, compatMedia, isMobileView, settingsDraft],
+    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderForms, builderCollections, createCollection, compatSchemes, compatInstall, compatMedia, isMobileView, settingsDraft],
   )
   /*
     THE CANVAS IN ANOTHER LANGUAGE OF THE WEBSITE (the language button beside
@@ -10165,8 +10192,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /* The blog's posts for the Blog and Blog post templates and a Blog posts section on any page: the blog's own, or sample ones while it has none, here only (use-canvas-blog.ts). */
   const canvasBlog = useCanvasBlog(installId, !compatInstall && (currentPage === "blogs" || currentPage === "article" || pageWantsBlog(canvasSections)), currentPage)
   const canvasData = useMemo(
-    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: collectionCardsShown, reviews: canvasReviews, blog: canvasBlog?.blog, article: canvasBlog?.article, words: previewLang.words }),
-    [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, collectionCardsShown, canvasReviews, previewLang.words, canvasBlog],
+    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, forms: builderForms?.cards, collections: collectionCardsShown, reviews: canvasReviews, blog: canvasBlog?.blog, article: canvasBlog?.article, words: previewLang.words }),
+    [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, builderForms, collectionCardsShown, canvasReviews, previewLang.words, canvasBlog],
   )
   /*
     Each step the canvas's page is drawn through is a function below the

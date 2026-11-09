@@ -1,0 +1,320 @@
+/**
+ * ===========================================================================
+ *  RENDER CHECK: THE PAGE DRAWN ON THE SERVER, READ FOR WHAT IS WRONG
+ * ===========================================================================
+ * The agent's `render_check` tool (lib/ai-builder/agent-tools.ts). A draft
+ * page is drawn with the SAME template interpreter the live site uses
+ * (lib/website-builder/storelib-runtime.ts renderStorelibSection): data in,
+ * escaped markup out. No section's script runs here, ever: a script is only
+ * PARSED (esbuild's parser, which builds a syntax tree and executes nothing)
+ * so a syntax error is caught before it reaches a browser. What the page's
+ * own sandbox reports at run time arrives separately
+ * (lib/ai-builder/preview-errors.ts).
+ *
+ * Every finding is a ValidationIssue with a code the agent can act on:
+ *
+ *   render.compile        the file does not compile; the line is given
+ *   render.unresolved     `{{ }}` or `{% %}` left in the markup
+ *   render.empty          a section that draws no words, no picture, nothing
+ *   render.empty_page     a page with no sections at all
+ *   render.broken_link    a link to an address this website does not have
+ *   render.placeholder    a link to "#" or nowhere that is not a hook
+ *   render.anchor         a link to #id where nothing on the page has that id
+ *   render.overflow       CSS a phone shows sideways (fixed widths, 100vw,
+ *                         many columns with no narrow rule)
+ *   a11y.img_alt          a picture with no alt
+ *   a11y.headings         no h1, two h1, or a heading level skipped
+ *   binding.unbound       a commerce or form hook with no id, or an id this
+ *                         creator does not have
+ *   import.remote         a <script src>, a remote stylesheet or @import
+ *   script.syntax         the section's script does not parse
+ *   token.undefined       var(--t-name) with no such token and no fallback
+ *
+ * PURE apart from the optional parser, which is passed in, so the tests drive
+ * every rule with a stand in and no database.
+ */
+import type { ValidationIssue } from "./types"
+import type { RuntimeCapabilities } from "./runtime-contract"
+import { bindableIds } from "./capabilities"
+import { renderStorelibSection, isStorelibSection } from "@/lib/website-builder/storelib-runtime"
+import { checkRenderedSection, checkResponsiveStructure } from "@/lib/storelib-ai/structural"
+import { customTokenVars } from "@/lib/website-builder/theme-css"
+import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import type { ProductCard } from "@/lib/website-builder/shop-products"
+import type { StorefrontData } from "@/lib/storelib-theme/types"
+
+/** Parses a script and returns its first syntax error, or null. Never runs it. */
+export type ScriptParser = (source: string) => Promise<{ message: string; line?: number } | null>
+
+export interface RenderCheckInput {
+  /** The page key, for messages. */
+  page: string
+  /** The page's sections as they will be drawn: header group, body, footer group. */
+  sections: SectionInstance[]
+  /** Section files by path (the install's saved drafts over the theme's own). */
+  sources: Record<string, string>
+  theme: ThemeSettingsValues
+  /** page.template ("index", "page.about", "product"). */
+  template: string
+  products?: ProductCard[]
+  data?: StorefrontData
+  /** What the agent may bind; links and hooks are held to it. Absent: binding rules are skipped. */
+  capabilities?: RuntimeCapabilities
+  /** Addresses this website answers besides its pages and products (its own blog posts, policies). */
+  extraRoutes?: string[]
+  parseScript?: ScriptParser
+}
+
+export interface RenderCheckResult {
+  ok: boolean
+  issues: ValidationIssue[]
+  htmlBytes: number
+  /** Per section, how many bytes it drew; 0 for one that failed. Handy for a progress note. */
+  sections: { id: string; type: string; bytes: number }[]
+}
+
+/** The most findings returned: more than this and the model fixes none of them well. */
+export const MAX_RENDER_ISSUES = 40
+
+/** Addresses every Storelib website answers, whatever pages it has (app/(site)/w/[username]). */
+const BUILT_IN_ROUTES = [/^\/$/, /^\/products\/?$/, /^\/collections\/?$/, /^\/cart\/?$/, /^\/search\/?$/, /^\/wishlist\/?$/, /^\/account(\/.*)?$/, /^\/blogs(\/.*)?$/, /^\/policies\/[a-z0-9-]+$/, /^\/checkout$/, /^\/password$/, /^\/reviews(\/.*)?$/, /^\/sitemap\.xml$/]
+/** Hooks that make a "#" link a real control. */
+const HOOK_ATTR = /\sdata-storelib-(cart|search|menu|add-to-cart|checkout|cart-close|wishlist|scroll)\b|\srole\s*=\s*"button"|\saria-controls\s*=/i
+
+const textOf = (html: string) =>
+  html
+    .replace(/<(script|style|template)\b[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#160;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+function attrValues(html: string, attr: string): { value: string; tag: string }[] {
+  const re = new RegExp(`<[a-z][^>]*\\s${attr}(?:\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+)))?[^>]*>`, "gi")
+  return [...html.matchAll(re)].map((m) => ({ value: (m[2] ?? m[3] ?? m[4] ?? "").trim(), tag: m[0] }))
+}
+
+function decodeHref(v: string): string {
+  return v.replace(/&amp;/g, "&").replace(/&#x2F;|&#47;/gi, "/").trim()
+}
+
+/** Where a link goes, as the website would answer it; null when it is fine. */
+export function linkProblem(
+  href: string,
+  known: { pages: Set<string>; productSlugs: Set<string>; collectionHandles: Set<string>; communitySlugs: Set<string>; forms: Set<string>; products: Set<string>; extra: Set<string> } | null,
+): { code: "render.broken_link" | "render.placeholder" | "render.anchor" | "import.remote"; detail: string } | null {
+  const h = decodeHref(href)
+  if (h === "" || h === "#") return { code: "render.placeholder", detail: h || "(empty)" }
+  if (/^\s*(javascript|vbscript|data):/i.test(h)) return { code: "render.broken_link", detail: "a script address" }
+  if (/^(https?:)?\/\//i.test(h) || /^(mailto|tel|sms):/i.test(h)) return null
+  if (h.startsWith("#")) return { code: "render.anchor", detail: h }
+  if (!h.startsWith("/") || !known) return null
+  const [pathPart, query = ""] = h.split("#")[0].split("?")
+  /* A language prefix (/fr/about) is the same page in another language. */
+  const path = pathPart.replace(/\/+$/, "") || "/"
+  if (BUILT_IN_ROUTES.some((r) => r.test(path))) {
+    if (path === "/checkout") {
+      const id = new URLSearchParams(query).get("productId") ?? ""
+      if (!id || !known.products.has(id)) return { code: "render.broken_link", detail: `${h} (not one of this store's products)` }
+    }
+    return null
+  }
+  if (known.extra.has(path)) return null
+  const m = path.match(/^\/([a-z0-9-]+)$/i)
+  if (m && known.pages.has(m[1])) return null
+  const product = path.match(/^\/products\/([^/]+)$/)
+  if (product) return known.productSlugs.has(decodeURIComponent(product[1])) ? null : { code: "render.broken_link", detail: `${path} (no such product)` }
+  const collection = path.match(/^\/collections\/([^/]+)$/)
+  if (collection) return known.collectionHandles.has(decodeURIComponent(collection[1]).toLowerCase()) ? null : { code: "render.broken_link", detail: `${path} (no such collection)` }
+  const community = path.match(/^\/community\/([^/]+)/)
+  if (community) return known.communitySlugs.has(community[1].toLowerCase()) ? null : { code: "render.broken_link", detail: `${path} (no such community)` }
+  const form = path.match(/^\/request\/forms\/([^/]+)$/)
+  if (form) return known.forms.has(form[1].toLowerCase()) ? null : { code: "render.broken_link", detail: `${path} (not one of this store's forms)` }
+  /* A language prefix in front of a page that exists. */
+  const lang = path.match(/^\/[a-z]{2}(?:-[a-z]{2})?(\/.*)$/i)
+  if (lang) return linkProblem(lang[1], known)
+  return { code: "render.broken_link", detail: `${path} (this website has no such page)` }
+}
+
+/** CSS a phone shows sideways, beyond what structural.ts already finds. */
+export function overflowProne(css: string): string[] {
+  const out: string[] = []
+  const plain = css.replace(/\/\*[\s\S]*?\*\//g, " ")
+  if (/(?:^|[;{\s])(?:min-)?width\s*:\s*100vw\b/i.test(plain)) out.push('"width: 100vw" is wider than the page whenever there is a scrollbar. Use width: 100%.')
+  const big = [...plain.matchAll(/font-size\s*:\s*(\d+(?:\.\d+)?)px/gi)].map((m) => Number(m[1])).find((n) => n >= 96)
+  if (big) out.push(`font-size: ${big}px with no clamp() does not fit a phone. Use clamp(…, …vw, ${big}px).`)
+  if (/white-space\s*:\s*nowrap/i.test(plain) && !/overflow(?:-x)?\s*:\s*(hidden|auto|clip|scroll)/i.test(plain) && !/text-overflow/i.test(plain)) out.push('"white-space: nowrap" with nothing to clip it pushes a long line past the screen. Add overflow: hidden and text-overflow: ellipsis, or let it wrap.')
+  return out
+}
+
+/** var(--t-name) with no fallback, where the theme has no such token. */
+function missingTokens(css: string, theme: Record<string, unknown>): string[] {
+  const have = new Set(Object.keys(customTokenVars(theme)))
+  const missing = new Set<string>()
+  for (const m of css.matchAll(/var\(\s*(--t-[a-z0-9-]+)\s*(,)?/gi)) {
+    if (!m[2] && !have.has(m[1].toLowerCase())) missing.add(m[1].toLowerCase())
+  }
+  return [...missing]
+}
+
+function knownFrom(input: RenderCheckInput) {
+  const caps = input.capabilities
+  if (!caps) return null
+  const ids = bindableIds(caps)
+  const slugOf = (url: string) => (url.match(/^\/products\/([^/?#]+)/)?.[1] ?? "")
+  return {
+    pages: ids.pages,
+    products: ids.products,
+    productSlugs: new Set([...caps.products.map((p) => slugOf(p.url)), ...(input.products ?? []).map((p) => p.settings.slug)].filter(Boolean)),
+    collectionHandles: new Set(caps.collections.map((c) => (c.url.match(/^\/collections\/([^/?#]+)/)?.[1] ?? "").toLowerCase()).filter(Boolean)),
+    communitySlugs: new Set(caps.communities.map((c) => (c.url.match(/^\/community\/([^/?#]+)/)?.[1] ?? "").toLowerCase()).filter(Boolean)),
+    forms: ids.forms,
+    extra: new Set((input.extraRoutes ?? []).map((r) => r.replace(/\/+$/, "") || "/")),
+    ids,
+  }
+}
+
+export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckResult> {
+  const issues: ValidationIssue[] = []
+  const push = (i: ValidationIssue) => {
+    if (issues.length < MAX_RENDER_ISSUES && !issues.some((x) => x.code === i.code && x.sectionId === i.sectionId && x.message === i.message)) issues.push(i)
+  }
+  const visible = input.sections.filter((s) => !s.hidden)
+  if (visible.length === 0) push({ severity: "error", code: "render.empty_page", message: `The page "${input.page}" has no sections. Add at least one.` })
+  const known = knownFrom(input)
+  const page = { template: input.template }
+  const theme = input.theme as unknown as Record<string, unknown>
+  const drawn: { section: SectionInstance; html: string; css: string; script: string | null }[] = []
+  const perSection: RenderCheckResult["sections"] = []
+  let htmlBytes = 0
+
+  for (const section of visible) {
+    const path = `sections/${section.type}.storelib`
+    if (!isStorelibSection(section.type, input.sources)) {
+      /* A built-in React section: drawn by the page, not by the engine. Nothing to read here. */
+      perSection.push({ id: section.id, type: section.type, bytes: 0 })
+      continue
+    }
+    const out = renderStorelibSection(section, input.theme, page, input.sources, input.products, input.data)
+    if (out.ok === false) {
+      for (const e of out.errors.slice(0, 3)) push({ severity: "error", code: "render.compile", message: e.message, path: e.file ?? path, ...(e.line ? { line: e.line } : {}), sectionId: section.id })
+      perSection.push({ id: section.id, type: section.type, bytes: 0 })
+      continue
+    }
+    htmlBytes += out.html.length + out.css.length
+    perSection.push({ id: section.id, type: section.type, bytes: out.html.length })
+    drawn.push({ section, html: out.html, css: out.css, script: out.script ?? null })
+  }
+
+  const pageHtml = drawn.map((d) => d.html).join("\n")
+  const ids = new Set([...pageHtml.matchAll(/\sid\s*=\s*"([^"]+)"/gi)].map((m) => m[1]))
+  /* Every section is reachable as #section-<key> too (lib/website-builder/section-anchors). */
+  for (const s of visible) ids.add(`section-${s.id}`)
+
+  const headings: { level: number; sectionId: string }[] = []
+  for (const { section, html, css, script } of drawn) {
+    const sid = section.id
+    const path = `sections/${section.type}.storelib`
+    const at = { path, sectionId: sid }
+    const text = textOf(html)
+
+    if (/\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}/.test(html)) push({ severity: "error", code: "render.unresolved", message: "Template tags are printed as text in the drawn markup. A tag inside an attribute or a string is not evaluated; check quotes and filters.", ...at })
+    const hasMedia = /<(img|video|iframe|svg|picture|canvas)\b/i.test(html) || /\sdata-storelib-(native-form|offers|island)\b/i.test(html) || /background(-image)?\s*:[^;]*url\(/i.test(html + css)
+    if (!text && !hasMedia) push({ severity: "warning", code: "render.empty", message: "The section draws nothing a visitor can see with its current settings. Give its settings defaults, or remove it.", ...at })
+
+    for (const f of checkRenderedSection({ html, css, theme })) {
+      if (f.id === "render-image-alt") push({ severity: "warning", code: "a11y.img_alt", message: f.message, ...at })
+      else if (f.id === "render-inline-width") push({ severity: "warning", code: "render.overflow", message: f.message, ...at })
+    }
+    for (const f of checkResponsiveStructure(css)) push({ severity: f.severity === "error" ? "error" : "warning", code: "render.overflow", message: f.message, ...at })
+    for (const m of overflowProne(css)) push({ severity: "warning", code: "render.overflow", message: m, ...at })
+    for (const t of missingTokens(css + html, theme)) push({ severity: "warning", code: "token.undefined", message: `var(${t}) is used with no fallback and the site has no such token. Set it with set_tokens, or write var(${t}, <value>).`, ...at })
+
+    for (const m of html.matchAll(/<h([1-6])\b/gi)) headings.push({ level: Number(m[1]), sectionId: sid })
+
+    /* Links. */
+    for (const { value, tag } of attrValues(html, "href")) {
+      if (!/^<a\b/i.test(tag)) continue
+      const problem = linkProblem(value, known)
+      if (!problem) continue
+      if (problem.code === "render.placeholder" && HOOK_ATTR.test(tag)) continue
+      if (problem.code === "render.anchor") {
+        if (ids.has(problem.detail.slice(1))) continue
+        push({ severity: "warning", code: "render.anchor", message: `A link goes to ${problem.detail}, and nothing on this page has that id.`, ...at })
+        continue
+      }
+      if (problem.code === "render.placeholder") push({ severity: "warning", code: "render.placeholder", message: `A link goes nowhere (${problem.detail}). Point it at a page, a product's url, or a url setting.`, ...at })
+      else push({ severity: "warning", code: "render.broken_link", message: `A link goes to ${problem.detail}. Use one of list_capabilities' pages, products or collections.`, ...at })
+    }
+
+    /* Remote code. The engine refuses most of this at compile; this is the belt to that. */
+    if (/<script\b[^>]*\ssrc\s*=/i.test(html)) push({ severity: "error", code: "import.remote", message: "A <script src> is in the markup. A section loads no outside script; behaviour goes in its own <script>.", ...at })
+    if (/<link\b[^>]*rel\s*=\s*"?stylesheet/i.test(html) || /@import\b/i.test(css)) push({ severity: "error", code: "import.remote", message: "A remote stylesheet or @import is in the section. Fonts come from a font_picker setting or Theme settings; styles stay in <style scoped>.", ...at })
+    if (/url\(\s*['"]?https?:\/\/(?!fonts\.(?:gstatic|googleapis)\.com)/i.test(css)) push({ severity: "warning", code: "import.remote", message: "The CSS loads a picture from another website. Use an image_picker setting so it comes from the creator's media.", ...at })
+
+    /* Hooks the page acts on, held to this creator's ids. */
+    if (known) {
+      for (const { value } of attrValues(html, "data-storelib-add-to-cart")) {
+        if (!value) push({ severity: "error", code: "binding.unbound", message: "An add to cart button names no product. Print the product's id from a product_picker or product_list setting: data-storelib-add-to-cart=\"{{ block.id }}\".", ...at })
+        else if (!known.ids.products.has(value)) push({ severity: "error", code: "binding.unbound", message: `An add to cart button names ${value}, which is not one of this store's published products.`, ...at })
+      }
+      for (const { value } of attrValues(html, "data-variant-id")) {
+        if (value && !known.ids.variants.has(value)) push({ severity: "warning", code: "binding.unbound", message: `A button names option ${value}, which is not an option of this store's products.`, ...at })
+      }
+      for (const { value } of attrValues(html, "data-storelib-native-form")) {
+        if (!value) push({ severity: "error", code: "binding.unbound", message: "A form mark names no form. Bind a form_picker setting and print settings.form.id.", ...at })
+        else if (!known.ids.forms.has(value.toLowerCase())) push({ severity: "error", code: "binding.unbound", message: `A form mark names ${value}, which is not one of this store's published forms.`, ...at })
+      }
+      for (const { value } of attrValues(html, "data-storelib-offers")) {
+        if (!value || !known.ids.products.has(value)) push({ severity: "error", code: "binding.unbound", message: `An offers mark names ${value || "no product"}, which is not one of this store's published products.`, ...at })
+      }
+    }
+    if (/\sdata-storelib-checkout\b/i.test(html) && !/\sdata-storelib-(add-to-cart|cart)\b/i.test(pageHtml)) {
+      push({ severity: "warning", code: "binding.unbound", message: "A checkout button is on a page with no add to cart and no cart: it opens an empty checkout. For one product, link its checkout_url (Buy now) instead.", ...at })
+    }
+
+    /* The script, parsed and never run. */
+    if (script && input.parseScript) {
+      const bad = await input.parseScript(script).catch(() => null)
+      if (bad) push({ severity: "error", code: "script.syntax", message: `The section's script does not parse${bad.line ? ` (line ${bad.line} of the script)` : ""}: ${bad.message}`, ...at })
+    }
+  }
+
+  /* Headings, across the page in order. */
+  const h1 = headings.filter((h) => h.level === 1)
+  if (drawn.length && h1.length === 0) push({ severity: "warning", code: "a11y.headings", message: `The page "${input.page}" has no h1. The main heading of its first section should be the one h1.` })
+  if (h1.length > 1) push({ severity: "warning", code: "a11y.headings", message: `The page "${input.page}" has ${h1.length} h1 headings. Keep one; make the others h2.`, sectionId: h1[1].sectionId })
+  for (let i = 1; i < headings.length; i++) {
+    if (headings[i].level > headings[i - 1].level + 1) {
+      push({ severity: "warning", code: "a11y.headings", message: `A heading jumps from h${headings[i - 1].level} to h${headings[i].level}. Use the next level down.`, sectionId: headings[i].sectionId })
+      break
+    }
+  }
+
+  return { ok: !issues.some((i) => i.severity === "error"), issues, htmlBytes, sections: perSection }
+}
+
+/**
+ * A ScriptParser built on esbuild's parser. It is handed the compiled bundle
+ * (lib/storelib-theme/storelib/script.ts: `"use strict"`, then the script as
+ * the body of a function over the context names, two lines in) and
+ * TRANSFORMS it, which parses and prints, nothing more. The line it reports
+ * is the line of the script itself. Null when esbuild cannot be loaded here.
+ */
+export async function esbuildScriptParser(): Promise<ScriptParser | null> {
+  try {
+    const esbuild = (await import("esbuild")) as { transform: (code: string, opts: Record<string, unknown>) => Promise<unknown> }
+    return async (source) => {
+      try {
+        await esbuild.transform(source, { loader: "js", logLevel: "silent" })
+        return null
+      } catch (e) {
+        const first = (e as { errors?: { text?: string; location?: { line?: number } }[] }).errors?.[0]
+        const wrapped = source.startsWith('"use strict";\n(function') ? 2 : 0
+        return { message: String(first?.text ?? "syntax error").slice(0, 200), line: first?.location?.line ? Math.max(1, first.location.line - wrapped) : undefined }
+      }
+    }
+  } catch {
+    return null
+  }
+}

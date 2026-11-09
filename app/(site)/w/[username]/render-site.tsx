@@ -28,7 +28,7 @@ import { mayPreview, pageSections, previewTokenFrom, themeSettings as themeSetti
 import { storeMenusOrNull, withStoreMenus } from "@/lib/website-builder/store-menus-server"
 import { creatorByName, dressPage, ownerOf, publishedShopByName, publishedSiteByName } from "@/lib/website-builder/published-site"
 import { SiteNotPublished } from "./not-published"
-import { chromeOf, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
+import { chromeOf, homeChromeOnly, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
 import { kindLookup, repairChrome } from "@/lib/storelib-theme/section-groups"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { getMainDomain } from "@/lib/url-helpers"
@@ -418,7 +418,8 @@ async function previewPage(username: string, token: string, pageKey: string) {
   /* The shop, the creator's profile and the saved section files, read
      directly: a preview is one person's view and never shares a cache.
      First, because the files say which section is a header. */
-  const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings)
+  /* With a valid token, the files as last saved too (draftSectionSources): a section the AI builder wrote has no live half until Publish. */
+  const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings, { cached: false, draft: preview })
   /* One header and one footer drawn, whatever the rows hold: lib/storelib-theme/section-groups.ts. */
   const kinds = kindLookup(owner.sources, SECTION_SCHEMAS as never)
   let chrome: Chrome = {}
@@ -429,7 +430,7 @@ async function previewPage(username: string, token: string, pageKey: string) {
       .eq("install_id", installId)
       .eq("page_key", "home")
       .maybeSingle()
-    chrome = chromeOf(repairChrome(sanitizeSections(pageSections<SectionInstance[]>(homeRow as never, preview) ?? []), kinds).sections)
+    chrome = chromeOf(repairChrome(sanitizeSections(pageSections<SectionInstance[]>(homeRow as never, preview) ?? []), kinds).sections, { homeOnly: homeChromeOnly(themeSettings as Record<string, unknown>) })
   }
   const own = repairChrome(sanitizeSections(pageSections<SectionInstance[]>(pageData as never, preview) ?? []), kinds).sections
   const sections = withUniversalChrome(
@@ -493,7 +494,8 @@ export async function coverPage(installId: string) {
     .eq("page_key", "home")
     .maybeSingle()
 
-  const { owner, products, productCount } = await ownerOf(row.creator_id, installId, themeSettings)
+  /* A cover is of what was last saved, files included. */
+  const { owner, products, productCount } = await ownerOf(row.creator_id, installId, themeSettings, { cached: false, draft: true })
   const sections = withUniversalChrome(
     repairChrome(sanitizeSections(pageSections<SectionInstance[]>(pageData as never, true) ?? []), kindLookup(owner.sources, SECTION_SCHEMAS as never)).sections,
     {},

@@ -26,7 +26,7 @@ import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
 import { ownSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
 import { SECTION_ANIMATIONS } from "@/lib/website-builder/section-anchors"
-import { themeVars } from "@/lib/website-builder/theme-css"
+import { customTokenVars as customTokenVarsL4, themeVars } from "@/lib/website-builder/theme-css"
 import { CONTROLS } from "@/lib/storelib-theme/controls/registry"
 import {
   BINDING_CONTROL,
@@ -174,7 +174,9 @@ function main() {
   check("fonts, radii, width, gutter and motion become Theme settings", ts.font_heading === "Fraunces" && ts.border_radius === 10 && ts.input_radius === 4 && ts.popup_radius === 20 && ts.page_width === 1240 && ts.content_padding_x === 28 && ts.animations_enabled === true && ts.animation_duration === 450)
   check("the type scale becomes the text styles", (ts.typography_styles as Record<string, { size: { desktop: number } }>).body.size.desktop === 17 && (ts.typography_styles as Record<string, { size: { desktop: number } }>).h4.size.desktop === 21)
   check("custom tokens are cleaned: no url(), no bad names, no scale names", JSON.stringify(ts.custom_tokens) === JSON.stringify({ "brand-stripe": "#9a3412" }), ts.custom_tokens)
-  check("value cleaning refuses what could leave a style", cleanTokenValue("red;}body{") === null && cleanTokenValue("calc(1px + 2px)") === "calc(1px + 2px)" && cleanTokenValue("expression(1)") === null && cleanTokenValue("a)b(") === null)
+  check("value cleaning refuses what could leave a style", cleanTokenValue("red;}body{") === null && cleanTokenValue("calc(1px + 2px)") === "calc(1px + 2px)" && cleanTokenValue("expression(1)") === null && cleanTokenValue("red !important") === null && cleanTokenValue("'Fraunces', serif") === "'Fraunces', serif")
+  const mixed = { custom_tokens: { ok: "#fff", "--t-pre": "2px", Upper: "1px", bad: "url(x)", long: "x".repeat(201), n: 4, ...Object.fromEntries(Array.from({ length: 70 }, (_, i) => [`k${i}`, `${i}px`])) } }
+  check("the panel keeps exactly what the page prints (customTokenVars, L4)", canon(Object.fromEntries(Object.entries(customTokens(mixed)).map(([k, v]) => [`--t-${k}`, v]))) === canon(customTokenVarsL4(mixed)), { mine: Object.keys(customTokens(mixed)).length, page: Object.keys(customTokenVarsL4(mixed)).length })
   const site = { ...ts }
   const vars = themeVars(site as never) as Record<string, string>
   check("--t-* come out beside the theme's own", vars["--t-radius-md"] === "10px" && vars["--t-shadow"] !== "none" && vars["--t-brand-stripe"] === "#9a3412" && vars["--t-page-width"] === "1240px")
@@ -183,13 +185,13 @@ function main() {
   check("a site without tokens is exactly what it was", !hasTokens({ border_radius: 4 }) && Object.keys(themeVars({} as never)).every((k) => !k.startsWith("--t-")))
   const back2 = themeSettingsToTokens(site)
   check("and the tokens read back", back2.colors.accent === "#9a3412" && back2.radius.medium === 10 && back2.spacing.sectionY === 112 && back2.typeScale?.base === 17 && back2.motion.level === "subtle" && back2.custom?.["brand-stripe"] === "#9a3412" && back2.colors.inverse?.background === "#1c1917")
-  check("custom tokens are capped and cleaned on the way out too", Object.keys(customTokens({ custom_tokens: Object.fromEntries(Array.from({ length: 80 }, (_, i) => [`t${i}`, "1px"])) })).length === 60)
+  check("custom tokens are capped and cleaned on the way out too", Object.keys(customTokens({ custom_tokens: Object.fromEntries(Array.from({ length: 80 }, (_, i) => [`t${i}`, "1px"])) })).length === 64)
   check("which component reads which token", JSON.stringify(tokenUsage({ "sections/ai_a.storelib": "x var(--t-radius-md) var(--t-radius-md, 8px) var(--t-brand-stripe)", "sections/ai_b.storelib": "var(--theme-bg)" })) === JSON.stringify({ "radius-md": ["sections/ai_a.storelib"], "brand-stripe": ["sections/ai_a.storelib"] }))
   if (compiled.ok) {
     const r = renderSection({ compiled: compiled.value, id: "x", instance: { type: "ai_studio_hero", settings: { card_border: 1, card_border_color: "" }, blocks: [] } as never, theme: site, page: { template: "index" } } as never)
     check("an empty component setting falls back to the token", /--sh-bc: var\(--scheme-border\)/.test(r.html) && /var\(--t-radius-md, 8px\)/.test(r.css))
   }
-  check("tokenVars on its own matches", JSON.stringify(tokenVars(site)) === JSON.stringify(Object.fromEntries(Object.entries(vars).filter(([k]) => k.startsWith("--t-")))))
+  check("the page's --t-* are the custom tokens and then the scale, nothing else", canon({ ...customTokenVarsL4(site), ...tokenVars(site) }) === canon(Object.fromEntries(Object.entries(vars).filter(([k]) => k.startsWith("--t-")))))
 
   console.log("\n4. merge safety")
   check("a file's version is the sha256 of its draft text", fileVersion("abc") === "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")

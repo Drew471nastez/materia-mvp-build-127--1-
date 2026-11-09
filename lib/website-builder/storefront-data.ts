@@ -145,10 +145,30 @@ export function communityReferences(
   sections: SectionInstance[],
   schemaOf: (type: string) => SectionSchema | undefined,
 ): string[] {
+  return uuidReferences(sections, schemaOf, "community_picker")
+}
+
+/**
+ * What every `form_picker` on these sections names: native form ids, once
+ * each, lower case. A surface reads these forms on the server
+ * (lib/forms/storefront-forms.ts), the creator's own and published ones only.
+ */
+export function formReferences(
+  sections: SectionInstance[],
+  schemaOf: (type: string) => SectionSchema | undefined,
+): string[] {
+  return uuidReferences(sections, schemaOf, "form_picker")
+}
+
+function uuidReferences(
+  sections: SectionInstance[],
+  schemaOf: (type: string) => SectionSchema | undefined,
+  control: "community_picker" | "form_picker",
+): string[] {
   const ids = new Set<string>()
   const walk = (fields: SchemaField[] | undefined, settings: Record<string, unknown> | undefined) => {
     for (const f of fields ?? []) {
-      if (resolveControlType(f.type) !== "community_picker") continue
+      if (resolveControlType(f.type) !== control) continue
       const v = settings?.[f.id]
       if (typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.trim())) ids.add(v.trim().toLowerCase())
     }
@@ -335,6 +355,8 @@ export function storefrontData(input: {
   menus?: Record<string, Menu>
   /** The creator's communities a `community_picker` may name, read on the server; absent means none. */
   communities?: StorefrontData["communities"]
+  /** The creator's published forms a `form_picker` may name, read on the server; absent means none. */
+  forms?: StorefrontData["forms"]
   /** The creator's published collections, read on the server; absent means none. */
   collections?: StorefrontData["collections"]
   /** Storelib Reviews for the page (lib/reviews/storefront.ts); absent means none. */
@@ -349,6 +371,7 @@ export function storefrontData(input: {
     catalog: input.catalog,
     menus: input.menus,
     ...(input.communities ? { communities: input.communities } : {}),
+    ...(input.forms ? { forms: input.forms } : {}),
     ...(input.collections ? { collections: input.collections } : {}),
     ...(input.reviews ? { reviews: input.reviews } : {}),
     ...(input.words && Object.keys(input.words).length ? { words: input.words } : {}),

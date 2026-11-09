@@ -60,7 +60,7 @@ const CONTROL_DRAWN_AS: Record<ControlType, SpecimenControl> = {
   paragraph: "paragraph", divider: "divider",
   color_background: "color", inline_richtext: "richtext", html: "textarea", datetime: "text",
   focal_point: "image", video_url: "url", product_list: "picker", link_list: "picker",
-  collection_picker: "picker", collection_list: "picker",
+  collection_picker: "picker", collection_list: "picker", form_picker: "picker",
 }
 
 /** How the section panel draws each type, beyond what the registry says it is. */
@@ -83,6 +83,7 @@ export const CONTROL_PANEL_NOTES: Partial<Record<ControlType, string>> = {
   video_picker: "The video, with an X to clear it, and a box to paste a hosted video link.",
   file_picker: "A box for a file's address.",
   community_picker: "A dropdown of your own communities, each saying when a visitor would not see it (a draft, a private one).",
+  form_picker: "A dropdown of your own published forms and booking forms. A form that is not yours, or no longer published, is said so and draws nothing.",
   icon_picker: "A searchable grid of icons.",
   url: "The link picker: a search over your pages and products, or any address typed in (`/about`, `https://…`, `mailto:`).",
   page_picker: "A dropdown of the site's pages.",
