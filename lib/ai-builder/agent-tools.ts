@@ -66,8 +66,11 @@ export interface AgentToolInputs {
    * `concept` (L3 extension): the visual concept, required once with phase
    * "plan" before a new website's first write (lib/ai-builder/agent/concept.ts).
    * `tasks`: the plan as short lines, shown as open tasks.
+   * `pages` (round N, N3): the site plan, every page and template with its
+   * sections ({ key, sections: string[], reason? }[]), required with the
+   * concept before a new website's first write (lib/ai-builder/agent/site-plan.ts).
    */
-  report_progress: { phase: AgentPhase; label: string; concept?: unknown; tasks?: string[] }
+  report_progress: { phase: AgentPhase; label: string; concept?: unknown; tasks?: string[]; pages?: unknown }
   finish: { summary: string; notes?: string[] }
 }
 
@@ -78,7 +81,8 @@ export interface AgentToolOutputs {
   edit_file: FileWriteResult
   /** `reason` (round M): why a delete was refused, so the model can act on it. */
   delete_file: { ok: boolean; reason?: string }
-  list_pages: { pages: { key: string; title: string; sections: { id: string; type: string; group?: string }[] }[] }
+  /** Round N (N3): templates are listed too, stored or not (`template`, `stored`, `url`, `reads`). */
+  list_pages: { pages: { key: string; title: string; sections: { id: string; type: string; group?: string }[]; template?: boolean; stored?: boolean; url?: string; reads?: string }[] }
   add_page: { ok: boolean; key: string; error?: string }
   set_page_sections: { ok: boolean; ids: string[]; issues?: ValidationIssue[] }
   set_section_settings: { ok: boolean; issues?: ValidationIssue[] }

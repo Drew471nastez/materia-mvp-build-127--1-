@@ -95,6 +95,43 @@ export interface RenderCheckResult {
   sections: { id: string; type: string; bytes: number }[]
 }
 
+/**
+ * ===========================================================================
+ *  A TEMPLATE IS CHECKED WITH ONE OF THE STORE'S OWN THINGS IN IT
+ * ===========================================================================
+ * A product template is drawn once per product and a collection template once
+ * per collection, so drawn bare it showed nothing: an add to cart with no id,
+ * an empty title, every finding about a page nobody will ever see. The check
+ * draws it the way the builder's canvas does (storelib-runtime.ts
+ * withPageProduct): the store's newest product as `page.product` and as
+ * `product` (the same fields the live route hands it), and its first
+ * collection as `collection`. Only the check: nothing is stored. A store with
+ * no product draws it bare, as before.
+ */
+const PRODUCT_TEMPLATES = new Set(["product", "page.product"])
+
+export function templateSample(input: Pick<RenderCheckInput, "template" | "products" | "data">): { page: { template: string; [key: string]: unknown }; data: StorefrontData | undefined } {
+  const page: { template: string; [key: string]: unknown } = { template: input.template }
+  let data = input.data
+  if (PRODUCT_TEMPLATES.has(input.template)) {
+    const first = input.products?.[0] as (ProductCard & { settings: Record<string, unknown> }) | undefined
+    if (first) {
+      const s = first.settings ?? {}
+      page.product = { ...first, settings: { description: "", ...s } }
+      if (!data?.product) {
+        const images = Array.isArray(s.images) ? (s.images as unknown[]).filter((x): x is string => typeof x === "string") : typeof s.image === "string" && s.image ? [s.image] : []
+        const product = { id: first.id, title: String(s.title ?? ""), price: String(s.price ?? ""), compare_price: String(s.compare_price ?? ""), description: "", description_html: "", image: images[0] ?? "", images, url: String(s.url ?? ""), includes: [], fields: {}, faqs: [], faqs_html: "" }
+        data = { ...(data ?? {}), product } as StorefrontData
+      }
+    }
+  }
+  if (input.template === "collection" && data && !data.collection) {
+    const first = Object.values(data.collections ?? {})[0]
+    if (first) data = { ...data, collection: first }
+  }
+  return { page, data }
+}
+
 /** The most findings returned: more than this and the model fixes none of them well. */
 export const MAX_RENDER_ISSUES = 40
 
@@ -299,7 +336,10 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
   const visible = input.sections.filter((s) => !s.hidden)
   if (visible.length === 0) push({ severity: "error", code: "render.empty_page", message: `The page "${input.page}" has no sections. Add at least one.` })
   const known = knownFrom(input)
-  const page = { template: input.template }
+  /* A template is drawn with a real one of the store's own (round N, N3): see templateSample. */
+  const sample = templateSample(input)
+  const page = sample.page
+  input = { ...input, data: sample.data }
   const theme = input.theme as unknown as Record<string, unknown>
   const drawn: { section: SectionInstance; html: string; css: string; script: string | null }[] = []
   const perSection: RenderCheckResult["sections"] = []

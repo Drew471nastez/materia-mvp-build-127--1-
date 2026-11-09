@@ -38,6 +38,27 @@ import type { AgentDeps, AgentJobInput } from "@/lib/ai-builder/agent/ports"
 import type { ProviderRequest } from "@/lib/sites/agent/types"
 import { AGENT_TOOL_NAMES, DEFAULT_JOB_BUDGET, MAX_CHECKPOINT_BYTES, type AgentEvent, type JobBudget } from "@/lib/ai-builder/types"
 import { ABOUT, BROKEN_HERO, CAPS, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, scripted, type Step } from "./ai-builder-agent-fixtures"
+import { homeSections, pageSections, sitePlan, templateCalls, writeWholeSite } from "./ai-builder-whole-site-fixtures"
+
+/* Round N (N3): a new website hands in its site plan with the concept, and is a whole site before finish (lib/ai-builder/agent/site-plan.ts). */
+const PLAN = sitePlan(["programs", "about"])
+
+/** The rest of a whole site (PLAN) around a hero the step before wrote: the other components, home of ten, programs and about of six, the templates. */
+function siteAround(hero: Record<string, unknown>): Step[] {
+  return [
+    { calls: [["write_file", { path: "sections/ai_coach_header.storelib", content: HEADER }], ["write_file", { path: "sections/ai_program_list.storelib", content: PROGRAMS }], ["write_file", { path: "sections/ai_coach_footer.storelib", content: FOOTER }], ["write_file", { path: "sections/ai_coach_story.storelib", content: ABOUT }]] },
+    ...writeWholeSite().map((calls) => ({ calls })),
+    { calls: [["add_page", { key: "programs", title: "Programs" }], ["add_page", { key: "about", title: "About" }]] },
+    {
+      calls: [
+        ["set_page_sections", { page: "home", sections: homeSections([hero, { type: "ai_program_list" }]) }],
+        ["set_page_sections", { page: "programs", sections: pageSections({ type: "ai_program_list" }) }],
+        ["set_page_sections", { page: "about", sections: pageSections({ type: "ai_coach_story" }) }],
+        ...templateCalls(),
+      ],
+    },
+  ]
+}
 
 let passed = 0
 let failed = 0
@@ -96,7 +117,7 @@ const kinds = (events: AgentEvent[]) => events.map((e) => e.kind)
 function fitnessSteps(store: ReturnType<typeof memoryStore>): Step[] {
   return [
     /* 1 (plan model): a write before the concept is refused; then the concept. */
-    { text: "Planning the look first.", calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }], ["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, tasks: ["Header and footer", "Home: hero and programs", "Programs page", "About page"] }]] },
+    { text: "Planning the look first.", calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }], ["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, pages: PLAN, tasks: ["Header and footer", "Home: hero and programs", "Programs page", "About page"] }]] },
     /* 2: real data and tokens. */
     { calls: [["list_capabilities", {}], ["set_tokens", { tokens: { colors: { background: "#f4efe6", surface: "#ebe4d8", text: "#1d1b18", muted: "#5c564d", accent: "#c2410c", accentText: "#ffffff", border: "#d6cdbd", inverse: { background: "#1d1b18", text: "#f4efe6", accent: "#fb923c" } }, fonts: { heading: "Oswald", body: "Inter" }, radius: { small: 2, medium: 4, large: 0 }, spacing: { scale: 1.1, sectionY: 96, pageWidth: 1240, gutter: 24 }, motion: { level: "subtle", style: "rise", durationMs: 500 }, custom: { radius: "2px", grain: "0.06" } } }]] },
     /* 3: five original components. */
@@ -109,6 +130,8 @@ function fitnessSteps(store: ReturnType<typeof memoryStore>): Step[] {
         ["write_file", { path: "sections/ai_coach_story.storelib", content: ABOUT }],
       ],
     },
+    /* 3b (round N): the rest of a whole site, the templates' components among them. */
+    ...writeWholeSite().map((calls) => ({ calls })),
     /* 4: pages. */
     { calls: [["add_page", { key: "programs", title: "Programs" }], ["add_page", { key: "about", title: "About", seo: { description: "Who coaches you." } }]] },
     /* 5: compose. */
@@ -118,16 +141,15 @@ function fitnessSteps(store: ReturnType<typeof memoryStore>): Step[] {
           "set_page_sections",
           {
             page: "home",
-            sections: [
-              { type: "ai_coach_header", group: "header" },
+            sections: homeSections([
               { type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } },
               { type: "ai_program_list", blocks: [{ type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } }] },
-              { type: "ai_coach_footer", group: "footer" },
-            ],
+            ]),
           },
         ],
-        ["set_page_sections", { page: "programs", sections: [{ type: "ai_program_list", settings: { heading: "All programs" } }] }],
-        ["set_page_sections", { page: "about", sections: [{ type: "ai_coach_story" }] }],
+        ["set_page_sections", { page: "programs", sections: pageSections({ type: "ai_program_list", settings: { heading: "All programs" } }) }],
+        ["set_page_sections", { page: "about", sections: pageSections({ type: "ai_coach_story" }) }],
+        ...templateCalls(),
       ],
     },
     /* 6: bind a real product (and try an invented one). */
@@ -136,7 +158,7 @@ function fitnessSteps(store: ReturnType<typeof memoryStore>): Step[] {
       return { calls: [["list_pages", {}], ["bind_data", { page: "home", sectionId: id, prop: "product", kind: "product", ids: ["prod_invented"] }], ["bind_data", { page: "home", sectionId: id, prop: "product", kind: "product", ids: ["prod_8week"] }]] }
     },
     /* 7: checks. */
-    { calls: [["validate", {}], ["render_check", { page: "home" }], ["render_check", { page: "programs" }]] },
+    { calls: [["validate", {}], ["render_check", { page: "home" }], ["render_check", { page: "programs" }], ["render_check", { page: "product" }]] },
     /* 8: done. */
     { calls: [["finish", { summary: "A three page site for Iron & Chalk with its own header and footer. Fill in your class times and story." }]] },
   ]
@@ -180,10 +202,11 @@ async function main() {
   const toolEvents = r1.events.filter((e): e is Extract<AgentEvent, { kind: "tool" }> => e.kind === "tool")
   check("a write before the concept was refused and nothing was saved then", toolEvents[0]?.tool === "write_file" && toolEvents[0].ok === false && store.versions[0]?.path === "sections/ai_coach_header.storelib")
   const own = Object.keys(files(store)).filter((p) => /^sections\/ai_/.test(p))
-  check("five original component files", own.length === 5, own)
+  /* Changed on purpose (round N, N3): a whole site, ten of its own on home and the product and collection templates. */
+  check("fifteen original component files: the five, eight more for a home of ten, the product and collection templates", own.length === 15, own)
   check("every file version is authored by the AI and tagged with the job", store.versions.length >= 5 && store.versions.every((v) => v.author === "ai" && v.jobId === JOB_ID))
   const pages = store.project.pages
-  check("three real pages", ["home", "programs", "about"].every((k) => k in pages), Object.keys(pages))
+  check("three real pages and the product and collection templates", ["home", "programs", "about", "product", "collection"].every((k) => k in pages), Object.keys(pages))
   const all = Object.values(pages).flat()
   check("no theme header or footer anywhere (blank mode)", !all.some((s) => s.type === "header" || s.type === "footer"))
   check("its own header and footer, site-wide, on every page", Object.values(pages).every((list) => list[0]?.type === "ai_coach_header" && list[0].group === "header" && list[list.length - 1]?.type === "ai_coach_footer" && list[list.length - 1].group === "footer"), Object.fromEntries(Object.entries(pages).map(([k, v]) => [k, v.map((s) => `${s.type}:${s.group ?? ""}`)])))
@@ -228,14 +251,14 @@ async function main() {
   {
     const s = memoryStore()
     const steps: Step[] = [
-      { calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT }]] },
+      { calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, pages: PLAN }]] },
       { calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: BROKEN_HERO }]] },
       (req) => {
         const last = req.turns[req.turns.length - 1]
         const said = last.role === "tool" ? last.results[0].output : ""
         return /did not compile/.test(said) && /"line":\d+/.test(said) ? { calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }]] } : { calls: [["finish", { summary: "no feedback seen" }]] }
       },
-      { calls: [["set_page_sections", { page: "home", sections: [{ type: "ai_coach_hero", settings: { cta_url: "/pricing" } }] }]] },
+      ...siteAround({ type: "ai_coach_hero", settings: { cta_url: "/pricing" } }),
       { calls: [["finish", { summary: "First try." }]] },
       (req) => {
         const last = req.turns[req.turns.length - 1]
@@ -254,7 +277,7 @@ async function main() {
   {
     const s = memoryStore()
     const broken = (n: number): Step => ({ calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: BROKEN_HERO.replace("Lift", `Lift ${n}`) }]] })
-    const steps: Step[] = [{ calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT }]] }, broken(1), broken(2), broken(3), broken(4), { calls: [["write_file", { path: "sections/ai_coach_story.storelib", content: ABOUT }]] }, { calls: [["set_page_sections", { page: "home", sections: [{ type: "ai_coach_story", settings: { body: "<p>x</p>" } }, { type: "ai_coach_hero" }] }]] }, { calls: [["finish", { summary: "Tried." }]] }]
+    const steps: Step[] = [{ calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, pages: PLAN }]] }, broken(1), broken(2), broken(3), broken(4), { calls: [["write_file", { path: "sections/ai_coach_story.storelib", content: ABOUT }]] }, { calls: [["set_page_sections", { page: "home", sections: [{ type: "ai_coach_story", settings: { body: "<p>x</p>" } }, { type: "ai_coach_hero" }] }]] }, { calls: [["finish", { summary: "Tried." }]] }]
     const d = depsFor(s, steps, {})
     const r = await runAgentSlice(jobInput({}, { maxRepairsPerFile: 3 }), null, d.deps, { deadline: T0 + 10 * 60_000 })
     const outs = d.loop.requests.map((q) => q.turns[q.turns.length - 1]).filter((t) => t.role === "tool").map((t) => (t.role === "tool" ? t.results[0].output : ""))
@@ -265,7 +288,7 @@ async function main() {
     /* The model never fixes the broken link: after maxVerifyCycles the job ends partial, naming what fails. */
     const s = memoryStore()
     const steps: Step[] = [
-      { calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT }]] },
+      { calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, pages: PLAN }]] },
       { calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }]] },
       { calls: [["set_page_sections", { page: "home", sections: [{ type: "ai_coach_hero", settings: { cta_url: "/nowhere" } }] }]] },
       { calls: [["finish", { summary: "1" }]] },
@@ -281,7 +304,7 @@ async function main() {
   console.log("\n4. budgets, cancel, failures")
   {
     const s = memoryStore()
-    const steps: Step[] = [{ calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT }]] }, { calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }]] }, { calls: [["list_pages", {}]] }, { calls: [["list_pages", {}]] }, { calls: [["list_pages", {}]] }]
+    const steps: Step[] = [{ calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, pages: PLAN }]] }, { calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }]] }, { calls: [["list_pages", {}]] }, { calls: [["list_pages", {}]] }, { calls: [["list_pages", {}]] }]
     const d = depsFor(s, steps)
     const r = await runAgentSlice(jobInput({}, { maxIterations: 3 }), null, d.deps, { deadline: T0 + 10 * 60_000 })
     check("iterations spent: partial, the work kept, the reason said", r.status === "partial" && r.stopped === "iterations" && r.iteration === 3 && "sections/ai_coach_hero.storelib" in files(s) && /used all its steps/.test(r.summary ?? ""), { status: r.status, stopped: r.stopped, it: r.iteration })
@@ -299,7 +322,7 @@ async function main() {
   {
     const s = memoryStore()
     const steps: Step[] = [
-      { calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT }]] },
+      { calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, pages: PLAN }]] },
       () => {
         /* Twenty minutes pass while this call answers. */
         d.clock.t = T0 + DEFAULT_JOB_BUDGET.maxWallMs
@@ -314,7 +337,7 @@ async function main() {
   {
     const s = memoryStore()
     let n = 0
-    const d = depsFor(s, [{ calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT }]] }, { calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }]] }], { cancelled: async () => ++n > 3 })
+    const d = depsFor(s, [{ calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, pages: PLAN }]] }, { calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }]] }], { cancelled: async () => ++n > 3 })
     const r = await runAgentSlice(jobInput(), null, d.deps, { deadline: T0 + 10 * 60_000 })
     check("cancel stops the job, drafts kept", r.status === "cancelled" && r.stopped === "cancelled" && r.events[r.events.length - 1].kind === "finished")
   }
@@ -331,7 +354,7 @@ async function main() {
     const cp = newCheckpoint()
     const events: unknown[] = []
     const tools = createToolSet({ job: jobInput(), deps: { store: s, models: depsFor(s, []).deps.models, capabilities: async () => CAPS }, cp, emit: (ev) => events.push(ev), onFinish: async () => ({ ok: true }), setPhase: () => undefined })
-    await tools.report_progress({ phase: "plan", label: "c", concept: CONCEPT })
+    await tools.report_progress({ phase: "plan", label: "c", concept: CONCEPT, pages: PLAN })
     const theme = await tools.write_file({ path: "sections/hero.storelib", content: HERO })
     const layout = await tools.write_file({ path: "layout/theme.storelib", content: HERO })
     const escape = await tools.write_file({ path: "sections/ai_x.storelib/../header.storelib", content: HERO })
@@ -395,7 +418,7 @@ async function main() {
     check("a concept that is not an object is refused too", notObj.ok === false && (notObj.issues ?? []).length >= 1)
     const stillShut = await tools.write_file({ path: "sections/ai_coach_hero.storelib", content: HERO })
     check("and the write tools stay shut after a refused concept", stillShut.ok === false && stillShut.issues?.[0]?.code === "plan.concept_missing" && !Object.keys(s.project.files).length)
-    const good = await tools.report_progress({ phase: "plan", label: "Concept", concept: CONCEPT })
+    const good = await tools.report_progress({ phase: "plan", label: "Concept", concept: CONCEPT, pages: PLAN })
     check("the fixed concept is accepted (ok, the build opens)", good.ok === true && !!cp.concept && phases.at(-1) === "build" && /accepted/.test(good.note ?? ""))
     const worse = await tools.report_progress({ phase: "plan", label: "Concept", concept: { name: "x" } })
     check("a later bad concept is refused and the accepted one stays", worse.ok === false && cp.concept?.name === CONCEPT.name && /stays/.test(worse.reason ?? ""))
@@ -409,7 +432,7 @@ async function main() {
         const last = req.turns[req.turns.length - 1]
         const said = last.role === "tool" ? last.results[0].output : ""
         seen.push(said)
-        return { calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT }]] }
+        return { calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, pages: PLAN }]] }
       },
     ])
     const r = await runAgentSlice(jobInput(), null, d.deps, { deadline: T0 + 10 * 60_000, maxIterations: 2 })

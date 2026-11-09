@@ -28,6 +28,20 @@ const PLACED_SECTION = obj(
   ["type"],
 )
 
+/* Round N (N3): the site plan, every page and template with its sections (lib/ai-builder/agent/site-plan.ts readSitePlan). */
+const SITE_PLAN = {
+  type: "array",
+  description: "The site plan: every page and every template (home, product, collection, products, search, cart, 404, contact, the blog's blogs and article when there is a blog, and each page you will add), each with its sections in order. Required with the concept before a new website's first write.",
+  items: obj(
+    {
+      key: str("Page key or template key, e.g. home, product, collection, about."),
+      sections: { type: "array", items: { type: "string" }, description: "One short line per section, in order: the component and its job." },
+      reason: str("Why this page has fewer sections than the rule, or why a template keeps the platform's plain layout."),
+    },
+    ["key", "sections"],
+  ),
+}
+
 const MANIFEST = {
   type: "object",
   description: "Optional. The component's editable props; written into the file's <schema> for you (replaces any <schema> in content).",
@@ -52,9 +66,9 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
   write_file: { name: "write_file", description: "Write a whole component file (.storelib: <template>, <style scoped>, optional <script>, <schema>). It is compiled and checked first; a file with errors is NOT saved and the errors come back with line numbers. Saved as a draft.", parameters: obj({ path: str("sections/ai_<slug>.storelib or blocks/ai_<slug>.storelib"), content: str("The whole file."), manifest: MANIFEST }, ["path", "content"]) },
   edit_file: { name: "edit_file", description: "Replace one exact piece of a file you have read. `old` must occur exactly once. Checked like write_file. Prefer this for small changes.", parameters: obj({ path: { type: "string" }, old: { type: "string" }, new: { type: "string" } }, ["path", "old", "new"]) },
   delete_file: { name: "delete_file", description: "Delete one of your ai_ component files. Remove it from every page first.", parameters: obj({ path: { type: "string" } }, ["path"]) },
-  list_pages: { name: "list_pages", description: "The website's pages and the sections on each (id, type, group).", parameters: obj({}) },
+  list_pages: { name: "list_pages", description: "The website's pages and templates and the sections on each (id, type, group). Templates (product, collection, products, search, cart, 404, contact, blog) are listed even before they hold anything, with where a visitor meets them and what their sections can read.", parameters: obj({}) },
   add_page: { name: "add_page", description: "Add a page. Its address is /<key>; it is added to the site's Main menu (the header's links) and gets its own search title and description.", parameters: obj({ key: str("lowercase letters, digits and dashes, e.g. coaching"), title: str("What the menu and the tab call it."), seo: obj({ title: { type: "string" }, description: { type: "string" } }) }, ["key", "title"]) },
-  set_page_sections: { name: "set_page_sections", description: "Set a page's sections, in order. Sections you leave out are removed from that page; header/footer sections (with `group`) are site-wide and only change when you send one.", parameters: obj({ page: str("Page key, e.g. home"), sections: { type: "array", items: PLACED_SECTION } }, ["page", "sections"]) },
+  set_page_sections: { name: "set_page_sections", description: "Set a page's or a template's sections, in order. Sections you leave out are removed from that page; header/footer sections (with `group`) are site-wide and only change when you send one. A template (product, collection, products, search, cart, 404, contact, blogs, article) needs no add_page.", parameters: obj({ page: str("Page or template key, e.g. home, about, product, collection"), sections: { type: "array", items: PLACED_SECTION } }, ["page", "sections"]) },
   set_section_settings: { name: "set_section_settings", description: "Change some settings of one placed section; the others keep their values.", parameters: obj({ page: { type: "string" }, sectionId: { type: "string" }, settings: { type: "object" } }, ["page", "sectionId", "settings"]) },
   set_tokens: {
     name: "set_tokens",
@@ -116,7 +130,7 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
   search_knowledge: SEARCH_KNOWLEDGE_TOOL as ToolSpec<AgentToolName>,
   validate: { name: "validate", description: "Check one file, or (no path) every file you touched and every page: compile, manifest, remote imports, bindings, links.", parameters: obj({ path: { type: "string" } }) },
   render_check: { name: "render_check", description: "Draw a page with the template engine and read it: empty sections, leftover template code, pictures without alt, heading order, broken internal links, and runtime errors the editor reported.", parameters: obj({ page: { type: "string" } }, ["page"]) },
-  report_progress: { name: "report_progress", description: "Say what you are doing, for the progress view. With phase \"plan\", hand in the visual concept (required before the first write on a new website) and the plan as tasks.", parameters: obj({ phase: { type: "string", enum: PHASES }, label: { type: "string" }, concept: CONCEPT_SCHEMA, tasks: { type: "array", items: { type: "string" } } }, ["phase", "label"]) },
+  report_progress: { name: "report_progress", description: "Say what you are doing, for the progress view. With phase \"plan\", hand in the visual concept and the site plan as pages (both required before the first write on a new website) and the work as tasks.", parameters: obj({ phase: { type: "string", enum: PHASES }, label: { type: "string" }, concept: CONCEPT_SCHEMA, tasks: { type: "array", items: { type: "string" } }, pages: SITE_PLAN }, ["phase", "label"]) },
   finish: { name: "finish", description: "Say the website is done. Everything is validated first: with errors, finish is refused and you get the list to fix.", parameters: obj({ summary: str("Two or three plain sentences for the creator: what was made, what to fill in."), notes: { type: "array", items: { type: "string" } } }, ["summary"]) },
 }
 
