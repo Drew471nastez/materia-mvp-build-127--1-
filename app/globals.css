@@ -9672,6 +9672,11 @@ html[data-editor-drawer-open]::-webkit-scrollbar {
 [data-mixed-blocks] > [data-block-size="tall"] { grid-row:span 2; }
 [data-block-size="tall"] :is([data-visual-link],[data-visual-link-action]) { height:100%; }
 [data-block-size="tall"] [data-visual-link-action] > span { height:100%; min-height:280px; }
+/* Round AP: a link button half the column wide, as the Mixed layout draws every link. Its icon sat 20px in with the label kept 48px clear of it on both sides, which left a word or two of room: "Latest work" broke into four lines. It is a tile now, as Grid's are: the icon over the words, the words the button's whole width, the two halves of a row the same height. */
+[data-mixed-blocks] > [data-block-size="half"]:has(.op-btn) > * { height:100%; }
+[data-mixed-blocks] > [data-block-size="half"] .op-btn { height:100%; flex-direction:column; justify-content:center; gap:8px; padding-inline:12px; }
+[data-mixed-blocks] > [data-block-size="half"] .op-btn > :not(div) { position:static; }
+[data-mixed-blocks] > [data-block-size="half"] .op-btn > div { padding-inline:0; align-items:center; text-align:center; }
 @media(max-width:359px) { [data-mixed-blocks] > * { grid-column:span 2 !important; grid-row:auto !important; } }
 @media(prefers-reduced-motion:reduce) { [data-onepage-dialog-panel] { transition:none !important; } }
 

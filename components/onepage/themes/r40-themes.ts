@@ -361,12 +361,120 @@ export const R42_THEMES = [
   },
 ]
 
+/**
+ * ===========================================================================
+ *  TWO MORE (ROUND AP): A POSTER AND A NOTEBOOK
+ * ===========================================================================
+ * The owner: "add the two more themes which are completely different". Each
+ * is a page no other theme makes, in its layout, its type and its colour:
+ *
+ *   Cobalt    a poster: the creator's photo across the top fading into a
+ *             saturated cobalt, a wide grotesque name, and cream Soft pills
+ *             (the tint of their colour, the only theme that uses Soft) in
+ *             roomy rows. The only bright Hero; Midnight and Neon are night.
+ *   Notebook  a page from a notebook: warm paper ruled in pale blue, a
+ *             handwritten name set flush left, and ink outlined buttons two
+ *             to a row (the Mixed layout, which no theme used).
+ *
+ * Both set only what picking another theme resets (lib/onepage/theme-apply
+ * LOOK_RESET), so nothing of them stays behind.
+ * tests/onepage-themes-ap.test.ts measures every text and button pair.
+ */
+export const AP_THEMES = [
+  {
+    id: "cobalt",
+    name: "Cobalt",
+    category: "gradient",
+    theme_config: {
+      background_type: "gradient" as const,
+      background_color: "#1f3bc4",
+      background_gradient: "linear-gradient(180deg, #2343d6 0%, #182f9e 100%)",
+      background_image_url: "",
+      text_color: "#fff4dc",
+      secondary_text_color: "#e4e8ff",
+      button_color: "#fff4dc",
+      button_text_color: "#fff4dc",
+      button_style: "soft" as const,
+      button_border_radius: 999,
+      button_border_width: 0,
+      button_border_color: "#fff4dc",
+      button_shadow: "none",
+      button_hover_animation: "fill",
+      button_hover_fill: "#fff4dc",
+      button_hover_text: "#182f9e",
+      font_family: "'Lato', sans-serif",
+      title_font: "'Bricolage Grotesque', sans-serif",
+      title_color: "#fff4dc",
+      social_icon_color: "#fff4dc",
+      social_icon_style: "filled",
+      spacing: "comfortable" as const,
+      card_width: "standard" as const,
+      header_layout: "hero",
+      laser_glow_enabled: false,
+      background_pattern: "none",
+      block_layout: "list",
+      header_align: "center",
+    },
+    profile_layout: "hero" as const,
+    light_button_text_color: "#fff4dc",
+    solid_button_text_color: "#182f9e",
+    outline_button_text_color: "#fff4dc",
+    glass_button_text_color: "#fff4dc",
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
+  },
+  {
+    id: "notebook",
+    name: "Notebook",
+    category: "light",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#f8f5ec",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#1f2a52",
+      secondary_text_color: "#4a5375",
+      button_color: "#1f2a52",
+      button_text_color: "#1f2a52",
+      button_style: "outline" as const,
+      button_border_radius: 4,
+      button_border_width: 2,
+      button_border_color: "#1f2a52",
+      button_shadow: "none",
+      button_hover_animation: "fill",
+      button_hover_fill: "#1f2a52",
+      button_hover_text: "#f8f5ec",
+      font_family: "'Quicksand', sans-serif",
+      title_font: "'Caveat', cursive",
+      title_color: "#1f2a52",
+      social_icon_color: "#1f2a52",
+      social_icon_style: "minimal",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "lines",
+      pattern_color: "#5b7bd166",
+      pattern_opacity: "low",
+      block_layout: "masonry",
+      header_align: "left",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#1f2a52",
+    solid_button_text_color: "#f8f5ec",
+    outline_button_text_color: "#1f2a52",
+    glass_button_text_color: "#1f2a52",
+    share_style: "white",
+    subscribe_style: "white",
+  },
+]
+
 /** The order the kinds are listed in, in All: light, gradient, dark, then pictures, as the catalogue always was. */
 export const THEME_KIND_ORDER = ["light", "gradient", "dark", "image"] as const
 
 /** The catalogue with these (and round 42's) laid into their kinds, each kind keeping its own order and the new ones at its end. */
 export function withR40Themes<T extends { category: string }>(base: readonly T[]): T[] {
-  const all = [...base, ...(R40_THEMES as unknown as T[]), ...(R42_THEMES as unknown as T[])]
+  const all = [...base, ...(R40_THEMES as unknown as T[]), ...(R42_THEMES as unknown as T[]), ...(AP_THEMES as unknown as T[])]
   const rank = (c: string) => {
     const i = (THEME_KIND_ORDER as readonly string[]).indexOf(c)
     return i < 0 ? THEME_KIND_ORDER.length : i
