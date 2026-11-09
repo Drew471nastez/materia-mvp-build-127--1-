@@ -285,7 +285,7 @@ export function describeApplied(applied: PlanApplied, plan: CreativePlan, schema
     applied.toWrite.length
       ? `2. Write the sections of your own the plan asked for, in this order, with create_section, each placed where it says (index = the position after that section in the page listing): ${applied.toWrite.map((w) => `"${w.type}" (${w.label}) ${w.after ? (w.after.startsWith("new:") ? `directly after your "${w.after.slice(4)}"` : `directly after [${w.after}]`) : "first, right under the header"}${w.purpose ? `: ${w.purpose}` : ""}`).join("; ")}.`
       : "2. No sections of your own were planned; add one with create_section only if the page needs a moment no built-in type draws.",
-    "3. The header: logo or store name, layout, transparent over the hero if the first section is a full bleed image, the menu (read_menus, edit_menu). The footer: its columns and text. Never write a header or footer of your own unless the creator asked for one.",
+    "3. The header: logo or store name, layout, transparent over the hero if the first section is a full bleed image, the menu (read_menus, edit_menu). The footer: its columns and text. On a whole new website the header and footer are yours to design: write the site's own with create_section (\"kind\": \"header\" or \"kind\": \"footer\"), reading the menu through a link_list, instead of keeping the theme's. On a page redesign keep the ones there unless the creator asks for new ones.",
     "4. Then stop and say in one sentence what the site now is.",
   )
   if (applied.skipped.length) lines.push(`Not applied, do these yourself: ${applied.skipped.join("; ")}.`)

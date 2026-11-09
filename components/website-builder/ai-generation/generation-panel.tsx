@@ -28,7 +28,7 @@ import type { JobView } from "@/lib/website-builder/ai-site/job"
 export type GenerationMode = "job" | "inline"
 export type GenerationPhase = "working" | "complete" | "partial" | "stopped"
 
-type View = Pick<JobView, "status" | "step" | "progress" | "error" | "notes" | "findings">
+type View = Pick<JobView, "status" | "step" | "progress" | "error" | "notes" | "findings"> & Partial<Pick<JobView, "activity">>
 
 /** Which ending, if any, the view is in. */
 export function generationPhase(view: View): GenerationPhase {
@@ -37,14 +37,33 @@ export function generationPhase(view: View): GenerationPhase {
   return "working"
 }
 
-/** The four steps the creator sees. Building the pages is part of planning the design. */
+/** The steps the creator sees. Building the pages is part of planning the design; coding is the site's own sections. */
 function stages(): { key: string; steps: JobView["step"][]; label: string; doing: string }[] {
   return [
     { key: "plan", steps: ["plan", "build"], label: tt("Design"), doing: tt("Planning your design…") },
+    { key: "code", steps: ["code"], label: tt("Code"), doing: tt("Coding your sections…") },
     { key: "write", steps: ["write"], label: tt("Pages"), doing: tt("Writing pages…") },
     { key: "photos", steps: ["photos"], label: tt("Photos"), doing: tt("Adding photos…") },
     { key: "check", steps: ["check"], label: tt("Check"), doing: tt("Checking…") },
   ]
+}
+
+/**
+ * What the coder is on and what it just finished, at most three lines: a file still being written (its latest "code"
+ * with no "coded" or "skipped" after it) first, then the newest finished ones. Pure.
+ */
+export function codeActivity(list: NonNullable<JobView["activity"]>): { kind: "code" | "coded"; name: string }[] {
+  const open: { kind: "code"; name: string }[] = []
+  const shut = new Set<string>()
+  const done: { kind: "coded"; name: string }[] = []
+  for (let i = list.length - 1; i >= 0; i--) {
+    const a = list[i]
+    if (a.kind === "coded" || a.kind === "skipped") {
+      if (a.kind === "coded" && done.length < 3) done.push({ kind: "coded", name: a.name })
+      shut.add(a.name)
+    } else if (!shut.has(a.name) && !open.some((o) => o.name === a.name)) open.push({ kind: "code", name: a.name })
+  }
+  return [...open.reverse(), ...done].slice(0, 3)
 }
 
 const BUTTON = "inline-flex h-11 items-center justify-center gap-1.5 rounded-[10px] px-4 text-[14px] font-semibold outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:h-9 sm:rounded-lg sm:px-3.5 sm:text-[13px] [-webkit-tap-highlight-color:transparent]"
@@ -72,6 +91,7 @@ export function GenerationPanel({
   const current = list[Math.max(0, at)]
   const progress = Math.max(2, Math.min(100, Math.round(view.progress)))
   const gaps = [...view.notes, ...view.findings].slice(0, 4)
+  const working = codeActivity(view.activity ?? [])
 
   const title =
     phase === "complete" ? tt("Your website is ready") : phase === "partial" ? tt("Your website is ready, with a few gaps") : phase === "stopped" ? tt("Building stopped part way") : current.doing
@@ -114,12 +134,12 @@ export function GenerationPanel({
           <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-label={tt("Progress")} className="h-1.5 w-full overflow-hidden rounded-full bg-[#f3f4f6]">
             <div className={cn("h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none", phase === "stopped" ? "bg-[#9ca3af]" : "bg-[#1a1a2e]")} style={{ width: `${progress}%` }} />
           </div>
-          <ol className="mt-3 grid grid-cols-4 gap-1.5" aria-label={tt("Steps")}>
+          <ol className="mt-3 flex items-center justify-between gap-2" data-generation-steps="" aria-label={tt("Steps")}>
             {list.map((s, i) => {
               const done = at > i
               const now = at === i && phase === "working"
               return (
-                <li key={s.key} className="flex min-w-0 items-center gap-1.5 text-[12px]" aria-current={now ? "step" : undefined}>
+                <li key={s.key} className="flex min-w-0 shrink items-center gap-1 text-[12px] sm:gap-1.5" aria-current={now ? "step" : undefined}>
                   <span aria-hidden className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded-full", done ? "bg-[#1a1a2e] text-white" : now ? "border-2 border-[#1a1a2e]" : "border border-[#d1d5db]")}>
                     {done && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
                   </span>
@@ -129,6 +149,17 @@ export function GenerationPanel({
             })}
           </ol>
         </div>
+      )}
+
+      {phase === "working" && working.length > 0 && (
+        <ul className="mx-4 mt-3 space-y-1 text-[12.5px] leading-snug text-[#4b5563]" data-generation-activity="">
+          {working.map((a, i) => (
+            <li key={`${a.name}-${i}`} className="flex min-w-0 items-center gap-1.5">
+              {a.kind === "code" ? <Loader2 aria-hidden className="h-3 w-3 shrink-0 animate-spin text-[#6b7280] motion-reduce:animate-none" /> : <Check aria-hidden className="h-3 w-3 shrink-0 text-[#1a1a2e]" strokeWidth={3} />}
+              <span className="truncate">{a.kind === "code" ? tt("Coding {name}", { name: a.name }) : tt("Coded {name}", { name: a.name })}</span>
+            </li>
+          ))}
+        </ul>
       )}
 
       {(phase === "partial" || phase === "stopped") && gaps.length > 0 && (

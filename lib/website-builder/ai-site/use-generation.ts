@@ -52,6 +52,12 @@ export function useSiteGeneration(input: {
   onOp: (op: ThemeOp) => void
   onFinish: () => void
   onPages: (pages: { key: string; title: string }[]) => void
+  /**
+   * FREE DESIGN: the job coded new section files (its header, its footer, its own sections). The editor reads them
+   * before any operation that places one is replayed, so the canvas draws the section the moment it lands. Resolves
+   * once the new files are in the editor.
+   */
+  onFiles?: (paths: string[]) => Promise<void>
 }): { view: JobView | null; continuing: boolean; resume: () => void } {
   const { installId, source, ready } = input
   const [view, setView] = React.useState<JobView | null>(null)
@@ -61,13 +67,24 @@ export function useSiteGeneration(input: {
   const finished = React.useRef(false)
   const checkpoint = React.useRef<unknown>(null)
   const pagesSeen = React.useRef("")
+  const filesSeen = React.useRef("")
   const latest = React.useRef(input)
   latest.current = input
   const [round, setRound] = React.useState(0)
 
   /* One view in: its operations onto the canvas, its pages into the switcher, its ending closing the undo step. */
-  const take = React.useCallback((next: JobView) => {
+  const take = React.useCallback(async (next: JobView) => {
     const cb = latest.current
+    /* New files first: an operation that places a coded section waits for its file to be in the editor. */
+    const files = JSON.stringify(next.files ?? [])
+    if (files !== filesSeen.current && (next.files ?? []).length) {
+      filesSeen.current = files
+      try {
+        await cb.onFiles?.(next.files)
+      } catch {
+        /* the section is placed with the copy the operation carries; the next save reads its file */
+      }
+    }
     if (next.ops.length) {
       if (!started.current) {
         started.current = true
@@ -101,7 +118,7 @@ export function useSiteGeneration(input: {
         const res = await fetch(`/api/website-builder/ai-jobs/${source.jobId}?after=${cursor.current}`, { cache: "no-store" })
         if (res.ok) {
           const next = (await res.json()) as JobView
-          take(next)
+          await take(next)
           if (settled(next) && next.ops.length < OPS_PAGE) return
         } else if (res.status === 404) return
       } catch {
@@ -145,13 +162,13 @@ export function useSiteGeneration(input: {
             if (line.type === "end") {
               checkpoint.current = line.checkpoint ?? null
               /* Out of time with work left: stopped, with Continue. */
-              take(line.job.step !== "done" && line.job.status === "running" ? { ...line.job, status: "partial", error: "The time for one request ran out." } : line.job)
-            } else take(line.job)
+              await take(line.job.step !== "done" && line.job.status === "running" ? { ...line.job, status: "partial", error: "The time for one request ran out." } : line.job)
+            } else await take(line.job)
           }
         }
       } catch {
         if (controller.signal.aborted) return
-        setView((was) => ({ ...(was ?? { id: "", installId, step: "plan", progress: 0, seq: 0, ops: [], pages: [], notes: [], findings: [], credits: 0 }), status: "failed", error: "The connection was lost." }) as JobView)
+        setView((was) => ({ ...(was ?? { id: "", installId, step: "plan", progress: 0, seq: 0, ops: [], pages: [], notes: [], findings: [], credits: 0, files: [], activity: [] }), status: "failed", error: "The connection was lost." }) as JobView)
       } finally {
         setContinuing(false)
       }
