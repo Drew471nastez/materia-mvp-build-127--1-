@@ -26,7 +26,7 @@ import Link from "next/link"
 import { ChevronDown, Download } from "lucide-react"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { confirmForm } from "@/components/forms/form-confirm"
-import { ShimmerRows } from "@/components/ui/shimmer"
+import { Shimmer, ShimmerBlock, ShimmerRows } from "@/components/ui/shimmer"
 import { formsRequest } from "@/lib/forms/client"
 import { answerText, type Answer } from "@/lib/forms/definition"
 import type { FormInsights } from "@/lib/forms/insights"
@@ -125,6 +125,19 @@ function statusTone(status: string): "attention" | "success" | "neutral" {
 
 const FOLLOW_UP = ["new", "contacted", "qualified", "converted"] as const
 
+/*
+  WAVE 8, A TAB IS THERE WHEN IT IS PRESSED (the owner: "switching must be
+  smooth and clean, no flash, no blank"). A form's first page of responses
+  and its insights are kept for the tab, per form, and read ahead the moment
+  the form opens (./forms-list mounts both panels behind Edit), so pressing
+  Responses or Insights shows them at once; a kept answer is shown and read
+  again quietly behind it. Only a form opened straight onto one of them
+  waits, behind a skeleton the shape of what is coming.
+*/
+type ResponsesPage = { leads: Response[]; next: string | null }
+const responsesKept = new Map<string, ResponsesPage>()
+const insightsKept = new Map<string, FormInsights>()
+
 /**
  * A FORM'S RESPONSES (wave 7, the owner: "smoother, cleaner"). One card, as
  * the Orders and People lists: a toolbar (how many, Export CSV), then the
@@ -137,9 +150,10 @@ const FOLLOW_UP = ["new", "contacted", "qualified", "converted"] as const
  * a customer here. A row opens to its answers, View contact and Delete.
  */
 export function ResponsesPanel({ formId, quiz, focus = null, onCount }: { formId: string; quiz: boolean; focus?: string | null; onCount?: (by: number) => void }) {
-  const [rows, setRows] = React.useState<Response[]>([])
-  const [next, setNext] = React.useState<string | null>(null)
-  const [loading, setLoading] = React.useState(true)
+  const kept = responsesKept.get(formId)
+  const [rows, setRows] = React.useState<Response[]>(kept?.leads ?? [])
+  const [next, setNext] = React.useState<string | null>(kept?.next ?? null)
+  const [loading, setLoading] = React.useState(!kept)
   const [error, setError] = React.useState<string | null>(null)
   const [openId, setOpenId] = React.useState<string | null>(focus)
 
@@ -153,6 +167,7 @@ export function ResponsesPanel({ formId, quiz, focus = null, onCount }: { formId
       setLoading(false)
       if (r.error) return setError(r.error)
       const page = r.data?.leads ?? []
+      if (!before) responsesKept.set(formId, { leads: page, next: r.data?.next ?? null })
       setRows((all) => (before ? [...all, ...page] : page))
       setNext(r.data?.next ?? null)
       /* A response named by the address (?response=) that is not on the first page: read it alone, at the top. */
@@ -167,6 +182,11 @@ export function ResponsesPanel({ formId, quiz, focus = null, onCount }: { formId
   React.useEffect(() => {
     void load(null)
   }, [load])
+  /* What is on screen is what the next visit shows first (a follow up changed, a response deleted). */
+  React.useEffect(() => {
+    const k = responsesKept.get(formId)
+    if (k && !loading) responsesKept.set(formId, { leads: rows.slice(0, k.leads.length), next: k.next })
+  }, [rows, formId, loading])
   /* The response the address names, opened and in view. */
   React.useEffect(() => {
     if (!focus || !rows.some((r) => r.id === focus)) return
@@ -343,21 +363,25 @@ function Bars({ items, label }: { items: { label: string; count: number }[]; lab
  * follow up got, each with its share. app/api/forms/<id>/insights.
  */
 export function InsightsPanel({ formId }: { formId: string }) {
-  const [data, setData] = React.useState<FormInsights | null>(null)
+  const [data, setData] = React.useState<FormInsights | null>(() => insightsKept.get(formId) ?? null)
   const [error, setError] = React.useState<string | null>(null)
   React.useEffect(() => {
     let live = true
     void formsRequest<{ insights: FormInsights }>(`/api/forms/${formId}/insights`, { fallback: tt("Insights could not be loaded. Try again.") }).then((r) => {
       if (!live) return
-      if (r.error || !r.data) setError(r.error || tt("Insights could not be loaded. Try again."))
-      else setData(r.data.insights)
+      if (r.error || !r.data) {
+        if (!insightsKept.has(formId)) setError(r.error || tt("Insights could not be loaded. Try again."))
+      } else {
+        insightsKept.set(formId, r.data.insights)
+        setData(r.data.insights)
+      }
     })
     return () => {
       live = false
     }
   }, [formId])
   if (error) return <section className={card}><Empty title={tt("Insights did not load")} detail={error} /></section>
-  if (!data) return <section className={card}><ShimmerRows rows={3} header={false} cols={["30%", "50%"]} label={tt("Loading")} /></section>
+  if (!data) return <InsightsSkeleton />
   if (!data.total) return <section className={card}><Empty title={tt("No responses yet")} detail={tt("Insights show once the form has responses.")} /></section>
   const weekTop = Math.max(1, ...data.weeks.map((w) => w.count))
   const box = cn(card, "p-4 sm:p-5")
@@ -425,6 +449,27 @@ export function InsightsPanel({ formId }: { formId: string }) {
         {data.capped ? ` ${tt("Figures cover the newest 5,000 responses.")}` : ""}
       </p>
     </div>
+  )
+}
+
+/** Insights on their way: the stat strip and the weeks' chart, in their own room (components/ui/shimmer). */
+function InsightsSkeleton() {
+  return (
+    <Shimmer className="space-y-3" label={tt("Loading")}>
+      <section className={cn(card, "grid grid-cols-2 overflow-hidden md:grid-cols-4")}>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className={cn("px-4 py-3.5 sm:px-5", i % 2 === 1 && "border-l border-[#eef0f2]", i >= 2 && "max-md:border-t max-md:border-[#eef0f2]", i === 2 && "md:border-l md:border-[#eef0f2]")}>
+            <ShimmerBlock className="h-3 w-20" />
+            <ShimmerBlock className="mt-2.5 h-5 w-12" />
+          </div>
+        ))}
+      </section>
+      <section className={cn(card, "p-4 sm:p-5")}>
+        <ShimmerBlock className="h-3.5 w-36" />
+        <ShimmerBlock className="mt-4 h-[120px] w-full rounded-lg" />
+        <ShimmerBlock className="mt-2 h-3 w-full max-w-[60%]" />
+      </section>
+    </Shimmer>
   )
 }
 

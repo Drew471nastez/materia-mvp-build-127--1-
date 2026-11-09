@@ -106,7 +106,8 @@ export async function handleContact(raw: unknown, deps: ContactDeps): Promise<Co
   }
   const store = await deps.brand(msg.creatorId)
   const contactUrl = sender.id ? `${deps.platform}/app/emails?contact=${encodeURIComponent(sender.id)}` : `${deps.platform}/app/emails`
-  const messageUrl = keptId ? `${deps.platform}/app/emails?tab=messages&message=${encodeURIComponent(keptId)}` : null
+  /* Wave 8: straight to the message's page in Contacts › Forms (the old Emails address still redirects there). */
+  const messageUrl = keptId ? `${deps.platform}/app/contacts/forms?message=${encodeURIComponent(keptId)}` : null
   const mail = creatorEmail({ store, msg, site: where.site, contactUrl, messageUrl })
   let sent = false
   try {

@@ -85,7 +85,8 @@ check("the open route takes a message", /message: "message"/.test(read("app/(sto
 console.log("\nA form, as an order and a coupon")
 const builder = read("components/forms/forms-manager.tsx")
 check("an order's bar: one back arrow up to Forms, the name, its kind and responses under it", /<OrderBarFrame[\s\S]*?aria-label=\{tt\("Back to forms"\)\}[\s\S]*?data-form-subtitle/.test(builder))
-check("the tabs are the lists' quiet views, with the responses counted", /<ContactsViews<FormView>/.test(list) && /label: tt\("Responses"\), count: selected\.responses/.test(list) && !list.includes("SegmentedPills"))
+/* Changed on purpose (wave 8, the owner: "the tab control should be the Storelib pill style, inherit Storelib"): Storelib's segmented pills, the responses still counted. tests/contacts-smooth-w8.test.ts holds the rest. */
+check("the tabs are Storelib's segmented pills, with the responses counted", /<SegmentedPills<FormView>/.test(list) && /formatNumber\(selected\.responses \?\? 0\)/.test(list))
 check("two columns from lg: the work, and the summary (state, responses, link, where used)", /lg:grid-cols-\[minmax\(0,1fr\)_320px\]/.test(builder) && /function FormSummary\(/.test(builder) && /data-summary-responses/.test(builder))
 check("questions wear their number", /data-question-number=""/.test(builder))
 const panels = read("app/(storelib)/app/emails/forms/form-panels.tsx")

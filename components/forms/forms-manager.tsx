@@ -69,7 +69,6 @@ export interface SavedForm {
   retention_days?: number | null
 }
 
-const check = "h-4 w-4 shrink-0 cursor-pointer accent-[#1a1a2e]"
 const heading = "text-[14px] font-semibold text-[#1a1a2e]"
 const muted = "text-[13px] leading-5 text-[#6b7280]"
 const textButton = "inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-[#1a1a2e] outline-none hover:bg-[#f3f4f6] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] disabled:cursor-not-allowed disabled:opacity-50"
@@ -242,7 +241,8 @@ export function FormEditor({
     [note, setNote] = useState<string | null>(null),
     [preview, setPreview] = useState(false),
     [openQuestion, setOpenQuestion] = useState<string | null>(null),
-    [openSetting, setOpenSetting] = useState<string | null>(null),
+    /* Wave 8: on the page a form opens on what makes it its kind: a booking form's hours, a quiz's results, a lead magnet's private link. */
+    [openSetting, setOpenSetting] = useState<string | null>(() => (view === undefined ? null : form.draft?.booking ? "bookings" : form.draft?.mode === "quiz" ? "layout" : form.draft?.completion?.kind === "gated" ? "after" : null)),
     [intro, setIntro] = useState(() => !!form.draft?.description?.trim())
   const [ask, confirmEl] = useFormConfirm()
   const scroller = useRef<HTMLDivElement>(null)
@@ -452,6 +452,7 @@ export function FormEditor({
               <textarea className={cn(AREA, "min-h-[76px]")} rows={2} maxLength={1000} value={draft.completion.message} onChange={(e) => change({ completion: { ...draft.completion, message: e.target.value } })} />
             </label>
             <Segmented
+              className={SEGMENT_WRAP}
               label={tt("After sending")}
               value={draft.completion.kind === "gated" ? "gated" : "message"}
               options={[
@@ -499,6 +500,7 @@ export function FormEditor({
 
           <Disclosure id="layout" title={tt("Layout and button")} summary={`${layoutWords[draft.layout] ?? ""}${draft.mode === "quiz" ? `, ${tt("Quiz")}` : ""}`} open={openSetting === "layout"} onToggle={() => toggleSetting("layout")}>
             <Segmented
+              className={SEGMENT_WRAP}
               label={tt("Layout")}
               value={draft.layout}
               options={[
@@ -710,11 +712,16 @@ export function FormEditor({
               {message}
             </div>
           ) : null}
+          {/* Wave 8: Responses and Insights stay mounted behind the other tabs (read ahead, kept as they were), so a tab is there the moment it is pressed. */}
+          {panel ? (
+            <div className="mt-3 min-w-0" hidden={view !== "panel"} data-form-tab-body={view === "panel" ? "" : undefined} data-form-panels="">
+              {panel}
+            </div>
+          ) : null}
+          {view === "panel" ? null : (
           <div className={cn("mt-3", withAside && "grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start")}>
             <div className="min-w-0" data-form-tab-body="">
-              {view === "panel" ? (
-                panel
-              ) : view === "settings" ? (
+              {view === "settings" ? (
                 <div className="flex flex-col gap-3 sm:gap-4">
                   <section className={pageCard}>
                     <h2 className={cardTitle}>{tt("Where answers go")}</h2>
@@ -734,6 +741,7 @@ export function FormEditor({
             </div>
             {withAside ? <aside className="min-w-0 lg:sticky lg:top-[96px]" aria-label={tt("Summary")}>{summary}</aside> : null}
           </div>
+          )}
         </div>
 
         {saving ? (
@@ -806,6 +814,9 @@ export function FormEditor({
     </div>
   )
 }
+
+/* Wave 8: a choice's words wrap onto a second line on a phone ("One at a time") instead of being cut. */
+const SEGMENT_WRAP = "[&_span]:whitespace-normal [&_span]:text-center [&_span]:leading-[17px]"
 
 /* The form's page: its bar, tabs, cards and foot share one width, an order's and a person's (wave 7; 800px in wave 6). */
 const FORM_WIDTH = ORDER_WIDTH
@@ -1270,42 +1281,56 @@ function BookingEditor({ booking, onChange }: { booking?: BookingSettings; onCha
             </label>
           </div>
           <Pick name="booking-zone" label={tt("Your time zone")} value={b.timezone} options={(tzList.includes(b.timezone) ? tzList : [b.timezone, ...tzList]).map((z) => [z, z.replace(/_/g, " ")] as [string, string])} onChange={(z) => set({ timezone: z })} />
-          <fieldset className="space-y-2">
+          {/*
+            Wave 8: the week as one list, a row a day, as the settings' rows are
+            drawn: the day's switch (Storelib's, not the browser's checkbox),
+            its name, then its hours. On a phone the hours go under the day and
+            share its width, so a time is never cut off.
+          */}
+          <fieldset className="min-w-0">
             <legend className={cn(LABEL, "mb-2")}>{tt("Weekly hours")}</legend>
-            {ORDER.map((day) => {
-              const windows = b.weekly.filter((w) => w.day === day)
-              const others = b.weekly.filter((w) => w.day !== day)
-              const write = (list: typeof windows) => set({ weekly: [...others, ...list] })
-              return (
-                <div key={day} className="flex flex-wrap items-center gap-2">
-                  <label className="flex w-16 items-center gap-2 text-[14px] text-[#1a1a2e]">
-                    <input type="checkbox" className={check} checked={windows.length > 0} onChange={(e) => write(e.target.checked ? [{ day, start: "09:00", end: "17:00" }] : [])} />
-                    {days[day]}
-                  </label>
-                  {windows.length ? (
-                    windows.map((w, i) => (
-                      <span key={i} className="flex items-center gap-1.5">
-                        <input className={cn(FIELD, "h-10 w-[108px] px-2.5")} type="time" aria-label={tt("{day} from", { day: days[day] })} value={w.start} onChange={(e) => write(windows.map((x, j) => (j === i ? { ...x, start: e.target.value } : x)))} />
-                        <span className="text-[13px] text-[#6b7280]">{tt("to")}</span>
-                        <input className={cn(FIELD, "h-10 w-[108px] px-2.5")} type="time" aria-label={tt("{day} until", { day: days[day] })} value={w.end} onChange={(e) => write(windows.map((x, j) => (j === i ? { ...x, end: e.target.value } : x)))} />
-                        {windows.length > 1 ? (
-                          <button type="button" className={cn(iconButton, "h-9 w-9")} aria-label={tt("Remove hours")} onClick={() => write(windows.filter((_, j) => j !== i))}>
-                            <X className="h-4 w-4" />
-                          </button>
-                        ) : null}
+            <div className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e3e4e8] bg-white" data-booking-week="">
+              {ORDER.map((day) => {
+                const windows = b.weekly.filter((w) => w.day === day)
+                const others = b.weekly.filter((w) => w.day !== day)
+                const write = (list: typeof windows) => set({ weekly: [...others, ...list] })
+                const on = windows.length > 0
+                return (
+                  <div key={day} className="flex flex-col gap-1.5 px-3 py-2 sm:flex-row sm:items-start sm:gap-3" data-booking-day={day}>
+                    <div className="flex h-11 shrink-0 items-center justify-between gap-3 sm:h-10 sm:w-[112px] sm:justify-start">
+                      <span className={cn("text-[14px] font-medium sm:order-2", on ? "text-[#1a1a2e]" : "text-[#9ca3af]")}>{days[day]}</span>
+                      <span className="sm:order-1 sm:-ml-1.5">
+                        <Switch checked={on} onChange={(yes) => write(yes ? [{ day, start: "09:00", end: "17:00" }] : [])} label={days[day]} />
                       </span>
-                    ))
-                  ) : (
-                    <span className={muted}>{tt("Unavailable")}</span>
-                  )}
-                  {windows.length && windows.length < 4 ? (
-                    <button type="button" className={cn(textButton, "text-[#4b5563]")} onClick={() => write([...windows, { day, start: "18:00", end: "20:00" }])}>
-                      {tt("Add hours")}
-                    </button>
-                  ) : null}
-                </div>
-              )
-            })}
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                      {on ? (
+                        windows.map((w, i) => (
+                          <div key={i} className="flex min-w-0 items-center gap-2">
+                            <input className={cn(FIELD, "h-10 min-w-0 flex-1 px-2.5 tabular-nums sm:max-w-[132px] max-sm:[&::-webkit-calendar-picker-indicator]:hidden")} type="time" aria-label={tt("{day} from", { day: days[day] })} value={w.start} onChange={(e) => write(windows.map((x, j) => (j === i ? { ...x, start: e.target.value } : x)))} />
+                            <span className="shrink-0 text-[13px] text-[#6b7280]">{tt("to")}</span>
+                            <input className={cn(FIELD, "h-10 min-w-0 flex-1 px-2.5 tabular-nums sm:max-w-[132px] max-sm:[&::-webkit-calendar-picker-indicator]:hidden")} type="time" aria-label={tt("{day} until", { day: days[day] })} value={w.end} onChange={(e) => write(windows.map((x, j) => (j === i ? { ...x, end: e.target.value } : x)))} />
+                            {windows.length > 1 ? (
+                              <button type="button" className={cn(iconButton, "h-10 w-10 shrink-0")} aria-label={tt("Remove hours")} onClick={() => write(windows.filter((_, j) => j !== i))}>
+                                <X className="h-4 w-4" />
+                              </button>
+                            ) : null}
+                          </div>
+                        ))
+                      ) : (
+                        <span className={cn(muted, "hidden h-10 items-center sm:flex")}>{tt("Unavailable")}</span>
+                      )}
+                      {on && windows.length < 4 ? (
+                        <button type="button" className={cn(textButton, "-ml-2 self-start text-[#4b5563] max-sm:h-10")} onClick={() => write([...windows, { day, start: "18:00", end: "20:00" }])}>
+                          <Plus aria-hidden className="h-3.5 w-3.5" />
+                          {tt("Add hours")}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </fieldset>
           <Toggle label={tt("Confirm each request myself")} checked={b.approval} onChange={(on) => set({ approval: on })} />
           <Pick
