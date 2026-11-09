@@ -47,9 +47,10 @@ const code = (p: string) => readFileSync(join(process.cwd(), p), "utf8").replace
 
 section("Which engine a new Describe your website start runs on")
 {
-  check("classic when the platform sets nothing", startEngine({}) === "classic")
-  check("classic for any value but 1", startEngine({ AI_BUILDER_AGENT: "true" }) === "classic" && startEngine({ AI_BUILDER_AGENT: "0" }) === "classic")
-  check("the agent only with AI_BUILDER_AGENT=1", startEngine({ AI_BUILDER_AGENT: "1" }) === "agent")
+  /* Changed on purpose (round AQ, after main made the agent the default): the agent unless AI_BUILDER_AGENT turns it off. */
+  check("the agent when the platform sets nothing", startEngine({}) === "agent")
+  check("classic when AI_BUILDER_AGENT is 0, off or false", ["0", "off", "false", " OFF "].every((v) => startEngine({ AI_BUILDER_AGENT: v }) === "classic"))
+  check("the agent with AI_BUILDER_AGENT=1", startEngine({ AI_BUILDER_AGENT: "1" }) === "agent")
   const route = code("app/api/website-builder/themes/create/route.ts")
   /* Changed on purpose (round AQ, after round M): the route asks agentEnabledFor (AI_BUILDER_AGENT=1 for everyone, or AI_BUILDER_AGENT_ACCOUNTS) for every job it starts. */
   check("the create route asks agentEnabledFor() for every job it starts", /const engine = [^\n]*\(await agentEnabledFor\([^)]*\)\) \? "agent" : "classic"/.test(route) && /startJobRow\([^)]*\bengine\b[^)]*\)/.test(route))
