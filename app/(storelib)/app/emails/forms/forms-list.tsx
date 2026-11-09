@@ -50,6 +50,7 @@ import { ShimmerRows } from "@/components/ui/shimmer"
 import { FormEditor, usageWords, type SavedForm } from "@/components/forms/forms-manager"
 import { confirmForm } from "@/components/forms/form-confirm"
 import { formsRequest } from "@/lib/forms/client"
+import { backThen } from "@/lib/navigation/go-back"
 import { formPath } from "@/lib/forms/actions"
 import { TEMPLATE_CHOICES } from "@/lib/forms/templates"
 import type { FormKind, FormUsage } from "@/lib/forms/kind"
@@ -176,7 +177,8 @@ export function FormsList() {
     const parent = formsParent(route)
     if (parent === "contacts") return
     const behind = (window.history.state as Record<string, unknown> | null)?.[FORMS_PREV]
-    if (upMove(typeof behind === "string" ? behind : null, parent) === "back") window.history.back()
+    /* A back that does nothing (an entry the browser dropped) still lands on the parent: backThen's watch replaces the entry with it. */
+    if (upMove(typeof behind === "string" ? behind : null, parent) === "back") backThen(() => go(parent, false))
     else go(parent, false)
   }
 

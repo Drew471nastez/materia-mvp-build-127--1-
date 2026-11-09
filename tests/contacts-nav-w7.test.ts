@@ -66,7 +66,7 @@ check("screens: a form is one screen on every tab", screenOf(routeOf(`?form=${F}
 const list = read("app/(storelib)/app/emails/forms/forms-list.tsx")
 console.log("\nForms walks the map")
 check("a push marks the screen it came from in history.state", /window\.history\.pushState\(\{ \.\.\.\(window\.history\.state \?\? \{\}\), \[FORMS_PREV\]: from \}/.test(list))
-check("up is a real back to the parent, else a replace, never a push", /const up = \(\) => \{[\s\S]*?upMove\([\s\S]*?=== "back"\) window\.history\.back\(\)\s*else go\(parent, false\)/.test(list))
+check("up is a real back to the parent (watched, backThen), else a replace, never a push", /const up = \(\) => \{[\s\S]*?upMove\([\s\S]*?=== "back"\) backThen\(\(\) => go\(parent, false\)\)\s*else go\(parent, false\)/.test(list))
 check("every back arrow inside Forms goes up, and nothing pushes the list any more", (list.match(/onBack=\{up\}/g) ?? []).length >= 4 && !/const home = \(\) => go\(\{\}\)/.test(list))
 check("deleting a message goes up to the inbox", /writeRows\(\(rows\) => rows\.filter\(\(r\) => r\.id !== id\)\)\s*up\(\)/.test(list))
 const header = read("app/(storelib)/app/contacts/contacts-header.tsx")
