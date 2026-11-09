@@ -230,71 +230,77 @@ export function OnePageShareSheet({
     },
   ]
 
-  return (
-    <OnePageDialog open={open} onClose={onClose} dark={dark} label={`Share ${pageTitle}`} width={380} centered bare>
-      <div data-onepage-share-sheet="">
-        {/* The band: the page's own colour, its corners the card's (the card clips; nothing is behind it). */}
-        <div className="relative px-6 pb-9 pt-8 text-center" style={{ background: band }} data-share-band="">
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className={`absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full transition-colors ${onBand ? "bg-white/20 text-white hover:bg-white/30" : "bg-black/10 text-[#1f2937] hover:bg-black/15"}`}
-          >
-            <Close aria-hidden className="h-4 w-4" />
-          </button>
-          <div className="relative mx-auto mb-4 h-20 w-20 overflow-hidden rounded-full shadow-[0_0_0_4px_rgba(255,255,255,0.3),0_12px_28px_rgba(0,0,0,0.22)]" data-share-avatar="">
-            {avatarVideoUrl ? (
-              <PosterVideo src={avatarVideoUrl} fallback={onePageImageSrc(avatarUrl, 160)} alt={pageTitle} />
-            ) : (
-              <AppAvatar waitForPhoto src={onePageImageSrc(avatarUrl, 160)} name={pageTitle} alt={pageTitle} size={80} kind="mark" sizedByClass className={`flex h-20 w-20 bg-white/25 text-3xl font-bold ${onBand ? "text-white" : "text-[#1f2937]"}`} />
-            )}
-          </div>
-          <p className={`truncate text-[20px] font-bold leading-[25px] ${onBand ? "text-white" : "text-[#111827]"}`}>{pageTitle}</p>
-          <p className={`mx-auto mt-1 max-w-[240px] truncate text-[14px] leading-5 ${onBand ? "text-white/80" : "text-[#4b5563]"}`} data-share-url="">
-            {shown}
-          </p>
-        </div>
-
-        {/* The body: one surface in the page's light or dark, under the band with a straight seam. */}
-        <div className="bg-[var(--sheet-bg)] px-5 pb-6 pt-2">
-          <div className="flex items-start justify-center gap-3">
-            {targets.map((t) => (
-              <button
-                key={t.name === "Copied" ? "Copy link" : t.name}
-                type="button"
-                onClick={t.go}
-                aria-live={t.live ? "polite" : undefined}
-                className="flex w-[68px] flex-col items-center gap-1.5 rounded-xl p-2 transition-opacity duration-150 hover:opacity-75 active:opacity-60"
-                data-share-target={t.name}
-              >
-                <span className="grid h-[46px] w-[46px] place-items-center rounded-full" style={{ backgroundColor: `${t.color}1f`, color: t.color }}>
-                  {t.icon}
-                </span>
-                <span className="text-[11px] font-medium text-[var(--sheet-muted)]">{t.name}</span>
-              </button>
-            ))}
-          </div>
-
-          <div
-            role="link"
-            tabIndex={0}
-            onClick={() => openExternalUrl("https://storelib.com")}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") openExternalUrl("https://storelib.com")
-            }}
-            className="mt-3 flex cursor-pointer items-center gap-3 rounded-2xl bg-[var(--sheet-field)] p-4"
-            data-share-join=""
-          >
-            <StorelibLogo size={40} />
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-semibold text-[var(--sheet-ink)]">Create your own page</p>
-              <p className="truncate text-[12px] text-[var(--sheet-muted)]">Build your store with Storelib</p>
-            </div>
-            <span className="inline-flex h-9 shrink-0 items-center rounded-xl bg-[var(--sheet-ink)] px-4 text-[14px] font-semibold text-[var(--sheet-on-ink)]">Join</span>
-          </div>
-        </div>
+  /*
+    ROUND AP, THE OWNER: "on mobile devices, the share modal as a mobile bottom sheet, like the subscribe to
+    creator mobile bottom sheet". On a phone it is the sheet every OnePage window is (./onepage-dialog: the app's
+    BottomSheet, its rise, drag and flick), the band in the page's colour from the sheet's top edge, grip and
+    all (`phoneTop`), so no strip of white sits over it; from 640px the centred card as before. The band is the
+    sheet's header, so on a phone it is what the sheet is held by.
+  */
+  /* The band: the page's own colour, its corners the card's (the card clips; nothing is behind it). */
+  const header = (
+    <div className="relative px-6 pb-9 pt-5 text-center sm:pt-8" style={{ background: band }} data-share-band="" data-onepage-share-sheet="">
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className={`absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full transition-colors ${onBand ? "bg-white/20 text-white hover:bg-white/30" : "bg-black/10 text-[#1f2937] hover:bg-black/15"}`}
+      >
+        <Close aria-hidden className="h-4 w-4" />
+      </button>
+      <div className="relative mx-auto mb-4 h-20 w-20 overflow-hidden rounded-full shadow-[0_0_0_4px_rgba(255,255,255,0.3),0_12px_28px_rgba(0,0,0,0.22)]" data-share-avatar="">
+        {avatarVideoUrl ? (
+          <PosterVideo src={avatarVideoUrl} fallback={onePageImageSrc(avatarUrl, 160)} alt={pageTitle} />
+        ) : (
+          <AppAvatar waitForPhoto src={onePageImageSrc(avatarUrl, 160)} name={pageTitle} alt={pageTitle} size={80} kind="mark" sizedByClass className={`flex h-20 w-20 bg-white/25 text-3xl font-bold ${onBand ? "text-white" : "text-[#1f2937]"}`} />
+        )}
       </div>
+      <p className={`truncate text-[20px] font-bold leading-[25px] ${onBand ? "text-white" : "text-[#111827]"}`}>{pageTitle}</p>
+      <p className={`mx-auto mt-1 max-w-[240px] truncate text-[14px] leading-5 ${onBand ? "text-white/80" : "text-[#4b5563]"}`} data-share-url="">
+        {shown}
+      </p>
+    </div>
+  )
+  return (
+    <OnePageDialog open={open} onClose={onClose} dark={dark} label={`Share ${pageTitle}`} width={380} bare phoneTop={band} header={header}>
+    {/* The body: one surface in the page's light or dark, under the band with a straight seam. */}
+    <div className="bg-[var(--sheet-bg)] px-5 pb-6 pt-2" data-share-body="">
+      <div className="flex items-start justify-center gap-3">
+        {targets.map((t) => (
+          <button
+            key={t.name === "Copied" ? "Copy link" : t.name}
+            type="button"
+            onClick={t.go}
+            aria-live={t.live ? "polite" : undefined}
+            className="flex w-[68px] flex-col items-center gap-1.5 rounded-xl p-2 transition-opacity duration-150 hover:opacity-75 active:opacity-60"
+            data-share-target={t.name}
+          >
+            <span className="grid h-[46px] w-[46px] place-items-center rounded-full" style={{ backgroundColor: `${t.color}1f`, color: t.color }}>
+              {t.icon}
+            </span>
+            <span className="text-[11px] font-medium text-[var(--sheet-muted)]">{t.name}</span>
+          </button>
+        ))}
+      </div>
+
+      <div
+        role="link"
+        tabIndex={0}
+        onClick={() => openExternalUrl("https://storelib.com")}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") openExternalUrl("https://storelib.com")
+        }}
+        className="mt-3 flex cursor-pointer items-center gap-3 rounded-2xl bg-[var(--sheet-field)] p-4"
+        data-share-join=""
+      >
+        <StorelibLogo size={40} />
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold text-[var(--sheet-ink)]">Create your own page</p>
+          <p className="truncate text-[12px] text-[var(--sheet-muted)]">Build your store with Storelib</p>
+        </div>
+        <span className="inline-flex h-9 shrink-0 items-center rounded-xl bg-[var(--sheet-ink)] px-4 text-[14px] font-semibold text-[var(--sheet-on-ink)]">Join</span>
+      </div>
+    </div>
     </OnePageDialog>
   )
 }

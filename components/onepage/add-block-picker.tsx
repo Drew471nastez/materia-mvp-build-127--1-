@@ -629,6 +629,41 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   { id: "podcast", type: "link_button", category: "media", get label() { return tt("Podcast link") }, get description() { return tt("Link to your show") }, icon: GlyphPodcast, tile: TILE.plum, get preset() { return { label: tt("Listen to the podcast"), url: "" } }, hidden: true },
 ]
 
+/*
+ * ROUND AP: A BLOCK'S ROW WEARS ITS PICKER ENTRY. The owner: "for the digital
+ * products block, in the list of the links, the icons are not like they are
+ * in the add block model". A shelf's row was a generic shop glyph on grey for
+ * every kind; the picker drew Digital products as a download on orange,
+ * Courses as a book on pink. The row now draws the entry the block came from:
+ * its glyph on its tile's colours. The entry is the one whose data says the
+ * same thing the block's does (a shelf's `source`, an app's `provider`, a lead
+ * magnet's `kind`, a posts block's `network`), else the block type's own
+ * plain entry. An entry drawn as a service's mark (a brand) has no tile: the
+ * row keeps the mark it already draws.
+ */
+const ROW_KEYS = ["source", "provider", "kind", "network"] as const
+
+function entryData(e: PickerEntry): Record<string, unknown> | null {
+  const d = (e as { data?: unknown }).data
+  return d && typeof d === "object" ? (d as Record<string, unknown>) : null
+}
+
+export function blockPickerTile(block: { type: string; data?: unknown }): { icon: Glyph; tile: TileColors; matched: boolean } | null {
+  const data = (block.data && typeof block.data === "object" ? block.data : {}) as Record<string, unknown>
+  let plain: PickerEntry | null = null
+  for (const e of PICKER_ENTRIES) {
+    if (e.type !== block.type) continue
+    const ed = entryData(e)
+    const keys = ROW_KEYS.filter((k) => ed && k in ed)
+    if (keys.length) {
+      if (keys.every((k) => ed![k] === data[k])) return e.icon && e.tile ? { icon: e.icon, tile: e.tile, matched: true } : null
+      continue
+    }
+    if (!plain || (plain.hidden && !e.hidden)) plain = e
+  }
+  return plain?.icon && plain.tile ? { icon: plain.icon, tile: plain.tile, matched: false } : null
+}
+
 /** The entries a search finds, best first: a name that starts with the words, then a name that has them, then the line and the other words. Listed entries first on a tie. */
 export function searchEntries(entries: PickerEntry[], query: string): PickerEntry[] {
   const words = query.toLowerCase().trim().split(/\s+/).filter(Boolean)

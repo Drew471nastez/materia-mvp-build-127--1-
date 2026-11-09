@@ -107,6 +107,7 @@ export function OnePageDialog({
   scrollKey,
   centered = false,
   bare = false,
+  phoneTop,
 }: {
   open: boolean
   onClose: () => void
@@ -125,6 +126,8 @@ export function OnePageDialog({
   tall?: boolean
   /** When this changes the content goes back to its top. */
   scrollKey?: string | number
+  /** Round AP: on a phone, the colour of the sheet's top behind its grip, where the header is drawn in a colour of its own (Share's band). */
+  phoneTop?: string
 }) {
   const phone = usePhoneWidth()
   const style = sheetTokens(dark)
@@ -140,6 +143,7 @@ export function OnePageDialog({
         maxHeight={tall ? "88dvh" : "min(86dvh, 640px)"}
         aboveKeyboard={!tall}
         scrollKey={scrollKey}
+        handleBackground={phoneTop}
         className={dark ? "bg-[#18181c]" : "bg-white"}
       >
         <div style={style} className="text-[var(--sheet-body)]">

@@ -62,6 +62,13 @@ export interface StorelibShelfBlockData {
   /** How many to show, 1 to 12. */
   limit?: number
   /**
+   * Round AP: which of them. "all" (or nothing saved): every one of the kind, newest first, up to `limit`.
+   * "some": the ones in `product_ids`, in that order. "one": the first of `product_ids` alone. Ids only: the
+   * products themselves are read live on the server, and only the page owner's (shelfItems filters by creator).
+   */
+  pick?: ShelfPick | null
+  product_ids?: string[] | null
+  /**
    * What the live page draws, filled by the server at render
    * (./storelib-blocks-server withStorelibBlocks). Never saved: the editor
    * strips it (stripResolved) so a draft never holds a copy of a product.
@@ -70,6 +77,28 @@ export interface StorelibShelfBlockData {
 }
 
 export const SHELF_LIMIT_MAX = 12
+
+export const SHELF_PICKS = ["all", "some", "one"] as const
+export type ShelfPick = (typeof SHELF_PICKS)[number]
+
+const PRODUCT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** The shelf's choice: "all" unless it names products. A community shelf is always all of them. */
+export function shelfPick(data: Pick<StorelibShelfBlockData, "pick" | "source"> | null | undefined): ShelfPick {
+  if (!data || shelfSource(data.source) === "community") return "all"
+  return data.pick === "some" || data.pick === "one" ? data.pick : "all"
+}
+
+/**
+ * The products a shelf names, in its order: well formed ids only, each once, at most SHELF_LIMIT_MAX, the first
+ * alone for "one". Null when the shelf shows all of its kind.
+ */
+export function shelfPickedIds(data: Pick<StorelibShelfBlockData, "pick" | "source" | "product_ids"> | null | undefined): string[] | null {
+  const pick = shelfPick(data)
+  if (pick === "all") return null
+  const ids = [...new Set((Array.isArray(data?.product_ids) ? data!.product_ids : []).filter((id): id is string => typeof id === "string" && PRODUCT_ID.test(id)).map((id) => id.toLowerCase()))]
+  return pick === "one" ? ids.slice(0, 1) : ids.slice(0, SHELF_LIMIT_MAX)
+}
 
 /** Drawn as product blocks (one of the product layouts) rather than the plain picture cards. Saved settings stay when "simple" is picked. */
 export function shelfUsesProductCards(data: Pick<StorelibShelfBlockData, "product_settings" | "card_style"> | null | undefined): boolean {

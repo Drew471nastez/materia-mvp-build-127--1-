@@ -40,6 +40,20 @@ import { tt } from "@/lib/i18n/text"
 const FormDialog = lazy(() => import("./form-dialog"))
 const FormSheetBody = lazy(() => import("./form-sheet-body"))
 
+/*
+ * ROUND AP: THE SHEET RISES WITH THE QUESTIONS IN IT. It used to rise with a
+ * placeholder three lines tall, and the questions arrived during the rise:
+ * the sheet grew under the finger and its top edge jumped (the owner: "it
+ * opens and it glitches, and then it opens"). The press now waits for the
+ * form's code and its questions (both asked for when the finger came down),
+ * never longer than FORM_READY_MS, and the sheet is built with the form
+ * itself rather than a Suspense placeholder. On a slow network it opens at
+ * the limit with the placeholder, and the sheet eases to the form's height
+ * when it comes (components/onepage/block-sheet, late content).
+ */
+const FORM_READY_MS = 280
+type FormSheetBodyComponent = typeof import("./form-sheet-body").default
+
 /** The room the form will take while its code arrives (usually none: the press asked for it). */
 function FormSheetWaiting() {
   return (
@@ -102,27 +116,41 @@ export function NativeActionFrame({
 
   /* The form in the block sheet; a chat waits for the sheet to be gone before it opens. */
   const openFormSheet = (id: string) => {
-    void import("./public-form").then((m) => m.prefetchPublicForm(id)).catch(() => {})
+    let opened = false
+    const go = (Body: FormSheetBodyComponent | null) => {
+      if (opened) return
+      opened = true
+      showFormSheet(id, Body)
+    }
+    const ready = Promise.all([import("./form-sheet-body"), import("./public-form").then((m) => m.prefetchPublicForm(id))])
+    ready.then(([m]) => go(m.default), () => go(null))
+    window.setTimeout(() => go(null), FORM_READY_MS)
+  }
+
+  const showFormSheet = (id: string, Ready: FormSheetBodyComponent | null) => {
     const leaving: { href: string | null } = { href: null }
     const leave = (href: string | null) => {
       leaving.href = href
       blockSheet.close()
     }
     const title = (sourceBlock || "").trim() || tt("Form")
+    const props = {
+      formId: id,
+      source,
+      preview: inPreview,
+      sourceBlock,
+      shownTitle: title,
+      onSubmitted: chat ? (answers: Record<string, unknown>, fields: { id: string; type?: string }[]) => leave(actionHref(action, { ...vars, ...formVars(fields, answers) })) : undefined,
+      onUnavailable: chat ? () => leave(actionHref(action, vars)) : undefined,
+    }
     blockSheet.open({
       blockId: sourceBlock || id,
       title,
-      body: (
+      body: Ready ? (
+        <Ready {...props} />
+      ) : (
         <Suspense fallback={<FormSheetWaiting />}>
-          <FormSheetBody
-            formId={id}
-            source={source}
-            preview={inPreview}
-            sourceBlock={sourceBlock}
-            shownTitle={title}
-            onSubmitted={chat ? (answers, fields) => leave(actionHref(action, { ...vars, ...formVars(fields, answers) })) : undefined}
-            onUnavailable={chat ? () => leave(actionHref(action, vars)) : undefined}
-          />
+          <FormSheetBody {...props} />
         </Suspense>
       ),
       onGone: () => {

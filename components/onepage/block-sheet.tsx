@@ -38,6 +38,13 @@
  *                 that starts inside something scrolled away from its top
  *                 scrolls that instead, and a sideways one is left to a
  *                 carousel. lib/onepage/block-sheet swipeDecision decides.
+ *                 Round AP: a mouse draws it down the same way by its grip
+ *                 and title, at a phone's width and on a computer.
+ *   THE KEYBOARD  (round AP) a field in the sheet with the keyboard up
+ *                 hides the foot bar; it comes back when the keyboard goes.
+ *   LATE CONTENT  (round AP) content that grows after the press (a form's
+ *                 questions, a post's height) eases the sheet to its new
+ *                 height instead of moving its top edge in one frame.
  *   ONE AT A TIME the block's own button, when it opens something else on
  *                 the page (a product, a checkout), runs once the sheet has
  *                 gone and its history entry with it, so two windows are
@@ -55,6 +62,7 @@ import { BLOCK_SHEET_HISTORY_KEY, SHEET_MOTION, SWIPE, blockSheetEntryOf, swipeD
 import type { ButtonThemeLike } from "@/lib/onepage/button-style"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { backInFlight, backThen } from "@/lib/navigation/go-back"
+import { KEYBOARD_CHANGE_EVENT, readPublishedKeyboardInset } from "@/lib/ui/keyboard-safe-sheet"
 
 export type OpenMode = "sheet" | "direct"
 
@@ -138,6 +146,16 @@ const FIELDS = "input:not([type=button]):not([type=submit]):not([type=checkbox])
 /* A spring back with reduced motion: short, but still a move the finger started. */
 const M_BACK_REDUCED = 120
 
+/* A mouse is exact: the sheet follows once it has moved this far, not a finger's slop. */
+const MOUSE_SLOP_PX = 3
+
+/* Late content: the growth eases in over this long, on the rise's own curve. */
+const GROW_MS = 320
+/* Gentle at the start, unlike the rise: the first frame of a growth is a few pixels, never a step. */
+const GROW_EASE = "cubic-bezier(0.25, 0.1, 0.25, 1)"
+const FLIP_ID = "block-sheet-grow"
+const PHONE_QUERY = "(max-width: 639px)"
+
 function reducedMotion(): boolean {
   try {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -175,6 +193,9 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
   /* Closed by a swipe: Close's motion then carries on from the finger rather than starting over. */
   const swipedOut = useRef(false)
   const [copied, setCopied] = useState(false)
+  /* A field in the sheet has the keyboard up: the foot bar steps aside (round AP). */
+  const [typing, setTyping] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
   useStillPage(true, rootRef)
 
   const closeRef = useRef(onClose)
@@ -185,6 +206,8 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
     goneRef.current = onGone
     requestRef.current = request
   })
+
+  const fill = !!request.fill
 
   /* Who opened it, read before anything inside takes focus. */
   useLayoutEffect(() => {
@@ -201,19 +224,24 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
     }
     const still = reducedMotion()
     const M = SHEET_MOTION
+    /*
+      The rise's share of the sheet's height, in pixels as it is now (round AP). As a percentage it was a share of
+      the height as it would be on each frame, so content arriving during the rise pushed the sheet down again.
+    */
+    const share = (pct: string) => `${Math.round((parseFloat(pct) / 100) * panel.offsetHeight)}px`
     /* Copied out now: a computed style is live, and cancelling the running animations below would change it. */
     const live = getComputedStyle(panel)
     const was = { translate: live.translate, scale: live.scale, opacity: live.opacity }
     const wasBackdrop = getComputedStyle(backdrop).opacity
-    const fromRunning = panel.getAnimations().length > 0
-    for (const a of [...panel.getAnimations(), ...backdrop.getAnimations()]) a.cancel()
+    const fromRunning = panel.getAnimations().some((a) => a.id !== FLIP_ID)
+    for (const a of [...panel.getAnimations(), ...backdrop.getAnimations()]) if (a.id !== FLIP_ID) a.cancel()
     const rest = { translate: "0 0", scale: "1", opacity: "1" }
     if (open) {
       const start = fromRunning
         ? { translate: was.translate === "none" ? "0 0" : was.translate, scale: was.scale === "none" ? "1" : was.scale, opacity: was.opacity }
         : still
           ? { translate: "0 0", scale: "1", opacity: "0" }
-          : { translate: `0 ${M.from.translateY}`, scale: String(M.from.scale), opacity: "0" }
+          : { translate: `0 ${share(M.from.translateY)}`, scale: String(M.from.scale), opacity: "0" }
       const ms = still ? M.reducedMs : M.openMs
       panel.animate([{ translate: start.translate, scale: start.scale }, { translate: rest.translate, scale: rest.scale }], { duration: ms, easing: M.openEase, fill: "both" })
       panel.animate([{ opacity: start.opacity }, { opacity: "1" }], { duration: still ? ms : M.openFadeMs, easing: "ease-out", fill: "both" })
@@ -229,7 +257,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
       move = panel.animate([from, { translate: still ? from.translate : "0 100%", scale: from.scale, opacity: "0" }], { duration: ms, easing: still ? "linear" : SWIPE.outEase, fill: "both" })
     } else {
       ms = still ? M.reducedMs : M.closeMs
-      const end = still ? { translate: "0 0", scale: "1" } : { translate: `0 ${M.to.translateY}`, scale: String(M.to.scale) }
+      const end = still ? { translate: "0 0", scale: "1" } : { translate: `0 ${share(M.to.translateY)}`, scale: String(M.to.scale) }
       move = panel.animate([from, { ...end, opacity: "0" }], { duration: ms, easing: M.closeEase, fill: "both" })
     }
     backdrop.animate([{ opacity: wasBackdrop }, { opacity: "0" }], { duration: ms, easing: "ease-in", fill: "both" })
@@ -330,7 +358,14 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
     }
   }, [open, leaveHistory, runAfter])
 
-  /* ── Swipe down to close, on a touch screen. ── */
+  /*
+    ── Drawn down to close: a finger from anywhere on the sheet, a mouse from its grip and title (round AP). ──
+    One gesture for both. A finger's path is the one round AN measured: it follows once it has moved SWIPE.slopPx
+    straight down. A mouse (the editor's preview is a phone driven by one) takes the sheet by its top bar only, so
+    it still selects text and presses buttons everywhere else; it is captured, so a release outside the window
+    ends it, and the sheet follows from the first few pixels. Each move writes the translate straight onto the
+    sheet, so it keeps up with the pointer at the display's own rate and React hears nothing until it is let go.
+  */
   useEffect(() => {
     const panel = panelRef.current
     const backdrop = backdropRef.current
@@ -340,56 +375,54 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
     let dragging = false
     let dy = 0
     let trail: { y: number; t: number }[] = []
+    let pointerId: number | null = null
     /* Something between the finger and the sheet scrolled away from its top: the finger scrolls that back first. */
     const scrolledAbove = (target: EventTarget | null) => {
       for (let el = target instanceof Element ? target : null; el && el !== panel; el = el.parentElement) if (el.scrollTop > 0) return true
       return false
     }
-    const onStart = (e: TouchEvent) => {
+    const begin = (x: number, y: number) => {
       dragging = false
-      start = null
-      if (e.touches.length !== 1) return
-      const t = e.target instanceof Element ? e.target : null
-      if (t?.closest("input,textarea,select,[contenteditable='true'],[data-no-swipe]") || scrolledAbove(t)) return
-      /* A field has focus, so on a phone the keyboard is up: a drag then belongs to the page under it, never a close. */
-      const focused = document.activeElement
-      if (focused instanceof HTMLElement && focused !== panel && panel.contains(focused) && focused.matches(FIELDS)) return
-      start = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      start = { x, y }
     }
-    const onMove = (e: TouchEvent) => {
-      if (!start) return
-      const p = e.touches[0]
+    /* Whatever the opening left behind (its fill), written down as the sheet's own style, so the pointer moves it from where it is. */
+    const take = () => {
+      for (const a of [...panel.getAnimations(), ...backdrop.getAnimations()]) {
+        if (a.id === FLIP_ID) continue
+        try {
+          a.commitStyles()
+        } catch {
+          /* not drawn: nothing to keep */
+        }
+        a.cancel()
+      }
+      panel.dataset.blockSheetDragging = ""
+    }
+    /* Whether the move is the sheet's, so the caller keeps the page from scrolling under it. */
+    const move = (x: number, y: number, t: number, slop: number, exact: boolean): boolean => {
+      if (!start) return false
       if (!dragging) {
-        const dx = p.clientX - start.x
-        const d = p.clientY - start.y
-        if (Math.abs(d) < SWIPE.slopPx && Math.abs(dx) < SWIPE.slopPx) return
+        const dx = x - start.x
+        const d = y - start.y
+        if (Math.abs(d) < slop && Math.abs(dx) < slop) return false
         /* Up, or sideways: the sheet's own scroll or a carousel's, not ours. */
         if (d <= 0 || Math.abs(dx) > Math.abs(d)) {
           start = null
-          return
+          return false
         }
         dragging = true
-        from = p.clientY
-        /* Whatever the opening left behind (its fill), written down as the sheet's own style, so the finger moves it from where it is. */
-        for (const a of [...panel.getAnimations(), ...backdrop.getAnimations()]) {
-          try {
-            a.commitStyles()
-          } catch {
-            /* not drawn: nothing to keep */
-          }
-          a.cancel()
-        }
-        panel.dataset.blockSheetDragging = ""
+        /* A finger picks it up where it is once past the slop; a mouse from where it was pressed, so the sheet sits under it. */
+        from = exact ? start.y : y
+        take()
       }
-      if (e.cancelable) e.preventDefault()
-      dy = Math.max(0, p.clientY - from)
-      const now = performance.now()
-      trail.push({ y: p.clientY, t: now })
-      trail = trail.filter((s) => now - s.t <= 100)
+      dy = Math.max(0, y - from)
+      trail.push({ y, t })
+      trail = trail.filter((s) => t - s.t <= 100)
       panel.style.translate = `0 ${dy}px`
       backdrop.style.opacity = String(1 - Math.min(1, dy / Math.max(1, panel.offsetHeight)) * 0.9)
+      return true
     }
-    const onEnd = () => {
+    const end = (cancelled: boolean) => {
       if (!dragging) {
         start = null
         return
@@ -399,9 +432,9 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
       delete panel.dataset.blockSheetDragging
       const first = trail[0]
       const last = trail[trail.length - 1]
-      const speed = first && last && last.t > first.t ? (last.y - first.y) / (last.t - first.t) : 0
+      const speed = !cancelled && first && last && last.t > first.t ? (last.y - first.y) / (last.t - first.t) : 0
       trail = []
-      if (swipeDecision(dy, panel.offsetHeight, speed) === "close") {
+      if (!cancelled && swipeDecision(dy, panel.offsetHeight, speed) === "close") {
         swipedOut.current = true
         closeRef.current()
         return
@@ -412,15 +445,174 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
       backdrop.animate([{ opacity: backdrop.style.opacity || "1" }, { opacity: "1" }], { duration: ms, easing: "ease-out", fill: "both" })
       dy = 0
     }
+
+    const onStart = (e: TouchEvent) => {
+      dragging = false
+      start = null
+      if (e.touches.length !== 1) return
+      const t = e.target instanceof Element ? e.target : null
+      if (t?.closest("input,textarea,select,[contenteditable='true'],[data-no-swipe]") || scrolledAbove(t)) return
+      /* A field has focus, so on a phone the keyboard is up: a drag then belongs to the page under it, never a close. */
+      const focused = document.activeElement
+      if (focused instanceof HTMLElement && focused !== panel && panel.contains(focused) && focused.matches(FIELDS)) return
+      begin(e.touches[0].clientX, e.touches[0].clientY)
+    }
+    const onMove = (e: TouchEvent) => {
+      const p = e.touches[0]
+      if (p && move(p.clientX, p.clientY, performance.now(), SWIPE.slopPx, false) && e.cancelable) e.preventDefault()
+    }
+    const onEnd = () => end(false)
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === "touch" || e.button !== 0) return
+      const t = e.target instanceof Element ? e.target : null
+      if (!t?.closest("[data-block-sheet-handle]") || t.closest("button,a,input,textarea,select")) return
+      /* No text selection starts from the bar the sheet is held by. */
+      e.preventDefault()
+      pointerId = e.pointerId
+      try {
+        panel.setPointerCapture(e.pointerId)
+      } catch {
+        /* an old engine: the release is still heard on the panel */
+      }
+      begin(e.clientX, e.clientY)
+    }
+    const onPointerMove = (e: PointerEvent) => {
+      if (pointerId === null || e.pointerId !== pointerId) return
+      move(e.clientX, e.clientY, performance.now(), MOUSE_SLOP_PX, true)
+    }
+    const onPointerEnd = (e: PointerEvent) => {
+      if (pointerId === null || e.pointerId !== pointerId) return
+      pointerId = null
+      try {
+        panel.releasePointerCapture(e.pointerId)
+      } catch {
+        /* already let go */
+      }
+      end(e.type === "pointercancel")
+    }
+
     panel.addEventListener("touchstart", onStart, { passive: true })
     panel.addEventListener("touchmove", onMove, { passive: false })
     panel.addEventListener("touchend", onEnd)
     panel.addEventListener("touchcancel", onEnd)
+    panel.addEventListener("pointerdown", onPointerDown)
+    panel.addEventListener("pointermove", onPointerMove)
+    panel.addEventListener("pointerup", onPointerEnd)
+    panel.addEventListener("pointercancel", onPointerEnd)
     return () => {
       panel.removeEventListener("touchstart", onStart)
       panel.removeEventListener("touchmove", onMove)
       panel.removeEventListener("touchend", onEnd)
       panel.removeEventListener("touchcancel", onEnd)
+      panel.removeEventListener("pointerdown", onPointerDown)
+      panel.removeEventListener("pointermove", onPointerMove)
+      panel.removeEventListener("pointerup", onPointerEnd)
+      panel.removeEventListener("pointercancel", onPointerEnd)
+    }
+  }, [open])
+
+  /*
+    ── Content that arrives late (round AP). ──
+    The sheet stands on the foot of the screen, so when what is inside grows (a form's questions arriving over
+    their placeholder, a booking's times, a picture) its top edge went up in one frame: the owner's "it opens and
+    it glitches, and then it opens". Now the growth is drawn from where the top edge was: the sheet is set down by
+    what it grew, before that frame is painted, and eases up into place on the compositor (a transform of its own,
+    which composes with the rise). Its foot is below the screen meanwhile, so nothing shows there; a computer's
+    centred card keeps its top edge and its old foot and eases out to both. The keyboard's
+    room (padding, not content) and a sheet of a fixed height are left alone.
+  */
+  useEffect(() => {
+    const panel = panelRef.current
+    const content = contentRef.current
+    if (!open || !panel || !content || fill || typeof ResizeObserver !== "function" || typeof panel.animate !== "function") return
+    const phone = window.matchMedia(PHONE_QUERY)
+    let last = panel.offsetHeight
+    let lastContent = content.offsetHeight
+    const watch = new ResizeObserver(() => {
+      const h = panel.offsetHeight
+      const c = content.offsetHeight
+      const grew = h - last
+      const contentGrew = c - lastContent
+      last = h
+      lastContent = c
+      if (grew < 2 || contentGrew < 2 || "blockSheetDragging" in panel.dataset || reducedMotion()) return
+      /* Still easing from an earlier growth: from where it is now. */
+      let carried = 0
+      for (const a of panel.getAnimations()) {
+        if (a.id !== FLIP_ID) continue
+        const now = getComputedStyle(panel).transform
+        carried = now && now !== "none" ? new DOMMatrixReadOnly(now).m42 : 0
+        a.cancel()
+      }
+      /*
+        A phone's sheet stands on the foot of the screen: set down by all it grew, its foot below the screen.
+        A computer's card is centred, so it grew by half above and half below: set down by half, and the half
+        that would show under its old foot clipped away, both easing out together.
+      */
+      const flip = phone.matches
+        ? panel.animate([{ transform: `translateY(${grew + carried}px)` }, { transform: "translateY(0)" }], { duration: GROW_MS, easing: GROW_EASE })
+        : panel.animate(
+            [
+              { transform: `translateY(${grew / 2 + carried}px)`, clipPath: `inset(0 0 ${grew + carried * 2}px 0 round 24px)` },
+              { transform: "translateY(0)", clipPath: "inset(0 0 0px 0 round 24px)" },
+            ],
+            { duration: GROW_MS, easing: GROW_EASE },
+          )
+      flip.id = FLIP_ID
+    })
+    watch.observe(panel)
+    watch.observe(content)
+    return () => watch.disconnect()
+  }, [open, fill])
+
+  /*
+    ── The keyboard (round AP). ──
+    While a field in the sheet has the keyboard up, the bar at its foot (the button, Share, the round Close) goes:
+    it sat right on the keyboard, over the field being typed in. It comes back when the keyboard goes. A keyboard
+    is taken to be up from the moment a field takes focus on a touch screen (it is on its way), or whenever
+    ViewportVars publishes its room; a keyboard put away with the field still focused (Android's Back) brings the
+    bar back. A mouse and a hardware keyboard never hide it.
+  */
+  useEffect(() => {
+    const panel = panelRef.current
+    if (!open || !panel) return
+    const vv = window.visualViewport
+    let seen = false
+    let frame = 0
+    const touch = () => {
+      try {
+        return window.matchMedia("(hover: none) and (pointer: coarse)").matches
+      } catch {
+        return false
+      }
+    }
+    const read = () => {
+      frame = 0
+      const f = document.activeElement
+      const field = f instanceof HTMLElement && panel.contains(f) && f.matches(FIELDS)
+      const inset = readPublishedKeyboardInset()
+      if (!field) seen = false
+      else if (inset > 0) seen = true
+      setTyping(field && (inset > 0 || (touch() && !seen)))
+    }
+    const later = () => {
+      if (!frame) frame = requestAnimationFrame(read)
+    }
+    const onFocusIn = () => {
+      seen = false
+      read()
+    }
+    panel.addEventListener("focusin", onFocusIn)
+    panel.addEventListener("focusout", later)
+    window.addEventListener(KEYBOARD_CHANGE_EVENT, later)
+    vv?.addEventListener("resize", later)
+    return () => {
+      cancelAnimationFrame(frame)
+      panel.removeEventListener("focusin", onFocusIn)
+      panel.removeEventListener("focusout", later)
+      window.removeEventListener(KEYBOARD_CHANGE_EVENT, later)
+      vv?.removeEventListener("resize", later)
     }
   }, [open])
 
@@ -476,7 +668,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
     ;(to === "first" ? nodes[0] : nodes[nodes.length - 1])?.focus({ preventScroll: true })
   }
 
-  const { title, body, cta, shareUrl, fill } = request
+  const { title, body, cta, shareUrl } = request
 
   const pressCta = (e: React.MouseEvent) => {
     if (!cta) return
@@ -561,9 +753,16 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
         )}
       >
         <span tabIndex={0} data-focus-guard="" aria-hidden onFocus={guard("last")} className="sr-only" />
-        {/* The grip on a phone: the sheet can be drawn down. Drawn over the title's top padding, so nothing moves. */}
-        <span aria-hidden data-block-sheet-grip="" className="pointer-events-none absolute left-1/2 top-[6px] h-[4px] w-9 -translate-x-1/2 rounded-full bg-[var(--sheet-muted)] opacity-35 sm:hidden" />
-        <h2 className="shrink-0 truncate px-14 pb-2.5 pt-4 text-center text-[15px] font-medium text-[var(--sheet-ink)]" data-block-sheet-title="">
+        {/*
+          The grip: the sheet can be drawn down, by a finger from anywhere, by a mouse from here and the title
+          (round AP, on a computer too). Drawn over the title's top padding, so nothing moves.
+        */}
+        <span aria-hidden data-block-sheet-grip="" className="pointer-events-none absolute left-1/2 top-[6px] h-[4px] w-9 -translate-x-1/2 rounded-full bg-[var(--sheet-muted)] opacity-35" />
+        <h2
+          className="shrink-0 cursor-grab select-none truncate px-14 pb-2.5 pt-4 text-center text-[15px] font-medium text-[var(--sheet-ink)] active:cursor-grabbing"
+          data-block-sheet-title=""
+          data-block-sheet-handle=""
+        >
           {title}
         </h2>
         <div
@@ -579,9 +778,13 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
               ))}
             </span>
           ) : null}
-          <div className={cn("relative", fill && "flex min-h-0 flex-1 flex-col [&>*]:min-h-0 [&>*]:flex-1")}><InBlockSheetContext.Provider value>{body}</InBlockSheetContext.Provider></div>
+          <div ref={contentRef} className={cn("relative", fill && "flex min-h-0 flex-1 flex-col [&>*]:min-h-0 [&>*]:flex-1")}><InBlockSheetContext.Provider value>{body}</InBlockSheetContext.Provider></div>
         </div>
-        <div className="flex shrink-0 items-center gap-2 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3" data-block-sheet-foot="">
+        <div
+          className={cn("shrink-0 items-center gap-2 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3", typing ? "hidden" : "flex")}
+          data-block-sheet-foot=""
+          data-block-sheet-typing={typing ? "" : undefined}
+        >
           {cta ? (
             cta.href ? (
               <a

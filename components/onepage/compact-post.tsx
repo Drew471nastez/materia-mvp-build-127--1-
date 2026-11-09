@@ -47,7 +47,7 @@
  * editor's preview and on the live page.
  */
 
-import { useContext, useEffect, useRef, useState, type CSSProperties } from "react"
+import { useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react"
 import { embedHeightFromMessage } from "@/lib/onepage/creator-blocks"
 import { themeButtonStyle } from "@/lib/onepage/button-style"
 import { tt } from "@/lib/i18n/text"
@@ -124,16 +124,26 @@ export function CompactInstagramPost({
   const [shown, setShown] = useState(false)
   const [open, setOpen] = useState(false)
 
-  /* The column's width, kept current: the frame's width and scale follow it. */
-  useEffect(() => {
+  /*
+    The column's width, kept current: the frame's width and scale follow it. Read before the first paint (round AP):
+    read after it, the post was drawn once at Instagram's widest and then eased down to the column's size, which in a
+    sheet rising from the foot of the screen moved its top edge backwards during the rise. The height eases only
+    once that first size is drawn (`sized`).
+  */
+  const [sized, setSized] = useState(false)
+  useLayoutEffect(() => {
     const el = wrapRef.current
     if (!el) return
     const read = () => setColumn(Math.round(el.clientWidth))
     read()
-    if (typeof ResizeObserver !== "function") return
+    const f = requestAnimationFrame(() => setSized(true))
+    if (typeof ResizeObserver !== "function") return () => cancelAnimationFrame(f)
     const ro = new ResizeObserver(read)
     ro.observe(el)
-    return () => ro.disconnect()
+    return () => {
+      cancelAnimationFrame(f)
+      ro.disconnect()
+    }
   }, [])
 
   /* What this browser saw last time, read after the first render so the server's markup and the first client render agree. */
@@ -188,7 +198,7 @@ export function CompactInstagramPost({
       <div className="relative w-full">
         <div
           ref={wrapRef}
-          className="relative w-full overflow-hidden [contain:layout_paint] motion-safe:transition-[height] motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.32,0.72,0,1)]"
+          className={`relative w-full overflow-hidden [contain:layout_paint] ${sized ? "motion-safe:transition-[height] motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.32,0.72,0,1)]" : ""}`}
           style={{ height: Math.ceil(box.height * scale), borderRadius: r, ...(folded ? { maskImage: FOLD_MASK, WebkitMaskImage: FOLD_MASK } : {}) }}
           data-post-box=""
         >

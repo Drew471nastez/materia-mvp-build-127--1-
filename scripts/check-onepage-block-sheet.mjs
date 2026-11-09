@@ -142,7 +142,9 @@ try {
     console.log("   open animations", JSON.stringify(anims))
     console.log("   open frames", JSON.stringify(openFrames.slice(0, 8)), `... rest at ${o.restAt}ms over ${o.frames} frames`)
     check(move && move.duration === 300, `${label}: the rise is 300ms (${move?.duration})`)
-    check(move && move.frames[0].translate === "0px 12%" && move.frames[0].scale === "0.92", `${label}: it starts 12% lower at 0.92 (${JSON.stringify(move?.frames[0])})`)
+    /* Changed on purpose (round AP): 12% of the sheet's height in pixels as it opens, so content arriving during the rise no longer pushes it down. */
+    const startPx = await page.evaluate(() => Math.round(document.querySelector("[data-block-sheet-panel]").offsetHeight * 0.12))
+    check(move && move.frames[0].translate === `0px ${startPx}px` && move.frames[0].scale === "0.92", `${label}: it starts 12% lower (${startPx}px) at 0.92 (${JSON.stringify(move?.frames[0])})`)
     check(move && /^0(px)?( 0(px)?)?$/.test(move.frames.at(-1).translate) && move.frames.at(-1).scale === "1", `${label}: it ends at rest (${JSON.stringify(move?.frames.at(-1))})`)
     check(fade && fade.frames[0].opacity === "0" && fade.frames.at(-1).opacity === "1", `${label}: it fades in from 0`)
     check(o.first && o.first.opacity < 0.6 && o.first.scale < 0.99, `${label}: the first frame drawn is not the sheet at rest (${JSON.stringify(o.first)})`)
@@ -204,7 +206,9 @@ try {
     console.log("   close animations", JSON.stringify(closeAnims))
     console.log("   close frames", JSON.stringify(shown.slice(-4)), `gone at ${goneAt}ms`)
     check(out && out.duration === 250, `${label}: Close takes 250ms (${out?.duration})`)
-    check(out && out.frames.at(-1).translate === "0px 10%" && out.frames.at(-1).scale === "0.94" && out.frames.at(-1).opacity === "0", `${label}: it leaves down 10%, at 0.94, clear (${JSON.stringify(out?.frames.at(-1))})`)
+    /* Changed on purpose (round AP): 10% of the sheet's height, in pixels. */
+    const endPx = Math.round(shape.h * 0.1)
+    check(out && out.frames.at(-1).translate === `0px ${endPx}px` && out.frames.at(-1).scale === "0.94" && out.frames.at(-1).opacity === "0", `${label}: it leaves down 10%, at 0.94, clear (${JSON.stringify(out?.frames.at(-1))})`)
     const mid = shown.find((f) => f.t > 90 && f.t < 200)
     check(mid && mid.y > 0 && mid.scale < 1 && mid.opacity < 1, `${label}: mid-close it is lower, smaller and fading (${JSON.stringify(mid)})`)
     check(goneAt !== null && goneAt >= 220 && goneAt <= 380, `${label}: gone after ${goneAt}ms`)
