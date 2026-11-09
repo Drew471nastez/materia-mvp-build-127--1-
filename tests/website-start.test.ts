@@ -353,7 +353,8 @@ section("From the page to the editor's Ask panel")
   check("  and hands it to whichever panel is showing, sent after the website has loaded",
     /* Round L: a second ask (Edit with AI again, Ask AI to fix) is a new id, so the chat sends it too. */ /startAsk && !loading && !loadFailed && !teamMember \? \{ id: startAskSeq, text: startAsk \} : null/.test(arrive) && (editor.match(/sendRequest=\{startSend\}\s*onSendRequestTaken=\{startTaken\}/g) ?? []).length === 2 &&
       /const startTaken = useCallback\(\(\) => setStartAsk\(null\), \[\]\)/.test(editor))
-  check("  a description with no job is built in the editor's own request (the fallback before SQL part 380)", /if \(waiting\) \{\s*setGenSource\(\{ kind: "inline", prompt: waiting\.prompt \}\)/.test(arrive))
+  /* Changed on purpose (round AQ): the description is also kept as the inline build's record (saveInlineBuild) before the build starts, so a reload carries it on. */
+  check("  a description with no job is built in the editor's own request (the fallback before SQL part 380)", /if \(waiting\) \{\s*saveInlineBuild\(stored, installId, \{ prompt: waiting\.prompt, checkpoint: null \}\)\s*setGenSource\(\{ kind: "inline", prompt: waiting\.prompt \}\)/.test(arrive))
   const chat = code("components/website-builder/theme-chat.tsx")
   check("the Ask panel sends it through its own submit, as if typed, after the history is read",
     /const submitRef = React\.useRef\(submit\)/.test(chat) && /if \(text === null \|\| !wanted \|\| loadingHistory\) return\s*pendingSend\.current = null\s*submitRef\.current\(text\)/.test(chat) &&

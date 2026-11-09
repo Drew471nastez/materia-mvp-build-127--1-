@@ -5,6 +5,14 @@
  * writes: every visible word a setting, colours from the scheme, spacing from
  * settings. They are HAND WRITTEN: a benchmark built on them measures the
  * pipeline, never a real model's taste.
+ *
+ * Changed on purpose (round AQ): the defaults that were slots ("Write the
+ * story of the collection here", "Write where the studio is here.", "Say in
+ * two lines what this collection is", "Write your licence terms here.") are
+ * final words now: the agent's write_file refuses a placeholder, as the
+ * classic job does (lib/website-builder/ai-site/gate.ts). The issue cover's
+ * standfirst and the essay's text, both richtext, are printed with | raw: drawn
+ * in a browser they showed their <p> tags as text, which the gate now refuses.
  */
 import { ABOUT, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS } from "./ai-builder-agent-fixtures"
 
@@ -85,7 +93,7 @@ const ISSUE_COVER = component({
   template: `<section class="cv" data-scheme="{{ settings.color_scheme }}" style="{{ROOT}}">
   <p class="cv__label">{{ settings.label }}</p>
   <h1 class="cv__h">{{ settings.heading }}</h1>
-  <div class="cv__dek">{{ settings.dek }}</div>
+  <div class="cv__dek">{{ settings.dek | raw }}</div>
   {% if settings.link_label %}<a class="cv__more" href="{{ settings.link_url | default: '/journal' | url }}">{{ settings.link_label }}</a>{% endif %}
 </section>`,
   style: `.cv { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; padding: calc(var(--s-pt) * 1.4) var(--theme-padding-x, 24px) var(--s-pb); background: var(--s-bg); color: var(--s-text); }
@@ -97,7 +105,7 @@ const ISSUE_COVER = component({
   settings: [
     { type: "text", id: "label", label: "Label", default: "The autumn edit" },
     { type: "text", id: "heading", label: "Heading", default: "Wool, cut close" },
-    { type: "richtext", id: "dek", label: "Standfirst", default: "<p>Say in two lines what this collection is and who made it.</p>" },
+    { type: "richtext", id: "dek", label: "Standfirst", default: "<p>A small autumn collection in wool, made in one studio and sold here first.</p>" },
     { type: "text", id: "link_label", label: "Link", default: "Read the journal" },
     { type: "url", id: "link_url", label: "Link goes to", default: "/journal" },
   ],
@@ -108,7 +116,7 @@ const ESSAY = component({
   name: "Essay in columns",
   template: `<section class="es" data-scheme="{{ settings.color_scheme }}" style="{{ROOT}}">
   <h2 class="es__h">{{ settings.heading }}</h2>
-  <div class="es__body">{{ settings.body }}</div>
+  <div class="es__body">{{ settings.body | raw }}</div>
   <p class="es__by">{{ settings.byline }}</p>
 </section>`,
   style: `.es { padding: var(--s-pt) var(--theme-padding-x, 24px) var(--s-pb); background: var(--s-bg); color: var(--s-text); }
@@ -118,7 +126,7 @@ const ESSAY = component({
 @container (min-width: 760px) { .es__body { columns: 2; } }`,
   settings: [
     { type: "text", id: "heading", label: "Heading", default: "On making less" },
-    { type: "richtext", id: "body", label: "Text", default: "<p>Write the story of the collection here: the cloth, the mill, the hands.</p>" },
+    { type: "richtext", id: "body", label: "Text", default: "<p>Eleven pieces in undyed wool from one mill, cut close and finished by hand.</p>" },
     { type: "text", id: "byline", label: "Byline", default: "Words by the studio" },
   ],
 })
@@ -141,7 +149,7 @@ const COLOPHON = component({
   settings: [
     { type: "text", id: "brand", label: "Name", default: "Maison Vale" },
     { type: "link_list", id: "menu", label: "Links", default: "main-menu" },
-    { type: "text", id: "note", label: "Small print", default: "Write where the studio is here." },
+    { type: "text", id: "note", label: "Small print", default: "Made in small runs. Sent in recycled paper." },
   ],
 })
 
@@ -237,7 +245,7 @@ const BEAT_FOOTER = component({
   template: `<footer class="sf" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }};"><p class="sf__line">{{ settings.line }}</p></footer>`,
   style: `.sf { padding: 18px var(--theme-padding-x, 20px); background: var(--s-bg); color: var(--s-text); font-size: 12px; }
 .sf__line { margin: 0; }`,
-  settings: [{ type: "text", id: "line", label: "Line", default: "Write your licence terms here." }],
+  settings: [{ type: "text", id: "line", label: "Line", default: "Licensed for one release. Ask before a sync." }],
 })
 
 export const C: Design = {

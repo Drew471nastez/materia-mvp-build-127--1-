@@ -186,3 +186,13 @@ Changing an event kind, status, phase or step means changing the TypeScript list
 * The checkpoint is bounded at 256 KB (column CHECK allows 400 KB of JSON text); L3 must compact before saving.
 * One live job per install is a partial unique index created only when no install already has two live jobs (part 401 says so in a notice); the route checks it too.
 * The SQL harness (`scripts/sql-harness/run.sh editor`) runs both bundles twice with part 401 and the check row reads `p401_ai_builder_agent = t`. Its second-run schema diff shows policy text drift on `form_bookings`, `form_submissions`, `native_forms` (parts 372/375, unrelated to this round).
+
+---
+
+## 8. After round AP met round L (round AQ)
+
+* **Which engine runs.** `startEngine()` (`lib/website-builder/ai-site/start.ts`) makes a new Start with AI job `classic` unless the platform sets `AI_BUILDER_AGENT=1`. Classic is the five step job plus round AP's `code` step (stored as step `build` with `state.coding`, because part 380's step CHECK has no `code`): its own header, footer and custom sections written by `writerCoder`, the theme's frame removed (`placementOps`). The agent engine is the same freedom by construction: `ai_` files, its own chrome, Theme settings as tokens.
+* **One gate.** `lib/website-builder/ai-site/gate.ts` holds the file rules both engines refuse a file for, in the same words: a secret or env read, a remote script, a typed picture, a loop with no reduced motion rule, no settings, a header without the menu (the classic job also asks it of the footer), a picture default that is not https, a richtext setting printed without `| raw`, a placeholder, a banned word or an em dash. `acceptCoded` (classic) and `validateFile` (agent, `gate.*` codes) both call it.
+* **One craft.** `STUDIO_CRAFT` (`ai-site/craft.ts`) is in the classic planner and coder prompts and, whole, in `AGENT_SYSTEM`. The agent is told to write its own header and footer in place of the theme's in theme mode too, and no longer to leave "goes here" slots.
+* **Inline build.** Without the jobs table, `themes/[installId]/generate` sends a checkpoint with every saved state; the editor keeps the latest in this tab (`start-handoff.ts saveInlineBuild`) and a reload carries the build on. A closed tab or another device cannot: before part 380 there is no server row to keep it in, and the website's own settings and files are published and synced, so they are not a place for a description.
+* **Measured.** `scripts/check-ai-sample-site.mjs` draws the test designs end to end through the real engine at 390 and 1440; `scripts/check-website-refresh.mjs` counts the Website page's `router.refresh()` calls per trigger.

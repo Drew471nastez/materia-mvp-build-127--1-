@@ -246,3 +246,90 @@ export function newStartKey(): string {
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
   }
 }
+
+/* ===========================================================================
+ *  THE INLINE BUILD ACROSS A RELOAD (round AQ)
+ * ===========================================================================
+ * Without the jobs table the build runs inside the editor's own request
+ * (themes/[installId]/generate). A reload ends that request, and the build
+ * with it: the description had already been cleared when the first section
+ * landed, so the reloaded editor found nothing and the site stayed half
+ * made. Now the request sends a checkpoint after every step and wave (the
+ * plan and what is done, never the operations: the drafts hold those), and
+ * this tab keeps the latest beside the description under the website's id.
+ * The reloaded editor sends it back and the build carries on from there.
+ *
+ * WHY THIS TAB AND NOT THE SERVER. Before SQL part 380 there is no table to
+ * keep a build in, and the website's own rows are not a place for it: its
+ * settings and files are published with the site (a checkpoint holds the
+ * person's description), shown in the code editor and synced to GitHub. The
+ * server still trusts nothing in it: the route checks the caller owns the
+ * website, re-reads every coded file from this install's own rows, and can
+ * only build what a new plan could. So a closed tab, or another device,
+ * cannot carry the build on: the drafts made so far stay, and Ask AI or a
+ * new Start with AI picks it up from there.
+ */
+
+/** How long a build's checkpoint is kept in this tab: as long as a description waits. */
+export const INLINE_TTL_MS = START_TTL_MS
+/** A checkpoint larger than this is not kept (sessionStorage is about 5 MB for the whole origin). */
+export const INLINE_MAX_CHARS = 1_500_000
+
+export function inlineKey(installId: string): string {
+  return `storelib:start-ai-inline:${installId}`
+}
+
+export interface InlineBuild {
+  prompt: string
+  /** The route's last checkpoint, as it sent it. Null before the first one: the build starts again from the description. */
+  checkpoint: unknown
+}
+
+/** Keeps the build's description and latest checkpoint. False when the tab will not keep it. */
+export function saveInlineBuild(storage: StartStorage | null | undefined, installId: string, build: InlineBuild, now = Date.now()): boolean {
+  if (!storage || !installId || !build.prompt.trim() || build.prompt.length > START_PROMPT_MAX) return false
+  try {
+    const text = JSON.stringify({ prompt: build.prompt, checkpoint: build.checkpoint ?? null, at: now })
+    if (text.length > INLINE_MAX_CHARS) return false
+    storage.setItem(inlineKey(installId), text)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** The build this tab was running on this website, if it was cut short. Old or unreadable entries are removed. */
+export function readInlineBuild(storage: StartStorage | null | undefined, installId: string, now = Date.now()): InlineBuild | null {
+  if (!storage || !installId) return null
+  let raw: string | null = null
+  try {
+    raw = storage.getItem(inlineKey(installId))
+  } catch {
+    return null
+  }
+  if (!raw) return null
+  try {
+    const e = JSON.parse(raw) as { prompt?: unknown; checkpoint?: unknown; at?: unknown }
+    const prompt = typeof e.prompt === "string" ? e.prompt : ""
+    const at = typeof e.at === "number" ? e.at : NaN
+    const age = now - at
+    if (!prompt.trim() || prompt.length > START_PROMPT_MAX || !Number.isFinite(at) || age < 0 || age > INLINE_TTL_MS) {
+      clearInlineBuild(storage, installId)
+      return null
+    }
+    return { prompt, checkpoint: e.checkpoint && typeof e.checkpoint === "object" ? e.checkpoint : null }
+  } catch {
+    clearInlineBuild(storage, installId)
+    return null
+  }
+}
+
+/** The build finished or failed for good: nothing to carry on. */
+export function clearInlineBuild(storage: StartStorage | null | undefined, installId: string): void {
+  if (!storage || !installId) return
+  try {
+    storage.removeItem(inlineKey(installId))
+  } catch {
+    /* nothing kept */
+  }
+}

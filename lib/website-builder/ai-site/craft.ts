@@ -34,8 +34,12 @@ REVIEW YOUR OWN WORK: before you answer, look at it as the client would. If it c
 /** Words the studio never ships, as whole words. Shared with the deterministic check. */
 export const BANNED_COPY = /\b(unlock(s|ed|ing)?|elevat(e|es|ed|ing)|seamless(ly)?|powerful(ly)?|effortless(ly)?|supercharg(e|es|ed|ing)|transform(s|ed|ing|ative)?|game[- ]?changer|cutting[- ]edge|next[- ]level|empower(s|ed|ing)?|streamlin(e|es|ed|ing))\b/i
 
-/** Text a writer leaves when it did not finish: lorem ipsum, TODO, square bracket slots, "Your heading here". */
-export const PLACEHOLDER_COPY = /(lorem ipsum|dolor sit amet|\bTODO\b|\bTBD\b|\bFIXME\b|\[(?:your|insert|add|company|brand|name|title|image|heading|text)[^\]]{0,40}\]|\{\{\s*placeholder|\byour (?:heading|title|text|tagline|company name|brand name) here\b|\bheading goes here\b|\btext goes here\b|\bplaceholder text\b|\bexample\.com\b)/i
+/**
+ * Text a writer leaves when it did not finish: lorem ipsum, TODO, square bracket slots, "Your heading here".
+ * Round AQ: any "... goes here" slot and "Write your ... here" too ("Your class times go here", "Your story goes
+ * here"), which the agent engine's fixtures had shown a model it may write. A missing fact is left out, never a slot.
+ */
+export const PLACEHOLDER_COPY = /(lorem ipsum|dolor sit amet|\bTODO\b|\bTBD\b|\bFIXME\b|\[(?:your|insert|add|company|brand|name|title|image|heading|text)[^\]]{0,40}\]|\{\{\s*placeholder|\byour (?:heading|title|text|tagline|company name|brand name) here\b|\b(?:goes|go) here\b|\b(?:write|add|insert|put|enter) (?:your|the) [a-z' ]{1,40} here\b|\bplaceholder text\b|\bexample\.com\b)/i
 
 /** The first banned word in `text`, or null. Markup is ignored. */
 export function slopIn(text: string): string | null {
