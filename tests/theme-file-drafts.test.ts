@@ -274,7 +274,7 @@ async function main() {
     const sql = readFileSync(join(root, "supabase/sql/RUN_THEME_FILE_DRAFTS.sql"), "utf8")
 
     check("saving goes through the draft half", /const saved = await saveDraft\(db, installId, path, content\)/.test(files) && /saveThemeFile\(/.test(files))
-    check("and records a version", /await recordVersion\(db, installId, path, content, "save"\)/.test(files))
+    check("and records a version", /* Round L: with who wrote it (SQL part 401 author). */ /await recordVersion\(db, installId, path, content, "save", \{ author: opts\.author, jobId: opts\.jobId \}\)/.test(files))
     check("publishing promotes the drafts, beside the sections it already promoted", /await promoteFileDrafts\(admin, installId\)/.test(publish) && publish.indexOf("await promoteFileDrafts(admin, installId)") > publish.indexOf("draft_sections: null"))
     /**
      * The one that keeps the whole thing meaningful: a visitor reads

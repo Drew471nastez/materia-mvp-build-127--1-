@@ -191,7 +191,7 @@ function main() {
   console.log("\nSaving what a push brought")
 
   const sync = read("lib/github-sync/sync.ts")
-  check("through the one save every editor uses: compiled first, a draft, versioned", /saveThemeFile\(db, link\.install_id, f\.path, text\)/.test(sync))
+  check("through the one save every editor uses: compiled first, a draft, versioned", /* Round L: recorded as GitHub's (version author "import"). */ /saveThemeFile\(db, link\.install_id, f\.path, text, \{ author: "import" \}\)/.test(sync))
   // Changed on purpose: "the same" is now the same bytes, by git blob sha, against what GitHub and Storelib last agreed on.
   check("a file Storelib already has is skipped, so a redelivered webhook changes nothing",
     /agreed\[f\.path\] === f\.sha \|\| currentSha\.get\(f\.path\) === f\.sha/.test(sync) && /out\.unchanged\.push\(f\.path\)/.test(sync))

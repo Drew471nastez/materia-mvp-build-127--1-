@@ -16,7 +16,8 @@
 import { LIMITS, type ThemeError } from "@/lib/storelib-theme/types"
 import { compileSection, compileThemeFile } from "@/lib/storelib-theme/storelib/compile"
 import { CHROME_TYPES, chromeRefusal, declaredKind, kindTaken } from "@/lib/storelib-theme/chrome"
-import { recordVersion, saveDraft, sourceMap, type FileRow } from "./theme-file-drafts"
+import { latestAuthor, recordVersion, saveDraft, sourceMap, type FileRow, type VersionMeta } from "./theme-file-drafts"
+import { fileVersion } from "@/lib/ai-builder/file-version"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
 import { compatOf, compatValues } from "@/lib/storelib-theme/compat/install"
@@ -129,7 +130,8 @@ export type SaveResult =
       status: number
       error: string
       errors?: ThemeError[]
-      conflict?: { updated_at: string; content: string }
+      /** What is there now (the draft, which is what the writer would have seen), and who wrote it when that is known. */
+      conflict?: { updated_at: string; content: string; version?: string; author?: string | null }
     }
 
 /**
@@ -184,8 +186,18 @@ export async function saveThemeFile(
   installId: string,
   path: string,
   sent: string,
-  /** `author`/`jobId`: recorded on the version row (an AI job's writes, SQL part 401). */
-  opts: { baseUpdatedAt?: string; author?: "creator" | "ai" | "import" | "restore"; jobId?: string } = {},
+  opts: {
+    baseUpdatedAt?: string
+    /**
+     * sha256 of the draft text the writer read (ProjectFileWrite in
+     * lib/ai-builder/types.ts), or null for "a file I believe is new".
+     * Undefined skips the check. A mismatch is a 409 with what is there now.
+     */
+    expectedVersion?: string | null
+    /** Who is writing, for the version row: the code editor is "creator", the AI "ai", a GitHub push "import". */
+    author?: VersionMeta["author"]
+    jobId?: string | null
+  } = {},
 ): Promise<SaveResult> {
   let content = sent
   let notes: string[] = []
@@ -288,24 +300,36 @@ export async function saveThemeFile(
     }
   }
 
-  const { data: current } = await db
+  const withDraftRead = await db
     .from("store_theme_custom_files")
-    .select("path, content, updated_at")
+    .select("path, content, draft_content, updated_at")
     .eq("install_id", installId)
     .eq("path", path)
     .maybeSingle()
+  const { data: current } = withDraftRead.error
+    ? await db.from("store_theme_custom_files").select("path, content, updated_at").eq("install_id", installId).eq("path", path).maybeSingle()
+    : withDraftRead
+  /* The text a writer would have read: the draft where there is one (theme-file-drafts.ts editorContent). */
+  const draftText: string | null = current ? ((current as { draft_content?: string | null }).draft_content ?? current.content ?? "") : null
 
   /**
-   * HAS IT MOVED SINCE? Only checked when the caller said what it loaded,
-   * and refused only when the row is genuinely newer. The answer carries
-   * what is there now, so the caller can show both rather than just no.
+   * HAS IT MOVED SINCE? Checked when the caller said what it loaded: the
+   * row's time (the code editor), or the version of the text it read (the
+   * agent and the builder, ProjectFileWrite.expectedVersion), and refused
+   * only when the file is genuinely different. The answer carries what is
+   * there now (the draft, not what is live: it is what the other writer
+   * wrote) and who wrote it, so the caller can offer both rather than just no.
    */
-  if (opts.baseUpdatedAt && current && current.updated_at && current.updated_at !== opts.baseUpdatedAt) {
+  const movedByTime = !!(opts.baseUpdatedAt && current && current.updated_at && current.updated_at !== opts.baseUpdatedAt)
+  const movedByVersion =
+    opts.expectedVersion !== undefined &&
+    (opts.expectedVersion === null ? draftText !== null && draftText !== "" : draftText === null || fileVersion(draftText) !== opts.expectedVersion)
+  if ((movedByTime || movedByVersion) && !(draftText !== null && draftText === content)) {
     return {
       ok: false,
       status: 409,
       error: "This file was saved somewhere else while you were editing it.",
-      conflict: { updated_at: current.updated_at, content: current.content },
+      conflict: { updated_at: current?.updated_at ?? "", content: draftText ?? "", version: draftText === null ? undefined : fileVersion(draftText), author: await latestAuthor(db, installId, path) },
     }
   }
 
@@ -330,9 +354,7 @@ export async function saveThemeFile(
    */
   const saved = await saveDraft(db, installId, path, content)
   if (saved.ok === false) return { ok: false, status: 500, error: saved.error }
-  /* An AI job's save says so on its version row (author, job_id: SQL part 401). */
-  if (opts.author || opts.jobId) await recordVersion(db, installId, path, content, "save", { author: opts.author, jobId: opts.jobId })
-  else await recordVersion(db, installId, path, content, "save")
+  await recordVersion(db, installId, path, content, "save", { author: opts.author, jobId: opts.jobId })
   if (rebuildsSettingsPanel(path)) notes = [...notes, ...(await rebuildSettingsPanel(db, installId, { path, text: content }))]
   /* A setting the file added, or a default it moved, has its default under the values nobody set, so the live site draws it too. */
   if (path === THEME_SCHEMA_FILE) await fillSchemaDefaults(db, installId, content)

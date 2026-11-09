@@ -37,6 +37,12 @@ const FilesBodySchema = z.object({
    * older client still saves rather than breaking.
    */
   base_updated_at: z.string().optional(),
+  /**
+   * Round L: the sha256 of the draft text the writer read (ProjectFileWrite
+   * in lib/ai-builder/types.ts), null for a file it believes is new. The
+   * builder's own writes send it; a mismatch is the same 409 as above.
+   */
+  expected_version: z.string().regex(/^[0-9a-f]{64}$/).nullable().optional(),
 })
 
 const SAFE_PATH = (p: string) => !p.includes("..") && !p.startsWith("/") && !p.includes("\0") && !p.includes("\\")
@@ -307,6 +313,9 @@ export async function PUT(req: Request, { params }: Params) {
    */
   const result = await saveThemeFile(supabase, installId, path, content, {
     baseUpdatedAt: parsed.data.base_updated_at,
+    expectedVersion: parsed.data.expected_version,
+    /* A person, in the code editor or the builder: the history says "You". */
+    author: "creator",
   })
   if (result.ok === false) {
     return NextResponse.json(

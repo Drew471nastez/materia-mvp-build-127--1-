@@ -168,9 +168,24 @@ export async function saveDraft(
   return { ok: true, row: direct.data as FileRow, drafts: false }
 }
 
+/** Who wrote a version (store_theme_file_versions.author, SQL part 401), and the agent job when it was one. */
+export interface VersionMeta {
+  author?: "creator" | "ai" | "import" | "restore"
+  jobId?: string | null
+}
+
+/** The database does not have part 401's author columns yet. */
+function noAuthorColumns(message: string | undefined): boolean {
+  return !!message && /\b(author|job_id)\b/i.test(message) && /column|schema cache|does not exist/i.test(message)
+}
+
 /**
  * A new row in the file's history. Never allowed to fail the save that caused
  * it: a record of a save is worth less than the save.
+ *
+ * WHO WROTE IT (round L): the person, the AI, a GitHub push or a restore,
+ * so the history can say "AI" beside a version and an AI job can be undone
+ * by itself. Before SQL part 401 the row is written without it, as before.
  */
 export async function recordVersion(
   db: Db,
@@ -178,18 +193,16 @@ export async function recordVersion(
   path: string,
   content: string,
   kind: "save" | "publish" | "restore" = "save",
-  /**
-   * Who wrote it and in which AI job (SQL part 401 columns). Optional: every
-   * existing caller is unchanged, and before part 401 has run the row is
-   * written without them rather than not at all.
-   */
-  meta?: { author?: "creator" | "ai" | "import" | "restore"; jobId?: string },
+  meta: VersionMeta = {},
 ): Promise<boolean> {
   try {
-    const row = { install_id: installId, path, content, kind }
-    const extra = { ...(meta?.author ? { author: meta.author } : {}), ...(meta?.jobId ? { job_id: meta.jobId } : {}) }
-    let { error } = await db.from("store_theme_file_versions").insert({ ...row, ...extra })
-    if (error && Object.keys(extra).length && /author|job_id|does not exist|schema cache/i.test(error.message ?? "")) ({ error } = await db.from("store_theme_file_versions").insert(row))
+    const row: Record<string, unknown> = { install_id: installId, path, content, kind }
+    if (meta.author) row.author = meta.author
+    if (meta.jobId) row.job_id = meta.jobId
+    let { error } = await db.from("store_theme_file_versions").insert(row)
+    if (error && (meta.author || meta.jobId) && noAuthorColumns(error.message)) {
+      ;({ error } = await db.from("store_theme_file_versions").insert({ install_id: installId, path, content, kind }))
+    }
     if (error) return false
   } catch {
     return false
@@ -220,21 +233,46 @@ export interface FileVersion {
   content: string
   kind: string
   created_at: string
+  /** Who wrote it; null before SQL part 401 or for a row from before it. */
+  author: string | null
+  job_id: string | null
 }
 
 export async function listVersions(db: Db, installId: string, path: string): Promise<FileVersion[]> {
-  try {
-    const { data, error } = await db
+  const read = (columns: string) =>
+    db
       .from("store_theme_file_versions")
-      .select("id, path, content, kind, created_at")
+      .select(columns)
       .eq("install_id", installId)
       .eq("path", path)
       .order("created_at", { ascending: false })
       .limit(50)
+  try {
+    let { data, error } = await read("id, path, content, kind, created_at, author, job_id")
+    /* Before part 401: the same list, nobody named. */
+    if (error && noAuthorColumns(error.message)) ({ data, error } = await read("id, path, content, kind, created_at"))
     if (error) return []
-    return (data ?? []) as FileVersion[]
+    return ((data ?? []) as Partial<FileVersion>[]).map((v) => ({ ...v, author: v.author ?? null, job_id: v.job_id ?? null }) as FileVersion)
   } catch {
     return []
+  }
+}
+
+/** The newest version's author, for a conflict's "the AI changed this file". Null when unknown. */
+export async function latestAuthor(db: Db, installId: string, path: string): Promise<string | null> {
+  try {
+    const { data, error } = await db
+      .from("store_theme_file_versions")
+      .select("author")
+      .eq("install_id", installId)
+      .eq("path", path)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error) return null
+    return typeof (data as { author?: unknown } | null)?.author === "string" ? (data as { author: string }).author : null
+  } catch {
+    return null
   }
 }
 

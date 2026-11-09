@@ -34,6 +34,7 @@ import { ProductListControl, ProductPickerControl } from "./product-list-control
 import { VideoPickerControl } from "./video-picker-control"
 import { VideoUrlControl } from "./video-url-control"
 import { ColorSchemeControl } from "./color-scheme-control"
+import { AnimationControl, isAnimationField } from "./animation-control"
 import { REVIEW_CONFIG_FIELD, ReviewWidgetConfigControl } from "./review-widget-config-control"
 
 export { DynamicSourceField } from "./dynamic-source-field"
@@ -42,13 +43,14 @@ export { EditorFieldProvider, SiblingSettingsProvider, type EditorFieldEnv, type
 
 /** The types this folder draws, for FieldEditor's label rule and the docs. */
 export const REGISTERED_CONTROLS = [
-  "inline_richtext", "html", "color_background", "datetime", "focal_point", "image_picker", "file_picker", "video_url", "video_picker", "product_list", "product_picker", "link_list", "menus", "community_picker", "form_picker",
-  "collection_picker", "collection_list", "number", "font_picker", "css", "color_scheme",
+  "inline_richtext", "html", "color_background", "datetime", "focal_point", "image_picker", "file_picker", "video_url", "video_picker", "product_list", "product_picker", "link_list", "menus", "community_picker",
+  "collection_picker", "collection_list", "number", "font_picker", "css", "color_scheme", "form_picker",
 ] as const
 
 /** Controls that print their own name, so the panel does not label them twice. */
 export function controlCarriesOwnLabel(kind: string): boolean {
-  return kind === "color_background"
+  /* The form picker prints its name over its list, as it does everywhere a form is picked. */
+  return kind === "color_background" || kind === "form_picker"
 }
 
 export function renderRegisteredControl(
@@ -61,6 +63,8 @@ export function renderRegisteredControl(
   const fallback = typeof field.default === "string" ? field.default : ""
   /* A Reviews widget section's saved look: a text setting by its schema, a list of the store's saved looks here (lib/reviews/widgets). */
   if (field.id === REVIEW_CONFIG_FIELD && kind === "text") return <ReviewWidgetConfigControl value={str} onChange={onChange} label={field.label} />
+  /* A component's own entrance animation (lib/ai-builder/manifest.ts): "Same as site" says which one that is. */
+  if (isAnimationField({ ...field, type: kind })) return <AnimationControl value={value} onChange={onChange} options={field.options ?? []} label={field.label} />
   switch (kind) {
     case "inline_richtext":
       return <InlineRichTextControl value={str} onChange={onChange} placeholder={field.placeholder} label={field.label} />
@@ -92,8 +96,6 @@ export function renderRegisteredControl(
       return <MenusEditor value={value} onChange={onChange} />
     case "community_picker":
       return <CommunityPickerControl value={str} onChange={onChange} label={field.label} />
-    case "form_picker":
-      return <FormPickerControl value={str} onChange={onChange} label={field.label} />
     case "collection_picker":
       return <CollectionPickerControl value={str} onChange={onChange} label={field.label} />
     case "collection_list":
@@ -108,6 +110,9 @@ export function renderRegisteredControl(
     /* The theme's own schemes on an imported theme, Storelib's on its own (color-scheme-control.tsx). */
     case "color_scheme":
       return <ColorSchemeControl value={str} onChange={onChange} fallback={fallback} label={field.label} />
+    /* One of the creator's own forms (round L): the forms picker every other place uses. L4 resolves the id on the page. */
+    case "form_picker":
+      return <FormPickerControl value={str} onChange={onChange} label={field.label} />
     /* A paragraph from a .storelib schema says what it says in `content`. */
     case "paragraph":
       return field.content ? <p className="text-xs text-muted-foreground leading-relaxed">{field.content}</p> : null

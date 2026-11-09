@@ -34,6 +34,17 @@ function sectionAnimationAttr(v: unknown): string | undefined {
   return typeof v === "string" && v !== "theme" && (SECTION_ANIMATIONS as readonly string[]).includes(v) ? v : undefined
 }
 
+/** A section's own animation duration and delay (ms), as the attributes the reveal reads; nothing for a section that has neither. */
+export function animationTimingAttrs(settings: Record<string, unknown> | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {}
+  const ms = (v: unknown, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) ? String(Math.round(Math.min(hi, Math.max(lo, v)))) : null)
+  const d = ms(settings?.animation_duration, 150, 1500)
+  const w = ms(settings?.animation_delay, 0, 1000)
+  if (d !== null) out["data-animation-duration"] = d
+  if (w !== null) out["data-animation-delay"] = w
+  return out
+}
+
 /** A section's Show on choice as the box's attribute: nothing for "both", which is every section until somebody picks. */
 export function showOnAttr(v: unknown, inEditor: boolean): Record<string, string> {
   if (v !== "desktop" && v !== "mobile") return {}
@@ -181,6 +192,8 @@ export function renderSection(props: SectionProps) {
       data-anchor-alias={ownAnchor(props.section) || undefined}
       /* The section's own entrance animation, when it chose one over the theme's. */
       data-animation={sectionAnimationAttr(entranceSetting(props.section))}
+      /* Its own duration and delay, when its code declares them (round L, lib/ai-builder/manifest.ts animation timing): read by section-motion.ts installReveal. */
+      {...animationTimingAttrs(props.section.settings)}
       /* Show on: desktop only or phones only (theme-css.ts themeStylesheet). Faint in the builder rather than gone, so it can still be picked. */
       {...showOnAttr(props.section.settings?.show_on, props.isEditing === true || props.insideEditor === true)}
       {...tokens}
