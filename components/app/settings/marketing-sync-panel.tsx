@@ -17,6 +17,7 @@ import * as React from "react"
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Notice, SelectInput, TextInput, Toggle, api, dateTime, peekGet } from "@/components/physical/ui"
+import { marketingFrom } from "@/lib/emails/shapes"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
@@ -105,7 +106,11 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
   const name = NAME[provider]
   /* MailerLite and Kit: Storelib can make the group or tag itself. Known before the first read too. */
   const makesList = provider === "mailerlite" || provider === "kit"
-  const [all, setAll] = React.useState<MarketingState[] | null>(() => peekGet<{ marketing: MarketingState[] }>(MARKETING_PATH)?.marketing ?? null)
+  /* Every answer checked at the door (lib/emails/shapes.ts): a list of states, never an object `.find` falls over on. */
+  const [all, setAll] = React.useState<MarketingState[] | null>(() => {
+    const kept = peekGet<{ marketing?: unknown }>(MARKETING_PATH)
+    return kept ? marketingFrom(kept.marketing) : null
+  })
   const state = all?.find((s) => s.provider === provider) ?? null
   const [key, setKey] = React.useState("")
   const [lists, setLists] = React.useState<{ id: string; name: string }[] | null>(null)
@@ -118,7 +123,10 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
   const [confirmOff, setConfirmOff] = React.useState(false)
 
   const take = React.useCallback(
-    (next: MarketingState[]) => {
+    (raw: unknown) => {
+      /* An answer without the list keeps what is shown. */
+      if (!Array.isArray(raw)) return
+      const next = marketingFrom(raw)
       setAll(next)
       onChanged?.(next)
     },
