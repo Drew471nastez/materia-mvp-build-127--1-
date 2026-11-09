@@ -620,6 +620,8 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
           chosenTab={tab}
           skeletonAtOnce={heldOut === shown && current.loading}
           loading={current.loading}
+          error={current.data === undefined && current.error ? String(current.error) : null}
+          onRetry={() => void load(keyFor(shown), loaderFor(shown))}
           customerEmails={customerEmails ?? null}
           onCustomerEmails={(d) => write<CustomerEmailsData>(keyFor("customer"), () => d)}
           platforms={platforms ?? null}

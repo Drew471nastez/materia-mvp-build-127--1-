@@ -23,6 +23,7 @@
 import * as React from "react"
 import { ArrowLeft, ChevronDown } from "lucide-react"
 import { ShimmerRows } from "@/components/ui/shimmer"
+import { TrendMiniChart } from "@/components/analytics/trend-mini-chart"
 import { formsRequest } from "@/lib/forms/client"
 import { answerText, type Answer } from "@/lib/forms/definition"
 import type { FormInsights } from "@/lib/forms/insights"
@@ -33,6 +34,7 @@ import { StatusBadge, buttonSecondary, card, iconButton } from "../../orders/ord
 import type { MessageRow } from "../emails-home"
 
 const muted = "text-[13px] text-[#6b7280]"
+const NO_COMPARE: number[] = []
 
 export function contactOpenHref(from: "form_submission" | "site_form_submission" | "subscriber", id: string): string {
   return `/app/contacts/open?from=${from}&id=${encodeURIComponent(id)}`
@@ -146,7 +148,8 @@ export function ResponsesPanel({ formId, quiz, focus = null }: { formId: string;
   return (
     <section className={cn(card, "overflow-hidden")} aria-label={tt("Responses")} data-form-responses={formId}>
       <div className="flex items-center justify-between gap-3 border-b border-[#f1f2f4] px-4 py-3">
-        <h2 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Responses")}</h2>
+        {/* The tab above already says Responses (round 52): the bar says the order and holds the export. */}
+        <p className="text-[13px] text-[#6b7280]">{tt("Newest first")}</p>
         <a className={buttonSecondary} href={`/api/leads/export?form=${encodeURIComponent(formId)}`} data-responses-export="">
           {tt("Export CSV")}
         </a>
@@ -208,21 +211,34 @@ export function ResponsesPanel({ formId, quiz, focus = null }: { formId: string;
   )
 }
 
+/**
+ * A breakdown, drawn as Analytics draws its top rows (app/(storelib)/app/
+ * analytics/analytics-reports.tsx Trend): the name and the figure on one
+ * line, a thin grey bar under them for its share (round 52; it was a black
+ * bar on a track, a style no other page used).
+ */
+const ROW_FILL = "bg-[linear-gradient(180deg,#e8eaee_0%,#dcdfe4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),inset_0_0_0_1px_rgba(16,24,40,0.04)]"
 function Bars({ items, label }: { items: { label: string; count: number }[]; label: string }) {
   const top = Math.max(1, ...items.map((i) => i.count))
   return (
-    <ul className="space-y-2" aria-label={label}>
+    <ol className="flex flex-col gap-2" aria-label={label}>
       {items.map((i) => (
-        <li key={i.label} className="grid grid-cols-[minmax(0,140px)_minmax(0,1fr)_48px] items-center gap-3 text-[13px]">
-          <span className="truncate text-[#4b5563]">{i.label}</span>
-          <span className="h-2 overflow-hidden rounded-full bg-[#f1f2f4]">
-            <span className="block h-full rounded-full bg-[#1a1a2e]" style={{ width: `${Math.round((i.count / top) * 100)}%` }} />
-          </span>
-          <span className="text-right tabular-nums text-[#1a1a2e]">{formatNumber(i.count)}</span>
+        <li key={i.label} className="min-w-0">
+          <div className="flex h-[18px] items-baseline gap-2 text-[12.5px]">
+            <span className="min-w-0 flex-1 truncate text-[#303036]">{i.label}</span>
+            <span className="shrink-0 font-medium tabular-nums text-[#1a1a2e]">{formatNumber(i.count)}</span>
+          </div>
+          <div aria-hidden className={cn(ROW_FILL, "mt-0.5 h-1 rounded-full")} style={{ width: `${Math.max(2, Math.round((i.count / top) * 100))}%` }} />
         </li>
       ))}
-    </ul>
+    </ol>
   )
+}
+
+/** "Oct 21", for a week's first day (YYYY-MM-DD), the bucket names Analytics' charts read. */
+function weekLabel(day: string): string {
+  const d = new Date(`${day}T12:00:00Z`)
+  return Number.isNaN(d.getTime()) ? day : d.toLocaleDateString(appLocale(), { month: "short", day: "numeric", timeZone: "UTC" })
 }
 
 export function InsightsPanel({ formId }: { formId: string }) {
@@ -242,30 +258,29 @@ export function InsightsPanel({ formId }: { formId: string }) {
   if (error) return <section className={card}><Empty title={tt("Insights did not load")} detail={error} /></section>
   if (!data) return <section className={card}><ShimmerRows rows={3} header={false} cols={["30%", "50%"]} label={tt("Loading")} /></section>
   if (!data.total) return <section className={card}><Empty title={tt("No responses yet")} detail={tt("Insights show once the form has responses.")} /></section>
-  const weekTop = Math.max(1, ...data.weeks.map((w) => w.count))
   const box = cn(card, "p-4 sm:p-5")
   return (
     <div className="space-y-4" data-form-insights={formId}>
-      <section className={cn(box, "grid grid-cols-3 gap-3")}>
+      {/* The figures in one strip, as Emails and Orders draw theirs. */}
+      <section className={cn(card, "flex overflow-hidden")} aria-label={tt("Responses")}>
         {[
           { label: tt("Responses"), value: data.total },
           { label: tt("Last 30 days"), value: data.last30 },
           { label: tt("Left contact details"), value: data.identified },
-        ].map((f) => (
-          <div key={f.label} className="min-w-0">
-            <p className="text-[12.5px] leading-tight text-[#6b7280]">{f.label}</p>
-            <p className="mt-0.5 text-[22px] font-semibold tabular-nums text-[#1a1a2e]">{formatNumber(f.value)}</p>
+        ].map((f, i) => (
+          <div key={f.label} className={cn("min-w-0 flex-1 px-4 py-3", i > 0 && "border-l border-[#eef0f2]")}>
+            <p className="truncate text-[12px] font-medium text-[#4b5563]">{f.label}</p>
+            <p className="mt-1 text-[16px] font-semibold tabular-nums text-[#1a1a2e]">{formatNumber(f.value)}</p>
           </div>
         ))}
       </section>
-      <section className={box}>
+      {/* Analytics' own trend chart (components/analytics/trend-mini-chart): its line, its hover readout. */}
+      <section className={box} data-insights-weeks="">
         <h2 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Responses per week")}</h2>
-        <div className="mt-3 flex h-[96px] items-end gap-1.5" role="img" aria-label={tt("Responses per week, last 12 weeks")}>
-          {data.weeks.map((w) => (
-            <span key={w.start} title={`${w.start}: ${w.count}`} className="flex-1 rounded-t-[3px] bg-[#1a1a2e]/80" style={{ height: `${Math.max(2, Math.round((w.count / weekTop) * 96))}px` }} />
-          ))}
+        <p className={muted}>{tt("The last 12 weeks.")}</p>
+        <div className="mt-4">
+          <TrendMiniChart labels={data.weeks.map((w) => weekLabel(w.start))} current={data.weeks.map((w) => w.count)} previous={NO_COMPARE} format={(n) => formatNumber(n)} height={120} label={tt("Responses")} />
         </div>
-        <p className={cn(muted, "mt-2")}>{tt("The last 12 weeks.")}</p>
       </section>
       <div className="grid gap-4 md:grid-cols-2">
         <section className={box}>

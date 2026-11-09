@@ -52,7 +52,7 @@ import { formatNumber } from "@/lib/i18n/format"
 import { RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card } from "../../orders/order-parts"
 import { MessagePage } from "../message-detail"
 import type { MessageRow } from "../emails-home"
-import { InsightsPanel, MessagesInbox, ResponsesPanel, SiteFormPanel, contactOpenHref, when } from "./form-panels"
+import { InsightsPanel, MessagesInbox, ResponsesPanel, SiteFormPanel, contactOpenHref } from "./form-panels"
 import { routeOf, type FormView, type FormsRoute } from "./forms-route"
 
 /** The starting points, named for the creator's language (the ids are lib/forms/templates'). */
@@ -305,19 +305,30 @@ export function FormsList({ framed = false }: { framed?: boolean } = {}) {
   const nothing = !forms.length && !websiteCount
   const usedOn = (u: FormUsage[] | undefined) => (u && u.length ? u.map(usageWords).join(" · ") : tt("Not placed on a page yet"))
   const row = "flex items-center gap-1 transition-colors duration-75 hover:bg-[#fafbfb]"
-  const rowButton = "flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 text-left"
+  const rowButton = "flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 text-left outline-none focus-visible:bg-[#f8f9fa]"
+  /*
+    ONE ROW SHAPE (round 52). The status sits in its own column on a
+    computer, the same distance from the edge on every row (a row with no
+    menu keeps the menu's room), and on a phone under the title, beside what
+    it is, as Products draws a product: the title and where the form is used
+    are then not cut down to three words by the badge.
+  */
+  const menuRoom = <span aria-hidden className="block h-9 w-9 shrink-0" />
   const responses = (n: number) => tt("{n, plural, one {# response} other {# responses}}", { n })
+  const statusBadge = (f: ListedForm) => <StatusBadge tone={f.status === "published" ? "success" : "neutral"}>{f.status === "published" ? tt("Published") : tt("Draft")}</StatusBadge>
+  const inboxBadge = <StatusBadge tone="attention">{tt("{n} new", { n: formatNumber(unread) })}</StatusBadge>
 
   return wrap(
     <div data-forms-list="">
-      <div className="flex min-h-[48px] flex-wrap items-center justify-between gap-3">
-        {pills.length > 2 ? <FilterPills<Filter> label={tt("Show")} options={pills} value={filter} onChange={setFilter} /> : <span />}
+      {/* The pills and New form on one row, on a phone too: the pills scroll sideways under their fade, New form stays put (round 52). */}
+      <div className="flex min-h-[48px] items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">{pills.length > 2 ? <FilterPills<Filter> label={tt("Show")} options={pills} value={filter} onChange={setFilter} /> : null}</div>
         {missing ? null : (
           <ResponsiveActionMenu
             title={tt("Start from")}
             align="end"
             trigger={
-              <button type="button" className={buttonAccent} disabled={busy} data-new-form="">
+              <button type="button" className={cn(buttonAccent, "shrink-0")} disabled={busy} data-new-form="">
                 <Plus className="h-4 w-4" />
                 {tt("New form")}
               </button>
@@ -345,17 +356,11 @@ export function FormsList({ framed = false }: { framed?: boolean } = {}) {
                   {tt("Try again")}
                 </button>
               </div>
-            ) : nothing ? (
-              <div className="flex flex-col items-center px-6 py-14 text-center">
+            ) : !forms.length && (filter === "all" || filter === "forms") ? (
+              /* No form of their own yet, whether or not a website one is listed under it (round 52: the website inbox alone hid this). */
+              <div className={cn("flex flex-col items-center px-6 text-center", nothing ? "py-14" : "border-b border-[#f1f2f4] py-10")} data-forms-empty="">
                 <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("No forms yet")}</p>
-                <p className="mt-1 max-w-[380px] text-[13px] text-[#6b7280]">{tt("Contact forms, applications, quizzes and bookings. One form works on your OnePage, your website and your creator page.")}</p>
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  {TEMPLATE_CHOICES.slice(0, 4).map((t) => (
-                    <button key={t.id} type="button" className={buttonSecondary} disabled={busy} onClick={() => void create(t.id)}>
-                      {templateLabel(t.id)}
-                    </button>
-                  ))}
-                </div>
+                <p className="mt-1 max-w-[380px] text-[13px] text-[#6b7280]">{tt("Start one with New form. The same form works on your OnePage, website and Creator Page.")}</p>
               </div>
             ) : null}
             <ul className="divide-y divide-[#f1f2f4]">
@@ -364,11 +369,14 @@ export function FormsList({ framed = false }: { framed?: boolean } = {}) {
                   <button type="button" className={rowButton} onClick={() => go({ form: f.id })}>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{f.title || tt("Untitled form")}</span>
-                      <span className="block truncate text-[13px] text-[#6b7280]">
-                        {kindWord(f.kind ?? "form")} · {responses(f.responses ?? 0)} · <span data-form-usage="">{usedOn(f.usages)}</span>
+                      <span className="mt-0.5 flex min-w-0 items-center gap-2 text-[13px] text-[#6b7280]">
+                        <span className="shrink-0 sm:hidden">{statusBadge(f)}</span>
+                        <span className="truncate">
+                          {kindWord(f.kind ?? "form")} · {responses(f.responses ?? 0)} · <span data-form-usage="">{usedOn(f.usages)}</span>
+                        </span>
                       </span>
                     </span>
-                    <StatusBadge tone={f.status === "published" ? "success" : "neutral"}>{f.status === "published" ? tt("Published") : tt("Draft")}</StatusBadge>
+                    <span className="shrink-0 max-sm:hidden">{statusBadge(f)}</span>
                   </button>
                   <div className="shrink-0 pr-2">
                     <ResponsiveActionMenu title={f.title || tt("Form")} align="end" trigger={<RowMenuButton label={tt("Actions for {title}", { title: f.title || tt("Untitled form") })} />} items={menuFor(f)} />
@@ -377,28 +385,33 @@ export function FormsList({ framed = false }: { framed?: boolean } = {}) {
               ))}
               {showWebsite && showInbox ? (
                 <li className={row} data-form-row="inbox">
-                  <button type="button" className={cn(rowButton, "pr-4")} onClick={() => go({ inbox: true })}>
+                  <button type="button" className={rowButton} onClick={() => go({ inbox: true })}>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{tt("Website contact form")}</span>
-                      <span className="block truncate text-[13px] text-[#6b7280]">
-                        {kindWord("website")} · {tt("{n, plural, one {# message} other {# messages}}", { n: inbox?.rows.length ?? 0 })} · {tt("Your websites")}
+                      <span className="mt-0.5 flex min-w-0 items-center gap-2 text-[13px] text-[#6b7280]">
+                        {unread ? <span className="shrink-0 sm:hidden">{inboxBadge}</span> : null}
+                        <span className="truncate">
+                          {kindWord("website")} · {tt("{n, plural, one {# message} other {# messages}}", { n: inbox?.rows.length ?? 0 })} · {tt("Your websites")}
+                        </span>
                       </span>
                     </span>
-                    {unread ? <StatusBadge tone="attention">{tt("{n} new", { n: formatNumber(unread) })}</StatusBadge> : <StatusBadge tone="success">{tt("Published")}</StatusBadge>}
+                    {unread ? <span className="shrink-0 max-sm:hidden">{inboxBadge}</span> : null}
                   </button>
+                  <div className="shrink-0 pr-2">{menuRoom}</div>
                 </li>
               ) : null}
               {showWebsite
                 ? siteForms.map((f) => (
                     <li key={f.id} className={row} data-site-form-row={f.id}>
-                      <button type="button" className={cn(rowButton, "pr-4")} onClick={() => go({ siteform: f.id })}>
+                      <button type="button" className={rowButton} onClick={() => go({ siteform: f.id })}>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{f.name || tt("Untitled form")}</span>
-                          <span className="block truncate text-[13px] text-[#6b7280]">
-                            {kindWord("website")} · {responses(f.responses)} · {f.site_name ? tt("Website: {name}", { name: f.site_name }) : tt("Website")} · {when(f.created_at)}
+                          <span className="mt-0.5 block truncate text-[13px] text-[#6b7280]">
+                            {kindWord("website")} · {responses(f.responses)} · {f.site_name ? tt("Website: {name}", { name: f.site_name }) : tt("Website")}
                           </span>
                         </span>
                       </button>
+                      <div className="shrink-0 pr-2">{menuRoom}</div>
                     </li>
                   ))
                 : null}

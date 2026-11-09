@@ -89,7 +89,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 createRoot(document.getElementById("app")!).render(
   <PlatformSettingsProvider exploreMarketplace={false} buyerHeaderLight={false} physicalCommerce>
     <div id="shell" style={{ position: "fixed", inset: 0 }}>
-      <EmailsClient initialTab="subscribers" />
+      <EmailsClient initialTab="campaigns" />
     </div>
   </PlatformSettingsProvider>,
 )

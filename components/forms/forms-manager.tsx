@@ -418,7 +418,8 @@ export function FormEditor({
 
       <section aria-labelledby="settings-h">
         <h3 id="settings-h" className={cn(heading, "mb-2.5")}>
-          {tt("Settings")}
+          {/* On the form's page Settings is a tab of its own beside Edit (round 52): this group is the form's options there. The builder over an editor keeps its word. */}
+          {inPage ? tt("Options") : tt("Settings")}
         </h3>
         <div className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e3e4e8] bg-white">
           <Disclosure id="after" title={tt("After sending")} summary={afterSummary} open={openSetting === "after"} onToggle={() => toggleSetting("after")}>
@@ -541,6 +542,7 @@ export function FormEditor({
   /* ── The page (Contacts › Forms › a form): its tabs, one column, no side panel. ── */
   if (inPage) {
     const card = pageCard
+    const TitleTag = framed ? "h1" : "h2"
     return (
       <div className={framed ? "mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8" : ""} data-form-builder="" data-form-view={view}>
         <header className="mb-5 space-y-3">
@@ -550,10 +552,11 @@ export function FormEditor({
                 <ArrowLeft className="h-[18px] w-[18px]" />
               </button>
               <div className="min-w-0">
-                <h1 className="flex min-w-0 items-center gap-2.5 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">
+                {/* Inside Contacts the page's own title is Forms (round 52): the form's name is the sub-page's, as the inbox and a message draw theirs. */}
+                <TitleTag className={cn("flex min-w-0 items-center gap-2.5 font-bold text-[#1a1a2e]", framed ? "text-[24px] sm:text-[28px]" : "text-[20px] leading-7")}>
                   <span className="truncate">{draft.title || tt("Untitled form")}</span>
                   {status}
-                </h1>
+                </TitleTag>
                 {unpublished ? <p className={muted}>{dirty ? tt("Unsaved changes") : tt("The draft has changes that are not published")}</p> : null}
               </div>
             </div>
