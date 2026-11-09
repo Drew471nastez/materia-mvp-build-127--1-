@@ -137,7 +137,7 @@ export const FAQ = `<template>
   "blocks": [
     { "type": "question", "name": "Question", "settings": [
       { "type": "text", "id": "question", "label": "Question", "default": "Do I need to be fit already?" },
-      { "type": "richtext", "id": "answer", "label": "Answer", "default": "<p>Write your answer here.</p>" }
+      { "type": "richtext", "id": "answer", "label": "Answer", "default": "<p>No. Every plan starts from where you are today.</p>" }
     ] }
   ],
   "max_blocks": 10
@@ -306,7 +306,7 @@ export const NOTE = `<template>
 export const PLACE = `<template>
 <section class="pl" data-scheme="{{ settings.color_scheme }}" style="${ROOT_VARS}">
   <h2 class="pl__h">{{ settings.heading }}</h2>
-  <p class="pl__addr">{{ settings.address }}</p>
+  {% if settings.address %}<p class="pl__addr">{{ settings.address }}</p>{% endif %}
   <div class="pl__how">{{ settings.directions | raw }}</div>
   {% if settings.link_label and settings.link_url %}<a class="pl__link" href="{{ settings.link_url | url }}">{{ settings.link_label }}</a>{% endif %}
 </section>
@@ -327,7 +327,7 @@ export const PLACE = `<template>
   "name": "Where to find us",
   "settings": [
     { "type": "text", "id": "heading", "label": "Heading", "default": "Where to find us" },
-    { "type": "text", "id": "address", "label": "Address", "default": "Your address goes here" },
+    { "type": "text", "id": "address", "label": "Address", "default": "" },
     { "type": "richtext", "id": "directions", "label": "Getting here", "default": "<p>Say how people get there and where to park.</p>" },
     { "type": "text", "id": "link_label", "label": "Link", "default": "About the coach" },
     { "type": "url", "id": "link_url", "label": "Link goes to", "default": "/about" },
