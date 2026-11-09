@@ -103,7 +103,8 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     return cp.caps ?? NO_CAPABILITIES
   }
 
-  const needsConcept = () => !job.edit && !cp.concept
+  /* An edit, or a redesign that only makes the changes asked (round M), works on the site as it is: no concept first. */
+  const needsConcept = () => !job.edit && job.redesign !== "changes" && !cp.concept
   const conceptFirst = "Hand in the visual concept first: report_progress with phase \"plan\" and a concept (name, mood, styles, typeSystem, palette, layout, motion, imagery, signatureMoves). Nothing was changed."
 
   function instancesOf(type: string, pages: StoredPage[]): SectionInstance[] {
@@ -393,18 +394,19 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     },
 
     async delete_file({ path }) {
-      if (!WRITABLE_PATH.test(path)) return { ok: false }
-      if (needsConcept()) return { ok: false }
+      /* A refusal says why (round M): a bare { ok: false } left the model guessing and retrying. */
+      if (!WRITABLE_PATH.test(path)) return { ok: false, reason: `${path} is not one of your files: only sections/ai_*, blocks/ai_* and snippets/ai_* .storelib files can be deleted.` }
+      if (needsConcept()) return { ok: false, reason: conceptFirst }
       const type = typeOfPath(path)
       const pages = await store.listPages()
-      if (path.startsWith("sections/") && instancesOf(type, pages).length) return { ok: false }
+      const placed = path.startsWith("sections/") ? pages.filter((p) => p.sections.some((s) => s.type === type)).map((p) => p.key) : []
+      if (placed.length) return { ok: false, reason: `${path} is placed on ${placed.join(", ")}. Take it off those pages with set_page_sections first.` }
       const r = await store.deleteFile(path, { author: "ai", jobId: job.jobId })
-      if (r.ok) {
-        delete cp.known[path]
-        cp.filesTouched = cp.filesTouched.filter((p) => p !== path)
-        ctx.emit({ kind: "file", path, action: "deleted", bytes: 0 })
-      }
-      return { ok: r.ok }
+      if (!r.ok) return { ok: false, reason: `${path} could not be deleted${r.error ? `: ${String(r.error).slice(0, 200)}` : ""}.` }
+      delete cp.known[path]
+      cp.filesTouched = cp.filesTouched.filter((p) => p !== path)
+      ctx.emit({ kind: "file", path, action: "deleted", bytes: 0 })
+      return { ok: true }
     },
 
     async list_pages() {
@@ -438,7 +440,12 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     set_page_sections: placeSections,
 
     async set_section_settings({ page, sectionId, settings }) {
-      return updateSection(page, sectionId, (s, info, c, pageKeys, menus) => cleanSettings(s.type, settings, info.settings, c, pageKeys, menus, `${page} › ${sectionId}`))
+      return updateSection(page, sectionId, (s, info, c, pageKeys, menus) => {
+        const r = cleanSettings(s.type, settings, info.settings, c, pageKeys, menus, `${page} › ${sectionId}`)
+        /* Every setting left out (none of them is the section's) is a refusal, not ok with warnings: nothing changed. */
+        if (!Object.keys(r.settings).length) return { issues: [...r.issues, { severity: "error", code: "settings.nothing", message: `${page} › ${sectionId}: nothing was changed. ${s.type}'s settings are: ${info.settings.map((f) => f.id).slice(0, 40).join(", ") || "(none)"}.` }] }
+        return r
+      })
     },
 
     async set_tokens({ tokens }) {
@@ -447,7 +454,9 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       const mapped = (deps.tokensToSettings ?? tokensToThemeSettings)(tokens ?? {}, current)
       if (Object.keys(mapped.settings).length) await store.writeSettings(mapped.settings)
       if (mapped.changed.length) ctx.emit({ kind: "tokens", changed: mapped.changed })
-      return { ok: mapped.changed.length > 0 || !mapped.issues.length, changed: mapped.changed, ...(mapped.issues.length ? { issues: mapped.issues } : {}) }
+      /* Nothing set is not ok, whatever the reason (round M): every value refused, or no tokens sent. */
+      if (!mapped.changed.length) return { ok: false, changed: [], issues: mapped.issues.length ? mapped.issues.map((i) => ({ ...i, severity: "error" as const })) : [{ severity: "error", code: "token.none", message: "No token was set: send colors, fonts, radius, spacing or the other DesignTokens fields." }] }
+      return { ok: true, changed: mapped.changed, ...(mapped.issues.length ? { issues: mapped.issues } : {}) }
     },
 
     async list_capabilities() {
@@ -497,20 +506,34 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     },
 
     async report_progress({ phase, label, concept, tasks }) {
-      let note: string | undefined
       if (Array.isArray(tasks)) cp.openTasks = tasks.filter((t) => typeof t === "string").map((t) => t.slice(0, 160)).slice(0, 20)
       if (concept !== undefined) {
         const read = readConcept(concept)
         if (read.ok === true) {
           cp.concept = read.concept
-          note = `Concept "${read.concept.name}" accepted. You can write now. Keep to it:\n${describeConcept(read.concept)}`
           ctx.setPhase("build", `Building ${read.concept.name}`)
-          return { ok: true, note }
+          return { ok: true, note: `Concept "${read.concept.name}" accepted. You can write now. Keep to it:\n${describeConcept(read.concept)}` }
         }
-        note = `The concept is missing: ${"missing" in read ? read.missing.join("; ") : "fields"}. Send it again with those.`
-      } else if (needsConcept()) note = conceptFirst
+        /*
+          A refused concept is a refusal, not a success with a footnote (round M): before, this answered
+          ok: true with a note, so the progress events showed a concept the validator threw out as fine
+          and the model could read "ok" and carry on. Now it is ok: false with every reason as an issue.
+        */
+        const missing = "missing" in read ? read.missing : ["the concept could not be read"]
+        if (needsConcept()) ctx.setPhase("plan", String(label ?? "").slice(0, 120))
+        return {
+          ok: false,
+          reason: `The visual concept needs another pass. Nothing was accepted${cp.concept ? ` (the concept "${cp.concept.name}" stays)` : " and the write tools stay closed"}. Fix every item below and send the whole concept again with report_progress phase "plan".`,
+          issues: missing.slice(0, 20).map((m) => ({ severity: "error" as const, code: "plan.concept_invalid", message: m.slice(0, 400) })),
+        }
+      }
+      if (needsConcept() && phase !== "plan") {
+        /* A move past plan without a concept is refused too: the phase stays plan and the model is told why. */
+        ctx.setPhase("plan", String(label ?? "").slice(0, 120))
+        return { ok: false, reason: conceptFirst, issues: [{ severity: "error", code: "plan.concept_missing", message: conceptFirst }] }
+      }
       ctx.setPhase(needsConcept() ? "plan" : phase === "finish" || phase === "verify" ? cp.phase : phase, String(label ?? "").slice(0, 120))
-      return { ok: true, ...(note ? { note } : {}) }
+      return { ok: true, ...(needsConcept() ? { note: "Noted. The write tools open once the visual concept is accepted: report_progress phase \"plan\" with a concept." } : {}) }
     },
 
     finish: (input) => ctx.onFinish(input),
@@ -543,7 +566,7 @@ export async function validateAll(ctx: Pick<ToolContext, "job" | "deps" | "cp">,
   }
   if (!opts.path) {
     if (cp.caps === undefined) cp.caps = (await deps.capabilities().catch(() => null)) ?? null
-    issues.push(...validateSite({ pages, sources: src, settings: theme, caps: cp.caps ?? null, mode: job.mode, ...(job.edit ? { only: new Set(cp.pagesTouched) } : {}) }))
+    issues.push(...validateSite({ pages, sources: src, settings: theme, caps: cp.caps ?? null, mode: job.mode, ...(job.edit || job.redesign === "changes" ? { only: new Set(cp.pagesTouched) } : {}) }))
   }
   return issues
 }

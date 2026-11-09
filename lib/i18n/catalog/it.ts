@@ -12932,7 +12932,28 @@ const words: Record<string, string> = {
  "Add to mine": "Aggiungi alla mia",
  "Without the theme": "Senza il tema",
  "The AI makes the header, footer and every section.": "L'IA crea intestazione, piè di pagina e ogni sezione.",
- "The {name} section showed an error on the page": "La sezione {name} ha mostrato un errore nella pagina"
+ "The {name} section showed an error on the page": "La sezione {name} ha mostrato un errore nella pagina",
+ "AI changes undone": "Modifiche dell'IA annullate",
+ "Your changes are ready": "Le tue modifiche sono pronte",
+ "Your changes are ready, with a few gaps": "Le tue modifiche sono pronte, con qualche lacuna",
+ "Your website is back as it was before this AI job. Nothing went live.": "Il tuo sito è tornato com'era prima di questo lavoro dell'IA. Niente è stato pubblicato.",
+ "A backup was saved before the AI started. Undo puts it back.": "Prima dell'avvio dell'IA è stato salvato un backup. Annulla lo ripristina.",
+ "Redesign with AI": "Ridisegna con l'IA",
+ "Undo this AI job": "Annulla questo lavoro dell'IA",
+ "{name} page": "Pagina {name}",
+ "Made after this backup": "Creato dopo questo backup",
+ "Removed, the AI made it": "Rimosso, l'ha creato l'IA",
+ "Stays, it is live": "Resta, è online",
+ "Stays": "Resta",
+ "Remove it too": "Rimuovi anche questo",
+ "Just these changes": "Solo queste modifiche",
+ "Your pages, words and products stay as they are.": "Pagine, testi e prodotti restano come sono.",
+ "A new look for the whole site": "Un nuovo aspetto per tutto il sito",
+ "Your words and products stay. The design changes.": "Testi e prodotti restano. Cambia il design.",
+ "The AI works on this whole website as a draft. A backup is saved first, so you can undo it in one step.": "L'IA lavora su tutto il sito come bozza. Prima viene salvato un backup, quindi puoi annullare in un passaggio.",
+ "What should change": "Cosa deve cambiare",
+ "Warmer colours, bigger product photos, and a short FAQ before the footer": "Colori più caldi, foto prodotto più grandi e brevi FAQ prima del footer",
+ "How far it goes": "Fin dove arriva"
 }
 
 export default words

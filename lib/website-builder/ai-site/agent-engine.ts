@@ -19,7 +19,8 @@ import "server-only"
  * runner (the canvas's error events, part 405).
  *
  * The switch is the platform's: AI_BUILDER_AGENT=1 makes new Start with AI
- * jobs agent jobs (lib/website-builder/ai-site/start.ts startEngine).
+ * jobs agent jobs for everyone, AI_BUILDER_AGENT_ACCOUNTS for the accounts
+ * it lists (./agent-access.ts, round M).
  * registerAgentStepper replaces the loop (tests, a scripted stepper).
  */
 import type { AgentStepContext, AgentStepper, AgentStepperFactory, AgentStepResult } from "@/lib/ai-builder/agent-step"
@@ -61,6 +62,7 @@ export function sliceStepper(deps: AgentDeps, now: () => number = Date.now): Age
         spentUsd: ctx.usage.usd,
         lastEventSeq: cp.seq,
         ...(ctx.job.edit ? { edit: true } : {}),
+        ...(ctx.job.redesign && !ctx.job.edit ? { redesign: ctx.job.redesign.scope } : {}),
       }
       const r = await runAgentSlice(
         input,
@@ -143,7 +145,10 @@ export async function agentStepperFactory(): Promise<AgentStepperFactory | null>
   return registered
 }
 
-/** Whether new Start with AI jobs should use the agent engine. */
+/**
+ * The platform's global switch only (AI_BUILDER_AGENT=1). Routes ask agentEnabledFor (./agent-access.ts), which
+ * also reads the per-account allowlist AI_BUILDER_AGENT_ACCOUNTS.
+ */
 export function agentEngineEnabled(): boolean {
   return process.env.AI_BUILDER_AGENT === "1"
 }

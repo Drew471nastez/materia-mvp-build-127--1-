@@ -206,12 +206,13 @@ async function main() {
   const eHome = installPages(w, eInstall).home.draft ?? []
   check("E: complete", bE.status === "complete", { status: bE.status, tail: jobEvents(w, bE.jobId).slice(-5).map((x) => [x.kind, x.payload]) })
   check("  the theme's header and footer stay; the offer band is added; the spotlight kept by id with its binding", eHome.map((s: { type: string }) => s.type).join() === "header,ai_offer_band,product_spotlight,footer" && eHome.find((s: { id: string }) => s.id === spotlightId)?.settings?.button_url === e.productId, eHome.map((s: { type: string; id: string; settings: unknown }) => [s.type, s.id, s.settings]))
-  /* Taken by the person through the Backups route: the job itself takes none (architecture D4's backup first is not wired; no route starts a whole site job on an existing website). */
+  /* Taken by the person through the Backups route here. Redesign with AI (round M, POST themes/[id]/redesign) takes one itself before the job: tests/ai-builder-redesign-m1.test.ts. */
   check("  a backup was taken through the Backups route before the AI ran", backupId.length > 0)
   const restore = await j.call(`POST /api/website-builder/themes/${eInstall}/backups/${backupId}/restore`, { as: e.person })
   const afterRestore = { pages: Object.fromEntries(Object.entries(installPages(w, eInstall)).map(([k, p]) => [k, p.draft ?? p.sections])), settings: installSettings(w, eInstall).draft ?? installSettings(w, eInstall).settings }
   check("  restoring that backup brings every page and the settings back exactly", restore.status === 200 && JSON.stringify(afterRestore) === JSON.stringify(before), { status: restore.status, json: restore.json })
-  check("  (the AI's file stays in the project, placed nowhere, so nothing draws it)", "sections/ai_offer_band.storelib" in installFiles(w, eInstall) && Object.values(installPages(w, eInstall)).every((p) => !(p.draft ?? p.sections).some((s: { type: string }) => s.type === "ai_offer_band")))
+  /* Changed on purpose (round M): the AI's file used to stay behind, placed nowhere. A file the AI added after the backup and never published now goes with the restore (lib/website-builder/added-since.ts). */
+  check("  the AI's file, added after the backup, is removed with the restore; nothing places it", !("sections/ai_offer_band.storelib" in installFiles(w, eInstall)) && (restore.json?.added?.removed ?? []).some((i: { key: string }) => i.key === "sections/ai_offer_band.storelib") && Object.values(installPages(w, eInstall)).every((p) => !(p.draft ?? p.sections).some((s: { type: string }) => s.type === "ai_offer_band")), restore.json?.added)
 
   section("F: a blank website without AI is as before")
   const f = await seller(w, "bench-f")
@@ -391,7 +392,8 @@ async function main() {
       ],
     },
     { calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }], ["set_page_sections", { page: "home", sections: [{ type: "ai_coach_hero" }, { type: "header" }] }]] },
-    { calls: [["set_page_sections", { page: "home", sections: [{ type: "ai_coach_hero" }] }]] },
+    /* The hero's button defaults to /programs, a page this one-page site does not have: a CTA to nowhere blocks finish (round M), so it is pointed at the shop. */
+    { calls: [["set_page_sections", { page: "home", sections: [{ type: "ai_coach_hero", settings: { cta_url: "/products" } }] }]] },
     { calls: [["finish", { summary: "Hero only." }]] },
   ]
   const jMade = await j.call("POST /api/website-builder/themes/create", { as: jSeller.person, body: { mode: "ai", prompt: "A hero.", key: "1b7c1e2a-0000-4000-8000-000000000150", options: { generation: "blank" } } })

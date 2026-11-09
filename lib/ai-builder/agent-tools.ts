@@ -71,7 +71,8 @@ export interface AgentToolOutputs {
   read_file: { path: string; content: string; version: string } | { path: string; missing: true }
   write_file: FileWriteResult
   edit_file: FileWriteResult
-  delete_file: { ok: boolean }
+  /** `reason` (round M): why a delete was refused, so the model can act on it. */
+  delete_file: { ok: boolean; reason?: string }
   list_pages: { pages: { key: string; title: string; sections: { id: string; type: string; group?: string }[] }[] }
   add_page: { ok: boolean; key: string; error?: string }
   set_page_sections: { ok: boolean; ids: string[]; issues?: ValidationIssue[] }
@@ -82,8 +83,13 @@ export interface AgentToolOutputs {
   search_knowledge: { entries: Pick<KnowledgeEntry, "id" | "kind" | "title" | "body" | "examples">[] }
   validate: { ok: boolean; issues: ValidationIssue[] }
   render_check: { ok: boolean; issues: ValidationIssue[]; htmlBytes: number }
-  /** `note` (L3 extension): what was missing from a concept, or that it was accepted. */
-  report_progress: { ok: true; note?: string }
+  /**
+   * `note` (L3 extension): that a concept was accepted, and what to keep to.
+   * Round M: a REFUSED report is `ok: false` with `reason` and `issues` (a concept
+   * that fails validateConcept, or a phase move before the concept), never
+   * `ok: true` with a note, so the model and the progress events both see the refusal.
+   */
+  report_progress: { ok: boolean; note?: string; reason?: string; issues?: ValidationIssue[] }
   /** Refused (ok false) while validate has errors and repairs remain. */
   finish: { ok: boolean; reason?: string }
 }

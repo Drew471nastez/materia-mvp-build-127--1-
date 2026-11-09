@@ -265,8 +265,10 @@ async function main() {
   {
     const route = read("app/api/website-builder/themes/[installId]/backups/[backupId]/restore/route.ts")
     check("the route has the whole function time and stops itself before it", /export const maxDuration = 300/.test(route) && /deadlineAt: startedAt \+ STOP_AFTER_MS/.test(route))
-    check("the safety copy is verified and taken before anything is written", /verify: true/.test(route) && route.indexOf("takeBackup(") < route.indexOf("await applySnapshot("))
-    check("  and the backup being restored is kept out of the pruning", /keep: backup\.id/.test(route))
+    /* Changed on purpose (round M): the steps moved to lib/website-builder/restore-backup.ts, shared with the AI job's Undo; the route calls it. */
+    const steps = read("lib/website-builder/restore-backup.ts")
+    check("the safety copy is verified and taken before anything is written", /restoreBackup\(/.test(route) && /verify: true/.test(steps) && steps.indexOf("takeBackup(") < steps.indexOf("await applySnapshot("))
+    check("  and the backup being restored is kept out of the pruning", /keep: backup\.id/.test(steps))
     const lib = read("lib/website-builder/backups.ts")
     check("a verified copy is read back by id and its fingerprint compared", /if \(opts\.verify\)[\s\S]{0,300}\.select\("id, fingerprint"\)[\s\S]{0,200}check\.fingerprint !== fingerprint/.test(lib))
     const ui = read("components/website-builder/website-settings/backups.tsx")

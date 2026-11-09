@@ -12932,7 +12932,28 @@ const words: Record<string, string> = {
  "Add to mine": "Adicionar à minha",
  "Without the theme": "Sem o tema",
  "The AI makes the header, footer and every section.": "A IA faz o cabeçalho, o rodapé e cada seção.",
- "The {name} section showed an error on the page": "A seção {name} mostrou um erro na página"
+ "The {name} section showed an error on the page": "A seção {name} mostrou um erro na página",
+ "AI changes undone": "Alterações da IA desfeitas",
+ "Your changes are ready": "Suas alterações estão prontas",
+ "Your changes are ready, with a few gaps": "Suas alterações estão prontas, com algumas lacunas",
+ "Your website is back as it was before this AI job. Nothing went live.": "Seu site voltou a ser como antes deste trabalho da IA. Nada foi publicado.",
+ "A backup was saved before the AI started. Undo puts it back.": "Um backup foi salvo antes de a IA começar. Desfazer o restaura.",
+ "Redesign with AI": "Redesenhar com IA",
+ "Undo this AI job": "Desfazer este trabalho da IA",
+ "{name} page": "Página {name}",
+ "Made after this backup": "Criado depois deste backup",
+ "Removed, the AI made it": "Removido, a IA criou",
+ "Stays, it is live": "Fica, está publicado",
+ "Stays": "Fica",
+ "Remove it too": "Remover também",
+ "Just these changes": "Só estas alterações",
+ "Your pages, words and products stay as they are.": "Suas páginas, textos e produtos ficam como estão.",
+ "A new look for the whole site": "Um visual novo para o site todo",
+ "Your words and products stay. The design changes.": "Seus textos e produtos ficam. O design muda.",
+ "The AI works on this whole website as a draft. A backup is saved first, so you can undo it in one step.": "A IA trabalha no site inteiro como rascunho. Um backup é salvo antes, então você pode desfazer em um passo.",
+ "What should change": "O que deve mudar",
+ "Warmer colours, bigger product photos, and a short FAQ before the footer": "Cores mais quentes, fotos de produto maiores e um FAQ curto antes do rodapé",
+ "How far it goes": "Até onde vai"
 }
 
 export default words

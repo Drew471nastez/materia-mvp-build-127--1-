@@ -28,7 +28,7 @@
  * whole jobs with a fake clock, crashes and duplicate kicks.
  */
 import type { AgentCounts, AgentErrorCode, AgentEventDraft, AgentJobInfo, AgentStepper, AgentStepperFactory, AgentUsage } from "@/lib/ai-builder/agent-step"
-import { AgentStepError, editScopeOf } from "@/lib/ai-builder/agent-step"
+import { AgentStepError, editScopeOf, redesignOf } from "@/lib/ai-builder/agent-step"
 import { DEFAULT_JOB_BUDGET, MAX_CHECKPOINT_BYTES, type AgentCheckpoint, type AgentEvent, type AgentJobStatus, type AgentPhase, type BudgetStop, type GenerationMode, type JobBudget, type RuntimePreviewError, type StartOptions } from "@/lib/ai-builder/types"
 import { PHASE_LABEL, stopCode, stopReason } from "./agent-progress"
 import { jobBrief } from "./job"
@@ -272,7 +272,8 @@ export function isTerminal(status: string): boolean {
 
 function infoOf(job: AgentJobRecord): AgentJobInfo {
   const edit = editScopeOf(job.options)
-  return { id: job.id, creatorId: job.creatorId, ownerUserId: job.ownerUserId, installId: job.installId, prompt: job.prompt, brief: jobBrief(job), mode: job.mode, options: job.options, ...(edit ? { edit } : {}) }
+  const redesign = edit ? null : redesignOf(job.options)
+  return { id: job.id, creatorId: job.creatorId, ownerUserId: job.ownerUserId, installId: job.installId, prompt: job.prompt, brief: jobBrief(job), mode: job.mode, options: job.options, ...(edit ? { edit } : {}), ...(redesign ? { redesign } : {}) }
 }
 
 function madeSomething(cp: AgentCheckpoint | null, counts: AgentCounts): boolean {
