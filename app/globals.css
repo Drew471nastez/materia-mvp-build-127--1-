@@ -2991,6 +2991,13 @@ iframe:is([src*="youtube.com/embed"], [src*="youtube-nocookie.com/embed"], [src*
 [data-link-tile] .op-btn > :not(div) { position: static; }
 [data-link-tile] .op-btn > div { padding-inline: 0; padding-left: 0; padding-right: 0; align-items: center; text-align: center; }
 [data-link-tile] .op-btn .op-label { text-align: center; }
+/* Round W8, "every Buttons setting works": a Grid tile follows Size (Mixed tiles' halves already do, by their padding),
+   and both follow Text on the left. Its icon stays above its words, so Icon on the left or right has no side to take there. */
+[data-link-tile] .op-btn[data-size="compact"] { min-height: 80px; padding-block: 12px; }
+[data-link-tile] .op-btn[data-size="large"] { min-height: 116px; padding-block: 22px; }
+:is([data-link-tile], [data-mixed-blocks] > [data-block-size="half"]) .op-btn[data-align="left"] { align-items: flex-start; padding-inline: 16px; }
+:is([data-link-tile], [data-mixed-blocks] > [data-block-size="half"]) .op-btn[data-align="left"] > div { align-items: flex-start; text-align: left; }
+:is([data-link-tile], [data-mixed-blocks] > [data-block-size="half"]) .op-btn[data-align="left"] .op-label { text-align: left; }
 
 /* HEADER, FLUSH LEFT: the classic header's picture, name and bio, and the social icons under them. The hero header keeps its own layout. */
 [data-op-align="left"] [data-op-header] { align-items: flex-start; text-align: left; }

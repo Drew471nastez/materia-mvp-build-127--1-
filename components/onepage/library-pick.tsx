@@ -28,6 +28,7 @@
 import * as React from "react"
 import { ChevronRight, FolderOpen } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { secondaryDepth } from "@/components/ui/depth-button"
 import { tt } from "@/lib/i18n/text"
 import { prefetchLibrary, type LibraryKind } from "@/components/files/files-library"
 
@@ -64,10 +65,8 @@ export function LibraryButton({ kind = "image", onClick, disabled, className }: 
       disabled={disabled}
       onPointerEnter={() => void prefetchLibrary(kind, { warmFirst: true })}
       data-library-pick={kind}
-      className={cn(
-        "inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[#e3e4e8] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8] disabled:cursor-default disabled:opacity-50",
-        className,
-      )}
+      /* Round W8: the same secondary as the Upload beside it (components/ui/depth-button). */
+      className={cn(secondaryDepth, "h-9 rounded-lg px-3 text-[13px]", className)}
     >
       {tt("Your files")}
     </button>

@@ -88,6 +88,8 @@ function BlockToggle({ checked, onCheckedChange, label }: { checked: boolean; on
 }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { secondaryDepth } from "@/components/ui/depth-button"
+import { rowCountLabel } from "@/lib/onepage/row-count"
 import { ColorRow, LabeledRow, RangeRow, Segmented, Switch } from "@/components/onepage/editor-kit"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { EditorSelect } from "@/components/onepage/editor-choice"
@@ -3679,7 +3681,7 @@ function BlockItem({
         })()}
 
         {/* Round AO: the row's tools as one tight cluster (sparkle, numbers, switch, more), so a title keeps its room on a 390px phone. */}
-        <div className="-mr-1 flex shrink-0 items-center gap-1 sm:gap-2" data-row-tools="">
+        <div className="-mr-1 flex shrink-0 items-center gap-1 sm:gap-1.5" data-row-tools="">
         {/*
           Round AN: the animation is the sparkle beside the numbers again, on the
           blocks the page animates (components/onepage/block-settings
@@ -3688,7 +3690,8 @@ function BlockItem({
         {ANIMATED_BLOCKS.has(block.type) && (
           <BlockAnimationButton value={(block.data as { animation_type?: string }).animation_type} onChange={setAnimation} />
         )}
-        {/* Stats control for link buttons and email capture */}
+        {/* Stats control for link buttons and email capture; a row without numbers keeps their room, so its switch lines up. */}
+        {!hasStats && <span aria-hidden className="block h-8 w-14 shrink-0" data-row-slot="stats" />}
         {hasStats && (
           <>
             <button
@@ -3698,12 +3701,15 @@ function BlockItem({
                 /* Opening the dialog fetches, in the effect that watches it. */
                 setShowStatsModal(true)
               }}
-              className="flex items-center gap-1 px-1.5 py-1 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              /* Round W8: one width on every row (the count kept to four characters, rowCountLabel), so nothing beside it moves from row to row. */
+              className="flex h-8 w-14 shrink-0 items-center gap-1 rounded-lg px-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
               title={tt("View Stats")}
+              aria-label={clickCount !== null ? `${tt("View Stats")}: ${clickCount}` : tt("View Stats")}
+              data-row-slot="stats"
             >
-              <BarChart2 className="h-4 w-4" />
+              <BarChart2 aria-hidden className="h-4 w-4 shrink-0" />
               {clickCount !== null && (
-                <span className="text-xs font-medium">{clickCount}</span>
+                <span className="text-xs font-medium tabular-nums">{rowCountLabel(clickCount)}</span>
               )}
             </button>
 
@@ -3761,28 +3767,10 @@ function BlockItem({
           is found at once (a menu on a computer, the shared sheet on a phone).
         */}
         {/*
-          Round AP, the owner: "more easy to delete, I think, as an icon". With a
-          mouse, a quiet bin beside the more button that shows on the row's
-          hover and asks the same question as the menu's Remove. Its place is
-          kept while hidden, so nothing in the row moves; a phone and a narrow
-          window never draw it and keep the more menu alone.
+          Round W8, the owner: the bin beside the switch left a hole where it hid and pushed the row about. Remove is
+          in the more menu only (components/onepage/block-remove BlockRowMenu), asking the same question first.
         */}
-        {!isHeaderBlock && (
-          <button
-            type="button"
-            data-block-quick-remove=""
-            aria-label={tt("Remove {title}", { title: preview.title })}
-            title={tt("Remove")}
-            onClick={(e) => {
-              e.stopPropagation()
-              setAskingRemove(true)
-            }}
-            className="hidden h-8 w-8 shrink-0 place-items-center rounded-lg text-[#9ca3af] opacity-0 outline-none transition-[opacity,background-color,color] duration-150 hover:bg-[#fef3f2] hover:text-[#b42318] focus-visible:opacity-100 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] group-hover/row:opacity-100 sm:pointer-fine:grid"
-          >
-            <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.8} />
-          </button>
-        )}
-        {!isHeaderBlock && (
+        {!isHeaderBlock ? (
           <BlockRowMenu
             ref={menuRef}
             name={preview.title}
@@ -3792,6 +3780,9 @@ function BlockItem({
             onMoveDown={onMoveDown}
             onAskRemove={() => setAskingRemove(true)}
           />
+        ) : (
+          /* The header has no menu: its room is kept, so its switch sits in the same column as every row's. */
+          <span aria-hidden className="block h-8 w-8 shrink-0" data-row-slot="menu" />
         )}
         </div>
       </div>
@@ -5020,7 +5011,7 @@ function BlockEditor({
                     variant="outline"
                     size="sm"
                     onClick={() => onOpenImageLibrary(block.id, 'product_image')}
-                    className="h-8 text-xs"
+                    className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-xs")}
                   >
                     <Upload className="w-3 h-3 mr-1.5" />
                     {data.product_image ? tt("Change") : tt("Upload")}
@@ -5710,7 +5701,7 @@ function BlockEditor({
                       variant="outline"
                       size="sm"
                       onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
-                      className="h-8 text-xs"
+                      className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-xs")}
                     >
                       <Upload className="w-3 h-3 mr-1.5" />
                       {data.thumbnail_url ? tt("Change") : tt("Upload")}
@@ -5871,7 +5862,7 @@ function BlockEditor({
                       variant="outline"
                       size="sm"
                       onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
-                      className="h-8 text-xs"
+                      className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-xs")}
                     >
                       <Upload className="w-3 h-3 mr-1.5" />
                       {data.thumbnail_url ? tt("Change") : tt("Upload")}
@@ -5996,7 +5987,7 @@ function BlockEditor({
                       variant="outline"
                       size="sm"
                       onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
-                      className="h-8 text-xs"
+                      className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-xs")}
                     >
                       <Upload className="w-3 h-3 mr-1.5" />
                       {data.thumbnail_url ? tt("Change") : tt("Upload")}

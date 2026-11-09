@@ -30,6 +30,7 @@
 import * as React from "react"
 import { ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { secondaryDepth } from "@/components/ui/depth-button"
 import { tt } from "@/lib/i18n/text"
 import { onePageImageSrc } from "@/lib/onepage/display-image"
 import { ONEPAGE_IMAGE_ACCEPT } from "@/lib/onepage/media-rules"
@@ -198,7 +199,9 @@ export function OnePageImageField({
               <button
                 type="button"
                 onClick={() => input.current?.click()}
-                className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-medium text-white"
+                /* Round W8: Storelib's secondary (components/ui/depth-button), not a solid black: the owner's "Upload | Your files". */
+                data-image-upload=""
+                className={cn(secondaryDepth, "h-9 rounded-lg px-3 text-[13px]")}
               >
                 {has ? tt("Replace") : tt("Upload")}
               </button>

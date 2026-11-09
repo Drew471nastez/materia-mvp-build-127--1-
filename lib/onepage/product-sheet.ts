@@ -158,6 +158,13 @@ export const SHEET_PHONE_RATIO = 4 / 5
 export const SHEET_COLUMN_RATIO = 1
 
 /**
+ * ROUND W8, THE SQUARE. "The main product image is tall/portrait": the sheet's gallery is a square on a phone and on
+ * a computer, the full width of the sheet's content, every picture filling it (object-cover) like the thumbnails
+ * under it. SHEET_PHONE_RATIO and sheetFrameRatio stay for what still reads them; the gallery reads this.
+ */
+export const SHEET_GALLERY_RATIO = 1
+
+/**
  * THE GALLERY'S FRAME (round AK): the first picture's own shape, once its padding is off (lib/images/letterbox), kept
  * between 9:16 and 1.91:1, and the same for every slide, so a swipe never resizes the sheet. Until that shape is
  * known, the box above. The other slides fill it when little is lost (mediaFit) and sit whole over a soft fill of
