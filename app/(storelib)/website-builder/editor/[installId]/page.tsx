@@ -1,5 +1,6 @@
 "use client"
 
+import { usePreviewErrorBridge } from "@/lib/ai-builder/use-preview-errors"
 import { SectionTitleRename } from "@/components/website-builder/editor/section-title-rename"
 import { explainSaveProblem, type SaveAction, type SaveProblem } from "@/lib/website-builder/save-problem"
 import { SaveProblemBanner } from "@/components/website-builder/editor/save-problem-banner"
@@ -3499,6 +3500,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     request ("inline"). A reload while the job runs finds it again in this tab's storage.
   */
   const [genSource, setGenSource] = useState<GenerationSource | null>(null)
+  /* A section script that throws in the canvas while an AI job builds this site goes back to the job (lib/ai-builder/preview-errors.ts). */
+  usePreviewErrorBridge({
+    jobId: genSource?.kind === "job" ? genSource.jobId : null,
+    installId,
+    page: currentPage,
+    typeOf: (id) => sectionsRef.current.find((s) => s.id === id)?.type ?? null,
+  })
   useEffect(() => {
     let stored: Storage | null = null
     try {
