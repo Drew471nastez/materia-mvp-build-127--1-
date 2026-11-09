@@ -386,7 +386,13 @@ export type AgentToolName = (typeof AGENT_TOOL_NAMES)[number]
 
 /* ── knowledge ────────────────────────────────────────────────────────── */
 
-export type KnowledgeKind = "style" | "layout" | "component" | "motion" | "industry" | "anti_slop" | "resource"
+/**
+ * L6 extended this with "core" (how the agent works a brief), "storelib" (presenting real store data) and
+ * "debugging" (repairing generated code): the library has entries of those kinds that fit none of the others.
+ * Typography and colour map to "style"; headers, footers and responsive to "layout"; states and accessibility
+ * to "component" (lib/storelib-ai/library/types.ts, KIND_OF_CATEGORY).
+ */
+export type KnowledgeKind = "style" | "layout" | "component" | "motion" | "industry" | "anti_slop" | "resource" | "core" | "storelib" | "debugging"
 
 export interface KnowledgeEntry {
   id: string
