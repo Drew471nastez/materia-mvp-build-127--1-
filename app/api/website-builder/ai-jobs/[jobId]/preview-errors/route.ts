@@ -46,7 +46,7 @@ export async function POST(req: Request, { params }: Params) {
   const row = job as { install_id: string; status: string }
   if (row.status !== "queued" && row.status !== "running") return new NextResponse(null, { status: 204 })
   const raw = Array.isArray((body as { errors?: unknown })?.errors) ? ((body as { errors: unknown[] }).errors) : []
-  const errors = raw.slice(0, PREVIEW_ERROR_LIMITS.perPost).map((e) => acceptPreviewError(e, { installId: row.install_id })).filter((e) => e !== null)
+  const errors = raw.slice(0, PREVIEW_ERROR_LIMITS.perPost).map((e) => acceptPreviewError(e, { installId: row.install_id })).filter((e): e is NonNullable<typeof e> => e !== null)
   if (!errors.length) return new NextResponse(null, { status: 204 })
   const admin = createAdminClient()
   let kept = 0
