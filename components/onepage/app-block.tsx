@@ -1095,6 +1095,6 @@ export function appBlockRow(block: OnePageBlock): { title: string; subtitle: str
     case "note":
       return { title: data.title?.trim() || data.text?.trim().slice(0, 40) || name, subtitle: name, icon }
     default:
-      return { title: data.title?.trim() || target?.handle || name, subtitle: target ? name : tt("Paste a {name} address", { name }), icon }
+      return { title: data.title?.trim() || target?.handle || name, subtitle: target ? name : tt("Add your {name} address", { name }), icon }
   }
 }
