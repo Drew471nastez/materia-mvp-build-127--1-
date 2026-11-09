@@ -35,6 +35,8 @@ import {
   START_LEAD,
   START_PROMPT_MAX,
   START_TTL_MS,
+  clearStartPrompt,
+  peekStartPrompt,
   readStartParam,
   saveStartPrompt,
   startKey,
@@ -274,7 +276,7 @@ section("The route, and Add left as it was")
   check("rate limited per person, as a site action", /rateLimit\(\{\s*bucket: "site-create",\s*subjects: \[`user:\$\{site\.userId\}`\],\s*windows: LIMITS\.siteAction/.test(route) && /if \(limited\) return limited/.test(route))
   check("a mode or a 400", /if \(!isStartMode\(mode\)\) return NextResponse\.json\(\{ error: "mode must be ai or blank" \}, \{ status: 400 \}\)/.test(route))
   check("the helper writes, with the caller's client for the count and the service role for the rows",
-    /const admin = createAdminClient\(\)/.test(route) && /createStartWebsite\(\{ supabase, admin \}, \{ creatorId, mode, name: body\?\.name \}\)/.test(route) && /const creatorId = creator\.id as string/.test(route))
+    /const admin = createAdminClient\(\)/.test(route) && /createStartWebsite\(\{ supabase, admin \}, \{ creatorId, mode, name: body\?\.name, chrome: generating && options\.generation === "blank" \? "none" : "theme" \}\)/.test(route) && /const creatorId = creator\.id as string/.test(route))
   check("  its refusal keeps the code the page opens the full library sheet for", /made\.code \? \{ error: made\.error, code: made\.code \}/.test(route))
   check("the cover is taken as Add takes it, and the answer carries the install",
     /coverForNewWebsite\(\{ installId: made\.install\.id, userId: site\.ownerUserId, creatorId \}, renderOrigin\(req\.url\), "create", null\)/.test(route) &&
@@ -297,7 +299,11 @@ section("From the page to the editor's Ask panel")
   const t0 = 1_800_000_000_000
   check("kept under the new website's own key", saveStartPrompt(storage, "abc", "  A bakery  ", t0) && startKey("abc") === "storelib:start-ai:abc" && store.has("storelib:start-ai:abc"))
   check("  another website's editor does not take it", takeStartPrompt(storage, "other", t0) === null && store.has("storelib:start-ai:abc"))
-  check("taken once: the words, then nothing", takeStartPrompt(storage, "abc", t0 + 5_000) === "A bakery" && takeStartPrompt(storage, "abc", t0 + 6_000) === null && !store.has("storelib:start-ai:abc"))
+  /* Round L: the words exactly as written (spaces too), and read without being removed until the build starts. */
+  check("  read back as written, and still there for a reload", peekStartPrompt(storage, "abc", t0 + 1_000)?.prompt === "  A bakery  " && store.has("storelib:start-ai:abc"))
+  check("taken once: the words, then nothing", takeStartPrompt(storage, "abc", t0 + 5_000) === "  A bakery  " && takeStartPrompt(storage, "abc", t0 + 6_000) === null && !store.has("storelib:start-ai:abc"))
+  saveStartPrompt(storage, "abc", "A bakery", t0, { generation: "blank", category: "candle_shop" })
+  check("  kept with the options chosen, until cleared", JSON.stringify(peekStartPrompt(storage, "abc", t0)?.options) === JSON.stringify({ generation: "blank", category: "candle_shop" }) && (clearStartPrompt(storage, "abc"), !store.has(startKey("abc"))))
   saveStartPrompt(storage, "abc", "Late", t0)
   check(`older than ${START_TTL_MS / 60_000} minutes: nothing is sent, and the entry is gone`, takeStartPrompt(storage, "abc", t0 + START_TTL_MS + 1) === null && !store.has(startKey("abc")))
   saveStartPrompt(storage, "abc", "Just in time", t0)
@@ -306,7 +312,8 @@ section("From the page to the editor's Ask panel")
   check("  one from a clock that moved back is not trusted", takeStartPrompt(storage, "abc", t0) === null)
   store.set(startKey("abc"), "{not json")
   check("  a broken entry is nothing, and removed", takeStartPrompt(storage, "abc", t0) === null && !store.has(startKey("abc")))
-  check(`at most ${START_PROMPT_MAX.toLocaleString("en")} characters`, saveStartPrompt(storage, "long", "x".repeat(5000), t0) && takeStartPrompt(storage, "long", t0)?.length === START_PROMPT_MAX)
+  /* Round L: never cut silently; one too long is not kept (the page cannot send one, the route refuses one). */
+  check(`at most ${START_PROMPT_MAX.toLocaleString("en")} characters, never cut`, !saveStartPrompt(storage, "long", "x".repeat(5000), t0) && saveStartPrompt(storage, "long", "x".repeat(START_PROMPT_MAX), t0) && takeStartPrompt(storage, "long", t0)?.length === START_PROMPT_MAX)
   const throwing = { getItem: () => { throw new Error("denied") }, setItem: () => { throw new Error("denied") }, removeItem: () => undefined }
   check("storage that refuses is no description, never an error", !saveStartPrompt(throwing, "abc", "x") && takeStartPrompt(throwing, "abc") === null && takeStartPrompt(null, "abc") === null && !saveStartPrompt(storage, "abc", "   "))
 
@@ -332,7 +339,7 @@ section("From the page to the editor's Ask panel")
   ]
   const kinds = examples.map((e) => classifyIntent(startMessage(e), { bodySections: 0 }).kind)
   check("every example, and a bare phrase, reaches the agent as a new website on the blank home page", kinds.every((k) => k === "NEW_SITE_GENERATION"), kinds)
-  const chips = read("app/(storelib)/app/website-builder/start-website.tsx")
+  const chips = read("lib/website-builder/ai-site/start-options.ts")
   check("  those are the page's own examples", examples.slice(0, 4).every((e) => chips.includes(JSON.stringify(e))))
 
   const editor = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
@@ -340,13 +347,13 @@ section("From the page to the editor's Ask panel")
   /* Start with AI is a server job now (tests/ai-site-generator.test.ts): job= and start= both come off the address first; a description without a job builds inline. */
   check("the editor takes start (and job) off the address first, then the description, once, on arrival",
     /const job = readJobParam\(window\.location\.href\)\s*if \(job\.cleaned !== null\) window\.history\.replaceState\(window\.history\.state, "", job\.cleaned\)\s*const read = readStartParam\(window\.location\.href\)\s*if \(read\.cleaned !== null\) window\.history\.replaceState\(window\.history\.state, "", read\.cleaned\)/.test(arrive) &&
-      arrive.indexOf("replaceState") < arrive.indexOf("takeStartPrompt(stored, installId)") && /\}, \[\]\)/.test(arrive))
+      arrive.indexOf("replaceState") < arrive.indexOf("peekStartPrompt(stored, installId)") && /\}, \[\]\)/.test(arrive))
   check("  opens the Ask panel once the website is up (with or without a description)",
     /if \(!startOpen \|\| loading \|\| teamMember\) return\s*setStartOpen\(false\)\s*setAiOpen\(true\)/.test(arrive) && /setStartOpen\(true\)/.test(arrive))
   check("  and hands it to whichever panel is showing, sent after the website has loaded",
     /startAsk && !loading && !loadFailed && !teamMember \? \{ id: 1, text: startAsk \} : null/.test(arrive) && (editor.match(/sendRequest=\{startSend\}\s*onSendRequestTaken=\{startTaken\}/g) ?? []).length === 2 &&
       /const startTaken = useCallback\(\(\) => setStartAsk\(null\), \[\]\)/.test(editor))
-  check("  a description with no job is built in the editor's own request (the fallback before SQL part 380)", /if \(prompt\) \{\s*setGenSource\(\{ kind: "inline", prompt \}\)/.test(arrive))
+  check("  a description with no job is built in the editor's own request (the fallback before SQL part 380)", /if \(waiting\) \{\s*setGenSource\(\{ kind: "inline", prompt: waiting\.prompt \}\)/.test(arrive))
   const chat = code("components/website-builder/theme-chat.tsx")
   check("the Ask panel sends it through its own submit, as if typed, after the history is read",
     /const submitRef = React\.useRef\(submit\)/.test(chat) && /if \(text === null \|\| !wanted \|\| loadingHistory\) return\s*pendingSend\.current = null\s*submitRef\.current\(text\)/.test(chat) &&
@@ -365,7 +372,7 @@ section("The Website page's three doors")
       /data-start-door="themes"/.test(open) && />Browse themes</.test(open))
   check("  Start with AI is a labelled box of at most 2,000 characters, and Create waits for words",
     /<label for="start-ai-prompt"[^>]*>Describe your website<\/label>/.test(open) && /maxLength="2000"/.test(open) && /<button type="submit" data-start-create=""[^>]*disabled=""/.test(open))
-  check("  with four examples that fill it", (open.match(/data-start-example=""/g) ?? []).length === 4)
+  check("  with four examples that fill it", (open.match(/data-start-example="[a-z_]+"/g) ?? []).length === 4)
   check("  Browse themes is the theme page Add theme opened", THEMES_PATH === "/app/website-builder/themes" && open.includes(`href="${THEMES_PATH}"`))
   check("  no way to the code-sites product", !/\/app\/sites/.test(open))
 
@@ -385,10 +392,10 @@ section("The Website page's three doors")
   check("  one way to the themes: Add theme is Browse themes now", (client.match(/\/app\/website-builder\/themes/g) ?? []).length === 0 && (read("app/(storelib)/app/website-builder/start-website.tsx").match(/"\/app\/website-builder\/themes"/g) ?? []).length === 1)
   const start = client.slice(client.indexOf("const startWebsite = async"), client.indexOf("const exportTheme = async"))
   check("  pressing creates through the new route, and a full answer opens the sheet",
-    /fetch\("\/api\/website-builder\/themes\/create", json\("POST", mode === "ai" && prompt \? \{ mode, prompt, key: startKey\.current!\.key \} : \{ mode \}\)\)/.test(start) && /if \(data\.code === LIBRARY_FULL_CODE\) \{\s*setFull\("create"\)/.test(start) && /if \(slotsLeft === 0\) \{\s*setFull\("create"\)/.test(start))
+    /fetch\("\/api\/website-builder\/themes\/create", json\("POST", withAi \? \{ mode, prompt, key, options: chosen \} : \{ mode \}\)\)/.test(start) && /if \(data\.code === LIBRARY_FULL_CODE\) \{\s*setFull\("create"\)/.test(start) && /if \(slotsLeft === 0\) \{\s*setFull\("create"\)/.test(start))
   check("  with AI the description is kept for that website and the editor opened with start=ai; blank opens it plainly",
-    /saveStartPrompt\(storage, id, prompt\)/.test(start) && /go\(mode === "ai" \? \(jobId \? withJobParam\(editorHref\(username, id\), jobId\) : withStartParam\(editorHref\(username, id\)\)\) : editorHref\(username, id\)\)/.test(start) &&
-      start.indexOf("saveStartPrompt") < start.indexOf("go(mode"))
+    /if \(withAi && !jobId\) saveStartPrompt\(storage, id, prompt!, Date\.now\(\), chosen\)/.test(start) && /go\(withAi \? \(jobId \? withJobParam\(editorHref\(username, id\), jobId\) : withStartParam\(editorHref\(username, id\)\)\) : editorHref\(username, id\)\)/.test(start) &&
+      start.indexOf("saveStartPrompt") < start.indexOf("go(withAi"))
   /* It goes in the request body now (the server builds the site), still never in the address. */
   check("  the description never goes in the address", !/encodeURIComponent\(prompt\)/.test(start) && !/[?&]prompt=/.test(start))
   check("the page has no link to /app/sites", !/\/app\/sites|new-site-flow/.test(client + read("app/(storelib)/app/website-builder/start-website.tsx")))

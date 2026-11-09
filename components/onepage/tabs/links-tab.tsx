@@ -89,6 +89,7 @@ function BlockToggle({ checked, onCheckedChange, label }: { checked: boolean; on
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { ColorRow, LabeledRow, RangeRow, Segmented, Switch } from "@/components/onepage/editor-kit"
+import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { EditorSelect } from "@/components/onepage/editor-choice"
 import { accentDepth } from "@/components/ui/depth-button"
 import { DeletedIcon, SaveNotification } from "@/components/ui/save-notification"
@@ -165,7 +166,7 @@ import { createClient } from "@/lib/supabase/client"
 import { readFileHeader, scanFile } from "@/lib/storage/security"
 import { precheckUpload } from "@/lib/security/uploads"
 import { BlockBadges, BlockExtras, ExtraBlockEditor, extraBlockRow, isExtraBlock } from "@/components/onepage/extra-blocks"
-import { BlockFootActions } from "@/components/onepage/block-remove"
+import { BlockRemoveQuestion, BlockRowMenu } from "@/components/onepage/block-remove"
 import { AutoHeight, Reveal, revealSettledTop } from "@/components/onepage/reveal"
 import { ModeChoice, QuietAction, SettingsGroup } from "@/components/onepage/block-settings-kit"
 import { ProductPicker } from "@/components/onepage/product-picker"
@@ -3328,6 +3329,9 @@ function BlockItem({
   const isMobileStatsViewport = usePhoneWidth()
   const buttonTextMenuRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLDivElement>(null)
+  /* Round AO: Remove's question, opened from the row's more menu and drawn under the row. */
+  const [askingRemove, setAskingRemove] = useState(false)
+  const menuRef = useRef<HTMLButtonElement>(null)
   const settingsId = `block-settings-${block.id}`
 
   // Close button text menu when clicking outside
@@ -3630,6 +3634,8 @@ function BlockItem({
           return null
         })()}
 
+        {/* Round AO: the row's tools as one tight cluster (sparkle, numbers, switch, more), so a title keeps its room on a 390px phone. */}
+        <div className="-mr-1 flex shrink-0 items-center gap-1 sm:gap-2" data-row-tools="">
         {/*
           Round AN: the animation is the sparkle beside the numbers again, on the
           blocks the page animates (components/onepage/block-settings
@@ -3706,7 +3712,34 @@ function BlockItem({
         )}
 
         <BlockToggle checked={block.enabled} onCheckedChange={onToggle} label={tt("Show {title}", { title: preview.title })} />
+        {/*
+          Round AO: move and Remove in the row's more menu, open or closed, so it
+          is found at once (a menu on a computer, the shared sheet on a phone).
+        */}
+        {!isHeaderBlock && (
+          <BlockRowMenu
+            ref={menuRef}
+            name={preview.title}
+            isFirst={isFirst}
+            isLast={isLast}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onAskRemove={() => setAskingRemove(true)}
+          />
+        )}
+        </div>
       </div>
+
+      {!isHeaderBlock && (
+        <BlockRemoveQuestion
+          open={askingRemove}
+          onCancel={() => setAskingRemove(false)}
+          returnFocus={menuRef}
+          question={block.type === "group" && ((block.data as GroupBlockData).children?.length ?? 0) > 0 ? tt("Remove this group? Its blocks stay on your page.") : tt("Remove this block?")}
+          onRemove={onRemove}
+          onArchive={onArchive}
+        />
+      )}
 
       {/*
         Round 41: the settings open to their measured height and close back to
@@ -3715,21 +3748,10 @@ function BlockItem({
       */}
       <Reveal open={isSelected} id={settingsId} returnFocus={titleRef} unmountWhenShut follow className="rounded-b-2xl">
         <div className="space-y-4 rounded-b-2xl border-t border-[#eef0f2] bg-[#fafafb] p-4" data-block-settings="">
-          {!isHeaderBlock && (
-            /*
-              Round AN: move and Remove are the first line of an open block, over its
-              Settings | Layout tabs, never under a long editor (components/onepage/block-remove).
-            */
-            <BlockFootActions
-              question={block.type === "group" && ((block.data as GroupBlockData).children?.length ?? 0) > 0 ? tt("Remove this group? Its blocks stay on your page.") : tt("Remove this block?")}
-              isFirst={isFirst}
-              isLast={isLast}
-              onMoveUp={onMoveUp}
-              onMoveDown={onMoveDown}
-              onRemove={onRemove}
-              onArchive={onArchive}
-            />
-          )}
+          {/*
+            Round AO: nothing above the Settings | Layout tabs. Move and Remove are
+            the row's more menu (components/onepage/block-remove BlockRowMenu).
+          */}
           <BlockEditor
             block={block}
             socialLinks={socialLinks}
@@ -3824,6 +3846,8 @@ function BlockEditor({
   const [groupDraggedId, setGroupDraggedId] = useState<string | null>(null)
   const [groupDragOverId, setGroupDragOverId] = useState<string | null>(null)
   const [selectedGroupChildId, setSelectedGroupChildId] = useState<string | null>(null)
+  /* Round AO: the group's block whose Remove question is open, under its row. */
+  const [askingChildId, setAskingChildId] = useState<string | null>(null)
 
   // CTA dropdown state for product block
   const [showCtaDropdown, setShowCtaDropdown] = useState(false)
@@ -6165,13 +6189,13 @@ function BlockEditor({
       : null
 
     return (
-      <Tabs defaultValue="links" className="w-full">
+      <Tabs defaultValue="links" className="w-full" data-block-tabs="">
         <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-          <TabsTrigger value="links" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
+          <TabsTrigger value="links" data-block-tab="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <Link className="w-3.5 h-3.5" />
             {tt("Links")}
           </TabsTrigger>
-          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
+          <TabsTrigger value="layout" data-block-tab="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <LayoutGrid className="w-3.5 h-3.5" />
             {tt("Layout")}
           </TabsTrigger>
@@ -6234,8 +6258,8 @@ function BlockEditor({
                     const preview = getChildBlockPreview(child)
                     const ChildIcon = preview.icon
                     return (
+                      <div key={child.id} data-group-child-item={child.id}>
                       <div
-                        key={child.id}
                         draggable
                         onDragStart={(e) => handleGroupChildDragStart(e, child.id)}
                         onDragOver={(e) => handleGroupChildDragOver(e, child.id)}
@@ -6245,18 +6269,19 @@ function BlockEditor({
                         onClick={() => setSelectedGroupChildId(selectedGroupChildId === child.id ? null : child.id)}
                         data-group-child={child.id}
                         className={cn(
-                          "flex items-center gap-2 p-2.5 bg-white rounded-lg border cursor-pointer transition-all",
-                          selectedGroupChildId === child.id ? "border-[#1a1a2e] ring-1 ring-[#1a1a2e]" : "border-gray-200 hover:border-gray-300",
+                          /* Round AO: the editor's own card look (the block rows' border and the tabs' chosen ring), not grey defaults. */
+                          "flex items-center gap-2 rounded-xl border bg-white py-2 pl-1.5 pr-2 cursor-pointer transition-[border-color,box-shadow,opacity] duration-150",
+                          selectedGroupChildId === child.id ? "border-[#1a1a2e] shadow-[0_0_0_0.5px_#1a1a2e]" : "border-[#ececf1] hover:border-[#d5d7dc]",
                           groupDraggedId === child.id && "opacity-50",
                           groupDragOverId === child.id && "border-[#9ca3af] border-dashed bg-[#f4f4f6]",
                         )}
                         /* Round 43: an off block fades its picture and name; its switch and Move out stay as they are. */
                         data-block-off={child.enabled ? undefined : ""}
                       >
-                        <div className="cursor-grab text-gray-300 hover:text-gray-400">
+                        <div className="grid h-8 w-6 shrink-0 cursor-grab place-items-center text-[#b4b8c0] hover:text-[#6b7280]">
                           <GripVertical className="h-4 w-4" />
                         </div>
-                        <div className={cn("w-7 h-7 rounded-md bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden", !child.enabled && "opacity-50")} data-block-fade="">
+                        <div className={cn("w-8 h-8 rounded-[9px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden", !child.enabled && "opacity-50")} data-block-fade="">
                           {preview.thumbnail_url ? (
                             <img src={preview.thumbnail_url} alt="" className="w-full h-full object-cover" />
                           ) : hasLinkIcon(preview.iconId) ? (
@@ -6265,7 +6290,7 @@ function BlockEditor({
                             <ChildIcon className="h-4 w-4 text-[#1a1a2e]" />
                           )}
                         </div>
-                        <span className={cn("flex-1 text-sm truncate", !child.enabled && "opacity-50")} data-block-fade="">{preview.title}</span>
+                        <span className={cn("min-w-0 flex-1 truncate text-[14px] font-medium text-[#1a1a2e]", !child.enabled && "opacity-50")} data-block-fade="" data-group-child-title="">{preview.title}</span>
                         <button
                           type="button"
                           role="switch"
@@ -6276,26 +6301,38 @@ function BlockEditor({
                             e.stopPropagation()
                             updateChildBlock(child.id, { enabled: !child.enabled })
                           }}
-                          className={cn(
-                            "w-8 h-5 rounded-full transition-colors relative",
-                            child.enabled ? "bg-gray-900" : "bg-gray-300"
-                          )}
+                          /* Round AO: the same switch as the page's own rows (components/ui/switch-style), in a 36px place to press. */
+                          className="-my-1 grid h-9 w-11 shrink-0 place-items-center rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]"
                         >
-                          <div className={cn(
-                            "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-[translate]",
-                            child.enabled ? "translate-x-3.5" : "translate-x-0.5"
-                          )} />
+                          <span aria-hidden className={switchTrack(!!child.enabled)}>
+                            <span className={switchKnob(!!child.enabled)} />
+                          </span>
                         </button>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); removeChildFromGroup(child.id) }}
-                          className="text-gray-400 hover:text-[#1a1a2e] transition-colors p-1"
-                          title={tt("Move out of group")}
-                          aria-label={tt("Move out of group")}
-                          data-group-child-out={child.id}
-                        >
-                          <ArrowUpRight className="h-3.5 w-3.5" />
-                        </button>
+                        {/*
+                          Round AO: move, Move out and Remove in the row's more menu, as on
+                          the page's own blocks (components/onepage/block-remove).
+                        */}
+                        <div className="contents" data-group-child-menu={child.id}>
+                          <BlockRowMenu
+                            compact
+                            name={preview.title}
+                            isFirst={idx === 0}
+                            isLast={idx === groupData.children.length - 1}
+                            onMoveUp={() => moveChild(child.id, -1)}
+                            onMoveDown={() => moveChild(child.id, 1)}
+                            onMoveOut={() => removeChildFromGroup(child.id)}
+                            onAskRemove={() => setAskingChildId(child.id)}
+                          />
+                        </div>
+                      </div>
+                      <BlockRemoveQuestion
+                        open={askingChildId === child.id}
+                        onCancel={() => setAskingChildId(null)}
+                        className="px-0 pb-0 pt-1.5"
+                        question={tt("Remove this block from the group?")}
+                        onRemove={() => deleteChild(child.id)}
+                        keep={{ label: tt("Move out"), line: tt("Back on your page, under the group"), onPick: () => removeChildFromGroup(child.id) }}
+                      />
                       </div>
                     )
                   })}
@@ -6327,27 +6364,7 @@ function BlockEditor({
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                {/*
-                  Round 41: the bar every block has (components/onepage/block-remove):
-                  move it within the group, then Move out or Delete. Round AN: at the
-                  top, under the child's name, as on the page's own blocks.
-                */}
-                {(() => {
-                  const at = (groupData.children || []).findIndex((c) => c.id === selectedChild.id)
-                  const last = (groupData.children || []).length - 1
-                  return (
-                    <BlockFootActions
-                      key={selectedChild.id}
-                      question={tt("Remove this block from the group?")}
-                      isFirst={at <= 0}
-                      isLast={at >= last}
-                      onMoveUp={() => moveChild(selectedChild.id, -1)}
-                      onMoveDown={() => moveChild(selectedChild.id, 1)}
-                      onRemove={() => deleteChild(selectedChild.id)}
-                      keep={{ label: tt("Move out"), line: tt("Back on your page, under the group"), onPick: () => removeChildFromGroup(selectedChild.id) }}
-                    />
-                  )
-                })()}
+                {/* Round AO: move and Remove are the child row's more menu, so nothing sits over its editor. */}
                 {/* Render full BlockEditor for child with custom update function */}
                 {/* Note: onUrlChangeWithAutoFetch is NOT passed because it looks for blocks in main list, not group children */}
                 <BlockEditor

@@ -3,11 +3,7 @@ import { inStoreCurrency } from "@/lib/money/report-currency-server"
 import { teamPageStore } from "@/lib/team/server"
 import { TeamAreaClosed } from "@/components/app/team-area-closed"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Search, Users } from "lucide-react"
-import Link from "next/link"
+import { CustomersView, type CustomerLine } from "./customers-view"
 import { pageUser } from "@/lib/auth/page-user"
 import type { Metadata } from "next"
 import { getServerTt } from "@/lib/i18n/server"
@@ -46,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function CustomersPage() {
-  const { tt, language } = await getServerTt()
+  const { language } = await getServerTt()
   const locale = LOCALE_TAG[language] ?? "en-US"
   const admin = createAdminClient()
 
@@ -146,146 +142,23 @@ export default async function CustomersPage() {
   /* Less what was refunded (lib/customers/spent): the kept total never had a refund taken off it. */
   const spentOf = customerSpent(inStore.rows as SpentRow[], mixed)
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">{tt("Customers")}</h1>
-          <p className="text-muted-foreground">{tt("Manage your customer relationships")}</p>
-        </div>
-        {/* Round 51: every person the store knows, buyers included, with their whole history. This page stays for what each buyer spent in the store's currency and where they are. */}
-        <Link href="/app/contacts?filter=customers" className="text-sm font-medium text-[#6d4ae0] hover:underline">
-          {tt("Open in Contacts")}
-        </Link>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <Search className="h-5 w-5 text-muted-foreground" />
-            <Input
-              placeholder={tt("Search through customers and orders...")}
-              className="border-0 shadow-none focus-visible:ring-0"
-            />
-          </div>
-        </CardHeader>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{tt("All Customers (")}{customers?.length || 0})</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 sm:p-6 sm:pt-0">
-          {customers && customers.length > 0 ? (
-            <>
-              {/* Mobile view */}
-              <div className="divide-y divide-border sm:hidden">
-                {customers.map((customer) => {
-                  const orders = getCustomerOrders(customer.email)
-                  const lastOrder = orders[0]
-                  return (
-                    <div key={customer.id} className="p-4 space-y-3">
-                      <div>
-                        <p className="font-medium">
-                          {customer.first_name} {customer.last_name}
-                        </p>
-                        <p className="text-sm text-muted-foreground truncate">{customer.email}</p>
-                        <Link href={`/app/contacts/open?from=customer&id=${customer.id}`} className="text-xs font-medium text-[#6d4ae0] hover:underline">
-                          {tt("View contact")}
-                        </Link>
-                        {customer.city && customer.country && (
-                          <p className="text-xs text-muted-foreground">
-                            {customer.city}, {customer.country}
-                          </p>
-                        )}
-                      </div>
-                      {lastOrder && (
-                        <div className="text-sm">
-                          <p className="font-medium truncate">{lastOrder.product?.title}</p>
-                          <div className="flex items-center justify-between mt-1">
-                            <span className="text-muted-foreground">{formatDate(lastOrder.created_at)}</span>
-                            <span className="font-medium">{formatPrice(lastOrder.amount_cents, (lastOrder as { currency?: unknown }).currency)}</span>
-                          </div>
-                          <Badge variant="secondary" className="mt-2 capitalize text-xs">
-                            {lastOrder.provider}
-                          </Badge>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>
-                          {tt("{length, plural, one {# order} other {# orders}}", { length: orders.length })}
-                        </span>
-                        <span>{tt("Total: {amount}", { amount: formatPrice(spentOf(customer), storeCurrency) })}</span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* Desktop view */}
-              <div className="hidden sm:block table-scroll">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">{tt("Customer")}</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">{tt("Location")}</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">{tt("Last Order")}</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">{tt("Orders")}</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">{tt("Total Spent")}</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">{tt("Joined")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {customers.map((customer) => {
-                      const orders = getCustomerOrders(customer.email)
-                      const lastOrder = orders[0]
-                      return (
-                        <tr key={customer.id} className="border-b border-border last:border-0">
-                          <td className="px-4 py-3">
-                            <div className="font-medium">
-                              {customer.first_name} {customer.last_name}
-                            </div>
-                            <div className="text-sm text-muted-foreground">{customer.email}</div>
-                            <Link href={`/app/contacts/open?from=customer&id=${customer.id}`} className="text-xs font-medium text-[#6d4ae0] hover:underline">
-                              {tt("View contact")}
-                            </Link>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-muted-foreground">
-                            {customer.city && customer.country ? `${customer.city}, ${customer.country}` : "—"}
-                          </td>
-                          <td className="px-4 py-3">
-                            {lastOrder ? (
-                              <div>
-                                <div className="text-sm font-medium">{lastOrder.product?.title}</div>
-                                <div className="text-xs text-muted-foreground">{formatDate(lastOrder.created_at)}</div>
-                              </div>
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm">{orders.length}</td>
-                          <td className="px-4 py-3 text-sm font-medium">{formatPrice(spentOf(customer), storeCurrency)}</td>
-                          <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
-                            {formatDate(customer.created_at)}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          ) : (
-            <div className="py-12 text-center px-4">
-              <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
-              <p className="mt-4 text-muted-foreground">{tt("No customers yet")}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {tt("Customers will appear here when they purchase your products.")}
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  )
+  /* Round 52: drawn as Orders and People are (./customers-view.tsx); each row opens the person in Contacts, so no View contact line under every name. */
+  const rows: CustomerLine[] | null = customers
+    ? customers.map((customer) => {
+        const orders = getCustomerOrders(customer.email)
+        const lastOrder = orders[0]
+        return {
+          id: customer.id,
+          name: [customer.first_name, customer.last_name].filter(Boolean).join(" "),
+          email: customer.email,
+          location: customer.city && customer.country ? `${customer.city}, ${customer.country}` : null,
+          href: `/app/contacts/open?from=customer&id=${customer.id}`,
+          lastOrder: lastOrder ? { title: lastOrder.product?.title ?? null, day: formatDate(lastOrder.created_at) } : null,
+          orders: orders.length,
+          spent: formatPrice(spentOf(customer), storeCurrency),
+          joined: formatDate(customer.created_at),
+        }
+      })
+    : null
+  return <CustomersView rows={rows} />
 }

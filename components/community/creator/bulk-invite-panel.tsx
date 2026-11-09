@@ -18,7 +18,7 @@
  * Mounted by Members beside its Invite button: <BulkInviteButton head={head} />.
  */
 import * as React from "react"
-import { Upload } from "lucide-react"
+import { ListPlus, Upload } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { BULK_INVITE_MAX, BULK_TEXT_MAX, parseEmailList, type BulkInviteResult } from "@/lib/communities/bulk-invites"
@@ -86,8 +86,10 @@ export function BulkInviteButton({ head, className }: { head: CommunityHead; cla
 
   return (
     <>
-      <button type="button" onClick={start} className={cn(buttonSecondary, className)} data-bulk-invite="">
-        {tt("Invite a list")}
+      {/* On a phone the word gives way to its mark, as Export beside it does, so the status tabs keep their room (round 52). */}
+      <button type="button" onClick={start} className={cn(buttonSecondary, "max-sm:w-10 max-sm:px-0", className)} aria-label={tt("Invite a list")} data-bulk-invite="">
+        <ListPlus aria-hidden className="h-4 w-4 sm:hidden" />
+        <span className="max-sm:hidden">{tt("Invite a list")}</span>
       </button>
       <FormSheet
         open={open}

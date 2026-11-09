@@ -21,7 +21,7 @@ import { ArrowLeft, ChevronDown, MoreHorizontal } from "lucide-react"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { WaitingArea } from "@/components/ui/activity-spinner"
 import { cn } from "@/lib/utils"
-import { GUTTER, ORDER_WIDTH, OrderBarFrame, StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "../orders/order-parts"
+import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import { messageWhere, replyHref, type MessageRow } from "./emails-home"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
@@ -103,6 +103,26 @@ function when(iso?: string | null): string {
   return `${d.toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", year: "numeric" }))}, ${d.toLocaleTimeString(appLocale(), zoned({ hour: "numeric", minute: "2-digit" }))}`
 }
 
+/**
+ * THE MESSAGE'S OWN BAR, INSIDE CONTACTS › FORMS (round 52). The page
+ * around it (app/(storelib)/app/contacts/forms) has the container, the
+ * gutters and the Forms title; this is the back arrow, the subject and the
+ * actions, laid out as the inbox and a website form above it lay out theirs,
+ * so the message no longer sat in a second, narrower page inside the first.
+ */
+function MessageBar({ back, title, subtitle, actions }: { back: React.ReactNode; title: string; subtitle?: React.ReactNode; actions?: React.ReactNode }) {
+  return (
+    <header className="flex min-h-[48px] items-start gap-1.5" data-message-bar="">
+      <div className="-ml-1.5 flex h-9 w-9 shrink-0 items-center justify-center">{back}</div>
+      <div className="min-w-0 flex-1 pt-0.5">
+        <h2 className="truncate text-[20px] font-bold leading-7 text-[#1a1a2e]">{title}</h2>
+        {subtitle ? <p className="truncate text-[13px] leading-5 text-[#6b7280]">{subtitle}</p> : null}
+      </div>
+      {actions ? <div className="flex min-h-9 shrink-0 items-center gap-1.5">{actions}</div> : null}
+    </header>
+  )
+}
+
 export function MessagePage({
   message,
   gone = false,
@@ -127,14 +147,14 @@ export function MessagePage({
 }) {
   const back = (
     <button type="button" onClick={onBack} aria-label={tt("Back to messages")} className={cn(iconButton, "h-9 w-9")}>
-      <ArrowLeft className="h-5 w-5" />
+      <ArrowLeft className="h-[18px] w-[18px]" />
     </button>
   )
   if (!message) {
     return (
       <>
-        <OrderBarFrame back={back} title={<h1 className="text-[20px] font-bold leading-7 text-[#1a1a2e]">{tt("Message")}</h1>} subtitle={null} />
-        <div className={cn("orders-body mx-auto pt-4 pb-6", ORDER_WIDTH, GUTTER)}>
+        <MessageBar back={back} title={tt("Message")} />
+        <div className="pb-6 pt-3">
           {gone ? (
             <section className={cn(card, "px-4 py-10 text-center")} data-message-gone="">
               <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("This message is not here")}</p>
@@ -151,9 +171,9 @@ export function MessagePage({
   const where = messageWhere(message)
   return (
     <>
-      <OrderBarFrame
+      <MessageBar
         back={back}
-        title={<h1 className="min-w-0 truncate text-[20px] font-bold leading-7 text-[#1a1a2e]">{message.subject || tt("Message from {who}", { who })}</h1>}
+        title={message.subject || tt("Message from {who}", { who })}
         actions={
           <>
             <button
@@ -195,7 +215,7 @@ export function MessagePage({
           </>
         }
       />
-      <div className={cn("orders-body mx-auto pt-4 pb-6", ORDER_WIDTH, GUTTER)}>
+      <div className="pb-6 pt-3">
         <div data-message-body="" className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
           <div className="flex min-w-0 flex-col gap-4">
             <section className={cn(card, "min-w-0 px-4 pb-4 pt-3.5")}>

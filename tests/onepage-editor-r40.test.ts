@@ -94,12 +94,15 @@ function main() {
   section("A block's foot: move, then Remove opening Archive or Delete")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    check("the links tab uses it, and the old swap is gone", /<BlockFootActions/.test(tab) && !/showDeleteConfirm/.test(tab) && !/Permanently remove/.test(tab))
-    /* Changed on purpose (round AN): "the remove should not be at the bottom of the block". The same bar opens an open block, over its editor and its Settings | Layout tabs. */
-    check("it is the first line of an open block, before its editor", tab.search(/<BlockFootActions\s+question=/) > 0 && tab.search(/<BlockFootActions\s+question=/) < tab.search(/<BlockEditor\s+block=\{block\}/) && /data-block-bar="top"/.test(foot))
+    /* Changed on purpose (round AO): "don't position the remove button thing above the settings and layouts buttons". Move and Remove are the row's more menu (BlockRowMenu) and Remove's question (BlockRemoveQuestion) opens under the row. */
+    check("the links tab uses it, and the old swap is gone", /<BlockRowMenu/.test(tab) && /<BlockRemoveQuestion/.test(tab) && !/<BlockFootActions/.test(tab) && !/showDeleteConfirm/.test(tab) && !/Permanently remove/.test(tab))
+    /* Changed on purpose (round AO): the more menu sits in the block's row, beside its switch, and nothing sits over the open block's editor. */
+    check("it is in the row, after the switch, and the open block starts with its editor", tab.search(/<BlockRowMenu\s+ref=\{menuRef\}/) > tab.search(/<BlockToggle checked=\{block\.enabled\}/) && tab.search(/<BlockRowMenu\s+ref=\{menuRef\}/) < tab.search(/<Reveal open=\{isSelected\}/) && /data-block-settings="">\s*\{\/\*[\s\S]{0,200}\*\/\}\s*<BlockEditor/.test(tab) && !/data-block-bar/.test(foot))
     check("a group's question says its blocks stay", /Remove this group\? Its blocks stay on your page\./.test(tab))
-    check("the moves are one pair with names", /aria-label=\{tt\("Move up"\)\}/.test(foot) && /aria-label=\{tt\("Move down"\)\}/.test(foot) && /disabled=\{isFirst\}/.test(foot) && /disabled=\{isLast\}/.test(foot))
-    check("Remove is a disclosure, and the question opens under it to its height", /aria-expanded=\{asking\}/.test(foot) && /<Reveal open=\{asking\} id=\{panelId\} returnFocus=\{removeRef\}>/.test(foot))
+    /* Changed on purpose (round AO): the moves are the menu's first rows, named, and shown off at the ends rather than hidden. */
+    check("the moves are one pair with names", /label: tt\("Move up"\)/.test(foot) && /label: tt\("Move down"\)/.test(foot) && /disabled: isFirst/.test(foot) && /disabled: isLast/.test(foot))
+    /* Changed on purpose (round AO): Remove is the menu's last row, in red after a hairline; its question opens under the row to its height and gives focus back to the more button. */
+    check("Remove is a menu row, and the question opens under it to its height", /label: tt\("Remove"\)[^\n]*variant: "destructive", separatorBefore: true/.test(foot) && /<Reveal open=\{open\} id=\{panelId\} returnFocus=\{returnFocus\}>/.test(foot) && /aria-label=\{tt\("More actions for \{name\}", \{ name \}\)\}/.test(foot))
     check("Archive and Delete, each a name and one line, and Cancel", /data-block-archive=""/.test(foot) && /data-block-delete=""/.test(foot) && /data-block-remove-cancel=""/.test(foot) && /Off the page, back any time/.test(foot) && /Gone for good/.test(foot))
     check("Escape cancels, and focus goes to the first choice", /e\.key === "Escape"/.test(foot) && /firstChoiceRef\.current\?\.focus/.test(foot))
     check("red only where it means delete, not the whole row", /text-\[#b42318\]/.test(foot) && !/border-red-200|text-amber-600/.test(foot))

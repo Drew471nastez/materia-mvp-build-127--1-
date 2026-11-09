@@ -28,6 +28,9 @@ window.fetch = async (input: RequestInfo | URL) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
   await new Promise((r) => setTimeout(r, 60))
   if (url.startsWith("/api/email/stats")) return reply({ campaigns: [], stats: {}, monthlyUsage: { sent: 0, limit: 500 } })
+  /* Round 52: Automations reads its list from the server (app/api/email/area), no longer from Supabase in the browser. */
+  if (url.startsWith("/api/email/area?part=flows"))
+    return reply(Array.from({ length: 40 }, (_, i) => ({ id: "f" + i, name: "Automation " + i, trigger_type: i % 2 ? "purchase" : "new_subscriber", trigger_config: null, status: i % 3 ? "active" : "paused", steps: [{ id: "a", type: "email", config: { subject: "Hi", body: "<p>Hi</p>" } }], totals: null })))
   return reply({ campaigns: [] })
 }
 
@@ -52,7 +55,7 @@ function Shell() {
       <header className="fixed inset-x-0 top-0 z-50 h-[68px] bg-[#111111] md:h-[58px]" />
       <main className="app-main-content h-svh overflow-hidden rounded-t-[20px] bg-[#f8f9fa] pt-[68px] md:rounded-none md:bg-white md:pl-[240px] md:pt-[58px]">
         <div className="app-content-scroll h-[calc(100svh-68px)] overflow-y-auto md:h-[calc(100svh-58px)]">
-          {path === "/app/emails" ? <EmailsClient key="emails" initialTab="flows" /> : <FlowStandIn key={path} />}
+          {path === "/app/emails" ? <EmailsClient key="emails" initialTab="automations" /> : <FlowStandIn key={path} />}
         </div>
       </main>
     </div>
