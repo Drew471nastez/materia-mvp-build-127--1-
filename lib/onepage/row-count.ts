@@ -5,7 +5,7 @@
  * button jumped from row to row because "1284" is wider than "3". The count
  * is kept to four characters (1284 is 1.3k, 25300 is 25k, 2400000 is 2.4M)
  * and its slot is one width on every row (components/onepage/tabs/links-tab),
- * the whole figure in the button's title.
+ * the whole figure in the button's accessible name.
  */
 export function rowCountLabel(n: number): string {
   if (!(n >= 0) || !Number.isFinite(n)) return "0"

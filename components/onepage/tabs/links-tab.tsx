@@ -3703,7 +3703,8 @@ function BlockItem({
               }}
               /* Round W8: one width on every row (the count kept to four characters, rowCountLabel), so nothing beside it moves from row to row. */
               className="flex h-8 w-14 shrink-0 items-center gap-1 rounded-lg px-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-              title={clickCount !== null ? `${tt("View Stats")}: ${clickCount}` : tt("View Stats")}
+              title={tt("View Stats")}
+              aria-label={clickCount !== null ? `${tt("View Stats")}: ${clickCount}` : tt("View Stats")}
               data-row-slot="stats"
             >
               <BarChart2 aria-hidden className="h-4 w-4 shrink-0" />

@@ -1128,6 +1128,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const patternClears = safeTheme.background_type === "solid" || safeTheme.background_type === "gradient"
   useHeaderClearance(cardRef, patternClears && liveLayout !== "phone")
   useHeaderClearance(phonePageRef, patternClears && liveLayout !== "desktop")
+  /* Round W8: a classic header flush left sits under the round Share button in the top left corner; it starts clear of it. */
+  const clearOfShare = (top: string) => (top === "50px" && headerAlignOf(safeTheme) === "left" && safeSettings.share_enabled !== false ? "68px" : top)
   const renderPageContent = ({ isDesktop = false }: { isDesktop?: boolean } = {}) => (
     <div
       className={cn("relative z-10 w-full flex flex-col min-h-full", isDesktop ? "max-w-full" : "max-w-lg mx-auto")}
@@ -1138,8 +1140,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         /* No top padding only above a hero that is really drawn: without a
            picture the header is the classic one and needs the same 50px it
            always has (lib/onepage/page-frame heroHeaderShown). */
-        /* Round W8: a header flush left sits under the round Share button in the top left corner; it starts clear of it. */
-        paddingTop: isDesktop ? "0" : heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) || coverImageOf(safeTheme) ? "0" : headerAlignOf(safeTheme) === "left" && safeSettings.share_enabled !== false ? "68px" : "50px",
+        paddingTop: isDesktop ? "0" : clearOfShare(heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) || coverImageOf(safeTheme) ? "0" : "50px"),
         paddingBottom: "20px",
         minHeight: isDesktop ? "100%" : "100vh",
       }}
