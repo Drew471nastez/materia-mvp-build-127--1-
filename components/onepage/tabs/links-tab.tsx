@@ -50,6 +50,7 @@ import {
   type PDFDocumentLayoutType,
   type FoodMenuBlockData,
   type CalendlyBlockData,
+  type FormQuizBlockData,
   type CalendlyEmbedMode,
   type CalendlyEmbedType,
   type OnePageBlockData,
@@ -172,7 +173,7 @@ import { ModeChoice, QuietAction, SettingsGroup } from "@/components/onepage/blo
 import { ProductPicker } from "@/components/onepage/product-picker"
 import { AddBlockButton, AddBlockPicker, AddSheetGate, blockPickerTile, isAddSheetOpen, setAddSheetOpen } from "@/components/onepage/add-block-picker"
 import { IconLibrary, IconLibraryGate, setIconLibraryOpen } from "@/components/onepage/icon-library"
-import { GlyphBooking, GlyphDivider, GlyphDocument, GlyphEmail, GlyphGroup, GlyphHeader, GlyphImage, GlyphLink, GlyphMenu, GlyphProduct, GlyphSocial, GlyphText, type Glyph } from "@/components/onepage/block-icons"
+import { GlyphBooking, GlyphDivider, GlyphDocument, GlyphEmail, GlyphForm, GlyphGroup, GlyphHeader, GlyphImage, GlyphLink, GlyphMenu, GlyphProduct, GlyphSocial, GlyphText, type Glyph } from "@/components/onepage/block-icons"
 import { bookingProviderName, bookingSource } from "@/lib/onepage/creator-blocks"
 import { hasRealUrl } from "@/lib/onepage/editor-state"
 import { SignupDestination } from "@/components/onepage/creator-blocks"
@@ -222,6 +223,17 @@ function bookingMark(raw: string | null | undefined): string {
   const kind = bookingSource(raw)?.kind
   /* Cal.com's mark is its name in letters, unreadable at 16px: a calendar says more. */
   return kind === "calendly" ? "calendly" : "booking"
+}
+
+/*
+  Round AQ: a form's row. It had no case, so the row read the block's type,
+  "form_quiz", beside a link's glyph. Now it is named and drawn as Add block
+  names it (components/onepage/add-block-picker: Form), and says when no form
+  is chosen yet.
+*/
+function formRow(block: OnePageBlock) {
+  const data = block.data as Partial<FormQuizBlockData>
+  return { title: data.title?.trim() || tt("Form"), subtitle: data.form_id ? tt("Form") : tt("Choose a form"), icon: GlyphForm, incomplete: !data.form_id }
 }
 
 function calendlyRow(data: CalendlyBlockData) {
@@ -398,6 +410,8 @@ function getBlockPreviewData(block: OnePageBlock, shopMoney: (cents: number, pro
     }
     case "calendly":
       return calendlyRow(block.data as CalendlyBlockData)
+    case "form_quiz":
+      return formRow(block)
     case "course":
     case "music":
     case "testimonials":
@@ -3495,6 +3509,8 @@ function BlockItem({
       }
       case "calendly":
         return calendlyRow(block.data as CalendlyBlockData)
+      case "form_quiz":
+        return formRow(block)
       case "course":
       case "music":
       case "testimonials":
@@ -5147,7 +5163,7 @@ function BlockEditor({
                     >
                       <ChoiceMark on={on} />
                       <span className="flex aspect-[4/3] items-center overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)] [&>[data-email-thumb]]:h-full [&>[data-email-thumb]]:rounded-xl">
-                        <EmailLayoutThumb layout={option.id} image={emailImage} theme={onepage?.theme ?? {}} avatar={onepage?.avatar_url ?? null} />
+                        <EmailLayoutThumb layout={option.id} image={emailImage} theme={onepage?.theme ?? {}} avatar={onepage?.avatar_url ?? null} headline={data.headline} />
                       </span>
                       <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{option.label}</span>
                     </button>
@@ -5686,7 +5702,7 @@ function BlockEditor({
 
             <PartContent value="layout" className="mt-0 space-y-3">
               {/* Classic or Featured, drawn in this page's colours with this block's own title and picture (components/onepage/block-settings). */}
-              <ClassicFeaturedPicker value={data.layout_type} theme={onepage?.theme} title={data.title} image={data.thumbnail_url} icon={<FileText />} onChange={(layout_type) => updateData({ layout_type })} />
+              <ClassicFeaturedPicker value={data.layout_type} theme={onepage?.theme} title={data.title} image={data.thumbnail_url} icon={<FileText />} cta={data.button_text} onChange={(layout_type) => updateData({ layout_type })} />
 
               {/* Custom Thumbnail - Only show for Pro layout */}
               {data.layout_type === 'pro' && (
@@ -5847,7 +5863,7 @@ function BlockEditor({
 
             <PartContent value="layout" className="mt-0 space-y-3">
               {/* Classic or Featured, drawn in this page's colours with this block's own title and picture (components/onepage/block-settings). */}
-              <ClassicFeaturedPicker value={data.layout_type} theme={onepage?.theme} title={data.title} image={data.thumbnail_url} icon={<FileText />} onChange={(layout_type) => updateData({ layout_type })} />
+              <ClassicFeaturedPicker value={data.layout_type} theme={onepage?.theme} title={data.title} image={data.thumbnail_url} icon={<FileText />} cta={data.button_text} onChange={(layout_type) => updateData({ layout_type })} />
 
               {/* Custom Thumbnail - Only show for Pro layout */}
               {data.layout_type === 'pro' && (
@@ -5972,7 +5988,7 @@ function BlockEditor({
 
             <PartContent value="layout" className="mt-0 space-y-3">
               {/* Classic or Featured, drawn in this page's colours with this block's own title and picture (components/onepage/block-settings). */}
-              <ClassicFeaturedPicker value={data.layout_type} theme={onepage?.theme} title={data.title} image={data.thumbnail_url} icon={<Calendar />} onChange={(layout_type) => updateData({ layout_type })} />
+              <ClassicFeaturedPicker value={data.layout_type} theme={onepage?.theme} title={data.title} image={data.thumbnail_url} icon={<Calendar />} cta={data.button_text} onChange={(layout_type) => updateData({ layout_type })} />
 
               {/* Custom Thumbnail - Only show for Pro layout */}
               {data.layout_type === 'pro' && (

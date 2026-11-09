@@ -746,6 +746,7 @@ export function ClassicFeaturedPicker({
   title,
   image,
   icon,
+  cta,
   onChange,
 }: {
   value: string | null | undefined
@@ -753,6 +754,8 @@ export function ClassicFeaturedPicker({
   title: string
   image?: string | null
   icon?: React.ReactNode
+  /** Round AQ: the block's own button words, drawn on Featured's button when it has them. */
+  cta?: string | null
   onChange: (layout: "default" | "pro") => void
 }) {
   const current = value === "pro" ? "pro" : "default"
@@ -811,7 +814,13 @@ export function ClassicFeaturedPicker({
                     )}
                     <span className="flex flex-col items-center gap-1 px-2 py-1.5">
                       {label}
-                      <span className="block h-[9px] w-[52%] rounded-full" style={{ background: ink, opacity: 0.9 }} />
+                      {cta?.trim() ? (
+                        <span className="block max-w-[80%] truncate rounded-full px-1.5 py-[2px] text-[7px] font-semibold leading-none" style={{ background: ink, color: btn }}>
+                          {cta.trim()}
+                        </span>
+                      ) : (
+                        <span className="block h-[9px] w-[52%] rounded-full" style={{ background: ink, opacity: 0.9 }} />
+                      )}
                     </span>
                   </span>
                 )}
