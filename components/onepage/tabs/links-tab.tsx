@@ -170,7 +170,7 @@ import { BlockRemoveQuestion, BlockRowMenu } from "@/components/onepage/block-re
 import { AutoHeight, Reveal, revealSettledTop } from "@/components/onepage/reveal"
 import { ModeChoice, QuietAction, SettingsGroup } from "@/components/onepage/block-settings-kit"
 import { ProductPicker } from "@/components/onepage/product-picker"
-import { AddBlockButton, AddBlockPicker, AddSheetGate, isAddSheetOpen, setAddSheetOpen } from "@/components/onepage/add-block-picker"
+import { AddBlockButton, AddBlockPicker, AddSheetGate, blockPickerTile, isAddSheetOpen, setAddSheetOpen } from "@/components/onepage/add-block-picker"
 import { IconLibrary, IconLibraryGate, setIconLibraryOpen } from "@/components/onepage/icon-library"
 import { GlyphBooking, GlyphDivider, GlyphDocument, GlyphEmail, GlyphGroup, GlyphHeader, GlyphImage, GlyphLink, GlyphMenu, GlyphProduct, GlyphSocial, GlyphText, type Glyph } from "@/components/onepage/block-icons"
 import { bookingProviderName, bookingSource } from "@/lib/onepage/creator-blocks"
@@ -196,6 +196,48 @@ import { EmailLayoutThumb } from "@/components/onepage/email-signup"
 import { connectButtonPatch, emailSignupImage, emailSignupLayout, type EmailSignupLayout } from "@/lib/onepage/email-signup"
 import { canGoInGroup, deleteFromGroup, findBlockDeep, groupCandidates, moveIntoGroup, moveOutOfGroup, updatePlanDeep } from "@/lib/onepage/group"
 import { GroupExistingBlocks } from "@/components/onepage/group-add-existing"
+
+/*
+ * ROUND AP: A BOOKING BLOCK'S ROW AND ITS "NO ACTION" MARK. A Calendly link
+ * wears Calendly's mark, a Cal.com link or anything else a calendar,
+ * never the crossed circle the action list drew for "no action". A block
+ * that books through one of the creator's own booking forms says so: its
+ * row read "Add a booking link" because it looked only at the address.
+ */
+/*
+ * ROUND AP: A ROW'S PICTURE IS ITS PICKER ENTRY'S (components/onepage/
+ * add-block-picker blockPickerTile): the glyph and the tile's two colours the
+ * Add block sheet drew it with. A row that draws a service's own mark or a
+ * picture keeps it; a row whose glyph is not its entry's (a video's YouTube
+ * mark) keeps its own on grey.
+ */
+type RowGlyph = React.ComponentType<{ className?: string; style?: React.CSSProperties }>
+function rowTile(block: OnePageBlock, Icon: RowGlyph): { Icon: RowGlyph; style?: React.CSSProperties } {
+  const look = blockPickerTile(block)
+  if (!look || !(look.matched || look.icon === Icon)) return { Icon }
+  return { Icon: look.icon, style: { background: look.tile[0], color: look.tile[1] } }
+}
+
+function bookingMark(raw: string | null | undefined): string {
+  const kind = bookingSource(raw)?.kind
+  /* Cal.com's mark is its name in letters, unreadable at 16px: a calendar says more. */
+  return kind === "calendly" ? "calendly" : "booking"
+}
+
+function calendlyRow(data: CalendlyBlockData) {
+  const action = (data as { action?: NativeAction }).action
+  const byForm = action?.type === "booking" && !!(action as { form_id?: string }).form_id
+  const actionUrl = action?.type === "booking" ? (action as { url?: string }).url : undefined
+  const url = data.calendly_url || actionUrl || ""
+  return {
+    title: data.title || tt("Book a Meeting"),
+    subtitle: byForm ? tt("Booking form") : url ? bookingProviderName(url) ?? tt("Booking link") : tt("Add a booking link"),
+    icon: GlyphBooking,
+    iconId: bookingSource(url)?.kind === "calendly" ? "calendly" : undefined,
+    thumbnail_url: data.thumbnail_url,
+  }
+}
+
 
 /**
  * A SOCIAL LINK IS READ THE WAY ITS PLATFORM IS TYPED (lib/onepage/social-input):
@@ -354,10 +396,8 @@ function getBlockPreviewData(block: OnePageBlock, shopMoney: (cents: number, pro
       const data = block.data as FoodMenuBlockData
       return { title: data.title || tt("Menu"), subtitle: data.pdf_file_url ? tt("Menu uploaded") : tt("No file"), icon: GlyphMenu, thumbnail_url: data.thumbnail_url }
     }
-    case "calendly": {
-      const data = block.data as CalendlyBlockData
-      return { title: data.title || tt("Book a Meeting"), subtitle: data.calendly_url ? bookingProviderName(data.calendly_url) ?? tt("Booking link") : tt("Add a booking link"), icon: GlyphBooking, thumbnail_url: data.thumbnail_url }
-    }
+    case "calendly":
+      return calendlyRow(block.data as CalendlyBlockData)
     case "course":
     case "music":
     case "testimonials":
@@ -3406,7 +3446,8 @@ function BlockItem({
         const displayUrl = data.url ? (data.url.length > 40 ? data.url.slice(0, 40) + "..." : data.url) : "https://..."
         // Auto-detect Notion URLs and show Notion icon
         const isNotionUrl = data.url?.toLowerCase().includes('notion.so') || data.url?.toLowerCase().includes('notion.site')
-        const effectiveIconId = data.icon || (isNotionUrl ? 'notion' : undefined)
+        /* Round AP: the platform's mark read from the address, as the page and a group's rows draw it (components/onepage/link-icons resolveLinkIcon). */
+        const effectiveIconId = resolveLinkIcon(data.icon, data.url) ?? (isNotionUrl ? 'notion' : undefined)
         /* A new link with no address is not on the page yet: the row says what it needs (lib/onepage/extra-blocks isIncompleteLink). */
         if (!hasRealUrl(data.url)) return { title: data.label || tt("My Link"), subtitle: tt("Add an address to show it"), icon: GlyphLink, thumbnail_url: data.thumbnail_url, iconId: effectiveIconId, incomplete: true }
         return { title: data.label || tt("My Link"), subtitle: displayUrl, icon: GlyphLink, thumbnail_url: data.thumbnail_url, iconId: effectiveIconId }
@@ -3444,10 +3485,8 @@ function BlockItem({
         const data = block.data as FoodMenuBlockData
         return { title: data.title || tt("Menu"), subtitle: data.pdf_file_url ? tt("Menu uploaded") : tt("No file"), icon: GlyphMenu, thumbnail_url: data.thumbnail_url }
       }
-      case "calendly": {
-        const data = block.data as CalendlyBlockData
-        return { title: data.title || tt("Book a Meeting"), subtitle: data.calendly_url ? bookingProviderName(data.calendly_url) ?? tt("Booking link") : tt("Add a booking link"), icon: GlyphBooking, thumbnail_url: data.thumbnail_url }
-      }
+      case "calendly":
+        return calendlyRow(block.data as CalendlyBlockData)
       case "course":
       case "music":
       case "testimonials":
@@ -3465,7 +3504,10 @@ function BlockItem({
   }
 
   const preview = getBlockPreview()
-  const Icon = preview.icon
+  const tile = rowTile(block, preview.icon)
+  const Icon = tile.Icon
+  /* The tile's colours, when the row draws its glyph (not a picture or a service's mark). */
+  const tileStyle = !(preview as any).thumbnail_url && !hasLinkIcon((preview as any).iconId) ? tile.style : undefined
 
   const isHeaderBlock = block.type === "header"
   const isLinkButton = block.type === "link_button"
@@ -3505,7 +3547,7 @@ function BlockItem({
       */}
       <div
         className={cn(
-          "flex items-center gap-3 p-3 max-[383px]:flex-wrap max-[383px]:gap-2",
+          "group/row flex items-center gap-3 p-3 max-[383px]:flex-wrap max-[383px]:gap-2",
           !isHeaderBlock && "select-none [-webkit-touch-callout:none]"
         )}
         data-reorder-zone={isHeaderBlock ? undefined : ""}
@@ -3534,6 +3576,8 @@ function BlockItem({
             aria-label={tt("Edit thumbnail")}
             /* Round 40: a soft ring under a mouse on the box-shadow alone (it was transition-all on a ring), and the picture decoded off the main thread. */
             className={cn("group relative w-10 h-10 rounded-[11px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden outline-none transition-[box-shadow,opacity] duration-150 hover:shadow-[0_0_0_2px_#d5d7dc] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]", !block.enabled && "opacity-50")}
+            style={tileStyle}
+            data-row-tile={tileStyle ? "" : undefined}
             data-row-thumbnail=""
             data-block-fade=""
           >
@@ -3547,7 +3591,7 @@ function BlockItem({
             ) : hasLinkIcon((preview as any).iconId) ? (
               <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" tone="brand" />
             ) : (
-              <Icon className="h-5 w-5 text-[#1a1a2e]" />
+              <Icon className={cn("h-5 w-5", !tileStyle && "text-[#1a1a2e]")} />
             )}
             {/* Pencil icon always visible in corner */}
             <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center">
@@ -3557,7 +3601,7 @@ function BlockItem({
             <div className="absolute inset-0 rounded-[11px] bg-black/20 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
           </button>
         ) : (
-          <div className={cn("w-10 h-10 rounded-[11px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden", !block.enabled && "opacity-50")} data-block-fade="">
+          <div className={cn("w-10 h-10 rounded-[11px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden", !block.enabled && "opacity-50")} style={tileStyle} data-row-tile={tileStyle ? "" : undefined} data-block-fade="">
             {(preview as any).thumbnail_url ? (
               <img
                 src={(preview as any).thumbnail_url}
@@ -3567,7 +3611,7 @@ function BlockItem({
             ) : hasLinkIcon((preview as any).iconId) ? (
               <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" tone="brand" />
             ) : (
-              <Icon className="h-5 w-5 text-[#1a1a2e]" />
+              <Icon className={cn("h-5 w-5", !tileStyle && "text-[#1a1a2e]")} />
             )}
           </div>
         )}
@@ -3716,6 +3760,28 @@ function BlockItem({
           Round AO: move and Remove in the row's more menu, open or closed, so it
           is found at once (a menu on a computer, the shared sheet on a phone).
         */}
+        {/*
+          Round AP, the owner: "more easy to delete, I think, as an icon". With a
+          mouse, a quiet bin beside the more button that shows on the row's
+          hover and asks the same question as the menu's Remove. Its place is
+          kept while hidden, so nothing in the row moves; a phone and a narrow
+          window never draw it and keep the more menu alone.
+        */}
+        {!isHeaderBlock && (
+          <button
+            type="button"
+            data-block-quick-remove=""
+            aria-label={tt("Remove {title}", { title: preview.title })}
+            title={tt("Remove")}
+            onClick={(e) => {
+              e.stopPropagation()
+              setAskingRemove(true)
+            }}
+            className="hidden h-8 w-8 shrink-0 place-items-center rounded-lg text-[#9ca3af] opacity-0 outline-none transition-[opacity,background-color,color] duration-150 hover:bg-[#fef3f2] hover:text-[#b42318] focus-visible:opacity-100 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] group-hover/row:opacity-100 sm:pointer-fine:grid"
+          >
+            <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.8} />
+          </button>
+        )}
         {!isHeaderBlock && (
           <BlockRowMenu
             ref={menuRef}
@@ -4056,49 +4122,20 @@ function BlockEditor({
     const ctaOptions = [tt("Get My Guide"), tt("Get it Now"), tt("Buy Now"), tt("Download"), tt("Get Access"), tt("Enroll Now"), tt("Start Learning"), tt("Custom")]
     return (
       <div className="space-y-4" data-product-content="">
-        {/* A picture of its own, over the product's. */}
-        <div className="space-y-2 border-t border-[#eef0f2] pt-4">
+        {/*
+          A picture of its own, over the product's. Round AP: the editor's picture row (components/onepage/
+          image-field), the picture whole in a rounded square with Replace and Remove beside it. It was a dashed
+          box with the picture inside the dashes and a Remove in another style; Remove now shows only for a
+          picture of its own, saves at once, and the square goes back to the product's picture.
+        */}
+        <div className="space-y-2 border-t border-[#eef0f2] pt-4" data-product-thumbnail="">
           <p className="text-[13px] font-medium leading-[18px] text-[#1a1a2e]">{tt("Custom thumbnail")}</p>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => onOpenThumbnailModal && onOpenThumbnailModal(block.id)}
-              className="group relative w-14 h-14 rounded-xl border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-gray-50 hover:bg-gray-100"
-            >
-              {data.custom_thumbnail ? (
-                <img
-                  src={data.custom_thumbnail}
-                  alt={tt("Custom thumbnail")}
-                  className="w-full h-full object-cover rounded-lg"
-                />
-              ) : data.product_thumbnail ? (
-                <img
-                  src={data.product_thumbnail}
-                  alt={tt("Product thumbnail")}
-                  className="w-full h-full object-cover rounded-lg opacity-50"
-                />
-              ) : (
-                <ImageIcon className="w-6 h-6 text-gray-400" />
-              )}
-              {/* Pencil icon */}
-              <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center">
-                <Pencil className="w-3 h-3 text-gray-500" />
-              </div>
-              {/* Hover overlay */}
-              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
-            </button>
-            {data.custom_thumbnail && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => updateData({ custom_thumbnail: null })}
-                className="text-xs text-gray-500 hover:text-red-500"
-              >
-                <X className="h-3 w-3 mr-1" />
-                {tt("Remove")}
-              </Button>
-            )}
-          </div>
+          <OnePageImageField
+            prefix={`thumb_${block.id}`}
+            value={data.custom_thumbnail || null}
+            fallback={data.product_thumbnail || null}
+            onChange={(url) => updateData({ custom_thumbnail: url })}
+          />
         </div>
 
         {/* CTA Button Text - Modern Dropdown */}
@@ -5886,6 +5923,7 @@ function BlockEditor({
                 <ActionEditor
                   value={(data as { action?: NativeAction }).action}
                   noneLabel={tt("Calendly or Cal.com link")}
+                  noneMark={bookingMark(data.calendly_url)}
                   types={["booking"]}
                   onChange={(action) => updateData({ action, ...(action?.type === "booking" && (action as { url?: string }).url !== undefined ? { calendly_url: (action as { url?: string }).url || "" } : {}) } as never)}
                 />
@@ -6256,7 +6294,9 @@ function BlockEditor({
                 <div className="space-y-1.5">
                   {groupData.children.map((child, idx) => {
                     const preview = getChildBlockPreview(child)
-                    const ChildIcon = preview.icon
+                    const childTile = rowTile(child, preview.icon)
+                    const ChildIcon = childTile.Icon
+                    const childTileStyle = !preview.thumbnail_url && !hasLinkIcon(preview.iconId) ? childTile.style : undefined
                     return (
                       <div key={child.id} data-group-child-item={child.id}>
                       <div
@@ -6281,13 +6321,13 @@ function BlockEditor({
                         <div className="grid h-8 w-6 shrink-0 cursor-grab place-items-center text-[#b4b8c0] hover:text-[#6b7280]">
                           <GripVertical className="h-4 w-4" />
                         </div>
-                        <div className={cn("w-8 h-8 rounded-[9px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden", !child.enabled && "opacity-50")} data-block-fade="">
+                        <div className={cn("w-8 h-8 rounded-[9px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden", !child.enabled && "opacity-50")} style={childTileStyle} data-row-tile={childTileStyle ? "" : undefined} data-block-fade="">
                           {preview.thumbnail_url ? (
                             <img src={preview.thumbnail_url} alt="" className="w-full h-full object-cover" />
                           ) : hasLinkIcon(preview.iconId) ? (
                             <LinkIcon name={preview.iconId} size={16} className="text-[#1a1a2e]" tone="brand" />
                           ) : (
-                            <ChildIcon className="h-4 w-4 text-[#1a1a2e]" />
+                            <ChildIcon className={cn("h-4 w-4", !childTileStyle && "text-[#1a1a2e]")} />
                           )}
                         </div>
                         <span className={cn("min-w-0 flex-1 truncate text-[14px] font-medium text-[#1a1a2e]", !child.enabled && "opacity-50")} data-block-fade="" data-group-child-title="">{preview.title}</span>

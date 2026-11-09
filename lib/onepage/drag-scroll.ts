@@ -37,7 +37,8 @@ export function isDrag(dx: number, dy: number): boolean {
  * `velocity` is the row's own speed in px/ms (positive = scrollLeft growing).
  */
 export function restingPoint(points: number[], startLeft: number, left: number, velocity: number, maxLeft: number): number {
-  if (points.length === 0) return Math.max(0, Math.min(left, maxLeft))
+  /* Round AP: a row without slides coasts on at the pointer's speed, as a finger's fling does. */
+  if (points.length === 0) return Math.max(0, Math.min(left + velocity * COAST_MS, maxLeft))
   const clamp = (v: number) => Math.max(0, Math.min(v, maxLeft))
   const stops = [...new Set(points.map(clamp))].sort((a, b) => a - b)
   const nearestIndex = (v: number) => stops.reduce((best, s, i) => (Math.abs(s - v) < Math.abs(stops[best] - v) ? i : best), 0)

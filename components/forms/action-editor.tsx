@@ -37,8 +37,8 @@
  * and Undo puts back what was there for a few seconds.
  */
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react"
-import { Ban, CalendarDays, ClipboardList, Hash, Link2, Mail, MessageSquare, Phone, Plus, ShoppingBag, Users } from "lucide-react"
-import { SocialIcon } from "@/components/onepage/brand-icons"
+import { CalendarDays, CircleCheck, ClipboardList, Hash, Link2, Mail, MessageSquare, Phone, Plus, ShoppingBag, Users } from "lucide-react"
+import { LinkIcon, SocialIcon } from "@/components/onepage/brand-icons"
 import {
   MESSAGE_TEMPLATES,
   TEMPLATE_VARIABLES,
@@ -79,8 +79,14 @@ const choiceWords = (): Record<ActionType, string> => ({
 
 const ORDER: ActionType[] = ["url", "whatsapp", "whatsapp_group", "telegram", "email", "phone", "sms", "product", "form", "booking", "internal"]
 
+/*
+  Round AP: no choice is ever drawn as a crossed circle. "No action" is what the block does by itself: its own
+  address (the link mark), its booking page (Calendly's mark, or a calendar for Cal.com and the rest), or, after a form, the
+  success message alone (a tick). The owner read the crossed circle beside a Calendly link as "blocked".
+*/
 const ICONS: Record<string, ReactNode> = {
-  "": <Ban className="h-4 w-4" />,
+  done: <CircleCheck className="h-4 w-4" />,
+  calendly: <LinkIcon name="calendly" size={16} tone="brand" />,
   url: <Link2 className="h-4 w-4" />,
   whatsapp: <SocialIcon platform="whatsapp" size={16} color="#25D366" />,
   whatsapp_group: <Users className="h-4 w-4" />,
@@ -169,6 +175,7 @@ export function ActionEditor({
   onChange,
   allowNone = false,
   noneLabel,
+  noneMark,
   url,
   showLabel = false,
   types,
@@ -179,6 +186,8 @@ export function ActionEditor({
   allowNone?: boolean
   /** The words for "no action": what the block does without one ("Web address" where the block keeps its own address field). */
   noneLabel?: string
+  /** Round AP: the mark for "no action" (an action type, or "calendly" or "done"). The link mark by default, a tick for a form's success message. */
+  noneMark?: string
   url?: string | null
   showLabel?: boolean
   types?: ActionType[]
@@ -210,6 +219,7 @@ export function ActionEditor({
   const words = choiceWords()
   const allowed = types?.length ? ORDER.filter((t) => types.includes(t)) : ORDER
   const noneWords = noneLabel || (allowNone ? tt("Success message only") : tt("Existing link"))
+  const none = noneMark || (allowNone && !noneLabel ? "done" : "url")
   const actionChoices: Choice[] = [{ value: "", label: noneWords }, ...allowed.map((t) => ({ value: t, label: words[t] }))]
   const href = current ? actionHref(current, vars) : null
 
@@ -406,8 +416,8 @@ export function ActionEditor({
             onChange(next ? empty(next, { label: a.label }) : undefined)
           }}
           fieldLabel={type ? (words[type as ActionType] ?? type) : noneWords}
-          fieldLeading={<ActionMark type={type || (noneLabel ? "url" : "")} />}
-          leading={(c) => <ActionMark type={c.value || (noneLabel ? "url" : "")} />}
+          fieldLeading={<ActionMark type={type || none} />}
+          leading={(c) => <ActionMark type={c.value || none} />}
           fieldClassName="pl-2"
         />
       </div>

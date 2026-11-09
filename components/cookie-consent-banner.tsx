@@ -28,6 +28,7 @@ import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Analytics } from "@vercel/analytics/next"
+import { isOnePagePreview } from "@/lib/onepage/preview-notice"
 import { ChevronDown } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { isNativeApp } from "@/lib/native-bridge"
@@ -217,9 +218,17 @@ export function CookieConsentBanner() {
      and, with no yes, nothing optional loads for their visitors. */
   /* The theme marketplace's preview draws a theme with nobody's shop in it (app/(site)/theme-preview): nothing to consent to. */
   const inThemePreview = pathname?.startsWith("/theme-preview/") ?? false
-  const quiet = inSitesEditor || inBuilder || inApp || inThemePreview || embedded || site?.hidden === true
+  /*
+    Round AP, the owner: "I don't think it's necessary to show the cookies banner every time in the one page
+    editor". The OnePage editor's preview (app/(storelib)/onepage-preview, framed by the editor) is the creator
+    looking at their own page, never a visit: it asks nothing, by its address as well as by being framed, so it
+    holds where the frame check does not (a native shell's web view, a preview opened on its own). The creator's
+    live page still asks as before.
+  */
+  const inOnePagePreview = (pathname?.startsWith("/onepage-preview") ?? false) || isOnePagePreview()
+  const quiet = inSitesEditor || inBuilder || inApp || inThemePreview || inOnePagePreview || embedded || site?.hidden === true
   /* What the server knows of `quiet`: the address. The frame and the creator's switch are known after the effect. */
-  const quietPath = inSitesEditor || inBuilder || inApp || inThemePreview
+  const quietPath = inSitesEditor || inBuilder || inApp || inThemePreview || (pathname?.startsWith("/onepage-preview") ?? false)
 
   /*
     ROUND 48: THE CARD IS IN THE SERVER'S HTML. It used to appear only after

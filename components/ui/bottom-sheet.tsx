@@ -454,6 +454,7 @@ export function BottomSheet({
   onRaise,
   keepMounted = false,
   zIndex,
+  handleBackground,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -532,6 +533,11 @@ export function BottomSheet({
    * panel passes the layer it wants the sheet on, and nothing else moves.
    */
   zIndex?: number
+  /**
+   * The colour behind the grip and the header, where it is not the sheet's own (round AP: a OnePage's Share
+   * sheet, whose band in the page's colour starts at the sheet's top edge, grip and all).
+   */
+  handleBackground?: string
 }) {
   const [mounted, setMounted] = useState(false)
   /**
@@ -1401,7 +1407,7 @@ export function BottomSheet({
           boxShadow: "0 -2px 16px rgba(0, 0, 0, 0.08)",
         }}
       >
-        <div data-sheet-handle className="shrink-0 pt-2.5 pb-1">
+        <div data-sheet-handle className={cn("shrink-0 pt-2.5", handleBackground ? "rounded-t-[20px]" : "pb-1")} style={handleBackground ? { background: handleBackground } : undefined}>
           <div className="mx-auto h-1 w-9 rounded-full bg-neutral-300" />
           {title && !header && (
             <p className="px-5 pt-3 text-[15px] font-semibold text-neutral-900">{title}</p>

@@ -354,7 +354,15 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
       <figure className="space-y-2" data-share-preview="" data-share-source={image.source}>
         <figcaption className="text-[12px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">{tt("Shared link")}</figcaption>
         <div
-          className={cn("overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]", image.source === "profile" && "flex items-stretch")}
+          className={cn(
+            /*
+              The size a link card has in a chat or a feed (iMessage, WhatsApp
+              and X all draw it about 300 to 400 wide), not the column's width.
+              Drawn at 1440 across the whole column it read as a poster.
+            */
+            "w-full max-w-[380px] overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]",
+            image.source === "profile" && "flex items-stretch",
+          )}
           data-og-card=""
           data-og-image-url={image.url}
           data-og-twitter-card={image.twitterCard}

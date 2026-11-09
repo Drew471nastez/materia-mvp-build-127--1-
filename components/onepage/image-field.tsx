@@ -74,9 +74,16 @@ export function OnePageImageField({
   onChange,
   prefix,
   removable = true,
+  fallback,
   className,
 }: {
   value: string | null | undefined
+  /**
+   * Round AP: what shows when nothing is chosen (a product's own picture under its custom thumbnail). It is drawn
+   * in the square, but it is not the value: Remove is offered only for a picture chosen here, and takes the square
+   * back to this one.
+   */
+  fallback?: string | null
   /** The stored address (null when removed), with the picture's own size when it is known. */
   onChange: (url: string | null, size: PictureSize | null) => void
   /** Storage name prefix: "image_<block>_<item>". */
@@ -140,7 +147,7 @@ export function OnePageImageField({
     changeRef.current(null, null)
   }
 
-  const src = local || (value ? onePageImageSrc(value, THUMB_PX * 2) : null)
+  const src = local || (value ? onePageImageSrc(value, THUMB_PX * 2) : fallback ? onePageImageSrc(fallback, THUMB_PX * 2) : null)
   const has = !!(value || local)
 
   return (
