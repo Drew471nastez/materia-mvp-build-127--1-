@@ -420,7 +420,30 @@ const strictChecked = (async () => {
   check("  and every tool is still sent", ((sent as { tools?: unknown[] } | null)?.tools ?? []).length === 26)
 })()
 
-void strictChecked.then(() => {
+/*
+  November 2026: every AI website build failed at its first call with 400 "tools.2.custom: For 'object' type,
+  'additionalProperties' must be explicitly set to false": write_file (and the settings tools) carry open objects.
+  A tool is strict only when its whole schema can be (lib/sites/agent/strict-schema.ts).
+*/
+const openObjectsChecked = strictChecked.then(async () => {
+  section("A tool with an open object is never sent strict")
+  const { strictReady } = await import("@/lib/sites/agent/strict-schema")
+  const { TOOL_LIST } = await import("@/lib/ai-builder/agent/tool-specs")
+  const closed = { type: "object", properties: { a: { type: "string" } }, required: ["a"], additionalProperties: false }
+  check("a closed schema is ready", strictReady(closed) && strictReady(closed, { allRequired: true }))
+  check("an open object anywhere is not", !strictReady({ ...closed, properties: { a: { type: "object" } } }) && !strictReady({ ...closed, properties: { a: { type: "array", items: { type: "object", properties: {} } } } }))
+  check("numeric and length limits are not (strict mode refuses them)", !strictReady({ ...closed, properties: { a: { type: "string", maxLength: 3 } } }) && !strictReady({ ...closed, properties: { a: { type: "integer", minimum: 1 } } }))
+  check("an optional field is fine for Anthropic, not for OpenAI's strict", strictReady({ ...closed, required: [] }) && !strictReady({ ...closed, required: [] }, { allRequired: true }))
+  let sent: { tools?: { name: string; strict?: boolean; input_schema: unknown }[] } | null = null
+  const fake = () => ({ messages: { stream: (params: never) => { sent = params; return { finalMessage: async () => { throw new Error("captured") } } } } }) as never
+  const tools = TOOL_LIST.map((t) => ({ name: t.name, description: t.description, parameters: (t as unknown as { parameters: unknown }).parameters })) as never
+  await createAnthropicProvider(fake).complete({ model: "claude-opus-5-5", system: "s", turns: [{ role: "user", content: "hi" }] as never, tools, maxOutputTokens: 100 } as never).catch(() => {})
+  const out = (sent as { tools?: { name: string; strict?: boolean; input_schema: unknown }[] } | null)?.tools ?? []
+  check("the AI website builder's tools: every one sent, every strict one ready for it", out.length === TOOL_LIST.length && out.every((t) => !t.strict || strictReady(t.input_schema)), out.filter((t) => t.strict && !strictReady(t.input_schema)).map((t) => t.name))
+  check("  write_file (index 2 in the failing request) is not strict; read_file is", out.find((t) => t.name === "write_file")?.strict !== true && out.find((t) => t.name === "read_file")?.strict === true)
+})
+
+void openObjectsChecked.then(() => {
   console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed > 0) {
     console.log("Failing:", failures.join(", "))
