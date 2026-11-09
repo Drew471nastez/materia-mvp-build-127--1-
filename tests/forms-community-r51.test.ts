@@ -212,7 +212,8 @@ async function main() {
   await check("responses link to the person through /app/contacts/open only, and an anonymous response has no link", () => {
     const panels = read("app/(storelib)/app/emails/forms/form-panels.tsx")
     assert.match(panels, /`\/app\/contacts\/open\?from=\$\{from\}&id=\$\{encodeURIComponent\(id\)\}`/)
-    assert.match(panels, /identifiable\(r\) \? \([\s\S]{0,200}contactOpenHref\("form_submission", r\.id\)/)
+    /* Changed on purpose (wave 7): the link is worked out once per row (the person's name and View contact both use it). */
+    assert.match(panels, /identifiable\(r\) \? \(?[\s\S]{0,200}contactOpenHref\("form_submission", r\.id\)/)
     assert.match(panels, /contactOpenHref\("site_form_submission", r\.id\)/)
     assert.doesNotMatch(panels, /\/app\/contacts\/(?!open)/)
   })

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject, type React
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core"
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { ArrowLeft, ChevronDown, Eye, GripVertical, MoreHorizontal, PenLine, Plus, X } from "lucide-react"
+import { ArrowLeft, ChevronDown, Copy, ExternalLink, Eye, GripVertical, MoreHorizontal, PenLine, Plus, X } from "lucide-react"
 import { ActionEditor } from "./action-editor"
 import { PublicFormRenderer } from "./public-form"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
@@ -12,11 +12,12 @@ import { ChoicePicker, type Choice } from "@/components/ui/choice-list"
 import { Reveal } from "@/components/ui/reveal"
 import { Segmented, Switch } from "@/components/onepage/editor-kit"
 import { useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
-import { buttonSecondary, buttonAccent, iconButton, StatusBadge } from "@/app/(storelib)/app/orders/order-parts"
-import { LeaveButton, barButton, barIconButton } from "@/app/(storelib)/app/products/new/editor-buttons"
+import { ORDER_WIDTH, OrderBarFrame, buttonSecondary, buttonAccent, iconButton, StatusBadge } from "@/app/(storelib)/app/orders/order-parts"
+import { barButton } from "@/app/(storelib)/app/products/new/editor-buttons"
 import { inkDepth } from "@/app/(storelib)/app/coupons/coupon-parts"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 import { formsRequest } from "@/lib/forms/client"
 import { formPath } from "@/lib/forms/actions"
 import { platformOrigin } from "@/lib/onepage/return-address"
@@ -209,6 +210,9 @@ export function FormEditor({
   nav,
   panel,
   usages,
+  kindLabel,
+  responses,
+  onView,
 }: {
   form: SavedForm
   onBack: () => void
@@ -219,8 +223,14 @@ export function FormEditor({
   /** The tabs, drawn under the title. */
   nav?: ReactNode
   panel?: ReactNode
-  /** Where the form is used (Settings › Publication). */
+  /** Where the form is used (the summary beside the form). */
   usages?: FormUsage[]
+  /** What kind of form it is, in words (Contacts › Forms kindWord), for the line under the title. */
+  kindLabel?: string
+  /** How many responses it has, for that line and the summary. */
+  responses?: number
+  /** Open another of the form's tabs (Responses from the summary, Settings from the ⋯). */
+  onView?: (view: "edit" | "responses" | "insights" | "settings") => void
 }) {
   const [saved, setSaved] = useState(form),
     [draft, setDraft] = useState<FormDefinition>(() => withDefaults(form.draft)),
@@ -421,7 +431,7 @@ export function FormEditor({
         </DndContext>
         <button
           type="button"
-          className={cn(inPage ? "" : "mt-2.5", "inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-[#e3e4e8] bg-white text-[14px] font-medium text-[#1a1a2e] outline-none transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] focus-visible:border-[#1a1a2e] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] disabled:cursor-not-allowed disabled:opacity-50")}
+          className={cn(inPage ? "" : "mt-2.5", "inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#d5d7dd] bg-white text-[14px] font-medium text-[#1a1a2e] outline-none transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] focus-visible:border-[#1a1a2e] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] disabled:cursor-not-allowed disabled:opacity-50")}
           disabled={draft.fields.length >= MAX_FIELDS}
           onClick={add}
           data-add-question=""
@@ -579,84 +589,150 @@ export function FormEditor({
             ? tt("Published, version {n}. Every page with this form shows it.", { n: saved.revision })
             : tt("Draft. Publish it to take responses.")
     const togglePreview = () => setPreview((v) => !v)
+    const copyLink = () => void navigator.clipboard.writeText(publicLink).then(() => setNote(tt("Form link copied.")))
+    /* One ⋯: below lg it holds Preview and Save draft as well (Publish sits beside it); from lg those are a button and the foot bar. */
     const phoneMenu: ActionMenuItem[] = [
       ...(view === "edit" ? [{ label: preview ? tt("Edit") : tt("Preview"), onClick: togglePreview }] : []),
       ...(live
         ? [
-            { label: tt("Copy form link"), onClick: () => void navigator.clipboard.writeText(publicLink).then(() => setNote(tt("Form link copied."))) },
+            { label: tt("Copy form link"), onClick: copyLink },
             { label: tt("Open public form"), href: formPath(saved.id), target: "_blank" as const },
           ]
         : []),
       ...(saving ? [{ label: tt("Save draft"), onClick: () => void save(false), disabled: busy || !dirty, separatorBefore: view === "edit" || live }] : []),
     ]
+    const deskMenu: ActionMenuItem[] = [
+      ...(live
+        ? [
+            { label: tt("Copy form link"), onClick: copyLink },
+            { label: tt("Open public form"), href: formPath(saved.id), target: "_blank" as const },
+          ]
+        : []),
+      { label: tt("View responses"), onClick: () => onView?.("responses"), separatorBefore: live },
+      { label: tt("Settings"), onClick: () => onView?.("settings") },
+    ]
+    const responseWords = typeof responses === "number" ? tt("{n, plural, one {# response} other {# responses}}", { n: responses }) : null
+    const subtitle = [kindLabel, responseWords, state === "unsaved" ? tt("Unsaved changes") : state === "changed" ? tt("Changes not published") : null].filter(Boolean).join(" · ")
+    const withAside = view === "edit" || view === "settings"
+    const summary = (
+      <FormSummary
+        form={saved}
+        state={state}
+        stateLine={stateLine}
+        publicLink={publicLink}
+        usages={usages ?? []}
+        responses={responses}
+        onResponses={onView ? () => onView("responses") : undefined}
+        onCopy={copyLink}
+      />
+    )
+    /*
+      ── The page (Contacts › Forms › a form), wave 7 ─────────────────────
+      The owner: "I don't like the page of a form. Make it smoother,
+      cleaner, Storelib UI." It is laid out as an order and a person are:
+      an order's bar (OrderBarFrame, sticky: the one back arrow up to Forms,
+      the form's name and where it stands, its kind and responses under it,
+      the actions on the right), the form's tabs as the quiet views every
+      list wears, then on a computer two columns as the coupon editor's:
+      the work on the left (the form's cards; Responses and Insights take
+      the whole width) and the summary on the right (where it stands, how
+      many answered, its link, where it is used). Below lg the summary goes
+      under the work, Publish sits in the bar beside the ⋯; from lg Save
+      draft and Publish are in the editors' foot bar.
+    */
     return (
       <>
-        <div ref={barRef} data-editor-bar="" data-scrolled="false" className="orders-bar sticky top-0 z-30 bg-[#f8f9fa] max-md:[[data-page-layer]_&]:pt-[env(safe-area-inset-top)] lg:hidden">
-          <div className={cn("mx-auto flex h-14 items-center justify-between gap-2 sm:h-16", FORM_WIDTH, "app-gutter")}>
-            <LeaveButton mode={dirty ? "cancel" : "back"} asks={dirty} disabled={busy} label={tt("Back to forms")} onLeave={() => void close()} />
-            <div className="flex shrink-0 items-center gap-2">
-              {phoneMenu.length ? (
-                <ResponsiveActionMenu
-                  title={title}
-                  align="end"
-                  trigger={
-                    <button type="button" className={barIconButton} aria-label={tt("More actions")} data-form-actions-more="">
-                      <MoreHorizontal className="h-[18px] w-[18px] sm:h-4 sm:w-4" />
-                    </button>
-                  }
-                  items={phoneMenu}
-                />
-              ) : null}
-              {saving ? <PublishButton busy={busy} onPublish={() => void save(true)} /> : null}
-            </div>
-          </div>
-        </div>
-
-        <div className={cn("mx-auto w-full pb-6 pt-1 sm:pt-2 lg:pb-8 lg:pt-6", FORM_WIDTH, "app-gutter")} data-form-builder="" data-form-view={view}>
-          <header className="mb-4 flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1" data-editor-head="">
-            <button type="button" onClick={() => void close()} className={cn(iconButton, "-ml-1.5 hidden h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea] lg:inline-flex")} aria-label={tt("Back to forms")} title={tt("Forms")}>
+        <OrderBarFrame
+          back={
+            <button type="button" onClick={() => void close()} className={cn(iconButton, "h-9 w-9 hover:bg-[#eceef1] active:bg-[#e4e6ea] max-md:h-11 max-md:w-11")} aria-label={tt("Back to forms")} title={tt("Forms")} data-contacts-back="">
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <h1 className="min-w-0 max-w-full truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">{title}</h1>
-            <span className="shrink-0 lg:ml-1">
-              <StatusBadge tone={live ? "success" : "neutral"}>{live ? tt("Published") : tt("Draft")}</StatusBadge>
-            </span>
-            <div className="ml-auto hidden shrink-0 items-center gap-2 lg:flex">
+          }
+          title={
+            <>
+              <h1 className="min-w-0 truncate text-[22px] font-bold leading-8 text-[#1a1a2e] sm:text-[20px] sm:leading-7" data-form-title="">
+                {title}
+              </h1>
+              <span className="shrink-0 max-sm:hidden">
+                <StatusBadge tone={live ? "success" : "neutral"}>{live ? tt("Published") : tt("Draft")}</StatusBadge>
+              </span>
+            </>
+          }
+          actions={
+            <>
               {view === "edit" ? (
-                <button type="button" className={buttonSecondary} onClick={togglePreview} aria-pressed={preview} data-form-preview-toggle="">
+                <button type="button" className={cn(buttonSecondary, "hidden lg:inline-flex")} onClick={togglePreview} aria-pressed={preview} data-form-preview-toggle="">
                   {preview ? <PenLine aria-hidden className="h-4 w-4" /> : <Eye aria-hidden className="h-4 w-4" />}
                   {preview ? tt("Edit") : tt("Preview")}
                 </button>
               ) : null}
-              {live ? shareMenu(<button type="button" className={buttonSecondary} data-form-share="">{tt("Share")}</button>) : null}
+              <span className="hidden lg:inline-flex">
+                <ResponsiveActionMenu
+                  title={title}
+                  align="end"
+                  trigger={
+                    <button type="button" className={cn(buttonSecondary, "w-8 px-0")} aria-label={tt("More actions")} data-form-share="">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                  }
+                  items={deskMenu}
+                />
+              </span>
+              {phoneMenu.length ? (
+                <span className="lg:hidden">
+                  <ResponsiveActionMenu
+                    title={title}
+                    align="end"
+                    trigger={
+                      <button type="button" className={cn(buttonSecondary, "w-8 px-0 max-md:h-11 max-md:w-11 max-md:rounded-xl")} aria-label={tt("More actions")} data-form-actions-more="">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+                    }
+                    items={phoneMenu}
+                  />
+                </span>
+              ) : null}
+              {saving ? (
+                <span className="lg:hidden">
+                  <PublishButton busy={busy} onPublish={() => void save(true)} />
+                </span>
+              ) : null}
+            </>
+          }
+          subtitle={<span data-form-subtitle="">{subtitle}</span>}
+        />
+
+        <div className={cn("mx-auto w-full pb-24 md:pb-10", FORM_WIDTH, "app-gutter")} data-form-builder="" data-form-view={view}>
+          <div className="mt-1 flex min-w-0 items-center">{nav}</div>
+          {/* Below lg the foot bar is not drawn: what just happened is said here. */}
+          {message ? (
+            <div className="mt-2 lg:hidden" aria-live="polite">
+              {message}
             </div>
-            {/* Below lg the foot bar is not drawn: where the form stands, and what just happened, are said here. */}
-            <div className="w-full lg:hidden" aria-live="polite">
-              {message ?? (unpublished ? <p className={muted}>{stateLine}</p> : null)}
+          ) : null}
+          <div className={cn("mt-3", withAside && "grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start")}>
+            <div className="min-w-0" data-form-tab-body="">
+              {view === "panel" ? (
+                panel
+              ) : view === "settings" ? (
+                <div className="flex flex-col gap-3 sm:gap-4">
+                  <section className={pageCard}>
+                    <h2 className={cardTitle}>{tt("Where answers go")}</h2>
+                    {answersBody}
+                  </section>
+                  <section className={pageCard}>
+                    <h2 className={cardTitle}>{tt("Privacy")}</h2>
+                    {privacyBody}
+                  </section>
+                  <FollowUpCard />
+                </div>
+              ) : preview ? (
+                previewPane
+              ) : (
+                editor
+              )}
             </div>
-          </header>
-          {nav}
-          <div className="mt-4" data-form-tab-body="">
-            {view === "panel" ? (
-              panel
-            ) : view === "settings" ? (
-              <div className="flex flex-col gap-3 sm:gap-4">
-                <PublicationCard form={saved} draftChanged={dirty || (live && JSON.stringify(saved.draft) !== JSON.stringify(saved.published))} publicLink={publicLink} usages={usages ?? []} onCopied={() => setNote(tt("Form link copied."))} />
-                <section className={pageCard}>
-                  <h2 className={cardTitle}>{tt("Where answers go")}</h2>
-                  {answersBody}
-                </section>
-                <section className={pageCard}>
-                  <h2 className={cardTitle}>{tt("Privacy")}</h2>
-                  {privacyBody}
-                </section>
-                <FollowUpCard />
-              </div>
-            ) : preview ? (
-              previewPane
-            ) : (
-              editor
-            )}
+            {withAside ? <aside className="min-w-0 lg:sticky lg:top-[96px]" aria-label={tt("Summary")}>{summary}</aside> : null}
           </div>
         </div>
 
@@ -731,8 +807,8 @@ export function FormEditor({
   )
 }
 
-/* The form's page: its bar, tabs, cards and foot share one width, so they line up (wave 6). */
-const FORM_WIDTH = "max-w-[800px]"
+/* The form's page: its bar, tabs, cards and foot share one width, an order's and a person's (wave 7; 800px in wave 6). */
+const FORM_WIDTH = ORDER_WIDTH
 
 /* Measured from the padding box: on a phone the press is 44px high inside a 40px button (coupon-parts CouponSaveButton). */
 const PRESS_AREA = "relative after:absolute after:inset-x-0 after:-inset-y-[2px] after:content-[''] sm:after:hidden"
@@ -776,46 +852,93 @@ const pageCard = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 b
 const cardTitle = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
 
 /**
- * SETTINGS › PUBLICATION (round 51). Whether every page shows this form,
- * which version, its own link, and where it is placed. Publishing stays the
- * Publish button above: nothing here changes what visitors see.
+ * THE FORM'S SUMMARY, beside it on a computer and under it on a phone (wave
+ * 7; Settings › Publication before, round 51). Where it stands (live, which
+ * version, a draft with changes), how many answered (opening Responses), its
+ * own link to copy or open, and every page it is placed on. Publishing stays
+ * the Publish button: nothing here changes what visitors see.
  */
-function PublicationCard({ form, draftChanged, publicLink, usages, onCopied }: { form: SavedForm; draftChanged: boolean; publicLink: string; usages: FormUsage[]; onCopied: () => void }) {
+function FormSummary({
+  form,
+  state,
+  stateLine,
+  publicLink,
+  usages,
+  responses,
+  onResponses,
+  onCopy,
+}: {
+  form: SavedForm
+  state: "unsaved" | "changed" | "live" | "draft"
+  stateLine: string
+  publicLink: string
+  usages: FormUsage[]
+  responses?: number
+  onResponses?: () => void
+  onCopy: () => void
+}) {
   const live = form.status === "published"
+  const label = "text-[12.5px] font-medium text-[#6b7280]"
   return (
-    <section className={pageCard} data-form-publication="">
-      <h2 className={cardTitle}>{tt("Publication")}</h2>
-      <p className={cn(muted, "-mt-2")}>
-        {live
-          ? draftChanged
-            ? tt("Published, version {n}. Your draft has changes; Publish shows them on every page.", { n: form.revision })
-            : tt("Published, version {n}. Every page with this form shows it.", { n: form.revision })
-          : tt("Draft. Publish it to take responses.")}
-      </p>
-      {live ? (
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={buttonSecondary} onClick={() => void navigator.clipboard.writeText(publicLink).then(onCopied)}>
-            {tt("Copy form link")}
-          </button>
-          <a className={buttonSecondary} href={formPath(form.id)} target="_blank" rel="noopener noreferrer">
-            {tt("Open public form")}
-          </a>
+    <section className={cn(pageCard, "space-y-0")} data-form-publication="">
+      <h2 className={cardTitle}>{tt("Summary")}</h2>
+      <div className="mt-3 flex items-start gap-2">
+        <span aria-hidden className={cn("mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full", state === "unsaved" ? "bg-[#111113]" : state === "live" ? "bg-[#22a06b]" : state === "changed" ? "bg-[#d97706]" : "bg-[#b6bac1]")} />
+        <p className="text-[13.5px] leading-5 text-[#1a1a2e]" data-form-state={state}>
+          {stateLine}
+        </p>
+      </div>
+
+      {typeof responses === "number" ? (
+        <div className="mt-4 border-t border-[#f1f2f4] pt-3.5">
+          <p className={label}>{tt("Responses")}</p>
+          <div className="mt-1 flex items-center justify-between gap-3">
+            <span className="text-[22px] font-semibold leading-7 tabular-nums text-[#1a1a2e]">{responses.toLocaleString(appLocale())}</span>
+            {onResponses ? (
+              <button type="button" className={cn(textButton, "-mr-2 text-[#1a1a2e]")} onClick={onResponses} data-summary-responses="">
+                {tt("View responses")}
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
-      <div className="border-t border-[#f1f2f4] pt-3">
-        <h3 className="text-[13px] font-medium text-[#4b5563]">{tt("Used on")}</h3>
+
+      <div className="mt-4 border-t border-[#f1f2f4] pt-3.5">
+        <p className={label}>{tt("Form link")}</p>
+        {live ? (
+          <>
+            <div className="mt-1.5 flex min-w-0 items-center gap-1 rounded-lg border border-[#e3e4e8] bg-[#fafbfb] py-1 pl-2.5 pr-1">
+              <span className="min-w-0 flex-1 truncate text-[13px] text-[#4b5563]" title={publicLink}>
+                {publicLink.replace(/^https?:\/\//, "")}
+              </span>
+              <button type="button" className={cn(iconButton, "h-7 w-7 shrink-0 max-md:h-9 max-md:w-9")} aria-label={tt("Copy form link")} title={tt("Copy form link")} onClick={onCopy} data-copy-form-link="">
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <a className={cn(textButton, "-ml-2 mt-1")} href={formPath(form.id)} target="_blank" rel="noopener noreferrer">
+              <ExternalLink aria-hidden className="h-3.5 w-3.5" />
+              {tt("Open public form")}
+            </a>
+          </>
+        ) : (
+          <p className={cn(muted, "mt-1")}>{tt("The link works once the form is published.")}</p>
+        )}
+      </div>
+
+      <div className="mt-4 border-t border-[#f1f2f4] pt-3.5">
+        <p className={label}>{tt("Used on")}</p>
         {usages.length ? (
-          <ul className="mt-1.5 space-y-1" data-form-usages="">
+          <ul className="mt-1.5 space-y-1.5" data-form-usages="">
             {usages.map((u) => (
               <li key={`${u.kind}-${u.label}`}>
-                <a className="text-[14px] text-[#1a1a2e] underline-offset-2 hover:underline" href={u.href}>
+                <a className="text-[13.5px] text-[#1a1a2e] underline-offset-2 hover:underline" href={u.href}>
                   {usageWords(u)}
                 </a>
               </li>
             ))}
           </ul>
         ) : (
-          <p className={muted + " mt-1"}>{tt("Not placed on a page yet. Add a Form block on your OnePage, website or Creator Page and pick this form.")}</p>
+          <p className={cn(muted, "mt-1")}>{tt("Not placed on a page yet. Add a Form block on your OnePage, website or Creator Page and pick this form.")}</p>
         )}
       </div>
     </section>
@@ -902,7 +1025,11 @@ function QuestionRow({
         <button type="button" className={cn(iconButton, "h-9 w-8 shrink-0 cursor-grab touch-none text-[#9ca3af] active:cursor-grabbing")} aria-label={tt("Drag question {n}", { n: index + 1 })} {...attributes} {...listeners}>
           <GripVertical className="h-4 w-4" />
         </button>
-        <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-1 text-left outline-none focus-visible:bg-[#f7f7f8]">
+        <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-lg px-1 text-left outline-none focus-visible:bg-[#f7f7f8]">
+          {/* Wave 7: each question wears its number, so the list reads as the form will. */}
+          <span aria-hidden className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[12.5px] font-semibold tabular-nums", open ? "bg-[#1a1a2e] text-white" : "bg-[#f1f2f4] text-[#4b5563]")} data-question-number="">
+            {index + 1}
+          </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{q.label || <span className="font-normal text-[#9ca3af]">{tt("Untitled question")}</span>}</span>
             <span className="block truncate text-[12.5px] text-[#6b7280]">{line}</span>

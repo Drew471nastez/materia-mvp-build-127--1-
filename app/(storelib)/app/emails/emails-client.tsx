@@ -66,6 +66,7 @@ import { TABS, campaignKey, loadReport, loadTab, mergeCampaigns, reportKey, tabK
 import { isPageTab, isSection, isShow, type CampaignShow, type EmailsPageTab, type SettingsSection } from "./emails-route"
 import { noteListAddress } from "./list-return"
 import { openLayer } from "./layer-nav"
+import { EmailsPartBoundary } from "@/components/app/emails/part-boundary"
 import { tt } from "@/lib/i18n/text"
 
 function writeAddress(mutate: (p: URLSearchParams) => void, mode: "push" | "replace") {
@@ -92,6 +93,21 @@ const ALL_EMAIL_LISTS = ["emails:drafts", "emails:scheduled"]
 
 /** How long a chosen tab with nothing read yet keeps the last tab's content before its skeleton shows. */
 const HOLD_MS = 300
+
+/* What a kept read is, checked where it is drawn (wave 7): an object for the views that read one, lists inside it. */
+const NO_FLOWS: FlowRow[] = []
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v)
+function recordOrUndefined<T>(v: unknown): T | undefined {
+  return isObj(v) ? (v as T) : undefined
+}
+function sentDataOf(v: unknown): SentData | undefined {
+  return isObj(v) && Array.isArray(v.campaigns) ? (v as unknown as SentData) : undefined
+}
+function allDataOf(v: unknown): AllData | undefined {
+  if (!isObj(v)) return undefined
+  /* The kept object itself, so what is drawn from it is worked out again only when it changes. */
+  return sentDataOf(v.sent) && Array.isArray(v.scheduled) && Array.isArray(v.drafts) ? (v as unknown as AllData) : undefined
+}
 
 export function EmailsClient({ initialTab, initialShow = "all", initialSection = "sending" }: { initialTab: EmailsPageTab; initialShow?: CampaignShow; initialSection?: SettingsSection }) {
   const router = useRouter()
@@ -207,20 +223,28 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
     })
   }, [current.loading, tab, keyFor, loaderFor])
 
-  /* ── A tab switch ────────────────────────────────────────────────────── */
+  /* ── A place switch ──────────────────────────────────────────────── */
   /*
-    AUTOMATIONS AND SETTINGS ARE PAGES UNDER EMAILS (wave 6). Each has the
-    back arrow a page under another has in /app, so going in is a step in
-    history (pushed, as an email over the list is) and the arrow, the
-    browser's back and a phone's back gesture all come out the same way. A
-    place opened straight from a link has nothing of this page's behind it:
-    its arrow puts Campaigns in its address instead (backThen's fallback).
-    Campaigns' filter and Settings' section are replaced, never pushed, so
-    back does not walk through every view.
+    FOUR PLACES, ONE QUIET ROW (wave 7, the owner: Customer emails, Delivery
+    and the settings were hard to find behind a Settings button). Campaigns,
+    Automations, Customer emails and Settings are the row of page tabs under
+    the title (./emails-home.tsx PlaceNav). Their addresses are the ones they
+    always had: Customer emails is ?tab=settings&section=customer, Settings
+    is ?tab=settings&section=sending, so every link, bookmark and redirect
+    (./emails-route.ts) still lands.
+
+    BACK BEHAVES AS BEFORE. Leaving Campaigns is a step in history (pushed,
+    as an email over the list is); moving between the other three replaces
+    it; Campaigns pressed from any of them pops back to that step. So the
+    browser's back, a phone's back gesture and the Campaigns tab all return
+    to the list, and one more back leaves Emails. A place opened straight
+    from a link has nothing of this page's behind it: Campaigns then puts its
+    own address in (backThen's fallback). Campaigns' filter is replaced,
+    never pushed, so back does not walk through every view.
   */
   const listRef = React.useRef<HTMLDivElement>(null)
   const placePushed = React.useRef(false)
-  const placeAddress = (next: EmailsPageTab) => (p: URLSearchParams) => {
+  const placeAddress = (next: EmailsPageTab, nextSection: SettingsSection) => (p: URLSearchParams) => {
     p.set("tab", next)
     /* Each place keeps only its own: Campaigns its filter, Settings its section and the editor's family. */
     if (next !== "campaigns") p.delete("show")
@@ -229,23 +253,32 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
       p.delete("section")
       p.delete("kind")
       p.delete("community")
-    } else p.set("section", section)
+    } else {
+      p.set("section", nextSection)
+      if (nextSection !== "customer") {
+        p.delete("kind")
+        p.delete("community")
+      }
+    }
   }
-  const setPageTab = (next: EmailsPageTab) => {
-    if (next === pageTab) return
+  const setPlace = (next: EmailsPageTab, nextSection: SettingsSection = section) => {
+    if (next === pageTab && (next !== "settings" || nextSection === section)) return
     if (next === "campaigns" && placePushed.current) {
       placePushed.current = false
       backThen(() => {
         setPageTabState("campaigns")
-        writeAddress(placeAddress("campaigns"), "replace")
+        writeAddress(placeAddress("campaigns", nextSection), "replace")
       })
       return
     }
     setPageTabState(next)
+    if (next === "settings") setSectionState(nextSection)
     const push = pageTab === "campaigns" && next !== "campaigns"
-    placePushed.current = push
-    writeAddress(placeAddress(next), push ? "push" : "replace")
+    /* Still one step in from Campaigns while moving between the other places. */
+    placePushed.current = push || (placePushed.current && next !== "campaigns")
+    writeAddress(placeAddress(next, nextSection), push ? "push" : "replace")
   }
+  const setPageTab = (next: EmailsPageTab) => setPlace(next)
   /* The browser's own back out of a place: nothing of it is left to pop. */
   React.useEffect(() => {
     if (pageTab === "campaigns") placePushed.current = false
@@ -259,20 +292,9 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
       else p.set("show", next)
     }, "replace")
   }
-  const setSection = (next: SettingsSection) => {
-    if (next === section) return
-    setSectionState(next)
-    writeAddress((p) => {
-      p.set("tab", "settings")
-      p.set("section", next)
-      if (next !== "customer") {
-        p.delete("kind")
-        p.delete("community")
-      }
-    }, "replace")
-  }
+  const setSection = (next: SettingsSection) => setPlace("settings", next)
   /* A tab's view, for reading ahead when a pointer rests on it. */
-  const viewOfTab = (t: EmailsPageTab) => viewOf(t, show, section)
+  const viewOfTab = (t: EmailsPageTab, se: SettingsSection = section) => viewOf(t, show, se)
   /*
     THE SCROLL IS LEFT WHERE IT IS. The bar scrolls with the page now (it is
     not sticky), so a tab is only ever pressed with the bar in view, and the
@@ -311,12 +333,20 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
   }, [])
 
   /* ── What the list shows ─────────────────────────────────────────────── */
-  const flows = ((shown === "flows" ? current.data : peek(keyFor("flows"))) as FlowRow[] | undefined) ?? []
-  const customerEmails = (shown === "customer" ? current.data : peek(keyFor("customer"))) as CustomerEmailsData | undefined
-  const platforms = (shown === "platforms" ? current.data : peek(keyFor("platforms"))) as SendingData | undefined
+  /*
+    WHAT IS KEPT IS CHECKED AGAIN WHERE IT IS DRAWN (wave 7). Every read is
+    shaped on its way in (./emails-data.ts, lib/emails/shapes.ts); these
+    lines never trust the cache to hold a list either. The automations list
+    is read on every draw (the dialog's title below), so a kept answer that
+    was not a list took the whole page down: "eN.find is not a function".
+  */
+  const flowsKept = shown === "flows" ? current.data : peek(keyFor("flows"))
+  const flows = Array.isArray(flowsKept) ? (flowsKept as FlowRow[]) : NO_FLOWS
+  const customerEmails = recordOrUndefined<CustomerEmailsData>(shown === "customer" ? current.data : peek(keyFor("customer")))
+  const platforms = recordOrUndefined<SendingData>(shown === "platforms" ? current.data : peek(keyFor("platforms")))
   const physical = usePhysicalCommerceEnabled()
-  const allData = (shown === "all" ? current.data : undefined) as AllData | undefined
-  const sentData = (shown === "published" ? (current.data as SentData | undefined) : allData?.sent) as SentData | undefined
+  const allData = shown === "all" ? allDataOf(current.data) : undefined
+  const sentData = shown === "published" ? sentDataOf(current.data) : allData?.sent
   const campaigns: CampaignRow[] = React.useMemo(
     () =>
       shown === "all"
@@ -324,7 +354,7 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
         : shown === "published"
           ? sentData?.campaigns ?? []
           : shown === "scheduled" || shown === "drafts"
-            ? ((current.data as CampaignRow[] | undefined) ?? [])
+            ? Array.isArray(current.data) ? (current.data as CampaignRow[]) : []
             : [],
     [shown, allData, sentData, current.data],
   )
@@ -428,11 +458,11 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
   const seedFor = (id: string): EmailSeed => {
     const lists = [campaigns, peek<SentData>(keyFor("published"))?.campaigns, peek<CampaignRow[]>(keyFor("scheduled")), peek<CampaignRow[]>(keyFor("drafts"))]
     for (const list of lists) {
-      const row = list?.find((c) => c.id === id)
+      const row = Array.isArray(list) ? list.find((c) => c.id === id) : undefined
       if (row) return { id, subject: row.subject, status: row.status ?? (row.kind === "scheduled" ? "scheduled" : row.kind === "draft" ? "draft" : "sent"), sent_at: row.sent_at, scheduled_at: row.scheduled_at }
     }
     const r = peek<{ campaign: { subject: string; status: string } }>(reportKey(id))
-    return { id, subject: r?.campaign.subject ?? "", status: r?.campaign.status }
+    return { id, subject: r?.campaign?.subject ?? "", status: r?.campaign?.status }
   }
 
   const onOpen = (c: CampaignRow) => {
@@ -485,9 +515,10 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
     /* On the server, by the store the session works in (app/api/email/area): the owner's, or the one a team member given Marketing works in. */
     const res = await fetch("/api/email/area", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete_campaign", id }) }).catch(() => null)
     if (!res || !res.ok) return tt("The email was not deleted. Try again.")
-    for (const key of ALL_EMAIL_LISTS) write<CampaignRow[]>(key, (prev) => (prev ?? []).filter((c) => c.id !== id))
-    write<SentData | undefined>(keyFor("published"), (prev) => (prev ? { ...prev, campaigns: prev.campaigns.filter((c) => c.id !== id) } : prev))
-    write<AllData | undefined>(keyFor("all"), (prev) => (prev ? { sent: { ...prev.sent, campaigns: prev.sent.campaigns.filter((c) => c.id !== id) }, scheduled: prev.scheduled.filter((c) => c.id !== id), drafts: prev.drafts.filter((c) => c.id !== id) } : prev))
+    const without = (rows: unknown) => (Array.isArray(rows) ? (rows as CampaignRow[]).filter((c) => c.id !== id) : [])
+    for (const key of ALL_EMAIL_LISTS) write<CampaignRow[]>(key, without)
+    write<SentData | undefined>(keyFor("published"), (prev) => { const p = sentDataOf(prev); return p ? { ...p, campaigns: without(p.campaigns) } : undefined })
+    write<AllData | undefined>(keyFor("all"), (prev) => { const p = allDataOf(prev); return p ? { sent: { ...p.sent, campaigns: without(p.sent.campaigns) }, scheduled: without(p.scheduled), drafts: without(p.drafts) } : undefined })
     refreshCampaignLists()
     return tt("Email deleted")
   }
@@ -525,7 +556,7 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
     /* Through the server, which takes everyone out of it first. */
     const res = await fetch(`/api/automations/flows/${id}`, { method: "DELETE" }).catch(() => null)
     if (!res || !res.ok) return onNotice(tt("Not deleted. Try again."))
-    write<FlowRow[]>(keyFor("flows"), (prev) => (prev ?? []).filter((f) => f.id !== id))
+    write<FlowRow[]>(keyFor("flows"), (prev) => (Array.isArray(prev) ? prev : []).filter((f) => f.id !== id))
     onNotice(tt("Automation deleted"))
   }
 
@@ -552,7 +583,7 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
       onNotice(first || out.error || (on ? tt("Not turned on. Try again.") : tt("Not turned off. Try again.")), true)
       return
     }
-    write<FlowRow[]>(keyFor("flows"), (prev) => (prev ?? []).map((f) => (f.id === flow.id ? { ...f, status: on ? "active" : "paused" } : f)))
+    write<FlowRow[]>(keyFor("flows"), (prev) => (Array.isArray(prev) ? prev : []).map((f) => (f.id === flow.id ? { ...f, status: on ? "active" : "paused" } : f)))
     refresh(keyFor("flows"))
     onNotice(
       on
@@ -611,7 +642,7 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
         <EmailsHome
           pageTab={pageTab}
           onPageTab={setPageTab}
-          onPageTabIntent={(t) => prefetch(keyFor(viewOfTab(t)), loaderFor(viewOfTab(t)), 30_000)}
+          onPageTabIntent={(t, se) => prefetch(keyFor(viewOfTab(t, se)), loaderFor(viewOfTab(t, se)), 30_000)}
           show={show}
           onShow={setShow}
           section={section}
@@ -658,7 +689,10 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
           inert={!openId}
           aria-hidden={!openId || undefined}
         >
-          <EmailDetail key={displayedId} seed={seedFor(rowOf(displayedId))} onBack={onBack} onAction={onEmailAction} onNotice={onNotice} />
+          {/* An email's page that throws says so in its place, under its own back arrow's reach (./part-boundary): the list behind it stays. */}
+          <EmailsPartBoundary name="email" resetKey={displayedId} onBack={onBack} onRetry={() => void load(reportKey(rowOf(displayedId)), () => loadReport(rowOf(displayedId)))} className="mx-4 mt-4 sm:mx-6">
+            <EmailDetail key={displayedId} seed={seedFor(rowOf(displayedId))} onBack={onBack} onAction={onEmailAction} onNotice={onNotice} />
+          </EmailsPartBoundary>
         </div>
       ) : null}
 
