@@ -56,6 +56,8 @@ function wholeDesign(d: Design, prefix?: string, link?: string, chrome?: { heade
   for (const [key, list] of Object.entries(d.compose)) if (key !== "home") compose[key] = [...list, ...kit.page]
   compose.product = [{ type: kit.product }]
   compose.collection = [{ type: kit.collection }]
+  compose.products = [{ type: kit.collection }]
+  compose.search = [{ type: kit.collection }]
   return { ...d, files: { ...d.files, ...(chrome?.files ?? {}), ...kit.files }, compose }
 }
 
@@ -197,7 +199,7 @@ async function main() {
   }
   const [bA, bB, bC, bD] = built
   /* Changed on purpose (round N, N3): every one also has its product and collection templates. */
-  const TEMPLATE_KEYS = ["product", "collection"]
+  const TEMPLATE_KEYS = ["product", "collection", "products", "search"]
   check("A: three pages; B: two; C: two; D: home only (each with its product and collection templates)", ["programs", "about"].every((k) => k in installPages(w, bA.installId)) && "journal" in installPages(w, bB.installId) && "beats" in installPages(w, bC.installId) && Object.keys(installPages(w, bD.installId)).filter((k) => !TEMPLATE_KEYS.includes(k)).join() === "home" && built.slice(0, 4).every((b) => TEMPLATE_KEYS.every((k) => (installPages(w, b.installId)[k]?.draft ?? []).some((x: { type: string; group?: string }) => !x.group && x.type.startsWith("ai_")))))
   check("  every home has ten sections of its own between its header and footer", built.slice(0, 4).every((b) => b.homeTypes.length === 12), built.slice(0, 4).map((b) => b.homeTypes.length))
   check("B's header and footer are its own design, not A's", bB.homeTypes[0] === "ai_masthead" && bB.homeTypes[bB.homeTypes.length - 1] === "ai_colophon" && /<header class="mh"/.test(bB.html) && !/<header class="ch"/.test(bB.html) && /<footer class="cp" data-scheme="site_inverse"/.test(bB.html), bB.html.match(/<(header|footer)[^>]*>/g))

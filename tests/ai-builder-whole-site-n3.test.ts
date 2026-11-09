@@ -123,6 +123,8 @@ async function main() {
     const productReason = sitePlan([]).map((p) => (p.key === "product" ? { key: "product", sections: [], reason: "The platform's layout will do for now." } : p))
     check("  the product template cannot be skipped with a reason while the store sells", readSitePlan(productReason, CAPS).ok === false)
     const noShop = { ...CAPS, products: [] }
+    const shopReason = sitePlan([]).map((p) => (p.key === "products" ? { key: "products", sections: [], reason: "The platform's grid will do for now." } : p))
+    check("  nor the shop while the store sells (the platform's grid is not the site's design)", readSitePlan(shopReason, CAPS).ok === false)
     check("  a store that sells nothing may skip it with a reason", readSitePlan(productReason, noShop).ok === true)
     check("  the blog's templates only when there is a blog", !templatesFor(CAPS).some((t) => t.key === "blogs") && templatesFor({ ...CAPS, blog: { posts: 3 } }).some((t) => t.key === "article"))
     check("  a template key cannot be misspelled", readSitePlan([...sitePlan([]), { key: "Prod uct", sections: ["x"] }], CAPS).ok === false)
@@ -184,6 +186,7 @@ async function main() {
   check("  home: how many of its own, how many it needs", new RegExp(`home has 2 sections of your own; it needs at least ${MIN_HOME_SECTIONS}`).test(firstFinish), firstFinish)
   check("  each page under six", new RegExp(`programs has 1 section of your own; a page needs at least ${MIN_PAGE_SECTIONS}`).test(firstFinish) && /about has 1 section/.test(firstFinish))
   check("  the product and collection templates, with what to draw", /The product page \(\/products\/<slug>\) is not designed/.test(firstFinish) && /data-storelib-add-to-cart=\\"\{\{ product\.id \}\}\\"/.test(firstFinish) && /The collection page \(\/collections\/<handle>\) is not designed/.test(firstFinish))
+  check("  and the shop and search results, which list the store too", /The shop \(\/products\) is not designed/.test(firstFinish) && /The search results page \(\/search\) is not designed/.test(firstFinish) && /page\.query/.test(firstFinish), firstFinish)
   check("  its own footer (free mode)", /The site has no footer of its own/.test(firstFinish))
   check("  and the repair phase began", r.events.some((e) => e.kind === "phase" && e.phase === "repair"))
   check("after the repair the job completes", r.status === "complete", { status: r.status, summary: r.summary, failing: r.checkpoint.final })
@@ -266,6 +269,9 @@ async function main() {
     const ten = Array.from({ length: 10 }, (_, i) => ({ id: `s${i}`, type: i < 5 ? "ai_a" : "ai_b", settings: {}, blocks: [] }))
     check("  ten copies of two components is not a home page", completenessIssues({ pages: [{ key: "home", sections: ten }], sources: {}, settings: {}, caps: { ...CAPS, products: [] }, mode: "theme", plan: null }).some((i) => i.code === "site.home_variety"))
 
+    const { shopSections, searchSections } = await import("@/lib/website-builder/shop-page")
+    const aiHome: SectionInstance[] = [{ id: "h", type: "ai_coach_header", group: "header", settings: { color_scheme: "site_inverse" }, blocks: [] }]
+    check("before the agent designs them, the shop and search pages are drawn in the AI frame's own scheme, not the default white", shopSections(aiHome, {} as ThemeSettingsValues).find((x) => x.type === "product_grid")?.settings.color_scheme === "site_inverse" && searchSections(aiHome).find((x) => x.type === "search")?.settings.color_scheme === "site_inverse")
     const cart = readFileSync("app/(site)/w/[username]/cart/page.tsx", "utf8")
     check("the live cart route draws the cart template's own sections, in the site's header and footer", /site\.pages\.cart/.test(cart) && /withUniversalChrome\(cartOwn, chromeOf\(/.test(cart))
     check("  and prerenders coded sections there (an AI header drew nothing on /cart without it)", /renderWithSources\(site\.sources, sections, site\.themeSettings, "cart"/.test(cart) && /<StorelibSourcesProvider prerendered=\{prerendered\} page=\{\{ template: "cart" \}\}>/.test(cart))

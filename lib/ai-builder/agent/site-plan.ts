@@ -68,15 +68,15 @@ export interface TemplateInfo {
   url: string
   /** What its sections can read besides their settings. */
   reads: string
-  /** Whether finish insists on it being designed (when the store sells). */
+  /** Whether finish insists on it being designed (when the store sells): product, collection, the shop and search. */
   required: boolean
 }
 
 const TEMPLATES: TemplateInfo[] = [
   { key: "product", title: "Product page", url: "/products/<slug>", required: true, reads: "product.id, product.title, product.price, product.compare_price, product.description_html (| raw), product.images, product.url; page.product.settings.variants (id, name, price, available, checkout_url), page.product.settings.checkout_url, page.product.settings.available. Text settings may default to {{ product.title }}." },
   { key: "collection", title: "Collection page", url: "/collections/<handle>", required: true, reads: "collection.title, collection.description, collection.image, collection.url; products (this collection's products, each with .id and .settings.title, .settings.price, .settings.url, .settings.image, .settings.checkout_url); page.pagination" },
-  { key: "products", title: "Shop (all products)", url: "/products", required: false, reads: "products (every product, same fields as on the collection page); page.filters, page.pagination" },
-  { key: "search", title: "Search results", url: "/search", required: false, reads: "page.query (what was searched), products (the results)" },
+  { key: "products", title: "Shop (all products)", url: "/products", required: true, reads: "products (every product, same fields as on the collection page); page.filters, page.pagination" },
+  { key: "search", title: "Search results", url: "/search", required: true, reads: "page.query (what was searched), products (the results)" },
   { key: "cart", title: "Cart page", url: "/cart", required: false, reads: "your sections are drawn under the cart itself (the lines, totals and checkout are the platform's, in your tokens); use them for reassurance, delivery notes, suggestions" },
   { key: "404", title: "Page not found", url: "(any missing address)", required: false, reads: "nothing special: say the page is not here and offer a way on" },
   { key: "contact", title: "Contact", url: "/contact", required: false, reads: "a published form through a form_picker, or links (mailto:, tel:, social)" },
@@ -283,6 +283,11 @@ export function completenessIssues(input: CompletenessInput): ValidationIssue[] 
       if (!mine.some((s) => listsProducts(s.type, input.sources))) err("site.template_collection", `The collection page (${t.url}) is not designed: place a component of yours on page "collection" that loops {% for product in products %} and shows collection.title.`)
       continue
     }
+    /* The shop and the search results list the store too: a free site's own, not the platform's grid. */
+    if ((t.key === "products" || t.key === "search") && t.required) {
+      if (!mine.some((s) => listsProducts(s.type, input.sources))) err(`site.template_${t.key === "products" ? "shop" : "search"}`, `The ${t.key === "products" ? "shop" : "search results page"} (${t.url}) is not designed: place a component of yours on page "${t.key}" that loops {% for product in products %}${t.key === "search" ? " and says what was searched ({{ page.query }})" : ""}.`)
+      continue
+    }
     if (plannedSections && !mine.length) err("site.template_missing", `The plan gives ${t.key} (${t.title}) sections but it has none of yours yet. Place them with set_page_sections page "${t.key}", or change the plan.`)
   }
 
@@ -314,5 +319,5 @@ export function completenessIssues(input: CompletenessInput): ValidationIssue[] 
 export const PAGES_AND_TEMPLATES = `PAGES AND TEMPLATES (the whole site is yours; checked at finish)
 - The plan: with the concept, report_progress phase "plan" takes pages: every page and every template, each { key, sections: [one line per section, in order], reason? }. Writes wait for it. Home lists at least ${MIN_HOME_SECTIONS} sections of your own (header and footer not counted), at least ${MIN_HOME_DISTINCT} different components; every other page at least ${MIN_PAGE_SECTIONS}, or a reason it needs fewer.
 - Templates are pages you design with set_page_sections, by key: ${TEMPLATES.map((t) => `${t.key} (${t.title}, ${t.url})`).join(", ")}. list_pages shows them, with what each can read. A template you leave out keeps the platform's plain working layout in your tokens, so plan a reason for each one you skip.
-- When the store sells, the product and collection templates are required. The product template's component reads the product the visitor opened: {{ product.title }}, {{ product.price }}, {{ product.compare_price }}, {{ product.description_html | raw }}, {% for image in product.images %}, {% for v in page.product.settings.variants %} (v.id, v.name, v.price, v.available), an add to cart button data-storelib-add-to-cart="{{ product.id }}" (data-variant-id="{{ v.id }}" for an option), Buy now = {{ page.product.settings.checkout_url }}, and its offers with <div data-storelib-island data-storelib-offers="{{ product.id }}" data-title="{{ product.title }}" data-url="{{ product.url }}"></div>. The collection template loops {% for product in products %} (product.id, product.settings.title, .price, .url, .image) under {{ collection.title }}.
+- When the store sells, the product, collection, shop (products) and search templates are required; the shop and search loop {% for product in products %} (search shows {{ page.query }}). The product template's component reads the product the visitor opened: {{ product.title }}, {{ product.price }}, {{ product.compare_price }}, {{ product.description_html | raw }}, {% for image in product.images %}, {% for v in page.product.settings.variants %} (v.id, v.name, v.price, v.available), an add to cart button data-storelib-add-to-cart="{{ product.id }}" (data-variant-id="{{ v.id }}" for an option), Buy now = {{ page.product.settings.checkout_url }}, and its offers with <div data-storelib-island data-storelib-offers="{{ product.id }}" data-title="{{ product.title }}" data-url="{{ product.url }}"></div>. The collection template loops {% for product in products %} (product.id, product.settings.title, .price, .url, .image) under {{ collection.title }}.
 - Free mode: the header and footer are your components (group "header"/"footer"). Every page you add is linked from your header or footer (add_page puts it in the Main menu; your header must read that menu).`

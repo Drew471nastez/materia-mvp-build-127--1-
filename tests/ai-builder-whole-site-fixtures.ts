@@ -474,8 +474,8 @@ export function sitePlan(pages: string[], opts: { blog?: boolean } = {}): { key:
     ...pages.map((key) => ({ key, sections: ["its own section", ...PAGE_EXTRAS.map((t) => `${t}: supports it`)] })),
     { key: "product", sections: ["ai_product_page: pictures, price, options, add to cart, offers, description"] },
     { key: "collection", sections: ["ai_collection_grid: the collection's products"] },
-    { key: "products", sections: [], reason: keep },
-    { key: "search", sections: [], reason: keep },
+    { key: "products", sections: ["ai_collection_grid: every product"] },
+    { key: "search", sections: ["ai_collection_grid: the results"] },
     { key: "cart", sections: [], reason: keep },
     { key: "404", sections: [], reason: keep },
     { key: "contact", sections: [], reason: "The about page carries the contact details for now." },
@@ -496,13 +496,18 @@ export function pageSections(own: Record<string, unknown>): Record<string, unkno
   return [own, ...PAGE_EXTRAS.map(at)]
 }
 
-/** The two template placements. */
+/** The four required template placements: product, collection, the shop and search (the grid serves the last three). */
 export function templateCalls(): Call[] {
   return [
     ["set_page_sections", { page: "product", sections: [at("ai_product_page")] }],
     ["set_page_sections", { page: "collection", sections: [at("ai_collection_grid")] }],
+    ["set_page_sections", { page: "products", sections: [{ type: "ai_collection_grid", settings: { heading: "Everything" } }] }],
+    ["set_page_sections", { page: "search", sections: [{ type: "ai_collection_grid", settings: { heading: "Results" } }] }],
   ]
 }
+
+/** Every template key templateCalls designs. */
+export const TEMPLATE_PAGES = ["product", "collection", "products", "search"] as const
 
 /**
  * The whole-site set under another name, for a scenario whose components must
