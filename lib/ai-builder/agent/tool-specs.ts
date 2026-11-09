@@ -10,6 +10,7 @@ import type { ToolSpec } from "@/lib/sites/agent/types"
 import { AGENT_TOOL_NAMES, type AgentToolName } from "../types"
 import { CONCEPT_SCHEMA } from "./concept"
 import { SEARCH_KNOWLEDGE_TOOL } from "./knowledge"
+import { DESIGN_BINDINGS, DESIGN_CONTROLS } from "../site-settings"
 
 const PHASES = ["brief", "plan", "build", "verify", "repair", "finish"]
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required, additionalProperties: false })
@@ -57,7 +58,10 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
   set_section_settings: { name: "set_section_settings", description: "Change some settings of one placed section; the others keep their values.", parameters: obj({ page: { type: "string" }, sectionId: { type: "string" }, settings: { type: "object" } }, ["page", "sectionId", "settings"]) },
   set_tokens: {
     name: "set_tokens",
-    description: "Set the website's design tokens. They become Theme settings the creator can change: colours become the `site` and `site_inverse` colour schemes; fonts, corner radius, spacing and motion their Theme settings; `custom` becomes CSS variables --t-<name>.",
+    description:
+      "Set the website's design tokens and declare its own Theme settings. Tokens become Theme settings the creator can change: colours become the `site` and `site_inverse` colour schemes; fonts, type scale, corner radius, shadow, spacing and motion their Theme settings; `custom` becomes CSS variables --t-<name>. " +
+      "`settings` is what the creator sees in Theme settings for this site, INSTEAD of the default theme's groups: your design system, grouped and labelled as its designer would (e.g. Palette, Type, Shape, Motion, Texture). Each setting comes out as var(--t-<id>) for your components. " +
+      "A setting with `token` stands for that token (its control and limits come from it; fonts must use a token). One without `token` is the site's own value: give `type` (color, range, select, toggle) and a starting `value`. Sending settings replaces the declared list.",
     parameters: obj(
       {
         tokens: obj({
@@ -66,8 +70,42 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
           radius: obj({ small: { type: "number" }, medium: { type: "number" }, large: { type: "number" } }),
           spacing: obj({ scale: { type: "number" }, sectionY: { type: "number" }, pageWidth: { type: "number" }, gutter: { type: "number" } }),
           motion: obj({ level: { type: "string", enum: ["none", "subtle", "expressive"] }, style: { type: "string" }, durationMs: { type: "number" } }),
+          typeScale: obj({ base: { type: "number", description: "Body size in px, 12 to 22." }, ratio: { type: "number", description: "Each heading step, 1.05 to 1.6." } }),
+          shadow: { type: "string", enum: ["none", "sm", "md", "lg"] },
           custom: { type: "object", description: "name (no --t-) to CSS value. No url()." },
         }),
+        settings: {
+          type: "array",
+          description: "The site's own Theme settings, in groups.",
+          items: obj(
+            {
+              id: str("Group id, e.g. palette."),
+              label: str("What the creator reads, e.g. Palette."),
+              settings: {
+                type: "array",
+                items: obj(
+                  {
+                    id: str("Lowercase, dashes; read as var(--t-<id>)."),
+                    label: str("Short and plain, e.g. Clay."),
+                    type: { type: "string", enum: [...DESIGN_CONTROLS] },
+                    token: { type: "string", enum: Object.keys(DESIGN_BINDINGS), description: "The token this setting stands for, if any." },
+                    value: { description: "Starting value of a setting of the site's own: a colour, a number, an option's value, or true/false." },
+                    min: { type: "number" },
+                    max: { type: "number" },
+                    step: { type: "number" },
+                    unit: { type: "string", description: "px, rem, em, %, ms, s, vw, vh, deg or empty." },
+                    options: { type: "array", items: obj({ value: { type: "string" }, label: { type: "string" } }, ["value", "label"]) },
+                    on: str("A toggle's CSS value when on, default 1."),
+                    off: str("A toggle's CSS value when off, default 0."),
+                    info: str("One short line of help, optional."),
+                  },
+                  ["id", "label"],
+                ),
+              },
+            },
+            ["label", "settings"],
+          ),
+        },
       },
       ["tokens"],
     ),

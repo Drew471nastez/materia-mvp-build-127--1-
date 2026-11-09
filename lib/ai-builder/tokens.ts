@@ -28,7 +28,11 @@
  *
  * Pure, no React, safe in the published page's bundle.
  */
+import { automaticHover } from "@/lib/storelib-theme/color-schemes"
 import { ANIMATION_STYLES, CUSTOM_TOKEN_PREFIX, CUSTOM_TOKENS_SETTING, SHADOW_LEVELS, type DesignTokens, type ShadowLevel } from "./types"
+
+/** The theme setting a site's own labelled settings are declared in (lib/ai-builder/site-settings.ts, round N). */
+export const DESIGN_SETTINGS_SETTING = "design_settings"
 
 /* ── custom tokens: names and values that are safe to print ───────────── */
 
@@ -107,7 +111,29 @@ export function tokenVars(theme: Record<string, unknown> | null | undefined): Re
 
 /** Whether a site's tokens were ever set: the one switch for emitting `--t-*`. */
 export function hasTokens(theme: Record<string, unknown> | null | undefined): boolean {
-  return !!theme && (CUSTOM_TOKENS_SETTING in theme || "ai_section_y" in theme)
+  return !!theme && (CUSTOM_TOKENS_SETTING in theme || "ai_section_y" in theme || DESIGN_SETTINGS_SETTING in theme)
+}
+
+/*
+  THE SITE'S OWN SCHEME. The agent writes its palette as the schemes `site`
+  and `site_inverse` and makes `site` the default (agent/tokens.ts). The
+  panel used to read and write `white`, so on an AI website it showed the
+  blank start's greys and a colour changed there landed in a scheme nothing
+  used, and moved the default back to `white`. Both now follow the default
+  scheme: `site` when the site has it, `white` (the built-in one) otherwise.
+*/
+export const SITE_SCHEME = "site"
+export const SITE_INVERSE_SCHEME = "site_inverse"
+
+/** True when the site's palette is the agent's own `site` scheme. */
+export function usesSiteScheme(theme: Record<string, unknown> | null | undefined): boolean {
+  const schemes = theme?.color_schemes
+  return !!theme && theme.default_color_scheme === SITE_SCHEME && !!schemes && typeof schemes === "object" && SITE_SCHEME in (schemes as Record<string, unknown>)
+}
+
+/** A scheme with its hover colours worked out, as the agent's are. */
+function withHover(s: Record<string, string>): Record<string, string> {
+  return { gradient: "", ...s, ...automaticHover(s as Parameters<typeof automaticHover>[0]) }
 }
 
 /** The scale's own names, which a custom token may not take. */
@@ -126,6 +152,25 @@ function step(base: number, ratio: number, n: number): number {
 /** The phone size of a desktop size: headings shrink, body text does not. */
 function phone(px: number, heading: boolean): number {
   return heading ? Math.max(16, Math.round(px * (px > 40 ? 0.68 : 0.82))) : px
+}
+
+/** Typography's text styles for a type scale: body size and the step each heading grows by. Other style keys are kept. */
+export function typeScaleStyles(typeScale: { base: number; ratio: number }, current?: Record<string, unknown> | null): Record<string, unknown> {
+  const base = Math.min(22, Math.max(12, num(typeScale.base, 16)))
+  const ratio = Math.min(1.6, Math.max(1.05, num(typeScale.ratio, 1.25)))
+  const sized = (desktop: number, heading: boolean) => ({ size: { desktop, mobile: phone(desktop, heading) } })
+  const own = (current?.typography_styles as Record<string, unknown> | undefined) ?? {}
+  const merge = (key: string, v: { size: { desktop: number; mobile: number } }) => ({ ...((own[key] as Record<string, unknown> | undefined) ?? {}), ...v })
+  return {
+    ...own,
+    h1: merge("h1", sized(step(base, ratio, 5), true)),
+    h2: merge("h2", sized(step(base, ratio, 4), true)),
+    h3: merge("h3", sized(step(base, ratio, 2), true)),
+    h4: merge("h4", sized(step(base, ratio, 1), true)),
+    body_large: merge("body_large", sized(Math.round(base * 1.125), false)),
+    body: merge("body", sized(base, false)),
+    body_small: merge("body_small", sized(Math.max(12, Math.round(base * 0.875)), false)),
+  }
 }
 
 /**
@@ -155,17 +200,24 @@ export function tokensToThemeSettings(tokens: DesignTokens, current?: Record<str
     input_text: heading,
     input_border: border,
   })
-  const schemes: Record<string, unknown> = {
-    ...((current?.color_schemes as Record<string, unknown> | undefined) ?? {}),
-    white: scheme("Main", c.background, c.text, c.text, c.muted, c.accent, c.accentText, c.border),
-    light: { ...scheme("Surface", c.surface, c.text, c.text, c.muted, c.accent, c.accentText, c.border), background_secondary: c.background },
-    highlight: scheme("Accent", c.accent, c.accentText, c.accentText, c.accentText, c.accentText, c.accent, c.accentText),
+  const own = (current?.color_schemes as Record<string, unknown> | undefined) ?? {}
+  const site = usesSiteScheme(current)
+  const schemes: Record<string, unknown> = { ...own }
+  if (site) {
+    /* The agent's own schemes, rewritten in place: a section set to `site` or `site_inverse` follows. */
+    const keep = (key: string) => ((own[key] as Record<string, string> | undefined) ?? {})
+    schemes[SITE_SCHEME] = withHover({ ...keep(SITE_SCHEME), ...scheme(str(keep(SITE_SCHEME).name, "Site"), c.background, c.text, c.text, c.muted, c.accent, c.accentText, c.border), secondary_button_background: c.background, input_background: c.surface })
+    if (c.inverse) schemes[SITE_INVERSE_SCHEME] = withHover({ ...keep(SITE_INVERSE_SCHEME), ...scheme(str(keep(SITE_INVERSE_SCHEME).name, "Site inverse"), c.inverse.background, c.inverse.text, c.inverse.text, c.inverse.text, c.inverse.accent, c.inverse.background, c.inverse.text), background_secondary: c.inverse.background, secondary_button_background: c.inverse.background })
+  } else {
+    schemes.white = scheme("Main", c.background, c.text, c.text, c.muted, c.accent, c.accentText, c.border)
+    schemes.light = { ...scheme("Surface", c.surface, c.text, c.text, c.muted, c.accent, c.accentText, c.border), background_secondary: c.background }
+    schemes.highlight = scheme("Accent", c.accent, c.accentText, c.accentText, c.accentText, c.accentText, c.accent, c.accentText)
+    if (c.inverse) schemes.black = scheme("Inverse", c.inverse.background, c.inverse.text, c.inverse.text, c.inverse.text, c.inverse.accent, c.inverse.background, c.inverse.text)
   }
-  if (c.inverse) schemes.black = scheme("Inverse", c.inverse.background, c.inverse.text, c.inverse.text, c.inverse.text, c.inverse.accent, c.inverse.background, c.inverse.text)
 
   const out: Record<string, unknown> = {
     color_schemes: schemes,
-    default_color_scheme: "white",
+    default_color_scheme: site ? SITE_SCHEME : "white",
     background_color: c.background,
     text_color: c.text,
     primary_color: c.accent,
@@ -186,23 +238,7 @@ export function tokensToThemeSettings(tokens: DesignTokens, current?: Record<str
     animation_duration: Math.min(1200, Math.max(200, tokens.motion.durationMs ?? (tokens.motion.level === "expressive" ? 800 : 500))),
   }
   if (tokens.shadow) out.card_shadow = tokens.shadow
-  if (tokens.typeScale) {
-    const base = Math.min(22, Math.max(12, tokens.typeScale.base))
-    const ratio = Math.min(1.6, Math.max(1.05, tokens.typeScale.ratio))
-    const sized = (desktop: number, heading: boolean) => ({ size: { desktop, mobile: phone(desktop, heading) } })
-    const own = (current?.typography_styles as Record<string, unknown> | undefined) ?? {}
-    const merge = (key: string, v: { size: { desktop: number; mobile: number } }) => ({ ...((own[key] as Record<string, unknown> | undefined) ?? {}), ...v })
-    out.typography_styles = {
-      ...own,
-      h1: merge("h1", sized(step(base, ratio, 5), true)),
-      h2: merge("h2", sized(step(base, ratio, 4), true)),
-      h3: merge("h3", sized(step(base, ratio, 2), true)),
-      h4: merge("h4", sized(step(base, ratio, 1), true)),
-      body_large: merge("body_large", sized(Math.round(base * 1.125), false)),
-      body: merge("body", sized(base, false)),
-      body_small: merge("body_small", sized(Math.max(12, Math.round(base * 0.875)), false)),
-    }
-  }
+  if (tokens.typeScale) out.typography_styles = typeScaleStyles(tokens.typeScale, current)
   const custom: Record<string, string> = { ...customTokens(current) }
   for (const [name, value] of Object.entries(tokens.custom ?? {})) {
     const clean = cleanTokenValue(value)
@@ -221,9 +257,11 @@ const scheme = (t: Record<string, unknown>, key: string) => {
 /** The tokens a site's Theme settings are, for the token panel and for the agent reading the site back. */
 export function themeSettingsToTokens(theme: Record<string, unknown> | null | undefined): DesignTokens {
   const t = theme ?? {}
-  const main = scheme(t, "white")
-  const surface = scheme(t, "light")
-  const inverse = scheme(t, "black")
+  const site = usesSiteScheme(t)
+  const main = scheme(t, site ? SITE_SCHEME : "white")
+  /* The agent's `site` scheme keeps the surface as its second background; the built-in path has a `light` scheme for it. */
+  const surface = site ? { background: main.background_secondary } : scheme(t, "light")
+  const inverse = scheme(t, site ? SITE_INVERSE_SCHEME : "black")
   const style = str(t.animation_style, SUBTLE_STYLE)
   const typo = t.typography_styles && typeof t.typography_styles === "object" ? (t.typography_styles as Record<string, { size?: { desktop?: number } }>) : {}
   const body = typo.body?.size?.desktop
@@ -237,7 +275,7 @@ export function themeSettingsToTokens(theme: Record<string, unknown> | null | un
       accent: str(main.accent, str(t.primary_color, "#1f2937")),
       accentText: str(main.primary_button_text, "#ffffff"),
       border: str(main.border, "#e2e8f0"),
-      ...(inverse.name === "Inverse" ? { inverse: { background: str(inverse.background, "#000000"), text: str(inverse.text, "#ffffff"), accent: str(inverse.accent, "#ffffff") } } : {}),
+      ...(site ? (Object.keys(inverse).length ? { inverse: { background: str(inverse.background, "#000000"), text: str(inverse.text, "#ffffff"), accent: str(inverse.accent, "#ffffff") } } : {}) : inverse.name === "Inverse" ? { inverse: { background: str(inverse.background, "#000000"), text: str(inverse.text, "#ffffff"), accent: str(inverse.accent, "#ffffff") } } : {}),
     },
     fonts: { heading: str(t.font_heading, "Inter"), body: str(t.font_body, "Inter"), ...(str(t.font_accent, "") ? { accent: str(t.font_accent, "") } : {}) },
     ...(typeof body === "number" && typeof h4 === "number" && body > 0 ? { typeScale: { base: body, ratio: Math.round((h4 / body) * 100) / 100 } } : {}),

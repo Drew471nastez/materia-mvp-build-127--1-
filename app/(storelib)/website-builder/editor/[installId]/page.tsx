@@ -43,6 +43,8 @@ import { SOCIAL_PLATFORMS } from "@/lib/website-builder/social-links"
 import { isChromeType, withTabSwitchKey } from "@/lib/website-builder/section-anchors"
 import { FontPreviewPicker } from "@/components/website-builder/editor/font-preview-picker"
 import { DesignTokensPanel, showsDesignTokens } from "@/components/website-builder/editor/design-tokens-panel"
+import { SiteSettingsGroupPanel } from "@/components/website-builder/editor/site-settings-panel"
+import { FREE_SITE_HIDDEN_FIELDS, builtInSectionGroups, freeSitePlatformGroups, isFreeSite, readDesignSettings, type DesignGroup } from "@/lib/ai-builder/site-settings"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { BlockTreeLevel, TreeAddBlock, TreeInsertBlock } from "@/components/website-builder/editor/block-tree-rows"
 import { BlockPickerHandle, BlockPickerProvider, type BlockPickerRequest } from "@/components/website-builder/editor/block-picker"
@@ -718,15 +720,21 @@ const THEME_GROUP_ICONS: Record<string, typeof Image> = {
  * of THEME_SETTINGS_GROUPS: it holds no fields of its own, it writes the
  * other groups' settings, and only an AI website shows it.
  */
+/** A group of the site's own settings, marked by what it holds: colours, type, or anything else. */
+function siteGroupIcon(group: DesignGroup): typeof Image {
+  const types = new Set(group.settings.map((s) => s.type))
+  return types.size === 1 && types.has("color") ? Palette : types.has("font") ? Type : SlidersHorizontal
+}
+
 const DESIGN_TOKENS_GROUP = { id: "design_tokens", label: "Design tokens", icon: "layers", fields: [] } as unknown as (typeof THEME_SETTINGS_GROUPS)[number]
 
 /**
  * One group in General Settings: its mark, its name, and a chevron that
  * says it opens. Pressing it opens the group as its own panel.
  */
-function ThemeGroupRow({ group, onOpen }: { group: (typeof THEME_SETTINGS_GROUPS)[number]; onOpen: () => void }) {
+function ThemeGroupRow({ group, onOpen, icon }: { group: Pick<(typeof THEME_SETTINGS_GROUPS)[number], "id" | "label">; onOpen: () => void; icon?: typeof Image }) {
   /* A group the theme's own config/settings_schema.json added has the sliders mark. */
-  const Icon = THEME_GROUP_ICONS[group.id] ?? SlidersHorizontal
+  const Icon = icon ?? THEME_GROUP_ICONS[group.id] ?? SlidersHorizontal
   return (
     <button
       type="button"
@@ -8979,6 +8987,80 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       )
     }
 
+    /*
+      ===========================================================================
+       THEME SETTINGS ON A FREE SITE (round N, N5, lib/ai-builder/site-settings.ts)
+      ===========================================================================
+      An AI website declares its own settings (Palette, Type, Shape...). They
+      are listed first, in place of Design tokens. On a FREE site (its chrome
+      is its own) they are its whole design: the list is the site's groups,
+      then only the groups that act on every site (logo, social links, cart,
+      cookies, motion, custom CSS), and the default theme's style groups
+      wait under one Built-in sections row. Any other site is unchanged.
+    */
+    function siteDesignState() {
+      const theme = settingsDraft as Record<string, unknown>
+      const declared = readDesignSettings(theme)
+      const tokens = showsDesignTokens(theme, storelibSources)
+      return { theme, declared, tokens, free: isFreeSite(theme, !!declared || tokens) }
+    }
+    /** The site's own group rows, or Design tokens when it declared none. */
+    function siteGroupRows(state = siteDesignState()) {
+      if (state.declared) return state.declared.groups.map(g => <ThemeGroupRow key={`site:${g.id}`} group={{ id: `site:${g.id}`, label: g.label }} icon={siteGroupIcon(g)} onOpen={() => setExpandedSettings(`site:${g.id}`)} />)
+      return state.tokens ? <ThemeGroupRow group={DESIGN_TOKENS_GROUP} onOpen={() => setExpandedSettings("design_tokens")} /> : null
+    }
+    /** One of the site's groups opened, Built-in sections opened, or a free site's list; null where the theme's own panels apply. */
+    function siteDesignPanel(header: React.ReactNode, groups: typeof themeGroups) {
+      const state = siteDesignState()
+      if (!state.declared && !state.free) return null
+      const open = expandedSettings?.startsWith("site:") ? state.declared?.groups.find(g => `site:${g.id}` === expandedSettings) : undefined
+      if (open) {
+        return (
+          <div className="flex flex-col h-full" data-theme-group-open={`site:${open.id}`}>
+            <PanelBack onBack={() => setExpandedSettings(null)}>
+              <p className="truncate text-[15px] font-semibold md:text-sm">{open.label}</p>
+            </PanelBack>
+            <div key={open.id} data-sheet-scroll data-theme-group={`site:${open.id}`} className="flex-1 overflow-y-auto wb-slim-scroll px-3.5 py-3.5 animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none">
+              <SharedInAllLanguages>
+                <SiteSettingsGroupPanel
+                  theme={state.theme}
+                  group={open}
+                  updateSetting={updateSetting}
+                  renderToggle={(p) => <WbToggle label={p.label} value={p.value} onChange={p.onChange} info={p.info} />}
+                />
+              </SharedInAllLanguages>
+            </div>
+          </div>
+        )
+      }
+      if (!state.free) return null
+      if (expandedSettings === "built_in") {
+        return (
+          <div className="flex flex-col h-full" data-theme-group-open="built_in">
+            <PanelBack onBack={() => setExpandedSettings(null)}>
+              <p className="truncate text-[15px] font-semibold md:text-sm">{tt("Built-in sections")}</p>
+            </PanelBack>
+            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2 animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none">
+              <p className="px-3 pb-2 pt-1 text-[11.5px] leading-snug text-muted-foreground">{tt("These only style Storelib's ready-made sections, like a standard product page. Your site's own sections use its settings instead.")}</p>
+              {builtInSectionGroups(groups).map(group => <ThemeGroupRow key={group.id} group={group} onOpen={() => setExpandedSettings(group.id)} />)}
+            </div>
+          </div>
+        )
+      }
+      if (expandedSettings !== null) return null
+      return (
+        <div className="flex flex-col h-full" data-free-site-settings="">
+          {header}
+          <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
+            {siteGroupRows(state)}
+            <p className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{tt("Site-wide")}</p>
+            {freeSitePlatformGroups(groups).map(group => <ThemeGroupRow key={group.id} group={group} onOpen={() => setExpandedSettings(group.id)} />)}
+            <ThemeGroupRow group={{ id: "built_in", label: tt("Built-in sections") }} icon={LayoutDashboard} onOpen={() => setExpandedSettings("built_in")} />
+          </div>
+        </div>
+      )
+    }
+
     // ── General Settings mode ──
     if (sidebarMode === "settings") {
       // Show section settings if a section is selected
@@ -8992,6 +9074,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         // Global theme settings
         /* An imported Shopify theme's settings are its own (config/settings_schema.json). */
         if (compatInstall) return compatThemePanel(true)
+        {
+          const own = siteDesignPanel(
+            <div className="px-4 py-3 border-b border-border shrink-0">
+              <p className="text-sm font-semibold">{tt("Theme settings")}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{tt("This site's own design")}</p>
+            </div>,
+            themeGroups.filter(group => group.id !== "colors" && group.id !== "menus"),
+          )
+          if (own) return own
+        }
         /*
           A LIST OF GROUPS, AND A GROUP OPENS AS ITS OWN PANEL. It was an
           accordion: a chevron turning on every row and the groups under an
@@ -9087,7 +9179,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                       <SocialLinksEditor values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />
                       </SharedInAllLanguages>
                     )}
-                    {visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
+                    {visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).filter(field => !FREE_SITE_HIDDEN_FIELDS.has(field.id) || !siteDesignState().free).map(field => {
                       const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
                       return (
                         <ThemeFieldShell key={field.id} field={field}>
@@ -9169,7 +9261,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <p className="text-xs text-muted-foreground mt-0.5">Colors, fonts, buttons, spacing</p>
             </div>
             <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
-              {showsDesignTokens(settingsDraft as Record<string, unknown>, storelibSources) ? <ThemeGroupRow group={DESIGN_TOKENS_GROUP} onOpen={() => setExpandedSettings("design_tokens")} /> : null}
+              {siteGroupRows()}
               {generalGroups.map(group => <ThemeGroupRow key={group.id} group={group} onOpen={() => setExpandedSettings(group.id)} />)}
             </div>
           </div>
@@ -9680,6 +9772,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     if (selectedPanel.type === "theme_settings") {
       /* The same list and panels as General Settings above. */
+      {
+        const own = siteDesignPanel(
+          <PanelBack onBack={() => setSelectedPanel({ type: "pages" })}>
+            <span className="text-[15px] font-semibold md:text-sm">Theme settings</span>
+          </PanelBack>,
+          themeGroups.filter(group => group.id !== "menus"),
+        )
+        if (own) return own
+      }
       const panelGroups = themeGroups.filter(group => group.id !== "menus" && (!group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true))
       /* Design tokens, on an AI website (DESIGN_TOKENS_GROUP). */
       if (expandedSettings === "design_tokens" && showsDesignTokens(settingsDraft as Record<string, unknown>, storelibSources)) {
@@ -9723,7 +9824,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                           <SocialLinksEditor values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />
                           </SharedInAllLanguages>
                         ) : null,
-                        ...visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
+                        ...visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).filter(field => !FREE_SITE_HIDDEN_FIELDS.has(field.id) || !siteDesignState().free).map(field => {
                         const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
                         return (
                           <ThemeFieldShell key={field.id} field={field}>
@@ -9805,7 +9906,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <span className="text-[15px] font-semibold md:text-sm">Theme settings</span>
           </PanelBack>
           <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
-            {showsDesignTokens(settingsDraft as Record<string, unknown>, storelibSources) ? <ThemeGroupRow group={DESIGN_TOKENS_GROUP} onOpen={() => setExpandedSettings("design_tokens")} /> : null}
+            {siteGroupRows()}
             {panelGroups.map(group => <ThemeGroupRow key={group.id} group={group} onOpen={() => setExpandedSettings(group.id)} />)}
           </div>
         </div>
