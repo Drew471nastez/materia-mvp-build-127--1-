@@ -74,7 +74,12 @@ const SOCIALS = ["instagram", "tiktok", "youtube"] as const
 /* The words' widths at the page's sizes: "Latest work", "Book a session", "Newsletter" at 13px. */
 const LINKS = [{ w: 76, picture: true }, { w: 96, picture: false }, { w: 68, picture: false }]
 
-export function ThemePreview({ c, name, thumb }: { c: Look; name: string; thumb: (url: string) => string }) {
+/**
+ * `photo` (the onboarding, round AQ): the creator's own picture, drawn where
+ * the page draws it (the avatar, or a Hero's band). Without it the place is
+ * a flat tint, as in the Design tab.
+ */
+export function ThemePreview({ c, name, thumb, photo = null }: { c: Look; name: string; thumb: (url: string) => string; photo?: string | null }) {
   const bg: string = c.background_color || "#ffffff"
   const text: string = c.text_color || "#111111"
   const secondary: string = c.secondary_text_color || `${text}cc`
@@ -252,7 +257,9 @@ export function ThemePreview({ c, name, thumb }: { c: Look; name: string; thumb:
         <span className={cn("flex flex-col items-center", phone(blockGapClass(c)))}>
           {hero ? (
             <span className="relative -mx-5 -mt-8 mb-2 block w-[calc(100%+40px)]" data-tp-header="hero">
-              <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "10/9", maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, background: photoTint(text, bg, 30) }} />
+              <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "10/9", maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, background: photoTint(text, bg, 30) }}>
+                {photo ? <img src={photo} alt="" draggable={false} decoding="async" data-tp-photo="" className="absolute inset-0 h-full w-full object-cover" /> : null}
+              </span>
               <span className="absolute inset-x-0 bottom-4 z-[1] flex flex-col items-center px-6 text-center">
                 {title}
                 <span className="mt-2 flex h-[22.75px] items-center"><Words w={212} h={7} color={c.secondary_text_color || text} opacity={0.8} /></span>
@@ -280,8 +287,11 @@ export function ThemePreview({ c, name, thumb }: { c: Look; name: string; thumb:
                   borderColor: look.borderColor,
                   background: photoTint(text, bg),
                   boxShadow: cover && c.background_type === "solid" ? `0 0 0 4px ${bg}, 0 10px 15px -3px rgba(0,0,0,0.1)` : undefined,
+                  overflow: photo ? "hidden" : undefined,
                 }}
-              />
+              >
+                {photo ? <img src={photo} alt="" draggable={false} decoding="async" data-tp-photo="" className="block h-full w-full object-cover" /> : null}
+              </span>
               {title}
               {bio}
             </span>

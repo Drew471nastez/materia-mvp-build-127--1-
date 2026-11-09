@@ -48,6 +48,8 @@ import {
 } from "@/lib/onepage/block-presentation"
 import type { LinkButtonBlockData, OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
 import { restorePreview } from "@/lib/onepage/link-preview"
+import { resolveLinkIcon } from "./link-icons"
+import { LinkIcon } from "./brand-icons"
 import { useBlockPart } from "./block-part"
 /* Every field in an open block in Storelib's own look (round AL): see the file. */
 import "./block-fields.css"
@@ -296,8 +298,15 @@ const LINK_LAYOUT_LABEL: Record<LinkLayout, () => string> = {
   tile: () => tt("Media tile"),
 }
 
-/** One link layout drawn small, in this page's colours, with this link's picture. */
-export function LinkVariantThumb({ id, theme, image, title }: { id: LinkLayout; theme?: Partial<OnePageTheme> | null; image?: string | null; title?: string | null }) {
+/**
+ * One link layout drawn small, in this page's colours, with this link's
+ * picture. Round AQ: without a picture, the link's icon (the one chosen, or
+ * its platform's mark from the address) is drawn where the page draws it,
+ * Classic and Compact draw no picture at all when the link has neither, as
+ * the page does, and its description is the second line. A grey stand-in is
+ * left only where a layout needs a picture and the link has nothing.
+ */
+export function LinkVariantThumb({ id, theme, image, title, icon = null, subtitle = null }: { id: LinkLayout; theme?: Partial<OnePageTheme> | null; image?: string | null; title?: string | null; icon?: string | null; subtitle?: string | null }) {
   const btn = theme?.button_color || "#1a1a2e"
   const ink = theme?.button_text_color || "#ffffff"
   const page = theme?.background_color || "#f7f7f8"
@@ -312,21 +321,36 @@ export function LinkVariantThumb({ id, theme, image, title }: { id: LinkLayout; 
     ) : (
       line(w, c)
     )
-  const pic = (cls: string, style?: React.CSSProperties) =>
+  const sub = (w: string, c = ink) =>
+    subtitle?.trim() ? (
+      <span className="block min-w-0 truncate text-[7px] leading-none" style={{ maxWidth: w, color: c, opacity: 0.7 }}>
+        {subtitle.trim()}
+      </span>
+    ) : (
+      line(w, c, 0.45)
+    )
+  const tint = `color-mix(in srgb, ${ink} 30%, ${btn})`
+  /* `small`: a button's own picture slot (Classic, Compact), where an icon stands bare and nothing is drawn without one. */
+  const pic = (cls: string, style?: React.CSSProperties, small = false) =>
     image ? (
       // eslint-disable-next-line @next/next/no-img-element
       <img src={image} alt="" className={cn("block shrink-0 object-cover", cls)} style={style} draggable={false} />
-    ) : (
-      <span className={cn("block shrink-0", cls)} style={{ background: `color-mix(in srgb, ${ink} 30%, ${btn})`, ...style }} />
+    ) : icon ? (
+      /* Over a picture the words sit at the foot, so the icon keeps to the top corner, clear of them. */
+      <span data-thumb-icon="" className={cn("flex shrink-0", cls.includes("inset-0") ? "items-start justify-start p-1" : "items-center justify-center", cls)} style={small ? style : { background: tint, ...style }}>
+        <LinkIcon name={icon} size={small ? 11 : 14} color={ink} tone="mono" />
+      </span>
+    ) : small ? null : (
+      <span className={cn("block shrink-0", cls)} style={{ background: tint, ...style }} />
     )
   const card: React.CSSProperties = { background: btn, borderRadius: r }
   let body: React.ReactNode
   switch (id) {
     case "classic":
       body = (
-        <span className="relative flex h-[22px] w-full items-center justify-center" style={card}>
-          {pic("absolute left-1 h-[14px] w-[14px]", { borderRadius: Math.max(2, r - 2) })}
-          {words("62%")}
+        <span className={cn("relative flex h-[22px] w-full items-center justify-center", image || icon ? "px-[20px]" : "px-1")} style={card}>
+          {pic("absolute left-1 h-[14px] w-[14px]", { borderRadius: Math.max(2, r - 2) }, true)}
+          {words(title?.trim() ? "100%" : "62%")}
         </span>
       )
       break
@@ -344,7 +368,7 @@ export function LinkVariantThumb({ id, theme, image, title }: { id: LinkLayout; 
         <span className={cn("relative block w-full overflow-hidden", id === "cover" ? "aspect-[4/5] w-[62%]" : "aspect-[16/10]")} style={card}>
           {pic("absolute inset-0 h-full w-full")}
           <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_40%,rgba(0,0,0,0.6)_100%)]" />
-          <span className="absolute inset-x-1.5 bottom-1.5 flex flex-col gap-[3px]">{words("90%", "#ffffff")}{line("40%", "#ffffff", 0.5)}</span>
+          <span className="absolute inset-x-1.5 bottom-1.5 flex flex-col gap-[3px]">{words("90%", "#ffffff")}{sub("70%", "#ffffff")}</span>
         </span>
       )
       break
@@ -359,7 +383,7 @@ export function LinkVariantThumb({ id, theme, image, title }: { id: LinkLayout; 
     case "compact":
       body = (
         <span className="flex h-[24px] w-full items-center gap-1.5 px-1" style={card}>
-          {pic("h-[16px] w-[16px]", { borderRadius: Math.max(2, r - 2) })}
+          {pic("h-[16px] w-[16px]", { borderRadius: Math.max(2, r - 2) }, true)}
           {words("75%")}
         </span>
       )
@@ -368,8 +392,8 @@ export function LinkVariantThumb({ id, theme, image, title }: { id: LinkLayout; 
       body = (
         <span className="flex w-full flex-col items-center gap-1 py-1.5" style={card}>
           {pic("h-[18px] w-[18px] rounded-full")}
-          {line("45%")}
-          {line("30%", ink, 0.45)}
+          {words("80%")}
+          {sub("70%")}
         </span>
       )
       break
@@ -378,7 +402,7 @@ export function LinkVariantThumb({ id, theme, image, title }: { id: LinkLayout; 
         <span className="relative block aspect-square w-[58%] overflow-hidden" style={card}>
           {pic("absolute inset-0 h-full w-full")}
           <span className="absolute inset-x-0 bottom-0 h-1/2 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.55))]" />
-          <span className="absolute inset-x-1.5 bottom-1.5">{line("60%", "#ffffff")}</span>
+          <span className="absolute inset-x-1.5 bottom-1.5">{words("90%", "#ffffff")}</span>
         </span>
       )
       break
@@ -397,6 +421,7 @@ export function LinkLayoutPicker({ block, theme, onChange, getBlock }: { block: 
   const data = block.data as LinkButtonBlockData
   const p = presentationOf(block)
   const image = p.image_url || data.thumbnail_url || null
+  const icon = resolveLinkIcon(data.icon, data.url)
   return (
     <div className="space-y-2.5" data-link-layouts="">
       <p className={heading}>{tt("Layout")}</p>
@@ -419,7 +444,7 @@ export function LinkLayoutPicker({ block, theme, onChange, getBlock }: { block: 
             >
               <ChoiceMark on={on} />
               <span className="block aspect-[4/3] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
-                <LinkVariantThumb id={id} theme={theme} image={image} title={data.label} />
+                <LinkVariantThumb id={id} theme={theme} image={image} title={data.label} icon={icon} subtitle={p.subtitle} />
               </span>
               <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{LINK_LAYOUT_LABEL[id]()}</span>
             </button>
@@ -721,6 +746,7 @@ export function ClassicFeaturedPicker({
   title,
   image,
   icon,
+  cta,
   onChange,
 }: {
   value: string | null | undefined
@@ -728,6 +754,8 @@ export function ClassicFeaturedPicker({
   title: string
   image?: string | null
   icon?: React.ReactNode
+  /** Round AQ: the block's own button words, drawn on Featured's button when it has them. */
+  cta?: string | null
   onChange: (layout: "default" | "pro") => void
 }) {
   const current = value === "pro" ? "pro" : "default"
@@ -786,7 +814,13 @@ export function ClassicFeaturedPicker({
                     )}
                     <span className="flex flex-col items-center gap-1 px-2 py-1.5">
                       {label}
-                      <span className="block h-[9px] w-[52%] rounded-full" style={{ background: ink, opacity: 0.9 }} />
+                      {cta?.trim() ? (
+                        <span className="block max-w-[80%] truncate rounded-full px-1.5 py-[2px] text-[7px] font-semibold leading-none" style={{ background: ink, color: btn }}>
+                          {cta.trim()}
+                        </span>
+                      ) : (
+                        <span className="block h-[9px] w-[52%] rounded-full" style={{ background: ink, opacity: 0.9 }} />
+                      )}
                     </span>
                   </span>
                 )}

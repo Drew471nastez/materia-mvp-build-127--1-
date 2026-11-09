@@ -121,7 +121,14 @@ export async function readSheet(s, { name, label, opener, list, expect }) {
   /* Round 12: a page that counts React's commits (window.__commits) shows the drag makes none: the finger moves a transform, not a render. */
   const commitsBefore = await p.evaluate(() => window.__commits ?? null)
   const dragStart = Date.now()
-  const lag = await drag(s, g, 120, { steps: 8, pauseMs: 60, measure: true })
+  /*
+    SLOW MEANS SLOW (round AQ). 15px every 60ms is 0.25 px/ms, exactly the
+    speed a release counts as a flick (VELOCITY_THRESHOLD in
+    components/website-builder/sheet-gestures.ts), so a millisecond of jitter
+    in a stamp made this "slow" pull a flick that closed the sheet, and the
+    next step crashed reading a sheet that was gone. 15px every 100ms is 0.15.
+  */
+  const lag = await drag(s, g, 120, { steps: 8, pauseMs: 100, measure: true })
   const dragMs = Date.now() - dragStart
   let commitsDuring = commitsBefore === null ? null : (await p.evaluate(() => window.__commits)) - commitsBefore
   /* What the page commits on its own over as long, the finger still (a timer, a load): not the drag's. */
@@ -134,14 +141,19 @@ export async function readSheet(s, { name, label, opener, list, expect }) {
   await sleep(700)
   expect(lag <= 2, "a drag from the grabber: the panel is where the finger put it, within 2px", Math.round(lag * 10) / 10)
   if (commitsDuring !== null) expect(commitsDuring <= 1, "the drag renders nothing in React (at most one commit, on the lift)", commitsDuring)
-  expect(Math.abs(await panelY(p)) < 0.5, "a slow short pull let go springs back to rest")
+  /* A sheet that closed is not one at rest: panelY is null then, and Math.abs(null) is 0. */
+  const settled = await panelY(p)
+  expect(settled !== null && Math.abs(settled) < 0.5, "a slow short pull let go springs back to rest", settled)
+  if (settled === null) return
 
   /* The rubber band is read off the frames: the lowest the panel went while the finger pulled it up. */
   await record(p, 900)
   await drag(s, g, -220, { steps: 8, pauseMs: 30 })
   const up = await p.evaluate(() => Math.min(...window.__frames.map((f) => f.y)))
   await sleep(700)
-  expect(up < -1 && up >= -80.5 && Math.abs(await panelY(p)) < 0.5, "a pull up gives, never past 80px, and comes back", Math.round(up))
+  const back = await panelY(p)
+  expect(up < -1 && up >= -80.5 && back !== null && Math.abs(back) < 0.5, "a pull up gives, never past 80px, and comes back", Math.round(up))
+  if (back === null) return
 
   if (list) {
     const box = await p.evaluate((sel) => {

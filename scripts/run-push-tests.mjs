@@ -843,6 +843,8 @@ const SUITES = [
   /* Round 42: two more themes (a cover page, a price list), products shown the theme's way, one-row pill rows with arrows, + Add's turn, the steady tab bar, the photo save's reasons, the OnePage SQL in one file. */
   "tests/onepage-themes-r42.test.ts",
   "tests/onepage-themes-ap.test.ts",
+  /* Round AQ: the onboarding draws the theme preview, Layout pictures draw the block's own content, a form's row is named, the sheet kit's slow pull is slow; scripts/check-onepage-real-preview.mjs reads the preview in next dev. */
+  "tests/onepage-aq2.test.ts",
   /* Round 10 buttons: every saved button draws as before, the hover system, one drawing for page, preview and Design tab; a social link typed any way saved as the right address. scripts/check-onepage-buttons.mjs measures them. */
   "tests/onepage-buttons.test.ts",
   "tests/onepage-social-input.test.ts",

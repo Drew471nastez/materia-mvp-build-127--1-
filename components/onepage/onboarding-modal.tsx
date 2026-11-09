@@ -22,10 +22,12 @@ import {
 } from "lucide-react"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { isNativeApp } from "@/lib/native-bridge"
-import { THEME_TEMPLATES } from "./tabs/design-tab"
+import { THEME_TEMPLATES, preloadThemeThumbs, themeThumbSrc } from "./tabs/design-tab"
+import { ThemePreview } from "./themes/theme-preview"
+import { scaleThemePreviews } from "./themes/preview-scale"
+import { themeLabel } from "./themes/theme-names"
 import { getOnePageDomain } from "@/lib/onepage/address"
 import { CardMark, CheckMark, ChoiceMark } from "./choice-marks"
-import { WallpaperPattern } from "./wallpaper-layers"
 import { AvatarMark } from "@/components/app/app-avatar"
 import { tt, msg } from "@/lib/i18n/text"
 
@@ -50,16 +52,6 @@ const GOALS: readonly { id: Goal; title: string; text: string }[] = [
 ]
 const goalIcon = (id: Goal, px: 48 | 96 | 144) => `/images/onepage-goals/${id}-${px}.webp`
 const goalIconSet = (id: Goal) => `${goalIcon(id, 48)} 1x, ${goalIcon(id, 96)} 2x, ${goalIcon(id, 144)} 3x`
-
-/*
-  The two photo templates, as a 300 by 400 WebP of the photo (9 and 7KB). The
-  cards drew the photos themselves: a 1920px Unsplash JPEG at quality 95
-  (632KB) and a 278KB one from storage, for a card 160px wide.
-*/
-const TEMPLATE_THUMBS: Record<string, string> = {
-  nature: "/images/onepage-themes/nature.webp",
-  fusion: "/images/onepage-themes/fusion.webp",
-}
 
 const focusRing = "outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
 
@@ -112,36 +104,42 @@ const GoalCard = memo(function GoalCard({ goal, selected, onPick }: { goal: (typ
   A TEMPLATE, ONE CARD AT EVERY WIDTH, picked as a Design tab theme is: the
   thin dark border round the card and the small ink check in the corner of
   its picture, both faded and scaled in (./choice-marks), the last pick's
-  faded out. The picture is the page the template makes, with the creator's
-  own photo in it, and the texture drawn by the live page's own layer
-  (./wallpaper-layers). Memoised: a pick draws the two cards that changed,
-  not all eighteen.
+  faded out.
+
+  Round AQ: the picture is the Design tab's own (./themes/theme-preview), the
+  page the template makes laid out at a phone's width and scaled to the card
+  by one number on the grid (useThemePreviewScale), with the creator's own
+  photo where the page puts it. The onboarding drew its own small card
+  before: a circle, two bars and one button in eighteen colours, which said
+  little about a theme with a cover, products or a hard shadow. Memoised: a
+  pick draws the two cards that changed, not all of them.
 */
+/* The page itself, apart from the marks: a pick changes the marks, and this is not drawn again. */
+const TemplatePicture = memo(function TemplatePicture({ template, name, photo }: { template: (typeof THEME_TEMPLATES)[number]; name: string; photo: string | null }) {
+  const c = template.theme_config as (typeof THEME_TEMPLATES)[number]["theme_config"] & Record<string, any>
+  /* A Hero template is drawn with its Hero, as picking it lays the page out. */
+  const look = (template as any).profile_layout === "hero" ? { ...c, header_layout: "hero" } : c
+  return <ThemePreview c={look} name={name} thumb={themeThumbSrc} photo={photo} />
+})
+
 const TemplateCard = memo(function TemplateCard({
   template,
   selected,
   onPick,
   avatarUrl,
-  initial,
 }: {
   template: (typeof THEME_TEMPLATES)[number]
   selected: boolean
   onPick: (id: string) => void
   avatarUrl: string | null
-  /** The letter, or the avatar's own person glyph when there is no name. */
-  initial: ReactNode
 }) {
-  const c = template.theme_config as (typeof THEME_TEMPLATES)[number]["theme_config"] & Record<string, any>
-  const image = c.background_type === "image" ? TEMPLATE_THUMBS[template.id] || c.background_image_url || null : null
-  const hero = (template as any).profile_layout === "hero" || c.header_layout === "hero"
-  const pattern = c.background_pattern && c.background_pattern !== "none" && !image ? c.background_pattern : null
-  const text = c.text_color || "#111111"
+  const name = themeLabel(template)
   return (
     <button
       type="button"
       onClick={() => onPick(template.id)}
       aria-pressed={selected}
-      aria-label={tt("{name} template", { name: template.name })}
+      aria-label={tt("{name} template", { name })}
       data-template-card={template.id}
       className={cn(
         "relative flex cursor-pointer flex-col rounded-2xl border border-[#e3e4e8] bg-white p-1.5 text-left transition-[border-color] duration-150 hover:border-[#c9cbd1] [-webkit-tap-highlight-color:transparent]",
@@ -149,68 +147,13 @@ const TemplateCard = memo(function TemplateCard({
       )}
     >
       <ChoiceMark on={selected} />
-      <span className="relative block aspect-[3/4] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
-        {image ? (
-          <>
-            <img src={image} alt="" loading="lazy" decoding="async" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
-            <span className="absolute inset-0 bg-black/40" />
-          </>
-        ) : (
-          <span className="absolute inset-0" style={{ background: c.background_type === "gradient" && c.background_gradient ? c.background_gradient : c.background_color }} />
-        )}
-        {pattern ? <WallpaperPattern pattern={pattern} color={c.pattern_color || "#ffffff90"} level={c.pattern_opacity || "medium"} /> : null}
-        <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3">
-          {hero ? (
-            /* Hero: the photo across the top, fading into the page. */
-            <>
-              <span className="absolute left-0 right-0 top-0 h-[55%] overflow-hidden">
-                {avatarUrl ? (
-                  <>
-                    <ProfileImage fallback={initial} src={avatarUrl} alt="" className="h-full w-full object-cover" />
-                    <span className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 40%, ${c.background_color} 100%)` }} />
-                  </>
-                ) : (
-                  <span className="flex h-full w-full items-center justify-center text-lg font-bold" style={{ backgroundColor: `${text}20`, color: text }}>
-                    {initial}
-                  </span>
-                )}
-              </span>
-              <span className="relative mb-4 mt-auto flex flex-col items-center gap-1">
-                <span className="block h-2 w-16 rounded" style={{ backgroundColor: `${text}50` }} />
-                <span className="block h-1 w-12 rounded" style={{ backgroundColor: `${text}30` }} />
-              </span>
-            </>
-          ) : (
-            <>
-              {/* A circle whatever the card's height: it keeps its size, and the column cannot squash it oval. */}
-              <span data-theme-avatar="" className="w-10 h-10 aspect-square shrink-0 rounded-full relative overflow-hidden flex items-center justify-center" style={{ backgroundColor: `${text}30` }}>
-                {avatarUrl ? (
-                  <ProfileImage fallback={initial} src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-xs font-bold" style={{ color: text }}>
-                    {initial}
-                  </span>
-                )}
-              </span>
-              <span className="block h-2 w-16 rounded" style={{ backgroundColor: `${text}50` }} />
-              <span className="block h-1 w-12 rounded" style={{ backgroundColor: `${text}30` }} />
-            </>
-          )}
-          <span
-            className="relative mt-2 block h-6 w-full max-w-[80px]"
-            style={{
-              background: c.button_style === "outline" ? "transparent" : c.button_color,
-              borderStyle: "solid",
-              borderWidth: c.button_style === "outline" ? Math.max(1.5, c.button_border_width || 0) : c.button_border_width || 0,
-              borderColor: c.button_border_color || c.button_color,
-              borderRadius: `${Math.min(c.button_border_radius ?? 8, 12)}px`,
-            }}
-          />
-        </span>
+      <span data-template-frame="" className="relative block aspect-[4/5] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: template.theme_config.background_color }}>
+        <TemplatePicture template={template} name={name} photo={avatarUrl} />
+        <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
         <CheckMark on={selected} className="right-1.5 top-1.5" />
       </span>
       <span data-template-name="" className="block truncate px-1.5 pb-1 pt-2 text-[13px] font-medium text-[#1a1a2e]">
-        {template.name}
+        {name}
       </span>
     </button>
   )
@@ -521,25 +464,34 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   const hasCompletedRef = useRef(false)
 
   /*
-    The goal pictures are asked for while the first step is read, and the two
-    photo templates' pictures from the socials step on, in the browser's idle
-    time and at low priority, so each step arrives with its pictures drawn.
+    The goal pictures are asked for while the first step is read, and the
+    templates' pictures (the photo wallpapers and covers, the Design tab's
+    own copies: preloadThemeThumbs) from the socials step on, in the
+    browser's idle time, so each step arrives with its pictures drawn.
     For the goals, the size this screen will draw (the srcset picks it).
   */
   const fetchTemplatesAhead = currentStep >= 3
+  /*
+    The template step's cards share one scale, measured off one card
+    (./themes/theme-preview), as the Design tab's do. A ref callback, since
+    the grid arrives inside the dialog's portal after this component's own
+    effects have run.
+  */
+  const templateGridRef = useCallback((grid: HTMLDivElement | null) => (grid ? scaleThemePreviews(grid, "[data-template-frame]") : undefined), [])
   useEffect(() => {
     if (!open) return
     const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    let release: (() => void) | null = null
     const run = () => {
       for (const goal of GOALS) preload(goalIcon(goal.id, 48), { as: "image", imageSrcSet: goalIconSet(goal.id), fetchPriority: "low" })
-      if (fetchTemplatesAhead) for (const src of Object.values(TEMPLATE_THUMBS)) preload(src, { as: "image", fetchPriority: "low" })
+      if (fetchTemplatesAhead) release = preloadThemeThumbs()
     }
     if (w.requestIdleCallback) {
       const id = w.requestIdleCallback(run, { timeout: 600 })
-      return () => w.cancelIdleCallback?.(id)
+      return () => { w.cancelIdleCallback?.(id); release?.() }
     }
     const id = window.setTimeout(run, 150)
-    return () => window.clearTimeout(id)
+    return () => { window.clearTimeout(id); release?.() }
   }, [open, fetchTemplatesAhead])
 
   // Save progress to localStorage whenever relevant state changes
@@ -1543,7 +1495,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     five on a computer. p-1: room for a picked card's border.
                   */}
                   <div className="w-full max-w-[760px] flex-1 min-h-0 overflow-y-auto overscroll-contain p-1 pb-4">
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                    {/*
+                      No webfonts here: the names' faces are 27 requests and
+                      148KB (scripts/check-onepage-onboarding.mjs), the bulk
+                      of the step. Each name falls back to its face's own
+                      kind (a serif, a mono, a script; lib/onepage/fonts
+                      fontStack), and the Design tab loads the faces.
+                    */}
+                    <div ref={templateGridRef} data-template-grid="" className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                       {THEME_TEMPLATES.map((template) => (
                         <TemplateCard
                           key={template.id}
@@ -1551,7 +1510,6 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                           selected={selectedTemplate === template.id}
                           onPick={setSelectedTemplate}
                           avatarUrl={avatarUrl}
-                          initial={displayName.trim() ? displayName.charAt(0).toUpperCase() : <AvatarMark name="" size={96} />}
                         />
                       ))}
                     </div>

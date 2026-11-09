@@ -225,7 +225,7 @@ if (wants("sheets")) {
     ["Animation", "links", clickTitle("Animation")],
     ["Stats", "links", clickTitle("View Stats")],
     ["Edit profile", "links", `(() => { const b = [...document.querySelectorAll("button")].find((e) => e.querySelector("h2") && e.getClientRects().length); if (b) b.click(); return !!b })()`],
-    ["Profile image", "links", clickSel("[data-scroll-container] .relative.group.cursor-pointer")],
+    ["Profile image", "links", clickSel("[data-scroll-container] [data-profile-avatar]")],
     ["Add product", "products", `(() => { const b = [...document.querySelectorAll("button")].find((e) => /^add product$/i.test(e.textContent.trim()) && e.getClientRects().length); if (b) b.click(); return !!b })()`],
     ["Unsaved changes", "settings", clickSel("[data-onepage-exit]"), `(() => { const i = document.querySelector("[data-settings-name]"); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set; set.call(i, i.value + "!"); i.dispatchEvent(new Event("input", { bubbles: true })) })()`],
   ]

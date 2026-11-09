@@ -307,7 +307,7 @@ export function EmailSignupView({
  * own colours and with its image when it has one, so it looks like what
  * choosing it gives. 56px tall: three fit across a phone.
  */
-export function EmailLayoutThumb({ layout, image, theme, avatar = null }: { layout: EmailSignupLayout; image: string | null; theme: SignupTheme & { background_color?: string }; avatar?: string | null }) {
+export function EmailLayoutThumb({ layout, image, theme, avatar = null, headline = null }: { layout: EmailSignupLayout; image: string | null; theme: SignupTheme & { background_color?: string }; avatar?: string | null; headline?: string | null }) {
   const accent = theme.button_color || "#1a1a2e"
   const ink = theme.text_color || "#111113"
   const bold = boldColors(ink)
@@ -315,6 +315,15 @@ export function EmailLayoutThumb({ layout, image, theme, avatar = null }: { layo
   const line = (w: string, strong = false, color = ink) => (
     <span className={cn("block h-1 rounded-full", w)} style={{ backgroundColor: color, opacity: strong ? 0.7 : 0.3 }} />
   )
+  /* Round AQ: the block's own headline, small, where the strong line was; the line only while it has none. */
+  const head = (w: string, color = ink) =>
+    headline?.trim() ? (
+      <span className={cn("block min-w-0 max-w-full truncate text-[7px] font-semibold leading-none", w === "w-1/2" || w === "w-3/5" ? "text-center" : "")} style={{ color }}>
+        {headline.trim()}
+      </span>
+    ) : (
+      line(w, true, color)
+    )
   const row = (inverted = false, stacked = false) =>
     stacked ? (
       <span className="mt-1 flex flex-col gap-[3px]">
@@ -343,7 +352,7 @@ export function EmailLayoutThumb({ layout, image, theme, avatar = null }: { layo
   if (layout === "connect") {
     card = (
       <span className="flex w-full flex-col items-center gap-[4px]">
-        {line("w-1/2", true)}
+        {head("w-1/2")}
         <span className="flex h-[14px] w-full items-center rounded-full bg-white pl-1.5 pr-[2px] ring-1 ring-black/10">
           <span className="block h-[2px] w-1/3 rounded-full bg-black/20" />
           <span className="ml-auto flex h-[10px] items-center gap-[2px] rounded-full pl-1 pr-[1px]" style={{ backgroundColor: "#ececef" }}>
@@ -360,7 +369,7 @@ export function EmailLayoutThumb({ layout, image, theme, avatar = null }: { layo
           {face("h-2.5 w-2.5")}
           {line("w-1/3")}
         </span>
-        <span className="mt-[3px] flex flex-col gap-[3px]">{line("w-4/5", true)}</span>
+        <span className="mt-[3px] flex flex-col gap-[3px]">{head("w-4/5")}</span>
         <span className="mt-[5px] flex items-end gap-1 border-b pb-[2px]" style={{ borderColor: tintOf(ink, 35) }}>
           <span className="block h-[2px] flex-1" />
           <span className="block h-[3px] w-3 rounded-full" style={{ backgroundColor: ink, opacity: 0.75 }} />
@@ -371,7 +380,7 @@ export function EmailLayoutThumb({ layout, image, theme, avatar = null }: { layo
     card = (
       <span className="flex w-full items-center gap-1 rounded-[5px] p-1.5" style={{ backgroundColor: tintOf(ink, 6) }}>
         {image ? <img src={image} alt="" className="h-3.5 w-3.5 shrink-0 rounded-full object-cover" /> : face("h-3.5 w-3.5")}
-        <span className="flex flex-1 flex-col gap-[3px]">{line("w-4/5", true)}{line("w-1/2")}</span>
+        <span className="flex flex-1 flex-col gap-[3px]">{head("w-4/5")}{line("w-1/2")}</span>
         <span className="block h-[9px] w-[26%] rounded-full ring-1 ring-black/10" style={{ backgroundColor: accent }} />
       </span>
     )
@@ -380,7 +389,7 @@ export function EmailLayoutThumb({ layout, image, theme, avatar = null }: { layo
       <span className="block w-full rounded-[5px] p-1.5" style={{ backgroundColor: tintOf(ink, 6) }}>
         <span className="flex items-center gap-1">
           {mark("h-4 w-4 rounded-[3px]")}
-          <span className="flex flex-1 flex-col gap-[3px]">{line("w-4/5", true)}{line("w-1/2")}</span>
+          <span className="flex flex-1 flex-col gap-[3px]">{head("w-4/5")}{line("w-1/2")}</span>
         </span>
         {row()}
       </span>
@@ -396,7 +405,7 @@ export function EmailLayoutThumb({ layout, image, theme, avatar = null }: { layo
           </span>
         )}
         <span className="flex flex-col items-center gap-[3px] px-1.5 pb-1.5 pt-1">
-          {line("w-3/5", true)}
+          {head("w-3/5")}
           <span className="w-full">{row(false, true)}</span>
         </span>
       </span>
@@ -405,7 +414,7 @@ export function EmailLayoutThumb({ layout, image, theme, avatar = null }: { layo
     card = (
       <span className="flex w-full flex-col items-center gap-[3px] rounded-[5px] p-1.5" style={{ backgroundColor: bold.fill }}>
         {image ? <img src={image} alt="" className="h-2.5 w-2.5 rounded-full object-cover" /> : null}
-        {line("w-3/5", true, bold.on)}
+        {head("w-3/5", bold.on)}
         {line("w-2/5", false, bold.on)}
         <span className="w-full">{row(true, true)}</span>
       </span>
@@ -415,7 +424,7 @@ export function EmailLayoutThumb({ layout, image, theme, avatar = null }: { layo
       <span className="block w-full px-0.5">
         <span className="flex items-center gap-1">
           {image ? <img src={image} alt="" className="h-3.5 w-3.5 shrink-0 rounded-[3px] object-cover" /> : null}
-          <span className="flex flex-1 flex-col gap-[3px]">{line("w-3/5", true)}{line("w-2/5")}</span>
+          <span className="flex flex-1 flex-col gap-[3px]">{head("w-3/5")}{line("w-2/5")}</span>
         </span>
         {row()}
       </span>
@@ -423,7 +432,7 @@ export function EmailLayoutThumb({ layout, image, theme, avatar = null }: { layo
   } else {
     card = (
       <span className="flex w-full flex-col items-center gap-[3px] rounded-[5px] p-1.5" style={{ backgroundColor: tintOf(ink, 6) }}>
-        {line("w-3/5", true)}
+        {head("w-3/5")}
         {line("w-2/5")}
         <span className="w-full">{row()}</span>
       </span>
