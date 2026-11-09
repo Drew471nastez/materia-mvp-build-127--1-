@@ -1246,6 +1246,8 @@ const SUITES = [
  * directory, run after the list above.
  */
 const STRICT_SUITES = [
+  /* Wave 7: /app/emails never falls over on an answer of another shape ("eN.find is not a function" from the live build): every loader fed objects, { error }, junk lists, HTML and empty bodies answers with lists or an Error to retry; the shapers (lib/emails/shapes.ts) never throw; each part of the page in its own net (components/app/emails/part-boundary). Strict: it draws the panels that read through components/physical/ui, which only narrow strict. */
+  "tests/emails-shapes-w7.test.ts",
   /* Round 51: Contacts, one person per creator (an account first, an address only when verified or given here, never a name), Customers or Marketing opens it, another store's row refused through /app/contacts/open, exports of the store's own only, deleting never touches an order or a membership, an import never resubscribes, the legacy addresses redirected (SQL 378; its parity with lib/contacts/identity.ts on Postgres: scripts/check-contacts-sql.mjs). */
   "tests/contacts-r51.test.ts",
   /* Round 50: the creator page's About / Your story. The save through the real route (headline, rich story kept whole and cleaned, an emptied editor stored as none, a too long story refused, pictures, captions, both configs), the page purged after the write so the owner and visitors see it; the owner's page drawing the saved story at once (lib/storefront/story-draft); the Read more fade masked into any scheme; the gallery on scroll snap (dots in step while it moves, dots, keys, mouse drag); the inline caption. Strict: it drives the route through tests/_journey. */

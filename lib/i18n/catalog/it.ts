@@ -2425,6 +2425,7 @@ const words: Record<string, string> = {
  "Couldn't be read from GitHub": "Impossibile leggerlo da GitHub",
  "Couldn't be saved just now": "Impossibile salvare in questo momento",
  "Couldn't leave": "Impossibile uscire",
+ "Couldn't load this part.": "Impossibile caricare questa parte.",
  "Couldn't load verification": "Impossibile caricare la verifica",
  "Couldn't open setup": "Impossibile aprire la configurazione",
  "Couldn't reach Storelib": "Impossibile raggiungere Storelib",

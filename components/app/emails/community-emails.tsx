@@ -38,6 +38,7 @@ import { usePhoneWidth } from "@/components/ui/choice-list"
 import { COMMUNITY_EMAILS, GROUP_NAMES, type CustomerEmail } from "@/lib/emails/customer-list"
 import { COMMUNITY_DEFAULT_WORDS, COMMUNITY_WORD_LIMITS, communityValuesFor, isCommunityWordKind, unknownCommunityValues } from "@/lib/emails/community-words"
 import type { Sent } from "@/lib/emails/activity-server"
+import { communityEmailsFrom } from "@/lib/emails/shapes"
 import { EmailRow, PHONE_SHEET_HEIGHT, PaneSwitch, PreviewFrame, SlidingPanes, sentLine } from "./email-parts"
 
 export interface CommunityRef {
@@ -80,9 +81,11 @@ export function CommunityEmails({ community, sent, days, bare }: { community: Co
     setFailed(false)
     void api<Loaded>(`/api/app/community/${community.id}/emails`).then((r) => {
       if (!live) return
-      if (r.ok) {
-        loadedKept.set(community.id, r.data)
-        setLoaded(r.data)
+      /* Checked at the door (lib/emails/shapes.ts): an answer of another shape is a failed read, never a list `.map` falls over on. */
+      const next = r.ok ? (communityEmailsFrom<Broadcast, Words>(r.data) as Loaded | null) : null
+      if (next) {
+        loadedKept.set(community.id, next)
+        setLoaded(next)
       } else if (!loadedKept.has(community.id)) setFailed(true)
     })
     return () => {

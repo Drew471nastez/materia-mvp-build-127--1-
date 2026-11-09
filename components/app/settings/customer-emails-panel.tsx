@@ -67,6 +67,7 @@ import { TRIGGERS, isTriggerType } from "@/lib/automations/flow-model"
 import type { EmailActivity, FlowActivity } from "@/lib/emails/activity-server"
 import { tt } from "@/lib/i18n/text"
 import { previewVersion } from "@/lib/emails/preview-version"
+import { activityFrom, customerEmailsFrom, wordsInFrom } from "@/lib/emails/shapes"
 
 export const CUSTOMER_EMAILS_PATH = "/api/store/emails"
 const ACTIVITY_PATH = "/api/store/emails/activity"
@@ -148,7 +149,8 @@ export function prefetchCustomerActivity(data: CustomerEmailsData | null | undef
   const key = (data.communities ?? []).map((c) => c.id).join(",")
   if (activityKept.has(key)) return
   void api<EmailActivity>(activityPath(key)).then((r) => {
-    if (r.ok) activityKept.set(key, r.data)
+    const a = r.ok ? activityFrom<EmailActivity>(r.data) : null
+    if (a) activityKept.set(key, a)
   })
 }
 
@@ -166,7 +168,7 @@ export function CustomerEmailsPanel({
 }) {
   const physical = usePhysicalCommerceEnabled()
   /* Drawn at once from what Settings (or Emails) fetched while the person was elsewhere (prefetchGet). */
-  const [ownData, setOwnData] = React.useState<CustomerEmailsData | null>(() => (source ? source.data : peekGet<CustomerEmailsData>(CUSTOMER_EMAILS_PATH)))
+  const [ownData, setOwnData] = React.useState<CustomerEmailsData | null>(() => (source ? source.data : customerEmailsFrom<CustomerEmailsData>(peekGet<unknown>(CUSTOMER_EMAILS_PATH))))
   const data = source?.data ?? ownData
   const sourceRef = React.useRef(source)
   sourceRef.current = source
@@ -200,7 +202,12 @@ export function CustomerEmailsPanel({
     }
     /* Emails reads the list itself (its tab cache); Settings asks here. */
     if (sourceRef.current) return
-    void api<CustomerEmailsData>(CUSTOMER_EMAILS_PATH).then((r) => (r.ok ? setOwnData(r.data) : setError(r.error)))
+    /* Checked at the door (lib/emails/shapes.ts): an answer of another shape is a failed read. */
+    void api<CustomerEmailsData>(CUSTOMER_EMAILS_PATH).then((r) => {
+      const d = r.ok ? customerEmailsFrom<CustomerEmailsData>(r.data) : null
+      if (d) setOwnData(d)
+      else setError(r.ok ? tt("Could not load your customer emails.") : r.error)
+    })
   }, [])
 
   /* What each has sent, once the list knows the communities it covers. */
@@ -211,9 +218,10 @@ export function CustomerEmailsPanel({
     const kept = activityKept.get(communityKey)
     if (kept) setActivity(kept)
     void api<EmailActivity>(activityPath(communityKey)).then((r) => {
-      if (!r.ok) return
-      activityKept.set(communityKey, r.data)
-      if (live) setActivity(r.data)
+      const a = r.ok ? activityFrom<EmailActivity>(r.data) : null
+      if (!a) return
+      activityKept.set(communityKey, a)
+      if (live) setActivity(a)
     })
     return () => {
       live = false
@@ -381,7 +389,7 @@ export function CustomerEmailsPanel({
         data={data}
         saved={open ? data?.copy[open.id] : undefined}
         ready={data?.ready !== false}
-        onSaved={(copy) => setData((d) => (d ? { ...d, copy } : d))}
+        onSaved={(copy) => setData((d) => (d && copy && typeof copy === "object" && !Array.isArray(copy) ? { ...d, copy } : d))}
         onClose={() => setOpen(null)}
       />
     </div>
@@ -608,8 +616,9 @@ function usePreviewPlace(email: CustomerEmail | null, data: CustomerEmailsData |
     if (wordsKept.has(key) || (place === "website" && lang === "en" && def === "en")) return
     let live = true
     void api<{ language: EmailWordsIn }>(place === "storelib" ? `${CUSTOMER_EMAILS_PATH}?channel=storelib` : `${CUSTOMER_EMAILS_PATH}?lang=${encodeURIComponent(lang)}`).then((r) => {
-      if (!live || !r.ok) return
-      wordsKept.set(key, r.data.language)
+      const words = r.ok ? wordsInFrom(r.data.language) : null
+      if (!live || !words) return
+      wordsKept.set(key, words)
       redraw((n) => n + 1)
     })
     return () => {

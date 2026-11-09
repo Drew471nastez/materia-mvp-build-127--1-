@@ -19,6 +19,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { api } from "@/components/physical/ui"
+import { communityAutomationsFrom } from "@/lib/emails/shapes"
 import { Switch } from "@/components/ui/switch"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
@@ -93,8 +94,11 @@ function CommunityAutomationRows({ community, bare, titled, onOpen }: { communit
     let live = true
     void api<Listed>(communityAutomationsPath(community.id)).then((r) => {
       if (!live || !r.ok) return
-      listedKept.set(community.id, r.data)
-      setListed(r.data)
+      /* Checked at the door (lib/emails/shapes.ts): lists that are lists, or nothing drawn. */
+      const next = communityAutomationsFrom<Automation, Listed["channels"][number]>(r.data)
+      if (!next) return
+      listedKept.set(community.id, next)
+      setListed(next)
     })
     return () => {
       live = false
