@@ -139,6 +139,8 @@ export type DesignBinding = keyof typeof DESIGN_BINDINGS
 
 const isBinding = (v: unknown): v is DesignBinding => typeof v === "string" && Object.prototype.hasOwnProperty.call(DESIGN_BINDINGS, v)
 const binding = (b: DesignBinding): BindingSpec => DESIGN_BINDINGS[b] as BindingSpec
+/** The choices a bound setting offers (the fonts that load, the shadow levels), or none. */
+export const bindingOptions = (b: DesignBinding | undefined): DesignOption[] => (b ? binding(b).options ?? [] : [])
 
 /* ── limits ───────────────────────────────────────────────────────────── */
 

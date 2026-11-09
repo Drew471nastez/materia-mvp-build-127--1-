@@ -20,7 +20,7 @@ import { SliderNumberControl } from "@/components/website-builder/editor/slider-
 import { ChoiceControl } from "@/components/website-builder/editor/controls/choice-control"
 import { NOTE } from "@/components/website-builder/editor/controls/styles"
 import { themeSettingsToTokens } from "@/lib/ai-builder/tokens"
-import { DESIGN_BINDINGS, designPatch, designValue, type DesignGroup, type DesignSetting } from "@/lib/ai-builder/site-settings"
+import { bindingOptions, designPatch, designValue, type DesignGroup, type DesignSetting } from "@/lib/ai-builder/site-settings"
 import { tt } from "@/lib/i18n/text"
 import { cn } from "@/lib/utils"
 
@@ -69,7 +69,7 @@ function SiteSettingField({
     case "color":
       return <ColorField label={s.label} value={String(value)} fallback={/^#[0-9a-f]{6}$/i.test(String(value)) ? String(value) : "#000000"} onChange={onChange} />
     case "font":
-      return <FontPreviewPicker label={s.label} value={String(value)} options={s.token ? [...(DESIGN_BINDINGS[s.token].options ?? [])] : []} onChange={onChange} />
+      return <FontPreviewPicker label={s.label} value={String(value)} options={bindingOptions(s.token)} onChange={onChange} />
     case "range":
       return (
         <div>
