@@ -45,13 +45,17 @@ console.log("\nOne bar per screen")
 check("the Forms page draws no bar of its own: FormsList draws the one each screen has", page.includes("return <FormsList />") && !page.includes("<ContactsHeader"))
 check("a form open is FormEditor's own bar only, not under the Forms bar", /if \(selected\) \{[\s\S]*?<ContactsPane ref=\{paneRef\} className="lg:flex lg:flex-col">\s*<FormEditor/.test(list))
 check("the inbox and an older website form wear Contacts' bar with a Back to Forms, not a second header", (panels.match(/<ContactsHeader title=/g) ?? []).length === 2 && !/<h2 className="truncate text-\[20px\]/.test(panels))
-check("the form's page has one back arrow from lg and Back in the phone bar below it", /aria-label=\{tt\("Back to forms"\)\}/.test(builder) && /lg:inline-flex/.test(builder) && /<LeaveButton mode=\{dirty \? "cancel" : "back"\} asks=\{dirty\}/.test(builder))
+/* Changed on purpose (wave 7, the owner: "I don't like the page of a form"): the form wears an order's bar on every width, one back arrow up to Forms (asking first when something is unsaved, close()), not a Back pill on a phone and an arrow on a computer. */
+check("the form's page has one back arrow, an order's, that asks before leaving changes", (builder.match(/aria-label=\{tt\("Back to forms"\)\}/g) ?? []).length === 1 && /<OrderBarFrame[\s\S]*?onClick=\{\(\) => void close\(\)\}/.test(builder) && !builder.includes("<LeaveButton"))
 
 console.log("\nA form, edited as a coupon or a product")
-check("its name is the page's title, with where it stands", /<h1 className="min-w-0 max-w-full truncate text-\[24px\] font-bold leading-9 text-\[#1a1a2e\] sm:text-\[28px\]">\{title\}<\/h1>/.test(builder))
-check("below lg a sticky bar: Back, the ⋯ (Preview, Share, Save draft) and Publish", builder.includes('data-editor-bar=""') && builder.includes("data-form-actions-more") && builder.includes("const phoneMenu: ActionMenuItem[]"))
+/* Changed on purpose (wave 7): the title is an order's and a person's (22px on a phone, 20px from sm), with its badge, and its kind and responses under it. */
+check("its name is the page's title, with where it stands", /<h1 className="min-w-0 truncate text-\[22px\] font-bold leading-8 text-\[#1a1a2e\] sm:text-\[20px\] sm:leading-7" data-form-title="">/.test(builder) && builder.includes("data-form-subtitle"))
+/* Changed on purpose (wave 7): the sticky bar is OrderBarFrame on every width; below lg it carries the ⋯ (Preview, Share, Save draft) and Publish. */
+check("below lg the sticky bar holds Back, the ⋯ (Preview, Share, Save draft) and Publish", /<OrderBarFrame/.test(builder) && builder.includes("data-form-actions-more") && builder.includes("const phoneMenu: ActionMenuItem[]") && /<span className="lg:hidden">\s*<PublishButton/.test(builder))
 check("from lg Save draft and Publish sit in the editors' foot bar", builder.includes('data-editor-foot=""') && /sticky bottom-0 z-30 mt-auto hidden/.test(builder))
-check("bar, tabs, cards and foot share one width", (builder.match(/FORM_WIDTH, "app-gutter"/g) ?? []).length === 3)
+/* Changed on purpose (wave 7): the width is an order's (ORDER_WIDTH, 1040px); the bar is OrderBarFrame at that width, the body and the foot name it. */
+check("bar, tabs, cards and foot share one width", (builder.match(/FORM_WIDTH, "app-gutter"/g) ?? []).length === 2 && /const FORM_WIDTH = ORDER_WIDTH/.test(builder))
 check("the parts are the editors' cards on the page", /const pageCard = "scroll-mt-4 space-y-4 rounded-2xl/.test(builder) && builder.includes('className={inPage ? pageCard : "space-y-3"}'))
 
 console.log("\nThe Forms list, as Coupons")

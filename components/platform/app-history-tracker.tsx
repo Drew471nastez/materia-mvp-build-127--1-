@@ -25,7 +25,10 @@ export function AppHistoryTracker() {
   const returning = useRef(false)
 
   useEffect(() => {
-    const onPop = () => { returning.current = true }
+    /* Wave 7: a pop inside one page (Contacts › Forms moves its own query with pushState) changes no path and
+       commits nothing here, and a flag left up by it counted the next real push as a return. Only a pop to
+       another path is a return. */
+    const onPop = () => { returning.current = window.location.pathname !== lastPath.current }
     window.addEventListener("popstate", onPop)
     return () => window.removeEventListener("popstate", onPop)
   }, [])

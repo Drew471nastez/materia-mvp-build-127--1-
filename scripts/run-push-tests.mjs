@@ -284,6 +284,7 @@ const SUITES = [
   "tests/contacts-simple-w5.test.ts",
   /* Wave 6: Contacts and Forms in the /app pane, one bar per screen; a form edited as a coupon or a product (its name as the title, phone bar, foot bar, cards the width of the bar). */
   "tests/contacts-forms-w6.test.ts",
+  "tests/contacts-nav-w7.test.ts",
   /* Wave 5: Emails on a phone as it was before round 51: one row of views, Automation and New email on every view, no second row; a computer keeps the three tabs. */
   "tests/emails-phone-w5.test.ts",
   "tests/orders-view.test.ts",

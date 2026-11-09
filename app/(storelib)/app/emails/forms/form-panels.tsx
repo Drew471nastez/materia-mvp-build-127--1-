@@ -21,7 +21,10 @@
  *                    each opening as its own page (../message-detail).
  */
 import * as React from "react"
-import { ChevronDown } from "lucide-react"
+import Link from "next/link"
+import { ChevronDown, Download } from "lucide-react"
+import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { confirmForm } from "@/components/forms/form-confirm"
 import { ShimmerRows } from "@/components/ui/shimmer"
 import { formsRequest } from "@/lib/forms/client"
 import { answerText, type Answer } from "@/lib/forms/definition"
@@ -29,7 +32,7 @@ import type { FormInsights } from "@/lib/forms/insights"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, formatNumber, zoned } from "@/lib/i18n/format"
-import { GUTTER, LIST_WIDTH, StatusBadge, buttonSecondary, card } from "../../orders/order-parts"
+import { GUTTER, LIST_WIDTH, StatusBadge, buttonSecondary, card, iconButton } from "../../orders/order-parts"
 import { ContactsHeader } from "../../contacts/contacts-header"
 import type { MessageRow } from "../emails-home"
 
@@ -37,7 +40,7 @@ const muted = "text-[13px] text-[#6b7280]"
 /* The body under the bar of a screen inside Forms: the list's own width and gutter (Coupons, Orders). */
 const SCREEN = cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)
 
-export function contactOpenHref(from: "form_submission" | "site_form_submission" | "subscriber", id: string): string {
+export function contactOpenHref(from: "form_submission" | "site_form_submission" | "subscriber" | "message", id: string): string {
   return `/app/contacts/open?from=${from}&id=${encodeURIComponent(id)}`
 }
 
@@ -114,7 +117,25 @@ function AnswerList({ answers }: { answers: { label: string; value: string }[] }
   )
 }
 
-export function ResponsesPanel({ formId, quiz, focus = null }: { formId: string; quiz: boolean; focus?: string | null }) {
+/** A response's follow up, as a badge's tone: new wants attention, converted is done. */
+function statusTone(status: string): "attention" | "success" | "neutral" {
+  return status === "new" ? "attention" : status === "converted" ? "success" : "neutral"
+}
+
+const FOLLOW_UP = ["new", "contacted", "qualified", "converted"] as const
+
+/**
+ * A FORM'S RESPONSES (wave 7, the owner: "smoother, cleaner"). One card, as
+ * the Orders and People lists: a toolbar (how many, Export CSV), then the
+ * responses as a table from 640px (who, sent, from, follow up) and as
+ * stacked rows on a phone. Who answered is a link to their contact profile
+ * (/app/contacts/open?from=form_submission, which checks the store owns the
+ * response); an anonymous response says so. The follow up (New, Contacted,
+ * Qualified, Converted) changes in place from the badge (PATCH
+ * /api/leads/<id>, the owner's own rows only), which is how a lead becomes
+ * a customer here. A row opens to its answers, View contact and Delete.
+ */
+export function ResponsesPanel({ formId, quiz, focus = null, onCount }: { formId: string; quiz: boolean; focus?: string | null; onCount?: (by: number) => void }) {
   const [rows, setRows] = React.useState<Response[]>([])
   const [next, setNext] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -145,12 +166,56 @@ export function ResponsesPanel({ formId, quiz, focus = null }: { formId: string;
   React.useEffect(() => {
     void load(null)
   }, [load])
+  /* The response the address names, opened and in view. */
+  React.useEffect(() => {
+    if (!focus || !rows.some((r) => r.id === focus)) return
+    document.querySelector(`[data-response-row="${focus}"]`)?.scrollIntoView({ block: "center" })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus, rows.length])
 
+  const setStatus = async (r: Response, status: string) => {
+    if (status === r.status) return
+    const was = r.status
+    setRows((all) => all.map((x) => (x.id === r.id ? { ...x, status } : x)))
+    const res = await formsRequest(`/api/leads/${encodeURIComponent(r.id)}`, { method: "PATCH", body: JSON.stringify({ status }), fallback: tt("Not changed. Try again.") })
+    if (res.error) {
+      setRows((all) => all.map((x) => (x.id === r.id ? { ...x, status: was } : x)))
+      setError(res.error)
+    }
+  }
+  const remove = async (r: Response) => {
+    const yes = await confirmForm({ title: tt("Delete this response?"), body: tt("Its answers and any files sent with it are deleted. The person stays in your contacts if they are there for anything else."), confirm: tt("Delete"), cancel: tt("Cancel") })
+    if (yes !== true) return
+    const res = await formsRequest(`/api/leads/${encodeURIComponent(r.id)}`, { method: "DELETE", fallback: tt("The response was not deleted. Try again.") })
+    if (res.error) return setError(res.error)
+    setRows((all) => all.filter((x) => x.id !== r.id))
+    onCount?.(-1)
+  }
+
+  const statusMenu = (r: Response, extra?: string) => (
+    <ResponsiveActionMenu
+      title={tt("Follow up")}
+      align="end"
+      trigger={
+        <button type="button" className={cn("inline-flex min-h-8 items-center gap-1 rounded-lg px-1 outline-none hover:bg-[#f1f2f4] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] max-md:min-h-11", extra)} aria-label={tt("Follow up: {status}", { status: statusWord(r.status) })} data-response-status={r.status} onClick={(e) => e.stopPropagation()}>
+          <StatusBadge tone={statusTone(r.status)}>{statusWord(r.status)}</StatusBadge>
+          <ChevronDown aria-hidden className="h-3.5 w-3.5 text-[#9ca3af]" />
+        </button>
+      }
+      items={FOLLOW_UP.map((k) => ({ label: statusWord(k), onClick: () => void setStatus(r, k), disabled: k === r.status }))}
+    />
+  )
+
+  const count = rows.length
   return (
     <section className={cn(card, "overflow-hidden")} aria-label={tt("Responses")} data-form-responses={formId}>
-      <div className="flex items-center justify-between gap-3 border-b border-[#f1f2f4] px-4 py-3">
-        <h2 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Responses")}</h2>
-        <a className={buttonSecondary} href={`/api/leads/export?form=${encodeURIComponent(formId)}`} data-responses-export="">
+      <div className="flex min-h-[52px] items-center justify-between gap-3 border-b border-[#eef0f2] py-2 pl-4 pr-2.5">
+        <h2 className="text-[14px] font-semibold text-[#1a1a2e]">
+          {tt("Responses")}
+          {count ? <span className="ml-1.5 font-normal tabular-nums text-[#9ca3af]">{formatNumber(count)}{next ? "+" : ""}</span> : null}
+        </h2>
+        <a className={cn(buttonSecondary, "max-md:h-10 max-md:rounded-xl max-md:text-[14px]")} href={`/api/leads/export?form=${encodeURIComponent(formId)}`} data-responses-export="">
+          <Download aria-hidden className="h-4 w-4" />
           {tt("Export CSV")}
         </a>
       </div>
@@ -161,39 +226,75 @@ export function ResponsesPanel({ formId, quiz, focus = null }: { formId: string;
       ) : !rows.length ? (
         <Empty title={tt("No responses yet")} detail={tt("Responses show here as soon as someone sends the form.")} />
       ) : (
-        <ul className="divide-y divide-[#f1f2f4]">
-          {rows.map((r) => {
-            const open = openId === r.id
-            const who = r.contact_name || r.contact_email || r.contact_phone
-            return (
-              <li key={r.id} data-response-row={r.id}>
-                <button type="button" className="flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#fafbfb]" aria-expanded={open} onClick={() => setOpenId(open ? null : r.id)}>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{who || tt("Anonymous response")}</span>
-                    <span className="block truncate text-[13px] text-[#6b7280]">
-                      {when(r.submitted_at)} · {sourceWord(r.source_kind)}
-                      {quiz ? ` · ${tt("Score {n}", { n: r.score })}` : ""}
-                    </span>
-                  </span>
-                  <StatusBadge tone={r.status === "new" ? "attention" : "neutral"}>{statusWord(r.status)}</StatusBadge>
-                  <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-150", open && "rotate-180")} />
-                </button>
-                {open ? (
-                  <div className="space-y-3 px-4 pb-4" data-response-answers="">
-                    <AnswerList answers={(r.answers ?? []).map((a) => ({ label: a.label, value: a.file ? a.file.name : answerText(a) }))} />
-                    {identifiable(r) ? (
-                      <a className={buttonSecondary + " inline-flex"} href={contactOpenHref("form_submission", r.id)} data-view-contact="">
-                        {tt("View contact")}
-                      </a>
-                    ) : (
-                      <p className={muted}>{tt("Sent without contact details.")}</p>
-                    )}
+        <>
+          <div className="hidden h-9 items-center gap-3 bg-[#f7f7f8] pl-4 pr-12 text-[12px] font-medium text-[#4b5563] sm:flex" aria-hidden>
+            <span className="min-w-0 flex-1">{tt("Person")}</span>
+            <span className="w-[136px] shrink-0">{tt("Sent")}</span>
+            <span className="w-[112px] shrink-0 max-md:hidden">{tt("From")}</span>
+            <span className="w-[132px] shrink-0">{tt("Follow up")}</span>
+          </div>
+          <ul className="divide-y divide-[#f1f2f4]">
+            {rows.map((r) => {
+              const open = openId === r.id
+              const who = r.contact_name || r.contact_email || r.contact_phone
+              const sub = r.contact_name ? r.contact_email || r.contact_phone : null
+              const href = identifiable(r) ? contactOpenHref("form_submission", r.id) : null
+              const toggle = () => setOpenId(open ? null : r.id)
+              return (
+                <li key={r.id} data-response-row={r.id} className={cn(open && "bg-[#fcfcfd]")}>
+                  <div
+                    className="flex min-h-[60px] cursor-pointer items-center gap-3 py-2 pl-4 pr-1.5 hover:bg-[#fafbfb] max-sm:min-h-[68px]"
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest("a,button")) return
+                      toggle()
+                    }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      {href ? (
+                        <Link href={href} className="block truncate text-[14px] font-medium text-[#1a1a2e] hover:underline max-sm:text-[15px]" data-response-person="">
+                          {who}
+                        </Link>
+                      ) : (
+                        <span className="block truncate text-[14px] font-medium text-[#6b7280] max-sm:text-[15px]">{who || tt("Anonymous response")}</span>
+                      )}
+                      <span className="block truncate text-[13px] text-[#6b7280]">
+                        <span className="sm:hidden">
+                          {[when(r.submitted_at), sourceWord(r.source_kind), quiz ? tt("Score {n}", { n: r.score }) : null].filter(Boolean).join(" · ")}
+                        </span>
+                        <span className="max-sm:hidden">{[sub, quiz ? tt("Score {n}", { n: r.score }) : null].filter(Boolean).join(" · ") || "\u00a0"}</span>
+                      </span>
+                    </div>
+                    <span className="w-[136px] shrink-0 truncate text-[13px] text-[#4b5563] max-sm:hidden">{when(r.submitted_at)}</span>
+                    <span className="w-[112px] shrink-0 truncate text-[13px] text-[#4b5563] max-md:hidden">{sourceWord(r.source_kind)}</span>
+                    <span className="shrink-0 sm:w-[132px]">{statusMenu(r, "-ml-1")}</span>
+                    <button type="button" className={cn(iconButton, "h-9 w-9 shrink-0 max-md:h-11 max-md:w-11")} aria-expanded={open} aria-label={open ? tt("Hide answers") : tt("Show answers")} onClick={toggle}>
+                      <ChevronDown aria-hidden className={cn("h-4 w-4 text-[#9ca3af] transition-transform duration-150", open && "rotate-180")} />
+                    </button>
                   </div>
-                ) : null}
-              </li>
-            )
-          })}
-        </ul>
+                  {open ? (
+                    <div className="space-y-4 px-4 pb-4 pt-1" data-response-answers="">
+                      <div className="rounded-xl border border-[#eef0f2] bg-white p-3.5">
+                        <AnswerList answers={(r.answers ?? []).map((a) => ({ label: a.label, value: a.file ? a.file.name : answerText(a) }))} />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {href ? (
+                          <Link className={cn(buttonSecondary, "max-md:h-11 max-md:rounded-xl max-md:px-4 max-md:text-[15px]")} href={href} data-view-contact="">
+                            {tt("View contact")}
+                          </Link>
+                        ) : (
+                          <p className={muted}>{tt("Sent without contact details.")}</p>
+                        )}
+                        <button type="button" className="ml-auto inline-flex h-8 items-center rounded-lg px-2.5 text-[13px] font-medium text-[#b42318] hover:bg-[#fef3f2] max-md:h-11 max-md:text-[15px]" onClick={() => void remove(r)} data-response-delete="">
+                          {tt("Delete response")}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+        </>
       )}
       {next ? (
         <div className="border-t border-[#f1f2f4] px-4 py-3">
@@ -213,21 +314,33 @@ export function ResponsesPanel({ formId, quiz, focus = null }: { formId: string;
 
 function Bars({ items, label }: { items: { label: string; count: number }[]; label: string }) {
   const top = Math.max(1, ...items.map((i) => i.count))
+  const total = items.reduce((a, i) => a + i.count, 0) || 1
   return (
-    <ul className="space-y-2" aria-label={label}>
+    <ul className="space-y-3" aria-label={label}>
       {items.map((i) => (
-        <li key={i.label} className="grid grid-cols-[minmax(0,140px)_minmax(0,1fr)_48px] items-center gap-3 text-[13px]">
-          <span className="truncate text-[#4b5563]">{i.label}</span>
-          <span className="h-2 overflow-hidden rounded-full bg-[#f1f2f4]">
-            <span className="block h-full rounded-full bg-[#1a1a2e]" style={{ width: `${Math.round((i.count / top) * 100)}%` }} />
+        <li key={i.label} className="text-[13px]">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="truncate text-[#1a1a2e]">{i.label}</span>
+            <span className="shrink-0 tabular-nums text-[#6b7280]">
+              <span className="font-medium text-[#1a1a2e]">{formatNumber(i.count)}</span> · {Math.round((i.count / total) * 100)}%
+            </span>
+          </div>
+          <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-[#f1f2f4]">
+            <span className="block h-full rounded-full bg-[#8b5cf6]" style={{ width: `${Math.round((i.count / top) * 100)}%` }} />
           </span>
-          <span className="text-right tabular-nums text-[#1a1a2e]">{formatNumber(i.count)}</span>
         </li>
       ))}
     </ul>
   )
 }
 
+/**
+ * A FORM'S INSIGHTS (wave 7): the numbers first, in one strip of stat cells
+ * as the Orders page draws its own (responses, the last 30 days, how many
+ * left a way to reach them, how many were converted), then the weeks as a
+ * chart with its scale, then where responses came from and how far the
+ * follow up got, each with its share. app/api/forms/<id>/insights.
+ */
 export function InsightsPanel({ formId }: { formId: string }) {
   const [data, setData] = React.useState<FormInsights | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -247,46 +360,66 @@ export function InsightsPanel({ formId }: { formId: string }) {
   if (!data.total) return <section className={card}><Empty title={tt("No responses yet")} detail={tt("Insights show once the form has responses.")} /></section>
   const weekTop = Math.max(1, ...data.weeks.map((w) => w.count))
   const box = cn(card, "p-4 sm:p-5")
+  const pct = (n: number) => `${Math.round((n / Math.max(1, data.total)) * 100)}%`
+  const converted = data.statuses.converted ?? 0
+  const stats = [
+    { label: tt("Responses"), value: formatNumber(data.total), note: null },
+    { label: tt("Last 30 days"), value: formatNumber(data.last30), note: null },
+    { label: tt("Left contact details"), value: formatNumber(data.identified), note: pct(data.identified) },
+    { label: tt("Converted"), value: formatNumber(converted), note: pct(converted) },
+  ]
+  const day = (iso: string) => {
+    const d = new Date(`${iso}T00:00:00Z`)
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(appLocale(), { month: "short", day: "numeric", timeZone: "UTC" })
+  }
   return (
-    <div className="space-y-4" data-form-insights={formId}>
-      <section className={cn(box, "grid grid-cols-3 gap-3")}>
-        {[
-          { label: tt("Responses"), value: data.total },
-          { label: tt("Last 30 days"), value: data.last30 },
-          { label: tt("Left contact details"), value: data.identified },
-        ].map((f) => (
-          <div key={f.label} className="min-w-0">
-            <p className="text-[12.5px] leading-tight text-[#6b7280]">{f.label}</p>
-            <p className="mt-0.5 text-[22px] font-semibold tabular-nums text-[#1a1a2e]">{formatNumber(f.value)}</p>
+    <div className="space-y-3" data-form-insights={formId}>
+      <section className={cn(card, "grid grid-cols-2 overflow-hidden md:grid-cols-4")} aria-label={tt("Summary")} data-insights-stats="">
+        {stats.map((f, i) => (
+          <div key={f.label} className={cn("min-w-0 px-4 py-3.5 sm:px-5", i % 2 === 1 && "border-l border-[#eef0f2]", i >= 2 && "max-md:border-t max-md:border-[#eef0f2]", i === 2 && "md:border-l md:border-[#eef0f2]")}>
+            <p className="truncate text-[12.5px] text-[#6b7280]">{f.label}</p>
+            <p className="mt-1 flex items-baseline gap-1.5">
+              <span className="text-[22px] font-semibold leading-7 tabular-nums text-[#1a1a2e]">{f.value}</span>
+              {f.note ? <span className="text-[12.5px] tabular-nums text-[#6b7280]">{f.note}</span> : null}
+            </p>
           </div>
         ))}
       </section>
       <section className={box}>
-        <h2 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Responses per week")}</h2>
-        <div className="mt-3 flex h-[96px] items-end gap-1.5" role="img" aria-label={tt("Responses per week, last 12 weeks")}>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Responses per week")}</h2>
+          <span className="text-[12.5px] text-[#6b7280]">{tt("The last 12 weeks.")}</span>
+        </div>
+        <div className="mt-4 flex h-[120px] items-end gap-1.5 border-b border-[#eef0f2] sm:gap-2" role="img" aria-label={tt("Responses per week, last 12 weeks")}>
           {data.weeks.map((w) => (
-            <span key={w.start} title={`${w.start}: ${w.count}`} className="flex-1 rounded-t-[3px] bg-[#1a1a2e]/80" style={{ height: `${Math.max(2, Math.round((w.count / weekTop) * 96))}px` }} />
+            <span key={w.start} title={`${day(w.start)}: ${w.count}`} className="relative flex h-full flex-1 items-end">
+              <span className={cn("block w-full rounded-t-[4px]", w.count ? "bg-[#8b5cf6]" : "bg-[#eceef1]")} style={{ height: `${Math.max(3, Math.round((w.count / weekTop) * 100))}%` }} />
+            </span>
           ))}
         </div>
-        <p className={cn(muted, "mt-2")}>{tt("The last 12 weeks.")}</p>
+        <div className="mt-1.5 flex justify-between text-[12px] tabular-nums text-[#9ca3af]">
+          <span>{data.weeks[0] ? day(data.weeks[0].start) : ""}</span>
+          <span>{tt("Most in a week: {n}", { n: formatNumber(weekTop) })}</span>
+          <span>{data.weeks.length ? day(data.weeks[data.weeks.length - 1].start) : ""}</span>
+        </div>
       </section>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2">
         <section className={box}>
-          <h2 className="mb-3 text-[14px] font-semibold text-[#1a1a2e]">{tt("Where responses came from")}</h2>
+          <h2 className="mb-3.5 text-[14px] font-semibold text-[#1a1a2e]">{tt("Where responses came from")}</h2>
           <Bars label={tt("Where responses came from")} items={Object.entries(data.sources).map(([k, n]) => ({ label: sourceWord(k), count: n }))} />
         </section>
         <section className={box}>
-          <h2 className="mb-3 text-[14px] font-semibold text-[#1a1a2e]">{tt("Follow up")}</h2>
+          <h2 className="mb-3.5 text-[14px] font-semibold text-[#1a1a2e]">{tt("Follow up")}</h2>
           <Bars label={tt("Follow up")} items={["new", "contacted", "qualified", "converted"].map((k) => ({ label: statusWord(k), count: data.statuses[k] ?? 0 }))} />
         </section>
       </div>
       {data.scores ? (
         <section className={box}>
-          <h2 className="mb-3 text-[14px] font-semibold text-[#1a1a2e]">{tt("Quiz scores")}</h2>
+          <h2 className="mb-3.5 text-[14px] font-semibold text-[#1a1a2e]">{tt("Quiz scores")}</h2>
           <Bars label={tt("Quiz scores")} items={data.scores.map((s) => ({ label: s.label, count: s.count }))} />
         </section>
       ) : null}
-      <p className={muted}>
+      <p className={cn(muted, "px-1")}>
         {tt("Storelib counts responses that were sent. Visits that did not send the form are not recorded.")}
         {data.capped ? ` ${tt("Figures cover the newest 5,000 responses.")}` : ""}
       </p>
