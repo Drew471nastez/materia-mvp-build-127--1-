@@ -6,12 +6,15 @@ import { CSS } from "@dnd-kit/utilities"
 import { ArrowLeft, ChevronDown, Eye, GripVertical, MoreHorizontal, PenLine, Plus, X } from "lucide-react"
 import { ActionEditor } from "./action-editor"
 import { PublicFormRenderer } from "./public-form"
-import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
+import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { ChoicePicker, type Choice } from "@/components/ui/choice-list"
 import { Reveal } from "@/components/ui/reveal"
 import { Segmented, Switch } from "@/components/onepage/editor-kit"
 import { useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
 import { buttonSecondary, buttonAccent, iconButton, StatusBadge } from "@/app/(storelib)/app/orders/order-parts"
+import { LeaveButton, barButton, barIconButton } from "@/app/(storelib)/app/products/new/editor-buttons"
+import { inkDepth } from "@/app/(storelib)/app/coupons/coupon-parts"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { formsRequest } from "@/lib/forms/client"
@@ -206,7 +209,6 @@ export function FormEditor({
   nav,
   panel,
   usages,
-  framed = true,
 }: {
   form: SavedForm
   onBack: () => void
@@ -219,8 +221,6 @@ export function FormEditor({
   panel?: ReactNode
   /** Where the form is used (Settings › Publication). */
   usages?: FormUsage[]
-  /** False inside a page that already has its own container (Contacts). */
-  framed?: boolean
 }) {
   const [saved, setSaved] = useState(form),
     [draft, setDraft] = useState<FormDefinition>(() => withDefaults(form.draft)),
@@ -236,6 +236,19 @@ export function FormEditor({
     [intro, setIntro] = useState(() => !!form.draft?.description?.trim())
   const [ask, confirmEl] = useFormConfirm()
   const scroller = useRef<HTMLDivElement>(null)
+  /* The page's bar below lg: a hairline and a soft shadow once something scrolls under it (app/globals.css .orders-bar), as the Orders bar. */
+  const barRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const bar = barRef.current
+    const pane = bar?.closest<HTMLElement>(".orders-pane")
+    if (!bar || !pane) return
+    const read = () => {
+      bar.dataset.scrolled = pane.scrollTop > 0 ? "true" : "false"
+    }
+    read()
+    pane.addEventListener("scroll", read, { passive: true })
+    return () => pane.removeEventListener("scroll", read)
+  }, [view])
   useEffect(() => {
     if (!dirty) return
     const hold = (e: BeforeUnloadEvent) => e.preventDefault()
@@ -354,9 +367,11 @@ export function FormEditor({
     </>
   )
 
+  /* On the page each part is a card, as the coupon and product editors' (pageCard); in the dialog they sit on its grey. */
+  const H = inPage ? "h2" : "h3"
   const editor = (
-    <div className="space-y-7">
-      <section className="space-y-3">
+    <div className={inPage ? "flex flex-col gap-3 sm:gap-4" : "space-y-7"} data-form-edit="">
+      <section className={inPage ? pageCard : "space-y-3"}>
         <label className={FIELD_STACK}>
           <span className={LABEL}>{tt("Title")}</span>
           <input className={FIELD} value={draft.title} maxLength={160} onChange={(e) => change({ title: e.target.value })} />
@@ -374,11 +389,11 @@ export function FormEditor({
         )}
       </section>
 
-      <section aria-labelledby="questions-h">
-        <div className="mb-2.5 flex items-baseline justify-between">
-          <h3 id="questions-h" className={heading}>
+      <section aria-labelledby="questions-h" className={inPage ? pageCard : undefined}>
+        <div className={cn("flex items-baseline justify-between", !inPage && "mb-2.5")}>
+          <H id="questions-h" className={inPage ? cardTitle : heading}>
             {tt("Questions")}
-          </h3>
+          </H>
           <span className="text-[12.5px] tabular-nums text-[#9ca3af]">{tt("{count} of {max}", { count: draft.fields.length, max: MAX_FIELDS })}</span>
         </div>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -406,7 +421,7 @@ export function FormEditor({
         </DndContext>
         <button
           type="button"
-          className="mt-2.5 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-[#e3e4e8] bg-white text-[14px] font-medium text-[#1a1a2e] outline-none transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] focus-visible:border-[#1a1a2e] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] disabled:cursor-not-allowed disabled:opacity-50"
+          className={cn(inPage ? "" : "mt-2.5", "inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-[#e3e4e8] bg-white text-[14px] font-medium text-[#1a1a2e] outline-none transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] focus-visible:border-[#1a1a2e] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] disabled:cursor-not-allowed disabled:opacity-50")}
           disabled={draft.fields.length >= MAX_FIELDS}
           onClick={add}
           data-add-question=""
@@ -416,10 +431,10 @@ export function FormEditor({
         </button>
       </section>
 
-      <section aria-labelledby="settings-h">
-        <h3 id="settings-h" className={cn(heading, "mb-2.5")}>
+      <section aria-labelledby="settings-h" className={inPage ? pageCard : undefined}>
+        <H id="settings-h" className={inPage ? cardTitle : cn(heading, "mb-2.5")}>
           {tt("Settings")}
-        </h3>
+        </H>
         <div className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e3e4e8] bg-white">
           <Disclosure id="after" title={tt("After sending")} summary={afterSummary} open={openSetting === "after"} onToggle={() => toggleSetting("after")}>
             <label className={FIELD_STACK}>
@@ -507,7 +522,7 @@ export function FormEditor({
   )
 
   const previewPane = (
-    <div className="rounded-xl border border-[#e3e4e8] bg-white p-4 sm:p-5" data-form-preview="">
+    <div className={inPage ? cn(pageCard, "space-y-0") : "rounded-xl border border-[#e3e4e8] bg-white p-4 sm:p-5"} data-form-preview="">
       <PublicFormRenderer key={JSON.stringify(draft)} formId={saved.id} preview initial={{ id: saved.id, revision: saved.revision, definition: draft }} />
     </div>
   )
@@ -538,69 +553,135 @@ export function FormEditor({
     </p>
   ) : null
 
-  /* ── The page (Contacts › Forms › a form): its tabs, one column, no side panel. ── */
+  /*
+    ── The page (Contacts › Forms › a form), wave 6 ──────────────────────
+    One bar, as the coupon and product editors (app/(storelib)/app/coupons/
+    coupon-editor): the form's own name is the title, with the one back
+    arrow to Forms and where it stands; its tabs under it; one column of
+    cards, the same width as the bar so they line up. Below lg a sticky bar
+    holds Back (Cancel while something is unsaved, which asks first), the ⋯
+    (Preview, Share, Save draft) and Publish, as the editors' top bar holds
+    Back and Save. From lg Preview and Share sit on the right of the title
+    and Save draft and Publish in the editors' foot bar, with where the form
+    stands on its left. On Responses and Insights the save buttons show only
+    while something is unsaved, so a change is never lost by changing tab.
+  */
   if (inPage) {
-    const card = pageCard
+    const title = draft.title || tt("Untitled form")
+    const saving = view !== "panel" || dirty
+    const state = dirty ? "unsaved" : unpublished ? "changed" : live ? "live" : "draft"
+    const stateLine =
+      state === "unsaved"
+        ? tt("Unsaved changes")
+        : state === "changed"
+          ? tt("The draft has changes that are not published")
+          : state === "live"
+            ? tt("Published, version {n}. Every page with this form shows it.", { n: saved.revision })
+            : tt("Draft. Publish it to take responses.")
+    const togglePreview = () => setPreview((v) => !v)
+    const phoneMenu: ActionMenuItem[] = [
+      ...(view === "edit" ? [{ label: preview ? tt("Edit") : tt("Preview"), onClick: togglePreview }] : []),
+      ...(live
+        ? [
+            { label: tt("Copy form link"), onClick: () => void navigator.clipboard.writeText(publicLink).then(() => setNote(tt("Form link copied."))) },
+            { label: tt("Open public form"), href: formPath(saved.id), target: "_blank" as const },
+          ]
+        : []),
+      ...(saving ? [{ label: tt("Save draft"), onClick: () => void save(false), disabled: busy || !dirty, separatorBefore: view === "edit" || live }] : []),
+    ]
     return (
-      <div className={framed ? "mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8" : ""} data-form-builder="" data-form-view={view}>
-        <header className="mb-5 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <button type="button" onClick={() => void close()} className={cn(iconButton, "-ml-1.5 h-9 w-9")} aria-label={tt("Back to forms")}>
-                <ArrowLeft className="h-[18px] w-[18px]" />
-              </button>
-              <div className="min-w-0">
-                <h1 className="flex min-w-0 items-center gap-2.5 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">
-                  <span className="truncate">{draft.title || tt("Untitled form")}</span>
-                  {status}
-                </h1>
-                {unpublished ? <p className={muted}>{dirty ? tt("Unsaved changes") : tt("The draft has changes that are not published")}</p> : null}
-              </div>
+      <>
+        <div ref={barRef} data-editor-bar="" data-scrolled="false" className="orders-bar sticky top-0 z-30 bg-[#f8f9fa] max-md:[[data-page-layer]_&]:pt-[env(safe-area-inset-top)] lg:hidden">
+          <div className={cn("mx-auto flex h-14 items-center justify-between gap-2 sm:h-16", FORM_WIDTH, "app-gutter")}>
+            <LeaveButton mode={dirty ? "cancel" : "back"} asks={dirty} disabled={busy} label={tt("Back to forms")} onLeave={() => void close()} />
+            <div className="flex shrink-0 items-center gap-2">
+              {phoneMenu.length ? (
+                <ResponsiveActionMenu
+                  title={title}
+                  align="end"
+                  trigger={
+                    <button type="button" className={barIconButton} aria-label={tt("More actions")} data-form-actions-more="">
+                      <MoreHorizontal className="h-[18px] w-[18px] sm:h-4 sm:w-4" />
+                    </button>
+                  }
+                  items={phoneMenu}
+                />
+              ) : null}
+              {saving ? <PublishButton busy={busy} onPublish={() => void save(true)} /> : null}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+          </div>
+        </div>
+
+        <div className={cn("mx-auto w-full pb-6 pt-1 sm:pt-2 lg:pb-8 lg:pt-6", FORM_WIDTH, "app-gutter")} data-form-builder="" data-form-view={view}>
+          <header className="mb-4 flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1" data-editor-head="">
+            <button type="button" onClick={() => void close()} className={cn(iconButton, "-ml-1.5 hidden h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea] lg:inline-flex")} aria-label={tt("Back to forms")} title={tt("Forms")}>
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <h1 className="min-w-0 max-w-full truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">{title}</h1>
+            <span className="shrink-0 lg:ml-1">
+              <StatusBadge tone={live ? "success" : "neutral"}>{live ? tt("Published") : tt("Draft")}</StatusBadge>
+            </span>
+            <div className="ml-auto hidden shrink-0 items-center gap-2 lg:flex">
               {view === "edit" ? (
-                <button type="button" className={buttonSecondary} onClick={() => setPreview((v) => !v)} aria-pressed={preview} data-form-preview-toggle="">
+                <button type="button" className={buttonSecondary} onClick={togglePreview} aria-pressed={preview} data-form-preview-toggle="">
                   {preview ? <PenLine aria-hidden className="h-4 w-4" /> : <Eye aria-hidden className="h-4 w-4" />}
                   {preview ? tt("Edit") : tt("Preview")}
                 </button>
               ) : null}
-              {live ? shareMenu(<button type="button" className={buttonSecondary}>{tt("Share")}</button>) : null}
-              {/* On Responses and Insights the save buttons show only while something is unsaved, so a change is never lost by changing tab. */}
-              {view !== "panel" || dirty ? (
-                <>
-                  <button type="button" className={buttonSecondary} disabled={busy || !dirty} onClick={() => void save(false)} data-save-draft="">
-                    {tt("Save draft")}
-                  </button>
-                  <button type="button" className={buttonAccent} disabled={busy} onClick={() => void save(true)} data-publish-form="">
-                    {busy ? tt("Saving") : tt("Publish")}
-                  </button>
-                </>
-              ) : null}
+              {live ? shareMenu(<button type="button" className={buttonSecondary} data-form-share="">{tt("Share")}</button>) : null}
+            </div>
+            {/* Below lg the foot bar is not drawn: where the form stands, and what just happened, are said here. */}
+            <div className="w-full lg:hidden" aria-live="polite">
+              {message ?? (unpublished ? <p className={muted}>{stateLine}</p> : null)}
+            </div>
+          </header>
+          {nav}
+          <div className="mt-4" data-form-tab-body="">
+            {view === "panel" ? (
+              panel
+            ) : view === "settings" ? (
+              <div className="flex flex-col gap-3 sm:gap-4">
+                <PublicationCard form={saved} draftChanged={dirty || (live && JSON.stringify(saved.draft) !== JSON.stringify(saved.published))} publicLink={publicLink} usages={usages ?? []} onCopied={() => setNote(tt("Form link copied."))} />
+                <section className={pageCard}>
+                  <h2 className={cardTitle}>{tt("Where answers go")}</h2>
+                  {answersBody}
+                </section>
+                <section className={pageCard}>
+                  <h2 className={cardTitle}>{tt("Privacy")}</h2>
+                  {privacyBody}
+                </section>
+                <FollowUpCard />
+              </div>
+            ) : preview ? (
+              previewPane
+            ) : (
+              editor
+            )}
+          </div>
+        </div>
+
+        {saving ? (
+          <div data-editor-foot="" className="sticky bottom-0 z-30 mt-auto hidden shrink-0 border-t border-[#e5e7eb] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_-8px_rgba(17,24,39,0.10)] lg:block" data-app-foot="up">
+            <div className={cn("mx-auto flex h-16 items-center justify-between gap-4", FORM_WIDTH, "app-gutter")}>
+              <div className="flex min-w-0 items-center gap-2 text-[14px] leading-5" data-editor-state={state} aria-live="polite">
+                {message ?? (
+                  <>
+                    <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", state === "unsaved" ? "bg-[#111113]" : state === "live" ? "bg-[#22a06b]" : "bg-[#b6bac1]")} />
+                    <span className={cn("truncate", state === "unsaved" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{stateLine}</span>
+                  </>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button type="button" className={barButton} disabled={busy || !dirty} onClick={() => void save(false)} data-save-draft="">
+                  {tt("Save draft")}
+                </button>
+                <PublishButton busy={busy} onPublish={() => void save(true)} />
+              </div>
             </div>
           </div>
-          {message}
-          {nav}
-        </header>
-        {view === "panel" ? (
-          panel
-        ) : view === "settings" ? (
-          <div className="mx-auto max-w-[720px] space-y-4">
-            <PublicationCard form={saved} draftChanged={dirty || (live && JSON.stringify(saved.draft) !== JSON.stringify(saved.published))} publicLink={publicLink} usages={usages ?? []} onCopied={() => setNote(tt("Form link copied."))} />
-            <section className={cn(card, "space-y-4")}>
-              <h2 className={heading}>{tt("Where answers go")}</h2>
-              {answersBody}
-            </section>
-            <section className={cn(card, "space-y-4")}>
-              <h2 className={heading}>{tt("Privacy")}</h2>
-              {privacyBody}
-            </section>
-            <FollowUpCard />
-          </div>
-        ) : (
-          <div className="mx-auto max-w-[720px]">{preview ? previewPane : editor}</div>
-        )}
+        ) : null}
         {confirmEl}
-      </div>
+      </>
     )
   }
 
@@ -650,6 +731,34 @@ export function FormEditor({
   )
 }
 
+/* The form's page: its bar, tabs, cards and foot share one width, so they line up (wave 6). */
+const FORM_WIDTH = "max-w-[800px]"
+
+/* Measured from the padding box: on a phone the press is 44px high inside a 40px button (coupon-parts CouponSaveButton). */
+const PRESS_AREA = "relative after:absolute after:inset-x-0 after:-inset-y-[2px] after:content-[''] sm:after:hidden"
+
+/** Publish, the page's one dark action: the coupon editor's Save (coupon-parts CouponSaveButton), busy while it saves, never changing width. */
+function PublishButton({ busy, onPublish }: { busy: boolean; onPublish: () => void }) {
+  return (
+    <button
+      type="button"
+      data-publish-form=""
+      onClick={() => {
+        if (!busy) onPublish()
+      }}
+      aria-busy={busy || undefined}
+      className={cn(PRESS_AREA, inkDepth, "h-10 min-w-[72px] rounded-[10px] px-4 text-[15px] sm:h-8 sm:min-w-[68px] sm:rounded-lg sm:px-3 sm:text-[13px]", busy && "cursor-default hover:bg-[#111113] active:bg-[#111113]")}
+    >
+      <span className={cn(busy && "opacity-0")}>{tt("Publish")}</span>
+      {busy ? (
+        <span aria-hidden className="absolute inset-0 flex items-center justify-center">
+          <ActivitySpinner size={18} label={tt("Saving")} className="text-white" />
+        </span>
+      ) : null}
+    </button>
+  )
+}
+
 /** Where a form's responses are read: Contacts › Forms, the form open on Responses (round 51). */
 export function responsesHref(formId: string): string {
   return `/app/contacts/forms?form=${encodeURIComponent(formId)}&view=responses`
@@ -662,7 +771,9 @@ export function usageWords(u: FormUsage): string {
   return tt("Website: {name}", { name: u.label })
 }
 
-const pageCard = "rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6"
+/* The page's cards and their titles: the coupon and product editors' own (app/(storelib)/app/coupons/coupon-editor CARD, CARD_TITLE). */
+const pageCard = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:py-6"
+const cardTitle = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
 
 /**
  * SETTINGS › PUBLICATION (round 51). Whether every page shows this form,
@@ -672,9 +783,9 @@ const pageCard = "rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_
 function PublicationCard({ form, draftChanged, publicLink, usages, onCopied }: { form: SavedForm; draftChanged: boolean; publicLink: string; usages: FormUsage[]; onCopied: () => void }) {
   const live = form.status === "published"
   return (
-    <section className={pageCard + " space-y-3"} data-form-publication="">
-      <h2 className={heading}>{tt("Publication")}</h2>
-      <p className={muted}>
+    <section className={pageCard} data-form-publication="">
+      <h2 className={cardTitle}>{tt("Publication")}</h2>
+      <p className={cn(muted, "-mt-2")}>
         {live
           ? draftChanged
             ? tt("Published, version {n}. Your draft has changes; Publish shows them on every page.", { n: form.revision })
@@ -714,9 +825,9 @@ function PublicationCard({ form, draftChanged, publicLink, usages, onCopied }: {
 /** SETTINGS › FOLLOW UP (round 51): an email after a response is an automation, made in Emails. */
 function FollowUpCard() {
   return (
-    <section className={pageCard + " space-y-2"} data-form-follow-up="">
-      <h2 className={heading}>{tt("Email after a response")}</h2>
-      <p className={muted}>{tt("Send an email after someone answers with an automation in Emails.")}</p>
+    <section className={pageCard} data-form-follow-up="">
+      <h2 className={cardTitle}>{tt("Email after a response")}</h2>
+      <p className={cn(muted, "-mt-2")}>{tt("Send an email after someone answers with an automation in Emails.")}</p>
       <a className={buttonSecondary + " inline-flex"} href="/app/emails?tab=automations">
         {tt("Open automations")}
       </a>
