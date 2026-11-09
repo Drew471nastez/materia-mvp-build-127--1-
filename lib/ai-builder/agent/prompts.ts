@@ -47,6 +47,7 @@ WORKING
 - Work in small verified steps: write a component, place it, check it. A file that does not compile is not saved and you get its errors with line numbers: fix that file only, with edit_file when the fix is small. A file has a limited number of refused attempts.
 - Read a file before you change it. If a write says the file changed, read it again: the creator's edit wins.
 - When done, call finish with a short plain summary. Finish runs every check; with errors it is refused and you fix exactly what it lists.
+- AN EXISTING WEBSITE (edit mode, or a redesign of one): its content is the creator's. Keep words, pictures and bindings unless the request asks to change them.
 - EDIT MODE (an existing website): change only what is asked. "Make the hero calmer" touches the hero component and nothing else; "add a pricing page" adds that page and its components. Leave every other file, page, section and setting exactly as it is: do not tidy, rename, restyle or re-save what was not asked for.`
 
 function capsSummary(c: RuntimeCapabilities | null): string {
@@ -67,12 +68,16 @@ function capsSummary(c: RuntimeCapabilities | null): string {
 export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; pages: StoredPage[]; files: StoredFile[]; knowledge: KnowledgeHit[]; directions?: Direction[] }): string {
   const { job } = input
   /* The creator's choices on Describe your website, in L1's words (start-options.ts startContext): kind, blank or theme, preset, preferences. */
-  const choices = startContext(job.options ?? null)
+  const choices = job.redesign ? "" : startContext(job.options ?? null)
   const own = input.files.filter((f) => /^(sections|blocks|snippets)\/ai_/.test(f.path)).map((f) => f.path)
   const pages = input.pages.map((p) => `${p.key}: ${p.sections.map((s) => `${s.type}${s.group ? `(${s.group})` : ""} [${s.id}]`).join(", ") || "(empty)"}`)
   const mode = job.edit
     ? "EDIT MODE: this website exists. Change only what the request asks for; everything else stays byte for byte as it is. Read before you edit."
-    : job.mode === "blank"
+    : job.redesign === "changes"
+      ? "EXISTING WEBSITE, CHANGES ACROSS THE SITE: this website exists and the creator made it. Make the changes the request describes, wherever on the site they belong, and nothing else. Keep every page, section, word, picture, product and binding that the request does not ask you to change, by id. Native sections stay native: change their settings with set_section_settings, add your own ai_ components beside them only where the request needs something new. Read before you edit (list_pages, read_file). A backup was taken before you started; the creator can undo this job."
+      : job.redesign === "full"
+        ? "EXISTING WEBSITE, FULL REDESIGN: this website exists and the creator asked for a new look for all of it. Keep its content: every page, the words the creator wrote, the pictures, products, collections, forms and menus it is bound to (read them with list_pages and read_file and carry them over by value or id). Change the look: tokens, layout, your own ai_ components in place of sections that do not fit the concept. Do not delete a page or invent content. A backup was taken before you started; the creator can undo this job."
+        : job.mode === "blank"
       ? "NEW WEBSITE, BLANK: there is no theme layout, no header and no footer. Everything a visitor sees is a component you write. Have a header and footer only if the concept wants them, and then write them yourself."
       : "NEW WEBSITE INSIDE A THEME: the theme's sections exist and may stay; add your own ai_ components beside them and replace what does not fit the concept."
   return [
@@ -86,7 +91,7 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
       ? `STARTING DIRECTIONS (seeds, deliberately different; adapt one to this creator or go elsewhere, but do not default to the obvious):\n${input.directions.map((d) => `- ${d.name} [${d.styles.join(" + ")}]: ${d.mood.join(", ")}; ${d.type.display} / ${d.type.body}; ${d.palette.mode} ${d.palette.background} / ${d.palette.text} / accent ${d.palette.accent}; motion ${d.motion}; imagery: ${d.imagery}; signature: ${d.signature}`).join("\n")}`
       : "",
     input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, 12_000)}` : "",
-    job.edit ? "Start by reading what the request is about (list_pages, read_file), then change it." : "Start with report_progress phase \"plan\": the concept and the plan. Then tokens, components, pages, checks, finish.",
+    job.edit || job.redesign === "changes" ? "Start by reading what the request is about (list_pages, read_file), then change it." : "Start with report_progress phase \"plan\": the concept and the plan. Then tokens, components, pages, checks, finish.",
   ]
     .filter(Boolean)
     .join("\n\n")

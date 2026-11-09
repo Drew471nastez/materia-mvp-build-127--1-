@@ -24,6 +24,7 @@ import { useRouter } from "next/navigation"
 import {
   ArrowLeft, ArrowUpFromLine, KeyRound, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, ClipboardPaste, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
   Palette, ShoppingBag, ShoppingCart, Share2, Cookie,
+  Sparkles,
 } from "lucide-react"
 import { componentEditPrompt, requestAgentEdit, browserFileVersion } from "@/lib/ai-builder/edit-request"
 import { arrayMove } from "@dnd-kit/sortable"
@@ -165,7 +166,7 @@ import {
   type WritingAnchor,
 } from "@/lib/website-builder/ai-placement"
 import { WritingSection } from "@/components/website-builder/editor/writing-section"
-import { clearStartPrompt, peekStartPrompt, readJobParam, readStartParam, recallJob, rememberJob, startMessage } from "@/lib/website-builder/start-handoff"
+import { clearStartPrompt, newStartKey, peekStartPrompt, readJobParam, readStartParam, recallJob, rememberJob, startMessage } from "@/lib/website-builder/start-handoff"
 import { useSiteGeneration, type GenerationSource } from "@/lib/website-builder/ai-site/use-generation"
 import { opIsNew } from "@/lib/website-builder/ai-site/replay"
 import { GenerationPanel, generationPhase } from "@/components/website-builder/ai-generation/generation-panel"
@@ -3460,6 +3461,34 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * rest of Connections. The routes refuse them anyway.
    */
   const [teamMember, setTeamMember] = useState(false)
+  /*
+    THE AGENT ENGINE FOR THIS ACCOUNT (round M): on for everyone or only for the accounts the platform lists
+    (lib/website-builder/ai-site/agent-access.ts). The editor learns it from the server (GET .../redesign), never from an
+    env variable of its own: it decides whether Redesign with AI is offered and whether Edit with AI asks the agent.
+  */
+  const [agentOn, setAgentOn] = useState(false)
+  useEffect(() => {
+    let gone = false
+    void fetch(`/api/website-builder/themes/${installId}/redesign`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then((d: { agent?: unknown } | null) => {
+        if (!gone) setAgentOn(d?.agent === true)
+      })
+    /* What an Undo this AI job did before the reload that picked up the restored draft. */
+    try {
+      const flash = window.sessionStorage.getItem(`storelib:ai-undone:${installId}`)
+      if (flash) {
+        window.sessionStorage.removeItem(`storelib:ai-undone:${installId}`)
+        toast.success(flash)
+      }
+    } catch {
+      /* storage refused: nothing to say */
+    }
+    return () => {
+      gone = true
+    }
+  }, [installId])
   /**
    * Bumped to ask the computer's dock to open its conversation and put the
    * cursor in it: the Ask AI button on a section, or an answer to read.
@@ -6453,8 +6482,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     | { kind: "paste-code"; clip: SectionClip; afterId: string | null; top?: boolean }
     | { kind: "paste-settings"; sectionId: string; next: Record<string, unknown>; changes: string[]; from: string; to: string }
     | { kind: "edit-ai"; sectionId: string; path: string; name: string }
+    | { kind: "redesign" }
     | null
   >(null)
+  /* What Redesign with AI is asked, and how far it may go: only the changes described, or a new look for the whole site. */
+  const [redesignText, setRedesignText] = useState("")
+  const [redesignScope, setRedesignScope] = useState<"changes" | "full">("changes")
+  /* One key per press of Start, kept until it is answered, so a retry of the same press is the same job and the same backup. */
+  const redesignKey = useRef<string | null>(null)
   const [pendingBusy, setPendingBusy] = useState(false)
   /* What Edit with AI is asked, while its card is open. */
   const [editAiText, setEditAiText] = useState("")
@@ -6703,10 +6738,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         page: currentPage,
         prompt: ask.trim(),
         expectedVersion: typeof source === "string" ? await browserFileVersion(source) : null,
-      })
+      }, fetch, { enabled: agentOn })
       if (agent.kind === "job") {
         setPendingAction(null)
         try { rememberJob(window.sessionStorage, installId, agent.jobId) } catch { /* nothing kept */ }
+        setGenDismissed(false)
         setGenSource({ kind: "job", jobId: agent.jobId })
         return
       }
@@ -6717,6 +6753,37 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setStartAskSeq((n) => n + 1)
       setStartAsk(componentEditPrompt({ path: a.path, name: a.name, ask }))
       setStartOpen(true)
+    } finally {
+      setPendingBusy(false)
+    }
+  }
+
+  /**
+   * REDESIGN WITH AI (round M): a whole-site agent job on this website (POST .../redesign). What is unsaved is saved
+   * first, so the backup the server takes before the job (and Undo puts back) has it. The progress panel follows the
+   * job as it follows Start with AI.
+   */
+  const redesignNow = async (ask: string, scope: "changes" | "full") => {
+    if (!ask.trim()) { toast.error("Say what should change"); return }
+    setPendingBusy(true)
+    try {
+      if (isDirty && !(await saveDraft({ quiet: true }))) { toast.error("Your latest edits could not be saved yet. Try again in a moment."); return }
+      redesignKey.current = redesignKey.current ?? newStartKey()
+      const res = await fetch(`/api/website-builder/themes/${installId}/redesign`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: ask, key: redesignKey.current, scope }) })
+      const d = (await res.json().catch(() => ({}))) as { job?: { id?: string }; error?: string }
+      if (!res.ok || typeof d.job?.id !== "string") {
+        if (res.status === 501) setAgentOn(false)
+        toast.error(d.error || "Could not start. Try again.")
+        return
+      }
+      redesignKey.current = null
+      setPendingAction(null)
+      setRedesignText("")
+      try { rememberJob(window.sessionStorage, installId, d.job.id) } catch { /* nothing kept */ }
+      setGenDismissed(false)
+      setGenSource({ kind: "job", jobId: d.job.id })
+    } catch {
+      toast.error("Storelib could not be reached. Try again.")
     } finally {
       setPendingBusy(false)
     }
@@ -10985,6 +11052,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     handleUndo,
     handleRedo,
     requestExit,
+    openRedesign: () => {
+      setRedesignScope("changes")
+      setPendingAction({ kind: "redesign" })
+    },
   }
   const actionCalls = useRef(calls)
   actionCalls.current = calls
@@ -11018,6 +11089,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         is linked, so the state is right there) and your own AI key. Claude
         Code and Codex are one fold away inside Connections.
       */
+      /* Redesign with AI (round M): a whole-site agent job on this website, with a backup first and an Undo. Only where the agent is on for this account. */
+      ...(agentOn && !teamMember
+        ? [{
+            label: "Redesign with AI",
+            icon: <Sparkles className="h-4 w-4" />,
+            onClick: () => actionCalls.current.openRedesign(),
+            separatorBefore: true,
+          }]
+        : []),
       /* The store owner's alone (round 42): not in a team member's menu. */
       ...(teamMember ? [] : [
         {
@@ -11068,7 +11148,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         separatorBefore: !websiteUrl,
       },
     ]
-  }, [inCode, githubRepo, websiteUrl, siteLive, installId, teamMember])
+  }, [inCode, githubRepo, websiteUrl, siteLive, installId, teamMember, agentOn])
   /**
    * The three dots. 32px drawn, and on a phone a 44px press area around it
    * (an invisible band, so the bar does not move). It presses in the way the
@@ -11287,7 +11367,37 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         /* this tab only */
       }
     },
+    /*
+      UNDO THIS AI JOB (round M): the server put the backup back as the draft and removed the pages and files the AI
+      added. As after a restore in Backups, every state the editor holds is stale, and a reload is the honest way to
+      pick all of it up; what was done is said once it is back.
+    */
+    onUndone: (answer) => {
+      const kept = answer.kept.length
+      const words = kept
+        ? `AI changes undone. ${kept === 1 ? "One page or file you added since stays" : `${kept} pages or files you added since stay`}: remove ${kept === 1 ? "it" : "them"} in Backups if you want.`
+        : "AI changes undone. Your website is back as it was before."
+      try {
+        rememberJob(window.sessionStorage, installId, null)
+        window.sessionStorage.setItem(`storelib:ai-undone:${installId}`, words)
+      } catch {
+        /* nothing kept: the reload says nothing */
+      }
+      leaveAnswered.current = true
+      window.location.reload()
+    },
   })
+  /* Undo this AI job: what is unsaved is saved first and autosave waits, as before a restore, so the safety copy has it and nothing lands on the restored draft. */
+  const undoAiJob = async () => {
+    restoreHold.current = true
+    if (isDirty && !(await saveDraft({ quiet: true }))) {
+      restoreHold.current = false
+      toast.error("Your latest edits could not be saved yet. Try again in a moment.")
+      return
+    }
+    const ok = await generation.agent.undo()
+    if (!ok) restoreHold.current = false
+  }
   const genPhase = generation.view ? generationPhase(generation.view) : null
   /* Finished: this tab stops remembering the job; the panel stays until it is closed. */
   useEffect(() => {
@@ -11929,17 +12039,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         title={
           pendingAction?.kind === "copy-code" ? `Edit a copy of ${pendingAction.name}?`
             : pendingAction?.kind === "edit-ai" ? `Edit ${pendingAction.name} with AI`
+            : pendingAction?.kind === "redesign" ? "Redesign with AI"
             : pendingAction?.kind === "paste-code" ? `Paste ${pendingAction.clip.typeName} with its code?`
             : pendingAction?.kind === "paste-settings" ? `Paste settings onto ${pendingAction.to}?`
             : ""
         }
-        confirm={pendingAction?.kind === "copy-code" ? "Make a copy" : pendingAction?.kind === "edit-ai" ? "Ask AI" : pendingAction?.kind === "paste-code" ? "Paste with code" : "Paste settings"}
+        confirm={pendingAction?.kind === "copy-code" ? "Make a copy" : pendingAction?.kind === "edit-ai" ? "Ask AI" : pendingAction?.kind === "redesign" ? "Start" : pendingAction?.kind === "paste-code" ? "Paste with code" : "Paste settings"}
         onCancel={() => setPendingAction(null)}
         onConfirm={() => {
           const a = pendingAction
           if (!a) return
           if (a.kind === "copy-code") void editCopyNow(a.sectionId)
           else if (a.kind === "edit-ai") void editWithAiNow(a, editAiText)
+          else if (a.kind === "redesign") void redesignNow(redesignText, redesignScope)
           else if (a.kind === "paste-code") void pasteWithCode(a.clip, a.afterId, a.top)
           else { setPendingAction(null); applySettings(a.sectionId, a.next) }
         }}
@@ -11962,6 +12074,48 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               maxLength={4000}
               className="mt-3 w-full resize-none rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-[14.5px] text-white placeholder:text-white/40 outline-none focus:border-white/35"
             />
+          </>
+        ) : pendingAction?.kind === "redesign" ? (
+          <>
+            <p>{`The AI works on this whole website as a draft. A backup is saved first, so you can undo it in one step.`}</p>
+            <textarea
+              data-redesign-text=""
+              ref={(el) => { if (el && !el.dataset.focused) { el.dataset.focused = "1"; window.setTimeout(() => el.focus(), 150) } }}
+              aria-label="What should change"
+              value={redesignText}
+              onChange={(e) => setRedesignText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void redesignNow(redesignText, redesignScope) } }}
+              placeholder="Warmer colours, bigger product photos, and a short FAQ before the footer"
+              rows={4}
+              maxLength={2000}
+              className="mt-3 w-full resize-none rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-[14.5px] text-white placeholder:text-white/40 outline-none focus:border-white/35"
+            />
+            <div role="radiogroup" aria-label="How far it goes" className="mt-3 grid gap-1.5" data-redesign-scope={redesignScope}>
+              {([
+                ["changes", "Just these changes", "Your pages, words and products stay as they are."],
+                ["full", "A new look for the whole site", "Your words and products stay. The design changes."],
+              ] as const).map(([value, label, hint]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={redesignScope === value}
+                  onClick={() => setRedesignScope(value)}
+                  className={cn(
+                    "flex w-full items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
+                    redesignScope === value ? "border-white/40 bg-white/[0.08]" : "border-white/10 hover:bg-white/[0.04]",
+                  )}
+                >
+                  <span aria-hidden className={cn("mt-[3px] flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border", redesignScope === value ? "border-white" : "border-white/40")}>
+                    {redesignScope === value && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[14px] font-medium text-white">{label}</span>
+                    <span className="block text-[12.5px] leading-snug text-white/55">{hint}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
           </>
         ) : pendingAction?.kind === "paste-code" ? (
           <p>{`This theme doesn't have ${pendingAction.clip.typeName}. Its file, ${pendingAction.clip.code?.path ?? ""}, is copied into this theme too.`}</p>
@@ -12279,6 +12433,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onContinue={generation.agent.resume}
               onStartOver={generation.agent.startOver}
               onClose={closeGeneration}
+              onUndo={() => void undoAiJob()}
             />
           </div>
         )}

@@ -1420,6 +1420,8 @@ const STRICT_SUITES = [
   "tests/ai-builder-journey.test.ts",
   /* Round L (L7): Andrew's benchmarks A to J through the real routes with a SCRIPTED model: four new websites that differ in structure (A fitness multi page, B editorial with its own header and footer, C music bound to products, D one page without chrome), E a redesign inside a theme kept and restored from its backup, F blank without AI as before, G edits that leave everything else byte identical, H a long job with a lost hand over found by the cron and read back by seq, I every control through save, reload and publish, J tenants, unsafe imports, paths and secrets; L6's anti slop score of each. Real model quality is not measured here. Strict: tests/_journey. */
   "tests/ai-builder-benchmarks.test.ts",
+  /* Round M (M1): Redesign with AI on an existing website through the real routes with a SCRIPTED model: owner only, a key, a backup taken first through the Backups mechanism and recorded on the job, one live job per website, the same press twice one job and one backup, L2's runner on the agent engine, content and bindings kept; Undo this AI job puts every page, setting and file back exactly and removes the pages and ai_ files the AI added, keeps what the person made after the backup, is undoable itself and safe twice; Backups' restore does the same and removes the person's additions only when named; the per account switch (AI_BUILDER_AGENT_ACCOUNTS by username or user id, never an email; AI_BUILDER_AGENT=1 for everyone) on Start with AI, Edit with AI, Redesign and the editor's GET. Strict: tests/_journey. */
+  "tests/ai-builder-redesign-m1.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

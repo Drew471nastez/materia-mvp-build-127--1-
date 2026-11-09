@@ -103,7 +103,8 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     return cp.caps ?? NO_CAPABILITIES
   }
 
-  const needsConcept = () => !job.edit && !cp.concept
+  /* An edit, or a redesign that only makes the changes asked (round M), works on the site as it is: no concept first. */
+  const needsConcept = () => !job.edit && job.redesign !== "changes" && !cp.concept
   const conceptFirst = "Hand in the visual concept first: report_progress with phase \"plan\" and a concept (name, mood, styles, typeSystem, palette, layout, motion, imagery, signatureMoves). Nothing was changed."
 
   function instancesOf(type: string, pages: StoredPage[]): SectionInstance[] {
@@ -543,7 +544,7 @@ export async function validateAll(ctx: Pick<ToolContext, "job" | "deps" | "cp">,
   }
   if (!opts.path) {
     if (cp.caps === undefined) cp.caps = (await deps.capabilities().catch(() => null)) ?? null
-    issues.push(...validateSite({ pages, sources: src, settings: theme, caps: cp.caps ?? null, mode: job.mode, ...(job.edit ? { only: new Set(cp.pagesTouched) } : {}) }))
+    issues.push(...validateSite({ pages, sources: src, settings: theme, caps: cp.caps ?? null, mode: job.mode, ...(job.edit || job.redesign === "changes" ? { only: new Set(cp.pagesTouched) } : {}) }))
   }
   return issues
 }
