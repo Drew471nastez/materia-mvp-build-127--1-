@@ -12771,7 +12771,13 @@ const words: Record<string, string> = {
  "Both": "Beide",
  "Show on": "Anzeigen auf",
  "Faint here so you can still pick it. Visitors on the other size do not see it.": "Hier blass, damit du sie weiterhin auswählen kannst. Besucher auf der anderen Größe sehen sie nicht.",
- "Partly done: some checks still fail. Ask me to fix what is left.": "Teilweise erledigt: einige Prüfungen schlagen noch fehl. Bitte mich, den Rest zu beheben."
+ "Partly done: some checks still fail. Ask me to fix what is left.": "Teilweise erledigt: einige Prüfungen schlagen noch fehl. Bitte mich, den Rest zu beheben.",
+ "Not in use": "Nicht in Gebrauch",
+ "{name} copy": "{name} Kopie",
+ "{name} duplicated": "{name} dupliziert",
+ "No size charts in use": "Keine Größentabellen in Gebrauch",
+ "Every size chart is in use": "Jede Größentabelle ist in Gebrauch",
+ "A chart is in use once a product, a collection or a category has it.": "Eine Tabelle ist in Gebrauch, sobald ein Produkt, eine Kollektion oder eine Kategorie sie hat."
 }
 
 export default words
