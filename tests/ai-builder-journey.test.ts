@@ -29,6 +29,8 @@ process.env.AI_JOB_SECRET = "journey-ai-job-secret-for-tests-only"
 process.env.AI_BUILDER_AGENT = "1"
 import { aiWorld, checker, driveTurns, installFiles, installPages, installSettings, jobEvents, jobRow, scriptModels, seller, type Script } from "./ai-builder-e2e-kit"
 import { ABOUT, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS } from "./ai-builder-agent-fixtures"
+/* Round N (N3): the site plan with the concept, ten of its own on home, six on each page, the product and collection templates. */
+import { HOME_EXTRAS, PAGE_EXTRAS, WHOLE_SITE_FILES, homeSections, pageSections, sitePlan, templateCalls } from "./ai-builder-whole-site-fixtures"
 import { chipAction, pendingStartKey, presetFor } from "@/lib/website-builder/ai-site/start-options"
 import { withJobParam } from "@/lib/website-builder/start-handoff"
 import type { StartOptions } from "@/lib/ai-builder/types"
@@ -76,23 +78,25 @@ async function main() {
   const href = withJobParam(`/store/jocoach/themes/${installId}/editor?previewPath=%2F`, jobId)
   check("the editor's address carries the job, never the words", href.endsWith(`&start=ai&job=${jobId}`) && !href.includes("Leeds"))
 
+  const EXTRA_WRITES = Object.entries(WHOLE_SITE_FILES).map(([path, content]) => ["write_file", { path, content }] as [string, Record<string, unknown>])
   /* The script, filled in as the job goes: the program list's id is read from the page the agent wrote. */
   const programsId = () => (installPages(w, installId).home?.draft ?? []).find((s: { type: string }) => s.type === "ai_program_list")?.id ?? ""
   const script: Script = [
-    { text: "Planning the look first.", calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, tasks: ["Header and footer", "Home: hero and programs", "Programs page", "About page"] }]] },
+    { text: "Planning the look first.", calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, pages: sitePlan(["programs", "about"]), tasks: ["Header and footer", "Home: ten sections", "Programs page", "About page", "Product and collection templates"] }]] },
     { calls: [["list_capabilities", {}], ["set_tokens", { tokens: TOKENS }]] },
-    { calls: [["write_file", { path: "sections/ai_coach_header.storelib", content: HEADER }], ["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }], ["write_file", { path: "sections/ai_program_list.storelib", content: PROGRAMS }]] },
-    { calls: [["write_file", { path: "sections/ai_coach_footer.storelib", content: FOOTER }], ["write_file", { path: "sections/ai_coach_story.storelib", content: ABOUT }]] },
+    { calls: [["write_file", { path: "sections/ai_coach_header.storelib", content: HEADER }], ["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }], ["write_file", { path: "sections/ai_program_list.storelib", content: PROGRAMS }], ...EXTRA_WRITES.slice(0, 5)] },
+    { calls: [["write_file", { path: "sections/ai_coach_footer.storelib", content: FOOTER }], ["write_file", { path: "sections/ai_coach_story.storelib", content: ABOUT }], ...EXTRA_WRITES.slice(5)] },
     { calls: [["add_page", { key: "programs", title: "Programs" }], ["add_page", { key: "about", title: "About", seo: { description: "Who coaches you." } }]] },
     {
       calls: [
-        ["set_page_sections", { page: "home", sections: [{ type: "ai_coach_header", group: "header" }, { type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } }, { type: "ai_program_list", blocks: [{ type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } }] }, { type: "ai_coach_footer", group: "footer" }] }],
-        ["set_page_sections", { page: "programs", sections: [{ type: "ai_program_list", settings: { heading: "All programs" } }] }],
-        ["set_page_sections", { page: "about", sections: [{ type: "ai_coach_story" }] }],
+        ["set_page_sections", { page: "home", sections: homeSections([{ type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } }, { type: "ai_program_list", blocks: [{ type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } }] }]) }],
+        ["set_page_sections", { page: "programs", sections: pageSections({ type: "ai_program_list", settings: { heading: "All programs" } }) }],
+        ["set_page_sections", { page: "about", sections: pageSections({ type: "ai_coach_story" }) }],
+        ...templateCalls(),
       ],
     },
     () => ({ calls: [["list_pages", {}], ["bind_data", { page: "home", sectionId: programsId(), prop: "product", kind: "product", ids: [stranger.productId] }], ["bind_data", { page: "home", sectionId: programsId(), prop: "product", kind: "product", ids: ["prod_invented"] }], ["bind_data", { page: "home", sectionId: programsId(), prop: "product", kind: "product", ids: [coach.productId] }]] }),
-    { calls: [["validate", {}], ["render_check", { page: "home" }], ["render_check", { page: "programs" }]] },
+    { calls: [["validate", {}], ["render_check", { page: "home" }], ["render_check", { page: "programs" }], ["render_check", { page: "product" }], ["render_check", { page: "collection" }]] },
     { calls: [["finish", { summary: "A three page site for Jo with its own header and footer." }]] },
   ]
   const scripted = scriptModels(script, { clock: w.clock })
@@ -111,8 +115,10 @@ async function main() {
   const firstOf = (k: string, p?: (e: (typeof events)[number]) => boolean) => events.findIndex((e) => e.kind === k && (!p || p(e)))
   check("  the concept before any file, files before pages are composed, validation before the end", firstOf("tokens") < firstOf("file") && firstOf("file") < firstOf("page", (e) => e.payload.page === "home") && firstOf("validation") < firstOf("finished"), kinds)
   check("  one finished event, the last, complete", kinds.filter((k) => k === "finished").length === 1 && events[events.length - 1].payload.status === "complete")
-  check("  a file event per component written, with its bytes", events.filter((e) => e.kind === "file").map((e) => e.payload.path).sort().join() === ["sections/ai_coach_footer.storelib", "sections/ai_coach_header.storelib", "sections/ai_coach_hero.storelib", "sections/ai_coach_story.storelib", "sections/ai_program_list.storelib"].join() && events.filter((e) => e.kind === "file").every((e) => e.payload.bytes > 500))
-  check("  pages created: programs and about", events.filter((e) => e.kind === "page" && e.payload.action === "created").map((e) => e.payload.page).sort().join() === "about,programs", events.filter((e) => e.kind === "page").map((e) => e.payload))
+  const ALL_PATHS = ["sections/ai_coach_footer.storelib", "sections/ai_coach_header.storelib", "sections/ai_coach_hero.storelib", "sections/ai_coach_story.storelib", "sections/ai_program_list.storelib", ...Object.keys(WHOLE_SITE_FILES)].sort()
+  check("  a file event per component written, with its bytes", events.filter((e) => e.kind === "file").map((e) => e.payload.path).sort().join() === ALL_PATHS.join() && events.filter((e) => e.kind === "file").every((e) => e.payload.bytes > 500), events.filter((e) => e.kind === "file").map((e) => e.payload.path))
+  /* Changed on purpose (round N, N3): the product and collection templates are made by their first placement. */
+  check("  pages created: programs and about, and the product and collection templates", events.filter((e) => e.kind === "page" && e.payload.action === "created").map((e) => e.payload.page).sort().join() === "about,collection,product,programs", events.filter((e) => e.kind === "page").map((e) => e.payload))
   check("  the last validation found no errors", events.filter((e) => e.kind === "validation").pop()?.payload.errors === 0, events.filter((e) => e.kind === "validation").map((e) => e.payload))
   check("  no event carries a file body", events.every((e) => !JSON.stringify(e.payload).includes("<template>")))
   check("the spend is the job's (cost_usd) and every model call is one iteration", Number(row.cost_usd) > 0 && row.state?.agent?.usage?.iterations === scripted.run.calls, { cost: row.cost_usd, it: row.state?.agent?.usage?.iterations, calls: scripted.run.calls })
@@ -121,22 +127,24 @@ async function main() {
   const { compileSection } = await import("@/lib/storelib-theme/storelib/compile")
   const files = installFiles(w, installId)
   const paths = Object.keys(files).sort()
-  check("five section files, every one ai_ and .storelib", paths.length === 5 && paths.every((p) => /^sections\/ai_[a-z0-9_]+\.storelib$/.test(p)), paths)
+  check("fifteen section files (a home of ten, the two templates), every one ai_ and .storelib", paths.length === 15 && paths.every((p) => /^sections\/ai_[a-z0-9_]+\.storelib$/.test(p)), paths)
   check("  drafts only: nothing live before Publish", paths.every((p) => !files[p].content && !!files[p].draft))
   check("  each compiles with the real compiler", paths.every((p) => compileSection(files[p].draft ?? "").ok), paths.map((p) => [p, compileSection(files[p].draft ?? "").ok]))
   check("  each is the source the model wrote, kept whole", files["sections/ai_coach_hero.storelib"].draft === HERO && files["sections/ai_program_list.storelib"].draft === PROGRAMS)
   const versions = j.rows("store_theme_file_versions").filter((v) => v.install_id === installId)
-  check("  every version row says author ai and the job", versions.length >= 5 && versions.every((v) => v.author === "ai" && v.job_id === jobId), versions.map((v) => [v.path, v.author, v.job_id === jobId]))
+  check("  every version row says author ai and the job", versions.length >= 15 && versions.every((v) => v.author === "ai" && v.job_id === jobId), versions.map((v) => [v.path, v.author, v.job_id === jobId]))
 
   section("4. Pages, routes, menu; no Foundation header or footer")
   const pages = installPages(w, installId)
   const homeDraft = pages.home?.draft ?? []
-  check("home: the AI header, hero, programs and the AI footer", homeDraft.map((s: { type: string }) => s.type).join() === "ai_coach_header,ai_coach_hero,ai_program_list,ai_coach_footer", homeDraft.map((s: { type: string }) => s.type))
-  check("  the header and footer sit in their groups", homeDraft[0]?.group === "header" && homeDraft[3]?.group === "footer")
+  const HOME_TYPES = ["ai_coach_header", "ai_coach_hero", "ai_program_list", ...HOME_EXTRAS, "ai_coach_footer"].join()
+  check("home: the AI header, ten sections of its own, the AI footer", homeDraft.map((s: { type: string }) => s.type).join() === HOME_TYPES, homeDraft.map((s: { type: string }) => s.type))
+  check("  the header and footer sit in their groups", homeDraft[0]?.group === "header" && homeDraft[homeDraft.length - 1]?.group === "footer")
   const own = (list: { type: string; group?: string }[] | null) => (list ?? []).filter((x) => !x.group).map((x) => x.type).join()
   const chromeOfPage = (list: { type: string; group?: string }[] | null) => (list ?? []).filter((x) => x.group).map((x) => `${x.group}:${x.type}`).join()
-  check("  programs and about pages with their components", own(pages.programs?.draft) === "ai_program_list" && own(pages.about?.draft) === "ai_coach_story", { programs: pages.programs, about: pages.about })
-  check("  their chrome, when copied, is the AI header and footer", [pages.programs?.draft, pages.about?.draft].every((l) => ["", "header:ai_coach_header,footer:ai_coach_footer"].includes(chromeOfPage(l))))
+  check("  programs and about pages with six components each", own(pages.programs?.draft) === ["ai_program_list", ...PAGE_EXTRAS].join() && own(pages.about?.draft) === ["ai_coach_story", ...PAGE_EXTRAS].join(), { programs: own(pages.programs?.draft), about: own(pages.about?.draft) })
+  check("  the product and collection templates hold the AI's components", own(pages.product?.draft) === "ai_product_page" && own(pages.collection?.draft) === "ai_collection_grid", { product: pages.product, collection: pages.collection })
+  check("  their chrome, when copied, is the AI header and footer", [pages.programs?.draft, pages.about?.draft, pages.product?.draft, pages.collection?.draft].every((l) => ["", "header:ai_coach_header,footer:ai_coach_footer"].includes(chromeOfPage(l))))
   check("  no page holds a theme header or footer section", Object.values(pages).every((p) => [...(p.sections ?? []), ...(p.draft ?? [])].every((s: { type: string }) => s.type !== "header" && s.type !== "footer")), Object.fromEntries(Object.entries(pages).map(([k, p]) => [k, [...(p.draft ?? p.sections)].map((s: { type: string }) => s.type)])))
   const draftSettings = installSettings(w, installId).draft ?? {}
   check("  the site draws home's chrome only (site_chrome home)", draftSettings.site_chrome === "home")
@@ -156,7 +164,7 @@ async function main() {
   const { renderCheckForInstall } = await import("@/lib/ai-builder/render-check-server")
   const { createAdminClient } = await import("@/lib/supabase/admin")
   const admin = createAdminClient() as never
-  for (const page of ["home", "programs", "about"]) {
+  for (const page of ["home", "programs", "about", "product", "collection"]) {
     const r = await renderCheckForInstall(admin, { creatorId: coach.creatorId, installId, page })
     check(`  ${page}: ok, drawn, every AI section drew something`, r.ok && r.htmlBytes > 500 && r.sections.filter((x) => x.type.startsWith("ai_")).every((x) => x.bytes > 0), { ok: r.ok, issues: r.issues.filter((i) => i.severity === "error"), sections: r.sections })
   }
@@ -177,7 +185,7 @@ async function main() {
   const reread = await j.call(`GET /api/website-builder/themes/${installId}/sections?page=home`, { as: coach.person })
   const heroAfter = (reread.json?.sections ?? []).find((s: { type: string }) => s.type === "ai_coach_hero")
   check("  a reload reads it back from the database", heroAfter?.settings?.heading === "Strength for real life" && heroAfter?.settings?.layout === "stacked", heroAfter?.settings)
-  check("  the binding and the other sections are untouched", (reread.json?.sections ?? []).find((s: { type: string }) => s.type === "ai_program_list")?.settings?.product === coach.productId && (reread.json?.sections ?? []).length === 4)
+  check("  the binding and the other sections are untouched", (reread.json?.sections ?? []).find((s: { type: string }) => s.type === "ai_program_list")?.settings?.product === coach.productId && (reread.json?.sections ?? []).length === 12)
   const { coverPage } = await import("@/app/(site)/w/[username]/render-site")
   const { renderToStaticMarkup } = await import("react-dom/server")
   let draftHtml = ""
@@ -194,7 +202,7 @@ async function main() {
   const afterPub = installFiles(w, installId)
   check("  every AI file's draft is now its live half", Object.values(afterPub).every((f) => !!f.content && f.draft === null) && afterPub["sections/ai_coach_hero.storelib"].content === HERO)
   const livePages = installPages(w, installId)
-  check("  the pages' live sections are the drafts, with the edited heading", livePages.home.sections.find((s: { type: string }) => s.type === "ai_coach_hero")?.settings?.heading === "Strength for real life" && own(livePages.about.sections) === "ai_coach_story", livePages.home.sections.map((s: { type: string }) => s.type))
+  check("  the pages' live sections are the drafts, with the edited heading", livePages.home.sections.find((s: { type: string }) => s.type === "ai_coach_hero")?.settings?.heading === "Strength for real life" && own(livePages.about.sections) === ["ai_coach_story", ...PAGE_EXTRAS].join() && own(livePages.product.sections) === "ai_product_page", livePages.home.sections.map((s: { type: string }) => s.type))
   check("  the website is the live one", j.rows("store_theme_installs").find((r) => r.id === installId)?.status === "published")
   const { publishedSiteByName } = await import("@/lib/website-builder/published-site")
   const liveHome = await publishedSiteByName("jocoach", "home")
@@ -204,13 +212,13 @@ async function main() {
   const aboutHtml = html(liveAbout)
   check("/w/jocoach: the live reader finds the published website", liveHome.kind === "site" && liveAbout.kind === "site", { home: liveHome.kind, about: liveAbout.kind })
   const liveTypes = liveHome.kind === "site" ? liveHome.site.sections.map((x) => x.type) : []
-  check("  home draws the AI header, hero, programs and footer, and no theme header or footer", liveTypes.join() === "ai_coach_header,ai_coach_hero,ai_program_list,ai_coach_footer", liveTypes)
+  check("  home draws the AI header, its ten sections and footer, and no theme header or footer", liveTypes.join() === HOME_TYPES, liveTypes)
   check("  the components are drawn by the template engine on the server (their markup, the edited heading, the stacked layout)", homeHtml.includes('class="ch"') && homeHtml.includes("Strength for real life") && homeHtml.includes("hx--stacked") && homeHtml.includes('class="pg"'), homeHtml.slice(0, 800))
   check("  the bound product is drawn with its add to cart hook", homeHtml.includes(`data-storelib-add-to-cart="${coach.productId}"`), homeHtml.match(/pg__buy[^>]*>/)?.[0])
   check("  the header's menu lists the new pages", /href="\/programs"/.test(homeHtml) && /href="\/about"/.test(homeHtml), homeHtml.match(/<nav[\s\S]*?<\/nav>/)?.[0])
   check("  the AI footer is drawn in the inverse scheme its author gave it", /<footer class="cf" data-scheme="site_inverse" style="--s-bg: #1d1b18;/.test(homeHtml), homeHtml.match(/<footer[^>]*>/)?.[0])
   const aboutTypes = liveAbout.kind === "site" ? liveAbout.site.sections.map((x) => x.type) : []
-  check("  /about: the AI header and footer around the story, no theme chrome", aboutTypes.join() === "ai_coach_header,ai_coach_story,ai_coach_footer" && aboutHtml.includes('class="ab'), aboutTypes)
+  check("  /about: the AI header and footer around the story and its five sections, no theme chrome", aboutTypes.join() === ["ai_coach_header", "ai_coach_story", ...PAGE_EXTRAS, "ai_coach_footer"].join() && aboutHtml.includes('class="ab'), aboutTypes)
   check("  nothing on the live pages is the Foundation theme's header or footer", ![...liveTypes, ...aboutTypes].some((t) => t === "header" || t === "footer") && !/class="site-header|data-section-type="header"/.test(homeHtml))
   const { renderSite } = await import("@/app/(site)/w/[username]/render-site")
   let page = ""
@@ -221,14 +229,27 @@ async function main() {
   }
   check("  the live page itself (renderSite, as /w/jocoach serves it) carries the AI's markup", page.includes("Strength for real life") && page.includes('class="ch"') && !page.startsWith("render failed"), page.slice(0, 600))
   const drawnTypes = [...new Set([...page.matchAll(/data-section-type="([^"]+)"/g)].map((m) => m[1]))]
-  check("  every section on it is the AI's; its only <header> and <footer> are the AI's", drawnTypes.length === 4 && drawnTypes.every((t) => t.startsWith("ai_")) && (page.match(/<header\b/g) ?? []).length === 1 && /<header class="ch"/.test(page) && (page.match(/<footer\b/g) ?? []).length === 1 && /<footer class="cf"/.test(page), { drawnTypes, headers: page.match(/<header[^>]*>/g), footers: page.match(/<footer[^>]*>/g) })
+  check("  every section on it is the AI's; its only <header> and <footer> are the AI's", drawnTypes.length === 12 && drawnTypes.every((t) => t.startsWith("ai_")) && (page.match(/<header\b/g) ?? []).length === 1 && /<header class="ch"/.test(page) && (page.match(/<footer\b/g) ?? []).length === 1 && /<footer class="cf"/.test(page), { drawnTypes, headers: page.match(/<header[^>]*>/g), footers: page.match(/<footer[^>]*>/g) })
+
+  /* Round N (N3): the product the coach sells, on the live product route, drawn with the AI's own product template. */
+  const { renderProduct } = await import("@/components/website-builder/theme/render-product")
+  const slug = String(j.rows("products").find((p) => p.id === coach.productId)?.slug ?? "")
+  let productPage = ""
+  try {
+    productPage = await drawAll(await renderProduct(slug, { creatorId: coach.creatorId }))
+  } catch (e) {
+    productPage = `render failed: ${e instanceof Error ? e.stack : String(e)}`
+  }
+  const productTypes = [...new Set([...productPage.matchAll(/data-section-type="([^"]+)"/g)].map((m) => m[1]))]
+  check("  /products/<slug>: the AI's product template draws the real product, its add to cart and its offers, in the AI header and footer", productPage.includes('class="pp"') && productPage.includes("8 week strength block") && productPage.includes(`data-storelib-add-to-cart="${coach.productId}"`) && productPage.includes(`data-storelib-offers="${coach.productId}"`) && productTypes.join() === "ai_coach_header,ai_product_page,ai_coach_footer", { types: productTypes, head: productPage.slice(0, 400) })
+  check("  and not the built-in product section on top of it", !productTypes.includes("product"))
 
   section("9. Reconnecting: the progress view reads events after the seq it has")
   const all = await j.call(`GET /api/website-builder/ai-jobs/${jobId}`, { as: coach.person })
   const half = Math.floor(events.length / 2)
   const rest = await j.call(`GET /api/website-builder/ai-jobs/${jobId}?after=${half}`, { as: coach.person })
   check("the whole list from 0, the rest from a seq, nothing repeated", all.status === 200 && all.json?.events?.length === events.length && rest.json?.events?.length === events.length - half && rest.json.events[0].seq === half + 1, { all: all.json?.events?.length, rest: rest.json?.events?.length })
-  check("  the view: complete, phase finish, the job's counts", all.json?.status === "complete" && all.json?.phase === "finish" && all.json?.counts?.componentsWritten === 5, { status: all.json?.status, phase: all.json?.phase, counts: all.json?.counts })
+  check("  the view: complete, phase finish, the job's counts", all.json?.status === "complete" && all.json?.phase === "finish" && all.json?.counts?.componentsWritten === 15, { status: all.json?.status, phase: all.json?.phase, counts: all.json?.counts })
   const theirs = await j.call(`GET /api/website-builder/ai-jobs/${jobId}`, { as: stranger.person })
   check("  another store: not found, no events", theirs.status === 404 && !JSON.stringify(theirs.json).includes("ai_coach"), theirs.status)
 
