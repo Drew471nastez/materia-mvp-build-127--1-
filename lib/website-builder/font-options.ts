@@ -21,6 +21,31 @@
  */
 import type { SelectOption } from "./types"
 
+/**
+ * ROUND N (design intelligence, lib/storelib-ai/library/type-systems.ts):
+ * the AI builder kept landing on the same handful of faces because those
+ * were most of what could load. These are the faces its curated type systems
+ * are built from: editorial serifs (Instrument Serif, DM Serif Display,
+ * Young Serif, Gloock, Source Serif 4, Spectral, Literata, Italiana, IBM Plex
+ * Serif), grotesks with character (Instrument Sans, Inter Tight, Archivo,
+ * Hanken Grotesk, Schibsted Grotesk, Familjen Grotesk, Syne, Unbounded, Work
+ * Sans, Sora, Red Hat Display, Libre Franklin), humanist text faces (Karla,
+ * Jost, Nunito Sans, IBM Plex Sans, Alegreya Sans, Lexend, Atkinson
+ * Hyperlegible), condensed display (Anton, Archivo Narrow, Barlow Condensed,
+ * Antonio, League Gothic) and monospaces (Space Mono, IBM Plex Mono,
+ * JetBrains Mono, DM Mono). All Google Fonts, SIL Open Font License; their
+ * weights are in font-link.ts FAMILY_WEIGHTS. In all three lists.
+ */
+export const TYPE_LIBRARY_FAMILIES: readonly string[] = [
+  "Instrument Serif", "DM Serif Display", "Young Serif", "Gloock", "Source Serif 4", "Spectral", "Literata", "Italiana", "IBM Plex Serif",
+  "Instrument Sans", "Inter Tight", "Archivo", "Hanken Grotesk", "Schibsted Grotesk", "Familjen Grotesk", "Syne", "Unbounded", "Work Sans", "Sora", "Red Hat Display", "Libre Franklin",
+  "Karla", "Jost", "Nunito Sans", "IBM Plex Sans", "Alegreya Sans", "Lexend", "Atkinson Hyperlegible",
+  "Anton", "Archivo Narrow", "Barlow Condensed", "Antonio", "League Gothic",
+  "Space Mono", "IBM Plex Mono", "JetBrains Mono", "DM Mono",
+]
+
+const LIBRARY_OPTIONS: SelectOption[] = TYPE_LIBRARY_FAMILIES.map((f) => ({ label: f, value: f }))
+
 export const HEADING_FONT_OPTIONS: SelectOption[] = [
   { label: "Inter", value: "Inter" },
   { label: "Plus Jakarta Sans", value: "Plus Jakarta Sans" },
@@ -47,6 +72,7 @@ export const HEADING_FONT_OPTIONS: SelectOption[] = [
   { label: "Fredoka", value: "Fredoka" },
   { label: "Geist Mono", value: "Geist Mono" },
   { label: "Big Shoulders", value: "Big Shoulders" },
+  ...LIBRARY_OPTIONS,
 ]
 
 export const BODY_FONT_OPTIONS: SelectOption[] = [
@@ -69,6 +95,7 @@ export const BODY_FONT_OPTIONS: SelectOption[] = [
   { label: "Fredoka", value: "Fredoka" },
   { label: "Geist Mono", value: "Geist Mono" },
   { label: "Big Shoulders", value: "Big Shoulders" },
+  ...LIBRARY_OPTIONS,
 ]
 
 export const ACCENT_FONT_OPTIONS: SelectOption[] = [
@@ -92,4 +119,5 @@ export const ACCENT_FONT_OPTIONS: SelectOption[] = [
   { label: "Fredoka", value: "Fredoka" },
   { label: "Geist Mono", value: "Geist Mono" },
   { label: "Big Shoulders", value: "Big Shoulders" },
+  ...LIBRARY_OPTIONS,
 ]

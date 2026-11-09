@@ -23,5 +23,6 @@ export {
   type RankedEntry,
 } from "./retrieve"
 export * from "./concept"
+export * from "./type-systems"
 export * from "./resources"
 export { SEARCH_KNOWLEDGE_TOOL, runSearchKnowledge, type SearchContext } from "./tool"
