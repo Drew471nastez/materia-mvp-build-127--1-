@@ -46,7 +46,27 @@ export function priceCents(formatted: unknown): number {
 
 // ── Images and media ─────────────────────────────────────────────────────────
 
-let imageSeq = 1
+/*
+  THE SAME PICTURE, THE SAME ID, IN EVERY DRAW (round AQ). The id was a
+  counter shared by everything the server drew, so the same page drawn twice
+  differed in every picture's id. A buyer with a cart is sent the page every
+  stranger shares and then, privately, each section that differs between a
+  stranger's drawing and theirs (./personal-fill.ts): on the live front page
+  of andrewrullz.storelib.com that was the whole featured product (199 KB,
+  twice, on every page a buyer opened), patched in for nothing but a
+  picture's id inside its settings. Now the id is a number made from the
+  picture's address and its position, the same on every draw and every
+  server, and two different pictures still get different ones.
+*/
+function stableImageId(src: string, position: unknown): number {
+  let h = 0x811c9dc5
+  const key = `${src}\n${position ?? ""}`
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return (h >>> 1) + 1
+}
 /** A picture, as Shopify's image object: prints as its address. */
 export function imageObject(src: string, alt = "", extra: O = {}): O | null {
   if (!src) return null
@@ -54,7 +74,7 @@ export function imageObject(src: string, alt = "", extra: O = {}): O | null {
   const height = typeof extra.height === "number" ? extra.height : 1600
   const img: O = {
     [OUTPUT]: src,
-    id: extra.id ?? imageSeq++,
+    id: extra.id ?? stableImageId(src, extra.position),
     src,
     url: src,
     alt,

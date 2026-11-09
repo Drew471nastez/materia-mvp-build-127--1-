@@ -1064,6 +1064,8 @@ const SUITES = [
   "tests/live-publish-am.test.ts",
   /* Round AP: a live page never waits Supabase's 20 seconds for a read it can do without (offers, menus, sold counts, size charts, tags), the theme's files fail within seconds, a page drawn without something is never held, shared or kept, and the hold no longer keeps "draw it again" for five minutes; scripts/check-live-nav-ap.mjs clicks through a live website and times it. */
   "tests/live-nav-ap.test.ts",
+  /* Round AQ (track 1): live websites from themes right after a deploy. An imported theme's files read together and kept under their content address only when the bytes hash to it, the Liquid engine loaded for a .liquid file only; the warm after a deploy and after a Publish asks for the files its pages name; a buyer's own parts asked for from the top of the head and put in as each section is read; a picture's id the same in every draw; a market's page kept by the CDN; a stored copy naming another deployment's files never served. scripts/check-personal-flash-aq.mjs and scripts/check-site-nav-aq.mjs measure it in a browser. */
+  "tests/live-assets-aq.test.ts",
   /* Round W1: an imported theme's live page stored by the CDN (no Vary: Cookie), its body's CSS gathered in the head in order, its flags lazy, plain HTML with no React, links fetched ahead (scripts/check-live-first-load.mjs measures it) */
   "tests/live-first-load-w.test.ts",
   "tests/live-speed-ax.test.ts",

@@ -41,7 +41,7 @@ import { compatPageTags, productIdForPath } from "@/lib/store/compat-page-tags"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { PUBLIC_PAGE_CACHE, SHAREABLE_HEADER, SHARED_PAGE_CDN, publicAnswer, readStrangerMarker, sharedQuery } from "@/lib/storelib-theme/compat/anonymous-cache"
-import { CART_HINT_COOKIE, PERSONAL_PARAM, cartHintCookie, personalFillTag } from "@/lib/storelib-theme/compat/personal-fill"
+import { CART_HINT_COOKIE, PERSONAL_PARAM, cartHintCookie, withPersonalFill } from "@/lib/storelib-theme/compat/personal-fill"
 import { heldStrangerPage, strangerKey } from "@/lib/storelib-theme/compat/stranger-hold"
 import { openedAsDocument, readierFirstLoad } from "@/lib/storelib-theme/compat/first-load"
 import { withLcpHint } from "@/lib/storelib-theme/compat/lcp-hint"
@@ -494,16 +494,26 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
       Only a page opened as a page: a script fetching the same address gets
       the markup as written, which is held apart (Vary, and the hold's key).
 
-      NEVER A MARKET'S PRICES. Round 48 measured Vercel keeping a rewritten
-      answer under the address the browser asked for, not the marked one, so
-      the copy at /products/hat must suit everybody who asks for /products/hat.
-      Nothing personal is in it (the marker reads no cookie), and the
-      language is in the address (/fr/...). A market's currency is not: a
-      page drawn in one is kept by the hold only. The visitor's country,
-      which the theme's country selector shows, is said in Vary for a CDN
-      that keys on it.
+      A MARKET'S PRICES TOO, SINCE ROUND AQ. Round 48 wrote that Vercel
+      kept a rewritten answer under the address the browser asked for, so
+      a page in a market's currency was kept by the hold only, and every
+      market visitor's page was a function call (x-vercel-cache: MISS on
+      every visit to andrewrullz.storelib.com from a market). Measured again
+      on that site (scratchpad ap/aq1/market-key-probe.txt): /collections/all
+      asked with sl_country=RO (no market, EUR) was kept (HIT), and the same
+      address from the same place with no cookie (a market, BRL) straight
+      after was a MISS drawn in BRL, four times out of four; /pages/contact
+      the same. Same address, same Vary values: had the key been the
+      browser's address, the second would have been handed the EUR copy.
+      The key is the rewritten address, as Vercel's own A/B guide says
+      ("/abc123/product/blue-hoodie is a different cache entry from
+      /def456/product/blue-hoodie"). The marker in it names the host,
+      country, language and market, the handler refuses a marker its
+      headers do not match, and it draws from the marker alone, so the copy
+      at a marked address is that market's for everybody sent there. The
+      visitor's country is said in Vary as well.
     */
-    if (openedAsDocument(req.headers) && stranger?.market === null) {
+    if (openedAsDocument(req.headers)) {
       const id = found.site.creatorId
       headers.set("Vercel-CDN-Cache-Control", SHARED_PAGE_CDN)
       headers.set("Vercel-Cache-Tag", [creatorSiteTag(id), creatorShopTag(id), siteBlogTag(id)].join(","))
@@ -562,10 +572,9 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
       with the markup as the theme wrote it, styles in their sections.
     */
     if (openedAsDocument(req.headers)) {
-      /* What is the visitor's, filled in after load from a private address, on the copy every visitor shares (personal-fill.ts). */
+      /* What is the visitor's, filled in from a private address asked for from the top of the head, on the copy every visitor shares (personal-fill.ts withPersonalFill, round AQ). */
       if (shared) {
-        const end = html.search(/<\/body>(?![\s\S]*<\/body>)/i)
-        html = `${html.slice(0, end)}${personalFillTag(out.personal ?? { sections: [], layout: false })}${html.slice(end)}`
+        html = withPersonalFill(html, out.personal ?? { sections: [], layout: false })
       }
       html = readierFirstLoad(html).html
       /* The first big picture of the page's first sections, asked for from the top of the head (lib/storelib-theme/compat/lcp-hint.ts). */

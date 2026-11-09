@@ -25,15 +25,29 @@
  */
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { ASSET_MAP_PATH, assetType, binaryOf } from "@/lib/storelib-theme/compat/install"
+import { ASSET_MAP_PATH, assetType, binaryOf } from "@/lib/storelib-theme/compat/asset-file"
 import { isOptimizableImage } from "@/lib/images/optimized-url"
-import { installFiles, compatThemeFor } from "@/lib/website-builder/compat-site"
-import { themeAsset } from "@/lib/storelib-theme/compat/site"
-import { compileScss } from "@/lib/storelib-theme/compat/scss"
 import { fixThemeCss } from "@/lib/storelib-theme/compat/css-fixes"
 import { assetVersion, isContentVersion, plainAssetVersion } from "@/lib/storelib-theme/compat/asset-version"
 import { splitAssetVersion } from "@/lib/storelib-theme/compat/draft-version"
 import { isDraftAssetPass } from "@/lib/website-builder/draft-asset-pass"
+import { keepAnswer, keptAnswer, readAssetRows, type AssetAdmin, type AssetRow } from "@/lib/storelib-theme/compat/asset-serve"
+
+/*
+  LIGHT TO START (round AQ). Right after a deploy every file of a page is a
+  function call on a server that may be starting (Vercel's cache key names
+  the deployment, lib/storelib-theme/compat/asset-serve.ts), and loading
+  this route loaded the whole Liquid engine, the theme reader and the SCSS
+  compiler before the first byte of a plain script. Those are needed only
+  for a `.liquid` file, the rare one, and are loaded then.
+*/
+const liquidParts = () =>
+  Promise.all([import("@/lib/website-builder/compat-site"), import("@/lib/storelib-theme/compat/site"), import("@/lib/storelib-theme/compat/scss")]).then(([site, compat, scss]) => ({
+    installFiles: site.installFiles,
+    compatThemeFor: site.compatThemeFor,
+    themeAsset: compat.themeAsset,
+    compileScss: scss.compileScss,
+  }))
 
 export const runtime = "nodejs"
 
@@ -100,24 +114,32 @@ export async function GET(_req: Request, { params }: Params) {
   const cache = asked.draft ? "private, max-age=0, must-revalidate" : "public, max-age=31536000, immutable"
   /* A hash that is not this file's: the current file, held for a minute. */
   const cacheFor = (current: string | null) => (isContentVersion(version) && current !== version ? "public, max-age=60" : cache)
+  /* Answered at this content address on this server before: the same bytes, no read (asset-serve.ts keeps only an exact hash match). */
+  const hit = asked.draft ? null : keptAnswer(installId, version, name)
+  if (hit) return new NextResponse(typeof hit.body === "string" ? hit.body : new Blob([hit.body as BlobPart]), { headers: { ...cors, "Content-Type": hit.type, "Cache-Control": hit.cache, "X-Storelib-Asset": "kept" } })
   const admin = createAdminClient()
   const cols = draft ? "path, content, draft_content" : "path, content"
-  const { data } = await admin
-    .from("store_theme_custom_files")
-    .select(cols)
-    .eq("install_id", installId)
-    .in("path", [`shopify/assets/${name}`, `shopify/assets/${name}.liquid`])
-  const rows = (data ?? []) as unknown as { path: string; content: string | null; draft_content?: string | null }[]
+  let rows: AssetRow[]
+  try {
+    /* Read with the other files of this install asked for in the same moment (asset-serve.ts readAssetRows): one query, not one each. */
+    rows = await readAssetRows(admin as unknown as AssetAdmin, installId, cols, [`shopify/assets/${name}`, `shopify/assets/${name}.liquid`])
+  } catch {
+    /* The database did not answer: not "no such file", and never kept anywhere. */
+    return new NextResponse("Try again", { status: 503, headers: { ...cors, "Cache-Control": "no-store", "Retry-After": "2" } })
+  }
   const plain = rows.find((r) => r.path === `shopify/assets/${name}`)
   const text = plain ? (draft ? plain.draft_content ?? plain.content : plain.content) : null
   if (typeof text === "string" && text !== "") {
     const bytes = binaryOf(text)
     /* A stylesheet as the page draws its own (lib/storelib-theme/compat/css-fixes.ts). */
-    const body = bytes ? new Blob([bytes as BlobPart]) : /^text\/css/.test(type) ? fixThemeCss(text) : text
-    return new NextResponse(body, { headers: { ...cors, "Content-Type": type, "Cache-Control": cacheFor(plainAssetVersion(text)) } })
+    const body = bytes ?? (/^text\/css/.test(type) ? fixThemeCss(text) : text)
+    const control = cacheFor(plainAssetVersion(text))
+    if (!asked.draft) keepAnswer(installId, version, name, plainAssetVersion(text), { body, type, cache: control }, isContentVersion)
+    return new NextResponse(typeof body === "string" ? body : new Blob([body as BlobPart]), { headers: { ...cors, "Content-Type": type, "Cache-Control": control } })
   }
   if (!rows.some((r) => r.path.endsWith(".liquid"))) return new NextResponse("Not found", { status: 404, headers: cors })
   /* A `.css.liquid` asset is drawn with the theme's settings, which needs the theme. */
+  const { installFiles, compatThemeFor, themeAsset, compileScss } = await liquidParts()
   const files = await installFiles(admin, installId, draft)
   const { data: settingsRow } = await admin.from("store_theme_settings").select("settings, draft_settings").eq("install_id", installId).maybeSingle()
   const s = settingsRow as { settings?: unknown; draft_settings?: unknown } | null
@@ -125,5 +147,8 @@ export async function GET(_req: Request, { params }: Params) {
   const theme = compatThemeFor(installId, version, files, settings)
   const out = themeAsset(theme, name, () => theme.pageContext({ template: "index", path: "/", designMode: false, products: [], collections: [], menus: {}, shop: { name: "" } }), { scss: compileScss })
   if (!out) return new NextResponse("Not found", { status: 404, headers: cors })
-  return new NextResponse(typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart]), { headers: { ...cors, "Content-Type": out.type, "Cache-Control": cacheFor(isContentVersion(version) ? assetVersion(files, name, settings) : null) } })
+  const current = isContentVersion(version) ? assetVersion(files, name, settings) : null
+  const control = cacheFor(current)
+  if (!asked.draft && typeof out.body === "string") keepAnswer(installId, version, name, current, { body: out.body, type: out.type, cache: control }, isContentVersion)
+  return new NextResponse(typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart]), { headers: { ...cors, "Content-Type": out.type, "Cache-Control": control } })
 }
