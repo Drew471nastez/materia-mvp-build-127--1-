@@ -28,6 +28,8 @@ import { SMOKE_CAPABILITIES, SMOKE_PROMPT, liveSmoke } from "../scripts/ai-build
 import type { AgentModels } from "@/lib/ai-builder/agent/ports"
 import type { ProviderRequest, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
 import { ABOUT, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, type PlainStep } from "./ai-builder-agent-fixtures"
+/* Round N (N3): the site plan with the concept, and a whole site before finish. */
+import { WHOLE_SITE_FILES, homeSections, pageSections, sitePlan, templateCalls } from "./ai-builder-whole-site-fixtures"
 
 let passed = 0
 let failed = 0
@@ -88,7 +90,7 @@ function toolAnswers(req: ProviderRequest): string[] {
 function coachSteps(seen: { bindFrom: string | null }): Step[] {
   return [
     /* request 1 */
-    { calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, tasks: ["Header and footer", "Home", "Programs", "About"] }]] },
+    { calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, pages: sitePlan(["programs", "about"]), tasks: ["Header and footer", "Home", "Programs", "About"] }]] },
     { calls: [["list_capabilities", {}], ["set_tokens", { tokens: { colors: { background: "#f4efe6", surface: "#ebe4d8", text: "#1d1b18", muted: "#5c564d", accent: "#c2410c", accentText: "#ffffff", border: "#d6cdbd" }, fonts: { heading: "Oswald", body: "Inter" } } }]] },
     {
       calls: [
@@ -97,15 +99,17 @@ function coachSteps(seen: { bindFrom: string | null }): Step[] {
         ["write_file", { path: "sections/ai_program_list.storelib", content: PROGRAMS }],
         ["write_file", { path: "sections/ai_coach_footer.storelib", content: FOOTER }],
         ["write_file", { path: "sections/ai_coach_story.storelib", content: ABOUT }],
+        ...Object.entries(WHOLE_SITE_FILES).map(([path, content]) => ["write_file", { path, content }] as [string, Record<string, unknown>]),
       ],
     },
     /* request 2: the concept must have survived the hand over, or these are refused */
     { calls: [["add_page", { key: "programs", title: "Programs" }], ["add_page", { key: "about", title: "About" }]] },
     {
       calls: [
-        ["set_page_sections", { page: "home", sections: [{ type: "ai_coach_header", group: "header" }, { type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } }, { type: "ai_program_list", blocks: [{ type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } }] }, { type: "ai_coach_footer", group: "footer" }] }],
-        ["set_page_sections", { page: "programs", sections: [{ type: "ai_program_list", settings: { heading: "All programs" } }] }],
-        ["set_page_sections", { page: "about", sections: [{ type: "ai_coach_story" }] }],
+        ["set_page_sections", { page: "home", sections: homeSections([{ type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } }, { type: "ai_program_list", blocks: [{ type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } }] }]) }],
+        ["set_page_sections", { page: "programs", sections: pageSections({ type: "ai_program_list", settings: { heading: "All programs" } }) }],
+        ["set_page_sections", { page: "about", sections: pageSections({ type: "ai_coach_story" }) }],
+        ...templateCalls(),
       ],
     },
     { calls: [["list_pages", {}]] },
@@ -138,7 +142,8 @@ async function main() {
   check("no write was refused after a hand over (the concept came through)", report.refusedTools === 0, lines.filter((l) => l.includes("REFUSED")))
   check("the report: cost under the cap, tokens counted", report.usd > 0 && report.usd <= report.capUsd && report.inputTokens === 9 * 4_000 && report.outputTokens === 9 * 800, report)
   check("the report: phases in order", JSON.stringify(report.phases) === JSON.stringify(["brief", "plan", "build", "verify", "finish"]), report.phases)
-  check("the report: files and pages", report.files.length === 5 && report.files.every((f) => f.startsWith("sections/ai_")) && report.pages.map((p) => p.key).sort().join(",") === "about,home,programs", { files: report.files, pages: report.pages })
+  /* Changed on purpose (round N, N3): a whole site, with the product and collection templates. */
+  check("the report: files and pages", report.files.length === 15 && report.files.every((f) => f.startsWith("sections/ai_")) && report.pages.map((p) => p.key).sort().join(",") === "about,collection,home,product,products,programs,search", { files: report.files, pages: report.pages })
   check("the report: validation run again on the result, no errors", report.validation.errors === 0, report.validation)
   check("the report: a slop score", !!report.slop && report.slop.score > 0 && report.slop.score <= 100, report.slop)
   check("the files, pages, settings and events are saved to the scratch folder", report.outDir === out && existsSync(join(out, "sections/ai_coach_hero.storelib")) && readFileSync(join(out, "sections/ai_coach_hero.storelib"), "utf8") === project.files["sections/ai_coach_hero.storelib"] && existsSync(join(out, "pages.json")) && existsSync(join(out, "events.json")))

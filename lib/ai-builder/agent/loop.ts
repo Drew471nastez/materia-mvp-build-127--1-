@@ -42,6 +42,7 @@ import { newCheckpoint, type LoopCheckpoint } from "./state"
 import { createToolSet, renderPage, validateAll, type EventDraft } from "./tools-impl"
 import { directionsFor, libraryKnowledge, librarySlop } from "./knowledge"
 import { errorsOf } from "./validate"
+import { completenessIssues } from "./site-plan"
 
 export interface SliceOptions {
   /** This invocation's end (ms since epoch). No call starts later than deadline - budget.callReserveMs. */
@@ -326,8 +327,12 @@ function summarise(name: string, args: Record<string, unknown>, output: unknown)
   const errors = Array.isArray(o.issues) ? o.issues.filter((i) => i.severity === "error").length : 0
   /* A refused concept says so in words, never as an ok line (round M). */
   if (name === "report_progress" && o.ok === false) {
-    const concept = Array.isArray(o.issues) && o.issues.some((i) => i.code === "plan.concept_invalid")
-    return (concept ? `The visual concept needs another pass (${errors} thing${errors === 1 ? "" : "s"} to fix)` : "The visual concept comes first: nothing else can start without it").slice(0, 200)
+    const has = (code: string) => Array.isArray(o.issues) && o.issues.some((i) => i.code === code)
+    if (has("plan.concept_invalid")) return `The visual concept needs another pass (${errors} thing${errors === 1 ? "" : "s"} to fix)`.slice(0, 200)
+    /* Round N (N3): the site plan, every page and template. */
+    if (has("plan.site_invalid")) return `The site plan needs another pass (${errors} thing${errors === 1 ? "" : "s"} to fix)`.slice(0, 200)
+    if (has("plan.site_missing")) return "The site plan comes next: every page and template with its sections"
+    return "The visual concept comes first: nothing else can start without it"
   }
   return `${name.replace(/_/g, " ")}${target ? ` ${target}` : ""}${o.ok === false ? (errors ? `: ${errors} error${errors === 1 ? "" : "s"}` : o.reason ? `: ${String(o.reason).slice(0, 60)}` : ": refused") : ""}`.slice(0, 200)
 }
@@ -351,6 +356,17 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
   const files = (await deps.store.listFiles()).filter((f) => cp.filesTouched.includes(f.path)).map((f) => ({ path: f.path, text: f.text }))
   if (files.length) issues.push(...(await (deps.slop ?? librarySlop)({ files, concept: cp.concept ?? null, capabilities: cp.caps ?? null }).catch(() => [])))
   if (!scoped && !cp.concept) issues.push({ severity: "error", code: "plan.concept_missing", message: "There is no visual concept. Hand it in with report_progress phase plan." })
+  /*
+    THE WHOLE SITE (round N, N3): a new website is every page and template, not a home page and a page or two:
+    ten of its own sections on home, six on every other page (or the plan's reason), the product and collection
+    templates designed, its own header and footer in free mode, every page reachable from them. Finish lists
+    exactly what is missing; the repair rounds above still bound it, and running out ends the job partial.
+  */
+  if (!job.edit && !job.redesign) {
+    const src: Record<string, string> = {}
+    for (const f of await deps.store.listFiles()) if (f.text.trim()) src[f.path] = f.text
+    issues.push(...completenessIssues({ pages: stored, sources: src, settings: await deps.store.readSettings(), caps: cp.caps ?? null, mode: job.mode, plan: cp.sitePlan ?? null }))
+  }
   /* A redesign may be done with the site's own sections and tokens: writing a component is not required of it. */
   if (!job.edit && !job.redesign && !cp.filesTouched.some((p) => p.startsWith("sections/ai_"))) issues.push({ severity: "error", code: "build.nothing", message: "No component was written. A new website is made of components you write." })
   return issues

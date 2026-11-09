@@ -8,7 +8,8 @@
  *              `site_inverse`, made the default scheme; and the page colours
  *   fonts      font_heading, font_body, font_accent
  *   radius     card, button, picture and text box corners
- *   spacing    spacing_scale, page_width, content_padding_x
+ *   spacing    spacing_scale, page_width, content_padding_x, ai_section_y
+ *   typeScale  Typography's text styles; shadow card_shadow
  *   motion     animations_enabled, animation_style, animation_duration
  *   the rest   custom_tokens (`--t-<name>`), checked: no url(), no
  *              expression, no markup
@@ -18,11 +19,11 @@
  * uses this one until that lands. Pure.
  */
 import { automaticHover, type ColorScheme } from "@/lib/storelib-theme/color-schemes"
-import { ANIMATION_STYLES, CUSTOM_TOKENS_SETTING, type DesignTokens, type ValidationIssue } from "../types"
+import { ANIMATION_STYLES, CUSTOM_TOKENS_SETTING, SHADOW_LEVELS, type DesignTokens, type ValidationIssue } from "../types"
+import { SCALE_TOKENS, SITE_INVERSE_SCHEME, SITE_SCHEME, typeScaleStyles } from "../tokens"
 import type { TokensMapper } from "./ports"
 
-export const SITE_SCHEME = "site"
-export const SITE_INVERSE_SCHEME = "site_inverse"
+export { SITE_SCHEME, SITE_INVERSE_SCHEME }
 
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
 const TOKEN_NAME = /^[a-z][a-z0-9-]{0,40}$/
@@ -88,6 +89,9 @@ export const tokensToThemeSettings: TokensMapper = (tokens: Partial<DesignTokens
     if (card !== null) out.border_radius = card
     if (button !== null) out.button_border_radius = button
     if (media !== null) out.image_border_radius = media
+    /* Large corners are what the token panel and `--t-radius-lg` read (lib/ai-builder/tokens.ts): pop-ups and big cards. */
+    const large = clamp(tokens.radius.large, 0, 40)
+    if (large !== null) out.popup_radius = large
     if (button !== null) out.input_radius = Math.min(24, button)
   }
   if (tokens.spacing) {
@@ -104,12 +108,30 @@ export const tokensToThemeSettings: TokensMapper = (tokens: Partial<DesignTokens
     const d = clamp(tokens.motion.durationMs, 200, 1200)
     if (d !== null) out.animation_duration = Math.round(d / 50) * 50
   }
+  /*
+    The section rhythm is the Theme setting `ai_section_y`, read as `--t-section-y`
+    (lib/ai-builder/tokens.ts tokenVars). It was written as a custom token
+    "section-y", which the scale's own `--t-section-y` (printed after the custom
+    ones) always replaced with 96px, so the agent's rhythm never reached the page.
+  */
+  if (tokens.spacing && typeof tokens.spacing.sectionY === "number") out.ai_section_y = clamp(tokens.spacing.sectionY, 0, 240)
+  /* The type scale and the card shadow, as the token panel writes them (round N). */
+  if (tokens.typeScale && typeof tokens.typeScale === "object") {
+    const base = clamp(tokens.typeScale.base, 12, 22)
+    const ratio = clamp(tokens.typeScale.ratio, 1.05, 1.6)
+    if (base !== null && ratio !== null) out.typography_styles = typeScaleStyles({ base, ratio }, current)
+    else warn("token.type_scale", "typeScale needs base (px, 12 to 22) and ratio (1.05 to 1.6).")
+  }
+  if (tokens.shadow !== undefined) {
+    if ((SHADOW_LEVELS as readonly string[]).includes(String(tokens.shadow))) out.card_shadow = tokens.shadow
+    else warn("token.shadow", `shadow is one of ${SHADOW_LEVELS.join(", ")}.`)
+  }
   const custom: Record<string, string> = {}
   const wantCustom: Record<string, unknown> = { ...(tokens.custom ?? {}) }
-  if (tokens.spacing && typeof tokens.spacing.sectionY === "number") wantCustom["section-y"] = `${clamp(tokens.spacing.sectionY, 0, 240)}px`
   for (const [name, value] of Object.entries(wantCustom)) {
     const v = String(value ?? "").trim()
-    if (!TOKEN_NAME.test(name)) warn("token.name", `Custom token "${name.slice(0, 40)}" is not a token name (lowercase letters, digits, dashes).`)
+    if ((SCALE_TOKENS as readonly string[]).includes(name)) warn("token.name", `"${name}" is one of the site's own scale tokens (--t-${name}), read from Theme settings. Pick another name.`)
+    else if (!TOKEN_NAME.test(name)) warn("token.name", `Custom token "${name.slice(0, 40)}" is not a token name (lowercase letters, digits, dashes).`)
     else if (!TOKEN_VALUE.test(v) || /url\s*\(|expression|javascript:|[<>{};]/i.test(v)) warn("token.value", `Custom token "${name}" was refused: no url(), no markup, no braces or semicolons.`)
     else custom[name] = v
   }

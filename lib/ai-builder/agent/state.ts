@@ -7,10 +7,13 @@
 import type { RuntimeCapabilities } from "../runtime-contract"
 import type { AgentCheckpoint } from "../types"
 import type { VisualConcept } from "./concept"
+import type { SitePlan } from "./site-plan"
 
 export interface LoopCheckpoint extends AgentCheckpoint {
   /** The accepted visual concept. Writes wait for it on a new website. */
   concept?: VisualConcept
+  /** Round N (N3): every page and template with its sections. A new website's writes wait for it too. */
+  sitePlan?: SitePlan
   /** path → sha256 of the text this job last read or wrote: the expectedVersion of its next write. */
   known: Record<string, string>
   /** Files this job created (as opposed to edited). */

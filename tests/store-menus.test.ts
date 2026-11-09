@@ -114,7 +114,7 @@ async function run() {
 
   const page = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("Edit opens Navigation, its own panel, and Back returns to what asked", /setSelectedPanel\(\(prev\) => \(\{ type: "navigation", handle, back:/.test(page) && /data-wb-navigation-panel/.test(page) && !/setExpandedSettings\("menus"\)/.test(page))
-  check("Menus are no longer a Theme settings group", (page.match(/group\.id !== "menus"/g) ?? []).length === 2)
+  check("Menus are no longer a Theme settings group", /* Changed on purpose (round N5): the free site's own lists filter Menus out too. */ (page.match(/group\.id !== "menus"/g) ?? []).length === 4)
   check("a menu change is saved to the store, once the typing stops", /* Changed on purpose (round 12, WBPERF): through putJsonWithRetry, a 401 asked about and a 5xx tried again. */ /putJsonWithRetry\("\/api\/website-builder\/menus"/.test(page) && /menusJson === st\.synced/.test(page))
   check("Navigation sits beside Pages", /data-open-navigation/.test(page))
   const picker = read("components/website-builder/editor/controls/menu-picker-control.tsx")

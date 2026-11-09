@@ -38,7 +38,10 @@ import { libraryKnowledge } from "./knowledge"
 import { renderCheckPage } from "./render-check"
 import { addUnique, type LoopCheckpoint } from "./state"
 import { tokensToThemeSettings } from "./tokens"
+import { designSettingsWrite } from "../site-settings"
+import { isSlopDisplayFont } from "@/lib/storelib-ai/library/type-systems"
 import { schemaInfo, siteRoutes, typeOfPath, unknownBindingIds, validateFile, validateSite, errorsOf } from "./validate"
+import { describeSitePlan, isTemplateKey, readSitePlan, templatesFor } from "./site-plan"
 import { versionOf } from "./version"
 
 /** Whether form bindings are drawn by the editor: what the job says, else whether the control registry has form_picker (L4). */
@@ -106,6 +109,11 @@ export function createToolSet(ctx: ToolContext): ToolSet {
   /* An edit, or a redesign that only makes the changes asked (round M), works on the site as it is: no concept first. */
   const needsConcept = () => !job.edit && job.redesign !== "changes" && !cp.concept
   const conceptFirst = "Hand in the visual concept first: report_progress with phase \"plan\" and a concept (name, mood, styles, typeSystem, palette, layout, motion, imagery, signatureMoves). Nothing was changed."
+  /* Round N (N3): a NEW website also hands in its site plan (every page and template with its sections) before it builds. */
+  const needsPlan = () => !job.edit && !job.redesign && !cp.sitePlan
+  const planFirst = "Hand in the site plan first: report_progress with phase \"plan\" and pages, every page and template with its sections ({ key, sections: [one line each], reason? }); list_pages shows the templates. Nothing was changed."
+  /** Why a write must wait, or null when it may go ahead. */
+  const blocked = (): { code: string; message: string } | null => (needsConcept() ? { code: "plan.concept_missing", message: conceptFirst } : needsPlan() ? { code: "plan.site_missing", message: planFirst } : null)
 
   function instancesOf(type: string, pages: StoredPage[]): SectionInstance[] {
     return pages.flatMap((p) => p.sections.filter((s) => s.type === type))
@@ -115,7 +123,8 @@ export function createToolSet(ctx: ToolContext): ToolSet {
 
   async function commitFile(path: string, content: string): Promise<FileWriteResult & { warnings?: ValidationIssue[]; message?: string }> {
     if (!WRITABLE_PATH.test(path)) return { ok: false, path, reason: "forbidden_path", issues: [{ severity: "error", code: "path.forbidden", message: `You may write only sections/ai_<slug>.storelib, blocks/ai_<slug>.storelib or snippets/ai_<slug>.storelib. ${path} is read only.`, path }] }
-    if (needsConcept()) return { ok: false, path, reason: "invalid", issues: [{ severity: "error", code: "plan.concept_missing", message: conceptFirst, path }] }
+    const wait = blocked()
+    if (wait) return { ok: false, path, reason: "invalid", issues: [{ severity: "error", code: wait.code, message: wait.message, path }] }
     const attempts = cp.repairs[path] ?? 0
     if (attempts >= job.budget.maxRepairsPerFile) return { ok: false, path, reason: "invalid", issues: [{ severity: "error", code: "repair.exhausted", message: outOfAttempts(path), path }] }
     if (Buffer.byteLength(content, "utf8") > MAX_FILE_BYTES) return { ok: false, path, reason: "too_large", issues: [{ severity: "error", code: "file.too_large", message: `A component file is at most ${MAX_FILE_BYTES / 1024} KB. Split it into a section and blocks.`, path }] }
@@ -213,10 +222,19 @@ export function createToolSet(ctx: ToolContext): ToolSet {
   }
 
   async function placeSections(input: AgentToolInputs["set_page_sections"]): Promise<AgentToolOutputs["set_page_sections"]> {
-    if (needsConcept()) return { ok: false, ids: [], issues: [{ severity: "error", code: "plan.concept_missing", message: conceptFirst }] }
+    const wait = blocked()
+    if (wait) return { ok: false, ids: [], issues: [{ severity: "error", code: wait.code, message: wait.message }] }
     const all = await pageMap()
-    const current = all.get(input.page)
-    if (!current) return { ok: false, ids: [], issues: [{ severity: "error", code: "page.missing", message: `There is no page "${input.page}". Add it with add_page first.` }] }
+    /*
+      A TEMPLATE IS A PAGE THE AGENT DESIGNS (round N, N3): product, collection, the shop, search, cart, 404,
+      contact and the blog's two are placed on by key even before they are stored; the first placement makes
+      the row, with home's header and footer as add_page does. They are not added to the menu: a visitor reaches
+      them through a product, a collection, the cart button, a search.
+    */
+    const homeChrome = (all.get("home") ?? []).filter((s) => CHROME_GROUPS.has(String(s.group ?? "")))
+    const newTemplate = !all.has(input.page) && isTemplateKey(input.page)
+    const current = all.get(input.page) ?? (newTemplate ? [...homeChrome.filter((s) => s.group === "header"), ...homeChrome.filter((s) => s.group === "footer")] : undefined)
+    if (!current) return { ok: false, ids: [], issues: [{ severity: "error", code: "page.missing", message: `There is no page "${input.page}". Add it with add_page first (templates such as product or collection need no add_page).` }] }
     const [src, c, settings] = await Promise.all([sources(), caps(), store.readSettings()])
     const pageKeys = [...all.keys()]
     const menus = Object.keys((settings.menus as Record<string, unknown>) ?? {})
@@ -316,7 +334,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     await savePages(changed, all, chrome.length > 0)
     cp.pagesTouched = addUnique(cp.pagesTouched, input.page)
     if (chrome.length) cp.pagesTouched = addUnique(cp.pagesTouched, "home")
-    ctx.emit({ kind: "page", page: input.page, title: pageTitleFromKey(input.page), action: "updated", sections: body.length })
+    ctx.emit({ kind: "page", page: input.page, title: pageTitleFromKey(input.page), action: newTemplate ? "created" : "updated", sections: body.length })
     const warnings = issues.filter((i) => i.severity === "warning")
     return { ok: true, ids, ...(warnings.length ? { issues: warnings } : {}) }
   }
@@ -331,7 +349,8 @@ export function createToolSet(ctx: ToolContext): ToolSet {
   }
 
   async function updateSection(page: string, sectionId: string, patch: (s: SectionInstance, info: NonNullable<ReturnType<typeof schemaInfo>>, c: RuntimeCapabilities, pageKeys: string[], menus: string[]) => { settings?: Record<string, unknown>; issues: ValidationIssue[] }): Promise<{ ok: boolean; issues?: ValidationIssue[] }> {
-    if (needsConcept()) return { ok: false, issues: [{ severity: "error", code: "plan.concept_missing", message: conceptFirst }] }
+    const wait = blocked()
+    if (wait) return { ok: false, issues: [{ severity: "error", code: wait.code, message: wait.message }] }
     const found = await findSection(page, sectionId)
     if ("error" in found) return { ok: false, issues: [{ severity: "error", code: "page.section_missing", message: found.error ?? "" }] }
     const [src, c, settings] = await Promise.all([sources(), caps(), store.readSettings()])
@@ -347,6 +366,12 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     ctx.emit({ kind: "page", page, title: pageTitleFromKey(page), action: "updated", sections: next.length })
     const warnings = r.issues.filter((i) => i.severity === "warning")
     return { ok: true, ...(warnings.length ? { issues: warnings } : {}) }
+  }
+
+  /** Every problem with a site plan, as issues (code plan.site_invalid). */
+  function siteIssues(pages: unknown, c: RuntimeCapabilities): ValidationIssue[] {
+    const read = readSitePlan(pages, c)
+    return read.ok === true ? [] : read.missing.slice(0, 30).map((m) => ({ severity: "error" as const, code: "plan.site_invalid", message: m.slice(0, 400) }))
   }
 
   /* ── the tools ─────────────────────────────────────────────────────── */
@@ -396,7 +421,8 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     async delete_file({ path }) {
       /* A refusal says why (round M): a bare { ok: false } left the model guessing and retrying. */
       if (!WRITABLE_PATH.test(path)) return { ok: false, reason: `${path} is not one of your files: only sections/ai_*, blocks/ai_* and snippets/ai_* .storelib files can be deleted.` }
-      if (needsConcept()) return { ok: false, reason: conceptFirst }
+      const wait = blocked()
+      if (wait) return { ok: false, reason: wait.message }
       const type = typeOfPath(path)
       const pages = await store.listPages()
       const placed = path.startsWith("sections/") ? pages.filter((p) => p.sections.some((s) => s.type === type)).map((p) => p.key) : []
@@ -410,14 +436,24 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     },
 
     async list_pages() {
-      const [pages, settings] = await Promise.all([store.listPages(), store.readSettings()])
+      const [pages, settings, c] = await Promise.all([store.listPages(), store.readSettings(), caps()])
       const seo = (settings.page_seo ?? {}) as Record<string, { title?: string }>
-      return { pages: pages.map((p) => ({ key: p.key, title: seo[p.key]?.title || pageTitleFromKey(p.key), sections: p.sections.map((s) => ({ id: s.id, type: s.type, ...(s.group ? { group: s.group } : {}) })) })) }
+      /* The templates too, stored or not (round N): each says where a visitor meets it and what its sections can read. */
+      const templates = new Map(templatesFor(c).map((t) => [t.key, t]))
+      const listed = pages.map((p) => {
+        const t = templates.get(p.key)
+        return { key: p.key, title: t?.title ?? (seo[p.key]?.title || pageTitleFromKey(p.key)), sections: p.sections.map((s) => ({ id: s.id, type: s.type, ...(s.group ? { group: s.group } : {}) })), ...(t ? { template: true, stored: true, url: t.url, reads: t.reads } : {}) }
+      })
+      const have = new Set(pages.map((p) => p.key))
+      for (const t of templates.values()) if (!have.has(t.key)) listed.push({ key: t.key, title: t.title, sections: [], template: true, stored: false, url: t.url, reads: t.reads })
+      return { pages: listed }
     },
 
     async add_page({ key, title, seo }) {
-      if (needsConcept()) return { ok: false, key, error: conceptFirst }
+      const wait = blocked()
+      if (wait) return { ok: false, key, error: wait.message }
       const k = String(key ?? "").toLowerCase()
+      if (isTemplateKey(k)) return { ok: false, key: k, error: `"${k}" is a template the site already has (list_pages). Design it with set_page_sections page "${k}"; it needs no add_page.` }
       if (!isPageKey(k) || RESERVED_PAGE_KEYS.has(k)) return { ok: false, key: k, error: `"${k}" cannot be a page: use lowercase letters, digits and dashes, and not a name the platform serves (${[...RESERVED_PAGE_KEYS].slice(0, 8).join(", ")}...).` }
       const all = await pageMap()
       if (all.has(k)) return { ok: false, key: k, error: `The page ${k} already exists.` }
@@ -448,15 +484,32 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       })
     },
 
-    async set_tokens({ tokens }) {
-      if (needsConcept()) return { ok: false, changed: [], issues: [{ severity: "error", code: "plan.concept_missing", message: conceptFirst }] }
+    async set_tokens({ tokens, settings }) {
+      const wait = blocked()
+      if (wait) return { ok: false, changed: [], issues: [{ severity: "error", code: wait.code, message: wait.message }] }
       const current = await store.readSettings()
-      const mapped = (deps.tokensToSettings ?? tokensToThemeSettings)(tokens ?? {}, current)
-      if (Object.keys(mapped.settings).length) await store.writeSettings(mapped.settings)
-      if (mapped.changed.length) ctx.emit({ kind: "tokens", changed: mapped.changed })
+      /* Round N: the overused faces are never the headline font unless the concept allows "default-fonts" (the creator named one). */
+      const fontIssues: ValidationIssue[] = []
+      const allowDefaults = ((cp.concept as { allow?: string[] } | undefined)?.allow ?? []).includes("default-fonts")
+      if (tokens?.fonts?.heading && isSlopDisplayFont(String(tokens.fonts.heading)) && !allowDefaults) {
+        fontIssues.push({ severity: "error", code: "token.default_font", message: `"${String(tokens.fonts.heading).slice(0, 60)}" was not set as the heading font: it is the face every generated site uses. Pick a display face with character from the type library (search_knowledge "type library").` })
+        tokens = { ...tokens, fonts: { ...tokens.fonts, heading: undefined } } as unknown as typeof tokens
+      }
+      const mapped0 = (deps.tokensToSettings ?? tokensToThemeSettings)(tokens ?? {}, current)
+      const mapped = { ...mapped0, issues: [...fontIssues, ...mapped0.issues] }
+      /*
+        The site's own Theme settings (round N, N5, lib/ai-builder/site-settings.ts): declared groups,
+        read against the tokens this call sets, so a setting bound to colors.accent reads the new accent.
+      */
+      const declared = settings === undefined ? null : designSettingsWrite(settings, { ...current, ...mapped.settings })
+      const write = { ...mapped.settings, ...(declared?.settings ?? {}) }
+      const changed = Object.keys(write).filter((k) => JSON.stringify(current[k]) !== JSON.stringify(write[k]))
+      const issues = [...mapped.issues, ...(declared?.issues ?? [])]
+      if (changed.length) await store.writeSettings(write)
+      if (changed.length) ctx.emit({ kind: "tokens", changed })
       /* Nothing set is not ok, whatever the reason (round M): every value refused, or no tokens sent. */
-      if (!mapped.changed.length) return { ok: false, changed: [], issues: mapped.issues.length ? mapped.issues.map((i) => ({ ...i, severity: "error" as const })) : [{ severity: "error", code: "token.none", message: "No token was set: send colors, fonts, radius, spacing or the other DesignTokens fields." }] }
-      return { ok: true, changed: mapped.changed, ...(mapped.issues.length ? { issues: mapped.issues } : {}) }
+      if (!changed.length) return { ok: false, changed: [], issues: issues.length ? issues.map((i) => ({ ...i, severity: "error" as const })) : [{ severity: "error", code: "token.none", message: "No token was set: send colors, fonts, radius, spacing or the other DesignTokens fields, or settings." }] }
+      return { ok: true, changed, ...(issues.length ? { issues } : {}) }
     },
 
     async list_capabilities() {
@@ -505,26 +558,45 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       return { ok: r.ok, issues: r.issues.slice(0, 30), htmlBytes: r.htmlBytes }
     },
 
-    async report_progress({ phase, label, concept, tasks }) {
+    async report_progress({ phase, label, concept, tasks, pages }) {
       if (Array.isArray(tasks)) cp.openTasks = tasks.filter((t) => typeof t === "string").map((t) => t.slice(0, 160)).slice(0, 20)
+      const notes: string[] = []
       if (concept !== undefined) {
         const read = readConcept(concept)
         if (read.ok === true) {
           cp.concept = read.concept
-          ctx.setPhase("build", `Building ${read.concept.name}`)
-          return { ok: true, note: `Concept "${read.concept.name}" accepted. You can write now. Keep to it:\n${describeConcept(read.concept)}` }
+          notes.push(`Concept "${read.concept.name}" accepted. Keep to it:\n${describeConcept(read.concept)}`)
+        } else {
+          /*
+            A refused concept is a refusal, not a success with a footnote (round M): before, this answered
+            ok: true with a note, so the progress events showed a concept the validator threw out as fine
+            and the model could read "ok" and carry on. Now it is ok: false with every reason as an issue.
+          */
+          const missing = "missing" in read ? read.missing : ["the concept could not be read"]
+          const planMissing = pages !== undefined && !job.edit && !job.redesign ? siteIssues(pages, await caps()) : []
+          if (needsConcept()) ctx.setPhase("plan", String(label ?? "").slice(0, 120))
+          return {
+            ok: false,
+            reason: `The visual concept needs another pass. Nothing was accepted${cp.concept ? ` (the concept "${cp.concept.name}" stays)` : " and the write tools stay closed"}. Fix every item below and send the whole concept again with report_progress phase "plan".`,
+            issues: [...missing.slice(0, 20).map((m) => ({ severity: "error" as const, code: "plan.concept_invalid", message: m.slice(0, 400) })), ...planMissing],
+          }
         }
-        /*
-          A refused concept is a refusal, not a success with a footnote (round M): before, this answered
-          ok: true with a note, so the progress events showed a concept the validator threw out as fine
-          and the model could read "ok" and carry on. Now it is ok: false with every reason as an issue.
-        */
-        const missing = "missing" in read ? read.missing : ["the concept could not be read"]
-        if (needsConcept()) ctx.setPhase("plan", String(label ?? "").slice(0, 120))
-        return {
-          ok: false,
-          reason: `The visual concept needs another pass. Nothing was accepted${cp.concept ? ` (the concept "${cp.concept.name}" stays)` : " and the write tools stay closed"}. Fix every item below and send the whole concept again with report_progress phase "plan".`,
-          issues: missing.slice(0, 20).map((m) => ({ severity: "error" as const, code: "plan.concept_invalid", message: m.slice(0, 400) })),
+      }
+      /* Round N (N3): the site plan, every page and template with its sections. A new website's writes wait for it. */
+      if (pages !== undefined && !job.edit && !job.redesign) {
+        const problems = siteIssues(pages, await caps())
+        if (problems.length) {
+          if (needsConcept() || needsPlan()) ctx.setPhase("plan", String(label ?? "").slice(0, 120))
+          return {
+            ok: false,
+            reason: `${notes.length ? `${notes[0].split("\n")[0]} ` : ""}The site plan needs another pass${cp.sitePlan ? " (the earlier plan stays)" : ", and the write tools stay closed"}. Fix every item below and send the whole pages list again with report_progress phase "plan".`,
+            issues: problems,
+          }
+        }
+        const read = readSitePlan(pages, await caps())
+        if (read.ok === true) {
+          cp.sitePlan = read.plan
+          notes.push(`Site plan accepted:\n${describeSitePlan(read.plan)}`)
         }
       }
       if (needsConcept() && phase !== "plan") {
@@ -532,8 +604,21 @@ export function createToolSet(ctx: ToolContext): ToolSet {
         ctx.setPhase("plan", String(label ?? "").slice(0, 120))
         return { ok: false, reason: conceptFirst, issues: [{ severity: "error", code: "plan.concept_missing", message: conceptFirst }] }
       }
-      ctx.setPhase(needsConcept() ? "plan" : phase === "finish" || phase === "verify" ? cp.phase : phase, String(label ?? "").slice(0, 120))
-      return { ok: true, ...(needsConcept() ? { note: "Noted. The write tools open once the visual concept is accepted: report_progress phase \"plan\" with a concept." } : {}) }
+      if (!needsConcept() && needsPlan() && phase !== "plan") {
+        ctx.setPhase("plan", String(label ?? "").slice(0, 120))
+        return { ok: false, reason: planFirst, issues: [{ severity: "error", code: "plan.site_missing", message: planFirst }] }
+      }
+      const open = !needsConcept() && !needsPlan()
+      if (open && notes.length) {
+        ctx.setPhase("build", `Building ${cp.concept?.name ?? "the site"}`)
+        return { ok: true, note: `${notes.join("\n\n")}\n\nYou can write now.` }
+      }
+      if (notes.length) {
+        ctx.setPhase("plan", String(label ?? "").slice(0, 120))
+        return { ok: true, note: `${notes.join("\n\n")}\n\nThe write tools open once ${needsConcept() ? "the visual concept" : "the site plan"} is in: report_progress phase "plan" with ${needsConcept() ? "a concept" : "pages (every page and template with its sections; list_pages shows the templates)"}.` }
+      }
+      ctx.setPhase(needsConcept() || needsPlan() ? "plan" : phase === "finish" || phase === "verify" ? cp.phase : phase, String(label ?? "").slice(0, 120))
+      return { ok: true, ...(needsConcept() ? { note: "Noted. The write tools open once the visual concept is accepted: report_progress phase \"plan\" with a concept." } : needsPlan() ? { note: `Noted. ${planFirst.replace(" Nothing was changed.", "")}` } : {}) }
     },
 
     finish: (input) => ctx.onFinish(input),

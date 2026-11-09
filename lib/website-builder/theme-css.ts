@@ -28,6 +28,7 @@ import { buttonSelector, themeTypography, typographyStylesheet, typographyVars }
 import { cleanCustomCss } from "@/lib/storelib-theme/custom-css"
 import type { ThemeSettingsValues } from "./types"
 import { tokenVars } from "@/lib/ai-builder/tokens"
+import { designVars } from "@/lib/ai-builder/site-settings"
 
 /** A setting that arrived as `"1280"`, or as nothing at all. */
 function num(value: unknown, fallback: number): number {
@@ -154,6 +155,9 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
 
     // ── The shared `--t-*` scale (radius, shadow, gutter, page width, section rhythm) read from Theme settings, on a site whose tokens were set (round L, L5, lib/ai-builder/tokens.ts). After the custom ones: a custom token cannot take a scale name. ──
     ...tokenVars(t),
+
+    // ── The site's own labelled settings that stand for a token (round N, N5, lib/ai-builder/site-settings.ts): `--t-<id>` mirrors it. ──
+    ...designVars(t),
   }
 }
 

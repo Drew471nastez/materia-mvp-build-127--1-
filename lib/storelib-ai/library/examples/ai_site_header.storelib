@@ -1,0 +1,178 @@
+{# example
+title: Site header with mega menu, own search and own cart drawer
+summary: A free site's own header: logo from Theme settings, the Main menu with sub links as popover mega panels on wide screens, a full screen mobile menu popover, its own search window and its own cart drawer through the page's hooks (no built-in drawer), language and currency switches; Escape, light dismiss and keyboard come from the popover API.
+tags: header, navigation, mega menu, mobile menu, hamburger, cart drawer, search panel, popover, locale, currency, language, own chrome, site header
+#}
+<template>
+<header class="sh" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }};">
+  <div class="sh__bar">
+    <a class="sh__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="{{ settings.logo_width }}" height="40">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
+
+    <nav class="sh__nav" aria-label="{{ settings.nav_label }}">
+      <ul class="sh__links">
+        {% for link in settings.menu.links %}
+          <li class="sh__li">
+            {% if link.links.size > 0 %}
+              <button class="sh__top" type="button" popovertarget="mm-{{ section.id }}-{{ forloop.index }}">{{ link.title }}</button>
+              <div class="sh__mega" id="mm-{{ section.id }}-{{ forloop.index }}" popover>
+                <a class="sh__mega-all" href="{{ link.url }}">{{ link.title }}</a>
+                <ul class="sh__mega-list">
+                  {% for child in link.links %}<li><a class="sh__mega-link" href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}
+                </ul>
+              </div>
+            {% else %}
+              <a class="sh__top" href="{{ link.url }}">{{ link.title }}</a>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </nav>
+
+    <div class="sh__tools">
+      <a class="sh__tool" href="{{ routes.search_url }}" data-storelib-search>{{ settings.search_label }}</a>
+      <a class="sh__tool" href="{{ routes.cart_url }}" data-storelib-cart>{{ settings.cart_label }} <span class="sh__count" data-storelib-cart-count></span></a>
+      <button class="sh__tool sh__burger" type="button" popovertarget="mob-{{ section.id }}">{{ settings.menu_label }}</button>
+    </div>
+  </div>
+
+  <div class="sh__mobile" id="mob-{{ section.id }}" popover>
+    <button class="sh__close" type="button" popovertarget="mob-{{ section.id }}" popovertargetaction="hide">{{ settings.close_label }}</button>
+    <nav aria-label="{{ settings.nav_label }}">
+      <ul class="sh__mlist">
+        {% for link in settings.menu.links %}
+          <li>
+            <a class="sh__mlink" href="{{ link.url }}">{{ link.title }}</a>
+            {% if link.links.size > 0 %}<ul class="sh__msub">{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </nav>
+    <div class="sh__prefs">
+      <div class="sh__pref" data-storelib-locale-list><span class="sh__pref-label">{{ settings.language_label }}</span><button class="sh__opt" type="button" data-storelib-locale-option hidden><span data-option-label></span></button></div>
+      <div class="sh__pref" data-storelib-currency-list><span class="sh__pref-label">{{ settings.currency_label }}</span><button class="sh__opt" type="button" data-storelib-currency-option hidden><span data-option-label></span></button></div>
+    </div>
+  </div>
+
+  <div class="sh__search" data-storelib-search-panel role="dialog" aria-label="{{ settings.search_label }}">
+    <div class="sh__search-in">
+      <input class="sh__input" type="search" data-storelib-search-input placeholder="{{ settings.search_placeholder }}" aria-label="{{ settings.search_label }}">
+      <button class="sh__close" type="button" data-storelib-search-close>{{ settings.close_label }}</button>
+      <p class="sh__state" data-storelib-search-loading hidden>{{ settings.loading_text }}</p>
+      <p class="sh__state" data-storelib-search-empty hidden>{{ settings.no_results_text }}</p>
+      <ul class="sh__results" data-storelib-search-results>
+        <li class="sh__result" data-storelib-search-result hidden><a class="sh__result-link" data-result-url><img data-result-image alt="" width="56" height="70"><span data-result-title></span><span class="sh__result-price" data-result-price></span></a></li>
+      </ul>
+    </div>
+  </div>
+
+  <aside class="sh__cart" data-storelib-cart-panel aria-label="{{ settings.cart_label }}">
+    <div class="sh__cart-head"><p class="sh__cart-title">{{ settings.cart_label }}</p><button class="sh__close" type="button" data-storelib-cart-close>{{ settings.close_label }}</button></div>
+    <p class="sh__state" data-storelib-cart-empty>{{ settings.empty_text }}</p>
+    <ul class="sh__lines" data-storelib-cart-lines>
+      <li class="sh__line" data-storelib-cart-line hidden>
+        <img data-line-image alt="" width="64" height="80">
+        <div class="sh__line-main"><a data-line-url><span data-line-title></span></a><span class="sh__line-var" data-line-variant></span>
+          <div class="sh__qty"><button type="button" data-line-dec aria-label="{{ settings.less_label }}">-</button><span data-line-qty></span><button type="button" data-line-inc aria-label="{{ settings.more_label }}">+</button><button class="sh__remove" type="button" data-line-remove>{{ settings.remove_label }}</button></div>
+        </div>
+        <span data-line-price></span>
+      </li>
+    </ul>
+    <div class="sh__cart-foot" data-storelib-cart-filled>
+      <p class="sh__sub"><span>{{ settings.subtotal_label }}</span><span data-storelib-cart-subtotal></span></p>
+      <button class="sh__checkout" type="button" data-storelib-checkout>{{ settings.checkout_label }}</button>
+    </div>
+  </aside>
+</header>
+</template>
+
+<style scoped>
+.sh { position: relative; z-index: 20; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
+.sh__bar { display: flex; align-items: center; gap: 16px; min-height: 64px; padding: 0 var(--theme-padding-x, 16px); }
+.sh__logo { margin-right: auto; font-family: var(--theme-font-heading), serif; font-size: 1.375rem; letter-spacing: -0.02em; color: var(--s-heading); text-decoration: none; }
+.sh__logo img { display: block; height: auto; max-height: 40px; width: auto; }
+.sh__nav { display: none; }
+.sh__links { display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.sh__top { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.9375rem; text-decoration: none; cursor: pointer; }
+.sh__top:hover, .sh__top:focus-visible { color: var(--s-accent); }
+.sh__mega { position: fixed; inset: 64px 0 auto; margin: 0; width: 100%; max-width: none; padding: 32px var(--theme-padding-x, 16px) 40px; border: 0; border-bottom: 1px solid var(--s-border); background: var(--s-bg); color: var(--s-text); }
+.sh__mega-all { display: inline-block; margin-bottom: 20px; font-family: var(--theme-font-heading), serif; font-size: clamp(1.5rem, 1rem + 2vw, 2.5rem); letter-spacing: -0.02em; color: var(--s-heading); }
+.sh__mega-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 8px 24px; margin: 0; padding: 0; list-style: none; }
+.sh__mega-link { display: block; padding: 8px 0; color: inherit; text-decoration: none; }
+.sh__tools { display: flex; align-items: center; gap: 4px; }
+.sh__tool { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.875rem; letter-spacing: 0.04em; text-transform: uppercase; text-decoration: none; cursor: pointer; }
+.sh__count[data-count="0"] { display: none; }
+.sh__count { min-width: 1.5em; padding: 0 4px; background: var(--s-accent); color: var(--s-bg); text-align: center; font-variant-numeric: tabular-nums; }
+.sh__mobile { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 20px var(--theme-padding-x, 16px); border: 0; background: var(--s-bg); color: var(--s-text); overflow-y: auto; }
+.sh__close { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; cursor: pointer; }
+.sh__mlist { margin: 32px 0; padding: 0; list-style: none; }
+.sh__mlink { display: block; padding: 10px 0; font-family: var(--theme-font-heading), serif; font-size: clamp(2rem, 1.4rem + 4vw, 3.5rem); line-height: 1; letter-spacing: -0.03em; color: var(--s-heading); text-decoration: none; }
+.sh__msub { margin: 0 0 12px; padding: 0; list-style: none; }
+.sh__msub a { display: block; padding: 8px 0; color: inherit; }
+.sh__prefs { display: grid; gap: 12px; padding-top: 20px; border-top: 1px solid var(--s-border); }
+.sh__pref { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sh__pref-label { font-size: 0.8125rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.sh__opt { min-height: 44px; padding: 0 12px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; cursor: pointer; }
+.sh__opt[aria-current="true"] { border-color: currentColor; }
+.sh__search, .sh__cart { position: fixed; z-index: 30; background: var(--s-bg); color: var(--s-text); visibility: hidden; opacity: 0; transition: opacity 200ms ease, transform 280ms cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 280ms; }
+.sh__search { inset: 0 0 auto; padding: 16px var(--theme-padding-x, 16px) 32px; border-bottom: 1px solid var(--s-border); transform: translateY(-16px); max-height: 100svh; overflow-y: auto; }
+.sh__search-in { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; max-width: 960px; margin: 0 auto; }
+.sh__input { min-height: 52px; padding: 0 4px; border: 0; border-bottom: 2px solid currentColor; background: none; color: inherit; font: inherit; font-size: clamp(1.25rem, 1rem + 1.2vw, 2rem); }
+.sh__state { grid-column: 1 / -1; margin: 0; }
+.sh__results { grid-column: 1 / -1; margin: 0; padding: 0; list-style: none; }
+.sh__result-link { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; color: inherit; text-decoration: none; border-bottom: 1px solid var(--s-border); }
+.sh__result-link img { width: 56px; height: 70px; object-fit: cover; }
+.sh__cart { inset: 0 0 0 auto; display: flex; flex-direction: column; width: min(420px, 100%); padding: 16px 20px; border-left: 1px solid var(--s-border); transform: translateX(100%); }
+.sh__cart-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.sh__cart-title { margin: 0; font-family: var(--theme-font-heading), serif; font-size: 1.5rem; color: var(--s-heading); }
+.sh__lines { flex: 1; margin: 0; padding: 0; list-style: none; overflow-y: auto; }
+.sh__line { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--s-border); }
+.sh__line img { width: 64px; height: 80px; object-fit: cover; }
+.sh__line-main a { color: inherit; }
+.sh__line-var { display: block; font-size: 0.875rem; }
+.sh__qty { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.sh__qty button { min-width: 44px; min-height: 44px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; cursor: pointer; }
+.sh__qty .sh__remove { min-width: 0; padding: 0 10px; border: 0; text-decoration: underline; }
+.sh__cart-foot { padding-top: 16px; }
+.sh__sub { display: flex; justify-content: space-between; margin: 0 0 12px; font-variant-numeric: tabular-nums; }
+.sh__checkout { width: 100%; min-height: 52px; border: 0; background: var(--s-btn); color: var(--s-btn-text); font: inherit; letter-spacing: 0.04em; cursor: pointer; }
+/* The page sets data-open on its own panels (search and cart) and toggles them with Escape and the close buttons. */
+.sh__search[data-open="true"], .sh__cart[data-open="true"] { visibility: visible; opacity: 1; transform: none; transition-delay: 0s; }
+.sh :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@media (min-width: 900px) {
+  .sh__nav { display: block; }
+  .sh__burger { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .sh__search, .sh__cart { transition: none; } }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_site_header",
+  "name": "Site header",
+  "kind": "header",
+  "enabled_on": { "groups": ["header"] },
+  "settings": [
+    { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" },
+    { "type": "text", "id": "brand", "label": "Name when there is no logo or shop name", "default": "Home" },
+    { "type": "range", "id": "logo_width", "label": "Logo width", "min": 60, "max": 240, "step": 4, "unit": "px", "default": 120 },
+    { "type": "text", "id": "nav_label", "label": "Menu name (read aloud)", "default": "Main" },
+    { "type": "text", "id": "menu_label", "label": "Menu button", "default": "Menu" },
+    { "type": "text", "id": "close_label", "label": "Close button", "default": "Close" },
+    { "type": "text", "id": "search_label", "label": "Search", "default": "Search" },
+    { "type": "text", "id": "search_placeholder", "label": "Search hint", "default": "Search the shop" },
+    { "type": "text", "id": "loading_text", "label": "While searching", "default": "Looking..." },
+    { "type": "text", "id": "no_results_text", "label": "No results", "default": "Nothing matches that yet." },
+    { "type": "text", "id": "cart_label", "label": "Cart", "default": "Bag" },
+    { "type": "text", "id": "empty_text", "label": "Empty cart", "default": "Your bag is empty." },
+    { "type": "text", "id": "subtotal_label", "label": "Subtotal", "default": "Subtotal" },
+    { "type": "text", "id": "checkout_label", "label": "Checkout button", "default": "Check out" },
+    { "type": "text", "id": "remove_label", "label": "Remove", "default": "Remove" },
+    { "type": "text", "id": "less_label", "label": "One less (read aloud)", "default": "One less" },
+    { "type": "text", "id": "more_label", "label": "One more (read aloud)", "default": "One more" },
+    { "type": "text", "id": "language_label", "label": "Language", "default": "Language" },
+    { "type": "text", "id": "currency_label", "label": "Currency", "default": "Currency" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ]
+}
+</schema>

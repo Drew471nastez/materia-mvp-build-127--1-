@@ -10,6 +10,7 @@ import type { ToolSpec } from "@/lib/sites/agent/types"
 import { AGENT_TOOL_NAMES, type AgentToolName } from "../types"
 import { CONCEPT_SCHEMA } from "./concept"
 import { SEARCH_KNOWLEDGE_TOOL } from "./knowledge"
+import { DESIGN_BINDINGS, DESIGN_CONTROLS } from "../site-settings"
 
 const PHASES = ["brief", "plan", "build", "verify", "repair", "finish"]
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required, additionalProperties: false })
@@ -26,6 +27,20 @@ const PLACED_SECTION = obj(
   },
   ["type"],
 )
+
+/* Round N (N3): the site plan, every page and template with its sections (lib/ai-builder/agent/site-plan.ts readSitePlan). */
+const SITE_PLAN = {
+  type: "array",
+  description: "The site plan: every page and every template (home, product, collection, products, search, cart, 404, contact, the blog's blogs and article when there is a blog, and each page you will add), each with its sections in order. Required with the concept before a new website's first write.",
+  items: obj(
+    {
+      key: str("Page key or template key, e.g. home, product, collection, about."),
+      sections: { type: "array", items: { type: "string" }, description: "One short line per section, in order: the component and its job." },
+      reason: str("Why this page has fewer sections than the rule, or why a template keeps the platform's plain layout."),
+    },
+    ["key", "sections"],
+  ),
+}
 
 const MANIFEST = {
   type: "object",
@@ -51,13 +66,16 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
   write_file: { name: "write_file", description: "Write a whole component file (.storelib: <template>, <style scoped>, optional <script>, <schema>). It is compiled and checked first; a file with errors is NOT saved and the errors come back with line numbers. Saved as a draft.", parameters: obj({ path: str("sections/ai_<slug>.storelib or blocks/ai_<slug>.storelib"), content: str("The whole file."), manifest: MANIFEST }, ["path", "content"]) },
   edit_file: { name: "edit_file", description: "Replace one exact piece of a file you have read. `old` must occur exactly once. Checked like write_file. Prefer this for small changes.", parameters: obj({ path: { type: "string" }, old: { type: "string" }, new: { type: "string" } }, ["path", "old", "new"]) },
   delete_file: { name: "delete_file", description: "Delete one of your ai_ component files. Remove it from every page first.", parameters: obj({ path: { type: "string" } }, ["path"]) },
-  list_pages: { name: "list_pages", description: "The website's pages and the sections on each (id, type, group).", parameters: obj({}) },
+  list_pages: { name: "list_pages", description: "The website's pages and templates and the sections on each (id, type, group). Templates (product, collection, products, search, cart, 404, contact, blog) are listed even before they hold anything, with where a visitor meets them and what their sections can read.", parameters: obj({}) },
   add_page: { name: "add_page", description: "Add a page. Its address is /<key>; it is added to the site's Main menu (the header's links) and gets its own search title and description.", parameters: obj({ key: str("lowercase letters, digits and dashes, e.g. coaching"), title: str("What the menu and the tab call it."), seo: obj({ title: { type: "string" }, description: { type: "string" } }) }, ["key", "title"]) },
-  set_page_sections: { name: "set_page_sections", description: "Set a page's sections, in order. Sections you leave out are removed from that page; header/footer sections (with `group`) are site-wide and only change when you send one.", parameters: obj({ page: str("Page key, e.g. home"), sections: { type: "array", items: PLACED_SECTION } }, ["page", "sections"]) },
+  set_page_sections: { name: "set_page_sections", description: "Set a page's or a template's sections, in order. Sections you leave out are removed from that page; header/footer sections (with `group`) are site-wide and only change when you send one. A template (product, collection, products, search, cart, 404, contact, blogs, article) needs no add_page.", parameters: obj({ page: str("Page or template key, e.g. home, about, product, collection"), sections: { type: "array", items: PLACED_SECTION } }, ["page", "sections"]) },
   set_section_settings: { name: "set_section_settings", description: "Change some settings of one placed section; the others keep their values.", parameters: obj({ page: { type: "string" }, sectionId: { type: "string" }, settings: { type: "object" } }, ["page", "sectionId", "settings"]) },
   set_tokens: {
     name: "set_tokens",
-    description: "Set the website's design tokens. They become Theme settings the creator can change: colours become the `site` and `site_inverse` colour schemes; fonts, corner radius, spacing and motion their Theme settings; `custom` becomes CSS variables --t-<name>.",
+    description:
+      "Set the website's design tokens and declare its own Theme settings. Tokens become Theme settings the creator can change: colours become the `site` and `site_inverse` colour schemes; fonts, type scale, corner radius, shadow, spacing and motion their Theme settings; `custom` becomes CSS variables --t-<name>. " +
+      "`settings` is what the creator sees in Theme settings for this site, INSTEAD of the default theme's groups: your design system, grouped and labelled as its designer would (e.g. Palette, Type, Shape, Motion, Texture). Each setting comes out as var(--t-<id>) for your components. " +
+      "A setting with `token` stands for that token (its control and limits come from it; fonts must use a token). One without `token` is the site's own value: give `type` (color, range, select, toggle) and a starting `value`. Sending settings replaces the declared list.",
     parameters: obj(
       {
         tokens: obj({
@@ -66,8 +84,42 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
           radius: obj({ small: { type: "number" }, medium: { type: "number" }, large: { type: "number" } }),
           spacing: obj({ scale: { type: "number" }, sectionY: { type: "number" }, pageWidth: { type: "number" }, gutter: { type: "number" } }),
           motion: obj({ level: { type: "string", enum: ["none", "subtle", "expressive"] }, style: { type: "string" }, durationMs: { type: "number" } }),
+          typeScale: obj({ base: { type: "number", description: "Body size in px, 12 to 22." }, ratio: { type: "number", description: "Each heading step, 1.05 to 1.6." } }),
+          shadow: { type: "string", enum: ["none", "sm", "md", "lg"] },
           custom: { type: "object", description: "name (no --t-) to CSS value. No url()." },
         }),
+        settings: {
+          type: "array",
+          description: "The site's own Theme settings, in groups.",
+          items: obj(
+            {
+              id: str("Group id, e.g. palette."),
+              label: str("What the creator reads, e.g. Palette."),
+              settings: {
+                type: "array",
+                items: obj(
+                  {
+                    id: str("Lowercase, dashes; read as var(--t-<id>)."),
+                    label: str("Short and plain, e.g. Clay."),
+                    type: { type: "string", enum: [...DESIGN_CONTROLS] },
+                    token: { type: "string", enum: Object.keys(DESIGN_BINDINGS), description: "The token this setting stands for, if any." },
+                    value: { description: "Starting value of a setting of the site's own: a colour, a number, an option's value, or true/false." },
+                    min: { type: "number" },
+                    max: { type: "number" },
+                    step: { type: "number" },
+                    unit: { type: "string", description: "px, rem, em, %, ms, s, vw, vh, deg or empty." },
+                    options: { type: "array", items: obj({ value: { type: "string" }, label: { type: "string" } }, ["value", "label"]) },
+                    on: str("A toggle's CSS value when on, default 1."),
+                    off: str("A toggle's CSS value when off, default 0."),
+                    info: str("One short line of help, optional."),
+                  },
+                  ["id", "label"],
+                ),
+              },
+            },
+            ["label", "settings"],
+          ),
+        },
       },
       ["tokens"],
     ),
@@ -78,7 +130,7 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
   search_knowledge: SEARCH_KNOWLEDGE_TOOL as ToolSpec<AgentToolName>,
   validate: { name: "validate", description: "Check one file, or (no path) every file you touched and every page: compile, manifest, remote imports, bindings, links.", parameters: obj({ path: { type: "string" } }) },
   render_check: { name: "render_check", description: "Draw a page with the template engine and read it: empty sections, leftover template code, pictures without alt, heading order, broken internal links, and runtime errors the editor reported.", parameters: obj({ page: { type: "string" } }, ["page"]) },
-  report_progress: { name: "report_progress", description: "Say what you are doing, for the progress view. With phase \"plan\", hand in the visual concept (required before the first write on a new website) and the plan as tasks.", parameters: obj({ phase: { type: "string", enum: PHASES }, label: { type: "string" }, concept: CONCEPT_SCHEMA, tasks: { type: "array", items: { type: "string" } } }, ["phase", "label"]) },
+  report_progress: { name: "report_progress", description: "Say what you are doing, for the progress view. With phase \"plan\", hand in the visual concept and the site plan as pages (both required before the first write on a new website) and the work as tasks.", parameters: obj({ phase: { type: "string", enum: PHASES }, label: { type: "string" }, concept: CONCEPT_SCHEMA, tasks: { type: "array", items: { type: "string" } }, pages: SITE_PLAN }, ["phase", "label"]) },
   finish: { name: "finish", description: "Say the website is done. Everything is validated first: with errors, finish is refused and you get the list to fix.", parameters: obj({ summary: str("Two or three plain sentences for the creator: what was made, what to fill in."), notes: { type: "array", items: { type: "string" } } }, ["summary"]) },
 }
 

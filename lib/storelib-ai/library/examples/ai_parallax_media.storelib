@@ -1,0 +1,44 @@
+{# example
+title: Parallax image band
+summary: A full bleed photo that drifts slower than the page as it passes, with a CSS view timeline on a transform only; a still photo without support or with reduced motion, and the caption is always plain text.
+tags: parallax, full bleed, image band, scroll, depth, photo, view-timeline
+#}
+<template>
+<section class="px" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --px-h: {{ settings.height }}svh; --px-shift: {{ settings.strength }}%;">
+  <div class="px__frame">
+    {% if settings.image %}<img class="px__img" src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="2400" height="1600" loading="lazy">{% elsif page.in_editor %}<p class="px__ph">Pick a wide photo in the sidebar</p>{% endif %}
+  </div>
+  {% if settings.caption %}<p class="px__cap">{{ settings.caption }}</p>{% endif %}
+</section>
+</template>
+
+<style scoped>
+.px { background: var(--s-bg); color: var(--s-text); }
+.px__frame { position: relative; height: var(--px-h, 70svh); min-height: 280px; overflow: hidden; }
+.px__img { position: absolute; inset: -12% 0; width: 100%; height: 124%; object-fit: cover; }
+.px__ph { display: grid; place-items: center; height: 100%; margin: 0; opacity: 0.7; }
+.px__cap { margin: 0; padding: 12px var(--theme-padding-x, 16px); font-size: 0.875rem; letter-spacing: 0.04em; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .px__img { animation: px-drift linear both; animation-timeline: view(); animation-range: cover; }
+    @keyframes px-drift { from { transform: translateY(calc(var(--px-shift, 10%) * -1)); } to { transform: translateY(var(--px-shift, 10%)); } }
+  }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_parallax_media",
+  "name": "Photo band",
+  "category": "image",
+  "settings": [
+    { "type": "image_picker", "id": "image", "label": "Photo" },
+    { "type": "text", "id": "image_alt", "label": "Photo description", "default": "" },
+    { "type": "text", "id": "caption", "label": "Caption", "default": "The yard at first light" },
+    { "type": "range", "id": "height", "label": "Height", "min": 40, "max": 100, "step": 5, "unit": "%", "default": 70 },
+    { "type": "range", "id": "strength", "label": "Drift", "min": 0, "max": 12, "step": 1, "unit": "%", "default": 8 },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ]
+}
+</schema>

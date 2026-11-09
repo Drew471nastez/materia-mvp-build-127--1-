@@ -1,0 +1,72 @@
+{# example
+title: Index with hover image reveal
+summary: A large text index of projects, artists or collections where the row you point at or focus shows its image, with :hover and :focus-within only; on phones each row shows a small thumbnail instead.
+tags: hover reveal, image reveal, index, project list, list, portfolio, artists, collections, :has
+#}
+<template>
+<section class="ix" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
+  <h2 class="ix__h">{{ settings.heading }}</h2>
+  <ul class="ix__list">
+    {% for block in section.blocks %}
+      <li class="ix__row" data-block-id="{{ block.id }}">
+        <a class="ix__link" href="{{ block.settings.url | url }}">
+          <span class="ix__name">{{ block.settings.name }}</span>
+          {% if block.settings.meta %}<span class="ix__meta">{{ block.settings.meta }}</span>{% endif %}
+          {% if block.settings.image %}<img class="ix__img" src="{{ block.settings.image | asset }}" alt="" width="640" height="800" loading="lazy">{% endif %}
+        </a>
+      </li>
+    {% else %}
+      {% if page.in_editor %}<li class="ix__empty">Add rows in the sidebar</li>{% endif %}
+    {% endfor %}
+  </ul>
+</section>
+</template>
+
+<style scoped>
+.ix { container-type: inline-size; padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 16px) calc(var(--s-pb) * var(--theme-spacing-scale, 1)); background: var(--s-bg); color: var(--s-text); }
+.ix__h { margin: 0 0 24px; font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--s-accent); }
+.ix__list { position: relative; list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--s-border); }
+.ix__row { border-bottom: 1px solid var(--s-border); }
+.ix__link { display: grid; grid-template-columns: minmax(0, 1fr) 64px; align-items: center; gap: 4px 16px; padding: 18px 0; color: inherit; text-decoration: none; }
+.ix__name { font-family: var(--theme-font-heading), serif; font-size: clamp(1.75rem, 1rem + 4vw, 5rem); line-height: 1; letter-spacing: -0.03em; font-weight: 500; color: var(--s-heading); transition: color 160ms ease, transform 200ms ease; }
+.ix__meta { grid-row: 2; font-size: 0.875rem; letter-spacing: 0.06em; }
+.ix__img { grid-row: 1 / span 2; grid-column: 2; width: 64px; height: 80px; object-fit: cover; }
+.ix__link:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 4px; }
+.ix__empty { padding: 24px 0; opacity: 0.7; }
+/* On a pointer that hovers, the picture leaves the row and floats beside the list. */
+@media (hover: hover) and (pointer: fine) {
+  @container (min-width: 820px) {
+    .ix__link { grid-template-columns: minmax(0, 1fr) auto; }
+    .ix__meta { grid-row: auto; }
+    .ix__img { position: absolute; right: 0; top: 50%; width: min(32%, 360px); height: auto; aspect-ratio: 4 / 5; opacity: 0; transform: translateY(-50%) scale(0.96); pointer-events: none; transition: opacity 200ms ease, transform 260ms ease; }
+    .ix__row:hover .ix__img, .ix__row:focus-within .ix__img { opacity: 1; transform: translateY(-50%) scale(1); }
+    .ix__list:has(.ix__row:hover) .ix__name { color: color-mix(in srgb, var(--s-heading) 35%, transparent); }
+    .ix__list .ix__row:hover .ix__name, .ix__row:focus-within .ix__name { color: var(--s-heading); transform: translateX(12px); }
+  }
+}
+@media (prefers-reduced-motion: reduce) { .ix__img, .ix__name { transition: none; } }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_hover_reveal_list",
+  "name": "Index with pictures",
+  "category": "text",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Selected work" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 96 }
+  ],
+  "blocks": [
+    { "type": "row", "name": "Row", "settings": [
+      { "type": "text", "id": "name", "label": "Name", "default": "Harbour House" },
+      { "type": "text", "id": "meta", "label": "Details", "default": "Residential, 2025" },
+      { "type": "url", "id": "url", "label": "Link", "default": "/about" },
+      { "type": "image_picker", "id": "image", "label": "Picture" }
+    ] }
+  ],
+  "presets": [{ "name": "Index with pictures", "blocks": [{ "type": "row", "settings": { "name": "Harbour House", "meta": "Residential, 2025" } }, { "type": "row", "settings": { "name": "Mill Lane Studio", "meta": "Workplace, 2024" } }, { "type": "row", "settings": { "name": "The Granary", "meta": "Conversion, 2023" } }] }]
+}
+</schema>

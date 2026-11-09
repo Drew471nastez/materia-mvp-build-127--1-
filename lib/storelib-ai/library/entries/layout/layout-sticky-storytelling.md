@@ -9,7 +9,7 @@ components: [process, steps]
 phases: [build]
 priority: 3
 related: [motion-sticky, layout-split, process]
-version: 1
+version: 2
 ---
 **Pattern**: a tall section; one side holds a sticky media panel, the other side has steps that scroll normally. As each step enters, the media changes.
 
@@ -22,7 +22,7 @@ version: 1
 }
 ```
 
-**Switching media**: an IntersectionObserver on each step sets `data-active` on the media panel; crossfade images with opacity (200 to 400ms). Without JS, show the first image; the steps still read.
+**Switching media**: in a Storelib section there is no IntersectionObserver (the script runs in a sandbox on a copy of the markup). Put each step's image inside its step and make the media column sticky per step, or crossfade images with a view timeline on each step (`animation-timeline: view()`); without support, every image simply shows beside its step.
 
 **Phones**: drop the sticky panel. Put each step's image directly above its text. Sticky panels on small screens cover the content.
 

@@ -43,6 +43,8 @@ import { SOCIAL_PLATFORMS } from "@/lib/website-builder/social-links"
 import { isChromeType, withTabSwitchKey } from "@/lib/website-builder/section-anchors"
 import { FontPreviewPicker } from "@/components/website-builder/editor/font-preview-picker"
 import { DesignTokensPanel, showsDesignTokens } from "@/components/website-builder/editor/design-tokens-panel"
+import { SiteSettingsGroupPanel } from "@/components/website-builder/editor/site-settings-panel"
+import { FREE_SITE_HIDDEN_FIELDS, builtInSectionGroups, freeSitePlatformGroups, isFreeSite, readDesignSettings, type DesignGroup } from "@/lib/ai-builder/site-settings"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { BlockTreeLevel, TreeAddBlock, TreeInsertBlock } from "@/components/website-builder/editor/block-tree-rows"
 import { BlockPickerHandle, BlockPickerProvider, type BlockPickerRequest } from "@/components/website-builder/editor/block-picker"
@@ -172,6 +174,9 @@ import { useSiteGeneration, type GenerationSource } from "@/lib/website-builder/
 import { opIsNew } from "@/lib/website-builder/ai-site/replay"
 import { GenerationPanel, generationPhase } from "@/components/website-builder/ai-generation/generation-panel"
 import { AgentProgressPanel } from "@/components/website-builder/ai-generation/agent-progress-panel"
+import { BuildingCanvas } from "@/components/website-builder/ai-generation/building-canvas"
+import { arrivedIds, currentStep, followPage, liveRefreshDelay, showBuilding } from "@/lib/website-builder/ai-site/live-build"
+import type { AgentEvent } from "@/lib/ai-builder/types"
 import { EditedBuiltInNote, isEditedBuiltIn } from "@/components/website-builder/editor/edited-built-in-note"
 import { SignupDestinationNote } from "@/components/website-builder/editor/signup-destination-note"
 import { DEFAULT_THEME_SOURCES } from "../../../../../themes/default/sources.generated"
@@ -718,15 +723,21 @@ const THEME_GROUP_ICONS: Record<string, typeof Image> = {
  * of THEME_SETTINGS_GROUPS: it holds no fields of its own, it writes the
  * other groups' settings, and only an AI website shows it.
  */
+/** A group of the site's own settings, marked by what it holds: colours, type, or anything else. */
+function siteGroupIcon(group: DesignGroup): typeof Image {
+  const types = new Set(group.settings.map((s) => s.type))
+  return types.size === 1 && types.has("color") ? Palette : types.has("font") ? Type : SlidersHorizontal
+}
+
 const DESIGN_TOKENS_GROUP = { id: "design_tokens", label: "Design tokens", icon: "layers", fields: [] } as unknown as (typeof THEME_SETTINGS_GROUPS)[number]
 
 /**
  * One group in General Settings: its mark, its name, and a chevron that
  * says it opens. Pressing it opens the group as its own panel.
  */
-function ThemeGroupRow({ group, onOpen }: { group: (typeof THEME_SETTINGS_GROUPS)[number]; onOpen: () => void }) {
+function ThemeGroupRow({ group, onOpen, icon }: { group: Pick<(typeof THEME_SETTINGS_GROUPS)[number], "id" | "label">; onOpen: () => void; icon?: typeof Image }) {
   /* A group the theme's own config/settings_schema.json added has the sliders mark. */
-  const Icon = THEME_GROUP_ICONS[group.id] ?? SlidersHorizontal
+  const Icon = icon ?? THEME_GROUP_ICONS[group.id] ?? SlidersHorizontal
   return (
     <button
       type="button"
@@ -2858,6 +2869,28 @@ function warmPanels(): () => void {
   return () => window.clearTimeout(t)
 }
 
+/** Round N: where the build's progress card sits. A phone: the width of the screen under the editor's bar. A computer: the canvas's top right corner, clear of its scrollbar. */
+const GENERATION_DOCK = "pointer-events-none fixed inset-x-3 top-[calc(env(safe-area-inset-top)+64px)] z-[70] flex justify-end md:left-auto md:right-5 md:w-[360px]"
+
+/** Round N: what a classic build is on, as the building canvas says it. */
+function classicStepWords(step: string): string {
+  switch (step) {
+    case "plan":
+    case "build":
+      return tt("Planning the design")
+    case "code":
+      return tt("Coding the sections")
+    case "write":
+      return tt("Writing the pages")
+    case "photos":
+      return tt("Adding photos")
+    case "check":
+      return tt("Checking the pages")
+    default:
+      return tt("Finishing up")
+  }
+}
+
 export default function StoreEditorPage({ params }: { params: Promise<{ installId: string }> }) {
   useEffect(() => warmPanels(), [])
   const { installId } = use(params)
@@ -3545,6 +3578,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     request ("inline"). A reload while the job runs finds it again in this tab's storage.
   */
   const [genSource, setGenSource] = useState<GenerationSource | null>(null)
+  /*
+    ROUND N (N1): THE CANVAS FOLLOWS THE PAGE THE AGENT IS ON, until the person picks a page themselves (any page change
+    that is not the follow turns it off for the rest of the build). `followingNow` marks the switch the follow makes.
+  */
+  const followAgent = useRef(true)
+  const followingNow = useRef(false)
+  const handlePageChangeRef = useRef<(page: PageKey) => Promise<void>>(async () => {})
+  /* When the editor opened on a build: a reveal of a new section never scrolls a canvas the person scrolled since. */
+  const buildOpenedAt = useRef(Date.now())
   /* A section script that throws in the canvas while an AI job builds this site goes back to the job (lib/ai-builder/preview-errors.ts). */
   usePreviewErrorBridge({
     jobId: genSource?.kind === "job" ? genSource.jobId : null,
@@ -3552,7 +3594,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     page: currentPage,
     typeOf: (id) => sectionsRef.current.find((s) => s.id === id)?.type ?? null,
   })
-  useEffect(() => {
+  /* Before the first paint (round N): an editor opened on a build shows the building canvas from its first frame, never "Loading the editor" first. */
+  useLayoutEffect(() => {
     let stored: Storage | null = null
     try {
       stored = window.sessionStorage
@@ -5188,6 +5231,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [])
 
   const handlePageChange = async (page: PageKey) => {
+    /* Round N: the person picked a page; the canvas stops following the AI's. */
+    if (!followingNow.current) followAgent.current = false
     /**
      * WHAT YOU WERE WORKING ON IS SAVED BEFORE YOU LEAVE IT.
      *
@@ -8989,6 +9034,80 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       )
     }
 
+    /*
+      ===========================================================================
+       THEME SETTINGS ON A FREE SITE (round N, N5, lib/ai-builder/site-settings.ts)
+      ===========================================================================
+      An AI website declares its own settings (Palette, Type, Shape...). They
+      are listed first, in place of Design tokens. On a FREE site (its chrome
+      is its own) they are its whole design: the list is the site's groups,
+      then only the groups that act on every site (logo, social links, cart,
+      cookies, motion, custom CSS), and the default theme's style groups
+      wait under one Built-in sections row. Any other site is unchanged.
+    */
+    function siteDesignState() {
+      const theme = settingsDraft as Record<string, unknown>
+      const declared = readDesignSettings(theme)
+      const tokens = showsDesignTokens(theme, storelibSources)
+      return { theme, declared, tokens, free: isFreeSite(theme, !!declared || tokens) }
+    }
+    /** The site's own group rows, or Design tokens when it declared none. */
+    function siteGroupRows(state = siteDesignState()) {
+      if (state.declared) return state.declared.groups.map(g => <ThemeGroupRow key={`site:${g.id}`} group={{ id: `site:${g.id}`, label: g.label }} icon={siteGroupIcon(g)} onOpen={() => setExpandedSettings(`site:${g.id}`)} />)
+      return state.tokens ? <ThemeGroupRow group={DESIGN_TOKENS_GROUP} onOpen={() => setExpandedSettings("design_tokens")} /> : null
+    }
+    /** One of the site's groups opened, Built-in sections opened, or a free site's list; null where the theme's own panels apply. */
+    function siteDesignPanel(header: React.ReactNode, groups: typeof themeGroups) {
+      const state = siteDesignState()
+      if (!state.declared && !state.free) return null
+      const open = expandedSettings?.startsWith("site:") ? state.declared?.groups.find(g => `site:${g.id}` === expandedSettings) : undefined
+      if (open) {
+        return (
+          <div className="flex flex-col h-full" data-theme-group-open={`site:${open.id}`}>
+            <PanelBack onBack={() => setExpandedSettings(null)}>
+              <p className="truncate text-[15px] font-semibold md:text-sm">{open.label}</p>
+            </PanelBack>
+            <div key={open.id} data-sheet-scroll data-theme-group={`site:${open.id}`} className="flex-1 overflow-y-auto wb-slim-scroll px-3.5 py-3.5 animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none">
+              <SharedInAllLanguages>
+                <SiteSettingsGroupPanel
+                  theme={state.theme}
+                  group={open}
+                  updateSetting={updateSetting}
+                  renderToggle={(p) => <WbToggle label={p.label} value={p.value} onChange={p.onChange} info={p.info} />}
+                />
+              </SharedInAllLanguages>
+            </div>
+          </div>
+        )
+      }
+      if (!state.free) return null
+      if (expandedSettings === "built_in") {
+        return (
+          <div className="flex flex-col h-full" data-theme-group-open="built_in">
+            <PanelBack onBack={() => setExpandedSettings(null)}>
+              <p className="truncate text-[15px] font-semibold md:text-sm">{tt("Built-in sections")}</p>
+            </PanelBack>
+            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2 animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none">
+              <p className="px-3 pb-2 pt-1 text-[11.5px] leading-snug text-muted-foreground">{tt("These only style Storelib's ready-made sections, like a standard product page. Your site's own sections use its settings instead.")}</p>
+              {builtInSectionGroups(groups).map(group => <ThemeGroupRow key={group.id} group={group} onOpen={() => setExpandedSettings(group.id)} />)}
+            </div>
+          </div>
+        )
+      }
+      if (expandedSettings !== null) return null
+      return (
+        <div className="flex flex-col h-full" data-free-site-settings="">
+          {header}
+          <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
+            {siteGroupRows(state)}
+            <p className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{tt("Site-wide")}</p>
+            {freeSitePlatformGroups(groups).map(group => <ThemeGroupRow key={group.id} group={group} onOpen={() => setExpandedSettings(group.id)} />)}
+            <ThemeGroupRow group={{ id: "built_in", label: tt("Built-in sections") }} icon={LayoutDashboard} onOpen={() => setExpandedSettings("built_in")} />
+          </div>
+        </div>
+      )
+    }
+
     // ── General Settings mode ──
     if (sidebarMode === "settings") {
       // Show section settings if a section is selected
@@ -9002,6 +9121,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         // Global theme settings
         /* An imported Shopify theme's settings are its own (config/settings_schema.json). */
         if (compatInstall) return compatThemePanel(true)
+        {
+          const own = siteDesignPanel(
+            <div className="px-4 py-3 border-b border-border shrink-0">
+              <p className="text-sm font-semibold">{tt("Theme settings")}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{tt("This site's own design")}</p>
+            </div>,
+            themeGroups.filter(group => group.id !== "colors" && group.id !== "menus"),
+          )
+          if (own) return own
+        }
         /*
           A LIST OF GROUPS, AND A GROUP OPENS AS ITS OWN PANEL. It was an
           accordion: a chevron turning on every row and the groups under an
@@ -9097,7 +9226,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                       <SocialLinksEditor values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />
                       </SharedInAllLanguages>
                     )}
-                    {visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
+                    {visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).filter(field => !FREE_SITE_HIDDEN_FIELDS.has(field.id) || !siteDesignState().free).map(field => {
                       const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
                       return (
                         <ThemeFieldShell key={field.id} field={field}>
@@ -9179,7 +9308,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <p className="text-xs text-muted-foreground mt-0.5">Colors, fonts, buttons, spacing</p>
             </div>
             <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
-              {showsDesignTokens(settingsDraft as Record<string, unknown>, storelibSources) ? <ThemeGroupRow group={DESIGN_TOKENS_GROUP} onOpen={() => setExpandedSettings("design_tokens")} /> : null}
+              {siteGroupRows()}
               {generalGroups.map(group => <ThemeGroupRow key={group.id} group={group} onOpen={() => setExpandedSettings(group.id)} />)}
             </div>
           </div>
@@ -9690,6 +9819,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     if (selectedPanel.type === "theme_settings") {
       /* The same list and panels as General Settings above. */
+      {
+        const own = siteDesignPanel(
+          <PanelBack onBack={() => setSelectedPanel({ type: "pages" })}>
+            <span className="text-[15px] font-semibold md:text-sm">Theme settings</span>
+          </PanelBack>,
+          themeGroups.filter(group => group.id !== "menus"),
+        )
+        if (own) return own
+      }
       const panelGroups = themeGroups.filter(group => group.id !== "menus" && (!group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true))
       /* Design tokens, on an AI website (DESIGN_TOKENS_GROUP). */
       if (expandedSettings === "design_tokens" && showsDesignTokens(settingsDraft as Record<string, unknown>, storelibSources)) {
@@ -9733,7 +9871,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                           <SocialLinksEditor values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />
                           </SharedInAllLanguages>
                         ) : null,
-                        ...visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
+                        ...visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).filter(field => !FREE_SITE_HIDDEN_FIELDS.has(field.id) || !siteDesignState().free).map(field => {
                         const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
                         return (
                           <ThemeFieldShell key={field.id} field={field}>
@@ -9815,7 +9953,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <span className="text-[15px] font-semibold md:text-sm">Theme settings</span>
           </PanelBack>
           <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
-            {showsDesignTokens(settingsDraft as Record<string, unknown>, storelibSources) ? <ThemeGroupRow group={DESIGN_TOKENS_GROUP} onOpen={() => setExpandedSettings("design_tokens")} /> : null}
+            {siteGroupRows()}
             {panelGroups.map(group => <ThemeGroupRow key={group.id} group={group} onOpen={() => setExpandedSettings(group.id)} />)}
           </div>
         </div>
@@ -11328,30 +11466,91 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [loadStorelibSources])
   /*
     AN AGENT BUILD (round L) writes the drafts itself, so the canvas reads them again when its events say files, pages or
-    colours changed: at most every AGENT_REFRESH_MS while it works, and once when it ends. What the creator is editing
-    wins: with unsaved changes only the section files are read, the open page waits for the next quiet moment.
+    colours changed, and once when it ends. What the creator is editing wins: with unsaved changes only the section files
+    are read, the open page waits for the next quiet moment.
+
+    ROUND N (N1, "I cannot see it"). This read at most every 8 s, and only the page that was open, so the agent's work
+    showed in bursts, and a page it wrote other than home never showed at all. Now:
+      • debounced, not throttled: read LIVE_QUIET_MS after the last change, never later than LIVE_MAX_WAIT_MS after the
+        first (lib/website-builder/ai-site/live-build.ts liveRefreshDelay), one read at a time, a change during a read
+        reads again after it;
+      • the section files first, then the page, so a section the agent placed is drawn with its own file, never empty;
+      • the page the agent is on is followed (followPage) until the person picks a page themselves;
+      • the sections that arrived are marked (the settle ring), the newest glides in and is brought into view, unless the
+        person scrolled the canvas since the build opened.
+    Read quietly (loadData quiet: only the sections that differ are new objects), so the canvas never flashes.
   */
-  const agentRefresh = useRef<{ timer: ReturnType<typeof setTimeout> | null; last: number }>({ timer: null, last: 0 })
-  const agentDraftsChanged = useCallback((finished: boolean) => {
-    const AGENT_REFRESH_MS = 8_000
+  const agentRefresh = useRef<{ timer: ReturnType<typeof setTimeout> | null; firstAt: number; lastAt: number; events: AgentEvent[]; running: boolean; again: boolean; finished: boolean }>({ timer: null, firstAt: 0, lastAt: 0, events: [], running: false, again: false, finished: false })
+  /* What was on the page before a read of the agent's drafts: the sections after it that are new arrive (the effect below). */
+  const agentArrival = useRef<{ before: string[]; reveal: boolean; at: number } | null>(null)
+  const agentDraftsChanged = useCallback((finished: boolean, events: AgentEvent[] = []) => {
     const box = agentRefresh.current
-    const go = () => {
+    const read = async () => {
       box.timer = null
-      box.last = Date.now()
-      forgetPage()
-      void reloadAiSources().then(() => {
-        if (!isDirtyRef.current && !savingRef.current) void loadData({ quiet: true })
-      })
+      if (box.running) {
+        box.again = true
+        return
+      }
+      box.running = true
+      const taken = box.events
+      box.events = []
+      box.firstAt = 0
+      try {
+        forgetPage()
+        await reloadAiSources()
+        const target = followAgent.current ? followPage(taken) : null
+        const calm = !isDirtyRef.current && !savingRef.current
+        if (target && target !== currentPageRef.current && calm) {
+          agentArrival.current = { before: [], reveal: false, at: Date.now() }
+          followingNow.current = true
+          try {
+            await handlePageChangeRef.current(target as PageKey)
+          } finally {
+            followingNow.current = false
+          }
+        } else if (calm) {
+          agentArrival.current = { before: sectionsRef.current.map((x) => x.id), reveal: true, at: Date.now() }
+          await loadData({ quiet: true })
+        }
+      } finally {
+        box.running = false
+        if (box.again) {
+          box.again = false
+          void read()
+        }
+      }
     }
+    box.events.push(...events)
+    const now = Date.now()
+    if (!box.firstAt) box.firstAt = now
+    box.lastAt = now
+    if (box.timer) clearTimeout(box.timer)
     if (finished) {
-      if (box.timer) clearTimeout(box.timer)
-      go()
+      void read()
       return
     }
-    if (box.timer) return
-    box.timer = setTimeout(go, Math.max(0, AGENT_REFRESH_MS - (Date.now() - box.last)))
+    box.timer = setTimeout(() => void read(), liveRefreshDelay({ now, firstAt: box.firstAt, lastAt: box.lastAt }))
   }, [forgetPage, reloadAiSources, loadData])
   useEffect(() => () => { if (agentRefresh.current.timer) clearTimeout(agentRefresh.current.timer) }, [])
+  /* The sections a read of the agent's drafts brought: ringed as they settle, the newest arriving and brought into view. */
+  useEffect(() => {
+    const plan = agentArrival.current
+    if (!plan) return
+    /* The read has not landed yet (the page is as it was): wait for it, but never mark a change long after the read. */
+    if (Date.now() - plan.at > 6_000) {
+      agentArrival.current = null
+      return
+    }
+    if (sections.length === plan.before.length && sections.every((x, i) => x.id === plan.before[i])) return
+    const fresh = arrivedIds(plan.before, sections)
+    agentArrival.current = null
+    if (!fresh.length) return
+    setAiSettledIds(fresh)
+    if (!plan.reveal) return
+    const newest = fresh[fresh.length - 1]
+    setArrivedId(newest)
+    revealSection(newest, true, undefined, buildOpenedAt.current)
+  }, [sections, revealSection])
   const generation = useSiteGeneration({
     onFiles: generationFiles,
     installId,
@@ -11370,7 +11569,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     onOp: queueAiOp,
     onFinish: () => aiRunFinished([]),
     onPages: (pages) => pages.forEach((p) => p.key !== "home" && aiPageWritten(p.key, p.title)),
-    onAgentChange: (finished) => agentDraftsChanged(finished),
+    onAgentChange: (finished, events) => agentDraftsChanged(finished, events),
     onJobChange: (jobId) => {
       try {
         rememberJob(window.sessionStorage, installId, jobId)
@@ -11430,6 +11629,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
   }, [genPhase, installId])
   const agentEnded = generation.agent.view !== null && ["complete", "partial", "failed", "cancelled"].includes(generation.agent.view.status)
+  /* The follow switches pages the way the switcher does (handlePageChange is drawn anew each render). */
+  handlePageChangeRef.current = handlePageChange
+  /*
+    ROUND N (N1): A BUILD IS LIVE. From the editor's first frame on a build (the job is known before its first answer),
+    while the agent's or the classic job's view says it is still working. While it is, an open page with nothing of its
+    own shows the building state (components/website-builder/ai-generation/building-canvas.tsx), not "Empty Page" under
+    the theme's header and footer and not a blank white card, and says what the AI is on.
+  */
+  const buildLive =
+    !teamMember &&
+    genSource !== null &&
+    (generation.agent.view ? !agentEnded : generation.view ? genPhase === "working" : true)
+  const buildStep = generation.agent.view
+    ? currentStep(generation.agent.events) ?? (generation.agent.view.status === "queued" ? tt("Getting started") : null)
+    : generation.view
+      ? classicStepWords(generation.view.step)
+      : null
+  const building = useMemo(() => (buildLive ? { step: buildStep } : null), [buildLive, buildStep])
   useEffect(() => {
     if (!agentEnded) return
     try {
@@ -12402,9 +12619,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           )
         )}
 
-        {/* START WITH AI: the progress view over the canvas while the server builds the site. */}
+        {/*
+          START WITH AI: the progress view while the server builds the site. ROUND N: docked in the canvas's top right
+          corner on a computer, a one line card under the editor's bar on a phone (its steps open with a tap), never
+          in the middle of the canvas where the sections arrive.
+        */}
         {generation.agent.view && !genDismissed && !teamMember && (
-          <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+64px)] z-[70] flex justify-center px-4" data-generation-dock="">
+          <div className={GENERATION_DOCK} data-generation-dock="">
             <AgentProgressPanel
               view={generation.agent.view}
               events={generation.agent.events}
@@ -12415,11 +12636,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onStartOver={generation.agent.startOver}
               onClose={closeGeneration}
               onUndo={() => void undoAiJob()}
+              startCollapsed={isMobileView}
             />
           </div>
         )}
         {generation.view && !genDismissed && !teamMember && (
-          <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+64px)] z-[70] flex justify-center px-4" data-generation-dock="">
+          <div className={GENERATION_DOCK} data-generation-dock="">
             <GenerationPanel
               view={generation.view}
               mode={genSource?.kind === "inline" ? "inline" : "job"}
@@ -12967,7 +13189,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   light grey while it waits, never a white sheet, and fades
                   into the page when it arrives.
                 */}
-                {(showCanvasLoader || openHold) && (
+                {/* Round N: opening on a build, the canvas is the building state from its first frame, the same picture the Website page showed. */}
+                {(showCanvasLoader || openHold) && buildLive ? (
+                  <div className="absolute inset-0 flex bg-white" data-building-opening="">
+                    <BuildingCanvas step={buildStep ?? tt("Opening the editor")} />
+                  </div>
+                ) : (showCanvasLoader || openHold) && (
                   <BuilderLoader
                     /* `relative`: above the outline, which is positioned. */
                     className="wb-loading-line relative"
@@ -13118,6 +13345,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                  */
                 canvasRadiusPx={isMobileView ? 0 : device === "desktop" ? 20 : 16}
                 bodyCount={bodyCount + (writingShown ? 1 : 0) + added.count}
+                building={building}
                 onSelectSection={selectSectionFromCanvas}
                 onAddSection={openAddSection}
                 onAddSectionAt={openAddSectionAt}
@@ -14050,6 +14278,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   headerDevice,
   canvasRadiusPx,
   bodyCount,
+  building = null,
   onSelectSection,
   onAddSection,
   onAddSectionAt,
@@ -14087,6 +14316,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   /** The canvas card's top radius, so a ring inside it is cut to match. */
   canvasRadiusPx: number
   bodyCount: number
+  /** Round N: a build is live; an empty page shows what the AI is on instead of "Empty Page". */
+  building?: { step: string | null } | null
   onSelectSection: (sectionId: string, blockId?: string | null, field?: ClickTarget | null) => void
   onAddSection: () => void
   onAddSectionAt: (at: number) => void
@@ -14408,6 +14639,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
             </button>
           </div>
         </div>
+      ) : building && showBuilding({ live: true, bodyCount }) ? (
+        <BuildingCanvas step={building.step} />
       ) : bodyCount === 0 && sections.length > 0 ? (
         <div className="flex-1 py-24 flex items-center justify-center text-center">
           <div>

@@ -23,14 +23,20 @@
  */
 import { groupOf } from "@/lib/storelib-theme/section-groups"
 import type { SectionInstance } from "./types"
+import { isFreeSite } from "./free-site"
 
 /** The id of the bar this places. Never saved: a page that has it was drawn, not stored. */
 export const THEME_BREADCRUMBS_ID = "theme-breadcrumbs"
 
 const HOME_TEMPLATES = new Set(["index", "home", ""])
 
-/** Theme settings › Breadcrumbs › Show. On unless it was turned off. */
+/**
+ * Theme settings › Breadcrumbs › Show. On unless it was turned off; on a free
+ * site (lib/website-builder/free-site.ts), whose pages are its own code, only
+ * when it was turned on.
+ */
 export function breadcrumbsOn(theme: Record<string, unknown> | null | undefined): boolean {
+  if (isFreeSite(theme)) return theme?.breadcrumbs_enabled === true
   return theme?.breadcrumbs_enabled !== false
 }
 

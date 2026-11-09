@@ -98,6 +98,7 @@ import type { SettingsSection } from "@/components/website-builder/website-setti
 import { LIBRARY_FULL_CODE, LIBRARY_RULE, LIBRARY_RULE_TITLE } from "@/lib/website-builder/library-limit"
 import { LibraryFullDialog, type LibraryAction } from "./library-full-dialog"
 import { StartWebsite } from "./start-website"
+import { StartingShell } from "@/components/website-builder/ai-generation/building-canvas"
 import { newStartKey, saveStartPrompt, withJobParam, withStartParam } from "@/lib/website-builder/start-handoff"
 import { clearStartDraft, forgetPendingStart, pendingStartKey, type StartOptions } from "@/lib/website-builder/ai-site/start-options"
 import type { StartMode } from "@/lib/website-builder/create-website"
@@ -697,8 +698,11 @@ export function WebsiteBuilderClient({
   listings = builtinListings(),
   account = null,
   teamMember = false,
+  aiAgent = false,
 }: {
   installs: WebsiteSummary[]
+  /** The new AI builder (the agent engine) is on for this account (lib/website-builder/ai-site/agent-access.ts, round N). */
+  aiAgent?: boolean
   /**
    * Round 42: a team member with Website, working in the store. Importing,
    * exporting and removing a website stay the store owner's (lib/team/website),
@@ -1250,6 +1254,9 @@ export function WebsiteBuilderClient({
    */
   const [starting, setStarting] = React.useState<StartMode | null>(null)
   const startFlight = React.useRef(false)
+  /* Round N: the server can say the new AI builder is not on for this account after all (409 agent_off): the page then says so too. */
+  const [agentOn, setAgentOn] = React.useState(aiAgent)
+  React.useEffect(() => setAgentOn(aiAgent), [aiAgent])
   /* Back from the editor (the page kept by the browser): the doors are pressable again. */
   React.useEffect(() => {
     const back = () => setStarting(null)
@@ -1295,6 +1302,12 @@ export function WebsiteBuilderClient({
       if (!res.ok || !data.install?.id) {
         /* A refusal is an answer: the next press is a new one. A lost answer (no status) keeps the key. */
         if (withAi && res.status < 500) forgetPendingStart(storage)
+        /* From scratch needs the new AI builder, and it is not on for this account: the choice says so, the words stay in the box. */
+        if (data.code === "agent_off") {
+          setAgentOn(false)
+          toast({ title: typeof data.error === "string" ? data.error : tt("The new AI builder isn't on for your account yet.") })
+          return
+        }
         if (data.code === LIBRARY_FULL_CODE) {
           setFull("create")
           refresh()
@@ -1569,7 +1582,10 @@ export function WebsiteBuilderClient({
         </div>
 
         {/* ── Create a website: Start with AI, Start from blank, Browse themes (./start-website.tsx) ── */}
+        {/* Round N: from the press, the editor's frame with the building canvas in it, until the editor takes over (components/website-builder/ai-generation/building-canvas.tsx). */}
+        {starting === "ai" && <StartingShell />}
         <StartWebsite
+          agent={agentOn}
           full={slotsLeft === 0}
           teamMember={teamMember}
           starting={starting}

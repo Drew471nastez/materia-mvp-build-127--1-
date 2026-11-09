@@ -30,7 +30,12 @@ const NOT_FOUND_ID = "storelib-not-found"
  */
 export function chromeScheme(homeSections: SectionInstance[]): string {
   for (const type of ["header", "footer"]) {
-    const scheme = homeSections.find((s) => s.type === type)?.settings?.color_scheme
+    /*
+      A header or footer of the site's own (round N, N3: an AI component placed in the header or footer group) counts
+      too: on a free site the shop, search and 404 pages before the agent designs them are drawn in that frame's
+      scheme, the site's own tokens, not in the default white.
+    */
+    const scheme = homeSections.find((s) => !s.hidden && (s.type === type || s.group === type))?.settings?.color_scheme
     if (typeof scheme === "string" && scheme.trim() !== "") return scheme
   }
   return "white"

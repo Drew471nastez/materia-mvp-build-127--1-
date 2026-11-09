@@ -57,6 +57,25 @@ export const START_PRESETS: readonly { id: StartCategory; label: string; prompt:
   },
 ]
 
+/**
+ * ROUND N: how Start with AI builds when the person picks nothing. From
+ * scratch ("blank"): the AI designs every page, the header and the footer
+ * (Andrew: "It should NOT take me to the default theme"). Inside the theme
+ * is the second option. The server's own default for a body without options
+ * stays "theme" (parseStartOptions), for anything sent before this round.
+ */
+export const START_GENERATION: GenerationMode = "blank"
+
+/**
+ * What a press sends, given the choice on screen and whether the new AI
+ * builder is on for the account. From scratch needs it; without it the press
+ * builds inside the theme, which the page says in words beside the choice.
+ * Never the other way round. Pure.
+ */
+export function startGeneration(chosen: GenerationMode, agent: boolean): GenerationMode {
+  return agent ? chosen : "theme"
+}
+
 export function isStartCategory(v: unknown): v is StartCategory {
   return typeof v === "string" && (START_CATEGORIES as readonly string[]).includes(v)
 }
@@ -218,6 +237,8 @@ export function forgetPendingStart(storage: KeyStorage | null | undefined): void
 /* ── the box, kept across a reload of the Website page ───────────────── */
 
 const DRAFT = "storelib:start-ai-draft"
+/** Round N: drafts saved since From scratch became the default say so; an older draft's "theme" was only the old default, not a choice. */
+const DRAFT_VERSION = 2
 
 export interface StartDraft {
   prompt: string
@@ -229,8 +250,8 @@ export interface StartDraft {
 
 export function saveStartDraft(storage: KeyStorage | null | undefined, draft: StartDraft): void {
   try {
-    if (!draft.prompt && !draft.category && draft.generation === "theme") storage?.removeItem(DRAFT)
-    else storage?.setItem(DRAFT, JSON.stringify(draft))
+    if (!draft.prompt && !draft.category && draft.generation === START_GENERATION) storage?.removeItem(DRAFT)
+    else storage?.setItem(DRAFT, JSON.stringify({ ...draft, v: DRAFT_VERSION }))
   } catch {
     /* a tab that keeps nothing starts empty next time */
   }
@@ -240,12 +261,13 @@ export function readStartDraft(storage: KeyStorage | null | undefined): StartDra
   try {
     const raw = storage?.getItem(DRAFT)
     if (!raw) return null
-    const d = JSON.parse(raw) as Partial<StartDraft>
+    const d = JSON.parse(raw) as Partial<StartDraft> & { v?: unknown }
     return {
       prompt: typeof d.prompt === "string" ? d.prompt : "",
       category: isStartCategory(d.category) ? d.category : null,
       inserted: typeof d.inserted === "string" ? d.inserted : null,
-      generation: d.generation === "blank" ? "blank" : "theme",
+      /* Inside the theme only when it was picked (a draft of this round); an older draft's was the old default. */
+      generation: d.v === DRAFT_VERSION && d.generation === "theme" ? "theme" : START_GENERATION,
     }
   } catch {
     return null
