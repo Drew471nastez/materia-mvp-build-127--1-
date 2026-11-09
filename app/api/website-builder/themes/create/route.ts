@@ -46,10 +46,26 @@ export const maxDuration = 60
  * could not be written takes its website back with it and says so, instead
  * of the old silent fallback to this tab's storage.
  *
+ * ROUND N (N1, "I cannot see it"). With AI, the answer no longer waits for
+ * a photograph of the new website (up to QUICK_COVER_MS, 8 s): the site is
+ * empty and about to be designed, so that picture was of nothing, and the
+ * person stared at a spinner for it before the editor could open. The
+ * Website page takes the cover later, as it does for any site without one.
+ * And From scratch needs the new AI builder: for an account where it is not
+ * on, a "blank" press is refused (409 agent_off) before anything is made,
+ * never run by the older builder on the theme's sections as if it were the
+ * same thing. The Website page already says so beside the choice.
+ *
  * The same people as Add: the owner, or a team member with Website working
  * in the store (lib/team/website); Start with AI is the owner's, since it
  * spends the store's AI. The same library limit and refusal.
  */
+/** Round N: the words a From scratch press gets when the new AI builder is not on for the account. */
+const AGENT_OFF_MESSAGE = "The new AI builder isn't on for your account yet. Pick Inside Storelib's theme to start with AI now."
+
+/** An AI start's picture: none yet, and none waited for. The Website page asks for one later, as for any site without one. */
+const AI_START_COVER = { cover: null, cover_pending: false } as const
+
 export async function POST(req: Request) {
   const site = await websiteCaller()
   if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
@@ -86,6 +102,13 @@ export async function POST(req: Request) {
     noJobsTable = isMissingTable(sameErr)
   }
 
+  /* The agent engine for everyone (AI_BUILDER_AGENT=1) or for this account only (AI_BUILDER_AGENT_ACCOUNTS, round M): lib/website-builder/ai-site/agent-access.ts. */
+  const engine = generating ? ((await agentEnabledFor(admin, { ownerUserId: site.ownerUserId, creatorId })) ? "agent" : "classic") : null
+  /* Round N: From scratch is the new AI builder's; never the older one in its place. */
+  if (generating && options.generation === "blank" && engine !== "agent") {
+    return NextResponse.json({ error: AGENT_OFF_MESSAGE, code: "agent_off" }, { status: 409 })
+  }
+
   /* A press each, never a stream: LIMITS.siteAction. After the replay above, so a retry of a press that worked is never refused. */
   const limited = await rateLimit({
     bucket: "site-create",
@@ -108,14 +131,12 @@ export async function POST(req: Request) {
     return NextResponse.json(made.code ? { error: made.error, code: made.code } : { error: made.error }, { status: made.status })
   }
 
-  /* Its first picture, as Add takes it: a photograph when it is quick, else pending and the page looks for it. */
-  const first = await coverForNewWebsite({ installId: made.install.id, userId: site.ownerUserId, creatorId }, renderOrigin(req.url), "create", null)
+  /* Its first picture, as Add takes it: a photograph when it is quick, else pending and the page looks for it. Not for an AI start (round N): the editor opens at once. */
+  const first = generating ? AI_START_COVER : await coverForNewWebsite({ installId: made.install.id, userId: site.ownerUserId, creatorId }, renderOrigin(req.url), "create", null)
 
   if (!generating) return NextResponse.json({ install: made.install, ...first })
 
-  /* The agent engine for everyone (AI_BUILDER_AGENT=1) or for this account only (AI_BUILDER_AGENT_ACCOUNTS, round M): lib/website-builder/ai-site/agent-access.ts. */
-  const engine = (await agentEnabledFor(admin, { ownerUserId: site.ownerUserId, creatorId })) ? "agent" : "classic"
-  const job = await startJobRow(admin, { creatorId, ownerUserId: site.ownerUserId, installId: made.install.id, prompt, key: key!, options, engine })
+  const job = await startJobRow(admin, { creatorId, ownerUserId: site.ownerUserId, installId: made.install.id, prompt, key: key!, options, engine: engine ?? "classic" })
   /* Two of the same press at once: the second website goes, the first press's job answers. */
   if (job.kind === "duplicate") {
     await admin.from("store_theme_installs").delete().eq("id", made.install.id).eq("creator_id", creatorId)

@@ -16,8 +16,9 @@
  *     section, editable in the sidebar, nothing generated as code.
  *     ROUND L: an example chip puts its words in the box and is sent as the
  *     category; words the person typed are never replaced without asking
- *     (chipAction); "Without the theme" makes the website without the
- *     theme's header, footer and sections for the AI to make its own. The
+ *     (chipAction); "From scratch" (round N: the default) makes the
+ *     website without the theme's header, footer and sections for the AI
+ *     to make its own. The
  *     box, the chip and the choice survive a reload of this page (this
  *     tab's storage), and the words are sent exactly as they are.
  *   • Start from blank: the same website with only its header and footer,
@@ -32,6 +33,19 @@
  * with AI: the Ask panel spends the store owner's plan and is not offered to
  * them in the editor either (lib/team/website).
  *
+ * ROUND N (N1). Andrew: "It needs to be fully free, not limited by the
+ * theme's design choices" and "It should NOT take me to the default theme".
+ * From scratch is now THE way Start with AI builds: the choice under the box
+ * starts on "From scratch" (generation "blank"), and building inside
+ * Storelib's theme is the second option, named for what it keeps. When the
+ * new AI builder (the agent engine) is not on for the account (`agent`
+ * false, from the server: lib/website-builder/ai-site/agent-access.ts),
+ * From scratch is not offered as if it worked: it says, in one line, that
+ * the new AI builder is not on yet, and the press builds inside the theme,
+ * which is what the older builder can do. Nothing is switched silently: the
+ * server refuses a from scratch press for such an account (409 agent_off)
+ * instead of running the older builder on the theme's sections.
+ *
  * Only the page's own colours and depth (website-builder-client.tsx), which
  * app/theme-dark.css already maps for the dark look.
  */
@@ -42,7 +56,7 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { START_PROMPT_MAX } from "@/lib/website-builder/start-handoff"
 import type { StartMode } from "@/lib/website-builder/create-website"
-import { START_PRESETS, chipAction, presetFor, readStartDraft, saveStartDraft, type GenerationMode, type StartCategory, type StartOptions } from "@/lib/website-builder/ai-site/start-options"
+import { START_PRESETS, START_GENERATION, chipAction, presetFor, readStartDraft, saveStartDraft, startGeneration, type GenerationMode, type StartCategory, type StartOptions } from "@/lib/website-builder/ai-site/start-options"
 
 /** Where Browse themes goes: the theme page Add theme opened. */
 export const THEMES_PATH = "/app/website-builder/themes"
@@ -83,6 +97,55 @@ function DoorBody({ icon, title, line, busy }: { icon: React.ReactNode; title: s
   )
 }
 
+/**
+ * How Start with AI builds: from scratch (the default), or inside Storelib's
+ * theme. Two options in one row, the picked one dark; each says what it
+ * means in a few words. Without the new AI builder for the account, From
+ * scratch is shown as not available yet, with why, and the theme is picked.
+ */
+function GenerationChoice({ value, agent, disabled, onChange }: { value: GenerationMode; agent: boolean; disabled: boolean; onChange: (next: GenerationMode) => void }) {
+  const options: { id: GenerationMode; title: string; line: string; off?: boolean }[] = [
+    { id: "blank", title: tt("From scratch"), line: tt("The AI designs every page, the header and the footer."), off: !agent },
+    { id: "theme", title: tt("Inside Storelib's theme"), line: tt("Keeps the theme's header, footer and sections.") },
+  ]
+  return (
+    <div className="pt-1">
+      <div role="radiogroup" aria-label={tt("How the AI builds it")} data-start-generation={value} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {options.map((o) => {
+          const on = value === o.id
+          return (
+            <button
+              key={o.id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              data-start-generation-option={o.id}
+              disabled={disabled || o.off}
+              onClick={() => onChange(o.id)}
+              className={cn(
+                "flex min-h-11 min-w-0 flex-col items-start rounded-lg border px-3 py-2 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:cursor-not-allowed [-webkit-tap-highlight-color:transparent]",
+                on ? "border-[#1a1a2e] bg-[#f8f9fa]" : "border-[#e5e7eb] bg-white pointer-fine:hover:border-[#d1d5db]",
+                o.off && "opacity-60",
+              )}
+            >
+              <span className="flex items-center gap-2 text-[13px] font-semibold text-[#1a1a2e]">
+                <span aria-hidden className={cn("h-3.5 w-3.5 shrink-0 rounded-full border", on ? "border-[4px] border-[#1a1a2e]" : "border-[#d1d5db]")} />
+                {o.title}
+              </span>
+              <span className="mt-0.5 pl-[22px] text-[12px] leading-snug text-[#6b7280]">{o.line}</span>
+            </button>
+          )
+        })}
+      </div>
+      {!agent && (
+        <p role="note" data-start-agent-off="" className="mt-2 text-[12.5px] leading-snug text-[#6b7280]">
+          {tt("The new AI builder isn't on for your account yet, so it builds inside Storelib's theme for now.")}
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function StartWebsite({
   full,
   teamMember = false,
@@ -91,6 +154,7 @@ export function StartWebsite({
   onStart,
   onFull,
   onBrowse,
+  agent = true,
 }: {
   /** The library has no room: the doors say so and open the full library sheet. */
   full: boolean
@@ -104,12 +168,14 @@ export function StartWebsite({
   onFull: () => void
   /** Browse themes was pressed and is leaving the page. */
   onBrowse: () => void
+  /** The new AI builder (the agent engine) is on for this account: From scratch can be offered (round N). */
+  agent?: boolean
 }) {
   const [prompt, setPrompt] = React.useState("")
   /* The example picked, and the exact words it put in the box: the person's own words are told apart from them. */
   const [category, setCategory] = React.useState<StartCategory | null>(null)
   const [inserted, setInserted] = React.useState<string | null>(null)
-  const [generation, setGeneration] = React.useState<GenerationMode>("theme")
+  const [generation, setGeneration] = React.useState<GenerationMode>(START_GENERATION)
   /* An example pressed over the person's own words: asked, never replaced on its own. */
   const [asking, setAsking] = React.useState<{ id: StartCategory; replace: string; append: string } | null>(null)
   const field = React.useRef<HTMLTextAreaElement>(null)
@@ -171,7 +237,7 @@ export function StartWebsite({
     if (full) return onFull()
     if (!ready || busy) return
     setAsking(null)
-    onStart("ai", prompt, { generation, ...(category ? { category } : {}) })
+    onStart("ai", prompt, { generation: startGeneration(generation, agent), ...(category ? { category } : {}) })
   }
 
   const fullNote = full ? (
@@ -299,20 +365,7 @@ export function StartWebsite({
                 </span>
               </div>
             )}
-            <label className={cn("flex min-h-11 cursor-pointer items-start gap-2.5 pt-1 sm:min-h-0", (full || starting === "ai") && "cursor-not-allowed opacity-60")}>
-              <input
-                type="checkbox"
-                data-start-blank=""
-                checked={generation === "blank"}
-                disabled={full || starting === "ai"}
-                onChange={(e) => setGeneration(e.target.checked ? "blank" : "theme")}
-                className="mt-0.5 h-4 w-4 shrink-0 cursor-[inherit] rounded border-[#d1d5db] accent-[#1a1a2e]"
-              />
-              <span className="min-w-0 text-[12.5px] leading-snug">
-                <span className="font-medium text-[#1a1a2e]">{tt("Without the theme")}</span>
-                <span className="text-[#6b7280]"> {tt("The AI makes the header, footer and every section.")}</span>
-              </span>
-            </label>
+            <GenerationChoice value={startGeneration(generation, agent)} agent={agent} disabled={full || starting === "ai"} onChange={setGeneration} />
           </form>
         )}
 

@@ -1424,6 +1424,8 @@ const STRICT_SUITES = [
   "tests/ai-builder-benchmarks.test.ts",
   /* Round M (M1): Redesign with AI on an existing website through the real routes with a SCRIPTED model: owner only, a key, a backup taken first through the Backups mechanism and recorded on the job, one live job per website, the same press twice one job and one backup, L2's runner on the agent engine, content and bindings kept; Undo this AI job puts every page, setting and file back exactly and removes the pages and ai_ files the AI added, keeps what the person made after the backup, is undoable itself and safe twice; Backups' restore does the same and removes the person's additions only when named; the per account switch (AI_BUILDER_AGENT_ACCOUNTS by username or user id, never an email; AI_BUILDER_AGENT=1 for everyone) on Start with AI, Edit with AI, Redesign and the editor's GET. Strict: tests/_journey. */
   "tests/ai-builder-redesign-m1.test.ts",
+  /* Round N (N1): Start with AI lands in the editor and the build is seen as it happens. The create call no longer waits for a cover; the Website page draws the editor's shell from the press; the editor knows the build before its first paint and shows a building canvas (never the theme's "Empty Page"); the agent's drafts are read again debounced (not every 8 s), files before the page, following the page it is on until the person picks one; the progress card docked, in plain steps ("Designing the header"); From scratch is the default and, with the new AI builder off for the account, refused in words (409 agent_off) instead of run on the theme's sections. Strict: tests/_journey. */
+  "tests/ai-builder-start-live-n1.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

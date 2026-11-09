@@ -172,6 +172,9 @@ import { useSiteGeneration, type GenerationSource } from "@/lib/website-builder/
 import { opIsNew } from "@/lib/website-builder/ai-site/replay"
 import { GenerationPanel, generationPhase } from "@/components/website-builder/ai-generation/generation-panel"
 import { AgentProgressPanel } from "@/components/website-builder/ai-generation/agent-progress-panel"
+import { BuildingCanvas } from "@/components/website-builder/ai-generation/building-canvas"
+import { arrivedIds, currentStep, followPage, liveRefreshDelay, showBuilding } from "@/lib/website-builder/ai-site/live-build"
+import type { AgentEvent } from "@/lib/ai-builder/types"
 import { EditedBuiltInNote, isEditedBuiltIn } from "@/components/website-builder/editor/edited-built-in-note"
 import { SignupDestinationNote } from "@/components/website-builder/editor/signup-destination-note"
 import { DEFAULT_THEME_SOURCES } from "../../../../../themes/default/sources.generated"
@@ -2858,6 +2861,28 @@ function warmPanels(): () => void {
   return () => window.clearTimeout(t)
 }
 
+/** Round N: where the build's progress card sits. A phone: the width of the screen under the editor's bar. A computer: the canvas's top right corner, clear of its scrollbar. */
+const GENERATION_DOCK = "pointer-events-none fixed inset-x-3 top-[calc(env(safe-area-inset-top)+64px)] z-[70] flex justify-end md:left-auto md:right-5 md:w-[360px]"
+
+/** Round N: what a classic build is on, as the building canvas says it. */
+function classicStepWords(step: string): string {
+  switch (step) {
+    case "plan":
+    case "build":
+      return tt("Planning the design")
+    case "code":
+      return tt("Coding the sections")
+    case "write":
+      return tt("Writing the pages")
+    case "photos":
+      return tt("Adding photos")
+    case "check":
+      return tt("Checking the pages")
+    default:
+      return tt("Finishing up")
+  }
+}
+
 export default function StoreEditorPage({ params }: { params: Promise<{ installId: string }> }) {
   useEffect(() => warmPanels(), [])
   const { installId } = use(params)
@@ -3545,6 +3570,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     request ("inline"). A reload while the job runs finds it again in this tab's storage.
   */
   const [genSource, setGenSource] = useState<GenerationSource | null>(null)
+  /*
+    ROUND N (N1): THE CANVAS FOLLOWS THE PAGE THE AGENT IS ON, until the person picks a page themselves (any page change
+    that is not the follow turns it off for the rest of the build). `followingNow` marks the switch the follow makes.
+  */
+  const followAgent = useRef(true)
+  const followingNow = useRef(false)
+  const handlePageChangeRef = useRef<(page: PageKey) => Promise<void>>(async () => {})
+  /* When the editor opened on a build: a reveal of a new section never scrolls a canvas the person scrolled since. */
+  const buildOpenedAt = useRef(Date.now())
   /* A section script that throws in the canvas while an AI job builds this site goes back to the job (lib/ai-builder/preview-errors.ts). */
   usePreviewErrorBridge({
     jobId: genSource?.kind === "job" ? genSource.jobId : null,
@@ -3552,7 +3586,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     page: currentPage,
     typeOf: (id) => sectionsRef.current.find((s) => s.id === id)?.type ?? null,
   })
-  useEffect(() => {
+  /* Before the first paint (round N): an editor opened on a build shows the building canvas from its first frame, never "Loading the editor" first. */
+  useLayoutEffect(() => {
     let stored: Storage | null = null
     try {
       stored = window.sessionStorage
@@ -5178,6 +5213,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [])
 
   const handlePageChange = async (page: PageKey) => {
+    /* Round N: the person picked a page; the canvas stops following the AI's. */
+    if (!followingNow.current) followAgent.current = false
     /**
      * WHAT YOU WERE WORKING ON IS SAVED BEFORE YOU LEAVE IT.
      *
@@ -11318,30 +11355,91 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [loadStorelibSources])
   /*
     AN AGENT BUILD (round L) writes the drafts itself, so the canvas reads them again when its events say files, pages or
-    colours changed: at most every AGENT_REFRESH_MS while it works, and once when it ends. What the creator is editing
-    wins: with unsaved changes only the section files are read, the open page waits for the next quiet moment.
+    colours changed, and once when it ends. What the creator is editing wins: with unsaved changes only the section files
+    are read, the open page waits for the next quiet moment.
+
+    ROUND N (N1, "I cannot see it"). This read at most every 8 s, and only the page that was open, so the agent's work
+    showed in bursts, and a page it wrote other than home never showed at all. Now:
+      • debounced, not throttled: read LIVE_QUIET_MS after the last change, never later than LIVE_MAX_WAIT_MS after the
+        first (lib/website-builder/ai-site/live-build.ts liveRefreshDelay), one read at a time, a change during a read
+        reads again after it;
+      • the section files first, then the page, so a section the agent placed is drawn with its own file, never empty;
+      • the page the agent is on is followed (followPage) until the person picks a page themselves;
+      • the sections that arrived are marked (the settle ring), the newest glides in and is brought into view, unless the
+        person scrolled the canvas since the build opened.
+    Read quietly (loadData quiet: only the sections that differ are new objects), so the canvas never flashes.
   */
-  const agentRefresh = useRef<{ timer: ReturnType<typeof setTimeout> | null; last: number }>({ timer: null, last: 0 })
-  const agentDraftsChanged = useCallback((finished: boolean) => {
-    const AGENT_REFRESH_MS = 8_000
+  const agentRefresh = useRef<{ timer: ReturnType<typeof setTimeout> | null; firstAt: number; lastAt: number; events: AgentEvent[]; running: boolean; again: boolean; finished: boolean }>({ timer: null, firstAt: 0, lastAt: 0, events: [], running: false, again: false, finished: false })
+  /* What was on the page before a read of the agent's drafts: the sections after it that are new arrive (the effect below). */
+  const agentArrival = useRef<{ before: string[]; reveal: boolean; at: number } | null>(null)
+  const agentDraftsChanged = useCallback((finished: boolean, events: AgentEvent[] = []) => {
     const box = agentRefresh.current
-    const go = () => {
+    const read = async () => {
       box.timer = null
-      box.last = Date.now()
-      forgetPage()
-      void reloadAiSources().then(() => {
-        if (!isDirtyRef.current && !savingRef.current) void loadData({ quiet: true })
-      })
+      if (box.running) {
+        box.again = true
+        return
+      }
+      box.running = true
+      const taken = box.events
+      box.events = []
+      box.firstAt = 0
+      try {
+        forgetPage()
+        await reloadAiSources()
+        const target = followAgent.current ? followPage(taken) : null
+        const calm = !isDirtyRef.current && !savingRef.current
+        if (target && target !== currentPageRef.current && calm) {
+          agentArrival.current = { before: [], reveal: false, at: Date.now() }
+          followingNow.current = true
+          try {
+            await handlePageChangeRef.current(target as PageKey)
+          } finally {
+            followingNow.current = false
+          }
+        } else if (calm) {
+          agentArrival.current = { before: sectionsRef.current.map((x) => x.id), reveal: true, at: Date.now() }
+          await loadData({ quiet: true })
+        }
+      } finally {
+        box.running = false
+        if (box.again) {
+          box.again = false
+          void read()
+        }
+      }
     }
+    box.events.push(...events)
+    const now = Date.now()
+    if (!box.firstAt) box.firstAt = now
+    box.lastAt = now
+    if (box.timer) clearTimeout(box.timer)
     if (finished) {
-      if (box.timer) clearTimeout(box.timer)
-      go()
+      void read()
       return
     }
-    if (box.timer) return
-    box.timer = setTimeout(go, Math.max(0, AGENT_REFRESH_MS - (Date.now() - box.last)))
+    box.timer = setTimeout(() => void read(), liveRefreshDelay({ now, firstAt: box.firstAt, lastAt: box.lastAt }))
   }, [forgetPage, reloadAiSources, loadData])
   useEffect(() => () => { if (agentRefresh.current.timer) clearTimeout(agentRefresh.current.timer) }, [])
+  /* The sections a read of the agent's drafts brought: ringed as they settle, the newest arriving and brought into view. */
+  useEffect(() => {
+    const plan = agentArrival.current
+    if (!plan) return
+    /* The read has not landed yet (the page is as it was): wait for it, but never mark a change long after the read. */
+    if (Date.now() - plan.at > 6_000) {
+      agentArrival.current = null
+      return
+    }
+    if (sections.length === plan.before.length && sections.every((x, i) => x.id === plan.before[i])) return
+    const fresh = arrivedIds(plan.before, sections)
+    agentArrival.current = null
+    if (!fresh.length) return
+    setAiSettledIds(fresh)
+    if (!plan.reveal) return
+    const newest = fresh[fresh.length - 1]
+    setArrivedId(newest)
+    revealSection(newest, true, undefined, buildOpenedAt.current)
+  }, [sections, revealSection])
   const generation = useSiteGeneration({
     onFiles: generationFiles,
     installId,
@@ -11360,7 +11458,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     onOp: queueAiOp,
     onFinish: () => aiRunFinished([]),
     onPages: (pages) => pages.forEach((p) => p.key !== "home" && aiPageWritten(p.key, p.title)),
-    onAgentChange: (finished) => agentDraftsChanged(finished),
+    onAgentChange: (finished, events) => agentDraftsChanged(finished, events),
     onJobChange: (jobId) => {
       try {
         rememberJob(window.sessionStorage, installId, jobId)
@@ -11410,6 +11508,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
   }, [genPhase, installId])
   const agentEnded = generation.agent.view !== null && ["complete", "partial", "failed", "cancelled"].includes(generation.agent.view.status)
+  /* The follow switches pages the way the switcher does (handlePageChange is drawn anew each render). */
+  handlePageChangeRef.current = handlePageChange
+  /*
+    ROUND N (N1): A BUILD IS LIVE. From the editor's first frame on a build (the job is known before its first answer),
+    while the agent's or the classic job's view says it is still working. While it is, an open page with nothing of its
+    own shows the building state (components/website-builder/ai-generation/building-canvas.tsx), not "Empty Page" under
+    the theme's header and footer and not a blank white card, and says what the AI is on.
+  */
+  const buildLive =
+    !teamMember &&
+    genSource !== null &&
+    (generation.agent.view ? !agentEnded : generation.view ? genPhase === "working" : true)
+  const buildStep = generation.agent.view
+    ? currentStep(generation.agent.events) ?? (generation.agent.view.status === "queued" ? tt("Getting started") : null)
+    : generation.view
+      ? classicStepWords(generation.view.step)
+      : null
+  const building = useMemo(() => (buildLive ? { step: buildStep } : null), [buildLive, buildStep])
   useEffect(() => {
     if (!agentEnded) return
     try {
@@ -12382,9 +12498,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           )
         )}
 
-        {/* START WITH AI: the progress view over the canvas while the server builds the site. */}
+        {/*
+          START WITH AI: the progress view while the server builds the site. ROUND N: docked in the canvas's top right
+          corner on a computer, a one line card under the editor's bar on a phone (its steps open with a tap), never
+          in the middle of the canvas where the sections arrive.
+        */}
         {generation.agent.view && !genDismissed && !teamMember && (
-          <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+64px)] z-[70] flex justify-center px-4" data-generation-dock="">
+          <div className={GENERATION_DOCK} data-generation-dock="">
             <AgentProgressPanel
               view={generation.agent.view}
               events={generation.agent.events}
@@ -12395,11 +12515,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onStartOver={generation.agent.startOver}
               onClose={closeGeneration}
               onUndo={() => void undoAiJob()}
+              startCollapsed={isMobileView}
             />
           </div>
         )}
         {generation.view && !genDismissed && !teamMember && (
-          <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+64px)] z-[70] flex justify-center px-4" data-generation-dock="">
+          <div className={GENERATION_DOCK} data-generation-dock="">
             <GenerationPanel
               view={generation.view}
               mode={genSource?.kind === "inline" ? "inline" : "job"}
@@ -12947,7 +13068,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   light grey while it waits, never a white sheet, and fades
                   into the page when it arrives.
                 */}
-                {(showCanvasLoader || openHold) && (
+                {/* Round N: opening on a build, the canvas is the building state from its first frame, the same picture the Website page showed. */}
+                {(showCanvasLoader || openHold) && genSource !== null && !teamMember && loading ? (
+                  <div className="absolute inset-0 flex bg-white" data-building-opening="">
+                    <BuildingCanvas step={buildStep ?? tt("Opening the editor")} />
+                  </div>
+                ) : (showCanvasLoader || openHold) && (
                   <BuilderLoader
                     /* `relative`: above the outline, which is positioned. */
                     className="wb-loading-line relative"
@@ -13098,6 +13224,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                  */
                 canvasRadiusPx={isMobileView ? 0 : device === "desktop" ? 20 : 16}
                 bodyCount={bodyCount + (writingShown ? 1 : 0) + added.count}
+                building={building}
                 onSelectSection={selectSectionFromCanvas}
                 onAddSection={openAddSection}
                 onAddSectionAt={openAddSectionAt}
@@ -14030,6 +14157,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   headerDevice,
   canvasRadiusPx,
   bodyCount,
+  building = null,
   onSelectSection,
   onAddSection,
   onAddSectionAt,
@@ -14067,6 +14195,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   /** The canvas card's top radius, so a ring inside it is cut to match. */
   canvasRadiusPx: number
   bodyCount: number
+  /** Round N: a build is live; an empty page shows what the AI is on instead of "Empty Page". */
+  building?: { step: string | null } | null
   onSelectSection: (sectionId: string, blockId?: string | null, field?: ClickTarget | null) => void
   onAddSection: () => void
   onAddSectionAt: (at: number) => void
@@ -14388,6 +14518,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
             </button>
           </div>
         </div>
+      ) : building && showBuilding({ live: true, bodyCount }) ? (
+        <BuildingCanvas step={building.step} />
       ) : bodyCount === 0 && sections.length > 0 ? (
         <div className="flex-1 py-24 flex items-center justify-center text-center">
           <div>

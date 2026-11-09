@@ -34,6 +34,17 @@
  *   ACT     Cancel (the runner stops at its next safe point, drafts kept),
  *           Continue / Try again (idempotent), Start over (a new job, its own
  *           key, on the same website).
+ *
+ * ROUND N (N1, "I cannot see it"): the job is followed from the editor's
+ * first frame, not once the website has loaded. Before, the classic poll
+ * waited for `ready`, and only its first answer said "this is an agent job",
+ * so the progress view appeared seconds after the editor did. Now one probe
+ * goes out at once: an agent job's events are read straight away and the
+ * progress view shows while the editor is still opening; a classic job's
+ * operations still wait for `ready` (they land on what the editor holds).
+ * The editor is told about draft changes only once it is ready, with the
+ * events that made them (`onAgentChange(finished, events)`), so it can read
+ * the page the agent is on and follow it (./live-build.ts).
  */
 import * as React from "react"
 import type { ThemeOp } from "../agent/operations"
@@ -129,8 +140,11 @@ export function useSiteGeneration(input: {
    * once the new files are in the editor.
    */
   onFiles?: (paths: string[]) => Promise<void>
-  /** An agent job changed drafts (files, pages, tokens): read them again. `finished` once it ended. */
-  onAgentChange?: (finished: boolean) => void
+  /**
+   * An agent job changed drafts (files, pages, tokens): read them again. `finished` once it ended. `events` are the
+   * new events that changed them (a page event says which page the agent is on). Only called once the editor is ready.
+   */
+  onAgentChange?: (finished: boolean, events: AgentEvent[]) => void
   /** An agent job was started over: the new job's id (the editor remembers it for a reload). */
   onJobChange?: (jobId: string) => void
   /** A Redesign with AI job was undone: the draft is the backup again (the editor reads the website again). */
@@ -188,7 +202,8 @@ export function useSiteGeneration(input: {
 
   /* ── a job on the server: poll ── */
   React.useEffect(() => {
-    if (!source || source.kind !== "job" || !ready) return
+    if (!source || source.kind !== "job") return
+    if (agentJob === source.jobId) return
     let stop = false
     let timer: ReturnType<typeof setTimeout> | null = null
     const tick = async () => {
@@ -201,6 +216,8 @@ export function useSiteGeneration(input: {
             setAgentJob(source.jobId)
             return
           }
+          /* Round N: the probe sent before the editor is ready only asks which engine; a classic job's operations wait for it (this runs again then). */
+          if (!ready) return
           const next = answer as JobView
           await take(next)
           if (settled(next) && next.ops.length < OPS_PAGE) return
@@ -215,7 +232,7 @@ export function useSiteGeneration(input: {
       stop = true
       if (timer) clearTimeout(timer)
     }
-  }, [source, ready, take, round])
+  }, [source, ready, take, round, agentJob])
 
   /* ── no job table: the build runs inside this request ── */
   React.useEffect(() => {
@@ -284,7 +301,7 @@ export function useSiteGeneration(input: {
 function useAgentJob(
   firstJobId: string | null,
   ready: boolean,
-  input: { onAgentChange?: (finished: boolean) => void; onJobChange?: (jobId: string) => void; onUndone?: (answer: UndoAnswer) => void; onPages: (pages: { key: string; title: string }[]) => void },
+  input: { onAgentChange?: (finished: boolean, events: AgentEvent[]) => void; onJobChange?: (jobId: string) => void; onUndone?: (answer: UndoAnswer) => void; onPages: (pages: { key: string; title: string }[]) => void },
 ): AgentGeneration {
   const [jobId, setJobId] = React.useState<string | null>(firstJobId)
   React.useEffect(() => setJobId(firstJobId), [firstJobId])
@@ -296,9 +313,30 @@ function useAgentJob(
   const latest = React.useRef(input)
   latest.current = input
   const poke = React.useRef<() => void>(() => {})
+  /*
+    Round N: the events are read from the editor's first frame (the progress view shows while it opens); what they
+    changed is handed to the editor once it is ready. Until then they wait here, and go over in one call.
+  */
+  const readyRef = React.useRef(ready)
+  readyRef.current = ready
+  const waiting = React.useRef<{ events: AgentEvent[]; finished: boolean } | null>(null)
+  const tell = React.useCallback((finished: boolean, fresh: AgentEvent[]) => {
+    if (readyRef.current) {
+      latest.current.onAgentChange?.(finished, fresh)
+      return
+    }
+    const was = waiting.current
+    waiting.current = { events: [...(was?.events ?? []), ...fresh], finished: finished || !!was?.finished }
+  }, [])
+  React.useEffect(() => {
+    if (!ready || !waiting.current) return
+    const held = waiting.current
+    waiting.current = null
+    latest.current.onAgentChange?.(held.finished, held.events)
+  }, [ready])
 
   React.useEffect(() => {
-    if (!jobId || !ready) return
+    if (!jobId) return
     let stop = false
     let cursor = 0
     let idle = 0
@@ -339,10 +377,10 @@ function useAgentJob(
           if (pages.length) latest.current.onPages(pages)
           setView({ ...next, events: [] })
           const done = agentSettled(next) && !next.more
-          if (changesDrafts(fresh) && !done) latest.current.onAgentChange?.(false)
+          if (changesDrafts(fresh) && !done) tell(false, fresh)
           if (done && !ended) {
             ended = true
-            latest.current.onAgentChange?.(true)
+            tell(true, fresh)
           }
           if (next.more) again = true
         } else idle++
@@ -402,7 +440,7 @@ function useAgentJob(
       document.removeEventListener("visibilitychange", onVisible)
       if (unlisten) unlisten()
     }
-  }, [jobId, ready, round])
+  }, [jobId, round, tell])
 
   const post = React.useCallback(
     async (path: string, body?: unknown): Promise<{ ok: boolean; data: Record<string, unknown> }> => {
