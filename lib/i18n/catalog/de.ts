@@ -12953,7 +12953,22 @@ const words: Record<string, string> = {
  "The AI works on this whole website as a draft. A backup is saved first, so you can undo it in one step.": "Die KI bearbeitet die ganze Website als Entwurf. Vorher wird ein Backup gespeichert, du kannst es also mit einem Schritt rückgängig machen.",
  "What should change": "Was soll sich ändern",
  "Warmer colours, bigger product photos, and a short FAQ before the footer": "Wärmere Farben, größere Produktfotos und kurze FAQ vor der Fußzeile",
- "How far it goes": "Wie weit es geht"
+ "How far it goes": "Wie weit es geht",
+ "From scratch": "Von Grund auf",
+ "The AI designs every page, the header and the footer.": "Die KI gestaltet jede Seite, den Header und den Footer.",
+ "Inside Storelib's theme": "Im Storelib-Theme",
+ "Keeps the theme's header, footer and sections.": "Behält Header, Footer und Abschnitte des Themes.",
+ "How the AI builds it": "Wie die KI sie baut",
+ "The new AI builder isn't on for your account yet, so it builds inside Storelib's theme for now.": "Der neue KI-Builder ist für dein Konto noch nicht aktiv, daher baut er vorerst im Storelib-Theme.",
+ "The new AI builder isn't on for your account yet.": "Der neue KI-Builder ist für dein Konto noch nicht aktiv.",
+ "Show steps": "Schritte zeigen",
+ "Hide steps": "Schritte ausblenden",
+ "Designing your website": "Deine Website wird gestaltet",
+ "Sections show up here as they are made.": "Abschnitte erscheinen hier, sobald sie fertig sind.",
+ "Opening the website builder": "Website-Editor wird geöffnet",
+ "New website": "Neue Website",
+ "Setting up your website": "Deine Website wird eingerichtet",
+ "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Aus den Abschnitten des Themes gebaut. Der neue KI-Builder ist für dein Konto noch nicht aktiv."
 }
 
 export default words
