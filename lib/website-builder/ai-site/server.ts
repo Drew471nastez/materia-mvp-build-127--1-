@@ -86,6 +86,7 @@ interface Row {
   error: string | null
   attempts: number
   lease_until: string | null
+  engine?: string | null
 }
 
 export function jobFromRow(r: Row): Job {
@@ -102,6 +103,7 @@ export function jobFromRow(r: Row): Job {
     state: { ...emptyState(), ...(r.state ?? {}) },
     error: r.error,
     attempts: r.attempts,
+    ...(r.engine === "agent" ? { engine: "agent" as const } : {}),
   }
 }
 

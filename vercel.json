@@ -73,6 +73,10 @@
     {
       "path": "/api/cron/seo-index",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/ai-jobs",
+      "schedule": "*/5 * * * *"
     }
   ],
   "rewrites": [

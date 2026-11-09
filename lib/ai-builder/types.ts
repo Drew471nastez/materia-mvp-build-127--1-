@@ -277,7 +277,7 @@ export const DEFAULT_JOB_BUDGET: JobBudget = {
 }
 
 /** Why a job stopped early. */
-export type BudgetStop = "wall_clock" | "iterations" | "spend" | "cancelled"
+export type BudgetStop = "wall_clock" | "iterations" | "spend" | "repairs" | "cancelled"
 
 /**
  * The resumable state of the loop, saved to ai_site_jobs.checkpoint after

@@ -40,6 +40,7 @@ import { fillSection, fillSystem, type FillContext, type FillTarget } from "./fi
 import { CREDITS_PAGE, creditsHtml, fallbackFor, fillSlot, slotsFor, type ImageDeps, type PhotoCredit } from "./images"
 import { deterministicFindings, rewritable, visualFindings, type SiteFinding } from "./verify"
 import { callOnce, mergeSpend, NO_SPEND, addSpend, pool, type Models, type Spend } from "./models"
+import type { JobEngine } from "@/lib/ai-builder/types"
 
 export type JobStatus = "queued" | "running" | "complete" | "partial" | "failed"
 export type JobStep = "plan" | "build" | "write" | "photos" | "check" | "done"
@@ -84,6 +85,16 @@ export interface Job {
   state: JobState
   error: string | null
   attempts: number
+  /** Which engine runs the job (SQL part 401). Absent means classic: these five steps. */
+  engine?: JobEngine
+}
+
+/**
+ * THE ENGINE SWITCH (round L). A classic job runs the five steps below, unchanged. An agent job is driven by
+ * ./agent-runner.ts (the tool loop, one iteration at a time, budgets, cancel, events) and never enters runStep.
+ */
+export function jobEngine(job: { engine?: string | null }): JobEngine {
+  return job.engine === "agent" ? "agent" : "classic"
 }
 
 export function emptyState(): JobState {

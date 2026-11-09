@@ -166,6 +166,7 @@ import { readJobParam, readStartParam, recallJob, rememberJob, startMessage, tak
 import { useSiteGeneration, type GenerationSource } from "@/lib/website-builder/ai-site/use-generation"
 import { opIsNew } from "@/lib/website-builder/ai-site/replay"
 import { GenerationPanel, generationPhase } from "@/components/website-builder/ai-generation/generation-panel"
+import { AgentProgressPanel } from "@/components/website-builder/ai-generation/agent-progress-panel"
 import { EditedBuiltInNote, isEditedBuiltIn } from "@/components/website-builder/editor/edited-built-in-note"
 import { SignupDestinationNote } from "@/components/website-builder/editor/signup-destination-note"
 import { DEFAULT_THEME_SOURCES } from "../../../../../themes/default/sources.generated"
@@ -11066,6 +11067,32 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     made appear in the page switcher.
   */
   const [genDismissed, setGenDismissed] = useState(false)
+  /*
+    AN AGENT BUILD (round L) writes the drafts itself, so the canvas reads them again when its events say files, pages or
+    colours changed: at most every AGENT_REFRESH_MS while it works, and once when it ends. What the creator is editing
+    wins: with unsaved changes only the section files are read, the open page waits for the next quiet moment.
+  */
+  const agentRefresh = useRef<{ timer: ReturnType<typeof setTimeout> | null; last: number }>({ timer: null, last: 0 })
+  const agentDraftsChanged = useCallback((finished: boolean) => {
+    const AGENT_REFRESH_MS = 8_000
+    const box = agentRefresh.current
+    const go = () => {
+      box.timer = null
+      box.last = Date.now()
+      forgetPage()
+      void reloadAiSources().then(() => {
+        if (!isDirtyRef.current && !savingRef.current) void loadData({ quiet: true })
+      })
+    }
+    if (finished) {
+      if (box.timer) clearTimeout(box.timer)
+      go()
+      return
+    }
+    if (box.timer) return
+    box.timer = setTimeout(go, Math.max(0, AGENT_REFRESH_MS - (Date.now() - box.last)))
+  }, [forgetPage, reloadAiSources, loadData])
+  useEffect(() => () => { if (agentRefresh.current.timer) clearTimeout(agentRefresh.current.timer) }, [])
   const generation = useSiteGeneration({
     installId,
     source: teamMember ? null : genSource,
@@ -11075,6 +11102,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     onOp: queueAiOp,
     onFinish: () => aiRunFinished([]),
     onPages: (pages) => pages.forEach((p) => p.key !== "home" && aiPageWritten(p.key, p.title)),
+    onAgentChange: (finished) => agentDraftsChanged(finished),
+    onJobChange: (jobId) => {
+      try {
+        rememberJob(window.sessionStorage, installId, jobId)
+      } catch {
+        /* this tab only */
+      }
+    },
   })
   const genPhase = generation.view ? generationPhase(generation.view) : null
   /* Finished: this tab stops remembering the job; the panel stays until it is closed. */
@@ -11086,6 +11121,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       /* nothing kept, nothing to forget */
     }
   }, [genPhase, installId])
+  const agentEnded = generation.agent.view !== null && ["complete", "partial", "failed", "cancelled"].includes(generation.agent.view.status)
+  useEffect(() => {
+    if (!agentEnded) return
+    try {
+      rememberJob(window.sessionStorage, installId, null)
+    } catch {
+      /* nothing kept, nothing to forget */
+    }
+  }, [agentEnded, installId])
   const closeGeneration = useCallback(() => {
     setGenDismissed(true)
     try {
@@ -12028,6 +12072,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         )}
 
         {/* START WITH AI: the progress view over the canvas while the server builds the site. */}
+        {generation.agent.view && !genDismissed && !teamMember && (
+          <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+64px)] z-[70] flex justify-center px-4" data-generation-dock="">
+            <AgentProgressPanel
+              view={generation.agent.view}
+              events={generation.agent.events}
+              busy={generation.agent.busy}
+              problem={generation.agent.problem}
+              onCancel={generation.agent.cancel}
+              onContinue={generation.agent.resume}
+              onStartOver={generation.agent.startOver}
+              onClose={closeGeneration}
+            />
+          </div>
+        )}
         {generation.view && !genDismissed && !teamMember && (
           <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+64px)] z-[70] flex justify-center px-4" data-generation-dock="">
             <GenerationPanel
