@@ -21,20 +21,21 @@
  *                    each opening as its own page (../message-detail).
  */
 import * as React from "react"
-import { ArrowLeft, ChevronDown } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { ShimmerRows } from "@/components/ui/shimmer"
-import { TrendMiniChart } from "@/components/analytics/trend-mini-chart"
 import { formsRequest } from "@/lib/forms/client"
 import { answerText, type Answer } from "@/lib/forms/definition"
 import type { FormInsights } from "@/lib/forms/insights"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, formatNumber, zoned } from "@/lib/i18n/format"
-import { StatusBadge, buttonSecondary, card, iconButton } from "../../orders/order-parts"
+import { GUTTER, LIST_WIDTH, StatusBadge, buttonSecondary, card } from "../../orders/order-parts"
+import { ContactsHeader } from "../../contacts/contacts-header"
 import type { MessageRow } from "../emails-home"
 
 const muted = "text-[13px] text-[#6b7280]"
-const NO_COMPARE: number[] = []
+/* The body under the bar of a screen inside Forms: the list's own width and gutter (Coupons, Orders). */
+const SCREEN = cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)
 
 export function contactOpenHref(from: "form_submission" | "site_form_submission" | "subscriber", id: string): string {
   return `/app/contacts/open?from=${from}&id=${encodeURIComponent(id)}`
@@ -148,8 +149,7 @@ export function ResponsesPanel({ formId, quiz, focus = null }: { formId: string;
   return (
     <section className={cn(card, "overflow-hidden")} aria-label={tt("Responses")} data-form-responses={formId}>
       <div className="flex items-center justify-between gap-3 border-b border-[#f1f2f4] px-4 py-3">
-        {/* The tab above already says Responses (round 52): the bar says the order and holds the export. */}
-        <p className="text-[13px] text-[#6b7280]">{tt("Newest first")}</p>
+        <h2 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Responses")}</h2>
         <a className={buttonSecondary} href={`/api/leads/export?form=${encodeURIComponent(formId)}`} data-responses-export="">
           {tt("Export CSV")}
         </a>
@@ -211,34 +211,21 @@ export function ResponsesPanel({ formId, quiz, focus = null }: { formId: string;
   )
 }
 
-/**
- * A breakdown, drawn as Analytics draws its top rows (app/(storelib)/app/
- * analytics/analytics-reports.tsx Trend): the name and the figure on one
- * line, a thin grey bar under them for its share (round 52; it was a black
- * bar on a track, a style no other page used).
- */
-const ROW_FILL = "bg-[linear-gradient(180deg,#e8eaee_0%,#dcdfe4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),inset_0_0_0_1px_rgba(16,24,40,0.04)]"
 function Bars({ items, label }: { items: { label: string; count: number }[]; label: string }) {
   const top = Math.max(1, ...items.map((i) => i.count))
   return (
-    <ol className="flex flex-col gap-2" aria-label={label}>
+    <ul className="space-y-2" aria-label={label}>
       {items.map((i) => (
-        <li key={i.label} className="min-w-0">
-          <div className="flex h-[18px] items-baseline gap-2 text-[12.5px]">
-            <span className="min-w-0 flex-1 truncate text-[#303036]">{i.label}</span>
-            <span className="shrink-0 font-medium tabular-nums text-[#1a1a2e]">{formatNumber(i.count)}</span>
-          </div>
-          <div aria-hidden className={cn(ROW_FILL, "mt-0.5 h-1 rounded-full")} style={{ width: `${Math.max(2, Math.round((i.count / top) * 100))}%` }} />
+        <li key={i.label} className="grid grid-cols-[minmax(0,140px)_minmax(0,1fr)_48px] items-center gap-3 text-[13px]">
+          <span className="truncate text-[#4b5563]">{i.label}</span>
+          <span className="h-2 overflow-hidden rounded-full bg-[#f1f2f4]">
+            <span className="block h-full rounded-full bg-[#1a1a2e]" style={{ width: `${Math.round((i.count / top) * 100)}%` }} />
+          </span>
+          <span className="text-right tabular-nums text-[#1a1a2e]">{formatNumber(i.count)}</span>
         </li>
       ))}
-    </ol>
+    </ul>
   )
-}
-
-/** "Oct 21", for a week's first day (YYYY-MM-DD), the bucket names Analytics' charts read. */
-function weekLabel(day: string): string {
-  const d = new Date(`${day}T12:00:00Z`)
-  return Number.isNaN(d.getTime()) ? day : d.toLocaleDateString(appLocale(), { month: "short", day: "numeric", timeZone: "UTC" })
 }
 
 export function InsightsPanel({ formId }: { formId: string }) {
@@ -258,29 +245,30 @@ export function InsightsPanel({ formId }: { formId: string }) {
   if (error) return <section className={card}><Empty title={tt("Insights did not load")} detail={error} /></section>
   if (!data) return <section className={card}><ShimmerRows rows={3} header={false} cols={["30%", "50%"]} label={tt("Loading")} /></section>
   if (!data.total) return <section className={card}><Empty title={tt("No responses yet")} detail={tt("Insights show once the form has responses.")} /></section>
+  const weekTop = Math.max(1, ...data.weeks.map((w) => w.count))
   const box = cn(card, "p-4 sm:p-5")
   return (
     <div className="space-y-4" data-form-insights={formId}>
-      {/* The figures in one strip, as Emails and Orders draw theirs. */}
-      <section className={cn(card, "flex overflow-hidden")} aria-label={tt("Responses")}>
+      <section className={cn(box, "grid grid-cols-3 gap-3")}>
         {[
           { label: tt("Responses"), value: data.total },
           { label: tt("Last 30 days"), value: data.last30 },
           { label: tt("Left contact details"), value: data.identified },
-        ].map((f, i) => (
-          <div key={f.label} className={cn("min-w-0 flex-1 px-4 py-3", i > 0 && "border-l border-[#eef0f2]")}>
-            <p className="truncate text-[12px] font-medium text-[#4b5563]">{f.label}</p>
-            <p className="mt-1 text-[16px] font-semibold tabular-nums text-[#1a1a2e]">{formatNumber(f.value)}</p>
+        ].map((f) => (
+          <div key={f.label} className="min-w-0">
+            <p className="text-[12.5px] leading-tight text-[#6b7280]">{f.label}</p>
+            <p className="mt-0.5 text-[22px] font-semibold tabular-nums text-[#1a1a2e]">{formatNumber(f.value)}</p>
           </div>
         ))}
       </section>
-      {/* Analytics' own trend chart (components/analytics/trend-mini-chart): its line, its hover readout. */}
-      <section className={box} data-insights-weeks="">
+      <section className={box}>
         <h2 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Responses per week")}</h2>
-        <p className={muted}>{tt("The last 12 weeks.")}</p>
-        <div className="mt-4">
-          <TrendMiniChart labels={data.weeks.map((w) => weekLabel(w.start))} current={data.weeks.map((w) => w.count)} previous={NO_COMPARE} format={(n) => formatNumber(n)} height={120} label={tt("Responses")} />
+        <div className="mt-3 flex h-[96px] items-end gap-1.5" role="img" aria-label={tt("Responses per week, last 12 weeks")}>
+          {data.weeks.map((w) => (
+            <span key={w.start} title={`${w.start}: ${w.count}`} className="flex-1 rounded-t-[3px] bg-[#1a1a2e]/80" style={{ height: `${Math.max(2, Math.round((w.count / weekTop) * 96))}px` }} />
+          ))}
         </div>
+        <p className={cn(muted, "mt-2")}>{tt("The last 12 weeks.")}</p>
       </section>
       <div className="grid gap-4 md:grid-cols-2">
         <section className={box}>
@@ -329,88 +317,81 @@ export function SiteFormPanel({ id, onBack }: { id: string; onBack: () => void }
   const text = (v: unknown) => (Array.isArray(v) ? v.join(", ") : v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v))
   const hasContact = (f: Record<string, unknown>) => Object.keys(f).some((k) => /e-?mail|phone/i.test(k) && text(f[k]).trim())
   return (
-    <div data-site-form={id}>
-      <header className="flex min-h-[48px] items-center gap-1.5">
-        <button type="button" onClick={onBack} className={cn(iconButton, "-ml-1.5 h-9 w-9")} aria-label={tt("Back to forms")}>
-          <ArrowLeft className="h-[18px] w-[18px]" />
-        </button>
-        <div className="min-w-0">
-          <h2 className="truncate text-[20px] font-bold text-[#1a1a2e]">{data?.form.name || tt("Website form")}</h2>
-          {data?.form.site_name ? <p className={muted}>{tt("Website: {name}", { name: data.form.site_name })}</p> : null}
-        </div>
-      </header>
-      <section className={cn(card, "mt-3 overflow-hidden")} aria-label={tt("Responses")}>
-        {error ? (
-          <Empty title={tt("This form did not load")} detail={error} />
-        ) : !data ? (
-          <ShimmerRows rows={3} header={false} cols={["40%", "20%"]} label={tt("Loading")} />
-        ) : !data.responses.length ? (
-          <Empty title={tt("No responses yet")} />
-        ) : (
-          <ul className="divide-y divide-[#f1f2f4]">
-            {data.responses.map((r) => {
-              const open = openId === r.id
-              const entries = Object.entries(r.fields)
-              const who = entries.find(([k]) => /name/i.test(k))?.[1] ?? entries.find(([k]) => /e-?mail/i.test(k))?.[1]
-              return (
-                <li key={r.id}>
-                  <button type="button" className="flex min-h-[56px] w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#fafbfb]" aria-expanded={open} onClick={() => setOpenId(open ? null : r.id)}>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{text(who) || tt("Anonymous response")}</span>
-                      <span className="block truncate text-[13px] text-[#6b7280]">{when(r.created_at)}</span>
-                    </span>
-                    <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-150", open && "rotate-180")} />
-                  </button>
-                  {open ? (
-                    <div className="space-y-3 px-4 pb-4">
-                      <AnswerList answers={entries.map(([k, v]) => ({ label: k, value: text(v) }))} />
-                      {hasContact(r.fields) ? (
-                        <a className={buttonSecondary + " inline-flex"} href={contactOpenHref("site_form_submission", r.id)} data-view-contact="">
-                          {tt("View contact")}
-                        </a>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
-    </div>
+    <>
+      {/* One bar, the Forms list's own (Back to Forms, the form's name), not a second header under it. */}
+      <ContactsHeader title={data?.form.name || tt("Website form")} onBack={onBack} />
+      <div className={SCREEN} data-site-form={id}>
+        {data?.form.site_name ? <p className={cn(muted, "mt-1")}>{tt("Website: {name}", { name: data.form.site_name })}</p> : null}
+        <section className={cn(card, "mt-3 overflow-hidden")} aria-label={tt("Responses")}>
+          {error ? (
+            <Empty title={tt("This form did not load")} detail={error} />
+          ) : !data ? (
+            <ShimmerRows rows={3} header={false} cols={["40%", "20%"]} label={tt("Loading")} />
+          ) : !data.responses.length ? (
+            <Empty title={tt("No responses yet")} />
+          ) : (
+            <ul className="divide-y divide-[#f1f2f4]">
+              {data.responses.map((r) => {
+                const open = openId === r.id
+                const entries = Object.entries(r.fields)
+                const who = entries.find(([k]) => /name/i.test(k))?.[1] ?? entries.find(([k]) => /e-?mail/i.test(k))?.[1]
+                return (
+                  <li key={r.id}>
+                    <button type="button" className="flex min-h-[56px] w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#fafbfb]" aria-expanded={open} onClick={() => setOpenId(open ? null : r.id)}>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{text(who) || tt("Anonymous response")}</span>
+                        <span className="block truncate text-[13px] text-[#6b7280]">{when(r.created_at)}</span>
+                      </span>
+                      <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-150", open && "rotate-180")} />
+                    </button>
+                    {open ? (
+                      <div className="space-y-3 px-4 pb-4">
+                        <AnswerList answers={entries.map(([k, v]) => ({ label: k, value: text(v) }))} />
+                        {hasContact(r.fields) ? (
+                          <a className={buttonSecondary + " inline-flex"} href={contactOpenHref("site_form_submission", r.id)} data-view-contact="">
+                            {tt("View contact")}
+                          </a>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+      </div>
+    </>
   )
 }
 
 /** The website contact form's inbox: the old Emails › Messages list, newest first, new ones in bold. */
 export function MessagesInbox({ rows, onOpen, onBack }: { rows: MessageRow[]; onOpen: (m: MessageRow) => void; onBack: () => void }) {
   return (
-    <div data-messages-inbox="">
-      <header className="flex min-h-[48px] items-center gap-1.5">
-        <button type="button" onClick={onBack} className={cn(iconButton, "-ml-1.5 h-9 w-9")} aria-label={tt("Back to forms")}>
-          <ArrowLeft className="h-[18px] w-[18px]" />
-        </button>
-        <h2 className="truncate text-[20px] font-bold text-[#1a1a2e]">{tt("Website contact form")}</h2>
-      </header>
-      <section className={cn(card, "mt-3 overflow-hidden")} aria-label={tt("Messages")}>
-        {!rows.length ? (
-          <Empty title={tt("No messages yet")} detail={tt("What people send through the contact form on your websites shows here.")} />
-        ) : (
-          <ul className="divide-y divide-[#f1f2f4]">
-            {rows.map((m) => (
-              <li key={m.id}>
-                <button type="button" className="flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#fafbfb]" onClick={() => onOpen(m)} data-message-row={m.id}>
-                  <span className={cn("h-2 w-2 shrink-0 rounded-full", m.read_at ? "bg-transparent" : "bg-[#8b5cf6]")} aria-hidden />
-                  <span className="min-w-0 flex-1">
-                    <span className={cn("block truncate text-[14px] text-[#1a1a2e]", m.read_at ? "font-medium" : "font-semibold")}>{m.name || m.email}</span>
-                    <span className="block truncate text-[13px] text-[#6b7280]">{m.subject || m.message}</span>
-                  </span>
-                  <span className="shrink-0 text-[12.5px] text-[#6b7280]">{when(m.created_at)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
+    <>
+      <ContactsHeader title={tt("Website contact form")} onBack={onBack} />
+      <div className={SCREEN} data-messages-inbox="">
+        <section className={cn(card, "mt-3 overflow-hidden")} aria-label={tt("Messages")}>
+          {!rows.length ? (
+            <Empty title={tt("No messages yet")} detail={tt("What people send through the contact form on your websites shows here.")} />
+          ) : (
+            <ul className="divide-y divide-[#f1f2f4]">
+              {rows.map((m) => (
+                <li key={m.id}>
+                  <button type="button" className="flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#fafbfb]" onClick={() => onOpen(m)} data-message-row={m.id}>
+                    <span className={cn("h-2 w-2 shrink-0 rounded-full", m.read_at ? "bg-transparent" : "bg-[#8b5cf6]")} aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span className={cn("block truncate text-[14px] text-[#1a1a2e]", m.read_at ? "font-medium" : "font-semibold")}>{m.name || m.email}</span>
+                      <span className="block truncate text-[13px] text-[#6b7280]">{m.subject || m.message}</span>
+                    </span>
+                    <span className="shrink-0 text-[12.5px] text-[#6b7280]">{when(m.created_at)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </>
   )
 }

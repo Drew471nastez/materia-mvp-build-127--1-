@@ -1,6 +1,6 @@
 /**
- * /app/emails: three tabs (round 51, the owner's "Campaigns | Automations |
- * Settings"), each with one main action:
+ * /app/emails: Campaigns, and two pages under it with a back arrow (round
+ * 51's three tabs; wave 6 drew them without pills), each with its actions:
  *
  *   ?tab=campaigns     every email sent, scheduled or drafted, in one list
  *                      filtered by &show=all|sent|scheduled|drafts, with an

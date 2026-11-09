@@ -13,3 +13,6 @@ export const sizeChartsReturn = createListReturn<SizeChartReturn>(SIZE_CHARTS_LI
 
 export const newSizeChartHref = () => `${SIZE_CHARTS_LIST_HREF}/new`
 export const sizeChartHref = (id: string) => `${SIZE_CHARTS_LIST_HREF}/${encodeURIComponent(id)}`
+
+/** In use: a product has it, or it is set for a collection or a category (round 13). Said on the list and beside a chart's name. */
+export const sizeChartInUse = (c: SavedSizeChart) => c.productCount > 0 || (c.collectionIds?.length ?? 0) > 0 || (c.categories?.length ?? 0) > 0

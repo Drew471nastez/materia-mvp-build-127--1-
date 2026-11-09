@@ -12776,7 +12776,16 @@ const words: Record<string, string> = {
  "Start one with New form. The same form works on your OnePage, website and Creator Page.": "Zacznij od przycisku Nowy formularz. Ten sam formularz działa na Twojej OnePage, stronie i Creator Page.",
  "{asked, plural, one {The person you picked cannot} other {None of the # people you picked can}} get this email: {why}. Choose who to send to.": "{asked, plural, one {Wybrana osoba nie może} other {Żadna z # wybranych osób nie może}} dostać tego e-maila: {why}. Wybierz, do kogo go wysłać.",
  "Choose who gets this email": "Wybierz, kto dostanie tego e-maila",
- "{n, plural, one {# person} other {# people}}": "{n, plural, one {# osoba} few {# osoby} many {# osób} other {# osoby}}"
+ "{n, plural, one {# person} other {# people}}": "{n, plural, one {# osoba} few {# osoby} many {# osób} other {# osoby}}",
+ "Email settings": "Ustawienia e-maili",
+ "Names and tags were not kept: that needs the Contacts database update (SQL part 378).": "Nie zapisano imion i tagów: potrzebna jest aktualizacja Kontaktów (część SQL 378).",
+ "Showing people from your latest 2,000 records of each kind. Run the Contacts database update (SQL part 378) to see everyone.": "Pokazano osoby z ostatnich 2000 zapisów każdego rodzaju. Uruchom aktualizację Kontaktów (część SQL 378), aby zobaczyć wszystkich.",
+ "Not in use": "Nieużywana",
+ "{name} copy": "{name} kopia",
+ "{name} duplicated": "Zduplikowano {name}",
+ "No size charts in use": "Brak używanych tabel rozmiarów",
+ "Every size chart is in use": "Każda tabela rozmiarów jest w użyciu",
+ "A chart is in use once a product, a collection or a category has it.": "Tabela jest w użyciu, gdy ma ją produkt, kolekcja lub kategoria."
 }
 
 export default words

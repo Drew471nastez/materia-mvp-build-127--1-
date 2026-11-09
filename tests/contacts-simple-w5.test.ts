@@ -54,7 +54,9 @@ function main() {
   check("an older address reads and writes back the same", peopleQueryString(q) === "filter=leads&q=ana&sort=name&tag=VIP&sub=subscribed&bought=yes&from=2026-01-01", peopleQueryString(q))
 
   console.log("\nForms and a person")
-  check("Forms is a page under Contacts with Back, the forms list unchanged", forms.includes('<ContactsHeader title={tt("Forms")} back />') && forms.includes("<FormsList />") && header.includes('aria-label={tt("Back to contacts")}'))
+  /* Changed on purpose (wave 6): FormsList draws the pane and the one bar of each screen itself, so a form open is not under the Forms bar as well. */
+  const list = read("app/(storelib)/app/emails/forms/forms-list.tsx")
+  check("Forms is a page under Contacts with Back, the forms list unchanged", forms.includes("return <FormsList />") && /<ContactsHeader\s+title=\{tt\("Forms"\)\}\s+back\s/.test(list) && header.includes('aria-label={tt("Back to contacts")}'))
   check("a person opens on one Details card, consent inside it, before their tags and notes", profile.includes('<Section title={tt("Details")}>') && !profile.includes('tt("Email and community")') && profile.indexOf("<Details ") < profile.indexOf("<TagsNotes "))
   check("purchases come first in the activity column", profile.indexOf("<Purchases ") < profile.indexOf("<Activity "))
   check("one Edit for name, tags and notes; unsubscribe and delete kept", profile.includes('tt("Edit name, tags and notes")') && !profile.includes('tt("Manage tags")') && profile.includes('tt("Unsubscribe from emails")') && profile.includes('tt("Delete contact")'))

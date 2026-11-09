@@ -31,7 +31,9 @@ import { formatMinor } from "@/lib/markets/money"
 import { backThen } from "@/lib/navigation/go-back"
 import { canReturnTo } from "@/lib/navigation/in-app-history"
 import type { Profile } from "@/lib/contacts/profile-server"
-import { GUTTER, ORDER_WIDTH, PaneBar, buttonAccent, buttonSecondary, card, iconButton } from "../../orders/order-parts"
+import { ContactsPane } from "../contacts-header"
+import { confirmForm } from "@/components/forms/form-confirm"
+import { GUTTER, ORDER_WIDTH, PaneBar, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../../orders/order-parts"
 import { contactsRequest, dayOf, labelsOf, leadStatusLabel, memberStatusLabel, membershipStatusLabel, originLabel, subscriptionLabel, whoOf } from "../contact-words"
 
 const field = "w-full rounded-lg border border-[#e3e4e8] bg-white px-2.5 text-[14px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e]/40 focus:ring-2 focus:ring-[#1a1a2e]/10"
@@ -65,7 +67,9 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
   }
 
   const unsubscribe = async () => {
-    if (!window.confirm(tt("Take {name} off your email list? They stop getting marketing emails. Their orders and community access do not change.", { name: whoOf(p) }))) return
+    /* Storelib's own confirm (components/forms/form-confirm), never the browser's. */
+    const yes = await confirmForm({ title: tt("Unsubscribe from emails"), body: tt("Take {name} off your email list? They stop getting marketing emails. Their orders and community access do not change.", { name: whoOf(p) }), confirm: tt("Unsubscribe from emails"), cancel: tt("Cancel") })
+    if (yes !== true) return
     setBusy(true)
     const r = await contactsRequest(`/api/contacts/${p.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "unsubscribe" }), fallback: tt("Not changed. Try again.") })
     setBusy(false)
@@ -75,8 +79,8 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
   }
 
   const remove = async () => {
-    if (!window.confirm(tt("Delete what you added for this person (notes, tags, or the contact you added)? Their orders, memberships, community access, form answers and list sign up are not deleted.")))
-      return
+    const yes = await confirmForm({ title: tt("Delete contact"), body: tt("Delete what you added for this person (notes, tags, or the contact you added)? Their orders, memberships, community access, form answers and list sign up are not deleted."), confirm: tt("Delete"), cancel: tt("Cancel") })
+    if (yes !== true) return
     setBusy(true)
     const r = await contactsRequest<{ kept?: boolean }>(`/api/contacts/${p.id}`, { method: "DELETE", fallback: tt("Not deleted. Try again.") })
     setBusy(false)
@@ -94,7 +98,7 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
   ]
 
   return (
-    <>
+    <ContactsPane>
       <PaneBar width={ORDER_WIDTH} sticky className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 pb-2.5 pt-2 lg:pb-3 lg:pt-5">
         <div className="-ml-1.5 flex h-9 w-9 items-center justify-center">
           <a href="/app/contacts" onClick={back} className={cn(iconButton, "h-9 w-9")} aria-label={tt("Back to contacts")}>
@@ -164,7 +168,7 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
           }
         }}
       />
-    </>
+    </ContactsPane>
   )
 }
 

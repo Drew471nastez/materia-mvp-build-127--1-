@@ -4,21 +4,22 @@
  * ===========================================================================
  *  EMAILS, IN THE SAME LANGUAGE AS ORDERS AND ANALYTICS
  * ===========================================================================
- * The list screen of /app/emails, three tabs since round 51: Campaigns
- * (every email sent, scheduled and drafted, in one list with All, Sent,
- * Scheduled and Drafts above it), Automations and Settings (how email goes
- * out, and the emails buyers get). Subscribers and leads moved to Contacts,
+ * The list screen of /app/emails: Campaigns (every email sent, scheduled
+ * and drafted, in one list with All, Sent, Scheduled and Drafts in its
+ * toolbar), and two pages under it, Automations and Settings (how email
+ * goes out, and the emails buyers get). Subscribers and leads moved to Contacts,
  * the website's messages to Contacts › Forms. Drawn with the Orders page's parts
  * (app/app/orders/order-parts.tsx): the pane's bar, a metrics strip, a dense
  * table whose first column stays put on a phone, and each row's actions in
  * the menu that is a dropdown on a desktop and a sheet on a phone.
  *
- * THE BAR HOLDS STILL. The title, the tab's one main action (New email,
- * Create automation) and the tabs are all in the pane's bar, which is never unmounted and never
- * changes height, so switching tabs moves nothing above the content: the
- * tab row keeps its own sideways scroll on a phone, and only what is under
- * the bar changes. It scrolls away with the page, as every list's bar does
- * (round 28, the owner: not sticky).
+ * THE BAR HOLDS STILL. The title and the page's ways in (Automations,
+ * Settings, New email; or a back arrow and the place's one action) are in the
+ * pane's bar, the list bar every Storelib list wears, which is never
+ * unmounted and never changes height. Campaigns' views (All, Sent,
+ * Scheduled, Drafts) are the list card's quiet tabs, as Orders' and Coupons'
+ * (wave 6: one quiet level, no pills). It scrolls away with the page, as
+ * every list's bar does (round 28, the owner: not sticky).
  *
  * A ROW ANSWERS THE FINGER. Every row that opens something darkens while it
  * is pressed, and starts reading what it opens as the pointer arrives on it
@@ -32,7 +33,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronDown, Plus, X } from "lucide-react"
+import { ArrowLeft, ChevronDown, LayoutTemplate, Plus, Settings, X, Zap } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { HelpLabel } from "@/components/app/help-label"
@@ -43,8 +44,7 @@ import type { RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
 import { ShimmerBlock, ShimmerRows, ShimmerSwap } from "@/components/ui/shimmer"
 import { ScrollEdge } from "@/components/app/scroll-edge"
-import { SegmentedPills } from "@/components/app/segmented-pills"
-import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
+import { GUTTER, LIST_BAR, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
 import { layerLinkClick, openLayer } from "./layer-nav"
 import { CUSTOMER_EMAILS_PATH, CustomerEmailsPanel, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
@@ -55,7 +55,6 @@ import { api as storeApi, peekGet } from "@/components/physical/ui"
 import { emailsOf } from "@/lib/emails/customer-list"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
-import { FilterPills } from "@/components/app/filter-pills"
 import { ComposeDialog } from "@/components/email/compose/ui"
 import { StarterList } from "@/components/email/compose/starter-list"
 import type { CampaignShow, EmailsPageTab, SettingsSection } from "./emails-route"
@@ -145,24 +144,18 @@ export interface OverviewStats {
 }
 
 export interface EmailsHomeProps {
-  /** The page's tab: Campaigns, Automations or Settings. */
+  /** The page's place: Campaigns (the page itself), Automations or Settings (each a page under it, with a back arrow). */
   pageTab: EmailsPageTab
   onPageTab: (tab: EmailsPageTab) => void
-  /** A pointer resting on a tab: its data can be read ahead. */
+  /** A pointer resting on a way to a place: its data can be read ahead. */
   onPageTabIntent?: (tab: EmailsPageTab) => void
   /** Campaigns' filter, and Settings' section. */
   show: CampaignShow
   onShow: (show: CampaignShow) => void
+  /** A pointer resting on a filter or a section: its data can be read ahead. */
+  onViewIntent?: (view: EmailsTab) => void
   section: SettingsSection
   onSection: (section: SettingsSection) => void
-  /**
-   * A phone's one row of views (round w5): All, Sent, Scheduled, Drafts,
-   * Automations, Customer emails and Delivery side by side, as Emails was
-   * on a phone before round 51 nested them under three tabs. Chosen in one
-   * step: the tab, its filter or section, and the address together.
-   */
-  onView?: (view: EmailsTab) => void
-  onViewIntent?: (view: EmailsTab) => void
   /** The view whose content is drawn. */
   tab: EmailsTab
   /**
@@ -213,14 +206,7 @@ export interface EmailsHomeProps {
   today: string
 }
 
-/** The page's three tabs (round 51). */
-export const PAGE_TAB_LABELS: { id: EmailsPageTab; label: string }[] = [
-  { id: "campaigns", get label() { return tt("Campaigns") } },
-  { id: "automations", get label() { return tt("Automations") } },
-  { id: "settings", get label() { return tt("Settings") } },
-]
-
-/** Campaigns' filter. */
+/** Campaigns' filter: the list card's own views, as Orders' and Coupons' are. */
 export const SHOW_LABELS: { value: CampaignShow; label: string }[] = [
   { value: "all", get label() { return tt("All") } },
   { value: "sent", get label() { return tt("Sent") } },
@@ -237,27 +223,6 @@ export const SECTION_LABELS: { value: SettingsSection; label: string }[] = [
 /** Each view's name, for the region it is drawn in. */
 export const TABS: { id: EmailsTab; label: string }[] = [
   { id: "all", get label() { return tt("Campaigns") } },
-  { id: "published", get label() { return tt("Sent") } },
-  { id: "scheduled", get label() { return tt("Scheduled") } },
-  { id: "drafts", get label() { return tt("Drafts") } },
-  { id: "flows", get label() { return tt("Automations") } },
-  { id: "customer", get label() { return tt("Customer emails") } },
-  { id: "platforms", get label() { return tt("Delivery") } },
-]
-
-/**
- * A PHONE'S VIEWS, ONE ROW (round w5, the owner: "the emails on phone, make
- * it how it was before, more easy, simple, clean"). Before round 51 a phone
- * had one strip of views under the title and nothing else above the list;
- * round 51 put three tabs there and a second row under them (All, Sent,
- * Scheduled, Drafts and Templates, or Delivery and Customer emails), which
- * on a 390px phone cut Drafts off behind Templates. A phone has the one
- * strip again, every view in it; a computer keeps the three tabs and their
- * filters. Templates stay a phone's too: an empty new email offers them
- * before anything is written (components/email/compose/starter-list.tsx).
- */
-export const PHONE_VIEWS: { id: EmailsTab; label: string }[] = [
-  { id: "all", get label() { return tt("All") } },
   { id: "published", get label() { return tt("Sent") } },
   { id: "scheduled", get label() { return tt("Scheduled") } },
   { id: "drafts", get label() { return tt("Drafts") } },
@@ -390,65 +355,79 @@ export function PhoneItem({ head, aside, line, meta, badges, menu, ...row }: { h
   )
 }
 
+/** Where each place's way in goes, so it can be opened in a new tab too. */
+const PLACE_HREF: Record<EmailsPageTab, string> = {
+  campaigns: "/app/emails",
+  automations: "/app/emails?tab=automations",
+  settings: "/app/emails?tab=settings",
+}
+
 export function EmailsHome(props: EmailsHomeProps) {
   const { tab, pageTab } = props
   const router = useRouter()
   const [templates, setTemplates] = React.useState(false)
+  /* The view chosen, ahead of its rows: Campaigns' filter and Settings' section show it at once. */
+  const chosen = props.chosenTab ?? tab
+  /*
+    ONE QUIET LEVEL OF NAVIGATION (wave 6, the owner: "too many pill-shaped
+    selectors, before it looked better"). Campaigns is the page: the title
+    with Automations, Settings and New email beside it, as Contacts carries
+    Forms (contacts-header), and the list card's own views, All, Sent,
+    Scheduled and Drafts, as Orders and Coupons draw theirs, with Templates
+    at the card's end. Automations and Settings are pages under it, each
+    with the back arrow every sub-page in /app has, its own title, and
+    (Settings) its two sections as the same quiet views. No pill track and
+    no second row of pills, on a phone or a computer.
+  */
+  const go = (to: EmailsPageTab) => (e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+    e.preventDefault()
+    props.onPageTab(to)
+  }
+  const intent = (to: EmailsPageTab) => () => props.onPageTabIntent?.(to)
+  const title = pageTab === "automations" ? tt("Automations") : pageTab === "settings" ? tt("Email settings") : tt("Emails")
   return (
     <>
-      {/* Flat, as every list's bar (round 28, the owner): the title, the tab's one action and the tabs scroll away with the page. */}
-      <PaneBar width={LIST_WIDTH} className="pb-1 pt-2">
-        <div className="flex min-h-[48px] items-center justify-between gap-2 max-sm:mb-1">
-          <h1 className="shrink-0 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Emails")}</h1>
-          {/* One main action per tab (round 51): Campaigns writes an email, Automations makes one, Settings has none. A computer's; a phone has both, below. */}
-          <div className="flex min-h-9 min-w-0 items-center gap-2 max-sm:hidden">
-            {pageTab === "campaigns" ? (
-              <Link href="/app/emails/new" prefetch onClick={layerLinkClick(router, "/app/emails/new")} className={cn(buttonAccent, "px-2.5 sm:px-3")} data-new-email="">
+      {/* Flat, the bar every Storelib list wears (LIST_BAR): the title and the page's actions, scrolling away with the page. */}
+      <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
+        <div className="flex min-w-0 items-center gap-1.5">
+          {pageTab !== "campaigns" ? (
+            <a href={PLACE_HREF.campaigns} onClick={go("campaigns")} className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0")} aria-label={tt("Back to emails")} data-emails-back="">
+              <ArrowLeft className="h-[18px] w-[18px]" />
+            </a>
+          ) : null}
+          <h1 className="truncate text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{title}</h1>
+        </div>
+        <div className="flex shrink-0 items-center gap-2" data-emails-actions="">
+          {pageTab === "campaigns" ? (
+            <>
+              <a href={PLACE_HREF.automations} onClick={go("automations")} onPointerEnter={intent("automations")} onTouchStart={intent("automations")} className={cn(buttonSecondary, TAP)} data-emails-automations="">
+                <Zap className="h-4 w-4 shrink-0 max-sm:hidden" />
+                {tt("Automations")}
+              </a>
+              <a href={PLACE_HREF.settings} onClick={go("settings")} onPointerEnter={intent("settings")} onTouchStart={intent("settings")} className={cn(buttonSecondary, TAP)} aria-label={tt("Email settings")} title={tt("Email settings")} data-emails-settings="">
+                <Settings className="h-4 w-4 shrink-0" />
+                <span className="max-sm:hidden">{tt("Settings")}</span>
+              </a>
+              <Link href="/app/emails/new" prefetch onClick={layerLinkClick(router, "/app/emails/new")} className={cn(buttonAccent, TAP)} data-new-email="">
                 <Plus className="h-4 w-4 shrink-0" />
                 {tt("New email")}
               </Link>
-            ) : pageTab === "automations" ? (
-              <Link href="/app/emails/flow/new" prefetch onClick={layerLinkClick(router, "/app/emails/flow/new")} className={cn(buttonAccent, "px-2.5 sm:px-3")} data-new-automation="">
-                <Plus className="h-4 w-4 shrink-0" />
-                {tt("Create automation")}
-              </Link>
-            ) : null}
-          </div>
-          {/*
-            A PHONE'S TWO ACTIONS, ON EVERY VIEW, as before round 51: an
-            automation beside a new email, each 44px tall for a thumb.
-          */}
-          <div className="flex min-w-0 items-center gap-2 sm:hidden" data-phone-actions="">
-            <Link href="/app/emails/flow/new" prefetch onClick={layerLinkClick(router, "/app/emails/flow/new")} className={cn(buttonSecondary, "h-11 px-3")} data-phone-new-automation="">
-              {tt("Automation")}
-            </Link>
-            <Link href="/app/emails/new" prefetch onClick={layerLinkClick(router, "/app/emails/new")} className={cn(buttonAccent, "h-11 px-3")} data-phone-new-email="">
+            </>
+          ) : pageTab === "automations" ? (
+            <Link href="/app/emails/flow/new" prefetch onClick={layerLinkClick(router, "/app/emails/flow/new")} className={cn(buttonAccent, TAP)} data-new-automation="">
               <Plus className="h-4 w-4 shrink-0" />
-              {tt("New email")}
+              {tt("Create automation")}
             </Link>
-          </div>
-        </div>
-        <div className="max-sm:hidden">
-          <Tabs tab={pageTab} onTab={props.onPageTab} onIntent={props.onPageTabIntent} />
-        </div>
-        {/* A phone's one row of views (PHONE_VIEWS): the chosen one, ahead of its content as the tabs are. */}
-        <div className="sm:hidden">
-          <Tabs tab={props.chosenTab ?? tab} onTab={(v) => props.onView?.(v)} onIntent={props.onViewIntent} options={PHONE_VIEWS} marker="data-email-views-phone" />
+          ) : null}
         </div>
       </PaneBar>
 
       <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER, props.skeletonAtOnce && "shimmer-now")} style={{ minHeight: "var(--pane-h, 100%)" }} data-tab-content={tab} data-tab-pending={props.chosenTab && props.chosenTab !== tab ? props.chosenTab : undefined}>
-        {/* Campaigns' filter, and its secondary Templates; Settings' two sections. Pills, as Integrations and Customer emails draw them. */}
-        {pageTab === "campaigns" ? (
-          <div className="mt-4 flex items-center justify-between gap-3 max-sm:hidden" data-campaign-filter="">
-            <FilterPills label={tt("Show")} value={props.show} onChange={props.onShow} options={SHOW_LABELS.map((o) => ({ value: o.value, label: o.label }))} />
-            <button type="button" className={cn(buttonSecondary, "shrink-0")} onClick={() => setTemplates(true)} data-email-templates="">
-              {tt("Templates")}
-            </button>
-          </div>
-        ) : pageTab === "settings" ? (
-          <div className="mt-4 max-sm:hidden" data-settings-sections="">
-            <FilterPills label={tt("Settings")} value={props.section} onChange={props.onSection} options={SECTION_LABELS.map((o) => ({ value: o.value, label: o.label }))} />
+        {/* Settings' two sections, the same quiet views as the list's, under the bar (they hold more than one card each). */}
+        {pageTab === "settings" ? (
+          <div className="flex h-11 items-center" data-settings-sections="">
+            <Views label={tt("Settings")} value={props.section} onChange={props.onSection} onIntent={(v) => props.onViewIntent?.(v === "customer" ? "customer" : "platforms")} options={SECTION_LABELS} />
           </div>
         ) : null}
 
@@ -456,6 +435,23 @@ export function EmailsHome(props: EmailsHomeProps) {
         {tab === "flows" && !props.loading && !props.error && props.flows.length === 0 ? null : tab === "platforms" ? (props.error ? null : <SenderCard sender={props.platforms?.sender ?? null} domain={props.platforms?.sending.domain ?? null} loading={props.loading} />) : <Metrics {...props} />}
 
         <section aria-label={TABS.find((t) => t.id === tab)?.label ?? tt("Emails")} className={cn(card, "mt-4 overflow-hidden")}>
+          {/* The list's toolbar, Coupons' and Orders' own: its views, and Templates at the end. */}
+          {pageTab === "campaigns" ? (
+            <div className="flex h-[52px] items-center gap-1 border-b border-[#eef0f2] px-2 md:h-12" data-campaign-filter="">
+              <Views
+                label={tt("Show")}
+                value={campaignShowOf(chosen, props.show)}
+                onChange={props.onShow}
+                onIntent={(v) => props.onViewIntent?.(v === "sent" ? "published" : v)}
+                options={SHOW_LABELS}
+                className="flex-1"
+              />
+              <button type="button" className={cn(iconButton, TAP, "ml-auto w-auto shrink-0 gap-1.5 px-2 text-[13px] font-medium text-[#1a1a2e] max-sm:w-9 max-sm:px-0")} onClick={() => setTemplates(true)} aria-label={tt("Templates")} title={tt("Templates")} data-email-templates="">
+                <LayoutTemplate className="h-4 w-4 shrink-0 text-[#4b5563]" />
+                <span className="max-sm:hidden">{tt("Templates")}</span>
+              </button>
+            </div>
+          ) : null}
           {tab === "flows" ? <FlowsTable {...props} /> : null}
           {/* The emails buyers and members get, in three families: the same list, editor and saved words as Settings › Customer emails. */}
           {(tab === "customer" || tab === "platforms") && props.error ? <Failed message={props.error} onRetry={props.onRetry} /> : null}
@@ -489,6 +485,16 @@ export function EmailsHome(props: EmailsHomeProps) {
   )
 }
 
+/** 32px to see, 44px to tap on a phone: the reach is a box around it (Orders' Export). */
+const TAP = "relative before:absolute before:-inset-y-1.5 before:inset-x-0 before:content-[''] sm:before:hidden"
+
+/** The Campaigns filter a view stands for: the chosen view, so the filter moves in the frame of the press. */
+function campaignShowOf(view: EmailsTab, show: CampaignShow): CampaignShow {
+  if (view === "published") return "sent"
+  if (view === "all" || view === "scheduled" || view === "drafts") return view
+  return show
+}
+
 /**
  * Settings › Sending: who the store's emails are from, the address they come
  * from, and where a reply goes, each with where it is changed. Read with the
@@ -519,54 +525,38 @@ function SenderCard({ sender, domain, loading }: { sender: { name: string | null
   )
 }
 
-/* ─── The tabs, in the bar ───────────────────────────────────────────── */
+/* ─── The views: Orders' and Coupons' quiet tabs ──────────────────── */
 
 /**
- * A phone's view is 44px to a thumb (round w5): the 36px pill reaches the
- * track's top and bottom edge with a layer of its own that takes the tap and
- * draws nothing, so the pill looks as it did and no tap lands between pills.
+ * A row of quiet views, the ones Orders and Coupons draw in their list's
+ * toolbar: words, the chosen one on a light grey ground, 36px and 15px on a
+ * phone, 32px and 13px from md up. The row scrolls sideways if it must and
+ * never pushes the page wider.
  */
-const PHONE_PILL_HIT = "[&>button]:before:absolute [&>button]:before:inset-x-0 [&>button]:before:-inset-y-1 [&>button]:before:content-['']"
-
-/** How far in from a faded end the chosen view is kept: the fade (24px, app/globals.css .edge-fade) and a little air. */
-const TAB_FADE_CLEAR = 28
-
-function Tabs<T extends string = EmailsPageTab>({
-  tab,
-  onTab,
-  onIntent,
-  options = PAGE_TAB_LABELS as unknown as { id: T; label: string }[],
-  marker = "data-email-tabs",
-}: {
-  tab: T
-  onTab: (t: T) => void
-  onIntent?: (t: T) => void
-  /** The pills: the page's three tabs, or a phone's views (PHONE_VIEWS). */
-  options?: { id: T; label: string }[]
-  marker?: "data-email-tabs" | "data-email-views-phone"
-}) {
-  /* Analytics' sliding pill (round 24, the owner: "the pill shapes of the analytics"); the strip scrolls sideways on a phone and keeps the chosen one in view. */
-  const host = React.useRef<HTMLDivElement>(null)
-  /*
-    The chosen view clear of a fade. SegmentedPills brings it into view with
-    8px to spare, which leaves its edge inside the 24px fade; this runs just
-    after (a parent's layout effect follows its child's) and moves the row
-    the rest of the way, at once, as the row's own does.
-  */
-  React.useLayoutEffect(() => {
-    const row = host.current?.querySelector<HTMLElement>("[data-segmented-pills]")
-    const on = row?.querySelector<HTMLElement>('[aria-selected="true"]')
-    if (!row || !on || row.scrollWidth <= row.clientWidth + 1) return
-    const left = row.scrollLeft
-    let next = left
-    if (on.offsetLeft - TAB_FADE_CLEAR < left) next = on.offsetLeft - TAB_FADE_CLEAR
-    else if (on.offsetLeft + on.offsetWidth + TAB_FADE_CLEAR > left + row.clientWidth) next = on.offsetLeft + on.offsetWidth + TAB_FADE_CLEAR - row.clientWidth
-    next = Math.max(0, Math.min(row.scrollWidth - row.clientWidth, next))
-    if (Math.abs(next - left) >= 1) row.scrollLeft = next
-  }, [tab])
+function Views<T extends string>({ label, value, onChange, onIntent, options, className }: { label: string; value: T; onChange: (v: T) => void; onIntent?: (v: T) => void; options: { value: T; label: string }[]; className?: string }) {
   return (
-    <div ref={host} className="flex h-11 items-center" {...{ [marker]: "" }}>
-      <SegmentedPills label={tt("Views")} className={cn("edge-fade", marker === "data-email-views-phone" && PHONE_PILL_HIT)} value={tab} onChange={onTab} onIntent={onIntent} options={options.map((t) => ({ value: t.id, label: t.label }))} />
+    <div role="tablist" aria-label={label} className={cn("orders-strip -my-2 flex min-w-0 items-center gap-0.5 overflow-x-auto py-2", className)}>
+      {options.map((o) => {
+        const on = o.value === value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            data-tab={o.value}
+            onClick={() => onChange(o.value)}
+            onPointerEnter={(e) => e.pointerType === "mouse" && onIntent?.(o.value)}
+            onTouchStart={() => onIntent?.(o.value)}
+            className={cn(
+              "inline-flex h-9 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-[10px] px-3 text-[15px] font-medium transition-colors duration-100 md:h-8 md:rounded-lg md:text-[13px] [-webkit-tap-highlight-color:transparent]",
+              on ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
+            )}
+          >
+            {o.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

@@ -12776,7 +12776,16 @@ const words: Record<string, string> = {
  "Start one with New form. The same form works on your OnePage, website and Creator Page.": "Comece um com Novo formulário. O mesmo formulário funciona na sua OnePage, no seu site e na sua Creator Page.",
  "{asked, plural, one {The person you picked cannot} other {None of the # people you picked can}} get this email: {why}. Choose who to send to.": "{asked, plural, one {A pessoa que você escolheu não pode} other {Nenhuma das # pessoas que você escolheu pode}} receber este e-mail: {why}. Escolha para quem enviar.",
  "Choose who gets this email": "Escolha quem recebe este e-mail",
- "{n, plural, one {# person} other {# people}}": "{n, plural, one {# pessoa} other {# pessoas}}"
+ "{n, plural, one {# person} other {# people}}": "{n, plural, one {# pessoa} other {# pessoas}}",
+ "Email settings": "Configurações de e-mail",
+ "Names and tags were not kept: that needs the Contacts database update (SQL part 378).": "Nomes e tags não foram guardados: isso precisa da atualização de Contatos (parte SQL 378).",
+ "Showing people from your latest 2,000 records of each kind. Run the Contacts database update (SQL part 378) to see everyone.": "Mostrando pessoas dos seus últimos 2.000 registros de cada tipo. Rode a atualização de Contatos (parte SQL 378) para ver todos.",
+ "Not in use": "Sem uso",
+ "{name} copy": "{name} cópia",
+ "{name} duplicated": "{name} duplicada",
+ "No size charts in use": "Nenhuma tabela de medidas em uso",
+ "Every size chart is in use": "Todas as tabelas de medidas estão em uso",
+ "A chart is in use once a product, a collection or a category has it.": "Uma tabela está em uso quando um produto, uma coleção ou uma categoria a tem."
 }
 
 export default words

@@ -50,7 +50,8 @@ import {
 } from "@/lib/contacts/identity"
 import type { PeoplePage } from "@/lib/contacts/people-server"
 import { Checkbox, GUTTER, LIST_WIDTH, MenuOption, MenuSurface, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
-import { ContactsHeader } from "./contacts-header"
+import { ContactsHeader, ContactsPane, PHONE_ACTION } from "./contacts-header"
+import { confirmForm } from "@/components/forms/form-confirm"
 import { FilterChip } from "./filter-chip"
 import { contactsRequest, dayOf, leadStatusLabel, memberStatusLabel, originLabel, subscriptionLabel, whoOf } from "./contact-words"
 
@@ -158,7 +159,7 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
   }
 
   return (
-    <>
+    <ContactsPane>
       <ContactsHeader
         title={tt("Contacts")}
         actions={
@@ -173,13 +174,13 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
               title={tt("Contacts")}
               align="end"
               trigger={
-                <button type="button" className={cn(buttonSecondary, "w-8 px-0 max-sm:h-9 max-sm:w-9")} aria-label={tt("More actions")} data-contacts-more="">
+                <button type="button" className={cn(buttonSecondary, "w-8 px-0 max-md:h-11 max-md:w-11 max-md:rounded-xl")} aria-label={tt("More actions")} data-contacts-more="">
                   <MoreHorizontal className="h-4 w-4" />
                 </button>
               }
               items={moreMenu}
             />
-            <button type="button" className={cn(buttonAccent, "max-sm:h-9")} onClick={() => setAdding(true)} data-add-contact="">
+            <button type="button" className={cn(buttonAccent, PHONE_ACTION)} onClick={() => setAdding(true)} data-add-contact="">
               <Plus className="h-4 w-4 shrink-0" />
               {tt("Add contact")}
             </button>
@@ -373,7 +374,7 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
 
       <AddContact open={adding} phone={phone} marketing={marketing} onClose={() => setAdding(false)} onAdded={(t) => { setAdding(false); setMessage({ text: t }); refresh() }} />
       <ImportPeople open={importing} phone={phone} marketing={marketing} onClose={() => setImporting(false)} onDone={(t) => { setMessage({ text: t }); refresh() }} />
-    </>
+    </ContactsPane>
   )
 }
 
@@ -723,9 +724,10 @@ function SelectionBar({ ids, people, exportHref, onClear, onDone }: { ids: strin
         type="button"
         className={cn(small, "text-[#b42318]")}
         disabled={busy}
-        onClick={() => {
-          if (window.confirm(tt("Delete what you added for these people (notes, tags, people you added or imported)? Their orders, memberships, community access, form answers and list sign ups are not deleted.")))
-            void send("delete")
+        onClick={async () => {
+          /* Storelib's own confirm (components/forms/form-confirm), never the browser's. */
+          const yes = await confirmForm({ title: tt("Delete"), body: tt("Delete what you added for these people (notes, tags, people you added or imported)? Their orders, memberships, community access, form answers and list sign ups are not deleted."), confirm: tt("Delete"), cancel: tt("Cancel") })
+          if (yes === true) void send("delete")
         }}
       >
         {tt("Delete")}
