@@ -1,4 +1,5 @@
-import admin from "firebase-admin"
+import { cert, getApps, initializeApp, type App } from "firebase-admin/app"
+import { getMessaging, type Messaging } from "firebase-admin/messaging"
 
 /**
  * Firebase Admin SDK singleton.
@@ -20,12 +21,31 @@ import admin from "firebase-admin"
  * the code path that actually sends a notification notices — which it reports
  * by name.
  */
-let app: admin.app.App | null = null
+/*
+  THE TWO PARTS STORELIB USES, NOT THE WHOLE SDK (round 52). The default
+  `import admin from "firebase-admin"` is the namespace, whose getters require
+  Firestore, Storage and the Realtime Database (google-gax, gRPC, protobufjs):
+  862 files the build parsed and traced for every route that reaches the push
+  sender, which is most of them, though only messaging is ever called.
+  firebase-admin/app and firebase-admin/messaging are the same SDK and the same
+  app store (148 files), and the namespace's app.messaging() is exactly
+  getMessaging(app) (firebase-admin/lib/app/firebase-namespace.js).
+  Measured on a cold `pnpm build` on 4 CPUs: the build's peak fell from 7.99 GB
+  to 7.66 GB in the Next process (8.35 GB to 7.97 GB for the whole build) and the
+  compile from 2.5 to 2.1 minutes. Same routes, same pages; each function ships
+  without the Firestore, Storage and Database files nothing here loads.
+*/
+export type FirebaseAdmin = { app: App; messaging(): Messaging }
 
-export function getFirebaseAdmin(): admin.app.App | null {
+let app: FirebaseAdmin | null = null
+
+const withMessaging = (a: App): FirebaseAdmin => ({ app: a, messaging: () => getMessaging(a) })
+
+export function getFirebaseAdmin(): FirebaseAdmin | null {
   if (app) return app
-  if (admin.apps.length && admin.apps[0]) {
-    app = admin.apps[0]
+  const existing = getApps()[0]
+  if (existing) {
+    app = withMessaging(existing)
     return app
   }
 
@@ -40,14 +60,14 @@ export function getFirebaseAdmin(): admin.app.App | null {
   }
 
   try {
-    app = admin.initializeApp({
-      credential: admin.credential.cert({
+    app = withMessaging(initializeApp({
+      credential: cert({
         projectId,
         clientEmail,
         // Vercel stores the key on one line with literal \n sequences.
         privateKey: privateKey.replace(/\\n/g, "\n"),
       }),
-    })
+    }))
   } catch (e) {
     /* A key that does not parse: phones are skipped, the sale is not. */
     if (!said) console.warn(`[firebase] Push to phones is off: the FIREBASE_* credentials were refused (${e instanceof Error ? e.message.slice(0, 120) : "unknown"})`)
@@ -58,5 +78,3 @@ export function getFirebaseAdmin(): admin.app.App | null {
 }
 
 let said = false
-
-export default admin

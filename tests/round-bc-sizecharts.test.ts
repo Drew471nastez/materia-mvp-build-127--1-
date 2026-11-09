@@ -405,6 +405,18 @@ function allowServerOnly() {
     check("the screens' words are in the dashboard's languages", ["Size charts", "New size chart", "Measured in", "Add size", "Edit chart", "Chest", "Inseam"].every((w) => catalogEs.includes(`"${w}":`)))
   }
 
+  console.log("\nThe Size charts list, in the Coupons list's frame (wave 6)\n")
+  {
+    const list = code("app/(storelib)/app/products/size-charts/size-charts-client.tsx")
+    const coupons = code("app/(storelib)/app/coupons/coupons-client.tsx")
+    check("the same bar, width and title as Coupons", /<PaneBar width=\{LIST_WIDTH\} className=\{LIST_BAR\}>/.test(list) && /<PaneBar width=\{LIST_WIDTH\} className=\{LIST_BAR\}>/.test(coupons) && /text-\[24px\] font-bold text-\[#1a1a2e\] sm:text-\[28px\]/.test(list))
+    check("  New size chart is the near black button with a plus, not the violet one", /const NEW_BUTTON = cn\(inkDepth,/.test(list) && /<Plus /.test(list) && !/accentDepth/.test(list))
+    check("  one card, with views and their counts", /className=\{cn\(card, "mt-3 overflow-hidden"\)\}/.test(list) && /role="tablist" aria-label=\{tt\("Views"\)\}/.test(list) && /tt\("In use"\)/.test(list) && /tt\("Not in use"\)/.test(list))
+    check("  each row has the Coupons row menu: edit, duplicate, delete", /<ResponsiveActionMenu/.test(list) && /<RowMenuButton label=\{tt\("Actions for \{name\}"/.test(list) && /tt\("Duplicate"\)/.test(list) && /variant: "destructive"/.test(list))
+    check("  duplicate saves a copy through the API; delete asks first, then deletes through it", /api<[^>]+>\("\/api\/size-charts", \{ method: "POST", body \}\)/.test(list) && /\/api\/size-charts\/\$\{confirmDelete\.id\}`, \{ method: "DELETE" \}/.test(list) && /role="dialog" aria-modal="true"/.test(list))
+    check("  a chart's page says where it stands beside its name, as a coupon's does", /<StatusBadge tone=\{used \? "success" : "neutral"\}>/.test(code("app/(storelib)/app/products/size-charts/size-chart-page.tsx")))
+  }
+
   console.log("\nThe help article and the developer docs\n")
   {
     const article = ALL_HELP_ARTICLES.find((a) => a.slug === "set-up-size-charts")

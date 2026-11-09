@@ -25,9 +25,12 @@
  *   ?inbox=1          the inbox
  *   ?siteform=<id>    a form from the older website builder
  *
- * The Contacts page draws this inside its own page and tabs
- * (app/(storelib)/app/contacts/forms); `framed` adds a page container of its
- * own for a page that has none.
+ * It draws the whole page (app/(storelib)/app/contacts/forms): the pane and
+ * one bar per screen (wave 6, the owner: the form's page had the Forms bar
+ * and the form's own under it, two back arrows). The list wears Contacts'
+ * bar (Back to People, Forms, New form) and Coupons' card with its views on
+ * the top row; a form wears its editor's own bar (FormEditor); the inbox and
+ * an older website form wear the same bar with a Back to Forms.
  *
  * WHEN FORMS ARE NOT SET UP (SQL parts 372 and 375 not run) the card says so
  * in one sentence; nothing is retried and New form is not offered. The
@@ -37,7 +40,6 @@ import * as React from "react"
 import { Plus } from "lucide-react"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { ShimmerRows } from "@/components/ui/shimmer"
-import { FilterPills } from "@/components/app/filter-pills"
 import { SegmentedPills } from "@/components/app/segmented-pills"
 import { FormEditor, usageWords, type SavedForm } from "@/components/forms/forms-manager"
 import { confirmForm } from "@/components/forms/form-confirm"
@@ -49,7 +51,8 @@ import type { SiteFormRow } from "@/lib/forms/overview-server"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { formatNumber } from "@/lib/i18n/format"
-import { RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card } from "../../orders/order-parts"
+import { GUTTER, LIST_WIDTH, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card } from "../../orders/order-parts"
+import { ContactsHeader, ContactsPane, PHONE_ACTION } from "../../contacts/contacts-header"
 import { MessagePage } from "../message-detail"
 import type { MessageRow } from "../emails-home"
 import { InsightsPanel, MessagesInbox, ResponsesPanel, SiteFormPanel, contactOpenHref, when } from "./form-panels"
@@ -95,6 +98,11 @@ export type { FormView, FormsRoute } from "./forms-route"
 type ListedForm = SavedForm & { kind?: FormKind; responses?: number; usages?: FormUsage[] }
 type Filter = "all" | "forms" | "quizzes" | "leads" | "website"
 
+/* The body under a bar in Forms: the list's own width and gutter (Coupons, Orders). */
+/* The room a row's ⋯ takes, kept on the rows that have none, so every badge lines up. */
+const MENU_ROOM = "w-10 shrink-0 max-md:w-[50px]"
+const SCREEN = cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)
+
 function filterOf(kind: FormKind | undefined): Exclude<Filter, "all"> {
   if (kind === "quiz") return "quizzes"
   if (kind === "lead") return "leads"
@@ -102,7 +110,7 @@ function filterOf(kind: FormKind | undefined): Exclude<Filter, "all"> {
   return "forms"
 }
 
-export function FormsList({ framed = false }: { framed?: boolean } = {}) {
+export function FormsList() {
   const [forms, setForms] = React.useState<ListedForm[]>([])
   const [siteForms, setSiteForms] = React.useState<SiteFormRow[]>([])
   const [inbox, setInbox] = React.useState<{ available: boolean; rows: MessageRow[] } | null>(null)
@@ -218,11 +226,16 @@ export function FormsList({ framed = false }: { framed?: boolean } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openedMessage?.id])
 
-  const wrap = (body: React.ReactNode) => (framed ? <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8">{body}</div> : <>{body}</>)
+  /* A new screen (the list, a form, the inbox, a message) opens at its top; a tab inside a form keeps its place. */
+  const paneRef = React.useRef<HTMLDivElement>(null)
+  const screen = route.message ? `m:${route.message}` : route.inbox ? "inbox" : route.siteform ? `s:${route.siteform}` : route.form ? `f:${route.form}` : "list"
+  React.useLayoutEffect(() => {
+    paneRef.current?.scrollTo({ top: 0 })
+  }, [screen])
 
   if (route.message) {
     return (
-      <div data-forms-message={route.message}>
+      <ContactsPane ref={paneRef} data-forms-message={route.message}>
         <MessagePage
           message={openedMessage}
           gone={!!inbox && !loading && !openedMessage}
@@ -235,11 +248,21 @@ export function FormsList({ framed = false }: { framed?: boolean } = {}) {
             if (m.subscriber_id) window.location.href = contactOpenHref("subscriber", m.subscriber_id)
           }}
         />
-      </div>
+      </ContactsPane>
     )
   }
-  if (route.inbox) return wrap(<MessagesInbox rows={inbox?.rows ?? []} onOpen={(m) => go({ message: m.id })} onBack={home} />)
-  if (route.siteform) return wrap(<SiteFormPanel id={route.siteform} onBack={home} />)
+  if (route.inbox)
+    return (
+      <ContactsPane ref={paneRef}>
+        <MessagesInbox rows={inbox?.rows ?? []} onOpen={(m) => go({ message: m.id })} onBack={home} />
+      </ContactsPane>
+    )
+  if (route.siteform)
+    return (
+      <ContactsPane ref={paneRef}>
+        <SiteFormPanel id={route.siteform} onBack={home} />
+      </ContactsPane>
+    )
 
   const selected = route.form ? forms.find((f) => f.id === route.form) || null : null
   if (selected) {
@@ -257,25 +280,32 @@ export function FormsList({ framed = false }: { framed?: boolean } = {}) {
       />
     )
     const editorView = route.view === "edit" || route.view === "settings" ? route.view : "panel"
+    /* The form's own screen: its bar, tabs and foot (components/forms/forms-manager FormEditor), the only bar on it. */
     return (
-      <FormEditor
-        key={selected.id}
-        form={selected}
-        framed={framed}
-        view={editorView}
-        nav={<div className="pt-1" data-form-tabs="">{tabs}</div>}
-        usages={selected.usages}
-        panel={route.view === "responses" ? <ResponsesPanel formId={selected.id} focus={route.response} quiz={(selected.published || selected.draft)?.mode === "quiz"} /> : route.view === "insights" ? <InsightsPanel formId={selected.id} /> : null}
-        onBack={home}
-        onSaved={(f) => setForms((all) => all.map((x) => (x.id === f.id ? { ...x, ...f } : x)))}
-      />
+      <ContactsPane ref={paneRef} className="lg:flex lg:flex-col">
+        <FormEditor
+          key={selected.id}
+          form={selected}
+          view={editorView}
+          nav={<div data-form-tabs="">{tabs}</div>}
+          usages={selected.usages}
+          panel={route.view === "responses" ? <ResponsesPanel formId={selected.id} focus={route.response} quiz={(selected.published || selected.draft)?.mode === "quiz"} /> : route.view === "insights" ? <InsightsPanel formId={selected.id} /> : null}
+          onBack={home}
+          onSaved={(f) => setForms((all) => all.map((x) => (x.id === f.id ? { ...x, ...f } : x)))}
+        />
+      </ContactsPane>
     )
   }
   if (route.form && loading)
-    return wrap(
-      <section className={card}>
-        <ShimmerRows rows={4} header={false} cols={["40%", "14%", "12%"]} label={tt("Loading")} />
-      </section>,
+    return (
+      <ContactsPane ref={paneRef}>
+        <ContactsHeader title={<span aria-label={tt("Loading")} className="block h-7 w-48 max-w-full animate-pulse rounded-lg bg-[#eceef1]" />} onBack={home} />
+        <div className={SCREEN}>
+          <section className={cn(card, "mt-3")}>
+            <ShimmerRows rows={4} header={false} cols={["40%", "14%", "12%"]} label={tt("Loading")} />
+          </section>
+        </div>
+      </ContactsPane>
     )
 
   const newMenu: ActionMenuItem[] = TEMPLATE_CHOICES.map((t) => ({ label: templateLabel(t.id), onClick: () => void create(t.id) }))
@@ -291,126 +321,161 @@ export function FormsList({ framed = false }: { framed?: boolean } = {}) {
   const unread = (inbox?.rows ?? []).filter((m) => !m.read_at).length
   const showInbox = Boolean(inbox?.available)
   const websiteCount = siteForms.length + (showInbox ? 1 : 0)
-  const counts: Record<Exclude<Filter, "all">, number> = { forms: 0, quizzes: 0, leads: 0, website: websiteCount }
+  const counts: Record<Filter, number> = { all: forms.length + websiteCount, forms: 0, quizzes: 0, leads: 0, website: websiteCount }
   for (const f of forms) counts[filterOf(f.kind)]++
-  const pills: { value: Filter; label: string; count?: number }[] = [
+  /* The views, as Coupons' and Orders' (All, then each kind there is), on the card's top row with their counts. */
+  const views: { value: Filter; label: string }[] = [
     { value: "all", label: tt("All") },
-    ...(counts.forms ? [{ value: "forms" as const, label: tt("Forms"), count: counts.forms }] : []),
-    ...(counts.quizzes ? [{ value: "quizzes" as const, label: tt("Quizzes"), count: counts.quizzes }] : []),
-    ...(counts.leads ? [{ value: "leads" as const, label: tt("Lead capture"), count: counts.leads }] : []),
-    ...(counts.website ? [{ value: "website" as const, label: tt("Website"), count: counts.website }] : []),
+    ...(counts.forms ? [{ value: "forms" as const, label: tt("Forms") }] : []),
+    ...(counts.quizzes ? [{ value: "quizzes" as const, label: tt("Quizzes") }] : []),
+    ...(counts.leads ? [{ value: "leads" as const, label: tt("Lead capture") }] : []),
+    ...(counts.website ? [{ value: "website" as const, label: tt("Website") }] : []),
   ]
   const shown = filter === "all" ? forms : forms.filter((f) => filterOf(f.kind) === filter)
   const showWebsite = filter === "all" || filter === "website"
   const nothing = !forms.length && !websiteCount
+  const settled = !(loading && !forms.length)
   const usedOn = (u: FormUsage[] | undefined) => (u && u.length ? u.map(usageWords).join(" · ") : tt("Not placed on a page yet"))
   const row = "flex items-center gap-1 transition-colors duration-75 hover:bg-[#fafbfb]"
-  const rowButton = "flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 text-left"
+  const rowButton = "flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 text-left max-md:min-h-[72px]"
+  const rowTitle = "block truncate text-[14px] font-medium text-[#1a1a2e] max-md:text-[15px]"
+  const phoneButton = "max-md:h-11 max-md:rounded-xl max-md:px-4 max-md:text-[15px]"
   const responses = (n: number) => tt("{n, plural, one {# response} other {# responses}}", { n })
 
-  return wrap(
-    <div data-forms-list="">
-      <div className="flex min-h-[48px] flex-wrap items-center justify-between gap-3">
-        {pills.length > 2 ? <FilterPills<Filter> label={tt("Show")} options={pills} value={filter} onChange={setFilter} /> : <span />}
-        {missing ? null : (
-          <ResponsiveActionMenu
-            title={tt("Start from")}
-            align="end"
-            trigger={
-              <button type="button" className={buttonAccent} disabled={busy} data-new-form="">
-                <Plus className="h-4 w-4" />
-                {tt("New form")}
-              </button>
-            }
-            items={newMenu}
-          />
-        )}
-      </div>
-
-      <section aria-label={tt("Forms")} className={cn(card, "mt-3 overflow-hidden")}>
-        {loading && !forms.length ? (
-          <ShimmerRows rows={4} header={false} cols={["40%", "14%", "12%"]} label={tt("Loading")} />
-        ) : (
-          <>
-            {missing ? (
-              <div className="flex flex-col items-center px-6 py-12 text-center" data-forms-missing="">
-                <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Forms are not switched on yet")}</p>
-                <p className="mt-1 max-w-[420px] text-[13px] text-[#6b7280]">{tt("They need the Forms database update (SQL parts 372 and 375 in Admin › SQL updates). Everything else keeps working.")}</p>
-              </div>
-            ) : error && !forms.length ? (
-              <div className="flex flex-col items-center px-6 py-12 text-center">
-                <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Forms did not load")}</p>
-                <p className="mt-1 max-w-[360px] text-[13px] text-[#6b7280]">{error}</p>
-                <button type="button" className={cn(buttonSecondary, "mt-4")} onClick={() => void load()}>
-                  {tt("Try again")}
+  return (
+    <ContactsPane ref={paneRef}>
+      <ContactsHeader
+        title={tt("Forms")}
+        back
+        actions={
+          missing ? null : (
+            <ResponsiveActionMenu
+              title={tt("Start from")}
+              align="end"
+              trigger={
+                <button type="button" className={cn(buttonAccent, PHONE_ACTION)} disabled={busy} data-new-form="">
+                  <Plus className="h-4 w-4 shrink-0" />
+                  {tt("New form")}
                 </button>
-              </div>
-            ) : nothing ? (
-              <div className="flex flex-col items-center px-6 py-14 text-center">
-                <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("No forms yet")}</p>
-                <p className="mt-1 max-w-[380px] text-[13px] text-[#6b7280]">{tt("Contact forms, applications, quizzes and bookings. One form works on your OnePage, your website and your creator page.")}</p>
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  {TEMPLATE_CHOICES.slice(0, 4).map((t) => (
-                    <button key={t.id} type="button" className={buttonSecondary} disabled={busy} onClick={() => void create(t.id)}>
-                      {templateLabel(t.id)}
+              }
+              items={newMenu}
+            />
+          )
+        }
+      />
+      <div className={SCREEN} data-forms-list="">
+        <section aria-label={tt("Forms")} className={cn(card, "mt-3 overflow-hidden")}>
+          {settled && !missing && !nothing && views.length > 2 ? (
+            <div className="flex h-[52px] items-center border-b border-[#eef0f2] px-2 md:h-12">
+              <div role="tablist" aria-label={tt("Show")} className="orders-strip -my-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-2" data-forms-views="">
+                {views.map((v) => {
+                  const on = filter === v.value
+                  return (
+                    <button
+                      key={v.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={on}
+                      onClick={() => setFilter(v.value)}
+                      className={cn(
+                        "inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 text-[14px] font-medium transition-colors duration-100 md:h-8 md:rounded-lg md:text-[13px]",
+                        on ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
+                      )}
+                    >
+                      {v.label}
+                      <span className="tabular-nums text-[#9ca3af]">{formatNumber(counts[v.value])}</span>
                     </button>
-                  ))}
-                </div>
+                  )
+                })}
               </div>
-            ) : null}
-            <ul className="divide-y divide-[#f1f2f4]">
-              {shown.map((f) => (
-                <li key={f.id} className={row} data-form-row={f.id}>
-                  <button type="button" className={rowButton} onClick={() => go({ form: f.id })}>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{f.title || tt("Untitled form")}</span>
-                      <span className="block truncate text-[13px] text-[#6b7280]">
-                        {kindWord(f.kind ?? "form")} · {responses(f.responses ?? 0)} · <span data-form-usage="">{usedOn(f.usages)}</span>
-                      </span>
-                    </span>
-                    <StatusBadge tone={f.status === "published" ? "success" : "neutral"}>{f.status === "published" ? tt("Published") : tt("Draft")}</StatusBadge>
+            </div>
+          ) : null}
+          {!settled ? (
+            <ShimmerRows rows={4} header={false} cols={["40%", "14%", "12%"]} label={tt("Loading")} />
+          ) : (
+            <>
+              {missing ? (
+                <div className="flex flex-col items-center px-6 py-12 text-center" data-forms-missing="">
+                  <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Forms are not switched on yet")}</p>
+                  <p className="mt-1 max-w-[420px] text-[13px] text-[#6b7280]">{tt("They need the Forms database update (SQL parts 372 and 375 in Admin › SQL updates). Everything else keeps working.")}</p>
+                </div>
+              ) : error && !forms.length ? (
+                <div className="flex flex-col items-center px-6 py-12 text-center">
+                  <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Forms did not load")}</p>
+                  <p className="mt-1 max-w-[360px] text-[13px] text-[#6b7280]">{error}</p>
+                  <button type="button" className={cn(buttonSecondary, "mt-4", phoneButton)} onClick={() => void load()}>
+                    {tt("Try again")}
                   </button>
-                  <div className="shrink-0 pr-2">
-                    <ResponsiveActionMenu title={f.title || tt("Form")} align="end" trigger={<RowMenuButton label={tt("Actions for {title}", { title: f.title || tt("Untitled form") })} />} items={menuFor(f)} />
-                  </div>
-                </li>
-              ))}
-              {showWebsite && showInbox ? (
-                <li className={row} data-form-row="inbox">
-                  <button type="button" className={cn(rowButton, "pr-4")} onClick={() => go({ inbox: true })}>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{tt("Website contact form")}</span>
-                      <span className="block truncate text-[13px] text-[#6b7280]">
-                        {kindWord("website")} · {tt("{n, plural, one {# message} other {# messages}}", { n: inbox?.rows.length ?? 0 })} · {tt("Your websites")}
-                      </span>
-                    </span>
-                    {unread ? <StatusBadge tone="attention">{tt("{n} new", { n: formatNumber(unread) })}</StatusBadge> : <StatusBadge tone="success">{tt("Published")}</StatusBadge>}
-                  </button>
-                </li>
-              ) : null}
-              {showWebsite
-                ? siteForms.map((f) => (
-                    <li key={f.id} className={row} data-site-form-row={f.id}>
-                      <button type="button" className={cn(rowButton, "pr-4")} onClick={() => go({ siteform: f.id })}>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{f.name || tt("Untitled form")}</span>
-                          <span className="block truncate text-[13px] text-[#6b7280]">
-                            {kindWord("website")} · {responses(f.responses)} · {f.site_name ? tt("Website: {name}", { name: f.site_name }) : tt("Website")} · {when(f.created_at)}
-                          </span>
-                        </span>
+                </div>
+              ) : nothing ? (
+                <div className="flex flex-col items-center px-6 py-14 text-center">
+                  <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("No forms yet")}</p>
+                  <p className="mt-1 max-w-[380px] text-[13px] text-[#6b7280]">{tt("Contact forms, applications, quizzes and bookings. One form works on your OnePage, your website and your creator page.")}</p>
+                  <div className="mt-4 flex flex-wrap justify-center gap-2">
+                    {TEMPLATE_CHOICES.slice(0, 4).map((t) => (
+                      <button key={t.id} type="button" className={cn(buttonSecondary, phoneButton)} disabled={busy} onClick={() => void create(t.id)}>
+                        {templateLabel(t.id)}
                       </button>
-                    </li>
-                  ))
-                : null}
-            </ul>
-          </>
-        )}
-      </section>
-      {error && forms.length ? (
-        <p role="alert" className="mt-3 text-[13px] font-medium text-[#b42318]">
-          {error}
-        </p>
-      ) : null}
-    </div>,
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              <ul className="divide-y divide-[#f1f2f4]">
+                {shown.map((f) => (
+                  <li key={f.id} className={row} data-form-row={f.id}>
+                    <button type="button" className={rowButton} onClick={() => go({ form: f.id })}>
+                      <span className="min-w-0 flex-1">
+                        <span className={rowTitle}>{f.title || tt("Untitled form")}</span>
+                        <span className="block truncate text-[13px] text-[#6b7280]">
+                          {kindWord(f.kind ?? "form")} · {responses(f.responses ?? 0)} · <span data-form-usage="">{usedOn(f.usages)}</span>
+                        </span>
+                      </span>
+                      <StatusBadge tone={f.status === "published" ? "success" : "neutral"}>{f.status === "published" ? tt("Published") : tt("Draft")}</StatusBadge>
+                    </button>
+                    <div className="shrink-0 pr-2 max-md:pr-1.5">
+                      <ResponsiveActionMenu title={f.title || tt("Form")} align="end" trigger={<RowMenuButton label={tt("Actions for {title}", { title: f.title || tt("Untitled form") })} className="max-md:h-11 max-md:w-11 max-md:rounded-xl" />} items={menuFor(f)} />
+                    </div>
+                  </li>
+                ))}
+                {showWebsite && showInbox ? (
+                  <li className={row} data-form-row="inbox">
+                    <button type="button" className={rowButton} onClick={() => go({ inbox: true })}>
+                      <span className="min-w-0 flex-1">
+                        <span className={rowTitle}>{tt("Website contact form")}</span>
+                        <span className="block truncate text-[13px] text-[#6b7280]">
+                          {kindWord("website")} · {tt("{n, plural, one {# message} other {# messages}}", { n: inbox?.rows.length ?? 0 })} · {tt("Your websites")}
+                        </span>
+                      </span>
+                      {unread ? <StatusBadge tone="attention">{tt("{n} new", { n: formatNumber(unread) })}</StatusBadge> : <StatusBadge tone="success">{tt("Published")}</StatusBadge>}
+                    </button>
+                    <span aria-hidden className={MENU_ROOM} />
+                  </li>
+                ) : null}
+                {showWebsite
+                  ? siteForms.map((f) => (
+                      <li key={f.id} className={row} data-site-form-row={f.id}>
+                        <button type="button" className={rowButton} onClick={() => go({ siteform: f.id })}>
+                          <span className="min-w-0 flex-1">
+                            <span className={rowTitle}>{f.name || tt("Untitled form")}</span>
+                            <span className="block truncate text-[13px] text-[#6b7280]">
+                              {kindWord("website")} · {responses(f.responses)} · {f.site_name ? tt("Website: {name}", { name: f.site_name }) : tt("Website")} · {when(f.created_at)}
+                            </span>
+                          </span>
+                        </button>
+                        <span aria-hidden className={MENU_ROOM} />
+                      </li>
+                    ))
+                  : null}
+              </ul>
+            </>
+          )}
+        </section>
+        {error && forms.length ? (
+          <p role="alert" className="mt-3 text-[13px] font-medium text-[#b42318]">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </ContactsPane>
   )
 }

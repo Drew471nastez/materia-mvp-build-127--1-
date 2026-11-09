@@ -135,7 +135,9 @@ check("no browser confirm() in the forms: Storelib's own confirm", () => {
 check("Contacts › Forms draws the same one column on its Edit tab, and Settings as cards", () => {
   const builder = code("components/forms/forms-manager.tsx")
   assert.match(builder, /const inPage = view !== undefined/)
-  assert.match(builder, /<div className="mx-auto max-w-\[720px\]">\{preview \? previewPane : editor\}<\/div>/)
+  /* Changed on purpose (wave 6): the column is the page's own width (FORM_WIDTH), the same as its bar, so the two line up. */
+  assert.match(builder, /\) : preview \? \(\s*previewPane\s*\) : \(\s*editor\s*\)\}/)
+  assert.match(builder, /const FORM_WIDTH = "max-w-\[800px\]"/)
   assert.match(builder, /<PublicationCard /)
   /* Where answers go and privacy live on the Settings tab of the page, and in the dialog's rows. */
   assert.match(builder, /\{inPage \? null : \(\s*<Disclosure id="responses"/)

@@ -345,7 +345,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 918 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 920 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -430,6 +430,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#000000\]:not([data-own-look], [data-own-look] *):active { background-color: #35353c; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#0f0f1c\]:not([data-own-look], [data-own-look] *):active { background-color: #35353c; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#10101d\]:not([data-own-look], [data-own-look] *):active { background-color: #35353c; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#111113\]:not([data-own-look], [data-own-look] *):active { background-color: #35353c; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#11111c\]:not([data-own-look], [data-own-look] *):active { background-color: #35353c; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#111122\]:not([data-own-look], [data-own-look] *):active { background-color: #35353c; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#12121f\]:not([data-own-look], [data-own-look] *):active { background-color: #35353c; }
@@ -1174,6 +1175,7 @@ html[data-sl-dark] [data-own-look] {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/shop\:bg-\[\#fafafb\]:not([data-own-look], [data-own-look] *):is(:where(.group\/shop):hover *) { background-color: #25252a; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/shop\:border-\[\#d2d5da\]:not([data-own-look], [data-own-look] *):is(:where(.group\/shop):hover *) { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/tile\:bg-black\/20:not([data-own-look], [data-own-look] *):is(:where(.group\/tile):hover *) { background-color: rgba(53,53,60,0.2); }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#111113\]:not([data-own-look], [data-own-look] *):hover { background-color: #35353c; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):hover { background-color: #35353c; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#26262b\]:not([data-own-look], [data-own-look] *):hover { background-color: #35353c; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#2a2a40\]:not([data-own-look], [data-own-look] *):hover { background-color: #35353c; }

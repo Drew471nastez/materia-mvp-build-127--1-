@@ -63,7 +63,7 @@ import type { PlatformsData } from "@/components/email/connected-platforms"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { EmailDetail, type EmailAction, type EmailSeed } from "./email-detail"
 import { TABS, campaignKey, loadReport, loadTab, mergeCampaigns, reportKey, tabKey, viewOf, type AllData, type SendingData, type SentData } from "./emails-data"
-import { isPageTab, isSection, isShow, placeOfView, type CampaignShow, type EmailsPageTab, type SettingsSection } from "./emails-route"
+import { isPageTab, isSection, isShow, type CampaignShow, type EmailsPageTab, type SettingsSection } from "./emails-route"
 import { noteListAddress } from "./list-return"
 import { openLayer } from "./layer-nav"
 import { tt } from "@/lib/i18n/text"
@@ -208,22 +208,48 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
   }, [current.loading, tab, keyFor, loaderFor])
 
   /* ── A tab switch ────────────────────────────────────────────────────── */
+  /*
+    AUTOMATIONS AND SETTINGS ARE PAGES UNDER EMAILS (wave 6). Each has the
+    back arrow a page under another has in /app, so going in is a step in
+    history (pushed, as an email over the list is) and the arrow, the
+    browser's back and a phone's back gesture all come out the same way. A
+    place opened straight from a link has nothing of this page's behind it:
+    its arrow puts Campaigns in its address instead (backThen's fallback).
+    Campaigns' filter and Settings' section are replaced, never pushed, so
+    back does not walk through every view.
+  */
   const listRef = React.useRef<HTMLDivElement>(null)
+  const placePushed = React.useRef(false)
+  const placeAddress = (next: EmailsPageTab) => (p: URLSearchParams) => {
+    p.set("tab", next)
+    /* Each place keeps only its own: Campaigns its filter, Settings its section and the editor's family. */
+    if (next !== "campaigns") p.delete("show")
+    else if (show !== "all") p.set("show", show)
+    if (next !== "settings") {
+      p.delete("section")
+      p.delete("kind")
+      p.delete("community")
+    } else p.set("section", section)
+  }
   const setPageTab = (next: EmailsPageTab) => {
     if (next === pageTab) return
+    if (next === "campaigns" && placePushed.current) {
+      placePushed.current = false
+      backThen(() => {
+        setPageTabState("campaigns")
+        writeAddress(placeAddress("campaigns"), "replace")
+      })
+      return
+    }
     setPageTabState(next)
-    writeAddress((p) => {
-      p.set("tab", next)
-      /* Each tab keeps only its own: Campaigns its filter, Settings its section and the editor's family. */
-      if (next !== "campaigns") p.delete("show")
-      else if (show !== "all") p.set("show", show)
-      if (next !== "settings") {
-        p.delete("section")
-        p.delete("kind")
-        p.delete("community")
-      } else p.set("section", section)
-    }, "replace")
+    const push = pageTab === "campaigns" && next !== "campaigns"
+    placePushed.current = push
+    writeAddress(placeAddress(next), push ? "push" : "replace")
   }
+  /* The browser's own back out of a place: nothing of it is left to pop. */
+  React.useEffect(() => {
+    if (pageTab === "campaigns") placePushed.current = false
+  }, [pageTab])
   const setShow = (next: CampaignShow) => {
     if (next === show) return
     setShowState(next)
@@ -240,30 +266,6 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
       p.set("tab", "settings")
       p.set("section", next)
       if (next !== "customer") {
-        p.delete("kind")
-        p.delete("community")
-      }
-    }, "replace")
-  }
-  /*
-    A PHONE'S VIEW, CHOSEN IN ONE STEP (round w5). A phone has one row of
-    views (emails-home PHONE_VIEWS): the tab and its filter or section are
-    set together and the address written once, the way setPageTab,
-    setShow and setSection each write it.
-  */
-  const setView = (next: EmailsTab) => {
-    const at = placeOfView(next)
-    if (at.tab === pageTab && (at.show ?? show) === show && (at.section ?? section) === section) return
-    setPageTabState(at.tab)
-    if (at.show) setShowState(at.show)
-    if (at.section) setSectionState(at.section)
-    writeAddress((p) => {
-      p.set("tab", at.tab)
-      if (at.show && at.show !== "all") p.set("show", at.show)
-      else p.delete("show")
-      if (at.section) p.set("section", at.section)
-      else p.delete("section")
-      if (at.section !== "customer") {
         p.delete("kind")
         p.delete("community")
       }
@@ -614,12 +616,13 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
           onShow={setShow}
           section={section}
           onSection={setSection}
-          onView={setView}
           onViewIntent={(v) => prefetch(keyFor(v), loaderFor(v), 30_000)}
           tab={shown}
           chosenTab={tab}
           skeletonAtOnce={heldOut === shown && current.loading}
           loading={current.loading}
+          error={current.data === undefined && current.error ? String(current.error) : null}
+          onRetry={() => void load(keyFor(shown), loaderFor(shown))}
           customerEmails={customerEmails ?? null}
           onCustomerEmails={(d) => write<CustomerEmailsData>(keyFor("customer"), () => d)}
           platforms={platforms ?? null}

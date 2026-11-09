@@ -171,22 +171,19 @@ export function MemberSheet({
         {pending && m.requestNote ? <p className="rounded-xl border border-[#eef0f2] px-4 py-3 text-[14px] leading-relaxed text-[#1a1a2e]" data-member-note="">&ldquo;{m.requestNote}&rdquo;</p> : null}
         {(out || m.mutedUntil) && m.acted ? <p className="text-[13.5px] leading-snug text-[#4b5563]" data-member-acted="">{takenAwayLine(m)}</p> : null}
 
-        <Facts items={rows} />
-
-        {activityItems.length ? (
-          <div data-member-activity="">
-            <Facts items={activityItems} />
-          </div>
-        ) : null}
+        {/* Round 52: what they did here (posts, comments, events) in the same box as the rest, not a second box of figures with no name. */}
+        <div data-member-activity={activityItems.length ? "" : undefined}>
+          <Facts items={[...rows, ...activityItems]} />
+        </div>
 
         {facts?.answers && facts.answers.items.length ? (
-          <section className="rounded-xl border border-[#eef0f2] px-4 py-3" data-member-join-answers="">
-            <h3 className="text-[12px] font-medium text-[#6b7280]">{tt("Answers before joining")}</h3>
-            <dl className="mt-2 space-y-2">
+          <section data-member-join-answers="">
+            <h3 className="mb-1 px-1 text-[12px] font-medium text-[#6b7280]">{tt("Answers before joining")}</h3>
+            <dl className="space-y-2.5 rounded-xl border border-[#eef0f2] bg-[#fafafb] px-4 py-3.5">
               {facts.answers.items.map((a) => (
-                <div key={a.id}>
-                  <dt className="text-[12.5px] leading-snug text-[#6b7280]">{a.label}</dt>
-                  <dd className="whitespace-pre-wrap text-[14px] leading-snug text-[#1a1a2e] [overflow-wrap:anywhere]">{answerText(a) || "–"}</dd>
+                <div key={a.id} className="min-w-0">
+                  <dt className="text-[12px] font-medium text-[#6b7280]">{a.label}</dt>
+                  <dd className="mt-0.5 whitespace-pre-wrap text-[14px] leading-snug text-[#1a1a2e] [overflow-wrap:anywhere]">{answerText(a) || "–"}</dd>
                 </div>
               ))}
             </dl>
