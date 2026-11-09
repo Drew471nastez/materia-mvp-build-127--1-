@@ -353,7 +353,9 @@ export function suggestDirections(industry: string | undefined, opts: { count?: 
   const avoid = opts.avoid ?? []
   const seed = hash(opts.seed ?? industry ?? "")
   const scored = DIRECTIONS.map((d, i) => {
-    const suits = d.suits.some((s) => words.some((w) => suitsWord(s, w))) ? 1 : 0
+    /* More of the brief's words matched, a closer fit: "architecture studio" prefers the direction that suits both. */
+    const matched = words.filter((w) => d.suits.some((s) => suitsWord(s, w))).length
+    const suits = matched ? 1 + Math.min(2, matched - 1) * 0.25 : 0
     const far = avoid.length ? Math.min(...avoid.map((a) => conceptDistance(directionAsConcept(d), a))) : 1
     const rot = ((i + seed) % DIRECTIONS.length) / (DIRECTIONS.length * 100)
     return { d, score: suits * 2 + far + rot }

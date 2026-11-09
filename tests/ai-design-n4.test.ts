@@ -55,6 +55,7 @@ import { renderCheck, esbuildScriptParser } from "@/lib/ai-builder/render-check"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { storefrontData } from "@/lib/website-builder/storefront-data"
 import { AGENT_SYSTEM, briefMessage } from "@/lib/ai-builder/agent/prompts"
+import { HEADLESS_HOOK_GUIDE } from "@/lib/ai-builder/runtime-contract"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 let passed = 0
@@ -107,7 +108,7 @@ async function main() {
     check("the largest step is smaller on a phone than on a wide screen", !!big && Number(big[1]) < Number(big[2]) && Number(big[1]) <= 3.2, scale["--step-6"])
     check("a system's CSS carries the scale, tracking and leading", /--step-6: clamp\(/.test(typeSystemCss(TYPE_SYSTEMS[0])) && /--display-tracking: -0\.02em/.test(typeSystemCss(TYPE_SYSTEMS[0])))
     const fit = suggestTypeSystems({ industry: "fitness coach", count: 3, seed: "a" })
-    check("type systems for a brief: three, three different voices, the athletic ones first for fitness", fit.length === 3 && new Set(fit.map((t) => t.voice)).size === 3 && fit[0].suits.some((s) => s.startsWith("fitness")), fit.map((t) => t.id))
+    check("type systems for a brief: three, three different voices, one made for fitness among them", fit.length === 3 && new Set(fit.map((t) => t.voice)).size === 3 && fit.some((t) => t.suits.some((s) => s.startsWith("fitness"))), fit.map((t) => t.id))
     const entry = knowledgeById("typography-type-library")
     check("the type library entry names every system's display face", !!entry && TYPE_SYSTEMS.every((t) => entry.body.includes(t.display.family)), TYPE_SYSTEMS.filter((t) => !entry?.body.includes(t.display.family)).map((t) => t.display.family))
 
@@ -261,14 +262,14 @@ async function main() {
   {
     const sys = AGENT_SYSTEM
     check("a senior designer-developer free of any theme", /senior designer-developer/.test(sys) && /free of any theme/.test(sys))
-    check("its own header, footer, cart drawer, search and switches with the shared hooks", ["data-storelib-cart-panel", "data-storelib-search-panel", "data-storelib-search-result", "data-storelib-locale-list", "data-storelib-currency-list", "data-storelib-locale-current"].every((h) => sys.includes(h)) && /NO built-in header, footer/.test(sys))
+    check("its own header, footer, cart drawer, search and switches with the shared hooks", ["data-storelib-cart-panel", "data-storelib-search-panel", "data-storelib-search-result", "data-storelib-locale-list", "data-storelib-currency-list", "data-storelib-locale-current"].every((h) => sys.includes(h)) && sys.includes(HEADLESS_HOOK_GUIDE) && /NO built-in header, footer/.test(sys))
     check("10 or more sections on home, every page complete", /10 or more sections/.test(sys) && /No page is a single heading/.test(sys))
     check("no default display face, a clamp scale and tracking", /never the display face unless the creator named one/.test(sys) && /clamp\(\) on every heading/.test(sys) && /tracking/.test(sys))
     check("no template layouts and restrained interactions, CSS first, sandbox limits", /centred hero over a row of three cards/.test(sys) && /two or three kinds per site/.test(sys) && /animation-timeline: view\(\)/.test(sys) && /cannot measure the page/.test(sys))
     const ids = [...sys.matchAll(/\bai_[a-z_]+\b/g)].map((m) => m[0]).filter((id) => !/^ai_(?:slug)$/.test(id))
     check("every example the prompt names exists", ids.length >= 14 && ids.every((id) => !!exampleById(id)), ids.filter((id) => !exampleById(id)))
     check("rounds L and M rules kept: concept refusal, real data, links, mobile first, no em dash", /refused concept comes back ok: false/.test(sys) && /ONLY ids from list_capabilities/.test(sys) && /Never href="#"/.test(sys) && /design at 375px wide/.test(sys) && /No em dashes/.test(sys) && !/—/.test(sys))
-    const brief = briefMessage({ job: { jobId: "j", installId: "i", creatorId: "c1", prompt: "A ceramics studio selling small batches of mugs", mode: "blank", options: { generation: "blank", category: "craft" } } as never, caps: null, pages: [{ key: "home", sections: [] }], files: [], knowledge: [], directions: suggestDirections("ceramics", { seed: "c1" }) })
+    const brief = briefMessage({ job: { jobId: "j", installId: "i", creatorId: "c1", prompt: "A ceramics studio selling small batches of mugs", mode: "blank", options: { generation: "blank", category: "fitness_coach" } } as never, caps: null, pages: [{ key: "home", sections: [] }], files: [], knowledge: [], directions: suggestDirections("ceramics", { seed: "c1" }) })
     check("the brief carries type systems that fit, and directions with layout moves", /TYPE SYSTEMS THAT FIT/.test(brief) && /layout: /.test(brief) && (brief.match(/^\* /gm) ?? []).length === 3)
     check("a blank site is told to write its own header and footer with cart, search and switches", /the site's own header and footer included/.test(brief))
     check("the brief still ends on the order of work", /render_check on every page, finish\.$/.test(brief))

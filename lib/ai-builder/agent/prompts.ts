@@ -12,7 +12,7 @@
  * compile before save, real ids only, finish refused with errors) are stated
  * here too, so the model plans around them instead of discovering them.
  */
-import { STORELIB_HOOKS, AGENT_DEFAULT_CAPABILITIES, type RuntimeCapabilities } from "../runtime-contract"
+import { STORELIB_HOOKS, AGENT_DEFAULT_CAPABILITIES, HEADLESS_HOOK_GUIDE, type RuntimeCapabilities } from "../runtime-contract"
 import type { AgentJobInput, KnowledgeHit, StoredFile, StoredPage } from "./ports"
 import type { Direction } from "@/lib/storelib-ai/library/concept"
 import { describeTypeSystem, suggestTypeSystems } from "@/lib/storelib-ai/library/type-systems"
@@ -38,9 +38,8 @@ HOW A STORELIB WEBSITE IS MADE
 A FREE SITE (its chrome is yours)
 - On a new website the page draws NO built-in header, footer, announcement bar, breadcrumbs, cart drawer, search window, language or currency switcher, cookie bar or floating UI. Write the site's own header (kind header) and footer (kind footer), always, designed for the concept.
 - Your header holds: the logo (theme.logo.url, else shop.name), the Main menu (link_list, sub links in link.links as a mega panel or dropdown, e.g. with the popover attribute and popovertarget buttons), a mobile menu of your own (popover) or data-storelib-menu, search and cart.
-- Your own cart drawer: an element with data-storelib-cart-panel in the same section as the data-storelib-cart button (the page sets data-open="true"/"false"), holding data-storelib-cart-lines with ONE hidden data-storelib-cart-line pattern (data-line-title, -variant, -price, -qty, -image, -url, buttons data-line-inc, -dec, -remove), data-storelib-cart-subtotal, data-storelib-cart-empty, data-storelib-cart-filled, data-storelib-checkout and data-storelib-cart-close.
-- Your own search window: an element with data-storelib-search-panel in the same section as the data-storelib-search button, holding data-storelib-search-input, data-storelib-search-results with ONE hidden data-storelib-search-result (data-result-title, -price, -image, -url, -kind), data-storelib-search-empty, -loading and -close.
-- Language and currency: data-storelib-locale-list holding ONE hidden data-storelib-locale-option (data-option-label inside), data-storelib-locale-current for the active label; the same with data-storelib-currency-list, -option, -current. The page fills, switches and hides them when there is only one. Put them in the header's mobile menu or the footer.
+- The hooks your own cart drawer, search window and language and currency switches are built with (put the switches in the header's mobile menu or the footer):
+${HEADLESS_HOOK_GUIDE}
 - Cart and search buttons are links to routes.cart_url and routes.search_url, so they work before the page's script loads. Working examples: search_knowledge "ai_site_header" and "ai_site_footer".
 
 LINKS AND BUTTONS (checked on every drawn page; a broken one blocks finish)

@@ -520,15 +520,16 @@ function radius(c: Ctx): Raw[] {
   const large = r.filter((x) => x >= 20)
   const want = c.concept?.layout.radius
   const conceptTight = typeof want === "number" && want <= 6
-  if (large.length / r.length < 0.5 && !(conceptTight && large.length >= 2)) return []
-  /* Rounded-2xl on everything: most corners large and many of them reads as the default kit. */
-  const everywhere = large.length >= 6 && large.length / r.length >= 0.7
+  /* Rounded-xl and up on everything: most corners round and many of them reads as the default kit. */
+  const roundish = r.filter((x) => x >= 12)
+  const everywhere = roundish.length >= 6 && roundish.length / r.length >= 0.7
+  if (large.length / r.length < 0.5 && !(conceptTight && large.length >= 2) && !everywhere) return []
   return [{
     rule: "radius",
     severity: conceptTight || everywhere ? "warn" : "info",
-    message: `${large.length} of ${r.length} corner radii are 20px or more${conceptTight ? `, but the concept says ${want}px` : ""}.`,
+    message: everywhere && large.length / r.length < 0.5 ? `${roundish.length} of ${r.length} corner radii are 12px or more: rounded corners on everything.` : `${large.length} of ${r.length} corner radii are 20px or more${conceptTight ? `, but the concept says ${want}px` : ""}.`,
     fix: "Use the concept's radius system: 0 for Swiss, editorial, luxury and brutalist; 2 to 6px for most sites; larger only for friendly concepts. Photos usually square cornered.",
-    evidence: uniq(large.map((x) => `${x}px`)).slice(0, 5),
+    evidence: uniq((large.length ? large : roundish).map((x) => `${x}px`)).slice(0, 5),
     knowledge: "anti-slop-excessive-radius",
     allowance: "large-radius",
   }]

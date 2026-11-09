@@ -101,7 +101,8 @@ export const MAX_RENDER_ISSUES = 40
 /** Addresses every Storelib website answers, whatever pages it has (app/(site)/w/[username]). */
 const BUILT_IN_ROUTES = [/^\/$/, /^\/products\/?$/, /^\/collections\/?$/, /^\/cart\/?$/, /^\/search\/?$/, /^\/wishlist\/?$/, /^\/account(\/.*)?$/, /^\/blogs(\/.*)?$/, /^\/policies\/[a-z0-9-]+$/, /^\/checkout$/, /^\/password$/, /^\/reviews(\/.*)?$/, /^\/sitemap\.xml$/]
 /** Hooks that make a "#" link a real control. */
-const HOOK_ATTR = /\sdata-storelib-(cart|search|menu|add-to-cart|checkout|cart-close|wishlist|scroll|locale|currency)\b|\srole\s*=\s*"button"|\saria-controls\s*=/i
+/* data-line-url and data-result-url: the link inside a cart line or search result pattern, whose href the page writes per line (round N, N4). */
+const HOOK_ATTR = /\sdata-storelib-(cart|search|menu|add-to-cart|checkout|cart-close|wishlist|scroll|locale|currency)\b|\sdata-(?:line|result)-url\b|\srole\s*=\s*"button"|\saria-controls\s*=/i
 /** Elements copied once per item in the browser: what is inside them is a pattern, filled with real values there. */
 const PATTERN_ATTR = /\sdata-storelib-(?:cart-line|search-result|locale-option|currency-option)(?![-\w])/i
 /** A class that dresses a link or button as a call to action (btn, button, cta, hero__cta, buy-now...). */
