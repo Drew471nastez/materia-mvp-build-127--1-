@@ -18,6 +18,7 @@
  * own history (lib/physical, physicalEvents below): shipped with tracking,
  * delivered, returns, cancelled, emails to the buyer, and the shop's notes.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { dayHeading, itemsLabel, startOfDay, type Order } from "./order-view"
 import { reasonLabel } from "@/lib/store/reasons"
 import { tt } from "@/lib/i18n/text"
@@ -110,7 +111,7 @@ function tidy(text: string | undefined): string | undefined {
 
 export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe: StripeStep[] = []): TimelineEvent[] {
   const events: TimelineEvent[] = []
-  const who = order.customerName || order.customerEmail
+  const who = order.customerName || displayEmail(order.customerEmail)
   const where = order.source === "website" ? tt(" on your website") : order.source === "storelib" ? tt(" on Storelib") : ""
   events.push({ id: "placed", at: order.createdAt, text: tt("{value} this order{where}", { value: who ? tt("{who} placed", { who }) : tt("Placed"), where }), tone: "neutral", glyph: "placed" })
 
@@ -149,7 +150,7 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
       events.push({
         id: `mail-${line.id}`,
         at: line.buyer_notified_at,
-        text: tt("Receipt emailed to {value}", { value: line.buyer_email || tt("the buyer") }),
+        text: tt("Receipt emailed to {value}", { value: displayEmail(line.buyer_email) || tt("the buyer") }),
         detail: product ?? undefined,
         tone: "success",
         glyph: "mail",

@@ -24,6 +24,7 @@
  * Round 31: Invite free is the New post sheet on a phone (form-sheet.tsx),
  * Cancel and Give them a ticket in its top row, the fields above the keyboard.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import { ArrowLeft, Check, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -198,7 +199,7 @@ export function EventTicketsPanel({ head, event, currency, onBack }: { head: Com
                     {statusBadge(t)}
                   </p>
                   <p className="truncate text-[12.5px] text-[#6b7280]">
-                    {[sourceWords(t), t.paidAt ? shortDate(t.paidAt) : null, t.email].filter(Boolean).join(" · ")}
+                    {[sourceWords(t), t.paidAt ? shortDate(t.paidAt) : null, displayEmail(t.email)].filter(Boolean).join(" · ")}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:justify-end">
@@ -358,7 +359,7 @@ function InviteFree({ open, onClose, communityId, eventId, onDone }: { open: boo
                       <MemberAvatar src={m.avatarUrl ?? undefined} name={m.name} size={28} className="h-7 w-7 shrink-0 rounded-full" lazy />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13.5px] font-medium text-[#1a1a2e]">{m.name}</span>
-                        {m.email ? <span className="block truncate text-[12px] text-[#6b7280]">{m.email}</span> : null}
+                        {displayEmail(m.email) ? <span className="block truncate text-[12px] text-[#6b7280]">{displayEmail(m.email)}</span> : null}
                       </span>
                       {m.hasTicket ? <span className="shrink-0 text-[12px] text-[#6b7280]">{tt("Already in")}</span> : <span className={cn("grid h-5 w-5 shrink-0 place-items-center rounded-[6px] border", on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#d1d5db]")}>{on ? <Check aria-hidden className="h-3.5 w-3.5" /> : null}</span>}
                     </button>

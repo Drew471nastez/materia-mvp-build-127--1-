@@ -44,6 +44,7 @@
  * every press is at least 44px, and nothing scrolls sideways.
  */
 
+import { displayEmail } from "@/lib/businesses/email-alias"
 import React, {
   createContext,
   useContext,
@@ -1824,7 +1825,7 @@ function OrderDetailsModal({
 
   const openEditEmail = () => {
     if (!order) return;
-    const email = emailOverrides[order.id] || order.buyer?.email || order.buyer_email || order.customer_email || "";
+    const email = displayEmail(emailOverrides[order.id] || order.buyer?.email || order.buyer_email || order.customer_email) || "";
     setEditEmail(email);
     setEmailError(null);
     setShowEditEmail(true);
@@ -1905,7 +1906,7 @@ function OrderDetailsModal({
   const feeRule = order.amount_cents > 0 ? feeRuleOf(order.amount_cents, order.fee_cents || 0, currency) : null;
   const buyerName = customerNameOf(order);
   const buyerEmail =
-    emailOverrides[order.id] || order.buyer?.email || order.buyer_email || order.customer_email || null;
+    displayEmail(emailOverrides[order.id] || order.buyer?.email || order.buyer_email || order.customer_email);
   const coverImage = order.product?.thumbnail_url;
   const productTitle = order.product?.title || tt("Unknown product");
   const productType = order.product?.type || tt("Digital product");
@@ -2076,7 +2077,7 @@ function OrderDetailsModal({
         <Thumb src={order.product?.thumbnail_url} size={40} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium text-[#1a1a2e]">{order.product?.title || tt("Product")}</p>
-          <p className="truncate text-[12px] text-[#6b7280]">{order.buyer_email || order.customer_email || ""}</p>
+          <p className="truncate text-[12px] text-[#6b7280]">{displayEmail(order.buyer_email || order.customer_email) || ""}</p>
         </div>
         <p className="shrink-0 text-[13px] font-semibold tabular-nums text-[#1a1a2e]">{fmt(order.amount_cents, currency)}</p>
       </div>
@@ -2309,7 +2310,7 @@ function exportOrdersCsv(orders: OrderPayment[], currency: string): void {
         new Date(o.created_at).toLocaleDateString(appLocale(), zoned()),
         o.id,
         o.product?.title || "",
-        o.buyer_email || o.customer_email || "",
+        displayEmail(o.buyer_email || o.customer_email) || "",
         plain(o.amount_cents, c),
         c,
         o.status,
@@ -3946,7 +3947,7 @@ export function PayoutsClient({
               */}
               <ul aria-label={tt("Sales")} className="md:hidden">
                 {pagedOrders.map((order) => {
-                  const name = customerNameOf(order) || order.buyer?.email || order.buyer_email || tt("Customer");
+                  const name = customerNameOf(order) || displayEmail(order.buyer?.email || order.buyer_email) || tt("Customer");
                   const day = new Date(order.created_at).toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric" }));
                   return (
                     <li key={order.id} className="relative [&+li]:before:absolute [&+li]:before:left-[68px] [&+li]:before:right-0 [&+li]:before:top-0 [&+li]:before:h-px [&+li]:before:bg-[#eceef1]">
@@ -3995,7 +3996,7 @@ export function PayoutsClient({
                 <tbody className="[&>tr+tr>td]:border-t [&>tr+tr>td]:border-[#f1f2f4]">
                   {pagedOrders.map((order) => {
                     const name = customerNameOf(order);
-                    const email = order.buyer?.email || order.buyer_email || "";
+                    const email = displayEmail(order.buyer?.email || order.buyer_email) || "";
                     const rowItems: ActionMenuItem[] = [
                       { label: tt("View sale"), icon: <FileText />, onClick: () => openOrderDetails(order) },
                       ...(order.status === "completed"

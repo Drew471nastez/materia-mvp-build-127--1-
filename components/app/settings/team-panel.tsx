@@ -199,7 +199,7 @@ export function TeamPanel() {
       toast({ title: tt("Access not changed"), description: r.error, variant: "destructive" })
       return
     }
-    toast({ title: tt("Access changed for {value}", { value: m.name || m.email }), description: m.status === "active" ? tt("It applies right away.") : tt("It applies when they join.") })
+    toast({ title: tt("Access changed for {value}", { value: m.name || (displayEmail(m.email) ?? "") }), description: m.status === "active" ? tt("It applies right away.") : tt("It applies when they join.") })
   }
 
   const remove = async (m: Member) => {
@@ -211,7 +211,7 @@ export function TeamPanel() {
       toast({ title: m.status === "invited" ? tt("Invite not cancelled") : tt("Not removed"), description: r.error, variant: "destructive" })
       return
     }
-    toast({ title: m.status === "invited" ? tt("Invite cancelled") : tt("{value} removed", { value: m.name || m.email }), description: m.status === "invited" ? tt("The link in their email stops working.") : tt("They can't open your store any more.") })
+    toast({ title: m.status === "invited" ? tt("Invite cancelled") : tt("{value} removed", { value: m.name || (displayEmail(m.email) ?? "") }), description: m.status === "invited" ? tt("The link in their email stops working.") : tt("They can't open your store any more.") })
   }
 
   const resend = async (m: Member) => {
@@ -221,7 +221,7 @@ export function TeamPanel() {
     setBusy(null)
     if (r.ok === false) return toast({ title: tt("Not sent"), description: r.error, variant: "destructive" })
     setMembers((list) => list.map((x) => (x.id === m.id ? { ...x, ...r.data.member } : x)))
-    toast({ title: tt("Invite sent again"), description: tt("A new link went to {email}. The old one stops working.", { email: m.email }) })
+    toast({ title: tt("Invite sent again"), description: tt("A new link went to {email}. The old one stops working.", { email: (displayEmail(m.email) ?? "") }) })
   }
 
   const work = async (store: string | null) => {
@@ -302,7 +302,7 @@ export function TeamPanel() {
               const canEdit = editable(m)
               const status =
                 m.pending ? tt("Sending invite") :
-                m.status === "active" ? (m.name ? m.email : tt("Joined {when}", { when: ago(m.accepted_at, now) }).trim()) :
+                m.status === "active" ? (m.name ? (displayEmail(m.email) ?? "") : tt("Joined {when}", { when: ago(m.accepted_at, now) }).trim()) :
                 isExpired ? tt("Expired, sent {value}", { value: ago(m.invited_at, now) }) :
                 tt("Invited {value}", { value: ago(m.invited_at, now) })
               const items: ActionMenuItem[] = canEdit
@@ -316,7 +316,7 @@ export function TeamPanel() {
                       : { label: tt("Remove from team"), icon: <UserMinus className="h-4 w-4" />, variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirm({ kind: "remove", member: m }) },
                   ]
                 : []
-              const name = m.name || m.email
+              const name = m.name || (displayEmail(m.email) ?? "")
               return (
                 <li key={m.id} className={cn("flex min-h-[56px] items-center gap-3 rounded-xl px-1 py-2 transition-opacity", m.pending && "opacity-60")} data-team-member={m.status}>
                   <Face src={m.avatar_url ?? null} name={name} />
@@ -336,7 +336,7 @@ export function TeamPanel() {
                       onClick={() => openEdit(m)}
                       disabled={busy === m.id}
                       className="hidden max-w-[160px] truncate rounded-lg px-2 py-1.5 text-right text-[13px] text-[#4b5563] underline-offset-2 hover:bg-[#f1f2f4] hover:text-[#1a1a2e] sm:inline"
-                      aria-label={tt("Change access for {email}", { email: m.email })}
+                      aria-label={tt("Change access for {email}", { email: (displayEmail(m.email) ?? "") })}
                       data-team-access=""
                     >
                       {accessSummary(m.permissions)}
@@ -358,7 +358,7 @@ export function TeamPanel() {
                       title={name}
                       items={items}
                       trigger={
-                        <button type="button" className={DOTS} aria-label={tt("Actions for {email}", { email: m.email })} disabled={busy === m.id}>
+                        <button type="button" className={DOTS} aria-label={tt("Actions for {email}", { email: (displayEmail(m.email) ?? "") })} disabled={busy === m.id}>
                           <MoreHorizontal className="h-[18px] w-[18px]" />
                         </button>
                       }
@@ -463,7 +463,7 @@ export function TeamPanel() {
         open={editing !== null}
         onClose={() => setEditing(null)}
         wide
-        title={editing ? tt("Access for {value}", { value: editing.name || editing.email }) : tt("Access")}
+        title={editing ? tt("Access for {value}", { value: editing.name || (displayEmail(editing.email) ?? "") }) : tt("Access")}
         footer={
           <>
             <button type="button" className={BTN_SECONDARY} onClick={() => setEditing(null)}>
@@ -514,9 +514,9 @@ export function TeamPanel() {
       >
         <p className="text-[14px] leading-[21px] text-[#4b5563]">
           {confirm?.kind === "cancel"
-            ? tt("The link sent to {email} stops working. You can invite them again later.", { email: confirm.member.email })
+            ? tt("The link sent to {email} stops working. You can invite them again later.", { email: (displayEmail(confirm.member.email) ?? "") })
             : confirm?.kind === "remove"
-              ? tt("{value} can't open your store any more, starting now. Their own Storelib account stays as it is.", { value: confirm.member.name || confirm.member.email })
+              ? tt("{value} can't open your store any more, starting now. Their own Storelib account stays as it is.", { value: confirm.member.name || (displayEmail(confirm.member.email) ?? "") })
               : confirm?.kind === "leave"
                 ? tt("You won't be able to open {name} until its owner invites you again. Your own account stays as it is.", { name: confirm.store.name })
                 : null}

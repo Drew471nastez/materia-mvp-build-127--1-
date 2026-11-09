@@ -249,4 +249,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "380", file: "380_ai_site_jobs.sql", sha256: "b8ad5b4162e92093a0ed488f4b947d788132710ec04a80aa0aeab3b973b67cc4" },
   { part: "401", file: "401_ai_builder_agent.sql", sha256: "67291db8e09d9c204d30a7f34c497e57d7939f4ca3566feffaba9580fac74b7d" },
   { part: "405", file: "405_ai_job_preview_errors.sql", sha256: "caec345959a8eb1ce55ad2feffd0ed798f30e660844cd5923cd208b32aaab9fb" },
+  { part: "406", file: "406_creator_people_alias_merge.sql", sha256: "a5909f448d5651bd696871d9c5d3542be1c7be784354c99eca2e8e29837abdae" },
 ]

@@ -13,6 +13,7 @@
  * with three items, which is what the buyer did.
  */
 
+import { emailMatches } from "@/lib/businesses/email-alias"
 import { cleanOrigin, type OrderOrigin, type OrderSource } from "./order-source"
 import { midnightOf, todayIn } from "../date-range/range"
 import { tt } from "@/lib/i18n/text"
@@ -512,9 +513,9 @@ export function matchesSearch(order: Order, q: string): boolean {
   if (!needle) return true
   if (String(order.number).startsWith(needle)) return true
   if (order.id.toLowerCase().startsWith(needle)) return true
+  if (emailMatches(order.customerEmail, needle)) return true
   const haystack = [
     order.customerName,
-    order.customerEmail,
     ...order.lines.map((l) => l.product?.title),
   ]
   return haystack.some((s) => (s || "").toLowerCase().includes(needle))

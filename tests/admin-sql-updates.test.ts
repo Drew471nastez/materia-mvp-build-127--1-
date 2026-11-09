@@ -41,6 +41,12 @@ assert.throws(() => sqlBatch(catalog, ["../../secrets"]))
 const manual = catalog.find(row => row.manual)!
 assert.throws(() => sqlBatch(catalog, [manual.id, first.id]))
 assert.equal(sqlBatch(catalog, [manual.id]), manual.sql, "manual files are copied unchanged, with no automatic tracking")
+/* Wave 8: part 406 (a second business's tagged address keyed as shown in Contacts) is an ordinary part, batched after the 378 it replaces a function of. */
+const p406 = catalog.find(row => row.file === "406_creator_people_alias_merge.sql")
+assert(p406 && !p406.manual, "part 406 is in the catalog as an ordinary part")
+const p378 = catalog.find(row => row.file === "378_creator_contacts.sql")!
+const pair = sqlBatch(catalog, [p406!.id, p378.id])
+assert(pair.indexOf(p378.sql) < pair.indexOf(p406!.sql), "378 runs before the 406 that replaces its creator_people")
 const route = readFileSync("app/api/admin/sql-updates/route.ts", "utf8")
 assert(route.indexOf("await requireAdmin()") < route.indexOf("new URL(request.url)"))
 assert(!route.includes("export async function POST"), "no generic SQL execution endpoint")

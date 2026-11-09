@@ -39,6 +39,7 @@
  * same after a reload and back does not have to walk through every keystroke.
  */
 
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { PullToRefresh } from "@/components/ui/pull-to-refresh"
@@ -718,7 +719,7 @@ export function OrdersClient(props: OrdersClientProps) {
         applyDelivery(data?.lines)
         if (!res.ok) throw new Error(data?.error || tt("The receipt was not sent. Try again."))
         if (data?.failed > 0) return `Sent ${data.sent} of ${data.sent + data.failed} receipts. ${data.error ?? ""}`.trim()
-        return tt("Receipt sent to {value}", { value: order.customerEmail || tt("the buyer") })
+        return tt("Receipt sent to {value}", { value: displayEmail(order.customerEmail) || tt("the buyer") })
       }
       case "invoice": {
         const outcome = await saveFile({

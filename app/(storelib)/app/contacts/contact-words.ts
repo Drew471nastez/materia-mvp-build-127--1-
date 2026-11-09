@@ -2,6 +2,7 @@
  * Contacts' words, read when they are drawn (tt at call time, never at
  * import), so they follow the dashboard's language.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 import type { Origin, PersonRow, SubscriptionState } from "@/lib/contacts/identity"
@@ -123,7 +124,7 @@ export function dayOf(iso: string | null | undefined): string {
 
 /** The person's name, or their address, or a plain word when there is neither. */
 export function whoOf(p: Pick<PersonRow, "name" | "email">): string {
-  return p.name || p.email || tt("No name or email")
+  return p.name || displayEmail(p.email) || tt("No name or email")
 }
 
 /** What a failed contacts request says, by its code, in the dashboard's language. */

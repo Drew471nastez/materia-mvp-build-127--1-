@@ -1,5 +1,6 @@
 "use client"
 
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 
 import type { CreatorDetailPayload, CreatorRow, CreatorsPayload, OrderRow, OrdersPayload, PayoutRow, PayoutsPayload, ProductRow, ProductsPayload, StripeState } from "@/lib/admin/types"
@@ -88,7 +89,7 @@ export function CreatorView({ data, go, act }: Common & { data: CreatorDetailPay
       <ViewHeader
         title={c.name}
         back={back}
-        meta={[c.handle ? `@${c.handle}` : null, c.joined ? `joined ${date(c.joined)}` : null, c.email].filter(Boolean).join(" · ")}
+        meta={[c.handle ? `@${c.handle}` : null, c.joined ? `joined ${date(c.joined)}` : null, displayEmail(c.email)].filter(Boolean).join(" · ")}
         actions={
           <>
             {c.handle ? (

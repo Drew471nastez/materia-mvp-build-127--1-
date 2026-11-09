@@ -1,5 +1,6 @@
 "use client"
 
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import Link from "next/link"
 import {
@@ -514,7 +515,7 @@ function OrdersTable(props: OrdersListProps) {
  * is. Hidden from a computer, whose table keeps its columns.
  */
 function PhoneRow({ order, now, timeZone, onOpen }: { order: Order; now: number; timeZone: string; onOpen: (id: string) => void }) {
-  const who = order.customerName || order.customerEmail
+  const who = order.customerName || displayEmail(order.customerEmail)
   return (
     <td data-phone-row="" className="relative border-t border-[#f0f1f3] bg-white px-4 py-3 sm:hidden">
       <div className="flex items-baseline justify-between gap-3">
@@ -550,8 +551,8 @@ function Cell({ column, order, now, timeZone }: { column: ColumnKey; order: Orde
     case "date":
       return <span className="text-[#4b5563]">{listDate(order.createdAt, now, timeZone)}</span>
     case "customer":
-      return order.customerName || order.customerEmail ? (
-        <span className="block max-w-[200px] truncate">{order.customerName || order.customerEmail}</span>
+      return order.customerName || displayEmail(order.customerEmail) ? (
+        <span className="block max-w-[200px] truncate">{order.customerName || displayEmail(order.customerEmail)}</span>
       ) : (
         <span className="text-[#9ca3af]">{tt("No customer")}</span>
       )
@@ -597,7 +598,7 @@ function Cell({ column, order, now, timeZone }: { column: ColumnKey; order: Orde
       return <DeliveryBadge status={order.delivery} />
     case "method":
       if (order.shipping) return <span className="block max-w-[180px] truncate">{order.shipping.pickup ? tt("Local pickup") : order.shipping.method || tt("Shipping")}</span>
-      return order.customerEmail ? <span>{tt("Email")}</span> : <span className="text-[#9ca3af]">&ndash;</span>
+      return displayEmail(order.customerEmail) ? <span>{tt("Email")}</span> : <span className="text-[#9ca3af]">&ndash;</span>
   }
 }
 

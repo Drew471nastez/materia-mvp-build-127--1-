@@ -19,6 +19,7 @@
  *                  the reminder, with a preview drawn by the code that sends
  *                  it (lib/reviews/request-email.ts) in the store's colours
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import { Loader2, Search, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -143,7 +144,7 @@ export function RequestsView() {
                 return (
                   <li key={r.id} className="grid gap-1 px-4 py-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] sm:items-center sm:gap-4 sm:px-5" data-request-row={r.shown}>
                     <div className="min-w-0">
-                      <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{r.first_name ? `${r.first_name} · ` : ""}{r.email}</p>
+                      <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{r.first_name ? `${r.first_name} · ` : ""}{displayEmail(r.email) ?? ""}</p>
                       <p className="truncate text-[12.5px] text-[#6b7280]">{r.product?.title ?? tt("A deleted product")}</p>
                     </div>
                     <p className="text-[12.5px] leading-[18px] text-[#6b7280]">
@@ -264,7 +265,7 @@ function AskSheet({ onClose, onSent }: { onClose: () => void; onSent: () => void
           return (
             <li key={o.id} className="flex items-center gap-3 px-3 py-2.5" data-ask-order={o.id}>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{o.email}</p>
+                <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{displayEmail(o.email) ?? tt("No email")}</p>
                 <p className="truncate text-[12.5px] text-[#6b7280]">
                   {o.product ?? tt("A deleted product")} · {shortDate(o.created_at)}
                   {before ? ` · ${before}` : ""}

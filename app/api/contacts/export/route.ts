@@ -4,6 +4,7 @@ import { readPeopleQuery } from "@/lib/contacts/identity"
 import { everyPerson } from "@/lib/contacts/people-server"
 import { contactIdsFrom } from "@/lib/contacts/server"
 import { csvLine } from "@/lib/contacts/csv"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
           return controller.close()
         }
         for (const p of next.value)
-          out += csvLine([p.name ?? "", p.email ?? "", p.subscription, p.lead ? "yes" : "", p.customer ? "yes" : "", p.member ? "yes" : "", p.student ? "yes" : "", p.orders, p.forms, p.tags.join(", "), p.firstSeen ?? "", p.lastSeen ?? "", p.origin, p.id])
+          out += csvLine([p.name ?? "", displayEmail(p.email) ?? "", p.subscription, p.lead ? "yes" : "", p.customer ? "yes" : "", p.member ? "yes" : "", p.student ? "yes" : "", p.orders, p.forms, p.tags.join(", "), p.firstSeen ?? "", p.lastSeen ?? "", p.origin, p.id])
         controller.enqueue(encoder.encode(out))
       } catch (error) {
         console.error("[contacts] export failed:", (error as Error)?.message)

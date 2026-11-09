@@ -28,6 +28,7 @@
  *
  * Pure: the tests draw exactly what is sent.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { ITEM_PX, renderHtml, renderText, type Fact, type LayoutInput, type SummaryRow } from "./templates/layout"
 import { inboxPicture } from "./templates/index"
 import { PATHS, formatMoney } from "./templates/catalog"
@@ -292,7 +293,8 @@ export function sellerCommerceEmail(kind: SellerCommerceKind, m: SellerCommerceI
   }
   /* The buyer is written to with the number they know: their reference. */
   const theirs = str(m.buyerReference, 24).replace(/^#?/, "#")
-  const reply = m.buyerEmail ? mailtoUrl(m.buyerEmail, theirs.length > 1 ? `Your order ${theirs}` : number.length > 1 ? `Your order ${number}` : "Your order") : null
+  const replyTo = displayEmail(m.buyerEmail)
+  const reply = replyTo ? mailtoUrl(replyTo, theirs.length > 1 ? `Your order ${theirs}` : number.length > 1 ? `Your order ${number}` : "Your order") : null
   const count = (m.lines ?? []).reduce((n, l) => n + Math.max(1, Math.round(Number(l.quantity) || 1)), 0)
   let family: TemplateFamily = "action_required"
   let subject = ""

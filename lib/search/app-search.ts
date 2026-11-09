@@ -34,6 +34,7 @@
  *
  * NOTHING HERE LOGS THE QUERY. It can be somebody's email address.
  */
+import { displayEmail, emailMatchKey, searchedAddress } from "@/lib/businesses/email-alias"
 import { withOrderCurrency } from "@/lib/store/currency-at-read"
 import { groupOrders, matchesSearch, type Order, type OrderRow } from "@/lib/orders/order-view"
 import { tt } from "@/lib/i18n/text"
@@ -232,7 +233,7 @@ export function forgetOrderIndex(creatorId?: string): void {
 function orderHit(order: Order): SearchHit {
   const titles = order.lines.map((l) => l.product?.title).filter((t): t is string => !!t)
   const what = titles.length > 1 ? tt("{titles} and {value} more", { titles: titles[0], value: titles.length - 1 }) : titles[0] || ""
-  const who = order.customerName || order.customerEmail || ""
+  const who = order.customerName || displayEmail(order.customerEmail) || ""
   return {
     id: order.id,
     title: tt("Order #{number}", { number: order.number }),
@@ -259,11 +260,12 @@ function buyersMatching(orders: Order[], q: string): Buyer[] {
   /* Newest first, so the name kept is the one they gave last, and every
      order of theirs is counted, not only the ones that matched. */
   for (const order of orders) {
-    const key = (order.customerEmail || order.customerName || "").toLowerCase()
+    /* One buyer per address as it is shown: a second business's tag is the owner's own address (lib/businesses/email-alias). */
+    const key = (emailMatchKey(order.customerEmail) || order.customerName || "").toLowerCase()
     if (!key) continue
     const known = byKey.get(key)
     if (known) known.orders++
-    else byKey.set(key, { key, name: order.customerName, email: order.customerEmail, orders: 1 })
+    else byKey.set(key, { key, name: order.customerName, email: displayEmail(order.customerEmail), orders: 1 })
   }
   return [...byKey.values()].filter(
     (b) => (b.email || "").toLowerCase().includes(needle) || (b.name || "").toLowerCase().includes(needle),
@@ -288,6 +290,19 @@ async function readContacts(db: Db, creatorId: string, q: string): Promise<Conta
     .limit(GROUP_LIMIT)
   if (byEmail.error) throw new GroupUnavailable("customers", byEmail.error.code || "error")
   const found: Contact[] = ((byEmail.data ?? []) as Record<string, unknown>[]).map((r) => ({ email: text(r.email), name: null }))
+  /* Typed as an address: a second business's, kept with its tag, is found by the address it is shown as. */
+  const typed = searchedAddress(q)
+  if (typed) {
+    const { local, domain } = typed
+    const byShown = await db
+      .from("subscribers")
+      .select("id, email")
+      .eq("creator_id", creatorId)
+      .ilike("email", `${escapeLike(local)}+slb-%@${escapeLike(domain)}%`)
+      .order("subscribed_at", { ascending: false })
+      .limit(GROUP_LIMIT)
+    for (const r of (byShown.data ?? []) as Record<string, unknown>[]) found.push({ email: text(r.email), name: null })
+  }
 
   /* `name` came in a later migration. Without it, contacts are found by email. */
   const byName = await db
@@ -620,13 +635,14 @@ export async function searchCreator(
       href: customerHref(b.email || b.name || ""),
     }))
     for (const c of contacts) {
-      const key = c.email.toLowerCase()
-      if (seen.has(key)) continue
+      const key = emailMatchKey(c.email) ?? c.email.toLowerCase()
+      const shown = displayEmail(c.email)
+      if (seen.has(key) || (!shown && !c.name)) continue
       seen.add(key)
       people.push({
         id: `contact:${key}`,
-        title: c.name || c.email,
-        detail: [c.name ? c.email : null, tt("On your email list")].filter(Boolean).join(" · "),
+        title: c.name || shown || "",
+        detail: [c.name ? shown : null, tt("On your email list")].filter(Boolean).join(" · "),
         href: "/app/emails",
       })
     }

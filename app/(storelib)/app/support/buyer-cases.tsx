@@ -9,6 +9,7 @@
  * Ask Storelib to step in, and Mark resolved. What the store writes goes to
  * the buyer by email, from the store's name.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import { ArrowLeft, Inbox } from "lucide-react"
 import { toast } from "sonner"
@@ -49,7 +50,7 @@ export function BuyerCasesList({ cases, error, onOpen }: { cases: CaseSummary[] 
                   {c.sellerNumber ? ` · ${c.sellerNumber}` : c.orderRef ? ` · #${c.orderRef}` : ""}
                 </span>
                 <span className="block truncate text-[12.5px] text-[#6b7280]">
-                  {c.buyerName || c.buyerEmail} · {dateTime(c.lastMessageAt)}
+                  {c.buyerName || displayEmail(c.buyerEmail) || tt("Customer")} · {dateTime(c.lastMessageAt)}
                 </span>
               </span>
               <Pill tone={TONE[c.status]} className="shrink-0">
@@ -182,7 +183,7 @@ export function BuyerCaseThread({ id, onBack, onChanged, embedded }: { id: strin
               <p className="mt-0.5 text-[13px] text-[#6b7280] [overflow-wrap:anywhere]">
                 {c.sellerNumber ? tt("Order {sellerNumber}{value} · ", { sellerNumber: c.sellerNumber, value: c.orderRef ? tt(" (buyer's reference {orderRef})", { orderRef: c.orderRef }) : "" }) : c.orderRef ? tt("Order #{orderRef} · ", { orderRef: c.orderRef }) : ""}
                 {c.buyerName ? `${c.buyerName}, ` : ""}
-                {tt("{buyerEmail} · Opened {date}", { buyerEmail: c.buyerEmail, date: dateTime(c.createdAt) })}
+                {tt("{buyerEmail} · Opened {date}", { buyerEmail: displayEmail(c.buyerEmail) || tt("Customer"), date: dateTime(c.createdAt) })}
               </p>
             </div>
             <Pill tone={TONE[c.status]}>{STATUS_FOR_STORE[c.status]}</Pill>

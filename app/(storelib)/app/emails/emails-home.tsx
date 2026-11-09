@@ -32,6 +32,7 @@
  * It owns no data. The reads, the cache and every action are in
  * app/app/emails/emails-client.tsx.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -872,7 +873,7 @@ export function messageWhere(m: Pick<MessageRow, "site" | "page">): string {
 /** A reply in the creator's own mail app, to the person who wrote, on the same subject. */
 export function replyHref(m: Pick<MessageRow, "email" | "subject">): string {
   const subject = m.subject ? `?subject=${encodeURIComponent(`Re: ${m.subject}`)}` : ""
-  return `mailto:${encodeURIComponent(m.email)}${subject}`
+  return `mailto:${encodeURIComponent(displayEmail(m.email) ?? m.email)}${subject}`
 }
 
 /**

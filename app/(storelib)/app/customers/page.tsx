@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
 import { teamPageStore } from "@/lib/team/server"
 import { TeamAreaClosed } from "@/components/app/team-area-closed"
@@ -150,7 +151,8 @@ export default async function CustomersPage() {
         return {
           id: customer.id,
           name: [customer.first_name, customer.last_name].filter(Boolean).join(" "),
-          email: customer.email,
+          /* As shown (lib/businesses/email-alias): a second business's tag never reaches the screen. */
+          email: displayEmail(customer.email) ?? "",
           location: customer.city && customer.country ? `${customer.city}, ${customer.country}` : null,
           href: `/app/contacts/open?from=customer&id=${customer.id}`,
           lastOrder: lastOrder ? { title: lastOrder.product?.title ?? null, day: formatDate(lastOrder.created_at) } : null,

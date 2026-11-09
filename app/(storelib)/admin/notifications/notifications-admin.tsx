@@ -1,5 +1,6 @@
 "use client"
 
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 
 import type { Stats, TraceDelivery, TraceEvent, TraceJob } from "@/lib/notify/admin-trace"
@@ -256,7 +257,7 @@ function JobRow({ job }: { job: TraceJob }) {
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         <span className="min-w-0 truncate text-[13px] font-medium text-[#ededf0]">{job.type}</span>
         <Status value={statusOf(job.state)} label={job.skipReason ? `${job.state}: ${job.skipReason}` : job.state} />
-        <span className="text-[12px] text-[#9b9ba6]">{job.recipient}</span>
+        <span className="text-[12px] text-[#9b9ba6]">{displayEmail(job.recipient) ?? job.recipient}</span>
       </div>
       <div className="mt-1 flex min-w-0 flex-wrap gap-x-4 gap-y-0.5 text-[12px]">
         <Fact label="run at">{job.runAt ? new Date(job.runAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null}</Fact>
