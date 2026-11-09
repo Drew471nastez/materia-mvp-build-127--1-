@@ -16,7 +16,7 @@ tags: tabs, tab panel, switcher, timetable, menu sections, :has, radio, keyboard
     {% for block in section.blocks %}
       <div class="tb__panel tb__panel--{{ forloop.index }}">
         <h3 class="tb__ptitle">{{ block.settings.title }}</h3>
-        <div class="tb__body">{{ block.settings.body }}</div>
+        <div class="tb__body">{{ block.settings.body | raw }}</div>
       </div>
     {% endfor %}
   </div>

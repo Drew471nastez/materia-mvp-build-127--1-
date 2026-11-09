@@ -229,6 +229,7 @@ async function main() {
       check(`${e.id}: passes the agent's file check (compile, strict rules, draw, manifest, no remote code)`, errors.length === 0, errors)
       const drawn = renderStorelibSection(instance, theme, { template: "index" }, { [path]: e.source }, undefined, data)
       check(`${e.id}: draws with its preset blocks`, drawn.ok === true && drawn.html.length > 200, drawn.ok ? drawn.html.length : drawn.errors)
+      check(`${e.id}: no rich text printed as escaped markup`, drawn.ok === true && !/&lt;\/?(?:p|strong|em)&gt;/.test(drawn.html))
       const r = await renderCheck({ page: "home", sections: [instance], sources: { [path]: e.source }, theme, template: "index", data, parseScript: parse ?? undefined, extraRoutes: ["/about", "/shop", "/contact"] })
       const rErrors = r.issues.filter((i) => i.severity === "error")
       check(`${e.id}: the render check finds no error (links, buttons, script, overflow)`, rErrors.length === 0, rErrors)
