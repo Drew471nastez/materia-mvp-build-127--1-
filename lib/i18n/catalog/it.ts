@@ -12773,7 +12773,8 @@ const words: Record<string, string> = {
  "Faint here so you can still pick it. Visitors on the other size do not see it.": "Sbiadita qui così puoi ancora selezionarla. I visitatori sull’altra dimensione non la vedono.",
  "Partly done: some checks still fail. Ask me to fix what is left.": "Fatto in parte: alcuni controlli non vanno ancora a buon fine. Chiedimi di sistemare ciò che resta.",
  "This did not load": "Non è stato caricato",
- "Start one with New form. The same form works on your OnePage, website and Creator Page.": "Creane uno con Nuovo modulo. Lo stesso modulo funziona sulla tua OnePage, sul tuo sito e sulla tua Creator Page."
+ "Start one with New form. The same form works on your OnePage, website and Creator Page.": "Creane uno con Nuovo modulo. Lo stesso modulo funziona sulla tua OnePage, sul tuo sito e sulla tua Creator Page.",
+ "{asked, plural, one {The person you picked cannot} other {None of the # people you picked can}} get this email: {why}. Choose who to send to.": "{asked, plural, one {La persona che hai scelto non può} other {Nessuna delle # persone che hai scelto può}} ricevere questa email: {why}. Scegli a chi inviarla."
 }
 
 export default words

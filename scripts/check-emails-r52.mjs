@@ -163,6 +163,18 @@ const SCENES = [
     expect(primary.length === 1 && /automation/i.test(primary[0]), "one main action on Automations: Create automation", primary)
   }],
   ["emails-automations-empty", "emails", "/app/emails?tab=automations", "empty"],
+  ["composer-picked", "composer", "/app/emails/new?contacts=00000000-0000-4000-8000-000000009000,00000000-0000-4000-8000-000000009001,00000000-0000-4000-8000-000000009002,00000000-0000-4000-8000-000000009003,00000000-0000-4000-8000-000000009004,00000000-0000-4000-8000-000000009005,00000000-0000-4000-8000-000000009006,00000000-0000-4000-8000-000000009007,00000000-0000-4000-8000-000000009008,00000000-0000-4000-8000-000000009009,00000000-0000-4000-8000-000000009010,00000000-0000-4000-8000-000000009011", "ok", async (p) => {
+    const t = await p.evaluate(() => document.querySelector("[data-picked-note]")?.textContent ?? "")
+    expect(/5 people get this email\. 7 were left out/.test(t), "the picked people: how many get it, who was left out and why", t)
+  }],
+  ["composer-to-one", "composer", "/app/emails/new?to=00000000-0000-4000-8000-000000009001", "ok", async (p) => {
+    const t = await p.evaluate(() => document.querySelector("[data-picked-note]")?.textContent ?? "")
+    expect(/1 person gets this email/.test(t), "one picked person who can get it", t)
+  }],
+  ["composer-to-blocked", "composer", "/app/emails/new?to=00000000-0000-4000-8000-000000009002", "ok", async (p) => {
+    const t = await p.evaluate(() => document.querySelector("[data-picked-note]")?.textContent ?? "")
+    expect(/The person you picked cannot get this email/.test(t), "one picked person who cannot: says why and what to do", t)
+  }],
   ["automation-templates", "chooser", "/app/emails/flow/new", "ok"],
   ["emails-settings", "emails", "/app/emails?tab=settings&section=sending", "ok", async (p) => {
     if (innerWidthOf(p) < 600) return

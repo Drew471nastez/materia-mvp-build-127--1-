@@ -912,7 +912,7 @@ export function EmailComposer({ campaignId, onExit, preset }: ComposerProps) {
               {editable ? (
                 <>
                   <section aria-label={tt("Envelope")} className={cn(card, "divide-y divide-[#eef0f2]")}>
-                    <Row label={tt("To")} htmlFor="compose-to" error={fieldError.audience}>
+                    <Row label={tt("To")} htmlFor="compose-to" error={fieldError.audience} below={<PickedNote note={pickNote} segmentMissing={segmentMissing} />}>
                       <AudiencePicker
                         id="compose-to"
                         value={audience}
@@ -925,7 +925,6 @@ export function EmailComposer({ campaignId, onExit, preset }: ComposerProps) {
                           setAudience({ type: "segment", segmentId: s.id })
                         }}
                       />
-                      <PickedNote note={pickNote} segmentMissing={segmentMissing} />
                     </Row>
                     <Row label={tt("From")}>
                       <p className="flex h-11 min-w-0 items-center truncate text-[16px] text-[#1a1a2e] sm:h-9 sm:text-[14px]">
@@ -1185,6 +1184,7 @@ function Row({
   error,
   hint,
   counter,
+  below,
   children,
 }: {
   label: string
@@ -1192,6 +1192,8 @@ function Row({
   error?: string | null
   hint?: string | null
   counter?: string | null
+  /** A line under the field, in the field's column, so the label stays level with the field itself (round 52: To's note). */
+  below?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
@@ -1204,6 +1206,7 @@ function Row({
         {counter ? <span className="text-[12px] tabular-nums text-[#6b7280]">{counter}</span> : null}
       </div>
       {error ? <p className={cn(errorClass, "pb-1 pl-[68px] sm:pl-[84px]")}>{error}</p> : hint ? <p className={cn(helpClass, "pb-1 pl-[68px] sm:pl-[84px]")}>{hint}</p> : null}
+      {below ? <div className="pl-[68px] sm:pl-[84px]">{below}</div> : null}
     </div>
   )
 }
@@ -1299,7 +1302,7 @@ function PickedNote({ note, segmentMissing }: { note: PickNote | null; segmentMi
   return (
     <p className={cn(helpClass, "pb-1.5")} data-picked-note="" data-left-out={left}>
       {note.recipients === 0
-        ? tt("None of the {asked, plural, one {# person} other {# people}} you picked can get this email: {why}. Choose who to send to.", { asked: note.asked, why: leftOutText(note.leftOut) })
+        ? tt("{asked, plural, one {The person you picked cannot} other {None of the # people you picked can}} get this email: {why}. Choose who to send to.", { asked: note.asked, why: leftOutText(note.leftOut) })
         : left > 0
           ? tt("{n, plural, one {# person gets} other {# people get}} this email. {left, plural, one {# was} other {# were}} left out: {why}.", { n: note.recipients, left, why: leftOutText(note.leftOut) })
           : tt("{n, plural, one {# person gets} other {# people get}} this email.", { n: note.recipients })}

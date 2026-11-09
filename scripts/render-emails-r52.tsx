@@ -6,7 +6,7 @@
  * computer, light and dark.
  *
  * window.__probe = { mode, state }:
- *   mode    emails | chooser (Create automation's templates) | forms | members | products (a neighbour, to compare)
+ *   mode    emails | composer (a new email opened from Contacts) | chooser (Create automation's templates) | forms | members | products (a neighbour, to compare)
  *   state   ok | empty | noanswers (forms, but none answered) | loading (nothing ever answers) | error (every read fails)
  * The address (?tab=, ?form=, ?view=, ...) picks what opens, as on the site.
  */
@@ -18,6 +18,7 @@ import { MembersSection } from "@/components/community/creator/members-section"
 import { SectionSeed } from "@/components/community/creator/community-shell"
 import { ProductsClient } from "@/app/(storelib)/app/products/products-client"
 import { FlowChooser } from "@/app/(storelib)/app/emails/flow/new/chooser"
+import { EmailComposer } from "@/components/email/compose/composer"
 import { LanguageProvider } from "@/lib/i18n"
 import { Toaster } from "@/components/ui/toaster"
 import { allowedActions } from "@/lib/communities/permissions"
@@ -203,6 +204,17 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (STATE === "loading") return new Promise<Response>(() => {})
   await new Promise((r) => setTimeout(r, 60))
   if (STATE === "error") return reply(500, { error: "Something went wrong on our side. Try again." })
+  /* The composer opened from Contacts (?contacts=, ?to=): who of the picked people may get it, and why the rest were left out. */
+  if (url.startsWith("/api/email/audience"))
+    return reply(200, { options: [{ type: "all", label: "All subscribers", count: 1204 }, { type: "last_30days", label: "Joined in the last 30 days", count: 118 }], segments: [], plan: { limit: 2000, used: 212 }, brand: { name: "Ana Pop Studio", logoUrl: null, storeUrl: "https://storelib.com/anapop", accent: "#0f766e", address: "12 Harbour Street, Portland, ME 04101", avatarUrl: null }, upgraded: true })
+  if (url.startsWith("/api/email/recipients")) {
+    const ids = (JSON.parse(String(init?.body ?? "{}")).contacts ?? []) as string[]
+    const blocked = ids.length === 1 && ids[0] === uid(9002)
+    const leftOut = ids.length > 1 ? { unsubscribed: 2, suppressed: 1, no_consent: 3, unknown: 1 } : blocked ? { unsubscribed: 0, suppressed: 0, no_consent: 1, unknown: 0 } : { unsubscribed: 0, suppressed: 0, no_consent: 0, unknown: 0 }
+    const left = leftOut.unsubscribed + leftOut.suppressed + leftOut.no_consent + leftOut.unknown
+    const recipients = ids.length - left
+    return reply(200, { asked: ids.length, recipients, leftOut, segment: recipients ? { id: uid(9100), count: recipients } : null })
+  }
   if (url.startsWith("/api/email/stats")) return reply(200, { campaigns: sent, stats: empty ? { totalSent: 0, totalOpens: 0, totalClicks: 0, totalUnsubscribed: 0, openRate: 0, clickRate: 0 } : { totalSent: 16840, totalOpens: 8420, totalClicks: 1930, totalUnsubscribed: 31, openRate: 50, clickRate: 11.5 }, monthlyUsage: { sent: empty ? 0 : 1402, limit: 2000 } })
   if (url.startsWith("/api/email/campaigns?status=scheduled")) return reply(200, { campaigns: scheduled })
   if (url.startsWith("/api/email/campaigns?status=draft")) return reply(200, { campaigns: drafts })
@@ -265,6 +277,14 @@ function Page() {
         <SectionSeed id="members" stamp="">
           <MembersSection head={head} meId={uid(800)} initial={{ rows: members, next: null, capped: false }} counts={{ active: members.length, pending: empty ? 0 : 2, muted: 0, paused: 0, banned: 0, removed: 0, expired: empty ? 0 : 5, cancelled: 0 }} status="active" tiers={[{ id: "t1", name: "Members", kind: "paid" }, { id: "t2", name: "Inner circle", kind: "paid" }]} canEmail invites={{ rows: [], next: null }} openInvite={false} badges={[]} focus={focus} />
         </SectionSeed>
+      </div>
+    )
+  }
+  if (probe.mode === "composer") {
+    const sp = new URLSearchParams(location.search)
+    return (
+      <div className="h-screen overflow-y-auto bg-[#f8f9fa]">
+        <EmailComposer campaignId={null} onExit={() => {}} preset={{ contacts: [sp.get("to"), ...(sp.get("contacts") ?? "").split(",")].filter((x): x is string => !!x), segment: null, layout: null }} />
       </div>
     )
   }
