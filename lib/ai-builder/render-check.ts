@@ -25,6 +25,14 @@
  *   binding.empty         a product list or picker that draws empty titles,
  *                         prices or links (bound, but printed from the wrong
  *                         fields)
+ *   render.hook_incomplete a panel of the site's own that cannot work (round
+ *                         N): a search window with no input or no result
+ *                         pattern, a language or currency list with no option
+ *                         pattern; a window nothing on the page opens is a
+ *                         warning. The patterns themselves (a cart line, a
+ *                         search result, a language, a currency) are filled
+ *                         in the browser, so a link inside one is not checked
+ *                         as a link (lib/website-builder/storefront-hooks.ts).
  *
  * WHAT BLOCKS FINISH (round M). A link that has a job (a call to action: a
  * button-looking link or one whose words ask for something; anything in a
@@ -93,7 +101,9 @@ export const MAX_RENDER_ISSUES = 40
 /** Addresses every Storelib website answers, whatever pages it has (app/(site)/w/[username]). */
 const BUILT_IN_ROUTES = [/^\/$/, /^\/products\/?$/, /^\/collections\/?$/, /^\/cart\/?$/, /^\/search\/?$/, /^\/wishlist\/?$/, /^\/account(\/.*)?$/, /^\/blogs(\/.*)?$/, /^\/policies\/[a-z0-9-]+$/, /^\/checkout$/, /^\/password$/, /^\/reviews(\/.*)?$/, /^\/sitemap\.xml$/]
 /** Hooks that make a "#" link a real control. */
-const HOOK_ATTR = /\sdata-storelib-(cart|search|menu|add-to-cart|checkout|cart-close|wishlist|scroll)\b|\srole\s*=\s*"button"|\saria-controls\s*=/i
+const HOOK_ATTR = /\sdata-storelib-(cart|search|menu|add-to-cart|checkout|cart-close|wishlist|scroll|locale|currency)\b|\srole\s*=\s*"button"|\saria-controls\s*=/i
+/** Elements copied once per item in the browser: what is inside them is a pattern, filled with real values there. */
+const PATTERN_ATTR = /\sdata-storelib-(?:cart-line|search-result|locale-option|currency-option)(?![-\w])/i
 /** A class that dresses a link or button as a call to action (btn, button, cta, hero__cta, buy-now...). */
 const CTA_CLASS = /(?:^|[\s_-])(?:btn|button|cta|buy|shop|book|order|enrol|enroll|signup|join|checkout|cart)(?:$|[\s_-])/i
 /** Words that ask the visitor to do something: a link that says them is a call to action. */
@@ -111,6 +121,48 @@ function insideTag(html: string, tag: string, index: number): boolean {
     if (depth < 0) depth = 0
   }
   return depth > 0
+}
+
+/**
+ * Where the runtime patterns are in the markup ([start, end) by index): an
+ * element marked data-storelib-cart-line, -search-result, -locale-option or
+ * -currency-option, to its closing tag.
+ */
+export function patternRanges(html: string): [number, number][] {
+  const out: [number, number][] = []
+  for (const m of html.matchAll(/<([a-z][a-z0-9-]*)\b[^>]*>/gi)) {
+    if (!PATTERN_ATTR.test(m[0])) continue
+    const start = m.index ?? 0
+    const name = m[1].toLowerCase()
+    if (/\/>$/.test(m[0]) || ["img", "input", "br", "hr", "source"].includes(name)) { out.push([start, start + m[0].length]); continue }
+    const re = new RegExp(`<(/?)${name}\\b[^>]*>`, "gi")
+    re.lastIndex = start + m[0].length
+    let depth = 1
+    let end = html.length
+    for (let t = re.exec(html); t; t = re.exec(html)) {
+      depth += t[1] ? -1 : 1
+      if (depth === 0) { end = t.index + t[0].length; break }
+    }
+    out.push([start, end])
+  }
+  return out
+}
+
+/** Panels of the site's own that cannot work (render.hook_incomplete). Pure, per section; `pageHtml` is the whole page, for openers. */
+export function hookProblems(html: string, pageHtml: string): { severity: "error" | "warning"; message: string }[] {
+  const out: { severity: "error" | "warning"; message: string }[] = []
+  const has = (h: string, name: string) => new RegExp(`\\s${name}(?=[\\s=>/])`, "i").test(h)
+  if (has(html, "data-storelib-search-panel")) {
+    if (!/<input\b[^>]*\sdata-storelib-search-input(?=[\s=>/])/i.test(html)) out.push({ severity: "error", message: "The search window (data-storelib-search-panel) has no <input data-storelib-search-input>: nothing can be typed into it." })
+    if (!has(html, "data-storelib-search-results")) out.push({ severity: "error", message: "The search window has no data-storelib-search-results list: what is found has nowhere to go." })
+    else if (!has(html, "data-storelib-search-result")) out.push({ severity: "error", message: "The search results list holds no element marked data-storelib-search-result (hidden), the pattern copied once per result." })
+    else if (!/<a\b[^>]*\sdata-result-url(?=[\s=>/])/i.test(html)) out.push({ severity: "warning", message: "The search result pattern has no <a data-result-url>: a visitor cannot open what they found." })
+    if (!has(html, "data-storelib-search-close")) out.push({ severity: "warning", message: "The search window has no data-storelib-search-close button. Escape shuts it, but a phone has no Escape key." })
+    if (!has(pageHtml, "data-storelib-search")) out.push({ severity: "warning", message: "Nothing on the page opens the search window: give a button data-storelib-search." })
+  }
+  if (has(html, "data-storelib-locale-list") && !has(html, "data-storelib-locale-option")) out.push({ severity: "error", message: "The language list (data-storelib-locale-list) holds no element marked data-storelib-locale-option, the pattern copied once per language." })
+  if (has(html, "data-storelib-currency-list") && !has(html, "data-storelib-currency-option")) out.push({ severity: "error", message: "The currency list (data-storelib-currency-list) holds no element marked data-storelib-currency-option, the pattern copied once per currency." })
+  return out
 }
 
 function classOf(tag: string): string {
@@ -298,7 +350,10 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
 
     /* Links: a broken one with a job blocks finish; a decorative one is a warning (see the head of this file). */
     const chrome = section.group === "header" || section.group === "footer" || section.type === "header" || section.type === "footer"
+    const patterns = patternRanges(html)
     for (const a of anchors(html)) {
+      /* Inside a pattern the browser fills (a cart line, a search result, a language): its link is written there. */
+      if (patterns.some(([from, to]) => a.index >= from && a.index < to)) continue
       const role = linkRole(a, html, chrome)
       const job = role !== "text"
       const what = role === "nav" ? "A menu link" : role === "cta" ? `The call to action "${a.text.slice(0, 40) || "(no words)"}"` : "A link"
@@ -331,6 +386,9 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
         push({ severity: "error", code: "render.dead_button", message: `The button "${textOf(m[2] ?? "").slice(0, 40) || "(no words)"}" does nothing: it has no data-storelib hook, no form and no script. Make it a link to a real page, or give it its hook (add to cart, cart, menu, checkout).`, ...at })
       }
     }
+
+    /* Panels of the site's own (round N): a search window, a language or currency list that cannot work. */
+    for (const p of hookProblems(html, pageHtml)) push({ severity: p.severity, code: "render.hook_incomplete", message: p.message, ...at })
 
     /* A bound list printed from the wrong fields draws empty titles, prices and links (round M). */
     if (known && boundToProducts(section, known.ids.products)) {
