@@ -292,8 +292,9 @@ async function main() {
 
     const compat = read("lib/website-builder/compat-site.ts")
     /* Changed on purpose (live speed, Oct 21): the live site asks for its release beside the install, not after it; a preview still never reads one, and only a release of the install published now is drawn from. */
-    check("compat-site: a preview never reads a release", /const releaseAsked = live \? quiet\(liveRelease\(creator\.creatorId, null, siteTags\)\) : null/.test(compat) && /const asked = draft \? null : await \(releaseAsked \?\? liveRelease\(creator\.creatorId, row\.id, siteTags\)\)/.test(compat) && /const release = asked && asked\.installId === row\.id \? asked : null/.test(compat))
-    check("  the files fall back to the rows when the release cannot be read", compat.includes("(release ? await releaseFiles(release.manifest) : null) ?? liveFiles(admin, row.id, rowsKey, siteTags)") && compat.includes("rowsHeld.set(heldKey, rows)"))
+    /* Changed on purpose (round AP): the release is waited for SITE_SHOP_MS and its files RELEASE_FILES_MS on a live page; past either the rows are drawn, as without a release (tests/live-nav-ap.test.ts). */
+    check("compat-site: a preview never reads a release", /const releaseAsked = live \? quiet\(inTime\(liveRelease\(creator\.creatorId, null, siteTags\), SITE_SHOP_MS, null\)\.then\(\(r\) => r\.value\)\) : null/.test(compat) && /const asked = draft \? null : await \(releaseAsked \?\? liveRelease\(creator\.creatorId, row\.id, siteTags\)\)/.test(compat) && /const release = asked && asked\.installId === row\.id \? asked : null/.test(compat))
+    check("  the files fall back to the rows when the release cannot be read, or not in time", compat.includes("(release ? (await inTime(releaseFiles(release.manifest), RELEASE_FILES_MS, null)).value : null) ?? liveFiles(admin, row.id, rowsKey, siteTags)") && compat.includes("rowsHeld.set(heldKey, rows)"))
     check("  without a release, the rows' keys and reads of before", compat.includes("const heldKey = release ? `${row.id}:release:${release.id}` : rowsKey") && compat.includes("const rowsKey = `${row.id}:${version}`") && compat.includes('heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null, "compat-pages:v1")'))
     check("  the theme held on this server is keyed by what it was drawn from", compat.includes("const slot = `${drawnFrom}|${key}`"))
     const published = read("lib/website-builder/published-site.ts")
@@ -305,7 +306,7 @@ async function main() {
     const server = read("lib/website-builder/site-releases-server.ts")
     /* Changed on purpose (round AM): under the site's tag and its own, which Publish expires alone once its release is pointed at (releasePointed). */
     check("the pointer is the one read under the site's tag, for a minute", /\["site-live-release", creatorId\], \{ tags: \[\.\.\.tags, releasePointerTag\(creatorId\)\], revalidate: POINTER_HOLD_S \}/.test(server) && /POINTER_HOLD_S = PUBLISHED_HOLD_S\b/.test(server)) /* Changed on purpose (r54): an hour, Publish expires it at once. */
-    check("  a manifest and a group of blobs are held for good, by id and by sha256", /\["site-release", releaseId\], \{ revalidate: false \}/.test(server) && /\["theme-blobs", g\.key\], \{ revalidate: false \}/.test(server))
+    check("  a manifest and a group of blobs are held for good, by id and by sha256", /* Changed on purpose (round AP): kept gzipped under v2 names. */ /\["site-release", "v2", releaseId\], \{ revalidate: false \}/.test(server) && /\["theme-blobs", "v2", g\.key\], \{ revalidate: false \}/.test(server))
     const route = read("app/api/website-builder/themes/[installId]/publish/route.ts")
     const at = route.indexOf("await recordRelease(admin, { installId, creatorId })")
     check("Publish writes the release after the answer, after the live site is purged", at > route.indexOf("await revalidatePublishedSite(creator.id)") && route.lastIndexOf("after(async () => {", at) > route.indexOf("await revalidatePublishedSite(creator.id)"))

@@ -39,6 +39,7 @@
  * job that can take a lock, not in a publish.
  */
 import { revalidateTag, unstable_cache } from "next/cache"
+import { gunzipSync, gzipSync } from "node:zlib"
 import { PUBLISHED_HOLD_S } from "@/lib/delivery/holds"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { keyedAs } from "./last-good"
@@ -153,13 +154,38 @@ export async function readReleaseManifest(db: Db, releaseId: string): Promise<Re
   return readManifest((r.data as { manifest?: unknown } | null)?.manifest ?? null)
 }
 
+/*
+  ===========================================================================
+   HELD FOR GOOD, COMPRESSED (round AP)
+  ===========================================================================
+  Production, Nov 8 to 9: "Failed to set Next.js data cache ... items over
+  2MB can not be cached (2620744 bytes)", 180 times in a day, on an imported
+  theme's live pages (/collections/all, /cart.js, a product) and on the same
+  website's /robots.txt and /favicon.ico. The one entry those routes share is
+  a release's (its manifest and its groups of file text): one of them was
+  2.6 MB as the data cache writes it, so it was never kept, and every server
+  that started read it from the database again on its first page, the read
+  production logged taking "longer than 20s" when the database was slow.
+  Kept gzipped (theme text and section JSON shrink several times over), under
+  a new name so an entry of the old shape is never read as this one.
+*/
+type Packed = { gz: string }
+export function packHeld(value: unknown): Packed {
+  return { gz: gzipSync(Buffer.from(JSON.stringify(value), "utf8")).toString("base64") }
+}
+export function unpackHeld<T>(packed: Packed | null | undefined): T | null {
+  if (!packed || typeof packed.gz !== "string") return null
+  return JSON.parse(gunzipSync(Buffer.from(packed.gz, "base64")).toString("utf8")) as T
+}
+
 /** A release's manifest, held for good (in the data cache, and on this server). Null when it cannot be read. */
 export async function releaseManifest(releaseId: string): Promise<ReleaseManifest | null> {
   const hit = manifestsHeld.get(releaseId)
   if (hit) return hit
   try {
     /* A release never changes, so its entry is named to outlive a deploy (./last-good.ts keyedAs, EVD-1). */
-    const m = await unstable_cache(keyedAs("site-release:v1", () => readReleaseManifest(createAdminClient(), releaseId)), ["site-release", releaseId], { revalidate: false })()
+    const held = await unstable_cache(keyedAs("site-release:v2", async () => { const read = await readReleaseManifest(createAdminClient(), releaseId); return read ? packHeld(read) : null }), ["site-release", "v2", releaseId], { revalidate: false })()
+    const m = unpackHeld<ReleaseManifest>(held)
     if (m) {
       if (manifestsHeld.size >= MANIFESTS_MAX) manifestsHeld.delete(manifestsHeld.keys().next().value as string)
       manifestsHeld.set(releaseId, m)
@@ -205,7 +231,7 @@ export async function releaseFiles(manifest: ReleaseManifest): Promise<Record<st
     for (let i = 0; i < groups.length; i += 8) {
       const read = await Promise.all(groups.slice(i, i + 8).map((g) =>
         /* Named by what they hold (their sha256s) and by a fixed label, not the function's minified text, so a deploy does not send every server back to the database for every theme (EVD-1). */
-        unstable_cache(keyedAs("theme-blobs:v1", () => readBlobs(createAdminClient(), g.shas)), ["theme-blobs", g.key], { revalidate: false })(),
+        unstable_cache(keyedAs("theme-blobs:v2", async () => packHeld(await readBlobs(createAdminClient(), g.shas))), ["theme-blobs", "v2", g.key], { revalidate: false })().then((held) => unpackHeld<Record<string, string>>(held) ?? {}),
       ))
       for (const part of read) for (const [sha, text] of Object.entries(part)) blobs.set(sha, text)
     }

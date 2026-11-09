@@ -1044,6 +1044,8 @@ const SUITES = [
   "tests/publish-shows-new-release.test.ts",
   /* Round AM: a live website stays fast after a Publish: one stamp per site expired by its tags and what each server keeps in memory under it, a held page from memory and drawn again by a Publish, the release marker by the live rows' count, the pages drawn for the publisher's country right after the caches are cleared (PUBLISH_FLOW=1 node scripts/measure-speed18.mjs measures it). */
   "tests/live-publish-am.test.ts",
+  /* Round AP: a live page never waits Supabase's 20 seconds for a read it can do without (offers, menus, sold counts, size charts, tags), the theme's files fail within seconds, a page drawn without something is never held, shared or kept, and the hold no longer keeps "draw it again" for five minutes; scripts/check-live-nav-ap.mjs clicks through a live website and times it. */
+  "tests/live-nav-ap.test.ts",
   /* Round W1: an imported theme's live page stored by the CDN (no Vary: Cookie), its body's CSS gathered in the head in order, its flags lazy, plain HTML with no React, links fetched ahead (scripts/check-live-first-load.mjs measures it) */
   "tests/live-first-load-w.test.ts",
   "tests/live-speed-ax.test.ts",

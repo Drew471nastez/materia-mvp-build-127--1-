@@ -216,7 +216,7 @@ async function importedHold() {
   check("the handler marks what may be shared for its hold, and never sends that on", /headers\.set\(SHAREABLE_HEADER, "1"\)/.test(route) && /res\.headers\.get\(SHAREABLE_HEADER\) === "1"/.test(route) && /headers\.delete\(SHAREABLE_HEADER\)/.test(route) && SHAREABLE_HEADER.startsWith("x-storelib-"))
   const proxy = code("proxy.ts")
   check("the proxy's front page says no s-maxage for an imported theme either", /if \(asked === "\/" && page === "\/"\) r\.headers\.set\("Cache-Control", marker \? PUBLIC_PAGE_CACHE : "private, no-cache"\)/.test(proxy))
-  check("an imported theme's page carries the release watch, drawn from what is live", /releaseTag\(username, marker\)/.test(route) && /liveSiteFor\(found\.site\.creatorId\)/.test(route))
+  check("an imported theme's page carries the release watch, drawn from what is live", /releaseTag\(username, marker\)/.test(route) && /* Changed on purpose (round AP): waited for TAGS_MS. */ /liveSiteFor\(shopOf\)/.test(route) && /const shopOf = found\.site\.creatorId/.test(route))
   check("and the watch is left where it is by the script reordering", /\|release\)\\b\/i/.test(read("lib/storelib-theme/compat/script-order.ts")))
 }
 
@@ -401,7 +401,7 @@ async function every() {
     const loose = calls.filter((c) => /"(?:published-site|compat-install|compat-pages|compat-menus|site-live-release|site-live-state|section-sources|creator-facts|product-page-theme)"/.test(c) && !/creatorSiteTag|siteTags|\btags\b/.test(c))
     check(`${f}: no theme read held without the site's tag`, loose.length === 0, loose.map((c) => c.slice(0, 120)))
   }
-  check("a release's own files are held for good, keyed by the release (they never change)", /\["site-release", releaseId\], \{ revalidate: false \}/.test(code("lib/website-builder/site-releases-server.ts")))
+  check("a release's own files are held for good, keyed by the release (they never change)", /* Changed on purpose (round AP): kept gzipped under a v2 name (an entry was over Next's 2MB and never kept). */ /\["site-release", "v2", releaseId\], \{ revalidate: false \}/.test(code("lib/website-builder/site-releases-server.ts")))
 }
 
 async function main() {

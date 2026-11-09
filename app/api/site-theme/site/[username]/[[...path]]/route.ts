@@ -52,6 +52,12 @@ import { creatorByName, creatorShopTag, creatorSiteTag } from "@/lib/website-bui
 import { siteBlogTag } from "@/lib/site-blog/cache"
 import { siteLanguages } from "@/lib/markets/live"
 import { nameAndStamp, siteStamp, siteStampTags } from "@/lib/website-builder/site-stamp"
+import { PARTIAL_PRODUCTS, SITE_SHOP_MS } from "@/lib/website-builder/compat-site"
+import { UNKNOWN_LANGUAGES, languagesUnknown } from "@/lib/markets/live"
+import { inTime } from "@/lib/net/in-time"
+
+/** How long a drawn page waits for its analytics tags and its release marker before it goes without them (round AP). */
+const TAGS_MS = 1500
 
 /** A promise started ahead of where it is awaited, never reported as unhandled when the answer leaves first. */
 function quietly<T>(p: Promise<T>): Promise<T> {
@@ -264,9 +270,41 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
         told: token ? null : req.headers.get(SITE_COUNTRY_HEADER),
         seen: seenCountry(req.headers),
       })
+  /*
+    WHAT THIS PAGE WAS DRAWN WITHOUT (round AP): a part of the site, or of
+    its product, that did not answer in time (lib/website-builder/
+    compat-site.ts SITE_PART_MS). Such a page is this visitor's alone: never
+    held, never at the CDN, never the stored copy, so the next visitor gets
+    the whole page as soon as the read is back.
+  */
+  const leftOut = new Set<string>(found.site.partial ?? [])
+  const productOf = found.site.product
+  if (productOf) {
+    found = {
+      ...found,
+      site: {
+        ...found.site,
+        product: async (handle: string) => {
+          const p = await productOf(handle)
+          if (p && PARTIAL_PRODUCTS.has(p)) leftOut.add("product")
+          return p
+        },
+      },
+    }
+  }
   /* The store's own currency, before the page is put in the market's: what the checkout prices the cart in. */
   const storeCurrency = found.site.shop.currency ?? "USD"
-  found = { ...found, site: await localizeCompatSite(found.site, locale, market, visitorCountry, forSite(languagesAsked, found.site.creatorId)) }
+  /*
+    THE WEBSITE'S LANGUAGES AND MARKETS, waited for SITE_SHOP_MS (round AP).
+    Late, or a read that failed (siteLanguages then hands back the empty
+    answer, languagesUnknown): the page shows the store's own prices and
+    language, which is wrong for a market's visitor, so it is this
+    visitor's alone and never shared.
+  */
+  const langsAsked = forSite(languagesAsked, found.site.creatorId)
+  const langs = langsAsked ? await inTime(langsAsked, SITE_SHOP_MS, UNKNOWN_LANGUAGES) : null
+  if (langs && (langs.late || languagesUnknown(langs.value))) leftOut.add("languages")
+  found = { ...found, site: await localizeCompatSite(found.site, locale, market, visitorCountry, langs ? Promise.resolve(langs.value) : undefined) }
   mark("localize")
 
   const cookie = stranger ? undefined : req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
@@ -472,7 +510,10 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     }
     headers.set("Vary", "Sec-Fetch-Dest, X-Vercel-IP-Country")
   }
-  if (req.method === "HEAD") return new NextResponse(null, { status: out.status, headers })
+  if (req.method === "HEAD") {
+    if (leftOut.size) for (const h of ["Vercel-CDN-Cache-Control", "Vercel-Cache-Tag", SHAREABLE_HEADER]) headers.delete(h)
+    return new NextResponse(null, { status: out.status, headers })
+  }
   /*
     COUNTED, AND THE STORE'S OWN ANALYTICS ON IT: a page of the live website
     (never a preview) gets Storelib's tracker and the store's Google
@@ -483,12 +524,25 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   if (html && !token && page && out.status === 200 && /text\/html/i.test(out.type) && /<\/body>/i.test(html)) {
     /* The page's product by its id from the lists already held: its full read (description, each variant's stock) ran once to draw the page and is not run again for the tags. */
     const productId = productIdForPath(found.site, sitePath)
-    const markerRead = liveSiteFor(found.site.creatorId).then((l) => l?.marker ?? null, () => null)
-    const early = await forSite(trackingAsked, found.site.creatorId)
-    const stored = early !== undefined ? early : await publishedTracking(createAdminClient(), found.site.creatorId).catch(() => null)
+    /*
+      EACH WAITED FOR ONLY SO LONG (round AP): the page is drawn already, and
+      these were unbounded awaits after it (Supabase's own deadline is 20 s).
+      One that is late leaves its tags off this page, which is then this
+      visitor's only (leftOut).
+    */
+    const late = <T,>(name: string, p: PromiseLike<T>, fallback: T, ms = TAGS_MS): Promise<T> =>
+      inTime(p, ms, fallback).then((r) => {
+        if (r.late) leftOut.add(name)
+        return r.value
+      })
+    const shopOf = found.site.creatorId
+    const markerRead = late("release", liveSiteFor(shopOf).then((l) => l?.marker ?? null, () => null), null)
+    const asked = forSite(trackingAsked, shopOf)
+    const readStored = () => publishedTracking(createAdminClient(), shopOf).catch(() => null)
+    const stored = await late("tracking", asked ? asked.then((early) => (early !== undefined ? early : readStored())) : readStored(), null)
     /* The store's Google Analytics with the page's product named, its pixels, Storelib's tracker and the visitor's language offer (lib/store/compat-page-tags.ts). */
     const t = readTracking(stored)
-    const named = productId && (t.ga4 || t.google_ads) ? await gaProductFor(found.site.creatorId, null, productId) : null
+    const named = productId && (t.ga4 || t.google_ads) ? await late("analytics product", gaProductFor(found.site.creatorId, null, productId), null) : null
     /*
       WHICH PUBLISH THIS PAGE WAS DRAWN FROM, so a copy the browser restores
       after a Publish (Back from checkout, a tab shown again) asks and loads
@@ -533,6 +587,18 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
       /* On a phone, the pages behind the links in view are fetched before the tap, and on such a page the first one looked at and the one touched are drawn ahead (lib/storelib-theme/compat/touch-prefetch.ts). */
       html = withTouchPrefetch(html, { prerender: ownScriptsOnly })
     }
+  }
+  /*
+    DRAWN WITHOUT SOMETHING (leftOut above): this visitor's page only. The
+    page every stranger shares is the whole one, drawn by the next visitor
+    once the read is back; this one is never held, kept at the CDN or
+    stored. Said in a header, by name (no store data), for a person checking.
+  */
+  if (leftOut.size) {
+    headers.set("X-Storelib-Partial", [...leftOut].join(", "))
+    headers.delete("Vercel-CDN-Cache-Control")
+    headers.delete("Vercel-Cache-Tag")
+    headers.delete(SHAREABLE_HEADER)
   }
   const body = html ?? (typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart]))
   mark("post")
@@ -599,7 +665,9 @@ async function handleHeld(req: Request, ctx: Params): Promise<Response> {
     const res = await handle(req, ctx)
     const headers = [...res.headers.entries()]
     const body = await res.text()
-    return { status: res.status, headers, body, share: res.status === 200 && res.headers.get(SHAREABLE_HEADER) === "1" && res.headers.get("Cache-Control") === PUBLIC_PAGE_CACHE && !res.headers.has("Set-Cookie") }
+    const plain = res.status === 200 && res.headers.get("Cache-Control") === PUBLIC_PAGE_CACHE && !res.headers.has("Set-Cookie")
+    /* A stranger's page drawn without a part (X-Storelib-Partial): handed to the strangers waiting on this draw, never kept (stranger-hold.ts `brief`). */
+    return { status: res.status, headers, body, share: plain && res.headers.get(SHAREABLE_HEADER) === "1", brief: plain && res.headers.has("X-Storelib-Partial") }
   }, creator.stamp ?? siteStamp(creator.creatorId))
   const headers = new Headers(page.headers)
   /* A held page says it was held, and what its draw cost when it was drawn. */

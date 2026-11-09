@@ -69,6 +69,40 @@ import { faviconOf } from "./favicon-sync"
 import { logEvent } from "@/lib/net/log"
 import { blogFor, readLivePost, readPreviewPost, siteBlogRedirect } from "@/lib/site-blog/public-read"
 import { readLadder } from "@/lib/supabase/missing-memory"
+import { readTwice } from "@/lib/onepage/bounded-read"
+import { inTime, inTimeOrThrow } from "@/lib/net/in-time"
+
+/*
+  ===========================================================================
+   HOW LONG A VISITOR'S PAGE WAITS FOR EACH READ (round AP)
+  ===========================================================================
+  Every read below had only Supabase's own 20 second deadline. Production
+  (Nov 2 to 9) logged it on live pages: "store_offers took longer than 20s"
+  20 times, "theme_file_blobs took longer than 20s" then "store_theme_custom_
+  files took longer than 20s" one after the other (40 seconds before a
+  visitor saw anything), "[store-menus] read failed". So:
+    - what the page cannot be drawn without (the install, its pages, its
+      files, the store's currency) fails within seconds, and the page is
+      drawn from what was kept: the files every server kept, the last good
+      site, the stored copy, and only then "One moment";
+    - what it can be drawn without (offers, units sold, size charts, the
+      blog, the share picture, a product's description) is waited for
+      PART_MS and then left out of THIS page, which is then never held,
+      shared or kept as the site (SiteData.partial).
+*/
+export const SITE_PART_MS = 2500
+/** The shop's lists a page draws (products, collections, the featured product's catalogue): longer, and still far short of 20 s. */
+export const SITE_SHOP_MS = 5000
+/** The live files: one try, and a second while the budget leaves room. */
+export const LIVE_FILES_BOUND = { attemptMs: 4000, budgetMs: 6500 } as const
+/** A release's files, read from the cache that keeps them for good: past this, the rows are read instead. */
+export const RELEASE_FILES_MS = 5000
+
+/** Parts a page's layout is made of: without one, the last good whole site is the better page. */
+const STRUCTURAL_PARTS: ReadonlySet<string> = new Set(["products", "catalog", "collections", "menus"])
+
+/** A product drawn without one of its own reads (description, stock, offers): never part of a held or shared page (app/api/site-theme/site). */
+export const PARTIAL_PRODUCTS = new WeakSet<object>()
 
 /** Theme settings › Branding's store name, when the website has one of its own. */
 const brandOf = (settings: unknown): string => {
@@ -85,16 +119,34 @@ export function themeAssetUrl(installId: string, version: string, name: string):
 }
 
 /** Every file of an install: the live half, or for a preview and the builder, the draft where there is one. */
-export async function installFiles(admin: Admin, installId: string, draft: boolean): Promise<Record<string, string>> {
+export async function installFiles(admin: Admin, installId: string, draft: boolean, bound?: { attemptMs: number; budgetMs: number }): Promise<Record<string, string>> {
   const out: Record<string, string> = {}
   const page = 1000
+  /*
+    A VISITOR'S PAGE WAITS FOR THESE ONLY SO LONG (round AP, `bound`). The
+    read had only Supabase's 20 second deadline (lib/net/deadline.ts), and
+    production logged "store_theme_custom_files took longer than 20s" on
+    live pages, after the release's blobs had already taken their own 20.
+    Bounded, a slow read fails within seconds and the page is drawn from the
+    copy every server kept (liveFilesKept) or the last good site.
+  */
+  type Res = { data: unknown; error: unknown }
+  const ask = (q: (signal?: AbortSignal) => PromiseLike<Res>): Promise<Res> =>
+    bound ? readTwice((signal) => q(signal) as PromiseLike<{ data: unknown; error: { message?: string } | null }>, bound) : Promise.resolve(q())
   for (let from = 0; from < 20_000; from += page) {
     const table = () => admin.from("store_theme_custom_files")
-    let res: { data: unknown; error: unknown } = draft
-      ? await table().select("path, content, draft_content").eq("install_id", installId).order("path").range(from, from + page - 1)
-      : await table().select("path, content").eq("install_id", installId).order("path").range(from, from + page - 1)
+    const live = (signal?: AbortSignal) => {
+      const q = table().select("path, content").eq("install_id", installId).order("path").range(from, from + page - 1)
+      return signal ? q.abortSignal(signal) : q
+    }
+    let res: Res = draft
+      ? await ask((signal) => {
+          const q = table().select("path, content, draft_content").eq("install_id", installId).order("path").range(from, from + page - 1)
+          return signal ? q.abortSignal(signal) : q
+        })
+      : await ask(live)
     /* Before the file drafts SQL there is no draft column: the live half. */
-    if (res.error && draft) res = await table().select("path, content").eq("install_id", installId).order("path").range(from, from + page - 1)
+    if (res.error && draft) res = await ask(live)
     /* A page of files that did not come is not a theme without them: thrown, so a half-read theme is never held as the theme (site-read.ts). */
     if (res.error) throw new SiteReadError("theme files", (res.error as { message?: string }).message ?? "the read failed")
     const rows = (res.data ?? []) as Row[]
@@ -216,7 +268,7 @@ function liveFiles(admin: Admin, installId: string, key: string, tags: string[])
 const SHARED_FILES = "compat-files:v1"
 async function liveFilesKept(admin: Admin, installId: string, key: string, tags: string[]): Promise<Record<string, string>> {
   try {
-    const files = await installFiles(admin, installId, false)
+    const files = await installFiles(admin, installId, false, LIVE_FILES_BOUND)
     await keepSharedFiles(SHARED_FILES, [key], tags, files)
     return files
   } catch (e) {
@@ -374,6 +426,21 @@ export async function compatSiteByName(name: string, host: string, previewToken:
   const stampBeside = known && known.stamp === null ? siteStamp(known.creatorId) : null
   try {
     const found = await compatSiteFresh(name, host, previewToken, known?.creator)
+    /*
+      ASSEMBLED WITHOUT A PART THAT DID NOT ANSWER IN TIME (round AP): never
+      kept as the site, here or as the last good one. Without the shop's
+      lists or menus, the last good whole site this server has is drawn
+      instead, when it has one; it is the same site minus what changed since.
+    */
+    if (found.kind === "site" && found.site.partial?.length) {
+      const whole = previewToken === null && found.site.partial.some((p) => STRUCTURAL_PARTS.has(p)) ? lastGoodSite.get(key) : undefined
+      if (whole && whole.creatorId === found.site.creatorId) {
+        logEvent("warn", "site_last_good_served", { msg: "[compat-site] served the last good copy", site: key, reason: `late: ${found.site.partial.join(",")}` })
+        return { kind: "site", site: { ...whole, host } }
+      }
+      logEvent("warn", "site_partial", { msg: "[compat-site] drawn without what did not answer in time", site: key, parts: found.site.partial.join(",") })
+      return found
+    }
     if (found.kind === "site" && previewToken === null) {
       lastGoodSite.remember(key, found.site)
       if (known && found.site.creatorId === known.creatorId) siteMemo.set(memoKey, known.stamp ?? (await stampBeside), found.site)
@@ -405,22 +472,38 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     needed; the answers and what they decide are the same.
   */
   const live = previewToken === null
-  const releaseAsked = live ? quiet(liveRelease(creator.creatorId, null, siteTags)) : null
-  const physicalAsked = quiet(isPhysicalCommerceEnabled().catch(() => false))
+  /*
+    WHAT THIS COPY WAS ASSEMBLED WITHOUT (round AP, SITE_PART_MS above): a
+    live page's optional read waited for only so long, then left out of this
+    page, which is then never held, shared or kept (SiteData.partial). A
+    preview waits as before: it is the creator checking their own work.
+  */
+  const partial: string[] = []
+  const part = <T,>(name: string, p: Promise<T>, fallback: T, ms: number = SITE_PART_MS): Promise<T> =>
+    !live
+      ? p
+      : inTime(p, ms, fallback).then((r) => {
+          if (r.late || r.failed) partial.push(name)
+          return r.value
+        })
+  /* A release that does not come in time is drawn from the rows, as a website without one is: not a part left out. */
+  const releaseAsked = live ? quiet(inTime(liveRelease(creator.creatorId, null, siteTags), SITE_SHOP_MS, null).then((r) => r.value)) : null
+  const physicalAsked = quiet(part("physical", isPhysicalCommerceEnabled().catch(() => false), false))
   /* The store's return settings, for the refund policy's closing line, as soon as physical goods are known to be on. */
   const returnFactsAsked = quiet(physicalAsked.then((on) => (on ? storeReturnFacts(admin, creator.creatorId) : "")))
-  const currencyAsked = quiet(cachedStoreCurrency(creator.creatorId))
+  /* What every price is written in: never guessed. Past SITE_SHOP_MS the page is drawn from what was kept instead (compatSiteByName). */
+  const currencyAsked = quiet(live ? inTimeOrThrow(cachedStoreCurrency(creator.creatorId), SITE_SHOP_MS, () => new SiteReadError("currency", `no answer in ${SITE_SHOP_MS}ms`)) : cachedStoreCurrency(creator.creatorId))
   /* Its own address (its primary domain), for the canonical and the languages: a page reached at its storelib.com name still names the domain. */
-  const originAsked = live ? quiet(siteOrigin(creator.creatorId, name).catch(() => null)) : Promise.resolve(null)
+  const originAsked = live ? quiet(part("origin", siteOrigin(creator.creatorId, name).catch(() => null), null)) : Promise.resolve(null)
   /* The creator's photo, the share card's last resort (compatShareImage): held five minutes, asked beside the rest so it is never a round trip in a row. */
-  const avatarAsked = live ? quiet(creatorAvatar(creator.creatorId, creator.userId).catch(() => null)) : Promise.resolve(null)
+  const avatarAsked = live ? quiet(part("avatar", creatorAvatar(creator.creatorId, creator.userId).catch(() => null), null)) : Promise.resolve(null)
   /*
     THE WEBSITE'S BLOG (lib/site-blog): its settings and published posts, held
     under the blog's own tag (siteBlogTag), which Publish, Update and the
     rest expire. Null before SQL part 355, or with no blog: every /blogs
     address is answered as before. A failed read is no blog for this page.
   */
-  const blogAsked = quiet(blogFor(creator.creatorId).catch(() => null))
+  const blogAsked = quiet(part("blog", blogFor(creator.creatorId).catch(() => null), null))
   /* A preview link holds nothing: it is the person checking their unpublished work. */
   const install = previewToken !== null
     ? await readInstall(admin, creator.creatorId)
@@ -449,17 +532,32 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   /* Held on this server by what they were read from: the release's id, or the publish when they come from the rows. */
   const heldKey = release ? `${row.id}:release:${release.id}` : rowsKey
   let rows = draft ? null : rowsHeld.get(heldKey) ?? null
-  const readFiles = async (): Promise<Record<string, string>> => (release ? await releaseFiles(release.manifest) : null) ?? liveFiles(admin, row.id, rowsKey, siteTags)
+  /* A release's files that do not come within RELEASE_FILES_MS are read from the rows (bounded too, LIVE_FILES_BOUND); the blobs' read goes on behind and fills the cache for the next page. */
+  const readFiles = async (): Promise<Record<string, string>> => (release ? (await inTime(releaseFiles(release.manifest), RELEASE_FILES_MS, null)).value : null) ?? liveFiles(admin, row.id, rowsKey, siteTags)
   const readPages = release
     ? async () => pageRowsOf(release.manifest)
     : () => siteRead("pages", (signal) => admin.from("store_theme_pages").select((draft ? "page_key, sections, draft_sections" : "page_key, sections") as "page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal))
   /* With each product's own description (round 12): a theme's Featured product prints `product.description`, which a card did not carry. */
   /* And its own questions (round 13, ./product-extras.ts): a Featured product's `product.metafields.storelib.faqs`, as on its page. */
+  /* Whether this page's catalogue came whole: one read without its offers (late) or that failed is passed on for this page and not held (heldUnless's skip). */
+  let catalogShort = false
   const readCatalog = () =>
     catalogCards(admin as never, creator.creatorId)
       .then(async (cards) => {
         /* And what each offers with it (lib/offers/offers-public catalogOffers): a Featured product's Bundles and upsells block and product.metafields.storelib.offers, as on its own page. */
-        const readOffers = () => import("@/lib/offers/offers-public").then((m) => m.catalogOffers(admin, creator.creatorId, cards.map((c) => c.id))).catch(() => ({}))
+        /* Waited for SITE_PART_MS on a live page: production logged "store_offers took longer than 20s" on live pages (round AP). */
+        const readOffers = () => {
+          const asked = import("@/lib/offers/offers-public").then((m) => m.catalogOffers(admin, creator.creatorId, cards.map((c) => c.id))).catch(() => ({}))
+          return live
+            ? inTime(asked, SITE_PART_MS, {} as Awaited<typeof asked>).then((r) => {
+                if (r.late) {
+                  catalogShort = true
+                  partial.push("offers")
+                }
+                return r.value
+              })
+            : asked
+        }
         const [described, extras, offers, storeCurrency] = await Promise.all([productDescriptions(admin as never, creator.creatorId, { ids: cards.map((c) => c.id) }), productExtras(admin as never, creator.creatorId, cards), readOffers(), currencyAsked])
         const done = withExtras(withDescriptions(cards, described), extras)
         if (Object.keys(offers).length === 0) return done
@@ -471,22 +569,39 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
           return { ...c, settings: block.withOffersShown({ id: c.id, settings }, block.cardOptions({ id: c.id, settings }, storeCurrency, minorUnits), { charge: null, currency: storeCurrency, locale: "en" }) } as typeof c
         })
       })
-      .catch(() => [])
+      .catch(() => {
+        catalogShort = true
+        return []
+      })
   /* Every product's size chart, for a featured product and a card: read for this creator only, held under the shop's tag like the catalogue (its own, else its collection's or category's: lib/size-charts/storefront.ts). */
   const readSizeCharts = () => import("@/lib/size-charts/storefront").then((m) => m.sizeChartsForStore(admin as never, creator.creatorId)).catch(() => ({}))
   const [pageRows, products, catalog, collections, menus, , store, sizeCharts] = await Promise.all([
     (draft || release ? readPages() : heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null, "compat-pages:v1")).then((data) => ({ data })),
-    /* A failed read is no longer held as an empty shop (it throws); this page draws [] for this request only, as it did. */
-    siteCatalogue(creator.creatorId, { cached: !draft }).catch(() => [] as Awaited<ReturnType<typeof siteCatalogue>>),
+    /* A failed read is no longer held as an empty shop (it throws); this page draws [] for this request only, as it did, and says so (partial). */
+    live
+      ? part("products", siteCatalogue(creator.creatorId, { cached: true }), [] as Awaited<ReturnType<typeof siteCatalogue>>, SITE_SHOP_MS)
+      : siteCatalogue(creator.creatorId, { cached: !draft }).catch(() => [] as Awaited<ReturnType<typeof siteCatalogue>>),
     /* What a featured product may be picked from, as in the builder: memberships and tiers too. */
-    draft ? readCatalog() : heldUnless(["compat-catalog", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readCatalog, (v) => v.length === 0),
-    collectionsOf(creator.creatorId),
+    draft
+      ? readCatalog()
+      : part("catalog", heldUnless(["compat-catalog", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readCatalog, (v) => v.length === 0 || catalogShort), [] as Awaited<ReturnType<typeof readCatalog>>, SITE_SHOP_MS).then((v) => {
+          if (catalogShort && !partial.includes("catalog") && !partial.includes("offers")) partial.push("catalog")
+          return v
+        }),
+    part("collections", collectionsOf(creator.creatorId), [] as CollectionLike[], SITE_SHOP_MS),
     draft
       ? storeMenusOrNull(admin, creator.creatorId)
-      : heldUnless(["compat-menus", creator.creatorId], siteTags, SITE_HOLD_S, () => readStoreMenus(admin, creator.creatorId).catch(() => ({ kind: "unavailable" as const })), (v) => v.kind === "unavailable").then((r) => (r.kind === "stored" ? r.menus : null)),
+      : part(
+          "menus",
+          heldUnless(["compat-menus", creator.creatorId], siteTags, SITE_HOLD_S, () => readStoreMenus(admin, creator.creatorId).catch(() => ({ kind: "unavailable" as const })), (v) => v.kind === "unavailable").then((r) => {
+            if (r.kind === "unavailable") throw new Error("menus unavailable")
+            return r.kind === "stored" ? r.menus : null
+          }),
+          null,
+        ),
     rows ? Promise.resolve() : (draft ? installFiles(admin, row.id, true) : readFiles()).then((r) => { rows = r }),
-    storeOf(creator.creatorId),
-    (draft ? readSizeCharts() : heldUnless(["compat-size-charts", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readSizeCharts, () => false)).catch(() => ({})),
+    part("store", storeOf(creator.creatorId), { name: null, email: null }),
+    part("size charts", (draft ? readSizeCharts() : heldUnless(["compat-size-charts", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readSizeCharts, () => false)).catch(() => ({})), {} as Awaited<ReturnType<typeof readSizeCharts>>),
   ])
   /*
     UNITS SOLD, VERIFIED (round 25, lib/products/sold-counts-server.ts): each
@@ -497,7 +612,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   */
   const soldIds = [...new Set([...products, ...catalog].map((c) => c.id))]
   const readSold = () => import("@/lib/products/sold-counts-server").then((m) => m.soldCounts(admin as never, soldIds)).then((m) => (m ? Object.fromEntries(m) : null)).catch(() => null)
-  const soldAsked = soldIds.length === 0 ? Promise.resolve(null) : draft ? readSold() : heldUnless(["compat-sold", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readSold, (v) => v === null)
+  const soldAsked = soldIds.length === 0 ? Promise.resolve(null) : draft ? readSold() : part("sold", heldUnless(["compat-sold", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readSold, (v) => v === null), null)
   const physical = await physicalAsked
   if (!rows) return { kind: "missing" }
   if (!draft) {
@@ -520,12 +635,12 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   }
   /* The refund policy closes with what the store's return settings say today (Settings › Returns and refunds); both read together. */
   const [returnFacts, facts, taxesIncluded] = await Promise.all([
-    returnFactsAsked,
+    part("return facts", returnFactsAsked, ""),
     physical && (onSite.freeShippingBar || onSite.cartReturnsNote)
-      ? (draft ? readFacts() : heldUnless(["compat-shop-facts", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readFacts, () => false))
+      ? (draft ? readFacts() : part("shop facts", heldUnless(["compat-shop-facts", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readFacts, () => false), null))
       : null,
     physical
-      ? (draft ? readTaxesIncluded() : heldUnless(["compat-taxes-included", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readTaxesIncluded, () => false)).catch(() => false)
+      ? part("taxes", (draft ? readTaxesIncluded() : heldUnless(["compat-taxes-included", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readTaxesIncluded, () => false)).catch(() => false), false)
       : false,
   ])
   /* The creator's policies (Website settings), as the theme's shop.policies and /policies/<handle> (lib/storelib-theme/compat/site.ts). */
@@ -555,6 +670,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const creatorId = creator.creatorId
   const site: SiteData = {
     creatorId: creator.creatorId,
+    ...(partial.length ? { partial: [...new Set(partial)] } : {}),
     theme,
     pages,
     products: withSoldCounts(products, sold),
@@ -618,11 +734,23 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
       const readPageFacts = () => (physical || card.settings.kind !== "physical" ? pageFactsFor(admin, creator.creatorId, card.id, siteCommerce(settings as Record<string, unknown>).showStockLeft) : Promise.resolve(null))
       /* What the page offers with it (product.metafields.storelib.offers): the same read as GET /api/offers, never failing the page. */
       const readOffers = () => import("@/lib/offers/offers-public").then((m) => m.productOffers(admin, card.id)).catch(() => null)
+      /* Each waited for only so long on a live page (round AP): the page is then drawn without it, for this visitor alone (PARTIAL_PRODUCTS). */
+      let short = false
+      const bounded = <T,>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
+        draft || !live
+          ? p
+          : inTime(p, ms, fallback).then((r) => {
+              if (r.late || r.failed) short = true
+              return r.value
+            })
       const [found, pageFacts, offers] = await Promise.all([
-        draft ? readDescription() : heldUnless(["compat-description", creator.creatorId, card.id], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readDescription, (v) => v === null),
-        readPageFacts(),
-        readOffers(),
+        bounded(draft ? readDescription() : heldUnless(["compat-description", creator.creatorId, card.id], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readDescription, (v) => v === null), SITE_SHOP_MS, null),
+        bounded(readPageFacts(), SITE_SHOP_MS, null),
+        /* The site's own offers read already did not come in time: not waited for a second time on the same page. */
+        bounded(readOffers(), partial.includes("offers") ? 0 : SITE_PART_MS, null),
       ])
+      /* A description that could not be read is not one that is empty. */
+      if (live && !draft && found === null) short = true
       const raw = found?.text ?? ""
       const descriptionHtml = /<[a-z][\s\S]*>/i.test(raw) ? sanitizeRichText(raw) : raw.split(/\n{2,}/).filter(Boolean).map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>`).join("")
       /*
@@ -639,7 +767,9 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
       /* And the Bundles and upsells app block's figures at the store's own prices (lib/storelib-theme/compat/offers-app-block.ts); a market works them out again (lib/markets/compat-prices). */
       const own = { ...withStock.settings, ...(offers ? { storelib_offers: offers } : {}) } as Record<string, unknown>
       const shown = offers ? (await import("@/lib/storelib-theme/compat/offers-app-block").then((m) => m.withOffersShown({ id: card.id, settings: own }, m.cardOptions({ id: card.id, settings: own }, currency, minorUnits), { charge: null, currency, locale: "en" })).catch(() => own)) : own
-      return { ...withStock, descriptionHtml, settings: { ...shown, faqs: found?.faqs ?? [], ...(found?.seoTitle ? { seo_title: found.seoTitle } : {}) } }
+      const product = { ...withStock, descriptionHtml, settings: { ...shown, faqs: found?.faqs ?? [], ...(found?.seoTitle ? { seo_title: found.seoTitle } : {}) } }
+      if (short) PARTIAL_PRODUCTS.add(product)
+      return product
     },
     /* Storelib Reviews: the shop's reviews and the product's, held a minute (lib/reviews/storefront-server.ts). */
     reviews: async (p) => (await import("@/lib/reviews/storefront-server")).storefrontReviews(creator.creatorId, p) as unknown as Promise<Record<string, unknown>>,
