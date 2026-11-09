@@ -46,6 +46,12 @@ import { useEdgeFade } from "@/components/app/use-edge-fade"
 export interface PillOption<T extends string> {
   value: T
   label: React.ReactNode
+  /**
+   * The option's own address (Emails' places, wave 8): the option is then a
+   * real link, so a middle click or a modified click opens it in a new tab,
+   * and a plain click is the control's own press, with no page load.
+   */
+  href?: string
 }
 
 /* Settings' pill row's own fade (components/app/settings-form-new.tsx TAB_FADE_MS, TAB_EASE). */
@@ -57,7 +63,7 @@ export function SegmentedPills<T extends string>({ options, value, onChange, onI
   const track = useEdgeFade<HTMLDivElement>()
   const filter = variant === "filter"
   const chips = variant === "chips" || filter
-  const refs = React.useRef<(HTMLButtonElement | null)[]>([])
+  const refs = React.useRef<(HTMLElement | null)[]>([])
   const [measured, setBox] = React.useState<{ x: number; w: number } | null>(null)
   /* Without the slide there is no moving pill: each chosen option draws (and fades) its own. */
   const box = slide ? measured : null
@@ -126,21 +132,30 @@ export function SegmentedPills<T extends string>({ options, value, onChange, onI
       ) : null}
       {options.map((o, i) => {
         const on = i === index
+        /* A link when the option has an address, so it opens in a new tab too; otherwise a button. */
+        const Tag: React.ElementType = o.href ? "a" : "button"
         return (
-          <button
+          <Tag
             key={o.value}
-            ref={(el) => {
+            href={o.href}
+            ref={(el: HTMLElement | null) => {
               refs.current[i] = el
             }}
-            type="button"
+            type={o.href ? undefined : "button"}
             role="tab"
             aria-selected={on}
             tabIndex={on ? 0 : -1}
             data-tab={o.value}
-            onClick={() => pick(i)}
+            onClick={(e: React.MouseEvent) => {
+              if (o.href) {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+                e.preventDefault()
+              }
+              pick(i)
+            }}
             onPointerEnter={onIntent ? () => onIntent(o.value) : undefined}
             onTouchStart={onIntent ? () => onIntent(o.value) : undefined}
-            onKeyDown={(e) => {
+            onKeyDown={(e: React.KeyboardEvent) => {
               if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return
               e.preventDefault()
               const next = (i + (e.key === "ArrowRight" ? 1 : options.length - 1)) % options.length
@@ -151,6 +166,8 @@ export function SegmentedPills<T extends string>({ options, value, onChange, onI
             data-pill-fade={slide ? undefined : ""}
             className={cn(
               "relative z-[1] shrink-0 whitespace-nowrap rounded-full font-semibold outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20",
+              /* A link lays its words out as a button does: in the middle of the pill. */
+              o.href && "inline-flex items-center justify-center no-underline",
               slide ? "transition-colors duration-150" : "transition-[color,background-color,box-shadow] motion-reduce:transition-none",
               filter
                 ? cn("h-[30px] px-3 text-[14px]", on ? "text-white" : "text-[#6b7280] pointer-fine:hover:text-[#1a1a2e]", on && !box && "bg-[#1a1a2e]")
@@ -160,7 +177,7 @@ export function SegmentedPills<T extends string>({ options, value, onChange, onI
             )}
           >
             {o.label}
-          </button>
+          </Tag>
         )
       })}
     </div>

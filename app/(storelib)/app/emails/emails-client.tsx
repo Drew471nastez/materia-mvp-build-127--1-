@@ -67,6 +67,8 @@ import { isPageTab, isSection, isShow, type CampaignShow, type EmailsPageTab, ty
 import { noteListAddress } from "./list-return"
 import { openLayer } from "./layer-nav"
 import { EmailsPartBoundary } from "@/components/app/emails/part-boundary"
+import { warmCommunityAutomations } from "@/components/app/emails/community-automations"
+import { customerEmailsFrom } from "@/lib/emails/shapes"
 import { tt } from "@/lib/i18n/text"
 
 function writeAddress(mutate: (p: URLSearchParams) => void, mode: "push" | "replace") {
@@ -220,6 +222,12 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
     const idle = (fn: () => void) => (w.requestIdleCallback ? w.requestIdleCallback(fn, { timeout: 1500 }) : window.setTimeout(fn, 300))
     idle(() => {
       for (const t of TABS) if (t !== tab) prefetch(keyFor(t), loaderFor(t), APP_PAGE_KEPT_MS)
+      /* Automations lists each community's messages under the store's: read them too, once the communities are known (wave 8). */
+      const kept = peek<unknown>(keyFor("customer"))
+      void (kept !== undefined ? Promise.resolve(kept) : load<unknown>(keyFor("customer"), loaderFor("customer"))).then((d) => {
+        const list = customerEmailsFrom<CustomerEmailsData>(d)?.communities
+        if (Array.isArray(list)) for (const c of list) if (c && typeof c.id === "string") idle(() => warmCommunityAutomations(c.id))
+      })
     })
   }, [current.loading, tab, keyFor, loaderFor])
 
@@ -244,7 +252,15 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
   */
   const listRef = React.useRef<HTMLDivElement>(null)
   const placePushed = React.useRef(false)
+  /*
+    EACH PLACE KEEPS ITS STATE (wave 8). Campaigns' filter and period are
+    the page's own state and stay as they were; Customer emails' family
+    (&kind=, &community=) leaves the address with the place, so it is kept
+    here and put back when Customer emails is opened again.
+  */
+  const customerKept = React.useRef<{ kind: string | null; community: string | null }>({ kind: null, community: null })
   const placeAddress = (next: EmailsPageTab, nextSection: SettingsSection) => (p: URLSearchParams) => {
+    if (p.get("tab") === "settings" && p.get("section") === "customer") customerKept.current = { kind: p.get("kind"), community: p.get("community") }
     p.set("tab", next)
     /* Each place keeps only its own: Campaigns its filter, Settings its section and the editor's family. */
     if (next !== "campaigns") p.delete("show")
@@ -258,6 +274,9 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
       if (nextSection !== "customer") {
         p.delete("kind")
         p.delete("community")
+      } else if (!p.has("kind") && customerKept.current.kind) {
+        p.set("kind", customerKept.current.kind)
+        if (customerKept.current.community) p.set("community", customerKept.current.community)
       }
     }
   }
@@ -302,19 +321,13 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
     switch. The content is at least a pane tall (--pane-h, below), so a
     shorter tab never pulls the page up under the finger either.
 
-    A SOFT CROSSFADE. The content that replaces another comes in from 55%
-    opacity over 160ms, never from nothing, so there is no blank frame and
-    no flash of the page's grey between the two; compositor only, and none
-    under reduced motion.
+    NO FADE (wave 8, the owner: "smooth and clean, no flash, no fades, no
+    glitch"). Round 28's crossfade brought every new place and view in from
+    55% opacity over 160ms, so each press dimmed the whole page for ten
+    frames. Now the content of the last place stays, whole, until the next
+    has its rows (read ahead while idle, so nearly always at once), and is
+    then replaced in one frame: never a blank frame, never a dimmed one.
   */
-  const drawnTab = React.useRef(shown)
-  React.useLayoutEffect(() => {
-    if (drawnTab.current === shown) return
-    drawnTab.current = shown
-    const el = listRef.current?.querySelector<HTMLElement>("[data-tab-content]")
-    if (!el || typeof el.animate !== "function" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    el.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 160, easing: "cubic-bezier(0.32,0.72,0,1)" })
-  }, [shown])
 
   /*
     THE PANE'S HEIGHT, MEASURED ONCE. A tab's content is at least a pane
