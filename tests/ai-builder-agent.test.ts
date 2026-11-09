@@ -28,6 +28,7 @@ import { compactCheckpoint, resumeTurns } from "@/lib/ai-builder/agent/compact"
 import { TOOL_LIST, TOOL_SPECS } from "@/lib/ai-builder/agent/tool-specs"
 import { createToolSet } from "@/lib/ai-builder/agent/tools-impl"
 import { readConcept } from "@/lib/ai-builder/agent/concept"
+import { AGENT_SYSTEM, briefMessage } from "@/lib/ai-builder/agent/prompts"
 import { tokensToThemeSettings } from "@/lib/ai-builder/agent/tokens"
 import { validateFile } from "@/lib/ai-builder/agent/validate"
 import { librarySlop } from "@/lib/ai-builder/agent/knowledge"
@@ -152,6 +153,22 @@ async function main() {
   const slop = await librarySlop({ files: [{ path: "sections/ai_t.storelib", text: HERO.replace("Lift with a plan", "Unlock your potential with 10,000+ clients") }], concept: null, capabilities: CAPS })
   check("anti slop (L6): invented metrics and empty words are high", slop.some((i) => i.code.startsWith("slop.") && i.severity === "error"))
   check("the worst case of a call is priced, unpriced models at Opus", worstCaseUsd("claude-sonnet-5-5", 30_000, 24_000) > 0.2 && worstCaseUsd("mystery-model", 30_000, 24_000) >= worstCaseUsd("claude-opus-5-5", 30_000, 24_000))
+
+  console.log("\n0b. what the agent is told (round M audit against the spec)")
+  {
+    const sys = AGENT_SYSTEM
+    check("the system prompt is one constant (cacheable): no job, date or store in it", typeof sys === "string" && !/\$\{|Iron & Chalk|prod_8week|2026/.test(sys))
+    check("concept first, and a refused concept is said to come back ok: false", /before any write, call report_progress with phase "plan"/.test(sys) && /refused concept comes back ok: false/.test(sys))
+    check("no defaulting to Foundation or the theme's catalogue", /Foundation\) is not a starting point/.test(sys) && /section catalogue/.test(sys))
+    check("honest copy: no invented reviews, numbers, prices, hours or addresses", /No fake testimonials/.test(sys) && /prices, opening hours or addresses/.test(sys) && /comes from the store or the brief/.test(sys))
+    check("real bindings, and the fields a bound list prints", /ONLY ids from list_capabilities/.test(sys) && /block\.settings\.title/.test(sys) && /block\.id \(for data-storelib-add-to-cart\)/.test(sys))
+    check("editable: every visible word a setting, repeats are blocks, manifest allowed", /Every word a visitor reads is a setting/.test(sys) && /are blocks with their own settings/.test(sys) && /pass a manifest to write_file/.test(sys))
+    check("links: no '#' fallback taught any more; CTAs, nav and commerce need real destinations; anchors to real ids allowed", !/default: '#'/.test(sys) && /Never href="#", href="", javascript:/.test(sys) && /href="#classes" with id="classes"/.test(sys))
+    check("visual diversity and mobile first, with render_check before finish", /do not repeat one section skeleton/.test(sys) && /design at 375px wide/.test(sys) && /render_check every page you made or changed/.test(sys))
+    const brief = (mode: "blank" | "theme") => briefMessage({ job: jobInput({ mode, options: { generation: mode, category: "fitness_coach" } }), caps: CAPS, pages: [{ key: "home", sections: [] }], files: [], knowledge: [] })
+    check("the theme-mode brief does not invite keeping the theme's sections", !/may stay/.test(brief("theme")) && /they are not the design/.test(brief("theme")))
+    check("the first turn names the real products with ids and ends on the order of work", /prod_8week/.test(brief("blank")) && /render_check on every page, finish\.$/.test(brief("blank")))
+  }
 
   console.log("\n1. a fitness coach website, from blank")
   const store = memoryStore({ pages: { home: [] }, settings: {} })
