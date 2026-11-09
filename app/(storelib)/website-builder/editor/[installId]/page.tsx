@@ -13069,7 +13069,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   into the page when it arrives.
                 */}
                 {/* Round N: opening on a build, the canvas is the building state from its first frame, the same picture the Website page showed. */}
-                {(showCanvasLoader || openHold) && genSource !== null && !teamMember && loading ? (
+                {(showCanvasLoader || openHold) && buildLive ? (
                   <div className="absolute inset-0 flex bg-white" data-building-opening="">
                     <BuildingCanvas step={buildStep ?? tt("Opening the editor")} />
                   </div>

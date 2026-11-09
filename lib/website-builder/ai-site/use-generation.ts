@@ -75,8 +75,13 @@ export function opsFor(view: Pick<JobView, "ops">, page: string): ThemeOp[] {
 
 /* ── agent jobs: pure pieces, tested ─────────────────────────────────────── */
 
-export const AGENT_POLL_MIN_MS = 2_000
-export const AGENT_POLL_MAX_MS = 10_000
+/*
+  Round N (N1): someone is watching the canvas fill in, so the fallback poll is quicker than it was (2 s backing off to
+  10 s): 1.5 s, backing off to 5 s while nothing new comes. One light read (the events after a cursor) per open editor,
+  only while a build runs, and realtime makes it a 20 s check anyway.
+*/
+export const AGENT_POLL_MIN_MS = 1_500
+export const AGENT_POLL_MAX_MS = 5_000
 /** With realtime up, the poll is only a check that nothing was missed. */
 export const AGENT_POLL_LIVE_MS = 20_000
 /** Events the view keeps in memory (the newest). */

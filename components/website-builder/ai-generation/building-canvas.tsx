@@ -75,12 +75,15 @@ export function StartingShell({ step }: { step?: string | null }) {
   }, [])
   const shell = (
     <div data-starting-shell="" role="dialog" aria-modal="true" aria-label={tt("Opening the website builder")} className="fixed inset-0 z-[200] flex flex-col bg-[#f4f5f7]">
-      <div className="flex h-[calc(56px+env(safe-area-inset-top))] shrink-0 items-center gap-3 border-b border-[#e5e7eb] bg-white px-4 pt-[env(safe-area-inset-top)]">
-        <span className="text-[14px] font-semibold text-[#1a1a2e]">{tt("New website")}</span>
-        <span className="text-[13px] text-[#9ca3af]">{tt("Draft")}</span>
+      {/* The editor's bar: dark, as the editor draws it (--wb-chrome-bg in app/globals.css). */}
+      <div className="flex h-[calc(48px+env(safe-area-inset-top))] shrink-0 items-center gap-2.5 bg-[#171717] px-4 pt-[env(safe-area-inset-top)]">
+        <span className="text-[14px] font-semibold text-white">{tt("New website")}</span>
+        <span className="text-[13px] text-white/60">{tt("Draft")}</span>
       </div>
-      <div className="flex min-h-0 flex-1 p-0 md:p-4">
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white md:rounded-[20px] md:shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      {/* The sidebar's card and the canvas's card, where the editor puts them; the sidebar fills in when the editor is up. */}
+      <div className="flex min-h-0 flex-1 gap-1.5 p-0 md:px-1.5 md:pt-1.5">
+        <div aria-hidden className="hidden w-[288px] shrink-0 rounded-t-[14px] bg-white md:block" />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white md:rounded-t-[20px]">
           <BuildingCanvas step={step ?? tt("Setting up your website")} />
         </div>
       </div>

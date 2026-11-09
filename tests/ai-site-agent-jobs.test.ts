@@ -665,7 +665,7 @@ console.log("\n9. The poll's answer, the client, the panel\n")
   check("no Continue once they are used up", used.error?.actions.join(",") === "start_over")
   check("a record reads back from its row with its bookkeeping", recordFromRow({ id: "j", creator_id: "c", owner_user_id: null, install_id: "i", status: "running", attempts: 2, lease_until: null, created_at: "", prompt: "p", engine: "agent", state: { agent: { continues: 2, usage: { usd: 1 } } } }).run.continues === 2)
 
-  check("poll: 2 s, backing off to 10 s while nothing comes", agentPollDelay({ settled: false, hidden: false, realtime: false, idle: 0 }) === AGENT_POLL_MIN_MS && agentPollDelay({ settled: false, hidden: false, realtime: false, idle: 20 }) === AGENT_POLL_MAX_MS)
+  check("poll: 1.5 s, backing off to 5 s while nothing comes (round N, was 2 s to 10 s)", AGENT_POLL_MIN_MS === 1_500 && AGENT_POLL_MAX_MS === 5_000 && agentPollDelay({ settled: false, hidden: false, realtime: false, idle: 0 }) === AGENT_POLL_MIN_MS && agentPollDelay({ settled: false, hidden: false, realtime: false, idle: 20 }) === AGENT_POLL_MAX_MS)
   check("poll: only a 20 s check while realtime is up", agentPollDelay({ settled: false, hidden: false, realtime: true, idle: 0 }) === AGENT_POLL_LIVE_MS)
   check("poll: none while hidden or once it ended", agentPollDelay({ settled: true, hidden: false, realtime: false, idle: 0 }) === null && agentPollDelay({ settled: false, hidden: true, realtime: false, idle: 0 }) === null)
   const e = (seq: number): AgentEvent => ({ seq, at: "", kind: "note", text: String(seq) })
