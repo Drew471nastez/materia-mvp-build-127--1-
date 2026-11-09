@@ -214,7 +214,7 @@ async function main() {
     const p = await runAgentSlice(jobInput(), null, depsFor(thin, thinSteps), { deadline: T0 + 30 * 60_000 })
     check("it ends partial, honestly, after the rounds it had", p.status === "partial" && p.checkpoint.verifyCycles === DEFAULT_JOB_BUDGET.maxVerifyCycles, { status: p.status, cycles: p.checkpoint.verifyCycles })
     check("  the summary names what is missing", /site\.home_sections/.test(p.summary ?? "") || /site\./.test(JSON.stringify(p.checkpoint.final?.failing ?? [])), { summary: p.summary, failing: p.checkpoint.final?.failing })
-    check("  the plan pages it never made are named", completenessIssues({ pages: Object.entries(thin.project.pages).map(([key, sections]) => ({ key, sections })), sources: Object.fromEntries(Object.entries(thin.project.files).map(([k, v]) => [k, v.text])), settings: thin.project.settings, caps: CAPS, mode: "blank", plan: p.checkpoint.sitePlan ?? null }).some((i) => i.code === "site.plan_page_missing" && /"programs"/.test(i.message)))
+    check("  the plan pages it never made are named", completenessIssues({ pages: Object.entries(thin.project.pages).map(([key, sections]) => ({ key, sections })), sources: Object.fromEntries(Object.entries(thin.project.files).map(([k, v]) => [k, v])), settings: thin.project.settings, caps: CAPS, mode: "blank", plan: p.checkpoint.sitePlan ?? null }).some((i) => i.code === "site.plan_page_missing" && /"programs"/.test(i.message)))
   }
 
   console.log("\n6. Templates drawn by the server template engine with a real-shaped product")
@@ -225,7 +225,7 @@ async function main() {
       { id: "var-ink", product_id: row.id, name: "Ink", price_cents: 5200, position: 1 },
     ]
     const theme = { color_schemes: {}, font_heading: "Oswald" } as unknown as ThemeSettingsValues
-    const section: SectionInstance = { id: "pp-1", type: "ai_product_page", settings: {}, blocks: [] }
+    const section: SectionInstance = { id: "pp-1", name: "x", type: "ai_product_page", settings: {}, blocks: [] }
     const sources = { ...WHOLE_SITE_FILES }
     const page = { template: "product", product: toProductPage(row as never, variants as never, "USD") }
     const out = renderStorelibSection(section, theme, page, sources, [], { product: productFacts(row as never, "USD") } as never)
@@ -243,7 +243,7 @@ async function main() {
     check("  the file holds no product: everything comes from the data", !PRODUCT_PAGE.includes("Linen") && /product\.title/.test(PRODUCT_PAGE))
 
     const cards = [toCard(row as never, [], [], "USD"), toCard({ ...row, id: "p2", title: "Canvas tote", slug: "canvas-tote" } as never, [], [], "USD")]
-    const coll = renderStorelibSection({ id: "cl-1", type: "ai_collection_grid", settings: {}, blocks: [] }, theme, { template: "collection" }, sources, cards, { collection: { id: "c1", title: "Kitchen", handle: "kitchen", description: "Things for the kitchen.", image: "", url: "/collections/kitchen", products_count: 2, products: [] } } as never)
+    const coll = renderStorelibSection({ id: "cl-1", name: "x", type: "ai_collection_grid", settings: {}, blocks: [] }, theme, { template: "collection" }, sources, cards, { collection: { id: "c1", title: "Kitchen", handle: "kitchen", description: "Things for the kitchen.", image: "", url: "/collections/kitchen", products_count: 2, products: [] } } as never)
     const ch = coll.ok ? coll.html : JSON.stringify(coll)
     check("the collection template lists the real products under the collection's name", coll.ok === true && ch.includes("Kitchen") && ch.includes("Linen apron") && ch.includes("Canvas tote") && /href="\/products\/canvas-tote"/.test(ch) && /data-storelib-add-to-cart="p2"/.test(ch), ch.slice(0, 800))
     check("  no file executed on the server: the template is interpreted (no <script> in either file)", !/<script\b/.test(PRODUCT_PAGE) && !/<script\b/.test(COLLECTION_PAGE))
@@ -256,8 +256,8 @@ async function main() {
 
   console.log("\n7. Reachability, chrome, the live cart route and the prompt")
   {
-    const header: SectionInstance = { id: "h", type: "ai_coach_header", group: "header", settings: {}, blocks: [] }
-    const footer: SectionInstance = { id: "f", type: "ai_coach_footer", group: "footer", settings: {}, blocks: [] }
+    const header: SectionInstance = { id: "h", name: "x", type: "ai_coach_header", group: "header", settings: {}, blocks: [] }
+    const footer: SectionInstance = { id: "f", name: "x", type: "ai_coach_footer", group: "footer", settings: {}, blocks: [] }
     const src = { "sections/ai_coach_header.storelib": HEADER, "sections/ai_coach_footer.storelib": FOOTER }
     const links = chromeLinks([header, footer], src, { menus: { "main-menu": { title: "Main", links: [{ title: "Programs", url: "/programs" }] } } })
     check("links: the header's menu (by its setting's default), the footer's url setting", links.has("/programs") && links.has("/about") && links.has("/"), [...links])
@@ -266,11 +266,11 @@ async function main() {
     check("a page nobody links to, no footer of its own, no plan: each named", codes.includes("site.unreachable") && codes.includes("site.footer_own") && codes.includes("site.plan_missing") && !codes.includes("site.header_own"), codes)
     const themeMode = completenessIssues({ pages: [{ key: "home", sections: [] }], sources: {}, settings: {}, caps: CAPS, mode: "theme", plan: null })
     check("  inside a theme the frame is not required to be the AI's", !themeMode.some((i) => i.code === "site.header_own" || i.code === "site.footer_own"))
-    const ten = Array.from({ length: 10 }, (_, i) => ({ id: `s${i}`, type: i < 5 ? "ai_a" : "ai_b", settings: {}, blocks: [] }))
+    const ten = Array.from({ length: 10 }, (_, i) => ({ id: `s${i}`, name: "x", type: i < 5 ? "ai_a" : "ai_b", settings: {}, blocks: [] }))
     check("  ten copies of two components is not a home page", completenessIssues({ pages: [{ key: "home", sections: ten }], sources: {}, settings: {}, caps: { ...CAPS, products: [] }, mode: "theme", plan: null }).some((i) => i.code === "site.home_variety"))
 
     const { shopSections, searchSections } = await import("@/lib/website-builder/shop-page")
-    const aiHome: SectionInstance[] = [{ id: "h", type: "ai_coach_header", group: "header", settings: { color_scheme: "site_inverse" }, blocks: [] }]
+    const aiHome: SectionInstance[] = [{ id: "h", name: "x", type: "ai_coach_header", group: "header", settings: { color_scheme: "site_inverse" }, blocks: [] }]
     check("before the agent designs them, the shop and search pages are drawn in the AI frame's own scheme, not the default white", shopSections(aiHome, {} as ThemeSettingsValues).find((x) => x.type === "product_grid")?.settings.color_scheme === "site_inverse" && searchSections(aiHome).find((x) => x.type === "search")?.settings.color_scheme === "site_inverse")
     const cart = readFileSync("app/(site)/w/[username]/cart/page.tsx", "utf8")
     check("the live cart route draws the cart template's own sections, in the site's header and footer", /site\.pages\.cart/.test(cart) && /withUniversalChrome\(cartOwn, chromeOf\(/.test(cart))
