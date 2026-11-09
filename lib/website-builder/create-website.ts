@@ -45,6 +45,7 @@
  * Server only: it writes with the service role. The creator comes from the
  * signed-in caller (lib/team/website websiteCaller), never from a request.
  */
+import { SITE_CHROME_HOME_ONLY, SITE_CHROME_SETTING } from "./universal-chrome"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder, LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE } from "./library-limit"
 import { buildThemePreset, getThemeDefinition, STORELIB_DEFAULT_ID, themeCatalogRow } from "./theme-registry"
@@ -129,7 +130,8 @@ export function startRows(chrome: StartChrome = "theme"): StartRows | null {
   if (!def) return null
   if (chrome === "none") {
     return {
-      settings: { ...BLANK_SETTINGS },
+      /* site_chrome "home" (lib/website-builder/universal-chrome.ts): home's chrome, none here, is the whole site's, so no page draws a stored copy of a theme header. */
+      settings: { ...BLANK_SETTINGS, [SITE_CHROME_SETTING]: SITE_CHROME_HOME_ONLY },
       pages: [
         { page_key: "home", sections: [] },
         { page_key: "product", sections: [mainProductSection()] },

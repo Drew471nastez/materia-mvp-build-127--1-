@@ -125,7 +125,8 @@ async function main() {
     const product = blank.pages.find((p) => p.page_key === "product")!
     check("blank: the home page has no sections, so no header and no footer", home.sections.length === 0)
     check("  the product page only draws the product", product.sections.length === 1 && product.sections[0].type === "product")
-    check("  neutral settings, no Foundation brand name", JSON.stringify(blank.settings) === JSON.stringify(BLANK_SETTINGS) && !("brand_name" in blank.settings))
+    /* Changed on purpose (round L integration): a blank site is also marked site_chrome "home" (L4), so no page draws a stored theme header. */
+    check("  neutral settings, no Foundation brand name, home-only chrome", JSON.stringify(blank.settings) === JSON.stringify({ ...BLANK_SETTINGS, site_chrome: "home" }) && !("brand_name" in blank.settings))
     const theme = startRows("theme")!
     const themeHome = theme.pages.find((p) => p.page_key === "home")!.sections
     check("inside the theme: header and footer, as before", themeHome.map((s) => s.type).join() === "header,footer" && JSON.stringify(startRows()) === JSON.stringify(theme))
