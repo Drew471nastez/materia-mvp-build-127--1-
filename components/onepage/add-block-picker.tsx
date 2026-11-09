@@ -649,7 +649,16 @@ export function searchEntries(entries: PickerEntry[], query: string): PickerEntr
     }
     if (score > 0) scored.push({ e, score: score * 2 + (e.hidden ? 0 : 1) })
   }
-  return scored.sort((a, b) => b.score - a.score).map((s) => s.e)
+  /*
+    ONE THING, ONE ROW, IN A SEARCH TOO (round AO). "insta" listed four rows
+    with the Instagram mark, three of them named just "Instagram": the app
+    block, the old embed and the old link. The app block shows a post and
+    links to the profile itself, so when it is found, the embed and the link
+    with its mark are left out. A saved block of either still edits as before.
+  */
+  const sorted = scored.sort((a, b) => b.score - a.score).map((s) => s.e)
+  const listedBrands = new Set(sorted.filter((e) => !e.hidden && e.brand).map((e) => e.brand))
+  return sorted.filter((e) => !(e.hidden && e.brand && listedBrands.has(e.brand) && (e.type === "embed" || e.type === "link_button")))
 }
 
 /* ─── The recent list, on this browser ────────────────────────────────── */

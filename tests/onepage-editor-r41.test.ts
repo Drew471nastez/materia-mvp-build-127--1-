@@ -98,7 +98,8 @@ function main() {
     const c = code(tab)
     check("the editor deletes a child in one edit", /const next = deleteFromGroup\(blocksInOrder\(\), groupId, childId\)\s*if \(next\) reorderBlocks\(next\)/.test(c) && /onDeleteChild=\{handleDeleteChild\}/.test(c) && /onDeleteChild=\{onDeleteChild\}/.test(c))
     /* Changed on purpose (round AN): "the remove should not be at the bottom of the block". The bar is the first line of a child's settings now, before its editor. */
-    check("a child's settings open with the block bar: move, then Move out or Delete", /<BlockFootActions\s*key=\{selectedChild\.id\}/.test(c) && c.search(/<BlockFootActions\s*key=\{selectedChild\.id\}/) < c.search(/<BlockEditor\s*block=\{selectedChild\}/) && /data-block-bar="top"/.test(foot) && /onRemove=\{\(\) => deleteChild\(selectedChild\.id\)\}/.test(c) && /keep=\{\{ label: tt\("Move out"\)/.test(c) && /keep\.onPick\(\)/.test(foot) && /data-block-keep=""/.test(foot))
+    /* Changed on purpose (round AO): a group's block has the more menu in its own row (move, Move out of group, Remove), and its settings have nothing over the editor. */
+    check("a child's row has the more menu: move, Move out, then Move out or Delete", /<BlockRowMenu\s*compact/.test(c) && /onMoveOut=\{\(\) => removeChildFromGroup\(child\.id\)\}/.test(c) && !/<BlockFootActions/.test(c) && /onRemove=\{\(\) => deleteChild\(child\.id\)\}/.test(c) && /keep=\{\{ label: tt\("Move out"\)/.test(c) && /keep\.onPick\(\)/.test(foot) && /data-block-keep=""/.test(foot))
     check("Add to group leads with the page's own blocks, then the whole catalogue", /lead=\{addToGroupId \? \(\s*<GroupExistingBlocks/.test(c) && /groupCandidates\(onepage\.draft_blocks, addToGroupId\)/.test(c) && /onMove=\{moveExistingIntoGroup\}/.test(c) && /* Changed on purpose (round AL): the sheet opens on Essentials, so the page's own blocks lead there and in View all. */ /\{lead && !searching && atTop \? lead : null\}/.test(picker) && /const atTop = category === "essentials" \|\| category === "all"/.test(picker))
     check("moving an existing block in is the same one edit a drop makes", /const next = moveIntoGroup\(blocksInOrder\(\), id, groupId\)\s*if \(next\) reorderBlocks\(next\)\s*closeAddSheet\(\)/.test(c))
     check("a new block in a group starts with its catalogue entry's data", /const newBlock: OnePageBlock = data && !preset \? \{ \.\.\.created, data: \{ \.\.\.created\.data, \.\.\.data \}/.test(c))
@@ -172,7 +173,8 @@ function main() {
     const banned = /\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform your)\b/i
     const words = sources.filter(([, s]) => banned.test(s) || /—/.test(s))
     check("no AI words and no em dashes", words.length === 0, words.map(([f]) => f).join(", "))
-    check("the group child's switch moves by translate, not transform", /shadow transition-\[translate\]/.test(tab))
+    /* Changed on purpose (round AO): the group child's switch is the one switch /app draws (components/ui/switch-style), whose knob moves by translate. */
+    check("the group child's switch moves by translate, not transform", /<span className=\{switchKnob\(!!child\.enabled\)\} \/>/.test(tab) && /translate-x-\[16px\]|translate-x-4|translate:/.test(read("components/ui/switch-style.ts")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

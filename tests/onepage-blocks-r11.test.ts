@@ -127,7 +127,8 @@ async function main() {
     check("the Add sheet lets in what the drop does, and says so", /if \(!canGoInGroup\(type\)\) \{/.test(tab) && /* Changed on purpose (round 41): the note says what the sheet now offers. */ tab.includes('tt("Move a block from your page, or add a new one.")') && /inGroup \? PICKER_ENTRIES\.filter\(\(e\) => canGoInGroup\(e\.type\)\)/.test(read("components/onepage/add-block-picker.tsx")))
     check("pictures picked for a block in a group reach it", /findBlockDeep\(onepage\.draft_blocks, imageBlockId\)\?\.block/.test(tab) && /updateBlockDeep\(imageBlockId, /.test(tab) && /updateBlockDeep\(thumbnailBlockId, /.test(tab) && !/updateBlock\(imageBlockId, /.test(tab))
     /* Changed on purpose (round 41): the moves are the block foot's pair (components/onepage/block-remove), as on any block. */
-    check("a block in a group moves up and down by tap too (a finger has no drag there)", /onMoveUp=\{\(\) => moveChild\(selectedChild\.id, -1\)\}/.test(tab) && /onMoveDown=\{\(\) => moveChild\(selectedChild\.id, 1\)\}/.test(tab) && /const moveChild = \(childId: string, dir: -1 \| 1\)/.test(tab))
+    /* Changed on purpose (round AO): the moves are the child row's more menu (BlockRowMenu). */
+    check("a block in a group moves up and down by tap too (a finger has no drag there)", /onMoveUp=\{\(\) => moveChild\(child\.id, -1\)\}/.test(tab) && /onMoveDown=\{\(\) => moveChild\(child\.id, 1\)\}/.test(tab) && /const moveChild = \(childId: string, dir: -1 \| 1\)/.test(tab))
     check("its show switch says what it is", /role="switch"\s*aria-checked=\{!!child\.enabled\}\s*aria-label=\{tt\("Show on page"\)\}/.test(tab))
     check("the group's row says Stack or Carousel in the creator's language", !/layout: data\.layout \}\)/.test(tab))
 

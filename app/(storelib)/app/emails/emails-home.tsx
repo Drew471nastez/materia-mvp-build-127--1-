@@ -169,6 +169,12 @@ export interface EmailsHomeProps {
   skeletonAtOnce?: boolean
   /** Nothing to show for this view yet. */
   loading: boolean
+  /**
+   * The view's read failed and nothing was kept from before (round 52): the
+   * list says so with Try again, never "No emails yet" over a failed read.
+   */
+  error?: string | null
+  onRetry?: () => void
 
   /** The Customer emails section's read (the store, its saved words), when it has come. */
   customerEmails?: CustomerEmailsData | null
@@ -425,7 +431,8 @@ export function EmailsHome(props: EmailsHomeProps) {
           </div>
         ) : null}
 
-        {tab === "platforms" ? <SenderCard sender={props.platforms?.sender ?? null} domain={props.platforms?.sending.domain ?? null} loading={props.loading} /> : <Metrics {...props} />}
+        {/* No automations yet: no row of zeros above the empty list (round 52). */}
+        {tab === "flows" && !props.loading && !props.error && props.flows.length === 0 ? null : tab === "platforms" ? (props.error ? null : <SenderCard sender={props.platforms?.sender ?? null} domain={props.platforms?.sending.domain ?? null} loading={props.loading} />) : <Metrics {...props} />}
 
         <section aria-label={TABS.find((t) => t.id === tab)?.label ?? tt("Emails")} className={cn(card, "mt-4 overflow-hidden")}>
           {/* The list's toolbar, Coupons' and Orders' own: its views, and Templates at the end. */}
@@ -447,10 +454,11 @@ export function EmailsHome(props: EmailsHomeProps) {
           ) : null}
           {tab === "flows" ? <FlowsTable {...props} /> : null}
           {/* The emails buyers and members get, in three families: the same list, editor and saved words as Settings › Customer emails. */}
-          {tab === "customer" ? <CustomerEmailsPanel bare source={{ data: props.customerEmails ?? null, onChange: props.onCustomerEmails }} /> : null}
+          {(tab === "customer" || tab === "platforms") && props.error ? <Failed message={props.error} onRetry={props.onRetry} /> : null}
+          {tab === "customer" && !props.error ? <CustomerEmailsPanel bare source={{ data: props.customerEmails ?? null, onChange: props.onCustomerEmails }} /> : null}
           {tab === "all" || tab === "published" || tab === "scheduled" || tab === "drafts" ? <CampaignsTable {...props} /> : null}
           {/* Klaviyo, Omnisend, Brevo, MailerLite and Kit kept in step, and the store's own sending domain. */}
-          {tab === "platforms" ? <ConnectedPlatforms data={props.platforms ?? null} onChange={props.onPlatforms} /> : null}
+          {tab === "platforms" && !props.error ? <ConnectedPlatforms data={props.platforms ?? null} onChange={props.onPlatforms} /> : null}
         </section>
       </div>
 
@@ -502,7 +510,7 @@ function SenderCard({ sender, domain, loading }: { sender: { name: string | null
     <section aria-label={tt("Sender")} className={cn(card, "mt-4 overflow-hidden")} data-sender-card="">
       <dl className="divide-y divide-[#f1f2f4]">
         {rows.map((r) => (
-          <div key={r.label} className="flex min-h-12 items-center gap-3 px-4 py-2 sm:px-5">
+          <div key={r.label} className="flex min-h-12 items-center gap-3 px-4 py-2 sm:px-6">
             <dt className="w-[120px] shrink-0 text-[13px] font-medium text-[#6b7280]">{r.label}</dt>
             <dd className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e]">{loading ? <ShimmerBlock className="shimmer-wait h-3.5 w-32 rounded-full" /> : r.value}</dd>
             {r.href ? (
@@ -569,7 +577,8 @@ interface Reading {
  * cell, not a row of its own above it.
  */
 function Metrics(props: EmailsHomeProps) {
-  const readings = readingsFor(props)
+  /* A failed read counts nothing: every figure a dash, never a zero (round 52). */
+  const readings = props.error ? readingsFor(props).map((r) => ({ ...r, value: "–", note: undefined })) : readingsFor(props)
   /* Figures that were waited for fade in when they come; a tab read from
      the cache draws its figures at once. */
   const [waitedOn, setWaitedOn] = React.useState<EmailsTab | null>(props.loading ? props.tab : null)
@@ -612,7 +621,7 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
     const sum = (k: keyof FlowTotals) => p.flows.reduce((total, f) => total + (f.totals?.[k] ?? 0), 0)
     const sent = sum("sent")
     return [
-      { label: tt("On"), help: tt("Automations that are sending."), value: `${p.flows.filter((f) => f.status === "active").length} of ${p.flows.length}` },
+      { label: tt("On"), help: tt("Automations that are sending."), value: tt("{a} of {b}", { a: p.flows.filter((f) => f.status === "active").length, b: p.flows.length }) },
       { label: tt("In progress"), help: tt("People partway through an automation right now."), value: n(sum("in_progress")) },
       { label: tt("Emails sent"), help: tt("Every email your automations have sent."), value: n(sent) },
       { label: tt("Open rate"), help: tt("Of the emails your automations sent, how many were opened. Some mail apps hide opens, so this is a floor."), value: sent ? `${Math.round((sum("opened") / sent) * 1000) / 10}%` : "–" },
@@ -642,12 +651,14 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
   if (p.tab === "all") {
     /* Campaigns › All: the period's sending, and what is waiting. */
     const o = p.overview
+    /* Nothing sent in the period has no rate: a dash, not "0%" (round 52). */
+    const sent = o && o.total_sent > 0 ? o : null
     const scheduled = p.campaigns.filter((c) => c.kind === "scheduled")
     const next = scheduled.map((c) => c.scheduled_at).filter((x): x is string => !!x).sort()[0]
     return [
       { label: tt("Sent"), help: tt("Emails delivered to subscribers in this period."), value: o ? n(o.total_sent) : "–" },
-      { label: tt("Open rate"), help: tt("Of the emails sent in this period, how many were opened."), value: o ? `${o.open_rate}%` : "–", note: o ? n(o.total_opened) : undefined },
-      { label: tt("Click rate"), help: tt("Of the emails sent in this period, how many had a link clicked."), value: o ? `${o.click_rate}%` : "–", note: o ? n(o.total_clicked) : undefined },
+      { label: tt("Open rate"), help: tt("Of the emails sent in this period, how many were opened."), value: sent ? `${sent.open_rate}%` : "–", note: sent ? n(sent.total_opened) : undefined },
+      { label: tt("Click rate"), help: tt("Of the emails sent in this period, how many had a link clicked."), value: sent ? `${sent.click_rate}%` : "–", note: sent ? n(sent.total_clicked) : undefined },
       { label: tt("Scheduled"), help: tt("Emails waiting to go out."), value: n(scheduled.length), note: next ? formatWhen(next) : undefined },
       { label: tt("Drafts"), help: tt("Emails you started and have not sent."), value: n(p.campaigns.filter((c) => c.kind === "draft").length) },
     ]
@@ -657,11 +668,12 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
        (Metrics). An answer without them says so with a dash, never a zero
        that was not counted. */
     const o = p.overview
+    const sent = o && o.total_sent > 0 ? o : null
     const used = p.usage.limit > 0 ? Math.min(100, Math.round((p.usage.sent / p.usage.limit) * 100)) : 0
     return [
       { label: tt("Sent"), help: tt("Emails delivered to subscribers in this period."), value: o ? n(o.total_sent) : "–" },
-      { label: tt("Open rate"), help: tt("Of the emails sent in this period, how many were opened."), value: o ? `${o.open_rate}%` : "–", note: o ? n(o.total_opened) : undefined },
-      { label: tt("Click rate"), help: tt("Of the emails sent in this period, how many had a link clicked."), value: o ? `${o.click_rate}%` : "–", note: o ? n(o.total_clicked) : undefined },
+      { label: tt("Open rate"), help: tt("Of the emails sent in this period, how many were opened."), value: sent ? `${sent.open_rate}%` : "–", note: sent ? n(sent.total_opened) : undefined },
+      { label: tt("Click rate"), help: tt("Of the emails sent in this period, how many had a link clicked."), value: sent ? `${sent.click_rate}%` : "–", note: sent ? n(sent.total_clicked) : undefined },
       { label: tt("Unsubscribed"), help: tt("People who unsubscribed from an email sent in this period."), value: o ? n(o.total_unsubscribed) : "–" },
       { label: tt("This month"), help: tt("Emails sent this calendar month, against your plan's monthly limit."), value: n(p.usage.sent), note: tt("of {limit} · {used}%", { limit: n(p.usage.limit), used }) },
     ]
@@ -701,6 +713,21 @@ export function Empty({ title, body, action }: { title: string; body: string; ac
       <p className="text-[15px] font-semibold text-[#1a1a2e]">{title}</p>
       <p className="mt-1 max-w-[360px] text-[13px] text-[#6b7280]">{body}</p>
       {action ? <div className="mt-4">{action}</div> : null}
+    </div>
+  )
+}
+
+/** A read that failed, with the one thing to do about it (round 52). */
+export function Failed({ message, onRetry }: { message?: string | null; onRetry?: () => void }) {
+  return (
+    <div className="flex flex-col items-center px-6 py-14 text-center" role="alert" data-tab-failed="">
+      <p className="text-[15px] font-semibold text-[#1a1a2e]">{tt("This did not load")}</p>
+      <p className="mt-1 max-w-[360px] text-[13px] text-[#6b7280]">{message || tt("Check your connection and try again.")}</p>
+      {onRetry ? (
+        <button type="button" className={cn(buttonSecondary, "mt-4")} onClick={onRetry}>
+          {tt("Try again")}
+        </button>
+      ) : null}
     </div>
   )
 }
@@ -852,12 +879,14 @@ function FlowsTable(props: EmailsHomeProps) {
   return (
     <>
       <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
-        {props.loading ? null : props.flows.length === 0 ? (
+        {props.loading ? null : props.error && props.flows.length === 0 ? (
+          <Failed message={props.error} onRetry={props.onRetry} />
+        ) : props.flows.length === 0 ? (
           <Empty
             title={tt("No automations yet")}
             body={tt("Start from a welcome series, a thank you after a purchase, or your own. Each one is off until you turn it on.")}
             action={
-              <Link href="/app/emails/flow/new" prefetch onClick={layerLinkClick(router, "/app/emails/flow/new")} className={buttonAccent}>
+              <Link href="/app/emails/flow/new" prefetch onClick={layerLinkClick(router, "/app/emails/flow/new")} className={buttonSecondary}>
                 <Plus className="h-4 w-4" />
                 {tt("Create an automation")}
               </Link>
@@ -1031,7 +1060,9 @@ function CampaignsTable(props: EmailsHomeProps) {
   return (
     <>
       <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
-        {props.loading ? null : props.campaigns.length === 0 ? (
+        {props.loading ? null : props.error && props.campaigns.length === 0 ? (
+          <Failed message={props.error} onRetry={props.onRetry} />
+        ) : props.campaigns.length === 0 ? (
           <Empty
             {...empty}
             action={
