@@ -24,6 +24,7 @@ const BOX = `padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--th
 const HEAD = `font-family: var(--theme-font-heading, {{ theme.typography.heading }}), serif; color: var(--s-heading);`
 
 /** How a first week goes: numbered steps, one per block. */
+/* Changed on purpose (round AQ): richtext printed with | raw and no "go here" default, as the shared gate (lib/website-builder/ai-site/gate.ts) requires. */
 export const STEPS = `<template>
 <section class="st" data-scheme="{{ settings.color_scheme }}" style="${ROOT_VARS}">
   <h2 class="st__h">{{ settings.heading }}</h2>
@@ -111,7 +112,7 @@ export const FAQ = `<template>
 <section class="fq" data-scheme="{{ settings.color_scheme }}" style="${ROOT_VARS}">
   <h2 class="fq__h">{{ settings.heading }}</h2>
   {% for block in section.blocks %}
-    <details class="fq__item" {{ block.shopify_attributes }}><summary class="fq__q">{{ block.settings.question }}</summary><div class="fq__a">{{ block.settings.answer }}</div></details>
+    <details class="fq__item" {{ block.shopify_attributes }}><summary class="fq__q">{{ block.settings.question }}</summary><div class="fq__a">{{ block.settings.answer | raw }}</div></details>
   {% endfor %}
 </section>
 </template>
@@ -255,7 +256,7 @@ export const SCHEDULE = `<template>
   "name": "Session board",
   "settings": [
     { "type": "text", "id": "heading", "label": "Heading", "default": "This week" },
-    { "type": "text", "id": "caption", "label": "Note under the heading", "default": "Your class times go here." },
+    { "type": "text", "id": "caption", "label": "Note under the heading", "default": "Mornings at 6:30, evenings at 18:00." },
     ${SCHEME}${SPACING}
   ],
   "blocks": [
@@ -274,7 +275,7 @@ export const SCHEDULE = `<template>
 export const NOTE = `<template>
 <section class="nt" data-scheme="{{ settings.color_scheme }}" style="${ROOT_VARS}">
   <p class="nt__kicker">{{ settings.kicker }}</p>
-  <div class="nt__body">{{ settings.body }}</div>
+  <div class="nt__body">{{ settings.body | raw }}</div>
   <p class="nt__sign">{{ settings.signature }}</p>
 </section>
 </template>
@@ -306,7 +307,7 @@ export const PLACE = `<template>
 <section class="pl" data-scheme="{{ settings.color_scheme }}" style="${ROOT_VARS}">
   <h2 class="pl__h">{{ settings.heading }}</h2>
   <p class="pl__addr">{{ settings.address }}</p>
-  <div class="pl__how">{{ settings.directions }}</div>
+  <div class="pl__how">{{ settings.directions | raw }}</div>
   {% if settings.link_label and settings.link_url %}<a class="pl__link" href="{{ settings.link_url | url }}">{{ settings.link_label }}</a>{% endif %}
 </section>
 </template>

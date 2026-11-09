@@ -52,7 +52,7 @@ section("Which engine a new Describe your website start runs on")
   check("the agent only with AI_BUILDER_AGENT=1", startEngine({ AI_BUILDER_AGENT: "1" }) === "agent")
   const route = code("app/api/website-builder/themes/create/route.ts")
   /* Changed on purpose (round AQ, after round M): the route asks agentEnabledFor (AI_BUILDER_AGENT=1 for everyone, or AI_BUILDER_AGENT_ACCOUNTS) for every job it starts. */
-  check("the create route asks agentEnabledFor() for every job it starts", /const engine = \(await agentEnabledFor\([^)]*\)\) \? "agent" : "classic"/.test(route) && /startJobRow\([^)]*\bengine\b[^)]*\)/.test(route))
+  check("the create route asks agentEnabledFor() for every job it starts", /const engine = [^\n]*\(await agentEnabledFor\([^)]*\)\) \? "agent" : "classic"/.test(route) && /startJobRow\([^)]*\bengine\b[^)]*\)/.test(route))
   const runner = code("lib/website-builder/ai-site/runner.ts")
   check("a classic job is given the coder, so it codes its own header, footer and sections (free design)", /code:\s*writerCoder\(/.test(runner))
   check("an agent job is driven by the agent runner", /jobEngine\(job\) === "agent"[\s\S]{0,80}driveAgentJob/.test(runner))
