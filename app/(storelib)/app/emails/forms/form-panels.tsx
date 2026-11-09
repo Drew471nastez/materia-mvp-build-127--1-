@@ -21,7 +21,7 @@
  *                    each opening as its own page (../message-detail).
  */
 import * as React from "react"
-import { ArrowLeft, ChevronDown } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { ShimmerRows } from "@/components/ui/shimmer"
 import { formsRequest } from "@/lib/forms/client"
 import { answerText, type Answer } from "@/lib/forms/definition"
@@ -29,10 +29,13 @@ import type { FormInsights } from "@/lib/forms/insights"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, formatNumber, zoned } from "@/lib/i18n/format"
-import { StatusBadge, buttonSecondary, card, iconButton } from "../../orders/order-parts"
+import { GUTTER, LIST_WIDTH, StatusBadge, buttonSecondary, card } from "../../orders/order-parts"
+import { ContactsHeader } from "../../contacts/contacts-header"
 import type { MessageRow } from "../emails-home"
 
 const muted = "text-[13px] text-[#6b7280]"
+/* The body under the bar of a screen inside Forms: the list's own width and gutter (Coupons, Orders). */
+const SCREEN = cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)
 
 export function contactOpenHref(from: "form_submission" | "site_form_submission" | "subscriber", id: string): string {
   return `/app/contacts/open?from=${from}&id=${encodeURIComponent(id)}`
@@ -314,88 +317,81 @@ export function SiteFormPanel({ id, onBack }: { id: string; onBack: () => void }
   const text = (v: unknown) => (Array.isArray(v) ? v.join(", ") : v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v))
   const hasContact = (f: Record<string, unknown>) => Object.keys(f).some((k) => /e-?mail|phone/i.test(k) && text(f[k]).trim())
   return (
-    <div data-site-form={id}>
-      <header className="flex min-h-[48px] items-center gap-1.5">
-        <button type="button" onClick={onBack} className={cn(iconButton, "-ml-1.5 h-9 w-9")} aria-label={tt("Back to forms")}>
-          <ArrowLeft className="h-[18px] w-[18px]" />
-        </button>
-        <div className="min-w-0">
-          <h2 className="truncate text-[20px] font-bold text-[#1a1a2e]">{data?.form.name || tt("Website form")}</h2>
-          {data?.form.site_name ? <p className={muted}>{tt("Website: {name}", { name: data.form.site_name })}</p> : null}
-        </div>
-      </header>
-      <section className={cn(card, "mt-3 overflow-hidden")} aria-label={tt("Responses")}>
-        {error ? (
-          <Empty title={tt("This form did not load")} detail={error} />
-        ) : !data ? (
-          <ShimmerRows rows={3} header={false} cols={["40%", "20%"]} label={tt("Loading")} />
-        ) : !data.responses.length ? (
-          <Empty title={tt("No responses yet")} />
-        ) : (
-          <ul className="divide-y divide-[#f1f2f4]">
-            {data.responses.map((r) => {
-              const open = openId === r.id
-              const entries = Object.entries(r.fields)
-              const who = entries.find(([k]) => /name/i.test(k))?.[1] ?? entries.find(([k]) => /e-?mail/i.test(k))?.[1]
-              return (
-                <li key={r.id}>
-                  <button type="button" className="flex min-h-[56px] w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#fafbfb]" aria-expanded={open} onClick={() => setOpenId(open ? null : r.id)}>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{text(who) || tt("Anonymous response")}</span>
-                      <span className="block truncate text-[13px] text-[#6b7280]">{when(r.created_at)}</span>
-                    </span>
-                    <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-150", open && "rotate-180")} />
-                  </button>
-                  {open ? (
-                    <div className="space-y-3 px-4 pb-4">
-                      <AnswerList answers={entries.map(([k, v]) => ({ label: k, value: text(v) }))} />
-                      {hasContact(r.fields) ? (
-                        <a className={buttonSecondary + " inline-flex"} href={contactOpenHref("site_form_submission", r.id)} data-view-contact="">
-                          {tt("View contact")}
-                        </a>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
-    </div>
+    <>
+      {/* One bar, the Forms list's own (Back to Forms, the form's name), not a second header under it. */}
+      <ContactsHeader title={data?.form.name || tt("Website form")} onBack={onBack} />
+      <div className={SCREEN} data-site-form={id}>
+        {data?.form.site_name ? <p className={cn(muted, "mt-1")}>{tt("Website: {name}", { name: data.form.site_name })}</p> : null}
+        <section className={cn(card, "mt-3 overflow-hidden")} aria-label={tt("Responses")}>
+          {error ? (
+            <Empty title={tt("This form did not load")} detail={error} />
+          ) : !data ? (
+            <ShimmerRows rows={3} header={false} cols={["40%", "20%"]} label={tt("Loading")} />
+          ) : !data.responses.length ? (
+            <Empty title={tt("No responses yet")} />
+          ) : (
+            <ul className="divide-y divide-[#f1f2f4]">
+              {data.responses.map((r) => {
+                const open = openId === r.id
+                const entries = Object.entries(r.fields)
+                const who = entries.find(([k]) => /name/i.test(k))?.[1] ?? entries.find(([k]) => /e-?mail/i.test(k))?.[1]
+                return (
+                  <li key={r.id}>
+                    <button type="button" className="flex min-h-[56px] w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#fafbfb]" aria-expanded={open} onClick={() => setOpenId(open ? null : r.id)}>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{text(who) || tt("Anonymous response")}</span>
+                        <span className="block truncate text-[13px] text-[#6b7280]">{when(r.created_at)}</span>
+                      </span>
+                      <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-150", open && "rotate-180")} />
+                    </button>
+                    {open ? (
+                      <div className="space-y-3 px-4 pb-4">
+                        <AnswerList answers={entries.map(([k, v]) => ({ label: k, value: text(v) }))} />
+                        {hasContact(r.fields) ? (
+                          <a className={buttonSecondary + " inline-flex"} href={contactOpenHref("site_form_submission", r.id)} data-view-contact="">
+                            {tt("View contact")}
+                          </a>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+      </div>
+    </>
   )
 }
 
 /** The website contact form's inbox: the old Emails › Messages list, newest first, new ones in bold. */
 export function MessagesInbox({ rows, onOpen, onBack }: { rows: MessageRow[]; onOpen: (m: MessageRow) => void; onBack: () => void }) {
   return (
-    <div data-messages-inbox="">
-      <header className="flex min-h-[48px] items-center gap-1.5">
-        <button type="button" onClick={onBack} className={cn(iconButton, "-ml-1.5 h-9 w-9")} aria-label={tt("Back to forms")}>
-          <ArrowLeft className="h-[18px] w-[18px]" />
-        </button>
-        <h2 className="truncate text-[20px] font-bold text-[#1a1a2e]">{tt("Website contact form")}</h2>
-      </header>
-      <section className={cn(card, "mt-3 overflow-hidden")} aria-label={tt("Messages")}>
-        {!rows.length ? (
-          <Empty title={tt("No messages yet")} detail={tt("What people send through the contact form on your websites shows here.")} />
-        ) : (
-          <ul className="divide-y divide-[#f1f2f4]">
-            {rows.map((m) => (
-              <li key={m.id}>
-                <button type="button" className="flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#fafbfb]" onClick={() => onOpen(m)} data-message-row={m.id}>
-                  <span className={cn("h-2 w-2 shrink-0 rounded-full", m.read_at ? "bg-transparent" : "bg-[#8b5cf6]")} aria-hidden />
-                  <span className="min-w-0 flex-1">
-                    <span className={cn("block truncate text-[14px] text-[#1a1a2e]", m.read_at ? "font-medium" : "font-semibold")}>{m.name || m.email}</span>
-                    <span className="block truncate text-[13px] text-[#6b7280]">{m.subject || m.message}</span>
-                  </span>
-                  <span className="shrink-0 text-[12.5px] text-[#6b7280]">{when(m.created_at)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
+    <>
+      <ContactsHeader title={tt("Website contact form")} onBack={onBack} />
+      <div className={SCREEN} data-messages-inbox="">
+        <section className={cn(card, "mt-3 overflow-hidden")} aria-label={tt("Messages")}>
+          {!rows.length ? (
+            <Empty title={tt("No messages yet")} detail={tt("What people send through the contact form on your websites shows here.")} />
+          ) : (
+            <ul className="divide-y divide-[#f1f2f4]">
+              {rows.map((m) => (
+                <li key={m.id}>
+                  <button type="button" className="flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#fafbfb]" onClick={() => onOpen(m)} data-message-row={m.id}>
+                    <span className={cn("h-2 w-2 shrink-0 rounded-full", m.read_at ? "bg-transparent" : "bg-[#8b5cf6]")} aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span className={cn("block truncate text-[14px] text-[#1a1a2e]", m.read_at ? "font-medium" : "font-semibold")}>{m.name || m.email}</span>
+                      <span className="block truncate text-[13px] text-[#6b7280]">{m.subject || m.message}</span>
+                    </span>
+                    <span className="shrink-0 text-[12.5px] text-[#6b7280]">{when(m.created_at)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </>
   )
 }
