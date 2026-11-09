@@ -39,6 +39,7 @@ import { renderCheckPage } from "./render-check"
 import { addUnique, type LoopCheckpoint } from "./state"
 import { tokensToThemeSettings } from "./tokens"
 import { designSettingsWrite } from "../site-settings"
+import { isSlopDisplayFont } from "@/lib/storelib-ai/library/type-systems"
 import { schemaInfo, siteRoutes, typeOfPath, unknownBindingIds, validateFile, validateSite, errorsOf } from "./validate"
 import { describeSitePlan, isTemplateKey, readSitePlan, templatesFor } from "./site-plan"
 import { versionOf } from "./version"
@@ -487,7 +488,15 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       const wait = blocked()
       if (wait) return { ok: false, changed: [], issues: [{ severity: "error", code: wait.code, message: wait.message }] }
       const current = await store.readSettings()
-      const mapped = (deps.tokensToSettings ?? tokensToThemeSettings)(tokens ?? {}, current)
+      /* Round N: the overused faces are never the headline font unless the concept allows "default-fonts" (the creator named one). */
+      const fontIssues: ValidationIssue[] = []
+      const allowDefaults = ((cp.concept as { allow?: string[] } | undefined)?.allow ?? []).includes("default-fonts")
+      if (tokens?.fonts?.heading && isSlopDisplayFont(String(tokens.fonts.heading)) && !allowDefaults) {
+        fontIssues.push({ severity: "error", code: "token.default_font", message: `"${String(tokens.fonts.heading).slice(0, 60)}" was not set as the heading font: it is the face every generated site uses. Pick a display face with character from the type library (search_knowledge "type library").` })
+        tokens = { ...tokens, fonts: { ...tokens.fonts, heading: undefined } } as typeof tokens
+      }
+      const mapped0 = (deps.tokensToSettings ?? tokensToThemeSettings)(tokens ?? {}, current)
+      const mapped = { ...mapped0, issues: [...fontIssues, ...mapped0.issues] }
       /*
         The site's own Theme settings (round N, N5, lib/ai-builder/site-settings.ts): declared groups,
         read against the tokens this call sets, so a setting bound to colors.accent reads the new accent.

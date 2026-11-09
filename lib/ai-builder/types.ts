@@ -310,15 +310,16 @@ export interface JobBudget {
 }
 
 export const DEFAULT_JOB_BUDGET: JobBudget = {
-  maxWallMs: 20 * 60_000,
-  maxIterations: 80,
-  maxUsd: 4,
-  maxUsdOwnKey: 15,
+  /* Round N: a whole site (10+ home sections, every page and template) is 25 to 40 components. */
+  maxWallMs: 45 * 60_000,
+  maxIterations: 200,
+  maxUsd: 10,
+  maxUsdOwnKey: 30,
   maxOutputTokensPerCall: 24_000,
   perInvocationMs: 240_000,
   callReserveMs: 60_000,
   maxRepairsPerFile: 3,
-  maxVerifyCycles: 2,
+  maxVerifyCycles: 3,
 }
 
 /** Why a job stopped early. */
