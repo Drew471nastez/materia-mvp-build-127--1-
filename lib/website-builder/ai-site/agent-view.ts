@@ -35,7 +35,6 @@ export interface AgentJobRow {
   created_at: string
   prompt: string
   state?: Record<string, unknown> | null
-  runtime_errors?: unknown
 }
 
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {})
@@ -69,24 +68,18 @@ export function recordFromRow(r: AgentJobRow): AgentJobRecord {
   }
 }
 
-export function previewErrorsOf(v: unknown): RuntimePreviewError[] {
-  return Array.isArray(v) ? (v.filter((x) => x && typeof x === "object") as RuntimePreviewError[]).slice(-20) : []
-}
+/** Preview errors the loop is shown per iteration at most. */
+export const PREVIEW_ERRORS_READ = 20
 
-/** Preview errors kept on a job, newest last. */
-export const PREVIEW_ERRORS_KEPT = 20
-
-/** One error the editor's canvas reports, checked and cut to size. Null when it is not one. */
-export function readPreviewError(v: unknown, installId: string): RuntimePreviewError | null {
-  if (!v || typeof v !== "object") return null
-  const o = v as Record<string, unknown>
-  const s = (x: unknown, max: number) => (typeof x === "string" ? x.replace(/[\u0000-\u001f]+/g, " ").trim().slice(0, max) : "")
-  const page = s(o.page, 60)
-  const sectionId = s(o.sectionId, 120)
-  const type = s(o.type, 80)
-  const message = s(o.message, 300)
-  if (!page || !sectionId || !message || s(o.installId, 60) !== installId) return null
-  return { installId, page, sectionId, type, message, at: new Date().toISOString() }
+/** The canvas's error events (part 405: kind error, payload source "preview") as the loop reads them. Pure. */
+export function previewErrorsFromEvents(rows: { payload: unknown; created_at: string }[]): RuntimePreviewError[] {
+  const out: RuntimePreviewError[] = []
+  for (const r of rows) {
+    const p = obj(r.payload)
+    if (p.source !== "preview" || typeof p.message !== "string") continue
+    out.push({ installId: "", page: String(p.page ?? ""), sectionId: String(p.sectionId ?? ""), type: String(p.type ?? ""), message: p.message, at: r.created_at })
+  }
+  return out
 }
 
 /* ── what the editor polls ─────────────────────────────────────────────── */

@@ -87,17 +87,15 @@ export interface AgentJobPatch {
   run?: AgentRunState
   costUsd?: number
   error?: string | null
-  lastEventSeq?: number
   /** ISO, or null to let go. */
   leaseUntil?: string | null
   finished?: boolean
 }
 
+/** An event to add. The database numbers it (seq) and stamps it (created_at). */
 export interface EventRow {
-  seq: number
   kind: AgentEvent["kind"]
   payload: Record<string, unknown>
-  at: string
 }
 
 /** The database, for the runner. lib/website-builder/ai-site/agent-store.ts is the Supabase one. */
@@ -107,12 +105,16 @@ export interface AgentStore {
   claim(job: AgentJobRecord, now: number, leaseMs: number): Promise<boolean>
   /** Writes only while `attempts` still equals `fence` (this runner's claim). False when the job was taken over. */
   save(id: string, fence: number, patch: AgentJobPatch, now: number): Promise<boolean>
-  /** One insert for the batch. `conflict` when a seq is taken (another writer). */
-  appendEvents(jobId: string, creatorId: string, rows: EventRow[]): Promise<{ ok: boolean; conflict?: boolean }>
-  /** The highest seq written for the job (0 for none). */
-  lastSeq(jobId: string): Promise<number>
-  /** The two things the owner can change while the job runs. */
-  flags(jobId: string): Promise<{ cancelRequested: boolean; previewErrors: RuntimePreviewError[] }>
+  /**
+   * Adds a batch in one call, numbered by the database after the job's newest event under the job's row lock
+   * (public.ai_site_job_add_events, SQL part 401; the editor's preview errors go in the same way, part 405), so two
+   * writers never take the same seq. `last`: the newest seq after it, 0 when nothing was added (the job ended).
+   */
+  appendEvents(jobId: string, creatorId: string, rows: EventRow[]): Promise<{ ok: boolean; last: number }>
+  /** Whether the owner pressed Cancel. */
+  flags(jobId: string): Promise<{ cancelRequested: boolean }>
+  /** The newest errors the editor's canvas reported for the job (error events with source "preview"), oldest first. */
+  previewErrors(jobId: string): Promise<RuntimePreviewError[]>
   /** Jobs whose lease is held right now, every creator. */
   liveCount(now: number): Promise<number>
   /** Holds the job off for a while without running it (waiting for a free slot). */
@@ -176,16 +178,18 @@ export function keepEvent(kind: AgentEvent["kind"], seq: number): boolean {
 }
 
 /**
- * The job's progress events: each numbered once (seq, monotonic, never
- * reused), written in batches so a busy iteration is a few inserts, not one
- * per tool. Only the runner that holds the lease writes, so numbering in
- * memory is safe; a clash on (job_id, seq) (a runner that lost its lease)
- * renumbers after the newest and tries once more.
+ * The job's progress events, written in batches so a busy iteration is a
+ * few calls, not one per tool. The database numbers them (one seq each,
+ * monotonic, under the job's row lock), so the runner and the editor's
+ * preview error reports never take the same number. `seq` here is the
+ * newest number the sink knows of, for the caps.
  */
 export class EventSink {
   private pending: EventRow[] = []
   private chain: Promise<void> = Promise.resolve()
   private lastFlush: number
+  /** Emitted and not yet written back. */
+  private queued = 0
   seq: number
 
   constructor(
@@ -194,8 +198,6 @@ export class EventSink {
     private creatorId: string,
     startSeq: number,
     private now: () => number,
-    /** Whether this runner still holds the job: asked only on a clash, so a runner that lost it never renumbers into another's stream. */
-    private owns: () => Promise<boolean> = async () => true,
   ) {
     this.seq = startSeq
     this.lastFlush = now()
@@ -208,9 +210,9 @@ export class EventSink {
     try {
       if (this.closed) return
       const kind = draft.kind
-      if (!keepEvent(kind, this.seq + 1)) return
-      const at = new Date(this.now()).toISOString()
-      this.pending.push({ seq: ++this.seq, kind, payload: trimPayload(draft as unknown as Record<string, unknown>), at })
+      if (!keepEvent(kind, this.seq + this.queued + 1)) return
+      this.queued++
+      this.pending.push({ kind, payload: trimPayload(draft as unknown as Record<string, unknown>) })
       if (this.pending.length >= EVENT_BATCH || this.now() - this.lastFlush >= EVENT_FLUSH_MS) void this.flush()
     } catch {
       /* progress is never worth failing a build over */
@@ -227,18 +229,11 @@ export class EventSink {
       try {
         if (this.closed) return
         const r = await this.store.appendEvents(this.jobId, this.creatorId, rows)
-        if (r.ok || !r.conflict) return
-        if (!(await this.owns())) {
-          this.closed = true
-          return
-        }
-        const top = await this.store.lastSeq(this.jobId)
-        const base = Math.max(top, this.seq)
-        const again = rows.map((row, i) => ({ ...row, seq: base + 1 + i }))
-        this.seq = base + rows.length
-        await this.store.appendEvents(this.jobId, this.creatorId, again)
+        if (r.ok && r.last > 0) this.seq = Math.max(this.seq, r.last)
       } catch {
         /* the next batch carries on; the view shows what did land */
+      } finally {
+        this.queued -= rows.length
       }
     })
     return this.chain
@@ -339,8 +334,7 @@ export async function runAgentInvocation(jobId: string, deps: AgentRunDeps): Pro
   const fence = job.attempts + 1
   const sliceStart = now()
   const budget = jobBudget(job)
-  const seqStart = Math.max(job.lastEventSeq, await store.lastSeq(job.id).catch(() => 0))
-  const sink = new EventSink(store, job.id, job.creatorId, seqStart, now, async () => (await store.load(job.id))?.attempts === fence)
+  const sink = new EventSink(store, job.id, job.creatorId, job.lastEventSeq, now)
   let run: AgentRunState = { ...emptyRunState(), ...job.run, usage: { ...emptyRunState().usage, ...job.run.usage } }
   let checkpoint: AgentCheckpoint | null = job.checkpoint
   let phase: AgentPhase | null = job.phase
@@ -350,7 +344,7 @@ export async function runAgentInvocation(jobId: string, deps: AgentRunDeps): Pro
 
   const save = async (patch: AgentJobPatch): Promise<boolean> => {
     await sink.flush()
-    const ok = await store.save(job.id, fence, { lastEventSeq: sink.seq, ...patch }, now())
+    const ok = await store.save(job.id, fence, patch, now())
     if (!ok) sink.closed = true
     return ok
   }
@@ -403,14 +397,12 @@ export async function runAgentInvocation(jobId: string, deps: AgentRunDeps): Pro
   /* Cancel, read at most every CANCEL_CHECK_MS. */
   let cancelSeen = false
   let flagsAt = -Infinity
-  let previewErrors: RuntimePreviewError[] = []
   const readFlags = async (force = false) => {
     if (cancelSeen) return true
     if (!force && now() - flagsAt < CANCEL_CHECK_MS) return false
     flagsAt = now()
     try {
       const f = await store.flags(job.id)
-      previewErrors = f.previewErrors.slice(-20)
       cancelSeen = f.cancelRequested
     } catch {
       /* unknown: carry on, the next check reads again */
@@ -427,6 +419,8 @@ export async function runAgentInvocation(jobId: string, deps: AgentRunDeps): Pro
     if (now() + budget.callReserveMs > deadline) break
 
     const before = checkpoint
+    /* What the editor's canvas saw go wrong, read once per iteration for the loop to repair. */
+    const previewErrors = await store.previewErrors(job.id).catch(() => [] as RuntimePreviewError[])
     try {
       const result = await stepper.step(before, {
         job: infoOf(job),

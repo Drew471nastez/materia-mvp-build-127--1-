@@ -5,7 +5,7 @@
  *      and the suite is typechecked with the rest).
  *   2. A manifest written by manifestToSchema is a <schema> the REAL compiler
  *      and the editor's schema reader accept, with every prop drawn by a
- *      control the registry has (form_picker is the one pending, L4/L5).
+ *      control the registry has (form_picker landed in L4).
  *   3. SQL part 401 follows the run-now conventions (one statement a line,
  *      byte copy in migrations, README row, 99 check column, server writes,
  *      owner reads) and agrees with the TypeScript lists (event kinds, job
@@ -118,9 +118,9 @@ function main() {
   const source = `${TEMPLATE}\n<schema>\n${JSON.stringify(schema, null, 2)}\n</schema>\n`
   const settings = propsToSettings(FITNESS_HERO.props)
   const controls = [...settings, ...propsToSettings(FITNESS_HERO.items![0].props)].map((s) => s.type)
-  const unknown = [...new Set(controls.filter((t) => t !== "form_picker" && !controlFor(t)))]
+  const unknown = [...new Set(controls.filter((t) => !controlFor(t)))]
   check("every prop is drawn by a control the registry has", unknown.length === 0, unknown)
-  check("form bindings wait for form_picker (L4/L5)", BINDING_CONTROL.form === "form_picker" && !controlFor("form_picker"))
+  check("form bindings are drawn by the form_picker control (L4)", BINDING_CONTROL.form === "form_picker" && !!controlFor("form_picker"))
   check("a picture brings its alt text and focus point", settings.some((s) => s.id === "photo_alt" && s.type === "text") && settings.some((s) => s.id === "photo_focus" && s.type === "focal_point" && s.image === "photo"))
   check("groups become panel headings", settings.filter((s) => s.type === "header").map((s) => s.label).join(",") === "Content,Style,Spacing")
   const compiled = compileSection(source, { file: "sections/ai_coach_hero.storelib", expectType: "ai_coach_hero" })

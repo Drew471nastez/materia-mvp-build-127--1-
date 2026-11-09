@@ -23,9 +23,19 @@
  *      (lib/storelib-theme/storelib/script.ts, sandbox/guest-source.ts).
  *      `SandboxStorelib` below.
  *
- * Interfaces only. TODO(L4): pin `RuntimeProduct` to the catalog builder the
- * storefront passes as `catalog` (lib/storelib-theme/resolve.ts CatalogItem),
- * add `form_picker`, and keep this file the single list the prompt quotes.
+ * Interfaces and the pure helpers the agent's tools share. `RuntimeProduct`
+ * is the catalogue card the storefront hands the engine as `catalog`
+ * (lib/website-builder/shop-products.ts ProductCard settings), `form_picker`
+ * is real (lib/storelib-theme/resolve.ts formRef), and what list_capabilities
+ * answers is built by lib/ai-builder/capabilities.ts. Keep this file the
+ * single list the prompt quotes.
+ *
+ * BUY NOW. There is no hook for it because none is needed: every product
+ * (and every variant) carries `checkout_url`, Storelib checkout for exactly
+ * that product and option, priced on the server, returning to this site.
+ * A "Buy now" is `<a href="{{ settings.product.checkout_url | url }}">`, and
+ * "Add to bag, then check out" is data-storelib-add-to-cart followed by a
+ * data-storelib-checkout button. Both work with no script.
  */
 import { STOREFRONT_HOOKS } from "@/lib/website-builder/storefront-hooks"
 import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
@@ -48,17 +58,37 @@ export interface RuntimeProduct {
   slug: string
   /** Free, pay what you want. */
   pay_what_you_want?: boolean
+  /** Storelib checkout for this product: the Buy now link. "" when it cannot be bought (sold out, needs an option chosen). */
+  checkout_url: string
+  available: boolean
+  /** Its options, each with its own id (data-variant-id) and Buy now link. */
+  variants: RuntimeVariant[]
+}
+
+export interface RuntimeVariant {
+  id: string
+  name: string
+  price: string
+  available: boolean
+  checkout_url: string
 }
 
 export type RuntimeCollection = StorefrontCollection
 export type RuntimeCommunity = StorefrontCommunity
 
-/** A published native form or booking form (lib/forms). TODO(L4): resolve from form_picker. */
+/**
+ * A published native form or booking form (lib/forms), as a `form_picker`
+ * setting carries it (`settings.form.id`, `.title`, `.kind`, `.booking`).
+ * A component shows the live form with a mark the page fills:
+ * `<div data-storelib-native-form="{{ settings.form.id }}" data-presentation="inline"></div>`.
+ */
 export interface RuntimeForm {
   id: string
   title: string
-  kind: "form" | "booking" | "quiz"
-  /** Where it is served on its own; a component may also embed it with data-storelib-form="native-form". */
+  /** form, quiz, survey, application, lead or booking (lib/forms/kind.ts). */
+  kind: string
+  booking: boolean
+  /** Where it is served on its own (/request/forms/<id>). */
   url: string
 }
 
@@ -85,15 +115,19 @@ export interface RuntimeContext {
  */
 export interface RuntimeCapabilities {
   store: { name: string; currency: string; brandImage: string | null; tagline: string | null }
-  products: Pick<RuntimeProduct, "id" | "title" | "kind" | "price" | "url">[]
+  /** Published products, newest first (at most 60). Courses and memberships are products of that kind. */
+  products: (Pick<RuntimeProduct, "id" | "title" | "kind" | "price" | "url" | "checkout_url" | "available"> & { variants: Pick<RuntimeVariant, "id" | "name" | "price" | "checkout_url">[] })[]
   collections: Pick<RuntimeCollection, "id" | "title" | "url" | "products_count">[]
   communities: Pick<RuntimeCommunity, "id" | "name" | "url">[]
+  /** Published forms; `booking: true` are booking forms. */
   forms: RuntimeForm[]
   pages: RuntimePage[]
   menus: { handle: string; title: string }[]
   blog: { posts: number }
   reviews: { count: number; average: number | null }
-  /** Features this store has switched on: memberships, bookings, communities, shop, blog. */
+  /** The creator's own page on Storelib and the site's social links (Website settings › Social links), full addresses. */
+  links: { creatorPage: string | null; social: string[] }
+  /** Features this store has switched on: shop, courses, memberships, bookings, forms, communities, blog, reviews. */
   features: string[]
 }
 
@@ -108,12 +142,14 @@ export const STORELIB_HOOKS = {
   ...STOREFRONT_HOOKS,
   /** On a <form>: "subscribe", "contact", "native" (posts to its action). */
   form: "data-storelib-form",
+  /** On an empty element: the page draws the published form whose id is its value there (data-presentation inline, card, expandable or modal). */
+  nativeForm: "data-storelib-native-form",
   /** On an element: the offers island of a product (its block id). */
   offers: "data-storelib-offers",
   /*
-    No native "buy now" hook yet: data-storelib-buy-now is handled only for
-    imported themes (lib/storelib-theme/compat/canvas-bridge.ts). A component
-    buys with add-to-cart then data-storelib-checkout. TODO(L4) if needed.
+    Buy now is a link, not a hook: the product's (or variant's) checkout_url,
+    see the top of this file. data-storelib-buy-now is handled only for
+    imported themes (lib/storelib-theme/compat/canvas-bridge.ts).
   */
   /** A heart: adds or removes the product (its id) from the wishlist. */
   wishlist: "data-storelib-wishlist",
@@ -141,7 +177,8 @@ export const AGENT_DEFAULT_CAPABILITIES: readonly ScriptCapability[] = ["navigat
 
 /**
  * Hosts a template may load from. Nothing else: no <script src>, no remote
- * CSS (fonts come from the font picker), images from the creator's media.
- * TODO(L4/L3): enforce in validate (code import.*).
+ * CSS (fonts come from the font picker), images from the creator's media
+ * (image_picker settings, resolved to the account's own media addresses).
+ * Enforced by the render check (lib/ai-builder/render-check.ts, import.*).
  */
 export const ALLOWED_REMOTE_HOSTS: readonly string[] = []

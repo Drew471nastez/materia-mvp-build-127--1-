@@ -11,17 +11,18 @@ import "server-only"
  * The runner's own bookkeeping lives in state.agent; the rest of `state`
  * (the classic pipeline's) is left as it was.
  *
- * Cheap on purpose: a cancel check reads two columns, the live count is a
+ * Cheap on purpose: a cancel check reads one column, the live count is a
  * head count on the partial index idx_ai_site_jobs_live, events go in one
- * insert per batch.
+ * call per batch (public.ai_site_job_add_events numbers them under the job's
+ * row lock, so the editor's preview error reports never clash with them).
  */
 import type { AgentJobPatch, AgentStore, EventRow } from "./agent-runner"
 import { JOBS_TABLE } from "./server"
-import { EVENTS_TABLE, previewErrorsOf, recordFromRow, type AgentJobRow } from "./agent-view"
+import { EVENTS_TABLE, PREVIEW_ERRORS_READ, previewErrorsFromEvents, recordFromRow, type AgentJobRow } from "./agent-view"
 
 export { EVENTS_TABLE }
 
-type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+type Db = { from: (table: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 /** The Supabase AgentStore, on the service role. */
 export function agentStore(admin: Db): AgentStore {
@@ -69,20 +70,22 @@ export function agentStore(admin: Db): AgentStore {
       return !error && Array.isArray(data) && data.length === 1
     },
     async appendEvents(jobId, creatorId, rows: EventRow[]) {
-      if (!rows.length) return { ok: true }
-      const { error } = await admin.from(EVENTS_TABLE).insert(rows.map((r) => ({ job_id: jobId, creator_id: creatorId, seq: r.seq, kind: r.kind, payload: r.payload, created_at: r.at })))
-      if (!error) return { ok: true }
-      if (error.code !== "23505") console.error("[ai-agent] could not write events", { job: jobId, code: error.code })
-      return { ok: false, conflict: error.code === "23505" }
-    },
-    async lastSeq(jobId) {
-      const { data } = await admin.from(EVENTS_TABLE).select("seq").eq("job_id", jobId).order("seq", { ascending: false }).limit(1).maybeSingle()
-      return Number((data as { seq?: number } | null)?.seq) || 0
+      if (!rows.length) return { ok: true, last: 0 }
+      const { data, error } = await admin.rpc("ai_site_job_add_events", { p_job_id: jobId, p_creator_id: creatorId, p_events: rows })
+      if (error) {
+        console.error("[ai-agent] could not write events", { job: jobId, code: error.code })
+        return { ok: false, last: 0 }
+      }
+      return { ok: true, last: Number(data) || 0 }
     },
     async flags(jobId) {
-      const { data } = await admin.from(JOBS_TABLE).select("cancel_requested_at, runtime_errors").eq("id", jobId).maybeSingle()
-      const row = (data ?? {}) as { cancel_requested_at?: string | null; runtime_errors?: unknown }
-      return { cancelRequested: !!row.cancel_requested_at, previewErrors: previewErrorsOf(row.runtime_errors) }
+      const { data } = await admin.from(JOBS_TABLE).select("cancel_requested_at").eq("id", jobId).maybeSingle()
+      return { cancelRequested: !!(data as { cancel_requested_at?: string | null } | null)?.cancel_requested_at }
+    },
+    async previewErrors(jobId) {
+      /* By the (job_id, seq) index, newest first: the canvas's reports (part 405, source "preview"). */
+      const { data } = await admin.from(EVENTS_TABLE).select("payload, created_at").eq("job_id", jobId).eq("kind", "error").eq("payload->>source", "preview").order("seq", { ascending: false }).limit(PREVIEW_ERRORS_READ)
+      return previewErrorsFromEvents((data ?? []) as { payload: unknown; created_at: string }[]).reverse()
     },
     async liveCount(now) {
       const { count } = await admin.from(JOBS_TABLE).select("id", { count: "exact", head: true }).eq("status", "running").gt("lease_until", new Date(now).toISOString())

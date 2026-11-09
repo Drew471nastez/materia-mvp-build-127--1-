@@ -21,6 +21,7 @@ import { CssControl } from "./css-control"
 import { FontPickerControl } from "./font-picker-control"
 import { NumberControl } from "./number-control"
 import { CommunityPickerControl } from "./community-picker-control"
+import { FormPickerControl } from "./form-picker-control"
 import { DateTimeControl } from "./datetime-control"
 import { FilePickerControl } from "./file-picker-control"
 import { FocalPointControl } from "./focal-point-control"
@@ -37,11 +38,11 @@ import { REVIEW_CONFIG_FIELD, ReviewWidgetConfigControl } from "./review-widget-
 
 export { DynamicSourceField } from "./dynamic-source-field"
 export { CountdownControl } from "./countdown-control"
-export { EditorFieldProvider, SiblingSettingsProvider, type EditorFieldEnv, type PickerCollection, type PickerCommunity, type PickerProduct } from "./context"
+export { EditorFieldProvider, SiblingSettingsProvider, type EditorFieldEnv, type PickerCollection, type PickerCommunity, type PickerForm, type PickerProduct } from "./context"
 
 /** The types this folder draws, for FieldEditor's label rule and the docs. */
 export const REGISTERED_CONTROLS = [
-  "inline_richtext", "html", "color_background", "datetime", "focal_point", "image_picker", "file_picker", "video_url", "video_picker", "product_list", "product_picker", "link_list", "menus", "community_picker",
+  "inline_richtext", "html", "color_background", "datetime", "focal_point", "image_picker", "file_picker", "video_url", "video_picker", "product_list", "product_picker", "link_list", "menus", "community_picker", "form_picker",
   "collection_picker", "collection_list", "number", "font_picker", "css", "color_scheme",
 ] as const
 
@@ -91,6 +92,8 @@ export function renderRegisteredControl(
       return <MenusEditor value={value} onChange={onChange} />
     case "community_picker":
       return <CommunityPickerControl value={str} onChange={onChange} label={field.label} />
+    case "form_picker":
+      return <FormPickerControl value={str} onChange={onChange} label={field.label} />
     case "collection_picker":
       return <CollectionPickerControl value={str} onChange={onChange} label={field.label} />
     case "collection_list":

@@ -70,7 +70,7 @@ export interface AgentStepContext {
   cancelled: () => Promise<boolean>
   /** Aborted when cancel is seen or the invocation is out of time. Pass it to the provider. */
   signal: AbortSignal
-  /** Errors the editor canvas saw while drawing the AI's sections (newest last, at most 20). */
+  /** Errors the editor canvas saw while drawing the AI's sections (error events with source "preview", SQL part 405), oldest first, at most 20. */
   previewErrors: RuntimePreviewError[]
 }
 

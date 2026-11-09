@@ -17,9 +17,9 @@
  *                   from the checkpoint, the dead one's late writes refused.
  *   5. LEASES       duplicate kicks; a crash loop given up on; the global
  *                   live limit parks a job.
- *   6. EVENTS       one seq each, monotonic across invocations, batched,
- *                   resumed after events the row did not record, renumbered
- *                   on a clash, capped.
+ *   6. EVENTS       one seq each, numbered by the database under the job's
+ *                   lock (beside the editor's preview reports), monotonic
+ *                   across invocations, batched, capped.
  *   7. ENDINGS      complete / partial / failed / cancelled, plain words and
  *                   recovery actions; Continue's bounded extension.
  *   8. SAFETY NET   the five minute sweep's query and kicks, the cron, SQL.
@@ -50,7 +50,7 @@ import {
   type AgentStore,
   type EventRow,
 } from "@/lib/website-builder/ai-site/agent-runner"
-import { agentView, recordFromRow, readPreviewError } from "@/lib/website-builder/ai-site/agent-view"
+import { agentView, previewErrorsFromEvents, recordFromRow } from "@/lib/website-builder/ai-site/agent-view"
 import { componentName, stopReason, toolSummary } from "@/lib/website-builder/ai-site/agent-progress"
 import { sweepAiJobs, SWEEP_QUIET_MS } from "@/lib/website-builder/ai-site/agent-sweep"
 import { agentPollDelay, changesDrafts, mergeEvents, AGENT_POLL_LIVE_MS, AGENT_POLL_MAX_MS, AGENT_POLL_MIN_MS } from "@/lib/website-builder/ai-site/use-generation"
@@ -88,9 +88,8 @@ class Clock {
 /** An AgentStore with the database's rules: lease, fenced writes, unique (job_id, seq). */
 class MemoryStore implements AgentStore {
   jobs = new Map<string, AgentJobRecord>()
-  events: (EventRow & { jobId: string })[] = []
+  events: (EventRow & { jobId: string; seq: number; at: string })[] = []
   inserts = 0
-  failNextInsert: "conflict" | null = null
   liveOthers = 0
   parked: string[] = []
   constructor(private clock: Clock) {}
@@ -139,27 +138,28 @@ class MemoryStore implements AgentStore {
     if (p.iteration !== undefined) j.iteration = p.iteration
     if (p.checkpoint !== undefined) j.checkpoint = structuredClone(p.checkpoint)
     if (p.run !== undefined) j.run = structuredClone(p.run)
-    if (p.lastEventSeq !== undefined) j.lastEventSeq = p.lastEventSeq
     if (p.leaseUntil !== undefined) j.leaseUntil = p.leaseUntil
     return true
   }
+  /** As public.ai_site_job_add_events: under the job's lock, numbered after max(last_event_seq, newest seq); refused once the job ended. */
   async appendEvents(jobId: string, _c: string, rows: EventRow[]) {
     this.inserts++
-    if (this.failNextInsert === "conflict") {
-      this.failNextInsert = null
-      /* Somebody else wrote the next number first. */
-      this.events.push({ jobId, seq: rows[0].seq, kind: "note", payload: { text: "other" }, at: "" })
-      return { ok: false, conflict: true }
-    }
-    if (rows.some((r) => this.events.some((e) => e.jobId === jobId && e.seq === r.seq))) return { ok: false, conflict: true }
-    this.events.push(...rows.map((r) => ({ ...r, jobId })))
-    return { ok: true }
+    const j = this.jobs.get(jobId)
+    if (!j || !["queued", "running"].includes(j.status)) return { ok: true, last: 0 }
+    let seq = Math.max(j.lastEventSeq, ...this.events.filter((e) => e.jobId === jobId).map((e) => e.seq), 0)
+    for (const r of rows.slice(0, 50)) this.events.push({ ...r, jobId, seq: ++seq, at: new Date(this.clock.now()).toISOString() })
+    j.lastEventSeq = seq
+    return { ok: true, last: seq }
   }
-  async lastSeq(jobId: string) {
-    return Math.max(0, ...this.events.filter((e) => e.jobId === jobId).map((e) => e.seq))
+  /** As part 405's ai_site_job_add_event: one event, same lock and numbering (the editor's preview error reports). */
+  addOne(jobId: string, kind: EventRow["kind"], payload: Record<string, unknown>) {
+    return this.appendEvents(jobId, "c1", [{ kind, payload }])
   }
   async flags(jobId: string) {
-    return { cancelRequested: !!this.jobs.get(jobId)?.cancelRequestedAt, previewErrors: [] }
+    return { cancelRequested: !!this.jobs.get(jobId)?.cancelRequestedAt }
+  }
+  async previewErrors(jobId: string) {
+    return previewErrorsFromEvents(this.eventsOf(jobId).filter((e) => e.kind === "error").map((e) => ({ payload: e.payload, created_at: e.at }))).slice(-20)
   }
   async liveCount(now: number) {
     return this.liveOthers + [...this.jobs.values()].filter((j) => j.status === "running" && j.leaseUntil && Date.parse(j.leaseUntil) > now).length
@@ -505,22 +505,33 @@ console.log("\n6. Events: numbered once, in order, batched, resumable, capped\n"
   const after = st2.eventsOf("r").map((e) => e.seq)
   check("resumes numbering after the newest stored event, not the row's stale number", after.slice(9)[0] === 10 && new Set(after).size === after.length, after)
 
-  /* A clash on (job_id, seq): renumbered after the newest and written. */
+  /* Two writers: the runner's batches and the editor's preview error reports (part 405) never take the same number. */
   const c3 = new Clock()
   const st3 = new MemoryStore(c3)
-  const sink = new EventSink(st3, "s", "c1", 0, c3.now)
-  st3.failNextInsert = "conflict"
+  st3.add({ id: "two", status: "running" })
+  const sink = new EventSink(st3, "two", "c1", 0, c3.now)
   sink.emit({ kind: "note", text: "one" })
+  const report = st3.addOne("two", "error", { message: "x is not defined", retryable: false, source: "preview", sectionId: "ai_hero-1", type: "ai_hero", page: "home" })
   sink.emit({ kind: "note", text: "two" })
-  await sink.flush()
-  const rows = st3.eventsOf("s")
-  const mine = rows.filter((r) => r.payload.text !== "other")
-  check("a clash renumbers after the newest and keeps both lines, in order, no seq twice", rows.length === 3 && new Set(rows.map((r) => r.seq)).size === 3 && mine.map((r) => r.payload.text).join(",") === "one,two" && mine[0].seq > 1 && sink.seq === mine[1].seq, rows)
+  await Promise.all([sink.flush(), report])
+  const rows = st3.eventsOf("two")
+  check("a preview report between two runner batches: every event its own number, in order", rows.length === 3 && new Set(rows.map((r) => r.seq)).size === 3 && rows.map((r) => r.seq).join(",") === "1,2,3" && sink.seq === 3, rows)
+  const seen = await st3.previewErrors("two")
+  check("the loop is shown the canvas's report", seen.length === 1 && seen[0].sectionId === "ai_hero-1" && seen[0].message === "x is not defined")
+  const c3b = new Clock()
+  const st3b = new MemoryStore(c3b)
+  st3b.add({ id: "pe" })
+  for (let i = 0; i < 3; i++) await st3b.addOne("pe", "error", { message: `boom ${i}`, retryable: false, source: "preview", sectionId: `s${i}`, type: "ai_x", page: "home" })
+  const ctxErrors: string[] = []
+  await runAgentInvocation("pe", { ...deps(st3b, c3b, scripted(c3b, { doneAt: 1, inside: (ctx) => void ctxErrors.push(...ctx.previewErrors.map((e) => e.message)) }).stepper), started: c3b.now() })
+  check("each iteration gets the canvas's errors, oldest first", ctxErrors.join(",") === "boom 0,boom 1,boom 2", ctxErrors)
 
   check("past the soft cap, tool lines are dropped", !keepEvent("tool", EVENTS_SOFT_CAP + 1) && keepEvent("file", EVENTS_SOFT_CAP + 1))
   check("past the hard cap only the ending is kept", !keepEvent("file", EVENTS_HARD_CAP + 1) && keepEvent("finished", EVENTS_HARD_CAP + 50) && keepEvent("error", EVENTS_HARD_CAP + 50))
   const c4 = new Clock()
   const st4 = new MemoryStore(c4)
+  st4.add({ id: "b" })
+  st4.add({ id: "h" })
   const big = new EventSink(st4, "b", "c1", 0, c4.now)
   for (let i = 0; i < 1000; i++) big.emit({ kind: "tool", tool: "read_file", summary: "Reading", ok: true, ms: 1 })
   big.emit({ kind: "finished", status: "complete" })
@@ -620,14 +631,13 @@ console.log("\n8. The five minute net, the cron, part 401\n")
   const sql = read("supabase/sql/run-now/401_ai_builder_agent.sql")
   check("part 401: the owner is told once per batch, not once per row", /REFERENCING NEW TABLE AS new_events FOR EACH STATEMENT/.test(sql) && /max\(n\.seq\)/.test(sql))
   check("part 401: live jobs indexed by lease, events by age", /idx_ai_site_jobs_live ON public\.ai_site_jobs \(lease_until\) WHERE status IN \('queued', 'running'\)/.test(sql) && /idx_ai_site_job_events_created ON public\.ai_site_job_events \(created_at\)/.test(sql))
-  check("part 401: preview errors bounded on the job", /runtime_errors jsonb NOT NULL DEFAULT '\[\]'::jsonb CHECK \(jsonb_typeof\(runtime_errors\) = 'array' AND octet_length\(runtime_errors::text\) <= 16000\)/.test(sql))
-  check("the events route never writes progress events (the runner numbers them)", !/ai_site_job_events/.test(read("app/api/website-builder/ai-jobs/[jobId]/events/route.ts").replace(/\/\*[\s\S]*?\*\//g, "")))
-  for (const r of ["cancel", "continue", "events"]) {
+  check("part 401: events are added in batches under the job's row lock, server only", /FUNCTION public\.ai_site_job_add_events\(p_job_id uuid, p_creator_id uuid, p_events jsonb\)[^\n]*FOR UPDATE/.test(sql) && /REVOKE ALL ON FUNCTION public\.ai_site_job_add_events\(uuid, uuid, jsonb\) FROM PUBLIC, anon, authenticated;/.test(sql) && /GRANT EXECUTE ON FUNCTION public\.ai_site_job_add_events\(uuid, uuid, jsonb\) TO service_role;/.test(sql))
+  check("the runner never inserts events itself", !/\.from\(EVENTS_TABLE\)\.insert/.test(read("lib/website-builder/ai-site/agent-store.ts")) && /rpc\("ai_site_job_add_events"/.test(read("lib/website-builder/ai-site/agent-store.ts")))
+  for (const r of ["cancel", "continue"]) {
     const src = read(`app/api/website-builder/ai-jobs/[jobId]/${r}/route.ts`)
     check(`${r}: the caller's website only (websiteCaller + creator_id)`, /websiteCaller\(\)/.test(src) && /\.eq\("creator_id", site\.creatorId\)/.test(src))
   }
   check("cancel and continue are the owner's", ["cancel", "continue"].every((r) => /if \(!site\.isOwner\)/.test(read(`app/api/website-builder/ai-jobs/[jobId]/${r}/route.ts`))))
-  check("a preview error from another website is refused", readPreviewError({ installId: "other", page: "home", sectionId: "s", message: "x" }, "mine") === null && readPreviewError({ installId: "mine", page: "home", sectionId: "s", message: "boom\u0000" }, "mine")?.message === "boom")
   check("the engine switch: no engine or classic stays classic", jobEngine({}) === "classic" && jobEngine({ engine: "classic" }) === "classic" && jobEngine({ engine: "agent" }) === "agent")
   const runner = read("lib/website-builder/ai-site/runner.ts")
   check("driveJob sends only agent jobs to the agent runner; the classic path is the same calls", /if \(job && jobEngine\(job\) === "agent"\)/.test(runner) && /after = await runUntil\(\{ \.\.\.job, status: "running" \}, await jobDeps\(job, \{ deadline: started \+ RUN_BUDGET_MS \}\)\)/.test(runner))
@@ -666,6 +676,7 @@ console.log("\n9. The poll's answer, the client, the panel\n")
 
   check("plain words for files and tools", componentName("sections/ai_hero_banner.storelib") === "hero banner" && toolSummary("validate") === "Checking for errors" && toolSummary("set_page_sections", { page: "home" }) === "Laying out the home page")
   check("validation lines count real problems", eventLine({ seq: 1, at: "", kind: "validation", errors: 2, warnings: 0 })?.text === "Found 2 problems")
+  check("a canvas report is said by section", eventLine({ seq: 1, at: "", kind: "error", message: "x is not defined", retryable: false, source: "preview", type: "ai_hero_banner" } as unknown as AgentEvent)?.text === "The hero banner section showed an error on the page")
   check("spend and finished are not list lines", eventLine({ seq: 1, at: "", kind: "spend", usd: 1, inputTokens: 1, outputTokens: 1, iteration: 1 }) === null)
 
   const base = { ...view, status: "running" as const, error: null, cancelRequested: false, summary: null, notes: [] as string[] }

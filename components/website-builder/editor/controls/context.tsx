@@ -40,6 +40,14 @@ export interface PickerCommunity {
   why: string | null
 }
 
+/** One of the creator's published forms, as the form picker lists it. */
+export interface PickerForm {
+  id: string
+  title: string
+  /** form, quiz, survey, application, lead or booking. */
+  kind: string
+}
+
 /** One of the creator's collections, as the collection pickers list it. */
 export interface PickerCollection {
   id: string
@@ -73,6 +81,8 @@ export interface EditorFieldEnv {
   linkHeaderToMain?: () => void
   /** The creator's own communities; null while communities are switched off on Storelib. */
   communities?: PickerCommunity[] | null
+  /** The store owner's published forms; null when they could not be read. */
+  forms?: PickerForm[] | null
   /** The creator's own collections; null while physical commerce, where collections live, is off. */
   collections?: PickerCollection[] | null
   /**

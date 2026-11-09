@@ -112,8 +112,12 @@ export function eventLine(e: AgentEvent): { text: string; tone: "phase" | "done"
       return { text: tt("Fixing the {name} section", { name: componentName(e.path) }), tone: "plain" }
     case "note":
       return { text: e.text, tone: "muted" }
-    case "error":
+    case "error": {
+      /* The editor's canvas reported it (lib/ai-builder/preview-errors.ts): said by section, not as a script's own words. */
+      const from = e as unknown as { source?: string; type?: string }
+      if (from.source === "preview") return { text: tt("The {name} section showed an error on the page", { name: componentName(from.type || "section") }), tone: "problem" }
       return { text: e.message, tone: "problem" }
+    }
     default:
       return null
   }

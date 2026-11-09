@@ -12833,7 +12833,8 @@ const words: Record<string, string> = {
  "You already wrote a description. Use the {name} example?": "Vous avez déjà écrit une description. Utiliser l'exemple {name} ?",
  "Add to mine": "Ajouter à la mienne",
  "Without the theme": "Sans le thème",
- "The AI makes the header, footer and every section.": "L'IA crée l'en-tête, le pied de page et chaque section."
+ "The AI makes the header, footer and every section.": "L'IA crée l'en-tête, le pied de page et chaque section.",
+ "The {name} section showed an error on the page": "La section {name} a affiché une erreur sur la page"
 }
 
 export default words

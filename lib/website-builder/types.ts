@@ -375,6 +375,7 @@ export type SchemaFieldType =
   | "page_picker"
   | "product_picker"
   | "community_picker"
+  | "form_picker"
   | "text"
   | "textarea"
   | "richtext"

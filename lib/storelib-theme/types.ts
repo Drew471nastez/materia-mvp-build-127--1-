@@ -544,6 +544,23 @@ export type ContentForRequest = { what: "blocks" } | { what: "block"; type: stri
  * rows, published values only, with every piece of markup already cleaned.
  */
 /**
+ * One of the creator's published native forms as a `form_picker` setting
+ * carries it: public facts only, read on the server
+ * (lib/forms/storefront-forms.ts) for a form that is the creator's own and
+ * published. Printed on its own the setting is `url`, the form's own page.
+ */
+export interface StorefrontForm {
+  id: string
+  title: string
+  /** form, quiz, survey, application, lead or booking (lib/forms/kind.ts). */
+  kind: string
+  /** True for a booking form. */
+  booking: boolean
+  /** /request/forms/<id>, where it is served on its own. */
+  url: string
+}
+
+/**
  * One of the creator's communities as a `community_picker` setting carries
  * it: public facts only, read on the server (lib/communities/server/blocks.ts)
  * for a community that is the creator's own, published and public, while
@@ -678,6 +695,8 @@ export interface StorefrontData {
   catalog?: { id: string; type?: string; settings: Record<string, unknown> }[]
   /** The creator's communities a `community_picker` may name, by id. */
   communities?: Record<string, StorefrontCommunity>
+  /** The creator's published forms a `form_picker` may name, by id. Absent means none, and every form setting is empty. */
+  forms?: Record<string, StorefrontForm>
   /**
    * The creator's published collections a `collection_picker` or
    * `collection_list` may name, by id, in the creator's order. The same
