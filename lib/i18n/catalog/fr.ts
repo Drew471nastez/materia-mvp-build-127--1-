@@ -12774,7 +12774,9 @@ const words: Record<string, string> = {
  "Partly done: some checks still fail. Ask me to fix what is left.": "En partie fait : certaines vérifications échouent encore. Demandez-moi de corriger ce qui reste.",
  "This did not load": "Cela n’a pas pu se charger",
  "Start one with New form. The same form works on your OnePage, website and Creator Page.": "Commencez-en un avec Nouveau formulaire. Le même formulaire fonctionne sur votre OnePage, votre site web et votre Creator Page.",
- "{asked, plural, one {The person you picked cannot} other {None of the # people you picked can}} get this email: {why}. Choose who to send to.": "{asked, plural, one {La personne choisie ne peut pas} other {Aucune des # personnes choisies ne peut}} recevoir cet e-mail : {why}. Choisissez à qui l’envoyer."
+ "{asked, plural, one {The person you picked cannot} other {None of the # people you picked can}} get this email: {why}. Choose who to send to.": "{asked, plural, one {La personne choisie ne peut pas} other {Aucune des # personnes choisies ne peut}} recevoir cet e-mail : {why}. Choisissez à qui l’envoyer.",
+ "Choose who gets this email": "Choisissez qui reçoit cet e-mail",
+ "{n, plural, one {# person} other {# people}}": "{n, plural, one {# personne} other {# personnes}}"
 }
 
 export default words

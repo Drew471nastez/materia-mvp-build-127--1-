@@ -174,6 +174,15 @@ const SCENES = [
   ["composer-to-blocked", "composer", "/app/emails/new?to=00000000-0000-4000-8000-000000009002", "ok", async (p) => {
     const t = await p.evaluate(() => document.querySelector("[data-picked-note]")?.textContent ?? "")
     expect(/The person you picked cannot get this email/.test(t), "one picked person who cannot: says why and what to do", t)
+    /* Round 52: To stays empty (never All subscribers), and Send and Schedule wait for a choice. */
+    const r = await p.evaluate(() => ({
+      to: document.querySelector("#compose-to")?.textContent ?? "",
+      empty: !!document.querySelector("#compose-to [data-audience-empty]"),
+      send: [...document.querySelectorAll("[data-send-button]")].filter((b) => b.getClientRects().length).map((b) => b.disabled),
+      schedule: [...document.querySelectorAll("[data-schedule-button]")].filter((b) => b.getClientRects().length).map((b) => b.disabled),
+    }))
+    expect(r.empty && !/All subscribers/.test(r.to), "To is empty, not All subscribers", r.to)
+    expect(r.send.length > 0 && r.send.every(Boolean) && r.schedule.every(Boolean), "Send and Schedule are disabled until an audience is chosen", r)
   }],
   ["automation-templates", "chooser", "/app/emails/flow/new", "ok"],
   ["emails-settings", "emails", "/app/emails?tab=settings&section=sending", "ok", async (p) => {

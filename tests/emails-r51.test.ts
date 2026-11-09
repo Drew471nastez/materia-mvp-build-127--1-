@@ -262,6 +262,19 @@ async function main() {
   check("additive: the check gets the new trigger, NOT VALID, no row rewritten", /'membership_started'/.test(sql) && /NOT VALID/.test(sql) && !/\bUPDATE\b|\bDELETE\b/i.test(sql.replace(/\/\*[\s\S]*?\*\//g, "")))
   check("registered: README, check after, the parts list", read("supabase/sql/run-now/README.md").includes("`379_email_flow_membership_trigger.sql`") && /as p379_email_flow_membership_trigger/.test(read("supabase/sql/run-now/99_check_after.sql")) && read("lib/admin/sql-parts.generated.ts").includes("379_email_flow_membership_trigger.sql"))
 
+  /* ─── Round 52: picked people of whom none may get it ─────────────── */
+  console.log("\nPeople picked in Contacts, none of whom may get the email (round 52)")
+  {
+    const composer = read("components/email/compose/composer.tsx")
+    const picker = read("components/email/compose/audience-picker.tsx")
+    const queue = read("lib/email-campaigns/queue.ts")
+    check("no audience is a segment with no segment, labelled as a choice to make", /export const NO_AUDIENCE: Audience = \{ type: "segment", segmentId: null \}/.test(picker) && /if \(noAudience\(a\)\) return \{ label: tt\("Choose who gets this email"\)/.test(picker))
+    check("opened with picked people, To starts empty, and stays empty when none may get it (never All subscribers)", /preset\?\.contacts\?\.length \? NO_AUDIENCE : \{ type: "all"/.test(composer) && /if \(!d\.segment\) setAudience\(NO_AUDIENCE\)/.test(composer))
+    check("Send and Schedule wait for an audience, everywhere they are drawn", (composer.match(/disabled=\{noAud\}/g) ?? []).length >= 3 && /disabled: noAud/.test(composer) && /if \(noAudience\(audience\)\) \{\s*setFieldError/.test(composer))
+    check("the send (and so schedule, which dry-runs it) refuses a campaign with no audience, never reading it as everyone", /readAudience\(campaign\.audience_type\) === "segment" && !campaign\.segment_id\) \{\s*return \{ kind: "invalid"/.test(queue) && queue.indexOf("!campaign.segment_id") < queue.indexOf("audience = await resolveAudience"))
+    check("the schedule route goes through that same check", /startSend\(ctx\.admin, \{[^}]*dryRun: true/.test(read("app/api/email/campaigns/[id]/schedule/route.ts")))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

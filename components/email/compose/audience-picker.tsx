@@ -40,7 +40,16 @@ export interface Audience {
 
 const n = (v: number | null | undefined) => (typeof v === "number" ? v.toLocaleString(appLocale()) : "")
 
+/**
+ * NO AUDIENCE YET (round 52). People picked in Contacts of whom none may get
+ * the email leave To empty: never All subscribers in their place. Stored as a
+ * segment with no segment, which the send refuses (lib/email-campaigns/queue).
+ */
+export const NO_AUDIENCE: Audience = { type: "segment", segmentId: null }
+export const noAudience = (a: Audience) => a.type === "segment" && !a.segmentId
+
 export function audienceLabel(a: Audience, options: AudienceOption[], segments: SegmentOption[]): { label: string; count: number | null } {
+  if (noAudience(a)) return { label: tt("Choose who gets this email"), count: null }
   if (a.type === "segment") {
     const s = segments.find((x) => x.id === a.segmentId)
     return { label: s ? segmentName(s) : tt("A segment"), count: s?.count ?? null }
@@ -134,8 +143,8 @@ export function AudiencePicker({
       className="flex h-11 w-full min-w-0 cursor-pointer items-center justify-between gap-2 rounded-lg px-0 text-left text-[16px] text-[#1a1a2e] outline-none disabled:cursor-default sm:h-9 sm:text-[14px]"
     >
       <span className="min-w-0 truncate">
-        <span className="font-medium">{label}</span>
-        {count !== null ? <span className="text-[#6b7280]"> · {n(count)} {count === 1 ? "person" : "people"}</span> : null}
+        <span className={noAudience(value) ? "text-[#6b7280]" : "font-medium"} data-audience-empty={noAudience(value) ? "" : undefined}>{label}</span>
+        {count !== null ? <span className="text-[#6b7280]"> · {tt("{n, plural, one {# person} other {# people}}", { n: count })}</span> : null}
       </span>
       {!disabled ? <ChevronDown className="h-4 w-4 shrink-0 text-[#6b7280]" /> : null}
     </button>

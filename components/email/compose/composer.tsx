@@ -45,7 +45,7 @@ import { byteLength, checkContent, PREVIEW_MAX, SUBJECT_MAX, SUBJECT_SHORT, type
 import { STATUS_LABEL, readStatus, type CampaignStatus, type RecipientCounts } from "@/lib/email-campaigns/state"
 import { BlockEditor } from "./block-editor"
 import { EmailPreview, type PreviewMode } from "./email-preview"
-import { AudiencePicker, audienceLabel, type Audience, type AudienceOption, type SegmentOption } from "./audience-picker"
+import { AudiencePicker, NO_AUDIENCE, audienceLabel, noAudience, type Audience, type AudienceOption, type SegmentOption } from "./audience-picker"
 import { useDoc } from "./use-doc"
 import { campaignKey, takeFresh } from "@/components/email/emails-cache"
 import { ComposeDialog, StatusBadge, buttonAccent, buttonPrimary, buttonSecondary, card, errorClass, helpClass, iconButton } from "./ui"
@@ -150,7 +150,8 @@ export function EmailComposer({ campaignId, onExit, preset }: ComposerProps) {
   const [loaded, setLoaded] = React.useState<Loaded | null>(null)
   const [subject, setSubject] = React.useState("")
   const [previewText, setPreviewText] = React.useState("")
-  const [audience, setAudience] = React.useState<Audience>({ type: "all", segmentId: null })
+  /* Opened with people picked in Contacts: To is empty until the server says who of them may get it, never All subscribers meanwhile (round 52). */
+  const [audience, setAudience] = React.useState<Audience>(() => (!campaignId && preset?.contacts?.length ? NO_AUDIENCE : { type: "all", segmentId: null }))
   const doc = useDoc([newBlock("rich")])
   const [options, setOptions] = React.useState<AudienceOption[]>([])
   const [segments, setSegments] = React.useState<SegmentOption[]>([])
@@ -323,6 +324,8 @@ export function EmailComposer({ campaignId, onExit, preset }: ComposerProps) {
       }
       const d = r.data
       setPickNote({ busy: false, asked: d.asked, recipients: d.recipients, leftOut: d.leftOut, error: null })
+      /* None of them may get it: To stays empty, and Send waits for the creator to choose (round 52). */
+      if (!d.segment) setAudience(NO_AUDIENCE)
       if (d.segment) {
         const seg = d.segment
         setSegments((list) => [...list.filter((x) => x.id !== seg.id), { id: seg.id, name: "", count: seg.count, picked: true }])
@@ -535,6 +538,10 @@ export function EmailComposer({ campaignId, onExit, preset }: ComposerProps) {
   }
 
   const beginSend = async (kind: "send" | "schedule") => {
+    if (noAudience(audience)) {
+      setFieldError((f) => ({ ...f, audience: tt("Choose who gets this email") }))
+      return
+    }
     if (firstProblem()) return
     const ok = await saveNow(!loaded || status === "failed")
     if (!ok) return
@@ -784,12 +791,14 @@ export function EmailComposer({ campaignId, onExit, preset }: ComposerProps) {
                   ? tt("Saved")
                   : tt("Not saved yet")
   const aud = audienceLabel(audience, options, segments)
+  /* Nobody chosen yet: Send and Schedule wait for To (round 52). A test still goes to the creator alone. */
+  const noAud = noAudience(audience)
 
   const moreItems: ActionMenuItem[] = [
     { label: tt("Send a test to yourself"), onClick: () => { setTest({ busy: false, done: null, error: null }); setDialog("test") } },
     status === "scheduled"
       ? { label: tt("Unschedule"), onClick: () => void schedule(null) }
-      : { label: tt("Schedule"), onClick: () => void beginSend("schedule") },
+      : { label: tt("Schedule"), disabled: noAud, onClick: () => void beginSend("schedule") },
   ]
 
   if (loadError) {
@@ -828,7 +837,7 @@ export function EmailComposer({ campaignId, onExit, preset }: ComposerProps) {
                   {tt("Unschedule")}
                 </button>
               ) : (
-                <button type="button" className={cn(buttonSecondary, "hidden md:inline-flex")} onClick={() => void beginSend("schedule")}>
+                <button type="button" className={cn(buttonSecondary, "hidden md:inline-flex")} disabled={noAud} onClick={() => void beginSend("schedule")} data-schedule-button="">
                   {tt("Schedule")}
                 </button>
               )}
@@ -845,7 +854,7 @@ export function EmailComposer({ campaignId, onExit, preset }: ComposerProps) {
                   </button>
                 }
               />
-              <button type="button" className={cn(buttonAccent, "hidden md:inline-flex")} onClick={() => void beginSend("send")} data-send-button="">
+              <button type="button" className={cn(buttonAccent, "hidden md:inline-flex")} disabled={noAud} onClick={() => void beginSend("send")} data-send-button="">
                 {status === "scheduled" ? tt("Send now") : tt("Send")}
               </button>
             </>
@@ -1037,7 +1046,7 @@ export function EmailComposer({ campaignId, onExit, preset }: ComposerProps) {
             <button type="button" className={cn(buttonSecondary, "h-11 flex-1 text-[15px]")} onClick={() => setPreviewOpen(true)} data-open-preview="foot">
               {tt("Preview")}
             </button>
-            <button type="button" className={cn(buttonAccent, "h-11 flex-1 text-[15px]")} onClick={() => void beginSend("send")} data-send-button="foot">
+            <button type="button" className={cn(buttonAccent, "h-11 flex-1 text-[15px]")} disabled={noAud} onClick={() => void beginSend("send")} data-send-button="foot">
               {status === "scheduled" ? tt("Send now") : tt("Send")}
             </button>
           </div>
