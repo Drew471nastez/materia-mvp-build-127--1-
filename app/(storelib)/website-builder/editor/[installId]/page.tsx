@@ -121,6 +121,7 @@ import {
 } from "@/lib/storelib-theme/section-groups"
 import { ReplaceChromeConfirm } from "@/components/website-builder/editor/replace-chrome-confirm"
 import { PanelMenuButton, SectionActionConfirm } from "@/components/website-builder/editor/section-panel-menu"
+import { RedesignFields } from "@/components/website-builder/editor/redesign-fields"
 import { useSectionClipboard } from "@/components/website-builder/editor/use-section-clipboard"
 import { blockFromClip, clipNoun, copyBlock, copySection, copySettings, decodeClip, encodeClip, pasteBlockCheck, pasteSectionCheck, pasteSettingsPlan, sectionFromClip, type Clip, type SectionClip } from "@/lib/website-builder/section-clipboard"
 import { sectionCodeTarget } from "@/lib/website-builder/section-code-target"
@@ -12076,47 +12077,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             />
           </>
         ) : pendingAction?.kind === "redesign" ? (
-          <>
-            <p>{`The AI works on this whole website as a draft. A backup is saved first, so you can undo it in one step.`}</p>
-            <textarea
-              data-redesign-text=""
-              ref={(el) => { if (el && !el.dataset.focused) { el.dataset.focused = "1"; window.setTimeout(() => el.focus(), 150) } }}
-              aria-label="What should change"
-              value={redesignText}
-              onChange={(e) => setRedesignText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void redesignNow(redesignText, redesignScope) } }}
-              placeholder="Warmer colours, bigger product photos, and a short FAQ before the footer"
-              rows={4}
-              maxLength={2000}
-              className="mt-3 w-full resize-none rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-[14.5px] text-white placeholder:text-white/40 outline-none focus:border-white/35"
-            />
-            <div role="radiogroup" aria-label="How far it goes" className="mt-3 grid gap-1.5" data-redesign-scope={redesignScope}>
-              {([
-                ["changes", "Just these changes", "Your pages, words and products stay as they are."],
-                ["full", "A new look for the whole site", "Your words and products stay. The design changes."],
-              ] as const).map(([value, label, hint]) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={redesignScope === value}
-                  onClick={() => setRedesignScope(value)}
-                  className={cn(
-                    "flex w-full items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
-                    redesignScope === value ? "border-white/40 bg-white/[0.08]" : "border-white/10 hover:bg-white/[0.04]",
-                  )}
-                >
-                  <span aria-hidden className={cn("mt-[3px] flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border", redesignScope === value ? "border-white" : "border-white/40")}>
-                    {redesignScope === value && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[14px] font-medium text-white">{label}</span>
-                    <span className="block text-[12.5px] leading-snug text-white/55">{hint}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </>
+          <RedesignFields text={redesignText} scope={redesignScope} onText={setRedesignText} onScope={setRedesignScope} onSubmit={() => void redesignNow(redesignText, redesignScope)} />
         ) : pendingAction?.kind === "paste-code" ? (
           <p>{`This theme doesn't have ${pendingAction.clip.typeName}. Its file, ${pendingAction.clip.code?.path ?? ""}, is copied into this theme too.`}</p>
         ) : pendingAction?.kind === "paste-settings" ? (
