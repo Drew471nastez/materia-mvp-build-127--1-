@@ -53,7 +53,8 @@ export function messageNoticeRow(n: MessageNotice, userId: string): Record<strin
     type: "update",
     title,
     message: oneLine(n.subject || n.message, 140),
-    action_url: n.messageId ? `/app/emails?tab=messages&message=${encodeURIComponent(n.messageId)}` : "/app/emails?tab=messages",
+    /* Wave 8: straight to the message's page in Contacts › Forms, no redirect on the way (the old Emails address still lands there). */
+    action_url: n.messageId ? `/app/contacts/forms?message=${encodeURIComponent(n.messageId)}` : "/app/contacts/forms?inbox=1",
     metadata: { area: "Messages", message_id: n.messageId, site: n.site },
   }
 }

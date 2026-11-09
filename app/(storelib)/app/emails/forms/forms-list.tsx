@@ -44,9 +44,9 @@
  * website inbox is still listed.
  */
 import * as React from "react"
-import { Plus } from "lucide-react"
+import { ArrowLeft, Plus } from "lucide-react"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
-import { ShimmerRows } from "@/components/ui/shimmer"
+import { Shimmer, ShimmerBlock, ShimmerRows } from "@/components/ui/shimmer"
 import { FormEditor, usageWords, type SavedForm } from "@/components/forms/forms-manager"
 import { confirmForm } from "@/components/forms/form-confirm"
 import { formsRequest } from "@/lib/forms/client"
@@ -58,8 +58,9 @@ import type { SiteFormRow } from "@/lib/forms/overview-server"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { formatNumber } from "@/lib/i18n/format"
-import { GUTTER, LIST_WIDTH, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card } from "../../orders/order-parts"
-import { ContactsHeader, ContactsPane, ContactsViews, PHONE_ACTION } from "../../contacts/contacts-header"
+import { GUTTER, LIST_WIDTH, ORDER_WIDTH, OrderBarFrame, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../../orders/order-parts"
+import { ContactsHeader, ContactsPane, PHONE_ACTION } from "../../contacts/contacts-header"
+import { SegmentedPills } from "@/components/app/segmented-pills"
 import { MessagePage } from "../message-detail"
 import type { MessageRow } from "../emails-home"
 import { InsightsPanel, MessagesInbox, ResponsesPanel, SiteFormPanel, contactOpenHref, when } from "./form-panels"
@@ -281,15 +282,29 @@ export function FormsList() {
 
   const selected = route.form ? forms.find((f) => f.id === route.form) || null : null
   if (selected) {
-    /* The form's tabs: the quiet views every list wears (Orders, Coupons), not a pill band. A tab replaces the entry, so Back leaves the form. */
+    /*
+      The form's tabs (wave 8, the owner: "inherit Storelib, very smooth,
+      clean, normal"): Storelib's own segmented pills (components/app/
+      segmented-pills, Analytics' and Emails'), the chosen one easing in place
+      in 150ms. A tab replaces the entry, so Back leaves the form; Responses
+      and Insights are mounted behind it from the moment the form opens.
+    */
+    const responsesLabel = (
+      <span className="inline-flex items-center gap-1.5">
+        {tt("Responses")}
+        <span className="tabular-nums text-[#9ca3af]">{formatNumber(selected.responses ?? 0)}</span>
+      </span>
+    )
     const tabs = (
-      <ContactsViews<FormView>
+      <SegmentedPills<FormView>
         label={tt("Form")}
         value={route.view}
+        motion="fade"
+        size="sm"
         onChange={(view) => go({ form: selected.id, view }, false)}
         options={[
           { value: "edit", label: tt("Edit") },
-          { value: "responses", label: tt("Responses"), count: selected.responses ?? 0 },
+          { value: "responses", label: responsesLabel },
           { value: "insights", label: tt("Insights") },
           { value: "settings", label: tt("Settings") },
         ]}
@@ -309,29 +324,59 @@ export function FormsList() {
           responses={selected.responses ?? 0}
           onView={(view) => go({ form: selected.id, view }, false)}
           panel={
-            route.view === "responses" ? (
-              <ResponsesPanel
-                formId={selected.id}
-                focus={route.response}
-                quiz={(selected.published || selected.draft)?.mode === "quiz"}
-                onCount={(by) => setForms((all) => all.map((x) => (x.id === selected.id ? { ...x, responses: Math.max(0, (x.responses ?? 0) + by) } : x)))}
-              />
-            ) : route.view === "insights" ? <InsightsPanel formId={selected.id} /> : null}
+            <>
+              <div hidden={route.view !== "responses"} data-form-panel="responses">
+                <ResponsesPanel
+                  formId={selected.id}
+                  focus={route.response}
+                  quiz={(selected.published || selected.draft)?.mode === "quiz"}
+                  onCount={(by) => setForms((all) => all.map((x) => (x.id === selected.id ? { ...x, responses: Math.max(0, (x.responses ?? 0) + by) } : x)))}
+                />
+              </div>
+              <div hidden={route.view !== "insights"} data-form-panel="insights">
+                <InsightsPanel formId={selected.id} />
+              </div>
+            </>
+          }
           onBack={up}
           onSaved={(f) => setForms((all) => all.map((x) => (x.id === f.id ? { ...x, ...f } : x)))}
         />
       </ContactsPane>
     )
   }
+  /* Wave 8: a form opened by its address, while the list is read: the form page's own shape (its bar, the tabs, the cards), not the list's. */
   if (route.form && loading)
     return (
       <ContactsPane ref={paneRef}>
-        <ContactsHeader title={<span aria-label={tt("Loading")} className="block h-7 w-48 max-w-full animate-pulse rounded-lg bg-[#eceef1]" />} onBack={up} />
-        <div className={SCREEN}>
-          <section className={cn(card, "mt-3")}>
-            <ShimmerRows rows={4} header={false} cols={["40%", "14%", "12%"]} label={tt("Loading")} />
-          </section>
-        </div>
+        <OrderBarFrame
+          back={
+            <button type="button" onClick={up} className={cn(iconButton, "h-9 w-9 hover:bg-[#eceef1] max-md:h-11 max-md:w-11")} aria-label={tt("Back to forms")} data-contacts-back="">
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          }
+          title={<ShimmerBlock className="h-7 w-48 max-w-full rounded-lg" />}
+          subtitle={<ShimmerBlock className="mt-1 h-3.5 w-32" />}
+        />
+        <Shimmer className={cn("mx-auto w-full pb-24 md:pb-10", ORDER_WIDTH, GUTTER)} label={tt("Loading")}>
+          <ShimmerBlock className="mt-1 h-10 w-[300px] max-w-full rounded-full" />
+          <div className="mt-3 grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+            <div className="space-y-3 sm:space-y-4">
+              <section className={cn(card, "space-y-3 p-5")}>
+                <ShimmerBlock className="h-3.5 w-16" />
+                <ShimmerBlock className="h-11 w-full rounded-xl" />
+              </section>
+              <section className={cn(card, "space-y-3 p-5")}>
+                <ShimmerBlock className="h-4 w-24" />
+                <ShimmerBlock className="h-[170px] w-full rounded-xl" />
+              </section>
+            </div>
+            <section className={cn(card, "space-y-3 p-5")}>
+              <ShimmerBlock className="h-4 w-24" />
+              <ShimmerBlock className="h-3.5 w-full" />
+              <ShimmerBlock className="h-3.5 w-2/3" />
+            </section>
+          </div>
+        </Shimmer>
       </ContactsPane>
     )
 

@@ -42,14 +42,15 @@ function when(iso?: string | null): string {
   if (!iso) return ""
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
-  return `${d.toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", year: "numeric" }))}, ${d.toLocaleTimeString(appLocale(), zoned({ hour: "numeric", minute: "2-digit" }))}`
+  /* Wave 8: the year only when it is not this one, as the inbox and the lists say it. */
+  return `${d.toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", year: d.getFullYear() === new Date().getFullYear() ? undefined : "numeric" }))}, ${d.toLocaleTimeString(appLocale(), zoned({ hour: "numeric", minute: "2-digit" }))}`
 }
 
 /** Where they wrote from: the site, and the page when it was not the home page. */
 export function sentFrom(m: Pick<MessageRow, "site" | "page">): string {
   const page = (m.page ?? "").replace(/^\/+|\/+$/g, "")
   const shown = page && page !== "home" ? `/${page}` : ""
-  return m.site ? `${m.site}${shown}` : shown
+  return m.site ? (shown ? `${m.site} · ${shown}` : m.site) : shown
 }
 
 /** Two letters for the avatar: the name's initials, or the email's first letter. */
@@ -270,7 +271,7 @@ export function MessagePage({
             {!message.read_at ? <StatusBadge tone="attention">{tt("New")}</StatusBadge> : answered ? <StatusBadge tone="success">{tt("Replied")}</StatusBadge> : null}
           </>
         }
-        subtitle={[message.subject || tt("Website contact form"), when(message.created_at)].filter(Boolean).join(" · ")}
+        subtitle={[message.site || tt("Website contact form"), when(message.created_at)].filter(Boolean).join(" · ")}
         actions={
           <ResponsiveActionMenu
             title={who}

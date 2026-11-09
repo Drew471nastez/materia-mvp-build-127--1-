@@ -42,6 +42,7 @@ import {
   PAGE_SIZE,
   advancedCount,
   peopleQueryString,
+  readPeopleQuery,
   type AdvancedFilters,
   type ContactFilter,
   type ContactSort,
@@ -93,26 +94,135 @@ function sortLabel(s: ContactSort): string {
   }
 }
 
-export function PeopleClient({ query, page, communities, marketing, notice }: { query: PeopleQuery; page: PeoplePage | null; communities: CommunityOption[]; marketing: boolean; notice: "not_found" | "no_person" | null }) {
+/*
+  WAVE 8, A VIEW SWITCH NEVER FADES (the owner: "switching must be smooth,
+  no fade"). The views, the sort, the search and the pages are read from
+  /api/contacts (the same listPeople the server page draws from) and the
+  chosen view is pressed at once; the rows on screen stay, whole and at full
+  strength, until the new ones are here, and then they swap in one frame.
+  Each answer is kept for the tab (PEOPLE_FRESH_MS), and the views beside the
+  one shown are read ahead once the list has settled and again when a pointer
+  or a finger lands on one, so most switches are instant. The address follows
+  by replaceState (the router keeps it), so a reload, a Back and a shared link
+  still read the same list on the server. A read that fails falls back to the
+  router, as before.
+*/
+const PEOPLE_FRESH_MS = 60_000
+const peopleCache = new Map<string, { page: PeoplePage; at: number }>()
+const peopleReads = new Map<string, Promise<PeoplePage | null>>()
+
+/** One page of people for an address query, from the tab's cache or /api/contacts. */
+export function readPeoplePage(qs: string, fresh = false): Promise<PeoplePage | null> {
+  const hit = peopleCache.get(qs)
+  if (!fresh && hit && Date.now() - hit.at < PEOPLE_FRESH_MS) return Promise.resolve(hit.page)
+  const going = peopleReads.get(qs)
+  if (going) return going
+  const read = fetch(`/api/contacts${qs ? `?${qs}` : ""}`, { cache: "no-store", headers: { accept: "application/json" } })
+    .then((res) => (res.ok ? (res.json() as Promise<PeoplePage>) : null))
+    .then((page) => {
+      if (page && Array.isArray(page.rows)) {
+        peopleCache.set(qs, { page, at: Date.now() })
+        return page
+      }
+      return null
+    })
+    .catch(() => null)
+    .finally(() => peopleReads.delete(qs))
+  peopleReads.set(qs, read)
+  return read
+}
+
+function queryOf(qs: string): PeopleQuery {
+  const sp = new URLSearchParams(qs)
+  return readPeopleQuery((k) => sp.get(k))
+}
+
+export function PeopleClient({ query: serverQuery, page: serverPage, communities, marketing, notice }: { query: PeopleQuery; page: PeoplePage | null; communities: CommunityOption[]; marketing: boolean; notice: "not_found" | "no_person" | null }) {
   const router = useRouter()
   const phone = usePhoneWidth()
-  const [pending, startTransition] = React.useTransition()
+  const [routing, startTransition] = React.useTransition()
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
   const [adding, setAdding] = React.useState(false)
   const [importing, setImporting] = React.useState(false)
   const [message, setMessage] = React.useState<{ text: string; failed?: boolean } | null>(null)
 
+  /* What is shown, and what was asked for while it is on its way (the chosen view is pressed at once). */
+  const serverQs = peopleQueryString(serverQuery)
+  const [shown, setShown] = React.useState<{ query: PeopleQuery; page: PeoplePage | null; qs: string }>({ query: serverQuery, page: serverPage, qs: serverQs })
+  const [wanted, setWanted] = React.useState<PeopleQuery | null>(null)
+  const ask = React.useRef(0)
+  const query = shown.query
+  const page = shown.page
+  const pending = wanted !== null || routing
+
+  const show = React.useCallback((qs: string, next: PeoplePage) => {
+    setShown({ query: queryOf(qs), page: next, qs })
+    setWanted(null)
+    if (`${window.location.search.replace(/^\?/, "")}` !== qs) {
+      const url = new URL(window.location.href)
+      url.search = qs
+      window.history.replaceState(window.history.state, "", url)
+    }
+  }, [])
+
+  /* The server's page, whenever it draws one (a reload, router.refresh after a change): the truth, kept for the tab. */
+  React.useEffect(() => {
+    if (serverPage) peopleCache.set(serverQs, { page: serverPage, at: Date.now() })
+    ask.current++
+    setWanted(null)
+    /* A Back can bring this page back with the router's copy of an older view; the address says which view it is. */
+    const here = peopleQueryString(queryOf(window.location.search))
+    if (here !== serverQs) {
+      const hit = peopleCache.get(here)
+      if (hit) setShown({ query: queryOf(here), page: hit.page, qs: here })
+      else {
+        setShown({ query: serverQuery, page: serverPage, qs: serverQs })
+        const token = ask.current
+        setWanted(queryOf(here))
+        void readPeoplePage(here).then((p) => token === ask.current && p && show(here, p))
+      }
+      return
+    }
+    setShown({ query: serverQuery, page: serverPage, qs: serverQs })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverPage, serverQs])
+
   const go = React.useCallback(
     (change: Partial<PeopleQuery>) => {
       const qs = peopleQueryString(query, { page: 1, ...change })
       setSelected(new Set())
-      startTransition(() => router.replace(qs ? `/app/contacts?${qs}` : "/app/contacts", { scroll: false }))
+      if (qs === shown.qs && wanted === null) return
+      const token = ++ask.current
+      const hit = peopleCache.get(qs)
+      if (hit && Date.now() - hit.at < PEOPLE_FRESH_MS) return show(qs, hit.page)
+      setWanted(queryOf(qs))
+      void readPeoplePage(qs).then((p) => {
+        if (token !== ask.current) return
+        if (p) return show(qs, p)
+        /* The read did not answer: the server draws it, the rows on screen staying until it does. */
+        setWanted(null)
+        startTransition(() => router.replace(qs ? `/app/contacts?${qs}` : "/app/contacts", { scroll: false }))
+      })
     },
-    [query, router],
+    [query, router, show, shown.qs, wanted],
   )
-  const refresh = React.useCallback(() => startTransition(() => router.refresh()), [router])
+  const refresh = React.useCallback(() => {
+    peopleCache.clear()
+    startTransition(() => router.refresh())
+  }, [router])
+  /* Read a view ahead: a pointer resting on it, a finger landing on it. */
+  const readAhead = (change: Partial<PeopleQuery>) => void readPeoplePage(peopleQueryString(query, { page: 1, ...change }))
+  /* Once the list has settled, the other views of the same search are read ahead, so the first switch is instant too. */
+  React.useEffect(() => {
+    if (!page || page.counts.all === 0) return
+    const t = window.setTimeout(() => {
+      for (const f of CONTACT_FILTERS) if (f !== query.filter && page.counts[f] > 0) void readPeoplePage(peopleQueryString(query, { page: 1, filter: f }))
+    }, 900)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown.qs])
   /* Wave 7: the list as it is shown, so a person's back arrow returns to this view, search and page (contacts-header backToPeople). */
-  const shownQuery = peopleQueryString(query)
+  const shownQuery = shown.qs
   React.useEffect(() => notePeopleQuery(shownQuery), [shownQuery])
 
   /* The search box: what is typed, sent a moment after the last key. */
@@ -208,7 +318,9 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
           </p>
         ) : null}
 
-        <section aria-label={tt("People")} className={cn(card, "mt-3 overflow-hidden transition-opacity duration-150", pending && "opacity-60")}>
+        <section aria-label={tt("People")} className={cn(card, "relative mt-3 overflow-hidden")} data-people-card="">
+          {/* Wave 8: no fade while the next view is read; the rows stay, and past 200ms a hairline at the top says it is coming. */}
+          {pending ? <span aria-hidden className="shimmer-wait pointer-events-none absolute inset-x-0 top-0 z-[1] h-0.5 animate-pulse bg-[#1a1a2e]/25" data-people-loading="" /> : null}
           {nothingAtAll ? null : (
             <>
               {/* The top row: the views, or the search while searching; Sort at its end. One height either way. */}
@@ -242,7 +354,7 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
                     {/* On a phone the views scroll on their own and fade at the edge; the icons keep a fixed place beside them and never sit over a word. */}
                     <div role="tablist" aria-label={tt("Views")} className="orders-strip -my-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-2 max-sm:pr-10 max-sm:[mask-image:linear-gradient(to_right,#000_calc(100%-44px),transparent)]" data-contacts-views="">
                       {CONTACT_FILTERS.map((f) => {
-                        const active = f === query.filter
+                        const active = f === (wanted ?? query).filter
                         return (
                           <button
                             key={f}
@@ -250,6 +362,9 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
                             role="tab"
                             aria-selected={active}
                             onClick={() => go({ filter: f })}
+                            onPointerEnter={() => readAhead({ filter: f })}
+                            onTouchStart={() => readAhead({ filter: f })}
+                            data-view={f}
                             className={cn(
                               "h-8 shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100 max-sm:h-9 max-sm:text-[15px]",
                               active ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
