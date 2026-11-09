@@ -1,0 +1,103 @@
+/**
+ * ===========================================================================
+ *  THE AGENT'S TOOLS: NAMES, INPUTS AND RESULTS (round L contract)
+ * ===========================================================================
+ * The shapes the loop (L3) implements and the progress view (L2) and the
+ * tests (L7) read. JSON schemas for the provider are built from these by L3
+ * (lib/ai-builder/agent/tools-impl.ts); keep the two in step.
+ *
+ * Every write is to DRAFT halves, through the existing sanitisers, for the
+ * job's own install only. A tool never takes an install id, creator id or
+ * path outside the install: the loop binds those from the job row.
+ */
+import type {
+  AgentPhase,
+  AgentToolName,
+  ComponentManifest,
+  DataBindingKind,
+  DesignTokens,
+  FileWriteResult,
+  KnowledgeEntry,
+  KnowledgeKind,
+  ProjectFile,
+  ValidationIssue,
+} from "./types"
+import type { RuntimeCapabilities } from "./runtime-contract"
+
+/** A section on a page, as the agent sets it: native type or an ai_ component. */
+export interface PlacedSectionInput {
+  /** Keep to update in place; omit to create (the loop mints a stable id). */
+  id?: string
+  type: string
+  settings?: Record<string, unknown>
+  blocks?: { id?: string; type: string; settings?: Record<string, unknown> }[]
+  group?: "header" | "footer" | "overlay"
+  hidden?: boolean
+}
+
+export interface AgentToolInputs {
+  list_files: { prefix?: string }
+  read_file: { path: string }
+  /** Whole file. `manifest`, when given, is written into the file's <schema> (manifestToSchema) before compiling. */
+  write_file: { path: string; content: string; manifest?: ComponentManifest }
+  /** Exact string replacement, as the code editor's agent does. `old` must occur exactly once. */
+  edit_file: { path: string; old: string; new: string }
+  delete_file: { path: string }
+  list_pages: Record<string, never>
+  /** `key` is a page key: lowercase letters, digits and dashes; served at pagePath(key). */
+  add_page: { key: string; title: string; seo?: { title?: string; description?: string } }
+  /** Replaces the page's body sections in order. Header/footer only with `group`. */
+  set_page_sections: { page: string; sections: PlacedSectionInput[] }
+  set_section_settings: { page: string; sectionId: string; settings: Record<string, unknown> }
+  set_tokens: { tokens: Partial<DesignTokens> }
+  list_capabilities: Record<string, never>
+  /** Sets a binding prop to a real id. Refused when the id is not in list_capabilities. */
+  bind_data: { page: string; sectionId: string; prop: string; kind: DataBindingKind; ids: string[] }
+  search_knowledge: { query: string; kinds?: KnowledgeKind[]; limit?: number }
+  /** No path: every file the job touched and every page. */
+  validate: { path?: string }
+  render_check: { page: string }
+  /**
+   * `concept` (L3 extension): the visual concept, required once with phase
+   * "plan" before a new website's first write (lib/ai-builder/agent/concept.ts).
+   * `tasks`: the plan as short lines, shown as open tasks.
+   */
+  report_progress: { phase: AgentPhase; label: string; concept?: unknown; tasks?: string[] }
+  finish: { summary: string; notes?: string[] }
+}
+
+export interface AgentToolOutputs {
+  list_files: { files: Pick<ProjectFile, "path" | "updatedAt">[] }
+  read_file: { path: string; content: string; version: string } | { path: string; missing: true }
+  write_file: FileWriteResult
+  edit_file: FileWriteResult
+  delete_file: { ok: boolean }
+  list_pages: { pages: { key: string; title: string; sections: { id: string; type: string; group?: string }[] }[] }
+  add_page: { ok: boolean; key: string; error?: string }
+  set_page_sections: { ok: boolean; ids: string[]; issues?: ValidationIssue[] }
+  set_section_settings: { ok: boolean; issues?: ValidationIssue[] }
+  set_tokens: { ok: boolean; changed: string[]; issues?: ValidationIssue[] }
+  list_capabilities: RuntimeCapabilities
+  bind_data: { ok: boolean; issues?: ValidationIssue[] }
+  search_knowledge: { entries: Pick<KnowledgeEntry, "id" | "kind" | "title" | "body" | "examples">[] }
+  validate: { ok: boolean; issues: ValidationIssue[] }
+  render_check: { ok: boolean; issues: ValidationIssue[]; htmlBytes: number }
+  /** `note` (L3 extension): what was missing from a concept, or that it was accepted. */
+  report_progress: { ok: true; note?: string }
+  /** Refused (ok false) while validate has errors and repairs remain. */
+  finish: { ok: boolean; reason?: string }
+}
+
+/** Compile-time check that every tool name has an input and an output shape. */
+export type ToolsCovered = [AgentToolName] extends [keyof AgentToolInputs & keyof AgentToolOutputs] ? true : never
+export const TOOLS_COVERED: ToolsCovered = true
+
+/** Tools that change the website (counted against the write budget and logged as events). */
+export const WRITE_TOOLS: readonly AgentToolName[] = ["write_file", "edit_file", "delete_file", "add_page", "set_page_sections", "set_section_settings", "set_tokens", "bind_data"]
+
+/** Paths the agent may write: section and block files, its own snippets and assets text. Nothing else in the install. */
+export const WRITABLE_PATH = /^(sections|blocks|snippets)\/ai_[a-z0-9_]{1,60}\.storelib$/
+
+/** An implementation of one tool, bound to a job. L3 implements; L7 fakes. */
+export type ToolImpl<N extends AgentToolName> = (input: AgentToolInputs[N]) => Promise<AgentToolOutputs[N]>
+export type ToolSet = { [N in AgentToolName]: ToolImpl<N> }

@@ -360,7 +360,7 @@ export async function readProfile(db: Db, scope: ContactsScope, g: Gathered, opt
   if (sub) activity.push({ at: String(sub.subscribed_at ?? sub.created_at ?? ""), kind: "subscribed", text: "joined" })
   for (const o of purchases) activity.push({ at: o.at, kind: "order", text: o.product ?? "", href: `/app/orders?order=${o.id}` })
   for (const m of communityRows) if (m.joinedAt) activity.push({ at: m.joinedAt, kind: "community", text: m.name, href: `/app/community/${m.communityId}/members?member=${m.memberId}` })
-  for (const f of formRows) activity.push({ at: f.at, kind: "form", text: f.title, href: `/app/contacts/forms?form=${f.formId}` })
+  for (const f of formRows) activity.push({ at: f.at, kind: "form", text: f.title, href: `/app/contacts/forms?form=${encodeURIComponent(f.formId)}&view=responses&response=${encodeURIComponent(f.id)}` })
   for (const l of leads) activity.push({ at: l.at, kind: "lead", text: "" })
   for (const m of messages) activity.push({ at: String(m.created_at ?? ""), kind: "message", text: s(m.subject) ?? "", href: `/app/contacts/forms?message=${m.id}` })
   for (const cr of courses) activity.push({ at: String(cr.started_at ?? ""), kind: "course", text: s(firstOf(cr.products)?.title) ?? "" })

@@ -106,7 +106,9 @@ check("a template fades in, respects reduced motion, and can be undone", () => {
 console.log("\nThe builder\n")
 check("one column: no preview or options panel at the side", () => {
   const builder = code("components/forms/forms-manager.tsx")
-  assert.doesNotMatch(builder, /<aside/)
+  /* Changed on purpose (wave 7): the form's PAGE in Contacts › Forms has the summary beside it from lg (where it stands, responses, link, where used), as the coupon editor does; the builder itself is still one column with no preview or options panel at the side. */
+  assert.equal((builder.match(/<aside/g) ?? []).length, 1)
+  assert.match(builder, /\{withAside \? <aside className="min-w-0 lg:sticky lg:top-\[96px\]" aria-label=\{tt\("Summary"\)\}>\{summary\}<\/aside> : null\}/)
   assert.doesNotMatch(builder, /lg:grid-cols-\[minmax\(0,1fr\)_420px\]/)
 })
 check("the settings open in place, one at a time, after the questions", () => {
@@ -140,8 +142,9 @@ check("Contacts › Forms draws the same one column on its Edit tab, and Setting
   assert.match(builder, /const inPage = view !== undefined/)
   /* Changed on purpose (wave 6): the column is the page's own width (FORM_WIDTH), the same as its bar, so the two line up. */
   assert.match(builder, /\) : preview \? \(\s*previewPane\s*\) : \(\s*editor\s*\)\}/)
-  assert.match(builder, /const FORM_WIDTH = "max-w-\[800px\]"/)
-  assert.match(builder, /<PublicationCard /)
+  /* Changed on purpose (wave 7): the page is an order's width (ORDER_WIDTH), and Publication became the form's summary beside it (FormSummary: where it stands, responses, link, where used). */
+  assert.match(builder, /const FORM_WIDTH = ORDER_WIDTH/)
+  assert.match(builder, /<FormSummary\s/)
   /* Where answers go and privacy live on the Settings tab of the page, and in the dialog's rows. */
   assert.match(builder, /\{inPage \? null : \(\s*<Disclosure id="responses"/)
 })

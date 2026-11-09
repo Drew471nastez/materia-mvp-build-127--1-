@@ -7,7 +7,20 @@
  * sent twice, a retry after a lost answer, finds the first job instead of
  * starting a second. Without the table (SQL part 380 not run yet) the answer
  * is `missing`, and the editor builds the site inside its own request.
+ *
+ * ROUND L. The row also keeps what the person chose beside their words
+ * (`options`: blank or inside the theme, the example they picked, a design
+ * preset, preferences; `mode`, the same generation as its own column) and
+ * which engine runs it (`engine`: classic, the five step pipeline, unless
+ * AI_BUILDER_AGENT=1 picks the agent). All of it is written here, in the
+ * create request, before the editor is opened: nothing the person chose
+ * waits in the browser. The prompt is stored exactly as sent.
+ *
+ * A database without SQL part 401 has no such columns: the row is made
+ * without them (the prompt is still whole, and blank or theme is already in
+ * the website itself, see create-website.ts), and the server log says so.
  */
+import type { JobEngine, StartOptions } from "@/lib/ai-builder/types"
 import { isMissingTable, JOBS_TABLE } from "./server"
 import { emptyState } from "./job"
 
@@ -23,22 +36,41 @@ export function isStartKey(v: unknown): v is string {
 
 export type StartedJob = { kind: "made"; id: string } | { kind: "duplicate"; id: string; installId: string } | { kind: "missing" } | { kind: "failed" }
 
-export async function startJobRow(admin: Db, input: { creatorId: string; ownerUserId: string | null; installId: string; prompt: string; key: string }): Promise<StartedJob> {
-  const { data, error } = await admin
-    .from(JOBS_TABLE)
-    .insert({
-      creator_id: input.creatorId,
-      owner_user_id: input.ownerUserId,
-      install_id: input.installId,
-      prompt: input.prompt,
-      idempotency_key: input.key,
-      status: "queued",
-      step: "plan",
-      progress: 0,
-      state: emptyState(),
-    })
-    .select("id")
-    .single()
+/** Which engine a new job runs on: the agent only when the platform switched it on. */
+export function startEngine(env: Record<string, string | undefined> = process.env): JobEngine {
+  return env.AI_BUILDER_AGENT === "1" ? "agent" : "classic"
+}
+
+/** A column the database does not have yet (SQL part 401 not run): checked before isMissingTable, whose words match it too. */
+export function isMissingColumn(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false
+  return error.code === "42703" || error.code === "PGRST204" || /column .* does not exist|could not find the '[a-z_]+' column/i.test(error.message ?? "")
+}
+
+export async function startJobRow(
+  admin: Db,
+  input: { creatorId: string; ownerUserId: string | null; installId: string; prompt: string; key: string; options?: StartOptions; engine?: JobEngine },
+): Promise<StartedJob> {
+  const options: StartOptions = input.options ?? { generation: "theme" }
+  const base = {
+    creator_id: input.creatorId,
+    owner_user_id: input.ownerUserId,
+    install_id: input.installId,
+    prompt: input.prompt,
+    idempotency_key: input.key,
+    status: "queued",
+    step: "plan",
+    progress: 0,
+    state: emptyState(),
+  }
+  const insert = (row: Record<string, unknown>) => admin.from(JOBS_TABLE).insert(row).select("id").single()
+  /* An agent job is on its one step from the start (SQL part 401 allows it); a classic one starts at plan. */
+  const engine = input.engine ?? "classic"
+  let { data, error } = await insert({ ...base, step: engine === "agent" ? "agent" : "plan", options, mode: options.generation, engine })
+  if (error && isMissingColumn(error)) {
+    console.error("[ai-site] ai_site_jobs has no options column yet (SQL part 401): the job keeps the prompt only", { code: error.code })
+    ;({ data, error } = await insert(base))
+  }
   if (!error && data?.id) return { kind: "made", id: data.id as string }
   if (isMissingTable(error)) return { kind: "missing" }
   if (error?.code === "23505") {

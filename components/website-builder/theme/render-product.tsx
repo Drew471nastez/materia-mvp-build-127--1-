@@ -48,6 +48,9 @@ import { drawsTheProduct } from "@/lib/website-builder/storelib-runtime"
 import { publishedProductTheme } from "@/lib/website-builder/product-page-theme"
 import { imagesOnly } from "@/lib/media/video"
 import { siteTabTitle } from "@/lib/website-builder/tab-title"
+import { chromeOf, homeChromeOnly, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
+import { kindLookup, repairChrome, splitGroups } from "@/lib/storelib-theme/section-groups"
+import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 
 /**
  * How this product is priced, read on its own so the product read above
@@ -442,13 +445,34 @@ export async function renderProduct(
    * the way all four had.
    */
   const inLanguage = (section: SectionInstance | undefined) => (section && localizer ? localizer.sections([section], shop.sources)[0] : section)
-  const header = inLanguage(homeHeader) ?? sections.find((s) => s.type === "header")
-  const footer = inLanguage(homeFooter) ?? sections.find((s) => s.type === "footer")
-  const page = [
-    ...(header ? [header] : []),
-    ...sections.filter((s) => s.type !== "header" && s.type !== "footer"),
-    ...(footer ? [footer] : []),
-  ]
+  /*
+    A HEADER OR FOOTER WRITTEN AS A SECTION FILE (an AI component, "kind":
+    "header", any type name), or a site whose chrome is home's only (an AI
+    blank start): the product page wears home's header and footer GROUPS by
+    the rule every other page follows (lib/website-builder/universal-chrome),
+    found by kind rather than by the type name "header". Read by type name,
+    a coded header was dropped here and the product page fell back to its own
+    stored copy of the built-in one. Every other site is composed below as
+    it always was.
+  */
+  const kinds = kindLookup(shop.sources, SECTION_SCHEMAS as never)
+  const homeOnly = homeChromeOnly(themeSettings as Record<string, unknown>)
+  const heldHome = repairChrome(homeSections, kinds).sections
+  const homeGroups = splitGroups(heldHome)
+  const codedChrome = [...homeGroups.header, ...homeGroups.footer].some((s) => s.type !== "header" && s.type !== "footer" && (kinds(s.type) === "header" || kinds(s.type) === "footer"))
+  let page: SectionInstance[]
+  if (homeOnly || codedChrome) {
+    const chrome = chromeOf(localizer ? localizer.sections(heldHome, shop.sources) : heldHome, { homeOnly })
+    page = withUniversalChrome(repairChrome(sections, kinds).sections, chrome)
+  } else {
+    const header = inLanguage(homeHeader) ?? sections.find((s) => s.type === "header")
+    const footer = inLanguage(homeFooter) ?? sections.find((s) => s.type === "footer")
+    page = [
+      ...(header ? [header] : []),
+      ...sections.filter((s) => s.type !== "header" && s.type !== "footer"),
+      ...(footer ? [footer] : []),
+    ]
+  }
 
   /**
    * Rendered here, on the server, once — and as "product", not "index".

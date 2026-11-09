@@ -15,6 +15,8 @@
  *   notification  { table, op, id, unread, community_id? }
  *   order         { op, id, creator_id }
  *   plan          { op, creator_id }
+ *   ai_job        { job_id, seq }   a Start with AI build wrote progress
+ *                                   events up to seq (SQL part 401)
  *
  * Nothing more travels; each listener reads again through the API it
  * already uses. Joining is checked by the policy part 370 adds to
@@ -33,7 +35,7 @@
  */
 import type { BrowserSupabase } from "@/lib/supabase/browser-lazy"
 
-export type OwnEvent = "notification" | "order" | "plan"
+export type OwnEvent = "notification" | "order" | "plan" | "ai_job"
 export interface OwnPayload {
   table?: string
   op?: string
@@ -41,6 +43,8 @@ export interface OwnPayload {
   unread?: boolean
   community_id?: string
   creator_id?: string
+  job_id?: string
+  seq?: number
 }
 type Channel = ReturnType<BrowserSupabase["channel"]>
 

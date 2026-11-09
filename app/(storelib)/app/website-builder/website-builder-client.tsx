@@ -99,6 +99,7 @@ import { LIBRARY_FULL_CODE, LIBRARY_RULE, LIBRARY_RULE_TITLE } from "@/lib/websi
 import { LibraryFullDialog, type LibraryAction } from "./library-full-dialog"
 import { StartWebsite } from "./start-website"
 import { newStartKey, saveStartPrompt, withJobParam, withStartParam } from "@/lib/website-builder/start-handoff"
+import { clearStartDraft, forgetPendingStart, pendingStartKey, type StartOptions } from "@/lib/website-builder/ai-site/start-options"
 import type { StartMode } from "@/lib/website-builder/create-website"
 import {
   ARRIVAL_MS,
@@ -1261,21 +1262,39 @@ export function WebsiteBuilderClient({
     the new website following the job (`job=` in its address). Without the job table yet the answer says `fallback` and
     the description waits in this tab for the editor, which builds the site in its own request.
   */
-  const startKey = React.useRef<{ prompt: string; key: string } | null>(null)
-  const startWebsite = async (mode: StartMode, prompt?: string) => {
+  /*
+    ROUND L. The words go exactly as written, with the options chosen beside them (blank or inside the theme, the
+    example picked), and the server writes them to the job row before it answers. The press's key is kept in this tab
+    per words and options (pendingStartKey) until the answer arrives: a double press, a retry, or a reload after a lost
+    answer sends the same key, and the server answers with the first website and job. Only without the job table does
+    this tab keep the description for the editor (saveStartPrompt); a job that could not be written is an error here,
+    with the words still in the box, never a silent fallback.
+  */
+  const startWebsite = async (mode: StartMode, prompt?: string, options?: StartOptions) => {
     if (slotsLeft === 0) {
       setFull("create")
       return
     }
     if (startFlight.current || making) return
+    const withAi = mode === "ai" && typeof prompt === "string" && prompt.trim().length > 0
+    if (mode === "ai" && !withAi) return
     startFlight.current = true
     setStarting(mode)
     let leaving = false
-    if (mode === "ai" && prompt && startKey.current?.prompt !== prompt) startKey.current = { prompt, key: newStartKey() }
+    let storage: Storage | null = null
     try {
-      const res = await fetch("/api/website-builder/themes/create", json("POST", mode === "ai" && prompt ? { mode, prompt, key: startKey.current!.key } : { mode }))
+      storage = window.sessionStorage
+    } catch {
+      /* a key per press, as before */
+    }
+    const chosen: StartOptions = options ?? { generation: "theme" }
+    const key = withAi ? pendingStartKey(storage, prompt!, chosen, newStartKey) : null
+    try {
+      const res = await fetch("/api/website-builder/themes/create", json("POST", withAi ? { mode, prompt, key, options: chosen } : { mode }))
       const data = (await res.json().catch(() => ({}))) as { install?: { id?: string }; cover?: Cover | null; cover_pending?: boolean; code?: string; error?: string; job?: { id?: string } | null; fallback?: boolean }
       if (!res.ok || !data.install?.id) {
+        /* A refusal is an answer: the next press is a new one. A lost answer (no status) keeps the key. */
+        if (withAi && res.status < 500) forgetPendingStart(storage)
         if (data.code === LIBRARY_FULL_CODE) {
           setFull("create")
           refresh()
@@ -1290,19 +1309,14 @@ export function WebsiteBuilderClient({
       if (data.cover?.url) seedCover(id, data.cover)
       else if (data.cover_pending) void watchCover(id)
       const jobId = typeof data.job?.id === "string" ? data.job.id : null
-      if (mode === "ai" && prompt && !jobId) {
-        let storage: Storage | null = null
-        try {
-          storage = window.sessionStorage
-        } catch {
-          /* the editor opens the Ask panel empty */
-        }
-        saveStartPrompt(storage, id, prompt)
+      if (withAi && !jobId) saveStartPrompt(storage, id, prompt!, Date.now(), chosen)
+      if (withAi) {
+        forgetPendingStart(storage)
+        clearStartDraft(storage)
       }
-      startKey.current = null
       leaving = true
       setOpening(true)
-      go(mode === "ai" ? (jobId ? withJobParam(editorHref(username, id), jobId) : withStartParam(editorHref(username, id))) : editorHref(username, id))
+      go(withAi ? (jobId ? withJobParam(editorHref(username, id), jobId) : withStartParam(editorHref(username, id))) : editorHref(username, id))
     } catch {
       toast({ title: tt("Could not create the website"), variant: "destructive" })
     } finally {
@@ -1560,7 +1574,7 @@ export function WebsiteBuilderClient({
           teamMember={teamMember}
           starting={starting}
           blocked={making}
-          onStart={(mode, prompt) => void startWebsite(mode, prompt)}
+          onStart={(mode, prompt, options) => void startWebsite(mode, prompt, options)}
           onFull={() => setFull("create")}
           onBrowse={() => startNavigationLoading()}
         />

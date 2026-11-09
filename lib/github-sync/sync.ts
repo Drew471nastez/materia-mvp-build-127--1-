@@ -695,7 +695,7 @@ export async function applyFiles(
         continue
       }
     }
-    const saved = await saveThemeFile(db, link.install_id, f.path, text)
+    const saved = await saveThemeFile(db, link.install_id, f.path, text, { author: "import" })
     if (saved.ok === false) {
       const first = saved.errors?.[0]
       /* This line becomes a commit comment, which a public repository shows

@@ -473,6 +473,21 @@ export interface Reveal {
  * another page's) is planned like any other: hidden only when it is wholly
  * below the screen.
  */
+/**
+ * A section's own duration and delay over the theme's (round L: a
+ * component's animation timing, SectionRenderer animationTimingAttrs). The
+ * delay adds to the stagger, so sections arriving together still arrive in
+ * order. Reduced motion never gets here: installReveal plays nothing then.
+ */
+export function boxTiming(box: HTMLElement, duration: number, delay: number): { duration: number; delay: number } {
+  const own = Number(box.dataset.animationDuration)
+  const wait = Number(box.dataset.animationDelay)
+  return {
+    duration: box.dataset.animationDuration && Number.isFinite(own) ? Math.min(1500, Math.max(150, own)) : duration,
+    delay: delay + (box.dataset.animationDelay && Number.isFinite(wait) ? Math.min(1000, Math.max(0, wait)) : 0),
+  }
+}
+
 export function installReveal(root: HTMLElement, theme: Record<string, unknown>, opts: { reduced?: boolean } = {}): Reveal {
   const seen = new WeakSet<Element>()
   const style = new WeakMap<Element, Exclude<SectionAnimation, "none">>()
@@ -490,7 +505,7 @@ export function installReveal(root: HTMLElement, theme: Record<string, unknown>,
     if (!s || box.getAttribute("data-reveal") !== "pending") return
     let anim: Animation | null = null
     try {
-      anim = box.animate(keyframesFor(s), { duration, delay, easing: REVEAL_EASING, fill: "backwards" })
+      anim = box.animate(keyframesFor(s), { ...boxTiming(box, duration, delay), easing: REVEAL_EASING, fill: "backwards" })
     } catch {
       anim = null
     }
@@ -570,7 +585,7 @@ export function installReveal(root: HTMLElement, theme: Record<string, unknown>,
       const r = b.getBoundingClientRect()
       if (r.bottom <= view.top || r.top >= view.bottom) return
       try {
-        b.animate(keyframesFor(s), { duration, delay: n++ * stagger, easing: REVEAL_EASING, fill: "backwards" })
+        b.animate(keyframesFor(s), { ...boxTiming(b, duration, n++ * stagger), easing: REVEAL_EASING, fill: "backwards" })
       } catch {
         /* Shown as it is. */
       }

@@ -375,6 +375,7 @@ export type SchemaFieldType =
   | "page_picker"
   | "product_picker"
   | "community_picker"
+  | "form_picker"
   | "text"
   | "textarea"
   | "richtext"
@@ -410,6 +411,8 @@ export type SchemaFieldType =
   | "collection_list"
   | "collection"
   | "liquid"
+  /* Round L: one of the creator's own forms, by id (components/website-builder/editor/controls/form-picker-control.tsx). */
+  | "form_picker"
   /* The theme's custom CSS, in Theme settings › Custom CSS. Not a section setting. */
   | "css"
   /* The theme's menus, edited in Theme settings › Menus. Not a section setting. */

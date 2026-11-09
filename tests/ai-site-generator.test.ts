@@ -419,7 +419,7 @@ async function main() {
     check("create: the same key finds its job before anything is made", create.indexOf('.eq("idempotency_key", key)') < create.indexOf("createStartWebsite("))
     check("create: the per creator limit (rate limit and one running job) before the website is made", /bucket: "site-generate"/.test(create) && /MAX_RUNNING_JOBS/.test(create) && create.indexOf("MAX_RUNNING_JOBS") < create.indexOf("createStartWebsite("))
     check("create: without the table the answer says fallback; with it, the job is kicked after the answer", /fallback: true/.test(create) && /after\(\(\) => kickJob\(origin, job\.id\)\)/.test(create))
-    check("create: only the owner generates", /generating && !site\.isOwner/.test(create))
+    check("create: only the owner generates", /if \(generating\) \{\s*if \(!site\.isOwner\) return NextResponse\.json\(\{ error: "Only the store owner can start a website with AI\." \}, \{ status: 403 \}\)/.test(create))
     const run = code("app/api/website-builder/ai-jobs/[jobId]/run/route.ts")
     check("run: only with this server's token for this job, answers at once, works after", /verifyJobToken\(jobId, req\.headers\.get\("x-ai-job-token"\)\)/.test(run) && /after\(\(\) => driveJob/.test(run) && /status: 202/.test(run) && /maxDuration = 300/.test(run))
     const poll = code("app/api/website-builder/ai-jobs/[jobId]/route.ts")

@@ -12,6 +12,7 @@ import { CUSTOMER_EMAILS_PATH, prefetchCustomerActivity, type CustomerEmailsData
 import { tt } from "@/lib/i18n/text"
 import { MARKETING_PATH, type MarketingState } from "@/components/app/settings/marketing-sync-panel"
 import { SENDING_DOMAIN_PATH, type PlatformsData, type SendingDomainData } from "@/components/email/connected-platforms"
+import { campaignsFrom, customerEmailsFrom, errorOf, flowsFrom, isRecord, marketingFrom, reportFrom, sendingDomainFrom, sentFrom } from "@/lib/emails/shapes"
 
 /**
  * WHAT IS READ FOR EACH VIEW (round 51). The page has three tabs; what is
@@ -35,11 +36,28 @@ export function tabKey(tab: EmailsTab, period: string): string {
 export const reportKey = (id: string) => `emails:report:${id}`
 export { campaignKey } from "@/components/email/emails-cache"
 
-async function json<T>(url: string): Promise<T> {
+/*
+  A READ THAT IS NOT JSON IS A READ THAT FAILED (wave 7). A 200 whose body
+  could not be read (a sign-in page, an empty or cut answer) was taken as
+  `{}` and kept as the tab's data: the automations list became an object and
+  the page fell over on its next draw (`flows.find is not a function`). Now
+  it is a failure the tab says so about, with Try again. What the body is
+  made of is then checked by each loader (lib/emails/shapes.ts).
+*/
+const NOT_READ = Symbol("not read")
+async function json(url: string): Promise<unknown> {
   const res = await fetch(url, { cache: "no-store" })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error((data as { error?: string }).error || tt("Could not load"))
-  return data as T
+  const data: unknown = await res.json().catch(() => NOT_READ)
+  if (!res.ok) throw new Error(errorOf(data) || tt("Could not load"))
+  if (data === NOT_READ) throw new Error(tt("Could not load"))
+  return data
+}
+
+/** The answer in the shape the tab draws, or the read failed: the server's own words if it sent some. */
+function shaped<T>(body: unknown, shape: (b: unknown) => T | null): T {
+  const out = shape(body)
+  if (out === null) throw new Error(errorOf(body) || tt("Could not load"))
+  return out
 }
 
 export interface SubscribersData {
@@ -55,8 +73,8 @@ export interface SubscribersData {
   (lib/team). They were read here, under row level security, which answers
   only for the owner.
 */
-export function loadSubscribers(): Promise<SubscribersData> {
-  return json<SubscribersData>("/api/email/area?part=subscribers")
+export async function loadSubscribers(): Promise<SubscribersData> {
+  return shaped(await json("/api/email/area?part=subscribers"), (b) => (isRecord(b) && Array.isArray(b.rows) ? { rows: b.rows.filter(isRecord) as unknown as SubscriberRow[], buyers: typeof b.buyers === "number" ? b.buyers : 0 } : null))
 }
 
 export interface MessagesData {
@@ -70,17 +88,17 @@ export interface MessagesData {
  * (lib/site-contact), newest first. `read_at` comes with part 92; before it,
  * every message reads as read rather than the tab failing.
  */
-export function loadMessages(): Promise<MessagesData> {
-  return json<MessagesData>("/api/email/area?part=messages")
+export async function loadMessages(): Promise<MessagesData> {
+  return shaped(await json("/api/email/area?part=messages"), (b) => (isRecord(b) && Array.isArray(b.rows) ? { rows: b.rows.filter(isRecord) as unknown as MessageRow[], available: b.available !== false } : null))
 }
 
-export function loadFlows(): Promise<FlowRow[]> {
-  return json<FlowRow[]>("/api/email/area?part=flows")
+export async function loadFlows(): Promise<FlowRow[]> {
+  return shaped(await json("/api/email/area?part=flows"), (b) => flowsFrom<FlowRow>(b))
 }
 
 export async function loadCampaigns(status: "draft" | "scheduled"): Promise<CampaignRow[]> {
-  const r = await json<{ campaigns: CampaignRow[] }>(`/api/email/campaigns?status=${status}`)
-  return (r.campaigns ?? []).map((c) => ({ ...c, kind: status }))
+  const rows = shaped(await json(`/api/email/campaigns?status=${status}`), (b) => campaignsFrom<CampaignRow>(b))
+  return rows.map((c) => ({ ...c, kind: status }))
 }
 
 export interface SentData {
@@ -90,22 +108,18 @@ export interface SentData {
 }
 
 export async function loadSent(rangeQuery: string): Promise<SentData> {
-  const r = await json<{
-    campaigns: CampaignRow[]
-    stats?: { totalSent?: number; totalOpens?: number; totalClicks?: number; totalUnsubscribed?: number; openRate?: number; clickRate?: number }
-    monthlyUsage?: { sent?: number; limit?: number }
-  }>(`/api/email/stats?${rangeQuery}`)
+  const r = shaped(await json(`/api/email/stats?${rangeQuery}`), (b) => sentFrom<CampaignRow>(b))
   return {
-    campaigns: (r.campaigns ?? []).map((c) => ({ ...c, kind: "sent" as const })),
+    campaigns: r.campaigns.map((c) => ({ ...c, kind: "sent" as const })),
     overview: {
-      total_sent: r.stats?.totalSent ?? 0,
-      total_opened: r.stats?.totalOpens ?? 0,
-      total_clicked: r.stats?.totalClicks ?? 0,
-      total_unsubscribed: r.stats?.totalUnsubscribed ?? 0,
-      open_rate: r.stats?.openRate ?? 0,
-      click_rate: r.stats?.clickRate ?? 0,
+      total_sent: r.stats.totalSent,
+      total_opened: r.stats.totalOpens,
+      total_clicked: r.stats.totalClicks,
+      total_unsubscribed: r.stats.totalUnsubscribed,
+      open_rate: r.stats.openRate,
+      click_rate: r.stats.clickRate,
     },
-    usage: { sent: r.monthlyUsage?.sent ?? 0, limit: r.monthlyUsage?.limit ?? 500 },
+    usage: r.monthlyUsage,
   }
 }
 
@@ -152,10 +166,12 @@ export async function loadPlatforms(): Promise<SendingData> {
     api<{ marketing: MarketingState[] }>(MARKETING_PATH),
     api<SendingDomainData>(SENDING_DOMAIN_PATH),
     /* Round 51, Settings › Sending: who the emails are from and where replies go (app/api/email/area?part=sender). */
-    json<SenderInfo>("/api/email/area?part=sender").catch(() => null),
+    json("/api/email/area?part=sender").catch(() => null),
   ])
   if (!m.ok) throw new Error(m.error || tt("Could not load your platforms."))
-  return { marketing: m.data.marketing, sending: d.ok ? d.data : { domain: null, ready: true, available: false }, sender: who ? { name: who.name ?? null, replyTo: who.replyTo ?? null } : null }
+  if (!isRecord(m.data)) throw new Error(tt("Could not load your platforms."))
+  const sender = isRecord(who) ? { name: typeof who.name === "string" ? who.name : null, replyTo: typeof who.replyTo === "string" ? who.replyTo : null } : null
+  return { marketing: marketingFrom<MarketingState>(m.data.marketing), sending: d.ok ? sendingDomainFrom<NonNullable<SendingDomainData["domain"]>>(d.data) : { domain: null, ready: true, available: false }, sender }
 }
 
 /** Who the store's emails are from, and where a reply goes. */
@@ -176,9 +192,11 @@ export type SendingData = PlatformsData & { sender?: SenderInfo | null }
 export async function loadCustomerEmails(): Promise<CustomerEmailsData> {
   const r = await api<CustomerEmailsData>(CUSTOMER_EMAILS_PATH)
   if (!r.ok) throw new Error(r.error || tt("Could not load your customer emails."))
+  const data = customerEmailsFrom<CustomerEmailsData>(r.data)
+  if (!data) throw new Error(tt("Could not load your customer emails."))
   /* What each has sent, read with the list, so the tab opens with its "sent" lines in place. */
-  prefetchCustomerActivity(r.data)
-  return r.data
+  prefetchCustomerActivity(data)
+  return data
 }
 
 /* ─── One email ─────────────────────────────────────────────────────── */
@@ -222,6 +240,6 @@ export interface EmailReport {
   upgraded: boolean
 }
 
-export function loadReport(id: string): Promise<EmailReport> {
-  return json<EmailReport>(`/api/email/campaigns/${encodeURIComponent(id)}/report`)
+export async function loadReport(id: string): Promise<EmailReport> {
+  return shaped(await json(`/api/email/campaigns/${encodeURIComponent(id)}/report`), (b) => reportFrom<EmailReport>(b))
 }

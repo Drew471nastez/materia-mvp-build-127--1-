@@ -1685,8 +1685,8 @@ section("Two at once still make five, and an import that says what went wrong")
   check("Back in a panel is the whole left of the row, 44px, on a quiet tile",
     /aria-label="Back"/.test(back) && /after:absolute after:inset-0 after:content-\[''\]/.test(back) && /flex h-11 w-11 shrink-0/.test(back) &&
       /<ArrowLeft className="h-5 w-5 md:h-4 md:w-4"/.test(back) && /group-active\/back:scale-\[0\.94\]/.test(back) &&
-      /* Six panels, a block's own panel (the sidebar's tree opens it), Navigation (the store's menus), an open group of General Settings in each of its two lists, and an imported Shopify theme's own settings (compatThemePanel). */
-      (editor.match(/<PanelBack\s+onBack=/g) ?? []).length === 11)
+      /* Six panels, a block's own panel (the sidebar's tree opens it), Navigation (the store's menus), an open group of General Settings in each of its two lists, an imported Shopify theme's own settings (compatThemePanel), and Design tokens on an AI website in each of the two lists (round L). */
+      (editor.match(/<PanelBack\s+onBack=/g) ?? []).length === 13)
 
   check("Website Settings on a phone: a subject is pushed over the list and popped off it",
     /const PUSH_MS = 340/.test(settings) && /const POP_MS = 280/.test(settings) && /page\.animate\(push \? \[\{ transform: off \}, \{ transform: at \}\]/.test(settings) &&

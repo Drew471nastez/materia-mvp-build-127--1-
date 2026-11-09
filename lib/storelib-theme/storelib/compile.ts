@@ -267,6 +267,8 @@ function compileSectionUnguarded(source: string, opts: CompileOptions = {}): Res
     if (control === "header" || control === "paragraph" || control === "divider") continue
     /* The section's animation is read by the page, not the template (schema/normalise.ts). */
     if (s.id === ANIMATION_SETTING_ID) continue
+    /* Its timing and Show on are read by the page too (SectionRenderer animationTimingAttrs, showOnAttr). */
+    if (s.id === `${ANIMATION_SETTING_ID}_duration` || s.id === `${ANIMATION_SETTING_ID}_delay` || s.id === "show_on") continue
     if (!read.has(s.id) && !s.id.startsWith("hdr_")) {
       warnings.push({ stage: "template", file, line: src.template.line, path: `settings.${s.id}`, message: `The template never reads settings.${s.id}` })
     }

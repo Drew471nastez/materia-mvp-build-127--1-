@@ -925,7 +925,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
               async save(path, source) {
                 const saved = await saveWithRetry(
                   async () => {
-                    const r = await saveThemeFile(supabase, installId, path, source)
+                    /* Ask Storelib wrote it: the history says "AI", and a person's edit in the code editor meanwhile is one Keep mine away. */
+                    const r = await saveThemeFile(supabase, installId, path, source, { author: "ai" })
                     return r.ok === true ? { ok: true } : { ok: false, error: r.error }
                   },
                   {
@@ -952,7 +953,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
               async restore(path, previous) {
                 const put = await saveDraft(supabase, installId, path, previous)
                 if (put.ok === false) return { ok: false, error: put.error }
-                await recordVersion(supabase, installId, path, previous, "restore")
+                await recordVersion(supabase, installId, path, previous, "restore", { author: "restore" })
                 return { ok: true }
               },
             })

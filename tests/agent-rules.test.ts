@@ -63,11 +63,11 @@ async function main() {
   // copy, never the global built-in, and checked like any section of theirs. MCP, the agent API and Ask AI still refuse.
   check("a GitHub push to a built-in is held to the repository rule, before the save",
     /const allowed = repoMayWrite\(f\.path, compat\)\s*\n\s*if \(allowed\.ok === false\) \{\s*\n\s*out\.failed\.push\(\{ path: f\.path, error: allowed\.error, kind: "invalid" \}\)/.test(sync)
-      && sync.indexOf("repoMayWrite(f.path, compat)") < sync.indexOf("await saveThemeFile(db, link.install_id, f.path, text)"))
+      && sync.indexOf("repoMayWrite(f.path, compat)") < sync.indexOf("await saveThemeFile(db, link.install_id, f.path, text, { author: \"import\" })"))
   const chat = read("app/api/website-builder/themes/[installId]/agent/route.ts")
   check("the builder's AI is held to the same rule", /const allowed = agentMayWrite\(path\)\s*\n\s*if \(allowed\.ok === false\) return \{ ok: false, error: allowed\.error \}/.test(chat))
   check("and saves what it rewrites as a draft with a version, not onto the live site",
-    /await saveThemeFile\(supabase, installId, path, source\)/.test(chat) && !/update\(\{ content: source, draft_content: null/.test(chat))
+    /await saveThemeFile\(supabase, installId, path, source, \{ author: "ai" \}\)/.test(chat) && !/update\(\{ content: source, draft_content: null/.test(chat))
   const ops = read("lib/agent-access/operations.ts")
   check("the file list tells an agent which files it may write", /writable: agentMayWrite\(row\.path\)\.ok/.test(ops) && /origin: "theme", writable: false/.test(ops))
   check("the AI's own editing rules say the built-in sections are not its to rewrite", /BUILT-IN SECTIONS ARE READ-ONLY/.test(read("lib/storelib-ai/source-editing.ts")))

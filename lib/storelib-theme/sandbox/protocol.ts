@@ -49,8 +49,14 @@ export const ATTR_PREFIXES = ["aria-", "data-"] as const
 /**
  * `data-sb` is the page's own numbering. A script that could rewrite it
  * could point every later change at a different element.
+ *
+ * The island marks are the page's too (round L4): the page draws a live
+ * form or a product's offers into the element that names one, and the id
+ * there came from a setting resolved on the server against the creator's
+ * own rows. A script that could rewrite `data-storelib-native-form` could
+ * point the page at a form that is not this creator's.
  */
-export const ATTR_RESERVED = [INDEX_ATTR, "data-storelib-form", "data-block-id"] as const
+export const ATTR_RESERVED = [INDEX_ATTR, "data-storelib-form", "data-block-id", "data-storelib-native-form", "data-storelib-offers", "data-storelib-island"] as const
 
 /** A CSS property name, as the guest may send one. Custom properties included. */
 export const CSS_PROPERTY = /^(--)?[a-zA-Z][a-zA-Z0-9-]{0,48}$/

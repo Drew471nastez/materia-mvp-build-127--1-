@@ -25,7 +25,82 @@ import { backThen } from "@/lib/navigation/go-back"
 import { canReturnTo } from "@/lib/navigation/in-app-history"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { formatNumber } from "@/lib/i18n/format"
 import { LIST_BAR, LIST_WIDTH, PaneBar, iconButton } from "../orders/order-parts"
+
+/*
+  THE PEOPLE LIST AS IT WAS LAST SHOWN (wave 7). The list notes its query each
+  time it changes; a person's back arrow goes back in history when the list is
+  the page behind (the list as it was, its scroll kept by the router), and
+  otherwise pushes the list at this query, so a profile opened from a link
+  still returns to the view, search and page the creator was on. Memory, and
+  this tab's session storage for a reload; never shared, never required.
+*/
+let peopleQuery: string | null = null
+const PEOPLE_QUERY_KEY = "storelib:contacts:list"
+
+export function notePeopleQuery(query: string) {
+  peopleQuery = query
+  try {
+    window.sessionStorage.setItem(PEOPLE_QUERY_KEY, query)
+  } catch {
+    /* Private mode or blocked storage: memory is enough. */
+  }
+}
+
+export function lastPeopleQuery(): string {
+  if (peopleQuery !== null) return peopleQuery
+  try {
+    return window.sessionStorage.getItem(PEOPLE_QUERY_KEY) ?? ""
+  } catch {
+    return ""
+  }
+}
+
+/** The People list as it was last shown. */
+export function peopleHref(): string {
+  const q = lastPeopleQuery().replace(/^\?/, "")
+  return q ? `/app/contacts?${q}` : "/app/contacts"
+}
+
+/** Back to the People list: a history back when it is the page behind, else the list at its last query. */
+export function backToPeople(router: { push: (href: string) => void }) {
+  if (canReturnTo("/app/contacts")) backThen(() => router.push(peopleHref()))
+  else router.push(peopleHref())
+}
+
+/**
+ * The quiet views, as Orders' and Coupons' toolbar draws them: words, the
+ * chosen one on a light grey ground, 36px and 15px on a phone, 32px and 13px
+ * from md. Used for a form's tabs (Edit, Responses, Insights, Settings), so
+ * the form page wears the same tabs as every list instead of a pill band.
+ */
+export function ContactsViews<T extends string>({ label, value, onChange, options, className }: { label: string; value: T; onChange: (v: T) => void; options: { value: T; label: string; count?: number }[]; className?: string }) {
+  return (
+    <div role="tablist" aria-label={label} className={cn("orders-strip -my-2 flex min-w-0 items-center gap-0.5 overflow-x-auto py-2", className)} data-contacts-tabs="">
+      {options.map((o) => {
+        const on = o.value === value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            data-tab={o.value}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              "inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 text-[15px] font-medium transition-colors duration-100 md:h-8 md:rounded-lg md:text-[13px] [-webkit-tap-highlight-color:transparent]",
+              on ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
+            )}
+          >
+            {o.label}
+            {typeof o.count === "number" ? <span className="tabular-nums text-[#9ca3af]">{formatNumber(o.count)}</span> : null}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 export const ContactsPane = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(function ContactsPane({ className, children, ...rest }, ref) {
   return (
@@ -60,8 +135,7 @@ export function ContactsHeader({
   const goBack = (e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey) return
     e.preventDefault()
-    if (canReturnTo("/app/contacts")) backThen(() => router.push("/app/contacts"))
-    else router.push("/app/contacts")
+    backToPeople(router)
   }
   return (
     <PaneBar width={LIST_WIDTH} className={LIST_BAR}>

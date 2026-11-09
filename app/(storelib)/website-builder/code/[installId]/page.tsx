@@ -26,6 +26,7 @@ import type { ThemeError } from "@/lib/storelib-theme/types"
 import { WAIT_MS, fetchWithDeadline } from "@/lib/net/request"
 import { retrying } from "@/lib/website-builder/load-guard"
 import { fetchSignedIn } from "@/lib/website-builder/session-keep"
+import { conflictChoiceLabels, conflictLine, versionAuthorLabel } from "@/lib/ai-builder/version-labels"
 
 // ── File tree node ────────────────────────────────────────────
 function FileTreeNode({
@@ -776,7 +777,8 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const [recovered, setRecovered] = useState<{ path: string; content: string } | null>(null)
   /** A save refused because the file had moved on. Both versions are kept. */
-  const [conflict, setConflict] = useState<{ path: string; theirs: string; at: string } | null>(null)
+  /* `author`: who wrote the newer version (round L, SQL part 401), so the choice can say "Use AI's". */
+  const [conflict, setConflict] = useState<{ path: string; theirs: string; at: string; author: string | null } | null>(null)
 
   /**
    * ===========================================================================
@@ -793,7 +795,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
    */
   const [unpublished, setUnpublished] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
-  const [versions, setVersions] = useState<{ id: string; content: string; kind: string; created_at: string }[]>([])
+  const [versions, setVersions] = useState<{ id: string; content: string; kind: string; created_at: string; author?: string | null }[]>([])
   const [loadingVersions, setLoadingVersions] = useState(false)
 
   const loadVersions = async () => {
@@ -1199,7 +1201,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
          * other is offered, and whoever is here decides. Overwriting quietly
          * is how an hour's work disappears with nobody able to say when.
          */
-        setConflict({ path: selectedFile.path, theirs: String(d.conflict.content ?? ""), at: String(d.conflict.updated_at ?? "") })
+        setConflict({ path: selectedFile.path, theirs: String(d.conflict.content ?? ""), at: String(d.conflict.updated_at ?? ""), author: typeof d.conflict.author === "string" ? d.conflict.author : null })
         toast.error("This file changed while you edited it")
       } else {
         toast.error(d.error ?? "Could not save")
@@ -2471,7 +2473,8 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   {versions.map((v, i) => (
                     <li key={v.id} className="flex items-center gap-3 border-b border-[var(--code-border)] px-4 py-2 last:border-b-0">
                       <span className="w-[5.5rem] shrink-0 text-[11px] text-[var(--code-muted)]">
-                        {v.kind === "publish" ? "Published" : v.kind === "restore" ? "Restored" : "Saved"}
+                        {/* Who wrote it, since SQL part 401: You, AI, GitHub. */}
+                        {v.kind === "publish" ? "Published" : v.kind === "restore" ? "Restored" : versionAuthorLabel(v.author)}
                       </span>
                       <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--code-text)]">
                         {new Date(v.created_at).toLocaleString()}
@@ -2506,20 +2509,21 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
           {conflict && conflict.path === selectedFile?.path && (
             <div className="flex flex-wrap items-center gap-2 border-t border-[var(--code-border)] bg-amber-500/10 px-4 py-2 text-[12px] text-[var(--code-text)]">
               <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-              <span>Saved somewhere else while you were editing. Your version is still here.</span>
+              <span>{conflictLine(conflict.author)}</span>
+              {/* Theirs into the editor as what is saved: nothing of yours is lost, it is one undo back. */}
               <button
                 type="button"
                 onClick={() => { handleContentChange(conflict.theirs); setSavedAt(conflict.at); setConflict(null) }}
                 className="h-7 shrink-0 rounded-md border border-[var(--code-border)] px-2.5 text-[12px] font-[550] text-[var(--code-text)] hover:bg-[var(--code-hover)]"
               >
-                Show theirs
+                {conflictChoiceLabels(conflict.author).theirs}
               </button>
               <button
                 type="button"
                 onClick={() => { setSavedAt(conflict.at); setConflict(null); void saveFile() }}
                 className="h-7 shrink-0 rounded-md bg-[#111114] px-2.5 text-[12px] font-[550] text-white hover:bg-[#26262c]"
               >
-                Keep mine and save
+                {conflictChoiceLabels(conflict.author).mine}
               </button>
             </div>
           )}

@@ -1,5 +1,6 @@
 "use client"
 
+import { usePreviewErrorBridge } from "@/lib/ai-builder/use-preview-errors"
 import { SectionTitleRename } from "@/components/website-builder/editor/section-title-rename"
 import { explainSaveProblem, type SaveAction, type SaveProblem } from "@/lib/website-builder/save-problem"
 import { SaveProblemBanner } from "@/components/website-builder/editor/save-problem-banner"
@@ -24,6 +25,7 @@ import {
   ArrowLeft, ArrowUpFromLine, KeyRound, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, ClipboardPaste, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
   Palette, ShoppingBag, ShoppingCart, Share2, Cookie,
 } from "lucide-react"
+import { componentEditPrompt, requestAgentEdit, browserFileVersion } from "@/lib/ai-builder/edit-request"
 import { arrayMove } from "@dnd-kit/sortable"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -39,6 +41,7 @@ import { SocialLinksEditor } from "@/components/website-builder/editor/social-li
 import { SOCIAL_PLATFORMS } from "@/lib/website-builder/social-links"
 import { isChromeType, withTabSwitchKey } from "@/lib/website-builder/section-anchors"
 import { FontPreviewPicker } from "@/components/website-builder/editor/font-preview-picker"
+import { DesignTokensPanel, showsDesignTokens } from "@/components/website-builder/editor/design-tokens-panel"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { BlockTreeLevel, TreeAddBlock, TreeInsertBlock } from "@/components/website-builder/editor/block-tree-rows"
 import { BlockPickerHandle, BlockPickerProvider, type BlockPickerRequest } from "@/components/website-builder/editor/block-picker"
@@ -101,7 +104,7 @@ import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { mainProductSection, withDeliveryBlock, withOffersBlock, withProductBlocks, withProductReviews } from "@/lib/website-builder/product-page"
 import { productRating, type StorefrontReviews } from "@/lib/reviews/storefront"
-import { CHROMELESS_PAGES, chromeOf, withoutChrome, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
+import { CHROMELESS_PAGES, chromeOf, homeChromeOnly, homeOnlyChrome, withoutChrome, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
 import {
   groupOf,
   isKind,
@@ -162,10 +165,11 @@ import {
   type WritingAnchor,
 } from "@/lib/website-builder/ai-placement"
 import { WritingSection } from "@/components/website-builder/editor/writing-section"
-import { readJobParam, readStartParam, recallJob, rememberJob, startMessage, takeStartPrompt } from "@/lib/website-builder/start-handoff"
+import { clearStartPrompt, peekStartPrompt, readJobParam, readStartParam, recallJob, rememberJob, startMessage } from "@/lib/website-builder/start-handoff"
 import { useSiteGeneration, type GenerationSource } from "@/lib/website-builder/ai-site/use-generation"
 import { opIsNew } from "@/lib/website-builder/ai-site/replay"
 import { GenerationPanel, generationPhase } from "@/components/website-builder/ai-generation/generation-panel"
+import { AgentProgressPanel } from "@/components/website-builder/ai-generation/agent-progress-panel"
 import { EditedBuiltInNote, isEditedBuiltIn } from "@/components/website-builder/editor/edited-built-in-note"
 import { SignupDestinationNote } from "@/components/website-builder/editor/signup-destination-note"
 import { DEFAULT_THEME_SOURCES } from "../../../../../themes/default/sources.generated"
@@ -234,11 +238,13 @@ import { DISPLAY_CURRENCY_KEY } from "@/lib/storelib-theme/resolve"
 import type { LanguageSwitchPreview, SiteLanguageChoice } from "@/components/website-builder/theme/language-switch"
 import type { CompatMarkets } from "@/components/website-builder/compat/compat-canvas"
 import { CanvasStillHost, swapCanvasPage } from "@/lib/website-builder/canvas-still"
-import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
-import type { PickerCollection, PickerCommunity } from "@/components/website-builder/editor/controls"
+import type { StorefrontCollection, StorefrontCommunity, StorefrontForm } from "@/lib/storelib-theme/types"
+import type { PickerCollection, PickerCommunity, PickerForm } from "@/components/website-builder/editor/controls"
 
 /** What /api/website-builder/themes/[installId] says about the creator's communities. */
 type BuilderCommunities = { choices: PickerCommunity[]; cards: Record<string, StorefrontCommunity> }
+/** What the same route says about the store's published forms, for a form_picker (lib/forms/storefront-forms.ts). */
+type BuilderForms = { choices: PickerForm[]; cards: Record<string, StorefrontForm> }
 /** And about their collections: every one to pick, the published ones as a section reads them. */
 type BuilderCollections = { choices: PickerCollection[]; cards: Record<string, StorefrontCollection> }
 /** The theme settings schema's fields, so a setting never set (the cookie banner's sentence) is drawn translated, as on the website (lib/markets/live.ts). */
@@ -700,7 +706,17 @@ const THEME_GROUP_ICONS: Record<string, typeof Image> = {
   announcement: Megaphone,
   menus: MenuIcon,
   custom_css: Code,
+  design_tokens: Layers,
 }
+
+/**
+ * THEME SETTINGS › DESIGN TOKENS (round L): on a website the AI built, the
+ * values its components are drawn from, on one panel
+ * (components/website-builder/editor/design-tokens-panel.tsx). Not a group
+ * of THEME_SETTINGS_GROUPS: it holds no fields of its own, it writes the
+ * other groups' settings, and only an AI website shows it.
+ */
+const DESIGN_TOKENS_GROUP = { id: "design_tokens", label: "Design tokens", icon: "layers", fields: [] } as unknown as (typeof THEME_SETTINGS_GROUPS)[number]
 
 /**
  * One group in General Settings: its mark, its name, and a chevron that
@@ -3026,6 +3042,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   /* The creator's own communities, for a community_picker and the Community card (null while communities are off). */
   const [builderCommunities, setBuilderCommunities] = useState<BuilderCommunities | null>(null)
+  /* The store's published forms, for a form_picker (null when they could not be read). */
+  const [builderForms, setBuilderForms] = useState<BuilderForms | null>(null)
   /* The creator's collections, for a collection_picker, a collection_list and the collections page (null while physical commerce is off). */
   const [builderCollections, setBuilderCollections] = useState<BuilderCollections | null>(null)
   const customSchemas = useMemo(() => customSectionSchemas(storelibSources), [storelibSources])
@@ -3487,6 +3505,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * another tab) opens the panel empty.
    */
   const [startAsk, setStartAsk] = useState<string | null>(null)
+  /* Which ask this is: a second one (Edit with AI again, Ask AI to fix) is a new id, so the chat sends it too. */
+  const [startAskSeq, setStartAskSeq] = useState(1)
   const [startOpen, setStartOpen] = useState(false)
   /*
     THE BUILD ITSELF RUNS ON THE SERVER NOW (lib/website-builder/ai-site). The Website page started a job and sent its id
@@ -3495,6 +3515,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     request ("inline"). A reload while the job runs finds it again in this tab's storage.
   */
   const [genSource, setGenSource] = useState<GenerationSource | null>(null)
+  /* A section script that throws in the canvas while an AI job builds this site goes back to the job (lib/ai-builder/preview-errors.ts). */
+  usePreviewErrorBridge({
+    jobId: genSource?.kind === "job" ? genSource.jobId : null,
+    installId,
+    page: currentPage,
+    typeOf: (id) => sectionsRef.current.find((s) => s.id === id)?.type ?? null,
+  })
   useEffect(() => {
     let stored: Storage | null = null
     try {
@@ -3508,22 +3535,43 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (read.cleaned !== null) window.history.replaceState(window.history.state, "", read.cleaned)
     if (job.jobId) {
       rememberJob(stored, installId, job.jobId)
-      takeStartPrompt(stored, installId)
+      clearStartPrompt(stored, installId)
       setGenSource({ kind: "job", jobId: job.jobId })
       return
     }
-    if (read.cleaned === null) {
-      const running = recallJob(stored, installId)
-      if (running) setGenSource({ kind: "job", jobId: running })
+    const running = recallJob(stored, installId)
+    if (running) {
+      setGenSource({ kind: "job", jobId: running })
       return
     }
-    if (!read.wanted) return
-    const prompt = takeStartPrompt(stored, installId)
-    if (prompt) {
-      setGenSource({ kind: "inline", prompt })
+    /* Without the jobs table: the description this tab keeps, left there until the build starts (onStart below). */
+    const waiting = read.wanted || read.cleaned === null ? peekStartPrompt(stored, installId) : null
+    if (waiting) {
+      setGenSource({ kind: "inline", prompt: waiting.prompt })
       return
     }
-    setStartOpen(true)
+    /*
+      ROUND L: neither the address nor this tab knows the job (a reload in another tab, a web view that dropped its
+      storage). The server's record says whether this website is being made: a job still queued or running is followed;
+      on the way in from Start with AI (`start=ai`) any job is shown. Nothing found: the Ask panel opens, empty, as before.
+    */
+    let gone = false
+    void fetch(`/api/website-builder/themes/${installId}/ai-start`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then((d: { job?: { id?: unknown; status?: unknown } | null } | null) => {
+        if (gone) return
+        const found = d?.job && typeof d.job.id === "string" ? { id: d.job.id, status: String(d.job.status ?? "") } : null
+        if (found && (read.wanted || found.status === "queued" || found.status === "running")) {
+          rememberJob(stored, installId, found.id)
+          setGenSource({ kind: "job", jobId: found.id })
+          return
+        }
+        if (read.wanted) setStartOpen(true)
+      })
+    return () => {
+      gone = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   /* Opened once the website is up: before that the phone's own first layout closes the sheet again. */
@@ -3537,7 +3585,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
   }, [startOpen, loading, teamMember])
   /* Sent once, when the website is on the canvas: the agent reads the page it is handed. */
-  const startSend = useMemo(() => (startAsk && !loading && !loadFailed && !teamMember ? { id: 1, text: startAsk } : null), [startAsk, loading, loadFailed, teamMember])
+  const startSend = useMemo(() => (startAsk && !loading && !loadFailed && !teamMember ? { id: startAskSeq, text: startAsk } : null), [startAsk, startAskSeq, loading, loadFailed, teamMember])
   /* Taken by the panel that sends it: let go, so the other panel (a window resized across the phone width) never sends it again. */
   const startTaken = useCallback(() => setStartAsk(null), [])
   /**
@@ -4358,7 +4406,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * chrome and the live site rendered each page's own, so a stale footer was
    * invisible in the one place somebody would check it.
    */
-  const mergeWithHomeHeaderFooter = withUniversalChrome
+  /*
+    A SITE WHOSE CHROME IS HOME'S ONLY (an AI blank start, theme setting
+    site_chrome "home", lib/website-builder/universal-chrome.ts): a page's
+    own stored header is never drawn in place of home having none, here as on
+    the live site. Read from a ref, so the function stays the same one.
+  */
+  const homeChromeOnlyRef = useRef(false)
+  homeChromeOnlyRef.current = homeChromeOnly(settingsDraft as Record<string, unknown>)
+  const mergeWithHomeHeaderFooter = useCallback(
+    (page: SectionInstance[] | null | undefined, chrome: Chrome) => withUniversalChrome(page, homeChromeOnlyRef.current ? homeOnlyChrome(chrome) : chrome),
+    [],
+  )
 
   /** Which pages the server answered with sections it built rather than stored (fetchPageSections). */
   const generatedPages = useRef(new Set<string>())
@@ -4649,6 +4708,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (data.username) setUsername(data.username)
     if (data.creatorFacts && typeof data.creatorFacts === "object") setCreatorFacts(data.creatorFacts as CreatorFacts)
     setBuilderCommunities(data.communities && typeof data.communities === "object" ? (data.communities as BuilderCommunities) : null)
+    setBuilderForms(data.forms && typeof data.forms === "object" ? (data.forms as BuilderForms) : null)
     setBuilderCollections(data.collections && typeof data.collections === "object" ? (data.collections as BuilderCollections) : null)
     setSiteHandle(typeof data.siteHandle === "string" && data.siteHandle ? data.siteHandle : null)
 
@@ -4715,6 +4775,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (stale()) return false
     if (!asked.ok) throw asked.e
     const [loadedRaw, homeHF] = asked.v
+    /* Before the page is dressed in home's chrome below: whether home's is the only chrome (settingsDraft is set after). */
+    homeChromeOnlyRef.current = homeChromeOnly(loadedSettings as Record<string, unknown>)
     /**
      * HOME GETS THE RULE TOO, and that is not a no-op.
      *
@@ -6390,9 +6452,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     | { kind: "copy-code"; sectionId: string; name: string }
     | { kind: "paste-code"; clip: SectionClip; afterId: string | null; top?: boolean }
     | { kind: "paste-settings"; sectionId: string; next: Record<string, unknown>; changes: string[]; from: string; to: string }
+    | { kind: "edit-ai"; sectionId: string; path: string; name: string }
     | null
   >(null)
   const [pendingBusy, setPendingBusy] = useState(false)
+  /* What Edit with AI is asked, while its card is open. */
+  const [editAiText, setEditAiText] = useState("")
 
   const copySectionNow = (sectionId: string): Clip | null => {
     const s = sectionsRef.current.find((x) => x.id === sectionId)
@@ -6620,6 +6685,43 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
   }
 
+  /**
+   * EDIT WITH AI, ASKED. The agent's edit mode when it is on (lib/ai-builder/edit-request.ts: a job on this
+   * file alone, its progress over the canvas); otherwise Ask Storelib with this section selected, which reads
+   * the file and changes only the lines that change (edit_section_code). Either way it is a draft with a
+   * version row, the run is undone in one step, and an edit made since is never written over.
+   */
+  const editWithAiNow = async (a: { sectionId: string; path: string; name: string }, ask: string) => {
+    if (!ask.trim()) { toast.error("Say what should change"); return }
+    setPendingBusy(true)
+    try {
+      const source = storelibSources[a.path]
+      const agent = await requestAgentEdit(installId, {
+        mode: "edit",
+        path: a.path,
+        sectionId: a.sectionId,
+        page: currentPage,
+        prompt: ask.trim(),
+        expectedVersion: typeof source === "string" ? await browserFileVersion(source) : null,
+      })
+      if (agent.kind === "job") {
+        setPendingAction(null)
+        try { rememberJob(window.sessionStorage, installId, agent.jobId) } catch { /* nothing kept */ }
+        setGenSource({ kind: "job", jobId: agent.jobId })
+        return
+      }
+      if (agent.kind === "error") { toast.error(agent.message); return }
+      setPendingAction(null)
+      /* The section stays selected, so the assistant reads it and its file (lib/website-builder/agent/selected-section.ts). */
+      setSelectedPanel({ type: "section", sectionId: a.sectionId })
+      setStartAskSeq((n) => n + 1)
+      setStartAsk(componentEditPrompt({ path: a.path, name: a.name, ask }))
+      setStartOpen(true)
+    } finally {
+      setPendingBusy(false)
+    }
+  }
+
   /** The open section's menu, on its title row. Worked out when it opens. */
   const sectionPanelItems = (section: SectionInstance): ActionMenuItem[] => {
     const schema = schemaFor(section.type, storelibSources, librarySchemas)
@@ -6639,6 +6741,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     const code = codeMenuFor(section, "schema")
     items.push({ id: "edit-code", label: code.label, hint: code.hint, disabled: !code.run, icon: <Code2 strokeWidth={1.75} />, separatorBefore: true, onClick: code.run })
+    /*
+      EDIT WITH AI: a change to this section's own code, in words (round L). Only for a section with a file of
+      the creator's own (an AI component, a coded copy): a built-in is Edit a copy first. Not for a team member,
+      whose AI is the owner's (lib/team/website).
+    */
+    const target = codeTargetOf(section.type)
+    if (target.kind === "file" && !teamMember) {
+      items.push({ id: "edit-with-ai", label: "Edit with AI", icon: <StorelibLogo size={16} alt="" />, onClick: () => { setEditAiText(""); setPendingAction({ kind: "edit-ai", sectionId: section.id, path: target.path, name: sectionDisplayName(section, librarySchemas) }) } })
+    }
     if (!chrome) items.push({ id: "duplicate", label: "Duplicate", icon: <Copy strokeWidth={1.75} />, onClick: () => duplicateSection(section.id) })
     items.push({ id: "toggle-hidden", label: section.hidden ? "Show" : "Hide", icon: section.hidden ? <Eye strokeWidth={1.75} /> : <EyeOff strokeWidth={1.75} />, onClick: () => toggleSectionHidden(section.id) })
     const pinned = pinnedSection(section)
@@ -8822,6 +8933,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           the side. `expandedSettings` names the open group, as it did.
         */
         const generalGroups = themeGroups.filter(group => group.id !== "colors" && group.id !== "menus").filter(group => !group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true)
+        /* Design tokens, on an AI website (DESIGN_TOKENS_GROUP). */
+        if (expandedSettings === "design_tokens" && showsDesignTokens(settingsDraft as Record<string, unknown>, storelibSources)) {
+          return (
+            <div className="flex flex-col h-full" data-theme-group-open="design_tokens">
+              <PanelBack onBack={() => setExpandedSettings(null)}>
+                <p className="truncate text-[15px] font-semibold md:text-sm">{DESIGN_TOKENS_GROUP.label}</p>
+              </PanelBack>
+              <div data-sheet-scroll data-theme-group="design_tokens" className="flex-1 overflow-y-auto wb-slim-scroll px-3.5 py-3.5 animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none">
+                <SharedInAllLanguages>
+                  <DesignTokensPanel theme={settingsDraft as Record<string, unknown>} updateSetting={updateSetting} sources={storelibSources} />
+                </SharedInAllLanguages>
+              </div>
+            </div>
+          )
+        }
         const openGeneral = generalGroups.find(g => g.id === expandedSettings) ?? null
         if (openGeneral) {
           const group = openGeneral
@@ -8975,6 +9101,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <p className="text-xs text-muted-foreground mt-0.5">Colors, fonts, buttons, spacing</p>
             </div>
             <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
+              {showsDesignTokens(settingsDraft as Record<string, unknown>, storelibSources) ? <ThemeGroupRow group={DESIGN_TOKENS_GROUP} onOpen={() => setExpandedSettings("design_tokens")} /> : null}
               {generalGroups.map(group => <ThemeGroupRow key={group.id} group={group} onOpen={() => setExpandedSettings(group.id)} />)}
             </div>
           </div>
@@ -9486,6 +9613,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (selectedPanel.type === "theme_settings") {
       /* The same list and panels as General Settings above. */
       const panelGroups = themeGroups.filter(group => group.id !== "menus" && (!group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true))
+      /* Design tokens, on an AI website (DESIGN_TOKENS_GROUP). */
+      if (expandedSettings === "design_tokens" && showsDesignTokens(settingsDraft as Record<string, unknown>, storelibSources)) {
+        return (
+          <div className="flex flex-col h-full" data-theme-group-open="design_tokens">
+            <PanelBack onBack={() => setExpandedSettings(null)}>
+              <p className="truncate text-[15px] font-semibold md:text-sm">{DESIGN_TOKENS_GROUP.label}</p>
+            </PanelBack>
+            <div data-sheet-scroll data-theme-group="design_tokens" className="flex-1 overflow-y-auto wb-slim-scroll px-3.5 py-3.5 animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none">
+              <SharedInAllLanguages>
+                <DesignTokensPanel theme={settingsDraft as Record<string, unknown>} updateSetting={updateSetting} sources={storelibSources} />
+              </SharedInAllLanguages>
+            </div>
+          </div>
+        )
+      }
       const openPanelGroup = panelGroups.find(g => g.id === expandedSettings) ?? null
       if (openPanelGroup) {
         const group = openPanelGroup
@@ -9595,6 +9737,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <span className="text-[15px] font-semibold md:text-sm">Theme settings</span>
           </PanelBack>
           <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
+            {showsDesignTokens(settingsDraft as Record<string, unknown>, storelibSources) ? <ThemeGroupRow group={DESIGN_TOKENS_GROUP} onOpen={() => setExpandedSettings("design_tokens")} /> : null}
             {panelGroups.map(group => <ThemeGroupRow key={group.id} group={group} onOpen={() => setExpandedSettings(group.id)} />)}
           </div>
         </div>
@@ -9863,6 +10006,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       header: headerSection,
       linkHeaderToMain,
       communities: builderCommunities?.choices ?? null,
+      forms: builderForms?.choices ?? null,
       /* With each one's words and address, for a setting bound to the picked collection (lib/storelib-theme/collection-binding.ts). */
       collections: builderCollections ? builderCollections.choices.map((c) => ({ ...c, description: builderCollections.cards[c.id]?.description ?? "", url: builderCollections.cards[c.id]?.url ?? "" })) : null,
       /* Round 12: New collection / Add collection in a picker makes one and picks it (app/api/website-builder/collections). */
@@ -9892,7 +10036,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       },
       pictureMedia: compatInstall ? compatMedia : null,
     }),
-    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, createCollection, compatSchemes, compatInstall, compatMedia, isMobileView, settingsDraft],
+    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderForms, builderCollections, createCollection, compatSchemes, compatInstall, compatMedia, isMobileView, settingsDraft],
   )
   /*
     THE CANVAS IN ANOTHER LANGUAGE OF THE WEBSITE (the language button beside
@@ -10070,8 +10214,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /* The blog's posts for the Blog and Blog post templates and a Blog posts section on any page: the blog's own, or sample ones while it has none, here only (use-canvas-blog.ts). */
   const canvasBlog = useCanvasBlog(installId, !compatInstall && (currentPage === "blogs" || currentPage === "article" || pageWantsBlog(canvasSections)), currentPage)
   const canvasData = useMemo(
-    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: collectionCardsShown, reviews: canvasReviews, blog: canvasBlog?.blog, article: canvasBlog?.article, words: previewLang.words }),
-    [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, collectionCardsShown, canvasReviews, previewLang.words, canvasBlog],
+    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, forms: builderForms?.cards, collections: collectionCardsShown, reviews: canvasReviews, blog: canvasBlog?.blog, article: canvasBlog?.article, words: previewLang.words }),
+    [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, builderForms, collectionCardsShown, canvasReviews, previewLang.words, canvasBlog],
   )
   /*
     Each step the canvas's page is drawn through is a function below the
@@ -11091,16 +11235,58 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setThemeSchemaText(heldSchema.current)
     })
   }, [loadStorelibSources])
+  /*
+    AN AGENT BUILD (round L) writes the drafts itself, so the canvas reads them again when its events say files, pages or
+    colours changed: at most every AGENT_REFRESH_MS while it works, and once when it ends. What the creator is editing
+    wins: with unsaved changes only the section files are read, the open page waits for the next quiet moment.
+  */
+  const agentRefresh = useRef<{ timer: ReturnType<typeof setTimeout> | null; last: number }>({ timer: null, last: 0 })
+  const agentDraftsChanged = useCallback((finished: boolean) => {
+    const AGENT_REFRESH_MS = 8_000
+    const box = agentRefresh.current
+    const go = () => {
+      box.timer = null
+      box.last = Date.now()
+      forgetPage()
+      void reloadAiSources().then(() => {
+        if (!isDirtyRef.current && !savingRef.current) void loadData({ quiet: true })
+      })
+    }
+    if (finished) {
+      if (box.timer) clearTimeout(box.timer)
+      go()
+      return
+    }
+    if (box.timer) return
+    box.timer = setTimeout(go, Math.max(0, AGENT_REFRESH_MS - (Date.now() - box.last)))
+  }, [forgetPage, reloadAiSources, loadData])
+  useEffect(() => () => { if (agentRefresh.current.timer) clearTimeout(agentRefresh.current.timer) }, [])
   const generation = useSiteGeneration({
     onFiles: generationFiles,
     installId,
     source: teamMember ? null : genSource,
     ready: !loading && !loadFailed,
     page: currentPage,
-    onStart: () => startAiRun(),
+    onStart: () => {
+      /* The build has the description now: this tab stops keeping it, so a reload never starts a second build. */
+      try {
+        clearStartPrompt(window.sessionStorage, installId)
+      } catch {
+        /* storage refused: nothing kept */
+      }
+      startAiRun()
+    },
     onOp: queueAiOp,
     onFinish: () => aiRunFinished([]),
     onPages: (pages) => pages.forEach((p) => p.key !== "home" && aiPageWritten(p.key, p.title)),
+    onAgentChange: (finished) => agentDraftsChanged(finished),
+    onJobChange: (jobId) => {
+      try {
+        rememberJob(window.sessionStorage, installId, jobId)
+      } catch {
+        /* this tab only */
+      }
+    },
   })
   const genPhase = generation.view ? generationPhase(generation.view) : null
   /* Finished: this tab stops remembering the job; the panel stays until it is closed. */
@@ -11112,6 +11298,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       /* nothing kept, nothing to forget */
     }
   }, [genPhase, installId])
+  const agentEnded = generation.agent.view !== null && ["complete", "partial", "failed", "cancelled"].includes(generation.agent.view.status)
+  useEffect(() => {
+    if (!agentEnded) return
+    try {
+      rememberJob(window.sessionStorage, installId, null)
+    } catch {
+      /* nothing kept, nothing to forget */
+    }
+  }, [agentEnded, installId])
   const closeGeneration = useCallback(() => {
     setGenDismissed(true)
     try {
@@ -11733,22 +11928,41 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         busy={pendingBusy}
         title={
           pendingAction?.kind === "copy-code" ? `Edit a copy of ${pendingAction.name}?`
+            : pendingAction?.kind === "edit-ai" ? `Edit ${pendingAction.name} with AI`
             : pendingAction?.kind === "paste-code" ? `Paste ${pendingAction.clip.typeName} with its code?`
             : pendingAction?.kind === "paste-settings" ? `Paste settings onto ${pendingAction.to}?`
             : ""
         }
-        confirm={pendingAction?.kind === "copy-code" ? "Make a copy" : pendingAction?.kind === "paste-code" ? "Paste with code" : "Paste settings"}
+        confirm={pendingAction?.kind === "copy-code" ? "Make a copy" : pendingAction?.kind === "edit-ai" ? "Ask AI" : pendingAction?.kind === "paste-code" ? "Paste with code" : "Paste settings"}
         onCancel={() => setPendingAction(null)}
         onConfirm={() => {
           const a = pendingAction
           if (!a) return
           if (a.kind === "copy-code") void editCopyNow(a.sectionId)
+          else if (a.kind === "edit-ai") void editWithAiNow(a, editAiText)
           else if (a.kind === "paste-code") void pasteWithCode(a.clip, a.afterId, a.top)
           else { setPendingAction(null); applySettings(a.sectionId, a.next) }
         }}
       >
         {pendingAction?.kind === "copy-code" ? (
           <p>{`Storelib's ${pendingAction.name} stays as it is. This section switches to your copy, with its settings and blocks, and the copy opens in the code editor.`}</p>
+        ) : pendingAction?.kind === "edit-ai" ? (
+          <>
+            <p>{`Only this section's code changes. Its settings stay in the sidebar, and you can undo the change.`}</p>
+            <textarea
+              data-edit-ai-text=""
+              /* Focused once the menu that opened it has handed focus back and the card's own Cancel has taken it. */
+              ref={(el) => { if (el && !el.dataset.focused) { el.dataset.focused = "1"; window.setTimeout(() => el.focus(), 150) } }}
+              aria-label="What should change"
+              value={editAiText}
+              onChange={(e) => setEditAiText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && pendingAction) { e.preventDefault(); void editWithAiNow(pendingAction, editAiText) } }}
+              placeholder="Make the cards stack on phones and slow the fade"
+              rows={3}
+              maxLength={4000}
+              className="mt-3 w-full resize-none rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-[14.5px] text-white placeholder:text-white/40 outline-none focus:border-white/35"
+            />
+          </>
         ) : pendingAction?.kind === "paste-code" ? (
           <p>{`This theme doesn't have ${pendingAction.clip.typeName}. Its file, ${pendingAction.clip.code?.path ?? ""}, is copied into this theme too.`}</p>
         ) : pendingAction?.kind === "paste-settings" ? (
@@ -12054,6 +12268,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         )}
 
         {/* START WITH AI: the progress view over the canvas while the server builds the site. */}
+        {generation.agent.view && !genDismissed && !teamMember && (
+          <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+64px)] z-[70] flex justify-center px-4" data-generation-dock="">
+            <AgentProgressPanel
+              view={generation.agent.view}
+              events={generation.agent.events}
+              busy={generation.agent.busy}
+              problem={generation.agent.problem}
+              onCancel={generation.agent.cancel}
+              onContinue={generation.agent.resume}
+              onStartOver={generation.agent.startOver}
+              onClose={closeGeneration}
+            />
+          </div>
+        )}
         {generation.view && !genDismissed && !teamMember && (
           <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+64px)] z-[70] flex justify-center px-4" data-generation-dock="">
             <GenerationPanel

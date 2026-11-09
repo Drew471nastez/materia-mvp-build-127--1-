@@ -94,6 +94,8 @@ export function EmailDetail({
   const { data: report, error } = useCached<EmailReport>(reportKey(seed.id), () => loadReport(seed.id))
   const c = report?.campaign
   const status = readStatus(c?.status ?? seed.status)
+  /* An email opened from a link whose report did not load: nothing is said about it that is not known (wave 7), no Draft badge and no Edit. */
+  const known = !!c || !!seed.status
   const subject = (c?.subject ?? seed.subject ?? "").replace(/\s*\(Resend\)\s*$/, "") || (report ? tt("Untitled") : "")
   const [busy, setBusy] = React.useState<EmailAction | null>(null)
   const [dialog, setDialog] = React.useState<null | "delete" | "test">(null)
@@ -189,11 +191,11 @@ export function EmailDetail({
         title={
           <>
             <h1 className="line-clamp-2 min-w-0 max-w-full break-words text-[18px] font-bold leading-6 text-[#1a1a2e] sm:line-clamp-1 sm:text-[20px] sm:leading-7">{subject}</h1>
-            <StatusBadge tone={statusTone(status)}>{STATUS_LABEL[status]}</StatusBadge>
+            {known ? <StatusBadge tone={statusTone(status)}>{STATUS_LABEL[status]}</StatusBadge> : null}
           </>
         }
         actions={
-          <>
+          known ? <>
             {status === "scheduled" ? (
               <button type="button" className={cn(buttonSecondary, "hidden sm:inline-flex")} disabled={busy !== null} onClick={() => void run("unschedule")}>
                 {busy === "unschedule" ? tt("Unscheduling") : tt("Unschedule")}
@@ -212,9 +214,9 @@ export function EmailDetail({
               }
             />
             {primary}
-          </>
+          </> : null
         }
-        subtitle={subtitle}
+        subtitle={known ? subtitle : undefined}
       />
 
       <div key={seed.id} className={cn("orders-body mx-auto pt-4 pb-6", ORDER_WIDTH, GUTTER)}>
