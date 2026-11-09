@@ -27,7 +27,7 @@ const RECORDS = "Storelib's own record of something that happened. Kept exactly 
 
 export const BUSINESS_TABLES: Readonly<Record<string, string>> = Object.fromEntries(
   [
-    "ai_memories", "analytics_daily_rollups", "analytics_events", "analytics_events_partitioned", "analytics_forward_jobs", "analytics_property_daily", "analytics_report_layouts",
+    "ai_memories", "ai_site_jobs", "analytics_daily_rollups", "analytics_events", "analytics_events_partitioned", "analytics_forward_jobs", "analytics_property_daily", "analytics_report_layouts",
     "campaign_recipients", "cart_uploads", "checkout_attempts", "checkout_starts", "checkout_text_overrides",
     "commerce_checkouts", "commerce_jobs", "commerce_order_events", "commerce_reasons", "commerce_returns", "commerce_settings", "commerce_tax_overrides", "commerce_tax_rates",
     "communities", "community_posts", "coupons", "creator_contacts", "creator_plan_overrides", "custom_domains", "customers", "default_collections_given", "domain_redirects",

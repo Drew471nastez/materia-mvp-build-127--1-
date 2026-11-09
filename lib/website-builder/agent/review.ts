@@ -700,3 +700,26 @@ export function describeFindings(findings: Finding[], state: ThemeState): string
     "Fix them with the tools, then reply. If one of them is genuinely wrong about your change, say why in your reply instead of changing anything.",
   ].join("\n\n")
 }
+
+/**
+ * ===========================================================================
+ *  A PAGE BUILT WITH build_page IS REVIEWED LIKE THE OPEN ONE
+ * ===========================================================================
+ * Pages written as drafts (./page-builder-server.ts) only had the structural
+ * checks (types, settings, contrast of the theme's schemes, limits), so a
+ * whole About page could be left holding its presets' demo copy and nobody
+ * was told. The sections a build made are now held to the same review the
+ * open page gets: demo copy left, empty headings, duplicate entries, banned
+ * copy, contrast and the page's own house style.
+ */
+export function reviewBuiltPage(state: ThemeState, created: string[], schemas?: SchemaMap): Finding[] {
+  const written: Record<string, string[]> = {}
+  const writtenBlocks: Record<string, string[]> = {}
+  for (const id of created) {
+    const section = state.sections.find((s) => s.id === id)
+    if (!section) continue
+    written[id] = Object.keys(section.settings ?? {})
+    writtenBlocks[id] = (section.blocks ?? []).map((b) => b.id)
+  }
+  return reviewSections({ state, schemas, touched: created, added: created, filled: created, written, writtenBlocks })
+}

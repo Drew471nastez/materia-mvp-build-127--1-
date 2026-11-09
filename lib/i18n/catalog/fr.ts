@@ -5,6 +5,19 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Planning your design…": "Conception de votre design…",
+ "Writing pages…": "Rédaction des pages…",
+ "Adding photos…": "Ajout des photos…",
+ "Your website is ready": "Votre site est prêt",
+ "Your website is ready, with a few gaps": "Votre site est prêt, avec quelques manques",
+ "Building stopped part way": "La création s'est arrêtée en cours de route",
+ "Every section is yours to edit. Publish when you are happy with it.": "Chaque section est modifiable. Publiez quand il vous plaît.",
+ "Some parts were left out rather than made up. Ask AI to fix them, or edit them yourself.": "Certaines parties ont été laissées de côté plutôt qu'inventées. Demandez à l'IA de les corriger ou modifiez-les vous-même.",
+ "Everything made so far is kept. Continue picks up where it stopped.": "Tout ce qui a été créé est conservé. Continuer reprend là où cela s'est arrêté.",
+ "Keep this tab open while your website is built.": "Gardez cet onglet ouvert pendant la création de votre site.",
+ "You can keep editing, or close this tab: it keeps going.": "Vous pouvez continuer à modifier ou fermer cet onglet : la création continue.",
+ "Ask AI to fix": "Demander à l'IA de corriger",
+ "Ask AI for a change": "Demander une modification à l'IA",
  "  ·  not published yet": "  ·  pas encore publiée",
  " (buyer's reference {orderRef})": " (référence de l'acheteur {orderRef})",
  " (free for them)": " (gratuit pour eux)",
@@ -3024,6 +3037,7 @@ const words: Record<string, string> = {
  "Edit menu": "Modifier le menu",
  "Edit menus": "Modifier les menus",
  "Edit name and notes": "Modifier le nom et les notes",
+ "Edit name, tags and notes": "Modifier le nom, les tags et les notes",
  "Edit navigation": "Modifier la navigation",
  "Edit offer": "Modifier l'offre",
  "Edit offer {title}": "Modifier l'offre {title}",
@@ -12753,7 +12767,11 @@ const words: Record<string, string> = {
  "{year} Tax Year": "Année fiscale {year}",
  "“{label}” may": "« {label} » peut",
  "“{term}” is already in your glossary.": "« {term} » est déjà dans votre glossaire.",
- "↻ Refresh thumbnail": "↻ Actualiser la miniature"
+ "↻ Refresh thumbnail": "↻ Actualiser la miniature",
+ "Both": "Les deux",
+ "Show on": "Afficher sur",
+ "Faint here so you can still pick it. Visitors on the other size do not see it.": "Estompée ici pour que vous puissiez toujours la sélectionner. Les visiteurs sur l’autre taille ne la voient pas.",
+ "Partly done: some checks still fail. Ask me to fix what is left.": "En partie fait : certaines vérifications échouent encore. Demandez-moi de corriger ce qui reste."
 }
 
 export default words

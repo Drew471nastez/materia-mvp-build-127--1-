@@ -132,10 +132,11 @@ interface Schema {
 }
 
 /** JSON schemas, and .storelib files read through the sidebar's own adapter. */
-const types = [
+/* Once each: a type that moved from a JSON schema to a .storelib file (comparison_table) has both, and the .storelib one is the section. */
+const types = [...new Set([
   ...readdirSync(SECTIONS).filter((f) => f.endsWith(".json")).map((f) => f.replace(".json", "")),
   ...STORELIB_SECTION_TYPES,
-]
+])]
 
 /** Headings and paragraphs are labels in the panel. Nothing should read them. */
 const isSetting = (f: Field) => f.type !== "header" && f.type !== "paragraph"

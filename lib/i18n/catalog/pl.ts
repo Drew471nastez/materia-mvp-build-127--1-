@@ -5,6 +5,19 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Planning your design…": "Planujemy projekt…",
+ "Writing pages…": "Piszemy strony…",
+ "Adding photos…": "Dodajemy zdjęcia…",
+ "Your website is ready": "Twoja strona jest gotowa",
+ "Your website is ready, with a few gaps": "Twoja strona jest gotowa, z kilkoma brakami",
+ "Building stopped part way": "Tworzenie zatrzymało się w połowie",
+ "Every section is yours to edit. Publish when you are happy with it.": "Każdą sekcję możesz edytować. Opublikuj, gdy będziesz zadowolony.",
+ "Some parts were left out rather than made up. Ask AI to fix them, or edit them yourself.": "Niektóre części pominięto zamiast je wymyślać. Poproś AI o poprawki albo edytuj je sam.",
+ "Everything made so far is kept. Continue picks up where it stopped.": "Wszystko, co powstało, zostaje. Kontynuuj wznawia od miejsca zatrzymania.",
+ "Keep this tab open while your website is built.": "Nie zamykaj tej karty, dopóki strona się tworzy.",
+ "You can keep editing, or close this tab: it keeps going.": "Możesz dalej edytować albo zamknąć kartę: praca trwa dalej.",
+ "Ask AI to fix": "Poproś AI o poprawki",
+ "Ask AI for a change": "Poproś AI o zmianę",
  "  ·  not published yet": "  ·  jeszcze nieopublikowana",
  " (buyer's reference {orderRef})": " (numer kupującego {orderRef})",
  " (free for them)": " (za darmo dla nich)",
@@ -3024,6 +3037,7 @@ const words: Record<string, string> = {
  "Edit menu": "Edytuj menu",
  "Edit menus": "Edytuj menu",
  "Edit name and notes": "Edytuj imię i notatki",
+ "Edit name, tags and notes": "Edytuj imię, tagi i notatki",
  "Edit navigation": "Edytuj nawigację",
  "Edit offer": "Edytuj ofertę",
  "Edit offer {title}": "Edytuj ofertę {title}",
@@ -12753,7 +12767,11 @@ const words: Record<string, string> = {
  "{year} Tax Year": "Rok podatkowy {year}",
  "“{label}” may": "„{label}” może",
  "“{term}” is already in your glossary.": "„{term}” jest już w Twoim słowniku.",
- "↻ Refresh thumbnail": "↻ Odśwież miniaturę"
+ "↻ Refresh thumbnail": "↻ Odśwież miniaturę",
+ "Both": "Oba",
+ "Show on": "Pokaż na",
+ "Faint here so you can still pick it. Visitors on the other size do not see it.": "Tutaj jest wyblakła, żeby nadal dało się ją wybrać. Odwiedzający na drugim rozmiarze jej nie widzą.",
+ "Partly done: some checks still fail. Ask me to fix what is left.": "Zrobione częściowo: niektóre sprawdzenia nadal nie przechodzą. Poproś mnie, żebym poprawił resztę."
 }
 
 export default words

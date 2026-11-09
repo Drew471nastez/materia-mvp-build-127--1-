@@ -28,6 +28,7 @@ import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { isConfigured } from "@/lib/sites/agent/provider"
 import { readKeys } from "@/lib/ai-keys/store"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
+import { dataUnavailableResponse, transientReadError } from "@/lib/website-builder/agent/route-guard"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -53,10 +54,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null
   if (!user) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  const { data: creator, error: creatorError, status: creatorStatus } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  /* A slow database is a retry, not "only creators" (lib/website-builder/agent/route-guard.ts). */
+  if (!creator && transientReadError(creatorError, creatorStatus)) return dataUnavailableResponse()
   if (!creator) return NextResponse.json({ error: "Only creators can edit themes." }, { status: 403 })
   const creatorId = (creator as { id: string }).id
-  const { data: install } = await supabase.from("store_theme_installs").select("id").eq("id", installId).eq("creator_id", creatorId).maybeSingle()
+  const { data: install, error: installError, status: installStatus } = await supabase.from("store_theme_installs").select("id").eq("id", installId).eq("creator_id", creatorId).maybeSingle()
+  if (!install && transientReadError(installError, installStatus)) return dataUnavailableResponse()
   if (!install) return NextResponse.json({ error: "Theme not found." }, { status: 404 })
 
   const parsed = BodySchema.safeParse(cleanAgentBody(await request.json().catch(() => null)))

@@ -51,6 +51,7 @@ export const DESIGN_PATTERNS: DesignPattern[] = [
     label: "Immersive hero",
     purpose: "The first screen is the experience: a full bleed photo or video with the name and one action laid over it.",
     builtIn: [
+      { type: "hero_media", how: "a full bleed photograph or looping video, overlay shape and strength, content position bottom left or centre, height full screen; a short heading and one button" },
       { type: "hero_centered", how: "background image, wide, dark scheme or overlay, a short heading, one button" },
       { type: "cta_banner", how: "background image, full width, as a shorter opening band" },
     ],
@@ -60,7 +61,10 @@ export const DESIGN_PATTERNS: DesignPattern[] = [
     id: "hero_editorial",
     label: "Editorial hero",
     purpose: "Type and one photograph composed like a magazine spread. For brands where restraint is the message.",
-    builtIn: [{ type: "hero_split", how: "large image, small refined heading, no second button" }],
+    builtIn: [
+      { type: "hero_editorial", how: "oversized heading (Heading size 9 to 13), layout stacked or split, one photograph or none, two short details (place, year) under a hairline" },
+      { type: "hero_split", how: "large image, small refined heading, no second button" },
+    ],
     custom: "Asymmetric grid: a tall photograph across seven columns, a small heading and one line set low in the remaining columns, generous whitespace, optional caption.",
   },
   {
@@ -81,7 +85,7 @@ export const DESIGN_PATTERNS: DesignPattern[] = [
     id: "marquee",
     label: "Marquee",
     purpose: "A running line of words, dates, cities or logos that gives a page pace.",
-    builtIn: [],
+    builtIn: [{ type: "marquee", how: "three to six short items, size large or display, a separator, lines above and below; logos with the logo blocks; between two big sections, never two in a row" }],
     custom: "Blocks of type item (text), a direction select, a speed range, a gap range, large display type, items duplicated in markup with aria-hidden on the copy, @keyframes translateX(-50%), paused on hover and under reduced motion.",
   },
   {
@@ -106,6 +110,8 @@ export const DESIGN_PATTERNS: DesignPattern[] = [
     label: "Gallery",
     purpose: "Many pictures that together say what it is like.",
     builtIn: [
+      { type: "gallery_scroll", how: "six or more pictures in a row past the page edge, one shape, captions with a detail" },
+      { type: "bento_grid", how: "photo tiles of different spans mixed with one or two word tiles" },
       { type: "media_collage", how: "one large and smaller pictures around it" },
       { type: "media_gallery", how: "grid at one shape" },
     ],
@@ -116,6 +122,7 @@ export const DESIGN_PATTERNS: DesignPattern[] = [
     label: "Experience or story beats",
     purpose: "What it is like, told in three or four short beats with pictures.",
     builtIn: [
+      { type: "sticky_story", how: "one strong picture that stays while three to five short steps scroll past" },
       { type: "multirow", how: "alternating rows, each a beat with a strong picture" },
       { type: "features_image", how: "a picture with the beats beside it" },
     ],
@@ -126,6 +133,8 @@ export const DESIGN_PATTERNS: DesignPattern[] = [
     label: "Features or benefits",
     purpose: "The specific reasons, each one concrete.",
     builtIn: [
+      { type: "bento_grid", how: "tiles of mixed widths and heights: one big photo tile, an accent tile with the main promise, small word tiles" },
+      { type: "feature_tabs", how: "three to five features, each with its own picture, when each needs showing" },
       { type: "features_image", how: "with a picture, numbered markers off unless the order matters" },
       { type: "features_grid", how: "short points, as many as the content has" },
       { type: "features_cards", how: "only when each point needs a box of its own" },
@@ -143,7 +152,7 @@ export const DESIGN_PATTERNS: DesignPattern[] = [
     id: "process",
     label: "Process or steps",
     purpose: "How it works, in order.",
-    builtIn: [{ type: "features_grid", how: "marker number, three or four steps" }, { type: "about_timeline", how: "steps as moments" }],
+    builtIn: [{ type: "sticky_story", how: "a step a block, the picture staying beside them" }, { type: "features_grid", how: "marker number, three or four steps" }, { type: "about_timeline", how: "steps as moments" }],
     custom: "Steps connected by a line that draws itself as you scroll.",
   },
   {
@@ -164,7 +173,7 @@ export const DESIGN_PATTERNS: DesignPattern[] = [
     id: "team",
     label: "Team, hosts or lineup",
     purpose: "The people: DJs, teachers, hosts, founders.",
-    builtIn: [{ type: "about_founder", how: "one person" }, { type: "features_cards", how: "a card per person with photo marker" }],
+    builtIn: [{ type: "team_grid", how: "a block per real person, their portrait, name and role; leave the portrait empty for them to upload" }, { type: "about_founder", how: "one person" }],
     custom: "Portrait cards in a grid with name, role and a hover that reveals a line or social link; for a lineup, names in huge type with photos on hover.",
   },
   {
@@ -178,28 +187,28 @@ export const DESIGN_PATTERNS: DesignPattern[] = [
     id: "testimonials",
     label: "Testimonials",
     purpose: "What real customers said. Only real ones, or empty slots for the creator to fill.",
-    builtIn: [{ type: "proof_testimonials", how: "named people, specific results" }, { type: "proof_featured", how: "one quote given space" }],
+    builtIn: [{ type: "testimonial_wall", how: "a masonry wall, first one featured; only real reviews the creator gave, otherwise hidden with the preset's instructions for them to replace" }, { type: "proof_testimonials", how: "the store's real reviews, names as given; none: hidden with placeholders" }, { type: "proof_featured", how: "one quote given space" }],
     custom: "A horizontal scroll of quotes with scroll-snap, or one large quote that cycles.",
   },
   {
     id: "proof_logos",
     label: "Logo cloud or press",
     purpose: "Where they have been featured, quiet and in one row.",
-    builtIn: [{ type: "proof_logos", how: "real names only" }],
+    builtIn: [{ type: "logo_cloud", how: "ruled grid or open row, grey until hovered; real names only" }, { type: "proof_logos", how: "real names only" }],
     custom: "A marquee of logos.",
   },
   {
     id: "stats",
     label: "Stats",
     purpose: "Real numbers that matter: members, years, events.",
-    builtIn: [{ type: "features_grid", how: "marker none, the number as the title" }],
+    builtIn: [{ type: "stats_band", how: "three or four true numbers, beside the heading or as a dark band; never an invented figure" }, { type: "features_grid", how: "marker none, the number as the title" }],
     custom: "Big numerals that count up once when they enter the view, from number settings; never invented numbers.",
   },
   {
     id: "comparison",
     label: "Comparison",
     purpose: "This against the alternative.",
-    builtIn: [{ type: "text_columns", how: "two columns, the old way and this" }, { type: "pricing_table", how: "options side by side" }],
+    builtIn: [{ type: "comparison_table", how: "a column block per plan, a row block per feature with values typed yes, no or a number" }, { type: "text_columns", how: "two columns, the old way and this" }, { type: "pricing_table", how: "options side by side" }],
     custom: "A table with rows as blocks and a highlighted column.",
   },
   {
@@ -283,15 +292,29 @@ export const DESIGN_PATTERNS: DesignPattern[] = [
     id: "newsletter",
     label: "Newsletter",
     purpose: "What you get by signing up and how often.",
-    builtIn: [{ type: "promo_newsletter", how: "a specific promise, not 'stay updated'" }],
+    builtIn: [{ type: "newsletter_split", how: "why to join with three points beside the form, optional photograph" }, { type: "promo_newsletter", how: "a specific promise, not 'stay updated'" }],
     custom: "Rarely needed.",
   },
   {
     id: "cta_final",
     label: "Final call to action",
     purpose: "The page's one action again, at the end.",
-    builtIn: [{ type: "cta_banner", how: "background image or the darkest scheme" }, { type: "cta_image", how: "with a picture" }, { type: "cta_simple", how: "short" }],
+    builtIn: [{ type: "cta_banner", how: "background image or the darkest scheme" }, { type: "cta_split", how: "the ask beside a photograph, in a tinted panel" }, { type: "cta_image", how: "with a picture" }, { type: "cta_simple", how: "short" }],
     custom: "A full width band with a huge heading and the button.",
+  },
+  {
+    id: "free_layout",
+    label: "Free layout",
+    purpose: "A layout no other section has, built from theme blocks: headings, text, buttons, pictures, video and groups of them.",
+    builtIn: [{ type: "blocks_section", how: "groups in a row with Column widths (1 : 2, 2 : 1) and a group with a background image and overlay for a framed panel" }],
+    custom: "Only when blocks cannot express it.",
+  },
+  {
+    id: "form",
+    label: "Form or quiz",
+    purpose: "A form the creator already made in Storelib (Audience, Forms), on the page: an enquiry, a booking, an application, a quiz.",
+    builtIn: [{ type: "native_form", how: "the published form's link, shown as a card or a button that opens it" }],
+    custom: "Never: forms are made in Audience, Forms, so their answers arrive in Leads.",
   },
   {
     id: "footer",

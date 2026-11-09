@@ -502,6 +502,31 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
     rules.push(`${root} [data-section-box]:not([data-chrome]) ~ [data-section-box]:not([data-chrome]){margin-top:var(--theme-section-gap);}`)
   }
 
+  /**
+   * PHONE SPACING. Layout › Phone spacing multiplies every section's padding
+   * again on a section 767px wide or less, the width the type takes its
+   * phone sizes at (typography.ts TYPE_BREAKPOINTS), so a page can breathe
+   * on a wide screen and still not scroll forever on a phone. Written only
+   * when it is not 1, so a site that never set it is drawn as it was.
+   */
+  const phoneSpacing = num(t.spacing_scale_mobile, 1)
+  if (phoneSpacing > 0 && phoneSpacing !== 1) {
+    rules.push(`@container (max-width:767px){${root} [data-section]{--theme-spacing-scale:${Math.round(num(t.spacing_scale, 1) * phoneSpacing * 1000) / 1000};}}`)
+  }
+
+  /**
+   * SHOWN ON DESKTOP ONLY, OR ON PHONES ONLY: a section's Show on choice
+   * (SectionRenderer, `data-show-on` on the box every section is drawn in,
+   * which is the query container), so it answers to the width the section
+   * actually has, in the editor's phone preview as on a phone. In the
+   * builder the section stays faint and clickable instead of vanishing
+   * (`data-show-on-editor`), so it can still be chosen and changed.
+   */
+  rules.push(
+    `@container (max-width:767px){${root} [data-show-on="desktop"]>*{display:none !important;}${root} [data-show-on-editor="desktop"]>*{opacity:.35;}}`,
+    `@container (min-width:768px){${root} [data-show-on="mobile"]>*{display:none !important;}${root} [data-show-on-editor="mobile"]>*{opacity:.35;}}`,
+  )
+
   // ── Buttons ─────────────────────────────────────────────────────────────
   const buttonRules = [
     "border-radius:var(--theme-button-radius)",

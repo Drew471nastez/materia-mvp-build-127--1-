@@ -998,8 +998,10 @@ section("It knows what the store sells")
   check(
     "the catalogue is read as the user, so RLS decides what the model sees",
     (() => {
-      const at = route.indexOf("readStore: async () => {")
-      const body = route.slice(at, route.indexOf("},\n        })", at))
+      /* The read itself lives in lib/website-builder/agent/store-facts-server.ts now (shared with Start with AI): the route hands it the creator's own client. */
+      const handed = /readStore: \(\) => readStoreFacts\(supabase, /.test(route)
+      const body = readFileSync(join(root, "lib/website-builder/agent/store-facts-server.ts"), "utf8")
+      const at = handed ? 1 : -1
       /**
        * The service role would read every creator's catalogue and rely on this
        * route's filter being correct — one mistake and somebody else's

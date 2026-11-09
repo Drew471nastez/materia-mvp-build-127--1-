@@ -83,7 +83,7 @@ check("an open library still draws what it shows at once", /if \(!compatInstallI
 
 console.log("\nThe page a run writes on")
 check("applyAiOp reads the page as the run has left it", /const target = sectionsRef\.current\.find\(s => s\.id === op\.id\)/.test(editor))
-check("and is not made again on every change of the page", /setSections\(previous => applyOp\(\{ sections: previous, settings: \{\} \}, op, librarySchemas\)\.sections\)\s*\}, \[librarySchemas\]\)/.test(editor))
+check("and is not made again on every change of the page", /setSections\(previous => \(opIsNew\(previous, op\) \? applyOp\(\{ sections: previous, settings: \{\} \}, op, librarySchemas\)\.sections : previous\)\)\s*\}, \[librarySchemas\]\)/.test(editor))
 
 console.log("\nThe probe")
 const probe = existsSync("scripts/check-wb-live-r15.mjs") ? readCode("scripts/check-wb-live-r15.mjs") : ""

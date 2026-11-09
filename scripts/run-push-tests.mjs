@@ -26,6 +26,8 @@ execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inhe
 const SUITES = [
   /* Create a website on /app/website-builder: Start with AI, Start from blank and Browse themes; POST /api/website-builder/themes/create (both modes, no one-copy check, the library limit, a rollback, a blank home the agent reads as new), the description handed to the editor's Ask panel once (sessionStorage, ten minutes, start=ai taken off the address), and no link to /app/sites. */
   "tests/website-start.test.ts",
+  /* Start with AI as a server job (lib/website-builder/ai-site): one strong plan checked against the manifest and what is real, the build through plan-apply and the editor's applier, every section written in parallel on a shared cached prefix and checked with checkSettings (one repair, nothing invented), Openverse photos copied under the SSRF guard and credited with no grey boxes, the check, steps that resume, one job per press, the fallback without SQL part 380, the operations the editor replays, the progress view, and calls, tokens and cost measured with fakes. */
+  "tests/ai-site-generator.test.ts",
   /* Round AL4: the OnePage cover edge to edge at 5:2 and fetched first, Your files for the cover, the pattern kept out from behind the header, the gradient drifting on one composited layer (still for reduced motion, paused in a hidden tab), the avatar viewer, a Classic theme keeping a Hero, the Design tab's sticky way back; scripts/check-onepage-header-al4.mjs measures them. */
   "tests/onepage-header-al4.test.ts",
   /* Round AK6: a founder hands a business they built to a client's own login: a single use, expiring claim link kept only as its SHA-256, wrong email, self claim and the three business limit refused, every table with a creator_id or user_id decided, every route asks who is signing in, sign up and an existing account through the real route handlers, a failed transfer changes nothing (SQL 20271131, run on the harness by scripts/check-business-handoff-sql.sh). */
@@ -278,6 +280,10 @@ const SUITES = [
   "tests/emails-page.test.ts",
   /* Round 51: Emails in three tabs (Campaigns | Automations | Settings), older tabs redirected to Contacts, Campaigns as one list, people from Contacts limited to marketing eligible ones, Membership and Course onboarding entered once per event, templates only for wired triggers, SQL part 379. */
   "tests/emails-r51.test.ts",
+  /* Wave 5: Contacts in Storelib's list look (the list bar, one ⋯ for import and export, one card with views, search, sort, chips and a footer; a profile on one Details card), every filter, bulk action and address kept. */
+  "tests/contacts-simple-w5.test.ts",
+  /* Wave 5: Emails on a phone as it was before round 51: one row of views, Automation and New email on every view, no second row; a computer keeps the three tabs. */
+  "tests/emails-phone-w5.test.ts",
   "tests/orders-view.test.ts",
   /* The Orders page a page at a time (lib/orders/paged.ts): the same orders, numbers, counts and figures as when it read every row. */
   "tests/orders-paging.test.ts",
@@ -558,6 +564,7 @@ const SUITES = [
   "tests/editor-fixes.test.ts",
   "tests/builder-round-3.test.ts",
   "tests/contrast.test.ts",
+  "tests/design-sections-w5.test.ts",
   "tests/responsive-settings.test.ts",
   "tests/storelib-security.test.ts",
   "tests/storelib-performance.test.ts",
@@ -1046,6 +1053,8 @@ const SUITES = [
   "tests/agent-targeting-r50.test.ts",
   /* Round 50: no "ran out of time before it changed anything": the run's own clock (lib/website-builder/agent/run-clock.ts), the smallest change first, a per call limit with one retry for a call that hung, `working` lines through a long call, no doubled output room late in a part, and a part that kept nothing pausing with a checkpoint the chat sends back with the next part. */
   "tests/agent-deadline-r50.test.ts",
+  /* Wave 5 (aifix): no thinking block replayed after an edit (drop_block + one stripped retry), a stop keeps the work, slow saves and reads retried, partial said as partial, restyle never deletes, no invented proof, every offered font weight loads, Auto model routing, build_page reviewed. */
+  "tests/aifix-w5.test.ts",
   "tests/round-bc-previews.test.ts",
   /* Round 44: Add section on a slow phone, and the Header card: what is drawn closed stays closed, a card is a still picture, the header drawn ahead, cards kept across groups, drawing between presses (scripts/check-add-section-perf.mjs). */
   "tests/add-section-r44.test.ts",

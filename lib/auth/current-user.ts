@@ -86,11 +86,16 @@ async function getUserBounded(supabase: SupabaseClient, ms: number, jwt?: string
   const timeout = new Promise<{ timedOut: true }>((resolve) => {
     timer = setTimeout(() => resolve({ timedOut: true }), ms)
   })
+  /*
+    THE LOSER OF THE RACE IS STILL WATCHED. When the ceiling wins, the request goes on until our fetch deadline
+    (lib/net/deadline.ts, 10s) aborts it, and that late rejection had no handler: production logged "DeadlineExceeded:
+    auth/v1/user took longer than 10s" as an unhandled error on the theme agent and its decide route, long after this
+    had already answered. Caught and dropped here; what the race decided stands.
+  */
+  const asked = (jwt ? supabase.auth.getUser(jwt) : supabase.auth.getUser()).then((r) => ({ ...r, timedOut: false as const }))
+  asked.catch(() => undefined)
   try {
-    return await Promise.race([
-      (jwt ? supabase.auth.getUser(jwt) : supabase.auth.getUser()).then((r) => ({ ...r, timedOut: false as const })),
-      timeout,
-    ])
+    return await Promise.race([asked, timeout])
   } catch (error) {
     return { data: { user: null }, error, timedOut: false as const }
   } finally {
@@ -104,8 +109,11 @@ async function getSessionBounded(supabase: SupabaseClient, ms: number) {
   const timeout = new Promise<{ timedOut: true }>((resolve) => {
     timer = setTimeout(() => resolve({ timedOut: true }), ms)
   })
+  const asked = supabase.auth.getSession().then((r) => ({ ...r, timedOut: false as const }))
+  /* The same: a renewal that loses the race and is aborted later is not an unhandled error. */
+  asked.catch(() => undefined)
   try {
-    return await Promise.race([supabase.auth.getSession().then((r) => ({ ...r, timedOut: false as const })), timeout])
+    return await Promise.race([asked, timeout])
   } catch (error) {
     return { data: { session: null }, error, timedOut: false as const }
   } finally {

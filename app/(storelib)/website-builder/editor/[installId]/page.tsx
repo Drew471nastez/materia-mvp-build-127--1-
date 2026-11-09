@@ -162,7 +162,10 @@ import {
   type WritingAnchor,
 } from "@/lib/website-builder/ai-placement"
 import { WritingSection } from "@/components/website-builder/editor/writing-section"
-import { readStartParam, startMessage, takeStartPrompt } from "@/lib/website-builder/start-handoff"
+import { readJobParam, readStartParam, recallJob, rememberJob, startMessage, takeStartPrompt } from "@/lib/website-builder/start-handoff"
+import { useSiteGeneration, type GenerationSource } from "@/lib/website-builder/ai-site/use-generation"
+import { opIsNew } from "@/lib/website-builder/ai-site/replay"
+import { GenerationPanel, generationPhase } from "@/components/website-builder/ai-generation/generation-panel"
 import { EditedBuiltInNote, isEditedBuiltIn } from "@/components/website-builder/editor/edited-built-in-note"
 import { SignupDestinationNote } from "@/components/website-builder/editor/signup-destination-note"
 import { DEFAULT_THEME_SOURCES } from "../../../../../themes/default/sources.generated"
@@ -3485,19 +3488,41 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const [startAsk, setStartAsk] = useState<string | null>(null)
   const [startOpen, setStartOpen] = useState(false)
+  /*
+    THE BUILD ITSELF RUNS ON THE SERVER NOW (lib/website-builder/ai-site). The Website page started a job and sent its id
+    as `job=`; the editor follows it (useSiteGeneration below) instead of asking the chat agent. Without a job (SQL part
+    380 not run yet) the description still comes through this tab's storage and the editor builds the site in its own
+    request ("inline"). A reload while the job runs finds it again in this tab's storage.
+  */
+  const [genSource, setGenSource] = useState<GenerationSource | null>(null)
   useEffect(() => {
-    const read = readStartParam(window.location.href)
-    if (read.cleaned === null) return
-    window.history.replaceState(window.history.state, "", read.cleaned)
-    if (!read.wanted) return
     let stored: Storage | null = null
     try {
       stored = window.sessionStorage
     } catch {
-      /* storage refused: the panel opens empty */
+      /* storage refused: the progress view shows until a reload */
     }
+    const job = readJobParam(window.location.href)
+    if (job.cleaned !== null) window.history.replaceState(window.history.state, "", job.cleaned)
+    const read = readStartParam(window.location.href)
+    if (read.cleaned !== null) window.history.replaceState(window.history.state, "", read.cleaned)
+    if (job.jobId) {
+      rememberJob(stored, installId, job.jobId)
+      takeStartPrompt(stored, installId)
+      setGenSource({ kind: "job", jobId: job.jobId })
+      return
+    }
+    if (read.cleaned === null) {
+      const running = recallJob(stored, installId)
+      if (running) setGenSource({ kind: "job", jobId: running })
+      return
+    }
+    if (!read.wanted) return
     const prompt = takeStartPrompt(stored, installId)
-    if (prompt) setStartAsk(startMessage(prompt))
+    if (prompt) {
+      setGenSource({ kind: "inline", prompt })
+      return
+    }
     setStartOpen(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -3640,7 +3665,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * wrote found no schema and did nothing, while the chat reported it
      * added: the assistant could see their sections and not place one.
      */
-    setSections(previous => applyOp({ sections: previous, settings: {} }, op, librarySchemas).sections)
+    /* An operation the page already has (Start with AI replaying a job onto a page that loaded part of it) is not applied twice (lib/website-builder/ai-site/replay.ts). */
+    setSections(previous => (opIsNew(previous, op) ? applyOp({ sections: previous, settings: {} }, op, librarySchemas).sections : previous))
   }, [librarySchemas])
   /*
     A RUN'S OPERATIONS, TAKEN IN A FEW AT A TIME (round 14,
@@ -11033,6 +11059,49 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     },
     [revealSection, undoRun, aiOps],
   )
+  /*
+    START WITH AI: the server's build, replayed onto this canvas as it lands (lib/website-builder/ai-site/use-generation.ts).
+    The same path as a chat run: one undo step (startAiRun before the first operation, aiRunFinished at the end), each
+    operation through the burst queue and applyAiOp, so it is unsaved, saved by autosave and editable at once; pages it
+    made appear in the page switcher.
+  */
+  const [genDismissed, setGenDismissed] = useState(false)
+  const generation = useSiteGeneration({
+    installId,
+    source: teamMember ? null : genSource,
+    ready: !loading && !loadFailed,
+    page: currentPage,
+    onStart: () => startAiRun(),
+    onOp: queueAiOp,
+    onFinish: () => aiRunFinished([]),
+    onPages: (pages) => pages.forEach((p) => p.key !== "home" && aiPageWritten(p.key, p.title)),
+  })
+  const genPhase = generation.view ? generationPhase(generation.view) : null
+  /* Finished: this tab stops remembering the job; the panel stays until it is closed. */
+  useEffect(() => {
+    if (genPhase !== "complete" && genPhase !== "partial") return
+    try {
+      rememberJob(window.sessionStorage, installId, null)
+    } catch {
+      /* nothing kept, nothing to forget */
+    }
+  }, [genPhase, installId])
+  const closeGeneration = useCallback(() => {
+    setGenDismissed(true)
+    try {
+      rememberJob(window.sessionStorage, installId, null)
+    } catch {
+      /* nothing kept */
+    }
+  }, [installId])
+  /* Ask AI to fix: the chat agent, told exactly what the build could not do. */
+  const askAiToFix = useCallback(() => {
+    const gaps = [...(generation.view?.notes ?? []), ...(generation.view?.findings ?? [])].slice(0, 6)
+    setStartAsk(gaps.length ? `Finish this website. The AI build could not do these:\n${gaps.map((g) => `- ${g}`).join("\n")}` : "Finish this website: complete anything that is missing or unfinished.")
+    setStartOpen(true)
+    if (genPhase === "complete" || genPhase === "partial") closeGeneration()
+  }, [generation.view, genPhase, closeGeneration])
+
   useEffect(() => {
     if (aiSettledIds.length === 0) return
     const done = setTimeout(() => setAiSettledIds([]), SETTLE_MS + 100)
@@ -11958,6 +12027,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           )
         )}
 
+        {/* START WITH AI: the progress view over the canvas while the server builds the site. */}
+        {generation.view && !genDismissed && !teamMember && (
+          <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+64px)] z-[70] flex justify-center px-4" data-generation-dock="">
+            <GenerationPanel
+              view={generation.view}
+              mode={genSource?.kind === "inline" ? "inline" : "job"}
+              continuing={generation.continuing}
+              onContinue={generation.resume}
+              onAskFix={askAiToFix}
+              onClose={closeGeneration}
+            />
+          </div>
+        )}
         {/* ── AI panel ──
             On a computer it is no longer a column beside the sidebar: it is
             Ask Storelib's pill, drawn over the bottom of the canvas inside

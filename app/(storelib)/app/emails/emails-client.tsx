@@ -63,7 +63,7 @@ import type { PlatformsData } from "@/components/email/connected-platforms"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { EmailDetail, type EmailAction, type EmailSeed } from "./email-detail"
 import { TABS, campaignKey, loadReport, loadTab, mergeCampaigns, reportKey, tabKey, viewOf, type AllData, type SendingData, type SentData } from "./emails-data"
-import { isPageTab, isSection, isShow, type CampaignShow, type EmailsPageTab, type SettingsSection } from "./emails-route"
+import { isPageTab, isSection, isShow, placeOfView, type CampaignShow, type EmailsPageTab, type SettingsSection } from "./emails-route"
 import { noteListAddress } from "./list-return"
 import { openLayer } from "./layer-nav"
 import { tt } from "@/lib/i18n/text"
@@ -240,6 +240,30 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
       p.set("tab", "settings")
       p.set("section", next)
       if (next !== "customer") {
+        p.delete("kind")
+        p.delete("community")
+      }
+    }, "replace")
+  }
+  /*
+    A PHONE'S VIEW, CHOSEN IN ONE STEP (round w5). A phone has one row of
+    views (emails-home PHONE_VIEWS): the tab and its filter or section are
+    set together and the address written once, the way setPageTab,
+    setShow and setSection each write it.
+  */
+  const setView = (next: EmailsTab) => {
+    const at = placeOfView(next)
+    if (at.tab === pageTab && (at.show ?? show) === show && (at.section ?? section) === section) return
+    setPageTabState(at.tab)
+    if (at.show) setShowState(at.show)
+    if (at.section) setSectionState(at.section)
+    writeAddress((p) => {
+      p.set("tab", at.tab)
+      if (at.show && at.show !== "all") p.set("show", at.show)
+      else p.delete("show")
+      if (at.section) p.set("section", at.section)
+      else p.delete("section")
+      if (at.section !== "customer") {
         p.delete("kind")
         p.delete("community")
       }
@@ -590,6 +614,8 @@ export function EmailsClient({ initialTab, initialShow = "all", initialSection =
           onShow={setShow}
           section={section}
           onSection={setSection}
+          onView={setView}
+          onViewIntent={(v) => prefetch(keyFor(v), loaderFor(v), 30_000)}
           tab={shown}
           chosenTab={tab}
           skeletonAtOnce={heldOut === shown && current.loading}

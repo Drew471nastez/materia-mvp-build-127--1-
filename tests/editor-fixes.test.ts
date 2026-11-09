@@ -89,7 +89,7 @@ function main() {
     check("the allow-list is the panel's own options", OFFERED_FAMILIES.has("Playfair Display") && OFFERED_FAMILIES.has("Inter") && OFFERED_FAMILIES.size >= 15)
     check("nothing chosen, nothing requested", fontStylesheetHref({}) === null && fontStylesheetHref(null) === null)
     const href = fontStylesheetHref({ font_heading: "Playfair Display", font_body: "DM Sans", font_accent: "" })
-    check("the chosen families, and only those", href === "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap", href ?? "null")
+    check("the chosen families, and only those", href === "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400..900&family=DM+Sans:wght@300..900&display=swap" /* changed on purpose (w5 aifix): every weight the panel offers, per family */, href ?? "null")
     check("the same family twice is requested once", JSON.stringify(chosenFamilies({ font_heading: "Lora", font_body: "Inter", font_accent: "Lora" })) === JSON.stringify(["Lora", "Inter"]))
     /**
      * A URL built from a free string is a URL somebody else gets to write.

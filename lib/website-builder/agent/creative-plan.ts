@@ -97,7 +97,7 @@ Rules for the plan:
 - Fonts must come from this list: ${[...OFFERED_FAMILIES].join(", ")}.
 - Colours are hex values. Text on its background at 4.5:1 or better.
 - Vary the layouts down the page. Never two sections in a row with the same shape.
-- Real content only: names, prices and products from the store; testimonials and numbers only if they exist, otherwise leave the slot for the creator.
+- Real content only: names, prices and products from the store; testimonials only from the store's real reviews and numbers only if they exist. Never invent a customer, a quote, a rating, a statistic, a client logo or a price. With none to use, leave the proof section out of the plan (or plan it as one the creator fills, said in its "why").
 
 ${DESIGN_DEFAULTS}
 
@@ -193,8 +193,25 @@ function archetypeIds(): string {
 
 /* ── reading and checking it ──────────────────────────────────────────── */
 
-const str = (v: unknown, max = 400): string => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "")
+/** A model's string, its spaces folded and cut to `max`; anything else "". Shared with the whole site planner (./site-plan.ts). */
+export const str = (v: unknown, max = 400): string => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "")
 const HEX = /^#[0-9a-f]{6}$|^#[0-9a-f]{3}$/i
+
+/** The palette's colours a plan named: hex values only, keys cut short. Shared with ./site-plan.ts. */
+export function readPlanColors(raw: unknown): Record<string, string> {
+  const colors: Record<string, string> = {}
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
+  for (const [k, v] of Object.entries(r)) if (typeof v === "string" && HEX.test(v.trim())) colors[k.slice(0, 32)] = v.trim().toLowerCase()
+  return colors
+}
+
+/** A font the theme can load, or the fallback with the correction said. Shared with ./site-plan.ts. */
+export function readPlanFont(v: unknown, fallback: string, which: string, corrections: string[]): string {
+  const f = str(v, 60)
+  if (OFFERED_FAMILIES.has(f)) return f
+  if (f) corrections.push(`${which} font "${f}" is not one the theme can load, so ${fallback} is used`)
+  return fallback
+}
 
 /** The first JSON object in a reply, fenced or not. */
 export function extractJson(text: string): unknown {
@@ -230,17 +247,10 @@ export function readCreativePlan(
   const archetype = archetypeById(str(r.archetype, 40)) ?? archetypesFor(ctx.prompt, "", "")[0]
   const brandRaw = (r.brand && typeof r.brand === "object" ? r.brand : {}) as Record<string, unknown>
   const paletteRaw = (r.palette && typeof r.palette === "object" ? r.palette : {}) as Record<string, unknown>
-  const colorsRaw = (paletteRaw.colors && typeof paletteRaw.colors === "object" ? paletteRaw.colors : {}) as Record<string, unknown>
-  const colors: Record<string, string> = {}
-  for (const [k, v] of Object.entries(colorsRaw)) if (typeof v === "string" && HEX.test(v.trim())) colors[k.slice(0, 32)] = v.trim().toLowerCase()
+  const colors = readPlanColors(paletteRaw.colors)
 
   const typeRaw = (r.typography && typeof r.typography === "object" ? r.typography : {}) as Record<string, unknown>
-  const font = (v: unknown, fallback: string, which: string) => {
-    const f = str(v, 60)
-    if (OFFERED_FAMILIES.has(f)) return f
-    if (f) corrections.push(`${which} font "${f}" is not one the theme can load, so ${fallback} is used`)
-    return fallback
-  }
+  const font = (v: unknown, fallback: string, which: string) => readPlanFont(v, fallback, which, corrections)
   const typography = {
     heading: font(typeRaw.heading, archetype?.typography.heading ?? "Inter", "The heading"),
     body: font(typeRaw.body, archetype?.typography.body ?? "Inter", "The body"),

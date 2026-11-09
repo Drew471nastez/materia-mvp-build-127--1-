@@ -285,7 +285,8 @@ section("Which model answers")
     .join("\n")
   check(
     "thinking is adaptive, which is the only on-mode these models have",
-    /thinking: \{ type: "adaptive" as const \}/.test(code) && !/budget_tokens/.test(code),
+    /* Changed on purpose (w5 aifix): also sent with block_binding drop_block, under its beta header. */
+    /\{ type: "adaptive" as const \}/.test(code) && /block_binding: \{ prefix_mismatch_behavior: "drop_block" as const \}/.test(code) && !/budget_tokens/.test(code),
     code.split("\n").filter((l) => /budget_tokens/.test(l)).join(" | "),
   )
   check(
@@ -309,7 +310,8 @@ section("Which model answers")
     "the theme editor resolves the creator's choice instead of hard-coding a vendor",
     /* On the creator's own AI when they have one (tests/own-ai.test.ts), their switch honoured either way. */
     /* `wantsTier` is body.tier, lifted to "strong" when the ask is plainly a build (tests/theme-agent.test.ts). */
-    /resolveForCreator\(\(creator as \{ id: string \}\)\.id, \{ requested: body\.provider, tier: wantsTier, model: body.model \}\)/.test(route) &&
+    /* Changed on purpose (w5 aifix): with Auto, the model is chosen per request when the creator picked none (ask-engines autoModel); a picked model is sent as is. */
+    /resolveForCreator\(\(creator as \{ id: string \}\)\.id, \{ requested: body\.provider, tier: autoChosen === AUTO_STRONG_MODEL \? "strong" : wantsTier, model: body\.model \?\? autoChosen \}\)/.test(route) &&
       !/provider: openAIProvider/.test(route),
   )
   /* Storelib's key for an offered provider, or the creator's own OpenAI key: a Claude key alone answers nothing now. */
@@ -366,7 +368,7 @@ section("The switch, where somebody can reach it")
   const chat = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
 
   /* The list itself is lib/website-builder/ask-engines.ts, tested in tests/ask-engines.test.ts. */
-  check("the chat reads one model catalog, the fixed list, with no fetch", /from "@\/lib\/website-builder\/ask-engines"/.test(chat) && /const engines = ENGINES/.test(chat) && !/\/api\/ai-models/.test(chat))
+  check("the chat reads one model catalog, the fixed list, with no fetch", /from "@\/lib\/website-builder\/ask-engines"/.test(chat) && /const engines = PICKER_ENGINES/.test(chat) /* changed on purpose (w5 aifix): Auto, then the four */ && !/\/api\/ai-models/.test(chat))
   check(
     "the chat initializes its configured default",
     /React\.useState<EngineId>\(DEFAULT_ENGINE\)/.test(chat),

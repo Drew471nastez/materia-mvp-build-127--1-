@@ -34,6 +34,12 @@ function sectionAnimationAttr(v: unknown): string | undefined {
   return typeof v === "string" && v !== "theme" && (SECTION_ANIMATIONS as readonly string[]).includes(v) ? v : undefined
 }
 
+/** A section's Show on choice as the box's attribute: nothing for "both", which is every section until somebody picks. */
+export function showOnAttr(v: unknown, inEditor: boolean): Record<string, string> {
+  if (v !== "desktop" && v !== "mobile") return {}
+  return inEditor ? { "data-show-on-editor": v } : { "data-show-on": v }
+}
+
 /**
  * ============================================================
  *  WHY EVERY SECTION IS A CONTAINER
@@ -175,6 +181,8 @@ export function renderSection(props: SectionProps) {
       data-anchor-alias={ownAnchor(props.section) || undefined}
       /* The section's own entrance animation, when it chose one over the theme's. */
       data-animation={sectionAnimationAttr(entranceSetting(props.section))}
+      /* Show on: desktop only or phones only (theme-css.ts themeStylesheet). Faint in the builder rather than gone, so it can still be picked. */
+      {...showOnAttr(props.section.settings?.show_on, props.isEditing === true || props.insideEditor === true)}
       {...tokens}
     >
       {guard(<Component {...props} />)}
