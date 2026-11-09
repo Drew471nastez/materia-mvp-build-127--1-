@@ -392,7 +392,8 @@ async function main() {
       ],
     },
     { calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }], ["set_page_sections", { page: "home", sections: [{ type: "ai_coach_hero" }, { type: "header" }] }]] },
-    { calls: [["set_page_sections", { page: "home", sections: [{ type: "ai_coach_hero" }] }]] },
+    /* The hero's button defaults to /programs, a page this one-page site does not have: a CTA to nowhere blocks finish (round M), so it is pointed at the shop. */
+    { calls: [["set_page_sections", { page: "home", sections: [{ type: "ai_coach_hero", settings: { cta_url: "/products" } }] }]] },
     { calls: [["finish", { summary: "Hero only." }]] },
   ]
   const jMade = await j.call("POST /api/website-builder/themes/create", { as: jSeller.person, body: { mode: "ai", prompt: "A hero.", key: "1b7c1e2a-0000-4000-8000-000000000150", options: { generation: "blank" } } })

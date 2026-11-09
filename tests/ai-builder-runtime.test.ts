@@ -365,6 +365,52 @@ const x = ;
   check("an unknown product and an empty add to cart are errors", bad1.issues.filter((i) => i.code === "binding.unbound" && i.severity === "error").length >= 3, bad1.issues.filter((i) => i.code === "binding.unbound"))
   check("another creator's form in a mark is an error", bad1.issues.some((i) => i.code === "binding.unbound" && i.message.includes(FORM_THEIRS)))
   check("the script error names its line", bad1.issues.some((i) => i.code === "script.syntax" && /line 1 of the script\): Unexpected/.test(i.message)), bad1.issues.filter((i) => i.code === "script.syntax"))
+
+  /* Round M: links and buttons with a job block finish; decorative ones warn; real anchors pass. */
+  const sec = (type: string, template: string, extra = "") => `<template>\n${template}\n</template>\n${extra}<schema>\n{ "type": "${type}", "name": "${type}", "settings": [{ "type": "text", "id": "h", "label": "H", "default": "Hi" }] }\n</schema>\n`
+  const LINKS = sec("ai_links", `<section class="l" id="classes">
+  <h1>{{ settings.h }}</h1>
+  <a class="hero__cta" href="#">Book a class</a>
+  <a href="">Shop the program</a>
+  <a class="btn" href="{{ settings.pay }}">Pay</a>
+  <a class="btn-primary" href="#nowhere-here">See plans</a>
+  <a class="button">Join</a>
+  <a class="btn" href="/no-such-page">Start</a>
+  <p>Our story is <a href="#">here</a> and <a href="#gone">there</a> and <a href="/old-page">old</a>.</p>
+  <a class="btn" href="#classes">Our classes</a>
+  <a class="btn" href="#section-l2">Jump</a>
+  <a href="#" class="btn" data-storelib-cart>Bag</a>
+  <button class="btn">Book now</button>
+  <button type="button" data-storelib-menu aria-expanded="false">Menu</button>
+  <form><button>Send</button></form>
+</section>`).replace(`"default": "Hi" }]`, `"default": "Hi" }, { "type": "text", "id": "pay", "label": "Pay", "default": "javascript:void(0)" }]`)
+  const NAV = sec("ai_nav", `<header><nav><a href="#">About</a><a href="/about">About us</a></nav><a href="#">Logo</a></header>`)
+  const MISBOUND = sec("ai_misbound", `<section><h2>{{ settings.h }}</h2>{% for block in settings.products %}<article><h3>{{ product.title }}</h3><p class="card__price">{{ product.price }}</p><button type="button" data-storelib-add-to-cart="{{ product.id }}" data-title="{{ product.title }}">Add</button></article>{% endfor %}</section>`).replace(`"settings": [{ "type": "text", "id": "h", "label": "H", "default": "Hi" }]`, `"settings": [{ "type": "text", "id": "h", "label": "H", "default": "Hi" }, { "type": "product_list", "id": "products", "label": "Products" }]`)
+  const links = await renderCheck({
+    page: "about",
+    sections: [{ id: "l1", type: "ai_links", settings: {} }, { id: "l2", type: "ai_nav", settings: {}, group: "header" }, { id: "l3", type: "ai_misbound", settings: { products: [P1, P2] } }] as unknown as SectionInstance[],
+    sources: { "sections/ai_links.storelib": LINKS, "sections/ai_nav.storelib": NAV, "sections/ai_misbound.storelib": MISBOUND },
+    theme: THEME,
+    template: "page.about",
+    products: PRODUCTS,
+    data: storefrontData({ dynamic: { shop: {}, creator: {} } as never, catalog: PRODUCTS, forms }),
+    capabilities: caps,
+  })
+  const lerr = (sid: string, code: string, word: string) => links.issues.some((i) => i.sectionId === sid && i.code === code && i.severity === "error" && i.message.includes(word))
+  const lwarn = (sid: string, code: string, word: string) => links.issues.some((i) => i.sectionId === sid && i.code === code && i.severity === "warning" && i.message.includes(word))
+  check("a page with dead calls to action fails the check (blocks finish)", links.ok === false)
+  check("a CTA to #, a CTA with an empty href and a CTA with no href are errors", lerr("l1", "render.placeholder", "Book a class") && lerr("l1", "render.placeholder", "Shop the program") && lerr("l1", "render.placeholder", "Join"), links.issues.filter((i) => i.sectionId === "l1"))
+  check("a javascript: address never reaches the page (the runtime draws it as #) and that CTA is refused; linkProblem calls it a script address", lerr("l1", "render.placeholder", "Pay") && linkProblem("javascript:void(0)", null)?.code === "render.broken_link" && linkProblem(" JavaScript:alert(1)", null)?.detail === "a script address")
+  check("a CTA to a missing id or a missing page is an error", lerr("l1", "render.anchor", "#nowhere-here") && lerr("l1", "render.broken_link", "/no-such-page"))
+  check("decorative links in running text stay warnings (#, missing id, missing page)", lwarn("l1", "render.placeholder", "A link goes nowhere") && lwarn("l1", "render.anchor", "#gone") && lwarn("l1", "render.broken_link", "/old-page"), links.issues.filter((i) => i.sectionId === "l1" && i.severity === "warning"))
+  check("real in-page anchors pass (#classes on the page, #section-<id>), a # with a hook passes", !links.issues.some((i) => /#classes|#section-l2|Bag/.test(i.message)))
+  check("a button with nothing behind it is an error; a hooked button and a form's button are not", lerr("l1", "render.dead_button", "Book now") && !links.issues.some((i) => i.code === "render.dead_button" && /Menu|Send/.test(i.message)))
+  check("a menu link to # in the site header is an error, even without CTA words", lerr("l2", "render.placeholder", "A menu link") && links.issues.filter((i) => i.sectionId === "l2" && i.code === "render.placeholder").length === 1, links.issues.filter((i) => i.sectionId === "l2"))
+  check("a product list printed from the wrong fields (empty titles, prices, ids) is an error", lerr("l3", "binding.empty", "empty heading") && lerr("l3", "binding.empty", "empty price") && lerr("l3", "binding.unbound", "names no product"), links.issues.filter((i) => i.sectionId === "l3"))
+  const nocaps = await renderCheck({ page: "x", sections: [{ id: "m", type: "ai_misbound", settings: { products: [P1] } }] as unknown as SectionInstance[], sources: { "sections/ai_misbound.storelib": MISBOUND }, theme: THEME, template: "index", products: PRODUCTS, data: storefrontData({ dynamic: { shop: {}, creator: {} } as never, catalog: PRODUCTS }) })
+  check("an add to cart naming nothing is an error even with no store data to hold it to", nocaps.issues.some((i) => i.code === "binding.unbound" && i.severity === "error"), nocaps.issues)
+  check("the sound page above still passes with its real links", good.ok)
+
   check("an empty page is an error", (await renderCheck({ page: "x", sections: [], sources: {}, theme: THEME, template: "index" })).issues.some((i) => i.code === "render.empty_page"))
   check("links: built in routes, pages, products and checkout of a real product pass", [`/`, `/about`, `/products/linen-apron`, `/collections/aprons`, `/cart`, `/checkout?productId=${P1}`, `https://example.com`, `mailto:a@b.co`, `/fr/about`].every((h) => linkProblem(h, { pages: new Set(["home", "about"]), products: new Set([P1]), productSlugs: new Set(["linen-apron"]), collectionHandles: new Set(["aprons"]), communitySlugs: new Set(), forms: new Set(), extra: new Set() }) === null))
   check("the render check never runs a script (no eval, no Function, no vm)", !/\beval\(|new Function\(|node:vm|from "vm"/.test(read("lib/ai-builder/render-check.ts")) && !/\beval\(|new Function\(|node:vm/.test(read("lib/ai-builder/render-check-server.ts")))
