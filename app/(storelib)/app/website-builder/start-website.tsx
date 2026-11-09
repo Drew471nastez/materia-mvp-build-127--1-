@@ -14,6 +14,12 @@
  *     planned, written and illustrated as it lands. Closing the tab does not
  *     stop it. What it makes is an ordinary website: every section a built-in
  *     section, editable in the sidebar, nothing generated as code.
+ *     ROUND L: an example chip puts its words in the box and is sent as the
+ *     category; words the person typed are never replaced without asking
+ *     (chipAction); "Without the theme" makes the website without the
+ *     theme's header, footer and sections for the AI to make its own. The
+ *     box, the chip and the choice survive a reload of this page (this
+ *     tab's storage), and the words are sent exactly as they are.
  *   • Start from blank: the same website with only its header and footer,
  *     opened in the editor.
  *   • Browse themes: the theme page (/app/website-builder/themes), the way
@@ -36,18 +42,26 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { START_PROMPT_MAX } from "@/lib/website-builder/start-handoff"
 import type { StartMode } from "@/lib/website-builder/create-website"
+import { START_PRESETS, chipAction, presetFor, readStartDraft, saveStartDraft, type GenerationMode, type StartCategory, type StartOptions } from "@/lib/website-builder/ai-site/start-options"
 
 /** Where Browse themes goes: the theme page Add theme opened. */
 export const THEMES_PATH = "/app/website-builder/themes"
 
-/** Each example: the chip's words, and the description it puts in the box. */
-function examples(): { label: string; prompt: string }[] {
-  return [
-    { label: tt("Candle shop"), prompt: tt("An online shop for my hand-poured soy candles, with a warm and calm look, best sellers on the home page and the story of how they are made.") },
-    { label: tt("Fitness coach"), prompt: tt("A website for my personal training business with my programs, client results, prices and a way to book a free first call.") },
-    { label: tt("Photographer"), prompt: tt("A portfolio for my wedding and portrait photography with galleries, packages and prices, and a contact form.") },
-    { label: tt("Online course"), prompt: tt("A website that sells my watercolor course for beginners, with what is inside, reviews, an FAQ and a clear buy button.") },
-  ]
+/**
+ * Each example: its id (sent as the category), the chip's words, and the
+ * description it puts in the box (lib/website-builder/ai-site/start-options).
+ */
+function examples(): { id: StartCategory; label: string; prompt: string }[] {
+  return START_PRESETS.map((p) => ({ id: p.id, label: tt(p.label), prompt: tt(p.prompt) }))
+}
+
+/** The tab's storage, or nothing (private mode, a web view that refuses it). */
+function tabStorage(): Storage | null {
+  try {
+    return window.sessionStorage
+  } catch {
+    return null
+  }
 }
 
 /** A door on the right: an icon in a tile, a name, a line under it and a chevron, the whole row one target. */
@@ -86,28 +100,86 @@ export function StartWebsite({
   starting: StartMode | null
   /** Something else is being made (an import, a copy): a second waits for it. */
   blocked?: boolean
-  onStart: (mode: StartMode, prompt?: string) => void
+  onStart: (mode: StartMode, prompt?: string, options?: StartOptions) => void
   onFull: () => void
   /** Browse themes was pressed and is leaving the page. */
   onBrowse: () => void
 }) {
   const [prompt, setPrompt] = React.useState("")
+  /* The example picked, and the exact words it put in the box: the person's own words are told apart from them. */
+  const [category, setCategory] = React.useState<StartCategory | null>(null)
+  const [inserted, setInserted] = React.useState<string | null>(null)
+  const [generation, setGeneration] = React.useState<GenerationMode>("theme")
+  /* An example pressed over the person's own words: asked, never replaced on its own. */
+  const [asking, setAsking] = React.useState<{ id: StartCategory; replace: string; append: string } | null>(null)
   const field = React.useRef<HTMLTextAreaElement>(null)
   const ready = prompt.trim().length > 0
   const busy = starting !== null || blocked
   const ai = !teamMember
+
+  /* Back on this page after a reload: the box as it was. */
+  const restored = React.useRef(false)
+  React.useEffect(() => {
+    if (!ai) return
+    const d = readStartDraft(tabStorage())
+    if (d) {
+      setPrompt(d.prompt.slice(0, START_PROMPT_MAX))
+      setCategory(d.category)
+      setInserted(d.inserted)
+      setGeneration(d.generation)
+    }
+    restored.current = true
+  }, [ai])
+  React.useEffect(() => {
+    if (!ai || !restored.current) return
+    saveStartDraft(tabStorage(), { prompt, category, inserted, generation })
+  }, [ai, prompt, category, inserted, generation])
+
+  const focusEnd = () =>
+    requestAnimationFrame(() => {
+      const el = field.current
+      if (!el) return
+      el.focus({ preventScroll: true })
+      el.setSelectionRange(el.value.length, el.value.length)
+    })
+
+  const put = (id: StartCategory, text: string, presetText: string) => {
+    setPrompt(text.slice(0, START_PROMPT_MAX))
+    setCategory(id)
+    setInserted(presetText)
+    setAsking(null)
+    focusEnd()
+  }
+
+  const pressExample = (x: { id: StartCategory; prompt: string }) => {
+    /* The picked one again: let it go, and its words with it while they are still untouched. */
+    if (category === x.id) {
+      setCategory(null)
+      setAsking(null)
+      if (prompt === inserted) {
+        setPrompt("")
+        setInserted(null)
+      }
+      return
+    }
+    const act = chipAction(prompt, inserted, x.prompt)
+    if (act.kind === "ask") setAsking({ id: x.id, replace: act.replace, append: act.append })
+    else put(x.id, x.prompt, x.prompt)
+  }
+
+  const create = () => {
+    if (full) return onFull()
+    if (!ready || busy) return
+    setAsking(null)
+    onStart("ai", prompt, { generation, ...(category ? { category } : {}) })
+  }
+
   const fullNote = full ? (
     <p role="note" data-start-full="" className="flex flex-wrap items-baseline gap-x-1.5 rounded-lg bg-[#f8f9fa] px-3 py-2 text-[12.5px] text-[#4b5563]">
       <span className="font-semibold text-[#1a1a2e]">{tt("Your library is full")}</span>
       <span>{tt("Remove a website from your library to start another.")}</span>
     </p>
   ) : null
-
-  const create = () => {
-    if (full) return onFull()
-    if (!ready || busy) return
-    onStart("ai", prompt.trim())
-  }
 
   return (
     <section aria-labelledby="start-heading" className="space-y-3" data-page-block data-start-website={full ? "full" : "open"}>
@@ -153,7 +225,15 @@ export function StartWebsite({
                 rows={3}
                 disabled={full || starting === "ai"}
                 placeholder={tt("Describe your website")}
-                onChange={(e) => setPrompt(e.target.value.slice(0, START_PROMPT_MAX))}
+                onChange={(e) => {
+                  const next = e.target.value.slice(0, START_PROMPT_MAX)
+                  setPrompt(next)
+                  /* An emptied box is a fresh start: no example is picked any more. */
+                  if (!next.trim()) {
+                    setCategory(null)
+                    setInserted(null)
+                  }
+                }}
                 onKeyDown={(e) => {
                   /* Enter with Cmd or Ctrl creates; Enter alone is a new line in a description. */
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -186,25 +266,53 @@ export function StartWebsite({
             <div className="flex flex-wrap gap-2" role="group" aria-label={tt("Examples")}>
               {examples().map((x) => (
                 <button
-                  key={x.label}
+                  key={x.id}
                   type="button"
-                  data-start-example=""
+                  data-start-example={x.id}
+                  aria-pressed={category === x.id}
                   disabled={full || starting === "ai"}
-                  onClick={() => {
-                    setPrompt(x.prompt)
-                    requestAnimationFrame(() => {
-                      const el = field.current
-                      if (!el) return
-                      el.focus({ preventScroll: true })
-                      el.setSelectionRange(el.value.length, el.value.length)
-                    })
-                  }}
-                  className="inline-flex h-11 items-center rounded-full border border-[#e5e7eb] bg-white px-3.5 text-[13px] font-medium text-[#4b5563] outline-none transition-colors duration-150 pointer-fine:hover:border-[#d1d5db] pointer-fine:hover:bg-[#f8f9fa] pointer-fine:hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:cursor-not-allowed disabled:opacity-50 sm:h-8 sm:px-3 sm:text-[12.5px] [-webkit-tap-highlight-color:transparent]"
+                  onClick={() => pressExample(x)}
+                  className={cn(
+                    "inline-flex h-11 items-center rounded-full border px-3.5 text-[13px] font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:cursor-not-allowed disabled:opacity-50 sm:h-8 sm:px-3 sm:text-[12.5px] [-webkit-tap-highlight-color:transparent]",
+                    category === x.id
+                      ? "border-[#1a1a2e] bg-[#1a1a2e] text-white"
+                      : "border-[#e5e7eb] bg-white text-[#4b5563] pointer-fine:hover:border-[#d1d5db] pointer-fine:hover:bg-[#f8f9fa] pointer-fine:hover:text-[#1a1a2e]",
+                  )}
                 >
                   {x.label}
                 </button>
               ))}
             </div>
+            {asking && (
+              <div role="group" aria-label={tt("Use this example?")} data-start-ask="" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-[#f8f9fa] px-3 py-2 text-[12.5px] text-[#4b5563]">
+                <span className="min-w-[min(100%,15rem)] flex-1">{tt("You already wrote a description. Use the {name} example?", { name: tt(presetFor(asking.id).label) })}</span>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <button type="button" data-start-ask-replace="" onClick={() => put(asking.id, asking.replace, asking.replace)} className="h-11 rounded-lg bg-[#1a1a2e] px-3 text-[12.5px] font-semibold text-white outline-none hover:bg-[#2d2d44] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:h-8">
+                    {tt("Replace")}
+                  </button>
+                  <button type="button" data-start-ask-append="" onClick={() => put(asking.id, asking.append, asking.replace)} className="h-11 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[12.5px] font-semibold text-[#1a1a2e] outline-none pointer-fine:hover:bg-[#f3f4f6] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:h-8">
+                    {tt("Add to mine")}
+                  </button>
+                  <button type="button" data-start-ask-keep="" onClick={() => setAsking(null)} className="h-11 rounded-lg px-2 text-[12.5px] font-medium text-[#6b7280] outline-none pointer-fine:hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:h-8">
+                    {tt("Keep mine")}
+                  </button>
+                </span>
+              </div>
+            )}
+            <label className={cn("flex min-h-11 cursor-pointer items-start gap-2.5 pt-1 sm:min-h-0", (full || starting === "ai") && "cursor-not-allowed opacity-60")}>
+              <input
+                type="checkbox"
+                data-start-blank=""
+                checked={generation === "blank"}
+                disabled={full || starting === "ai"}
+                onChange={(e) => setGeneration(e.target.checked ? "blank" : "theme")}
+                className="mt-0.5 h-4 w-4 shrink-0 cursor-[inherit] rounded border-[#d1d5db] accent-[#1a1a2e]"
+              />
+              <span className="min-w-0 text-[12.5px] leading-snug">
+                <span className="font-medium text-[#1a1a2e]">{tt("Without the theme")}</span>
+                <span className="text-[#6b7280]"> {tt("The AI makes the header, footer and every section.")}</span>
+              </span>
+            </label>
           </form>
         )}
 

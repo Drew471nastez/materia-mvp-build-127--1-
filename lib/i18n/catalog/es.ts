@@ -12786,7 +12786,12 @@ const words: Record<string, string> = {
  "{year} Tax Year": "Año fiscal {year}",
  "“{label}” may": "“{label}” puede",
  "“{term}” is already in your glossary.": "“{term}” ya está en tu glosario.",
- "↻ Refresh thumbnail": "↻ Actualizar miniatura"
+ "↻ Refresh thumbnail": "↻ Actualizar miniatura",
+ "Use this example?": "¿Usar este ejemplo?",
+ "You already wrote a description. Use the {name} example?": "Ya escribiste una descripción. ¿Usar el ejemplo {name}?",
+ "Add to mine": "Añadir a la mía",
+ "Without the theme": "Sin el tema",
+ "The AI makes the header, footer and every section.": "La IA hace la cabecera, el pie y cada sección."
 }
 
 export default words

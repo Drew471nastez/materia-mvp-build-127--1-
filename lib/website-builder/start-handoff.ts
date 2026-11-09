@@ -26,15 +26,30 @@
  *
  * Words, never the address: a description can be long and personal, and an
  * address is kept in history, logs and the Referer.
+ *
+ * ROUND L. This tab's storage is no longer where a description lives. With
+ * the jobs table the prompt and options are written to the job row in the
+ * create request, before the editor opens, and the editor finds the job again
+ * from the server (GET themes/[installId]/ai-start) when the address and this
+ * tab have both lost it. Only without the table is the entry here the one
+ * copy, and it is kept until the build has started (peekStartPrompt, then
+ * clearStartPrompt), never removed on the first read: a reload while the
+ * editor loads used to find nothing and open an empty Ask panel.
  */
 import { classifyIntent } from "./agent/intent"
+import type { StartOptions } from "@/lib/ai-builder/types"
 
 /** The address word the editor looks for: `?start=ai`. */
 export const START_PARAM = "start"
 export const START_AI = "ai"
 
-/** How long a description waits for its editor. Ten minutes; a slow editor takes seconds. */
-export const START_TTL_MS = 10 * 60_000
+/**
+ * How long a description waits for its editor. Six hours: it is only read
+ * back by the editor of this website in this tab, and since round L it is
+ * kept until the build has started (clearStartPrompt), not removed on the
+ * first read, so a reload while the editor loads still finds it.
+ */
+export const START_TTL_MS = 6 * 60 * 60_000
 
 /** The longest description the page accepts. */
 export const START_PROMPT_MAX = 2_000
@@ -47,45 +62,74 @@ export function startKey(installId: string): string {
 /** What sessionStorage offers, so a test can hand in a Map-backed stand in. */
 export type StartStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">
 
-/** Keeps the description for the editor. False when the tab will not keep it (private mode, storage full). */
-export function saveStartPrompt(storage: StartStorage | null | undefined, installId: string, prompt: string, now = Date.now()): boolean {
-  const text = prompt.trim().slice(0, START_PROMPT_MAX)
-  if (!storage || !installId || !text) return false
+/**
+ * Keeps the description for the editor, exactly as written, with the options
+ * chosen beside it. False when the tab will not keep it (private mode,
+ * storage full) or there is nothing to keep.
+ */
+export function saveStartPrompt(storage: StartStorage | null | undefined, installId: string, prompt: string, now = Date.now(), options: StartOptions | null = null): boolean {
+  if (!storage || !installId || !prompt.trim() || prompt.length > START_PROMPT_MAX) return false
   try {
-    storage.setItem(startKey(installId), JSON.stringify({ prompt: text, at: now }))
+    storage.setItem(startKey(installId), JSON.stringify({ prompt, at: now, options }))
     return true
   } catch {
     return false
   }
 }
 
+export interface StartEntry {
+  prompt: string
+  options: StartOptions | null
+}
+
 /**
- * Takes the description for this website, once: the entry is removed
- * whatever it holds. Null when there is none, it cannot be read, or it is
- * older than START_TTL_MS (or from the future, a clock changed under it).
+ * The description waiting for this website, left where it is. Null when
+ * there is none, it cannot be read, or it is older than START_TTL_MS (or
+ * from the future, a clock changed under it); an entry like that is removed.
  */
-export function takeStartPrompt(storage: StartStorage | null | undefined, installId: string, now = Date.now()): string | null {
+export function peekStartPrompt(storage: StartStorage | null | undefined, installId: string, now = Date.now()): StartEntry | null {
   if (!storage || !installId) return null
   const key = startKey(installId)
   let raw: string | null = null
   try {
     raw = storage.getItem(key)
-    storage.removeItem(key)
   } catch {
     return null
   }
   if (!raw) return null
-  try {
-    const entry = JSON.parse(raw) as { prompt?: unknown; at?: unknown }
-    const prompt = typeof entry.prompt === "string" ? entry.prompt.trim() : ""
-    const at = typeof entry.at === "number" ? entry.at : NaN
-    if (!prompt || !Number.isFinite(at)) return null
-    const age = now - at
-    if (age < 0 || age > START_TTL_MS) return null
-    return prompt.slice(0, START_PROMPT_MAX)
-  } catch {
+  const drop = () => {
+    clearStartPrompt(storage, installId)
     return null
   }
+  try {
+    const entry = JSON.parse(raw) as { prompt?: unknown; at?: unknown; options?: unknown }
+    const prompt = typeof entry.prompt === "string" ? entry.prompt : ""
+    const at = typeof entry.at === "number" ? entry.at : NaN
+    if (!prompt.trim() || prompt.length > START_PROMPT_MAX || !Number.isFinite(at)) return drop()
+    const age = now - at
+    if (age < 0 || age > START_TTL_MS) return drop()
+    const options = entry.options && typeof entry.options === "object" ? (entry.options as StartOptions) : null
+    return { prompt, options }
+  } catch {
+    return drop()
+  }
+}
+
+/** The build started (or a job carries the description): nothing waits any more. */
+export function clearStartPrompt(storage: StartStorage | null | undefined, installId: string): void {
+  if (!storage || !installId) return
+  try {
+    storage.removeItem(startKey(installId))
+  } catch {
+    /* nothing kept */
+  }
+}
+
+/** Takes the description for this website, once: peekStartPrompt, then cleared whatever it held. */
+export function takeStartPrompt(storage: StartStorage | null | undefined, installId: string, now = Date.now()): string | null {
+  const entry = peekStartPrompt(storage, installId, now)
+  clearStartPrompt(storage, installId)
+  return entry?.prompt ?? null
 }
 
 /** An editor address (the website page's editorHref) that asks for the AI start: `start=ai` added to its words. */

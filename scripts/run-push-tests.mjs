@@ -1396,6 +1396,8 @@ const STRICT_SUITES = [
   "tests/db-bundle-r55.test.ts",
   /* Round 55 (database load): the bell, a community's inbox, Home's orders and the plan watch hear their own private topic (lib/realtime/own-topic.ts, SQL part 370) instead of postgres_changes, and open the old subscription when the topic is refused; the warm after a deploy draws only the sites visited in the last 7 days, their front page and /products where it is used (SQL part 371), counted with a stub database and a stub fetch. */
   "tests/realtime-warm-r55.test.ts",
+  /* Round L (L1): Start with AI from the Fitness coach chip to the job row through the real create route (one website and one job for a press sent twice, the exact prompt, category and blank page in options, the kick, the editor finding the job from the server); the chip never overwrites the person's own words. Strict: tests/_journey. */
+  "tests/ai-start-l1.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
