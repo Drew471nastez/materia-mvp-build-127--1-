@@ -469,12 +469,196 @@ export const AP_THEMES = [
   },
 ]
 
+/**
+ * ===========================================================================
+ *  THREE MORE (ROUND W8): A NEWSPAPER, A HALO AND A RAVE FLYER
+ * ===========================================================================
+ * The owner: "create 3 more very different, unique, creative themes". Each is
+ * a page no other theme makes, and each is the first to set the creator's own
+ * type and frame as part of its look (lib/onepage/theme-apply
+ * THEME_TYPE_KEYS): picking another theme takes those back unless the
+ * creator has changed them since.
+ *
+ *   Gazette   the front page: newsprint with a fine grain, a slab serif name
+ *             in capitals set flush left over a square picture, a serif body,
+ *             paper buttons ruled in ink with the words on the left and the
+ *             picture on the right, like an index, that go press red under
+ *             the pointer; red social marks; products as rows.
+ *   Halo      soft light through glass: a peach, rose and sky wash with a
+ *             little grain, a light wide-tracked capital name, a white ring
+ *             round the picture, and tall frosted glass buttons that fill
+ *             with ink and rise.
+ *   Acid      a rave flyer: near black ruled in a faint acid grid, a tall
+ *             condensed name in capitals flush left over a square picture in
+ *             an acid frame, acid lime buttons two to a row with a hard
+ *             magenta shadow, turning magenta under the pointer; products
+ *             as tiles.
+ *
+ * tests/onepage-themes-w8.test.ts measures every text and button pair and
+ * the switch to and from each.
+ */
+export const W8_THEMES = [
+  {
+    id: "gazette",
+    name: "Gazette",
+    category: "light",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#f2eee3",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#15130f",
+      secondary_text_color: "#4a453c",
+      button_color: "#fbf9f3",
+      button_text_color: "#15130f",
+      button_style: "filled" as const,
+      button_border_radius: 0,
+      button_border_width: 2,
+      button_border_color: "#15130f",
+      button_shadow: "none",
+      button_hover_animation: "fill",
+      button_hover_fill: "#b8161c",
+      button_hover_text: "#ffffff",
+      font_family: "'Merriweather', serif",
+      title_font: "'Alfa Slab One', serif",
+      title_color: "#15130f",
+      social_icon_color: "#b8161c",
+      social_icon_style: "minimal",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "grain",
+      pattern_color: "#00000066",
+      pattern_opacity: "low",
+      block_layout: "list",
+      header_align: "left",
+      product_layout: "rows",
+      title_case: "upper",
+      avatar_shape: "square",
+      avatar_border_width: 2,
+      avatar_border_color: "#15130f",
+      button_text_align: "left",
+      button_icon_position: "right",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#15130f",
+    solid_button_text_color: "#fbf9f3",
+    outline_button_text_color: "#15130f",
+    glass_button_text_color: "#15130f",
+    share_style: "white",
+    subscribe_style: "white",
+  },
+  {
+    id: "halo",
+    name: "Halo",
+    category: "gradient",
+    theme_config: {
+      background_type: "gradient" as const,
+      background_color: "#ecc9e4",
+      background_gradient: "linear-gradient(165deg, #fbd3c0 0%, #ecc9e4 50%, #bcdcf0 100%)",
+      background_image_url: "",
+      gradient_noise: true,
+      noise_strength: 14,
+      text_color: "#2a2236",
+      secondary_text_color: "#564a63",
+      button_color: "#ffffff",
+      button_text_color: "#2a2236",
+      button_style: "glass" as const,
+      button_border_radius: 22,
+      button_border_width: 1,
+      button_border_color: "#ffffff",
+      button_shadow: "subtle",
+      button_shadow_color: "#6b4a80",
+      button_hover_animation: "pop",
+      button_hover_fill: "#2a2236",
+      button_hover_text: "#ffffff",
+      button_size: "large",
+      font_family: "'Figtree', sans-serif",
+      title_font: "'Raleway', sans-serif",
+      title_color: "#2a2236",
+      social_icon_color: "#2a2236",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "none",
+      block_layout: "list",
+      header_align: "center",
+      title_case: "upper",
+      title_tracking: "wide",
+      title_weight: 600,
+      avatar_border_width: 4,
+      avatar_border_color: "#ffffff",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#2a2236",
+    solid_button_text_color: "#ffffff",
+    outline_button_text_color: "#2a2236",
+    glass_button_text_color: "#2a2236",
+    share_style: "white",
+    subscribe_style: "white",
+  },
+  {
+    id: "acid",
+    name: "Acid",
+    category: "dark",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#0b0b0a",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#f4f4ee",
+      secondary_text_color: "#b9b9ae",
+      button_color: "#c6ff3d",
+      button_text_color: "#0b0b0a",
+      button_style: "filled" as const,
+      button_border_radius: 0,
+      button_border_width: 0,
+      button_border_color: "#c6ff3d",
+      button_shadow: "hard",
+      button_shadow_color: "#ff3df0",
+      button_hover_animation: "pop",
+      button_hover_fill: "#ff3df0",
+      button_hover_text: "#0b0b0a",
+      font_family: "'Manrope', sans-serif",
+      title_font: "'Anton', sans-serif",
+      title_color: "#f4f4ee",
+      social_icon_color: "#c6ff3d",
+      social_icon_style: "outline",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "grid",
+      pattern_color: "#c6ff3d40",
+      pattern_opacity: "low",
+      block_layout: "grid",
+      header_align: "left",
+      product_layout: "grid",
+      title_case: "upper",
+      title_size: "large",
+      avatar_shape: "square",
+      avatar_border_width: 3,
+      avatar_border_color: "#c6ff3d",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#0b0b0a",
+    solid_button_text_color: "#0b0b0a",
+    outline_button_text_color: "#c6ff3d",
+    glass_button_text_color: "#f4f4ee",
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
+  },
+]
+
 /** The order the kinds are listed in, in All: light, gradient, dark, then pictures, as the catalogue always was. */
 export const THEME_KIND_ORDER = ["light", "gradient", "dark", "image"] as const
 
 /** The catalogue with these (and round 42's) laid into their kinds, each kind keeping its own order and the new ones at its end. */
 export function withR40Themes<T extends { category: string }>(base: readonly T[]): T[] {
-  const all = [...base, ...(R40_THEMES as unknown as T[]), ...(R42_THEMES as unknown as T[]), ...(AP_THEMES as unknown as T[])]
+  const all = [...base, ...(R40_THEMES as unknown as T[]), ...(R42_THEMES as unknown as T[]), ...(AP_THEMES as unknown as T[]), ...(W8_THEMES as unknown as T[])]
   const rank = (c: string) => {
     const i = (THEME_KIND_ORDER as readonly string[]).indexOf(c)
     return i < 0 ? THEME_KIND_ORDER.length : i

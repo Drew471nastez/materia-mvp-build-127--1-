@@ -2327,7 +2327,8 @@ function HeaderSection() {
 
 /* The theme names, each drawn in its theme's title face: one request cut to the letters of the names, as the language spells them (round AP). */
 const THEME_NAME_FAMILIES = [...new Set(THEME_TEMPLATES.map((t) => familyOf(t.theme_config.title_font || t.theme_config.font_family)).filter((f): f is string => !!f))]
-const themeNameFontsHref = () => onePageFontSampleHref(THEME_NAME_FAMILIES, THEME_TEMPLATES.map((t) => themeLabel(t)).join(""))
+/* In capitals too (round W8): Gazette, Halo and Acid set their names in capitals, and a letter missing from the cut is drawn in another face. */
+const themeNameFontsHref = () => { const names = THEME_TEMPLATES.map((t) => themeLabel(t)).join(""); return onePageFontSampleHref(THEME_NAME_FAMILIES, names + names.toUpperCase()) }
 
 /**
  * A THEME, AS A SMALL PAGE. The cards were one grey skeleton in eighteen
@@ -2434,7 +2435,7 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
         (components/onepage/themes/theme-preview). Its own layer of layout and
         paint, so nothing inside it is worked out again for the rest of the grid.
       */}
-      <span data-theme-frame="" className="relative block aspect-[4/5] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: c.background_color }}>
+      <span data-theme-frame="" className="relative block aspect-[5/7] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: c.background_color }}>
         <ThemePreview c={look} name={name} thumb={themeThumbSrc} />
         <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
         <CheckMark on={selected} className="right-1.5 top-1.5" />
@@ -2657,7 +2658,7 @@ function ThemeSection() {
 
     /* The whole look in one step: nothing of the old theme left behind, Share
        and Subscribe matched, every block's own colours cleared (lib/onepage/theme-apply). */
-    applyThemeLook(template as never, wantsHeroLayout ? "hero" : needsClassicLayout ? "classic" : undefined)
+    applyThemeLook(template as never, wantsHeroLayout ? "hero" : needsClassicLayout ? "classic" : undefined, (THEME_TEMPLATES.find((t) => t.id === theme.template_id) ?? null) as never)
 
     // AIR theme: Set swipe animation on the first link_button block if no blocks have animations
     if (template.id === "air" && draft_blocks) {

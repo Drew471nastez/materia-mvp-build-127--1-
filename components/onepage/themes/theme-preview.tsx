@@ -50,8 +50,17 @@ type Look = Record<string, any>
 
 /** The phone page's width, as the live page lays it out. */
 export const PREVIEW_WIDTH = 390
-/** A card is 4:5, so it shows the top 487.5px of that page. */
-export const PREVIEW_HEIGHT = 487.5
+/**
+ * A card is 5:7 (round W8, was 4:5), so it shows the top 546px of that page:
+ * the header and, for most themes, all three links whole.
+ */
+export const PREVIEW_HEIGHT = 546
+/**
+ * The page's top inset on the card. The live page keeps 50px clear for its
+ * Share and Subscribe buttons, which a card does not draw; at a card's scale
+ * that was an empty band over every header, so the card keeps 18.
+ */
+export const PREVIEW_TOP = 18
 /** The phone's screen, which the page's wallpaper fills (390 by 844). */
 const SCREEN_HEIGHT = 844
 
@@ -69,6 +78,13 @@ function Words({ w, h, color, opacity = 0.85, className, style }: { w: number; h
 
 /** A flat tint where the creator's photo goes (the avatar, a link's picture, a product's). */
 const photoTint = (text: string, bg: string, share = 18) => `color-mix(in srgb, ${text} ${share}%, ${bg})`
+/**
+ * A soft wash of the same tint where a photo goes (round W8): two shades of
+ * it on a diagonal with a light from the top corner, so a picture reads as
+ * a picture and not a grey slab (Atlas's featured card, every avatar).
+ */
+const photoWash = (text: string, bg: string, share = 18) =>
+  `radial-gradient(120% 90% at 18% 12%, color-mix(in srgb, ${bg} 55%, transparent) 0%, transparent 60%), linear-gradient(145deg, ${photoTint(text, bg, Math.round(share * 0.55))} 0%, ${photoTint(text, bg, Math.round(share * 1.45))} 100%)`
 
 const SOCIALS = ["instagram", "tiktok", "youtube"] as const
 /* The words' widths at the page's sizes: "Latest work", "Book a session", "Newsletter" at 13px. */
@@ -100,10 +116,10 @@ export function ThemePreview({ c, name, thumb }: { c: Look; name: string; thumb:
     the page's useHeaderClearance measures it: worked out here from the
     same numbers, since every card draws the same header.
   */
-  const headerEnd = hero ? 351 + 70 : (cover ? (PREVIEW_WIDTH / coverAspect(c, false)) + look.size / 2 + 4 : 50 + look.size) + 12 + 44 + 12 + 23 + 16 + 49
+  const headerEnd = hero ? 351 + 70 : (cover ? (PREVIEW_WIDTH / coverAspect(c, false)) + look.size / 2 + 4 : PREVIEW_TOP + look.size) + 12 + 44 + 12 + 23 + 16 + 49
 
   /* A link's picture: a tint of the button's words over what is behind them. */
-  const linkPicture = photoTint(ink, buttonFill(theme) === "filled" ? (c.button_color as string) || bg : bg, 30)
+  const linkPicture = photoWash(ink, buttonFill(theme) === "filled" ? (c.button_color as string) || bg : bg, 30)
   const labelRow = (w: number, withPicture: boolean, i: number) => (
     <span
       key={i}
@@ -180,7 +196,7 @@ export function ThemePreview({ c, name, thumb }: { c: Look; name: string; thumb:
       <span className="grid w-full grid-cols-2 gap-3">
         {items.map((p, i) => (
           <span key={i} data-tp-product="tile" className="flex h-full flex-col overflow-hidden" style={card}>
-            <span className="block aspect-square w-full" style={{ background: photoTint(cardText, surface, 22) }} />
+            <span className="block aspect-square w-full" style={{ background: photoWash(cardText, surface, 22) }} />
             <span className="flex flex-1 flex-col gap-0.5 p-3">
               <span className="flex h-[1.375em] items-center text-[14.5px]"><Words w={p.title} h={7} color={cardText} /></span>
               <span className="flex h-[1.5em] items-center text-[13.5px]"><Words w={p.price} h={6} color={cardText} opacity={0.7} /></span>
@@ -196,7 +212,7 @@ export function ThemePreview({ c, name, thumb }: { c: Look; name: string; thumb:
         {items.map((p, i) => (
           <span key={i} data-tp-product="row" className="block w-full overflow-hidden" style={card}>
             <span className="flex items-center gap-3 p-2.5">
-              <span className="block h-12 w-12 shrink-0" style={{ background: photoTint(cardText, surface, 22) }} />
+              <span className="block h-12 w-12 shrink-0" style={{ background: photoWash(cardText, surface, 22) }} />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="flex h-[1.5em] items-center text-[15px]"><Words w={p.title} h={7} color={cardText} /></span>
                 <span className="flex h-[1.5em] items-center text-[13.5px]"><Words w={p.price} h={6} color={cardText} opacity={0.7} /></span>
@@ -248,11 +264,18 @@ export function ThemePreview({ c, name, thumb }: { c: Look; name: string; thumb:
         {(image && c.image_noise) || (c.background_type === "gradient" && c.gradient_noise) ? <WallpaperNoise strength={c.noise_strength} /> : null}
         <WallpaperPattern theme={c} clearHeader />
       </span>
-      <span className="relative flex w-full flex-col px-5 pb-5" style={{ paddingTop: hero || cover ? 0 : 50 }}>
-        <span className={cn("flex flex-col items-center", phone(blockGapClass(c)))}>
+      {/*
+        Round W8: the page is as tall as the card and no block is ever cut by
+        its bottom edge. The header stays; the blocks under it are one column
+        that wraps (flex-wrap in a column), so a block that would not fit
+        whole moves to a second column out of sight, and the card ends on the
+        last whole block, never on the top sliver of the next one.
+      */}
+      <span className="relative flex h-full w-full flex-col px-5 pb-2.5" style={{ paddingTop: hero || cover ? 0 : PREVIEW_TOP }}>
+        <span className={cn("flex min-h-0 flex-1 flex-col items-center", phone(blockGapClass(c)))}>
           {hero ? (
             <span className="relative -mx-5 -mt-8 mb-2 block w-[calc(100%+40px)]" data-tp-header="hero">
-              <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "10/9", maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, background: photoTint(text, bg, 30) }} />
+              <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "10/9", maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, background: photoWash(text, bg, 30) }} />
               <span className="absolute inset-x-0 bottom-4 z-[1] flex flex-col items-center px-6 text-center">
                 {title}
                 <span className="mt-2 flex h-[22.75px] items-center"><Words w={212} h={7} color={c.secondary_text_color || text} opacity={0.8} /></span>
@@ -278,7 +301,7 @@ export function ThemePreview({ c, name, thumb }: { c: Look; name: string; thumb:
                   borderStyle: "solid",
                   borderWidth: look.borderWidth,
                   borderColor: look.borderColor,
-                  background: photoTint(text, bg),
+                  background: photoWash(text, bg, 20),
                   boxShadow: cover && c.background_type === "solid" ? `0 0 0 4px ${bg}, 0 10px 15px -3px rgba(0,0,0,0.1)` : undefined,
                 }}
               />
@@ -286,7 +309,8 @@ export function ThemePreview({ c, name, thumb }: { c: Look; name: string; thumb:
               {bio}
             </span>
           )}
-          <span className={cn("flex w-full items-center gap-2.5", left ? "justify-start" : "justify-center", hero ? "relative z-[1]" : "")} style={{ marginTop: hero ? -16 : 4, marginBottom: hero ? 20 : 3 }} data-tp-socials="">
+          <span data-tp-blocks="" className={cn("flex min-h-0 w-full flex-1 flex-col flex-wrap content-start items-stretch overflow-hidden [&>*]:shrink-0", phone(blockGapClass(c)), "!gap-x-[200px] -mx-3 px-3 pb-1", hero ? "relative z-[1] -mt-4" : "mt-1")}>
+          <span className={cn("flex w-full items-center gap-2.5", left ? "justify-start" : "justify-center")} style={{ marginBottom: hero ? 20 : 3 }} data-tp-socials="">
             {SOCIALS.map((p) => (
               <span
                 key={p}
@@ -299,8 +323,14 @@ export function ThemePreview({ c, name, thumb }: { c: Look; name: string; thumb:
               </span>
             ))}
           </span>
-          {shelf}
-          {links}
+          {/*
+            Products as tiles are taller than a card has room for under most
+            headers: drawn first, they would take the links out of sight with
+            them, so the card shows the links and then the tiles if they fit.
+          */}
+          {products === "grid" ? links : shelf}
+          {products === "grid" ? shelf : links}
+          </span>
         </span>
       </span>
     </span>

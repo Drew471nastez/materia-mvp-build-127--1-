@@ -84,7 +84,8 @@ check("a background it cannot measure keeps the colour", readableOn("linear-grad
 
 console.log("\nThe editor, the renderer and the pickers use it")
 const ctx = read("lib/onepage/context.tsx")
-check("the editor applies a theme in one commit", ctx.includes("commit(lookFromTemplate(prev, template, headerLayout), null)"))
+/* Changed on purpose (round W8): the theme the page wore is passed too, so what it set of the creator's type and frame is taken back. */
+check("the editor applies a theme in one commit", ctx.includes("commit(lookFromTemplate(prev, template, headerLayout, previous), null)"))
 /* Changed on purpose (round AL): no "Update to Classic" question any more (a Classic theme keeps a creator's Hero), so the one call is the picker's own. */
 check("the theme picker uses it, not a merge", design.includes("applyThemeLook(template as never,") && !design.includes('applyThemeLook(pendingTemplate as never, "classic")'))
 check("a Classic theme keeps a creator's Hero", /needsClassicLayout = !wantsHeroLayout && templateLayout === "classic" && currentHeaderLayout !== "hero"/.test(design))

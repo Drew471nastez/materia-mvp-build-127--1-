@@ -44,6 +44,9 @@ const NAMES: Record<string, () => string> = {
   ledger: () => ttx("theme", "Ledger"),
   cobalt: () => ttx("theme", "Cobalt"),
   notebook: () => ttx("theme", "Notebook"),
+  gazette: () => ttx("theme", "Gazette"),
+  halo: () => ttx("theme", "Halo"),
+  acid: () => ttx("theme", "Acid"),
 }
 
 /** A theme's name in the reader's language. */
