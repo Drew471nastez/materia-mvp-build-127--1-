@@ -68,8 +68,9 @@ check("the Action, Templates, Product and Questions lists are ChoicePickers", ()
   assert.match(editor, /name="message-template"/)
   assert.match(editor, /name="action-product"/)
   /* Each action is drawn with its icon, in the list and in the field. */
-  assert.match(editor, /fieldLeading=\{<ActionMark type=\{type\} \/>\}/)
-  assert.match(editor, /leading=\{\(c\) => <ActionMark type=\{c\.value\} \/>\}/)
+  /* Changed on purpose (round AO): where the block keeps its own address (noneLabel, "Web address"), "no action" is drawn with the link mark, not a crossed circle. */
+  assert.match(editor, /fieldLeading=\{<ActionMark type=\{type \|\| \(noneLabel \? "url" : ""\)\} \/>\}/)
+  assert.match(editor, /leading=\{\(c\) => <ActionMark type=\{c\.value \|\| \(noneLabel \? "url" : ""\)\} \/>\}/)
   assert.match(code("components/forms/form-picker.tsx"), /<ChoicePicker[\s\S]*?name=\{`form-\$\{kind\}`\}/)
 })
 check("a short list opens with no search field over it", () => {

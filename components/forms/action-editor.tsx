@@ -406,8 +406,8 @@ export function ActionEditor({
             onChange(next ? empty(next, { label: a.label }) : undefined)
           }}
           fieldLabel={type ? (words[type as ActionType] ?? type) : noneWords}
-          fieldLeading={<ActionMark type={type} />}
-          leading={(c) => <ActionMark type={c.value} />}
+          fieldLeading={<ActionMark type={type || (noneLabel ? "url" : "")} />}
+          leading={(c) => <ActionMark type={c.value || (noneLabel ? "url" : "")} />}
           fieldClassName="pl-2"
         />
       </div>
