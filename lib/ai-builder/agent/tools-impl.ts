@@ -38,6 +38,7 @@ import { libraryKnowledge } from "./knowledge"
 import { renderCheckPage } from "./render-check"
 import { addUnique, type LoopCheckpoint } from "./state"
 import { tokensToThemeSettings } from "./tokens"
+import { designSettingsWrite } from "../site-settings"
 import { schemaInfo, siteRoutes, typeOfPath, unknownBindingIds, validateFile, validateSite, errorsOf } from "./validate"
 import { versionOf } from "./version"
 
@@ -448,15 +449,23 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       })
     },
 
-    async set_tokens({ tokens }) {
+    async set_tokens({ tokens, settings }) {
       if (needsConcept()) return { ok: false, changed: [], issues: [{ severity: "error", code: "plan.concept_missing", message: conceptFirst }] }
       const current = await store.readSettings()
       const mapped = (deps.tokensToSettings ?? tokensToThemeSettings)(tokens ?? {}, current)
-      if (Object.keys(mapped.settings).length) await store.writeSettings(mapped.settings)
-      if (mapped.changed.length) ctx.emit({ kind: "tokens", changed: mapped.changed })
+      /*
+        The site's own Theme settings (round N, N5, lib/ai-builder/site-settings.ts): declared groups,
+        read against the tokens this call sets, so a setting bound to colors.accent reads the new accent.
+      */
+      const declared = settings === undefined ? null : designSettingsWrite(settings, { ...current, ...mapped.settings })
+      const write = { ...mapped.settings, ...(declared?.settings ?? {}) }
+      const changed = Object.keys(write).filter((k) => JSON.stringify(current[k]) !== JSON.stringify(write[k]))
+      const issues = [...mapped.issues, ...(declared?.issues ?? [])]
+      if (changed.length) await store.writeSettings(write)
+      if (changed.length) ctx.emit({ kind: "tokens", changed })
       /* Nothing set is not ok, whatever the reason (round M): every value refused, or no tokens sent. */
-      if (!mapped.changed.length) return { ok: false, changed: [], issues: mapped.issues.length ? mapped.issues.map((i) => ({ ...i, severity: "error" as const })) : [{ severity: "error", code: "token.none", message: "No token was set: send colors, fonts, radius, spacing or the other DesignTokens fields." }] }
-      return { ok: true, changed: mapped.changed, ...(mapped.issues.length ? { issues: mapped.issues } : {}) }
+      if (!changed.length) return { ok: false, changed: [], issues: issues.length ? issues.map((i) => ({ ...i, severity: "error" as const })) : [{ severity: "error", code: "token.none", message: "No token was set: send colors, fonts, radius, spacing or the other DesignTokens fields, or settings." }] }
+      return { ok: true, changed, ...(issues.length ? { issues } : {}) }
     },
 
     async list_capabilities() {

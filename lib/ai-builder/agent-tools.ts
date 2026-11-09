@@ -23,6 +23,7 @@ import type {
   ValidationIssue,
 } from "./types"
 import type { RuntimeCapabilities } from "./runtime-contract"
+import type { DesignGroupInput } from "./site-settings"
 
 /** A section on a page, as the agent sets it: native type or an ai_ component. */
 export interface PlacedSectionInput {
@@ -49,7 +50,11 @@ export interface AgentToolInputs {
   /** Replaces the page's body sections in order. Header/footer only with `group`. */
   set_page_sections: { page: string; sections: PlacedSectionInput[] }
   set_section_settings: { page: string; sectionId: string; settings: Record<string, unknown> }
-  set_tokens: { tokens: Partial<DesignTokens> }
+  /**
+   * `settings` (round N, N5): the site's own Theme settings, labelled and grouped as its designer would
+   * (lib/ai-builder/site-settings.ts). Sent: replaces the declared groups. Left out: they stay as they are.
+   */
+  set_tokens: { tokens: Partial<DesignTokens>; settings?: DesignGroupInput[] }
   list_capabilities: Record<string, never>
   /** Sets a binding prop to a real id. Refused when the id is not in list_capabilities. */
   bind_data: { page: string; sectionId: string; prop: string; kind: DataBindingKind; ids: string[] }
