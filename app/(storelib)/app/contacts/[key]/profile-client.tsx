@@ -31,7 +31,7 @@ import { formatMinor } from "@/lib/markets/money"
 import { backThen } from "@/lib/navigation/go-back"
 import { canReturnTo } from "@/lib/navigation/in-app-history"
 import type { Profile } from "@/lib/contacts/profile-server"
-import { GUTTER, ORDER_WIDTH, PaneBar, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../../orders/order-parts"
+import { GUTTER, ORDER_WIDTH, PaneBar, buttonAccent, buttonSecondary, card, iconButton } from "../../orders/order-parts"
 import { contactsRequest, dayOf, labelsOf, leadStatusLabel, memberStatusLabel, membershipStatusLabel, originLabel, subscriptionLabel, whoOf } from "../contact-words"
 
 const field = "w-full rounded-lg border border-[#e3e4e8] bg-white px-2.5 text-[14px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e]/40 focus:ring-2 focus:ring-[#1a1a2e]/10"
@@ -123,10 +123,8 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
               <span className="hidden sm:inline">{tt("Email")}</span>
             </Link>
           )}
-          <button type="button" className={cn(buttonSecondary, "hidden sm:inline-flex")} onClick={() => setEditing(true)}>
-            {tt("Edit")}
-          </button>
-          <ResponsiveActionMenu title={whoOf(p)} align="end" trigger={<button type="button" className={iconButton} aria-label={tt("More actions")}><MoreHorizontal className="h-4 w-4" /></button>} items={menu} />
+          {/* Round 52: one Edit, in ⋯ and on Tags and notes; no third one in the bar. */}
+          <ResponsiveActionMenu title={whoOf(p)} align="end" trigger={<button type="button" className={cn(iconButton, "max-sm:h-10 max-sm:w-10")} aria-label={tt("More actions")} data-contact-more=""><MoreHorizontal className="h-4 w-4" /></button>} items={menu} />
         </div>
         <div className="col-span-2 col-start-2 mt-1 min-w-0 truncate text-[14px] text-[#6b7280] sm:-mt-0.5 sm:text-[13px]">{[p.name && p.email ? p.email : null, ...labels].filter(Boolean).join(" · ") || originLabel(p.origin)}</div>
       </PaneBar>
@@ -201,7 +199,8 @@ function Details({ profile, blocked }: { profile: Profile; blocked: string | nul
         {profile.emails.length > 1 ? <Row label={tt("Other emails")}>{profile.emails.filter((e) => e !== p.email).join(", ")}</Row> : null}
         <Row label={tt("Marketing emails")}>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <StatusBadge tone={c.state === "subscribed" && !c.suppressed ? "success" : c.state === "blocked" ? "critical" : "neutral"}>{c.suppressed && c.state === "subscribed" ? tt("Asked for no emails") : subscriptionLabel(c.state)}</StatusBadge>
+            {/* Quiet text, not a coloured pill (round 52); only a bounce or complaint is red. */}
+            <span className={c.state === "blocked" ? "text-[#b42318]" : "text-[#1a1a2e]"}>{c.suppressed && c.state === "subscribed" ? tt("Asked for no emails") : subscriptionLabel(c.state)}</span>
             {c.state === "subscribed" && c.consentAt ? <span className="text-[#6b7280]">{dayOf(c.consentAt)}</span> : c.unsubscribedAt && c.state !== "subscribed" ? <span className="text-[#6b7280]">{dayOf(c.unsubscribedAt)}</span> : null}
           </span>
         </Row>
@@ -223,7 +222,7 @@ function TagsNotes({ profile, onEdit }: { profile: Profile; onEdit: () => void }
     <Section
       title={tt("Tags and notes")}
       aside={
-        <button type="button" onClick={onEdit} className="-mr-1 rounded-md px-1 text-[12px] font-medium text-[#6d4ae0] hover:underline">
+        <button type="button" onClick={onEdit} className="-mr-1 rounded-md px-1 text-[12px] font-medium text-[#6d4ae0] hover:underline" data-contact-edit="">
           {tt("Edit")}
         </button>
       }
@@ -365,7 +364,7 @@ function Communities({ profile }: { profile: Profile }) {
               </p>
             ) : null}
             {m.joinAnswers.length ? (
-              <dl className="mt-1 grid w-full gap-1 rounded-lg bg-[#fafbfb] p-2.5">
+              <dl className="mt-1 grid w-full gap-1 border-l-2 border-[#eef0f2] pl-3">
                 {m.joinAnswers.map((a, i) => (
                   <div key={i} className="grid gap-0.5 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)] sm:gap-2">
                     <dt className="text-[#6b7280]">{a.label}</dt>
@@ -420,7 +419,7 @@ function Forms({ profile }: { profile: Profile }) {
               </span>
             </div>
             {f.answers.length ? (
-              <dl className="mt-1.5 grid gap-1 rounded-lg bg-[#fafbfb] p-2.5">
+              <dl className="mt-1.5 grid gap-1 border-l-2 border-[#eef0f2] pl-3">
                 {f.answers.map((a, i) => (
                   <div key={i} className="grid gap-0.5 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)] sm:gap-2">
                     <dt className="text-[#6b7280]">{a.label}</dt>
@@ -434,10 +433,10 @@ function Forms({ profile }: { profile: Profile }) {
         {profile.messages.map((m) => (
           <li key={m.id} className="text-[13px]">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-              <span className="font-medium text-[#1a1a2e]">{m.subject || tt("Message from your website")}</span>
-              <Link href={`/app/contacts/forms?message=${m.id}`} className="text-[12px] font-medium text-[#6d4ae0] hover:underline">
-                {dayOf(m.at)}
+              <Link href={`/app/contacts/forms?message=${m.id}`} className="font-medium text-[#1a1a2e] hover:underline">
+                {m.subject || tt("Message from your website")}
               </Link>
+              <span className="text-[12px] text-[#6b7280]">{dayOf(m.at)}</span>
             </div>
             <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-[#4b5563]">{m.message}</p>
           </li>
@@ -460,12 +459,9 @@ function Emails({ profile }: { profile: Profile }) {
       <ul className="divide-y divide-[#f1f2f4]">
         {profile.sends.map((s) => (
           <li key={`${s.kind}:${s.id}`} className="flex items-baseline justify-between gap-3 py-2 text-[13px]">
-            <span className="min-w-0 truncate text-[#1a1a2e]">
-              {s.subject || tt("No subject")}
-              <span className="ml-2 text-[12px] text-[#9ca3af]">{s.kind === "campaign" ? tt("Campaign") : tt("Automation")}</span>
-            </span>
+            <span className="min-w-0 truncate text-[#1a1a2e]">{s.subject || tt("No subject")}</span>
             <span className="shrink-0 text-[12px] text-[#6b7280]">
-              {[s.clicked ? tt("Clicked") : s.opened ? tt("Opened") : null, dayOf(s.at)].filter(Boolean).join(" · ")}
+              {[s.kind === "campaign" ? tt("Campaign") : tt("Automation"), s.clicked ? tt("Clicked") : s.opened ? tt("Opened") : null, dayOf(s.at)].filter(Boolean).join(" · ")}
             </span>
           </li>
         ))}
