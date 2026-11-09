@@ -62,7 +62,6 @@ export function agentStore(admin: Db): AgentStore {
       }
       if (patch.costUsd !== undefined) row.cost_usd = Math.round(patch.costUsd * 1e6) / 1e6
       if (patch.error !== undefined) row.error = patch.error
-      if (patch.lastEventSeq !== undefined) row.last_event_seq = patch.lastEventSeq
       if (patch.leaseUntil !== undefined) row.lease_until = patch.leaseUntil
       if (patch.finished) row.finished_at = at
       const { data, error } = await admin.from(JOBS_TABLE).update(row).eq("id", id).eq("attempts", fence).select("id")
