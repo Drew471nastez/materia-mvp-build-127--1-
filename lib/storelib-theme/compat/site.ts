@@ -78,6 +78,12 @@ type O = Record<string, unknown>
 
 export interface SiteData {
   creatorId: string
+  /**
+   * The reads this copy of the site was assembled without, because they did
+   * not answer in time (lib/website-builder/compat-site.ts, round AP). A
+   * page drawn from it is this visitor's only: never held, shared or kept.
+   */
+  partial?: string[]
   theme: CompatTheme
   /** The published page rows, by key. */
   pages: Record<string, StoredSection[]>

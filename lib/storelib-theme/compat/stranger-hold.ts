@@ -39,6 +39,13 @@ export interface DrawnPage {
   body: string
   /** Whether this answer is one every stranger may be given (publicAnswer). */
   share: boolean
+  /**
+   * Drawn from the marker alone like a shared page, but without a part that
+   * did not answer in time (round AP, SiteData.partial): never kept, yet the
+   * same for every stranger waiting on this very draw, who are given it
+   * rather than each starting a draw of their own against a slow database.
+   */
+  brief?: boolean
 }
 
 type Held = { share: false } | { share: true; status: number; headers: [string, string][]; gz: string }
@@ -92,6 +99,7 @@ export async function heldStrangerPage(key: string[], tags: string[], draw: () =
   if (going) {
     const page = await going.catch(() => null)
     if (page && page.share) return { ...page, held: true }
+    if (page && page.brief) return { ...page, held: false }
     return heldOnce(key, tags, draw)
   }
   const mine = heldOnce(key, tags, draw)
@@ -105,19 +113,38 @@ export async function heldStrangerPage(key: string[], tags: string[], draw: () =
   return mine
 }
 
+const NOT_SHARED = Symbol("not shared")
+
 async function heldOnce(key: string[], tags: string[], draw: () => Promise<DrawnPage>): Promise<DrawnPage & { held: boolean }> {
   let fresh: DrawnPage | null = null
   const read = unstable_cache(
     async (): Promise<Held> => {
       const page = await draw()
       fresh = page
-      if (!page.share) return { share: false }
+      /*
+        NOT HELD AS "DRAW IT AGAIN" (round AP). A page that may not be shared
+        was held as such for the hold's five minutes, so one drawn during a
+        moment the database was slow (drawn without its offers or menus,
+        SiteData.partial) left every visitor of that address drawing their
+        own page for five minutes after the database was back. Thrown
+        instead, which the cache never keeps: the next visitor tries to hold
+        the whole page again.
+      */
+      if (!page.share) throw NOT_SHARED
       return { share: true, status: page.status, headers: page.headers, gz: gzipSync(Buffer.from(page.body, "utf8")).toString("base64") }
     },
     key,
     { tags, revalidate: STRANGER_HOLD_SECONDS },
   )
-  const held = await read()
+  let held: Held
+  try {
+    held = await read()
+  } catch (e) {
+    /* The cache may hand the throw back wrapped: the page drawn says it was ours. */
+    const drawnFirst = fresh as DrawnPage | null
+    if (e !== NOT_SHARED && !(drawnFirst && !drawnFirst.share)) throw e
+    held = { share: false }
+  }
   const drawn = fresh as DrawnPage | null
   if (drawn) return { ...drawn, held: false }
   if (held.share) {

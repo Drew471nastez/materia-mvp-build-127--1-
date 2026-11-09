@@ -71,6 +71,18 @@ export interface SiteLanguages {
 
 const NONE: SiteLanguages = { saved: false, defaultLanguage: "en", others: [], markets: [] }
 
+/**
+ * Whether these are the languages of a read that failed (siteLanguages hands
+ * back this very object then), not a store that never saved any. A live page
+ * drawn from them shows the store's own prices to a market's visitor, so it
+ * is that visitor's alone, never shared (app/api/site-theme/site, round AP).
+ */
+export function languagesUnknown(l: SiteLanguages | null | undefined): boolean {
+  return l === NONE
+}
+/** The same object, for a caller that stops waiting for the read. */
+export const UNKNOWN_LANGUAGES: SiteLanguages = NONE
+
 /** The store's own country (Settings › Store currency): where a visitor whose country is unknown starts, and the builder's preview. */
 async function storeCountry(creatorId: string): Promise<string | null> {
   const { data } = await createAdminClient().from("store_settings").select("default_country, currency").eq("creator_id", creatorId).maybeSingle().then(
