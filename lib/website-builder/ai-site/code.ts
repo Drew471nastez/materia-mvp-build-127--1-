@@ -143,6 +143,7 @@ function roleBrief(task: CodeTask, ctx: CodeContext): string {
       `- On a phone the links fold into a menu that opens and closes (data-storelib-menu), usable with a thumb and a keyboard.`,
       ctx.shop ? `- The shop sells products: a cart link with data-storelib-cart and the item count, and a search link with data-storelib-search.` : `- The store sells nothing yet: no cart, no search.`,
       `- Settings for what an owner changes: colour scheme, logo width, sticky on or off, layout. Nothing else.`,
+      `- The brand is a link, never a heading: each page's <h1> is in its first section.`,
     ].join("\n")
   }
   if (task.role === "footer") {
@@ -150,7 +151,7 @@ function roleBrief(task: CodeTask, ctx: CodeContext): string {
       `WRITE THE SITE'S FOOTER. Its schema says "kind": "footer". It is on every page.`,
       `- The site's menu: { "type": "link_list", "id": "menu", "label": "Menu", "default": "${ctx.menuHandle}" }, looped {% for link in settings.menu.links %}.`,
       `- The brand name, one line in the brand's voice, and how to reach them, each a text setting. A copyright line with the year as a setting.`,
-      `- Settings: colour scheme and layout. Never a newsletter form unless the brief asks for one.`,
+      `- Settings: colour scheme and layout. Never a newsletter form unless the brief asks for one. No <h1> in a footer.`,
     ].join("\n")
   }
   return [
@@ -160,6 +161,10 @@ function roleBrief(task: CodeTask, ctx: CodeContext): string {
       ? `Pictures: ${task.pictures.length === 1 ? "one" : task.pictures.length} image_picker setting${task.pictures.length === 1 ? "" : "s"} (default "") with an alt text setting each. The builder fills them with real photos of: ${task.pictures.map((p) => `"${p}"`).join(", ")}. Never an <img> with an address typed in.`
       : `No pictures unless the brief needs one; then an image_picker setting (default ""), never an address typed in.`,
     `Repeating things (steps, programs, questions, plans) are blocks with their own settings, so the owner adds, removes and reorders them, with three to six written blocks in the preset.`,
+    /* Round AQ: drawn samples had pages with no <h1> at all; the page's hierarchy is decided here, by place. */
+    task.index === 0
+      ? `HEADINGS: this is the first section of its page, so its heading is the page's one <h1>. Nothing else on the page is an <h1>.`
+      : `HEADINGS: the page's <h1> is in its first section; this section's heading is an <h2>, its items <h3>.`,
   ].join("\n")
 }
 
@@ -178,7 +183,12 @@ export function codePrompt(task: CodeTask, ctx: CodeContext, extra = ""): string
       `EDITABLE, ALWAYS: every word a visitor reads is a setting (text, textarea or richtext) whose default is the FINAL copy for this site, written in the brand's voice, never a placeholder. Colours come from the colour scheme (a color_scheme setting) so the owner's palette repaints it. Spacing top and bottom are range settings. The section must look finished with its defaults.`,
       `LIVE DATA, NEVER TYPED: products from {% for block in products %}, collections, the menu from a link_list, the cart through data-storelib-cart. No product, price, review, quote, statistic or name that is not in WHAT IS REAL.`,
       `MOBILE FIRST: written for a phone, then wider screens. Nothing scrolls sideways. Respect prefers-reduced-motion.`,
-    ].join("\n"),
+      /*
+        Round AQ: the writer is also shown a worked example of what the format CAN draw (a flag with a looping light
+        sweep and a pulsing glow, ../agent/creative-section.ts) for a person who asks for exactly that. Drawn whole
+        sites showed that effect copied into sections nobody asked it of.
+      */
+      `MOTION ONLY WHERE IT HELPS: the worked example's looping sweep and glow are for a request that asks for one. A site section enters once at most (a short fade or rise), never loops for decoration, and has no sheen, shine or glow unless the brief names it. Anything that moves stops under prefers-reduced-motion.`,    ].join("\n"),
     STUDIO_CRAFT,
     extra ? `THE LAST FILE FOR THIS PART WAS REFUSED; fix exactly this:\n${extra}` : "",
   ]
@@ -211,7 +221,7 @@ export function acceptCoded(source: string, opts: { role: CodeRole; takenTypes: 
   if (checked.ok === false) return { ok: false, reason: checked.feedback.slice(0, 800) }
   const schema = schemasFromSources({ [path]: text })[type]
   if (!schema) return { ok: false, reason: "Its schema could not be read." }
-  const held = schemaProblem(schema, { role: opts.role })
+  const held = schemaProblem(schema, { role: opts.role, source: text })
   if (held) return { ok: false, reason: held.message }
   return { ok: true, type, name: schema.name || type, path, schema }
 }

@@ -10,7 +10,9 @@
  * story of the collection here", "Write where the studio is here.", "Say in
  * two lines what this collection is", "Write your licence terms here.") are
  * final words now: the agent's write_file refuses a placeholder, as the
- * classic job does (lib/website-builder/ai-site/gate.ts).
+ * classic job does (lib/website-builder/ai-site/gate.ts). The issue cover's
+ * standfirst and the essay's text, both richtext, are printed with | raw: drawn
+ * in a browser they showed their <p> tags as text, which the gate now refuses.
  */
 import { ABOUT, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS } from "./ai-builder-agent-fixtures"
 
@@ -91,7 +93,7 @@ const ISSUE_COVER = component({
   template: `<section class="cv" data-scheme="{{ settings.color_scheme }}" style="{{ROOT}}">
   <p class="cv__label">{{ settings.label }}</p>
   <h1 class="cv__h">{{ settings.heading }}</h1>
-  <div class="cv__dek">{{ settings.dek }}</div>
+  <div class="cv__dek">{{ settings.dek | raw }}</div>
   {% if settings.link_label %}<a class="cv__more" href="{{ settings.link_url | default: '/journal' | url }}">{{ settings.link_label }}</a>{% endif %}
 </section>`,
   style: `.cv { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; padding: calc(var(--s-pt) * 1.4) var(--theme-padding-x, 24px) var(--s-pb); background: var(--s-bg); color: var(--s-text); }
@@ -114,7 +116,7 @@ const ESSAY = component({
   name: "Essay in columns",
   template: `<section class="es" data-scheme="{{ settings.color_scheme }}" style="{{ROOT}}">
   <h2 class="es__h">{{ settings.heading }}</h2>
-  <div class="es__body">{{ settings.body }}</div>
+  <div class="es__body">{{ settings.body | raw }}</div>
   <p class="es__by">{{ settings.byline }}</p>
 </section>`,
   style: `.es { padding: var(--s-pt) var(--theme-padding-x, 24px) var(--s-pb); background: var(--s-bg); color: var(--s-text); }

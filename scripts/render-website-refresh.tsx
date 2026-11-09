@@ -23,7 +23,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/(storelib)/app/website-builder/website-builder-client"
 import { scheduleCoverRefresh } from "@/lib/website-builder/cover-refresh"
 
-type W = Window & {
+type W = {
   __refreshes: { at: number }[]
   __mounts: number
   __server: WebsiteSummary[]

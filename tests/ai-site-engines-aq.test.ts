@@ -84,7 +84,9 @@ section("One gate for both engines")
     { name: "an env read", src: hero.replace(".hx__photo {", "/* process.env.ANTHROPIC_API_KEY */ .hx__photo {"), code: "gate.secret" },
     { name: "a placeholder slot", src: hero.replace('"default": "Lift with a plan"', '"default": "Your class times go here"'), code: "gate.placeholder" },
     { name: "a banned word", src: hero.replace('"default": "Lift with a plan"', '"default": "Unlock your strength"'), code: "gate.banned_copy" },
-    { name: "an em dash", src: hero.replace('"default": "Lift with a plan"', '"default": "Lift — with a plan"'), code: "gate.banned_copy" },
+    { name: "a richtext setting printed without | raw (its <p> tags shown as text)", src: hero.replace("{{ settings.intro | raw }}", "{{ settings.intro }}"), code: "gate.escaped_richtext" },
+    { name: "a loop with no reduced motion rule", src: hero.replace(".hx__photo {", "@keyframes hx-pulse { 50% { opacity: .6; } } .hx__cta { animation: hx-pulse 2s ease-in-out infinite; } .hx__photo {"), code: "gate.endless_motion" },
+    { name: "an em dash", src: hero.replace('"default": "Lift with a plan"', '"default": "Lift \u2014 with a plan"'), code: "gate.banned_copy" },
     /* The compiler refuses this one before the gate in both engines (an image_picker default must be an asset): refused either way. */
     { name: "a picture default that is not https", src: hero.replace('{ "type": "image_picker", "id": "photo", "label": "Photo" }', '{ "type": "image_picker", "id": "photo", "label": "Photo", "default": "gym.jpg" }'), code: "" },
   ]
@@ -108,6 +110,11 @@ section("One gate for both engines")
   check("a header that does not read the site's menu is refused by the agent", mh.length > 0 && mh.some((i) => i.code === "gate.chrome_menu" || /menu|link_list/i.test(i.message)), mh.map((i) => `${i.code}: ${i.message.slice(0, 300)}`))
   check("a footer may go without a menu in the agent (a person might design one)", !validateFile("sections/ai_coach_footer.storelib", FOOTER).some((i) => i.code === "gate.chrome_menu"))
 
+  check("a loop that stops under prefers-reduced-motion is let through", !sourceProblem(".a { animation: x 2s infinite; } @media (prefers-reduced-motion: reduce) { .a { animation: none; } }"))
+  check("| strip_html is a deliberate plain print of richtext", (() => {
+    const src = hero.replace("{{ settings.intro | raw }}", "{{ settings.intro | strip_html }}")
+    return !agentIssues(src).some((i) => i.code === "gate.escaped_richtext")
+  })())
   check("the shared source check names a key and an env read", sourceProblem("x sk-ant-abc123 y")?.code === "secret" && sourceProblem("import.meta.env.X")?.code === "secret" && sourceProblem("<p>hi</p>") === null)
   for (const slot of ["Your class times go here", "Your studio address goes here", "Write your qualifications here.", "Write the story of the collection here", "Lorem ipsum"]) check(`"${slot}" is a placeholder`, placeholderIn(slot) !== null)
   for (const fine of ["Book a free first call", "Two evenings a week", "Small groups, a written plan", "Here is how a first week goes"]) check(`"${fine}" is not`, placeholderIn(fine) === null)
@@ -121,6 +128,14 @@ section("The agent is told what the classic job is told")
   check("it is no longer told to leave a slot for the creator", !/\("Your class times go here"\), never invented facts/.test(AGENT_SYSTEM) && /Never a slot/.test(AGENT_SYSTEM))
   const brief = briefMessage({ job: { jobId: "j", creatorId: "c", installId: "i", prompt: "A fitness coach", mode: "theme", budget: {} as never, startedAt: 0, spentUsd: 0, lastEventSeq: 0 }, caps: null, pages: [], files: [], knowledge: [] })
   check("inside a theme too, the new website's frame is its own", /Write the site's own header and footer and put them in place of the theme's/.test(brief))
+}
+
+section("What drawn samples taught the classic code step")
+{
+  const src = code("lib/website-builder/ai-site/code.ts")
+  check("the first section of a page carries its one <h1>, the rest <h2>", /task\.index === 0[\s\S]{0,200}page's one <h1>[\s\S]{0,200}an <h2>/.test(src))
+  check("the header's brand is a link, never a heading", /The brand is a link, never a heading/.test(src))
+  check("the worked example's looping sweep is not copied into site sections", /MOTION ONLY WHERE IT HELPS/.test(src) && /never loops for decoration/.test(src))
 }
 
 section("The inline build carries on after a reload (no jobs table)")

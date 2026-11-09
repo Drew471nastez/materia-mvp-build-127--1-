@@ -9,7 +9,10 @@
  * "Your story goes here", "Write your qualifications here.", "Your program
  * name") are final words now. The agent's write_file holds a file to the
  * classic job's gate (lib/website-builder/ai-site/gate.ts), which refuses a
- * placeholder, as the classic job always did.
+ * placeholder, as the classic job always did. And the hero's intro and the
+ * story's body, both richtext, are printed with | raw: drawn in a browser
+ * (scripts/check-ai-sample-site.mjs) they showed "<p>...</p>" as text, which
+ * the gate now refuses.
  */
 import type { AgentProvider, ProviderRequest, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
 import type { RuntimeCapabilities } from "@/lib/ai-builder/runtime-contract"
@@ -68,7 +71,7 @@ export const HERO = `<template>
   <div class="hx__copy">
     {% if settings.kicker %}<p class="hx__kicker">{{ settings.kicker }}</p>{% endif %}
     <h1 class="hx__h">{{ settings.heading }}</h1>
-    {% if settings.intro %}<div class="hx__intro">{{ settings.intro }}</div>{% endif %}
+    {% if settings.intro %}<div class="hx__intro">{{ settings.intro | raw }}</div>{% endif %}
     {% if settings.cta_label %}<a class="hx__cta" href="{{ settings.cta_url | default: '#' | url }}">{{ settings.cta_label }}</a>{% endif %}
   </div>
   {% if settings.photo %}<img class="hx__photo" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="900" height="1100">{% endif %}
@@ -191,7 +194,7 @@ export const FOOTER = `<template>
 export const ABOUT = `<template>
 <section class="ab ab--{{ settings.align }}" data-scheme="{{ settings.color_scheme }}" style="${ROOT_VARS}">
   <h2 class="ab__h">{{ settings.heading }}</h2>
-  <div class="ab__body">{{ settings.body }}</div>
+  <div class="ab__body">{{ settings.body | raw }}</div>
   {% if settings.show_note %}<p class="ab__note">{{ settings.note }}</p>{% endif %}
 </section>
 </template>
@@ -224,7 +227,7 @@ export const ABOUT = `<template>
 `
 
 /** The hero with a template mistake: an unclosed {% if %}. */
-export const BROKEN_HERO = HERO.replace("{{ settings.intro }}</div>{% endif %}", "{{ settings.intro }}</div>")
+export const BROKEN_HERO = HERO.replace("{{ settings.intro | raw }}</div>{% endif %}", "{{ settings.intro }}</div>")
 
 export const CAPS: RuntimeCapabilities = {
   store: { name: "Iron & Chalk", currency: "GBP", brandImage: null, tagline: null },
