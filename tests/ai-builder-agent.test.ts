@@ -31,6 +31,7 @@ import { readConcept } from "@/lib/ai-builder/agent/concept"
 import { tokensToThemeSettings } from "@/lib/ai-builder/agent/tokens"
 import { validateFile } from "@/lib/ai-builder/agent/validate"
 import { librarySlop } from "@/lib/ai-builder/agent/knowledge"
+import { toRuntimeCapabilities } from "@/lib/ai-builder/agent/server"
 import { versionOf } from "@/lib/ai-builder/agent/version"
 import type { AgentDeps, AgentJobInput } from "@/lib/ai-builder/agent/ports"
 import type { ProviderRequest } from "@/lib/sites/agent/types"
@@ -378,6 +379,20 @@ async function main() {
     /* Deadline: no call starts inside callReserveMs. */
     const late = await runAgentSlice(jobInput(), null, depsFor(memoryStore(), steps).deps, { deadline: T0 + DEFAULT_JOB_BUDGET.callReserveMs - 1 })
     check("no call starts inside the reserve before the deadline", late.status === "running" && late.usage.calls === 0)
+  }
+
+  console.log("\n7. the real capability read, as the contract's shape")
+  {
+    const rc = toRuntimeCapabilities({
+      facts: { storeName: "S", live: true, totalProducts: 2, publishedProducts: 1, currency: "GBP", products: [{ id: "p1", title: "Block", type: "service", priceCents: 12000, published: true, url: "/products/block" }, { id: "p2", title: "Draft", type: "digital", priceCents: 500, published: false }], collections: [{ id: "c1", title: "All", handle: "all", published: true }], reviews: { count: 0, average: null, quotes: [] } },
+      brand: { name: "S", avatarUrl: null, tagline: null },
+      productTypes: { service: 1 },
+      communities: [{ id: "k1", name: "Club" }],
+      forms: { published: 2, bookings: 1 },
+      blog: { posts: 0 },
+    })
+    check("only published products, with ids, prices and their own addresses", rc.products.length === 1 && rc.products[0].id === "p1" && /120/.test(rc.products[0].price) && rc.products[0].url === "/products/block")
+    check("collections and communities by id; forms wait for form_picker", rc.collections[0]?.url === "/collections/all" && rc.communities[0]?.id === "k1" && rc.forms.length === 0 && rc.features.includes("bookings"))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
