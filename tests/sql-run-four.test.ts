@@ -55,6 +55,8 @@ check("no line opens a comment it does not close", unclosed.length === 0, unclos
 for (const dir of ["supabase/sql/all-last-three-days", "supabase/sql/all-last-14-days"])
   check(`${dir} holds the same four files as run-four`, FILES.every((f, i) => read(`${dir}/${f}`) === four[i]))
 
+/* Wave 8: part 406 replaces 378's creator_people, so it must come after it wherever both are. */
+check("part 406 runs after part 378 in the latest file and in all-in-three", [four[2], read("supabase/sql/all-in-three/2_of_3_latest.sql")].every((f) => f.indexOf("-- part 378_creator_contacts.sql") > -1 && f.indexOf("-- part 378_creator_contacts.sql") < f.indexOf("-- part 406_creator_people_alias_merge.sql")))
 console.log("\nThe order, and what each file ends with")
 const order = parts.map((p) => all.indexOf(`-- part ${p}`))
 check("the parts run in their numbered order", order.every((at, i) => at >= 0 && (i === 0 || at > order[i - 1])))

@@ -47,6 +47,16 @@ console.log("\nEvery part, from 62 on, the same everywhere")
   }
 }
 
+console.log("\nA function a later part replaces keeps its signature and stays the server's (wave 8, part 406)")
+{
+  const p378 = read(`${RN}/378_creator_contacts.sql`)
+  const p406 = read(`${RN}/406_creator_people_alias_merge.sql`)
+  const sig = "public.creator_people(uuid, text, text, text, integer, integer, jsonb, text[])"
+  check("406 replaces creator_people with 378's own signature", p406.includes("create or replace function public.creator_people(p_creator uuid, p_filter text default 'all', p_q text default null, p_sort text default 'recent', p_limit integer default 50, p_offset integer default 0, p_adv jsonb default '{}'::jsonb, p_ids text[] default null) returns jsonb language plpgsql stable security definer set search_path = public as $f$"))
+  for (const line of [`revoke all on function ${sig} from public, anon, authenticated;`, `grant execute on function ${sig} to service_role;`]) check(`  and the same grants: ${line.split(" ")[0]}`, p378.includes(line) && p406.includes(line))
+  check("  and nothing in it touches a table or a row", !/\b(alter|create|drop) table\b|\b(insert into|update public\.|delete from)\b/i.test(p406))
+}
+
 console.log("\nThe database's own record of what ran")
 {
   const gen = new Map(SQL_PARTS.map((p) => [p.part, p]))

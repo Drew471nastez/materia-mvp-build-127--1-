@@ -16,14 +16,16 @@
  *      address shown;
  *   3. Orders: search, the timeline's words, the CSV, the customer count;
  *   4. every screen and export touched prints through the helper (a scan of
- *      the source, with the few raw uses that must stay named).
+ *      the source, with the few raw uses that must stay named);
+ *   5. SQL part 406 (the People list's creator_people) keys and searches as
+ *      lib/contacts/identity.ts does.
  *
  * Run: node scripts/run-push-tests.mjs (in SUITES)
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-import { businessAlias, displayEmail, displayEmails, emailMatchKey, emailMatches, searchedAddress, taggedSearchPattern } from "@/lib/businesses/email-alias"
+import { BUSINESS_TAG_PATTERN, businessAlias, displayEmail, displayEmails, emailMatchKey, emailMatches, searchedAddress, taggedSearchPattern } from "@/lib/businesses/email-alias"
 import { matchesSearch as personMatches, mergePeople, pagePeople, readPeopleQuery, type Account, type SourceRecord } from "@/lib/contacts/identity"
 import { groupOrders, matchesSearch as orderMatches, type OrderRow } from "@/lib/orders/order-view"
 import { orderEvents } from "@/lib/orders/timeline"
@@ -242,6 +244,19 @@ section("4. Every screen and export touched prints through the helper")
   const view = read("lib/orders/order-view.ts")
   check("the order keeps the stored address (sending and Change email use it)", /customerEmail: lines\.map\(\(r\) => \(r\.buyer_email \|\| ""\)\.trim\(\)\)/.test(view))
   check("  and the profile reads both forms of an address, so its sends and rows are the person's", /const shown = emailMatchKey\(e\)/.test(read("lib/contacts/profile-server.ts")))
+}
+
+section("5. The People list's SQL (part 406) keys and searches the same way")
+{
+  const sql = read("supabase/sql/run-now/406_creator_people_alias_merge.sql")
+  check("its tag is the app's tag (BUSINESS_TAG_PATTERN), in both helpers", sql.split(`'${BUSINESS_TAG_PATTERN.source}'`).length === 3, BUSINESS_TAG_PATTERN.source)
+  check("  an address with no inbox keeps its own name for the key and is never shown", /storelib_email_match_key[\s\S]*?like '%@businesses\.invalid' then lower\(btrim\(p\)\)/.test(sql) && /storelib_shown_email[\s\S]*?like '%@businesses\.invalid' then null/.test(sql))
+  check("  the exact owner first, then the owner as shown, then one person per address as shown", sql.includes("when s.em is not null and ow.n = 1 then 'u:' || ow.uid::text when s.em is not null and ow.em is null and so.uid is not null then 'u:' || so.uid::text when s.em is not null then 'e:' || public.storelib_email_match_key(s.em)"))
+  check("  search reads the address as shown, a pasted tagged one still finds it", sql.includes("position(v_q in coalesce(public.storelib_shown_email(p.email), '')) > 0 or (position('+slb-' in v_q) > 0 and position(v_q in coalesce(p.email, '')) > 0)"))
+  check("  and the app's rule reads the same: exact owner first, then as shown", /const exact = owners\.get\(r\.email\)[\s\S]*if \(!exact\)[\s\S]*shownOwners\.get\(shown\)[\s\S]*return `e:\$\{shown\}`/.test(read("lib/contacts/identity.ts")))
+  const parity = read("scripts/check-contacts-sql.mjs")
+  check("the Postgres parity check runs 406 twice, with tagged and no-inbox addresses and searches by them", /406_creator_people_alias_merge\.sql/.test(parity) && /p2\+slb-1a2b3c4d@ex\.com/.test(parity) && /businesses\.invalid/.test(parity) && /q: "slb"/.test(parity) && /"--bundle"/.test(parity))
+  check("  and its migration copy is byte for byte the part", read("supabase/migrations/20271406_creator_people_alias_merge.sql") === sql)
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
