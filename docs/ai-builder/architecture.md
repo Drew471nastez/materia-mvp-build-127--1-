@@ -187,7 +187,7 @@ Changing an event kind, status, phase or step means changing the TypeScript list
 * One live job per install is a partial unique index created only when no install already has two live jobs (part 401 says so in a notice); the route checks it too.
 * The SQL harness (`scripts/sql-harness/run.sh editor`) runs both bundles twice with part 401 and the check row reads `p401_ai_builder_agent = t`. Its second-run schema diff shows policy text drift on `form_bookings`, `form_submissions`, `native_forms` (parts 372/375, unrelated to this round).
 
-## 8. Round M (M2): refusals, dead links, the live smoke
+## 9. Round M (M2): refusals, dead links, the live smoke
 
 * **A refusal is never `ok: true`.** `report_progress` with a concept `validateConcept` rejects answers `ok: false`, a `reason` and one `plan.concept_invalid` issue per problem (contract `AgentToolOutputs["report_progress"]` widened); the tool event says "The visual concept needs another pass". The same for a phase move before the concept, `set_section_settings` where every key is dropped (`settings.nothing`), `set_tokens` that sets nothing, and `delete_file` (now with `reason`).
 * **Dead links block finish.** `lib/ai-builder/render-check.ts`: a link with a job (a call to action by class or words, anything in a `<nav>` or the site's header/footer, a commerce link) is an error when it is `#`, empty, has no href, or goes to a missing page or id; `render.dead_button` for a `<button>` with no hook, form or script; `binding.empty` for a bound product list that draws empty titles or prices. Decorative links in running text stay warnings; in-page anchors to ids on the page pass. The prompt no longer teaches `| default: '#'`; knowledge entry `core-links-and-actions`.
