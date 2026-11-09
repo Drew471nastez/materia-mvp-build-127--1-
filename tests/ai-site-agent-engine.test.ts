@@ -21,6 +21,8 @@ import { memoryStore } from "@/lib/ai-builder/agent/memory-store"
 import type { AgentDeps } from "@/lib/ai-builder/agent/ports"
 import type { ProviderRequest } from "@/lib/sites/agent/types"
 import { ABOUT, CAPS, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, scripted, type Step } from "./ai-builder-agent-fixtures"
+/* Round N (N3): the site plan with the concept, and a whole site before finish. */
+import { homeSections, pageSections, sitePlan, templateCalls, writeWholeSite } from "./ai-builder-whole-site-fixtures"
 
 let passed = 0
 let failed = 0
@@ -120,7 +122,7 @@ function depsFor(store: ReturnType<typeof memoryStore>, steps: Step[], extra: Pa
 function fitnessSteps(store: ReturnType<typeof memoryStore>): Step[] {
   return [
     /* 1 (plan model): a write before the concept is refused; then the concept. */
-    { text: "Planning the look first.", calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }], ["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, tasks: ["Header and footer", "Home: hero and programs", "Programs page", "About page"] }]] },
+    { text: "Planning the look first.", calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }], ["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, pages: sitePlan(["programs", "about"]), tasks: ["Header and footer", "Home: hero and programs", "Programs page", "About page"] }]] },
     /* 2: real data and tokens. */
     { calls: [["list_capabilities", {}], ["set_tokens", { tokens: { colors: { background: "#f4efe6", surface: "#ebe4d8", text: "#1d1b18", muted: "#5c564d", accent: "#c2410c", accentText: "#ffffff", border: "#d6cdbd", inverse: { background: "#1d1b18", text: "#f4efe6", accent: "#fb923c" } }, fonts: { heading: "Oswald", body: "Inter" }, radius: { small: 2, medium: 4, large: 0 }, spacing: { scale: 1.1, sectionY: 96, pageWidth: 1240, gutter: 24 }, motion: { level: "subtle", style: "rise", durationMs: 500 }, custom: { radius: "2px", grain: "0.06" } } }]] },
     /* 3: five original components. */
@@ -133,6 +135,8 @@ function fitnessSteps(store: ReturnType<typeof memoryStore>): Step[] {
         ["write_file", { path: "sections/ai_coach_story.storelib", content: ABOUT }],
       ],
     },
+    /* 3b (round N): the rest of a whole site, the templates' components among them. */
+    ...writeWholeSite().map((calls) => ({ calls })),
     /* 4: pages. */
     { calls: [["add_page", { key: "programs", title: "Programs" }], ["add_page", { key: "about", title: "About", seo: { description: "Who coaches you." } }]] },
     /* 5: compose. */
@@ -142,16 +146,15 @@ function fitnessSteps(store: ReturnType<typeof memoryStore>): Step[] {
           "set_page_sections",
           {
             page: "home",
-            sections: [
-              { type: "ai_coach_header", group: "header" },
+            sections: homeSections([
               { type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } },
               { type: "ai_program_list", blocks: [{ type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } }] },
-              { type: "ai_coach_footer", group: "footer" },
-            ],
+            ]),
           },
         ],
-        ["set_page_sections", { page: "programs", sections: [{ type: "ai_program_list", settings: { heading: "All programs" } }] }],
-        ["set_page_sections", { page: "about", sections: [{ type: "ai_coach_story" }] }],
+        ["set_page_sections", { page: "programs", sections: pageSections({ type: "ai_program_list", settings: { heading: "All programs" } }) }],
+        ["set_page_sections", { page: "about", sections: pageSections({ type: "ai_coach_story" }) }],
+        ...templateCalls(),
       ],
     },
     /* 6: bind a real product (and try an invented one). */
