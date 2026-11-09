@@ -187,9 +187,63 @@ Changing an event kind, status, phase or step means changing the TypeScript list
 * One live job per install is a partial unique index created only when no install already has two live jobs (part 401 says so in a notice); the route checks it too.
 * The SQL harness (`scripts/sql-harness/run.sh editor`) runs both bundles twice with part 401 and the check row reads `p401_ai_builder_agent = t`. Its second-run schema diff shows policy text drift on `form_bookings`, `form_submissions`, `native_forms` (parts 372/375, unrelated to this round).
 
+## 9. Round M (M2): refusals, dead links, the live smoke
+
+* **A refusal is never `ok: true`.** `report_progress` with a concept `validateConcept` rejects answers `ok: false`, a `reason` and one `plan.concept_invalid` issue per problem (contract `AgentToolOutputs["report_progress"]` widened); the tool event says "The visual concept needs another pass". The same for a phase move before the concept, `set_section_settings` where every key is dropped (`settings.nothing`), `set_tokens` that sets nothing, and `delete_file` (now with `reason`).
+* **Dead links block finish.** `lib/ai-builder/render-check.ts`: a link with a job (a call to action by class or words, anything in a `<nav>` or the site's header/footer, a commerce link) is an error when it is `#`, empty, has no href, or goes to a missing page or id; `render.dead_button` for a `<button>` with no hook, form or script; `binding.empty` for a bound product list that draws empty titles or prices. Decorative links in running text stay warnings; in-page anchors to ids on the page pass. The prompt no longer teaches `| default: '#'`; knowledge entry `core-links-and-actions`.
+* **The live smoke goes through the real path.** `scripts/ai-builder/smoke-run.ts` drives `runAgentInvocation` + `sliceStepper` (a fresh stepper per request) on `MemoryAgentStore` (`lib/website-builder/ai-site/agent-memory-store.ts`, checkpoint through JSON on every save) with spend, wall clock and request caps. `scripts/ai-builder/live-smoke.ts` runs it against Anthropic only with `STORELIB_LIVE_AI_SMOKE=1` and `ANTHROPIC_API_KEY` (default cap $1, 15 minutes); `tests/ai-builder-live-smoke.test.ts` runs the same smoke with a scripted model.
+
 ---
 
-## 8. After round AP met round L (round AQ)
+## 8. Round M (M1): theme mode on an existing website, Undo, the agent per account
+
+### 8.1 Who gets the agent engine
+
+| Switch | Effect |
+| --- | --- |
+| `AI_BUILDER_AGENT=1` | On for every account (as in round L). |
+| `AI_BUILDER_AGENT_ACCOUNTS` | Comma separated allowlist, read on the server only. Each entry is a creator **username or slug** (any case, `@` optional), or a store owner's **user id** or a **creator id** (uuid). Emails are not accepted: an entry that looks like one is ignored and the log says only how many were ignored, never which. |
+
+`lib/website-builder/ai-site/agent-access.ts` (`agentEnabledFor(db, { ownerUserId, creatorId })`) is the one check, applied in:
+
+* Start with AI (`themes/create`): the new job's `engine` is `agent` for an allowed account, `classic` otherwise.
+* Edit with AI (`themes/[id]/ai-edit`): 501 for an account that is not allowed (the editor falls back to Ask Storelib).
+* Redesign with AI (`themes/[id]/redesign`): 501 for an account that is not allowed.
+* The editor: `GET themes/[id]/redesign` answers `{ agent, job }`; `agent` decides whether the project menu offers Redesign with AI and whether Edit with AI asks the agent. The browser has no flag of its own (the old `NEXT_PUBLIC_AI_BUILDER_AGENT_EDIT` is gone).
+
+The account is the store's owner; team members are refused by those routes anyway. No table, no SQL part: turning it on for one account is one env var.
+
+### 8.2 Redesign with AI (D4 theme mode, now wired)
+
+`POST /api/website-builder/themes/[installId]/redesign` body `{ prompt, key, scope?: "changes" | "full" }`:
+
+1. owner only, this creator's website, the agent on for the account (else 501);
+2. `(creator, key)` replays the first job (and its backup);
+3. `LIMITS.siteAi` per person, `LIMITS.siteGenerate` per store, one live job per creator and per website (409 `ai_busy_site`; the database's `ai_site_jobs_one_live_per_install` index too);
+4. **a backup first**: `takeBackup(..., { source: "ai", verify: true })`, the Backups route's own mechanism, before the job row exists (no backup, no job);
+5. the job: `engine agent`, `step agent`, `mode theme`, `options = { generation: "theme", redesign: { scope, backupId } }` (no new column), kicked to L2's runner. The editor follows it with the same progress panel as Start with AI.
+
+The loop (`AgentJobInput.redesign`): `changes` works like an edit across the whole site (no concept required, checks only the pages it touched, keep every page, section, word, picture and binding by id; native sections stay native); `full` asks for a concept and a new look but keeps the content and bindings. Neither may delete a page. `lib/ai-builder/agent/prompts.ts` says so in the brief.
+
+### 8.3 Undo this AI job, and restores that really go back
+
+`POST /api/website-builder/ai-jobs/[jobId]/undo` (owner only, 409 while the job runs) restores the job's backup through `lib/website-builder/restore-backup.ts`, the same steps as `backups/[backupId]/restore` (safety copy verified first, all or nothing), and marks the job `state.undo` (Continue and Start over drop it). The progress view's `redesign.undo` is `available | done | none`.
+
+A restore used to leave whatever the backup did not know about. Now `lib/website-builder/added-since.ts` finds, **on evidence only**:
+
+* added after the backup = not in the backup and the row's `created_at` is at or after the backup's;
+* made by the AI = a file on an `ai_` path whose versions since the backup are the AI's (`store_theme_file_versions.author`, part 401) and none a person's; a page an AI job of this website reported creating (`ai_site_job_events` kind `page`, action `created`);
+* not live (nothing published).
+
+All three: removed with the restore (Undo and Backups alike). Anything else added since is returned as `added.kept` with its reason (`person`, `live`, `unknown`) and stays; Backups' preview (`GET backups/[id]`) lists both and the restore removes a kept one only when the body names it (`removeAdded: ["page:<key>", "file:<path>"]`), never a live one. Menus and page SEO live in Theme settings, so they come back with the settings.
+
+Limits: a backup is pruned after 30 newer ones (the undo then answers 410 and points to Backups); an AI page the person edited afterwards is still the AI's page (pages have no history of their own).
+
+Tests: `tests/ai-builder-redesign-m1.test.ts` (real routes, scripted model).
+
+---
+
+## 10. After round AP met round L (round AQ)
 
 * **Which engine runs.** `startEngine()` (`lib/website-builder/ai-site/start.ts`) makes a new Start with AI job `classic` unless the platform sets `AI_BUILDER_AGENT=1`. Classic is the five step job plus round AP's `code` step (stored as step `build` with `state.coding`, because part 380's step CHECK has no `code`): its own header, footer and custom sections written by `writerCoder`, the theme's frame removed (`placementOps`). The agent engine is the same freedom by construction: `ai_` files, its own chrome, Theme settings as tokens.
 * **One gate.** `lib/website-builder/ai-site/gate.ts` holds the file rules both engines refuse a file for, in the same words: a secret or env read, a remote script, a typed picture, a loop with no reduced motion rule, no settings, a header without the menu (the classic job also asks it of the footer), a picture default that is not https, a richtext setting printed without `| raw`, a placeholder, a banned word or an em dash. `acceptCoded` (classic) and `validateFile` (agent, `gate.*` codes) both call it.

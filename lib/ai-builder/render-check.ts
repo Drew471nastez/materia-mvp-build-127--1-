@@ -18,8 +18,22 @@
  *   render.empty          a section that draws no words, no picture, nothing
  *   render.empty_page     a page with no sections at all
  *   render.broken_link    a link to an address this website does not have
- *   render.placeholder    a link to "#" or nowhere that is not a hook
+ *   render.placeholder    a link to "#", "" or nowhere that is not a hook
  *   render.anchor         a link to #id where nothing on the page has that id
+ *   render.dead_button    a <button> with nothing behind it (no hook, no
+ *                         form, no script, no control it opens)
+ *   binding.empty         a product list or picker that draws empty titles,
+ *                         prices or links (bound, but printed from the wrong
+ *                         fields)
+ *
+ * WHAT BLOCKS FINISH (round M). A link that has a job (a call to action: a
+ * button-looking link or one whose words ask for something; anything in a
+ * <nav> or the site's header/footer; a commerce link) is an ERROR when it is
+ * a placeholder, goes to a page that does not exist or to an id that is not
+ * on the page: the finish gate sends the agent back to fix it. A decorative
+ * link (an ordinary link in running text) with the same problem stays a
+ * warning. A script address (javascript:) is always an error. An in-page
+ * anchor to an id that exists (#classes, #section-<id>) is fine.
  *   render.overflow       CSS a phone shows sideways (fixed widths, 100vw,
  *                         many columns with no narrow rule)
  *   a11y.img_alt          a picture with no alt
@@ -80,6 +94,49 @@ export const MAX_RENDER_ISSUES = 40
 const BUILT_IN_ROUTES = [/^\/$/, /^\/products\/?$/, /^\/collections\/?$/, /^\/cart\/?$/, /^\/search\/?$/, /^\/wishlist\/?$/, /^\/account(\/.*)?$/, /^\/blogs(\/.*)?$/, /^\/policies\/[a-z0-9-]+$/, /^\/checkout$/, /^\/password$/, /^\/reviews(\/.*)?$/, /^\/sitemap\.xml$/]
 /** Hooks that make a "#" link a real control. */
 const HOOK_ATTR = /\sdata-storelib-(cart|search|menu|add-to-cart|checkout|cart-close|wishlist|scroll)\b|\srole\s*=\s*"button"|\saria-controls\s*=/i
+/** A class that dresses a link or button as a call to action (btn, button, cta, hero__cta, buy-now...). */
+const CTA_CLASS = /(?:^|[\s_-])(?:btn|button|cta|buy|shop|book|order|enrol|enroll|signup|join|checkout|cart)(?:$|[\s_-])/i
+/** Words that ask the visitor to do something: a link that says them is a call to action. */
+const CTA_WORDS = /^(?:buy|shop|book|order|add to (?:cart|bag|basket)|get (?:started|it|tickets|yours)|start|sign ?up|join|enrol|enroll|subscribe|apply|reserve|register|contact|get in touch|send|download|try|claim|view (?:product|programme|program|plans?|pricing)|see (?:plans?|pricing|programmes|programs)|learn more|find out more|read more)\b/i
+/** Attributes that mean a <button> does something without a script of the section's own. */
+const BUTTON_WIRED = /\sdata-storelib-[a-z-]+|\saria-(?:controls|expanded|haspopup)\s*=|\spopovertarget\s*=|\scommandfor\s*=|\sform\s*=|\stype\s*=\s*"?(?:submit|reset)\b|\sdisabled\b|\sonclick\s*=/i
+
+/** Where the element at `index` sits inside an element named `tag` (by position in the markup). */
+function insideTag(html: string, tag: string, index: number): boolean {
+  const re = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi")
+  let depth = 0
+  for (const m of html.matchAll(re)) {
+    if ((m.index ?? 0) >= index) break
+    depth += m[1] ? -1 : 1
+    if (depth < 0) depth = 0
+  }
+  return depth > 0
+}
+
+function classOf(tag: string): string {
+  return tag.match(/\sclass\s*=\s*"([^"]*)"/i)?.[1] ?? tag.match(/\sclass\s*=\s*'([^']*)'/i)?.[1] ?? ""
+}
+
+/** Every <a> with its opening tag, its href (null when it has none), its words and its place in the markup. */
+function anchors(html: string): { tag: string; href: string | null; text: string; index: number }[] {
+  const out: { tag: string; href: string | null; text: string; index: number }[] = []
+  for (const m of html.matchAll(/<a\b([^>]*)>([\s\S]*?)(?:<\/a>|(?=<a\b))/gi)) {
+    const tag = `<a${m[1]}>`
+    const h = m[1].match(/\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i)
+    out.push({ tag, href: h ? (h[1] ?? h[2] ?? h[3] ?? "").trim() : null, text: textOf(m[2] ?? ""), index: m.index ?? 0 })
+  }
+  return out
+}
+
+/**
+ * What a link is for. "nav": in a <nav> or the site's header/footer. "cta": dressed or worded as a call to
+ * action, or a commerce link. "text": an ordinary link. Only "text" links get away with a warning.
+ */
+export function linkRole(a: { tag: string; text: string; index: number }, html: string, chrome: boolean): "nav" | "cta" | "text" {
+  if (chrome || insideTag(html, "nav", a.index)) return "nav"
+  if (CTA_CLASS.test(classOf(a.tag)) || /\sdata-storelib-[a-z-]+/i.test(a.tag) || CTA_WORDS.test(a.text.trim())) return "cta"
+  return "text"
+}
 
 const textOf = (html: string) =>
   html
@@ -174,6 +231,13 @@ function knownFrom(input: RenderCheckInput) {
   }
 }
 
+/** Whether a section (or one of its blocks) has a setting naming one of this store's products. */
+function boundToProducts(section: SectionInstance, products: Set<string>): boolean {
+  const names = (v: unknown): boolean => (typeof v === "string" ? products.has(v) : Array.isArray(v) ? v.some(names) : false)
+  if (Object.values(section.settings ?? {}).some(names)) return true
+  return (section.blocks ?? []).some((b) => Object.values(b.settings ?? {}).some(names))
+}
+
 export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckResult> {
   const issues: ValidationIssue[] = []
   const push = (i: ValidationIssue) => {
@@ -232,19 +296,50 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
 
     for (const m of html.matchAll(/<h([1-6])\b/gi)) headings.push({ level: Number(m[1]), sectionId: sid })
 
-    /* Links. */
-    for (const { value, tag } of attrValues(html, "href")) {
-      if (!/^<a\b/i.test(tag)) continue
-      const problem = linkProblem(value, known)
-      if (!problem) continue
-      if (problem.code === "render.placeholder" && HOOK_ATTR.test(tag)) continue
-      if (problem.code === "render.anchor") {
-        if (ids.has(problem.detail.slice(1))) continue
-        push({ severity: "warning", code: "render.anchor", message: `A link goes to ${problem.detail}, and nothing on this page has that id.`, ...at })
+    /* Links: a broken one with a job blocks finish; a decorative one is a warning (see the head of this file). */
+    const chrome = section.group === "header" || section.group === "footer" || section.type === "header" || section.type === "footer"
+    for (const a of anchors(html)) {
+      const role = linkRole(a, html, chrome)
+      const job = role !== "text"
+      const what = role === "nav" ? "A menu link" : role === "cta" ? `The call to action "${a.text.slice(0, 40) || "(no words)"}"` : "A link"
+      if (a.href === null) {
+        if (job && !HOOK_ATTR.test(a.tag)) push({ severity: "error", code: "render.placeholder", message: `${what} has no href: it goes nowhere. Give it a url setting with a real default (a page, a product's url, a form's page) and print it with | url, or hide it with {% if %} while it is empty.`, ...at })
         continue
       }
-      if (problem.code === "render.placeholder") push({ severity: "warning", code: "render.placeholder", message: `A link goes nowhere (${problem.detail}). Point it at a page, a product's url, or a url setting.`, ...at })
-      else push({ severity: "warning", code: "render.broken_link", message: `A link goes to ${problem.detail}. Use one of list_capabilities' pages, products or collections.`, ...at })
+      const problem = linkProblem(a.href, known)
+      if (!problem) continue
+      if (problem.code === "render.placeholder" && HOOK_ATTR.test(a.tag)) continue
+      if (problem.code === "render.anchor") {
+        if (ids.has(problem.detail.slice(1))) continue
+        push({ severity: job ? "error" : "warning", code: "render.anchor", message: `${what} goes to ${problem.detail}, and nothing on this page has that id. Give the target section that id, or link to a page.`, ...at })
+        continue
+      }
+      if (problem.code === "render.placeholder") {
+        push({ severity: job ? "error" : "warning", code: "render.placeholder", message: `${what} goes nowhere (${problem.detail}). ${job ? "A link with a job needs a real destination: " : "Point it at "}a page from list_capabilities, a product's url, or a url setting with a real default; hide it with {% if %} while its setting is empty.`, ...at })
+      } else if (/script address/.test(problem.detail)) {
+        push({ severity: "error", code: "render.broken_link", message: `${what} is a script address (javascript:). Links go to pages; behaviour goes in the section's <script> or a data-storelib hook.`, ...at })
+      } else {
+        push({ severity: job ? "error" : "warning", code: "render.broken_link", message: `${what} goes to ${problem.detail}. Use one of list_capabilities' pages, products or collections.`, ...at })
+      }
+    }
+
+    /* Buttons with nothing behind them: no hook, no form, no control they open, and the section has no script to wire them. */
+    if (!script) {
+      for (const m of html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/gi)) {
+        const tag = m[1]
+        if (BUTTON_WIRED.test(tag) || insideTag(html, "form", m.index ?? 0)) continue
+        push({ severity: "error", code: "render.dead_button", message: `The button "${textOf(m[2] ?? "").slice(0, 40) || "(no words)"}" does nothing: it has no data-storelib hook, no form and no script. Make it a link to a real page, or give it its hook (add to cart, cart, menu, checkout).`, ...at })
+      }
+    }
+
+    /* A bound list printed from the wrong fields draws empty titles, prices and links (round M). */
+    if (known && boundToProducts(section, known.ids.products)) {
+      const emptyHeadings = [...html.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi)].filter((m) => !textOf(m[2]) && !/<(img|svg|picture)\b/i.test(m[2])).length
+      const emptyPrices = [...html.matchAll(/<([a-z0-9]+)\b[^>]*\sclass\s*=\s*"[^"]*price[^"]*"[^>]*>([\s\S]*?)<\/\1>/gi)].filter((m) => !textOf(m[2])).length
+      const emptyData = [...html.matchAll(/\sdata-(title|price)\s*=\s*""/gi)].length
+      if (emptyHeadings || emptyPrices || emptyData) {
+        push({ severity: "error", code: "binding.empty", message: `This section is bound to products but draws ${[emptyHeadings ? `${emptyHeadings} empty heading${emptyHeadings === 1 ? "" : "s"}` : "", emptyPrices ? `${emptyPrices} empty price${emptyPrices === 1 ? "" : "s"}` : "", emptyData ? `${emptyData} empty data-title/data-price` : ""].filter(Boolean).join(", ")}. A product_list loop gives blocks: print {{ block.settings.title }}, {{ block.settings.price }}, {{ block.settings.url }} and {{ block.id }}; a product_picker gives settings.<id>.title, .price, .url.`, ...at })
+      }
     }
 
     /* Remote code. The engine refuses most of this at compile; this is the belt to that. */
@@ -252,6 +347,12 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
     if (/<link\b[^>]*rel\s*=\s*"?stylesheet/i.test(html) || /@import\b/i.test(css)) push({ severity: "error", code: "import.remote", message: "A remote stylesheet or @import is in the section. Fonts come from a font_picker setting or Theme settings; styles stay in <style scoped>.", ...at })
     if (/url\(\s*['"]?https?:\/\/(?!fonts\.(?:gstatic|googleapis)\.com)/i.test(css)) push({ severity: "warning", code: "import.remote", message: "The CSS loads a picture from another website. Use an image_picker setting so it comes from the creator's media.", ...at })
 
+    /* An add to cart that names nothing is broken whatever data there is. */
+    if (!known) {
+      for (const { value } of attrValues(html, "data-storelib-add-to-cart")) {
+        if (!value) push({ severity: "error", code: "binding.unbound", message: "An add to cart button names no product. Print the product's id from a product_picker or product_list setting: data-storelib-add-to-cart=\"{{ block.id }}\".", ...at })
+      }
+    }
     /* Hooks the page acts on, held to this creator's ids. */
     if (known) {
       for (const { value } of attrValues(html, "data-storelib-add-to-cart")) {

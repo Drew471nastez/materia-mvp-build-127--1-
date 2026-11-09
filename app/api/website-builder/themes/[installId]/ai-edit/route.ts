@@ -9,7 +9,7 @@ import { versionOf } from "@/lib/ai-builder/agent/version"
 import { JOBS_TABLE } from "@/lib/website-builder/ai-site/server"
 import { ownOrigin } from "@/lib/website-builder/ai-site/own-origin"
 import { kickJob } from "@/lib/website-builder/ai-site/runner"
-import { agentEngineEnabled } from "@/lib/website-builder/ai-site/agent-engine"
+import { agentEnabledFor } from "@/lib/website-builder/ai-site/agent-access"
 import { MAX_RUNNING_JOBS } from "@/lib/website-builder/ai-site/start"
 import { editJobOptions, editJobPrompt, parseEditRequest } from "@/lib/website-builder/ai-site/edit-job"
 
@@ -27,7 +27,8 @@ type Params = { params: Promise<{ installId: string }> }
  * 202 { job: { id } } and the editor follows the job like any other
  * (GET /api/website-builder/ai-jobs/<id>, Cancel, Continue).
  *
- *   501  the agent engine is off (AI_BUILDER_AGENT): the editor uses its
+ *   501  the agent engine is off for this account (AI_BUILDER_AGENT, or
+ *        AI_BUILDER_AGENT_ACCOUNTS without it): the editor uses its
  *        one-section writer instead.
  *   409  the file changed since the editor read it, or another AI build is
  *        running on this website.
@@ -41,7 +42,9 @@ export async function POST(req: Request, { params }: Params) {
   const site = await websiteCaller()
   if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
   if (!site.isOwner) return NextResponse.json({ error: "Only the store owner can do this." }, { status: 403 })
-  if (!agentEngineEnabled()) return NextResponse.json({ error: "Not available" }, { status: 501 })
+  const admin = createAdminClient()
+  /* On for everyone (AI_BUILDER_AGENT=1) or for this account (AI_BUILDER_AGENT_ACCOUNTS): agent-access.ts. */
+  if (!(await agentEnabledFor(admin, { ownerUserId: site.ownerUserId, creatorId: site.creatorId }))) return NextResponse.json({ error: "Not available" }, { status: 501 })
   const limited = await rateLimit({ bucket: "site-ai-edit", subjects: [`user:${site.userId}`], windows: LIMITS.siteAi, message: "Too many tries in a short time. Wait a minute, then try again." })
   if (limited) return limited
   const parsed = parseEditRequest(await req.json().catch(() => null))
@@ -50,7 +53,6 @@ export async function POST(req: Request, { params }: Params) {
 
   const { data: install } = await site.supabase.from("store_theme_installs").select("id").eq("id", installId).eq("creator_id", site.creatorId).maybeSingle()
   if (!install) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  const admin = createAdminClient()
   const { data: file, error: fileError } = await admin.from("store_theme_custom_files").select("content, draft_content").eq("install_id", installId).eq("path", edit.path).maybeSingle()
   if (fileError) return NextResponse.json({ error: "Could not read the file. Try again." }, { status: 500 })
   if (!file) return NextResponse.json({ error: "That file is not part of this website.", code: "no_file" }, { status: 409 })

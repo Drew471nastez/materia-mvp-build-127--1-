@@ -46,6 +46,31 @@ export interface AgentJobInfo {
    * edit mode and may write only `path`; every other file stays byte for byte.
    */
   edit?: AgentEditScope
+  /**
+   * A whole-site job on an EXISTING website (POST themes/[id]/redesign, kept in options.redesign, round M): the
+   * loop works on the site as it is, keeps its content and bindings unless `scope` is "full", and the job's
+   * backup (taken before it wrote anything) is what "Undo this AI job" restores.
+   */
+  redesign?: AgentRedesign
+}
+
+/** "changes": what the person described, across the site, keeping the rest. "full": a new look for the whole site, keeping its content. */
+export type RedesignScope = "changes" | "full"
+
+export interface AgentRedesign {
+  scope: RedesignScope
+  /** store_theme_backups.id of the backup taken before the job started. */
+  backupId: string | null
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** The redesign kept in a job's options, checked. Null for any other job. */
+export function redesignOf(options: unknown): AgentRedesign | null {
+  const r = options && typeof options === "object" ? (options as { redesign?: unknown }).redesign : null
+  if (!r || typeof r !== "object") return null
+  const o = r as Record<string, unknown>
+  return { scope: o.scope === "full" ? "full" : "changes", backupId: typeof o.backupId === "string" && UUID.test(o.backupId) ? o.backupId : null }
 }
 
 export interface AgentEditScope {

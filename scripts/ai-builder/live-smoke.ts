@@ -1,98 +1,87 @@
 /**
- * ONE REAL GENERATION, OPT IN, WITH A HARD SPEND CAP.
+ * ONE REAL GENERATION THROUGH THE REAL PATH, OPT IN, WITH A HARD SPEND CAP.
  *
- * Runs the agent engine (lib/ai-builder/agent) against Anthropic for real,
- * on an in-memory website (no database is touched), with a fitness coach
- * brief, and prints what it made, what it cost and every check result.
+ * The production runner (runAgentInvocation) and stepper (sliceStepper), one
+ * model call per step, requests chained with the checkpoint saved through
+ * JSON between them, on an in-memory job table and website (no database is
+ * touched). See scripts/ai-builder/smoke-run.ts for what each part is.
  *
- * It does nothing unless BOTH are true:
+ * It does nothing unless BOTH are true (checked by name; no value is printed):
  *   STORELIB_LIVE_AI_SMOKE=1
- *   ANTHROPIC_API_KEY is set (never printed)
+ *   ANTHROPIC_API_KEY is set
  *
  *   STORELIB_LIVE_AI_SMOKE=1 ANTHROPIC_API_KEY=... \
  *   NODE_OPTIONS="--conditions=react-server" npx tsx scripts/ai-builder/live-smoke.ts [outDir]
  *
- * Caps: AI_SMOKE_MAX_USD (default 1.50, never above 5), 40 model calls,
- * 15 minutes. A budget hit ends the run partial, which is a valid result.
- * outDir (optional) receives the generated files, pages and settings as JSON.
+ * Caps: AI_SMOKE_MAX_USD (default 1, at most 5), AI_SMOKE_MAX_MINUTES
+ * (default 15, at most 30), AI_SMOKE_MAX_OUTPUT_TOKENS per call (default
+ * 12000). A cap hit ends the run partial or cancelled, which is a valid
+ * result: what was made is still reported and saved.
+ * AI_SMOKE_REQUEST_SECONDS (default 240, like production) is each request's
+ * time; set it lower (say 90) to make the run hand over between requests
+ * more often.
+ * The generated files, pages, settings and events go to outDir, default a
+ * new folder under the system temp directory.
  */
-import { mkdirSync, writeFileSync } from "node:fs"
+import { mkdtempSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createAnthropicProvider, anthropicClientFor } from "@/lib/sites/agent/anthropic-provider"
-import { runAgentSlice } from "@/lib/ai-builder/agent/loop"
-import { memoryStore } from "@/lib/ai-builder/agent/memory-store"
-import type { LoopCheckpoint } from "@/lib/ai-builder/agent/state"
-import type { AgentDeps } from "@/lib/ai-builder/agent/ports"
-import { DEFAULT_JOB_BUDGET } from "@/lib/ai-builder/types"
+import { PLAN_MODEL, SMALL_MODEL, WRITE_MODEL } from "@/lib/website-builder/ai-site/models"
 import type { RuntimeCapabilities } from "@/lib/ai-builder/runtime-contract"
+import { describeSmoke, runSmoke, smokeGate, smokeLimits } from "./smoke-run"
 
-async function main() {
-  if (process.env.STORELIB_LIVE_AI_SMOKE !== "1") {
-    console.log("Skipped: set STORELIB_LIVE_AI_SMOKE=1 to run one real generation (it costs money).")
-    return
-  }
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) {
-    console.log("Skipped: ANTHROPIC_API_KEY is not set.")
-    return
-  }
-  const cap = Math.min(5, Math.max(0.1, Number(process.env.AI_SMOKE_MAX_USD) || 1.5))
-  const provider = createAnthropicProvider(() => anthropicClientFor(key))
-  const caps: RuntimeCapabilities = {
-    store: { name: "Iron & Chalk", currency: "GBP", brandImage: null, tagline: null },
-    products: [{ id: "prod_smoke_8week", title: "8 week strength block", kind: "service", price: "£120", url: "/products/8-week-strength-block", checkout_url: "", available: true, variants: [] }],
-    collections: [],
-    communities: [],
-    forms: [],
-    pages: [],
-    menus: [],
-    blog: { posts: 0 },
-    reviews: { count: 0, average: null },
-    links: { creatorPage: null, social: [] },
-    features: ["shop"],
-  }
-  const store = memoryStore({ pages: { home: [] } })
-  const deps: AgentDeps = {
-    store,
-    models: { plan: { provider, model: "claude-opus-5-5", effort: "medium" }, loop: { provider, model: "claude-sonnet-5-5", effort: "low" }, small: { provider, model: "claude-haiku-5-5", effort: "low" }, ownKey: false },
-    capabilities: async () => caps,
-    emit: (e) => console.log(`  [${e.seq}] ${e.kind}${"tool" in e ? ` ${e.tool} ${e.ok ? "ok" : "REFUSED"}: ${e.summary}` : "phase" in e ? ` ${e.phase}: ${e.label}` : "path" in e ? ` ${e.path}` : "usd" in e ? ` $${e.usd.toFixed(4)}` : ""}`),
-  }
-  const startedAt = Date.now()
-  const budget = { ...DEFAULT_JOB_BUDGET, maxUsd: cap, maxUsdOwnKey: cap, maxIterations: 40, maxWallMs: 15 * 60_000 }
-  let checkpoint: LoopCheckpoint | null = null
-  let spent = 0
-  let seq = 0
-  for (let slice = 0; slice < 10; slice++) {
-    const r = await runAgentSlice(
-      { jobId: "00000000-0000-4000-8000-000000000001", creatorId: "smoke", installId: "smoke", prompt: "A website for my strength coaching studio in Leeds: small group classes, an 8 week program people can buy, and a page about me.", mode: "blank", options: { generation: "blank", category: "fitness_coach" }, budget, startedAt, spentUsd: spent, lastEventSeq: seq },
-      checkpoint,
-      deps,
-      { deadline: Date.now() + budget.perInvocationMs },
-    )
-    spent = r.totalUsd
-    seq = r.events.at(-1)?.seq ?? seq
-    checkpoint = r.checkpoint
-    if (r.status !== "running") {
-      console.log(`\nStatus: ${r.status}${r.stopped ? ` (stopped: ${r.stopped})` : ""}\nSummary: ${r.summary}\nSpent: $${spent.toFixed(4)} of $${cap}, ${checkpoint.iteration} calls, ${Math.round((Date.now() - startedAt) / 1000)}s`)
-      break
-    }
-  }
-  console.log(`Files: ${Object.keys(store.project.files).join(", ")}`)
-  console.log(`Pages: ${Object.entries(store.project.pages).map(([k, v]) => `${k} (${v.map((s) => s.type).join(", ")})`).join("; ")}`)
-  const out = process.argv[2]
-  if (out) {
-    mkdirSync(out, { recursive: true })
-    writeFileSync(join(out, "project.json"), JSON.stringify(store.project, null, 2))
-    for (const [p, t] of Object.entries(store.project.files)) {
-      mkdirSync(join(out, p, ".."), { recursive: true })
-      writeFileSync(join(out, p), t)
-    }
-    console.log(`Written to ${out}`)
-  }
+/** The store the smoke builds for: a strength coach with one real product, no reviews. */
+export const SMOKE_CAPABILITIES: RuntimeCapabilities = {
+  store: { name: "Iron & Chalk", currency: "GBP", brandImage: null, tagline: null },
+  products: [{ id: "prod_smoke_8week", title: "8 week strength block", kind: "service", price: "£120", url: "/products/8-week-strength-block", checkout_url: "/checkout?productId=prod_smoke_8week", available: true, variants: [] }],
+  collections: [],
+  communities: [],
+  forms: [],
+  pages: [],
+  menus: [],
+  blog: { posts: 0 },
+  reviews: { count: 0, average: null },
+  links: { creatorPage: null, social: [] },
+  features: ["shop"],
 }
 
-main().catch((e) => {
-  console.error(e instanceof Error ? e.message : e)
-  process.exit(1)
-})
+export const SMOKE_PROMPT = "A website for my strength coaching studio in Leeds: small group classes, an 8 week program people can buy, and a page about me."
+
+/** The whole live smoke: the gate, the caps, the run, the report. Returns null when the gate says no. */
+export async function liveSmoke(env: Record<string, string | undefined>, print: (line: string) => void = (l) => console.log(l), argOutDir?: string) {
+  const gate = smokeGate(env)
+  if ("reason" in gate) {
+    print(gate.reason)
+    return null
+  }
+  const limits = smokeLimits(env)
+  const seconds = Number(env.AI_SMOKE_REQUEST_SECONDS)
+  const perInvocationMs = Number.isFinite(seconds) && seconds >= 75 ? Math.min(240, seconds) * 1000 : undefined
+  /* The key is read once, by the name the gate found, and handed to the client; it is never printed. */
+  const key = env[gate.keyName] as string
+  const provider = createAnthropicProvider(() => anthropicClientFor(key))
+  const outDir = argOutDir || mkdtempSync(join(tmpdir(), "storelib-ai-smoke-"))
+  print(`Live smoke: cap $${limits.capUsd.toFixed(2)}, ${Math.round(limits.wallMs / 60_000)} min, ${limits.maxOutputTokensPerCall} output tokens a call. Key: ${gate.keyName} (set).`)
+  const { report } = await runSmoke({
+    models: { plan: { provider, model: PLAN_MODEL, effort: "medium" }, loop: { provider, model: WRITE_MODEL, effort: "low" }, small: { provider, model: SMALL_MODEL, effort: "low" }, ownKey: false },
+    capabilities: SMOKE_CAPABILITIES,
+    prompt: SMOKE_PROMPT,
+    mode: "blank",
+    category: "fitness_coach",
+    ...limits,
+    ...(perInvocationMs ? { perInvocationMs } : {}),
+    outDir,
+    log: print,
+  })
+  print(`\n${describeSmoke(report)}`)
+  return report
+}
+
+/* Run only as a script: the test imports the constants above. */
+if (process.argv[1] && /live-smoke\.ts$/.test(process.argv[1])) {
+  liveSmoke(process.env, undefined, process.argv[2]).catch((e) => {
+    console.error(e instanceof Error ? e.message : e)
+    process.exit(1)
+  })
+}

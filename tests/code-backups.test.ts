@@ -33,7 +33,8 @@ console.log("\nWhat a restore does with it\n")
   check("each file goes back as a draft, nothing goes live", /return restoreSnapshot\(db, installId, snapshot, opts\)/.test(backups) && /path: f\.path, content: before \? before\.content : "", draft_content: f\.content/.test(restore))
   check("  and is a version in that file's history, so the restore can be stepped back from", /from\("store_theme_file_versions"\)\.insert\(group\)/.test(restore) && /kind: "restore"/.test(restore))
   check("  an old backup without files leaves the code alone", /const wanted = \(snapshot\.files \?\? \[\]\)/.test(restore))
-  check("  the restore route still takes a safety copy first", read("app/api/website-builder/themes/[installId]/backups/[backupId]/restore/route.ts").indexOf("takeBackup(") < read("app/api/website-builder/themes/[installId]/backups/[backupId]/restore/route.ts").indexOf("await applySnapshot("))
+  /* Changed on purpose (round M): the restore steps are lib/website-builder/restore-backup.ts, shared with the AI job's Undo. */
+  check("  the restore route still takes a safety copy first", (() => { const r = read("lib/website-builder/restore-backup.ts"); return r.indexOf("takeBackup(") > 0 && r.indexOf("takeBackup(") < r.indexOf("await applySnapshot(") })())
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

@@ -24,7 +24,7 @@
  * list scrolls inside the card on a phone.
  */
 import * as React from "react"
-import { Check, Loader2, RotateCw, Sparkles, X } from "lucide-react"
+import { Check, Loader2, RotateCw, Sparkles, Undo2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import type { AgentErrorCode } from "@/lib/ai-builder/agent-step"
@@ -139,17 +139,23 @@ export function AgentProgressPanel({
   onContinue,
   onStartOver,
   onClose,
+  onUndo,
 }: {
   view: AgentJobView
   events: AgentEvent[]
-  busy: null | "cancel" | "continue" | "start_over"
+  busy: null | "cancel" | "continue" | "start_over" | "undo"
   problem: string | null
   onCancel: () => void
   onContinue: () => void
   onStartOver: () => void
   onClose: () => void
+  /** Redesign with AI (round M): puts back the backup taken before the job ran. */
+  onUndo?: () => void
 }) {
   const state = agentPanelState(view)
+  /* A Redesign with AI job: a change to a website that exists, with a way back. */
+  const redesign = view.redesign ?? null
+  const undone = redesign?.undo === "done"
   const live = state === "waiting" || state === "working" || state === "stopping"
   const lines = React.useMemo(() => {
     const out: { seq: number; text: string; tone: NonNullable<ReturnType<typeof eventLine>>["tone"] }[] = []
@@ -169,10 +175,15 @@ export function AgentProgressPanel({
   }, [lines.length])
 
   const reason = view.error ? reasonWords(view.error.code) : null
-  const actions: RecoveryAction[] = state === "cancelled" ? (view.continues.used < view.continues.max ? ["continue", "start_over"] : ["start_over"]) : view.error?.actions ?? []
+  const actions: RecoveryAction[] = undone ? [] : state === "cancelled" ? (view.continues.used < view.continues.max ? ["continue", "start_over"] : ["start_over"]) : view.error?.actions ?? []
 
-  const title =
-    state === "complete"
+  const title = undone
+    ? tt("AI changes undone")
+    : redesign && state === "complete"
+      ? tt("Your changes are ready")
+      : redesign && state === "partial"
+        ? tt("Your changes are ready, with a few gaps")
+        : state === "complete"
       ? tt("Your website is ready")
       : state === "partial"
         ? tt("Your website is ready, with a few gaps")
@@ -190,8 +201,11 @@ export function AgentProgressPanel({
   if (view.counts.pagesPlanned && view.counts.pagesDone !== undefined) counts.push(tt("{done} of {total} pages done", { done: view.counts.pagesDone, total: view.counts.pagesPlanned }))
   if (view.counts.componentsWritten) counts.push(tt("{count, plural, one {# section written} other {# sections written}}", { count: view.counts.componentsWritten }))
 
-  const line =
-    state === "complete"
+  const line = undone
+    ? tt("Your website is back as it was before this AI job. Nothing went live.")
+    : redesign && state === "complete" && !view.summary
+      ? tt("A backup was saved before the AI started. Undo puts it back.")
+      : state === "complete"
       ? view.summary || tt("Every section is yours to edit. Publish when you are happy with it.")
       : state === "partial"
         ? reason?.message ?? view.summary ?? tt("Some parts were left out rather than made up. Ask AI to fix them, or edit them yourself.")
@@ -218,7 +232,7 @@ export function AgentProgressPanel({
     <section
       role="status"
       aria-live="polite"
-      aria-label={tt("Start with AI")}
+      aria-label={redesign ? tt("Redesign with AI") : tt("Start with AI")}
       data-agent-generation={state}
       className="pointer-events-auto flex max-h-[min(70vh,560px)] w-full max-w-[440px] flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-[#1a1a2e] shadow-[0_8px_30px_rgba(16,24,40,0.12)]"
     >
@@ -307,6 +321,12 @@ export function AgentProgressPanel({
 
       {!live && (
         <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-4 pt-3">
+          {redesign?.undo === "available" && onUndo && (
+            <button type="button" className={cn(SECONDARY, "mr-auto")} onClick={onUndo} disabled={!!busy} data-agent-undo="">
+              {busy === "undo" ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Undo2 className="h-4 w-4" />}
+              {tt("Undo this AI job")}
+            </button>
+          )}
           {actions.includes("start_over") && (
             <button type="button" className={SECONDARY} onClick={onStartOver} disabled={!!busy} data-agent-start-over="">
               {busy === "start_over" && <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />}
@@ -319,9 +339,9 @@ export function AgentProgressPanel({
               {actions.includes("continue") ? tt("Continue") : tt("Try again")}
             </button>
           )}
-          {(state === "complete" || state === "partial") && (
+          {(state === "complete" || state === "partial" || undone) && (
             <button type="button" className={PRIMARY} onClick={onClose} data-agent-done="">
-              {tt("See your website")}
+              {undone || redesign ? tt("Done") : tt("See your website")}
             </button>
           )}
         </div>
