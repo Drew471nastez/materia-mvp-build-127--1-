@@ -351,6 +351,53 @@ async function main() {
     check("a placed component cannot be deleted", del.ok === false && "sections/ai_program_list.storelib" in s.project.files)
     const del2 = await tools.delete_file({ path: "sections/hero.storelib" })
     check("a theme file cannot be deleted", del2.ok === false && "sections/hero.storelib" in s.project.files)
+    check("a refused delete says why (placed where, not your file)", /placed on home/.test(del.reason ?? "") && /not one of your files/.test(del2.reason ?? ""), { del, del2 })
+    const nothing = await tools.set_section_settings({ page: "home", sectionId: list.ids[0], settings: { not_a_setting: "x" } })
+    check("settings that are all left out are a refusal, not ok with warnings", nothing.ok === false && (nothing.issues ?? []).some((i) => i.code === "settings.nothing" && i.severity === "error") && (nothing.issues ?? []).some((i) => i.code === "settings.unknown"), nothing)
+    const noTokens = await tools.set_tokens({ tokens: {} })
+    check("set_tokens with nothing set is not ok", noTokens.ok === false && noTokens.changed.length === 0 && (noTokens.issues ?? []).some((i) => i.severity === "error"), noTokens)
+  }
+
+  console.log("\n5b. a refusal is never ok (round M)")
+  {
+    /* Direct: report_progress before and with a bad concept. */
+    const s = memoryStore({ pages: { home: [] } })
+    const cp = newCheckpoint()
+    const phases: string[] = []
+    const tools = createToolSet({ job: jobInput(), deps: { store: s, models: depsFor(s, []).deps.models, capabilities: async () => CAPS }, cp, emit: () => undefined, onFinish: async () => ({ ok: true }), setPhase: (p) => phases.push(p) })
+    const early = await tools.report_progress({ phase: "build", label: "Building" })
+    check("moving past plan with no concept is refused with the reason", early.ok === false && (early.issues ?? [])[0]?.code === "plan.concept_missing" && !phases.includes("build"), { early, phases })
+    const label = await tools.report_progress({ phase: "plan", label: "Reading the store" })
+    check("a plan-phase label before the concept is fine (ok, with what comes next)", label.ok === true && /concept/.test(label.note ?? ""))
+    const bad = await tools.report_progress({ phase: "plan", label: "Concept", concept: { name: "Chalk", mood: ["calm"] } })
+    check("a concept validateConcept rejects is ok: false with every reason as an issue", bad.ok === false && /needs another pass/.test(bad.reason ?? "") && (bad.issues ?? []).length >= 3 && (bad.issues ?? []).every((i) => i.severity === "error" && i.code === "plan.concept_invalid") && !cp.concept, bad)
+    const notObj = await tools.report_progress({ phase: "plan", label: "Concept", concept: "bold and modern" })
+    check("a concept that is not an object is refused too", notObj.ok === false && (notObj.issues ?? []).length >= 1)
+    const stillShut = await tools.write_file({ path: "sections/ai_coach_hero.storelib", content: HERO })
+    check("and the write tools stay shut after a refused concept", stillShut.ok === false && stillShut.issues?.[0]?.code === "plan.concept_missing" && !Object.keys(s.project.files).length)
+    const good = await tools.report_progress({ phase: "plan", label: "Concept", concept: CONCEPT })
+    check("the fixed concept is accepted (ok, the build opens)", good.ok === true && !!cp.concept && phases.at(-1) === "build" && /accepted/.test(good.note ?? ""))
+    const worse = await tools.report_progress({ phase: "plan", label: "Concept", concept: { name: "x" } })
+    check("a later bad concept is refused and the accepted one stays", worse.ok === false && cp.concept?.name === CONCEPT.name && /stays/.test(worse.reason ?? ""))
+
+    /* Through the loop: the model reads ok: false, the progress event says the concept needs another pass. */
+    const s2 = memoryStore({ pages: { home: [] } })
+    const seen: string[] = []
+    const d = depsFor(s2, [
+      { calls: [["report_progress", { phase: "plan", label: "Concept", concept: { name: "Half a concept" } }]] },
+      (req) => {
+        const last = req.turns[req.turns.length - 1]
+        const said = last.role === "tool" ? last.results[0].output : ""
+        seen.push(said)
+        return { calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT }]] }
+      },
+    ])
+    const r = await runAgentSlice(jobInput(), null, d.deps, { deadline: T0 + 10 * 60_000, maxIterations: 2 })
+    const toolEvents = r.events.filter((e): e is Extract<AgentEvent, { kind: "tool" }> => e.kind === "tool" && e.tool === "report_progress")
+    const told = JSON.parse(seen[0] ?? "{}") as { ok?: boolean; issues?: { code: string }[] }
+    check("the model is answered ok: false with the reasons", told.ok === false && (told.issues ?? []).length >= 3 && told.issues!.every((i) => i.code === "plan.concept_invalid"), seen[0]?.slice(0, 400))
+    check("the progress event for a refused concept is not ok and says it needs another pass", toolEvents[0]?.ok === false && /needs another pass/.test(toolEvents[0].summary) && !/\bok\b/i.test(toolEvents[0].summary), toolEvents[0])
+    check("the accepted one is an ok event and the build opens", toolEvents[1]?.ok === true && r.phase === "build", { e: toolEvents[1], phase: r.phase })
   }
 
   console.log("\n6. the transcript and resuming")

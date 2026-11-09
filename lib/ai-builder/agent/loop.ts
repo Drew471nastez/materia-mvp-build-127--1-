@@ -323,6 +323,11 @@ function summarise(name: string, args: Record<string, unknown>, output: unknown)
   const o = (output ?? {}) as { ok?: boolean; issues?: ValidationIssue[]; reason?: string }
   const target = typeof args.path === "string" ? args.path : typeof args.page === "string" ? `page ${args.page}` : typeof args.key === "string" ? `page ${args.key}` : typeof args.query === "string" ? `"${args.query.slice(0, 60)}"` : typeof args.label === "string" ? args.label.slice(0, 80) : ""
   const errors = Array.isArray(o.issues) ? o.issues.filter((i) => i.severity === "error").length : 0
+  /* A refused concept says so in words, never as an ok line (round M). */
+  if (name === "report_progress" && o.ok === false) {
+    const concept = Array.isArray(o.issues) && o.issues.some((i) => i.code === "plan.concept_invalid")
+    return (concept ? `The visual concept needs another pass (${errors} thing${errors === 1 ? "" : "s"} to fix)` : "The visual concept comes first: nothing else can start without it").slice(0, 200)
+  }
   return `${name.replace(/_/g, " ")}${target ? ` ${target}` : ""}${o.ok === false ? (errors ? `: ${errors} error${errors === 1 ? "" : "s"}` : o.reason ? `: ${String(o.reason).slice(0, 60)}` : ": refused") : ""}`.slice(0, 200)
 }
 
