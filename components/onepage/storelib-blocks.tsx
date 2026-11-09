@@ -2,7 +2,7 @@
 import {VisualLinkCard} from "./block-presentation"
 import { ColorRow, LabeledRow, Segmented, Switch } from "./editor-kit"
 import { OnePageProductBlock } from "./product-block"
-import { ProductLayoutThumb, layoutHasCard, layoutLabel, useCreatorProducts } from "./tabs/product-block-editor"
+import { ProductLayoutThumb, layoutHasCard, layoutLabel, useCreatorProducts, type CreatorProduct } from "./tabs/product-block-editor"
 import { OnePageImageField } from "@/components/onepage/image-field"
 import type { ProductBlockData, ProductBlockStyle } from "@/lib/onepage/types"
 import { useBlockPart } from "./block-part"
@@ -924,8 +924,22 @@ function ShelfProductPick({
   its own for any product). Layout: how the shelf is arranged and how each
   card is drawn, with the card colours where a card has its own.
 */
+/** The first three products a shelf shows, for the pictures of its arrangements: its picks in order, else the newest of its kind. */
+function shelfPreviewItems(data: StorelibShelfBlockData, source: ReturnType<typeof shelfSource>, products: CreatorProduct[] | null, money: ((cents: number) => string) | null) {
+  if (!products?.length || source === "community") return []
+  const picked = shelfPickedIds(data)
+  const byId = new Map(products.map((p) => [p.id.toLowerCase(), p]))
+  const shown = picked ? picked.map((id) => byId.get(id)).filter((p): p is CreatorProduct => !!p) : products.filter((p) => source === "all" || p.type === source)
+  return shown.slice(0, 3).map((p) => ({
+    image: data.product_overrides?.[p.id]?.custom_thumbnail || p.thumbnail_url || null,
+    title: p.title,
+    meta: money ? (p.price_cents > 0 ? money(p.price_cents) : tt("Free")) : null,
+  }))
+}
+
 function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updateData: (u: Partial<StorelibShelfBlockData>) => void }) {
   const part = useBlockPart()
+  const money = usePageMoney()
   const source = shelfSource(data.source)
   const products = useCreatorProducts(true)
   const [editing, setEditing] = React.useState("")
@@ -1019,7 +1033,8 @@ function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updat
           { id: "grid", kind: "grid", label: tt("Grid") },
           { id: "carousel", kind: "carousel", label: tt("Carousel") },
         ]}
-        images={products?.filter((p) => source === "all" || p.type === source).slice(0, 3).map((p) => p.thumbnail_url)}
+        /* Round AQ: the shelf's own products, the picked ones in their order, with the picture, name and price the page draws. */
+        items={shelfPreviewItems(data, source, products, settings.show_price !== false ? money : null)}
         onChange={(v) => updateData({ layout: v })}
       />
       {arrange === "carousel" ? (

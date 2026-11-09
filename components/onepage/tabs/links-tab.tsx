@@ -6448,7 +6448,8 @@ function BlockEditor({
               { id: "carousel" as const, kind: "carousel" as const, label: tt("Carousel") },
             ]}
             theme={onepage?.theme}
-            images={(groupData.children || []).map((c) => getChildBlockPreview(c).thumbnail_url).filter(Boolean).slice(0, 3)}
+            /* Round AQ: the group's own blocks, each with its picture and title, as the page draws them. */
+            items={(groupData.children || []).filter((c) => c.enabled !== false).slice(0, 3).map((c) => { const v = getChildBlockPreview(c); return { image: v.thumbnail_url || null, title: v.title } })}
             onChange={(layout) => updateData({ layout })}
           />
 

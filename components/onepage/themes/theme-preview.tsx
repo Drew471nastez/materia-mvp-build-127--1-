@@ -36,7 +36,6 @@
  * beside its card and compares them.
  */
 import type * as React from "react"
-import { useLayoutEffect } from "react"
 import { SocialIcon } from "@/components/onepage/brand-icons"
 import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonFill, buttonIconSide, buttonSize, buttonAlign, cardButtonTheme, cardRadius, buttonShape, themeButtonStripFill, themeButtonStyle, type ButtonThemeLike } from "@/lib/onepage/button-style"
@@ -74,36 +73,6 @@ const photoTint = (text: string, bg: string, share = 18) => `color-mix(in srgb, 
 const SOCIALS = ["instagram", "tiktok", "youtube"] as const
 /* The words' widths at the page's sizes: "Latest work", "Book a session", "Newsletter" at 13px. */
 const LINKS = [{ w: 76, picture: true }, { w: 96, picture: false }, { w: 68, picture: false }]
-
-/**
- * ONE SCALE FOR A WHOLE GRID OF CARDS (round AQ: the Design tab's theme grid
- * and the onboarding's template step). Every card in a grid is the same
- * width, so one frame (`frame`, a selector inside the grid) is measured, once
- * and again only when the grid's width changes, and the scale is one custom
- * property on the grid that every card's page reads. Returns the cleanup.
- */
-export function scaleThemePreviews(grid: HTMLElement, frame: string): () => void {
-  let last = 0
-  const measure = () => {
-    const w = grid.querySelector<HTMLElement>(frame)?.clientWidth ?? 0
-    if (!w || w === last) return
-    last = w
-    grid.style.setProperty("--tp-scale", String(w / PREVIEW_WIDTH))
-  }
-  measure()
-  if (typeof ResizeObserver !== "function") return () => {}
-  const ro = new ResizeObserver(measure)
-  ro.observe(grid)
-  return () => ro.disconnect()
-}
-
-/** scaleThemePreviews for a grid held in a ref that is set before the effect runs (the Design tab). */
-export function useThemePreviewScale(gridRef: React.RefObject<HTMLElement | null>, frame: string) {
-  useLayoutEffect(() => {
-    const grid = gridRef.current
-    return grid ? scaleThemePreviews(grid, frame) : undefined
-  }, [gridRef, frame])
-}
 
 /**
  * `photo` (the onboarding, round AQ): the creator's own picture, drawn where
