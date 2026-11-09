@@ -335,6 +335,8 @@ async function main() {
   }
   const hMade = await j.call("POST /api/website-builder/themes/create", { as: h.person, body: { mode: "ai", prompt: A.prompt, key: "1b7c1e2a-0000-4000-8000-000000000130", options: { generation: "blank", category: "fitness_coach" } } })
   const hJob = String(hMade.json?.job?.id)
+  /* Round N: the default working time is 45 minutes for whole sites; this job keeps the 20 minute cap it was written for, set on its row as an operator would. */
+  jobRow(w, hJob).budget = { maxWallMs: 20 * 60_000 }
   const hRun = scriptModels([hScript[0], hScript[1], ...hScript.slice(2, 17), { calls: [["add_page", { key: "programs", title: "Programs" }], ["add_page", { key: "about", title: "About" }]] }, /* Round N: the rest of the whole site in one call, then the whole composition. */ { calls: Object.entries(WA.files).filter(([path]) => !(path in A.files)).map(([path, content]) => ["write_file", { path, content }]) as Calls }, { calls: Object.entries(WA.compose).map(([page, sections]) => ["set_page_sections", { page, sections }]) as Calls }, { calls: [["finish", { summary: "Long build done." }]] }], { clock: w.clock })
   w.scripts.set(hJob, hRun)
   const seen: { seq: number; kind: string }[] = []

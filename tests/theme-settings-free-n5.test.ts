@@ -143,6 +143,7 @@ async function main() {
   const store = memoryStore({ pages: { home: [] }, settings: { site_chrome: "home", background_color: "#ffffff" } })
   const cp = newCheckpoint()
   cp.concept = {} as never
+  cp.sitePlan = {} as never /* round N3: the site plan opens the writes too */
   const events: unknown[] = []
   const tools = createToolSet({ job: jobInput(), deps: { store, models: {} as never, capabilities: async () => ({}) as never }, cp, emit: (e) => events.push(e), onFinish: async () => ({ ok: true }) as never, setPhase: () => undefined })
   const r = await tools.set_tokens({ tokens: { colors: PALETTE, fonts: { heading: "Fraunces", body: "Inter" }, typeScale: { base: 17, ratio: 1.3 }, shadow: "sm", spacing: { scale: 1, sectionY: 128, pageWidth: 1240, gutter: 28 } }, settings: SETTINGS })
