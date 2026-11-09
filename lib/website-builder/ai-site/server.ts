@@ -101,7 +101,8 @@ export function jobFromRow(r: Row): Job {
     ownerUserId: r.owner_user_id,
     installId: r.install_id,
     status: r.status,
-    step: r.step,
+    /* The code step is stored as "build" with state.coding (saveJob): part 380's step check predates it. */
+    step: r.step === "build" && r.state?.coding ? "code" : r.step,
     progress: r.progress,
     prompt: r.prompt,
     plan: r.plan,
@@ -125,10 +126,12 @@ export async function saveJob(admin: Db, job: Job): Promise<void> {
     .from(JOBS_TABLE)
     .update({
       status: job.status,
-      step: job.step,
+      /* Part 380 (and 401) only allow plan/build/write/photos/check/agent/done in step, so the code step is kept as
+         "build" with state.coding and read back as "code" (jobFromRow). No SQL change is needed for it. */
+      step: job.step === "code" ? "build" : job.step,
       progress: job.progress,
       plan: job.plan,
-      state: job.state,
+      state: { ...job.state, coding: job.step === "code" },
       cost_usd: job.state.spend.usd,
       error: job.error,
       updated_at: new Date().toISOString(),

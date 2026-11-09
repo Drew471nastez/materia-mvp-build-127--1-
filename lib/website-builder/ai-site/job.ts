@@ -70,6 +70,8 @@ export interface LoggedOp {
 }
 
 export interface JobState {
+  /** Set by saveJob while the job is at the code step, which is stored as "build" (server.ts). */
+  coding?: boolean
   seq: number
   ops: LoggedOp[]
   caps: Capabilities | null

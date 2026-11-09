@@ -70,7 +70,8 @@ const addable = [...ADDABLE_SECTIONS]
 
 /** The Fitness coach example on the Website page, read from the page itself so the test follows the copy. */
 const FITNESS = (() => {
-  const m = /label: tt\("Fitness coach"\), prompt: tt\("([^"]+)"\)/.exec(read("app/(storelib)/app/website-builder/start-website.tsx"))
+  /* Changed on purpose (round AP, after round L): the examples live in start-options.ts. */
+  const m = /label: msg\("Fitness coach"\),\s*prompt: msg\("([^"]+)"\)/.exec(read("lib/website-builder/ai-site/start-options.ts"))
   return m ? m[1] : ""
 })()
 
@@ -221,15 +222,16 @@ async function main() {
   {
     check("the Website page has the Fitness coach example", FITNESS.length > 40 && /personal training/i.test(FITNESS), FITNESS)
     const page = code("app/(storelib)/app/website-builder/start-website.tsx")
-    check("choosing it puts its words in the box, unchanged", /onClick=\{\(\) => \{\s*setPrompt\(x\.prompt\)/.test(page))
-    check("Create sends the box's words (trimmed) as the AI start", /onStart\("ai", prompt\.trim\(\)\)/.test(page))
+    /* Changed on purpose (round AP, after round L): the chip goes through put() with its category, and Create sends the words as written. */
+    check("choosing it puts its words in the box, unchanged", /put\(x\.id, x\.prompt, x\.prompt\)/.test(page) && /setPrompt\(text\.slice\(0, START_PROMPT_MAX\)\)/.test(page))
+    check("Create sends the box's words as the AI start", /onStart\("ai", prompt, \{ generation/.test(page))
     const client = code("app/(storelib)/app/website-builder/website-builder-client.tsx")
-    check("the press posts mode, prompt and a key for this press to the create route", /fetch\("\/api\/website-builder\/themes\/create", json\("POST", mode === "ai" && prompt \? \{ mode, prompt, key: startKey\.current!\.key \} : \{ mode \}\)\)/.test(client))
-    check("one key per description: a second press of the same words is the same job", /startKey\.current\?\.prompt !== prompt\) startKey\.current = \{ prompt, key: newStartKey\(\) \}/.test(client))
+    check("the press posts mode, prompt, a key for this press and the options to the create route", /fetch\("\/api\/website-builder\/themes\/create", json\("POST", withAi \? \{ mode, prompt, key, options: chosen \} : \{ mode \}\)\)/.test(client))
+    check("one key per description: a second press of the same words is the same job", /pendingStartKey\(storage, prompt!, chosen, newStartKey\)/.test(client))
     check("a press in flight is never sent twice", /if \(startFlight\.current \|\| making\) return/.test(client))
     const route = code("app/api/website-builder/themes/create/route.ts")
-    check("the route keeps the words as they came (trimmed, at most 2,000 characters)", /body\.prompt\.trim\(\)\.slice\(0, START_PROMPT_MAX\)/.test(route) && START_PROMPT_MAX === 2000)
-    check("and starts the job in the same request, after answering", /startJobRow\(admin, \{ creatorId, ownerUserId: site\.ownerUserId, installId: made\.install\.id, prompt, key: key! \}\)/.test(route) && /after\(\(\) => kickJob\(origin, job\.id\)\)/.test(route))
+    check("the route keeps the words exactly as they came, refusing more than 2,000 characters", /const prompt = typeof body\?\.prompt === "string" \? \(body\.prompt as string\) : ""/.test(route) && /prompt\.length > START_PROMPT_MAX/.test(route) && START_PROMPT_MAX === 2000)
+    check("and starts the job in the same request, after answering", /startJobRow\(admin, \{ creatorId, ownerUserId: site\.ownerUserId, installId: made\.install\.id, prompt, key: key!, options/.test(route) && /after\(\(\) => kickJob\(origin, job\.id\)\)/.test(route))
 
     const inserted: Record<string, unknown>[] = []
     const admin = { from: () => ({ insert: (row: Record<string, unknown>) => (inserted.push(row), { select: () => ({ single: async () => ({ data: { id: "11111111-2222-4333-8444-555555555555" }, error: null }) }) }) }) }
@@ -254,6 +256,9 @@ async function main() {
     const after = await runStep(newJob({ id: "aaaaaaaa-0000-4000-8000-000000000001", creatorId: "c1", ownerUserId: "u1", installId: "i1", prompt: FITNESS }), d)
     check("the first step is the plan, and the planner reads the words verbatim", after.step === "build" && log[0]?.kind === "plan" && log[0].user.includes(FITNESS))
     check("the progress is saved as it goes, for the editor's poll", d.saved.length >= 1 && d.saved[d.saved.length - 1].step === "build")
+    /* Round AP: part 380's step check has no "code", so the code step is stored as "build" with state.coding and read back as "code". */
+    const srv = code("lib/website-builder/ai-site/server.ts")
+    check("the code step is saved as a step the database accepts, and read back as the code step", /step: job\.step === "code" \? "build" : job\.step/.test(srv) && /coding: job\.step === "code"/.test(srv) && /step: r\.step === "build" && r\.state\?\.coding \? "code" : r\.step/.test(srv))
     check("a description alone still reads as a whole new website in the chat fallback", startMessage(FITNESS).length >= FITNESS.length)
   }
 

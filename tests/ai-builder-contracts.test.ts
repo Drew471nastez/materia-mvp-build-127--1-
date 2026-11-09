@@ -147,7 +147,8 @@ function main() {
   const phases = sql.match(/phase IN \(([^)]*)\)/)?.[1].match(/'([a-z_]+)'/g)?.map((s) => s.slice(1, -1)) ?? []
   check("phases agree", phases.sort().join(",") === Object.keys(PHASES).sort().join(","), phases)
   const steps = sql.match(/ai_site_jobs_step_check CHECK \(step IN \(([^)]*)\)\)/)?.[1].match(/'([a-z_]+)'/g)?.map((s) => s.slice(1, -1)) ?? []
-  check("steps keep every classic step and add agent", STEPS.every((s) => steps.includes(s)) && steps.includes("agent"), steps)
+  /* Changed on purpose (round AP): the code step is stored as "build" with state.coding (lib/website-builder/ai-site/server.ts saveJob), so the SQL check needs no new word. */
+  check("steps keep every classic step and add agent", STEPS.filter((s) => s !== "code").every((s) => steps.includes(s)) && steps.includes("agent"), steps)
   check("the owner is told only through part 370's sender, and never fails the insert", /to_regprocedure\('public\.storelib_tell_owner\(uuid,text,jsonb\)'\) IS NULL/.test(sql) && /EXCEPTION WHEN OTHERS THEN RETURN NULL/.test(sql))
   check("one live job per website does not fail the paste when two exist", /HAVING count\(\*\) > 1\) THEN RAISE NOTICE/.test(sql))
 
