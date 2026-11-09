@@ -493,7 +493,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       const allowDefaults = ((cp.concept as { allow?: string[] } | undefined)?.allow ?? []).includes("default-fonts")
       if (tokens?.fonts?.heading && isSlopDisplayFont(String(tokens.fonts.heading)) && !allowDefaults) {
         fontIssues.push({ severity: "error", code: "token.default_font", message: `"${String(tokens.fonts.heading).slice(0, 60)}" was not set as the heading font: it is the face every generated site uses. Pick a display face with character from the type library (search_knowledge "type library").` })
-        tokens = { ...tokens, fonts: { ...tokens.fonts, heading: undefined } } as typeof tokens
+        tokens = { ...tokens, fonts: { ...tokens.fonts, heading: undefined } } as unknown as typeof tokens
       }
       const mapped0 = (deps.tokensToSettings ?? tokensToThemeSettings)(tokens ?? {}, current)
       const mapped = { ...mapped0, issues: [...fontIssues, ...mapped0.issues] }
