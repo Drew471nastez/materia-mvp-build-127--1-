@@ -1,0 +1,55 @@
+{# example
+title: Staggered headline
+summary: A statement whose lines rise into place one after another, split by the creator's own line breaks (one line per block) so no script is needed; complete and still for reduced motion and for screen readers.
+tags: split text, staggered text, text reveal, headline, statement, hero, typography, stagger
+#}
+<template>
+<section class="sx" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
+  {% if settings.label %}<p class="sx__label">{{ settings.label }}</p>{% endif %}
+  <h1 class="sx__h sx__h--{{ settings.align }}">
+    {% for block in section.blocks %}<span class="sx__line" data-block-id="{{ block.id }}" style="--d: {{ forloop.index0 }};"><span class="sx__inner{% if block.settings.accent %} sx__inner--accent{% endif %}">{{ block.settings.line }}</span></span>{% endfor %}
+  </h1>
+  {% if settings.cta_label and settings.cta_url %}<a class="sx__cta" href="{{ settings.cta_url | url }}">{{ settings.cta_label }}</a>{% endif %}
+</section>
+</template>
+
+<style scoped>
+.sx { padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 16px) calc(var(--s-pb) * var(--theme-spacing-scale, 1)); background: var(--s-bg); color: var(--s-text); }
+.sx__label { margin: 0 0 20px; font-size: 0.8125rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--s-accent); }
+.sx__h { margin: 0; font-family: var(--theme-font-heading), serif; font-size: clamp(2.75rem, 1.2rem + 7.5vw, 9rem); line-height: 0.9; letter-spacing: -0.04em; font-weight: 600; color: var(--s-heading); }
+.sx__h--offset .sx__line:nth-child(even) { padding-left: 12%; }
+.sx__line { display: block; overflow: hidden; padding-bottom: 0.06em; }
+.sx__inner { display: inline-block; }
+.sx__inner--accent { font-style: italic; color: var(--s-accent); }
+.sx__cta { display: inline-block; margin-top: clamp(24px, 4vw, 48px); padding: 14px 22px; background: var(--s-heading); color: var(--s-bg); text-decoration: none; border-radius: 2px; }
+.sx__cta:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+  .sx__inner { animation: sx-up 700ms cubic-bezier(0.2, 0.7, 0, 1) both; animation-delay: calc(var(--d) * 90ms + 120ms); }
+  @keyframes sx-up { from { transform: translateY(105%); } to { transform: none; } }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_split_text",
+  "name": "Staggered headline",
+  "category": "hero",
+  "settings": [
+    { "type": "text", "id": "label", "label": "Small line above", "default": "Bakery, Hebden Bridge" },
+    { "type": "select", "id": "align", "label": "Lines", "default": "offset", "options": [{ "label": "Stepped", "value": "offset" }, { "label": "Flush left", "value": "left" }] },
+    { "type": "text", "id": "cta_label", "label": "Button", "default": "See today's bakes" },
+    { "type": "url", "id": "cta_url", "label": "Button link", "default": "/about" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 240, "step": 8, "unit": "px", "default": 112 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 240, "step": 8, "unit": "px", "default": 80 }
+  ],
+  "blocks": [
+    { "type": "line", "name": "Line", "limit": 6, "settings": [
+      { "type": "text", "id": "line", "label": "Words on this line", "default": "Bread out" },
+      { "type": "checkbox", "id": "accent", "label": "Accent this line", "default": false }
+    ] }
+  ],
+  "presets": [{ "name": "Staggered headline", "blocks": [{ "type": "line", "settings": { "line": "Bread out" } }, { "type": "line", "settings": { "line": "at seven,", "accent": true } }, { "type": "line", "settings": { "line": "gone by noon" } }] }]
+}
+</schema>

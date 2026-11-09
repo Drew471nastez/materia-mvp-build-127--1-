@@ -12956,7 +12956,22 @@ const words: Record<string, string> = {
  "The AI works on this whole website as a draft. A backup is saved first, so you can undo it in one step.": "L'IA travaille sur tout le site en brouillon. Une sauvegarde est faite d'abord, vous pouvez donc tout annuler en une étape.",
  "What should change": "Ce qui doit changer",
  "Warmer colours, bigger product photos, and a short FAQ before the footer": "Des couleurs plus chaudes, des photos produit plus grandes et une courte FAQ avant le pied de page",
- "How far it goes": "Jusqu'où aller"
+ "How far it goes": "Jusqu'où aller",
+ "From scratch": "De zéro",
+ "The AI designs every page, the header and the footer.": "L'IA conçoit chaque page, l'en-tête et le pied de page.",
+ "Inside Storelib's theme": "Dans le thème de Storelib",
+ "Keeps the theme's header, footer and sections.": "Garde l'en-tête, le pied de page et les sections du thème.",
+ "How the AI builds it": "Comment l'IA le construit",
+ "The new AI builder isn't on for your account yet, so it builds inside Storelib's theme for now.": "Le nouveau créateur IA n'est pas encore activé sur votre compte : pour l'instant, il construit dans le thème de Storelib.",
+ "The new AI builder isn't on for your account yet.": "Le nouveau créateur IA n'est pas encore activé sur votre compte.",
+ "Show steps": "Voir les étapes",
+ "Hide steps": "Masquer les étapes",
+ "Designing your website": "Conception de votre site",
+ "Sections show up here as they are made.": "Les sections apparaissent ici au fur et à mesure.",
+ "Opening the website builder": "Ouverture de l'éditeur de site",
+ "New website": "Nouveau site",
+ "Setting up your website": "Préparation de votre site",
+ "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Construit avec les sections du thème. Le nouveau créateur IA n'est pas encore activé sur votre compte."
 }
 
 export default words

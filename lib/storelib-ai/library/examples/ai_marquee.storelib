@@ -1,0 +1,59 @@
+{# example
+title: Marquee of real words
+summary: A slow running line of the creator's own words (dates, today's bakes, a release name), drawn twice so it loops seamlessly; pauses on hover and focus, stands still under reduced motion, and screen readers hear it once.
+tags: marquee, ticker, running text, loop, scrolling text, banner, motion
+#}
+<template>
+<section class="mq" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-accent: {{ scheme.accent }}; --mq-speed: {{ settings.speed }}s;" aria-label="{{ settings.label }}">
+  {% if section.blocks.size > 0 %}
+  <div class="mq__track">
+    <ul class="mq__run">
+      {% for block in section.blocks %}<li class="mq__item" data-block-id="{{ block.id }}">{{ block.settings.text }}</li>{% endfor %}
+    </ul>
+    <ul class="mq__run" aria-hidden="true">
+      {% for block in section.blocks %}<li class="mq__item">{{ block.settings.text }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% elsif page.in_editor %}
+  <p class="mq__empty">Add lines in the sidebar</p>
+  {% endif %}
+</section>
+</template>
+
+<style scoped>
+.mq { overflow: hidden; background: var(--s-bg); color: var(--s-text); border-block: 1px solid currentColor; }
+.mq__track { display: flex; width: max-content; }
+.mq__run { display: flex; flex: none; margin: 0; padding: 0; list-style: none; }
+.mq__item { padding: 14px 0; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.25rem, 0.9rem + 1.6vw, 2.25rem); line-height: 1; letter-spacing: -0.01em; text-transform: uppercase; white-space: nowrap; }
+.mq__item::after { content: "/"; margin-inline: 0.6em; color: var(--s-accent); }
+.mq__empty { margin: 0; padding: 16px; opacity: 0.7; }
+/* Without motion it is a line that wraps, so every word is still there. */
+@media (prefers-reduced-motion: reduce) {
+  .mq__track { width: auto; }
+  .mq__run { flex-wrap: wrap; padding-inline: 16px; }
+  .mq__run[aria-hidden="true"] { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .mq__track { animation: mq-run var(--mq-speed, 40s) linear infinite; }
+  .mq:hover .mq__track, .mq:focus-within .mq__track { animation-play-state: paused; }
+  @keyframes mq-run { to { transform: translateX(-50%); } }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_marquee",
+  "name": "Running line",
+  "category": "text",
+  "settings": [
+    { "type": "text", "id": "label", "label": "What it lists (read aloud)", "default": "Coming up" },
+    { "type": "range", "id": "speed", "label": "Seconds per loop", "min": 15, "max": 90, "step": 5, "unit": "s", "default": 40 },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "line", "name": "Line", "settings": [ { "type": "text", "id": "text", "label": "Words", "default": "Friday 14 March, Leeds" } ] }
+  ],
+  "presets": [{ "name": "Running line", "blocks": [{ "type": "line", "settings": { "text": "Friday 14 March, Leeds" } }, { "type": "line", "settings": { "text": "Saturday 15 March, Glasgow" } }, { "type": "line", "settings": { "text": "Sunday 16 March, Belfast" } }] }]
+}
+</schema>

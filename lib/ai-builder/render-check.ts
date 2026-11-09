@@ -25,6 +25,14 @@
  *   binding.empty         a product list or picker that draws empty titles,
  *                         prices or links (bound, but printed from the wrong
  *                         fields)
+ *   render.hook_incomplete a panel of the site's own that cannot work (round
+ *                         N): a search window with no input or no result
+ *                         pattern, a language or currency list with no option
+ *                         pattern; a window nothing on the page opens is a
+ *                         warning. The patterns themselves (a cart line, a
+ *                         search result, a language, a currency) are filled
+ *                         in the browser, so a link inside one is not checked
+ *                         as a link (lib/website-builder/storefront-hooks.ts).
  *
  * WHAT BLOCKS FINISH (round M). A link that has a job (a call to action: a
  * button-looking link or one whose words ask for something; anything in a
@@ -87,19 +95,59 @@ export interface RenderCheckResult {
   sections: { id: string; type: string; bytes: number }[]
 }
 
+/**
+ * ===========================================================================
+ *  A TEMPLATE IS CHECKED WITH ONE OF THE STORE'S OWN THINGS IN IT
+ * ===========================================================================
+ * A product template is drawn once per product and a collection template once
+ * per collection, so drawn bare it showed nothing: an add to cart with no id,
+ * an empty title, every finding about a page nobody will ever see. The check
+ * draws it the way the builder's canvas does (storelib-runtime.ts
+ * withPageProduct): the store's newest product as `page.product` and as
+ * `product` (the same fields the live route hands it), and its first
+ * collection as `collection`. Only the check: nothing is stored. A store with
+ * no product draws it bare, as before.
+ */
+const PRODUCT_TEMPLATES = new Set(["product", "page.product"])
+
+export function templateSample(input: Pick<RenderCheckInput, "template" | "products" | "data">): { page: { template: string; [key: string]: unknown }; data: StorefrontData | undefined } {
+  const page: { template: string; [key: string]: unknown } = { template: input.template }
+  let data = input.data
+  if (PRODUCT_TEMPLATES.has(input.template)) {
+    const first = input.products?.[0] as (ProductCard & { settings: Record<string, unknown> }) | undefined
+    if (first) {
+      const s = (first.settings ?? {}) as Record<string, unknown>
+      page.product = { ...first, settings: { description: "", ...s } }
+      if (!data?.product) {
+        const images = Array.isArray(s.images) ? (s.images as unknown[]).filter((x): x is string => typeof x === "string") : typeof s.image === "string" && s.image ? [s.image] : []
+        const product = { id: first.id, title: String(s.title ?? ""), price: String(s.price ?? ""), compare_price: String(s.compare_price ?? ""), description: "", description_html: "", image: images[0] ?? "", images, url: String(s.url ?? ""), includes: [], fields: {}, faqs: [], faqs_html: "" }
+        data = { ...(data ?? {}), product } as StorefrontData
+      }
+    }
+  }
+  if (input.template === "collection" && data && !data.collection) {
+    const first = Object.values(data.collections ?? {})[0]
+    if (first) data = { ...data, collection: first }
+  }
+  return { page, data }
+}
+
 /** The most findings returned: more than this and the model fixes none of them well. */
 export const MAX_RENDER_ISSUES = 40
 
 /** Addresses every Storelib website answers, whatever pages it has (app/(site)/w/[username]). */
 const BUILT_IN_ROUTES = [/^\/$/, /^\/products\/?$/, /^\/collections\/?$/, /^\/cart\/?$/, /^\/search\/?$/, /^\/wishlist\/?$/, /^\/account(\/.*)?$/, /^\/blogs(\/.*)?$/, /^\/policies\/[a-z0-9-]+$/, /^\/checkout$/, /^\/password$/, /^\/reviews(\/.*)?$/, /^\/sitemap\.xml$/]
 /** Hooks that make a "#" link a real control. */
-const HOOK_ATTR = /\sdata-storelib-(cart|search|menu|add-to-cart|checkout|cart-close|wishlist|scroll)\b|\srole\s*=\s*"button"|\saria-controls\s*=/i
+/* data-line-url and data-result-url: the link inside a cart line or search result pattern, whose href the page writes per line (round N, N4). */
+const HOOK_ATTR = /\sdata-storelib-(cart|search|menu|add-to-cart|checkout|cart-close|wishlist|scroll|locale|currency)\b|\sdata-(?:line|result)-url\b|\srole\s*=\s*"button"|\saria-controls\s*=/i
+/** Elements copied once per item in the browser: what is inside them is a pattern, filled with real values there. */
+const PATTERN_ATTR = /\sdata-storelib-(?:cart-line|search-result|locale-option|currency-option)(?![-\w])/i
 /** A class that dresses a link or button as a call to action (btn, button, cta, hero__cta, buy-now...). */
 const CTA_CLASS = /(?:^|[\s_-])(?:btn|button|cta|buy|shop|book|order|enrol|enroll|signup|join|checkout|cart)(?:$|[\s_-])/i
 /** Words that ask the visitor to do something: a link that says them is a call to action. */
 const CTA_WORDS = /^(?:buy|shop|book|order|add to (?:cart|bag|basket)|get (?:started|it|tickets|yours)|start|sign ?up|join|enrol|enroll|subscribe|apply|reserve|register|contact|get in touch|send|download|try|claim|view (?:product|programme|program|plans?|pricing)|see (?:plans?|pricing|programmes|programs)|learn more|find out more|read more)\b/i
-/** Attributes that mean a <button> does something without a script of the section's own. */
-const BUTTON_WIRED = /\sdata-storelib-[a-z-]+|\saria-(?:controls|expanded|haspopup)\s*=|\spopovertarget\s*=|\scommandfor\s*=|\sform\s*=|\stype\s*=\s*"?(?:submit|reset)\b|\sdisabled\b|\sonclick\s*=/i
+/** Attributes that mean a <button> does something without a script of the section's own. The cart line's own buttons (storefront-hooks.ts: data-line-inc, -dec, -remove) are wired by the page too. */
+const BUTTON_WIRED = /\sdata-storelib-[a-z-]+|\sdata-line-(?:inc|dec|remove)\b|\saria-(?:controls|expanded|haspopup)\s*=|\spopovertarget\s*=|\scommandfor\s*=|\sform\s*=|\stype\s*=\s*"?(?:submit|reset)\b|\sdisabled\b|\sonclick\s*=/i
 
 /** Where the element at `index` sits inside an element named `tag` (by position in the markup). */
 function insideTag(html: string, tag: string, index: number): boolean {
@@ -111,6 +159,48 @@ function insideTag(html: string, tag: string, index: number): boolean {
     if (depth < 0) depth = 0
   }
   return depth > 0
+}
+
+/**
+ * Where the runtime patterns are in the markup ([start, end) by index): an
+ * element marked data-storelib-cart-line, -search-result, -locale-option or
+ * -currency-option, to its closing tag.
+ */
+export function patternRanges(html: string): [number, number][] {
+  const out: [number, number][] = []
+  for (const m of html.matchAll(/<([a-z][a-z0-9-]*)\b[^>]*>/gi)) {
+    if (!PATTERN_ATTR.test(m[0])) continue
+    const start = m.index ?? 0
+    const name = m[1].toLowerCase()
+    if (/\/>$/.test(m[0]) || ["img", "input", "br", "hr", "source"].includes(name)) { out.push([start, start + m[0].length]); continue }
+    const re = new RegExp(`<(/?)${name}\\b[^>]*>`, "gi")
+    re.lastIndex = start + m[0].length
+    let depth = 1
+    let end = html.length
+    for (let t = re.exec(html); t; t = re.exec(html)) {
+      depth += t[1] ? -1 : 1
+      if (depth === 0) { end = t.index + t[0].length; break }
+    }
+    out.push([start, end])
+  }
+  return out
+}
+
+/** Panels of the site's own that cannot work (render.hook_incomplete). Pure, per section; `pageHtml` is the whole page, for openers. */
+export function hookProblems(html: string, pageHtml: string): { severity: "error" | "warning"; message: string }[] {
+  const out: { severity: "error" | "warning"; message: string }[] = []
+  const has = (h: string, name: string) => new RegExp(`\\s${name}(?=[\\s=>/])`, "i").test(h)
+  if (has(html, "data-storelib-search-panel")) {
+    if (!/<input\b[^>]*\sdata-storelib-search-input(?=[\s=>/])/i.test(html)) out.push({ severity: "error", message: "The search window (data-storelib-search-panel) has no <input data-storelib-search-input>: nothing can be typed into it." })
+    if (!has(html, "data-storelib-search-results")) out.push({ severity: "error", message: "The search window has no data-storelib-search-results list: what is found has nowhere to go." })
+    else if (!has(html, "data-storelib-search-result")) out.push({ severity: "error", message: "The search results list holds no element marked data-storelib-search-result (hidden), the pattern copied once per result." })
+    else if (!/<a\b[^>]*\sdata-result-url(?=[\s=>/])/i.test(html)) out.push({ severity: "warning", message: "The search result pattern has no <a data-result-url>: a visitor cannot open what they found." })
+    if (!has(html, "data-storelib-search-close")) out.push({ severity: "warning", message: "The search window has no data-storelib-search-close button. Escape shuts it, but a phone has no Escape key." })
+    if (!has(pageHtml, "data-storelib-search")) out.push({ severity: "warning", message: "Nothing on the page opens the search window: give a button data-storelib-search." })
+  }
+  if (has(html, "data-storelib-locale-list") && !has(html, "data-storelib-locale-option")) out.push({ severity: "error", message: "The language list (data-storelib-locale-list) holds no element marked data-storelib-locale-option, the pattern copied once per language." })
+  if (has(html, "data-storelib-currency-list") && !has(html, "data-storelib-currency-option")) out.push({ severity: "error", message: "The currency list (data-storelib-currency-list) holds no element marked data-storelib-currency-option, the pattern copied once per currency." })
+  return out
 }
 
 function classOf(tag: string): string {
@@ -246,7 +336,10 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
   const visible = input.sections.filter((s) => !s.hidden)
   if (visible.length === 0) push({ severity: "error", code: "render.empty_page", message: `The page "${input.page}" has no sections. Add at least one.` })
   const known = knownFrom(input)
-  const page = { template: input.template }
+  /* A template is drawn with a real one of the store's own (round N, N3): see templateSample. */
+  const sample = templateSample(input)
+  const page = sample.page
+  input = { ...input, data: sample.data }
   const theme = input.theme as unknown as Record<string, unknown>
   const drawn: { section: SectionInstance; html: string; css: string; script: string | null }[] = []
   const perSection: RenderCheckResult["sections"] = []
@@ -298,7 +391,10 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
 
     /* Links: a broken one with a job blocks finish; a decorative one is a warning (see the head of this file). */
     const chrome = section.group === "header" || section.group === "footer" || section.type === "header" || section.type === "footer"
+    const patterns = patternRanges(html)
     for (const a of anchors(html)) {
+      /* Inside a pattern the browser fills (a cart line, a search result, a language): its link is written there. */
+      if (patterns.some(([from, to]) => a.index >= from && a.index < to)) continue
       const role = linkRole(a, html, chrome)
       const job = role !== "text"
       const what = role === "nav" ? "A menu link" : role === "cta" ? `The call to action "${a.text.slice(0, 40) || "(no words)"}"` : "A link"
@@ -331,6 +427,9 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
         push({ severity: "error", code: "render.dead_button", message: `The button "${textOf(m[2] ?? "").slice(0, 40) || "(no words)"}" does nothing: it has no data-storelib hook, no form and no script. Make it a link to a real page, or give it its hook (add to cart, cart, menu, checkout).`, ...at })
       }
     }
+
+    /* Panels of the site's own (round N): a search window, a language or currency list that cannot work. */
+    for (const p of hookProblems(html, pageHtml)) push({ severity: p.severity, code: "render.hook_incomplete", message: p.message, ...at })
 
     /* A bound list printed from the wrong fields draws empty titles, prices and links (round M). */
     if (known && boundToProducts(section, known.ids.products)) {

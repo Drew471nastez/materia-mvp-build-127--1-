@@ -46,7 +46,8 @@ import { THEME_ROOT_ATTRIBUTE, themeCartType, themeCustomCss, themeStylesheet, t
 import { fontStylesheetHref, sectionFamilies } from "@/lib/website-builder/font-link"
 import { siteDirection, siteLanguage } from "@/lib/website-builder/site-language"
 import { dirOf } from "@/lib/markets/locales"
-import { LanguageSwitch } from "./language-switch"
+import { LanguageBehaviour, LanguageSwitch } from "./language-switch"
+import { hostUi } from "@/lib/website-builder/free-site"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import SectionRenderer from "../sections/SectionRenderer"
 import { useSiteMotion } from "./use-site-motion"
@@ -481,6 +482,12 @@ export function ThemePage({
    * every published route alike. See lib/website-builder/section-motion.ts.
    */
   const rootRef = useRef<HTMLDivElement | null>(null)
+  /*
+    A FREE SITE (lib/website-builder/free-site.ts) draws its own bars and
+    switches: the default theme's are drawn only when someone asked for them.
+    Every piece is `true` on any other site, so nothing changes there.
+  */
+  const host = hostUi(theme as Record<string, unknown>)
   useSiteMotion(rootRef, theme, sections, storefront?.inEditor === true)
   /* The page's language and its direction (right to left for Arabic, Hebrew, Persian, Urdu: lib/markets/locales dirOf). */
   const pageLang = storefront?.language?.code ?? siteLanguage(theme as Record<string, unknown>)
@@ -626,15 +633,15 @@ export function ThemePage({
         transition. A live page only, so never over the builder's canvas or
         in the cover screenshot (which has no creator). See ./site-intro.
       */}
-      {storefront?.creatorId && storefront.inEditor !== true ? (
+      {host.introScreen && storefront?.creatorId && storefront.inEditor !== true ? (
         <SiteIntro theme={theme} siteKey={storefront.installId ?? storefront.creatorId} />
       ) : null}
       {/* The families the stylesheet above names. Without this they were
           names only: see lib/website-builder/font-link.ts. */}
       {fontHref && <link rel="stylesheet" href={fontHref} />}
 
-      <AnnouncementBar theme={chromeTheme ?? theme} />
-      <FreeShippingBar theme={chromeTheme ?? theme} />
+      {host.announcementBar ? <AnnouncementBar theme={chromeTheme ?? theme} /> : null}
+      {host.freeShippingBar ? <FreeShippingBar theme={chromeTheme ?? theme} /> : null}
 
       {headers.map((section, i) => render(section, "header", i === 0 && headerTouchesTop(theme)))}
 
@@ -682,7 +689,14 @@ export function ThemePage({
       {footers.map((section) => render(section, "footer", false))}
       {/* The website's other languages, under its footer (./language-switch). */}
       {/* In the builder's canvas too, as the website draws it, where a choice changes the preview (storefront.preview). */}
-      {storefront?.language && (!storefront.inEditor || storefront.preview) ? <LanguageSwitch choice={storefront.language} preview={storefront.inEditor ? storefront.preview : undefined} /> : null}
+      {storefront?.language && (!storefront.inEditor || storefront.preview) ? (
+        host.languageSwitch ? (
+          <LanguageSwitch choice={storefront.language} preview={storefront.inEditor ? storefront.preview : undefined} />
+        ) : (
+          /* A free site: its own data-storelib-locale-list is the switch (sections/site-chrome-hooks.tsx); its links still keep the language. */
+          <LanguageBehaviour choice={storefront.language} preview={storefront.inEditor ? storefront.preview : undefined} />
+        )
+      ) : null}
       {/* The Overlay group: what floats over every page (a popup, a bar fixed to the bottom of a phone), after everything it floats over. */}
       {overlays.map((section) => render(section, "overlay", false))}
 

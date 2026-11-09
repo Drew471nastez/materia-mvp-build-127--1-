@@ -12956,7 +12956,22 @@ const words: Record<string, string> = {
  "The AI works on this whole website as a draft. A backup is saved first, so you can undo it in one step.": "AI pracuje nad całą stroną jako szkicem. Najpierw zapisywana jest kopia zapasowa, więc cofniesz to jednym krokiem.",
  "What should change": "Co ma się zmienić",
  "Warmer colours, bigger product photos, and a short FAQ before the footer": "Cieplejsze kolory, większe zdjęcia produktów i krótkie FAQ przed stopką",
- "How far it goes": "Jak daleko to sięga"
+ "How far it goes": "Jak daleko to sięga",
+ "From scratch": "Od zera",
+ "The AI designs every page, the header and the footer.": "AI projektuje każdą stronę, nagłówek i stopkę.",
+ "Inside Storelib's theme": "W motywie Storelib",
+ "Keeps the theme's header, footer and sections.": "Zachowuje nagłówek, stopkę i sekcje motywu.",
+ "How the AI builds it": "Jak AI ją buduje",
+ "The new AI builder isn't on for your account yet, so it builds inside Storelib's theme for now.": "Nowy kreator AI nie jest jeszcze włączony na Twoim koncie, więc na razie buduje w motywie Storelib.",
+ "The new AI builder isn't on for your account yet.": "Nowy kreator AI nie jest jeszcze włączony na Twoim koncie.",
+ "Show steps": "Pokaż kroki",
+ "Hide steps": "Ukryj kroki",
+ "Designing your website": "Projektowanie Twojej strony",
+ "Sections show up here as they are made.": "Sekcje pojawiają się tutaj, gdy powstają.",
+ "Opening the website builder": "Otwieranie kreatora strony",
+ "New website": "Nowa strona",
+ "Setting up your website": "Przygotowywanie Twojej strony",
+ "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Zbudowane z sekcji motywu. Nowy kreator AI nie jest jeszcze włączony na Twoim koncie."
 }
 
 export default words

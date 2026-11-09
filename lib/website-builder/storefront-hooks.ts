@@ -51,6 +51,52 @@
  * Every value written into the markup is text or a checked address, never
  * HTML. A price on a button is for the line's display only: the order is
  * priced from the database (lib/website-builder/cart.ts).
+ *
+ * A SEARCH, LANGUAGES AND CURRENCIES OF THE SECTION'S OWN (round N, the
+ * owner: "fully free, not limited by the theme: cart drawer, footer, currency
+ * and language selectors, search modals"). Same safety model as the cart:
+ *
+ *   data-storelib-search-panel     an element of the section that IS its
+ *                                  search window. Every data-storelib-search
+ *                                  button on the page opens it (data-open,
+ *                                  aria-hidden, inert) instead of the
+ *                                  built-in window. Focus moves to its input,
+ *                                  stays inside while it is open, and goes
+ *                                  back to the button that opened it; Escape
+ *                                  and data-storelib-search-close shut it.
+ *   data-storelib-search-input     inside it, the input. Results come as the
+ *                                  visitor types (this creator's products,
+ *                                  pages and blog posts, nobody else's:
+ *                                  /api/website-builder/search). Enter opens
+ *                                  the search page for the words.
+ *   data-storelib-search-results   where results go, holding ONE hidden
+ *                                  element marked data-storelib-search-result
+ *                                  copied per result: data-result-title,
+ *                                  -price, -kind (text), img data-result-image,
+ *                                  a data-result-url
+ *   data-storelib-search-empty     shown when the words found nothing
+ *   data-storelib-search-loading   shown while results are on their way
+ *   data-storelib-search-close     a button: shuts the panel
+ *
+ *   data-storelib-locale-list      the site's languages, holding ONE hidden
+ *                                  element marked data-storelib-locale-option
+ *                                  copied per language: data-option-label
+ *                                  (its own name, "Français"),
+ *                                  data-option-code ("fr"); the page's own
+ *                                  carries aria-current="true". A press opens
+ *                                  the same page in that language. The list
+ *                                  is `hidden` on a site with one language.
+ *   data-storelib-locale-current   the page's language, as text
+ *   data-storelib-currency-list    the same for the currencies prices can be
+ *   data-storelib-currency-option  shown in (Settings › Markets): a press
+ *   data-storelib-currency-current keeps the visitor's market, as the
+ *                                  built-in switch does. Hidden with one.
+ *
+ * A FREE SITE (lib/website-builder/free-site.ts) gets none of the built-in
+ * windows, bars or switches unless its code asks with one of these. A plain
+ * data-storelib-search with no panel anywhere on the page still opens the
+ * built-in window, and a plain data-storelib-cart with no panel the built-in
+ * drawer, so no button is ever dead.
  */
 import type { Menu } from "@/lib/storelib-theme/values"
 
@@ -69,6 +115,19 @@ export const STOREFRONT_HOOKS = {
   cartFilled: "data-storelib-cart-filled",
   checkout: "data-storelib-checkout",
   cartClose: "data-storelib-cart-close",
+  searchPanel: "data-storelib-search-panel",
+  searchInput: "data-storelib-search-input",
+  searchResults: "data-storelib-search-results",
+  searchResult: "data-storelib-search-result",
+  searchEmpty: "data-storelib-search-empty",
+  searchLoading: "data-storelib-search-loading",
+  searchClose: "data-storelib-search-close",
+  localeList: "data-storelib-locale-list",
+  localeOption: "data-storelib-locale-option",
+  localeCurrent: "data-storelib-locale-current",
+  currencyList: "data-storelib-currency-list",
+  currencyOption: "data-storelib-currency-option",
+  currencyCurrent: "data-storelib-currency-current",
 } as const
 
 /** An attribute named exactly, not as the start of a longer one: `data-storelib-cart` is not `data-storelib-cart-count`. */
@@ -83,6 +142,12 @@ export interface HooksIn {
   addToCart: boolean
   /** A cart drawer of the section's own. */
   cartPanel: boolean
+  /** A search window of the section's own. */
+  searchPanel: boolean
+  /** A language list of the section's own, or a place for the current language. */
+  locale: boolean
+  /** A currency list of the section's own, or a place for the current currency. */
+  currency: boolean
 }
 
 /** Which of the page's drawers a section's markup asks for, so it only mounts what it uses. */
@@ -94,7 +159,90 @@ export function hooksIn(html: string): HooksIn {
     menu: has(html, STOREFRONT_HOOKS.menu),
     addToCart: has(html, STOREFRONT_HOOKS.addToCart),
     cartPanel: has(html, STOREFRONT_HOOKS.cartPanel),
+    searchPanel: has(html, STOREFRONT_HOOKS.searchPanel),
+    locale: has(html, STOREFRONT_HOOKS.localeList) || has(html, STOREFRONT_HOOKS.localeCurrent),
+    currency: has(html, STOREFRONT_HOOKS.currencyList) || has(html, STOREFRONT_HOOKS.currencyCurrent),
   }
+}
+
+/* ── search, languages and currencies of the section's own (round N) ─────── */
+
+/** What a result is: the kinds the site search answers. */
+export type SearchKind = "product" | "page" | "post"
+
+/** One result as the site search answers it (/api/website-builder/search). */
+export interface SearchResultHit {
+  kind: SearchKind
+  title: string
+  /** As printed, in the store's currency; "" for a page or a post. */
+  price: string
+  image: string
+  url: string
+}
+
+/** The words a visitor typed, as they are asked for: trimmed, one space, at most 80 characters. */
+export function searchTerm(value: string | null | undefined): string {
+  return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, 80)
+}
+
+/** The search page for some words, on this site. */
+export function searchPageHref(term: string): string {
+  const q = searchTerm(term)
+  return q ? `/search?q=${encodeURIComponent(q)}` : "/search"
+}
+
+const KINDS: readonly SearchKind[] = ["product", "page", "post"]
+
+/**
+ * A result from the network made safe to write into a section: every value a
+ * string, the kind one of three, the picture and the link checked addresses
+ * (safeHref) and the words cut to a length. Null for anything with no title
+ * or nowhere to go: a result that cannot be opened is not shown.
+ */
+export function cleanSearchHit(raw: unknown): SearchResultHit | null {
+  if (!raw || typeof raw !== "object") return null
+  const r = raw as Record<string, unknown>
+  const text = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "")
+  const title = text(r.title, 200)
+  const url = safeHref(typeof r.url === "string" ? r.url : "")
+  if (!title || !url) return null
+  const kind = KINDS.includes(r.kind as SearchKind) ? (r.kind as SearchKind) : "product"
+  return { kind, title, price: kind === "product" ? text(r.price, 40) : "", image: safeHref(typeof r.image === "string" ? r.image : ""), url }
+}
+
+/** One choice of a language or currency list. */
+export interface HookOption {
+  /** What is written into data-option-code: a language code ("fr") or a currency choice's id. */
+  code: string
+  /** What is written into data-option-label: the language in its own words, or the currency's label. */
+  label: string
+  current: boolean
+}
+
+/** The shape of SiteLanguageChoice (components/website-builder/theme/language-switch.tsx) these helpers read. */
+export interface HookLanguageChoice {
+  code: string
+  languages: { code: string; name: string }[]
+  currency?: { options: { id: string; label: string }[]; current: string }
+}
+
+/** The languages a locale list draws, the page's own marked current. Empty on a site with one language or none set. */
+export function localeOptions(choice: HookLanguageChoice | null | undefined): HookOption[] {
+  const langs = choice?.languages ?? []
+  if (langs.length < 2) return []
+  return langs.map((l) => ({ code: l.code, label: l.name || l.code, current: l.code.toLowerCase() === choice!.code.toLowerCase() }))
+}
+
+/** The currencies a currency list draws, the one shown now marked current. Empty with fewer than two. */
+export function currencyOptions(choice: HookLanguageChoice | null | undefined): HookOption[] {
+  const c = choice?.currency
+  if (!c || c.options.length < 2) return []
+  return c.options.map((o) => ({ code: o.id, label: o.label || o.id, current: o.id === c.current }))
+}
+
+/** What data-storelib-locale-current and -currency-current read: the current option's label, else "". */
+export function currentLabel(options: readonly HookOption[], fallback = ""): string {
+  return options.find((o) => o.current)?.label ?? fallback
 }
 
 /** "$48.00", "48", "€1,234.50" as cents, for a line's display. 0 when it says no number. */

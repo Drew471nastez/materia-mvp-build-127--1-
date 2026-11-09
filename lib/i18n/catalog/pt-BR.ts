@@ -12956,7 +12956,22 @@ const words: Record<string, string> = {
  "The AI works on this whole website as a draft. A backup is saved first, so you can undo it in one step.": "A IA trabalha no site inteiro como rascunho. Um backup é salvo antes, então você pode desfazer em um passo.",
  "What should change": "O que deve mudar",
  "Warmer colours, bigger product photos, and a short FAQ before the footer": "Cores mais quentes, fotos de produto maiores e um FAQ curto antes do rodapé",
- "How far it goes": "Até onde vai"
+ "How far it goes": "Até onde vai",
+ "From scratch": "Do zero",
+ "The AI designs every page, the header and the footer.": "A IA cria cada página, o cabeçalho e o rodapé.",
+ "Inside Storelib's theme": "Dentro do tema da Storelib",
+ "Keeps the theme's header, footer and sections.": "Mantém o cabeçalho, o rodapé e as seções do tema.",
+ "How the AI builds it": "Como a IA cria",
+ "The new AI builder isn't on for your account yet, so it builds inside Storelib's theme for now.": "O novo criador com IA ainda não está ativo na sua conta, então por enquanto ele cria dentro do tema da Storelib.",
+ "The new AI builder isn't on for your account yet.": "O novo criador com IA ainda não está ativo na sua conta.",
+ "Show steps": "Ver etapas",
+ "Hide steps": "Ocultar etapas",
+ "Designing your website": "Criando seu site",
+ "Sections show up here as they are made.": "As seções aparecem aqui conforme são criadas.",
+ "Opening the website builder": "Abrindo o editor de site",
+ "New website": "Novo site",
+ "Setting up your website": "Preparando seu site",
+ "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Criado com as seções do tema. O novo criador com IA ainda não está ativo na sua conta."
 }
 
 export default words

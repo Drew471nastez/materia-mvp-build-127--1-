@@ -23,7 +23,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { ACCENT_FONT_OPTIONS, BODY_FONT_OPTIONS, HEADING_FONT_OPTIONS } from "@/lib/website-builder/font-options"
+import { ACCENT_FONT_OPTIONS, BODY_FONT_OPTIONS, HEADING_FONT_OPTIONS, TYPE_LIBRARY_FAMILIES } from "@/lib/website-builder/font-options"
 import { OFFERED_FAMILIES, fontStylesheetHref, weightsFor } from "@/lib/website-builder/font-link"
 import { ONEPAGE_FONTS, fontStack, onePageFontHref } from "@/lib/onepage/fonts"
 import { fontObject, fontLinks } from "@/lib/storelib-theme/compat/objects"
@@ -51,7 +51,8 @@ console.log("\nTen new families, in every picker\n")
 {
   const values = (list: { value: unknown }[]) => list.map((o) => o.value)
   check("Theme settings › Typography: in the heading, body and accent lists", NEW.every((f) => values(HEADING_FONT_OPTIONS).includes(f) && values(BODY_FONT_OPTIONS).includes(f) && values(ACCENT_FONT_OPTIONS).includes(f)))
-  check("  none of them was there before (ten more, not renamed ones)", HEADING_FONT_OPTIONS.length === 25 && BODY_FONT_OPTIONS.length === 19 && ACCENT_FONT_OPTIONS.length === 20, [HEADING_FONT_OPTIONS.length, BODY_FONT_OPTIONS.length, ACCENT_FONT_OPTIONS.length])
+  /* Changed on purpose (round N, N4): the type library's faces (TYPE_LIBRARY_FAMILIES) came after these ten, in every list. */
+  check("  none of them was there before (ten more, not renamed ones)", HEADING_FONT_OPTIONS.length === 25 + TYPE_LIBRARY_FAMILIES.length && BODY_FONT_OPTIONS.length === 19 + TYPE_LIBRARY_FAMILIES.length && ACCENT_FONT_OPTIONS.length === 20 + TYPE_LIBRARY_FAMILIES.length, [HEADING_FONT_OPTIONS.length, BODY_FONT_OPTIONS.length, ACCENT_FONT_OPTIONS.length])
   check("  each list names a family once", [HEADING_FONT_OPTIONS, BODY_FONT_OPTIONS, ACCENT_FONT_OPTIONS].every((l) => new Set(values(l)).size === l.length))
   check("a section's font setting offers them (THEME_FONT_OPTIONS, the offered families)", NEW.every((f) => OFFERED_FAMILIES.has(f) && THEME_FONT_OPTIONS.some((o) => o.value === f)))
   check("an imported theme's font setting offers them as handles, weight kept", fontHandle("Bodoni Moda", "n7") === "bodoni_moda_n7" && fontHandle("Big Shoulders", "i4") === "big_shoulders_i4")

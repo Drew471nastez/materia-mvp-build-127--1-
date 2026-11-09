@@ -137,6 +137,49 @@ export interface RuntimeCapabilities {
  * Attributes the page handles for a component. Values are text or checked
  * addresses, never markup. The cart is the site's one cart; orders are priced
  * on the server.
+ *
+ * A FREE SITE (round N, lib/website-builder/free-site.ts: every site the AI
+ * starts from nothing) gets NO built-in header, footer, announcement bar,
+ * breadcrumbs, cart drawer, search window, language or currency switch. The
+ * site's own code draws all of them with these hooks; the host only fills
+ * them with live data and behaviour. The whole list, by what a site needs:
+ *
+ *   CART PANEL     data-storelib-cart (opener), -cart-count, -cart-panel with
+ *                  -cart-lines / one hidden -cart-line (data-line-title,
+ *                  -variant, -price, -qty, img -image, a -url, buttons -inc,
+ *                  -dec, -remove), -cart-subtotal, -cart-empty, -cart-filled,
+ *                  -checkout, -cart-close. One panel anywhere on the page is
+ *                  opened by every cart button and every add.
+ *   SEARCH PANEL   data-storelib-search (opener), -search-panel with
+ *                  <input -search-input>, -search-results / one hidden
+ *                  -search-result (data-result-title, -price, -kind, img
+ *                  data-result-image, a data-result-url), -search-empty,
+ *                  -search-loading, -search-close. Finds this creator's
+ *                  products, pages and blog posts as the visitor types; Enter
+ *                  opens /search. The panel gets data-open and data-state
+ *                  (idle, loading, results, empty) to style.
+ *   LANGUAGE       data-storelib-locale-list / one hidden
+ *                  -locale-option (data-option-label, data-option-code;
+ *                  aria-current="true" on the page's own), and
+ *                  -locale-current. Hidden on a one language site.
+ *   CURRENCY       data-storelib-currency-list / -currency-option /
+ *                  -currency-current, the same way, from the site's markets.
+ *   MENU           data-storelib-menu="<menu handle>" opens the menu drawer
+ *                  (data-storelib-menu-from left, right, top); or draw the
+ *                  menu yourself from a link_list setting.
+ *   ADD TO CART    data-storelib-add-to-cart="<product id>" with
+ *                  data-variant-id, data-title, data-price, data-image,
+ *                  data-url, data-kind, data-quantity. Buy now is a link to
+ *                  checkout_url.
+ *   WISHLIST       data-storelib-wishlist="<product id>" (aria-pressed is set).
+ *   ACCOUNT        no hook: a link to routes.account_url (sign in and sign up
+ *                  are one page), routes.cart_url, routes.search_url.
+ *   FORMS          data-storelib-form="subscribe|contact|native",
+ *                  data-storelib-native-form="<form id>".
+ *
+ * A plain opener with no panel of the site's own on the page (a bag with no
+ * cart panel, a search button with no search panel) opens the built-in one,
+ * so a button is never dead.
  */
 export const STORELIB_HOOKS = {
   ...STOREFRONT_HOOKS,
@@ -156,6 +199,21 @@ export const STORELIB_HOOKS = {
 } as const
 
 export type StorelibHook = keyof typeof STORELIB_HOOKS
+
+/**
+ * The same as a few lines the agent can read (the doc comment above, as
+ * text): every hook a free site's own header, footer, cart, search and
+ * switches are built with. lib/ai-builder/agent/prompts.ts and the knowledge
+ * library may quote it whole.
+ */
+export const HEADLESS_HOOK_GUIDE = `A free site draws its own header, footer, cart, search and language and currency switches; Storelib draws none of them and only fills these hooks with live data. Every value is written as text or a checked address.
+- Cart panel: a button data-storelib-cart opens it; data-storelib-cart-count; an element data-storelib-cart-panel (styled by data-open="true|false", inert while shut) holding data-storelib-cart-lines with ONE hidden data-storelib-cart-line pattern (data-line-title, data-line-variant, data-line-price, data-line-qty, img data-line-image, a data-line-url, buttons data-line-inc, data-line-dec, data-line-remove), data-storelib-cart-subtotal, data-storelib-cart-empty, data-storelib-cart-filled, a data-storelib-checkout button and a data-storelib-cart-close button. One panel anywhere on the page answers every cart button and every add.
+- Search panel: a button data-storelib-search opens it; an element data-storelib-search-panel (data-open, data-state idle|loading|results|empty) holding <input data-storelib-search-input>, data-storelib-search-results with ONE hidden data-storelib-search-result pattern (data-result-title, data-result-price, data-result-kind, img data-result-image, a data-result-url), data-storelib-search-empty, data-storelib-search-loading and a data-storelib-search-close button. It finds this store's products, pages and posts as the visitor types; Enter opens /search; Escape closes; focus is kept inside and returned.
+- Languages: data-storelib-locale-list with ONE hidden data-storelib-locale-option pattern (a <button> holding data-option-label, optionally data-option-code); the page's language gets aria-current="true"; a press opens the page in that language. data-storelib-locale-current shows the current one. The list is hidden on a one language site.
+- Currencies: data-storelib-currency-list, data-storelib-currency-option, data-storelib-currency-current, the same way.
+- Menu: data-storelib-menu="{{ settings.menu.handle }}" opens the menu drawer, or draw the menu from the link_list yourself.
+- Add to cart: <button data-storelib-add-to-cart="{{ block.id }}" data-title data-price data-image data-url data-kind>; Buy now is a link to checkout_url. Wishlist: data-storelib-wishlist="<product id>". Account: a link to {{ routes.account_url }}.
+- Without a panel of your own, data-storelib-cart and data-storelib-search open Storelib's built-in drawer and window.`
 
 /* ── 3. sandboxed script ──────────────────────────────────────────────── */
 

@@ -1,0 +1,70 @@
+{# example
+title: Horizontal scroll gallery
+summary: A row of images that scrolls sideways with snap points, keyboard scrollable (the track takes focus, arrow keys move it), a progress line tied to the scroll with CSS, captions under each picture.
+tags: horizontal scroll, gallery, carousel, slider, scroll-snap, process, crate, images, scroll-timeline
+#}
+<template>
+<section class="hg" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
+  <div class="hg__head">
+    <h2 class="hg__h">{{ settings.heading }}</h2>
+    {% if settings.hint %}<p class="hg__hint">{{ settings.hint }}</p>{% endif %}
+  </div>
+  <div class="hg__track" tabindex="0" role="region" aria-label="{{ settings.heading }}">
+    {% for block in section.blocks %}
+      <figure class="hg__item" data-block-id="{{ block.id }}">
+        {% if block.settings.image %}<img class="hg__img" src="{{ block.settings.image | asset }}" alt="{{ block.settings.image_alt }}" width="900" height="1125" loading="lazy">{% elsif page.in_editor %}<div class="hg__ph">Add a photo</div>{% endif %}
+        {% if block.settings.caption %}<figcaption class="hg__cap">{{ block.settings.caption }}</figcaption>{% endif %}
+      </figure>
+    {% else %}
+      {% if page.in_editor %}<p class="hg__empty">Add pictures in the sidebar</p>{% endif %}
+    {% endfor %}
+  </div>
+  <div class="hg__bar" aria-hidden="true"><span class="hg__fill"></span></div>
+</section>
+</template>
+
+<style scoped>
+.hg { timeline-scope: --hg; padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) 0 calc(var(--s-pb) * var(--theme-spacing-scale, 1)); background: var(--s-bg); color: var(--s-text); }
+.hg__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; padding-inline: var(--theme-padding-x, 16px); margin-bottom: 24px; }
+.hg__h { margin: 0; font-family: var(--theme-font-heading), serif; font-size: clamp(1.75rem, 1.2rem + 2.4vw, 3.25rem); line-height: 1; letter-spacing: -0.02em; font-weight: 500; color: var(--s-heading); }
+.hg__hint { margin: 0; font-size: 0.875rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.hg__track { display: grid; grid-auto-flow: column; grid-auto-columns: min(78%, 420px); gap: 12px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: var(--theme-padding-x, 16px); padding-inline: var(--theme-padding-x, 16px); scrollbar-width: none; scroll-timeline: --hg inline; }
+.hg__track::-webkit-scrollbar { display: none; }
+.hg__track:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 4px; }
+.hg__item { margin: 0; scroll-snap-align: start; }
+.hg__img, .hg__ph { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: cover; }
+.hg__ph { display: grid; place-items: center; border: 1px dashed var(--s-border); }
+.hg__cap { margin-top: 10px; font-size: 0.875rem; line-height: 1.45; }
+.hg__empty { opacity: 0.7; }
+.hg__bar { height: 2px; margin: 24px var(--theme-padding-x, 16px) 0; background: var(--s-border); overflow: hidden; }
+.hg__fill { display: block; height: 100%; background: var(--s-accent); transform-origin: left; transform: scaleX(0.15); }
+@supports (animation-timeline: scroll()) {
+  .hg__fill { animation: hg-fill linear both; animation-timeline: --hg; }
+  @keyframes hg-fill { from { transform: scaleX(0.05); } to { transform: scaleX(1); } }
+}
+@media (prefers-reduced-motion: reduce) { .hg__track { scroll-snap-type: none; } }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_hscroll_gallery",
+  "name": "Sideways gallery",
+  "category": "image",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "From clay to kiln" },
+    { "type": "text", "id": "hint", "label": "Hint", "default": "Scroll sideways" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 80 }
+  ],
+  "blocks": [
+    { "type": "picture", "name": "Picture", "settings": [
+      { "type": "image_picker", "id": "image", "label": "Photo" },
+      { "type": "text", "id": "image_alt", "label": "Photo description", "default": "" },
+      { "type": "text", "id": "caption", "label": "Caption", "default": "" }
+    ] }
+  ],
+  "presets": [{ "name": "Sideways gallery", "blocks": [{ "type": "picture", "settings": { "caption": "Wedging" } }, { "type": "picture", "settings": { "caption": "Throwing" } }, { "type": "picture", "settings": { "caption": "Glazing" } }, { "type": "picture", "settings": { "caption": "Firing" } }] }]
+}
+</schema>

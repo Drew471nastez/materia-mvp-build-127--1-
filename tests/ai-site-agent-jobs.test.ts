@@ -317,14 +317,15 @@ console.log("\n2. Budgets end the job, never silently\n")
   st2.add({ id: "usd" })
   const s2 = scripted(c2, { stepMs: 5_000, usdPerStep: 1.5 })
   await drive(st2, c2, "usd", s2.stepper)
-  check("spend: the platform cap ($4) stops it after the call that crossed it", s2.calls.length === 3 && st2.jobs.get("usd")!.run.errorCode === "budget_spend", s2.calls)
+  /* Round N: caps raised for whole-site builds ($10 platform, $30 own key, 3 verify cycles). */
+  check("spend: the platform cap ($10) stops it after the call that crossed it", s2.calls.length === 7 && st2.jobs.get("usd")!.run.errorCode === "budget_spend", s2.calls)
 
   const c3 = new Clock()
   const st3 = new MemoryStore(c3)
   st3.add({ id: "own" })
   const s3 = scripted(c3, { stepMs: 5_000, usdPerStep: 1.5, ownKey: true })
   await drive(st3, c3, "own", s3.stepper)
-  check("the creator's own key gets the larger cap ($15)", s3.calls.length === 10, s3.calls.length)
+  check("the creator's own key gets the larger cap ($30)", s3.calls.length === 20, s3.calls.length)
 
   const c4 = new Clock()
   const st4 = new MemoryStore(c4)
@@ -336,7 +337,7 @@ console.log("\n2. Budgets end the job, never silently\n")
   const c5 = new Clock()
   const st5 = new MemoryStore(c5)
   st5.add({ id: "rep" })
-  const s5 = scripted(c5, { stepMs: 5_000, verifyCyclesAt: { 3: 3 } })
+  const s5 = scripted(c5, { stepMs: 5_000, verifyCyclesAt: { 3: 4 } })
   await drive(st5, c5, "rep", s5.stepper)
   check("repairs: more verify cycles than allowed ends it partial", st5.jobs.get("rep")!.run.errorCode === "budget_repairs" && st5.jobs.get("rep")!.status === "partial")
 
@@ -355,7 +356,7 @@ console.log("\n2. Budgets end the job, never silently\n")
   await drive(st7, c7, "ctx", s7.stepper)
   check("the loop's brief is the prompt as written, then the person's choices (example, blank page)", ctxSeen[0]?.job.prompt === "A candle shop" && ctxSeen[0].job.brief.startsWith("A candle shop\n\n") && /Candles and home fragrance shop/.test(ctxSeen[0].job.brief) && /blank page/.test(ctxSeen[0].job.brief), ctxSeen[0]?.job.brief)
   check("a classic job reads the same brief; no options reads the prompt alone, as before", jobBrief({ prompt: "p", options: { generation: "theme", category: "photographer" } }).includes("Wedding and portrait photographer") && jobBrief({ prompt: "p" }) === "p" && jobBrief({ prompt: "p", options: null }) === "p")
-  check("each step is told its caps: output tokens, spend cap, time left", ctxSeen[0]?.maxOutputTokens === 24_000 && ctxSeen[0]?.usdCap === 4 && ctxSeen[0].timeLeftMs <= 240_000 && ctxSeen[1].usage.iterations === 1)
+  check("each step is told its caps: output tokens, spend cap, time left", ctxSeen[0]?.maxOutputTokens === 24_000 && ctxSeen[0]?.usdCap === 10 && ctxSeen[0].timeLeftMs <= 240_000 && ctxSeen[1].usage.iterations === 1)
 }
 
 /* ── 3. cancel ─────────────────────────────────────────────────────────── */
@@ -582,9 +583,9 @@ console.log("\n7. Endings in plain words, with what can be done next\n")
   const slop = /unlock|elevate|seamless|powerful|effortless|supercharge|transform|—/i
   check("every reason has words free of the banned ones and at least one action", words.every((w) => { const r = stopReason(w); return r.actions.length > 0 && !slop.test(r.title + r.message) }))
 
-  const base = { ...emptyRunState(), usage: { iterations: 80, usd: 3.9, inputTokens: 0, outputTokens: 0, activeMs: 600_000 } }
+  const base = { ...emptyRunState(), usage: { iterations: 200, usd: 9.9, inputTokens: 0, outputTokens: 0, activeMs: 45 * 60_000 } }
   const plan = planContinue({ status: "partial", budget: null, run: { ...base, errorCode: "budget_iterations" }, checkpoint: null }, Date.now())
-  check("Continue on a budget stop grants half a default budget more", plan.kind === "revive" && plan.budget.maxIterations === 120 && Math.abs(plan.budget.maxUsd - 5.9) < 1e-9 && plan.budget.maxWallMs === 600_000 + 600_000, plan)
+  check("Continue on a budget stop grants half a default budget more", plan.kind === "revive" && plan.budget.maxIterations === 300 && Math.abs(plan.budget.maxUsd - 14.9) < 1e-9 && plan.budget.maxWallMs === 45 * 60_000 + 22.5 * 60_000, plan)
   const spent = planContinue({ status: "partial", budget: null, run: { ...base, errorCode: "budget_spend", continues: MAX_CONTINUES }, checkpoint: null }, Date.now())
   check("but only MAX_CONTINUES times: total spend stays capped", spent.kind === "refuse" && spent.code === "no_more_continues")
   check("Continue on a running job changes nothing (a second press)", planContinue({ status: "running", budget: null, run: base, checkpoint: null }, Date.now()).kind === "live")
@@ -665,7 +666,7 @@ console.log("\n9. The poll's answer, the client, the panel\n")
   check("no Continue once they are used up", used.error?.actions.join(",") === "start_over")
   check("a record reads back from its row with its bookkeeping", recordFromRow({ id: "j", creator_id: "c", owner_user_id: null, install_id: "i", status: "running", attempts: 2, lease_until: null, created_at: "", prompt: "p", engine: "agent", state: { agent: { continues: 2, usage: { usd: 1 } } } }).run.continues === 2)
 
-  check("poll: 2 s, backing off to 10 s while nothing comes", agentPollDelay({ settled: false, hidden: false, realtime: false, idle: 0 }) === AGENT_POLL_MIN_MS && agentPollDelay({ settled: false, hidden: false, realtime: false, idle: 20 }) === AGENT_POLL_MAX_MS)
+  check("poll: 1.5 s, backing off to 5 s while nothing comes (round N, was 2 s to 10 s)", AGENT_POLL_MIN_MS === 1_500 && AGENT_POLL_MAX_MS === 5_000 && agentPollDelay({ settled: false, hidden: false, realtime: false, idle: 0 }) === AGENT_POLL_MIN_MS && agentPollDelay({ settled: false, hidden: false, realtime: false, idle: 20 }) === AGENT_POLL_MAX_MS)
   check("poll: only a 20 s check while realtime is up", agentPollDelay({ settled: false, hidden: false, realtime: true, idle: 0 }) === AGENT_POLL_LIVE_MS)
   check("poll: none while hidden or once it ended", agentPollDelay({ settled: true, hidden: false, realtime: false, idle: 0 }) === null && agentPollDelay({ settled: false, hidden: true, realtime: false, idle: 0 }) === null)
   const e = (seq: number): AgentEvent => ({ seq, at: "", kind: "note", text: String(seq) })

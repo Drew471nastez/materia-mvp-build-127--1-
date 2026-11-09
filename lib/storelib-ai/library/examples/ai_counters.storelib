@@ -1,0 +1,66 @@
+{# example
+title: Counters from real numbers
+summary: Figures that count up as they scroll into view, with CSS only (@property and a view timeline); each number is one the creator typed in, the section draws nothing for a figure left empty, and the real value is always the text a screen reader and a search engine get.
+tags: counters, stats, numbers, count up, figures, facts, @property, view-timeline
+#}
+<template>
+<section class="ct" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
+  {% if settings.heading %}<h2 class="ct__h">{{ settings.heading }}</h2>{% endif %}
+  <dl class="ct__list">
+    {% for block in section.blocks %}
+      {% if block.settings.value != 0 %}
+      <div class="ct__item" data-block-id="{{ block.id }}">
+        <dt class="ct__label">{{ block.settings.label }}</dt>
+        <dd class="ct__value" style="--to: {{ block.settings.value | round }};"><span class="ct__real">{{ block.settings.value }}{{ block.settings.suffix }}</span><span class="ct__anim" aria-hidden="true">{{ block.settings.suffix }}</span></dd>
+      </div>
+      {% elsif page.in_editor %}
+      <p class="ct__empty">A figure with no number, or 0, is not shown. Type a number you can stand behind.</p>
+      {% endif %}
+    {% endfor %}
+  </dl>
+</section>
+</template>
+
+<style scoped>
+@property --ct-n { syntax: "<integer>"; inherits: false; initial-value: 0; }
+.ct { container-type: inline-size; padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 16px) calc(var(--s-pb) * var(--theme-spacing-scale, 1)); background: var(--s-bg); color: var(--s-text); }
+.ct__h { margin: 0 0 28px; font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--s-accent); }
+.ct__list { display: grid; gap: 0; margin: 0; }
+.ct__item { display: flex; flex-direction: column-reverse; gap: 6px; padding: 20px 0; border-top: 1px solid var(--s-border); }
+.ct__label { font-size: 0.9375rem; line-height: 1.4; }
+.ct__value { margin: 0; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(3rem, 1.6rem + 6vw, 7.5rem); line-height: 0.9; letter-spacing: -0.04em; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--s-heading); }
+.ct__anim { display: none; }
+.ct__empty { opacity: 0.7; }
+@container (min-width: 760px) { .ct__list { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 0 32px; } }
+/* Counting is an extra: where the browser can animate an integer on scroll and motion is welcome. The real text stays for assistive tech. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .ct__real { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .ct__anim { display: inline; counter-reset: ct var(--ct-n); animation: ct-count linear both; animation-timeline: view(); animation-range: entry 10% cover 45%; }
+    .ct__anim::before { content: counter(ct); }
+    @keyframes ct-count { from { --ct-n: 0; } to { --ct-n: var(--to); } }
+  }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_counters",
+  "name": "Figures",
+  "category": "text",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "In numbers" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "figure", "name": "Figure", "limit": 6, "settings": [
+      { "type": "number", "id": "value", "label": "Number (a real one; empty hides it)" },
+      { "type": "text", "id": "suffix", "label": "After the number", "default": "" },
+      { "type": "text", "id": "label", "label": "What it counts", "default": "Loaves baked this week" }
+    ] }
+  ]
+}
+</schema>

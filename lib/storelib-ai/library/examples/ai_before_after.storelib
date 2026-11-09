@@ -1,0 +1,69 @@
+{# example
+title: Before and after slider
+summary: Two of the creator's own photos on top of each other with a real range input as the handle, so it works by mouse, touch and arrow keys; a tiny sandboxed script moves the split, and without it the slider still shows both halves at the middle.
+tags: before after, comparison, slider, range, image compare, renovation, results, script
+#}
+<template>
+<section class="ba" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
+  <h2 class="ba__h">{{ settings.heading }}</h2>
+  {% if settings.before and settings.after %}
+  <figure class="ba__fig" style="--pos: {{ settings.start }}%;">
+    <img class="ba__img" src="{{ settings.after | asset }}" alt="{{ settings.after_alt }}" width="1600" height="1000">
+    <img class="ba__img ba__img--before" src="{{ settings.before | asset }}" alt="{{ settings.before_alt }}" width="1600" height="1000">
+    <span class="ba__line" aria-hidden="true"></span>
+    <input class="ba__range" type="range" min="0" max="100" value="{{ settings.start }}" aria-label="{{ settings.handle_label }}">
+    <figcaption class="ba__cap"><span>{{ settings.before_label }}</span><span>{{ settings.after_label }}</span></figcaption>
+  </figure>
+  {% elsif page.in_editor %}
+  <p class="ba__empty">Pick a before and an after photo in the sidebar. The slider shows only when both are set.</p>
+  {% endif %}
+</section>
+</template>
+
+<style scoped>
+.ba { padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 16px) calc(var(--s-pb) * var(--theme-spacing-scale, 1)); background: var(--s-bg); color: var(--s-text); }
+.ba__h { margin: 0 0 24px; max-width: 20ch; font-family: var(--theme-font-heading), serif; font-size: clamp(1.75rem, 1.2rem + 2.4vw, 3.25rem); line-height: 1; letter-spacing: -0.02em; font-weight: 500; color: var(--s-heading); }
+.ba__fig { position: relative; margin: 0; overflow: hidden; }
+.ba__img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; }
+.ba__img--before { position: absolute; inset: 0; height: 100%; clip-path: inset(0 calc(100% - var(--pos, 50%)) 0 0); }
+.ba__line { position: absolute; top: 0; bottom: 0; left: var(--pos, 50%); width: 2px; margin-left: -1px; background: var(--s-bg); pointer-events: none; }
+.ba__range { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
+.ba__range:focus-visible + .ba__cap { outline: 2px solid var(--s-accent); outline-offset: 4px; }
+.ba__cap { display: flex; justify-content: space-between; padding-top: 10px; font-size: 0.875rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.ba__empty { opacity: 0.7; }
+</style>
+
+<script>
+/* The range is real, so keys and touch already move it; this only paints the split where it is. */
+const fig = root.querySelector(".ba__fig")
+const range = root.querySelector(".ba__range")
+if (fig && range) {
+  range.addEventListener("input", function (e) {
+    const v = Math.max(0, Math.min(100, Number(e.target.value) || 0))
+    fig.style.setProperty("--pos", v + "%")
+  })
+}
+</script>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_before_after",
+  "name": "Before and after",
+  "category": "image",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "The kitchen on Alma Road" },
+    { "type": "image_picker", "id": "before", "label": "Before photo" },
+    { "type": "text", "id": "before_alt", "label": "Before photo description", "default": "" },
+    { "type": "image_picker", "id": "after", "label": "After photo" },
+    { "type": "text", "id": "after_alt", "label": "After photo description", "default": "" },
+    { "type": "text", "id": "before_label", "label": "Before label", "default": "Before" },
+    { "type": "text", "id": "after_label", "label": "After label", "default": "After" },
+    { "type": "text", "id": "handle_label", "label": "Slider name (read aloud)", "default": "Drag to compare before and after" },
+    { "type": "range", "id": "start", "label": "Starting point", "min": 10, "max": 90, "step": 5, "unit": "%", "default": 50 },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 80 }
+  ]
+}
+</schema>

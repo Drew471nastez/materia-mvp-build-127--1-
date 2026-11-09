@@ -35,12 +35,21 @@
  * asked: startRows() had no other shape, so an AI build that should design
  * its own frame was handed this one and kept it (the job copies home's
  * header and footer to every page). With chrome "none" the home page has no
- * sections at all, the product page only the section that draws the product
- * (product-page.ts: without it every product reads "Product name"), and the
- * settings are a neutral black on white with no brand name (the store's
- * name is used), so nothing of the Default look is left for the AI to work
- * around. The Start from blank door and Start with AI inside the theme keep
- * "theme", exactly as before.
+ * sections at all and the settings are a neutral black on white with no
+ * brand name (the store's name is used), so nothing of the Default look is
+ * left for the AI to work around. The Start from blank door and Start with
+ * AI inside the theme keep "theme", exactly as before.
+ *
+ * NO TEMPLATE ROWS EITHER (round N, N3). The free start used to store the
+ * product page with the built-in product section in it, the one preset
+ * section left on a site that was meant to have none. Now it stores home
+ * alone: the agent designs the product, collection, shop, search, cart, 404
+ * and contact templates itself (lib/ai-builder/agent/site-plan.ts, checked at
+ * finish). Until it has, a visitor meets the platform's working fallback, in
+ * the site's own tokens and inside its own header and footer: the product
+ * route still draws the product section when the template has none
+ * (product-page.ts withMainProduct), so a product is never "Product name"
+ * and never unbuyable.
  *
  * Server only: it writes with the service role. The creator comes from the
  * signed-in caller (lib/team/website websiteCaller), never from a request.
@@ -51,7 +60,6 @@ import { isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder, L
 import { buildThemePreset, getThemeDefinition, STORELIB_DEFAULT_ID, themeCatalogRow } from "./theme-registry"
 import { ensureStoreMenus } from "./store-menus-server"
 import { pointAtStoreMenus } from "./main-menu"
-import { mainProductSection } from "./product-page"
 import type { SectionInstance, ThemeSettingsValues } from "./types"
 
 /** How a new website starts. */
@@ -128,8 +136,8 @@ export const BLANK_SETTINGS: ThemeSettingsValues = {
 /**
  * The rows a new website is made of, from Storelib Default's preset: its
  * settings, a home page with only the header and footer, and its product
- * page. With chrome "none": neutral settings, an empty home page and the
- * product section alone. Pure, so a test can see what each page holds.
+ * page. With chrome "none": neutral settings and an empty home page, nothing
+ * else. Pure, so a test can see what each page holds.
  */
 export function startRows(chrome: StartChrome = "theme"): StartRows | null {
   const def = getThemeDefinition(STORELIB_DEFAULT_ID)
@@ -138,10 +146,7 @@ export function startRows(chrome: StartChrome = "theme"): StartRows | null {
     return {
       /* site_chrome "home" (lib/website-builder/universal-chrome.ts): home's chrome, none here, is the whole site's, so no page draws a stored copy of a theme header. */
       settings: { ...BLANK_SETTINGS, [SITE_CHROME_SETTING]: SITE_CHROME_HOME_ONLY },
-      pages: [
-        { page_key: "home", sections: [] },
-        { page_key: "product", sections: [mainProductSection()] },
-      ],
+      pages: [{ page_key: "home", sections: [] }],
     }
   }
   const preset = buildThemePreset(def)

@@ -4,6 +4,9 @@ import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { CartPageBody } from "@/components/website-builder/cart-page-body"
 import { chromeSections } from "@/lib/website-builder/shop-page"
+import { chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
+import { renderWithSources } from "@/lib/website-builder/storefront-render"
+import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
 import { resolveSectionColors } from "@/lib/storelib-theme/color-schemes"
 import { getMainDomain } from "@/lib/url-helpers"
@@ -53,8 +56,17 @@ export default async function SiteCartPage({ params }: PageProps) {
   /* Its menus, its own words and its search engine text in this language too, as on the home page (lib/markets/translate localizeTheme). */
   const site = localizer ? { ...own, themeSettings: localizer.theme(own.themeSettings as Record<string, unknown>) as typeof own.themeSettings } : own
   /* The header and footer, with any placeholder in them filled in, in the page's language. */
-  const chrome = chromeSections(site.pages.home ?? site.sections)
-  const { sections } = await dressPage(site, localizer ? localizer.sections(chrome, site.sources) : chrome, localizer ? localizer.cards(products) : products, productCount, "cart", "Cart", undefined, { cached: true, localizer })
+  /*
+    AND THE CART TEMPLATE'S OWN SECTIONS (round N, N3): a website the AI designed stores a "cart" page whose
+    sections are drawn under the cart itself (delivery notes, reassurance, suggestions), in its own header and
+    footer. A site without one is drawn exactly as before. Coded sections (the AI's header too) are drawn by
+    the template engine here, as on every other page: without the prerender a .storelib header drew nothing.
+  */
+  const cartOwn = (site.pages.cart ?? []).filter((s) => !s.group && s.type !== "header" && s.type !== "footer")
+  const chrome = cartOwn.length ? withUniversalChrome(cartOwn, chromeOf(site.pages.home ?? site.sections)) : chromeSections(site.pages.home ?? site.sections)
+  const cards = localizer ? localizer.cards(products) : products
+  const { sections, data } = await dressPage(site, localizer ? localizer.sections(chrome, site.sources) : chrome, cards, productCount, "cart", "Cart", undefined, { cached: true, localizer })
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "cart", cards, undefined, data)
 
   /* The theme's default surface, resolved on the server: the cart is not a
      section and has no section settings of its own to resolve from. */
@@ -65,7 +77,7 @@ export default async function SiteCartPage({ params }: PageProps) {
   const radius = Number((site.themeSettings as Record<string, unknown>).radius_medium ?? 12) || 12
 
   return (
-    <>
+    <StorelibSourcesProvider prerendered={prerendered} page={{ template: "cart" }}>
     {/* The cart is a page of the website too: one view, with its own path. */}
     <TrackView creatorId={site.creatorId} />
     <StoreTracking creatorId={site.creatorId} />
@@ -86,6 +98,6 @@ export default async function SiteCartPage({ params }: PageProps) {
         }}
       />
     </ThemePage>
-    </>
+    </StorelibSourcesProvider>
   )
 }
