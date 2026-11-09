@@ -17,7 +17,10 @@ import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section
 import { readStoreFacts } from "../agent/store-facts-server"
 import { visualCheck } from "../agent/visual-check"
 import { readCapabilities } from "./capabilities"
-import { runUntil, type Job, type JobDeps } from "./job"
+import { jobEngine, runUntil, type Job, type JobDeps } from "./job"
+import { runAgentInvocation, type AgentRunOutcome } from "./agent-runner"
+import { agentStore } from "./agent-store"
+import { agentStepperFactory, maxLiveAgentJobs } from "./agent-engine"
 import { PLAN_MODEL, SMALL_MODEL, WRITE_MODEL, type Models } from "./models"
 import { claimJob, imageDeps, jobToken, loadJob, releaseJob, RUN_BUDGET_MS, saveJob, siteIO } from "./server"
 
@@ -65,10 +68,33 @@ export async function kickJob(origin: string, jobId: string): Promise<boolean> {
   }
 }
 
+/**
+ * An agent job's turn (round L): as many iterations of the loop as fit in this request, a checkpoint after each,
+ * then the next request asked for (./agent-runner.ts). Never throws.
+ */
+export async function driveAgentJob(jobId: string, origin: string, started = Date.now()): Promise<AgentRunOutcome | null> {
+  try {
+    return await runAgentInvocation(jobId, {
+      store: agentStore(createAdminClient()),
+      stepperFor: await agentStepperFactory(),
+      started,
+      kick: () => kickJob(origin, jobId),
+      maxLiveJobs: maxLiveAgentJobs(),
+    })
+  } catch (e) {
+    console.error("[ai-agent] runner failed", { job: jobId, error: e instanceof Error ? e.message.slice(0, 200) : "" })
+    return null
+  }
+}
+
 /** Claims the job, runs it until this request's budget is spent, hands over. */
 export async function driveJob(jobId: string, origin: string, started = Date.now()): Promise<void> {
   const admin = createAdminClient()
   const job = await loadJob(admin, jobId)
+  if (job && jobEngine(job) === "agent") {
+    await driveAgentJob(jobId, origin, started)
+    return
+  }
   if (!job || job.step === "done" || job.status === "failed") return
   if (!(await claimJob(admin, job))) return
   let after: Job = job

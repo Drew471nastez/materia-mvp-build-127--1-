@@ -64,7 +64,9 @@ export async function startJobRow(
     state: emptyState(),
   }
   const insert = (row: Record<string, unknown>) => admin.from(JOBS_TABLE).insert(row).select("id").single()
-  let { data, error } = await insert({ ...base, options, mode: options.generation, engine: input.engine ?? "classic" })
+  /* An agent job is on its one step from the start (SQL part 401 allows it); a classic one starts at plan. */
+  const engine = input.engine ?? "classic"
+  let { data, error } = await insert({ ...base, step: engine === "agent" ? "agent" : "plan", options, mode: options.generation, engine })
   if (error && isMissingColumn(error)) {
     console.error("[ai-site] ai_site_jobs has no options column yet (SQL part 401): the job keeps the prompt only", { code: error.code })
     ;({ data, error } = await insert(base))

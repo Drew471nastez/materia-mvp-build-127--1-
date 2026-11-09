@@ -133,7 +133,7 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
   })
   const madeSomething = () => cp.filesTouched.length > 0 || cp.pagesTouched.length > 0
   const stopFor = (why: BudgetStop): SliceResult => {
-    const words: Record<BudgetStop, string> = { wall_clock: "ran out of time", iterations: "used all its steps", spend: "reached its spending cap", cancelled: "was cancelled" }
+    const words: Record<BudgetStop, string> = { wall_clock: "ran out of time", iterations: "used all its steps", spend: "reached its spending cap", repairs: "could not fix every problem in the rounds it had", cancelled: "was cancelled" }
     const made = madeSomething() ? ` What it made is kept as a draft: ${[...cp.filesTouched, ...cp.pagesTouched.map((p) => `page ${p}`)].join(", ")}.` : " Nothing was changed."
     const status = why === "cancelled" ? "cancelled" : madeSomething() ? "partial" : "failed"
     return finished(status, `The AI ${words[why]}.${made}${cp.openTasks.length ? ` Not done: ${cp.openTasks.join("; ")}.` : ""}`, [], why)
