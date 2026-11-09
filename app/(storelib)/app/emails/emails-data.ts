@@ -93,11 +93,11 @@ export async function loadMessages(): Promise<MessagesData> {
 }
 
 export async function loadFlows(): Promise<FlowRow[]> {
-  return shaped(await json("/api/email/area?part=flows"), flowsFrom)
+  return shaped(await json("/api/email/area?part=flows"), (b) => flowsFrom<FlowRow>(b))
 }
 
 export async function loadCampaigns(status: "draft" | "scheduled"): Promise<CampaignRow[]> {
-  const rows = shaped(await json(`/api/email/campaigns?status=${status}`), campaignsFrom)
+  const rows = shaped(await json(`/api/email/campaigns?status=${status}`), (b) => campaignsFrom<CampaignRow>(b))
   return rows.map((c) => ({ ...c, kind: status }))
 }
 
@@ -108,7 +108,7 @@ export interface SentData {
 }
 
 export async function loadSent(rangeQuery: string): Promise<SentData> {
-  const r = shaped(await json(`/api/email/stats?${rangeQuery}`), sentFrom)
+  const r = shaped(await json(`/api/email/stats?${rangeQuery}`), (b) => sentFrom<CampaignRow>(b))
   return {
     campaigns: r.campaigns.map((c) => ({ ...c, kind: "sent" as const })),
     overview: {
@@ -171,7 +171,7 @@ export async function loadPlatforms(): Promise<SendingData> {
   if (!m.ok) throw new Error(m.error || tt("Could not load your platforms."))
   if (!isRecord(m.data)) throw new Error(tt("Could not load your platforms."))
   const sender = isRecord(who) ? { name: typeof who.name === "string" ? who.name : null, replyTo: typeof who.replyTo === "string" ? who.replyTo : null } : null
-  return { marketing: marketingFrom(m.data.marketing), sending: d.ok ? sendingDomainFrom(d.data) : { domain: null, ready: true, available: false }, sender }
+  return { marketing: marketingFrom<MarketingState>(m.data.marketing), sending: d.ok ? sendingDomainFrom<NonNullable<SendingDomainData["domain"]>>(d.data) : { domain: null, ready: true, available: false }, sender }
 }
 
 /** Who the store's emails are from, and where a reply goes. */
@@ -192,7 +192,7 @@ export type SendingData = PlatformsData & { sender?: SenderInfo | null }
 export async function loadCustomerEmails(): Promise<CustomerEmailsData> {
   const r = await api<CustomerEmailsData>(CUSTOMER_EMAILS_PATH)
   if (!r.ok) throw new Error(r.error || tt("Could not load your customer emails."))
-  const data = customerEmailsFrom(r.data)
+  const data = customerEmailsFrom<CustomerEmailsData>(r.data)
   if (!data) throw new Error(tt("Could not load your customer emails."))
   /* What each has sent, read with the list, so the tab opens with its "sent" lines in place. */
   prefetchCustomerActivity(data)

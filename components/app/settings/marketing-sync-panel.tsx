@@ -109,7 +109,7 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
   /* Every answer checked at the door (lib/emails/shapes.ts): a list of states, never an object `.find` falls over on. */
   const [all, setAll] = React.useState<MarketingState[] | null>(() => {
     const kept = peekGet<{ marketing?: unknown }>(MARKETING_PATH)
-    return kept ? marketingFrom(kept.marketing) : null
+    return kept ? marketingFrom<MarketingState>(kept.marketing) : null
   })
   const state = all?.find((s) => s.provider === provider) ?? null
   const [key, setKey] = React.useState("")
@@ -126,7 +126,7 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
     (raw: unknown) => {
       /* An answer without the list keeps what is shown. */
       if (!Array.isArray(raw)) return
-      const next = marketingFrom(raw)
+      const next = marketingFrom<MarketingState>(raw)
       setAll(next)
       onChanged?.(next)
     },

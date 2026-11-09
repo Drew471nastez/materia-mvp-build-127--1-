@@ -889,12 +889,12 @@ export function replyHref(m: Pick<MessageRow, "email" | "subject">): string {
  */
 function useCommunities(known: CustomerEmailsData | null | undefined): CommunityRef[] {
   /* Lists, whatever was kept or answered (lib/emails/shapes.ts). */
-  const [read, setRead] = React.useState<CommunityRef[] | null>(() => customerEmailsFrom(peekGet<unknown>(CUSTOMER_EMAILS_PATH))?.communities ?? null)
+  const [read, setRead] = React.useState<CommunityRef[] | null>(() => customerEmailsFrom<CustomerEmailsData>(peekGet<unknown>(CUSTOMER_EMAILS_PATH))?.communities ?? null)
   const have = known && Array.isArray(known.communities) ? known.communities : undefined
   React.useEffect(() => {
     if (have || read) return
     let live = true
-    void storeApi<CustomerEmailsData>(CUSTOMER_EMAILS_PATH).then((r) => live && r.ok && setRead(customerEmailsFrom(r.data)?.communities ?? []))
+    void storeApi<CustomerEmailsData>(CUSTOMER_EMAILS_PATH).then((r) => live && r.ok && setRead(customerEmailsFrom<CustomerEmailsData>(r.data)?.communities ?? []))
     return () => {
       live = false
     }

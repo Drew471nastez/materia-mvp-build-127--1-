@@ -160,14 +160,14 @@ async function main() {
     }
     check(`${name} never throws`, threw === null, String(threw))
   }
-  check("marketingFrom: anything that is not a list is no platforms", asArray(marketingFrom({ klaviyo: {} })).length === 0 && marketingFrom([{ provider: "klaviyo", counts: "x" }])[0].counts.subscribed === 0)
+  check("marketingFrom: anything that is not a list is no platforms", asArray(marketingFrom({ klaviyo: {} })).length === 0 && marketingFrom<{ counts: { subscribed: number } }>([{ provider: "klaviyo", counts: "x" }])[0].counts.subscribed === 0)
   const listed = communityAutomationsFrom<{ id: string }, { id: string }>({ ready: true, automations: {}, channels: "x" })
   check("a community's automations: lists that were objects are empty lists", !!listed && isList(listed.automations) && isList(listed.channels))
   const loaded = communityEmailsFrom({ emails: { recent: {} }, words: { words: "x" } })
   check("a community's emails: recent is a list, words a record", !!loaded && isList(loaded.emails.recent) && typeof loaded.words.words === "object")
-  const activity = activityFrom({ emails: "x", communities: { c1: "y" }, flows: { a: 1 } })
+  const activity = activityFrom<{ days: number; emails: object; communities: Record<string, object>; flows: unknown[] }>({ emails: "x", communities: { c1: "y" }, flows: { a: 1 } })
   check("what each email sent: the emails and communities are records, the automations a list", !!activity && typeof activity.emails === "object" && typeof activity.communities.c1 === "object" && isList(activity.flows) && activity.days === 30)
-  const customer = customerEmailsFrom({ shop: { name: "Ana" }, copy: { receipt: "x", refund: { subject: "Hi" } }, communities: { a: 1 } })
+  const customer = customerEmailsFrom<{ copy: Record<string, unknown>; communities: unknown[] }>({ shop: { name: "Ana" }, copy: { receipt: "x", refund: { subject: "Hi" } }, communities: { a: 1 } })
   check("customer emails: copy keeps only words, communities a list", !!customer && !("receipt" in customer.copy) && !!customer.copy.refund && isList(customer.communities))
   check("customer emails: not the answer at all is null (a failed read), never a half-made list", customerEmailsFrom({}) === null && customerEmailsFrom([]) === null && customerEmailsFrom({ error: "x" }) === null)
   check("automations: only a list is a list of automations", flowsFrom({}) === null && flowsFrom({ rows: [] }) === null && flowsFrom(null) === null && (flowsFrom([null, { id: "a" }]) ?? []).length === 1)

@@ -149,7 +149,7 @@ export function prefetchCustomerActivity(data: CustomerEmailsData | null | undef
   const key = (data.communities ?? []).map((c) => c.id).join(",")
   if (activityKept.has(key)) return
   void api<EmailActivity>(activityPath(key)).then((r) => {
-    const a = r.ok ? activityFrom(r.data) : null
+    const a = r.ok ? activityFrom<EmailActivity>(r.data) : null
     if (a) activityKept.set(key, a)
   })
 }
@@ -168,7 +168,7 @@ export function CustomerEmailsPanel({
 }) {
   const physical = usePhysicalCommerceEnabled()
   /* Drawn at once from what Settings (or Emails) fetched while the person was elsewhere (prefetchGet). */
-  const [ownData, setOwnData] = React.useState<CustomerEmailsData | null>(() => (source ? source.data : customerEmailsFrom(peekGet<unknown>(CUSTOMER_EMAILS_PATH))))
+  const [ownData, setOwnData] = React.useState<CustomerEmailsData | null>(() => (source ? source.data : customerEmailsFrom<CustomerEmailsData>(peekGet<unknown>(CUSTOMER_EMAILS_PATH))))
   const data = source?.data ?? ownData
   const sourceRef = React.useRef(source)
   sourceRef.current = source
@@ -204,7 +204,7 @@ export function CustomerEmailsPanel({
     if (sourceRef.current) return
     /* Checked at the door (lib/emails/shapes.ts): an answer of another shape is a failed read. */
     void api<CustomerEmailsData>(CUSTOMER_EMAILS_PATH).then((r) => {
-      const d = r.ok ? customerEmailsFrom(r.data) : null
+      const d = r.ok ? customerEmailsFrom<CustomerEmailsData>(r.data) : null
       if (d) setOwnData(d)
       else setError(r.ok ? tt("Could not load your customer emails.") : r.error)
     })
@@ -218,7 +218,7 @@ export function CustomerEmailsPanel({
     const kept = activityKept.get(communityKey)
     if (kept) setActivity(kept)
     void api<EmailActivity>(activityPath(communityKey)).then((r) => {
-      const a = r.ok ? activityFrom(r.data) : null
+      const a = r.ok ? activityFrom<EmailActivity>(r.data) : null
       if (!a) return
       activityKept.set(communityKey, a)
       if (live) setActivity(a)

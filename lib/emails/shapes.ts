@@ -29,13 +29,16 @@
  * and components/app/settings/marketing-sync-panel.tsx; fed every bad shape
  * by tests/emails-shapes-w7.test.ts.
  */
-import type { CampaignRow, FlowRow, FlowTotals } from "@/app/(storelib)/app/emails/emails-home"
-import type { MarketingState } from "@/components/app/settings/marketing-sync-panel"
-import type { SendingDomainData } from "@/components/email/connected-platforms"
-import type { CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
-import type { EmailActivity } from "@/lib/emails/activity-server"
-
+/*
+  NO IMPORTS, ON PURPOSE. Each shaper answers in a loose shape and its caller
+  names the type it draws (`flowsFrom<FlowRow>(…)`), so this file never pulls
+  a panel or a server module into whatever reads it (the plain test suites
+  type-check everything a file imports, types included).
+*/
 type Obj = Record<string, unknown>
+/** A row with an id, and whatever else it came with. */
+export type Row = Obj & { id: string }
+type Totals = { sent: number; opened: number; clicked: number; failed: number; in_progress: number }
 
 export function isRecord(v: unknown): v is Obj {
   return !!v && typeof v === "object" && !Array.isArray(v)
@@ -63,13 +66,13 @@ export function errorOf(v: unknown): string | null {
 
 /* ─── Automations ───────────────────────────────────────────────────── */
 
-function totalsOf(v: unknown): FlowTotals | null {
+function totalsOf(v: unknown): Totals | null {
   if (!isRecord(v)) return null
   return { sent: num(v.sent), opened: num(v.opened), clicked: num(v.clicked), failed: num(v.failed), in_progress: num(v.in_progress) }
 }
 
 /** /api/email/area?part=flows: a list of automations. Anything else is null. */
-export function flowsFrom(body: unknown): FlowRow[] | null {
+export function flowsFrom<T = Row>(body: unknown): T[] | null {
   if (!Array.isArray(body)) return null
   return rowsWithId<Obj>(body).map((f) => ({
     ...f,
@@ -78,34 +81,34 @@ export function flowsFrom(body: unknown): FlowRow[] | null {
     trigger_type: str(f.trigger_type),
     status: str(f.status, "draft"),
     totals: totalsOf(f.totals),
-  })) as FlowRow[]
+  })) as unknown as T[]
 }
 
 /* ─── Campaigns ─────────────────────────────────────────────────────── */
 
-function campaignRows(v: unknown): CampaignRow[] {
-  return rowsWithId<Obj>(v).map((c) => ({ ...c, id: String(c.id), subject: str(c.subject), created_at: str(c.created_at) })) as CampaignRow[]
+function campaignRows<T>(v: unknown): T[] {
+  return rowsWithId<Obj>(v).map((c) => ({ ...c, id: String(c.id), subject: str(c.subject), created_at: str(c.created_at) })) as unknown as T[]
 }
 
 /** /api/email/campaigns?status=…: `{ campaigns: [...] }`. Anything else is null. */
-export function campaignsFrom(body: unknown): CampaignRow[] | null {
+export function campaignsFrom<T = Row>(body: unknown): T[] | null {
   if (!isRecord(body) || !Array.isArray(body.campaigns)) return null
-  return campaignRows(body.campaigns)
+  return campaignRows<T>(body.campaigns)
 }
 
-export interface SentShape {
-  campaigns: CampaignRow[]
+export interface SentShape<T = Row> {
+  campaigns: T[]
   stats: { totalSent: number; totalOpens: number; totalClicks: number; totalUnsubscribed: number; openRate: number; clickRate: number }
   monthlyUsage: { sent: number; limit: number }
 }
 
 /** /api/email/stats: the sent emails in the period, their numbers and the month's use. */
-export function sentFrom(body: unknown): SentShape | null {
+export function sentFrom<T = Row>(body: unknown): SentShape<T> | null {
   if (!isRecord(body) || !Array.isArray(body.campaigns)) return null
   const s = record(body.stats)
   const u = record(body.monthlyUsage)
   return {
-    campaigns: campaignRows(body.campaigns),
+    campaigns: campaignRows<T>(body.campaigns),
     stats: { totalSent: num(s.totalSent), totalOpens: num(s.totalOpens), totalClicks: num(s.totalClicks), totalUnsubscribed: num(s.totalUnsubscribed), openRate: num(s.openRate), clickRate: num(s.clickRate) },
     monthlyUsage: { sent: num(u.sent), limit: num(u.limit, 500) },
   }
@@ -114,7 +117,7 @@ export function sentFrom(body: unknown): SentShape | null {
 /* ─── Delivery ──────────────────────────────────────────────────────── */
 
 /** /api/store/integrations/marketing's `marketing`: one state per platform. A missing list is none connected. */
-export function marketingFrom(v: unknown): MarketingState[] {
+export function marketingFrom<T = Obj & { provider: string }>(v: unknown): T[] {
   return asArray(v)
     .filter((m): m is Obj => isRecord(m) && typeof m.provider === "string")
     .map((m) => {
@@ -127,15 +130,15 @@ export function marketingFrom(v: unknown): MarketingState[] {
         account: strOrNull(m.account),
         scopes: asArray<string>(m.scopes).filter((x) => typeof x === "string"),
         counts: { subscribed: num(c.subscribed), unsubscribed: num(c.unsubscribed), customers: num(c.customers), events: num(c.events), pulled: num(c.pulled) },
-      } as MarketingState
+      } as unknown as T
     })
 }
 
 /** /api/email/sending-domain: the store's own sending domain, if it has one. */
-export function sendingDomainFrom(v: unknown): SendingDomainData {
+export function sendingDomainFrom<D = Obj>(v: unknown): { domain: D | null; ready: boolean; available: boolean } {
   if (!isRecord(v)) return { domain: null, ready: true, available: false }
   const d = isRecord(v.domain) && typeof v.domain.domain === "string" ? { ...v.domain, records: asArray(v.domain.records).filter(isRecord) } : null
-  return { domain: d as SendingDomainData["domain"], ready: v.ready !== false, available: v.available === true }
+  return { domain: d as unknown as D | null, ready: v.ready !== false, available: v.available === true }
 }
 
 /* ─── Customer emails ───────────────────────────────────────────────── */
@@ -143,24 +146,24 @@ export function sendingDomainFrom(v: unknown): SendingDomainData {
 const FALLBACK_SHOP = { name: "Your store", supportEmail: null, storeUrl: null, logoUrl: null, phone: null, currency: "USD" }
 
 /** /api/store/emails: the store, its saved words and its communities. Null when it is not that answer at all. */
-export function customerEmailsFrom(body: unknown): CustomerEmailsData | null {
+export function customerEmailsFrom<T = Obj>(body: unknown): T | null {
   if (!isRecord(body) || !isRecord(body.shop)) return null
   const language = isRecord(body.language) && typeof body.language.lang === "string" ? { lang: body.language.lang, words: record(body.language.words) as Record<string, string>, own: body.language.own === true } : undefined
   const languages = isRecord(body.languages) ? { defaultLanguage: str(body.languages.defaultLanguage, "en") || "en", others: asArray<string>(body.languages.others).filter((x) => typeof x === "string") } : undefined
   return {
     ...body,
     shop: { ...FALLBACK_SHOP, ...body.shop, name: str(body.shop.name, FALLBACK_SHOP.name), currency: str(body.shop.currency, "USD") },
-    copy: Object.fromEntries(Object.entries(record(body.copy)).filter(([, v]) => isRecord(v))) as CustomerEmailsData["copy"],
+    copy: Object.fromEntries(Object.entries(record(body.copy)).filter(([, v]) => isRecord(v))),
     ready: body.ready !== false,
-    communities: rowsWithId<Obj>(body.communities).map((c) => ({ ...c, id: String(c.id), name: str(c.name), slug: str(c.slug) })) as CustomerEmailsData["communities"],
+    communities: rowsWithId<Obj>(body.communities).map((c) => ({ ...c, id: String(c.id), name: str(c.name), slug: str(c.slug) })),
     ...(language ? { language } : { language: undefined }),
     ...(languages ? { languages } : { languages: undefined }),
     reminder: typeof body.reminder === "boolean" ? body.reminder : null,
-  } as CustomerEmailsData
+  } as unknown as T
 }
 
 /** A language's words, read on their own (?lang=…): null unless they are that. */
-export function wordsInFrom(v: unknown): CustomerEmailsData["language"] | null {
+export function wordsInFrom(v: unknown): { lang: string; words: Record<string, string>; own: boolean } | null {
   if (!isRecord(v) || typeof v.lang !== "string") return null
   return { lang: v.lang, words: record(v.words) as Record<string, string>, own: v.own === true }
 }
@@ -171,7 +174,7 @@ function sentOf(v: unknown): { sent: number; lastAt: string | null } {
 }
 
 /** /api/store/emails/activity: what each email and automation has sent. Null when it is not that answer. */
-export function activityFrom(body: unknown): EmailActivity | null {
+export function activityFrom<T = Obj>(body: unknown): T | null {
   if (!isRecord(body)) return null
   const emails = Object.fromEntries(Object.entries(record(body.emails)).map(([k, v]) => [k, sentOf(v)]))
   const communities = Object.fromEntries(Object.entries(record(body.communities)).map(([k, v]) => [k, Object.fromEntries(Object.entries(record(v)).map(([e, s]) => [e, sentOf(s)]))]))
@@ -193,7 +196,7 @@ export function activityFrom(body: unknown): EmailActivity | null {
     communities,
     flows,
     reminderReplacedBy: isRecord(r) && typeof r.name === "string" ? { id: str(r.id), name: r.name } : null,
-  } as EmailActivity
+  } as unknown as T
 }
 
 /* ─── A community's own emails and automations ──────────────────────── */
