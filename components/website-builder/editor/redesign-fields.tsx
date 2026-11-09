@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * REDESIGN WITH AI, ASKED (round M): what the person wants and how far it may
@@ -12,9 +13,10 @@ import { cn } from "@/lib/utils"
  */
 export type RedesignScopeChoice = "changes" | "full"
 
-const SCOPES: readonly (readonly [RedesignScopeChoice, string, string])[] = [
-  ["changes", "Just these changes", "Your pages, words and products stay as they are."],
-  ["full", "A new look for the whole site", "Your words and products stay. The design changes."],
+/* Words read when drawn, never when the module loads (the catalog arrives later). */
+const SCOPES: readonly (readonly [RedesignScopeChoice, () => string, () => string])[] = [
+  ["changes", () => tt("Just these changes"), () => tt("Your pages, words and products stay as they are.")],
+  ["full", () => tt("A new look for the whole site"), () => tt("Your words and products stay. The design changes.")],
 ]
 
 export function RedesignFields({
@@ -32,7 +34,7 @@ export function RedesignFields({
 }) {
   return (
     <>
-      <p>The AI works on this whole website as a draft. A backup is saved first, so you can undo it in one step.</p>
+      <p>{tt("The AI works on this whole website as a draft. A backup is saved first, so you can undo it in one step.")}</p>
       <textarea
         data-redesign-text=""
         /* Focused once the menu that opened it has handed focus back and the card's own Cancel has taken it. */
@@ -42,7 +44,7 @@ export function RedesignFields({
             window.setTimeout(() => el.focus(), 150)
           }
         }}
-        aria-label="What should change"
+        aria-label={tt("What should change")}
         value={text}
         onChange={(e) => onText(e.target.value)}
         onKeyDown={(e) => {
@@ -51,12 +53,12 @@ export function RedesignFields({
             onSubmit()
           }
         }}
-        placeholder="Warmer colours, bigger product photos, and a short FAQ before the footer"
+        placeholder={tt("Warmer colours, bigger product photos, and a short FAQ before the footer")}
         rows={4}
         maxLength={2000}
         className="mt-3 w-full resize-none rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-[14.5px] text-white placeholder:text-white/40 outline-none focus:border-white/35"
       />
-      <div role="radiogroup" aria-label="How far it goes" className="mt-3 grid gap-1.5" data-redesign-scope={scope}>
+      <div role="radiogroup" aria-label={tt("How far it goes")} className="mt-3 grid gap-1.5" data-redesign-scope={scope}>
         {SCOPES.map(([value, label, hint]) => (
           <button
             key={value}
@@ -70,8 +72,8 @@ export function RedesignFields({
               {scope === value && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
             </span>
             <span className="min-w-0">
-              <span className="block text-[14px] font-medium text-white">{label}</span>
-              <span className="block text-[12.5px] leading-snug text-white/55">{hint}</span>
+              <span className="block text-[14px] font-medium text-white">{label()}</span>
+              <span className="block text-[12.5px] leading-snug text-white/55">{hint()}</span>
             </span>
           </button>
         ))}

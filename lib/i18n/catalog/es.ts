@@ -12932,7 +12932,28 @@ const words: Record<string, string> = {
  "Add to mine": "Añadir a la mía",
  "Without the theme": "Sin el tema",
  "The AI makes the header, footer and every section.": "La IA hace la cabecera, el pie y cada sección.",
- "The {name} section showed an error on the page": "La sección {name} mostró un error en la página"
+ "The {name} section showed an error on the page": "La sección {name} mostró un error en la página",
+ "AI changes undone": "Cambios de IA deshechos",
+ "Your changes are ready": "Tus cambios están listos",
+ "Your changes are ready, with a few gaps": "Tus cambios están listos, con algunos huecos",
+ "Your website is back as it was before this AI job. Nothing went live.": "Tu sitio web vuelve a estar como antes de este trabajo de IA. Nada se publicó.",
+ "A backup was saved before the AI started. Undo puts it back.": "Se guardó una copia de seguridad antes de que empezara la IA. Deshacer la restaura.",
+ "Redesign with AI": "Rediseñar con IA",
+ "Undo this AI job": "Deshacer este trabajo de IA",
+ "{name} page": "Página {name}",
+ "Made after this backup": "Creado después de esta copia",
+ "Removed, the AI made it": "Eliminado, lo hizo la IA",
+ "Stays, it is live": "Se queda, está publicado",
+ "Stays": "Se queda",
+ "Remove it too": "Eliminarlo también",
+ "Just these changes": "Solo estos cambios",
+ "Your pages, words and products stay as they are.": "Tus páginas, textos y productos se quedan como están.",
+ "A new look for the whole site": "Un aspecto nuevo para todo el sitio",
+ "Your words and products stay. The design changes.": "Tus textos y productos se quedan. El diseño cambia.",
+ "The AI works on this whole website as a draft. A backup is saved first, so you can undo it in one step.": "La IA trabaja en todo este sitio como borrador. Antes se guarda una copia de seguridad, así que puedes deshacerlo en un paso.",
+ "What should change": "Qué debe cambiar",
+ "Warmer colours, bigger product photos, and a short FAQ before the footer": "Colores más cálidos, fotos de producto más grandes y unas preguntas frecuentes antes del pie",
+ "How far it goes": "Hasta dónde llega"
 }
 
 export default words
