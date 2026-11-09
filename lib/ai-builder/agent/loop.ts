@@ -160,9 +160,10 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     const industry = job.options?.category?.replace(/_/g, " ")
     const search = deps.knowledge ?? libraryKnowledge({ industry, caps: () => caps })
     const knowledge = (await search({ query: job.prompt.slice(0, 500), industry, limit: 5 }).catch(() => [])) as KnowledgeHit[]
-    const directions = job.edit ? [] : directionsFor(industry ?? job.prompt.slice(0, 80), job.creatorId)
+    const scoped = job.edit || job.redesign === "changes"
+    const directions = scoped ? [] : directionsFor(industry ?? job.prompt.slice(0, 80), job.creatorId)
     cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages, files, knowledge, directions }) })
-    if (job.edit) setPhase("build", "Making your change")
+    if (scoped) setPhase("build", "Making your change")
     else setPhase("plan", "Deciding the look")
   }
 
@@ -323,6 +324,11 @@ function summarise(name: string, args: Record<string, unknown>, output: unknown)
   const o = (output ?? {}) as { ok?: boolean; issues?: ValidationIssue[]; reason?: string }
   const target = typeof args.path === "string" ? args.path : typeof args.page === "string" ? `page ${args.page}` : typeof args.key === "string" ? `page ${args.key}` : typeof args.query === "string" ? `"${args.query.slice(0, 60)}"` : typeof args.label === "string" ? args.label.slice(0, 80) : ""
   const errors = Array.isArray(o.issues) ? o.issues.filter((i) => i.severity === "error").length : 0
+  /* A refused concept says so in words, never as an ok line (round M). */
+  if (name === "report_progress" && o.ok === false) {
+    const concept = Array.isArray(o.issues) && o.issues.some((i) => i.code === "plan.concept_invalid")
+    return (concept ? `The visual concept needs another pass (${errors} thing${errors === 1 ? "" : "s"} to fix)` : "The visual concept comes first: nothing else can start without it").slice(0, 200)
+  }
   return `${name.replace(/_/g, " ")}${target ? ` ${target}` : ""}${o.ok === false ? (errors ? `: ${errors} error${errors === 1 ? "" : "s"}` : o.reason ? `: ${String(o.reason).slice(0, 60)}` : ": refused") : ""}`.slice(0, 200)
 }
 
@@ -336,13 +342,16 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
   const ctx = { job, deps, cp }
   const issues = await validateAll(ctx)
   const stored = await deps.store.listPages()
-  const pages = job.edit ? cp.pagesTouched : stored.map((p) => p.key)
+  /* An edit, and a redesign that makes only the changes asked (round M), answer for what they touched; the rest of the site is the person's. */
+  const scoped = job.edit || job.redesign === "changes"
+  const pages = scoped ? cp.pagesTouched : stored.map((p) => p.key)
   /* A new website's page that shows nothing of its own is not finished. The theme's template pages (product, search...) are not the agent's to fill. */
-  if (!job.edit) for (const p of stored) if ((p.key === "home" || cp.pagesTouched.includes(p.key)) && !p.sections.some((s) => !s.hidden && !s.group && s.type !== "header" && s.type !== "footer")) issues.push({ severity: "error", code: "page.empty", message: `The page ${p.key} has no sections of its own. Place components on it with set_page_sections.` })
+  if (!scoped) for (const p of stored) if ((p.key === "home" || cp.pagesTouched.includes(p.key)) && !p.sections.some((s) => !s.hidden && !s.group && s.type !== "header" && s.type !== "footer")) issues.push({ severity: "error", code: "page.empty", message: `The page ${p.key} has no sections of its own. Place components on it with set_page_sections.` })
   for (const page of pages) issues.push(...(await renderPage(ctx, page)).issues.map((i) => ({ ...i, message: `${page}: ${i.message}` })))
   const files = (await deps.store.listFiles()).filter((f) => cp.filesTouched.includes(f.path)).map((f) => ({ path: f.path, text: f.text }))
   if (files.length) issues.push(...(await (deps.slop ?? librarySlop)({ files, concept: cp.concept ?? null, capabilities: cp.caps ?? null }).catch(() => [])))
-  if (!job.edit && !cp.concept) issues.push({ severity: "error", code: "plan.concept_missing", message: "There is no visual concept. Hand it in with report_progress phase plan." })
-  if (!job.edit && !cp.filesTouched.some((p) => p.startsWith("sections/ai_"))) issues.push({ severity: "error", code: "build.nothing", message: "No component was written. A new website is made of components you write." })
+  if (!scoped && !cp.concept) issues.push({ severity: "error", code: "plan.concept_missing", message: "There is no visual concept. Hand it in with report_progress phase plan." })
+  /* A redesign may be done with the site's own sections and tokens: writing a component is not required of it. */
+  if (!job.edit && !job.redesign && !cp.filesTouched.some((p) => p.startsWith("sections/ai_"))) issues.push({ severity: "error", code: "build.nothing", message: "No component was written. A new website is made of components you write." })
   return issues
 }

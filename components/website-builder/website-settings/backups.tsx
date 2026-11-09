@@ -8,6 +8,7 @@ import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 import { settleRestore } from "@/lib/website-builder/restore-request"
 import type { BackupPreview } from "@/lib/website-builder/backup-preview"
+import type { AddedItem, AddedSince } from "@/lib/website-builder/added-since"
 import { cn } from "@/lib/utils"
 
 interface BackupRow {
@@ -50,7 +51,7 @@ interface ReleaseRow {
   live: boolean
 }
 
-type PreviewState = { id: string; state: "loading" } | { id: string; state: "ready"; preview: BackupPreview } | { id: string; state: "error"; error: string }
+type PreviewState = { id: string; state: "loading" } | { id: string; state: "ready"; preview: BackupPreview; added?: AddedSince } | { id: string; state: "error"; error: string }
 
 const SOURCE_WORD: Record<BackupRow["source"], string> = {
   get ai() { return tt("After a Storelib AI task") },
@@ -97,6 +98,8 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
   const [backedUp, setBackedUp] = useState<null | { id: string; skipped: boolean }>(null)
   /* The open backup's preview: what restoring it would change (lib/website-builder/backup-preview.ts). */
   const [preview, setPreview] = useState<PreviewState | null>(null)
+  /* Pages and files made after the open backup that the person chose to remove with it ("page:<key>", "file:<path>"). */
+  const [alsoRemove, setAlsoRemove] = useState<string[]>([])
   useEffect(() => {
     if (backups && !error) lastBackups.set(ctx.installId, backups)
   }, [backups, error, ctx.installId])
@@ -127,10 +130,11 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
    * leaves the question open with the reason, so it can be tried again or
    * cancelled where it was asked.
    */
-  const runRestore = (url: string, fallback: string) =>
+  const runRestore = (url: string, fallback: string, body?: unknown) =>
     settleRestore({
       url,
       fallback,
+      ...(body === undefined ? {} : { body }),
       busy: restoringNow,
       setBusy: setRestoring,
       setError: setRestoreError,
@@ -204,19 +208,20 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
   /* Opening a backup reads what restoring it would change; nothing is written. */
   const openBackup = (row: BackupRow) => {
     setConfirming(row)
+    setAlsoRemove([])
     setRestoreError(null)
     setPreview({ id: row.id, state: "loading" })
     void fetch(`/api/website-builder/themes/${ctx.installId}/backups/${row.id}`, { cache: "no-store" })
       .then(async (res) => {
         const json = await res.json().catch(() => ({}))
         if (!res.ok || !json?.preview) throw new Error(json?.error || tt("Could not load this backup"))
-        setPreview((p) => (p && p.id === row.id ? { id: row.id, state: "ready", preview: json.preview as BackupPreview } : p))
+        setPreview((p) => (p && p.id === row.id ? { id: row.id, state: "ready", preview: json.preview as BackupPreview, ...(json.added ? { added: json.added as AddedSince } : {}) } : p))
       })
       .catch((e: unknown) => setPreview((p) => (p && p.id === row.id ? { id: row.id, state: "error", error: e instanceof Error ? e.message : tt("Could not load this backup") } : p)))
   }
 
   const restore = async (row: BackupRow) => {
-    if (!(await runRestore(`/api/website-builder/themes/${ctx.installId}/backups/${row.id}/restore`, tt("Could not restore this backup")))) return
+    if (!(await runRestore(`/api/website-builder/themes/${ctx.installId}/backups/${row.id}/restore`, tt("Could not restore this backup"), alsoRemove.length ? { removeAdded: alsoRemove } : undefined))) return
     setConfirming(null)
     /* The editor reloads to pick up the restored draft; anywhere else, the list shows the new safety copy. */
     if (ctx.onRestored) ctx.onRestored()
@@ -339,7 +344,7 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
             setPreview(null)
           }}
           onConfirm={() => void restore(confirming)}
-          preview={<BackupChanges preview={preview && preview.id === confirming.id ? preview : null} pages={ctx.pages} />}
+          preview={<BackupChanges preview={preview && preview.id === confirming.id ? preview : null} pages={ctx.pages} alsoRemove={alsoRemove} onAlsoRemove={setAlsoRemove} />}
           lead={
             <>
               {tt("Your draft will be replaced with the website as it was on")} <span className="text-white">{backupWhen(confirming.created_at)}</span>.
@@ -523,8 +528,16 @@ const CHANGE_WORD: Record<"changed" | "comes back" | "same" | "stays", () => str
  * keeps a minimum height while it loads, so the sheet does not jump when
  * the answer comes in.
  */
-function BackupChanges({ preview, pages }: { preview: PreviewState | null; pages: SettingsContext["pages"] }) {
+function BackupChanges({ preview, pages, alsoRemove = [], onAlsoRemove }: { preview: PreviewState | null; pages: SettingsContext["pages"]; alsoRemove?: string[]; onAlsoRemove?: (keys: string[]) => void }) {
   const nameOf = (key: string) => pages.find((p) => p.key === key)?.name ?? (key === "home" ? tt("Home") : key.replace(/[-_]+/g, " ").replace(/^./, (c) => c.toUpperCase()))
+  const added = preview?.state === "ready" ? preview.added ?? null : null
+  return (
+    <>
+      {renderChanges()}
+      {added && (added.remove.length > 0 || added.keep.length > 0) && <AddedSinceList added={added} nameOf={nameOf} chosen={alsoRemove} onChoose={onAlsoRemove} />}
+    </>
+  )
+  function renderChanges() {
   return (
     <div className="mt-4 min-h-[88px] rounded-xl border border-white/10 bg-white/[0.03]" data-backup-preview={preview?.state ?? "none"}>
       {!preview || preview.state === "loading" ? (
@@ -537,7 +550,7 @@ function BackupChanges({ preview, pages }: { preview: PreviewState | null; pages
         <p className="px-3.5 py-3 text-[14px] text-white/70">{tt("This is the same as your draft. Restoring changes nothing.")}</p>
       ) : (
         <ul className="max-h-[220px] divide-y divide-white/[0.06] overflow-y-auto overscroll-contain">
-          {preview.preview.pages.map((p) => (
+          {preview.preview.pages.filter((p) => !(added && p.change === "stays" && [...added.remove, ...added.keep].some((i) => i.kind === "page" && i.key === p.key))).map((p) => (
             <li key={p.key} className="flex items-center gap-3 px-3.5 py-2.5 text-[14px]" data-backup-page={p.key} data-change={p.change}>
               <span className="min-w-0 flex-1 truncate text-white">{nameOf(p.key)}</span>
               <span className="shrink-0 text-[12.5px] text-white/50">{tt("{count, plural, one {# section} other {# sections}}", { count: p.sections })}</span>
@@ -558,6 +571,48 @@ function BackupChanges({ preview, pages }: { preview: PreviewState | null; pages
           )}
         </ul>
       )}
+    </div>
+  )
+  }
+}
+
+/**
+ * ADDED SINCE THIS BACKUP (round M): pages and files made after it. What the AI added and never published goes with
+ * the restore; what the person made, or anything live, stays unless they tick it (a live one is never removed here).
+ * lib/website-builder/added-since.ts decides which is which, from the files' history and the AI job's own events.
+ */
+function AddedSinceList({ added, nameOf, chosen, onChoose }: { added: AddedSince; nameOf: (key: string) => string; chosen: string[]; onChoose?: (keys: string[]) => void }) {
+  const label = (i: AddedItem) => (i.kind === "page" ? tt("{name} page", { name: nameOf(i.key) }) : i.key.replace(/^(sections|blocks|snippets)\//, ""))
+  const id = (i: AddedItem) => `${i.kind}:${i.key}`
+  return (
+    <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03]" data-backup-added="">
+      <p className="px-3.5 pt-3 text-[13px] font-medium text-white/80">{tt("Made after this backup")}</p>
+      <ul className="max-h-[180px] divide-y divide-white/[0.06] overflow-y-auto overscroll-contain">
+        {added.remove.map((i) => (
+          <li key={id(i)} className="flex items-center gap-3 px-3.5 py-2.5 text-[14px]" data-added={id(i)} data-added-fate="removed">
+            <span className="min-w-0 flex-1 truncate text-white">{label(i)}</span>
+            <span className="shrink-0 text-right text-[12.5px] text-amber-200">{tt("Removed, the AI made it")}</span>
+          </li>
+        ))}
+        {added.keep.map((i) => (
+          <li key={id(i)} className="flex items-center gap-3 px-3.5 py-2.5 text-[14px]" data-added={id(i)} data-added-fate={i.live ? "live" : "kept"}>
+            <span className="min-w-0 flex-1 truncate text-white">{label(i)}</span>
+            {i.live || !onChoose ? (
+              <span className="shrink-0 text-[12.5px] text-white/40">{i.live ? tt("Stays, it is live") : tt("Stays")}</span>
+            ) : (
+              <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[12.5px] text-white/70">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-white"
+                  checked={chosen.includes(id(i))}
+                  onChange={(e) => onChoose(e.target.checked ? [...chosen, id(i)] : chosen.filter((k) => k !== id(i)))}
+                />
+                {tt("Remove it too")}
+              </label>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

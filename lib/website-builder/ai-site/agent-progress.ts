@@ -146,6 +146,8 @@ export interface AgentJobView {
   notes: string[]
   /** Continues used so far, and how many are allowed. */
   continues: { used: number; max: number }
+  /** A Redesign with AI job (round M): its scope, and its Undo (restores the backup taken before it ran). */
+  redesign?: { scope: "changes" | "full"; undo: "available" | "done" | "none" }
 }
 
 export const AGENT_TERMINAL: readonly AgentJobStatus[] = ["complete", "partial", "failed", "cancelled"]
