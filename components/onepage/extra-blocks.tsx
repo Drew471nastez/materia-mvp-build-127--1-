@@ -1043,9 +1043,9 @@ function InteractionChoice({ block, updateData }: { block: OnePageBlock; updateD
     { id: "inline", label: tt("Show on the page"), icon: <LayoutList className="h-4 w-4" /> },
   ]
   return (
-    <SettingsGroup title={tt("Interaction")} className="mt-4">
+    <SettingsGroup title={tt("When someone taps it")} className="mt-4">
       <ModeChoice
-        label={tt("Interaction")}
+        label={tt("When someone taps it")}
         value={blockInteraction(block)}
         options={all.filter((o) => allowed.includes(o.id))}
         onPick={(mode) => updateData(interactionPatch(block.type, mode) as Partial<OnePageBlockData>)}
