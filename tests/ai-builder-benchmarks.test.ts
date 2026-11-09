@@ -31,20 +31,54 @@ process.env.AI_JOB_SECRET = "journey-ai-job-secret-for-tests-only"
 process.env.AI_BUILDER_AGENT = "1"
 import { aiWorld, checker, driveTurns, installFiles, installPages, installSettings, jobEvents, jobRow, scriptModels, seller, type AiWorld, type Script } from "./ai-builder-e2e-kit"
 import { A, B, BANNER, C, D, KITCHEN, type Design } from "./ai-builder-bench-designs"
-import { CONCEPT, HERO, HEADER } from "./ai-builder-agent-fixtures"
+import { CONCEPT, FOOTER, HERO, HEADER } from "./ai-builder-agent-fixtures"
+/* Round N (N3): every new website is a whole site (a home of ten, pages of six, the product and collection templates, its own header and footer). */
+import { sitePlan, wholeSiteKit } from "./ai-builder-whole-site-fixtures"
 import type { StartOptions } from "@/lib/ai-builder/types"
 
 const { check, done, section } = checker()
 type Calls = [string, Record<string, unknown>][]
 
-/** The script a careful model would run for a design: concept, tokens, files two at a time, pages, composition, binds, checks, finish. */
+/**
+ * A design made a WHOLE site (round N, N3): its own sections plus the whole-site set under its own prefix on home
+ * (ten of its own) and on each page (six), the product and collection templates, and for a design with no frame
+ * (D) a minimal header and footer of its own, since a free website's frame is the AI's.
+ */
+function wholeDesign(d: Design, prefix?: string, link?: string, chrome?: { header: Record<string, unknown>; footer: Record<string, unknown>; files: Record<string, string> }): Design {
+  const kit = wholeSiteKit(prefix, link)
+  const home = d.compose.home ?? []
+  const header = chrome ? [chrome.header] : home.filter((x) => x.group === "header")
+  const footer = chrome ? [chrome.footer] : home.filter((x) => x.group === "footer")
+  const body = home.filter((x) => !x.group)
+  /* A one section design reaches ten with its band twice, each with its own line. */
+  const pad = body.length + kit.home.length < 10 ? [{ ...kit.home.find((x) => String(x.type).endsWith("_band"))!, settings: { ...(kit.home.find((x) => String(x.type).endsWith("_band"))!.settings as object), line: "Write to me" } }] : []
+  const compose: Design["compose"] = { home: [...header, ...body, ...kit.home, ...pad, ...footer] }
+  for (const [key, list] of Object.entries(d.compose)) if (key !== "home") compose[key] = [...list, ...kit.page]
+  compose.product = [{ type: kit.product }]
+  compose.collection = [{ type: kit.collection }]
+  return { ...d, files: { ...d.files, ...(chrome?.files ?? {}), ...kit.files }, compose }
+}
+
+/** D's frame: the coach header and footer under D's own names, saying D's name, linking to the shop. */
+const D_CHROME = {
+  header: { type: "ai_index_header", group: "header", settings: { brand: "Ana Ruiz" } },
+  footer: { type: "ai_index_footer", group: "footer", settings: { line: "Ana Ruiz, type designer", contact_label: "The shop", contact_url: "/products" } },
+  files: { "sections/ai_index_header.storelib": HEADER.replace(/ai_coach_header/g, "ai_index_header"), "sections/ai_index_footer.storelib": FOOTER.replace(/ai_coach_footer/g, "ai_index_footer") },
+}
+
+const WA = wholeDesign(A)
+const WB = wholeDesign(B, "vale", "/journal")
+const WC = wholeDesign(C, "beat", "/beats")
+const WD = wholeDesign(D, "index", "/products", D_CHROME)
+
+/** The script a careful model would run for a design: concept and site plan, tokens, files four at a time, pages, composition, binds, checks, finish. */
 function designScript(d: Design, extra: { binds?: () => Calls } = {}): Script {
   const files = Object.entries(d.files)
   const steps: Script = [
-    { text: "The look first.", calls: [["report_progress", { phase: "plan", label: "Concept", concept: d.concept, tasks: ["Components", "Pages"] }]] },
+    { text: "The look first.", calls: [["report_progress", { phase: "plan", label: "Concept", concept: d.concept, pages: sitePlan(d.pages.map((p) => p.key)), tasks: ["Components", "Pages", "Templates"] }]] },
     { calls: [["list_capabilities", {}], ["set_tokens", { tokens: d.tokens }]] },
   ]
-  for (let i = 0; i < files.length; i += 2) steps.push({ calls: files.slice(i, i + 2).map(([path, content]) => ["write_file", { path, content }]) as Calls })
+  for (let i = 0; i < files.length; i += 4) steps.push({ calls: files.slice(i, i + 4).map(([path, content]) => ["write_file", { path, content }]) as Calls })
   if (d.pages.length) steps.push({ calls: d.pages.map((p) => ["add_page", { key: p.key, title: p.title }]) as Calls })
   steps.push({ calls: Object.entries(d.compose).map(([page, sections]) => ["set_page_sections", { page, sections }]) as Calls })
   if (extra.binds) steps.push(() => ({ calls: extra.binds!() }))
@@ -143,17 +177,17 @@ async function main() {
   let aInstall = ""
   let cInstall = ""
   const runs: [Design, Awaited<ReturnType<typeof seller>>, (() => Calls) | undefined][] = [
-    [A, a, () => [["bind_data", { page: "home", sectionId: programId(aInstall), prop: "product", kind: "product", ids: [a.productId] }]]],
-    [B, await seller(w, "bench-b"), undefined],
-    [C, c, () => [["bind_data", { page: "home", sectionId: storeId(cInstall, "home"), prop: "beats", kind: "products", ids: [c.productId, cProduct2] }], ["bind_data", { page: "beats", sectionId: storeId(cInstall, "beats"), prop: "beats", kind: "products", ids: [c.productId, cProduct2] }]]],
-    [D, await seller(w, "bench-d"), undefined],
+    [WA, a, () => [["bind_data", { page: "home", sectionId: programId(aInstall), prop: "product", kind: "product", ids: [a.productId] }]]],
+    [WB, await seller(w, "bench-b"), undefined],
+    [WC, c, () => [["bind_data", { page: "home", sectionId: storeId(cInstall, "home"), prop: "beats", kind: "products", ids: [c.productId, cProduct2] }], ["bind_data", { page: "beats", sectionId: storeId(cInstall, "beats"), prop: "beats", kind: "products", ids: [c.productId, cProduct2] }]]],
+    [WD, await seller(w, "bench-d"), undefined],
   ]
   for (const [i, [d, who, binds]] of runs.entries()) {
     const b = await build(w, who, d, designScript(d, { binds }), {
       key: `1b7c1e2a-0000-4000-8000-00000000010${i}`,
       beforeTurns: async (installId) => {
-        if (d === A) aInstall = installId
-        if (d === C) cInstall = installId
+        if (d === WA) aInstall = installId
+        if (d === WC) cInstall = installId
       },
     })
     built.push(b)
@@ -162,11 +196,15 @@ async function main() {
     check(`  no high anti slop finding in what was built`, !b.slopFindings.some((f) => f.startsWith("error:")), b.slopFindings)
   }
   const [bA, bB, bC, bD] = built
-  check("A: three pages; B: two; C: two; D: home only", ["programs", "about"].every((k) => k in installPages(w, bA.installId)) && "journal" in installPages(w, bB.installId) && "beats" in installPages(w, bC.installId) && Object.keys(installPages(w, bD.installId)).filter((k) => k !== "product").join() === "home")
+  /* Changed on purpose (round N, N3): every one also has its product and collection templates. */
+  const TEMPLATE_KEYS = ["product", "collection"]
+  check("A: three pages; B: two; C: two; D: home only (each with its product and collection templates)", ["programs", "about"].every((k) => k in installPages(w, bA.installId)) && "journal" in installPages(w, bB.installId) && "beats" in installPages(w, bC.installId) && Object.keys(installPages(w, bD.installId)).filter((k) => !TEMPLATE_KEYS.includes(k)).join() === "home" && built.slice(0, 4).every((b) => TEMPLATE_KEYS.every((k) => (installPages(w, b.installId)[k]?.draft ?? []).some((x: { type: string; group?: string }) => !x.group && x.type.startsWith("ai_")))))
+  check("  every home has ten sections of its own between its header and footer", built.slice(0, 4).every((b) => b.homeTypes.length === 12), built.slice(0, 4).map((b) => b.homeTypes.length))
   check("B's header and footer are its own design, not A's", bB.homeTypes[0] === "ai_masthead" && bB.homeTypes[bB.homeTypes.length - 1] === "ai_colophon" && /<header class="mh"/.test(bB.html) && !/<header class="ch"/.test(bB.html) && /<footer class="cp" data-scheme="site_inverse"/.test(bB.html), bB.html.match(/<(header|footer)[^>]*>/g))
   const cStore = (installPages(w, bC.installId).home?.draft ?? []).find((s: { type: string }) => s.type === "ai_beat_store")
   check("C's beat store is bound to the store's two products and draws them with add to cart", JSON.stringify(cStore?.settings?.beats) === JSON.stringify([c.productId, cProduct2]) && bC.html.includes(`data-storelib-add-to-cart="${c.productId}"`) && bC.html.includes("Tape hiss (lease)"), { beats: cStore?.settings?.beats, html: bC.html.match(/<li class="bs__row"[\s\S]{0,300}/)?.[0] })
-  check("D has no header and no footer at all", !/<header\b/.test(bD.html) && !/<footer\b/.test(bD.html), bD.html.match(/<(header|footer)[^>]*>/g))
+  /* Changed on purpose (round N, N3): a free website's frame is the AI's own, so D has a minimal one of its own. */
+  check("D's header and footer are its own minimal frame", bD.homeTypes[0] === "ai_index_header" && bD.homeTypes[bD.homeTypes.length - 1] === "ai_index_footer" && (bD.html.match(/<header\b/g) ?? []).length === 1 && (bD.html.match(/<footer\b/g) ?? []).length === 1, bD.html.match(/<(header|footer)[^>]*>/g))
   const prints = [bA, bB, bC, bD].map((b) => b.fingerprint)
   check("A to D differ in structure: four different page skeletons", new Set(prints).size === 4, prints)
   check("  and no two share a component type or a header design", new Set([bA, bB, bC, bD].flatMap((b) => b.homeTypes)).size === [bA, bB, bC, bD].reduce((n, b) => n + new Set(b.homeTypes).size, 0))
@@ -189,7 +227,7 @@ async function main() {
   const bE = await build(w, e, eDesign, eScript, {
     generation: "theme",
     key: "1b7c1e2a-0000-4000-8000-000000000110",
-    beforeTurns: async (installId) => {
+    beforeTurns: async (installId, jobId) => {
       eInstall = installId
       /* The person's own work before the AI: a product spotlight bound to their product, saved through the editor. */
       const home = installPages(w, installId).home.sections
@@ -200,6 +238,13 @@ async function main() {
       const backup = await j.call(`POST /api/website-builder/themes/${installId}/backups`, { as: e.person, body: { label: "Before the AI" } })
       backupId = String(backup.json?.backup?.id ?? "")
       before = { pages: Object.fromEntries(Object.entries(installPages(w, installId)).map(([k, p]) => [k, p.draft ?? p.sections])), settings: installSettings(w, installId).draft ?? installSettings(w, installId).settings }
+      /*
+        Changed on purpose (round N, N3): "keep my site and add a band" is a change to a website that exists, which is what
+        Redesign with AI's "changes" scope runs (round M, themes/[id]/redesign makes exactly this job). A NEW website must
+        now be a whole site, so the job is marked as the redesign route marks it, with the person's backup.
+      */
+      const row = j.rows("ai_site_jobs").find((r) => r.id === jobId)
+      if (row) row.options = { generation: "theme", redesign: { scope: "changes", backupId } }
     },
   })
   built.push(bE)
@@ -226,7 +271,7 @@ async function main() {
 
   section("G: iterative edits change only what was asked")
   const g = await seller(w, "bench-g")
-  const bG = await build(w, g, A, designScript(A), { key: "1b7c1e2a-0000-4000-8000-000000000120" })
+  const bG = await build(w, g, WA, designScript(WA), { key: "1b7c1e2a-0000-4000-8000-000000000120" })
   check("G: the starting website is complete", bG.status === "complete")
   const snap = () => ({ files: Object.fromEntries(Object.entries(installFiles(w, bG.installId)).map(([p, x]) => [p, x.draft ?? x.content])), pages: Object.fromEntries(Object.entries(installPages(w, bG.installId)).map(([k, p]) => [k, JSON.stringify(p.draft ?? p.sections)])), settings: JSON.stringify(installSettings(w, bG.installId).draft) })
   const editJob = async (path: string, prompt: string, script: Script) => {
@@ -261,7 +306,7 @@ async function main() {
   check("  an overwrite of a file it has not read is refused; after reading it, the write lands", g2tools[0]?.startsWith("NO write file") && g2tools.slice(1, 3).every((t) => t.startsWith("ok")), g2tools)
   check("nav only: complete, the header changed, everything else byte identical", jobRow(w, g2).status === "complete" && s2.files["sections/ai_coach_header.storelib"] === navHeader && otherFiles(s1.files, s2.files, "sections/ai_coach_header.storelib").length === 0 && JSON.stringify(s1.pages) === JSON.stringify(s2.pages) && s1.settings === s2.settings, { status: jobRow(w, g2).status, header: s2.files["sections/ai_coach_header.storelib"] === navHeader, files: otherFiles(s1.files, s2.files, "sections/ai_coach_header.storelib"), pages: Object.keys(s2.pages).filter((k) => s1.pages[k] !== s2.pages[k]), settings: s1.settings === s2.settings })
   /* Add a page: no route starts a whole-site change on an existing website yet, so the job row is made as the create route makes one (engine agent, mode theme). */
-  const [g3row] = j.db.insert("ai_site_jobs", { creator_id: g.creatorId, owner_user_id: g.person.id, install_id: bG.installId, prompt: "Add a pricing page", idempotency_key: "g3-add-a-page-0001", status: "queued", step: "agent", engine: "agent", mode: "theme", options: { generation: "theme" }, progress: 0, state: {} }, {})
+  const [g3row] = j.db.insert("ai_site_jobs", { creator_id: g.creatorId, owner_user_id: g.person.id, install_id: bG.installId, prompt: "Add a pricing page", idempotency_key: "g3-add-a-page-0001", status: "queued", step: "agent", engine: "agent", mode: "theme", /* Changed on purpose (round N, N3): a change across an existing website is a redesign "changes" job (round M); a new website must be whole. */ options: { generation: "theme", redesign: { scope: "changes" } }, progress: 0, state: {} }, {})
   const g3 = String(g3row.id)
   const PRICING = BANNER.replace(/ai_offer_band/g, "ai_price_band").replace("Offer band", "Price band")
   w.scripts.set(g3, scriptModels([
@@ -281,14 +326,14 @@ async function main() {
 
   section("H: a long job over many turns, a lost hand over, reconnecting by seq")
   const h = await seller(w, "bench-h")
-  const hScript: Script = [...designScript(A).slice(0, 2)]
+  const hScript: Script = [...designScript(WA).slice(0, 2)]
   /* Twenty small steps: each file written, read back and edited, one call at a time. */
   for (const [path, content] of Object.entries(A.files)) {
     hScript.push({ calls: [["write_file", { path, content }]] }, { calls: [["read_file", { path }]] }, { calls: [["list_files", {}]] })
   }
   const hMade = await j.call("POST /api/website-builder/themes/create", { as: h.person, body: { mode: "ai", prompt: A.prompt, key: "1b7c1e2a-0000-4000-8000-000000000130", options: { generation: "blank", category: "fitness_coach" } } })
   const hJob = String(hMade.json?.job?.id)
-  const hRun = scriptModels([hScript[0], hScript[1], ...hScript.slice(2, 17), { calls: [["add_page", { key: "programs", title: "Programs" }], ["add_page", { key: "about", title: "About" }]] }, { calls: Object.entries(A.compose).map(([page, sections]) => ["set_page_sections", { page, sections }]) as Calls }, { calls: [["finish", { summary: "Long build done." }]] }], { clock: w.clock })
+  const hRun = scriptModels([hScript[0], hScript[1], ...hScript.slice(2, 17), { calls: [["add_page", { key: "programs", title: "Programs" }], ["add_page", { key: "about", title: "About" }]] }, /* Round N: the rest of the whole site in one call, then the whole composition. */ { calls: Object.entries(WA.files).filter(([path]) => !(path in A.files)).map(([path, content]) => ["write_file", { path, content }]) as Calls }, { calls: Object.entries(WA.compose).map(([page, sections]) => ["set_page_sections", { page, sections }]) as Calls }, { calls: [["finish", { summary: "Long build done." }]] }], { clock: w.clock })
   w.scripts.set(hJob, hRun)
   const seen: { seq: number; kind: string }[] = []
   let cursor = 0
@@ -336,7 +381,8 @@ async function main() {
 
   section("I: every kind of control survives save, reload and publish")
   const iSeller = await seller(w, "bench-i")
-  const iDesign: Design = { ...D, label: "I editor compatibility", files: { ...D.files, "sections/ai_feature_panel.storelib": KITCHEN }, compose: { home: [...D.compose.home, { type: "ai_feature_panel" }] } }
+  /* Round N: D made whole (its frame, a home of ten, the templates), with the feature panel before its footer. */
+  const iDesign: Design = { ...WD, label: "I editor compatibility", files: { ...WD.files, "sections/ai_feature_panel.storelib": KITCHEN }, compose: { ...WD.compose, home: [...WD.compose.home.slice(0, -1), { type: "ai_feature_panel" }, ...WD.compose.home.slice(-1)] } }
   const bI = await build(w, iSeller, iDesign, designScript(iDesign), { key: "1b7c1e2a-0000-4000-8000-000000000140" })
   check("I: the website is complete", bI.status === "complete", { answer: bI.lastAnswer, tools: jobEvents(w, bI.jobId).filter((e) => e.kind === "tool").map((e) => `${e.payload.ok ? "ok" : "NO"} ${e.payload.summary}`) })
   const photo = "https://journey.supabase.co/storage/v1/object/public/theme-assets/bench-i/coach.jpg"
@@ -366,7 +412,7 @@ async function main() {
   check("Edit with AI on another store's website: not found; signed out: refused", theirEdit.status === 404 && [401, 403].includes(anonEdit.status), [theirEdit.status, anonEdit.status])
   const theirSave = await j.call(`PUT /api/website-builder/themes/${target}/sections`, { as: intruder.person, body: { page_key: "home", sections: [], mode: "draft" } })
   const theirCancel = await j.call(`POST /api/website-builder/ai-jobs/${bA.jobId}/cancel`, { as: intruder.person })
-  check("  their save, their cancel: refused, nothing changed", [403, 404].includes(theirSave.status) && theirCancel.status === 404 && (installPages(w, target).home.draft ?? []).length === 4, [theirSave.status, theirCancel.status])
+  check("  their save, their cancel: refused, nothing changed", [403, 404].includes(theirSave.status) && theirCancel.status === 404 && (installPages(w, target).home.draft ?? []).length === 12, [theirSave.status, theirCancel.status])
   process.env.AI_BUILDER_AGENT = "0"
   const off = await j.call(`POST /api/website-builder/themes/${target}/ai-edit`, { as: a.person, body: { mode: "edit", path: "sections/ai_coach_hero.storelib", prompt: "x", expectedVersion: null } })
   process.env.AI_BUILDER_AGENT = "1"
@@ -374,8 +420,10 @@ async function main() {
 
   const jSeller = await seller(w, "bench-j")
   const bad = (n: number, html: string) => HERO.replace("ai_coach_hero", `ai_bad_${n}`).replace("<template>", `<template>\n${html}`)
+  /* Round N: what is allowed still makes a whole site (its frame, a home of ten, the templates) around the hero. */
+  const jWhole = wholeDesign({ ...D, files: {}, compose: { home: [{ type: "ai_coach_hero", settings: { cta_url: "/products" } }] }, pages: [] }, "guard", "/products", { ...D_CHROME, header: { ...D_CHROME.header, type: "ai_guard_header" }, footer: { ...D_CHROME.footer, type: "ai_guard_footer" }, files: { "sections/ai_guard_header.storelib": HEADER.replace(/ai_coach_header/g, "ai_guard_header"), "sections/ai_guard_footer.storelib": FOOTER.replace(/ai_coach_footer/g, "ai_guard_footer") } })
   const jScript: Script = [
-    { calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, tasks: ["Hero"] }]] },
+    { calls: [["report_progress", { phase: "plan", label: "Concept", concept: CONCEPT, pages: sitePlan([]), tasks: ["Hero"] }]] },
     {
       calls: [
         ["write_file", { path: "sections/ai_bad_1.storelib", content: bad(1, '<script src="https://evil.example/x.js"></script>') }],
@@ -394,6 +442,8 @@ async function main() {
     { calls: [["write_file", { path: "sections/ai_coach_hero.storelib", content: HERO }], ["set_page_sections", { page: "home", sections: [{ type: "ai_coach_hero" }, { type: "header" }] }]] },
     /* The hero's button defaults to /programs, a page this one-page site does not have: a CTA to nowhere blocks finish (round M), so it is pointed at the shop. */
     { calls: [["set_page_sections", { page: "home", sections: [{ type: "ai_coach_hero", settings: { cta_url: "/products" } }] }]] },
+    { calls: Object.entries(jWhole.files).map(([path, content]) => ["write_file", { path, content }]) as Calls },
+    { calls: Object.entries(jWhole.compose).map(([page, sections]) => ["set_page_sections", { page, sections }]) as Calls },
     { calls: [["finish", { summary: "Hero only." }]] },
   ]
   const jMade = await j.call("POST /api/website-builder/themes/create", { as: jSeller.person, body: { mode: "ai", prompt: "A hero.", key: "1b7c1e2a-0000-4000-8000-000000000150", options: { generation: "blank" } } })
@@ -403,7 +453,8 @@ async function main() {
   w.scripts.set(jJob, jRun)
   await driveTurns(w, jJob)
   const jFiles = Object.keys(installFiles(w, jInstall))
-  check("unsafe files are refused by validate and never saved: script src, link, iframe, a remote picture, @import", jFiles.join() === "sections/ai_coach_hero.storelib", jFiles)
+  /* Changed on purpose (round N, N3): the whole site's own files are there too; none of the refused ones. */
+  check("unsafe files are refused by validate and never saved: script src, link, iframe, a remote picture, @import", jFiles.includes("sections/ai_coach_hero.storelib") && jFiles.every((f) => /^sections\/ai_(coach_hero|guard_[a-z]+)\.storelib$/.test(f)) && jFiles.length === 1 + Object.keys(jWhole.files).length, jFiles)
   const jToolEvents = jobEvents(w, jJob).filter((x) => x.kind === "tool")
   const refused = jToolEvents.filter((x) => x.payload.ok === false).map((x) => x.payload.summary)
   check("  paths outside sections/ai_*.storelib refused (theme layout, a theme section name, ../, another extension)", refused.filter((s: string) => /^write file/.test(s)).length === 9, refused)

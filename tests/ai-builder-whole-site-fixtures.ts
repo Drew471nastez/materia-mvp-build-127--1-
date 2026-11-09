@@ -503,3 +503,20 @@ export function templateCalls(): Call[] {
     ["set_page_sections", { page: "collection", sections: [at("ai_collection_grid")] }],
   ]
 }
+
+/**
+ * The whole-site set under another name, for a scenario whose components must
+ * not share a type with another's (the benchmarks): ai_coach_<x> becomes
+ * ai_<prefix>_<x>, the templates ai_<prefix>_product and ai_<prefix>_collection.
+ * `link` is where the band and the place card point (a page that site has).
+ */
+export function wholeSiteKit(prefix?: string, link?: string): { files: Record<string, string>; home: Record<string, unknown>[]; page: Record<string, unknown>[]; product: string; collection: string } {
+  const rename = (t: string) => (!prefix ? t : t.replace(/^ai_coach_/, `ai_${prefix}_`).replace(/^ai_product_page$/, `ai_${prefix}_product`).replace(/^ai_collection_grid$/, `ai_${prefix}_collection`))
+  const files: Record<string, string> = {}
+  for (const [path, content] of Object.entries(WHOLE_SITE_FILES)) {
+    const type = path.replace(/^sections\//, "").replace(/\.storelib$/, "")
+    files[`sections/${rename(type)}.storelib`] = content.replace(`"type": "${type}"`, `"type": "${rename(type)}"`)
+  }
+  const placed = (t: string) => ({ type: rename(t), ...(link && (t === "ai_coach_band" || t === "ai_coach_place") ? { settings: { link_url: link } } : {}) })
+  return { files, home: HOME_EXTRAS.map(placed), page: PAGE_EXTRAS.map(placed), product: rename("ai_product_page"), collection: rename("ai_collection_grid") }
+}
