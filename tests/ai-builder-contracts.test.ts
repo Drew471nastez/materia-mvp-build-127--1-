@@ -109,7 +109,8 @@ function main() {
   check("every tool has an input and an output", TOOLS_COVERED === true && AGENT_TOOL_NAMES.length === new Set(AGENT_TOOL_NAMES).size && WRITE_TOOLS.every((t) => AGENT_TOOL_NAMES.includes(t)))
   check("host hooks are data-storelib attributes", Object.values(STORELIB_HOOKS).every((v) => /^data-storelib-[a-z-]+$/.test(v)))
   check("default script capabilities need no database or embed", !AGENT_DEFAULT_CAPABILITIES.includes("database") && !AGENT_DEFAULT_CAPABILITIES.includes("embed"))
-  check("start categories match the four chips", START_CATEGORIES.length === 4 && /Fitness coach/.test(read("app/(storelib)/app/website-builder/start-website.tsx")))
+  /* L1 moved the chips' words to lib/website-builder/ai-site/start-options.ts (START_PRESETS), one per category id. */
+  check("start categories match the four chips", START_CATEGORIES.length === 4 && /Fitness coach/.test(read("lib/website-builder/ai-site/start-options.ts")) && /START_PRESETS\.map/.test(read("app/(storelib)/app/website-builder/start-website.tsx")) && START_CATEGORIES.every((c) => read("lib/website-builder/ai-site/start-options.ts").includes(`id: "${c}"`)))
   check("one invocation's budget is the runner's", DEFAULT_JOB_BUDGET.perInvocationMs === RUN_BUDGET_MS && DEFAULT_JOB_BUDGET.callReserveMs < DEFAULT_JOB_BUDGET.perInvocationMs)
 
   console.log("\n2. a manifest is a schema the editor and the compiler accept")

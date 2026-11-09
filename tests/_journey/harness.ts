@@ -135,6 +135,9 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   /* Round 13: a buyer's photo for a personalization field, kept as a cart upload, and opened by the browser that sent it (tests/e2e-personalization.test.ts). */
   "/api/cart/uploads/[ref]/[name]": () => import("@/app/api/cart/uploads/[ref]/[name]/route"),
   "/api/cart/uploads": () => import("@/app/api/cart/uploads/route"),
+  /* Round L (L1): Start with AI, from Create to the job row and back from the editor (tests/ai-start-l1.test.ts). */
+  "/api/website-builder/themes/create": () => import("@/app/api/website-builder/themes/create/route"),
+  "/api/website-builder/themes/[installId]/ai-start": () => import("@/app/api/website-builder/themes/[installId]/ai-start/route"),
 }
 
 /* Columns production has that no SQL file created were added by run-now part 165; none are taken on trust any more. */
