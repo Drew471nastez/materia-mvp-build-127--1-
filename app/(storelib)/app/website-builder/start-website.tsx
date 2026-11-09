@@ -16,7 +16,7 @@
  *     section, editable in the sidebar, nothing generated as code.
  *     ROUND L: an example chip puts its words in the box and is sent as the
  *     category; words the person typed are never replaced without asking
- *     (chipAction); "Start from a blank page" makes the website without the
+ *     (chipAction); "Without the theme" makes the website without the
  *     theme's header, footer and sections for the AI to make its own. The
  *     box, the chip and the choice survive a reload of this page (this
  *     tab's storage), and the words are sent exactly as they are.
@@ -263,22 +263,6 @@ export function StartWebsite({
                 </button>
               </div>
             </div>
-            {asking && (
-              <div role="group" aria-label={tt("Use this example?")} data-start-ask="" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-[#f8f9fa] px-3 py-2 text-[12.5px] text-[#4b5563]">
-                <span className="min-w-0 flex-1">{tt("You already wrote a description. Use the {name} example?", { name: tt(presetFor(asking.id).label) })}</span>
-                <span className="flex shrink-0 items-center gap-1.5">
-                  <button type="button" data-start-ask-replace="" onClick={() => put(asking.id, asking.replace, asking.replace)} className="h-9 rounded-lg bg-[#1a1a2e] px-3 text-[12.5px] font-semibold text-white outline-none hover:bg-[#2d2d44] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:h-8">
-                    {tt("Replace")}
-                  </button>
-                  <button type="button" data-start-ask-append="" onClick={() => put(asking.id, asking.append, asking.replace)} className="h-9 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[12.5px] font-semibold text-[#1a1a2e] outline-none pointer-fine:hover:bg-[#f3f4f6] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:h-8">
-                    {tt("Add to mine")}
-                  </button>
-                  <button type="button" data-start-ask-keep="" onClick={() => setAsking(null)} className="h-9 rounded-lg px-2 text-[12.5px] font-medium text-[#6b7280] outline-none pointer-fine:hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:h-8">
-                    {tt("Keep mine")}
-                  </button>
-                </span>
-              </div>
-            )}
             <div className="flex flex-wrap gap-2" role="group" aria-label={tt("Examples")}>
               {examples().map((x) => (
                 <button
@@ -299,6 +283,22 @@ export function StartWebsite({
                 </button>
               ))}
             </div>
+            {asking && (
+              <div role="group" aria-label={tt("Use this example?")} data-start-ask="" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-[#f8f9fa] px-3 py-2 text-[12.5px] text-[#4b5563]">
+                <span className="min-w-[min(100%,15rem)] flex-1">{tt("You already wrote a description. Use the {name} example?", { name: tt(presetFor(asking.id).label) })}</span>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <button type="button" data-start-ask-replace="" onClick={() => put(asking.id, asking.replace, asking.replace)} className="h-11 rounded-lg bg-[#1a1a2e] px-3 text-[12.5px] font-semibold text-white outline-none hover:bg-[#2d2d44] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:h-8">
+                    {tt("Replace")}
+                  </button>
+                  <button type="button" data-start-ask-append="" onClick={() => put(asking.id, asking.append, asking.replace)} className="h-11 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[12.5px] font-semibold text-[#1a1a2e] outline-none pointer-fine:hover:bg-[#f3f4f6] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:h-8">
+                    {tt("Add to mine")}
+                  </button>
+                  <button type="button" data-start-ask-keep="" onClick={() => setAsking(null)} className="h-11 rounded-lg px-2 text-[12.5px] font-medium text-[#6b7280] outline-none pointer-fine:hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:h-8">
+                    {tt("Keep mine")}
+                  </button>
+                </span>
+              </div>
+            )}
             <label className={cn("flex min-h-11 cursor-pointer items-start gap-2.5 pt-1 sm:min-h-0", (full || starting === "ai") && "cursor-not-allowed opacity-60")}>
               <input
                 type="checkbox"
@@ -309,8 +309,8 @@ export function StartWebsite({
                 className="mt-0.5 h-4 w-4 shrink-0 cursor-[inherit] rounded border-[#d1d5db] accent-[#1a1a2e]"
               />
               <span className="min-w-0 text-[12.5px] leading-snug">
-                <span className="font-medium text-[#1a1a2e]">{tt("Start from a blank page")}</span>
-                <span className="text-[#6b7280]"> {tt("No theme header, footer or sections. The AI makes its own.")}</span>
+                <span className="font-medium text-[#1a1a2e]">{tt("Without the theme")}</span>
+                <span className="text-[#6b7280]"> {tt("The AI makes the header, footer and every section.")}</span>
               </span>
             </label>
           </form>

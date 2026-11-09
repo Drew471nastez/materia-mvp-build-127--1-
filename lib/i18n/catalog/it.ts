@@ -12778,7 +12778,12 @@ const words: Record<string, string> = {
  "{name} duplicated": "{name} duplicata",
  "No size charts in use": "Nessuna tabella taglie in uso",
  "Every size chart is in use": "Tutte le tabelle taglie sono in uso",
- "A chart is in use once a product, a collection or a category has it.": "Una tabella è in uso quando un prodotto, una collezione o una categoria la usa."
+ "A chart is in use once a product, a collection or a category has it.": "Una tabella è in uso quando un prodotto, una collezione o una categoria la usa.",
+ "Use this example?": "Usare questo esempio?",
+ "You already wrote a description. Use the {name} example?": "Hai già scritto una descrizione. Usare l'esempio {name}?",
+ "Add to mine": "Aggiungi alla mia",
+ "Without the theme": "Senza il tema",
+ "The AI makes the header, footer and every section.": "L'IA crea intestazione, piè di pagina e ogni sezione."
 }
 
 export default words
