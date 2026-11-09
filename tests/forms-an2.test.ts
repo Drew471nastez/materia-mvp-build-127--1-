@@ -69,8 +69,11 @@ check("the Action, Templates, Product and Questions lists are ChoicePickers", ()
   assert.match(editor, /name="action-product"/)
   /* Each action is drawn with its icon, in the list and in the field. */
   /* Changed on purpose (round AO): where the block keeps its own address (noneLabel, "Web address"), "no action" is drawn with the link mark, not a crossed circle. */
-  assert.match(editor, /fieldLeading=\{<ActionMark type=\{type \|\| \(noneLabel \? "url" : ""\)\} \/>\}/)
-  assert.match(editor, /leading=\{\(c\) => <ActionMark type=\{c\.value \|\| \(noneLabel \? "url" : ""\)\} \/>\}/)
+  /* Changed on purpose (round AP): no choice is drawn with a crossed circle at all. "No action" takes the block's own mark (noneMark: a booking's brand), the link mark, or a tick after a form. */
+  assert.match(editor, /fieldLeading=\{<ActionMark type=\{type \|\| none\} \/>\}/)
+  assert.match(editor, /leading=\{\(c\) => <ActionMark type=\{c\.value \|\| none\} \/>\}/)
+  assert.match(editor, /const none = noneMark \|\| \(allowNone && !noneLabel \? "done" : "url"\)/)
+  assert.doesNotMatch(editor, /\bBan\b/)
   assert.match(code("components/forms/form-picker.tsx"), /<ChoicePicker[\s\S]*?name=\{`form-\$\{kind\}`\}/)
 })
 check("a short list opens with no search field over it", () => {

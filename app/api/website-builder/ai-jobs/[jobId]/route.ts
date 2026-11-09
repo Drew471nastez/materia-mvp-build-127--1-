@@ -53,7 +53,7 @@ export async function GET(req: Request, { params }: Params) {
     return NextResponse.json(agentView(row, (events ?? []) as { seq: number; kind: string; payload: unknown; created_at: string }[], MAX_CONTINUES), { headers: { "cache-control": "no-store" } })
   }
   /* Light first: a poll that finds nothing new reads a few columns, not the whole operation log. */
-  const LIGHT = "id, creator_id, owner_user_id, install_id, status, step, progress, prompt, error, attempts, lease_until, seq:state->seq, pages:state->pages, notes:state->notes, findings:state->findings, credits:state->credits"
+  const LIGHT = "id, creator_id, owner_user_id, install_id, status, step, progress, prompt, error, attempts, lease_until, seq:state->seq, pages:state->pages, notes:state->notes, findings:state->findings, credits:state->credits, files:state->files, activity:state->activity"
   const { data, error } = await site.supabase.from(JOBS_TABLE).select(LIGHT).eq("id", jobId).eq("creator_id", site.creatorId).maybeSingle()
   if (error || !data) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const afterSeq = afterParam
@@ -64,7 +64,7 @@ export async function GET(req: Request, { params }: Params) {
     const { data: full } = await site.supabase.from(JOBS_TABLE).select("ops:state->ops").eq("id", jobId).eq("creator_id", site.creatorId).maybeSingle()
     ops = (full as { ops?: unknown } | null)?.ops ?? []
   }
-  const row = { ...light, plan: null, state: { seq, ops: Array.isArray(ops) ? ops : [], pages: light.pages ?? [], notes: light.notes ?? [], findings: light.findings ?? [], credits: Array.isArray(light.credits) ? light.credits : [] } } as unknown as Parameters<typeof jobFromRow>[0] & { lease_until: string | null }
+  const row = { ...light, plan: null, state: { seq, ops: Array.isArray(ops) ? ops : [], pages: light.pages ?? [], notes: light.notes ?? [], findings: light.findings ?? [], credits: Array.isArray(light.credits) ? light.credits : [], files: Array.isArray(light.files) ? light.files : [], activity: Array.isArray(light.activity) ? light.activity : [] } } as unknown as Parameters<typeof jobFromRow>[0] & { lease_until: string | null }
   const job = jobFromRow(row)
   if (leaseLapsed(light) && job.status !== "partial") {
     const origin = ownOrigin(req.url) /* storelib.com itself: a deployment address sits behind Vercel protection */

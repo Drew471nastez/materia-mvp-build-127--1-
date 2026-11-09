@@ -264,7 +264,13 @@ export function applyOp(state: ThemeState, op: ThemeOp, schemas?: SchemaMap): Th
       const target = state.sections.find((s) => s.id === op.id)
       if (!target) return state
       // Same reason: a page with no header is not a page somebody asked for.
-      if (target.type === "header" || target.type === "footer") return state
+      // Unless the page already has another one showing in that group: a header the site coded for itself
+      // (Start with AI, lib/website-builder/ai-site/code.ts) replaces the theme's instead of hiding it (round AP).
+      if (target.type === "header" || target.type === "footer") {
+        const kind = target.type
+        const replaced = state.sections.some((s) => s.id !== target.id && !s.hidden && s.type !== kind && (s as { group?: string }).group === kind)
+        if (!replaced) return state
+      }
       return { ...state, sections: state.sections.filter((s) => s.id !== op.id) }
     }
 

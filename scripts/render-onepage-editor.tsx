@@ -32,7 +32,8 @@ const onepage: OnePage = {
   id: "op_probe",
   owner_id: "probe-user",
   slug: "satori",
-  title: "Satori Studio",
+  /* A probe can name the page (scripts/check-onepage-theme-previews.mjs draws each theme under its own name). */
+  title: (globalThis as any).PROBE_TITLE ?? "Satori Studio",
   bio: "Prints, posters and a newsletter",
   /* A probe that needs a real https photo, or none (scripts/check-onepage-share-image.mjs), hands its own. */
   avatar_url: "PROBE_AVATAR" in globalThis ? (globalThis as any).PROBE_AVATAR : px(3),

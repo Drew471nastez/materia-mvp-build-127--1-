@@ -90,6 +90,7 @@ import { ExploreThemesCard, ThemeCard } from "@/components/themes/theme-card"
 import { LIBRARY_THEME_CARDS, MARKETPLACE_PATH, builtinListings, listingPath, type ThemeListing } from "@/lib/themes/marketplace-shared"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { type Cover, coverBeingWatched, latestCover, requestCover, savedAt, seedCover, watchCover } from "@/lib/website-builder/cover-refresh"
+import { pagesBehind } from "@/lib/website-builder/page-refresh"
 import { decodeCover, isDecoded, rememberCover, shownCover } from "@/lib/website-builder/cover-memory"
 import { fetchWithin } from "@/lib/website-builder/load-guard"
 import { HelpLabel } from "@/components/app/help-label"
@@ -763,19 +764,6 @@ export function WebsiteBuilderClient({
       }),
     [given, fresh],
   )
-  /*
-    A COPY OF THIS PAGE OLDER THAN A SAVE MADE IN THIS TAB. The app keeps
-    pages it has shown for five minutes, so coming back from the editor can
-    hand this page the list from before the edit. When this tab saved a
-    site after the copy was made, the server is asked for the page again,
-    once per save.
-  */
-  React.useEffect(() => {
-    const behind = given.filter((i) => savedAt(i.id) > Date.parse(i.saved_at) + 2000 && !REFRESHED.has(`${i.id}:${savedAt(i.id)}`))
-    if (behind.length === 0) return
-    for (const i of behind) REFRESHED.add(`${i.id}:${savedAt(i.id)}`)
-    router.refresh()
-  }, [given, router])
   React.useEffect(() => {
     const queue = [...given]
       .sort((a, b) => (a.status === "published" ? -1 : 0) - (b.status === "published" ? -1 : 0))
@@ -878,7 +866,53 @@ export function WebsiteBuilderClient({
   const siteUrl = siteName ? getWebsiteShareUrl(siteName) : ""
   const siteDisplay = siteName ? getWebsiteUrlDisplay(siteName) : ""
 
-  const refresh = React.useCallback(() => startRefresh(() => router.refresh()), [router])
+  /*
+    ONE REFRESH AT A TIME (round AP, "the website builder page refreshes or
+    reloads very bad"). A publish, a rename, a copy landing, a placeholder's
+    timer and a copy behind a save each asked the server for the whole page,
+    and each ask draws the page, lists the covers' folders and decodes them
+    again. Two in a row were two redraws a moment apart: the page flickered
+    twice. Every ask goes through this one transition now, so what is on
+    screen stays until the new page is ready, and an ask while one is on its
+    way is folded into a single one after it.
+  */
+  const refreshing = React.useRef(false)
+  const again = React.useRef(false)
+  const refresh = React.useCallback(() => {
+    if (refreshing.current) {
+      again.current = true
+      return
+    }
+    refreshing.current = true
+    startRefresh(() => router.refresh())
+  }, [router])
+  React.useEffect(() => {
+    if (isRefreshing) return
+    /* A transition that never showed as pending still lets the next ask through after a moment. */
+    const t = window.setTimeout(() => {
+      refreshing.current = false
+      if (again.current) {
+        again.current = false
+        refresh()
+      }
+    }, 0)
+    return () => window.clearTimeout(t)
+  }, [isRefreshing, refresh])
+
+  /*
+    A COPY OF THIS PAGE OLDER THAN A SAVE MADE IN THIS TAB. The app keeps
+    pages it has shown for five minutes, so coming back from the editor can
+    hand this page the list from before the edit. When this tab saved a site
+    after the copy's record of it, the server is asked for the page again,
+    once per save (lib/website-builder/page-refresh.ts), through the one
+    refresh above, so it never stacks on another.
+  */
+  React.useEffect(() => {
+    const behind = pagesBehind(given, savedAt, REFRESHED)
+    if (behind.length === 0) return
+    for (const id of behind) REFRESHED.add(`${id}:${savedAt(id)}`)
+    refresh()
+  }, [given, refresh])
 
   const go = React.useCallback(
     (href: string) => {

@@ -349,9 +349,15 @@ function main() {
       22% of the card's height): the size is now fixed, 28px both ways, on
       a phone and a computer, and nothing is worked out from the card.
     */
-    /* Changed on purpose, round 43: 34px (nearer a page's share of the width) and in the theme's own shape, still fixed both ways. */
-    check("a theme card's avatar is a fixed 34px square box that cannot be stretched or squashed",
-      /data-theme-avatar=""[\s\S]{0,160}className="block h-\[34px\] min-h-\[34px\] w-\[34px\] min-w-\[34px\] flex-none aspect-square overflow-hidden"/.test(card) && !/w-\[22%\]/.test(card))
+    /*
+      Changed on purpose (round AP): the card is the page at a phone's width,
+      scaled (components/onepage/themes/theme-preview), so its avatar is the
+      page's own, avatarLook's size both ways and never shrunk, and nothing in
+      the card is worked out from the card's height.
+    */
+    const preview = read("components/onepage/themes/theme-preview.tsx")
+    check("a theme card's avatar is the page's fixed square box that cannot be stretched or squashed",
+      /<ThemePreview\b/.test(card) && /data-theme-avatar=""[\s\S]{0,120}className="relative block shrink-0 shadow-lg"[\s\S]{0,80}width: look\.size,\s*height: look\.size,/.test(preview) && !/w-\[22%\]/.test(card))
     /* Changed on purpose (round AL): 2. Theme's "Update to Classic" question, with its little page, is gone; a Classic theme keeps a creator's Hero now. */
     check("the layout pictures in the Header panel are circles that cannot shrink", (design.match(/data-layout-avatar="" className="(h-7 w-7|w-10 h-10) aspect-square shrink-0 rounded-full/g) ?? []).length === 2)
     check("the live page's avatar keeps its own square box in the column", /data-page-avatar="" style=\{\{ width: avatarSize, height: avatarSize, aspectRatio: "1 \/ 1", flexShrink: 0/.test(read("components/onepage/public-onepage.tsx")))

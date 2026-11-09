@@ -52,7 +52,8 @@ export async function POST(req: Request, { params }: Params) {
   const held = !!lease && Date.parse(lease) > Date.now()
   if (!canContinue(job) || held) return NextResponse.json(publicView(job, Number.MAX_SAFE_INTEGER))
   const admin = createAdminClient()
-  await admin.from(JOBS_TABLE).update({ status: "running", error: null, updated_at: new Date().toISOString() }).eq("id", jobId).eq("creator_id", site.creatorId)
+  /* The owner asked for more: the job's count of turns starts again (lib/website-builder/ai-site/job.ts MAX_JOB_RUNS). */
+  await admin.from(JOBS_TABLE).update({ status: "running", error: null, attempts: 0, updated_at: new Date().toISOString() }).eq("id", jobId).eq("creator_id", site.creatorId)
   const origin = ownOrigin(req.url) /* storelib.com itself: a deployment address sits behind Vercel protection */
   after(() => driveJob(jobId, origin))
   return NextResponse.json({ ...publicView({ ...job, status: "running", error: null }, Number.MAX_SAFE_INTEGER) }, { status: 202 })

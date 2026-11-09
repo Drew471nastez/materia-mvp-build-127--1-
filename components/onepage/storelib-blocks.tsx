@@ -3,7 +3,7 @@ import {VisualLinkCard} from "./block-presentation"
 import { ColorRow, LabeledRow, Segmented, Switch } from "./editor-kit"
 import { OnePageProductBlock } from "./product-block"
 import { ProductLayoutThumb, layoutHasCard, layoutLabel, useCreatorProducts } from "./tabs/product-block-editor"
-import { ImageUpload } from "@/components/app/image-upload"
+import { OnePageImageField } from "@/components/onepage/image-field"
 import type { ProductBlockData, ProductBlockStyle } from "@/lib/onepage/types"
 import { useBlockPart } from "./block-part"
 import { ArrangePicker, CardsInViewControl, EditorThemeContext, HowManyControl } from "./layout-pickers"
@@ -73,6 +73,7 @@ import { tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
 import {
   FOLLOWER_NETWORKS,
   REFRESHABLE_NETWORKS,
+  SHELF_LIMIT_MAX,
   SHELF_SOURCES,
   compactCount,
   followerTotal,
@@ -84,7 +85,10 @@ import {
   pastedPosts,
   promoCode,
   shelfLimit,
+  shelfPick,
+  shelfPickedIds,
   shelfSource,
+  shelfTakes,
   shelfUsesProductCards,
   socialPost,
   youtubeChannel,
@@ -95,6 +99,7 @@ import {
   type LeadMagnetKind,
   type PromoCodeBlockData,
   type ShelfItem,
+  type ShelfPick,
   type ShelfSource,
   type SocialPostItem,
   type SocialPostsBlockData,
@@ -196,7 +201,9 @@ function shelfSlideWidth(view: StorelibShelfBlockData["carousel_view"], gap: num
 function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLook }) {
   const money = usePageMoney()
   const { data, loading } = useLiveData<StorelibShelfBlockData>(block, look, (d) => Array.isArray(d.items))
-  const limit = shelfLimit(data.limit)
+  /* Round AP: picked products show every one picked, in the creator's order; otherwise as many as How many says. */
+  const picked = shelfPickedIds(data)
+  const limit = picked ? Math.max(1, picked.length) : shelfLimit(data.limit)
   const items = (data.items ?? []).slice(0, limit)
   const list = data.layout === "list"
   /* Plain cards two to a row; before the Layout tab offered it, Grid without product cards slid as a row. */
@@ -718,7 +725,10 @@ export function storelibBlockRow(block: OnePageBlock): { title: string; subtitle
   switch (block.type) {
     case "storelib_shelf": {
       const s = shelfSource(d.source)
-      return { title: (d.title as string)?.trim() || SHELF_WORD[s](), subtitle: tt("Shelf, read live from Storelib"), icon: GlyphStore }
+      /* Round AP: the row says which, when the creator picked them. */
+      const ids = shelfPickedIds(d as unknown as StorelibShelfBlockData)
+      const subtitle = !ids ? tt("Shelf, read live from Storelib") : ids.length === 0 ? tt("Pick the products to show") : tt("{count, plural, one {# product} other {# products}}", { count: ids.length })
+      return { title: (d.title as string)?.trim() || SHELF_WORD[s](), subtitle, icon: GlyphStore }
     }
     case "lead_magnet": {
       const data = d as unknown as LeadMagnetBlockData
@@ -813,6 +823,101 @@ function ShelfCardPicker({ data, onPick, image }: { data: StorelibShelfBlockData
 }
 
 /*
+  ROUND AP, THE OWNER: "I might want to be able to select what digital products to show specifically, or all
+  digital products ... or I might want to add only one digital product to show". Which of the shelf's kind it
+  shows: All of them (newest first, How many in Layout), the ones picked here (in the order they were picked),
+  or One. The list is the creator's own products (useCreatorProducts: the signed in creator's, or the store a
+  team member edits), of the shelf's kind; a draft is listed with its badge and shows on the page once it is
+  published. Only ids are saved; the page reads the products live, and only the page owner's.
+*/
+function ShelfProductPick({
+  data,
+  source,
+  products,
+  updateData,
+}: {
+  data: StorelibShelfBlockData
+  source: ShelfSource
+  products: ReturnType<typeof useCreatorProducts>
+  updateData: (u: Partial<StorelibShelfBlockData>) => void
+}) {
+  const pick = shelfPick(data)
+  const chosen = shelfPickedIds({ ...data, pick: pick === "all" ? "some" : pick }) ?? []
+  const list = (products ?? []).filter((p) => p.status !== "archived" && !p.archived && shelfTakes(source, p.type))
+  const toggle = (id: string) => {
+    if (pick === "one") return updateData({ product_ids: [id] })
+    const next = chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id].slice(0, SHELF_LIMIT_MAX)
+    updateData({ product_ids: next })
+  }
+  return (
+    <div className={fieldBox} data-shelf-pick={pick}>
+      <Label className={fieldLabel}>{tt("Products")}</Label>
+      <Segmented<ShelfPick>
+        label={tt("Products")}
+        value={pick}
+        options={[
+          { id: "all", label: tt("All") },
+          { id: "some", label: tt("Choose") },
+          { id: "one", label: tt("One") },
+        ]}
+        onChange={(next) => updateData({ pick: next, ...(next === "one" ? { product_ids: chosen.slice(0, 1) } : {}) })}
+      />
+      {pick !== "all" ? (
+        products === null ? (
+          <div aria-hidden className="h-[120px] animate-pulse rounded-xl bg-[#f3f4f6]" />
+        ) : list.length === 0 ? (
+          <p className="text-[12.5px] leading-snug text-[#6b7280]">{tt("No products of this kind yet.")}</p>
+        ) : (
+          <div
+            role={pick === "one" ? "radiogroup" : "group"}
+            aria-label={tt("Products")}
+            className="max-h-[288px] overflow-y-auto overscroll-contain rounded-xl border border-[#e3e4e8] bg-white"
+            data-shelf-pick-list=""
+          >
+            {list.map((p) => {
+              const on = chosen.includes(p.id)
+              const order = pick === "some" && on ? chosen.indexOf(p.id) + 1 : null
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  role={pick === "one" ? "radio" : "checkbox"}
+                  aria-checked={on}
+                  onClick={() => toggle(p.id)}
+                  data-shelf-pick-item={p.id}
+                  className="flex min-h-[56px] w-full cursor-pointer items-center gap-3 border-b border-[#f0f1f3] px-2.5 py-2 text-left outline-none last:border-b-0 hover:bg-[#fafafb] focus-visible:bg-[#f4f4f6]"
+                >
+                  <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-[10px] bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
+                    {p.thumbnail_url ? <img src={p.thumbnail_url} alt="" draggable={false} decoding="async" className="absolute inset-0 h-full w-full object-cover" /> : null}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className="truncate text-[14px] font-medium text-[#1a1a2e]">{p.title}</span>
+                      {p.status === "draft" ? <span className="shrink-0 rounded-full bg-[#f4f4f6] px-1.5 text-[10.5px] font-semibold leading-[18px] text-[#4b5563]">{tt("Draft")}</span> : null}
+                    </span>
+                  </span>
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "grid h-6 w-6 shrink-0 place-items-center text-[12px] font-semibold transition-colors duration-150",
+                      pick === "one" ? "rounded-full" : "rounded-[7px]",
+                      on ? "bg-[#1a1a2e] text-white" : "bg-white text-transparent shadow-[inset_0_0_0_1.5px_#d1d5db]",
+                    )}
+                  >
+                    {order ?? (on ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )
+      ) : null}
+      {pick === "some" && chosen.length === 0 && list.length > 0 ? <p className="text-[12.5px] leading-snug text-[#6b7280]">{tt("Pick the products to show, in the order you want them.")}</p> : null}
+    </div>
+  )
+}
+
+/*
   THE SHELF'S TWO HALVES (components/onepage/block-settings useBlockPart).
   Settings: what it shows (the kind, the title, how many, and for product
   cards the button words, the price and what a tap opens, and a picture of
@@ -834,6 +939,7 @@ function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updat
         <Label className={fieldLabel}>{tt("Show")}</Label>
         <EditorSelect name="shelf-source" title={tt("Show")} value={source} choices={SHELF_SOURCES.map((s) => ({ value: s, label: SHELF_WORD[s]() }))} emptyLabel={SHELF_WORD.all()} onChange={(v) => updateData({ source: v as typeof source })} />
       </div>
+      {source !== "community" ? <ShelfProductPick data={data} source={source} products={products} updateData={updateData} /> : null}
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Title (optional)")}</Label>
         <Input value={data.title ?? ""} maxLength={60} placeholder={SHELF_WORD[source]()} onChange={(e) => updateData({ title: e.target.value })} />
@@ -871,13 +977,24 @@ function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updat
               onChange={setEditing}
             />
           </div>
+          {/*
+            Round AP, the owner: "the image under the custom thumbnail selector is not displaying well, and I cannot
+            delete it". It was a wide upload box cut from the product's cover, and its X set the custom picture to
+            nothing, which showed the product's own picture again in the same box, so nothing seemed to go. Now it
+            is the editor's picture row: the picture whole in a rounded square, Replace and Remove beside it.
+            Remove is there only while a picture of its own is set, takes it off the block (saved with the page),
+            and the square shows the product's own picture again, which is what the page then shows.
+          */}
           {editing ? (
-            <ImageUpload
-              bucket="covers"
-              aspectRatio="compact"
-              value={data.product_overrides?.[editing]?.custom_thumbnail || products?.find((p) => p.id === editing)?.thumbnail_url || undefined}
-              allowRemove
-              onChange={(custom_thumbnail) => updateData({ product_overrides: { ...data.product_overrides, [editing]: { ...data.product_overrides?.[editing], custom_thumbnail } } })}
+            <OnePageImageField
+              key={editing}
+              prefix={`thumb_shelf_${editing}`}
+              value={data.product_overrides?.[editing]?.custom_thumbnail || null}
+              fallback={products?.find((p) => p.id === editing)?.thumbnail_url || null}
+              onChange={(url) => {
+                const { custom_thumbnail: _was, ...rest } = data.product_overrides?.[editing] ?? {}
+                updateData({ product_overrides: { ...data.product_overrides, [editing]: url ? { ...rest, custom_thumbnail: url } : rest } })
+              }}
             />
           ) : null}
         </div>
@@ -908,7 +1025,8 @@ function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updat
       {arrange === "carousel" ? (
         <CardsInViewControl value={data.carousel_view || (productCards ? "1.2" : "2")} onChange={(carousel_view) => updateData({ carousel_view })} />
       ) : null}
-      <HowManyControl value={shelfLimit(data.limit)} options={[3, 6, 9, 12]} onChange={(limit) => updateData({ limit })} />
+      {/* Picked products are as many as were picked (Settings › Products). */}
+      {shelfPick(data) === "all" ? <HowManyControl value={shelfLimit(data.limit)} options={[3, 6, 9, 12]} onChange={(limit) => updateData({ limit })} /> : null}
       {source !== "community" ? (
         <ShelfCardPicker
           data={data}
@@ -1157,13 +1275,16 @@ function PostsEditor({ data, updateData }: { data: SocialPostsBlockData; updateD
               onChange={setThumbnailPost}
             />
           </div>
+          {/* Round AP: the editor's picture row, as a shelf's custom thumbnail is (above). */}
           {thumbnailPost ? (
-            <ImageUpload
-              bucket="covers"
-              aspectRatio="compact"
-              allowRemove
-              value={data.thumbnails?.[thumbnailPost] || undefined}
-              onChange={(url) => updateData({ thumbnails: { ...data.thumbnails, [thumbnailPost]: url }, ...(network === "instagram" && url && shown === "native" ? { presentation: "card" as const } : {}) })}
+            <OnePageImageField
+              key={thumbnailPost}
+              prefix="cover_post"
+              value={data.thumbnails?.[thumbnailPost] || null}
+              onChange={(url) => {
+                const { [thumbnailPost]: _was, ...rest } = data.thumbnails ?? {}
+                updateData({ thumbnails: url ? { ...rest, [thumbnailPost]: url } : rest, ...(network === "instagram" && url && shown === "native" ? { presentation: "card" as const } : {}) })
+              }}
             />
           ) : null}
         </div>

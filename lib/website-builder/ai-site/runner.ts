@@ -17,7 +17,8 @@ import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section
 import { readStoreFacts } from "../agent/store-facts-server"
 import { visualCheck } from "../agent/visual-check"
 import { readCapabilities } from "./capabilities"
-import { jobEngine, runUntil, type Job, type JobDeps } from "./job"
+import { jobEngine, outOfRuns, runUntil, type Job, type JobDeps } from "./job"
+import { writerCoder } from "./code"
 import { runAgentInvocation, type AgentRunOutcome } from "./agent-runner"
 import { agentStore } from "./agent-store"
 import { agentStepperFactory, maxLiveAgentJobs } from "./agent-engine"
@@ -40,9 +41,16 @@ export async function jobModels(creatorId: string): Promise<Models> {
 
 export async function jobDeps(job: Job, opts: { deadline: number; save?: (job: Job) => Promise<void> }): Promise<JobDeps> {
   const admin = createAdminClient()
+  const models = await jobModels(job.creatorId)
   return {
-    models: await jobModels(job.creatorId),
-    site: siteIO(admin, job.installId),
+    models,
+    site: siteIO(admin, job.installId, job.creatorId),
+    /*
+      FREE DESIGN: the site's own header, footer and custom sections, written by the code editor's section writer on
+      the strongest of the three models, at medium effort (./code.ts writerCoder). The key stays on the server: the
+      writer runs here, through the provider layer, and only the finished file reaches the website.
+    */
+    code: writerCoder(models.plan.effort === "medium" ? models.plan : { ...models.plan, effort: "medium" }, `ai-site:${job.installId}`),
     capabilities: () => readCapabilities(admin, { creatorId: job.creatorId, ownerUserId: job.ownerUserId }, readStoreFacts),
     images: imageDeps(admin, job.ownerUserId),
     visual: async (state) => {
@@ -96,6 +104,11 @@ export async function driveJob(jobId: string, origin: string, started = Date.now
     return
   }
   if (!job || job.step === "done" || job.status === "failed") return
+  /* A job that has had its share of turns stops, kept as far as it got, and says so: Continue can still take it on. */
+  if (outOfRuns(job)) {
+    await saveJob(admin, { ...job, status: "partial", error: "It took longer than a website should. Everything made so far is kept." })
+    return
+  }
   if (!(await claimJob(admin, job))) return
   let after: Job = job
   try {

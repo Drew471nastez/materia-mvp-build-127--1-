@@ -25,11 +25,16 @@ import type { SchemaMap } from "../agent/schemas"
 import type { VisualFinding } from "../agent/visual-check"
 import { allowedFacts, type FillContext } from "./fill"
 import type { PlacedSection, SiteState } from "./apply"
+import { placeholderIn, slopIn } from "./craft"
+import { schemaOf } from "../agent/schemas"
 
 export interface SiteFinding extends Finding {
   page: string
-  kind: "review" | "facts" | "visual"
+  kind: "review" | "facts" | "visual" | "image"
 }
+
+/** A picture setting holding something a browser cannot draw: not an https address or a path on Storelib, or a page rather than a picture. */
+const NOT_A_PICTURE = (v: string) => !/^(https:\/\/|\/(?!\/))[^\s"'<>]+$/i.test(v.trim()) || /\.(html?|php)(\?|$)/i.test(v.trim())
 
 const PRICE = /(?:[$€£¥]\s?\d[\d.,]*|\b\d[\d.,]*\s?(?:usd|eur|gbp)\b)/gi
 const norm = (s: string) => s.toLowerCase().replace(/[^\d.]/g, "").replace(/\.0+$/, "").replace(/\.$/, "")
@@ -56,6 +61,21 @@ export function deterministicFindings(site: SiteState, placed: PlacedSection[], 
       const section = sections.find((s) => s.id === id)
       if (!section) continue
       const all = texts([section.settings, (section.blocks ?? []).map((b) => b.settings)]).join(" ")
+      /* Words a writer left unfinished, and the words the studio never ships (./craft.ts). */
+      const held = placeholderIn(all)
+      if (held) out.push({ sectionId: id, page, kind: "review", message: `It still says "${held}". Write the final words.` })
+      const slop = slopIn(all)
+      if (slop && !out.some((f) => f.sectionId === id && f.page === page && f.message.toLowerCase().includes(slop.toLowerCase()))) out.push({ sectionId: id, page, kind: "review", message: `It uses "${slop}". Say what happens in plain words.` })
+      /* No broken pictures: every filled picture setting is a real https address. */
+      const schema = schemaOf(schemas, section.type)
+      const pictureIds = new Set((schema?.fields ?? []).filter((f) => f.type === "image_picker").map((f) => f.id))
+      const blockPictureIds = new Set((schema?.blocks ?? []).flatMap((b) => (b.fields ?? []).filter((f) => f.type === "image_picker").map((f) => f.id)))
+      const pictures = [
+        ...Object.entries(section.settings ?? {}).filter(([k]) => pictureIds.has(k)),
+        ...(section.blocks ?? []).flatMap((b) => Object.entries(b.settings ?? {}).filter(([k]) => blockPictureIds.has(k))),
+      ]
+      const broken = pictures.find(([, v]) => typeof v === "string" && v.trim() !== "" && NOT_A_PICTURE(v))
+      if (broken) out.push({ sectionId: id, page, kind: "image", message: `The picture "${broken[0]}" is not an address a browser can draw.` })
       for (const m of all.match(PRICE) ?? []) {
         if (!facts.prices.has(norm(m))) {
           out.push({ sectionId: id, page, kind: "facts", message: `It names a price (${m.trim()}) the store does not have. Remove it.` })
@@ -77,6 +97,7 @@ export function visualFindings(found: VisualFinding[] | null, page = "home"): Si
 
 /** Findings a section's writer can fix by writing it again. Contrast is the palette's, not the writer's. */
 export function rewritable(f: SiteFinding): boolean {
+  if (f.kind === "image") return false
   if (f.kind === "facts" || f.kind === "visual") return true
   return !/contrast|reads? at|:1\b/i.test(f.message)
 }

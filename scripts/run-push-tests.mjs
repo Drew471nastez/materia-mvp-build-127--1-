@@ -28,6 +28,8 @@ const SUITES = [
   "tests/website-start.test.ts",
   /* Start with AI as a server job (lib/website-builder/ai-site): one strong plan checked against the manifest and what is real, the build through plan-apply and the editor's applier, every section written in parallel on a shared cached prefix and checked with checkSettings (one repair, nothing invented), Openverse photos copied under the SSRF guard and credited with no grey boxes, the check, steps that resume, one job per press, the fallback without SQL part 380, the operations the editor replays, the progress view, and calls, tokens and cost measured with fakes. */
   "tests/ai-site-generator.test.ts",
+  /* Round AP (track 3): Start with AI from the Fitness coach preset to a site of its own. The preset's words reach the create route, the job row and the planner verbatim; with a coder the plan may hold custom sections and header and footer briefs; each coded file is accepted only after the strict compile and quality gate, its schema, its kind, no secret, no remote script, no typed picture, no placeholder and no banned word; the coded header and footer replace the theme's on every page reading the site's own menu; the code step stops before its deadline and the next turn carries on, with a ceiling on turns; placeholders, banned words and broken pictures are findings; no key in any prompt; the Website page refreshes through one transition. */
+  "tests/ai-site-free-design-ap.test.ts",
   /* Round L (AI website builder as a coding agent, docs/ai-builder/architecture.md): the shared contract. AI components are ai_ .storelib section files; a manifest written as <schema> is accepted by the real compiler and the editor's schema reader with every prop on a registry control (form_picker included); SQL part 401 (agent columns on ai_site_jobs, ai_site_job_events owner read and server write, file version author) follows the run-now conventions and agrees with the TypeScript event kinds, statuses, phases and steps. */
   "tests/ai-builder-contracts.test.ts",
   /* Round L, L2: Start with AI's agent jobs on Vercel. Each request runs the loop's iterations that fit with room for one more call, saves a bounded checkpoint after each and hands over through the signed self call; budgets (iterations, spend with the own key's larger cap, working time over invocations, repair cycles) end a job partial with drafts kept or failed when nothing was made; cancel at the next safe point; a crashed runner resumed from its checkpoint and fenced out; duplicate kicks held; crash loops and stale jobs given up on; the global live limit; progress events numbered once, batched, resumed and capped; plain words and recovery actions; Continue's bounded extension; the five minute sweep and cron; the poll's view, the client's merge and back off; the progress panel's states. */
@@ -838,6 +840,7 @@ const SUITES = [
   "tests/onepage-themes-r40.test.ts",
   /* Round 42: two more themes (a cover page, a price list), products shown the theme's way, one-row pill rows with arrows, + Add's turn, the steady tab bar, the photo save's reasons, the OnePage SQL in one file. */
   "tests/onepage-themes-r42.test.ts",
+  "tests/onepage-themes-ap.test.ts",
   /* Round 10 buttons: every saved button draws as before, the hover system, one drawing for page, preview and Design tab; a social link typed any way saved as the right address. scripts/check-onepage-buttons.mjs measures them. */
   "tests/onepage-buttons.test.ts",
   "tests/onepage-social-input.test.ts",
@@ -1059,6 +1062,8 @@ const SUITES = [
   "tests/publish-shows-new-release.test.ts",
   /* Round AM: a live website stays fast after a Publish: one stamp per site expired by its tags and what each server keeps in memory under it, a held page from memory and drawn again by a Publish, the release marker by the live rows' count, the pages drawn for the publisher's country right after the caches are cleared (PUBLISH_FLOW=1 node scripts/measure-speed18.mjs measures it). */
   "tests/live-publish-am.test.ts",
+  /* Round AP: a live page never waits Supabase's 20 seconds for a read it can do without (offers, menus, sold counts, size charts, tags), the theme's files fail within seconds, a page drawn without something is never held, shared or kept, and the hold no longer keeps "draw it again" for five minutes; scripts/check-live-nav-ap.mjs clicks through a live website and times it. */
+  "tests/live-nav-ap.test.ts",
   /* Round W1: an imported theme's live page stored by the CDN (no Vary: Cookie), its body's CSS gathered in the head in order, its flags lazy, plain HTML with no React, links fetched ahead (scripts/check-live-first-load.mjs measures it) */
   "tests/live-first-load-w.test.ts",
   "tests/live-speed-ax.test.ts",
@@ -1380,6 +1385,8 @@ const STRICT_SUITES = [
   "tests/onepage-sheets-an3.test.ts",
   /* Round 42: a OnePage's embeds with no scrollbar inside them (heights said and rounded up, Tally and Calendly asked for theirs, TikTok's player), buttons with room on every side in a carousel, one copy of a video playing, the social sheet as tall as it holds, a slideshow a mouse drags. scripts/check-onepage-r42.mjs measures them. */
   "tests/onepage-r42.test.ts",
+  /* Round AP, track 1: the shared link card at a chat's size, a row's bin under a mouse, the block sheet opening with its content and easing to late content, its foot bar off over the keyboard, drawn down by a mouse, Share as a phone's bottom sheet, no crossed circle on a booking link, no cookie card in the preview, the thumbnail row, row tiles from the Add block entries, a shelf of chosen products (the owner's only), and every sideways row following a mouse. scripts/check-onepage-sheets-ap.mjs, check-onepage-drag-rows-ap.mjs, check-onepage-button-controls-ap.mjs, check-onepage-perf-ap.mjs and shot-onepage-editor-ap.mjs measure them. */
+  "tests/onepage-ap1.test.ts",
   /* Round 43: the OnePage editor's font sheet as tall as its list, an off block's controls unfaded, Remove's question in one compact line, a block's stats with the period as a popover and See in Analytics, the header's type and picture frame, the cover's ring that follows a Left header, one hold for every window over the live page. scripts/check-onepage-editor-r43.mjs measures them. */
   "tests/onepage-editor-r43.test.ts",
   /* Round 44: every page of a published website, for search engines: one indexable host (the Storelib address's sitemap goes to the domain's), a website not live is a 404 past its front page, a renamed product's old address a 308, the sitemap to 50,000 products held a page at a time, an imported theme's canonical and noindex, and IndexNow told about the addresses a publish or a deleted page took down. */

@@ -57,7 +57,7 @@ import { AVATAR_BORDER_MAX, AVATAR_RADIUS_DEFAULT, AVATAR_RADIUS_MAX, avatarBord
 import { PILL_FROM, PILL_RADIUS, type ButtonHover, buttonAlign, buttonFill, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow, buttonShape, buttonSize, themeButtonStyle } from "@/lib/onepage/button-style"
 import { normalizeHex } from "@/lib/onepage/color"
 import { WALLPAPER_PATTERNS, isPatternId, patternStyle, type PatternOpacity } from "@/lib/onepage/wallpaper"
-import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import { WallpaperPattern } from "@/components/onepage/wallpaper-layers"
 import { PillTabs } from "@/components/onepage/pill-tabs"
 import { LAYER_LEAVE_MS, LAYER_MOTION_EASE, LAYER_MOTION_MS, LAYER_PHONE, startWhenFramesFlow } from "@/components/app/page-layer"
 import { CONTENT_IN_EASE, CONTENT_IN_FROM, CONTENT_IN_MS } from "@/lib/ui/pill-switch"
@@ -86,12 +86,13 @@ import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 /* Round 40: five more themes, the Layout panel, font pairs, the gradient's direction and the wallpaper library (components/onepage/themes). */
 import { withR40Themes } from "@/components/onepage/themes/r40-themes"
-import { ThemeCardBlocks } from "@/components/onepage/themes/theme-card-blocks"
+import { ThemePreview, PREVIEW_WIDTH } from "@/components/onepage/themes/theme-preview"
+import { themeLabel } from "@/components/onepage/themes/theme-names"
 import { LayoutSection } from "@/components/onepage/themes/layout-section"
 import { FontPairs } from "@/components/onepage/themes/font-pairs"
 import { GradientDirection } from "@/components/onepage/themes/gradient-direction"
 import { WallpaperLibrary } from "@/components/onepage/themes/wallpaper-library"
-import { blockLayoutOf, blockSpacingOf, coverImageOf, headerAlignOf, linearGradientValue } from "@/lib/onepage/theme-layout"
+import { blockLayoutOf, blockSpacingOf, coverImageOf, linearGradientValue } from "@/lib/onepage/theme-layout"
 
 type DesignSection = "header" | "theme" | "layout" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
 
@@ -2324,11 +2325,9 @@ function HeaderSection() {
   )
 }
 
-/* The theme names, each drawn in its theme's title face: one request cut to the letters of the names. */
-const THEME_NAME_FONTS_HREF = onePageFontSampleHref(
-  [...new Set(THEME_TEMPLATES.map((t) => familyOf(t.theme_config.title_font || t.theme_config.font_family)).filter((f): f is string => !!f))],
-  THEME_TEMPLATES.map((t) => t.name).join(""),
-)
+/* The theme names, each drawn in its theme's title face: one request cut to the letters of the names, as the language spells them (round AP). */
+const THEME_NAME_FAMILIES = [...new Set(THEME_TEMPLATES.map((t) => familyOf(t.theme_config.title_font || t.theme_config.font_family)).filter((f): f is string => !!f))]
+const themeNameFontsHref = () => onePageFontSampleHref(THEME_NAME_FAMILIES, THEME_TEMPLATES.map((t) => themeLabel(t)).join(""))
 
 /**
  * A THEME, AS A SMALL PAGE. The cards were one grey skeleton in eighteen
@@ -2348,15 +2347,10 @@ const THEME_NAME_FONTS_HREF = onePageFontSampleHref(
   optimizer's 384px copy, over the theme's own background colour, so before
   the photo is in the card already reads as the theme, never white.
 */
-const THEME_THUMB_WIDTH = 140
+/* Round AP: a card now spreads the photo over a phone screen's height, as the page does, so it asks for the 640px copy. */
+const THEME_THUMB_WIDTH = 320
 
-/** A pattern's tile at the theme card's scale (a card is a page about 0.42 of a phone wide). */
-function cardPatternSize(id: string, color: string, level: string): string | undefined {
-  const s = patternStyle(id, color, level)
-  return s ? String(s.backgroundSize).replace(/(\d+(?:\.\d+)?)px/g, (_, n) => `${Math.round(Number(n) * 0.42 * 10) / 10}px`) : undefined
-}
-
-/** A photo theme's card picture: the optimizer's small copy (384px), the same address the card asks for. */
+/** A photo theme's card picture: the optimizer's 640px copy, the same address the card asks for. */
 const themeThumbSrc = (url: string) => optimizedImageUrl(url, THEME_THUMB_WIDTH, 75)
 
 /*
@@ -2386,13 +2380,16 @@ export function preloadThemeThumbs(): () => void {
   }
   if (keptThemeThumbs.length) return release
   for (const t of THEME_TEMPLATES) {
-    const c = t.theme_config as { background_type?: string; background_image_url?: string }
-    if (c.background_type !== "image" || !c.background_image_url) continue
-    const img = new Image()
-    img.decoding = "async"
-    img.src = themeThumbSrc(c.background_image_url)
-    img.decode?.().catch(() => null)
-    keptThemeThumbs.push(img)
+    const c = t.theme_config as { background_type?: string; background_image_url?: string; cover_image_url?: string }
+    /* The wallpaper photo, and (round AP) a theme's cover picture, which its card draws too. */
+    const urls = [c.background_type === "image" ? c.background_image_url : null, coverImageOf(c)].filter((u): u is string => !!u)
+    for (const url of urls) {
+      const img = new Image()
+      img.decoding = "async"
+      img.src = themeThumbSrc(url)
+      img.decode?.().catch(() => null)
+      keptThemeThumbs.push(img)
+    }
   }
   return release
 }
@@ -2412,22 +2409,15 @@ const HIDDEN_GRID: React.CSSProperties = { position: "absolute", top: 0, left: 0
 
 const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onPick }: { template: typeof THEME_TEMPLATES[number]; selected: boolean; shown: boolean; copy: boolean; onPick: (template: typeof THEME_TEMPLATES[number]) => void }) {
   const c = template.theme_config as typeof THEME_TEMPLATES[number]["theme_config"] & Record<string, any>
-  const image = c.background_type === "image" && c.background_image_url
-  const bgStyle: React.CSSProperties = image
-    ? { background: c.background_color }
-    : { background: c.background_type === "gradient" && c.background_gradient ? c.background_gradient : c.background_color }
-  const hero = (template as any).profile_layout === "hero" || c.header_layout === "hero"
-  const pattern = c.background_pattern && c.background_pattern !== "none" && !image ? c.background_pattern : null
-  const text = c.text_color || "#111111"
-  /* Round 40: a theme can set its header flush left (lib/onepage/theme-layout headerAlignOf). */
-  const left = !hero && headerAlignOf(c) === "left"
-  const cover = hero ? null : coverImageOf(c)
+  const name = themeLabel(template)
+  /* A Hero theme's card is drawn with its Hero, as picking it lays the page out (handleApplyTemplate). */
+  const look = (template as any).profile_layout === "hero" ? { ...c, header_layout: "hero" } : c
   return (
     <button
       type="button"
       onClick={() => onPick(template)}
       aria-pressed={selected}
-      aria-label={tt("{name} theme", { name: template.name })}
+      aria-label={tt("{name} theme", { name })}
       /* All's card is the theme's card; the same theme in its own kind's grid is a copy of it. */
       data-theme-card={copy ? undefined : template.id}
       data-theme-copy={copy ? template.id : undefined}
@@ -2438,52 +2428,18 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
       )}
     >
       <ChoiceMark on={selected} />
-      <span className="relative block aspect-[4/5] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
-        <span className="absolute inset-0" style={bgStyle} />
-        {/* The photo printed as the page prints it: its brightness, darker or lighter, as the same filter. */}
-        {image ? <img src={themeThumbSrc(c.background_image_url)} alt="" aria-hidden draggable={false} loading="eager" decoding="sync" data-theme-thumb="" className="absolute inset-0 h-full w-full object-cover" style={c.image_brightness && c.image_brightness !== 100 ? { filter: `brightness(${c.image_brightness}%)` } : undefined} /> : null}
-        {(image && c.image_noise) || (c.background_type === "gradient" && c.gradient_noise) ? <WallpaperNoise strength={c.noise_strength} style={{ backgroundSize: "76px 76px" }} /> : null}
-        {/* The pattern at the card's scale: the card is a page about 0.42 of a phone's width, so its tile is too. */}
-        {pattern ? <WallpaperPattern pattern={pattern} color={c.pattern_color || "#ffffff90"} level={c.pattern_opacity || "medium"} style={{ backgroundSize: cardPatternSize(pattern, c.pattern_color || "#ffffff90", c.pattern_opacity || "medium") }} /> : null}
-        {hero ? <span className="absolute inset-x-0 top-0 h-[36%]" style={{ background: `linear-gradient(180deg, ${text}38 0%, ${text}14 70%, transparent 100%)` }} /> : null}
-        {/* Round 42: the theme's cover picture across the top, the round photo over its edge, as the page draws it. */}
-        {cover ? <img src={themeThumbSrc(cover)} alt="" aria-hidden draggable={false} loading="eager" decoding="sync" data-theme-cover="" className="absolute inset-x-0 top-0 h-[27%] w-full object-cover" /> : null}
-        <span className={cn("absolute inset-0 flex flex-col px-[13%]", left ? "items-start" : "items-center", hero ? "pt-[30%]" : cover ? "pt-[21%]" : "pt-[15%]")}>
-          {/*
-            THE AVATAR IS A CIRCLE. It was 22% of the card wide with an
-            aspect ratio (and then a spacer) for its height, in a column the
-            card's height holds, and on the owner's iPhone it was still drawn
-            a tall pill (26 wide, 41 high: 22% of the card's height, not its
-            width). Nothing about it is worked out from the card now: it is
-            28px by 28px, the same on a phone and a computer, and neither
-            the column nor the card can stretch or squash it.
-          */}
-          {hero ? null : (
-            <span
-              data-theme-avatar=""
-              /* Round 43: 34px, nearer a page's share of the width, in the theme's own shape and ring. */
-              className="block h-[34px] min-h-[34px] w-[34px] min-w-[34px] flex-none aspect-square overflow-hidden"
-              style={{
-                borderRadius: c.avatar_shape === "square" ? 4 : c.avatar_shape === "rounded" ? 9 : 999,
-                ...(cover
-                  ? { background: `color-mix(in srgb, ${text} 18%, ${c.background_color || "#ffffff"})`, boxShadow: `0 0 0 2px ${c.background_color || "#ffffff"}` }
-                  : { background: `${text}2e`, boxShadow: typeof c.avatar_border_color === "string" && c.avatar_border_color ? `0 0 0 1.5px ${c.avatar_border_color}` : `inset 0 0 0 1px ${text}1f` }),
-              }}
-            />
-          )}
-          <span
-            className="mt-[7%] block max-w-full truncate text-[14px] font-bold leading-tight"
-            style={{ fontFamily: fontStack(c.title_font || c.font_family), color: c.title_color || text }}
-          >
-            {template.name}
-          </span>
-          <span className="mt-[5%] block h-[3px] w-[40%] rounded-full" style={{ background: c.secondary_text_color || text, opacity: 0.55 }} />
-          {/* The theme's blocks in its own layout: a list, Compact rows, Grid tiles or Cards (components/onepage/themes/theme-card-blocks). */}
-          <ThemeCardBlocks c={c} />
-        </span>
+      {/*
+        Round AP: the page itself, laid out at a phone's width with the live
+        page's own numbers and scaled to the card as one picture
+        (components/onepage/themes/theme-preview). Its own layer of layout and
+        paint, so nothing inside it is worked out again for the rest of the grid.
+      */}
+      <span data-theme-frame="" className="relative block aspect-[4/5] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: c.background_color }}>
+        <ThemePreview c={look} name={name} thumb={themeThumbSrc} />
+        <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
         <CheckMark on={selected} className="right-1.5 top-1.5" />
       </span>
-      <span className={cn("block truncate px-1.5 pb-1 pt-2 text-[13px] font-medium transition-colors duration-[180ms]", selected ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{template.name}</span>
+      <span className={cn("block truncate px-1.5 pb-1 pt-2 text-[13px] font-medium transition-colors duration-[180ms]", selected ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{name}</span>
     </button>
   )
 })
@@ -2653,6 +2609,30 @@ function ThemeSection() {
   const { onepage, updateBlock, applyThemeLook } = useOnePage()
   const [filter, setFilter] = useState<ThemeFilter>("all")
   const { gridRef, pickFilter } = useSteadyFilter(filter, setFilter)
+  const nameFontsHref = themeNameFontsHref()
+  /*
+    Round AP: every card draws the page at a phone's width, scaled to the
+    card (components/onepage/themes/theme-preview). The cards of every kind
+    are the same width, so one is measured, once and when the panel's width
+    changes, and the scale is one number on the grid that every card reads.
+  */
+  useLayoutEffect(() => {
+    const grid = gridRef.current
+    if (!grid) return
+    const frameOf = () => grid.querySelector<HTMLElement>("[data-theme-kind-shown] [data-theme-frame]")
+    let last = 0
+    const measure = () => {
+      const w = frameOf()?.clientWidth ?? 0
+      if (!w || w === last) return
+      last = w
+      grid.style.setProperty("--tp-scale", String(w / PREVIEW_WIDTH))
+    }
+    measure()
+    if (typeof ResizeObserver !== "function") return
+    const ro = new ResizeObserver(measure)
+    ro.observe(grid)
+    return () => ro.disconnect()
+  }, [gridRef])
   const pickRef = useRef<(template: typeof THEME_TEMPLATES[0]) => void>(() => {})
   const onPick = useCallback((template: typeof THEME_TEMPLATES[0]) => pickRef.current(template), [])
 
@@ -2722,7 +2702,7 @@ function ThemeSection() {
         className="flex gap-2 px-4 pb-0.5 scrollbar-hide md:px-0"
         itemClassName="h-10 px-4 text-[13px] sm:h-9"
       />
-      {THEME_NAME_FONTS_HREF ? <link rel="stylesheet" href={THEME_NAME_FONTS_HREF} /> : null}
+      {nameFontsHref ? <link rel="stylesheet" href={nameFontsHref} /> : null}
       {/*
         A GRID FOR EACH KIND, ALL MADE ONCE AND KEPT. One grid that hid the
         cards of the other kinds moved every card that stayed to a new

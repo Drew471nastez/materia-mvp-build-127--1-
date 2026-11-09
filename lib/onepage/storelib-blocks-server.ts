@@ -42,6 +42,7 @@ import {
   parseYouTubeFeed,
   pastedPosts,
   shelfLimit,
+  shelfPickedIds,
   shelfSource,
   shelfTakes,
   youtubeChannel,
@@ -86,7 +87,12 @@ async function cachedJson<T>(url: string, revalidate: number): Promise<T | null>
 
 const PRODUCT_COLUMNS = "id, title, slug, price_cents, thumbnail_url, type, status, archived, community_id, created_at"
 
-export async function shelfItems(db: Db, creatorId: string, source: ShelfSource, limit: number): Promise<ShelfItem[] | null> {
+/**
+ * `ids` (round AP): the products the creator picked, in their order. Still only this creator's, still only what
+ * a visitor may see (published, on the Creator page, of the shelf's kind): an id of anybody else's product, or
+ * of one that is not live, is simply not there.
+ */
+export async function shelfItems(db: Db, creatorId: string, source: ShelfSource, limit: number, ids: string[] | null = null): Promise<ShelfItem[] | null> {
   if (!creatorId) return null
   if (source === "community") {
     try {
@@ -105,14 +111,18 @@ export async function shelfItems(db: Db, creatorId: string, source: ShelfSource,
     }
   }
   try {
+    if (ids && ids.length === 0) return []
     let q = db.from("products").select(PRODUCT_COLUMNS).eq("creator_id", creatorId).eq("status", "published")
     if (source !== "all") q = q.eq("type", source)
+    if (ids) q = q.in("id", ids)
     const [{ data, error }, offPage] = await Promise.all([q.order("created_at", { ascending: false }).limit(60), offChannel(db, creatorId, "creator_page")])
     if (error) return null
     const rows = ((data ?? []) as Record<string, unknown>[]).filter(
       (r) => isPubliclyVisible(r as never) && !sellsCommunity(r as never) && !offPage.has(String(r.id)) && shelfTakes(source, r.type as string | null) && typeof r.slug === "string" && r.slug,
     )
-    const picked = await withVariantPrices<Record<string,unknown>&{id:string}>(db,rows.slice(0,limit).map(row=>({...row,id:String(row.id)})))
+    /* Picked: in the creator's order, every one of them (up to SHELF_LIMIT_MAX, which `ids` already is). */
+    if (ids) rows.sort((a, b) => ids.indexOf(String(a.id).toLowerCase()) - ids.indexOf(String(b.id).toLowerCase()))
+    const picked = await withVariantPrices<Record<string,unknown>&{id:string}>(db,rows.slice(0,ids ? ids.length : limit).map(row=>({...row,id:String(row.id)})))
     const memberships = picked.filter((r) => r.type === "membership").map((r) => String(r.id))
     const intervals = memberships.length ? await planIntervals(db as never, memberships) : new Map()
     return picked.map((r) => ({
@@ -228,7 +238,7 @@ export async function resolveStorelibBlock(db: Db, creatorId: string, block: Blo
   const data = (block.data ?? {}) as Record<string, unknown>
   if (block.type === "storelib_shelf") {
     const d = data as unknown as StorelibShelfBlockData
-    const items = await shelfItems(db, creatorId, shelfSource(d.source), shelfLimit(d.limit))
+    const items = await shelfItems(db, creatorId, shelfSource(d.source), shelfLimit(d.limit), shelfPickedIds(d))
     return items ? { ...block, data: { ...data, items } } : block
   }
   if (block.type === "social_posts") {

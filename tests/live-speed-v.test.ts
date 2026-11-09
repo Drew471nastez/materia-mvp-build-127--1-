@@ -196,7 +196,7 @@ async function strangerHold() {
   check("an answer that is not everybody's is drawn for each visitor, never reused", privateDraws === 2 && again.held === false)
   const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
   check("the route checks the seal and the marker before it looks anything up", /if \(!\(await siteSealed\(req\.headers\.get\(SITE_SEAL_HEADER\), username, host\)\)\) return handle\(req, ctx\)/.test(route) && /stranger\.host !== host/.test(route))
-  check("and shares only a plain 200 the handler marked shareable, with no cookie", /share: res\.status === 200 && res\.headers\.get\(SHAREABLE_HEADER\) === "1" && res\.headers\.get\("Cache-Control"\) === PUBLIC_PAGE_CACHE && !res\.headers\.has\("Set-Cookie"\)/.test(route))
+  check("and shares only a plain 200 the handler marked shareable, with no cookie", /* Changed on purpose (round AP): the same test, said once as `plain` and shared by `brief` (tests/live-nav-ap.test.ts). */ /const plain = res\.status === 200 && res\.headers\.get\("Cache-Control"\) === PUBLIC_PAGE_CACHE && !res\.headers\.has\("Set-Cookie"\)/.test(route) && /share: plain && res\.headers\.get\(SHAREABLE_HEADER\) === "1"/.test(route))
   check("GET goes through the hold; POST and HEAD never do", /export const GET = timed\("sites", "\/api\/site-theme\/site", handleHeld\)/.test(route) && /export const POST = timedHandle/.test(route) && /export const HEAD = handle/.test(route))
 }
 

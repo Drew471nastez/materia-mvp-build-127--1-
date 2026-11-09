@@ -97,8 +97,8 @@ export function applySiteOps(site: SiteState, ops: PageOp[], schemas?: SchemaMap
 export function syncChrome(site: SiteState): SiteState {
   const home = site.pages.home
   if (!home) return site
-  const header = home.find((s) => s.type === "header")
-  const footer = home.find((s) => s.type === "footer")
+  /* By group as well as by type: a header the job coded for the site is in the header group under a type of its own (./code.ts). */
+  const { header, footer } = homeChrome(home)
   const pages: Record<string, SectionInstance[]> = {}
   for (const [key, sections] of Object.entries(site.pages)) {
     if (key === "home") {
@@ -106,9 +106,15 @@ export function syncChrome(site: SiteState): SiteState {
       continue
     }
     const body = sections.filter((s) => !isChrome(s))
-    pages[key] = [...(header ? [header] : []), ...body, ...(footer ? [footer] : [])]
+    pages[key] = [...header, ...body, ...footer]
   }
   return { ...site, pages }
+}
+
+/** The home page's frame: everything in the header group (the built-in header among it), and everything in the footer group. Pure. */
+export function homeChrome(home: readonly SectionInstance[]): { header: SectionInstance[]; footer: SectionInstance[] } {
+  const groupOf = (s: SectionInstance) => (s as { group?: string }).group ?? (s.type === "header" ? "header" : s.type === "footer" ? "footer" : null)
+  return { header: home.filter((s) => groupOf(s) === "header"), footer: home.filter((s) => groupOf(s) === "footer") }
 }
 
 const INTENT = (kind: Intent["kind"]): Intent => ({ kind, also: [], scope: kind === "PAGE_REDESIGN" ? "page" : "site", plan: true, preserveStructure: false, followUp: false, wantsMotion: false, reasons: ["start with ai"] }) as Intent

@@ -11211,6 +11211,31 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   const [genDismissed, setGenDismissed] = useState(false)
   /*
+    THE SITE'S OWN SECTIONS, READ BEFORE THEY ARE PLACED (round AP). A generation now codes its own header, footer and
+    sections (lib/website-builder/ai-site/code.ts). Their files are read here and committed before the operations that
+    place them are replayed, so the canvas draws each one as it lands instead of an empty slot until a reload. Never
+    waits more than a few seconds: the operation carries the built section either way.
+  */
+  const sourcesLanded = useRef<(() => void)[]>([])
+  useEffect(() => {
+    const waiting = sourcesLanded.current.splice(0)
+    for (const done of waiting) done()
+  }, [storelibSources])
+  const generationFiles = useCallback(async (paths: string[]) => {
+    if (paths.every((p) => p in storelibSourcesRef.current)) return
+    const files = await loadStorelibSources({ hold: true })
+    if (!files || sameFiles(storelibSourcesRef.current, files)) return
+    await new Promise<void>((resolve) => {
+      const timer = window.setTimeout(resolve, 4_000)
+      sourcesLanded.current.push(() => {
+        window.clearTimeout(timer)
+        resolve()
+      })
+      setStorelibSources(files)
+      setThemeSchemaText(heldSchema.current)
+    })
+  }, [loadStorelibSources])
+  /*
     AN AGENT BUILD (round L) writes the drafts itself, so the canvas reads them again when its events say files, pages or
     colours changed: at most every AGENT_REFRESH_MS while it works, and once when it ends. What the creator is editing
     wins: with unsaved changes only the section files are read, the open page waits for the next quiet moment.
@@ -11237,6 +11262,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [forgetPage, reloadAiSources, loadData])
   useEffect(() => () => { if (agentRefresh.current.timer) clearTimeout(agentRefresh.current.timer) }, [])
   const generation = useSiteGeneration({
+    onFiles: generationFiles,
     installId,
     source: teamMember ? null : genSource,
     ready: !loading && !loadFailed,

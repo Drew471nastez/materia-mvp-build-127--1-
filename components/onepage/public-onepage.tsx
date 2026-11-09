@@ -80,7 +80,7 @@ import { MusicPlayer, appleMusicEmbedUrl, musicSheetRequest, spotifyEmbedUrl } f
 import { PdfOnPage, PdfPages } from "@/components/onepage/pdf-pages"
 import { blockInteraction } from "@/lib/onepage/block-sheet"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
-import { useMouseDragScroll } from "@/components/onepage/drag-scroll"
+import { useMouseDragRows, useMouseDragScroll } from "@/components/onepage/drag-scroll"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 import { EmailSignupView, type EmailSignupFormOptions } from "@/components/onepage/email-signup"
 import { OnePageLegalLinks } from "@/components/onepage/onepage-legal-links"
@@ -835,6 +835,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     seller_id,
   } = onepage
   const sellerName = personName({ name: title })
+  /* Round AP: every row on the page that slides sideways follows a mouse as it follows a finger (components/onepage/drag-scroll). */
+  useMouseDragRows()
 
   // Modal visibility state - to hide buttons when fullscreen modals are open
   /* True in the editor's preview frame (components/onepage/preview-document). */
@@ -1558,6 +1560,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           {/* Phone-like card - wider than before (500px instead of 420px) */}
           <div
             ref={cardRef}
+            data-onepage-drag-scope=""
             className="w-full max-w-[500px] mx-4 rounded-[40px] overflow-hidden relative"
             style={{
               background: getBackgroundStyle(),
@@ -1627,6 +1630,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       {liveLayout !== "desktop" && (
       <div
         className="onepage-live md:hidden min-h-screen w-full relative"
+        data-onepage-drag-scope=""
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
         style={{
           overflowX: 'clip',

@@ -198,7 +198,7 @@ console.log("\nWired into the live site (lib/website-builder/compat-site.ts)\n")
 {
   const cs = code("lib/website-builder/compat-site.ts")
   check("searchHead only on the live site, where the website's own origin is known", /searchHead: origin\s*\?/.test(cs))
-  check("the creator's photo is asked beside the rest, never a round trip in a row", /const avatarAsked = live \? quiet\(creatorAvatar\(/.test(cs) && cs.indexOf("const avatarAsked") < cs.indexOf("readInstall(admin, creator.creatorId)"))
+  check("the creator's photo is asked beside the rest, never a round trip in a row", /* Changed on purpose (round AP): waited for SITE_PART_MS (part). */ /const avatarAsked = live \? quiet\(part\("avatar", creatorAvatar\(/.test(cs) && cs.indexOf("const avatarAsked") < cs.indexOf("readInstall(admin, creator.creatorId)"))
   check("the share picture: logo, the front page's first picture, the photo", /export function compatShareImage\(/.test(cs))
   const st = code("lib/storelib-theme/compat/site.ts")
   check("site.ts adds what is missing after the theme draws, before the icon", /const out = withSearchHead\(route\.page\.template === "password" \? withoutShopifyMark\(drawn\.html\) : drawn\.html, site\.searchHead\?\.\(route\.page, path\)\)/.test(st) && /withTabTitle\(out,/.test(st))

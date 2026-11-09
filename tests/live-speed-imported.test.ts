@@ -248,14 +248,14 @@ async function roundTrips() {
 function together() {
   section("What a draw needs that depends only on the creator is asked at once")
   const site = code("lib/website-builder/compat-site.ts")
-  check("the release, physical goods, the currency and the website's address start beside the install", /const releaseAsked = live \? quiet\(liveRelease\(/.test(site) && /const physicalAsked = quiet\(isPhysicalCommerceEnabled\(\)/.test(site) && /const currencyAsked = quiet\(cachedStoreCurrency\(/.test(site) && /const originAsked = live \? quiet\(siteOrigin\(/.test(site))
+  check("the release, physical goods, the currency and the website's address start beside the install", /* Changed on purpose (round AP): each read now has its own time limit (inTime / part). */ /const releaseAsked = live \? quiet\(inTime\(liveRelease\(/.test(site) && /const physicalAsked = quiet\(part\("physical", isPhysicalCommerceEnabled\(\)/.test(site) && /const currencyAsked = quiet\(live \? inTimeOrThrow\(cachedStoreCurrency\(/.test(site) && /const originAsked = live \? quiet\(part\("origin", siteOrigin\(/.test(site))
   check("  and the install is read after they have started", site.indexOf("const releaseAsked") < site.indexOf("readInstall(admin, creator.creatorId)"))
   /* Changed on purpose (round BC): Settings › Taxes' prices-include-tax is read in the same Promise.all. */
   check("the returns line and the free shipping facts are read together", /const \[returnFacts, facts(, taxesIncluded)?\] = await Promise\.all\(\[/.test(site))
   check("a product's description and its variants' facts are read together", /* Changed on purpose (round AF): the product's offers are read beside them too. */ /const \[found, pageFacts, offers\] = await Promise\.all\(\[/.test(site))
   const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
   check("the route asks the languages and the store's tags beside the site", /const languagesAsked = creatorAsked \?/.test(route) && /const trackingAsked = creatorAsked && pageAsked \?/.test(route) && route.indexOf("const languagesAsked") < route.indexOf("await compatSiteByName("))
-  check("  each used only for the site that was found", /forSite\(languagesAsked, found\.site\.creatorId\)/.test(route) && /forSite\(trackingAsked, found\.site\.creatorId\)/.test(route))
+  check("  each used only for the site that was found", /forSite\(languagesAsked, found\.site\.creatorId\)/.test(route) && /* Changed on purpose (round AP) */ /const shopOf = found\.site\.creatorId/.test(route) && /forSite\(trackingAsked, shopOf\)/.test(route))
   const proxy = code("proxy.ts")
   const sub = proxy.indexOf("const gateAsked = startSiteQuestions(request, subdomain")
   check("the proxy starts a subdomain page's questions before it asks about the website's domain", sub > 0 && sub < proxy.indexOf("const domain = await websiteDomainOf(subdomain)"))

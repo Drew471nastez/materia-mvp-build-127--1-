@@ -27,6 +27,10 @@ import { emptyState, type Job, type JobState, type SiteIO } from "./job"
 import type { ImageDeps } from "./images"
 import { openverseSearch } from "./images"
 import type { SiteState } from "./apply"
+import { CODED_PATH } from "./code"
+import { recordVersion, saveDraft } from "@/lib/website-builder/theme-file-drafts"
+import { readStoreMenus, writeStoreMenus } from "@/lib/website-builder/store-menus-server"
+import { MENU_LIMITS } from "@/lib/storelib-theme/values"
 
 type Db = { from: (table: string) => any; storage?: any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -97,7 +101,8 @@ export function jobFromRow(r: Row): Job {
     ownerUserId: r.owner_user_id,
     installId: r.install_id,
     status: r.status,
-    step: r.step,
+    /* The code step is stored as "build" with state.coding (saveJob): part 380's step check predates it. */
+    step: r.step === "build" && r.state?.coding ? "code" : r.step,
     progress: r.progress,
     prompt: r.prompt,
     plan: r.plan,
@@ -121,10 +126,12 @@ export async function saveJob(admin: Db, job: Job): Promise<void> {
     .from(JOBS_TABLE)
     .update({
       status: job.status,
-      step: job.step,
+      /* Part 380 (and 401) only allow plan/build/write/photos/check/agent/done in step, so the code step is kept as
+         "build" with state.coding and read back as "code" (jobFromRow). No SQL change is needed for it. */
+      step: job.step === "code" ? "build" : job.step,
       progress: job.progress,
       plan: job.plan,
-      state: job.state,
+      state: { ...job.state, coding: job.step === "code" },
       cost_usd: job.state.spend.usd,
       error: job.error,
       updated_at: new Date().toISOString(),
@@ -158,8 +165,31 @@ export function leaseLapsed(row: { lease_until: string | null; step: string; sta
 
 /* ── the website ──────────────────────────────────────────────────────── */
 
-export function siteIO(admin: Db, installId: string): SiteIO {
+export function siteIO(admin: Db, installId: string, creatorId?: string): SiteIO {
   return {
+    /*
+      FREE DESIGN (./code.ts): a coded section into THIS install's own files, in the draft half, with a version row,
+      exactly as the code editor saves one. The path is checked again here, whatever the caller checked: one folder,
+      one name, never another install's.
+    */
+    async writeFile(path, source) {
+      if (!CODED_PATH.test(path) || !installId) throw new Error("not a section file")
+      const saved = await saveDraft(admin, installId, path, source)
+      if (saved.ok === false) throw new Error("the file could not be saved")
+      await recordVersion(admin, installId, path, source, "save")
+    },
+    /*
+      This website's own menu, under a handle of its own: the store's menus when the store keeps them, else the
+      site's own settings. Never another menu, never another website's.
+    */
+    async ensureMenu(handle, menu) {
+      if (!creatorId || !/^site-[a-z0-9]{1,16}$/.test(handle)) return null
+      const read = await readStoreMenus(admin, creatorId)
+      if (read.kind !== "stored") return "theme"
+      if (!(handle in read.menus) && Object.keys(read.menus).length >= MENU_LIMITS.menus) return null
+      const wrote = await writeStoreMenus(admin, creatorId, { ...read.menus, [handle]: menu })
+      return wrote.ok ? "store" : null
+    },
     async read(): Promise<SiteState> {
       const [pages, settings] = await Promise.all([
         admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", installId),

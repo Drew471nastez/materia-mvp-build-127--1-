@@ -74,7 +74,8 @@ const after = lookFromTemplate(page, { id: "air", category: "light", theme_confi
 check("from Swiss to a theme that names none, the page is a list, centred, regular, the old Fill", after.block_layout === null && after.header_align === null && after.button_size === null && after.button_hover_fill === null)
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }, { id: "c", category: "dark" }, { id: "d", category: "image" }])
 /* Changed on purpose (round 42): Folio (light) and Ledger (dark) join after round 40's, each in its kind. */
-check("each lands in its own kind, after that kind's old ones", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,b,lagoon,c,ember,ledger,d,atlas")
+/* Changed on purpose (round AP): Notebook (light) and Cobalt (gradient) join at the end of their kinds. */
+check("each lands in its own kind, after that kind's old ones", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,b,lagoon,cobalt,c,ember,ledger,d,atlas")
 
 /* ─── Block layouts ───────────────────────────────────────────────────── */
 console.log("\nBlocks can be laid out four ways")
@@ -162,7 +163,8 @@ check("the theme's sheet colours are written once", (live.match(/sheetRootCss\(s
 check("the preview is the live page's own component", /PublicOnePage/.test(read("components/onepage/preview-document.tsx")))
 check("the product sheet and the checkout window are themed", /className=\{cn\(\s*"op-sheet /.test(read("components/onepage/product-sheet.tsx")) /* round 43: two columns on a computer, so the classes are joined */ && /themed && "op-sheet"/.test(read("components/checkout/checkout-window.tsx")) && /themed\b/.test(read("components/onepage/product-block.tsx")))
 check("the Design tab has a Layout panel and the themes", /<NavRow dataKey="layout"/.test(design) && /<LayoutSection \/>/.test(design) && /withR40Themes\(BASE_THEME_TEMPLATES\)/.test(design))
-check("the theme cards draw each theme's layout", /<ThemeCardBlocks c=\{c\} \/>/.test(design))
+/* Changed on purpose (round AP): a card is the page itself at a card's scale (components/onepage/themes/theme-preview), which lays the blocks out as the page does. */
+check("the theme cards draw each theme's layout", /<ThemePreview c=\{look\} name=\{name\} thumb=\{themeThumbSrc\} \/>/.test(design) && /blockLayoutOf\(c\)/.test(read("components/onepage/themes/theme-preview.tsx")))
 const layoutSrc = read("components/onepage/themes/layout-section.tsx")
 check("Share and Subscribe styles are set in Design, the same fields", /updateSettings\(\{ share_style: id \}\)/.test(layoutSrc) && /updateSettings\(\{ subscribe_style: id \}\)/.test(layoutSrc))
 const settingsSrc = read("components/onepage/tabs/settings-tab.tsx")
