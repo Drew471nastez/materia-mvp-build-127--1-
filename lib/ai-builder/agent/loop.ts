@@ -48,6 +48,12 @@ export interface SliceOptions {
   deadline: number
   /** At most this many model calls in this slice (the runner's iteration budget). */
   maxIterations?: number
+  /**
+   * The provider turns the previous slice of THIS invocation ended with (SliceResult.live), so a runner
+   * that asks for one call at a time (L2's sliceStepper) keeps one live conversation inside a request:
+   * the model sees its last tool results whole, not the digest a new request starts from.
+   */
+  live?: AgentTurn[]
 }
 
 export interface SliceResult {
@@ -65,6 +71,8 @@ export interface SliceResult {
   /** For the creator, when the job ended. */
   summary?: string
   error?: string
+  /** The live provider turns at the end of this slice, for `SliceOptions.live` of the next one in the same request. */
+  live: AgentTurn[]
 }
 
 /** Most failed provider calls in a row before the job stops. */
@@ -89,6 +97,8 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
   const events: AgentEvent[] = []
   /* This slice's live provider turns; merged into the saved checkpoint by result(). */
   let turns: AgentTurn[] = []
+  /* Turns before this index are already in the saved checkpoint (the resume turn, or what an earlier slice of this request saved). */
+  let liveStart = 1
   const usage = { usd: 0, inputTokens: 0, outputTokens: 0, calls: 0 }
   cp.seq = Math.max(cp.seq, job.lastEventSeq)
 
@@ -123,13 +133,14 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     status,
     phase: cp.phase,
     iteration: cp.iteration,
-    checkpoint: compactCheckpoint(turns.length ? { ...cp, turns: [cp.turns[0], ...toCheckpointTurnsTail(cp, turns)] } : cp),
+    checkpoint: compactCheckpoint(turns.length ? { ...cp, turns: [cp.turns[0], ...toCheckpointTurnsTail(cp, turns.slice(liveStart))] } : cp),
     events,
     usage,
     totalUsd: Math.round((job.spentUsd + usage.usd) * 1e6) / 1e6,
     ...(stopped ? { stopped } : {}),
     ...(summary ? { summary } : {}),
     ...(error ? { error } : {}),
+    live: turns,
   })
   const madeSomething = () => cp.filesTouched.length > 0 || cp.pagesTouched.length > 0
   const stopFor = (why: BudgetStop): SliceResult => {
@@ -156,7 +167,8 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
   }
 
   /* ── the tool loop ──────────────────────────────────────────────────── */
-  turns = resumeTurns(cp)
+  turns = opts.live?.length ? [...opts.live] : resumeTurns(cp)
+  liveStart = turns.length
   const done: { r: SliceResult | null } = { r: null }
   let sliceCalls = 0
 
@@ -276,10 +288,10 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
 }
 
 /** The saved turns after the brief: what the checkpoint had before this slice, then this slice's live turns. */
-function toCheckpointTurnsTail(cp: LoopCheckpoint, live: AgentTurn[]): LoopCheckpoint["turns"] {
+function toCheckpointTurnsTail(cp: LoopCheckpoint, fresh: AgentTurn[]): LoopCheckpoint["turns"] {
   const before = cp.turns.slice(1)
   /* The first live turn is the brief (or the resume digest), which the checkpoint already holds as turns[0] + before. */
-  return [...before, ...toCheckpointTurns(live.slice(1))].slice(-400)
+  return [...before, ...toCheckpointTurns(fresh)].slice(-400)
 }
 
 /** One tool call: arguments parsed, the tool run, its result as the JSON text the model reads. Errors are results. */

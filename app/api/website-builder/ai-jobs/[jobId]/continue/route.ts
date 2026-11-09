@@ -109,7 +109,12 @@ async function agentContinue(req: Request, row: AgentJobRow, creatorId: string):
   }
   if (await othersLive()) return NextResponse.json(BUSY, { status: 429 })
   const state = { ...((row.state ?? {}) as Record<string, unknown>), agent: plan.run }
-  const checkpoint = job.checkpoint ? { ...job.checkpoint, stopped: undefined } : null
+  /*
+    The loop's own end goes too (`final`, lib/ai-builder/agent/state.ts): a budget or a cancel the loop
+    itself saw is written there, and a slice that finds it answers that end again at once, so Continue
+    revived the row and the next turn ended it the same way (found by tests/ai-builder-benchmarks.test.ts, H).
+  */
+  const checkpoint = job.checkpoint ? { ...job.checkpoint, stopped: undefined, final: undefined } : null
   const { data: revived, error } = await admin
     .from(JOBS_TABLE)
     .update({ status: "queued", step: "agent", error: null, cancel_requested_at: null, lease_until: null, finished_at: null, budget: plan.budget, state, checkpoint, updated_at: new Date().toISOString() })

@@ -31,6 +31,16 @@ import { newCheckpoint, readCheckpoint, type LoopCheckpoint } from "@/lib/ai-bui
 
 /** L3's slice as one step of the runner. Pure apart from the deps it is given. */
 export function sliceStepper(deps: AgentDeps, now: () => number = Date.now): AgentStepper {
+  /*
+    ONE CONVERSATION PER REQUEST. The runner asks for one model call per step, and a slice that starts
+    from a saved checkpoint begins with ONE user turn: the brief and a digest of the work, where a tool
+    result is cut to 1,200 characters. So every call of an agent job was a fresh conversation in which
+    the model saw its last read_file cut short, and never its own last turn (found by
+    tests/ai-builder-benchmarks.test.ts, J). The live turns are carried from step to step while this
+    request lasts (the stepper is made once per request); a new request resumes from the digest, as
+    L3 designed.
+  */
+  let carried: { iteration: number; turns: NonNullable<Parameters<typeof runAgentSlice>[3]["live"]> } | null = null
   return {
     ownKey: deps.models.ownKey,
     emitsPhases: true,
@@ -68,8 +78,9 @@ export function sliceStepper(deps: AgentDeps, now: () => number = Date.now): Age
           cancelled: ctx.cancelled,
           previewErrors: async () => ctx.previewErrors.map((p) => ({ page: p.page, sectionId: p.sectionId, message: p.message })),
         },
-        { deadline: now() + ctx.timeLeftMs, maxIterations: 1 },
+        { deadline: now() + ctx.timeLeftMs, maxIterations: 1, ...(carried && carried.iteration === cp.iteration ? { live: carried.turns } : {}) },
       )
+      carried = r.status === "running" ? { iteration: (r.checkpoint as LoopCheckpoint).iteration, turns: r.live } : null
       const out = r.checkpoint as LoopCheckpoint
       const result: AgentStepResult = {
         checkpoint: out,
@@ -83,13 +94,38 @@ export function sliceStepper(deps: AgentDeps, now: () => number = Date.now): Age
   }
 }
 
-/** A project store for an edit of one file: every other file is refused, so it stays byte for byte. */
+/**
+ * A project store for an edit of one file: every other file is refused, so it stays byte for byte.
+ * The pages and the Theme settings too: a one-component edit may change the settings of that
+ * component's own sections (its type, the sections already placed), never add, remove or move a
+ * section, add a page, or change the tokens or menus. Before this only the files were held, so
+ * "make the heading calmer" could also set new fonts or add a page (found by
+ * tests/ai-builder-benchmarks.test.ts, scenario G).
+ */
 export function scopedStore(store: ProjectStore, path: string): ProjectStore {
   const refused = `This change may only edit ${path}. Other files stay as they are.`
+  const type = /^sections\/([a-z0-9_-]+)\.storelib$/.exec(path)?.[1] ?? null
+  const elsewhere = `This change is about ${path} only: the pages, other sections and the Theme settings stay as they are.`
   return {
     ...store,
     writeFile: (p, text, meta) => (p === path ? store.writeFile(p, text, meta) : Promise.resolve({ ok: false, error: refused })),
     deleteFile: (p) => (p === path ? Promise.resolve({ ok: false, error: "An edit does not delete the file it changes." }) : Promise.resolve({ ok: false, error: refused })),
+    async writeSettings() {
+      throw new Error(elsewhere)
+    },
+    async writePages(pages) {
+      const now = new Map((await store.listPages()).map((p) => [p.key, p.sections]))
+      for (const p of pages) {
+        const before = now.get(p.key)
+        if (!before || before.length !== p.sections.length) throw new Error(elsewhere)
+        for (const [i, s] of p.sections.entries()) {
+          const was = before[i]
+          if (was.id !== s.id || was.type !== s.type || (s.group ?? null) !== (was.group ?? null)) throw new Error(elsewhere)
+          if (JSON.stringify(was) !== JSON.stringify(s) && s.type !== type) throw new Error(elsewhere)
+        }
+      }
+      return store.writePages(pages)
+    },
   }
 }
 

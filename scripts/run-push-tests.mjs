@@ -1408,6 +1408,8 @@ const STRICT_SUITES = [
   "tests/ai-start-l1.test.ts",
   /* Round L (L7): the Fitness coach journey end to end with AI_BUILDER_AGENT=1 and a SCRIPTED model (the model is the only fake): chip, Create twice, the agent job's turns chained on a fake clock, events in order, ai_ files compiled, pages, menu, no theme chrome, bindings to this store's products only, a prop saved through the editor and read back, publish, the live site's reader, cancel and Continue, reopen. Strict: tests/_journey. */
   "tests/ai-builder-journey.test.ts",
+  /* Round L (L7): Andrew's benchmarks A to J through the real routes with a SCRIPTED model: four new websites that differ in structure (A fitness multi page, B editorial with its own header and footer, C music bound to products, D one page without chrome), E a redesign inside a theme kept and restored from its backup, F blank without AI as before, G edits that leave everything else byte identical, H a long job with a lost hand over found by the cron and read back by seq, I every control through save, reload and publish, J tenants, unsafe imports, paths and secrets; L6's anti slop score of each. Real model quality is not measured here. Strict: tests/_journey. */
+  "tests/ai-builder-benchmarks.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
