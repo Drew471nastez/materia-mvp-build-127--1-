@@ -349,10 +349,14 @@ export async function runAgentInvocation(jobId: string, deps: AgentRunDeps): Pro
     return ok
   }
 
+  /* The loop may write its own "finished" event; the job then ends without a second one. */
+  let loopEnded = false
   const end = async (status: AgentJobStatus, code: AgentErrorCode | null, extra: { stopped?: BudgetStop } = {}): Promise<AgentRunOutcome> => {
     if (code) sink.emit({ kind: "error", message: errorWords(code), retryable: stopReason(code).actions.includes("retry") })
-    sink.emit({ kind: "spend", usd: Math.round(run.usage.usd * 10_000) / 10_000, inputTokens: run.usage.inputTokens, outputTokens: run.usage.outputTokens, iteration: run.usage.iterations })
-    sink.emit({ kind: "finished", status, ...(extra.stopped ? { stopped: extra.stopped } : {}) })
+    if (!loopEnded) {
+      sink.emit({ kind: "spend", usd: Math.round(run.usage.usd * 10_000) / 10_000, inputTokens: run.usage.inputTokens, outputTokens: run.usage.outputTokens, iteration: run.usage.iterations })
+      sink.emit({ kind: "finished", status, ...(extra.stopped ? { stopped: extra.stopped } : {}) })
+    }
     run = { ...run, usage: { ...run.usage, activeMs: activeMs() }, errorCode: code, failures: 0 }
     const ok = await save({
       status,
@@ -391,7 +395,7 @@ export async function runAgentInvocation(jobId: string, deps: AgentRunDeps): Pro
   if (!checkpoint) {
     checkpoint = stepper.start(infoOf(job))
     phase = checkpoint.phase
-    sink.emit({ kind: "phase", phase: checkpoint.phase, label: PHASE_LABEL[checkpoint.phase] })
+    if (!stepper.emitsPhases) sink.emit({ kind: "phase", phase: checkpoint.phase, label: PHASE_LABEL[checkpoint.phase] })
   }
 
   /* Cancel, read at most every CANCEL_CHECK_MS. */
@@ -430,7 +434,10 @@ export async function runAgentInvocation(jobId: string, deps: AgentRunDeps): Pro
         iteration: run.usage.iterations + 1,
         timeLeftMs: Math.max(0, deadline - now()),
         maxOutputTokens: budget.maxOutputTokensPerCall,
-        emit: (e) => sink.emit(e),
+        emit: (e) => {
+          if (e.kind === "finished") loopEnded = true
+          sink.emit(e)
+        },
         cancelled: async () => {
           const c = await readFlags()
           if (c) controller.abort()
@@ -446,7 +453,7 @@ export async function runAgentInvocation(jobId: string, deps: AgentRunDeps): Pro
         failures: 0,
         stalls: 0,
         usage: {
-          iterations: run.usage.iterations + 1,
+          iterations: run.usage.iterations + Math.max(0, result.calls ?? 1),
           usd: run.usage.usd + Math.max(0, result.spend?.usd ?? 0),
           inputTokens: run.usage.inputTokens + Math.max(0, result.spend?.inputTokens ?? 0),
           outputTokens: run.usage.outputTokens + Math.max(0, result.spend?.outputTokens ?? 0),
@@ -457,11 +464,18 @@ export async function runAgentInvocation(jobId: string, deps: AgentRunDeps): Pro
       checkpoint = cp
       if (cp.phase !== phase) {
         phase = cp.phase
-        sink.emit({ kind: "phase", phase: cp.phase, label: PHASE_LABEL[cp.phase] })
+        if (!stepper.emitsPhases) sink.emit({ kind: "phase", phase: cp.phase, label: PHASE_LABEL[cp.phase] })
       }
       if (result.done) {
-        run = { ...run, summary: result.done.summary?.slice(0, 600) ?? null, notes: (result.done.notes ?? []).slice(0, 12).map((n) => n.slice(0, 280)) }
-        return end(result.done.status, null)
+        const d = result.done
+        run = { ...run, summary: d.summary?.slice(0, 600) ?? null, notes: (d.notes ?? []).slice(0, 12).map((n) => n.slice(0, 280)) }
+        if (d.status === "cancelled") return end("cancelled", null, { stopped: "cancelled" })
+        if (d.stopped && d.stopped !== "cancelled") return end(d.status, stopCode(d.stopped), { stopped: d.stopped })
+        if (d.status === "failed") {
+          log("the loop ended the job", { job: job.id, error: (d.error ?? "").slice(0, 200) })
+          return end("failed", classify(new Error(d.error ?? "")).code)
+        }
+        return end(d.status, null)
       }
       const ok = await save({ status: "running", step: "agent", phase, iteration: run.usage.iterations, checkpoint, run: { ...run, usage: { ...run.usage, activeMs: activeMs() } }, costUsd: run.usage.usd, error: null, leaseUntil: lease() })
       if (!ok) return { outcome: "lost" }

@@ -194,7 +194,7 @@ export function AgentProgressPanel({
     state === "complete"
       ? view.summary || tt("Every section is yours to edit. Publish when you are happy with it.")
       : state === "partial"
-        ? reason?.message ?? tt("Some parts were left out rather than made up. Ask AI to fix them, or edit them yourself.")
+        ? reason?.message ?? view.summary ?? tt("Some parts were left out rather than made up. Ask AI to fix them, or edit them yourself.")
         : state === "failed"
           ? reason?.message ?? tt("What was made so far is saved as a draft.")
           : state === "cancelled"

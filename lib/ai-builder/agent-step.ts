@@ -24,7 +24,7 @@
  *
  * Added by L2 (round L) as a minimal extension of the L0 contract.
  */
-import type { AgentCheckpoint, AgentEvent, AgentJobStatus, GenerationMode, JobBudget, RuntimePreviewError, StartOptions } from "./types"
+import type { AgentCheckpoint, AgentEvent, AgentJobStatus, BudgetStop, GenerationMode, JobBudget, RuntimePreviewError, StartOptions } from "./types"
 
 /** An event as a step emits it: the runner numbers it (seq) and stamps it (at). */
 export type AgentEventDraft = AgentEvent extends infer E ? (E extends AgentEvent ? Omit<E, "seq" | "at"> : never) : never
@@ -87,13 +87,20 @@ export interface AgentStepResult {
   /** This iteration's spend only. */
   spend: { usd: number; inputTokens: number; outputTokens: number }
   counts?: AgentCounts
-  /** The agent called `finish` and it was accepted: the job ends. `partial` when it says gaps remain. */
-  done?: { status: Extract<AgentJobStatus, "complete" | "partial">; summary?: string; notes?: string[] }
+  /** Model calls this step made (default 1). A step that only prepared, or ran out of time before calling, says 0. */
+  calls?: number
+  /**
+   * The job ends. `complete` / `partial` when the agent finished (partial: gaps remain); the loop may also end it
+   * itself: `stopped` on a budget it enforces, `cancelled`, or `failed` with `error` (its own words, for the logs).
+   */
+  done?: { status: Exclude<AgentJobStatus, "queued" | "running">; stopped?: BudgetStop; summary?: string; notes?: string[]; error?: string }
 }
 
 /** The loop for one job. `ownKey`: the creator's own provider key answers (the larger spend cap applies). */
 export interface AgentStepper {
   ownKey: boolean
+  /** The loop emits its own phase events (the runner then does not). */
+  emitsPhases?: boolean
   /** A fresh checkpoint for a job that has none yet. */
   start(job: AgentJobInfo): AgentCheckpoint
   step(checkpoint: AgentCheckpoint, ctx: AgentStepContext): Promise<AgentStepResult>
