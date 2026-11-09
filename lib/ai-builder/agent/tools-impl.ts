@@ -484,13 +484,13 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       if (Array.isArray(tasks)) cp.openTasks = tasks.filter((t) => typeof t === "string").map((t) => t.slice(0, 160)).slice(0, 20)
       if (concept !== undefined) {
         const read = readConcept(concept)
-        if (read.ok) {
+        if (read.ok === true) {
           cp.concept = read.concept
           note = `Concept "${read.concept.name}" accepted. You can write now. Keep to it:\n${describeConcept(read.concept)}`
           ctx.setPhase("build", `Building ${read.concept.name}`)
           return { ok: true, note }
         }
-        note = `The concept is missing: ${read.missing.join("; ")}. Send it again with those.`
+        note = `The concept is missing: ${"missing" in read ? read.missing.join("; ") : "fields"}. Send it again with those.`
       } else if (needsConcept()) note = conceptFirst
       ctx.setPhase(needsConcept() ? "plan" : phase === "finish" || phase === "verify" ? cp.phase : phase, String(label ?? "").slice(0, 120))
       return { ok: true, ...(note ? { note } : {}) }
