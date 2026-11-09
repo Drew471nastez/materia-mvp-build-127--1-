@@ -38,6 +38,7 @@ import { StorefrontHooks, asksForDrawers } from "./site-chrome-hooks"
 import { drawLive } from "@/lib/website-builder/storelib-live-fill"
 import { isLive } from "@/lib/website-builder/live-settings"
 import { OfferIslands } from "./offer-islands"
+import { FormIslands } from "./form-islands"
 
 /** The markup each section element holds, once it has been changed after React drew it. */
 const drawn = new WeakMap<Element, string>()
@@ -462,6 +463,8 @@ export function StorelibSection({
       />
       {/* A featured product's offers, drawn into the marks its markup leaves for them (./offer-islands.tsx). */}
       <OfferIslands root={scriptRoot} html={onPage} inert={isEditing === true} codes={theme.currency_code_enabled === true} />
+      {/* A published form, drawn into the mark a form_picker section leaves for it (./form-islands.tsx). A preview on the canvas. */}
+      <FormIslands root={scriptRoot} html={onPage} preview={!!(isEditing || insideEditor || inEditor)} />
       {asksDrawers && (
         <StorefrontHooks
           trigger={drawerTrigger}

@@ -264,6 +264,7 @@ Values that are references to something else:
 `image_picker` `image_gallery` `video_picker` `video_url` `file_picker`
 `icon_picker` `url` `page_picker` `product_picker` `product_list`
 `link_list` `community_picker` `collection_picker` `collection_list`
+`form_picker`
 
 A `product_picker` prints as the product's address, as it always has, and
 also carries the product: `settings.product.title`, `.price`, `.image`. A

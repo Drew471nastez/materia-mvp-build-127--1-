@@ -65,7 +65,7 @@ export default async function PreviewCollectionPage({ params, searchParams }: Pa
     .eq("page_key", "collection")
     .maybeSingle()
   const template = sanitizeSections(pageSections<SectionInstance[]>(templateData as never, preview) ?? [])
-  const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings)
+  const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings, { cached: false, draft: preview })
 
   /* Every member, in the collection's order: the newest 24 the shop list holds, and the rest by id. */
   const order = new Map(inIt.productIds.map((id, i) => [id, i]))

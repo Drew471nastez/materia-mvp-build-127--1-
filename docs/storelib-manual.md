@@ -524,6 +524,7 @@ nothing was set, and whether they may carry a value per breakpoint.
 | `community_picker` | string | `""` | no | |
 | `collection_picker` | string | `""` | no | |
 | `collection_list` | reference list | `[]` | no | `limit` |
+| `form_picker` | string | `""` | no | |
 | `header` | nothing | | no | |
 | `paragraph` | nothing | | no | `content` |
 | `divider` | nothing | | no | |
@@ -1716,7 +1717,7 @@ Values somebody types or picks: `text`, `textarea`, `richtext`,
 References to something else: `image_picker`, `image_gallery`, `video_picker`,
 `video_url`, `file_picker`, `icon_picker`, `url`, `page_picker`,
 `product_picker`, `product_list`, `link_list`, `community_picker`,
-`collection_picker`, `collection_list`.
+`collection_picker`, `collection_list`, `form_picker`.
 
 Presentational, holding no value: `header`, `paragraph`, `divider`.
 

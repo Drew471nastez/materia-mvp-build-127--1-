@@ -152,7 +152,7 @@ export function renderSection(input: RenderInput): Rendered {
     product: data.product?.id ? { id: data.product.id, type: "product", settings: data.product as Record<string, unknown> } : null,
     collection: data.collection ?? null,
   }
-  const resolveOpts = { assets, catalog: data.catalog, menus: data.menus, communities: data.communities, collections: data.collections, current }
+  const resolveOpts = { assets, catalog: data.catalog, menus: data.menus, communities: data.communities, collections: data.collections, forms: data.forms, current }
   const { settings, blocks, statics } = resolveInstance(compiled.schema, instance, {
     ...resolveOpts,
     themeBlock: (type) => blockOf(type)?.schema ?? null,

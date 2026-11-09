@@ -24,6 +24,7 @@
  *     width. CSS does that better anyway;
  *   - anything that loads: no src, no href, no innerHTML. See ATTR_ALLOWED.
  */
+import { PREVIEW_ERROR_EVENT } from "@/lib/ai-builder/preview-errors"
 import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   EVENTS_FORWARDED,
@@ -208,6 +209,15 @@ export function SectionSandboxProvider({
         /* A section's own mistake, said once, and never to a visitor as a
            broken page: the section keeps whatever it had drawn. */
         console.warn("[section script]", typeof msg.message === "string" ? msg.message.slice(0, 300) : "")
+        /*
+          IN THE BUILDER'S CANVAS ONLY, and only for a section this page
+          registered: said to the editor too, which hands it to an AI job
+          building the site (lib/ai-builder/preview-errors.ts). Text, cut
+          short; never on a visitor's page.
+        */
+        if (inEditorRef.current && live.current.has(String(msg.id))) {
+          window.dispatchEvent(new CustomEvent(PREVIEW_ERROR_EVENT, { detail: { sectionId: String(msg.id).slice(0, 120), message: typeof msg.message === "string" ? msg.message.slice(0, 300) : "" } }))
+        }
       }
     }
     window.addEventListener("message", onMessage)

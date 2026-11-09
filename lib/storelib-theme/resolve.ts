@@ -53,7 +53,7 @@ import { legacySchemeValues, schemeTokenName, themeColorSchemes } from "./color-
 import { themeTypography } from "./typography"
 import { shopObject } from "./globals"
 import { faviconOf } from "@/lib/website-builder/favicon-sync"
-import { BREAKPOINTS, MAX_BLOCK_DEPTH, isAssetRef, type BlockInstanceData, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition, type StorefrontCollection, type StorefrontCommunity, type ThemeBlockSchema } from "./types"
+import { BREAKPOINTS, MAX_BLOCK_DEPTH, isAssetRef, type BlockInstanceData, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition, type StorefrontCollection, type StorefrontCommunity, type StorefrontForm, type ThemeBlockSchema } from "./types"
 
 export interface ResolveOptions {
   /** `asset://…` → URL. Missing references resolve to "". */
@@ -78,6 +78,12 @@ export interface ResolveOptions {
    * (somebody else's, unpublished, deleted), and the setting is empty.
    */
   collections?: Record<string, StorefrontCollection>
+  /**
+   * The creator's published forms a `form_picker` may name, by id. Absent,
+   * or an id that is not here (somebody else's, a draft, archived), and the
+   * setting is empty.
+   */
+  forms?: Record<string, StorefrontForm>
   /**
    * What the page itself is about, for a picker set to CURRENT (`@current`,
    * Shopify's "dynamic source"): the product on a product page, the
@@ -259,6 +265,8 @@ function allowed(type: ControlType, v: unknown, def: SettingDefinition, opts: Re
       return Array.isArray(v) ? collectionList(v, def, opts) : undefined
     case "link_list":
       return typeof v === "string" ? menuFor(v, opts) : undefined
+    case "form_picker":
+      return typeof v === "string" ? formRef(v, opts) : undefined
     case "header":
     case "paragraph":
     case "divider":
@@ -331,6 +339,24 @@ function communityRef(v: string, opts: ResolveOptions): unknown {
   const item = opts.communities?.[key]
   if (!item) return ""
   return new Linked(safeHref(item.url), { ...item, id: key } as Record<string, unknown>)
+}
+
+/**
+ * A form picker holds a form's id. When the page knows that form (the
+ * creator's own and published), the setting becomes a Linked value that
+ * prints as the form's own page and carries its id, title and kind, so a
+ * template can leave the mark the page draws the live form into
+ * (`data-storelib-native-form="{{ settings.form.id }}"`). Any other id is
+ * empty: a section can never show, or send answers to, a form that is not
+ * this creator's through its setting.
+ */
+function formRef(v: string, opts: ResolveOptions): unknown {
+  const key = v.trim().toLowerCase()
+  if (key === "" || !opts.forms) return ""
+  if (!Object.prototype.hasOwnProperty.call(opts.forms, key)) return ""
+  const item = opts.forms[key]
+  if (!item) return ""
+  return new Linked(safeHref(item.url), { id: key, title: item.title, kind: item.kind, booking: item.booking === true, url: safeHref(item.url) })
 }
 
 /**
