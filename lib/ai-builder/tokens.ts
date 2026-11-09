@@ -273,3 +273,34 @@ export function tokenUsage(sources: Record<string, string>): Record<string, stri
   }
   return out
 }
+
+/* ── one group of tokens changed, as the settings it writes ───────────── */
+
+export type TokenGroup = "colors" | "fonts" | "typeScale" | "radius" | "spacing" | "shadow" | "motion" | "custom"
+
+/** The Theme settings each group writes, and only those: changing a colour never rewrites a radius somebody set in Layout. */
+export const TOKEN_GROUP_SETTINGS: Record<TokenGroup, readonly string[]> = {
+  colors: ["color_schemes", "default_color_scheme", "background_color", "text_color", "primary_color"],
+  fonts: ["font_heading", "font_body", "font_accent"],
+  typeScale: ["typography_styles"],
+  radius: ["input_radius", "button_border_radius", "border_radius", "image_border_radius", "popup_radius"],
+  spacing: ["spacing_scale", "page_width", "content_padding_x", "ai_section_y"],
+  shadow: ["card_shadow"],
+  motion: ["animations_enabled", "animation_style", "animation_duration"],
+  custom: [CUSTOM_TOKENS_SETTING],
+}
+
+/**
+ * The settings to write when one group of tokens changed: that group's keys
+ * from tokensToThemeSettings, and only the ones whose value differs. A
+ * custom token removed is removed (the custom map is written whole).
+ */
+export function tokenPatch(group: TokenGroup, next: DesignTokens, current: Record<string, unknown> | null | undefined): Record<string, unknown> {
+  const all = tokensToThemeSettings(group === "custom" ? next : { ...next, custom: {} }, group === "custom" ? { ...(current ?? {}), [CUSTOM_TOKENS_SETTING]: {} } : current)
+  const out: Record<string, unknown> = {}
+  for (const key of TOKEN_GROUP_SETTINGS[group]) {
+    if (!(key in all)) continue
+    if (JSON.stringify(all[key]) !== JSON.stringify(current?.[key])) out[key] = all[key]
+  }
+  return out
+}
