@@ -15,6 +15,7 @@
 import { STORELIB_HOOKS, AGENT_DEFAULT_CAPABILITIES, type RuntimeCapabilities } from "../runtime-contract"
 import type { AgentJobInput, KnowledgeHit, StoredFile, StoredPage } from "./ports"
 import type { Direction } from "@/lib/storelib-ai/library/concept"
+import { startContext } from "@/lib/website-builder/ai-site/start-options"
 
 /** CLAUDE.md's list, and its shape: words that say nothing. */
 export const BANNED_WORDS = ["unlock", "elevate", "seamless", "powerful", "effortlessly", "supercharge", "transform", "revolutionize", "game-changer"]
@@ -65,14 +66,8 @@ function capsSummary(c: RuntimeCapabilities | null): string {
 /** The first user turn of a job. */
 export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; pages: StoredPage[]; files: StoredFile[]; knowledge: KnowledgeHit[]; directions?: Direction[] }): string {
   const { job } = input
-  const o = job.options
-  const prefs = [
-    o?.category ? `Category: ${o.category.replace(/_/g, " ")}` : "",
-    o?.preferences?.pages?.length ? `Pages they want: ${o.preferences.pages.join(", ")}` : "",
-    o?.preferences?.tone ? `Tone: ${o.preferences.tone}` : "",
-    o?.preferences?.colors?.length ? `Their colours: ${o.preferences.colors.join(", ")}` : "",
-    o?.preferences?.language ? `Language: ${o.preferences.language}` : "",
-  ].filter(Boolean)
+  /* The creator's choices on Describe your website, in L1's words (start-options.ts startContext): kind, blank or theme, preset, preferences. */
+  const choices = startContext(job.options ?? null)
   const own = input.files.filter((f) => /^(sections|blocks|snippets)\/ai_/.test(f.path)).map((f) => f.path)
   const pages = input.pages.map((p) => `${p.key}: ${p.sections.map((s) => `${s.type}${s.group ? `(${s.group})` : ""} [${s.id}]`).join(", ") || "(empty)"}`)
   const mode = job.edit
@@ -82,7 +77,7 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
       : "NEW WEBSITE INSIDE A THEME: the theme's sections exist and may stay; add your own ai_ components beside them and replace what does not fit the concept."
   return [
     `REQUEST (the creator's words):\n${job.prompt}`,
-    prefs.length ? `PREFERENCES:\n${prefs.join("\n")}` : "",
+    choices ? `THEIR CHOICES:\n${choices}` : "",
     mode,
     capsSummary(input.caps),
     `PAGES NOW:\n${pages.join("\n") || "home: (empty)"}`,
