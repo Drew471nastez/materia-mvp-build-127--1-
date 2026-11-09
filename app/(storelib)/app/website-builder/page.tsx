@@ -17,6 +17,7 @@ import { ensureStarterWebsite } from "@/lib/website-builder/starter-website"
 import { getServerTt } from "@/lib/i18n/server"
 import { publishedListings } from "@/lib/themes/marketplace-server"
 import { builtinListings } from "@/lib/themes/marketplace-shared"
+import { agentEnabledFor } from "@/lib/website-builder/ai-site/agent-access"
 
 export async function generateMetadata(): Promise<Metadata> {
   const { tt } = await getServerTt()
@@ -167,7 +168,12 @@ export default async function WebsiteBuilderPage() {
 
   /* The website's own name on Storelib, when its creator gave it one. */
   const siteHandle = await handle
-  return <WebsiteBuilderClient installs={installs} username={username} siteHandle={siteHandle} listings={await listings} account={access.viewer} teamMember={!access.isOwner} />
+  /*
+    Whether Start with AI can design from scratch (round N): the new AI builder, the agent engine, on for this store's
+    owner. The same check themes/create makes; it reads the creator's names only when the allowlist has names.
+  */
+  const aiAgent = access.isOwner ? await agentEnabledFor(createAdminClient(), { ownerUserId: access.ownerUserId, creatorId: storeId }).catch(() => false) : false
+  return <WebsiteBuilderClient installs={installs} username={username} siteHandle={siteHandle} listings={await listings} account={access.viewer} teamMember={!access.isOwner} aiAgent={aiAgent} />
 }
 
 /**

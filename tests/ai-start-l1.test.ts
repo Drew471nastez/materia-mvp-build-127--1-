@@ -188,6 +188,10 @@ async function main() {
     const badCat = await j.call("POST /api/website-builder/themes/create", { as: seller, body: { mode: "ai", prompt: typed, key, options: { generation: "blank", category: "yoga" } } })
     check("no key, no words, too many words, an unknown category: 400, and no website", noKey.status === 400 && empty.status === 400 && long.status === 400 && badCat.status === 400 && installsOf() === installsBefore, [noKey.status, empty.status, long.status, badCat.status])
 
+    /* Changed on purpose (round N, N1): From scratch is the new AI builder's. With it off for the account the press is refused, said in words, and nothing is made; never the older builder on the theme's sections in its place. */
+    const off = await j.call("POST /api/website-builder/themes/create", { as: seller, body })
+    check("round N: blank with the new AI builder off for the account: 409 agent_off, no website, no job", off.status === 409 && off.json?.code === "agent_off" && installsOf() === installsBefore && j.rows("ai_site_jobs").filter((r) => r.creator_id === creatorId).length === 0, { status: off.status, json: off.json })
+    process.env.AI_BUILDER_AGENT_ACCOUNTS = "jocoach"
     const first = await j.call("POST /api/website-builder/themes/create", { as: seller, body })
     check("Create: a website and a job", first.status === 200 && typeof first.json?.install?.id === "string" && typeof first.json?.job?.id === "string", first.json)
     /* The second press (a double click, or a retry after a lost answer, or a reload: the tab gives the same key). */
@@ -202,7 +206,9 @@ async function main() {
     const row = jobs[0] ?? {}
     check("the job row holds the prompt exactly as typed", row.prompt === typed, row.prompt)
     check("  the category and blank page in options, mode blank", JSON.stringify(row.options) === JSON.stringify(options) && row.mode === "blank", { options: row.options, mode: row.mode })
-    check("  queued for the classic engine with the press's key", row.status === "queued" && row.engine === "classic" && row.idempotency_key === key && row.install_id === installId)
+    /* Changed on purpose (round N): a blank page start runs on the agent engine (on for this account), never the classic one. */
+    check("  queued for the agent engine with the press's key", row.status === "queued" && row.engine === "agent" && row.idempotency_key === key && row.install_id === installId, { engine: row.engine, status: row.status })
+    delete process.env.AI_BUILDER_AGENT_ACCOUNTS
     check("the job was started on the server once, after the answer", kicks.length === 1 && kicks[0] === `/api/website-builder/ai-jobs/${jobId}/run`, kicks)
 
     const pages = j.rows("store_theme_pages").filter((p) => p.install_id === installId)

@@ -7013,6 +7013,39 @@ html.with-page-account {
 }
 
 /* ===========================================================================
+   START WITH AI: THE CANVAS WHILE THE SITE IS BEING MADE (round N)
+   ===========================================================================
+   components/website-builder/ai-generation/building-canvas.tsx. Three bars,
+   the width of a page's bands, placed one after another and taken away
+   again: sections being laid out, in 40 px. Transform and opacity only;
+   still under reduced motion. */
+.wb-building-mark {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 40px;
+}
+.wb-building-mark > span {
+  display: block;
+  height: 6px;
+  border-radius: 2px;
+  background: #1a1a2e;
+  transform-origin: left center;
+  animation: wb-building-bar 2400ms cubic-bezier(0.32, 0.72, 0, 1) infinite both;
+}
+.wb-building-mark > span:nth-child(1) { width: 100%; }
+.wb-building-mark > span:nth-child(2) { width: 70%; animation-delay: 240ms; background: #4b5563; }
+.wb-building-mark > span:nth-child(3) { width: 85%; animation-delay: 480ms; background: #9ca3af; }
+@keyframes wb-building-bar {
+  0% { opacity: 0; transform: scaleX(0.2); }
+  25%, 70% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-building-mark > span { animation: none; opacity: 1; }
+}
+
+/* ===========================================================================
    A SECTION STORELIB AI IS CHANGING, AND THE ONE IT JUST CHANGED
    ===========================================================================
    components/website-builder/editor/ai-working-overlay.tsx. One zero height

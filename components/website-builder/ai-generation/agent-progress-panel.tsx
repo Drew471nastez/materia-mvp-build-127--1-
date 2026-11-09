@@ -22,14 +22,25 @@
  * Pure view: lib/website-builder/ai-site/use-generation.ts follows the job.
  * The editor's own look (a white card, #1a1a2e actions), one column, the
  * list scrolls inside the card on a phone.
+ *
+ * ROUND N (N1). It was a 440 px card in the middle of the canvas, up to
+ * 560 px tall: over the very place the new sections land, so the build
+ * could not be seen. Now the editor docks it in a corner (top right on a
+ * computer, a one line bar under the editor's bar on a phone, opened with a
+ * tap), and the line under the title is what the agent is on, in plain
+ * words ("Designing the header", "Writing the product page",
+ * lib/website-builder/ai-site/live-build.ts). The tool's own words
+ * ("write file sections/ai_x.storelib") are never shown; a step a file or
+ * page line already says is not said twice.
  */
 import * as React from "react"
-import { Check, Loader2, RotateCw, Sparkles, Undo2, X } from "lucide-react"
+import { Check, ChevronDown, Loader2, RotateCw, Sparkles, Undo2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import type { AgentErrorCode } from "@/lib/ai-builder/agent-step"
 import type { AgentEvent, AgentPhase } from "@/lib/ai-builder/types"
 import { componentName, type AgentJobView, type RecoveryAction } from "@/lib/website-builder/ai-site/agent-progress"
+import { currentStep, toolStep } from "@/lib/website-builder/ai-site/live-build"
 
 export type AgentPanelState = "waiting" | "working" | "stopping" | "complete" | "partial" | "failed" | "cancelled"
 
@@ -85,13 +96,20 @@ function reasonWords(code: AgentErrorCode | undefined): { title: string; message
   }
 }
 
+/** Tools whose result has its own line (a file written, a page laid out, colours set). */
+const SAID_BY_RESULT = new Set<string>(["write_file", "edit_file", "delete_file", "set_page_sections", "add_page", "set_tokens"])
+
 /** One event as a line of the list, or null for the ones the list does not show. */
 export function eventLine(e: AgentEvent): { text: string; tone: "phase" | "done" | "plain" | "problem" | "muted" } | null {
   switch (e.kind) {
     case "phase":
       return { text: phaseWords(e.phase), tone: "phase" }
-    case "tool":
-      return e.summary ? { text: e.summary, tone: e.ok === false ? "problem" : "plain" } : null
+    case "tool": {
+      /* A file, page or colours line says these already, done: the tool line would say it twice. */
+      if (e.ok !== false && SAID_BY_RESULT.has(e.tool)) return null
+      const step = toolStep(e)
+      return step ? { text: step, tone: e.ok === false ? "problem" : "plain" } : null
+    }
     case "file": {
       const name = componentName(e.path)
       if (e.action === "created") return { text: tt("Wrote the {name} section", { name }), tone: "done" }
@@ -140,6 +158,7 @@ export function AgentProgressPanel({
   onStartOver,
   onClose,
   onUndo,
+  startCollapsed = false,
 }: {
   view: AgentJobView
   events: AgentEvent[]
@@ -151,7 +170,10 @@ export function AgentProgressPanel({
   onClose: () => void
   /** Redesign with AI (round M): puts back the backup taken before the job ran. */
   onUndo?: () => void
+  /** On a phone: the list of steps starts closed, so the canvas stays in view (round N). */
+  startCollapsed?: boolean
 }) {
+  const [collapsed, setCollapsed] = React.useState(startCollapsed)
   const state = agentPanelState(view)
   /* A Redesign with AI job: a change to a website that exists, with a way back. */
   const redesign = view.redesign ?? null
@@ -172,7 +194,7 @@ export function AgentProgressPanel({
   React.useLayoutEffect(() => {
     const el = list.current
     if (el && pinned.current) el.scrollTop = el.scrollHeight
-  }, [lines.length])
+  }, [lines.length, collapsed])
 
   const reason = view.error ? reasonWords(view.error.code) : null
   const actions: RecoveryAction[] = undone ? [] : state === "cancelled" ? (view.continues.used < view.continues.max ? ["continue", "start_over"] : ["start_over"]) : view.error?.actions ?? []
@@ -197,6 +219,8 @@ export function AgentProgressPanel({
                 ? tt("Waiting to start")
                 : phaseWords(view.phase)
 
+  /* What it is on now, in plain words (round N). */
+  const step = live && state !== "stopping" ? currentStep(events) : null
   const counts: string[] = []
   if (view.counts.pagesPlanned && view.counts.pagesDone !== undefined) counts.push(tt("{done} of {total} pages done", { done: view.counts.pagesDone, total: view.counts.pagesPlanned }))
   if (view.counts.componentsWritten) counts.push(tt("{count, plural, one {# section written} other {# sections written}}", { count: view.counts.componentsWritten }))
@@ -215,8 +239,8 @@ export function AgentProgressPanel({
             ? tt("What was made so far is saved as a draft.")
             : state === "stopping"
               ? tt("It stops after the step it is on. What it made stays as a draft.")
-              : counts.length
-                ? counts.join(" · ")
+              : step || counts.length
+                ? [step, ...counts].filter(Boolean).join(" · ")
                 : tt("You can close this tab: it keeps going.")
 
   const gaps = state === "partial" || state === "complete" ? view.notes.slice(0, 4) : []
@@ -234,9 +258,10 @@ export function AgentProgressPanel({
       aria-live="polite"
       aria-label={redesign ? tt("Redesign with AI") : tt("Start with AI")}
       data-agent-generation={state}
-      className="pointer-events-auto flex max-h-[min(70vh,560px)] w-full max-w-[440px] flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-[#1a1a2e] shadow-[0_8px_30px_rgba(16,24,40,0.12)]"
+      data-collapsed={collapsed ? "" : undefined}
+      className="pointer-events-auto flex max-h-[min(52vh,480px)] w-full flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-[#1a1a2e] shadow-[0_8px_30px_rgba(16,24,40,0.12)]"
     >
-      <div className="flex items-start gap-3 px-4 pt-4">
+      <div className={cn("flex items-start gap-3 px-4", collapsed ? "pt-3" : "pt-4")}>
         <span
           aria-hidden
           className={cn(
@@ -250,10 +275,22 @@ export function AgentProgressPanel({
           <h2 className="text-[15px] font-semibold leading-snug" data-agent-title="">
             {title}
           </h2>
-          <p className="mt-0.5 text-[13px] leading-snug text-[#6b7280]" data-agent-line="">
+          <p className={cn("mt-0.5 text-[13px] leading-snug text-[#6b7280]", collapsed && "truncate")} data-agent-line="">
             {line}
           </p>
         </div>
+        {lines.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? tt("Show steps") : tt("Hide steps")}
+            data-agent-toggle=""
+            className="-mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6b7280] outline-none hover:bg-[#f3f4f6] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
+          >
+            <ChevronDown aria-hidden className={cn("h-4 w-4 transition-transform duration-150 motion-reduce:transition-none", !collapsed && "rotate-180")} />
+          </button>
+        )}
         {live ? (
           <button
             type="button"
@@ -271,7 +308,7 @@ export function AgentProgressPanel({
         )}
       </div>
 
-      {lines.length > 0 && (
+      {lines.length > 0 && !collapsed && (
         <ol
           ref={list}
           onScroll={(e) => {
@@ -346,7 +383,7 @@ export function AgentProgressPanel({
           )}
         </div>
       )}
-      {live && <div className="pb-4" />}
+      {live && <div className={collapsed ? "pb-3" : "pb-4"} />}
     </section>
   )
 }

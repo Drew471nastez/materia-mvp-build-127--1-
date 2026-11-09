@@ -18,6 +18,12 @@
  *
  * Pure view: the hook owns the polling. The editor's own colours (a light
  * card in the Storelib UI), one column at a phone's width.
+ *
+ * ROUND N (N1): this is the CLASSIC build (the agent is off for the
+ * account), and it says so: it fills the theme's own sections, it is not
+ * the new AI builder that designs from scratch, and the card never lets one
+ * pass for the other. The editor docks it in a corner like the agent's
+ * card, so the canvas filling in under it stays in view.
  */
 import * as React from "react"
 import { Check, Loader2, RotateCw, Sparkles, X } from "lucide-react"
@@ -112,7 +118,8 @@ export function GenerationPanel({
       aria-live="polite"
       aria-label={tt("Start with AI")}
       data-generation={phase}
-      className="pointer-events-auto w-full max-w-[420px] overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-[#1a1a2e] shadow-[0_8px_30px_rgba(16,24,40,0.12)]"
+      data-generation-engine="classic"
+      className="pointer-events-auto w-full overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-[#1a1a2e] shadow-[0_8px_30px_rgba(16,24,40,0.12)]"
     >
       <div className="flex items-start gap-3 px-4 pt-4">
         <span aria-hidden className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", phase === "working" ? "bg-[#f3f4f6] text-[#1a1a2e]" : phase === "stopped" ? "bg-[#fef3f2] text-[#b42318]" : "bg-[#1a1a2e] text-white")}>
@@ -121,6 +128,9 @@ export function GenerationPanel({
         <div className="min-w-0 flex-1">
           <h2 className="text-[15px] font-semibold leading-snug">{title}</h2>
           <p className="mt-0.5 text-[13px] leading-snug text-[#6b7280]">{line}</p>
+          <p className="mt-1.5 text-[12px] leading-snug text-[#9ca3af]" data-generation-classic="">
+            {tt("Built from the theme's sections. The new AI builder isn't on for your account yet.")}
+          </p>
         </div>
         {phase !== "working" && (
           <button type="button" onClick={onClose} aria-label={tt("Close")} className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6b7280] outline-none hover:bg-[#f3f4f6] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20">
