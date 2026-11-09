@@ -282,11 +282,12 @@ const WORK_INDEX = component({
   blocks: [{ type: "work", name: "Project", settings: [{ type: "text", id: "year", label: "Year", default: "2026" }, { type: "text", id: "title", label: "Project", default: "Project name" }, { type: "text", id: "client", label: "For", default: "Client" }] }],
 })
 
+/* Changed on purpose (round N, N4): the brief names no font, so the scripted model now picks a display face with character (Instrument Sans, the type library's "Gallery label") instead of Inter, which the concept check refuses as a default display face. */
 export const D: Design = {
   label: "D minimal portfolio, single page",
   prompt: "One page. My name, what I do, a plain list of projects by year. Nothing else.",
-  concept: { ...CONCEPT, name: "Index card", mood: ["plain", "exact"], styles: ["minimal"], typeSystem: { display: "Inter", body: "Inter", scaleRatio: 1.125, rule: "One size, one weight" }, palette: { mode: "light", background: "#ffffff", text: "#111111", accent: "#555555", muted: "#6b6b6b", accentUse: "The role line" }, layout: { principles: ["A table, nothing else"], density: "airy", radius: 0 }, motion: { stance: "none", moves: [] }, signatureMoves: ["A table of contents for a life's work"] },
-  tokens: { colors: { background: "#ffffff", surface: "#ffffff", text: "#111111", muted: "#6b6b6b", accent: "#555555", accentText: "#ffffff", border: "#e5e5e5", inverse: { background: "#111111", text: "#ffffff", accent: "#bbbbbb" } }, fonts: { heading: "Inter", body: "Inter" }, radius: { small: 0, medium: 0, large: 0 } },
+  concept: { ...CONCEPT, name: "Index card", mood: ["plain", "exact"], styles: ["minimal"], typeSystem: { display: "Instrument Sans", body: "Instrument Sans", scaleRatio: 1.125, rule: "One size, one weight" }, palette: { mode: "light", background: "#ffffff", text: "#111111", accent: "#555555", muted: "#6b6b6b", accentUse: "The role line" }, layout: { principles: ["A table, nothing else"], density: "airy", radius: 0 }, motion: { stance: "none", moves: [] }, signatureMoves: ["A table of contents for a life's work"] },
+  tokens: { colors: { background: "#ffffff", surface: "#ffffff", text: "#111111", muted: "#6b6b6b", accent: "#555555", accentText: "#ffffff", border: "#e5e5e5", inverse: { background: "#111111", text: "#ffffff", accent: "#bbbbbb" } }, fonts: { heading: "Instrument Sans", body: "Instrument Sans" }, radius: { small: 0, medium: 0, large: 0 } },
   files: { "sections/ai_work_index.storelib": WORK_INDEX },
   pages: [],
   compose: { home: [{ type: "ai_work_index", blocks: [{ type: "work", settings: { year: "2026", title: "Vale Sans", client: "Maison Vale" } }, { type: "work", settings: { year: "2025", title: "Signage", client: "Leeds Library" } }] }] },
