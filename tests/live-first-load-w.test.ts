@@ -66,7 +66,8 @@ function cdn() {
 
   const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
   check("the shared answer is marked for the hold, with the theme's own header", /headers\.set\("Cache-Control", PUBLIC_PAGE_CACHE\)/.test(route) && /headers\.set\(SHAREABLE_HEADER, "1"\)/.test(route))
-  check("and only shared without a Set-Cookie", /share: res\.status === 200 && res\.headers\.get\(SHAREABLE_HEADER\) === "1" && res\.headers\.get\("Cache-Control"\) === PUBLIC_PAGE_CACHE && !res\.headers\.has\("Set-Cookie"\)/.test(route))
+  /* Changed on purpose (round AP): the share test is named \`plain\` so a page drawn without a part can be handed to waiting strangers but never kept. */
+  check("and only shared without a Set-Cookie", /const plain = res\.status === 200 && res\.headers\.get\("Cache-Control"\) === PUBLIC_PAGE_CACHE && !res\.headers\.has\("Set-Cookie"\)/.test(route) && /share: plain && res\.headers\.get\(SHAREABLE_HEADER\) === "1"/.test(route))
   check("the page opened as a document is held apart from a script's fetch of it", /strangerKey\(username, path, url\.search, openedAsDocument\(req\.headers\)\)/.test(route))
   const hold = code("lib/storelib-theme/compat/stranger-hold.ts")
   check("by its own key", /asDocument \? \["document"\] : \[\]/.test(hold))
