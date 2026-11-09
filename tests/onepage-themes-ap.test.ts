@@ -75,7 +75,8 @@ for (const t of AP_THEMES) {
   check(`${t.name}: picking another theme leaves none of it behind`, next.block_layout === null && next.background_pattern === "none" && next.title_font === null && next.button_hover_fill === null)
 }
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }])
-check("Notebook joins the light themes and Cobalt the gradients", merged.map((t) => t.id).join(",").includes("folio,notebook,b,lagoon,cobalt"), merged.map((t) => t.id).join(","))
+/* Changed on purpose (round W8): Gazette (light) and Halo (gradient) now follow Notebook and Cobalt at the end of their kinds. */
+check("Notebook joins the light themes and Cobalt the gradients", merged.map((t) => t.id).join(",").includes("folio,notebook,gazette,b,lagoon,cobalt,halo"), merged.map((t) => t.id).join(","))
 
 console.log("\nEvery theme's name in six languages")
 const names = read("components/onepage/themes/theme-names.ts")
@@ -88,7 +89,8 @@ for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
   check(`${lang}: every name`, missing.length === 0, missing.join())
 }
 check("the card and its label show the name in the reader's language", /const name = themeLabel\(template\)/.test(design) && /aria-label=\{tt\("\{name\} theme", \{ name \}\)\}/.test(design))
-check("the names' faces are cut to the letters of the names as the language spells them", /onePageFontSampleHref\(THEME_NAME_FAMILIES, THEME_TEMPLATES\.map\(\(t\) => themeLabel\(t\)\)\.join\(""\)\)/.test(design))
+/* Changed on purpose (round W8): the cut carries the names in capitals too, for the themes that set their name in capitals. */
+check("the names' faces are cut to the letters of the names as the language spells them", /const names = THEME_TEMPLATES\.map\(\(t\) => themeLabel\(t\)\)\.join\(""\); return onePageFontSampleHref\(THEME_NAME_FAMILIES, names \+ names\.toUpperCase\(\)\)/.test(design))
 
 console.log("\nA theme card is the page, at a card's scale")
 const preview = read("components/onepage/themes/theme-preview.tsx")

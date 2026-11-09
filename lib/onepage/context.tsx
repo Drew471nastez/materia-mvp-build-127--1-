@@ -88,7 +88,7 @@ interface OnePageContextType {
   updateTheme: (updates: Partial<OnePageTheme>) => void
   applyTemplate: (template: OnePageTemplate) => void
   /** Picks a theme: the whole look, Share and Subscribe, and every block's own colours, in one undo step (lib/onepage/theme-apply). */
-  applyThemeLook: (template: ThemeTemplateLike, headerLayout?: "classic" | "hero") => void
+  applyThemeLook: (template: ThemeTemplateLike, headerLayout?: "classic" | "hero", previous?: ThemeTemplateLike | null) => void
 
   updateSocialLinks: (updates: Partial<OnePageSocialLinks>) => void
 
@@ -452,10 +452,10 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     commit({ ...prev, theme: { ...template.theme, template_id: template.id } }, null)
   }, [commit])
 
-  const applyThemeLook = useCallback((template: ThemeTemplateLike, headerLayout?: "classic" | "hero") => {
+  const applyThemeLook = useCallback((template: ThemeTemplateLike, headerLayout?: "classic" | "hero", previous?: ThemeTemplateLike | null) => {
     const prev = latestOnepageRef.current
     if (!prev) return
-    commit(lookFromTemplate(prev, template, headerLayout), null)
+    commit(lookFromTemplate(prev, template, headerLayout, previous), null)
   }, [commit])
 
   const updateSocialLinks = useCallback((updates: Partial<OnePageSocialLinks>) => {
