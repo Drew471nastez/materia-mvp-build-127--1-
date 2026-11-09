@@ -76,6 +76,8 @@ try {
     const x0 = box.x + box.w * 0.7
     const y0 = box.y + box.h / 2
     const clicksBefore = await page.evaluate(() => window.__clicks)
+    /* Where the row starts (a snapping row rests a few pixels in). */
+    const start = await page.$eval(sel, (el) => el.scrollLeft)
     await page.mouse.move(x0, y0)
     await page.mouse.down()
     const lag = []
@@ -83,7 +85,7 @@ try {
       await page.mouse.move(x0 - i * 16, y0)
       const left = await page.$eval(sel, (el) => el.scrollLeft)
       /* After the 6px that make a press a drag, the row is the pointer's travel. */
-      if (i * 16 > 8) lag.push(Math.abs(left - i * 16))
+      if (i * 16 > 8) lag.push(Math.abs(left - start - i * 16))
       await sleep(16)
     }
     await page.mouse.up()
@@ -92,7 +94,10 @@ try {
     const clicksAfterDrag = (await page.evaluate(() => window.__clicks)) - clicksBefore
     /* A plain click on a link in the row still counts. */
     const plain = await page.evaluate((s) => {
-      const a = document.querySelector(s)?.querySelector("a[href]")
+      const row = document.querySelector(s)
+      const box = row?.getBoundingClientRect()
+      /* A link the row shows now, wholly inside it. */
+      const a = row && [...row.querySelectorAll("a[href]")].find((l) => { const r = l.getBoundingClientRect(); return r.width > 0 && r.left >= box.left - 1 && r.right <= box.right + 1 })
       if (!a) return null
       const r = a.getBoundingClientRect()
       return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
@@ -123,11 +128,12 @@ try {
   const touchLeft = await phone.evaluate(async () => {
     const row = [...document.querySelectorAll("*")].find((el) => ["auto", "scroll"].includes(getComputedStyle(el).overflowX) && el.scrollWidth > el.clientWidth + 20 && el.getClientRects().length)
     if (!row) return null
+    const before = row.scrollLeft
     row.dispatchEvent(new PointerEvent("pointerdown", { pointerType: "touch", bubbles: true, clientX: 300, clientY: 10, pointerId: 7, button: 0 }))
     row.dispatchEvent(new PointerEvent("pointermove", { pointerType: "touch", bubbles: true, clientX: 100, clientY: 10, pointerId: 7 }))
-    return { left: row.scrollLeft, dragging: row.hasAttribute("data-dragging") }
+    return { moved: row.scrollLeft - before, dragging: row.hasAttribute("data-dragging") }
   })
-  expect(touchLeft && touchLeft.left === 0 && !touchLeft.dragging, "a finger's pointer events move nothing by script (the browser scrolls)", touchLeft)
+  expect(touchLeft && touchLeft.moved === 0 && !touchLeft.dragging, "a finger's pointer events move nothing by script (the browser scrolls)", touchLeft)
   await phone.close()
 } finally {
   await browser.close()

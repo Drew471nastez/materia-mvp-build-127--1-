@@ -3446,7 +3446,8 @@ function BlockItem({
         const displayUrl = data.url ? (data.url.length > 40 ? data.url.slice(0, 40) + "..." : data.url) : "https://..."
         // Auto-detect Notion URLs and show Notion icon
         const isNotionUrl = data.url?.toLowerCase().includes('notion.so') || data.url?.toLowerCase().includes('notion.site')
-        const effectiveIconId = data.icon || (isNotionUrl ? 'notion' : undefined)
+        /* Round AP: the platform's mark read from the address, as the page and a group's rows draw it (components/onepage/link-icons resolveLinkIcon). */
+        const effectiveIconId = resolveLinkIcon(data.icon, data.url) ?? (isNotionUrl ? 'notion' : undefined)
         /* A new link with no address is not on the page yet: the row says what it needs (lib/onepage/extra-blocks isIncompleteLink). */
         if (!hasRealUrl(data.url)) return { title: data.label || tt("My Link"), subtitle: tt("Add an address to show it"), icon: GlyphLink, thumbnail_url: data.thumbnail_url, iconId: effectiveIconId, incomplete: true }
         return { title: data.label || tt("My Link"), subtitle: displayUrl, icon: GlyphLink, thumbnail_url: data.thumbnail_url, iconId: effectiveIconId }
@@ -3776,7 +3777,7 @@ function BlockItem({
               e.stopPropagation()
               setAskingRemove(true)
             }}
-            className="hidden h-8 w-8 shrink-0 place-items-center rounded-lg text-[#9ca3af] opacity-0 outline-none transition-[opacity,background-color,color] duration-150 hover:bg-[#fef3f2] hover:text-[#b42318] focus-visible:opacity-100 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] group-hover/row:opacity-100 sm:[@media(hover:hover)_and_(pointer:fine)]:grid"
+            className="hidden h-8 w-8 shrink-0 place-items-center rounded-lg text-[#9ca3af] opacity-0 outline-none transition-[opacity,background-color,color] duration-150 hover:bg-[#fef3f2] hover:text-[#b42318] focus-visible:opacity-100 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] group-hover/row:opacity-100 sm:pointer-fine:grid"
           >
             <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.8} />
           </button>

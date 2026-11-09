@@ -198,7 +198,8 @@ async function main() {
     const icons = read("components/onepage/block-icons.tsx")
     check("one icon set: one stroke, round ends, no fill", (icons.match(/strokeWidth=\{1\.6\}/g) ?? []).length === 1 && /fill="none"/.test(icons) && /strokeLinecap="round"/.test(icons) && !/fill="(?!none)/.test(icons))
     const tab = read("components/onepage/tabs/links-tab.tsx")
-    check("the blocks list uses it, near black on the grey tile", /icon: GlyphSocial/.test(tab) && /icon: GlyphGroup/.test(tab) && /icon: GlyphHeader/.test(tab) && /rounded-\[11px\] bg-\[#f2f2f4\]/.test(tab) && /<Icon className="h-5 w-5 text-\[#1a1a2e\]" \/>/.test(tab))
+    check("the blocks list uses it, near black on the grey tile", /icon: GlyphSocial/.test(tab) && /icon: GlyphGroup/.test(tab) && /icon: GlyphHeader/.test(tab) && /rounded-\[11px\] bg-\[#f2f2f4\]/.test(tab) && /<Icon className=\{cn\("h-5 w-5", !tileStyle && "text-\[#1a1a2e\]"\)\} \/>/.test(tab))
+    /* Changed on purpose (round AP): a row draws its Add block entry's glyph on the entry's tile colours (rowTile); a glyph with no entry stays near black on the grey tile. */
     check("a picked entry adds its block with what it starts with", /onPick=\{\(entry\) => handleAddBlock\(entry\.type, entry\.preset, entry\.data\)\}/.test(tab))
   }
 

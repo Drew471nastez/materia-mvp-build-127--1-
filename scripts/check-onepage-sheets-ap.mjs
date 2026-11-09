@@ -205,6 +205,39 @@ try {
       await page.close()
     }
   }
+
+  /* ── Share: a bottom sheet on a phone (like Subscribe), the centred card from 640px. ── */
+  for (const [label, vp] of [["390", { width: 390, height: 844, isMobile: true, hasTouch: true }], ["1440", { width: 1440, height: 900 }]]) {
+    const page = await browser.newPage()
+    await page.setViewport({ deviceScaleFactor: 1, ...vp })
+    await page.goto(base + "/app/onepage?view=share", { waitUntil: "domcontentloaded" })
+    await page.waitForSelector("[data-onepage-share-sheet]", { timeout: 15000 })
+    await sleep(700)
+    const s = await page.evaluate(() => {
+      const band = document.querySelector("[data-onepage-share-sheet]")
+      const sheet = band.closest("[data-sheet-panel]")
+      const card = band.closest("[data-onepage-dialog-panel]")
+      const box = (sheet || card).getBoundingClientRect()
+      const handle = sheet?.querySelector("[data-sheet-handle]")
+      return {
+        kind: sheet ? "bottom sheet" : card ? "centred card" : "none",
+        bottomGap: Math.round(innerHeight - box.bottom),
+        width: Math.round(box.width),
+        top: Math.round(box.top),
+        /* On a phone, the grip's strip is the band's colour: no white over the band. */
+        gripStrip: handle ? getComputedStyle(handle).backgroundColor : null,
+        band: getComputedStyle(band).backgroundColor,
+      }
+    })
+    console.log(`   share ${label}: ${JSON.stringify(s)}`)
+    results.push({ viewport: label, name: "share", ...s })
+    if (label === "390") {
+      check(s.kind === "bottom sheet" && s.bottomGap <= 1 && s.width === 390, `390 share: a bottom sheet from the foot of the screen, full width (${s.kind}, gap ${s.bottomGap}, ${s.width}px)`)
+      check(s.gripStrip === s.band, `390 share: the band runs under the grip (${s.gripStrip} / ${s.band})`)
+    } else check(s.kind === "centred card" && s.width === 380, `1440 share: the centred card, 380 wide (${s.kind}, ${s.width}px)`)
+    if (shots) await page.screenshot({ path: join(shots, `share-${label}.png`) })
+    await page.close()
+  }
 } finally {
   await browser.close()
   server.close()

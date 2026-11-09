@@ -10,6 +10,7 @@ import { createRoot } from "react-dom/client"
 import { BlockSheetProvider, useBlockSheet } from "@/components/onepage/block-sheet"
 import { ExtraBlock } from "@/components/onepage/extra-blocks"
 import { NativeFormBlock } from "@/components/forms/native-form-block"
+import { OnePageShareSheet } from "@/components/onepage/share-sheet"
 import { defaultTheme, type OnePageBlock } from "@/lib/onepage/types"
 
 const block = (id: string, type: OnePageBlock["type"], data: Record<string, unknown>): OnePageBlock => ({ id, type, enabled: true, sort_order: 0, data: data as never })
@@ -60,8 +61,23 @@ function Page() {
   )
 }
 
+/* ?view=share: the OnePage's Share, open, on a page in a dark colour (its band). */
+function ShareView() {
+  const [open, setOpen] = React.useState(true)
+  return (
+    <main style={{ minHeight: "100vh", background: "#0e0e10", padding: 24, color: "#fff" }}>
+      <button type="button" data-probe-share="" onClick={() => setOpen(true)}>Share</button>
+      <OnePageShareSheet open={open} onClose={() => setOpen(false)} dark pageUrl="https://storelib.me/radu" pageTitle="Radu Stamate" avatarUrl={null} band={{ backgroundType: "solid", backgroundColor: "#0e0e10" }} />
+    </main>
+  )
+}
+
 createRoot(document.getElementById("app")!).render(
-  <BlockSheetProvider dark={dark} theme={theme}>
-    <Page />
-  </BlockSheetProvider>,
+  new URLSearchParams(location.search).get("view") === "share" ? (
+    <ShareView />
+  ) : (
+    <BlockSheetProvider dark={dark} theme={theme}>
+      <Page />
+    </BlockSheetProvider>
+  ),
 )

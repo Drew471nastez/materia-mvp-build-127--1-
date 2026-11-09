@@ -149,7 +149,7 @@ const M_BACK_REDUCED = 120
 /* A mouse is exact: the sheet follows once it has moved this far, not a finger's slop. */
 const MOUSE_SLOP_PX = 3
 
-/* Late content: the growth eases in over this long, on the rise's own curve. */
+/* Late content: the growth eases in over this long. */
 const GROW_MS = 320
 /* Gentle at the start, unlike the rise: the first frame of a growth is a few pixels, never a step. */
 const GROW_EASE = "cubic-bezier(0.25, 0.1, 0.25, 1)"
