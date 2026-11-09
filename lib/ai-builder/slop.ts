@@ -23,6 +23,7 @@
  * Pure. No DOM, no network. Browser safe.
  */
 import { conceptAllowances, type SlopAllowance, type VisualConcept } from "@/lib/storelib-ai/library/concept"
+import { firstFamily, isSlopDisplayFont } from "@/lib/storelib-ai/library/type-systems"
 import type { DesignTokens, ValidationIssue } from "./types"
 
 export type SlopSeverity = "error" | "warn" | "info"
@@ -46,6 +47,14 @@ export const SLOP_RULES = [
   "stock-imagery",
   "weak-mobile",
   "animation",
+  /* Round N (N4): type and layout habits. */
+  "default-fonts",
+  "type-scale",
+  "card-grid",
+  "hero-three-cards",
+  "layout-rhythm",
+  "emoji-icons",
+  "stock-copy",
 ] as const
 export type SlopRule = (typeof SLOP_RULES)[number]
 
@@ -71,6 +80,10 @@ export interface SlopInput {
   tokens?: Partial<DesignTokens>
   /** The page's sections in order (types), for repetition across a page. */
   sections?: { type: string }[]
+  /**
+   * Units in page order with what they are for, when the caller knows it
+   * (the engine passes files; html input is already in order).
+   */
   /** Facts the store or creator actually supplied, so a real number or quote is not called fake. */
   facts?: { numbers?: string[]; quotes?: boolean; reviews?: boolean; logos?: boolean }
 }
@@ -90,7 +103,7 @@ function block(source: string, tag: string): string {
 }
 
 /** The template, style and the creator facing strings of a .storelib file. */
-export function splitStorelib(source: string): { template: string; style: string; copy: string[] } {
+export function splitStorelib(source: string): { template: string; style: string; copy: string[]; schema: string } {
   const template = /<template[\s>]/i.test(source) ? block(source, "template") : source
   const style = block(source, "style")
   const copy: string[] = []
@@ -102,7 +115,7 @@ export function splitStorelib(source: string): { template: string; style: string
       /* the compiler reports bad JSON; nothing to read here */
     }
   }
-  return { template, style, copy }
+  return { template, style, copy, schema }
 }
 
 const NOT_COPY_KEYS = new Set(["type", "id", "label", "info", "name", "tag", "class", "category", "icon", "visible_if", "unit", "placeholder"])
@@ -244,7 +257,17 @@ const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u
 
 /* ── the checks ────────────────────────────────────────────────────────── */
 
+interface Unit {
+  path?: string
+  html: string
+  css: string
+  copy: string[]
+  /** The <schema> JSON text of a .storelib file, "" for plain html. */
+  schema: string
+}
+
 interface Ctx {
+  units: Unit[]
   css: string
   html: string
   text: string
@@ -298,7 +321,10 @@ function glow(c: Ctx): Raw[] {
   })
   const blobs = all(/filter\s*:\s*blur\(\s*(\d+)px\)/gi, c.css).filter((s) => +(/(\d+)px/.exec(s)?.[1] ?? 0) >= 30)
   const tw = all(/\b(?:shadow-(?:purple|violet|indigo|fuchsia|blue|pink|cyan)-\d{3}|blur-3xl|blur-\[\d{2,}px\])\b/g, c.html)
-  const found = [...shadows, ...blobs, ...tw]
+  /* Decorative blobs and orbs by name, and big radial colour spots: the "gradient blob" background. */
+  const named = all(/class="[^"]*\b(?:blob|orb|aurora|mesh-gradient|glow-(?:bg|blob|orb))[\w-]*/gi, c.html).map((m) => m.replace(/^class="/, ""))
+  const spots = all(/radial-gradient\(\s*(?:circle|ellipse)[^;{}]*\)/gi, c.css).filter((g) => colorsIn(g).length > 0 && /transparent/i.test(g))
+  const found = [...shadows, ...blobs, ...tw, ...named, ...spots]
   if (!found.length) return []
   return [{
     rule: "glow",
@@ -495,9 +521,11 @@ function radius(c: Ctx): Raw[] {
   const want = c.concept?.layout.radius
   const conceptTight = typeof want === "number" && want <= 6
   if (large.length / r.length < 0.5 && !(conceptTight && large.length >= 2)) return []
+  /* Rounded-2xl on everything: most corners large and many of them reads as the default kit. */
+  const everywhere = large.length >= 6 && large.length / r.length >= 0.7
   return [{
     rule: "radius",
-    severity: conceptTight ? "warn" : "info",
+    severity: conceptTight || everywhere ? "warn" : "info",
     message: `${large.length} of ${r.length} corner radii are 20px or more${conceptTight ? `, but the concept says ${want}px` : ""}.`,
     fix: "Use the concept's radius system: 0 for Swiss, editorial, luxury and brutalist; 2 to 6px for most sites; larger only for friendly concepts. Photos usually square cornered.",
     evidence: uniq(large.map((x) => `${x}px`)).slice(0, 5),
@@ -699,7 +727,285 @@ function animation(c: Ctx): Raw[] {
   return out
 }
 
-const CHECKS: ((c: Ctx) => Raw[])[] = [gradients, purple, glow, glass, genericHero, identicalLayout, randomIcons, floatingCards, typography, pills, radius, emptyWords, fakeProof, repetitiveStructure, spacing, stockImagery, weakMobile, animation]
+/* ── round N: type ─────────────────────────────────────────────────────── */
+
+/** CSS rules as selector and body, comments and at-rule wrappers ignored. */
+function cssRules(css: string): { selector: string; body: string }[] {
+  const out: { selector: string; body: string }[] = []
+  for (const m of css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)) out.push({ selector: m[1].trim(), body: m[2] })
+  return out
+}
+
+/** A rule that sets display type: headings, titles, heroes, a section's own __h / __title. */
+const DISPLAY_SELECTOR = /(?:^|[\s,>+~(])h[1-3]\b|display|title|heading|headline|hero|__h\b|-h\b|masthead|wordmark/i
+
+/** Px for a CSS length, rem and em at 16. */
+function sizePx(v: string): number | null {
+  const m = /^(-?\d*\.?\d+)(px|rem|em)$/.exec(v.trim())
+  if (!m) return null
+  return m[2] === "px" ? +m[1] : +m[1] * 16
+}
+
+function defaultFonts(c: Ctx): Raw[] {
+  const evidence: string[] = []
+  const display = c.concept?.typeSystem?.display
+  if (display && isSlopDisplayFont(display)) evidence.push(`the concept's display face is ${display}`)
+  const heading = c.input.tokens?.fonts?.heading
+  if (heading && isSlopDisplayFont(heading)) evidence.push(`the heading token is ${heading}`)
+  const declared: string[] = []
+  for (const r of cssRules(c.css)) {
+    const m = /font-family\s*:\s*([^;]+)/i.exec(r.body)
+    if (!m) continue
+    const v = m[1].trim()
+    if (/^var\(/i.test(v) || /\{\{/.test(v)) continue
+    declared.push(v)
+    if (DISPLAY_SELECTOR.test(r.selector) && isSlopDisplayFont(v)) evidence.push(`${r.selector.slice(0, 40)} is set in ${v.split(",")[0].trim()}`)
+  }
+  /* System-ui alone: every family named anywhere is a default and nothing reads the theme's fonts. */
+  const readsTheme = /var\(--(?:theme-font|t-font|font-heading|font-display)/i.test(c.css)
+  if (!evidence.length && declared.length && !readsTheme && declared.every((v) => isSlopDisplayFont(v))) evidence.push(`every face named is a default (${uniq(declared.map((v) => firstFamily(v))).join(", ")})`)
+  const tw = (c.html.match(/<h[1-3][^>]*class="[^"]*\bfont-sans\b/gi) ?? []).length
+  if (tw >= 2 && !readsTheme) evidence.push(`${tw} headings in font-sans`)
+  if (!evidence.length) return []
+  return [{
+    rule: "default-fonts",
+    severity: "error",
+    message: `The display type is a default face: ${evidence.join("; ")}.`,
+    fix: "Set headings in a face with character from the type library (search_knowledge \"type library\": editorial serif, characterful grotesk, condensed display, mono). Inter, Roboto and the like may stay as body text. Fonts come from set_tokens fonts; read them with var(--theme-font-heading).",
+    evidence,
+    knowledge: "typography-type-library",
+    allowance: "default-fonts",
+  }]
+}
+
+function typeScale(c: Ctx): Raw[] {
+  const fluid: string[] = []
+  const fixedLarge: string[] = []
+  let maxDisplay = 0
+  for (const r of cssRules(c.css)) {
+    for (const m of r.body.matchAll(/font-size\s*:\s*([^;]+)/gi)) {
+      const v = m[1].trim()
+      if (/clamp\(|min\(|max\(|\d(?:vw|vi|cqi|cqw)\b|var\(--(?:step|t-step|fs|size|text|font-size|type)/i.test(v)) {
+        fluid.push(v)
+        const upper = [...v.matchAll(/(\d*\.?\d+)(px|rem)/g)].map((x) => (x[2] === "px" ? +x[1] : +x[1] * 16))
+        maxDisplay = Math.max(maxDisplay, ...upper, 0)
+        continue
+      }
+      const px = sizePx(v)
+      if (px !== null) {
+        maxDisplay = Math.max(maxDisplay, px)
+        if (px >= 48) fixedLarge.push(`${r.selector.slice(0, 32)}: ${v}`)
+      }
+    }
+  }
+  const tw = (c.html.match(/\btext-(?:5xl|6xl|7xl|8xl|9xl)\b/g) ?? []).length
+  const twResponsive = /\b(?:sm|md|lg|xl):text-/.test(c.html)
+  const out: Raw[] = []
+  const large = fixedLarge.length + (twResponsive ? 0 : tw)
+  if (large && !fluid.length) {
+    out.push({ rule: "type-scale", severity: "error", message: `Display sizes are fixed (${large}) and nothing in the type is fluid.`, fix: "Use a fluid type scale: font-size: clamp(min, preferred, max) per step (typography-type-library has one), so a 96px headline is 44px on a phone without a breakpoint.", evidence: sample(fixedLarge.length ? fixedLarge : [`${tw} text-5xl or larger with no breakpoint`]), knowledge: "typography-scale" })
+  } else if (fixedLarge.length >= 2) {
+    out.push({ rule: "type-scale", severity: "warn", message: `${fixedLarge.length} display sizes are fixed px beside a fluid scale.`, fix: "Move them onto the clamp() steps so every heading scales the same way.", evidence: sample(fixedLarge), knowledge: "typography-scale" })
+  }
+  if (maxDisplay >= 56 && !/letter-spacing\s*:/i.test(c.css) && !/\btracking-/.test(c.html)) {
+    out.push({ rule: "type-scale", severity: "warn", message: `Display type up to ${Math.round(maxDisplay)}px with default tracking everywhere.`, fix: "Large display type needs its own tracking (usually -0.01em to -0.04em; caps and small labels +0.06em to +0.2em) and its own line height (0.9 to 1.05).", evidence: [`largest size ${Math.round(maxDisplay)}px`, "no letter-spacing declared"], knowledge: "typography-tracking-measure" })
+  }
+  if (maxDisplay >= 40 && c.css.length > 400 && !/font-weight\s*:/i.test(c.css) && !/\bfont-(?:light|normal|medium|semibold|bold|extrabold|black)\b/.test(c.html)) {
+    out.push({ rule: "type-scale", severity: "info", message: "No font weights are chosen; headings take the browser's bold.", fix: "Choose weights on purpose: a display weight from the type system and 400 for text.", evidence: ["no font-weight declared"], knowledge: "typography-hierarchy-labels" })
+  }
+  return out
+}
+
+/* ── round N: layout ───────────────────────────────────────────────────── */
+
+const CARD_CLASS = /class="[^"]*\b[\w-]*(?:card|tile|feature|benefit|service|perk|item|box)\b[^"]*"/i
+
+/** A unit that is a uniform grid of cards: a loop (or three or more siblings) of the same card in a repeat() grid. */
+function isCardGrid(u: { html: string; css: string }): boolean {
+  const grid = /grid-template-columns\s*:\s*repeat\(/i.test(u.css) || /\bgrid-cols-[2-6]\b/.test(u.html)
+  if (!grid) return false
+  for (const m of u.html.matchAll(/\{%-?\s*for\s+\w+\s+in\s+([^%]+)%\}([\s\S]*?)\{%-?\s*endfor/gi)) {
+    if (/product|collection|post|article|image|photo|gallery/i.test(m[1])) continue
+    if (CARD_CLASS.test(m[2])) return true
+  }
+  const classes = [...u.html.matchAll(/<(?:div|li|article)\b[^>]*class="([^"]*\b[\w-]*(?:card|tile|feature|benefit|service|perk)\b[^"]*)"/gi)].map((m) => m[1])
+  const counts = new Map<string, number>()
+  for (const k of classes) counts.set(k, (counts.get(k) ?? 0) + 1)
+  return [...counts.values()].some((n) => n >= 3)
+}
+
+/** The page's sections as units: each .storelib file, or each <section> of plain html. */
+function sectionUnits(c: Ctx): { label: string; html: string; css: string; schema: string }[] {
+  const out: { label: string; html: string; css: string; schema: string }[] = []
+  for (const u of c.units) {
+    if (u.path) {
+      if (!u.path.startsWith("sections/")) continue
+      if (/<(?:header|footer)\b/i.test(u.html.slice(0, 400)) || /"kind"\s*:\s*"(?:header|footer)"/.test(u.schema)) continue
+      out.push({ label: u.path.replace(/^sections\//, ""), html: u.html, css: u.css, schema: u.schema })
+    } else {
+      const sections = u.html.match(/<section\b[\s\S]*?<\/section>/gi) ?? []
+      sections.forEach((h, i) => out.push({ label: `section ${i + 1}`, html: h, css: u.css, schema: "" }))
+    }
+  }
+  return out
+}
+
+function cardGrid(c: Ctx): Raw[] {
+  const units = sectionUnits(c)
+  const grids = units.filter((u) => (u.css === c.css && !u.schema ? isCardGrid({ html: u.html, css: c.css }) : isCardGrid(u)))
+  if (grids.length < 2) return []
+  return [{
+    rule: "card-grid",
+    severity: grids.length >= 3 ? "error" : "warn",
+    message: `${grids.length} sections are the same grid of equal cards.`,
+    fix: "Give each set its own form from its content: a numbered list, one large item beside small ones, a table, a horizontal scroller, an accordion, a sticky stack. At most one equal card grid per page.",
+    evidence: grids.map((g) => g.label).slice(0, 6),
+    knowledge: "anti-slop-identical-saas",
+  }]
+}
+
+function centred(html: string, css: string): boolean {
+  return /text-center|data-align="center"/i.test(html) || /text-align\s*:\s*center/i.test(css)
+}
+
+function heroThreeCards(c: Ctx): Raw[] {
+  const units = sectionUnits(c)
+  const evidence: string[] = []
+  for (let i = 0; i < units.length; i++) {
+    const u = units[i]
+    if (!/<h1[\s>]/i.test(u.html)) continue
+    const own = u.schema ? u.css : (/class="([^"]+)"/.exec(u.html)?.[1] ?? "").split(/\s+/).map((k) => cssRules(c.css).filter((r) => r.selector.includes(`.${k}`)).map((r) => `${r.selector}{${r.body}}`).join("")).join("")
+    if (!centred(u.html, own)) continue
+    const inSame = isCardGrid({ html: u.html, css: u.schema ? u.css : c.css })
+    const next = units[i + 1]
+    const nextCards = next ? (next.schema ? isCardGrid(next) : isCardGrid({ html: next.html, css: c.css })) : false
+    if (inSame || nextCards) evidence.push(`${u.label}: a centred heading${inSame ? " over its own cards" : `, then ${next!.label}: a row of cards`}`)
+  }
+  if (!evidence.length) return []
+  return [{
+    rule: "hero-three-cards",
+    severity: "error",
+    message: `The page opens with the template: a centred hero over a row of cards (${evidence.join("; ")}).`,
+    fix: "Open with what only this business has: the product large, the work full bleed, a menu, a timetable, an editorial statement set off-centre. Put the supporting points later and in a different form than cards.",
+    evidence,
+    knowledge: "anti-slop-generic-hero",
+    allowance: "centered-hero",
+  }]
+}
+
+function layoutRhythm(c: Ctx): Raw[] {
+  const units = c.units.filter((u) => u.path?.startsWith("sections/") && !/"kind"\s*:\s*"(?:header|footer)"/.test(u.schema))
+  if (units.length < 5) return []
+  const evidence: string[] = []
+  const sig = (u: Unit): string => {
+    const maxW = /max-width\s*:\s*([^;}]+)/i.exec(u.css)?.[1]?.trim() ?? "none"
+    const grid = /grid-template-columns/i.test(u.css) ? "grid" : "flow"
+    const special = /position\s*:\s*sticky/i.test(u.css) ? "sticky" : /overflow-x\s*:\s*(?:auto|scroll)/i.test(u.css) ? "scroll" : /min-height\s*:\s*(?:\d{2,3}(?:svh|vh|dvh))/i.test(u.css) ? "tall" : ""
+    return `${maxW}|${grid}|${special}`
+  }
+  const sigs = units.map(sig)
+  const distinct = new Set(sigs).size
+  if (distinct <= 2) evidence.push(`${units.length} sections share ${distinct === 1 ? "one width and layout" : "two widths and layouts"} (${[...new Set(sigs)].join(" / ")})`)
+  const pads = units.map((u) => {
+    try {
+      const schema = JSON.parse(u.schema || "{}") as { settings?: { id?: string; default?: unknown }[] }
+      const v = (id: string) => schema.settings?.find((s) => s.id === id)?.default
+      const t = v("padding_top")
+      const b = v("padding_bottom")
+      return t === undefined && b === undefined ? (/padding(?:-block)?\s*:\s*([^;}]+)/i.exec(u.css)?.[1]?.trim() ?? "") : `${t}/${b}`
+    } catch {
+      return ""
+    }
+  })
+  if (pads.every((p) => p && p === pads[0])) evidence.push(`every section has the same spacing (${pads[0]})`)
+  if (units.every((u) => centred(u.html, u.css))) evidence.push("every section is centred")
+  if (!evidence.length) return []
+  return [{
+    rule: "layout-rhythm",
+    severity: evidence.length >= 2 ? "warn" : "info",
+    message: `The page has one rhythm: ${evidence.join("; ")}.`,
+    fix: "Vary width and density on purpose: a full bleed image after a narrow text column, a tight list after an airy statement, more space before a new chapter than inside one, one sticky or horizontal moment. Spacing defaults should differ by what the section holds.",
+    evidence,
+    knowledge: "layout-spacing-rhythm",
+  }]
+}
+
+function emojiIcons(c: Ctx): Raw[] {
+  const hits: string[] = []
+  for (const m of c.html.matchAll(/<(span|i|div|p|li|h[1-6]|figure)\b[^>]*>\s*([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}][\u{FE0F}\u{200D}\u{1F300}-\u{1FAFF}]*)/gu)) hits.push(`${m[1]} starting with ${m[2]}`)
+  for (const t of c.units.flatMap((u) => u.copy)) if (/^\s*[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(t)) hits.push(`a setting starting with ${t.trim().slice(0, 2)}`)
+  if (hits.length < 2) return []
+  return [{
+    rule: "emoji-icons",
+    severity: "error",
+    message: `Emoji used as icons or bullets (${hits.length}).`,
+    fix: "Remove them. Use typography (numbers, rules, labels) for structure; if an icon helps recognition, draw a simple inline SVG from one set at one stroke width with an accessible name.",
+    evidence: sample(hits),
+    knowledge: "anti-slop-random-icons",
+  }]
+}
+
+/** Copy that could be on any website: the template's own words. */
+export const STOCK_COPY: RegExp[] = [
+  /\bwelcome to (?:our|my|the) (?:website|site|store|shop|page)\b/gi,
+  /\blorem ipsum\b/gi,
+  /\bone[- ]stop[- ]shop\b/gi,
+  /\bquality you can trust\b/gi,
+  /\b(?:we are|we're|i am|i'm) passionate about\b/gi,
+  /\bhigh[- ]quality (?:products|services|solutions|content)\b/gi,
+  /\bbest[- ]in[- ]class\b/gi,
+  /\bto the next level\b/gi,
+  /\bget started today\b/gi,
+  /\bwhat are you waiting for\b/gi,
+  /\byour (?:success|satisfaction) is our (?:priority|mission|goal)\b/gi,
+  /\bcrafted with (?:love|care|passion)\b/gi,
+  /\bdesigned with you in mind\b/gi,
+  /\bdiscover the difference\b/gi,
+  /\bexperience the difference\b/gi,
+  /\bwe(?:'ve| have) got you covered\b/gi,
+  /\bsay goodbye to\b/gi,
+  /\bjoin (?:our|the) community today\b/gi,
+  /\bexceptional (?:quality|service|results)\b/gi,
+  /\bfrom concept to (?:completion|reality)\b/gi,
+  /\btailored (?:solutions|to your (?:needs|goals))\b/gi,
+  /\bwe pride ourselves\b/gi,
+  /\bsecond to none\b/gi,
+  /\bin a world where\b/gi,
+  /\bat the heart of (?:everything|what) we do\b/gi,
+  /\bdive (?:in|into)\b/gi,
+  /\bstep into\b/gi,
+  /\bready to (?:get started|take the (?:next|first) step)\b/gi,
+]
+
+const GENERIC_HEADINGS = /^(?:features|our services|services|why choose us|why us|what we offer|about us|our story|our mission|get in touch|testimonials|how it works|our team|our products|our values|faq|frequently asked questions|contact us|learn more)$/i
+
+function stockCopy(c: Ctx): Raw[] {
+  const hits: string[] = []
+  for (const re of STOCK_COPY) for (const m of c.text.matchAll(new RegExp(re.source, "gi"))) hits.push(m[0].toLowerCase())
+  const headings = [...c.html.matchAll(/<h[1-3][^>]*>([^<{]+)<\/h[1-3]>/gi)].map((m) => m[1].trim()).filter((h) => GENERIC_HEADINGS.test(h))
+  const headingDefaults: string[] = []
+  for (const u of c.units) {
+    try {
+      const schema = JSON.parse(u.schema || "{}") as { settings?: { id?: string; default?: unknown }[] }
+      for (const s of schema.settings ?? []) if (/heading|title/i.test(s.id ?? "") && typeof s.default === "string" && GENERIC_HEADINGS.test(s.default.trim())) headingDefaults.push(s.default.trim())
+    } catch {
+      /* the compiler reports bad JSON */
+    }
+  }
+  const generic = [...headings, ...headingDefaults]
+  if (generic.length >= 3) hits.push(`${generic.length} generic headings (${uniq(generic).slice(0, 4).join(", ")})`)
+  if (!hits.length) return []
+  return [{
+    rule: "stock-copy",
+    severity: hits.length >= 3 ? "error" : "warn",
+    message: `Copy that could be on any website: ${uniq(hits).slice(0, 6).join("; ")}.`,
+    fix: "Write what only this business would say: what it makes, for whom, where, how long, what it costs. Headings name the thing (\"Tuesday and Thursday classes\", \"The Riverside menu\"), not the slot (\"Our services\").",
+    evidence: uniq(hits).slice(0, 8),
+    knowledge: "core-copywriting",
+  }]
+}
+
+const CHECKS: ((c: Ctx) => Raw[])[] = [gradients, purple, glow, glass, genericHero, identicalLayout, randomIcons, floatingCards, typography, pills, radius, emptyWords, fakeProof, repetitiveStructure, spacing, stockImagery, weakMobile, animation, defaultFonts, typeScale, cardGrid, heroThreeCards, layoutRhythm, emojiIcons, stockCopy]
 
 /* ── the report ────────────────────────────────────────────────────────── */
 
@@ -708,23 +1014,23 @@ const COST: Record<SlopSeverity, number> = { error: 15, warn: 6, info: 1 }
 export function evaluateSlop(input: SlopInput, concept?: VisualConcept | null): SlopReport {
   const findings: SlopFinding[] = []
   const allow = conceptAllowances(concept ?? null)
-  const units: { path?: string; html: string; css: string; copy: string[] }[] = []
+  const units: Unit[] = []
   for (const s of input.sources ?? []) {
     const p = splitStorelib(s.content)
-    units.push({ path: s.path, html: p.template, css: p.style, copy: p.copy })
+    units.push({ path: s.path, html: p.template, css: p.style, copy: p.copy, schema: p.schema })
   }
   if (input.html || input.css) {
     const html = input.html ?? ""
     const inlineCss = (html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) ?? []).map((b) => b.replace(/<\/?style[^>]*>/gi, "")).join("\n")
-    units.push({ html, css: `${input.css ?? ""}\n${inlineCss}`, copy: [] })
+    units.push({ html, css: `${input.css ?? ""}\n${inlineCss}`, copy: [], schema: "" })
   }
-  if (!units.length && input.tokens) units.push({ html: "", css: "", copy: [] })
+  if (!units.length && input.tokens) units.push({ html: "", css: "", copy: [], schema: "" })
 
   /* Page level checks see everything together; a habit repeated in five files is one habit. */
   const html = units.map((u) => u.html).join("\n")
   const css = units.map((u) => u.css).join("\n")
   const text = `${visibleText(html)} ${units.flatMap((u) => u.copy).join(" ")}`
-  const ctx: Ctx = { html, css, text, allow, concept: concept ?? null, input }
+  const ctx: Ctx = { units, html, css, text, allow, concept: concept ?? null, input }
   const onlyPath = units.length === 1 ? units[0].path : undefined
   for (const check of CHECKS) {
     for (const raw of check(ctx)) {

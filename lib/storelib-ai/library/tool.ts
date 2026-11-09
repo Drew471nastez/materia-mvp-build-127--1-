@@ -12,6 +12,7 @@ import type { AgentToolInputs, AgentToolOutputs } from "@/lib/ai-builder/agent-t
 import type { KnowledgeEntry as ContractEntry, KnowledgeKind } from "@/lib/ai-builder/types"
 import type { ToolSpec } from "@/lib/sites/agent/types"
 import { RESOURCES, type ResourceRecord } from "./resources"
+import { matchExamples, type ComponentExample } from "./examples"
 import { searchKnowledge, tokenize } from "./retrieve"
 import type { KnowledgeCapability } from "./types"
 
@@ -20,7 +21,7 @@ const KINDS: KnowledgeKind[] = ["core", "industry", "style", "layout", "componen
 export const SEARCH_KNOWLEDGE_TOOL: ToolSpec<"search_knowledge"> = {
   name: "search_knowledge",
   description:
-    "Search Storelib's design knowledge before deciding something you are unsure of: an industry (\"music producer sample packs\"), a style (\"editorial luxury\"), a component and its states (\"pricing table\", \"mobile menu\"), motion (\"marquee\"), presenting real store data (\"membership\", \"bookings\"), anti-slop rules, fixing generated code (\"sticky not working\"), or an external component library (kind resource). Returns a few short entries; ask for an entry by its id to get it in full. Do not search for everything up front.",
+    "Search Storelib's design knowledge before deciding something you are unsure of. Ask for a working component by its id (ai_site_header, ai_marquee...) or as \"example <thing>\" to get a complete .storelib file that runs in Storelib's runtime, to adapt to the concept. Also: an industry (\"music producer sample packs\"), a style (\"editorial luxury\"), a component and its states (\"pricing table\", \"mobile menu\"), motion (\"marquee\"), presenting real store data (\"membership\", \"bookings\"), anti-slop rules, fixing generated code (\"sticky not working\"), or an external component library (kind resource). Returns a few short entries; ask for an entry by its id to get it in full. Do not search for everything up front.",
   parameters: {
     type: "object",
     properties: {
@@ -74,6 +75,16 @@ function matchResources(query: string, limit: number): ContractEntry[] {
     .map((x) => resourceEntry(x.r))
 }
 
+function exampleEntry(e: ComponentExample): ContractEntry {
+  return {
+    id: e.id,
+    kind: "component",
+    title: `Working example: ${e.title}`,
+    tags: e.tags,
+    body: `${e.summary}\nA complete file that compiles and runs in Storelib's runtime. Adapt it to the concept (type, colour, spacing, words, its ai_ name); do not paste it unchanged.\n\n${e.source.replace(/^\{#\s*example[\s\S]*?#\}\n?/, "")}`,
+  }
+}
+
 const LIBRARY_NAMES = /shadcn|radix|origin ?ui|coss|tremor|aceternity|magic ?ui|21st|component librar|code ui|shadow ui/i
 
 /** The tool's implementation, in the contract's input and output shapes. */
@@ -81,11 +92,12 @@ export function runSearchKnowledge(input: AgentToolInputs["search_knowledge"], c
   const query = String(input?.query ?? "").slice(0, 500)
   const limit = Math.max(1, Math.min(8, Math.floor(input?.limit ?? 4)))
   const kinds = (input?.kinds ?? []).filter((k): k is KnowledgeKind => KINDS.includes(k))
+  const examples = !kinds.length || kinds.includes("component") ? matchExamples(query, 1).map(exampleEntry) : []
   const wantResources = kinds.includes("resource") || (!kinds.length && LIBRARY_NAMES.test(query))
   const resources = wantResources ? matchResources(query, Math.min(limit, 3)) : []
   const otherKinds = kinds.filter((k) => k !== "resource")
-  if (kinds.length && !otherKinds.length) return { entries: resources }
+  if (kinds.length && !otherKinds.length) return { entries: [...examples, ...resources] }
   const text = [query, ...(ctx.styles ?? [])].join(" ")
-  const found = searchKnowledge({ text, kinds: otherKinds.length ? otherKinds : undefined, industry: ctx.industry, limit: Math.max(1, limit - resources.length), budgetTokens: ctx.budgetTokens, capabilities: ctx.capabilities })
-  return { entries: [...resources, ...found.entries].map(({ id, kind, title, body }) => ({ id, kind, title, body })) }
+  const found = searchKnowledge({ text, kinds: otherKinds.length ? otherKinds : undefined, industry: ctx.industry, limit: Math.max(1, limit - resources.length - examples.length), budgetTokens: ctx.budgetTokens, capabilities: ctx.capabilities })
+  return { entries: [...examples, ...resources, ...found.entries.filter((f) => !examples.some((e) => e.id === f.id))].map(({ id, kind, title, body }) => ({ id, kind, title, body })) }
 }

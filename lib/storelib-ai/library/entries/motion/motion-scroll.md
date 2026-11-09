@@ -8,8 +8,8 @@ tags: [motion, animation, scroll, scroll-driven, scroll-timeline, progress, view
 components: [motion]
 phases: [build, review]
 priority: 3
-related: [motion-parallax, motion-sticky, layout-sticky-storytelling]
-version: 1
+related: [motion-parallax, motion-sticky, layout-sticky-storytelling, motion-in-storelib-runtime]
+version: 2
 ---
 **Native first**: CSS `animation-timeline: view()` or `scroll()` runs off the main thread where supported. Wrap in `@supports` and give a static fallback.
 
@@ -22,6 +22,6 @@ version: 1
 }
 ```
 
-**JS fallback**: IntersectionObserver for enter/leave; avoid scroll event handlers that read layout every frame. If needed, use `requestAnimationFrame` and cache measurements.
+**No JS fallback in a Storelib section**: its script runs in a sandbox on a copy of the markup, so IntersectionObserver and scroll handlers see nothing of the real page (motion-in-storelib-runtime). The static final state is the fallback.
 
 **Never**: change scroll speed, snap the page against the user, or require scrolling to reveal essential text.

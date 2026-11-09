@@ -1,0 +1,88 @@
+{# example
+title: Big type footer with sign up, menus and locale switches
+summary: A free site's own footer: the name set huge, a newsletter sign up that joins the creator's Subscribers, two menu columns from the site's own menus, language and currency switches through the page's hooks (hidden when the site has one), and the year and policies line.
+tags: footer, newsletter, signup, subscribe, menus, locale, currency, language, big type, own chrome, site footer
+#}
+<template>
+<footer class="sf" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }};">
+  <div class="sf__top">
+    <form class="sf__form" data-storelib-form="subscribe">
+      <label class="sf__label" for="{{ section.id }}-email">{{ settings.signup_label }}</label>
+      <div class="sf__row">
+        <input class="sf__input" id="{{ section.id }}-email" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="{{ settings.email_placeholder }}" required>
+        <button class="sf__btn" type="submit">{{ settings.signup_button }}</button>
+      </div>
+      <p class="sf__done" data-storelib-success hidden>{{ settings.signup_success }}</p>
+    </form>
+    <nav class="sf__cols" aria-label="{{ settings.nav_label }}">
+      {% if settings.menu_one.links.size > 0 %}<div class="sf__col"><p class="sf__col-h">{{ settings.menu_one.title }}</p><ul>{% for link in settings.menu_one.links %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% endfor %}</ul></div>{% endif %}
+      {% if settings.menu_two.links.size > 0 %}<div class="sf__col"><p class="sf__col-h">{{ settings.menu_two.title }}</p><ul>{% for link in settings.menu_two.links %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% endfor %}</ul></div>{% endif %}
+    </nav>
+  </div>
+  <div class="sf__prefs">
+    <details class="sf__pick" data-storelib-locale-list>
+      <summary class="sf__pick-btn">{{ settings.language_label }}: <span data-storelib-locale-current></span></summary>
+      <div class="sf__menu"><button class="sf__opt" type="button" data-storelib-locale-option hidden><span data-option-label></span></button></div>
+    </details>
+    <details class="sf__pick" data-storelib-currency-list>
+      <summary class="sf__pick-btn">{{ settings.currency_label }}: <span data-storelib-currency-current></span></summary>
+      <div class="sf__menu"><button class="sf__opt" type="button" data-storelib-currency-option hidden><span data-option-label></span></button></div>
+    </details>
+  </div>
+  <p class="sf__name" aria-hidden="true">{{ shop.name | default: settings.brand }}</p>
+  <div class="sf__base"><span>{{ settings.copyright }}</span>{% if settings.base_link_url and settings.base_link_label %}<a href="{{ settings.base_link_url | url }}">{{ settings.base_link_label }}</a>{% endif %}</div>
+</footer>
+</template>
+
+<style scoped>
+.sf { container-type: inline-size; padding: clamp(48px, 8vw, 96px) var(--theme-padding-x, 16px) 20px; background: var(--s-bg); color: var(--s-text); overflow: hidden; }
+.sf__top { display: grid; gap: 40px; }
+.sf__label { display: block; margin-bottom: 12px; font-family: var(--theme-font-heading), serif; font-size: clamp(1.5rem, 1.1rem + 1.8vw, 2.5rem); line-height: 1.05; letter-spacing: -0.02em; color: var(--s-heading); }
+.sf__row { display: flex; gap: 8px; max-width: 520px; }
+.sf__input { flex: 1; min-width: 0; min-height: 48px; padding: 0 12px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; }
+.sf__btn { min-height: 48px; padding: 0 18px; border: 0; background: var(--s-btn); color: var(--s-btn-text); font: inherit; cursor: pointer; }
+.sf__done { margin: 10px 0 0; }
+.sf__cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.sf__col-h { margin: 0 0 10px; font-size: 0.8125rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--s-accent); }
+.sf__col ul { margin: 0; padding: 0; list-style: none; }
+.sf__col a { display: inline-block; padding: 6px 0; color: inherit; text-decoration: none; }
+.sf__col a:hover, .sf__col a:focus-visible { text-decoration: underline; text-underline-offset: 4px; }
+.sf__prefs { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 40px; }
+.sf__pick { position: relative; }
+.sf__pick-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 1px solid var(--s-border); cursor: pointer; list-style: none; font-size: 0.875rem; }
+.sf__pick-btn::-webkit-details-marker { display: none; }
+.sf__menu { position: absolute; bottom: calc(100% + 6px); left: 0; display: grid; min-width: 180px; padding: 6px; background: var(--s-bg); border: 1px solid var(--s-border); }
+.sf__opt { min-height: 44px; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.sf__opt[aria-current="true"] { color: var(--s-accent); }
+.sf__name { margin: clamp(32px, 6vw, 72px) 0 0; font-family: var(--theme-font-heading), serif; font-size: clamp(3.5rem, 0.5rem + 15vw, 16rem); line-height: 0.8; letter-spacing: -0.05em; font-weight: 600; color: var(--s-heading); white-space: nowrap; }
+.sf__base { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--s-border); font-size: 0.8125rem; }
+.sf__base a { color: inherit; }
+.sf :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@container (min-width: 820px) { .sf__top { grid-template-columns: 7fr 5fr; align-items: start; } }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_site_footer",
+  "name": "Site footer",
+  "kind": "footer",
+  "enabled_on": { "groups": ["footer"] },
+  "settings": [
+    { "type": "text", "id": "signup_label", "label": "Sign up heading", "default": "A letter when the new pieces are out" },
+    { "type": "text", "id": "email_placeholder", "label": "Email hint", "default": "Email address" },
+    { "type": "text", "id": "signup_button", "label": "Sign up button", "default": "Sign up" },
+    { "type": "text", "id": "signup_success", "label": "After signing up", "default": "Thanks. Check your inbox." },
+    { "type": "text", "id": "nav_label", "label": "Menus name (read aloud)", "default": "Footer" },
+    { "type": "link_list", "id": "menu_one", "label": "First menu", "default": "main-menu" },
+    { "type": "link_list", "id": "menu_two", "label": "Second menu", "default": "footer" },
+    { "type": "text", "id": "language_label", "label": "Language", "default": "Language" },
+    { "type": "text", "id": "currency_label", "label": "Currency", "default": "Currency" },
+    { "type": "text", "id": "brand", "label": "Name when there is no shop name", "default": "Studio" },
+    { "type": "text", "id": "copyright", "label": "Bottom line", "default": "Made in Leeds" },
+    { "type": "text", "id": "base_link_label", "label": "Bottom link", "default": "Contact" },
+    { "type": "url", "id": "base_link_url", "label": "Bottom link goes to", "default": "/contact" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ]
+}
+</schema>

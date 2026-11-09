@@ -98,8 +98,8 @@ const HOOK_ATTR = /\sdata-storelib-(cart|search|menu|add-to-cart|checkout|cart-c
 const CTA_CLASS = /(?:^|[\s_-])(?:btn|button|cta|buy|shop|book|order|enrol|enroll|signup|join|checkout|cart)(?:$|[\s_-])/i
 /** Words that ask the visitor to do something: a link that says them is a call to action. */
 const CTA_WORDS = /^(?:buy|shop|book|order|add to (?:cart|bag|basket)|get (?:started|it|tickets|yours)|start|sign ?up|join|enrol|enroll|subscribe|apply|reserve|register|contact|get in touch|send|download|try|claim|view (?:product|programme|program|plans?|pricing)|see (?:plans?|pricing|programmes|programs)|learn more|find out more|read more)\b/i
-/** Attributes that mean a <button> does something without a script of the section's own. */
-const BUTTON_WIRED = /\sdata-storelib-[a-z-]+|\saria-(?:controls|expanded|haspopup)\s*=|\spopovertarget\s*=|\scommandfor\s*=|\sform\s*=|\stype\s*=\s*"?(?:submit|reset)\b|\sdisabled\b|\sonclick\s*=/i
+/** Attributes that mean a <button> does something without a script of the section's own. The cart line's own buttons (storefront-hooks.ts: data-line-inc, -dec, -remove) are wired by the page too. */
+const BUTTON_WIRED = /\sdata-storelib-[a-z-]+|\sdata-line-(?:inc|dec|remove)\b|\saria-(?:controls|expanded|haspopup)\s*=|\spopovertarget\s*=|\scommandfor\s*=|\sform\s*=|\stype\s*=\s*"?(?:submit|reset)\b|\sdisabled\b|\sonclick\s*=/i
 
 /** Where the element at `index` sits inside an element named `tag` (by position in the markup). */
 function insideTag(html: string, tag: string, index: number): boolean {

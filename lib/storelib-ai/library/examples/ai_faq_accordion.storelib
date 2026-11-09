@@ -1,0 +1,71 @@
+{# example
+title: Accordion FAQ
+summary: Questions as details and summary, one open at a time through the name attribute, a smooth height change where the browser supports ::details-content, keyboard and screen reader behaviour from the browser itself.
+tags: faq, accordion, details, summary, questions, disclosure, expandable, syllabus
+#}
+<template>
+<section class="fq" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
+  <div class="fq__in">
+    <h2 class="fq__h">{{ settings.heading }}</h2>
+    <div class="fq__list">
+      {% for block in section.blocks %}
+        <details class="fq__item" data-block-id="{{ block.id }}"{% if settings.one_open %} name="fq-{{ section.id }}"{% endif %}{% if forloop.first and settings.open_first %} open{% endif %}>
+          <summary class="fq__q"><span>{{ block.settings.question }}</span><span class="fq__mark" aria-hidden="true"></span></summary>
+          <div class="fq__a">{{ block.settings.answer }}</div>
+        </details>
+      {% else %}
+        {% if page.in_editor %}<p class="fq__empty">Add questions in the sidebar</p>{% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+</template>
+
+<style scoped>
+.fq { container-type: inline-size; padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 16px) calc(var(--s-pb) * var(--theme-spacing-scale, 1)); background: var(--s-bg); color: var(--s-text); interpolate-size: allow-keywords; }
+.fq__in { display: grid; gap: 24px; }
+.fq__h { margin: 0; font-family: var(--theme-font-heading), serif; font-size: clamp(1.75rem, 1.2rem + 2.4vw, 3rem); line-height: 1; letter-spacing: -0.02em; font-weight: 500; color: var(--s-heading); }
+.fq__item { border-top: 1px solid var(--s-border); }
+.fq__item:last-child { border-bottom: 1px solid var(--s-border); }
+.fq__q { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 44px; padding: 18px 0; cursor: pointer; list-style: none; font-size: 1.0625rem; font-weight: 600; color: var(--s-heading); }
+.fq__q::-webkit-details-marker { display: none; }
+.fq__q::marker { content: ""; }
+.fq__q:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+.fq__mark { position: relative; flex: none; width: 14px; height: 14px; }
+.fq__mark::before, .fq__mark::after { content: ""; position: absolute; inset: 0; margin: auto; background: currentColor; }
+.fq__mark::before { width: 14px; height: 1.5px; }
+.fq__mark::after { width: 1.5px; height: 14px; transition: transform 180ms ease; }
+.fq__item[open] .fq__mark::after { transform: scaleY(0); }
+.fq__a { max-width: 62ch; padding: 0 0 20px; font-size: 1rem; line-height: 1.65; }
+.fq__empty { opacity: 0.7; }
+@container (min-width: 820px) { .fq__in { grid-template-columns: 5fr 7fr; gap: 48px; align-items: start; } .fq__h { position: sticky; top: 96px; } }
+@media (prefers-reduced-motion: no-preference) {
+  .fq__item::details-content { block-size: 0; overflow: clip; transition: block-size 260ms ease, content-visibility 260ms allow-discrete; }
+  .fq__item[open]::details-content { block-size: auto; }
+}
+@media (prefers-reduced-motion: reduce) { .fq__mark::after { transition: none; } }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_faq_accordion",
+  "name": "Questions",
+  "category": "text",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Before your first class" },
+    { "type": "checkbox", "id": "one_open", "label": "One answer open at a time", "default": true },
+    { "type": "checkbox", "id": "open_first", "label": "Open the first answer", "default": true },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 96 }
+  ],
+  "blocks": [
+    { "type": "question", "name": "Question", "settings": [
+      { "type": "text", "id": "question", "label": "Question", "default": "What should I bring?" },
+      { "type": "textarea", "id": "answer", "label": "Answer", "default": "Write the answer people ask you for most." }
+    ] }
+  ],
+  "presets": [{ "name": "Questions", "blocks": [{ "type": "question", "settings": { "question": "What should I bring?" } }, { "type": "question", "settings": { "question": "Can I come as a complete beginner?" } }, { "type": "question", "settings": { "question": "How do I cancel a booking?" } }] }]
+}
+</schema>
