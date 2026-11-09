@@ -158,7 +158,7 @@ async function main() {
   {
     const editor = code("app/(storelib)/website-builder/editor/[installId]/page.tsx")
     check("R2: the editor knows the build before its first paint (a layout effect reads job= off the address)", /useLayoutEffect\(\(\) => \{\s*let stored: Storage \| null = null\s*try \{\s*stored = window\.sessionStorage/.test(editor))
-    check("  opening on a build: the building canvas, not 'Loading the editor'", /genSource !== null && !teamMember && loading \? \(\s*<div className="absolute inset-0 flex bg-white" data-building-opening="">\s*<BuildingCanvas/.test(editor))
+    check("  opening on a build (and while its loader fades): the building canvas, not 'Loading the editor'", /\(showCanvasLoader \|\| openHold\) && buildLive \? \(\s*<div className="absolute inset-0 flex bg-white" data-building-opening="">\s*<BuildingCanvas/.test(editor))
     check("R3: an empty page while it builds is the building canvas, not 'Empty Page'", /building && showBuilding\(\{ live: true, bodyCount \}\) \? \(\s*<BuildingCanvas step=\{building\.step\} \/>/.test(editor) && editor.indexOf("showBuilding({ live: true, bodyCount })") < editor.indexOf("Empty Page"))
     check("  live from the first frame until the job's view says it ended", /genSource !== null &&\s*\(generation\.agent\.view \? !agentEnded : generation\.view \? genPhase === "working" : true\)/.test(editor))
     const live = editor.slice(editor.indexOf("const agentDraftsChanged = useCallback("), editor.indexOf("useEffect(() => () => { if (agentRefresh.current.timer)"))
