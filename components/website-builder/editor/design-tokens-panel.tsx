@@ -34,15 +34,20 @@ const LABEL = "text-xs font-medium text-muted-foreground mb-1.5 block"
 const GROUP = "space-y-3 border-t border-border pt-4 first:border-t-0 first:pt-0"
 const HEADING = "text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"
 
-const COLOR_ROWS: { key: keyof Omit<DesignTokens["colors"], "inverse">; label: string }[] = [
-  { key: "background", label: "Background" },
-  { key: "surface", label: "Surface" },
-  { key: "text", label: "Text" },
-  { key: "muted", label: "Muted text" },
-  { key: "accent", label: "Accent" },
-  { key: "accentText", label: "Text on accent" },
-  { key: "border", label: "Border" },
-]
+type ColorKey = keyof Omit<DesignTokens["colors"], "inverse">
+const COLOR_KEYS: ColorKey[] = ["background", "surface", "text", "muted", "accent", "accentText", "border"]
+/** Each colour's name, in the creator's language. */
+function colorLabel(key: ColorKey): string {
+  switch (key) {
+    case "background": return tt("Background")
+    case "surface": return tt("Surface")
+    case "text": return tt("Text")
+    case "muted": return tt("Muted text")
+    case "accent": return tt("Accent")
+    case "accentText": return tt("Text on accent")
+    default: return tt("Border")
+  }
+}
 
 /** Whether a website should show this panel: the AI set its tokens, or it has a component of the AI's. */
 export function showsDesignTokens(theme: Record<string, unknown> | null | undefined, sources: Record<string, string>): boolean {
@@ -64,7 +69,7 @@ export function DesignTokensPanel({
   const apply = (group: TokenGroup, next: DesignTokens) => {
     for (const [key, value] of Object.entries(tokenPatch(group, next, theme))) updateSetting(key, value)
   }
-  const color = (key: keyof Omit<DesignTokens["colors"], "inverse">, v: string) => apply("colors", { ...tokens, colors: { ...tokens.colors, [key]: v } })
+  const color = (key: ColorKey, v: string) => apply("colors", { ...tokens, colors: { ...tokens.colors, [key]: v } })
   const scale = tokens.typeScale ?? { base: 16, ratio: 1.25 }
 
   return (
@@ -73,8 +78,8 @@ export function DesignTokensPanel({
 
       <section className={GROUP} data-token-group="colors">
         <p className={HEADING}>{tt("Colors")}</p>
-        {COLOR_ROWS.map((row) => (
-          <ColorField key={row.key} label={tt(row.label)} value={tokens.colors[row.key]} fallback={tokens.colors[row.key]} onChange={(v) => color(row.key, v)} />
+        {COLOR_KEYS.map((key) => (
+          <ColorField key={key} label={colorLabel(key)} value={tokens.colors[key]} fallback={tokens.colors[key]} onChange={(v) => color(key, v)} />
         ))}
       </section>
 
@@ -162,7 +167,7 @@ function CustomTokens({ tokens, usage, onChange }: { tokens: DesignTokens; usage
     const v = cleanTokenValue(value)
     if (!TOKEN_NAME.test(n)) return setProblem(tt("A name is lowercase letters, numbers and hyphens, starting with a letter."))
     if ((SCALE_TOKENS as readonly string[]).includes(n)) return setProblem(tt("That name is one of the site's own. Pick another."))
-    if (v === null) return setProblem(tt("That value cannot be used. Try a colour, a size or a number."))
+    if (v === null) return setProblem(tt("That value cannot be used. Try a color, a size or a number."))
     if (names.length >= MAX_CUSTOM_TOKENS && !(n in custom)) return setProblem(tt("A site keeps {n} custom tokens at most.", { n: MAX_CUSTOM_TOKENS }))
     setProblem(null)
     setName("")

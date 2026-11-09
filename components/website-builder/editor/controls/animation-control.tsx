@@ -18,15 +18,19 @@ import { useEditorFieldEnv } from "./context"
 import { SELECT } from "./styles"
 import { tt } from "@/lib/i18n/text"
 
-const MOTION_WORDS: Record<string, string> = {
-  none: "none",
-  fade: "fade",
-  fade_up: "fade up",
-  rise: "rise",
-  slide_left: "from the right",
-  slide_right: "from the left",
-  zoom: "zoom",
-  blur: "blur in",
+/** The site's animation in words, for "Same as site (fade up)". */
+function motionWords(v: string): string {
+  switch (v) {
+    case "none": return tt("none")
+    case "fade": return tt("fade")
+    case "fade_up": return tt("fade up")
+    case "rise": return tt("rise")
+    case "slide_left": return tt("from the right")
+    case "slide_right": return tt("from the left")
+    case "zoom": return tt("zoom")
+    case "blur": return tt("blur in")
+    default: return v
+  }
 }
 
 /** A select drawn as an animation choice: id `animation`, or exactly the section animation values. */
@@ -46,7 +50,7 @@ export function AnimationControl({ value, onChange, options, label }: { value: u
       <select aria-label={label} className={SELECT} value={current} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => (
           <option key={o.value} value={o.value}>
-            {o.value === "theme" ? tt("Same as site ({motion})", { motion: tt(MOTION_WORDS[site] ?? site) }) : tt(o.label)}
+            {o.value === "theme" ? tt("Same as site ({motion})", { motion: motionWords(site) }) : tt(o.label)}
           </option>
         ))}
       </select>

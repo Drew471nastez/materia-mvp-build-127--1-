@@ -11,11 +11,12 @@
  * resolve.ts), so an id that is not theirs draws nothing.
  */
 import { FormPicker } from "@/components/forms/form-picker"
+import { tt } from "@/lib/i18n/text"
 
 export function FormPickerControl({ value, onChange, label, booking }: { value: string; onChange: (v: string) => void; label?: string; booking?: boolean }) {
   return (
     <div data-form-picker-control="">
-      <FormPicker value={value} onChange={onChange} label={label || "Form"} kind={booking ? "booking" : "form"} />
+      <FormPicker value={value} onChange={onChange} label={label || tt("Form")} kind={booking ? "booking" : "form"} />
     </div>
   )
 }

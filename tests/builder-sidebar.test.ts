@@ -165,7 +165,8 @@ function main() {
   /* Changed on purpose: the owner did not like the accordion's turning arrows and the groups sliding under an opened one. A group opens as its own panel, with Back. */
   check("both lists of groups open a group as its own panel, with Back",
     (editor.match(/<ThemeGroupRow key=\{group\.id\} group=\{group\} onOpen=\{\(\) => setExpandedSettings\(group\.id\)\} \/>/g) ?? []).length === 2
-      && (editor.match(/<PanelBack onBack=\{\(\) => setExpandedSettings\(null\)\}>/g) ?? []).length === 2)
+      /* Two open groups, and Design tokens (round L) opened from each list. */
+      && (editor.match(/<PanelBack onBack=\{\(\) => setExpandedSettings\(null\)\}>/g) ?? []).length === 4)
   check("and the open group says which it is, for the probe",
     (editor.match(/data-theme-group=\{group\.id\}/g) ?? []).length === 2 && (editor.match(/data-theme-group-open=\{group\.id\}/g) ?? []).length === 2)
   check("about a quarter of a second open, a little less shut", COLLAPSE_OPEN_MS === 240 && COLLAPSE_CLOSE_MS === 200)

@@ -3881,7 +3881,7 @@ section("A setting is one way to make a change, not the limit of what is possibl
   )
   check(
     "a write goes through the code editor's own save: a draft with a version, never the live site",
-    /await saveThemeFile\(supabase, installId, path, source\)/.test(route) && !/\.update\(\{ content: source, draft_content: null/.test(route),
+    /await saveThemeFile\(supabase, installId, path, source, \{ author: "ai" \}\)/.test(route) && !/\.update\(\{ content: source, draft_content: null/.test(route),
   )
   check(
     "the next turn reads what was just written",
