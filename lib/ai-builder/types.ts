@@ -106,14 +106,51 @@ export type EditableProp =
   | (PropBase & { kind: "link"; default?: string })
   | (PropBase & { kind: "icon"; default?: string })
   | (PropBase & { kind: "alignment"; default?: "left" | "center" | "right" })
-  | (PropBase & { kind: "animation"; default?: AnimationStyle | "none" })
+  /**
+   * The section's entrance animation. With id "animation" it is the one the
+   * page plays (SectionRenderer data-animation, lib/website-builder/
+   * section-motion.ts) and the section's own panel shows it instead of the
+   * generic one. `timing` adds `<id>_duration` and `<id>_delay` (ms). Values
+   * are SECTION_ANIMATIONS; the older ANIMATION_STYLES names are read too.
+   */
+  | (PropBase & { kind: "animation"; default?: AnimationStyle | SectionAnimationValue; timing?: boolean })
   | (PropBase & { kind: "binding"; binding: DataBindingKind; limit?: number })
+  /* Round L (L5): the style groups the sidebar draws with the existing controls. */
+  /** A corner radius in px (range). Empty in the template means the token: `var(--t-radius-md)`. */
+  | (PropBase & { kind: "radius"; default?: number; max?: number })
+  /** A width or height with a unit (range). */
+  | (PropBase & { kind: "size"; default?: number; min: number; max: number; step?: number; unit: SizeUnit })
+  /** A shadow level, read as `var(--t-shadow-{{ settings.x }}, none)`. */
+  | (PropBase & { kind: "shadow"; default?: ShadowLevel })
+  /** A border: its width (range px) and `<id>_color` (colour, empty = the scheme's border). */
+  | (PropBase & { kind: "border"; default?: number; colorDefault?: string })
+  /** A background: a colour or a gradient (color_background). */
+  | (PropBase & { kind: "background"; default?: string })
+  /** Where an element shows: both, desktop or phone. Put it on an element as `data-show-on="{{ settings.x }}"`. */
+  | (PropBase & { kind: "visibility"; default?: Visibility })
 
 export type EditablePropKind = EditableProp["kind"]
+export type BindingProp = Extract<EditableProp, { kind: "binding" }>
 
 /** The section Animation values the theme already offers (lib/website-builder/theme-settings-schema.ts animation_style). */
 export const ANIMATION_STYLES = ["fade-up", "fade-in", "rise", "blur-in", "zoom-in", "slide-left", "slide-right"] as const
 export type AnimationStyle = (typeof ANIMATION_STYLES)[number]
+
+/**
+ * The values the page plays for a section's `animation` setting
+ * (lib/website-builder/section-anchors.ts SECTION_ANIMATIONS). "theme"
+ * follows Theme settings › Animations. Added in round L (L5): the
+ * ANIMATION_STYLES names above are Theme settings' own spelling and played as
+ * "theme" when a section stored them.
+ */
+export const SECTION_ANIMATION_VALUES = ["theme", "none", "fade", "fade_up", "zoom", "slide_left", "slide_right", "blur", "rise"] as const
+export type SectionAnimationValue = (typeof SECTION_ANIMATION_VALUES)[number]
+
+export type SizeUnit = "px" | "%" | "vw" | "vh" | "rem"
+export const SHADOW_LEVELS = ["none", "sm", "md", "lg"] as const
+export type ShadowLevel = (typeof SHADOW_LEVELS)[number]
+export const VISIBILITY_VALUES = ["both", "desktop", "mobile"] as const
+export type Visibility = (typeof VISIBILITY_VALUES)[number]
 
 /**
  * Native Storelib data a prop can hold a reference to. Resolved on the server,
@@ -189,6 +226,14 @@ export interface DesignTokens {
     inverse?: { background: string; text: string; accent: string }
   }
   fonts: { heading: string; body: string; accent?: string }
+  /**
+   * The type scale (round L, L5): body size in px and the ratio each heading
+   * step grows by. Written to Theme settings › Typography's text styles, so
+   * every one is still editable there. Absent keeps the theme's.
+   */
+  typeScale?: { base: number; ratio: number }
+  /** The card shadow every component reads as var(--t-shadow): a level (round L, L5). */
+  shadow?: ShadowLevel
   /** Pixels. */
   radius: { small: number; medium: number; large: number }
   spacing: { scale: number; sectionY: number; pageWidth: number; gutter: number }
@@ -423,3 +468,41 @@ export interface ResourceEntry {
 
 /** A control type id the manifest maps to (re-exported for the mapper and its test). */
 export type ManifestControlType = SchemaFieldType | "form_picker"
+
+/* ── editing one component (round L, L5) ─────────────────────────────── */
+
+/**
+ * "Edit with AI" on one placed component: a scoped request for the agent, in
+ * edit mode, on that file only. L2 owns the route that turns it into a job
+ * (engine "agent", options.edit); until it answers, the editor hands the
+ * same request to the page assistant with the section selected, which edits
+ * the file through edit_section_code.
+ */
+export interface ComponentEditRequest {
+  mode: "edit"
+  /** sections/ai_<slug>.storelib (or any section file the creator owns). */
+  path: string
+  /** The placed instance the person had open, so the agent can read its settings. */
+  sectionId?: string
+  page?: string
+  prompt: string
+  /** sha256 of the draft the editor holds (fileVersion), so an edit made since is never overwritten. */
+  expectedVersion: string | null
+}
+
+/** Where ComponentEditRequest is POSTed. 404 or 501 means the agent route is not there yet. */
+export function componentEditEndpoint(installId: string): string {
+  return `/api/website-builder/themes/${encodeURIComponent(installId)}/ai-edit`
+}
+
+/** One saved version of a file, as the history lists it (store_theme_file_versions, author from SQL part 401). */
+export interface FileVersionEntry {
+  id: string
+  path: string
+  content: string
+  kind: "save" | "publish" | "restore" | string
+  /** Null before part 401, or for a row written before it. */
+  author: FileAuthor | null
+  jobId: string | null
+  created_at: string
+}

@@ -27,6 +27,7 @@
 import { buttonSelector, themeTypography, typographyStylesheet, typographyVars } from "@/lib/storelib-theme/typography"
 import { cleanCustomCss } from "@/lib/storelib-theme/custom-css"
 import type { ThemeSettingsValues } from "./types"
+import { tokenVars } from "@/lib/ai-builder/tokens"
 
 /** A setting that arrived as `"1280"`, or as nothing at all. */
 function num(value: unknown, fallback: number): number {
@@ -147,6 +148,9 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
     // ── Inputs, pills, cards, containers, media, pop-ups, badges ─────────────
     ...parityVars(t),
     ...buttonSizeVars(t, buttonSize, typo),
+
+    // ── Design tokens (round L): the `--t-*` scale and custom tokens, only on a site whose tokens were set (lib/ai-builder/tokens.ts) ──
+    ...tokenVars(t),
   }
 }
 
