@@ -27,6 +27,7 @@
  * `message` is null only while a reloaded address is still reading the inbox.
  */
 
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import Link from "next/link"
 import { ArrowLeft, Copy, MoreHorizontal } from "lucide-react"
@@ -42,14 +43,15 @@ function when(iso?: string | null): string {
   if (!iso) return ""
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ""
-  return `${d.toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", year: "numeric" }))}, ${d.toLocaleTimeString(appLocale(), zoned({ hour: "numeric", minute: "2-digit" }))}`
+  /* Wave 8: the year only when it is not this one, as the inbox and the lists say it. */
+  return `${d.toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", year: d.getFullYear() === new Date().getFullYear() ? undefined : "numeric" }))}, ${d.toLocaleTimeString(appLocale(), zoned({ hour: "numeric", minute: "2-digit" }))}`
 }
 
 /** Where they wrote from: the site, and the page when it was not the home page. */
 export function sentFrom(m: Pick<MessageRow, "site" | "page">): string {
   const page = (m.page ?? "").replace(/^\/+|\/+$/g, "")
   const shown = page && page !== "home" ? `/${page}` : ""
-  return m.site ? `${m.site}${shown}` : shown
+  return m.site ? (shown ? `${m.site} · ${shown}` : m.site) : shown
 }
 
 /** Two letters for the avatar: the name's initials, or the email's first letter. */
@@ -78,7 +80,7 @@ function Thread({ message, onReply }: { message: MessageRow; onReply?: (message:
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const replies = message.replies ?? []
-  const who = message.name || message.email
+  const who = message.name || (displayEmail(message.email) ?? "")
   const send = async () => {
     const words = text.trim()
     if (!words || busy || !onReply) return
@@ -96,10 +98,10 @@ function Thread({ message, onReply }: { message: MessageRow; onReply?: (message:
     <section className={cn(card, "min-w-0 overflow-hidden")} aria-label={tt("Conversation")} data-message-thread={message.id}>
       <article className="px-4 pb-5 pt-4 sm:px-5" data-message-original="">
         <header className="flex items-center gap-3">
-          <Avatar text={initialsOf(message.name, message.email)} />
+          <Avatar text={initialsOf(message.name, (displayEmail(message.email) ?? ""))} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{who}</p>
-            <p className="truncate text-[12.5px] text-[#6b7280]">{message.name ? message.email : tt("Website contact form")}</p>
+            <p className="truncate text-[12.5px] text-[#6b7280]">{message.name ? (displayEmail(message.email) ?? "") : tt("Website contact form")}</p>
           </div>
           <time className="shrink-0 text-[12.5px] text-[#9ca3af] max-sm:hidden" dateTime={message.created_at}>
             {when(message.created_at)}
@@ -151,7 +153,7 @@ function Thread({ message, onReply }: { message: MessageRow; onReply?: (message:
         />
         <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <p className={cn("min-w-0 flex-1 basis-[220px] text-[12.5px] leading-[18px]", error ? "text-[#b42318]" : "text-[#6b7280]")} aria-live="polite">
-            {error ?? tt("Sent from your store to {email}. Their answer comes to your inbox.", { email: message.email })}
+            {error ?? tt("Sent from your store to {email}. Their answer comes to your inbox.", { email: (displayEmail(message.email) ?? "") })}
           </p>
           <button type="button" className={cn(buttonAccent, "shrink-0 px-4 max-md:h-11 max-md:w-full max-md:rounded-xl max-md:text-[15px]")} disabled={!text.trim() || busy || !onReply} onClick={() => void send()} data-reply-send="">
             {busy ? tt("Sending") : tt("Send reply")}
@@ -169,18 +171,18 @@ function Sender({ message, contactHref, onCopy }: { message: MessageRow; contact
     <section className={cn(card, "min-w-0 px-4 py-4")} aria-label={tt("From")} data-message-sender="">
       <h2 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("From")}</h2>
       <div className="mt-3 flex items-center gap-3">
-        <Avatar text={initialsOf(message.name, message.email)} />
+        <Avatar text={initialsOf(message.name, (displayEmail(message.email) ?? ""))} />
         <div className="min-w-0 flex-1">
           {contactHref ? (
             <Link href={contactHref} className="block truncate text-[14px] font-semibold text-[#1a1a2e] hover:underline" data-message-contact="">
-              {message.name || message.email}
+              {message.name || (displayEmail(message.email) ?? "")}
             </Link>
           ) : (
-            <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{message.name || message.email}</p>
+            <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{message.name || (displayEmail(message.email) ?? "")}</p>
           )}
           <p className="flex min-w-0 items-center gap-1 text-[13px] text-[#6b7280]">
-            <span className="truncate">{message.email}</span>
-            <button type="button" className={cn(iconButton, "h-7 w-7 shrink-0 max-md:h-9 max-md:w-9")} aria-label={tt("Copy email")} title={tt("Copy email")} onClick={() => onCopy(message.email)}>
+            <span className="truncate">{(displayEmail(message.email) ?? "")}</span>
+            <button type="button" className={cn(iconButton, "h-7 w-7 shrink-0 max-md:h-9 max-md:w-9")} aria-label={tt("Copy email")} title={tt("Copy email")} onClick={() => onCopy((displayEmail(message.email) ?? ""))}>
               <Copy className="h-3.5 w-3.5" />
             </button>
           </p>
@@ -257,7 +259,7 @@ export function MessagePage({
       </>
     )
   }
-  const who = message.name || message.email
+  const who = message.name || (displayEmail(message.email) ?? "")
   const answered = (message.replies ?? []).some((r) => !r.pending)
   const profile = contactHref ? contactHref(message) : null
   return (
@@ -270,7 +272,7 @@ export function MessagePage({
             {!message.read_at ? <StatusBadge tone="attention">{tt("New")}</StatusBadge> : answered ? <StatusBadge tone="success">{tt("Replied")}</StatusBadge> : null}
           </>
         }
-        subtitle={[message.subject || tt("Website contact form"), when(message.created_at)].filter(Boolean).join(" · ")}
+        subtitle={[message.site || tt("Website contact form"), when(message.created_at)].filter(Boolean).join(" · ")}
         actions={
           <ResponsiveActionMenu
             title={who}
@@ -279,7 +281,7 @@ export function MessagePage({
             items={[
               ...(profile ? [{ label: tt("View contact"), href: profile }] : []),
               { label: message.read_at ? tt("Mark as new") : tt("Mark as read"), onClick: () => onToggleRead(message) },
-              { label: tt("Copy email"), onClick: () => onCopy(message.email) },
+              { label: tt("Copy email"), onClick: () => onCopy((displayEmail(message.email) ?? "")) },
               { label: tt("Reply in your mail app"), onClick: () => { window.location.href = replyHref(message) } },
               { label: tt("Delete"), variant: "destructive" as const, separatorBefore: true, onClick: () => onDelete(message.id) },
             ]}

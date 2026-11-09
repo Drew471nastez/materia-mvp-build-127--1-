@@ -15,6 +15,7 @@
  * its fingerprint, so New link is how to see one again (the old one stops).
  * Everything is decided on the server; this only shows it and asks.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import { Copy, Check } from "lucide-react"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Card, Field, Modal, Notice, SelectInput, TextInput, Toggle, api } from "@/components/physical/ui"
@@ -95,7 +96,7 @@ export function HandoffPanel() {
     setLink(data.link)
     setCopied(false)
     setPanel({ ...panel, pending: data.pending })
-    if (sent && data.emailed) toast({ title: tt("Sent to {email}", { email: data.pending.email ?? "" }) })
+    if (sent && data.emailed) toast({ title: tt("Sent to {email}", { email: displayEmail(data.pending.email) ?? "" }) })
     else if (sent && data.pending.email) toast({ title: tt("The email didn't go out. Copy the link and send it yourself."), variant: "destructive" })
     void load()
   }
@@ -160,7 +161,7 @@ export function HandoffPanel() {
           <div className="space-y-4">
             <div>
               <p className="text-[14px] font-medium text-[#1a1a2e]" data-handoff-waiting="">
-                {pending.email ? tt("Waiting for {email} to accept", { email: pending.email }) : tt("Waiting for someone to accept")}
+                {displayEmail(pending.email) ? tt("Waiting for {email} to accept", { email: displayEmail(pending.email) }) : tt("Waiting for someone to accept")}
               </p>
               <p className={cn("mt-0.5 text-[13px] leading-5", pending.expired ? "text-[#b42318]" : "text-[#6b7280]")}>
                 {pending.expired ? tt("The link has expired. Make a new one to send it again.") : tt("The link works until {date}, once.", { date: new Date(pending.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) })}

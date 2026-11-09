@@ -32,6 +32,7 @@
  * which says so when nothing links them. Membership stays here: Contacts
  * only points back.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import { ExternalLink, Mail, MessageCircle, UserRound } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -157,7 +158,7 @@ export function MemberSheet({
         <div className="flex items-center gap-3.5">
           <MemberAvatar src={m.avatarUrl ?? undefined} name={m.name} size={52} className="h-[52px] w-[52px] shrink-0 rounded-full" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[14px] text-[#4b5563]">{[m.username ? `@${m.username}` : null, m.email].filter(Boolean).join(" · ") || ROLE_LABEL[m.role]}</p>
+            <p className="truncate text-[14px] text-[#4b5563]">{[m.username ? `@${m.username}` : null, displayEmail(m.email)].filter(Boolean).join(" · ") || ROLE_LABEL[m.role]}</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {pending ? <StatusBadge tone="attention">{m.approved ? tt("Approved, waiting for payment") : tt("Asked to join")}</StatusBadge> : null}
               {out ? <StatusBadge tone="neutral">{m.status === "banned" ? tt("Banned") : m.status === "removed" ? tt("Removed") : m.status === "paused" ? tt("Suspended") : m.status === "expired" ? tt("Expired") : tt("Left")}</StatusBadge> : null}
@@ -207,8 +208,8 @@ export function MemberSheet({
               <ExternalLink aria-hidden className="h-4 w-4" />
               {tt("Profile")}
             </a>
-            {m.email ? (
-              <a href={`mailto:${m.email}`} className={linkClass}>
+            {displayEmail(m.email) ? (
+              <a href={`mailto:${displayEmail(m.email)}`} className={linkClass}>
                 <Mail aria-hidden className="h-4 w-4" />
                 {tt("Email")}
               </a>

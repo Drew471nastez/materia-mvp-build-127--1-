@@ -16,6 +16,7 @@ import "server-only"
  *
  * Existing systems stay the source of truth; nothing here writes.
  */
+import { emailMatchKey } from "@/lib/businesses/email-alias"
 import { answerText, type Answer } from "@/lib/forms/definition"
 import { contactKey, groupPeople, normalizeEmail, parseContactKey, personOf, subscriptionOf, type Account, type KeyKind, type PersonRow, type SourceRecord, type SubscriptionState } from "./identity"
 import { PAID_STATUSES, likeExact, readAccounts, readSources, type Db } from "./people-server"
@@ -146,12 +147,19 @@ export async function gatherPerson(db: Db, scope: ContactsScope, seed: Seed): Pr
   const emails = new Set<string>()
   const records = new Map<string, SourceRecord>()
   const add = (r: SourceRecord) => records.set(`${r.kind}:${r.id}`, r)
+  /* An address and, for a second business's, the owner's own one it is shown as (identity.ts keys both as one person). */
+  const addEmail = (e: string | null | undefined) => {
+    if (!e || emails.size >= 10) return
+    emails.add(e)
+    const shown = emailMatchKey(e)
+    if (shown && shown !== e && normalizeEmail(shown) && emails.size < 10) emails.add(shown)
+  }
   if ("record" in seed) {
     add(seed.record)
     if (seed.record.userId) users.add(seed.record.userId)
-    if (seed.record.email) emails.add(seed.record.email)
+    addEmail(seed.record.email)
   } else if ("userId" in seed) users.add(seed.userId)
-  else emails.add(seed.email)
+  else addEmail(seed.email)
 
   let accounts = new Map<string, Account>()
   for (let round = 0; round < 3; round++) {
@@ -167,11 +175,8 @@ export async function gatherPerson(db: Db, scope: ContactsScope, seed: Seed): Pr
     for (const r of records.values()) if (r.userId && users.size < 20) users.add(r.userId)
     for (const p of verified) if (users.size < 20) users.add(String(p.id))
     accounts = await readAccounts(db, users)
-    for (const r of records.values()) if (r.userId && r.email && (r.kind === "order" || r.kind === "membership") && emails.size < 10) emails.add(r.email)
-    for (const a of accounts.values()) {
-      const e = a.verified ? normalizeEmail(a.email) : null
-      if (e && emails.size < 10) emails.add(e)
-    }
+    for (const r of records.values()) if (r.userId && r.email && (r.kind === "order" || r.kind === "membership")) addEmail(r.email)
+    for (const a of accounts.values()) addEmail(a.verified ? normalizeEmail(a.email) : null)
     if (users.size + emails.size === before) break
   }
 
@@ -185,7 +190,7 @@ export async function gatherPerson(db: Db, scope: ContactsScope, seed: Seed): Pr
         ? rows.some((r) => r.kind === seed.record.kind && r.id === seed.record.id)
         : "userId" in seed
           ? identity === `u:${seed.userId}`
-          : identity === `e:${seed.email}` || rows.some((r) => r.email === seed.email)
+          : identity === `e:${emailMatchKey(seed.email) ?? seed.email}` || rows.some((r) => r.email === seed.email)
     if (hit) {
       mine = identity
       break

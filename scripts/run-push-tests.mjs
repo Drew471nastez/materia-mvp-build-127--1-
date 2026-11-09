@@ -307,6 +307,8 @@ const SUITES = [
   /* Wave 6: Contacts and Forms in the /app pane, one bar per screen; a form edited as a coupon or a product (its name as the title, phone bar, foot bar, cards the width of the bar). */
   "tests/contacts-forms-w6.test.ts",
   "tests/contacts-nav-w7.test.ts",
+  /* Wave 8: Contacts switches without a flash or a fade: a form's tabs as Storelib's pills with Responses and Insights kept mounted and cached, People's views read ahead and swapped in place, a booking week in switch rows, message links straight to Contacts › Forms. */
+  "tests/contacts-smooth-w8.test.ts",
   /* Wave 5: Emails on a phone as it was before round 51: one row of views, Automation and New email on every view, no second row; a computer keeps the three tabs. */
   "tests/emails-phone-w5.test.ts",
   "tests/orders-view.test.ts",
@@ -771,6 +773,8 @@ const SUITES = [
   "tests/buy-extras.test.ts",
   "tests/business-accounts.test.ts",
   "tests/shown-email.test.ts",
+  /* Wave 8: a second business's tagged address is never drawn, exported or searched by its tag; one person per address shown. */
+  "tests/alias-display-w8.test.ts",
   "tests/store-settings-t.test.ts",
   "tests/taxes-t.test.ts",
   "tests/markets.test.ts",
@@ -849,6 +853,7 @@ const SUITES = [
   "tests/onepage-themes-ap.test.ts",
   /* Round AQ: the onboarding draws the theme preview, Layout pictures draw the block's own content, a form's row is named, the sheet kit's slow pull is slow; scripts/check-onepage-real-preview.mjs reads the preview in next dev. */
   "tests/onepage-aq2.test.ts",
+  "tests/onepage-themes-w8.test.ts",
   /* Round 10 buttons: every saved button draws as before, the hover system, one drawing for page, preview and Design tab; a social link typed any way saved as the right address. scripts/check-onepage-buttons.mjs measures them. */
   "tests/onepage-buttons.test.ts",
   "tests/onepage-social-input.test.ts",
@@ -1399,6 +1404,7 @@ const STRICT_SUITES = [
   "tests/onepage-r42.test.ts",
   /* Round AP, track 1: the shared link card at a chat's size, a row's bin under a mouse, the block sheet opening with its content and easing to late content, its foot bar off over the keyboard, drawn down by a mouse, Share as a phone's bottom sheet, no crossed circle on a booking link, no cookie card in the preview, the thumbnail row, row tiles from the Add block entries, a shelf of chosen products (the owner's only), and every sideways row following a mouse. scripts/check-onepage-sheets-ap.mjs, check-onepage-drag-rows-ap.mjs, check-onepage-button-controls-ap.mjs, check-onepage-perf-ap.mjs and shot-onepage-editor-ap.mjs measure them. */
   "tests/onepage-ap1.test.ts",
+  "tests/onepage-w8.test.ts",
   /* Round 43: the OnePage editor's font sheet as tall as its list, an off block's controls unfaded, Remove's question in one compact line, a block's stats with the period as a popover and See in Analytics, the header's type and picture frame, the cover's ring that follows a Left header, one hold for every window over the live page. scripts/check-onepage-editor-r43.mjs measures them. */
   "tests/onepage-editor-r43.test.ts",
   /* Round 44: every page of a published website, for search engines: one indexable host (the Storelib address's sitemap goes to the domain's), a website not live is a 404 past its front page, a renamed product's old address a 308, the sitemap to 50,000 products held a page at a time, an imported theme's canonical and noindex, and IndexNow told about the addresses a publish or a deleted page took down. */

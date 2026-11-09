@@ -1,5 +1,6 @@
 "use client"
 
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 
 import type { AudiencePayload, AuditPayload, EmailPayload, PeoplePayload, SiteRow, SystemPayload, WebsitesPayload } from "@/lib/admin/types"
@@ -348,7 +349,7 @@ export function PeopleView({ data, go, query, onQuery, act }: Common & { data: P
       {person ? (
         <Panel
           title={person.name}
-          meta={[person.handle ? `@${person.handle}` : null, person.email, person.role === "admin" ? "Admin" : person.creator ? "Creator" : "Buyer"].filter(Boolean).join(" · ")}
+          meta={[person.handle ? `@${person.handle}` : null, displayEmail(person.email), person.role === "admin" ? "Admin" : person.creator ? "Creator" : "Buyer"].filter(Boolean).join(" · ")}
           action={
             <div className="flex flex-wrap gap-2">
               {person.creator ? (
@@ -400,7 +401,7 @@ export function PeopleView({ data, go, query, onQuery, act }: Common & { data: P
               columns={[
                 { key: "name", label: "Name", width: "minmax(0,1.4fr)", phone: "primary", render: (r) => r.name },
                 { key: "handle", label: "Handle", width: "minmax(0,1fr)", render: (r) => (r.handle ? `@${r.handle}` : "No handle") },
-                { key: "email", label: "Email", width: "minmax(0,1.2fr)", render: (r) => r.email ?? "" },
+                { key: "email", label: "Email", width: "minmax(0,1.2fr)", render: (r) => displayEmail(r.email) ?? "" },
                 { key: "kind", label: "Kind", width: "84px", render: (r) => (r.role === "admin" ? "Admin" : r.creator ? "Creator" : "Buyer") },
                 { key: "spam", label: "Spam review", width: "100px", render: (r) => (r.spam ? <Status value={r.spam === "clear" ? "ok" : "failed"} label={statusWord(r.spam)} /> : "") },
                 { key: "joined", label: "Joined", width: "100px", align: "right", phone: "end", render: (r) => date(r.joined) },

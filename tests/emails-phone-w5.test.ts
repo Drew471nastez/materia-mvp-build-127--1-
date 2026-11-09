@@ -25,6 +25,13 @@
  *      above the list's views and never as pills. The title is Emails on
  *      every place, no back arrow; leaving Campaigns is still pushed and
  *      Campaigns pops it.
+ *      Changed on purpose (wave 8, the owner: "make sure it's like how it
+ *      was before, with the pill shape, Storelib UI, inherited; and make it
+ *      smooth and clean"). The four places are Storelib's shared pill track
+ *      again (components/app/segmented-pills, the control Emails drew
+ *      before wave 6), one row, each place still a real link. On a phone
+ *      the whole track scrolls from edge to edge, as Settings' pill row
+ *      does. All, Sent, Scheduled and Drafts stay the card's quiet tabs.
  *   4. Every place stays reachable and every address still lands
  *      (?tab=, &show=, &section=).
  *   5. A thumb's 44px on a phone.
@@ -52,9 +59,11 @@ const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\
 
 const home = code(read("app/(storelib)/app/emails/emails-home.tsx"))
 const client = code(read("app/(storelib)/app/emails/emails-client.tsx"))
+const pills = code(read("components/app/segmented-pills.tsx"))
 
 /* ─── 1. No pills ───────────────────────────────────────────────────── */
-check("Emails draws no pill track and no pill filter row", !/SegmentedPills|FilterPills|PHONE_VIEWS|data-email-views-phone/.test(home))
+/* Changed on purpose (wave 8): one pill track, the places'; still no pill filter row and no phone row of seven views. */
+check("Emails draws one pill track (the places) and no pill filter row", (home.match(/<SegmentedPills/g) ?? []).length === 1 && !/FilterPills|PHONE_VIEWS|data-email-views-phone/.test(home))
 check("and the client no phone-only row of views", !/setView|onView=/.test(client))
 
 /* ─── 2. Campaigns, the page ────────────────────────────────────────── */
@@ -67,13 +76,14 @@ check("Templates opens the layouts, and a picked one starts a new email", /onCli
 const actions = /pageTab === "campaigns" \? \(([\s\S]*?)\) : pageTab === "automations"/.exec(home)?.[1] ?? ""
 /* Changed on purpose (wave 7): Automations and Settings left the bar for the row of places; the bar keeps New email. */
 check("Campaigns' bar: New email, and no other button", /<Link href="\/app\/emails\/new"[\s\S]*?data-new-email=""/.test(actions) && !/data-emails-automations|data-emails-settings/.test(actions))
-check("each place is a real link, so it opens in a new tab too", /href: "\/app\/emails\?tab=automations"/.test(home) && /href: "\/app\/emails\?tab=settings&section=customer"/.test(home) && /href: "\/app\/emails\?tab=settings&section=sending"/.test(home) && /href=\{p\.href\}/.test(home) && /if \(e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.button !== 0\) return/.test(home))
+check("each place is a real link, so it opens in a new tab too", /href: "\/app\/emails\?tab=automations"/.test(home) && /href: "\/app\/emails\?tab=settings&section=customer"/.test(home) && /href: "\/app\/emails\?tab=settings&section=sending"/.test(home) && /* Changed on purpose (wave 8): the track draws an option with an address as a link, a modified click left to the browser */ /href: p\.href \}\)\)/.test(home) && /const Tag: React\.ElementType = o\.href \? "a" : "button"/.test(pills) && /if \(e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey \|\| e\.button !== 0\) return/.test(pills))
 
 /* ─── 3. Pages under Emails ─────────────────────────────────────────── */
 /* Changed on purpose (wave 7): no back arrows and no second row; four places in one row under the title. */
 check("the title is Emails on every place, with no back arrow", /<h1 className="min-w-0 truncate text-\[24px\] font-bold text-\[#1a1a2e\] sm:text-\[28px\]">\{tt\("Emails"\)\}<\/h1>/.test(home) && !/data-emails-back|tt\("Email settings"\)/.test(home))
 check("the four places, in order: Campaigns, Automations, Customer emails, Settings", /value: "campaigns"[\s\S]*?tt\("Campaigns"\)[\s\S]*?value: "automations"[\s\S]*?tt\("Automations"\)[\s\S]*?value: "customer", tab: "settings", section: "customer"[\s\S]*?tt\("Customer emails"\)[\s\S]*?value: "settings", tab: "settings", section: "sending"[\s\S]*?tt\("Settings"\)/.test(home))
-check("the row is a nav of links, the chosen one aria-current, under a hairline: not pills", /<nav aria-label=\{tt\("Emails"\)\} className="border-b border-\[#e5e7eb\]" data-emails-nav="">/.test(home) && /aria-current=\{on \? "page" : undefined\}/.test(home) && /on \? "border-\[#1a1a2e\] text-\[#1a1a2e\]" : "border-transparent text-\[#6b7280\] hover:text-\[#1a1a2e\]"/.test(home))
+/* Changed on purpose (wave 8, the owner: the pill shape, as before): the row is Storelib's pill track, not words over a hairline. */
+check("the row is the shared pill track of the four places, the chosen one selected", /data-emails-nav="">\s*<SegmentedPills[\s\S]*?value=\{place\}[\s\S]*?options=\{PLACES\.map/.test(home) && !/border-b-2/.test(home) && /variant = "track"/.test(pills) && /bg-\[#eceef1\] p-1/.test(pills))
 check("Settings has no second row of sections", !/data-settings-sections/.test(home))
 check("Automations' bar has Create automation", /pageTab === "automations" \? \(\s*<Link href="\/app\/emails\/flow\/new"[^>]*data-new-automation="">/.test(home))
 check("leaving Campaigns is pushed; moving between the others replaces; Campaigns pops it, or puts Campaigns in the address when nothing is behind", /const push = pageTab === "campaigns" && next !== "campaigns"/.test(client) && /placePushed\.current = push \|\| \(placePushed\.current && next !== "campaigns"\)/.test(client) && /writeAddress\(placeAddress\(next, nextSection\), push \? "push" : "replace"\)/.test(client) && /backThen\(\(\) => \{\s*setPageTabState\("campaigns"\)\s*writeAddress\(placeAddress\("campaigns", nextSection\), "replace"\)/.test(client))
@@ -92,8 +102,10 @@ check("anything else is Campaigns, All", at("tab=nope") === "all" && at("") === 
 
 /* ─── 5. A thumb ────────────────────────────────────────────────────── */
 /* Changed on purpose (wave 7): the bar has one button now (was three); each place is 44px tall. */
-check("the bar's button and each place reach 44px on a phone", /const TAP = "relative before:absolute before:-inset-y-1\.5 before:inset-x-0 before:content-\[''\] sm:before:hidden"/.test(home) && (actions.match(/TAP/g) ?? []).length === 1 && /"relative inline-flex h-11 shrink-0 items-center whitespace-nowrap border-b-2 text-\[14px\]/.test(home))
-check("the row fits a 390px phone (spread, not scrolled) and scrolls only in a long language", /max-sm:justify-between max-sm:gap-x-3/.test(home) && /overflow-x-auto \[scrollbar-width:none\]/.test(home))
+/* Changed on purpose (wave 8): a place is a 36px pill in the 44px track, and on a phone reaches the track's full 44px. */
+check("the bar's button and each place reach 44px on a phone", /const TAP = "relative before:absolute before:-inset-y-1\.5 before:inset-x-0 before:content-\[''\] sm:before:hidden"/.test(home) && (actions.match(/TAP/g) ?? []).length === 1 && /max-sm:\[&>\[role=tab\]\]:before:-inset-y-1/.test(home) && /h-9 px-4 text-\[14px\]/.test(pills))
+/* Changed on purpose (wave 8): four pills do not fit 390px; the whole track scrolls from the screen's edge to edge (Settings' pill row), never the page, and the chosen place is kept in view. */
+check("on a phone the track scrolls edge to edge, never the page, the chosen place kept in view", /className="orders-strip app-gutter-bleed h-11 overflow-x-auto overflow-y-hidden/.test(home) && /max-sm:max-w-none max-sm:overflow-visible/.test(home) && /const PLACE_CLEAR = 12/.test(home) && /\}, \[place\]\)/.test(home))
 check("a view is 36px on a phone, 32px from md up", /inline-flex h-9 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-\[10px\] px-3 text-\[15px\][^"]*md:h-8/.test(home))
 
 /* ─── 6. Words ──────────────────────────────────────────────────────── */

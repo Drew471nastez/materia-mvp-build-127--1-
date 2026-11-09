@@ -24,6 +24,7 @@
  * picture bucket, files to the private one under this membership, where
  * only members can download them (app/api/memberships/files).
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -427,10 +428,10 @@ function Members({ screen }: { screen: CreatorMembershipScreen }) {
                 return (
                   <li key={m.id} className="px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="min-w-0 truncate text-[14.5px] font-medium text-[#1a1a2e]">{m.name || m.email}</p>
+                      <p className="min-w-0 truncate text-[14.5px] font-medium text-[#1a1a2e]">{m.name || displayEmail(m.email)}</p>
                       <StatusLabel view={v} />
                     </div>
-                    <p className="mt-0.5 truncate text-[13px] text-[#6b7280]">{m.name ? m.email : ""}</p>
+                    <p className="mt-0.5 truncate text-[13px] text-[#6b7280]">{m.name ? displayEmail(m.email) ?? "" : ""}</p>
                     <p className="mt-0.5 text-[13px] text-[#6b7280]">
                       {m.amount_cents ? pricePer(m.amount_cents, m.billing_interval === "year" ? "year" : "month", m.currency) : ""} · {v.line}
                     </p>
@@ -454,8 +455,8 @@ function Members({ screen }: { screen: CreatorMembershipScreen }) {
                   return (
                     <tr key={m.id} className="hover:bg-[#fafbfb]">
                       <td className="h-14 max-w-[280px] px-4">
-                        <p className="truncate text-[13.5px] font-medium text-[#1a1a2e]">{m.name || m.email}</p>
-                        {m.name ? <p className="truncate text-[12.5px] text-[#6b7280]">{m.email}</p> : null}
+                        <p className="truncate text-[13.5px] font-medium text-[#1a1a2e]">{m.name || displayEmail(m.email)}</p>
+                        {m.name && displayEmail(m.email) ? <p className="truncate text-[12.5px] text-[#6b7280]">{displayEmail(m.email)}</p> : null}
                       </td>
                       <td className="h-14 whitespace-nowrap px-3">
                         <StatusLabel view={v} />

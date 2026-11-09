@@ -73,6 +73,38 @@ export const LOOK_RESET: Record<string, unknown> = {
   cover_image_url: null,
 }
 
+/**
+ * THE CREATOR'S OWN TYPE AND FRAME, WHICH A THEME MAY ALSO SET (round W8).
+ * The name's and bio's type, the profile picture's frame and the button's
+ * text alignment and icon side are the creator's own (the Text and Buttons
+ * settings), so picking a theme never resets them the way LOOK_RESET does.
+ * A theme may still set them (Gazette's capitals, Acid's square picture):
+ * then each is the theme's only for as long as it still holds what that
+ * theme set. Picking the next theme takes back what the last one set and
+ * lays on the new one's; a value the creator chose themselves (it is not
+ * what the last theme set) stays, whatever the new theme says.
+ */
+export const THEME_TYPE_KEYS = [
+  "title_size", "title_weight", "title_tracking", "title_case",
+  "bio_size", "bio_weight", "bio_tracking", "bio_case",
+  "avatar_size", "avatar_shape", "avatar_radius", "avatar_border_width", "avatar_border_color",
+  "button_text_align", "button_icon_position",
+] as const
+
+/** What these keys are after picking `template`, coming from `previous` (the theme the page had, when known). */
+function typeKeysFor(current: Record<string, unknown>, template: ThemeTemplateLike, previous?: ThemeTemplateLike | null): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  const was = previous?.theme_config ?? {}
+  const next = template.theme_config
+  for (const k of THEME_TYPE_KEYS) {
+    const cur = current[k]
+    const fromTheme = cur == null || (k in was && was[k] === cur)
+    if (!fromTheme) continue
+    out[k] = k in next ? next[k] : null
+  }
+  return out
+}
+
 /** The colours a block can keep of its own, by block type. */
 export const BLOCK_COLOUR_FIELDS: Record<string, readonly string[]> = {
   product: ["block_background_color", "text_color", "button_color", "button_text_color"],
@@ -106,12 +138,18 @@ export function withoutOwnColours(block: OnePageBlock): OnePageBlock {
 /**
  * The page after picking this theme. `headerLayout` is what the picker chose
  * for the header (a Hero theme, or classic for a picture or gradient).
+ * `previous` is the theme the page wore, so what it set of THEME_TYPE_KEYS
+ * is taken back; without it, any value there is kept as the creator's.
  */
-export function lookFromTemplate(page: OnePage, template: ThemeTemplateLike, headerLayout?: "classic" | "hero"): OnePage {
+export function lookFromTemplate(page: OnePage, template: ThemeTemplateLike, headerLayout?: "classic" | "hero", previous?: ThemeTemplateLike | null): OnePage {
+  const own = (page.theme ?? {}) as unknown as Record<string, unknown>
+  const config = { ...template.theme_config }
+  for (const k of THEME_TYPE_KEYS) delete config[k]
   const theme = {
     ...page.theme,
     ...LOOK_RESET,
-    ...template.theme_config,
+    ...config,
+    ...typeKeysFor(own, template, previous),
     template_id: template.id,
     ...(headerLayout ? { header_layout: headerLayout } : {}),
   } as OnePageTheme

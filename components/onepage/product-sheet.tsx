@@ -69,9 +69,9 @@ import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
 import { ProductQuestions, SizeChartBody, SizeChartPanel } from "@/components/product/size-chart-panel"
 import { pixelEvent } from "@/lib/analytics/pixels"
 import { choose, pickerOptions, valueAvailable, variantFor, type ProductOptionData } from "@/lib/products/product-page-model"
-import { DOT_STEP_PX, SHEET_COLUMN_RATIO, SHEET_PHONE_RATIO, dotPosition, sheetFrameRatio, isSizeOption, mediaFit, optionLook, savedPercent, sheetImageFor, sheetImages, sheetModel, sheetStartChoice, sheetValued, valueSwatch, type SheetModel } from "@/lib/onepage/product-sheet"
+import { DOT_STEP_PX, SHEET_GALLERY_RATIO, dotPosition, isSizeOption, mediaFit, optionLook, savedPercent, sheetImageFor, sheetImages, sheetModel, sheetStartChoice, sheetValued, valueSwatch, type SheetModel } from "@/lib/onepage/product-sheet"
 import { mediaOf, type MediaEntry } from "@/lib/media/video"
-import { FramedPicture, shownRatio, useLetterbox } from "@/components/ui/framed-picture"
+import { FramedPicture, useLetterbox } from "@/components/ui/framed-picture"
 import { firstFrameSrc, prefersStill } from "@/lib/onepage/poster-video"
 import { ProductLightbox, preloadLightboxPlayer } from "./product-lightbox"
 import { PersonalizationFields, usePersonalization } from "@/components/personalization/personalization-fields"
@@ -293,7 +293,8 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
 
   const gallery = images.length ? (
     /* Inside the sheet, with room above and its own corners: the handle sits alone on the sheet over it. */
-    <div className={twoColumns ? "min-h-0 p-5 pr-0" : "px-4 pt-2 sm:px-5 sm:pt-5"}>
+    /* Round W8: the same side padding as the title, price and Buy under it, so the square lines up with them. */
+    <div className={twoColumns ? "min-h-0 p-5 pr-0" : "px-5 pt-2 sm:px-6 sm:pt-5"}>
       <Gallery images={images} title={title} phone={phone} focus={focusImage} tall={twoColumns} active={open} />
     </div>
   ) : null
@@ -596,29 +597,23 @@ function OptionRow({
  *             positions on the way are not read back as steps.
  *   ARROWS    the sheet's own surface and ink (the page's theme), with a hairline, so they read on a white photo
  *             and on a dark sheet; dimmed at the ends rather than gone.
- *   RATIO     4:5 on a phone, square in its column (lib/onepage/product-sheet mediaFit: filled when that cuts
- *             little, whole otherwise).
+ *   RATIO     a square on a phone and in its column (round W8, SHEET_GALLERY_RATIO), pictures filled; a video
+ *             fills it when that cuts little and sits whole otherwise (lib/onepage/product-sheet mediaFit).
  *   VIDEO     a video in the product's gallery (products.gallery_urls, lib/media/video) is a video: muted, inline
  *             and looping, from its stored first frame, playing while it is the one shown and the sheet is up,
  *             with a play and pause button; never by itself with reduced motion or Save Data. A tap on any slide
  *             opens it full screen (./product-lightbox), where a video plays in Storelib's own player.
  */
-function Gallery({ images, title, phone, focus = -1, tall = false, active = true }: { images: string[]; title: string; phone: boolean; focus?: number; tall?: boolean; active?: boolean }) {
+function Gallery({ images, title, phone, focus = -1, active = true }: { images: string[]; title: string; phone: boolean; focus?: number; tall?: boolean; active?: boolean }) {
   const media = React.useMemo(() => mediaOf(images), [images])
   const count = media.length
-  /* The frame: the first slide's own shape, padding off (lib/onepage/product-sheet sheetFrameRatio), for every slide. */
-  const first = media[0]
-  const firstShape = useLetterbox(first?.type === "image" ? first.url : null)
-  const [firstVideoRatio, setFirstVideoRatio] = React.useState<number | null>(null)
-  const wanted = sheetFrameRatio(first?.type === "video" ? firstVideoRatio : shownRatio(firstShape), tall ? SHEET_COLUMN_RATIO : SHEET_PHONE_RATIO)
   /*
-    The frame is decided as the sheet comes up and kept while it is up: a shape read later (a cold tap, the product's
-    own pictures replacing the block's) waits for the next opening rather than resizing the box under the finger.
+    Round W8, the owner: the main picture stood tall and portrait over the sheet. The frame is a square now
+    (lib/onepage/product-sheet SHEET_GALLERY_RATIO), the full width of the sheet's content, every picture filling it
+    (object-cover) as its thumbnail under it does. One shape whatever the pictures are, so nothing resizes on a
+    swipe or when a picture's own shape is read late; the computer's column (`tall`) is the same square.
   */
-  const [held, setHeld] = React.useState<number | null>(null)
-  if (active && held === null) setHeld(wanted)
-  else if (!active && held !== null) setHeld(null)
-  const ratio = active ? (held ?? wanted) : wanted
+  const ratio = SHEET_GALLERY_RATIO
   const strip = React.useRef<HTMLDivElement>(null)
   const lit = React.useRef<HTMLSpanElement>(null)
   const thumbs = React.useRef<HTMLDivElement>(null)
@@ -764,7 +759,6 @@ function Gallery({ images, title, phone, focus = -1, tall = false, active = true
                 fitOf={fitOf}
                 onRatio={(r) => {
                   ratios.current[i] = r
-                  if (i === 0) setFirstVideoRatio(r)
                 }}
                 onOpen={() => setLightbox(i)}
               />
@@ -858,14 +852,13 @@ function Gallery({ images, title, phone, focus = -1, tall = false, active = true
  */
 function SlidePicture({ src, alt, frame, eager, near, onRatio }: { src: string; alt: string; frame: number; eager: boolean; near: boolean; onRatio: (r: number) => void }) {
   const shape = useLetterbox(src, near || eager)
-  const own = shownRatio(shape)
-  const fit = own ? mediaFit(own, 1, frame) : "cover"
+  /* Round W8: always filled (object-cover), as the square thumbnails are; the editor's padding is still cut off first. */
   return (
     <FramedPicture
       src={src}
       alt={alt}
       frame={frame}
-      fit={fit}
+      fit="cover"
       shape={shape ?? null}
       className="h-full w-full"
       imgClassName="object-cover"

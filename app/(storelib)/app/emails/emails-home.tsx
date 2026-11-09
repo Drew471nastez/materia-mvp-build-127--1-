@@ -17,7 +17,7 @@
  * THE BAR HOLDS STILL. The title, Emails, and the place's one action (New
  * email, Create automation) are in the pane's bar, the list bar every
  * Storelib list wears, which is never unmounted and never changes height.
- * Under it, the row of the four places (wave 7): Campaigns, Automations,
+ * Under it, the four places (wave 7) on Storelib's pill track (wave 8): Campaigns, Automations,
  * Customer emails and Settings. Campaigns' views (All, Sent, Scheduled,
  * Drafts) are the list card's quiet tabs, as Orders' and Coupons' (wave 6).
  * It scrolls away with the page, as every list's bar does (round 28, the
@@ -32,6 +32,7 @@
  * It owns no data. The reads, the cache and every action are in
  * app/app/emails/emails-client.tsx.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -46,6 +47,7 @@ import type { RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
 import { ShimmerBlock, ShimmerRows, ShimmerSwap } from "@/components/ui/shimmer"
 import { ScrollEdge } from "@/components/app/scroll-edge"
+import { SegmentedPills } from "@/components/app/segmented-pills"
 import { GUTTER, LIST_BAR, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
 import { layerLinkClick, openLayer } from "./layer-nav"
@@ -387,32 +389,45 @@ export function EmailsHome(props: EmailsHomeProps) {
   const chosen = props.chosenTab ?? tab
   const place = placeOf(pageTab, props.section)
   /*
-    ONE QUIET ROW OF PLACES UNDER THE TITLE (wave 7, the owner: Customer
-    emails, Delivery and the settings have to be easier to reach than a
-    Settings button and a second row of tabs). The title is Emails on every
-    place; under it the four places as words with a hairline under the
-    chosen one, the page tabs Storelib already draws for an integration's
-    sections (components/app/settings/integration-detail), so they read as
-    a level above the list's own quiet views (All, Sent, Scheduled, Drafts)
-    and never as a second row of pills. One action at the bar's end: New
-    email on Campaigns, Create automation on Automations.
+    THE FOUR PLACES ARE STORELIB'S PILL TRACK AGAIN (wave 8, the owner: "make
+    sure it's like how it was before, with the pill shape, Storelib UI"). The
+    row under the title is the shared SegmentedPills track
+    (components/app/segmented-pills): a grey track with one white pill that
+    slides to the place pressed, the control Emails drew before wave 6 and
+    Analytics draws. Each place is a real link (its address, so it opens in
+    a new tab too); a plain press is the track's own, with no page load. The
+    list's own views (All, Sent, Scheduled, Drafts) stay the card's quiet
+    tabs, a level below. One action at the bar's end: New email on
+    Campaigns, Create automation on Automations.
   */
-  const go = (p: (typeof PLACES)[number]) => (e: React.MouseEvent) => {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
-    e.preventDefault()
+  const pickPlace = (value: EmailsPlace) => {
+    const p = PLACES.find((x) => x.value === value)
+    if (!p) return
     if (p.section) props.onSection(p.section)
     else props.onPageTab(p.tab)
   }
-  const placeRef = React.useRef<HTMLDivElement>(null)
-  /* On a narrow screen in a long language the row scrolls: the chosen place is kept in view. */
+  const navRef = React.useRef<HTMLElement>(null)
+  /*
+    On a phone the row is wider than the screen: the whole track scrolls
+    sideways from the page's edge to edge, as Settings' pill row does, so
+    its rounded ends are drawn whole and only the screen's edge cuts it. The
+    chosen place is kept in view, clear of the gutter, at once.
+  */
   React.useLayoutEffect(() => {
-    const row = placeRef.current
-    const on = row?.querySelector<HTMLElement>("[aria-current=page]")
-    if (!row || !on || row.scrollWidth <= row.clientWidth) return
+    const row = navRef.current
+    const on = row?.querySelector<HTMLElement>('[aria-selected="true"]')
+    if (!row || !on || row.scrollWidth <= row.clientWidth + 1) return
     const r = row.getBoundingClientRect()
     const o = on.getBoundingClientRect()
-    if (o.left < r.left || o.right > r.right) row.scrollLeft += o.left - r.left - 16
+    const left = row.scrollLeft
+    let next = left
+    if (o.left < r.left + PLACE_CLEAR) next = left + o.left - r.left - PLACE_CLEAR
+    else if (o.right > r.right - PLACE_CLEAR) next = left + o.right - r.right + PLACE_CLEAR
+    next = Math.max(0, Math.min(row.scrollWidth - row.clientWidth, next))
+    if (Math.abs(next - left) >= 1) row.scrollLeft = next
   }, [place])
+  /* The card's toolbar belongs to the content drawn, not to the place pressed: it comes and goes with Campaigns' rows, in the same frame. */
+  const campaignsShown = tab === "all" || tab === "published" || tab === "scheduled" || tab === "drafts"
   return (
     <>
       {/* Flat, the bar every Storelib list wears (LIST_BAR): the title and the place's one action, scrolling away with the page. */}
@@ -434,30 +449,18 @@ export function EmailsHome(props: EmailsHomeProps) {
       </PaneBar>
 
       <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER, props.skeletonAtOnce && "shimmer-now")} style={{ minHeight: "var(--pane-h, 100%)" }} data-tab-content={tab} data-tab-pending={props.chosenTab && props.chosenTab !== tab ? props.chosenTab : undefined}>
-        <nav aria-label={tt("Emails")} className="border-b border-[#e5e7eb]" data-emails-nav="">
-          <div ref={placeRef} className="-mb-px flex items-center gap-x-6 overflow-x-auto [scrollbar-width:none] max-sm:justify-between max-sm:gap-x-3 [&::-webkit-scrollbar]:hidden">
-            {PLACES.map((p) => {
-              const on = p.value === place
-              return (
-                <a
-                  key={p.value}
-                  href={p.href}
-                  onClick={go(p)}
-                  onPointerEnter={(e) => e.pointerType === "mouse" && props.onPageTabIntent?.(p.tab, p.section)}
-                  onTouchStart={() => props.onPageTabIntent?.(p.tab, p.section)}
-                  aria-current={on ? "page" : undefined}
-                  data-emails-place={p.value}
-                  {...(p.value === "automations" ? { "data-emails-automations": "" } : p.value === "settings" ? { "data-emails-settings": "" } : {})}
-                  className={cn(
-                    "relative inline-flex h-11 shrink-0 items-center whitespace-nowrap border-b-2 text-[14px] font-medium outline-none transition-colors duration-100 focus-visible:text-[#1a1a2e] [-webkit-tap-highlight-color:transparent]",
-                    on ? "border-[#1a1a2e] text-[#1a1a2e]" : "border-transparent text-[#6b7280] hover:text-[#1a1a2e]",
-                  )}
-                >
-                  {p.label}
-                </a>
-              )
-            })}
-          </div>
+        <nav ref={navRef} aria-label={tt("Emails")} className="orders-strip app-gutter-bleed h-11 overflow-x-auto overflow-y-hidden [overscroll-behavior-x:contain] [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden" data-emails-nav="">
+          <SegmentedPills
+            label={tt("Emails")}
+            className={PLACE_PILLS_PHONE}
+            value={place}
+            onChange={pickPlace}
+            onIntent={(v) => {
+              const p = PLACES.find((x) => x.value === v)
+              if (p) props.onPageTabIntent?.(p.tab, p.section)
+            }}
+            options={PLACES.map((p) => ({ value: p.value, label: p.label, href: p.href }))}
+          />
         </nav>
 
         {/* No automations yet: no row of zeros above the empty list (round 52). */}
@@ -467,7 +470,7 @@ export function EmailsHome(props: EmailsHomeProps) {
 
         <section aria-label={TABS.find((t) => t.id === tab)?.label ?? tt("Emails")} className={cn(card, "mt-4 overflow-hidden")}>
           {/* The list's toolbar, Coupons' and Orders' own: its views, and Templates at the end. */}
-          {pageTab === "campaigns" ? (
+          {campaignsShown ? (
             <div className="flex h-[52px] items-center gap-1 border-b border-[#eef0f2] px-2 md:h-12" data-campaign-filter="">
               <Views
                 label={tt("Show")}
@@ -520,6 +523,17 @@ export function EmailsHome(props: EmailsHomeProps) {
     </>
   )
 }
+
+/**
+ * The places' track on a phone: 13px words with 12px either side, so more of
+ * the row is in view, and each place reaches the track's full 44px, the 4px
+ * of track above and below it included. The track is as wide as its places
+ * and the row around it scrolls (never the track itself).
+ */
+const PLACE_PILLS_PHONE = "max-sm:max-w-none max-sm:overflow-visible max-sm:[&>[role=tab]]:px-3 max-sm:[&>[role=tab]]:text-[13px] max-sm:[&>[role=tab]]:before:absolute max-sm:[&>[role=tab]]:before:inset-x-0 max-sm:[&>[role=tab]]:before:-inset-y-1 max-sm:[&>[role=tab]]:before:content-['']"
+
+/** How far in from the screen's edge the chosen place is kept: the page's gutter (11px on a phone, app/globals.css --app-gutter) and a little air. */
+const PLACE_CLEAR = 12
 
 /** 32px to see, 44px to tap on a phone: the reach is a box around it (Orders' Export). */
 const TAP = "relative before:absolute before:-inset-y-1.5 before:inset-x-0 before:content-[''] sm:before:hidden"
@@ -872,7 +886,7 @@ export function messageWhere(m: Pick<MessageRow, "site" | "page">): string {
 /** A reply in the creator's own mail app, to the person who wrote, on the same subject. */
 export function replyHref(m: Pick<MessageRow, "email" | "subject">): string {
   const subject = m.subject ? `?subject=${encodeURIComponent(`Re: ${m.subject}`)}` : ""
-  return `mailto:${encodeURIComponent(m.email)}${subject}`
+  return `mailto:${encodeURIComponent(displayEmail(m.email) ?? m.email)}${subject}`
 }
 
 /**

@@ -325,12 +325,13 @@ async function main() {
     const mail = sent[0]
     check("(a) emailed to A's support address, Reply going to the visitor", mail?.to === "help@maralind.com" && mail?.replyTo === "jo@example.org")
     check("    the subject says who and where", mail?.subject === "New message from Jo Visitor on maralind.storelib.com: My order", mail?.subject)
-    check("    and links to the message in Messages", /\/app\/emails\?tab=messages&amp;message=5c000000/.test(mail?.html ?? ""))
+    /* Changed on purpose (wave 8): the email and the bell link straight to the message in Contacts › Forms. */
+    check("    and links to the message in Contacts › Forms", /\/app\/contacts\/forms\?message=5c000000/.test(mail?.html ?? ""))
     const kept = db.rows("site_contact_messages")
     check("(b) kept for A, the creator whose form it was", kept.length === 1 && kept[0].creator_id === A && kept[0].message === "Where is my parcel?")
     const bell = db.rows("seller_notifications")
     check("(c) one row in the bell, for A's own user and A's creator", bell.length === 1 && bell[0].user_id === USER_A && bell[0].creator_id === A && notices[0]?.creatorId === A)
-    check("    titled with who and where, opening the message", bell[0]?.title === "New message from Jo Visitor on maralind.storelib.com" && bell[0]?.action_url === "/app/emails?tab=messages&message=5c000000-0000-4000-8000-000000000001" && (bell[0]?.metadata as Row)?.area === "Messages")
+    check("    titled with who and where, opening the message", bell[0]?.title === "New message from Jo Visitor on maralind.storelib.com" && bell[0]?.action_url === "/app/contacts/forms?message=5c000000-0000-4000-8000-000000000001" && (bell[0]?.metadata as Row)?.area === "Messages")
     check("    with a type the table has always allowed and no engine kind", bell[0]?.type === "update" && bell[0]?.kind === undefined)
     check("nothing reached B: no email, no row, no bell", !sent.some((m) => m.to.includes("oskar")) && bell.every((r) => r.creator_id !== B))
 
@@ -346,7 +347,7 @@ async function main() {
     check("the limiter was asked before anything was written", limits >= 1)
 
     const row = messageNoticeRow({ creatorId: A, messageId: null, name: "", email: "x@y.z", subject: "", message: "a ".repeat(200), site: null }, USER_A)
-    check("a long message is one short line in the bell, and with no site the title still reads", String(row.message).length <= 140 && row.title === "New message from x@y.z" && row.action_url === "/app/emails?tab=messages")
+    check("a long message is one short line in the bell, and with no site the title still reads", String(row.message).length <= 140 && row.title === "New message from x@y.z" && row.action_url === "/app/contacts/forms?inbox=1")
     const route = read("app/api/website-builder/contact/route.ts")
     check("the route rings the bell through notifyCreatorOfMessage, and limits per visitor, address and store", /notify: \(notice\) => notifyCreatorOfMessage\(db, notice\)/.test(route) && /bucket: "site-contact"/.test(route) && /bucket: "site-contact-inbox"/.test(route))
     const email = creatorEmail({ store: "Maralind", site: null, contactUrl: "https://storelib.com/app/emails", msg: { creatorId: A, name: "", email: "x@y.z", subject: "", message: "hi", consent: false, page: "contact", sectionId: null } as ContactMessage })

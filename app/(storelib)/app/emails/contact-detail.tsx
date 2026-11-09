@@ -31,6 +31,7 @@
  *   what is already known about that contact.
  */
 
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import { ArrowLeft, ChevronDown, MoreHorizontal } from "lucide-react"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
@@ -287,16 +288,16 @@ export function ContactPage({
         back={back}
         title={
           <>
-            <h1 className="min-w-0 truncate text-[20px] font-bold leading-7 text-[#1a1a2e]">{contact.name || contact.email}</h1>
+            <h1 className="min-w-0 truncate text-[20px] font-bold leading-7 text-[#1a1a2e]">{contact.name || displayEmail(contact.email)}</h1>
             <StatusBadge tone={contact.status === "subscribed" ? "success" : "neutral"}>{status}</StatusBadge>
           </>
         }
         actions={
           <ResponsiveActionMenu
-            title={contact.email}
+            title={displayEmail(contact.email) ?? ""}
             menuWidth="w-56"
             items={[
-              { label: tt("Copy email"), onClick: () => onCopy(contact.email) },
+              { label: tt("Copy email"), onClick: () => onCopy(displayEmail(contact.email) ?? "") },
               ...(removable ? [{ label: tt("Remove"), variant: "destructive" as const, separatorBefore: true, onClick: () => onRemove(contact.id) }] : []),
             ]}
             trigger={
@@ -310,7 +311,7 @@ export function ContactPage({
         }
         subtitle={
           <>
-            {contact.name ? contact.email : null}
+            {contact.name ? displayEmail(contact.email) : null}
             {contact.name && joined ? " · " : null}
             {joined ? `${contact.status === "customer" ? tt("Added") : contact.status === "wrote" ? tt("First wrote") : tt("Joined")} ${joined}` : null}
           </>
@@ -355,7 +356,7 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Messages")}</h2>
             <a
-              href={`mailto:${encodeURIComponent(contact.email)}${messages[0].subject ? `?subject=${encodeURIComponent(`Re: ${messages[0].subject}`)}` : ""}`}
+              href={`mailto:${encodeURIComponent(displayEmail(contact.email) ?? contact.email)}${messages[0].subject ? `?subject=${encodeURIComponent(`Re: ${messages[0].subject}`)}` : ""}`}
               className="text-[13px] font-medium text-[#1a1a2e] underline-offset-4 hover:underline"
             >
               {tt("Reply")}
@@ -412,7 +413,7 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
         <h2 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Details")}</h2>
         <dl className="mt-3 grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-3 text-[13px]">
           <dt className="text-[#6b7280]">{tt("Email")}</dt>
-          <dd className="min-w-0 break-words text-[#1a1a2e]">{contact.email}</dd>
+          <dd className="min-w-0 break-words text-[#1a1a2e]">{displayEmail(contact.email)}</dd>
           {contact.name ? (
             <>
               <dt className="text-[#6b7280]">{tt("Name")}</dt>

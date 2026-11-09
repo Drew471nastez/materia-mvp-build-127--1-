@@ -1,4 +1,5 @@
 "use client"
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { useEffect, useRef, useState } from "react"
 import { ChevronDown, MoreHorizontal, Search } from "lucide-react"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
@@ -266,7 +267,7 @@ function LeadRow({ lead, open, onToggle, onPatch, onRemoved, onError }: { lead: 
       setBusy(false)
     }
   }
-  const who = lead.contact_name || lead.contact_email || lead.contact_phone || "No name given"
+  const who = lead.contact_name || displayEmail(lead.contact_email) || lead.contact_phone || "No name given"
   return (
     <li data-lead={lead.id}>
       <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-[#fafbfb]">
@@ -335,7 +336,7 @@ function LeadRow({ lead, open, onToggle, onPatch, onRemoved, onError }: { lead: 
           <dl className="grid gap-x-6 gap-y-3 text-[14px] sm:grid-cols-3">
             <div className="min-w-0">
               <dt className={muted}>Email</dt>
-              <dd className="break-words">{lead.contact_email ? <a className="underline" href={`mailto:${lead.contact_email}`}>{lead.contact_email}</a> : "Not given"}</dd>
+              <dd className="break-words">{displayEmail(lead.contact_email) ? <a className="underline" href={`mailto:${displayEmail(lead.contact_email)}`}>{displayEmail(lead.contact_email)}</a> : "Not given"}</dd>
             </div>
             <div className="min-w-0">
               <dt className={muted}>Phone</dt>

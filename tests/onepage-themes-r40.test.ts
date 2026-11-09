@@ -75,7 +75,8 @@ check("from Swiss to a theme that names none, the page is a list, centred, regul
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }, { id: "c", category: "dark" }, { id: "d", category: "image" }])
 /* Changed on purpose (round 42): Folio (light) and Ledger (dark) join after round 40's, each in its kind. */
 /* Changed on purpose (round AP): Notebook (light) and Cobalt (gradient) join at the end of their kinds. */
-check("each lands in its own kind, after that kind's old ones", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,b,lagoon,cobalt,c,ember,ledger,d,atlas")
+/* Changed on purpose (round W8): Gazette (light), Halo (gradient) and Acid (dark) join at the end of their kinds. */
+check("each lands in its own kind, after that kind's old ones", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,gazette,b,lagoon,cobalt,halo,c,ember,ledger,acid,d,atlas")
 
 /* ─── Block layouts ───────────────────────────────────────────────────── */
 console.log("\nBlocks can be laid out four ways")

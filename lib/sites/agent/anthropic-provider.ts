@@ -19,6 +19,7 @@ import "server-only"
  */
 
 import Anthropic from "@anthropic-ai/sdk"
+import { strictReady } from "./strict-schema"
 
 import { rateFor } from "./models"
 import { effortSupported } from "@/lib/website-builder/ask-engines"
@@ -338,7 +339,7 @@ async function completeOnce(
        */
       /* With a breakpoint on the last block: see requestMessages. */
       messages: how.strip ? withoutThinking(requestMessages(request.turns)) : requestMessages(request.turns),
-      tools: request.tools.map((tool, i) => ({
+      tools: (() => { let strictLeft = MAX_STRICT_TOOLS; return request.tools.map((tool) => ({
         name: tool.name,
         description: tool.description,
         input_schema: tool.parameters as Anthropic.Tool.InputSchema,
@@ -350,8 +351,9 @@ async function completeOnce(
          */
         /* Anthropic accepts at most MAX_STRICT_TOOLS strict tools a request ("Too many strict tools (26)" was a 400 on every
            Storelib AI run): the first ones, in the order the agent lists them, are strict, the rest are checked by the executor. */
-        ...((!modelInfo?.capabilities || modelInfo.capabilities.structured_outputs.supported) && i < MAX_STRICT_TOOLS ? { strict: true } : {}),
-      })),
+        /* And only a schema that closes every object (./strict-schema.ts): one open object was a 400 for the whole request. */
+        ...((!modelInfo?.capabilities || modelInfo.capabilities.structured_outputs.supported) && strictLeft > 0 && strictReady(tool.parameters) && strictLeft-- > 0 ? { strict: true } : {}),
+      })) })(),
       /**
        * Adaptive thinking. On Sonnet 5 and Opus 5 this is the only on-mode —
        * the fixed `budget_tokens` form is rejected with a 400 — and it is

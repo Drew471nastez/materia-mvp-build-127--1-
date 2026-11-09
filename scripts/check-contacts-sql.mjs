@@ -10,7 +10,9 @@
  * again), fills it with random people across every source (accounts with
  * and without a confirmed address, addresses in mixed case, two accounts
  * giving one address, another store's rows) and compares every filter, sort,
- * search and advanced filter, row by row, with the app's answer.
+ * search and advanced filter, row by row, with the app's answer. Part 406
+ * runs after it, and the people include a second business's tagged
+ * addresses and ones with no inbox (lib/businesses/email-alias).
  *
  *   PGHOST=/tmp PGPORT=55432 PGUSER=postgres node scripts/check-contacts-sql.mjs
  *
@@ -26,7 +28,8 @@ const conn = ["-h", process.env.PGHOST || "/tmp", "-p", process.env.PGPORT || "5
 const psql = (args, input) => execFileSync("psql", [...conn, "-v", "ON_ERROR_STOP=1", "-q", ...args], { input, stdio: ["pipe", "pipe", "pipe"] }).toString()
 const db = `contacts_check_${process.pid}`
 const dir = mkdtempSync(join(tmpdir(), "contacts-sql-"))
-execFileSync("node_modules/.bin/esbuild", ["lib/contacts/identity.ts", "--format=esm", `--outfile=${join(dir, "identity.mjs")}`, "--log-level=warning"])
+/* Bundled, so identity.ts's own imports (lib/businesses/email-alias, part 406) come with it. */
+execFileSync("node_modules/.bin/esbuild", ["lib/contacts/identity.ts", "--bundle", "--platform=node", "--format=esm", `--alias:@=${process.cwd()}`, `--outfile=${join(dir, "identity.mjs")}`, "--log-level=warning"])
 const { mergePeople, pagePeople, normalizeEmail } = await import(join(dir, "identity.mjs"))
 const SCHEMA = `create schema auth; create table auth.users (id uuid primary key);
 create table public.creators (id uuid primary key, user_id uuid);
@@ -55,6 +58,11 @@ try {
   psql(["-d", db], part)
   psql(["-d", db], part)
   console.log("part 378 ran twice")
+  /* Part 406 replaces creator_people with the rule for a second business's tagged address (lib/businesses/email-alias). */
+  const alias = readFileSync("supabase/sql/run-now/406_creator_people_alias_merge.sql", "utf8")
+  psql(["-d", db], alias)
+  psql(["-d", db], alias)
+  console.log("part 406 ran twice")
   for (const s of [3, 8, 13, 21, 34, 55]) total += run(s)
 } finally {
   psql(["-d", "postgres", "-c", `drop database if exists ${db}`])
@@ -70,14 +78,15 @@ const pick = (a) => a[Math.floor(rnd() * a.length)]
 const uuid = () => randomUUID()
 const C = uuid(), OWNER = uuid(), OTHER = uuid()
 const users = Array.from({ length: 25 }, () => uuid())
-const emails = Array.from({ length: 40 }, (_, i) => `p${i}@ex.com`)
+/* With a second business's tagged addresses (the owner's with +slb-<8 hex>, part 406) and one with no inbox among them. */
+const emails = [...Array.from({ length: 40 }, (_, i) => `p${i}@ex.com`), "p1+slb-0a0b0c0d@ex.com", "p2+slb-1a2b3c4d@ex.com", "P3+SLB-DEADBEEF@ex.com", "slb-0f0f0f0f@businesses.invalid", "slb-0e0e0e0e@businesses.invalid"]
 const names = ["Ana", "Bo", "Cy", null, "Dee", "  ", "Ed Ward"]
 const t = () => new Date(Date.UTC(2026, Math.floor(rnd() * 10), 1 + Math.floor(rnd() * 27), Math.floor(rnd() * 23), Math.floor(rnd() * 59), 0, Math.floor(rnd() * 999))).toISOString()
 const sql = []
 const q = (v) => (v === null || v === undefined ? "null" : `'${String(v).replace(/'/g, "''")}'`)
 const arr = (a) => `array[${a.map(q).join(",")}]::text[]`
 sql.push(`insert into creators values (${q(C)}, ${q(OWNER)}), (${q(OTHER)}, ${q(uuid())});`)
-const profiles = users.map((u, i) => ({ id: u, email: i < 20 ? (i % 3 === 0 ? emails[i].toUpperCase() : emails[i]) : null, ver: i % 2 === 0, dn: pick(names) }))
+const profiles = users.map((u, i) => ({ id: u, email: i < 20 ? (i % 3 === 0 ? emails[i].toUpperCase() : emails[i]) : i < 24 ? emails[40 + (i - 20)] : null, ver: i % 2 === 0, dn: pick(names) }))
 for (const p of profiles) sql.push(`insert into auth.users values (${q(p.id)});`)
 for (const p of profiles) sql.push(`insert into profiles values (${q(p.id)}, ${q(p.email)}, ${p.ver}, ${q(p.dn)}, ${q("user" + p.id.slice(0, 4))});`)
 const comm = [uuid(), uuid()], tiers = [uuid(), uuid()]
@@ -114,6 +123,7 @@ const sortKeys = (o) => Object.fromEntries(Object.keys(o).sort().map((k) => [k, 
 const norm = (r) => sortKeys({ ...r, firstSeen: r.firstSeen ? Date.parse(r.firstSeen) : null, lastSeen: r.lastSeen ? Date.parse(r.lastSeen) : null, userId: r.userId ?? null })
 const queries = []
 for (const filter of ["all", "leads", "customers", "subscribers", "members"]) for (const sort of ["recent", "newest", "oldest", "name"]) queries.push({ filter, sort, q: "", page: 1, adv: {} })
+queries.push({ filter: "all", sort: "recent", q: "p1@ex.com", page: 1, adv: {} }, { filter: "all", sort: "name", q: "p2@ex", page: 1, adv: {} }, { filter: "all", sort: "recent", q: "slb", page: 1, adv: {} }, { filter: "all", sort: "recent", q: "p2+slb-1a2b3c4d@ex.com", page: 1, adv: {} }, { filter: "all", sort: "recent", q: "businesses.invalid", page: 1, adv: {} })
 queries.push({ filter: "all", sort: "recent", q: "p1", page: 1, adv: {} }, { filter: "all", sort: "name", q: "ana", page: 1, adv: {} }, { filter: "all", sort: "recent", q: "", page: 1, adv: { tag: "VIP" } }, { filter: "all", sort: "recent", q: "", page: 1, adv: { subscription: "unsubscribed" } }, { filter: "all", sort: "recent", q: "", page: 1, adv: { community: comm[0] } }, { filter: "all", sort: "recent", q: "", page: 1, adv: { access: "banned" } }, { filter: "all", sort: "recent", q: "", page: 1, adv: { bought: "no", forms: "yes" } }, { filter: "all", sort: "recent", q: "", page: 1, adv: { course: "yes" } }, { filter: "all", sort: "recent", q: "", page: 1, adv: { from: "2026-03-01", to: "2026-06-30" } }, { filter: "all", sort: "recent", q: "", page: 1, adv: { origin: "onepage" } }, { filter: "all", sort: "recent", q: "", page: 1, adv: { leadStatus: "qualified" } }, { filter: "all", sort: "recent", q: "", page: 1, adv: { tier: tiers[0] } })
 let bad = 0
 for (const qq of queries) {

@@ -113,7 +113,7 @@ export async function agentModels(creatorId: string): Promise<AgentModels> {
   ])
   return {
     plan: { provider: plan.provider, model: plan.model, effort: "medium" },
-    loop: { provider: loop.provider, model: loop.model, effort: "low" },
+    loop: { provider: loop.provider, model: loop.model, effort: "medium" /* round N: agent coding wants medium; low wrote thinner sites */ },
     small: { provider: small.provider, model: small.model, effort: "low" },
     ownKey: loop.own !== null,
   }

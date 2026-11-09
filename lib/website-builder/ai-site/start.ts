@@ -23,6 +23,7 @@
 import type { JobEngine, StartOptions } from "@/lib/ai-builder/types"
 import { isMissingTable, JOBS_TABLE } from "./server"
 import { emptyState } from "./job"
+import { agentOnForEveryone } from "./agent-access"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -36,9 +37,9 @@ export function isStartKey(v: unknown): v is string {
 
 export type StartedJob = { kind: "made"; id: string } | { kind: "duplicate"; id: string; installId: string } | { kind: "missing" } | { kind: "failed" }
 
-/** Which engine a new job runs on: the agent only when the platform switched it on. */
+/** Which engine a new job runs on: the agent unless the platform switched it off (AI_BUILDER_AGENT=0, round N). */
 export function startEngine(env: Record<string, string | undefined> = process.env): JobEngine {
-  return env.AI_BUILDER_AGENT === "1" ? "agent" : "classic"
+  return agentOnForEveryone(env) ? "agent" : "classic"
 }
 
 /** A column the database does not have yet (SQL part 401 not run): checked before isMissingTable, whose words match it too. */

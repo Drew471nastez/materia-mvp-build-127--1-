@@ -83,3 +83,73 @@ export function emailLocalPart(email: string | null | undefined): string | null 
   if (!shown) return null
   return shown.slice(0, shown.lastIndexOf("@")) || null
 }
+
+/**
+ * ===========================================================================
+ *  THE SAME PERSON UNDER BOTH ADDRESSES
+ * ===========================================================================
+ * A creator's lists meet a second business's address too: its owner bought
+ * from the store signed in as that business, joined a community with it, or
+ * answered a form with the address the account carries. Shown, that address
+ * is the owner's own (displayEmail), so a list that keys people by the stored
+ * string would show "andrew@gmail.com" twice. This is the key a list matches
+ * and searches by: lower case, trimmed, the tag taken off. An address with no
+ * inbox keeps its own (made up, unique) name, so it never joins anybody.
+ *
+ * Only for matching and searching what is listed. Stored rows, and whatever
+ * is sent, keep the address as it is.
+ */
+export function emailMatchKey(email: string | null | undefined): string | null {
+  if (!email) return null
+  const e = email.trim().toLowerCase()
+  if (!e) return null
+  return e.endsWith(`@${NO_INBOX_DOMAIN}`) ? e : e.replace(BUSINESS_TAG_PATTERN, "")
+}
+
+/** The addresses to show, each once, in the order given: tags off, no-inbox names dropped. */
+export function displayEmails(emails: Iterable<string | null | undefined>): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const e of emails) {
+    const shown = displayEmail(e)
+    if (!shown || seen.has(shown.toLowerCase())) continue
+    seen.add(shown.toLowerCase())
+    out.push(shown)
+  }
+  return out
+}
+
+/**
+ * Whether an address, as it is shown, contains the search words. The tag is
+ * never on screen, so "slb" alone finds nobody by it; a whole tagged address
+ * pasted from somewhere else still finds its person.
+ */
+export function emailMatches(email: string | null | undefined, words: string): boolean {
+  const q = words.trim().toLowerCase()
+  if (!q || !email) return false
+  if ((displayEmail(email) ?? "").toLowerCase().includes(q)) return true
+  return /\+slb-/i.test(q) && email.toLowerCase().includes(q)
+}
+
+/**
+ * For a search typed as an address ("andrew@gmail.com", or the start of one
+ * after the @), the same search for a second business of that address
+ * ("andrew+slb-*@gmail.com*", `*` the wildcard PostgREST's ilike reads), so a
+ * person stored under the tagged address is found by the address they are
+ * shown with. Null when the words are not shaped like an address.
+ */
+export function taggedSearchPattern(words: string | null | undefined): string | null {
+  const parts = searchedAddress(words)
+  return parts ? `${parts.local}+slb-*@${parts.domain}*` : null
+}
+
+/** The two halves of a search typed as an address (the domain may be cut short), or null. */
+export function searchedAddress(words: string | null | undefined): { local: string; domain: string } | null {
+  const s = (words ?? "").trim().toLowerCase()
+  const at = s.indexOf("@")
+  if (at <= 0 || at !== s.lastIndexOf("@")) return null
+  const local = s.slice(0, at)
+  const domain = s.slice(at + 1)
+  if (!/^[^\s*,()+%]+$/.test(local) || /[\s*,()%]/.test(domain)) return null
+  return { local, domain }
+}

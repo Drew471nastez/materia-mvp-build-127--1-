@@ -1,3 +1,4 @@
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { answerText, type Answer } from "./definition"
 
 /* One lead as a CSV row; app/api/leads/export writes each cell through csvCell. */
@@ -11,7 +12,7 @@ export function leadRow(r: Record<string, any>, booking?: { starts_at: string; s
     r.submitted_at,
     r.form_title,
     r.contact_name,
-    r.contact_email,
+    displayEmail(r.contact_email) ?? "",
     r.contact_phone,
     r.status,
     r.score,

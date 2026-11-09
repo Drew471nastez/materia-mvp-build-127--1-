@@ -1,5 +1,6 @@
 "use client"
 
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { useOnePage } from "@/lib/onepage/context"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -37,7 +38,7 @@ export function LeadsSection() {
 
     const headers = ["Email", "Name", "Date", "Source"]
     const rows = leads.map((lead) => [
-      lead.email,
+      displayEmail(lead.email) ?? lead.email,
       lead.name || "",
       new Date(lead.created_at).toLocaleDateString(),
       lead.utm_source || lead.referrer || "",
@@ -92,7 +93,7 @@ export function LeadsSection() {
           {leads.map((lead) => (
             <div key={lead.id} className="p-3 flex items-center justify-between">
               <div>
-                <p className="font-medium text-sm">{lead.email}</p>
+                <p className="font-medium text-sm">{displayEmail(lead.email) ?? lead.email}</p>
                 {lead.name && (
                   <p className="text-xs text-muted-foreground">{lead.name}</p>
                 )}

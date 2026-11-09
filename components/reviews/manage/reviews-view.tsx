@@ -27,6 +27,7 @@
  * A change shows at once and is put back if the server says no (the pill
  * says why). A seller never edits a buyer's words.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import { Check, Loader2, Search, SlidersHorizontal, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -530,7 +531,7 @@ function ReviewRow({
               <span className="truncate font-medium text-[#374151]">{review.product.title}</span>
             </span>
           ) : null}
-          {review.customer?.email ? <span className="truncate" title={tt("Only you see this")}>{review.customer.email}</span> : null}
+          {displayEmail(review.customer?.email) ? <span className="truncate" title={tt("Only you see this")}>{displayEmail(review.customer?.email)}</span> : null}
         </div>
 
         {review.title ? <p className="mt-2 text-[14px] font-semibold text-[#1a1a2e] [overflow-wrap:anywhere]">{review.title}</p> : null}

@@ -20,7 +20,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { HANDOFF_MAX_MS, PURCHASE_CLOSED, checkoutEntryOf, purchaseStep, sheetShown, type PurchaseLayer } from "@/lib/onepage/purchase-flow"
 import { contentRatio, coverBox, findLetterbox } from "@/lib/images/letterbox"
-import { SHEET_FRAME_MAX, SHEET_FRAME_MIN, sheetFrameRatio } from "@/lib/onepage/product-sheet"
+import { SHEET_FRAME_MAX, SHEET_FRAME_MIN, SHEET_GALLERY_RATIO, sheetFrameRatio } from "@/lib/onepage/product-sheet"
 import { productCover, withOriginalCover } from "@/lib/products/cover"
 import { coverOriginalOf } from "@/app/(storelib)/app/products/new/editor-form"
 
@@ -155,8 +155,9 @@ console.log("FRAME")
   check("kept between 9:16 and 1.91:1", sheetFrameRatio(0.2, 0.8) === SHEET_FRAME_MIN && sheetFrameRatio(5, 0.8) === SHEET_FRAME_MAX)
   check("unknown until read: the box it always had", sheetFrameRatio(null, 0.8) === 0.8)
   const sheet = read("components/onepage/product-sheet.tsx")
-  check("one frame for every slide: no ratio set from the slide being shown", !/setNaturalRatio/.test(sheet) && /sheetFrameRatio\(/.test(sheet))
-  check("the frame is held while the sheet is up: a shape read late waits for the next opening", /if \(active && held === null\) setHeld\(wanted\)/.test(sheet) && /const ratio = active \? \(held \?\? wanted\) : wanted/.test(sheet))
+  /* Changed on purpose (round W8): one square frame for every slide (SHEET_GALLERY_RATIO), so nothing waits on a shape read late. */
+  check("one frame for every slide: no ratio set from the slide being shown", !/setNaturalRatio/.test(sheet) && /const ratio = SHEET_GALLERY_RATIO/.test(sheet))
+  check("the frame never changes while the sheet is up: it is the square, whatever shape is read late", !/setHeld\(wanted\)/.test(sheet) && SHEET_GALLERY_RATIO === 1)
   check("the block reads its picture's shape as it warms, before the tap", /if \(picture\) void readPictureShape\(picture\)/.test(read("components/onepage/product-block.tsx")))
   check("each picture goes through the padding-aware frame", /<SlidePicture/.test(sheet) && /<FramedPicture/.test(sheet))
   check("the sheet scrolls with the compact bar, contained", /overflow-y-auto overscroll-contain op-subtle-scroll/.test(sheet))

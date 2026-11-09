@@ -52,6 +52,8 @@ const THEMES = [...sources.matchAll(/\n  \{\n    id: "([a-z0-9-]+)",\n    name: 
   id: m[1],
   name: m[2],
   products: /product_layout: "(grid|rows)"/.test(m[3]),
+  /* Round W8: a card draws product tiles after its links (they would take the links out of sight), so its first link is not where the page's is. */
+  tilesLast: /product_layout: "grid"/.test(m[3]),
 }))
 if (THEMES.length < 30) fail(`only ${THEMES.length} themes were read`)
 
@@ -117,7 +119,9 @@ function readLook(scope) {
   const s = (el) => (el ? getComputedStyle(el) : null)
   const title = scope.querySelector("h1, [data-tp-title]")
   const avatar = scope.querySelector("[data-page-avatar], [data-tp-avatar]")
-  const button = scope.querySelector("a.op-btn, [data-tp-link]")
+  /* Round W8: a card shows whole blocks only; one that did not fit sits in a column out of sight, which is not read. */
+  const seen = (el) => { const r = el.getBoundingClientRect(); return r.left < box.right - 1 && r.top < box.bottom - 1 }
+  const button = [...scope.querySelectorAll("a.op-btn, [data-tp-link]")].find(seen) || null
   const ts = s(title), as = s(avatar), bs = s(button)
   const ar = avatar?.getBoundingClientRect(), tr = title?.getBoundingClientRect(), br = button?.getBoundingClientRect()
   const pairs = scope.querySelectorAll("[data-link-pair], [data-tp-pair]").length
@@ -198,14 +202,21 @@ if (PARTS.has("side")) {
       if (!near(liveLook.avatarLeft, cardLook.avatarLeft, 2)) diffs.push(`avatar place ${liveLook.avatarLeft}% / ${cardLook.avatarLeft}%`)
     }
     if (!near(liveLook.titleLeft, cardLook.titleLeft, 3)) diffs.push(`title place ${liveLook.titleLeft}% / ${cardLook.titleLeft}%`)
-    if (liveLook.buttonFill !== cardLook.buttonFill) diffs.push(`button fill ${liveLook.buttonFill} / ${cardLook.buttonFill}`)
-    if (liveLook.buttonText !== cardLook.buttonText) diffs.push(`button words ${liveLook.buttonText} / ${cardLook.buttonText}`)
-    if (!near(liveLook.buttonRadius, cardLook.buttonRadius, 0.06)) diffs.push(`button corner ${liveLook.buttonRadius} / ${cardLook.buttonRadius}`)
-    if (liveLook.buttonBorderColor !== cardLook.buttonBorderColor && liveLook.buttonBorder > 0) diffs.push(`button border ${liveLook.buttonBorderColor} / ${cardLook.buttonBorderColor}`)
-    if (liveLook.layout !== cardLook.layout) diffs.push(`layout ${liveLook.layout} / ${cardLook.layout}`)
-    if (liveLook.products !== cardLook.products) diffs.push(`products ${liveLook.products} / ${cardLook.products}`)
-    /* The name, the icons and the first link sit where the page puts them, within 6 of its pixels (2.5 of a card's). */
-    liveLook.tops.forEach((y, i) => { if (y !== null && cardLook.tops[i] !== null && Math.abs(y - cardLook.tops[i]) > 6) diffs.push(`${["name", "icons", "first link"][i]} at ${y} / ${cardLook.tops[i]}`) })
+    const cardHasButton = cardLook.buttonFill !== null
+    if (cardHasButton && liveLook.buttonFill !== cardLook.buttonFill) diffs.push(`button fill ${liveLook.buttonFill} / ${cardLook.buttonFill}`)
+    if (cardHasButton && liveLook.buttonText !== cardLook.buttonText) diffs.push(`button words ${liveLook.buttonText} / ${cardLook.buttonText}`)
+    if (cardHasButton && !near(liveLook.buttonRadius, cardLook.buttonRadius, 0.06)) diffs.push(`button corner ${liveLook.buttonRadius} / ${cardLook.buttonRadius}`)
+    if (cardHasButton && liveLook.buttonBorderColor !== cardLook.buttonBorderColor && liveLook.buttonBorder > 0) diffs.push(`button border ${liveLook.buttonBorderColor} / ${cardLook.buttonBorderColor}`)
+    if (cardHasButton && liveLook.layout !== cardLook.layout) diffs.push(`layout ${liveLook.layout} / ${cardLook.layout}`)
+    if (cardLook.products !== "own" && liveLook.products !== cardLook.products) diffs.push(`products ${liveLook.products} / ${cardLook.products}`)
+    /*
+      The icons and the first link sit where the page puts them under the
+      name, within 6 of its pixels (round W8: the card keeps less room over
+      the header than the page's 50px for Share, so the name is compared on
+      its own, within the 28px the card leaves out).
+    */
+    if (liveLook.tops[0] !== null && cardLook.tops[0] !== null && (liveLook.tops[0] - cardLook.tops[0] < -6 || liveLook.tops[0] - cardLook.tops[0] > 34)) diffs.push(`name at ${liveLook.tops[0]} / ${cardLook.tops[0]}`)
+    liveLook.tops.forEach((y, i) => { if (i && y !== null && cardLook.tops[i] !== null && (i === 1 || (cardHasButton && !t.tilesLast)) && Math.abs((y - liveLook.tops[0]) - (cardLook.tops[i] - cardLook.tops[0])) > 6) diffs.push(`${["name", "icons", "first link"][i]} at ${y} / ${cardLook.tops[i]} (from the name)`) })
     tops.push({ id: t.id, live: liveLook.tops, card: cardLook.tops })
     console.log(`  ${diffs.length ? "DIFF" : "ok  "}  ${t.id.padEnd(10)} ${diffs.join("; ") || `${cardLook.font}, ${cardLook.layout}${cardLook.products !== "own" ? `, products ${cardLook.products}` : ""}, avatar ${cardLook.avatarW ?? "-"}%`}`)
     if (diffs.length) problems.push(`${t.id}: ${diffs.join("; ")}`)
@@ -242,7 +253,7 @@ async function picker(width) {
   return p
 }
 const textReport = (scope) => {
-  const out = { cards: 0, texts: 0, meet: [], out: [], cut: [], squeezed: [] }
+  const out = { cards: 0, texts: 0, blocks: 0, meet: [], out: [], cut: [], squeezed: [], sliced: [] }
   const clipBox = (el, stop) => {
     for (let n = el.parentElement; n && n !== stop.parentElement; n = n.parentElement) {
       const s = getComputedStyle(n)
@@ -280,6 +291,24 @@ const textReport = (scope) => {
       if (er.height < Math.min(r.height, line) - 1) out.squeezed.push(`${id} "${n.textContent.trim()}" ${er.height.toFixed(1)}px for a ${Math.min(r.height, line).toFixed(1)}px line`)
       if (el.scrollWidth > el.clientWidth + 1 && /hidden|clip/.test(cs.overflowX)) out.cut.push(`${id} "${n.textContent.trim()}" truncated`)
     }
+    /*
+      Round W8, BLOCKS: every block in a card is whole or out of sight (never
+      the top sliver of a button at the card's edge), and no two shown meet.
+    */
+    const frame = card.querySelector("[data-theme-frame]")?.getBoundingClientRect()
+    const shown = []
+    for (const b of card.querySelectorAll("[data-tp-blocks] > *, [data-tp-header], [data-tp-avatar]")) {
+      const r = b.getBoundingClientRect()
+      if (!frame || !r.width || !r.height) continue
+      if (r.left >= frame.right - 0.5 || r.top >= frame.bottom - 0.5) continue
+      out.blocks = (out.blocks || 0) + 1
+      if (!b.matches("[data-tp-header]") && (r.bottom > frame.bottom + 0.5 || r.right > frame.right + 0.5)) out.sliced.push(`${id} ${b.getAttribute("data-tp-link") !== null ? "link" : b.tagName.toLowerCase()}${[...b.attributes].filter((a) => a.name.startsWith("data-tp")).map((a) => `[${a.name}]`).join("")} cut by the card's edge`)
+      if (b.parentElement?.matches("[data-tp-blocks]")) shown.push(r)
+    }
+    for (let i = 0; i < shown.length; i++) for (let j = i + 1; j < shown.length; j++) {
+      const a = shown[i], b = shown[j]
+      if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5) out.meet.push(`${id} two blocks overlap`)
+    }
     for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
       const a = boxes[i].r, b = boxes[j].r
       const w = Math.min(a.right, b.right) - Math.max(a.left, b.left)
@@ -294,10 +323,13 @@ if (PARTS.has("text") || PARTS.has("picker")) {
     const p = await picker(width)
     if (PARTS.has("text")) {
       const r = await p.evaluate(`(${textReport})("[data-theme-kind-shown]")`)
-      console.log(`\n── Text in the cards at ${width} ──\n  ${r.cards} cards, ${r.texts} text boxes: ${r.meet.length} meet, ${r.out.length} run out of the card, ${r.cut.length} cut, ${r.squeezed.length} squeezed`)
-      for (const k of ["meet", "out", "cut", "squeezed"]) for (const x of r[k].slice(0, 12)) console.log(`    ${k}: ${x}`)
+      console.log(`\n── Text and blocks in the cards at ${width} ──\n  ${r.cards} cards, ${r.texts} text boxes, ${r.blocks} blocks: ${r.meet.length} meet, ${r.out.length} run out of the card, ${r.cut.length} cut, ${r.squeezed.length} squeezed, ${r.sliced.length} blocks sliced by the edge`)
+      for (const k of ["meet", "out", "cut", "squeezed", "sliced"]) for (const x of r[k].slice(0, 12)) console.log(`    ${k}: ${x}`)
+      const sizes = await p.evaluate(() => [...new Set([...document.querySelectorAll("[data-theme-kind-shown] [data-theme-frame]")].map((f) => `${Math.round(f.getBoundingClientRect().width)}x${Math.round(f.getBoundingClientRect().height)}`))])
+      console.log(`  card sizes: ${sizes.join(", ")}`)
+      if (sizes.length !== 1) problems.push(`${width}: cards of ${sizes.length} sizes (${sizes.join(", ")})`)
       if (r.cards < 30) problems.push(`${width}: only ${r.cards} cards`)
-      for (const k of ["meet", "out", "cut", "squeezed"]) if (r[k].length) problems.push(`${width}: ${r[k].length} text boxes ${k}`)
+      for (const k of ["meet", "out", "cut", "squeezed", "sliced"]) if (r[k].length) problems.push(`${width}: ${r[k].length} text boxes ${k}`)
     }
     if (PARTS.has("picker")) {
       const grid = await p.$("[data-theme-grid]")

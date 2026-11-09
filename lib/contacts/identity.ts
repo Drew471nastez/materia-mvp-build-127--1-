@@ -36,6 +36,8 @@
  * before two rows were joined still works.
  */
 
+import { emailMatchKey, emailMatches } from "@/lib/businesses/email-alias"
+
 export const CONTACT_FILTERS = ["all", "leads", "customers", "subscribers", "members"] as const
 export type ContactFilter = (typeof CONTACT_FILTERS)[number]
 
@@ -205,11 +207,18 @@ const newestFirstOf = (a: SourceRecord, b: SourceRecord) => time(b.at) - time(a.
 export function identityKeys(records: readonly SourceRecord[], accounts: ReadonlyMap<string, Account>): string[] {
   /* Which account each address belongs to: a verified account address, or one the person gave signed in. */
   const owners = new Map<string, Set<string>>()
+  /* The same, by the address as it is shown (a second business's tag taken off, lib/businesses/email-alias). */
+  const shownOwners = new Map<string, Set<string>>()
+  const add = (map: Map<string, Set<string>>, key: string, user: string) => {
+    const set = map.get(key) ?? new Set<string>()
+    set.add(user)
+    map.set(key, set)
+  }
   const own = (email: string | null | undefined, user: string) => {
     if (!email) return
-    const set = owners.get(email) ?? new Set<string>()
-    set.add(user)
-    owners.set(email, set)
+    add(owners, email, user)
+    const shown = emailMatchKey(email)
+    if (shown) add(shownOwners, shown, user)
   }
   for (const r of records) {
     if (!r.userId) continue
@@ -220,9 +229,16 @@ export function identityKeys(records: readonly SourceRecord[], accounts: Readonl
   return records.map((r) => {
     if (r.userId) return `u:${r.userId}`
     if (r.email) {
-      const set = owners.get(r.email)
-      if (set && set.size === 1) return `u:${[...set][0]}`
-      return `e:${r.email}`
+      /* The address exactly as owned first, so a second business's tag never takes an address away from its owner's own account. */
+      const exact = owners.get(r.email)
+      const shown = emailMatchKey(r.email) ?? r.email
+      if (exact && exact.size === 1) return `u:${[...exact][0]}`
+      if (!exact) {
+        const set = shownOwners.get(shown)
+        if (set && set.size === 1) return `u:${[...set][0]}`
+      }
+      /* One person per address as it is shown: "andrew+slb-1a2b3c4d@gmail.com" and "andrew@gmail.com" are one row, never two that read the same. */
+      return `e:${shown}`
     }
     return `r:${r.kind}:${r.id}`
   })
@@ -457,7 +473,8 @@ export function inFilter(p: PersonRow, f: ContactFilter): boolean {
 export function matchesSearch(p: PersonRow, q: string): boolean {
   if (!q) return true
   const s = q.toLowerCase()
-  return (p.name ?? "").toLowerCase().includes(s) || (p.email ?? "").includes(s)
+  /* By the address as it is shown: a second business's tag is never on screen, so it neither hides nor finds anybody. */
+  return (p.name ?? "").toLowerCase().includes(s) || emailMatches(p.email, s)
 }
 
 export function matchesAdvanced(p: PersonRow, a: AdvancedFilters): boolean {

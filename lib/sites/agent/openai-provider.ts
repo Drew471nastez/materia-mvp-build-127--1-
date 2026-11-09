@@ -18,6 +18,7 @@ import "server-only"
  */
 
 import OpenAI from "openai"
+import { strictReady } from "./strict-schema"
 
 import { rateFor } from "./models"
 import type {
@@ -163,7 +164,8 @@ async function completeWith(client: () => OpenAI, request: ProviderRequest): Pro
         // executor reads. Without this, a malformed call becomes a wasted
         // turn and a confusing error rather than a schema violation the
         // provider prevents.
-        strict: true,
+        // Only when the schema allows it (./strict-schema.ts): an open object or an optional field is a 400 in strict mode.
+        strict: strictReady(tool.parameters, { allRequired: true }),
       })),
       max_output_tokens: Math.min(
         request.maxOutputTokens,

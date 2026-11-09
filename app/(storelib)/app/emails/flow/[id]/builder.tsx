@@ -31,6 +31,7 @@
  * field again (app/api/automations/flows/[id]).
  */
 
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { ArrowDown, ArrowLeft, ArrowUp, Ellipsis, Plus, X } from "lucide-react"
@@ -1404,7 +1405,7 @@ function Activity({ data, on, steps }: { data: BuilderData; on: boolean; steps: 
                 return (
                   <tr key={r.id} className="group hover:bg-[#fafbfb]">
                     <td data-scroll-edge="" className="sticky left-0 z-[1] h-12 bg-white px-3 text-[13px] font-medium text-[#1a1a2e] group-hover:bg-[#fafbfb]">
-                      <span className="block max-w-[170px] truncate sm:max-w-[220px]">{r.email}</span>
+                      <span className="block max-w-[170px] truncate sm:max-w-[220px]">{displayEmail(r.email) ?? tt("No email")}</span>
                     </td>
                     <td className="h-12 px-3 text-[13px] text-[#4b5563]">
                       <span className="block max-w-[200px] truncate">{joinedSentence(r.source_detail, r.trigger_type) ?? tt("Not recorded")}</span>

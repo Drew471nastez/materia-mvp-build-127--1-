@@ -36,6 +36,7 @@
  * People are acted on through ./member-actions, the same rules and routes
  * as the Members list.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { ArrowDown, ArrowUp, Plus, ShieldCheck } from "lucide-react"
@@ -590,7 +591,7 @@ function Restricted({ lists, loading, people }: { lists: RestrictedLists | null;
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[14px] font-medium text-[#1a1a2e] md:text-[13.5px]">{m.name}</p>
                         <p className="truncate text-[12.5px] text-[#6b7280] md:hidden">{g.line(m)}</p>
-                        {m.email ? <p className="truncate text-[12.5px] text-[#6b7280] max-md:hidden">{m.email}</p> : null}
+                        {displayEmail(m.email) ? <p className="truncate text-[12.5px] text-[#6b7280] max-md:hidden">{displayEmail(m.email)}</p> : null}
                       </div>
                     </div>
                     <p className="truncate text-[13.5px] text-[#4b5563] max-md:hidden" title={g.line(m)}>

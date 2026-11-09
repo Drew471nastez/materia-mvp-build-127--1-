@@ -21,6 +21,7 @@
  * (GET join-requests) and draws nothing when nobody is waiting and the
  * community does not ask for approval.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -170,7 +171,7 @@ export function JoinRequestsPanel({ head }: { head: CommunityHead }) {
                     {r.username ? <span className="truncate text-[13px] text-[#8a8f98]">@{r.username}</span> : null}
                     {r.requestedAt ? <span className="text-[12.5px] text-[#8a8f98]">{relativeTime(r.requestedAt)}</span> : null}
                   </div>
-                  {r.email ? <p className="truncate text-[13px] text-[#6b7280]">{r.email}</p> : null}
+                  {displayEmail(r.email) ? <p className="truncate text-[13px] text-[#6b7280]">{displayEmail(r.email)}</p> : null}
                   {r.approved ? <p className="mt-1 text-[13px] text-[#6b7280]">{tt("Approved, waiting for payment")}</p> : null}
                   {r.note ? <p className="mt-1.5 whitespace-pre-wrap text-[13.5px] leading-snug text-[#374151] [overflow-wrap:anywhere]">{r.note}</p> : null}
                   {r.answers.length ? (

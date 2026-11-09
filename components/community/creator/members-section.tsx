@@ -37,6 +37,7 @@
  * share (with uses and an end date), or adding an existing Storelib
  * account directly.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import { Download, Link2, Mail, UserPlus } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -245,7 +246,7 @@ export function MembersSection(p: Props) {
     downloadCsv(
       `${p.head.slug}-members-selected.csv`,
       headRow,
-      pickedRows.map((m) => [m.name, m.username ?? "", ...(p.canEmail ? [m.email ?? ""] : []), ROLE_LABEL[m.role], m.status, m.tierName ?? "", m.level, m.points, m.joinedAt ?? "", m.lastActiveAt ?? "", sourceWords(m.source)]),
+      pickedRows.map((m) => [m.name, m.username ?? "", ...(p.canEmail ? [displayEmail(m.email) ?? ""] : []), ROLE_LABEL[m.role], m.status, m.tierName ?? "", m.level, m.points, m.joinedAt ?? "", m.lastActiveAt ?? "", sourceWords(m.source)]),
     )
   }
 
@@ -294,7 +295,7 @@ export function MembersSection(p: Props) {
           {m.mutedUntil ? <StatusBadge tone="attention">{tt("Muted")}</StatusBadge> : null}
           {size === 32 && m.source === "manual" ? <StatusBadge tone="neutral">{tt("Complimentary")}</StatusBadge> : null}
         </span>
-        <span className="block truncate text-[12.5px] text-[#6b7280]">{size === 32 ? (m.email ?? (m.username ? `@${m.username}` : "")) : line(m)}</span>
+        <span className="block truncate text-[12.5px] text-[#6b7280]">{size === 32 ? (displayEmail(m.email) ?? (m.username ? `@${m.username}` : "")) : line(m)}</span>
       </span>
     </RowOpen>
   )
@@ -583,7 +584,7 @@ function InvitesList({ base, invites, setInvites }: { base: string; invites: { r
                 {i.email ? <Mail className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
               </span>
               <div className="min-w-0 flex-1">
-                <p className={cn("truncate text-[13.5px] font-medium", live ? "text-[#1a1a2e]" : "text-[#9ca3af]")}>{i.email ?? tt("Invite link")}</p>
+                <p className={cn("truncate text-[13.5px] font-medium", live ? "text-[#1a1a2e]" : "text-[#9ca3af]")}>{i.email ? (displayEmail(i.email) ?? i.email) : tt("Invite link")}</p>
                 <p className="truncate text-[12px] text-[#6b7280]">{inviteLine(i)}</p>
               </div>
               {live ? (

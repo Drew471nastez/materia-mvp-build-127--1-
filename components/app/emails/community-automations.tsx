@@ -34,6 +34,23 @@ export const communityAutomationsPath = (id: string) => `/api/app/community/${id
 
 /* Each community's list, kept for the page's life: switching tabs and back draws it at once, read again behind it. */
 const listedKept = new Map<string, Listed>()
+const warming = new Set<string>()
+
+/**
+ * A community's automated messages read ahead (Emails, while the browser is
+ * idle, wave 8), so Automations draws them in its first frame instead of
+ * adding them under the store's a moment later. Once per community; the rows
+ * read again behind what is kept when they are drawn.
+ */
+export function warmCommunityAutomations(id: string) {
+  if (listedKept.has(id) || warming.has(id)) return
+  warming.add(id)
+  void api<Listed>(communityAutomationsPath(id)).then((r) => {
+    warming.delete(id)
+    const next = r.ok ? communityAutomationsFrom<Automation, Listed["channels"][number]>(r.data) : null
+    if (next && !listedKept.has(id)) listedKept.set(id, next)
+  })
+}
 
 /** The switch's state for a row: on unless it is paused. A one-off that has gone has no switch. */
 export function automationSwitch(a: Pick<Automation, "status" | "trigger">): boolean | null {

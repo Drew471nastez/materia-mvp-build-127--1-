@@ -203,7 +203,7 @@ Changing an event kind, status, phase or step means changing the TypeScript list
 
 | Switch | Effect |
 | --- | --- |
-| `AI_BUILDER_AGENT=1` | On for every account (as in round L). |
+| `AI_BUILDER_AGENT` | **Round N: on for every account by default.** Unset or `1` = everyone; `0` / `off` / `false` = the emergency off switch (classic builder for all except the allowlist). |
 | `AI_BUILDER_AGENT_ACCOUNTS` | Comma separated allowlist, read on the server only. Each entry is a creator **username or slug** (any case, `@` optional), or a store owner's **user id** or a **creator id** (uuid). Emails are not accepted: an entry that looks like one is ignored and the log says only how many were ignored, never which. |
 
 `lib/website-builder/ai-site/agent-access.ts` (`agentEnabledFor(db, { ownerUserId, creatorId })`) is the one check, applied in:

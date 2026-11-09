@@ -168,7 +168,7 @@ section("Products: what a tap does, what the sheet's button does")
   check("two or more options: none chosen for the buyer", /sheetStartChoice\(sheetModel\(f\.product\)\)/.test(sheet))
   check("an unpublished product says it is not for sale, with no button", /Not for sale right now/.test(sheet))
   /* Changed on purpose, round 43: the same room above on a phone, beside the words in two columns on a computer. */
-  check("the pictures sit inside the sheet under the handle, with their own corners", /"px-4 pt-2 sm:px-5 sm:pt-5"\}>\s*<Gallery/.test(sheet) && /* Changed on purpose (r53): the box is also its own stacking context (isolate) for the dots and arrows over the scroll. */ /relative isolate (mx-auto )?overflow-hidden rounded-2xl bg-\[#f4f4f6\]/.test(sheet))
+  check("the pictures sit inside the sheet under the handle, with their own corners", /* Changed on purpose (round W8): the square gallery takes the title's side padding, px-5 (px-6 on a computer). */ /"px-5 pt-2 sm:px-6 sm:pt-5"\}>\s*<Gallery/.test(sheet) && /* Changed on purpose (r53): the box is also its own stacking context (isolate) for the dots and arrows over the scroll. */ /relative isolate (mx-auto )?overflow-hidden rounded-2xl bg-\[#f4f4f6\]/.test(sheet))
   const route = code("app/api/onepage/product/route.ts")
   check("the product's facts carry its shop and its limit, and leave out options taken off", /shopId: creatorId/.test(route) && /maxQuantity:/.test(route) && /filter\(\(v\) => v\.active !== false\)/.test(route))
   const block = code("components/onepage/product-block.tsx")

@@ -12,6 +12,7 @@
  *                      makes Excel read "Zoë" as Zoë rather than ZoÃ«
  *   plain              UTF-8 and LF, for scripts and other tools
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { guardFormula } from "@/lib/csv/formula-guard"
 import { FULFILLMENT_LABEL, PAYMENT_LABEL, SOURCE_LABEL, type Order } from "./order-view"
 import { sourceDetailText } from "./order-source"
@@ -77,7 +78,7 @@ export function ordersCsv(orders: Order[], timeZone: string, format: ExportForma
       `#${o.number}`,
       date.format(new Date(o.createdAt)).replace(",", ""),
       o.customerName || "",
-      o.customerEmail || "",
+      displayEmail(o.customerEmail) || "",
       o.source ? SOURCE_LABEL[o.source] : "",
       sourceDetailText(o.source, o.sourceDetail ?? null),
       o.itemCount,

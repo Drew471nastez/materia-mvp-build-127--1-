@@ -50,7 +50,7 @@ async function main() {
   check("Folio's cover is the editor's own library photo", /photo-1507400492013-162706c8c05e/.test(cover) && read("lib/onepage/wallpaper-library.ts").includes("photo-1507400492013-162706c8c05e"))
   const merged = withR40Themes([{ id: "a", category: "light" }, { id: "c", category: "dark" }])
   /* Changed on purpose (round AP): Notebook and Cobalt join after them, in their own kinds. */
-  check("Folio joins the light themes and Ledger the dark", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,lagoon,cobalt,c,ember,ledger,atlas", merged.map((t) => t.id).join(","))
+  check("Folio joins the light themes and Ledger the dark", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,gazette,lagoon,cobalt,halo,c,ember,ledger,acid,atlas" /* Changed on purpose (round W8): Gazette, Halo and Acid. */, merged.map((t) => t.id).join(","))
   const page = { id: "p", theme: { template_id: "folio", ...R42_THEMES[0].theme_config }, settings: {}, draft_blocks: [] } as never
   const after = lookFromTemplate(page, { id: "air", category: "light", theme_config: { background_color: "#eef0f3" } }).theme as unknown as Record<string, unknown>
   check("from Folio to a theme that names neither, no cover and products as each block has them", after.cover_image_url === null && after.product_layout === null)
