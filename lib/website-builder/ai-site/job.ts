@@ -30,20 +30,36 @@ import type { ThemeOp } from "../agent/operations"
 import { schemaOf, type SchemaMap } from "../agent/schemas"
 import type { VisualFinding } from "../agent/visual-check"
 import type { ThemeState } from "../agent/operations"
-import { readSitePlan, sitePlanTool, sitePlanTurn, SITE_PLANNER_SYSTEM, plannableTypes, planOutline, type SitePlan } from "../agent/site-plan"
+import { readSitePlan, sitePlanTool, sitePlanTurn, sitePlannerSystem, plannableTypes, planOutline, CUSTOM_TYPE, type SitePlan } from "../agent/site-plan"
+import type { Menu } from "@/lib/storelib-theme/values"
 import type { DesignPreset } from "../design-presets"
 import { DESIGN_PRESETS } from "../design-presets"
 import { pagePath } from "../site-pages"
 import { describeCapabilities, EMPTY_CAPABILITIES, type Capabilities } from "./capabilities"
-import { applySiteOps, buildSite, chromeOps, syncChrome, ANY_PAGE, type PlacedSection, type SiteState, type PageOp } from "./apply"
+import { applySiteOps, buildSite, chromeOps, homeChrome, syncChrome, ANY_PAGE, type PlacedSection, type SiteState, type PageOp } from "./apply"
+import { acceptCoded, codePrompt, codeTasks, CODE_CONCURRENCY, CODE_START_RESERVE_MS, CODE_TRIES, placementOps, resolvePlan, siteMenu, siteMenuHandle, withCoded, type CodeAnswer, type CodedSection, type SectionCoder } from "./code"
+import { STUDIO_CRAFT } from "./craft"
 import { fillSection, fillSystem, type FillContext, type FillTarget } from "./fill"
 import { CREDITS_PAGE, creditsHtml, fallbackFor, fillSlot, slotsFor, type ImageDeps, type PhotoCredit } from "./images"
 import { deterministicFindings, rewritable, visualFindings, type SiteFinding } from "./verify"
 import { callOnce, mergeSpend, NO_SPEND, addSpend, pool, type Models, type Spend } from "./models"
 
 export type JobStatus = "queued" | "running" | "complete" | "partial" | "failed"
-export type JobStep = "plan" | "build" | "write" | "photos" | "check" | "done"
-export const STEPS: JobStep[] = ["plan", "build", "write", "photos", "check", "done"]
+export type JobStep = "plan" | "build" | "code" | "write" | "photos" | "check" | "done"
+export const STEPS: JobStep[] = ["plan", "build", "code", "write", "photos", "check", "done"]
+
+/**
+ * HOW LONG A JOB MAY GO ON. Each request runs steps for RUN_BUDGET_MS (./server.ts) and hands over to the next, so a
+ * whole site can take as many minutes as it needs, like a coding agent working through a project. This caps how many
+ * requests one job may take before it stops and says so: forty turns of four minutes is far more than a site needs,
+ * and a job that somehow loops cannot run for ever.
+ */
+export const MAX_JOB_RUNS = 40
+
+/** Whether a job has used every turn it may take. Continue (the owner's own press) starts the count again. */
+export function outOfRuns(job: Pick<Job, "attempts">): boolean {
+  return job.attempts >= MAX_JOB_RUNS
+}
 
 export interface LoggedOp {
   seq: number
@@ -69,6 +85,18 @@ export interface JobState {
   pages: { key: string; title: string }[]
   /** Milliseconds each step took, summed over its calls. */
   timings: Partial<Record<JobStep, number>>
+  /** FREE DESIGN (./code.ts): the files coded for this site, accepted and saved. */
+  coded: CodedSection[]
+  /** Tries per code task key. */
+  codeTries: Record<string, number>
+  /** Code task keys the site went on without. */
+  codeFailed: string[]
+  /** The coded files' paths, small, for the editor's poll (which never reads the schemas in `coded`). */
+  files: string[]
+  /** Why a task's last file was refused, sent with its next try. */
+  codeReasons: Record<string, string>
+  /** What the job is doing and has done, newest last, for the progress view: a file being coded, one placed, one left out. */
+  activity: { kind: "code" | "coded" | "skipped"; name: string }[]
 }
 
 export interface Job {
@@ -87,7 +115,7 @@ export interface Job {
 }
 
 export function emptyState(): JobState {
-  return { seq: 0, ops: [], caps: null, placed: [], written: {}, filled: [], failed: [], photos: [], credits: [], notes: [], findings: [], spend: NO_SPEND, pages: [], timings: {} }
+  return { seq: 0, ops: [], caps: null, placed: [], written: {}, filled: [], failed: [], photos: [], credits: [], notes: [], findings: [], spend: NO_SPEND, pages: [], timings: {}, coded: [], codeTries: {}, codeFailed: [], codeReasons: {}, activity: [], files: [] }
 }
 
 export function newJob(input: { id: string; creatorId: string; ownerUserId: string | null; installId: string; prompt: string }): Job {
@@ -98,6 +126,14 @@ export interface SiteIO {
   read(): Promise<SiteState>
   /** Writes the draft of every page named, and the draft Theme settings when `settings` is true. */
   write(site: SiteState, pages: string[], settings: boolean, titles?: Record<string, string>): Promise<void>
+  /** Saves a coded section file into this website's own files, as a draft (./code.ts). Without it nothing is coded. */
+  writeFile?(path: string, source: string): Promise<void>
+  /**
+   * Makes sure this website's own menu exists with these links, without touching any other menu. "store" when it is
+   * in the store's menus, "theme" when the site keeps its menus in its own settings (the caller writes them there),
+   * null when it could not be kept.
+   */
+  ensureMenu?(handle: string, menu: Menu): Promise<"store" | "theme" | null>
 }
 
 export interface JobDeps {
@@ -110,6 +146,11 @@ export interface JobDeps {
   schemas?: SchemaMap
   addable: string[]
   presets?: readonly DesignPreset[]
+  /**
+   * FREE DESIGN: the coder that writes the site's own header, footer and custom sections (./code.ts writerCoder).
+   * Without it (or without SiteIO.writeFile) the plan keeps to the theme's sections and the theme's header and footer.
+   */
+  code?: SectionCoder
   /** Saves the job (and is where the editor's next poll reads it from). */
   save: (job: Job) => Promise<void>
   now?: () => number
@@ -122,12 +163,23 @@ export interface JobDeps {
 
 /** Plain words for each step, for the progress view and the logs. */
 export const STEP_PROGRESS: Record<JobStep, [number, number]> = {
-  plan: [2, 15],
-  build: [15, 25],
-  write: [25, 70],
-  photos: [70, 88],
+  plan: [2, 12],
+  build: [12, 18],
+  code: [18, 58],
+  write: [58, 74],
+  photos: [74, 88],
   check: [88, 99],
   done: [100, 100],
+}
+
+/** Whether this job's steps may code files: a coder, and a website that can keep them. */
+export function canCode(deps: Pick<JobDeps, "code" | "site">): boolean {
+  return !!deps.code && typeof deps.site.writeFile === "function"
+}
+
+/** The schemas every step after the code step reads: the theme's and the files coded for this site. */
+export function jobSchemas(job: Job, deps: Pick<JobDeps, "schemas">): SchemaMap | undefined {
+  return job.state.coded?.length ? withCoded(deps.schemas, job.state.coded) : deps.schemas
 }
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
@@ -165,7 +217,18 @@ function siteLinks(plan: SitePlan, caps: Capabilities): { links: { path: string;
 export function fillContext(job: Job, deps: Pick<JobDeps, "schemas">): FillContext {
   const caps = job.state.caps ?? EMPTY_CAPABILITIES
   const { links, defaultLink } = siteLinks(job.plan!, caps)
-  return { site: job.plan!, caps, capsText: describeCapabilities(caps), prompt: job.prompt, schemas: deps.schemas, links, defaultLink }
+  return { site: job.plan!, caps, capsText: describeCapabilities(caps), prompt: job.prompt, schemas: jobSchemas(job, deps), links, defaultLink }
+}
+
+/** Aborts when either does. */
+function bothSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
+  const c = new AbortController()
+  if (a.aborted || b.aborted) c.abort()
+  else {
+    a.addEventListener("abort", () => c.abort(), { once: true })
+    b.addEventListener("abort", () => c.abort(), { once: true })
+  }
+  return c.signal
 }
 
 const timed = (job: Job, step: JobStep, ms: number): Job => ({ ...job, state: { ...job.state, timings: { ...job.state.timings, [step]: (job.state.timings[step] ?? 0) + ms } } })
@@ -177,14 +240,15 @@ async function stepPlan(job: Job, deps: JobDeps): Promise<Job> {
   const presets = deps.presets ?? DESIGN_PRESETS
   const capsText = describeCapabilities(caps)
   const types = plannableTypes(deps.addable, deps.schemas, caps)
-  const tool = sitePlanTool(types, presets)
+  const free = canCode(deps)
+  const tool = sitePlanTool(types, presets, { free })
   let spend = job.state.spend
   let plan: SitePlan | null = null
   let lastText = ""
   for (let attempt = 0; attempt < 2 && !plan; attempt++) {
-    const user = sitePlanTurn({ prompt: job.prompt, caps, capsText, addable: deps.addable, schemas: deps.schemas, presets }) + (attempt && lastText ? `\n\nYOUR LAST ANSWER COULD NOT BE USED (no page with a section that can be built). Call submit_site_plan again.` : "")
+    const user = sitePlanTurn({ prompt: job.prompt, caps, capsText, addable: deps.addable, schemas: deps.schemas, presets, free }) + (attempt && lastText ? `\n\nYOUR LAST ANSWER COULD NOT BE USED (no page with a section that can be built). Call submit_site_plan again.` : "")
     try {
-      const r = await callOnce(deps.models.plan, { system: SITE_PLANNER_SYSTEM, user, tools: [tool], maxOutputTokens: 32_000, timeoutMs: 170_000, signal: deps.signal })
+      const r = await callOnce(deps.models.plan, { system: sitePlannerSystem({ free, craft: STUDIO_CRAFT }), user, tools: [tool], maxOutputTokens: 32_000, timeoutMs: 170_000, signal: deps.signal })
       spend = addSpend(spend, deps.models.plan.model, r.usage)
       const call = r.toolCalls.find((c) => c.name === tool.name)
       let raw: unknown = null
@@ -196,7 +260,7 @@ async function stepPlan(job: Job, deps: JobDeps): Promise<Job> {
         }
       }
       lastText = r.text
-      plan = readSitePlan(raw ?? r.text, { caps, addable: deps.addable, schemas: deps.schemas, presets })
+      plan = readSitePlan(raw ?? r.text, { caps, addable: deps.addable, schemas: deps.schemas, presets, free })
     } catch (e) {
       if (attempt === 1) throw e
     }
@@ -227,14 +291,130 @@ async function stepBuild(job: Job, deps: JobDeps): Promise<Job> {
   await deps.site.write(built.site, Object.keys(built.site.pages), true, titles)
   const next = log(job, built.ops)
   if (built.notes.length) console.warn("[ai-site] build notes", { job: job.id, notes: built.notes.slice(0, 8) })
-  return { ...next, step: "write", progress: STEP_PROGRESS.write[0], state: { ...next.state, placed: built.placed } }
+  return { ...next, step: "code", progress: STEP_PROGRESS.code[0], state: { ...next.state, placed: built.placed } }
 }
+
+/**
+ * ===========================================================================
+ *  CODE: THE SITE'S OWN HEADER, FOOTER AND CUSTOM SECTIONS (./code.ts)
+ * ===========================================================================
+ * A wave of files at a time, each written from its brief by the coder, then
+ * accepted or refused in code. A refused file is tried again with the reason;
+ * a file still refused is left out and said, never a broken section on the
+ * page. Short of time, the step returns as it is and the next request carries
+ * on. When every file is done they are placed: each custom section where the
+ * plan put it, the coded header and footer on every page in place of the
+ * theme's, reading this site's own menu.
+ */
+async function stepCode(job: Job, deps: JobDeps, now: () => number): Promise<Job> {
+  const plan = job.plan!
+  const tasks = canCode(deps) ? codeTasks(plan) : []
+  const coder = deps.code
+  const caps = job.state.caps ?? EMPTY_CAPABILITIES
+  const shop = (caps.facts?.publishedProducts ?? 0) > 0
+  const menuHandle = siteMenuHandle(job.installId)
+  /* Nothing to code (no coder here): the theme's own sections and frame, as before. */
+  if (!coder || !tasks.length) return { ...job, step: "write", progress: STEP_PROGRESS.write[0] }
+  let site = await deps.site.read()
+  const finished = () => new Set([...job.state.coded.map((c) => c.key), ...job.state.codeFailed])
+  const total = tasks.length || 1
+
+  while (tasks.some((t) => !finished().has(t.key))) {
+    if (deps.deadline && now() > deps.deadline - CODE_START_RESERVE_MS) return job
+    const wave = tasks.filter((t) => !finished().has(t.key)).slice(0, CODE_CONCURRENCY)
+    job = { ...job, state: { ...job.state, activity: [...job.state.activity, ...wave.map((t) => ({ kind: "code" as const, name: t.name }))].slice(-30) } }
+    await deps.save(job)
+    const takenTypes = [...new Set([...Object.keys(deps.schemas ?? {}), ...job.state.coded.map((c) => c.type)])]
+    const takenNames = job.state.coded.map((c) => c.name)
+    const usage: { model: string; u: Parameters<typeof addSpend>[2] }[] = []
+    const ctx = { plan, capsText: describeCapabilities(caps), shop, menuHandle, prompt: job.prompt }
+    const results = await pool(wave, wave.length, async (task) => {
+      const tries = job.state.codeTries[task.key] ?? 0
+      const prompt = codePrompt(task, ctx, job.state.codeReasons?.[task.key] ?? "")
+      const timer = deps.deadline ? AbortSignal.timeout(Math.max(20_000, deps.deadline - now())) : undefined
+      const signal = deps.signal && timer ? bothSignals(deps.signal, timer) : (deps.signal ?? timer)
+      const answer: CodeAnswer = await coder
+        .write(task, prompt, { takenTypes, takenNames, settings: site.settings, signal, deadlineAt: deps.deadline, onUsage: (u) => usage.push({ model: coder.model, u }) })
+        .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : "the coder failed" }))
+      if (answer.ok === false) return { task, tries: tries + 1, accepted: null, reason: (answer as { error: string }).error }
+      const source = (answer as { source: string }).source
+      const accepted = acceptCoded(source, { role: task.role, takenTypes })
+      if (accepted.ok === false) return { task, tries: tries + 1, accepted: null, reason: (accepted as { reason: string }).reason }
+      try {
+        await deps.site.writeFile!((accepted as { path: string }).path, source)
+      } catch {
+        return { task, tries: tries + 1, accepted: null, reason: "the file could not be saved" }
+      }
+      return { task, tries: tries + 1, accepted, reason: "" }
+    })
+    let spend = job.state.spend
+    for (const x of usage) spend = addSpend(spend, x.model, x.u)
+    const coded = [...job.state.coded]
+    const codeFailed = [...job.state.codeFailed]
+    const codeTries = { ...job.state.codeTries }
+    const codeReasons = { ...(job.state.codeReasons ?? {}) }
+    const activity = [...job.state.activity]
+    const notes = [...job.state.notes]
+    for (const r of results) {
+      codeTries[r.task.key] = r.tries
+      const ok = r.accepted && r.accepted.ok === true ? (r.accepted as Extract<ReturnType<typeof acceptCoded>, { ok: true }>) : null
+      /* Two files of one wave that picked the same type: the second is tried again under another name. */
+      if (ok && !coded.some((c) => c.type === ok.type)) {
+        coded.push({ key: r.task.key, role: r.task.role, type: ok.type, name: ok.name, path: ok.path, schema: JSON.parse(JSON.stringify(ok.schema)) })
+        activity.push({ kind: "coded", name: ok.name })
+        continue
+      }
+      const reason = ok ? `"${ok.type}" is already a section on this site. Give it a name of its own.` : r.reason
+      codeReasons[r.task.key] = reason.slice(0, 800)
+      console.warn("[ai-site] a coded file was refused", { job: job.id, task: r.task.key, reason: reason.slice(0, 200) })
+      if (r.tries >= CODE_TRIES) {
+        codeFailed.push(r.task.key)
+        activity.push({ kind: "skipped", name: r.task.name })
+        notes.push(r.task.role === "section" ? `${r.task.name} could not be coded well enough and was left out.` : `The site's own ${r.task.role} could not be coded, so the theme's ${r.task.role} is used.`)
+      }
+    }
+    job = { ...job, state: { ...job.state, coded, codeFailed, codeTries, codeReasons, files: coded.map((c) => c.path), activity: activity.slice(-30), notes, spend } }
+    job = { ...job, progress: clamp(STEP_PROGRESS.code[0] + ((coded.length + codeFailed.length) / total) * (STEP_PROGRESS.code[1] - STEP_PROGRESS.code[0])) }
+    await deps.save(job)
+  }
+
+  /* ── every file is done: placed in the plan's order, and the frame replaced ── */
+  const schemas = withCoded(deps.schemas, job.state.coded)
+  const resolved = resolvePlan(plan, job.state.coded, schemas)
+  let menuWhere: "store" | "theme" | null = null
+  const chromeCoded = job.state.coded.some((c) => c.role !== "section")
+  if (chromeCoded && deps.site.ensureMenu) menuWhere = await deps.site.ensureMenu(menuHandle, siteMenu(resolved, shop)).catch(() => null)
+  if (menuWhere === "theme") {
+    const menus = { ...((site.settings.menus as Record<string, unknown> | undefined) ?? {}), [menuHandle]: siteMenu(resolved, shop) }
+    site = { ...site, settings: { ...site.settings, menus } }
+  }
+  const placement = placementOps({ site, plan: resolved, coded: job.state.coded, placed: job.state.placed, schemas, idSeed: job.id.replace(/-/g, "").slice(0, 8), menuHandle: menuWhere ? menuHandle : null })
+  const a = apply(job, site, placement.ops, schemas)
+  site = syncChrome(a.site)
+  await deps.site.write(site, Object.keys(site.pages), a.settings || menuWhere === "theme")
+  const customIds = placement.placed.map((p) => p.id)
+  return {
+    ...a.job,
+    plan: resolved,
+    step: "write",
+    progress: STEP_PROGRESS.write[0],
+    state: {
+      ...a.job.state,
+      notes: [...a.job.state.notes, ...placement.notes],
+      placed: [...a.job.state.placed.filter((p) => !customIds.includes(p.id)), ...placement.placed],
+      /* A coded section was written with its words for this site: the write step leaves it as it is. */
+      filled: [...new Set([...a.job.state.filled, ...customIds])],
+    },
+  }
+}
+
 
 function stillPlaced(job: Job, site: SiteState): PlacedSection[] {
   return job.state.placed.filter((p) => site.pages[p.page]?.some((s) => s.id === p.id))
 }
 
 async function stepWrite(job: Job, deps: JobDeps, now: () => number): Promise<Job> {
+  deps = { ...deps, schemas: jobSchemas(job, deps) }
   let site = await deps.site.read()
   const ctx = fillContext(job, deps)
   const system = fillSystem(ctx)
@@ -307,6 +487,7 @@ function fallbackQuery(plan: SitePlan, prompt: string): string {
 }
 
 async function stepPhotos(job: Job, deps: JobDeps, now: () => number): Promise<Job> {
+  deps = { ...deps, schemas: jobSchemas(job, deps) }
   let site = await deps.site.read()
   const plan = job.plan!
   const query = fallbackQuery(plan, job.prompt)
@@ -373,14 +554,13 @@ async function stepPhotos(job: Job, deps: JobDeps, now: () => number): Promise<J
 
 /** The credits page: the home page's header and footer around one page_content section. */
 function creditsSections(site: SiteState, credits: PhotoCredit[]): { sections: SiteState["pages"][string] } | null {
-  const home = site.pages.home ?? []
-  const header = home.find((s) => s.type === "header")
-  const footer = home.find((s) => s.type === "footer")
+  const { header, footer } = homeChrome(site.pages.home ?? [])
   const section = { id: "page_content-photo-credits", type: "page_content", name: "Photo credits", settings: { heading: "Photo credits", content: creditsHtml(credits) } }
-  return { sections: [...(header ? [header] : []), section, ...(footer ? [footer] : [])] }
+  return { sections: [...header, section, ...footer] }
 }
 
 async function stepCheck(job: Job, deps: JobDeps): Promise<Job> {
+  deps = { ...deps, schemas: jobSchemas(job, deps) }
   let site = await deps.site.read()
   const ctx = fillContext(job, deps)
   const placed = stillPlaced(job, site)
@@ -458,6 +638,7 @@ export async function runStep(job: Job, deps: JobDeps): Promise<Job> {
   try {
     if (step === "plan") next = await stepPlan(next, deps)
     else if (step === "build") next = await stepBuild(next, deps)
+    else if (step === "code") next = await stepCode(next, deps, now)
     else if (step === "write") next = await stepWrite(next, deps, now)
     else if (step === "photos") next = await stepPhotos(next, deps, now)
     else if (step === "check") next = await stepCheck(next, deps)
@@ -487,7 +668,7 @@ export async function runUntil(job: Job, deps: JobDeps): Promise<Job> {
 }
 
 /** Plain words per step, for errors and the logs (the editor translates its own). */
-export const STEP_LABEL: Record<JobStep, string> = { plan: "planning the design", build: "building the pages", write: "writing the pages", photos: "adding photos", check: "checking the site", done: "the site" }
+export const STEP_LABEL: Record<JobStep, string> = { plan: "planning the design", build: "building the pages", code: "coding the sections", write: "writing the pages", photos: "adding photos", check: "checking the site", done: "the site" }
 
 /** A job may be continued by its owner: it ended partial or failed, or it stopped mid-way. */
 export function canContinue(job: Pick<Job, "status" | "step">): boolean {
@@ -509,6 +690,9 @@ export function publicView(job: Job, after: number) {
     notes: job.state.notes.slice(0, 12),
     findings: job.state.findings.slice(0, 12),
     credits: job.state.credits.length,
+    /* The files coded so far: the editor reads them before it replays an operation that places one. */
+    files: job.state.files ?? [],
+    activity: (job.state.activity ?? []).slice(-6),
   }
 }
 export type JobView = ReturnType<typeof publicView>

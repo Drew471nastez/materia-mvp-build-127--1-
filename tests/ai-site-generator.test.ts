@@ -279,7 +279,8 @@ async function main() {
   }
   const ms = Date.now() - t0
   const final = site.state()
-  check("the five steps in order, each once", steps.join(",") === "plan,build,write,photos,check", steps)
+  /* Changed on purpose (round AP): the code step sits between build and write; with no coder it hands straight on. */
+  check("the steps in order, each once", steps.join(",") === "plan,build,code,write,photos,check", steps)
   check("it ends complete with nothing left to fix", job.status === "complete" && job.progress === 100 && job.state.findings.length === 0, { status: job.status, findings: job.state.findings, notes: job.state.notes })
   check("one strong call plans the whole site", log.filter((c) => c.kind === "plan").length === 1 && log[0].model === PLAN_MODEL)
   const writes = log.filter((c) => c.kind === "write")
@@ -386,6 +387,8 @@ async function main() {
     const d5: JobDeps = { ...deps, site: s5, visual: undefined, save: async () => {}, concurrency: 3, now: () => clock, models: models([]) }
     let j5 = newJob({ id: "4b1c2d3e-4f50-6172-8394-a5b6c7d8e9f0", creatorId: "c1", ownerUserId: "u1", installId: "i1", prompt: PROMPT })
     j5 = await runStep(j5, d5)
+    j5 = await runStep(j5, d5)
+    /* Changed on purpose (round AP): the code step (nothing to code without a coder) before write. */
     j5 = await runStep(j5, d5)
     let calls = 0
     /* The clock reads 0 when the step starts and before its first wave, then is past the deadline. */

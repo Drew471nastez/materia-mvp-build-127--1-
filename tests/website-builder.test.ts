@@ -934,8 +934,9 @@ section("The cover")
     /saves\.set\(installId, Date\.now\(\)\)/.test(refresh) && /export function savedAt/.test(refresh) && /export function latestCover/.test(refresh) && /covers\.set\(installId, cover\)/.test(refresh))
   check("  one cover request per site at a time: the editor's and the page's share one browser launch",
     /const running = inflight\.get\(installId\)\s*\n\s*if \(running\) return running/.test(refresh) && /inflight\.delete\(installId\)/.test(refresh))
+  /* Changed on purpose (round AP): the rule moved to lib/website-builder/page-refresh.ts and the ask goes through the page's one folded refresh. */
   check("  a copy of the page older than this tab's save asks the server again, once per save",
-    /savedAt\(i\.id\) > Date\.parse\(i\.saved_at\) \+ 2000/.test(client) && /REFRESHED\.add/.test(client) && /router\.refresh\(\)/.test(client))
+    /saved > Date\.parse\(i\.saved_at\) \+ 2000/.test(readFileSync(join(process.cwd(), "lib/website-builder/page-refresh.ts"), "utf8")) && /pagesBehind\(given, savedAt, REFRESHED\)/.test(client) && /REFRESHED\.add/.test(client) && /router\.refresh\(\)/.test(client))
   check("  a cover that arrived while the page was away is drawn without being taken again",
     /\[fresh\[i\.id\], latestCover\(i\.id\)\]/.test(client) && /Math\.max\(Date\.parse\(i\.saved_at\), savedAt\(i\.id\)\)/.test(client))
   check("  missing is stale", coverIsStale({ snapshot_url: null, snapshot_updated_at: null, saved_at: "2026-09-23T00:00:00Z" }))

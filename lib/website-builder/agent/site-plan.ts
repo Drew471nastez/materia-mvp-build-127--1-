@@ -62,7 +62,10 @@ export interface ImageBrief {
 }
 
 export interface SitePlanSection {
+  /** A built-in type, or "custom": a section designed and coded for this site (lib/website-builder/ai-site/code.ts). */
   type: string
+  /** A custom section's name, as the sidebar will list it. Empty for a built-in. */
+  name?: string
   purpose: string
   content: string
   scheme: "light" | "dark" | "alt"
@@ -90,8 +93,18 @@ export interface SitePlan {
   typography: { heading: string; body: string }
   imagery: string
   pages: SitePlanPage[]
+  /**
+   * FREE DESIGN: the briefs the site's own header and footer are coded from.
+   * Absent on a plan made without a coder (the theme's header and footer stay).
+   */
+  chrome?: { header: string; footer: string } | null
   corrections: string[]
 }
+
+/** The type a plan gives a section that is designed and coded for this site rather than taken from the theme. */
+export const CUSTOM_TYPE = "custom"
+/** The most custom sections one site plans (the header and footer apart). */
+export const MAX_CUSTOM_SECTIONS = 10
 
 /* ── the library the planner may use ───────────────────────────────────── */
 
@@ -195,6 +208,27 @@ RULES THAT ARE NOT TASTE:
 
 Answer by calling submit_site_plan once with the whole plan. No prose.`
 
+/**
+ * FREE DESIGN (the owner: "it should not be tied and limited by the theme"). With a coder in the job, the planner may
+ * design any section the site needs and always designs the header and footer; the built-in types are a library to
+ * use where they fit, not a fence. Said in the stable prefix, with the studio's own rules (../ai-site/craft.ts).
+ */
+export const FREE_DESIGN_RULES = `FREE DESIGN. You are not limited to the listed section types, and the site does not use the theme's header or footer.
+- The header and the footer are designed for this site: give each a brief (what is in it, how it is laid out, how it behaves on a phone). A developer codes them from your brief.
+- Any section may be "custom": give it a short name and a precise brief in "content" (layout, what each part shows, how it moves, what the owner edits). A developer codes it as a new section with its own settings, so the owner still edits every word and picture. Use custom where a listed type would make the page look like a template or cannot draw what this business needs; use a listed type where it fits exactly (a product grid, a contact form, an FAQ).
+- At most ${MAX_CUSTOM_SECTIONS} custom sections on the whole site. Picture briefs on a custom section list its pictures in order (slot "image_1", "image_2" and so on).
+- Products, collections, the cart and menus stay the store's live data in custom sections too: never typed in.`
+
+/** The planner's system prompt: the stable rules, and with a coder the free design rules and the studio's craft. */
+export function sitePlannerSystem(opts: { free?: boolean; craft?: string } = {}): string {
+  if (!opts.free) return SITE_PLANNER_SYSTEM
+  const rules = SITE_PLANNER_SYSTEM.replace(
+    "- Use only the section types listed for this site, exactly as written. The list already leaves out what this creator cannot truthfully show.",
+    '- Use the section types listed for this site, exactly as written, or "custom". The list already leaves out what this creator cannot truthfully show.',
+  ).replace("Answer by calling submit_site_plan once with the whole plan. No prose.", "")
+  return [rules.trim(), FREE_DESIGN_RULES, opts.craft ?? "", "Answer by calling submit_site_plan once with the whole plan. No prose."].filter(Boolean).join("\n\n")
+}
+
 export interface SitePlanContext {
   prompt: string
   caps: Capabilities
@@ -203,6 +237,8 @@ export interface SitePlanContext {
   addable: string[]
   schemas?: SchemaMap
   presets?: readonly DesignPreset[]
+  /** A coder is in the job: "custom" sections and the site's own header and footer may be planned. */
+  free?: boolean
 }
 
 /** The planner's turn: the brief, what is real, the presets and the library. */
@@ -213,7 +249,7 @@ export function sitePlanTurn(ctx: SitePlanContext): string {
     `THE BRIEF\n${ctx.prompt.trim()}`,
     `WHAT IS REAL ABOUT THIS CREATOR (the only facts you may use)\n${ctx.capsText}`,
     `DESIGN PRESETS (pick the one whose mood fits; adjust it if the brief needs)\n${describePresets(ctx.presets ?? DESIGN_PRESETS)}`,
-    `SECTION TYPES FOR THIS SITE\n${describeLibrary(types, ctx.schemas)}`,
+    `SECTION TYPES FOR THIS SITE\n${describeLibrary(types, ctx.schemas)}${ctx.free ? `\n- custom: a section designed and coded for this site from your brief (any layout, any motion, its own settings)` : ""}`,
     left.length ? `Not offered here, because this creator has nothing real to put in them: ${left.join(", ")}.` : "",
   ]
     .filter(Boolean)
@@ -223,11 +259,13 @@ export function sitePlanTurn(ctx: SitePlanContext): string {
 const KV = { type: "object", properties: { id: { type: "string" }, value: { type: "string" } }, required: ["id", "value"], additionalProperties: false }
 
 /** The plan as one strict tool: arguments that parse and have every field, every time. */
-export function sitePlanTool(types: string[], presets: readonly DesignPreset[] = DESIGN_PRESETS): ToolSpec<string> {
+export function sitePlanTool(types: string[], presets: readonly DesignPreset[] = DESIGN_PRESETS, opts: { free?: boolean } = {}): ToolSpec<string> {
+  const free = !!opts.free
   const section = {
     type: "object",
     properties: {
-      type: { type: "string", enum: types },
+      type: { type: "string", enum: free ? [...types, CUSTOM_TYPE] : types },
+      ...(free ? { name: { type: "string", description: 'A custom section\'s short name ("Programs and prices"). "" for a listed type.' } } : {}),
       purpose: { type: "string", description: "What this section does on this page, one sentence." },
       content: { type: "string", description: "Exactly what it says and shows, specific to this business: the angle of the heading, what the items are, where the button goes." },
       scheme: { type: "string", enum: ["light", "dark", "alt"], description: "Its colour band: the main light surface, the dark band, or the alternate surface." },
@@ -242,7 +280,7 @@ export function sitePlanTool(types: string[], presets: readonly DesignPreset[] =
         },
       },
     },
-    required: ["type", "purpose", "content", "scheme", "layout", "images"],
+    required: ["type", ...(free ? ["name"] : []), "purpose", "content", "scheme", "layout", "images"],
     additionalProperties: false,
   }
   return {
@@ -288,8 +326,14 @@ export function sitePlanTool(types: string[], presets: readonly DesignPreset[] =
             additionalProperties: false,
           },
         },
+        ...(free
+          ? {
+              header: { type: "string", description: "The brief the site's own header is coded from: what is in it, its layout, how it behaves on a phone." },
+              footer: { type: "string", description: "The brief the site's own footer is coded from." },
+            }
+          : {}),
       },
-      required: ["preset", "adjustments", "brand", "voice", "audience", "conversion", "palette", "typography", "imagery", "pages"],
+      required: ["preset", "adjustments", "brand", "voice", "audience", "conversion", "palette", "typography", "imagery", "pages", ...(free ? ["header", "footer"] : [])],
       additionalProperties: false,
     },
   }
@@ -329,7 +373,7 @@ function checkedChoices(fields: SchemaField[], wanted: Record<string, unknown>, 
  * real. Never throws. Null only when nothing buildable is left (no home page
  * with a section).
  */
-export function readSitePlan(raw: unknown, ctx: { caps: Capabilities; addable: string[]; schemas?: SchemaMap; presets?: readonly DesignPreset[] }): SitePlan | null {
+export function readSitePlan(raw: unknown, ctx: { caps: Capabilities; addable: string[]; schemas?: SchemaMap; presets?: readonly DesignPreset[]; free?: boolean }): SitePlan | null {
   const r = (typeof raw === "string" ? extractJson(raw) : raw) as Record<string, unknown> | null
   if (!r || typeof r !== "object") return null
   const presets = ctx.presets ?? DESIGN_PRESETS
@@ -365,6 +409,7 @@ export function readSitePlan(raw: unknown, ctx: { caps: Capabilities; addable: s
 
   const pages: SitePlanPage[] = []
   const seen = new Set<string>()
+  let customs = 0
   for (const item of Array.isArray(r.pages) ? r.pages : []) {
     if (!item || typeof item !== "object") continue
     const p = item as Record<string, unknown>
@@ -384,6 +429,36 @@ export function readSitePlan(raw: unknown, ctx: { caps: Capabilities; addable: s
       if (!sItem || typeof sItem !== "object") continue
       const s = sItem as Record<string, unknown>
       const type = str(s.type, 60)
+      /* FREE DESIGN: a section coded for this site, from its brief. Its pictures are named in order; the coded file decides their settings. */
+      if (type === CUSTOM_TYPE && ctx.free) {
+        if (sections.length >= max) {
+          corrections.push(`${key} was cut to ${max} sections`)
+          break
+        }
+        if (customs >= MAX_CUSTOM_SECTIONS) {
+          corrections.push(`at most ${MAX_CUSTOM_SECTIONS} custom sections: one on ${key} was left out`)
+          continue
+        }
+        const content = str(s.content, 1200)
+        const purpose = str(s.purpose, 240)
+        if (!content && !purpose) {
+          corrections.push(`a custom section on ${key} had no brief and was left out`)
+          continue
+        }
+        customs++
+        const images: ImageBrief[] = []
+        for (const img of Array.isArray(s.images) ? s.images : []) {
+          if (!img || typeof img !== "object" || images.length >= 6) continue
+          const i = img as Record<string, unknown>
+          const query = str(i.query, 80)
+          if (!query) continue
+          const aspect = i.aspect === "portrait" || i.aspect === "square" ? i.aspect : "landscape"
+          images.push({ slot: `image_${images.length + 1}`, query, aspect })
+        }
+        const scheme = s.scheme === "dark" || s.scheme === "alt" ? s.scheme : "light"
+        sections.push({ type: CUSTOM_TYPE, name: str(s.name, 60) || purpose.slice(0, 40) || "Section", purpose, content, scheme, layout: {}, images })
+        continue
+      }
       if (!allowed.has(type)) {
         const why = schemaOf(ctx.schemas, type) ? unavailableBecause(type, ctx.caps) : null
         corrections.push(`"${type || "(nothing)"}" on ${key} ${why ? `was left out: ${why}` : "is not a section type here and was left out"}`)
@@ -437,6 +512,8 @@ export function readSitePlan(raw: unknown, ctx: { caps: Capabilities; addable: s
     typography,
     imagery: str(r.imagery, 300),
     pages,
+    /* With a coder the site has its own header and footer, whatever the model sent: an empty brief is a default one (../ai-site/code.ts). */
+    chrome: ctx.free ? { header: str(r.header ?? (r.chrome as { header?: unknown } | null)?.header, 1200), footer: str(r.footer ?? (r.chrome as { footer?: unknown } | null)?.footer, 1200) } : null,
     corrections,
   }
 }
@@ -462,7 +539,8 @@ export function toCreativePlan(site: SitePlan, page: SitePlanPage): CreativePlan
     motion: "",
     interactions: [],
     header: "",
-    sections: page.sections.map((s) => ({ pattern: "", use: s.type, purpose: s.purpose, content: s.content, layout: "", scheme: s.scheme === "alt" ? "" : s.scheme })),
+    /* A custom section is coded later (../ai-site/code.ts) and placed then: here it holds its place and adds nothing. */
+    sections: page.sections.map((s) => ({ pattern: "", use: s.type === CUSTOM_TYPE ? "new:custom" : s.type, purpose: s.purpose, content: s.content, layout: "", scheme: s.scheme === "alt" ? "" : s.scheme })),
     remove: [],
     corrections: [],
   }
