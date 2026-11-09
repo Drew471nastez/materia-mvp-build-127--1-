@@ -228,7 +228,8 @@ async function main() {
   check("one icon pair, drawn and filled", /contacts: \{ line: ContactsLinear, fill: ContactsBold \}/.test(read("components/app/sidebar-desktop-nav.tsx")))
   check("a member with Customers or Marketing sees Contacts; one with neither does not", memberSees(["customers"], "/app/contacts") && memberSees(["marketing"], "/app/contacts?filter=leads") && !memberSees(["products"], "/app/contacts") && contactsPermitted(["marketing"]) && pathPermits(["marketing"], "/app/contacts/u_x") && !pathPermits(["orders"], "/app/contacts"))
   check("the order page links to the person through the resolver", read("app/(storelib)/app/orders/order-detail.tsx").includes("/app/contacts/open?from=order&id="))
-  check("Customers stays (spend in the store's currency, location) and links both ways", read("app/(storelib)/app/customers/page.tsx").includes("/app/contacts/open?from=customer&id=") && read("app/(storelib)/app/customers/page.tsx").includes("/app/contacts?filter=customers"))
+  /* Changed on purpose (round 52): Customers is drawn by customers-view.tsx, which holds the Open in Contacts link; each row (the address page.tsx makes) opens the person. */
+  check("Customers stays (spend in the store's currency, location) and links both ways", read("app/(storelib)/app/customers/page.tsx").includes("/app/contacts/open?from=customer&id=") && read("app/(storelib)/app/customers/customers-view.tsx").includes("/app/contacts?filter=customers"))
 
   section("11. SQL part 378")
   const sql = read("supabase/sql/run-now/378_creator_contacts.sql")

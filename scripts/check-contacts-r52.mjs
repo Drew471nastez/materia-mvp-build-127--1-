@@ -136,6 +136,13 @@ const orow = (id, h, over) => ({ id, product_id: "p-digital", amount_cents: 4900
 const OIDS = Array.from({ length: 12 }, (_, i) => `d-${i}`)
 const listing = { rows: OIDS.map((id, i) => orow(id, i * 7 + 1, { buyer_first_name: ["Ana", "Jordan", "Sam", "Amelia"][i % 4] })), numbers: Object.fromEntries(OIDS.map((id, i) => [id, 1100 - i])), pageIds: OIDS, before: null, after: null, matching: OIDS.length, range: { page: 1, pages: 1, from: 1, to: OIDS.length }, metrics: [], summary: { total: OIDS.length, earliest: iso(10), ships: false, views: ["all"], currency: "EUR" }, figures: true, partial: false }
 
+/* Customers: the buyers as the page hands them over (app/(storelib)/app/customers/customers-view CustomerLine). */
+const cities = [["Bucharest", "RO"], null, ["Leeds", "GB"], ["München", "DE"], null, ["São Paulo", "BR"]]
+const buyers = Array.from({ length: 14 }, (_, i) => ({ id: `cu${i}`, first_name: names[i % names.length]?.split(" ")[0] ?? null, last_name: names[i % names.length]?.split(" ").slice(1).join(" ") ?? null, email: emails[i % emails.length], city: cities[i % cities.length]?.[0] ?? null, country: cities[i % cities.length]?.[1] ?? null, created_at: iso(30 + i * 9), spent: i % 4 === 3 ? 0 : 4900 + i * 2300 }))
+const buyerOrders = Object.fromEntries(buyers.map((b, i) => [b.email, i % 4 === 3 ? [] : Array.from({ length: 1 + (i % 3) }, (_, k) => ({ id: `o${i}${k}`, created_at: iso(i + k * 5), amount_cents: 4900, provider: "stripe", product: { title: k % 2 ? "Linen shirt, a very long product title that should truncate" : "Lightroom preset pack" } }))]))
+const day = (s) => new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+const customerLines = buyers.map((b) => ({ id: b.id, name: [b.first_name, b.last_name].filter(Boolean).join(" "), email: b.email, location: b.city && b.country ? `${b.city}, ${b.country}` : null, href: `/app/contacts/open?from=customer&id=${b.id}`, lastOrder: buyerOrders[b.email][0] ? { title: buyerOrders[b.email][0].product.title, day: day(buyerOrders[b.email][0].created_at) } : null, orders: buyerOrders[b.email].length, spent: `€${(b.spent / 100).toFixed(2)}`, joined: day(b.created_at) }))
+
 const VIEWS = {
   people: ["people", people()],
   "people-empty": ["people", people({ page: { rows: [], total: 0, counts: { all: 0, leads: 0, customers: 0, subscribers: 0, members: 0 }, partial: false, via: "sql" } })],
@@ -146,6 +153,8 @@ const VIEWS = {
   profile: ["profile", { profile: rich }],
   "profile-thin": ["profile", { profile: thin }],
   forms: ["forms", {}],
+  customers: ["customers", { rows: customerLines }],
+  "customers-empty": ["customers", { rows: [] }],
   products: ["products", { products }],
   orders: ["orders", { listing, now: NOW }],
 }

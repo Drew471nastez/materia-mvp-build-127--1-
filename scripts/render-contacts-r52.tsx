@@ -14,6 +14,7 @@ import { ContactsHeader } from "@/app/(storelib)/app/contacts/contacts-header"
 import { FormsList } from "@/app/(storelib)/app/emails/forms/forms-list"
 import { ProductsClient } from "@/app/(storelib)/app/products/products-client"
 import { OrdersClient } from "@/app/(storelib)/app/orders/orders-client"
+import { CustomersView } from "@/app/(storelib)/app/customers/customers-view"
 import { GUTTER, LIST_WIDTH } from "@/app/(storelib)/app/orders/order-parts"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { LanguageProvider } from "@/lib/i18n"
@@ -34,6 +35,8 @@ function Body() {
           </div>
         </>
       )
+    case "customers":
+      return <CustomersView rows={p.rows} />
     case "products":
       return <ProductsClient products={p.products} creatorUsername="astrid" />
     case "orders":

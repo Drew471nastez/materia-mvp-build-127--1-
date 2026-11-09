@@ -195,7 +195,7 @@ export function PeopleClient({ query, page, communities, marketing, notice }: { 
         ) : null}
         {page?.partial ? (
           <p className="mt-1 text-[13px] text-[#6b7280]" role="status">
-            {tt("Showing people from your latest 2,000 records of each kind. Run the Contacts database update (SQL part 378) to see everyone.")}
+            {tt("Showing the most recent people from each source. Older ones appear once setup finishes.")}
           </p>
         ) : null}
         {message ? (
@@ -578,7 +578,7 @@ function Tags({ tags, max = 3 }: { tags: string[]; max?: number }) {
     /* One line, always (round 52): a long tag shortens, the rest are counted, and a row never grows to two. */
     <span className="flex min-w-0 items-center gap-1 overflow-hidden">
       {tags.slice(0, max).map((t) => (
-        <span key={t} className="min-w-0 max-w-[140px] truncate rounded-md bg-[#f1f2f4] px-1.5 py-0.5 text-[12px] font-medium leading-4 text-[#1a1a2e]">
+        <span key={t} className="min-w-0 max-w-[140px] truncate rounded-md border border-[#e5e7eb] bg-white px-1.5 py-px text-[12px] font-medium leading-4 text-[#1a1a2e]">
           {t}
         </span>
       ))}
@@ -862,7 +862,7 @@ function ImportPeople({ open, phone, marketing, onClose, onDone }: { open: boole
               {result.keptOff ? <li>{tt("{count, plural, one {# had unsubscribed, bounced or only bought from you, and was left off the list} other {# had unsubscribed, bounced or only bought from you, and were left off the list}}", { count: result.keptOff })}</li> : null}
               {result.invalid ? <li>{tt("{count, plural, one {# line had no valid email address} other {# lines had no valid email address}}", { count: result.invalid })}</li> : null}
               {result.truncated ? <li>{tt("Only the first 5,000 rows were read. Import the rest in another file.")}</li> : null}
-              {result.contactsMissing ? <li>{tt("Names and tags were not kept: that needs the Contacts database update (SQL part 378).")}</li> : null}
+              {result.contactsMissing ? <li>{tt("Only the email addresses were imported. Names and tags are kept once setup finishes.")}</li> : null}
             </ul>
             <div className="flex justify-end pt-1">
               <button type="button" className={buttonAccent} onClick={onClose}>
