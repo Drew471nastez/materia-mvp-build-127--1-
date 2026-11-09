@@ -45,6 +45,7 @@ export const CONTROL_TYPES = [
   "community_picker",
   "collection_picker",
   "collection_list",
+  "form_picker",
   // ── presentational: draw something, hold nothing ──
   "header",
   "paragraph",

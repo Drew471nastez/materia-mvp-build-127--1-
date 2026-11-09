@@ -63,16 +63,50 @@ export function withoutChrome(pageSections: SectionInstance[] | null | undefined
   return splitGroups(pageSections ?? []).template
 }
 
-/** The header and footer a whole site should be wearing. */
-export function chromeOf(homeSections: SectionInstance[] | null | undefined): Chrome {
+/**
+ * ===========================================================================
+ *  A SITE WHOSE CHROME IS ONLY WHAT HOME HAS (round L, AI blank start)
+ * ===========================================================================
+ * A website started from nothing by the AI builder may have no header and no
+ * footer at all, or ones it wrote as its own section files. For it, home's
+ * chrome is the WHOLE answer: a page's own stored copy (left from a preset,
+ * a duplicate, an import) is never drawn in its place, so "no header" on
+ * home means no header anywhere, on the live site, the builder's canvas and
+ * a preview alike.
+ *
+ * Marked by the theme setting `site_chrome: "home"`, written when such a site
+ * is made (lib/website-builder/create-website.ts, generation "blank"). Every
+ * other site keeps the rule above unchanged: a page keeps its own chrome when
+ * home has none to give.
+ */
+export const SITE_CHROME_SETTING = "site_chrome"
+export const SITE_CHROME_HOME_ONLY = "home"
+
+/** True for a site whose header and footer come from home and nowhere else. */
+export function homeChromeOnly(theme: Record<string, unknown> | null | undefined): boolean {
+  return !!theme && theme[SITE_CHROME_SETTING] === SITE_CHROME_HOME_ONLY
+}
+
+/**
+ * The header and footer a whole site should be wearing.
+ *
+ * `homeOnly` (homeChromeOnly above): home having no header group is itself
+ * an answer, an empty group, so no page falls back to a copy of its own.
+ */
+export function chromeOf(homeSections: SectionInstance[] | null | undefined, opts: { homeOnly?: boolean } = {}): Chrome {
   const g = splitGroups(homeSections ?? [])
   return {
     header: g.header.find((s) => s.type === "header" && !s.hidden) ?? g.header.find((s) => s.type === "header") ?? g.header.find((s) => !s.hidden),
     footer: g.footer.find((s) => s.type === "footer" && !s.hidden) ?? g.footer.find((s) => s.type === "footer") ?? g.footer.find((s) => !s.hidden),
-    ...(g.header.length ? { headerGroup: g.header } : {}),
-    ...(g.footer.length ? { footerGroup: g.footer } : {}),
+    ...(g.header.length || opts.homeOnly ? { headerGroup: g.header } : {}),
+    ...(g.footer.length || opts.homeOnly ? { footerGroup: g.footer } : {}),
     ...(g.overlay.length ? { overlayGroup: g.overlay } : {}),
   }
+}
+
+/** A chrome read without the rule above, held to it: no group home lacks is left for a page to fill with its own. */
+export function homeOnlyChrome(c: Chrome): Chrome {
+  return { ...c, headerGroup: c.headerGroup ?? [], footerGroup: c.footerGroup ?? [] }
 }
 
 /**
@@ -115,11 +149,13 @@ export function applyUniversalChrome(
   pages: Record<string, SectionInstance[]>,
   homeKey = "home",
   kindOfType?: KindOfType,
+  /** homeChromeOnly(theme): no page keeps a header or footer home does not have. */
+  opts: { homeOnly?: boolean } = {},
 ): Record<string, SectionInstance[]> {
   const held: Record<string, SectionInstance[]> = kindOfType
     ? Object.fromEntries(Object.entries(pages).map(([k, v]) => [k, repairChrome(v, kindOfType).sections]))
     : pages
-  const chrome = chromeOf(held[homeKey])
+  const chrome = chromeOf(held[homeKey], opts)
   if (!chrome.headerGroup && !chrome.footerGroup && !chrome.overlayGroup) return held
   const out: Record<string, SectionInstance[]> = {}
   for (const [key, sections] of Object.entries(held)) {

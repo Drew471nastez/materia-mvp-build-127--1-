@@ -42,7 +42,7 @@ import { keepShared, sharedCopy } from "./shared-copy"
 import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { forVisitors } from "@/lib/website-builder/visitor-sections"
 import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
-import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
+import { applyUniversalChrome, homeChromeOnly } from "@/lib/website-builder/universal-chrome"
 import { kindLookup } from "@/lib/storelib-theme/section-groups"
 import { siteRead } from "@/lib/website-builder/site-read"
 import { cache } from "react"
@@ -51,7 +51,7 @@ import { PUBLISHED_HOLD_S, SHOP_HOLD_UNPINGED_S, shopHoldSeconds, siteNameTag } 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorIdByHandle, websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import { isBanned } from "@/lib/seo/bans"
-import { renderWithSources, sectionSources, sourcesFromFiles } from "@/lib/website-builder/storefront-render"
+import { draftSectionSources, renderWithSources, sectionSources, sourcesFromFiles } from "@/lib/website-builder/storefront-render"
 import { livePointer, releaseFiles, releaseManifest, type LivePointer } from "@/lib/website-builder/site-releases-server"
 import { pageRowsOf, settingsRowOf } from "@/lib/website-builder/site-releases"
 import { siteLocalizer, type Localizer } from "@/lib/markets/live"
@@ -75,6 +75,7 @@ import {
   withDynamicSources,
   type CreatorFacts,
   communityReferences,
+  formReferences,
   pageWantsCollections,
   pageWantsReviews,
 } from "@/lib/website-builder/storefront-data"
@@ -405,7 +406,8 @@ async function buildSite(creatorId: string, displayName: string, pointer: LivePo
    * was the only place the drift showed. See lib/website-builder/
    * universal-chrome.
    */
-  const dressed = applyUniversalChrome(pages, "home", kindLookup(sources, SECTION_SCHEMAS as never))
+  /* A site whose chrome is home's only (an AI blank start) never falls back to a page's own copy: universal-chrome.ts homeChromeOnly. */
+  const dressed = applyUniversalChrome(pages, "home", kindLookup(sources, SECTION_SCHEMAS as never), { homeOnly: homeChromeOnly(themeSettings as Record<string, unknown>) })
   for (const key of Object.keys(dressed)) pages[key] = dressed[key]
 
   const sections = pages.home ?? []
@@ -592,10 +594,11 @@ export async function dressPage(
   const read = () => pickedProducts(createAdminClient() as never, site.creatorId, missing)
   const sourceOf = (type: string) => site.sources[`sections/${type}.storelib`] ?? DEFAULT_THEME_SOURCES[`sections/${type}.storelib`]
   const communityIds = communityReferences(sections, schemaOf)
+  const formIds = formReferences(sections, schemaOf)
   /* The page's extra reads do not depend on each other. Asking them together is the difference between a slow page and a fast one. */
   /* The picked products' own descriptions (round 12: a Product hero shows its product's words from Products), held with the shop, which a product's save clears. */
   const readDescriptions = () => import("@/lib/website-builder/product-descriptions").then(({ productDescriptions }) => productDescriptions(createAdminClient() as never, site.creatorId, refs))
-  const [pickedRead, siteUrl, communities, collectionsRead, reviews, blogSource, descriptions] = await Promise.all([
+  const [pickedRead, siteUrl, communities, collectionsRead, reviews, blogSource, descriptions, forms] = await Promise.all([
     missing.ids.length || missing.slugs.length
       ? opts.cached
         ? unstable_cache(
@@ -641,6 +644,13 @@ export async function dressPage(
           : readDescriptions()
         ).catch(() => ({}) as Record<string, string>)
       : Promise.resolve({} as Record<string, string>),
+    /* The published forms a form_picker names, the creator's own only (lib/forms/storefront-forms.ts). Held like the community cards. */
+    formIds.length
+      ? import("@/lib/forms/storefront-forms").then(({ storefrontForms }) => {
+          const load = () => storefrontForms(createAdminClient() as never, site.creatorId, formIds)
+          return opts.cached ? unstable_cache(load, ["site-forms", site.creatorId, [...formIds].sort().join(",")], { revalidate: SHOP_HOLD_UNPINGED_S })() : load()
+        }).catch(() => undefined)
+      : Promise.resolve(undefined),
   ])
   /* In the page's language and the visitor's currency, as the shop's own cards around them are: a picked product used to show untranslated, in the store's currency, beside converted ones. */
   const picked = opts.localizer && pickedRead.length ? opts.localizer.cards(pickedRead) : pickedRead
@@ -666,6 +676,7 @@ export async function dressPage(
     catalog: withDescriptions(mergeCatalog(products, picked), descriptions),
     menus: siteMenus(site.themeSettings, filled),
     communities,
+    forms,
     /* In the page's language: each collection's approved name and description (lib/markets/live.ts collection). */
     collections: collections && opts.localizer ? Object.fromEntries(Object.entries(collections).map(([k, c]) => [k, opts.localizer!.collection(c as never)])) : collections,
     reviews,
@@ -1050,7 +1061,7 @@ export async function ownerOf(
   creatorId: string,
   installId: string,
   themeSettings: ThemeSettingsValues,
-  opts: { cached: boolean } = { cached: false },
+  opts: { cached: boolean; draft?: boolean } = { cached: false },
 ): Promise<{ owner: PageOwner; products: ProductCard[]; productCount: number | null }> {
   const admin = createAdminClient()
   const readProfile = () => creatorFacts(createAdminClient() as never, creatorId)
@@ -1060,7 +1071,9 @@ export async function ownerOf(
     /* The saved section files go live on Publish (theme-file-drafts.ts), so the live page holds them with the site, as buildSite does. */
     opts.cached
       ? unstable_cache(() => sectionSources(failingLoudly() as never, installId), ["section-sources", installId], { tags: [creatorSiteTag(creatorId)], revalidate: SITE_TTL })()
-      : sectionSources(admin as never, installId),
+      : opts.draft
+        ? draftSectionSources(admin as never, installId)
+        : sectionSources(admin as never, installId),
     opts.cached
       ? unstable_cache(readProfile, ["creator-facts", creatorId], { tags: [creatorSiteTag(creatorId)], revalidate: SITE_TTL })()
       : readProfile(),

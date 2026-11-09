@@ -48,7 +48,7 @@ export default async function PreviewCollectionsPage({ params }: PageProps) {
   const own = sanitizeSections(pageSections<SectionInstance[]>(rowOf("collections") as never, preview) ?? [])
   const home = sanitizeSections(pageSections<SectionInstance[]>(rowOf("home") as never, preview) ?? [])
   const arranged = own.length > 0 ? own : collectionsPageSections(home)
-  const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings)
+  const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings, { cached: false, draft: preview })
   const { sections, data } = await dressPage(owner, arranged, products, productCount, "page.collections", "Collections", undefined, { cached: false })
   const prerendered = renderWithSources(owner.sources, sections, themeSettings, "page.collections", products, undefined, data)
 

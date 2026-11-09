@@ -464,6 +464,18 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
     accepts: ["limit"],
     example: { type: "collection_list", id: "collections", label: "Collections", limit: 6 },
   }),
+  form_picker: def({
+    type: "form_picker",
+    label: "Form",
+    description: "One of the creator's own published forms or booking forms, from Contacts › Forms, stored by id. Printed on its own it is the form's own page, so `href=\"{{ settings.form | url }}\"` works; it also carries `id`, `title`, `kind` (form, quiz, survey, application, lead or booking) and `booking` (true for a booking form), read as `settings.form.title`. To show the form itself on the page, leave a mark: `<div data-storelib-native-form=\"{{ settings.form.id }}\" data-presentation=\"inline\"></div>` (inline, card, expandable or modal), and the page draws the live form there and sends its answers to the creator's Leads. Only a published form of this creator's: any other id is empty, so `{% if settings.form.id %}` draws nothing for it.",
+    value: "string",
+    schema: z.string().max(80),
+    fallback: "",
+    responsive: false,
+    component: "FormPicker",
+    accepts: [],
+    example: { type: "form_picker", id: "form", label: "Form" },
+  }),
   header: def({
     type: "header",
     label: "Header",

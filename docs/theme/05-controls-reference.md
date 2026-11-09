@@ -38,6 +38,7 @@ Every `type` a schema setting may use is here, and only these. A setting's `type
 | [`community_picker`](#community_picker) | string | `""` | no |  |
 | [`collection_picker`](#collection_picker) | string | `""` | no |  |
 | [`collection_list`](#collection_list) | reference_list | `[]` | no | `limit` |
+| [`form_picker`](#form_picker) | string | `""` | no |  |
 | [`header`](#header) | none | `undefined` | no |  |
 | [`paragraph`](#paragraph) | none | `undefined` | no | `content` |
 | [`divider`](#divider) | none | `undefined` | no |  |
@@ -683,6 +684,23 @@ These types have nothing to point at on Storelib and are refused with the reason
   "id": "collections",
   "label": "Collections",
   "limit": 6
+}
+```
+
+## form_picker
+
+**Form.** One of the creator's own published forms or booking forms, from Contacts › Forms, stored by id. Printed on its own it is the form's own page, so `href="{{ settings.form | url }}"` works; it also carries `id`, `title`, `kind` (form, quiz, survey, application, lead or booking) and `booking` (true for a booking form), read as `settings.form.title`. To show the form itself on the page, leave a mark: `<div data-storelib-native-form="{{ settings.form.id }}" data-presentation="inline"></div>` (inline, card, expandable or modal), and the page draws the live form there and sends its answers to the creator's Leads. Only a published form of this creator's: any other id is empty, so `{% if settings.form.id %}` draws nothing for it.
+
+- Value: string
+- Default when the schema gives none: `""`
+- Responsive: no
+- Editor control: `FormPicker`
+
+```json
+{
+  "type": "form_picker",
+  "id": "form",
+  "label": "Form"
 }
 ```
 
