@@ -143,6 +143,8 @@ async function open(vp, hash, path = "/app/onepage", ready = "[data-scroll-conta
  * its own page, every claim in scripts/sheet-feel-kit.mjs, and no errors.
  */
 async function sheet(hash, name, label, opener, list, where = [], prepare = null) {
+  /* ONLY=stats reads just the sheets whose name holds that word. */
+  if (process.env.ONLY && !name.toLowerCase().includes(process.env.ONLY.toLowerCase())) return
   console.log(`\n${name}`)
   const s = await open(PHONE, hash, ...where)
   /* A step reached from another sheet: that one is opened first, and the probe reads the one it leads to. */
@@ -170,12 +172,12 @@ await sheet("products", "Add product", "Add Product", `(() => { const b = [...do
 */
 const clickSel = (sel) => `(() => { const b = [...document.querySelectorAll(${JSON.stringify(sel)})].find((e) => e.getClientRects().length); if (b) b.click(); return !!b })()`
 await sheet("links", "The name and bio", "Edit Profile", `(() => { const b = [...document.querySelectorAll("button")].find((e) => e.querySelector("h2") && e.getClientRects().length); if (b) b.click(); return !!b })()`)
-await sheet("links", "The profile picture", "Profile Image", clickSel("[data-scroll-container] .relative.group.cursor-pointer"))
+await sheet("links", "The profile picture", "Profile Image", clickSel("[data-scroll-container] [data-profile-avatar]"))
 await sheet("links", "The profile picture's upload, a step from it", "Upload media", `(() => {
   const b = [...document.querySelectorAll("[data-app-sheet] button")].find((e) => /Select image or GIF/.test(e.textContent))
   if (b) b.click()
   return !!b
-})()`, null, [], clickSel("[data-scroll-container] .relative.group.cursor-pointer"))
+})()`, null, [], clickSel("[data-scroll-container] [data-profile-avatar]"))
 await sheet("design", "Design, the profile image", "Profile Image", `(async () => {
   document.querySelector('[data-nav-row="header"]').click()
   await new Promise((r) => setTimeout(r, 900))

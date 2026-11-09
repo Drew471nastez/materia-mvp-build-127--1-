@@ -301,7 +301,7 @@ if (wants("pick")) {
 }
 
 /* ------------------------------------------------------------------------ */
-const TEMPLATE_CARDS = () => [...document.querySelectorAll('[data-template-card], button[class*="aspect-[3/4]"]')].filter((b) => b.getClientRects().length && b.getBoundingClientRect().width > 0)
+const TEMPLATE_CARDS = () => [...document.querySelectorAll('[data-template-card]')].filter((b) => b.getClientRects().length && b.getBoundingClientRect().width > 0)
 
 if (wants("templates")) {
   console.log("\nthe template step")
@@ -311,10 +311,30 @@ if (wants("templates")) {
     await sleep(size.touch ? 9000 : 2500)
     const sizes = await s.p.evaluate(`[...new Set((${TEMPLATE_CARDS})().map((b) => { const r = b.getBoundingClientRect(); return Math.round(r.width) + "x" + Math.round(r.height) }))]`)
     const imgs = images(s)
-    const r = { cards: await s.p.evaluate(`(${TEMPLATE_CARDS})().length`), sizes, requests: imgs.length, kb: kb(imgs.reduce((a, x) => a + x.bytes, 0)), offOrigin: offOrigin(s).map((x) => x.url.slice(0, 80)), pending: imgs.filter((x) => !x.done).length }
-    console.log(`    ${size.label}: ${r.cards} cards, sizes ${JSON.stringify(r.sizes)}, ${r.requests} image requests, ${r.kb} KB, ${r.pending} still loading, other origins ${r.offOrigin.length}`)
+    /*
+      Changed on purpose (round AQ): the cards are the Design tab's theme
+      previews (components/onepage/themes/theme-preview). The Design tab also
+      loads each name's title face from Google Fonts; measured here that was
+      27 requests and 148KB, so the onboarding leaves them out and the names
+      fall back to their face's own kind. Read apart, so a face that comes
+      back is named for what it is.
+    */
+    const isNameFont = (u) => /^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(u)
+    const fonts = [...s.requests.values()].filter((x) => isNameFont(x.url))
+    const r = { cards: await s.p.evaluate(`(${TEMPLATE_CARDS})().length`), sizes, requests: imgs.length, kb: kb(imgs.reduce((a, x) => a + x.bytes, 0)), fontRequests: fonts.length, fontKb: kb(fonts.reduce((a, x) => a + x.bytes, 0)), offOrigin: offOrigin(s).filter((x) => !isNameFont(x.url)).map((x) => x.url.slice(0, 80)), pending: imgs.filter((x) => !x.done).length }
+    console.log(`    ${size.label}: ${r.cards} cards, sizes ${JSON.stringify(r.sizes)}, ${r.requests} image requests, ${r.kb} KB, ${r.pending} still loading, name faces ${r.fontRequests} requests ${r.fontKb} KB, other origins ${r.offOrigin.length}`)
     expect(r.sizes.length === 1, `${size.label}: every template card is the same size`, r.sizes)
     expect(r.kb <= 60 && r.offOrigin.length === 0, `${size.label}: the previews are light and come from the app`, { kb: r.kb, offOrigin: r.offOrigin })
+    expect(r.fontRequests === 0, `${size.label}: no webfonts for the names (27 requests, 148KB)`, { requests: r.fontRequests, kb: r.fontKb })
+    /* Every card is the Design tab's preview, drawn at one scale the grid measured off one card. */
+    const scale = await s.p.evaluate(() => {
+      const grid = document.querySelector("[data-template-grid]")
+      const frame = grid?.querySelector("[data-template-frame]")
+      const pages = [...(grid?.querySelectorAll("[data-tp-page]") ?? [])]
+      const widths = [...new Set(pages.map((e) => Math.round(e.getBoundingClientRect().width * 10) / 10))]
+      return { pages: pages.length, frame: frame ? Math.round(frame.clientWidth * 10) / 10 : null, widths, scale: grid ? getComputedStyle(grid).getPropertyValue("--tp-scale").trim() : null }
+    })
+    expect(scale.pages === r.cards && scale.widths.length === 1 && Math.abs(scale.widths[0] - scale.frame) <= 0.6, `${size.label}: every card is the theme preview, one scale, as wide as its frame`, scale)
     await s.p.screenshot({ path: join(shots, `onboarding-templates-${size.label}.png`) })
     const tag = (i, attr) => s.p.evaluateHandle((i, attr, fn) => { const b = new Function(`return (${fn})()`)()[i]; document.querySelectorAll(`[${attr}]`).forEach((e) => e.removeAttribute(attr)); b.setAttribute(attr, ""); return b }, i, attr, TEMPLATE_CARDS.toString())
     await tag(0, "data-probe-a")

@@ -1413,7 +1413,15 @@ export function LinksTab() {
     <div className="space-y-6" data-links-tab="" style={{ touchAction: "manipulation" }}>
       {/* Profile Header with Real SVG Icons */}
       <div className="flex items-center gap-4 pt-[8px] sm:pt-0 pb-5 border-b">
-        <div className="relative group shrink-0 cursor-pointer" onClick={() => setShowAvatarEditModal(true)}>
+        <div
+          data-profile-avatar=""
+          role="button"
+          tabIndex={0}
+          aria-label={tt("Profile Image")}
+          className="relative group shrink-0 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6] focus-visible:ring-offset-2"
+          onClick={() => setShowAvatarEditModal(true)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowAvatarEditModal(true) } }}
+        >
           {/* A circle whatever the row beside it holds: its own width and height, never shrunk. */}
           {/* Its own stacking context, so the pencil on hover is drawn over a video too (the video used to carry z-index 1 above it). */}
           <div data-editor-avatar="" className="h-14 w-14 aspect-square shrink-0 border overflow-hidden rounded-full relative isolate bg-gray-100">

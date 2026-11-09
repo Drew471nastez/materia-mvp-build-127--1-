@@ -36,6 +36,7 @@
  * beside its card and compares them.
  */
 import type * as React from "react"
+import { useLayoutEffect } from "react"
 import { SocialIcon } from "@/components/onepage/brand-icons"
 import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonFill, buttonIconSide, buttonSize, buttonAlign, cardButtonTheme, cardRadius, buttonShape, themeButtonStripFill, themeButtonStyle, type ButtonThemeLike } from "@/lib/onepage/button-style"
@@ -74,7 +75,42 @@ const SOCIALS = ["instagram", "tiktok", "youtube"] as const
 /* The words' widths at the page's sizes: "Latest work", "Book a session", "Newsletter" at 13px. */
 const LINKS = [{ w: 76, picture: true }, { w: 96, picture: false }, { w: 68, picture: false }]
 
-export function ThemePreview({ c, name, thumb }: { c: Look; name: string; thumb: (url: string) => string }) {
+/**
+ * ONE SCALE FOR A WHOLE GRID OF CARDS (round AQ: the Design tab's theme grid
+ * and the onboarding's template step). Every card in a grid is the same
+ * width, so one frame (`frame`, a selector inside the grid) is measured, once
+ * and again only when the grid's width changes, and the scale is one custom
+ * property on the grid that every card's page reads. Returns the cleanup.
+ */
+export function scaleThemePreviews(grid: HTMLElement, frame: string): () => void {
+  let last = 0
+  const measure = () => {
+    const w = grid.querySelector<HTMLElement>(frame)?.clientWidth ?? 0
+    if (!w || w === last) return
+    last = w
+    grid.style.setProperty("--tp-scale", String(w / PREVIEW_WIDTH))
+  }
+  measure()
+  if (typeof ResizeObserver !== "function") return () => {}
+  const ro = new ResizeObserver(measure)
+  ro.observe(grid)
+  return () => ro.disconnect()
+}
+
+/** scaleThemePreviews for a grid held in a ref that is set before the effect runs (the Design tab). */
+export function useThemePreviewScale(gridRef: React.RefObject<HTMLElement | null>, frame: string) {
+  useLayoutEffect(() => {
+    const grid = gridRef.current
+    return grid ? scaleThemePreviews(grid, frame) : undefined
+  }, [gridRef, frame])
+}
+
+/**
+ * `photo` (the onboarding, round AQ): the creator's own picture, drawn where
+ * the page draws it (the avatar, or a Hero's band). Without it the place is
+ * a flat tint, as in the Design tab.
+ */
+export function ThemePreview({ c, name, thumb, photo = null }: { c: Look; name: string; thumb: (url: string) => string; photo?: string | null }) {
   const bg: string = c.background_color || "#ffffff"
   const text: string = c.text_color || "#111111"
   const secondary: string = c.secondary_text_color || `${text}cc`
@@ -252,7 +288,9 @@ export function ThemePreview({ c, name, thumb }: { c: Look; name: string; thumb:
         <span className={cn("flex flex-col items-center", phone(blockGapClass(c)))}>
           {hero ? (
             <span className="relative -mx-5 -mt-8 mb-2 block w-[calc(100%+40px)]" data-tp-header="hero">
-              <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "10/9", maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, background: photoTint(text, bg, 30) }} />
+              <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "10/9", maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, background: photoTint(text, bg, 30) }}>
+                {photo ? <img src={photo} alt="" draggable={false} decoding="async" data-tp-photo="" className="absolute inset-0 h-full w-full object-cover" /> : null}
+              </span>
               <span className="absolute inset-x-0 bottom-4 z-[1] flex flex-col items-center px-6 text-center">
                 {title}
                 <span className="mt-2 flex h-[22.75px] items-center"><Words w={212} h={7} color={c.secondary_text_color || text} opacity={0.8} /></span>
@@ -280,8 +318,11 @@ export function ThemePreview({ c, name, thumb }: { c: Look; name: string; thumb:
                   borderColor: look.borderColor,
                   background: photoTint(text, bg),
                   boxShadow: cover && c.background_type === "solid" ? `0 0 0 4px ${bg}, 0 10px 15px -3px rgba(0,0,0,0.1)` : undefined,
+                  overflow: photo ? "hidden" : undefined,
                 }}
-              />
+              >
+                {photo ? <img src={photo} alt="" draggable={false} decoding="async" data-tp-photo="" className="block h-full w-full object-cover" /> : null}
+              </span>
               {title}
               {bio}
             </span>
