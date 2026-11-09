@@ -109,7 +109,10 @@ async function agentContinue(req: Request, row: AgentJobRow, creatorId: string):
     return NextResponse.json({ ok: true, status: job.status })
   }
   if (await othersLive()) return NextResponse.json(BUSY, { status: 429 })
-  const state = { ...((row.state ?? {}) as Record<string, unknown>), agent: plan.run }
+  /* A job undone (Redesign with AI's Undo, round M) and continued is working again: its undo mark goes. */
+  const { undo: _undone, ...kept } = (row.state ?? {}) as Record<string, unknown>
+  void _undone
+  const state = { ...kept, agent: plan.run }
   /*
     The loop's own end goes too (`final`, lib/ai-builder/agent/state.ts): a budget or a cancel the loop
     itself saw is written there, and a slice that finds it answers that end again at once, so Continue

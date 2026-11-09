@@ -8,7 +8,8 @@ import { coverForNewWebsite, renderOrigin } from "@/lib/website-builder/cover-ta
 import { START_PROMPT_MAX } from "@/lib/website-builder/start-handoff"
 import { isMissingTable, JOBS_TABLE } from "@/lib/website-builder/ai-site/server"
 import { kickJob } from "@/lib/website-builder/ai-site/runner"
-import { startJobRow, isStartKey, MAX_RUNNING_JOBS, startEngine } from "@/lib/website-builder/ai-site/start"
+import { startJobRow, isStartKey, MAX_RUNNING_JOBS } from "@/lib/website-builder/ai-site/start"
+import { agentEnabledFor } from "@/lib/website-builder/ai-site/agent-access"
 import { parseStartOptions } from "@/lib/website-builder/ai-site/start-options"
 
 export const runtime = "nodejs"
@@ -112,7 +113,9 @@ export async function POST(req: Request) {
 
   if (!generating) return NextResponse.json({ install: made.install, ...first })
 
-  const job = await startJobRow(admin, { creatorId, ownerUserId: site.ownerUserId, installId: made.install.id, prompt, key: key!, options, engine: startEngine() })
+  /* The agent engine for everyone (AI_BUILDER_AGENT=1) or for this account only (AI_BUILDER_AGENT_ACCOUNTS, round M): lib/website-builder/ai-site/agent-access.ts. */
+  const engine = (await agentEnabledFor(admin, { ownerUserId: site.ownerUserId, creatorId })) ? "agent" : "classic"
+  const job = await startJobRow(admin, { creatorId, ownerUserId: site.ownerUserId, installId: made.install.id, prompt, key: key!, options, engine })
   /* Two of the same press at once: the second website goes, the first press's job answers. */
   if (job.kind === "duplicate") {
     await admin.from("store_theme_installs").delete().eq("id", made.install.id).eq("creator_id", creatorId)

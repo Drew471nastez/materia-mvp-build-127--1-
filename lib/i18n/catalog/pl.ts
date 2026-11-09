@@ -12935,7 +12935,28 @@ const words: Record<string, string> = {
  "Add to mine": "Dodaj do mojego",
  "Without the theme": "Bez motywu",
  "The AI makes the header, footer and every section.": "AI tworzy nagłówek, stopkę i każdą sekcję.",
- "The {name} section showed an error on the page": "Sekcja {name} pokazała błąd na stronie"
+ "The {name} section showed an error on the page": "Sekcja {name} pokazała błąd na stronie",
+ "AI changes undone": "Zmiany AI cofnięte",
+ "Your changes are ready": "Twoje zmiany są gotowe",
+ "Your changes are ready, with a few gaps": "Twoje zmiany są gotowe, z kilkoma brakami",
+ "Your website is back as it was before this AI job. Nothing went live.": "Twoja strona jest taka jak przed tym zadaniem AI. Nic nie zostało opublikowane.",
+ "A backup was saved before the AI started. Undo puts it back.": "Przed startem AI zapisano kopię zapasową. Cofnij ją przywraca.",
+ "Redesign with AI": "Przeprojektuj z AI",
+ "Undo this AI job": "Cofnij to zadanie AI",
+ "{name} page": "Strona {name}",
+ "Made after this backup": "Utworzone po tej kopii",
+ "Removed, the AI made it": "Usunięte, zrobiła to AI",
+ "Stays, it is live": "Zostaje, jest opublikowane",
+ "Stays": "Zostaje",
+ "Remove it too": "Usuń też to",
+ "Just these changes": "Tylko te zmiany",
+ "Your pages, words and products stay as they are.": "Twoje strony, teksty i produkty zostają bez zmian.",
+ "A new look for the whole site": "Nowy wygląd całej strony",
+ "Your words and products stay. The design changes.": "Twoje teksty i produkty zostają. Zmienia się wygląd.",
+ "The AI works on this whole website as a draft. A backup is saved first, so you can undo it in one step.": "AI pracuje nad całą stroną jako szkicem. Najpierw zapisywana jest kopia zapasowa, więc cofniesz to jednym krokiem.",
+ "What should change": "Co ma się zmienić",
+ "Warmer colours, bigger product photos, and a short FAQ before the footer": "Cieplejsze kolory, większe zdjęcia produktów i krótkie FAQ przed stopką",
+ "How far it goes": "Jak daleko to sięga"
 }
 
 export default words

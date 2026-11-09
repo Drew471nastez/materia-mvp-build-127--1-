@@ -12935,7 +12935,28 @@ const words: Record<string, string> = {
  "Add to mine": "Ajouter à la mienne",
  "Without the theme": "Sans le thème",
  "The AI makes the header, footer and every section.": "L'IA crée l'en-tête, le pied de page et chaque section.",
- "The {name} section showed an error on the page": "La section {name} a affiché une erreur sur la page"
+ "The {name} section showed an error on the page": "La section {name} a affiché une erreur sur la page",
+ "AI changes undone": "Modifications de l'IA annulées",
+ "Your changes are ready": "Vos modifications sont prêtes",
+ "Your changes are ready, with a few gaps": "Vos modifications sont prêtes, avec quelques manques",
+ "Your website is back as it was before this AI job. Nothing went live.": "Votre site est revenu à son état d'avant ce travail de l'IA. Rien n'a été mis en ligne.",
+ "A backup was saved before the AI started. Undo puts it back.": "Une sauvegarde a été enregistrée avant le début de l'IA. Annuler la restaure.",
+ "Redesign with AI": "Refaire le design avec l'IA",
+ "Undo this AI job": "Annuler ce travail de l'IA",
+ "{name} page": "Page {name}",
+ "Made after this backup": "Créé après cette sauvegarde",
+ "Removed, the AI made it": "Supprimé, créé par l'IA",
+ "Stays, it is live": "Reste, il est en ligne",
+ "Stays": "Reste",
+ "Remove it too": "Le supprimer aussi",
+ "Just these changes": "Seulement ces modifications",
+ "Your pages, words and products stay as they are.": "Vos pages, textes et produits restent tels quels.",
+ "A new look for the whole site": "Un nouveau style pour tout le site",
+ "Your words and products stay. The design changes.": "Vos textes et produits restent. Le design change.",
+ "The AI works on this whole website as a draft. A backup is saved first, so you can undo it in one step.": "L'IA travaille sur tout le site en brouillon. Une sauvegarde est faite d'abord, vous pouvez donc tout annuler en une étape.",
+ "What should change": "Ce qui doit changer",
+ "Warmer colours, bigger product photos, and a short FAQ before the footer": "Des couleurs plus chaudes, des photos produit plus grandes et une courte FAQ avant le pied de page",
+ "How far it goes": "Jusqu'où aller"
 }
 
 export default words

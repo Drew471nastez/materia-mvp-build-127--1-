@@ -30,6 +30,8 @@ export interface SettleRestoreArgs {
   hold?: (hold: boolean) => Promise<boolean> | boolean
   fetchImpl?: typeof fetch
   timeoutMs?: number
+  /** A JSON body for the restore (round M: { removeAdded }). None by default. */
+  body?: unknown
   /** Words, so the client can pass them through its translator. */
   words?: Partial<Record<"timeout" | "offline" | "unsaved", string>>
 }
@@ -67,7 +69,7 @@ export async function settleRestore(a: SettleRestoreArgs): Promise<boolean> {
     }, a.timeoutMs ?? RESTORE_CLIENT_TIMEOUT_MS)
     let res: Response
     try {
-      res = await (a.fetchImpl ?? fetch)(a.url, { method: "POST", signal: stop.signal })
+      res = await (a.fetchImpl ?? fetch)(a.url, a.body === undefined ? { method: "POST", signal: stop.signal } : { method: "POST", signal: stop.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify(a.body) })
     } catch {
       a.setError(timedOut ? words.timeout : words.offline)
       return false

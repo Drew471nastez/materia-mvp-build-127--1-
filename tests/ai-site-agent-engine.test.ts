@@ -231,7 +231,7 @@ async function main() {
   const del = await scoped.deleteFile("sections/ai_coach_hero.storelib", { author: "ai", jobId: "j" })
   check("an edit job cannot write or delete any other file, nor delete its own", !other.ok && !del.ok && !Object.keys(store3.project.files).includes("sections/ai_other.storelib"))
   const route = readFileSync("app/api/website-builder/themes/[installId]/ai-edit/route.ts", "utf8")
-  check("the route: owner only, rate limited, this creator's website, 501 when the agent is off, a version conflict refused, an agent job on step agent", /if \(!site\.isOwner\)/.test(route) && /rateLimit\(/.test(route) && /\.eq\("creator_id", site\.creatorId\)/.test(route) && /agentEngineEnabled\(\)\) return NextResponse\.json\(\{ error: "Not available" \}, \{ status: 501 \}\)/.test(route) && /expectedVersion !== current/.test(route) && /engine: "agent"/.test(route) && /step: "agent"/.test(route))
+  check("the route: owner only, rate limited, this creator's website, 501 when the agent is off, a version conflict refused, an agent job on step agent", /if \(!site\.isOwner\)/.test(route) && /rateLimit\(/.test(route) && /\.eq\("creator_id", site\.creatorId\)/.test(route) && /* Changed on purpose (round M): the switch is per account now (agent-access.ts agentEnabledFor), the global flag one of its two inputs. */ /agentEnabledFor\(admin, \{ ownerUserId: site\.ownerUserId, creatorId: site\.creatorId \}\)\)\) return NextResponse\.json\(\{ error: "Not available" \}, \{ status: 501 \}\)/.test(route) && /expectedVersion !== current/.test(route) && /engine: "agent"/.test(route) && /step: "agent"/.test(route))
 }
 
 main().then(() => {
