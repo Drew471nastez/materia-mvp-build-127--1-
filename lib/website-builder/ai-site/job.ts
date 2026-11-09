@@ -40,7 +40,8 @@ import { fillSection, fillSystem, type FillContext, type FillTarget } from "./fi
 import { CREDITS_PAGE, creditsHtml, fallbackFor, fillSlot, slotsFor, type ImageDeps, type PhotoCredit } from "./images"
 import { deterministicFindings, rewritable, visualFindings, type SiteFinding } from "./verify"
 import { callOnce, mergeSpend, NO_SPEND, addSpend, pool, type Models, type Spend } from "./models"
-import type { JobEngine } from "@/lib/ai-builder/types"
+import type { JobEngine, StartOptions } from "@/lib/ai-builder/types"
+import { startContext } from "./start-options"
 
 export type JobStatus = "queued" | "running" | "complete" | "partial" | "failed"
 export type JobStep = "plan" | "build" | "write" | "photos" | "check" | "done"
@@ -87,6 +88,17 @@ export interface Job {
   attempts: number
   /** Which engine runs the job (SQL part 401). Absent means classic: these five steps. */
   engine?: JobEngine
+  /** What the person chose beside their words (an example, blank or theme, preferences); SQL part 401. */
+  options?: Partial<StartOptions> | null
+}
+
+/**
+ * What the generator reads: the prompt exactly as written, then the person's choices in plain words
+ * (start-options.ts startContext). A job with no options (before part 401) reads the prompt alone, as before.
+ */
+export function jobBrief(job: { prompt: string; options?: Partial<StartOptions> | null }): string {
+  const context = job.options && job.options.generation ? startContext(job.options as StartOptions) : ""
+  return context ? `${job.prompt}\n\n${context}` : job.prompt
 }
 
 /**
@@ -176,7 +188,7 @@ function siteLinks(plan: SitePlan, caps: Capabilities): { links: { path: string;
 export function fillContext(job: Job, deps: Pick<JobDeps, "schemas">): FillContext {
   const caps = job.state.caps ?? EMPTY_CAPABILITIES
   const { links, defaultLink } = siteLinks(job.plan!, caps)
-  return { site: job.plan!, caps, capsText: describeCapabilities(caps), prompt: job.prompt, schemas: deps.schemas, links, defaultLink }
+  return { site: job.plan!, caps, capsText: describeCapabilities(caps), prompt: jobBrief(job), schemas: deps.schemas, links, defaultLink }
 }
 
 const timed = (job: Job, step: JobStep, ms: number): Job => ({ ...job, state: { ...job.state, timings: { ...job.state.timings, [step]: (job.state.timings[step] ?? 0) + ms } } })
@@ -193,7 +205,7 @@ async function stepPlan(job: Job, deps: JobDeps): Promise<Job> {
   let plan: SitePlan | null = null
   let lastText = ""
   for (let attempt = 0; attempt < 2 && !plan; attempt++) {
-    const user = sitePlanTurn({ prompt: job.prompt, caps, capsText, addable: deps.addable, schemas: deps.schemas, presets }) + (attempt && lastText ? `\n\nYOUR LAST ANSWER COULD NOT BE USED (no page with a section that can be built). Call submit_site_plan again.` : "")
+    const user = sitePlanTurn({ prompt: jobBrief(job), caps, capsText, addable: deps.addable, schemas: deps.schemas, presets }) + (attempt && lastText ? `\n\nYOUR LAST ANSWER COULD NOT BE USED (no page with a section that can be built). Call submit_site_plan again.` : "")
     try {
       const r = await callOnce(deps.models.plan, { system: SITE_PLANNER_SYSTEM, user, tools: [tool], maxOutputTokens: 32_000, timeoutMs: 170_000, signal: deps.signal })
       spend = addSpend(spend, deps.models.plan.model, r.usage)

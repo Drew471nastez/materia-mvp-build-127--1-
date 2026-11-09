@@ -35,7 +35,10 @@ export interface AgentJobInfo {
   creatorId: string
   ownerUserId: string | null
   installId: string
+  /** The person's words exactly as written. */
   prompt: string
+  /** What the loop should read as the brief: the prompt, then their choices in plain words (start-options.ts startContext). */
+  brief: string
   mode: GenerationMode | null
   options: Partial<StartOptions>
 }

@@ -31,6 +31,7 @@ import type { AgentCounts, AgentErrorCode, AgentEventDraft, AgentJobInfo, AgentS
 import { AgentStepError } from "@/lib/ai-builder/agent-step"
 import { DEFAULT_JOB_BUDGET, MAX_CHECKPOINT_BYTES, type AgentCheckpoint, type AgentEvent, type AgentJobStatus, type AgentPhase, type BudgetStop, type GenerationMode, type JobBudget, type RuntimePreviewError, type StartOptions } from "@/lib/ai-builder/types"
 import { PHASE_LABEL, stopCode, stopReason } from "./agent-progress"
+import { jobBrief } from "./job"
 
 /* ── the job as the runner sees it ─────────────────────────────────────── */
 
@@ -275,7 +276,7 @@ export function isTerminal(status: string): boolean {
 }
 
 function infoOf(job: AgentJobRecord): AgentJobInfo {
-  return { id: job.id, creatorId: job.creatorId, ownerUserId: job.ownerUserId, installId: job.installId, prompt: job.prompt, mode: job.mode, options: job.options }
+  return { id: job.id, creatorId: job.creatorId, ownerUserId: job.ownerUserId, installId: job.installId, prompt: job.prompt, brief: jobBrief(job), mode: job.mode, options: job.options }
 }
 
 function madeSomething(cp: AgentCheckpoint | null, counts: AgentCounts): boolean {

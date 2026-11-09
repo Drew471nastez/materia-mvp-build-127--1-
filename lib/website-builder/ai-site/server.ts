@@ -87,6 +87,7 @@ interface Row {
   attempts: number
   lease_until: string | null
   engine?: string | null
+  options?: unknown
 }
 
 export function jobFromRow(r: Row): Job {
@@ -104,6 +105,7 @@ export function jobFromRow(r: Row): Job {
     error: r.error,
     attempts: r.attempts,
     ...(r.engine === "agent" ? { engine: "agent" as const } : {}),
+    ...(r.options && typeof r.options === "object" && !Array.isArray(r.options) ? { options: r.options as Job["options"] } : {}),
   }
 }
 

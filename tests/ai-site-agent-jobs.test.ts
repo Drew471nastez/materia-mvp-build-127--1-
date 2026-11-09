@@ -54,7 +54,7 @@ import { agentView, recordFromRow, readPreviewError } from "@/lib/website-builde
 import { componentName, stopReason, toolSummary } from "@/lib/website-builder/ai-site/agent-progress"
 import { sweepAiJobs, SWEEP_QUIET_MS } from "@/lib/website-builder/ai-site/agent-sweep"
 import { agentPollDelay, changesDrafts, mergeEvents, AGENT_POLL_LIVE_MS, AGENT_POLL_MAX_MS, AGENT_POLL_MIN_MS } from "@/lib/website-builder/ai-site/use-generation"
-import { jobEngine } from "@/lib/website-builder/ai-site/job"
+import { jobBrief, jobEngine } from "@/lib/website-builder/ai-site/job"
 import { AgentProgressPanel, agentPanelState, eventLine } from "@/components/website-builder/ai-generation/agent-progress-panel"
 
 let passed = 0
@@ -350,9 +350,11 @@ console.log("\n2. Budgets end the job, never silently\n")
   const ctxSeen: AgentStepContext[] = []
   const c7 = new Clock()
   const st7 = new MemoryStore(c7)
-  st7.add({ id: "ctx" })
+  st7.add({ id: "ctx", options: { generation: "blank", category: "candle_shop" } })
   const s7 = scripted(c7, { stepMs: 5_000, doneAt: 2, inside: (ctx) => void ctxSeen.push(ctx) })
   await drive(st7, c7, "ctx", s7.stepper)
+  check("the loop's brief is the prompt as written, then the person's choices (example, blank page)", ctxSeen[0]?.job.prompt === "A candle shop" && ctxSeen[0].job.brief.startsWith("A candle shop\n\n") && /Candles and home fragrance shop/.test(ctxSeen[0].job.brief) && /blank page/.test(ctxSeen[0].job.brief), ctxSeen[0]?.job.brief)
+  check("a classic job reads the same brief; no options reads the prompt alone, as before", jobBrief({ prompt: "p", options: { generation: "theme", category: "photographer" } }).includes("Wedding and portrait photographer") && jobBrief({ prompt: "p" }) === "p" && jobBrief({ prompt: "p", options: null }) === "p")
   check("each step is told its caps: output tokens, spend cap, time left", ctxSeen[0]?.maxOutputTokens === 24_000 && ctxSeen[0]?.usdCap === 4 && ctxSeen[0].timeLeftMs <= 240_000 && ctxSeen[1].usage.iterations === 1)
 }
 
