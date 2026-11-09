@@ -173,7 +173,8 @@ function main() {
     const banned = /\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform your)\b/i
     const words = sources.filter(([, s]) => banned.test(s) || /—/.test(s))
     check("no AI words and no em dashes", words.length === 0, words.map(([f]) => f).join(", "))
-    check("the group child's switch moves by translate, not transform", /shadow transition-\[translate\]/.test(tab))
+    /* Changed on purpose (round AO): the group child's switch is the one switch /app draws (components/ui/switch-style), whose knob moves by translate. */
+    check("the group child's switch moves by translate, not transform", /<span className=\{switchKnob\(!!child\.enabled\)\} \/>/.test(tab) && /translate-x-\[16px\]|translate-x-4|translate:/.test(read("components/ui/switch-style.ts")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
