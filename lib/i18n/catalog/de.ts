@@ -1296,6 +1296,7 @@ const words: Record<string, string> = {
  "Back to dashboard": "Zurück zum Dashboard",
  "Back to editor": "Zurück zum Editor",
  "Back to emails": "Zurück zu den E-Mails",
+ "Email settings": "E-Mail-Einstellungen",
  "Back to events": "Zurück zu Events",
  "Back to formatting": "Zurück zur Formatierung",
  "Back to forms": "Zurück zu den Formularen",
