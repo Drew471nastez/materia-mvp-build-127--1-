@@ -89,6 +89,7 @@ function BlockToggle({ checked, onCheckedChange, label }: { checked: boolean; on
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { ColorRow, LabeledRow, RangeRow, Segmented, Switch } from "@/components/onepage/editor-kit"
+import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { EditorSelect } from "@/components/onepage/editor-choice"
 import { accentDepth } from "@/components/ui/depth-button"
 import { DeletedIcon, SaveNotification } from "@/components/ui/save-notification"
@@ -6188,13 +6189,13 @@ function BlockEditor({
       : null
 
     return (
-      <Tabs defaultValue="links" className="w-full">
+      <Tabs defaultValue="links" className="w-full" data-block-tabs="">
         <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-          <TabsTrigger value="links" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
+          <TabsTrigger value="links" data-block-tab="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <Link className="w-3.5 h-3.5" />
             {tt("Links")}
           </TabsTrigger>
-          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
+          <TabsTrigger value="layout" data-block-tab="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <LayoutGrid className="w-3.5 h-3.5" />
             {tt("Layout")}
           </TabsTrigger>
@@ -6268,18 +6269,19 @@ function BlockEditor({
                         onClick={() => setSelectedGroupChildId(selectedGroupChildId === child.id ? null : child.id)}
                         data-group-child={child.id}
                         className={cn(
-                          "flex items-center gap-2 p-2.5 bg-white rounded-lg border cursor-pointer transition-all",
-                          selectedGroupChildId === child.id ? "border-[#1a1a2e] ring-1 ring-[#1a1a2e]" : "border-gray-200 hover:border-gray-300",
+                          /* Round AO: the editor's own card look (the block rows' border and the tabs' chosen ring), not grey defaults. */
+                          "flex items-center gap-2 rounded-xl border bg-white py-2 pl-1.5 pr-2 cursor-pointer transition-[border-color,box-shadow,opacity] duration-150",
+                          selectedGroupChildId === child.id ? "border-[#1a1a2e] shadow-[0_0_0_0.5px_#1a1a2e]" : "border-[#ececf1] hover:border-[#d5d7dc]",
                           groupDraggedId === child.id && "opacity-50",
                           groupDragOverId === child.id && "border-[#9ca3af] border-dashed bg-[#f4f4f6]",
                         )}
                         /* Round 43: an off block fades its picture and name; its switch and Move out stay as they are. */
                         data-block-off={child.enabled ? undefined : ""}
                       >
-                        <div className="cursor-grab text-gray-300 hover:text-gray-400">
+                        <div className="grid h-8 w-6 shrink-0 cursor-grab place-items-center text-[#b4b8c0] hover:text-[#6b7280]">
                           <GripVertical className="h-4 w-4" />
                         </div>
-                        <div className={cn("w-7 h-7 rounded-md bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden", !child.enabled && "opacity-50")} data-block-fade="">
+                        <div className={cn("w-8 h-8 rounded-[9px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden", !child.enabled && "opacity-50")} data-block-fade="">
                           {preview.thumbnail_url ? (
                             <img src={preview.thumbnail_url} alt="" className="w-full h-full object-cover" />
                           ) : hasLinkIcon(preview.iconId) ? (
@@ -6288,7 +6290,7 @@ function BlockEditor({
                             <ChildIcon className="h-4 w-4 text-[#1a1a2e]" />
                           )}
                         </div>
-                        <span className={cn("flex-1 text-sm truncate", !child.enabled && "opacity-50")} data-block-fade="">{preview.title}</span>
+                        <span className={cn("min-w-0 flex-1 truncate text-[14px] font-medium text-[#1a1a2e]", !child.enabled && "opacity-50")} data-block-fade="" data-group-child-title="">{preview.title}</span>
                         <button
                           type="button"
                           role="switch"
@@ -6299,15 +6301,12 @@ function BlockEditor({
                             e.stopPropagation()
                             updateChildBlock(child.id, { enabled: !child.enabled })
                           }}
-                          className={cn(
-                            "w-8 h-5 rounded-full transition-colors relative",
-                            child.enabled ? "bg-gray-900" : "bg-gray-300"
-                          )}
+                          /* Round AO: the same switch as the page's own rows (components/ui/switch-style), in a 36px place to press. */
+                          className="-my-1 grid h-9 w-11 shrink-0 place-items-center rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]"
                         >
-                          <div className={cn(
-                            "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-[translate]",
-                            child.enabled ? "translate-x-3.5" : "translate-x-0.5"
-                          )} />
+                          <span aria-hidden className={switchTrack(!!child.enabled)}>
+                            <span className={switchKnob(!!child.enabled)} />
+                          </span>
                         </button>
                         {/*
                           Round AO: move, Move out and Remove in the row's more menu, as on
