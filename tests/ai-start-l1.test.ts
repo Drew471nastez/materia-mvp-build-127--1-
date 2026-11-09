@@ -122,9 +122,9 @@ async function main() {
   {
     const blank = startRows("none")!
     const home = blank.pages.find((p) => p.page_key === "home")!
-    const product = blank.pages.find((p) => p.page_key === "product")!
     check("blank: the home page has no sections, so no header and no footer", home.sections.length === 0)
-    check("  the product page only draws the product", product.sections.length === 1 && product.sections[0].type === "product")
+    /* Changed on purpose (round N, N3): no template row either. The agent designs the product page; until then the product route draws the product itself (product-page.ts withMainProduct). */
+    check("  and no other page: no preset product page, nothing of the theme", blank.pages.length === 1 && blank.pages[0].page_key === "home")
     /* Changed on purpose (round L integration): a blank site is also marked site_chrome "home" (L4), so no page draws a stored theme header. */
     check("  neutral settings, no Foundation brand name, home-only chrome", JSON.stringify(blank.settings) === JSON.stringify({ ...BLANK_SETTINGS, site_chrome: "home" }) && !("brand_name" in blank.settings))
     const theme = startRows("theme")!

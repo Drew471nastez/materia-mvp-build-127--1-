@@ -16,6 +16,8 @@ import { STORELIB_HOOKS, AGENT_DEFAULT_CAPABILITIES, type RuntimeCapabilities } 
 import type { AgentJobInput, KnowledgeHit, StoredFile, StoredPage } from "./ports"
 import type { Direction } from "@/lib/storelib-ai/library/concept"
 import { startContext } from "@/lib/website-builder/ai-site/start-options"
+/* Round N (N3): pages and templates, its own block so the design rules above it can change without touching it. */
+import { PAGES_AND_TEMPLATES } from "./site-plan"
 
 /** CLAUDE.md's list, and its shape: words that say nothing. */
 export const BANNED_WORDS = ["unlock", "elevate", "seamless", "powerful", "effortlessly", "supercharge", "transform", "revolutionize", "game-changer"]
@@ -57,7 +59,9 @@ WORKING
 - Read a file before you change it. If a write says the file changed, read it again: the creator's edit wins.
 - When done, call finish with a short plain summary. Finish runs every check; with errors it is refused and you fix exactly what it lists.
 - AN EXISTING WEBSITE (edit mode, or a redesign of one): its content is the creator's. Keep words, pictures and bindings unless the request asks to change them.
-- EDIT MODE (an existing website): change only what is asked. "Make the hero calmer" touches the hero component and nothing else; "add a pricing page" adds that page and its components. Leave every other file, page, section and setting exactly as it is: do not tidy, rename, restyle or re-save what was not asked for.`
+- EDIT MODE (an existing website): change only what is asked. "Make the hero calmer" touches the hero component and nothing else; "add a pricing page" adds that page and its components. Leave every other file, page, section and setting exactly as it is: do not tidy, rename, restyle or re-save what was not asked for.
+
+${PAGES_AND_TEMPLATES}`
 
 function capsSummary(c: RuntimeCapabilities | null): string {
   if (!c) return "STORE DATA: could not be read. Bind nothing; leave product and collection settings empty for the creator."
@@ -87,7 +91,7 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
       : job.redesign === "full"
         ? "EXISTING WEBSITE, FULL REDESIGN: this website exists and the creator asked for a new look for all of it. Keep its content: every page, the words the creator wrote, the pictures, products, collections, forms and menus it is bound to (read them with list_pages and read_file and carry them over by value or id). Change the look: tokens, layout, your own ai_ components in place of sections that do not fit the concept. Do not delete a page or invent content. A backup was taken before you started; the creator can undo this job."
         : job.mode === "blank"
-      ? "NEW WEBSITE, BLANK: there is no theme layout, no header and no footer. Everything a visitor sees is a component you write. Have a header and footer only if the concept wants them, and then write them yourself."
+      ? "NEW WEBSITE, BLANK: there is no theme layout, no header and no footer. Everything a visitor sees is a component you write, on every page and template: write your own header and footer too."
       : "NEW WEBSITE INSIDE A THEME: the theme's settings and any sections already on the pages are there, but they are not the design. Build the site from your own ai_ components for the concept; keep an existing section only where it already fits, and replace the rest."
   return [
     `REQUEST (the creator's words):\n${job.prompt}`,
@@ -100,7 +104,7 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
       ? `STARTING DIRECTIONS (seeds, deliberately different; adapt one to this creator or go elsewhere, but do not default to the obvious):\n${input.directions.map((d) => `- ${d.name} [${d.styles.join(" + ")}]: ${d.mood.join(", ")}; ${d.type.display} / ${d.type.body}; ${d.palette.mode} ${d.palette.background} / ${d.palette.text} / accent ${d.palette.accent}; motion ${d.motion}; imagery: ${d.imagery}; signature: ${d.signature}`).join("\n")}`
       : "",
     input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, 12_000)}` : "",
-    job.edit || job.redesign === "changes" ? "Start by reading what the request is about (list_pages, read_file), then change it. Before finish, render_check every page you changed." : "Start with report_progress phase \"plan\": the concept and the plan. Then tokens, components, pages, bindings with real ids, render_check on every page, finish.",
+    job.edit || job.redesign === "changes" ? "Start by reading what the request is about (list_pages, read_file), then change it. Before finish, render_check every page you changed." : "Start with report_progress phase \"plan\": the concept, the tasks and pages (every page and template with its sections). Then tokens, components, pages and templates, bindings with real ids, render_check on every page, finish.",
   ]
     .filter(Boolean)
     .join("\n\n")
