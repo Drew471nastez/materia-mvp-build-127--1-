@@ -2085,15 +2085,18 @@ check(
   /* Changed on purpose (round 42 team): the install is checked to be the store's in lib/team/website (storeInstall). */
   /websiteInstallCaller\(installId\)/.test(backupsRoute) &&
     /websiteInstallCaller\(installId\)/.test(restoreRoute) &&
-    /\.eq\("id", backupId\)\s*\n\s*\.eq\("install_id", installId\)/.test(restoreRoute),
+    /* Round M: the scoped read is in lib/website-builder/restore-backup.ts now. */
+    /\.eq\("id", backupId\)\s*\.eq\("install_id", installId\)/.test(readFileSync(join(root, "lib/website-builder/restore-backup.ts"), "utf8")),
 )
 
 check(
   "a restore takes a safety copy of the draft it replaces, before it writes",
   (() => {
-    const safety = restoreRoute.indexOf('source: "restore"')
-    const apply = restoreRoute.indexOf("await applySnapshot(")
-    return safety > 0 && apply > safety && /if \(safety\.error\) \{[\s\S]{0,300}return NextResponse/.test(restoreRoute)
+    /* Changed on purpose (round M): the steps moved to lib/website-builder/restore-backup.ts, shared with the AI job's Undo; the route calls it. */
+    const steps = readFileSync(join(root, "lib/website-builder/restore-backup.ts"), "utf8")
+    const safety = steps.indexOf('source: "restore"')
+    const apply = steps.indexOf("await applySnapshot(")
+    return /await restoreBackup\(/.test(restoreRoute) && safety > 0 && apply > safety && /if \(safety\.error\) \{[\s\S]{0,300}return \{ ok: false/.test(steps)
   })(),
 )
 

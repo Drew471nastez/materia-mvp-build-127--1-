@@ -97,12 +97,20 @@ export interface AgentGeneration {
   view: AgentJobView | null
   /** Every event so far (the newest AGENT_EVENTS_KEPT). */
   events: AgentEvent[]
-  busy: null | "cancel" | "continue" | "start_over"
+  busy: null | "cancel" | "continue" | "start_over" | "undo"
   /** A press that was refused, in plain words. */
   problem: string | null
   cancel: () => void
   resume: () => void
   startOver: () => void
+  /** Redesign with AI (round M): restores the backup taken before the job ran (POST ai-jobs/<id>/undo). True when it was undone. */
+  undo: () => Promise<boolean>
+}
+
+/** What Undo this AI job answered: what was removed with it, and what was kept because the person made it. */
+export interface UndoAnswer {
+  removed: { kind: "page" | "file"; key: string }[]
+  kept: { kind: "page" | "file"; key: string; reason: string }[]
 }
 
 export function useSiteGeneration(input: {
@@ -125,6 +133,8 @@ export function useSiteGeneration(input: {
   onAgentChange?: (finished: boolean) => void
   /** An agent job was started over: the new job's id (the editor remembers it for a reload). */
   onJobChange?: (jobId: string) => void
+  /** A Redesign with AI job was undone: the draft is the backup again (the editor reads the website again). */
+  onUndone?: (answer: UndoAnswer) => void
 }): { view: JobView | null; continuing: boolean; resume: () => void; agent: AgentGeneration } {
   const { installId, source, ready } = input
   const [view, setView] = React.useState<JobView | null>(null)
@@ -274,7 +284,7 @@ export function useSiteGeneration(input: {
 function useAgentJob(
   firstJobId: string | null,
   ready: boolean,
-  input: { onAgentChange?: (finished: boolean) => void; onJobChange?: (jobId: string) => void; onPages: (pages: { key: string; title: string }[]) => void },
+  input: { onAgentChange?: (finished: boolean) => void; onJobChange?: (jobId: string) => void; onUndone?: (answer: UndoAnswer) => void; onPages: (pages: { key: string; title: string }[]) => void },
 ): AgentGeneration {
   const [jobId, setJobId] = React.useState<string | null>(firstJobId)
   React.useEffect(() => setJobId(firstJobId), [firstJobId])
@@ -459,5 +469,21 @@ function useAgentJob(
     })
   }, [jobId, busy, post])
 
-  return { view, events, busy, problem, cancel, resume, startOver }
+  const undo = React.useCallback(async (): Promise<boolean> => {
+    if (!jobId || busy) return false
+    setBusy("undo")
+    setProblem(null)
+    const r = await post("undo")
+    setBusy(null)
+    if (!r.ok) {
+      setProblem(String(r.data.error ?? "Could not undo. Try again."))
+      return false
+    }
+    setView((v) => (v && v.redesign ? { ...v, redesign: { ...v.redesign, undo: "done" } } : v))
+    const added = (r.data.added ?? {}) as Partial<UndoAnswer>
+    latest.current.onUndone?.({ removed: Array.isArray(added.removed) ? added.removed : [], kept: Array.isArray(added.kept) ? added.kept : [] })
+    return true
+  }, [jobId, busy, post])
+
+  return { view, events, busy, problem, cancel, resume, startOver, undo }
 }

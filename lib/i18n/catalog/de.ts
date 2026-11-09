@@ -12932,7 +12932,28 @@ const words: Record<string, string> = {
  "Add to mine": "An meine anhängen",
  "Without the theme": "Ohne das Theme",
  "The AI makes the header, footer and every section.": "Die KI erstellt Kopfzeile, Fußzeile und jeden Abschnitt.",
- "The {name} section showed an error on the page": "Der Abschnitt {name} hat auf der Seite einen Fehler gezeigt"
+ "The {name} section showed an error on the page": "Der Abschnitt {name} hat auf der Seite einen Fehler gezeigt",
+ "AI changes undone": "KI-Änderungen rückgängig gemacht",
+ "Your changes are ready": "Deine Änderungen sind fertig",
+ "Your changes are ready, with a few gaps": "Deine Änderungen sind fertig, mit ein paar Lücken",
+ "Your website is back as it was before this AI job. Nothing went live.": "Deine Website ist wieder so wie vor diesem KI-Auftrag. Nichts wurde veröffentlicht.",
+ "A backup was saved before the AI started. Undo puts it back.": "Vor dem Start der KI wurde ein Backup gespeichert. Rückgängig stellt es wieder her.",
+ "Redesign with AI": "Mit KI neu gestalten",
+ "Undo this AI job": "Diesen KI-Auftrag rückgängig machen",
+ "{name} page": "Seite {name}",
+ "Made after this backup": "Nach diesem Backup erstellt",
+ "Removed, the AI made it": "Entfernt, von der KI erstellt",
+ "Stays, it is live": "Bleibt, ist live",
+ "Stays": "Bleibt",
+ "Remove it too": "Auch entfernen",
+ "Just these changes": "Nur diese Änderungen",
+ "Your pages, words and products stay as they are.": "Deine Seiten, Texte und Produkte bleiben, wie sie sind.",
+ "A new look for the whole site": "Ein neuer Look für die ganze Website",
+ "Your words and products stay. The design changes.": "Deine Texte und Produkte bleiben. Das Design ändert sich.",
+ "The AI works on this whole website as a draft. A backup is saved first, so you can undo it in one step.": "Die KI bearbeitet die ganze Website als Entwurf. Vorher wird ein Backup gespeichert, du kannst es also mit einem Schritt rückgängig machen.",
+ "What should change": "Was soll sich ändern",
+ "Warmer colours, bigger product photos, and a short FAQ before the footer": "Wärmere Farben, größere Produktfotos und kurze FAQ vor der Fußzeile",
+ "How far it goes": "Wie weit es geht"
 }
 
 export default words

@@ -9,6 +9,7 @@
 import type { AgentCheckpoint, AgentJobStatus, AgentPhase, GenerationMode, JobBudget, RuntimePreviewError, StartOptions } from "@/lib/ai-builder/types"
 import { emptyRunState, type AgentJobRecord, type AgentRunState } from "./agent-runner"
 import { eventFromRow, stopReason, type AgentJobView } from "./agent-progress"
+import { redesignState } from "./redesign"
 
 /** The same table as server.ts JOBS_TABLE (that module is server only). */
 export const JOBS_TABLE = "ai_site_jobs"
@@ -85,7 +86,7 @@ export function previewErrorsFromEvents(rows: { payload: unknown; created_at: st
 /* ── what the editor polls ─────────────────────────────────────────────── */
 
 /** Columns the poll reads for an agent job: light, no checkpoint. */
-export const AGENT_VIEW_COLUMNS = "id, creator_id, install_id, engine, status, step, phase, error, attempts, lease_until, cancel_requested_at, last_event_seq, created_at, run:state->agent"
+export const AGENT_VIEW_COLUMNS = "id, creator_id, install_id, engine, status, step, phase, error, attempts, lease_until, cancel_requested_at, last_event_seq, created_at, run:state->agent, redesign:options->redesign, undo:state->undo"
 /** Events one poll answers with at most. */
 export const EVENTS_PAGE = 200
 
@@ -97,6 +98,9 @@ export interface AgentViewRow {
   last_event_seq: number | null
   cancel_requested_at: string | null
   run?: unknown
+  /** options.redesign and state.undo (round M): a Redesign with AI job and whether it was undone. */
+  redesign?: unknown
+  undo?: unknown
 }
 
 /** The poll's answer for an agent job. Pure. */
@@ -123,5 +127,12 @@ export function agentView(row: AgentViewRow, events: { seq: number; kind: string
     summary: run.summary,
     notes: run.notes,
     continues: { used: run.continues, max: maxContinues },
+    ...redesignView(row),
   }
+}
+
+/** A Redesign with AI job: its scope, and whether Undo can still be pressed. */
+function redesignView(row: AgentViewRow): Pick<AgentJobView, "redesign"> {
+  const r = redesignState({ redesign: row.redesign }, row.undo)
+  return r ? { redesign: { scope: r.scope, undo: !r.backupId ? "none" : r.undone ? "done" : "available" } } : {}
 }
