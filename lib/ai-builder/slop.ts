@@ -853,7 +853,7 @@ function sectionUnits(c: Ctx): { label: string; html: string; css: string; schem
 
 function cardGrid(c: Ctx): Raw[] {
   const units = sectionUnits(c)
-  const grids = units.filter((u) => (u.css === c.css && !u.schema ? isCardGrid({ html: u.html, css: c.css }) : isCardGrid(u)))
+  const grids = units.filter((unit) => (unit.css === c.css && !unit.schema ? isCardGrid({ html: unit.html, css: c.css }) : isCardGrid(unit)))
   if (grids.length < 2) return []
   return [{
     rule: "card-grid",
