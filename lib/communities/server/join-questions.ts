@@ -15,6 +15,7 @@ import "server-only"
  * Before part 192 runs every read answers "not ready" with no questions, so
  * joining is exactly what it was.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { csvRow } from "@/components/community/creator/logic"
 import { answerText, checkJoinQuestions, readJoinAnswers, readJoinQuestions, type JoinAnswer, type JoinQuestion } from "../join-questions"
 import { peopleOf } from "./moderation"
@@ -176,7 +177,7 @@ export async function answersCsv(db: Db, communityId: string, opts: { withEmail:
     const answers = readJoinAnswers(r.answers)
     const byId = new Map(answers.map((a) => [a.id, a]))
     const other = answers.filter((a) => !asked.some((q) => q.id === a.id)).map((a) => `${a.label}: ${answerText(a)}`).join(" | ")
-    out += csvRow([p?.name ?? "Member", p?.username ?? "", ...(opts.withEmail ? [p?.email ?? ""] : []), statuses.get(r.user_id) ?? "left", r.submitted_at, ...asked.map((q) => (byId.has(q.id) ? answerText(byId.get(q.id)!) : "")), other])
+    out += csvRow([p?.name ?? "Member", p?.username ?? "", ...(opts.withEmail ? [displayEmail(p?.email) ?? ""] : []), statuses.get(r.user_id) ?? "left", r.submitted_at, ...asked.map((q) => (byId.has(q.id) ? answerText(byId.get(q.id)!) : "")), other])
   }
   return out
 }

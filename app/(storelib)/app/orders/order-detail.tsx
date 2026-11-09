@@ -20,6 +20,7 @@
  * (components/physical/order-panel.tsx, /api/physical/orders/[id]).
  */
 
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import { includedTaxLabel } from "@/lib/tax/rules"
 import {
@@ -444,7 +445,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
       <EmailDialog
         phone={phone}
         open={dialog === "email"}
-        current={order.customerEmail || ""}
+        current={displayEmail(order.customerEmail) || ""}
         sendsReceipt={emailable}
         onClose={() => setDialog(null)}
         onSubmit={async (email) => {
@@ -691,6 +692,8 @@ function CustomerCard({
   onCopy: (text: string, what: string) => void
 }) {
   const line = order.lines[0]
+  /* The address as the creator is shown it: a second business's tag off, none for an address with no inbox (lib/businesses/email-alias). */
+  const shownEmail = displayEmail(order.customerEmail)
   const device = [line.buyer_device_type, line.buyer_os, line.buyer_browser].filter(Boolean).join(", ")
   const country = line.buyer_country || line.buyer_country_code
   return (
@@ -710,14 +713,14 @@ function CustomerCard({
       <dl className="mt-2 grid gap-2.5">
         <Field label={tt("Name")}>{order.customerName || <span className="text-[#9ca3af]">{tt("Not given")}</span>}</Field>
         <Field label={tt("Email")}>
-          {order.customerEmail ? (
+          {shownEmail ? (
             <button
               type="button"
               title={tt("Copy email")}
-              onClick={() => onCopy(order.customerEmail!, tt("Email"))}
+              onClick={() => onCopy(shownEmail, tt("Email"))}
               className="block max-w-full truncate text-left text-[#6d4ae0] hover:underline"
             >
-              {order.customerEmail}
+              {shownEmail}
             </button>
           ) : (
             <span className="text-[#9ca3af]">{tt("No email")}</span>
@@ -769,7 +772,7 @@ function DetailsCard({
         <Field label={tt("Delivery")}>
           {order.shipping
             ? [order.shipping.pickup ? tt("Local pickup") : tt("Shipped to the buyer"), digital ? tt("downloads by email") : null].filter(Boolean).join(", ")
-            : order.customerEmail
+            : displayEmail(order.customerEmail)
               ? tt("Email, and the buyer's library")
               : tt("The buyer's library")}
         </Field>

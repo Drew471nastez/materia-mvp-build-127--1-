@@ -1,5 +1,6 @@
 "use client"
 
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { CasePhotoStrip } from "@/components/support/case-photos"
 import * as React from "react"
 
@@ -161,7 +162,7 @@ export function BuyerCases({ onCount }: { onCount?: (n: number) => void }) {
                         {c.orderRef ? ` · #${c.orderRef}` : ""}
                       </span>
                       <span className="block truncate text-[12.5px] text-[#9b9ba6]">
-                        {c.store.name || "A store"} · {c.buyerName || c.buyerEmail} · {c.kind === "physical" ? "Shipped order" : "Digital order"} · {when(c.lastMessageAt)}
+                        {c.store.name || "A store"} · {c.buyerName || displayEmail(c.buyerEmail) || "Buyer"} · {c.kind === "physical" ? "Shipped order" : "Digital order"} · {when(c.lastMessageAt)}
                       </span>
                     </span>
                     {c.escalatedBy ? <span className="hidden shrink-0 text-[12px] text-[#6b6b76] sm:inline">Asked by the {c.escalatedBy}</span> : null}
@@ -243,9 +244,9 @@ function OrderFacts({ order, store }: { order: Order | null; store: Store | null
       {store && (store.email || store.phone || store.websiteUrl) ? (
         <div className={`space-y-1 px-4 py-3 text-[13px] text-[#9b9ba6] ${order ? "border-t border-white/[0.06]" : ""}`}>
           <p className="text-[#ededf0]">{store.name}</p>
-          {store.email ? (
-            <a href={`mailto:${store.email}`} className="block [overflow-wrap:anywhere] hover:text-[#ededf0]">
-              {store.email}
+          {displayEmail(store.email) ? (
+            <a href={`mailto:${displayEmail(store.email)}`} className="block [overflow-wrap:anywhere] hover:text-[#ededf0]">
+              {displayEmail(store.email)}
             </a>
           ) : null}
           {store.phone ? <p>{store.phone}</p> : null}
@@ -349,8 +350,8 @@ function CaseView({ id, onBack, onNote, onChanged }: { id: string; onBack: () =>
               </h2>
               <p className="mt-0.5 text-[12.5px] leading-[18px] text-[#9b9ba6] [overflow-wrap:anywhere]">
                 Buyer: {c.buyerName ? `${c.buyerName}, ` : ""}
-                {c.buyerEmail} · Store: {store?.name || c.store.name || "A store"}
-                {store?.email ? ` (${store.email}${store.phone ? `, ${store.phone}` : ""})` : ""} · {c.kind === "physical" ? "Shipped order" : "Digital order"}
+                {displayEmail(c.buyerEmail) || "Buyer"} · Store: {store?.name || c.store.name || "A store"}
+                {displayEmail(store?.email) ? ` (${displayEmail(store?.email)}${store?.phone ? `, ${store.phone}` : ""})` : ""} · {c.kind === "physical" ? "Shipped order" : "Digital order"}
                 {c.escalatedBy ? ` · Asked in by the ${c.escalatedBy} ${when(c.escalatedAt)}` : ""}
               </p>
             </div>

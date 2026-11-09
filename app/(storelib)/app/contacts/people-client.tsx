@@ -23,6 +23,7 @@
  * added. Deleting never touches an order, a membership, a community member,
  * a form answer or the list (lib/contacts/write-server).
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -640,7 +641,7 @@ function PersonLine({ p, picked, onPick }: { p: PersonRow; picked: boolean; onPi
         <Link href={href} className="block truncate font-semibold text-[#1a1a2e] hover:underline">
           {whoOf(p)}
         </Link>
-        {p.name && p.email ? <span className="block truncate text-[12px] text-[#6b7280]">{p.email}</span> : null}
+        {p.name && displayEmail(p.email) ? <span className="block truncate text-[12px] text-[#6b7280]">{displayEmail(p.email)}</span> : null}
       </td>
       <td className={cn(cell, "px-3")}>
         <Relationship p={p} />
@@ -658,7 +659,7 @@ function PersonLine({ p, picked, onPick }: { p: PersonRow; picked: boolean; onPi
           </Link>
           <span className="shrink-0 text-[14px] text-[#6b7280]">{dayOf(p.lastSeen)}</span>
         </div>
-        {p.name && p.email ? <p className="mt-0.5 truncate text-[15px] text-[#303036]">{p.email}</p> : null}
+        {p.name && displayEmail(p.email) ? <p className="mt-0.5 truncate text-[15px] text-[#303036]">{displayEmail(p.email)}</p> : null}
         <div className="mt-1 flex min-w-0 items-center gap-2">
           <span className="min-w-0 shrink truncate text-[14px] text-[#6b7280]" data-phone-relationship="">{labelsOf(p).join(" · ") || originLabel(p.origin)}</span>
           <Tags tags={p.tags} max={2} />

@@ -17,6 +17,7 @@
  * dashes used as punctuation, no emoji, no capitals for shouting, and an
  * exclamation mark only on the first sale and the first product.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { eventIcs } from "@/components/community/events/model"
 import type { NotificationType, TemplateContext, TemplateFamily } from "../types"
 import { actionUrl, cleanText, segment } from "./escape"
@@ -565,7 +566,8 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
   const title = lines[0]?.text("title", 120) || d.text("productTitle", 120)
   const name = d.text("customerName", 80)
   const firstName = d.first("customerName")
-  const email = d.text("customerEmail", 200)
+  /* As the seller is shown it: a second business's tag off, nothing for an address with no inbox (lib/businesses/email-alias). */
+  const email = displayEmail(d.text("customerEmail", 200)) ?? ""
   const orderLabel = d.orderLabel()
   const path = PATHS.order(d.id("orderId"))
 

@@ -32,6 +32,7 @@ import "server-only"
 import { can, type RolePermissions } from "../permissions"
 import { seatsLeft } from "../event-tickets"
 import { SEARCH_CAP, safeSearch } from "../search"
+import { taggedSearchPattern } from "@/lib/businesses/email-alias"
 import { EVENT_COLUMNS, EVENT_COLUMNS_PRICED, type CommunityRow, type EventRow, type Role } from "../types"
 import { isUuid } from "@/components/community/creator/logic"
 import type { EventTicketInput } from "@/components/community/creator/logic"
@@ -179,6 +180,9 @@ async function profileIdsMatching(db: Db, q: string, withEmail: boolean): Promis
   if (s.length < 2) return { ids: [], capped: false }
   const parts = [`display_name.ilike.*${s}*`, `username.ilike.*${s.replace(/^@/, "")}*`]
   if (withEmail && s.includes("@")) parts.push(`email.ilike.*${s}*`)
+  /* A second business's address is shown without its tag (lib/businesses/email-alias), so the address shown finds it. */
+  const tagged = withEmail ? taggedSearchPattern(s) : null
+  if (tagged) parts.push(`email.ilike.*${tagged}`)
   const { data, error } = await db.from("profiles").select("id").or(parts.join(",")).limit(SEARCH_CAP)
   if (error) return { ids: [], capped: false }
   const ids = ((data as { id: string }[] | null) ?? []).map((p) => p.id)

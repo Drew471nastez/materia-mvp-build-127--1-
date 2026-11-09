@@ -20,6 +20,7 @@
  *                    (site_contact_messages, the old Emails › Messages),
  *                    each opening as its own page (../message-detail).
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import Link from "next/link"
 import { ChevronDown, Download } from "lucide-react"
@@ -236,8 +237,8 @@ export function ResponsesPanel({ formId, quiz, focus = null, onCount }: { formId
           <ul className="divide-y divide-[#f1f2f4]">
             {rows.map((r) => {
               const open = openId === r.id
-              const who = r.contact_name || r.contact_email || r.contact_phone
-              const sub = r.contact_name ? r.contact_email || r.contact_phone : null
+              const who = r.contact_name || displayEmail(r.contact_email) || r.contact_phone
+              const sub = r.contact_name ? displayEmail(r.contact_email) || r.contact_phone : null
               const href = identifiable(r) ? contactOpenHref("form_submission", r.id) : null
               const toggle = () => setOpenId(open ? null : r.id)
               return (
@@ -514,7 +515,7 @@ export function MessagesInbox({ rows, onOpen, onBack }: { rows: MessageRow[]; on
                   <button type="button" className="flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#fafbfb]" onClick={() => onOpen(m)} data-message-row={m.id}>
                     <span className={cn("h-2 w-2 shrink-0 rounded-full", m.read_at ? "bg-transparent" : "bg-[#8b5cf6]")} aria-hidden />
                     <span className="min-w-0 flex-1">
-                      <span className={cn("block truncate text-[14px] text-[#1a1a2e]", m.read_at ? "font-medium" : "font-semibold")}>{m.name || m.email}</span>
+                      <span className={cn("block truncate text-[14px] text-[#1a1a2e]", m.read_at ? "font-medium" : "font-semibold")}>{m.name || displayEmail(m.email)}</span>
                       <span className="block truncate text-[13px] text-[#6b7280]">{m.subject || m.message}</span>
                     </span>
                     <span className="shrink-0 text-[12.5px] text-[#6b7280]">{when(m.created_at)}</span>

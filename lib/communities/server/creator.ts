@@ -1,4 +1,5 @@
 import "server-only"
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { welcomeVideoSrc } from "@/lib/communities/post-media"
 
 /**
@@ -34,6 +35,7 @@ import { communityCategoryId } from "@/lib/explore/communities-mode"
 import { queueCommunityFanout } from "@/lib/notifications/fanout"
 import { parseAccessRule } from "../access"
 import { SEARCH_CAP, safeSearch } from "../search"
+import { taggedSearchPattern } from "@/lib/businesses/email-alias"
 import { priceLine } from "../format"
 import { LENGTHS, MAX_SPACES } from "../limits"
 import { allowedActions, can, meetsRole, type CommunityAction, type RolePermissions } from "../permissions"
@@ -1699,6 +1701,9 @@ async function searchUserIds(db: Db, q: string, withEmail: boolean): Promise<{ i
   if (s.length < 2) return { ids: [], capped: false }
   const parts = [`display_name.ilike.*${s}*`, `username.ilike.*${s.replace(/^@/, "")}*`]
   if (withEmail && s.includes("@")) parts.push(`email.ilike.*${s}*`)
+  /* A second business's address is shown without its tag (lib/businesses/email-alias), so the address shown finds it. */
+  const tagged = withEmail ? taggedSearchPattern(s) : null
+  if (tagged) parts.push(`email.ilike.*${tagged}`)
   const { data, error } = await db.from("profiles").select("id").or(parts.join(",")).limit(SEARCH_CAP)
   if (error) return { ids: [], capped: false }
   const ids = ((data as { id: string }[] | null) ?? []).map((p) => p.id)
@@ -1907,7 +1912,7 @@ export function membersCsv(db: Db, community: CommunityRow, query: Pick<MemberQu
         }
         pages++
         const views = await memberViews(db, community.id, rows, opts.withEmail)
-        controller.enqueue(encoder.encode(views.map((v) => csvRow([v.name, v.username ?? "", ...(opts.withEmail ? [v.email ?? ""] : []), v.role, v.status, v.tierName ?? "", v.level, v.points, v.joinedAt ?? "", v.lastActiveAt ?? "", v.source])).join("")))
+        controller.enqueue(encoder.encode(views.map((v) => csvRow([v.name, v.username ?? "", ...(opts.withEmail ? [displayEmail(v.email) ?? ""] : []), v.role, v.status, v.tierName ?? "", v.level, v.points, v.joinedAt ?? "", v.lastActiveAt ?? "", v.source])).join("")))
         const last = rows[rows.length - 1]
         const sort = (last as unknown as Record<string, string | null>)[col]
         if (rows.length < 500 || !sort) controller.close()

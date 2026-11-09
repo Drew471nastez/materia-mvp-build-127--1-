@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { sellerOrderNumbers } from "@/lib/orders/order-number-server"
 import { isUuid, physicalCaller } from "@/lib/physical/auth"
 import { countryName } from "@/lib/checkout/countries"
@@ -79,7 +80,7 @@ export async function GET(request: Request) {
     for (const l of (o.lines ?? []) as Record<string, any>[]) {
       if (!l.requires_shipping) continue
       rows.push(
-        [numbers?.byCheckout.get(o.id) ? `#${numbers.byCheckout.get(o.id)}` : orderNumber(o.id), o.paid_at, o.fulfillment_status, a.name ?? o.buyer_name, o.buyer_email, a.phone ?? o.buyer_phone, a.line1, a.line2, a.city, a.region, a.postalCode, a.country ? countryName(a.country) : "", o.shipping_rate?.name, l.title, l.variant_name, l.sku, l.quantity, o.buyer_note, orderNumber(o.id).replace(/^#/, ""), propertiesText(l.properties), offersText(l.offers)]
+        [numbers?.byCheckout.get(o.id) ? `#${numbers.byCheckout.get(o.id)}` : orderNumber(o.id), o.paid_at, o.fulfillment_status, a.name ?? o.buyer_name, displayEmail(o.buyer_email) ?? "", a.phone ?? o.buyer_phone, a.line1, a.line2, a.city, a.region, a.postalCode, a.country ? countryName(a.country) : "", o.shipping_rate?.name, l.title, l.variant_name, l.sku, l.quantity, o.buyer_note, orderNumber(o.id).replace(/^#/, ""), propertiesText(l.properties), offersText(l.offers)]
           .map(cell)
           .join(","),
       )

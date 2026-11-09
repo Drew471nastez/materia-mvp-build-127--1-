@@ -765,6 +765,8 @@ const SUITES = [
   "tests/buy-extras.test.ts",
   "tests/business-accounts.test.ts",
   "tests/shown-email.test.ts",
+  /* Wave 8: a second business's tagged address is never drawn, exported or searched by its tag; one person per address shown. */
+  "tests/alias-display-w8.test.ts",
   "tests/store-settings-t.test.ts",
   "tests/taxes-t.test.ts",
   "tests/markets.test.ts",

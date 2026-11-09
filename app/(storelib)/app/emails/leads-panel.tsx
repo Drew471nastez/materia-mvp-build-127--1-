@@ -24,6 +24,7 @@
  * (./emails-data loadLeads); a filter or a search reads the server, inside
  * the owner's own rows.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import { useSearchParams } from "next/navigation"
 import { Download, Search, X } from "lucide-react"
@@ -115,7 +116,7 @@ function LeadStatusBadge({ lead }: { lead: LeadRow }) {
   return <StatusBadge tone={lead.status === "converted" ? "success" : "neutral"}>{statusLabel(lead.status)}</StatusBadge>
 }
 
-const whoOf = (l: LeadRow) => l.contact_name || l.contact_email || l.contact_phone || tt("No name given")
+const whoOf = (l: LeadRow) => l.contact_name || displayEmail(l.contact_email) || l.contact_phone || tt("No name given")
 
 type Filters = { q: string; form: string; status: string; source: string }
 const NO_FILTERS: Filters = { q: "", form: "", status: "", source: "" }
@@ -255,7 +256,7 @@ export function LeadsPanel({ data, loading, onData, onNotice }: { data: LeadsDat
 
   const menuFor = (l: LeadRow): ActionMenuItem[] => [
     { label: tt("Open"), onClick: () => setOpenId(l.id) },
-    ...(l.contact_email ? [{ label: tt("Email {who}", { who: whoOf(l) }), href: `mailto:${l.contact_email}` }] : []),
+    ...(displayEmail(l.contact_email) ? [{ label: tt("Email {who}", { who: whoOf(l) }), href: `mailto:${displayEmail(l.contact_email)}` }] : []),
     ...LEAD_STATUSES.filter((s) => s !== l.status).map((s) => ({ label: tt("Mark as {status}", { status: statusLabel(s).toLowerCase() }), onClick: () => void setStatus(l, s) })),
   ]
   const setStatus = async (l: LeadRow, status: LeadStatus) => {
@@ -365,7 +366,7 @@ export function LeadsPanel({ data, loading, onData, onNotice }: { data: LeadsDat
                     head={whoOf(l)}
                     aside={formatWhen(l.submitted_at)}
                     line={l.form_title}
-                    meta={[l.contact_email, l.contact_phone].filter(Boolean).join(" · ") || undefined}
+                    meta={[displayEmail(l.contact_email), l.contact_phone].filter(Boolean).join(" · ") || undefined}
                     badges={<LeadStatusBadge lead={l} />}
                     menu={<ResponsiveActionMenu title={whoOf(l)} align="end" trigger={<RowMenuButton label={tt("Actions for {who}", { who: whoOf(l) })} className="h-11 w-11" />} items={menuFor(l)} />}
                   />
@@ -393,7 +394,7 @@ export function LeadsPanel({ data, loading, onData, onNotice }: { data: LeadsDat
                           <span className={cn("block max-w-[200px] truncate", l.status === "new" ? "font-semibold" : "font-medium")}>{whoOf(l)}</span>
                         </td>
                         <td className={cn(td, "text-[#4b5563]")}>
-                          <span className="block max-w-[220px] truncate">{l.contact_email || l.contact_phone || "–"}</span>
+                          <span className="block max-w-[220px] truncate">{displayEmail(l.contact_email) || l.contact_phone || "–"}</span>
                         </td>
                         <td className={td}>
                           <span className="block max-w-[200px] truncate">{l.form_title}</span>
@@ -543,7 +544,7 @@ function LeadBody({ lead, onPatch, onRemoved, onNotice, upgraded }: { lead: Lead
       <dl className="grid gap-x-6 gap-y-3 border-b border-[#eef0f2] px-5 py-4 text-[14px] text-[#1a1a2e] sm:grid-cols-2">
         <div className="min-w-0">
           <dt className={LABEL}>{tt("Email")}</dt>
-          <dd className="mt-0.5 break-words">{lead.contact_email ? <a className="underline decoration-[#d5d7dd] underline-offset-2" href={`mailto:${lead.contact_email}`}>{lead.contact_email}</a> : <span className="text-[#9ca3af]">{tt("Not given")}</span>}</dd>
+          <dd className="mt-0.5 break-words">{displayEmail(lead.contact_email) ? <a className="underline decoration-[#d5d7dd] underline-offset-2" href={`mailto:${displayEmail(lead.contact_email)}`}>{displayEmail(lead.contact_email)}</a> : <span className="text-[#9ca3af]">{tt("Not given")}</span>}</dd>
         </div>
         <div className="min-w-0">
           <dt className={LABEL}>{tt("Phone")}</dt>

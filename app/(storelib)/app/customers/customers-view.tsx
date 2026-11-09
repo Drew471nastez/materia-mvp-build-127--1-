@@ -13,6 +13,7 @@
  * Everything shown is read and worded on the server (./page.tsx): this only
  * draws it.
  */
+import { displayEmail } from "@/lib/businesses/email-alias"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
@@ -73,9 +74,9 @@ export function CustomersView({ rows }: { rows: CustomerLine[] | null }) {
                     <td className={cn(td, "pl-4 group-hover:bg-[#fafafb]")}>
                       {/* The row is the link: its ::after covers the whole row. */}
                       <Link href={c.href} className="block truncate font-semibold text-[#1a1a2e] outline-none after:absolute after:inset-0 focus-visible:underline">
-                        {c.name || c.email}
+                        {c.name || displayEmail(c.email)}
                       </Link>
-                      {c.name ? <span className="block truncate text-[12px] text-[#6b7280]">{c.email}</span> : null}
+                      {c.name && displayEmail(c.email) ? <span className="block truncate text-[12px] text-[#6b7280]">{displayEmail(c.email)}</span> : null}
                     </td>
                     <td className={cn(td, "truncate text-[#4b5563] group-hover:bg-[#fafafb]")}>{c.location ?? "–"}</td>
                     <td className={cn(td, "group-hover:bg-[#fafafb]")}>
@@ -95,11 +96,11 @@ export function CustomersView({ rows }: { rows: CustomerLine[] | null }) {
                     <td className="w-full max-w-0 border-t border-[#f0f1f3] bg-white px-4 py-3 sm:hidden" data-phone-row="">
                       <div className="flex items-baseline justify-between gap-3">
                         <Link href={c.href} className="min-w-0 truncate text-[16px] font-semibold text-[#1a1a2e] outline-none after:absolute after:inset-0">
-                          {c.name || c.email}
+                          {c.name || displayEmail(c.email)}
                         </Link>
                         <span className="shrink-0 text-[15px] font-medium tabular-nums text-[#1a1a2e]">{c.spent}</span>
                       </div>
-                      {c.name ? <p className="mt-0.5 truncate text-[15px] text-[#303036]">{c.email}</p> : null}
+                      {c.name && displayEmail(c.email) ? <p className="mt-0.5 truncate text-[15px] text-[#303036]">{displayEmail(c.email)}</p> : null}
                       <p className="mt-0.5 truncate text-[14px] text-[#6b7280]">
                         {[tt("{length, plural, one {# order} other {# orders}}", { length: c.orders }), c.location, c.lastOrder?.day].filter(Boolean).join(" · ")}
                       </p>

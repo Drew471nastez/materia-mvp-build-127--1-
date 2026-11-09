@@ -17,6 +17,7 @@
  * Everything shown was read on the server for this store (./page.tsx); the
  * buttons write through /api/contacts/<id>, which checks the store again.
  */
+import { displayEmail, displayEmails } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -39,7 +40,7 @@ const money = (cents: number, currency: string) => formatMinor(cents, currency, 
 
 /** Why Email is not offered, or null when it is. */
 function emailBlock(p: Profile): string | null {
-  if (!p.person.email) return tt("There is no email address for this person.")
+  if (!displayEmail(p.person.email)) return tt("There is no email address for this person.")
   if (p.consent.state === "unsubscribed") return tt("They unsubscribed from your emails.")
   if (p.consent.state === "blocked") return tt("An email to them bounced or they marked one as spam, so nothing more is sent.")
   if (p.consent.state === "none") return tt("They are not on your email list. Marketing emails only go to people who subscribed.")
@@ -128,7 +129,7 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
           {/* Round 52: one Edit, in ⋯ and on Tags and notes; no third one in the bar. */}
           <ResponsiveActionMenu title={whoOf(p)} align="end" trigger={<button type="button" className={cn(iconButton, "max-sm:h-10 max-sm:w-10")} aria-label={tt("More actions")} data-contact-more=""><MoreHorizontal className="h-4 w-4" /></button>} items={menu} />
         </div>
-        <div className="col-span-2 col-start-2 mt-1 min-w-0 truncate text-[14px] text-[#6b7280] sm:-mt-0.5 sm:text-[13px]">{[p.name && p.email ? p.email : null, ...labels].filter(Boolean).join(" · ") || originLabel(p.origin)}</div>
+        <div className="col-span-2 col-start-2 mt-1 min-w-0 truncate text-[14px] text-[#6b7280] sm:-mt-0.5 sm:text-[13px]">{[p.name ? displayEmail(p.email) : null, ...labels].filter(Boolean).join(" · ") || originLabel(p.origin)}</div>
       </PaneBar>
 
       <div className={cn("mx-auto pb-24 md:pb-10", ORDER_WIDTH, GUTTER)} data-contact-profile={p.id}>
@@ -195,11 +196,14 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function Details({ profile, blocked }: { profile: Profile; blocked: string | null }) {
   const p = profile.person
   const c = profile.consent
+  /* As shown: a second business's tag off, an address with no inbox not at all, and each address once. */
+  const shown = displayEmail(p.email)
+  const others = displayEmails(profile.emails).filter((e) => e.toLowerCase() !== shown?.toLowerCase())
   return (
     <Section title={tt("Details")}>
       <dl className="grid gap-2" data-contact-details="">
-        <Row label={tt("Email")}>{p.email || <span className="text-[#9ca3af]">{tt("No email")}</span>}</Row>
-        {profile.emails.length > 1 ? <Row label={tt("Other emails")}>{profile.emails.filter((e) => e !== p.email).join(", ")}</Row> : null}
+        <Row label={tt("Email")}>{shown || <span className="text-[#9ca3af]">{tt("No email")}</span>}</Row>
+        {others.length ? <Row label={tt("Other emails")}>{others.join(", ")}</Row> : null}
         <Row label={tt("Marketing emails")}>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {/* Quiet text, not a coloured pill (round 52); only a bounce or complaint is red. */}
@@ -213,7 +217,7 @@ function Details({ profile, blocked }: { profile: Profile; blocked: string | nul
         {p.lastSeen ? <Row label={tt("Last activity")}>{dayOf(p.lastSeen)}</Row> : null}
         {profile.account ? <Row label={tt("Storelib account")}>{profile.account.verified ? tt("Yes, email confirmed") : tt("Yes, email not confirmed")}</Row> : null}
       </dl>
-      {blocked && p.email ? <p className="mt-2.5 text-[12px] leading-[18px] text-[#6b7280]">{p.member && c.state !== "subscribed" ? tt("Community members get community notices, not your marketing emails, unless they subscribe.") : blocked}</p> : null}
+      {blocked && shown ? <p className="mt-2.5 text-[12px] leading-[18px] text-[#6b7280]">{p.member && c.state !== "subscribed" ? tt("Community members get community notices, not your marketing emails, unless they subscribe.") : blocked}</p> : null}
     </Section>
   )
 }

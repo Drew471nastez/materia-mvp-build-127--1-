@@ -6,6 +6,7 @@
  * went back out. Each over the page's date range, against the same length of
  * time just before, with the shape of it underneath.
  */
+import { emailMatchKey } from "@/lib/businesses/email-alias"
 import { bucketIndex, bucketStarts, grainFor } from "../analytics/buckets"
 import { isSale, type Order } from "./order-view"
 import { tt } from "@/lib/i18n/text"
@@ -38,7 +39,7 @@ interface Window {
 /* Failed, unfinished and disputed payments are not sales (lib/orders/order-view isSale). */
 const counted = isSale
 const net = (o: Order) => Math.max(0, o.totalCents - o.refundedCents)
-const buyer = (o: Order) => (o.customerEmail || o.customerName || o.id).toLowerCase()
+const buyer = (o: Order) => (emailMatchKey(o.customerEmail) || o.customerName || o.id).toLowerCase()
 
 function inside(at: number, w: Window) {
   return at >= w.start && at < w.end
