@@ -535,7 +535,7 @@ async function main() {
     const home = read("app/(storelib)/app/emails/emails-home.tsx")
     /* Changed on purpose (round 51): Customer emails is a section of Emails › Settings; ?tab=customer redirects there. */
     check("Emails has a Customer emails section", /\{ value: "customer", label: "Customer emails" \}/.test(home) && /"customer"/.test(read("app/(storelib)/app/emails/emails-data.ts")) && /section=customer/.test(read("app/(storelib)/app/emails/emails-route.ts")))
-    check("  showing the same list and editor as Settings", /tab === "customer" \? <CustomerEmailsPanel bare source=\{\{ data: props\.customerEmails \?\? null/.test(home) /* Changed on purpose (round 28): drawn from the tab's own cached read */ && /CUSTOMER_EMAILS_PATH/.test(read("app/(storelib)/app/emails/emails-data.ts")))
+    check("  showing the same list and editor as Settings", /tab === "customer" && !props\.error \? <CustomerEmailsPanel bare source=\{\{ data: props\.customerEmails \?\? null/.test(home) /* Changed on purpose (round 28): drawn from the tab's own cached read; (round 52) a failed read shows Try again instead */ && /CUSTOMER_EMAILS_PATH/.test(read("app/(storelib)/app/emails/emails-data.ts")))
     const panel = read("components/app/settings/customer-emails-panel.tsx")
     /* Changed on purpose: the preview frame is shared with the community emails (components/app/emails/email-parts.tsx). */
     const parts = read("components/app/emails/email-parts.tsx")

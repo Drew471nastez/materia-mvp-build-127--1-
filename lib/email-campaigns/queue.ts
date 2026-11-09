@@ -424,6 +424,11 @@ export async function startSend(db: Db, o: StartOptions): Promise<StartResult> {
     return { kind: "invalid", status: 403, errors: [{ field: "audience", message: "This account cannot send email. Write to support@storelib.com if that is a mistake." }] }
   }
 
+  /* No audience chosen (round 52: people picked in Contacts of whom none may get it): refused, never read as everyone. */
+  if (readAudience(campaign.audience_type) === "segment" && !campaign.segment_id) {
+    return { kind: "invalid", errors: [{ field: "audience", message: "Choose who this email goes to." }] }
+  }
+
   let audience: ResolvedAudience
   try {
     audience = await resolveAudience(db, o.creatorId, readAudience(campaign.audience_type), campaign.segment_id)

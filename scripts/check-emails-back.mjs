@@ -219,7 +219,7 @@ for (const [label, viewport] of [
   await p.setViewport(viewport)
   const errors = []
   p.on("pageerror", (e) => errors.push(String(e)))
-  await p.goto(`${base}/app/emails?tab=flows`)
+  await p.goto(`${base}/app/emails?tab=automations`)
   await p.waitForSelector("[data-flow-row]", { timeout: 8000 })
   await wait(600)
 
@@ -260,7 +260,7 @@ for (const [label, viewport] of [
   /* A visit, not a return: the list pushed as a new page still lands. */
   await into()
   await record(p)
-  await p.evaluate(() => window.__push("/app/emails?tab=flows"))
+  await p.evaluate(() => window.__push("/app/emails?tab=automations"))
   await wait(900)
   const visit = (await stop(p)).filter((f) => f.page === "list" && f.rows > 0)
   const visitFirst = visit[0]?.opacity ?? null
