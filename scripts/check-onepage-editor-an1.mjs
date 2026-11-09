@@ -183,22 +183,22 @@ async function rowControls(vp) {
     })
     expect(pulsing === true, `${w}: the preview draws the link pulsing`, pulsing)
   }
-  /* Remove, at the top of an open long block. */
+  /* Changed on purpose (round AO): Remove is the row's more menu, and an open long block starts with its Settings | Layout tabs, nothing above them. */
   await press(p, vp, '[data-block-open="sig"]')
   await sleep(900)
   const top = await p.evaluate(() => {
     const card = document.querySelector('[data-block-id="sig"]')
     const settings = card.querySelector("[data-block-settings]")
-    const remove = settings?.querySelector("[data-block-remove]")
+    const menu = card.querySelector("[data-reorder-zone] [data-block-menu]")
     const tabs = settings?.querySelector("[data-block-tabs]")
-    if (!remove || !tabs) return null
-    const rr = remove.getBoundingClientRect()
+    if (!menu || !tabs) return null
+    const rm = menu.getBoundingClientRect()
     const rt = tabs.getBoundingClientRect()
     const rs = settings.getBoundingClientRect()
-    return { removeTop: Math.round(rr.top - rs.top), aboveTabs: rr.bottom <= rt.top + 0.5, onScreen: rr.top >= 0 && rr.bottom <= innerHeight, settingsHeight: Math.round(rs.height) }
+    return { tabsTop: Math.round(rt.top - rs.top), menuAboveSettings: rm.bottom <= rs.top + 0.5, onScreen: rm.top >= 0 && rm.bottom <= innerHeight, bar: !!settings.querySelector("[data-block-foot], [data-block-bar]") }
   })
-  expect(top && top.aboveTabs && top.removeTop <= 24, `${w}: Remove is the first line of the open block, above Settings | Layout`, top)
-  expect(top && top.onScreen, `${w}: and on screen without a scroll`, top)
+  expect(top && top.menuAboveSettings && !top.bar && top.tabsTop <= 20, `${w}: Remove is in the row's more menu; the open block starts with Settings | Layout`, top)
+  expect(top && top.onScreen, `${w}: and the menu is on screen without a scroll`, top)
   const animationPictures = await p.evaluate(async () => {
     const t = document.querySelector('[data-block-id="sig"] [data-block-tab="layout"]')
     t?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
@@ -291,7 +291,7 @@ async function matrix(vp) {
       const field = await p.evaluate((id) => {
         const s = document.querySelector(`[data-block-id="${id}"] [data-block-settings]`)
         const f = [...(s?.querySelectorAll('input:not([type]), input[type="text"], input[type="url"], textarea') ?? [])].find((el) => {
-          if (el.closest("[data-block-foot]") || el.disabled || el.readOnly) return false
+          if (el.disabled || el.readOnly) return false
           const b = el.getBoundingClientRect()
           return b.width > 0 && b.height > 0
         })
@@ -323,11 +323,11 @@ async function matrix(vp) {
       await sleep(600)
       const at1 = await p.evaluate((id) => [...document.querySelectorAll("[data-block-id]")].findIndex((e) => e.getAttribute("data-block-id") === id), id)
       r.moved = at1 === at0 - 1
-      /* Remove: open, Remove at the top, Delete. */
-      await press(p, vp, `[data-block-open="${id}"]`)
-      await sleep(700)
-      await press(p, vp, `[data-block-id="${id}"] [data-block-remove]`)
-      await sleep(450)
+      /* Remove: the row's more menu (round AO), Remove, then Delete. */
+      await press(p, vp, `[data-block-id="${id}"] [data-block-menu]`)
+      await sleep(800)
+      await press(p, vp, '[data-action-list] [data-action-item="block-remove"], [data-action-sheet] [data-action-item="block-remove"]')
+      await sleep(900)
       await press(p, vp, `[data-block-id="${id}"] [data-block-delete]`)
       await sleep(900)
       r.removed = !(await p.$(`[data-block-id="${id}"]`))

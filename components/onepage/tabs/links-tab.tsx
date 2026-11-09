@@ -165,7 +165,7 @@ import { createClient } from "@/lib/supabase/client"
 import { readFileHeader, scanFile } from "@/lib/storage/security"
 import { precheckUpload } from "@/lib/security/uploads"
 import { BlockBadges, BlockExtras, ExtraBlockEditor, extraBlockRow, isExtraBlock } from "@/components/onepage/extra-blocks"
-import { BlockFootActions } from "@/components/onepage/block-remove"
+import { BlockRemoveQuestion, BlockRowMenu } from "@/components/onepage/block-remove"
 import { AutoHeight, Reveal, revealSettledTop } from "@/components/onepage/reveal"
 import { ModeChoice, QuietAction, SettingsGroup } from "@/components/onepage/block-settings-kit"
 import { ProductPicker } from "@/components/onepage/product-picker"
@@ -3328,6 +3328,9 @@ function BlockItem({
   const isMobileStatsViewport = usePhoneWidth()
   const buttonTextMenuRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLDivElement>(null)
+  /* Round AO: Remove's question, opened from the row's more menu and drawn under the row. */
+  const [askingRemove, setAskingRemove] = useState(false)
+  const menuRef = useRef<HTMLButtonElement>(null)
   const settingsId = `block-settings-${block.id}`
 
   // Close button text menu when clicking outside
@@ -3630,6 +3633,8 @@ function BlockItem({
           return null
         })()}
 
+        {/* Round AO: the row's tools as one tight cluster (sparkle, numbers, switch, more), so a title keeps its room on a 390px phone. */}
+        <div className="-mr-1 flex shrink-0 items-center gap-1 sm:gap-2" data-row-tools="">
         {/*
           Round AN: the animation is the sparkle beside the numbers again, on the
           blocks the page animates (components/onepage/block-settings
@@ -3706,7 +3711,34 @@ function BlockItem({
         )}
 
         <BlockToggle checked={block.enabled} onCheckedChange={onToggle} label={tt("Show {title}", { title: preview.title })} />
+        {/*
+          Round AO: move and Remove in the row's more menu, open or closed, so it
+          is found at once (a menu on a computer, the shared sheet on a phone).
+        */}
+        {!isHeaderBlock && (
+          <BlockRowMenu
+            ref={menuRef}
+            name={preview.title}
+            isFirst={isFirst}
+            isLast={isLast}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onAskRemove={() => setAskingRemove(true)}
+          />
+        )}
+        </div>
       </div>
+
+      {!isHeaderBlock && (
+        <BlockRemoveQuestion
+          open={askingRemove}
+          onCancel={() => setAskingRemove(false)}
+          returnFocus={menuRef}
+          question={block.type === "group" && ((block.data as GroupBlockData).children?.length ?? 0) > 0 ? tt("Remove this group? Its blocks stay on your page.") : tt("Remove this block?")}
+          onRemove={onRemove}
+          onArchive={onArchive}
+        />
+      )}
 
       {/*
         Round 41: the settings open to their measured height and close back to
@@ -3715,21 +3747,10 @@ function BlockItem({
       */}
       <Reveal open={isSelected} id={settingsId} returnFocus={titleRef} unmountWhenShut follow className="rounded-b-2xl">
         <div className="space-y-4 rounded-b-2xl border-t border-[#eef0f2] bg-[#fafafb] p-4" data-block-settings="">
-          {!isHeaderBlock && (
-            /*
-              Round AN: move and Remove are the first line of an open block, over its
-              Settings | Layout tabs, never under a long editor (components/onepage/block-remove).
-            */
-            <BlockFootActions
-              question={block.type === "group" && ((block.data as GroupBlockData).children?.length ?? 0) > 0 ? tt("Remove this group? Its blocks stay on your page.") : tt("Remove this block?")}
-              isFirst={isFirst}
-              isLast={isLast}
-              onMoveUp={onMoveUp}
-              onMoveDown={onMoveDown}
-              onRemove={onRemove}
-              onArchive={onArchive}
-            />
-          )}
+          {/*
+            Round AO: nothing above the Settings | Layout tabs. Move and Remove are
+            the row's more menu (components/onepage/block-remove BlockRowMenu).
+          */}
           <BlockEditor
             block={block}
             socialLinks={socialLinks}
@@ -3824,6 +3845,8 @@ function BlockEditor({
   const [groupDraggedId, setGroupDraggedId] = useState<string | null>(null)
   const [groupDragOverId, setGroupDragOverId] = useState<string | null>(null)
   const [selectedGroupChildId, setSelectedGroupChildId] = useState<string | null>(null)
+  /* Round AO: the group's block whose Remove question is open, under its row. */
+  const [askingChildId, setAskingChildId] = useState<string | null>(null)
 
   // CTA dropdown state for product block
   const [showCtaDropdown, setShowCtaDropdown] = useState(false)
@@ -6234,8 +6257,8 @@ function BlockEditor({
                     const preview = getChildBlockPreview(child)
                     const ChildIcon = preview.icon
                     return (
+                      <div key={child.id} data-group-child-item={child.id}>
                       <div
-                        key={child.id}
                         draggable
                         onDragStart={(e) => handleGroupChildDragStart(e, child.id)}
                         onDragOver={(e) => handleGroupChildDragOver(e, child.id)}
@@ -6286,16 +6309,31 @@ function BlockEditor({
                             child.enabled ? "translate-x-3.5" : "translate-x-0.5"
                           )} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); removeChildFromGroup(child.id) }}
-                          className="text-gray-400 hover:text-[#1a1a2e] transition-colors p-1"
-                          title={tt("Move out of group")}
-                          aria-label={tt("Move out of group")}
-                          data-group-child-out={child.id}
-                        >
-                          <ArrowUpRight className="h-3.5 w-3.5" />
-                        </button>
+                        {/*
+                          Round AO: move, Move out and Remove in the row's more menu, as on
+                          the page's own blocks (components/onepage/block-remove).
+                        */}
+                        <div className="contents" data-group-child-menu={child.id}>
+                          <BlockRowMenu
+                            compact
+                            name={preview.title}
+                            isFirst={idx === 0}
+                            isLast={idx === groupData.children.length - 1}
+                            onMoveUp={() => moveChild(child.id, -1)}
+                            onMoveDown={() => moveChild(child.id, 1)}
+                            onMoveOut={() => removeChildFromGroup(child.id)}
+                            onAskRemove={() => setAskingChildId(child.id)}
+                          />
+                        </div>
+                      </div>
+                      <BlockRemoveQuestion
+                        open={askingChildId === child.id}
+                        onCancel={() => setAskingChildId(null)}
+                        className="px-0 pb-0 pt-1.5"
+                        question={tt("Remove this block from the group?")}
+                        onRemove={() => deleteChild(child.id)}
+                        keep={{ label: tt("Move out"), line: tt("Back on your page, under the group"), onPick: () => removeChildFromGroup(child.id) }}
+                      />
                       </div>
                     )
                   })}
@@ -6327,27 +6365,7 @@ function BlockEditor({
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                {/*
-                  Round 41: the bar every block has (components/onepage/block-remove):
-                  move it within the group, then Move out or Delete. Round AN: at the
-                  top, under the child's name, as on the page's own blocks.
-                */}
-                {(() => {
-                  const at = (groupData.children || []).findIndex((c) => c.id === selectedChild.id)
-                  const last = (groupData.children || []).length - 1
-                  return (
-                    <BlockFootActions
-                      key={selectedChild.id}
-                      question={tt("Remove this block from the group?")}
-                      isFirst={at <= 0}
-                      isLast={at >= last}
-                      onMoveUp={() => moveChild(selectedChild.id, -1)}
-                      onMoveDown={() => moveChild(selectedChild.id, 1)}
-                      onRemove={() => deleteChild(selectedChild.id)}
-                      keep={{ label: tt("Move out"), line: tt("Back on your page, under the group"), onPick: () => removeChildFromGroup(selectedChild.id) }}
-                    />
-                  )
-                })()}
+                {/* Round AO: move and Remove are the child row's more menu, so nothing sits over its editor. */}
                 {/* Render full BlockEditor for child with custom update function */}
                 {/* Note: onUrlChangeWithAutoFetch is NOT passed because it looks for blocks in main list, not group children */}
                 <BlockEditor
