@@ -116,7 +116,7 @@ export function templateSample(input: Pick<RenderCheckInput, "template" | "produ
   if (PRODUCT_TEMPLATES.has(input.template)) {
     const first = input.products?.[0] as (ProductCard & { settings: Record<string, unknown> }) | undefined
     if (first) {
-      const s = first.settings ?? {}
+      const s = (first.settings ?? {}) as Record<string, unknown>
       page.product = { ...first, settings: { description: "", ...s } }
       if (!data?.product) {
         const images = Array.isArray(s.images) ? (s.images as unknown[]).filter((x): x is string => typeof x === "string") : typeof s.image === "string" && s.image ? [s.image] : []
