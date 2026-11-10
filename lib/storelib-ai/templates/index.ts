@@ -2,166 +2,182 @@
  * ===========================================================================
  *  THE TEMPLATE LIBRARY: TYPED STUB (round P, P5 side)
  * ===========================================================================
- * P2a owns lib/storelib-ai/templates/ (the framework and the templates). P5
- * builds the agent's template-first flow against the names the round fixed:
+ * P2a owns lib/storelib-ai/templates/ (types, registry, choose, apply, the
+ * templates). P5 builds the agent's template-first flow against it. THIS FILE
+ * IS A STUB with P2a's signatures (as on branch p2a-templates, WIP):
  *
- *   SiteTemplate                 { id, name, industries, styles, directionIds,
- *                                  files, pages, tokens, imageSlots }
- *   chooseTemplate(brief)        the closest template, or null
- *   applyTemplate(store, t, b)   its files, pages and tokens into the install
- *   untouchedTemplateParts(p, t) copy and imagery still exactly as shipped
+ *   chooseTemplate(brief, { choice, avoid, templates }) → TemplateChoice
+ *   applyTemplate(store, template, brief, { jobId, choice }) → ApplyResult
+ *   untouchedTemplateParts(template, project) → UntouchedParts
+ *   templateById(id), SITE_TEMPLATES
  *
- * THIS FILE IS A STUB: it has no templates, so chooseTemplate answers null and
- * the agent builds from zero as before. The integrator replaces it with P2a's
- * module; the agent (lib/ai-builder/agent/loop.ts) reaches it only through
- * AgentDeps.templates (ports.ts TemplateLibrary), so the adapter is one place.
- * applyTemplate and untouchedTemplateParts are written for real here (they are
- * small and pure over the store) so the flow is tested end to end with a stub
- * template (tests/ai-agent-quality-p5.test.ts).
+ * It has no templates, so chooseTemplate answers { template: null } and the
+ * agent builds from zero as before. The integrator replaces this file with
+ * P2a's index (export * from ./types, ./registry, ./choose, ./apply); the
+ * agent reaches the library only through lib/ai-builder/agent/templates.ts
+ * (defaultTemplates), the one adapter to adjust if a signature moved. The
+ * functions here are small real implementations of the same rules so the
+ * flow is tested end to end with a stub template.
  */
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { DesignTokens } from "@/lib/ai-builder/types"
 import type { CreativeBrief } from "@/lib/storelib-ai/direction/brief"
+import type { DirectionChoice } from "@/lib/storelib-ai/direction/choose"
+import type { ProjectStore, StoredPage } from "@/lib/ai-builder/agent/ports"
+
+export interface ImageSlotTarget {
+  page: string
+  section: string
+  block?: string
+  setting: string
+}
 
 export interface TemplateImageSlot {
-  /** "<page>/<section id>/<setting id>" or "<page>/<section id>/<block id>/<setting id>". */
   key: string
-  /** What the picture shows, for generate_image / find_photo. */
   prompt: string
-  /** "16:9", "4:5", "1:1"... */
   aspect: string
+  alt?: string
+  style?: string
+  targets: ImageSlotTarget[]
 }
 
 export interface TemplatePage {
   key: string
+  title?: string
   sections: SectionInstance[]
+  seo?: { title: string; description?: string }
 }
 
+/** P2a's SiteTemplate, the fields the agent reads (P2a's has more: summary, stories, keywords, menus, bindings, design...). */
 export interface SiteTemplate {
   id: string
   name: string
   industries: string[]
   styles: string[]
   directionIds: string[]
-  /** sections/ai_*.storelib (and blocks/, snippets/) with full schemas and FILLED preset blocks. */
   files: Record<string, string>
   pages: TemplatePage[]
   tokens: Partial<DesignTokens>
   imageSlots: TemplateImageSlot[]
 }
 
-/** What chooseTemplate reads: the job's creative brief (O2), and the direction chosen for it when there is one. */
-export type TemplateBrief = Pick<CreativeBrief, "prompt"> & Partial<CreativeBrief> & { directionId?: string | null }
-
-/** The store the template is written into: the agent's ProjectStore (lib/ai-builder/agent/ports.ts) satisfies it. */
-export interface TemplateStore {
-  listFiles(): Promise<{ path: string; text: string }[]>
-  writeFile(path: string, text: string, meta: { expectedVersion: string | null; author: "ai"; jobId: string }): Promise<{ ok: boolean }>
-  listPages(): Promise<TemplatePage[]>
-  writePages(pages: TemplatePage[]): Promise<void>
-  readSettings(): Promise<Record<string, unknown>>
-  writeSettings(patch: Record<string, unknown>): Promise<void>
+export interface TemplateChoice {
+  template: SiteTemplate | null
+  score: number
+  reasons: string[]
+  alternates: { id: string; score: number }[]
 }
 
-export interface AppliedTemplate {
+type BriefLike = Pick<CreativeBrief, "prompt"> & Partial<CreativeBrief>
+
+export interface ApplyOptions {
+  jobId: string
+  choice?: Pick<DirectionChoice, "palette" | "fonts" | "primary"> | null
+  images?: Record<string, { url: string; alt?: string }>
+  overwrite?: boolean
+}
+
+export interface ApplyResult {
   ok: boolean
-  templateId: string
+  template: string
   files: string[]
   pages: string[]
-  error?: string
+  settings: string[]
+  designMd: boolean
+  images: { key: string; prompt: string; aspect: string }[]
+  problems: string[]
+  /** The adaptation work, for the agent's next turn. */
+  next: string
 }
 
-/** Parts of the site still exactly as the template shipped them. */
 export interface UntouchedParts {
-  /** Where the words are the template's own: "sections/ai_x.storelib" (a file never adapted) or "home › ai_x [id]". */
-  copy: string[]
-  /** Image slot keys whose picture is still the template's (or still empty). */
-  images: string[]
+  template: string
+  /** Files still byte for byte the template's. */
+  files: string[]
+  /** Placed sections whose settings and blocks are still the template's. */
+  sections: { page: string; id: string; type: string }[]
+  homeIdentical: boolean
+  home: { untouched: number; total: number }
+  /** Image slots none of whose targets has a picture yet. */
+  emptyImageSlots: string[]
 }
 
 /** The library. Empty in this stub. */
 export const SITE_TEMPLATES: SiteTemplate[] = []
 
-/** The closest template for this brief, or null (the stub has none). */
-export function chooseTemplate(brief: TemplateBrief, templates: readonly SiteTemplate[] = SITE_TEMPLATES): SiteTemplate | null {
-  if (!templates.length) return null
-  const kind = String(brief.business?.kind ?? brief.category ?? "").toLowerCase()
-  const words = `${brief.prompt} ${kind}`.toLowerCase()
-  let best: SiteTemplate | null = null
-  let bestScore = -1
-  for (const t of templates) {
-    let score = 0
-    for (const i of t.industries) if (words.includes(i.toLowerCase())) score += 3
-    if (brief.directionId && t.directionIds.includes(brief.directionId)) score += 2
-    for (const s of t.styles) if (words.includes(s.toLowerCase())) score += 1
-    if (score > bestScore) {
-      best = t
-      bestScore = score
-    }
-  }
-  return best
+export function templateById(id: string, templates: readonly SiteTemplate[] = SITE_TEMPLATES): SiteTemplate | undefined {
+  return templates.find((t) => t.id === id)
 }
 
-export function templateById(id: string, templates: readonly SiteTemplate[] = SITE_TEMPLATES): SiteTemplate | null {
-  return templates.find((t) => t.id === id) ?? null
+/** The closest template, by industry, direction and words; null below a minimum (the stub's list is empty). */
+export function chooseTemplate(brief: BriefLike, opts: { choice?: Pick<DirectionChoice, "primary" | "secondary"> | null; avoid?: string[]; templates?: readonly SiteTemplate[] } = {}): TemplateChoice {
+  const list = opts.templates ?? SITE_TEMPLATES
+  const text = ` ${[brief.prompt, brief.business?.kind ?? "", brief.category ?? ""].join(" ").toLowerCase()} `
+  const scored = list
+    .map((t, i) => {
+      let n = 0
+      if (brief.business && t.industries.includes(brief.business.kind)) n += 5
+      for (const w of t.industries) if (text.includes(w.toLowerCase())) n += 3
+      if (opts.choice && t.directionIds.includes(opts.choice.primary.id)) n += 3
+      if (opts.avoid?.includes(t.id)) n -= 2
+      return { t, i, n }
+    })
+    .sort((a, b) => b.n - a.n || a.i - b.i)
+  const best = scored[0]
+  if (!best || best.n < 3) return { template: null, score: best?.n ?? 0, reasons: ["No template is close to this business: build from the brief."], alternates: [] }
+  return { template: best.t, score: best.n, reasons: [`${best.t.name} fits.`], alternates: scored.slice(1, 3).map((x) => ({ id: x.t.id, score: x.n })) }
 }
 
-/** The template's files, pages and tokens into the install (drafts, authored "ai"). Pages of the install not in the template are left alone. */
-export async function applyTemplate(store: TemplateStore, template: SiteTemplate, _brief: TemplateBrief, meta: { jobId: string } = { jobId: "template" }): Promise<AppliedTemplate> {
-  const have = new Set((await store.listFiles()).map((f) => f.path))
+/** The template's files and pages into the install as drafts. Never throws: what failed is in `problems`. */
+export async function applyTemplate(store: ProjectStore, template: SiteTemplate, _brief: CreativeBrief | null, opts: ApplyOptions): Promise<ApplyResult> {
+  const problems: string[] = []
   const files: string[] = []
   for (const [path, text] of Object.entries(template.files)) {
-    if (have.has(path)) continue
-    const r = await store.writeFile(path, text, { expectedVersion: null, author: "ai", jobId: meta.jobId })
-    if (!r.ok) return { ok: false, templateId: template.id, files, pages: [], error: `${path} could not be written` }
-    files.push(path)
+    const existing = await store.readFile(path).catch(() => null)
+    if (existing && existing.text === text) {
+      files.push(path)
+      continue
+    }
+    if (existing && !opts.overwrite) {
+      problems.push(`${path} already exists with other text, so it was left as it is.`)
+      continue
+    }
+    const w = await store.writeFile(path, text, { expectedVersion: null, author: "ai", jobId: opts.jobId }).catch((e: unknown) => ({ ok: false as const, error: String(e) }))
+    if (w.ok === true) files.push(path)
+    else problems.push(`${path} was not written: ${"error" in w ? w.error : "the store refused"}`)
   }
   await store.writePages(template.pages.map((p) => ({ key: p.key, sections: JSON.parse(JSON.stringify(p.sections)) as SectionInstance[] })))
-  return { ok: true, templateId: template.id, files, pages: template.pages.map((p) => p.key) }
+  const images = template.imageSlots.map((s) => ({ key: s.key, prompt: s.prompt, aspect: s.aspect }))
+  return { ok: problems.length === 0, template: template.id, files, pages: template.pages.map((p) => p.key), settings: [], designMd: false, images, problems, next: `The ${template.name} template is written as drafts. It is a starting point: nothing of it ships as it is.` }
 }
 
-const sameJson = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+const body = (sections: SectionInstance[]) => sections.filter((s) => s.group !== "header" && s.group !== "footer" && !s.hidden)
+const copyOf = (s: SectionInstance) => ({ type: s.type, settings: s.settings ?? {}, blocks: (s.blocks ?? []).map((b) => ({ type: b.type, settings: b.settings ?? {} })) })
 
-/** Words of a section instance: its settings and blocks without picture values, as compared with the template's. */
-function wordsOf(s: { settings?: Record<string, unknown>; blocks?: { settings?: Record<string, unknown> }[] }): string {
-  const strip = (o: Record<string, unknown> | undefined) => Object.fromEntries(Object.entries(o ?? {}).filter(([, v]) => typeof v === "string" && !/^(https?:|\/|shopify:|storelib:)/.test(v)))
-  return JSON.stringify([strip(s.settings), (s.blocks ?? []).map((b) => strip(b.settings))])
-}
-
-function slotValue(pages: TemplatePage[], key: string): unknown {
-  const [page, sectionId, a, b] = key.split("/")
-  const s = pages.find((p) => p.key === page)?.sections.find((x) => x.id === sectionId)
-  if (!s) return undefined
-  if (b === undefined) return s.settings?.[a]
-  return s.blocks?.find((x) => x.id === a)?.settings?.[b]
-}
-
-/**
- * What of the template the site still ships verbatim: a component file never changed, a placed section whose
- * words are the template's, an image slot whose picture is the template's own (or still empty).
- */
-export function untouchedTemplateParts(project: { files: Record<string, string>; pages: TemplatePage[] }, template: SiteTemplate): UntouchedParts {
-  const copy: string[] = []
-  for (const [path, text] of Object.entries(template.files)) {
-    if (!path.startsWith("sections/")) continue
-    const type = path.replace(/^sections\//, "").replace(/\.storelib$/, "")
-    const placed = project.pages.some((p) => p.sections.some((s) => s.type === type && !s.hidden))
-    if (placed && project.files[path] === text) copy.push(path)
-  }
+/** What of a site is still the template's own copy, and which picture slots are still empty. */
+export function untouchedTemplateParts(template: SiteTemplate, project: { files: Record<string, string>; pages: StoredPage[] }): UntouchedParts {
+  const files = Object.entries(template.files)
+    .filter(([path, text]) => project.files[path] === text)
+    .map(([path]) => path)
+  const sections: UntouchedParts["sections"] = []
   for (const tp of template.pages) {
     const page = project.pages.find((p) => p.key === tp.key)
     if (!page) continue
-    for (const ts of tp.sections) {
-      const s = page.sections.find((x) => x.id === ts.id && x.type === ts.type && !x.hidden)
-      if (s && wordsOf(s) === wordsOf(ts) && wordsOf(ts) !== JSON.stringify([{}, []])) copy.push(`${tp.key} › ${ts.type} [${ts.id}]`)
+    for (const ts of body(tp.sections)) {
+      const now = page.sections.find((s) => s.id === ts.id)
+      if (now && same(copyOf(now), copyOf(ts)) && project.files[`sections/${ts.type}.storelib`] === template.files[`sections/${ts.type}.storelib`]) sections.push({ page: tp.key, id: ts.id, type: ts.type })
     }
   }
-  const images: string[] = []
-  for (const slot of template.imageSlots) {
-    const now = slotValue(project.pages, slot.key)
-    const shipped = slotValue(template.pages, slot.key)
-    if (now === undefined && !project.pages.some((p) => p.key === slot.key.split("/")[0] && p.sections.some((s) => s.id === slot.key.split("/")[1]))) continue
-    if (!now || sameJson(now, shipped)) images.push(slot.key)
+  const tHome = body(template.pages.find((p) => p.key === "home")?.sections ?? [])
+  const nowHome = body(project.pages.find((p) => p.key === "home")?.sections ?? [])
+  const homeUntouched = tHome.filter((ts) => sections.some((x) => x.page === "home" && x.id === ts.id)).length
+  const homeIdentical = tHome.length > 0 && nowHome.length === tHome.length && nowHome.every((s, i) => s.id === tHome[i].id) && homeUntouched === tHome.length
+  const valueAt = (target: ImageSlotTarget): unknown => {
+    const section = project.pages.find((p) => p.key === target.page)?.sections.find((s) => s.id === target.section)
+    const holder = target.block ? section?.blocks?.find((b) => b.id === target.block) : section
+    return holder?.settings?.[target.setting]
   }
-  return { copy, images }
+  const emptyImageSlots = template.imageSlots.filter((slot) => slot.targets.every((t) => !valueAt(t))).map((s) => s.key)
+  return { template: template.id, files, sections, homeIdentical, home: { untouched: homeUntouched, total: tHome.length }, emptyImageSlots }
 }

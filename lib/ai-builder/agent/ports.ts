@@ -25,7 +25,9 @@ import type { DesignReference } from "@/lib/storelib-ai/references/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { RuntimeCapabilities } from "../runtime-contract"
 import type { VisualCriticRunner } from "../visual-critic/critic"
-import type { AppliedTemplate, SiteTemplate, TemplateBrief, UntouchedParts } from "@/lib/storelib-ai/templates"
+import type { SiteTemplate } from "@/lib/storelib-ai/templates"
+import type { CreativeBrief } from "@/lib/storelib-ai/direction/brief"
+import type { DirectionChoice } from "@/lib/storelib-ai/direction/choose"
 import type { AgentEvent, DesignTokens, FileAuthor, GenerationMode, JobBudget, KnowledgeEntry, KnowledgeKind, StartOptions, ValidationIssue } from "../types"
 
 /* ── the website ──────────────────────────────────────────────────────── */
@@ -143,14 +145,17 @@ export interface ReferenceSource {
 }
 
 /**
- * Round P (P2 + P5): the starting templates (lib/storelib-ai/templates). The agent starts a new website from
- * the closest one, then adapts it; ./templates.ts defaultTemplates is the library module behind it.
+ * Round P (P2 + P5): the starting templates (lib/storelib-ai/templates, P2's). The agent starts a new website
+ * from the closest one, then adapts it. ./templates.ts defaultTemplates adapts P2's module to this shape.
  */
 export interface TemplateLibrary {
-  choose(brief: TemplateBrief): SiteTemplate | null | Promise<SiteTemplate | null>
+  /** The closest template for the job's creative brief and chosen direction, or null. */
+  choose(brief: CreativeBrief, choice: DirectionChoice | null): SiteTemplate | null | Promise<SiteTemplate | null>
   byId(id: string): SiteTemplate | null
-  apply(store: ProjectStore, template: SiteTemplate, brief: TemplateBrief, meta: { jobId: string }): Promise<AppliedTemplate>
-  untouched(project: { files: Record<string, string>; pages: StoredPage[] }, template: SiteTemplate): UntouchedParts
+  /** Writes the template into the install (drafts). `files` and `pages` are what it wrote; `next` its adaptation notes. */
+  apply(store: ProjectStore, template: SiteTemplate, brief: CreativeBrief, meta: { jobId: string; choice: DirectionChoice | null }): Promise<{ ok: boolean; files: string[]; pages: string[]; next?: string; problems?: string[] }>
+  /** What is still the template's own: copy (files and placed sections, named) and picture slots still empty. */
+  untouched(project: { files: Record<string, string>; pages: StoredPage[] }, template: SiteTemplate): { copy: string[]; images: string[] }
 }
 
 /** Turns tokens into Theme settings keys (L5 owns the real one). */

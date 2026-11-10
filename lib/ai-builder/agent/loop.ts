@@ -57,7 +57,7 @@ import { noveltyIssues, siteFingerprint } from "../novelty"
 import { themeSettingsToTokens } from "../tokens"
 import { roleFor } from "./model-routing"
 import { blockIssues, imageSlotIssues } from "./content-check"
-import { fewShotExamples, templateBlock, templateBrief, templateIssues, templatesOf } from "./templates"
+import { fewShotExamples, templateBlock, templateIssues, templatesOf } from "./templates"
 
 export interface SliceOptions {
   /** This invocation's end (ms since epoch). No call starts later than deadline - budget.callReserveMs. */
@@ -226,12 +226,13 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     let templateText = ""
     let pagesNow = pages
     let filesNow = files
-    if (!job.edit && !job.redesign) {
+    if (!job.edit && !job.redesign && cp.brief) {
       const lib = templatesOf(deps)
-      const tb = templateBrief(job.prompt, cp.brief, cp.direction?.primary)
-      const chosen = await Promise.resolve(lib.choose(tb)).catch(() => null)
+      const brief = cp.brief
+      const choice = direction?.choice ?? null
+      const chosen = await Promise.resolve(lib.choose(brief, choice)).catch(() => null)
       if (chosen) {
-        const applied = await lib.apply(deps.store, chosen, tb, { jobId: job.jobId }).catch((e: unknown) => ({ ok: false as const, templateId: chosen.id, files: [] as string[], pages: [] as string[], error: e instanceof Error ? e.message : String(e) }))
+        const applied = await lib.apply(deps.store, chosen, brief, { jobId: job.jobId, choice }).catch(() => ({ ok: false, files: [] as string[], pages: [] as string[] }))
         if (applied.ok) {
           cp.template = { id: chosen.id, name: chosen.name, files: applied.files, pages: applied.pages }
           for (const path of applied.files) cp.filesTouched = addUnique(cp.filesTouched, path)
@@ -717,11 +718,18 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
   return issues
 }
 
-/** Whether this job can make or find pictures (P1's provider chain): an image slot must then hold one before finish. */
+/**
+ * Whether this job can make or find pictures: an image slot must then hold one before finish. `imageProvider`
+ * when given; else P1's image service (`deps.images.available()`: a generation provider or stock search, read
+ * duck-typed so this works before and after P1's port lands); else none.
+ */
 export async function picturesAvailable(deps: Pick<AgentDeps, "imageProvider">): Promise<boolean> {
-  if (!deps.imageProvider) return false
   try {
-    return (await deps.imageProvider()) === true
+    if (deps.imageProvider) return (await deps.imageProvider()) === true
+    const service = (deps as { images?: { available?: () => Promise<{ generate?: unknown; stock?: boolean }> } }).images
+    if (typeof service?.available !== "function") return false
+    const a = await service.available()
+    return !!a?.generate || a?.stock === true
   } catch {
     return false
   }

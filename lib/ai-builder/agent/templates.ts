@@ -18,24 +18,26 @@
  * The template library is reached only through AgentDeps.templates
  * (ports.ts), defaulting to lib/storelib-ai/templates.
  */
-import { applyTemplate, chooseTemplate, templateById, untouchedTemplateParts, type SiteTemplate, type TemplateBrief } from "@/lib/storelib-ai/templates"
-import type { CreativeBrief } from "@/lib/storelib-ai/direction/brief"
+import { applyTemplate, chooseTemplate, templateById, untouchedTemplateParts, type SiteTemplate } from "@/lib/storelib-ai/templates"
 import type { ValidationIssue } from "../types"
 import type { AgentDeps, StoredPage, TemplateLibrary } from "./ports"
 
+/** P2's module behind the agent's TemplateLibrary: the one adapter to adjust if its signatures move. */
 export const defaultTemplates: TemplateLibrary = {
-  choose: (brief) => chooseTemplate(brief),
-  byId: (id) => templateById(id),
-  apply: (store, template, brief, meta) => applyTemplate(store, template, brief, meta),
-  untouched: (project, template) => untouchedTemplateParts(project, template),
+  choose: (brief, choice) => chooseTemplate(brief, { choice }).template ?? null,
+  byId: (id) => templateById(id) ?? null,
+  async apply(store, template, brief, meta) {
+    const r = await applyTemplate(store, template, brief, { jobId: meta.jobId, choice: meta.choice })
+    /* Applied when something was written; a file left as it was (it existed) is a problem said, not a failure. */
+    return { ok: r.files.length > 0 || r.pages.length > 0, files: r.files, pages: r.pages, next: r.next, problems: r.problems }
+  },
+  untouched(project, template) {
+    const u = untouchedTemplateParts(template, project)
+    return { copy: [...u.files, ...u.sections.map((s) => `${s.page} › ${s.type} [${s.id}]`)], images: u.emptyImageSlots }
+  },
 }
 
 export const templatesOf = (deps: Pick<AgentDeps, "templates">): TemplateLibrary => deps.templates ?? defaultTemplates
-
-/** What chooseTemplate reads, from the job's creative brief (O2) and its chosen direction. */
-export function templateBrief(prompt: string, brief: CreativeBrief | undefined, directionId: string | null | undefined): TemplateBrief {
-  return { ...(brief ?? {}), prompt: brief?.prompt ?? prompt, directionId: directionId ?? null }
-}
 
 /* ── few-shot: one or two of the template's components, compact ───────── */
 
@@ -67,10 +69,11 @@ export function fewShotExamples(template: SiteTemplate, max = 2): { path: string
 }
 
 /** The first turn's block about the template: what was put in, what to adapt, and the examples. */
-export function templateBlock(template: SiteTemplate, applied: { files: string[]; pages: string[] }, examples: { path: string; text: string }[]): string {
+export function templateBlock(template: SiteTemplate, applied: { files: string[]; pages: string[]; next?: string }, examples: { path: string; text: string }[]): string {
   const lines = [
     `STARTING TEMPLATE: "${template.name}" (${template.id}) is already in this website: ${applied.files.length} component files (${applied.files.slice(0, 16).join(", ")}${applied.files.length > 16 ? ", ..." : ""}) placed on ${applied.pages.join(", ") || "home"}, every section with its items filled.`,
-    template.imageSlots.length ? `ITS PICTURE SLOTS (each needs this business's own picture): ${template.imageSlots.slice(0, 16).map((s) => `${s.key} [${s.aspect}]: ${s.prompt}`).join("; ")}` : "",
+    applied.next ? applied.next.slice(0, 2_500) : "",
+    template.imageSlots.length ? `ITS PICTURE SLOTS (each needs this business's own picture, written into ${template.imageSlots[0].targets?.length ? "its targets" : "its slot"}): ${template.imageSlots.slice(0, 16).map((s) => `${s.key} [${s.aspect}]${s.targets?.length ? ` → ${s.targets.map((t) => `${t.page}/${t.section}${t.block ? `/${t.block}` : ""}.${t.setting}`).join(", ")}` : ""}: ${s.prompt}`).join("; ")}` : "",
     examples.length ? `HOW ITS COMPONENTS ARE WRITTEN (the bar for every component you write or adapt):\n${examples.map((e) => `--- ${e.path} ---\n${e.text}`).join("\n\n")}` : "",
   ]
   return lines.filter(Boolean).join("\n\n")
@@ -78,7 +81,7 @@ export function templateBlock(template: SiteTemplate, applied: { files: string[]
 
 /**
  * FINISH: the template is a starting point, never the site. Errors while the template's copy is still as shipped;
- * its pictures too when the job can make or find pictures (else a warning: kept pictures beat empty frames).
+ * its empty picture slots too when the job can make or find pictures (else a warning: text-forward instead).
  */
 export function templateIssues(template: SiteTemplate, project: { files: Record<string, string>; pages: StoredPage[] }, lib: TemplateLibrary, picturesAvailable: boolean): ValidationIssue[] {
   const left = lib.untouched(project, template)
@@ -91,8 +94,8 @@ export function templateIssues(template: SiteTemplate, project: { files: Record<
       severity: picturesAvailable ? "error" : "warning",
       code: "template.untouched_image",
       message: picturesAvailable
-        ? `These picture slots still hold the template's picture or none: ${left.images.slice(0, 12).join(", ")}. Give each this business's own picture (generate_image or find_photo, or the creator's media and product pictures).`
-        : `These picture slots still hold the template's picture or none, and this job cannot make pictures: ${left.images.slice(0, 12).join(", ")}. Keep a fitting one, or make the section text-forward so no empty frame shows.`,
+        ? `These picture slots of the template are still empty: ${left.images.slice(0, 12).join(", ")}. Give each this business's own picture (generate_image or find_photo, or the creator's media and product pictures) in its section setting.`
+        : `These picture slots of the template are still empty, and this job cannot make pictures: ${left.images.slice(0, 12).join(", ")}. Make those sections text-forward so no empty frame shows (or the creator's own media where it fits).`,
     })
   }
   return out

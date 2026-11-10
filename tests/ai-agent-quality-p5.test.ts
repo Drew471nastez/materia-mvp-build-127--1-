@@ -226,6 +226,7 @@ async function main() {
     check("with a picture source an empty slot is an error (image.slot_empty)", withProvider.length === 1 && withProvider[0].severity === "error" && withProvider[0].code === "image.slot_empty" && /generate_image/.test(withProvider[0].message), withProvider)
     check("  without one it is a text-forward warning, never an error", without.length === 1 && without[0].severity === "warning" && without[0].code === "image.text_forward" && /text-forward/.test(without[0].message), without)
     check("picturesAvailable: absent, false, throwing all read as none", (await picturesAvailable({})) === false && (await picturesAvailable({ imageProvider: () => false })) === false && (await picturesAvailable({ imageProvider: () => { throw new Error("x") } })) === false && (await picturesAvailable({ imageProvider: async () => true })) === true)
+    check("  P1's image service counts: a generation provider or stock search", (await picturesAvailable({ images: { available: async () => ({ generate: "openai", stock: false }) } } as never)) === true && (await picturesAvailable({ images: { available: async () => ({ generate: null, stock: true }) } } as never)) === true && (await picturesAvailable({ images: { available: async () => ({ generate: null, stock: false }) } } as never)) === false)
 
     check("emptyMediaFrame: an <img> with no address", emptyMediaFrame(`<img class="a" src="" alt="">`) !== null)
     check("  an empty frame named for a picture, drawn as a box (a shape, a fill)", /hp__photo/.test(emptyMediaFrame(`<div class="hp__photo"></div>`, `.hp__photo { aspect-ratio: 4 / 5; background: #ddd; }`) ?? ""))
@@ -249,7 +250,8 @@ async function main() {
 
   console.log("\n3. Template first, with a scripted model and a stub template")
   {
-    const TEMPLATE: SiteTemplate = {
+    /* P2a's SiteTemplate has more fields (summary, stories, keywords, menus, bindings, design): the agent reads these. */
+    const TEMPLATE = {
       id: "tpl_strength",
       name: "Strength Studio",
       industries: ["coach", "strength", "gym"],
@@ -261,18 +263,18 @@ async function main() {
           key: "home",
           sections: [
             { id: "tpl-header", name: "Header", type: "ai_coach_header", settings: {}, blocks: [], group: "header" },
-            { id: "tpl-open", name: "Opening", type: "ai_coach_opening", settings: { heading: "Train with Atlas Strength", photo: "storelib://templates/strength/hero.jpg" }, blocks: [] },
+            { id: "tpl-open", name: "Opening", type: "ai_coach_opening", settings: { heading: "Train with Atlas Strength" }, blocks: [] },
             { id: "tpl-faq", name: "Questions", type: "ai_coach_questions", settings: { heading: "Questions at Atlas" }, blocks: [{ id: "tq1", type: "question", settings: { question: "Is Atlas for beginners?", answer: "Yes, every plan starts easy." } }, { id: "tq2", type: "question", settings: { question: "How long are sessions?", answer: "One hour, start to finish." } }, { id: "tq3", type: "question", settings: { question: "Where is Atlas?", answer: "Above the bakery on the high street." } }] },
             { id: "tpl-footer", name: "Footer", type: "ai_coach_footer", settings: {}, blocks: [], group: "footer" },
           ],
         },
       ],
       tokens: {},
-      imageSlots: [{ key: "home/tpl-open/photo", prompt: "A coach spotting a lift in daylight", aspect: "4:5" }],
-    }
-    check("chooseTemplate picks the closest template", chooseTemplate({ prompt: "strength coach website" }, [TEMPLATE])?.id === "tpl_strength")
-    check("  the stub library has none, so a job builds from zero as before", chooseTemplate({ prompt: "strength coach website" }) === null)
-    const lib: TemplateLibrary = { ...defaultTemplates, choose: (b) => chooseTemplate(b, [TEMPLATE]), byId: (id) => (id === TEMPLATE.id ? TEMPLATE : null) }
+      imageSlots: [{ key: "home/tpl-open/photo", prompt: "A coach spotting a lift in daylight", aspect: "4:5", alt: "A coach spotting a lift", style: "photo", targets: [{ page: "home", section: "tpl-open", setting: "photo" }] }],
+    } as unknown as SiteTemplate
+    check("chooseTemplate picks the closest template", chooseTemplate({ prompt: "strength coach website" }, { templates: [TEMPLATE] }).template?.id === "tpl_strength")
+    check("  the stub library has none, so a job builds from zero as before", chooseTemplate({ prompt: "strength coach website" }).template === null)
+    const lib: TemplateLibrary = { ...defaultTemplates, choose: (b, choice) => chooseTemplate(b, { choice, templates: [TEMPLATE] }).template, byId: (id) => (id === TEMPLATE.id ? TEMPLATE : null) }
     const examples = fewShotExamples(TEMPLATE)
     check("few-shot: the opening and the section with filled items, at most two", examples.length === 2 && examples[0].path === "sections/ai_coach_opening.storelib" && examples[1].path === "sections/ai_coach_questions.storelib", examples.map((e) => e.path))
 
@@ -293,7 +295,7 @@ async function main() {
     const copy = before.find((i) => i.code === "template.untouched_copy")
     check("finish refuses the template as shipped: untouched copy, named", copy?.severity === "error" && /sections\/ai_coach_questions\.storelib/.test(copy.message) && /home › ai_coach_questions \[tpl-faq\]/.test(copy.message), copy)
     const img = before.find((i) => i.code === "template.untouched_image")
-    check("  its picture kept is a warning when no picture can be made", img?.severity === "warning" && /home\/tpl-open\/photo/.test(img.message), img)
+    check("  its empty picture slot is a warning when no picture can be made (text-forward)", img?.severity === "warning" && /home\/tpl-open\/photo/.test(img.message), img)
     const withPics = await verify(job(), { ...deps, imageProvider: () => true }, cp)
     check("  and an error when one can", withPics.find((i) => i.code === "template.untouched_image")?.severity === "error")
 
@@ -302,9 +304,9 @@ async function main() {
     store.project.pages.home = store.project.pages.home.map((s) =>
       s.id === "tpl-open" ? { ...s, settings: { heading: "Iron & Chalk: lift with a plan", photo: "storelib://media/iron-chalk-hero.jpg" } } : s.id === "tpl-faq" ? { ...s, settings: { heading: "What people ask us" }, blocks: (s.blocks ?? []).map((b, i) => ({ ...b, settings: { question: ["Is it for beginners?", "How long is a session?", "Where do we train?"][i], answer: ["Yes. Your plan starts at your level.", "An hour, warm up to cool down.", "The arches on Mill Lane."][i] } })) } : s,
     )
-    const left = untouchedTemplateParts({ files: store.project.files, pages: await store.listPages() }, TEMPLATE)
+    const left = untouchedTemplateParts(TEMPLATE, { files: store.project.files, pages: await store.listPages() })
     const after = await verify(job(), { ...deps, imageProvider: () => true }, cp)
-    check("adapted: nothing untouched, finish no longer refuses for the template", left.copy.length === 0 && left.images.length === 0 && !after.some((i) => i.code.startsWith("template.")), { left, codes: after.filter((i) => i.code.startsWith("template.")) })
+    check("adapted: nothing untouched, finish no longer refuses for the template", left.files.length === 0 && left.sections.length === 0 && left.emptyImageSlots.length === 0 && !after.some((i) => i.code.startsWith("template.")), { left, codes: after.filter((i) => i.code.startsWith("template.")) })
     const editJob = await runAgentSlice(job({ edit: true, jobId: "66666666-2222-3333-4444-555555555555" }), null, { ...deps, store: memoryStore({ pages: { home: [] } }), models: { ...deps.models, plan: { provider: scripted([{ calls: [["list_pages", {}]] }]), model: "claude-opus-5-5" }, loop: { provider: scripted([{ calls: [["list_pages", {}]] }]), model: "claude-sonnet-5-5" } } }, { deadline: T0 + 10 * 60_000, maxIterations: 1 })
     check("an edit job never applies a template", !editJob.checkpoint.template)
   }
