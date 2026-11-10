@@ -246,6 +246,20 @@ const nextConfig = {
      */
     turbopackInputSourceMaps: false,
     /**
+     * A MEMORY TARGET FOR TURBOPACK (round AR). Vercel's Standard build machine
+     * has 8 GB and kills the build at the edge of it (exit 137, "Out of
+     * Memory"). Measured here on 4 CPUs, cold `pnpm build`, the whole process
+     * tree peaked at 8,160 MB with no target, which is what failed on main.
+     * With a target, Turbopack drops cached work it can recompute instead of
+     * holding it, so the peak stays under the machine. STORELIB_TURBOPACK_MEMORY_MB
+     * overrides it (0 turns it off). The output is the same; see
+     * scripts/build-limits.env for the measured numbers.
+     */
+    turbopackMemoryLimit: (() => {
+      const mb = Number(process.env.STORELIB_TURBOPACK_MEMORY_MB ?? 3072)
+      return Number.isFinite(mb) && mb > 0 ? Math.round(mb * 1024 * 1024) : undefined
+    })(),
+    /**
      * AN ADDRESS NO ROUTE MATCHES (round 52): Storelib's pages and the
      * published websites each have a root layout (app/(storelib)/layout.tsx,
      * app/(site)/layout.tsx), so that 404 is app/global-not-found.tsx.
