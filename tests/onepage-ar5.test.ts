@@ -244,7 +244,8 @@ console.log("\nThemes that differ")
 const sig = (t: T) => {
   const r = Number(t.button_border_radius ?? 8)
   const shape = r <= 0 ? "square" : r >= 100 ? "pill" : r <= 8 ? "soft" : "round"
-  return [t.header_layout || "classic", t.cover_image_url ? "cover" : "-", t.block_layout || "list", t.product_layout || "own", t.header_align || "center", t.button_style, shape].join("|")
+  /* Changed on purpose (round AR, after W9): a skin (lib/onepage/theme-skin: its material and the scene behind the page) is part of a theme's structure. */
+  return [t.header_layout || "classic", t.cover_image_url ? "cover" : "-", t.block_layout || "list", t.product_layout || "own", t.header_align || "center", t.button_style, shape, (t as { theme_skin?: string | null }).theme_skin || "-"].join("|")
 }
 const seen = new Map<string, string>()
 const twins: string[] = []
@@ -253,7 +254,7 @@ for (const t of THEME_TEMPLATES) {
   if (seen.has(s)) twins.push(`${seen.get(s)} = ${t.id}`)
   else seen.set(s, t.id)
 }
-check(`no two of the ${THEME_TEMPLATES.length} themes share a structure (header, cover, layout, products, alignment, button, corners)`, twins.length === 0, twins.join("; "))
+check(`no two of the ${THEME_TEMPLATES.length} themes share a structure (header, cover, layout, products, alignment, button, corners, skin)`, twins.length === 0, twins.join("; "))
 const kinds = (k: (t: T) => boolean) => THEME_TEMPLATES.filter((t) => k(t.theme_config as T)).length
 check("some open on a full-bleed Hero, some on a cover picture", kinds((t) => t.header_layout === "hero") >= 5 && kinds((t) => !!t.cover_image_url) >= 4)
 check("every links layout is used by three themes or more", ["grid", "cards", "compact", "masonry"].every((l) => kinds((t) => t.block_layout === l) >= 3))
