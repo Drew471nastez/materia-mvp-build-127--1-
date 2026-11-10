@@ -440,7 +440,7 @@ async function main() {
       check("results come back in the order asked, with url, alt, size and what is left", outputs.length === 6 && outputs[0].alt === "Frame 1" && outputs[4].alt === "Frame 5" && outputs.slice(0, 5).every((o) => o.ok && o.url?.includes("/ai-images/")) && outputs[5].credit === "Photo by Ana Ruiz on Pexels" && outputs[5].left === 10, outputs)
       check("each picture's cost is the job's spend: a spend event each, in the slice's usage", spends.length === 5 && spends.every((s) => s.usd === 0.05) && r.usage.usd >= 0.25 && r.checkpoint.images?.made === 6 && Math.abs((r.checkpoint.images?.usd ?? 0) - 0.25) < 1e-9, { spends: spends.length, usage: r.usage })
       check("the progress view says it plainly", r.events.some((e) => e.kind === "note" && e.text === "Making the hero photo") && tools[0].summary === "Made the hero photo" && tools.every((t) => !t.summary.includes("coach and client")), tools.map((t) => t.summary))
-      check("the concept's art direction rides with every picture, and the spend left as its cap", imgs.st.calls.every((c) => (c.direction as { imagery?: string })?.imagery === CONCEPT.imagery.direction && ((c.direction as { palette?: string[] })?.palette ?? []).includes("#c2410c") && typeof c.maxUsd === "number" && c.maxUsd > 0 && c.maxUsd <= 10))
+      check("the concept's art direction rides with every picture, and the spend left as its cap", imgs.st.calls.every((c) => (c.direction as { imagery?: string })?.imagery === CONCEPT.imagery.direction && ((c.direction as { palette?: string[] })?.palette ?? []).includes("#c2410c") && typeof c.maxUsd === "number" && c.maxUsd > 0 && c.maxUsd <= DEFAULT_JOB_BUDGET.maxUsd))
     }
     /* the cap per job */
     {
