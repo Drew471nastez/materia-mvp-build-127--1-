@@ -7,7 +7,7 @@
  */
 import type { ComponentType } from "react"
 import type { IconType } from "react-icons"
-import { FaDiscord, FaFacebook, FaSpotify, FaTelegram, FaThreads, FaTwitch, FaWhatsapp } from "react-icons/fa6"
+import { FaDiscord, FaFacebook, FaSpotify, FaTelegram, FaThreads, FaTwitch, FaWhatsapp } from "@/components/icons/brand-icons.generated"
 import { Globe } from "lucide-react"
 import { JOIN_SOCIAL_BRANDS } from "@/components/onboarding/join-social-brands"
 import { cn } from "@/lib/utils"

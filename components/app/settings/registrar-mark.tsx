@@ -7,7 +7,7 @@
  */
 import type { ComponentType, SVGProps } from "react"
 import { Globe } from "lucide-react"
-import { SiAmazonroute53, SiCloudflare, SiGodaddy, SiHetzner, SiHostinger, SiInfomaniak, SiIonos, SiNamecheap, SiNamesilo, SiOvh, SiPorkbun, SiSquarespace, SiWix } from "react-icons/si"
+import { SiAmazonroute53, SiCloudflare, SiGodaddy, SiHetzner, SiHostinger, SiInfomaniak, SiIonos, SiNamecheap, SiNamesilo, SiOvh, SiPorkbun, SiSquarespace, SiWix } from "@/components/icons/brand-icons.generated"
 import type { IconType } from "react-icons"
 
 import type { RegistrarId } from "@/lib/custom-domains/dns-help"

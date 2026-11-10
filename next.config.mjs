@@ -224,6 +224,16 @@ const nextConfig = {
     // Load the large server graph once during route-data/prerender work instead
     // of duplicating it across workers. Runtime routes and checks are unchanged.
     cpus: 1,
+    /*
+     * TURBOPACK DOES NOT MINIFY; scripts/minify-after-build.mjs DOES (round 53).
+     * Vercel's 8 GB Standard build machine ran out of memory: Turbopack holds the
+     * app's compiled graph until it exits, and minifying inside it was the last
+     * ~340 MB (cold `pnpm build`, 4 CPUs: 8.26 GB peak minifying, 7.92 GB not;
+     * the compile 40 s faster). The build's last step minifies every chunk under
+     * .next/static and .next/server with esbuild in its own process, after
+     * Turbopack has exited, so what ships is minified as before.
+     */
+    turbopackMinify: false,
     /**
      * NO SOURCE MAPS FROM TURBOPACK'S PRODUCTION BUILD.
      *

@@ -42,7 +42,7 @@
 import type React from "react"
 import { useId } from "react"
 import type { IconType } from "react-icons"
-import { FaLinkedin } from "react-icons/fa6"
+import { FaLinkedin } from "@/components/icons/brand-icons.generated"
 import {
   SiAmazon,
   SiApplemusic,
@@ -83,9 +83,9 @@ import {
   SiWhatsapp,
   SiX,
   SiYoutube,
-} from "react-icons/si"
-import { SiBrevo, SiCaldotcom, SiGoogleanalytics, SiGooglesheets, SiKit, SiMailchimp, SiMake, SiMeta, SiZapier } from "react-icons/si"
-import { SiAppstore, SiAudiomack, SiGoogleplay, SiRss } from "react-icons/si"
+} from "@/components/icons/brand-icons.generated"
+import { SiBrevo, SiCaldotcom, SiGoogleanalytics, SiGooglesheets, SiKit, SiMailchimp, SiMake, SiMeta, SiZapier } from "@/components/icons/brand-icons.generated"
+import { SiAppstore, SiAudiomack, SiGoogleplay, SiRss } from "@/components/icons/brand-icons.generated"
 import { Globe, Link as LinkGlyph, Mail, Webhook, type LucideIcon } from "lucide-react"
 
 import { canonicalSocialPlatform } from "@/lib/onepage/social-url"
