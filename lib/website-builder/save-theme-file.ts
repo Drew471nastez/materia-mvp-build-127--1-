@@ -35,6 +35,8 @@ import {
 } from "@/lib/storelib-theme/compat/schema-sync"
 import { THEME_DATA_FILE, THEME_SCHEMA_FILE, readThemeSettingsSchema } from "@/lib/storelib-theme/theme-config"
 import { fillSchemaDefaults, saveSettingsData } from "./theme-config-store"
+import { DESIGN_MD_PATH, applyDesignMdToSettings } from "./design-md-sync"
+import { parseDesignMd } from "@/lib/storelib-ai/direction/design-md"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -254,6 +256,10 @@ export async function saveThemeFile(
     /* An imported theme's settings are a list of groups; anything else would take every theme setting off the page. */
     const errors = settingsSchemaErrors(content)
     if (errors.length) return { ok: false, status: 422, error: `${path} did not read`, errors }
+  } else if (path === DESIGN_MD_PATH) {
+    /* Round O (O2): the site's design contract. Its tokens are Theme settings, so a file that does not read is refused with its lines. */
+    const read = parseDesignMd(content)
+    if (read.ok === false) return { ok: false, status: 422, error: `${path} did not read`, errors: (read as { errors: { message: string; line?: number }[] }).errors.map((e) => ({ stage: "parse" as const, message: e.message, file: path, ...(e.line ? { line: e.line } : {}) })) }
   } else if (path === THEME_SCHEMA_FILE) {
     /* The theme's own Theme settings, over Storelib's: every problem on its line, nothing half read kept. */
     const read = readThemeSettingsSchema(content)
@@ -356,6 +362,12 @@ export async function saveThemeFile(
   if (saved.ok === false) return { ok: false, status: 500, error: saved.error }
   await recordVersion(db, installId, path, content, "save", { author: opts.author, jobId: opts.jobId })
   if (rebuildsSettingsPanel(path)) notes = [...notes, ...(await rebuildSettingsPanel(db, installId, { path, text: content }))]
+  /* Round O (O2): what DESIGN.md's tokens say, into the draft Theme settings (lib/website-builder/design-md-sync.ts). */
+  /* The AI's own writes are the engine's: it sets the settings with set_tokens and writes the file to follow them (lib/ai-builder/agent/direction.ts). */
+  if (path === DESIGN_MD_PATH && opts.author !== "ai") {
+    const applied = await applyDesignMdToSettings(db, installId, content, opts.author ?? "creator")
+    if (applied.ok) notes = [...notes, ...applied.notes]
+  }
   /* A setting the file added, or a default it moved, has its default under the values nobody set, so the live site draws it too. */
   if (path === THEME_SCHEMA_FILE) await fillSchemaDefaults(db, installId, content)
   return {

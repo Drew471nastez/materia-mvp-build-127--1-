@@ -8,10 +8,15 @@ import type { RuntimeCapabilities } from "../runtime-contract"
 import type { AgentCheckpoint } from "../types"
 import type { VisualConcept } from "./concept"
 import type { SitePlan } from "./site-plan"
+import type { CreativeBrief } from "@/lib/storelib-ai/direction/brief"
 
 export interface LoopCheckpoint extends AgentCheckpoint {
   /** The accepted visual concept. Writes wait for it on a new website. */
   concept?: VisualConcept
+  /** Round O (O2): the creative brief, read from the request and the store, refined by the plan. */
+  brief?: CreativeBrief
+  /** Round O (O2): the chosen art direction (ids; directions.ts), and the seed it was chosen with. */
+  direction?: { primary: string; secondary: string | null; typeSystem: string; seed: string }
   /** Round N (N3): every page and template with its sections. A new website's writes wait for it too. */
   sitePlan?: SitePlan
   /** path → sha256 of the text this job last read or wrote: the expectedVersion of its next write. */
