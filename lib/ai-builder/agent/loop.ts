@@ -46,6 +46,7 @@ import { directionsFor, libraryKnowledge, librarySlop } from "./knowledge"
 import { errorsOf } from "./validate"
 import { completenessIssues } from "./site-plan"
 import { jobDesignBrief } from "./design-brief"
+import { surfaceRules } from "@/lib/storelib-ai/surfaces"
 
 export interface SliceOptions {
   /** This invocation's end (ms since epoch). No call starts later than deadline - budget.callReserveMs. */
@@ -267,7 +268,9 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     const files = await deps.store.listFiles()
     const sources: Record<string, string> = {}
     for (const f of files) if (f.text.trim()) sources[f.path] = f.text
-    const rules = files.find((f) => /(^|\/)DESIGN\.md$/i.test(f.path))?.text
+    /* Round O (O6): the critic holds the pages to the same design rules the agent was given (compact set), then the site's own DESIGN.md. */
+    const contract = files.find((f) => /(^|\/)DESIGN\.md$/i.test(f.path))?.text
+    const rules = [surfaceRules("other"), contract ? `THE SITE'S DESIGN.md:\n${contract}` : ""].filter(Boolean).join("\n\n")
     let report: CriticReport
     try {
       report = await deps.visualCritic({

@@ -124,6 +124,12 @@ const surfaces: Record<string, { prompt: string; rules: string }> = {}
     surfaces["Ask for a change agent (first turn)"] = { prompt: firstText(ask.seen[0]), rules: KEEP_BRAND_TOKENS }
   }
 
+  /* The visual critic (O4) reviews against the same rules, then the site's DESIGN.md. */
+  const loopSrc = code("lib/ai-builder/agent/loop.ts")
+  check("the agent hands the visual critic the design rules and the DESIGN.md", /const rules = \[surfaceRules\("other"\), contract \?/.test(loopSrc) && /\.\.\.\(rules \? \{ rules \} : \{\}\)/.test(loopSrc))
+  const { reviewMessage } = await import("@/lib/ai-builder/visual-critic/review")
+  surfaces["visual critic review (turn)"] = { prompt: reviewMessage({ brief: "A trainer", rules: [surfaceRules("other"), `THE SITE'S DESIGN.md:\n${DESIGN_MD}`].join("\n\n"), pages: [], measured: [] } as never).text, rules: designRulesFor("other") }
+
   for (const [name, s] of Object.entries(surfaces)) check(`${name} carries ${s.rules === KEEP_BRAND_TOKENS ? "the keep-the-brand rule" : "its design rules"}`, s.prompt.includes(s.rules))
   check("surfaceRules is designRulesFor, one text per surface", surfaceRules("sites_agent") === designRulesFor("sites_agent") && surfaceRules("ask_edit") !== surfaceRules("sites_agent"))
   check("the Sites agent's base prompt still opens on its own rules and keeps the four edges rule", SITES_SYSTEM.startsWith("You edit a small React website") && /MUST REACH ALL FOUR EDGES/.test(SITES_SYSTEM))

@@ -88,7 +88,7 @@ export function reviewMessage(input: ReviewInput): { text: string; images: Agent
   const text = [
     `THE BRIEF (the creator's words): ${input.brief.slice(0, 1_500)}`,
     input.concept ? `THE CREATIVE DIRECTION:\n${input.concept.slice(0, 2_500)}` : "",
-    input.rules ? `THE SITE'S DESIGN RULES:\n${input.rules.slice(0, 3_000)}` : "",
+    input.rules ? `THE SITE'S DESIGN RULES:\n${input.rules.slice(0, 6_000)}` : "",
     `THE PAGES AND THEIR SECTIONS, top to bottom:\n${input.pages.map((p) => `${p.page}: ${p.sections.map((s) => `${s.type} (${s.id})`).join(", ")}`).join("\n")}`,
     `THE SCREENSHOTS:\n${lines.join("\n")}`,
     input.measured.length ? `WHAT THE BROWSER MEASURED (facts):\n${input.measured.slice(0, 30).join("\n")}` : "WHAT THE BROWSER MEASURED: nothing wrong.",
