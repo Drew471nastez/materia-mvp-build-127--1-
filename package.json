@@ -5,7 +5,7 @@
   "engines": { "node": "22.x" },
   "private": true,
   "scripts": {
-    "build": "node scripts/build-sql-catalog.mjs && node scripts/build-sites-assets.mjs && node scripts/gen-theme-dark.mjs && node scripts/build-css.mjs && node --max-old-space-size=4096 scripts/build-next.mjs && node scripts/trace-error-pages.mjs",
+    "build": "node scripts/build-sql-catalog.mjs && node scripts/build-sites-assets.mjs && node scripts/gen-theme-dark.mjs && node scripts/build-css.mjs && node --max-old-space-size=4096 scripts/build-next.mjs && node scripts/trace-error-pages.mjs && node scripts/minify-after-build.mjs",
     "dev": "node scripts/build-sql-catalog.mjs && node scripts/build-sites-assets.mjs && next dev",
     "lint": "eslint .",
     "typecheck": "node --max-old-space-size=6144 node_modules/typescript/bin/tsc --noEmit -p tsconfig.json --pretty false",
