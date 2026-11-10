@@ -221,7 +221,34 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
   return (
     <div data-onepage-shelf={shelfSource(data.source)} className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       <BlockTitle text={data.title} look={look} />
-      {shelfUsesProductCards(data) && shelfSource(data.source)!=="community" ? <div className={data.layout==="carousel"?"flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none]":data.layout==="grid"?"grid grid-cols-2 gap-3":"flex flex-col gap-3"}>
+      {shelfSource(data.source) === "community" && data.layout === "featured" ? (
+        /*
+          ROUND AR: A COMMUNITY, FEATURED. One large card per community: its cover across the top, its name, its
+          line (members, the price) and Join in the page's button colours, pressed like every card on the page.
+        */
+        <div className="flex flex-col" style={{ gap: px(10, look.scale) }} data-shelf-arrange="featured">
+          {items.map((item) => (
+            <a key={item.id} href={platformHref(item.href)} className="op-card flex w-full flex-col overflow-hidden no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, borderRadius: radius, padding: 0 }} data-community-card="">
+              <span className="relative block w-full overflow-hidden bg-black/10" style={{ aspectRatio: "16 / 9" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {item.image ? <img src={item.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" /> : null}
+              </span>
+              <span className="flex items-center text-left" style={{ padding: px(14, look.scale), gap: px(12, look.scale) }}>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold" style={{ fontSize: px(16, look.scale) }}>{item.title}</span>
+                  {priceLine(item, money) ? <span className="mt-0.5 block truncate opacity-75" style={{ fontSize: px(13, look.scale) }}>{priceLine(item, money)}</span> : null}
+                </span>
+                <span className="inline-flex shrink-0 items-center rounded-full font-semibold" style={{ background: (look.button.color as string) || "#fff", color: (look.button.backgroundColor as string) || "#111", fontSize: px(13.5, look.scale), padding: `${px(8, look.scale)} ${px(16, look.scale)}` }}>
+                  {tt("Join")}
+                </span>
+              </span>
+            </a>
+          ))}
+          {ghosts.map((i) => (
+            <span key={`g${i}`} aria-hidden className="block w-full animate-pulse motion-reduce:animate-none" style={{ ...look.button, borderRadius: radius, aspectRatio: "16 / 11", opacity: 0.5 }} />
+          ))}
+        </div>
+      ) : shelfUsesProductCards(data) && shelfSource(data.source)!=="community" ? <div className={data.layout==="carousel"?"flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none]":data.layout==="grid"?"grid grid-cols-2 gap-3":"flex flex-col gap-3"}>
        {items.map(item=><div key={item.id} className={data.layout==="carousel"?"w-[85%] shrink-0 snap-start":"min-w-0"} style={data.layout==="carousel"&&shelfSlideWidth(data.carousel_view,12)?{width:shelfSlideWidth(data.carousel_view,12)!}:undefined}><OnePageProductBlock block={{id:`${block.id}:${item.id}`,type:"product",enabled:true,sort_order:0,data:{show_price:true,show_description:true,cta_text:tt("View product"),style:"callout",...data.product_settings,...data.product_overrides?.[item.id],product_id:item.id,product_title:item.title,product_thumbnail:item.image,product_slug:item.href.split('/').filter(Boolean).pop(),product_type:item.kind,product_price_cents:item.price_cents,product_variant_min_cents:item.variant_min_price_cents,product_variant_max_cents:item.variant_max_price_cents,product_variant_count:item.variant_count,product_single_variant_id:item.single_variant_id}}} theme={look.theme} quiet={look.still} inPair={data.layout==="grid"} seller={{name:"",avatarUrl:null}} pageMoney={money} plainText={s=>s?.replace(/<[^>]*>/g,'')||''} trackClick={()=>{}} animationClass="" quick={null}/></div>)}
       </div> : list ? (        <div className="flex flex-col" style={{ gap: px(8, look.scale) }}>
           {items.map((item) => (
@@ -671,7 +698,7 @@ function PromoCodeView({ block, look }: { block: OnePageBlock; look: StorelibBlo
           }
         }}
         className="mt-2.5 flex w-full items-center justify-between border border-dashed border-current/40 font-mono font-semibold tracking-[0.06em]"
-        style={{ borderRadius: Math.max(radius - 4, 8), padding: `${px(10, look.scale)} ${px(14, look.scale)}`, fontSize: px(15, look.scale), borderColor: tt("color-mix(in srgb, currentColor 40%, transparent)") }}
+        style={{ borderRadius: Math.max(radius - 4, 8), padding: `${px(10, look.scale)} ${px(14, look.scale)}`, fontSize: px(15, look.scale), borderColor: "color-mix(in srgb, currentColor 40%, transparent)" }}
       >
         <span className="truncate">{code}</span>
         <span className="inline-flex shrink-0 items-center gap-1 font-sans font-medium tracking-normal" style={{ fontSize: px(13, look.scale) }}>
@@ -1032,6 +1059,8 @@ function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updat
           { id: "list", kind: "list", label: tt("List") },
           { id: "grid", kind: "grid", label: tt("Grid") },
           { id: "carousel", kind: "carousel", label: tt("Carousel") },
+          /* Round AR: a community as one large card with its cover and Join. */
+          ...(source === "community" ? [{ id: "featured" as const, kind: "single" as const, label: tt("Featured") }] : []),
         ]}
         /* Round AQ: the shelf's own products, the picked ones in their order, with the picture, name and price the page draws. */
         items={shelfPreviewItems(data, source, products, settings.show_price !== false ? money : null)}
@@ -1437,13 +1466,73 @@ function FollowersEditor({ data, updateData }: { data: FollowersBlockData; updat
 
 function PromoCodeEditor({ data, updateData }: { data: PromoCodeBlockData; updateData: (u: Partial<PromoCodeBlockData>) => void }) {
   const ok = !data.code?.trim() || promoCode(data.code) !== null
+  /* Round AR: one of the store's own codes, or a code for another brand typed by hand. */
+  const fromStore = !!data.coupon_id || (data as { code_source?: string }).code_source === "store"
+  const [coupons, setCoupons] = React.useState<CouponRow[] | null>(null)
+  React.useEffect(() => {
+    if (!fromStore || coupons !== null) return
+    let live = true
+    fetch("/api/coupons")
+      .then((r) => (r.ok ? r.json() : { coupons: [] }))
+      .then((d) => live && setCoupons(Array.isArray(d?.coupons) ? d.coupons : []))
+      .catch(() => live && setCoupons([]))
+    return () => {
+      live = false
+    }
+  }, [fromStore, coupons])
   return (
     <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-[#f4f4f6] p-1" role="radiogroup" aria-label={tt("Code")} data-promo-source="">
+        {([
+          ["store", tt("From your store")],
+          ["typed", tt("Another brand's code")],
+        ] as const).map(([id, label]) => {
+          const on = (id === "store") === fromStore
+          return (
+            <button key={id} type="button" role="radio" aria-checked={on} onClick={() => updateData(id === "store" ? ({ code_source: "store" } as never) : ({ code_source: "typed", coupon_id: null } as never))} className={cn("h-9 rounded-lg text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150", on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}>
+              {label}
+            </button>
+          )
+        })}
+      </div>
+      {fromStore ? (
+        <div className={fieldBox} data-promo-coupons="">
+          <Label className={fieldLabel}>{tt("Code")}</Label>
+          {coupons === null ? (
+            <div className="flex h-12 items-center gap-2 rounded-xl border border-[#e3e4e8] px-3 text-[13px] text-[#6b7280]">
+              <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+              {tt("Loading your codes")}
+            </div>
+          ) : coupons.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-[#d9dbe0] p-4 text-center">
+              <p className="text-[13px] font-medium text-[#1a1a2e]">{tt("No codes yet")}</p>
+              <a href="/app/coupons" className="mt-3 inline-flex h-9 items-center rounded-lg bg-[#1a1a2e] px-3.5 text-[13px] font-medium text-white">{tt("New code")}</a>
+            </div>
+          ) : (
+            <div role="listbox" aria-label={tt("Code")} className="max-h-[240px] space-y-1 overflow-y-auto rounded-xl border border-[#e3e4e8] p-1">
+              {coupons.map((c) => {
+                const on = data.coupon_id === c.id
+                return (
+                  <button key={c.id} type="button" role="option" aria-selected={on} onClick={() => updateData({ coupon_id: c.id, code: c.code, ...(data.title?.trim() ? {} : { title: c.code }) })} className={cn("flex w-full items-center gap-3 rounded-lg p-2.5 text-left transition-colors duration-150", on ? "bg-[#f2f2f4]" : "hover:bg-[#f7f7f8]")}>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-mono text-[13.5px] font-semibold text-[#1a1a2e]">{c.code}</span>
+                      {c.is_active === false ? <span className="block truncate text-[12px] text-[#6b7280]">{tt("Off")}</span> : null}
+                    </span>
+                    {on ? <Check aria-hidden className="h-4 w-4 shrink-0 text-[#1a1a2e]" /> : null}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <p className="text-[12px] text-[#6b7280]">{tt("Your page shows the code while it can be used, and hides the block once it is off, used up or ended.")}</p>
+        </div>
+      ) : (
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Code")}</Label>
         <Input value={data.code || ""} maxLength={40} autoCapitalize="characters" autoCorrect="off" spellCheck={false} placeholder="ANNA15" onChange={(e) => updateData({ code: e.target.value.trim() })} aria-invalid={!ok || undefined} />
         {!ok ? <p className="text-[12px] text-[#b42318]">{tt("Letters, numbers and - _ . only, no spaces.")}</p> : null}
       </div>
+      )}
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Title")}</Label>
         <Input value={data.title ?? ""} maxLength={60} placeholder={tt("15% off at Gymshark")} onChange={(e) => updateData({ title: e.target.value })} />

@@ -173,6 +173,7 @@ import { BlockRemoveQuestion, BlockRowMenu } from "@/components/onepage/block-re
 import { AutoHeight, Reveal, revealSettledTop } from "@/components/onepage/reveal"
 import { ModeChoice, QuietAction, SettingsGroup } from "@/components/onepage/block-settings-kit"
 import { ProductPicker } from "@/components/onepage/product-picker"
+import { givableProductType } from "@/lib/onepage/signup-fields"
 import { AddBlockButton, AddBlockPicker, AddSheetGate, blockPickerTile, isAddSheetOpen, setAddSheetOpen } from "@/components/onepage/add-block-picker"
 import { IconLibrary, IconLibraryGate, setIconLibraryOpen } from "@/components/onepage/icon-library"
 import { GlyphBooking, GlyphDivider, GlyphDocument, GlyphEmail, GlyphForm, GlyphGroup, GlyphHeader, GlyphImage, GlyphLink, GlyphMenu, GlyphProduct, GlyphSocial, GlyphText, type Glyph } from "@/components/onepage/block-icons"
@@ -3899,7 +3900,8 @@ function BlockEditor({
   const updateBlock = updateBlockOverride || contextUpdateBlock
 
   /* Products for the product block's picker, with their status: read once for the whole editor (./product-block-editor). */
-  const creatorProducts = useCreatorProducts(block.type === "product")
+  /* Round AR: the email signup gives one of these too, so it reads them as well. */
+  const creatorProducts = useCreatorProducts(block.type === "product" || block.type === "email_capture")
   const sellerProductsLocal: SellerProduct[] = creatorProducts ?? []
 
   // Use provided sellerProducts or local fetch
@@ -4966,6 +4968,27 @@ function BlockEditor({
                 />
               </div>
 
+              {/* Round AR: a phone number too (lib/onepage/signup-fields): checked, kept on the subscriber and sent to your tools. */}
+              <div className="flex min-h-11 items-center justify-between gap-3" data-email-ask-phone="">
+                <div className="min-w-0">
+                  <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Ask for a phone number")}</p>
+                  <p className="text-[12.5px] leading-snug text-[#6b7280]">{tt("Kept with the subscriber, for texts and calls.")}</p>
+                </div>
+                <Toggle label={tt("Ask for a phone number")}
+                  checked={data.ask_phone === true}
+                  onCheckedChange={(checked) => updateData({ ask_phone: checked })}
+                />
+              </div>
+              {data.ask_phone === true ? (
+                <div className="flex min-h-11 items-center justify-between gap-3 pl-3" data-email-phone-required="">
+                  <p className="text-[14px] text-[#1a1a2e]">{tt("Phone number required")}</p>
+                  <Toggle label={tt("Phone number required")}
+                    checked={data.phone_required === true}
+                    onCheckedChange={(checked) => updateData({ phone_required: checked })}
+                  />
+                </div>
+              ) : null}
+
               {/* After they join: a link (a free guide, a private video, a group chat). A file is under Enable Digital Product. */}
               <div className="space-y-2 border-t border-[#eef0f2] pt-4">
                 <div>
@@ -5060,13 +5083,51 @@ function BlockEditor({
                   />
                 </div>
 
-                {data.enable_digital_product && !data.digital_product_file_url ? (
+                {/*
+                  ROUND AR: A FILE OF YOURS, OR ONE OF YOUR PRODUCTS. The product is read from the published block on
+                  the server and given as a download link to its files (lib/onepage/signup-grant-server), so a course,
+                  a template pack or any digital product works, not only one file uploaded here.
+                */}
+                {data.enable_digital_product ? (
+                  <ModeChoice
+                    label={tt("What people who join get")}
+                    value={(data as { digital_gift?: string }).digital_gift === "product" || data.digital_product_id ? "product" : "file"}
+                    onPick={(id) => {
+                      if (id === "file") updateData({ digital_gift: "file", digital_product_id: null, digital_product_thumbnail: null } as never)
+                      else {
+                        const first = data.digital_product_id ? null : pickableProducts((effectiveSellerProducts ?? []).filter((p) => givableProductType(p.type)))[0]
+                        updateData({ digital_gift: "product", ...(first ? { digital_product_id: first.id, digital_product_title: first.title, digital_product_thumbnail: first.thumbnail_url || null } : {}) } as never)
+                      }
+                    }}
+                    options={[
+                      { id: "file", label: tt("A file you upload"), hint: tt("Any file type") },
+                      { id: "product", label: tt("One of your products"), hint: tt("Access to a digital product you sell") },
+                    ]}
+                  />
+                ) : null}
+
+                {data.enable_digital_product && ((data as { digital_gift?: string }).digital_gift === "product" || data.digital_product_id) ? (
+                  <div className="space-y-2 pt-1" data-signup-product="">
+                    <ProductPicker
+                      products={pickableProducts((effectiveSellerProducts ?? []).filter((p) => givableProductType(p.type)))}
+                      stateOf={(id) => editorProductState(id, effectiveSellerProducts)}
+                      selectedId={data.digital_product_id}
+                      fallback={{ title: data.digital_product_title, thumbnail: data.digital_product_thumbnail }}
+                      state={editorProductState(data.digital_product_id, creatorProducts)}
+                      money={(cents, product) => shopMoney(cents, product)}
+                      onPick={(product) => updateData({ digital_product_id: product.id, digital_product_title: product.title, digital_product_thumbnail: product.thumbnail_url || null })}
+                    />
+                    <p className="text-[12.5px] leading-snug text-[#6b7280]">{tt("Everyone who joins gets a download link to this product's files, by email address. A draft is given once it is published.")}</p>
+                  </div>
+                ) : null}
+
+                {data.enable_digital_product && (data as { digital_gift?: string }).digital_gift !== "product" && !data.digital_product_id && !data.digital_product_file_url ? (
                   <p className="rounded-xl bg-[#fff7ed] px-3 py-2 text-[12.5px] leading-snug text-[#9a4a07]" data-signup-file-missing="">
                     {tt("Upload the file. Until then, people who join get nothing to download.")}
                   </p>
                 ) : null}
 
-                {data.enable_digital_product && (
+                {data.enable_digital_product && (data as { digital_gift?: string }).digital_gift !== "product" && !data.digital_product_id && (
                   <div className="space-y-3 pt-2">
                     {/* Digital Product File Picker */}
                     <div className="space-y-1.5">

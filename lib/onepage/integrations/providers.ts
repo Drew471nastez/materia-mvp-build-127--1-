@@ -58,6 +58,8 @@ export {
 export interface PageSignup {
   email: string
   name?: string | null
+  /** Round AR: the number a signup that asks for one was given (lib/onepage/signup-fields), "+" and digits. */
+  phone?: string | null
   /** "signup" (the email block), "lead_magnet", "subscribe", "contact". */
   form: string
   /** download, discount or waitlist, for a lead magnet. */
@@ -335,6 +337,8 @@ export function webhookPayload(signup: PageSignup, id: string): Record<string, u
     block_id: signup.blockId || null,
     onepage_id: signup.onepageId || null,
     page_url: signup.pageUrl || null,
+    /* Round AR: only when the signup asked for one, so a receiver built on the older shape sees nothing new. */
+    ...(signup.phone ? { phone: signup.phone } : {}),
   }
 }
 

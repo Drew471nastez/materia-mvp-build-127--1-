@@ -395,6 +395,9 @@ export interface EmailCaptureBlockData {
   animation_type?: BlockAnimationType
   // Ask for a first name above the email box
   ask_name?: boolean
+  /** Round AR: ask for a phone number too (lib/onepage/signup-fields), and whether it must be given. */
+  ask_phone?: boolean
+  phone_required?: boolean
   // After they join: a link the success message offers (a free guide, a private video, a group)
   after_signup_url?: string | null
   /** A chat or group the signup leads to (lib/forms/actions); fills after_signup_url. */

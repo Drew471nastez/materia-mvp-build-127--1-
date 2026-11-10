@@ -228,6 +228,9 @@ const DIRECTIVES: [string, string[]][] = [
     "https://assets.pinterest.com",
     "https://embed.reddit.com",
     "https://audiomack.com",
+    /* Round AR: a Luma event's or calendar's own embed, and Trustpilot's TrustBox frame (lib/onepage/reviews-block). */
+    "https://lu.ma",
+    "https://widget.trustpilot.com",
     /* The blog's embed block (lib/blog/embed.ts): a Figma file and a CodePen demo. */
     "https://www.figma.com",
     "https://codepen.io",

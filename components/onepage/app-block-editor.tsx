@@ -44,6 +44,9 @@ import {
   type AppProvider,
 } from "@/lib/onepage/app-blocks"
 import type { OnePageBlock, OnePageBlockData, OnePageTheme } from "@/lib/onepage/types"
+import { DataBlockSettings, dataLayoutLabel } from "@/components/onepage/data-block-editor"
+import { tipModeOf } from "@/lib/onepage/tips"
+import { STAT_SOURCES, statSourceOf, type StatSource } from "@/lib/onepage/stat-count"
 
 type Update = (updates: Partial<OnePageBlockData>) => void
 
@@ -207,7 +210,7 @@ function LayoutPicker({ data, provider, update }: { data: AppBlockData; provider
               <span className="block aspect-[4/3] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
                 <AppLayoutThumb id={id} provider={provider} theme={theme} />
               </span>
-              <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{LAYOUT_LABEL[id]()}</span>
+              <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{dataLayoutLabel(provider.id, id) ?? LAYOUT_LABEL[id]()}</span>
             </button>
           )
         })}
@@ -238,13 +241,33 @@ function ItemsEditor({ data, provider, update, blockId }: { data: AppBlockData; 
             </button>
           </div>
           {shape === "stats" ? (
-            <div className="grid grid-cols-2 gap-2.5">
-              <Field label={tt("Number")}>
-                <TextInput value={item.value ?? ""} maxLength={12} placeholder="12k" onChange={(e) => patch(item.id, { value: e.target.value })} />
-              </Field>
-              <Field label={tt("Label")}>
-                <TextInput value={item.title ?? ""} maxLength={40} placeholder={tt("Students")} onChange={(e) => patch(item.id, { title: e.target.value })} />
-              </Field>
+            <div className="space-y-2.5">
+              {/* Round AR: a number typed, or one Storelib counts for you (lib/onepage/stat-count), filled in on the live page. */}
+              <div role="radiogroup" aria-label={tt("Number")} className="flex flex-wrap gap-1.5" data-stat-source="">
+                {STAT_SOURCES.map((src) => {
+                  const on = statSourceOf(item) === src
+                  return (
+                    <button key={src} type="button" role="radio" aria-checked={on} onClick={() => patch(item.id, { source: src, ...(src === "typed" ? {} : { value: item.value?.trim() ? item.value : "0" }) })} className={cn("h-9 rounded-full px-3 text-[13px] font-medium transition-[background-color,color] duration-150", on ? "bg-[#1a1a2e] text-white" : "bg-[#f4f4f6] text-[#4b5563] hover:text-[#1a1a2e]")}>
+                      {STAT_SOURCE_LABEL[src]()}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                {statSourceOf(item) === "typed" ? (
+                  <Field label={tt("Number")}>
+                    <TextInput value={item.value ?? ""} maxLength={12} placeholder="12k" onChange={(e) => patch(item.id, { value: e.target.value })} />
+                  </Field>
+                ) : (
+                  <div className="space-y-2">
+                    <span className={fieldLabel}>{tt("Number")}</span>
+                    <p className="flex h-12 items-center rounded-xl bg-[#f4f4f6] px-4 text-[13px] text-[#6b7280]">{tt("Counted live")}</p>
+                  </div>
+                )}
+                <Field label={tt("Label")}>
+                  <TextInput value={item.title ?? ""} maxLength={40} placeholder={tt("Students")} onChange={(e) => patch(item.id, { title: e.target.value })} />
+                </Field>
+              </div>
             </div>
           ) : (
             <>
@@ -256,9 +279,14 @@ function ItemsEditor({ data, provider, update, blockId }: { data: AppBlockData; 
                   <Field label={tt("Date")}>
                     <TextInput type="date" value={item.date ?? ""} onChange={(e) => patch(item.id, { date: e.target.value })} />
                   </Field>
-                  <Field label={tt("Venue")}>
-                    <TextInput value={item.venue ?? ""} maxLength={80} placeholder={tt("City or venue")} onChange={(e) => patch(item.id, { venue: e.target.value })} />
+                  <Field label={tt("Time (optional)")}>
+                    <TextInput type="time" value={item.time ?? ""} onChange={(e) => patch(item.id, { time: e.target.value })} />
                   </Field>
+                  <div className="col-span-2">
+                    <Field label={tt("Venue")}>
+                      <TextInput value={item.venue ?? ""} maxLength={80} placeholder={tt("City or venue")} onChange={(e) => patch(item.id, { venue: e.target.value })} />
+                    </Field>
+                  </div>
                 </div>
               ) : (
                 <Field label={provider.id === "books" ? tt("Author or price (optional)") : tt("Price or note (optional)")}>
@@ -291,6 +319,14 @@ function ItemsEditor({ data, provider, update, blockId }: { data: AppBlockData; 
       ) : null}
     </div>
   )
+}
+
+const STAT_SOURCE_LABEL: Record<StatSource, () => string> = {
+  typed: () => tt("Typed"),
+  subscribers: () => tt("Subscribers"),
+  sales: () => tt("Sales"),
+  reviews: () => tt("Reviews"),
+  rating: () => tt("Rating"),
 }
 
 /* ─── The two halves ──────────────────────────────────────────────────── */
@@ -329,14 +365,17 @@ function SettingsHalf({ block, data, provider, update }: { block: OnePageBlock; 
   const target = appTarget(data)
   const bad = appUrlProblem(data)
   const shape = provider.shape
-  const takesUrl = ["social", "player", "link", "items", "reviews"].includes(shape) || provider.id === "tips"
+  /* Round AR: tips through Storelib checkout have no address; the event, paid access and reviews blocks keep their own fields (./data-block-editor). */
+  const storelibTips = provider.id === "tips" && tipModeOf(data) === "storelib"
+  const takesUrl = (["social", "player", "link", "items", "reviews"].includes(shape) || provider.id === "tips") && !storelibTips
   const takesWords = ["social", "player", "link", "items", "reviews", "events", "stats"].includes(shape)
-  const takesButton = ["social", "player", "link", "items", "reviews", "events", "contact", "email"].includes(shape)
-  const takesMode = ["social", "player", "link", "items", "reviews", "contact"].includes(shape)
+  const takesButton = ["social", "player", "link", "items", "reviews", "events", "contact", "email", "event", "paid"].includes(shape) && !storelibTips
+  const takesMode = ["social", "player", "link", "items", "reviews", "contact"].includes(shape) && !storelibTips
   const posts = Array.isArray(data.posts) ? data.posts : []
 
   return (
     <div className="space-y-5" data-app-settings="">
+      <DataBlockSettings block={block} data={data} set={set} />
       {takesUrl ? (
         <Field
           label={shape === "items" ? tt("Shop address (optional)") : tt("{name} address", { name })}
@@ -510,7 +549,7 @@ function PollEditor({ data, set }: { data: AppBlockData; set: (p: Partial<AppBlo
             {tt("Add an answer")}
           </button>
         ) : null}
-        <p className={hint}>{tt("Each vote is counted in this block's clicks.")}</p>
+        <p className={hint}>{tt("Votes are kept on Storelib, one per person.")}</p>
       </div>
     </div>
   )

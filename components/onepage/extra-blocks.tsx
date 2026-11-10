@@ -398,7 +398,7 @@ export function ExtraBlock({ block, look: given }: { block: OnePageBlock; look: 
       return <VideoView data={block.data as VideoBlockData} look={look} />
     case "app":
       /* Round AL: every service with no block of its own (./app-block). */
-      return <AppBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, onepageId: look.onepageId, still: look.still }} />
+      return <AppBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, onepageId: look.onepageId, sellerId: look.sellerId, still: look.still }} />
     default:
       /* Course, music, testimonials and the contact form (./creator-blocks). */
       return <CreatorBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, sellerId: look.sellerId, onepageId: look.onepageId, still: look.still, button: themeButtonStyle(look.theme) }} />
