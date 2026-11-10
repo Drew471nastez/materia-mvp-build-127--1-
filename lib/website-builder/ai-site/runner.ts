@@ -26,6 +26,8 @@ import { PLAN_MODEL, SMALL_MODEL, WRITE_MODEL, type Models } from "./models"
 import { claimJob, imageDeps, jobToken, loadJob, releaseJob, RUN_BUDGET_MS, saveJob, siteIO } from "./server"
 import { nativeEngineEnabled } from "./native/flag"
 import { nativeServerDeps } from "./native/server"
+import { nativeReviewEnabled } from "./native-review/flag"
+import { nativeReviewFor } from "./native-review/server"
 
 /** The three models, answered on the creator's own Claude key when they connected one. */
 export async function jobModels(creatorId: string): Promise<Models> {
@@ -41,7 +43,7 @@ export async function jobModels(creatorId: string): Promise<Models> {
   }
 }
 
-export async function jobDeps(job: Job, opts: { deadline: number; save?: (job: Job) => Promise<void> }): Promise<JobDeps> {
+export async function jobDeps(job: Job, opts: { deadline: number; save?: (job: Job) => Promise<void>; origin?: string }): Promise<JobDeps> {
   const admin = createAdminClient()
   const models = await jobModels(job.creatorId)
   return {
@@ -63,6 +65,12 @@ export async function jobDeps(job: Job, opts: { deadline: number; save?: (job: J
     addable: [...ADDABLE_SECTIONS],
     /* Round R (R2): the whole site as native sections in one structured call, unless AI_NATIVE_ENGINE is off. */
     native: nativeEngineEnabled() ? nativeServerDeps(admin, job) : undefined,
+    /*
+      Round R (R3): the finished draft looked at as the live site draws it, at 1440 and 390 with JavaScript off,
+      and refined with typed patches (./native-review), behind AI_NATIVE_ENGINE. The site's own route draws it, so
+      it needs the site's address; the strongest of the three models reviews it, inside NATIVE_REVIEW_MAX_USD.
+    */
+    ...(opts.origin && nativeReviewEnabled() ? { nativeReview: nativeReviewFor({ origin: opts.origin, installId: job.installId, vision: models.plan }) } : {}),
     save: opts.save ?? ((j) => saveJob(admin, j)),
     deadline: opts.deadline,
   }
@@ -116,7 +124,7 @@ export async function driveJob(jobId: string, origin: string, started = Date.now
   if (!(await claimJob(admin, job))) return
   let after: Job = job
   try {
-    after = await runUntil({ ...job, status: "running" }, await jobDeps(job, { deadline: started + RUN_BUDGET_MS }))
+    after = await runUntil({ ...job, status: "running" }, await jobDeps(job, { deadline: started + RUN_BUDGET_MS, origin }))
   } catch (e) {
     console.error("[ai-site] runner failed", { job: jobId, error: e instanceof Error ? e.message.slice(0, 200) : "" })
   } finally {

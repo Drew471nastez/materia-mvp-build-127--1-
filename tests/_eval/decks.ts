@@ -332,7 +332,7 @@ export const DECKS: Record<EvalScenarioId, Deck> = {
       conversion: "Start a commission",
       imagery: "Finished buildings, models, drawings",
       home: [
-        ["hero_editorial", "Rooms for slow light: oversized type over House on the Maas at dusk", "light", [["layout", "cover"], ["image_side", "right"]], [["image", "modern brick house river dusk", "landscape"]]],
+        ["hero_split", "Rooms for slow light: House on the Maas at dusk beside the practice's one line", "light", [["image_side", "left"], ["image_shape", "square"]], [["image", "modern brick house river dusk", "landscape"]]],
         ["text_columns", "The practice: homes and small cultural buildings in Rotterdam", "light", [["columns", "2"]]],
         ["multirow", "Selected projects: House on the Maas, Library pavilion", "light", [["shape", "4 / 3"], ["first_side", "left"]], [["block:row", "architecture house timber brick", "landscape"]]],
         ["marquee", "Homes, cultural buildings, brick, timber, lime, Rotterdam", "dark", [["size", "large"]]],

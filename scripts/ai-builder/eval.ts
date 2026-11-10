@@ -94,7 +94,7 @@ async function main() {
   const scenarios = arg("--scenarios")?.split(",") as EvalScenarioId[] | undefined
   const engines = arg("--engines")?.split(",") as EvalEngine[] | undefined
   mkdirSync(out, { recursive: true })
-  let liveOpts: Parameters<typeof import("../../tests/_eval/run").runEval>[0]["live"]
+  let liveOpts: NonNullable<Parameters<typeof import("../../tests/_eval/run").runEval>[0]>["live"]
   if (live) {
     const gate = liveGate(process.env)
     if (!gate.ok) {

@@ -843,7 +843,8 @@ section("The cover")
     /"\/cover-render"/.test(read("proxy.ts")) && /"cover-render"/.test(read("lib/routes/reserved-segments.ts")))
   const site = read("app/(site)/w/[username]/render-site.tsx")
   check("it draws the SAVED page — drafts — through the same renderer as the site",
-    /export async function coverPage\(installId: string\)/.test(site) &&
+    /* Round R (R3): with a page key for the design review's other pages, home by default. */
+    /export async function coverPage\(installId: string, pageKey = "home"\)/.test(site) &&
       /pageSections<SectionInstance\[\]>\(pageData as never, true\)/.test(site) &&
       /themeSettingsOf\(settingsRow as never, true\)/.test(site))
   check("inside the wrapper that stops sections animating in, or the screenshot catches them fading",

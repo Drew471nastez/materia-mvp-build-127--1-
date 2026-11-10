@@ -48,6 +48,7 @@ import { runEval } from "./_eval/run"
 import { browserHere } from "./_eval/browser"
 import { EVAL_SCENARIOS } from "@/lib/ai-builder/eval/scenarios"
 import { CHECKS, type EvalSite } from "@/lib/ai-builder/eval/types"
+import type { SectionInstance } from "@/lib/website-builder/types"
 import { checkData, checkDirection, checkImages, checkNovelty, checkTokens, checkSections, deltaE, evaluateSites, noveltyTable } from "@/lib/ai-builder/eval/checks"
 import { renderReport } from "@/lib/ai-builder/eval/report"
 import { capped, liveCaps, liveGate } from "../scripts/ai-builder/eval"
@@ -66,6 +67,8 @@ const KNOWN_GAPS: Record<string, string> = {
   "native:photography:direction.fit": "Same brief as the agent's (shared O2 reading)."
 }
 
+const sec = (id: string, type: string, settings: Record<string, unknown> = {}): SectionInstance => ({ id, type, name: type, settings, blocks: [] })
+
 async function units() {
   section("1. The checks catch what they are for (pure)")
   const sc = EVAL_SCENARIOS[0]
@@ -74,7 +77,7 @@ async function units() {
     engineLabel: "unit",
     scenario: sc,
     status: "complete",
-    pages: [{ key: "home", sections: [{ id: "h", type: "hero_split", settings: { heading: "Strength coaching" }, blocks: [] }] }],
+    pages: [{ key: "home", sections: [sec("h", "hero_split", { heading: "Strength coaching" })] }],
     sources: {},
     settings: { background_color: "#ffffff", text_color: "#111111", font_heading: "Archivo", font_body: "Inter" },
     capabilities: null,
@@ -82,15 +85,15 @@ async function units() {
     notes: [],
   }
   check("data.valid passes a plain native page", checkData(base).status !== "fail", checkData(base))
-  const unknown = { ...base, pages: [{ key: "home", sections: [{ id: "x", type: "ai_nowhere", settings: {}, blocks: [] }] }] }
+  const unknown = { ...base, pages: [{ key: "home", sections: [sec("x", "ai_nowhere", {})] }] }
   check("  and fails a section type with no file", checkData(unknown).status === "fail" && /no file|ai_nowhere/.test(checkData(unknown).detail), checkData(unknown))
-  const http = { ...base, pages: [{ key: "home", sections: [{ id: "h", type: "hero_split", settings: { image: "http://example.com/a.jpg" }, blocks: [] }] }] }
+  const http = { ...base, pages: [{ key: "home", sections: [sec("h", "hero_split", { image: "http://example.com/a.jpg" })] }] }
   check("images.ok fails a picture that is not https or the media library", checkImages(http).status === "fail", checkImages(http))
   const grey = { ...base, settings: { ...base.settings, text_color: "#bbbbbb", background_color: "#ffffff" } }
   check("tokens.coherent fails body text under 4.5:1", checkTokens(grey).status === "fail", checkTokens(grey))
   const slop = { ...base, settings: { ...base.settings, background_color: "#f4efe6", font_heading: "Instrument Serif", accent_color: "#c2410c" }, concept: { name: "x", mood: [], styles: [], typeSystem: { display: "Instrument Serif", body: "Inter", scaleRatio: 1.3, rule: "labels in mono caps", mono: "IBM Plex Mono" }, palette: { mode: "light", background: "#f4efe6", text: "#1d1b18", accent: "#c2410c", accentUse: "" }, layout: { principles: [], density: "balanced", radius: 2 }, motion: { stance: "subtle", moves: [] }, imagery: { direction: "", avoid: [] }, signatureMoves: [] } as never }
   check("direction.fit fails the editorial-serif cliché on a fitness coach", checkDirection(slop).status === "fail" && /cliché|serif/i.test(checkDirection(slop).detail), checkDirection(slop))
-  const skeleton = { ...base, pages: [{ key: "home", sections: ["hero_centered", "features_grid", "pricing_table", "faq_accordion", "cta_simple"].map((t, i) => ({ id: `s${i}`, type: t, settings: {}, blocks: [] })) }] }
+  const skeleton = { ...base, pages: [{ key: "home", sections: ["hero_centered", "features_grid", "pricing_table", "faq_accordion", "cta_simple"].map((t, i) => sec(`s${i}`, t)) }] }
   check("sections.relevant fails a software skeleton that says nothing of the trade", checkSections(skeleton).status === "fail", checkSections(skeleton))
   const twin = { ...base, scenario: EVAL_SCENARIOS[1] }
   const table = noveltyTable([base, twin])
