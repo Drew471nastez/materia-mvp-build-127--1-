@@ -27,10 +27,13 @@ import { useBlockPart } from "@/components/onepage/block-part"
 import { ModeChoice, SettingsGroup } from "@/components/onepage/block-settings-kit"
 import { ChoiceMark, Switch, fieldInput } from "@/components/onepage/editor-kit"
 import { OnePageImageField } from "@/components/onepage/image-field"
+import { PictureFitControl } from "@/components/onepage/layout-pickers"
 import { AppTileMark, appDefaultButton, appProviderName } from "@/components/onepage/app-block"
 import {
   APP_ITEMS_MAX,
   APP_POSTS_MAX,
+  appEmbeds,
+  isRetiredAppProvider,
   appLayoutOf,
   appOpenModeOf,
   appTarget,
@@ -346,7 +349,12 @@ export function AppBlockEditor({ block, updateData }: { block: OnePageBlock; upd
       {showSettings ? <SettingsHalf block={block} data={data} provider={provider} update={update} /> : null}
       {showLayout ? (
         <>
-          <LayoutPicker data={data} provider={provider} update={update} />
+          {isRetiredAppProvider(data.provider) ? <p className="text-[12.5px] text-[#6b7280]" data-app-retired="">{tt("Shown as a plain link on your page.")}</p> : <LayoutPicker data={data} provider={provider} update={update} />}
+          {provider.shape === "items" ? <PictureFitControl value={data.image_fit} onChange={(image_fit) => update({ image_fit } as Partial<AppBlockData>)} /> : null}
+          {/* Round AR3: Single and Carousel play the posts given in Settings; without one they draw the profile as a large card. */}
+          {provider.shape === "social" && (layout === "single" || layout === "carousel") && appEmbeds(data).length < (layout === "carousel" ? 2 : 1) ? (
+            <p className="text-[12.5px] text-[#6b7280]" data-app-needs-posts="">{layout === "carousel" ? tt("Add two or more posts in Settings to slide through them.") : tt("Add a post in Settings to show it here.")}</p>
+          ) : null}
           {usesPicture ? (
             <div className="space-y-2" data-app-picture="">
               <span className={fieldLabel}>{provider.shape === "app" ? tt("App icon") : tt("Picture (optional)")}</span>

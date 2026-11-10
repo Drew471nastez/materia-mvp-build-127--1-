@@ -2,7 +2,7 @@
 
 import { useState, type CSSProperties, type ReactNode } from "react"
 import { useAvatarImage } from "@/lib/account/avatar-image"
-import { aspectCss, blockSurface, presentationOf, presentationVars, safeCardMedia, socialPresentation, socialProfile, type BlockPresentation } from "@/lib/onepage/block-presentation"
+import { aspectCss, blockSurface, embedIsTool, presentationOf, presentationVars, safeCardMedia, socialPresentation, socialProfile, type BlockPresentation } from "@/lib/onepage/block-presentation"
 import type { OnePageBlock, OnePageTheme, LinkButtonBlockData } from "@/lib/onepage/types"
 import { themeButtonStyle, buttonHoverVars, buttonHover, buttonShadow } from "@/lib/onepage/button-style"
 import { LinkIcon } from "./brand-icons"
@@ -68,21 +68,29 @@ export function VisualLinkCard({block,theme,onClick}: {block:OnePageBlock;theme:
   const style:CSSProperties={...themeButtonStyle(theme),...buttonHoverVars(theme),...colors,borderRadius:radius,textAlign,overflow:"hidden",position:"relative",width:"100%",padding:0,...(p.shadow?{boxShadow:"var(--op-block-shadow)"}:{})}
   const column=overImage || variant === "profile"
   const align=textAlign==="center"?"center":textAlign==="right"?"flex-end":"flex-start"
+  /* Round AR3, the owner: "be able to select how I want the image to show, cover, fit, full". Cover crops to the card, Fit shows all of it on the card's colour, Full is the picture's own shape. */
+  const fit=d.display_mode === "contain" || d.display_mode === "full" ? d.display_mode : "cover"
+  const fitClass=fit === "contain" ? "object-contain" : "object-cover"
+  const fullOver=fit === "full" && overImage && !native && !!image
   return <div data-visual-link={variant} data-link-fade={fade && !native ? "" : undefined} className="h-full min-w-0">
-    {native && social.platform === "Instagram" ? <div data-native-social="Instagram"><CompactInstagramPost src={social.embed} title={`${social.platform}: ${d.label ?? "Media"}`} radius={radius}/></div> : native ? <div data-native-social={social.platform} className="overflow-hidden rounded-t-[inherit]" style={{borderRadius:`${radius}px`,aspectRatio:aspectCss(p.aspect) ?? social.aspect,height:p.aspect?undefined:social.height,maxHeight:social.platform==="Instagram"||social.platform==="TikTok"?380:560,background:theme.button_color}}>
-      <iframe loading="lazy" title={`${social.platform}: ${d.label ?? "Media"}`} src={social.embed} className="h-full w-full border-0" allow="encrypted-media; fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-popups allow-presentation" />
+    {native && social.platform === "Instagram" ? <div data-native-social="Instagram"><CompactInstagramPost src={social.embed} title={`${social.platform}: ${d.label ?? "Media"}`} radius={radius}/></div> : native ? <div data-native-social={social.platform} className="overflow-hidden rounded-t-[inherit]" style={{borderRadius:`${radius}px`,aspectRatio:aspectCss(p.aspect) ?? social.aspect,height:p.aspect?undefined:social.height,maxHeight:social.platform==="Instagram"||social.platform==="TikTok"?380:embedIsTool(social.platform)?720:560,background:theme.button_color}}>
+      {/* Round AR3: a form or a booking page is filled in inside its frame, so forms are allowed there. */}
+      <iframe loading="lazy" title={`${social.platform}: ${d.label ?? "Media"}`} src={social.embed} className="h-full w-full border-0" allow="encrypted-media; fullscreen; picture-in-picture; clipboard-write" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" sandbox={embedIsTool(social.platform) ? "allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation allow-forms" : "allow-scripts allow-same-origin allow-popups allow-presentation"} />
     </div> : null}
     <a href={d.url} target={d.action?.type==="phone"||d.action?.type==="email"?undefined:"_blank"} rel="noopener noreferrer" onClick={onClick} className="op-btn group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4" style={style} data-hover={buttonHover(theme,true)} data-shadow={buttonShadow(theme)} data-visual-link-action="">
-      {variant === "image-first" && image && !native ? <span className="relative block w-full" style={{aspectRatio:aspect ?? "16 / 9"}}>
-        <CardMedia key={image} src={onePageImageSrc(image,960)!} width={1200} height={675} className="absolute inset-0 h-full w-full object-cover" />
+      {variant === "image-first" && image && !native ? <span className="relative block w-full" data-picture-fit={fit} style={{aspectRatio:fit === "full" ? undefined : aspect ?? "16 / 9"}}>
+        <CardMedia key={image} src={onePageImageSrc(image,960)!} width={1200} height={675} className={fit === "full" ? "relative block h-auto w-full" : "absolute inset-0 h-full w-full " + fitClass} />
         {fade ? <span aria-hidden data-image-fade="" className="absolute inset-0" style={{background:footFade(String(colors.background ?? style.background ?? surface))}} /> : null}
       </span> : null}
-      <span className="relative flex w-full min-w-0" style={{minHeight:native||aspect&&overImage?undefined:minimum,aspectRatio:overImage&&!native?aspect:undefined,padding:p.padding??(variant==="compact"?14:22),gap:p.gap??12,flexDirection:column?"column":"row",alignItems:column?(variant==="profile"?"center":align):"center",justifyContent:overImage?(p.position==="top"?"flex-start":p.position==="center"?"center":"flex-end"):variant==="profile"?"center":align}}>
+      {fullOver ? <span aria-hidden className="relative block w-full" data-picture-fit="full">
+        <CardMedia key={image} src={onePageImageSrc(image,960)!} width={1200} height={800} className="relative block h-auto w-full" />
+      </span> : null}
+      <span className={fullOver ? "absolute inset-0 flex min-w-0" : "relative flex w-full min-w-0"} data-picture-fit={overImage && !native && image ? fit : undefined} style={{minHeight:native||fullOver||aspect&&overImage?undefined:minimum,aspectRatio:overImage&&!native&&!fullOver?aspect:undefined,padding:p.padding??(variant==="compact"?14:22),gap:p.gap??12,flexDirection:column?"column":"row",alignItems:column?(variant==="profile"?"center":align):"center",justifyContent:overImage?(p.position==="top"?"flex-start":p.position==="center"?"center":"flex-end"):variant==="profile"?"center":align}}>
         {overImage && !native ? <>
-          {image ? <CardMedia key={image} src={onePageImageSrc(image,960)!} width={1200} height={800} className="absolute inset-0 h-full w-full object-cover" /> : null}
+          {image && !fullOver ? <CardMedia key={image} src={onePageImageSrc(image,960)!} width={1200} height={800} className={"absolute inset-0 h-full w-full " + fitClass} /> : null}
           {fade ? <span aria-hidden data-image-fade="" className="absolute inset-0" style={{background:shade(p)}} /> : null}
         </> : null}
-        {variant==="profile" && !native ? (image ? <CardMedia key={image} src={onePageImageSrc(image,192)!} width={72} height={72} className="relative z-[1] h-[72px] w-[72px] shrink-0 rounded-full object-cover" /> : iconNode) : variant==="compact" && image && !native ? <CardMedia key={image} src={onePageImageSrc(image,96)!} width={48} height={48} className="relative z-[1] h-12 w-12 shrink-0 rounded-lg object-cover" /> : iconNode}{words}
+        {variant==="profile" && !native ? (image ? <CardMedia key={image} src={onePageImageSrc(image,192)!} width={72} height={72} className="relative z-[1] h-[72px] w-[72px] shrink-0 rounded-full object-cover" /> : iconNode) : variant==="compact" && image && !native ? <CardMedia key={image} src={onePageImageSrc(image,96)!} width={48} height={48} className={"relative z-[1] h-12 w-12 shrink-0 rounded-lg " + fitClass} /> : iconNode}{words}
       </span>
     </a>
   </div>

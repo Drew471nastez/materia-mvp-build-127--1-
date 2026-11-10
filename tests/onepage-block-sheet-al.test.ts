@@ -46,8 +46,12 @@ console.log("INTERACTION")
   const cal = interactionPatch("calendly", "inline")
   check("Calendly's older fields follow the choice", cal.embed_mode === "embedded" && cal.embed_type === "inline" && interactionPatch("calendly", "direct").embed_mode === "direct_link")
   check("other blocks save only open_mode", JSON.stringify(interactionPatch("video", "sheet")) === JSON.stringify({ open_mode: "sheet" }))
-  for (const t of ["video", "music", "embed", "map", "contact_form", "calendly"] as const) {
+  /* Changed on purpose (round AR): a new music or video block plays on the page (the owner: "music blocks as default show on the page"). */
+  for (const t of ["embed", "map", "contact_form", "calendly"] as const) {
     check(`a new ${t} block opens in the sheet`, blockInteraction(createDefaultBlock(t)) === "sheet")
+  }
+  for (const t of ["video", "music"] as const) {
+    check(`a new ${t} block plays on the page`, blockInteraction(createDefaultBlock(t)) === "inline")
   }
 }
 

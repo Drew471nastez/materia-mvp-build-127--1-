@@ -9,6 +9,8 @@ export interface LinkMetadata {
   favicon: string | null
   url: string
 }
+/** Text from a page or an oEmbed answer: no markup, no control characters, cut to `max`. */
+export const cleanMetaText = (value: string, max: number) => clean(value, max)
 const clean = (value: string, max: number) =>
   decodeEntities(
     sanitizeHtml(decodeEntities(value), {
@@ -20,6 +22,9 @@ const clean = (value: string, max: number) =>
     .trim()
     .slice(0, max)
 /** A picture address a visitor's browser may load: absolute, public in shape, http or https, upgraded to https on a https page. */
+export function safePictureUrl(raw: string | undefined, base: string): string | null {
+  return pictureUrl(raw, base)
+}
 function pictureUrl(raw: string | undefined, base: string): string | null {
   if (!raw) return null
   try {

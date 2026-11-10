@@ -6,7 +6,7 @@ import { ProductLayoutThumb, layoutHasCard, layoutLabel, useCreatorProducts, typ
 import { OnePageImageField } from "@/components/onepage/image-field"
 import type { ProductBlockData, ProductBlockStyle } from "@/lib/onepage/types"
 import { useBlockPart } from "./block-part"
-import { ArrangePicker, CardsInViewControl, EditorThemeContext, HowManyControl } from "./layout-pickers"
+import { ArrangePicker, CardsInViewControl, EditorThemeContext, HowManyControl, PictureFitControl } from "./layout-pickers"
 import { ChoiceMark } from "./choice-marks"
 import { PRODUCT_LAYOUTS, productLayoutOf } from "@/lib/onepage/product-block"
 import type { BlockPresentation } from "@/lib/onepage/block-presentation"
@@ -72,6 +72,7 @@ import { EmbedFrame } from "@/components/onepage/embed-frame"
 import { tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
 import {
   FOLLOWER_NETWORKS,
+  detectFollowerInput,
   REFRESHABLE_NETWORKS,
   SHELF_LIMIT_MAX,
   SHELF_SOURCES,
@@ -209,6 +210,8 @@ function shelfSlideWidth(view: StorelibShelfBlockData["carousel_view"], gap: num
 }
 
 function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLook }) {
+  /* Round AR3: Cover, Fit or Full for the shelf's pictures, the plain cards and the product cards alike (product_settings.image_fit). */
+  const shelfFit = (() => { const f = (block.data as StorelibShelfBlockData | undefined)?.product_settings?.image_fit; return f === "contain" || f === "full" ? f : "cover" })()
   const money = usePageMoney()
   const { data, loading } = useLiveData<StorelibShelfBlockData>(block, look, (d) => Array.isArray(d.items))
   /* Round AP: picked products show every one picked, in the creator's order; otherwise as many as How many says. */
@@ -265,7 +268,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
             <a key={item.id} href={platformHref(item.href)} className="op-card flex w-full items-center no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, borderRadius: radius, padding: px(8, look.scale), gap: px(12, look.scale) }}>
               <span className="relative shrink-0 overflow-hidden bg-black/10" style={{ width: px(52, look.scale), height: px(52, look.scale), borderRadius: Math.max(radius - 6, 6) }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {item.image ? <img src={item.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" /> : null}
+                {item.image ? <img src={item.image} alt="" loading="lazy" data-picture-fit={shelfFit === "cover" ? "cover" : "contain"} className={cn("absolute inset-0 h-full w-full", shelfFit === "cover" ? "object-cover" : "object-contain")} /> : null}
               </span>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block truncate font-semibold" style={{ fontSize: px(14.5, look.scale) }}>{item.title}</span>
@@ -282,9 +285,9 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
         <div data-shelf-arrange={simpleGrid ? "grid" : "carousel"} className={simpleGrid ? "grid grid-cols-2" : "-mx-1 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
           {items.map((item) => (
             <a key={item.id} href={platformHref(item.href)} className="op-card flex shrink-0 snap-start flex-col no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, width: simpleGrid ? "100%" : shelfSlideWidth(data.carousel_view, 10) ?? px(158, look.scale), minWidth: 0, borderRadius: radius, padding: px(6, look.scale) }}>
-              <span className="relative block w-full overflow-hidden bg-black/10" style={{ aspectRatio: "1 / 1", borderRadius: Math.max(radius - 4, 6) }}>
+              <span className="relative block w-full overflow-hidden bg-black/10" data-picture-fit={shelfFit} style={{ aspectRatio: shelfFit === "full" && item.image ? undefined : "1 / 1", borderRadius: Math.max(radius - 4, 6) }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {item.image ? <img src={item.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" /> : null}
+                {item.image ? <img src={item.image} alt="" loading="lazy" className={shelfFit === "full" ? "relative block h-auto w-full" : cn("absolute inset-0 h-full w-full", shelfFit === "cover" ? "object-cover" : "object-contain")} /> : null}
               </span>
               <span className="block text-left" style={{ padding: `${px(8, look.scale)} ${px(4, look.scale)} ${px(4, look.scale)}` }}>
                 <span className="line-clamp-2 block font-semibold leading-snug" style={{ fontSize: px(13.5, look.scale), minHeight: px(36, look.scale) }}>{item.title}</span>
@@ -1092,6 +1095,7 @@ function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updat
           }
         />
       ) : null}
+      {source !== "community" ? <PictureFitControl value={settings.image_fit} onChange={(image_fit) => setSettings({ image_fit })} /> : null}
       {productCards && layoutHasCard(productLayoutOf({ style: settings.style ?? "callout", style_chosen: true })) ? (
         <div className="space-y-3 border-t border-[#eef0f2] pt-4" data-shelf-colours="">
           <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Card colours")}</p>
@@ -1406,20 +1410,75 @@ function FollowersEditor({ data, updateData }: { data: FollowersBlockData; updat
   const [note, setNote] = React.useState<string | null>(null)
   const set = (network: string, patch: Partial<FollowerEntry>) => updateData({ networks: entries.map((e) => (e.network === network ? { ...e, ...patch } : e)) })
   const unused = FOLLOWER_NETWORKS.filter((n) => !entries.some((e) => e.network === n))
-  const refresh = async (e: FollowerEntry) => {
+  /* `list`: the networks as they are about to be (a network just added is not in `entries` yet). */
+  const refresh = async (e: FollowerEntry, list: FollowerEntry[] = entries) => {
     setBusy(e.network)
     setNote(null)
     try {
       const r = await fetch("/api/onepage/followers", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ network: e.network, handle: e.handle }) })
       const d = await r.json().catch(() => ({}))
-      if (!r.ok) setNote(typeof d?.error === "string" ? d.error : tt("That could not be read."))
-      else set(e.network, { count: d.count, refreshed_at: d.refreshed_at })
+      if (!r.ok) setNote(typeof d?.error === "string" ? d.error : tt("That could not be read. Type the number instead."))
+      else updateData({ networks: list.map((x) => (x.network === e.network ? { ...x, count: d.count, refreshed_at: d.refreshed_at } : x)) })
     } finally {
       setBusy(null)
     }
   }
+  /*
+    Round AR3: one field first. Paste a profile link or type @handle; the
+    network is read from the link (lib/onepage/storelib-blocks
+    detectFollowerInput), its count is read at once where Storelib can, and
+    where it cannot the number box says so.
+  */
+  const [quick, setQuick] = React.useState("")
+  const [asking, setAsking] = React.useState<string | null>(null)
+  const addFrom = (network: FollowerNetwork, handle: string) => {
+    const entry: FollowerEntry = { network, handle, count: entries.find((x) => x.network === network)?.count ?? null }
+    const next = [...entries.filter((x) => x.network !== network), entry]
+    updateData({ networks: next })
+    setQuick("")
+    setAsking(null)
+    if (handle && REFRESHABLE_NETWORKS.includes(network)) void refresh(entry, next)
+  }
+  const submitQuick = () => {
+    const found = detectFollowerInput(quick)
+    if (!found) return setNote(tt("Paste a profile link, or type @ and the account name."))
+    setNote(null)
+    if (found.network) addFrom(found.network, found.handle)
+    else setAsking(found.handle)
+  }
   return (
     <div className="space-y-3">
+      <div className="space-y-2" data-followers-quick="">
+        <div className="flex gap-2">
+          <Input
+            value={quick}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            inputMode="url"
+            placeholder={tt("Paste a profile link or @handle")}
+            aria-label={tt("Paste a profile link or @handle")}
+            onChange={(ev) => { setQuick(ev.target.value); setAsking(null) }}
+            onKeyDown={(ev) => { if (ev.key === "Enter") { ev.preventDefault(); submitQuick() } }}
+          />
+          <button type="button" onClick={submitQuick} disabled={!quick.trim()} className="h-11 shrink-0 rounded-xl bg-[#1a1a2e] px-4 text-[13.5px] font-medium text-white transition-opacity disabled:opacity-40">
+            {tt("Add")}
+          </button>
+        </div>
+        {asking !== null ? (
+          <div className="space-y-1.5" data-followers-ask="">
+            <p className="text-[12.5px] text-[#6b7280]">{tt("Which network is @{value} on?", { value: asking })}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {FOLLOWER_NETWORKS.map((n) => (
+                <button key={n} type="button" onClick={() => addFrom(n, asking)} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[#e3e4e8] bg-white px-3 text-[12.5px] font-medium text-[#1a1a2e] hover:border-[#c9cbd1]">
+                  <SocialIcon platform={n} size={14} color="#1a1a2e" tone="brand" />
+                  {NETWORK_NAME[n]}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
       {entries.map((e) => {
         const canRefresh = REFRESHABLE_NETWORKS.includes(e.network)
         return (
@@ -1435,6 +1494,7 @@ function FollowersEditor({ data, updateData }: { data: FollowersBlockData; updat
               <Input value={e.handle || ""} maxLength={120} autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder={e.network === "bluesky" ? "you.bsky.social" : e.network === "youtube" ? "@you" : tt("Account (optional)")} onChange={(ev) => set(e.network, { handle: ev.target.value.trim() })} />
               <Input value={typeof e.count === "number" ? String(e.count) : ""} inputMode="numeric" placeholder="12.5k" onChange={(ev) => set(e.network, { count: parseCount(ev.target.value) })} aria-label={tt("Followers")} />
             </div>
+            {!canRefresh ? <p className="text-[12px] text-[#6b7280]" data-followers-manual="">{tt("{value} does not share follower counts with other sites. Type your number.", { value: NETWORK_NAME[e.network] })}</p> : null}
             {canRefresh ? (
               <button type="button" disabled={!e.handle || busy === e.network} onClick={() => refresh(e)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#e3e4e8] px-2.5 text-[12.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8] disabled:opacity-50">
                 <RefreshCw aria-hidden className={cn("h-3.5 w-3.5", busy === e.network && "animate-spin")} />

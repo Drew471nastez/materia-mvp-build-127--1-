@@ -50,6 +50,7 @@ import {
   appStores,
   appTarget,
   contactVCard,
+  isRetiredAppProvider,
   eventDay,
   itemHref,
   parseAppUrl,
@@ -345,6 +346,7 @@ export function CardButton({ label, look, onClick, href, wide = false }: { label
 export function AppBlock({ block, look }: { block: OnePageBlock; look: AppBlockLook }) {
   const data = (block.data ?? {}) as AppBlockData
   const provider = providerOf(data)
+  if (isRetiredAppProvider(data.provider)) return <RetiredView block={block} data={data} look={look} />
   switch (provider.shape) {
     case "items":
       return appItems(data).length ? <ItemsView block={block} data={data} provider={provider} look={look} /> : <LinkView block={block} data={data} provider={provider} look={look} />
@@ -385,6 +387,32 @@ export function AppBlock({ block, look }: { block: OnePageBlock; look: AppBlockL
 }
 
 type ViewProps = { block: OnePageBlock; data: AppBlockData; provider: AppProvider; look: AppBlockLook }
+
+/**
+ * A SAVED FOURTHWALL OR BONFIRE BLOCK (round AR): the services are gone from
+ * the sheet, and a block saved with one is drawn as the page's plain buttons,
+ * its shop first and then each item with an address, with no service mark.
+ */
+function RetiredView({ block, data, look }: Omit<ViewProps, "provider">) {
+  const track = useTrack(look)
+  const parts = useParts(look)
+  const shop = appTarget(data)?.href ?? parseAppUrl(data.url)?.toString() ?? null
+  const host = shop ? new URL(shop).hostname.replace(/^www\./, "") : ""
+  const links = [
+    ...(shop ? [{ id: "shop", title: data.title?.trim() || data.button_text?.trim() || host, href: shop }] : []),
+    ...appItems(data).map((i) => ({ id: i.id, title: i.title || "", href: itemHref(i) })).filter((i): i is { id: string; title: string; href: string } => !!i.href && !!i.title),
+  ]
+  if (!links.length) return null
+  return (
+    <div data-onepage-app="retired" className="flex w-full flex-col" style={{ gap: px(10, look.scale) }}>
+      {links.map((l) => (
+        <a key={l.id} href={l.href} target="_blank" rel="noopener noreferrer" onClick={() => track(l.id === "shop" ? block.id : socialLinkId(block.id, l.id), l.href)} data-hover={parts.press["data-hover"]} data-shadow={parts.press["data-shadow"]} className={cn(parts.press.className, "flex w-full items-center justify-center font-medium")} style={{ ...parts.press.style, padding: `${px(14 * parts.pad, look.scale)} ${px(20, look.scale)}`, fontSize: px(15, look.scale) }}>
+          <span className="op-label relative truncate" data-block-title={l.id === "shop" ? "" : undefined}>{l.title}</span>
+        </a>
+      ))}
+    </div>
+  )
+}
 
 /** The sheet's own light card for a page with nothing to embed: the mark, the name, the handle. */
 function SheetSummary({ provider, data, handle, children }: { provider: AppProvider; data: AppBlockData; handle?: string | null; children?: React.ReactNode }) {
@@ -456,10 +484,69 @@ function LinkView({ block, data, provider, look }: ViewProps) {
 
   const fallbackCard = <LinkCard {...{ provider, data, look, title, line, button, href, tap, parts }} />
 
+  /*
+    Round AR3, the owner: "the layouts of the TikTok block, some of them are not
+    working at all ... single, carousel, profile card, classic". Single and
+    Carousel used to fall back to the Card when the address was a profile with
+    no post to play, so three of the five drew the same. Now Single without a
+    post is the profile as one large card, and Carousel always slides: the
+    posts, then the profile as its last card.
+  */
+  const spotlight = (
+    <div data-onepage-app={provider.id} data-app-layout="single" data-app-spotlight="" className="flex w-full flex-col overflow-hidden" style={{ ...parts.surface, borderRadius: parts.radius, padding: px(10, look.scale), gap: px(12, look.scale) }}>
+      <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "4 / 3", borderRadius: Math.max(6, parts.radius - 6), background: provider.color === "instagram" ? INSTAGRAM_FILL : provider.color }}>
+        {data.image_url ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={data.image_url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <span className="absolute inset-0 grid place-items-center">
+            <AppTileMark provider={provider} size={Math.round(72 * k(look.scale))} mark={markFor(data)} />
+          </span>
+        )}
+      </span>
+      <span className="min-w-0 px-1 text-left">
+        <span className="block truncate font-semibold" style={{ fontSize: px(17, look.scale) }} data-block-title="">{title}</span>
+        {line ? <span className="block truncate opacity-75" style={{ fontSize: px(13, look.scale) }}>{line}</span> : null}
+      </span>
+      <CardButton label={button} look={look} href={href} onClick={tap} wide />
+    </div>
+  )
+  const profileSlide = (
+    <div key="profile" data-app-profile-slide="" className="flex h-full flex-col items-center justify-center text-center" style={{ ...parts.surface, borderRadius: parts.radius, padding: `${px(20, look.scale)} ${px(14, look.scale)}`, gap: px(10, look.scale), minHeight: px(220, look.scale) }}>
+      {data.image_url ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={data.image_url} alt="" loading="lazy" className="rounded-full object-cover" style={{ width: px(56, look.scale), height: px(56, look.scale) }} />
+      ) : (
+        <AppTileMark provider={provider} size={Math.round(52 * k(look.scale))} mark={markFor(data)} />
+      )}
+      <span className="min-w-0 max-w-full">
+        <span className="block truncate font-semibold" style={{ fontSize: px(15, look.scale) }} data-block-title="">{title}</span>
+        {line ? <span className="block truncate opacity-75" style={{ fontSize: px(12.5, look.scale) }}>{line}</span> : null}
+      </span>
+      <CardButton label={button} look={look} href={href} onClick={tap} />
+    </div>
+  )
+
   if (layout === "single" || layout === "carousel") {
-    if (!embeds.length) return fallbackCard
     const radius = Math.min(Math.max(parts.radius, 10), 16)
-    if (layout === "single" || embeds.length === 1) {
+    if (layout === "single" && !embeds.length) return spotlight
+    if (layout === "carousel") {
+      const titled = !!data.title?.trim() && embeds.length > 0
+      return (
+        <div data-onepage-app={provider.id} data-app-layout="carousel" className="w-full">
+          {titled ? <p className="mb-2 text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">{data.title}</p> : null}
+          <div className="-mx-1 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {embeds.map((e) => (
+              <div key={e.embed.src} className="w-[78%] max-w-[320px] shrink-0 snap-start">
+                <AppEmbedView embed={e.embed} href={e.href} title={title} radius={radius} compact fallback={null} />
+              </div>
+            ))}
+            <div className="w-[62%] max-w-[260px] shrink-0 snap-start">{profileSlide}</div>
+          </div>
+        </div>
+      )
+    }
+    if (layout === "single") {
       return (
         <div data-onepage-app={provider.id} data-app-layout="single" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
           {data.title?.trim() ? <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">{data.title}</p> : null}
@@ -467,18 +554,6 @@ function LinkView({ block, data, provider, look }: ViewProps) {
         </div>
       )
     }
-    return (
-      <div data-onepage-app={provider.id} data-app-layout="carousel" className="w-full">
-        {data.title?.trim() ? <p className="mb-2 text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">{data.title}</p> : null}
-        <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {embeds.map((e) => (
-            <div key={e.embed.src} className="w-[85%] max-w-[340px] shrink-0 snap-start">
-              <AppEmbedView embed={e.embed} href={e.href} title={title} radius={radius} compact fallback={null} />
-            </div>
-          ))}
-        </div>
-      </div>
-    )
   }
 
   if (layout === "classic") {
@@ -632,10 +707,17 @@ function ItemsView({ block, data, provider, look }: ViewProps) {
     }
   }
 
+  /* Round AR3: Cover, Fit or Full (the picture's own shape) for the list's pictures. */
+  const fit = data.image_fit === "contain" || data.image_fit === "full" ? data.image_fit : "cover"
   const picture = (item: AppItem, cls: string) =>
     item.image_url ? (
-      /* eslint-disable-next-line @next/next/no-img-element */
-      <img src={item.image_url} alt="" loading="lazy" className={cn("block object-cover", cls)} />
+      fit === "full" && /aspect-/.test(cls) ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={item.image_url} alt="" loading="lazy" data-picture-fit="full" className={cn("block h-auto", cls.replace(/aspect-\S+/g, ""))} />
+      ) : (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={item.image_url} alt="" loading="lazy" data-picture-fit={fit} className={cn("block", fit === "cover" ? "object-cover" : "object-contain", cls)} style={fit === "contain" ? { background: MIX[10] } : undefined} />
+      )
     ) : (
       <span className={cn("grid place-items-center", cls)} style={{ background: MIX[10] }}>
         <AppTileMark provider={provider} size={Math.round(36 * k(look.scale))} />

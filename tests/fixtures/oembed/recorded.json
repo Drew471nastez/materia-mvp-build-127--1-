@@ -1,0 +1,27 @@
+{
+  "_about": "oEmbed answers in each service's documented shape, kept here so tests/onepage-ar3.test.ts never calls a provider. Fields beyond title, author_name and thumbnail_url are kept to show they are ignored (html above all).",
+  "youtube": {
+    "address": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "answer": {"title":"Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)","author_name":"Rick Astley","author_url":"https://www.youtube.com/@RickAstleyYT","type":"video","height":113,"width":200,"version":"1.0","provider_name":"YouTube","provider_url":"https://www.youtube.com/","thumbnail_height":360,"thumbnail_width":480,"thumbnail_url":"https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg","html":"<iframe width=\"200\" height=\"113\" src=\"https://www.youtube.com/embed/dQw4w9WgXcQ?feature=oembed\" frameborder=\"0\" allowfullscreen></iframe>"}
+  },
+  "spotify": {
+    "address": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+    "answer": {"html":"<iframe style=\"border-radius: 12px\" width=\"100%\" height=\"152\" title=\"Spotify Embed\" src=\"https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC?utm_source=oembed\"></iframe>","iframe_url":"https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC?utm_source=oembed","width":456,"height":152,"version":"1.0","provider_name":"Spotify","provider_url":"https://spotify.com","type":"rich","title":"Never Gonna Give You Up","thumbnail_url":"https://image-cdn-ak.spotifycdn.com/image/ab67616d00001e0255b3b4e4bc1ba0ba6b6a7a0e","thumbnail_width":300,"thumbnail_height":300}
+  },
+  "vimeo": {
+    "address": "https://vimeo.com/76979871",
+    "answer": {"type":"video","version":"1.0","provider_name":"Vimeo","provider_url":"https://vimeo.com/","title":"The New Vimeo Player (You Know, For Videos)","author_name":"Vimeo","author_url":"https://vimeo.com/staff","html":"<iframe src=\"https://player.vimeo.com/video/76979871?app_id=122963\" width=\"640\" height=\"360\"></iframe>","width":640,"height":360,"duration":62,"thumbnail_url":"https://i.vimeocdn.com/video/452001751-8216e0571c251a09d7a8387550942d89f7f86f6398f8ed886e639b0dc1e8ba64-d_640","thumbnail_width":640,"thumbnail_height":360,"video_id":76979871}
+  },
+  "tiktok": {
+    "address": "https://www.tiktok.com/@satori/video/7300000000000000000",
+    "answer": {"version":"1.0","type":"video","title":"Studio day <script>alert(1)</script> #prints","author_url":"https://www.tiktok.com/@satori","author_name":"Satori Studio","width":"100%","height":"100%","html":"<blockquote class=\"tiktok-embed\"></blockquote><script async src=\"https://www.tiktok.com/embed.js\"></script>","thumbnail_width":576,"thumbnail_height":1024,"thumbnail_url":"https://p16-sign-va.tiktokcdn.com/obj/tos-maliva-p-0068/abc~tplv-photomode.jpeg","provider_url":"https://www.tiktok.com","provider_name":"TikTok"}
+  },
+  "hostile": {
+    "address": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "answer": {"title":"<img src=x onerror=alert(1)>Free","author_name":"x","thumbnail_url":"javascript:alert(1)","html":"<script>alert(1)</script>"}
+  },
+  "private_thumbnail": {
+    "address": "https://vimeo.com/76979871",
+    "answer": {"title":"Inside","thumbnail_url":"http://169.254.169.254/latest/meta-data/"}
+  }
+}

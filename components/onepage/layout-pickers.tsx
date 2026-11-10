@@ -175,3 +175,29 @@ export function HowManyControl({ value, options, onChange }: { value: number; op
     </div>
   )
 }
+
+/**
+ * HOW A PICTURE SITS IN ITS BOX (round AR3). The owner: "for all the blocks,
+ * digital products, link blocks, I want in the layout to be able to select
+ * how I want the image to show: cover, fit, full". Cover crops to the box (as
+ * pictures always were), Fit shows all of it on a soft ground, Full is the
+ * picture's own shape where the layout gives it a box of a set shape.
+ */
+export type PictureFit = "cover" | "contain" | "full"
+export function PictureFitControl({ value, onChange }: { value: PictureFit | null | undefined; onChange: (fit: PictureFit) => void }) {
+  return (
+    <div className="space-y-2.5 border-t border-[#eef0f2] pt-4" data-picture-fit-control="">
+      <p className={heading}>{tt("Picture fit")}</p>
+      <Segmented<PictureFit>
+        label={tt("Picture fit")}
+        value={value === "contain" || value === "full" ? value : "cover"}
+        options={[
+          { id: "cover", label: tt("Cover"), hint: tt("Crops to fit") },
+          { id: "contain", label: tt("Fit"), hint: tt("Shows all") },
+          { id: "full", label: tt("Full"), hint: tt("Its own shape") },
+        ]}
+        onChange={onChange}
+      />
+    </div>
+  )
+}
