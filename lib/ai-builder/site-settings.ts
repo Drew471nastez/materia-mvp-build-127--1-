@@ -29,6 +29,7 @@
  */
 import { ACCENT_FONT_OPTIONS, BODY_FONT_OPTIONS, HEADING_FONT_OPTIONS } from "@/lib/website-builder/font-options"
 import { CUSTOM_TOKEN_PREFIX, CUSTOM_TOKENS_SETTING, type DesignTokens, type ValidationIssue } from "./types"
+import { MOTION_TIER_OPTIONS, motionTierOf } from "@/lib/storelib-ai/motion"
 import { DESIGN_SETTINGS_SETTING, MAX_CUSTOM_TOKENS, SCALE_TOKENS, TOKEN_NAME, cleanTokenValue, customTokens, themeSettingsToTokens, tokenPatch, type TokenGroup } from "./tokens"
 
 export { DESIGN_SETTINGS_SETTING }
@@ -105,6 +106,7 @@ const MOTION_OPTIONS: DesignOption[] = [
   { value: "subtle", label: "Subtle" },
   { value: "expressive", label: "Lively" },
 ]
+const TIER_OPTIONS: DesignOption[] = MOTION_TIER_OPTIONS.map((o) => ({ value: o.value, label: o.label }))
 const fonts = (list: { label: string; value: unknown }[]): DesignOption[] => list.filter((o) => typeof o.value === "string" && o.value !== "").map((o) => ({ value: o.value as string, label: o.label }))
 
 /** Every DesignTokens path a setting can stand for, with the control and the limits the Theme setting has. */
@@ -133,6 +135,8 @@ export const DESIGN_BINDINGS = {
   "spacing.scale": { group: "spacing", type: "range", min: 0.5, max: 2, step: 0.1, unit: "" },
   "motion.level": { group: "motion", type: "select", options: MOTION_OPTIONS },
   "motion.durationMs": { group: "motion", type: "range", min: 200, max: 1200, step: 50, unit: "ms" },
+  /* Round O (O5): the motion feel, the --t-motion-* variables every AI component reads. */
+  "motion.tier": { group: "motion", type: "select", options: TIER_OPTIONS },
   shadow: { group: "shadow", type: "select", options: SHADOW_OPTIONS },
 } as const satisfies Record<string, BindingSpec>
 export type DesignBinding = keyof typeof DESIGN_BINDINGS
@@ -281,6 +285,7 @@ function tokenAt(tokens: DesignTokens, path: DesignBinding): unknown {
     case "typeScale.base": return (tokens.typeScale ?? { base: 16 }).base
     case "typeScale.ratio": return (tokens.typeScale ?? { ratio: 1.25 }).ratio
     case "motion.durationMs": return tokens.motion.durationMs ?? 600
+    case "motion.tier": return tokens.motion.tier ?? motionTierOf(null)
     case "shadow": return tokens.shadow ?? "none"
   }
   if (path.startsWith("colors.inverse.")) {
@@ -296,7 +301,8 @@ function withToken(tokens: DesignTokens, path: DesignBinding, value: unknown): D
   switch (path) {
     case "typeScale.base": return { ...tokens, typeScale: { ratio: 1.25, ...tokens.typeScale, base: n(value) } }
     case "typeScale.ratio": return { ...tokens, typeScale: { base: 16, ...tokens.typeScale, ratio: n(value) } }
-    case "motion.level": return { ...tokens, motion: { level: value as DesignTokens["motion"]["level"], durationMs: tokens.motion.durationMs } }
+    case "motion.level": return { ...tokens, motion: { level: value as DesignTokens["motion"]["level"], durationMs: tokens.motion.durationMs, ...(tokens.motion.tier ? { tier: tokens.motion.tier } : {}) } }
+    case "motion.tier": return { ...tokens, motion: { ...tokens.motion, tier: value as DesignTokens["motion"]["tier"] } }
     case "motion.durationMs": return { ...tokens, motion: { ...tokens.motion, durationMs: n(value) } }
     case "shadow": return { ...tokens, shadow: value as DesignTokens["shadow"] }
   }
