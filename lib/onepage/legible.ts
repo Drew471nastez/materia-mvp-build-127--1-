@@ -793,9 +793,26 @@ function outline(h: HTMLElement, words: Rgba, ground: GroundRead, color?: string
  * does not read the nearest colour that does (readableOn's rule), !important. Anything the guard set before is taken
  * back first, so a creator's change (a colour, a theme) is measured afresh. Returns what it changed.
  */
+/*
+  A BUTTON UNDER THE POINTER IS NOT MEASURED (wave 11). A Fill or Pop hover paints the hover colour on a layer
+  (.op-btn::after) the measure does not see, and turns the words to the hover's own colour: read against the
+  button's resting fill, those words looked unreadable, and the guard faded them for good, mid hover (a product
+  card's button on Linen, Harbor and Portrait, a link on Portrait, went grey on grey). The theme's hover pair is
+  checked where it is made (tests/onepage-themes-w11.test.ts and the other theme tests); the guard measures the
+  button again at rest, on the next pass after the pointer leaves.
+*/
+const HOVERED_BUTTON = ".op-btn:hover, .op-host:hover .op-btn, .op-demo:hover .op-btn"
+const inHoveredButton = (el: Element) => {
+  try {
+    return !!el.closest(HOVERED_BUTTON)
+  } catch {
+    return false
+  }
+}
+
 export function guardLegibility(root: ParentNode): LegibleFinding[] {
   releaseLegibility(root)
-  const found = findIllegible(root)
+  const found = findIllegible(root).filter((f) => !inHoveredButton(f.el))
   /* Every read first (grounds, inks, opacities), then every write: a write between reads would make the browser
      work out the page's styles again for each word. */
   const cache: GroundCache = new Map()

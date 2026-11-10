@@ -1458,15 +1458,190 @@ export const W10_THEMES = [
   },
 ]
 
+/**
+ * ===========================================================================
+ *  THREE FOR EVERYONE (WAVE 11), RIGHT AFTER THE FIRST SIX
+ * ===========================================================================
+ * The owner: "Create 3 more general themes ... that you think are going to
+ * be used massively and fit all kinds of design styles, businesses and
+ * creators. As being from the first 6 themes, add 3 more, in that order.
+ * Create 1 of them with the header profile image layout Hero."
+ *
+ * The looks link-in-bio pages are made with most are few: a calm light page
+ * of soft cards, a dark page with bright pills, and a big photo of the
+ * person at the top. These are those three, made carefully enough to be a
+ * coach's, a shop's, a band's, a restaurant's or an agency's page as they
+ * are. Plain theme settings only (no skin), so the shared button, hover and
+ * card rules draw them like every other theme.
+ *
+ *   Linen     warm off white, ink words, white cards with a hairline and a
+ *             soft shadow, rounded; the name in a fine display serif. A press
+ *             lifts the card and tints it linen.
+ *   Harbor    deep navy, ivory pills with navy words, a gold ring round the
+ *             picture and gold icons; a press lifts the pill and turns it
+ *             gold. The name in a heavy, tight sans.
+ *   Portrait  the Hero: the creator's photo across the top of the page,
+ *             fading into warm white, the name set over it in a heavy
+ *             grotesque; ink buttons that turn sand.
+ *
+ * Every hover is a colour unlike both the button's fill and its words, so a
+ * product card's button (which wears the pair turned around) changes too.
+ * Every pair reads at 4.5:1 or more at rest and on hover, on the card and
+ * on its button (tests/onepage-themes-w11.test.ts).
+ */
+export const W11_THEMES = [
+  {
+    id: "linen",
+    name: "Linen",
+    category: "light",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#f7f5f0",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#1b1a17",
+      secondary_text_color: "#5d5a53",
+      button_color: "#ffffff",
+      button_text_color: "#1b1a17",
+      button_style: "filled" as const,
+      button_border_radius: 16,
+      button_border_width: 1,
+      button_border_color: "#e7e2d8",
+      button_shadow: "subtle",
+      button_shadow_color: "#1b1a17",
+      button_hover_animation: "pop",
+      button_hover_fill: "#ece6da",
+      button_hover_text: "#1b1a17",
+      font_family: "'DM Sans', sans-serif",
+      title_font: "'Instrument Serif', serif",
+      title_color: "#1b1a17",
+      social_icon_color: "#1b1a17",
+      social_icon_style: "minimal",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "none",
+      block_layout: "list",
+      header_align: "center",
+      /* Instrument Serif has the one weight: drawn as it is, a size up. */
+      title_weight: 400,
+      title_size: "large",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#1b1a17",
+    solid_button_text_color: "#1b1a17",
+    outline_button_text_color: "#1b1a17",
+    glass_button_text_color: "#1b1a17",
+    share_style: "white",
+    subscribe_style: "white",
+  },
+  {
+    id: "harbor",
+    name: "Harbor",
+    category: "dark",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#0f1b2d",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#f4efe6",
+      secondary_text_color: "#aab4c3",
+      button_color: "#f4efe6",
+      button_text_color: "#0f1b2d",
+      button_style: "filled" as const,
+      button_border_radius: 999,
+      button_border_width: 0,
+      button_border_color: "#f4efe6",
+      button_shadow: "none",
+      button_hover_animation: "pop",
+      button_hover_fill: "#f2c46d",
+      button_hover_text: "#0f1b2d",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Manrope', sans-serif",
+      title_color: "#f4efe6",
+      social_icon_color: "#f2c46d",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "none",
+      block_layout: "list",
+      header_align: "center",
+      title_tracking: "tight",
+      avatar_border_width: 2,
+      avatar_border_color: "#f2c46d",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#0f1b2d",
+    solid_button_text_color: "#0f1b2d",
+    outline_button_text_color: "#f4efe6",
+    glass_button_text_color: "#f4efe6",
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
+  },
+  {
+    id: "portrait",
+    name: "Portrait",
+    category: "light",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#faf8f5",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#141311",
+      secondary_text_color: "#48443e",
+      button_color: "#141311",
+      button_text_color: "#faf8f5",
+      button_style: "filled" as const,
+      button_border_radius: 12,
+      button_border_width: 0,
+      button_border_color: "#141311",
+      button_shadow: "none",
+      button_hover_animation: "pop",
+      button_hover_fill: "#ebe5db",
+      button_hover_text: "#141311",
+      font_family: "'Figtree', sans-serif",
+      title_font: "'Bricolage Grotesque', sans-serif",
+      title_color: "#141311",
+      social_icon_color: "#141311",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "hero",
+      laser_glow_enabled: false,
+      background_pattern: "none",
+      block_layout: "list",
+      header_align: "center",
+      title_tracking: "tight",
+      title_size: "large",
+    },
+    profile_layout: "hero" as const,
+    light_button_text_color: "#141311",
+    solid_button_text_color: "#faf8f5",
+    outline_button_text_color: "#141311",
+    glass_button_text_color: "#141311",
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
+  },
+]
+
+/** Where the three go in All: right after the catalogue's first six (Default, Air, Studio, Paper, Cream, Riso). */
+export const W11_AFTER = 6
+
 /** The order the kinds are listed in, in All: light, gradient, dark, then pictures, as the catalogue always was. */
 export const THEME_KIND_ORDER = ["light", "gradient", "dark", "image"] as const
 
-/** The catalogue with these (and round 42's) laid into their kinds, each kind keeping its own order and the new ones at its end. */
+/** The catalogue with these (and round 42's) laid into their kinds, each kind keeping its own order and the new ones at its end; wave 11's three after the first six. */
 export function withR40Themes<T extends { category: string }>(base: readonly T[]): T[] {
   const all = [...base, ...(R40_THEMES as unknown as T[]), ...(R42_THEMES as unknown as T[]), ...(AP_THEMES as unknown as T[]), ...(W8_THEMES as unknown as T[]), ...(W9_THEMES as unknown as T[]), ...(W10_THEMES as unknown as T[])]
   const rank = (c: string) => {
     const i = (THEME_KIND_ORDER as readonly string[]).indexOf(c)
     return i < 0 ? THEME_KIND_ORDER.length : i
   }
-  return all.map((t, i) => ({ t, i })).sort((a, b) => rank(a.t.category) - rank(b.t.category) || a.i - b.i).map((x) => x.t)
+  const sorted = all.map((t, i) => ({ t, i })).sort((a, b) => rank(a.t.category) - rank(b.t.category) || a.i - b.i).map((x) => x.t)
+  /* Wave 11: the three for everyone come next after the first six in All, whatever their kind; each kind's own grid keeps that order too. */
+  const at = Math.min(W11_AFTER, sorted.length)
+  return [...sorted.slice(0, at), ...(W11_THEMES as unknown as T[]), ...sorted.slice(at)]
 }

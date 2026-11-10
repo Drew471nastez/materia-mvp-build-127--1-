@@ -119,7 +119,7 @@ const faces = W9_THEMES.map((t) => familyOf(t.theme_config.title_font))
 check("six title faces, none shared between them", new Set(faces).size === 6, faces.join())
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }, { id: "c", category: "dark" }]).map((t) => t.id).join(",")
 /* Changed on purpose (round W10): the W10 themes follow the six in each kind. */
-check("each joins the end of its kind", merged.includes("gazette,aqua,messenger,playful,grunge,") && merged.includes("halo,aero,") && merged.includes("acid,y2k,"), merged)
+check("each joins the end of its kind", merged.includes("gazette,linen,harbor,portrait,aqua,messenger,playful,grunge,") && merged.includes("halo,aero,") && merged.includes("acid,y2k,"), merged /* Changed on purpose (wave 11): Linen, Harbor and Portrait come right after the first six in All (with this test's short catalogue, after its sixth), whatever their kind. */)
 
 console.log("\nWhat the skins paint, read on what they paint it")
 const css = read("components/onepage/themes/theme-skins.css")

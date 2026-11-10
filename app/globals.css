@@ -3024,6 +3024,8 @@ iframe:is([src*="youtube.com/embed"], [src*="youtube-nocookie.com/embed"], [src*
 /* HEADER, FLUSH LEFT: the classic header's picture, name and bio, and the social icons under them. The hero header keeps its own layout. */
 [data-op-align="left"] [data-op-header] { align-items: flex-start; text-align: left; }
 [data-op-align="left"] [data-op-header] > h1 { justify-content: flex-start; text-align: left; }
+/* Wave 11: with the verified badge the name and the badge are a line of their own (NameLine), set flush left too. */
+[data-op-align="left"] [data-op-header] > [data-name-line], [data-op-align="left"] [data-op-header] > [data-name-line] > h1 { justify-content: flex-start; text-align: left; }
 [data-op-align="left"] [data-op-header] > :is(p, img) { margin-left: 0; margin-right: 0; text-align: left; }
 [data-op-align="left"] [data-op-socials] { justify-content: flex-start; }
 
