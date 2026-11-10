@@ -21,6 +21,7 @@
  *
  * Run: NODE_OPTIONS="--conditions=react-server" npx tsx tests/ai-builder-agent.test.ts
  */
+import { NO_TEMPLATES } from "@/lib/ai-builder/agent/templates"
 import { runAgentSlice, worstCaseUsd, type SliceResult } from "@/lib/ai-builder/agent/loop"
 import { memoryStore } from "@/lib/ai-builder/agent/memory-store"
 import { newCheckpoint, readCheckpoint, type LoopCheckpoint } from "@/lib/ai-builder/agent/state"
@@ -103,6 +104,7 @@ function depsFor(store: ReturnType<typeof memoryStore>, steps: Step[], extra: Pa
   const deps: AgentDeps = {
     store,
     models: { plan: { provider: plan, model: "claude-opus-5-5", effort: "medium" }, loop: { provider: loop, model: "claude-sonnet-5-5", effort: "low" }, small: { provider: loop, model: "claude-haiku-5-5" }, ownKey: false },
+    templates: NO_TEMPLATES,
     capabilities: async () => CAPS,
     now: () => (clock.t += 1_000),
     ...extra,

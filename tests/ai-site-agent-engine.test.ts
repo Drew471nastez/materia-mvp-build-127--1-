@@ -10,6 +10,7 @@
  *
  * Run with:  npm run test:push
  */
+import { NO_TEMPLATES } from "@/lib/ai-builder/agent/templates"
 import { runAgentInvocation, emptyRunState, type AgentJobPatch, type AgentJobRecord, type AgentStore, type EventRow } from "@/lib/website-builder/ai-site/agent-runner"
 import { previewErrorsFromEvents } from "@/lib/website-builder/ai-site/agent-view"
 import { scopedStore, sliceStepper } from "@/lib/website-builder/ai-site/agent-engine"
@@ -111,6 +112,7 @@ function depsFor(store: ReturnType<typeof memoryStore>, steps: Step[], extra: Pa
   const deps: AgentDeps = {
     store,
     models: { plan: { provider: plan, model: "claude-opus-5-5", effort: "medium" }, loop: { provider: loop, model: "claude-sonnet-5-5", effort: "low" }, small: { provider: loop, model: "claude-haiku-5-5" }, ownKey: false },
+    templates: NO_TEMPLATES,
     capabilities: async () => CAPS,
     now: () => (clock.t += 1_000),
     ...extra,

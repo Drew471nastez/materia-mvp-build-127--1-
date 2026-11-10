@@ -38,6 +38,9 @@ export const defaultTemplates: TemplateLibrary = {
   },
 }
 
+/** No starting template: the job builds from zero (scripted suites that compose a whole site of their own). */
+export const NO_TEMPLATES: TemplateLibrary = { ...defaultTemplates, choose: () => null }
+
 export const templatesOf = (deps: Pick<AgentDeps, "templates">): TemplateLibrary => deps.templates ?? defaultTemplates
 
 /* ── few-shot: one or two of the template's components, compact ───────── */

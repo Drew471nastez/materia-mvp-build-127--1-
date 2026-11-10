@@ -259,13 +259,14 @@ async function main() {
         for (const m of shot.measurements) {
           for (const d of [...measuredDefects(m.page, m.desktop), ...measuredDefects(m.page, m.mobile)]) {
             const line = `${m.page} ${d.viewport} ${d.kind}: ${d.what}`
-            if (d.gate) gates.push(line)
+            /* Round P (P5): an empty <img> or an empty section is a hard gate for the agent's finish; a template is drawn here before its pictures are made, so those are noted, not counted. */
+            if (d.gate && d.kind !== "image-missing" && d.kind !== "empty-section") gates.push(line)
             else notes.push(line)
           }
           if (m.desktop.scrollOverflow > 1) gates.push(`${m.page} desktop scrolls sideways by ${m.desktop.scrollOverflow}px`)
         }
         check(`${t.id}: nothing scrolls sideways, no unreadable text, no dead call to action (desktop and 390)`, gates.length === 0, gates)
-        const serious = notes.filter((n) => /contrast|heading-wrap|placeholder|cta/.test(n))
+        const serious = notes.filter((n) => /contrast|heading-wrap|placeholder|cta|image-missing|empty-section/.test(n))
         if (serious.length) console.log(`        (notes: ${serious.slice(0, 6).join(" | ")})`)
       }
     }

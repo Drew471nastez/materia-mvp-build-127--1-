@@ -147,7 +147,7 @@ function blockWords(block: { settings?: Record<string, unknown> }, fields: RawSe
  * list (Andrew's "Who it is for and not for" with one block). Read from the block type, its name, and the
  * section's name (not its type: "ai_coach_facts" is a coach's site, not a list of coaches).
  */
-const REPEATING = /\b(?:faq|faqs|question|questions|qa|program|programme|programs|programmes|class|classes|team|member|members|staff|coach|coaches|trainer|step|steps|process|plan|plans|tier|tiers|pricing|price|service|services|feature|features|benefit|benefits|gallery|project|projects|work|works|course|courses|module|modules|lesson|lessons|treatment|treatments|schedule|session|sessions|value|values|principle|principles|reason|reasons|for|not|who|offer|offers|package|packages|menu|dish|dishes|room|rooms|location|locations|event|events|testimonial|testimonials|review|reviews|quote|quotes)\b/i
+const REPEATING = /\b(?:faq|faqs|question|questions|qa|program|programme|programs|programmes|class|classes|team|member|members|staff|coach|coaches|trainer|step|steps|process|plan|plans|tier|tiers|pricing|price|service|services|feature|features|benefit|benefits|gallery|project|projects|work|works|course|courses|module|modules|lesson|lessons|treatment|treatments|schedule|session|sessions|value|values|principle|principles|reason|reasons|for|not|who|offer|offers|menu|dish|dishes|room|rooms|location|locations|event|events|testimonial|testimonials|review|reviews|quote|quotes)\b/i
 
 function words(...xs: (string | undefined)[]): string {
   return xs.filter(Boolean).join(" ").replace(/^ai_/, "").replace(/[_-]+/g, " ")

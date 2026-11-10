@@ -128,11 +128,13 @@ export async function aiWorld(): Promise<AiWorld> {
   const scripts: AiWorld["scripts"] = new Map()
   const { registerAgentStepper, sliceStepper } = await import("@/lib/website-builder/ai-site/agent-engine")
   const { agentDeps } = await import("@/lib/ai-builder/agent/server")
+  /* Round P (P5): the scripted journeys compose their own whole sites, so no starting template (template-first: tests/ai-agent-quality-p5.test.ts). */
+  const { NO_TEMPLATES } = await import("@/lib/ai-builder/agent/templates")
   registerAgentStepper(async (job) => {
     const s = scripts.get(job.id)
     if (!s) throw new Error(`no script for job ${job.id}`)
     try {
-      return sliceStepper(await agentDeps({ creatorId: job.creatorId, ownerUserId: job.ownerUserId, installId: job.installId }, { models: s.models }))
+      return sliceStepper(await agentDeps({ creatorId: job.creatorId, ownerUserId: job.ownerUserId, installId: job.installId }, { models: s.models, templates: NO_TEMPLATES }))
     } catch (e) {
       console.error("[kit] the stepper could not be made", e)
       throw e
