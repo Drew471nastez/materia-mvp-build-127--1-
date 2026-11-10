@@ -205,7 +205,7 @@ function overlap(a: string[], b: string[]): number {
   return b.filter((x) => s.has(x.toLowerCase())).length
 }
 
-function score(d: ArtDirection, brief: CreativeBrief, refs: ReferenceHint[], seed: string, avoid: string[]): { score: number; fit: number; why: string[] } {
+function score(d: ArtDirection, brief: CreativeBrief, refs: ReferenceHint[], seed: string, avoid: string[], prefer: string[] = []): { score: number; fit: number; why: string[] } {
   const why: string[] = []
   const kind = brief.business.kind
   const fit = d.fits.includes(kind) ? 3 : d.suits.includes(kind) ? 1.5 : 0
@@ -225,28 +225,37 @@ function score(d: ArtDirection, brief: CreativeBrief, refs: ReferenceHint[], see
   if (refHits) why.push(`${refHits} retrieved reference${refHits === 1 ? "" : "s"} point${refHits === 1 ? "s" : ""} this way`)
   const penalty = avoid.includes(d.id) ? -1.5 : 0
   if (penalty) why.push("used recently, so marked down")
+  /* Round R (R1): the design brain's recipe for this business names the directions it realises; the first is lifted past the seed's jitter, the others a little. Only directions that fit or suit the business gain. */
+  const at = fit > 0 ? prefer.indexOf(d.id) : -1
+  const brain = at === 0 ? 1.2 : at > 0 ? 0.6 : 0
+  if (brain) why.push("the design brain's recipe realises it")
   const jitter = ((hashString(`${seed}::${d.id}`) % 1000) / 1000) * 0.9
-  return { score: fit + moods * 0.4 + motion + density + color + noSerif + ref + penalty + jitter, fit, why }
+  return { score: fit + moods * 0.4 + motion + density + color + noSerif + ref + penalty + brain + jitter, fit, why }
 }
 
 /** The type system for a direction: its first, or the seed's pick of its first two; never a serif when the creator said no serif. */
-function typeFor(d: ArtDirection, brief: CreativeBrief, seed: string): TypeSystem {
+function typeFor(d: ArtDirection, brief: CreativeBrief, seed: string, prefer?: string): TypeSystem {
   const known = d.typeSystems.map((id) => TYPE_SYSTEMS.find((t) => t.id === id)).filter((t): t is TypeSystem => !!t)
   /* A display serif only in a direction that calls for one, and never when the creator said no serif. */
   const allowed = known.filter((t) => !isDisplaySerif(t.display.family) || (d.serif && !brief.style.constraints.includes("no serif display")))
-  const list = allowed.length ? allowed : known.length ? known : [TYPE_SYSTEMS[0]]
+  let list = allowed.length ? allowed : known.length ? known : [TYPE_SYSTEMS[0]]
+  /* Round R (R1): the design brain's recipe names its type system; when this direction offers it, it goes first and the seed still picks among the first two, so sites of one business do not all share a face. */
+  const at = prefer ? list.findIndex((t) => t.id === prefer) : -1
+  if (at > 0) list = [list[at], ...list.slice(0, at), ...list.slice(at + 1)]
   return list[hashString(`${seed}::type::${d.id}`) % Math.min(2, list.length)]
 }
 
 /**
  * One primary direction (and an optional secondary influence) for a brief.
  * `references` are O1's retrieved references for the job (may be empty);
- * `avoid` are direction ids recent sites of this creator used.
+ * `avoid` are direction ids recent sites of this creator used; `prefer` the
+ * directions the design brain's recipe realises and `preferType` its type
+ * system, taken when the chosen direction offers it (round R, designBrainFor).
  */
-export function chooseDirection(brief: CreativeBrief, references: ReferenceHint[] = [], opts: { seed?: string; avoid?: string[] } = {}): DirectionChoice {
+export function chooseDirection(brief: CreativeBrief, references: ReferenceHint[] = [], opts: { seed?: string; avoid?: string[]; prefer?: string[]; preferType?: string } = {}): DirectionChoice {
   const seed = opts.seed ?? brief.prompt.toLowerCase()
   const avoid = opts.avoid ?? []
-  const scored = ART_DIRECTIONS.map((d) => ({ d, ...score(d, brief, references, seed, avoid) })).sort((a, b) => b.score - a.score || a.d.id.localeCompare(b.d.id))
+  const scored = ART_DIRECTIONS.map((d) => ({ d, ...score(d, brief, references, seed, avoid, opts.prefer ?? []) })).sort((a, b) => b.score - a.score || a.d.id.localeCompare(b.d.id))
   const requestedIds = brief.style.requested.filter((id) => artDirection(id))
   const reasons: string[] = []
   let primary: ArtDirection
@@ -269,7 +278,7 @@ export function chooseDirection(brief: CreativeBrief, references: ReferenceHint[
   if (secondary) reasons.push(`${secondary.name} as a secondary influence: ${second!.why.join("; ") || "it adds contrast"}.`)
   const alternates = scored.filter((s) => s.d.id !== primary.id && s.d.id !== secondary?.id && s.fit > 0).slice(0, 2).map((s) => s.d)
 
-  const typeSystem = typeFor(primary, brief, seed)
+  const typeSystem = typeFor(primary, brief, seed, opts.preferType)
   const named = brief.style.fonts.find((f) => OFFERED_FAMILIES.has(f))
   const fonts = { display: named ?? typeSystem.display.family, body: typeSystem.body.family, ...(typeSystem.mono ? { mono: typeSystem.mono.family } : {}) }
   if (named) reasons.push(`Display face ${named}, as the creator asked.`)

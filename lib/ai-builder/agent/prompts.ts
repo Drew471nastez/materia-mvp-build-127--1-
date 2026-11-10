@@ -41,6 +41,15 @@ import { motionIslandsForPrompt } from "@/lib/storelib-theme/motion-islands"
 /* Round P (P4): the chrome kit, premium headers, drawers, search, switches and footers to adapt. */
 import { chromeKitForPrompt } from "@/lib/storelib-ai/library/chrome-kit"
 
+/**
+ * The prompts' version (round R, R1). Bump it when AGENT_SYSTEM, a block this
+ * file assembles or the job's design brief (./design-brief.ts, the design
+ * brain's BRAIN_VERSION) changes shape, so a stored job, an eval or a log can
+ * say which prompts it ran on. The blocks stay modular: each lane's text is
+ * its own export, assembled here.
+ */
+export const PROMPT_VERSION = "2026-11-r1"
+
 /** CLAUDE.md's list, and its shape: words that say nothing. */
 export const BANNED_WORDS = ["unlock", "elevate", "seamless", "powerful", "effortlessly", "supercharge", "transform", "revolutionize", "game-changer"]
 
