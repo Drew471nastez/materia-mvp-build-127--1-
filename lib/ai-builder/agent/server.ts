@@ -18,6 +18,7 @@ import "server-only"
  *                 small claude-haiku-5-5).
  *   capabilities  L4's readRuntimeCapabilities: creator scoped, real ids.
  *   renderCheck   L4's renderCheckForInstall: the page as a preview draws it.
+ *   references    O1's visual reference library with the admin's screenshots.
  *
  * The admin (service role) client is used only for this job's install: the
  * runner checked ownership when it claimed the job; nothing here takes an id
@@ -37,6 +38,7 @@ import { versionOf } from "./version"
 import { createVisualCritic } from "../visual-critic/critic"
 import { keepReviewShot } from "../visual-critic/storage"
 import { readFingerprints, type SiteFingerprint } from "../novelty"
+import { findReferencesIn, referenceImagesFrom } from "@/lib/storelib-ai/references/store"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -179,6 +181,11 @@ export async function agentDeps(job: { creatorId: string; ownerUserId: string | 
     },
     features: { formPicker: true },
     recentFingerprints: recentAgentFingerprints(admin),
+    /* O1: the built in references and the admin's screenshots (design_references, part 431); their pictures for the plan phase. */
+    references: {
+      search: ({ query, industry, limit }) => findReferencesIn(admin as unknown as Parameters<typeof findReferencesIn>[0], { text: query, industry }, { limit: limit ?? 4 }),
+      images: (ids) => referenceImagesFrom(admin as unknown as Parameters<typeof referenceImagesFrom>[0], ids),
+    },
     ...extra,
   }
 }

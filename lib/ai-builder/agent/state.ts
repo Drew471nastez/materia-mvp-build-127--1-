@@ -56,6 +56,9 @@ export interface LoopCheckpoint extends AgentCheckpoint {
   caps?: RuntimeCapabilities | null
   /** Round O (O4): the visual critic's rounds and what it still finds. */
   critic?: CriticState
+  /** Round O (O1): the references chosen for this job, and those whose pictures ride with the plan phase's turns (in that order). */
+  references?: string[]
+  referenceImages?: string[]
   /** Set once the job ended: what to tell the creator. */
   final?: { status: "complete" | "partial" | "failed" | "cancelled"; summary: string; failing: string[] }
 }
