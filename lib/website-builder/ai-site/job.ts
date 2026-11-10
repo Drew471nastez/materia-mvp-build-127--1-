@@ -216,6 +216,7 @@ export interface JobDeps {
    * step then generates the whole site as native sections in one structured call; without it the classic planner plans.
    */
   native?: NativeEngineDeps
+  /**
    * Round R (R3): the design review of the finished draft (./native-review): drawn as the live site draws it, at
    * 1440 and 390 with JavaScript off, measured, and refined with typed patches on the sections' own settings, at
    * most two rounds. Absent (the AI_NATIVE_ENGINE switch off, or no site address to draw it at): not reviewed.
