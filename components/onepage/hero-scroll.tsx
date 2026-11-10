@@ -194,9 +194,10 @@ export function HeroTopBar({
   }
   return (
     <div
+      /* On a computer the page is a 500px card in the middle of the window (public-onepage): the bar is the card's width, its own header. */
       aria-hidden={!shown}
       data-op-topbar={shown ? "shown" : "hidden"}
-      className="fixed inset-x-0 top-0 z-[19] pt-[env(safe-area-inset-top)] transition-[opacity,translate] duration-[220ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+      className="fixed inset-x-0 top-0 z-[19] md:inset-x-[max(0px,calc(50%_-_250px))] pt-[env(safe-area-inset-top)] transition-[opacity,translate] duration-[220ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
       style={style}
     >
       <button
