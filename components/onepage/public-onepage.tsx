@@ -75,7 +75,7 @@ import { heroScrollEffect } from "@/lib/onepage/feel"
 import { PosterVideo } from "@/components/onepage/poster-video"
 import { HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/lib/onepage/poster-video"
 import { readableOn } from "@/lib/onepage/theme-apply"
-import { photoVeil, readableInk, readableTheme, smallPrintAlpha, tintGrounds } from "@/lib/onepage/contrast"
+import { photoVeil, readableInk, readableTheme, signupCard, smallPrintAlpha } from "@/lib/onepage/contrast"
 import { pressableProps } from "@/lib/onepage/block-look"
 import { LegibleGuard } from "@/components/onepage/legible-guard"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
@@ -4201,9 +4201,8 @@ function CoreBlockRenderer({
         only where they would not read. The input fields keep each layout's
         own shape below.
       */
-      const signupGrounds = tintGrounds(theme, theme.text_color || "#111113", 6)
-      const signupInk = readableInk(theme.text_color || "#111113", signupGrounds)
-      const signupTheme = { ...theme, text_color: signupInk, secondary_text_color: theme.secondary_text_color ? readableInk(theme.secondary_text_color, signupGrounds) : theme.secondary_text_color }
+      const { tint: signupTint, ink: signupInk, grounds: signupGrounds } = signupCard(theme)
+      const signupTheme = { ...theme, text_color: signupInk, signup_tint: signupTint, secondary_text_color: theme.secondary_text_color ? readableInk(theme.secondary_text_color, signupGrounds) : theme.secondary_text_color }
       const emailPress = pressableProps(buttonThemeOn(theme, signupGrounds), isInsideCarousel)
       const emailButtonStyles: React.CSSProperties = emailPress.style
       const emailButtonAttrs = { "data-hover": emailPress["data-hover"], "data-shadow": emailPress["data-shadow"] }

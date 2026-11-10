@@ -24,7 +24,7 @@
  */
 import type { CSSProperties } from "react"
 import { readableOn } from "./theme-apply"
-import { buttonGrounds, contrastOn, over, pageGrounds, parseColor, readableInk, toHex, worstContrast, type Rgba } from "./contrast"
+import { TEXT_MIN, buttonGrounds, contrastOn, over, pageGrounds, parseColor, readableInk, toHex, worstContrast, type Rgba } from "./contrast"
 
 export type ButtonFill = "filled" | "soft" | "outline" | "glass"
 export type ButtonShadow = "none" | "subtle" | "strong" | "hard"
@@ -374,5 +374,17 @@ export function buttonThemeOn<T extends ButtonThemeLike>(theme: T, grounds: read
  */
 export function onCardButtonTheme(theme: ButtonThemeLike): ButtonThemeLike {
   const surface = buttonFill(theme) === "filled" ? (theme.button_color as string) : ((theme as { background_color?: string }).background_color ?? "#ffffff")
-  return cardButtonTheme(theme, { surface, cardText: theme.button_text_color as string })
+  const out = cardButtonTheme(theme, { surface, cardText: theme.button_text_color as string })
+  /*
+    Round AR: where a Soft or Glass button on the card cannot be read in any
+    words (Classic 98: white words on a see-through grey over teal), it turns
+    solid in the page's own button colour with words that read on it, as
+    buttonThemeOn does for the signup. Its corners, border, shadow and hover stay.
+  */
+  const words = parseColor(out.button_text_color)
+  if (!words || worstContrast(words, buttonGrounds(out as never, buttonGrounds(theme as never))) >= TEXT_MIN) return out
+  const fill = parseColor(theme.button_color)
+  const ground = buttonGrounds(theme as never)[0] ?? parseColor("#ffffff")!
+  const solid = fill ? toHex(fill.a < 1 ? over(fill, ground) : fill) : "#111113"
+  return { ...out, button_style: "filled", button_color: solid, button_border_color: solid, button_text_color: readableInk(theme.button_text_color, [parseColor(solid) ?? ground]) }
 }

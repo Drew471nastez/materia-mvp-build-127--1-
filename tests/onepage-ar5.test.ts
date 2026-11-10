@@ -46,6 +46,7 @@ import {
   over,
   chipColors,
   tintGrounds,
+  signupCard,
 } from "@/lib/onepage/contrast"
 import { WALLPAPER_EFFECTS, pixelThroughLook, wallpaperMediaLook } from "@/lib/onepage/wallpaper"
 import { LOOK_RESET, lookFromTemplate, readableOn } from "@/lib/onepage/theme-apply"
@@ -282,7 +283,8 @@ console.log("\nRound AR7: the signup, the chips and the cards' own buttons read 
       const onChip = buttonGrounds(th as never).map((g) => over(c(chip.background), g))
       if (worstContrast(c(chip.color), onChip) < TEXT_MIN) chipBad.push(`${t.id}/${s}`)
       /* The newsletter: its description and its button on the card tinted with the page's words. */
-      const grounds = tintGrounds(th as never, th.text_color, 6)
+      /* Changed on purpose (round AR, Classic 98): the card's tint and words are chosen together (signupCard), as the live card draws them. */
+      const grounds = signupCard(th as never).grounds
       const soft = readableInk(th.secondary_text_color ?? th.text_color, grounds)
       const btn = buttonThemeOn(th as never, grounds) as Record<string, unknown>
       if (worstContrast(c(soft), grounds) < TEXT_MIN || worstContrast(c(String(btn.button_text_color)), buttonGrounds(btn as never, grounds)) < TEXT_MIN) signupBad.push(`${t.id}/${s}`)

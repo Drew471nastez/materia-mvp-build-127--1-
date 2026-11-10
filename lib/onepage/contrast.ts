@@ -377,6 +377,28 @@ export function chipColors(theme: ContrastThemeLike, percent: number = 12): { ba
 }
 
 /** The page's grounds with `tint` at `percent` laid over each: a box a block tints itself (the email signup's card is the page's words at 4 to 6%). */
+/**
+ * THE SIGNUP CARD'S TINT AND WORDS, CHOSEN TOGETHER (round AR). The card is
+ * the page tinted 6% with its words' colour, which on a mid-tone page (Classic
+ * 98's teal) pulls the ground towards the words: neither white nor near black
+ * then reads at 4.5:1. When the words' own tint leaves them unreadable, the
+ * card is tinted the other way (a little darker under light words, lighter
+ * under dark ones), which only ever raises their contrast. The live card
+ * (components/onepage/email-signup, signup_tint) and the checks use this.
+ */
+export function signupCard(theme: ContrastThemeLike, percent = 6): { tint: string; ink: string; grounds: Rgba[] } {
+  const text = String((theme as { text_color?: string }).text_color || "#111113")
+  const own = tintGrounds(theme, text, percent)
+  const ownInk = readableInk(text, own)
+  const ownInkC = parseColor(ownInk)
+  if (ownInkC && worstContrast(ownInkC, own) >= TEXT_MIN) return { tint: ownInk, ink: ownInk, grounds: tintGrounds(theme, ownInk, percent) }
+  const t = parseColor(text)
+  const light = t ? (0.2126 * t.r + 0.7152 * t.g + 0.0722 * t.b) / 255 > 0.5 : false
+  const tint = light ? "#000000" : "#ffffff"
+  const grounds = tintGrounds(theme, tint, percent)
+  return { tint, ink: readableInk(text, grounds), grounds }
+}
+
 export function tintGrounds(theme: ContrastThemeLike, tint: unknown, percent: number): Rgba[] {
   const t = parseColor(tint)
   const grounds = pageGrounds(theme)

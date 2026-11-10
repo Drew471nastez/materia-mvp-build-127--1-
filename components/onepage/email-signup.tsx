@@ -114,6 +114,8 @@ export function EmailSignupView({
   const [barOpen, setBarOpen] = React.useState(false)
   const barForm = React.useRef<HTMLDivElement>(null)
   const ink = theme.text_color || "#111113"
+  /* Round AR: the card's tint, chosen with its words (lib/onepage/contrast signupCard); the words' own colour unless that leaves them unreadable. */
+  const cardTint = (theme as { signup_tint?: string }).signup_tint || ink
   const soft = theme.secondary_text_color || ink
   const accent = theme.button_color || "#1a1a2e"
   const bold = boldColors(ink)
@@ -156,7 +158,7 @@ export function EmailSignupView({
   /* Round 43: Letter, a note from the creator, signed with their picture and name. */
   if (layout === "letter") {
     return (
-      <div data-email-layout="letter" className={cn("w-full rounded-xl p-5 sm:rounded-2xl sm:p-6", animationClass)} style={{ backgroundColor: tintOf(ink, 4), boxShadow: `inset 0 0 0 1px ${tintOf(ink, 8)}` }}>
+      <div data-email-layout="letter" className={cn("w-full rounded-xl p-5 sm:rounded-2xl sm:p-6", animationClass)} style={{ backgroundColor: tintOf(cardTint, 4), boxShadow: `inset 0 0 0 1px ${tintOf(ink, 8)}` }}>
         <div className="mb-3.5 flex items-center gap-2.5">
           <Face avatar={avatar} ink={ink} size={36} />
           {avatar?.name ? (
@@ -181,7 +183,7 @@ export function EmailSignupView({
   if (layout === "bar") {
     const open = barOpen || submitted
     return (
-      <div data-email-layout="bar" data-open={open ? "" : undefined} className={cn("w-full rounded-xl px-3 py-3 sm:rounded-2xl sm:px-4", animationClass)} style={{ backgroundColor: tintOf(ink, 5) }}>
+      <div data-email-layout="bar" data-open={open ? "" : undefined} className={cn("w-full rounded-xl px-3 py-3 sm:rounded-2xl sm:px-4", animationClass)} style={{ backgroundColor: tintOf(cardTint, 5) }}>
         <div className="flex items-center gap-3">
           {image ? <img src={image} alt={headline} className="h-10 w-10 shrink-0 rounded-full object-cover" /> : <Face avatar={avatar} ink={ink} size={40} />}
           <div className="min-w-0 flex-1">
@@ -226,7 +228,7 @@ export function EmailSignupView({
 
   if (layout === "pro") {
     return (
-      <div data-email-layout="pro" className={cn("w-full rounded-xl p-4 sm:rounded-2xl sm:p-5", animationClass)} style={{ backgroundColor: tintOf(ink, 5) }}>
+      <div data-email-layout="pro" className={cn("w-full rounded-xl p-4 sm:rounded-2xl sm:p-5", animationClass)} style={{ backgroundColor: tintOf(cardTint, 5) }}>
         <div className="mb-3 flex items-center gap-3 sm:gap-4">
           {image ? (
             <img src={image} alt={headline} className="h-14 w-14 shrink-0 rounded-xl object-cover sm:h-16 sm:w-16" />
@@ -246,11 +248,11 @@ export function EmailSignupView({
 
   if (layout === "cover") {
     return (
-      <div data-email-layout="cover" className={cn("w-full overflow-hidden rounded-xl sm:rounded-2xl", animationClass)} style={{ backgroundColor: tintOf(ink, 5) }}>
+      <div data-email-layout="cover" className={cn("w-full overflow-hidden rounded-xl sm:rounded-2xl", animationClass)} style={{ backgroundColor: tintOf(cardTint, 5) }}>
         {image ? (
           <img src={image} alt={headline} className="block aspect-[2/1] w-full object-cover" />
         ) : (
-          <div aria-hidden data-email-band="" className="grid h-24 place-items-center" style={{ backgroundColor: tintOf(ink, 6) }}>
+          <div aria-hidden data-email-band="" className="grid h-24 place-items-center" style={{ backgroundColor: tintOf(cardTint, 6) }}>
             <MailMark color={ink} size="lg" />
           </div>
         )}
@@ -298,7 +300,7 @@ export function EmailSignupView({
 
   /* Classic: as the block has always looked. */
   return (
-    <div data-email-layout="default" className={cn("w-full rounded-xl p-5 sm:rounded-2xl sm:p-6", animationClass)} style={{ backgroundColor: tintOf(ink, 5) }}>
+    <div data-email-layout="default" className={cn("w-full rounded-xl p-5 sm:rounded-2xl sm:p-6", animationClass)} style={{ backgroundColor: tintOf(cardTint, 5) }}>
       {title(ink, "center", "mb-1")}
       {words(soft, "center", "mb-4")}
       {renderForm({ stacked: stackedForm, inverted: null })}
