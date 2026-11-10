@@ -47,6 +47,9 @@ export function referenceLines(r: DesignReference, label: string, imageIndex?: n
   const text = [
     `[${label}] ${r.title} (${kind}${fit})${pic}`,
     line("What", r.summary),
+    /* Integration: what to take and what not to come first, so a clipped record never loses them. */
+    line("Borrow", r.borrow.join("; ")),
+    line("Do not", r.avoid.join("; ")),
     line("Mood", r.tone.join(", ")),
     line("Palette", palette),
     line("Type", type),
@@ -54,8 +57,6 @@ export function referenceLines(r: DesignReference, label: string, imageIndex?: n
     line("Imagery", r.imagery),
     line(r.motion.evidence === "observed" ? "Motion" : "Motion (suggested)", motion),
     line("Details", r.details.join("; ")),
-    line("Borrow", r.borrow.join("; ")),
-    line("Do not", r.avoid.join("; ")),
     line("Fits badly", r.fitsPoorly.join(", ")),
   ]
     .filter(Boolean)
