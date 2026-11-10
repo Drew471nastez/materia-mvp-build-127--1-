@@ -11,11 +11,18 @@
  *   THEMES=aero,aqua LAYOUTS=own,grid WIDTHS=390 node scripts/shot-onepage-skins.mjs
  *
  * Also counts what a page must never do: scroll sideways at 390, throw.
+ *
+ * Round W10: the fifteen skins, and AUDIT=1 measures every word on the
+ * page against the pixels really under it (the page drawn once more with
+ * every word transparent): a word under 4.5:1 (3:1 when large) is a problem.
+ *
+ *   AUDIT=1 LAYOUTS=own node scripts/shot-onepage-skins.mjs
  */
 import { existsSync, mkdirSync, mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
+import sharp from "sharp"
 import { serveEditorProbe } from "./onepage-probe-server.mjs"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
@@ -23,7 +30,7 @@ const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 const shots = process.env.SHOTS || mkdtempSync(join(tmpdir(), "storelib-skins-"))
 mkdirSync(shots, { recursive: true })
-const THEMES = (process.env.THEMES || "aero,aqua,messenger,y2k,playful,grunge").split(",")
+const THEMES = (process.env.THEMES || "aero,aqua,messenger,y2k,playful,grunge,aero2,aqua2,messenger2,y2k2,playful2,grunge2,classic98,vaporwave,arcade").split(",")
 const LAYOUTS = (process.env.LAYOUTS || "own,list,grid,cards,compact,masonry").split(",")
 const WIDTHS = (process.env.WIDTHS || "390,1280").split(",").map(Number)
 const FULL = process.env.FULL !== "0"
@@ -39,6 +46,49 @@ function remote(url) {
   return fetched.get(url)
 }
 const OUTSIDE = /^(fonts\.googleapis\.com|fonts\.gstatic\.com)$/
+
+/** Every word on the page against the pixels under it, the page drawn again with the words transparent. */
+async function audit(page) {
+  const texts = await page.evaluate(() => {
+    const out = []
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const el = n.parentElement
+      if (!n.textContent.trim() || !el || el.closest("[aria-hidden=true], [data-skin-scene]")) continue
+      const cs = getComputedStyle(el)
+      if (cs.visibility === "hidden" || /rgba\(0, 0, 0, 0\)/.test(cs.webkitTextFillColor)) continue
+      let alpha = 1
+      for (let e = el; e; e = e.parentElement) alpha *= +getComputedStyle(e).opacity
+      if (alpha < 0.1) continue
+      const r = document.createRange()
+      r.selectNodeContents(n)
+      for (const b of r.getClientRects()) if (b.width > 2 && b.height > 2) out.push({ text: n.textContent.trim().slice(0, 30), color: cs.color, alpha, large: parseFloat(cs.fontSize) >= 24 || (parseFloat(cs.fontSize) >= 18.6 && +cs.fontWeight >= 700), x: b.left + scrollX, y: b.top + scrollY, w: b.width, h: b.height })
+    }
+    return out
+  })
+  const dpr = await page.evaluate(() => devicePixelRatio)
+  const style = await page.addStyleTag({ content: "*, *::before, *::after { color: transparent !important; -webkit-text-fill-color: transparent !important; text-shadow: none !important; } ::placeholder { color: transparent !important; }" })
+  const { data, info } = await sharp(await page.screenshot({ fullPage: true })).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+  await style.evaluate((s) => s.remove())
+  const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]) }
+  const px = (x, y) => { const i = (Math.min(info.height - 1, Math.max(0, Math.round(y * dpr))) * info.width + Math.min(info.width - 1, Math.max(0, Math.round(x * dpr)))) * 3; return [data[i], data[i + 1], data[i + 2]] }
+  const found = []
+  for (const t of texts) {
+    const m = /rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?\)/.exec(t.color)
+    if (!m) continue
+    const a = (m[4] === undefined ? 1 : +m[4]) * t.alpha
+    const ratios = []
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 3; j++) {
+      const bg = px(t.x + (t.w * (i + 0.5)) / 6, t.y + (t.h * (j + 0.5)) / 3)
+      const fg = [1, 2, 3].map((k, q) => +m[k] * a + bg[q] * (1 - a))
+      const [x, y] = [lum(fg), lum(bg)]
+      ratios.push((Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05))
+    }
+    const low = ratios.sort((p, q) => p - q)[2]
+    if (low < (t.large ? 3 : 4.5)) found.push(`"${t.text}" reads at ${low.toFixed(2)}:1`)
+  }
+  return found
+}
 
 const { base, server } = await serveEditorProbe({ entry: "scripts/render-onepage-skins.tsx", fail })
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
@@ -75,6 +125,7 @@ try {
         if (width < 500 && sideways > 0) problems.push(`${theme} ${width} ${layout}: scrolls ${sideways}px sideways`)
         const file = join(shots, `${theme}-${width}-${layout}.png`)
         await page.screenshot({ path: file, fullPage: FULL })
+        if (process.env.AUDIT === "1") problems.push(...(await audit(page)).map((p) => `${theme} ${width} ${layout}: ${p}`))
         console.log(`  ${file}`)
         await page.close()
       }

@@ -117,7 +117,7 @@ export interface OnePageTheme {
   // Animated gradient
   animated_gradient?: boolean
   /* Round W9 (lib/onepage/theme-skin): the material a theme draws its blocks in and the scene behind them. Missing is none. */
-  theme_skin?: "aero" | "aqua" | "messenger" | "y2k" | "playful" | "grunge" | null
+  theme_skin?: "aero" | "aqua" | "messenger" | "y2k" | "playful" | "grunge" | "aero2" | "aqua2" | "messenger2" | "y2k2" | "playful2" | "grunge2" | "classic98" | "vaporwave" | "arcade" | null
 }
 
 export interface OnePageSettings {

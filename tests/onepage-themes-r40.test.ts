@@ -76,7 +76,7 @@ const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", categor
 /* Changed on purpose (round 42): Folio (light) and Ledger (dark) join after round 40's, each in its kind. */
 /* Changed on purpose (round AP): Notebook (light) and Cobalt (gradient) join at the end of their kinds. */
 /* Changed on purpose (round W8): Gazette (light), Halo (gradient) and Acid (dark) join at the end of their kinds. */
-check("each lands in its own kind, after that kind's old ones", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,gazette,aqua,messenger,playful,grunge,b,lagoon,cobalt,halo,aero,c,ember,ledger,acid,y2k,d,atlas" /* Changed on purpose (round W9): Aqua, Messenger, Playful, Grunge, Aero and Y2K, each at the end of its kind. */)
+check("each lands in its own kind, after that kind's old ones", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,gazette,aqua,messenger,playful,grunge,aqua2,messenger2,grunge2,b,lagoon,cobalt,halo,aero,y2k2,vaporwave,c,ember,ledger,acid,y2k,aero2,playful2,classic98,arcade,d,atlas" /* Changed on purpose (round W9): Aqua, Messenger, Playful, Grunge, Aero and Y2K, each at the end of its kind. Changed on purpose (round W10): the nine W10 themes after them. */)
 
 /* ─── Block layouts ───────────────────────────────────────────────────── */
 console.log("\nBlocks can be laid out four ways")

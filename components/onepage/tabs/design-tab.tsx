@@ -151,6 +151,8 @@ const TITLE_FONTS = [
   { name: "Righteous", value: "'Righteous', cursive" },
   { name: "Alfa Slab One", value: "'Alfa Slab One', cursive" },
   { name: "Russo One", value: "'Russo One', sans-serif" },
+  { name: "Pixelify Sans", value: "'Pixelify Sans', sans-serif" },
+  { name: "Press Start 2P", value: "'Press Start 2P', monospace" },
   { name: "Abril Fatface", value: "'Abril Fatface', cursive" },
   { name: "Satisfy", value: "'Satisfy', cursive" },
   { name: "Archivo Black", value: "'Archivo Black', sans-serif" },
