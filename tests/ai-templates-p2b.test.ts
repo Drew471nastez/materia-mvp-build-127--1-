@@ -229,7 +229,7 @@ async function main() {
     check(`${t.id}: the site validates (types, bindings, links, menus, own chrome)`, siteErrors.length === 0, siteErrors)
     const rawPlan = [...t.pages.map((p) => ({ key: p.key, sections: p.sections.filter((x) => !x.group).map((x) => `${x.type}: ${x.name}`) })), ...["cart", "404"].map((key) => ({ key, sections: [], reason: "The platform's working layout in the site's tokens is enough here." }))]
     const plan = readSitePlan(rawPlan, CAPS, null)
-    check(`${t.id}: its plan is a valid site plan`, plan.ok === true, plan.ok ? undefined : plan.missing)
+    check(`${t.id}: its plan is a valid site plan`, plan.ok === true, plan.ok ? undefined : (plan as { missing?: string[] }).missing)
     const complete = errorsOf(completenessIssues({ pages: t.pages, sources: t.files, settings, caps: CAPS, mode: "blank", plan: plan.ok ? plan.plan : null }))
     check(`${t.id}: complete by the finish rules (home, pages, templates, own header and footer, every page reachable)`, complete.length === 0, complete)
     check(`${t.id}: every file carries the template's prefix`, Object.keys(t.files).every((p) => p.startsWith(`sections/ai_${t.prefix}_`)))

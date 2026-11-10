@@ -97,7 +97,7 @@ export function pageHtml(t: SiteTemplate, sections: SectionInstance[], key: stri
   for (const s of sections) {
     const out = renderStorelibSection(s, theme, page, t.files, products as never, data)
     if (out.ok) parts.push(`<div data-p2b="${s.id}">${out.css ? `<style>${out.css}</style>` : ""}${out.html}</div>`)
-    else bad.push(`${s.id}: ${JSON.stringify(out.errors).slice(0, 300)}`)
+    else bad.push(`${s.id}: ${JSON.stringify((out as { errors?: unknown }).errors).slice(0, 300)}`)
   }
   const vars = Object.entries(themeVars(theme)).map(([k, v]) => `${k}:${String(v).replace(/[;"<>]/g, "")}`).join(";")
   /* The page root is an inline-size container, as on the live page and in the canvas (ThemePage.tsx): the engine writes width @media as @container. */
