@@ -148,7 +148,7 @@ section("Click a block in the phone preview")
   check("a pick opens the block and tells the editor", /notePreviewPick\(id\)/.test(live) && /setSelectedBlockId\(id\)/.test(live) && /PREVIEW_PICK_EVENT/.test(live))
   check("the editor shows Links on a pick", /if \(activeTabRef\.current !== "links"\) handleTabChange\("links"\)/.test(code("components/onepage/onepage-editor.tsx")))
   check("the list glides to the card", /takePreviewPick\(selectedBlockId\)/.test(code("components/onepage/tabs/links-tab.tsx")) && /behavior: "smooth"/.test(code("components/onepage/tabs/links-tab.tsx")))
-  check("a link still waiting for its address can be picked too", /data-onepage-enter=\{animClass \? "" : undefined\} data-op-block=\{block\.id\}>\s*<IncompleteLinkPlaceholder/.test(code("components/onepage/public-onepage.tsx")))
+  check("a link still waiting for its address can be picked too", /data-onepage-enter=\{animClass \? "" : undefined\} data-op-block=\{block\.id\}[^>]*>\s*<IncompleteLinkPlaceholder/.test(code("components/onepage/public-onepage.tsx")))
 }
 
 section("Add link to Instagram bio")

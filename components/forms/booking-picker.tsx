@@ -160,7 +160,7 @@ export function BookingPicker({
           <button
             type="button"
             onClick={() => ((dir.current = "back"), onDay(null))}
-            className="-ml-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full outline-none transition-[background-color,transform] duration-100 hover:bg-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_6%,transparent)] focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink,#1a1a2e)]/25 active:scale-95"
+            className="-ml-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full outline-none transition-[background-color,scale] duration-100 hover:bg-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_6%,transparent)] focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink,#1a1a2e)]/25 active:scale-95"
             aria-label="Back to the month"
             data-booking-back=""
           >
@@ -186,7 +186,7 @@ export function BookingPicker({
                   role="radio"
                   aria-checked={on}
                   onClick={() => onPick(s)}
-                  className={`min-h-12 rounded-xl border text-[15px] font-semibold tabular-nums outline-none transition-[background-color,border-color,color,transform] duration-100 focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink,#1a1a2e)]/25 active:scale-[0.97] ${on ? "border-[var(--sheet-ink,#1a1a2e)] bg-[var(--sheet-ink,#1a1a2e)] text-[var(--sheet-on-ink,#fff)]" : "border-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_22%,transparent)] bg-[var(--form-field,#fff)] text-[var(--sheet-ink,#1a1a2e)] hover:border-[var(--sheet-ink,#1a1a2e)]"}`}
+                  className={`min-h-12 rounded-xl border text-[15px] font-semibold tabular-nums outline-none transition-[background-color,border-color,color,scale] duration-100 focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink,#1a1a2e)]/25 active:scale-[0.97] ${on ? "border-[var(--sheet-ink,#1a1a2e)] bg-[var(--sheet-ink,#1a1a2e)] text-[var(--sheet-on-ink,#fff)]" : "border-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_22%,transparent)] bg-[var(--form-field,#fff)] text-[var(--sheet-ink,#1a1a2e)] hover:border-[var(--sheet-ink,#1a1a2e)]"}`}
                 >
                   {timeLabel(s.start, zone)}
                 </button>
@@ -212,7 +212,7 @@ export function BookingPicker({
               role="radio"
               aria-checked={d === duration}
               onClick={() => onDuration(d)}
-              className={`min-h-10 rounded-full border px-4 text-sm font-semibold outline-none transition-[background-color,border-color,color,transform] duration-100 focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink,#1a1a2e)]/25 active:scale-[0.97] ${d === duration ? "border-[var(--sheet-ink,#1a1a2e)] bg-[var(--sheet-ink,#1a1a2e)] text-[var(--sheet-on-ink,#fff)]" : "border-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_22%,transparent)] bg-[var(--form-field,#fff)]"}`}
+              className={`min-h-10 rounded-full border px-4 text-sm font-semibold outline-none transition-[background-color,border-color,color,scale] duration-100 focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink,#1a1a2e)]/25 active:scale-[0.97] ${d === duration ? "border-[var(--sheet-ink,#1a1a2e)] bg-[var(--sheet-ink,#1a1a2e)] text-[var(--sheet-on-ink,#fff)]" : "border-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_22%,transparent)] bg-[var(--form-field,#fff)]"}`}
             >
               {d >= 60 && d % 60 === 0 ? `${d / 60} h` : `${d} min`}
             </button>
@@ -233,7 +233,7 @@ export function BookingPicker({
                 disabled={!enabled}
                 onClick={() => go(delta as 1 | -1)}
                 aria-label={delta < 0 ? "Previous month" : "Next month"}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full outline-none transition-[background-color,transform] duration-100 hover:bg-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_6%,transparent)] focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink,#1a1a2e)]/25 active:scale-95 disabled:opacity-30 disabled:hover:bg-transparent"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full outline-none transition-[background-color,scale] duration-100 hover:bg-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_6%,transparent)] focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink,#1a1a2e)]/25 active:scale-95 disabled:opacity-30 disabled:hover:bg-transparent"
               >
                 {delta < 0 ? <ChevronLeft className="h-5 w-5" aria-hidden /> : <ChevronRight className="h-5 w-5" aria-hidden />}
               </button>
@@ -263,7 +263,7 @@ export function BookingPicker({
                 data-day={c}
                 data-open={open ? "" : undefined}
                 aria-label={`${longDay(c)}${open ? "" : ", no times"}`}
-                className={`relative inline-flex aspect-square w-full max-w-11 items-center justify-center rounded-full text-[15px] tabular-nums outline-none transition-[background-color,color,transform] duration-100 focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink,#1a1a2e)]/30 ${open ? "bg-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_9%,transparent)] font-semibold text-[var(--sheet-ink,#1a1a2e)] hover:bg-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_16%,transparent)] active:scale-95" : "cursor-default text-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_32%,transparent)]"}`}
+                className={`relative inline-flex aspect-square w-full max-w-11 items-center justify-center rounded-full text-[15px] tabular-nums outline-none transition-[background-color,color,scale] duration-100 focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink,#1a1a2e)]/30 ${open ? "bg-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_9%,transparent)] font-semibold text-[var(--sheet-ink,#1a1a2e)] hover:bg-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_16%,transparent)] active:scale-95" : "cursor-default text-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_32%,transparent)]"}`}
               >
                 {n}
                 {isToday ? <span aria-hidden className="absolute bottom-1 h-1 w-1 rounded-full" style={{ background: ink }} /> : null}

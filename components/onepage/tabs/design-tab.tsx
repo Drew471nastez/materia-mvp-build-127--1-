@@ -7,6 +7,7 @@ import { ProfileImage } from "@/components/onepage/profile-image"
 import type React from "react"
 
 import { useOnePage } from "@/lib/onepage/context"
+import type { LinkButtonBlockData } from "@/lib/onepage/types"
 import { onePageImageSrc } from "@/lib/onepage/display-image"
 import * as ReactModule from "react"
 import { useEffect, useLayoutEffect, useState, useRef, useCallback, startTransition, memo } from "react"
@@ -2738,7 +2739,7 @@ function ThemeSection() {
         const firstLinkButton = draft_blocks.find(b => b.type === "link_button" && b.enabled)
         if (firstLinkButton) {
           updateBlock(firstLinkButton.id, {
-            data: { ...(firstLinkButton.data || {}), animation_type: "swipe" }
+            data: { ...((firstLinkButton.data || {}) as LinkButtonBlockData), animation_type: "swipe" }
           })
         }
       }

@@ -125,6 +125,8 @@ export interface OnePageTheme {
 
 export interface OnePageSettings {
   show_branding: boolean
+  /* Hide Storelib branding (a paid plan's switch), saved beside show_branding (lib/onepage/settings-rules SWITCHES). */
+  hide_branding_pro_enabled?: boolean
   seo_title?: string | null
   seo_description?: string | null
   /* The title and description a shared link shows, when not the search ones (lib/onepage/seo). */

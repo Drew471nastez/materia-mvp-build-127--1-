@@ -121,6 +121,11 @@ const PROOFS: [string, RegExp][] = [
  * already public.
  */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
+  /* Round AR: OnePage visitors and a booker's own link. */
+  "bookings/manage/[token]/route.ts": "A booker's own booking, opened only by the server-signed token from their email (HMAC over the booking id; a changed id or signature is a 404). Reads that one booking, its free times and moves or cancels it; limited per address, reads and writes apart.",
+  "onepage/poll/route.ts": "A vote on a published poll block: the block is read from the live page, one vote per visitor (an http-only cookie stored only as a hash, a unique index), limited per address, robots and prefetches refused, a block outside its schedule refused.",
+  "onepage/rsvp/route.ts": "An RSVP to a published event block: the block is read from the live page, limited per address and per email like a signup, and stored as a lead for that page's owner; nothing is read back.",
+  "onepage/tip/route.ts": "A tip on a published tips block: the amount is checked against the block, the money goes only to the page owner's own connected account (destination charge), limited like a payment; the return only reads back that Checkout Session.",
   "forms/[id]/public/route.ts": "A reusable public form: reads only the validated published snapshot for this exact UUID. Drafts, owners, answers and integration configuration are never returned; anonymous access is intentional.",
   "forms/[id]/slots/route.ts": "A published booking form's free times for this exact UUID: only start and end instants are returned, never who booked or which form; limited per address.",
   "forms/[id]/upload/route.ts": "One visitor file for a file question of a published form: limited per address and form, capped at 4 MB before reading, checked by its bytes, kept in a private bucket; the answer is a reference signed for this form and one submission token, never a link.",

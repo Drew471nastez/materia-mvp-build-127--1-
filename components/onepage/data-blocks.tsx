@@ -691,7 +691,7 @@ function RsvpForm({ blockId, look, title }: { blockId: string; look: AppBlockLoo
         {tt("Send me news by email too")}
       </label>
       {error ? <p className="text-[13px] font-medium text-[#b42318]" role="alert">{error}</p> : null}
-      <button type="submit" disabled={state === "busy"} className="h-12 rounded-full bg-[#111113] text-[15px] font-semibold text-white transition-[opacity,transform] duration-150 active:scale-[0.985] disabled:opacity-60">
+      <button type="submit" disabled={state === "busy"} className="h-12 rounded-full bg-[#111113] text-[15px] font-semibold text-white transition-[opacity,scale] duration-150 active:scale-[0.985] disabled:opacity-60">
         {state === "busy" ? tt("Saving...") : tt("RSVP")}
       </button>
     </form>

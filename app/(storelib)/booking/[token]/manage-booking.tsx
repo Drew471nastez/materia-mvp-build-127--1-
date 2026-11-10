@@ -35,7 +35,7 @@ const zone = () => {
   }
 }
 const full = (iso: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(new Date(iso))
-const button = "inline-flex min-h-12 items-center justify-center rounded-xl px-5 text-[15px] font-semibold outline-none transition-[background-color,transform] duration-100 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 active:scale-[0.98] disabled:opacity-50"
+const button = "inline-flex min-h-12 items-center justify-center rounded-xl px-5 text-[15px] font-semibold outline-none transition-[background-color,scale] duration-100 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 active:scale-[0.98] disabled:opacity-50"
 const primary = `${button} bg-[#1a1a2e] text-white hover:bg-[#2a2a40]`
 const secondary = `${button} border border-[#e3e4e8] bg-white text-[#1a1a2e] hover:border-[#c9cbd1]`
 
