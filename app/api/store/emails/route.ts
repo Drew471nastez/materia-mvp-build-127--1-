@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { isPlatformReply } from "@/lib/emails/reply-to"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { resolveCreatorIdentity } from "@/lib/email"
@@ -76,7 +77,8 @@ export async function GET(request: Request) {
   return physicalJson({
     shop: {
       name: store?.name || identity.fromName || "Your store",
-      supportEmail: store?.email || identity.replyTo || null,
+      /* Never Storelib's own support inbox standing in for a store without one (lib/emails/reply-to.ts). */
+      supportEmail: store?.email || (identity.replyTo && !isPlatformReply(identity.replyTo) ? identity.replyTo : null),
       storeUrl: website || null,
       logoUrl: store?.logoUrl ?? null,
       logoFrom: store?.logoFrom ?? null,

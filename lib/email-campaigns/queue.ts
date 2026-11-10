@@ -52,9 +52,10 @@
 import { segmentMemberIds } from "./segments-server"
 import "server-only"
 
-import { EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
+import { EMAIL_FROM } from "@/lib/mail"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { mailgunDomain, sendMailgunOnce, type MailgunOnceResult } from "@/lib/mailgun"
+import { storeReplyTo } from "@/lib/emails/reply-to-server"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { verifiedSender } from "@/lib/emails/sending-domain-server"
 import { ownFrom } from "@/lib/emails/sending-domain"
@@ -180,7 +181,9 @@ export async function loadSender(db: Db, creatorId: string, fromName?: string | 
     has no inbox at all, so that falls through to Storelib's own address
     rather than to a name that bounces.
   */
-  const replyTo = normalizeAddress(creator.support_email) || normalizeAddress(ownerAddress(profile?.email)) || EMAIL_REPLY_TO
+  /* One answer for every store email (lib/emails/reply-to-server.ts): Store details' contact email, the support email, the owner's own; never Storelib's support inbox. */
+  const resolved = await storeReplyTo(db, creatorId).catch(() => null)
+  const replyTo = resolved?.address || normalizeAddress(creator.support_email) || normalizeAddress(ownerAddress(profile?.email)) || ""
   const verdict = scoreSignup({ handle: profile?.username, email: profile?.email, displayName: profile?.display_name })
   const brand = await loadBrand(db, creatorId)
   const own = await verifiedSender(db, creatorId)
@@ -841,7 +844,9 @@ export function messageFor(frame: Frame, campaignId: string, row: Claimed, unsub
   return {
     to: row.email,
     from: frame.sender.from,
-    replyTo: frame.sender.replyTo,
+    replyTo: frame.sender.replyTo || undefined,
+    /* The store's email: a reply reaches the store (lib/mailgun.ts withStoreSender). */
+    store: frame.sender.creatorId,
     subject,
     html,
     text: emailText({ bodyHtml: personal, brand, kind: "marketing", unsubscribeUrl: page, viewOnlineUrl: view }),

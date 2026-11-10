@@ -171,7 +171,7 @@ export async function loadPlatforms(): Promise<SendingData> {
   if (!m.ok) throw new Error(m.error || tt("Could not load your platforms."))
   if (!isRecord(m.data)) throw new Error(tt("Could not load your platforms."))
   const sender = isRecord(who)
-    ? { name: typeof who.name === "string" ? who.name : null, replyTo: typeof who.replyTo === "string" ? who.replyTo : null, fromAddress: typeof who.fromAddress === "string" ? who.fromAddress : null, ownDomain: who.ownDomain === true, storelibAddress: typeof who.storelibAddress === "string" ? who.storelibAddress : null }
+    ? { name: typeof who.name === "string" ? who.name : null, replyTo: typeof who.replyTo === "string" ? who.replyTo : null, replyVia: who.replyVia === "contact" || who.replyVia === "support" || who.replyVia === "account" ? (who.replyVia as "contact" | "support" | "account") : null, fromAddress: typeof who.fromAddress === "string" ? who.fromAddress : null, ownDomain: who.ownDomain === true, storelibAddress: typeof who.storelibAddress === "string" ? who.storelibAddress : null }
     : null
   return { marketing: marketingFrom<MarketingState>(m.data.marketing), sending: d.ok ? sendingDomainFrom<NonNullable<SendingDomainData["domain"]>>(d.data) : { domain: null, ready: true, available: false }, sender }
 }
@@ -180,6 +180,8 @@ export async function loadPlatforms(): Promise<SendingData> {
 export interface SenderInfo {
   name: string | null
   replyTo: string | null
+  /** Which address replyTo is (lib/emails/reply-to.ts): Store details' contact email, the support email, or the account's own. */
+  replyVia?: "contact" | "support" | "account" | null
   /** The address mail leaves from: the store's own once its domain is verified, else Storelib's. */
   fromAddress?: string | null
   ownDomain?: boolean

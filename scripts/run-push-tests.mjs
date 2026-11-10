@@ -1065,6 +1065,7 @@ const SUITES = [
   "tests/connected-platforms.test.ts",
   /* Wave 9, emails: every store email From the store's own verified domain (lib/mailgun.ts `store`), the domain checked again by the cron, the platforms synced within the minute also with physical commerce off. */
   "tests/emails-sending-w9.test.ts",
+  "tests/emails-reply-w10.test.ts",
   "tests/partners24.test.ts",
   /* Round AE3: each partner's cancel and costs against stubs of its API, holds and the partner card read from the timeline, the packing slip's paper and prices, the buyer's paid rate in Buy a label. */
   "tests/fulfilment-ae3.test.ts",

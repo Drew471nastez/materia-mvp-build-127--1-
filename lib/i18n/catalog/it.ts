@@ -13009,7 +13009,14 @@ const words: Record<string, string> = {
  "Nothing new to publish": "Niente di nuovo da pubblicare",
  "Reviewing the design": "Revisione del design",
  "The first screen of your website, as the design review saw it": "La prima schermata del tuo sito, come l'ha vista la revisione del design",
- "What the design review looked at": "Cosa ha guardato la revisione del design"
+ "What the design review looked at": "Cosa ha guardato la revisione del design",
+ "Add a contact email in Settings › Store details, so customers can reply to your emails.": "Aggiungi un'email di contatto in Impostazioni › Dettagli del negozio, così i clienti possono rispondere alle tue email.",
+ "Your contact email, from Settings › Store details. Customers who reply to any of your emails write here.": "La tua email di contatto, da Impostazioni › Dettagli del negozio. I clienti che rispondono a una tua email scrivono qui.",
+ "Your support email. Customers who reply to any of your emails write here. Add a contact email in Store details to change it.": "La tua email di assistenza. I clienti che rispondono a una tua email scrivono qui. Aggiungi un'email di contatto in Dettagli del negozio per cambiarla.",
+ "Your account email. Customers who reply to any of your emails write here. Add a contact email in Store details to use another.": "L'email del tuo account. I clienti che rispondono a una tua email scrivono qui. Aggiungi un'email di contatto in Dettagli del negozio per usarne un'altra.",
+ "One domain for every email your store sends: campaigns, automations and order emails. Set it up once.": "Un dominio per ogni email che il tuo negozio invia: campagne, automazioni ed email degli ordini. Lo configuri una volta.",
+ "No inbox needed. Replies go to your reply address, not this one.": "Non serve una casella di posta. Le risposte vanno al tuo indirizzo di risposta, non a questo.",
+ "Used for all your emails: campaigns, automations and order emails.": "Usato per tutte le tue email: campagne, automazioni ed email degli ordini."
 }
 
 export default words

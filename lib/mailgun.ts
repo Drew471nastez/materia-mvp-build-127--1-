@@ -6,7 +6,9 @@
  * - MAILGUN_DOMAIN: storelib.com
  * - MAILGUN_BASE_URL: https://api.eu.mailgun.net (EU region)
  * - EMAIL_FROM: "Storelib <noreply@storelib.com>"
- * - EMAIL_REPLY_TO: "support@storelib.com"
+ * - EMAIL_REPLY_TO: "support@storelib.com", the Reply-To of Storelib's own
+ *   emails only; a store's email (`store`) replies to the store
+ *   (lib/emails/reply-to.ts)
  */
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { mediaUrlsIn } from "@/lib/storage/media-url"
@@ -182,18 +184,58 @@ export const storeSender: { lookup: (creatorId: string) => Promise<{ address: st
   },
 }
 
-/** The options with the store's own address in From when it has one verified (lib/emails/sending-domain asOwnSender). Never throws. */
-export async function withStoreSender<T extends MailgunSendOptions>(options: T): Promise<T & { from?: string; sendingDomain?: string }> {
-  if (!options.store || options.sendingDomain) return options
-  let own: { address: string; domain: string } | null = null
-  try {
-    own = await storeSender.lookup(options.store)
-  } catch {
-    own = null
+/**
+ * How a send for a store finds where a reply goes (lib/emails/reply-to-server.ts
+ * storeReplyTo): the store's contact email, its support email, its owner's
+ * account email. A test replaces `lookup`; nothing else should.
+ */
+export const storeReply: { lookup: (creatorId: string) => Promise<string | null> } = {
+  async lookup(creatorId) {
+    const [{ storeReplyTo }, { createAdminClient }] = await Promise.all([import("@/lib/emails/reply-to-server"), import("@/lib/supabase/admin")])
+    return (await storeReplyTo(createAdminClient(), creatorId))?.address ?? null
+  },
+}
+
+/**
+ * A STORE'S EMAIL, AS THE STORE'S (Emails › Settings). With `store` set:
+ * From the store's own address when its sending domain is verified
+ * (lib/emails/sending-domain asOwnSender), and a Reply-To that reaches the
+ * store (lib/emails/reply-to.ts replyToFor): the one asked for when it can
+ * take a reply, else the store's own, else none, never Storelib's support
+ * inbox. Without `store` nothing changes. Never throws.
+ */
+export async function withStoreSender<T extends MailgunSendOptions>(options: T): Promise<T & { from?: string; sendingDomain?: string; replyTo?: string }> {
+  if (!options.store) return options
+  let out: T & { from?: string; sendingDomain?: string; replyTo?: string } = options
+  if (!options.sendingDomain) {
+    let own: { address: string; domain: string } | null = null
+    try {
+      own = await storeSender.lookup(options.store)
+    } catch {
+      own = null
+    }
+    if (own) {
+      const { asOwnSender } = await import("@/lib/emails/sending-domain")
+      out = { ...out, ...asOwnSender(options.from || buildMailgunFromHeader(), own) }
+    }
   }
-  if (!own) return options
-  const { asOwnSender } = await import("@/lib/emails/sending-domain")
-  return { ...options, ...asOwnSender(options.from || buildMailgunFromHeader(), own) }
+  const { canTakeReply, replyToFor } = await import("@/lib/emails/reply-to")
+  const block = { sendingDomain: out.sendingDomain ?? null, platformDomain: MAILGUN_DOMAIN }
+  if (out.replyTo && canTakeReply(out.replyTo, block)) return out
+  let resolved: string | null = null
+  try {
+    resolved = await storeReply.lookup(options.store)
+  } catch {
+    resolved = null
+  }
+  const replyTo = replyToFor({ store: options.store, replyTo: out.replyTo, resolved }, EMAIL_REPLY_TO, block)
+  return { ...out, replyTo: replyTo ?? undefined }
+}
+
+/** The Reply-To a send carries once withStoreSender has run: a store's own, or none for a store with none; Storelib's for Storelib's own emails. */
+export function replyHeaderOf(options: Pick<MailgunSendOptions, "store" | "replyTo">): string | null {
+  if (options.replyTo) return options.replyTo
+  return options.store ? null : EMAIL_REPLY_TO
 }
 
 /** A sending domain as Mailgun names it in a path: a hostname and nothing else. */
@@ -396,7 +438,7 @@ export async function sendMailgunEmail(asked: MailgunSendOptions): Promise<Mailg
   }
 
   const fromAddress = fromForSend(options.from, options.transactional, domain)
-  const replyTo = options.replyTo || EMAIL_REPLY_TO
+  const replyTo = replyHeaderOf(options)
   /* A code they just asked for must not die on a stale bounce. Mailgun
      drops those after it has already answered "queued", so the page looks
      sent and the inbox stays empty. A complaint is left in place. */
@@ -416,8 +458,8 @@ export async function sendMailgunEmail(asked: MailgunSendOptions): Promise<Mailg
   const textContent = options.text || htmlToPlainText(html)
   formData.append("text", textContent)
 
-  // Add Reply-To header
-  formData.append("h:Reply-To", replyTo)
+  // Add Reply-To header: a store's email that has nowhere to reply carries none (never Storelib's inbox)
+  if (replyTo) formData.append("h:Reply-To", replyTo)
 
   // Add custom headers
   if (options.headers) {
@@ -459,7 +501,7 @@ export async function sendMailgunEmail(asked: MailgunSendOptions): Promise<Mailg
 
   console.log("[mailgun] Sending email:", {
     to: maskEmail(options.to),
-    replyTo: maskEmail(replyTo),
+    replyTo: replyTo ? maskEmail(replyTo) : "none",
     domain,
   })
 
@@ -606,7 +648,8 @@ export async function sendMailgunOnce(
   const html = sendableHtml(await withLogoShapes(options.html), options.subject)
   form.append("html", html)
   form.append("text", options.text || htmlToPlainText(html))
-  form.append("h:Reply-To", options.replyTo || EMAIL_REPLY_TO)
+  const replyTo = replyHeaderOf(options)
+  if (replyTo) form.append("h:Reply-To", replyTo)
   if (options.messageId) form.append("h:Message-Id", options.messageId)
   for (const [key, value] of Object.entries(options.headers ?? {})) form.append(`h:${key}`, value)
   for (const tag of options.tags ?? []) form.append("o:tag", tag)

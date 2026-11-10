@@ -13009,7 +13009,14 @@ const words: Record<string, string> = {
  "Nothing new to publish": "Nie ma nic nowego do opublikowania",
  "Reviewing the design": "Sprawdzanie projektu",
  "The first screen of your website, as the design review saw it": "Pierwszy ekran Twojej strony, tak jak zobaczyło go sprawdzanie projektu",
- "What the design review looked at": "Co obejrzało sprawdzanie projektu"
+ "What the design review looked at": "Co obejrzało sprawdzanie projektu",
+ "Add a contact email in Settings › Store details, so customers can reply to your emails.": "Dodaj e-mail kontaktowy w Ustawienia › Dane sklepu, aby klienci mogli odpowiadać na Twoje e-maile.",
+ "Your contact email, from Settings › Store details. Customers who reply to any of your emails write here.": "Twój e-mail kontaktowy z Ustawienia › Dane sklepu. Klienci, którzy odpowiadają na Twoje e-maile, piszą tutaj.",
+ "Your support email. Customers who reply to any of your emails write here. Add a contact email in Store details to change it.": "Twój e-mail pomocy. Klienci, którzy odpowiadają na Twoje e-maile, piszą tutaj. Dodaj e-mail kontaktowy w Dane sklepu, aby to zmienić.",
+ "Your account email. Customers who reply to any of your emails write here. Add a contact email in Store details to use another.": "E-mail Twojego konta. Klienci, którzy odpowiadają na Twoje e-maile, piszą tutaj. Dodaj e-mail kontaktowy w Dane sklepu, aby użyć innego.",
+ "One domain for every email your store sends: campaigns, automations and order emails. Set it up once.": "Jedna domena dla każdego e-maila wysyłanego przez Twój sklep: kampanii, automatyzacji i e-maili o zamówieniach. Skonfiguruj ją raz.",
+ "No inbox needed. Replies go to your reply address, not this one.": "Skrzynka nie jest potrzebna. Odpowiedzi trafiają na Twój adres do odpowiedzi, nie na ten.",
+ "Used for all your emails: campaigns, automations and order emails.": "Używany do wszystkich Twoich e-maili: kampanii, automatyzacji i e-maili o zamówieniach."
 }
 
 export default words

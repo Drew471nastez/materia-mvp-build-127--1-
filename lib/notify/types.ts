@@ -396,6 +396,13 @@ export interface OutgoingEmail {
   messageId?: string
   /** The store's own verified sending domain, when `from` is an address on it (lib/emails/sending-domain-server.ts). */
   sendingDomain?: string
+  /**
+   * The store (creators.id) this email is sent for, when it is the store's
+   * own email to its customer: a reply then reaches the store (its contact
+   * email, else its owner), never Storelib's support inbox (lib/mailgun.ts
+   * withStoreSender, lib/emails/reply-to.ts).
+   */
+  store?: string | null
   /** Files sent with the message. Today only a calendar file, drawn by the template from the job's own data. */
   attachments?: EmailFile[]
 }

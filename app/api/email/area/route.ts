@@ -4,6 +4,7 @@ import { requireTeamPermission, type TeamGate } from "@/lib/team/server"
 import { REPLY_PAGE, threadRows } from "@/lib/site-contact/reply"
 import { displayEmail, ownerAddress } from "@/lib/businesses/email-alias"
 import { verifiedSender } from "@/lib/emails/sending-domain-server"
+import { storeReplyTo } from "@/lib/emails/reply-to-server"
 import { syncPlatformsSoon } from "@/lib/contacts/checkout-contact"
 import { storelibFromAddress } from "@/lib/mailgun"
 
@@ -221,11 +222,13 @@ async function contact(db: Db, creatorId: string, email: string) {
 /** The store's sender: its owner's name and photo, its support address for replies, and the signed in person's own address for a test. */
 async function sender(gate: TeamGate) {
   const db = gate.db
-  const [{ data: creator }, { data: profile }, own] = await Promise.all([
+  const [{ data: creator }, { data: profile }, own, reply] = await Promise.all([
     db.from("creators").select("id, support_email").eq("id", gate.creatorId).maybeSingle(),
     gate.ownerUserId ? db.from("profiles").select("display_name, username, avatar_url, email").eq("id", gate.ownerUserId).maybeSingle() : Promise.resolve({ data: null }),
     /* The address mail leaves from: the store's own once its domain is verified, else Storelib's (lib/mailgun.ts withStoreSender). */
     verifiedSender(db, gate.creatorId).catch(() => null),
+    /* Where a reply goes: the same read every store email's Reply-To is (lib/emails/reply-to-server.ts), fresh, so a contact email just saved shows. */
+    storeReplyTo(db, gate.creatorId, { fresh: true }).catch(() => null),
   ])
   const p = (profile ?? {}) as { display_name?: string | null; username?: string | null; avatar_url?: string | null; email?: string | null }
   const c = (creator ?? {}) as { id?: string; support_email?: string | null }
@@ -235,7 +238,9 @@ async function sender(gate: TeamGate) {
     username: p.username ?? null,
     avatarUrl: p.avatar_url ?? null,
     email: displayEmail(gate.userEmail),
-    replyTo: (c.support_email || ownerAddress(gate.isOwner ? gate.userEmail : p.email) || "").trim().toLowerCase() || null,
+    replyTo: reply?.address ?? ((c.support_email || ownerAddress(gate.isOwner ? gate.userEmail : p.email) || "").trim().toLowerCase() || null),
+    /* Which address that is: Store details' contact email, the support email, or the account's own (lib/emails/reply-to.ts). */
+    replyVia: reply?.via ?? (c.support_email ? "support" : "account"),
     fromAddress: own?.address ?? storelibFromAddress(),
     ownDomain: !!own,
     storelibAddress: storelibFromAddress(),

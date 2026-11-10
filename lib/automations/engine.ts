@@ -184,6 +184,8 @@ export interface OutgoingMail {
   to: string
   fromName: string
   replyTo: string
+  /** The store the run belongs to: a reply reaches it, never Storelib's support inbox (lib/mailgun.ts withStoreSender). */
+  store?: string
   subject: string
   html: string
   text: string
@@ -623,7 +625,7 @@ async function sendStep(ctx: Ctx, flow: FlowRow, run: RunRow, step: EmailStep, s
   const mail = mailer.compose({ step: ready.step, run, identity, standing, token: begin.token, merge: ready.merge })
   let result: { success: boolean; messageId?: string; error?: string }
   try {
-    result = await mailer.send({ to: run.email, fromName: identity.fromName, replyTo: identity.replyTo, ...mail })
+    result = await mailer.send({ to: run.email, fromName: identity.fromName, replyTo: identity.replyTo, store: run.creator_id, ...mail })
   } catch (error) {
     result = { success: false, error: reasonText(error) }
   }

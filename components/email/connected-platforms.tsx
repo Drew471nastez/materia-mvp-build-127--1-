@@ -398,7 +398,8 @@ function SendingDomain({ data, onChange }: { data: SendingDomainData | null; onC
         </h2>
         {badge}
       </div>
-      <p className="mt-0.5 text-[13.5px] leading-5 text-[#6b7280]">{tt("Your campaigns, automations and buyer emails come from your address instead of Storelib's.")}</p>
+      {/* One domain and one address for every email (wave 10, the owner: "there should not be a difference between setting up marketing vs transactional"): Shopify's and Klaviyo's one sender domain, set up once. */}
+      <p className="mt-0.5 text-[13.5px] leading-5 text-[#6b7280]" data-sending-covers="">{tt("One domain for every email your store sends: campaigns, automations and order emails. Set it up once.")}</p>
 
       {!data ? (
         <div className="mt-4 space-y-2" aria-hidden>
@@ -441,8 +442,11 @@ function SendingDomain({ data, onChange }: { data: SendingDomainData | null; onC
                     enterKeyHint="go"
                   />
                 </Field>
-                <Field label={tt("Send as")} htmlFor="sending-local">
-                  <TextInput id="sending-local" value={local} onChange={(e) => setLocal(e.target.value)} placeholder="hello" autoComplete="off" autoCapitalize="none" spellCheck={false} />
+                <Field label={tt("Send as")} htmlFor="sending-local" hint={tt("No inbox needed. Replies go to your reply address, not this one.")}>
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <TextInput id="sending-local" value={local} onChange={(e) => setLocal(e.target.value)} placeholder="hello" autoComplete="off" autoCapitalize="none" spellCheck={false} className="min-w-0 flex-1" data-sending-local="" />
+                    <span className="max-w-[60%] shrink-0 truncate text-[14px] text-[#6b7280]" aria-hidden>@{cleanDomain || "mail.yourshop.com"}</span>
+                  </div>
                 </Field>
               </div>
               {suggest ? (
@@ -472,7 +476,10 @@ function SendingDomain({ data, onChange }: { data: SendingDomainData | null; onC
             <span className="mt-[3px] grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full bg-[#12b76a] text-white" aria-hidden>
               <Check className="h-3 w-3" strokeWidth={3} />
             </span>
-            <div className="min-w-0 flex-1">{fromLine}</div>
+            <div className="min-w-0 flex-1">
+              {fromLine}
+              <p className="mt-0.5 text-[13px] leading-5 text-[#4b5563]" data-sending-all="">{tt("Used for all your emails: campaigns, automations and order emails.")}</p>
+            </div>
           </div>
           {error ? <Notice>{error}</Notice> : null}
           <div className="flex flex-wrap items-center justify-between gap-2">

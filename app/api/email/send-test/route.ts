@@ -98,7 +98,9 @@ export async function POST(request: Request) {
     to: asked,
     from: sender.from,
     ...(sender.sendingDomain ? { sendingDomain: sender.sendingDomain } : {}),
-    replyTo: sender.replyTo,
+    replyTo: sender.replyTo || undefined,
+    /* As the real campaign goes: a reply reaches the store (lib/mailgun.ts withStoreSender). */
+    store: sender.creatorId,
     subject: `Test: ${subject}`,
     html: buildEmail({
       subject,
