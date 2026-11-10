@@ -161,3 +161,22 @@ export function bioSizeClass(theme: Look, hero: boolean, isDesktop: boolean): st
   if (size === "large") return isDesktop ? "text-[18px]" : "text-[16px] sm:text-[18px]"
   return hero && isDesktop ? "text-base" : "text-sm sm:text-base"
 }
+
+/**
+ * The shadow under the Hero's words (wave 11). The Hero sets the name and bio
+ * over the faded end of the photo, with a dark shadow so white words read on
+ * it. Dark words (a light Hero page, Portrait) took the same dark shadow, a
+ * grey smudge round every letter; they get a soft light halo instead, which
+ * lifts them off a dark part of the photo the same way. A colour that is not
+ * a hex colour keeps the dark shadow, as always.
+ */
+export function heroWordsShadow(color: unknown, part: "name" | "bio"): string {
+  const m = typeof color === "string" ? /^#([0-9a-f]{6})/i.exec(color.trim()) : null
+  const dark = m ? (() => {
+    const n = Number.parseInt(m[1], 16)
+    const lin = (v: number) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4 }
+    return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255) < 0.2
+  })() : false
+  if (part === "name") return dark ? "0 1px 12px rgba(255,255,255,0.6)" : "0 2px 8px rgba(0,0,0,0.4)"
+  return dark ? "0 1px 6px rgba(255,255,255,0.7)" : "0 1px 4px rgba(0,0,0,0.4)"
+}

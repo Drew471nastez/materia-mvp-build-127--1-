@@ -77,7 +77,7 @@ import { useLiveLayout } from "@/lib/onepage/live-layout"
 import { ONEPAGE_COLUMN_PX, onePageImageSrc } from "@/lib/onepage/display-image"
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { followDialogLocks, useHeldPage } from "@/lib/onepage/page-hold"
-import { avatarLook, bioSizeClass, bioTypeStyle, titleSizeClass, titleTypeStyle } from "@/lib/onepage/header-style"
+import { avatarLook, bioSizeClass, bioTypeStyle, heroWordsShadow, titleSizeClass, titleTypeStyle } from "@/lib/onepage/header-style"
 import { nameStyleCss, nameStyleOf, nameStyleReset } from "@/lib/onepage/name-style"
 
 /** The name's words: as they are, or in the style the creator chose (round W10, lib/onepage/name-style). */
@@ -1811,22 +1811,60 @@ function getAnimationClassForProduct(animationType?: string) {
   }
 }
 
-// Verified Badge Component with tooltip
+/*
+  THE VERIFIED BADGE AND ITS TOOLTIP ARE THE PAGE'S, NEVER THE NAME'S (wave 11).
+  The owner: "The name style, text font thing or whatever should not apply to
+  the text of the verified creator tooltip. Fully fix." The badge sat inside
+  the name's h1, so its tooltip inherited everything the name wears: the
+  name's font and case, its spacing, a skin's chrome or gradient fill (words
+  painted transparent: Y2K's and Vaporwave's tooltip was an empty box), a
+  photocopy mask (Grunge), a tilt (Grunge Zine), the Hero's shadow, and a
+  name style's outline or script face. Some of that (a mask, a filter, a
+  tilt) cannot be undone from inside the h1 at all. So the badge is no longer
+  in it: NameLine sets the h1 (the name alone) and the badge side by side,
+  and the badge and its tooltip are written in the page's own body font,
+  upright, flat, at their own size, whatever the name, its font, its style
+  or the skin does. The tooltip shows on a mouse's hover and, on a phone,
+  while the badge is tapped (focused). scripts/shot-onepage-w11.mjs PART=tooltip
+  reads every one of these off the tooltip under every name style.
+*/
+const PLAIN_WORDS: React.CSSProperties = {
+  fontFamily: "inherit",
+  fontStyle: "normal",
+  fontVariant: "normal",
+  letterSpacing: "normal",
+  textTransform: "none",
+  textDecoration: "none",
+  textShadow: "none",
+  WebkitTextFillColor: "currentcolor",
+  WebkitTextStroke: "0",
+  filter: "none",
+  transform: "none",
+}
+
+const BADGE_LABELS: Record<string, () => string> = {
+  verified_creator: () => tt("Verified Creator"),
+  verified_brand: () => tt("Verified Brand"),
+  verified_business: () => tt("Verified Business"),
+  official_page: () => tt("Official Page"),
+  verified_artist: () => tt("Verified Artist"),
+}
+
 function VerifiedBadge({ isDesktop = false, badgeType }: { isDesktop?: boolean; badgeType?: string }) {
   // 10% bigger: desktop 22 -> 24, mobile 18 -> 20
   const size = isDesktop ? 24 : 20
-  const badgeLabels: Record<string, string> = {
-    verified_creator: "Verified Creator",
-    verified_brand: "Verified Brand",
-    verified_business: "Verified Business",
-    official_page: "Official Page",
-    verified_artist: "Verified Artist",
-  }
-  const label = badgeLabels[badgeType || "verified_creator"] || "Verified"
+  const label = (BADGE_LABELS[badgeType || "verified_creator"] ?? BADGE_LABELS.verified_creator)()
 
   return (
-    <span className="group relative inline-flex items-center ml-1.5">
-      <svg viewBox="0 0 22 22" width={size} height={size}>
+    <span
+      data-verified-badge=""
+      tabIndex={0}
+      role="img"
+      aria-label={label}
+      className="group relative ml-1.5 inline-flex shrink-0 items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6]/60"
+      style={{ ...PLAIN_WORDS, lineHeight: 1 }}
+    >
+      <svg viewBox="0 0 22 22" width={size} height={size} aria-hidden style={{ display: "block" }}>
         {/* Blue badge background */}
         <path
           fill="#3b82f6"
@@ -1839,12 +1877,29 @@ function VerifiedBadge({ isDesktop = false, badgeType }: { isDesktop?: boolean; 
         />
       </svg>
       <span
-        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50"
-        style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}
+        data-verified-tooltip=""
+        aria-hidden
+        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50"
+        style={{ ...PLAIN_WORDS, transform: undefined, color: "#ffffff", fontSize: 12, lineHeight: "16px", fontWeight: 500, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}
       >
         {label}
       </span>
     </span>
+  )
+}
+
+/**
+ * The name and, beside it, the verified badge: the h1 holds the name alone, so nothing the name wears (its font,
+ * case, style, a skin's fill, mask or tilt, the Hero's shadow) reaches the badge or its tooltip. Without a badge
+ * it is the h1 as it always was.
+ */
+function NameLine({ badge, children }: { badge: React.ReactNode; children: React.ReactElement }) {
+  if (!badge) return children
+  return (
+    <div data-name-line="" className="inline-flex max-w-full items-center justify-center">
+      {children}
+      {badge}
+    </div>
   )
 }
 
@@ -2877,22 +2932,21 @@ function CoreBlockRenderer({
                   />
                 ) : (
                   profile.title && (
+                    <NameLine badge={settings?.verified_badge_enabled ? <VerifiedBadge isDesktop={isDesktop} badgeType={settings?.verified_badge_type} /> : null}>
                     <h1
-                      className={cn("font-bold inline-flex items-center justify-center", titleSizeClass(theme as never, true, isDesktop))}
+                      className={cn("font-bold inline-flex min-w-0 items-center justify-center", titleSizeClass(theme as never, true, isDesktop))}
                       style={{
                         color: (theme as any).title_color || theme.text_color,
                         fontFamily: fontStack((theme as any).title_font || theme.font_family),
-                        textShadow: "0 2px 8px rgba(0,0,0,0.4)",
+                        textShadow: heroWordsShadow((theme as any).title_color || theme.text_color, "name"),
                         ...titleTypeStyle(theme as never),
                         ...(nameStyleOf(theme as never) ? nameStyleReset(true) : null),
                       }}
                       data-name-style={nameStyleOf(theme as never) ?? undefined}
                     >
                       <NameWords theme={theme} title={profile.title} />
-                      {settings?.verified_badge_enabled && (
-                        <VerifiedBadge isDesktop={isDesktop} badgeType={settings?.verified_badge_type} />
-                      )}
                     </h1>
+                    </NameLine>
                   )
                 ))}
               {data.show_bio !== false && profile.bio && (
@@ -2900,7 +2954,7 @@ function CoreBlockRenderer({
                   className={cn("mt-2 max-w-sm mx-auto", bioSizeClass(theme as never, true, isDesktop))}
                   style={{
                     color: theme.secondary_text_color || theme.text_color,
-                    textShadow: "0 1px 4px rgba(0,0,0,0.4)",
+                    textShadow: heroWordsShadow(theme.secondary_text_color || theme.text_color, "bio"),
                     ...bioTypeStyle(theme as never),
                   }}
                 >
@@ -3122,8 +3176,9 @@ function CoreBlockRenderer({
               />
             ) : (
               profile.title && (
+                <NameLine badge={settings?.verified_badge_enabled ? <VerifiedBadge isDesktop={isDesktop} badgeType={settings?.verified_badge_type} /> : null}>
                 <h1
-                  className={cn("font-bold text-center inline-flex items-center justify-center", titleSizeClass(theme as never, false, isDesktop))}
+                  className={cn("font-bold text-center inline-flex min-w-0 items-center justify-center", titleSizeClass(theme as never, false, isDesktop))}
                   style={{
                     color: (theme as any).title_color || theme.text_color,
                     fontFamily: fontStack((theme as any).title_font || theme.font_family),
@@ -3133,10 +3188,8 @@ function CoreBlockRenderer({
                   data-name-style={nameStyleOf(theme as never) ?? undefined}
                 >
                   <NameWords theme={theme} title={profile.title} />
-                  {settings?.verified_badge_enabled && (
-                    <VerifiedBadge isDesktop={isDesktop} badgeType={settings?.verified_badge_type} />
-                  )}
                 </h1>
+                </NameLine>
               )
             ))}
           {data.show_bio !== false && profile.bio && (

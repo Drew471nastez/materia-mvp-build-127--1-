@@ -42,7 +42,7 @@ import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper
 import { ThemeSkinScene } from "@/components/onepage/themes/theme-skin-scene"
 import { skinRootProps, skinVars } from "@/lib/onepage/theme-skin"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonFill, buttonIconSide, buttonSize, buttonAlign, cardButtonTheme, cardRadius, buttonShape, themeButtonStripFill, themeButtonStyle, type ButtonThemeLike } from "@/lib/onepage/button-style"
-import { avatarLook, titleSizeClass, titleTypeStyle } from "@/lib/onepage/header-style"
+import { avatarLook, heroWordsShadow, titleSizeClass, titleTypeStyle } from "@/lib/onepage/header-style"
 import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, headerAlignOf, themeProductLayoutOf } from "@/lib/onepage/theme-layout"
 import { fontStack } from "@/lib/onepage/fonts"
 import { readableOn } from "@/lib/onepage/theme-apply"
@@ -237,7 +237,7 @@ export function ThemePreview({ c, name, thumb, photo = null }: { c: Look; name: 
     <span
       data-tp-title=""
       className={cn("block max-w-full whitespace-nowrap font-bold leading-[1.5]", phone(titleSizeClass(c as never, hero, false)))}
-      style={{ color: c.title_color || text, fontFamily: titleFace, textShadow: hero ? "0 2px 8px rgba(0,0,0,0.4)" : undefined, ...titleTypeStyle(c as never) }}
+      style={{ color: c.title_color || text, fontFamily: titleFace, textShadow: hero ? heroWordsShadow(c.title_color || text, "name") : undefined, ...titleTypeStyle(c as never) }}
     >
       {name}
     </span>
