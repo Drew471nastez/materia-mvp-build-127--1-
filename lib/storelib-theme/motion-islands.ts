@@ -38,8 +38,8 @@
 
 /* ── the contract ─────────────────────────────────────────────────────── */
 
-export { MOTION_ATTR, MOTION_PARAM_PREFIX, MOTION_NODE_ATTR, MOTION_READY_ATTR, MOTION_PROGRESS_VAR, motionBaseCss } from "./motion-islands-base"
-import { MOTION_ATTR, MOTION_PARAM_PREFIX } from "./motion-islands-base"
+export { MOTION_ATTR, MOTION_PARAM_PREFIX, MOTION_NODE_ATTR, MOTION_READY_ATTR, MOTION_PROGRESS_VAR, motionBaseCss } from "@/lib/website-builder/motion-islands-base"
+import { MOTION_ATTR, MOTION_PARAM_PREFIX } from "@/lib/website-builder/motion-islands-base"
 
 export const MOTION_ISLAND_KINDS = [
   "scroll-scrub",

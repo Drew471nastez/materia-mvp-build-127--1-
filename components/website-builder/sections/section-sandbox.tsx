@@ -24,7 +24,7 @@
  *     width. CSS does that better anyway;
  *   - anything that loads: no src, no href, no innerHTML. See ATTR_ALLOWED.
  */
-import { MOTION_NODE_ATTR } from "@/lib/storelib-theme/motion-islands-base"
+import { MOTION_NODE_ATTR } from "@/lib/website-builder/motion-islands-base"
 import { PREVIEW_ERROR_EVENT } from "@/lib/ai-builder/preview-errors"
 import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {

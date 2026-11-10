@@ -41,7 +41,7 @@ import { OfferIslands } from "./offer-islands"
 import { FormIslands } from "./form-islands"
 /* Round P (P3): the page's own interactive effects, asked for by data-storelib-motion (lib/storelib-theme/motion-islands.ts). */
 import { MotionIslands } from "../motion-islands"
-import { MOTION_ATTR, motionBaseCss } from "@/lib/storelib-theme/motion-islands-base"
+import { MOTION_ATTR, motionBaseCss } from "@/lib/website-builder/motion-islands-base"
 
 /** The motion islands' structural CSS, one object for every section, so React never rewrites it. */
 const MOTION_CSS = { __html: motionBaseCss() }

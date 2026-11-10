@@ -592,10 +592,10 @@ export const imageTrail: IslandFactory = (ctx) => {
     img.getAnimations().forEach((a) => a.cancel())
     const a = img.animate(
       [
-        { opacity: 0, transform: `${at} scale(0.6)` },
-        { opacity: 1, transform: `${at} scale(1)`, offset: 0.15 },
-        { opacity: 1, transform: `${at} scale(1)`, offset: 0.7 },
-        { opacity: 0, transform: `${at} scale(0.92)` },
+        { opacity: 0, transform: `${at} scale(0.6)` }, // i18n-ignore: a CSS transform, not words
+        { opacity: 1, transform: `${at} scale(1)`, offset: 0.15 }, // i18n-ignore: a CSS transform, not words
+        { opacity: 1, transform: `${at} scale(1)`, offset: 0.7 }, // i18n-ignore: a CSS transform, not words
+        { opacity: 0, transform: `${at} scale(0.92)` }, // i18n-ignore: a CSS transform, not words
       ],
       { duration: lifetime + 450, easing: "cubic-bezier(0.2, 0.7, 0.2, 1)", fill: "forwards" },
     )
@@ -640,7 +640,7 @@ export const cursorFollow: IslandFactory = (ctx) => {
     follower = ctx.own(document.createElement("span"))
     follower.setAttribute("aria-hidden", "true")
     /* Words only, as text: the label param is plain and short (motion-islands.ts parseParam). */
-    follower.textContent = str(params.label, "View")
+    follower.textContent = str(params.label, "View") // i18n-ignore: the visitor-facing default of a label the creator sets on the section
     follower.style.cssText = `position:absolute;left:0;top:0;width:${size}px;height:${size}px;margin:${-size / 2}px 0 0 ${-size / 2}px;border-radius:50%;display:grid;place-items:center;background:var(--s-accent,#111);color:var(--s-btn-text,#fff);font:600 13px/1 var(--theme-font-body,inherit);letter-spacing:.01em;pointer-events:none;z-index:5;transition:opacity .2s,scale .25s;opacity:0;scale:.4`
     if (str(params.blend, "normal") === "difference") follower.style.mixBlendMode = "difference"
     el.append(follower)

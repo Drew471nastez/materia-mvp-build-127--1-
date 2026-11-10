@@ -3,7 +3,7 @@
  * the AI made, from what it was made from. Owner only, rate limited, each one
  * cost capped. The rules are in lib/storelib-ai/images/regenerate.ts.
  */
-import type { NextRequest } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 import { websiteCaller } from "@/lib/team/website"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
@@ -17,11 +17,11 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 300
 
 export async function POST(request: NextRequest) {
+  /* The store behind the session, with Website (lib/team/website.ts); the handler then holds it to the owner. */
+  const c = await websiteCaller()
+  if (c.error !== null) return NextResponse.json({ error: c.error }, { status: c.status })
   return handleRegenerate(request, {
-    caller: async () => {
-      const c = await websiteCaller()
-      return { error: c.error, status: c.status, creatorId: c.creatorId, isOwner: c.isOwner, ownerUserId: c.ownerUserId }
-    },
+    caller: async () => ({ error: c.error, status: c.status, creatorId: c.creatorId, isOwner: c.isOwner, ownerUserId: c.ownerUserId }),
     limited: (creatorId) => rateLimit({ bucket: "ai-image", subjects: [creatorId], windows: LIMITS.aiImage, message: "That is a lot of new pictures in a short time. Try again later." }),
     readOrigin: (creatorId, path) => readImageOrigin(createAdminClient(), creatorId, path),
     regenerate: (input) => regenerateImage(input),

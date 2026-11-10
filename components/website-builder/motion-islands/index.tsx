@@ -19,7 +19,7 @@
  * compares it. They start again after the commit, on the new markup.
  */
 import { useLayoutEffect } from "react"
-import { MOTION_ATTR } from "@/lib/storelib-theme/motion-islands-base"
+import { MOTION_ATTR } from "@/lib/website-builder/motion-islands-base"
 
 export function MotionIslands({ root, html, inCanvas }: { root: HTMLElement | null; html: string; inCanvas: boolean }) {
   useLayoutEffect(() => {
