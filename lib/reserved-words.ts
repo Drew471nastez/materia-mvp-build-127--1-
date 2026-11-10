@@ -59,6 +59,8 @@ export const RESERVED_WORDS = [
   "contact",
   "blog",
   "pricing",
+  /* Round AR: the Instagram bio steps (app/(storelib)/instagram-bio). */
+  "instagram-bio",
 
   // Technical
   "null",

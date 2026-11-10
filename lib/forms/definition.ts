@@ -214,6 +214,33 @@ export function validateBooking(raw: unknown): BookingSettings {
   }
 }
 
+/**
+ * Round AR: an address typed the way people type one. "mysite.com/privacy"
+ * is "https://mysite.com/privacy"; a blank or spaces-only field is no
+ * address. Anything with its own scheme is left for the check to judge.
+ */
+export function typedHttpsUrl(v: unknown): string {
+  const s = typeof v === "string" ? v.trim() : ""
+  if (!s) return ""
+  if (/^[a-z][a-z0-9+.-]*:/i.test(s) || s.startsWith("/")) return s
+  return /^[\w-]+(\.[\w-]+)+([/?#].*)?$/.test(s) ? `https://${s}` : s
+}
+
+/**
+ * Round AR: the builder's draft as it is sent to be saved: addresses as
+ * typed made whole (typedHttpsUrl), and nothing else changed, so what comes
+ * back from the save is what was on screen.
+ */
+export function draftForSave(d: FormDefinition): FormDefinition {
+  const privacy = typedHttpsUrl(d.privacy_url)
+  const gated = d.completion?.gated
+  return {
+    ...d,
+    privacy_url: privacy || undefined,
+    completion: { ...d.completion, ...(gated ? { gated: { ...gated, url: typedHttpsUrl(gated.url) } } : {}) },
+  }
+}
+
 export function validateDefinition(raw: unknown, publish = true): FormDefinition {
   if (!raw || typeof raw !== "object") return fail("The form could not be read.")
   const d = raw as Record<string, any>
@@ -268,7 +295,9 @@ export function validateDefinition(raw: unknown, publish = true): FormDefinition
   if (publish && !consent) return fail("Add a consent notice before publishing.")
   const action = d.completion?.action ? normaliseAction(d.completion.action) : undefined
   if (d.completion?.action && !action) return fail("Complete the form’s next action or choose a success message.")
-  if (d.privacy_url && !/^https:\/\/[^\s]+$/.test(d.privacy_url)) return fail("Use an https privacy policy address.")
+  /* Round AR: judged as it is kept (trimmed), so a field of spaces is no address rather than a refusal. */
+  const privacyUrl = typedHttpsUrl(text(d.privacy_url, 2048))
+  if (privacyUrl && !/^https:\/\/[^\s]+$/.test(privacyUrl)) return fail("Use an https privacy policy address.")
   const mode = d.mode === "quiz" ? "quiz" : "form"
   const layout = ["single", "steps", "one_by_one"].includes(d.layout) ? d.layout : mode === "quiz" ? "one_by_one" : "single"
   let results: QuizResult[] | undefined
@@ -293,7 +322,7 @@ export function validateDefinition(raw: unknown, publish = true): FormDefinition
   let kind: CompletionKind = ["message", "action", "gated"].includes(d.completion?.kind) ? d.completion.kind : action ? "action" : "message"
   let gated: { url: string; label: string } | undefined
   if (kind === "gated") {
-    const url = webUrl(text(d.completion?.gated?.url, 2048))
+    const url = webUrl(typedHttpsUrl(text(d.completion?.gated?.url, 2048)))
     if (!url || !/^https:\/\//.test(url)) {
       if (publish) return fail("Add the https address visitors get after sending.")
     }
@@ -308,7 +337,7 @@ export function validateDefinition(raw: unknown, publish = true): FormDefinition
     fields,
     button_text: text(d.button_text, 80) || "Send",
     consent_text: consent,
-    privacy_url: text(d.privacy_url, 2048) || undefined,
+    privacy_url: privacyUrl || undefined,
     marketing_opt_in: d.marketing_opt_in === true,
     ...(results ? { results } : {}),
     ...(booking ? { booking } : {}),

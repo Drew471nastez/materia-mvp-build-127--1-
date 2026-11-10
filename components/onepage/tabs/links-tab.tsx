@@ -10,7 +10,9 @@ import { layoutControlsFor, linkLayoutOf, presentationOf } from "@/lib/onepage/b
 import { editedMark, mergeLinkPreview } from "@/lib/onepage/link-preview"
 
 import { ProfileImage } from "@/components/onepage/profile-image"
-import { ImageUpload } from "@/components/app/image-upload"
+import { growTextareas } from "@/components/onepage/grow-textareas"
+import { takePreviewPick } from "@/lib/onepage/preview-select"
+import { AiEditBar } from "@/components/onepage/ai-edit-bar"
 
 import { hapticTap } from "@/lib/native-bridge"
 import { useProductMoney } from "@/components/platform/price-currency"
@@ -1106,6 +1108,36 @@ export function LinksTab() {
     return () => clearInterval(interval)
   }, [onepage?.draft_blocks, autoFetchThumbnail])
 
+  /*
+    ROUND AR: A BLOCK PICKED IN THE PHONE PREVIEW (lib/onepage/preview-select).
+    The editor has opened it already; the list glides to its card once the
+    card's settings have started to open (two frames), the card's top a
+    little under the top of the list's scroller, as a press on the card does.
+  */
+  useEffect(() => {
+    const id = takePreviewPick(selectedBlockId)
+    if (!id) return
+    let raf = requestAnimationFrame(() => {
+      raf = requestAnimationFrame(() => {
+        const el = document.querySelector(`[data-block-id="${CSS.escape(id)}"]`) as HTMLElement | null
+        if (!el) return
+        let scroller: HTMLElement | null = el.parentElement
+        while (scroller && scroller !== document.documentElement) {
+          const oy = window.getComputedStyle(scroller).overflowY
+          if ((oy === "auto" || oy === "scroll") && scroller.scrollHeight > scroller.clientHeight) break
+          scroller = scroller.parentElement
+        }
+        if (!scroller || scroller === document.documentElement) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" })
+          return
+        }
+        const top = scroller.scrollTop + (revealSettledTop(el) - scroller.getBoundingClientRect().top) - 12
+        scroller.scrollTo({ top: Math.max(0, top), behavior: "smooth" })
+      })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [selectedBlockId])
+
   if (!onepage) return null
 
   // Handle thumbnail upload for modal
@@ -1637,6 +1669,9 @@ export function LinksTab() {
           )}
         </div>
       )}
+
+      {/* Round AR: ask AI to change the links and social icons (components/onepage/ai-edit-bar). */}
+      {!showArchiveView ? <AiEditBar /> : null}
 
       {/* The cards. Each one is picked up and moved by link-reorder.ts; the list only says which are cards. */}
       {!showArchiveView && (
@@ -3138,13 +3173,14 @@ export function LinksTab() {
                 void pickAvatarImage(e.dataTransfer.files?.[0])
               }}
               className={cn(
-                "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200",
+                /* Round AR: the Design tab's compact drop area, not a 200px box with a 48px icon (and no grow on drag over). */
+                "border-2 border-dashed rounded-xl px-5 py-6 flex flex-col items-center justify-center cursor-pointer transition-colors duration-150",
                 isDragOver
-                  ? "border-[#1a1a2e] bg-[#f4f4f6] scale-[1.02]"
+                  ? "border-[#1a1a2e] bg-[#f4f4f6]"
                   : "border-gray-300 hover:border-gray-400"
               )}
             >
-              <Upload className={cn("h-12 w-12 mb-4 transition-colors", isDragOver ? "text-[#1a1a2e]" : "text-gray-300")} />
+              <Upload className={cn("h-7 w-7 mb-2.5 transition-colors", isDragOver ? "text-[#1a1a2e]" : "text-gray-300")} />
               <p className={cn("font-medium transition-colors", isDragOver ? "text-[#1a1a2e]" : "text-gray-600")}>
                 {isDragOver ? tt("Drop image here") : tt("Select file to upload,")}
               </p>
@@ -3828,7 +3864,7 @@ function BlockItem({
         instead of jumping; a closed card lets its editor go.
       */}
       <Reveal open={isSelected} id={settingsId} returnFocus={titleRef} unmountWhenShut follow className="rounded-b-2xl">
-        <div className="space-y-4 rounded-b-2xl border-t border-[#eef0f2] bg-[#fafafb] p-4" data-block-settings="">
+        <div ref={growTextareas} className="space-y-4 rounded-b-2xl border-t border-[#eef0f2] bg-[#fafafb] p-4" data-block-settings="">
           {/*
             Round AO: nothing above the Settings | Layout tabs. Move and Remove are
             the row's more menu (components/onepage/block-remove BlockRowMenu).
@@ -6279,7 +6315,8 @@ function BlockEditor({
           </div>
           <div className="space-y-1.5" data-group-image="">
             <Label className="text-xs">{tt("Picture (optional)")}</Label>
-            <ImageUpload bucket="covers" aspectRatio="video" allowRemove value={groupData.image_url || undefined} onChange={(image_url) => updateData({ image_url: image_url || null })} />
+            {/* Round AR: the editor's one compact picture row, not a 16:9 drop box the width of the panel. */}
+            <OnePageImageField value={groupData.image_url} prefix={`group_${block.id}`} thumbClassName="w-24" onChange={(image_url) => updateData({ image_url: image_url || null })} />
           </div>
 
           {/* Canvas / Block List */}

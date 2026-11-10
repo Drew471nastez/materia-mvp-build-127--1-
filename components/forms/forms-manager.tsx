@@ -23,6 +23,7 @@ import { formPath } from "@/lib/forms/actions"
 import { platformOrigin } from "@/lib/onepage/return-address"
 import {
   MAX_FIELDS,
+  draftForSave,
   isChoice,
   type BookingSettings,
   type Condition,
@@ -280,10 +281,13 @@ export function FormEditor({
   const save = async (publish: boolean): Promise<boolean> => {
     setBusy(true)
     setError(null)
+    /* Round AR: an address typed without https:// is sent, and shown, whole (lib/forms/definition draftForSave). */
+    const sent = draftForSave(draft)
+    setDraft(sent)
     try {
       const b = await api<{ form: SavedForm }>(`/api/forms/${saved.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ definition: draft, publish, updated_at: saved.updated_at, integrations, retention_days: retention }),
+        body: JSON.stringify({ definition: sent, publish, updated_at: saved.updated_at, integrations, retention_days: retention }),
       })
       setSaved(b.form)
       onSaved(b.form)
@@ -1027,7 +1031,8 @@ function QuestionRow({
             ],
           }
         : {}),
-      ...(type === "rating" ? { max: q.max && q.max >= 3 && q.max <= 10 ? q.max : 5 } : {}),
+      /* Round AR: a rating's scale is not a number's highest, nor the other way round: bounds that belonged to the old type go. */
+      ...(type === "rating" ? { min: undefined, max: q.type === "rating" && q.max && q.max >= 3 && q.max <= 10 ? q.max : 5 } : type === "number" && q.type !== "number" ? { min: undefined, max: undefined } : type !== "number" ? { min: undefined, max: undefined } : {}),
     })
   const line = [typeLabel, q.required ? tt("Required") : "", q.show_if?.length ? tt("Shown by a rule") : "", steps && q.new_step && index > 0 ? tt("New step") : ""].filter(Boolean).join(" · ")
   return (

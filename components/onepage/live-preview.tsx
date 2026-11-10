@@ -27,6 +27,7 @@ import { useOnePage } from "@/lib/onepage/context"
 import { publicOnePageFromDraft, type PublicOnePageData } from "@/lib/onepage/public-shape"
 import { ONEPAGE_PREVIEW_CHANNEL, ONEPAGE_PREVIEW_PATH, type PreviewMessage } from "@/lib/onepage/preview-channel"
 import { cn } from "@/lib/utils"
+import { notePreviewPick, PREVIEW_PICK_EVENT, validBlockId } from "@/lib/onepage/preview-select"
 import { createClient } from "@/lib/supabase/client"
 import { acceptAvatarRead, avatarReadToken, useShellAvatar } from "@/lib/account/avatar-store"
 import { useStoreCurrencyIfSet } from "@/lib/store/currency-context"
@@ -130,7 +131,10 @@ export function LivePreviewFrame({
   scale = 1,
   onDrawn,
   title = "Preview of your OnePage",
+  pick,
 }: {
+  /** Round AR: the phone beside the editor picks blocks (lib/onepage/preview-select): which is open, and what a pick does. */
+  pick?: { selected: string | null; onPick: (id: string) => void }
   page: PublicOnePageData | null
   /** The frame's own viewport, in CSS pixels. */
   width: number | string
@@ -175,6 +179,15 @@ export function LivePreviewFrame({
   const onDrawnRef = useRef(onDrawn)
   onDrawnRef.current = onDrawn
 
+  const pickRef = useRef(pick)
+  pickRef.current = pick
+  const sendPick = useCallback(() => {
+    const win = frame.current?.contentWindow
+    if (!win || !ready.current) return
+    const p = pickRef.current
+    win.postMessage({ channel: ONEPAGE_PREVIEW_CHANNEL, kind: "select-mode", on: !!p, selected: p?.selected ?? null } satisfies PreviewMessage, window.location.origin)
+  }, [])
+
   const send = useCallback(() => {
     const win = frame.current?.contentWindow
     if (!win || !ready.current || !latest.current) return
@@ -190,6 +203,9 @@ export function LivePreviewFrame({
         /* Also after the frame reloads on its own (a new build): it asks again. */
         ready.current = true
         send()
+        sendPick()
+      } else if (data.kind === "select") {
+        if (validBlockId(data.id)) pickRef.current?.onPick(data.id)
       } else if (data.kind === "drawn") {
         setDrawn(true)
         onDrawnRef.current?.()
@@ -197,7 +213,14 @@ export function LivePreviewFrame({
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
-  }, [send])
+  }, [send, sendPick])
+
+  /* Round AR: the frame hears which block is open as soon as it changes. */
+  const pickOn = !!pick
+  const pickSelected = pick?.selected ?? null
+  useEffect(() => {
+    sendPick()
+  }, [pickOn, pickSelected, sendPick])
 
   /*
     A FRAME THAT NEVER ANSWERS IS LOADED ONCE MORE. A document that did not
@@ -273,6 +296,23 @@ const FRAME_H = Math.round(SCREEN_H / SCALE)
 export function PhonePreview({ className, onDrawn }: { className?: string; onDrawn?: () => void }) {
   const page = usePreviewPage()
   const shown = useMedia("(min-width: 768px)")
+  /*
+    ROUND AR: CLICK A BLOCK IN THE PHONE TO EDIT IT. The editor opens it
+    (lib/onepage/context selectedBlockId) and shows it in the Links list
+    (components/onepage/onepage-editor and tabs/links-tab hear the event).
+  */
+  const { selectedBlockId, setSelectedBlockId } = useOnePage()
+  const pick = useMemo(
+    () => ({
+      selected: selectedBlockId,
+      onPick: (id: string) => {
+        notePreviewPick(id)
+        setSelectedBlockId(id)
+        window.dispatchEvent(new CustomEvent(PREVIEW_PICK_EVENT, { detail: { id } }))
+      },
+    }),
+    [selectedBlockId, setSelectedBlockId],
+  )
   const side = (style: React.CSSProperties) => (
     <div aria-hidden className="absolute w-[3px] bg-[#1a1a1a]" style={style} />
   )
@@ -287,7 +327,7 @@ export function PhonePreview({ className, onDrawn }: { className?: string; onDra
       {side({ left: -2, top: 180, height: 44, borderRadius: "2px 0 0 2px" })}
       {side({ right: -2, top: 145, height: 55, borderRadius: "0 2px 2px 0" })}
       <div className="relative overflow-hidden" style={{ width: SCREEN_W, height: SCREEN_H, borderRadius: 34, background: pageColour(page), isolation: "isolate" }}>
-        {shown && <LivePreviewFrame page={page} width={PREVIEW_PHONE_WIDTH} height={FRAME_H} scale={SCALE} onDrawn={onDrawn} />}
+        {shown && <LivePreviewFrame page={page} width={PREVIEW_PHONE_WIDTH} height={FRAME_H} scale={SCALE} onDrawn={onDrawn} pick={pick} />}
       </div>
     </div>
   )

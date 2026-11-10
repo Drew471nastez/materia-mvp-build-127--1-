@@ -77,7 +77,16 @@ export function OnePageImageField({
   removable = true,
   fallback,
   className,
+  thumbClassName,
+  extra,
+  label,
 }: {
+  /** Round AR: the thumbnail's own shape when the picture is not square (a cover is a wide band: "w-24"). */
+  thumbClassName?: string
+  /** Round AR: one more quiet button in the row, after Remove (the cover's Adjust). Shown only while a picture is chosen. */
+  extra?: React.ReactNode
+  /** Round AR: what the thumbnail button is called to a screen reader ("Upload cover image"). */
+  label?: string
   value: string | null | undefined
   /**
    * Round AP: what shows when nothing is chosen (a product's own picture under its custom thumbnail). It is drawn
@@ -172,8 +181,9 @@ export function OnePageImageField({
         type="button"
         onClick={() => input.current?.click()}
         disabled={up.busy}
-        aria-label={has ? tt("Replace picture") : tt("Upload picture")}
-        className="relative h-14 w-14 shrink-0 cursor-pointer overflow-hidden rounded-xl bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] disabled:cursor-wait"
+        aria-label={label ?? (has ? tt("Replace picture") : tt("Upload picture"))}
+        data-image-thumb=""
+        className={cn("relative h-14 w-14 shrink-0 cursor-pointer overflow-hidden rounded-xl bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] disabled:cursor-wait", thumbClassName)}
       >
         {src ? (
           <img
@@ -216,6 +226,7 @@ export function OnePageImageField({
                   {tt("Remove")}
                 </button>
               ) : null}
+              {has ? extra : null}
             </div>
             <UploadProgress state={up.state} className="mt-1.5" />
           </>

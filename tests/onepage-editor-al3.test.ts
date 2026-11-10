@@ -125,7 +125,8 @@ console.log("\n5. Every block counted, every block's numbers")
 {
   const page = read("components/onepage/public-onepage.tsx")
   const activity = read("components/onepage/block-activity.ts")
-  check("each block on the page says which it is", (page.match(/data-op-block=\{block\.id\}/g) ?? []).length === 3)
+  /* Changed on purpose (round AR): a link still waiting for its address carries it too, so a click in the preview can pick it. */
+  check("each block on the page says which it is", (page.match(/data-op-block=\{block\.id\}/g) ?? []).length === 4)
   check("one listener counts presses, submits, plays and embeds", /document\.addEventListener\("click", onClick\)/.test(activity) && /"submit", onSubmit, true/.test(activity) && /"play", onPlay, true/.test(activity) && /window\.addEventListener\("blur", onBlur\)/.test(activity))
   check("  never twice with a block that counted itself, never in the preview", /noteTracked\(\)\n    try \{/.test(page) && /if \(inEditorPreview \|\| !onepage\.id\) return/.test(page))
   const tab = read("components/onepage/tabs/links-tab.tsx")

@@ -27,3 +27,7 @@ export type PreviewMessage =
   | { channel: typeof ONEPAGE_PREVIEW_CHANNEL; kind: "ready" }
   | { channel: typeof ONEPAGE_PREVIEW_CHANNEL; kind: "drawn" }
   | { channel: typeof ONEPAGE_PREVIEW_CHANNEL; kind: "page"; page: PublicOnePageData; currency?: string | null }
+  /* Round AR (lib/onepage/preview-select): the phone beside the editor picks blocks, and which one is open. */
+  | { channel: typeof ONEPAGE_PREVIEW_CHANNEL; kind: "select-mode"; on: boolean; selected: string | null }
+  /* Round AR: a block clicked in the frame. */
+  | { channel: typeof ONEPAGE_PREVIEW_CHANNEL; kind: "select"; id: string }

@@ -1207,7 +1207,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             const block = item
             if (inEditorPreview && isIncompleteLink(block)) {
               return (
-                <div key={block.id} className={cn("w-full", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined}>
+                <div key={block.id} className={cn("w-full", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined} data-op-block={block.id}>
                   <IncompleteLinkPlaceholder label={(block.data as LinkButtonBlockData)?.label} theme={safeTheme} />
                 </div>
               )
