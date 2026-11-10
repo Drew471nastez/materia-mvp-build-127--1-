@@ -21,6 +21,7 @@
  *
  * Run: NODE_OPTIONS="--conditions=react-server" npx tsx tests/ai-builder-agent.test.ts
  */
+import { NO_TEMPLATES } from "@/lib/ai-builder/agent/templates"
 import { runAgentSlice, worstCaseUsd, type SliceResult } from "@/lib/ai-builder/agent/loop"
 import { memoryStore } from "@/lib/ai-builder/agent/memory-store"
 import { newCheckpoint, readCheckpoint, type LoopCheckpoint } from "@/lib/ai-builder/agent/state"
@@ -37,7 +38,7 @@ import { versionOf } from "@/lib/ai-builder/agent/version"
 import type { AgentDeps, AgentJobInput } from "@/lib/ai-builder/agent/ports"
 import type { ProviderRequest } from "@/lib/sites/agent/types"
 import { AGENT_TOOL_NAMES, DEFAULT_JOB_BUDGET, MAX_CHECKPOINT_BYTES, type AgentEvent, type JobBudget } from "@/lib/ai-builder/types"
-import { ABOUT, BROKEN_HERO, CAPS, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, scripted, type Step } from "./ai-builder-agent-fixtures"
+import { ABOUT, BROKEN_HERO, CAPS, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, scripted, type Step, PROGRAM_BLOCKS } from "./ai-builder-agent-fixtures"
 import { homeSections, pageSections, sitePlan, templateCalls, writeWholeSite } from "./ai-builder-whole-site-fixtures"
 
 /* Round N (N3): a new website hands in its site plan with the concept, and is a whole site before finish (lib/ai-builder/agent/site-plan.ts). */
@@ -103,6 +104,7 @@ function depsFor(store: ReturnType<typeof memoryStore>, steps: Step[], extra: Pa
   const deps: AgentDeps = {
     store,
     models: { plan: { provider: plan, model: "claude-opus-5-5", effort: "medium" }, loop: { provider: loop, model: "claude-sonnet-5-5", effort: "low" }, small: { provider: loop, model: "claude-haiku-5-5" }, ownKey: false },
+    templates: NO_TEMPLATES,
     capabilities: async () => CAPS,
     now: () => (clock.t += 1_000),
     ...extra,
@@ -143,7 +145,7 @@ function fitnessSteps(store: ReturnType<typeof memoryStore>): Step[] {
             page: "home",
             sections: homeSections([
               { type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } },
-              { type: "ai_program_list", blocks: [{ type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } }] },
+              { type: "ai_program_list", blocks: PROGRAM_BLOCKS },
             ]),
           },
         ],
@@ -227,7 +229,7 @@ async function main() {
   check("no file body in any event", r1.events.every((e) => JSON.stringify(e).length < 2_000))
   check("spend is tracked per call", r1.usage.calls === plan.calls + loop.calls && r1.usage.usd > 0 && r1.events.filter((e) => e.kind === "spend").length === r1.usage.calls && r1.totalUsd === r1.usage.usd)
   check("the checkpoint is within its bound and holds no file body", JSON.stringify(r1.checkpoint).length < MAX_CHECKPOINT_BYTES && !JSON.stringify(r1.checkpoint).includes("<style scoped>"))
-  check("the system prompt and tools are the stable prefix of every call", [...plan.requests, ...loop.requests].every((q) => q.system === plan.requests[0].system && q.tools.length === 17 && q.cacheKey === "ai-builder:install-a"))
+  check("the system prompt and tools are the stable prefix of every call", [...plan.requests, ...loop.requests].every((q) => q.system === plan.requests[0].system && q.tools.length === AGENT_TOOL_NAMES.length /* 17, and round P's generate_image and find_photo */ && q.cacheKey === "ai-builder:install-a"))
   const brief = (plan.requests[0].turns[0] as { content: string }).content
   check("the first request carries the brief with the real product id", plan.requests[0].turns[0].role === "user" && /prod_8week/.test(brief))
   check("the brief has the creator's choices (L1 startContext) and distinct starting directions (L6)", /Start from a blank page/.test(brief) && /STARTING DIRECTIONS/.test(brief) && (brief.match(/^- .+\[/gm) ?? []).length === 3, brief.slice(0, 1200))

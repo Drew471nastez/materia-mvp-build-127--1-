@@ -10,6 +10,7 @@
  *
  * Run with:  npm run test:push
  */
+import { NO_TEMPLATES } from "@/lib/ai-builder/agent/templates"
 import { runAgentInvocation, emptyRunState, type AgentJobPatch, type AgentJobRecord, type AgentStore, type EventRow } from "@/lib/website-builder/ai-site/agent-runner"
 import { previewErrorsFromEvents } from "@/lib/website-builder/ai-site/agent-view"
 import { scopedStore, sliceStepper } from "@/lib/website-builder/ai-site/agent-engine"
@@ -20,7 +21,7 @@ import { readFileSync } from "node:fs"
 import { memoryStore } from "@/lib/ai-builder/agent/memory-store"
 import type { AgentDeps } from "@/lib/ai-builder/agent/ports"
 import type { ProviderRequest } from "@/lib/sites/agent/types"
-import { ABOUT, CAPS, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, scripted, type Step } from "./ai-builder-agent-fixtures"
+import { ABOUT, CAPS, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, scripted, type Step, PROGRAM_BLOCKS } from "./ai-builder-agent-fixtures"
 /* Round N (N3): the site plan with the concept, and a whole site before finish. */
 import { homeSections, pageSections, sitePlan, templateCalls, writeWholeSite } from "./ai-builder-whole-site-fixtures"
 
@@ -111,6 +112,7 @@ function depsFor(store: ReturnType<typeof memoryStore>, steps: Step[], extra: Pa
   const deps: AgentDeps = {
     store,
     models: { plan: { provider: plan, model: "claude-opus-5-5", effort: "medium" }, loop: { provider: loop, model: "claude-sonnet-5-5", effort: "low" }, small: { provider: loop, model: "claude-haiku-5-5" }, ownKey: false },
+    templates: NO_TEMPLATES,
     capabilities: async () => CAPS,
     now: () => (clock.t += 1_000),
     ...extra,
@@ -148,7 +150,7 @@ function fitnessSteps(store: ReturnType<typeof memoryStore>): Step[] {
             page: "home",
             sections: homeSections([
               { type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } },
-              { type: "ai_program_list", blocks: [{ type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } }] },
+              { type: "ai_program_list", blocks: PROGRAM_BLOCKS },
             ]),
           },
         ],

@@ -26,7 +26,7 @@
  *
  * Pure. Browser safe (server modules import it; the sources are ~90 KB).
  */
-import { EXAMPLE_SOURCES } from "./examples.generated"
+import { CHROME_SOURCES, EXAMPLE_SOURCES } from "./examples.generated"
 import { tokenize } from "./retrieve"
 
 export interface ComponentExample {
@@ -37,6 +37,8 @@ export interface ComponentExample {
   tags: string[]
   /** The whole file, the header comment included. */
   source: string
+  /** "chrome" for the round P chrome kit (./examples/chrome, ./chrome-kit.ts), listed to the agent by chromeKitForPrompt. */
+  kit?: "chrome"
 }
 
 /** The `{# example ... #}` header: title, summary and tags, one per line. */
@@ -57,7 +59,7 @@ export function parseExample(file: string, source: string): ComponentExample {
 let cache: ComponentExample[] | null = null
 
 export function allExamples(): ComponentExample[] {
-  if (!cache) cache = EXAMPLE_SOURCES.map((s) => parseExample(s.file, s.source))
+  if (!cache) cache = [...EXAMPLE_SOURCES.map((s) => parseExample(s.file, s.source)), ...CHROME_SOURCES.map((s) => ({ ...parseExample(s.file, s.source), kit: "chrome" as const }))]
   return cache
 }
 
@@ -90,7 +92,12 @@ export function matchExamples(query: string, limit = 1, force = false): Componen
     .map((x) => x.e)
 }
 
-/** One line per example, for the agent's brief. */
+/** One line per example, for the agent's brief. The chrome kit has its own block (chromeKitForPrompt). */
 export function exampleCatalog(): string {
-  return allExamples().map((e) => `${e.id} (${e.title.toLowerCase()})`).join("; ")
+  return allExamples().filter((e) => !e.kit).map((e) => `${e.id} (${e.title.toLowerCase()})`).join("; ")
+}
+
+/** The chrome kit's files (round P), in file order. */
+export function chromeExamples(): ComponentExample[] {
+  return allExamples().filter((e) => e.kit === "chrome")
 }

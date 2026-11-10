@@ -1,0 +1,103 @@
+{# example
+title: Compact shop header with a search field and category tabs
+summary: Chrome kit header for a shop with many products. A pinned bar with the name, a wide search field that opens the site's own search window, account and bag, and under it a row of category tabs from a menu (link_list) that scrolls sideways on phones with snap points; on scroll the top row slides away and the tabs stay (a CSS scroll timeline, no script). Tab style (underline, outline, filled), whether the top row collapses, a short promise line and colours are settings.
+tags: chrome kit, header, shop header, store header, sticky header, compact header, category tabs, tabs, search field, ecommerce, marketplace, grocery, own chrome, site header
+#}
+<template>
+<header class="hsh" data-collapse="{{ settings.collapse }}" data-tabs="{{ settings.tab_style }}" data-motion="{{ settings.motion }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }};">
+  <div class="hsh__fix">
+    <div class="hsh__row">
+      <button class="hsh__icon hsh__burger" type="button" data-storelib-menu="{{ settings.categories.handle }}" aria-label="{{ settings.menu_label }}"><span class="hsh__lines" aria-hidden="true"></span></button>
+      <a class="hsh__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="140" height="36">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
+      <a class="hsh__field" href="{{ routes.search_url }}" data-storelib-search="{{ settings.search_placeholder }}"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.8"/></svg><span>{{ settings.search_placeholder }}</span></a>
+      {% if settings.promise %}<p class="hsh__promise">{{ settings.promise }}</p>{% endif %}
+      <a class="hsh__icon hsh__account" href="{{ routes.account_url }}">{{ settings.account_label }}</a>
+      <a class="hsh__icon hsh__bag" href="{{ routes.cart_url }}" data-storelib-cart>{{ settings.cart_label }}<span class="hsh__count" data-storelib-cart-count></span></a>
+    </div>
+    <nav class="hsh__tabs" aria-label="{{ settings.tabs_label }}">
+      <ul>
+        {% for link in settings.categories.links %}<li><a class="hsh__tab" href="{{ link.url }}">{{ link.title }}</a></li>{% endfor %}
+      </ul>
+    </nav>
+  </div>
+  <div class="hsh__space" aria-hidden="true"></div>
+</header>
+</template>
+
+<style scoped>
+.hsh, .hsh *, .hsh *::before, .hsh *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.hsh [hidden] { display: none !important; }
+.hsh { --hsh-row: 60px; --hsh-tabs: 48px; position: relative; z-index: 40; color: var(--s-text); }
+.hsh__fix { position: fixed; inset: 0 0 auto; background: var(--s-bg); border-bottom: 1px solid var(--s-border); }
+.hsh__space { height: calc(var(--hsh-row) + var(--hsh-tabs) + 52px); }
+.hsh__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "burger logo bag" "field field field"; align-items: center; gap: 4px 8px; padding: 6px var(--theme-padding-x, 16px); }
+.hsh__burger { grid-area: burger; }
+.hsh__logo { grid-area: logo; display: inline-flex; align-items: center; min-height: 44px; color: var(--s-heading); text-decoration: none; font-family: var(--theme-font-heading), sans-serif; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.03em; }
+.hsh__logo img { display: block; width: auto; height: 30px; }
+.hsh__field { grid-area: field; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 1.5px solid var(--s-border); border-radius: 4px; background: var(--s-bg); color: inherit; text-decoration: none; font-size: 0.9375rem; }
+.hsh__field span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.75; }
+.hsh__field:hover { border-color: currentColor; }
+.hsh__promise { display: none; }
+.hsh__row .hsh__account { display: none; }
+.hsh__bag { grid-area: bag; }
+.hsh__icon { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 0 8px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.9375rem; text-decoration: none; cursor: pointer; }
+.hsh__lines { display: block; width: 20px; height: 12px; border-top: 2px solid currentColor; border-bottom: 2px solid currentColor; }
+.hsh__count { min-width: 20px; margin-left: 2px; padding: 0 5px; line-height: 20px; border-radius: 10px; background: var(--s-btn); color: var(--s-btn-text); font-size: 0.75rem; text-align: center; font-variant-numeric: tabular-nums; }
+.hsh__count[data-count="0"] { display: none; }
+.hsh__tabs { overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; mask-image: linear-gradient(to right, #000 85%, transparent); }
+.hsh__tabs ul { display: flex; gap: 6px; width: max-content; margin: 0; padding: 0 var(--theme-padding-x, 16px) 8px; list-style: none; }
+.hsh__tab { display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; scroll-snap-align: start; color: inherit; text-decoration: none; font-size: 0.9375rem; font-weight: 500; white-space: nowrap; }
+.hsh[data-tabs="underline"] .hsh__tab { padding: 0 4px; margin-right: 12px; box-shadow: inset 0 -2px 0 transparent; }
+.hsh[data-tabs="underline"] .hsh__tab:hover { box-shadow: inset 0 -2px 0 currentColor; }
+.hsh[data-tabs="outline"] .hsh__tab { border: 1px solid var(--s-border); border-radius: 4px; }
+.hsh[data-tabs="outline"] .hsh__tab:hover { border-color: currentColor; }
+.hsh[data-tabs="filled"] .hsh__tab { background: color-mix(in srgb, var(--s-text) 7%, var(--s-bg)); border-radius: 4px; }
+.hsh[data-tabs="filled"] .hsh__tab:hover { background: var(--s-btn); color: var(--s-btn-text); }
+.hsh :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+/* The top row slides away after the first scroll and the tabs stay; without scroll timelines, or with less motion, everything stays. */
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .hsh[data-collapse="true"]:not([data-motion="off"]) .hsh__fix { animation: hsh-compact linear both; animation-timeline: scroll(root); animation-range: 40px 160px; }
+    @keyframes hsh-compact { to { transform: translateY(calc(-1 * var(--hsh-lift, 104px))); } }
+  }
+}
+@media (prefers-reduced-motion: reduce) { .hsh__fix { animation: none; } }
+@media (min-width: 900px) {
+  .hsh { --hsh-lift: 60px; }
+  .hsh__space { height: calc(var(--hsh-row) + var(--hsh-tabs)); }
+  .hsh__row { grid-template-columns: auto minmax(0, 560px) minmax(0, 1fr) auto auto; grid-template-areas: "logo field promise account bag"; gap: 16px; min-height: var(--hsh-row); }
+  .hsh__burger { display: none; }
+  .hsh__promise { grid-area: promise; display: block; margin: 0; font-size: 0.875rem; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hsh__row .hsh__account { grid-area: account; display: inline-flex; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_header_shop",
+  "name": "Shop header with category tabs",
+  "kind": "header",
+  "enabled_on": { "groups": ["header"] },
+  "settings": [
+    { "type": "header", "id": "hdr_menu", "label": "Categories" },
+    { "type": "link_list", "id": "categories", "label": "Category tabs (also the phone menu)", "default": "main-menu" },
+    { "type": "select", "id": "tab_style", "label": "Tabs", "default": "filled", "options": [{ "label": "Underline", "value": "underline" }, { "label": "Outline", "value": "outline" }, { "label": "Filled", "value": "filled" }] },
+    { "type": "text", "id": "brand", "label": "Name when there is no logo", "default": "Market" },
+    { "type": "text", "id": "promise", "label": "Short promise beside the field", "default": "Order by 2pm, at your door tomorrow" },
+    { "type": "header", "id": "hdr_layout", "label": "Layout" },
+    { "type": "checkbox", "id": "collapse", "label": "Hide the top row when scrolling", "default": true },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "search_placeholder", "label": "Search field", "default": "Search the shop" },
+    { "type": "text", "id": "tabs_label", "label": "Tabs name (read aloud)", "default": "Categories" },
+    { "type": "text", "id": "menu_label", "label": "Menu button (read aloud)", "default": "Menu" },
+    { "type": "text", "id": "account_label", "label": "Account", "default": "Account" },
+    { "type": "text", "id": "cart_label", "label": "Basket", "default": "Basket" },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ]
+}
+</schema>

@@ -1,0 +1,66 @@
+{# example
+title: 3D product hero (motion islands)
+summary: A launch hero whose product photo sits on a real lit 3D card that turns with the scroll and leans toward the pointer (the 3d-object motion island, three.js loaded only on this page), with a decoding label (text-scramble); every motion param is a sidebar setting, and the photo itself is the still state for reduced motion, phones without WebGL and low-power devices.
+tags: 3d, 3d object, three.js, webgl, product hero, launch, rotating product, rotate on scroll, tilt, motion islands, text scramble, awwwards, immersive, watch, drink, app
+#}
+<template>
+<section class="oh" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-btn-bg: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; --oh-h: {{ settings.object_height }}px;">
+  <div class="oh__in">
+    <div class="oh__copy">
+      {% if settings.label %}<p class="oh__label" data-storelib-motion="text-scramble" data-motion-trigger="load" data-motion-chars="symbols" data-motion-duration="1100">{{ settings.label }}</p>{% endif %}
+      <h1 class="oh__h">{{ settings.heading }}</h1>
+      {% if settings.text %}<p class="oh__text">{{ settings.text }}</p>{% endif %}
+      {% if settings.cta_label and settings.cta_url %}<a class="oh__cta" href="{{ settings.cta_url | url }}">{{ settings.cta_label }}</a>{% endif %}
+    </div>
+    <div class="oh__stage" data-storelib-motion="3d-object" data-motion-shape="{{ settings.motion_shape }}" data-motion-rotate="{{ settings.motion_rotate }}" data-motion-speed="{{ settings.motion_speed }}" data-motion-intensity="{{ settings.motion_intensity }}" data-motion-finish="{{ settings.motion_finish }}" data-motion-light="{{ settings.motion_light }}" data-motion-color="{{ settings.motion_color }}" data-motion-float="{{ settings.motion_float }}">
+      {% if settings.image %}<img class="oh__img" data-motion-fallback src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="900" height="1200">{% else %}<span class="oh__orb" aria-hidden="true"></span>{% endif %}
+    </div>
+  </div>
+</section>
+</template>
+
+<style scoped>
+.oh { padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 16px) calc(var(--s-pb) * var(--theme-spacing-scale, 1)); background: var(--s-bg); color: var(--s-text); overflow: hidden; }
+.oh__in { display: grid; gap: 32px; max-width: var(--theme-page-width, 1280px); margin: 0 auto; align-items: center; }
+.oh__label { margin: 0 0 18px; font-family: var(--theme-font-body), sans-serif; font-size: 0.875rem; font-variant-numeric: tabular-nums; color: var(--s-accent); }
+.oh__h { margin: 0; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(2.75rem, 1.6rem + 6vw, 7.5rem); line-height: 0.92; letter-spacing: -0.035em; font-weight: 700; color: var(--s-heading); text-wrap: balance; }
+.oh__text { max-width: 40ch; margin: 22px 0 0; font-size: 1.0625rem; line-height: 1.55; }
+.oh__cta { display: inline-flex; align-items: center; min-height: 48px; margin-top: 28px; padding: 0 22px; background: var(--s-btn-bg); color: var(--s-btn-text); text-decoration: none; font-weight: 600; border-radius: var(--theme-radius-button, 999px); transition: transform var(--t-motion-hover, 200ms) var(--t-motion-ease-ui, ease-out); }
+.oh__cta:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
+.oh__stage { position: relative; height: min(var(--oh-h), 70svh); display: grid; place-items: center; }
+.oh__img { display: block; height: 100%; width: auto; max-width: 100%; object-fit: contain; }
+.oh__orb { width: min(60vw, 340px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--s-accent) 35%, #fff), var(--s-accent) 55%, color-mix(in srgb, var(--s-accent) 60%, #000)); }
+@media (min-width: 900px) { .oh__in { grid-template-columns: 1.1fr 1fr; gap: 48px; } }
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) { .oh__cta:hover { transform: translateY(calc(var(--t-motion-lift, 4px) * -1)); } }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_object_hero",
+  "name": "3D product hero",
+  "category": "hero",
+  "settings": [
+    { "type": "text", "id": "label", "label": "Label", "default": "Series 02, out now" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Built to be held" },
+    { "type": "textarea", "id": "text", "label": "Text", "default": "Machined from one piece of aluminium, finished by hand, made to last longer than the phone you keep in it." },
+    { "type": "text", "id": "cta_label", "label": "Button", "default": "Shop the series" },
+    { "type": "url", "id": "cta_url", "label": "Button link", "default": "/shop" },
+    { "type": "image_picker", "id": "image", "label": "Product photo" },
+    { "type": "text", "id": "image_alt", "label": "Photo description", "default": "" },
+    { "type": "range", "id": "object_height", "label": "Object height", "min": 320, "max": 800, "step": 20, "unit": "px", "default": 560 },
+    { "type": "select", "id": "motion_shape", "label": "Shape", "options": [{ "value": "card", "label": "Card" }, { "value": "sphere", "label": "Sphere" }, { "value": "torus", "label": "Ring" }, { "value": "knot", "label": "Knot" }, { "value": "box", "label": "Box" }, { "value": "blob", "label": "Blob" }, { "value": "coin", "label": "Coin" }], "default": "card" },
+    { "type": "select", "id": "motion_rotate", "label": "Turns with", "options": [{ "value": "scroll", "label": "Scroll" }, { "value": "pointer", "label": "Pointer" }, { "value": "both", "label": "Scroll and pointer" }, { "value": "auto", "label": "On its own" }], "default": "both" },
+    { "type": "range", "id": "motion_speed", "label": "Speed", "min": 0, "max": 2, "step": 0.1, "unit": "x", "default": 0.6 },
+    { "type": "range", "id": "motion_intensity", "label": "Turn", "min": 0, "max": 100, "step": 5, "unit": "%", "default": 50 },
+    { "type": "select", "id": "motion_finish", "label": "Finish", "options": [{ "value": "matte", "label": "Matte" }, { "value": "satin", "label": "Satin" }, { "value": "gloss", "label": "Gloss" }, { "value": "metal", "label": "Metal" }], "default": "satin" },
+    { "type": "select", "id": "motion_light", "label": "Light", "options": [{ "value": "studio", "label": "Studio" }, { "value": "soft", "label": "Soft" }, { "value": "dramatic", "label": "Dramatic" }], "default": "studio" },
+    { "type": "text", "id": "motion_color", "label": "Shape colour", "default": "accent", "info": "accent, scheme, mono or a #hex colour" },
+    { "type": "checkbox", "id": "motion_float", "label": "Float", "default": true },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 96 }
+  ],
+  "presets": [{ "name": "3D product hero" }]
+}
+</schema>

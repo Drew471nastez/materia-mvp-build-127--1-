@@ -35,6 +35,7 @@ import { isAiComponentType, type GenerationMode, type ValidationIssue } from "..
 import { schemaProblem, sourceProblems } from "@/lib/website-builder/ai-site/gate"
 import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
 import { declaredChromeKind } from "@/lib/website-builder/agent/operations"
+import { presetBlockIssues } from "./content-check"
 
 /* ── one file ─────────────────────────────────────────────────────────── */
 
@@ -50,6 +51,8 @@ export interface FileCheckContext {
   formPicker?: boolean
   /** The creator's own words: the anti-slop gate allows a look only they may ask for (round O). */
   brief?: string
+  /** The store's real data (round P, P5): a list bound to products needs no more preset items than the store has. */
+  caps?: RuntimeCapabilities | null
 }
 
 export function typeOfPath(path: string): string {
@@ -123,6 +126,8 @@ export function validateFile(path: string, text: string, ctx: FileCheckContext =
     for (const n of checked.notes ?? []) issues.push({ severity: "warning", code: `render.${n.id}`, message: n.message, path })
     const compiled = compileSection(text, { file: path, expectType: type })
     if (compiled.ok) issues.push(...manifestIssues(path, compiled.value.schema as never, !!ctx.formPicker))
+    /* Round P (P5): a section that declares item types ships them filled in its first preset (./content-check.ts). */
+    if (compiled.ok) issues.push(...presetBlockIssues(path, text, ctx.caps ?? null))
     /*
       THE SAME GATE AS THE CLASSIC JOB'S CODE STEP (round AQ). A section with no settings could not be edited; a header
       reads the site's menu; picture defaults are empty or https; every default is the site's final words, with no

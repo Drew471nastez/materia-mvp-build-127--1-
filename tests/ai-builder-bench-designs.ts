@@ -14,7 +14,7 @@
  * standfirst and the essay's text, both richtext, are printed with | raw: drawn
  * in a browser they showed their <p> tags as text, which the gate now refuses.
  */
-import { ABOUT, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS } from "./ai-builder-agent-fixtures"
+import { ABOUT, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, PROGRAM_BLOCKS } from "./ai-builder-agent-fixtures"
 
 const ROOT = `--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-border: {{ scheme.border }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;`
 const SPACING = [
@@ -25,9 +25,9 @@ const SPACING = [
 const SCHEME = (d = "site") => ({ type: "color_scheme", id: "color_scheme", label: "Colour scheme", default: d })
 
 /** One .storelib component: `{{ROOT}}` in the template becomes the scheme and spacing variables. */
-export function component(o: { type: string; name: string; kind?: "header" | "footer"; category?: string; template: string; style: string; settings: Record<string, unknown>[]; blocks?: Record<string, unknown>[]; maxBlocks?: number; spacing?: boolean; scheme?: string }): string {
+export function component(o: { type: string; name: string; kind?: "header" | "footer"; category?: string; template: string; style: string; settings: Record<string, unknown>[]; blocks?: Record<string, unknown>[]; maxBlocks?: number; spacing?: boolean; scheme?: string; presets?: { name: string; blocks: Record<string, unknown>[] }[] }): string {
   const settings = [...o.settings, SCHEME(o.scheme), ...(o.spacing === false || o.kind ? [] : SPACING)]
-  const schema: Record<string, unknown> = { schema_version: 1, type: o.type, name: o.name, ...(o.kind ? { kind: o.kind, enabled_on: { groups: [o.kind] } } : { category: o.category ?? "text" }), settings, ...(o.blocks ? { blocks: o.blocks, max_blocks: o.maxBlocks ?? 12 } : {}) }
+  const schema: Record<string, unknown> = { schema_version: 1, type: o.type, name: o.name, ...(o.kind ? { kind: o.kind, enabled_on: { groups: [o.kind] } } : { category: o.category ?? "text" }), settings, ...(o.blocks ? { blocks: o.blocks, max_blocks: o.maxBlocks ?? 12 } : {}), ...(o.presets ? { presets: o.presets } : {}) }
   return `<template>\n${o.template.replace("{{ROOT}}", ROOT).trim()}\n</template>\n\n<style scoped>\n${o.style.trim()}\n</style>\n\n<schema>\n${JSON.stringify(schema, null, 2)}\n</schema>\n`
 }
 
@@ -54,7 +54,7 @@ export const A: Design = {
   files: { "sections/ai_coach_header.storelib": HEADER, "sections/ai_coach_hero.storelib": HERO, "sections/ai_program_list.storelib": PROGRAMS, "sections/ai_coach_footer.storelib": FOOTER, "sections/ai_coach_story.storelib": ABOUT },
   pages: [{ key: "programs", title: "Programs" }, { key: "about", title: "About" }],
   compose: {
-    home: [{ type: "ai_coach_header", group: "header" }, { type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } }, { type: "ai_program_list", blocks: [{ type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } }] }, { type: "ai_coach_footer", group: "footer" }],
+    home: [{ type: "ai_coach_header", group: "header" }, { type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } }, { type: "ai_program_list", blocks: PROGRAM_BLOCKS }, { type: "ai_coach_footer", group: "footer" }],
     programs: [{ type: "ai_program_list", settings: { heading: "All programs" } }],
     about: [{ type: "ai_coach_story" }],
   },
@@ -236,6 +236,7 @@ const TRACKS = component({
 @container (min-width: 600px) { .ts__row { grid-template-columns: 1fr 80px 60px; } }`,
   settings: [{ type: "text", id: "heading", label: "Heading", default: "This month in the studio" }],
   blocks: [{ type: "track", name: "Track", settings: [{ type: "text", id: "name", label: "Name", default: "Track name" }, { type: "text", id: "bpm", label: "Tempo", default: "90 bpm" }, { type: "text", id: "key", label: "Key", default: "F minor" }] }],
+  presets: [{ name: "Track sheet", blocks: [{ type: "track", settings: { name: "Night bus", bpm: "84 bpm", key: "D minor" } }, { type: "track", settings: { name: "Tape hiss", bpm: "92 bpm", key: "G minor" } }] }],
 })
 
 const BEAT_FOOTER = component({
@@ -288,6 +289,7 @@ const WORK_INDEX = component({
     { type: "url", id: "contact_url", label: "Contact link goes to", default: "/contact" },
   ],
   blocks: [{ type: "work", name: "Project", settings: [{ type: "text", id: "year", label: "Year", default: "2026" }, { type: "text", id: "title", label: "Project", default: "Project name" }, { type: "text", id: "client", label: "For", default: "Client" }] }],
+  presets: [{ name: "Work index", blocks: [{ type: "work", settings: { year: "2026", title: "Vale Sans", client: "Maison Vale" } }, { type: "work", settings: { year: "2025", title: "Signage", client: "Leeds Library" } }, { type: "work", settings: { year: "2024", title: "Field Notes", client: "Northern Print Fair" } }] }],
 })
 
 /* Changed on purpose (round N, N4): the brief names no font, so the scripted model now picks a display face with character (Instrument Sans, the type library's "Gallery label") instead of Inter, which the concept check refuses as a default display face. */
@@ -298,7 +300,7 @@ export const D: Design = {
   tokens: { colors: { background: "#ffffff", surface: "#ffffff", text: "#111111", muted: "#6b6b6b", accent: "#555555", accentText: "#ffffff", border: "#e5e5e5", inverse: { background: "#111111", text: "#ffffff", accent: "#bbbbbb" } }, fonts: { heading: "Instrument Sans", body: "Instrument Sans" }, radius: { small: 0, medium: 0, large: 0 } },
   files: { "sections/ai_work_index.storelib": WORK_INDEX },
   pages: [],
-  compose: { home: [{ type: "ai_work_index", blocks: [{ type: "work", settings: { year: "2026", title: "Vale Sans", client: "Maison Vale" } }, { type: "work", settings: { year: "2025", title: "Signage", client: "Leeds Library" } }] }] },
+  compose: { home: [{ type: "ai_work_index", blocks: [{ type: "work", settings: { year: "2026", title: "Vale Sans", client: "Maison Vale" } }, { type: "work", settings: { year: "2025", title: "Signage", client: "Leeds Library" } }, { type: "work", settings: { year: "2024", title: "Field Notes", client: "Northern Print Fair" } }] }] },
 }
 
 /* ── components the other scenarios write ─────────────────────────────── */
