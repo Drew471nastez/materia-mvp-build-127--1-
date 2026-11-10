@@ -36,13 +36,13 @@ import { buildNativeRegistry, nativeRegistry, registryFingerprints, EXCLUDED, OV
 import { NATIVE_REGISTRY_SNAPSHOT } from "@/lib/website-builder/ai-site/native/registry-snapshot"
 import { nativeTool, NATIVE_TOOL } from "@/lib/website-builder/ai-site/native/schema"
 import { validateNativeSite } from "@/lib/website-builder/ai-site/native/validate"
-import { generateNativeSite, NativeGenerationError, readBrainHints } from "@/lib/website-builder/ai-site/native/generate"
+import { generateNativeSite, NativeGenerationError, readBrainHints, strategyPlan, offeredTypes } from "@/lib/website-builder/ai-site/native/generate"
 import { nativeEngineEnabled } from "@/lib/website-builder/ai-site/native/flag"
 import { isNativePlan } from "@/lib/website-builder/ai-site/native/plan"
 import type { NativeContext } from "@/lib/website-builder/ai-site/native/types"
 import { newJob, runUntil, type JobDeps } from "@/lib/website-builder/ai-site/job"
 import { PLAN_MODEL, SMALL_MODEL, WRITE_MODEL, type Models } from "@/lib/website-builder/ai-site/models"
-import { designBrainFor } from "@/lib/storelib-ai/brain"
+import { designBrainFor } from "@/lib/storelib-ai/library/brain"
 import { briefFrom } from "@/lib/storelib-ai/direction"
 import type { AgentProvider, ProviderRequest, ProviderTurn } from "@/lib/sites/agent/types"
 import type { SiteState } from "@/lib/website-builder/ai-site/apply"
@@ -216,8 +216,12 @@ async function main() {
   const repairText = String((log.native[1].turns[0] as { content: string }).content)
   check("  the repair turn quotes the exact issues with their paths", /pages\[0\]\.sections\[0\]\.settings\.heading: contains markup or a script/.test(repairText) && /height: "70" is not one of 80, 100, 60/.test(repairText) && /YOUR PREVIOUS ANSWER/.test(repairText), repairText.slice(-1500))
   const first = log.native[0]
-  check("  the call carries the tool (strict-ready), the library, the design rules, the brain, the direction and DESIGN.md", first.tools.length === 1 && first.tools[0].name === NATIVE_TOOL && /THE LIBRARY/.test(first.system) && /hero_split: /.test(first.system) && /DESIGN BRAIN \(brain-/.test(String((first.turns[0] as { content: string }).content)) && /ART DIRECTION/.test(String((first.turns[0] as { content: string }).content)) && /Volt on ink/.test(String((first.turns[0] as { content: string }).content)))
-  check("  the brain's hints are read defensively (any shape)", readBrainHints(brain.hints)?.sectionStrategy.length! > 2 && readBrainHints({ sectionStrategy: "x", tokens: { a: { b: 1 } } })?.sectionStrategy.length === 0 && readBrainHints(null) === null)
+  check("  the call carries the tool (strict-ready), the library, the design rules, the brain, the direction and DESIGN.md", first.tools.length === 1 && first.tools[0].name === NATIVE_TOOL && /THE LIBRARY/.test(first.system) && /hero_split: /.test(first.system) && /DESIGN BRAIN \(r1\./.test(String((first.turns[0] as { content: string }).content)) && /ART DIRECTION/.test(String((first.turns[0] as { content: string }).content)) && /Volt on ink/.test(String((first.turns[0] as { content: string }).content)))
+  check("  the brain's hints are read defensively (any shape)", readBrainHints(brain.hints)!.sectionStrategy.length > 2 && !!readBrainHints(brain.hints)!.tokens && readBrainHints({ sectionStrategy: "x", tokens: { a: { b: 1 } } })?.sectionStrategy.length === 0 && readBrainHints({ sectionStrategy: "x", tokens: { a: { b: 1 } } })?.tokens === null && readBrainHints(null) === null)
+  const userText = String((first.turns[0] as { content: string }).content)
+  const plan0 = strategyPlan(readBrainHints(brain.hints), offeredTypes(ctxFor(fit.caps, fit.prompt)))
+  check("  the brain's section strategy is the STARTING SECTION PLAN, each step with real offered types", plan0.length >= 3 && /STARTING SECTION PLAN/.test(userText) && plan0.every((st) => st.types.every((t) => !!reg.sections[t] && t !== "proof_testimonials") && userText.includes(st.types.join(" or "))), plan0)
+  check("  the brain's tokens are in the prompt, said to be applied", /TOKENS \(applied to Theme settings/.test(userText) && userText.includes(brain.hints.tokens.colors.background))
   check("  versions recorded", r.promptVersion === "native-r2.1" && r.site.version.startsWith("native-r2.1/") && r.brainVersion === brain.version)
   check("  the spend of both calls is counted", r.spend.calls === 2 && r.spend.usd > 0)
   const always = { native: [] as ProviderRequest[], other: [] as CallLog[] }
@@ -241,7 +245,7 @@ async function main() {
   check("a call that hangs is cut at its timeout, and said", /aborted by timeout/.test(timedOut) && Date.now() - t0 < 5_000, timedOut)
   const late = { native: [] as ProviderRequest[], other: [] as CallLog[] }
   const r3 = await generateNativeSite({ request: fit.prompt, ctx: ctxFor(fit.caps, fit.prompt) }, { model: { provider: scripted([broken, fit.answer], late), model: PLAN_MODEL }, deadline: Date.now() + 10_000 })
-  check("no repair starts when a whole call would not fit before the job hands over", r3.attempts === 1 && late.native.length === 1)
+  check("no repair starts with less than a minute left before the job hands over", r3.attempts === 1 && late.native.length === 1)
 
   /* ── 5 ─────────────────────────────────────────────────────────────── */
   section("5. The classic job with the native engine")
@@ -273,6 +277,11 @@ async function main() {
   check("  a responsive value placed as the editor stores it", JSON.stringify(homeBody.find((s) => s.type === "features_cards")!.settings.columns) === JSON.stringify({ desktop: 3, mobile: 1 }))
   check("  the product binding is the store's product", homeBody.find((s) => s.type === "hero_product")?.settings.button_url === "/products/eight-week-strength")
   check("  the theme tokens: preset, palette into the schemes, fonts, settings", st.settings.font_heading === "Oswald" && st.settings.font_body === "Inter" && st.settings.button_shape === "square" && JSON.stringify(st.settings.color_schemes ?? {}).includes("#0e1116"))
+  check("  the design brain's tokens applied through tokensToThemeSettings (motion tier, section rhythm, custom tokens), the site's own choices over them", typeof st.settings.motion_tier === "string" && typeof st.settings.ai_section_y === "number" && typeof st.settings.custom_tokens === "object" && st.settings.font_heading === "Oswald" && st.settings.button_shape === "square" && st.settings.background_color === "#0e1116", { tier: st.settings.motion_tier, y: st.settings.ai_section_y, bg: st.settings.background_color })
+  check("  the recipe is recorded on the job (read back as avoidRecipes next time)", typeof job.state.native?.recipeId === "string" && job.state.native.recipeId.length > 0)
+  const seen: { avoid?: string[] }[] = []
+  await runUntil(newJob({ id: "a1b2c3d4-0000-4000-8000-000000000009", creatorId: "c1", ownerUserId: "u1", installId: "a1b2c3d4-9999", prompt: fit.prompt }), { ...deps, site: memorySite(startingSite()), models: modelsOf(scripted([fit.answer], { native: [], other: [] })), native: { ...deps.native, recentRecipes: async () => [job.state.native!.recipeId!], brain: (b, o) => { seen.push({ avoid: o.avoidRecipes }); return designBrainFor(b, o) } } })
+  check("  the creator's recent recipes are passed to the brain as avoidRecipes", seen.length === 2 && seen.every((x) => x.avoid?.[0] === job.state.native!.recipeId), seen)
   check("  the other page was made with the frame", (st.pages.book ?? []).map((s) => s.type).join() === "header,contact,footer")
   check("  the write step wrote nothing the native site already wrote (no writer calls)", jobLog.other.filter((c) => c.kind === "write").length === 0, jobLog.other.map((c) => c.kind))
   check("  the photo step filled the briefed slots with the brief's words", searches.includes("coach spotting barbell squat") && typeof heroS.settings.image === "string" && (heroS.settings.image as string).startsWith("https://storelib.com/media/"))
@@ -304,7 +313,7 @@ async function main() {
   const distinct = (k: "types" | "tokens") => new Set(results.map((x) => x[k])).size === results.length
   check("six different home section strategies", distinct("types"), results.map((x) => x.types))
   check("six different token sets", distinct("tokens"), results.map((x) => x.tokens.slice(0, 80)))
-  const strategies = SCENARIOS.map((s) => designBrainFor(briefFrom(s.prompt, null, null)).hints.sectionStrategy.join(">"))
+  const strategies = SCENARIOS.map((s) => designBrainFor(briefFrom(s.prompt, null, null)).hints.sectionStrategy.home.map((x) => x.patternId).join(">"))
   check("  the brain gives the scenarios their own section strategies", new Set(strategies).size >= 4, strategies)
 
   /* ── 7 ─────────────────────────────────────────────────────────────── */

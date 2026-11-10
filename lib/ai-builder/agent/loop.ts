@@ -209,7 +209,7 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
         const hints = refs.map((r) => ({ id: r.id, styles: r.styleTags, industries: r.industries }))
         const plan = planDirection(job, caps, hints)
         cp.brief = plan.brief
-        cp.direction = { primary: plan.choice.primary.id, secondary: plan.choice.secondary?.id ?? null, typeSystem: plan.choice.typeSystem.id, seed: plan.choice.seed, ...(hints.length ? { refs: hints } : {}) }
+        cp.direction = { primary: plan.choice.primary.id, secondary: plan.choice.secondary?.id ?? null, typeSystem: plan.choice.typeSystem.id, seed: plan.choice.seed, ...(hints.length ? { refs: hints } : {}), ...(plan.prefer.length ? { prefer: plan.prefer } : {}), ...(plan.preferType ? { preferType: plan.preferType } : {}) }
         directions = plan.seeds
         direction = { brief: plan.brief, choice: plan.choice }
       } catch {

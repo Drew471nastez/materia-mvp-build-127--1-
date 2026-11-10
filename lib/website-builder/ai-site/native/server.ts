@@ -40,6 +40,12 @@ export function nativeServerDeps(admin: Db, job: { creatorId: string; ownerUserI
       if (error || !Array.isArray(data)) return []
       return (data as { id: string; title: string | null }[]).map((f) => ({ url: String(f.id), id: String(f.id), name: (f.title ?? "Form").slice(0, 80) }))
     },
+    /* The recipes this creator's last few native sites used (state.native.recipeId), so the next site differs. */
+    async recentRecipes(): Promise<string[]> {
+      const { data, error } = await admin.from("ai_site_jobs").select("state").eq("creator_id", job.creatorId).order("created_at", { ascending: false }).limit(6)
+      if (error || !Array.isArray(data)) return []
+      return (data as { state?: { native?: { recipeId?: unknown } | null } | null }[]).map((r) => r.state?.native?.recipeId).filter((x): x is string => typeof x === "string" && !!x)
+    },
     async designMd() {
       return (await readDesignContract(admin, job.installId))?.text ?? null
     },

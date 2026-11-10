@@ -46,7 +46,7 @@ import { callOnce, mergeSpend, NO_SPEND, addSpend, pool, type Models, type Spend
 import type { JobEngine, StartOptions } from "@/lib/ai-builder/types"
 import { startContext } from "./start-options"
 import { nativePlan, type NativeEngineDeps, type NativeRecord } from "./native/engine"
-import { isNativePlan, nativeOps } from "./native/plan"
+import { isNativePlan, nativeOps, tokenThemeOp } from "./native/plan"
 import { nativeRegistry } from "./native/registry"
 
 export type JobStatus = "queued" | "running" | "complete" | "partial" | "failed"
@@ -294,7 +294,7 @@ async function stepPlan(job: Job, deps: JobDeps): Promise<Job> {
       console.warn("[ai-site] native engine fell back to the classic planner", { job: job.id, why })
       const spent = (e as { spend?: Spend }).spend
       if (spent) job = { ...job, state: { ...job.state, spend: mergeSpend(job.state.spend, spent) } }
-      fallback = { version: "", promptVersion: "", brainVersion: null, attempts: 0, sections: 0, issues: [], mapped: [], fallback: why }
+      fallback = { version: "", promptVersion: "", brainVersion: null, recipeId: null, attempts: 0, sections: 0, issues: [], mapped: [], fallback: why }
     }
   }
   const capsText = describeCapabilities(caps)
@@ -354,7 +354,9 @@ async function stepBuild(job: Job, deps: JobDeps): Promise<Job> {
   /* Round R (R2): a native plan's sections get their generated words, links, bindings and blocks now, as logged operations. */
   if (isNativePlan(job.plan)) {
     const placement = nativeOps({ site, placed: built.placed, plan: job.plan, reg: deps.native?.registry ?? nativeRegistry(), caps, schemas: deps.schemas })
-    const a = apply(next, site, placement.ops, deps.schemas)
+    /* The design brain's tokens (with the site's own palette and fonts over them) as one Theme settings write. */
+    const tokens = tokenThemeOp(job.plan, site.settings)
+    const a = apply(next, site, [...(tokens ? [{ page: ANY_PAGE, op: tokens }] : []), ...placement.ops], deps.schemas)
     next = a.job
     site = a.site
     filled = [...new Set([...filled, ...placement.filled])]

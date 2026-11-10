@@ -28,6 +28,7 @@ import { briefFrom, refineBrief, type CreativeBrief } from "@/lib/storelib-ai/di
 import { checkConceptAgainstDirection, chooseDirection, directionForPrompt, directionSeeds, type DirectionChoice, type ReferenceHint } from "@/lib/storelib-ai/direction/choose"
 import { DESIGN_CONTRACT_SETTING, DESIGN_MD_PATH, contractForPrompt, contractFromPlan, designMdFromSettings, readContractMeta, recordAiTokens, renderContract } from "../design-contract"
 import { versionOf } from "./version"
+import { designBrainFor } from "@/lib/storelib-ai/library/brain"
 import type { Direction } from "@/lib/storelib-ai/library/concept"
 
 export { refineBrief }
@@ -36,16 +37,28 @@ export { refineBrief }
 export const directionSeed = (job: Pick<AgentJobInput, "creatorId" | "installId">) => `${job.creatorId}:${job.installId}`
 
 /** The brief, the choice and what the first turn says about them. Deterministic. */
-export function planDirection(job: AgentJobInput, caps: RuntimeCapabilities | null, references: ReferenceHint[] = []): { brief: CreativeBrief; choice: DirectionChoice; seeds: Direction[]; block: string } {
+export function planDirection(job: AgentJobInput, caps: RuntimeCapabilities | null, references: ReferenceHint[] = []): { brief: CreativeBrief; choice: DirectionChoice; seeds: Direction[]; block: string; prefer: string[]; preferType?: string } {
   const brief = briefFrom(job.prompt, job.options ?? null, caps)
-  const choice = chooseDirection(brief, references, { seed: directionSeed(job) })
-  return { brief, choice, seeds: directionSeeds(choice, brief), block: directionForPrompt(brief, choice) }
+  /* Round R (R1): the design brain's recipe for this brief names the directions it realises, so the direction and the recipe agree. */
+  const { prefer, preferType } = brainPreference(brief)
+  const choice = chooseDirection(brief, references, { seed: directionSeed(job), prefer, ...(preferType ? { preferType } : {}) })
+  return { brief, choice, seeds: directionSeeds(choice, brief), block: directionForPrompt(brief, choice), prefer, ...(preferType ? { preferType } : {}) }
+}
+
+/** The directions and the type system the design brain's recipe realises for a brief (empty when the brain is unavailable). */
+export function brainPreference(brief: CreativeBrief): { prefer: string[]; preferType?: string } {
+  try {
+    const brain = designBrainFor(brief)
+    return { prefer: brain.directions, preferType: brain.typeSystem }
+  } catch {
+    return { prefer: [] }
+  }
 }
 
 /** The choice a checkpoint was planned with, chosen again (deterministic from the brief and the seed). */
 export function choiceOf(cp: Pick<LoopCheckpoint, "brief" | "direction">): DirectionChoice | null {
   if (!cp.brief || !cp.direction) return null
-  return chooseDirection(cp.brief, cp.direction.refs ?? [], { seed: cp.direction.seed })
+  return chooseDirection(cp.brief, cp.direction.refs ?? [], { seed: cp.direction.seed, ...(cp.direction.prefer?.length ? { prefer: cp.direction.prefer } : {}), ...(cp.direction.preferType ? { preferType: cp.direction.preferType } : {}) })
 }
 
 /** The direction's objections to a concept, as sentences (errors refuse it). */

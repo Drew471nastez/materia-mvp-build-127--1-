@@ -26,6 +26,7 @@
  */
 import { surfaceRules } from "@/lib/storelib-ai/surfaces"
 import { describeCapabilities } from "../capabilities"
+import type { DesignTokens } from "@/lib/ai-builder/types"
 import { extractJson } from "../../agent/creative-plan"
 import { unavailableBecause } from "../../agent/site-plan"
 import { addSpend, callOnce, NO_SPEND, type ModelRef, type Spend } from "../models"
@@ -39,36 +40,68 @@ export const NATIVE_PROMPT_VERSION = "native-r2.1"
 export const NATIVE_MAX_REPAIRS = 2
 export const NATIVE_CALL_TIMEOUT_MS = 170_000
 export const NATIVE_MAX_OUTPUT_TOKENS = 32_000
+/** A repair is not started with less time than this left before the job hands over. */
+export const NATIVE_MIN_REPAIR_MS = 60_000
 /** Issues quoted back in one repair turn, at most. */
 const MAX_ISSUES_SENT = 40
 
+/** One step of the brain's home strategy: a pattern and the native section types that realise it, best first. */
+export interface BrainStep {
+  title: string
+  role: string
+  nativeSections: string[]
+}
+
 export interface BrainHints {
   recipeId: string
-  tokens: Record<string, string | number>
+  /** R1's DesignTokens (lib/ai-builder/types.ts), when the hints carry them whole. */
+  tokens: DesignTokens | null
   typePairing: { display: string; body: string } | null
   spacing: string
-  sectionStrategy: string[]
+  sectionStrategy: BrainStep[]
+  rhythm: string
   motionTier: string
   imageDirection: string
 }
 
-/** R1's brain, read whatever its exact shape: only the fields named in the shared contract are used. Pure. */
+const isTokens = (t: unknown): t is DesignTokens => {
+  const o = t as DesignTokens | null
+  return !!o && typeof o === "object" && !!o.colors && typeof o.colors.background === "string" && !!o.fonts && typeof o.fonts.heading === "string" && !!o.radius && !!o.spacing && !!o.motion
+}
+
+/**
+ * R1's hints (lib/storelib-ai/library/brain designBrainFor), read defensively: anything of another shape is left out,
+ * never thrown on. Pure.
+ */
 export function readBrainHints(raw: unknown): BrainHints | null {
   if (!raw || typeof raw !== "object") return null
   const h = raw as Record<string, unknown>
-  const s = (v: unknown) => (typeof v === "string" ? v.slice(0, 200) : "")
+  const s = (v: unknown, n = 200) => (typeof v === "string" ? v.slice(0, n) : "")
   const tp = h.typePairing && typeof h.typePairing === "object" ? (h.typePairing as Record<string, unknown>) : null
-  const tokens: Record<string, string | number> = {}
-  if (h.tokens && typeof h.tokens === "object") for (const [k, v] of Object.entries(h.tokens as Record<string, unknown>).slice(0, 24)) if (typeof v === "string" || typeof v === "number") tokens[k.slice(0, 40)] = typeof v === "string" ? v.slice(0, 80) : v
+  const ss = h.sectionStrategy && typeof h.sectionStrategy === "object" ? (h.sectionStrategy as Record<string, unknown>) : null
+  const steps: BrainStep[] = (Array.isArray(ss?.home) ? (ss!.home as unknown[]) : [])
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === "object")
+    .slice(0, 16)
+    .map((x) => ({ title: s(x.title, 80), role: s(x.role, 40), nativeSections: Array.isArray(x.nativeSections) ? x.nativeSections.filter((t): t is string => typeof t === "string").slice(0, 8) : [] }))
+  const sp = h.spacing && typeof h.spacing === "object" ? (h.spacing as Record<string, unknown>) : null
+  const img = h.imageDirection && typeof h.imageDirection === "object" ? (h.imageDirection as Record<string, unknown>) : null
   return {
     recipeId: s(h.recipeId),
-    tokens,
+    tokens: isTokens(h.tokens) ? (JSON.parse(JSON.stringify(h.tokens)) as DesignTokens) : null,
     typePairing: tp ? { display: s(tp.display ?? tp.heading), body: s(tp.body) } : null,
-    spacing: s(h.spacing),
-    sectionStrategy: Array.isArray(h.sectionStrategy) ? h.sectionStrategy.filter((x): x is string => typeof x === "string").slice(0, 16).map((x) => x.slice(0, 40)) : [],
+    spacing: sp ? [typeof sp.sectionY === "number" ? `section padding about ${sp.sectionY}px` : "", typeof sp.pageWidth === "number" ? `page width ${sp.pageWidth}px` : ""].filter(Boolean).join(", ") : s(h.spacing),
+    sectionStrategy: steps,
+    rhythm: s(ss?.rhythm, 200),
     motionTier: s(h.motionTier),
-    imageDirection: s(h.imageDirection),
+    imageDirection: img ? s(img.direction, 300) : s(h.imageDirection, 300),
   }
+}
+
+/** The brain's home strategy as a starting plan: each step with the offered native types that realise it. Pure. */
+export function strategyPlan(hints: BrainHints | null, offered: string[]): { title: string; role: string; types: string[] }[] {
+  if (!hints) return []
+  const ok = new Set(offered)
+  return hints.sectionStrategy.map((st) => ({ title: st.title, role: st.role, types: st.nativeSections.filter((t) => ok.has(t)) })).filter((st) => st.types.length > 0)
 }
 
 export interface NativeGenerateInput {
@@ -161,11 +194,15 @@ export function nativeSystem(ctx: NativeContext, types: string[]): string {
 }
 
 /** The user turn: the request and everything that shapes this site. */
-export function nativeTurn(input: NativeGenerateInput): string {
+export function nativeTurn(input: NativeGenerateInput, offered: string[] = Object.keys(input.ctx.registry.sections)): string {
   const hints = readBrainHints(input.brain?.hints)
   const brainBlock = typeof input.brain?.block === "string" ? input.brain.block.slice(0, 4000) : ""
-  const strategy = hints?.sectionStrategy.length ? `Section strategy for the home page, in order (map each role to the library's best type): ${hints.sectionStrategy.join(" > ")}.` : ""
-  const tokens = hints && Object.keys(hints.tokens).length ? `Tokens to start from: ${Object.entries(hints.tokens).map(([k, v]) => `${k} ${v}`).join(", ")}.` : ""
+  const plan = strategyPlan(hints, offered)
+  const strategy = plan.length
+    ? `STARTING SECTION PLAN for the home page (the recipe's spine, in order; use the first listed type unless the content calls for the next one, and add sections where the business needs more):\n${plan.map((st, i) => `  ${i + 1}. ${st.title} (${st.role}): ${st.types.join(" or ")}`).join("\n")}${hints?.rhythm ? `\nRhythm: ${hints.rhythm}` : ""}`
+    : ""
+  const t = hints?.tokens
+  const tokens = t ? `TOKENS (applied to Theme settings after you answer; your palette and fonts, when you give them, win): background ${t.colors.background}, surface ${t.colors.surface}, text ${t.colors.text}, accent ${t.colors.accent} with ${t.colors.accentText} on it, border ${t.colors.border}${t.colors.inverse ? `, contrast band ${t.colors.inverse.background}` : ""}; corners ${t.radius.small}/${t.radius.medium}px; motion ${t.motion.tier ?? t.motion.level}.` : ""
   const type = hints?.typePairing?.display ? `Type pairing: ${hints.typePairing.display} / ${hints.typePairing.body}.` : ""
   return [
     `THE REQUEST\n${input.request.trim().slice(0, 4000)}`,
@@ -197,7 +234,7 @@ export async function generateNativeSite(input: NativeGenerateInput, deps: Nativ
   if (!types.length) throw new NativeGenerationError("no section type is possible for this site")
   const tool = nativeTool(input.ctx.registry, types)
   const system = nativeSystem(input.ctx, types)
-  const base = nativeTurn(input)
+  const base = nativeTurn(input, types)
   const maxRepairs = Math.max(0, Math.min(NATIVE_MAX_REPAIRS, deps.maxRepairs ?? NATIVE_MAX_REPAIRS))
   const timeoutMs = deps.timeoutMs ?? NATIVE_CALL_TIMEOUT_MS
   let spend: Spend = NO_SPEND
@@ -206,13 +243,15 @@ export async function generateNativeSite(input: NativeGenerateInput, deps: Nativ
   let attempts = 0
   let lastError = ""
   for (let attempt = 0; attempt <= maxRepairs; attempt++) {
-    /* A repair is only started when a whole call still fits before the job hands over. */
-    if (attempt > 0 && deps.deadline && now() + timeoutMs > deps.deadline) break
+    /* A call is only started with time for a real answer before the job hands over, and is cut at the hand-over. */
+    const left = deps.deadline ? deps.deadline - now() - 5_000 : Infinity
+    if (attempt > 0 && left < NATIVE_MIN_REPAIR_MS) break
+    const callTimeout = Math.max(1, Math.min(timeoutMs, left))
     attempts++
     let text = ""
     let issuesBefore: { path: string; message: string }[] = []
     try {
-      const r = await callOnce(deps.model, { system, user, tools: [tool], maxOutputTokens: NATIVE_MAX_OUTPUT_TOKENS, timeoutMs, signal: deps.signal })
+      const r = await callOnce(deps.model, { system, user, tools: [tool], maxOutputTokens: NATIVE_MAX_OUTPUT_TOKENS, timeoutMs: callTimeout, signal: deps.signal })
       spend = addSpend(spend, deps.model.model, r.usage)
       const call = r.toolCalls.find((c) => c.name === NATIVE_TOOL)
       text = call ? call.argumentsJson : r.text
