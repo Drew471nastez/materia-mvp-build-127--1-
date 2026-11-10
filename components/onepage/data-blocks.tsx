@@ -230,20 +230,23 @@ export function DataTipsView({ block, data: given, look }: Props) {
 
   const title = data.title?.trim() || tt("Leave a tip")
   /*
-    Round AR: an amount is a chip that reads on the card (parts.chip); the one
-    picked is that chip's words as its fill, with words that read on them
+    Round AR: each amount is the page's button made to read on the card
+    (parts.onCard: fill, border, corners, shadow and the page's hover); the
+    one picked is filled with those words' colour, with words that read on it
     (lib/onepage/contrast inkOn). They were the card's words and paper turned
     round from a part that no longer existed, so the picked one had no fill,
     and on mid-tone pages the others fell to 3.8:1
-    (scripts/check-onepage-contrast-ar5.mjs). Send is the page's button.
+    (scripts/check-onepage-contrast-ar5.mjs). Send is the page's button too.
   */
-  const pickedInk = inkOn(parts.chip.color, look.theme.button_color)
+  const amount = pressableProps(parts.onCard, look.still)
+  const pickedFill = String(parts.onCard.button_text_color || "#111113")
+  /* White, or the nearest shade toward black that reads on the fill: the button colour can be see-through (a glass theme), which read grey on it. */
+  const pickedInk = inkOn(pickedFill, "#ffffff")
   const chip = (on: boolean): React.CSSProperties => ({
-    background: on ? parts.chip.color : parts.chip.background,
-    color: on ? pickedInk : parts.chip.color,
+    ...amount.style,
+    ...(on ? { backgroundColor: pickedFill, color: pickedInk, backdropFilter: undefined } : null),
     fontSize: px(14.5, look.scale),
     minHeight: px(42, look.scale),
-    borderRadius: 999,
   })
   return (
     <div data-onepage-app="tips" data-tip-mode="storelib" className="w-full text-left" style={{ ...parts.surface, borderRadius: parts.radius, padding: px(16, look.scale) }}>
@@ -258,12 +261,12 @@ export function DataTipsView({ block, data: given, look }: Props) {
         <>
           <div role="radiogroup" aria-label={tt("Amount")} className="mt-3 grid grid-cols-4" style={{ gap: px(8, look.scale) }}>
             {presets.map((c) => (
-              <button key={c} type="button" role="radio" aria-checked={picked === c} onClick={() => { setPicked(c); setError(null) }} data-tip-amount={c} className="font-semibold tabular-nums transition-[background-color,color,transform] duration-150 active:scale-[0.97]" style={chip(picked === c)}>
+              <button key={c} type="button" role="radio" aria-checked={picked === c} onClick={() => { setPicked(c); setError(null) }} data-tip-amount={c} data-hover={amount["data-hover"]} data-shadow={amount["data-shadow"]} className={cn(amount.className, "font-semibold tabular-nums")} style={chip(picked === c)}>
                 {tipLabel(c, currency, locale)}
               </button>
             ))}
             {data.tip_custom ? (
-              <button type="button" role="radio" aria-checked={picked === "other"} onClick={() => { setPicked("other"); setError(null) }} data-tip-amount="other" className="font-semibold transition-[background-color,color,transform] duration-150 active:scale-[0.97]" style={chip(picked === "other")}>
+              <button type="button" role="radio" aria-checked={picked === "other"} onClick={() => { setPicked("other"); setError(null) }} data-tip-amount="other" data-hover={amount["data-hover"]} data-shadow={amount["data-shadow"]} className={cn(amount.className, "font-semibold")} style={chip(picked === "other")}>
                 {tt("Other")}
               </button>
             ) : null}

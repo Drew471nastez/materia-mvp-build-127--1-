@@ -44,10 +44,12 @@ import {
   worstContrast,
   photoVeil,
   over,
+  chipColors,
+  tintGrounds,
 } from "@/lib/onepage/contrast"
 import { WALLPAPER_EFFECTS, pixelThroughLook, wallpaperMediaLook } from "@/lib/onepage/wallpaper"
 import { LOOK_RESET, lookFromTemplate, readableOn } from "@/lib/onepage/theme-apply"
-import { buttonHoverVars } from "@/lib/onepage/button-style"
+import { buttonHoverVars, buttonThemeOn, onCardButtonTheme, themeButtonStripFill } from "@/lib/onepage/button-style"
 import { publicOnePage, publicOnePageFromDraft } from "@/lib/onepage/public-shape"
 import { THEME_TEMPLATES } from "@/components/onepage/tabs/design-tab"
 import { readCatalog } from "../scripts/i18n/catalog-file.mjs"
@@ -184,7 +186,8 @@ for (const k of ["wallpaper_effect", "wallpaper_blur", "wallpaper_tint", "wallpa
 
 console.log("\nEvery block's buttons are the page's buttons")
 const app = read("components/onepage/app-block.tsx")
-check("an app block's button is the page's button, made to read on its card", /function CardButton[\s\S]{0,700}cardButtonTheme\(t, \{ surface, cardText: t\.button_text_color \}\)[\s\S]{0,200}pressableProps\(theme, look\.still\)/.test(app))
+/* Changed on purpose (round AR): CardButton reads the one rule for a button on a card, onCardButtonTheme (lib/onepage/button-style), which is cardButtonTheme with the card's own surface. */
+check("an app block's button is the page's button, made to read on its card", /function CardButton[\s\S]{0,900}onCardButtonTheme\(look\.theme\)[\s\S]{0,200}pressableProps\(theme, look\.still\)/.test(app) && /return cardButtonTheme\(theme, \{ surface, cardText: theme\.button_text_color as string \}\)/.test(read("lib/onepage/button-style.ts")))
 check("it carries the page's hover", /"data-hover": press\["data-hover"\]/.test(app) && /cn\(press\.className,/.test(app))
 check("it no longer turns the card's colours round by hand", !/background: ink, color: paper/.test(app))
 
@@ -262,6 +265,59 @@ const own = { id: "p", theme: { ...folio.theme_config, template_id: "folio", cov
 check("a cover the creator chose stays through a theme change", (lookFromTemplate(own as never, THEME_TEMPLATES.find((t) => t.id === "air") as never, undefined, folio as never).theme as T).cover_image_url === "https://cdn.example.com/mine.jpg")
 const onboarding = read("components/onepage/onboarding-modal.tsx")
 check("the onboarding lays a theme on as the Design tab does", /applyThemeLook\(template as never, hero \? "hero" : "classic"/.test(onboarding) && !/\.\.\.template\.theme_config,\n\s*template_id: template\.id,/.test(onboarding))
+
+console.log("\nRound AR7: the signup, the chips and the cards' own buttons read and take the page's button")
+{
+  const styles = ["filled", "soft", "outline", "glass"] as const
+  const chipBad: string[] = []
+  const signupBad: string[] = []
+  const cardBad: string[] = []
+  const stripBad: string[] = []
+  for (const t of THEME_TEMPLATES) {
+    for (const s of styles) {
+      const th = readableTheme({ ...(t.theme_config as Record<string, unknown>), button_style: s } as never) as Record<string, unknown>
+      /* The event date and a tip amount: the chip's words on the chip over the card (the card is the page's button). */
+      const chip = chipColors(th as never)
+      const onChip = buttonGrounds(th as never).map((g) => over(c(chip.background), g))
+      if (worstContrast(c(chip.color), onChip) < TEXT_MIN) chipBad.push(`${t.id}/${s}`)
+      /* The newsletter: its description and its button on the card tinted with the page's words. */
+      const grounds = tintGrounds(th as never, th.text_color, 6)
+      const soft = readableInk(th.secondary_text_color ?? th.text_color, grounds)
+      const btn = buttonThemeOn(th as never, grounds) as Record<string, unknown>
+      if (worstContrast(c(soft), grounds) < TEXT_MIN || worstContrast(c(String(btn.button_text_color)), buttonGrounds(btn as never, grounds)) < TEXT_MIN) signupBad.push(`${t.id}/${s}`)
+      /* A poll option, a code's Copy, a tip's Send: the page's button turned to read on the card. */
+      const card = onCardButtonTheme(th as never) as Record<string, unknown>
+      const words = c(String(card.button_text_color))
+      const cardGrounds = buttonGrounds(card as never, buttonGrounds(th as never))
+      if (worstContrast(words, cardGrounds) < TEXT_MIN) cardBad.push(`${t.id}/${s}`)
+      /* A see-through Solid colour is never laid a second time by a featured link's title strip. */
+      const fill = parseColor(th.button_color)
+      if (s === "filled" && fill && fill.a < 1 && themeButtonStripFill(th as never) !== "transparent") stripBad.push(t.id)
+    }
+  }
+  check("an event's date and a tip amount read on their chip, every theme x every button style", chipBad.length === 0, chipBad.join(", "))
+  check("the newsletter's description and Subscribe read on its card, every theme x every button style", signupBad.length === 0, signupBad.join(", "))
+  check("a card's own button (poll option, code Copy, tip Send) reads on the card, every theme x every button style", cardBad.length === 0, cardBad.join(", "))
+  check("a featured link's title strip never lays a see-through Solid colour twice (Ocean, Aurora as Solid)", stripBad.length === 0, stripBad.join(", "))
+  check("a Soft button over Sunset's signup card, where no words read, turns solid in its words' colour", (() => {
+    const sunset = THEME_TEMPLATES.find((t) => t.id === "sunset")!
+    const th = readableTheme({ ...(sunset.theme_config as Record<string, unknown>), button_style: "soft" } as never) as Record<string, unknown>
+    const g = tintGrounds(th as never, th.text_color, 6)
+    const b = buttonThemeOn(th as never, g) as Record<string, unknown>
+    return b.button_style === "filled" && worstContrast(c(String(b.button_text_color)), [c(String(b.button_color))]) >= TEXT_MIN
+  })())
+
+  const live = read("components/onepage/public-onepage.tsx")
+  const email = live.slice(live.indexOf('case "email_capture":'), live.indexOf('case "group":'))
+  check("Subscribe, Download, the after-signup link and Bar's button take the page's button (pressableProps, its hover)", /const emailPress = pressableProps\(buttonThemeOn\(theme, signupGrounds\)/.test(email) && (email.match(/\{\.\.\.submitAttrs\}/g) ?? []).length === 2 && /buttonPress=\{\{ className: emailPress\.className/.test(email) && !/hover:opacity-90/.test(email))
+  check("the signup's words are held to its card", /theme=\{signupTheme\}/.test(email) && /const pageInk = signupInk/.test(email))
+  const data = read("components/onepage/data-blocks.tsx")
+  check("poll options are the page's button made to read on the card", /const option = pressableProps\(parts\.onCard, look\.still\)/.test(data) && /className=\{cn\(option\.className/.test(data))
+  check("tip amounts and Send are the page's button; nothing reads a part that is gone", /const amount = pressableProps\(parts\.onCard, look\.still\)/.test(data) && /data=\{\{ "data-tip-send": "" \}\}/.test(data) && !/parts\.(ink|paper)\b/.test(data))
+  check("an event's date chip reads on the card, in both event blocks", /: parts\.chip\)/.test(data) && /\.\.\.parts\.chip/.test(read("components/onepage/app-block.tsx")))
+  const shelf = read("components/onepage/storelib-blocks.tsx")
+  check("a discount code's Copy is the page's button", /const copyPress = pressableProps\(onCardButtonTheme\(look\.theme\), look\.still\)/.test(shelf) && !/border-dashed border-current\/40/.test(shelf))
+}
 
 console.log("\nWords in every language")
 const words = ["Effect", "Mono", "Blur", "Halftone", "Grain", "Duotone", "Tint", "Tint strength", "No tint", "Duotone colour", "Duotone strength", "Deep blue"]

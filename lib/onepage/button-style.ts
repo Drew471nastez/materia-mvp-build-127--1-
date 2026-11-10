@@ -24,7 +24,7 @@
  */
 import type { CSSProperties } from "react"
 import { readableOn } from "./theme-apply"
-import { buttonGrounds, contrastOn, over, pageGrounds, parseColor, readableInk, worstContrast, type Rgba } from "./contrast"
+import { buttonGrounds, contrastOn, over, pageGrounds, parseColor, readableInk, toHex, worstContrast, type Rgba } from "./contrast"
 
 export type ButtonFill = "filled" | "soft" | "outline" | "glass"
 export type ButtonShadow = "none" | "subtle" | "strong" | "hard"
@@ -348,8 +348,22 @@ function wordsOn(fill: unknown, preferred: unknown, theme: ButtonThemeLike): str
  * and only when they would not read on the button there.
  */
 export function buttonThemeOn<T extends ButtonThemeLike>(theme: T, grounds: readonly Rgba[]): T {
-  const words = readableInk(theme.button_text_color, buttonGrounds(theme as never, grounds))
-  return words === theme.button_text_color ? theme : { ...theme, button_text_color: words }
+  const on = buttonGrounds(theme as never, grounds)
+  const words = readableInk(theme.button_text_color, on)
+  const w = parseColor(words)
+  if (w && worstContrast(w, on) >= 4.5) return words === theme.button_text_color ? theme : { ...theme, button_text_color: words }
+  /*
+    No words read there: a Soft or Glass button over a tinted card on a
+    mid-tone page (Sunset: neither white nor near black reaches 4.5:1 on it).
+    As cardButtonTheme does for the tint laid twice, the button turns solid
+    in its words' colour, with words that read on that; corners, border,
+    shadow and hover stay the page's.
+  */
+  const ink = (theme.button_text_color as string) || "#111113"
+  const fill = parseColor(ink)
+  const ground = grounds[0] ?? pageGrounds(theme as never)[0]
+  const solid = fill && fill.a < 1 ? toHex(over(fill, ground)) : ink
+  return { ...theme, button_style: "filled", button_color: solid, button_border_color: solid, button_text_color: readableInk((theme as { background_color?: string }).background_color ?? "#111113", [parseColor(solid) ?? ground]) }
 }
 
 /**
