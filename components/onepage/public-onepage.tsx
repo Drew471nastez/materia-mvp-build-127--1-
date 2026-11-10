@@ -1176,13 +1176,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   /* Round W8: a classic header flush left sits under the round Share button in the top left corner; it starts clear of it. */
   const clearOfShare = (top: string) => (top === "50px" && headerAlignOf(safeTheme) === "left" && safeSettings.share_enabled !== false ? "68px" : top)
   /* What the page draws, in order: a block, or two links or two products to a row. */
-  const laidNow = pairProductTiles(safeBlocks
+  const laid = pairProductTiles(safeBlocks
     /* In the editor's preview a new link still waiting for its address is drawn as a placeholder; never live. */
     .filter((b) => isBlockVisible(b) || (inEditorPreview && isIncompleteLink(b)))
     .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0)), safeTheme)
   /* Round W9: Mixed tiles, which plain links are halves and which full rows (lib/onepage/theme-layout mixedTileSizes). */
-  const mixedSizes = mixedTileSizes(laidNow, blockLayoutOf(safeTheme))
-  const pageItemsNow = pairLinkTiles(laidNow, blockLayoutOf(safeTheme))
+  const mixedSizes = mixedTileSizes(laid, blockLayoutOf(safeTheme))
+  const pageItemsNow = pairLinkTiles(laid, blockLayoutOf(safeTheme))
   /* Round AR: in the editor's preview a block taken off folds away instead of vanishing (components/onepage/leaving-block). */
   const pageItems = useLeavingBlocks(pageItemsNow, (item) => ((item as { key?: string }).key ?? (item as { id: string }).id), !!inEditorPreview)
   const renderPageContent = ({ isDesktop = false }: { isDesktop?: boolean } = {}) => (

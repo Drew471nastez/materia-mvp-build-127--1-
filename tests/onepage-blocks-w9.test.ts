@@ -136,7 +136,8 @@ console.log("\nA. A bin on every block's row, Delete still in the more menu, the
   check("it asks the same question as the menu's Remove", /askedFrom\.current = "bin"\s+setAskingRemove\(\(v\) => !v\)/.test(tab) && /askedFrom\.current = "menu"\s+setAskingRemove\(true\)/.test(tab) && /<BlockRemoveQuestion\s+open=\{askingRemove\}/.test(tab))
   check("focus goes back to whichever asked", /returnFocus=\{askedFrom\.current === "bin" \? binRef : menuRef\}/.test(tab))
   check("the more menu still holds Remove", /id: "block-remove", label: tt\("Remove"\)/.test(remove))
-  check("Delete and Archive fold the row first, then take the block off", /onRemove=\{\(\) => collapseRow\(reorderListRef\.current\?\.querySelector/.test(tab) && /onArchive=\{\(\) => collapseRow\(reorderListRef\.current\?\.querySelector/.test(tab) && /onRemove=\{\(\) => collapseRow\(document\.querySelector\(`\[data-group-child-item=/.test(tab))
+  /* Changed on purpose (round AR): a top-level row folds through foldThen (components/onepage/leaving-block foldAway), the same fold round AR measured, with the preview folding the block too; a group's child still uses collapseRow. */
+  check("Delete and Archive fold the row first, then take the block off", /onRemove=\{\(\) => foldThen\(block\.id, \(\) => \{ removeBlock\(block\.id\)/.test(tab) && /onArchive=\{\(\) => foldThen\(block\.id, \(\) => \{ archiveBlock\(block\.id\)/.test(tab) && /onRemove=\{\(\) => collapseRow\(document\.querySelector\(`\[data-group-child-item=/.test(tab))
   check("in 200ms or less", ROW_COLLAPSE_MS > 0 && ROW_COLLAPSE_MS <= 200)
   const f = rowCollapseFrames(72.4, 16)
   check("height to nothing, a fade, and the space after it eaten", f[0].height === "72.4px" && f[1].height === "0px" && f[1].opacity === 0 && f[1].marginBottom === "-16px")
