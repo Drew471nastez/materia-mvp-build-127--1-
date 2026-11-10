@@ -780,10 +780,10 @@ export const contact = defineSection({
       <dl class="esx__ways">{% for block in section.blocks %}<div data-block-id="{{ block.id }}"><dt>{{ block.settings.label }}</dt><dd>{% if block.settings.link %}<a href="{{ block.settings.link | url }}">{{ block.settings.value }}</a>{% else %}{{ block.settings.value }}{% endif %}</dd></div>{% endfor %}</dl>
     </div>
     <form class="esx__form" data-storelib-form="contact">
-      <label class="esx__f"><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required></label>
-      <label class="esx__f"><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required></label>
-      <label class="esx__f"><span>{{ settings.dates_label }}</span><input name="subject" type="text" maxlength="150"></label>
-      <label class="esx__f"><span>{{ settings.message_label }}</span><textarea name="message" rows="5" maxlength="5000" required></textarea></label>
+      <label class="esx__f"><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required placeholder="Your name"></label>
+      <label class="esx__f"><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required placeholder="you@example.com"></label>
+      <label class="esx__f"><span>{{ settings.dates_label }}</span><input name="subject" type="text" maxlength="150" placeholder="What it is about"></label>
+      <label class="esx__f"><span>{{ settings.message_label }}</span><textarea name="message" rows="5" maxlength="5000" required placeholder="A few lines about what you need"></textarea></label>
       <button class="esx__send" type="submit">{{ settings.send_label }}</button>
     </form>
   </div>

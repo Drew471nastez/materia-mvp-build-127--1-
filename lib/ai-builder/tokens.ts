@@ -140,6 +140,50 @@ function withHover(s: Record<string, string>): Record<string, string> {
 /** The scale's own names, which a custom token may not take. */
 export const SCALE_TOKENS = ["radius-sm", "radius-md", "radius-lg", "shadow-sm", "shadow-md", "shadow-lg", "shadow-none", "shadow", "gutter", "page-width", "section-y"] as const
 
+/* ── the button on the site's dark band (round Q) ─────────────────────── */
+
+function rgbOf(hex: string): [number, number, number] | null {
+  const t = hex.trim().toLowerCase()
+  const m3 = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(t)
+  if (m3) return [parseInt(m3[1] + m3[1], 16), parseInt(m3[2] + m3[2], 16), parseInt(m3[3] + m3[3], 16)]
+  const m6 = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})(?:[0-9a-f]{2})?$/.exec(t)
+  return m6 ? [parseInt(m6[1], 16), parseInt(m6[2], 16), parseInt(m6[3], 16)] : null
+}
+
+/** WCAG contrast of two hex colours; 1 when either is not one. */
+export function contrastOf(a: string, b: string): number {
+  const lum = (h: string) => {
+    const c = rgbOf(h)
+    if (!c) return null
+    const [r, g, bl] = c.map((x) => { const u = x / 255; return u <= 0.03928 ? u / 12.92 : ((u + 0.055) / 1.055) ** 2.4 })
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl
+  }
+  const x = lum(a)
+  const y = lum(b)
+  if (x === null || y === null) return 1
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
+}
+
+/**
+ * THE INVERSE SCHEME'S BUTTON. Its fill was the inverse ACCENT, which a
+ * palette picks as a tint that reads as a link on the dark band (the
+ * directions' #8fb0ff, #7fb0ff), so a dark section's buttons came out a
+ * light blue that was no colour of the site's, and its hover a step darker
+ * (#7e9be0) is the stray blue Andrew saw. A button on the band is the
+ * site's own accent where it stands out from the band (3:1, a control's
+ * contrast), else the band's paper with the band's ink on it. The tint
+ * stays the band's accent and link colour.
+ */
+export function inverseButton(accent: string, accentText: string, inverse: { background: string; text: string }): { background: string; text: string } {
+  if (contrastOf(accent, inverse.background) >= 3 && contrastOf(accentText, accent) >= 4.5) return { background: accent, text: accentText }
+  return { background: inverse.text, text: inverse.background }
+}
+
+/** The band a palette without one gets: its ink as the paper and its paper as the ink, so `site_inverse` always exists with buttons of the site's own. */
+export function derivedInverse(c: { background: string; text: string }): { background: string; text: string; accent: string } {
+  return { background: c.text, text: c.background, accent: c.background }
+}
+
 /* ── tokens to theme settings, and back ───────────────────────────────── */
 
 const SUBTLE_STYLE = "fade-up"
@@ -208,12 +252,18 @@ export function tokensToThemeSettings(tokens: DesignTokens, current?: Record<str
     /* The agent's own schemes, rewritten in place: a section set to `site` or `site_inverse` follows. */
     const keep = (key: string) => ((own[key] as Record<string, string> | undefined) ?? {})
     schemes[SITE_SCHEME] = withHover({ ...keep(SITE_SCHEME), ...scheme(str(keep(SITE_SCHEME).name, "Site"), c.background, c.text, c.text, c.muted, c.accent, c.accentText, c.border), secondary_button_background: c.background, input_background: c.surface })
-    if (c.inverse) schemes[SITE_INVERSE_SCHEME] = withHover({ ...keep(SITE_INVERSE_SCHEME), ...scheme(str(keep(SITE_INVERSE_SCHEME).name, "Site inverse"), c.inverse.background, c.inverse.text, c.inverse.text, c.inverse.text, c.inverse.accent, c.inverse.background, c.inverse.text), background_secondary: c.inverse.background, secondary_button_background: c.inverse.background })
+    /* Always a band of the site's own, its buttons the site's accent or its paper (inverseButton), never a tint (round Q). */
+    const inv = c.inverse ?? derivedInverse(c)
+    const btn = inverseButton(c.accent, c.accentText, inv)
+    schemes[SITE_INVERSE_SCHEME] = withHover({ ...keep(SITE_INVERSE_SCHEME), ...scheme(str(keep(SITE_INVERSE_SCHEME).name, "Site inverse"), inv.background, inv.text, inv.text, inv.text, inv.accent, inv.background, inv.text), background_secondary: inv.background, secondary_button_background: inv.background, primary_button_background: btn.background, primary_button_border: btn.background, primary_button_text: btn.text })
   } else {
     schemes.white = scheme("Main", c.background, c.text, c.text, c.muted, c.accent, c.accentText, c.border)
     schemes.light = { ...scheme("Surface", c.surface, c.text, c.text, c.muted, c.accent, c.accentText, c.border), background_secondary: c.background }
     schemes.highlight = scheme("Accent", c.accent, c.accentText, c.accentText, c.accentText, c.accentText, c.accent, c.accentText)
-    if (c.inverse) schemes.black = scheme("Inverse", c.inverse.background, c.inverse.text, c.inverse.text, c.inverse.text, c.inverse.accent, c.inverse.background, c.inverse.text)
+    if (c.inverse) {
+      const btn = inverseButton(c.accent, c.accentText, c.inverse)
+      schemes.black = { ...scheme("Inverse", c.inverse.background, c.inverse.text, c.inverse.text, c.inverse.text, c.inverse.accent, c.inverse.background, c.inverse.text), primary_button_background: btn.background, primary_button_border: btn.background, primary_button_text: btn.text }
+    }
   }
 
   const out: Record<string, unknown> = {

@@ -36,7 +36,7 @@ export interface SiteLanguageChoice {
    * visitor's country (the sl_country cookie, read by the proxy); `note`
    * says what checkout charges when prices are converted.
    */
-  currency?: { options: { id: string; label: string; country: string }[]; current: string; note: string | null }
+  currency?: { options: { id: string; label: string; country: string; /** The ISO code ("EUR"), when the producer knows it. */ code?: string }[]; current: string; note: string | null }
 }
 
 /**

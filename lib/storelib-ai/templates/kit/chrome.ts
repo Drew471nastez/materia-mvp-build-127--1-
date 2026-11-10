@@ -391,7 +391,7 @@ function footerTemplate(): string {
       <div><h2 class="ft__h">{{ settings.news_heading | raw }}</h2><div class="ft__text">{{ settings.news_text | raw }}</div></div>
       <form class="ft__form" data-storelib-form="subscribe">
         <label class="ft__label" for="ft-email-{{ section.id }}">{{ settings.email_label }}</label>
-        <div class="ft__row"><input id="ft-email-{{ section.id }}" type="email" name="email" required autocomplete="email"><button type="submit">{{ settings.subscribe_label }}</button></div>
+        <div class="ft__row"><input id="ft-email-{{ section.id }}" type="email" name="email" required autocomplete="email" placeholder="you@example.com"><button type="submit">{{ settings.subscribe_label }}</button></div>
       </form>
     </div>
     {% endif %}

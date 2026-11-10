@@ -24,6 +24,7 @@
  * can never run on a storefront. Importing the two modules this file
  * actually uses keeps the graph honest.
  */
+import { withStorelibIcons } from "./storelib-icons"
 import { COMPILE_CACHE_LIMIT, compileBlock, compileSection, createLru } from "@/lib/storelib-theme/storelib/compile"
 import { blockSourcePath, keyedFromList, type ListBlock } from "@/lib/storelib-theme/blocks"
 import { renderSection } from "@/lib/storelib-theme/render"
@@ -235,7 +236,8 @@ export function renderStorelibSection(
     ok: true,
     /* Every picture and video sized, lazy and faded in, whoever wrote the section: ./media-pass.ts. */
     /* A link set to open in a new tab (a menu's, a link setting's) drawn as one, on the site and in the canvas alike: ./new-tab.ts. */
-    html: withNewTabAnchors(optimizeSectionMedia(r.html)),
+    /* Round Q: an element marked data-storelib-icon="bag" gets the site's icon drawn in it, on the server (./storelib-icons.ts). */
+    html: withStorelibIcons(withNewTabAnchors(optimizeSectionMedia(r.html))),
     css: r.css,
     script: c.value.script ?? null,
     capabilities: c.value.schema.capabilities ?? [],

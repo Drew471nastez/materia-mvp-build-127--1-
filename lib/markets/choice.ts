@@ -56,10 +56,25 @@ export function languageChoiceOf(input: {
 }): SiteLanguageChoice {
   const all = [input.defaultLanguage, ...input.others]
   const code = (input.locale && all.find((l) => l.toLowerCase() === input.locale!.toLowerCase())) || input.defaultLanguage
-  const currencies =
+  /*
+    A CURRENCY IS NAMED BY ITS CURRENCY, NEVER BY ITS MARKET (round Q). The
+    label was `${market name} (${currency})`, so a market a creator called
+    "All" (every other country) offered "All (BRL R$)" next to "EUR €": a
+    word of the creator's settings in the visitor's switch. And two markets
+    in one currency offered it twice. One option per currency now, labelled
+    "EUR €"; where two markets share it, the one the page is priced in
+    stands for it, else the first (the store's own first of all).
+  */
+  const current = input.pricing ? input.pricing.market.id : "home"
+  const offered =
     input.fresh && input.markets.length
-      ? [{ id: "home", label: currencyLabel(input.base), country: "home" }, ...input.markets.filter((m) => m.countries.length).map((m) => ({ id: m.id, label: `${m.name} (${currencyLabel(m.currency)})`, country: naturalCountry(m.currency, m.countries) ?? m.countries[0] }))]
+      ? [{ id: "home", label: currencyLabel(input.base), country: "home", code: input.base.toUpperCase() }, ...input.markets.filter((m) => m.countries.length).map((m) => ({ id: m.id, label: currencyLabel(m.currency), country: naturalCountry(m.currency, m.countries) ?? m.countries[0], code: m.currency.toUpperCase() }))]
       : []
+  const currencies = offered.filter((o) => {
+    const same = offered.filter((x) => x.code === o.code)
+    const keep = same.find((x) => x.id === current) ?? same[0]
+    return keep === o
+  })
   return {
     code,
     defaultLanguage: input.defaultLanguage,
@@ -68,7 +83,7 @@ export function languageChoiceOf(input: {
       ? {
           currency: {
             options: currencies,
-            current: input.pricing ? input.pricing.market.id : "home",
+            current: currencies.some((o) => o.id === current) ? current : "home",
             /* Said plainly before anyone pays, only when the card is charged in another currency than the one shown. */
             note: input.pricing ? (input.say ?? chargeNote)(input.pricing.currency, input.charge) : null,
           },

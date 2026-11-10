@@ -317,9 +317,9 @@ export function contact(o: ContactOptions): ComponentDef {
       <div data-storelib-native-form="{{ settings.form.id }}" data-presentation="inline"></div>
       {% else %}
       <form class="ct__form" data-storelib-form="contact">
-        <label class="ct__field"><span>{{ settings.name_label }}</span><input type="text" name="name" autocomplete="name" required></label>
-        <label class="ct__field"><span>{{ settings.email_label }}</span><input type="email" name="email" autocomplete="email" required></label>
-        <label class="ct__field"><span>{{ settings.message_label }}</span><textarea name="message" rows="5" required></textarea></label>
+        <label class="ct__field"><span>{{ settings.name_label }}</span><input type="text" name="name" autocomplete="name" required placeholder="Your name"></label>
+        <label class="ct__field"><span>{{ settings.email_label }}</span><input type="email" name="email" autocomplete="email" required placeholder="you@example.com"></label>
+        <label class="ct__field"><span>{{ settings.message_label }}</span><textarea name="message" rows="5" required placeholder="A few lines about what you need"></textarea></label>
         <button class="ct__send" type="submit">{{ settings.send_label }}</button>
       </form>
       {% endif %}

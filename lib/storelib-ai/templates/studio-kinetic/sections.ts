@@ -676,10 +676,10 @@ export const contact = defineSection({
   <div class="agx__grid">
     <dl class="agx__ways">{% for block in section.blocks %}<div data-block-id="{{ block.id }}"><dt>{{ block.settings.label }}</dt><dd>{% if block.settings.link %}<a href="{{ block.settings.link | url }}">{{ block.settings.value }}</a>{% else %}{{ block.settings.value }}{% endif %}</dd></div>{% endfor %}</dl>
     <form class="agx__form" data-storelib-form="contact">
-      <label><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required></label>
-      <label><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required></label>
-      <label><span>{{ settings.budget_label }}</span><input name="subject" type="text" maxlength="150"></label>
-      <label><span>{{ settings.message_label }}</span><textarea name="message" rows="6" maxlength="5000" required></textarea></label>
+      <label><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required placeholder="Your name"></label>
+      <label><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required placeholder="you@example.com"></label>
+      <label><span>{{ settings.budget_label }}</span><input name="subject" type="text" maxlength="150" placeholder="What it is about"></label>
+      <label><span>{{ settings.message_label }}</span><textarea name="message" rows="6" maxlength="5000" required placeholder="A few lines about what you need"></textarea></label>
       <button type="submit">{{ settings.send_label }}</button>
     </form>
   </div>

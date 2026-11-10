@@ -144,6 +144,14 @@ export const STOREFRONT_HOOKS = {
   currencyList: "data-storelib-currency-list",
   currencyOption: "data-storelib-currency-option",
   currencyCurrent: "data-storelib-currency-current",
+  /* Round Q (Q1): chrome the host makes work without a line of the section's own script. */
+  menuLinks: "data-storelib-menu-links",
+  dropdown: "data-storelib-dropdown",
+  dropdownToggle: "data-storelib-dropdown-toggle",
+  dropdownMenu: "data-storelib-dropdown-menu",
+  sticky: "data-storelib-sticky",
+  over: "data-storelib-over",
+  icon: "data-storelib-icon",
 } as const
 
 /** An attribute named exactly, not as the start of a longer one: `data-storelib-cart` is not `data-storelib-cart-count`. */
@@ -233,30 +241,88 @@ export function cleanSearchHit(raw: unknown): SearchResultHit | null {
 export interface HookOption {
   /** What is written into data-option-code: a language code ("fr") or a currency choice's id. */
   code: string
-  /** What is written into data-option-label: the language in its own words, or the currency's label. */
+  /** What is written into data-option-label: the language in its own words ("Română"), or the currency as "EUR €". */
   label: string
   current: boolean
+  /** A currency's ISO code ("EUR"), its mark ("€") and its name in the page's language ("Euro"), for data-option-iso, -symbol and -name. Empty for a language. */
+  iso?: string
+  symbol?: string
+  name?: string
 }
 
 /** The shape of SiteLanguageChoice (components/website-builder/theme/language-switch.tsx) these helpers read. */
 export interface HookLanguageChoice {
   code: string
   languages: { code: string; name: string }[]
-  currency?: { options: { id: string; label: string }[]; current: string }
+  currency?: { options: { id: string; label: string; code?: string }[]; current: string }
 }
 
-/** The languages a locale list draws, the page's own marked current. Empty on a site with one language or none set. */
+/** A language's name in its own language: "Română", "Français", "English". The code when the browser has no name for it. */
+export function ownLanguageName(code: string): string {
+  try {
+    const name = new Intl.DisplayNames([code], { type: "language" }).of(code)
+    if (!name || name.toLowerCase() === code.toLowerCase()) return code
+    return name.charAt(0).toLocaleUpperCase(code) + name.slice(1)
+  } catch {
+    return code
+  }
+}
+
+/** The languages a locale list draws, each named in its own language, the page's own marked current. Empty on a site with one language or none set. */
 export function localeOptions(choice: HookLanguageChoice | null | undefined): HookOption[] {
   const langs = choice?.languages ?? []
   if (langs.length < 2) return []
-  return langs.map((l) => ({ code: l.code, label: l.name || l.code, current: l.code.toLowerCase() === choice!.code.toLowerCase() }))
+  const seen = new Set<string>()
+  return langs
+    .filter((l) => { const k = l.code.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
+    .map((l) => {
+      const own = ownLanguageName(l.code)
+      return { code: l.code, label: own !== l.code ? own : l.name || l.code, current: l.code.toLowerCase() === choice!.code.toLowerCase() }
+    })
 }
 
-/** The currencies a currency list draws, the one shown now marked current. Empty with fewer than two. */
+/**
+ * A currency choice's words, whatever its producer wrote: "EUR €" from
+ * "EUR €", and from the old "All (BRL R$)" (a market's name leaking into a
+ * currency's label, round Q) "BRL R$". The ISO code and the mark apart.
+ */
+export function currencyWords(label: string, code?: string): { label: string; iso: string; symbol: string } {
+  const inner = /^.*\(([^()]+)\)\s*$/.exec(label.trim())?.[1] ?? label.trim()
+  const m = /^([A-Z]{3})(?:\s+(.+))?$/.exec(inner.trim())
+  const iso = (code && /^[a-z]{3}$/i.test(code) ? code.toUpperCase() : "") || (m ? m[1] : "")
+  const symbol = m ? (m[2] ?? "").trim() : ""
+  return { label: m ? inner.trim() : iso ? (symbol ? `${iso} ${symbol}` : iso) : inner.trim(), iso, symbol }
+}
+
+/** A currency's name in a language: "Euro", "Brazilian real", "leu românesc". "" when the browser has none. */
+export function currencyName(iso: string, language = "en"): string {
+  if (!/^[A-Z]{3}$/.test(iso)) return ""
+  try {
+    const n = new Intl.DisplayNames([language], { type: "currency" }).of(iso) ?? ""
+    return n && n !== iso ? n.charAt(0).toLocaleUpperCase(language) + n.slice(1) : ""
+  } catch {
+    return ""
+  }
+}
+
+/**
+ * The currencies a currency list draws, the one shown now marked current.
+ * One per currency (two markets in euros are one "EUR €"), each labelled by
+ * its currency and never by a market's name. Empty with fewer than two.
+ */
 export function currencyOptions(choice: HookLanguageChoice | null | undefined): HookOption[] {
   const c = choice?.currency
   if (!c || c.options.length < 2) return []
-  return c.options.map((o) => ({ code: o.id, label: o.label || o.id, current: o.id === c.current }))
+  const words = c.options.map((o) => ({ o, w: currencyWords(o.label || o.id, o.code) }))
+  const out: HookOption[] = []
+  for (const { o, w } of words) {
+    const key = w.iso || w.label
+    const same = words.filter((x) => (x.w.iso || x.w.label) === key)
+    const keep = same.find((x) => x.o.id === c.current) ?? same[0]
+    if (keep.o !== o) continue
+    out.push({ code: o.id, label: w.label || o.id, current: same.some((x) => x.o.id === c.current), iso: w.iso, symbol: w.symbol, name: currencyName(w.iso, choice?.code || "en") })
+  }
+  return out.length < 2 ? [] : out
 }
 
 /** What data-storelib-locale-current and -currency-current read: the current option's label, else "". */
@@ -349,14 +415,57 @@ export interface HookNavItem {
   children?: HookNavItem[]
 }
 
-/** A menu's links as the menu drawer draws them: two levels, as the header's own drawer does. */
+/** A menu's links as the menu drawer draws them: every level the menu has (three at most, as menus are kept). */
 export function menuDrawerItems(menu: Menu | undefined, handle: string): HookNavItem[] {
   if (!menu) return []
-  return menu.links.map((link, i) => {
-    const id = `${handle}-${i}`
-    const kids = (link.links ?? []).map((c, j) => ({ id: `${id}-${j}`, label: c.title, href: c.url || "#", openInNew: false }))
-    return { id, label: link.title, href: link.url || "#", openInNew: false, children: kids.length ? kids : undefined }
-  })
+  type Link = { title: string; url?: string; links?: Link[] }
+  const walk = (links: readonly Link[], prefix: string, depth: number): HookNavItem[] =>
+    links
+      .filter((l) => (l.title ?? "").trim())
+      .map((link, i) => {
+        const id = `${prefix}-${i}`
+        const kids = depth < 3 ? walk(link.links ?? [], id, depth + 1) : []
+        return { id, label: link.title, href: link.url || "#", openInNew: false, children: kids.length ? kids : undefined }
+      })
+  return walk(menu.links as readonly Link[], handle, 1)
+}
+
+/** Page keys that are not pages a visitor goes to from a menu: templates, the account, the shop's machinery. */
+const NOT_IN_MENU = new Set(["home", "index", "product", "collection", "cart", "search", "404", "account", "login", "wishlist", "password", "article", "checkout", "purchase", "receipt", "access", "preview", "api"])
+const POLICY_KEY = /(^|-)(policy|terms|privacy|refund|shipping-policy|legal|imprint|cookies?)(-|$)/
+
+/** "about" as About, "size-guide" as Size guide, "products" as Shop. */
+function pageWords(key: string): string {
+  if (key === "products") return "Shop"
+  if (key === "collections") return "Collections"
+  if (key === "blogs") return "Blog"
+  const words = key.replace(/-/g, " ").trim()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+/**
+ * THE LINKS A MENU DRAWER SHOWS WHEN THE SITE GAVE IT NONE (round Q). A
+ * drawer whose menu was missing drew nothing but its currency buttons over a
+ * tall empty panel. The menu named, else the site's main menu, else any
+ * menu with links, else the site's own pages: Home, then each page a
+ * visitor would look for (never a template, the account, or a policy).
+ */
+export function menuLinksFor(menus: Record<string, Menu | undefined>, handle: string, pageKeys: readonly string[] = []): HookNavItem[] {
+  const named = menuDrawerItems(menus[handle], handle)
+  if (named.length) return named
+  const main = menuDrawerItems(menus["main-menu"], "main-menu")
+  if (main.length) return main
+  for (const [h, m] of Object.entries(menus)) {
+    if (h === "footer" || /footer|legal/.test(h)) continue
+    const items = menuDrawerItems(m, h)
+    if (items.length) return items
+  }
+  const pages = pageKeys.filter((k) => !NOT_IN_MENU.has(k) && !POLICY_KEY.test(k))
+  const order = (k: string) => (k === "products" ? 0 : k === "collections" ? 1 : k === "about" ? 2 : k === "contact" ? 9 : 5)
+  return [
+    { id: "page-home", label: "Home", href: "/", openInNew: false },
+    ...[...new Set(pages)].sort((a, b) => order(a) - order(b)).slice(0, 8).map((k) => ({ id: `page-${k}`, label: pageWords(k), href: `/${k}`, openInNew: false })),
+  ]
 }
 
 /** The menu a trigger names: its value, or the main menu when it names none. */

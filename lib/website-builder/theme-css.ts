@@ -24,6 +24,8 @@
  * suite drives it directly.
  */
 
+import { iconBaseCss } from "./storelib-icons"
+import { homeChromeOnly } from "./universal-chrome"
 import { buttonSelector, themeTypography, typographyStylesheet, typographyVars } from "@/lib/storelib-theme/typography"
 import { cleanCustomCss } from "@/lib/storelib-theme/custom-css"
 import type { ThemeSettingsValues } from "./types"
@@ -84,12 +86,25 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
   const buttonSize = BUTTON_SIZES[str(t.button_size, "md")] ?? BUTTON_SIZES.md
   const typo = themeTypography(t)
 
+  /*
+    A SITE OF ITS OWN NEVER FALLS BACK TO THE PLATFORM'S INDIGO (round Q).
+    These fallbacks are the default theme's brand colours, and a free site
+    (its chrome its own, or the agent's `site` scheme) that left a colour
+    unset painted a button, a link or a dropdown in indigo and pink that
+    are not its palette. Its fallbacks are its own ink on its own paper.
+    Every other site keeps the default theme's, as it always had.
+  */
+  const own = homeChromeOnly(t) || t.default_color_scheme === "site"
+  const ink = str(t.text_color, "#111111")
+  const fallback = own
+    ? { primary: ink, hover: ink, secondary: ink, accent: ink, link: ink }
+    : { primary: "#6366f1", hover: "#4f46e5", secondary: "#8b5cf6", accent: "#ec4899", link: "#6366f1" }
   return {
     // ── Colour ────────────────────────────────────────────────────────────
-    "--theme-primary": str(t.primary_color, "#6366f1"),
-    "--theme-primary-hover": str(t.primary_hover_color, str(t.primary_color, "#4f46e5")),
-    "--theme-secondary": str(t.secondary_color, "#8b5cf6"),
-    "--theme-accent": str(t.accent_color, "#ec4899"),
+    "--theme-primary": str(t.primary_color, fallback.primary),
+    "--theme-primary-hover": str(t.primary_hover_color, str(t.primary_color, fallback.hover)),
+    "--theme-secondary": str(t.secondary_color, fallback.secondary),
+    "--theme-accent": str(t.accent_color, fallback.accent),
     "--theme-bg": str(t.background_color, "#ffffff"),
     "--theme-surface": str(t.surface_color, "#f8fafc"),
     "--theme-surface-alt": str(t.surface_alt_color, "#f1f5f9"),
@@ -97,8 +112,8 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
     "--theme-text-secondary": str(t.text_secondary_color, "#475569"),
     "--theme-text-muted": str(t.text_muted_color, "#94a3b8"),
     "--theme-border": str(t.border_color, "#e2e8f0"),
-    "--theme-link": str(t.link_color, str(t.primary_color, "#6366f1")),
-    "--theme-link-hover": str(t.link_hover_color, str(t.primary_hover_color, "#4f46e5")),
+    "--theme-link": str(t.link_color, str(t.primary_color, fallback.link)),
+    "--theme-link-hover": str(t.link_hover_color, str(t.primary_hover_color, fallback.hover)),
     "--theme-success": str(t.success_color, "#10b981"),
     "--theme-error": str(t.error_color, "#ef4444"),
 
@@ -682,8 +697,70 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
     // Somebody who has asked their system for less motion has asked.
     `@media (prefers-reduced-motion:reduce){${root} [data-reveal]{opacity:1;}${root} [data-sl-media]{transition:none;}}`,
   )
+  rules.push(chromePlatformCss(root))
   /* The site's motion feel stands still for the same visitors, whatever a component forgot (lib/storelib-ai/motion reducedMotionCss). */
   if (hasMotionTier(t)) rules.push(reducedMotionCss(root))
 
   return rules.join("\n")
+}
+
+/**
+ * ===========================================================================
+ *  WHAT A HEADER, AN ICON AND A SWITCH OF THE SITE'S OWN GET FROM THE PAGE
+ * ===========================================================================
+ * Round Q (Andrew: the header is not sticky, nothing changes on scroll, the
+ * tools are words, the switches are clunky buttons).
+ *
+ * STICKY. A header written as a section sits in its section box, which is
+ * exactly as tall as the header, so its own `position: sticky` had nowhere
+ * to stick and the chrome kit fell back to `fixed` plus a spacer. The box
+ * itself sticks now, when the header asks: an element of a Header group
+ * section marked data-storelib-sticky="always" (always on screen) or "up"
+ * (gone while the page goes down, back on the way up). The box keeps its
+ * height, so nothing below it moves. data-storelib-over="hero" lays the
+ * header over the first section (the box takes no height; the header hangs
+ * out of it), for a transparent header over a picture. Pure CSS with
+ * :has(), so it is right in the first paint, before any script.
+ *
+ * The page writes the scroll's state on the header as attributes its CSS
+ * can read (components/website-builder/sections/header-scroll.ts):
+ * data-scrolled "true"/"false", data-scroll-dir "up"/"down", data-over-hero
+ * "true"/"false". "up" hides on data-scroll-dir="down" here, by `translate`,
+ * so a header's own transform is its own; never while focus is inside it.
+ *
+ * ICONS. [data-storelib-icon] (lib/website-builder/storelib-icons.ts),
+ * sized by the text. DROPDOWN SWITCHES. A language or currency list marked
+ * data-storelib-dropdown is a button and a list under it
+ * (sections/site-chrome-hooks.tsx); this is the least it needs to work, in
+ * :where() so the section's own CSS always wins.
+ */
+export function chromePlatformCss(root: string): string {
+  const own = (mode: string) => `${root} [data-section-box][data-chrome]:has([data-storelib-sticky="${mode}"])`
+  return [
+    `${own("always")},${own("up")}{position:sticky;top:0;z-index:40;}`,
+    `${root} [data-section-box][data-chrome]:has([data-storelib-over="hero"]){height:0;}`,
+    /* "up": the box goes, with whatever it paints; over the hero the box has no height, so the header itself goes. */
+    `${own("up")},${root} [data-storelib-over="hero"][data-storelib-sticky="up"]{transition:translate .32s cubic-bezier(.2,.7,.2,1);}`,
+    `${own("up")}[data-scrolled="true"][data-scroll-dir="down"]:not(:focus-within){translate:0 -100%;}`,
+    `${root} [data-storelib-over="hero"][data-storelib-sticky="up"][data-scrolled="true"][data-scroll-dir="down"]:not(:focus-within){translate:0 -100%;}`,
+    `@media (prefers-reduced-motion:reduce){${own("up")},${root} [data-storelib-sticky="up"]{transition:none;}}`,
+    iconBaseCss(root),
+    `:where(${root} [data-storelib-dropdown]){position:relative;display:inline-block;}`,
+    `:where(${root} [data-storelib-dropdown-toggle]){display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 10px;border:0;background:none;color:inherit;font:inherit;cursor:pointer;}`,
+    `:where(${root} [data-storelib-dropdown-toggle] .sl-icon){width:1em;height:1em;transition:rotate .2s ease;}`,
+    `:where(${root} [data-storelib-dropdown][data-open="true"] [data-storelib-dropdown-toggle] .sl-icon){rotate:180deg;}`,
+    `:where(${root} [data-storelib-dropdown-menu]){position:absolute;z-index:60;inset:auto auto auto 0;top:calc(100% + 4px);display:grid;min-width:max(100%,140px);max-height:min(320px,60vh);overflow-y:auto;padding:4px;border:1px solid color-mix(in srgb,currentColor 18%,transparent);background:var(--s-bg,var(--scheme-background,#fff));color:var(--s-text,inherit);box-shadow:0 8px 24px rgba(0,0,0,.12);}`,
+    `:where(${root} [data-storelib-dropdown][data-drop="up"] [data-storelib-dropdown-menu]){top:auto;bottom:calc(100% + 4px);}`,
+    `${root} [data-storelib-dropdown]:not([data-open="true"]) [data-storelib-dropdown-menu]{display:none;}`,
+    `:where(${root} [data-storelib-dropdown-menu] [data-storelib-option-item]){display:flex;align-items:center;width:100%;min-height:40px;padding:0 10px;border:0;background:none;color:inherit;font:inherit;text-align:start;cursor:pointer;}`,
+    `:where(${root} [data-storelib-dropdown-menu] [data-storelib-option-item][aria-current="true"]){font-weight:600;}`,
+    /* The menu links the page draws into a drawer (data-storelib-menu-links): big, tappable, a level under a level, in the drawer's own colours and type. */
+    `:where(${root} [data-storelib-menu-links-list]){display:grid;margin:0;padding:0;list-style:none;}`,
+    `:where(${root} [data-storelib-menu-links-list] [data-storelib-menu-links-list]){padding:0 0 8px 14px;}`,
+    `:where(${root} [data-storelib-menu-links-list] a, ${root} [data-storelib-menu-links-list] summary){display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;color:inherit;text-decoration:none;cursor:pointer;list-style:none;}`,
+    `:where(${root} [data-storelib-menu-links-list][data-level="1"]>li>a, ${root} [data-storelib-menu-links-list][data-level="1"]>li>details>summary){font-size:1.25rem;font-weight:600;border-bottom:1px solid color-mix(in srgb,currentColor 14%,transparent);}`,
+    `:where(${root} [data-storelib-menu-links-list] summary::-webkit-details-marker){display:none;}`,
+    `:where(${root} [data-storelib-menu-links-list] .sl-icon){width:1em;height:1em;flex:none;transition:rotate .2s ease;}`,
+    `:where(${root} [data-storelib-menu-links-list] details[open]>summary .sl-icon){rotate:180deg;}`,
+  ].join("\n")
 }

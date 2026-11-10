@@ -82,9 +82,16 @@ export function scrollerOf(root: Element): HTMLElement | null {
   return null
 }
 
-/** The site's header: the chrome section drawn straight into the page root. */
+/**
+ * The site's header: the chrome section drawn straight into the page root,
+ * or (round Q) a header of the site's own that asks to stay on screen with
+ * data-storelib-sticky: its box in the page root is what sticks (theme-css.ts),
+ * and the element that asked is what is measured.
+ */
 export function headerOf(root: Element): HTMLElement | null {
-  return root.querySelector<HTMLElement>(":scope > [data-section][data-chrome]")
+  const builtIn = root.querySelector<HTMLElement>(":scope > [data-section][data-chrome]")
+  if (builtIn) return builtIn
+  return root.querySelector<HTMLElement>(':scope > [data-section-box][data-chrome] [data-storelib-sticky="always"], :scope > [data-section-box][data-chrome] [data-storelib-sticky="up"]')
 }
 
 /**
@@ -95,6 +102,15 @@ export function headerOf(root: Element): HTMLElement | null {
 export function anchorOffset(root: Element, direction = 0): number {
   const header = headerOf(root)
   if (!header) return 0
+  /* A header of the site's own: its box sticks, it is as tall as itself, and "up" is gone by the end of a scroll down. */
+  const own = header.getAttribute("data-storelib-sticky")
+  if (own) {
+    const box = header.closest<HTMLElement>("[data-section-box]")
+    const pos = box ? getComputedStyle(box).position : ""
+    if (pos !== "sticky" && pos !== "fixed") return 0
+    if (direction > 0 && own === "up") return 0
+    return Math.max(0, Math.round(header.offsetHeight))
+  }
   const cs = getComputedStyle(header)
   if (cs.position !== "sticky" && cs.position !== "fixed") return 0
   /* Show on scroll up: gone by the end of a scroll down. The header says

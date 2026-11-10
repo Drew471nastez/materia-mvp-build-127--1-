@@ -707,9 +707,9 @@ export const contact = defineSection({
   <div class="ccm__grid">
     <div><h1 class="ccm__h">{{ settings.heading }}</h1><div class="ccm__text">{{ settings.text | raw }}</div><ul class="ccm__ways">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><span>{{ block.settings.label }}</span>{% if block.settings.link %}<a href="{{ block.settings.link | url }}">{{ block.settings.value }}</a>{% else %}{{ block.settings.value }}{% endif %}</li>{% endfor %}</ul></div>
     <form class="ccm__form" data-storelib-form="contact">
-      <label><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required></label>
-      <label><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required></label>
-      <label><span>{{ settings.message_label }}</span><textarea name="message" rows="5" maxlength="5000" required></textarea></label>
+      <label><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required placeholder="Your name"></label>
+      <label><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required placeholder="you@example.com"></label>
+      <label><span>{{ settings.message_label }}</span><textarea name="message" rows="5" maxlength="5000" required placeholder="A few lines about what you need"></textarea></label>
       <button type="submit">{{ settings.send_label }}</button>
     </form>
   </div>

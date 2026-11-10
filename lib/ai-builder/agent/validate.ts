@@ -21,6 +21,7 @@
  *
  * Pure apart from what it is handed.
  */
+import { fieldIssues } from "./form-fields"
 import { checkSectionSource, plainCompileErrors } from "@/lib/website-builder/agent/compile-feedback"
 import { compileSection, compileThemeFile } from "@/lib/storelib-theme/storelib/compile"
 import { controlFor } from "@/lib/storelib-theme/controls/registry"
@@ -147,6 +148,8 @@ export function validateFile(path: string, text: string, ctx: FileCheckContext =
     if (path.startsWith("blocks/")) issues.push(...manifestIssues(path, compiled.value.schema as never, !!ctx.formPicker))
   }
   issues.push(...tokenIssues(path, text))
+  /* Round Q: every field has a label and a placeholder (./form-fields.ts). */
+  issues.push(...fieldIssues(path, text))
   return issues
 }
 

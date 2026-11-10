@@ -155,7 +155,8 @@ export function renderSection(props: SectionProps) {
    * goes here, and `data-chrome` with it for the header and the footer,
    * which a gap must never be added above or below.
    */
-  const chrome = props.section.type === "header" || props.section.type === "footer"
+  /* And a header or footer of the site's own (its Header or Footer group, round Q): no gap above or below it either, and its box is what sticks when it asks (theme-css.ts, data-storelib-sticky). */
+  const chrome = props.section.type === "header" || props.section.type === "footer" || props.section.group === "header" || props.section.group === "footer"
   /* An Overlay group section floats over the page (a popup, a phone tab bar,
      back to top). A query container would hold its `position: fixed` inside
      this box, and a section gap or an entrance reveal has nothing to space or

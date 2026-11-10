@@ -922,9 +922,9 @@ export const contact = defineSection({
     </ul>
   </div>
   <form class="swx__form" data-storelib-form="contact">
-    <label class="swx__field"><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required></label>
-    <label class="swx__field"><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required></label>
-    <label class="swx__field"><span>{{ settings.message_label }}</span><textarea name="message" rows="6" maxlength="5000" required></textarea></label>
+    <label class="swx__field"><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required placeholder="Your name"></label>
+    <label class="swx__field"><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required placeholder="you@example.com"></label>
+    <label class="swx__field"><span>{{ settings.message_label }}</span><textarea name="message" rows="6" maxlength="5000" required placeholder="A few lines about what you need"></textarea></label>
     <button class="swx__send" type="submit">{{ settings.send_label }}</button>
   </form>
   </div>
