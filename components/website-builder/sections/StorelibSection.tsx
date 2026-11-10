@@ -39,7 +39,7 @@ import { drawLive } from "@/lib/website-builder/storelib-live-fill"
 import { isLive } from "@/lib/website-builder/live-settings"
 import { OfferIslands } from "./offer-islands"
 import { FormIslands } from "./form-islands"
-/* Round P (P3): the page's own interactive effects, asked for by data-storelib-motion (lib/storelib-theme/motion-islands.ts). */
+/* Round P (P3): the page's own interactive effects, asked for by data-storelib-motion (the motion islands contract, lib/website-builder/motion-islands-base.ts). */
 import { MotionIslands } from "../motion-islands"
 import { MOTION_ATTR, motionBaseCss } from "@/lib/website-builder/motion-islands-base"
 
