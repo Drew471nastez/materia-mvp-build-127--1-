@@ -207,7 +207,7 @@ RULES THAT ARE NOT TASTE:
 - Real content only. Products, prices, reviews, quotes and numbers come from the store facts, never from you. If the store sells nothing yet, the site sells nothing yet: it tells the story, shows the work and asks people to get in touch or sign up.
 - Pages: home first, then two to five more that this business needs (about, contact, and what the brief implies: services, work, classes, menu, faq...). Keys are lowercase words with hyphens. Never product, products, collections, blogs, article, cart, account, login, search.
 
-${surfaceRules("classic_planner")}
+${surfaceRules("classic")}
 
 Answer by calling submit_site_plan once with the whole plan. No prose.`
 

@@ -9,8 +9,9 @@
  *                     planner, the section writer, the classic planner and
  *                     copy filler, the Storelib Sites agent
  *   CACHEABLE         the website agent's system prefix is byte identical
- *                     across two different jobs while their briefs differ;
- *                     reference pictures ride on the plan turn only
+ *                     across two different jobs while their briefs differ
+ *                     (O2's brief and direction, O1's references as text,
+ *                     O5's site story and motion)
  *   EDITS KEEP BRAND  every edit surface gets the site's DESIGN.md and the
  *                     keep-the-brand rule (spec I.5)
  *   NO SERIF DEFAULT  no surface carries round N's "editorial serif" type
@@ -23,13 +24,13 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { runAgentSlice } from "@/lib/ai-builder/agent/loop"
 import { memoryStore } from "@/lib/ai-builder/agent/memory-store"
-import { newCheckpoint } from "@/lib/ai-builder/agent/state"
 import { AGENT_SYSTEM, briefMessage } from "@/lib/ai-builder/agent/prompts"
 import { jobDesignBrief } from "@/lib/ai-builder/agent/design-brief"
 import type { AgentDeps, AgentJobInput } from "@/lib/ai-builder/agent/ports"
 import { DEFAULT_JOB_BUDGET } from "@/lib/ai-builder/types"
 import { designRulesFor } from "@/lib/storelib-ai/design-rules"
-import { briefFrom, chooseDirection, isEditorialSerifBundle } from "@/lib/storelib-ai/direction"
+import { briefFrom, chooseDirection, directionForPrompt } from "@/lib/storelib-ai/direction"
+import type { DesignReference } from "@/lib/storelib-ai/references"
 import { KEEP_BRAND_TOKENS, TYPE_FROM_DIRECTION, editDesignContext, findDesignContract, surfaceRules } from "@/lib/storelib-ai/surfaces"
 import { buildSystemPrompt, SYSTEM_PROMPT as SITES_SYSTEM } from "@/lib/sites/agent/loop"
 import { themeAgent } from "@/lib/website-builder/agent/loop"
@@ -41,7 +42,6 @@ import { STUDIO_CRAFT } from "@/lib/website-builder/ai-site/craft"
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import type { ThemeState } from "@/lib/website-builder/agent/operations"
 import type { AgentProvider, ProviderRequest, ProviderTurn } from "@/lib/sites/agent/types"
-import type { AgentImage } from "@/lib/sites/agent/attachments"
 import { CAPS } from "./ai-builder-agent-fixtures"
 
 let passed = 0
@@ -104,10 +104,10 @@ const surfaces: Record<string, { prompt: string; rules: string }> = {}
   surfaces["website agent (system)"] = { prompt: AGENT_SYSTEM, rules: designRulesFor("site_agent") }
   surfaces["section writer (system)"] = { prompt: writeSectionSystem(), rules: designRulesFor("section_writer") }
   surfaces["Ask for a change: creative planner (system)"] = { prompt: PLANNER_SYSTEM, rules: designRulesFor("site_agent") }
-  surfaces["classic planner (system)"] = { prompt: sitePlannerSystem({}), rules: designRulesFor("classic_planner") }
-  surfaces["classic planner with a coder (system)"] = { prompt: sitePlannerSystem({ free: true, craft: STUDIO_CRAFT }), rules: designRulesFor("classic_planner") }
+  surfaces["classic planner (system)"] = { prompt: sitePlannerSystem({}), rules: designRulesFor("classic") }
+  surfaces["classic planner with a coder (system)"] = { prompt: sitePlannerSystem({ free: true, craft: STUDIO_CRAFT }), rules: designRulesFor("classic") }
   const site = { brand: { name: "Iron and Chalk", tagline: "" }, voice: { tone: "direct", use: [], avoid: [] }, audience: "busy people", conversion: "book a consultation", imagery: "real sessions", pages: [{ key: "home", title: "Home", purpose: "the offer" }] }
-  surfaces["classic copy filler (system)"] = { prompt: fillSystem({ site: site as never, caps: {} as never, capsText: "", prompt: "A trainer", links: [], defaultLink: "/contact" }), rules: designRulesFor("classic_fill") }
+  surfaces["classic copy filler (system)"] = { prompt: fillSystem({ site: site as never, caps: {} as never, capsText: "", prompt: "A trainer", links: [], defaultLink: "/contact" }), rules: designRulesFor("classic") }
   surfaces["Storelib Sites agent, new site (system)"] = { prompt: buildSystemPrompt(null), rules: designRulesFor("sites_agent") }
   surfaces["Storelib Sites agent, existing site (system)"] = { prompt: buildSystemPrompt({ manifest: "", facts: "src/App.tsx, 4 pages", intent: "change the hero" } as never), rules: designRulesFor("sites_agent") }
 
@@ -120,16 +120,16 @@ const surfaces: Record<string, { prompt: string; rules: string }> = {}
   }
   check("the Ask for a change agent was asked at least once", ask.seen.length >= 1, ask.seen.length)
   if (ask.seen[0]) {
-    surfaces["Ask for a change agent (system, as sent)"] = { prompt: ask.seen[0].system, rules: designRulesFor("editor_agent") }
+    surfaces["Ask for a change agent (system, as sent)"] = { prompt: ask.seen[0].system, rules: designRulesFor("ask_edit") }
     surfaces["Ask for a change agent (first turn)"] = { prompt: firstText(ask.seen[0]), rules: KEEP_BRAND_TOKENS }
   }
 
   for (const [name, s] of Object.entries(surfaces)) check(`${name} carries ${s.rules === KEEP_BRAND_TOKENS ? "the keep-the-brand rule" : "its design rules"}`, s.prompt.includes(s.rules))
-  check("surfaceRules is designRulesFor, one text per surface", surfaceRules("sites_agent") === designRulesFor("sites_agent") && surfaceRules("editor_agent") !== surfaceRules("sites_agent"))
+  check("surfaceRules is designRulesFor, one text per surface", surfaceRules("sites_agent") === designRulesFor("sites_agent") && surfaceRules("ask_edit") !== surfaceRules("sites_agent"))
   check("the Sites agent's base prompt still opens on its own rules and keeps the four edges rule", SITES_SYSTEM.startsWith("You edit a small React website") && /MUST REACH ALL FOUR EDGES/.test(SITES_SYSTEM))
   check("the classic planner without a coder is still the one constant", sitePlannerSystem({}) === SITE_PLANNER_SYSTEM)
-  check("the rules name the editorial serif bundle as a cliche, and the honest copy rule", /Editorial serif slop/.test(designRulesFor("site_agent")) && /No instruction to the creator in the visible copy/.test(designRulesFor("site_agent")))
-  check("the rules carry no em dash, no date and no template text (they sit in cached prefixes)", Object.values({ a: designRulesFor("site_agent"), b: designRulesFor("sites_agent"), c: designRulesFor("editor_agent") }).every((t) => !/—|\$\{|2026/.test(t)))
+  check("the rules name the editorial serif bundle as a cliche, and the honest copy rule", ["site_agent", "ask_edit", "sites_agent", "classic"].every((x) => /serif/i.test(designRulesFor(x as never)) && /cream/i.test(designRulesFor(x as never))) && /instructions? to the creator/i.test(designRulesFor("site_agent")))
+  check("the rules carry no em dash, no date and no template text (they sit in cached prefixes)", Object.values({ a: designRulesFor("site_agent"), b: designRulesFor("sites_agent"), c: designRulesFor("ask_edit") }).every((t) => !/—|\$\{|2026/.test(t)))
 }
 
 section("2. The website agent: one cached prefix, a brief per job")
@@ -147,28 +147,22 @@ section("2. The website agent: one cached prefix, a brief per job")
   const ba = firstText(a.seen[0])
   const bb = firstText(b.seen[0])
   check("while the first turns (the briefs) differ", ba !== bb && /personal training/.test(ba) && /sample packs/.test(bb))
-  check("each brief carries the job's creative brief, its direction and its motion tier", [ba, bb].every((t) => /CREATIVE BRIEF/.test(t) && /DIRECTION FOR THIS SITE/.test(t) && /MOTION\nMotion tier/.test(t)))
-  check("a trainer who asked to book is told the one action is to book", /The one action: book/.test(ba))
+  check("each brief carries the job's creative brief, its direction and its motion tier", [ba, bb].every((t) => /CREATIVE BRIEF/.test(t) && /ART DIRECTION/.test(t) && /MOTION \(this site's feel: /.test(t)))
+  check("a trainer who asked to book is told the main action is to book", /Main action: book/.test(ba))
   check("the brief still ends on the order of work", /render_check on every page, finish\.$/.test(ba))
   check("nothing of the job is in the prefix", !sa.includes("personal training") && !sa.includes("sample packs"))
 }
 
-section("3. Reference pictures ride on the plan turn, never in the prefix")
+section("3. References: their analyses in the brief, nothing claimed that was not sent")
 {
-  const pic: AgentImage = { mediaType: "image/png", data: "iVBORw0KGgo=", name: "ref.png" }
-  const asked: string[][] = []
-  const plan = recording({ throws: "stop here" })
-  const cp = { ...newCheckpoint(), phase: "plan" as const, turns: [{ role: "user" as const, text: "REQUEST (the creator's words):\nA trainer" }], referenceIds: ["ref-gym-1", "ref-gym-2"] }
-  await runAgentSlice(job(), cp, deps(plan.provider, memoryStore(), { referenceImages: async (ids) => (asked.push(ids), [pic, pic]) }), { deadline: T0 + 30 * 60_000 })
-  const first = plan.seen[0]?.turns[0] as { images?: AgentImage[] } | undefined
-  check("while the concept is planned, the first turn carries the references' pictures", first?.images?.length === 2 && asked[0]?.join() === "ref-gym-1,ref-gym-2", first?.images?.length)
-  check("asked for once in the slice, however many calls", asked.length === 1, asked.length)
-  check("and the system prefix is the same constant", plan.seen.every((r) => r.system === AGENT_SYSTEM))
-  const build = recording({ throws: "stop here" })
-  await runAgentSlice(job(), { ...cp, phase: "build" as const }, deps(build.provider, memoryStore(), { referenceImages: async () => [pic] }), { deadline: T0 + 30 * 60_000 })
-  check("once building, no pictures ride along", !(build.seen[0]?.turns[0] as { images?: AgentImage[] }).images?.length)
-  const brief = await jobDesignBrief({ job: job(), caps: CAPS, files: [] })
-  check("with no reference library yet, nothing claims a picture was sent", brief.referenceIds.length === 0 && !/pictures are attached/.test(brief.text))
+  const ref: DesignReference = { id: "ref-strength-split", title: "Strength studio split hero", summary: "A full-bleed training photo beside a condensed headline.", styleTags: ["sport", "bold"], industries: ["fitness"], borrow: ["one strong photo per screen"], avoid: ["copying its words"], image: null }
+  const brief = await jobDesignBrief({ job: job(), caps: CAPS, files: [], references: { list: [ref] } })
+  check("references chosen for the job are in its brief, by id, as evidence", brief.referenceIds.join() === "ref-strength-split" && brief.text.includes("ref-strength-split") && /one strong photo per screen/.test(brief.text))
+  const none = await jobDesignBrief({ job: job(), caps: CAPS, files: [], references: { list: [] } })
+  check("with none, the brief says nothing about references or pictures", none.referenceIds.length === 0 && !/ref-|picture is attached|pictures are attached/i.test(none.text))
+  const edit = await jobDesignBrief({ job: job({ edit: true }), caps: CAPS, files: [], references: { list: [ref] } })
+  check("an edit gets no new direction and no references", edit.text === "" && edit.referenceIds.length === 0)
+  check("the design brief is bounded", (await jobDesignBrief({ job: job({ prompt: "x ".repeat(5_000) }), caps: CAPS, files: [] })).text.length <= 9_100)
 }
 
 section("4. Edits get the site's DESIGN.md and keep the brand")
@@ -177,7 +171,7 @@ section("4. Edits get the site's DESIGN.md and keep the brand")
   const pages = [{ key: "home", sections: [] }]
   for (const [name, over] of [["edit mode", { edit: true }], ["a redesign of changes", { redesign: "changes" as const }]] as const) {
     const brief = briefMessage({ job: job(over as Partial<AgentJobInput>), caps: CAPS, pages, files, knowledge: [] })
-    check(`the website agent in ${name} gets the contract and the keep-the-brand rule`, brief.includes(DESIGN_MD.trim()) && brief.includes(KEEP_BRAND_TOKENS) && !/DIRECTION FOR THIS SITE/.test(brief))
+    check(`the website agent in ${name} gets the contract and the keep-the-brand rule`, brief.includes(DESIGN_MD.trim()) && brief.includes(KEEP_BRAND_TOKENS) && !/ART DIRECTION/.test(brief))
   }
   const blind = briefMessage({ job: job({ edit: true }), caps: CAPS, pages, files: files.slice(1), knowledge: [] })
   check("without a DESIGN.md an edit still keeps the brand", blind.includes(KEEP_BRAND_TOKENS) && !/DESIGN CONTRACT/.test(blind))
@@ -218,10 +212,12 @@ section("5. No surface carries the old editorial serif steering")
   check("a personal trainer is offered three type systems, none the italic serif", (types.match(/^\* /gm) ?? []).length === 3 && !/Instrument Serif \d+ italic/.test(types), types)
   const asked = briefMessage({ job: job({ prompt: "An editorial, literary site for my writing coaching" }), caps: CAPS, pages: [{ key: "home", sections: [] }], files: [], knowledge: [], directions: suggestDirections("coaching", { seed: "creator-1" }) })
   check("someone who asks for editorial can still get it", /TYPE SYSTEMS THAT FIT/.test(asked))
-  const trainer = chooseDirection(briefFrom("Personal trainer, book a consultation", { generation: "blank", category: "fitness_coach" }, CAPS))
-  check("a personal trainer's direction is not the editorial serif bundle", !isEditorialSerifBundle(trainer.primary), trainer.primary.name)
-  const editorial = briefFrom("A calm editorial serif site for my wellness practice", { generation: "blank" }, CAPS)
-  check("and the brief hears the style words the creator used", editorial.requestedStyle.includes("editorial") && editorial.requestedStyle.includes("serif"))
+  const trainerBrief = briefFrom("Personal trainer, book a consultation", { category: "fitness_coach" }, CAPS)
+  const said = directionForPrompt(trainerBrief, chooseDirection(trainerBrief, []))
+  const chosen = said.split("\n").filter((l) => /^- (Primary|Type)/.test(l)).join("\n")
+  check("a personal trainer's direction is not an editorial serif", chosen.length > 0 && !/Instrument Serif|Fraunces|Playfair|Cormorant|DM Serif/i.test(chosen), chosen)
+  const editorial = briefFrom("A calm editorial serif site for my wellness practice", {}, CAPS)
+  check("and the brief hears the style words the creator used", JSON.stringify(editorial).toLowerCase().includes("editorial"))
   const patterns = code("lib/storelib-ai/patterns.ts")
   check("the planners' shared defaults no longer put spaced capital labels on everything", !/Labels in small capitals with letter spacing/.test(patterns))
 }

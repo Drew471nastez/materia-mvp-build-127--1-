@@ -19,9 +19,10 @@
  *
  * Pure text and pure functions: client safe, no I/O.
  */
-import { designRulesFor, type DesignSurface } from "./design-rules"
+import { designRulesFor, type DesignRulesSurface } from "./design-rules"
 
-export type { DesignSurface }
+/** O3's surface names. */
+export type DesignSurface = DesignRulesSurface
 
 /** The design rules for one surface, for its stable system prefix. */
 export function surfaceRules(surface: DesignSurface): string {

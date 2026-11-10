@@ -5,13 +5,13 @@
  * The agent's system prompt (./prompts.ts AGENT_SYSTEM) is the same bytes
  * for every job, so the provider caches it. Everything the round O lanes
  * work out for ONE job goes in the first user turn instead, through this
- * file:
+ * file, in this order:
  *
- *   O2  the creative brief and the chosen direction    lib/storelib-ai/direction
- *   O1  the matching references, as text               lib/storelib-ai/references
- *       (their images go in the plan turn as content blocks: `referenceIds`,
- *       read back by the loop with referenceImagesFor)
- *   O5  the motion tier and the industry layout story  lib/storelib-ai/motion
+ *   O2  the creative brief and the chosen art direction   lib/storelib-ai/direction
+ *   O1  the matching references, as text                  lib/storelib-ai/references
+ *       (their pictures ride on the plan turn as content blocks; O1 wires
+ *       those in ./loop.ts through AgentDeps.references)
+ *   O5  the site story and the motion tier                lib/storelib-ai/layout
  *
  * An edit (job.edit, redesign "changes") gets none of it: its direction is
  * the site's own DESIGN.md and tokens, which briefMessage adds itself with
@@ -22,70 +22,61 @@
  */
 import type { RuntimeCapabilities } from "../runtime-contract"
 import type { AgentJobInput, StoredFile } from "./ports"
-import { briefFrom, chooseDirection, directionForPrompt, type CreativeBrief } from "@/lib/storelib-ai/direction"
-import { referencesForPrompt, searchReferences } from "@/lib/storelib-ai/references"
-import { layoutStoryFor, motionForPrompt } from "@/lib/storelib-ai/motion"
+import { briefFrom, chooseDirection, directionForPrompt } from "@/lib/storelib-ai/direction"
+import { referencesForPrompt, searchReferences, type DesignReference } from "@/lib/storelib-ai/references"
+import { motionAndLayoutBrief } from "@/lib/storelib-ai/layout"
 import { designContractBlock, findDesignContract } from "@/lib/storelib-ai/surfaces"
 
 export interface JobDesignBrief {
-  /** The text for the first user turn (several blocks, already headed). */
+  /** The text for the first user turn (several blocks, each with its heading). */
   text: string
-  /** References whose images ride on the plan turn. */
+  /** The references the brief names, in order. */
   referenceIds: string[]
 }
 
 /** References a job's brief carries at most. */
 export const MAX_REFERENCES = 4
-/** The design brief stays a small part of a turn the checkpoint keeps (20,000 characters). */
-export const MAX_DESIGN_BRIEF_CHARS = 7_000
-
-function briefLines(b: CreativeBrief): string {
-  return [
-    `Business: ${b.business}`,
-    b.primaryAction ? `The one action: ${b.primaryAction}` : "",
-    b.requestedStyle.length ? `Style the creator asked for (outranks any default): ${b.requestedStyle.join(", ")}` : "",
-    b.colors.length ? `Their colours: ${b.colors.join(", ")}` : "",
-    b.uncertainties.length ? `Not known yet (leave out or make editable, never invent): ${b.uncertainties.join(", ")}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n")
-}
+/** The design brief stays a modest part of the first turn, which the checkpoint keeps up to 20,000 characters. */
+export const MAX_DESIGN_BRIEF_CHARS = 9_000
 
 /**
  * The job's design brief. Deterministic for the same job and store (the
  * direction is seeded by the brief). Never throws: a lane's module failing
  * leaves its block out, not the job.
+ *
+ * `references`: the references the caller already chose (O1's loop picks
+ * them once, with the admin's screenshots, and knows which have a picture
+ * attached); without it the built in library is searched here.
  */
-export async function jobDesignBrief(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; files: StoredFile[] }): Promise<JobDesignBrief> {
+export async function jobDesignBrief(input: {
+  job: AgentJobInput
+  caps: RuntimeCapabilities | null
+  files: StoredFile[]
+  references?: { list: readonly DesignReference[]; withImages?: readonly string[] }
+}): Promise<JobDesignBrief> {
   const { job } = input
   const scoped = !!job.edit || job.redesign === "changes"
-  const contract = findDesignContract(input.files.map((f) => ({ path: f.path, text: f.text })))
+  if (scoped) return { text: "", referenceIds: [] }
   const blocks: string[] = []
   let referenceIds: string[] = []
-
-  /* An edit of an existing site: its own design is the direction, said by briefMessage (editDesignContext). No new direction, no references. */
-  if (!scoped) {
-    try {
-      const brief = briefFrom(job.prompt, job.options ?? null, input.caps)
-      const refs = await Promise.resolve(searchReferences(brief, { limit: MAX_REFERENCES })).catch(() => [])
-      const list = Array.isArray(refs) ? refs.slice(0, MAX_REFERENCES) : []
-      referenceIds = list.map((r) => r.id)
-      const choice = chooseDirection(brief, list)
-      blocks.push(`CREATIVE BRIEF\n${briefLines(brief)}`)
-      blocks.push(`DIRECTION FOR THIS SITE (fit the business: adapt it to this creator's material; a different direction only with a reason you can say)\n${directionForPrompt(choice)}`)
-      const refText = referencesForPrompt(list)
-      if (refText) blocks.push(`REFERENCES${list.length ? " (their pictures are attached to this message while you plan)" : ""}\n${refText}`)
-      const motion = motionForPrompt(brief)
-      if (motion) blocks.push(`MOTION\n${motion}`)
-      const story = layoutStoryFor(brief)
-      if (story) blocks.push(`SITE STORY\n${story}`)
-    } catch {
-      /* A lane's module failed: the job keeps its rules and goes on without that block. */
-    }
-    /* A full redesign keeps the content and replaces the look: the old contract is what is being replaced, said as context. */
-    if (job.redesign === "full" && contract) blocks.push(`${designContractBlock(contract, { editing: false })}\nThis is the design being replaced: keep the content it describes, write a new look.`)
+  const industry = job.options?.category?.replace(/_/g, " ")
+  try {
+    const brief = briefFrom(job.prompt, job.options ?? null, input.caps)
+    const found = input.references?.list ?? (await Promise.resolve(searchReferences({ text: job.prompt.slice(0, 1_000), industry }, { limit: MAX_REFERENCES })).catch(() => []))
+    const list = [...found].slice(0, MAX_REFERENCES)
+    referenceIds = list.map((r) => r.id)
+    const choice = chooseDirection(brief, list.map((r) => ({ id: r.id, styles: r.styleTags, industries: r.industries })))
+    blocks.push(directionForPrompt(brief, choice))
+    const refs = referencesForPrompt(list, { withImages: input.references?.withImages ?? [] })
+    if (refs) blocks.push(refs)
+    blocks.push(motionAndLayoutBrief({ prompt: job.prompt, category: job.options?.category ?? null, businessType: brief.business.label, objective: brief.objective }))
+  } catch {
+    /* A lane's module failed: the job keeps its rules and goes on without that block. */
   }
+  /* A full redesign keeps the content and replaces the look: the old contract is said as the design being replaced. */
+  const contract = job.redesign === "full" ? findDesignContract(input.files.map((f) => ({ path: f.path, text: f.text }))) : null
+  if (contract) blocks.push(`${designContractBlock(contract, { editing: false })}\nThis is the design being replaced: keep the content it describes, write a new look.`)
 
-  const text = blocks.join("\n\n")
+  const text = blocks.filter(Boolean).join("\n\n")
   return { text: text.length > MAX_DESIGN_BRIEF_CHARS ? `${text.slice(0, MAX_DESIGN_BRIEF_CHARS)}\n[shortened]` : text, referenceIds }
 }

@@ -353,7 +353,7 @@ WORKED EXAMPLES, request then the calls that do it:
 - "Make the cards slide in on scroll", a section open: edit_section_code with a CSS reveal that stops under prefers-reduced-motion.
 DESIGN LATITUDE. Inside the theme's colours, fonts and spacing you decide layout, proportion, type scale, rhythm and motion: one clear idea per section, a real hierarchy, generous but consistent spacing, and nothing decorative that says nothing about this business.
 
-${surfaceRules("editor_agent")}
+${surfaceRules("ask_edit")}
 
 ${CREATIVE_BRIEF}
 

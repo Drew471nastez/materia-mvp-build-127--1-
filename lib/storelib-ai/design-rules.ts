@@ -11,8 +11,7 @@
  *   DESIGN_RULES               string, stable
  *   designRulesFor(surface)    string, stable per surface (cached prefixes)
  *
- * If O3's surface names differ from DesignSurface here, the only place to
- * map them is lib/storelib-ai/surfaces.ts (DESIGN_SURFACE).
+ * The surface names are O3's (DesignRulesSurface), read from O3's branch.
  *
  * Until then the text below is a real, compact distillation, so a branch
  * without O3 still steers every surface away from the slop Andrew saw.
@@ -20,20 +19,14 @@
  * PURE TEXT. No date, no job, no site: it sits in cached system prefixes.
  */
 
-/** Every AI surface that designs or edits a website's look. */
-export type DesignSurface =
-  /** The website agent (lib/ai-builder/agent): new sites, redesigns, edits. */
-  | "site_agent"
-  /** The editor's Ask for a change agent (lib/website-builder/agent/loop.ts). */
-  | "editor_agent"
-  /** The section writer (lib/website-builder/agent/write-section.ts): Code a section, the classic coder. */
-  | "section_writer"
-  /** The classic pipeline's site planner (lib/website-builder/agent/site-plan.ts). */
-  | "classic_planner"
-  /** The classic pipeline's copy filler (lib/website-builder/ai-site/fill.ts). */
-  | "classic_fill"
-  /** The Storelib Sites coding agent (lib/sites/agent/loop.ts), React on Vite. */
-  | "sites_agent"
+/**
+ * Every AI surface that designs or edits a website's look. O3's names
+ * (round O): site_agent the website agent and its planners, section_writer
+ * Code a section and the classic coder, ask_edit the editor's Ask for a
+ * change agent, classic the classic pipeline's planner and copy, sites_agent
+ * the Storelib Sites agent (React on Vite), other anything else.
+ */
+export type DesignRulesSurface = "site_agent" | "section_writer" | "ask_edit" | "classic" | "sites_agent" | "other"
 
 const FIT = `FIT THE BUSINESS. The look comes from this business, the people who visit it and the direction chosen for it, never from a house default. A personal trainer reads as performance and energy, with real training photography and a booking action; a law firm as calm authority; a beat maker as its own scene and era. What the creator explicitly asks for, and what their site has already established, outrank every rule here. If the result could belong to any business, it is not done.`
 
@@ -52,17 +45,19 @@ const CRAFT = `CRAFT. Proven patterns for most of it and one bold move that make
 /** The rules, whole. Stable. */
 export const DESIGN_RULES = [FIT, CLICHES, HONEST, CRAFT].join("\n")
 
-const PER_SURFACE: Record<DesignSurface, string> = {
-  site_agent: "",
-  editor_agent: "ON AN EXISTING SITE its design contract (DESIGN.md) and tokens are the direction: new work matches them, and fonts, colours and tokens change only when asked.",
-  section_writer: "A NEW SECTION ON AN EXISTING SITE belongs to that site: its fonts, colour schemes, spacing and motion, unless the request asks for something else.",
-  classic_planner: "",
-  classic_fill: "These rules apply to the words you write: specific to this business, nothing invented, no slot for the creator to fill.",
-  sites_agent: "The design tokens live at the top of src/styles.css: choose them for this business on a new site, keep them on an existing one unless asked.",
+/* Compact, for the Ask for a change agent: its prompt is paid on every edit, and its own rules already carry the craft. */
+const EDIT = `KEEP THE SITE'S OWN DIRECTION: change only what was asked, in the site's tokens, type and spacing. A change never brings in the defaults: an indigo or violet accent, a purple to blue gradient, emoji icons, the editorial serif bundle (italic display serif, cream page, mono caps labels, terracotta), a small label above every heading, invented numbers or quotes, filler, or instructions to the creator in visible text ("Add your photo", "Your name here"). A missing fact stays out, or goes in an empty state only the editor shows.`
+
+const BY_SURFACE: Record<DesignRulesSurface, string> = {
+  site_agent: DESIGN_RULES,
+  section_writer: `${DESIGN_RULES}\nA NEW SECTION ON AN EXISTING SITE belongs to that site: its fonts, colour schemes, spacing and motion, unless the request asks for something else.`,
+  ask_edit: `${FIT}\n${EDIT}`,
+  classic: DESIGN_RULES,
+  sites_agent: `${DESIGN_RULES}\nThe design tokens live at the top of src/styles.css: choose them for this business on a new site, keep them on an existing one unless asked.`,
+  other: `${FIT}\n${HONEST}`,
 }
 
-/** The rules for one surface: DESIGN_RULES plus that surface's one line. Stable per surface. */
-export function designRulesFor(surface: DesignSurface): string {
-  const extra = PER_SURFACE[surface] ?? ""
-  return `DESIGN RULES\n${DESIGN_RULES}${extra ? `\n${extra}` : ""}`
+/** The rules for one surface. Stable per surface, so it sits in cached prefixes. Unknown surfaces get the compact set. */
+export function designRulesFor(surface: DesignRulesSurface): string {
+  return `DESIGN RULES\n${BY_SURFACE[surface] ?? BY_SURFACE.other}`
 }

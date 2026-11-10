@@ -2,98 +2,101 @@
  * ===========================================================================
  *  CREATIVE BRIEF AND DIRECTION (round O): O6's STUB OF O2's MODULE
  * ===========================================================================
- * TODO(integrator, round O): O2 owns lib/storelib-ai/direction/ (CreativeBrief
- * from spec 3.1, briefFrom, chooseDirection with a deterministic seed, the
- * DesignContract and the per-site DESIGN.md). When O2's branch merges, take
- * its files whole and delete this stub. The exported names and parameter
- * order follow the round O brief so callers keep compiling:
+ * TODO(integrator, round O): O2 owns lib/storelib-ai/direction/ (brief.ts,
+ * directions.ts, choose.ts, design-md.ts). When O2's branch merges, take its
+ * files whole and delete this stub. The signatures below are O2's, read from
+ * its branch, so O6's one caller (lib/ai-builder/agent/design-brief.ts)
+ * compiles against either:
  *
- *   briefFrom(prompt, options, capabilities)   → CreativeBrief
- *   chooseDirection(brief, references)         → DirectionChoice (primary + optional secondary)
- *   directionForPrompt(choice)                 → string for the job's brief
- *
- * Every call O6 makes into this module is in ONE file,
- * lib/ai-builder/agent/design-brief.ts, so a shape that differs is adjusted
- * there and nowhere else.
+ *   briefFrom(prompt, options, caps)               → CreativeBrief
+ *   chooseDirection(brief, references, opts)       → DirectionChoice
+ *   directionForPrompt(brief, choice)              → the CREATIVE BRIEF and ART DIRECTION blocks
+ *   DESIGN_MD_PATH                                 "DESIGN.md"
  *
  * The stub is deterministic and small: it reads the obvious facts out of the
- * prompt and picks from the existing direction library (L6, round N) while
- * refusing the editorial serif bundle unless the brief asks for it.
+ * prompt and picks from the existing direction library (L6, round N), leaving
+ * out the editorial serif bundle unless the creator's words ask for it.
  */
-import type { RuntimeCapabilities } from "@/lib/ai-builder/runtime-contract"
-import type { StartOptions } from "@/lib/ai-builder/types"
 import { suggestDirections, type Direction } from "@/lib/storelib-ai/library/concept"
 import { firstFamily } from "@/lib/storelib-ai/library/type-systems"
 
-export type MotionTier = "quiet" | "balanced" | "expressive"
+export type Objective = "book" | "buy" | "enquire" | "join" | "view-work" | "read" | "visit" | "donate" | "listen"
+export type MotionIntensity = "quiet" | "balanced" | "expressive"
 
-/** Spec 3.1 / prompt C, the fields the stub can honestly fill. */
+/** O2's brief, the fields the stub fills. */
 export interface CreativeBrief {
   prompt: string
-  /** The business in a few words: the category the creator picked, else the prompt's opening. */
-  business: string
-  industry: string | null
-  primaryAction: string | null
-  /** Style words the creator used ("editorial", "y2k", "black and red"...). */
-  requestedStyle: string[]
-  motion: MotionTier | null
-  colors: string[]
-  pages: string[]
-  /** Facts the site cannot state until the creator gives them. */
-  uncertainties: string[]
-  /** Deterministic seed: the same brief picks the same direction. */
-  seed: string
+  business: { kind: string; label: string; name: string | null }
+  objective: Objective
+  cta: string
+  style: { requested: string[]; moods: string[]; colors: string[] }
+  motion: MotionIntensity
+  mustNotFabricate: string[]
+}
+
+/** Options on Describe your website, loosely (StartOptions fits). */
+export interface BriefOptions {
+  category?: string
+  preferences?: { pages?: string[]; tone?: string; colors?: string[]; language?: string }
+}
+
+/** The store's real facts, loosely (RuntimeCapabilities fits). */
+export interface BriefCapabilities {
+  products?: { kind?: string }[]
+  forms?: { kind?: string; booking?: boolean }[]
+  reviews?: { count: number }
+}
+
+/** A reference, as the choice reads it (O1's DesignReference fits). */
+export interface ReferenceHint {
+  id: string
+  styles?: string[]
+  tags?: string[]
+  industries?: string[]
 }
 
 export interface DirectionChoice {
   primary: Direction
   secondary: Direction | null
-  /** One line: why this one, in concrete terms. */
-  reason: string
+  reasons: string[]
+  requested: boolean
+  seed: string
 }
 
-/** Where O2 stores the per-site contract among the install's files (the Google design.md format). */
+/** Where the per-site contract lives among the install's files (the Google design.md format). */
 export const DESIGN_MD_PATH = "DESIGN.md"
 
-const STYLE_WORDS = ["editorial", "serif", "magazine", "literary", "minimal", "brutalist", "y2k", "2000s", "retro", "vintage", "luxury", "playful", "bold", "experimental", "swiss", "japanese", "cinematic", "warm", "calm", "dark", "black", "red", "neon", "sport", "performance", "gallery", "aero"]
+const STYLE_WORDS = ["editorial", "serif", "magazine", "literary", "minimal", "brutalist", "y2k", "retro", "vintage", "luxury", "playful", "bold", "experimental", "swiss", "japanese", "cinematic", "warm", "calm", "dark", "sport", "gallery"]
+const EDITORIAL_WORDS = ["editorial", "serif", "magazine", "literary"]
 
-function motionOf(prompt: string): MotionTier | null {
-  if (/\b(no|without|minimal) (motion|animation)s?\b|\bstatic\b|\bquiet\b/i.test(prompt)) return "quiet"
-  if (/\b(smooth|scroll moments?|expressive|cinematic|immersive|lots of motion|animated)\b/i.test(prompt)) return "expressive"
-  if (/\b(soft movement|subtle|gentle)\b/i.test(prompt)) return "balanced"
-  return null
+function objectiveOf(prompt: string, caps: BriefCapabilities | null | undefined): { objective: Objective; cta: string } {
+  if (/\b(book|booking|consultation|appointment|session)\b/i.test(prompt) || caps?.forms?.some((f) => f.booking)) return { objective: "book", cta: "Book a consultation" }
+  if (/\b(shop|store|sell|buy|sample packs?|products?)\b/i.test(prompt) || (caps?.products?.length ?? 0) > 0) return { objective: "buy", cta: "Shop now" }
+  if (/\b(newsletter|subscribe|join|waitlist|community)\b/i.test(prompt)) return { objective: "join", cta: "Join" }
+  return { objective: "enquire", cta: "Get in touch" }
 }
 
-function actionOf(prompt: string, caps: RuntimeCapabilities | null | undefined): string | null {
-  if (/\b(book|booking|consultation|appointment|call)\b/i.test(prompt) || caps?.forms.some((f) => f.booking)) return "book"
-  if (/\b(shop|store|sell|buy|sample packs?|products?)\b/i.test(prompt) || (caps?.products.length ?? 0) > 0) return "buy"
-  if (/\b(newsletter|subscribe|join|waitlist)\b/i.test(prompt)) return "subscribe"
-  if (/\b(contact|enquir|inquir|hire)\b/i.test(prompt)) return "contact"
-  return null
+function motionOf(prompt: string): MotionIntensity {
+  if (/\b(no|without|minimal) (motion|animations?)\b|\bstatic\b/i.test(prompt)) return "quiet"
+  if (/\b(smooth|scroll moments?|expressive|cinematic|immersive|animated)\b/i.test(prompt)) return "expressive"
+  return "balanced"
 }
 
-/** STUB: the brief, read deterministically from the prompt, the start options and the store. */
-export function briefFrom(prompt: string, options?: StartOptions | null, capabilities?: RuntimeCapabilities | null): CreativeBrief {
-  const text = (prompt ?? "").trim()
+/** STUB of O2's briefFrom. */
+export function briefFrom(prompt: string, options?: BriefOptions | null, caps?: BriefCapabilities | null): CreativeBrief {
+  const text = (prompt ?? "").trim().slice(0, 2_000)
   const lower = text.toLowerCase()
-  const industry = options?.category ? options.category.replace(/_/g, " ") : null
-  const requestedStyle = STYLE_WORDS.filter((w) => new RegExp(`\\b${w}\\b`).test(lower))
-  const uncertainties = [
-    !capabilities?.products.length && /\b(price|pricing|plans?|packages?)\b/i.test(text) ? "prices" : "",
-    !capabilities?.reviews.count ? "reviews and testimonials" : "",
-    /\b(book|booking|consultation|appointment)\b/i.test(text) && !capabilities?.forms.some((f) => f.booking) ? "a booking form" : "",
-  ].filter(Boolean)
+  const label = options?.category ? options.category.replace(/_/g, " ") : text.slice(0, 80)
+  const { objective, cta } = objectiveOf(text, caps)
+  const requested = STYLE_WORDS.filter((w) => new RegExp(`\\b${w}\\b`).test(lower))
   return {
     prompt: text,
-    business: industry ?? text.slice(0, 80),
-    industry,
-    primaryAction: actionOf(text, capabilities),
-    requestedStyle,
+    business: { kind: options?.category ?? "other", label, name: null },
+    objective,
+    cta,
+    style: { requested, moods: [], colors: options?.preferences?.colors ?? [] },
     motion: motionOf(text),
-    colors: options?.preferences?.colors ?? [],
-    pages: options?.preferences?.pages ?? [],
-    uncertainties,
-    seed: text.toLowerCase().replace(/\s+/g, " ").slice(0, 200),
+    mustNotFabricate: [!caps?.reviews?.count ? "reviews and testimonials" : "", "prices, credentials and results the creator did not give"].filter(Boolean),
   }
 }
 
@@ -107,28 +110,43 @@ export function isEditorialSerifBundle(d: Direction): boolean {
   const hex = d.palette.background.replace("#", "")
   if (hex.length !== 6) return false
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16))
-  /* Cream, ivory, sand: light and warmer than it is blue. */
+  /* Cream, ivory, sand: light, and warmer than it is blue. */
   return r > 225 && g > 215 && r >= b + 6
 }
 
-/** STUB: a primary direction and a secondary influence, deterministic for the brief. References are not used by the stub. */
-export function chooseDirection(brief: CreativeBrief, _references?: unknown[]): DirectionChoice {
-  const asksEditorial = brief.requestedStyle.some((w) => ["editorial", "serif", "magazine", "literary"].includes(w))
-  const pool = suggestDirections(brief.industry ?? brief.business, { count: 6, seed: brief.seed })
-  const fits = asksEditorial ? pool : pool.filter((d) => !isEditorialSerifBundle(d))
+/** STUB of O2's chooseDirection: deterministic for the brief; references are not read by the stub. */
+export function chooseDirection(brief: CreativeBrief, _references: ReferenceHint[] = [], opts: { seed?: string; avoid?: string[] } = {}): DirectionChoice {
+  const requested = brief.style.requested.some((w) => EDITORIAL_WORDS.includes(w))
+  const seed = opts.seed ?? brief.prompt.toLowerCase().replace(/\s+/g, " ").slice(0, 200)
+  const pool = suggestDirections(brief.business.label, { count: 6, seed }).filter((d) => !(opts.avoid ?? []).includes(d.id))
+  const fits = requested ? pool : pool.filter((d) => !isEditorialSerifBundle(d))
   const list = fits.length ? fits : pool
   const primary = list[0]
-  const secondary = list.find((d) => d.id !== primary.id) ?? null
   return {
     primary,
-    secondary,
-    reason: `Suits ${brief.industry ?? "this business"}${brief.requestedStyle.length ? ` and the words "${brief.requestedStyle.join(", ")}"` : ""}${asksEditorial ? "" : "; the editorial serif bundle was left out because the brief did not ask for it"}.`,
+    secondary: list.find((d) => d.id !== primary.id) ?? null,
+    reasons: [`Suits ${brief.business.label}.`, requested ? "The creator asked for an editorial look." : "The editorial serif bundle is left out: nobody asked for it."],
+    requested,
+    seed,
   }
 }
 
-/** STUB: the choice, said for the job's brief. */
-export function directionForPrompt(choice: DirectionChoice): string {
+/** STUB of O2's directionForPrompt: the brief and the chosen direction, as blocks for the agent's turn. */
+export function directionForPrompt(brief: CreativeBrief, choice: DirectionChoice): string {
   const d = choice.primary
-  const line = (x: Direction) => `${x.name} (${x.styles.join(" + ")}): ${x.mood.join(", ")}; type ${x.type.display} / ${x.type.body}; ${x.palette.mode} ${x.palette.background} / ${x.palette.text} / accent ${x.palette.accent}; imagery: ${x.imagery}; signature: ${x.signature}${x.layout ? `; layout: ${x.layout}` : ""}`
-  return [`Primary: ${line(d)}`, choice.secondary ? `Secondary influence: ${choice.secondary.name}, for ${choice.secondary.mood.slice(0, 2).join(" and ")}` : "", `Why: ${choice.reason}`].filter(Boolean).join("\n")
+  return [
+    "CREATIVE BRIEF (read from the request and the store; never past what is real):",
+    `- Business: ${brief.business.label}`,
+    `- Main action: ${brief.objective}: "${brief.cta}"`,
+    brief.style.requested.length || brief.style.colors.length ? `- Asked for: ${[brief.style.requested.length ? `style ${brief.style.requested.join(", ")}` : "", brief.style.colors.length ? `colours ${brief.style.colors.join(", ")}` : ""].filter(Boolean).join("; ")}` : null,
+    `- Never invent: ${brief.mustNotFabricate.join("; ")}`,
+    "",
+    `ART DIRECTION (chosen for this business${choice.requested ? "; the creator named it, it wins" : ""}):`,
+    `- Primary: ${d.name} (${d.styles.join(" + ")}): ${d.mood.join(", ")}; type ${d.type.display} / ${d.type.body}; ${d.palette.mode} ${d.palette.background} / ${d.palette.text} / accent ${d.palette.accent}; imagery: ${d.imagery}; signature: ${d.signature}${d.layout ? `; layout: ${d.layout}` : ""}`,
+    choice.secondary ? `- Secondary influence: ${choice.secondary.name}. Borrow one idea from it, not its look.` : null,
+    `- Why: ${choice.reasons.join(" ")}`,
+    "Your concept follows this direction; adapt names and details to this creator, do not paste it.",
+  ]
+    .filter((l): l is string => l !== null)
+    .join("\n")
 }

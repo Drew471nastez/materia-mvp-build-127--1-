@@ -10,8 +10,9 @@
  * data, the pages and files there are, the job's design brief (round O,
  * ./design-brief.ts: creative brief, direction, references as text, motion
  * tier, site story) or, on an edit, the site's DESIGN.md with the
- * keep-the-brand rule, and the knowledge retrieved for it. Reference images
- * ride on the plan turn as content blocks (./loop.ts), never in the prefix.
+ * keep-the-brand rule, and the knowledge retrieved for it. Reference
+ * pictures ride on the plan turn as content blocks (O1, ./loop.ts), never in
+ * the prefix.
  *
  * Round O removed round N's type steering ("a display face with character
  * (editorial serif, ...)"), which made an italic serif on cream with mono
@@ -163,7 +164,8 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
     input.directions?.length
       ? `TYPE SYSTEMS THAT FIT (all load on Storelib; adapt or pick another from the type library, never a default face as display):\n${typeSystemsFor(job, input.directions).map((t) => `* ${describeTypeSystem(t)}`).join("\n")}`
       : "",
-    input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, 12_000)}` : "",
+    /* The first turn is kept whole in the checkpoint up to 20,000 characters: the knowledge gives way to the design brief. */
+    input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, Math.max(4_000, 12_000 - (input.design?.text.length ?? 0)))}` : "",
     scoped ? "Start by reading what the request is about (list_pages, read_file), then change it. Before finish, render_check every page you changed." : "Start with report_progress phase \"plan\": the concept, the tasks and pages (every page and template with its sections). Then tokens, components, pages and templates, bindings with real ids, render_check on every page, finish.",
   ]
     .filter(Boolean)

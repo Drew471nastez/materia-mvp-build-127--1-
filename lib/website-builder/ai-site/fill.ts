@@ -122,7 +122,7 @@ export function fillSystem(ctx: FillContext): string {
   return [
     FILL_RULES,
     /* Round O: the design rules every Storelib AI carries (lib/storelib-ai/surfaces.ts), the copy side of them here. */
-    surfaceRules("classic_fill"),
+    surfaceRules("classic"),
     `THE BRIEF\n${ctx.prompt.trim()}`,
     `THE BRAND: ${s.brand.name || "(unnamed: do not invent a name; write around it)"}${s.brand.tagline ? `, "${s.brand.tagline}"` : ""}
 Voice: ${s.voice.tone}${s.voice.use.length ? `. Words that fit: ${s.voice.use.join(", ")}` : ""}${s.voice.avoid.length ? `. Never: ${s.voice.avoid.join(", ")}` : ""}
