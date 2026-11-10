@@ -50,8 +50,8 @@ const signup = (layout, i) => ({ id: `sig_${layout}`, type: "email_capture", ena
 const app = (id, data, order) => ({ id, type: "app", enabled: true, sort_order: order, data })
 const inAWeek = new Date(Date.now() + 7 * 86400_000 + 3 * 3600_000).toISOString()
 const blocks = [
-  app("stats_count", { provider: "stats", title: "In numbers", layout: "grid", stats_animation: "count", items: [{ id: "a", title: "Students", value: "12,480+" }, { id: "b", title: "Rating", value: "4.9" }, { id: "c", title: "Courses", value: "38" }, { id: "d", title: "Countries", value: "64%" }] }, 1),
-  app("stats_roll", { provider: "stats", layout: "card", stats_animation: "roll", items: [{ id: "a", title: "Sold", value: "1,204" }, { id: "b", title: "Reviews", value: "318" }, { id: "c", title: "Years", value: "7" }] }, 2),
+  app("stats_count", { provider: "stats", title: "In numbers", layout: "grid", stats_animation: "count", items: [{ id: "a", title: "Students", value: "12,480+" }, { id: "b", title: "Rating", value: "4.9" }, { id: "c", title: "Courses", value: "38" }, { id: "d", title: "Countries", value: "64%" }] }, 40),
+  app("stats_roll", { provider: "stats", layout: "card", stats_animation: "roll", items: [{ id: "a", title: "Sold", value: "1,204" }, { id: "b", title: "Reviews", value: "318" }, { id: "c", title: "Years", value: "7" }] }, 41),
   app("poll1", { provider: "poll", poll_question: "What should I make next?", poll_options: [{ id: "a", label: "A video course" }, { id: "b", label: "A printed guide" }, { id: "c", label: "Live workshop" }] }, 3),
   app("tips1", { provider: "tips", tip_mode: "storelib", tip_amounts: [300, 500, 1000], tip_custom: true, tip_message: true, tip_ready: true, tip_currency: "usd", title: "Buy me a coffee" }, 4),
   app("event1", { provider: "event", title: "Launch night", event_start: inAWeek, venue: "Paradiso, Amsterdam", url: "https://tickets.example.com/launch", rsvp: true, text: "Drinks, a first look at the new course and a short Q&A.", layout: "card" }, 5),
@@ -102,7 +102,9 @@ const VIEWPORTS = [
 try {
   for (const [name, viewport] of VIEWPORTS) {
     console.log(`\n── ${name} ──`)
-    const page = await browser.newPage()
+    /* Each width on a fresh profile: a signup made at 390 is remembered by the browser and would hide the 1440 form. */
+    const context = await browser.createBrowserContext()
+    const page = await context.newPage()
     await page.setViewport(viewport)
     const errors = []
     page.on("pageerror", (e) => errors.push(String(e.message || e)))
@@ -124,7 +126,8 @@ try {
           const s = getComputedStyle(el)
           return { h: Math.round(r.height), w: Math.round(r.width), radius: s.borderTopLeftRadius, bottom: s.borderBottomWidth, bg: s.backgroundColor, font: s.fontSize, shape: el.getAttribute("data-email-field") }
         }
-        return { email: box(email), name: box(nameEl), phone: box(phone), hostW: Math.round(host.getBoundingClientRect().width) }
+        const line = host.querySelector('[data-email-form="line"]')
+        return { email: box(email), name: box(nameEl), phone: box(phone), hostW: Math.round(host.getBoundingClientRect().width), lineBottom: line ? getComputedStyle(line).borderBottomWidth : null }
       }, layout)
       if (!m || m.missing) {
         expect(false, `${layout}: the name, phone and email fields are drawn`, m)
@@ -134,7 +137,7 @@ try {
       if (layout === "connect") {
         expect(m.name.shape === "pill" && m.phone.shape === "pill" && m.name.h === 52 && m.phone.h === 52 && parseFloat(m.name.radius) >= 26, `${layout}: name and phone are 52px white pills, like the email pill`, { name: m.name, phone: m.phone })
       } else if (layout === "letter") {
-        expect(m.name.shape === "line" && m.phone.shape === "line" && m.name.bottom === "1.5px" && m.name.bg === "rgba(0, 0, 0, 0)" && m.name.h === 48, `${layout}: name and phone are lines in the text colour, 48px, like the email line`, { name: m.name, email: m.email })
+        expect(m.name.shape === "line" && m.phone.shape === "line" && m.name.bottom === m.lineBottom && m.phone.bottom === m.lineBottom && m.name.bg === "rgba(0, 0, 0, 0)" && m.name.h === 48, `${layout}: name and phone are lines in the text colour, 48px, the email line's own width (${m.lineBottom})`, { name: m.name, line: m.lineBottom })
       } else {
         const same = m.name.radius === m.email.radius && m.phone.radius === m.email.radius && Math.abs(m.name.h - m.email.h) <= 1 && Math.abs(m.phone.h - m.email.h) <= 1
         expect(same, `${layout}: name and phone match the email box (height ${m.email.h}px, corners ${m.email.radius})`, { name: m.name, phone: m.phone, email: m.email })
@@ -270,6 +273,7 @@ try {
 
     expect(errors.length === 0, "no script errors", errors.slice(0, 3))
     await page.close()
+    await context.close()
   }
 } finally {
   await browser.close()

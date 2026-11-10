@@ -4332,7 +4332,7 @@ function CoreBlockRenderer({
           <input
             key={kind}
             {...common}
-            className={cn("mb-2 w-full border-0 bg-white/90 px-3 py-3 text-[16px] outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 sm:px-4 sm:text-sm", options.inverted && "ring-1 ring-black/10")}
+            className={cn("mb-2 min-h-[46px] w-full border-0 bg-white/90 px-3 py-3 text-[16px] outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 sm:px-4 sm:text-sm", options.inverted && "ring-1 ring-black/10")}
             style={{
               color: "#000",
               borderRadius: emailButtonStyles.borderRadius,
@@ -4478,7 +4478,7 @@ function CoreBlockRenderer({
                 aria-label={tt("Email")}
                 required
                 disabled={isSubmitting}
-                className={cn("px-3 sm:px-4 py-3 text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70", stacked ? "w-full" : "flex-1 min-w-0", inverted && "ring-1 ring-black/10")}
+                className={cn("min-h-[46px] px-3 sm:px-4 py-3 text-[16px] sm:text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70", stacked ? "w-full" : "flex-1 min-w-0", inverted && "ring-1 ring-black/10")}
                 style={{ color: "#000", borderRadius: emailButtonStyles.borderRadius, backgroundColor: inverted ? "#fff" : undefined, boxShadow: outlined ? `inset 0 0 0 1px color-mix(in srgb, ${theme.text_color || "#111113"} 18%, transparent)` : undefined }}
               />
               {emailSubmitted && downloadLink ? (
