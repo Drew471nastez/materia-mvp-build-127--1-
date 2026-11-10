@@ -25,7 +25,7 @@ import { join } from "node:path"
 import { runAgentSlice } from "@/lib/ai-builder/agent/loop"
 import { memoryStore } from "@/lib/ai-builder/agent/memory-store"
 import { AGENT_SYSTEM, briefMessage } from "@/lib/ai-builder/agent/prompts"
-import { jobDesignBrief } from "@/lib/ai-builder/agent/design-brief"
+import { MAX_DESIGN_BRIEF_CHARS, jobDesignBrief } from "@/lib/ai-builder/agent/design-brief"
 import type { AgentDeps, AgentJobInput } from "@/lib/ai-builder/agent/ports"
 import { DEFAULT_JOB_BUDGET } from "@/lib/ai-builder/types"
 import { designRulesFor } from "@/lib/storelib-ai/design-rules"
@@ -170,7 +170,7 @@ section("3. References: their analyses in the brief, nothing claimed that was no
   check("with none, the brief says nothing about references or pictures", none.referenceIds.length === 0 && !/ref-|picture is attached|pictures are attached/i.test(none.text))
   const edit = await jobDesignBrief({ job: job({ edit: true }), caps: CAPS, files: [], references: { list: [ref] } })
   check("an edit gets no new direction and no references", edit.text === "" && edit.referenceIds.length === 0)
-  check("the design brief is bounded", (await jobDesignBrief({ job: job({ prompt: "x ".repeat(5_000) }), caps: CAPS, files: [] })).text.length <= 9_100)
+  check("the design brief is bounded", (await jobDesignBrief({ job: job({ prompt: "x ".repeat(5_000) }), caps: CAPS, files: [] })).text.length <= MAX_DESIGN_BRIEF_CHARS + 100)
 }
 
 section("4. Edits get the site's DESIGN.md and keep the brand")
