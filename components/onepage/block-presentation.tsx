@@ -60,7 +60,8 @@ export function VisualLinkCard({block,theme,onClick}: {block:OnePageBlock;theme:
   const radius=p.radius ?? Math.min(theme.button_border_radius??16,24)
   const title=<span data-block-title="" className="block break-words font-semibold leading-tight">{d.label || social?.platform || profile?.platform || "Link"}</span>
   const subtitle=p.subtitle || (variant === "profile" && profile ? `@${profile.handle}` : undefined)
-  const words=<span className="relative z-[1] flex min-w-0 flex-col" style={{gap:p.gap ?? 6}}>{title}<BlockSubtitle subtitle={subtitle} /></span>
+  /* Wave 11: over the picture or its shade, the words carry their own colour (data-on-photo), so a skin's button ink (Classic 98's black) never lands on the shade. */
+  const words=<span className="relative z-[1] flex min-w-0 flex-col" style={{gap:p.gap ?? 6,...(overImage?{color:colors.color}:{})}} data-on-photo={overImage && !native ? "" : undefined}>{title}<BlockSubtitle subtitle={subtitle} /></span>
   const iconNode=icon ? <span data-block-icon="" className="relative z-[1] inline-flex shrink-0" style={{color:p.icon_color || "currentColor"}}><LinkIcon name={icon} size={p.icon_size ?? 22} /></span> : null
   const textAlign=p.align || (overImage ? "left" : "center")
   const fade=p.fade ?? overImage
@@ -72,7 +73,7 @@ export function VisualLinkCard({block,theme,onClick}: {block:OnePageBlock;theme:
     {native && social.platform === "Instagram" ? <div data-native-social="Instagram"><CompactInstagramPost src={social.embed} title={`${social.platform}: ${d.label ?? "Media"}`} radius={radius}/></div> : native ? <div data-native-social={social.platform} className="overflow-hidden rounded-t-[inherit]" style={{borderRadius:`${radius}px`,aspectRatio:aspectCss(p.aspect) ?? social.aspect,height:p.aspect?undefined:social.height,maxHeight:social.platform==="Instagram"||social.platform==="TikTok"?380:560,background:theme.button_color}}>
       <iframe loading="lazy" title={`${social.platform}: ${d.label ?? "Media"}`} src={social.embed} className="h-full w-full border-0" allow="encrypted-media; fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-popups allow-presentation" />
     </div> : null}
-    <a href={d.url} target={d.action?.type==="phone"||d.action?.type==="email"?undefined:"_blank"} rel="noopener noreferrer" onClick={onClick} className="op-btn group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4" style={style} data-hover={buttonHover(theme,true)} data-shadow={buttonShadow(theme)} data-visual-link-action="">
+    <a href={d.url} target={d.action?.type==="phone"||d.action?.type==="email"?undefined:"_blank"} rel="noopener noreferrer" onClick={onClick} className="op-btn group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4" style={style} data-hover={overImage && !native ? "none" : buttonHover(theme,true)} data-shadow={buttonShadow(theme)} data-visual-link-action="">
       {variant === "image-first" && image && !native ? <span className="relative block w-full" style={{aspectRatio:aspect ?? "16 / 9"}}>
         <CardMedia key={image} src={onePageImageSrc(image,960)!} width={1200} height={675} className="absolute inset-0 h-full w-full object-cover" />
         {fade ? <span aria-hidden data-image-fade="" className="absolute inset-0" style={{background:footFade(String(colors.background ?? style.background ?? surface))}} /> : null}

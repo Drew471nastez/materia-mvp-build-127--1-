@@ -65,7 +65,9 @@ export const TILE = ":is([data-link-tile], [data-block-size='half'], [data-tp-pa
 export const RUN_HOST = ":is([data-block-layout] > *, [data-tp-masonry] > *)"
 /* Words set inline inside a surface, never a button's: `[style*=" color:"]` is a colour, not a background-color. */
 const BUTTONS = `:is(${CTA}, a.op-btn, [data-tp-link], [data-hover])`
-export const INLINE_INK = `:is([style^="color:"], [style*=" color:"]):not(input, textarea, ${BUTTONS}, ${BUTTONS} *)`
+/* Words laid over a picture (a product's Overlay, a picture card: data-on-photo) keep their own light colour: a surface's ink is for its paint, not a photo. */
+export const ON_PHOTO = "[data-on-photo]"
+export const INLINE_INK = `:is([style^="color:"], [style*=" color:"]):not(input, textarea, ${BUTTONS}, ${BUTTONS} *, ${ON_PHOTO}, ${ON_PHOTO} *)`
 
 export const NOISE = (alpha) => svg(`<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 ${alpha} 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/>`, "0 0 200 200")
 

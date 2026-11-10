@@ -115,7 +115,7 @@
 [data-op-skin="aero"] :is([data-email-layout], [data-onepage-contact]) {
   color: #042c52 !important;
 }
-[data-op-skin="aero"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="aero"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #042c52 !important;
 }
 [data-op-skin="aero"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea) {
@@ -214,7 +214,7 @@
 [data-op-skin="aqua"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) {
   color: #141414 !important;
 }
-[data-op-skin="aqua"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="aqua"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #141414 !important;
 }
 [data-op-skin="aqua"] .op-card > div:last-child {
@@ -318,7 +318,7 @@
 [data-op-skin="messenger"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) {
   color: #0f2a55 !important;
 }
-[data-op-skin="messenger"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="messenger"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #0f2a55 !important;
 }
 [data-op-skin="messenger"] .op-card > div:last-child {
@@ -444,7 +444,7 @@
 [data-op-skin="y2k"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) {
   color: #14112b !important;
 }
-[data-op-skin="y2k"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="y2k"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #14112b !important;
 }
 [data-op-skin="y2k"] [data-onepage-countdown] .grid > div {
@@ -461,7 +461,7 @@
 [data-op-skin="y2k"] :is([data-email-layout], [data-onepage-contact]) {
   color: #f3f0ff !important;
 }
-[data-op-skin="y2k"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="y2k"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #f3f0ff !important;
 }
 [data-op-skin="y2k"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea) {
@@ -625,7 +625,7 @@
 [data-op-skin="playful"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card) {
   color: #161412 !important;
 }
-[data-op-skin="playful"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="playful"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #161412 !important;
 }
 [data-op-skin="playful"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure)) {
@@ -637,7 +637,7 @@
 [data-op-skin="playful"] [data-onepage-countdown] .grid > div {
   color: #161412 !important;
 }
-[data-op-skin="playful"] [data-onepage-countdown] .grid > div :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="playful"] [data-onepage-countdown] .grid > div :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #161412 !important;
 }
 [data-op-skin="playful"] .op-card > div:last-child {
@@ -657,7 +657,7 @@
 [data-op-skin="playful"] :is([data-email-layout], [data-onepage-contact]) {
   color: #161412 !important;
 }
-[data-op-skin="playful"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="playful"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #161412 !important;
 }
 [data-op-skin="playful"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea) {
@@ -764,7 +764,7 @@
   background-color: #f4f3ee !important; color: #0d0d0d !important; background-image: none; --op-fill: #0d0d0d !important; --op-fill-text: #f1efe8 !important;
 }
 [data-op-skin="grunge"] :is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]) {
-  background-color: #0d0d0d !important; color: #f1efe8 !important; --op-fill: #f4f3ee !important; --op-fill-text: #0d0d0d !important;
+  background-color: #0d0d0d !important; color: #f1efe8 !important; --op-fill: #3a3a3a !important; --op-fill-text: #f1efe8 !important;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 18 -14.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-size: 200px 200px; border: 2px solid #0d0d0d !important;
   text-transform: uppercase; letter-spacing: .1em; font-weight: 700; clip-path: polygon(0 3px, 5% 0, 11% 2px, 19% 0, 28% 3px, 37% 1px, 46% 3px, 55% 0, 63% 2px, 72% 0, 81% 3px, 90% 1px, 96% 3px, 100% 0, 100% calc(100% - 2px), 94% 100%, 86% calc(100% - 3px), 77% 100%, 68% calc(100% - 2px), 59% 100%, 50% calc(100% - 3px), 41% 100%, 32% calc(100% - 2px), 23% 100%, 14% calc(100% - 3px), 6% 100%, 0 calc(100% - 2px));
 }
@@ -776,7 +776,7 @@
 [data-op-skin="grunge"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card) {
   color: #0d0d0d !important;
 }
-[data-op-skin="grunge"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="grunge"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #0d0d0d !important;
 }
 [data-op-skin="grunge"] [data-onepage-faq] .op-card {
@@ -794,7 +794,7 @@
 [data-op-skin="grunge"] [data-onepage-countdown] .grid > div {
   color: #f1efe8 !important;
 }
-[data-op-skin="grunge"] [data-onepage-countdown] .grid > div :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="grunge"] [data-onepage-countdown] .grid > div :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #f1efe8 !important;
 }
 [data-op-skin="grunge"] .op-card > div:last-child {
@@ -810,7 +810,7 @@
 [data-op-skin="grunge"] :is([data-email-layout], [data-onepage-contact]) {
   color: #0d0d0d !important;
 }
-[data-op-skin="grunge"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="grunge"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #0d0d0d !important;
 }
 [data-op-skin="grunge"] :is([data-email-layout], [data-onepage-contact]) h3 {
@@ -841,7 +841,7 @@
 [data-op-skin="grunge"] :is([data-op-header] > p, [data-op-block] > p.whitespace-pre-line) {
   color: #0d0d0d !important;
 }
-[data-op-skin="grunge"] :is([data-op-header] > p, [data-op-block] > p.whitespace-pre-line) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="grunge"] :is([data-op-header] > p, [data-op-block] > p.whitespace-pre-line) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #0d0d0d !important;
 }
 [data-op-skin="grunge"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) {
@@ -851,7 +851,7 @@
 [data-op-skin="grunge"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) {
   color: #f1efe8 !important;
 }
-[data-op-skin="grunge"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="grunge"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #f1efe8 !important;
 }
 [data-op-skin="grunge"] :is(:is([data-page-avatar] [data-slot=avatar], [data-tp-avatar]) img, :is([data-op-block] img, [data-tp-photo], [data-tp-link] img)), [data-op-skin="grunge"] [data-tp-avatar] {
@@ -1003,7 +1003,7 @@
 [data-op-skin="aero2"] :is([data-email-layout], [data-onepage-contact]) {
   color: #eafaff !important;
 }
-[data-op-skin="aero2"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="aero2"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #eafaff !important;
 }
 [data-op-skin="aero2"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea) {
@@ -1100,7 +1100,7 @@
 [data-op-skin="aqua2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) {
   color: #141414 !important;
 }
-[data-op-skin="aqua2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="aqua2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #141414 !important;
 }
 [data-op-skin="aqua2"] .op-card > div:last-child {
@@ -1207,7 +1207,7 @@
 [data-op-skin="messenger2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) {
   color: #2b3510 !important;
 }
-[data-op-skin="messenger2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="messenger2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #2b3510 !important;
 }
 [data-op-skin="messenger2"] .op-card > div:last-child {
@@ -1385,7 +1385,7 @@
 [data-op-skin="y2k2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div, :is([data-email-layout], [data-onepage-contact])) {
   color: #3b1458 !important;
 }
-[data-op-skin="y2k2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div, :is([data-email-layout], [data-onepage-contact])) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="y2k2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div, :is([data-email-layout], [data-onepage-contact])) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #3b1458 !important;
 }
 [data-op-skin="y2k2"] [data-onepage-countdown] .grid > div {
@@ -1566,7 +1566,7 @@
 [data-op-skin="playful2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card) {
   color: #0e0e0e !important;
 }
-[data-op-skin="playful2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="playful2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #0e0e0e !important;
 }
 [data-op-skin="playful2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure)) {
@@ -1578,7 +1578,7 @@
 [data-op-skin="playful2"] [data-onepage-countdown] .grid > div {
   color: #0e0e0e !important;
 }
-[data-op-skin="playful2"] [data-onepage-countdown] .grid > div :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="playful2"] [data-onepage-countdown] .grid > div :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #0e0e0e !important;
 }
 [data-op-skin="playful2"] .op-card > div:last-child {
@@ -1598,7 +1598,7 @@
 [data-op-skin="playful2"] :is([data-email-layout], [data-onepage-contact]) {
   color: #0e0e0e !important;
 }
-[data-op-skin="playful2"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="playful2"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #0e0e0e !important;
 }
 [data-op-skin="playful2"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea) {
@@ -1722,7 +1722,7 @@
   background-color: #c8141b !important; color: #ffffff !important; --op-fill: #0d0d0d !important; --op-fill-text: #f1efe8 !important;
 }
 [data-op-skin="grunge2"] :is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]) {
-  background-color: #c8141b !important; color: #ffffff !important; --op-fill: #f3eee2 !important; --op-fill-text: #0d0d0d !important;
+  background-color: #c8141b !important; color: #ffffff !important; --op-fill: #0d0d0d !important; --op-fill-text: #f1efe8 !important;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 18 -14.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-size: 200px 200px; border: 2px solid #c8141b !important;
   text-transform: uppercase; letter-spacing: .1em; font-weight: 700; clip-path: polygon(0 3px, 5% 0, 11% 2px, 19% 0, 28% 3px, 37% 1px, 46% 3px, 55% 0, 63% 2px, 72% 0, 81% 3px, 90% 1px, 96% 3px, 100% 0, 100% calc(100% - 2px), 94% 100%, 86% calc(100% - 3px), 77% 100%, 68% calc(100% - 2px), 59% 100%, 50% calc(100% - 3px), 41% 100%, 32% calc(100% - 2px), 23% 100%, 14% calc(100% - 3px), 6% 100%, 0 calc(100% - 2px));
 }
@@ -1734,7 +1734,7 @@
 [data-op-skin="grunge2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card) {
   color: #0d0d0d !important;
 }
-[data-op-skin="grunge2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="grunge2"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #0d0d0d !important;
 }
 [data-op-skin="grunge2"] [data-onepage-faq] .op-card {
@@ -1752,7 +1752,7 @@
 [data-op-skin="grunge2"] [data-onepage-countdown] .grid > div {
   color: #f1efe8 !important;
 }
-[data-op-skin="grunge2"] [data-onepage-countdown] .grid > div :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="grunge2"] [data-onepage-countdown] .grid > div :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #f1efe8 !important;
 }
 [data-op-skin="grunge2"] .op-card > div:last-child {
@@ -1768,7 +1768,7 @@
 [data-op-skin="grunge2"] :is([data-email-layout], [data-onepage-contact]) {
   color: #0d0d0d !important;
 }
-[data-op-skin="grunge2"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="grunge2"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #0d0d0d !important;
 }
 [data-op-skin="grunge2"] :is([data-email-layout], [data-onepage-contact]) h3 {
@@ -1799,7 +1799,7 @@
 [data-op-skin="grunge2"] :is([data-op-header] > p, [data-op-block] > p.whitespace-pre-line) {
   color: #0d0d0d !important;
 }
-[data-op-skin="grunge2"] :is([data-op-header] > p, [data-op-block] > p.whitespace-pre-line) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="grunge2"] :is([data-op-header] > p, [data-op-block] > p.whitespace-pre-line) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #0d0d0d !important;
 }
 [data-op-skin="grunge2"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) {
@@ -1809,7 +1809,7 @@
 [data-op-skin="grunge2"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) {
   color: #ffffff !important;
 }
-[data-op-skin="grunge2"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="grunge2"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #ffffff !important;
 }
 [data-op-skin="grunge2"] :is(:is([data-page-avatar] [data-slot=avatar], [data-tp-avatar]) img, :is([data-op-block] img, [data-tp-photo], [data-tp-link] img)), [data-op-skin="grunge2"] [data-tp-avatar] {
@@ -1854,7 +1854,7 @@
 [data-op-skin="grunge2"] :is([data-op-header] h1, [data-tp-title]) {
   color: #ffffff !important;
 }
-[data-op-skin="grunge2"] :is([data-op-header] h1, [data-tp-title]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="grunge2"] :is([data-op-header] h1, [data-tp-title]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #ffffff !important;
 }
 
@@ -1951,13 +1951,13 @@
 [data-op-skin="classic98"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card) {
   color: #000000 !important;
 }
-[data-op-skin="classic98"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="classic98"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), :is([data-email-layout], [data-onepage-contact]), [data-onepage-faq] .op-card) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #000000 !important;
 }
 [data-op-skin="classic98"] [data-onepage-countdown] .grid > div {
   color: #000000 !important;
 }
-[data-op-skin="classic98"] [data-onepage-countdown] .grid > div :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="classic98"] [data-onepage-countdown] .grid > div :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #000000 !important;
 }
 [data-op-skin="classic98"] .op-card > div:last-child {
@@ -1983,7 +1983,7 @@
 [data-op-skin="classic98"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) {
   color: #ffffff !important;
 }
-[data-op-skin="classic98"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="classic98"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #ffffff !important;
 }
 [data-op-skin="classic98"] :is([data-page-avatar] [data-slot=avatar], [data-tp-avatar]) {
@@ -2007,8 +2007,8 @@
 [data-op-skin="classic98"] [data-code-copy] {
   border: 1px dotted #000 !important; border-radius: 0 !important; background: #fff;
 }
-@media (hover: hover) and (pointer: fine) {
-  [data-op-skin="classic98"] :is(.op-btn:hover, .op-host:hover .op-btn):is([data-hover="fill"], [data-hover="pop"]) { color: #ffffff !important; }
+[data-op-skin="classic98"] :is(:is(a.op-btn, [data-tp-link]), :is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit])) {
+  --op-fill: #000080 !important; --op-fill-text: #ffffff !important;
 }
 [data-op-skin="classic98"] [data-onepage-legal] {
   background: #c0c0c0; color: #000000 !important; width: fit-content; margin-inline: auto; padding: 4px 14px; border-radius: 999px; border-radius: 0; box-shadow: inset -1px -1px 0 #0a0a0a, inset 1px 1px 0 #ffffff, inset -2px -2px 0 #808080, inset 2px 2px 0 #dfdfdf;
@@ -2090,7 +2090,7 @@
 [data-op-skin="vaporwave"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, :is([data-email-layout], [data-onepage-contact]), [data-onepage-countdown] .grid > div) {
   color: #fff3fb !important;
 }
-[data-op-skin="vaporwave"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, :is([data-email-layout], [data-onepage-contact]), [data-onepage-countdown] .grid > div) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="vaporwave"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, :is([data-email-layout], [data-onepage-contact]), [data-onepage-countdown] .grid > div) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #fff3fb !important;
 }
 [data-op-skin="vaporwave"] [data-onepage-countdown] .grid > div span:first-child {
@@ -2268,13 +2268,13 @@
 [data-op-skin="arcade"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, :is([data-email-layout], [data-onepage-contact])) {
   color: #ffffff !important;
 }
-[data-op-skin="arcade"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, :is([data-email-layout], [data-onepage-contact])) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="arcade"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, :is([data-email-layout], [data-onepage-contact])) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #ffffff !important;
 }
 [data-op-skin="arcade"] [data-onepage-countdown] .grid > div {
   color: #ffffff !important;
 }
-[data-op-skin="arcade"] [data-onepage-countdown] .grid > div :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
+[data-op-skin="arcade"] [data-onepage-countdown] .grid > div :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *, [data-on-photo], [data-on-photo] *) {
   color: #ffffff !important;
 }
 [data-op-skin="arcade"] [data-onepage-countdown] .grid > div span:first-child {

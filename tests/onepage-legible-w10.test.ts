@@ -78,7 +78,8 @@ console.log("\n1. The guarantee: on every live OnePage, its sheets too, whatever
   check("motion is not a new look: only inline styles changing (a dot riding a scroll, a drag) is measured once it has rested", /r\.attributeName !== "style"\)\) soon\(\)\s*else settle\(\)/.test(guard) && /setTimeout\(soon, 250\)/.test(guard) && !/characterData/.test(guard))
   check("its own writes do not wake it (the observer is paused while it writes)", /observer\?\.disconnect\(\)[\s\S]{0,400}guardLegibility[\s\S]{0,200}takeRecords\(\)/.test(guard))
   check("it measures what is painted: backgrounds, gradients and their stops, down to the first opaque one", /function groundUnder/.test(lib) && /backgroundImage/.test(lib) && /backgroundColor/.test(lib) && /function linearStops/.test(lib))
-  check("its colour wins over any skin rule (!important) and is taken back before the next measure", /setProperty\("color", toCss\(fixed\), "important"\)/.test(lib) && /releaseLegibility\(root\)\s*const found = findIllegible\(root\)/.test(lib))
+  /* Changed on purpose (wave 11): the colour is written as var(--op-hover-ink, colour), so a Fill or Pop hover still turns the words to its pair (tests/onepage-hover-w11.test.ts). */
+  check("its colour wins over any skin rule (!important) and is taken back before the next measure", /setProperty\("color", inkVar\(toCss\(fixed\)\), "important"\)/.test(lib) && /releaseLegibility\(root\)\s*const found = findIllegible\(root\)/.test(lib))
   check("placeholders too (a rule, since an inline style cannot reach ::placeholder)", /::placeholder\{color:var\(/.test(lib) && /"::placeholder"/.test(lib))
   check("it knows no theme by name, so a theme added tomorrow is covered", !/aero|messenger|grunge|playful|y2k|aqua/i.test(lib.replace(/data-op-skin|data-skin-scene/g, "")))
   check("words on a photo are left to the photo's own darkening", /photo: true/.test(lib) && /if \(ground\.photo/.test(lib))

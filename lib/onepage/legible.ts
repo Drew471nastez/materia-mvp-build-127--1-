@@ -491,6 +491,29 @@ export function haloOf(textShadow: string | null | undefined): Rgba | null {
 }
 
 /**
+ * The earlier siblings of `child` that are laid over their parent (absolute or fixed, not hidden) and cover the
+ * middle of the words' box `r`, nearest first: what paints between the parent's own background and the words.
+ */
+function coveringSiblings(child: Element, r: DOMRect): Element[] {
+  const out: Element[] = []
+  const cx = r.left + r.width / 2
+  const cy = r.top + r.height / 2
+  /* A laid-over sibling paints under a branch that is itself positioned and later (or under anything, at a z-index below 0). */
+  const branchPositioned = getComputedStyle(child).position !== "static"
+  for (let s = child.previousElementSibling; s; s = s.previousElementSibling) {
+    if (s.matches("script,style,template,svg,[data-legible-skip],[data-skin-scene]")) continue
+    const cs = getComputedStyle(s)
+    if (cs.position !== "absolute" && cs.position !== "fixed") continue
+    if (!branchPositioned && !(parseInt(cs.zIndex) < 0)) continue
+    if (cs.display === "none" || cs.visibility !== "visible" || parseFloat(cs.opacity) === 0) continue
+    const b = s.getBoundingClientRect()
+    if (cx < b.left || cx > b.right || cy < b.top || cy > b.bottom) continue
+    out.push(s)
+  }
+  return out
+}
+
+/**
  * What is painted under `el`'s words: the backgrounds of `el` and its ancestors, top down, until an opaque one,
  * composited. `photo` when a picture (a url other than a drawn svg) is reached first: no colour can be promised there.
  * `opacity` is what the ancestors between the words and their ground fade the words by.
@@ -503,8 +526,38 @@ export function groundUnder(el: Element, cache: GroundCache = new Map()): Ground
   let photo = false
   let done = false
   let owner: Element | null = null
-  for (let node: Element | null = el; node && !done; node = node.parentElement) {
+  let child: Element | null = null
+  for (let node: Element | null = el; node && !done; child = node, node = node.parentElement) {
     owner = node
+    /*
+      Wave 11: a layer drawn beside the words rather than under them in the tree (a picture card's shade, a
+      product's photo and its fade): an earlier sibling of the words' branch, laid over its parent and under the
+      words, is painted under them. The owner's Classic 98 "My Link" was dark words on such a navy shade.
+    */
+    const laid = child ? coveringSiblings(child, r) : []
+    for (const sib of laid) {
+      if (done) break
+      if (sib.tagName === "IMG" || sib.tagName === "VIDEO" || sib.tagName === "PICTURE" || sib.querySelector("img, video")) {
+        photo = true
+        done = true
+        break
+      }
+      for (const e of entriesOf(sib, cache).entries) {
+        if ("photo" in e) {
+          photo = true
+          done = true
+          break
+        }
+        const colors = e.stops ? (e.stops.axis === "y" ? colorsBetween(e.stops, r.top - e.stops.from, r.bottom - e.stops.from) : colorsBetween(e.stops, r.left - e.stops.from, r.right - e.stops.from)) : e.colors
+        full.push(colors)
+        if (!e.sheen) stack.push(colors)
+        if (colors.every((c) => c.a >= 0.999)) {
+          done = true
+          break
+        }
+      }
+    }
+    if (done) break
     const info = entriesOf(node, cache)
     for (const e of info.entries) {
       if ("photo" in e) {
@@ -581,6 +634,25 @@ function skipMemo(el: Element, memo: Map<Element, boolean>): boolean {
   return v
 }
 
+/**
+ * Wave 11: a button being used right now (the pointer on it or on the card that holds it, or pressed). Its words are
+ * in their hover colours, on a fill this measure does not see (a pseudo element): measured now, they would be
+ * "fixed" against the rest colour under them, and the fix would hold through the hover (the owner's Classic 98
+ * product button: navy on hover with black words; Grunge Zine's: pale grey on paper). The guard leaves it as it was
+ * and measures it again once the pointer has left (the hover's own transition ending wakes it).
+ */
+const BUTTONISH = ".op-btn, [data-product-cta], [data-hover]"
+function engagedButton(el: Element): Element | null {
+  const b = el.closest(BUTTONISH)
+  if (!b) return null
+  try {
+    if (b.matches(":hover, :active") || b.closest(".op-host, .op-demo")?.matches(":hover, :active")) return b
+  } catch {
+    /* A browser without these selectors (a test's DOM): nothing is in use. */
+  }
+  return null
+}
+
 export function findIllegible(root: ParentNode): LegibleFinding[] {
   const cache: GroundCache = new Map()
   const memo = new Map<Element, boolean>()
@@ -589,6 +661,7 @@ export function findIllegible(root: ParentNode): LegibleFinding[] {
   const all = root.querySelectorAll("*")
   for (const el of all) {
     if (skipMemo(el, skipped)) continue
+    if (engagedButton(el)) continue
     const field = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
     if (field && el instanceof HTMLInputElement && /^(checkbox|radio|hidden|range|color|file|submit|button|image)$/.test(el.type)) continue
     const text = field ? "" : ownText(el)
@@ -641,11 +714,21 @@ export function findIllegible(root: ParentNode): LegibleFinding[] {
 
 const NUDGED = "data-op-legible"
 const PLACEHOLDER_VAR = "--op-legible-ph"
+/* The words a Fill or Pop hover puts on its fill (lib/onepage/button-style buttonHoverVars, app/globals.css .op-btn). */
+const FILL_TEXT = "--op-fill-text"
+/**
+ * A colour the guard sets on words: what a hovered Fill or Pop button defines as --op-hover-ink (its fill's words)
+ * while it is hovered, else this colour. An inline !important colour is beyond any stylesheet, so without this a
+ * word the guard darkened for the rest state would stay dark on the hover's dark fill.
+ */
+export const inkVar = (c: string) => `var(--op-hover-ink, ${c})`
 
 /** Takes back every colour the guard set under `root`, so the next pass measures what the page itself draws. */
 export function releaseLegibility(root: ParentNode): void {
   for (const el of root.querySelectorAll(`[${NUDGED}]`)) {
     const h = el as HTMLElement
+    /* A button in use keeps what the guard gave it until the pointer leaves (engagedButton). */
+    if (engagedButton(h)) continue
     const what = h.getAttribute(NUDGED) || ""
     if (what.includes("c")) {
       h.style.removeProperty("color")
@@ -660,12 +743,23 @@ export function releaseLegibility(root: ParentNode): void {
     if (what.includes("o")) h.style.removeProperty("opacity")
     if (what.includes("h")) h.style.removeProperty("text-shadow")
     if (what.includes("p")) h.style.removeProperty(PLACEHOLDER_VAR)
+    if (what.includes("w")) h.removeAttribute(WHOLE_ON_HOVER)
+    if (what.includes("f")) {
+      h.style.removeProperty(FILL_TEXT)
+      const was = h.dataset.opLegibleFill
+      if (was) h.style.setProperty(FILL_TEXT, was)
+      delete h.dataset.opLegibleFill
+    }
     h.removeAttribute(NUDGED)
   }
 }
 
-/** The rule that lets the guard colour a placeholder (inline styles cannot reach ::placeholder). */
-export const LEGIBLE_CSS = `[${NUDGED}*="p"]::placeholder{color:var(${PLACEHOLDER_VAR}) !important;-webkit-text-fill-color:var(${PLACEHOLDER_VAR}) !important;opacity:1 !important}`
+const WHOLE_ON_HOVER = "data-op-hover-whole"
+/**
+ * The rule that lets the guard colour a placeholder (inline styles cannot reach ::placeholder), and the one that shows
+ * a faded line whole on a hover's fill (findHoverPairs: a PDF button's "View PDF" at 70% on a red fill).
+ */
+export const LEGIBLE_CSS = `[${NUDGED}*="p"]::placeholder{color:var(${PLACEHOLDER_VAR}) !important;-webkit-text-fill-color:var(${PLACEHOLDER_VAR}) !important;opacity:1 !important}@media (hover: hover) and (pointer: fine){:is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn):is([data-hover="fill"], [data-hover="pop"]) [${WHOLE_ON_HOVER}]{opacity:1 !important}}`
 
 /**
  * Words all but invisible (under 2:1: white on a white window) have no colour of their own worth keeping: they take
@@ -728,8 +822,8 @@ export function guardLegibility(root: ParentNode): LegibleFinding[] {
         const was = h.style.getPropertyValue("color")
         if (was) h.dataset.opLegibleWas = h.style.getPropertyPriority("color") === "important" ? `${was} !important` : was
       }
-      h.style.setProperty("color", toCss(fixed), "important")
-      h.style.setProperty("-webkit-text-fill-color", toCss(fixed), "important")
+      h.style.setProperty("color", inkVar(toCss(fixed)), "important")
+      h.style.setProperty("-webkit-text-fill-color", inkVar(toCss(fixed)), "important")
       marks.add("c")
       if (f.alsoHalo) {
         outline(h, fixed, ground)
@@ -741,6 +835,106 @@ export function guardLegibility(root: ParentNode): LegibleFinding[] {
       }
     }
     h.setAttribute(NUDGED, [...marks].join(""))
+  }
+  guardHoverPairs(root)
+  return found
+}
+
+/** A Fill or Pop hover that would not read: the button, its fill and its words as they are, and the words that would. */
+export type HoverFinding = { el: HTMLElement; text: string; fill: string; ratio: number; min: number; fixed: string; faded: HTMLElement[] }
+
+/**
+ * THE HOVER'S PAIR (wave 11). A Fill or Pop button's hover paints a layer over the button (app/globals.css
+ * .op-btn::after, ::before on a highlighted link, a skin's gel, gloss or sunset over it) and turns every word in it to
+ * --op-fill-text. Measured here at rest, from the layer's computed paint (a pseudo element at no opacity still has
+ * it): when the words would not read on it, --op-fill-text is set to the nearest colour that does, so no hover can be
+ * unreadable, whatever the theme, the skin or the creator's own hover colours say.
+ */
+export function findHoverPairs(root: ParentNode): HoverFinding[] {
+  const out: HoverFinding[] = []
+  const cache: GroundCache = new Map()
+  for (const el of root.querySelectorAll('.op-btn:is([data-hover="fill"], [data-hover="pop"])')) {
+    const h = el as HTMLElement
+    if (engagedButton(h) || skipMemo(h, new Map())) continue
+    const cs = getComputedStyle(h)
+    if (!visible(h, cs)) continue
+    const layer = getComputedStyle(h, h.classList.contains("animate-onepage-swipe") ? "::before" : "::after")
+    if (!layer || layer.content === "none") continue
+    const under = groundUnder(h, cache)
+    if (under.photo) continue
+    let grounds = under.grounds
+    const paint = (top: Rgba[]) => {
+      const next: Rgba[] = []
+      for (const t of top) for (const g of grounds) next.push({ ...over(t, g), a: 1 })
+      grounds = next.length <= 8 ? next : next.sort((a, b) => luminance(a) - luminance(b)).filter((_, i, a) => i === 0 || i === a.length - 1 || i % Math.ceil(a.length / 6) === 0)
+    }
+    const bg = parseColor(layer.backgroundColor)
+    if (bg && bg.a > 0) paint([bg])
+    const image = layer.backgroundImage
+    if (image && image !== "none") {
+      /* Bottom layer first: a computed background-image lists the top one first. */
+      const layers = splitLayers(image).reverse()
+      for (const l of layers) {
+        if (/^url\(/i.test(l)) {
+          if (!/^url\(["']?data:image\/svg\+xml/i.test(l)) grounds = []
+          continue
+        }
+        const colors = gradientColors(l)
+        /* A gloss of only translucent white or black (a gel's highlight) is a sheen: the words read on the colour under it, as at rest. */
+        const sheen = colors.every((c) => c.a < 1 && ((c.r > 250 && c.g > 250 && c.b > 250) || (c.r < 5 && c.g < 5 && c.b < 5) || c.a === 0))
+        if (colors.length && !sheen) paint(colors)
+      }
+      if (!grounds.length) continue
+    }
+    const raw = cs.getPropertyValue(FILL_TEXT).trim()
+    const text = parseColor(raw)
+    if (!text || text.a === 0) continue
+    const label = h.querySelector(".op-label") || h
+    const lcs = label === h ? cs : getComputedStyle(label)
+    const min = minimumFor(parseFloat(lcs.fontSize) || 16, parseInt(lcs.fontWeight) || 400)
+    const ratio = Math.min(...grounds.map((g) => contrast({ ...text, a: 1 }, g)))
+    const fixed = ratio + 0.01 < min ? nudgeOn({ ...text, a: 1 }, grounds, min) : { ...text, a: 1 }
+    /* Words the button draws faded (a second line at 70%) that would not read faded on the fill: whole on hover. */
+    const faded: HTMLElement[] = []
+    for (const w of h.querySelectorAll("*")) {
+      if (!ownText(w) || w.closest("svg")) continue
+      let fade = 1
+      let dim: HTMLElement | null = null
+      for (let a: Element | null = w; a && a !== h; a = a.parentElement) {
+        const o = parseFloat(getComputedStyle(a).opacity)
+        if (o < 0.999) {
+          fade *= o
+          dim = a as HTMLElement
+        }
+      }
+      if (!dim || fade < 0.05) continue
+      const wcs = getComputedStyle(w)
+      const wmin = minimumFor(parseFloat(wcs.fontSize) || 16, parseInt(wcs.fontWeight) || 400)
+      if (Math.min(...grounds.map((g) => contrast({ ...fixed, a: fade }, g))) + 0.01 < wmin) faded.push(dim)
+    }
+    if (ratio + 0.01 < min || faded.length) out.push({ el: h, text: toCss(text), fill: toHex(grounds[0]), ratio: Math.round(ratio * 100) / 100, min, fixed: ratio + 0.01 < min ? toCss(fixed) : "", faded })
+  }
+  return out
+}
+
+function guardHoverPairs(root: ParentNode): HoverFinding[] {
+  const found = findHoverPairs(root)
+  for (const f of found) {
+    for (const d of f.faded) {
+      d.setAttribute(WHOLE_ON_HOVER, "")
+      const dm = new Set((d.getAttribute(NUDGED) || "").split("").filter(Boolean))
+      dm.add("w")
+      d.setAttribute(NUDGED, [...dm].join(""))
+    }
+    if (!f.fixed) continue
+    const marks = new Set((f.el.getAttribute(NUDGED) || "").split("").filter(Boolean))
+    if (!marks.has("f")) {
+      const was = f.el.style.getPropertyValue(FILL_TEXT)
+      if (was) f.el.dataset.opLegibleFill = was
+    }
+    f.el.style.setProperty(FILL_TEXT, f.fixed, "important")
+    marks.add("f")
+    f.el.setAttribute(NUDGED, [...marks].join(""))
   }
   return found
 }

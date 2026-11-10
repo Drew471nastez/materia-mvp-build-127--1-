@@ -61,6 +61,13 @@ function scene(skin, p) {
     font: 400 15px/1 ${p.display}; letter-spacing: .14em; color: ${p.second === BLACK ? BLACK : p.second}; opacity: .9;`)
 }
 
+/*
+ * Wave 11: a product's button sits on a taped paper card, so its hover is ink, never paper: paper on paper took the
+ * button away (the owner's Grunge Zine card, "faded paper on paper"). Black on the red Zine, a lifted grey on the
+ * black of plain Grunge, light words on both.
+ */
+const CTA_HOVER = (p) => (p.second === BLACK ? "#3a3a3a" : BLACK)
+
 function material(skin, p) {
   const G = S(skin)
   comment(`${skin}: bars cut from paper, taped paper cards, xeroxed pictures, a distressed name.`)
@@ -77,10 +84,11 @@ function material(skin, p) {
     promise(skin, "a red bar", p.secondInk, [p.second])
   }
   rule(`${G} ${CTA}`, `
-    background-color: ${p.second} !important; color: ${p.secondInk} !important; --op-fill: ${p.paper} !important; --op-fill-text: ${BLACK} !important;
+    background-color: ${p.second} !important; color: ${p.secondInk} !important; --op-fill: ${CTA_HOVER(p)} !important; --op-fill-text: ${LIGHT} !important;
     background-image: ${SPECKS}; background-size: 200px 200px; border: 2px solid ${p.second} !important;
     text-transform: uppercase; letter-spacing: .1em; font-weight: 700; clip-path: ${TORN};`)
   promise(skin, "a cut button", p.secondInk, [p.second])
+  promise(skin, "a cut button on hover", LIGHT, [CTA_HOVER(p)])
   rule(`${G} :is(${CARD}, ${FAQ}, ${SURF})`, `
     background-color: ${p.paper} !important; background-image: ${TAPE}; background-size: 74px 16px; background-position: 50% 0; background-repeat: no-repeat;
     border: 2px solid ${BLACK} !important; border-radius: 0 !important;

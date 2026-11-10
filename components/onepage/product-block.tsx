@@ -545,7 +545,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
             {picture("absolute inset-0 h-full w-full", undefined)}
             <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_35%,rgba(0,0,0,0.72)_100%)]" />
             <span className="absolute inset-x-0 bottom-0 flex items-end gap-3 p-4">
-              <span className="min-w-0 flex-1">
+              <span className="min-w-0 flex-1" data-on-photo="">
                 <ProductTitle block={block}>
               <span className="line-clamp-2 text-[17px] font-semibold leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.3)]" data-block-title="">{title}</span>
             </ProductTitle>

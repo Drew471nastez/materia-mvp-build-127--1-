@@ -219,7 +219,13 @@ export function buttonHoverVars(theme: ButtonThemeLike): CSSProperties {
   const ownText = validColour(theme.button_hover_text)
   const inkOn = (c: string) => ((luminance(c) ?? 0) > 0.6 ? "#111113" : "#ffffff")
   const fillWith = ownFill ?? (fill === "filled" ? (theme.button_text_color as string) : accent)
-  const fillText = ownText ?? (ownFill ? inkOn(ownFill) : fill === "filled" ? accent : inkOn(accent))
+  const wantText = ownText ?? (ownFill ? inkOn(ownFill) : fill === "filled" ? accent : inkOn(accent))
+  /*
+    Wave 11, ONE HOVER: the pair is worked out here, once, and it reads. A creator's own hover words that vanish
+    on their own hover fill (white on white, navy on navy), or a filled button whose two colours are too close to
+    swap, get the nearest words of the same hue that do (readableOn), as every other word on the page does.
+  */
+  const fillText = /^#[0-9a-f]{6}$/i.test(String(fillWith)) && /^#[0-9a-f]{6}$/i.test(String(wantText)) ? readableOn(fillWith, wantText, wantText) : wantText
   return {
     ["--op-bw" as string]: `${width}px`,
     ["--op-accent" as string]: accent,

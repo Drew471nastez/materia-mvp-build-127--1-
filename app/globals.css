@@ -2805,7 +2805,19 @@ html.capacitor .subscribe-bar-spacer {
    buttonHoverVars() in lib/onepage/button-style.ts. Pointer devices only: a
    phone's tap never leaves a button stuck lifted.
    .op-demo:hover drives the same rules for the samples in the Design tab, and
-   .op-host:hover for the button inside a product card (the card stays still). */
+   .op-host:hover for the button inside a product card (the card stays still).
+
+   WAVE 11, ONE HOVER. The owner: "the double hover changing the text colour".
+   A Fill or Pop hover is one pair, worked out once: the fill (--op-fill, or
+   the layer a skin paints over it) and the words on it (--op-fill-text, made
+   to read on the fill by lib/onepage/button-style buttonHoverVars and, on the
+   page, by lib/onepage/legible's guard). On hover EVERY word and icon in the
+   button takes --op-fill-text (the button's, inherited as it fades), so no
+   word keeps a rest colour of its own on the fill. Anything that must set a word's colour inline and !important (the
+   guard, a creator's own colour over a skin) writes it as
+   `var(--op-hover-ink, <its colour>)`: --op-hover-ink is only defined on a
+   hovered Fill or Pop button, so at rest it is that colour, on hover the
+   pair's words. Nothing else changes a button's words on hover. */
 .op-btn {
   position: relative;
   isolation: isolate;
@@ -2905,11 +2917,12 @@ html.capacitor .subscribe-bar-spacer {
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fade"] { opacity: 0.8; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="zoom"] { scale: 1.03; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="glow"]::before { opacity: 1; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fill"] { color: var(--op-fill-text, inherit) !important; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn):is([data-hover="fill"], [data-hover="pop"]) { --op-hover-ink: var(--op-fill-text); color: var(--op-fill-text, inherit) !important; text-shadow: none; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn):is([data-hover="fill"], [data-hover="pop"]) :not(svg *, img) { color: inherit !important; text-shadow: none; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fill"]:not(.animate-onepage-swipe)::after { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn).animate-onepage-swipe[data-hover="fill"]::before { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="underline"] .op-label::after { scale: 1 1; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"] { translate: 0 -2px; color: var(--op-fill-text, inherit) !important; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"] { translate: 0 -2px; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"][data-shadow="hard"] { translate: -2px -2px; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"]::before { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"]:not(.animate-onepage-swipe)::after { opacity: 1; }

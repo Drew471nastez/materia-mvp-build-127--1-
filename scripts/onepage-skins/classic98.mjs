@@ -110,8 +110,12 @@ function css_container() {
   css.push(`@container (min-width: 1000px) {\n  ${SCENE("classic98")} [data-sk="icon"] { display: block; }\n}`)
 }
 
-/* Hover: the selection navy with white words, as the era highlighted an item. */
+/*
+ * Hover: the selection navy with white words, as the era highlighted an item. Wave 11 (ONE HOVER): said as the
+ * hover's pair (--op-fill, --op-fill-text, app/globals.css .op-btn), not as a colour rule of its own that fought the
+ * page's: every grey button, a product's and a form's included, highlights the same way.
+ */
 function css_hover(W) {
-  css.push(`${HOVER} {\n  ${W} ${HOVERED}:is([data-hover="fill"], [data-hover="pop"]) { color: #ffffff !important; }\n}`)
+  rule(`${W} :is(${LINK}, ${CTA})`, `--op-fill: ${NAVY} !important; --op-fill-text: #ffffff !important;`)
   promise("classic98", "a highlighted button", "#ffffff", [NAVY])
 }

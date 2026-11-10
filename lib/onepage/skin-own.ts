@@ -83,13 +83,21 @@ const RAISE: Record<SkinOwnGroup, { boxes: string; props: string[]; clear?: Reco
 
 const MARK = "data-sk-raised"
 
+/*
+ * Wave 11: a button's own words raised to !important are written as var(--op-hover-ink, <colour>), so a Fill or Pop
+ * hover (app/globals.css .op-btn, ONE HOVER) still turns them to its fill's words: an inline !important colour is
+ * beyond every stylesheet, and the creator's rest colour on the hover's fill was the owner's "double hover".
+ */
+const INK = /^var\(--op-hover-ink,\s*(.*)\)$/
+const unwrapInk = (v: string) => (INK.exec(v.trim())?.[1] ?? v).trim()
+
 /** Takes back what honourOwnStyles raised or cleared (a theme picked again, a group no longer the creator's). */
 function lower(h: HTMLElement): void {
   for (const entry of (h.getAttribute(MARK) || "").split(";").filter(Boolean)) {
     const [how, p] = entry.split(":")
     if (how === "c") h.style.removeProperty(p)
     else {
-      const v = h.style.getPropertyValue(p)
+      const v = unwrapInk(h.style.getPropertyValue(p))
       if (v) h.style.setProperty(p, v)
     }
   }
@@ -116,7 +124,7 @@ export function honourOwnStyles(doc: ParentNode): void {
           if (!v) continue
           raised = true
           if (h.style.getPropertyPriority(p) !== "important") {
-            h.style.setProperty(p, v, "important")
+            h.style.setProperty(p, p === "color" ? `var(--op-hover-ink, ${unwrapInk(v)})` : v, "important")
             done.add(`r:${p}`)
           }
         }
