@@ -174,7 +174,9 @@ export function tokensFromDesignMd(md: DesignMdTokens, current: DesignTokens): {
   const h4 = px(md.typography["title-md"]?.fontSize)
   const h1 = px(md.typography["headline-lg"]?.fontSize)
   let typeScale = current.typeScale
-  if (basePx && basePx >= 12 && basePx <= 22) {
+  const sameScale = !!current.typeScale && basePx === current.typeScale.base && (h4 === null || h4 === r(current.typeScale.base * current.typeScale.ratio))
+  if (sameScale) typeScale = current.typeScale
+  else if (basePx && basePx >= 12 && basePx <= 22) {
     const ratio = h4 ? h4 / basePx : h1 ? (h1 / basePx) ** (1 / 5) : (current.typeScale?.ratio ?? 1.25)
     typeScale = { base: r(basePx), ratio: Math.min(1.6, Math.max(1.05, Math.round(ratio * 100) / 100)) }
   } else if (md.typography["body-md"]?.fontSize) notes.push(`typography.body-md.fontSize: "${md.typography["body-md"].fontSize}" is not a size between 12px and 22px`)

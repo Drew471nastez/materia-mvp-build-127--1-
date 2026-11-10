@@ -197,7 +197,7 @@ export const ART_DIRECTIONS: readonly ArtDirection[] = [
     serif: false,
     palettes: [
       P("Cobalt and sun", "light", "#fff9e8", "#ffefc2", "#16161a", "#4c4c52", "#2547ff", "#ffffff", "#e6dcc0", { background: "#2547ff", text: "#fff9e8", accent: "#ffd23f" }),
-      P("Mint pop", "light", "#effaf4", "#d9f2e5", "#10201a", "#41554c", "#e8362d", "#ffffff", "#c4e1d2", { background: "#10201a", text: "#effaf4", accent: "#7cf2b0" }),
+      P("Mint pop", "light", "#effaf4", "#d9f2e5", "#10201a", "#41554c", "#c8261e", "#ffffff", "#c4e1d2", { background: "#10201a", text: "#effaf4", accent: "#7cf2b0" }),
     ],
     matrix: { hero: "strong-diagonal", grid: "modular", images: "vector", dividers: "color-bands", density: "balanced", shape: "organic", motion: "interactive" },
     motion: "expressive",
@@ -301,7 +301,7 @@ export const ART_DIRECTIONS: readonly ArtDirection[] = [
     serif: true,
     palettes: [
       P("Washi", "light", "#f5f5f2", "#ebebe6", "#1c1c1a", "#575752", "#b3261e", "#ffffff", "#d6d6cf"),
-      P("Sumi", "dark", "#161615", "#20201e", "#ecebe6", "#a3a29c", "#d9483b", "#161615", "#33332f"),
+      P("Sumi", "dark", "#161615", "#20201e", "#ecebe6", "#a3a29c", "#e8604f", "#161615", "#33332f"),
     ],
     matrix: { hero: "inset-stage", grid: "field", images: "product-close-up", dividers: "none", density: "airy", shape: "square", motion: "still" },
     motion: "quiet",
@@ -605,7 +605,7 @@ export const ART_DIRECTIONS: readonly ArtDirection[] = [
     typeSystems: ["geometric-pop", "neo-grotesk", "characterful-grotesk"],
     serif: false,
     palettes: [
-      P("Tiles", "light", "#f3f3ef", "#ffffff", "#141414", "#555551", "#ff4f1f", "#ffffff", "#dcdcd6", { background: "#141414", text: "#f3f3ef", accent: "#ffb21f" }),
+      P("Tiles", "light", "#f3f3ef", "#ffffff", "#141414", "#555551", "#ff4f1f", "#141414", "#dcdcd6", { background: "#141414", text: "#f3f3ef", accent: "#ffb21f" }),
       P("Night tiles", "dark", "#111214", "#1c1d20", "#eeeeec", "#a2a3a6", "#7ad3ff", "#111214", "#2c2d31"),
     ],
     matrix: { hero: "layered-magazine", grid: "modular", images: "product-close-up", dividers: "none", density: "dense", shape: "softened", motion: "reveal" },
@@ -681,7 +681,7 @@ export const ART_DIRECTIONS: readonly ArtDirection[] = [
     typeSystems: ["slab-workshop", "gothic-poster", "athletic-numerals"],
     serif: false,
     palettes: [
-      P("Oiled steel", "dark", "#141414", "#1f1f1f", "#f0ede6", "#a3a09a", "#d64b2a", "#ffffff", "#333333"),
+      P("Oiled steel", "dark", "#141414", "#1f1f1f", "#f0ede6", "#a3a09a", "#b83a1c", "#ffffff", "#333333"),
       P("Sawdust", "light", "#f1ede6", "#e5ded3", "#1f1c18", "#57514a", "#2e5a3c", "#ffffff", "#d3cabd"),
     ],
     matrix: { hero: "anchored-side", grid: "modular", images: "texture", dividers: "hairline", density: "balanced", shape: "square", motion: "still" },

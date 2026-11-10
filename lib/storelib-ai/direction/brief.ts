@@ -428,9 +428,10 @@ export function briefFrom(prompt: string, options?: BriefOptions | null, caps?: 
   const text = norm(words)
   const assumptions: string[] = []
 
-  /* O5's story first (the shared classifier), then the finer kind this file's words name. */
-  const story = classifyStory({ prompt: words, category: options?.category ?? null })
-  const storyMatched = story.match.test(words) || story.match.test(String(options?.category ?? "").replace(/_/g, " "))
+  /* O5's story (the shared classifier) and the finer kind this file's words name; each fills in for the other. */
+  const fromWords = classifyStory({ prompt: words, category: options?.category ?? null })
+  const storyMatched = fromWords.match.test(words) || fromWords.match.test(String(options?.category ?? "").replace(/_/g, " "))
+  const story0 = fromWords
   let kind: BusinessKind = "general"
   for (const [k, list] of KIND_WORDS) {
     if (found(text, list).length) {
@@ -438,10 +439,12 @@ export function briefFrom(prompt: string, options?: BriefOptions | null, caps?: 
       break
     }
   }
-  if (kind === "general" && storyMatched && STORY_KIND[story.id]) kind = STORY_KIND[story.id]
+  if (kind === "general" && storyMatched && STORY_KIND[story0.id]) kind = STORY_KIND[story0.id]
   if (kind === "general" && options?.category && CATEGORY_KIND[options.category]) kind = CATEGORY_KIND[options.category]
   if (kind === "general") assumptions.push("The kind of business was not clear, so the brief treats it as a general business.")
 
+  /* The story again with the business named plainly first, as O5's classifier reads a brief's businessType ("personal training" is the fitness story). */
+  const story = kind === "general" ? story0 : classifyStory({ businessType: KIND_LABEL[kind], category: options?.category ?? null, prompt: words })
   const objectives = OBJECTIVE_WORDS.filter(([, list]) => found(text, list).length).map(([o]) => o)
   const bookingForms = (caps?.forms ?? []).filter((f) => f.booking || f.kind === "booking").length
   const products = caps?.products?.length ?? 0

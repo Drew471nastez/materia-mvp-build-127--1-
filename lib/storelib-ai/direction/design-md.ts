@@ -89,6 +89,7 @@ function scalar(v: unknown): string {
   if (typeof v === "boolean") return v ? "true" : "false"
   const s = String(v ?? "")
   /* Plain where it is unambiguous (a font name, a word); otherwise JSON quoting, which is valid YAML. */
+  if (/^-?\d+(\.\d+)?(px|rem|em)$/.test(s)) return s
   if (PLAIN_SAFE.test(s) && !/^(true|false|null|yes|no|on|off|~)$/i.test(s) && !/ $/.test(s)) return s
   return JSON.stringify(s)
 }

@@ -126,7 +126,9 @@ async function main() {
   section("3. The files: ai_ .storelib components, drafts, compiled, history says ai")
   const { compileSection } = await import("@/lib/storelib-theme/storelib/compile")
   const files = installFiles(w, installId)
-  const paths = Object.keys(files).sort()
+  /* Changed on purpose (round O, O2): the site's design contract, DESIGN.md, sits beside the components (a draft, author ai); the section files are counted apart from it. */
+  const paths = Object.keys(files).filter((p) => p !== "DESIGN.md").sort()
+  check("the design contract DESIGN.md is a draft beside them, in Google's format", !!files["DESIGN.md"]?.draft && !files["DESIGN.md"].content && /^---\nversion: alpha\n/.test(files["DESIGN.md"].draft ?? ""))
   check("fifteen section files (a home of ten, the two templates), every one ai_ and .storelib", paths.length === 15 && paths.every((p) => /^sections\/ai_[a-z0-9_]+\.storelib$/.test(p)), paths)
   check("  drafts only: nothing live before Publish", paths.every((p) => !files[p].content && !!files[p].draft))
   check("  each compiles with the real compiler", paths.every((p) => compileSection(files[p].draft ?? "").ok), paths.map((p) => [p, compileSection(files[p].draft ?? "").ok]))
