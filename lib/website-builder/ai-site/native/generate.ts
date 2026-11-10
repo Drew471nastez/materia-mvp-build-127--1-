@@ -39,6 +39,8 @@ export const NATIVE_PROMPT_VERSION = "native-r2.1"
 export const NATIVE_MAX_REPAIRS = 2
 export const NATIVE_CALL_TIMEOUT_MS = 170_000
 export const NATIVE_MAX_OUTPUT_TOKENS = 32_000
+/** A repair is not started with less time than this left before the job hands over. */
+export const NATIVE_MIN_REPAIR_MS = 60_000
 /** Issues quoted back in one repair turn, at most. */
 const MAX_ISSUES_SENT = 40
 
@@ -206,13 +208,15 @@ export async function generateNativeSite(input: NativeGenerateInput, deps: Nativ
   let attempts = 0
   let lastError = ""
   for (let attempt = 0; attempt <= maxRepairs; attempt++) {
-    /* A repair is only started when a whole call still fits before the job hands over. */
-    if (attempt > 0 && deps.deadline && now() + timeoutMs > deps.deadline) break
+    /* A call is only started with time for a real answer before the job hands over, and is cut at the hand-over. */
+    const left = deps.deadline ? deps.deadline - now() - 5_000 : Infinity
+    if (attempt > 0 && left < NATIVE_MIN_REPAIR_MS) break
+    const callTimeout = Math.max(1, Math.min(timeoutMs, left))
     attempts++
     let text = ""
     let issuesBefore: { path: string; message: string }[] = []
     try {
-      const r = await callOnce(deps.model, { system, user, tools: [tool], maxOutputTokens: NATIVE_MAX_OUTPUT_TOKENS, timeoutMs, signal: deps.signal })
+      const r = await callOnce(deps.model, { system, user, tools: [tool], maxOutputTokens: NATIVE_MAX_OUTPUT_TOKENS, timeoutMs: callTimeout, signal: deps.signal })
       spend = addSpend(spend, deps.model.model, r.usage)
       const call = r.toolCalls.find((c) => c.name === NATIVE_TOOL)
       text = call ? call.argumentsJson : r.text

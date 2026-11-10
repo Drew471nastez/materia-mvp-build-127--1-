@@ -241,7 +241,7 @@ async function main() {
   check("a call that hangs is cut at its timeout, and said", /aborted by timeout/.test(timedOut) && Date.now() - t0 < 5_000, timedOut)
   const late = { native: [] as ProviderRequest[], other: [] as CallLog[] }
   const r3 = await generateNativeSite({ request: fit.prompt, ctx: ctxFor(fit.caps, fit.prompt) }, { model: { provider: scripted([broken, fit.answer], late), model: PLAN_MODEL }, deadline: Date.now() + 10_000 })
-  check("no repair starts when a whole call would not fit before the job hands over", r3.attempts === 1 && late.native.length === 1)
+  check("no repair starts with less than a minute left before the job hands over", r3.attempts === 1 && late.native.length === 1)
 
   /* ── 5 ─────────────────────────────────────────────────────────────── */
   section("5. The classic job with the native engine")
