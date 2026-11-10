@@ -31,8 +31,8 @@ tags: chrome kit, header, announcement bar, announcement, promo bar, ticker, mar
         <div class="han__menu"><button class="han__opt" type="button" data-storelib-currency-option hidden><span data-option-label></span></button></div>
       </details>
       {% endif %}
-      <a class="han__tool" href="{{ routes.search_url }}" data-storelib-search>{{ settings.search_label }}</a>
-      <a class="han__tool" href="{{ routes.cart_url }}" data-storelib-cart>{{ settings.cart_label }} <span class="han__count" data-storelib-cart-count></span></a>
+      <a class="han__tool" href="{{ routes.search_url }}" data-storelib-search aria-label="{{ settings.search_label }}"><span data-storelib-icon="search" aria-hidden="true"></span><span class="han__word">{{ settings.search_label }}</span></a>
+      <a class="han__tool" href="{{ routes.cart_url }}" data-storelib-cart aria-label="{{ settings.cart_label }}"><span data-storelib-icon="bag" aria-hidden="true"></span><span class="han__word">{{ settings.cart_label }}</span> <span class="han__count" data-storelib-cart-count></span></a>
     </div>
   </div>
 </header>
@@ -91,6 +91,9 @@ tags: chrome kit, header, announcement bar, announcement, promo bar, ticker, mar
   .han__pick { display: block; }
   .han__pick[hidden] { display: none; }
 }
+/* Round Q: the tools are icons (the page draws them: data-storelib-icon); their words stay for a screen reader. */
+.han__tool { position: relative; }
+.han__word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 </style>
 
 <schema>

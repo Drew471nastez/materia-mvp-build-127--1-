@@ -118,10 +118,13 @@ function instanceOf(id: string): SectionInstance {
   return { id, type: id, name: id, settings, blocks, ...(group ? { group } : {}) } as unknown as SectionInstance
 }
 
-function draw(id: string): { id: string; html: string; css: string } {
-  const out = renderStorelibSection(instanceOf(id), THEME, { template: "index" }, { [`sections/${id}.storelib`]: sourceOf(id) }, PRODUCTS as never, DATA)
+function draw(id: string): { id: string; html: string; css: string; group?: string } {
+  const inst = instanceOf(id)
+  const out = renderStorelibSection(inst, THEME, { template: "index" }, { [`sections/${id}.storelib`]: sourceOf(id) }, PRODUCTS as never, DATA)
   if (out.ok === false) throw new Error(`${id} did not draw: ${JSON.stringify(out.errors)}`)
-  return { id, html: out.html, css: out.css }
+  /* Changed on purpose (round Q): the group goes with it, so the probe marks a Header group box as chrome, as SectionRenderer does, and a sticky header can stick. */
+  const group = (inst as { group?: string }).group
+  return { id, html: out.html, css: out.css, ...(group ? { group } : {}) }
 }
 
 /** Six pages composed from the kit: every piece used at least once. */

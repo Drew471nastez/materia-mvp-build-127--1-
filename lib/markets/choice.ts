@@ -70,10 +70,11 @@ export function languageChoiceOf(input: {
     input.fresh && input.markets.length
       ? [{ id: "home", label: currencyLabel(input.base), country: "home", code: input.base.toUpperCase() }, ...input.markets.filter((m) => m.countries.length).map((m) => ({ id: m.id, label: currencyLabel(m.currency), country: naturalCountry(m.currency, m.countries) ?? m.countries[0], code: m.currency.toUpperCase() }))]
       : []
-  const currencies = offered.filter((o) => {
+  /* In the place of the first of its currency, so the store's own stays first. */
+  const currencies = offered.flatMap((o, i) => {
     const same = offered.filter((x) => x.code === o.code)
-    const keep = same.find((x) => x.id === current) ?? same[0]
-    return keep === o
+    if (offered.indexOf(same[0]) !== i) return []
+    return [same.find((x) => x.id === current) ?? same[0]]
   })
   return {
     code,

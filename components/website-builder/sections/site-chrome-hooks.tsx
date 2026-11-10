@@ -233,6 +233,8 @@ function fillMenuLinks(panel: HTMLElement, linksFor: (handle: string) => HookNav
   panel.querySelectorAll(`[${HOST_LINKS}]`).forEach((n) => { if (!n.parentElement?.closest(`[${HOST_LINKS}]`)) n.remove() })
   panel.querySelectorAll("[data-storelib-host-nav]").forEach((n) => n.remove())
   let targets = Array.from(panel.querySelectorAll<HTMLElement>(`[${H.menuLinks}]`))
+  /* A <nav> of its own that drew no link (its menu setting names a menu the site does not have): filled. */
+  if (targets.length === 0) targets = Array.from(panel.querySelectorAll<HTMLElement>("nav")).filter((n) => !n.querySelector("a[href]") && !n.closest("[hidden]"))
   if (targets.length === 0) {
     /* Links of its own, outside the language and currency lists: nothing to add. */
     const own = Array.from(panel.querySelectorAll("a[href]")).filter((a) => !a.closest(`[${H.localeList}],[${H.currencyList}],[hidden]`))

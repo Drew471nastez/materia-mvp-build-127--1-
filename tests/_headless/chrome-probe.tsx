@@ -13,10 +13,12 @@ import { useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { SiteCartProvider } from "@/components/website-builder/site-cart"
 import { StorefrontHooks } from "@/components/website-builder/sections/site-chrome-hooks"
+import { useHeaderScroll } from "@/components/website-builder/sections/header-scroll"
+import { chromePlatformCss } from "@/lib/website-builder/theme-css"
 import { StorefrontProvider, type Storefront } from "@/components/website-builder/theme/storefront-context"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
-type Drawn = { id: string; html: string; css: string }
+type Drawn = { id: string; html: string; css: string; group?: "header" | "footer" }
 type ProbeWindow = Window & { __PROBE__: { sections: Drawn[]; tokens: string }; __ready?: boolean }
 
 const w = window as unknown as ProbeWindow
@@ -41,9 +43,11 @@ const storefront: Storefront = {
 function Section({ drawn }: { drawn: Drawn }) {
   const [root, setRoot] = useState<HTMLElement | null>(null)
   const trigger = useRef<((e: React.MouseEvent<HTMLElement>) => boolean) | null>(null)
-  const section = { id: drawn.id, type: drawn.id, settings: {}, blocks: [] } as unknown as SectionInstance
+  const section = { id: drawn.id, type: drawn.id, settings: {}, blocks: [], ...(drawn.group ? { group: drawn.group } : {}) } as unknown as SectionInstance
+  /* Round Q: the scroll's state on a Header group section, and its box marked chrome, as SectionRenderer and StorelibSection do. */
+  useHeaderScroll(root, { inCanvas: false, header: drawn.group === "header", html: drawn.html })
   return (
-    <div data-section-box="" data-section-type={drawn.id} style={{ containerType: "inline-size" }}>
+    <div data-section-box="" data-section-type={drawn.id} data-chrome={drawn.group ? "" : undefined} style={{ containerType: "inline-size" }}>
       <div style={{ position: "relative", overflowX: "clip" }}>
         {drawn.css ? <style>{drawn.css}</style> : null}
         <div
@@ -61,9 +65,13 @@ function Section({ drawn }: { drawn: Drawn }) {
 createRoot(document.getElementById("app")!).render(
   <StorefrontProvider value={storefront}>
     <SiteCartProvider shopId="shop-1">
-      {w.__PROBE__.sections.map((s) => (
-        <Section key={s.id} drawn={s} />
-      ))}
+      {/* The page root and the part of the theme stylesheet the chrome reads (round Q: what sticks, icons, dropdown switches, drawn menu links). */}
+      <div data-storelib-theme="" style={{ containerType: "inline-size" }}>
+        <style>{chromePlatformCss("[data-storelib-theme]")}</style>
+        {w.__PROBE__.sections.map((s) => (
+          <Section key={s.id} drawn={s} />
+        ))}
+      </div>
     </SiteCartProvider>
   </StorefrontProvider>,
 )

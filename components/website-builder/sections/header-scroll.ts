@@ -39,13 +39,17 @@ export interface ScrollState {
  * The next state from the scroll position. A move under `jitter` pixels
  * changes nothing (a trackpad's tremor must not flash the header); within
  * the header's own height the page is always going "up", so it never hides
- * while it is still the top of the page.
+ * while it is still the top of the page. `resized` is how much the header's
+ * height just changed: a scroll of that much is the browser's scroll
+ * anchoring answering a header that shrank, and changes nothing.
  */
-export function nextScrollState(prev: ScrollState, lastY: number, y: number, headerHeight: number, jitter = 6): ScrollState {
+export function nextScrollState(prev: ScrollState, lastY: number, y: number, headerHeight: number, jitter = 6, resized = 0): ScrollState {
   const scrolled = y > 2
   if (y <= Math.max(headerHeight, 0)) return { scrolled, dir: "up" }
   const d = y - lastY
   if (Math.abs(d) < jitter) return { scrolled, dir: prev.dir }
+  /* The header changed height (a header that shrinks once scrolled) and the browser kept the page still by moving the scroll that much: not the visitor going back up. */
+  if (resized !== 0 && Math.abs(d) <= Math.abs(resized) + 1) return { scrolled, dir: prev.dir }
   return { scrolled, dir: d > 0 ? "down" : "up" }
 }
 
@@ -73,21 +77,23 @@ export function useHeaderScroll(root: HTMLElement | null, opts: { inCanvas: bool
     }
     /* The element that is the header: the one that asked to stick, else the section's first. */
     const headerEl = () => root.querySelector<HTMLElement>("[data-storelib-sticky]") ?? (root.firstElementChild as HTMLElement | null)
-    /* The first section of the page under the header: the next box that is not chrome. */
+    /* The first section of the page under the header: the next box that is not chrome and takes room (a drawer or a popup placed after the header takes none). */
     const hero = () => {
       let el = box?.nextElementSibling ?? null
-      while (el && !(el.hasAttribute("data-section-box") && !el.hasAttribute("data-chrome"))) el = el.nextElementSibling
+      while (el && !(el.hasAttribute("data-section-box") && !el.hasAttribute("data-chrome") && (el as HTMLElement).offsetHeight > 0)) el = el.nextElementSibling
       return el as HTMLElement | null
     }
     let state: ScrollState = { scrolled: false, dir: "up" }
     let lastY = top()
+    let lastH = headerEl()?.offsetHeight ?? 0
     let frame = 0
     const write = () => {
       frame = 0
       const y = top()
       const h = headerEl()?.offsetHeight ?? 0
-      state = nextScrollState(state, lastY, y, h)
+      state = nextScrollState(state, lastY, y, h, 6, h - lastH)
       lastY = y
+      lastH = h
       const hr = headerEl()?.getBoundingClientRect()
       const below = hero()?.getBoundingClientRect()
       const over = !!(hr && below && below.top <= hr.bottom + 1 && below.bottom > hr.bottom)

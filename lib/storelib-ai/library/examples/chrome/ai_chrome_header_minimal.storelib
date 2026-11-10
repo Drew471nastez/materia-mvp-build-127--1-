@@ -7,8 +7,8 @@ tags: chrome kit, header, minimal header, hamburger, full screen menu, fullscree
 <header class="hmn" data-pos="{{ settings.position }}" data-motion="{{ settings.motion }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --hmn-big: {{ settings.menu_size }}; --m-k: calc({{ settings.motion_strength }} / 100);">
   <div class="hmn__bar">
     <a class="hmn__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="140" height="36">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
-    {% if settings.show_search %}<a class="hmn__btn hmn__bag" href="{{ routes.search_url }}" data-storelib-search>{{ settings.search_label }}</a>{% endif %}
-    <a class="hmn__btn hmn__bag" href="{{ routes.cart_url }}" data-storelib-cart>{{ settings.cart_label }} <span class="hmn__count" data-storelib-cart-count></span></a>
+    {% if settings.show_search %}<a class="hmn__btn hmn__bag" href="{{ routes.search_url }}" data-storelib-search aria-label="{{ settings.search_label }}"><span data-storelib-icon="search" aria-hidden="true"></span><span class="hmn__word">{{ settings.search_label }}</span></a>{% endif %}
+    <a class="hmn__btn hmn__bag" href="{{ routes.cart_url }}" data-storelib-cart aria-label="{{ settings.cart_label }}"><span data-storelib-icon="bag" aria-hidden="true"></span><span class="hmn__word">{{ settings.cart_label }}</span> <span class="hmn__count" data-storelib-cart-count></span></a>
     <button class="hmn__btn hmn__open" type="button" data-storelib-menu="{{ settings.menu.handle }}"><span class="hmn__dots" aria-hidden="true"></span>{{ settings.menu_label }}</button>
   </div>
   <div class="hmn__panel" data-storelib-menu-panel aria-label="{{ settings.menu_label }}">
@@ -87,6 +87,9 @@ tags: chrome kit, header, minimal header, hamburger, full screen menu, fullscree
 @media (min-width: 900px) {
   .hmn__body { grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 64px; align-items: end; padding-bottom: 24px; }
 }
+/* Round Q: the tools are icons (the page draws them: data-storelib-icon); their words stay for a screen reader. */
+.hmn__btn { position: relative; }
+.hmn__word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 </style>
 
 <schema>
