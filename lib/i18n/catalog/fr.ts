@@ -13009,7 +13009,14 @@ const words: Record<string, string> = {
  "Nothing new to publish": "Rien de nouveau à publier",
  "Reviewing the design": "Vérification du design",
  "The first screen of your website, as the design review saw it": "Le premier écran de ton site, tel que la vérification du design l'a vu",
- "What the design review looked at": "Ce que la vérification du design a regardé"
+ "What the design review looked at": "Ce que la vérification du design a regardé",
+ "Add a contact email in Settings › Store details, so customers can reply to your emails.": "Ajoute un e-mail de contact dans Paramètres › Détails de la boutique pour que les clients puissent répondre à tes e-mails.",
+ "Your contact email, from Settings › Store details. Customers who reply to any of your emails write here.": "Ton e-mail de contact, dans Paramètres › Détails de la boutique. Les clients qui répondent à l'un de tes e-mails écrivent ici.",
+ "Your support email. Customers who reply to any of your emails write here. Add a contact email in Store details to change it.": "Ton e-mail d'assistance. Les clients qui répondent à l'un de tes e-mails écrivent ici. Ajoute un e-mail de contact dans Détails de la boutique pour le changer.",
+ "Your account email. Customers who reply to any of your emails write here. Add a contact email in Store details to use another.": "L'e-mail de ton compte. Les clients qui répondent à l'un de tes e-mails écrivent ici. Ajoute un e-mail de contact dans Détails de la boutique pour en utiliser un autre.",
+ "One domain for every email your store sends: campaigns, automations and order emails. Set it up once.": "Un seul domaine pour chaque e-mail envoyé par ta boutique : campagnes, automatisations et e-mails de commande. À configurer une fois.",
+ "No inbox needed. Replies go to your reply address, not this one.": "Aucune boîte de réception nécessaire. Les réponses vont à ton adresse de réponse, pas à celle-ci.",
+ "Used for all your emails: campaigns, automations and order emails.": "Utilisé pour tous tes e-mails : campagnes, automatisations et e-mails de commande."
 }
 
 export default words

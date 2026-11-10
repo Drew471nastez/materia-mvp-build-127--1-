@@ -77,7 +77,8 @@ console.log("\nEvery screen that prints the person's own address goes through it
 console.log("\nAnd what is SENT is the owner's own inbox, not the tag\n")
 {
   const queue = read("lib/email-campaigns/queue.ts")
-  check("a campaign's reply to is the owner's address, with Storelib's own behind it", /normalizeAddress\(ownerAddress\(profile\?\.email\)\) \|\| EMAIL_REPLY_TO/.test(queue) && !/normalizeAddress\(profile\?\.email\) \|\| EMAIL_REPLY_TO/.test(queue))
+  /* Changed on purpose (wave 10, the owner: "store emails ... still send replies to support@storelib.com"): the owner's untagged address is still the answer, and nothing stands behind it but no Reply-To at all; Storelib's support inbox is never a store's (tests/emails-reply-w10.test.ts). */
+  check("a campaign's reply to is the owner's address, never Storelib's own behind it", /normalizeAddress\(ownerAddress\(profile\?\.email\)\) \|\| ""/.test(queue) && !/EMAIL_REPLY_TO/.test(queue) && !/normalizeAddress\(profile\?\.email\) \|\|/.test(queue))
 
   const test = read("app/api/email/send-test/route.ts")
   check("  a test may go to the address the composer showed them, and the refusal names that one", /normalizeAddress\(ownerAddress\(ctx\.userEmail\)\),/.test(test) && /ownAddresses\[0\]/.test(test))

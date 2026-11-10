@@ -7,6 +7,7 @@ import "server-only"
  * preview uses (lib/emails/customer-catalog.ts previewCustomerEmail), so a
  * test in the inbox is the preview on screen.
  */
+import { isPlatformReply } from "@/lib/emails/reply-to"
 import { resolveCreatorIdentity } from "@/lib/email"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { orderStoreUrl } from "@/lib/physical/store-link"
@@ -39,7 +40,8 @@ export async function storePreview(db: Db, creatorId: string, id: string, words:
     id,
     {
       name: shopName,
-      supportEmail: store?.email || identity.replyTo || null,
+      /* Never Storelib's own support inbox standing in for a store without one (lib/emails/reply-to.ts). */
+      supportEmail: store?.email || (identity.replyTo && !isPlatformReply(identity.replyTo) ? identity.replyTo : null),
       storeUrl: website || null,
       logoUrl: store?.logoUrl ?? null,
       logoFrom: store?.logoFrom ?? null,

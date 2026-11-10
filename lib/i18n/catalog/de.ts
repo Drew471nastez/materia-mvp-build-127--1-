@@ -13009,7 +13009,14 @@ const words: Record<string, string> = {
  "Nothing new to publish": "Nichts Neues zu veröffentlichen",
  "Reviewing the design": "Das Design wird geprüft",
  "The first screen of your website, as the design review saw it": "Der erste Bildschirm deiner Website, so wie ihn die Design-Prüfung gesehen hat",
- "What the design review looked at": "Was die Design-Prüfung angesehen hat"
+ "What the design review looked at": "Was die Design-Prüfung angesehen hat",
+ "Add a contact email in Settings › Store details, so customers can reply to your emails.": "Füge unter Einstellungen › Shop-Details eine Kontakt-E-Mail hinzu, damit Kunden auf deine E-Mails antworten können.",
+ "Your contact email, from Settings › Store details. Customers who reply to any of your emails write here.": "Deine Kontakt-E-Mail aus Einstellungen › Shop-Details. Kunden, die auf eine deiner E-Mails antworten, schreiben hierhin.",
+ "Your support email. Customers who reply to any of your emails write here. Add a contact email in Store details to change it.": "Deine Support-E-Mail. Kunden, die auf eine deiner E-Mails antworten, schreiben hierhin. Füge in den Shop-Details eine Kontakt-E-Mail hinzu, um das zu ändern.",
+ "Your account email. Customers who reply to any of your emails write here. Add a contact email in Store details to use another.": "Deine Konto-E-Mail. Kunden, die auf eine deiner E-Mails antworten, schreiben hierhin. Füge in den Shop-Details eine Kontakt-E-Mail hinzu, um eine andere zu nutzen.",
+ "One domain for every email your store sends: campaigns, automations and order emails. Set it up once.": "Eine Domain für jede E-Mail, die dein Shop sendet: Kampagnen, Automatisierungen und Bestell-E-Mails. Einmal einrichten.",
+ "No inbox needed. Replies go to your reply address, not this one.": "Kein Postfach nötig. Antworten gehen an deine Antwortadresse, nicht an diese.",
+ "Used for all your emails: campaigns, automations and order emails.": "Gilt für alle deine E-Mails: Kampagnen, Automatisierungen und Bestell-E-Mails."
 }
 
 export default words

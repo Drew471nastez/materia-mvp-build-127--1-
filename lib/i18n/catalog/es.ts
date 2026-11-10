@@ -13009,7 +13009,14 @@ const words: Record<string, string> = {
  "Nothing new to publish": "No hay nada nuevo que publicar",
  "Reviewing the design": "Revisando el diseño",
  "The first screen of your website, as the design review saw it": "La primera pantalla de tu sitio web, tal como la vio la revisión de diseño",
- "What the design review looked at": "Lo que miró la revisión de diseño"
+ "What the design review looked at": "Lo que miró la revisión de diseño",
+ "Add a contact email in Settings › Store details, so customers can reply to your emails.": "Añade un email de contacto en Ajustes › Detalles de la tienda para que los clientes puedan responder a tus emails.",
+ "Your contact email, from Settings › Store details. Customers who reply to any of your emails write here.": "Tu email de contacto, de Ajustes › Detalles de la tienda. Los clientes que responden a cualquiera de tus emails escriben aquí.",
+ "Your support email. Customers who reply to any of your emails write here. Add a contact email in Store details to change it.": "Tu email de soporte. Los clientes que responden a cualquiera de tus emails escriben aquí. Añade un email de contacto en Detalles de la tienda para cambiarlo.",
+ "Your account email. Customers who reply to any of your emails write here. Add a contact email in Store details to use another.": "El email de tu cuenta. Los clientes que responden a cualquiera de tus emails escriben aquí. Añade un email de contacto en Detalles de la tienda para usar otro.",
+ "One domain for every email your store sends: campaigns, automations and order emails. Set it up once.": "Un dominio para cada email que envía tu tienda: campañas, automatizaciones y emails de pedidos. Configúralo una vez.",
+ "No inbox needed. Replies go to your reply address, not this one.": "No necesita bandeja de entrada. Las respuestas van a tu dirección de respuesta, no a esta.",
+ "Used for all your emails: campaigns, automations and order emails.": "Se usa para todos tus emails: campañas, automatizaciones y emails de pedidos."
 }
 
 export default words

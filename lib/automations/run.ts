@@ -108,6 +108,8 @@ export function mailerFor(db: ReturnType<typeof createAdminClient>): Mailer {
       return sendEmail({
         from: own ? ownFrom(mail.fromName || "Storelib", own.address) : buildFromHeader(mail.fromName),
         ...(own ? { sendingDomain: own.domain } : {}),
+        /* The store's email: a reply reaches the store, never Storelib's support inbox. */
+        store: mail.store ?? pending?.creatorId ?? null,
         to: mail.to,
         replyTo: mail.replyTo,
         subject: mail.subject,

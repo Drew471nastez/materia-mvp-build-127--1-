@@ -104,8 +104,8 @@ check("anything else is Campaigns, All", at("tab=nope") === "all" && at("") === 
 /* Changed on purpose (wave 7): the bar has one button now (was three); each place is 44px tall. */
 /* Changed on purpose (wave 8): a place is a 36px pill in the 44px track, and on a phone reaches the track's full 44px. */
 check("the bar's button and each place reach 44px on a phone", /const TAP = "relative before:absolute before:-inset-y-1\.5 before:inset-x-0 before:content-\[''\] sm:before:hidden"/.test(home) && (actions.match(/TAP/g) ?? []).length === 1 && /max-sm:\[&>\[role=tab\]\]:before:-inset-y-1/.test(home) && /h-9 px-4 text-\[14px\]/.test(pills))
-/* Changed on purpose (wave 8): four pills do not fit 390px; the whole track scrolls from the screen's edge to edge (Settings' pill row), never the page, and the chosen place is kept in view. */
-check("on a phone the track scrolls edge to edge, never the page, the chosen place kept in view", /className="orders-strip app-gutter-bleed h-11 overflow-x-auto overflow-y-hidden/.test(home) && /max-sm:max-w-none max-sm:overflow-visible/.test(home) && /const PLACE_CLEAR = 12/.test(home) && /\}, \[place\]\)/.test(home))
+/* Changed on purpose (wave 10, the owner: "on a phone, the top row of Emails tabs still scrolls sideways"): the track spans the gutter's width and the four places share it (Customer emails says Customers on a phone), so nothing scrolls at 360px or wider; only a longer language's row scrolls, inside the page, with the chosen place kept in view. tests/emails-tabs-w10.test.ts pins the fit. */
+check("on a phone the track fits the screen, never the page scrolls, the chosen place kept in view", /className="orders-strip h-11 overflow-x-auto overflow-y-hidden/.test(home) && /max-sm:flex max-sm:w-full max-sm:\[&>\[role=tab\]\]:flex-auto/.test(home) && /const PLACE_CLEAR = 12/.test(home) && /\}, \[place\]\)/.test(home))
 check("a view is 36px on a phone, 32px from md up", /inline-flex h-9 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-\[10px\] px-3 text-\[15px\][^"]*md:h-8/.test(home))
 
 /* ─── 6. Words ──────────────────────────────────────────────────────── */
