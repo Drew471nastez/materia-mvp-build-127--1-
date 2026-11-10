@@ -1,5 +1,5 @@
 import { assembleB, at, filesOf, place, slot } from "../kit-b"
-import type { SiteTemplate } from "../types-b"
+import type { SiteTemplate } from "../types"
 import * as S from "./sections"
 
 const head = (overlay: boolean) => place(S.header, "hdr", { overlay }, undefined, "header")
@@ -60,7 +60,7 @@ export const estateCinema: SiteTemplate = assembleB({
   id: "estate-cinema",
   name: "Halden",
   summary: "Cinematic real estate and hospitality: full-bleed photographs with a light upright serif over them, chapters whose photographs hold while the words pass, residences from the real products, a sideways interior gallery.",
-  industries: ["hospitality", "architecture", "professional"],
+  industries: ["hospitality", "architecture"],
   stories: ["architect", "food-place"],
   styles: ["cinematic", "luxury", "photographic", "calm", "serif"],
   directionIds: ["luxury-editorial", "cinematic", "hospitality-photo"],

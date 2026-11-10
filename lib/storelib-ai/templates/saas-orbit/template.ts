@@ -1,5 +1,5 @@
 import { assembleB, at, filesOf, place, slot } from "../kit-b"
-import type { SiteTemplate } from "../types-b"
+import type { SiteTemplate } from "../types"
 import * as S from "./sections"
 
 const head = () => place(S.header, "hdr", {}, undefined, "header")
@@ -78,8 +78,8 @@ export const saasOrbit: SiteTemplate = assembleB({
   id: "saas-orbit",
   name: "Orbit",
   summary: "Dark software launch site: a turning 3D product object in front of a giant wordmark, giant running verbs, a scroll-scrubbed walkthrough, sideways use cases, plans from the real products.",
-  industries: ["saas", "creator", "general"],
-  stories: ["saas", "digital-creator"],
+  industries: ["saas", "creator"],
+  stories: ["saas"],
   styles: ["dark", "technical", "product-led", "kinetic type", "3d"],
   directionIds: ["dark-immersive", "technical-industrial", "product-led"],
   keywords: ["software", "app", "developer tools", "startup", "ai tool", "productivity", "platform", "plugin", "api"],

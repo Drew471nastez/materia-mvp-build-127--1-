@@ -18,12 +18,13 @@ import { offCut } from "./sites/off-cut"
 import { calibre } from "./sites/calibre"
 import { lowEnd } from "./sites/low-end"
 import { stillWater } from "./sites/still-water"
+import { TEMPLATES_B } from "./registry-b"
 
 /** P2a's templates. */
 const P2A: SiteTemplate[] = [pressure, dialIn, offCut, calibre, lowEnd, stillWater]
 
 /** P2b's templates: import each and list it here. */
-const P2B: SiteTemplate[] = []
+const P2B: SiteTemplate[] = [...TEMPLATES_B]
 
 export const SITE_TEMPLATES: readonly SiteTemplate[] = [...P2A, ...P2B]
 

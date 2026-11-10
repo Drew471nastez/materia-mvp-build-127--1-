@@ -1,5 +1,5 @@
 import { assembleB, at, filesOf, place, slot } from "../kit-b"
-import type { SiteTemplate } from "../types-b"
+import type { SiteTemplate } from "../types"
 import * as S from "./sections"
 
 const head = () => place(S.header, "hdr", {}, undefined, "header")

@@ -36,12 +36,15 @@ export const header = defineSection({
     <nav aria-label="{{ settings.nav_label }}"><ul class="ccn__list">{% for link in settings.menu.links %}<li><a class="ccn__link" href="{{ link.url }}">{{ link.title }}</a>{% if link.links.size > 0 %}<ul class="ccn__sub">{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul>{% endif %}</li>{% endfor %}</ul></nav>
     <a class="ccn__cta ccn__cta--wide" href="{{ settings.cta_url | url }}">{{ settings.cta_label }}</a>
     <a class="ccn__acct" href="{{ routes.account_url }}">{{ settings.account_label }}</a>
+    <ul class="ccn__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{% if block.settings.url %}<a href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>{% else %}{{ block.settings.text }}{% endif %}</li>{% endfor %}</ul>
     ${prefs("ccn")}
   </div>
   ${searchPanel("ccn")}
   ${cartPanel("ccn")}
 </header>`,
   style: `
+.ccn__notes { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 0.875rem; }
+.ccn__notes a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
 .ccn { position: sticky; top: 0; z-index: 30; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
 .ccn__notice { margin: 0; padding: 8px var(--theme-padding-x, 20px); background: var(--s-text); color: var(--s-bg); ${SMALL} text-align: center; }
 .ccn__notice a { color: inherit; }
@@ -84,6 +87,12 @@ ${panelCss("ccn", { cartFrom: "right", searchFrom: "top" })}
     ...chromeWords({ search_placeholder: "Search lessons and questions" }),
     scheme("site"),
   ],
+  blocks: [{ type: "note", name: "Line in the menu", settings: [text("text", "Words", "Next cohort: Monday 2 March"), url("url", "Link (optional)", "")] }],
+  presetBlocks: [
+    { type: "note", settings: { text: "Next cohort: Monday 2 March", url: "/products" } },
+    { type: "note", settings: { text: "Ask Ana a question", url: "/contact" } },
+  ],
+  maxBlocks: 4,
 })
 
 export const hero = defineSection({
@@ -536,11 +545,14 @@ export const footer = defineSection({
   </form>
   <div class="cco2__base">
     <nav class="cco2__nav" aria-label="{{ settings.nav_label }}">{% for link in settings.menu.links %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}</nav>
+    <ul class="cco2__links">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}">{{ block.settings.label }}</a></li>{% endfor %}</ul>
     ${prefs("cco2")}
     <p class="cco2__small">{{ settings.small_print }}</p>
   </div>
 </footer>`,
   style: `
+.cco2__links { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
+.cco2__links a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; }
 .cco2 { padding: 72px var(--theme-padding-x, 20px) 28px; background: var(--s-bg); color: var(--s-text); border-top: 1px solid var(--s-border); container-type: inline-size; }
 .cco2__label { display: block; font-family: var(--theme-font-heading), sans-serif; color: var(--s-heading); font-weight: 800; font-size: clamp(2rem, 1.2rem + 4cqi, 4.5rem); letter-spacing: -0.045em; line-height: 0.95; max-width: 16ch; }
 .cco2__sub { max-width: 46ch; margin: 14px 0 20px; line-height: 1.55; }
@@ -565,6 +577,12 @@ ${panelCss("cco2")}
     text("currency_label", "Currency", "Currency"),
     scheme("site"),
   ],
+  blocks: [{ type: "link", name: "Link", settings: [text("label", "Label", "Instagram"), url("url", "Goes to", "https://www.instagram.com/")] }],
+  presetBlocks: [
+    { type: "link", settings: { label: "Instagram", url: "https://www.instagram.com/" } },
+    { type: "link", settings: { label: "YouTube", url: "https://www.youtube.com/" } },
+  ],
+  maxBlocks: 6,
 })
 
 export const product = defineSection({

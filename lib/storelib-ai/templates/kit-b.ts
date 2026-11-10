@@ -24,7 +24,7 @@
  * Pure strings. No React, no I/O.
  */
 import type { SectionInstance, BlockInstance } from "@/lib/website-builder/types"
-import type { GenerateAspect, GeneratePurpose, ImageAspect, ImageSlotTarget, SiteTemplate, SlotGenerate, TemplateImageSlot } from "./types-b"
+import type { GenerateAspect, GeneratePurpose, ImageAspect, ImageSlotTarget, SiteTemplate, SlotGenerate, TemplateImageSlot } from "./types"
 
 /* ── schema settings ──────────────────────────────────────────────────── */
 

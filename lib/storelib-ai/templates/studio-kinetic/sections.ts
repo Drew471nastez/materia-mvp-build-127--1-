@@ -39,12 +39,15 @@ export const header = defineSection({
     </nav>
     <p class="agn__note">{{ settings.drawer_note }}</p>
     <a class="agn__acct" href="{{ routes.account_url }}">{{ settings.account_label }}</a>
+    <ul class="agn__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{% if block.settings.url %}<a href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>{% else %}{{ block.settings.text }}{% endif %}</li>{% endfor %}</ul>
     ${prefs("agn")}
   </div>
   ${searchPanel("agn")}
   ${cartPanel("agn")}
 </header>`,
   style: `
+.agn__notes { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 0.875rem; }
+.agn__notes a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
 .agn { position: sticky; top: 0; z-index: 30; background: var(--s-bg); color: var(--s-text); }
 .agn__bar { display: flex; align-items: center; gap: 16px; min-height: 60px; padding: 0 var(--theme-padding-x, 20px); border-bottom: 2px solid var(--s-text); }
 .agn__logo { margin-right: auto; ${D} font-size: 1.375rem; letter-spacing: -0.05em; text-decoration: none; }
@@ -86,6 +89,12 @@ ${panelCss("agn", { cartFrom: "left", searchFrom: "full" })}
     ...chromeWords({ menu_label: "Index", cart_label: "Bag", search_placeholder: "Search work, editions and notes" }),
     scheme("site"),
   ],
+  blocks: [{ type: "note", name: "Line in the menu", settings: [text("text", "Words", "New: Grotesk Kade, free trial fonts"), url("url", "Link (optional)", "")] }],
+  presetBlocks: [
+    { type: "note", settings: { text: "New: Grotesk Kade, free trial fonts", url: "/products" } },
+    { type: "note", settings: { text: "Booking from September", url: "/contact" } },
+  ],
+  maxBlocks: 4,
 })
 
 export const hero = defineSection({
@@ -143,7 +152,7 @@ export const hero = defineSection({
   presetBlocks: [
     { type: "line", settings: { text: "Identities,", style: "solid", scramble: false } },
     { type: "line", settings: { text: "websites", style: "right", scramble: true } },
-    { type: "line", settings: { text: "and type", style: "outline", scramble: false } },
+    { type: "line", settings: { text: "and type", style: "solid", scramble: false } },
     { type: "line", settings: { text: "for culture", style: "mark", scramble: false } },
   ],
   maxBlocks: 6,
@@ -492,11 +501,14 @@ export const footer = defineSection({
   <div class="ago__grid">
     <nav class="ago__nav" aria-label="{{ settings.nav_label }}">{% for link in settings.menu.links %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}</nav>
     <form class="ago__form" data-storelib-form="subscribe"><label for="ago-e-{{ section.id }}">{{ settings.newsletter_label }}</label><div class="ago__row"><input id="ago-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}"><button type="submit">{{ settings.button_label }}</button></div></form>
+    <ul class="ago__links">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}">{{ block.settings.label }}</a></li>{% endfor %}</ul>
     ${prefs("ago")}
     <p class="ago__small">{{ settings.small_print }}</p>
   </div>
 </footer>`,
   style: `
+.ago__links { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
+.ago__links a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; }
 .ago { padding: 40px var(--theme-padding-x, 20px) 24px; background: var(--s-text); color: var(--s-bg); container-type: inline-size; overflow: hidden; }
 .ago__mark { margin: 0 0 32px; font-family: var(--theme-font-heading), sans-serif; font-weight: 800; font-size: 19cqi; line-height: 0.8; letter-spacing: -0.07em; white-space: nowrap; overflow: hidden; }
 .ago__grid { display: grid; gap: 24px; padding-top: 16px; border-top: 2px solid currentColor; }
@@ -524,6 +536,12 @@ ${panelCss("ago")}
     text("currency_label", "Currency", "Currency"),
     scheme("site"),
   ],
+  blocks: [{ type: "link", name: "Link", settings: [text("label", "Label", "Instagram"), url("url", "Goes to", "https://www.instagram.com/")] }],
+  presetBlocks: [
+    { type: "link", settings: { label: "Instagram", url: "https://www.instagram.com/" } },
+    { type: "link", settings: { label: "Are.na", url: "https://www.are.na/" } },
+  ],
+  maxBlocks: 6,
 })
 
 export const product = defineSection({

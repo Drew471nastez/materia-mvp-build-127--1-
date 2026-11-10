@@ -35,12 +35,15 @@ export const header = defineSection({
     <button class="pfn-x" type="button" popovertarget="pfn-d-{{ section.id }}" popovertargetaction="hide">{{ settings.close_label }}</button>
     <nav aria-label="{{ settings.nav_label }}"><ul class="pfn__list">{% for link in settings.menu.links %}<li><a class="pfn__link" href="{{ link.url }}">{{ link.title }}</a>{% if link.links.size > 0 %}<ul class="pfn__sub">{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul>{% endif %}</li>{% endfor %}</ul></nav>
     <a class="pfn__acct" href="{{ routes.account_url }}">{{ settings.account_label }}</a>
+    <ul class="pfn__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{% if block.settings.url %}<a href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>{% else %}{{ block.settings.text }}{% endif %}</li>{% endfor %}</ul>
     ${prefs("pfn")}
   </div>
   ${searchPanel("pfn")}
   ${cartPanel("pfn")}
 </header>`,
   style: `
+.pfn__notes { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 0.875rem; }
+.pfn__notes a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
 .pfn { position: relative; z-index: 30; background: var(--s-bg); color: var(--s-text); }
 .pfn__bar { display: flex; align-items: center; gap: 20px; min-height: 64px; padding: 0 var(--theme-padding-x, 20px); }
 .pfn__logo { margin-right: auto; ${D} font-size: 1.0625rem; letter-spacing: -0.01em; text-decoration: none; }
@@ -77,6 +80,12 @@ ${panelCss("pfn", { cartFrom: "right", searchFrom: "full" })}
     ...chromeWords({ search_placeholder: "Search series and prints" }),
     scheme("site"),
   ],
+  blocks: [{ type: "note", name: "Line in the menu", settings: [text("text", "Words", "New series: Low Tide"), url("url", "Link (optional)", "")] }],
+  presetBlocks: [
+    { type: "note", settings: { text: "New series: Low Tide", url: "/collections" } },
+    { type: "note", settings: { text: "Prints ship in two weeks", url: "/products" } },
+  ],
+  maxBlocks: 4,
 })
 
 export const trail = defineSection({
@@ -95,7 +104,7 @@ export const trail = defineSection({
   style: `
 .pft { ${BOX} overflow: hidden; }
 .pft__stage { position: relative; display: grid; place-content: center; justify-items: center; gap: 14px; min-height: clamp(520px, 86svh, 980px); text-align: center; }
-.pft__h { position: relative; z-index: 3; margin: 0; ${D} font-size: clamp(3rem, 1rem + 10cqi, 11rem); letter-spacing: -0.045em; line-height: 0.9; mix-blend-mode: difference; color: #fff; }
+.pft__h { position: relative; z-index: 3; margin: 0; ${D} font-size: clamp(3rem, 1rem + 10cqi, 11rem); letter-spacing: -0.045em; line-height: 0.9; color: var(--s-heading); }
 .pft__line { position: relative; z-index: 3; margin: 0; padding: 4px 8px; background: var(--s-bg); ${SMALL} }
 .pft__pic { position: absolute; z-index: 1; width: clamp(88px, 15cqi, 230px); height: auto; aspect-ratio: 4 / 5; object-fit: cover; }
 .pft__pic--1 { left: 2%; top: 4%; transform: rotate(-4deg); }
@@ -493,11 +502,14 @@ export const footer = defineSection({
   </div>
   <div class="pfo__row">
     <form class="pfo__form" data-storelib-form="subscribe"><label for="pfo-e-{{ section.id }}">{{ settings.newsletter_label }}</label><input id="pfo-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}"><button type="submit">{{ settings.button_label }}</button></form>
+    <ul class="pfo__links">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}">{{ block.settings.label }}</a></li>{% endfor %}</ul>
     ${prefs("pfo")}
   </div>
   <p class="pfo__small">{{ settings.small_print }}</p>
 </footer>`,
   style: `
+.pfo__links { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
+.pfo__links a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; }
 .pfo { display: grid; gap: 22px; padding: 40px var(--theme-padding-x, 20px) 24px; background: var(--s-bg); color: var(--s-text); border-top: 1px solid var(--s-border); font-size: 0.8125rem; container-type: inline-size; }
 .pfo__row { display: grid; gap: 16px; }
 .pfo__name { margin: 0; font-family: var(--theme-font-heading), sans-serif; color: var(--s-heading); font-size: 1rem; }
@@ -522,6 +534,12 @@ ${panelCss("pfo")}
     text("currency_label", "Currency", "Currency"),
     scheme("site"),
   ],
+  blocks: [{ type: "link", name: "Link", settings: [text("label", "Label", "Instagram"), url("url", "Goes to", "https://www.instagram.com/")] }],
+  presetBlocks: [
+    { type: "link", settings: { label: "Instagram", url: "https://www.instagram.com/" } },
+    { type: "link", settings: { label: "Email", url: "mailto:studio@verahollis.com" } },
+  ],
+  maxBlocks: 6,
 })
 
 export const product = defineSection({

@@ -46,7 +46,8 @@ export const header = defineSection({
           </ol>
         </nav>
         <p class="esn__row"><button class="esn__tool" type="button" data-storelib-search>{{ settings.search_label }}</button><a class="esn__acct" href="{{ routes.account_url }}">{{ settings.account_label }}</a></p>
-        ${prefs("esn")}
+        <ul class="esn__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{% if block.settings.url %}<a href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>{% else %}{{ block.settings.text }}{% endif %}</li>{% endfor %}</ul>
+    ${prefs("esn")}
       </div>
       {% if settings.drawer_photo %}<img class="esn__photo" src="{{ settings.drawer_photo | asset }}" alt="{{ settings.drawer_photo_alt }}" width="1200" height="1500">{% endif %}
     </div>
@@ -56,6 +57,8 @@ export const header = defineSection({
   ${cartPanel("esn")}
 </header>`,
   style: `
+.esn__notes { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 0.875rem; }
+.esn__notes a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
 .esn { position: relative; z-index: 30; background: var(--s-bg); color: var(--s-text); }
 .esn--over { position: absolute; inset: 0 0 auto; background: none; color: #fff; }
 .esn__bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 76px; padding: 0 var(--theme-padding-x, 20px); }
@@ -108,6 +111,12 @@ ${panelCss("esn", { cartFrom: "right", searchFrom: "top" })}
     ...chromeWords({ cart_label: "Reservations", empty_text: "Nothing reserved yet.", checkout_label: "Continue", search_placeholder: "Search residences and journal" }),
     scheme("site"),
   ],
+  blocks: [{ type: "note", name: "Line in the menu", settings: [text("text", "Words", "Winter: the whole house for one group"), url("url", "Link (optional)", "")] }],
+  presetBlocks: [
+    { type: "note", settings: { text: "Winter: the whole house for one group", url: "/contact" } },
+    { type: "note", settings: { text: "Gift a stay", url: "/products" } },
+  ],
+  maxBlocks: 4,
 })
 
 /* ── hero: one cinematic photograph, the serif over it ── */
@@ -576,9 +585,12 @@ export const footer = defineSection({
     </form>
   </div>
   <p class="eso__name" aria-hidden="true">{{ settings.wordmark | default: shop.name }}</p>
-  <div class="eso__base">${prefs("eso")}<p class="eso__small">{{ settings.small_print }}</p></div>
+  <div class="eso__base"><ul class="eso__links">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}">{{ block.settings.label }}</a></li>{% endfor %}</ul>
+    ${prefs("eso")}<p class="eso__small">{{ settings.small_print }}</p></div>
 </footer>`,
   style: `
+.eso__links { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
+.eso__links a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; }
 .eso { padding: 80px var(--theme-padding-x, 20px) 28px; background: var(--s-bg); color: var(--s-text); border-top: 1px solid var(--s-border); container-type: inline-size; overflow: hidden; }
 .eso__grid { display: grid; gap: 36px; }
 .eso__nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
@@ -608,6 +620,12 @@ ${panelCss("eso")}
     text("currency_label", "Currency", "Currency"),
     scheme("site"),
   ],
+  blocks: [{ type: "link", name: "Link", settings: [text("label", "Label", "Instagram"), url("url", "Goes to", "https://www.instagram.com/")] }],
+  presetBlocks: [
+    { type: "link", settings: { label: "Instagram", url: "https://www.instagram.com/" } },
+    { type: "link", settings: { label: "Directions", url: "https://maps.google.com/?q=Halden" } },
+  ],
+  maxBlocks: 6,
 })
 
 /* ── product: one residence ── */

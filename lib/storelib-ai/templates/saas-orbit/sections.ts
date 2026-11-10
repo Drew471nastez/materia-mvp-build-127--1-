@@ -68,6 +68,7 @@ export const header = defineSection({
       </ul>
     </nav>
     <a class="swn__macct" href="{{ routes.account_url }}">{{ settings.account_label }}</a>
+    <ul class="swn__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{% if block.settings.url %}<a href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>{% else %}{{ block.settings.text }}{% endif %}</li>{% endfor %}</ul>
     ${prefs("swn")}
   </div>
 
@@ -75,6 +76,8 @@ export const header = defineSection({
   ${cartPanel("swn")}
 </header>`,
   style: `
+.swn__notes { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 0.875rem; }
+.swn__notes a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
 .swn { position: sticky; top: 0; z-index: 30; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
 .swn__bar { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 0 var(--theme-padding-x, 20px); }
 .swn__logo { margin-right: auto; ${H} font-size: 1.25rem; font-weight: 800; letter-spacing: -0.04em; text-decoration: none; }
@@ -129,6 +132,12 @@ ${panelCss("swn", { cartFrom: "right", searchFrom: "full" })}
     ...chromeWords({ cart_label: "Cart", search_placeholder: "Search plans, guides and updates" }),
     scheme("site"),
   ],
+  blocks: [{ type: "note", name: "Line in the menu", settings: [text("text", "Words", "Changelog for this week"), url("url", "Link (optional)", "")] }],
+  presetBlocks: [
+    { type: "note", settings: { text: "Changelog for this week", url: "/products" } },
+    { type: "note", settings: { text: "Talk to the team", url: "/contact" } },
+  ],
+  maxBlocks: 4,
 })
 
 /* ── hero: the 3D object in front of a giant wordmark ── */
@@ -175,7 +184,7 @@ export const hero = defineSection({
 .swh__rings span { position: absolute; inset: 0; border: 1px solid var(--s-border); border-radius: 50%; }
 .swh__rings span:nth-child(2) { inset: 14%; border-color: var(--s-accent); transform: rotateX(64deg); }
 .swh__rings span:nth-child(3) { inset: 30%; transform: rotateY(64deg); }
-.swh__giant { position: relative; z-index: 1; margin: -4cqi 0 0; ${H} font-size: 31cqi; font-weight: 900; line-height: 0.78; letter-spacing: -0.07em; white-space: nowrap; overflow: hidden; color: var(--s-border); text-transform: lowercase; }
+.swh__giant { position: relative; z-index: 1; margin: 4px 0 0; ${H} font-size: 31cqi; font-weight: 900; line-height: 0.78; letter-spacing: -0.07em; white-space: nowrap; overflow: hidden; color: var(--s-heading); text-transform: lowercase; }
 @container (min-width: 900px) {
   .swh__grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; }
   .swh__stage { margin: 0 0 -10cqi; }
@@ -694,11 +703,14 @@ export const footer = defineSection({
   </div>
   <p class="swo__mark" aria-hidden="true">{{ settings.wordmark | default: shop.name }}</p>
   <div class="swo__base">
+    <ul class="swo__links">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}">{{ block.settings.label }}</a></li>{% endfor %}</ul>
     ${prefs("swo")}
     <p class="swo__small">{{ settings.small_print }}</p>
   </div>
 </footer>`,
   style: `
+.swo__links { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
+.swo__links a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; }
 .swo { padding: 64px var(--theme-padding-x, 20px) 24px; background: var(--s-bg); color: var(--s-text); border-top: 1px solid var(--s-border); container-type: inline-size; overflow: hidden; }
 .swo__top { display: grid; gap: 40px; }
 .swo__label { display: block; margin-bottom: 14px; font-family: var(--theme-font-heading), sans-serif; color: var(--s-heading); font-size: clamp(1.5rem, 1.2rem + 1.6cqi, 2.5rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
@@ -731,6 +743,12 @@ ${panelCss("swo")}
     text("currency_label", "Currency", "Currency"),
     scheme("site"),
   ],
+  blocks: [{ type: "link", name: "Link", settings: [text("label", "Label", "Instagram"), url("url", "Goes to", "https://www.instagram.com/")] }],
+  presetBlocks: [
+    { type: "link", settings: { label: "GitHub", url: "https://github.com/" } },
+    { type: "link", settings: { label: "LinkedIn", url: "https://www.linkedin.com/" } },
+  ],
+  maxBlocks: 6,
 })
 
 /* ── product page ── */

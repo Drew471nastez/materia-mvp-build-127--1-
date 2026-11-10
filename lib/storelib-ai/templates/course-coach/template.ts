@@ -1,5 +1,5 @@
 import { assembleB, at, filesOf, place, slot } from "../kit-b"
-import type { SiteTemplate } from "../types-b"
+import type { SiteTemplate } from "../types"
 import * as S from "./sections"
 
 const head = () => place(S.header, "hdr", {}, undefined, "header")
@@ -54,7 +54,7 @@ export const courseCoach: SiteTemplate = assembleB({
   name: "Floor",
   summary: "An online course or coaching programme that converts honestly: outcomes in plain words, the whole curriculum week by week, the coach, real reviews from Storelib Reviews only, prices and Buy now from the real products.",
   industries: ["education", "creator", "fitness"],
-  stories: ["digital-creator", "fitness-coach"],
+  stories: [],
   styles: ["conversion", "friendly", "bold grotesk", "clear"],
   directionIds: ["one-page-conversion", "bold-performance", "training-ground"],
   keywords: ["online course", "coach", "cohort", "workshop", "masterclass", "bootcamp", "personal coaching", "mentor", "lessons", "class"],

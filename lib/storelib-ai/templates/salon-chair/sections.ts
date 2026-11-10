@@ -35,12 +35,15 @@ export const header = defineSection({
     <div class="sbn__sheet-head"><p class="sbn__sheet-title">{{ shop.name | default: settings.brand }}</p><button class="sbn-x" type="button" popovertarget="sbn-d-{{ section.id }}" popovertargetaction="hide">{{ settings.close_label }}</button></div>
     <nav aria-label="{{ settings.nav_label }}"><ul class="sbn__list">{% for link in settings.menu.links %}<li><a class="sbn__link" href="{{ link.url }}">{{ link.title }}</a>{% if link.links.size > 0 %}<ul class="sbn__sub">{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul>{% endif %}</li>{% endfor %}</ul></nav>
     <p class="sbn__row"><button class="sbn__tool" type="button" data-storelib-search>{{ settings.search_label }}</button><a class="sbn__acct" href="{{ routes.account_url }}">{{ settings.account_label }}</a></p>
+    <ul class="sbn__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{% if block.settings.url %}<a href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>{% else %}{{ block.settings.text }}{% endif %}</li>{% endfor %}</ul>
     ${prefs("sbn")}
   </div>
   ${searchPanel("sbn")}
   ${cartPanel("sbn")}
 </header>`,
   style: `
+.sbn__notes { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 0.875rem; }
+.sbn__notes a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
 .sbn { position: relative; z-index: 30; background: var(--s-bg); color: var(--s-text); border-bottom: 2px solid var(--s-text); }
 .sbn__util { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 18px; padding: 8px var(--theme-padding-x, 20px); background: var(--s-text); color: var(--s-bg); ${SMALL} }
 .sbn__util a { color: inherit; }
@@ -97,6 +100,12 @@ ${panelCss("sbn", { cartFrom: "bottom", searchFrom: "top" })}
     ...chromeWords({ cart_label: "Basket", search_placeholder: "Search services and products" }),
     scheme("site"),
   ],
+  blocks: [{ type: "note", name: "Line in the menu", settings: [text("text", "Words", "Walk-ins until five today"), url("url", "Link (optional)", "")] }],
+  presetBlocks: [
+    { type: "note", settings: { text: "Walk-ins until five today", url: "/contact" } },
+    { type: "note", settings: { text: "Gift vouchers", url: "/products" } },
+  ],
+  maxBlocks: 4,
 })
 
 export const hero = defineSection({
@@ -182,7 +191,7 @@ export const prices = defineSection({
 .sbp__book:hover { background: var(--s-accent); }
 .sbp__list { display: grid; margin: 0; padding: 0; list-style: none; column-gap: 56px; }
 .sbp__group { padding: 22px 0 6px; }
-.sbp__gh { margin: 0; ${D} font-size: 1.125rem; color: var(--s-accent); letter-spacing: 0.02em; }
+.sbp__gh { display: inline-block; margin: 0; ${D} font-size: 1.125rem; letter-spacing: 0.02em; border-bottom: 3px solid var(--s-accent); }
 .sbp__item { display: grid; grid-template-columns: auto minmax(12px, 1fr) auto; align-items: baseline; gap: 2px 10px; padding: 12px 0; border-bottom: 1px solid var(--s-border); }
 .sbp__name { ${D} font-size: 1.25rem; }
 .sbp__dots { border-bottom: 2px dotted var(--s-border); transform: translateY(-4px); }
@@ -524,9 +533,12 @@ export const footer = defineSection({
     <nav class="sbo__nav" aria-label="{{ settings.nav_label }}">{% for link in settings.menu.links %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}</nav>
     <form class="sbo__form" data-storelib-form="subscribe"><label for="sbo-e-{{ section.id }}">{{ settings.newsletter_label }}</label><div class="sbo__row"><input id="sbo-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}"><button type="submit">{{ settings.button_label }}</button></div></form>
   </div>
-  <div class="sbo__base">${prefs("sbo")}<p class="sbo__small">{{ settings.small_print }}</p></div>
+  <div class="sbo__base"><ul class="sbo__links">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}">{{ block.settings.label }}</a></li>{% endfor %}</ul>
+    ${prefs("sbo")}<p class="sbo__small">{{ settings.small_print }}</p></div>
 </footer>`,
   style: `
+.sbo__links { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
+.sbo__links a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; }
 .sbo { padding: 56px var(--theme-padding-x, 20px) calc(96px + env(safe-area-inset-bottom)); background: var(--s-bg); color: var(--s-text); border-top: 2px solid var(--s-text); container-type: inline-size; }
 .sbo__grid { display: grid; gap: 28px; }
 .sbo__name { margin: 0 0 8px; font-family: var(--theme-font-heading), serif; color: var(--s-heading); font-weight: 700; font-size: 2rem; }
@@ -556,6 +568,12 @@ ${panelCss("sbo")}
     text("currency_label", "Currency", "Currency"),
     scheme("site"),
   ],
+  blocks: [{ type: "link", name: "Link", settings: [text("label", "Label", "Instagram"), url("url", "Goes to", "https://www.instagram.com/")] }],
+  presetBlocks: [
+    { type: "link", settings: { label: "Instagram", url: "https://www.instagram.com/" } },
+    { type: "link", settings: { label: "Directions", url: "https://maps.google.com/?q=41+Mill+Lane+Leith" } },
+  ],
+  maxBlocks: 6,
 })
 
 export const product = defineSection({
