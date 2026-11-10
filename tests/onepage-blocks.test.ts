@@ -133,7 +133,8 @@ function main() {
     const live = read("components/onepage/public-onepage.tsx")
     const email = live.slice(live.indexOf('case "email_capture":'), live.indexOf('case "group":'))
     /* Changed on purpose (round 11): one email box for all five layouts (renderEmailForm), not four copies. */
-    check("nothing in the newsletter block is 43px tall on a phone any more", !/py-2\.5 sm:py-3/.test(email) && (email.match(/py-3 text-sm bg-white\/90/g) ?? []).length === 1)
+    /* Changed on purpose (round AR): the boxes are drawn in each layout's shape, at 16px on a phone so iOS never zooms; the one shared email box and the matching extra field are each at least 46px tall (min-h-[46px] py-3), and nothing is py-2.5. */
+    check("nothing in the newsletter block is 43px tall on a phone any more", !/py-2\.5 sm:py-3/.test(email) && (email.match(/min-h-\[46px\] px-3 sm:px-4 py-3 text-\[16px\] sm:text-sm bg-white\/90/g) ?? []).length === 1 && (email.match(/min-h-\[46px\][^"]*bg-white\/90/g) ?? []).length === 2)
     /* Five now, on purpose: the first-name field the block can ask for (round 10) wears the same corners, above the four email boxes. */
     check("and the field wears the button's corners, whatever the theme sets",
       /* Two since round 11: the first-name field and the one email box every layout draws. */

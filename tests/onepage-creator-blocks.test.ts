@@ -214,13 +214,16 @@ async function main() {
     const route = read("app/api/onepage/leads/route.ts")
     check("the route drops a script before it writes anything", route.indexOf("signupLooksAutomated(body)") > -1 && route.indexOf("signupLooksAutomated(body)") < route.indexOf('.from("onepage_leads")'))
     check("and is rate limited like every other signup form", /rateLimit\(\{\s*bucket: "email-capture",\s*subjects: \[addressSubject\(request\), emailSubject\(subscriberEmail\)\],\s*windows: LIMITS\.subscribe/.test(route))
-    check("the address lands on the creator's one subscriber list, with the name", /from\("subscribers"\)\.insert\(\{\s*email: subscriberEmail,\s*name: name \|\| null/.test(route) && /triggerType: "new_subscriber"/.test(route))
+    /* Changed on purpose (round AR): the row is built first (subscriberRow, with the phone when asked) and inserted from it, once more without the phone before that column exists. */
+    check("the address lands on the creator's one subscriber list, with the name", /const subscriberRow: Record<string, unknown> = \{\s*email: subscriberEmail,\s*name: name \|\| null,/.test(route) && /from\("subscribers"\)\.insert\(subscriberRow\)/.test(route) && /triggerType: "new_subscriber"/.test(route))
     const live = read("components/onepage/public-onepage.tsx")
     const email = live.slice(live.indexOf('case "email_capture":'), live.indexOf('case "group":'))
-    check("the live block sends the name, the hidden field and the time on screen", /name: data\.ask_name \? leadName\.trim\(\) \|\| undefined : undefined,\s*company: leadTrap,\s*elapsed: Date\.now\(\) - leadShownAt\.current/.test(live))
+    /* Changed on purpose (round AR): the phone, when the block asks for it, is sent between the name and the hidden field. */
+    check("the live block sends the name, the hidden field and the time on screen", /name: data\.ask_name \? leadName\.trim\(\) \|\| undefined : undefined,\s*phone: data\.ask_phone \? leadPhone\.trim\(\) \|\| undefined : undefined,\s*company: leadTrap,\s*elapsed: Date\.now\(\) - leadShownAt\.current/.test(live))
     /* Changed on purpose (round 11): the form is written once (renderEmailForm) and every one of the five layouts asks for it (components/onepage/email-signup), so the name field and the hidden field are in one place that all of them draw. */
     /* Changed on purpose (round 43): three more layouts (connect, letter, bar), each drawing the same form once, so the count follows the layout list. */
-    check("every layout carries the name field and the hidden field", (email.match(/\{emailExtras\}/g) ?? []).length === 1 && /renderForm=\{renderEmailForm\}/.test(email) && (read("components/onepage/email-signup.tsx").match(/renderForm\(\{/g) ?? []).length === EMAIL_SIGNUP_LAYOUT_IDS.length)
+    /* Changed on purpose (round AR): the extra fields are drawn in each layout's own shape, so emailExtras takes that layout's options; it is still written once and drawn once, inside renderEmailForm. */
+    check("every layout carries the name field and the hidden field", (email.match(/const emailExtras = \(options: EmailSignupFormOptions\)/g) ?? []).length === 1 && (email.match(/\{emailExtras\(options\)\}/g) ?? []).length === 1 && /name="company"/.test(email) && /renderForm=\{renderEmailForm\}/.test(email) && (read("components/onepage/email-signup.tsx").match(/renderForm\(\{/g) ?? []).length === EMAIL_SIGNUP_LAYOUT_IDS.length)
     /* Changed on purpose (round 11): the thanks and the link after it are drawn by the layout (EmailSignupView thanks), once they have joined. */
     check("the link after joining is offered once they have joined, with the thanks", /afterSignup=\{afterSignupLink\}/.test(email) && /submitted \? \(\s*<div data-email-thanks="">[\s\S]*?\{afterSignup\}/.test(read("components/onepage/email-signup.tsx")) && /\/\^https\?:\\\/\\\/\/i\.test\(afterUrl\)/.test(email))
     const tab = read("components/onepage/tabs/links-tab.tsx")
