@@ -163,7 +163,7 @@ export function pageGrounds(theme: ContrastThemeLike): Rgba[] {
   if (theme.background_type === "image" || theme.background_type === "video") {
     const tint = parseColor(theme.wallpaper_tint)
     const strength = Number(theme.wallpaper_tint_strength)
-    if (tint && Number.isFinite(strength) && strength > 0) {
+    if (tint && Number.isFinite(strength) && strength > 0 && theme.wallpaper_effect !== "duotone") {
       grounds = grounds.map((g) => over({ ...tint, a: Math.min(1, strength / 100) }, g))
     }
   }
@@ -259,6 +259,63 @@ export function readableTheme<T extends ContrastThemeLike>(theme: T): T {
     keep("button_hover_text", readableInk(theme.button_hover_text, [over(hoverFill, grounds[0] ?? WHITE)], TEXT_MIN))
   }
   return Object.keys(next).length ? ({ ...theme, ...next } as T) : theme
+}
+
+/**
+ * ===========================================================================
+ *  A PHOTO OR VIDEO WALLPAPER, READ FROM ITS PIXELS
+ * ===========================================================================
+ * Under a photo the theme can only name a colour it hopes is close
+ * (background_color). A creator's own bright photo at full brightness put
+ * white words on white fog. The page samples the picture once, when it has
+ * loaded (components/onepage/wallpaper-layers usePhotoGrounds: 24 by 40
+ * pixels of the same copy the page draws, no work per frame), and hands its
+ * dark and light ends here as `photo`: the 10th and 90th percentile of its
+ * luminance, already through the page's brightness and effect.
+ */
+export interface PhotoGrounds {
+  dark: Rgba
+  light: Rgba
+}
+
+/** The sampled ends of the picture, with the page's tint laid over them as the page lays it. */
+export function photoGrounds(theme: ContrastThemeLike, photo: PhotoGrounds): Rgba[] {
+  const tint = parseColor(theme.wallpaper_tint)
+  const strength = Number(theme.wallpaper_tint_strength)
+  const lay = (g: Rgba) => (tint && Number.isFinite(strength) && strength > 0 && theme.wallpaper_effect !== "duotone" ? over({ ...tint, a: Math.min(1, strength / 100) }, g) : g)
+  return [lay(photo.dark), lay(photo.light)]
+}
+
+/**
+ * The veil the page lays over the picture so its words read on all of it:
+ * its colour (the theme's background colour when that sits on the far side
+ * of the words, else near black or white) and how strong, 0 when the words
+ * already read. The words are the page's text and, where the buttons are
+ * see-through (Outline, Glass, Soft), the buttons' words. Never stronger
+ * than needed, in steps of 5%, at most 85%. The theme's colours are not
+ * changed by a picture: the picture gives way, so the page keeps its look
+ * and nothing changes colour when the picture arrives.
+ */
+export function photoVeil(theme: ContrastThemeLike, photo: PhotoGrounds | null): { color: string; alpha: number } {
+  const none = { color: "#000000", alpha: 0 }
+  if (!photo || (theme.background_type !== "image" && theme.background_type !== "video")) return none
+  const text = parseColor(theme.text_color)
+  if (!text) return none
+  const lightWords = lum(text) > 0.4
+  const own = parseColor(theme.background_color)
+  const ownSide = own && own.a >= 1 && (lightWords ? lum(own) < 0.2 : lum(own) > 0.6)
+  const veil = ownSide ? own : lightWords ? BLACK : WHITE
+  const inks: Rgba[] = [text]
+  const words = parseColor(theme.button_text_color)
+  const seeThrough = fillOf(theme) !== "filled"
+  if (seeThrough && words) inks.push(words)
+  const ends = photoGrounds(theme, photo)
+  for (let a = 0; a <= 0.85; a = Math.round((a + 0.05) * 100) / 100) {
+    const page = ends.map((g) => over({ ...veil, a }, g))
+    const reads = worstContrast(text, page) >= TEXT_MIN && (!seeThrough || !words || worstContrast(words, buttonGrounds(theme, page)) >= TEXT_MIN)
+    if (reads) return { color: toHex(veil), alpha: a }
+  }
+  return { color: toHex(veil), alpha: 0.85 }
 }
 
 /**

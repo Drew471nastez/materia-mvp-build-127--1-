@@ -76,10 +76,10 @@ const SETTINGS = [
   ["Button text place", {}, { button_text_align: "left" }],
   ["Button icon side", {}, { button_icon_position: "right" }],
   ["Spacing", {}, { spacing: "comfortable" }],
-  ["Width", {}, { card_width: "narrow" }],
   ["Header alignment", {}, { header_align: "left" }],
   ["Header Hero", {}, { header_layout: "hero" }],
-  ["Cover picture", {}, { cover_image_url: PHOTO }],
+  /* A cover must be an https address (lib/onepage/theme-layout coverImageOf); it need not load for its band to be drawn. */
+  ["Cover picture", {}, { cover_image_url: "https://images.unsplash.com/photo-1507400492013-162706c8c05e?w=1600&q=80" }],
   ["Links layout Grid", {}, { block_layout: "grid" }],
   ["Links layout Cards", {}, { block_layout: "cards" }],
   ["Links layout Compact", {}, { block_layout: "compact" }],
@@ -126,6 +126,7 @@ const SNAPSHOT = String.raw`(() => {
     title: "[data-op-header] h1, [data-hero-header] h1",
     bio: "[data-op-header] p, [data-hero-header] p",
     avatar: "[data-page-avatar]",
+    avatarFrame: "[data-page-avatar] .shadow-lg",
     cover: "[data-cover-image]",
     social: "[data-op-social-row]",
     socialIcon: "[data-op-social-row] a",
@@ -181,7 +182,8 @@ const open = async (view) => {
 const snap = async (page, theme) => {
   await page.bringToFront()
   await page.evaluate((t) => window.__ar5Render(t), theme)
-  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+  /* Faces settle first (a face still loading in one tab and not the other is not a difference between the renderers). */
+  await page.evaluate(() => document.fonts.ready.then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))))
   return page.evaluate(SNAPSHOT)
 }
 const diff = (a, b) => {

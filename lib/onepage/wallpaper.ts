@@ -374,7 +374,7 @@ const mixHexes = (a: string, b: string, t: number) => {
 }
 
 export interface WallpaperLayer {
-  key: "duotone-light" | "duotone-dark" | "halftone" | "grain" | "tint"
+  key: "duotone-light" | "duotone-dark" | "halftone" | "grain" | "tint" | "veil"
   style: { background?: string; backgroundImage?: string; backgroundSize?: string; backgroundPosition?: string; mixBlendMode?: "multiply" | "screen" | "overlay" | "normal"; opacity: number }
 }
 
@@ -427,4 +427,41 @@ export function wallpaperMediaLook(theme: WallpaperEffectThemeLike | null | unde
   /* A blur pulls the edge in by about twice its radius: scaled so that edge is outside the frame. */
   const scale = blur > 0 ? Math.round((1 + Math.min(0.3, blur * 0.012)) * 1000) / 1000 : 1
   return { effect, filter: parts.join(" "), scale, layers }
+}
+
+/**
+ * A pixel of the picture as the page shows it: through the brightness, the
+ * grey of Mono, Halftone and Duotone with their contrast, and Duotone's two
+ * colours (the tint is laid on later, by lib/onepage/contrast). The blur and
+ * the halftone's dots are left out: they narrow the picture's range, so the
+ * ends read here are the harder case. Used on the few pixels the page
+ * samples once (components/onepage/wallpaper-layers usePhotoGrounds).
+ */
+export function pixelThroughLook(px: { r: number; g: number; b: number }, theme: WallpaperEffectThemeLike | null | undefined, kind: "image" | "video"): { r: number; g: number; b: number; a: number } {
+  const effect = wallpaperEffectOf(theme)
+  const k = clampNum(num(kind === "image" ? theme?.image_brightness : theme?.video_brightness, 100) || 100, 10, 200) / 100
+  let [r, g, b] = [px.r, px.g, px.b].map((v) => clampNum((v / 255) * k, 0, 1))
+  if (effect === "mono" || effect === "halftone" || effect === "duotone") {
+    const c = effect === "mono" ? 1.06 : effect === "halftone" ? 1.4 : 1.12
+    const grey = clampNum((0.2126 * r + 0.7152 * g + 0.0722 * b - 0.5) * c + 0.5, 0, 1)
+    r = g = b = grey
+    if (effect === "duotone") {
+      const dark = wallpaperTint(theme) ?? DUOTONE_DEFAULT
+      const light = mixHexes(dark, "#ffffff", 0.82)
+      const ch = (hex: string, i: number) => Number.parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) / 255
+      const s = wallpaperTintAlpha(theme) > 0 ? wallpaperTintAlpha(theme) : 1
+      const out = [0, 1, 2].map((i) => {
+        const m = grey * (1 - s + s * ch(light, i))
+        return 1 - (1 - m) * (1 - s * ch(dark, i))
+      })
+      ;[r, g, b] = out
+    }
+  }
+  return { r: r * 255, g: g * 255, b: b * 255, a: 1 }
+}
+
+/** The look with the veil that makes the page's words read on this picture (lib/onepage/contrast photoVeil) laid last; the same look when none is needed. */
+export function withVeil(look: WallpaperMediaLook, veil: { color: string; alpha: number }): WallpaperMediaLook {
+  if (!(veil.alpha > 0)) return look
+  return { ...look, layers: [...look.layers, { key: "veil", style: { background: veil.color, mixBlendMode: "normal", opacity: veil.alpha } }] }
 }

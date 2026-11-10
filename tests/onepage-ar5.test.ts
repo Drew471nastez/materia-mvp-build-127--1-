@@ -42,8 +42,10 @@ import {
   readableTheme,
   smallPrintAlpha,
   worstContrast,
+  photoVeil,
+  over,
 } from "@/lib/onepage/contrast"
-import { WALLPAPER_EFFECTS, wallpaperMediaLook } from "@/lib/onepage/wallpaper"
+import { WALLPAPER_EFFECTS, pixelThroughLook, wallpaperMediaLook } from "@/lib/onepage/wallpaper"
 import { LOOK_RESET, lookFromTemplate, readableOn } from "@/lib/onepage/theme-apply"
 import { buttonHoverVars } from "@/lib/onepage/button-style"
 import { publicOnePage, publicOnePageFromDraft } from "@/lib/onepage/public-shape"
@@ -167,7 +169,7 @@ check("a white page keeps the faintest small print", smallPrintAlpha({ backgroun
 
 console.log("\nOne place, read by the preview and the live page")
 const pub = read("components/onepage/public-onepage.tsx")
-check("the page reads its theme through readableTheme", /const safeTheme = readableTheme\(\{/.test(pub))
+check("the page reads its theme through readableTheme", /const safeTheme = readableTheme\(mergedTheme\)/.test(pub))
 check("the page writes its small print floor", /\["--op-small-print" as string\]: smallPrint/.test(pub) && (pub.match(/--op-small-print/g) ?? []).length >= 2)
 const css = read("app/globals.css")
 check("the small print classes are lifted to it, never below their own value", /\.onepage-live \.opacity-70 \{ opacity: max\(0\.7, var\(--op-small-print, 0\)\); \}/.test(css) && /\.onepage-live \.opacity-60 \{ opacity: max\(0\.6,/.test(css))
@@ -209,7 +211,7 @@ check("a tint at 0 draws nothing", wallpaperMediaLook({ wallpaper_tint: "#d42d17
 check("a hand edited tint cannot reach a stylesheet", wallpaperMediaLook({ wallpaper_tint: "red;}body{x", wallpaper_tint_strength: 50 }, "image").layers.length === 0)
 check("the desktop surround adds its own 20px", /blur\(20px\)/.test(wallpaperMediaLook({}, "video", 20).filter))
 const layers = read("components/onepage/wallpaper-layers.tsx")
-const effectsFn = layers.slice(layers.indexOf("export function WallpaperEffectLayers"), layers.indexOf("export function WallpaperNoise"))
+const effectsFn = layers.slice(layers.indexOf("export function WallpaperEffectLayers"), layers.indexOf("THE PICTURE'S OWN DARK AND LIGHT"))
 check("the layers are plain elements: no effect, no frame loop", effectsFn.length > 0 && !/use(Effect|LayoutEffect|State)|requestAnimationFrame/.test(effectsFn))
 check("the photo and the video, on the phone, in the desktop card and around it, take the look", (pub.match(/filter: imageLook\.filter/g) ?? []).length === 3 && (pub.match(/filter: videoLook\.filter/g) ?? []).length === 2 && (pub.match(/filter: surroundLook\.filter/g) ?? []).length === 2 && (pub.match(/<WallpaperEffectLayers/g) ?? []).length === 6)
 const design = read("components/onepage/tabs/design-tab.tsx")
@@ -217,6 +219,23 @@ check("the Design tab offers the effects for a photo and for a video", /<Wallpap
 check("the Design tab's own picture and video show the effect", /filter: imageLook\.filter/.test(design) && /filter: videoLook\.filter/.test(design))
 const fx = read("components/onepage/themes/wallpaper-effects.tsx")
 check("each effect tile is drawn by the page's own function", /wallpaperMediaLook\(sample, kind\)/.test(fx) && /<WallpaperEffectLayers look=\{look\}/.test(fx))
+
+console.log("\nA picture that would hide the words is veiled, just enough")
+const fog = { dark: c("#9fb4b0"), light: c("#f4f6f5") }
+const photoPage = { background_type: "image", background_color: "#22301f", text_color: "#ffffff", button_style: "glass", button_color: "#ffffff", button_text_color: "#ffffff" }
+const v = photoVeil(photoPage, fog)
+check("white words on white fog get a dark veil", v.alpha > 0 && v.color === "#22301f", JSON.stringify(v))
+check("which makes them read on both ends of the picture", (() => {
+  const page = [fog.dark, fog.light].map((g) => over({ ...c(v.color), a: v.alpha }, g))
+  return worstContrast(c("#ffffff"), page) >= TEXT_MIN && worstContrast(c("#ffffff"), buttonGrounds(photoPage, page)) >= TEXT_MIN
+})())
+check("no veil where the picture already reads", photoVeil(photoPage, { dark: c("#101410"), light: c("#3a4a3a") }).alpha === 0)
+check("no veil before the picture is read, or on a page with no picture", photoVeil(photoPage, null).alpha === 0 && photoVeil({ ...photoPage, background_type: "solid" }, fog).alpha === 0)
+check("dark words on a dark photo get a light veil", photoVeil({ ...photoPage, text_color: "#111111", button_text_color: "#111111", background_color: "#101010" }, { dark: c("#050505"), light: c("#404040") }).color === "#ffffff")
+check("the brightness is counted before the veil", pixelThroughLook({ r: 240, g: 240, b: 240 }, { image_brightness: 50 }, "image").r === 120)
+check("mono is counted as grey", (() => { const p = pixelThroughLook({ r: 255, g: 0, b: 0 }, { wallpaper_effect: "mono" }, "image"); return p.r === p.g && p.g === p.b })())
+check("the page reads its picture once and lays the veil with the effect", /usePictureEnds\(pictureSrc\)/.test(pub) && /withVeil\(wallpaperMediaLook\(safeTheme, "image"\), veil\)/.test(pub))
+check("the picture is read from a small canvas, once per address", /const sampled = new Map/.test(layers) && /canvas\.width = w/.test(layers))
 
 console.log("\nThemes that differ")
 const sig = (t: T) => {

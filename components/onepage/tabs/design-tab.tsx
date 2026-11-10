@@ -605,7 +605,7 @@ const BASE_THEME_TEMPLATES = [
     theme_config: {
       background_type: "gradient" as const,
       background_color: "#8f3b28",
-      background_gradient: "linear-gradient(180deg, #ab5036 0%, #8f3b28 55%, #5e2617 100%)",
+      background_gradient: "linear-gradient(180deg, #9c472f 0%, #8f3b28 55%, #5e2617 100%)",
       background_image_url: "",
       text_color: "#ffffff",
       secondary_text_color: "#ffeee4",

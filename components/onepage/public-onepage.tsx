@@ -51,8 +51,9 @@ import { ExtraBlock, ExtraBlockPreviewContext, IncompleteLinkPlaceholder, Sensit
 import { isExtraBlock, isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
-import { WallpaperDrift, WallpaperEffectLayers, WallpaperNoise, WallpaperPattern, useHeaderClearance } from "@/components/onepage/wallpaper-layers"
-import { wallpaperMediaLook } from "@/lib/onepage/wallpaper"
+import { WallpaperDrift, WallpaperEffectLayers, WallpaperNoise, WallpaperPattern, useHeaderClearance, usePictureEnds } from "@/components/onepage/wallpaper-layers"
+import { pixelThroughLook, wallpaperMediaLook, withVeil } from "@/lib/onepage/wallpaper"
+import { wallpaperPhotoSrc } from "@/components/onepage/themes/wallpaper-photo"
 /* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
 import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
 import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
@@ -66,7 +67,7 @@ import { canvasRule, heroHeaderShown } from "@/lib/onepage/page-frame"
 import { PosterVideo } from "@/components/onepage/poster-video"
 import { HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/lib/onepage/poster-video"
 import { readableOn } from "@/lib/onepage/theme-apply"
-import { readableTheme, smallPrintAlpha } from "@/lib/onepage/contrast"
+import { photoVeil, readableTheme, smallPrintAlpha } from "@/lib/onepage/contrast"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
 import { pairProductTiles } from "@/lib/onepage/product-block"
 import { tt } from "@/lib/i18n/text"
@@ -1022,7 +1023,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     in the colour of what they sit on. The editor's preview draws this same
     component, so both get the same colours.
   */
-  const safeTheme = readableTheme({
+  const mergedTheme = {
     background_type: "solid" as const,
     background_color: "#ffffff",
     background_gradient: "",
@@ -1053,7 +1054,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     social_icon_color: undefined as string | undefined,
     header_layout: "classic" as const,
     ...theme, // Spread theme to override defaults with actual values
-  })
+  }
+  const safeTheme = readableTheme(mergedTheme)
 
   /* Addresses from actions first, so a link made from an action counts as a link with an address. */
   const safeBlocks = useMemo(() => withBlockActions(blocks || []), [blocks])
@@ -1080,10 +1082,26 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   /* Round AR: the least opacity the page's small print may have and still read (lib/onepage/contrast smallPrintAlpha, app/globals.css). */
   const smallPrint = smallPrintAlpha(safeTheme)
   /* Round AR: a photo or video wallpaper's effect, tint and blur (lib/onepage/wallpaper wallpaperMediaLook): CSS filters and plain layers, nothing per frame. */
-  const imageLook = wallpaperMediaLook(safeTheme, "image")
-  const videoLook = wallpaperMediaLook(safeTheme, "video")
+  /*
+    And the veil that keeps the words readable on this picture (round AR):
+    the picture read once from the copy the page draws (usePictureEnds), its
+    ends taken through the page's brightness and effect, and the theme's
+    background colour (or black or white) laid over it just strongly enough
+    (lib/onepage/contrast photoVeil). None on a picture that already reads.
+  */
+  const pictureKind = safeTheme.background_type === "video" ? "video" : "image"
+  const pictureSrc =
+    safeTheme.background_type === "image" && safeTheme.background_image_url
+      ? wallpaperPhotoSrc(safeTheme.background_image_url)
+      : safeTheme.background_type === "video"
+        ? videoPoster((safeTheme as { background_video_crop?: unknown }).background_video_crop)
+        : null
+  const pictureEnds = usePictureEnds(pictureSrc)
+  const veil = photoVeil(safeTheme, pictureEnds ? { dark: pixelThroughLook(pictureEnds.dark, safeTheme, pictureKind), light: pixelThroughLook(pictureEnds.light, safeTheme, pictureKind) } : null)
+  const imageLook = withVeil(wallpaperMediaLook(safeTheme, "image"), veil)
+  const videoLook = withVeil(wallpaperMediaLook(safeTheme, "video"), veil)
   /* Around the desktop card: the video's still, 20px softer again. */
-  const surroundLook = wallpaperMediaLook(safeTheme, "video", 20)
+  const surroundLook = withVeil(wallpaperMediaLook(safeTheme, "video", 20), veil)
 
   // Animated gradient - only when explicitly enabled
   const isAnimatedGradient = safeTheme.background_type === "gradient" && safeTheme.animated_gradient === true

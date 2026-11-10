@@ -239,6 +239,78 @@ export function WallpaperEffectLayers({ look, box }: { look: WallpaperMediaLook;
   )
 }
 
+/*
+  ===========================================================================
+   THE PICTURE'S OWN DARK AND LIGHT, READ ONCE (round AR)
+  ===========================================================================
+  White words on a creator's own bright photo at full brightness were white
+  on white. The page cannot know a picture from its theme, so it reads it:
+  the copy the page draws (same origin, through the image optimizer), drawn
+  once into a 24 by 40 canvas when it has loaded, and the pixels at the 10th
+  and 90th percentile of luminance kept. A video is read from its saved
+  frame. Kept per address for the life of the page; a picture that cannot
+  be read (another origin without CORS) gives nothing, and the page draws
+  as it always did. lib/onepage/contrast photoVeil turns the two ends into
+  the veil that makes the words read.
+*/
+type RawEnds = { dark: { r: number; g: number; b: number }; light: { r: number; g: number; b: number } }
+const sampled = new Map<string, Promise<RawEnds | null>>()
+
+export function samplePicture(src: string): Promise<RawEnds | null> {
+  const known = sampled.get(src)
+  if (known) return known
+  const job = new Promise<RawEnds | null>((resolve) => {
+    if (typeof document === "undefined") return resolve(null)
+    const img = new Image()
+    img.crossOrigin = "anonymous"
+    img.decoding = "async"
+    img.onload = () => {
+      try {
+        const w = 24
+        const h = 40
+        const canvas = document.createElement("canvas")
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext("2d", { willReadFrequently: true })
+        if (!ctx) return resolve(null)
+        /* As the page draws it: cover, centred. */
+        const s = Math.max(w / img.naturalWidth, h / img.naturalHeight)
+        const dw = img.naturalWidth * s
+        const dh = img.naturalHeight * s
+        ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh)
+        const d = ctx.getImageData(0, 0, w, h).data
+        const px: { r: number; g: number; b: number; l: number }[] = []
+        for (let i = 0; i < d.length; i += 4) px.push({ r: d[i], g: d[i + 1], b: d[i + 2], l: 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2] })
+        px.sort((a, b) => a.l - b.l)
+        const at = (q: number) => px[Math.min(px.length - 1, Math.floor(px.length * q))]
+        resolve({ dark: at(0.1), light: at(0.9) })
+      } catch {
+        resolve(null)
+      }
+    }
+    img.onerror = () => resolve(null)
+    img.src = src
+  })
+  sampled.set(src, job)
+  return job
+}
+
+/** The picture's two ends, once it has been read; null until then, and for a picture that cannot be read. */
+export function usePictureEnds(src: string | null): RawEnds | null {
+  const [ends, setEnds] = React.useState<{ src: string; ends: RawEnds | null } | null>(null)
+  React.useEffect(() => {
+    if (!src) return
+    let live = true
+    void samplePicture(src).then((e) => {
+      if (live) setEnds({ src, ends: e })
+    })
+    return () => {
+      live = false
+    }
+  }, [src])
+  return src && ends?.src === src ? ends.ends : null
+}
+
 /** The Noise switch: grey grain blended over a gradient or a photo, at the strength chosen (5 to 50). */
 export function WallpaperNoise({ strength, className = "absolute inset-0", style }: { strength: unknown; className?: string; style?: React.CSSProperties }) {
   return (

@@ -727,7 +727,8 @@ function EventsView({ block, data, provider, look }: Omit<ViewProps, "provider">
               <span className="flex shrink-0 flex-col items-center justify-center rounded-xl text-center" style={{ width: px(46, look.scale), height: px(50, look.scale), background: MIX[12] }}>
                 {day ? (
                   <>
-                    <span className="font-semibold tracking-[0.04em] opacity-80" style={{ fontSize: px(10.5, look.scale) }}>{day.month}</span>
+                    {/* Round AR: the month at full strength: at 80% on the date chip's tint it fell under 4.5:1 on mid-tone pages (scripts/check-onepage-contrast-ar5.mjs). */}
+                    <span className="font-semibold tracking-[0.04em]" style={{ fontSize: px(10.5, look.scale) }}>{day.month}</span>
                     <span className="font-bold tabular-nums leading-none" style={{ fontSize: px(19, look.scale) }}>{day.day}</span>
                   </>
                 ) : (
