@@ -169,6 +169,17 @@ export interface ItemManifest {
   props: EditableProp[]
   /** How many of this type at most. */
   limit?: number
+  /**
+   * How many of this type a placed section needs at least (schema `min_blocks`, round P). Absent: 3 for a
+   * repeating list (FAQ, programme, team, steps, plans), 1 otherwise; 0 for an optional item type.
+   */
+  min?: number
+}
+
+/** The items (and settings) a component arrives with when placed or added: its schema's first preset (round P). */
+export interface ComponentPreset {
+  settings?: Record<string, unknown>
+  blocks: { type: string; settings?: Record<string, unknown> }[]
 }
 
 /** Where a component may be placed. */
@@ -198,6 +209,8 @@ export interface ComponentManifest {
   props: EditableProp[]
   items?: ItemManifest[]
   maxItems?: number
+  /** Filled items for every item type (round P): what a placement and the editor's Add section start with. */
+  preset?: ComponentPreset
   placement: ComponentPlacement
   capabilities: ScriptCapability[]
   /** Token CSS variables it reads, for the token panel's "used by". */
@@ -310,19 +323,31 @@ export interface JobBudget {
   maxRepairsPerFile: number
   /** Whole-site verify then repair cycles. */
   maxVerifyCycles: number
+  /**
+   * Round P (P1): pictures per job (generate_image + find_photo that worked). Their cost is counted in
+   * maxUsd like a model call. Optional so a budget saved before round P still reads; absent is 16.
+   */
+  maxImages?: number
 }
 
 export const DEFAULT_JOB_BUDGET: JobBudget = {
   /* Round N: a whole site (10+ home sections, every page and template) is 25 to 40 components. */
   maxWallMs: 45 * 60_000,
   maxIterations: 200,
-  maxUsd: 10,
-  maxUsdOwnKey: 30,
+  /*
+    Round P (P5): the build phase writes on claude-opus-5-5 at effort high and pictures are made (P1, counted in
+    the same spend). lib/ai-builder/agent/model-routing.ts estimateSiteUsd puts a typical whole site at about
+    $13.50 of model calls (it was about $7.30, close to the old $10 cap); $20 leaves room for pictures and
+    repairs. The cap is still checked before every call with that call's worst case.
+  */
+  maxUsd: 20,
+  maxUsdOwnKey: 40,
   maxOutputTokensPerCall: 24_000,
   perInvocationMs: 240_000,
   callReserveMs: 60_000,
   maxRepairsPerFile: 3,
   maxVerifyCycles: 3,
+  maxImages: 16,
 }
 
 /** Why a job stopped early. */
@@ -431,6 +456,11 @@ export const AGENT_TOOL_NAMES = [
   "render_check",
   "report_progress",
   "finish",
+  /* Round P (P1): pictures made or found, kept in the creator's files (lib/storelib-ai/images). */
+  "generate_image",
+  "find_photo",
+  /* Round P (P2a + P5): the starting templates, browsable. */
+  "list_templates",
 ] as const
 export type AgentToolName = (typeof AGENT_TOOL_NAMES)[number]
 

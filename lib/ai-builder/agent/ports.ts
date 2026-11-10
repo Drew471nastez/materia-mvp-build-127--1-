@@ -22,9 +22,13 @@ import type { SiteFingerprint } from "../novelty"
 import type { AgentImage } from "@/lib/sites/agent/attachments"
 import type { AgentProvider } from "@/lib/sites/agent/types"
 import type { DesignReference } from "@/lib/storelib-ai/references/types"
+import type { GenerateImageInput, ImageAspect, ImageOutcome, ImageProviderId } from "@/lib/storelib-ai/images/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { RuntimeCapabilities } from "../runtime-contract"
 import type { VisualCriticRunner } from "../visual-critic/critic"
+import type { SiteTemplate } from "@/lib/storelib-ai/templates"
+import type { CreativeBrief } from "@/lib/storelib-ai/direction/brief"
+import type { DirectionChoice } from "@/lib/storelib-ai/direction/choose"
 import type { AgentEvent, DesignTokens, FileAuthor, GenerationMode, JobBudget, KnowledgeEntry, KnowledgeKind, StartOptions, ValidationIssue } from "../types"
 
 /* ── the website ──────────────────────────────────────────────────────── */
@@ -77,6 +81,11 @@ export interface ModelRole {
 export interface AgentModels {
   plan: ModelRole
   loop: ModelRole
+  /**
+   * Round P (P5): the build phase, where the components are written (the quality-critical calls):
+   * claude-opus-5-5 at effort high (./models.ts routeFor). Absent: the build runs on `loop`.
+   */
+  write?: ModelRole
   small: ModelRole
   /**
    * The vision model the design review looks at the rendered draft with (round O, O4: claude-opus-5-5 through
@@ -136,6 +145,37 @@ export interface ReferenceSource {
   images: (ids: string[]) => Promise<{ id: string; image: AgentImage }[]>
 }
 
+/**
+ * Round P (P2 + P5): the starting templates (lib/storelib-ai/templates, P2's). The agent starts a new website
+ * from the closest one, then adapts it. ./templates.ts defaultTemplates adapts P2's module to this shape.
+ */
+export interface TemplateLibrary {
+  /** The closest template for the job's creative brief and chosen direction, or null. */
+  choose(brief: CreativeBrief, choice: DirectionChoice | null): SiteTemplate | null | Promise<SiteTemplate | null>
+  byId(id: string): SiteTemplate | null
+  /** Writes the template into the install (drafts). `files` and `pages` are what it wrote; `next` its adaptation notes. */
+  apply(store: ProjectStore, template: SiteTemplate, brief: CreativeBrief, meta: { jobId: string; choice: DirectionChoice | null }): Promise<{ ok: boolean; files: string[]; pages: string[]; next?: string; problems?: string[] }>
+  /** What is still the template's own: copy (files and placed sections, named) and picture slots still empty. */
+  untouched(project: { files: Record<string, string>; pages: StoredPage[] }, template: SiteTemplate): { copy: string[]; images: string[] }
+}
+
+/**
+ * Round P (P1): pictures for the job, bound to its creator and store owner
+ * (lib/storelib-ai/images generateImage / findPhoto; ./server.ts). The tools
+ * add the art direction, keep to the job's picture limit and spend, and run
+ * several side by side.
+ */
+export interface ImageService {
+  /** What this environment can do: a generator (OpenAI, else Gemini) and/or stock (Pexels). */
+  available: () => Promise<{ generate: ImageProviderId | null; stock: boolean }>
+  generate: (input: Omit<GenerateImageInput, "creatorId" | "ownerUserId" | "jobId">) => Promise<ImageOutcome>
+  find: (input: { query: string; aspect?: ImageAspect; alt?: string; purpose?: string }) => Promise<ImageOutcome>
+  /** The most one picture can cost here (USD), checked against the spend left before it starts. */
+  ceiling: (aspect: ImageAspect) => number
+  /** Overrides the job budget's maxImages (AI_BUILDER_MAX_IMAGES). */
+  maxImages?: number
+}
+
 /** Turns tokens into Theme settings keys (L5 owns the real one). */
 export type TokensMapper = (tokens: Partial<DesignTokens>, current: Record<string, unknown>) => { settings: Record<string, unknown>; changed: string[]; issues: ValidationIssue[] }
 
@@ -190,6 +230,16 @@ export interface AgentDeps {
    * back as repair work. Absent: no design review (and nothing is claimed about one).
    */
   visualCritic?: VisualCriticRunner
+  /** Round P (P5): the starting templates. Absent: lib/storelib-ai/templates (./templates.ts defaultTemplates). */
+  templates?: TemplateLibrary
+  /**
+   * Round P (P5): overrides whether this job can make or find pictures (default: `images.available()`, a
+   * generator or stock search). True: every image slot the design has must hold a picture before finish.
+   * False: sections are made text-forward instead (never an empty frame to visitors).
+   */
+  imageProvider?: () => boolean | Promise<boolean>
+  /** Round P (P1): pictures. Absent: the tools refuse and the brief says to design text-forward. */
+  images?: ImageService
   /** Whether the editor draws form_picker (L4 landed it; default: whether the control registry has it). */
   features?: { formPicker?: boolean }
   /** Each event as it happens (L2 writes ai_site_job_events). Never throws into the loop. */

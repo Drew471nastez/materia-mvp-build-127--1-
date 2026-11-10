@@ -10,6 +10,7 @@
  * job's own install only. A tool never takes an install id, creator id or
  * path outside the install: the loop binds those from the job row.
  */
+import type { runListTemplates } from "@/lib/storelib-ai/templates"
 import type {
   AgentPhase,
   AgentToolName,
@@ -49,7 +50,8 @@ export interface AgentToolInputs {
   add_page: { key: string; title: string; seo?: { title?: string; description?: string } }
   /** Replaces the page's body sections in order. Header/footer only with `group`. */
   set_page_sections: { page: string; sections: PlacedSectionInput[] }
-  set_section_settings: { page: string; sectionId: string; settings: Record<string, unknown> }
+  /** `blockId` (round P): one item of the section (a template's picture slot or row lives on a block). */
+  set_section_settings: { page: string; sectionId: string; settings: Record<string, unknown>; blockId?: string }
   /**
    * `settings` (round N, N5): the site's own Theme settings, labelled and grouped as its designer would
    * (lib/ai-builder/site-settings.ts). Sent: replaces the declared groups. Left out: they stay as they are.
@@ -57,7 +59,10 @@ export interface AgentToolInputs {
   set_tokens: { tokens: Partial<DesignTokens>; settings?: DesignGroupInput[] }
   list_capabilities: Record<string, never>
   /** Sets a binding prop to a real id. Refused when the id is not in list_capabilities. */
-  bind_data: { page: string; sectionId: string; prop: string; kind: DataBindingKind; ids: string[] }
+  /** `blockId` (round P): bind a setting of one item (a row bound to its own product). */
+  bind_data: { page: string; sectionId: string; prop: string; kind: DataBindingKind; ids: string[]; blockId?: string }
+  /** Round P (P2a + P5): browse the starting templates (lib/storelib-ai/templates/gallery.ts). */
+  list_templates: { query?: string; limit?: number }
   search_knowledge: { query: string; kinds?: KnowledgeKind[]; limit?: number }
   /** No path: every file the job touched and every page. */
   validate: { path?: string }
@@ -73,7 +78,20 @@ export interface AgentToolInputs {
   /** `brief` (round O, O2): the plan model's refinements to the creative brief (lib/storelib-ai/direction/brief.ts refineBrief). */
   report_progress: { phase: AgentPhase; label: string; concept?: unknown; tasks?: string[]; pages?: unknown; brief?: unknown }
   finish: { summary: string; notes?: string[] }
+  /**
+   * Round P (P1): an original picture (lib/storelib-ai/images generateImage), kept in the creator's files.
+   * `prompt` is the subject in plain words; the site's art direction, light and palette are added for it.
+   * `purpose`: hero, product, portrait, people, place, detail, gallery, background... `style`: photo (default), studio, editorial, illustration, render.
+   */
+  generate_image: { prompt: string; aspect?: "square" | "landscape" | "portrait"; purpose?: string; alt?: string; style?: string }
+  /** Round P (P1): a licensed stock photo (Pexels), kept in the creator's files with its photographer's credit. */
+  find_photo: { query: string; aspect?: "square" | "landscape" | "portrait"; purpose?: string; alt?: string }
 }
+
+/** What generate_image and find_photo answer: the picture to put in an image_picker setting, or why there is none. */
+export type AgentImageOutput =
+  | { ok: true; url: string; alt: string; width: number; height: number; mediaId: string; source: "ai" | "stock"; credit?: string; left: number }
+  | { ok: false; reason: string; left?: number }
 
 export interface AgentToolOutputs {
   list_files: { files: Pick<ProjectFile, "path" | "updatedAt">[] }
@@ -102,6 +120,9 @@ export interface AgentToolOutputs {
   report_progress: { ok: boolean; note?: string; reason?: string; issues?: ValidationIssue[] }
   /** Refused (ok false) while validate has errors and repairs remain. */
   finish: { ok: boolean; reason?: string }
+  generate_image: AgentImageOutput
+  find_photo: AgentImageOutput
+  list_templates: ReturnType<typeof runListTemplates>
 }
 
 /** Compile-time check that every tool name has an input and an output shape. */

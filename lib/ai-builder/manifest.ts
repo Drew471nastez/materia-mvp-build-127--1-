@@ -291,9 +291,11 @@ export function manifestToSchema(m: ComponentManifest): Record<string, unknown> 
     settings: propsToSettings(m.props),
   }
   if (m.items?.length) {
-    schema.blocks = m.items.map((i: ItemManifest) => ({ type: i.type, name: i.name, ...(i.limit ? { limit: i.limit } : {}), settings: propsToSettings(i.props, "block") }))
+    schema.blocks = m.items.map((i: ItemManifest) => ({ type: i.type, name: i.name, ...(i.limit ? { limit: i.limit } : {}), ...(typeof i.min === "number" ? { min_blocks: i.min } : {}), settings: propsToSettings(i.props, "block") }))
     if (m.maxItems) schema.max_blocks = m.maxItems
   }
+  /* Round P: the filled items a placement starts with (lib/ai-builder/agent/content-check.ts). */
+  if (m.preset?.blocks?.length) schema.presets = [{ name: m.name, ...(m.preset.settings ? { settings: m.preset.settings } : {}), blocks: m.preset.blocks.map((b) => ({ type: b.type, ...(b.settings ? { settings: b.settings } : {}) })) }]
   if (m.capabilities.length) schema.capabilities = [...m.capabilities]
   const groups = m.placement.groups.filter((g) => g !== "body")
   if (groups.length) schema.enabled_on = { groups }
@@ -505,7 +507,7 @@ export function schemaToManifest(input: string | Record<string, unknown>, opts: 
     /* A theme block it accepts by name ("@theme", a blocks/ file) has no settings of its own here. */
     if (!b || typeof b !== "object" || typeof b.name !== "string") continue
     const read = settingsToProps(b.settings, "block")
-    items.push({ type: String(b.type), name: b.name, props: read.props, ...(num(b.limit) ? { limit: num(b.limit) } : {}) })
+    items.push({ type: String(b.type), name: b.name, props: read.props, ...(num(b.limit) ? { limit: num(b.limit) } : {}), ...(num(b.min_blocks) !== undefined ? { min: num(b.min_blocks) } : {}) })
     unmapped.push(...read.unmapped.map((setting) => ({ at: `blocks.${String(b.type)}`, setting })))
   }
   const enabled = schema.enabled_on && typeof schema.enabled_on === "object" ? (schema.enabled_on as { groups?: unknown }).groups : undefined
@@ -519,11 +521,21 @@ export function schemaToManifest(input: string | Record<string, unknown>, opts: 
     props: section.props,
     ...(items.length ? { items } : {}),
     ...(num(schema.max_blocks) ? { maxItems: num(schema.max_blocks) } : {}),
+    ...presetOf(schema),
     placement: { groups: groups.length ? groups : ["body"], ...(schema.kind === "header" || schema.kind === "footer" ? { kind: schema.kind } : {}) },
     capabilities: Array.isArray(schema.capabilities) ? (schema.capabilities.filter((c) => typeof c === "string") as ScriptCapability[]) : [],
     ...(Array.isArray(schema.tokens) ? { tokens: schema.tokens.filter((t): t is string => typeof t === "string") } : {}),
   }
   return { manifest, unmapped }
+}
+
+/** The first preset's flat item list, as a manifest's `preset` (round P). Empty when it has no items. */
+function presetOf(schema: Record<string, unknown>): { preset?: ComponentManifest["preset"] } {
+  const first = Array.isArray(schema.presets) ? (schema.presets[0] as Record<string, unknown> | undefined) : undefined
+  if (!first || !Array.isArray(first.blocks) || !first.blocks.length) return {}
+  const blocks = (first.blocks as Record<string, unknown>[]).filter((b) => b && typeof b.type === "string").map((b) => ({ type: String(b.type), ...(b.settings && typeof b.settings === "object" ? { settings: b.settings as Record<string, unknown> } : {}) }))
+  if (!blocks.length) return {}
+  return { preset: { ...(first.settings && typeof first.settings === "object" ? { settings: first.settings as Record<string, unknown> } : {}), blocks } }
 }
 
 /**

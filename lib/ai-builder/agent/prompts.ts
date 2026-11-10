@@ -36,9 +36,32 @@ import { STUDIO_CRAFT } from "@/lib/website-builder/ai-site/craft"
 import { PAGES_AND_TEMPLATES } from "./site-plan"
 /* Round O (O5): the business's site story and the motion feel, its own block (O6 owns this file's assembly). */
 import { motionAndLayoutBrief } from "@/lib/storelib-ai/layout"
+/* Round P (P3): the motion islands (3D, scroll scrubbing, pinned runs, shader backgrounds), their own block; O6 may fold it into the assembly. */
+import { motionIslandsForPrompt } from "@/lib/storelib-theme/motion-islands"
+/* Round P (P4): the chrome kit, premium headers, drawers, search, switches and footers to adapt. */
+import { chromeKitForPrompt } from "@/lib/storelib-ai/library/chrome-kit"
 
 /** CLAUDE.md's list, and its shape: words that say nothing. */
 export const BANNED_WORDS = ["unlock", "elevate", "seamless", "powerful", "effortlessly", "supercharge", "transform", "revolutionize", "game-changer"]
+
+/**
+ * ROUND P (P5): COMPLETE SECTIONS AND PICTURES. Its own block (O6 owns this file's assembly), in the cached
+ * prefix. The engine enforces each rule in code (./content-check.ts, ./validate.ts, ./loop.ts verify).
+ */
+export const COMPLETE_SECTIONS = `COMPLETE SECTIONS (checked at write and at finish)
+- Every item type a section declares is used, filled with this site's real words. Write each section's filled items into its schema's first preset ("presets": [{ "name": "...", "blocks": [{ "type": "...", "settings": { ... } }, ...] }], or a manifest's preset): write_file refuses a section whose item types have no filled preset items, and set_page_sections copies them into a placement that sends no blocks. Send blocks yourself to give one placement its own items.
+- A repeating list (an FAQ, a programme, classes, a team, steps, plans, services, who it is for and not for) has at least 3 real items, unless the store's real data has fewer (products, reviews, forms). Another item type needs at least 1. "min_blocks" on a block type sets its own minimum (0 for an optional type). Items that are empty, say "Item 1" or "Question", or copy one another do not count.
+- Pictures where the design has them. Every image setting a placed section shows holds a real picture before finish: generate_image or find_photo when you have them, or the creator's own media and product pictures. When no picture can be made or found, the section is text-forward: it draws nothing for the empty picture ({% if %}) and its words carry the layout. A visitor never sees a grey box, an empty frame or "add your photo". A picture or a binding of one item goes in with set_section_settings or bind_data and its blockId.
+- Starting templates (list_templates) are whole, finished sites: a new website starts from the closest one when the brief says so; borrow a section's structure from another when it serves the concept, always rewritten for this business.`
+
+/**
+ * ROUND P (P5): TEMPLATE FIRST, for a new website that starts from a starting template (./templates.ts). Only
+ * in the first turn of such a job (briefMessage `template`), never in the shared prefix.
+ */
+export const TEMPLATE_FIRST = `TEMPLATE FIRST: this new website starts from the starting template below, already placed with its items filled. It is a starting point, never the result. Adapt it to this business and the concept:
+- Read each component before you change it (read_file), then rebrand it: every word for this business (its name, offer, audience, real facts), the palette and type through set_tokens, the imagery (each picture slot gets this business's own picture), the composition (reorder, drop or add sections, change layouts) where the concept asks.
+- Keep its craft: complete schemas, filled items, real links, responsive layout, motion with reduced motion. Write new components to the same bar.
+- Finish is refused while any component or section still carries the template's words as shipped, or (when pictures can be made) its pictures.`
 
 export const AGENT_SYSTEM = `You are Storelib's website agent. You build real, original websites for creators by writing code components and composing pages, with tools, until the site is done and checks clean. Work like a senior designer-developer writing a site from scratch in a normal chat: your own layout, type, header, footer, cart, search and interactions, free of any theme's look, sections or defaults.
 
@@ -59,7 +82,7 @@ A FREE SITE (its chrome is yours)
 - Your header holds: the logo (theme.logo.url, else shop.name), the Main menu (link_list, sub links in link.links as a mega panel or dropdown, e.g. with the popover attribute and popovertarget buttons), a mobile menu of your own (popover) or data-storelib-menu, search and cart.
 - The hooks your own cart drawer, search window and language and currency switches are built with (put the switches in the header's mobile menu or the footer):
 ${HEADLESS_HOOK_GUIDE}
-- Cart and search buttons are links to routes.cart_url and routes.search_url, so they work before the page's script loads. Working examples: search_knowledge "ai_site_header" and "ai_site_footer".
+- Cart and search buttons are links to routes.cart_url and routes.search_url, so they work before the page's script loads. Working examples: search_knowledge "ai_site_header" and "ai_site_footer"; for a new site start from the chrome kit the brief lists (search_knowledge "chrome-kit").
 
 LINKS AND BUTTONS (checked on every drawn page; a broken one blocks finish)
 - A link with a job (a call to action, any link in a <nav> or in your header/footer, add to cart, checkout, Buy now) must go somewhere real: a page from list_capabilities, a product's url or checkout_url, a collection, a form's page, or an id that is on the same page (href="#classes" with id="classes"; #section-<section id>). Never href="#", href="", javascript: or an <a> with no href.
@@ -103,7 +126,11 @@ WORKING
 - AN EXISTING WEBSITE (edit mode, or a redesign of one): its content is the creator's. Keep words, pictures and bindings unless the request asks to change them.
 - EDIT MODE (an existing website): change only what is asked. "Make the hero calmer" touches the hero component and nothing else; "add a pricing page" adds that page and its components. Leave every other file, page, section and setting exactly as it is: do not tidy, rename, restyle or re-save what was not asked for.
 
-${PAGES_AND_TEMPLATES}`
+${PAGES_AND_TEMPLATES}
+
+${COMPLETE_SECTIONS}
+
+${motionIslandsForPrompt()}`
 
 function capsSummary(c: RuntimeCapabilities | null): string {
   if (!c) return "STORE DATA: could not be read. Bind nothing; leave product and collection settings empty for the creator."
@@ -135,11 +162,12 @@ function typeSystemsFor(job: AgentJobInput, directions: Direction[]): TypeSystem
 }
 
 /** The first user turn of a job. */
-export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; pages: StoredPage[]; files: StoredFile[]; knowledge: KnowledgeHit[]; directions?: Direction[]; design?: JobDesignBrief | null }): string {
+export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; pages: StoredPage[]; files: StoredFile[]; knowledge: KnowledgeHit[]; directions?: Direction[]; design?: JobDesignBrief | null; template?: string; pictures?: string }): string {
   const { job } = input
   /* Round O: an edit's direction is the site's own design, its DESIGN.md and tokens, kept unless asked (spec I.5). */
   const scoped = !!job.edit || job.redesign === "changes"
   const story = !job.edit && !job.redesign ? motionAndLayoutBrief({ prompt: job.prompt, category: job.options?.category ?? null }) : ""
+  const chrome = !scoped ? chromeKitForPrompt({ text: `${job.prompt} ${job.options?.category?.replace(/_/g, " ") ?? ""}`, styles: input.directions?.[0]?.styles }) : ""
   /* The creator's choices on Describe your website, in L1's words (start-options.ts startContext): kind, blank or theme, preset, preferences. */
   const choices = job.redesign ? "" : startContext(job.options ?? null)
   const own = input.files.filter((f) => /^(sections|blocks|snippets)\/ai_/.test(f.path)).map((f) => f.path)
@@ -169,9 +197,19 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
       : "",
     /* Round O (O5): the business's site story and the motion feel, for a new website. */
     story,
+    /* Round P (P1): which picture service this environment has (lib/storelib-ai/images/prompt.ts imageBriefNote). */
+    input.pictures ?? "",
+    /* Round P (P4): the chrome kit, for a new website (an edit keeps the site's own chrome). */
+    chrome,
     /* The first turn is kept whole in the checkpoint up to 20,000 characters: the knowledge gives way to the design brief. */
-    input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, Math.max(4_000, 12_000 - (input.design?.text.length ?? 0) - story.length))}` : "",
-    scoped ? "Start by reading what the request is about (list_pages, read_file), then change it. Before finish, render_check every page you changed." : "Start with report_progress phase \"plan\": the concept, the tasks and pages (every page and template with its sections). Then tokens, components, pages and templates, bindings with real ids, render_check on every page, finish.",
+    input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, Math.max(4_000, 12_000 - (input.design?.text.length ?? 0) - story.length - chrome.length - (input.template?.length ?? 0)))}` : "",
+    /* Round P (P5): the starting template, its picture slots and one or two of its components as examples (few-shot). */
+    input.template ? `${TEMPLATE_FIRST}\n\n${input.template}` : "",
+    scoped
+      ? "Start by reading what the request is about (list_pages, read_file), then change it. Before finish, render_check every page you changed."
+      : input.template
+        ? "Start with report_progress phase \"plan\": the concept for this business (adapting the template, not keeping it), the tasks and pages (every page and template with its sections). Then tokens, then read and adapt each template component and write the ones the plan adds, pictures in every slot, pages and templates, bindings with real ids, render_check on every page, finish."
+        : "Start with report_progress phase \"plan\": the concept, the tasks and pages (every page and template with its sections). Then tokens, components, pages and templates, bindings with real ids, render_check on every page, finish.",
   ]
     .filter(Boolean)
     .join("\n\n")

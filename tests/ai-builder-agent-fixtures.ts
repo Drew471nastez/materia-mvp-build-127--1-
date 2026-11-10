@@ -157,7 +157,12 @@ export const PROGRAMS = `<template>
       { "type": "textarea", "id": "detail", "label": "What it is", "default": "For lifters who want a plan they can keep up with." }
     ] }
   ],
-  "max_blocks": 8
+  "max_blocks": 8,
+  "presets": [{ "name": "Program list", "blocks": [
+    { "type": "program", "settings": { "name": "Small group strength", "when": "Mon Wed Fri 7am", "detail": "Six people, one coach, a written plan for each of you." } },
+    { "type": "program", "settings": { "name": "8 week strength block", "when": "Tue Thu 6pm", "detail": "A first block of barbell basics, tested at the start and the end." } },
+    { "type": "program", "settings": { "name": "Open gym", "when": "Saturday mornings", "detail": "Train your own plan with a coach on the floor for questions." } }
+  ] }]
 }
 </schema>
 `
@@ -228,6 +233,16 @@ export const ABOUT = `<template>
 
 /** The hero with a template mistake: an unclosed {% if %}. */
 export const BROKEN_HERO = HERO.replace("{{ settings.intro | raw }}</div>{% endif %}", "{{ settings.intro }}</div>")
+
+/**
+ * Round P (P5): a programme list is a repeating list, so a placement needs three real items
+ * (lib/ai-builder/agent/content-check.ts); one program was "Who it is for" with one block.
+ */
+export const PROGRAM_BLOCKS = [
+  { type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } },
+  { type: "program", settings: { name: "8 week strength block", when: "Tue Thu 6pm" } },
+  { type: "program", settings: { name: "Open gym", when: "Saturday mornings" } },
+]
 
 export const CAPS: RuntimeCapabilities = {
   store: { name: "Iron & Chalk", currency: "GBP", brandImage: null, tagline: null },

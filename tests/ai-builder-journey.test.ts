@@ -28,7 +28,7 @@ process.env.CHROMIUM_PATH = "/nonexistent/chromium"
 process.env.AI_JOB_SECRET = "journey-ai-job-secret-for-tests-only"
 process.env.AI_BUILDER_AGENT = "1"
 import { aiWorld, checker, driveTurns, installFiles, installPages, installSettings, jobEvents, jobRow, scriptModels, seller, type Script } from "./ai-builder-e2e-kit"
-import { ABOUT, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS } from "./ai-builder-agent-fixtures"
+import { ABOUT, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, PROGRAM_BLOCKS } from "./ai-builder-agent-fixtures"
 /* Round N (N3): the site plan with the concept, ten of its own on home, six on each page, the product and collection templates. */
 import { HOME_EXTRAS, PAGE_EXTRAS, WHOLE_SITE_FILES, homeSections, pageSections, sitePlan, templateCalls } from "./ai-builder-whole-site-fixtures"
 import { chipAction, pendingStartKey, presetFor } from "@/lib/website-builder/ai-site/start-options"
@@ -89,7 +89,7 @@ async function main() {
     { calls: [["add_page", { key: "programs", title: "Programs" }], ["add_page", { key: "about", title: "About", seo: { description: "Who coaches you." } }]] },
     {
       calls: [
-        ["set_page_sections", { page: "home", sections: homeSections([{ type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } }, { type: "ai_program_list", blocks: [{ type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } }] }]) }],
+        ["set_page_sections", { page: "home", sections: homeSections([{ type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } }, { type: "ai_program_list", blocks: PROGRAM_BLOCKS }]) }],
         ["set_page_sections", { page: "programs", sections: pageSections({ type: "ai_program_list", settings: { heading: "All programs" } }) }],
         ["set_page_sections", { page: "about", sections: pageSections({ type: "ai_coach_story" }) }],
         ...templateCalls(),

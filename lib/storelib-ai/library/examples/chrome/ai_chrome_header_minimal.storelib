@@ -1,0 +1,138 @@
+{# example
+title: Minimal header with a full screen menu of its own
+summary: Chrome kit header. Only the name, search, a bag count and one Menu button in the bar; the button opens the header's own full screen menu (data-storelib-menu-panel: a dialog with focus kept inside, Escape and its close button shut it) with the site's menu set huge on one side and a picture with a line and a link on the other, plus contact, socials and language and currency switches. Bar position, type size, picture, which parts show and motion strength are settings; social links are blocks.
+tags: chrome kit, header, minimal header, hamburger, full screen menu, fullscreen menu, overlay menu, menu drawer, studio, agency, portfolio, own chrome, site header
+#}
+<template>
+<header class="hmn" data-pos="{{ settings.position }}" data-motion="{{ settings.motion }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --hmn-big: {{ settings.menu_size }}; --m-k: calc({{ settings.motion_strength }} / 100);">
+  <div class="hmn__bar">
+    <a class="hmn__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="140" height="36">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
+    {% if settings.show_search %}<a class="hmn__btn hmn__bag" href="{{ routes.search_url }}" data-storelib-search>{{ settings.search_label }}</a>{% endif %}
+    <a class="hmn__btn hmn__bag" href="{{ routes.cart_url }}" data-storelib-cart>{{ settings.cart_label }} <span class="hmn__count" data-storelib-cart-count></span></a>
+    <button class="hmn__btn hmn__open" type="button" data-storelib-menu="{{ settings.menu.handle }}"><span class="hmn__dots" aria-hidden="true"></span>{{ settings.menu_label }}</button>
+  </div>
+  <div class="hmn__panel" data-storelib-menu-panel aria-label="{{ settings.menu_label }}">
+    <div class="hmn__top">
+      <span class="hmn__logo">{{ shop.name | default: settings.brand }}</span>
+      <button class="hmn__btn" type="button" data-storelib-menu-close>{{ settings.close_label }}</button>
+    </div>
+    <div class="hmn__body">
+      <nav class="hmn__nav" aria-label="{{ settings.nav_label }}">
+        <ol class="hmn__list">
+          {% for link in settings.menu.links %}
+          <li style="--i: {{ forloop.index }};"><a class="hmn__big" href="{{ link.url }}"><span class="hmn__num" aria-hidden="true">{{ forloop.index }}</span>{{ link.title }}</a></li>
+          {% endfor %}
+        </ol>
+      </nav>
+      <aside class="hmn__side">
+        {% if settings.show_picture and settings.image %}
+        <a class="hmn__pic" href="{{ settings.picture_url | url }}"><img src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="900" height="1100" loading="lazy"><span>{{ settings.picture_line }}</span></a>
+        {% endif %}
+        {% if settings.contact %}<p class="hmn__contact">{{ settings.contact }}</p>{% endif %}
+        <ul class="hmn__social">
+          {% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" rel="me noopener" target="_blank">{{ block.settings.label }}</a></li>{% endfor %}
+        </ul>
+        <div class="hmn__prefs">
+          <div class="hmn__pref" data-storelib-locale-list><button class="hmn__opt" type="button" data-storelib-locale-option hidden><span data-option-label></span></button></div>
+          <div class="hmn__pref" data-storelib-currency-list><button class="hmn__opt" type="button" data-storelib-currency-option hidden><span data-option-label></span></button></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</header>
+</template>
+
+<style scoped>
+.hmn, .hmn *, .hmn *::before, .hmn *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.hmn [hidden] { display: none !important; }
+.hmn { position: relative; z-index: 40; color: var(--s-text); }
+.hmn[data-pos="pinned"] .hmn__bar { position: fixed; inset: 0 0 auto; }
+.hmn[data-pos="pinned"]::after { content: ""; display: block; height: 64px; }
+.hmn__bar { display: flex; align-items: center; gap: 8px; min-height: 64px; padding: 0 var(--theme-padding-x, 16px); background: var(--s-bg); }
+.hmn__logo { display: inline-flex; align-items: center; min-height: 44px; margin-right: auto; color: var(--s-heading); text-decoration: none; font-family: var(--theme-font-heading), sans-serif; font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
+.hmn__logo img { display: block; width: auto; height: 32px; }
+.hmn__btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; min-width: 44px; padding: 0 12px; border: 1px solid var(--s-border); background: var(--s-bg); color: inherit; font: inherit; font-size: 0.9375rem; text-decoration: none; cursor: pointer; }
+.hmn__bag { border-color: transparent; }
+.hmn__count { font-variant-numeric: tabular-nums; }
+.hmn__count[data-count="0"] { display: none; }
+.hmn__dots { width: 8px; height: 8px; background: currentColor; }
+.hmn__panel { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; padding: 0 var(--theme-padding-x, 16px) 24px; overflow-y: auto; background: var(--s-bg); color: var(--s-text); visibility: hidden; opacity: 0; }
+.hmn__panel[data-open="true"] { visibility: visible; opacity: 1; }
+.hmn__top { display: flex; align-items: center; min-height: 64px; }
+.hmn__body { display: grid; gap: 40px; flex: 1; padding-top: 16px; }
+.hmn__list { margin: 0; padding: 0; list-style: none; }
+.hmn__big { display: flex; align-items: baseline; gap: 14px; padding: 4px 0; color: var(--s-heading); text-decoration: none; font-family: var(--theme-font-heading), sans-serif; font-size: calc(clamp(2.5rem, 1.2rem + 7vw, 7rem) * var(--hmn-big, 100) / 100); line-height: 0.98; letter-spacing: -0.04em; font-weight: 700; overflow-wrap: anywhere; }
+.hmn__num { font-family: var(--theme-font-body), sans-serif; font-size: 0.875rem; font-weight: 500; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.hmn__big:hover, .hmn__big:focus-visible { color: var(--s-accent); }
+.hmn__side { display: grid; gap: 20px; align-content: start; }
+.hmn__pic { display: grid; gap: 10px; color: inherit; text-decoration: none; }
+.hmn__pic img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: cover; }
+.hmn__contact { margin: 0; white-space: pre-line; }
+.hmn__social { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; }
+.hmn__social a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; }
+.hmn__prefs { display: flex; flex-wrap: wrap; gap: 8px; }
+.hmn__pref { display: flex; flex-wrap: wrap; gap: 6px; }
+.hmn__opt { min-height: 44px; padding: 0 12px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; cursor: pointer; }
+.hmn__opt[aria-current="true"] { border-color: currentColor; }
+.hmn :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+  .hmn:not([data-motion="off"]) .hmn__panel { transition: opacity calc(var(--t-motion-duration, 650ms) * 0.5) var(--t-motion-ease, ease-out), visibility 0s linear calc(var(--t-motion-duration, 650ms) * 0.5); }
+  .hmn:not([data-motion="off"]) .hmn__panel[data-open="true"] { transition-delay: 0s; }
+  .hmn:not([data-motion="off"]) .hmn__panel[data-open="true"] .hmn__list li { animation: hmn-up var(--t-motion-duration, 650ms) var(--t-motion-ease, ease-out) both; animation-delay: calc(var(--i, 1) * var(--t-motion-stagger, 65ms) + 80ms); }
+  .hmn:not([data-motion="off"]) .hmn__panel[data-open="true"] .hmn__side { animation: hmn-up var(--t-motion-duration, 650ms) var(--t-motion-ease, ease-out) 240ms both; }
+  @keyframes hmn-up { from { opacity: 0; transform: translateY(calc(var(--t-motion-distance, 24px) * 1.5 * var(--m-k, 1))); } }
+}
+@media (prefers-reduced-motion: reduce) { .hmn__panel, .hmn__list li, .hmn__side { transition: none; animation: none; } }
+@media (min-width: 900px) {
+  .hmn__body { grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 64px; align-items: end; padding-bottom: 24px; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_header_minimal",
+  "name": "Minimal header and full screen menu",
+  "kind": "header",
+  "enabled_on": { "groups": ["header"] },
+  "settings": [
+    { "type": "header", "id": "hdr_menu", "label": "Menu" },
+    { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" },
+    { "type": "text", "id": "brand", "label": "Name when there is no logo", "default": "Studio" },
+    { "type": "range", "id": "menu_size", "label": "Menu type size", "min": 60, "max": 130, "step": 5, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_side", "label": "Beside the menu" },
+    { "type": "checkbox", "id": "show_picture", "label": "Show a picture", "default": true },
+    { "type": "image_picker", "id": "image", "label": "Picture" },
+    { "type": "text", "id": "image_alt", "label": "Picture description", "default": "" },
+    { "type": "text", "id": "picture_line", "label": "Line under the picture", "default": "See the latest work" },
+    { "type": "url", "id": "picture_url", "label": "Picture goes to", "default": "/about" },
+    { "type": "textarea", "id": "contact", "label": "Contact lines", "default": "hello@studio.com\nMonday to Friday, 9 to 6" },
+    { "type": "header", "id": "hdr_layout", "label": "Layout" },
+    { "type": "select", "id": "position", "label": "Bar", "default": "pinned", "options": [{ "label": "Pinned to the top", "value": "pinned" }, { "label": "In the page", "value": "static" }] },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "nav_label", "label": "Menu name (read aloud)", "default": "Main" },
+    { "type": "text", "id": "menu_label", "label": "Menu button", "default": "Menu" },
+    { "type": "text", "id": "close_label", "label": "Close button", "default": "Close" },
+    { "type": "text", "id": "cart_label", "label": "Bag", "default": "Bag" },
+    { "type": "checkbox", "id": "show_search", "label": "Show search", "default": true },
+    { "type": "text", "id": "search_label", "label": "Search", "default": "Search" },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "social", "name": "Social link", "settings": [
+      { "type": "text", "id": "label", "label": "Name", "default": "Instagram" },
+      { "type": "url", "id": "url", "label": "Address", "default": "https://instagram.com" }
+    ] }
+  ],
+  "presets": [{ "name": "Minimal header and full screen menu", "blocks": [
+    { "type": "social", "settings": { "label": "Instagram", "url": "https://instagram.com" } },
+    { "type": "social", "settings": { "label": "Pinterest", "url": "https://pinterest.com" } },
+    { "type": "social", "settings": { "label": "TikTok", "url": "https://tiktok.com" } }
+  ] }]
+}
+</schema>

@@ -305,6 +305,9 @@ importers:
       tailwindcss-animate:
         specifier: ^1.0.7
         version: 1.0.7(tailwindcss@4.1.9)
+      three:
+        specifier: 0.183.1
+        version: 0.183.1
       typescript:
         specifier: ^5
         version: 5.0.2

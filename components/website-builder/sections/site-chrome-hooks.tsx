@@ -21,6 +21,12 @@
  * pages and posts) and its real languages and markets. A panel in one section
  * is opened by the buttons of every other (./own-panels.ts), and while the
  * page has one, the built-in drawer or window of that kind is not drawn.
+ *
+ * A MENU DRAWER OF THE SITE'S OWN (round P, the chrome kit): an element
+ * marked data-storelib-menu-panel is opened by every data-storelib-menu
+ * button on the page instead of the built-in menu drawer, as a dialog
+ * (focus in, kept inside, given back; Escape, its close button and a link
+ * inside shut it). The own cart panel keeps the keyboard inside too.
  */
 import { buyerProperties } from "@/lib/physical/cart-link"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react"
@@ -72,7 +78,7 @@ const OPTION_ITEM = "data-storelib-option-item"
 /** Whether a section's markup asks for any of the page's drawers. Most do not, and pay nothing for this. */
 export function asksForDrawers(html: string): boolean {
   const f = hooksIn(html)
-  return f.cart || f.cartCount || f.search || f.menu || f.addToCart || f.cartPanel || f.searchPanel || f.locale || f.currency
+  return f.cart || f.cartCount || f.search || f.menu || f.addToCart || f.cartPanel || f.searchPanel || f.menuPanel || f.locale || f.currency
 }
 
 /** Every element under `root` matching `sel`, `root` itself first when it matches. */
@@ -162,12 +168,15 @@ export function useStorefrontHooks({
     and which one is open. A panel anywhere on the page wins over the built-in
     drawer and window for every button on it.
   */
-  const page = usePageHooks(cart.setOpen, section.id, { cart: flags.cartPanel, search: flags.searchPanel })
+  const page = usePageHooks(cart.setOpen, section.id, { cart: flags.cartPanel, search: flags.searchPanel, menu: flags.menuPanel })
   const ownCartOnPage = page.own.cart.length > 0
   const ownSearchOnPage = page.own.search.length > 0
   const panelOpen = page.cart === section.id
   const ownSearchOpen = page.search === section.id
   const firstOwnCart = page.own.cart[0] === section.id
+  /* A menu drawer of the site's own (round P): opened by every data-storelib-menu button on the page. */
+  const ownMenuOnPage = page.own.menu.length > 0
+  const ownMenuOpen = page.menu === section.id
   /*
     The built-in drawer, only while no section on the page has a panel of its own. A plain bag, or an add button
     with nowhere else to show what it added, still opens it: on a free site that is the one fallback, so nothing is dead.
@@ -202,11 +211,11 @@ export function useStorefrontHooks({
       })
     }
     scriptRoot.querySelectorAll<HTMLElement>(TRIGGERS).forEach((el) => {
-      const open = el.hasAttribute(H.menu) ? menu.open : el.hasAttribute(H.search) ? (ownSearchOnPage ? page.search !== null : searchOpen) : ownCartOnPage ? page.cart !== null : cart.open
+      const open = el.hasAttribute(H.menu) ? (ownMenuOnPage ? page.menu !== null : menu.open) : el.hasAttribute(H.search) ? (ownSearchOnPage ? page.search !== null : searchOpen) : ownCartOnPage ? page.cart !== null : cart.open
       if (el.getAttribute("aria-expanded") !== String(open)) el.setAttribute("aria-expanded", String(open))
       if (el.tagName === "A" && !el.hasAttribute("data-self-nav")) el.setAttribute("data-self-nav", "")
     })
-  }, [scriptRoot, html, flags.cartCount, ownCartOnPage, ownSearchOnPage, page.cart, page.search, cart.count, cart.ready, cart.open, menu.open, searchOpen])
+  }, [scriptRoot, html, flags.cartCount, ownCartOnPage, ownSearchOnPage, ownMenuOnPage, page.cart, page.search, page.menu, cart.count, cart.ready, cart.open, menu.open, searchOpen])
 
   /*
     A BUTTON ELSEWHERE OPENED THE CART (an add in a product grid, a native Add to cart): the site's
@@ -268,6 +277,11 @@ export function useStorefrontHooks({
       })
     })
   }, [scriptRoot, html, flags.cartPanel, panelOpen, cart.lines, cart.ready, checkingOut, cartMoney])
+
+  /* The keyboard stays in the open cart panel on the live page, as in the built-in drawer, and goes back to what opened it. */
+  const cartPanelRef = useRef<HTMLElement | null>(null)
+  cartPanelRef.current = flags.cartPanel && scriptRoot ? scriptRoot.querySelector<HTMLElement>(`[${H.cartPanel}]`) : null
+  useFocusTrap(panelOpen, cartPanelRef, !inCanvas)
 
   /* Escape closes the section's own panel, as it closes the built-in drawer. */
   useEffect(() => {
@@ -414,6 +428,27 @@ export function useStorefrontHooks({
     }
   }, [ownSearchOpen, page.opener, cart.setOpen, inCanvas])
 
+  /* ── A MENU DRAWER OF THE SITE'S OWN (round P) ─────────────────────────── */
+
+  const menuPanelRef = useRef<HTMLElement | null>(null)
+  menuPanelRef.current = flags.menuPanel && scriptRoot ? scriptRoot.querySelector<HTMLElement>(`[${H.menuPanel}]`) : null
+  useLayoutEffect(() => {
+    if (!scriptRoot || !flags.menuPanel) return
+    scriptRoot.querySelectorAll<HTMLElement>(`[${H.menuPanel}]`).forEach((panel) => {
+      markPanel(panel, ownMenuOpen)
+      if (!panel.hasAttribute("role")) panel.setAttribute("role", "dialog")
+      if (ownMenuOpen) panel.setAttribute("aria-modal", "true")
+      else panel.removeAttribute("aria-modal")
+    })
+  }, [scriptRoot, html, flags.menuPanel, ownMenuOpen])
+  useFocusTrap(ownMenuOpen, menuPanelRef, !inCanvas)
+  useEffect(() => {
+    if (!ownMenuOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeOwnPanel(cart.setOpen, "menu") }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [ownMenuOpen, cart.setOpen])
+
   /* ── LANGUAGES AND CURRENCIES OF THE SITE'S OWN ────────────────────────── */
 
   const choice = storefront.language
@@ -503,6 +538,17 @@ export function useStorefrontHooks({
     if (onCartAction(e)) return true
     if (onOption(e)) return true
     const target = e.target as HTMLElement
+    /* The site's own menu drawer: its close button, and any link inside it (followed, with the drawer shut behind it). */
+    if (target.closest?.(`[${H.menuClose}]`) && e.currentTarget.contains(target)) {
+      e.preventDefault()
+      e.stopPropagation()
+      closeOwnPanel(cart.setOpen, "menu")
+      return true
+    }
+    if (page.menu !== null && target.closest?.(`[${H.menuPanel}] a[href]`) && e.currentTarget.contains(target)) {
+      closeOwnPanel(cart.setOpen, "menu")
+      return false
+    }
     if (target.closest?.(`[${H.searchClose}]`) && e.currentTarget.contains(target)) {
       e.preventDefault()
       e.stopPropagation()
@@ -521,6 +567,16 @@ export function useStorefrontHooks({
     e.preventDefault()
     e.stopPropagation()
     if (el.hasAttribute(H.menu)) {
+      /* The site's own drawer, in this section or another; the built-in one only when the page has none. */
+      if (ownMenuOnPage) {
+        setSearchOpen(false)
+        cart.setOpen(false)
+        closeOwnPanel(cart.setOpen, "search")
+        closeOwnPanel(cart.setOpen, "cart")
+        if (page.menu !== null) closeOwnPanel(cart.setOpen, "menu")
+        else openOwnPanel(cart.setOpen, "menu", section.id, el)
+        return true
+      }
       if (menu.open) { closeMenu(); return true }
       const handle = menuHandleOf(el.getAttribute(H.menu))
       let items = menuDrawerItems(cleanMenus((theme as Record<string, unknown>).menus)[handle], handle)
@@ -540,6 +596,7 @@ export function useStorefrontHooks({
     }
     if (el.hasAttribute(H.search)) {
       closeMenu()
+      closeOwnPanel(cart.setOpen, "menu")
       cart.setOpen(false)
       closeOwnPanel(cart.setOpen, "cart")
       /* The site's own window, in this section or another; the built-in one only when the page has none. */
@@ -553,6 +610,7 @@ export function useStorefrontHooks({
       return true
     }
     closeMenu()
+    closeOwnPanel(cart.setOpen, "menu")
     setSearchOpen(false)
     closeOwnPanel(cart.setOpen, "search")
     /* The site's own panel (this section's, or the page's first), when there is one; the built-in drawer when not. */
@@ -566,7 +624,7 @@ export function useStorefrontHooks({
   const scheme = sectionColors(section, theme)
   const layers = (
     <>
-      {flags.menu && (
+      {flags.menu && !ownMenuOnPage && (
         <HeaderMobileNavDrawer
           open={menu.open}
           onClose={closeMenu}

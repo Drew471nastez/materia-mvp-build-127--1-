@@ -2,7 +2,7 @@
  * ===========================================================================
  *  THE AGENT'S TOOLS, BOUND TO ONE JOB
  * ===========================================================================
- * `createToolSet(ctx)` gives the 17 tools of the contract
+ * `createToolSet(ctx)` gives the 19 tools of the contract
  * (lib/ai-builder/agent-tools.ts), every one bound to the job's install
  * through ctx.deps.store: no tool takes an install id, a creator id or a path
  * outside the install, so the model cannot name another tenant's anything.
@@ -28,7 +28,7 @@ import { controlFor } from "@/lib/storelib-theme/controls/registry"
 import { outOfAttempts } from "@/lib/website-builder/agent/compile-feedback"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import type { BlockInstance, SectionInstance } from "@/lib/website-builder/types"
-import { manifestToSchema, BINDING_CONTROL } from "../manifest"
+import { manifestToSchema, BINDING_CONTROL, withManifest as mergeManifest } from "../manifest"
 import { WRITABLE_PATH, type AgentToolInputs, type AgentToolOutputs, type PlacedSectionInput, type ToolSet } from "../agent-tools"
 import type { RuntimeCapabilities } from "../runtime-contract"
 import { isAiComponentType, type AgentEvent, type AgentPhase, type ComponentManifest, type DataBindingKind, type FileWriteResult, type ValidationIssue } from "../types"
@@ -46,6 +46,12 @@ import { describeSitePlan, isTemplateKey, readSitePlan, templatesFor } from "./s
 import { versionOf } from "./version"
 import { conceptDirectionIssues, contractMetaAfter, refineBrief, syncContractFile, writeContract } from "./direction"
 import { protectOverrides } from "../design-contract"
+import { presetParts } from "./content-check"
+import { runListTemplates } from "@/lib/storelib-ai/templates"
+import { artDirection } from "@/lib/storelib-ai/direction/directions"
+import { makingWords } from "@/lib/storelib-ai/images/prompt"
+import { isImageAspect, type ImageAspect, type ImageDirection, type ImageOutcome } from "@/lib/storelib-ai/images/types"
+import type { AgentImageOutput } from "../agent-tools"
 
 /** Whether form bindings are drawn by the editor: what the job says, else whether the control registry has form_picker (L4). */
 export function formPickerOn(deps: Pick<AgentDeps, "features">): boolean {
@@ -82,12 +88,43 @@ export interface ToolContext {
   /** The loop answers finish (verify phase). */
   onFinish: (input: AgentToolInputs["finish"]) => Promise<AgentToolOutputs["finish"]>
   setPhase: (phase: AgentPhase, label: string) => void
+  /**
+   * Round P (P1): money a tool spent outside a model call (a picture), added to the job's spend and
+   * reported as a spend event; and the USD left under the job's cap. Absent (a bare tool set in a test): not counted.
+   */
+  spend?: (usd: number) => void
+  spendLeft?: () => number
+}
+
+/** Pictures per job when neither the budget nor the environment says. */
+export const DEFAULT_MAX_IMAGES = 16
+
+/** The art direction pictures are made to: the accepted concept, with the chosen direction's imagery brief when the concept has none. */
+export function imageDirectionOf(cp: Pick<LoopCheckpoint, "concept" | "direction">): ImageDirection | undefined {
+  const c = cp.concept
+  const d = cp.direction ? artDirection(cp.direction.primary) : undefined
+  const imagery = c?.imagery?.direction || d?.imagery
+  if (!c && !imagery) return undefined
+  const palette = c ? [c.palette.background, c.palette.accent, c.palette.text, c.palette.surface].filter((x): x is string => typeof x === "string" && !!x) : []
+  return {
+    ...(imagery ? { imagery } : {}),
+    ...(c?.mood?.length ? { mood: c.mood } : {}),
+    ...(palette.length ? { palette } : {}),
+    ...(c?.palette?.mode ? { mode: c.palette.mode } : {}),
+    ...(c?.imagery?.avoid?.length ? { avoid: c.imagery.avoid } : {}),
+  }
 }
 
 const SCHEMA_BLOCK = /<schema>[\s\S]*?<\/schema>/
 
-/** The file with the manifest written in as its <schema>. */
+/**
+ * The file with the manifest written in as its <schema>. A schema already in the content is merged, not
+ * replaced (round P): its presets (the filled items a placement starts with) and keys the manifest does not
+ * describe are kept (manifest.ts mergeManifest).
+ */
 export function withManifest(content: string, manifest: ComponentManifest): string {
+  const merged = SCHEMA_BLOCK.test(content) ? mergeManifest(content, manifest) : null
+  if (merged) return merged
   const schema = `<schema>\n${JSON.stringify(manifestToSchema(manifest), null, 2)}\n</schema>`
   return SCHEMA_BLOCK.test(content) ? content.replace(SCHEMA_BLOCK, schema) : `${content.trimEnd()}\n\n${schema}\n`
 }
@@ -122,6 +159,64 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     return pages.flatMap((p) => p.sections.filter((s) => s.type === type))
   }
 
+  /* ── pictures (round P, P1) ──────────────────────────────────────────── */
+
+  /* Pictures started in this slice and not yet answered: they hold their place under the limit while several run side by side. */
+  let picturesInFlight = 0
+  const pictureLimit = () => Math.max(0, deps.images?.maxImages ?? job.budget.maxImages ?? DEFAULT_MAX_IMAGES)
+
+  async function picture(kind: "generate" | "find", input: { text: string; aspect?: unknown; purpose?: unknown; alt?: unknown; style?: unknown }): Promise<AgentImageOutput> {
+    const service = deps.images
+    if (!service) return { ok: false, reason: "No picture service is set up here. Design this spot without a picture (type, colour, shape), never a grey box or placeholder words." }
+    if (needsConcept()) return { ok: false, reason: conceptFirst.replace("Nothing was changed.", "Pictures are made to the concept's art direction.") }
+    const st = (cp.images ??= { made: 0, failed: 0, usd: 0, urls: [] })
+    const limit = pictureLimit()
+    const left = () => Math.max(0, limit - st.made - picturesInFlight)
+    if (left() <= 0) return { ok: false, reason: `This site has used its ${limit} pictures. Reuse one you made (its url), or design this spot without a picture.`, left: 0 }
+    /* Tries that keep failing stop too: a refused prompt rewritten forever is not a plan. */
+    if (st.failed >= limit) return { ok: false, reason: "Too many pictures were refused or failed in this job. Design the remaining spots without pictures.", left: left() }
+    const aspect: ImageAspect = isImageAspect(input.aspect) ? input.aspect : "landscape"
+    const room = ctx.spendLeft?.() ?? Infinity
+    if (kind === "generate" && room < service.ceiling(aspect)) return { ok: false, reason: "Not enough of this job's spending is left for a picture. Design this spot without one.", left: left() }
+    const purpose = typeof input.purpose === "string" ? input.purpose.slice(0, 60) : undefined
+    const alt = typeof input.alt === "string" ? input.alt.slice(0, 200) : undefined
+    picturesInFlight += 1
+    ctx.emit({ kind: "note", text: makingWords(purpose ?? (kind === "find" ? "stock" : undefined)) })
+    let out: ImageOutcome
+    try {
+      out =
+        kind === "generate"
+          ? await service.generate({ prompt: input.text, aspect, purpose, alt, style: typeof input.style === "string" ? input.style : undefined, direction: imageDirectionOf(cp), maxUsd: room })
+          : await service.find({ query: input.text, aspect, purpose, alt })
+    } catch {
+      out = { ok: false, code: "failed", reason: "The picture service failed. Design this spot without a picture.", usd: 0 }
+    } finally {
+      picturesInFlight -= 1
+    }
+    const usd = out.usd > 0 ? out.usd : 0
+    if (usd > 0) {
+      st.usd = Math.round((st.usd + usd) * 1e6) / 1e6
+      ctx.spend?.(usd)
+    }
+    if (out.ok === false) {
+      st.failed += 1
+      return { ok: false, reason: out.reason, left: left() }
+    }
+    st.made += 1
+    st.urls = [...st.urls, out.url].slice(-40)
+    return {
+      ok: true,
+      url: out.url,
+      alt: out.alt,
+      width: out.width,
+      height: out.height,
+      mediaId: out.mediaId,
+      source: out.source,
+      ...(out.credit ? { credit: `Photo by ${out.credit.photographer} on Pexels` } : {}),
+      left: left(),
+    }
+  }
+
   /* ── files ─────────────────────────────────────────────────────────── */
 
   async function commitFile(path: string, content: string): Promise<FileWriteResult & { warnings?: ValidationIssue[]; message?: string }> {
@@ -137,8 +232,9 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     if (current && cp.known[path] !== currentVersion) {
       return { ok: false, path, reason: "conflict", issues: [{ severity: "error", code: "file.conflict", message: cp.known[path] ? `${path} changed since you read it (the creator edited it). Read it again and redo your change on what is there now.` : `${path} already exists. Read it before you change it.`, path }] }
     }
-    const [all, pages, theme] = await Promise.all([sources(), store.listPages(), store.readSettings()])
+    const [all, pages, theme, c] = await Promise.all([sources(), store.listPages(), store.readSettings(), caps()])
     const issues = validateFile(path, content, {
+      caps: c,
       instances: instancesOf(typeOfPath(path), pages),
       theme,
       sources: all,
@@ -302,12 +398,28 @@ export function createToolSet(ctx: ToolContext): ToolSet {
         const compiled = text ? compileSection(text, { file: `sections/${p.type}.storelib` }) : null
         return compiled && compiled.ok ? compiled.value.schema.name : keep?.name ?? pageTitleFromKey(p.type.replace(/_/g, "-"))
       })()
+      /*
+        ROUND P (P5): A NEW PLACEMENT THAT SENDS NO BLOCKS STARTS FROM THE SCHEMA'S FIRST PRESET, as Add section does
+        for a person (lib/website-builder/ai-placement.ts instanceFromSchema). It used to start with none: a section
+        placed without its items drew its heading and nothing else (Andrew's "Who it is for and not for" with one
+        block, others empty). Blocks the agent sends are its own and are kept as sent; `blocks: []` means none.
+      */
+      let placedBlocks = p.blocks === undefined && keep ? keep.blocks ?? [] : blocks
+      let placedSettings = p.settings === undefined && keep ? keep.settings : cleaned.settings
+      if (!keep && p.blocks === undefined) {
+        const preset = presetParts(p.type, src, mintId)
+        if (preset) {
+          placedBlocks = preset.blocks
+          placedSettings = { ...preset.settings, ...placedSettings }
+          issues.push({ severity: "warning", code: "blocks.from_preset", message: `${where}: ${p.type} was placed with its preset's ${preset.blocks.length} item${preset.blocks.length === 1 ? "" : "s"}. Send blocks to give this placement its own.` })
+        }
+      }
       const section: SectionInstance = {
         id,
         type: p.type,
         name,
-        settings: p.settings === undefined && keep ? keep.settings : cleaned.settings,
-        blocks: p.blocks === undefined && keep ? keep.blocks ?? [] : blocks,
+        settings: placedSettings,
+        blocks: placedBlocks,
         ...(group ? { group } : {}),
         ...(p.hidden ? { hidden: true } : {}),
       }
@@ -352,7 +464,12 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     return { all, sections, index, section: sections[index] }
   }
 
-  async function updateSection(page: string, sectionId: string, patch: (s: SectionInstance, info: NonNullable<ReturnType<typeof schemaInfo>>, c: RuntimeCapabilities, pageKeys: string[], menus: string[]) => { settings?: Record<string, unknown>; issues: ValidationIssue[] }): Promise<{ ok: boolean; issues?: ValidationIssue[] }> {
+  /**
+   * One placed section's settings changed, or (round P, P5: `blockId`) one of its items' settings: a starting
+   * template's picture slot or a per-row product binding lives on a block. The patch sees the block as the
+   * thing to change (its settings and its type's fields).
+   */
+  async function updateSection(page: string, sectionId: string, patch: (s: SectionInstance, info: NonNullable<ReturnType<typeof schemaInfo>>, c: RuntimeCapabilities, pageKeys: string[], menus: string[]) => { settings?: Record<string, unknown>; issues: ValidationIssue[] }, blockId?: string): Promise<{ ok: boolean; issues?: ValidationIssue[] }> {
     const wait = blocked()
     if (wait) return { ok: false, issues: [{ severity: "error", code: wait.code, message: wait.message }] }
     const found = await findSection(page, sectionId)
@@ -360,10 +477,16 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     const [src, c, settings] = await Promise.all([sources(), caps(), store.readSettings()])
     const info = schemaInfo(found.section.type, src)
     if (!info) return { ok: false, issues: [{ severity: "error", code: "page.unknown_type", message: `${found.section.type} has no schema.` }] }
-    const r = patch(found.section, info, c, [...found.all.keys()], Object.keys((settings.menus as Record<string, unknown>) ?? {}))
+    const block = blockId ? (found.section.blocks ?? []).find((b) => b.id === blockId) : undefined
+    if (blockId && !block) return { ok: false, issues: [{ severity: "error", code: "page.block_missing", message: `${page} › ${sectionId} has no item ${blockId}. list_pages shows the section; its items are in its blocks.` }] }
+    const target = block ? ({ ...found.section, type: `${found.section.type} block ${block.type}`, settings: block.settings } as SectionInstance) : found.section
+    const fields = block ? { ...info, settings: info.blocks[block.type] ?? [] } : info
+    const r = patch(target, fields, c, [...found.all.keys()], Object.keys((settings.menus as Record<string, unknown>) ?? {}))
     if (errorsOf(r.issues).length || !r.settings) return { ok: false, issues: r.issues }
     const next = [...found.sections]
-    next[found.index] = { ...found.section, settings: { ...found.section.settings, ...r.settings } }
+    next[found.index] = block
+      ? { ...found.section, blocks: (found.section.blocks ?? []).map((b) => (b.id === block.id ? { ...b, settings: { ...b.settings, ...r.settings } } : b)) }
+      : { ...found.section, settings: { ...found.section.settings, ...r.settings } }
     const changed = new Map([[page, next]])
     await savePages(changed, found.all, page === "home" && CHROME_GROUPS.has(String(found.section.group ?? "")))
     cp.pagesTouched = addUnique(cp.pagesTouched, page)
@@ -482,13 +605,18 @@ export function createToolSet(ctx: ToolContext): ToolSet {
 
     set_page_sections: placeSections,
 
-    async set_section_settings({ page, sectionId, settings }) {
-      return updateSection(page, sectionId, (s, info, c, pageKeys, menus) => {
-        const r = cleanSettings(s.type, settings, info.settings, c, pageKeys, menus, `${page} › ${sectionId}`)
-        /* Every setting left out (none of them is the section's) is a refusal, not ok with warnings: nothing changed. */
-        if (!Object.keys(r.settings).length) return { issues: [...r.issues, { severity: "error", code: "settings.nothing", message: `${page} › ${sectionId}: nothing was changed. ${s.type}'s settings are: ${info.settings.map((f) => f.id).slice(0, 40).join(", ") || "(none)"}.` }] }
-        return r
-      })
+    async set_section_settings({ page, sectionId, settings, blockId }) {
+      return updateSection(
+        page,
+        sectionId,
+        (s, info, c, pageKeys, menus) => {
+          const r = cleanSettings(s.type, settings, info.settings, c, pageKeys, menus, `${page} › ${sectionId}`)
+          /* Every setting left out (none of them is the section's) is a refusal, not ok with warnings: nothing changed. */
+          if (!Object.keys(r.settings).length) return { issues: [...r.issues, { severity: "error", code: "settings.nothing", message: `${page} › ${sectionId}: nothing was changed. ${s.type}'s settings are: ${info.settings.map((f) => f.id).slice(0, 40).join(", ") || "(none)"}.` }] }
+          return r
+        },
+        typeof blockId === "string" && blockId ? blockId : undefined,
+      )
     },
 
     async set_tokens({ tokens, settings }) {
@@ -540,7 +668,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       }
     },
 
-    async bind_data({ page, sectionId, prop, kind, ids }) {
+    async bind_data({ page, sectionId, prop, kind, ids, blockId }) {
       const control = BINDING_CONTROL[kind as DataBindingKind]
       if (!control) return { ok: false, issues: [{ severity: "error", code: "binding.kind", message: `Unknown binding kind "${kind}".` }] }
       if (kind === "form" && !formPickerOn(deps)) return { ok: false, issues: [{ severity: "error", code: "binding.form_unavailable", message: "Forms cannot be bound yet: the editor has no form picker. Link to the form's page with a url setting." }] }
@@ -554,7 +682,12 @@ export function createToolSet(ctx: ToolContext): ToolSet {
         const bad = unknownBindingIds(control, list, c, pageKeys, menus)
         if (bad.length) return { issues: [{ severity: "error", code: "binding.unknown_id", message: `${bad.join(", ")} ${bad.length === 1 ? "is" : "are"} not in list_capabilities. Never invent an id.` }] }
         return { settings: { [prop]: single ? list[0] : list }, issues: [] }
-      })
+      }, typeof blockId === "string" && blockId ? blockId : undefined)
+    },
+
+    /* Round P (P2a + P5): the starting templates, browsable (lib/storelib-ai/templates/gallery.ts). */
+    async list_templates({ query, limit }) {
+      return runListTemplates({ ...(typeof query === "string" ? { query: query.slice(0, 200) } : {}), ...(typeof limit === "number" ? { limit } : {}) })
     },
 
     async search_knowledge({ query, kinds, limit }) {
@@ -652,6 +785,9 @@ Notes: ${fit.warnings.join(" ")}` : ""}`)
     },
 
     finish: (input) => ctx.onFinish(input),
+
+    generate_image: ({ prompt, aspect, purpose, alt, style }) => picture("generate", { text: String(prompt ?? ""), aspect, purpose, alt, style }),
+    find_photo: ({ query, aspect, purpose, alt }) => picture("find", { text: String(query ?? ""), aspect, purpose, alt }),
   }
 }
 
@@ -669,6 +805,7 @@ export async function validateAll(ctx: Pick<ToolContext, "job" | "deps" | "cp">,
   const src: Record<string, string> = {}
   for (const f of files) if (f.text.trim()) src[f.path] = f.text
   const issues: ValidationIssue[] = []
+  if (cp.caps === undefined) cp.caps = (await deps.capabilities().catch(() => null)) ?? null
   const paths = opts.path ? [opts.path] : cp.filesTouched
   for (const path of paths) {
     const text = src[path]
@@ -677,10 +814,9 @@ export async function validateAll(ctx: Pick<ToolContext, "job" | "deps" | "cp">,
       continue
     }
     const type = typeOfPath(path)
-    issues.push(...validateFile(path, text, { instances: pages.flatMap((p) => p.sections.filter((s) => s.type === type)), theme, sources: src, lenient: (cp.repairs[path] ?? 0) >= 2, formPicker: formPickerOn(deps), brief: job.prompt }))
+    issues.push(...validateFile(path, text, { instances: pages.flatMap((p) => p.sections.filter((s) => s.type === type)), theme, sources: src, lenient: (cp.repairs[path] ?? 0) >= 2, formPicker: formPickerOn(deps), brief: job.prompt, caps: cp.caps ?? null }))
   }
   if (!opts.path) {
-    if (cp.caps === undefined) cp.caps = (await deps.capabilities().catch(() => null)) ?? null
     issues.push(...validateSite({ pages, sources: src, settings: theme, caps: cp.caps ?? null, mode: job.mode, ...(job.edit || job.redesign === "changes" ? { only: new Set(cp.pagesTouched) } : {}) }))
   }
   return issues
