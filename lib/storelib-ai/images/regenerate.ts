@@ -64,7 +64,7 @@ export async function handleRegenerate(request: Request, deps: RegenerateDeps): 
   if (!found) return json({ error: "That picture was not made by the AI." }, 404)
 
   const out = await deps.regenerate({ creatorId: who.creatorId, ownerUserId: who.ownerUserId, origin: found.origin, alt: found.alt, maxUsd: deps.maxUsd ?? regenerateMaxUsd() })
-  if (!out.ok) {
+  if (out.ok === false) {
     const status = out.code === "no_provider" ? 503 : out.code === "unsafe" ? 422 : 502
     const error = out.code === "no_provider" ? "Making pictures is not set up yet." : out.code === "unsafe" ? "That picture can't be made again." : "Could not make a new picture. Try again."
     return json({ error }, status)

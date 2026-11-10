@@ -190,7 +190,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       st.usd = Math.round((st.usd + usd) * 1e6) / 1e6
       ctx.spend?.(usd)
     }
-    if (!out.ok) {
+    if (out.ok === false) {
       st.failed += 1
       return { ok: false, reason: out.reason, left: left() }
     }

@@ -227,7 +227,7 @@ async function main() {
   check("no file body in any event", r1.events.every((e) => JSON.stringify(e).length < 2_000))
   check("spend is tracked per call", r1.usage.calls === plan.calls + loop.calls && r1.usage.usd > 0 && r1.events.filter((e) => e.kind === "spend").length === r1.usage.calls && r1.totalUsd === r1.usage.usd)
   check("the checkpoint is within its bound and holds no file body", JSON.stringify(r1.checkpoint).length < MAX_CHECKPOINT_BYTES && !JSON.stringify(r1.checkpoint).includes("<style scoped>"))
-  check("the system prompt and tools are the stable prefix of every call", [...plan.requests, ...loop.requests].every((q) => q.system === plan.requests[0].system && q.tools.length === 17 && q.cacheKey === "ai-builder:install-a"))
+  check("the system prompt and tools are the stable prefix of every call", [...plan.requests, ...loop.requests].every((q) => q.system === plan.requests[0].system && q.tools.length === AGENT_TOOL_NAMES.length /* 17, and round P's generate_image and find_photo */ && q.cacheKey === "ai-builder:install-a"))
   const brief = (plan.requests[0].turns[0] as { content: string }).content
   check("the first request carries the brief with the real product id", plan.requests[0].turns[0].role === "user" && /prod_8week/.test(brief))
   check("the brief has the creator's choices (L1 startContext) and distinct starting directions (L6)", /Start from a blank page/.test(brief) && /STARTING DIRECTIONS/.test(brief) && (brief.match(/^- .+\[/gm) ?? []).length === 3, brief.slice(0, 1200))

@@ -19,7 +19,7 @@ export type PromptVerdict = { ok: true } | { ok: false; reason: string; rule: st
 
 const RULES: { rule: string; re: RegExp; reason: string }[] = [
   { rule: "sexual", re: /\b(nude|nudity|naked|topless|nsfw|porn\w*|explicit|erotic\w*|sexual\w*|sexy|lingerie model|fetish\w*|onlyfans|genitals?|nipples?)\b/i, reason: "It asks for sexual or nude content." },
-  { rule: "minors", re: /\b(child|children|kid|kids|minor|minors|teen|teens|teenager|toddler|baby|babies|schoolgirl|schoolboy|underage|young girl|young boy)\b[^.]{0,40}\b(bikini|lingerie|underwear|naked|nude|undress\w*|kiss\w*|sexy|seductive)\b/i, reason: "It puts children in a setting that is not appropriate." },
+  { rule: "minors", re: /\b(child|children|kid|kids|minor|minors|teen|teens|teenager|toddler|baby|babies|schoolgirl|schoolboy|underage|young girl|young boy)\b[^.]{0,40}\b(bikinis?|lingerie|underwear|naked|nude|undress\w*|kiss\w*|sexy|seductive)\b/i, reason: "It puts children in a setting that is not appropriate." },
   { rule: "gore", re: /\b(gore|gory|bloody|bloodied|blood[- ]soaked|blood spatter|corpse|dead body|decapitat\w*|dismember\w*|mutilat\w*|torture\w*|beheading|severed|massacre)\b/i, reason: "It asks for violence or gore." },
   { rule: "hate", re: /\b(swastika|nazi\w*|kkk|white power|confederate flag|isis flag|hate symbol)\b/i, reason: "It asks for a hate symbol." },
   { rule: "self_harm", re: /\b(suicide|self[- ]harm|cutting (her|his|their) (wrists?|arms?)|overdose)\b/i, reason: "It shows self harm." },

@@ -218,7 +218,7 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     /* Round P (P1): which picture service this environment has, plainly; none means a text-forward design, never a grey box. */
     const pictures = await (deps.images?.available() ?? Promise.resolve({ generate: null, stock: false })).catch(() => ({ generate: null, stock: false }))
     const picturesNote = imageBriefNote({ ...pictures, maxImages: deps.images?.maxImages ?? job.budget.maxImages ?? DEFAULT_MAX_IMAGES })
-    cp.turns.push({ role: "user", text: `${briefMessage({ job, caps, pages, files, knowledge, directions, design })}\n\n${picturesNote}` })
+    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages, files, knowledge, directions, design, pictures: picturesNote }) })
     if (scoped) setPhase("build", "Making your change")
     else setPhase("plan", "Deciding the look")
   }

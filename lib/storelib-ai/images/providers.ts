@@ -74,7 +74,9 @@ export async function withRetry(call: (signal: AbortSignal) => Promise<Response>
       }
       return res
     } catch (thrown) {
-      last = thrown instanceof Error && (thrown.name === "TimeoutError" || thrown.name === "AbortError") ? "timed out" : "the connection failed"
+      /* A DOMException (what fetch throws on its signal) is not always an Error here: read its name. */
+      const name = (thrown as { name?: unknown } | null)?.name
+      last = name === "TimeoutError" || name === "AbortError" ? "timed out" : "the connection failed"
     }
   }
   return { error: last }

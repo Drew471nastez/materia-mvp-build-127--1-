@@ -48,7 +48,7 @@ function missingColumn(error: { code?: string; message?: string } | null | undef
 
 export async function saveImageToLibrary(admin: Admin, input: SaveImageInput): Promise<SavedImage> {
   const picture = preparePublicImage(input.bytes, 15 * 1024 * 1024)
-  if (!picture.ok) return { ok: false, error: "The picture that came back is not one Storelib can keep." }
+  if (picture.ok === false) return { ok: false, error: "The picture that came back is not one Storelib can keep." }
   const rand = Math.random().toString(36).slice(2, 10)
   const path = `${input.ownerUserId}/${AI_IMAGE_FOLDER}/${Date.now()}-${rand}.${picture.ext}`
   const { error: upErr } = await admin.storage.from(AI_IMAGE_BUCKET).upload(path, picture.bytes, { contentType: picture.mime, cacheControl: "31536000", upsert: false })

@@ -125,7 +125,7 @@ export async function generateImage(input: GenerateImageInput, deps: ImageDeps =
   const e = env(deps)
   const log = deps.log ?? ((line: string) => console.warn(line))
   const verdict = checkImagePrompt(input.prompt)
-  if (!verdict.ok) return { ok: false, code: "unsafe", reason: `That picture was refused: ${verdict.reason}`, usd: 0 }
+  if (verdict.ok === false) return { ok: false, code: "unsafe", reason: `That picture was refused: ${verdict.reason}`, usd: 0 }
   const aspect: ImageAspect = input.aspect ?? "landscape"
   const prompt = String(input.prompt).replace(/\s+/g, " ").trim()
   const alt = (input.alt ?? "").trim().slice(0, 200) || altFromPrompt(prompt)
@@ -156,7 +156,7 @@ export async function generateImage(input: GenerateImageInput, deps: ImageDeps =
     }
     const finalAlt = made.alt && !input.alt ? made.alt : alt
     const saved = await (deps.save ?? defaultSave)({ ownerUserId, creatorId: input.creatorId, bytes, alt: finalAlt, origin }).catch(() => ({ ok: false as const, error: "The picture could not be stored." }))
-    if (!saved.ok) {
+    if (saved.ok === false) {
       log(`[ai-images] store failed after ${made.provider}`)
       return { ok: false, code: "storage", reason: saved.error, usd: spent }
     }
@@ -175,7 +175,7 @@ export async function generateImage(input: GenerateImageInput, deps: ImageDeps =
       if (spent + estimate > cap) notes.push("over the spending left")
       else {
         const r = await openAIImage({ key, prompt: shaped, aspect, quality, models: openAIModels(e) }, opts)
-        if (r.ok) {
+        if (r.ok === true) {
           spent += r.usd
           if (own) await (deps.noteOwnKey ?? defaultNoteOwnKey)(input.creatorId, null).catch(() => undefined)
           const size = { square: [1024, 1024], landscape: [1536, 1024], portrait: [1024, 1536] }[aspect]
@@ -201,7 +201,7 @@ export async function generateImage(input: GenerateImageInput, deps: ImageDeps =
       if (spent + usd > cap) notes.push("over the spending left")
       else {
         const r = await geminiImage({ key, prompt: shaped, aspect, models: geminiModels(e), base: trim(e.GEMINI_API_BASE) || undefined, usd }, opts)
-        if (r.ok) {
+        if (r.ok === true) {
           spent += r.usd
           const ratio = { square: [1024, 1024], landscape: [1248, 832], portrait: [832, 1248] }[aspect]
           return keep(r.bytes, { source: "ai", provider: "gemini", model: r.model, width: ratio[0], height: ratio[1], usd: r.usd })
@@ -217,20 +217,20 @@ export async function generateImage(input: GenerateImageInput, deps: ImageDeps =
   const pexels = trim(e.PEXELS_API_KEY)
   if (pexels) {
     const r = await pexelsPhoto({ key: pexels, query: stockQuery(prompt), aspect, pick: input.stockPick }, opts)
-    if (r.ok) return keep(r.bytes, { source: "stock", provider: "pexels", width: r.width, height: r.height, usd: 0, credit: r.credit, alt: r.alt || undefined })
+    if (r.ok === true) return keep(r.bytes, { source: "stock", provider: "pexels", width: r.width, height: r.height, usd: 0, credit: r.credit, alt: r.alt || undefined })
     log(`[ai-images] pexels ${r.kind}: ${scrub(r.message, [pexels])}`)
     notes.push(r.kind === "none" ? "no stock photo matched" : "the stock photo service did not answer")
   }
 
   if (!notes.length) return { ok: false, code: "no_provider", reason: "No picture service is set up here (no OpenAI, Gemini or Pexels key). Design this spot without a picture.", usd: 0 }
-  const over = notes.length === 1 && notes[0] === "over the spending left"
-  return { ok: false, code: over ? "over_budget" : "failed", reason: `No picture: ${notes.join("; ")}. Design this spot without a picture.`, usd: spent }
+  const over = notes.every((n) => n === "over the spending left")
+  return { ok: false, code: over ? "over_budget" : "failed", reason: `No picture: ${[...new Set(notes)].join("; ")}. Design this spot without a picture.`, usd: spent }
 }
 
 /** A stock photo only (the agent's find_photo): Pexels, kept in the files like any picture. */
 export async function findPhoto(input: { query: string; aspect?: ImageAspect; creatorId: string; ownerUserId?: string | null; jobId?: string | null; alt?: string; purpose?: string }, deps: ImageDeps = {}): Promise<ImageOutcome> {
   const verdict = checkPhotoQuery(input.query)
-  if (!verdict.ok) return { ok: false, code: "unsafe", reason: `That search was refused: ${verdict.reason}`, usd: 0 }
+  if (verdict.ok === false) return { ok: false, code: "unsafe", reason: `That search was refused: ${verdict.reason}`, usd: 0 }
   if (!trim(env(deps).PEXELS_API_KEY)) return { ok: false, code: "no_provider", reason: "No stock photo service is set up here (PEXELS_API_KEY). Use generate_image, or design this spot without a picture.", usd: 0 }
   return generateImage({ prompt: input.query, aspect: input.aspect, creatorId: input.creatorId, ownerUserId: input.ownerUserId, jobId: input.jobId, alt: input.alt, purpose: input.purpose, stockOnly: true }, deps)
 }
