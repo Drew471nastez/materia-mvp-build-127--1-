@@ -459,6 +459,8 @@ export const AGENT_TOOL_NAMES = [
   /* Round P (P1): pictures made or found, kept in the creator's files (lib/storelib-ai/images). */
   "generate_image",
   "find_photo",
+  /* Round P (P2a + P5): the starting templates, browsable. */
+  "list_templates",
 ] as const
 export type AgentToolName = (typeof AGENT_TOOL_NAMES)[number]
 

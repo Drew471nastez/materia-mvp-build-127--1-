@@ -10,6 +10,7 @@
  * job's own install only. A tool never takes an install id, creator id or
  * path outside the install: the loop binds those from the job row.
  */
+import type { runListTemplates } from "@/lib/storelib-ai/templates"
 import type {
   AgentPhase,
   AgentToolName,
@@ -49,7 +50,8 @@ export interface AgentToolInputs {
   add_page: { key: string; title: string; seo?: { title?: string; description?: string } }
   /** Replaces the page's body sections in order. Header/footer only with `group`. */
   set_page_sections: { page: string; sections: PlacedSectionInput[] }
-  set_section_settings: { page: string; sectionId: string; settings: Record<string, unknown> }
+  /** `blockId` (round P): one item of the section (a template's picture slot or row lives on a block). */
+  set_section_settings: { page: string; sectionId: string; settings: Record<string, unknown>; blockId?: string }
   /**
    * `settings` (round N, N5): the site's own Theme settings, labelled and grouped as its designer would
    * (lib/ai-builder/site-settings.ts). Sent: replaces the declared groups. Left out: they stay as they are.
@@ -57,7 +59,10 @@ export interface AgentToolInputs {
   set_tokens: { tokens: Partial<DesignTokens>; settings?: DesignGroupInput[] }
   list_capabilities: Record<string, never>
   /** Sets a binding prop to a real id. Refused when the id is not in list_capabilities. */
-  bind_data: { page: string; sectionId: string; prop: string; kind: DataBindingKind; ids: string[] }
+  /** `blockId` (round P): bind a setting of one item (a row bound to its own product). */
+  bind_data: { page: string; sectionId: string; prop: string; kind: DataBindingKind; ids: string[]; blockId?: string }
+  /** Round P (P2a + P5): browse the starting templates (lib/storelib-ai/templates/gallery.ts). */
+  list_templates: { query?: string; limit?: number }
   search_knowledge: { query: string; kinds?: KnowledgeKind[]; limit?: number }
   /** No path: every file the job touched and every page. */
   validate: { path?: string }
@@ -117,6 +122,7 @@ export interface AgentToolOutputs {
   finish: { ok: boolean; reason?: string }
   generate_image: AgentImageOutput
   find_photo: AgentImageOutput
+  list_templates: ReturnType<typeof runListTemplates>
 }
 
 /** Compile-time check that every tool name has an input and an output shape. */

@@ -1,11 +1,12 @@
 /**
  * Server only (search_knowledge's spec comes with L6's library module).
  *
- * The 19 tools as the provider sees them: JSON schemas built from the
+ * The 20 tools as the provider sees them: JSON schemas built from the
  * contract's input shapes (lib/ai-builder/agent-tools.ts AgentToolInputs).
  * Keep the two in step; tests/ai-builder-agent.test.ts checks every name has
  * exactly one spec.
  */
+import { LIST_TEMPLATES_TOOL } from "@/lib/storelib-ai/templates"
 import type { ToolSpec } from "@/lib/sites/agent/types"
 import { AGENT_TOOL_NAMES, type AgentToolName } from "../types"
 import { CONCEPT_SCHEMA } from "./concept"
@@ -70,7 +71,7 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
   list_pages: { name: "list_pages", description: "The website's pages and templates and the sections on each (id, type, group). Templates (product, collection, products, search, cart, 404, contact, blog) are listed even before they hold anything, with where a visitor meets them and what their sections can read.", parameters: obj({}) },
   add_page: { name: "add_page", description: "Add a page. Its address is /<key>; it is added to the site's Main menu (the header's links) and gets its own search title and description.", parameters: obj({ key: str("lowercase letters, digits and dashes, e.g. coaching"), title: str("What the menu and the tab call it."), seo: obj({ title: { type: "string" }, description: { type: "string" } }) }, ["key", "title"]) },
   set_page_sections: { name: "set_page_sections", description: "Set a page's or a template's sections, in order. Sections you leave out are removed from that page; header/footer sections (with `group`) are site-wide and only change when you send one. A template (product, collection, products, search, cart, 404, contact, blogs, article) needs no add_page.", parameters: obj({ page: str("Page or template key, e.g. home, about, product, collection"), sections: { type: "array", items: PLACED_SECTION } }, ["page", "sections"]) },
-  set_section_settings: { name: "set_section_settings", description: "Change some settings of one placed section; the others keep their values.", parameters: obj({ page: { type: "string" }, sectionId: { type: "string" }, settings: { type: "object" } }, ["page", "sectionId", "settings"]) },
+  set_section_settings: { name: "set_section_settings", description: "Change some settings of one placed section; the others keep their values. With blockId, change one of its items instead (a picture or a row of a list).", parameters: obj({ page: { type: "string" }, sectionId: { type: "string" }, settings: { type: "object" }, blockId: { type: "string", description: "One item of the section (its block id from list_pages or set_page_sections)." } }, ["page", "sectionId", "settings"]) },
   set_tokens: {
     name: "set_tokens",
     description:
@@ -126,7 +127,7 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
     ),
   },
   list_capabilities: { name: "list_capabilities", description: "This store's real data: products, collections, communities, forms, pages, menus, reviews and switched-on features, with ids. Bind only these ids; never invent one.", parameters: obj({}) },
-  bind_data: { name: "bind_data", description: "Point a binding setting (product, products, collection, collections, community, page, menu) of a placed section at real ids from list_capabilities.", parameters: obj({ page: { type: "string" }, sectionId: { type: "string" }, prop: { type: "string" }, kind: { type: "string", enum: ["product", "products", "collection", "collections", "community", "page", "menu", "form"] }, ids: { type: "array", items: { type: "string" } } }, ["page", "sectionId", "prop", "kind", "ids"]) },
+  bind_data: { name: "bind_data", description: "Point a binding setting (product, products, collection, collections, community, page, menu) of a placed section at real ids from list_capabilities.", parameters: obj({ page: { type: "string" }, sectionId: { type: "string" }, prop: { type: "string" }, kind: { type: "string", enum: ["product", "products", "collection", "collections", "community", "page", "menu", "form"] }, ids: { type: "array", items: { type: "string" } }, blockId: { type: "string", description: "Bind a setting of one item of the section (a row with its own product)." } }, ["page", "sectionId", "prop", "kind", "ids"]) },
   /* L6's spec (lib/storelib-ai/library/tool.ts): the library's kinds and wording. */
   search_knowledge: SEARCH_KNOWLEDGE_TOOL as ToolSpec<AgentToolName>,
   validate: { name: "validate", description: "Check one file, or (no path) every file you touched and every page: compile, manifest, remote imports, bindings, links.", parameters: obj({ path: { type: "string" } }) },
@@ -161,6 +162,8 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
       ["query"],
     ),
   },
+  /* Round P (P2a): the starting templates (lib/storelib-ai/templates/gallery.ts). */
+  list_templates: LIST_TEMPLATES_TOOL as ToolSpec<AgentToolName>,
   finish: { name: "finish", description: "Say the website is done. Everything is validated first: with errors, finish is refused and you get the list to fix.", parameters: obj({ summary: str("Two or three plain sentences for the creator: what was made, what to fill in."), notes: { type: "array", items: { type: "string" } } }, ["summary"]) },
 }
 

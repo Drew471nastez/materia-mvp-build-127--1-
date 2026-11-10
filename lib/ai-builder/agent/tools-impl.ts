@@ -47,6 +47,7 @@ import { versionOf } from "./version"
 import { conceptDirectionIssues, contractMetaAfter, refineBrief, syncContractFile, writeContract } from "./direction"
 import { protectOverrides } from "../design-contract"
 import { presetParts } from "./content-check"
+import { runListTemplates } from "@/lib/storelib-ai/templates"
 import { artDirection } from "@/lib/storelib-ai/direction/directions"
 import { makingWords } from "@/lib/storelib-ai/images/prompt"
 import { isImageAspect, type ImageAspect, type ImageDirection, type ImageOutcome } from "@/lib/storelib-ai/images/types"
@@ -463,7 +464,12 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     return { all, sections, index, section: sections[index] }
   }
 
-  async function updateSection(page: string, sectionId: string, patch: (s: SectionInstance, info: NonNullable<ReturnType<typeof schemaInfo>>, c: RuntimeCapabilities, pageKeys: string[], menus: string[]) => { settings?: Record<string, unknown>; issues: ValidationIssue[] }): Promise<{ ok: boolean; issues?: ValidationIssue[] }> {
+  /**
+   * One placed section's settings changed, or (round P, P5: `blockId`) one of its items' settings: a starting
+   * template's picture slot or a per-row product binding lives on a block. The patch sees the block as the
+   * thing to change (its settings and its type's fields).
+   */
+  async function updateSection(page: string, sectionId: string, patch: (s: SectionInstance, info: NonNullable<ReturnType<typeof schemaInfo>>, c: RuntimeCapabilities, pageKeys: string[], menus: string[]) => { settings?: Record<string, unknown>; issues: ValidationIssue[] }, blockId?: string): Promise<{ ok: boolean; issues?: ValidationIssue[] }> {
     const wait = blocked()
     if (wait) return { ok: false, issues: [{ severity: "error", code: wait.code, message: wait.message }] }
     const found = await findSection(page, sectionId)
@@ -471,10 +477,16 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     const [src, c, settings] = await Promise.all([sources(), caps(), store.readSettings()])
     const info = schemaInfo(found.section.type, src)
     if (!info) return { ok: false, issues: [{ severity: "error", code: "page.unknown_type", message: `${found.section.type} has no schema.` }] }
-    const r = patch(found.section, info, c, [...found.all.keys()], Object.keys((settings.menus as Record<string, unknown>) ?? {}))
+    const block = blockId ? (found.section.blocks ?? []).find((b) => b.id === blockId) : undefined
+    if (blockId && !block) return { ok: false, issues: [{ severity: "error", code: "page.block_missing", message: `${page} › ${sectionId} has no item ${blockId}. list_pages shows the section; its items are in its blocks.` }] }
+    const target = block ? ({ ...found.section, type: `${found.section.type} block ${block.type}`, settings: block.settings } as SectionInstance) : found.section
+    const fields = block ? { ...info, settings: info.blocks[block.type] ?? [] } : info
+    const r = patch(target, fields, c, [...found.all.keys()], Object.keys((settings.menus as Record<string, unknown>) ?? {}))
     if (errorsOf(r.issues).length || !r.settings) return { ok: false, issues: r.issues }
     const next = [...found.sections]
-    next[found.index] = { ...found.section, settings: { ...found.section.settings, ...r.settings } }
+    next[found.index] = block
+      ? { ...found.section, blocks: (found.section.blocks ?? []).map((b) => (b.id === block.id ? { ...b, settings: { ...b.settings, ...r.settings } } : b)) }
+      : { ...found.section, settings: { ...found.section.settings, ...r.settings } }
     const changed = new Map([[page, next]])
     await savePages(changed, found.all, page === "home" && CHROME_GROUPS.has(String(found.section.group ?? "")))
     cp.pagesTouched = addUnique(cp.pagesTouched, page)
@@ -593,13 +605,18 @@ export function createToolSet(ctx: ToolContext): ToolSet {
 
     set_page_sections: placeSections,
 
-    async set_section_settings({ page, sectionId, settings }) {
-      return updateSection(page, sectionId, (s, info, c, pageKeys, menus) => {
-        const r = cleanSettings(s.type, settings, info.settings, c, pageKeys, menus, `${page} › ${sectionId}`)
-        /* Every setting left out (none of them is the section's) is a refusal, not ok with warnings: nothing changed. */
-        if (!Object.keys(r.settings).length) return { issues: [...r.issues, { severity: "error", code: "settings.nothing", message: `${page} › ${sectionId}: nothing was changed. ${s.type}'s settings are: ${info.settings.map((f) => f.id).slice(0, 40).join(", ") || "(none)"}.` }] }
-        return r
-      })
+    async set_section_settings({ page, sectionId, settings, blockId }) {
+      return updateSection(
+        page,
+        sectionId,
+        (s, info, c, pageKeys, menus) => {
+          const r = cleanSettings(s.type, settings, info.settings, c, pageKeys, menus, `${page} › ${sectionId}`)
+          /* Every setting left out (none of them is the section's) is a refusal, not ok with warnings: nothing changed. */
+          if (!Object.keys(r.settings).length) return { issues: [...r.issues, { severity: "error", code: "settings.nothing", message: `${page} › ${sectionId}: nothing was changed. ${s.type}'s settings are: ${info.settings.map((f) => f.id).slice(0, 40).join(", ") || "(none)"}.` }] }
+          return r
+        },
+        typeof blockId === "string" && blockId ? blockId : undefined,
+      )
     },
 
     async set_tokens({ tokens, settings }) {
@@ -651,7 +668,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       }
     },
 
-    async bind_data({ page, sectionId, prop, kind, ids }) {
+    async bind_data({ page, sectionId, prop, kind, ids, blockId }) {
       const control = BINDING_CONTROL[kind as DataBindingKind]
       if (!control) return { ok: false, issues: [{ severity: "error", code: "binding.kind", message: `Unknown binding kind "${kind}".` }] }
       if (kind === "form" && !formPickerOn(deps)) return { ok: false, issues: [{ severity: "error", code: "binding.form_unavailable", message: "Forms cannot be bound yet: the editor has no form picker. Link to the form's page with a url setting." }] }
@@ -665,7 +682,12 @@ export function createToolSet(ctx: ToolContext): ToolSet {
         const bad = unknownBindingIds(control, list, c, pageKeys, menus)
         if (bad.length) return { issues: [{ severity: "error", code: "binding.unknown_id", message: `${bad.join(", ")} ${bad.length === 1 ? "is" : "are"} not in list_capabilities. Never invent an id.` }] }
         return { settings: { [prop]: single ? list[0] : list }, issues: [] }
-      })
+      }, typeof blockId === "string" && blockId ? blockId : undefined)
+    },
+
+    /* Round P (P2a + P5): the starting templates, browsable (lib/storelib-ai/templates/gallery.ts). */
+    async list_templates({ query, limit }) {
+      return runListTemplates({ ...(typeof query === "string" ? { query: query.slice(0, 200) } : {}), ...(typeof limit === "number" ? { limit } : {}) })
     },
 
     async search_knowledge({ query, kinds, limit }) {

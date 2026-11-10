@@ -205,6 +205,16 @@ async function main() {
     const fin = blockIssues({ pages: await store.listPages(), sources: Object.fromEntries((await store.listFiles()).map((f) => [f.path, f.text])), caps: CAPS })
     check("  and finish counts that one-item placement as too few", fin.length === 1 && fin[0].code === "blocks.too_few" && fin[0].sectionId === home[1].id, fin)
 
+    /* Round P: one item's settings, by blockId (a template's picture slot or a row's own product). */
+    const blockId = home[0].blocks?.[1]?.id ?? ""
+    const setBlock = await tools.set_section_settings({ page: "home", sectionId: home[0].id, blockId, settings: { answer: "Six at most, so the coach sees every lift." } })
+    const afterBlock = (await store.listPages()).find((p) => p.key === "home")!.sections[0]
+    check("set_section_settings with blockId changes that item only", setBlock.ok === true && afterBlock.blocks?.[1]?.settings.answer === "Six at most, so the coach sees every lift." && afterBlock.blocks?.[0]?.settings.answer === "No. Every plan starts from where you are today." && afterBlock.settings.heading === undefined, { setBlock, blocks: afterBlock.blocks })
+    const noBlock = await tools.set_section_settings({ page: "home", sectionId: home[0].id, blockId: "nope", settings: { answer: "x" } })
+    check("  an unknown item is refused, saying where items are", noBlock.ok === false && JSON.stringify(noBlock).includes("page.block_missing"))
+    const listed = await tools.list_templates({ query: "coffee shop" })
+    check("list_templates browses P2a's starting templates", listed.templates.length > 0 && listed.templates[0].id === "dial-in-coffee", listed.templates.map((t) => t.id))
+
     /* A manifest's preset and min are written into the schema and read back. */
     const manifest: ComponentManifest = { type: "ai_coach_questions", name: "Questions", runtime: "storelib", props: [{ kind: "text", id: "heading", label: "Heading", default: "Questions people ask" }, { kind: "color_scheme", id: "color_scheme", label: "Colour scheme", default: "site" }], items: [{ type: "question", name: "Question", min: 3, props: [{ kind: "text", id: "question", label: "Question", default: "Do I need to be fit already?" }, { kind: "textarea", id: "answer", label: "Answer", default: "No. Every plan starts from where you are today." }] }], preset: { blocks: [{ type: "question", settings: { question: "A" } }] }, placement: { groups: ["body"] }, capabilities: [] }
     const sch = manifestToSchema(manifest) as { presets?: { blocks: unknown[] }[]; blocks: { min_blocks?: number }[] }
