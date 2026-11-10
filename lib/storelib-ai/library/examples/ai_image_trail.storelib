@@ -1,0 +1,71 @@
+{# example
+title: Project index with an image trail and a cursor label (motion islands)
+summary: A big typographic index of projects; moving the mouse across the section leaves a trail of the projects' photos that fade behind it (the image-trail motion island) and a round View label follows the pointer over the list (cursor-follow); on touch and with reduced motion the photos are a plain still row and every project is a link.
+tags: image trail, mouse trail, cursor follow, cursor label, portfolio, project index, playful, photographer, studio, creative, motion islands, hover
+#}
+<template>
+<section class="it" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;" data-storelib-motion="image-trail" data-motion-threshold="{{ settings.motion_threshold }}" data-motion-lifetime="{{ settings.motion_lifetime }}" data-motion-max="{{ settings.motion_max }}" data-motion-size="{{ settings.motion_size }}" data-motion-rotate="{{ settings.motion_rotate }}">
+  <h2 class="it__h">{{ settings.heading }}</h2>
+  <div class="it__index" data-storelib-motion="cursor-follow" data-motion-label="{{ settings.cursor_label }}" data-motion-size="80">
+  <ol class="it__list">
+    {% for block in section.blocks %}
+    <li class="it__row" data-block-id="{{ block.id }}">
+      {% if block.settings.url %}<a class="it__link" href="{{ block.settings.url | url }}">{{ block.settings.title }}</a>{% else %}<span class="it__link">{{ block.settings.title }}</span>{% endif %}
+      <span class="it__meta">{{ block.settings.meta }}</span>
+    </li>
+    {% endfor %}
+  </ol>
+  </div>
+  <ul class="it__pics" data-motion-images>
+    {% for block in section.blocks %}{% if block.settings.image %}<li><img class="it__pic" src="{{ block.settings.image | asset }}" alt="{{ block.settings.image_alt }}" width="600" height="450" loading="lazy"></li>{% endif %}{% endfor %}
+  </ul>
+</section>
+</template>
+
+<style scoped>
+.it { min-height: 60svh; padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 16px) calc(var(--s-pb) * var(--theme-spacing-scale, 1)); background: var(--s-bg); color: var(--s-text); overflow: hidden; }
+.it__h { margin: 0 0 32px; font-size: 1rem; font-weight: 600; color: var(--s-heading); }
+.it__index { position: relative; z-index: 3; }
+.it__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--s-border); }
+.it__row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 24px; padding: 14px 0; border-bottom: 1px solid var(--s-border); }
+.it__link { font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.75rem, 1rem + 3.6vw, 4.5rem); line-height: 1; letter-spacing: -0.03em; color: inherit; text-decoration: none; }
+.it__link:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 4px; }
+.it__meta { font-size: 0.9375rem; opacity: 0.75; }
+.it__pics { display: flex; gap: 10px; margin: 28px 0 0; padding: 0; list-style: none; overflow-x: auto; }
+.it__pic { display: block; width: 160px; height: auto; aspect-ratio: 4 / 3; object-fit: cover; }
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  .it__link { transition: color var(--t-motion-hover, 200ms) var(--t-motion-ease-ui, ease-out); }
+  .it__row:hover .it__link { color: var(--s-accent); }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_image_trail",
+  "name": "Project index with image trail",
+  "category": "image",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Selected work, 2021 to now" },
+    { "type": "text", "id": "cursor_label", "label": "Cursor label", "default": "View" },
+    { "type": "range", "id": "motion_threshold", "label": "Spacing", "min": 20, "max": 300, "step": 10, "unit": "px", "default": 80 },
+    { "type": "range", "id": "motion_lifetime", "label": "Fade after", "min": 200, "max": 2500, "step": 100, "unit": "ms", "default": 900 },
+    { "type": "range", "id": "motion_max", "label": "Pictures at once", "min": 2, "max": 16, "step": 1, "default": 7 },
+    { "type": "range", "id": "motion_size", "label": "Picture size", "min": 60, "max": 400, "step": 10, "unit": "px", "default": 200 },
+    { "type": "range", "id": "motion_rotate", "label": "Tilt", "min": 0, "max": 30, "step": 1, "unit": "deg", "default": 6 },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 96 }
+  ],
+  "blocks": [
+    { "type": "project", "name": "Project", "settings": [
+      { "type": "text", "id": "title", "label": "Title", "default": "Harbour lights" },
+      { "type": "text", "id": "meta", "label": "Client and year", "default": "Port authority, 2024" },
+      { "type": "url", "id": "url", "label": "Link", "default": "/work" },
+      { "type": "image_picker", "id": "image", "label": "Photo" },
+      { "type": "text", "id": "image_alt", "label": "Photo description", "default": "" }
+    ] }
+  ],
+  "presets": [{ "name": "Project index with image trail", "blocks": [{ "type": "project", "settings": { "title": "Harbour lights", "meta": "Port authority, 2024", "url": "/work" } }, { "type": "project", "settings": { "title": "Salt and iron", "meta": "Kettle and Co, 2023", "url": "/work" } }, { "type": "project", "settings": { "title": "Night bakery", "meta": "Crumb, 2023", "url": "/work" } }, { "type": "project", "settings": { "title": "North shore", "meta": "Coastal trust, 2022", "url": "/work" } }] }]
+}
+</schema>

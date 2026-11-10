@@ -39,6 +39,12 @@ import { drawLive } from "@/lib/website-builder/storelib-live-fill"
 import { isLive } from "@/lib/website-builder/live-settings"
 import { OfferIslands } from "./offer-islands"
 import { FormIslands } from "./form-islands"
+/* Round P (P3): the page's own interactive effects, asked for by data-storelib-motion (lib/storelib-theme/motion-islands.ts). */
+import { MotionIslands } from "../motion-islands"
+import { MOTION_ATTR, motionBaseCss } from "@/lib/storelib-theme/motion-islands-base"
+
+/** The motion islands' structural CSS, one object for every section, so React never rewrites it. */
+const MOTION_CSS = { __html: motionBaseCss() }
 
 /** The markup each section element holds, once it has been changed after React drew it. */
 const drawn = new WeakMap<Element, string>()
@@ -163,6 +169,8 @@ export function StorelibSection({
   const html = out.ok === true ? out.html : ""
   const css = out.ok === true ? out.css : ""
   const cssProp = useMemo(() => (css ? { __html: css } : null), [css])
+  /* A section with a motion island also prints the islands' structural CSS, on the server as on the canvas, so a pinned or scrubbed island has its height from the first paint. */
+  const asksMotion = html.includes(MOTION_ATTR)
   /*
     AND A REAL EDIT CHANGES ONLY WHAT IT CHANGED. React is given the markup
     this section first drew, once, and never a new object after it, so React
@@ -454,6 +462,7 @@ export function StorelibSection({
       canvasRoundedBottomPx={canvasRoundedBottomPx}
     >
       {cssProp ? <style dangerouslySetInnerHTML={cssProp} /> : null}
+      {asksMotion ? <style data-storelib-motion-css="" dangerouslySetInnerHTML={MOTION_CSS} /> : null}
       <div
         ref={setScriptRoot}
         onClickCapture={intercept}
@@ -465,6 +474,8 @@ export function StorelibSection({
       <OfferIslands root={scriptRoot} html={onPage} inert={isEditing === true} codes={theme.currency_code_enabled === true} />
       {/* A published form, drawn into the mark a form_picker section leaves for it (./form-islands.tsx). A preview on the canvas. */}
       <FormIslands root={scriptRoot} html={onPage} preview={!!(isEditing || insideEditor || inEditor)} />
+      {/* Motion islands: 3D, scroll scrubbing, pinned runs, shader backgrounds and the rest, configured by the markup and run by the page (../motion-islands). Paused while text is typed on the canvas. */}
+      <MotionIslands root={scriptRoot} html={html} inCanvas={!!(isEditing || insideEditor || inEditor)} />
       {asksDrawers && (
         <StorefrontHooks
           trigger={drawerTrigger}
