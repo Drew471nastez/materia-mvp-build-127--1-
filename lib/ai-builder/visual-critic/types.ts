@@ -57,6 +57,17 @@ export type DefectKind =
   | "empty-section"
   | "empty-blocks"
   | "image-slot-empty"
+  /* Round R (R3), Loupe's checks for native pages: text cut by its box, text over text (the header over the page),
+     too many type families or sizes, endless motion under reduced motion, links to nowhere, the same section three
+     times in a row, section spacing with no rhythm. */
+  | "text-clipped"
+  | "overlap"
+  | "font-families"
+  | "type-scale"
+  | "reduced-motion"
+  | "broken-link"
+  | "repetition"
+  | "rhythm"
   | "review"
 
 export interface Defect {

@@ -7,7 +7,7 @@
  */
 export * from "./types"
 export { composeDraftDocument, stripScripts, CRITIC_CSP } from "./document"
-export { measuredDefects, mergeDefects, measureScript, LIMITS } from "./measure"
+export { measuredDefects, extendedDefects, mergeDefects, measureScript, LIMITS, type MeasureContext, type KnownLinks } from "./measure"
 export { REVIEW_SYSTEM, readReview, reviewMessage, runReview, extractJson, MAX_REVIEW_ATTEMPTS } from "./review"
 export { browserAvailable, shootPages, isPublicHost, allowRequest } from "./shoot"
 export { createVisualCritic, reviewWorstCaseUsd, MAX_CRITIC_PAGES, type CriticRequest, type VisualCriticRunner, type CriticOptions } from "./critic"

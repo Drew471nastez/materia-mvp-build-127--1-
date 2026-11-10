@@ -115,6 +115,12 @@ async function fitted(buf: Buffer): Promise<string> {
 export interface ShotPage {
   page: string
   html: string
+  /**
+   * Round R (R3): Storelib's OWN expression, evaluated through the DevTools protocol after the page loads and
+   * before it is measured (never the page's script, which stays off). The native page uses it to put React's
+   * out-of-order streamed sections where they belong, the move the page's own inline script would have made.
+   */
+  prepare?: string
 }
 
 export interface ShotResult {
@@ -167,6 +173,7 @@ export async function shootPages(pages: ShotPage[], opts: ShootOptions = {}): Pr
           /* Fonts and pictures a moment to land; a slow one is photographed as it stands. No in-page timer: scripts are off. */
           await tab.waitForNetworkIdle({ idleTime: 300, timeout: 4_000 }).catch(() => undefined)
           await tab.evaluate("document.fonts && document.fonts.ready.then(() => true)").catch(() => undefined)
+          if (p.prepare) await tab.evaluate(p.prepare).catch(() => undefined)
           /* The proof the page's own scripts are off: a page script would have had to run to set this. */
           const ran = await tab.evaluate("document.documentElement.getAttribute('data-critic-js')").catch(() => null)
           if (ran) jsDisabled = false
