@@ -1729,6 +1729,7 @@ export async function legacyTriggerEmailFlows(
               const mail = automationEmail({ body, fromName, unsubscribeToken: standing.unsubscribeToken, brand: liveBrand ?? undefined, avatarUrl: liveBrand?.avatarUrl ?? null })
               const result = await sendEmail({
                 from: buildFromHeaderLocal(fromName),
+                store: creatorId,
                 to: normalizeEmail(recipientEmail),
                 replyTo,
                 subject,
@@ -1828,7 +1829,7 @@ interface SendRefundEmailsParams {
  * and the website's language for an order on its website, nothing (the
  * creator the caller named, in English) for one on Storelib.
  */
-async function refundSigner(orderId: string): Promise<{ name: string | null; pictureUrl: string | null; language: { lang: string; words: Record<string, string>; own?: boolean } | null; words: import("@/lib/emails/customer-custom").EmailCopy | null } | null> {
+async function refundSigner(orderId: string): Promise<{ creatorId?: string; name: string | null; pictureUrl: string | null; language: { lang: string; words: Record<string, string>; own?: boolean } | null; words: import("@/lib/emails/customer-custom").EmailCopy | null } | null> {
   const { createAdminClient } = await import("@/lib/supabase/admin")
   const admin = createAdminClient()
   const { data: row, error } = await admin.from("orders").select("product_id, source, source_detail").eq("id", orderId).maybeSingle()
@@ -1846,10 +1847,10 @@ async function refundSigner(orderId: string): Promise<{ name: string | null; pic
   if (channel !== "website") {
     /* Bought on Storelib: signed by the creator the caller named, in English; the store's words only when its website is English too. */
     const language = await buyerEmailLanguage(creatorId, channel, null).catch(() => null)
-    return { name: null, pictureUrl: null, language, words }
+    return { creatorId, name: null, pictureUrl: null, language, words }
   }
   const [store, language] = await Promise.all([storeIdentity(admin, creatorId, { logoOnly: true }).catch(() => null), buyerEmailLanguage(creatorId, channel, origin?.lang).catch(() => null)])
-  return { name: store?.name ?? null, pictureUrl: store?.logoUrl ?? null, language, words }
+  return { creatorId, name: store?.name ?? null, pictureUrl: store?.logoUrl ?? null, language, words }
 }
 
 export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<void> {
@@ -1913,6 +1914,8 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
           sendEmail({
             to: buyerEmail,
             from: buildFromHeader(escapedStoreName),
+            /* From the store's own domain when it has one verified. */
+            store: signer?.creatorId ?? null,
             replyTo: contactEmail,
             subject: buyerMail.subject,
             html: buyerMail.html,

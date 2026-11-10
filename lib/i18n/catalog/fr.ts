@@ -12971,7 +12971,20 @@ const words: Record<string, string> = {
  "Opening the website builder": "Ouverture de l'éditeur de site",
  "New website": "Nouveau site",
  "Setting up your website": "Préparation de votre site",
- "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Construit avec les sections du thème. Le nouveau créateur IA n'est pas encore activé sur votre compte."
+ "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Construit avec les sections du thème. Le nouveau créateur IA n'est pas encore activé sur votre compte.",
+ "Some DNS providers only want {host}": "Certains fournisseurs DNS ne demandent que {host}",
+ "Add the domain you send from, like mail.yourshop.com.": "Ajoute le domaine depuis lequel tu envoies, comme mail.yourshop.com.",
+ "Sending from": "Envoyé depuis",
+ "Will send from": "Sera envoyé depuis",
+ "Remove domain": "Retirer le domaine",
+ "Use a subdomain like {suggest}, so the mail you already get at {domain} is never touched.": "Utilise un sous-domaine comme {suggest}, pour que le courrier que tu reçois déjà sur {domain} ne soit jamais touché.",
+ "Use {suggest}": "Utiliser {suggest}",
+ "Emails will come from": "Les e-mails viendront de",
+ "Add the DNS records": "Ajoute les enregistrements DNS",
+ "Until it is verified, emails keep coming from Storelib's address.": "Tant qu'il n'est pas vérifié, les e-mails continuent de venir de l'adresse de Storelib.",
+ "Where your domain's DNS is kept (your registrar, Cloudflare or your host), add each record below. Copy the name and the value exactly.": "Là où le DNS de ton domaine est géré (ton registraire, Cloudflare ou ton hébergeur), ajoute chaque enregistrement ci-dessous. Copie le nom et la valeur à l'identique.",
+ "Records usually show within an hour, sometimes up to a day. Storelib checks again on its own, so you can leave this page.": "Les enregistrements apparaissent en général en moins d'une heure, parfois jusqu'à un jour. Storelib revérifie tout seul, tu peux donc quitter cette page.",
+ "Edit name": "Modifier le nom"
 }
 
 export default words

@@ -57,6 +57,8 @@ export async function POST(request: Request, { params }: Params) {
 
   const sent = await sendEmail({
     from: buildFromHeader(mail.fromName || community.name),
+    /* From the store's own domain when it has one verified, as the real email is. */
+    store: gate.community.creator_id ?? null,
     to,
     ...(mail.replyTo ? { replyTo: mail.replyTo } : {}),
     subject: `[Test] ${mail.subject}`,

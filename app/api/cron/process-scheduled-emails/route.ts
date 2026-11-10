@@ -299,6 +299,7 @@ async function drainLegacyQueue(deadline: number): Promise<{ sent: number; faile
 
       const result = await sendEmail({
         from: buildFromHeaderLocal(identity.fromName),
+        store: email.creator_id,
         to: email.recipient_email.toLowerCase().trim(),
         replyTo: identity.replyTo,
         subject,

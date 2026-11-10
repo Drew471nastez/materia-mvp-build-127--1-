@@ -12971,7 +12971,20 @@ const words: Record<string, string> = {
  "Opening the website builder": "Website-Editor wird geöffnet",
  "New website": "Neue Website",
  "Setting up your website": "Deine Website wird eingerichtet",
- "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Aus den Abschnitten des Themes gebaut. Der neue KI-Builder ist für dein Konto noch nicht aktiv."
+ "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Aus den Abschnitten des Themes gebaut. Der neue KI-Builder ist für dein Konto noch nicht aktiv.",
+ "Some DNS providers only want {host}": "Manche DNS-Anbieter wollen nur {host}",
+ "Add the domain you send from, like mail.yourshop.com.": "Gib die Domain an, von der du sendest, etwa mail.yourshop.com.",
+ "Sending from": "Gesendet von",
+ "Will send from": "Wird senden von",
+ "Remove domain": "Domain entfernen",
+ "Use a subdomain like {suggest}, so the mail you already get at {domain} is never touched.": "Nutze eine Subdomain wie {suggest}, damit die E-Mails, die du schon unter {domain} bekommst, unberührt bleiben.",
+ "Use {suggest}": "{suggest} verwenden",
+ "Emails will come from": "E-Mails kommen von",
+ "Add the DNS records": "DNS-Einträge hinzufügen",
+ "Until it is verified, emails keep coming from Storelib's address.": "Bis sie bestätigt ist, kommen E-Mails weiter von der Adresse von Storelib.",
+ "Where your domain's DNS is kept (your registrar, Cloudflare or your host), add each record below. Copy the name and the value exactly.": "Füge dort, wo das DNS deiner Domain verwaltet wird (dein Registrar, Cloudflare oder dein Hoster), jeden Eintrag unten hinzu. Kopiere Name und Wert genau.",
+ "Records usually show within an hour, sometimes up to a day. Storelib checks again on its own, so you can leave this page.": "Einträge sind meist innerhalb einer Stunde sichtbar, manchmal erst nach einem Tag. Storelib prüft von selbst erneut, du kannst die Seite also verlassen.",
+ "Edit name": "Namen bearbeiten"
 }
 
 export default words

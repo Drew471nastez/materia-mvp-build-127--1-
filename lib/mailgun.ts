@@ -162,6 +162,38 @@ export interface MailgunSendOptions {
    * else is ignored here and the message goes as Storelib's.
    */
   sendingDomain?: string
+  /**
+   * The store (creators.id) this email is sent for: a buyer's receipt, a
+   * course or community email, an automation, a reply to a customer. With
+   * its own sending domain verified (Emails › Settings › Sending domain),
+   * the From address becomes the store's own and the message goes through
+   * that domain; the display name is kept. Otherwise nothing changes and
+   * it goes as Storelib's. Ignored when `sendingDomain` is given already.
+   */
+  store?: string | null
+}
+
+/** How a send for a store finds that store's verified address. A test replaces `lookup`; nothing else should. */
+export const storeSender: { lookup: (creatorId: string) => Promise<{ address: string; domain: string } | null> } = {
+  async lookup(creatorId) {
+    /* Loaded when a send names a store, not imported: instrumentation.ts reaches this file, and its Edge build cannot load node:dns. */
+    const [{ verifiedSender }, { createAdminClient }] = await Promise.all([import("@/lib/emails/sending-domain-server"), import("@/lib/supabase/admin")])
+    return verifiedSender(createAdminClient(), creatorId)
+  },
+}
+
+/** The options with the store's own address in From when it has one verified (lib/emails/sending-domain asOwnSender). Never throws. */
+export async function withStoreSender<T extends MailgunSendOptions>(options: T): Promise<T & { from?: string; sendingDomain?: string }> {
+  if (!options.store || options.sendingDomain) return options
+  let own: { address: string; domain: string } | null = null
+  try {
+    own = await storeSender.lookup(options.store)
+  } catch {
+    own = null
+  }
+  if (!own) return options
+  const { asOwnSender } = await import("@/lib/emails/sending-domain")
+  return { ...options, ...asOwnSender(options.from || buildMailgunFromHeader(), own) }
 }
 
 /** A sending domain as Mailgun names it in a path: a hostname and nothing else. */
@@ -263,12 +295,12 @@ function fromForSend(requested: string | undefined, _transactional?: boolean, th
 }
 
 /** Take one address off the bounce list so the next send is attempted. Never throws. */
-async function clearBounce(email: string): Promise<void> {
-  if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) return
+async function clearBounce(email: string, domain: string = MAILGUN_DOMAIN): Promise<void> {
+  if (!MAILGUN_API_KEY || !domain) return
   try {
     if (mailgunBreaker().state === "open") return
     await deadlineFetch(
-      `${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/bounces/${encodeURIComponent(email)}`,
+      `${MAILGUN_BASE_URL}/v3/${domain}/bounces/${encodeURIComponent(email)}`,
       { method: "DELETE", headers: { Authorization: `Basic ${Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64")}` } },
       { ms: MAILGUN_TIMING.lookupMs, retry: false },
     )
@@ -280,8 +312,8 @@ async function clearBounce(email: string): Promise<void> {
 /**
  * Check Mailgun suppression list before sending
  */
-async function isEmailSuppressed(email: string): Promise<boolean> {
-  if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) return false
+async function isEmailSuppressed(email: string, domain: string = MAILGUN_DOMAIN): Promise<boolean> {
+  if (!MAILGUN_API_KEY || !domain) return false
   /* Not answering: the lookup is skipped, as a failed lookup always was. */
   if (mailgunBreaker().state === "open") return false
 
@@ -290,7 +322,7 @@ async function isEmailSuppressed(email: string): Promise<boolean> {
   try {
     // Check bounces
     const bounceRes = await deadlineFetch(
-      `${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/bounces/${encodeURIComponent(email)}`,
+      `${MAILGUN_BASE_URL}/v3/${domain}/bounces/${encodeURIComponent(email)}`,
       { headers: { Authorization: `Basic ${authString}` } },
       { ms: MAILGUN_TIMING.lookupMs, retry: false },
     )
@@ -301,7 +333,7 @@ async function isEmailSuppressed(email: string): Promise<boolean> {
 
     // Check complaints
     const complaintRes = await deadlineFetch(
-      `${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/complaints/${encodeURIComponent(email)}`,
+      `${MAILGUN_BASE_URL}/v3/${domain}/complaints/${encodeURIComponent(email)}`,
       { headers: { Authorization: `Basic ${authString}` } },
       { ms: MAILGUN_TIMING.lookupMs, retry: false },
     )
@@ -321,7 +353,9 @@ async function isEmailSuppressed(email: string): Promise<boolean> {
 /**
  * Send an email via Mailgun HTTP API
  */
-export async function sendMailgunEmail(options: MailgunSendOptions): Promise<MailgunSendResult> {
+export async function sendMailgunEmail(asked: MailgunSendOptions): Promise<MailgunSendResult> {
+  /* A send for a store with its own verified domain goes From that domain (withStoreSender). */
+  const options = await withStoreSender(asked)
   if (!isMailgunConfigured()) {
     console.error("[mailgun] Not configured - missing MAILGUN_API_KEY or MAILGUN_DOMAIN")
     return {
@@ -348,7 +382,8 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
   // A code the person just asked for leaves at once. A bounce or complaint
   // lookup is two extra round trips before the send, which is what made the
   // verification email feel late.
-  const suppressed = options.transactional ? false : await isEmailSuppressed(options.to)
+  /* Bounces and complaints are kept per sending domain, so they are looked up on the one this send uses. */
+  const suppressed = options.transactional ? false : await isEmailSuppressed(options.to, sendingDomainOf(options.sendingDomain))
   if (suppressed) {
     return {
       success: false,
@@ -362,7 +397,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
   /* A code they just asked for must not die on a stale bounce. Mailgun
      drops those after it has already answered "queued", so the page looks
      sent and the inbox stays empty. A complaint is left in place. */
-  if (options.transactional && !options.keepBounce) await clearBounce(options.to)
+  if (options.transactional && !options.keepBounce) await clearBounce(options.to, domain)
 
   // Build form data for Mailgun API
   const formData = new FormData()
@@ -552,10 +587,11 @@ function connectFailed(error: unknown): boolean {
 }
 
 export async function sendMailgunOnce(
-  options: MailgunSendOptions & { messageId?: string },
+  asked: MailgunSendOptions & { messageId?: string },
   { timeoutMs = MAILGUN_TIMING.attemptMs }: { timeoutMs?: number } = {},
 ): Promise<MailgunOnceResult> {
   if (!isMailgunConfigured()) return { success: false, notConfigured: true, error: "Mailgun is not configured" }
+  const options = await withStoreSender(asked)
   if (!isValidEmail(options.to)) return { success: false, status: 400, error: "Invalid email address" }
 
   const form = new FormData()
@@ -606,6 +642,16 @@ export async function sendMailgunOnce(
   } finally {
     clearTimeout(timer)
   }
+}
+
+/**
+ * The address Storelib's own mail actually leaves from (what a store
+ * without its own domain sends as), worked out the way every send works it
+ * out (fromForSend). Shown in Emails › Settings as "Sending from".
+ */
+export function storelibFromAddress(): string {
+  const f = fromForSend(undefined, false, MAILGUN_DOMAIN)
+  return (f.match(/<([^<>\s]+@[^<>\s]+)>/)?.[1] ?? f).toLowerCase()
 }
 
 /** The domain campaign mail is sent from, for Message-Ids. */

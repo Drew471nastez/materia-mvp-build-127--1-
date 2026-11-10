@@ -117,6 +117,8 @@ interface Me {
   avatarUrl: string | null
   email: string | null
   replyTo: string | null
+  /** The address mail leaves from: the store's own once its domain is verified, else Storelib's. */
+  fromAddress?: string | null
 }
 
 const EDITABLE: CampaignStatus[] = ["draft", "scheduled"]
@@ -208,7 +210,7 @@ export function EmailComposer({ campaignId, onExit, preset }: ComposerProps) {
         the store's rows.
       */
       const sender = await fetch("/api/email/area?part=sender", { cache: "no-store" })
-        .then((r) => (r.ok ? (r.json() as Promise<{ creatorId: string | null; name: string | null; username: string | null; avatarUrl: string | null; email: string | null; replyTo: string | null }>) : null))
+        .then((r) => (r.ok ? (r.json() as Promise<{ creatorId: string | null; name: string | null; username: string | null; avatarUrl: string | null; email: string | null; replyTo: string | null; fromAddress?: string | null }>) : null))
         .catch(() => null)
       if (!sender || !live) return
       cancels.push(afterLayerMove(() => setMe({
@@ -223,6 +225,7 @@ export function EmailComposer({ campaignId, onExit, preset }: ComposerProps) {
            lib/email-campaigns/queue.ts). */
         email: displayEmail(sender.email),
         replyTo: (sender.replyTo || displayEmail(sender.email) || "").trim().toLowerCase() || null,
+        fromAddress: typeof sender.fromAddress === "string" && sender.fromAddress.includes("@") ? sender.fromAddress : null,
       })))
     })()
     fetch("/api/email/audience", { cache: "no-store" })
@@ -937,8 +940,9 @@ export function EmailComposer({ campaignId, onExit, preset }: ComposerProps) {
                     </Row>
                     <Row label={tt("From")}>
                       <p className="flex h-11 min-w-0 items-center truncate text-[16px] text-[#1a1a2e] sm:h-9 sm:text-[14px]">
-                        <span className="truncate">
+                        <span className="truncate" data-compose-from="">
                           {me.name}
+                          {me.fromAddress ? <span className="text-[#6b7280]"> &lt;{me.fromAddress}&gt;</span> : null}
                           {me.replyTo ? <span className="text-[#6b7280]"> · {tt("replies go to {replyTo}", { replyTo: me.replyTo })}</span> : null}
                         </span>
                       </p>

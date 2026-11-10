@@ -206,7 +206,7 @@ export async function verifySendingDomain(db: Db, creatorId: string, opts: { txt
   const records = await checkDmarc(recordsFromMailgun(answer.body), row.domain, opts.txt ?? realTxt)
   const active = String((answer.body?.domain as Record<string, unknown> | undefined)?.state ?? "") === "active"
   /* A verified domain whose records were taken away is not verified any more: mail goes as Storelib's again until they are back. */
-  const status: SendingDomainStatus = active ? "verified" : row.status === "verified" ? "failed" : "pending"
+  const status: SendingDomainStatus = active ? "verified" : row.status === "verified" || row.status === "failed" ? "failed" : "pending"
   const missing = records.filter((r) => r.kind !== "dmarc" && r.kind !== "tracking" && r.valid !== true).map((r) => r.kind.toUpperCase())
   await db
     .from("email_sending_domains")
@@ -235,6 +235,46 @@ export async function removeSendingDomain(db: Db, creatorId: string): Promise<Re
   }
   forgetSender(creatorId)
   return { ok: true, view: await loadSendingDomain(db, creatorId) }
+}
+
+/* ── checked again without a press ────────────────────────────────────── */
+
+/** How long after a check a domain is due another, by where it stands. */
+export function recheckDue(row: { status: SendingDomainStatus; last_checked_at: string | null; created_at?: string | null }, now: number): boolean {
+  const last = row.last_checked_at ? Date.parse(row.last_checked_at) : 0
+  const age = row.created_at ? now - Date.parse(row.created_at) : 0
+  if (row.status === "verified") return now - last >= 24 * 3600_000
+  /* Waiting for DNS: every ten minutes for two days (records usually land within hours), then every six hours for a month, then left for the owner's Check DNS. */
+  if (age > 30 * 86400_000) return false
+  return now - last >= (age <= 2 * 86400_000 ? 10 * 60_000 : 6 * 3600_000)
+}
+
+/**
+ * THE CRON'S LOOK (app/api/cron/physical, every ten minutes). A seller who
+ * puts the records in and closes the page should not have to come back and
+ * press Check DNS for their mail to start coming from their domain: a
+ * domain waiting for DNS is asked about again on its own, and a verified one
+ * once a day, so records taken away send mail back to Storelib's address
+ * (status failed) instead of failing DMARC. A few a run; never throws.
+ */
+export async function recheckSendingDomains(db: Db, opts: { now?: number; limit?: number; txt?: TxtLookup } = {}): Promise<number> {
+  if (!mailgunEnv().key) return 0
+  const now = opts.now ?? Date.now()
+  const limit = opts.limit ?? 4
+  let rows: (Row & { created_at?: string | null })[] = []
+  try {
+    const { data, error } = await db.from("email_sending_domains").select(`${COLS}, created_at`).order("last_checked_at", { ascending: true, nullsFirst: true }).limit(200)
+    if (error) return 0
+    rows = (data ?? []) as (Row & { created_at?: string | null })[]
+  } catch {
+    return 0
+  }
+  let n = 0
+  for (const r of rows.filter((x) => recheckDue(x, now)).slice(0, limit)) {
+    const done = await verifySendingDomain(db, r.creator_id, { now, txt: opts.txt }).catch(() => null)
+    if (done) n++
+  }
+  return n
 }
 
 /** For a send site that has the store and its name: the From and domain to send with, or null for Storelib's. */

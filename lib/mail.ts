@@ -50,6 +50,8 @@ export interface SendEmailOptions {
   keepBounce?: boolean
   /** The seller's verified sending domain (lib/mailgun.ts MailgunSendOptions.sendingDomain). */
   sendingDomain?: string
+  /** The store this email is sent for: its own verified domain is used when it has one (lib/mailgun.ts withStoreSender). */
+  store?: string | null
 }
 
 // Email send result
@@ -105,6 +107,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     transactional: options.transactional,
     keepBounce: options.keepBounce,
     sendingDomain: options.sendingDomain,
+    store: options.store,
   })
 
   if (result.success) {

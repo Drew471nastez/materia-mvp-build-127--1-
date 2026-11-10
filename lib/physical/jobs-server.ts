@@ -932,6 +932,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
   await holdLease(lease)
   const sent = await sendEmail({
     from: buildFromHeader(shopName),
+    store: co.creator_id,
     to: co.buyer_email,
     /* The store's contact email, the one the footer shows; never Storelib's own support inbox standing in for a store that has none. */
     replyTo: replyAddress(store.email) ?? (identity.replyTo && identity.replyTo !== EMAIL_REPLY_TO ? identity.replyTo : undefined),

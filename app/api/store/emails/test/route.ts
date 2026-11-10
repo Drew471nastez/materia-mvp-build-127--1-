@@ -56,6 +56,8 @@ export async function POST(request: Request) {
 
   const sent = await sendEmail({
     from: buildFromHeader(name),
+    /* As the real email goes: from the store's own domain when it has one verified. */
+    store: c.creatorId,
     to,
     subject: `[Test] ${mail.subject}`,
     html: mail.html,

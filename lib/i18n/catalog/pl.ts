@@ -12971,7 +12971,20 @@ const words: Record<string, string> = {
  "Opening the website builder": "Otwieranie kreatora strony",
  "New website": "Nowa strona",
  "Setting up your website": "Przygotowywanie Twojej strony",
- "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Zbudowane z sekcji motywu. Nowy kreator AI nie jest jeszcze włączony na Twoim koncie."
+ "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Zbudowane z sekcji motywu. Nowy kreator AI nie jest jeszcze włączony na Twoim koncie.",
+ "Some DNS providers only want {host}": "Niektórzy dostawcy DNS chcą tylko {host}",
+ "Add the domain you send from, like mail.yourshop.com.": "Dodaj domenę, z której wysyłasz, np. mail.yourshop.com.",
+ "Sending from": "Wysyłane z",
+ "Will send from": "Będzie wysyłać z",
+ "Remove domain": "Usuń domenę",
+ "Use a subdomain like {suggest}, so the mail you already get at {domain} is never touched.": "Użyj subdomeny, np. {suggest}, aby poczta, którą już dostajesz na {domain}, pozostała nietknięta.",
+ "Use {suggest}": "Użyj {suggest}",
+ "Emails will come from": "E-maile będą przychodzić z",
+ "Add the DNS records": "Dodaj rekordy DNS",
+ "Until it is verified, emails keep coming from Storelib's address.": "Dopóki domena nie zostanie zweryfikowana, e-maile wychodzą z adresu Storelib.",
+ "Where your domain's DNS is kept (your registrar, Cloudflare or your host), add each record below. Copy the name and the value exactly.": "Tam, gdzie zarządzasz DNS swojej domeny (rejestrator, Cloudflare lub hosting), dodaj każdy rekord poniżej. Skopiuj nazwę i wartość dokładnie.",
+ "Records usually show within an hour, sometimes up to a day. Storelib checks again on its own, so you can leave this page.": "Rekordy zwykle widać w ciągu godziny, czasem po dobie. Storelib sprawdza ponownie sam, więc możesz zamknąć tę stronę.",
+ "Edit name": "Edytuj nazwę"
 }
 
 export default words

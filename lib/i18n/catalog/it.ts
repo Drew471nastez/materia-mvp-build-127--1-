@@ -12971,7 +12971,20 @@ const words: Record<string, string> = {
  "Opening the website builder": "Apertura dell'editor del sito",
  "New website": "Nuovo sito",
  "Setting up your website": "Preparazione del tuo sito",
- "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Creato con le sezioni del tema. Il nuovo builder con IA non è ancora attivo sul tuo account."
+ "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Creato con le sezioni del tema. Il nuovo builder con IA non è ancora attivo sul tuo account.",
+ "Some DNS providers only want {host}": "Alcuni provider DNS vogliono solo {host}",
+ "Add the domain you send from, like mail.yourshop.com.": "Aggiungi il dominio da cui invii, come mail.yourshop.com.",
+ "Sending from": "Inviato da",
+ "Will send from": "Invierà da",
+ "Remove domain": "Rimuovi dominio",
+ "Use a subdomain like {suggest}, so the mail you already get at {domain} is never touched.": "Usa un sottodominio come {suggest}, così la posta che ricevi già su {domain} non viene toccata.",
+ "Use {suggest}": "Usa {suggest}",
+ "Emails will come from": "Le email arriveranno da",
+ "Add the DNS records": "Aggiungi i record DNS",
+ "Until it is verified, emails keep coming from Storelib's address.": "Finché non è verificato, le email continuano ad arrivare dall'indirizzo di Storelib.",
+ "Where your domain's DNS is kept (your registrar, Cloudflare or your host), add each record below. Copy the name and the value exactly.": "Dove è gestito il DNS del tuo dominio (il tuo registrar, Cloudflare o il tuo hosting), aggiungi ogni record qui sotto. Copia nome e valore esattamente.",
+ "Records usually show within an hour, sometimes up to a day. Storelib checks again on its own, so you can leave this page.": "I record di solito compaiono entro un'ora, a volte fino a un giorno. Storelib ricontrolla da solo, quindi puoi lasciare questa pagina.",
+ "Edit name": "Modifica nome"
 }
 
 export default words

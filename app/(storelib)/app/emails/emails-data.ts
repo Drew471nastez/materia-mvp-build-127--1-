@@ -170,7 +170,9 @@ export async function loadPlatforms(): Promise<SendingData> {
   ])
   if (!m.ok) throw new Error(m.error || tt("Could not load your platforms."))
   if (!isRecord(m.data)) throw new Error(tt("Could not load your platforms."))
-  const sender = isRecord(who) ? { name: typeof who.name === "string" ? who.name : null, replyTo: typeof who.replyTo === "string" ? who.replyTo : null } : null
+  const sender = isRecord(who)
+    ? { name: typeof who.name === "string" ? who.name : null, replyTo: typeof who.replyTo === "string" ? who.replyTo : null, fromAddress: typeof who.fromAddress === "string" ? who.fromAddress : null, ownDomain: who.ownDomain === true, storelibAddress: typeof who.storelibAddress === "string" ? who.storelibAddress : null }
+    : null
   return { marketing: marketingFrom<MarketingState>(m.data.marketing), sending: d.ok ? sendingDomainFrom<NonNullable<SendingDomainData["domain"]>>(d.data) : { domain: null, ready: true, available: false }, sender }
 }
 
@@ -178,6 +180,11 @@ export async function loadPlatforms(): Promise<SendingData> {
 export interface SenderInfo {
   name: string | null
   replyTo: string | null
+  /** The address mail leaves from: the store's own once its domain is verified, else Storelib's. */
+  fromAddress?: string | null
+  ownDomain?: boolean
+  /** Storelib's own address, what mail comes from without a verified domain. */
+  storelibAddress?: string | null
 }
 
 /** Settings › Sending: the platforms and the sending domain, and the sender. */

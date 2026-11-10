@@ -76,7 +76,7 @@ export async function POST(request: Request) {
         })
       const mail = language ? inEmailLanguage(language.lang, language.words, build) : build()
       /* Asked for this minute: transactional, so it leaves at once with no tracking rewriting the link. Anybody can type an email here, so its bounce record is kept (keepBounce). */
-      await sendMailgunEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text, from: buildMailgunFromHeader(brand.name), replyTo: brand.replyTo || undefined, tags: ["order-lookup"], transactional: true, keepBounce: true })
+      await sendMailgunEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text, from: buildMailgunFromHeader(brand.name), replyTo: brand.replyTo || undefined, tags: ["order-lookup"], transactional: true, keepBounce: true, store: site.creatorId })
     } catch (e) {
       console.error("[order-lookup] failed:", e instanceof Error ? e.message : "unknown")
     }

@@ -587,7 +587,7 @@ export interface RefundDeps {
   endSubscription: (subscriptionId: string) => Promise<void>
   /** The engine's notification outbox. */
   emit: (event: Record<string, unknown>) => Promise<unknown>
-  sendMail: (mail: { to: string; subject: string; html: string; text: string; fromName: string | null; replyTo: string | null }) => Promise<{ success: boolean }>
+  sendMail: (mail: { to: string; subject: string; html: string; text: string; fromName: string | null; replyTo: string | null; store?: string | null }) => Promise<{ success: boolean }>
   baseUrl: () => string
 }
 
@@ -628,7 +628,7 @@ export function defaultRefundDeps(db: Db): RefundDeps {
     },
     sendMail: async (m) => {
       const { sendEmail, buildFromHeader } = await import("@/lib/mail")
-      const r = await sendEmail({ to: m.to, subject: m.subject, html: m.html, text: m.text, from: buildFromHeader(m.fromName || undefined), replyTo: m.replyTo || undefined })
+      const r = await sendEmail({ to: m.to, subject: m.subject, html: m.html, text: m.text, from: buildFromHeader(m.fromName || undefined), replyTo: m.replyTo || undefined, store: m.fromName ? (m.store ?? null) : null })
       return { success: r.success }
     },
     baseUrl: () => {
@@ -816,7 +816,7 @@ async function emailRefundOnce(
   }
   if (!to) return false
   const mail = await refundEmail(db, deps, r)
-  const sent = await deps.sendMail({ to, ...mail }).catch(() => ({ success: false }))
+  const sent = await deps.sendMail({ to, ...mail, store: r.product.creator_id ?? null }).catch(() => ({ success: false }))
   if (!sent.success) return false
   if (claimed) await db.from("community_refunds").update({ emailed_at: nowIso() }).eq("stripe_refund_id", r.refund.id)
   else await deps.updateRefund(r.refund.id, { member_emailed: "1" }).catch(() => undefined)

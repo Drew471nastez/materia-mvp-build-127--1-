@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { NO_STORE, requireContacts } from "@/lib/contacts/gate"
+import { syncPlatformsSoon } from "@/lib/contacts/checkout-contact"
 import { personByKey, readProfile } from "@/lib/contacts/profile-server"
 import { CONTACTS_MISSING, ContactsMissing, cleanTags, deleteContactRows, ensureRow, unsubscribe, updateRow } from "@/lib/contacts/write-server"
 
@@ -65,6 +66,8 @@ export async function POST(request: Request, { params }: Ctx) {
   const subs = g.rows.filter((r) => r.kind === "subscriber")
   let done = 0
   for (const s of subs) if (await unsubscribe(gate.db, gate, s.id)) done++
+  /* Unsubscribed on the store's connected email platforms too, within the minute. */
+  if (done) await syncPlatformsSoon(gate.db, gate.creatorId).catch(() => undefined)
   return json({ ok: true, unsubscribed: done })
 }
 

@@ -411,14 +411,15 @@ export async function scheduleMarketingSyncs(db: Db, now: number = Date.now()): 
  * quarter hour, so the new subscriber is in Klaviyo or Omnisend within the
  * minute. The sync reads the subscriber list, so consent, an unsubscribe
  * read back first and what was already sent all work as for any other run.
- * Keyed by the minute: ten signups in a minute are one sync.
+ * Keyed by the quarter minute: ten signups at once are one sync, and a
+ * signup just after a sync has run gets its own, not the next quarter hour.
  */
 export async function queueMarketingSignup(db: Db, creatorId: string, now: number = Date.now()): Promise<number> {
   const { data, error } = await db.from("commerce_integrations").select("provider").eq("creator_id", creatorId).in("provider", MARKETING_PROVIDERS).eq("status", "connected")
   if (error || !data?.length) return 0
   let n = 0
   for (const r of data as { provider: MarketingProvider }[]) {
-    if (await queueSync(db, creatorId, r.provider, now, `signup${Math.floor(now / 60_000)}`)) n++
+    if (await queueSync(db, creatorId, r.provider, now, `signup${Math.floor(now / 15_000)}`)) n++
   }
   return n
 }

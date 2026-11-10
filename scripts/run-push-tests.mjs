@@ -1044,6 +1044,8 @@ const SUITES = [
   "tests/marketing24.test.ts",
   /* Connected email platforms: Brevo, MailerLite and Kit on the marketing sync (key checked, subscribers pushed, unsubscribes both ways and by webhook, order events as events, groups and tags, a 429 retried without sending twice), and the store's own sending domain with Mailgun, all against fake HTTP. */
   "tests/connected-platforms.test.ts",
+  /* Wave 9, emails: every store email From the store's own verified domain (lib/mailgun.ts `store`), the domain checked again by the cron, the platforms synced within the minute also with physical commerce off. */
+  "tests/emails-sending-w9.test.ts",
   "tests/partners24.test.ts",
   /* Round AE3: each partner's cancel and costs against stubs of its API, holds and the partner card read from the timeline, the packing slip's paper and prices, the buyer's paid rate in Buy a label. */
   "tests/fulfilment-ae3.test.ts",

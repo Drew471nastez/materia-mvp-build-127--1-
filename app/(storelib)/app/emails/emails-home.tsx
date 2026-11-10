@@ -468,7 +468,8 @@ export function EmailsHome(props: EmailsHomeProps) {
           {tab === "flows" && !props.loading && !props.error && props.flows.length === 0 ? null : tab === "platforms" ? (props.error ? null : <SenderCard sender={props.platforms?.sender ?? null} domain={props.platforms?.sending?.domain ?? null} loading={props.loading} />) : <Metrics {...props} />}
         </EmailsPartBoundary>
 
-        <section aria-label={TABS.find((t) => t.id === tab)?.label ?? tt("Emails")} className={cn(card, "mt-4 overflow-hidden")}>
+        {/* Settings › Sending draws its own cards (Email platforms, Sending domain); every other part sits in this one. */}
+        <section aria-label={TABS.find((t) => t.id === tab)?.label ?? tt("Emails")} className={tab === "platforms" && !props.error ? "mt-4" : cn(card, "mt-4 overflow-hidden")}>
           {/* The list's toolbar, Coupons' and Orders' own: its views, and Templates at the end. */}
           {campaignsShown ? (
             <div className="flex h-[52px] items-center gap-1 border-b border-[#eef0f2] px-2 md:h-12" data-campaign-filter="">
@@ -546,28 +547,49 @@ function campaignShowOf(view: EmailsTab, show: CampaignShow): CampaignShow {
 }
 
 /**
- * Settings › Sending: who the store's emails are from, the address they come
- * from, and where a reply goes, each with where it is changed. Read with the
- * platforms (./emails-data.ts loadPlatforms).
+ * Settings › Sending: who the store's emails are from and the address they
+ * really leave from (the store's own once its domain is verified, else
+ * Storelib's: app/api/email/area?part=sender fromAddress, the same answer
+ * every send reaches, lib/mailgun.ts withStoreSender), and where a reply
+ * goes, each with where it is changed. Read with the platforms
+ * (./emails-data.ts loadPlatforms).
  */
-function SenderCard({ sender, domain, loading }: { sender: { name: string | null; replyTo: string | null } | null; domain: { domain: string; status: string } | null; loading: boolean }) {
-  const rows: Array<{ label: string; value: string; href?: string; action?: string }> = [
-    { label: tt("From name"), value: sender?.name || "–", href: "/app/settings?tab=general", action: tt("Edit") },
-    { label: tt("From address"), value: domain?.status === "verified" ? tt("Your domain, {domain}", { domain: domain.domain }) : tt("Storelib's address") },
-    { label: tt("Replies go to"), value: sender?.replyTo || "–", href: "/app/settings?tab=store", action: tt("Edit") },
+function SenderCard({ sender, domain, loading }: { sender: { name: string | null; replyTo: string | null; fromAddress?: string | null; ownDomain?: boolean; storelibAddress?: string | null } | null; domain: { domain: string; status: string; fromAddress?: string } | null; loading: boolean }) {
+  /* The domain as it is now (a check or a remove on this page moves it), else what the server said when the page opened. */
+  const own = domain ? domain.status === "verified" : !!sender?.ownDomain
+  const address = own ? domain?.fromAddress || (sender?.ownDomain ? sender.fromAddress : null) || null : sender?.storelibAddress || (sender?.ownDomain ? null : sender?.fromAddress) || null
+  const rows: Array<{ label: string; value: React.ReactNode; href?: string; action?: string; key: string }> = [
+    {
+      key: "from",
+      label: tt("Sending from"),
+      value: (
+        <span className="flex min-w-0 items-center gap-2" data-sending-from-line="">
+          <span className="min-w-0 truncate">
+            <span className="font-medium">{sender?.name || "–"}</span>
+            {address ? <span className="text-[#6b7280]"> &lt;{address}&gt;</span> : null}
+          </span>
+          <StatusBadge tone={own ? "success" : "neutral"} className="shrink-0 max-sm:hidden">
+            {own ? tt("Your domain") : tt("Storelib's address")}
+          </StatusBadge>
+        </span>
+      ),
+      href: "/app/settings?tab=general",
+      action: tt("Edit name"),
+    },
+    { key: "reply", label: tt("Replies go to"), value: sender?.replyTo || "–", href: "/app/settings?tab=store", action: tt("Edit") },
   ]
   return (
-    <section aria-label={tt("Sender")} className={cn(card, "mt-4 overflow-hidden")} data-sender-card="">
+    <section aria-label={tt("Sender")} className={cn(card, "mt-4 overflow-hidden")} data-sender-card="" data-own-domain={own ? "" : undefined}>
       <dl className="divide-y divide-[#f1f2f4]">
         {rows.map((r) => (
-          <div key={r.label} className="flex min-h-12 items-center gap-3 px-4 py-2 sm:px-6">
-            <dt className="w-[120px] shrink-0 text-[13px] font-medium text-[#6b7280]">{r.label}</dt>
-            <dd className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e]">{loading ? <ShimmerBlock className="shimmer-wait h-3.5 w-32 rounded-full" /> : r.value}</dd>
+          <div key={r.key} className="flex min-h-[52px] items-center gap-3 px-4 py-2 max-sm:flex-wrap max-sm:gap-y-0.5 sm:px-6">
+            <dt className="w-[120px] shrink-0 text-[13px] font-medium text-[#6b7280] max-sm:w-auto max-sm:flex-1">{r.label}</dt>
             {r.href ? (
-              <Link href={r.href} className="shrink-0 text-[13px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+              <Link href={r.href} className="shrink-0 text-[13px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline sm:order-last">
                 {r.action}
               </Link>
             ) : null}
+            <dd className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e] max-sm:basis-full">{loading && !sender ? <ShimmerBlock className="shimmer-wait h-3.5 w-40 rounded-full" /> : r.value}</dd>
           </div>
         ))}
       </dl>

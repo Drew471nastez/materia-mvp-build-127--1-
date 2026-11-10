@@ -308,8 +308,8 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
   const checked = hasLists(provider) ? lists !== null && (lists.length > 0 || makesList) : account !== null
   return (
     <div className="space-y-4" data-marketing-sync={provider}>
-      {flowList}
-      <div className="space-y-3 border-t border-[#f1f2f4] pt-4">
+      {/* The key first, the one thing to do; what syncs under it (wave 9: "setup simple and clean"). */}
+      <div className="space-y-3">
         <Field label={provider === "klaviyo" ? tt("Private API key") : provider === "mailerlite" ? tt("API token") : tt("API key")} htmlFor={`marketing-key-${provider}`} hint={tt("Where to find it: {where}", { where: WHERE[provider] })}>
           <TextInput
             id={`marketing-key-${provider}`}
@@ -368,6 +368,7 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
           )}
         </div>
       </div>
+      <div className="border-t border-[#f1f2f4] pt-4">{flowList}</div>
     </div>
   )
 }

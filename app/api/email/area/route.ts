@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server"
 import { requireTeamPermission, type TeamGate } from "@/lib/team/server"
 import { REPLY_PAGE, threadRows } from "@/lib/site-contact/reply"
 import { displayEmail, ownerAddress } from "@/lib/businesses/email-alias"
+import { verifiedSender } from "@/lib/emails/sending-domain-server"
+import { syncPlatformsSoon } from "@/lib/contacts/checkout-contact"
+import { storelibFromAddress } from "@/lib/mailgun"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -25,7 +28,8 @@ export const dynamic = "force-dynamic"
  *   GET  ?part=flows              FlowRow[] with each one's totals
  *   GET  ?part=contact&email=     { runs, messages, customer }: one contact's last twenty runs and
  *                                 messages, and what they bought here (ContactCustomer)
- *   GET  ?part=sender             who the composer draws as sending, for this store
+ *   GET  ?part=sender             who the composer draws as sending, for this store, and the
+ *                                 address it leaves from (fromAddress, ownDomain)
  *   POST { action: "unsubscribe", id }       a subscriber taken off the list
  *   POST { action: "delete_campaign", id }   an email that has not been sent, deleted
  */
@@ -217,9 +221,11 @@ async function contact(db: Db, creatorId: string, email: string) {
 /** The store's sender: its owner's name and photo, its support address for replies, and the signed in person's own address for a test. */
 async function sender(gate: TeamGate) {
   const db = gate.db
-  const [{ data: creator }, { data: profile }] = await Promise.all([
+  const [{ data: creator }, { data: profile }, own] = await Promise.all([
     db.from("creators").select("id, support_email").eq("id", gate.creatorId).maybeSingle(),
     gate.ownerUserId ? db.from("profiles").select("display_name, username, avatar_url, email").eq("id", gate.ownerUserId).maybeSingle() : Promise.resolve({ data: null }),
+    /* The address mail leaves from: the store's own once its domain is verified, else Storelib's (lib/mailgun.ts withStoreSender). */
+    verifiedSender(db, gate.creatorId).catch(() => null),
   ])
   const p = (profile ?? {}) as { display_name?: string | null; username?: string | null; avatar_url?: string | null; email?: string | null }
   const c = (creator ?? {}) as { id?: string; support_email?: string | null }
@@ -230,6 +236,9 @@ async function sender(gate: TeamGate) {
     avatarUrl: p.avatar_url ?? null,
     email: displayEmail(gate.userEmail),
     replyTo: (c.support_email || ownerAddress(gate.isOwner ? gate.userEmail : p.email) || "").trim().toLowerCase() || null,
+    fromAddress: own?.address ?? storelibFromAddress(),
+    ownDomain: !!own,
+    storelibAddress: storelibFromAddress(),
   })
 }
 
@@ -265,6 +274,8 @@ export async function POST(request: Request) {
   if (body?.action === "unsubscribe") {
     const { data, error } = await db.from("subscribers").update({ is_active: false, status: "unsubscribed" }).eq("id", id).eq("creator_id", gate.creatorId).select("id")
     if (error) return json({ error: "Not removed. Try again." }, 500)
+    /* Unsubscribed on the store's connected email platforms too, within the minute (lib/contacts/checkout-contact.ts). */
+    if (Array.isArray(data) && data.length) await syncPlatformsSoon(gate.db, gate.creatorId).catch(() => undefined)
     return Array.isArray(data) && data.length === 0 && !gate.isOwner ? json({ error: "Not found" }, 404) : json({ ok: true })
   }
   if (body?.action === "delete_campaign") {
