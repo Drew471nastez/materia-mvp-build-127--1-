@@ -21,6 +21,7 @@
 import type { AgentProvider } from "@/lib/sites/agent/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { RuntimeCapabilities } from "../runtime-contract"
+import type { VisualCriticRunner } from "../visual-critic/critic"
 import type { AgentEvent, DesignTokens, FileAuthor, GenerationMode, JobBudget, KnowledgeEntry, KnowledgeKind, StartOptions, ValidationIssue } from "../types"
 
 /* ── the website ──────────────────────────────────────────────────────── */
@@ -74,6 +75,11 @@ export interface AgentModels {
   plan: ModelRole
   loop: ModelRole
   small: ModelRole
+  /**
+   * The vision model the design review looks at the rendered draft with (round O, O4: claude-opus-5-5 through
+   * resolveForCreator). Absent: the review measures in the browser only, and says so.
+   */
+  review?: ModelRole
   /** The creator's own key answers (a higher spend cap, D5). */
   ownKey: boolean
 }
@@ -144,6 +150,12 @@ export interface AgentDeps {
   slop?: SlopEvaluator
   renderCheck?: RenderChecker
   tokensToSettings?: TokensMapper
+  /**
+   * THE VISUAL CRITIC (round O, O4, lib/ai-builder/visual-critic): before finish, the pages the job made are
+   * drawn in a headless browser with JavaScript off, measured and reviewed by a vision model; its defects come
+   * back as repair work. Absent: no design review (and nothing is claimed about one).
+   */
+  visualCritic?: VisualCriticRunner
   /** Whether the editor draws form_picker (L4 landed it; default: whether the control registry has it). */
   features?: { formPicker?: boolean }
   /** Each event as it happens (L2 writes ai_site_job_events). Never throws into the loop. */

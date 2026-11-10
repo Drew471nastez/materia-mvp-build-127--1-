@@ -12971,7 +12971,10 @@ const words: Record<string, string> = {
  "Opening the website builder": "Abriendo el editor web",
  "New website": "Nuevo sitio web",
  "Setting up your website": "Preparando tu sitio web",
- "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Creado con las secciones del tema. El nuevo creador con IA aún no está activo en tu cuenta."
+ "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Creado con las secciones del tema. El nuevo creador con IA aún no está activo en tu cuenta.",
+ "Reviewing the design": "Revisando el diseño",
+ "The first screen of your website, as the design review saw it": "La primera pantalla de tu sitio web, tal como la vio la revisión de diseño",
+ "What the design review looked at": "Lo que miró la revisión de diseño"
 }
 
 export default words

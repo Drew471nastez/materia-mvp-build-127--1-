@@ -34,6 +34,8 @@ import { PLAN_MODEL, SMALL_MODEL, WRITE_MODEL } from "@/lib/website-builder/ai-s
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { AgentDeps, AgentModels, ProjectStore, StoredFile, StoredPage, StoreWriteResult } from "./ports"
 import { versionOf } from "./version"
+import { createVisualCritic } from "../visual-critic/critic"
+import { keepReviewShot } from "../visual-critic/storage"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -115,6 +117,8 @@ export async function agentModels(creatorId: string): Promise<AgentModels> {
     plan: { provider: plan.provider, model: plan.model, effort: "medium" },
     loop: { provider: loop.provider, model: loop.model, effort: "medium" /* round N: agent coding wants medium; low wrote thinner sites */ },
     small: { provider: small.provider, model: small.model, effort: "low" },
+    /* Round O (O4): the design review looks at the rendered draft with the strong model (claude-opus-5-5), on the same key. */
+    review: { provider: plan.provider, model: plan.model, effort: "medium" },
     ownKey: loop.own !== null,
   }
 }
@@ -124,12 +128,22 @@ export async function agentModels(creatorId: string): Promise<AgentModels> {
  * `emit` (ai_site_job_events), `cancelled` (cancel_requested_at) and
  * `previewErrors` (the editor bridge) from the job row it holds.
  */
-export async function agentDeps(job: { creatorId: string; ownerUserId: string | null; installId: string }, extra: Partial<AgentDeps> = {}): Promise<AgentDeps> {
+export async function agentDeps(job: { creatorId: string; ownerUserId: string | null; installId: string; jobId?: string }, extra: Partial<AgentDeps> = {}): Promise<AgentDeps> {
   const admin = createAdminClient() as unknown as Db
+  /* Given models (a scripted run, tests/ai-builder-e2e-kit.ts) are used as they are: no key is looked up for them. */
+  const models = extra.models ?? (await agentModels(job.creatorId))
   return {
     store: supabaseProjectStore(admin, job.installId),
-    /* Given models (a scripted run, tests/ai-builder-e2e-kit.ts) are used as they are: no key is looked up for them. */
-    models: extra.models ?? (await agentModels(job.creatorId)),
+    models,
+    /*
+      Round O (O4): the visual critic. The draft drawn from this install's own project in headless Chromium with
+      JavaScript off, measured, and looked at by models.review (absent for scripted models: measured only). No
+      browser here: "not visually checked". The newest first-screen photograph is kept privately for the panel.
+    */
+    visualCritic: createVisualCritic({
+      review: models.review ?? null,
+      ...(job.jobId ? { keepShot: (jpeg: string) => keepReviewShot(admin as never, { installId: job.installId, jobId: job.jobId as string }, jpeg) } : {}),
+    }),
     /* L4: this creator's real data with ids (products with variants and Buy now links, collections, communities, forms, pages, menus). */
     capabilities: () => readRuntimeCapabilities(admin, { creatorId: job.creatorId, ownerUserId: job.ownerUserId, installId: job.installId }),
     /* L4: the page as a preview link draws it (draft page in home's chrome, saved files, this creator's data), rendered by the template engine. */
