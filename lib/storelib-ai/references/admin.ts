@@ -154,7 +154,7 @@ export function createReferenceAdmin(deps: ReferenceAdminDeps) {
       /* A link the admin types is kept as a note about where the picture came from. Nothing fetches it. */
       const sourceNote = oneLine(form.get("source"), SOURCE_NOTE_MAX) || null
       const checked = await checkReferenceImage({ name: (file as File).name || "reference", type: file.type || "", bytes: new Uint8Array(await file.arrayBuffer()) }, deps.transform)
-      if (!checked.ok) return json({ error: checked.error }, checked.status)
+      if (checked.ok === false) return json({ error: checked.error }, checked.status)
 
       const db = deps.db()
       const existing = await rowBySha(db, checked.sha256).catch(() => null)

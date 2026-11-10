@@ -276,7 +276,7 @@ async function main() {
     const svg = await checkReferenceImage({ name: "x.svg", type: "image/svg+xml", bytes: new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900"></svg>') }, echo)
     check("an SVG is refused", !svg.ok)
     const big = await checkReferenceImage({ name: "big.png", type: "image/png", bytes: png(1440, 900, 4 * 1024 * 1024 + 1) }, echo)
-    check("over 4 MB is refused with 413", !big.ok && big.status === 413)
+    check("over 4 MB is refused with 413", big.ok === false && big.status === 413)
     const broken = await checkReferenceImage({ name: "a.png", type: "image/png", bytes: png(1440, 900) }, async () => {
       throw new Error("cannot decode")
     })
