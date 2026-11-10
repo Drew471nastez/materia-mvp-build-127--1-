@@ -25,6 +25,16 @@ export async function register() {
 }
 
 export const onRequestError: Instrumentation.onRequestError = async (error, request, context) => {
+  /*
+    THE EDGE RUNTIME LOGS ONE LINE AND STOPS (round AR). Next sets NEXT_RUNTIME at compile time, so this branch
+    is all the edge build keeps: the report below reaches the mail sender, Supabase and the email templates,
+    which Node has and the edge does not, and compiling that whole graph once more for the edge was part of
+    what took the production build over Vercel's 8 GB machine. Edge errors are still one JSON line.
+  */
+  if (process.env.NEXT_RUNTIME !== "nodejs") {
+    console.error(JSON.stringify({ level: "error", source: "server", where: `${request.method} ${context.routePath || request.path.split("?")[0]}`, message: error instanceof Error ? error.message : String(error), digest: (error as { digest?: string } | null)?.digest ?? null }))
+    return
+  }
   const { reportError } = await import("@/lib/observability/report")
   const { requestIdFrom } = await import("@/lib/net/request-id")
   const { markLogged } = await import("@/lib/net/logged-once")
