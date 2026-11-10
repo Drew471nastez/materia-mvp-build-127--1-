@@ -277,7 +277,8 @@ async function main() {
     /* Tools 6,640 since round Z3: create_section says a new section on an imported theme is this format with no script, about 30 tokens. */
     /* Tools 7,150 since wave 5 design: add_section lists sixteen more section types with a line each, about 500 tokens: the agent cannot use a section it is not told about. */
     /* System 14,800 since wave 5 (aifix): proof and prices are never invented, real reviews and products or honest hidden placeholders instead, about 90 cached tokens. */
-    check("the first request stays inside its budget", tokens(first.system) <= 14_800 && tokens(JSON.stringify(first.tools)) <= 7_150 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
+    /* System 15,550 since round O (O6): designRulesFor("editor_agent"), the design rules every Storelib AI now carries (fit the business, the cliche combinations, honest copy, no instructions to the creator on the page), about 680 cached tokens (lib/storelib-ai/surfaces.ts). */
+    check("the first request stays inside its budget", tokens(first.system) <= 15_550 && tokens(JSON.stringify(first.tools)) <= 7_150 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
     check("every request carries a cache breakpoint on its last block, so the transcript is read back cheaply", sent.every((r) => {
       const msgs = requestMessages(r.turns) as Array<{ content: unknown }>
       const last = msgs[msgs.length - 1].content as Array<{ cache_control?: unknown }>
