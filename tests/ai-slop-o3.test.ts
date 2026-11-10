@@ -141,18 +141,20 @@ const JOURNAL = section(
 async function main() {
   console.log("\n1. designRulesFor: stable rule text for every prompt")
   {
-    const surfaces: DesignRulesSurface[] = ["site_agent", "section_writer", "ask_edit", "classic", "sites_agent", "other"]
+    const surfaces: DesignRulesSurface[] = ["site_agent", "section_writer", "editor_agent", "ask_edit", "classic_planner", "classic", "classic_fill", "sites_agent", "other"]
     for (const s of surfaces) {
       const t = designRulesFor(s)
       check(`${s}: rule text, stable across calls`, t.length > 200 && t === designRulesFor(s))
       check(`${s}: no em dash`, !/—/.test(t))
-      check(`${s}: names the indigo accent, emoji icons and instructions to the creator`, /indigo/i.test(t) && /emoji/i.test(t) && /(?:Add your|instructions? to the creator)/i.test(t), t.slice(0, 300))
+      check(`${s}: names the indigo accent, emoji icons and instructions to the creator`, (s === "classic_fill" || /indigo/i.test(t)) && /emoji/i.test(t) && /(?:Add your|instructions? to the creator)/i.test(t), t.slice(0, 300))
     }
-    check("the website agent gets the whole set: seven sins, soft tells, combinations, 80/20", DESIGN_RULES === designRulesFor("site_agent") && /SEVEN CARDINAL SINS/.test(DESIGN_RULES) && /SOFT TELLS/.test(DESIGN_RULES) && /EDITORIAL-SERIF SLOP/.test(DESIGN_RULES) && /80% PROVEN/.test(DESIGN_RULES))
+    check("the website agent gets the whole set: seven sins, soft tells, combinations, 80/20", DESIGN_RULES === designRulesFor("site_agent") && /SEVEN CARDINAL SINS/.test(DESIGN_RULES) && /SOFT TELLS/.test(DESIGN_RULES) && /Editorial serif slop/.test(DESIGN_RULES) && /No instruction to the creator in the visible copy/.test(DESIGN_RULES) && /80% PROVEN/.test(DESIGN_RULES))
     check("every Tailwind default indigo hex is in the rules", AI_DEFAULT_INDIGO.every((h) => DESIGN_RULES.includes(h)))
     check("the cliché combination names Andrew's look (italic serif, cream, mono caps, terracotta)", /italic display serif/i.test(DESIGN_RULES) && /cream/i.test(DESIGN_RULES) && /mono all-caps/i.test(DESIGN_RULES) && /terracotta/i.test(DESIGN_RULES))
     check("the Sites agent's rules speak of its own font variable, not Storelib's theme", /var\(--font-display\)/.test(designRulesFor("sites_agent")) && !/--theme-font-heading/.test(designRulesFor("sites_agent")))
-    check("an edit is told to keep the site's own direction", /KEEP THE SITE'S OWN DIRECTION/.test(designRulesFor("ask_edit")))
+    check("an edit is told to keep the site's own direction", /KEEP THE SITE'S OWN DIRECTION/.test(designRulesFor("ask_edit")) && designRulesFor("editor_agent") === designRulesFor("ask_edit"))
+    check("O6's surface names map onto the same texts", designRulesFor("classic_planner") === designRulesFor("classic") && /words you write/i.test(designRulesFor("classic_fill")))
+    check("the edit rules stay compact (the Ask agent's prompt budget)", designRulesFor("editor_agent").length < 1200, designRulesFor("editor_agent").length)
   }
 
   console.log("\n2. the seven cardinal sins (P0)")
@@ -207,6 +209,7 @@ async function main() {
     check("in a schema default (the words a visitor reads) too", has(evaluateSlop({ sources: [section("ai_x", `<section><h2>{{ settings.caption }}</h2></section>`, "", `[{ "type": "text", "id": "caption", "label": "Caption", "default": "PHOTO: YOUR NAME, YOUR GYM" }]`)] }), "placeholder-copy", "error"))
     check("but not in a setting's label, info or placeholder (the editor's words)", !has(evaluateSlop({ sources: [section("ai_x", `<section><h2>{{ settings.caption }}</h2></section>`, "", `[{ "type": "image_picker", "id": "photo", "label": "Your portrait", "info": "Add your portrait in the sidebar", "placeholder": "Your Name" }]`)] }), "placeholder-copy"))
     check("an editor-only empty state is not visible copy (if request.design_mode)", !has(evaluateSlop({ sources: [section("ai_x", `<section>{% if section.settings.photo %}<img src="{{ section.settings.photo | asset }}" alt="">{% elsif request.design_mode %}<p>Add your portrait in the sidebar</p>{% endif %}</section>`)] }), "placeholder-copy"))
+    check("nor a setting the template reads only in its editor-only branch", !has(evaluateSlop({ sources: [section("ai_x", `<section>{% if section.settings.photo %}<img src="{{ section.settings.photo | asset }}" alt="">{% elsif page.in_editor %}<p>{{ section.settings.photo_hint }}</p>{% endif %}<h2>Real</h2></section>`, "", `[{ "type": "image_picker", "id": "photo", "label": "Photo" }, { "type": "text", "id": "photo_hint", "label": "Empty photo note", "default": "Add the portrait" }]`)] }), "placeholder-copy"))
     check("nor inside if page.in_editor", !has(evaluateSlop({ html: `<section>{% if page.in_editor %}<p>Upload an image</p>{% endif %}<h2>Real</h2></section>` }), "placeholder-copy"))
     check("a form's 'Your name' label is not an instruction", !has(evaluateSlop({ html: `<section><form><label for="n">Your name</label><input id="n" name="name"></form></section>` }), "placeholder-copy"))
     check("withoutEditorOnly keeps the else branch a visitor sees", withoutEditorOnly(`a{% if request.design_mode %}EDITOR{% if x %}y{% endif %}{% else %}VISITOR{% endif %}b`).replace(/\{%[^%]*%\}/g, "") === "aVISITORb")

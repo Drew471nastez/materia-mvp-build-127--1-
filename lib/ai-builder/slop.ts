@@ -149,8 +149,12 @@ export function splitStorelib(source: string): { template: string; style: string
   const copy: string[] = []
   const schema = block(source, "schema")
   if (schema.trim()) {
+    /* A setting the template reads only inside an editor-only branch (an empty photo's "Add the portrait") is the editor's words, not a visitor's. */
+    const refs = (t: string) => new Set([...t.matchAll(/settings\.([a-z0-9_]+)/gi)].map((m) => m[1]))
+    const visible = refs(withoutEditorOnly(template))
+    const editorOnly = new Set([...refs(template)].filter((id) => !visible.has(id)))
     try {
-      collectCopy(JSON.parse(schema), copy, "")
+      collectCopy(JSON.parse(schema), copy, "", editorOnly)
     } catch {
       /* the compiler reports bad JSON; nothing to read here */
     }
@@ -160,13 +164,15 @@ export function splitStorelib(source: string): { template: string; style: string
 
 const NOT_COPY_KEYS = new Set(["type", "id", "label", "info", "name", "tag", "class", "category", "icon", "visible_if", "unit", "placeholder"])
 
-function collectCopy(v: unknown, out: string[], key: string): void {
+function collectCopy(v: unknown, out: string[], key: string, skip: Set<string> = new Set()): void {
   if (typeof v === "string") {
     if (!NOT_COPY_KEYS.has(key) && /\s/.test(v)) out.push(v)
   } else if (Array.isArray(v)) {
-    for (const x of v) collectCopy(x, out, key)
+    for (const x of v) collectCopy(x, out, key, skip)
   } else if (v && typeof v === "object") {
-    for (const [k, x] of Object.entries(v)) collectCopy(x, out, k)
+    const id = (v as { id?: unknown }).id
+    if (typeof id === "string" && skip.has(id)) return
+    for (const [k, x] of Object.entries(v)) collectCopy(x, out, k, skip)
   }
 }
 

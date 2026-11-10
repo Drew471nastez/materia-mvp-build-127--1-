@@ -22,7 +22,13 @@
  * a prompt that uses them teaches them).
  */
 
-export type DesignRulesSurface = "site_agent" | "section_writer" | "ask_edit" | "classic" | "sites_agent" | "other"
+/**
+ * Every AI surface that designs or edits a look. O6 wires them (lib/storelib-ai/surfaces.ts) with the names
+ * fixed in its brief: editor_agent (Ask for a change), classic_planner and classic_fill; the shorter names
+ * are kept as aliases (ask_edit = editor_agent, classic = classic_planner).
+ */
+export type DesignRulesSurface = "site_agent" | "section_writer" | "editor_agent" | "ask_edit" | "classic_planner" | "classic" | "classic_fill" | "sites_agent" | "other"
+export type DesignSurface = DesignRulesSurface
 
 /** The P0 list: a site that does any of these is refused at finish. Same order as the slop engine's P0 rules. */
 export const SEVEN_SINS = `THE SEVEN CARDINAL SINS (refused, the check runs on every file and on the rendered page):
@@ -32,7 +38,7 @@ export const SEVEN_SINS = `THE SEVEN CARDINAL SINS (refused, the check runs on e
 4. A hardcoded default face (Inter, Roboto, system-ui, Poppins...) on display text. Headings read the display token: var(--theme-font-heading).
 5. A rounded card with a coloured left border. Drop the radius or the border.
 6. Invented metrics and proof: "10x faster", "99.9% uptime", "98% satisfaction", "500+ happy clients", star ratings, testimonials, logos the store or creator did not supply.
-7. Filler and instructions to the creator rendered to visitors: lorem ipsum, "feature one / two / three", "placeholder text", "sample content", and ANY editor instruction on the live page ("Add your portrait in the sidebar", "Upload an image", "Replace this", "Your name", "YOUR GYM", "PHOTO: YOUR NAME"). A missing fact is left out, or shown only in the editor inside {% if request.design_mode %}, never to a visitor.`
+7. Filler and instructions to the creator rendered to visitors: lorem ipsum, "feature one / two / three", "placeholder text", "sample content". No instruction to the creator in the visible copy ("Add your portrait in the sidebar", "Upload an image", "Replace this", "Your name", "YOUR GYM", "PHOTO: YOUR NAME"). A missing fact is left out, or shown only in the editor inside {% if request.design_mode %}, never to a visitor.`
 
 /** P1: each one counts toward a small warning budget; past it, finish is refused. */
 export const SOFT_TELLS = `SOFT TELLS (warnings; too many of them together and the site is refused):
@@ -47,7 +53,7 @@ export const SOFT_TELLS = `SOFT TELLS (warnings; too many of them together and t
 
 /** Spec 8.1: combinations, not single features. */
 export const CLICHE_COMBINATIONS = `REJECT CLICHE COMBINATIONS, NOT SINGLE FEATURES. Each of these is fine alone when it fits; together they are the machine look and are refused unless the creator asked for that look:
-- EDITORIAL-SERIF SLOP (the 2025-26 AI look): a huge italic display serif (Instrument Serif, Fraunces, Playfair, DM Serif, Cormorant) + cream or off-white background + mono all-caps eyebrows and captions + terracotta or rust accent + letter-spaced mono caps buttons. A personal trainer is not a literary magazine.
+- Editorial serif slop (the 2025-26 AI look): a huge italic display serif (Instrument Serif, Fraunces, Playfair, DM Serif, Cormorant) + cream or off-white background + mono all-caps eyebrows and captions + terracotta or rust accent + letter-spaced mono caps buttons. A personal trainer is not a literary magazine.
 - SAAS-GRADIENT SLOP: purple or blue gradient glow + centred "Transform your X" hero + pill badge + three icon cards + floating dashboard mockup for a business with no dashboard.
 - Identical layouts for a fitness coach, a photographer and a consultant. Generic stock photos of people smiling at laptops. Infinite reveal animations and perpetual marquees. Small low-contrast type in the name of minimalism.
 Cards, gradients, shadows, serifs, cream and icons are all valid when the business and the composition call for them. The gate rejects the generic, unmotivated default, not creativity.`
@@ -106,11 +112,22 @@ const OTHER = [
   COPY,
 ].join("\n\n")
 
+const FILL = [
+  "ANTI-AI-SLOP RULES FOR THE WORDS YOU WRITE",
+  `Specific to this business, in the owner's voice. Nothing invented: no metrics ("10x faster", "98% satisfaction"), ratings, testimonials, logos, prices or years in business the store or creator did not give. No filler (lorem ipsum, "feature one", "sample content") and no instruction to the creator in the visible copy ("Add your portrait in the sidebar", "Your name", "YOUR GYM", "Replace this"): leave a missing fact out. No emoji as icons.`,
+  COPY,
+].join("\n\n")
+
+const EDIT = `ANTI-AI-SLOP RULES\n\n${EDIT_RULES}`
+
 const BY_SURFACE: Record<DesignRulesSurface, string> = {
   site_agent: DESIGN_RULES,
   section_writer: SECTION_WRITER,
-  ask_edit: `ANTI-AI-SLOP RULES\n\n${EDIT_RULES}`,
+  editor_agent: EDIT,
+  ask_edit: EDIT,
+  classic_planner: CLASSIC,
   classic: CLASSIC,
+  classic_fill: FILL,
   sites_agent: SITES_AGENT,
   other: OTHER,
 }

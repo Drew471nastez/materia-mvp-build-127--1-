@@ -8,6 +8,7 @@ import "server-only"
 import { capabilitiesFromSite, runSearchKnowledge, suggestDirections, type Direction, type KnowledgeCapability } from "@/lib/storelib-ai/library"
 import { slopIssues } from "../slop"
 import { themeSettingsToTokens } from "../tokens"
+import { isSlopDisplayFont } from "@/lib/storelib-ai/library/type-systems"
 import type { DesignTokens } from "../types"
 import type { RuntimeCapabilities } from "../runtime-contract"
 import type { KnowledgeSearch, SlopEvaluator } from "./ports"
@@ -41,9 +42,14 @@ export function libraryKnowledge(ctx: { industry?: string; concept?: () => Visua
 export const librarySlop: SlopEvaluator = async ({ files, concept, capabilities, brief, settings, rendered, sections }) => {
   const c = capabilities
   const facts = c ? { numbers: [String(c.products.length), ...(c.reviews.count ? [String(c.reviews.count), ...(c.reviews.average !== null ? [c.reviews.average.toFixed(1)] : [])] : [])].filter((n) => n !== "0"), reviews: c.reviews.count > 0, quotes: false, logos: false } : undefined
-  /* The tokens a visitor sees. Fonts only when the site set a heading face (the reader's default is Inter, which is not a choice anyone made). */
+  /*
+    The tokens a visitor sees. Fonts only when the heading face is one with character: set_tokens already refuses a
+    default display face unless the creator asked for it, so an Inter heading here is the platform's own default
+    (the reader's fallback), not a choice to judge; an editorial serif heading is, for the cliché combination.
+  */
   const read = settings ? themeSettingsToTokens(settings) : undefined
-  const tokens: Partial<DesignTokens> | undefined = read && settings ? { colors: read.colors, ...(typeof settings.font_heading === "string" && settings.font_heading.trim() ? { fonts: read.fonts } : {}) } : undefined
+  const heading = typeof settings?.font_heading === "string" ? settings.font_heading.trim() : ""
+  const tokens: Partial<DesignTokens> | undefined = read ? { colors: read.colors, ...(heading && !isSlopDisplayFont(heading) ? { fonts: read.fonts } : {}) } : undefined
   return slopIssues(
     {
       sources: files.map((f) => ({ path: f.path, content: f.text })),
