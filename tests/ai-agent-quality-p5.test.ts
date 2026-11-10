@@ -244,6 +244,8 @@ async function main() {
     check("  and, with no picture source, says text-forward for the slot", issues.some((i) => i.code === "image.text_forward"))
     const withPics = await verify(job(), { ...deps, imageProvider: () => true }, cp)
     check("  with a picture source, the empty slot itself blocks finish", withPics.some((i) => i.code === "image.slot_empty" && i.severity === "error"))
+    const viaP1 = await verify(job(), { ...deps, images: { available: async () => ({ generate: "openai", stock: false }) } as never }, cp)
+    check("  P1's image service with a generator is a picture source: the slot is enforced", viaP1.some((i) => i.code === "image.slot_empty" && i.severity === "error"))
     const edit = await verify(job({ edit: true }), deps, { ...cp, filesTouched: [], pagesTouched: [] })
     check("  an edit job answers only for what it touched", !edit.some((i) => i.code === "render.empty_media" || i.code.startsWith("image.") || i.code.startsWith("blocks.")), edit.map((i) => i.code))
   }

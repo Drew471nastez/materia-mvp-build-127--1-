@@ -238,9 +238,6 @@ export interface AgentDeps {
    * False: sections are made text-forward instead (never an empty frame to visitors).
    */
   imageProvider?: () => boolean | Promise<boolean>
-}
-
-/**
   /** Round P (P1): pictures. Absent: the tools refuse and the brief says to design text-forward. */
   images?: ImageService
   /** Whether the editor draws form_picker (L4 landed it; default: whether the control registry has it). */
