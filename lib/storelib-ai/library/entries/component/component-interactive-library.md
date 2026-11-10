@@ -8,7 +8,7 @@ tags: [interactive, example, examples, components, working code, motion primitiv
 components: [header, footer, tabs, accordion, carousel, gallery, hero, stats]
 phases: [plan, build]
 priority: 5
-related: [motion-in-storelib-runtime, storelib-own-chrome, motion-principles, component-tabs, component-accordion]
+related: [chrome-kit, motion-in-storelib-runtime, storelib-own-chrome, motion-principles, component-tabs, component-accordion]
 version: 1
 ---
 Ask search_knowledge with the id to get the whole file (template, scoped style, script when needed, schema). Each one compiles, draws and passes the checks your files are held to. Adapt type, colour, spacing, words and the ai_ name to the concept; never paste one unchanged, and never use more than two or three kinds of motion on a page.
@@ -34,6 +34,8 @@ Ask search_knowledge with the id to get the whole file (template, scoped style, 
 | ai_video_hero | an opening over the creator's video | native controls so it can be paused |
 | ai_site_header | own header: mega menu, mobile menu, search window, cart drawer, language and currency | popover API and the page's hooks |
 | ai_site_footer | own footer: sign up, two menus, language and currency, the name set huge | data-storelib-form subscribe and the page's hooks |
+
+**The chrome kit** (see chrome-kit): six headers (ai_chrome_header_overlay, ai_chrome_header_split, ai_chrome_header_mega, ai_chrome_header_minimal, ai_chrome_header_announce, ai_chrome_header_shop), three menu drawers (ai_chrome_menu_fullscreen, ai_chrome_menu_sheet, ai_chrome_menu_bottom), three carts (ai_chrome_cart_side, ai_chrome_cart_minimal, ai_chrome_cart_card), two search windows (ai_chrome_search_full, ai_chrome_search_drop), the switches (ai_chrome_locale) and six footers (ai_chrome_footer_wordmark, ai_chrome_footer_newsletter, ai_chrome_footer_columns, ai_chrome_footer_line, ai_chrome_footer_image, ai_chrome_footer_sitemap). Prefer them to ai_site_header and ai_site_footer for a new site.
 
 **Why these techniques**: a section's script runs in a sandbox on a copy of its markup, so it cannot measure the page, observe intersections, focus elements or play a video. Scroll-driven CSS, :has(), details, popover and sticky run on the real page with no script, work by keyboard, and are easy to switch off under prefers-reduced-motion.
 
