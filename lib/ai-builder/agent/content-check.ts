@@ -66,6 +66,8 @@ interface RawSchema {
   settings?: RawSetting[]
   blocks?: RawBlock[]
   max_blocks?: number
+  kind?: string
+  enabled_on?: { groups?: string[] }
   presets?: { name: string; settings?: Record<string, unknown>; blocks?: RawPresetBlock[] | Record<string, RawPresetBlock>; block_order?: string[] }[]
 }
 
@@ -176,6 +178,8 @@ export interface BlockRule {
 /** The minimum items of each block type a section declares. `min_blocks` on the block wins; else 3 for a repeating list, 1 otherwise; never above `limit` or the store's real data. */
 export function blockRules(schema: RawSchema, caps: RuntimeCapabilities | null): BlockRule[] {
   const own = ownBlockTypes(schema)
+  /* A header's or footer's items are navigation (a mega menu's featured cards, the footer's menu columns): two is a design, not a short list. */
+  const chrome = schema.kind === "header" || schema.kind === "footer" || (schema.enabled_on?.groups ?? []).some((g) => g === "header" || g === "footer")
   const out: BlockRule[] = []
   for (const b of own) {
     const fields = b.settings ?? []
@@ -184,7 +188,7 @@ export function blockRules(schema: RawSchema, caps: RuntimeCapabilities | null):
     if (typeof b.min_blocks === "number" && Number.isFinite(b.min_blocks)) {
       min = Math.max(0, Math.floor(b.min_blocks))
       why = `its schema says min_blocks ${min}`
-    } else if (REPEATING.test(words(b.type, b.name)) || (own.length === 1 && REPEATING.test(words(schema.name)))) {
+    } else if (!chrome && (REPEATING.test(words(b.type, b.name)) || (own.length === 1 && REPEATING.test(words(schema.name))))) {
       min = 3
       why = "it is a repeating list (one or two items are not a list)"
     } else {
@@ -267,6 +271,7 @@ export interface PlacedSection {
   settings?: Record<string, unknown>
   blocks?: BlockInstance[]
   hidden?: boolean
+  group?: string
 }
 
 export interface PlacedPage {
@@ -324,8 +329,16 @@ export interface ImageSlot {
   at: string
 }
 
-/** Every image setting of a placed ai_ section (and its blocks) whose picture is empty, switched-off ones left out. */
-export function emptyImageSlots(input: { pages: PlacedPage[]; sources: Record<string, string>; only?: Set<string> }): ImageSlot[] {
+/** An image setting that is an optional extra, not the design's picture: a phone crop, a hover swap, a logo or icon (the theme logo stands in). */
+const OPTIONAL_PICTURE = /(?:^|_)(?:mobile|phone|hover|secondary|alt|small|thumb|thumbnail|fallback|logo|icon|badge|texture|pattern|overlay)(?:_|$)/i
+
+/**
+ * Every image setting of a placed ai_ section (and its blocks) whose picture is empty: the design's pictures.
+ * Left out: a picture switched off by its toggle, a header's or footer's pictures (a mega menu's card art is
+ * optional navigation), optional extras (OPTIONAL_PICTURE), and whatever `skip` says (a starting template's
+ * pictures it did not declare as slots).
+ */
+export function emptyImageSlots(input: { pages: PlacedPage[]; sources: Record<string, string>; only?: Set<string>; skip?: (slot: ImageSlot) => boolean }): ImageSlot[] {
   const out: ImageSlot[] = []
   for (const page of input.pages) {
     if (input.only && !input.only.has(page.key)) continue
@@ -336,12 +349,14 @@ export function emptyImageSlots(input: { pages: PlacedPage[]; sources: Record<st
       if (!text) continue
       const schema = rawSchemaOf(text, path)
       if (!schema) continue
+      if (schema.kind === "header" || schema.kind === "footer" || s.group === "header" || s.group === "footer") continue
       const scan = (fields: RawSetting[], values: Record<string, unknown> | undefined, at: string) => {
         const off = fields.some((f) => f.id && f.type === "checkbox" && PICTURE_TOGGLE.test(f.id) && effective(values, f) === false)
         if (off) return
         for (const f of fields) {
-          if (!f.id || !IMAGE_CONTROLS.has(String(f.type))) continue
-          if (!hasValue(effective(values, f))) out.push({ page: page.key, sectionId: s.id, type: s.type, setting: f.id, at })
+          if (!f.id || !IMAGE_CONTROLS.has(String(f.type)) || OPTIONAL_PICTURE.test(f.id)) continue
+          const slot: ImageSlot = { page: page.key, sectionId: s.id, type: s.type, setting: f.id, at }
+          if (!hasValue(effective(values, f)) && !input.skip?.(slot)) out.push(slot)
         }
       }
       scan(schema.settings ?? [], s.settings, "section")
@@ -361,7 +376,7 @@ export function emptyImageSlots(input: { pages: PlacedPage[]; sources: Record<st
  * media or products) an empty slot is an error (image.slot_empty). Without one, the section must read without
  * its picture: a warning (image.text_forward) naming the slots, and the render check refuses a drawn empty frame.
  */
-export function imageSlotIssues(input: { pages: PlacedPage[]; sources: Record<string, string>; only?: Set<string>; picturesAvailable: boolean }): ValidationIssue[] {
+export function imageSlotIssues(input: { pages: PlacedPage[]; sources: Record<string, string>; only?: Set<string>; skip?: (slot: ImageSlot) => boolean; picturesAvailable: boolean }): ValidationIssue[] {
   const slots = emptyImageSlots(input)
   const bySection = new Map<string, ImageSlot[]>()
   for (const slot of slots) bySection.set(`${slot.page}|${slot.sectionId}`, [...(bySection.get(`${slot.page}|${slot.sectionId}`) ?? []), slot])

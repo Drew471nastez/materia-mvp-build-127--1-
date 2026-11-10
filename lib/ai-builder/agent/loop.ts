@@ -57,7 +57,7 @@ import { noveltyIssues, siteFingerprint } from "../novelty"
 import { themeSettingsToTokens } from "../tokens"
 import { roleFor } from "./model-routing"
 import { blockIssues, imageSlotIssues } from "./content-check"
-import { fewShotExamples, templateBlock, templateIssues, templatesOf } from "./templates"
+import { fewShotExamples, templateBlock, templateIssues, templateSlotSkip, templatesOf } from "./templates"
 import { imageBriefNote, makingWords } from "@/lib/storelib-ai/images/prompt"
 import { DEFAULT_MAX_IMAGES } from "./tools-impl"
 
@@ -757,13 +757,11 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
     const touchedTypes = new Set(cp.filesTouched.map((p) => /^sections\/(.+)\.storelib$/.exec(p)?.[1]).filter((t): t is string => !!t))
     const placed = scoped ? stored.filter((p) => cp.pagesTouched.includes(p.key)).map((p) => ({ ...p, sections: p.sections.filter((s) => touchedTypes.has(s.type)) })) : stored
     const pictures = await picturesAvailable(deps)
+    const lib = templatesOf(deps)
+    const template = cp.template ? lib.byId(cp.template.id) : null
     issues.push(...blockIssues({ pages: placed, sources: src, caps: cp.caps ?? null }))
-    issues.push(...imageSlotIssues({ pages: placed, sources: src, picturesAvailable: pictures }))
-    if (cp.template) {
-      const lib = templatesOf(deps)
-      const template = lib.byId(cp.template.id)
-      if (template) issues.push(...templateIssues(template, { files: src, pages: stored }, lib, pictures))
-    }
+    issues.push(...imageSlotIssues({ pages: placed, sources: src, picturesAvailable: pictures, ...(template ? { skip: templateSlotSkip(template) } : {}) }))
+    if (template) issues.push(...templateIssues(template, { files: src, pages: stored }, lib, pictures))
   }
   /* A redesign may be done with the site's own sections and tokens: writing a component is not required of it. */
   if (!job.edit && !job.redesign && !cp.filesTouched.some((p) => p.startsWith("sections/ai_"))) issues.push({ severity: "error", code: "build.nothing", message: "No component was written. A new website is made of components you write." })

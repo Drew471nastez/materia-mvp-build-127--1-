@@ -28,7 +28,7 @@ import { newCheckpoint, type LoopCheckpoint } from "@/lib/ai-builder/agent/state
 import { blockIssues, blockRules, emptyImageSlots, imageSlotIssues, isPlaceholderText, presetBlockIssues, rawSchemaOf } from "@/lib/ai-builder/agent/content-check"
 import { runAgentSlice, verify, picturesAvailable } from "@/lib/ai-builder/agent/loop"
 import { AGENT_SYSTEM, COMPLETE_SECTIONS, TEMPLATE_FIRST } from "@/lib/ai-builder/agent/prompts"
-import { defaultTemplates, fewShotExamples } from "@/lib/ai-builder/agent/templates"
+import { defaultTemplates, fewShotExamples, templateSlotSkip } from "@/lib/ai-builder/agent/templates"
 import { estimateSiteUsd, roleFor } from "@/lib/ai-builder/agent/model-routing"
 import { worstCaseUsd } from "@/lib/ai-builder/agent/loop"
 import { emptyMediaFrame, renderCheck } from "@/lib/ai-builder/render-check"
@@ -36,6 +36,7 @@ import { manifestToSchema, schemaToManifest } from "@/lib/ai-builder/manifest"
 import { measuredDefects, type Measurements } from "@/lib/ai-builder/visual-critic/measure"
 import { structuralDefects } from "@/lib/ai-builder/visual-critic/critic"
 import { chooseTemplate, untouchedTemplateParts, type SiteTemplate } from "@/lib/storelib-ai/templates"
+import { briefFrom } from "@/lib/storelib-ai/direction/brief"
 import type { AgentDeps, AgentJobInput, AgentModels, TemplateLibrary } from "@/lib/ai-builder/agent/ports"
 import type { ProviderRequest } from "@/lib/sites/agent/types"
 import type { RuntimeCapabilities } from "@/lib/ai-builder/runtime-contract"
@@ -170,6 +171,8 @@ async function main() {
     const plans = { ...schema, type: "ai_plans", name: "Plans", blocks: [{ type: "plan", name: "Plan", settings: [{ id: "product", type: "product_picker", label: "Plan" }] }] }
     check("  a list bound to products needs no more than the store has (1)", blockRules(plans as never, CAPS)[0]?.min === 1, blockRules(plans as never, CAPS))
     const quotes = { ...schema, type: "ai_quotes", name: "Kind words", blocks: [{ type: "testimonial", name: "Testimonial", settings: [{ id: "quote", type: "textarea", label: "Quote" }] }] }
+    const header = { ...schema, kind: "header", name: "Site header", blocks: [{ type: "feature", name: "Featured card", settings: [{ id: "title", type: "text", label: "Title" }] }] }
+    check("  a header's or footer's items are navigation: one is enough (not a repeating list)", blockRules(header as never, CAPS)[0]?.min === 1)
     check("  testimonials need none when the store has no reviews (never invented)", blockRules(quotes as never, CAPS)[0]?.min === 0)
     check("isPlaceholderText: generic and instruction words", isPlaceholderText("Item 2") && isPlaceholderText("Write your answer here") && isPlaceholderText("") && !isPlaceholderText("Six people at most"))
 
@@ -250,65 +253,58 @@ async function main() {
     check("  an edit job answers only for what it touched", !edit.some((i) => i.code === "render.empty_media" || i.code.startsWith("image.") || i.code.startsWith("blocks.")), edit.map((i) => i.code))
   }
 
-  console.log("\n3. Template first, with a scripted model and a stub template")
+  console.log("\n3. Template first, with a scripted model and P2a's real templates")
   {
-    /* P2a's SiteTemplate has more fields (summary, stories, keywords, menus, bindings, design): the agent reads these. */
-    const TEMPLATE = {
-      id: "tpl_strength",
-      name: "Strength Studio",
-      industries: ["coach", "strength", "gym"],
-      styles: ["sport"],
-      directionIds: [],
-      files: { "sections/ai_coach_header.storelib": HEADER, "sections/ai_coach_opening.storelib": hero(), "sections/ai_coach_questions.storelib": faq(FILLED), "sections/ai_coach_footer.storelib": FOOTER },
-      pages: [
-        {
-          key: "home",
-          sections: [
-            { id: "tpl-header", name: "Header", type: "ai_coach_header", settings: {}, blocks: [], group: "header" },
-            { id: "tpl-open", name: "Opening", type: "ai_coach_opening", settings: { heading: "Train with Atlas Strength" }, blocks: [] },
-            { id: "tpl-faq", name: "Questions", type: "ai_coach_questions", settings: { heading: "Questions at Atlas" }, blocks: [{ id: "tq1", type: "question", settings: { question: "Is Atlas for beginners?", answer: "Yes, every plan starts easy." } }, { id: "tq2", type: "question", settings: { question: "How long are sessions?", answer: "One hour, start to finish." } }, { id: "tq3", type: "question", settings: { question: "Where is Atlas?", answer: "Above the bakery on the high street." } }] },
-            { id: "tpl-footer", name: "Footer", type: "ai_coach_footer", settings: {}, blocks: [], group: "footer" },
-          ],
-        },
-      ],
-      tokens: {},
-      imageSlots: [{ key: "home/tpl-open/photo", prompt: "A coach spotting a lift in daylight", aspect: "4:5", alt: "A coach spotting a lift", style: "photo", targets: [{ page: "home", section: "tpl-open", setting: "photo" }] }],
-    } as unknown as SiteTemplate
-    check("chooseTemplate picks the closest template", chooseTemplate({ prompt: "strength coach website" }, { templates: [TEMPLATE] }).template?.id === "tpl_strength")
-    check("  the stub library has none, so a job builds from zero as before", chooseTemplate({ prompt: "strength coach website" }).template === null)
-    const lib: TemplateLibrary = { ...defaultTemplates, choose: (b, choice) => chooseTemplate(b, { choice, templates: [TEMPLATE] }).template, byId: (id) => (id === TEMPLATE.id ? TEMPLATE : null) }
+    const brief = briefFrom(job().prompt, { category: "fitness_coach" })
+    const pick = chooseTemplate(brief)
+    check("chooseTemplate picks a fitness template for a strength coach", !!pick.template && pick.template.industries[0] === "fitness", { id: pick.template?.id, score: pick.score })
+    const TEMPLATE = pick.template as SiteTemplate
     const examples = fewShotExamples(TEMPLATE)
-    check("few-shot: the opening and the section with filled items, at most two", examples.length === 2 && examples[0].path === "sections/ai_coach_opening.storelib" && examples[1].path === "sections/ai_coach_questions.storelib", examples.map((e) => e.path))
+    check("few-shot: one or two of its components, compact", examples.length === 2 && examples.every((e) => e.path.startsWith("sections/") && e.text.length <= 5_100) && examples[0].path !== examples[1].path, examples.map((e) => [e.path, e.text.length]))
 
     const store = memoryStore({ pages: { home: [] }, settings: {} })
-    const steps: Step[] = [{ calls: [["list_pages", {}]] }]
-    const plan = scripted(steps, { id: "plan" })
-    const deps: AgentDeps = { store, models: { plan: { provider: plan, model: "claude-opus-5-5", effort: "medium" }, loop: { provider: plan, model: "claude-sonnet-5-5" }, small: { provider: plan, model: "claude-haiku-5-5" }, ownKey: false }, capabilities: async () => CAPS, templates: lib, now: (() => { let t = T0; return () => (t += 1_000) })() }
+    const plan = scripted([{ calls: [["list_pages", {}]] }], { id: "plan" })
+    /* No `templates` given: the default library (P2a's module) through the agent's one adapter. */
+    const deps: AgentDeps = { store, models: { plan: { provider: plan, model: "claude-opus-5-5", effort: "medium" }, loop: { provider: plan, model: "claude-sonnet-5-5" }, small: { provider: plan, model: "claude-haiku-5-5" }, ownKey: false }, capabilities: async () => CAPS, now: (() => { let t = T0; return () => (t += 1_000) })() }
     const r = await runAgentSlice(job(), null, deps, { deadline: T0 + 10 * 60_000, maxIterations: 1 })
     const first = String((plan.requests[0]?.turns[0] as { text?: string; content?: string })?.text ?? (plan.requests[0]?.turns[0] as { content?: string })?.content ?? "")
-    check("the brief phase applies the template: its files and home are in the store", Object.keys(store.project.files).length === 4 && store.project.pages.home.some((s) => s.id === "tpl-faq"), Object.keys(store.project.files))
-    check("  the checkpoint knows it, and its files and pages are the job's", r.checkpoint.template?.id === "tpl_strength" && r.checkpoint.filesTouched.includes("sections/ai_coach_questions.storelib") && r.checkpoint.pagesTouched.includes("home"), r.checkpoint.template)
-    check("  the progress says it, plainly", r.events.some((e: AgentEvent) => e.kind === "note" && /Strength Studio template/.test((e as { text: string }).text)))
-    check("  the first turn carries TEMPLATE_FIRST, the slots and the few-shot components", first.includes(TEMPLATE_FIRST.slice(0, 40)) && first.includes("home/tpl-open/photo") && first.includes("--- sections/ai_coach_opening.storelib ---") && first.includes("Questions at Atlas") === false && first.includes('"type": "ai_coach_questions"'), first.slice(0, 400))
+    const files = Object.keys(TEMPLATE.files)
+    check("the brief phase applies the chosen template: its files and home are in the store", files.every((f) => store.project.files[f] === TEMPLATE.files[f]) && (store.project.pages.home ?? []).length === TEMPLATE.pages.find((p) => p.key === "home")!.sections.length, { want: files.length, have: Object.keys(store.project.files).length })
+    check("  the checkpoint knows it, and its files and pages are the job's", r.checkpoint.template?.id === TEMPLATE.id && files.every((f) => r.checkpoint.filesTouched.includes(f)) && r.checkpoint.pagesTouched.includes("home"), r.checkpoint.template)
+    check("  the progress says it, plainly", r.events.some((e: AgentEvent) => e.kind === "note" && (e as { text: string }).text.includes(`${TEMPLATE.name} template`)))
+    check("  the first turn carries TEMPLATE_FIRST, the adaptation notes, the slots and the few-shot components", first.includes(TEMPLATE_FIRST.slice(0, 40)) && first.includes(`STARTING TEMPLATE: "${TEMPLATE.name}"`) && first.includes(TEMPLATE.imageSlots[0].key) && first.includes(`--- ${examples[0].path} ---`), first.slice(0, 400))
     check("  the shared prefix does not change per job (TEMPLATE_FIRST is not in it, COMPLETE_SECTIONS is)", !AGENT_SYSTEM.includes(TEMPLATE_FIRST.slice(0, 40)) && AGENT_SYSTEM.includes(COMPLETE_SECTIONS))
+    check("  its sections arrive complete: no placed section of the template is short of items", blockIssues({ pages: await store.listPages(), sources: store.project.files, caps: CAPS }).length === 0, blockIssues({ pages: await store.listPages(), sources: store.project.files, caps: CAPS }).slice(0, 3))
 
     const cp = { ...r.checkpoint, concept: CONCEPT as never }
     const before = await verify(job(), deps, cp)
     const copy = before.find((i) => i.code === "template.untouched_copy")
-    check("finish refuses the template as shipped: untouched copy, named", copy?.severity === "error" && /sections\/ai_coach_questions\.storelib/.test(copy.message) && /home › ai_coach_questions \[tpl-faq\]/.test(copy.message), copy)
+    check("finish refuses the template as shipped: untouched copy, named", copy?.severity === "error" && copy.message.includes(files[0]), copy?.message.slice(0, 300))
     const img = before.find((i) => i.code === "template.untouched_image")
-    check("  its empty picture slot is a warning when no picture can be made (text-forward)", img?.severity === "warning" && /home\/tpl-open\/photo/.test(img.message), img)
+    check("  its empty picture slots are a warning when no picture can be made (text-forward)", img?.severity === "warning" && img.message.includes(TEMPLATE.imageSlots[0].key), img)
     const withPics = await verify(job(), { ...deps, imageProvider: () => true }, cp)
     check("  and an error when one can", withPics.find((i) => i.code === "template.untouched_image")?.severity === "error")
 
-    /* The agent adapts it: every file rewritten for this business, every placed section's words its own, the picture its own. */
-    for (const [path, text] of Object.entries(TEMPLATE.files)) store.project.files[path] = text.replace(/"name": "([^"]+)"/, '"name": "$1 (Iron & Chalk)"')
-    store.project.pages.home = store.project.pages.home.map((s) =>
-      s.id === "tpl-open" ? { ...s, settings: { heading: "Iron & Chalk: lift with a plan", photo: "storelib://media/iron-chalk-hero.jpg" } } : s.id === "tpl-faq" ? { ...s, settings: { heading: "What people ask us" }, blocks: (s.blocks ?? []).map((b, i) => ({ ...b, settings: { question: ["Is it for beginners?", "How long is a session?", "Where do we train?"][i], answer: ["Yes. Your plan starts at your level.", "An hour, warm up to cool down.", "The arches on Mill Lane."][i] } })) } : s,
-    )
+    /* The agent adapts it: every file rewritten for this business, every picture slot filled. */
+    for (const f of files) store.project.files[f] = TEMPLATE.files[f].replace(/<\/template>/, "<!-- Iron & Chalk -->\n</template>")
+    for (const slot of TEMPLATE.imageSlots)
+      for (const t of slot.targets) {
+        const section = store.project.pages[t.page]?.find((x) => x.id === t.section)
+        const holder = t.block ? section?.blocks?.find((b) => b.id === t.block) : section
+        if (holder) holder.settings = { ...holder.settings, [t.setting]: `storelib://media/${slot.key}.jpg` }
+      }
+    const all = emptyImageSlots({ pages: TEMPLATE.pages, sources: TEMPLATE.files })
+    const enforced = emptyImageSlots({ pages: TEMPLATE.pages, sources: TEMPLATE.files, skip: templateSlotSkip(TEMPLATE) })
+    const targets = TEMPLATE.imageSlots.reduce((n, sl) => n + sl.targets.length, 0)
+    check("on a template's own sections only its declared picture slots are enforced (not a per-step extra, a header card or a phone crop)", enforced.length <= targets && enforced.length < all.length + 1 && enforced.every((e) => !/mobile/.test(e.setting)) && TEMPLATE.imageSlots.length <= DEFAULT_JOB_BUDGET.maxImages!, { all: all.length, enforced: enforced.length, targets, slots: TEMPLATE.imageSlots.length })
     const left = untouchedTemplateParts(TEMPLATE, { files: store.project.files, pages: await store.listPages() })
     const after = await verify(job(), { ...deps, imageProvider: () => true }, cp)
-    check("adapted: nothing untouched, finish no longer refuses for the template", left.files.length === 0 && left.sections.length === 0 && left.emptyImageSlots.length === 0 && !after.some((i) => i.code.startsWith("template.")), { left, codes: after.filter((i) => i.code.startsWith("template.")) })
+    check("adapted: nothing untouched, finish no longer refuses for the template", left.files.length === 0 && left.sections.length === 0 && left.emptyImageSlots.length === 0 && !after.some((i) => i.code.startsWith("template.")), { left: { f: left.files.length, s: left.sections.length, i: left.emptyImageSlots }, codes: after.filter((i) => i.code.startsWith("template.")) })
+
+    const none: TemplateLibrary = { ...defaultTemplates, choose: () => null }
+    const scratch = memoryStore({ pages: { home: [] } })
+    const r2 = await runAgentSlice(job(), null, { ...deps, store: scratch, templates: none, models: { ...deps.models, plan: { provider: scripted([{ calls: [["list_pages", {}]] }]), model: "claude-opus-5-5" } } }, { deadline: T0 + 10 * 60_000, maxIterations: 1 })
+    check("no close template: the job builds from zero, nothing written, nothing claimed", !r2.checkpoint.template && Object.keys(scratch.project.files).length === 0 && !r2.events.some((e) => e.kind === "note" && /template/.test((e as { text: string }).text)))
     const editJob = await runAgentSlice(job({ edit: true, jobId: "66666666-2222-3333-4444-555555555555" }), null, { ...deps, store: memoryStore({ pages: { home: [] } }), models: { ...deps.models, plan: { provider: scripted([{ calls: [["list_pages", {}]] }]), model: "claude-opus-5-5" }, loop: { provider: scripted([{ calls: [["list_pages", {}]] }]), model: "claude-sonnet-5-5" } } }, { deadline: T0 + 10 * 60_000, maxIterations: 1 })
     check("an edit job never applies a template", !editJob.checkpoint.template)
   }

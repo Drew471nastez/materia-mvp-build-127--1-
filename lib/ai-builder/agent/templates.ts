@@ -20,6 +20,7 @@
  */
 import { applyTemplate, chooseTemplate, templateById, untouchedTemplateParts, type SiteTemplate } from "@/lib/storelib-ai/templates"
 import type { ValidationIssue } from "../types"
+import type { ImageSlot } from "./content-check"
 import type { AgentDeps, StoredPage, TemplateLibrary } from "./ports"
 
 /** P2's module behind the agent's TemplateLibrary: the one adapter to adjust if its signatures move. */
@@ -99,4 +100,15 @@ export function templateIssues(template: SiteTemplate, project: { files: Record<
     })
   }
   return out
+}
+
+/**
+ * A starting template says which pictures its design needs (its imageSlots, each with targets). On its own
+ * placed sections only those are slots; its other image settings (a per-step picture, an optional crop) are the
+ * creator's to fill or not. Sections the agent adds are held to every picture they draw.
+ */
+export function templateSlotSkip(template: SiteTemplate): (slot: ImageSlot) => boolean {
+  const own = new Set(template.pages.flatMap((p) => p.sections.map((s) => `${p.key}/${s.id}`)))
+  const declared = new Set(template.imageSlots.flatMap((i) => (i.targets ?? []).map((t) => `${t.page}/${t.section}${t.block ? `/${t.block}` : ""}.${t.setting}`)))
+  return (slot) => own.has(`${slot.page}/${slot.sectionId}`) && !declared.has(`${slot.page}/${slot.sectionId}${slot.at === "section" ? "" : `/${slot.at}`}.${slot.setting}`)
 }
