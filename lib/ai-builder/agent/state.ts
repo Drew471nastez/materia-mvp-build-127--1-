@@ -27,12 +27,15 @@ export interface CriticState {
   /** What the last review still found, one line each, for the honest summary. */
   open: string[]
 }
+import type { SiteFingerprint } from "../novelty"
 
 export interface LoopCheckpoint extends AgentCheckpoint {
   /** The accepted visual concept. Writes wait for it on a new website. */
   concept?: VisualConcept
   /** Round N (N3): every page and template with its sections. A new website's writes wait for it too. */
   sitePlan?: SitePlan
+  /** Round O (spec 8.4): this site's fingerprint at its last verify, read by later jobs for the novelty check. Short words only. */
+  fingerprint?: SiteFingerprint
   /** path → sha256 of the text this job last read or wrote: the expectedVersion of its next write. */
   known: Record<string, string>
   /** Files this job created (as opposed to edited). */

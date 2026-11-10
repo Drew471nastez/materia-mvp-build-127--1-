@@ -27,7 +27,7 @@ tags: horizontal scroll, gallery, carousel, slider, scroll-snap, process, crate,
 .hg { timeline-scope: --hg; padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) 0 calc(var(--s-pb) * var(--theme-spacing-scale, 1)); background: var(--s-bg); color: var(--s-text); }
 .hg__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; padding-inline: var(--theme-padding-x, 16px); margin-bottom: 24px; }
 .hg__h { margin: 0; font-family: var(--theme-font-heading), serif; font-size: clamp(1.75rem, 1.2rem + 2.4vw, 3.25rem); line-height: 1; letter-spacing: -0.02em; font-weight: 500; color: var(--s-heading); }
-.hg__hint { margin: 0; font-size: 0.875rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.hg__hint { margin: 0; font-size: 0.9375rem; }
 .hg__track { display: grid; grid-auto-flow: column; grid-auto-columns: min(78%, 420px); gap: 12px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: var(--theme-padding-x, 16px); padding-inline: var(--theme-padding-x, 16px); scrollbar-width: none; scroll-timeline: --hg inline; }
 .hg__track::-webkit-scrollbar { display: none; }
 .hg__track:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 4px; }

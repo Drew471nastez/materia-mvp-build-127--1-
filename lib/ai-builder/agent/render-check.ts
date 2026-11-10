@@ -26,5 +26,5 @@ export const renderCheckPage: RenderChecker = async ({ page, sections, settings,
     ...(capabilities ? { capabilities } : {}),
     extraRoutes: [...routes],
   })
-  return { ok: r.ok, issues: r.issues, htmlBytes: r.htmlBytes }
+  return { ok: r.ok, issues: r.issues, htmlBytes: r.htmlBytes, ...(r.drawn ? { drawn: r.drawn } : {}) }
 }

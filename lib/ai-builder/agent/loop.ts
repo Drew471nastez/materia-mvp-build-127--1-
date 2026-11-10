@@ -47,6 +47,8 @@ import { errorsOf } from "./validate"
 import { completenessIssues } from "./site-plan"
 import { jobDesignBrief } from "./design-brief"
 import { surfaceRules } from "@/lib/storelib-ai/surfaces"
+import { noveltyIssues, siteFingerprint } from "../novelty"
+import { themeSettingsToTokens } from "../tokens"
 
 export interface SliceOptions {
   /** This invocation's end (ms since epoch). No call starts later than deadline - budget.callReserveMs. */
@@ -550,9 +552,48 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
   const pages = scoped ? cp.pagesTouched : stored.map((p) => p.key)
   /* A new website's page that shows nothing of its own is not finished. The theme's template pages (product, search...) are not the agent's to fill. */
   if (!scoped) for (const p of stored) if ((p.key === "home" || cp.pagesTouched.includes(p.key)) && !p.sections.some((s) => !s.hidden && !s.group && s.type !== "header" && s.type !== "footer")) issues.push({ severity: "error", code: "page.empty", message: `The page ${p.key} has no sections of its own. Place components on it with set_page_sections.` })
-  for (const page of pages) issues.push(...(await renderPage(ctx, page)).issues.map((i) => ({ ...i, message: `${page}: ${i.message}` })))
-  const files = (await deps.store.listFiles()).filter((f) => cp.filesTouched.includes(f.path)).map((f) => ({ path: f.path, text: f.text }))
-  if (files.length) issues.push(...(await (deps.slop ?? librarySlop)({ files, concept: cp.concept ?? null, capabilities: cp.caps ?? null }).catch(() => [])))
+  /* The pages as drawn (not in the editor) go to the anti slop check too: what a visitor reads is what counts (round O). */
+  const rendered: { page: string; html: string; css: string }[] = []
+  for (const page of pages) {
+    const r = await renderPage(ctx, page)
+    issues.push(...r.issues.map((i) => ({ ...i, message: `${page}: ${i.message}` })))
+    if (r.drawn && rendered.length < 12) rendered.push({ page, html: r.drawn.html.slice(0, 400_000), css: r.drawn.css.slice(0, 200_000) })
+  }
+  const allFiles = await deps.store.listFiles()
+  const files = allFiles.filter((f) => cp.filesTouched.includes(f.path)).map((f) => ({ path: f.path, text: f.text }))
+  /*
+    THE ANTI SLOP GATE (round O, lib/ai-builder/slop.ts): the files this job wrote, the pages as drawn, the creator's own
+    words (only they can ask for the editorial serif or purple look) and, for a new site or a full redesign, the tokens a
+    visitor sees and home's order. P0 findings are errors; past the warning budget, one more error. An edit answers for
+    what it touched only, so the site's own tokens and order (the person's) are not held against it.
+  */
+  const settings = scoped ? undefined : await deps.store.readSettings()
+  const home = stored.find((p) => p.key === "home")
+  if (files.length) {
+    issues.push(
+      ...(await (deps.slop ?? librarySlop)({
+        files,
+        concept: cp.concept ?? null,
+        capabilities: cp.caps ?? null,
+        brief: job.prompt,
+        ...(settings ? { settings } : {}),
+        rendered: scoped ? rendered.filter((r) => cp.pagesTouched.includes(r.page)) : rendered,
+        ...(!scoped && home ? { sections: home.sections.filter((s) => !s.hidden && !s.group).map((s) => ({ type: s.type })) } : {}),
+      }).catch(() => [])),
+    )
+  }
+  /*
+    DIVERSITY (spec 8.4): a new site's fingerprint, kept on the checkpoint for later jobs, compared with the platform's
+    recent agent-built sites. A soft penalty: a warning to the agent, never an error, never at the cost of the business fit.
+  */
+  if (!job.edit && job.redesign !== "changes" && home) {
+    const src: Record<string, string> = {}
+    for (const f of allFiles) if (f.path.startsWith("sections/") && f.text.trim()) src[f.path] = f.text
+    const tokens = themeSettingsToTokens(settings ?? (await deps.store.readSettings()))
+    cp.fingerprint = siteFingerprint({ home: home.sections.filter((s) => !s.hidden && !s.group), sources: src, tokens, concept: cp.concept ?? null })
+    const recent = await (deps.recentFingerprints?.().catch(() => []) ?? Promise.resolve([]))
+    issues.push(...noveltyIssues(cp.fingerprint, recent))
+  }
   if (!scoped && !cp.concept) issues.push({ severity: "error", code: "plan.concept_missing", message: "There is no visual concept. Hand it in with report_progress phase plan." })
   /*
     THE WHOLE SITE (round N, N3): a new website is every page and template, not a home page and a page or two:

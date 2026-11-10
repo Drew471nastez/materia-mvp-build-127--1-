@@ -2457,7 +2457,7 @@ export async function* themeAgent(
             yield { type: "code", path: created.path, source: created.source }
             refusedCode.delete(created.path)
             if ((codeRefusals.get(codeType) ?? 0) >= QUALITY_REFUSALS) {
-              const strictly = checkSectionSource({ path: created.path, type: codeType, source: created.source, before: null, strict: true })
+              const strictly = checkSectionSource({ path: created.path, type: codeType, source: created.source, before: null, strict: true, brief: prompt })
               if (strictly.ok === false) stillWrong.set(created.path, `${created.path}: ${firstFinding(strictly.feedback)}`)
             }
             const label = `Added ${typeName(schemas, codeType)}`
@@ -2551,6 +2551,7 @@ export async function* themeAgent(
             theme: state.settings,
             sources: sourcesNow,
             strict: true,
+            brief: prompt,
             /* Sent back twice over quality already: the third goes through with the finding reported. */
             lenient: qualitySent >= QUALITY_REFUSALS,
           })
@@ -2600,7 +2601,7 @@ export async function* themeAgent(
             still wrong with it is said in the reply, never hidden behind a success.
           */
           if (!imported && qualitySent >= QUALITY_REFUSALS) {
-            const strictly = checkSectionSource({ path, type: codeType, source: prepared.source, before: prepared.before, strict: true })
+            const strictly = checkSectionSource({ path, type: codeType, source: prepared.source, before: prepared.before, strict: true, brief: prompt })
             if (strictly.ok === false) stillWrong.set(path, `${path}: ${firstFinding(strictly.feedback)}`)
             else stillWrong.delete(path)
           } else stillWrong.delete(path)

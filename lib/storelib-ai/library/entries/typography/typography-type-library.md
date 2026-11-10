@@ -13,8 +13,10 @@ version: 1
 ---
 **Rule**: the display face carries the personality. Inter, Roboto, Open Sans, Lato, Montserrat, Poppins, Plus Jakarta Sans, Raleway, Arial, Helvetica and system-ui as the display face read as "nobody chose this" and are refused by the concept check and the anti-slop check, unless the creator named one (then the concept says allow "default-fonts"). They are fine as body text. Every family below is in the Typography list, so set_tokens fonts loads it for real.
 
+**Not the default.** A huge italic display serif with mono all-caps labels on a cream page with a terracotta accent is the 2025-26 machine look (the editorial-serif cliché). The anti-slop check refuses that combination unless the creator asked for an editorial, literary or magazine feel. Pick the voice from the business: a coach, a gym, a trade or a shop is rarely a literary magazine. A serif below is one choice among the groups, never the starting point.
+
 **Serif**
-- Editorial italic: Instrument Serif 400 italic display (tracking -0.02em, leading 0.95), Instrument Sans text, DM Mono caps labels; ratio 1.5. Headlines huge, one or two words a line; never bold the serif.
+- Editorial italic (only when the creator asked for an editorial or literary feel): Instrument Serif 400 italic display (tracking -0.02em, leading 0.95), Instrument Sans text, labels in sentence case; ratio 1.5. Headlines huge, one or two words a line; never bold the serif. Never with a cream page and a terracotta accent together.
 - Newsprint: Source Serif 4 600 for display and 400 for text, IBM Plex Mono for bylines; ratio 1.333.
 - Soft serif: Fraunces 400 display, Karla text at 17px; ratio 1.333. Warm services, food, wellness.
 - High contrast fashion: Bodoni Moda 500 caps display (only above 40px), Jost text, Jost caps labels tracked 0.18em; ratio 1.618.

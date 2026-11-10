@@ -15,7 +15,7 @@ Use families the theme can load (the Typography list; typography-type-library ha
 
 | Mood | Display | Body | Notes |
 | --- | --- | --- | --- |
-| Editorial, literary | Instrument Serif italic, Fraunces, Playfair Display, DM Serif Display | Instrument Sans, Source Serif 4 | serif display at 400 to 600, body 400 |
+| Editorial, literary (only when asked for) | Instrument Serif italic, Fraunces, Playfair Display, DM Serif Display | Instrument Sans, Source Serif 4 | serif display at 400 to 600, body 400 |
 | Luxury | Cormorant Garamond, Bodoni Moda, Italiana | Jost | caps labels tracked 0.15em to 0.22em |
 | Swiss, precise | Inter Tight, Archivo | Inter Tight, Work Sans | one family, weights 400/600, tracking -0.04em on display |
 | Bold, sporty | Anton, Barlow Condensed, Bebas Neue, League Gothic | Archivo, IBM Plex Sans | condensed display only above 40px |

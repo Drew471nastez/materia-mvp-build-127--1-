@@ -43,7 +43,7 @@ tags: footer, newsletter, signup, subscribe, menus, locale, currency, language, 
 .sf__btn { min-height: 48px; padding: 0 18px; border: 0; background: var(--s-btn); color: var(--s-btn-text); font: inherit; cursor: pointer; }
 .sf__done { margin: 10px 0 0; }
 .sf__cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
-.sf__col-h { margin: 0 0 10px; font-size: 0.8125rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--s-accent); }
+.sf__col-h { margin: 0 0 10px; font-size: 0.9375rem; font-weight: 600; color: inherit; }
 .sf__col ul { margin: 0; padding: 0; list-style: none; }
 .sf__col a { display: inline-block; padding: 6px 0; color: inherit; text-decoration: none; }
 .sf__col a:hover, .sf__col a:focus-visible { text-decoration: underline; text-underline-offset: 4px; }

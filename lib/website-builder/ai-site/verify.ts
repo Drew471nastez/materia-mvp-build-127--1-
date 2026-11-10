@@ -26,6 +26,7 @@ import type { VisualFinding } from "../agent/visual-check"
 import { allowedFacts, type FillContext } from "./fill"
 import type { PlacedSection, SiteState } from "./apply"
 import { placeholderIn, slopIn } from "./craft"
+import { creatorInstructionIn } from "@/lib/ai-builder/slop"
 import { schemaOf } from "../agent/schemas"
 
 export interface SiteFinding extends Finding {
@@ -64,6 +65,9 @@ export function deterministicFindings(site: SiteState, placed: PlacedSection[], 
       /* Words a writer left unfinished, and the words the studio never ships (./craft.ts). */
       const held = placeholderIn(all)
       if (held) out.push({ sectionId: id, page, kind: "review", message: `It still says "${held}". Write the final words.` })
+      /* Round O (O3): filler and instructions to the creator ("Add your portrait in the sidebar", "YOUR GYM") never reach a visitor. */
+      const told = held ? null : creatorInstructionIn(all)
+      if (told) out.push({ sectionId: id, page, kind: "review", message: `It shows "${told}" to visitors, which is an instruction or filler, not the site's words. Write the final words from the brief, or leave it out.` })
       const slop = slopIn(all)
       if (slop && !out.some((f) => f.sectionId === id && f.page === page && f.message.toLowerCase().includes(slop.toLowerCase()))) out.push({ sectionId: id, page, kind: "review", message: `It uses "${slop}". Say what happens in plain words.` })
       /* No broken pictures: every filled picture setting is a real https address. */
