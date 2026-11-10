@@ -205,7 +205,7 @@ export function BookingsClient() {
                           data-booking-row={r.id}
                           className="flex min-h-[68px] w-full items-center gap-4 px-4 py-3 text-left outline-none transition-colors duration-100 hover:bg-[#fafafb] focus-visible:shadow-[inset_0_0_0_2px_#111113] active:bg-[#f4f5f7]"
                         >
-                          <span className={cn("w-[64px] shrink-0 text-[15px] font-semibold tabular-nums", r.status === "cancelled" || r.status === "declined" ? "text-[#9ca3af] line-through" : "text-[#1a1a2e]")}>{time(r.starts_at)}</span>
+                          <span className={cn("w-[84px] shrink-0 whitespace-nowrap text-[15px] font-semibold tabular-nums", r.status === "cancelled" || r.status === "declined" ? "text-[#9ca3af] line-through" : "text-[#1a1a2e]")}>{time(r.starts_at)}</span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-[15px] font-medium text-[#1a1a2e]">{who(r)}</span>
                             <span className="block truncate text-[13px] text-[#6b7280]">
@@ -366,7 +366,7 @@ function BookingSheet({ id, phone, onClose, onChanged, onNotice }: { id: string 
                   {tt("Move")}
                 </button>
                 <button type="button" className={cn(buttonSecondary, "text-[#b42318]")} disabled={busy} onClick={() => (setMode("cancel"), setError(null))}>
-                  {tt("Cancel")}
+                  {tt("Cancel booking")}
                 </button>
               </div>
             ) : null}

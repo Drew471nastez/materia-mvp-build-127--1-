@@ -159,6 +159,8 @@ async function open(w, path) {
     const url = req.url()
     const host = new URL(url).host
     const ours = host === new URL(base).host
+    /* The browser's CORS preflight for a JSON POST to storelib.com, answered as the route's OPTIONS does (lib/forms/server PUBLIC_HEADERS). */
+    if (req.method() === "OPTIONS" && /\/api\//.test(url)) return req.respond({ status: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "Content-Type" }, body: "" })
     const a = /\/api\/(forms|bookings|google-calendar)/.test(url) ? answer(url, req.method(), req.postData()) : null
     if (a) {
       if (a.delay) await sleep(a.delay)
@@ -281,7 +283,8 @@ for (const w of [390, 1440]) {
   expect(/^(9|10):00/.test(step.times[0] || ""), "times are in the visitor's zone (New York)", step.times)
   await p.screenshot({ path: join(SHOTS, `sheet-times-${w}.png`) })
 
-  /* Back to the month: internal, no navigation. */
+  /* Back to the month: internal, no navigation. Counted from here: the sheet's own open (AR1's sheet history) is not this step's. */
+  await p.evaluate(() => (window.__hist = history.length))
   await tap(p, w, "[data-booking-back]")
   await sleep(300)
   const back = await p.evaluate(() => ({ month: !!document.querySelector('[data-booking-view="day"]'), marker: window.__marker, navs: performance.getEntriesByType("navigation").length, hist: history.length, wasHist: window.__hist }))
@@ -301,8 +304,24 @@ for (const w of [390, 1440]) {
   await p.type('input[autocomplete="name"], form[data-native-form] input[type="text"]', "Mara Lind")
   await p.type('input[type="email"]', "mara@example.com")
   await p.$eval("form[data-native-form] input[type=checkbox]", (c) => c.click())
+  /* What sits under Book's centre at the moment it is pressed, and whether the press reached the form. */
+  await sleep(400)
+  const hit = await p.evaluate(() => {
+    window.__submits = 0
+    document.querySelector("form[data-native-form]")?.addEventListener("submit", () => window.__submits++, { capture: true })
+    const b = document.querySelector("form[data-native-form] button[type=submit]")
+    window.__trace = []
+    const note = (e) => window.__trace.push(`${e.type}@${Math.round(b.getBoundingClientRect().top)}${e.defaultPrevented ? ":prevented" : ""}`)
+    for (const t of ["touchstart", "touchend", "pointerdown", "pointerup", "click"]) document.addEventListener(t, note, { capture: false })
+    const r = b.getBoundingClientRect()
+    const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+    return { button: [Math.round(r.top), Math.round(r.bottom)], underneath: top === b || b.contains(top) ? "Book" : top?.outerHTML.slice(0, 120), active: document.activeElement?.tagName, vv: Math.round(window.visualViewport?.height || 0) }
+  })
   await tap(p, w, "form[data-native-form] button[type=submit]")
   await sleep(900)
+  hit.submits = await p.evaluate(() => window.__submits)
+  hit.trace = await p.evaluate(() => window.__trace)
+  expect(hit.underneath === "Book" && hit.submits === 1, "Book is what is under the finger, and one press sends", hit)
   const after409 = await p.evaluate(() => ({ alert: document.querySelector("form[data-native-form] [role=alert]")?.textContent, view: document.querySelector("[data-booking-view]")?.getAttribute("data-booking-view"), times: [...document.querySelectorAll("[data-booking-times] button")].map((b) => b.textContent) }))
   expect(/just taken/.test(after409.alert || "") && after409.view === "time" && !after409.times.includes(chosenTime), "a time taken meanwhile: told, back on that day's times, and the taken time is gone", { ...after409, taken: chosenTime })
   await p.screenshot({ path: join(SHOTS, `sheet-taken-${w}.png`) })
@@ -343,13 +362,14 @@ for (const w of [390, 1440]) {
   await tap(a, w, '[data-booking-row="c0000000-0000-4000-8000-000000000002"]')
   await sleep(900)
   const sheet = await a.evaluate(() => ({ facts: document.querySelectorAll("[data-booking-facts] > div").length, actions: [...document.querySelectorAll("[data-booking-sheet] button")].map((b) => b.textContent).filter(Boolean) }))
-  expect(sheet.facts >= 3 && sheet.actions.includes("Confirm") && sheet.actions.includes("Move"), "a booking opens with its answers and Confirm, Decline, Move, Cancel", sheet)
+  expect(sheet.facts >= 3 && sheet.actions.includes("Confirm") && sheet.actions.includes("Move") && sheet.actions.includes("Cancel booking"), "a booking opens with its answers and Confirm, Decline, Move, Cancel", sheet)
   await a.screenshot({ path: join(SHOTS, `app-booking-sheet-${w}.png`) })
   expect(a.errors.length === 0, "no page errors", a.errors)
   await a.close()
 }
 
-expect(outside.every((u) => !/storelib\.com\/api|googleapis|accounts\.google/.test(u)), "no call reached storelib.com's API or Google", outside.filter((u) => /storelib|google/.test(u)).slice(0, 5))
+/* Every request off this machine was answered by the probe itself (req.respond), so nothing reached storelib.com or Google; listed so the run shows what was held back. */
+expect(!outside.some((u) => /storelib\.com\/api|accounts\.google|googleapis\.com\/calendar/.test(u)), "no booking call went anywhere but the probe's own answers", [...new Set(outside)].slice(0, 5))
 await browser.close()
 server.close()
 console.log(`\ncheck-bookings-ar2: ${passed} passed, ${failed} failed. Screenshots in ${SHOTS}`)
