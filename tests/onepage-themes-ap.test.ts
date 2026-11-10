@@ -50,8 +50,9 @@ check("two themes, new ids", AP_THEMES.length === 2 && AP_THEMES.every((t) => !a
 const [cobalt, notebook] = AP_THEMES.map((t) => t.theme_config as Record<string, any>)
 check("Cobalt is the only bright Hero: a photo over a saturated gradient, with Soft buttons no other theme uses",
   AP_THEMES[0].profile_layout === "hero" && cobalt.background_type === "gradient" && buttonFill(cobalt as never) === "soft" && !/button_style: "soft"/.test(design) && !all.some((t) => (t.theme_config as any).button_style === "soft"))
-check("Notebook is ruled paper with a handwritten name, flush left, its links two to a row (Mixed, which no theme used)",
-  notebook.background_pattern === "lines" && familyOf(notebook.title_font) === "Caveat" && headerAlignOf(notebook) === "left" && blockLayoutOf(notebook) === "masonry" && !/block_layout: "masonry"/.test(design) && !all.some((t) => (t.theme_config as any).block_layout === "masonry"))
+/* Changed on purpose (round AR): Mixed is no longer Notebook's alone; Terrazzo, Peach and Graphite lay their links out that way too (each theme now differs in structure, tests/onepage-ar5.test.ts). Notebook is still the only ruled, flush left, outlined one. */
+check("Notebook is ruled paper with a handwritten name, flush left, its links two to a row (Mixed)",
+  notebook.background_pattern === "lines" && familyOf(notebook.title_font) === "Caveat" && headerAlignOf(notebook) === "left" && blockLayoutOf(notebook) === "masonry")
 check("neither shares a title face with another theme", AP_THEMES.every((t) => ![...all.map((o) => (o.theme_config as any).title_font), ...[...design.matchAll(/title_font: "([^"]+)"/g)].map((m) => m[1])].includes(t.theme_config.title_font)))
 
 for (const t of AP_THEMES) {

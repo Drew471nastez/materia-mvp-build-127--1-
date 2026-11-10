@@ -51,7 +51,9 @@ import { ExtraBlock, ExtraBlockPreviewContext, IncompleteLinkPlaceholder, Sensit
 import { isExtraBlock, isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
-import { WallpaperDrift, WallpaperNoise, WallpaperPattern, useHeaderClearance } from "@/components/onepage/wallpaper-layers"
+import { WallpaperDrift, WallpaperEffectLayers, WallpaperNoise, WallpaperPattern, useHeaderClearance, usePictureEnds } from "@/components/onepage/wallpaper-layers"
+import { pixelThroughLook, wallpaperMediaLook, withVeil } from "@/lib/onepage/wallpaper"
+import { wallpaperPhotoSrc } from "@/components/onepage/themes/wallpaper-photo"
 /* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
 import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
 import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
@@ -69,6 +71,7 @@ import { heroScrollEffect } from "@/lib/onepage/feel"
 import { PosterVideo } from "@/components/onepage/poster-video"
 import { HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/lib/onepage/poster-video"
 import { readableOn } from "@/lib/onepage/theme-apply"
+import { photoVeil, readableTheme, smallPrintAlpha } from "@/lib/onepage/contrast"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
 import { pairProductTiles } from "@/lib/onepage/product-block"
 import { tt } from "@/lib/i18n/text"
@@ -1020,8 +1023,14 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   useHeldPage(isPhone === false && quickCheckoutModalOpen && !!quickCheckoutModalData)
   useEffect(() => followDialogLocks(), [])
 
-  // Safe defaults - MERGE theme with defaults to ensure all properties exist
-  const safeTheme = {
+  /*
+    Safe defaults, merged with the theme, then made to read (round AR,
+    lib/onepage/contrast readableTheme): every block below reads its words'
+    colours from here, so no theme, Design tab colour or hover can put words
+    in the colour of what they sit on. The editor's preview draws this same
+    component, so both get the same colours.
+  */
+  const mergedTheme = {
     background_type: "solid" as const,
     background_color: "#ffffff",
     background_gradient: "",
@@ -1053,6 +1062,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     header_layout: "classic" as const,
     ...theme, // Spread theme to override defaults with actual values
   }
+  const safeTheme = readableTheme(mergedTheme)
 
   /* Addresses from actions first, so a link made from an action counts as a link with an address. */
   const safeBlocks = useMemo(() => withBlockActions(blocks || []), [blocks])
@@ -1075,6 +1085,30 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     const timer = setTimeout(() => setHasBlocksAnimated(true), (safeBlocks?.length || 0) * 50 + 500)
     return () => clearTimeout(timer)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Round AR: the least opacity the page's small print may have and still read (lib/onepage/contrast smallPrintAlpha, app/globals.css). */
+  const smallPrint = smallPrintAlpha(safeTheme)
+  /* Round AR: a photo or video wallpaper's effect, tint and blur (lib/onepage/wallpaper wallpaperMediaLook): CSS filters and plain layers, nothing per frame. */
+  /*
+    And the veil that keeps the words readable on this picture (round AR):
+    the picture read once from the copy the page draws (usePictureEnds), its
+    ends taken through the page's brightness and effect, and the theme's
+    background colour (or black or white) laid over it just strongly enough
+    (lib/onepage/contrast photoVeil). None on a picture that already reads.
+  */
+  const pictureKind = safeTheme.background_type === "video" ? "video" : "image"
+  const pictureSrc =
+    safeTheme.background_type === "image" && safeTheme.background_image_url
+      ? wallpaperPhotoSrc(safeTheme.background_image_url)
+      : safeTheme.background_type === "video"
+        ? videoPoster((safeTheme as { background_video_crop?: unknown }).background_video_crop)
+        : null
+  const pictureEnds = usePictureEnds(pictureSrc)
+  const veil = photoVeil(safeTheme, pictureEnds ? { dark: pixelThroughLook(pictureEnds.dark, safeTheme, pictureKind), light: pixelThroughLook(pictureEnds.light, safeTheme, pictureKind) } : null)
+  const imageLook = withVeil(wallpaperMediaLook(safeTheme, "image"), veil)
+  const videoLook = withVeil(wallpaperMediaLook(safeTheme, "video"), veil)
+  /* Around the desktop card: the video's still, 20px softer again. */
+  const surroundLook = withVeil(wallpaperMediaLook(safeTheme, "video", 20), veil)
 
   // Animated gradient - only when explicitly enabled
   const isAnimatedGradient = safeTheme.background_type === "gradient" && safeTheme.animated_gradient === true
@@ -1262,7 +1296,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           </div>
         )}
         {/* Footer links: Privacy, Terms and Cookies open in a sheet over the page (components/onepage/onepage-legal-links). */}
-        <OnePageLegalLinks dark={isDarkBackground} color={isDarkBackground ? "#9ca3af" : "#1f2937"} />
+        {/* Round AR: in the page's own small print colour, which reads on it (lib/onepage/contrast); a fixed grey vanished on Sunset and every mid-tone page. */}
+        <OnePageLegalLinks dark={isDarkBackground} color={safeTheme.secondary_text_color || safeTheme.text_color} />
       </div>
     </div>
   )
@@ -1497,6 +1532,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         className="onepage-live hidden md:block min-h-screen w-full relative [overflow-x:clip]"
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
         style={{
+          ["--op-small-print" as string]: smallPrint,
           background: getBackgroundStyle(),
           backgroundColor: safeTheme.background_color || "#000000",
           fontFamily: fontStack(safeTheme.font_family),
@@ -1518,12 +1554,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               backgroundSize: "cover",
               backgroundPosition: "center",
               zIndex: 0,
-              filter: `brightness(${(safeTheme as any).image_brightness || 100}%) blur(${(safeTheme as any).image_blur || 0}px)`,
-              transform: "translateZ(0)",
+              filter: imageLook.filter,
+              transform: `translateZ(0) scale(${imageLook.scale})`,
               willChange: "transform",
             }}
           />
         )}
+        {safeTheme.background_type === "image" && safeTheme.background_image_url && <WallpaperEffectLayers look={imageLook} box={{ position: "fixed", inset: 0, zIndex: 0 }} />}
 
         {/*
           AROUND THE CARD, THE WALLPAPER'S FIRST FRAME, BLURRED (round 42). It
@@ -1545,7 +1582,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               backgroundSize: "cover",
               backgroundPosition: "center",
               zIndex: 0,
-              filter: `brightness(${(safeTheme as any).video_brightness || 100}%) blur(20px)`,
+              filter: surroundLook.filter,
             }}
           />
         ) : (
@@ -1566,10 +1603,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               height: "calc(100% + 100px)",
               objectFit: "cover",
               zIndex: 0,
-              filter: `brightness(${(safeTheme as any).video_brightness || 100}%) blur(20px)`,
+              filter: surroundLook.filter,
             })}
           />
         ))}
+        {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && <WallpaperEffectLayers look={surroundLook} box={{ position: "fixed", inset: 0, zIndex: 0 }} />}
 
         {/* Round AL: the gradient drifting, one layer moved by the compositor (components/onepage/wallpaper-layers WallpaperDrift). */}
         {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} />}
@@ -1605,10 +1643,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                   zIndex: 0,
-                  filter: `brightness(${(safeTheme as any).image_brightness || 100}%) blur(${(safeTheme as any).image_blur || 0}px)`,
+                  filter: imageLook.filter,
+                  scale: String(imageLook.scale),
                 }}
               />
             )}
+            {safeTheme.background_type === "image" && safeTheme.background_image_url && <WallpaperEffectLayers look={imageLook} box={{ position: "absolute", inset: 0, zIndex: 0 }} />}
             {/* Video background inside card - NO blur, cover fit */}
             {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
               <video
@@ -1623,14 +1663,17 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                   height: "calc(100% + 100px)",
                   objectFit: "cover",
                   zIndex: 0,
-                  filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
+                  filter: videoLook.filter,
+                  scale: String(videoLook.scale),
                 })}
+                data-wallpaper-video=""
                 autoPlay
                 loop
                 muted
                 playsInline
               />
             )}
+            {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && <WallpaperEffectLayers look={videoLook} box={{ position: "absolute", inset: 0, zIndex: 0 }} />}
             {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} className="absolute inset-0 rounded-[40px]" />}
             {/* Noise overlay inside card */}
             {((safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise) || (safeTheme.background_type === "image" && (safeTheme as any).image_noise)) && (
@@ -1659,6 +1702,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         data-onepage-drag-scope=""
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
         style={{
+          ["--op-small-print" as string]: smallPrint,
           overflowX: 'clip',
           background: getBackgroundStyle(),
           backgroundColor: safeTheme.background_color || "#000000",
@@ -1681,13 +1725,14 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 zIndex: 0,
-                filter: `brightness(${(safeTheme as any).image_brightness || 100}%) blur(${(safeTheme as any).image_blur || 0}px)`,
-                transform: "translateZ(0)",
+                filter: imageLook.filter,
+                transform: `translateZ(0) scale(${imageLook.scale})`,
                 willChange: "transform",
                 pointerEvents: "none",
               }}
             />
           )}
+          {safeTheme.background_type === "image" && safeTheme.background_image_url && <WallpaperEffectLayers look={imageLook} box={{ position: "absolute", inset: 0, zIndex: 0 }} />}
 
           {/* Video background for mobile */}
           {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
@@ -1703,15 +1748,18 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 height: "calc(100% + 100px)",
                 objectFit: "cover",
                 zIndex: 0,
-                filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
+                filter: videoLook.filter,
+                scale: String(videoLook.scale),
                 pointerEvents: "none",
               })}
+              data-wallpaper-video=""
               autoPlay
               loop
               muted
               playsInline
             />
           )}
+          {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && <WallpaperEffectLayers look={videoLook} box={{ position: "absolute", inset: 0, zIndex: 0 }} />}
 
           {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} />}
           {/* Noise overlays for mobile */}

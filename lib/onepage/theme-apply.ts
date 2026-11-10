@@ -71,6 +71,11 @@ export const LOOK_RESET: Record<string, unknown> = {
   /* Round 42: how products are shown, and the cover picture (lib/onepage/theme-layout). Null is each block's own layout, and no cover. */
   product_layout: null,
   cover_image_url: null,
+  /* Round AR: a photo or video wallpaper's effect, its blur and its tint (lib/onepage/wallpaper wallpaperMediaLook). Null is none. */
+  wallpaper_effect: null,
+  wallpaper_blur: null,
+  wallpaper_tint: null,
+  wallpaper_tint_strength: null,
 }
 
 /**
@@ -103,6 +108,22 @@ function typeKeysFor(current: Record<string, unknown>, template: ThemeTemplateLi
     out[k] = k in next ? next[k] : null
   }
   return out
+}
+
+/**
+ * A COVER THE CREATOR CHOSE IS THEIRS (round AR). The cover picture is in
+ * LOOK_RESET because a theme can set one (Folio, Night, Ocean, Editorial),
+ * and picking the next theme took that one away, as it should. It took the
+ * creator's own upload away too. Now a cover is the theme's only while it
+ * is the one the last theme set (or there is none); any other is kept, with
+ * its framing, whatever the new theme says.
+ */
+function ownCover(current: Record<string, unknown>, template: ThemeTemplateLike, previous?: ThemeTemplateLike | null): Record<string, unknown> {
+  const cover = current.cover_image_url
+  if (typeof cover !== "string" || !cover) return {}
+  const fromTheme = cover === (previous?.theme_config?.cover_image_url ?? null) || cover === template.theme_config.cover_image_url
+  if (fromTheme) return {}
+  return { cover_image_url: cover, ...(current.cover_crop ? { cover_crop: current.cover_crop } : {}) }
 }
 
 /** The colours a block can keep of its own, by block type. */
@@ -150,6 +171,7 @@ export function lookFromTemplate(page: OnePage, template: ThemeTemplateLike, hea
     ...LOOK_RESET,
     ...config,
     ...typeKeysFor(own, template, previous),
+    ...ownCover(own, template, previous),
     template_id: template.id,
     ...(headerLayout ? { header_layout: headerLayout } : {}),
   } as OnePageTheme
@@ -187,13 +209,20 @@ export function contrastRatio(a: string, b: string): number | null {
 
 /**
  * `preferred` when it can be read on `background`, else near black or white,
- * whichever reads. Text a person chose themselves is passed as `chosen` and
- * always wins: this only rescues the colour that was inherited.
+ * whichever reads better. Text a person chose themselves is passed as
+ * `chosen` and wins whenever it can be read.
+ *
+ * Changed on purpose (round AR): the bar is 4.5:1 (WCAG body text), not
+ * 3:1, and a chosen colour that cannot be read on its own background (white
+ * words on a white card) is rescued too. The page's own theme goes through
+ * lib/onepage/contrast readableTheme before any block reads it.
  */
 export function readableOn(background: string, preferred: string, chosen?: string | null): string {
-  if (chosen) return chosen
-  const ratio = contrastRatio(background, preferred)
-  if (ratio === null || ratio >= 3) return preferred
-  const lum = luminanceOf(background) ?? 1
-  return lum > 0.4 ? "#111827" : "#ffffff"
+  const reads = (c: string) => {
+    const r = contrastRatio(background, c)
+    return r === null || r >= 4.5
+  }
+  if (chosen && reads(chosen)) return chosen
+  if (reads(preferred)) return preferred
+  return (contrastRatio(background, "#111827") ?? 0) >= (contrastRatio(background, "#ffffff") ?? 0) ? "#111827" : "#ffffff"
 }

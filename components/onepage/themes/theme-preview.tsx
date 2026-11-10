@@ -43,6 +43,7 @@ import { avatarLook, titleSizeClass, titleTypeStyle } from "@/lib/onepage/header
 import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, headerAlignOf, themeProductLayoutOf } from "@/lib/onepage/theme-layout"
 import { fontStack } from "@/lib/onepage/fonts"
 import { readableOn } from "@/lib/onepage/theme-apply"
+import { readableTheme } from "@/lib/onepage/contrast"
 import { HERO_FADE_MASK } from "@/lib/onepage/poster-video"
 import { cn } from "@/lib/utils"
 
@@ -95,7 +96,9 @@ const LINKS = [{ w: 76, picture: true }, { w: 96, picture: false }, { w: 68, pic
  * the page draws it (the avatar, or a Hero's band). Without it the place is
  * a flat tint, as in the Design tab.
  */
-export function ThemePreview({ c, name, thumb, photo = null }: { c: Look; name: string; thumb: (url: string) => string; photo?: string | null }) {
+export function ThemePreview({ c: given, name, thumb, photo = null }: { c: Look; name: string; thumb: (url: string) => string; photo?: string | null }) {
+  /* Round AR: the colours the page will really draw, made to read as the page makes them (lib/onepage/contrast readableTheme). */
+  const c = readableTheme(given)
   const bg: string = c.background_color || "#ffffff"
   const text: string = c.text_color || "#111111"
   const secondary: string = c.secondary_text_color || `${text}cc`

@@ -294,3 +294,174 @@ export function noiseOpacity(strength: unknown): number {
   const n = typeof strength === "number" && Number.isFinite(strength) ? strength : 15
   return Math.min(1, Math.max(0, (n / 100) * 2))
 }
+
+/* ── Effects on a photo or a video wallpaper (round AR) ────────────────── */
+//
+// The owner: "for the wallpapers, for the images or video, I can apply
+// effects: none, mono, blur, halftone, and so on; I can adjust the tint."
+//
+// Each effect is CSS only: a filter on the photo or the video element, and
+// at most two plain layers over it (a colour, a dot screen, the grain) with
+// a blend mode. Nothing runs per frame in script, so a video wallpaper costs
+// what its filter costs the compositor, and a photo is drawn once.
+//
+//   none       the picture as it is (Brightness still applies)
+//   mono       black and white
+//   blur       out of focus, by `wallpaper_blur` px (up to 40); the picture
+//              is scaled up a little so its soft edge never shows
+//   halftone   black and white with a fine print dot screen over it
+//   grain      film grain over it (the Noise layer, at the Noise strength)
+//   duotone    the picture's lights and darks mapped to two shades of the
+//              tint colour (a multiply layer, then a screen layer)
+//
+// The tint (`wallpaper_tint`, at `wallpaper_tint_strength` 0 to 100) is a
+// flat colour laid over any effect; in duotone it is the duotone's colour.
+// lib/onepage/contrast counts it into what the page's words sit on.
+//
+// A page saved before this has no effect and keeps its look: the image's
+// own Blur (`image_blur`) still blurs it, and Brightness is as it was.
+
+export const WALLPAPER_EFFECTS = ["none", "mono", "blur", "halftone", "grain", "duotone"] as const
+export type WallpaperEffect = (typeof WALLPAPER_EFFECTS)[number]
+
+export interface WallpaperEffectThemeLike {
+  background_type?: unknown
+  image_brightness?: unknown
+  image_blur?: unknown
+  video_brightness?: unknown
+  wallpaper_effect?: unknown
+  wallpaper_blur?: unknown
+  wallpaper_tint?: unknown
+  wallpaper_tint_strength?: unknown
+  noise_strength?: unknown
+}
+
+export function wallpaperEffectOf(theme: WallpaperEffectThemeLike | null | undefined): WallpaperEffect {
+  const e = theme?.wallpaper_effect
+  return typeof e === "string" && (WALLPAPER_EFFECTS as readonly string[]).includes(e) ? (e as WallpaperEffect) : "none"
+}
+
+const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? v : fallback)
+const clampNum = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+
+/** The default blur of the Blur effect, and its most. */
+export const WALLPAPER_BLUR_DEFAULT = 12
+export const WALLPAPER_BLUR_MAX = 40
+
+/** A #rrggbb tint, or null. */
+export function wallpaperTint(theme: WallpaperEffectThemeLike | null | undefined): string | null {
+  const t = typeof theme?.wallpaper_tint === "string" ? theme.wallpaper_tint.trim() : ""
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(t)
+  if (!m) return null
+  return `#${(m[1].length === 3 ? m[1].split("").map((c) => c + c).join("") : m[1]).toLowerCase()}`
+}
+
+/** The tint's strength, 0 to 1. Duotone with no strength set is the full duotone. */
+export function wallpaperTintAlpha(theme: WallpaperEffectThemeLike | null | undefined): number {
+  const raw = theme?.wallpaper_tint_strength
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return wallpaperEffectOf(theme) === "duotone" ? 1 : 0
+  return clampNum(raw, 0, 100) / 100
+}
+
+/** The duotone's dark colour when no tint is chosen. */
+export const DUOTONE_DEFAULT = "#1f2a6b"
+
+const mixHexes = (a: string, b: string, t: number) => {
+  const pa = Number.parseInt(a.slice(1), 16)
+  const pb = Number.parseInt(b.slice(1), 16)
+  const ch = (s: number) => Math.round(((pa >> s) & 255) * (1 - t) + ((pb >> s) & 255) * t)
+  return `#${[16, 8, 0].map((s) => ch(s).toString(16).padStart(2, "0")).join("")}`
+}
+
+export interface WallpaperLayer {
+  key: "duotone-light" | "duotone-dark" | "halftone" | "grain" | "tint" | "veil"
+  style: { background?: string; backgroundImage?: string; backgroundSize?: string; backgroundPosition?: string; mixBlendMode?: "multiply" | "screen" | "overlay" | "normal"; opacity: number }
+}
+
+export interface WallpaperMediaLook {
+  effect: WallpaperEffect
+  /** The CSS filter for the photo or video element. */
+  filter: string
+  /** Scale the element by this, so a blurred edge stays outside the frame. 1 is none. */
+  scale: number
+  /** Layers laid over the element, in order, each covering it. */
+  layers: WallpaperLayer[]
+}
+
+/** The dot screen of Halftone: a dot every 4px, every other row shifted half a step, as a print screen at 45 degrees. */
+const HALFTONE_DOT = "radial-gradient(circle at center, rgba(0,0,0,0.55) 0.9px, transparent 1.4px)"
+
+/**
+ * How a photo (`kind` "image") or a video wallpaper is drawn: its filter, its
+ * scale and the layers over it. `extraBlur` is a blur the caller adds for its
+ * own reasons (the desktop surround's 20px).
+ */
+export function wallpaperMediaLook(theme: WallpaperEffectThemeLike | null | undefined, kind: "image" | "video", extraBlur = 0): WallpaperMediaLook {
+  const effect = wallpaperEffectOf(theme)
+  const brightness = clampNum(num(kind === "image" ? theme?.image_brightness : theme?.video_brightness, 100) || 100, 10, 200)
+  const ownBlur =
+    effect === "blur" ? clampNum(num(theme?.wallpaper_blur, WALLPAPER_BLUR_DEFAULT), 0, WALLPAPER_BLUR_MAX) : kind === "image" ? clampNum(num(theme?.image_blur, 0), 0, WALLPAPER_BLUR_MAX) : 0
+  const blur = ownBlur + extraBlur
+  const parts = [`brightness(${brightness}%)`]
+  if (blur > 0) parts.push(`blur(${blur}px)`)
+  if (effect === "mono") parts.push("grayscale(1)", "contrast(1.06)")
+  if (effect === "halftone") parts.push("grayscale(1)", "contrast(1.4)")
+  if (effect === "duotone") parts.push("grayscale(1)", "contrast(1.12)")
+  const layers: WallpaperLayer[] = []
+  const tint = wallpaperTint(theme)
+  const alpha = wallpaperTintAlpha(theme)
+  if (effect === "duotone") {
+    const dark = tint ?? DUOTONE_DEFAULT
+    const light = mixHexes(dark, "#ffffff", 0.82)
+    const strength = alpha > 0 ? alpha : 1
+    layers.push({ key: "duotone-light", style: { background: light, mixBlendMode: "multiply", opacity: strength } })
+    layers.push({ key: "duotone-dark", style: { background: dark, mixBlendMode: "screen", opacity: strength } })
+  }
+  if (effect === "halftone") {
+    layers.push({ key: "halftone", style: { backgroundImage: `${HALFTONE_DOT}, ${HALFTONE_DOT}`, backgroundSize: "4px 4px", backgroundPosition: "0 0, 2px 2px", mixBlendMode: "multiply", opacity: 0.85 } })
+  }
+  if (effect === "grain") {
+    layers.push({ key: "grain", style: { backgroundImage: NOISE_IMAGE, backgroundSize: "180px 180px", mixBlendMode: "overlay", opacity: Math.max(0.3, noiseOpacity(theme?.noise_strength ?? 24)) } })
+  }
+  if (effect !== "duotone" && tint && alpha > 0) layers.push({ key: "tint", style: { background: tint, mixBlendMode: "normal", opacity: alpha } })
+  /* A blur pulls the edge in by about twice its radius: scaled so that edge is outside the frame. */
+  const scale = blur > 0 ? Math.round((1 + Math.min(0.3, blur * 0.012)) * 1000) / 1000 : 1
+  return { effect, filter: parts.join(" "), scale, layers }
+}
+
+/**
+ * A pixel of the picture as the page shows it: through the brightness, the
+ * grey of Mono, Halftone and Duotone with their contrast, and Duotone's two
+ * colours (the tint is laid on later, by lib/onepage/contrast). The blur and
+ * the halftone's dots are left out: they narrow the picture's range, so the
+ * ends read here are the harder case. Used on the few pixels the page
+ * samples once (components/onepage/wallpaper-layers usePhotoGrounds).
+ */
+export function pixelThroughLook(px: { r: number; g: number; b: number }, theme: WallpaperEffectThemeLike | null | undefined, kind: "image" | "video"): { r: number; g: number; b: number; a: number } {
+  const effect = wallpaperEffectOf(theme)
+  const k = clampNum(num(kind === "image" ? theme?.image_brightness : theme?.video_brightness, 100) || 100, 10, 200) / 100
+  let [r, g, b] = [px.r, px.g, px.b].map((v) => clampNum((v / 255) * k, 0, 1))
+  if (effect === "mono" || effect === "halftone" || effect === "duotone") {
+    const c = effect === "mono" ? 1.06 : effect === "halftone" ? 1.4 : 1.12
+    const grey = clampNum((0.2126 * r + 0.7152 * g + 0.0722 * b - 0.5) * c + 0.5, 0, 1)
+    r = g = b = grey
+    if (effect === "duotone") {
+      const dark = wallpaperTint(theme) ?? DUOTONE_DEFAULT
+      const light = mixHexes(dark, "#ffffff", 0.82)
+      const ch = (hex: string, i: number) => Number.parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) / 255
+      const s = wallpaperTintAlpha(theme) > 0 ? wallpaperTintAlpha(theme) : 1
+      const out = [0, 1, 2].map((i) => {
+        const m = grey * (1 - s + s * ch(light, i))
+        return 1 - (1 - m) * (1 - s * ch(dark, i))
+      })
+      ;[r, g, b] = out
+    }
+  }
+  return { r: r * 255, g: g * 255, b: b * 255, a: 1 }
+}
+
+/** The look with the veil that makes the page's words read on this picture (lib/onepage/contrast photoVeil) laid last; the same look when none is needed. */
+export function withVeil(look: WallpaperMediaLook, veil: { color: string; alpha: number }): WallpaperMediaLook {
+  if (!(veil.alpha > 0)) return look
+  return { ...look, layers: [...look.layers, { key: "veil", style: { background: veil.color, mixBlendMode: "normal", opacity: veil.alpha } }] }
+}

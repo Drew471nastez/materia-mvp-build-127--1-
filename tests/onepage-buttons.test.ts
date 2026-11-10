@@ -103,7 +103,9 @@ for (const { id, theme } of configs) {
   const { backgroundClip, ...now } = themeButtonStyle(theme as any) as Record<string, unknown>
   check(`${id}: the same button`, same(old, now as any), `${JSON.stringify(old)} vs ${JSON.stringify(now)}`)
   check(`${id}: the fill stops inside a border, and only then`, (backgroundClip === "padding-box") === (parseFloat(String(now.borderWidth)) > 0))
-  check(`${id}: the same size, alignment and icon place`, buttonSize(theme as any) === "regular" && buttonAlign(theme as any) === "center" && buttonIconSide(theme as any) === "left")
+  /* Changed on purpose (round AR): some themes now name a size, an alignment or an icon side as part of their structure; a theme that names none keeps Regular, centred, icon on the left. */
+  const t = theme as Record<string, unknown>
+  check(`${id}: the same size, alignment and icon place`, buttonSize(theme as any) === (t.button_size ?? "regular") && buttonAlign(theme as any) === (t.button_text_align ?? "center") && buttonIconSide(theme as any) === (t.button_icon_position ?? "left"))
 }
 
 /* ─── Every saved combination ─────────────────────────────────────────── */

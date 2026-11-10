@@ -10,7 +10,7 @@
  * public-onepage.tsx explains what that did on every scroll.
  */
 import * as React from "react"
-import { NOISE_IMAGE, noiseOpacity, patternStyle } from "@/lib/onepage/wallpaper"
+import { NOISE_IMAGE, noiseOpacity, patternStyle, type WallpaperMediaLook } from "@/lib/onepage/wallpaper"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 
 type ThemeLike = { background_type?: unknown; background_pattern?: unknown; pattern_color?: unknown; pattern_opacity?: unknown } | null | undefined
@@ -219,6 +219,96 @@ export function WallpaperDrift({ gradient, className = "absolute inset-0" }: { g
       <style>{"@keyframes onepageDrift{from{transform:translate3d(calc(var(--drift-x) * -1),calc(var(--drift-y) * -1),0)}to{transform:translate3d(var(--drift-x),var(--drift-y),0)}}@media (prefers-reduced-motion:reduce){[data-wallpaper-drift]{display:none}}"}</style>
     </div>
   )
+}
+
+/**
+ * The layers a photo or video wallpaper's effect lays over it (round AR,
+ * lib/onepage/wallpaper wallpaperMediaLook): the duotone's two colours, the
+ * halftone's dot screen, the grain, the tint. Each is one plain element in
+ * `box` (the same place as the picture), drawn once; a video under them
+ * plays on and the blend is the compositor's.
+ */
+export function WallpaperEffectLayers({ look, box }: { look: WallpaperMediaLook; box: React.CSSProperties }) {
+  if (!look.layers.length) return null
+  return (
+    <>
+      {look.layers.map((l) => (
+        <div key={l.key} aria-hidden data-wallpaper-effect={l.key} className="pointer-events-none" style={{ ...box, ...l.style }} />
+      ))}
+    </>
+  )
+}
+
+/*
+  ===========================================================================
+   THE PICTURE'S OWN DARK AND LIGHT, READ ONCE (round AR)
+  ===========================================================================
+  White words on a creator's own bright photo at full brightness were white
+  on white. The page cannot know a picture from its theme, so it reads it:
+  the copy the page draws (same origin, through the image optimizer), drawn
+  once into a 24 by 40 canvas when it has loaded, and the pixels at the 10th
+  and 90th percentile of luminance kept. A video is read from its saved
+  frame. Kept per address for the life of the page; a picture that cannot
+  be read (another origin without CORS) gives nothing, and the page draws
+  as it always did. lib/onepage/contrast photoVeil turns the two ends into
+  the veil that makes the words read.
+*/
+type RawEnds = { dark: { r: number; g: number; b: number }; light: { r: number; g: number; b: number } }
+const sampled = new Map<string, Promise<RawEnds | null>>()
+
+export function samplePicture(src: string): Promise<RawEnds | null> {
+  const known = sampled.get(src)
+  if (known) return known
+  const job = new Promise<RawEnds | null>((resolve) => {
+    if (typeof document === "undefined") return resolve(null)
+    const img = new Image()
+    img.crossOrigin = "anonymous"
+    img.decoding = "async"
+    img.onload = () => {
+      try {
+        const w = 24
+        const h = 40
+        const canvas = document.createElement("canvas")
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext("2d", { willReadFrequently: true })
+        if (!ctx) return resolve(null)
+        /* As the page draws it: cover, centred. */
+        const s = Math.max(w / img.naturalWidth, h / img.naturalHeight)
+        const dw = img.naturalWidth * s
+        const dh = img.naturalHeight * s
+        ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh)
+        const d = ctx.getImageData(0, 0, w, h).data
+        const px: { r: number; g: number; b: number; l: number }[] = []
+        for (let i = 0; i < d.length; i += 4) px.push({ r: d[i], g: d[i + 1], b: d[i + 2], l: 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2] })
+        px.sort((a, b) => a.l - b.l)
+        const at = (q: number) => px[Math.min(px.length - 1, Math.floor(px.length * q))]
+        resolve({ dark: at(0.1), light: at(0.9) })
+      } catch {
+        resolve(null)
+      }
+    }
+    img.onerror = () => resolve(null)
+    img.src = src
+  })
+  sampled.set(src, job)
+  return job
+}
+
+/** The picture's two ends, once it has been read; null until then, and for a picture that cannot be read. */
+export function usePictureEnds(src: string | null): RawEnds | null {
+  const [ends, setEnds] = React.useState<{ src: string; ends: RawEnds | null } | null>(null)
+  React.useEffect(() => {
+    if (!src) return
+    let live = true
+    void samplePicture(src).then((e) => {
+      if (live) setEnds({ src, ends: e })
+    })
+    return () => {
+      live = false
+    }
+  }, [src])
+  return src && ends?.src === src ? ends.ends : null
 }
 
 /** The Noise switch: grey grain blended over a gradient or a photo, at the strength chosen (5 to 50). */
