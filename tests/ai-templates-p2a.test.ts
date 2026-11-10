@@ -190,7 +190,7 @@ async function main() {
     const site = errorsOf(validateSite({ pages: t.pages, sources, settings, caps: CAPS, mode: "blank" }))
     check(`${t.id}: the site validates (types, bindings, links, menus, own chrome)`, site.length === 0, site)
     const plan = readSitePlan(templatePlan(t), CAPS, null)
-    check(`${t.id}: its plan is a valid site plan`, plan.ok === true, plan.ok ? undefined : plan.missing)
+    check(`${t.id}: its plan is a valid site plan`, plan.ok === true, plan.ok === false ? plan.missing : undefined)
     const complete = errorsOf(completenessIssues({ pages: t.pages, sources, settings, caps: CAPS, mode: "blank", plan: plan.ok ? plan.plan : null }))
     check(`${t.id}: complete by the finish rules (home, pages, product, collection, shop, search, own header and footer, every page reachable)`, complete.length === 0, complete)
 
@@ -207,6 +207,7 @@ async function main() {
         })
         .map((tg) => `${slot.key} -> ${tg.page}/${tg.section}/${tg.block ?? ""}/${tg.setting}`),
     )
+    check(`${t.id}: every slot carries P1's generate_image call (landscape, portrait or square; a purpose; a style)`, t.imageSlots.every((s) => !!s.generate && ["landscape", "portrait", "square"].includes(s.generate.aspect) && ["hero", "product", "portrait", "people", "place", "detail", "gallery", "background"].includes(s.generate.purpose) && ["photo", "studio", "editorial", "illustration", "render"].includes(s.generate.style)), t.imageSlots.filter((s) => !s.generate).map((s) => s.key))
     check(`${t.id}: every image slot lands on an image setting`, badSlots.length === 0, badSlots)
     const control = { product: "product_picker", products: "product_list", collection: "collection_picker", form: "form_picker", menu: "link_list" } as const
     const badBindings = t.bindings.filter((b) => {
@@ -300,7 +301,7 @@ async function main() {
     check("  the menus, each page's search title and which template it started from", !!(st.menus as Record<string, unknown>)["main-menu"] && !!(st.page_seo as Record<string, unknown>).about && (st[TEMPLATE_SETTING] as { id?: string }).id === t.id)
     const md = store.project.files[DESIGN_MD_PATH]
     const parsed = md ? parseDesignMd(md) : null
-    check("  DESIGN.md, in the round O2 format", !!parsed && parsed.ok === true && md.includes(t.name), parsed && !parsed.ok ? parsed.errors : undefined)
+    check("  DESIGN.md, in the round O2 format", !!parsed && parsed.ok === true && md.includes(t.name), parsed && parsed.ok === false ? parsed.errors : undefined)
     const heroNow = store.project.pages.home.find((s) => s.id === "pc-hero")!
     check("  a picture already made lands in its setting; the rest come back as tasks for generate_image", heroNow.settings.image === "https://cdn.storelib.test/hero.jpg" && r.images.length === t.imageSlots.length - 1 && r.images.every((i) => i.prompt.includes(brief.business.label)) && !r.images.some((i) => i.key === "hero"))
     check("  and the next steps say to adapt, never ship it as it is", /never ship|nothing of it ships/i.test(r.next) && r.next.includes("generate_image"))
@@ -329,6 +330,9 @@ async function main() {
     const ds = dstore.project.settings as Record<string, unknown>
     check("with the job's direction, the palette and fonts are the direction's", (ds.color_schemes as Record<string, { background?: string }>).site?.background === direction.palette.background && ds.font_heading === direction.fonts.display, { bg: (ds.color_schemes as Record<string, { background?: string }>).site?.background, want: direction.palette.background })
     check("image tasks name the creator's business", imageTasks(t, brief).every((i) => i.prompt.includes(brief.business.label)))
+    const heroTask = imageTasks(t, brief).find((i) => i.key === "hero")!
+    check("  and each is a ready generate_image call: a 16:9 hero is landscape, purpose hero", heroTask.call.aspect === "landscape" && heroTask.call.purpose === "hero" && heroTask.call.prompt === heroTask.prompt && heroTask.call.style === "photo")
+    check("  a 4:5 portrait is portrait, a product shot is studio", imageTasks(t, brief).find((i) => i.key === "coach")?.call.aspect === "portrait" && imageTasks(templateById("calibre-watches")!, brief).find((i) => i.key === "hero-piece")?.call.style === "studio")
   }
 
   console.log("\n7. The agent can browse the gallery")

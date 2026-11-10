@@ -6,7 +6,7 @@
  * Pure. Browser safe.
  */
 import type { SectionInstance } from "@/lib/website-builder/types"
-import type { SiteTemplate, TemplatePage } from "../types"
+import type { GenerateAspect, GeneratePurpose, SiteTemplate, SlotGenerate, TemplateImageSlot, TemplatePage } from "../types"
 import { filesOf, type ComponentDef } from "./schema"
 
 export interface TemplateDraft extends Omit<SiteTemplate, "files" | "pages"> {
@@ -19,7 +19,7 @@ export interface TemplateDraft extends Omit<SiteTemplate, "files" | "pages"> {
 export function assemble(d: TemplateDraft): SiteTemplate {
   const { components, header, footer, pages, ...rest } = d
   const framed: TemplatePage[] = pages.map((p) => ({ key: p.key, title: p.title, ...(p.seo ? { seo: p.seo } : {}), sections: [structuredCloneish(header), ...p.sections, structuredCloneish(footer)] }))
-  const t: SiteTemplate = { ...rest, files: filesOf(components), pages: framed }
+  const t: SiteTemplate = { ...rest, files: filesOf(components), pages: framed, imageSlots: rest.imageSlots.map((s) => ({ ...s, generate: s.generate ?? generateFor(s) })) }
   /* A slot that points at nothing is a template bug: fail where it is defined, not when a picture is lost. */
   for (const slot of t.imageSlots) {
     for (const target of slot.targets) {
@@ -30,6 +30,20 @@ export function assemble(d: TemplateDraft): SiteTemplate {
     }
   }
   return t
+}
+
+/** The crop ratio as P1's three shapes: wider than 1.1 is landscape, narrower than 0.9 portrait. */
+export function generateAspect(aspect: TemplateImageSlot["aspect"]): GenerateAspect {
+  const [w, h] = aspect.split(":").map(Number)
+  const r = w / h
+  return r > 1.1 ? "landscape" : r < 0.9 ? "portrait" : "square"
+}
+
+/** What a slot is for and how it is made, for generate_image, from its key and style. */
+export function generateFor(slot: TemplateImageSlot): SlotGenerate {
+  const k = slot.key
+  const purpose: GeneratePurpose = /^hero|cover/.test(k) ? (slot.style === "product" ? "product" : "hero") : slot.style === "product" ? "product" : slot.style === "portrait" || /coach|team/.test(k) ? "portrait" : /macro|detail|treatment|chapter|card/.test(k) ? "detail" : /about|room|bench|studio|street/.test(k) ? "place" : /look|format|day/.test(k) ? "people" : "gallery"
+  return { aspect: generateAspect(slot.aspect), purpose, style: slot.style === "product" ? "studio" : "photo" }
 }
 
 function structuredCloneish<T>(v: T): T {

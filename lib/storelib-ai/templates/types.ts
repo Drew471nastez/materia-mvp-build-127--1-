@@ -64,6 +64,22 @@ export interface TemplateImageSlot {
   /** What kind of picture: a photograph, a product shot on a plain ground (cut out for type-through-product heroes), a texture. */
   style: "photo" | "product" | "texture" | "portrait"
   targets: ImageSlotTarget[]
+  /**
+   * The call P1's generate_image / find_photo takes (lib/ai-builder/agent tool specs): its shape
+   * (landscape 3:2, portrait 2:3, square), what the picture is for and its style. Filled from
+   * `aspect`, `style` and `key` by assemble (kit/build.ts) unless the slot says otherwise.
+   */
+  generate?: SlotGenerate
+}
+
+/** P1's generate_image shapes, purposes and styles. */
+export type GenerateAspect = "landscape" | "portrait" | "square"
+export type GeneratePurpose = "hero" | "product" | "portrait" | "people" | "place" | "detail" | "gallery" | "background"
+export type GenerateStyle = "photo" | "studio" | "editorial" | "illustration" | "render"
+export interface SlotGenerate {
+  aspect: GenerateAspect
+  purpose: GeneratePurpose
+  style: GenerateStyle
 }
 
 /** A place in the template that wants the creator's real data. */

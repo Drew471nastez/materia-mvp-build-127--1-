@@ -37,7 +37,8 @@ import { versionOf } from "@/lib/ai-builder/agent/version"
 import type { ProjectStore, StoredPage } from "@/lib/ai-builder/agent/ports"
 import type { DesignTokens, FileAuthor } from "@/lib/ai-builder/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
-import type { SiteTemplate, TemplateImageSlot } from "./types"
+import type { SiteTemplate, SlotGenerate, TemplateImageSlot } from "./types"
+import { generateFor } from "./kit/build"
 
 /** The Theme setting that remembers which template a site started from. */
 export const TEMPLATE_SETTING = "ai_template"
@@ -60,6 +61,8 @@ export interface ImageTask {
   style: TemplateImageSlot["style"]
   alt: string
   targets: TemplateImageSlot["targets"]
+  /** The generate_image call, ready to send: { prompt, aspect, purpose, alt, style }. find_photo takes the same aspect, purpose and alt. */
+  call: { prompt: string; alt: string } & SlotGenerate
 }
 
 export interface ApplyResult {
@@ -99,7 +102,10 @@ export function slotPrompt(slot: TemplateImageSlot, brief: Pick<CreativeBrief, "
 
 /** Every slot's task, prompts said for this business. */
 export function imageTasks(template: SiteTemplate, brief: Pick<CreativeBrief, "business" | "prompt"> | null): ImageTask[] {
-  return template.imageSlots.map((slot) => ({ key: slot.key, prompt: slotPrompt(slot, brief), aspect: slot.aspect, style: slot.style, alt: slot.alt, targets: clone(slot.targets) }))
+  return template.imageSlots.map((slot) => {
+    const prompt = slotPrompt(slot, brief)
+    return { key: slot.key, prompt, aspect: slot.aspect, style: slot.style, alt: slot.alt, targets: clone(slot.targets), call: { prompt, alt: slot.alt, ...(slot.generate ?? generateFor(slot)) } }
+  })
 }
 
 /** The pages with the given pictures written into their settings. */
@@ -165,8 +171,8 @@ export async function applyTemplate(store: ProjectStore, template: SiteTemplate,
         continue
       }
       const w = await store.writeFile(path, text, { expectedVersion: existing ? versionOf(existing.text) : null, author, jobId: opts.jobId })
-      if (w.ok) files.push(path)
-      else problems.push(`${path} was not written: ${w.error}`)
+      if (w.ok === false) problems.push(`${path} was not written: ${w.error}`)
+      else files.push(path)
     } catch (e) {
       problems.push(`${path} was not written: ${e instanceof Error ? e.message : "the store failed"}`)
     }
@@ -208,7 +214,7 @@ export async function applyTemplate(store: ProjectStore, template: SiteTemplate,
     if (!existing || existing.text !== text) {
       const w = await store.writeFile(DESIGN_MD_PATH, text, { expectedVersion: existing ? versionOf(existing.text) : null, author, jobId: opts.jobId })
       designMd = w.ok
-      if (!w.ok) problems.push(`DESIGN.md was not written: ${w.error}`)
+      if (w.ok === false) problems.push(`DESIGN.md was not written: ${w.error}`)
     } else designMd = true
   } catch {
     problems.push("DESIGN.md could not be written just now.")
@@ -224,7 +230,7 @@ export function adaptationBrief(template: SiteTemplate, brief: Pick<CreativeBrie
     `The ${template.name} template is written as drafts. It is a starting point: nothing of it ships as it is.`,
     `1. Words: rewrite every heading, text, button, block and FAQ for ${brief ? `this ${brief.business.label}` : "this business"}, in the owner's voice${brief ? `; the main action reads "${brief.cta}"` : ""}. Keep a block list full: change the blocks, never leave one empty.`,
     "2. Look: the palette and fonts are the direction's; adjust each component's CSS where the brand needs it, and recompose (reorder, remove, add) so the page tells this business's story.",
-    `3. Pictures: ${images.length} slot${images.length === 1 ? "" : "s"} to fill with generate_image (prompt, aspect), each written into its section setting: ${images.map((i) => `${i.key} (${i.aspect})`).join(", ") || "none"}.`,
+    `3. Pictures: ${images.length} slot${images.length === 1 ? "" : "s"} to fill with generate_image (its call: prompt, aspect, purpose, alt, style; or find_photo for a real-world scene), each url written into its section setting: ${images.map((i) => `${i.key} (${i.call.aspect}, ${i.call.purpose})`).join(", ") || "none"}.`,
     `4. Data: bind the real products, collections and forms (${template.bindings.map((b) => `${b.page} › ${b.section}.${b.setting}`).join(", ")}).`,
     `5. Never invent proof: no reviews, client counts, awards or logos${brief?.mustNotFabricate.length ? `; and no ${brief.mustNotFabricate.join(", ")}` : ""}.`,
   ]
