@@ -46,8 +46,9 @@ section("A block's row")
   /* Changed on purpose (round W9): the more menu's Remove and the row's bin open the same question. */
   check("Remove is the more menu's, asking first", /askedFrom\.current = "menu"\s+setAskingRemove\(true\)/.test(tab) && /<BlockRemoveQuestion\s+open=\{askingRemove\}/.test(tab))
   /* Changed on purpose (round W9): 48px on a phone (56 from 640px), the room the row's bin takes. Still one width on every row. */
-  check("the numbers are one width on every row, with the full figure in its name", /className="flex h-8 w-12 shrink-0 items-center gap-0\.5 rounded-lg px-1[^"]*sm:w-14/.test(tab) && /rowCountLabel\(clickCount\)/.test(tab) && /tabular-nums/.test(tab))
-  check("a row without numbers keeps their room", /\{!hasStats && <span aria-hidden className="block h-8 w-12 shrink-0 sm:w-14" data-row-slot="stats" \/>\}/.test(tab))
+  check("the numbers are one width on every row, with the full figure in its name", /className="flex h-8 w-8 shrink-0 items-center[^"]*sm:w-14/.test(tab) && /rowCountLabel\(clickCount\)/.test(tab) && /tabular-nums/.test(tab))
+  /* Changed on purpose (wave 9): on a phone the numbers slot is an icon (32px) and the count shows from sm up, so titles keep their room. */
+  check("a row without numbers keeps their room", /\{!hasStats && <span aria-hidden className="block h-8 w-8 shrink-0 sm:w-14" data-row-slot="stats" \/>\}/.test(tab))
   check("the header keeps the more button's room, so its switch lines up", /<span aria-hidden className="block h-8 w-8 shrink-0" data-row-slot="menu" \/>/.test(tab))
   check("the remove menu still holds Remove", /id: "block-remove", label: tt\("Remove"\)/.test(code("components/onepage/block-remove.tsx")))
 }

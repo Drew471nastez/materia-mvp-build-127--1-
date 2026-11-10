@@ -144,7 +144,7 @@ console.log("\nA. A bin on every block's row, Delete still in the more menu, the
   check("the last row eats the space before it", last[1].marginTop === "-16px" && !("marginBottom" in last[1]))
   const collapse = code("lib/onepage/row-collapse.ts")
   check("reduced motion takes it off at once, and done is called exactly once", /prefers-reduced-motion: reduce/.test(collapse) && /if \(called\) return/.test(collapse) && /window\.setTimeout\(finish, ROW_COLLAPSE_MS \+ 150\)/.test(collapse))
-  check("on a phone the row is a step tighter, so the bin costs a title nothing", /"group\/row flex items-center gap-2 p-3 sm:gap-3/.test(tab) && /flex h-8 w-12 shrink-0 items-center gap-0\.5 rounded-lg px-1[^"]*sm:w-14/.test(tab))
+  check("on a phone the row is a step tighter, so the bin costs a title nothing", /"group\/row flex items-center gap-2 p-3 sm:gap-3/.test(tab) && /flex h-8 w-8 shrink-0 items-center[^"]*sm:w-14/.test(tab))
 }
 
 console.log("\nRegistered")

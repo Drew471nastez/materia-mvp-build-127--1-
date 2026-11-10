@@ -3671,7 +3671,8 @@ function BlockItem({
             }
           }}
         >
-          <p className="font-medium text-sm truncate">{preview.title}</p>
+          {/* Wave 9: on a phone the title may take two lines and the count shows in the stats sheet, so a title is never cut to four letters. */}
+          <p className="font-medium text-sm leading-[18px] line-clamp-2 [overflow-wrap:anywhere] sm:block sm:truncate sm:leading-5">{preview.title}</p>
           <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
             <span className={cn("truncate", ((preview as any).incomplete || productGone) && "font-medium text-[#b54708]")} data-row-incomplete={(preview as any).incomplete ? "" : undefined}>{productGone ? tt("Not on your page") : preview.subtitle}</span>
             <BlockBadges block={block} />
@@ -3721,7 +3722,7 @@ function BlockItem({
           <BlockAnimationButton value={(block.data as { animation_type?: string }).animation_type} onChange={setAnimation} />
         )}
         {/* Stats control for link buttons and email capture; a row without numbers keeps their room, so its switch lines up. */}
-        {!hasStats && <span aria-hidden className="block h-8 w-12 shrink-0 sm:w-14" data-row-slot="stats" />}
+        {!hasStats && <span aria-hidden className="block h-8 w-8 shrink-0 sm:w-14" data-row-slot="stats" />}
         {hasStats && (
           <>
             <button
@@ -3732,14 +3733,14 @@ function BlockItem({
                 setShowStatsModal(true)
               }}
               /* Round W8: one width on every row (the count kept to four characters, rowCountLabel), so nothing beside it moves from row to row. */
-              className="flex h-8 w-12 shrink-0 items-center gap-0.5 rounded-lg px-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 sm:w-14 sm:gap-1 sm:px-1.5"
+              className="flex h-8 w-8 shrink-0 items-center justify-center gap-0.5 rounded-lg px-1 text-gray-400 sm:justify-start transition-colors hover:bg-gray-100 hover:text-gray-600 sm:w-14 sm:gap-1 sm:px-1.5"
               title={tt("View Stats")}
               aria-label={clickCount !== null ? `${tt("View Stats")}: ${clickCount}` : tt("View Stats")}
               data-row-slot="stats"
             >
               <BarChart2 aria-hidden className="h-4 w-4 shrink-0" />
               {clickCount !== null && (
-                <span className="text-[11px] font-medium tabular-nums sm:text-xs">{rowCountLabel(clickCount)}</span>
+                <span className="hidden text-[11px] font-medium tabular-nums sm:inline sm:text-xs">{rowCountLabel(clickCount)}</span>
               )}
             </button>
 
