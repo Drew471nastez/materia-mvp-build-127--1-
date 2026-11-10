@@ -10,7 +10,9 @@
  *   radius     card, button, picture and text box corners
  *   spacing    spacing_scale, page_width, content_padding_x, ai_section_y
  *   typeScale  Typography's text styles; shadow card_shadow
- *   motion     animations_enabled, animation_style, animation_duration
+ *   motion     animations_enabled, animation_style, animation_duration,
+ *              motion_tier (round O: the site's motion feel, --t-motion-*),
+ *              and the page transition while the site has none of its own
  *   the rest   custom_tokens (`--t-<name>`), checked: no url(), no
  *              expression, no markup
  *
@@ -22,6 +24,7 @@ import { automaticHover, type ColorScheme } from "@/lib/storelib-theme/color-sch
 import { ANIMATION_STYLES, CUSTOM_TOKENS_SETTING, SHADOW_LEVELS, type DesignTokens, type ValidationIssue } from "../types"
 import { SCALE_TOKENS, SITE_INVERSE_SCHEME, SITE_SCHEME, typeScaleStyles } from "../tokens"
 import type { TokensMapper } from "./ports"
+import { isMotionTier, pageTransitionFor, tierFromLevel, MOTION_TIER_SETTING } from "@/lib/storelib-ai/motion"
 
 export { SITE_SCHEME, SITE_INVERSE_SCHEME }
 
@@ -107,6 +110,12 @@ export const tokensToThemeSettings: TokensMapper = (tokens: Partial<DesignTokens
     if (tokens.motion.style && (ANIMATION_STYLES as readonly string[]).includes(tokens.motion.style)) out.animation_style = tokens.motion.style
     const d = clamp(tokens.motion.durationMs, 200, 1200)
     if (d !== null) out.animation_duration = Math.round(d / 50) * 50
+    /* Round O (O5): the motion feel every AI component reads as --t-motion-*. Given, or what the level says. */
+    if (tokens.motion.tier !== undefined && !isMotionTier(tokens.motion.tier)) warn("token.motion_tier", "motion.tier is quiet, balanced or expressive.")
+    const tier = isMotionTier(tokens.motion.tier) ? tokens.motion.tier : tierFromLevel(tokens.motion.level)
+    out[MOTION_TIER_SETTING] = tier
+    /* Between pages follows the feel until somebody chose one (a choice already stored is the creator's or an earlier pass's, and stays). */
+    if (current.page_transition === undefined) Object.assign(out, pageTransitionFor(tier))
   }
   /*
     The section rhythm is the Theme setting `ai_section_y`, read as `--t-section-y`

@@ -45,6 +45,8 @@ import { drawsTheProduct } from "@/lib/website-builder/storelib-runtime"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { RuntimeCapabilities } from "../runtime-contract"
 import { isAiComponentType, type GenerationMode, type ValidationIssue } from "../types"
+/* Round O (O5): the site story per business and the generic-skeleton check (lib/storelib-ai/layout). */
+import { layoutStoryFor, planSkeletonIssue, type StoryBrief } from "@/lib/storelib-ai/layout"
 
 /** The AI's own sections a home page needs, header and footer not counted. */
 export const MIN_HOME_SECTIONS = 10
@@ -126,8 +128,15 @@ export interface SitePlan {
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v)
 
-/** The plan as given, or every problem with it. Pure. */
-export function readSitePlan(raw: unknown, caps: RuntimeCapabilities | null): { ok: true; plan: SitePlan } | { ok: false; missing: string[] } {
+/**
+ * The plan as given, or every problem with it. Pure.
+ *
+ * With `brief` (the creator's words and category), a home page planned as the
+ * generic Hero, Features, Pricing, FAQ, CTA skeleton is refused for a business
+ * that is not software, with the business's own site story as the way forward
+ * (round O, O5, lib/storelib-ai/layout/stories.ts planSkeletonIssue).
+ */
+export function readSitePlan(raw: unknown, caps: RuntimeCapabilities | null, brief?: StoryBrief | null): { ok: true; plan: SitePlan } | { ok: false; missing: string[] } {
   if (!Array.isArray(raw)) return { ok: false, missing: ["pages: a list of every page and template, each { key, sections: [one line per section], reason? }"] }
   const missing: string[] = []
   const pages: SitePlanPage[] = []
@@ -155,6 +164,10 @@ export function readSitePlan(raw: unknown, caps: RuntimeCapabilities | null): { 
   const home = byKey.get("home")
   if (!home) missing.push(`home: list it with its sections (at least ${MIN_HOME_SECTIONS} of your own, header and footer not counted)`)
   else if (home.sections.length < MIN_HOME_SECTIONS) missing.push(`home: ${home.sections.length} section${home.sections.length === 1 ? "" : "s"} planned; a home page has at least ${MIN_HOME_SECTIONS} of your own (header and footer not counted)`)
+  if (home && brief) {
+    const generic = planSkeletonIssue(home.sections, brief)
+    if (generic) missing.push(generic)
+  }
   for (const t of templatesFor(caps)) {
     const entry = byKey.get(t.key)
     if (!entry) missing.push(`${t.key} (${t.title}, ${t.url}): list it with its sections${t.required ? "" : ", or a reason it keeps the platform's working layout"}`)
@@ -166,6 +179,11 @@ export function readSitePlan(raw: unknown, caps: RuntimeCapabilities | null): { 
   }
   if (missing.length) return { ok: false, missing }
   return { ok: true, plan: { pages } }
+}
+
+/** The site story the plan is checked against, for the plan's notes and the brief (round O, O5). */
+export function sitePlanStory(brief: StoryBrief): string {
+  return layoutStoryFor(brief).text
 }
 
 /** The plan as lines for the model and the progress view. */

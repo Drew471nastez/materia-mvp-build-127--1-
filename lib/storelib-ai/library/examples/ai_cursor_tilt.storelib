@@ -1,0 +1,78 @@
+{# example
+title: Cursor-aware tilt
+summary: One showcase picture (a product, a cover, a piece of work) that tilts a few degrees toward the pointer, with nine CSS hover zones and :has() instead of a pointer-tracking script (a section script cannot read the pointer's position); only on a pointer that hovers, flat on touch and under reduced motion, tilt and on or off editable.
+tags: cursor, cursor aware, pointer, tilt, depth tilt, 3d, hover, showcase, product, cover, has, motion tier
+#}
+<template>
+<section class="tl" data-motion="{{ settings.motion }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-btn-bg: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; --tl-max: {{ settings.tilt }}deg;">
+  <div class="tl__in">
+    <div class="tl__stage">
+      <div class="tl__card">
+        {% if settings.image %}<img class="tl__img" src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="1200" height="1200" loading="lazy">{% elsif page.in_editor %}<p class="tl__ph">Pick the picture to show in the sidebar</p>{% endif %}
+      </div>
+      <div class="tl__zones" aria-hidden="true"><span class="tl__z"></span><span class="tl__z"></span><span class="tl__z"></span><span class="tl__z"></span><span class="tl__z"></span><span class="tl__z"></span><span class="tl__z"></span><span class="tl__z"></span><span class="tl__z"></span></div>
+    </div>
+    <div class="tl__copy">
+      {% if settings.heading %}<h2 class="tl__h">{{ settings.heading }}</h2>{% endif %}
+      {% if settings.text %}<p class="tl__text">{{ settings.text }}</p>{% endif %}
+      {% if settings.cta_label and settings.cta_url %}<a class="tl__cta" href="{{ settings.cta_url | url }}">{{ settings.cta_label }}</a>{% endif %}
+    </div>
+  </div>
+</section>
+</template>
+
+<style scoped>
+.tl { container-type: inline-size; padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 16px) calc(var(--s-pb) * var(--theme-spacing-scale, 1)); background: var(--s-bg); color: var(--s-text); }
+.tl__in { max-width: var(--theme-page-width, 1280px); margin: 0 auto; display: grid; gap: clamp(28px, 5vw, 72px); align-items: center; }
+.tl__stage { position: relative; perspective: 1000px; max-width: 560px; width: 100%; justify-self: center; }
+.tl__card { aspect-ratio: 1; overflow: hidden; background: color-mix(in srgb, var(--s-text) 8%, var(--s-bg)); --rx: 0; --ry: 0; }
+.tl__img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tl__ph { display: grid; place-items: center; height: 100%; margin: 0; padding: 16px; text-align: center; opacity: 0.7; }
+.tl__zones { display: none; }
+.tl__h { margin: 0 0 14px; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.9rem, 1.2rem + 2.6vw, 3.6rem); line-height: 1; letter-spacing: -0.03em; font-weight: 700; color: var(--s-heading); }
+.tl__text { margin: 0; max-width: 44ch; font-size: 1.0625rem; line-height: 1.6; }
+.tl__cta { display: inline-flex; align-items: center; min-height: 48px; margin-top: 24px; padding: 0 24px; background: var(--s-btn-bg); color: var(--s-btn-text); text-decoration: none; font-weight: 600; border-radius: var(--t-radius-sm, 2px); }
+.tl__cta:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
+@container (min-width: 820px) { .tl__in { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); } }
+/*
+  The tilt: nine invisible zones over the picture; the one under the pointer
+  sets which way it leans. Only on a pointer that hovers and when motion is
+  welcome; the zones are not even drawn otherwise, so touch gets the picture.
+*/
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  .tl:not([data-motion="off"]) .tl__zones { display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); position: absolute; inset: 0; }
+  .tl:not([data-motion="off"]) .tl__card { transform: rotateX(calc(var(--rx) * var(--tl-max, 4deg))) rotateY(calc(var(--ry) * var(--tl-max, 4deg))); transition: transform calc(var(--t-motion-hover, 200ms) * 2) var(--t-motion-ease-ui, cubic-bezier(0.3, 0.7, 0.4, 1)); }
+  .tl__stage:has(.tl__z:nth-child(1):hover) .tl__card { --rx: 1; --ry: -1; }
+  .tl__stage:has(.tl__z:nth-child(2):hover) .tl__card { --rx: 1; --ry: 0; }
+  .tl__stage:has(.tl__z:nth-child(3):hover) .tl__card { --rx: 1; --ry: 1; }
+  .tl__stage:has(.tl__z:nth-child(4):hover) .tl__card { --rx: 0; --ry: -1; }
+  .tl__stage:has(.tl__z:nth-child(6):hover) .tl__card { --rx: 0; --ry: 1; }
+  .tl__stage:has(.tl__z:nth-child(7):hover) .tl__card { --rx: -1; --ry: -1; }
+  .tl__stage:has(.tl__z:nth-child(8):hover) .tl__card { --rx: -1; --ry: 0; }
+  .tl__stage:has(.tl__z:nth-child(9):hover) .tl__card { --rx: -1; --ry: 1; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_cursor_tilt",
+  "name": "Picture that leans toward you",
+  "category": "image",
+  "settings": [
+    { "type": "image_picker", "id": "image", "label": "Picture" },
+    { "type": "text", "id": "image_alt", "label": "Picture description", "default": "" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Dust Tapes, volume two" },
+    { "type": "textarea", "id": "text", "label": "Text", "default": "Forty drum loops recorded on a four track in a garage in Margate." },
+    { "type": "text", "id": "cta_label", "label": "Button", "default": "Listen and buy" },
+    { "type": "url", "id": "cta_url", "label": "Button link", "default": "/about" },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Leans toward the pointer", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "tilt", "label": "How far it leans", "min": 0, "max": 10, "step": 1, "unit": "deg", "default": 4 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 80 }
+  ]
+}
+</schema>

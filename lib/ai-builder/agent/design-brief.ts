@@ -11,7 +11,8 @@
  *   O1  the matching references, as text                  lib/storelib-ai/references
  *       (their pictures ride on the plan turn as content blocks; O1 wires
  *       those in ./loop.ts through AgentDeps.references)
- *   O5  the site story and the motion tier                lib/storelib-ai/layout
+ *   (O5's site story and motion tier are their own line in briefMessage,
+ *   motionAndLayoutBrief, for a new website)
  *
  * An edit (job.edit, redesign "changes") gets none of it: its direction is
  * the site's own DESIGN.md and tokens, which briefMessage adds itself with
@@ -24,7 +25,6 @@ import type { RuntimeCapabilities } from "../runtime-contract"
 import type { AgentJobInput, StoredFile } from "./ports"
 import { briefFrom, chooseDirection, directionForPrompt, type CreativeBrief, type DirectionChoice } from "@/lib/storelib-ai/direction"
 import { referencesForPrompt, searchReferences, type DesignReference } from "@/lib/storelib-ai/references"
-import { motionAndLayoutBrief } from "@/lib/storelib-ai/layout"
 import { designContractBlock, findDesignContract, KEEP_BRAND_TOKENS } from "@/lib/storelib-ai/surfaces"
 
 export interface JobDesignBrief {
@@ -78,7 +78,6 @@ export async function jobDesignBrief(input: {
     blocks.push(directionForPrompt(brief, choice))
     const refs = referencesForPrompt(list, { withImages: input.references?.withImages ?? [] })
     if (refs) blocks.push(refs)
-    blocks.push(motionAndLayoutBrief({ prompt: job.prompt, category: job.options?.category ?? null, businessType: brief.business.label, objective: brief.objective }))
   } catch {
     /* A lane's module failed: the job keeps its rules and goes on without that block. */
   }

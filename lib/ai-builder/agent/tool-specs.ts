@@ -83,7 +83,7 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
           fonts: obj({ heading: { type: "string" }, body: { type: "string" }, accent: { type: "string" } }),
           radius: obj({ small: { type: "number" }, medium: { type: "number" }, large: { type: "number" } }),
           spacing: obj({ scale: { type: "number" }, sectionY: { type: "number" }, pageWidth: { type: "number" }, gutter: { type: "number" } }),
-          motion: obj({ level: { type: "string", enum: ["none", "subtle", "expressive"] }, style: { type: "string" }, durationMs: { type: "number" } }),
+          motion: obj({ level: { type: "string", enum: ["none", "subtle", "expressive"] }, style: { type: "string" }, durationMs: { type: "number" }, tier: { type: "string", enum: ["quiet", "balanced", "expressive"], description: "The site's motion feel; components read it as var(--t-motion-*)." } }),
           typeScale: obj({ base: { type: "number", description: "Body size in px, 12 to 22." }, ratio: { type: "number", description: "Each heading step, 1.05 to 1.6." } }),
           shadow: { type: "string", enum: ["none", "sm", "md", "lg"] },
           custom: { type: "object", description: "name (no --t-) to CSS value. No url()." },

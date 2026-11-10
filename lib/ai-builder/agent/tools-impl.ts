@@ -368,9 +368,12 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     return { ok: true, ...(warnings.length ? { issues: warnings } : {}) }
   }
 
+  /* Round O (O5): what the plan's home is checked against: the creator's words and the kind of website they picked. */
+  const planBrief = { prompt: job.prompt, category: job.options?.category ?? null }
+
   /** Every problem with a site plan, as issues (code plan.site_invalid). */
   function siteIssues(pages: unknown, c: RuntimeCapabilities): ValidationIssue[] {
-    const read = readSitePlan(pages, c)
+    const read = readSitePlan(pages, c, planBrief)
     return read.ok === true ? [] : read.missing.slice(0, 30).map((m) => ({ severity: "error" as const, code: "plan.site_invalid", message: m.slice(0, 400) }))
   }
 
@@ -593,7 +596,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
             issues: problems,
           }
         }
-        const read = readSitePlan(pages, await caps())
+        const read = readSitePlan(pages, await caps(), planBrief)
         if (read.ok === true) {
           cp.sitePlan = read.plan
           notes.push(`Site plan accepted:\n${describeSitePlan(read.plan)}`)

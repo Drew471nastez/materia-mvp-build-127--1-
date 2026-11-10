@@ -2,9 +2,9 @@
 id: component-interactive-library
 title: Interactive components that run in Storelib, ready to adapt
 category: component
-summary: Fourteen complete .storelib sections for the interactions sites keep asking for (reveals, marquee, sticky stack, sideways gallery, hover index, staggered text, before and after, tabs, accordion, counters, parallax, video opening, own header and footer); ask search_knowledge for one by id.
+summary: Nineteen complete .storelib sections for the interactions sites keep asking for (reveals, masked headline, image curtain, sticky story, marquee, sticky stack, sideways gallery, hover index, hover lift, cursor tilt, staggered text, before and after, tabs, accordion, counters, parallax, video opening, own header and footer); ask search_knowledge for one by id.
 intents: [build-section, add-motion, add-interaction, build-header, build-footer, build-site]
-tags: [interactive, example, examples, components, working code, marquee, tabs, accordion, faq, slider, before after, gallery, sticky, parallax, counters, video, mega menu, mobile menu, cart drawer, search, popover, scroll reveal]
+tags: [interactive, example, examples, components, working code, motion primitives, masked reveal, image reveal, sticky story, hover lift, cursor tilt, marquee, tabs, accordion, faq, slider, before after, gallery, sticky, parallax, counters, video, mega menu, mobile menu, cart drawer, search, popover, scroll reveal]
 components: [header, footer, tabs, accordion, carousel, gallery, hero, stats]
 phases: [plan, build]
 priority: 5
@@ -16,7 +16,12 @@ Ask search_knowledge with the id to get the whole file (template, scoped style, 
 | Id | What it is | How it works |
 | --- | --- | --- |
 | ai_scroll_reveal | chapters that rise into view | CSS view timeline, still without support |
-| ai_marquee | a running line of real words | CSS loop, paused on hover and focus, wraps still for reduced motion |
+| ai_mask_reveal | an opening statement whose lines rise out of masks | CSS delays per line, the site's motion feel |
+| ai_image_reveal | one key photo that opens like a curtain and settles | view timeline on clip-path and transform |
+| ai_sticky_story | a method: the picture stays while steps pass | sticky column and named view timelines; plain steps on phones |
+| ai_hover_lift | offers that lift, pan and press under the pointer | transitions on transform, hover only on a fine pointer |
+| ai_cursor_tilt | one showcase picture that leans toward the pointer | nine hover zones and :has(), no script |
+| ai_marquee | a running line of real words | CSS loop, paused on hover, focus and its own Pause switch, wraps still for reduced motion |
 | ai_sticky_stack | panels that stick and stack | position sticky with a growing top |
 | ai_hscroll_gallery | sideways gallery with a progress line | scroll snap, focusable track, named scroll timeline |
 | ai_hover_reveal_list | text index, image of the hovered row | :hover, :focus-within and :has() |
@@ -31,3 +36,5 @@ Ask search_knowledge with the id to get the whole file (template, scoped style, 
 | ai_site_footer | own footer: sign up, two menus, language and currency, the name set huge | data-storelib-form subscribe and the page's hooks |
 
 **Why these techniques**: a section's script runs in a sandbox on a copy of its markup, so it cannot measure the page, observe intersections, focus elements or play a video. Scroll-driven CSS, :has(), details, popover and sticky run on the real page with no script, work by keyboard, and are easy to switch off under prefers-reduced-motion.
+
+**Motion params**: the moving ones read the site's motion feel (`var(--t-motion-duration)`, `--t-motion-ease`, `--t-motion-distance`, `--t-motion-stagger`, `--t-motion-hover`, `--t-motion-lift`, `--t-motion-scale`; see motion-tiers) and expose a `motion` select (follow the site, or still) and a `motion_strength` range in their schema, so the creator tunes them in the sidebar.

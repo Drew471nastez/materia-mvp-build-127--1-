@@ -34,6 +34,8 @@ import { startContext } from "@/lib/website-builder/ai-site/start-options"
 import { STUDIO_CRAFT } from "@/lib/website-builder/ai-site/craft"
 /* Round N (N3): pages and templates, its own block so the design rules above it can change without touching it. */
 import { PAGES_AND_TEMPLATES } from "./site-plan"
+/* Round O (O5): the business's site story and the motion feel, its own block (O6 owns this file's assembly). */
+import { motionAndLayoutBrief } from "@/lib/storelib-ai/layout"
 
 /** CLAUDE.md's list, and its shape: words that say nothing. */
 export const BANNED_WORDS = ["unlock", "elevate", "seamless", "powerful", "effortlessly", "supercharge", "transform", "revolutionize", "game-changer"]
@@ -137,6 +139,7 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
   const { job } = input
   /* Round O: an edit's direction is the site's own design, its DESIGN.md and tokens, kept unless asked (spec I.5). */
   const scoped = !!job.edit || job.redesign === "changes"
+  const story = !job.edit && !job.redesign ? motionAndLayoutBrief({ prompt: job.prompt, category: job.options?.category ?? null }) : ""
   /* The creator's choices on Describe your website, in L1's words (start-options.ts startContext): kind, blank or theme, preset, preferences. */
   const choices = job.redesign ? "" : startContext(job.options ?? null)
   const own = input.files.filter((f) => /^(sections|blocks|snippets)\/ai_/.test(f.path)).map((f) => f.path)
@@ -164,8 +167,10 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
     input.directions?.length
       ? `TYPE SYSTEMS THAT FIT (all load on Storelib; adapt or pick another from the type library, never a default face as display):\n${typeSystemsFor(job, input.directions).map((t) => `* ${describeTypeSystem(t)}`).join("\n")}`
       : "",
+    /* Round O (O5): the business's site story and the motion feel, for a new website. */
+    story,
     /* The first turn is kept whole in the checkpoint up to 20,000 characters: the knowledge gives way to the design brief. */
-    input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, Math.max(4_000, 12_000 - (input.design?.text.length ?? 0)))}` : "",
+    input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, Math.max(4_000, 12_000 - (input.design?.text.length ?? 0) - story.length))}` : "",
     scoped ? "Start by reading what the request is about (list_pages, read_file), then change it. Before finish, render_check every page you changed." : "Start with report_progress phase \"plan\": the concept, the tasks and pages (every page and template with its sections). Then tokens, components, pages and templates, bindings with real ids, render_check on every page, finish.",
   ]
     .filter(Boolean)

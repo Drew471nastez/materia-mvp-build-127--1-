@@ -1,7 +1,7 @@
 {# example
 title: Marquee of real words
-summary: A slow running line of the creator's own words (dates, today's bakes, a release name), drawn twice so it loops seamlessly; pauses on hover and focus, stands still under reduced motion, and screen readers hear it once.
-tags: marquee, ticker, running text, loop, scrolling text, banner, motion
+summary: A slow running line of the creator's own words (dates, today's bakes, a release name), drawn twice so it loops seamlessly; pauses on hover and focus and with its own Pause switch (a checkbox and :has(), no script), stands still under reduced motion, and screen readers hear it once.
+tags: marquee, ticker, running text, loop, scrolling text, banner, motion, pause, marquee with pause
 #}
 <template>
 <section class="mq" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-accent: {{ scheme.accent }}; --mq-speed: {{ settings.speed }}s;" aria-label="{{ settings.label }}">
@@ -14,6 +14,7 @@ tags: marquee, ticker, running text, loop, scrolling text, banner, motion
       {% for block in section.blocks %}<li class="mq__item">{{ block.settings.text }}</li>{% endfor %}
     </ul>
   </div>
+  {% if settings.pause_label %}<label class="mq__pause"><input class="mq__toggle" type="checkbox"><span>{{ settings.pause_label }}</span></label>{% endif %}
   {% elsif page.in_editor %}
   <p class="mq__empty">Add lines in the sidebar</p>
   {% endif %}
@@ -21,11 +22,14 @@ tags: marquee, ticker, running text, loop, scrolling text, banner, motion
 </template>
 
 <style scoped>
-.mq { overflow: hidden; background: var(--s-bg); color: var(--s-text); border-block: 1px solid currentColor; }
+.mq { position: relative; overflow: hidden; background: var(--s-bg); color: var(--s-text); border-block: 1px solid currentColor; }
 .mq__track { display: flex; width: max-content; }
 .mq__run { display: flex; flex: none; margin: 0; padding: 0; list-style: none; }
 .mq__item { padding: 14px 0; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.25rem, 0.9rem + 1.6vw, 2.25rem); line-height: 1; letter-spacing: -0.01em; text-transform: uppercase; white-space: nowrap; }
 .mq__item::after { content: "/"; margin-inline: 0.6em; color: var(--s-accent); }
+.mq__pause { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: none; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; background: var(--s-bg); color: var(--s-text); font-size: 0.8125rem; cursor: pointer; }
+.mq__toggle { width: 16px; height: 16px; margin: 0; accent-color: var(--s-accent); }
+.mq__pause:focus-within { outline: 2px solid var(--s-accent); outline-offset: -2px; }
 .mq__empty { margin: 0; padding: 16px; opacity: 0.7; }
 /* Without motion it is a line that wraps, so every word is still there. */
 @media (prefers-reduced-motion: reduce) {
@@ -35,7 +39,8 @@ tags: marquee, ticker, running text, loop, scrolling text, banner, motion
 }
 @media (prefers-reduced-motion: no-preference) {
   .mq__track { animation: mq-run var(--mq-speed, 40s) linear infinite; }
-  .mq:hover .mq__track, .mq:focus-within .mq__track { animation-play-state: paused; }
+  .mq:hover .mq__track, .mq:focus-within .mq__track, .mq:has(.mq__toggle:checked) .mq__track { animation-play-state: paused; }
+  .mq__pause { display: inline-flex; }
   @keyframes mq-run { to { transform: translateX(-50%); } }
 }
 </style>
@@ -48,6 +53,7 @@ tags: marquee, ticker, running text, loop, scrolling text, banner, motion
   "category": "text",
   "settings": [
     { "type": "text", "id": "label", "label": "What it lists (read aloud)", "default": "Coming up" },
+    { "type": "text", "id": "pause_label", "label": "Pause switch (empty hides it)", "default": "Pause" },
     { "type": "range", "id": "speed", "label": "Seconds per loop", "min": 15, "max": 90, "step": 5, "unit": "s", "default": 40 },
     { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
   ],
