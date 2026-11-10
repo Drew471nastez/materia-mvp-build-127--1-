@@ -1,12 +1,13 @@
 {# example
 title: Minimal header with a full screen menu of its own
-summary: Chrome kit header. Only the name, a bag count and one Menu button in the bar; the button opens the header's own full screen menu (data-storelib-menu-panel: a dialog with focus kept inside, Escape and its close button shut it) with the site's menu set huge on one side and a picture with a line and a link on the other, plus contact, socials and language and currency switches. Bar position, type size, picture, which parts show and motion strength are settings; social links are blocks.
+summary: Chrome kit header. Only the name, search, a bag count and one Menu button in the bar; the button opens the header's own full screen menu (data-storelib-menu-panel: a dialog with focus kept inside, Escape and its close button shut it) with the site's menu set huge on one side and a picture with a line and a link on the other, plus contact, socials and language and currency switches. Bar position, type size, picture, which parts show and motion strength are settings; social links are blocks.
 tags: chrome kit, header, minimal header, hamburger, full screen menu, fullscreen menu, overlay menu, menu drawer, studio, agency, portfolio, own chrome, site header
 #}
 <template>
 <header class="hmn" data-pos="{{ settings.position }}" data-motion="{{ settings.motion }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --hmn-big: {{ settings.menu_size }}; --m-k: calc({{ settings.motion_strength }} / 100);">
   <div class="hmn__bar">
     <a class="hmn__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="140" height="36">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
+    {% if settings.show_search %}<a class="hmn__btn hmn__bag" href="{{ routes.search_url }}" data-storelib-search>{{ settings.search_label }}</a>{% endif %}
     <a class="hmn__btn hmn__bag" href="{{ routes.cart_url }}" data-storelib-cart>{{ settings.cart_label }} <span class="hmn__count" data-storelib-cart-count></span></a>
     <button class="hmn__btn hmn__open" type="button" data-storelib-menu="{{ settings.menu.handle }}"><span class="hmn__dots" aria-hidden="true"></span>{{ settings.menu_label }}</button>
   </div>
@@ -42,6 +43,9 @@ tags: chrome kit, header, minimal header, hamburger, full screen menu, fullscree
 </template>
 
 <style scoped>
+.hmn, .hmn *, .hmn *::before, .hmn *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.hmn [hidden] { display: none !important; }
 .hmn { position: relative; z-index: 40; color: var(--s-text); }
 .hmn[data-pos="pinned"] .hmn__bar { position: fixed; inset: 0 0 auto; }
 .hmn[data-pos="pinned"]::after { content: ""; display: block; height: 64px; }
@@ -111,6 +115,8 @@ tags: chrome kit, header, minimal header, hamburger, full screen menu, fullscree
     { "type": "text", "id": "menu_label", "label": "Menu button", "default": "Menu" },
     { "type": "text", "id": "close_label", "label": "Close button", "default": "Close" },
     { "type": "text", "id": "cart_label", "label": "Bag", "default": "Bag" },
+    { "type": "checkbox", "id": "show_search", "label": "Show search", "default": true },
+    { "type": "text", "id": "search_label", "label": "Search", "default": "Search" },
     { "type": "header", "id": "hdr_motion", "label": "Motion" },
     { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
     { "type": "range", "id": "motion_strength", "label": "Strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },

@@ -26,6 +26,9 @@ tags: chrome kit, language selector, currency selector, locale switcher, languag
 </template>
 
 <style scoped>
+.loc, .loc *, .loc *::before, .loc *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.loc [hidden] { display: none !important; }
 .loc { padding: var(--loc-py, 12px) var(--theme-padding-x, 16px); background: var(--s-bg); color: var(--s-text); font-size: 0.9375rem; }
 .loc__row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
 .loc[data-align="center"] .loc__row, .loc[data-align="center"] .loc__sentence { justify-content: center; text-align: center; }

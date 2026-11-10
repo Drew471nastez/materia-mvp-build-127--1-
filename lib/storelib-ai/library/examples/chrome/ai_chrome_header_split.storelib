@@ -29,6 +29,9 @@ tags: chrome kit, header, centered logo, centred logo, split nav, split navigati
 </template>
 
 <style scoped>
+.hsp, .hsp *, .hsp *::before, .hsp *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.hsp [hidden] { display: none !important; }
 .hsp { position: relative; z-index: 40; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
 .hsp__util { display: none; }
 .hsp__bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: var(--hsp-pad) var(--theme-padding-x, 16px); max-width: var(--theme-page-width, 1440px); margin: 0 auto; }

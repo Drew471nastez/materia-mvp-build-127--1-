@@ -21,6 +21,9 @@ tags: chrome kit, footer, image footer, photo footer, full bleed footer, backgro
 </template>
 
 <style scoped>
+.fim, .fim *, .fim *::before, .fim *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.fim [hidden] { display: none !important; }
 .fim { container-type: inline-size; position: relative; isolation: isolate; overflow: hidden; display: flex; min-height: var(--fim-h, 80svh); background: var(--s-bg); color: var(--s-text); }
 .fim__media { position: absolute; inset: -8% 0; z-index: -2; }
 .fim__media img { display: block; width: 100%; height: 100%; object-fit: cover; }

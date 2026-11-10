@@ -31,6 +31,9 @@ tags: chrome kit, footer, sitemap footer, site map, directory footer, grid foote
 </template>
 
 <style scoped>
+.fsm, .fsm *, .fsm *::before, .fsm *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.fsm [hidden] { display: none !important; }
 .fsm { container-type: inline-size; padding: clamp(48px, 7vw, 96px) var(--theme-padding-x, 16px) 20px; background: var(--s-bg); color: var(--s-text); }
 .fsm__title { margin: 0 0 24px; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.75rem, 1.2rem + 2.4vw, 3.25rem); line-height: 1; letter-spacing: -0.03em; font-weight: 700; }
 .fsm__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--s-border); border-left: 1px solid var(--s-border); }

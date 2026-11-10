@@ -67,6 +67,9 @@ tags: chrome kit, header, mega menu, megamenu, dropdown, image cards, featured p
 </template>
 
 <style scoped>
+.hmg, .hmg *, .hmg *::before, .hmg *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.hmg [hidden] { display: none !important; }
 .hmg { position: relative; z-index: 40; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
 .hmg__bar { display: flex; align-items: center; gap: 16px; min-height: var(--hmg-h); padding: 0 var(--theme-padding-x, 16px); }
 .hmg__logo { display: inline-flex; align-items: center; min-height: 44px; color: var(--s-heading); text-decoration: none; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.25rem, 1rem + 0.8vw, 1.75rem); font-weight: 700; letter-spacing: -0.03em; }

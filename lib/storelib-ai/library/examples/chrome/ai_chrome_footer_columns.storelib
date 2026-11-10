@@ -48,6 +48,9 @@ tags: chrome kit, footer, multi column footer, columns, footer menus, link colum
 </template>
 
 <style scoped>
+.fcl, .fcl *, .fcl *::before, .fcl *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.fcl [hidden] { display: none !important; }
 .fcl { container-type: inline-size; padding: clamp(48px, 7vw, 96px) var(--theme-padding-x, 16px) 20px; background: var(--s-bg); color: var(--s-text); }
 .fcl__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 20px; }
 .fcl__brand { grid-column: 1 / -1; display: grid; gap: 12px; align-content: start; }

@@ -49,6 +49,9 @@ tags: chrome kit, menu drawer, side sheet, side menu, slide out menu, offcanvas,
 </template>
 
 <style scoped>
+.msh, .msh *, .msh *::before, .msh *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.msh [hidden] { display: none !important; }
 .msh__panel { position: fixed; inset: 0; z-index: 80; visibility: hidden; }
 .msh__panel[data-open="true"], .msh[data-editor-open] .msh__panel { visibility: visible; }
 .msh[data-editor-open] .msh__panel { position: relative; min-height: 640px; }
@@ -94,6 +97,7 @@ tags: chrome kit, menu drawer, side sheet, side menu, slide out menu, offcanvas,
   .msh:not([data-motion="off"]) .msh__panel[data-open="true"] .msh__root li { animation: msh-in var(--t-motion-duration, 650ms) var(--t-motion-ease, ease-out) both; animation-delay: calc(var(--i, 1) * var(--t-motion-stagger, 65ms) + 100ms); }
   @keyframes msh-in { from { opacity: 0; transform: translateX(calc(var(--t-motion-distance, 24px) * -1 * var(--m-k, 1))); } }
 }
+@media (min-width: 900px) { .msh__sheet { padding: 0 28px 28px; } .msh__head { min-height: 72px; } }
 @media (prefers-reduced-motion: reduce) { .msh__panel, .msh__sheet, .msh__scrim, .msh__level, .msh__root li { transition: none; animation: none; } }
 </style>
 

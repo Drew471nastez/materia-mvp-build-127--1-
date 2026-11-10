@@ -44,6 +44,9 @@ tags: chrome kit, menu drawer, bottom sheet, mobile menu, thumb zone, sheet, qui
 </template>
 
 <style scoped>
+.mbs, .mbs *, .mbs *::before, .mbs *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.mbs [hidden] { display: none !important; }
 .mbs__panel { position: fixed; inset: 0; z-index: 80; visibility: hidden; }
 .mbs__panel[data-open="true"], .mbs[data-editor-open] .mbs__panel { visibility: visible; }
 .mbs[data-editor-open] .mbs__panel { position: relative; min-height: 680px; }

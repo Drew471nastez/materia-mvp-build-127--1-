@@ -35,6 +35,9 @@ tags: chrome kit, cart drawer, minimal cart, full height cart, typographic cart,
 </template>
 
 <style scoped>
+.cmn, .cmn *, .cmn *::before, .cmn *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.cmn [hidden] { display: none !important; }
 .cmn__panel { position: fixed; inset: 0; z-index: 85; visibility: hidden; pointer-events: none; }
 .cmn__panel[data-open="true"], .cmn[data-editor-open] .cmn__panel { visibility: visible; pointer-events: auto; }
 .cmn[data-editor-open] .cmn__panel { position: relative; min-height: 680px; }

@@ -23,6 +23,9 @@ tags: chrome kit, footer, giant wordmark, big type footer, huge logo footer, bra
 </template>
 
 <style scoped>
+.fwm, .fwm *, .fwm *::before, .fwm *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.fwm [hidden] { display: none !important; }
 .fwm { container-type: inline-size; overflow: hidden; padding: clamp(56px, 9vw, 120px) var(--theme-padding-x, 16px) 20px; background: var(--s-bg); color: var(--s-text); }
 .fwm__top { display: grid; gap: 20px; justify-items: start; max-width: 880px; }
 .fwm__line { margin: 0; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.75rem, 1.1rem + 3vw, 3.5rem); line-height: 1.02; letter-spacing: -0.03em; font-weight: 600; text-wrap: balance; }

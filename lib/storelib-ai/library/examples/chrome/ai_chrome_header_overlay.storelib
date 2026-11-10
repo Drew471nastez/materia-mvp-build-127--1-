@@ -36,6 +36,9 @@ tags: chrome kit, header, transparent header, over hero, solid on scroll, sticky
 </template>
 
 <style scoped>
+.hov, .hov *, .hov *::before, .hov *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.hov [hidden] { display: none !important; }
 .hov { position: relative; z-index: 40; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
 .hov[data-mode="overlay"], .hov[data-mode="pinned"] { position: fixed; inset: 0 0 auto; }
 .hov-space { display: none; }

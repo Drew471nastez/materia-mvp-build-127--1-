@@ -41,6 +41,9 @@ tags: chrome kit, search, search panel, search overlay, full screen search, live
 </template>
 
 <style scoped>
+.sfs, .sfs *, .sfs *::before, .sfs *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.sfs [hidden] { display: none !important; }
 .sfs__panel { position: fixed; inset: 0; z-index: 90; overflow-y: auto; overscroll-behavior: contain; background: var(--s-bg); color: var(--s-text); visibility: hidden; opacity: 0; }
 .sfs__panel[data-open="true"], .sfs[data-editor-open] .sfs__panel { visibility: visible; opacity: 1; }
 .sfs[data-editor-open] .sfs__panel { position: relative; min-height: 640px; }

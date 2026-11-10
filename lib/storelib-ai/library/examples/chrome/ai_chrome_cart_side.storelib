@@ -59,6 +59,9 @@ tags: chrome kit, cart drawer, side cart, slide out cart, mini cart, upsell, cro
 </template>
 
 <style scoped>
+.csd, .csd *, .csd *::before, .csd *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.csd [hidden] { display: none !important; }
 .csd__panel { position: fixed; inset: 0; z-index: 85; visibility: hidden; }
 .csd__panel[data-open="true"], .csd[data-editor-open] .csd__panel { visibility: visible; }
 .csd[data-editor-open] .csd__panel { position: relative; min-height: 720px; }

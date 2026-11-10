@@ -34,6 +34,9 @@ tags: chrome kit, footer, newsletter footer, signup, sign up, subscribe, email c
 </template>
 
 <style scoped>
+.fnl, .fnl *, .fnl *::before, .fnl *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.fnl [hidden] { display: none !important; }
 .fnl { container-type: inline-size; padding: clamp(56px, 9vw, 128px) var(--theme-padding-x, 16px) 20px; background: var(--s-bg); color: var(--s-text); }
 .fnl__lead { display: grid; gap: 28px; }
 .fnl__promise { margin: 0; max-width: 16ch; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: calc(clamp(2.25rem, 1.2rem + 5vw, 5.5rem) * var(--fnl-size, 100) / 100); line-height: 0.98; letter-spacing: -0.04em; font-weight: 700; text-wrap: balance; }

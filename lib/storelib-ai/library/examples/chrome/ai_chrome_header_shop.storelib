@@ -25,6 +25,9 @@ tags: chrome kit, header, shop header, store header, sticky header, compact head
 </template>
 
 <style scoped>
+.hsh, .hsh *, .hsh *::before, .hsh *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.hsh [hidden] { display: none !important; }
 .hsh { --hsh-row: 60px; --hsh-tabs: 48px; position: relative; z-index: 40; color: var(--s-text); }
 .hsh__fix { position: fixed; inset: 0 0 auto; background: var(--s-bg); border-bottom: 1px solid var(--s-border); }
 .hsh__space { height: calc(var(--hsh-row) + var(--hsh-tabs) + 52px); }
