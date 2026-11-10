@@ -188,7 +188,8 @@ export interface SlotResult {
 }
 
 /** One slot: searched, copied, written (with alt text), credited. Never throws. */
-export async function fillSlot(job: SlotJob, deps: ImageDeps, used: Set<string>, schemas?: SchemaMap): Promise<SlotResult> {
+/** `keepSet`: a block that already holds a picture keeps it (the native engine may have set one of the creator's own). */
+export async function fillSlot(job: SlotJob, deps: ImageDeps, used: Set<string>, schemas?: SchemaMap, opts: { keepSet?: boolean } = {}): Promise<SlotResult> {
   const out: SlotResult = { ops: [], credits: [], missing: [] }
   const { section, slot, brief } = job
   let results: OpenverseImage[] = []
@@ -199,9 +200,9 @@ export async function fillSlot(job: SlotJob, deps: ImageDeps, used: Set<string>,
   }
   if (slot.startsWith("block:")) {
     const type = slot.slice(6)
-    const blocks = (section.blocks ?? []).filter((b) => b.type === type)
     const spec = blockSpecs(section.type, schemas).find((b) => b.type === type)
     const imageId = spec?.fields.find((f) => f.type === "image_picker")?.id ?? "image"
+    const blocks = (section.blocks ?? []).filter((b) => b.type === type && !(opts.keepSet && typeof b.settings?.[imageId] === "string" && b.settings[imageId]))
     const blockIds = new Set((spec?.fields ?? []).map((f) => f.id))
     const ranked = rankImages(results, brief.aspect, used, 700)
     for (const block of blocks) {

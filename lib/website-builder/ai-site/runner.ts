@@ -24,6 +24,8 @@ import { agentStore } from "./agent-store"
 import { agentStepperFactory, maxLiveAgentJobs } from "./agent-engine"
 import { PLAN_MODEL, SMALL_MODEL, WRITE_MODEL, type Models } from "./models"
 import { claimJob, imageDeps, jobToken, loadJob, releaseJob, RUN_BUDGET_MS, saveJob, siteIO } from "./server"
+import { nativeEngineEnabled } from "./native/flag"
+import { nativeServerDeps } from "./native/server"
 
 /** The three models, answered on the creator's own Claude key when they connected one. */
 export async function jobModels(creatorId: string): Promise<Models> {
@@ -59,6 +61,8 @@ export async function jobDeps(job: Job, opts: { deadline: number; save?: (job: J
     },
     schemas: SECTION_SCHEMAS,
     addable: [...ADDABLE_SECTIONS],
+    /* Round R (R2): the whole site as native sections in one structured call, unless AI_NATIVE_ENGINE is off. */
+    native: nativeEngineEnabled() ? nativeServerDeps(admin, job) : undefined,
     save: opts.save ?? ((j) => saveJob(admin, j)),
     deadline: opts.deadline,
   }
