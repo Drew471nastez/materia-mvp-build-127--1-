@@ -13,7 +13,7 @@ version: 1
 ---
 **Visitor**: wants the next class they can make, its level and how to book.
 
-**Style**: experimental fitness or calm wellness depending on the studio. Seeds: Studio Floor, Quiet Strength.
+**Style**: experimental fitness or calm wellness depending on the studio. Seeds: Studio Floor, Modern Wellness (a geometric sans, not a serif).
 
 **Layout moves**: a timetable board with today first and level filters (tabs that work by keyboard); class types as sticky stacked cards; teachers as a hover image reveal list; pricing as a plain table of passes from the store's products; first class guidance as an accordion.
 

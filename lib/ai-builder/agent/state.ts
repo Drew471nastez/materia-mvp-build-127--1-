@@ -8,6 +8,8 @@ import type { RuntimeCapabilities } from "../runtime-contract"
 import type { AgentCheckpoint } from "../types"
 import type { VisualConcept } from "./concept"
 import type { SitePlan } from "./site-plan"
+import type { CreativeBrief } from "@/lib/storelib-ai/direction/brief"
+import type { ReferenceHint } from "@/lib/storelib-ai/direction/choose"
 import type { CriticScores, CriticStatus } from "../visual-critic/types"
 
 /** The design review's rounds so far (round O, O4): small, no pictures. */
@@ -32,6 +34,10 @@ import type { SiteFingerprint } from "../novelty"
 export interface LoopCheckpoint extends AgentCheckpoint {
   /** The accepted visual concept. Writes wait for it on a new website. */
   concept?: VisualConcept
+  /** Round O (O2): the creative brief, read from the request and the store, refined by the plan. */
+  brief?: CreativeBrief
+  /** Round O (O2): the chosen art direction (ids; directions.ts), and the seed it was chosen with. */
+  direction?: { primary: string; secondary: string | null; typeSystem: string; seed: string; refs?: ReferenceHint[] }
   /** Round N (N3): every page and template with its sections. A new website's writes wait for it too. */
   sitePlan?: SitePlan
   /** Round O (spec 8.4): this site's fingerprint at its last verify, read by later jobs for the novelty check. Short words only. */

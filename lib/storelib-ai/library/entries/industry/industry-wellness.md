@@ -15,7 +15,7 @@ version: 1
 
 **Structure**: hero with the practice and place (or online) -> what a session is like, in plain steps -> the practitioner -> offerings with duration and price from the store -> timetable or booking -> what to bring, accessibility, cancellation -> location and contact.
 
-**Visual**: avoid the default sage green plus beige plus script font. Options: a mineral palette (stone, slate, chalk) with a geometric sans; a warm terracotta and ink palette with a sturdy grotesk (not with an italic serif and mono caps on cream, the editorial-serif cliché); a deep forest night palette for evening classes and sound baths. Photography of real rooms, hands and light; never stock lotus poses.
+**Visual**: avoid the default sage green plus beige plus script font. Options: a mineral palette (stone, slate, chalk) with a geometric sans; a warm clay and ink palette with a humanist sans (never cream, italic serif, mono caps labels and a terracotta button together); a deep forest night palette for evening classes and sound baths. Photography of real rooms, hands and light; never stock lotus poses.
 
 **Motion**: subtle. Slow fades (400 to 600ms), no bouncing, nothing that loops in the reading area. Breath based pacing is a cliché unless the brand is breathwork.
 

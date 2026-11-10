@@ -200,7 +200,9 @@ async function main() {
   check("the job completes", r1.status === "complete", { status: r1.status, summary: r1.summary, events: r1.events.filter((e) => e.kind === "tool" && !e.ok) })
   check("the first call is the plan model, the rest the loop model", plan.calls === 1 && loop.calls >= 7, { plan: plan.calls, loop: loop.calls })
   const toolEvents = r1.events.filter((e): e is Extract<AgentEvent, { kind: "tool" }> => e.kind === "tool")
-  check("a write before the concept was refused and nothing was saved then", toolEvents[0]?.tool === "write_file" && toolEvents[0].ok === false && store.versions[0]?.path === "sections/ai_coach_header.storelib")
+  check("a write before the concept was refused and nothing was saved then", toolEvents[0]?.tool === "write_file" && toolEvents[0].ok === false && store.versions.filter((v) => v.path !== "DESIGN.md")[0]?.path === "sections/ai_coach_header.storelib")
+  /* Changed on purpose (round O, O2): the accepted concept is written as the site's DESIGN.md first, so the first component file is the first version after it. */
+  check("the accepted concept became the site's DESIGN.md, before any component", store.versions[0]?.path === "DESIGN.md" && /^---\nversion: alpha\n/.test(store.project.files["DESIGN.md"] ?? ""))
   const own = Object.keys(files(store)).filter((p) => /^sections\/ai_/.test(p))
   /* Changed on purpose (round N, N3): a whole site, ten of its own on home and the product and collection templates. */
   check("fifteen original component files: the five, eight more for a home of ten, the product and collection templates", own.length === 15, own)

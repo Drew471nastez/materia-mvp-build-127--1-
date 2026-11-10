@@ -44,6 +44,8 @@ import { isSlopDisplayFont } from "@/lib/storelib-ai/library/type-systems"
 import { schemaInfo, siteRoutes, typeOfPath, unknownBindingIds, validateFile, validateSite, errorsOf } from "./validate"
 import { describeSitePlan, isTemplateKey, readSitePlan, templatesFor } from "./site-plan"
 import { versionOf } from "./version"
+import { conceptDirectionIssues, contractMetaAfter, refineBrief, syncContractFile, writeContract } from "./direction"
+import { protectOverrides } from "../design-contract"
 
 /** Whether form bindings are drawn by the editor: what the job says, else whether the control registry has form_picker (L4). */
 export function formPickerOn(deps: Pick<AgentDeps, "features">): boolean {
@@ -493,6 +495,9 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       const wait = blocked()
       if (wait) return { ok: false, changed: [], issues: [{ severity: "error", code: wait.code, message: wait.message }] }
       const current = await store.readSettings()
+      /* Round O (O2): tokens the creator changed since the AI last set them are theirs; kept unless the request asks for that kind of change. */
+      const guarded = tokens ? protectOverrides(tokens as never, current, job.prompt) : { tokens, kept: [] as string[] }
+      if (guarded.kept.length) tokens = guarded.tokens as typeof tokens
       /* Round N: the overused faces are never the headline font unless the concept allows "default-fonts" (the creator named one). */
       const fontIssues: ValidationIssue[] = []
       const allowDefaults = ((cp.concept as { allow?: string[] } | undefined)?.allow ?? []).includes("default-fonts")
@@ -510,7 +515,13 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       const write = { ...mapped.settings, ...(declared?.settings ?? {}) }
       const changed = Object.keys(write).filter((k) => JSON.stringify(current[k]) !== JSON.stringify(write[k]))
       const issues = [...mapped.issues, ...(declared?.issues ?? [])]
-      if (changed.length) await store.writeSettings(write)
+      if (guarded.kept.length) issues.push({ severity: "warning", code: "token.user_override", message: `Kept what the creator set in Theme settings: ${guarded.kept.join(", ")}. Change these only when the request asks for it.` })
+      if (changed.length) {
+        /* Round O (O2): the contract's metadata records the AI's values; DESIGN.md follows the new settings. */
+        const after = { ...current, ...write }
+        await store.writeSettings({ ...write, ...contractMetaAfter(current, after) })
+        await syncContractFile(store, job, after)
+      }
       if (changed.length) ctx.emit({ kind: "tokens", changed })
       /* Nothing set is not ok, whatever the reason (round M): every value refused, or no tokens sent. */
       if (!changed.length) return { ok: false, changed: [], issues: issues.length ? issues.map((i) => ({ ...i, severity: "error" as const })) : [{ severity: "error", code: "token.none", message: "No token was set: send colors, fonts, radius, spacing or the other DesignTokens fields, or settings." }] }
@@ -563,16 +574,28 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       return { ok: r.ok, issues: r.issues.slice(0, 30), htmlBytes: r.htmlBytes }
     },
 
-    async report_progress({ phase, label, concept, tasks, pages }) {
+    async report_progress({ phase, label, concept, tasks, pages, brief }) {
       if (Array.isArray(tasks)) cp.openTasks = tasks.filter((t) => typeof t === "string").map((t) => t.slice(0, 160)).slice(0, 20)
       const notes: string[] = []
+      /* Round O (O2): the plan model's refinements to the creative brief, within its shape. */
+      if (brief !== undefined && cp.brief) cp.brief = refineBrief(cp.brief, brief)
       if (concept !== undefined) {
-        const read = readConcept(concept)
+        const read0 = readConcept(concept)
+        /* Round O (O2): an otherwise valid concept is checked against the chosen art direction (a display serif nobody asked for, the editorial-serif AI look, the creator's colours dropped, a named style ignored). */
+        const fit = read0.ok === true ? conceptDirectionIssues(read0.concept, cp) : { errors: [], warnings: [] }
+        const read: ReturnType<typeof readConcept> = read0.ok === true && fit.errors.length ? { ok: false, missing: fit.errors } : read0
         if (read.ok === true) {
           cp.concept = read.concept
-          notes.push(`Concept "${read.concept.name}" accepted. Keep to it:\n${describeConcept(read.concept)}`)
+          notes.push(`Concept "${read.concept.name}" accepted. Keep to it:
+${describeConcept(read.concept)}${fit.warnings.length ? `
+Notes: ${fit.warnings.join(" ")}` : ""}`)
           /* Round O (O3): the editorial-serif cliché by the concept's own words, unless the creator asked for that look. Refused at finish if built. */
           for (const w of conceptClicheIssues(read.concept, job.prompt)) notes.push(`Warning: ${w.message}`)
+          /* The accepted concept becomes the site's design contract, DESIGN.md (a new website or a full redesign). */
+          if (!job.edit && job.redesign !== "changes") {
+            const problem = await writeContract(store, job, cp, read.concept)
+            if (problem) notes.push(problem)
+          }
         } else {
           /*
             A refused concept is a refusal, not a success with a footnote (round M): before, this answered

@@ -45,9 +45,13 @@ import { createToolSet, renderPage, validateAll, type EventDraft } from "./tools
 import { directionsFor, libraryKnowledge, libraryReferences, librarySlop } from "./knowledge"
 import { referencesForPrompt } from "@/lib/storelib-ai/references/prompt"
 import type { AgentImage } from "@/lib/sites/agent/attachments"
+import { contractBlock, planDirection } from "./direction"
+import type { DesignReference } from "@/lib/storelib-ai/references"
+import type { CreativeBrief } from "@/lib/storelib-ai/direction/brief"
+import type { DirectionChoice } from "@/lib/storelib-ai/direction/choose"
 import { errorsOf } from "./validate"
 import { completenessIssues } from "./site-plan"
-import { jobDesignBrief } from "./design-brief"
+import { MAX_REFERENCES, jobDesignBrief } from "./design-brief"
 import { surfaceRules } from "@/lib/storelib-ai/surfaces"
 import { noveltyIssues, siteFingerprint } from "../novelty"
 import { themeSettingsToTokens } from "../tokens"
@@ -179,20 +183,36 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     const search = deps.knowledge ?? libraryKnowledge({ industry, caps: () => caps })
     const knowledge = (await search({ query: job.prompt.slice(0, 500), industry, limit: 5 }).catch(() => [])) as KnowledgeHit[]
     const scoped = job.edit || job.redesign === "changes"
-    const directions = scoped ? [] : directionsFor(industry ?? job.prompt.slice(0, 80), job.creatorId)
     /*
-      Round O (O1): the visual references for this brief, chosen once (deterministic) and kept by id. Those with a
-      picture (the admin's screenshots) are LOOKED AT in the plan phase: the pictures ride with the first turn
-      (withReferenceImages below), and the block says which image is which reference.
+      Round O (O1 + O2 + O6): creative direction before generation. The visual references for this brief are
+      chosen once (deterministic, O1: built in records and the admin's screenshots) and kept by id; those with a
+      picture are LOOKED AT in the plan phase (withReferenceImages below). A new website (or a full redesign) gets
+      a CreativeBrief and an art direction fitted to the business, chosen with those references (O2), kept in the
+      checkpoint so the concept is checked against the direction the model was shown; O6's jobDesignBrief puts it
+      in the first turn. An edit gets the site's DESIGN.md with the creator's overrides and the keep-the-brand rule.
     */
-    const references = deps.references ?? libraryReferences
-    const refs = scoped ? [] : await references.search({ query: job.prompt.slice(0, 1_000), industry, limit: 4 }).catch(() => [])
+    let directions: ReturnType<typeof directionsFor> = scoped ? [] : directionsFor(industry ?? job.prompt.slice(0, 80), job.creatorId)
+    let direction: { brief: CreativeBrief; choice: DirectionChoice } | undefined
+    const referenceSource = deps.references ?? libraryReferences
+    const refs: DesignReference[] = scoped ? [] : [...(await referenceSource.search({ query: job.prompt.slice(0, 1_000), industry, limit: 4 }).catch(() => []))]
     const pictured = refs.filter((r) => r.image).map((r) => r.id).slice(0, 4)
-    const shown = pictured.length ? await references.images(pictured).catch(() => []) : []
+    const shown = pictured.length ? await referenceSource.images(pictured).catch(() => []) : []
     cp.references = refs.map((r) => r.id)
     cp.referenceImages = shown.map((x) => x.id)
-    /* Round O (O6): the job's design brief (O2's brief and direction, O1's references as text, O5's site story and motion); an edit gets its DESIGN.md and keep-the-brand instead. */
-    const design = await jobDesignBrief({ job, caps, files, references: { list: refs, withImages: cp.referenceImages } }).catch(() => null)
+    if (!scoped) {
+      try {
+        const hints = refs.map((r) => ({ id: r.id, styles: r.styleTags, industries: r.industries }))
+        const plan = planDirection(job, caps, hints)
+        cp.brief = plan.brief
+        cp.direction = { primary: plan.choice.primary.id, secondary: plan.choice.secondary?.id ?? null, typeSystem: plan.choice.typeSystem.id, seed: plan.choice.seed, ...(hints.length ? { refs: hints } : {}) }
+        directions = plan.seeds
+        direction = { brief: plan.brief, choice: plan.choice }
+      } catch {
+        /* the library's seeds stay; the brief is made in jobDesignBrief */
+      }
+    }
+    const contract = scoped ? await contractBlock(deps.store) : ""
+    const design = await jobDesignBrief({ job, caps, files, references: { list: refs, withImages: cp.referenceImages }, ...(direction ? { direction } : {}), ...(contract ? { contract } : {}) }).catch(() => null)
     cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages, files, knowledge, directions, design }) })
     if (scoped) setPhase("build", "Making your change")
     else setPhase("plan", "Deciding the look")

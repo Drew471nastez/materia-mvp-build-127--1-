@@ -42,6 +42,27 @@ export const TYPE_LIBRARY_FAMILIES: readonly string[] = [
   "Karla", "Jost", "Nunito Sans", "IBM Plex Sans", "Alegreya Sans", "Lexend", "Atkinson Hyperlegible",
   "Anton", "Archivo Narrow", "Barlow Condensed", "Antonio", "League Gothic",
   "Space Mono", "IBM Plex Mono", "JetBrains Mono", "DM Mono",
+  /*
+    Round O (O2, lib/storelib-ai/direction): the directions past editorial
+    serif. Condensed sport (Saira Condensed, Teko, Barlow), geometric
+    (Outfit, Urbanist, Albert Sans), neo grotesk (Mona Sans, Host Grotesk,
+    Chivo, Epilogue, Darker Grotesque, Funnel Display, Archivo Black), wide
+    (Syncopate, Michroma, Krona One), slab (Zilla Slab, Bitter), rounded
+    (Varela Round, Baloo 2), poster (Bowlby One), Y2K and pixel (Orbitron,
+    Rubik Mono One, Silkscreen), mono led (Martian Mono, Azeret Mono) and
+    Japanese minimal (Zen Kaku Gothic New, Shippori Mincho). Google Fonts,
+    SIL Open Font License; weights from Google's metadata in font-link.ts.
+  */
+  "Saira Condensed", "Teko", "Barlow",
+  "Outfit", "Urbanist", "Albert Sans",
+  "Mona Sans", "Host Grotesk", "Chivo", "Epilogue", "Darker Grotesque", "Funnel Display", "Archivo Black",
+  "Syncopate", "Michroma", "Krona One",
+  "Zilla Slab", "Bitter",
+  "Varela Round", "Baloo 2",
+  "Bowlby One",
+  "Orbitron", "Rubik Mono One", "Silkscreen",
+  "Martian Mono", "Azeret Mono",
+  "Zen Kaku Gothic New", "Shippori Mincho",
 ]
 
 const LIBRARY_OPTIONS: SelectOption[] = TYPE_LIBRARY_FAMILIES.map((f) => ({ label: f, value: f }))

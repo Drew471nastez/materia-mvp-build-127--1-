@@ -126,7 +126,9 @@ async function main() {
   section("3. The files: ai_ .storelib components, drafts, compiled, history says ai")
   const { compileSection } = await import("@/lib/storelib-theme/storelib/compile")
   const files = installFiles(w, installId)
-  const paths = Object.keys(files).sort()
+  /* Changed on purpose (round O, O2): the site's design contract, DESIGN.md, sits beside the components (a draft, author ai); the section files are counted apart from it. */
+  const paths = Object.keys(files).filter((p) => p !== "DESIGN.md").sort()
+  check("the design contract DESIGN.md is a draft beside them, in Google's format", !!files["DESIGN.md"]?.draft && !files["DESIGN.md"].content && /^---\nversion: alpha\n/.test(files["DESIGN.md"].draft ?? ""))
   check("fifteen section files (a home of ten, the two templates), every one ai_ and .storelib", paths.length === 15 && paths.every((p) => /^sections\/ai_[a-z0-9_]+\.storelib$/.test(p)), paths)
   check("  drafts only: nothing live before Publish", paths.every((p) => !files[p].content && !!files[p].draft))
   check("  each compiles with the real compiler", paths.every((p) => compileSection(files[p].draft ?? "").ok), paths.map((p) => [p, compileSection(files[p].draft ?? "").ok]))
@@ -293,6 +295,26 @@ async function main() {
   check("  its view: complete, nothing new, no runner started again", view.status === 200 && view.json?.status === "complete" && view.json?.events?.length === 0 && w.kicks.every((k) => k.jobId !== jobId))
   const homeAgain = await j.call(`GET /api/website-builder/themes/${installId}/sections?page=home`, { as: coach.person })
   check("  the page as published, with the edited heading", (homeAgain.json?.sections ?? []).find((s: { type: string }) => s.type === "ai_coach_hero")?.settings?.heading === "Strength for real life")
+
+  section("12. DESIGN.md and Theme settings stay one, through the real routes (round O, O2)")
+  {
+    const { themeSettingsToTokens } = await import("@/lib/ai-builder/tokens")
+    const { tokensToThemeSettings: agentTokens } = await import("@/lib/ai-builder/agent/tokens")
+    const draft0 = installSettings(w, installId).draft ?? installSettings(w, installId).settings
+    const t0 = themeSettingsToTokens(draft0)
+    const panel = { ...draft0, ...agentTokens({ colors: { ...t0.colors, accent: "#ffd400", accentText: "#0b0b0b" } }, draft0).settings }
+    const put = await j.call(`PUT /api/website-builder/themes/${installId}/settings`, { as: coach.person, body: { draft_settings: panel } })
+    const md1 = installFiles(w, installId)["DESIGN.md"]?.draft ?? ""
+    check("a Theme settings save rewrites DESIGN.md's front matter (the draft)", put.status === 200 && /\n {2}primary: "#ffd400"\n/.test(md1), { status: put.status, md: md1.slice(0, 300) })
+    const edited = md1.replace(/\n {2}primary: "#ffd400"\n/, '\n  primary: "#1f4fd1"\n')
+    const save = await j.call(`PUT /api/website-builder/themes/${installId}/files`, { as: coach.person, body: { path: "DESIGN.md", content: edited } })
+    const draft1 = installSettings(w, installId).draft ?? {}
+    check("a DESIGN.md save in the code editor sets the accent in Theme settings", save.status === 200 && themeSettingsToTokens(draft1).colors.accent === "#1f4fd1", { status: save.status, json: save.json, accent: themeSettingsToTokens(draft1).colors.accent })
+    const versions = j.rows("store_theme_file_versions").filter((v) => v.install_id === installId && v.path === "DESIGN.md")
+    check("  versioned like every file: the AI's first, then the creator's", versions.length >= 3 && versions[0].author === "ai" && versions[versions.length - 1].author === "creator", versions.map((v) => v.author))
+    const broken = await j.call(`PUT /api/website-builder/themes/${installId}/files`, { as: coach.person, body: { path: "DESIGN.md", content: "---\nname: X\ncolors:\n  primary: \"#000000\"\n" } })
+    check("a DESIGN.md that does not read is refused with its line, and changes nothing", broken.status === 422 && themeSettingsToTokens(installSettings(w, installId).draft ?? {}).colors.accent === "#1f4fd1" && /line/.test(JSON.stringify(broken.json)), { status: broken.status, json: broken.json })
+  }
 
   check("no server errors on the way", j.serverErrors.length === 0 && j.afterErrors.length === 0, { server: j.serverErrors, after: j.afterErrors })
   done()
