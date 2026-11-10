@@ -52,11 +52,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { usePhone } from "@/components/app/date-range-picker"
 import { secondaryDepth } from "@/components/ui/depth-button"
-import { familyOf, fontStack, onePageFontSampleHref } from "@/lib/onepage/fonts"
+import { familyOf, fontStack, onePageFontHref, onePageFontSampleHref } from "@/lib/onepage/fonts"
 import { AVATAR_BORDER_MAX, AVATAR_RADIUS_DEFAULT, AVATAR_RADIUS_MAX, avatarBorderWidth, avatarRadius, avatarShapeOf, avatarSizeOf, bioWeightOf, caseOf, textSizeOf, titleWeightOf, trackingOf } from "@/lib/onepage/header-style"
 import { PILL_FROM, PILL_RADIUS, type ButtonHover, buttonAlign, buttonFill, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow, buttonShape, buttonSize, themeButtonStyle } from "@/lib/onepage/button-style"
 import { normalizeHex } from "@/lib/onepage/color"
-import { WALLPAPER_PATTERNS, isPatternId, patternStyle, type PatternOpacity } from "@/lib/onepage/wallpaper"
+import { NAME_STYLES, nameColours, nameStyleCss, nameStyleOf, type NameStyle } from "@/lib/onepage/name-style"
+import { WALLPAPER_PATTERNS, canonicalPatternId, isAutoInk, isPatternId, patternStyle, resolvedPatternInk, wallpaperIsDark, type PatternOpacity } from "@/lib/onepage/wallpaper"
 import { WallpaperPattern } from "@/components/onepage/wallpaper-layers"
 import { PillTabs } from "@/components/onepage/pill-tabs"
 import { LAYER_LEAVE_MS, LAYER_MOTION_EASE, LAYER_MOTION_MS, LAYER_PHONE, startWhenFramesFlow } from "@/components/app/page-layer"
@@ -171,6 +172,15 @@ const TITLE_FONTS = [
   { name: "Figtree", value: "'Figtree', sans-serif" },
   { name: "Fredoka", value: "'Fredoka', sans-serif" },
   { name: "Geist Mono", value: "'Geist Mono', monospace" },
+  /* Round W10: popular display faces for a name (lib/onepage/fonts ONEPAGE_FONTS). */
+  { name: "Syne", value: "'Syne', sans-serif" },
+  { name: "Unbounded", value: "'Unbounded', sans-serif" },
+  { name: "DM Serif Display", value: "'DM Serif Display', serif" },
+  { name: "Instrument Serif", value: "'Instrument Serif', serif" },
+  { name: "Shrikhand", value: "'Shrikhand', cursive" },
+  { name: "Great Vibes", value: "'Great Vibes', cursive" },
+  { name: "Yellowtail", value: "'Yellowtail', cursive" },
+  { name: "Rubik Mono One", value: "'Rubik Mono One', sans-serif" },
 ]
 
 /* Every name in the two lists above, drawn in its own face: one small request cut to the letters of the names (lib/onepage/fonts). */
@@ -380,8 +390,9 @@ const BASE_THEME_TEMPLATES = [
       card_width: "standard" as const,
       header_layout: "classic",
       laser_glow_enabled: false,
-      background_pattern: "zigzag",
-      pattern_color: "#e2dc9c90",
+      /* Round W10: Zigzag is gone; Cream is a soft butter gingham. */
+      background_pattern: "gingham",
+      pattern_color: "#d8c87a90",
       pattern_opacity: "low",
     },
     profile_layout: "classic" as const,
@@ -1487,7 +1498,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   const templateName = THEME_TEMPLATES.find((x) => x.id === theme.template_id)?.name
   const bodyFont = FONTS.find((f) => familyOf(f.value) === familyOf(theme.font_family))?.name || familyOf(theme.font_family) || "Inter"
   const titleFont = t.title_font ? familyOf(t.title_font) : null
-  const patternName = isPatternId(t.background_pattern) && (theme.background_type === "solid" || theme.background_type === "gradient") ? WALLPAPER_PATTERNS.find((x) => x.id === t.background_pattern)?.name.toLowerCase() : null
+  const patternName = isPatternId(t.background_pattern) && (theme.background_type === "solid" || theme.background_type === "gradient") ? WALLPAPER_PATTERNS.find((x) => x.id === canonicalPatternId(t.background_pattern))?.name.toLowerCase() : null
   const wallpaperSummary =
     theme.background_type === "gradient" ? tt("Gradient{value}", { value: patternName ? `, ${patternName}` : t.gradient_noise ? tt(", with grain") : "" }) :
     theme.background_type === "image" ? (theme.background_image_url ? tt("Image") : tt("Image, none chosen yet")) :
@@ -1685,6 +1696,75 @@ function StickyPanelBack({ panelRef, section, title, onBack }: { panelRef: React
       </div>
     </div>
   )
+}
+
+/*
+  ROUND W10: HOW THE NAME IS WRITTEN. "Add more styles so it can be
+  customised to how I want my name to be written, and creative fonts." The
+  name's face, then its style, each a square of the page's own wallpaper with
+  the name's first letters drawn exactly as the page will draw them
+  (lib/onepage/name-style), so the colours a style picks from the theme are
+  the ones seen here. "Theme" is what the page drew before: the theme's own
+  treatment, a skin's included. A chosen style replaces a skin's.
+*/
+function NameStyleRows() {
+  const { onepage, updateTheme } = useOnePage()
+  if (!onepage) return null
+  const theme = onepage.theme as unknown as Record<string, unknown>
+  const current = nameStyleOf(theme)
+  const titleFont = (theme.title_font as string | null) || null
+  const family = fontStack(titleFont || (theme.font_family as string))
+  const wall = theme.background_type === "gradient" && typeof theme.background_gradient === "string" && theme.background_gradient ? theme.background_gradient : theme.background_type === "solid" ? (theme.background_color as string) : nameColours(theme).dark ? "#1b1b1f" : "#f4f4f5"
+  const sample = (onepage.title || "").trim().slice(0, 2) || tt("Aa")
+  const sampleHref = onePageFontHref(familyOf(titleFont || (theme.font_family as string)), sample)
+  const tile = (id: NameStyle | null, label: string) => (
+    <ChoiceCard key={id ?? "theme"} selected={current === id} onClick={() => updateTheme({ name_style: id } as never)} label={label} className="p-1.5">
+      <span data-name-style-choice={id ?? "theme"} className="relative grid h-14 place-items-center overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" style={{ background: wall }}>
+        <span className="text-[22px] font-bold leading-none" style={{ fontFamily: family, color: (theme.title_color as string) || (theme.text_color as string) }}>
+          {id ? <span style={nameStyleCss(id, theme) as React.CSSProperties}>{sample}</span> : sample}
+        </span>
+      </span>
+    </ChoiceCard>
+  )
+  return (
+    <div className="mt-5 space-y-4" data-name-style-rows="">
+      {FONT_SAMPLE_HREF ? <link rel="stylesheet" href={FONT_SAMPLE_HREF} /> : null}
+      {/* The face first: the same list as Text, so the creative display faces are one tap from the name. */}
+      <FontPicker
+        label={tt("Name font")}
+        value={titleFont}
+        fonts={TITLE_FONTS.map((f) => ({ ...f, name: f.value ? f.name : "Same as page font" }))}
+        sampleFamily={theme.font_family as string}
+        defaultLabel={tt("Same as page font")}
+        onPick={(v) => updateTheme({ title_font: v } as never)}
+      />
+      {/* The squares' letters in the name's face: one tiny request cut to those letters. */}
+      {sampleHref ? <link rel="stylesheet" href={sampleHref} /> : null}
+      <div>
+        <p className="mb-2 text-[15px] font-medium text-[#1a1a2e]">{tt("Name style")}</p>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {tile(null, tt("Theme"))}
+          {NAME_STYLES.map((n) => tile(n.id, nameStyleLabel(n.id)))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** The name styles' names, in the creator's language. */
+function nameStyleLabel(id: NameStyle): string {
+  switch (id) {
+    case "outline": return tt("Outline")
+    case "retro": return tt("Retro shadow")
+    case "gradient": return tt("Gradient")
+    case "marker": return tt("Highlighter")
+    case "chrome": return tt("Chrome")
+    case "neon": return tt("Neon")
+    case "sticker": return tt("Sticker")
+    case "swash": return tt("Swash")
+    case "spaced": return tt("Spaced caps")
+    case "label": return tt("Label")
+  }
 }
 
 function HeaderSection() {
@@ -2309,6 +2389,8 @@ function HeaderSection() {
           </div>
         ) : null}
 
+        {(theme as any).title_style === "logo" ? null : <NameStyleRows />}
+
         {/* The words' size, weight and spacing are under Text (TitleTypeSection); a logo's size stays here, beside the logo. */}
         {(theme as any).title_style === "logo" ? (
           <SettingRow label={tt("Logo size")} className="mt-5">
@@ -2887,7 +2969,7 @@ function WallpaperSection() {
   const coverImage = localImage || theme.background_image_url || ""
   const wallpaperVideoUrl: string = (theme as any).background_video_url || ""
   const currentPattern = (theme as any).background_pattern || "none"
-  const patternRaw: string = (theme as any).pattern_color || (bgType === "gradient" ? "#ffffff90" : "#00000090")
+  const patternRaw: string = (theme as any).pattern_color || "#00000090"
   /* The pattern colour carries its own strength as two hex digits on the end (#00000090). The picker has no alpha, so it is kept aside and put back. */
   const patternAlpha = /^#[0-9a-f]{8}$/i.test(patternRaw) ? patternRaw.slice(7) : "90"
   const wallpaperFill = bgType === "gradient" ? theme.background_gradient || DEFAULT_GRADIENT : theme.background_color
@@ -2916,18 +2998,22 @@ function WallpaperSection() {
     light one, written with the pick, so what the square showed is what the
     page draws.
   */
-  const fillIsDark = (() => {
-    const hex = normalizeHex(bgType === "gradient" ? (wallpaperFill.match(/#[0-9a-f]{6}/i)?.[0] ?? "") : theme.background_color)
-    if (!hex) return bgType === "gradient"
-    const n = parseInt(hex.slice(1), 16)
-    return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 < 0.55
-  })()
-  const autoInk = fillIsDark ? "#ffffff90" : "#00000090"
-  const ink = (theme as any).pattern_color || autoInk
-  const pickPattern = (id: string) =>
-    updateTheme({ background_pattern: id, ...(id !== "none" && !(theme as any).pattern_color ? { pattern_color: autoInk } : {}) } as any)
+  /*
+    Round W10: an automatic colour (none saved, or one of the two this picker
+    used to write) is no longer written with the pick. It follows the
+    wallpaper wherever it is drawn (lib/onepage/wallpaper resolvedPatternInk),
+    so a page made dark later shows its pattern in white, not black on black.
+  */
+  /* The wallpaper the squares are drawn on, the gradient one shows when the page has none of its own included. */
+  const ground = { background_type: bgType, background_color: theme.background_color, background_gradient: wallpaperFill }
+  const fillIsDark = wallpaperIsDark(ground)
+  const autoInk = isAutoInk((theme as any).pattern_color)
+  const ink = resolvedPatternInk((theme as any).pattern_color, ground)
+  /* A colour picked by hand is the creator's: never written as one of the two values that mean "automatic". */
+  const ownInk = (hex: string) => (isAutoInk(hex + patternAlpha) ? `${hex}8f` : hex + patternAlpha)
+  const pickPattern = (id: string) => updateTheme({ background_pattern: id } as any)
   const patternTile = (pattern: (typeof WALLPAPER_PATTERNS)[number]) => {
-    const on = currentPattern === pattern.id || (pattern.id === "none" && !isPatternId(currentPattern))
+    const on = (canonicalPatternId(currentPattern) ?? "none") === pattern.id
     return (
       <button
         key={pattern.id}
@@ -2947,7 +3033,7 @@ function WallpaperSection() {
               <span className="block h-px w-[70%] rotate-45 rounded-full" style={{ background: fillIsDark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.3)" }} />
             </span>
           ) : (
-            <WallpaperPattern pattern={pattern.id} color={ink} level={(theme as any).pattern_opacity || "medium"} style={{ backgroundSize: previewSize(pattern.id, ink, (theme as any).pattern_opacity || "medium") }} />
+            <WallpaperPattern pattern={pattern.id} color={ink} ground={ground} level={(theme as any).pattern_opacity || "medium"} style={{ backgroundSize: previewSize(pattern.id, ink, (theme as any).pattern_opacity || "medium") }} />
           )}
           <CheckMark on={on} small className="right-1 top-1" />
         </span>
@@ -2970,8 +3056,12 @@ function WallpaperSection() {
         <div className="mt-5 space-y-4">
           <ColorRow
             label={tt("Pattern colour")}
-            value={normalizeHex(ink)}
-            onChange={(color) => updateTheme({ pattern_color: color + patternAlpha } as any)}
+            description={autoInk ? tt("Automatic: follows the wallpaper") : undefined}
+            value={autoInk ? null : normalizeHex(ink)}
+            emptyLabel={tt("Automatic")}
+            fallback={normalizeHex(ink) ?? undefined}
+            onChange={(color) => updateTheme({ pattern_color: ownInk(color) } as any)}
+            onClear={() => updateTheme({ pattern_color: null } as any)}
             suggestions={["#000000", "#ffffff", "#1a1a2e", theme.text_color, theme.button_color, "#b2846c"]}
           />
           <SettingRow label={tt("Strength")} stackOnPhone>

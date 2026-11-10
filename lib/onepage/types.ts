@@ -82,6 +82,8 @@ export interface OnePageTheme {
   title_weight?: 400 | 500 | 600 | 700 | 800 | null
   title_tracking?: "tight" | "normal" | "wide" | null
   title_case?: "none" | "upper" | null
+  /* Round W10 (lib/onepage/name-style): how the name is drawn (outline, gradient, marker, ...). Missing is the theme's own. */
+  name_style?: string | null
   bio_size?: "small" | "default" | "large" | null
   bio_weight?: 400 | 500 | 600 | null
   bio_tracking?: "tight" | "normal" | "wide" | null

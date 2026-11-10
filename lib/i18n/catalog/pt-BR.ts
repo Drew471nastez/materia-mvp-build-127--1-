@@ -13009,7 +13009,17 @@ const words: Record<string, string> = {
  "Nothing new to publish": "Nada novo para publicar",
  "Reviewing the design": "Revisando o design",
  "The first screen of your website, as the design review saw it": "A primeira tela do seu site, como a revisão de design a viu",
- "What the design review looked at": "O que a revisão de design olhou"
+ "What the design review looked at": "O que a revisão de design olhou",
+ "Name font": "Fonte do nome",
+ "Name style": "Estilo do nome",
+ "Retro shadow": "Sombra retrô",
+ "Highlighter": "Marca-texto",
+ "Chrome": "Cromado",
+ "Neon": "Neon",
+ "Sticker": "Adesivo",
+ "Swash": "Traço",
+ "Spaced caps": "Maiúsculas espaçadas",
+ "Automatic: follows the wallpaper": "Automático: acompanha o fundo"
 }
 
 export default words
