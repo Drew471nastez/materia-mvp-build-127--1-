@@ -603,6 +603,7 @@ export const collection = defineSection({
 <section class="sbl" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h1 class="sbl__h">{% if collection.title %}{{ collection.title }}{% else %}{{ settings.heading }}{% endif %}</h1>
   {% if collection.description %}<p class="sbl__intro">{{ collection.description }}</p>{% endif %}
+  {% if page.query %}<p class="sbl__intro">{{ settings.query_label }} {{ page.query }}</p>{% endif %}
   <ul class="sbl__list">{% for product in products %}<li class="sbl__item"><a class="sbl__link" href="{{ product.settings.url | url }}">{% if product.settings.image %}<img src="{{ product.settings.image }}" alt="{{ product.settings.title }}" width="800" height="800">{% endif %}<span class="sbl__name">{{ product.settings.title }}</span><span class="sbl__price">{{ product.settings.price }}</span></a><button class="sbl__add" type="button" data-storelib-add-to-cart="{{ product.id }}" data-title="{{ product.settings.title }}" data-price="{{ product.settings.price }}" data-url="{{ product.settings.url }}">{{ settings.add_label }}</button></li>{% endfor %}</ul>
   <ul class="sbl__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.note }}</li>{% endfor %}</ul>
 </section>`,
@@ -617,7 +618,7 @@ export const collection = defineSection({
 .sbl__add { margin-top: 8px; min-height: 46px; padding: 0 14px; border: 0; background: var(--s-accent); color: var(--s-text); font: inherit; font-weight: 700; cursor: pointer; }
 .sbl__notes { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 32px 0 0; padding: 14px 0 0; border-top: 2px solid var(--s-text); list-style: none; ${SMALL} }
 @container (min-width: 900px) { .sbl__list { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px 20px; } }`,
-  settings: [text("heading", "Heading when there is no collection", "Services and shelf"), text("add_label", "Add button", "Book"), ...motion(), scheme("site"), ...spacing(48, 96)],
+  settings: [text("heading", "Heading when there is no collection", "Services and shelf"), text("query_label", "Before the search words", "Results for"), text("add_label", "Add button", "Book"), ...motion(), scheme("site"), ...spacing(48, 96)],
   blocks: [{ type: "note", name: "Note", settings: [text("note", "Note", "Collect in the shop")] }],
   presetBlocks: ["Products can be collected in the shop", "Bookings move free up to 24 hours before"].map((note) => ({ type: "note", settings: { note } })),
   maxBlocks: 4,

@@ -578,6 +578,7 @@ export const collection = defineSection({
 <section class="agl" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h1 class="agl__h">{% if collection.title %}{{ collection.title }}{% else %}{{ settings.heading }}{% endif %}</h1>
   {% if collection.description %}<p class="agl__intro">{{ collection.description }}</p>{% endif %}
+  {% if page.query %}<p class="agl__intro">{{ settings.query_label }} {{ page.query }}</p>{% endif %}
   <ul class="agl__list">
     {% for product in products %}<li class="agl__item"><a class="agl__link" href="{{ product.settings.url | url }}">{% if product.settings.image %}<img src="{{ product.settings.image }}" alt="{{ product.settings.title }}" width="900" height="1100">{% endif %}<span class="agl__name">{{ product.settings.title }}</span><span class="agl__price">{{ product.settings.price }}</span></a><button class="agl__add" type="button" data-storelib-add-to-cart="{{ product.id }}" data-title="{{ product.settings.title }}" data-price="{{ product.settings.price }}" data-url="{{ product.settings.url }}">{{ settings.add_label }}</button></li>{% endfor %}
   </ul>
@@ -595,7 +596,7 @@ export const collection = defineSection({
 .agl__add { margin-top: 8px; min-height: 44px; padding: 0 14px; border: 2px solid var(--s-text); background: none; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
 .agl__notes { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 36px 0 0; padding: 14px 0 0; border-top: 2px solid var(--s-text); list-style: none; ${SMALL} }
 @container (min-width: 900px) { .agl__list { grid-template-columns: repeat(4, minmax(0, 1fr)); } }`,
-  settings: [text("heading", "Heading when there is no collection", "Editions"), text("add_label", "Add button", "Add to bag"), ...motion(), scheme("site"), ...spacing(40, 96)],
+  settings: [text("heading", "Heading when there is no collection", "Editions"), text("query_label", "Before the search words", "Results for"), text("add_label", "Add button", "Add to bag"), ...motion(), scheme("site"), ...spacing(40, 96)],
   blocks: [{ type: "note", name: "Note", settings: [text("note", "Note", "Ships from Rotterdam")] }],
   presetBlocks: ["Ships from Rotterdam in three days", "Returns within 30 days"].map((note) => ({ type: "note", settings: { note } })),
   maxBlocks: 4,

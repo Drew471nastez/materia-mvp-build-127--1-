@@ -262,7 +262,12 @@ export const chapters = defineSection({
     }
   }
 }
-@media (prefers-reduced-motion: reduce) { .esc__frame:not(:first-child) { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { @container (min-width: 900px) { .esc__wrap { display: block; } .esc__frames { display: none; } .esc__inline { display: block; max-width: 640px; } .esc__list { gap: 56px; } .esc__chapter { min-height: 0; } } }
+.esc[data-motion="off"] .esc__wrap { display: block; }
+.esc[data-motion="off"] .esc__frames { display: none; }
+.esc[data-motion="off"] .esc__inline { display: block; max-width: 640px; }
+.esc[data-motion="off"] .esc__chapter { min-height: 0; }
+.esc[data-motion="off"] .esc__list { gap: 56px; }
 @keyframes esc-in { from { opacity: 0; transform: scale(var(--t-motion-scale, 1.06)); } to { opacity: 1; transform: none; } }`,
   settings: [text("heading", "Heading", "A day at Halden"), ...motion(), scheme("site"), ...spacing(120, 120)],
   blocks: [{ type: "chapter", name: "Chapter", settings: [text("label", "Small label", "Morning"), text("title", "Title", "Coffee on the jetty"), textarea("text", "Words", ""), image("photo", "Photograph"), text("alt", "Photograph description", "")] }],
@@ -667,6 +672,7 @@ export const collection = defineSection({
 <section class="esk" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h1 class="esk__h">{% if collection.title %}{{ collection.title }}{% else %}{{ settings.heading }}{% endif %}</h1>
   {% if collection.description %}<p class="esk__intro">{{ collection.description }}</p>{% endif %}
+  {% if page.query %}<p class="esk__intro">{{ settings.query_label }} {{ page.query }}</p>{% endif %}
   <ul class="esk__list">
     {% for product in products %}
       <li class="esk__item"><a class="esk__link" href="{{ product.settings.url | url }}">{% if product.settings.image %}<img class="esk__img" src="{{ product.settings.image }}" alt="{{ product.settings.title }}" width="1200" height="1500">{% endif %}<span class="esk__name">{{ product.settings.title }}</span><span class="esk__price">{{ settings.from_label }} {{ product.settings.price }}</span></a>
@@ -688,7 +694,7 @@ export const collection = defineSection({
 .esk__notes { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 48px 0 0; padding: 16px 0 0; border-top: 1px solid var(--s-border); list-style: none; ${SMALL} opacity: 0.8; }
 @container (min-width: 760px) { .esk__list { grid-template-columns: repeat(2, minmax(0, 1fr)); } .esk__item:nth-child(even) { margin-top: 80px; } }
 @container (min-width: 1100px) { .esk__list { grid-template-columns: repeat(3, minmax(0, 1fr)); } .esk__item:nth-child(even) { margin-top: 0; } .esk__item:nth-child(3n + 2) { margin-top: 80px; } }`,
-  settings: [text("heading", "Heading when there is no collection", "Residences"), text("from_label", "Before the price", "From"), text("add_label", "Reserve button", "Reserve"), ...motion(), scheme("site"), ...spacing(120, 120)],
+  settings: [text("heading", "Heading when there is no collection", "Residences"), text("query_label", "Before the search words", "Results for"), text("from_label", "Before the price", "From"), text("add_label", "Reserve button", "Reserve"), ...motion(), scheme("site"), ...spacing(120, 120)],
   blocks: [{ type: "note", name: "Note", settings: [text("note", "Note", "Prices per night for two")] }],
   presetBlocks: ["Prices per night for two", "Breakfast included", "Free cancellation up to 14 days before"].map((note) => ({ type: "note", settings: { note } })),
   maxBlocks: 4,

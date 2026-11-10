@@ -24,7 +24,7 @@
  * Pure strings. No React, no I/O.
  */
 import type { SectionInstance, BlockInstance } from "@/lib/website-builder/types"
-import type { SiteTemplate, TemplateImageSlot } from "./types-b"
+import type { GenerateAspect, GeneratePurpose, ImageAspect, ImageSlotTarget, SiteTemplate, SlotGenerate, TemplateImageSlot } from "./types-b"
 
 /* ── schema settings ──────────────────────────────────────────────────── */
 
@@ -283,39 +283,61 @@ export function place(def: SectionDef, id: string, settings: Record<string, unkn
 
 /* ── image slots ──────────────────────────────────────────────────────── */
 
-export const slot = (key: string, aspect: string, prompt: string): TemplateImageSlot => ({ key, aspect, prompt })
+/** Where a picture goes: a section's image setting, or a block's. */
+export const at = (page: string, section: string, setting: string, block?: string): ImageSlotTarget => ({ page, section, setting, ...(block ? { block } : {}) })
 
-export interface ImageTarget {
-  page: string
-  sectionId: string
-  blockId?: string
-  setting: string
+/** One picture the design calls for, written to every target. */
+export function slot(key: string, aspect: ImageAspect, style: TemplateImageSlot["style"], alt: string, prompt: string, ...targets: ImageSlotTarget[]): TemplateImageSlot {
+  return { key, aspect, style, alt, prompt, targets }
 }
 
-/** Where a slot's picture goes; null when the key names nothing on the template. */
-export function templateImageTarget(t: Pick<SiteTemplate, "pages">, key: string): (ImageTarget & { section: SectionInstance; block?: BlockInstance }) | null {
-  const parts = key.split("/")
-  if (parts.length !== 3 && parts.length !== 4) return null
-  const [page, sectionId] = parts
-  const setting = parts[parts.length - 1]
-  const blockId = parts.length === 4 ? parts[2] : undefined
-  const section = t.pages.find((p) => p.key === page)?.sections.find((s) => s.id === sectionId)
+/** The crop as P1's three shapes: wider than 1.1 is landscape, narrower than 0.9 portrait (P2a's rule). */
+export function generateAspect(aspect: ImageAspect): GenerateAspect {
+  const [w, h] = aspect.split(":").map(Number)
+  const r = w / h
+  return r > 1.1 ? "landscape" : r < 0.9 ? "portrait" : "square"
+}
+
+/** What a slot is for and how it is made, for generate_image, from its key and style (P2a's rule, same words). */
+export function generateFor(s: TemplateImageSlot): SlotGenerate {
+  const k = s.key
+  const purpose: GeneratePurpose = /^hero|cover/.test(k) ? (s.style === "product" ? "product" : "hero") : s.style === "product" ? "product" : s.style === "portrait" || /coach|team|chair|portrait/.test(k) ? "portrait" : /macro|detail|treatment|chapter|card|screen/.test(k) ? "detail" : /about|room|bench|studio|street|place|front|interior/.test(k) ? "place" : /look|format|day|people|use/.test(k) ? "people" : "gallery"
+  return { aspect: generateAspect(s.aspect), purpose, style: s.style === "product" ? "studio" : "photo" }
+}
+
+/** The section, and block, a target names; null when it names nothing placed. */
+export function targetOf(t: Pick<SiteTemplate, "pages">, target: ImageSlotTarget): { section: SectionInstance; block?: BlockInstance } | null {
+  const section = t.pages.find((p) => p.key === target.page)?.sections.find((x) => x.id === target.section)
   if (!section) return null
-  if (!blockId) return { page, sectionId, setting, section }
-  const block = section.blocks?.find((b) => b.id === blockId)
-  return block ? { page, sectionId, blockId, setting, section, block } : null
+  if (!target.block) return { section }
+  const block = section.blocks?.find((b) => b.id === target.block)
+  return block ? { section, block } : null
 }
 
-/** A copy of the template's pages with each slot's picture written where it goes (P1 hands the urls). */
-export function withImages(t: Pick<SiteTemplate, "pages">, urls: Record<string, string>): SiteTemplate["pages"] {
+/** A copy of the template's pages with each slot's picture written to every target (P1 hands the urls by slot key). */
+export function withImages(t: Pick<SiteTemplate, "pages" | "imageSlots">, urls: Record<string, string>): SiteTemplate["pages"] {
   const pages = JSON.parse(JSON.stringify(t.pages)) as SiteTemplate["pages"]
-  for (const [key, value] of Object.entries(urls)) {
-    const hit = templateImageTarget({ pages }, key)
-    if (!hit) continue
-    if (hit.block) hit.block.settings[hit.setting] = value
-    else hit.section.settings[hit.setting] = value
+  for (const s of t.imageSlots) {
+    const value = urls[s.key]
+    if (!value) continue
+    for (const target of s.targets) {
+      const hit = targetOf({ pages }, target)
+      if (!hit) continue
+      if (hit.block) hit.block.settings[target.setting] = value
+      else hit.section.settings[target.setting] = value
+    }
   }
   return pages
+}
+
+/**
+ * The finished template: P1's generate_image call on every slot, and a slot
+ * that points at nothing placed fails here, where it is defined.
+ */
+export function assembleB(t: SiteTemplate): SiteTemplate {
+  const out: SiteTemplate = { ...t, imageSlots: t.imageSlots.map((s) => ({ ...s, generate: s.generate ?? generateFor(s) })) }
+  for (const s of out.imageSlots) for (const target of s.targets) if (!targetOf(out, target)) throw new Error(`template ${t.id}: image slot ${s.key} points at ${target.page} › ${target.section}${target.block ? ` › ${target.block}` : ""}, which is not placed`)
+  return out
 }
 
 /** Every file of a template from its section definitions. */

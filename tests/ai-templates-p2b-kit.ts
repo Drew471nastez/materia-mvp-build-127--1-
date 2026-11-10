@@ -71,7 +71,7 @@ const TEMPLATE_OF: Record<string, string> = { home: "index", product: "product",
 export const templateFor = (key: string) => TEMPLATE_OF[key] ?? `page.${key}`
 
 export function themeOf(t: SiteTemplate): ThemeSettingsValues {
-  return { ...tokensToThemeSettings(t.tokens, {}), site_chrome: "home", [MOTION_TIER_SETTING]: t.tokens.motion.tier ?? "balanced" } as unknown as ThemeSettingsValues
+  return { ...tokensToThemeSettings(t.tokens, {}).settings, site_chrome: "home", [MOTION_TIER_SETTING]: t.tokens.motion.tier ?? "balanced" } as unknown as ThemeSettingsValues
 }
 
 export function schemaOf(source: string): { type: string; settings?: { id?: string; type: string }[]; blocks?: { type: string; settings?: { id?: string; type: string }[] }[]; presets?: { blocks?: { type: string; settings?: Record<string, unknown> }[] }[]; kind?: string } {

@@ -315,7 +315,11 @@ export const walkthrough = defineSection({
     }
   }
 }
-@media (prefers-reduced-motion: reduce) { .swk__screen:not(:first-child) { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { @container (min-width: 900px) { .swk__wrap { grid-template-columns: minmax(0, 1fr); } .swk__pin { display: none; } .swk__inline { display: block; } .swk__step { min-height: 0; padding-bottom: 40px; } } }
+.swk[data-motion="off"] .swk__pin { display: none; }
+.swk[data-motion="off"] .swk__inline { display: block; }
+.swk[data-motion="off"] .swk__step { min-height: 0; padding-bottom: 40px; }
+.swk[data-motion="off"] .swk__wrap { grid-template-columns: minmax(0, 1fr); }
 @keyframes swk-in { from { opacity: 0; transform: translateY(calc(var(--t-motion-distance, 24px) * var(--m-k, 1))) scale(0.98); } to { opacity: 1; transform: none; } }`,
   settings: [
     text("heading", "Heading", "From merged to announced in one pass"),
@@ -797,6 +801,7 @@ export const collection = defineSection({
 <section class="swl" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h1 class="swl__h">{% if collection.title %}{{ collection.title }}{% else %}{{ settings.heading }}{% endif %}</h1>
   {% if collection.description %}<p class="swl__intro">{{ collection.description }}</p>{% endif %}
+  {% if page.query %}<p class="swl__intro">{{ settings.query_label }} {{ page.query }}</p>{% endif %}
   <ul class="swl__list">
     {% for product in products %}
       <li class="swl__item">
@@ -827,7 +832,7 @@ export const collection = defineSection({
 @container (min-width: 760px) { .swl__list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container (min-width: 1100px) { .swl__list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .swl__img { transition: none; } }`,
-  settings: [text("heading", "Heading when there is no collection", "Plans and add-ons"), text("add_label", "Add button", "Add to cart"), ...motion(), scheme("site"), ...spacing(64, 96)],
+  settings: [text("heading", "Heading when there is no collection", "Plans and add-ons"), text("query_label", "Before the search words", "Results for"), text("add_label", "Add button", "Add to cart"), ...motion(), scheme("site"), ...spacing(64, 96)],
   blocks: [{ type: "note", name: "Note", settings: [text("text", "Note", "Prices include tax where it applies")] }],
   presetBlocks: ["Prices include tax where it applies", "Change plans any time", "Receipts by email"].map((t) => ({ type: "note", settings: { text: t } })),
   maxBlocks: 4,

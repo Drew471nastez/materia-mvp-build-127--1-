@@ -2,62 +2,116 @@
  * ===========================================================================
  *  SITE TEMPLATES, P2b's COPY OF THE SHARED SHAPE (round P)
  * ===========================================================================
- * The round P brief fixes `SiteTemplate` for the template library P2a and
- * P2b share (lib/storelib-ai/templates/). P2a owns the framework and the main
- * registry; this file is the same shape, defined here so P2b's six templates
- * compile on their own while P2a's types are not on main yet. The integrator
- * points this file at P2a's (a re-export) when both land.
+ * P2a owns the template framework (lib/storelib-ai/templates/types.ts,
+ * registry.ts, choose.ts, apply.ts) on its own branch. While that is not on
+ * main, P2b's six templates are typed against this file: a structural copy
+ * of P2a's `SiteTemplate` (its branch p2a-templates, including the
+ * `generate` field of an image slot), field for field, so the integrator
+ * replaces this file with `export * from "./types"` and lists TEMPLATES_B
+ * in P2a's registry with no other change.
  *
- *   id, name, industries, styles, directionIds
- *   files      sections/ai_*.storelib with full schemas and FILLED preset blocks
- *   pages      home + product + collection + other pages, section instances with blocks
- *   tokens     the design tokens (lib/ai-builder/types.ts DesignTokens)
- *   imageSlots [{ key, prompt, aspect }] for P1's image generator
+ * The round P brief's minimum (id, name, industries, styles, directionIds,
+ * files, pages, tokens, imageSlots { key, prompt, aspect }) is a subset.
  *
- * Extensions beyond the brief are optional fields, so a consumer written for
- * the brief's shape reads these templates unchanged.
+ * Pure types.
  */
+import type { BusinessKind } from "@/lib/storelib-ai/direction/brief"
+import type { MotionTier } from "@/lib/storelib-ai/motion"
 import type { DesignTokens } from "@/lib/ai-builder/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
-/**
- * A picture the template needs. `key` says where it goes:
- * "<page>/<section id>/<setting id>" for a section setting, or
- * "<page>/<section id>/<block id>/<setting id>" for a block's. The setting is
- * an image_picker; the generator's url is written there (templateImageTargets
- * in ./kit-b.ts resolves a key).
- */
+/** The picture shapes a slot asks P1's generate_image for (width:height). */
+export type ImageAspect = "1:1" | "4:5" | "3:4" | "2:3" | "4:3" | "3:2" | "16:9" | "21:9" | "9:16"
+
+/** Where a generated picture is written: an image setting of a placed section, or of one of its blocks. */
+export interface ImageSlotTarget {
+  page: string
+  /** The placed section's id (TemplatePage.sections[].id). */
+  section: string
+  /** A block's id, when the picture is a block's. */
+  block?: string
+  /** The image_picker setting id. */
+  setting: string
+}
+
+/** P1's generate_image shapes, purposes and styles. */
+export type GenerateAspect = "landscape" | "portrait" | "square"
+export type GeneratePurpose = "hero" | "product" | "portrait" | "people" | "place" | "detail" | "gallery" | "background"
+export type GenerateStyle = "photo" | "studio" | "editorial" | "illustration" | "render"
+export interface SlotGenerate {
+  aspect: GenerateAspect
+  purpose: GeneratePurpose
+  style: GenerateStyle
+}
+
+/** One picture the design calls for, and every setting it is written to. */
 export interface TemplateImageSlot {
   key: string
-  /** A photographic prompt: subject, light, lens, mood. Never text in the picture, never a logo. */
+  /** A photographic prompt for the generic version of the business; the agent rewrites it for the creator's. */
   prompt: string
-  /** "16:9", "4:5", "1:1", "3:4", "21:9"... */
-  aspect: string
+  aspect: ImageAspect
+  alt: string
+  style: "photo" | "product" | "texture" | "portrait"
+  targets: ImageSlotTarget[]
+  generate?: SlotGenerate
+}
+
+/** A place in the template that wants the creator's real data. */
+export interface TemplateBinding {
+  page: string
+  section: string
+  setting: string
+  kind: "product" | "products" | "collection" | "form" | "menu"
+  why: string
 }
 
 export interface TemplatePage {
-  /** "home", "product", "collection", "about", "contact"... (lib/website-builder/site-pages.ts keys). */
   key: string
-  title?: string
-  /** Header group first, then the page's own, then the footer group, as the page draws them. */
+  title: string
   sections: SectionInstance[]
+  seo?: { title: string; description?: string }
+}
+
+export interface TemplateMenuLink {
+  title: string
+  url: string
+  links?: TemplateMenuLink[]
+}
+
+export interface TemplateMenu {
+  title: string
+  links: TemplateMenuLink[]
+}
+
+export interface TemplateDesign {
+  thesis: string
+  layout: string[]
+  imagery: string
+  motion: string
+  signature: string[]
+  avoid: string[]
 }
 
 export interface SiteTemplate {
   id: string
   name: string
-  industries: string[]
+  summary: string
+  industries: BusinessKind[]
+  /** O5 site story ids (lib/storelib-ai/layout/stories.ts). */
+  stories: string[]
   styles: string[]
-  /** lib/storelib-ai/direction/directions.ts ids this template is a strong start for. */
+  /** O2 art direction ids (lib/storelib-ai/direction/directions.ts), best first. */
   directionIds: string[]
-  /** Path ("sections/ai_x.storelib") to source. */
+  keywords: string[]
+  motion: MotionTier
+  /** Every component of the template is sections/ai_<prefix>_*.storelib. */
+  prefix: string
   files: Record<string, string>
+  /** Home first. */
   pages: TemplatePage[]
   tokens: DesignTokens
+  menus: Record<string, TemplateMenu>
   imageSlots: TemplateImageSlot[]
-  /* ── optional extensions (P2b) ── */
-  /** One line: what the template is and its signature move. */
-  summary?: string
-  /** The menus the header and footer read (link_list defaults), for a site that has none yet. */
-  menus?: Record<string, { title: string; links: { title: string; url: string; links?: { title: string; url: string }[] }[] }>
+  bindings: TemplateBinding[]
+  design: TemplateDesign
 }

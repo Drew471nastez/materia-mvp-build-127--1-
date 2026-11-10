@@ -578,6 +578,7 @@ export const collection = defineSection({
 <section class="pfl" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h1 class="pfl__h">{% if collection.title %}{{ collection.title }}{% else %}{{ settings.heading }}{% endif %}</h1>
   {% if collection.description %}<p class="pfl__intro">{{ collection.description }}</p>{% endif %}
+  {% if page.query %}<p class="pfl__intro">{{ settings.query_label }} {{ page.query }}</p>{% endif %}
   <ul class="pfl__list">{% for product in products %}<li><a class="pfl__link" href="{{ product.settings.url | url }}">{% if product.settings.image %}<img src="{{ product.settings.image }}" alt="{{ product.settings.title }}" width="900" height="1125">{% endif %}<span class="pfl__name">{{ product.settings.title }}</span><span class="pfl__price">{{ product.settings.price }}</span></a><button class="pfl__add" type="button" data-storelib-add-to-cart="{{ product.id }}" data-title="{{ product.settings.title }}" data-price="{{ product.settings.price }}" data-url="{{ product.settings.url }}">{{ settings.add_label }}</button></li>{% endfor %}</ul>
   <ul class="pfl__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.note }}</li>{% endfor %}</ul>
 </section>`,
@@ -593,7 +594,7 @@ export const collection = defineSection({
 .pfl__add { margin-top: 6px; min-height: 44px; padding: 0 12px; border: 1px solid var(--s-text); background: none; color: inherit; font: inherit; ${SMALL} cursor: pointer; }
 .pfl__notes { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 32px 0 0; padding: 14px 0 0; border-top: 1px solid var(--s-border); list-style: none; ${SMALL} opacity: 0.75; }
 @container (min-width: 900px) { .pfl__list { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px 20px; } }`,
-  settings: [text("heading", "Heading when there is no collection", "Prints"), text("add_label", "Add button", "Add to cart"), ...motion(), scheme("site"), ...spacing(32, 96)],
+  settings: [text("heading", "Heading when there is no collection", "Prints"), text("query_label", "Before the search words", "Results for"), text("add_label", "Add button", "Add to cart"), ...motion(), scheme("site"), ...spacing(32, 96)],
   blocks: [{ type: "note", name: "Note", settings: [text("note", "Note", "Editions of 25")] }],
   presetBlocks: ["Editions of 25, signed", "Archival pigment on cotton rag"].map((note) => ({ type: "note", settings: { note } })),
   maxBlocks: 4,

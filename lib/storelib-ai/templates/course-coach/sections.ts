@@ -319,7 +319,7 @@ export const format = defineSection({
 <section class="ccf" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h2 class="ccf__h">{{ settings.heading }}</h2>
   <ol class="ccf__list">
-    {% for block in section.blocks %}<li class="ccf__day" data-block-id="{{ block.id }}"><p class="ccf__when">{{ block.settings.when }}</p><h3 class="ccf__what">{{ block.settings.what }}</h3><p class="ccf__text">{{ block.settings.text }}</p></li>{% endfor %}
+    {% for block in section.blocks %}<li class="ccf__day" data-block-id="{{ block.id }}">{% if block.settings.photo %}<img class="ccf__img" src="{{ block.settings.photo | asset }}" alt="{{ block.settings.alt }}" width="800" height="600">{% endif %}<p class="ccf__when">{{ block.settings.when }}</p><h3 class="ccf__what">{{ block.settings.what }}</h3><p class="ccf__text">{{ block.settings.text }}</p></li>{% endfor %}
   </ol>
 </section>`,
   style: `
@@ -327,18 +327,19 @@ export const format = defineSection({
 .ccf__h { margin: 0 0 28px; ${D} font-size: clamp(2rem, 1.3rem + 3cqi, 3.75rem); letter-spacing: -0.04em; line-height: 0.98; }
 .ccf__list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
 .ccf__day { display: grid; gap: 4px; padding: 18px 0 18px 20px; border-left: 3px solid var(--s-accent); }
+.ccf__img { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; margin-bottom: 12px; }
 .ccf__when { margin: 0; ${SMALL} font-weight: 700; }
 .ccf__what { margin: 0; ${D} font-size: 1.5rem; letter-spacing: -0.03em; }
 .ccf__text { margin: 0; max-width: 44ch; line-height: 1.55; opacity: 0.85; }
 @container (min-width: 900px) { .ccf__list { grid-template-columns: repeat(4, minmax(0, 1fr)); } .ccf__day { border-left: 0; border-top: 3px solid var(--s-accent); padding: 16px 20px 0 0; } }
 ${revealCss("ccf", ".ccf__day", "ccf-rise")}`,
   settings: [text("heading", "Heading", "One week of the course"), ...motion(), scheme("site_inverse"), ...spacing(96, 96)],
-  blocks: [{ type: "day", name: "Day", settings: [text("when", "When", "Monday"), text("what", "What", "Lessons open"), textarea("text", "Words", "")] }],
+  blocks: [{ type: "day", name: "Day", settings: [text("when", "When", "Monday"), text("what", "What", "Lessons open"), textarea("text", "Words", ""), image("photo", "Photograph"), text("alt", "Photograph description", "")] }],
   presetBlocks: [
-    { type: "day", settings: { when: "Monday", what: "Two lessons open", text: "Short videos, twenty minutes in all, with one exercise." } },
-    { type: "day", settings: { when: "Any day", what: "You practise", text: "Record a minute on your phone and post it to the group." } },
-    { type: "day", settings: { when: "Thursday, 7pm", what: "Live practice room", text: "Ninety minutes on video, eight people a room, everyone speaks." } },
-    { type: "day", settings: { when: "Within 48 hours", what: "Notes from Ana", text: "Written notes on what to keep and one thing to change." } },
+    { type: "day", settings: { when: "Monday", what: "Two lessons open", text: "Short videos, twenty minutes in all, with one exercise.", alt: "A laptop on a kitchen table playing a short lesson video" } },
+    { type: "day", settings: { when: "Any day", what: "You practise", text: "Record a minute on your phone and post it to the group.", alt: "A man recording himself speaking on a phone propped on books" } },
+    { type: "day", settings: { when: "Thursday, 7pm", what: "Live practice room", text: "Ninety minutes on video, eight people a room, everyone speaks.", alt: "A video call grid of eight people listening to one speaker" } },
+    { type: "day", settings: { when: "Within 48 hours", what: "Notes from Ana", text: "Written notes on what to keep and one thing to change.", alt: "The coach writing notes in a notebook beside a laptop" } },
   ],
   maxBlocks: 6,
 })
@@ -381,7 +382,7 @@ export const reviews = defineSection({
   blocks: [{ type: "note", name: "Note", settings: [text("note", "Note", "Every review is from someone who took the course"), url("link", "Link (optional)", "")] }],
   presetBlocks: [
     { type: "note", settings: { note: "Reviews are written by people who bought the course", link: "" } },
-    { type: "note", settings: { note: "Read every review", link: "/reviews" } },
+    { type: "note", settings: { note: "Ask Ana anything before you join", link: "/contact" } },
   ],
   maxBlocks: 3,
 })
@@ -612,6 +613,7 @@ export const collection = defineSection({
 <section class="ccl" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h1 class="ccl__h">{% if collection.title %}{{ collection.title }}{% else %}{{ settings.heading }}{% endif %}</h1>
   {% if collection.description %}<p class="ccl__intro">{{ collection.description }}</p>{% endif %}
+  {% if page.query %}<p class="ccl__intro">{{ settings.query_label }} {{ page.query }}</p>{% endif %}
   <ul class="ccl__list">
     {% for product in products %}<li class="ccl__item">{% if product.settings.image %}<img src="{{ product.settings.image }}" alt="{{ product.settings.title }}" width="800" height="600">{% endif %}<a class="ccl__name" href="{{ product.settings.url | url }}">{{ product.settings.title }}</a><span class="ccl__price">{{ product.settings.price }}</span><button class="ccl__add" type="button" data-storelib-add-to-cart="{{ product.id }}" data-title="{{ product.settings.title }}" data-price="{{ product.settings.price }}" data-url="{{ product.settings.url }}">{{ settings.add_label }}</button></li>{% endfor %}
   </ul>
@@ -628,7 +630,7 @@ export const collection = defineSection({
 .ccl__price { grid-column: 2; font-weight: 600; }
 .ccl__add { grid-column: 3; grid-row: 1 / span 2; min-height: 48px; padding: 0 18px; border: 0; background: var(--s-btn); color: var(--s-btn-text); font: inherit; font-weight: 700; cursor: pointer; }
 .ccl__notes { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 28px 0 0; padding: 0; list-style: none; ${SMALL} }`,
-  settings: [text("heading", "Heading when there is no collection", "Courses and coaching"), text("add_label", "Add button", "Enrol"), ...motion(), scheme("site"), ...spacing(56, 96)],
+  settings: [text("heading", "Heading when there is no collection", "Courses and coaching"), text("query_label", "Before the search words", "Results for"), text("add_label", "Add button", "Enrol"), ...motion(), scheme("site"), ...spacing(56, 96)],
   blocks: [{ type: "note", name: "Note", settings: [text("note", "Note", "Refund until the end of week one")] }],
   presetBlocks: ["Refund until the end of week one", "Invoices for employers"].map((note) => ({ type: "note", settings: { note } })),
   maxBlocks: 4,

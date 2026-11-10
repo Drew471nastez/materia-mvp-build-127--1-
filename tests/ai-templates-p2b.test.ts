@@ -17,7 +17,13 @@
  */
 import { existsSync } from "node:fs"
 import { TEMPLATES_B } from "@/lib/storelib-ai/templates/registry-b"
-import { templateImageTarget } from "@/lib/storelib-ai/templates/kit-b"
+import { targetOf } from "@/lib/storelib-ai/templates/kit-b"
+import { validateSite, errorsOf } from "@/lib/ai-builder/agent/validate"
+import { completenessIssues, readSitePlan } from "@/lib/ai-builder/agent/site-plan"
+import { OFFERED_FAMILIES } from "@/lib/website-builder/font-link"
+import { isSlopDisplayFont } from "@/lib/storelib-ai/library/type-systems"
+import { BUSINESS_KINDS } from "@/lib/storelib-ai/direction/brief"
+import { SITE_STORIES } from "@/lib/storelib-ai/layout"
 import { CAPS, PIXEL, PRODUCTS, SVG, dataFor, filled, pageHtml, schemaOf, templateFor, themeOf } from "./ai-templates-p2b-kit"
 import type { SiteTemplate } from "@/lib/storelib-ai/templates/types-b"
 import { validateFile } from "@/lib/ai-builder/agent/validate"
@@ -90,14 +96,14 @@ async function main() {
 
     /* 4. pages */
     const keys = t.pages.map((p) => p.key)
-    check(`${t.id}: home, product, collection, about and contact`, ["home", "product", "collection", "about", "contact"].every((k) => keys.includes(k)), keys)
+    check(`${t.id}: home, product, collection, shop, search, about and contact`, ["home", "product", "collection", "products", "search", "about", "contact"].every((k) => keys.includes(k)) && keys[0] === "home", keys)
     const home = t.pages.find((p) => p.key === "home")!
     const own = home.sections.filter((s) => !s.group)
-    check(`${t.id}: home has 10 to 14 sections of its own`, own.length >= 10 && own.length <= 14, own.length)
+    check(`${t.id}: home has 10 to 14 sections of its own, six or more kinds`, own.length >= 10 && own.length <= 14 && new Set(own.map((x) => x.type)).size >= 6, own.length)
     for (const p of t.pages) {
       const h = p.sections.find((s) => s.group === "header")
       const f = p.sections.find((s) => s.group === "footer")
-      check(`${t.id}: ${p.key} has the template's own header and footer`, !!h && !!f && !!t.files[`sections/${h.type}.storelib`] && !!t.files[`sections/${f.type}.storelib`])
+      check(`${t.id}: ${p.key} has the template's own header first and footer last`, !!h && !!f && !!t.files[`sections/${h.type}.storelib`] && !!t.files[`sections/${f.type}.storelib`] && p.sections[0] === h && p.sections[p.sections.length - 1] === f)
       check(`${t.id}: ${p.key} section ids are unique`, new Set(p.sections.map((s) => s.id)).size === p.sections.length)
     }
 
@@ -129,21 +135,53 @@ async function main() {
     check(`${t.id}: no anti-slop P0 and the warning budget holds`, slop.filter((i) => i.severity === "error").length === 0, slop.filter((i) => i.severity === "error"))
     if (process.env.VERBOSE) for (const w of slop.filter((i) => i.severity === "warning")) console.log(`        slop warn ${w.code}: ${w.message.slice(0, 140)}`)
 
-    /* 8. image slots */
+    /* 8. image slots: P2a's shape (6 to 16, alt, an allowed aspect, P1's generate call, every target an image setting) */
+    const ASPECTS = new Set(["1:1", "4:5", "3:4", "2:3", "4:3", "3:2", "16:9", "21:9", "9:16"])
+    check(`${t.id}: 6 to 16 image slots`, t.imageSlots.length >= 6 && t.imageSlots.length <= 16, t.imageSlots.length)
+    const targeted = new Set<string>()
     for (const s of t.imageSlots) {
-      const hit = templateImageTarget(t, s.key)
-      const schema = hit ? schemaOf(t.files[`sections/${hit.section.type}.storelib`]) : null
-      const setting = hit && schema ? (hit.blockId ? schema.blocks?.find((b) => b.type === hit.block!.type)?.settings : schema.settings)?.find((x) => x.id === hit.setting) : null
-      check(`${t.id}: slot ${s.key} names an image setting`, setting?.type === "image_picker", s.key)
-      check(`${t.id}: slot ${s.key} has a photographic prompt and an aspect`, s.prompt.length >= 60 && /^\d+:\d+$/.test(s.aspect) && !/lorem|placeholder/i.test(s.prompt))
+      check(`${t.id}: slot ${s.key} has a photographic prompt, an allowed aspect, alt text and a target`, s.prompt.length >= 60 && ASPECTS.has(s.aspect) && s.alt.length > 5 && s.targets.length > 0 && !/lorem|placeholder/i.test(s.prompt), s)
+      check(`${t.id}: slot ${s.key} carries P1's generate_image call`, !!s.generate && ["landscape", "portrait", "square"].includes(s.generate.aspect) && !!s.generate.purpose && !!s.generate.style, s.generate)
+      for (const target of s.targets) {
+        const hit = targetOf(t, target)
+        const schema = hit ? schemaOf(t.files[`sections/${hit.section.type}.storelib`]) : null
+        const setting = hit && schema ? (hit.block ? schema.blocks?.find((d) => d.type === hit.block!.type)?.settings : schema.settings)?.find((x) => x.id === target.setting) : null
+        check(`${t.id}: slot ${s.key} › ${target.page}/${target.section}${target.block ? `/${target.block}` : ""}.${target.setting} is an image setting`, setting?.type === "image_picker")
+        targeted.add(`${target.page}/${target.section}/${target.block ?? ""}/${target.setting}`)
+      }
     }
     check(`${t.id}: slot keys are unique`, new Set(t.imageSlots.map((s) => s.key)).size === t.imageSlots.length)
-    const slotKeys = new Set(t.imageSlots.map((s) => s.key))
-    for (const s of home.sections) {
-      const schema = schemaOf(t.files[`sections/${s.type}.storelib`])
-      for (const x of schema.settings ?? []) if (x.type === "image_picker") check(`${t.id}: home › ${s.id}.${x.id} has an image slot`, slotKeys.has(`home/${s.id}/${x.id}`))
-      for (const b of s.blocks ?? []) for (const x of schema.blocks?.find((d) => d.type === b.type)?.settings ?? []) if (x.type === "image_picker") check(`${t.id}: home › ${s.id}/${b.id}.${x.id} has an image slot`, slotKeys.has(`home/${s.id}/${b.id}/${x.id}`))
+    /* Imagery is mandatory where the design calls for it: every picture setting placed anywhere has a slot. */
+    for (const p of t.pages) {
+      for (const s of p.sections) {
+        const schema = schemaOf(t.files[`sections/${s.type}.storelib`])
+        for (const x of schema.settings ?? []) if (x.type === "image_picker") check(`${t.id}: ${p.key} › ${s.id}.${x.id} has an image slot`, targeted.has(`${p.key}/${s.id}//${x.id}`))
+        for (const b of s.blocks ?? []) for (const x of schema.blocks?.find((d) => d.type === b.type)?.settings ?? []) if (x.type === "image_picker") check(`${t.id}: ${p.key} › ${s.id}/${b.id}.${x.id} has an image slot`, targeted.has(`${p.key}/${s.id}/${b.id}/${x.id}`))
+      }
     }
+
+    /* 8b. bindings: real picker settings of placed sections */
+    check(`${t.id}: at least two bindings`, t.bindings.length >= 2)
+    for (const bnd of t.bindings) {
+      const section = t.pages.find((p) => p.key === bnd.page)?.sections.find((x) => x.id === bnd.section)
+      const setting = section ? schemaOf(t.files[`sections/${section.type}.storelib`]).settings?.find((x) => x.id === bnd.setting) : null
+      const want: Record<string, string[]> = { product: ["product_picker"], products: ["product_list"], collection: ["collection_picker", "collection_list"], form: ["form_picker"], menu: ["link_list"] }
+      check(`${t.id}: binding ${bnd.page}/${bnd.section}.${bnd.setting} is a ${bnd.kind} picker`, !!setting && want[bnd.kind].includes(setting.type) && bnd.why.length > 10)
+    }
+
+    /* 8c. the site as the agent's finish gate reads it (the plan the way P2a's templatePlan writes one) */
+    const settings = { menus: t.menus }
+    const siteErrors = errorsOf(validateSite({ pages: t.pages, sources: t.files, settings, caps: CAPS, mode: "blank" }))
+    check(`${t.id}: the site validates (types, bindings, links, menus, own chrome)`, siteErrors.length === 0, siteErrors)
+    const rawPlan = [...t.pages.map((p) => ({ key: p.key, sections: p.sections.filter((x) => !x.group).map((x) => `${x.type}: ${x.name}`) })), ...["cart", "404"].map((key) => ({ key, sections: [], reason: "The platform's working layout in the site's tokens is enough here." }))]
+    const plan = readSitePlan(rawPlan, CAPS, null)
+    check(`${t.id}: its plan is a valid site plan`, plan.ok === true, plan.ok ? undefined : plan.missing)
+    const complete = errorsOf(completenessIssues({ pages: t.pages, sources: t.files, settings, caps: CAPS, mode: "blank", plan: plan.ok ? plan.plan : null }))
+    check(`${t.id}: complete by the finish rules (home, pages, templates, own header and footer, every page reachable)`, complete.length === 0, complete)
+    check(`${t.id}: every file carries the template's prefix`, Object.keys(t.files).every((p) => p.startsWith(`sections/ai_${t.prefix}_`)))
+    check(`${t.id}: its fonts are offered and the display face is not a default`, [t.tokens.fonts.heading, t.tokens.fonts.body].every((f) => OFFERED_FAMILIES.has(f)) && !isSlopDisplayFont(t.tokens.fonts.heading))
+    check(`${t.id}: industries are O2 business kinds, stories are O5 stories`, t.industries.every((k) => (BUSINESS_KINDS as readonly string[]).includes(k)) && t.stories.every((x) => SITE_STORIES.some((st) => st.id === x)), { industries: t.industries, stories: t.stories })
+    check(`${t.id}: design intent is written`, !!t.design.thesis && t.design.signature.length > 0 && t.design.avoid.length > 0 && t.design.layout.length > 0)
 
     /* 9. motion */
     const allSrc = Object.values(t.files).join("\n")
