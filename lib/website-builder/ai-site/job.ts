@@ -45,6 +45,9 @@ import { deterministicFindings, rewritable, visualFindings, type SiteFinding } f
 import { callOnce, mergeSpend, NO_SPEND, addSpend, pool, type Models, type Spend } from "./models"
 import type { JobEngine, StartOptions } from "@/lib/ai-builder/types"
 import { startContext } from "./start-options"
+import { nativePlan, type NativeEngineDeps, type NativeRecord } from "./native/engine"
+import { isNativePlan, nativeOps } from "./native/plan"
+import { nativeRegistry } from "./native/registry"
 
 export type JobStatus = "queued" | "running" | "complete" | "partial" | "failed"
 export type JobStep = "plan" | "build" | "code" | "write" | "photos" | "check" | "done"
@@ -101,6 +104,8 @@ export interface JobState {
   codeReasons: Record<string, string>
   /** What the job is doing and has done, newest last, for the progress view: a file being coded, one placed, one left out. */
   activity: { kind: "code" | "coded" | "skipped"; name: string }[]
+  /** Round R (R2): how the native engine generated the plan, or why it fell back (./native/engine.ts). Absent: classic planner. */
+  native?: NativeRecord | null
 }
 
 export interface Job {
@@ -177,6 +182,11 @@ export interface JobDeps {
    * Without it (or without SiteIO.writeFile) the plan keeps to the theme's sections and the theme's header and footer.
    */
   code?: SectionCoder
+  /**
+   * Round R (R2): the native engine (./native/engine.ts), given when AI_NATIVE_ENGINE is on (./runner.ts). The plan
+   * step then generates the whole site as native sections in one structured call; without it the classic planner plans.
+   */
+  native?: NativeEngineDeps
   /** Saves the job (and is where the editor's next poll reads it from). */
   save: (job: Job) => Promise<void>
   now?: () => number
@@ -264,6 +274,29 @@ const timed = (job: Job, step: JobStep, ms: number): Job => ({ ...job, state: { 
 async function stepPlan(job: Job, deps: JobDeps): Promise<Job> {
   const caps = await deps.capabilities().catch(() => EMPTY_CAPABILITIES)
   const presets = deps.presets ?? DESIGN_PRESETS
+  /* Round R (R2): the whole site as native sections in one structured call, or the classic planner when it cannot. */
+  let fallback: NativeRecord | null = null
+  if (deps.native) {
+    try {
+      const n = await nativePlan(
+        { jobId: job.id, creatorId: job.creatorId, installId: job.installId, request: jobBrief(job), options: job.options ?? null, caps, model: deps.models.plan, presets, deadline: deps.deadline, now: deps.now, signal: deps.signal },
+        deps.native,
+      )
+      return {
+        ...job,
+        plan: n.plan,
+        step: "build",
+        progress: STEP_PROGRESS.build[0],
+        state: { ...job.state, caps, spend: mergeSpend(job.state.spend, n.spend), native: n.record, pages: planOutline(n.plan).map((p) => ({ key: p.key, title: p.title })) },
+      }
+    } catch (e) {
+      const why = e instanceof Error ? e.message.slice(0, 160) : "the native engine failed"
+      console.warn("[ai-site] native engine fell back to the classic planner", { job: job.id, why })
+      const spent = (e as { spend?: Spend }).spend
+      if (spent) job = { ...job, state: { ...job.state, spend: mergeSpend(job.state.spend, spent) } }
+      fallback = { version: "", promptVersion: "", brainVersion: null, attempts: 0, sections: 0, issues: [], mapped: [], fallback: why }
+    }
+  }
   const capsText = describeCapabilities(caps)
   const types = plannableTypes(deps.addable, deps.schemas, caps)
   const free = canCode(deps)
@@ -298,7 +331,7 @@ async function stepPlan(job: Job, deps: JobDeps): Promise<Job> {
     step: "build",
     progress: STEP_PROGRESS.build[0],
     /* The plan's own corrections stay with the plan (job.plan.corrections): they are for the logs, not the creator. */
-    state: { ...job.state, caps, spend, pages: planOutline(plan).map((p) => ({ key: p.key, title: p.title })) },
+    state: { ...job.state, caps, spend, ...(fallback ? { native: fallback } : {}), pages: planOutline(plan).map((p) => ({ key: p.key, title: p.title })) },
   }
 }
 
@@ -314,10 +347,22 @@ async function stepBuild(job: Job, deps: JobDeps): Promise<Job> {
   const caps = job.state.caps ?? EMPTY_CAPABILITIES
   const built = buildSite({ plan: job.plan!, site: stored, schemas: deps.schemas, addable: deps.addable, idSeed: job.id.replace(/-/g, "").slice(0, 8), presets: deps.presets, shop: (caps.facts?.publishedProducts ?? 0) > 0 })
   const titles = Object.fromEntries(job.plan!.pages.map((p) => [p.key, p.title]))
-  await deps.site.write(built.site, Object.keys(built.site.pages), true, titles)
-  const next = log(job, built.ops)
+  let next = log(job, built.ops)
+  let site = built.site
+  let filled = next.state.filled
+  let written = next.state.written
+  /* Round R (R2): a native plan's sections get their generated words, links, bindings and blocks now, as logged operations. */
+  if (isNativePlan(job.plan)) {
+    const placement = nativeOps({ site, placed: built.placed, plan: job.plan, reg: deps.native?.registry ?? nativeRegistry(), caps, schemas: deps.schemas })
+    const a = apply(next, site, placement.ops, deps.schemas)
+    next = a.job
+    site = a.site
+    filled = [...new Set([...filled, ...placement.filled])]
+    written = { ...written, ...placement.written }
+  }
+  await deps.site.write(site, Object.keys(site.pages), true, titles)
   if (built.notes.length) console.warn("[ai-site] build notes", { job: job.id, notes: built.notes.slice(0, 8) })
-  return { ...next, step: "code", progress: STEP_PROGRESS.code[0], state: { ...next.state, placed: built.placed } }
+  return { ...next, step: "code", progress: STEP_PROGRESS.code[0], state: { ...next.state, placed: built.placed, filled, written } }
 }
 
 /**
@@ -534,8 +579,10 @@ async function stepPhotos(job: Job, deps: JobDeps, now: () => number): Promise<J
       const ops: PageOp[] = []
       const credits: PhotoCredit[] = []
       const missing: string[] = []
-      for (const slot of slotsFor(p.page, section, planned, query, deps.schemas)) {
-        const r = await fillSlot(slot, deps.images, used, deps.schemas)
+      /* A native plan may have set a picture already (one of the creator's own): that slot is kept. */
+      const native = isNativePlan(plan)
+      for (const slot of slotsFor(p.page, section, planned, query, deps.schemas).filter((s) => !native || !slotSet(section, s.slot))) {
+        const r = await fillSlot(slot, deps.images, used, deps.schemas, { keepSet: native })
         ops.push(...r.ops.map((op) => ({ page: p.page, op })))
         credits.push(...r.credits)
         missing.push(...r.missing)
@@ -576,6 +623,13 @@ async function stepPhotos(job: Job, deps: JobDeps, now: () => number): Promise<J
     }
   }
   return { ...job, step: "check", progress: STEP_PROGRESS.check[0] }
+}
+
+/** A picture slot that already holds a picture: a setting, or every block of the type. */
+function slotSet(section: SiteState["pages"][string][number], slot: string): boolean {
+  if (!slot.startsWith("block:")) return typeof section.settings?.[slot] === "string" && !!(section.settings[slot] as string)
+  const blocks = (section.blocks ?? []).filter((b) => b.type === slot.slice(6))
+  return blocks.length > 0 && blocks.every((b) => Object.entries(b.settings ?? {}).some(([k, v]) => /image|photo|picture/.test(k) && !/alt|focus/.test(k) && typeof v === "string" && !!v))
 }
 
 /** The credits page: the home page's header and footer around one page_content section. */
