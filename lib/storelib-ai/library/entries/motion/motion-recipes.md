@@ -21,9 +21,11 @@ Every recipe is a complete section you can ask search_knowledge for by id. Each 
 | Image curtain and scale-in | ai_image_reveal | motion, curtain, motion_strength | scale only, no curtain | the whole photo |
 | Slow image drift | ai_parallax_media | strength | same small travel | still photo |
 | Sticky storytelling | ai_sticky_story | motion, layout | plain steps, each with its picture | plain steps |
+| Stacked panels | ai_sticky_stack | | only with 560px of height | a plain list |
 | Horizontal scroll section | ai_hscroll_gallery | | native swipe and snap | no snap |
 | Marquee with pause | ai_marquee | speed, pause_label | same | a wrapped still line |
 | Hover lift and press | ai_hover_lift | motion, motion_strength | press only | colour and underline only |
+| Image swap on project hover | ai_hover_reveal_list | | each row keeps its small picture | no movement |
 | Cursor-aware tilt | ai_cursor_tilt | motion, tilt | flat (no hover) | flat |
 | Counter from real numbers | ai_counters | | same | the final number |
 | Page transitions | Theme setting Animations › Between pages | page_transition | same | none |

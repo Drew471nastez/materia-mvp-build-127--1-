@@ -39,6 +39,12 @@ tags: sticky story, sticky storytelling, scrollytelling, sticky image, process, 
 .ss__title { margin: 6px 0 10px; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.5rem); line-height: 1.02; letter-spacing: -0.02em; font-weight: 700; color: var(--s-heading); }
 .ss__text { margin: 0; max-width: 48ch; font-size: 1.0625rem; line-height: 1.6; }
 .ss__inline { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: cover; margin-top: 20px; }
+/* Plain steps on a wider screen: words beside their own picture, never a picture the width of the page. */
+@container (min-width: 760px) {
+  .ss__step { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); grid-template-rows: auto auto 1fr; column-gap: clamp(24px, 4vw, 64px); align-items: start; }
+  .ss__n, .ss__title, .ss__text { grid-column: 1; }
+  .ss__inline { grid-column: 2; grid-row: 1 / span 3; margin-top: 0; }
+}
 /*
   The story, only on a wide screen whose browser ties animation to a named
   view timeline, and only when motion is welcome: the picture column sticks,

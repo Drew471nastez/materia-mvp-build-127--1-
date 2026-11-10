@@ -188,7 +188,7 @@ export const MOTION_TIER_OPTIONS = MOTION_TIERS.map((t) => ({ value: t, label: M
 const ASKED_LESS = /\b(?:no|less|minimal|little|without|calm|subtle|quiet|reduced)\s+(?:motion|animations?|movement|effects?)\b|\bstatic\b|\bno\s+scroll\s+effects?\b/i
 const ASKED_MORE = /\b(?:lots? of|more|rich|bold|cinematic|immersive|expressive|heavy|playful)\s+(?:motion|animations?|movement|scroll(?:ing)?|effects?|interactions?)\b|\bawwwards\b|\banimated\b/i
 const EXPRESSIVE_TRADES = /\b(?:photograph(?:er|y)|videograph(?:er|y)|film(?:maker)?|cinema|artist|art|gallery|music|producer|beats|dj|record label|band|fashion|launch|portfolio|motion design|animator|dance)\b/i
-const QUIET_TRADES = /\b(?:accountant|lawyer|solicitor|legal|clinic|dentist|doctor|therapist|therapy|counsell?or|plumber|electrician|builder|cleaning|local|insurance|consultan(?:t|cy)|pilates|yoga|wellness|massage|physio|non-?profit|charity)\b/i
+const QUIET_TRADES = /\b(?:accountant|lawyer|solicitor|legal|law firm|clinic|dentist|doctor|therapist|therapy|counsell?or|plumber|electrician|builder|cleaning|local|insurance|consultan(?:t|cy)|pilates|yoga|wellness|massage|physio|non-?profit|charity)\b/i
 
 /**
  * The tier a brief suggests, deterministically: the creator's own words win
