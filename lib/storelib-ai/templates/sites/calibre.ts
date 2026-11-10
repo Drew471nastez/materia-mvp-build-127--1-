@@ -33,12 +33,12 @@ const hero: ComponentDef = {
   category: "hero",
   template: `
 <section class="cx" ${rootAttrs({ motion: true })}>
-  <div class="cx__stage" data-storelib-motion="scroll-scrub" data-motion-length="2" data-motion-mobile="still">
-    <p class="cx__word cx__word--back" aria-hidden="true">{{ settings.word }}</p>
-    <div class="cx__object">
+  <div class="cx__stage" data-storelib-motion="parallax-depth" data-motion-intensity="45" data-motion-pointer="true" data-motion-axis="both">
+    <p class="cx__word cx__word--back" aria-hidden="true" data-motion-depth="-0.3">{{ settings.word }}</p>
+    <div class="cx__object" data-motion-depth="0.5">
       {% if settings.image %}<img class="cx__img" src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="1200" height="1200" fetchpriority="high">{% else %}<span class="cx__dial" aria-hidden="true"></span>{% endif %}
     </div>
-    <p class="cx__word cx__word--front" aria-hidden="true">{{ settings.word }}</p>
+    <p class="cx__word cx__word--front" aria-hidden="true" data-motion-depth="0.15">{{ settings.word }}</p>
   </div>
   <div class="cx__copy">
     <h1 class="cx__h">{{ settings.heading | raw }}</h1>
@@ -115,7 +115,7 @@ const story: ComponentDef = {
   <div class="lc__in">
     <h2 class="lc__h">{{ settings.heading | raw }}</h2>
     <div class="lc__grid">
-      <div class="lc__media" aria-hidden="true" data-storelib-motion="scroll-scrub">
+      <div class="lc__media" aria-hidden="true">
         {% for block in section.blocks %}{% if block.settings.image %}<img class="lc__pic" style="animation-timeline: --lc{{ forloop.index }};" src="{{ block.settings.image | asset }}" alt="" width="1200" height="1500" loading="lazy">{% endif %}{% endfor %}
         <span class="lc__dial"></span>
       </div>

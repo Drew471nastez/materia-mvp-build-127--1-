@@ -22,7 +22,7 @@ function pages(): SiteTemplate["pages"] {
         place(S.compare, "compare"),
         place(S.plans, "plans"),
         place(S.faq, "faq"),
-        place(S.marquee, "verbs2", { speed: 48, direction: "right", label: "Where notes go" }, ["Changelog", "Docs", "Email", "In-app"].map((word) => ({ type: "word", settings: { word } }))),
+        place(S.marquee, "verbs2", { speed: 60, direction: "right", label: "Where notes go" }, ["Changelog", "Docs", "Email", "In-app"].map((word) => ({ type: "word", settings: { word } }))),
         place(S.closing, "close"),
         foot(),
       ],

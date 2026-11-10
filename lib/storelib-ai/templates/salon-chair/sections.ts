@@ -232,8 +232,8 @@ export const ticker = defineSection({
   name: "Running line",
   summary: "A running line of shop facts on the dark band (P3 marquee), paused on hover; still and wrapped for reduced motion.",
   template: `
-<section class="sbq" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars("--sbq-speed: {{ settings.speed }}s;")}" aria-label="{{ settings.label }}">
-  <div class="sbq__track" data-storelib-motion="marquee" data-motion-reactive="40">
+<section class="sbq" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars("--sbq-speed: {{ settings.speed }};")}" aria-label="{{ settings.label }}">
+  <div class="sbq__track" data-storelib-motion="marquee" data-motion-speed="{{ settings.speed }}" data-motion-reactive="40">
     <ul class="sbq__run" data-motion-track>{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.text }}</li>{% endfor %}</ul>
     <ul class="sbq__run" aria-hidden="true">{% for block in section.blocks %}<li>{{ block.settings.text }}</li>{% endfor %}</ul>
   </div>
@@ -245,11 +245,11 @@ export const ticker = defineSection({
 .sbq__run li { ${D} font-size: clamp(1.75rem, 1rem + 3.6cqi, 4rem); white-space: nowrap; }
 .sbq__run li::after { content: "\\2726"; margin: 0 0.6em; color: var(--s-accent); font-size: 0.6em; vertical-align: middle; }
 @media (prefers-reduced-motion: reduce) { .sbq__track { width: auto; } .sbq__run { flex-wrap: wrap; } .sbq__run[aria-hidden="true"] { display: none; } .sbq__run li { white-space: normal; } }
-@media (prefers-reduced-motion: no-preference) { .sbq:not([data-motion="off"]) .sbq__track { animation: sbq-run var(--sbq-speed, 40s) linear infinite; } .sbq:hover .sbq__track { animation-play-state: paused; } .sbq[data-motion="off"] .sbq__run[aria-hidden="true"] { display: none; } }
+@media (prefers-reduced-motion: no-preference) { .sbq:not([data-motion="off"]) .sbq__track { animation: sbq-run calc(3000s / var(--sbq-speed, 80)) linear infinite; } .sbq:hover .sbq__track { animation-play-state: paused; } .sbq[data-motion="off"] .sbq__run[aria-hidden="true"] { display: none; } }
 .sbq__track[data-motion-ready] { animation: none !important; }
 .sbq__track[data-motion-ready] .sbq__run[aria-hidden="true"] { display: none; }
 @keyframes sbq-run { to { transform: translateX(-50%); } }`,
-  settings: [text("label", "What it lists (read aloud)", "About the shop"), range("speed", "Seconds per loop", 15, 90, 5, 36, "s"), ...motion(), scheme("site_inverse"), ...spacing(20, 20)],
+  settings: [text("label", "What it lists (read aloud)", "About the shop"), range("speed", "Speed", 20, 300, 10, 80, "px/s"), ...motion(), scheme("site_inverse"), ...spacing(20, 20)],
   blocks: [{ type: "item", name: "Item", settings: [text("text", "Words", "Walk-ins welcome")] }],
   presetBlocks: ["Walk-ins until five", "Hot towel shaves", "Kids on weekdays", "Late on Thursdays"].map((t) => ({ type: "item", settings: { text: t } })),
   maxBlocks: 8,

@@ -47,6 +47,38 @@ function check(name: string, ok: boolean, detail?: unknown) {
   }
 }
 
+/**
+ * The inner elements P3's runtime reads (components/website-builder/motion-islands/islands.ts):
+ * pin-horizontal a [data-motion-stage] and a [data-motion-track]; scroll-scrub [data-motion-frame]s
+ * or a video[data-motion-video]; parallax-depth layers marked [data-motion-depth]; image-trail a
+ * [data-motion-images] holding pictures (a marquee falls back to its first child). Read from the drawn markup,
+ * each island to its own closing tag.
+ */
+function islandStructure(html: string): string[] {
+  const out: string[] = []
+  for (const m of html.matchAll(/<([a-z][a-z0-9-]*)\b[^>]*\sdata-storelib-motion="([a-z0-9-]+)"[^>]*>/gi)) {
+    const tag = m[1].toLowerCase()
+    const kind = m[2]
+    const start = (m.index ?? 0) + m[0].length
+    const re = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi")
+    re.lastIndex = start
+    let depth = 1
+    let end = html.length
+    for (let x = re.exec(html); x; x = re.exec(html)) {
+      depth += x[1] ? -1 : 1
+      if (depth === 0) { end = x.index; break }
+    }
+    const inner = html.slice(start, end)
+    const has = (attr: string) => new RegExp(`\\s${attr}(?=[\\s=>])`).test(inner)
+    const where = `${kind} (${/class="([^"]*)"/.exec(m[0])?.[1] ?? tag})`
+    if (kind === "pin-horizontal" && !(has("data-motion-stage") && has("data-motion-track"))) out.push(`${where}: no [data-motion-stage] with a [data-motion-track]`)
+    if (kind === "scroll-scrub" && !(has("data-motion-frame") || /<video\b[^>]*data-motion-video/.test(inner))) out.push(`${where}: no [data-motion-frame] or video[data-motion-video]`)
+    if (kind === "parallax-depth" && !has("data-motion-depth")) out.push(`${where}: no layer marked [data-motion-depth]`)
+    if (kind === "image-trail" && !(has("data-motion-images") && /<img\b/.test(inner))) out.push(`${where}: no [data-motion-images] holding pictures`)
+  }
+  return out
+}
+
 /** Run in the page (as a string: no bundler helpers reach the browser): visible media boxes that are painted and hold nothing. */
 const EMPTY_MEDIA = `(function(){
       const out = []
@@ -235,6 +267,8 @@ async function main() {
       const { html } = pageHtml(t, p.sections, p.key)
       const found = motionFindings(html)
       check(`${t.id}: ${p.key} has no motion island findings (P3 motionFindings)`, found.length === 0, found)
+      const missing = islandStructure(html)
+      check(`${t.id}: ${p.key}: every island has the inner elements its runtime reads`, missing.length === 0, missing)
     }
   }
 

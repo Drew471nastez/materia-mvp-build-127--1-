@@ -101,7 +101,8 @@ const lookbook: ComponentDef = {
 <section class="lb" ${rootAttrs({ motion: true })}>
   <div class="lb__in">
     <div class="lb__head"><h2 class="lb__h">{{ settings.heading | raw }}</h2><div class="lb__text">{{ settings.text | raw }}</div></div>
-    <ol class="lb__track" data-storelib-motion="pin-horizontal" tabindex="0" aria-label="{{ settings.track_label }}">
+    <div class="lb__pin" data-storelib-motion="pin-horizontal" data-motion-speed="1" data-motion-mobile="swipe"><div class="lb__stage" data-motion-stage>
+    <ol class="lb__track" data-motion-track tabindex="0" aria-label="{{ settings.track_label }}">
       {% for block in section.blocks %}
       <li class="lb__look" {{ block.shopify_attributes }}>
         <figure class="lb__fig">
@@ -111,6 +112,7 @@ const lookbook: ComponentDef = {
       </li>
       {% endfor %}
     </ol>
+    </div></div>
   </div>
 </section>`,
   style: `
@@ -120,16 +122,16 @@ const lookbook: ComponentDef = {
 .lb__h { margin: 0; ${DISPLAY} ${HEAVY} font-size: clamp(2.5rem, 1rem + 8cqi, 8rem); line-height: 0.82; }
 .lb__text { max-width: 30rem; ${MONO} font-size: 0.875rem; line-height: 1.6; color: var(--s-muted); }
 .lb__text p { margin: 0; }
-.lb__track { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(78%, 1fr); gap: 12px; margin: 0 calc(-1 * var(--theme-padding-x, 20px)); padding: 0 var(--theme-padding-x, 20px) 12px; list-style: none; overflow-x: auto; scroll-snap-type: x mandatory; }
-.lb__look { scroll-snap-align: start; min-width: 0; }
+.lb__track { display: flex; gap: 12px; margin: 0 calc(-1 * var(--theme-padding-x, 20px)); padding: 0 var(--theme-padding-x, 20px) 12px; list-style: none; overflow-x: auto; scroll-snap-type: x mandatory; }
+.lb__look { flex: none; width: 78cqi; scroll-snap-align: start; min-width: 0; }
 .lb__fig { position: relative; margin: 0; border: 2px solid var(--s-text); background: var(--s-surface); }
 .lb__fig img, .lb__stand { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
 .lb__stand { display: flex; align-items: flex-end; padding: 16px; ${DISPLAY} ${HEAVY} font-size: clamp(2rem, 8cqi, 4rem); line-height: 0.85; background: var(--s-accent); color: var(--s-bg); }
 .lb__cap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; padding: 10px 12px; border-top: 2px solid var(--s-text); ${MONO} font-size: 0.8125rem; }
 .lb__shop { color: inherit; font-weight: 700; text-underline-offset: 4px; }
 .lb__track:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 4px; }
-@container (min-width: 760px) { .lb__track { grid-auto-columns: minmax(40%, 1fr); } }
-@container (min-width: 1100px) { .lb__track { grid-auto-columns: minmax(30%, 1fr); gap: 16px; } }
+@container (min-width: 760px) { .lb__look { width: 40cqi; } }
+@container (min-width: 1100px) { .lb__look { width: 30cqi; } .lb__track { gap: 16px; } }
 ${reveal(".lb", ".lb__look", "ai_oc_looks_in")}`,
   settings: [
     s.inline("heading", "Heading", "Worn in"),

@@ -163,12 +163,12 @@ export const marquee = defineSection({
   name: "Running disciplines",
   summary: "Two running lines in opposite directions, one solid and one outlined (P3 marquee); still and wrapped for reduced motion.",
   template: `
-<section class="agq" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars("--agq-speed: {{ settings.speed }}s;")}" aria-label="{{ settings.label }}">
-  <div class="agq__row" data-storelib-motion="marquee" data-motion-reactive="40">
+<section class="agq" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars("--agq-speed: {{ settings.speed }};")}" aria-label="{{ settings.label }}">
+  <div class="agq__row" data-storelib-motion="marquee" data-motion-speed="{{ settings.speed }}" data-motion-reactive="40">
     <ul class="agq__run" data-motion-track>{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.word }}</li>{% endfor %}</ul>
     <ul class="agq__run" aria-hidden="true">{% for block in section.blocks %}<li>{{ block.settings.word }}</li>{% endfor %}</ul>
   </div>
-  <div class="agq__row agq__row--back" aria-hidden="true" data-storelib-motion="marquee" data-motion-reactive="40" data-motion-direction="right">
+  <div class="agq__row agq__row--back" aria-hidden="true" data-storelib-motion="marquee" data-motion-speed="{{ settings.speed }}" data-motion-reactive="40" data-motion-direction="right">
     <ul class="agq__run" data-motion-track>{% for block in section.blocks %}<li>{{ block.settings.word }}</li>{% endfor %}</ul>
     <ul class="agq__run">{% for block in section.blocks %}<li>{{ block.settings.word }}</li>{% endfor %}</ul>
   </div>
@@ -181,7 +181,7 @@ export const marquee = defineSection({
 .agq__row--back .agq__run li { color: transparent; -webkit-text-stroke: 1.5px var(--s-heading); }
 @media (prefers-reduced-motion: reduce) { .agq__row { width: auto; } .agq__run { flex-wrap: wrap; } .agq__run[aria-hidden="true"], .agq__row--back { display: none; } .agq__run li { white-space: normal; } }
 @media (prefers-reduced-motion: no-preference) {
-  .agq:not([data-motion="off"]) .agq__row { animation: agq-l var(--agq-speed, 40s) linear infinite; }
+  .agq:not([data-motion="off"]) .agq__row { animation: agq-l calc(3000s / var(--agq-speed, 80)) linear infinite; }
   .agq:not([data-motion="off"]) .agq__row--back { animation-name: agq-r; }
   .agq[data-motion="off"] .agq__row--back { display: none; }
   .agq:hover .agq__row { animation-play-state: paused; }
@@ -190,7 +190,7 @@ export const marquee = defineSection({
 .agq__row[data-motion-ready] .agq__run ~ .agq__run { display: none; }
 @keyframes agq-l { to { transform: translateX(-50%); } }
 @keyframes agq-r { from { transform: translateX(-50%); } to { transform: translateX(0); } }`,
-  settings: [text("label", "What it lists (read aloud)", "What the studio does"), range("speed", "Seconds per loop", 15, 90, 5, 44, "s"), ...motion(), scheme("site"), ...spacing(20, 20)],
+  settings: [text("label", "What it lists (read aloud)", "What the studio does"), range("speed", "Speed", 20, 300, 10, 70, "px/s"), ...motion(), scheme("site"), ...spacing(20, 20)],
   blocks: [{ type: "word", name: "Word", settings: [text("word", "Word", "Identity")] }],
   presetBlocks: ["Identity", "Type design", "Websites", "Exhibitions", "Print"].map((word) => ({ type: "word", settings: { word } })),
   maxBlocks: 8,

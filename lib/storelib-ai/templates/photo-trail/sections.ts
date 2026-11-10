@@ -324,8 +324,8 @@ export const places = defineSection({
   name: "Places running",
   summary: "Where the work was made, as a slow running line (P3 marquee), paused on hover, still and wrapped for reduced motion.",
   template: `
-<section class="pfq" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars("--pfq-speed: {{ settings.speed }}s;")}" aria-label="{{ settings.label }}">
-  <div class="pfq__track" data-storelib-motion="marquee" data-motion-reactive="40">
+<section class="pfq" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars("--pfq-speed: {{ settings.speed }};")}" aria-label="{{ settings.label }}">
+  <div class="pfq__track" data-storelib-motion="marquee" data-motion-speed="{{ settings.speed }}" data-motion-reactive="40">
     <ul class="pfq__run" data-motion-track>{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.place }}</li>{% endfor %}</ul>
     <ul class="pfq__run" aria-hidden="true">{% for block in section.blocks %}<li>{{ block.settings.place }}</li>{% endfor %}</ul>
   </div>
@@ -337,11 +337,11 @@ export const places = defineSection({
 .pfq__run li { ${D} font-size: clamp(2rem, 1.2rem + 4cqi, 5rem); letter-spacing: -0.035em; white-space: nowrap; padding-right: 0.8em; }
 .pfq__run li:nth-child(odd) { opacity: 0.35; }
 @media (prefers-reduced-motion: reduce) { .pfq__track { width: auto; } .pfq__run { flex-wrap: wrap; } .pfq__run[aria-hidden="true"] { display: none; } .pfq__run li { white-space: normal; } }
-@media (prefers-reduced-motion: no-preference) { .pfq:not([data-motion="off"]) .pfq__track { animation: pfq-run var(--pfq-speed, 60s) linear infinite; } .pfq:hover .pfq__track { animation-play-state: paused; } .pfq[data-motion="off"] .pfq__run[aria-hidden="true"] { display: none; } }
+@media (prefers-reduced-motion: no-preference) { .pfq:not([data-motion="off"]) .pfq__track { animation: pfq-run calc(3000s / var(--pfq-speed, 80)) linear infinite; } .pfq:hover .pfq__track { animation-play-state: paused; } .pfq[data-motion="off"] .pfq__run[aria-hidden="true"] { display: none; } }
 .pfq__track[data-motion-ready] { animation: none !important; }
 .pfq__track[data-motion-ready] .pfq__run[aria-hidden="true"] { display: none; }
 @keyframes pfq-run { to { transform: translateX(-50%); } }`,
-  settings: [text("label", "What it lists (read aloud)", "Where the work was made"), range("speed", "Seconds per loop", 20, 120, 5, 60, "s"), ...motion(), scheme("site"), ...spacing(24, 24)],
+  settings: [text("label", "What it lists (read aloud)", "Where the work was made"), range("speed", "Speed", 20, 300, 10, 50, "px/s"), ...motion(), scheme("site"), ...spacing(24, 24)],
   blocks: [{ type: "place", name: "Place", settings: [text("place", "Place", "Porto")] }],
   presetBlocks: ["Northumberland", "Porto", "Lyon", "Margate", "Puglia", "Skye"].map((place) => ({ type: "place", settings: { place } })),
   maxBlocks: 12,

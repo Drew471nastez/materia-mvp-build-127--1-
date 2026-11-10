@@ -420,8 +420,19 @@ export interface MarqueeOptions {
   type: string
   scheme?: string
   items: string[]
+  /** Seconds per loop, as a template thinks of it; stored as pixels per second (marqueePx). */
   speed?: number
   skin?: string
+}
+
+/**
+ * The band's speed in pixels per second, what the P3 marquee island reads (data-motion-speed) and
+ * what the CSS loop is timed from (3000px a loop). A template gives it as seconds per loop (o.speed,
+ * the old unit); 3000 / seconds is the same pace, rounded to the setting's step of 10.
+ */
+function marqueePx(seconds?: number): number {
+  const px = Math.round(3000 / (seconds ?? 36) / 10) * 10
+  return Math.max(20, Math.min(300, px))
 }
 
 export function marquee(o: MarqueeOptions): ComponentDef {
@@ -432,8 +443,8 @@ export function marquee(o: MarqueeOptions): ComponentDef {
     category: "text",
     template: `
 <section class="mq" ${rootAttrs({ motion: true })} aria-label="{{ settings.label }}">
-  <div class="mq__window" data-storelib-motion="marquee" data-motion-speed="{{ settings.speed }}" style="--mq-speed: {{ settings.speed }};">
-    <ul class="mq__track">${item}</ul>
+  <div class="mq__window" data-storelib-motion="marquee" data-motion-speed="{{ settings.speed }}" data-motion-direction="left" style="--mq-speed: {{ settings.speed }};">
+    <ul class="mq__track" data-motion-track>${item}</ul>
     <ul class="mq__track mq__track--copy" aria-hidden="true">${item}</ul>
   </div>
 </section>`,
@@ -447,14 +458,16 @@ export function marquee(o: MarqueeOptions): ComponentDef {
 @media (prefers-reduced-motion: no-preference) {
   .mq:not([data-motion="off"]) .mq__track { flex-wrap: nowrap; }
   .mq:not([data-motion="off"]) .mq__track--copy { display: flex; }
-  .mq:not([data-motion="off"]) .mq__window { animation: ${o.type}_run calc(var(--mq-speed, 30) * 1s / max(var(--m-k, 1), 0.2)) linear infinite; }
+  .mq:not([data-motion="off"]) .mq__window { animation: ${o.type}_run calc(3000s / var(--mq-speed, 80) / max(var(--m-k, 1), 0.2)) linear infinite; }
+  .mq__window[data-motion-ready] { animation: none !important; }
+  .mq__window[data-motion-ready] .mq__track--copy { display: none !important; }
   .mq:hover .mq__window, .mq:focus-within .mq__window { animation-play-state: paused; }
   @keyframes ${o.type}_run { to { transform: translateX(-50%); } }
 }
 @media (prefers-reduced-motion: reduce) { .mq__window { animation: none; } }
 @container (max-width: 599px) { .mq__item { white-space: normal; } .mq__window { width: auto; } }
 ${o.skin ?? ""}`,
-    settings: [s.text("label", "Band name (read aloud)", "Running notes"), s.range("speed", "Seconds per loop", 10, 120, 5, "s", o.speed ?? 36), s.scheme(o.scheme ?? "site_inverse"), ...motion(), ...spacing(28, 28)],
+    settings: [s.text("label", "Band name (read aloud)", "Running notes"), s.range("speed", "Speed", 20, 300, 10, "px/s", marqueePx(o.speed)), s.scheme(o.scheme ?? "site_inverse"), ...motion(), ...spacing(28, 28)],
     blocks: [{ type: "item", name: "Words", limit: 10, settings: [s.text("text", "Text", "Open early")] }],
     maxBlocks: 10,
     preset: o.items.map((text) => ({ type: "item", settings: { text } })),
@@ -486,9 +499,9 @@ export function pageIntro(o: PageIntroOptions): ComponentDef {
         {% for block in section.blocks %}<div class="pi__fact" {{ block.shopify_attributes }}><dt>{{ block.settings.label }}</dt><dd>{{ block.settings.value }}</dd></div>{% endfor %}
       </dl>
     </div>
-    <figure class="pi__media{% if settings.image %}{% else %} pi__media--none{% endif %}" data-storelib-motion="parallax-depth">
-      {% if settings.image %}<img src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="1400" height="1050" fetchpriority="high">{% endif %}
-    </figure>
+    {% if settings.image %}<figure class="pi__media" data-storelib-motion="parallax-depth" data-motion-intensity="30" data-motion-pointer="false">
+      <img src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="1400" height="1050" fetchpriority="high" data-motion-depth="0.25">
+    </figure>{% endif %}
   </div>
 </section>`,
     style: `
@@ -613,7 +626,7 @@ export function stickySteps(o: StepsOptions): ComponentDef {
       <h2 class="sp__h">{{ settings.heading | raw }}</h2>
       <div class="sp__text">{{ settings.text | raw }}</div>
     </div>
-    <ol class="sp__list" data-storelib-motion="scroll-scrub">
+    <ol class="sp__list" data-storelib-motion="reveal-stagger" data-motion-effect="rise">
       {% for block in section.blocks %}
       <li class="sp__step" {{ block.shopify_attributes }}>
         <span class="sp__n" aria-hidden="true">{{ forloop.index }}</span>

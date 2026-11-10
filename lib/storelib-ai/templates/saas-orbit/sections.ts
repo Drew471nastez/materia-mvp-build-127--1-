@@ -230,8 +230,8 @@ export const marquee = defineSection({
   name: "Giant running type",
   summary: "Giant running words across the full width, the product's verbs; pauses on hover, still and wrapped for reduced motion.",
   template: `
-<section class="swq" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars("--swq-speed: {{ settings.speed }}s;")}" aria-label="{{ settings.label }}">
-  <div class="swq__track" data-storelib-motion="marquee" data-motion-reactive="40" data-motion-direction="{{ settings.direction }}">
+<section class="swq" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars("--swq-speed: {{ settings.speed }};")}" aria-label="{{ settings.label }}">
+  <div class="swq__track" data-storelib-motion="marquee" data-motion-speed="{{ settings.speed }}" data-motion-reactive="40" data-motion-direction="{{ settings.direction }}">
     <ul class="swq__run" data-motion-track>{% for block in section.blocks %}<li class="swq__item" data-block-id="{{ block.id }}">{{ block.settings.word }}</li>{% endfor %}</ul>
     <ul class="swq__run" aria-hidden="true">{% for block in section.blocks %}<li class="swq__item">{{ block.settings.word }}</li>{% endfor %}</ul>
   </div>
@@ -244,7 +244,7 @@ export const marquee = defineSection({
 .swq__item::after { content: "/"; margin-inline: 0.25em; color: var(--s-accent); }
 @media (prefers-reduced-motion: reduce) { .swq__track { width: auto; flex-wrap: wrap; } .swq__run[aria-hidden="true"] { display: none; } .swq__run { flex-wrap: wrap; } .swq__item { white-space: normal; } }
 @media (prefers-reduced-motion: no-preference) {
-  .swq:not([data-motion="off"]) .swq__track { animation: swq-run var(--swq-speed, 40s) linear infinite; }
+  .swq:not([data-motion="off"]) .swq__track { animation: swq-run calc(3000s / var(--swq-speed, 80)) linear infinite; }
   .swq[data-motion="off"] .swq__run[aria-hidden="true"] { display: none; }
   .swq[data-motion="off"] .swq__track { width: auto; }
   .swq:hover .swq__track, .swq:focus-within .swq__track { animation-play-state: paused; }
@@ -254,7 +254,7 @@ export const marquee = defineSection({
 @keyframes swq-run { to { transform: translateX(-50%); } }`,
   settings: [
     text("label", "What it lists (read aloud)", "What Orbit does"),
-    range("speed", "Seconds per loop", 15, 90, 5, 36, "s"),
+    range("speed", "Speed", 20, 300, 10, 80, "px/s"),
     select("direction", "Direction", "left", [["left", "Left"], ["right", "Right"]]),
     ...motion(),
     scheme("site"),
