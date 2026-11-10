@@ -839,8 +839,8 @@ function Gallery({ images, title, phone, focus = -1, active = true }: { images: 
                 data-product-sheet-thumb={m.type}
               >
                 {still ? (
-                  /* Square, filled, the editor's padding cut off as on the slide itself. */
-                  <FramedPicture src={still} frame={1} className="h-full w-full" imgClassName="object-cover" imgProps={{ loading: "lazy", decoding: "async" }} />
+                  /* Square, filled, the editor's padding cut off as on the slide itself; a still that does not load leaves the tile's tone, never a broken-picture mark. */
+                  <FramedPicture src={still} frame={1} className="h-full w-full" imgClassName="object-cover" imgProps={{ loading: "lazy", decoding: "async", onError: (e) => { e.currentTarget.style.visibility = "hidden" } }} />
                 ) : null}
                 {m.type === "video" ? (
                   <span aria-hidden className={cn("absolute grid place-items-center", still ? "bottom-1 left-1" : "inset-0")} data-product-sheet-thumb-video="">
