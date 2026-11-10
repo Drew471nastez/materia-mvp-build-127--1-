@@ -29,6 +29,7 @@
  * Pure, no React, safe in the published page's bundle.
  */
 import { automaticHover } from "@/lib/storelib-theme/color-schemes"
+import { isMotionTier, motionTierOf, tierFromLevel, MOTION_TIER_SETTING } from "@/lib/storelib-ai/motion"
 import { ANIMATION_STYLES, CUSTOM_TOKEN_PREFIX, CUSTOM_TOKENS_SETTING, SHADOW_LEVELS, type DesignTokens, type ShadowLevel } from "./types"
 
 /** The theme setting a site's own labelled settings are declared in (lib/ai-builder/site-settings.ts, round N). */
@@ -221,6 +222,9 @@ export function tokensToThemeSettings(tokens: DesignTokens, current?: Record<str
     background_color: c.background,
     text_color: c.text,
     primary_color: c.accent,
+    /* Round O (O2): set, so the page never falls back to the platform's indigo (theme-css.ts). */
+    secondary_color: c.inverse?.background ?? c.text,
+    link_color: c.accent,
     font_heading: tokens.fonts.heading,
     font_body: tokens.fonts.body,
     font_accent: tokens.fonts.accent ?? "",
@@ -236,6 +240,7 @@ export function tokensToThemeSettings(tokens: DesignTokens, current?: Record<str
     animations_enabled: tokens.motion.level !== "none",
     animation_style: tokens.motion.style ?? (tokens.motion.level === "expressive" ? EXPRESSIVE_STYLE : SUBTLE_STYLE),
     animation_duration: Math.min(1200, Math.max(200, tokens.motion.durationMs ?? (tokens.motion.level === "expressive" ? 800 : 500))),
+    [MOTION_TIER_SETTING]: isMotionTier(tokens.motion.tier) ? tokens.motion.tier : tierFromLevel(tokens.motion.level),
   }
   if (tokens.shadow) out.card_shadow = tokens.shadow
   if (tokens.typeScale) out.typography_styles = typeScaleStyles(tokens.typeScale, current)
@@ -286,6 +291,7 @@ export function themeSettingsToTokens(theme: Record<string, unknown> | null | un
       level: t.animations_enabled ? (style === EXPRESSIVE_STYLE ? "expressive" : "subtle") : "none",
       ...((ANIMATION_STYLES as readonly string[]).includes(style) ? { style: style as DesignTokens["motion"]["style"] } : {}),
       durationMs: num(t.animation_duration, 600),
+      tier: motionTierOf(t),
     },
     custom: customTokens(t),
   }
@@ -310,13 +316,13 @@ export type TokenGroup = "colors" | "fonts" | "typeScale" | "radius" | "spacing"
 
 /** The Theme settings each group writes, and only those: changing a colour never rewrites a radius somebody set in Layout. */
 export const TOKEN_GROUP_SETTINGS: Record<TokenGroup, readonly string[]> = {
-  colors: ["color_schemes", "default_color_scheme", "background_color", "text_color", "primary_color"],
+  colors: ["color_schemes", "default_color_scheme", "background_color", "text_color", "primary_color", "secondary_color", "link_color"],
   fonts: ["font_heading", "font_body", "font_accent"],
   typeScale: ["typography_styles"],
   radius: ["input_radius", "button_border_radius", "border_radius", "image_border_radius", "popup_radius"],
   spacing: ["spacing_scale", "page_width", "content_padding_x", "ai_section_y"],
   shadow: ["card_shadow"],
-  motion: ["animations_enabled", "animation_style", "animation_duration"],
+  motion: ["animations_enabled", "animation_style", "animation_duration", MOTION_TIER_SETTING],
   custom: [CUSTOM_TOKENS_SETTING],
 }
 

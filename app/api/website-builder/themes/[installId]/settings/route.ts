@@ -7,6 +7,7 @@ import { z } from "zod"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { dbFailure, isDuplicate } from "@/lib/website-builder/write-retry"
+import { syncDesignMdFromSettings } from "@/lib/website-builder/design-md-sync"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -148,6 +149,10 @@ export async function PUT(req: Request, { params }: Params) {
     }
     result = data
   }
+
+  /* Round O (O2): a site with a DESIGN.md gets its front matter written again from the settings just saved (the draft; never fails this save). */
+  const savedDraft = update.draft_settings
+  if (savedDraft && typeof savedDraft === "object") await syncDesignMdFromSettings(supabase, installId, savedDraft as Record<string, unknown>)
 
   /**
    * Whenever the LIVE column was written, whichever branch above decided to

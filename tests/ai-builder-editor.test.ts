@@ -17,6 +17,7 @@
  *
  * Run: NODE_OPTIONS="--conditions=react-server" npx tsx tests/ai-builder-editor.test.ts
  */
+import { motionVars } from "@/lib/storelib-ai/motion"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { compileSection } from "@/lib/storelib-theme/storelib/compile"
@@ -191,7 +192,8 @@ function main() {
     const r = renderSection({ compiled: compiled.value, id: "x", instance: { type: "ai_studio_hero", settings: { card_border: 1, card_border_color: "" }, blocks: [] } as never, theme: site, page: { template: "index" } } as never)
     check("an empty component setting falls back to the token", /--sh-bc: var\(--scheme-border\)/.test(r.html) && /var\(--t-radius-md, 8px\)/.test(r.css))
   }
-  check("the page's --t-* are the custom tokens and then the scale, nothing else", canon({ ...customTokenVarsL4(site), ...tokenVars(site) }) === canon(Object.fromEntries(Object.entries(vars).filter(([k]) => k.startsWith("--t-")))))
+  /* Round O (O5): and the site's motion feel, --t-motion-* (lib/storelib-ai/motion). */
+  check("the page's --t-* are the custom tokens, then the scale, then the motion feel, nothing else", canon({ ...customTokenVarsL4(site), ...tokenVars(site), ...motionVars(site) }) === canon(Object.fromEntries(Object.entries(vars).filter(([k]) => k.startsWith("--t-")))))
 
   console.log("\n4. merge safety")
   check("a file's version is the sha256 of its draft text", fileVersion("abc") === "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")

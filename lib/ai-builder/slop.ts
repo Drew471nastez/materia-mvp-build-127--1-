@@ -28,6 +28,18 @@ import type { DesignTokens, ValidationIssue } from "./types"
 
 export type SlopSeverity = "error" | "warn" | "info"
 
+/**
+ * The anti-AI-slop spec's tiers: P0 must fix (finish refused), P1 should fix
+ * (counts toward SLOP_WARNING_BUDGET), P2 nice to fix (a note). They are the
+ * severities by another name, so a finding's tier always matches what the
+ * gate does with it.
+ */
+export type SlopTier = "P0" | "P1" | "P2"
+export const TIER_OF: Record<SlopSeverity, SlopTier> = { error: "P0", warn: "P1", info: "P2" }
+
+/** P1 warnings a finished site may carry. One more and finish is refused (slop.budget). */
+export const SLOP_WARNING_BUDGET = 6
+
 export const SLOP_RULES = [
   "gradients",
   "purple",
@@ -55,6 +67,19 @@ export const SLOP_RULES = [
   "layout-rhythm",
   "emoji-icons",
   "stock-copy",
+  /* Round O (O3): the anti-AI-slop spec's seven sins, soft and polish tells, cliché combinations. */
+  "indigo-accent",
+  "trust-gradient",
+  "left-border-card",
+  "placeholder-copy",
+  "cliche-combo",
+  "raw-hex",
+  "accent-overuse",
+  "eyebrow-labels",
+  "template-skeleton",
+  "three-cards-second",
+  "radius-shadow",
+  "decorative-shapes",
 ] as const
 export type SlopRule = (typeof SLOP_RULES)[number]
 
@@ -66,6 +91,8 @@ export interface SlopFinding {
   evidence: string[]
   /** True when the concept chose this on purpose; severity is then info. */
   excused: boolean
+  /** P0 / P1 / P2, from the severity after any excuse. */
+  tier: SlopTier
   /** The knowledge entry that explains the habit. */
   knowledge: string
   path?: string
@@ -86,6 +113,19 @@ export interface SlopInput {
    */
   /** Facts the store or creator actually supplied, so a real number or quote is not called fake. */
   facts?: { numbers?: string[]; quotes?: boolean; reviews?: boolean; logos?: boolean }
+  /**
+   * The creator's own words (the job's prompt, the edit request). When given, the
+   * looks only a person may ask for (BRIEF_ONLY: editorial serif, purple, emoji,
+   * default fonts) are allowed by these words alone, never by the model's concept.
+   */
+  brief?: string
+  /**
+   * The page as a visitor gets it: the drawn markup (and its CSS) of the pages,
+   * not in the editor. Read for what is VISIBLE (instructions to the creator,
+   * filler, invented numbers, the cliché look); the habits in the code are read
+   * from `sources`, so nothing is counted twice.
+   */
+  rendered?: { page?: string; html: string; css?: string }[]
 }
 
 export interface SlopReport {
@@ -109,8 +149,12 @@ export function splitStorelib(source: string): { template: string; style: string
   const copy: string[] = []
   const schema = block(source, "schema")
   if (schema.trim()) {
+    /* A setting the template reads only inside an editor-only branch (an empty photo's "Add the portrait") is the editor's words, not a visitor's. */
+    const refs = (t: string) => new Set([...t.matchAll(/settings\.([a-z0-9_]+)/gi)].map((m) => m[1]))
+    const visible = refs(withoutEditorOnly(template))
+    const editorOnly = new Set([...refs(template)].filter((id) => !visible.has(id)))
     try {
-      collectCopy(JSON.parse(schema), copy, "")
+      collectCopy(JSON.parse(schema), copy, "", editorOnly)
     } catch {
       /* the compiler reports bad JSON; nothing to read here */
     }
@@ -120,18 +164,66 @@ export function splitStorelib(source: string): { template: string; style: string
 
 const NOT_COPY_KEYS = new Set(["type", "id", "label", "info", "name", "tag", "class", "category", "icon", "visible_if", "unit", "placeholder"])
 
-function collectCopy(v: unknown, out: string[], key: string): void {
+function collectCopy(v: unknown, out: string[], key: string, skip: Set<string> = new Set()): void {
   if (typeof v === "string") {
     if (!NOT_COPY_KEYS.has(key) && /\s/.test(v)) out.push(v)
   } else if (Array.isArray(v)) {
-    for (const x of v) collectCopy(x, out, key)
+    for (const x of v) collectCopy(x, out, key, skip)
   } else if (v && typeof v === "object") {
-    for (const [k, x] of Object.entries(v)) collectCopy(x, out, k)
+    const id = (v as { id?: unknown }).id
+    if (typeof id === "string" && skip.has(id)) return
+    for (const [k, x] of Object.entries(v)) collectCopy(x, out, k, skip)
   }
 }
 
+/**
+ * The template without what only the editor draws: the body of an
+ * `{% if request.design_mode %}` or `{% if page.in_editor %}` (up to its else),
+ * which is where a designed empty state for the creator belongs.
+ */
+export function withoutEditorOnly(template: string): string {
+  const tag = /\{%-?\s*(if|unless|case|endif|endunless|endcase|else|elsif)\b([^%]*)-?%\}/gi
+  const editorCond = (cond: string) => /^\s*(?:request\.design_mode|page\.in_editor)\s*(?:==\s*true\s*)?-?$/i.test(cond)
+  let out = ""
+  let last = 0
+  /* One frame per open if/unless/case: whether this frame is hiding its current branch. */
+  const stack: boolean[] = []
+  let hiding = false
+  const hide = (m: RegExpExecArray) => {
+    out += template.slice(last, m.index)
+    hiding = true
+  }
+  const show = (m: RegExpExecArray) => {
+    hiding = false
+    last = m.index + m[0].length
+  }
+  for (let m = tag.exec(template); m; m = tag.exec(template)) {
+    const kind = m[1].toLowerCase()
+    if (kind === "if" || kind === "unless" || kind === "case") {
+      const starts = kind === "if" && !hiding && editorCond(m[2])
+      stack.push(starts)
+      if (starts) hide(m)
+    } else if (kind === "else" || kind === "elsif") {
+      const top = stack.length - 1
+      if (top < 0) continue
+      if (stack[top]) {
+        stack[top] = false
+        show(m)
+      }
+      if (kind === "elsif" && !hiding && editorCond(m[2])) {
+        stack[top] = true
+        hide(m)
+      }
+    } else {
+      const was = stack.pop()
+      if (was) show(m)
+    }
+  }
+  return hiding ? out : out + template.slice(last)
+}
+
 function visibleText(html: string): string {
-  return html
+  return withoutEditorOnly(html)
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/\{#[\s\S]*?#\}/g, " ")
@@ -248,10 +340,14 @@ const FAKE_PROOF: RegExp[] = [
   /\bjoin (?:thousands|millions|hundreds|over \d)/gi,
   /\b(?:Sarah|John|Emily|Michael|Jessica|David|Jane|Alex) [A-Z]\.(?=\s|,|<|$)/g,
   /\bloved by\b/gi,
+  /* Round O: the spec's invented metrics. "10x faster", "3× more productive", "99.9% uptime". */
+  /\b\d+(?:\.\d+)?\s*[x×]\s+(?:faster|more|better|growth|quicker|the (?:results|speed|output)|productive|return|roi|conversions?|sales|revenue)\b/gi,
+  /\b9\d\.\d+\s*%/g,
+  /\b\d{1,3}\s*%\s*(?:uptime|accuracy|guaranteed|of (?:our )?(?:members|users|athletes|patients|buyers)|client satisfaction|customer satisfaction|satisfied|happier|stronger|leaner|fitter|growth|increase|boost|conversion)\b/gi,
 ]
 
 const STOCK = /\b(handshake|high[- ]?five|business (?:meeting|people|team)|laptop (?:and|with) coffee|coffee and laptop|pointing at (?:a )?(?:screen|whiteboard)|lightbulb|light bulb|rocket|puzzle pieces?|headset|stock[- ]photo|smiling (?:woman|man|team)|diverse team|lotus pose|dumbbell model)\b/i
-const PLACEHOLDER_IMG = /(via\.placeholder\.com|placehold\.co|placeholder\.com|picsum\.photos|source\.unsplash\.com|unsplash\.it|dummyimage\.com|loremflickr|fakeimg)/i
+const PLACEHOLDER_IMG = /(via\.placeholder\.com|placehold\.co|placehold\.it|placeholder\.com|picsum\.photos|source\.unsplash\.com|images\.unsplash\.com|unsplash\.com|unsplash\.it|placekitten\.com|placeimg\.com|dummyimage\.com|loremflickr|fakeimg|pravatar\.cc|randomuser\.me)/i
 
 const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u
 
@@ -270,13 +366,17 @@ interface Ctx {
   units: Unit[]
   css: string
   html: string
+  /** Visible words: the files' text and copy, plus the rendered pages' text. */
   text: string
-  allow: Set<SlopAllowance>
+  /** The rendered pages' markup and CSS together (empty when none was given). */
+  renderedHtml: string
+  renderedCss: string
+  allow: Set<Allowance>
   concept: VisualConcept | null
   input: SlopInput
 }
 
-type Raw = Omit<SlopFinding, "excused"> & { allowance?: SlopAllowance }
+type Raw = Omit<SlopFinding, "excused" | "tier"> & { allowance?: Allowance }
 
 function gradients(c: Ctx): Raw[] {
   const found = [...all(/(?:repeating-)?(?:linear|radial|conic)-gradient\([^;{}]*\)/gi, c.css), ...all(/(?:repeating-)?(?:linear|radial|conic)-gradient\([^;"']*\)/gi, c.html), ...all(/\bbg-gradient-to-[a-z]+\b/g, c.html)]
@@ -501,7 +601,9 @@ function pills(c: Ctx): Raw[] {
   const pill = r.filter((x) => x >= 99).length
   /* Avatars and dots are round on purpose; discount one per img inside a rounded-full. */
   const avatars = (c.html.match(/<img[^>]*rounded-full|avatar/gi) ?? []).length
-  const n = Math.max(0, pill - avatars)
+  /* Round O: a wall of badge, pill and chip elements by name, whatever their radius. */
+  const named = (c.html.match(/<(?:span|div|li|a|p)\b[^>]*class="[^"]*\b(?:badge|pill|chip)s?\b[^"]*"/gi) ?? []).length
+  const n = Math.max(0, pill - avatars, named)
   if (n < 4) return []
   return [{
     rule: "pills",
@@ -654,8 +756,8 @@ function spacing(c: Ctx): Raw[] {
 }
 
 function stockImagery(c: Ctx): Raw[] {
-  const imgs = c.html.match(/<img\b[^>]*>/gi) ?? []
-  const hits = imgs.filter((t) => STOCK.test(t) || PLACEHOLDER_IMG.test(t))
+  const imgs = [...(c.html.match(/<(?:img|source|video)\b[^>]*>/gi) ?? []), ...all(/url\([^)]*\)/gi, c.css + "\n" + c.html).filter((u) => PLACEHOLDER_IMG.test(u))]
+  const hits = uniq(imgs.filter((t) => STOCK.test(t) || PLACEHOLDER_IMG.test(t)))
   if (!hits.length) return []
   return [{
     rule: "stock-imagery",
@@ -762,6 +864,17 @@ function defaultFonts(c: Ctx): Raw[] {
     declared.push(v)
     if (DISPLAY_SELECTOR.test(r.selector) && isSlopDisplayFont(v)) evidence.push(`${r.selector.slice(0, 40)} is set in ${v.split(",")[0].trim()}`)
   }
+  /* Round O (sin 4): the concept binds a display face and a heading hardcodes a different one. */
+  if (display && !isSlopDisplayFont(display)) {
+    const want = firstFamily(display)
+    for (const r of cssRules(c.css)) {
+      if (!/(?:^|[\s,>+~(])h[12]\b|display|headline|__h\b/i.test(r.selector)) continue
+      const v = /font-family\s*:\s*([^;]+)/i.exec(r.body)?.[1]?.trim()
+      if (!v || /^var\(/i.test(v) || /\{\{/.test(v)) continue
+      const fam = firstFamily(v)
+      if (fam && fam !== want && !GENERIC_FAMILIES.has(fam) && !isSlopDisplayFont(v) && !MONO_FAMILY.test(v)) evidence.push(`${r.selector.slice(0, 40)} hardcodes ${fam} where the concept's display face is ${display}`)
+    }
+  }
   /* System-ui alone: every family named anywhere is a default and nothing reads the theme's fonts. */
   const readsTheme = /var\(--(?:theme-font|t-font|font-heading|font-display)/i.test(c.css)
   if (!evidence.length && declared.length && !readsTheme && declared.every((v) => isSlopDisplayFont(v))) evidence.push(`every face named is a default (${uniq(declared.map((v) => firstFamily(v))).join(", ")})`)
@@ -818,6 +931,9 @@ function typeScale(c: Ctx): Raw[] {
 }
 
 /* ── round N: layout ───────────────────────────────────────────────────── */
+
+/** Pictographic emoji (not arrows, not the typographic symbols in U+2600 a designer may use on purpose like ★ or ✓). */
+const EMOJI_ICON = /[\u{1F300}-\u{1FAFF}\u{1F000}-\u{1F2FF}\u{2728}\u{26A1}\u{2705}\u{274C}\u{2B50}\u{2764}\u{1F525}]/u
 
 const CARD_CLASS = /class="[^"]*\b[\w-]*(?:card|tile|feature|benefit|service|perk|item|box)\b[^"]*"/i
 
@@ -935,7 +1051,12 @@ function emojiIcons(c: Ctx): Raw[] {
   const hits: string[] = []
   for (const m of c.html.matchAll(/<(span|i|div|p|li|h[1-6]|figure)\b[^>]*>\s*([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}][\u{FE0F}\u{200D}\u{1F300}-\u{1FAFF}]*)/gu)) hits.push(`${m[1]} starting with ${m[2]}`)
   for (const t of c.units.flatMap((u) => u.copy)) if (/^\s*[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(t)) hits.push(`a setting starting with ${t.trim().slice(0, 2)}`)
-  if (hits.length < 2) return []
+  /* Round O (sin 3): one emoji inside a heading, a button or an icon slot is already the habit. */
+  const strong: string[] = []
+  for (const m of (c.html + "\n" + c.renderedHtml).matchAll(/<(h[1-6]|button)\b[^>]*>([\s\S]*?)<\/\1>/gi)) if (EMOJI_ICON.test(m[2].replace(/<[^>]*>/g, ""))) strong.push(`${m[1]} with ${EMOJI_ICON.exec(m[2].replace(/<[^>]*>/g, ""))![0]}`)
+  for (const m of (c.html + "\n" + c.renderedHtml).matchAll(/<(\w+)\b[^>]*class="[^"]*\bicon[\w-]*[^"]*"[^>]*>\s*([^<]{1,8})</gi)) if (EMOJI_ICON.test(m[2])) strong.push(`an icon slot holding ${m[2].trim()}`)
+  if (strong.length) hits.push(...strong)
+  if (hits.length < 2 && !strong.length) return []
   return [{
     rule: "emoji-icons",
     severity: "error",
@@ -943,6 +1064,7 @@ function emojiIcons(c: Ctx): Raw[] {
     fix: "Remove them. Use typography (numbers, rules, labels) for structure; if an icon helps recognition, draw a simple inline SVG from one set at one stroke width with an accessible name.",
     evidence: sample(hits),
     knowledge: "anti-slop-random-icons",
+    allowance: "emoji",
   }]
 }
 
@@ -1006,7 +1128,548 @@ function stockCopy(c: Ctx): Raw[] {
   }]
 }
 
-const CHECKS: ((c: Ctx) => Raw[])[] = [gradients, purple, glow, glass, genericHero, identicalLayout, randomIcons, floatingCards, typography, pills, radius, emptyWords, fakeProof, repetitiveStructure, spacing, stockImagery, weakMobile, animation, defaultFonts, typeScale, cardGrid, heroThreeCards, layoutRhythm, emojiIcons, stockCopy]
+/* ── round O (O3): allowances a person must ask for ───────────────────── */
+
+/** What a finding may be excused by: the concept's allowances, and looks only the creator's own words can allow. */
+export type Allowance = SlopAllowance | "editorial" | "emoji"
+
+/**
+ * Looks the MODEL may not choose for itself. With the creator's words in hand
+ * (`input.brief`), these are allowed only when those words ask for them; the
+ * concept's `allow` list is not enough (a model that reached for the editorial
+ * serif look by default would otherwise allow itself).
+ */
+export const BRIEF_ONLY: readonly Allowance[] = ["editorial", "purple", "emoji", "default-fonts"]
+
+const BRIEF_ASKS: [Allowance[], RegExp][] = [
+  [["editorial"], /\b(?:editorial|magazine|literary|journal|zine|serif|bookish|newspaper|print[- ]inspired|old[- ]style|typewriter|letterpress)\b/i],
+  [["purple"], /\b(?:purple|violet|indigo|lavender|lilac|amethyst|mauve)\b/i],
+  [["gradients"], /\bgradients?\b/i],
+  [["glass"], /\b(?:glass(?:morphism)?|frosted)\b/i],
+  [["glow"], /\b(?:glow(?:ing|s)?|neon)\b/i],
+  [["emoji"], /\bemojis?\b/i],
+  [["default-fonts"], /\b(?:inter|roboto|poppins|montserrat|helvetica|arial|open sans|lato|raleway|system font)\b/i],
+  [["pills", "large-radius"], /\b(?:pills?|bubbly|rounded|soft corners|round corners)\b/i],
+  [["rich-motion"], /\b(?:animated|animations?|motion|parallax|marquee|kinetic|scroll (?:effects|moments|animations?))\b/i],
+  [["centered-hero"], /\bcent(?:er|re)d?\b/i],
+  [["icons"], /\bicons?\b/i],
+  [["bento"], /\bbento\b/i],
+]
+
+/** What the creator's words ask for. "No purple" and "without gradients" ask for nothing. */
+export function briefAllowances(brief: string | null | undefined): Set<Allowance> {
+  const out = new Set<Allowance>()
+  const text = String(brief ?? "")
+  for (const [grants, re] of BRIEF_ASKS) {
+    const g = new RegExp(re.source, "gi")
+    for (const m of text.matchAll(g)) {
+      const before = text.slice(Math.max(0, (m.index ?? 0) - 24), m.index).toLowerCase()
+      if (/\b(?:no|not|never|without|avoid|hate|don'?t want|nothing)\b[^.,;]*$/.test(before)) continue
+      for (const a of grants) out.add(a)
+      break
+    }
+  }
+  return out
+}
+
+/* ── round O: colour helpers ──────────────────────────────────────────── */
+
+/** Tailwind's default indigo, violet and purple: the textbook AI accent (anti-ai-slop.md, sin 1). */
+export const AI_DEFAULT_INDIGO: readonly string[] = ["#6366f1", "#4f46e5", "#4338ca", "#3730a3", "#8b5cf6", "#7c3aed", "#a855f7"]
+const TW_INDIGO = /\b(?:bg|text|from|via|to|border|ring|fill|stroke|accent|decoration|outline)-(?:indigo-(?:500|600|700|800)|violet-(?:500|600)|purple-500)\b/g
+
+function hsl(hex: string): [number, number, number] | null {
+  let h = hex.replace(/^#/, "").toLowerCase()
+  if (h.length === 3 || h.length === 4) h = h.slice(0, 3).split("").map((c) => c + c).join("")
+  if (h.length !== 6 && h.length !== 8) return null
+  return rgbToHsl(parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16))
+}
+
+/** Cream, ivory, bone, off-white: a warm, very light, slightly saturated background. */
+export function isCream(color: string | null | undefined): boolean {
+  const c = color ? hsl(color.trim()) : null
+  if (!c) return false
+  const [h, s, l] = c
+  return h >= 18 && h <= 62 && s >= 0.12 && l >= 0.86 && l <= 0.985
+}
+
+/** Terracotta, rust, burnt orange, clay: the accent of the editorial-serif look. */
+export function isTerracotta(color: string | null | undefined): boolean {
+  const c = color ? hsl(color.trim()) : null
+  if (!c) return false
+  const [h, s, l] = c
+  return (h >= 4 && h <= 32) && s >= 0.35 && l >= 0.26 && l <= 0.6
+}
+
+/** The display serifs of the 2025-26 editorial look, lower case. */
+export const EDITORIAL_SERIFS: readonly string[] = [
+  "instrument serif", "fraunces", "playfair display", "playfair", "dm serif display", "dm serif text", "cormorant", "cormorant garamond",
+  "gloock", "young serif", "libre caslon text", "libre caslon display", "eb garamond", "newsreader", "lora", "bodoni moda", "source serif 4",
+  "literata", "crimson pro", "crimson text", "libre baskerville", "noto serif display", "gilda display", "italiana", "ibarra real nova",
+]
+const isEditorialSerif = (v: string | null | undefined) => !!v && EDITORIAL_SERIFS.includes(firstFamily(v))
+const MONO_FAMILY = /\bmono\b|monospace|courier|jetbrains|ibm plex mono|space mono|dm mono|fira code|roboto mono|geist mono|var\(--[\w-]*mono/i
+
+/* ── round O: the seven sins ──────────────────────────────────────────── */
+
+/**
+ * The colour code a check should read as USED: custom property definitions are dropped (a theme's
+ * own defaults, `--theme-secondary: #8b5cf6`, are not a colour on the page), except in the files the
+ * model wrote, where an accent, primary, brand or button variable it defines is its choice of accent.
+ */
+function usedColorCode(c: Ctx): string {
+  const decl = /--([\w-]+)\s*:\s*([^;}"]*)/g
+  const own = c.units.filter((u) => u.path).map((u) => `${u.css}\n${u.html}`.replace(decl, (m, name: string) => (/accent|primary|brand|button|cta/i.test(name) ? m : "")))
+  const other = [...c.units.filter((u) => !u.path).map((u) => `${u.css}\n${u.html}`), c.renderedCss, c.renderedHtml].map((t) => t.replace(decl, ""))
+  return [...own, ...other].join("\n").replace(/\/\*[\s\S]*?\*\//g, "").toLowerCase()
+}
+
+function indigoAccent(c: Ctx): Raw[] {
+  const code = usedColorCode(c)
+  const hexes = AI_DEFAULT_INDIGO.filter((h) => new RegExp(`${h}(?![0-9a-f])`, "i").test(code))
+  const tokens = [c.input.tokens?.colors?.accent, c.input.tokens?.colors?.inverse?.accent, c.concept?.palette?.accent].filter((v): v is string => !!v).map((v) => v.trim().toLowerCase())
+  const tokenHits = tokens.filter((t) => AI_DEFAULT_INDIGO.includes(t))
+  const tw = uniq(all(TW_INDIGO, c.html))
+  const evidence = uniq([...tokenHits.map((t) => `accent token ${t}`), ...hexes, ...tw])
+  if (!evidence.length) return []
+  return [{
+    rule: "indigo-accent",
+    severity: "error",
+    message: `Default Tailwind indigo or violet as a colour: ${evidence.slice(0, 4).join(", ")}. It is the textbook machine accent.`,
+    fix: "Take the accent from the site's tokens (var(--t-accent), the colour scheme) chosen for this business. If the creator asked for purple, pick a considered purple, not Tailwind's default.",
+    evidence: evidence.slice(0, 6),
+    knowledge: "anti-slop-purple-gradients",
+    allowance: "purple",
+  }]
+}
+
+/** Two stop gradients between the cool "trust" hues: purple to blue, blue to cyan, indigo to pink. */
+function trustGradient(c: Ctx): Raw[] {
+  const found: string[] = []
+  for (const g of [...all(/(?:linear|radial|conic)-gradient\((?:[^()]|\([^()]*\))*\)/gi, c.css + "\n" + c.html)]) {
+    const stops = colorsIn(g)
+    if (stops.length !== 2 && stops.length !== 3) continue
+    const hues = stops.map(([h]) => h)
+    const cool = hues.every((h) => h >= 175 && h <= 345)
+    const spread = Math.max(...hues) - Math.min(...hues)
+    if (cool && spread >= 25 && stops.every(([, s]) => s >= 0.35)) found.push(g)
+  }
+  for (const m of c.html.matchAll(/class="([^"]*\bfrom-(purple|violet|indigo|fuchsia|blue|sky|cyan|pink)-\d{2,3}\b[^"]*)"/g)) {
+    const to = /\bto-(purple|violet|indigo|fuchsia|blue|sky|cyan|pink)-\d{2,3}\b/.exec(m[1])
+    if (to && to[1] !== m[2]) found.push(`from-${m[2]} to-${to[1]}`)
+  }
+  if (!found.length) return []
+  return [{
+    rule: "trust-gradient",
+    severity: "error",
+    message: `A two-stop "trust" gradient (${found.length}): purple to blue, blue to cyan or indigo to pink.`,
+    fix: "Use a flat surface from the palette and let type and imagery carry the hero. A gradient stays only as a photo scrim or a deliberate brand gradient the creator asked for.",
+    evidence: sample(found),
+    knowledge: "anti-slop-purple-gradients",
+    allowance: "purple",
+  }]
+}
+
+/** The "AI dashboard tile": a rounded box with a coloured left border. */
+function leftBorderCard(c: Ctx): Raw[] {
+  const hits: string[] = []
+  for (const r of cssRules(c.css + "\n" + c.renderedCss)) {
+    const left = /border-(?:left|inline-start)\s*:\s*([^;]+)/i.exec(r.body)?.[1] ?? /border-(?:left|inline-start)-width\s*:\s*([^;]+)/i.exec(r.body)?.[1]
+    if (!left || /\bnone\b|^\s*0(?:px)?\b/i.test(left)) continue
+    const width = Math.max(0, ...[...left.matchAll(/(\d*\.?\d+)px/g)].map((m) => +m[1]))
+    const chromatic = colorsIn(left).length > 0 || /var\(--[\w-]*(?:accent|primary|brand|button)/i.test(left)
+    if (width < 2 && !chromatic) continue
+    if (width < 3 && !chromatic) continue
+    const rad = /border-radius\s*:\s*([^;]+)/i.exec(r.body)?.[1]?.trim()
+    if (!rad || /^0(?:px)?$/.test(rad)) continue
+    hits.push(r.selector.slice(0, 50))
+  }
+  for (const m of c.html.matchAll(/class="([^"]*)"/g)) if (/\bborder-l-(?:2|4|8|\[\d+px\])\b/.test(m[1]) && /\brounded(?:-(?:sm|md|lg|xl|2xl|3xl))?\b/.test(m[1])) hits.push(m[1].slice(0, 60))
+  if (!hits.length) return []
+  return [{
+    rule: "left-border-card",
+    severity: "error",
+    message: `A rounded card with a coloured left border (${hits.length}): the canonical machine-made tile.`,
+    fix: "Drop either the radius or the left border. Separate items with type, spacing or a hairline instead.",
+    evidence: sample(hits),
+    knowledge: "anti-slop-floating-cards",
+  }]
+}
+
+/**
+ * Words a visitor must never read: filler, and instructions meant for the
+ * creator ("Add your portrait in the sidebar", "PHOTO: YOUR NAME, YOUR GYM").
+ * Never excused. Text inside {% if request.design_mode %} is the editor's own
+ * and is not read (withoutEditorOnly).
+ */
+export const CREATOR_INSTRUCTIONS: RegExp[] = [
+  /\blorem ipsum\b|\bdolor sit amet\b/gi,
+  /\b(?:feature|benefit|service|testimonial|product|card|section|heading|title)\s+(?:one|two|three|four|1|2|3|4)\b(?!\s*(?:of|to|in|and|x|%))/gi,
+  /\b(?:placeholder|dummy|sample|filler|example)\s+(?:text|copy|content|image|photo|heading|title|name|quote)\b/gi,
+  /\b(?:add|upload|insert|drop|choose|pick|select|swap in|replace|put)\s+(?:in\s+)?(?:your|an?|the)\s+(?:own\s+)?(?:portrait|photo|photograph|image|picture|logo|video|headshot|hero image|cover image|copy|text|heading|headline|title|bio|tagline)\b/gi,
+  /\b(?:in|from|via|using|open|through)\s+the\s+(?:sidebar|side panel|editor|theme settings|settings panel|section settings|customi[sz]er|inspector)\b/gi,
+  /\breplace (?:this|me|it|with your)\b/gi,
+  /\b(?:edit|change) (?:this|me)(?: (?:text|copy|heading|section))?\b/gi,
+  /\bclick (?:here )?to (?:edit|add|change|upload|replace)\b/gi,
+  /\bYOUR (?:NAME|GYM|STUDIO|BRAND|BUSINESS|COMPANY|LOGO|PHOTO|PORTRAIT|HEADLINE|CITY|TAGLINE|PRODUCT|SHOP|STORE)\b/g,
+  /\bYour (?:Name|Gym|Studio|Brand|Business|Company|Logo|Headline|Tagline|Shop|Store)\b/g,
+  /\byour (?:gym|studio|business|company|brand|shop|store) name\b/gi,
+  /\b(?:photo|image|picture|video)\s*:\s*(?:your|add|placeholder|tbd|coming soon)\b/gi,
+  /\b(?:image|photo|picture|logo) (?:here|placeholder|goes here|coming soon)\b/gi,
+  /\[(?:your|insert|add|company|brand|name|title|image|photo|heading|text|city)[^\]]{0,40}\]/gi,
+  /\b(?:goes|go) here\b|\b(?:write|add|insert|put|enter) (?:your|the) [a-z' ]{1,40} here\b/gi,
+  /\bTODO\b|\bTBD\b|\bFIXME\b/g,
+]
+
+/** The first instruction-to-the-creator or filler phrase in `text`, or null. Markup ignored. */
+export function creatorInstructionIn(text: string): string | null {
+  const plain = visibleText(text)
+  for (const re of CREATOR_INSTRUCTIONS) {
+    const m = new RegExp(re.source, re.flags.replace("g", "")).exec(plain)
+    if (m) return m[0]
+  }
+  return null
+}
+
+function placeholderCopy(c: Ctx): Raw[] {
+  const hits: string[] = []
+  for (const re of CREATOR_INSTRUCTIONS) for (const m of c.text.matchAll(new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g"))) hits.push(m[0])
+  if (!hits.length) return []
+  return [{
+    rule: "placeholder-copy",
+    severity: "error",
+    message: `Filler or instructions to the creator in visible text: ${sample(hits, 5).map((h) => `"${h}"`).join(", ")}.`,
+    fix: "Write the final words from what the creator and the store gave you. When a fact or a picture is missing, leave it out, or put a labelled empty state inside {% if request.design_mode %} so only the editor shows it. Never tell the creator what to do on the live page.",
+    evidence: sample(hits, 6),
+    knowledge: "storelib-honest-data",
+  }]
+}
+
+/* ── round O: the soft tells ──────────────────────────────────────────── */
+
+function rawHex(c: Ctx): Raw[] {
+  const css = c.css.replace(/\/\*[\s\S]*?\*\//g, "")
+  /* Outside :root and token blocks, and outside var() fallbacks. */
+  const body = cssRules(css).filter((r) => !/(?:^|,)\s*:root\b|\[data-theme|--[\w-]+\s*:/.test(r.selector) && !/^\s*(?:from|to|\d+%)\s*$/.test(r.selector))
+  const hexes = new Set<string>()
+  for (const r of body) {
+    const stripped = r.body.replace(/--[\w-]+\s*:[^;]*;?/g, "").replace(/var\((?:[^()]|\([^()]*\))*\)/g, "VAR")
+    for (const m of stripped.matchAll(/#[0-9a-f]{3,8}\b/gi)) hexes.add(m[0].toLowerCase())
+  }
+  for (const m of c.html.matchAll(/style="([^"]*)"/gi)) for (const h of m[1].replace(/var\((?:[^()]|\([^()]*\))*\)/g, "VAR").matchAll(/#[0-9a-f]{3,8}\b/gi)) hexes.add(h[0].toLowerCase())
+  if (hexes.size <= 12) return []
+  return [{
+    rule: "raw-hex",
+    severity: "warn",
+    message: `${hexes.size} raw hex colours outside the tokens: the palette was not honoured.`,
+    fix: "Read colours from the tokens and the colour scheme (var(--t-*), var(--s-*), {{ scheme.* }}); a new colour the design needs becomes a token, once.",
+    evidence: [...hexes].slice(0, 8),
+    knowledge: "anti-slop-purple-gradients",
+  }]
+}
+
+function accentOveruse(c: Ctx): Raw[] {
+  const worst: string[] = []
+  for (const u of c.units) {
+    const n = (u.css.match(/var\(--(?:t-|theme-|s-|scheme-|color-)?(?:accent|primary|brand)\b/gi) ?? []).length + (u.html.match(/var\(--(?:t-|theme-|s-|scheme-|color-)?(?:accent|primary|brand)\b/gi) ?? []).length
+    if (n >= 6) worst.push(`${u.path ?? "the page"}: ${n} uses`)
+  }
+  if (!worst.length) return []
+  return [{
+    rule: "accent-overuse",
+    severity: "warn",
+    message: `The accent is used everywhere (${worst.join("; ")}). An accent that is on everything is not an accent.`,
+    fix: "Keep the accent for the one action and one detail per screen, at most two visible uses; the rest in text and neutral tones.",
+    evidence: worst.slice(0, 4),
+    knowledge: "anti-slop-purple-gradients",
+  }]
+}
+
+const EYEBROW_CLASS = /(?:eyebrow|kicker|overline|pre-?title|pretitle|super-?title|tagline|label|caps|upper|tag|meta|caption)/i
+
+/** A small label element (or a heading's uppercase small sibling) placed right before a heading. */
+function eyebrowLabels(c: Ctx): Raw[] {
+  const rules = cssRules(c.css)
+  const upperClass = new Set<string>()
+  for (const r of rules) if (/text-transform\s*:\s*uppercase/i.test(r.body)) for (const m of r.selector.matchAll(/\.([\w-]+)/g)) upperClass.add(m[1])
+  const headings = (c.html.match(/<h[1-3][\s>]/gi) ?? []).length
+  if (headings < 3) return []
+  let labelled = 0
+  const evidence: string[] = []
+  for (const m of c.html.matchAll(/<(p|span|div|small|em|strong)\b([^>]*)>((?:(?!<\/?(?:p|div|section)\b)[\s\S]){1,120}?)<\/\1>\s*(?:\{%[^%]*%\}\s*)*<h[1-3]\b/gi)) {
+    const cls = /class="([^"]*)"/.exec(m[2])?.[1] ?? ""
+    const upper = /\buppercase\b/.test(cls) || cls.split(/\s+/).some((k) => upperClass.has(k)) || (EYEBROW_CLASS.test(cls) && cls.length > 0)
+    if (!upper) continue
+    labelled++
+    evidence.push(cls.slice(0, 40) || m[1])
+  }
+  if (labelled < 3 || labelled / headings < 0.6) return []
+  return [{
+    rule: "eyebrow-labels",
+    severity: "warn",
+    message: `A tiny uppercase label sits above ${labelled} of ${headings} headings.`,
+    fix: "Keep a label only where it carries information (a date, a category the visitor filters by). Let the headings stand on their own.",
+    evidence: sample(evidence),
+    knowledge: "anti-slop-pill-badges",
+  }]
+}
+
+/** What a section is for, from its file name, type or schema name. */
+export function sectionRole(name: string): "hero" | "features" | "pricing" | "faq" | "cta" | "testimonials" | "header" | "footer" | "other" {
+  const n = name.toLowerCase().replace(/^sections\//, "").replace(/\.storelib$/, "").replace(/^ai_/, "")
+  if (/header|nav(?:bar)?\b|masthead/.test(n)) return "header"
+  if (/footer/.test(n)) return "footer"
+  if (/hero|banner|intro|splash/.test(n)) return "hero"
+  if (/pric|plans?\b|tiers?\b/.test(n)) return "pricing"
+  if (/faq|questions|accordion/.test(n)) return "faq"
+  if (/testimon|reviews?|quotes?/.test(n)) return "testimonials"
+  if (/features?|benefits?|services?|why|perks|usps?/.test(n)) return "features"
+  if (/cta|call[-_]?to|signup|sign[-_]?up|newsletter|get[-_]?started|book[-_]?now|contact[-_]?band/.test(n)) return "cta"
+  return "other"
+}
+
+/** The page's sections in order: the sections list when given, else the section files. */
+function pageOrder(c: Ctx): string[] {
+  const named = (c.input.sections ?? []).map((s) => s.type)
+  const list = named.length ? named : c.units.filter((u) => u.path?.startsWith("sections/")).map((u) => u.path!)
+  return list.map(sectionRole).filter((r) => r !== "header" && r !== "footer")
+}
+
+function templateSkeleton(c: Ctx): Raw[] {
+  const order = pageOrder(c)
+  if (order.length < 4) return []
+  const want = ["hero", "features", "pricing", "faq", "cta"]
+  let i = 0
+  for (const r of order) if (r === want[i]) i++
+  const others = order.filter((r) => r === "other").length
+  if (i < want.length - (order.length <= 4 ? 1 : 0) || others > 1) return []
+  return [{
+    rule: "template-skeleton",
+    severity: "warn",
+    message: `The page is the AI template skeleton: ${order.join(" → ")}.`,
+    fix: "Order sections by what this visitor needs and add one only this business would have (a timetable, a menu, the work full bleed, a comparison against the status quo, a real demo).",
+    evidence: [order.join(" > ")],
+    knowledge: "anti-slop-identical-saas",
+    allowance: "bento",
+  }]
+}
+
+function threeCardsSecond(c: Ctx): Raw[] {
+  const units = sectionUnits(c)
+  const second = units[1]
+  if (!second) return []
+  const css = second.schema ? second.css : c.css
+  if (!isCardGrid({ html: second.html, css })) return []
+  const three = /repeat\(\s*3\s*,/i.test(css) || /\bgrid-cols-3\b/.test(second.html) || (second.html.match(/<(?:div|li|article)\b[^>]*class="[^"]*\b[\w-]*(?:card|tile|feature|benefit|service|perk)\b/gi) ?? []).length === 3
+  const rounded = radii({ ...c, css, html: second.html } as Ctx).some((x) => x >= 8 && x < 99) || /border-radius\s*:\s*var\(/i.test(css)
+  if (!three || !rounded) return []
+  return [{
+    rule: "three-cards-second",
+    severity: "warn",
+    message: `The second section (${second.label}) is three equal rounded cards, the default second section.`,
+    fix: "Give the supporting points a form from their content: a numbered list, one large item beside two small, a table, a sticky stack, a sideways strip.",
+    evidence: [second.label],
+    knowledge: "anti-slop-identical-saas",
+    allowance: "bento",
+  }]
+}
+
+function radiusShadow(c: Ctx): Raw[] {
+  const rules = cssRules(c.css)
+  const withRadius = rules.filter((r) => /border-radius\s*:/i.test(r.body))
+  const both = withRadius.filter((r) => {
+    const v = /border-radius\s*:\s*([^;]+)/i.exec(r.body)?.[1]?.trim() ?? ""
+    const n = px(v.split(/\s+/)[0])
+    const big = (n !== null && n >= 16 && n < 99) || /var\(--[\w-]*radius-(?:lg|xl)/i.test(v)
+    return big && /box-shadow\s*:\s*(?!none)/i.test(r.body)
+  })
+  const tw = (c.html.match(/class="[^"]*\brounded-(?:2xl|3xl)\b[^"]*\bshadow(?:-(?:md|lg|xl|2xl))?\b[^"]*"|class="[^"]*\bshadow(?:-(?:md|lg|xl|2xl))?\b[^"]*\brounded-(?:2xl|3xl)\b[^"]*"/g) ?? []).length
+  const n = both.length + tw
+  if (n < 4 || (withRadius.length && both.length / withRadius.length < 0.5 && tw < 4)) return []
+  return [{
+    rule: "radius-shadow",
+    severity: "warn",
+    message: `${n} elements have a large radius and a soft shadow: rounded and floating everywhere.`,
+    fix: "One radius system from the concept, a shadow only where something really sits above the page (a menu, a dialog).",
+    evidence: sample(both.map((r) => r.selector)),
+    knowledge: "anti-slop-excessive-radius",
+    allowance: "large-radius",
+  }]
+}
+
+function decorativeShapes(c: Ctx): Raw[] {
+  const named = all(/class="[^"]*\b(?:wave|waves|blob|blobs|squiggle|shape-divider|curve-divider|section-divider-wave|deco-shape|bg-shape)[\w-]*/gi, c.html).map((m) => m.replace(/^class="/, ""))
+  const svgWaves = (c.html.match(/<svg\b[^>]*(?:wave|blob)[^>]*>/gi) ?? []).length
+  const n = named.length + svgWaves
+  if (!n) return []
+  return [{
+    rule: "decorative-shapes",
+    severity: n >= 3 ? "warn" : "info",
+    message: `${n} decorative blob or wave shape${n === 1 ? "" : "s"}: geometry that means nothing.`,
+    fix: "Remove them. Change sections with a background step, a hairline, a full bleed image or a change of density.",
+    evidence: sample(named.length ? named : [`${svgWaves} wave or blob svg`]),
+    knowledge: "anti-slop-purple-gradients",
+    allowance: "floating-elements",
+  }]
+}
+
+/* ── round O: cliché combinations (spec 8.1) ──────────────────────────── */
+
+export interface ClicheSignals {
+  serifDisplay: boolean
+  italicDisplay: boolean
+  cream: boolean
+  monoCaps: boolean
+  terracotta: boolean
+  instructions: boolean
+}
+
+/** The editorial-serif signals of a concept alone (its own words), for the plan phase. */
+export function conceptClicheSignals(concept: Pick<VisualConcept, "typeSystem" | "palette"> | null | undefined): Pick<ClicheSignals, "serifDisplay" | "italicDisplay" | "cream" | "monoCaps" | "terracotta"> {
+  const t = concept?.typeSystem
+  const p = concept?.palette
+  return {
+    serifDisplay: isEditorialSerif(t?.display),
+    italicDisplay: /\bitalic/i.test(t?.rule ?? ""),
+    cream: isCream(p?.background) || isCream(p?.surface),
+    monoCaps: !!t?.mono && /\b(?:caps|capitals|uppercase|upper case)\b/i.test(t?.rule ?? ""),
+    terracotta: isTerracotta(p?.accent),
+  }
+}
+
+function editorialSignals(c: Ctx): { s: ClicheSignals; fromFiles: string[]; actual: number } {
+  const css = c.css + "\n" + c.renderedCss
+  const html = c.html + "\n" + c.renderedHtml
+  const rules = cssRules(css)
+  const fromConcept = conceptClicheSignals(c.concept)
+  const fromFiles: string[] = []
+  const actual = new Set<keyof ClicheSignals>()
+  const tokens = c.input.tokens
+  /* Serif display: the concept or token, or a display rule naming one. */
+  let serifDisplay = fromConcept.serifDisplay
+  if (isEditorialSerif(tokens?.fonts?.heading)) actual.add("serifDisplay")
+  for (const r of rules) {
+    const fam = /font-family\s*:\s*([^;]+)/i.exec(r.body)?.[1]
+    if (fam && DISPLAY_SELECTOR.test(r.selector) && isEditorialSerif(fam)) actual.add("serifDisplay")
+  }
+  if (actual.has("serifDisplay")) serifDisplay = true
+  /* Italic display: a heading rule in italic, an <em>/<i> filling a heading, or the concept's rule says so. */
+  let italicDisplay = fromConcept.italicDisplay
+  for (const r of rules) {
+    if (DISPLAY_SELECTOR.test(r.selector) && /font-style\s*:\s*italic/i.test(r.body)) {
+      italicDisplay = true
+      fromFiles.push(`${r.selector.slice(0, 30)} in italic`)
+      break
+    }
+  }
+  if (/<h[12]\b[^>]*>\s*(?:[^<]{0,40})<(?:em|i)\b/i.test(html) || /<h[12]\b[^>]*class="[^"]*\bitalic\b/i.test(html)) {
+    italicDisplay = true
+    fromFiles.push("an italic display heading")
+  }
+  /* Cream: the concept, the background token, or a page/section background. */
+  if (isCream(tokens?.colors?.background) || isCream(tokens?.colors?.surface)) actual.add("cream")
+  for (const r of rules) {
+    const bg = /background(?:-color)?\s*:\s*(#[0-9a-f]{3,8})\b/i.exec(r.body)?.[1]
+    if (bg && isCream(bg) && /(?:^|[\s,])(?:body|html|:root|section|main)\b|section|hero|wrap|page|root/i.test(r.selector)) actual.add("cream")
+    for (const m of r.body.matchAll(/--[\w-]*(?:bg|background|surface|paper|cream)[\w-]*\s*:\s*(#[0-9a-f]{3,8})/gi)) if (isCream(m[1])) actual.add("cream")
+  }
+  const cream = fromConcept.cream || actual.has("cream")
+  /* Mono caps captions: a rule in a mono face set in uppercase. */
+  let monoCaps = fromConcept.monoCaps
+  for (const r of rules) {
+    if (/text-transform\s*:\s*uppercase/i.test(r.body) && MONO_FAMILY.test(/font-family\s*:\s*([^;]+)/i.exec(r.body)?.[1] ?? "")) {
+      monoCaps = true
+      fromFiles.push(`${r.selector.slice(0, 30)}: mono in capitals`)
+      break
+    }
+  }
+  if (/class="[^"]*\bfont-mono\b[^"]*\buppercase\b|class="[^"]*\buppercase\b[^"]*\bfont-mono\b/.test(html)) {
+    monoCaps = true
+    fromFiles.push("font-mono uppercase labels")
+  }
+  /* Terracotta accent: the concept or token, or the colour on a button or link. */
+  if (isTerracotta(tokens?.colors?.accent)) actual.add("terracotta")
+  for (const r of rules) {
+    if (!/btn|button|cta|link|accent|\ba\b/i.test(r.selector)) continue
+    for (const m of r.body.matchAll(/#[0-9a-f]{3,8}\b/gi)) if (isTerracotta(m[0])) actual.add("terracotta")
+  }
+  for (const r of rules) for (const m of r.body.matchAll(/--[\w-]*(?:accent|primary|brand)[\w-]*\s*:\s*(#[0-9a-f]{3,8})/gi)) if (isTerracotta(m[1])) actual.add("terracotta")
+  const terracotta = fromConcept.terracotta || actual.has("terracotta")
+  if (fromFiles.some((f) => /italic/.test(f))) actual.add("italicDisplay")
+  if (fromFiles.some((f) => /mono/.test(f))) actual.add("monoCaps")
+  const instructions = CREATOR_INSTRUCTIONS.some((re) => new RegExp(re.source, re.flags.replace("g", "")).test(c.text))
+  if (instructions) fromFiles.push("instructions to the creator on the page")
+  return { s: { serifDisplay, italicDisplay, cream, monoCaps, terracotta, instructions }, fromFiles, actual: actual.size }
+}
+
+function saasSignals(c: Ctx): string[] {
+  const out: string[] = []
+  const code = c.css + "\n" + c.html
+  const colors = colorsIn(code)
+  if (colors.filter(isPurpleBlue).length >= 2) out.push("purple and blue colours")
+  if (/(?:linear|radial)-gradient|bg-gradient-to/i.test(code)) out.push("a gradient")
+  if (/blur-3xl|filter\s*:\s*blur\(\s*[3-9]\d|class="[^"]*\b(?:glow|orb|blob|aurora)/i.test(code) || /box-shadow[^;]*\b(?:[3-9]\d|\d{3})px[^;]*(?:rgba?\(\s*(?:99|79|67|124|139|168|59|37|14)\b|#(?:6366f1|8b5cf6|7c3aed|3b82f6))/i.test(code)) out.push("a glow")
+  const first = /<section[\s\S]*?<\/section>/i.exec(c.html)?.[0] ?? c.html.slice(0, 3000)
+  if (/text-center|text-align\s*:\s*center/i.test(first + c.css.slice(0, 2000))) out.push("a centred hero")
+  if (/class="[^"]*\b(?:badge|pill|chip|eyebrow)\b/i.test(first) || /rounded-full[^"]*"[^>]*>[^<]{1,40}<\/(?:span|div|p)>\s*<h1/i.test(first)) out.push("a pill above the heading")
+  if (iconCardRuns(c.html) >= 3) out.push("icon + heading + text cards")
+  if (/\b(?:dashboard|mockup|app-screen|device-frame)\b/i.test(c.html) && !/dashboard/i.test(c.input.brief ?? "")) out.push("a floating dashboard mockup")
+  return out
+}
+
+function clicheCombo(c: Ctx): Raw[] {
+  const out: Raw[] = []
+  const { s, fromFiles, actual } = editorialSignals(c)
+  const named: string[] = []
+  if (s.serifDisplay) named.push("a display serif")
+  if (s.italicDisplay) named.push("italic display type")
+  if (s.cream) named.push("a cream or off-white background")
+  if (s.monoCaps) named.push("mono all-caps captions")
+  if (s.terracotta) named.push("a terracotta or rust accent")
+  const look = [s.serifDisplay || s.italicDisplay, s.cream, s.monoCaps, s.terracotta].filter(Boolean).length + (s.serifDisplay && s.italicDisplay ? 1 : 0)
+  /*
+    Refused when the site itself shows it: the files (italic display, mono caps, instructions) or the tokens and CSS
+    it really uses (serif, cream, terracotta). The concept's words alone are a warning at plan time (conceptClicheIssues).
+  */
+  if (look >= 3 && (fromFiles.length > 0 || actual >= 3)) {
+    const severity: SlopSeverity = look >= 4 || s.instructions ? "error" : "warn"
+    out.push({
+      rule: "cliche-combo",
+      severity,
+      message: `The editorial-serif cliché, the 2025-26 machine look: ${named.join(" + ")}${s.instructions ? " + instructions to the creator on the page" : ""}.`,
+      fix: "Choose the direction from the business, not from the default: a personal trainer is performance and energy (a strong grotesk or condensed face, real training photography, a booking action), a ceramicist is material and process. Keep at most one of these features, and only where it serves this business.",
+      evidence: uniq([...named, ...fromFiles]).slice(0, 8),
+      knowledge: "anti-slop-relative-judgement",
+      allowance: "editorial",
+    })
+  }
+  const saas = saasSignals(c)
+  if (saas.length >= 4) {
+    out.push({
+      rule: "cliche-combo",
+      severity: saas.length >= 5 ? "error" : "warn",
+      message: `The SaaS-gradient cliché: ${saas.join(" + ")}.`,
+      fix: "Open with this business's real subject and a specific headline on a flat surface from its palette. Supporting points in a form that comes from their content, not icon cards.",
+      evidence: saas,
+      knowledge: "anti-slop-identical-saas",
+      allowance: "gradients",
+    })
+  }
+  return out
+}
+
+/** The concept, before anything is built: the editorial-serif look by its own words. Warnings for report_progress. */
+export function conceptClicheIssues(concept: Pick<VisualConcept, "typeSystem" | "palette"> | null | undefined, brief?: string): ValidationIssue[] {
+  if (!concept) return []
+  if (brief !== undefined && briefAllowances(brief).has("editorial")) return []
+  const s = conceptClicheSignals(concept)
+  const named = [s.serifDisplay && "a display serif", s.italicDisplay && "italic display type", s.cream && "a cream background", s.monoCaps && "mono capitals for labels", s.terracotta && "a terracotta accent"].filter(Boolean) as string[]
+  const look = [s.serifDisplay || s.italicDisplay, s.cream, s.monoCaps, s.terracotta].filter(Boolean).length
+  if (look < 3) return []
+  return [{ severity: "warning", code: "slop.cliche-combo", message: `This concept is the editorial-serif cliché (${named.join(" + ")}), which the creator did not ask for. A finished site with that look is refused. Change at least two of them to fit this business.` }]
+}
+
+const CHECKS: ((c: Ctx) => Raw[])[] = [gradients, purple, glow, glass, genericHero, identicalLayout, randomIcons, floatingCards, typography, pills, radius, emptyWords, fakeProof, repetitiveStructure, spacing, stockImagery, weakMobile, animation, defaultFonts, typeScale, cardGrid, heroThreeCards, layoutRhythm, emojiIcons, stockCopy, indigoAccent, trustGradient, leftBorderCard, placeholderCopy, clicheCombo, rawHex, accentOveruse, eyebrowLabels, templateSkeleton, threeCardsSecond, radiusShadow, decorativeShapes]
 
 /* ── the report ────────────────────────────────────────────────────────── */
 
@@ -1014,7 +1677,12 @@ const COST: Record<SlopSeverity, number> = { error: 15, warn: 6, info: 1 }
 
 export function evaluateSlop(input: SlopInput, concept?: VisualConcept | null): SlopReport {
   const findings: SlopFinding[] = []
-  const allow = conceptAllowances(concept ?? null)
+  const allow = new Set<Allowance>(conceptAllowances(concept ?? null))
+  /* With the creator's words in hand, the looks only a person may ask for come from those words alone. */
+  if (typeof input.brief === "string") {
+    for (const a of BRIEF_ONLY) allow.delete(a)
+    for (const a of briefAllowances(input.brief)) allow.add(a)
+  }
   const units: Unit[] = []
   for (const s of input.sources ?? []) {
     const p = splitStorelib(s.content)
@@ -1030,14 +1698,18 @@ export function evaluateSlop(input: SlopInput, concept?: VisualConcept | null): 
   /* Page level checks see everything together; a habit repeated in five files is one habit. */
   const html = units.map((u) => u.html).join("\n")
   const css = units.map((u) => u.css).join("\n")
-  const text = `${visibleText(html)} ${units.flatMap((u) => u.copy).join(" ")}`
-  const ctx: Ctx = { units, html, css, text, allow, concept: concept ?? null, input }
+  const rendered = input.rendered ?? []
+  const renderedHtml = rendered.map((r) => r.html).join("\n")
+  const renderedCss = rendered.map((r) => `${r.css ?? ""}\n${(r.html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) ?? []).map((b) => b.replace(/<\/?style[^>]*>/gi, "")).join("\n")}`).join("\n")
+  const text = `${visibleText(html)} ${units.flatMap((u) => u.copy).join(" ")} ${visibleText(renderedHtml)}`
+  const ctx: Ctx = { units, html, css, text, renderedHtml, renderedCss, allow, concept: concept ?? null, input }
   const onlyPath = units.length === 1 ? units[0].path : undefined
   for (const check of CHECKS) {
     for (const raw of check(ctx)) {
       const { allowance, ...f } = raw
       const excused = !!allowance && allow.has(allowance)
-      findings.push({ ...f, severity: excused ? "info" : f.severity, excused, path: onlyPath })
+      const severity = excused ? "info" : f.severity
+      findings.push({ ...f, severity, excused, tier: TIER_OF[severity], path: onlyPath })
     }
   }
   const order: Record<SlopSeverity, number> = { error: 0, warn: 1, info: 2 }
@@ -1048,11 +1720,24 @@ export function evaluateSlop(input: SlopInput, concept?: VisualConcept | null): 
   return { score, findings, counts }
 }
 
-/** The contract form for the agent's validate step: slop.* issues, info dropped. */
-export function slopIssues(input: SlopInput, concept?: VisualConcept | null): ValidationIssue[] {
-  return evaluateSlop(input, concept)
-    .findings.filter((f) => f.severity !== "info")
-    .map((f) => ({ severity: f.severity === "error" ? "error" : "warning", code: `slop.${f.rule}`, message: `${f.message} Fix: ${f.fix}`, path: f.path }))
+/**
+ * The contract form for the agent's validate step: slop.* issues, P2 (info)
+ * dropped. P0 findings are errors (finish refused). P1 warnings count toward
+ * SLOP_WARNING_BUDGET: past it, one more error (slop.budget) refuses finish
+ * too, because a site with that many soft tells reads as machine-made even
+ * when no single one would.
+ */
+export function slopIssues(input: SlopInput, concept?: VisualConcept | null, opts: { budget?: number } = {}): ValidationIssue[] {
+  const report = evaluateSlop(input, concept)
+  const issues: ValidationIssue[] = report.findings
+    .filter((f) => f.severity !== "info")
+    .map((f) => ({ severity: f.severity === "error" ? "error" : "warning", code: `slop.${f.rule}`, message: `[${f.tier}] ${f.message} Fix: ${f.fix}`, path: f.path }))
+  const budget = opts.budget ?? SLOP_WARNING_BUDGET
+  const warnings = report.findings.filter((f) => f.severity === "warn")
+  if (warnings.length > budget) {
+    issues.push({ severity: "error", code: "slop.budget", message: `${warnings.length} anti-slop warnings (${uniq(warnings.map((f) => f.rule)).join(", ")}), more than the ${budget} a finished site may carry. Fix the warnings above until at most ${budget} remain.` })
+  }
+  return issues
 }
 
 /** The report as text for a repair turn or the LLM review pass. */
@@ -1062,6 +1747,6 @@ export function describeSlop(report: SlopReport): string {
     `Anti-slop check: score ${report.score} (${report.counts.error} errors, ${report.counts.warn} warnings).`,
     ...report.findings
       .filter((f) => f.severity !== "info")
-      .map((f) => `- [${f.severity}] ${f.rule}: ${f.message} Fix: ${f.fix} (see ${f.knowledge})`),
+      .map((f) => `- [${f.tier} ${f.severity}] ${f.rule}: ${f.message} Fix: ${f.fix} (see ${f.knowledge})`),
   ].join("\n")
 }

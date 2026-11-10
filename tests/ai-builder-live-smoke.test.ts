@@ -143,12 +143,13 @@ async function main() {
   check("the report: cost under the cap, tokens counted", report.usd > 0 && report.usd <= report.capUsd && report.inputTokens === 9 * 4_000 && report.outputTokens === 9 * 800, report)
   check("the report: phases in order", JSON.stringify(report.phases) === JSON.stringify(["brief", "plan", "build", "verify", "finish"]), report.phases)
   /* Changed on purpose (round N, N3): a whole site, with the product and collection templates. */
-  check("the report: files and pages", report.files.length === 15 && report.files.every((f) => f.startsWith("sections/ai_")) && report.pages.map((p) => p.key).sort().join(",") === "about,collection,home,product,products,programs,search", { files: report.files, pages: report.pages })
+  /* Changed on purpose (round O, O2): the site's own DESIGN.md is written beside its components. */
+  check("the report: files and pages", report.files.includes("DESIGN.md") && report.files.filter((f) => f !== "DESIGN.md").length === 15 && report.files.filter((f) => f !== "DESIGN.md").every((f) => f.startsWith("sections/ai_")) && report.pages.map((p) => p.key).sort().join(",") === "about,collection,home,product,products,programs,search", { files: report.files, pages: report.pages })
   check("the report: validation run again on the result, no errors", report.validation.errors === 0, report.validation)
   check("the report: a slop score", !!report.slop && report.slop.score > 0 && report.slop.score <= 100, report.slop)
   check("the files, pages, settings and events are saved to the scratch folder", report.outDir === out && existsSync(join(out, "sections/ai_coach_hero.storelib")) && readFileSync(join(out, "sections/ai_coach_hero.storelib"), "utf8") === project.files["sections/ai_coach_hero.storelib"] && existsSync(join(out, "pages.json")) && existsSync(join(out, "events.json")))
   const text = describeSmoke(report)
-  check("the printed report names calls, cost, phases, files, validation and slop", /Calls: 9 model calls over 3 requests/.test(text) && /Cost: \$/.test(text) && /Phases: brief > plan > build > verify > finish/.test(text) && /Files: sections\/ai_/.test(text) && /Validation: 0 errors/.test(text) && /Slop score: \d+/.test(text), text)
+  check("the printed report names calls, cost, phases, files, validation and slop", /Calls: 9 model calls over 3 requests/.test(text) && /Cost: \$/.test(text) && /Phases: brief > plan > build > verify > finish/.test(text) && /Files: .*sections\/ai_/.test(text) && /Validation: 0 errors/.test(text) && /Slop score: \d+/.test(text), text)
   check("progress lines never carry a file body", !lines.some((l) => l.includes("<template>") || l.includes("<schema>")))
   rmSync(out, { recursive: true, force: true })
 

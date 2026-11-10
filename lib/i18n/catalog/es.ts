@@ -13006,7 +13006,10 @@ const words: Record<string, string> = {
  "{name} was already in your contacts. What you typed was added to them.": "{name} ya estaba en tus contactos. Lo que escribiste se añadió a su ficha.",
  "Adding…": "Añadiendo…",
  "Form options": "Opciones del formulario",
- "Nothing new to publish": "No hay nada nuevo que publicar"
+ "Nothing new to publish": "No hay nada nuevo que publicar",
+ "Reviewing the design": "Revisando el diseño",
+ "The first screen of your website, as the design review saw it": "La primera pantalla de tu sitio web, tal como la vio la revisión de diseño",
+ "What the design review looked at": "Lo que miró la revisión de diseño"
 }
 
 export default words

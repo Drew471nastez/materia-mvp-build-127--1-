@@ -210,6 +210,7 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
 
   animations_enabled: { does: "Sections ease in as they scroll into view. Visitors who ask their device for less motion never see it." },
   animation_style: { does: "How a section arrives: rising, fading, sliding or growing." },
+  motion_tier: { does: "The site's motion feel: quiet, balanced or expressive. Sets how long, how far and how softly the AI's own sections move; off for visitors who ask for reduced motion." },
   animation_duration: { does: "How long the arrival takes." },
   animation_stagger: { does: "The delay between items arriving in a row, such as cards." },
   intro_enabled: { does: "A screen with the creator's mark that plays as a visitor opens the live site, then lifts away. A tap skips it. Never drawn in the builder." },

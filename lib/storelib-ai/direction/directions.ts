@@ -1,0 +1,702 @@
+/**
+ * ===========================================================================
+ *  ART DIRECTIONS: A BROAD SET, EACH FITTED TO THE BUSINESSES IT SERVES
+ * ===========================================================================
+ * Round O (O2), spec Part 4 and the anti-monoculture matrix (4.1). Each
+ * direction is a coherent art direction, not an effect: a type system from
+ * the type library, palettes that pass contrast, a position on every axis of
+ * the variation matrix (hero, grid, images, dividers, density, shape,
+ * motion), layout rules, an imagery brief and what to avoid.
+ *
+ * `fits` is the business kinds it is made for, `suits` the ones it can
+ * serve. A direction that neither fits nor suits a business is never chosen
+ * for it unless the creator asked for it by name: a personal trainer gets
+ * performance, documentary or Swiss directions, not a literary magazine.
+ *
+ * Display serifs live only in directions that call for them (`serif: true`):
+ * luxury, literary, heritage, Japanese minimal. None is a default.
+ *
+ * Pure data. Browser safe.
+ */
+import type { BusinessKind, Density, MotionIntensity } from "./brief"
+
+export interface DirectionPalette {
+  name: string
+  mode: "light" | "dark"
+  background: string
+  surface: string
+  text: string
+  muted: string
+  accent: string
+  accentText: string
+  border: string
+  /** A contrast band (an inverse section). */
+  inverse?: { background: string; text: string; accent: string }
+}
+
+/** Spec 4.1, one value per axis. */
+export interface DirectionMatrix {
+  hero: "editorial-split" | "image-full-bleed" | "type-only" | "inset-stage" | "layered-magazine" | "strong-diagonal" | "asymmetric-triptych" | "anchored-side"
+  grid: "strict-columns" | "broken" | "modular" | "magazine" | "field" | "stacked-narrative"
+  images: "documentary" | "cinematic" | "product-close-up" | "texture" | "architecture" | "vector" | "none"
+  dividers: "none" | "hairline" | "color-bands" | "photo-breaks" | "type-chapters"
+  density: Density
+  shape: "square" | "softened" | "organic" | "clipped"
+  motion: "still" | "reveal" | "layered-scroll" | "interactive"
+}
+
+export interface ArtDirection {
+  id: string
+  name: string
+  /** The spec Part 4 style it belongs to. */
+  family: string
+  /** One concrete sentence: what the first viewport looks like. */
+  thesis: string
+  /** Words that name it when a creator asks for it (also matched by brief.ts STYLE_WORDS). */
+  keywords: string[]
+  /** Business kinds it is made for. */
+  fits: BusinessKind[]
+  /** Business kinds it can serve well. */
+  suits: BusinessKind[]
+  /** Mood words it answers. */
+  moods: string[]
+  /** Library style ids for the concept's `styles` (concept.ts), primary first. */
+  styles: string[]
+  /** Type systems (type-systems.ts ids) that make it, best first. */
+  typeSystems: string[]
+  /** True when a display serif belongs to this direction. */
+  serif: boolean
+  palettes: DirectionPalette[]
+  matrix: DirectionMatrix
+  motion: MotionIntensity
+  /** Corner radius in px for buttons and inputs. */
+  radius: number
+  layout: string[]
+  imagery: string
+  motionSignature: string
+  signature: string
+  avoid: string[]
+  /** Concept allowances this direction takes on purpose (concept.ts SLOP_ALLOWANCES). */
+  allow?: string[]
+}
+
+const P = (name: string, mode: "light" | "dark", background: string, surface: string, text: string, muted: string, accent: string, accentText: string, border: string, inverse?: DirectionPalette["inverse"]): DirectionPalette => ({ name, mode, background, surface, text, muted, accent, accentText, border, ...(inverse ? { inverse } : {}) })
+
+export const ART_DIRECTIONS: readonly ArtDirection[] = [
+  {
+    id: "bold-performance",
+    name: "Bold Performance",
+    family: "High-performance sports",
+    thesis: "Huge condensed caps cropped by the edge over a hard lit action photo, one hot accent, the booking button always in reach.",
+    keywords: ["performance", "sporty", "athletic"],
+    fits: ["fitness", "outdoor"],
+    suits: ["events-nightlife", "barber-tattoo", "fashion"],
+    moods: ["bold", "energetic", "loud", "raw", "aggressive", "dark"],
+    styles: ["fitness", "industrial", "typography-led"],
+    typeSystems: ["sport-condensed", "scoreboard", "poster-condensed"],
+    serif: false,
+    palettes: [
+      P("Floodlight", "dark", "#0c0c0d", "#18181a", "#f4f4f2", "#a9a9a6", "#e1251b", "#ffffff", "#2c2c2f", { background: "#e1251b", text: "#0c0c0d", accent: "#0c0c0d" }),
+      P("Chalk and signal", "light", "#f1f1ee", "#e4e4df", "#0d0d0d", "#4f4f4c", "#ff3b1f", "#0d0d0d", "#cfcfc9", { background: "#0d0d0d", text: "#f1f1ee", accent: "#ff3b1f" }),
+    ],
+    matrix: { hero: "image-full-bleed", grid: "broken", images: "documentary", dividers: "color-bands", density: "balanced", shape: "square", motion: "reveal" },
+    motion: "expressive",
+    radius: 0,
+    layout: ["Headline type runs off the edge on a phone and fills the width on desktop", "Programmes as numbered rows with session length and level, not three cards", "A colour band before the booking section changes the tempo"],
+    imagery: "Real training in the real gym: hard side light, sweat and chalk, tight crops on effort; no stock smiles, no neon renders",
+    motionSignature: "Headline lines slide up out of a mask once; photos scale a little on scroll; buttons snap, never float",
+    signature: "Session facts (length, level, place) set as a stat strip in condensed numerals",
+    avoid: ["italic display serif", "cream background", "fake transformation photos", "invented client counts"],
+  },
+  {
+    id: "training-ground",
+    name: "Training Ground",
+    family: "Human documentary",
+    thesis: "A candid portrait at full height beside a short plain-spoken promise and the price of a first session when it is real.",
+    keywords: ["documentary", "candid", "honest"],
+    fits: ["fitness", "education", "non-profit", "craft", "professional"],
+    suits: ["wellness", "creator", "cafe-bakery", "outdoor", "general"],
+    moods: ["honest", "warm", "friendly", "serious"],
+    styles: ["editorial", "fitness"],
+    typeSystems: ["news-gothic", "characterful-grotesk", "athletic-numerals"],
+    serif: false,
+    palettes: [
+      P("Concrete", "light", "#ededea", "#e0e0db", "#141414", "#4e4e4a", "#1f4fd1", "#ffffff", "#c9c9c3", { background: "#141414", text: "#ededea", accent: "#8fb0ff" }),
+      P("Track", "light", "#f6f6f4", "#ebebe7", "#111111", "#545450", "#0f7c4a", "#ffffff", "#d4d4ce", { background: "#0f3d2a", text: "#f6f6f4", accent: "#b8f400" }),
+    ],
+    matrix: { hero: "anchored-side", grid: "stacked-narrative", images: "documentary", dividers: "hairline", density: "balanced", shape: "softened", motion: "reveal" },
+    motion: "balanced",
+    radius: 4,
+    layout: ["Portrait anchored to one side, text column on the other, both full height", "How it works as three numbered steps in one row of text, not cards", "One plain question and answer list near the booking form"],
+    imagery: "Candid portraits of the actual person at work, natural light, nothing posed with a laptop",
+    motionSignature: "Quiet fade-up reveals on text only; photographs stay still",
+    signature: "A first-person note signed by the owner, set large",
+    avoid: ["invented testimonials", "stock photography", "three identical feature cards"],
+  },
+  {
+    id: "swiss-editorial",
+    name: "Swiss Editorial",
+    family: "Swiss neo-modernist",
+    thesis: "A visible 12 column grid, flush left grotesk at size jumps, numbered sections and one red rule.",
+    keywords: ["swiss", "grid", "international style"],
+    fits: ["professional", "agency", "architecture", "saas"],
+    suits: ["education", "fitness", "books", "non-profit", "general", "photography"],
+    moods: ["clean", "serious", "minimal", "bold"],
+    styles: ["swiss", "typography-led", "minimalism"],
+    typeSystems: ["swiss-grotesk", "neo-grotesk", "kinetic-grotesk"],
+    serif: false,
+    palettes: [
+      P("Paper and red", "light", "#ffffff", "#f2f2f2", "#111111", "#555555", "#d92b1c", "#ffffff", "#d9d9d9", { background: "#111111", text: "#ffffff", accent: "#ff5a4a" }),
+      P("Signal blue", "light", "#f4f4f1", "#e8e8e4", "#0f0f10", "#505052", "#0038ff", "#ffffff", "#cfcfcb", { background: "#0038ff", text: "#ffffff", accent: "#ffffff" }),
+    ],
+    matrix: { hero: "type-only", grid: "strict-columns", images: "architecture", dividers: "type-chapters", density: "balanced", shape: "square", motion: "still" },
+    motion: "quiet",
+    radius: 0,
+    layout: ["Everything snaps to a visible 12 column grid; headings start at column 2", "Section numbers set large in the margin", "Services as a two column definition list"],
+    imagery: "Objective photographs cropped to grid units, no filters",
+    motionSignature: "Almost none: a hairline grows under the active nav item",
+    signature: "Oversized section numerals on the grid",
+    avoid: ["centred hero", "rounded cards", "gradients"],
+  },
+  {
+    id: "luxury-editorial",
+    name: "Luxury Editorial",
+    family: "Quiet luxury",
+    thesis: "One cinematic photograph per screen, a high contrast serif name, tiny tracked labels and a lot of measured space.",
+    keywords: ["luxury", "high end", "couture"],
+    fits: ["jewellery", "fashion", "hospitality", "beauty"],
+    suits: ["architecture", "restaurant", "photography", "home-goods"],
+    moods: ["elegant", "premium", "quiet", "moody"],
+    styles: ["luxury", "fashion", "minimalism"],
+    typeSystems: ["haute-contrast", "luxe-whisper", "neo-grotesk"],
+    serif: true,
+    palettes: [
+      P("Bone and brass", "light", "#f7f6f2", "#ecebe5", "#121212", "#55554f", "#6e5a2e", "#ffffff", "#d8d6cd", { background: "#121212", text: "#f7f6f2", accent: "#c9a46a" }),
+      P("Night salon", "dark", "#111010", "#1b1a19", "#efebe4", "#a8a29a", "#c9a46a", "#111010", "#2e2c2a"),
+    ],
+    matrix: { hero: "image-full-bleed", grid: "field", images: "cinematic", dividers: "photo-breaks", density: "airy", shape: "square", motion: "layered-scroll" },
+    motion: "balanced",
+    radius: 0,
+    layout: ["One piece or one room per screen", "Labels in tiny tracked caps beside, never above, the headline", "The buy or book action stays visible; space never hides it"],
+    imagery: "Single objects or rooms with hard directional light and real material texture",
+    motionSignature: "Slow clip-path reveal on each image, once",
+    signature: "Each piece shown with its real dimensions and material",
+    avoid: ["cream with terracotta", "mono caps labels above every heading", "giant empty space that hides the action"],
+  },
+  {
+    id: "playful-creator",
+    name: "Playful Creator",
+    family: "Playful modernism",
+    thesis: "Big friendly type on flat colour fields, surprising crops of the creator's own photos, stickers that are real facts.",
+    keywords: ["playful", "fun", "colourful", "colorful", "quirky"],
+    fits: ["creator", "education", "podcast", "events-nightlife"],
+    suits: ["cafe-bakery", "home-goods", "craft", "non-profit", "music-artist"],
+    moods: ["playful", "bright", "friendly", "fresh"],
+    styles: ["playful", "creator"],
+    typeSystems: ["geometric-pop", "soft-rounded", "characterful-grotesk"],
+    serif: false,
+    palettes: [
+      P("Cobalt and sun", "light", "#fff9e8", "#ffefc2", "#16161a", "#4c4c52", "#2547ff", "#ffffff", "#e6dcc0", { background: "#2547ff", text: "#fff9e8", accent: "#ffd23f" }),
+      P("Mint pop", "light", "#effaf4", "#d9f2e5", "#10201a", "#41554c", "#c8261e", "#ffffff", "#c4e1d2", { background: "#10201a", text: "#effaf4", accent: "#7cf2b0" }),
+    ],
+    matrix: { hero: "strong-diagonal", grid: "modular", images: "vector", dividers: "color-bands", density: "balanced", shape: "organic", motion: "interactive" },
+    motion: "expressive",
+    radius: 999,
+    layout: ["Colour fields change at every section", "Photos cut into one repeated shape", "A row that scrolls sideways for the latest things"],
+    imagery: "The creator's own photos, bright and close, cut into one shape",
+    motionSignature: "Buttons press down 2px with a hard shadow; one marquee of real items",
+    signature: "One shape that holds every photo",
+    allow: ["pills", "large-radius", "rich-motion"],
+    avoid: ["emoji as icons", "random bouncing", "purple gradients"],
+  },
+  {
+    id: "y2k",
+    name: "Y2K Player",
+    family: "Subtle retro-futurism",
+    thesis: "A chrome-lit dark stage like an early 2000s media player, wide caps, pixel labels for BPM and key, and the packs as glowing tiles you can play.",
+    keywords: ["y2k", "2000s", "chrome", "millennium"],
+    fits: ["music-producer", "events-nightlife"],
+    suits: ["fashion", "creator", "music-artist", "podcast"],
+    moods: ["glossy", "nostalgic", "electric", "techy", "futuristic"],
+    styles: ["y2k", "experimental", "dark-cinematic"],
+    typeSystems: ["y2k-chrome", "wide-tech", "mono-led"],
+    serif: false,
+    palettes: [
+      P("Chrome night", "dark", "#08090d", "#12141b", "#eef1f7", "#9ea6b8", "#7cf7ff", "#08090d", "#262a36", { background: "#c9ced6", text: "#08090d", accent: "#0b4dff" }),
+      P("Silver skin", "light", "#e9ecf1", "#d9dee6", "#0b0d12", "#4a505c", "#0b4dff", "#ffffff", "#bcc3cf", { background: "#08090d", text: "#e9ecf1", accent: "#7cf7ff" }),
+    ],
+    matrix: { hero: "inset-stage", grid: "modular", images: "product-close-up", dividers: "hairline", density: "dense", shape: "clipped", motion: "interactive" },
+    motion: "expressive",
+    radius: 10,
+    layout: ["Products as a player list: cover, title, BPM, key, price and a play control per row", "A wide-caps hero on a framed stage, not a full page gradient", "Specs in pixel caps; long text stays in the plain sans"],
+    imagery: "Pack covers and gear shot flat on dark, with one rim light; the creator's own artwork",
+    motionSignature: "A scanline sweep across the hero once; a tile lifts and glows on hover",
+    signature: "Every product reads like a track in a player",
+    allow: ["glow", "gradients", "rich-motion"],
+    avoid: ["purple-to-blue gradient as the brand", "fake play counts", "fake chart positions"],
+  },
+  {
+    id: "frutiger-aero",
+    name: "Frutiger Aero",
+    family: "Subtle retro-futurism",
+    thesis: "Sky and water tones, glossy rounded panels, clean wide type and real nature photography, like a 2007 desktop done with care.",
+    keywords: ["frutiger", "aero", "glossy", "aqua"],
+    fits: ["saas", "outdoor"],
+    suits: ["wellness", "education", "creator", "music-producer"],
+    moods: ["fresh", "bright", "techy", "calm"],
+    styles: ["glassmorphism", "playful", "contemporary-ecommerce"],
+    typeSystems: ["geometric-clean", "wide-tech", "rounded-soft"],
+    serif: false,
+    palettes: [
+      P("Clear sky", "light", "#eaf6fb", "#d4ecf6", "#0d2a3a", "#3d5a6a", "#0a6fb0", "#ffffff", "#b9dbe9", { background: "#0d2a3a", text: "#eaf6fb", accent: "#7fe0ff" }),
+      P("Spring lawn", "light", "#eef8ee", "#d8efd8", "#11281a", "#3e5646", "#1f7a3a", "#ffffff", "#bfdcc1"),
+    ],
+    matrix: { hero: "inset-stage", grid: "modular", images: "texture", dividers: "none", density: "balanced", shape: "softened", motion: "reveal" },
+    motion: "balanced",
+    radius: 14,
+    layout: ["Glossy panels only where they hold an action", "Real sky, water or leaf photography as fields", "Wide caps for short labels only"],
+    imagery: "Clear water, sky, leaves and light; real, not rendered",
+    motionSignature: "A soft shine passes over a panel on hover",
+    signature: "One glossy pill button with a real highlight",
+    allow: ["glass", "gradients", "large-radius"],
+    avoid: ["blobs", "purple glow", "everything glassy"],
+  },
+  {
+    id: "neo-brutalist",
+    name: "Neo Brutalist",
+    family: "Neo-brutalist precision",
+    thesis: "Thick black outlines, offset hard shadows, heavy poster caps and flat colour blocks that change every scroll.",
+    keywords: ["brutalist", "brutalism", "neo brutal"],
+    fits: ["creator", "events-nightlife", "music-artist"],
+    suits: ["agency", "education", "music-producer", "podcast", "fashion"],
+    moods: ["loud", "raw", "playful", "edgy"],
+    styles: ["neo-brutalism", "playful"],
+    typeSystems: ["poster-heavy", "characterful-grotesk", "typewriter-zine"],
+    serif: false,
+    palettes: [
+      P("Hi-vis", "light", "#f4f4f0", "#ffffff", "#0a0a0a", "#4a4a47", "#ff5c00", "#0a0a0a", "#0a0a0a", { background: "#d7ff3a", text: "#0a0a0a", accent: "#0a0a0a" }),
+      P("Lime block", "light", "#e4ff4a", "#ffffff", "#0a0a0a", "#3a3f12", "#0a0a0a", "#e4ff4a", "#0a0a0a"),
+    ],
+    matrix: { hero: "strong-diagonal", grid: "broken", images: "product-close-up", dividers: "color-bands", density: "dense", shape: "square", motion: "interactive" },
+    motion: "expressive",
+    radius: 0,
+    layout: ["2px black outlines and 6px offset shadows on everything you can press", "Colour blocked sections that change at every scroll", "Headlines break across the grid on purpose"],
+    imagery: "Cut out products and people on flat colour",
+    motionSignature: "Press-down buttons: the shadow collapses on press",
+    signature: "Hard offset shadow on every action",
+    allow: ["icons", "pills"],
+    avoid: ["random thick borders on text", "comic styling for a professional service"],
+  },
+  {
+    id: "japanese-minimal",
+    name: "Japanese Minimal",
+    family: "Architectural minimalism",
+    thesis: "Small, widely spaced type, long vertical rhythm, one object per frame and a single vermilion mark.",
+    keywords: ["japanese", "wabi", "zen"],
+    fits: ["craft", "hospitality", "architecture"],
+    suits: ["wellness", "home-goods", "cafe-bakery", "art-gallery", "beauty"],
+    moods: ["calm", "minimal", "quiet", "soft"],
+    styles: ["japanese-minimal", "minimalism"],
+    typeSystems: ["japanese-quiet", "mincho-quiet", "gallery-label"],
+    serif: true,
+    palettes: [
+      P("Washi", "light", "#f5f5f2", "#ebebe6", "#1c1c1a", "#575752", "#b3261e", "#ffffff", "#d6d6cf"),
+      P("Sumi", "dark", "#161615", "#20201e", "#ecebe6", "#a3a29c", "#e8604f", "#161615", "#33332f"),
+    ],
+    matrix: { hero: "inset-stage", grid: "field", images: "product-close-up", dividers: "none", density: "airy", shape: "square", motion: "still" },
+    motion: "quiet",
+    radius: 0,
+    layout: ["Long vertical spacing; one object per screen", "Text blocks narrow, small and aligned to one edge", "A vertical label beside a photograph"],
+    imagery: "Single objects on plain ground in soft daylight, real texture of clay, wood and paper",
+    motionSignature: "Images fade in slowly once; nothing moves while reading",
+    signature: "One vermilion mark used once per page",
+    avoid: ["fake kanji decoration", "cream with terracotta and italic serif"],
+  },
+  {
+    id: "art-gallery",
+    name: "Art Gallery",
+    family: "Art-directed monochrome",
+    thesis: "White walls: the work shown big at its own ratio, a text index of projects and small wall-label captions.",
+    keywords: ["gallery style", "museum", "white cube"],
+    fits: ["art-gallery", "photography", "architecture"],
+    suits: ["film", "agency", "craft", "fashion"],
+    moods: ["minimal", "clean", "quiet", "serious"],
+    styles: ["minimalism", "portfolio"],
+    typeSystems: ["gallery-label", "neo-grotesk", "swiss-grotesk"],
+    serif: false,
+    palettes: [
+      P("White cube", "light", "#ffffff", "#f3f3f3", "#111111", "#5c5c5c", "#111111", "#ffffff", "#e2e2e2"),
+      P("Black box", "dark", "#0f0f0f", "#1a1a1a", "#efefef", "#a2a2a2", "#efefef", "#0f0f0f", "#2b2b2b"),
+    ],
+    matrix: { hero: "image-full-bleed", grid: "field", images: "architecture", dividers: "none", density: "airy", shape: "square", motion: "still" },
+    motion: "quiet",
+    radius: 0,
+    layout: ["A text index of projects; the hovered row's image shows beside it", "Work at its own ratio, nothing cropped", "Captions carry year, medium and size"],
+    imagery: "The work itself, large, uncropped, no frames or mockups",
+    motionSignature: "Hover previews in the index; nothing else moves",
+    signature: "The project index",
+    avoid: ["mockups", "drop shadows on artwork"],
+  },
+  {
+    id: "cinematic",
+    name: "Cinematic",
+    family: "Cinematic narrative",
+    thesis: "Letterboxed stills and a muted reel, chapters told image first, credits as a real list.",
+    keywords: ["cinematic", "film like"],
+    fits: ["film", "music-artist", "hospitality"],
+    suits: ["photography", "events-nightlife", "agency", "outdoor", "fashion"],
+    moods: ["moody", "dark", "premium", "serious"],
+    styles: ["dark-cinematic", "experimental"],
+    typeSystems: ["wide-statement", "gothic-poster", "kinetic-grotesk"],
+    serif: false,
+    palettes: [
+      P("Grade", "dark", "#0c0d0f", "#16181b", "#e9e9e6", "#9c9d99", "#d9c27a", "#0c0d0f", "#2a2c30"),
+      P("Day for night", "dark", "#0e1418", "#172027", "#e6ecef", "#97a4ab", "#e3604a", "#0e1418", "#273339"),
+    ],
+    matrix: { hero: "image-full-bleed", grid: "stacked-narrative", images: "cinematic", dividers: "photo-breaks", density: "airy", shape: "square", motion: "layered-scroll" },
+    motion: "expressive",
+    radius: 0,
+    layout: ["Stills at 2.39:1 between short text chapters", "The reel plays muted with a visible pause", "Credits as a real list of who did what"],
+    imagery: "Real stills from the work, graded, with grain",
+    motionSignature: "Chapters wipe in like cuts; parallax only on stills",
+    signature: "Credits roll as a list",
+    allow: ["rich-motion"],
+    avoid: ["autoplay with sound", "long intro blockers"],
+  },
+  {
+    id: "experimental-type",
+    name: "Experimental Type",
+    family: "Typographic statement",
+    thesis: "Type as image: a very large tight display that breaks and stacks across the grid, stark ground, one electric colour.",
+    keywords: ["experimental", "avant garde", "kinetic type"],
+    fits: ["agency", "art-gallery", "events-nightlife"],
+    suits: ["music-artist", "fashion", "creator", "film"],
+    moods: ["bold", "edgy", "loud", "raw"],
+    styles: ["experimental", "typography-led", "agency"],
+    typeSystems: ["kinetic-grotesk", "wide-statement", "art-school"],
+    serif: false,
+    palettes: [
+      P("Electric", "light", "#e8e8e3", "#dcdcd6", "#0b0b0b", "#4b4b48", "#0038ff", "#ffffff", "#c2c2bc", { background: "#0038ff", text: "#e8e8e3", accent: "#e8e8e3" }),
+      P("Acid night", "dark", "#0b0b0b", "#171717", "#ededea", "#a0a09c", "#c6ff00", "#0b0b0b", "#2a2a2a"),
+    ],
+    matrix: { hero: "type-only", grid: "broken", images: "none", dividers: "type-chapters", density: "dense", shape: "clipped", motion: "interactive" },
+    motion: "expressive",
+    radius: 0,
+    layout: ["The headline is the hero image, broken across columns", "Case studies as a big type index", "Sections separated by type chapters, not boxes"],
+    imagery: "Few images; when used, cropped hard into type",
+    motionSignature: "Letters shift weight or position on scroll, once, and stand still under reduced motion",
+    signature: "A headline set across the whole grid",
+    allow: ["many-sizes", "rich-motion"],
+    avoid: ["giant words with no message", "unreadable overlap on phones"],
+  },
+  {
+    id: "modern-wellness",
+    name: "Modern Wellness",
+    family: "Warm wellness",
+    thesis: "Soft natural light photography, calm geometric type, a sage or clay accent, generous but purposeful space and the class times up front.",
+    keywords: ["calm and warm", "serene"],
+    fits: ["wellness", "beauty"],
+    suits: ["hospitality", "cafe-bakery", "craft", "education"],
+    moods: ["calm", "warm", "soft", "friendly", "earthy"],
+    styles: ["wellness", "organic", "minimalism"],
+    typeSystems: ["geometric-clean", "gallery-label"],
+    serif: false,
+    palettes: [
+      P("Morning studio", "light", "#f3f1ec", "#e8e4dc", "#1f2420", "#535a54", "#4c6b4f", "#ffffff", "#d6d1c6", { background: "#2f4632", text: "#f3f1ec", accent: "#d7e4c6" }),
+      P("Eucalyptus", "light", "#eff2f0", "#e1e7e3", "#1d2422", "#4f5a56", "#2f6b62", "#ffffff", "#cdd7d2"),
+    ],
+    matrix: { hero: "editorial-split", grid: "field", images: "documentary", dividers: "color-bands", density: "airy", shape: "organic", motion: "reveal" },
+    motion: "quiet",
+    radius: 12,
+    layout: ["A timetable or class list near the top, not hidden on a sub page", "Photos with soft rounded crops in one consistent shape", "Text in short calm paragraphs, generous line height"],
+    imagery: "Real classes in natural window light, bodies in motion, plants and wood; never beige-on-beige",
+    motionSignature: "Soft reveals as you scroll, nothing else",
+    signature: "This week's classes as a calm list with times",
+    allow: ["large-radius"],
+    avoid: ["beige-on-beige low contrast", "italic display serif with mono caps labels", "fake before and after"],
+  },
+  {
+    id: "fashion-commerce",
+    name: "Fashion Commerce",
+    family: "Product editorial",
+    thesis: "Large product frames in an uneven grid, a heavy neo grotesk, price and size right on the image, look-book breaks between.",
+    keywords: ["lookbook", "editorial shop"],
+    fits: ["fashion", "jewellery", "beauty"],
+    suits: ["home-goods", "outdoor", "craft", "music-producer"],
+    moods: ["bold", "clean", "premium", "edgy"],
+    styles: ["contemporary-ecommerce", "fashion"],
+    typeSystems: ["neo-grotesk", "haute-contrast", "wide-statement"],
+    serif: false,
+    palettes: [
+      P("Studio white", "light", "#ffffff", "#f1f1f1", "#0e0e0e", "#575757", "#0e0e0e", "#ffffff", "#e0e0e0", { background: "#0e0e0e", text: "#ffffff", accent: "#ff4d00" }),
+      P("Concrete drop", "light", "#e9e9e6", "#dededa", "#101010", "#4d4d4a", "#ff4d00", "#101010", "#c8c8c3"),
+    ],
+    matrix: { hero: "asymmetric-triptych", grid: "magazine", images: "product-close-up", dividers: "photo-breaks", density: "dense", shape: "square", motion: "reveal" },
+    motion: "balanced",
+    radius: 0,
+    layout: ["Product grid with uneven sizes, bound to real products", "Look-book photo breaks between product rows", "Price, sizes and add to cart close to the image"],
+    imagery: "Products on bodies and alone, the same light across the set",
+    motionSignature: "Second image on hover; quick add",
+    signature: "A triptych hero of three real products",
+    avoid: ["every product in the same SaaS card", "fake sold-out badges"],
+  },
+  {
+    id: "hospitality-photo",
+    name: "Hospitality Photography",
+    family: "Human documentary",
+    thesis: "The place itself, photographed well: full width rooms or plates, opening hours and the booking action always visible.",
+    keywords: ["warm and inviting"],
+    fits: ["restaurant", "cafe-bakery", "hospitality"],
+    suits: ["wellness", "outdoor", "craft"],
+    moods: ["warm", "friendly", "earthy", "premium"],
+    styles: ["editorial", "organic"],
+    typeSystems: ["slab-workshop", "geometric-clean", "heritage-press"],
+    serif: false,
+    palettes: [
+      P("Daylight room", "light", "#f6f4ef", "#ebe7de", "#1d1b17", "#55514a", "#1d5c4a", "#ffffff", "#d8d2c5", { background: "#1d5c4a", text: "#f6f4ef", accent: "#f2c14e" }),
+      P("Evening table", "dark", "#171412", "#221e1b", "#f0e9df", "#ab9f90", "#e2a04a", "#171412", "#3a332d"),
+    ],
+    matrix: { hero: "image-full-bleed", grid: "stacked-narrative", images: "documentary", dividers: "photo-breaks", density: "balanced", shape: "softened", motion: "reveal" },
+    motion: "balanced",
+    radius: 4,
+    layout: ["Hours, address and booking in the first two screens when supplied", "The menu or rooms as a readable list, not a PDF", "Full width photo breaks between sections"],
+    imagery: "The real rooms, plates and people, in their own light",
+    motionSignature: "Photos ease in; a booking bar sticks on phones",
+    signature: "The menu set like a printed card",
+    avoid: ["invented opening hours", "stock food photos"],
+  },
+  {
+    id: "product-led",
+    name: "Product Led",
+    family: "Product editorial",
+    thesis: "The real product at real size first, specs in a clean table, one strong action and nothing decorative.",
+    keywords: ["product first", "product led"],
+    fits: ["saas", "home-goods", "music-producer", "outdoor"],
+    suits: ["craft", "jewellery", "fashion", "education"],
+    moods: ["clean", "techy", "serious", "fresh"],
+    styles: ["contemporary-ecommerce", "swiss", "saas"],
+    typeSystems: ["neo-grotesk", "mono-led", "geometric-clean"],
+    serif: false,
+    palettes: [
+      P("Lab", "light", "#f4f5f6", "#e8eaec", "#0f1114", "#4f555d", "#ff5a1f", "#0f1114", "#d3d7dc", { background: "#0f1114", text: "#f4f5f6", accent: "#ff5a1f" }),
+      P("Graphite", "dark", "#111316", "#1b1e22", "#eceef0", "#a0a6ad", "#3ddc97", "#111316", "#2b3036"),
+    ],
+    matrix: { hero: "editorial-split", grid: "modular", images: "product-close-up", dividers: "hairline", density: "balanced", shape: "softened", motion: "reveal" },
+    motion: "balanced",
+    radius: 6,
+    layout: ["Product first: one big real image or real UI beside the name and price", "A spec table instead of feature cards", "Add to cart or sign up next to every product mention"],
+    imagery: "The real product, in use and alone, consistent light",
+    motionSignature: "Images swap on hover; numbers count only from real data",
+    signature: "The spec table",
+    allow: ["icons"],
+    avoid: ["floating dashboard mockup", "invented metrics"],
+  },
+  {
+    id: "technical-industrial",
+    name: "Technical Industrial",
+    family: "Technical industrial",
+    thesis: "A spec-sheet layout: numbered rows, mono micro labels, hairline rules and the work shown as measured data.",
+    keywords: ["technical", "industrial", "spec sheet"],
+    fits: ["music-producer", "saas", "outdoor"],
+    suits: ["professional", "architecture", "craft", "fitness"],
+    moods: ["techy", "serious", "raw", "clean"],
+    styles: ["industrial", "swiss"],
+    typeSystems: ["mono-led", "terminal", "scoreboard"],
+    serif: false,
+    palettes: [
+      P("Workbench", "light", "#efefec", "#e3e3df", "#121212", "#505050", "#ff4d1a", "#121212", "#c9c9c4"),
+      P("Oscilloscope", "dark", "#0d0f0e", "#161a18", "#e3ebe6", "#97a39c", "#9dff57", "#0d0f0e", "#27302b"),
+    ],
+    matrix: { hero: "anchored-side", grid: "strict-columns", images: "product-close-up", dividers: "hairline", density: "dense", shape: "square", motion: "still" },
+    motion: "quiet",
+    radius: 2,
+    layout: ["Rows with numbers, specs in columns", "Micro labels in mono beside values, not above every heading", "A dense table beside one large image"],
+    imagery: "Gear and product shot flat, top down, real",
+    motionSignature: "A play or preview control per row; no decorative motion",
+    signature: "Spec rows with format, size and version",
+    avoid: ["fake terminal screens", "meaningless charts"],
+  },
+  {
+    id: "dark-immersive",
+    name: "Dark Immersive",
+    family: "Dark immersive",
+    thesis: "Deep black, selective light on the artist or product, a tight list of dates or releases and one luminous accent.",
+    keywords: ["dark mode", "immersive", "moody dark"],
+    fits: ["music-artist", "events-nightlife", "music-producer"],
+    suits: ["film", "barber-tattoo", "fashion", "podcast"],
+    moods: ["dark", "moody", "edgy", "premium"],
+    styles: ["dark-cinematic", "typography-led"],
+    typeSystems: ["gothic-poster", "wide-tech", "poster-condensed"],
+    serif: false,
+    palettes: [
+      P("Booth", "dark", "#07080a", "#121418", "#ecebe8", "#9b9ba0", "#c6ff00", "#07080a", "#24272d"),
+      P("Ember", "dark", "#0e0b0a", "#1a1513", "#f1e8e2", "#a8998f", "#ff6a3d", "#0e0b0a", "#33291f"),
+    ],
+    matrix: { hero: "image-full-bleed", grid: "stacked-narrative", images: "cinematic", dividers: "none", density: "balanced", shape: "square", motion: "layered-scroll" },
+    motion: "expressive",
+    radius: 0,
+    layout: ["Dates or releases as a tight list like a flyer back", "One full-bleed image per chapter", "The buy or listen action in the first screen"],
+    imagery: "Low light, motion blur, crowd and booth, real shows",
+    motionSignature: "A slow marquee of real dates; light sweeps on images",
+    signature: "The dates list",
+    allow: ["glow", "rich-motion"],
+    avoid: ["generic purple gradient", "poor contrast"],
+  },
+  {
+    id: "retro-analog",
+    name: "Retro Analog",
+    family: "Analog / tactile",
+    thesis: "Printed-matter cues done for real: slab headlines, grainy real photos, ruled tables and a stamped colour.",
+    keywords: ["retro", "vintage", "analog", "analogue", "risograph"],
+    fits: ["cafe-bakery", "barber-tattoo", "music-artist", "craft"],
+    suits: ["books", "restaurant", "outdoor", "home-goods", "music-producer"],
+    moods: ["warm", "earthy", "raw", "friendly"],
+    styles: ["industrial", "organic"],
+    typeSystems: ["slab-workshop", "typewriter-zine", "gothic-poster"],
+    serif: false,
+    palettes: [
+      P("Riso", "light", "#f2efe6", "#e6e1d3", "#1d1c1a", "#55524b", "#0057b8", "#ffffff", "#cfc9b9", { background: "#ff4f64", text: "#1d1c1a", accent: "#1d1c1a" }),
+      P("Workshop", "dark", "#1a1714", "#25211d", "#f0e7da", "#ab9e8d", "#f2b134", "#1a1714", "#3b342c"),
+    ],
+    matrix: { hero: "layered-magazine", grid: "magazine", images: "texture", dividers: "hairline", density: "dense", shape: "square", motion: "still" },
+    motion: "quiet",
+    radius: 2,
+    layout: ["Ruled tables and dotted leaders for menus and prices", "Real grain from real photos, never over buttons", "A stamped colour used for one thing"],
+    imagery: "Real photos with film grain, hands and tools",
+    motionSignature: "Nearly still; a stamp rotates in once",
+    signature: "Prices with dotted leaders",
+    avoid: ["fake scan artifacts over controls", "cream with terracotta and italic serif"],
+  },
+  {
+    id: "monochrome",
+    name: "Monochrome",
+    family: "Art-directed monochrome",
+    thesis: "Black and white photography, a heavy grotesk and exactly one accent colour used for the action.",
+    keywords: ["black and white", "monochrome"],
+    fits: ["photography", "barber-tattoo", "agency"],
+    suits: ["fashion", "fitness", "film", "music-artist", "architecture"],
+    moods: ["bold", "serious", "edgy", "minimal"],
+    styles: ["minimalism", "typography-led"],
+    typeSystems: ["neo-grotesk", "gothic-poster", "swiss-grotesk"],
+    serif: false,
+    palettes: [
+      P("Silver gelatin", "light", "#f5f5f5", "#e9e9e9", "#0d0d0d", "#525252", "#e1251b", "#ffffff", "#d0d0d0", { background: "#0d0d0d", text: "#f5f5f5", accent: "#e1251b" }),
+      P("Darkroom", "dark", "#0d0d0d", "#191919", "#f2f2f2", "#a3a3a3", "#ffd400", "#0d0d0d", "#2c2c2c"),
+    ],
+    matrix: { hero: "asymmetric-triptych", grid: "magazine", images: "documentary", dividers: "photo-breaks", density: "balanced", shape: "square", motion: "reveal" },
+    motion: "balanced",
+    radius: 0,
+    layout: ["Every photo black and white, the accent only on actions", "Sections vary in width and density on purpose", "Large numbers for real facts only"],
+    imagery: "High contrast black and white of the real work",
+    motionSignature: "Images reveal with a hard wipe",
+    signature: "One accent colour, nowhere but the action",
+    avoid: ["every section looking identical", "colour photos mixed in"],
+  },
+  {
+    id: "bento-modular",
+    name: "Bento Modular",
+    family: "Contemporary bento",
+    thesis: "Mixed-scale modules that each hold one real thing (a product, a fact, a photo, a sign up), grouped with purpose.",
+    keywords: ["bento"],
+    fits: ["creator", "saas"],
+    suits: ["education", "podcast", "music-producer", "home-goods"],
+    moods: ["fresh", "friendly", "techy", "bright"],
+    styles: ["creator", "saas"],
+    typeSystems: ["geometric-pop", "neo-grotesk", "characterful-grotesk"],
+    serif: false,
+    palettes: [
+      P("Tiles", "light", "#f3f3ef", "#ffffff", "#141414", "#555551", "#ff4f1f", "#141414", "#dcdcd6", { background: "#141414", text: "#f3f3ef", accent: "#ffb21f" }),
+      P("Night tiles", "dark", "#111214", "#1c1d20", "#eeeeec", "#a2a3a6", "#7ad3ff", "#111214", "#2c2d31"),
+    ],
+    matrix: { hero: "layered-magazine", grid: "modular", images: "product-close-up", dividers: "none", density: "dense", shape: "softened", motion: "reveal" },
+    motion: "balanced",
+    radius: 10,
+    layout: ["Modules of different sizes, each one real item", "No two neighbouring modules the same size", "The biggest module holds the main action"],
+    imagery: "The creator's own content in each module",
+    motionSignature: "Modules lift slightly on hover",
+    signature: "One oversized module for the newest thing",
+    allow: ["bento", "large-radius"],
+    avoid: ["six same-size shiny gradient boxes"],
+  },
+  {
+    id: "literary-editorial",
+    name: "Literary Editorial",
+    family: "Digital magazine",
+    thesis: "A reading page: a serif carries the words, columns and marginalia, an issue-style index on the home page.",
+    keywords: ["literary", "magazine", "editorial serif"],
+    fits: ["books", "podcast"],
+    suits: ["art-gallery", "education", "non-profit"],
+    moods: ["serious", "quiet", "warm"],
+    styles: ["editorial", "light-editorial", "literary", "publishing"],
+    typeSystems: ["newsprint", "humanist-clear"],
+    serif: true,
+    palettes: [
+      P("Proof", "light", "#f6f5f2", "#ebe9e4", "#1b1a18", "#57544e", "#1f4fd1", "#ffffff", "#d6d3cc"),
+      P("Night reading", "dark", "#141517", "#1e2023", "#ecebe7", "#a3a29d", "#e9c46a", "#141517", "#303236"),
+    ],
+    matrix: { hero: "layered-magazine", grid: "magazine", images: "none", dividers: "type-chapters", density: "dense", shape: "square", motion: "still" },
+    motion: "quiet",
+    radius: 0,
+    layout: ["Multiple text columns and a catalogue list", "An issue style index on the home page", "Footnotes as real asides"],
+    imagery: "Few photos: covers shot flat, the writer's real desk",
+    motionSignature: "None beyond link underlines",
+    signature: "An issue index with numbers",
+    avoid: ["cream with terracotta and mono caps labels", "newspaper cosplay"],
+  },
+  {
+    id: "one-page-conversion",
+    name: "One Page Conversion",
+    family: "One-page conversion editorial",
+    thesis: "A short, warm personal page: the offer in one line, the proof that exists, the price when real, and one action repeated with purpose.",
+    keywords: ["one page", "landing page"],
+    fits: ["professional", "fitness", "wellness"],
+    suits: ["education", "creator", "beauty", "general"],
+    moods: ["friendly", "clean", "honest", "warm"],
+    styles: ["premium-personal-brand", "editorial"],
+    typeSystems: ["characterful-grotesk", "geometric-clean", "neo-grotesk"],
+    serif: false,
+    palettes: [
+      P("Plain speaking", "light", "#f7f7f5", "#ecece8", "#151515", "#555553", "#0f5bd8", "#ffffff", "#d7d7d2", { background: "#151515", text: "#f7f7f5", accent: "#7fb0ff" }),
+      P("Green light", "light", "#f2f5f1", "#e3e9e1", "#141a15", "#4c564e", "#13804f", "#ffffff", "#ccd6cc"),
+    ],
+    matrix: { hero: "editorial-split", grid: "stacked-narrative", images: "documentary", dividers: "hairline", density: "balanced", shape: "softened", motion: "reveal" },
+    motion: "balanced",
+    radius: 6,
+    layout: ["Six to eight short sections, each one job", "The action in the hero and after the offer, nowhere random", "A plain price or process block when the facts exist"],
+    imagery: "One good portrait and the real place of work",
+    motionSignature: "Fade-up on section entry, once",
+    signature: "The offer in one sentence, set large",
+    avoid: ["14 section sales funnel", "fake urgency"],
+  },
+  {
+    id: "workshop-craft",
+    name: "Workshop Craft",
+    family: "Analog / tactile",
+    thesis: "Tools, hands and material close up, a sturdy slab name like a shop sign, booking or buying plain and fast.",
+    keywords: ["workshop", "handmade look"],
+    fits: ["barber-tattoo", "craft", "home-goods"],
+    suits: ["cafe-bakery", "outdoor", "fashion", "fitness"],
+    moods: ["earthy", "warm", "raw", "honest"],
+    styles: ["industrial", "organic"],
+    typeSystems: ["slab-workshop", "gothic-poster", "athletic-numerals"],
+    serif: false,
+    palettes: [
+      P("Oiled steel", "dark", "#141414", "#1f1f1f", "#f0ede6", "#a3a09a", "#b83a1c", "#ffffff", "#333333"),
+      P("Sawdust", "light", "#f1ede6", "#e5ded3", "#1f1c18", "#57514a", "#2e5a3c", "#ffffff", "#d3cabd"),
+    ],
+    matrix: { hero: "anchored-side", grid: "modular", images: "texture", dividers: "hairline", density: "balanced", shape: "square", motion: "still" },
+    motion: "quiet",
+    radius: 2,
+    layout: ["The work in a dense grid you can open one by one", "Prices and process in a plain table", "Booking as a plain form with deposits explained"],
+    imagery: "Real tools, hands at work, healed or finished pieces, high contrast",
+    motionSignature: "Still; images open in place",
+    signature: "A flash or product grid you can open",
+    avoid: ["fake grunge textures", "fake awards"],
+  },
+]
+
+export const ART_DIRECTION_IDS: readonly string[] = ART_DIRECTIONS.map((d) => d.id)
+
+export function artDirection(id: string): ArtDirection | undefined {
+  return ART_DIRECTIONS.find((d) => d.id === id)
+}

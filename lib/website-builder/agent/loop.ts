@@ -95,6 +95,7 @@ import { followUpTarget } from "./follow-up"
 import { changeHeadline, describeTarget, targetGuidance, type TargetDecision } from "./targeting"
 import { CHECKPOINT_MAX_SOURCE, RunClock, TIME_UP_NOTE, WRITE_NOW_NOTE, describeCheckpoint, guardCall, type ClockLimits, type RunCheckpoint } from "./run-clock"
 import { themeBrief, themeBriefStats } from "./theme-brief"
+import { designContractBlock, findDesignContract, surfaceRules } from "@/lib/storelib-ai/surfaces"
 import { PLANNER_SYSTEM, describeCreativePlan, extractJson, planForCreator, planTurn, readCreativePlan, archetypesFor, type CreativePlan } from "./creative-plan"
 import { BRIEF_KEY, briefOp, describeProject, readBrief, updateBrief } from "./project-state"
 import { describeAccountMemory } from "@/lib/ai-memory/store"
@@ -351,6 +352,8 @@ WORKED EXAMPLES, request then the calls that do it:
 - "Make the whole site feel more editorial": update_theme (fonts, type scale, buttons); set_color_scheme; each section's colour scheme. Content and order stay.
 - "Make the cards slide in on scroll", a section open: edit_section_code with a CSS reveal that stops under prefers-reduced-motion.
 DESIGN LATITUDE. Inside the theme's colours, fonts and spacing you decide layout, proportion, type scale, rhythm and motion: one clear idea per section, a real hierarchy, generous but consistent spacing, and nothing decorative that says nothing about this business.
+
+${surfaceRules("ask_edit")}
 
 ${CREATIVE_BRIEF}
 
@@ -928,6 +931,8 @@ export interface ThemeAgentInput {
    * what it saw before.
    */
   sources?: Record<string, string>
+  /** Round O: the install's DESIGN.md (O2's design contract), read by the route; null or absent when it has none. */
+  designContract?: { path: string; text: string } | null
   /**
    * ===========================================================================
    *  A SETTING IS ONE WAY TO MAKE A CHANGE, NOT THE LIMIT OF WHAT IS POSSIBLE
@@ -1613,6 +1618,8 @@ export async function* themeAgent(
         describeHouseStyle(readHouseStyle(state, [], schemas)),
         /* Compact: the indentation of a pretty-printed dump was a third of its tokens. */
         `THEME SETTINGS\n${compactSettings(state.settings)}`,
+        /* Round O: the site's DESIGN.md (when it has one) and the keep-the-brand rule: an edit changes what was asked and keeps the tokens. */
+        designContractBlock(input.designContract ?? findDesignContract(sourcesNow), { editing: true }),
         codeBrief?.text ?? "",
         /* Only where the code tools are: where a sidebar setting comes from, and which part of the file to change for one. */
         input.code ? describeSchemaRules({ imported: isCompatSource(sourcesNow["layout/theme.storelib"]), settingsSchema: !!input.code.readSettingsSchema && !locked }) : "",
@@ -2450,7 +2457,7 @@ export async function* themeAgent(
             yield { type: "code", path: created.path, source: created.source }
             refusedCode.delete(created.path)
             if ((codeRefusals.get(codeType) ?? 0) >= QUALITY_REFUSALS) {
-              const strictly = checkSectionSource({ path: created.path, type: codeType, source: created.source, before: null, strict: true })
+              const strictly = checkSectionSource({ path: created.path, type: codeType, source: created.source, before: null, strict: true, brief: prompt })
               if (strictly.ok === false) stillWrong.set(created.path, `${created.path}: ${firstFinding(strictly.feedback)}`)
             }
             const label = `Added ${typeName(schemas, codeType)}`
@@ -2544,6 +2551,7 @@ export async function* themeAgent(
             theme: state.settings,
             sources: sourcesNow,
             strict: true,
+            brief: prompt,
             /* Sent back twice over quality already: the third goes through with the finding reported. */
             lenient: qualitySent >= QUALITY_REFUSALS,
           })
@@ -2593,7 +2601,7 @@ export async function* themeAgent(
             still wrong with it is said in the reply, never hidden behind a success.
           */
           if (!imported && qualitySent >= QUALITY_REFUSALS) {
-            const strictly = checkSectionSource({ path, type: codeType, source: prepared.source, before: prepared.before, strict: true })
+            const strictly = checkSectionSource({ path, type: codeType, source: prepared.source, before: prepared.before, strict: true, brief: prompt })
             if (strictly.ok === false) stillWrong.set(path, `${path}: ${firstFinding(strictly.feedback)}`)
             else stillWrong.delete(path)
           } else stillWrong.delete(path)

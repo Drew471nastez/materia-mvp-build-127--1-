@@ -29,6 +29,7 @@ import { cleanCustomCss } from "@/lib/storelib-theme/custom-css"
 import type { ThemeSettingsValues } from "./types"
 import { tokenVars } from "@/lib/ai-builder/tokens"
 import { designVars } from "@/lib/ai-builder/site-settings"
+import { hasMotionTier, motionVars, reducedMotionCss } from "@/lib/storelib-ai/motion"
 
 /** A setting that arrived as `"1280"`, or as nothing at all. */
 function num(value: unknown, fallback: number): number {
@@ -158,6 +159,9 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
 
     // ── The site's own labelled settings that stand for a token (round N, N5, lib/ai-builder/site-settings.ts): `--t-<id>` mirrors it. ──
     ...designVars(t),
+
+    // ── The site's motion feel (round O, O5, lib/storelib-ai/motion): `--t-motion-*` from Theme settings › Animations › Motion feel, on a site that has one or whose tokens were set. ──
+    ...motionVars(t),
   }
 }
 
@@ -678,6 +682,8 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
     // Somebody who has asked their system for less motion has asked.
     `@media (prefers-reduced-motion:reduce){${root} [data-reveal]{opacity:1;}${root} [data-sl-media]{transition:none;}}`,
   )
+  /* The site's motion feel stands still for the same visitors, whatever a component forgot (lib/storelib-ai/motion reducedMotionCss). */
+  if (hasMotionTier(t)) rules.push(reducedMotionCss(root))
 
   return rules.join("\n")
 }

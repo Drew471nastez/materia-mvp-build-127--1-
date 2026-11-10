@@ -26,7 +26,7 @@ tags: video hero, hero, video, background video, opening, cinematic, poster
 .vh__video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .vh__copy { grid-area: 1 / 1; align-self: end; position: relative; z-index: 1; padding: 0 var(--theme-padding-x, 16px) clamp(64px, 10vw, 120px); max-width: 1100px; pointer-events: none; }
 .vh__copy a { pointer-events: auto; }
-.vh__label { margin: 0 0 14px; font-size: 0.8125rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--s-text); }
+.vh__label { margin: 0 0 14px; font-size: 1rem; font-weight: 500; letter-spacing: 0; color: var(--s-text); }
 .vh__h { margin: 0; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(2.75rem, 1.2rem + 7vw, 8.5rem); line-height: 0.88; letter-spacing: -0.035em; font-weight: 600; color: var(--s-heading); text-wrap: balance; }
 .vh__cta { display: inline-block; margin-top: 28px; padding: 14px 22px; background: var(--s-accent); color: var(--s-bg); text-decoration: none; }
 .vh__cta:focus-visible { outline: 2px solid var(--s-text); outline-offset: 3px; }

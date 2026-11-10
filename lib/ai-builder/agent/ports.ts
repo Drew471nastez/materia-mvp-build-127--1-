@@ -18,9 +18,13 @@
  * in-memory website, and every collaborator another lane is still building
  * is one function to swap.
  */
+import type { SiteFingerprint } from "../novelty"
+import type { AgentImage } from "@/lib/sites/agent/attachments"
 import type { AgentProvider } from "@/lib/sites/agent/types"
+import type { DesignReference } from "@/lib/storelib-ai/references/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { RuntimeCapabilities } from "../runtime-contract"
+import type { VisualCriticRunner } from "../visual-critic/critic"
 import type { AgentEvent, DesignTokens, FileAuthor, GenerationMode, JobBudget, KnowledgeEntry, KnowledgeKind, StartOptions, ValidationIssue } from "../types"
 
 /* ── the website ──────────────────────────────────────────────────────── */
@@ -74,6 +78,11 @@ export interface AgentModels {
   plan: ModelRole
   loop: ModelRole
   small: ModelRole
+  /**
+   * The vision model the design review looks at the rendered draft with (round O, O4: claude-opus-5-5 through
+   * resolveForCreator). Absent: the review measures in the browser only, and says so.
+   */
+  review?: ModelRole
   /** The creator's own key answers (a higher spend cap, D5). */
   ownKey: boolean
 }
@@ -90,8 +99,21 @@ export interface KnowledgeHit {
 
 export type KnowledgeSearch = (q: { query: string; kinds?: KnowledgeKind[]; industry?: string; limit?: number }) => Promise<Pick<KnowledgeEntry, "id" | "kind" | "title" | "body" | "examples">[]>
 
-/** Anti slop review of the files the job wrote. `slop.*` issues; error severity is "high". */
-export type SlopEvaluator = (input: { files: { path: string; text: string }[]; concept: unknown; capabilities: RuntimeCapabilities | null }) => Promise<ValidationIssue[]>
+/**
+ * Anti slop review of the files the job wrote. `slop.*` issues; error severity is "high".
+ * Round O: also the creator's own words (`brief`, so only they can ask for the editorial serif
+ * or purple look), the Theme settings (the tokens a visitor sees) and the pages as drawn.
+ */
+export type SlopEvaluator = (input: {
+  files: { path: string; text: string }[]
+  concept: unknown
+  capabilities: RuntimeCapabilities | null
+  brief?: string
+  settings?: Record<string, unknown>
+  rendered?: { page: string; html: string; css?: string }[]
+  /** Home's sections in order, for the page-level rules (template skeleton). */
+  sections?: { type: string }[]
+}) => Promise<ValidationIssue[]>
 
 /** A page drawn with the template engine (interpretation only) and checked. */
 export type RenderChecker = (input: {
@@ -101,7 +123,18 @@ export type RenderChecker = (input: {
   sources: Record<string, string>
   routes: Set<string>
   capabilities?: RuntimeCapabilities | null
-}) => Promise<{ ok: boolean; issues: ValidationIssue[]; htmlBytes: number }>
+}) => Promise<{ ok: boolean; issues: ValidationIssue[]; htmlBytes: number; drawn?: { html: string; css: string } }>
+
+/**
+ * Round O (O1): the visual reference library. `search` picks the few
+ * references for this brief (lib/storelib-ai/references searchReferences,
+ * with the admin's screenshots on the server); `images` loads the pictures
+ * of those that have one, as base64 for a multimodal turn.
+ */
+export interface ReferenceSource {
+  search: (brief: { query: string; industry?: string; limit?: number }) => Promise<DesignReference[]>
+  images: (ids: string[]) => Promise<{ id: string; image: AgentImage }[]>
+}
 
 /** Turns tokens into Theme settings keys (L5 owns the real one). */
 export type TokensMapper = (tokens: Partial<DesignTokens>, current: Record<string, unknown>) => { settings: Record<string, unknown>; changed: string[]; issues: ValidationIssue[] }
@@ -141,9 +174,22 @@ export interface AgentDeps {
   models: AgentModels
   capabilities: () => Promise<RuntimeCapabilities | null>
   knowledge?: KnowledgeSearch
+  /** O1's visual references (./knowledge.ts libraryReferences by default: the built in library, no pictures). */
+  references?: ReferenceSource
   slop?: SlopEvaluator
+  /**
+   * Round O (spec 8.4): fingerprints of the platform's recent agent-built sites, for the soft
+   * novelty warning at verify. Absent or failing: no comparison (never blocks a job).
+   */
+  recentFingerprints?: () => Promise<SiteFingerprint[]>
   renderCheck?: RenderChecker
   tokensToSettings?: TokensMapper
+  /**
+   * THE VISUAL CRITIC (round O, O4, lib/ai-builder/visual-critic): before finish, the pages the job made are
+   * drawn in a headless browser with JavaScript off, measured and reviewed by a vision model; its defects come
+   * back as repair work. Absent: no design review (and nothing is claimed about one).
+   */
+  visualCritic?: VisualCriticRunner
   /** Whether the editor draws form_picker (L4 landed it; default: whether the control registry has it). */
   features?: { formPicker?: boolean }
   /** Each event as it happens (L2 writes ai_site_job_events). Never throws into the loop. */

@@ -99,7 +99,8 @@ async function main() {
     check("the library's faces are in the heading and body lists (a creator can pick them too)", TYPE_LIBRARY_FAMILIES.every((f) => HEADING_FONT_OPTIONS.some((o) => o.value === f) && BODY_FONT_OPTIONS.some((o) => o.value === f)))
     check("no family is offered twice", new Set(HEADING_FONT_OPTIONS.map((o) => o.value)).size === HEADING_FONT_OPTIONS.length)
     check("no type system uses a default face as its display", TYPE_SYSTEMS.every((t) => !isSlopDisplayFont(t.display.family)), TYPE_SYSTEMS.filter((t) => isSlopDisplayFont(t.display.family)).map((t) => t.id))
-    check("at least 18 systems, across six voices", TYPE_SYSTEMS.length >= 18 && new Set(TYPE_SYSTEMS.map((t) => t.voice)).size === 6)
+    /* Changed on purpose (round O, O2): more voices past the editorial serif (geometric, wide, slab), so at least six, not exactly six. */
+    check("at least 18 systems, across at least six voices", TYPE_SYSTEMS.length >= 18 && new Set(TYPE_SYSTEMS.map((t) => t.voice)).size >= 6)
     check("the overused defaults are on the slop list", ["inter", "roboto", "open sans", "lato", "montserrat", "poppins", "arial", "helvetica", "system-ui"].every((f) => SLOP_DISPLAY_FONTS.includes(f)))
     check("isSlopDisplayFont reads a CSS stack by its first family", isSlopDisplayFont(`"Poppins", sans-serif`) && isSlopDisplayFont("system-ui, -apple-system") && !isSlopDisplayFont(`"Fraunces", Inter, serif`))
     const scale = fluidTypeScale(1.333)

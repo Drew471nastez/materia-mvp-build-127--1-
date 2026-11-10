@@ -1,0 +1,72 @@
+{# example
+title: Masked line reveal
+summary: An opening statement whose lines rise out of clipped masks one after another, timed by the site's motion feel (--t-motion-*) with stagger and strength the creator edits; one real heading for screen readers, still under reduced motion, shorter travel on phones.
+tags: masked reveal, mask reveal, line reveal, text reveal, headline, hero, statement, stagger, motion, motion tier, opening
+#}
+<template>
+<section class="mr" data-motion="{{ settings.motion }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-btn-bg: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; --m-k: calc({{ settings.motion_strength }} / 100); --mr-stagger: {{ settings.stagger }}ms;">
+  <div class="mr__in mr__in--{{ settings.align }}">
+    <h1 class="mr__h">
+      {% for block in section.blocks %}<span class="mr__line" data-block-id="{{ block.id }}" style="--i: {{ forloop.index0 }};"><span class="mr__words{% if block.settings.weight == 'light' %} mr__words--light{% endif %}">{{ block.settings.line }}</span></span>{% endfor %}
+    </h1>
+    {% if settings.text %}<p class="mr__text">{{ settings.text }}</p>{% endif %}
+    {% if settings.cta_label and settings.cta_url %}<a class="mr__cta" href="{{ settings.cta_url | url }}">{{ settings.cta_label }}</a>{% endif %}
+  </div>
+</section>
+</template>
+
+<style scoped>
+.mr { container-type: inline-size; padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 16px) calc(var(--s-pb) * var(--theme-spacing-scale, 1)); background: var(--s-bg); color: var(--s-text); }
+.mr__in { max-width: var(--theme-page-width, 1280px); margin: 0 auto; display: grid; gap: clamp(20px, 3vw, 36px); }
+.mr__in--right { justify-items: end; text-align: right; }
+.mr__h { margin: 0; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(2.6rem, 1rem + 7.2vw, 8.5rem); line-height: 0.92; letter-spacing: -0.035em; font-weight: 700; color: var(--s-heading); text-wrap: balance; }
+.mr__line { display: block; overflow: hidden; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+.mr__words { display: inline-block; }
+.mr__words--light { font-weight: 400; color: color-mix(in srgb, var(--s-heading) 62%, var(--s-bg)); }
+.mr__text { margin: 0; max-width: 46ch; font-size: clamp(1.05rem, 0.95rem + 0.4vw, 1.25rem); line-height: 1.55; }
+.mr__cta { justify-self: start; display: inline-flex; align-items: center; min-height: 48px; padding: 0 24px; background: var(--s-btn-bg); color: var(--s-btn-text); text-decoration: none; font-weight: 600; border-radius: var(--t-radius-sm, 2px); transition: transform var(--t-motion-hover, 200ms) var(--t-motion-ease-ui, ease-out); }
+.mr__in--right .mr__cta { justify-self: end; }
+.mr__cta:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
+.mr__cta:active { transform: scale(0.98); }
+/* The still headline is the default. Motion only when welcome, and never when the creator set this section to still. */
+@media (prefers-reduced-motion: no-preference) {
+  .mr:not([data-motion="off"]) .mr__words { animation: mr-rise var(--t-motion-duration, 650ms) var(--t-motion-ease, cubic-bezier(0.2, 0.7, 0.2, 1)) both; animation-delay: calc(var(--i) * var(--mr-stagger, 70ms) * var(--m-phone, 1) + 80ms); }
+  .mr:not([data-motion="off"]) .mr__text, .mr:not([data-motion="off"]) .mr__cta { animation: mr-fade var(--t-motion-duration, 650ms) var(--t-motion-ease, ease-out) both; animation-delay: calc(4 * var(--mr-stagger, 70ms) + 160ms); }
+  @keyframes mr-rise { from { transform: translateY(calc(108% * var(--m-k, 1) * var(--m-phone, 1))); } to { transform: none; } }
+  @keyframes mr-fade { from { opacity: 0; transform: translateY(calc(var(--t-motion-distance, 24px) * 0.5 * var(--m-k, 1))); } to { opacity: 1; transform: none; } }
+}
+/* On a phone the lines travel less and follow each other faster. */
+@container (max-width: 600px) {
+  .mr__in { --m-phone: 0.65; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_mask_reveal",
+  "name": "Masked headline",
+  "category": "hero",
+  "settings": [
+    { "type": "textarea", "id": "text", "label": "Text under the headline", "default": "Strength sessions in a small room in Salford, built around the hours you actually have." },
+    { "type": "text", "id": "cta_label", "label": "Button", "default": "Book a first session" },
+    { "type": "url", "id": "cta_url", "label": "Button link", "default": "/about" },
+    { "type": "select", "id": "align", "label": "Alignment", "default": "left", "options": [{ "label": "Left", "value": "left" }, { "label": "Right", "value": "right" }] },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "range", "id": "stagger", "label": "Delay between lines", "min": 0, "max": 150, "step": 5, "unit": "ms", "default": 70 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 240, "step": 8, "unit": "px", "default": 120 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 240, "step": 8, "unit": "px", "default": 88 }
+  ],
+  "blocks": [
+    { "type": "line", "name": "Line", "limit": 5, "settings": [
+      { "type": "text", "id": "line", "label": "Words on this line", "default": "Train with" },
+      { "type": "select", "id": "weight", "label": "Weight", "default": "bold", "options": [{ "label": "Bold", "value": "bold" }, { "label": "Light", "value": "light" }] }
+    ] }
+  ],
+  "presets": [{ "name": "Masked headline", "blocks": [{ "type": "line", "settings": { "line": "Stronger in" } }, { "type": "line", "settings": { "line": "three hours", "weight": "light" } }, { "type": "line", "settings": { "line": "a week." } }] }]
+}
+</schema>
