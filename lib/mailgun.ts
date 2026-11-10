@@ -295,7 +295,7 @@ function fromForSend(requested: string | undefined, _transactional?: boolean, th
 }
 
 /** Take one address off the bounce list so the next send is attempted. Never throws. */
-async function clearBounce(email: string, domain: string = MAILGUN_DOMAIN): Promise<void> {
+async function clearBounceOn(email: string, domain: string = MAILGUN_DOMAIN): Promise<void> {
   if (!MAILGUN_API_KEY || !domain) return
   try {
     if (mailgunBreaker().state === "open") return
@@ -308,6 +308,9 @@ async function clearBounce(email: string, domain: string = MAILGUN_DOMAIN): Prom
     /* A missing bounce is a 404. Either way the send goes ahead. */
   }
 }
+
+/** The bounce and complaint lists of the domain a send goes through (each sending domain keeps its own). */
+const suppressedOn = (domain: string, email: string) => isEmailSuppressed(email, domain)
 
 /**
  * Check Mailgun suppression list before sending
@@ -383,7 +386,8 @@ export async function sendMailgunEmail(asked: MailgunSendOptions): Promise<Mailg
   // lookup is two extra round trips before the send, which is what made the
   // verification email feel late.
   /* Bounces and complaints are kept per sending domain, so they are looked up on the one this send uses. */
-  const suppressed = options.transactional ? false : await isEmailSuppressed(options.to, sendingDomainOf(options.sendingDomain))
+  const domain = sendingDomainOf(options.sendingDomain)
+  const suppressed = options.transactional ? false : await suppressedOn(domain, options.to)
   if (suppressed) {
     return {
       success: false,
@@ -391,13 +395,14 @@ export async function sendMailgunEmail(asked: MailgunSendOptions): Promise<Mailg
     }
   }
 
-  const domain = sendingDomainOf(options.sendingDomain)
   const fromAddress = fromForSend(options.from, options.transactional, domain)
   const replyTo = options.replyTo || EMAIL_REPLY_TO
   /* A code they just asked for must not die on a stale bounce. Mailgun
      drops those after it has already answered "queued", so the page looks
      sent and the inbox stays empty. A complaint is left in place. */
-  if (options.transactional && !options.keepBounce) await clearBounce(options.to, domain)
+  /* On the domain this send goes through: each sending domain keeps its own bounce list. */
+  const clearBounce = (email: string) => clearBounceOn(email, domain)
+  if (options.transactional && !options.keepBounce) await clearBounce(options.to)
 
   // Build form data for Mailgun API
   const formData = new FormData()
