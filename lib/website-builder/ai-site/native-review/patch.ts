@@ -72,6 +72,58 @@ export function schemaLookup(schemas: SchemaMap | undefined): FieldLookup {
   }
 }
 
+/**
+ * R2's native registry (lib/website-builder/ai-site/native/registry.ts, NativeRegistry) as a lookup, typed by its
+ * shape so this file does not depend on that branch: `registryLookup(nativeRegistry(), schemaLookup(schemas))`.
+ * A type the registry leaves out (the header, the footer, an excluded section) is read from the fallback.
+ */
+export interface RegistrySettingLike {
+  id: string
+  label?: string
+  fieldType: string
+  default?: unknown
+  values?: string[]
+  min?: number
+  max?: number
+  step?: number
+}
+export interface RegistryLike {
+  sections: Record<string, { settings: RegistrySettingLike[]; blocks: { type: string; settings: RegistrySettingLike[] }[] }>
+  theme: { settings: RegistrySettingLike[] }
+}
+
+function asField(s: RegistrySettingLike): SchemaField {
+  return {
+    id: s.id,
+    label: s.label ?? s.id,
+    type: s.fieldType as SchemaField["type"],
+    ...(s.default !== undefined ? { default: s.default } : {}),
+    ...(s.values ? { options: s.values.map((v) => ({ value: v, label: v })) as SchemaField["options"] } : {}),
+    ...(typeof s.min === "number" ? { min: s.min } : {}),
+    ...(typeof s.max === "number" ? { max: s.max } : {}),
+    ...(typeof s.step === "number" ? { step: s.step } : {}),
+  }
+}
+
+export function registryLookup(reg: RegistryLike, fallback?: FieldLookup): FieldLookup {
+  return {
+    sectionField: (type, key) => {
+      const def = reg.sections[type]
+      const f = def?.settings.find((x) => x.id === key)
+      return f ? asField(f) : def ? null : (fallback?.sectionField(type, key) ?? null)
+    },
+    blockField: (type, blockType, key) => {
+      const def = reg.sections[type]
+      const f = def?.blocks.find((b) => b.type === blockType)?.settings.find((x) => x.id === key)
+      return f ? asField(f) : def ? null : (fallback?.blockField(type, blockType, key) ?? null)
+    },
+    themeField: (key) => {
+      const f = reg.theme.settings.find((x) => x.id === key)
+      return f ? asField(f) : (fallback?.themeField(key) ?? null)
+    },
+  }
+}
+
 const SEG = /^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,119}$/
 
 /** A path as a target, or why it is not one. */

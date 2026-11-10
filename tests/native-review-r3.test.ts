@@ -37,7 +37,7 @@ import postcss from "postcss"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { SiteState } from "@/lib/website-builder/ai-site/apply"
-import { applyPatches, compilePatch, fitValue, parsePath, schemaLookup, sectionPath, type NativePatch } from "@/lib/website-builder/ai-site/native-review/patch"
+import { applyPatches, compilePatch, fitValue, parsePath, registryLookup, schemaLookup, sectionPath, type NativePatch } from "@/lib/website-builder/ai-site/native-review/patch"
 import { knownLinks, repeatedRuns, structuralDefects } from "@/lib/website-builder/ai-site/native-review/checks"
 import { fixFor, planFixes } from "@/lib/website-builder/ai-site/native-review/fixes"
 import { nativeCriticDocument, servedToDocument, SETTLE_ID, UNSTREAM } from "@/lib/website-builder/ai-site/native-review/document"
@@ -139,6 +139,8 @@ async function main() {
   const rt = out.site.pages.home.find((s) => s.id === "rt1")!
   check("valid patches apply; the bad one is refused and changes nothing", out.applied.length === 3 && out.refused.length === 1 && rt.settings.text_color === undefined && out.site.pages.home.find((s) => s.id === "hero1")!.settings.font_size_heading === undefined, { applied: out.applied.length, refused: out.refused })
   check("patches become the editor's own operations, for its replay", out.ops.map((o) => o.op.kind).join(",") === "update_section,move_section,remove_block", out.ops.map((o) => o.op.kind))
+  const reg = registryLookup({ sections: { rich_text: { settings: [{ id: "color_scheme", fieldType: "select", values: ["light", "dark"] }], blocks: [] } }, theme: { settings: [] } }, lookup)
+  check("R2's registry stands in for the schema: only what it lists, header from the fallback", "error" in compilePatch(site, { op: "set", path: sectionPath("home", "rt1", "settings", "text_color"), value: "#000000" }, reg) && !("error" in compilePatch(site, { op: "set", path: sectionPath("home", "rt1", "settings", "color_scheme"), value: "dark" }, reg)) && "error" in compilePatch(site, { op: "set", path: sectionPath("home", "rt1", "settings", "color_scheme"), value: "white" }, reg) && !("error" in compilePatch(site, { op: "set", path: sectionPath("home", "hdr", "settings", "show_cta_button"), value: false }, reg)))
   check("the original draft is not touched (pure)", site.pages.home.find((s) => s.id === "rt1")!.settings.text_color === "#eeeeee")
 
   // ═══════════════════════════════════════════════════════════════════════
