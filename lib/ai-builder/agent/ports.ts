@@ -22,6 +22,7 @@ import type { SiteFingerprint } from "../novelty"
 import type { AgentImage } from "@/lib/sites/agent/attachments"
 import type { AgentProvider } from "@/lib/sites/agent/types"
 import type { DesignReference } from "@/lib/storelib-ai/references/types"
+import type { GenerateImageInput, ImageAspect, ImageOutcome, ImageProviderId } from "@/lib/storelib-ai/images/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { RuntimeCapabilities } from "../runtime-contract"
 import type { VisualCriticRunner } from "../visual-critic/critic"
@@ -136,6 +137,23 @@ export interface ReferenceSource {
   images: (ids: string[]) => Promise<{ id: string; image: AgentImage }[]>
 }
 
+/**
+ * Round P (P1): pictures for the job, bound to its creator and store owner
+ * (lib/storelib-ai/images generateImage / findPhoto; ./server.ts). The tools
+ * add the art direction, keep to the job's picture limit and spend, and run
+ * several side by side.
+ */
+export interface ImageService {
+  /** What this environment can do: a generator (OpenAI, else Gemini) and/or stock (Pexels). */
+  available: () => Promise<{ generate: ImageProviderId | null; stock: boolean }>
+  generate: (input: Omit<GenerateImageInput, "creatorId" | "ownerUserId" | "jobId">) => Promise<ImageOutcome>
+  find: (input: { query: string; aspect?: ImageAspect; alt?: string; purpose?: string }) => Promise<ImageOutcome>
+  /** The most one picture can cost here (USD), checked against the spend left before it starts. */
+  ceiling: (aspect: ImageAspect) => number
+  /** Overrides the job budget's maxImages (AI_BUILDER_MAX_IMAGES). */
+  maxImages?: number
+}
+
 /** Turns tokens into Theme settings keys (L5 owns the real one). */
 export type TokensMapper = (tokens: Partial<DesignTokens>, current: Record<string, unknown>) => { settings: Record<string, unknown>; changed: string[]; issues: ValidationIssue[] }
 
@@ -190,6 +208,8 @@ export interface AgentDeps {
    * back as repair work. Absent: no design review (and nothing is claimed about one).
    */
   visualCritic?: VisualCriticRunner
+  /** Round P (P1): pictures. Absent: the tools refuse and the brief says to design text-forward. */
+  images?: ImageService
   /** Whether the editor draws form_picker (L4 landed it; default: whether the control registry has it). */
   features?: { formPicker?: boolean }
   /** Each event as it happens (L2 writes ai_site_job_events). Never throws into the loop. */

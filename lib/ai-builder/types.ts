@@ -310,6 +310,11 @@ export interface JobBudget {
   maxRepairsPerFile: number
   /** Whole-site verify then repair cycles. */
   maxVerifyCycles: number
+  /**
+   * Round P (P1): pictures per job (generate_image + find_photo that worked). Their cost is counted in
+   * maxUsd like a model call. Optional so a budget saved before round P still reads; absent is 16.
+   */
+  maxImages?: number
 }
 
 export const DEFAULT_JOB_BUDGET: JobBudget = {
@@ -323,6 +328,7 @@ export const DEFAULT_JOB_BUDGET: JobBudget = {
   callReserveMs: 60_000,
   maxRepairsPerFile: 3,
   maxVerifyCycles: 3,
+  maxImages: 16,
 }
 
 /** Why a job stopped early. */
@@ -431,6 +437,9 @@ export const AGENT_TOOL_NAMES = [
   "render_check",
   "report_progress",
   "finish",
+  /* Round P (P1): pictures made or found, kept in the creator's files (lib/storelib-ai/images). */
+  "generate_image",
+  "find_photo",
 ] as const
 export type AgentToolName = (typeof AGENT_TOOL_NAMES)[number]
 

@@ -1,7 +1,7 @@
 /**
  * Server only (search_knowledge's spec comes with L6's library module).
  *
- * The 17 tools as the provider sees them: JSON schemas built from the
+ * The 19 tools as the provider sees them: JSON schemas built from the
  * contract's input shapes (lib/ai-builder/agent-tools.ts AgentToolInputs).
  * Keep the two in step; tests/ai-builder-agent.test.ts checks every name has
  * exactly one spec.
@@ -132,6 +132,35 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
   validate: { name: "validate", description: "Check one file, or (no path) every file you touched and every page: compile, manifest, remote imports, bindings, links.", parameters: obj({ path: { type: "string" } }) },
   render_check: { name: "render_check", description: "Draw a page with the template engine and read it: empty sections, leftover template code, pictures without alt, heading order, broken internal links, and runtime errors the editor reported.", parameters: obj({ page: { type: "string" } }, ["page"]) },
   report_progress: { name: "report_progress", description: "Say what you are doing, for the progress view. With phase \"plan\", hand in the visual concept (following the ART DIRECTION in the brief), optionally sharper brief facts (brief), and the site plan as pages (both required before the first write on a new website) and the work as tasks.", parameters: obj({ phase: { type: "string", enum: PHASES }, label: { type: "string" }, concept: CONCEPT_SCHEMA, tasks: { type: "array", items: { type: "string" } }, pages: SITE_PLAN, brief: BRIEF_REFINE_JSON_SCHEMA }, ["phase", "label"]) },
+  /* Round P (P1): pictures (lib/storelib-ai/images). Several in one turn are made side by side. */
+  generate_image: {
+    name: "generate_image",
+    description:
+      "Make an original photograph for the site and keep it in the creator's files. Answers { url, alt, width, height }: put the url in an image_picker setting (a component's default or a placed section's settings) and the alt in its alt setting. Describe the subject plainly; the site's art direction, light and palette are added for you. No words, logos, brands or real people in a picture. Limited per site: spend them where the design calls for imagery. Refused or failed: design that spot without a picture, never a grey box.",
+    parameters: obj(
+      {
+        prompt: str("What the picture shows: who or what, where, doing what. e.g. \"a coach spotting a client's deadlift in a concrete gym, chalk in the air\"."),
+        aspect: { type: "string", enum: ["landscape", "portrait", "square"], description: "landscape 3:2 (default), portrait 2:3, square." },
+        purpose: str("What it is for: hero, product, portrait, people, place, detail, gallery, background."),
+        alt: str("Alt text for the page: what it shows, under 125 characters."),
+        style: { type: "string", enum: ["photo", "studio", "editorial", "illustration", "render"], description: "photo (default)." },
+      },
+      ["prompt"],
+    ),
+  },
+  find_photo: {
+    name: "find_photo",
+    description: "Find a licensed stock photo (Pexels) and keep it in the creator's files with the photographer's credit. Answers { url, alt, width, height }. For real-world scenes where an original picture is not needed. Counts toward the same limit as generate_image.",
+    parameters: obj(
+      {
+        query: str("A few search words: the subject, e.g. \"barbell chalk hands\"."),
+        aspect: { type: "string", enum: ["landscape", "portrait", "square"] },
+        purpose: str("What it is for: hero, product, portrait, gallery..."),
+        alt: str("Alt text for the page."),
+      },
+      ["query"],
+    ),
+  },
   finish: { name: "finish", description: "Say the website is done. Everything is validated first: with errors, finish is refused and you get the list to fix.", parameters: obj({ summary: str("Two or three plain sentences for the creator: what was made, what to fill in."), notes: { type: "array", items: { type: "string" } } }, ["summary"]) },
 }
 

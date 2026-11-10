@@ -65,6 +65,8 @@ export interface LoopCheckpoint extends AgentCheckpoint {
   /** Round O (O1): the references chosen for this job, and those whose pictures ride with the plan phase's turns (in that order). */
   references?: string[]
   referenceImages?: string[]
+  /** Round P (P1): pictures this job made or found (`made`), tries that failed or were refused, and their cost. */
+  images?: { made: number; failed: number; usd: number; urls: string[] }
   /** Set once the job ended: what to tell the creator. */
   final?: { status: "complete" | "partial" | "failed" | "cancelled"; summary: string; failing: string[] }
 }

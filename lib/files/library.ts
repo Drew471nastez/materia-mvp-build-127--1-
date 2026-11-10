@@ -12,6 +12,9 @@ import "server-only"
  *                                                         this library's own uploads
  *   product-images         <creator id>/<product>/<file> product photos
  *
+ * Pictures the AI made or found (round P, lib/storelib-ai/images) are in
+ * store-builder-images/<user id>/ai-images/ and listed as "AI".
+ *
  * Only the caller's own folders are ever listed or deleted. Addresses are
  * Storelib's /media/ ones (lib/storage/media-url), never the storage host.
  */
@@ -81,6 +84,8 @@ function drawable(e: Entry): boolean {
 const IMAGE = /\.(jpe?g|png|gif|webp|avif)$/i
 /* The folder a product's videos go into (lib/files/upload-video.ts): listed with the product photos. */
 const PRODUCTS_FOLDER = "products"
+/* Pictures the AI made or found (lib/storelib-ai/images/types.ts AI_IMAGE_FOLDER). */
+const AI_FOLDER = "ai-images"
 /* What the builder's video field uploads (components/website-builder/editor/controls/video-picker-control.tsx). */
 const VIDEO = /\.(mp4|webm|mov|m4v)$/i
 
@@ -112,7 +117,7 @@ export async function listLibrary(admin: Admin, owner: { userId: string; creator
   const builderFolders = (await list(admin, "store-builder-images", owner.userId)).filter(isFolder)
   const builder = await Promise.all(builderFolders.slice(0, 40).map(async (f) => ({ folder: f.name, entries: await list(admin, "store-builder-images", `${owner.userId}/${f.name}`) })))
   for (const { folder, entries } of builder) {
-    const source = folder === LIBRARY_FOLDER ? "Library" : folder === PRODUCTS_FOLDER ? "Product photos" : "Website"
+    const source = folder === LIBRARY_FOLDER ? "Library" : folder === PRODUCTS_FOLDER ? "Product photos" : folder === AI_FOLDER ? "AI" : "Website"
     /* A video's first frame is part of the video, not a picture of its own. */
     const posters = new Set(entries.filter((e) => isPosterName(e.name) && drawable(e)).map((e) => e.name))
     for (const e of entries) {
