@@ -21,6 +21,7 @@
  * real hooks (tests/_headless/chrome-platform-probe.tsx).
  *
  * Run: NODE_OPTIONS="--conditions=react-server" npx tsx tests/chrome-platform-q1.test.ts
+ * Screenshots (for a person to look at; not checked) when CHROME_Q1_SHOTS=<directory>.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
@@ -263,6 +264,9 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     const browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ["--no-sandbox"] })
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
     type Page = import("puppeteer-core").Page
+    const shots = process.env.CHROME_Q1_SHOTS
+    if (shots) mkdirSync(shots, { recursive: true })
+    const shot = async (p: Page, name: string) => { if (shots) await p.screenshot({ path: join(shots, `${name}.png`) as `${string}.png` }) }
     const open = async (html: string, width: number, hash = ""): Promise<{ p: Page; errors: string[] }> => {
       const p = await browser.newPage()
       await p.setViewport({ width, height: 800 })
@@ -327,6 +331,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       {
         const { p } = await open(pageFor("always", true), 1280)
         let s = await head(p)
+        await shot(p, "desktop-over-hero")
         check('OVER THE HERO: the header lies over the first section (the hero starts at 0) and is transparent there', s.heroTop === 0 && s.top === 0 && /rgba\(0, 0, 0, 0\)/.test(s.bg) && s.over === "true", s)
         await scrollTo(p, 1200)
         s = await head(p)
@@ -336,6 +341,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
 
       /* ── 1, 3, 4, 5 on a phone ── */
       const { p, errors } = await open(pageFor("always", false), 390)
+      await shot(p, "phone-top")
       /* 5. ICONS */
       const icons = await p.$$eval(".qh [data-storelib-icon]", (els) => els.map((el) => { const svg = el.querySelector("svg"); const r = svg?.getBoundingClientRect(); return { name: el.getAttribute("data-storelib-icon"), w: Math.round(r?.width ?? 0), stroke: svg ? getComputedStyle(svg).stroke : "", text: (el.textContent ?? "").trim() } }))
       check("ICONS: search, bag and menu are drawn as icons (1.25em, no words), in the header's colour", icons.length === 3 && icons.every((i) => i.w >= 16 && i.w <= 22 && i.text === "" && /rgb/.test(i.stroke)), icons)
@@ -354,6 +360,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       await p.click(".qh [data-storelib-dropdown-toggle]")
       await sleep(150)
       const ddOpen = await p.evaluate(() => { const m = document.querySelector<HTMLElement>(".qh [data-storelib-dropdown-menu]")!; const r = m.getBoundingClientRect(); return { shown: m.getClientRects().length > 0, right: r.right, w: innerWidth, expanded: document.querySelector(".qh [data-storelib-dropdown-toggle]")!.getAttribute("aria-expanded") } })
+      await shot(p, "phone-dropdown")
       check("  a press opens it, aria-expanded true", ddOpen.shown && ddOpen.expanded === "true", ddOpen)
       await p.keyboard.press("Escape")
       await sleep(100)
@@ -367,6 +374,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       /* 3. THE MENU DRAWER */
       await p.click('.qh [data-storelib-menu]')
       await sleep(450)
+      await shot(p, "phone-drawer")
       const drawerState = await p.evaluate(() => {
         const panel = document.querySelector<HTMLElement>("[data-storelib-menu-panel]")!
         const links = [...panel.querySelectorAll<HTMLAnchorElement>("nav a[href]")].filter((a) => a.getClientRects().length > 0)
@@ -386,6 +394,9 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       const after = await p.evaluate(() => ({ open: document.querySelector("[data-storelib-menu-panel]")!.getAttribute("data-open"), locked: getComputedStyle(document.documentElement).overflow }))
       check("  a link press shuts it and gives the page its scroll back", after.open === "false" && after.locked !== "hidden", after)
 
+      await p.evaluate(() => document.querySelector(".band-btn")!.scrollIntoView({ block: "center" }))
+      await sleep(300)
+      await shot(p, "phone-band")
       /* 4. BUTTONS */
       const btn = await p.evaluate(() => {
         const a = document.querySelector<HTMLElement>(".band-btn")!

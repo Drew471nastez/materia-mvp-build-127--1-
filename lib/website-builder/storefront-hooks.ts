@@ -106,6 +106,30 @@
  *                                  on any link inside it shut it.
  *   data-storelib-menu-close       a button: shuts the drawer
  *
+ * ROUND Q (Q1), what the page now does for chrome of the site's own:
+ *
+ *   data-storelib-dropdown         on a language or currency list: a compact
+ *                                  switch (a button with the current choice,
+ *                                  ="code" for "EUR"; the options in a menu
+ *                                  under it). -dropdown-toggle and
+ *                                  -dropdown-menu when the section draws them.
+ *   data-storelib-menu-links       an element of a menu drawer the page fills
+ *                                  with the menu its value names (every level).
+ *                                  A drawer with no link of its own, or an empty
+ *                                  <nav>, gets the site's menu or its pages.
+ *   data-storelib-sticky           always | up | off, on a Header group
+ *                                  section's root: its box sticks
+ *                                  (theme-css.ts chromePlatformCss); the scroll
+ *                                  state is written on it
+ *                                  (sections/header-scroll.ts)
+ *   data-storelib-over="hero"      that header lies over the first section
+ *   data-storelib-icon="bag"       an icon drawn in by the server
+ *                                  (./storelib-icons.ts)
+ *   data-storelib-locale-current="code" and -currency-current="code" write
+ *   the short code. Currency labels are the currency's ("EUR €"), once each,
+ *   never a market's name; languages are named in their own language.
+ *   While a panel of the site's own is open the page behind it is still.
+ *
  * A FREE SITE (lib/website-builder/free-site.ts) gets none of the built-in
  * windows, bars or switches unless its code asks with one of these. A plain
  * data-storelib-search with no panel anywhere on the page still opens the

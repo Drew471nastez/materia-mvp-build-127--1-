@@ -725,8 +725,10 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
  * The page writes the scroll's state on the header as attributes its CSS
  * can read (components/website-builder/sections/header-scroll.ts):
  * data-scrolled "true"/"false", data-scroll-dir "up"/"down", data-over-hero
- * "true"/"false". "up" hides on data-scroll-dir="down" here, by `translate`,
- * so a header's own transform is its own; never while focus is inside it.
+ * "true"/"false". "up" goes on data-scroll-dir="down" here, by `translate`
+ * on the box (or on the header itself over the hero, where the box has no
+ * height), so a header's own transform is its own; never while focus is
+ * inside it.
  *
  * ICONS. [data-storelib-icon] (lib/website-builder/storelib-icons.ts),
  * sized by the text. DROPDOWN SWITCHES. A language or currency list marked
