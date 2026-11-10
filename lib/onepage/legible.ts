@@ -676,9 +676,25 @@ export function findIllegible(root: ParentNode): LegibleFinding[] {
   const skipped = new Map<Element, boolean>()
   const out: LegibleFinding[] = []
   const all = root.querySelectorAll("*")
+  /*
+    Wave 11: words whose colour is still on its way (a colour transition on them or a box around them, a theme
+    being laid on) are measured when it ends (the transition's end wakes the guard): measured half way, they were
+    "fixed" to a half-transparent ink that then stayed.
+  */
+  const fading: Element[] = []
+  try {
+    for (const a of document.getAnimations()) {
+      const t = a as Animation & { transitionProperty?: string }
+      const target = (a.effect as KeyframeEffect | null)?.target
+      if (target && a.playState === "running" && /color/.test(t.transitionProperty || "")) fading.push(target)
+    }
+  } catch {
+    /* No animation list (a test's DOM). */
+  }
   for (const el of all) {
     if (skipMemo(el, skipped)) continue
     if (engagedButton(el)) continue
+    if (fading.length && fading.some((f) => f === el || f.contains(el))) continue
     const field = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
     if (field && el instanceof HTMLInputElement && /^(checkbox|radio|hidden|range|color|file|submit|button|image)$/.test(el.type)) continue
     const text = field ? "" : ownText(el)

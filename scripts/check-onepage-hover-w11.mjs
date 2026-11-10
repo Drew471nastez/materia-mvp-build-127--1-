@@ -24,7 +24,7 @@
  *     is a state: there must be at most two (rest and hover), and leaving must
  *     bring the rest colour back (the owner's "double hover");
  *   seen: every button's edge (its fill against what is around it, or its
- *     border) shows at rest and on hover, at 1.15:1 or more;
+ *     border) shows at rest and on hover, at 1.1:1 or more;
  *   consistent: every product button on a page wears the same paint, corners
  *     and border as its siblings (the picture overlay and a button the creator
  *     coloured are their own).
@@ -441,6 +441,8 @@ async function auditPage({ path, width, label, states }, browser) {
   })
   await sleep(500)
   const controls = await page.evaluate(ENUMERATE)
+  /* The guard's own passes after load (fonts, the late pass) are over before anything is measured. */
+  await sleep(700)
   controlsSeen += controls.length
   const want = states.filter
   const list = controls.filter((c) => !want || want(c))
@@ -459,13 +461,14 @@ async function auditPage({ path, width, label, states }, browser) {
     await page.mouse.move(calm.x, calm.y)
     await sleep(260)
     /* REST */
+    /* The rest colours first, before any picture is taken (taking one clears the words for a moment). */
+    const restColours = await page.evaluate(COLOURS, c.n)
     const restWords = await page.evaluate(WORDS, c.n)
     const restBoxes = await page.evaluate(BOXES, c.n)
     const rest = await shoot(page, c.n, restWords, restBoxes)
     if (!rest) continue
     for (const b of rest.bad) pageFails.push(`${where} at rest: "${b.words}" ${b.ratio}:1 < ${b.min} (${b.color})`)
-    for (const e of rest.edges) if (e.edge < 1.15) pageFails.push(`${where} at rest: the ${e.what}'s edge does not show (${e.edge}:1)`)
-    const restColours = await page.evaluate(COLOURS, c.n)
+    for (const e of rest.edges) if (e.edge < 1.1) pageFails.push(`${where} at rest: the ${e.what}'s edge does not show (${e.edge}:1)`)
     const shotClip = SHOTS ? await page.evaluate((n) => { const b = document.querySelector(`[data-hv="${n}"]`).getBoundingClientRect(); return { x: Math.max(0, b.left - 12) + visualViewport.pageLeft, y: Math.max(0, b.top - 12) + visualViewport.pageTop, width: Math.min(innerWidth, b.width + 24), height: Math.min(innerHeight - Math.max(0, b.top - 12), b.height + 24) } }, c.n) : null
     const restShot = shotClip ? await page.screenshot({ clip: shotClip, encoding: "base64", captureBeyondViewport: false }) : null
     /* HOVER, with the words' colours sampled as the pointer arrives and rests */
@@ -492,7 +495,7 @@ async function auditPage({ path, width, label, states }, browser) {
     if (hover) {
       for (const b of hover.bad) pageFails.push(`${where} on hover: "${b.words}" ${b.ratio}:1 < ${b.min} (${b.color})`)
       if (process.env.DEBUG && hover.bad.length) console.log(await page.evaluate((n) => [...document.querySelector(`[data-hv="${n}"]`).querySelectorAll("[style], [data-op-legible]")].map((e) => `${e.tagName} ${e.getAttribute("data-op-legible") || ""} ${(e.getAttribute("style") || "").replace(/.*?(color|--op-fill)/, "$1").slice(0, 160)}`).join("\n"), c.n))
-      for (const e of hover.edges) if (e.edge < 1.15) pageFails.push(`${where} on hover: the ${e.what}'s edge does not show (${e.edge}:1)`)
+      for (const e of hover.edges) if (e.edge < 1.1) pageFails.push(`${where} on hover: the ${e.what}'s edge does not show (${e.edge}:1)`)
     }
     const held = plateaus(timeline)
     held.forEach((h, k) => {

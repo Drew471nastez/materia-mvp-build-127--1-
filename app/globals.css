@@ -2862,6 +2862,8 @@ html.capacitor .subscribe-bar-spacer {
 .op-btn:is([data-hover="fill"], [data-hover="pop"]):not(.animate-onepage-swipe)::after {
   background: var(--op-fill, currentColor);
 }
+/* Wave 11: a highlighted link's shine passes under its words, never over them (it lightened white words to grey). */
+.op-btn.animate-onepage-swipe::after { z-index: -1; }
 /* A highlighted link's swipe already owns ::after. Its hover fill uses
    the shadow layer, so the chosen colours still work without losing it. */
 .op-btn.animate-onepage-swipe:is([data-hover="fill"], [data-hover="pop"])::before {
@@ -2927,6 +2929,8 @@ html.capacitor .subscribe-bar-spacer {
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"] { translate: 0 -2px; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"][data-shadow="hard"] { translate: -2px -2px; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"]::before { opacity: 1; }
+  /* Wave 11: on a Fill or Pop hover the shine rests, so the pair is the only thing under the words. */
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn).animate-onepage-swipe:is([data-hover="fill"], [data-hover="pop"])::after { opacity: 0; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"]:not(.animate-onepage-swipe)::after { opacity: 1; }
   .op-btn[data-hover]:not([data-hover="none"]):active { scale: 0.985; translate: 0 0; }
   .op-card:hover::after { opacity: 1; }
