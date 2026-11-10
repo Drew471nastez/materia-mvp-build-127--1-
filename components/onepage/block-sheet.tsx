@@ -651,21 +651,57 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
       }
     }
     const later = () => {
+      /* A press in progress reads when it ends (pressDone below), so the keyboard going away under it cannot move the panel either. */
+      if (pressing) return
       if (!frame) frame = requestAnimationFrame(read)
     }
-    const onFocusIn = () => {
+    /*
+      Round AR (track 2): a press that takes focus from the field (Book, Send, Next) blurs it before its
+      click lands. The bar coming back on that blur moved the panel 68px between touchend and click
+      (scripts/check-bookings-ar2.mjs, 390 touch), so the click hit what was now under the finger and the
+      form was never sent. While a finger is down in the panel, the bar waits for the press to finish
+      (its click, or a cancel), then reads as before.
+    */
+    let pressing = false
+    let release = 0
+    const pressDone = () => {
+      pressing = false
+      window.clearTimeout(release)
+      later()
+    }
+    const onPressStart = () => {
+      pressing = true
+      window.clearTimeout(release)
+      release = window.setTimeout(pressDone, 600)
+    }
+    const onPressEnd = () => {
+      if (pressing) window.setTimeout(pressDone, 0)
+    }
+    const onFocusOut = () => {
+      if (!pressing) later()
+    }
+    const onFocusIn = (e: FocusEvent) => {
       memory = { saw: false }
+      /* The pressed button taking focus is the same press: it reads when the press ends, not now. */
+      if (pressing && !(e.target instanceof HTMLElement && e.target.matches(FIELDS))) return
       read()
     }
     panel.addEventListener("focusin", onFocusIn)
-    panel.addEventListener("focusout", later)
+    panel.addEventListener("focusout", onFocusOut)
+    panel.addEventListener("pointerdown", onPressStart, true)
+    panel.addEventListener("click", onPressEnd, true)
+    panel.addEventListener("pointercancel", onPressEnd, true)
     window.addEventListener(KEYBOARD_CHANGE_EVENT, later)
     vv?.addEventListener("resize", later)
     return () => {
       cancelAnimationFrame(frame)
       window.clearTimeout(settle)
+      window.clearTimeout(release)
       panel.removeEventListener("focusin", onFocusIn)
-      panel.removeEventListener("focusout", later)
+      panel.removeEventListener("focusout", onFocusOut)
+      panel.removeEventListener("pointerdown", onPressStart, true)
+      panel.removeEventListener("click", onPressEnd, true)
+      panel.removeEventListener("pointercancel", onPressEnd, true)
       window.removeEventListener(KEYBOARD_CHANGE_EVENT, later)
       vv?.removeEventListener("resize", later)
     }
