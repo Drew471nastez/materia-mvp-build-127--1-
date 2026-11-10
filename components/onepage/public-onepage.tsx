@@ -3210,8 +3210,16 @@ function CoreBlockRenderer({
       const data = (block.data || { label: "", url: "" }) as LinkButtonBlockData
       if (!data.url) return null
       /* Round AN: "Show on the page" draws the service's own player in place of the button (components/onepage/music-sheet). */
-      if (data.spotify_mode === "on_page" && spotifyEmbedUrl(data.url)) return <MusicPlayer service="spotify" url={data.url} title={data.label || "Spotify"} radius={theme.button_border_radius} />
-      if (data.apple_music_mode === "on_page" && appleMusicEmbedUrl(data.url)) return <MusicPlayer service="apple_music" url={data.url} title={data.label || "Apple Music"} radius={theme.button_border_radius} />
+      /* Round AR3, the owner: "the description and the title of the Spotify block don't display". The player, with the link's title over it and its description under it. */
+      const onPagePlayer = (service: "spotify" | "apple_music", name: string) => (
+        <div className="flex w-full flex-col gap-2" data-link-player={service}>
+          {data.label?.trim() ? <p className="text-center text-[15px] font-semibold" style={{ color: theme.text_color }} data-block-title="">{data.label}</p> : null}
+          <MusicPlayer service={service} url={data.url} title={data.label || name} radius={theme.button_border_radius} />
+          {presentationOf(block).subtitle?.trim() ? <span className="block text-center text-[13px] opacity-75" style={{ color: theme.text_color }}><BlockSubtitle subtitle={presentationOf(block).subtitle} /></span> : null}
+        </div>
+      )
+      if (data.spotify_mode === "on_page" && spotifyEmbedUrl(data.url)) return onPagePlayer("spotify", "Spotify")
+      if (data.apple_music_mode === "on_page" && appleMusicEmbedUrl(data.url)) return onPagePlayer("apple_music", "Apple Music")
 
       /*
         THE BUTTON'S ICON: the one picked in the editor, else its platform's mark
@@ -3355,8 +3363,12 @@ function CoreBlockRenderer({
                   lineHeight: '1.4',
                 }}
               >
-                <span className="truncate font-medium" style={{ color: theme.button_text_color }} data-block-title="">
+                <span className="block truncate font-medium" style={{ color: theme.button_text_color }} data-block-title="">
                   {data.label ?? "Watch on YouTube"}
+                </span>
+                {/* Round AR3: the description line, as every other layout of a link draws it. */}
+                <span className="block text-[13px] leading-snug opacity-75" style={{ color: theme.button_text_color }}>
+                  <BlockSubtitle subtitle={p.subtitle} />
                 </span>
               </a>
             </div>
@@ -4639,7 +4651,7 @@ function CoreBlockRenderer({
           body: (
             <div className="pb-2 pt-1" style={{ flex: "none" }}>
               {data.description ? <p className="mb-3 px-1 text-[14px] leading-snug text-[var(--sheet-muted)]">{data.description}</p> : null}
-              <PdfPages url={pdfUrl} title={pdfTitle} />
+              <PdfPages url={pdfUrl} title={pdfTitle} tools />
             </div>
           ),
           cta: { label: data.preview_button_text || "View full PDF", href: pdfUrl, icon: <FileText /> },
@@ -4843,7 +4855,7 @@ function CoreBlockRenderer({
           body: (
             <div className="pb-2 pt-1" style={{ flex: "none" }}>
               {data.description ? <p className="mb-3 px-1 text-[14px] leading-snug text-[var(--sheet-muted)]">{data.description}</p> : null}
-              <PdfPages url={pdfUrl} title={pdfTitle} />
+              <PdfPages url={pdfUrl} title={pdfTitle} tools />
             </div>
           ),
           cta: { label: data.preview_button_text || "View Menu", href: pdfUrl, icon: <FileText /> },

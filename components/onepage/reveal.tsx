@@ -150,15 +150,32 @@ export function Reveal({
       With `follow` the open waits two frames, at its first height, and then
       plays from the start.
     */
+    /*
+      Round AR (the owner's image 137: a Digital products block opened on an
+      empty white body). The wait below used to ask "is the height still
+      mine?" and gave up when it was not. But the editor inside often grows
+      in those two frames (a shelf's products arrive), the observer under
+      this aims a new height animation, and the fade, paused at opacity 0
+      with fill backwards, was never played again: the settings were there,
+      at opacity 0, for good. Now the fade is played whenever it is still
+      this open's, and a watchdog finishes any fade still paused once the
+      open's time is up, so what is inside can never stay invisible.
+    */
     if (open && follow) {
       a.pause()
       fade.pause()
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (animRef.current[0] !== a) return
-        a.play()
+        if (!animRef.current.includes(fade)) return
+        if (animRef.current[0] === a && a.playState === "paused") a.play()
         fade.play()
         if (opening.current) opening.current.began = performance.now()
       }))
+    }
+    if (open) {
+      window.setTimeout(() => {
+        if (fade.playState === "paused" || fade.playState === "running") fade.finish()
+        if (innerRef.current && box.dataset.reveal === "open") innerRef.current.style.opacity = "1"
+      }, ms + 400)
     }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 

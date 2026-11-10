@@ -222,6 +222,8 @@ const DIRECTIVES: [string, string[]][] = [
     "https://bandcamp.com",
     "https://widget.deezer.com",
     "https://calendar.google.com",
+    /* Round AR3: a Canva design's own embed (lib/onepage/creator-blocks embedSource). */
+    "https://www.canva.com",
     /* The OnePage's app blocks (lib/onepage/app-blocks APP_FRAME_HOSTS): Threads, Facebook, Pinterest, Reddit and Audiomack's own public embeds. */
     "https://www.threads.net",
     "https://www.facebook.com",

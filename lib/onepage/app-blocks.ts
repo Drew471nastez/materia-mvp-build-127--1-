@@ -85,6 +85,8 @@ export interface AppBlockData {
   button_text?: string
   image_url?: string | null
   layout?: AppLayout
+  /** Round AR3: how a list's pictures sit in their boxes (products, books): cover, contain or full. */
+  image_fit?: "cover" | "contain" | "full"
   /** Read by components/onepage/block-sheet openModeOf. */
   open_mode?: AppOpenMode
   /** More posts, shown in a carousel or one after another in the sheet. */
@@ -447,6 +449,16 @@ export function isAppProvider(v: unknown): v is AppProviderId {
 
 export function providerOf(data: Partial<AppBlockData> | null | undefined): AppProvider {
   return APP_PROVIDERS[isAppProvider(data?.provider) ? data!.provider : "note"]
+}
+
+/**
+ * Round AR: services taken out of the Add block sheet. A block saved with one
+ * keeps its data and is drawn as a plain link to its address (and to each of
+ * its items), so no page loses what it showed and nothing is rewritten.
+ */
+export const RETIRED_APP_PROVIDERS: readonly AppProviderId[] = ["bonfire", "fourthwall"]
+export function isRetiredAppProvider(id: unknown): boolean {
+  return (RETIRED_APP_PROVIDERS as readonly unknown[]).includes(id)
 }
 
 /** The layout a block is drawn in: its own when the provider offers it, the provider's otherwise. */

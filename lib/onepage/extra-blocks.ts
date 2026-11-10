@@ -17,6 +17,7 @@ import type {
 import { hasRealUrl } from "./editor-state"
 import { dayLabel, viewerZone, wallAt } from "./schedule"
 import { CREATOR_BLOCK_TYPES, creatorBlockHasContent } from "./creator-blocks"
+import { videoFileUrl } from "./media-layout"
 import { STORELIB_BLOCK_TYPES, isStorelibBlock, storelibBlockHasContent } from "./storelib-blocks"
 import { APP_BLOCK_TYPES, appBlockHasContent, isAppBlock } from "./app-blocks"
 
@@ -57,7 +58,8 @@ export function scheduleLabel(block: { schedule?: OnePageBlockSchedule | null },
   return { text: "Scheduled", live: true }
 }
 
-export type VideoSource = { kind: "youtube" | "vimeo" | "tiktok"; id: string }
+/** "file": a video Storelib holds (round AR3), its id the address itself (lib/onepage/media-layout videoFileUrl). */
+export type VideoSource = { kind: "youtube" | "vimeo" | "tiktok" | "file"; id: string }
 
 /** The video a pasted address points at, or null for one that cannot play on the page. */
 export function videoSource(raw: string | null | undefined): VideoSource | null {
@@ -69,6 +71,8 @@ export function videoSource(raw: string | null | undefined): VideoSource | null 
   if (vimeo) return { kind: "vimeo", id: vimeo[1] }
   const tiktok = url.match(/tiktok\.com\/@[^/]+\/video\/(\d{8,})/)
   if (tiktok) return { kind: "tiktok", id: tiktok[1] }
+  const file = videoFileUrl(url)
+  if (file) return { kind: "file", id: file }
   return null
 }
 

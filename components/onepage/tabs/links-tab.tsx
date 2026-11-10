@@ -5,8 +5,9 @@ import {actionHref,readAction,whatsappGroupUrl,type ActionType,type NativeAction
 
 import {HeaderCoverEditor} from "../header-cover-editor"
 
-import { ArrangePicker, CardsInViewControl, EditorThemeContext, BlockAnimationButton, ANIMATED_BLOCKS, ClassicFeaturedPicker, BlockDescriptionField, BlockEditorTabs, BlockPartContext, BlockStyleControls, LinkImageOptions, LinkLayoutPicker, LinkPreviewControls, SocialShowAs, PartContent, PartHidden, PartTabs } from "../block-settings"
-import { layoutControlsFor, linkLayoutOf, presentationOf } from "@/lib/onepage/block-presentation"
+import { MediaLayoutPicker } from "../media-blocks"
+import { ArrangePicker, PictureFitControl, CardsInViewControl, EditorThemeContext, BlockAnimationButton, ANIMATED_BLOCKS, ClassicFeaturedPicker, BlockDescriptionField, BlockEditorTabs, BlockPartContext, BlockStyleControls, LinkImageOptions, LinkLayoutPicker, LinkPreviewControls, SocialShowAs, PartContent, PartHidden, PartTabs } from "../block-settings"
+import { layoutControlsFor, linkLayoutOf, presentationOf, socialPresentation, socialProfile } from "@/lib/onepage/block-presentation"
 import { editedMark, mergeLinkPreview } from "@/lib/onepage/link-preview"
 
 import { ProfileImage } from "@/components/onepage/profile-image"
@@ -777,6 +778,8 @@ export function LinksTab() {
           /* What the creator typed, cleared, uploaded or removed stays (lib/onepage/link-preview mergeLinkPreview). */
           const meta=await response.json()
           let subtitle:string|undefined
+          /* Round AR3, the owner: "as default the layout of a website should be Card". The first preview of a new link with a picture, on a link no layout was picked for. */
+          const firstPreview=!socialProfile(url)&&!socialPresentation(url)&&!data.link_preview?.url&&!presentationOf(block).variant&&!presentationOf(block).media_mode&&data.layout_type!=="pro"&&!!meta?.image
           landFetched(current=>{
             const source=findBlockDeep(linkPreviewBlocks.current ?? [],blockId)?.block
             /* A title typed while this was on its way is the creator's. */
@@ -785,9 +788,10 @@ export function LinksTab() {
             subtitle=merged.subtitle
             return typing&&merged.data.link_preview?{...merged.data,link_preview:{...merged.data.link_preview,title_edited:current.link_preview?.title_edited}}:merged.data
           })
-          if(subtitle!==undefined){
+          if(subtitle!==undefined||firstPreview){
             const latest=findBlockDeep(getLatestOnePage()?.draft_blocks ?? [],blockId)?.block
-            if(latest&&normalizeUrlInput((latest.data as LinkButtonBlockData).url||"")===url)updateBlock(blockId,{style:{...latest.style,presentation:{...latest.style?.presentation,subtitle}}},{joinLastStep:true})
+            const card=firstPreview&&!!latest&&!presentationOf(latest).variant&&(latest.data as LinkButtonBlockData).layout_type!=="pro"
+            if(latest&&normalizeUrlInput((latest.data as LinkButtonBlockData).url||"")===url)updateBlock(blockId,{style:{...latest.style,presentation:{...latest.style?.presentation,...(subtitle!==undefined?{subtitle}:{}),...(card?{variant:"visual" as const}:{})}}},{joinLastStep:true})
           }
         }
       }catch{}
@@ -2570,7 +2574,8 @@ export function LinksTab() {
                   id="file-upload-input"
                   accept={
                     imageFieldType === 'digital_product_file' ? undefined
-                    : imageFieldType === 'pdf_file' ? '.pdf,application/pdf'
+                    /* Round AR3: a menu or a document is often a photo of its pages; the same file rules apply (lib/security/uploads). */
+                    : imageFieldType === 'pdf_file' ? '.pdf,application/pdf,image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp'
                     : 'image/*'
                   }
                   disabled={imageUploading}
@@ -4238,6 +4243,8 @@ function BlockEditor({
         <div className="space-y-4">
           {/* Eight layouts, each drawn small (./product-block-editor); the live page draws them in components/onepage/product-block. */}
           <ProductLayoutPicker data={data} theme={onepage?.theme} onPick={handleStyleSelect} />
+          {/* Round AR3: Cover, Fit or Full for the product's picture (components/onepage/layout-pickers). */}
+          {layout !== "button" && layout !== "minimal" ? <PictureFitControl value={data.image_fit} onChange={(image_fit) => updateData({ image_fit })} /> : null}
 
           {/* Colours for the layouts drawn on a card of their own (the button and the minimal line wear the theme). */}
           {layoutHasCard(layout) && (
@@ -4301,15 +4308,18 @@ function BlockEditor({
     return (
       <div className="space-y-4">
         <LinkLayoutPicker block={block} theme={onepage?.theme} getBlock={latest} onChange={(updates) => updateBlock(block.id, updates)} />
-        {/* Featured keeps its picture modes; a YouTube link plays in its own frame instead. */}
-        {linkLayoutOf(block) === "featured" && !isYouTubeUrl(linkData.url) ? (
+        {/*
+          Round AR3: every layout that draws the link's picture offers Cover, Fit and Full (the owner: "cover, fit, full").
+          A Featured YouTube link plays in its own frame instead; Classic and the round Profile picture have no box to fit.
+        */}
+        {(["featured", "visual", "cover", "image-first", "tile", "compact"] as string[]).includes(linkLayoutOf(block)) && !!(linkData.thumbnail_url || presentationOf(block).image_url) && !(linkLayoutOf(block) === "featured" && isYouTubeUrl(linkData.url)) ? (
           <div className="space-y-2.5 border-t border-[#eef0f2] pt-4" data-link-display-mode="">
-            <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Picture")}</p>
+            <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Picture fit")}</p>
             <Segmented
-              label={tt("Picture")}
+              label={tt("Picture fit")}
               value={linkData.display_mode || "cover"}
               options={[
-                { id: "cover", label: tt("Fill"), hint: tt("Crops to fit") },
+                { id: "cover", label: tt("Cover"), hint: tt("Crops to fit") },
                 { id: "contain", label: tt("Fit"), hint: tt("Shows all") },
                 { id: "full", label: tt("Full"), hint: tt("Its own shape") },
               ]}
@@ -4417,6 +4427,8 @@ function BlockEditor({
               <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={1.75} />
             </button>
 
+            {/* Round AR3: more links in this one block, as a list, a grid or a carousel (the Group block, set up from here). */}
+            {!updateBlockOverride ? <MakeGroupRow block={block} /> : null}
             {/* The preview read from the address, and how a social address shows (components/onepage/block-settings). */}
             <LinkPreviewControls block={block} getBlock={() => findBlockDeep(getLatestOnePage()?.draft_blocks, block.id)?.block} onChange={(updates) => updateBlock(block.id, updates)} onRefresh={() => onUrlChangeWithAutoFetch?.(block.id, data.url, { refresh: true })} />
             <SocialShowAs block={block} getBlock={() => findBlockDeep(getLatestOnePage()?.draft_blocks, block.id)?.block} onChange={(updates) => updateBlock(block.id, updates)} />
@@ -6515,6 +6527,12 @@ function BlockEditor({
         {renderLayoutContent()}
         {style}
       </>
+    ) : block.type === "music" || block.type === "video" ? (
+      /* Round AR3: Player, Card or Button (components/onepage/media-blocks), then the shared style rows. */
+      <>
+        <MediaLayoutPicker block={block} theme={onepage?.theme} title={((block.data as { title?: string | null }).title || "").trim() || (block.type === "video" ? tt("Video") : tt("Music"))} image={(block.data as { artwork_url?: string | null; poster_url?: string | null }).artwork_url || (block.data as { poster_url?: string | null }).poster_url || null} updateData={(patch) => updateData(patch as never)} />
+        {style}
+      </>
     ) : PART_AWARE.has(block.type) ? (
       <>
         <BlockPartContext.Provider value="layout">{renderSettingsContent()}</BlockPartContext.Provider>
@@ -6536,6 +6554,50 @@ function BlockEditor({
         layout={layout}
       />
     </EditorThemeContext.Provider>
+  )
+}
+
+/**
+ * SEVERAL LINKS IN ONE BLOCK (round AR3). The owner: "in a link block I can
+ * also add multiple links, which creates a group, and enable carousel and
+ * grid layouts, all from one block, to make it easier for people to set up".
+ * One press makes this link the first of a Group with a new empty link under
+ * it, in one step (one Undo). The link keeps its id, so its clicks keep
+ * counting; the Group's Layout tab is where List, Grid and Carousel are.
+ */
+function MakeGroupRow({ block }: { block: OnePageBlock }) {
+  const { getLatestOnePage, updateOnePage, setSelectedBlockId } = useOnePage()
+  const make = () => {
+    const page = getLatestOnePage()
+    const list = page?.draft_blocks ?? []
+    const at = list.findIndex((b) => b.id === block.id)
+    if (at < 0) return
+    const current = list[at]
+    const group = createDefaultBlock("group")
+    const next = createDefaultBlock("link_button")
+    const grouped: OnePageBlock = {
+      ...group,
+      sort_order: current.sort_order,
+      data: { ...(group.data as GroupBlockData), title: "", layout: "stack", children: [{ ...current, sort_order: 0 }, { ...next, sort_order: 1 }] } as GroupBlockData,
+    }
+    updateOnePage({ draft_blocks: list.map((b, i) => (i === at ? grouped : b)) })
+    setSelectedBlockId(grouped.id)
+  }
+  return (
+    <button
+      type="button"
+      onClick={make}
+      data-make-group=""
+      className="flex min-h-[56px] w-full cursor-pointer items-center gap-3.5 rounded-2xl border border-dashed border-[#d5d7dd] bg-white p-2.5 pr-4 text-left outline-none transition-colors hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+    >
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f4f4f6] text-[#1a1a2e]">
+        <Layers aria-hidden className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-medium text-[#1a1a2e]">{tt("Add more links here")}</span>
+        <span className="block text-[12.5px] text-[#6b7280]">{tt("Show them as a list, a grid or a carousel")}</span>
+      </span>
+    </button>
   )
 }
 
