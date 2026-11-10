@@ -1,0 +1,134 @@
+{# example
+title: Full screen search with live results as a picture grid
+summary: Chrome kit search window, a section placed after the header: the site's own search panel (data-storelib-search-panel) that every search button opens. A huge input across the top; before anything is typed, popular searches (blocks, each a link to the search page for its words) and the creator's chosen products (product_list); as the visitor types, this store's products, pages and posts arrive live as a grid of picture cards with prices, with loading and nothing found states. Focus moves to the input and stays inside; Escape and the close button shut it; Enter opens the full results. Columns, card ratio, colours and motion are settings.
+tags: chrome kit, search, search panel, search overlay, full screen search, live search, instant search, predictive search, search results grid, popular searches, own chrome
+#}
+<template>
+<div class="sfs" data-ratio="{{ settings.card_ratio }}" data-motion="{{ settings.motion }}" {% if page.in_editor and settings.editor_open %}data-editor-open{% endif %} data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --sfs-cols: {{ settings.columns }}; --m-k: calc({{ settings.motion_strength }} / 100);">
+  <div class="sfs__panel" data-storelib-search-panel role="dialog" aria-label="{{ settings.label }}">
+    <div class="sfs__in">
+      <div class="sfs__bar">
+        <label class="sfs__label" for="sfs-{{ section.id }}">{{ settings.label }}</label>
+        <input class="sfs__input" id="sfs-{{ section.id }}" type="search" autocomplete="off" enterkeyhint="search" data-storelib-search-input placeholder="{{ settings.placeholder }}">
+        <button class="sfs__close" type="button" data-storelib-search-close>{{ settings.close_label }}</button>
+      </div>
+      <div class="sfs__idle">
+        {% if section.blocks.size > 0 %}
+        <div class="sfs__popular">
+          <p class="sfs__h">{{ settings.popular_heading }}</p>
+          <ul class="sfs__terms">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ routes.search_url }}?q={{ block.settings.term }}">{{ block.settings.term }}</a></li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+        {% if settings.featured.size > 0 %}
+        <div class="sfs__featured">
+          <p class="sfs__h">{{ settings.featured_heading }}</p>
+          <ul class="sfs__grid">
+            {% for p in settings.featured %}
+            <li><a class="sfs__card" href="{{ p.settings.url | url }}"><span class="sfs__crop">{% if p.settings.image %}<img src="{{ p.settings.image | asset }}" alt="{{ p.settings.title }}" width="400" height="500" loading="lazy">{% endif %}</span><span class="sfs__t">{{ p.settings.title }}</span><span class="sfs__p">{{ p.settings.price }}</span></a></li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+      <p class="sfs__state" data-storelib-search-loading hidden>{{ settings.loading_text }}</p>
+      <p class="sfs__state sfs__none" data-storelib-search-empty hidden>{{ settings.empty_text }}</p>
+      <ul class="sfs__grid sfs__results" data-storelib-search-results aria-live="polite">
+        <li data-storelib-search-result hidden><a class="sfs__card" data-result-url><span class="sfs__crop"><img data-result-image alt="" width="400" height="500"></span><span class="sfs__kind" data-result-kind></span><span class="sfs__t" data-result-title></span><span class="sfs__p" data-result-price></span></a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+</template>
+
+<style scoped>
+.sfs, .sfs *, .sfs *::before, .sfs *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.sfs [hidden] { display: none !important; }
+.sfs__panel { position: fixed; inset: 0; z-index: 90; overflow-y: auto; overscroll-behavior: contain; background: var(--s-bg); color: var(--s-text); visibility: hidden; opacity: 0; }
+.sfs__panel[data-open="true"], .sfs[data-editor-open] .sfs__panel { visibility: visible; opacity: 1; }
+.sfs[data-editor-open] .sfs__panel { position: relative; min-height: 640px; }
+.sfs__in { max-width: var(--theme-page-width, 1440px); margin: 0 auto; padding: 12px var(--theme-padding-x, 16px) 48px; }
+.sfs__bar { position: sticky; top: 0; z-index: 1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 4px 12px; padding: 8px 0 12px; background: var(--s-bg); border-bottom: 2px solid var(--s-text); }
+.sfs__label { grid-column: 1 / -1; font-size: 0.875rem; }
+.sfs__input { min-width: 0; min-height: 56px; padding: 0; border: 0; background: none; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.75rem, 1rem + 4vw, 4.5rem); line-height: 1; letter-spacing: -0.03em; font-weight: 700; }
+.sfs__input::placeholder { color: inherit; opacity: 0.35; }
+.sfs__input:focus-visible { outline-offset: 6px; }
+.sfs__bar:focus-within { border-bottom-color: var(--s-accent); }
+.sfs__close { min-height: 44px; padding: 0 14px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; cursor: pointer; }
+.sfs__idle { display: grid; gap: 32px; padding-top: 28px; }
+.sfs__panel:not([data-state="idle"]) .sfs__idle { display: none; }
+.sfs__h { margin: 0 0 12px; font-weight: 600; }
+.sfs__terms { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.sfs__terms a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid var(--s-border); color: inherit; text-decoration: none; font-size: 1.0625rem; }
+.sfs__terms a:hover { border-color: currentColor; }
+.sfs__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 12px; margin: 0; padding: 0; list-style: none; }
+.sfs__results { padding-top: 28px; }
+.sfs__card { display: grid; gap: 6px; color: inherit; text-decoration: none; }
+.sfs__crop { display: block; overflow: hidden; aspect-ratio: 4 / 5; background: color-mix(in srgb, var(--s-text) 6%, var(--s-bg)); }
+.sfs[data-ratio="square"] .sfs__crop { aspect-ratio: 1; }
+.sfs__crop img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.sfs__crop img[hidden] { display: none; }
+.sfs__kind { font-size: 0.8125rem; }
+.sfs__results li[data-kind="product"] .sfs__kind { display: none; }
+.sfs__results li:not([data-kind="product"]) .sfs__crop:not(:has(img:not([hidden]))) { aspect-ratio: auto; height: 6px; background: var(--s-accent); }
+.sfs__t { font-weight: 600; }
+.sfs__p { font-variant-numeric: tabular-nums; }
+.sfs__state { margin: 28px 0 0; font-size: 1.125rem; }
+.sfs__none { font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.5rem); letter-spacing: -0.02em; color: var(--s-heading); }
+.sfs :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .sfs:not([data-motion="off"]) .sfs__panel { transform: translateY(calc(-12px * var(--m-k, 1))); transition: opacity calc(var(--t-motion-duration, 650ms) * 0.45) ease, transform calc(var(--t-motion-duration, 650ms) * 0.7) var(--t-motion-ease, ease-out), visibility 0s linear calc(var(--t-motion-duration, 650ms) * 0.7); }
+  .sfs:not([data-motion="off"]) .sfs__panel[data-open="true"] { transform: none; transition-delay: 0s; }
+  .sfs:not([data-motion="off"]) .sfs__results li:not([hidden]) { animation: sfs-in calc(var(--t-motion-duration, 650ms) * 0.7) var(--t-motion-ease, ease-out) both; }
+  .sfs:not([data-motion="off"]) .sfs__results li:nth-child(3n) { animation-delay: var(--t-motion-stagger, 65ms); }
+  .sfs:not([data-motion="off"]) .sfs__results li:nth-child(3n + 1) { animation-delay: calc(var(--t-motion-stagger, 65ms) * 2); }
+  @keyframes sfs-in { from { opacity: 0; transform: translateY(calc(var(--t-motion-distance, 24px) * 0.6 * var(--m-k, 1))); } }
+}
+@media (prefers-reduced-motion: reduce) { .sfs__panel, .sfs__results li { transition: none; animation: none; transform: none; } }
+@media (min-width: 760px) {
+  .sfs__grid { grid-template-columns: repeat(var(--sfs-cols, 4), minmax(0, 1fr)); gap: 32px 20px; }
+  .sfs__idle { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 48px; }
+  .sfs__featured .sfs__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_search_full",
+  "name": "Full screen search",
+  "settings": [
+    { "type": "paragraph", "id": "about", "content": "Opens from every search button on the page. Keep it right after the header." },
+    { "type": "checkbox", "id": "editor_open", "label": "Keep it open in the editor", "default": false },
+    { "type": "header", "id": "hdr_idle", "label": "Before anything is typed" },
+    { "type": "text", "id": "popular_heading", "label": "Popular searches heading", "default": "People look for" },
+    { "type": "text", "id": "featured_heading", "label": "Products heading", "default": "Start here" },
+    { "type": "product_list", "id": "featured", "label": "Products", "limit": 6 },
+    { "type": "header", "id": "hdr_layout", "label": "Layout" },
+    { "type": "range", "id": "columns", "label": "Result columns on wide screens", "min": 3, "max": 6, "step": 1, "default": 4 },
+    { "type": "select", "id": "card_ratio", "label": "Pictures", "default": "portrait", "options": [{ "label": "Portrait", "value": "portrait" }, { "label": "Square", "value": "square" }] },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "label", "label": "Label", "default": "Search" },
+    { "type": "text", "id": "placeholder", "label": "Hint in the field", "default": "What are you after?" },
+    { "type": "text", "id": "close_label", "label": "Close button", "default": "Close" },
+    { "type": "text", "id": "loading_text", "label": "While searching", "default": "Looking..." },
+    { "type": "text", "id": "empty_text", "label": "Nothing found", "default": "Nothing matches that. Try a shorter word." },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "term", "name": "Popular search", "limit": 10, "settings": [
+      { "type": "text", "id": "term", "label": "Words", "default": "Gift" }
+    ] }
+  ],
+  "presets": [{ "name": "Full screen search", "blocks": [
+    { "type": "term", "settings": { "term": "New in" } },
+    { "type": "term", "settings": { "term": "Gift" } },
+    { "type": "term", "settings": { "term": "Bestsellers" } },
+    { "type": "term", "settings": { "term": "Sale" } }
+  ] }]
+}
+</schema>

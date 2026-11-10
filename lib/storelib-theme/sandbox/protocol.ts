@@ -56,7 +56,16 @@ export const ATTR_PREFIXES = ["aria-", "data-"] as const
  * own rows. A script that could rewrite `data-storelib-native-form` could
  * point the page at a form that is not this creator's.
  */
-export const ATTR_RESERVED = [INDEX_ATTR, "data-storelib-form", "data-block-id", "data-storelib-native-form", "data-storelib-offers", "data-storelib-island"] as const
+export const ATTR_RESERVED = [INDEX_ATTR, "data-storelib-form", "data-block-id", "data-storelib-native-form", "data-storelib-offers", "data-storelib-island", "data-storelib-motion", "data-storelib-motion-node"] as const
+
+/**
+ * And the motion islands' params (round P, P3: lib/storelib-theme/motion-islands.ts).
+ * An island is the page's own code, configured by the markup the section
+ * was drawn with; a script does not get to switch one on, off or retune it
+ * from inside the sandbox. (`data-motion` alone, a section's own still or
+ * site switch from round O5, stays the section's.)
+ */
+export const ATTR_RESERVED_PREFIXES = ["data-motion-"] as const
 
 /** A CSS property name, as the guest may send one. Custom properties included. */
 export const CSS_PROPERTY = /^(--)?[a-zA-Z][a-zA-Z0-9-]{0,48}$/
@@ -167,6 +176,7 @@ export function samePageSection(path: string, here: string): string | null {
 export function attrAllowed(name: string): boolean {
   const n = name.toLowerCase()
   if ((ATTR_RESERVED as readonly string[]).includes(n)) return false
+  if (ATTR_RESERVED_PREFIXES.some((p) => n.startsWith(p))) return false
   if (n.startsWith("on")) return false
   if ((ATTR_ALLOWED as readonly string[]).includes(n)) return true
   return ATTR_PREFIXES.some((p) => n.startsWith(p) && n.length > p.length)

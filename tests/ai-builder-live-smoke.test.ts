@@ -20,6 +20,7 @@
  *
  * Run with:  npm run test:push
  */
+import { NO_TEMPLATES } from "@/lib/ai-builder/agent/templates"
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -27,7 +28,7 @@ import { describeSmoke, runSmoke, smokeGate, smokeLimits } from "../scripts/ai-b
 import { SMOKE_CAPABILITIES, SMOKE_PROMPT, liveSmoke } from "../scripts/ai-builder/live-smoke"
 import type { AgentModels } from "@/lib/ai-builder/agent/ports"
 import type { ProviderRequest, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
-import { ABOUT, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, type PlainStep } from "./ai-builder-agent-fixtures"
+import { ABOUT, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, type PlainStep, PROGRAM_BLOCKS } from "./ai-builder-agent-fixtures"
 /* Round N (N3): the site plan with the concept, and a whole site before finish. */
 import { WHOLE_SITE_FILES, homeSections, pageSections, sitePlan, templateCalls } from "./ai-builder-whole-site-fixtures"
 
@@ -106,7 +107,7 @@ function coachSteps(seen: { bindFrom: string | null }): Step[] {
     { calls: [["add_page", { key: "programs", title: "Programs" }], ["add_page", { key: "about", title: "About" }]] },
     {
       calls: [
-        ["set_page_sections", { page: "home", sections: homeSections([{ type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } }, { type: "ai_program_list", blocks: [{ type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } }] }]) }],
+        ["set_page_sections", { page: "home", sections: homeSections([{ type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } }, { type: "ai_program_list", blocks: PROGRAM_BLOCKS }]) }],
         ["set_page_sections", { page: "programs", sections: pageSections({ type: "ai_program_list", settings: { heading: "All programs" } }) }],
         ["set_page_sections", { page: "about", sections: pageSections({ type: "ai_coach_story" }) }],
         ...templateCalls(),
@@ -132,7 +133,7 @@ async function main() {
   const s = scriptedModels(coachSteps(seen), clock)
   const out = mkdtempSync(join(tmpdir(), "storelib-smoke-test-"))
   const lines: string[] = []
-  const { report, job, project } = await runSmoke({ models: s.models, capabilities: SMOKE_CAPABILITIES, prompt: SMOKE_PROMPT, mode: "blank", category: "fitness_coach", capUsd: 1, wallMs: 15 * 60_000, outDir: out, now: () => clock.t, sleep: async (ms) => void (clock.t += ms), log: (l) => lines.push(l) })
+  const { report, job, project } = await runSmoke({ deps: { templates: NO_TEMPLATES }, models: s.models, capabilities: SMOKE_CAPABILITIES, prompt: SMOKE_PROMPT, mode: "blank", category: "fitness_coach", capUsd: 1, wallMs: 15 * 60_000, outDir: out, now: () => clock.t, sleep: async (ms) => void (clock.t += ms), log: (l) => lines.push(l) })
   check("the job completes", report.status === "complete", { report, tail: lines.slice(-8) })
   check("one model call per runner step, every call counted", report.calls === s.requests.length && report.calls === 9, { calls: report.calls, requests: s.requests.length })
   check("the work crossed requests: three handed over, a fresh stepper each", report.invocations === 3 && report.chained === 2, { invocations: report.invocations, chained: report.chained })
@@ -157,20 +158,20 @@ async function main() {
   {
     const c = { t: T0 }
     const m = scriptedModels(coachSteps({ bindFrom: null }), c)
-    const { report: r } = await runSmoke({ models: m.models, capabilities: SMOKE_CAPABILITIES, prompt: SMOKE_PROMPT, capUsd: 0.15, maxOutputTokensPerCall: 2_000, wallMs: 15 * 60_000, now: () => c.t, sleep: async (ms) => void (c.t += ms) })
+    const { report: r } = await runSmoke({ deps: { templates: NO_TEMPLATES }, models: m.models, capabilities: SMOKE_CAPABILITIES, prompt: SMOKE_PROMPT, capUsd: 0.15, maxOutputTokensPerCall: 2_000, wallMs: 15 * 60_000, now: () => c.t, sleep: async (ms) => void (c.t += ms) })
     check("a spend cap ends the job before a call could pass it, and never above it", ["partial", "failed"].includes(r.status) && r.error === "budget_spend" && r.usd <= 0.15 && r.calls < 9, r)
   }
   {
     const c = { t: T0 }
     const m = scriptedModels(coachSteps({ bindFrom: null }), c)
-    const { report: r } = await runSmoke({ models: m.models, capabilities: SMOKE_CAPABILITIES, prompt: SMOKE_PROMPT, capUsd: 1, wallMs: 150_000, now: () => c.t, sleep: async (ms) => void (c.t += ms) })
+    const { report: r } = await runSmoke({ deps: { templates: NO_TEMPLATES }, models: m.models, capabilities: SMOKE_CAPABILITIES, prompt: SMOKE_PROMPT, capUsd: 1, wallMs: 150_000, now: () => c.t, sleep: async (ms) => void (c.t += ms) })
     check("a wall clock cap ends the job with what was made", ["partial", "failed", "cancelled"].includes(r.status) && r.calls <= 3 && r.wallMs < 15 * 60_000, r)
   }
   {
     const c = { t: T0 }
     const never: Step = { calls: [["list_pages", {}]] }
     const m = scriptedModels(Array.from({ length: 200 }, () => never), c)
-    const { report: r } = await runSmoke({ models: m.models, capabilities: SMOKE_CAPABILITIES, prompt: SMOKE_PROMPT, capUsd: 5, wallMs: 60 * 60_000, maxInvocations: 4, now: () => c.t, sleep: async (ms) => void (c.t += ms) })
+    const { report: r } = await runSmoke({ deps: { templates: NO_TEMPLATES }, models: m.models, capabilities: SMOKE_CAPABILITIES, prompt: SMOKE_PROMPT, capUsd: 5, wallMs: 60 * 60_000, maxInvocations: 4, now: () => c.t, sleep: async (ms) => void (c.t += ms) })
     check("a chain that never ends is stopped by the request cap (cancelled, said so)", r.status === "cancelled" && r.invocations <= 5, r)
   }
   const lim = smokeLimits({})

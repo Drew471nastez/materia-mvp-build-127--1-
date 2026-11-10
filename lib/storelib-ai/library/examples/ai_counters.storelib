@@ -56,7 +56,7 @@ tags: counters, stats, numbers, count up, figures, facts, @property, view-timeli
     { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 64 }
   ],
   "blocks": [
-    { "type": "figure", "name": "Figure", "limit": 6, "settings": [
+    { "type": "figure", "name": "Figure", "limit": 6, "min_blocks": 0, "settings": [
       { "type": "number", "id": "value", "label": "Number (a real one; empty hides it)" },
       { "type": "text", "id": "suffix", "label": "After the number", "default": "" },
       { "type": "text", "id": "label", "label": "What it counts", "default": "Loaves baked this week" }

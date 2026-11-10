@@ -1,0 +1,92 @@
+{# example
+title: Sitemap grid footer
+summary: Chrome kit footer for sites with many pages: the whole site menu drawn as a grid, each top link a numbered heading with its sub links under it (two levels from one link_list, so it stays in step with the menu), set on hairline cells like a directory; a contact cell (blocks: email, phone, address lines) and the language and currency pills in the last cells. Cells per row, numbering, cell lines and colours are settings.
+tags: chrome kit, footer, sitemap footer, site map, directory footer, grid footer, mega footer, large site, menus, contact, locale, currency, own chrome, site footer
+#}
+<template>
+<footer class="fsm" data-numbers="{{ settings.numbers }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --fsm-cols: {{ settings.columns }};">
+  <h2 class="fsm__title">{{ settings.title }}</h2>
+  <div class="fsm__grid">
+    {% for link in settings.menu.links %}
+    <nav class="fsm__cell" aria-label="{{ link.title }}">
+      <a class="fsm__h" href="{{ link.url }}"><span class="fsm__n" aria-hidden="true">{{ forloop.index }}</span>{{ link.title }}</a>
+      {% if link.links.size > 0 %}<ul>{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul>{% endif %}
+    </nav>
+    {% endfor %}
+    <div class="fsm__cell fsm__contact">
+      <p class="fsm__h">{{ settings.contact_heading }}</p>
+      <ul>
+        {% for block in section.blocks %}
+        <li data-block-id="{{ block.id }}">{% if block.settings.url %}<a href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>{% else %}<span>{{ block.settings.text }}</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="fsm__cell fsm__prefs">
+      <div class="fsm__pref" data-storelib-locale-list role="group" aria-label="{{ settings.language_label }}"><p class="fsm__h">{{ settings.language_label }}</p><button class="fsm__opt" type="button" data-storelib-locale-option hidden><span data-option-label></span></button></div>
+      <div class="fsm__pref" data-storelib-currency-list role="group" aria-label="{{ settings.currency_label }}"><p class="fsm__h">{{ settings.currency_label }}</p><button class="fsm__opt" type="button" data-storelib-currency-option hidden><span data-option-label></span></button></div>
+    </div>
+  </div>
+  <p class="fsm__base">{{ settings.copyright }}</p>
+</footer>
+</template>
+
+<style scoped>
+.fsm, .fsm *, .fsm *::before, .fsm *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.fsm [hidden] { display: none !important; }
+.fsm { container-type: inline-size; padding: clamp(48px, 7vw, 96px) var(--theme-padding-x, 16px) 20px; background: var(--s-bg); color: var(--s-text); }
+.fsm__title { margin: 0 0 24px; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.75rem, 1.2rem + 2.4vw, 3.25rem); line-height: 1; letter-spacing: -0.03em; font-weight: 700; }
+.fsm__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--s-border); border-left: 1px solid var(--s-border); }
+.fsm__cell { min-width: 0; padding: 16px 14px 20px; border-right: 1px solid var(--s-border); border-bottom: 1px solid var(--s-border); }
+.fsm__h { display: flex; align-items: baseline; gap: 10px; min-height: 32px; margin: 0 0 8px; color: var(--s-heading); font-weight: 700; text-decoration: none; }
+a.fsm__h:hover { text-decoration: underline; text-underline-offset: 4px; }
+.fsm__n { font-size: 0.75rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.fsm[data-numbers="false"] .fsm__n { display: none; }
+.fsm__cell ul { margin: 0; padding: 0; list-style: none; }
+.fsm__cell li a, .fsm__cell li span { display: inline-flex; align-items: center; min-height: 36px; color: inherit; text-decoration: none; font-size: 0.9375rem; overflow-wrap: anywhere; }
+.fsm__cell li a { min-height: 44px; }
+.fsm__cell li a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.fsm__prefs { display: grid; gap: 12px; align-content: start; }
+.fsm__pref { display: flex; flex-wrap: wrap; gap: 6px; }
+.fsm__pref .fsm__h { flex-basis: 100%; margin: 0; }
+.fsm__opt { min-height: 40px; padding: 0 12px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; font-size: 0.875rem; cursor: pointer; }
+.fsm__opt[aria-current="true"] { border-color: currentColor; font-weight: 700; }
+.fsm__base { margin: 16px 0 0; font-size: 0.875rem; }
+.fsm :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@container (min-width: 760px) {
+  .fsm__grid { grid-template-columns: repeat(var(--fsm-cols, 4), minmax(0, 1fr)); }
+  .fsm__cell { padding: 20px 20px 28px; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_footer_sitemap",
+  "name": "Sitemap footer",
+  "kind": "footer",
+  "enabled_on": { "groups": ["footer"] },
+  "settings": [
+    { "type": "text", "id": "title", "label": "Heading", "default": "Everything, in one place" },
+    { "type": "link_list", "id": "menu", "label": "Menu (top links become headings)", "default": "main-menu" },
+    { "type": "range", "id": "columns", "label": "Cells per row on wide screens", "min": 3, "max": 6, "step": 1, "default": 4 },
+    { "type": "checkbox", "id": "numbers", "label": "Number the headings", "default": true },
+    { "type": "text", "id": "contact_heading", "label": "Contact heading", "default": "Talk to us" },
+    { "type": "text", "id": "language_label", "label": "Language", "default": "Language" },
+    { "type": "text", "id": "currency_label", "label": "Currency", "default": "Currency" },
+    { "type": "text", "id": "copyright", "label": "Bottom line", "default": "Every order packed by hand" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "line", "name": "Contact line", "limit": 5, "settings": [
+      { "type": "text", "id": "text", "label": "Text", "default": "Write to us" },
+      { "type": "url", "id": "url", "label": "Link (optional)" }
+    ] }
+  ],
+  "presets": [{ "name": "Sitemap footer", "blocks": [
+    { "type": "line", "settings": { "text": "Write to us", "url": "/contact" } },
+    { "type": "line", "settings": { "text": "Monday to Friday, 9 to 5" } },
+    { "type": "line", "settings": { "text": "Returns and exchanges", "url": "/contact" } }
+  ] }]
+}
+</schema>

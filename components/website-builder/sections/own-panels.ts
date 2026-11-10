@@ -10,7 +10,7 @@
  * their own markup, so the page keeps one small record per cart, the same
  * key site-drawer-host.ts uses (the cart's `setOpen`, one per page):
  *
- *   own.cart / own.search   the sections that have a panel of their own, in
+ *   own.cart / own.search / own.menu   the sections that have a panel of their own, in
  *                           the order they asked; the first is the one a
  *                           button elsewhere opens
  *   cart / search           which section's panel is open now, or null
@@ -23,16 +23,18 @@
  */
 import { useEffect, useSyncExternalStore } from "react"
 
-export type OwnPanelKind = "cart" | "search"
+export type OwnPanelKind = "cart" | "search" | "menu"
 
 export interface PageHooksState {
   own: Record<OwnPanelKind, readonly string[]>
   cart: string | null
   search: string | null
+  /** Which section's menu drawer of its own is open (round P). */
+  menu: string | null
   opener: HTMLElement | null
 }
 
-const EMPTY: PageHooksState = { own: { cart: [], search: [] }, cart: null, search: null, opener: null }
+const EMPTY: PageHooksState = { own: { cart: [], search: [], menu: [] }, cart: null, search: null, menu: null, opener: null }
 const pages = new WeakMap<object, PageHooksState>()
 const listeners = new Set<() => void>()
 const emit = () => listeners.forEach((fn) => fn())
@@ -62,7 +64,7 @@ export function claimOwnPanel(page: object, kind: OwnPanelKind, id: string): () 
       ...s,
       own: { ...s.own, [kind]: s.own[kind].filter((x) => x !== id) },
       [kind]: s[kind] === id ? null : s[kind],
-      opener: kind === "search" && s.search === id ? null : s.opener,
+      opener: kind !== "cart" && s[kind] === id ? null : s.opener,
     }))
 }
 
@@ -71,7 +73,7 @@ export function openOwnPanel(page: object, kind: OwnPanelKind, id: string | null
   const s = pageHooks(page)
   const owner = id && s.own[kind].includes(id) ? id : (s.own[kind][0] ?? null)
   if (!owner) return false
-  update(page, (st) => ({ ...st, [kind]: owner, ...(kind === "search" ? { opener } : {}) }))
+  update(page, (st) => ({ ...st, [kind]: owner, ...(kind !== "cart" ? { opener } : {}) }))
   return true
 }
 
@@ -80,8 +82,9 @@ export function closeOwnPanel(page: object, kind: OwnPanelKind): void {
 }
 
 /** The page's record, and this section's claim while `want` holds. */
-export function usePageHooks(page: object, id: string, want: { cart: boolean; search: boolean }): PageHooksState {
+export function usePageHooks(page: object, id: string, want: { cart: boolean; search: boolean; menu?: boolean }): PageHooksState {
   useEffect(() => (want.cart ? claimOwnPanel(page, "cart", id) : undefined), [page, id, want.cart])
   useEffect(() => (want.search ? claimOwnPanel(page, "search", id) : undefined), [page, id, want.search])
+  useEffect(() => (want.menu ? claimOwnPanel(page, "menu", id) : undefined), [page, id, want.menu])
   return useSyncExternalStore(subscribe, () => pageHooks(page), () => EMPTY)
 }

@@ -1,0 +1,61 @@
+{# example
+title: Scroll scrubbed product story (motion islands)
+summary: A pinned stage whose frames (8 to 60 of the creator's own photos, one block each) are scrubbed by the scroll with the scroll-scrub motion island, while a caption per chapter fades in from the island's --motion-progress; reduced motion and phones set to still show one chosen frame in normal flow with every caption listed.
+tags: scroll scrub, scrub, image sequence, frame by frame, product turning, pinned, sticky, scroll storytelling, video scrub, motion islands, cinematic, awwwards
+#}
+<template>
+<section class="ss" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }};" aria-label="{{ settings.heading }}">
+  <h2 class="ss__h">{{ settings.heading }}</h2>
+  {% if section.blocks.size > 0 %}
+  <div class="ss__scrub" data-storelib-motion="scroll-scrub" data-motion-length="{{ settings.motion_length }}" data-motion-still="{{ settings.motion_still }}" data-motion-mobile="{{ settings.motion_mobile }}">
+    <div class="ss__stage" data-motion-stage>
+      {% for block in section.blocks %}{% if block.settings.image %}<img class="ss__frame" data-motion-frame data-block-id="{{ block.id }}" src="{{ block.settings.image | asset }}" alt="{% if forloop.first %}{{ settings.image_alt }}{% endif %}" width="1600" height="900">{% endif %}{% endfor %}
+      <ol class="ss__caps">
+        {% for block in section.blocks %}{% if block.settings.caption %}<li class="ss__cap" style="--i: {{ forloop.index0 }}; --n: {{ section.blocks.size }};">{{ block.settings.caption }}</li>{% endif %}{% endfor %}
+      </ol>
+    </div>
+  </div>
+  {% elsif page.in_editor %}
+  <p class="ss__empty">Add frames in the sidebar, one photo each, in order</p>
+  {% endif %}
+</section>
+</template>
+
+<style scoped>
+.ss { background: var(--s-bg); color: var(--s-text); }
+.ss__h { margin: 0; padding: 72px var(--theme-padding-x, 16px) 32px; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(2rem, 1.2rem + 3.6vw, 4.5rem); line-height: 0.95; letter-spacing: -0.03em; color: var(--s-heading); max-width: 18ch; }
+.ss__stage { position: relative; aspect-ratio: 16 / 9; max-height: 100svh; width: 100%; }
+.ss__frame { position: absolute; inset: 0; }
+.ss__caps { margin: 0; padding: 20px var(--theme-padding-x, 16px); list-style: none; display: grid; gap: 10px; }
+.ss__cap { font-size: 1.0625rem; line-height: 1.45; max-width: 36ch; }
+.ss__empty { padding: 16px; opacity: 0.7; }
+/* While the island runs: the captions sit over the stage, one at a time, from the scroll's progress. */
+@media (prefers-reduced-motion: no-preference) {
+  .ss__scrub[data-motion-ready] .ss__caps { position: absolute; left: 0; bottom: 0; padding-bottom: 40px; }
+  .ss__scrub[data-motion-ready] .ss__cap { grid-area: 1 / 1; color: #fff; text-shadow: 0 1px 12px rgb(0 0 0 / 0.45); font-size: clamp(1.25rem, 1rem + 1.2vw, 2rem); --d: calc(var(--motion-progress, 0) * var(--n) - var(--i) - 0.5); opacity: clamp(0, calc(1 - max(var(--d), calc(var(--d) * -1)) * 2.2), 1); }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_scrub_story",
+  "name": "Scroll scrubbed story",
+  "category": "image",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "From billet to case" },
+    { "type": "text", "id": "image_alt", "label": "What the frames show", "default": "" },
+    { "type": "range", "id": "motion_length", "label": "Scroll length", "min": 1, "max": 6, "step": 0.5, "unit": "screens", "default": 3 },
+    { "type": "select", "id": "motion_still", "label": "Still frame", "options": [{ "value": "first", "label": "First" }, { "value": "middle", "label": "Middle" }, { "value": "last", "label": "Last" }], "default": "last" },
+    { "type": "select", "id": "motion_mobile", "label": "On phones", "options": [{ "value": "scrub", "label": "Scrub, shorter" }, { "value": "still", "label": "Still frame" }], "default": "scrub" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "frame", "name": "Frame", "settings": [
+      { "type": "image_picker", "id": "image", "label": "Photo" },
+      { "type": "text", "id": "caption", "label": "Caption (optional)", "default": "" }
+    ] }
+  ],
+  "presets": [{ "name": "Scroll scrubbed story", "blocks": [{ "type": "frame", "settings": { "caption": "A solid bar of 6061 aluminium" } }, { "type": "frame", "settings": { "caption": "Milled over eleven hours" } }, { "type": "frame", "settings": { "caption": "Bead blasted and anodised" } }, { "type": "frame", "settings": { "caption": "Checked by hand, then signed" } }] }]
+}
+</schema>

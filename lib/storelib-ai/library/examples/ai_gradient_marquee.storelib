@@ -1,0 +1,61 @@
+{# example
+title: Living gradient band with a scroll-reactive marquee (motion islands)
+summary: A dark band whose background is a slow grainy shader gradient in the site's own colours (the webgl-gradient motion island) carrying a statement and a giant running line of real words that speeds up with the scroll and turns with its direction (the marquee island); still CSS colours and a wrapped line for reduced motion, low-power phones and no WebGL.
+tags: webgl, shader, gradient, gradient background, living gradient, mesh gradient, velocity marquee, scroll reactive, giant type, software, saas, music, launch, motion islands
+#}
+<template>
+<section class="gm" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-btn-bg: {{ scheme.primary_btn_bg }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;" data-storelib-motion="webgl-gradient" data-motion-palette="{{ settings.motion_palette }}" data-motion-speed="{{ settings.motion_speed }}" data-motion-intensity="{{ settings.motion_intensity }}" data-motion-grain="{{ settings.motion_grain }}">
+  <div class="gm__in">
+    <h2 class="gm__h">{{ settings.heading }}</h2>
+    {% if settings.text %}<p class="gm__text">{{ settings.text }}</p>{% endif %}
+  </div>
+  {% if section.blocks.size > 0 %}
+  <div class="gm__run" aria-label="{{ settings.run_label }}" data-storelib-motion="marquee" data-motion-speed="{{ settings.marquee_speed }}" data-motion-reactive="{{ settings.marquee_reactive }}" data-motion-direction="left" data-motion-flip="true" data-motion-pause="true">
+    <ul class="gm__track" data-motion-track>
+      {% for block in section.blocks %}<li class="gm__item" data-block-id="{{ block.id }}">{{ block.settings.text }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</section>
+</template>
+
+<style scoped>
+.gm { position: relative; padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) 0 calc(var(--s-pb) * var(--theme-spacing-scale, 1)); background: var(--s-bg); color: var(--s-text); overflow: hidden; }
+.gm__in { position: relative; max-width: var(--theme-page-width, 1280px); margin: 0 auto; padding-inline: var(--theme-padding-x, 16px); }
+.gm__h { margin: 0; max-width: 16ch; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(2.25rem, 1.3rem + 4.4vw, 6rem); line-height: 0.95; letter-spacing: -0.035em; color: var(--s-heading); }
+.gm__text { max-width: 44ch; margin: 20px 0 0; font-size: 1.0625rem; line-height: 1.55; }
+.gm__run { position: relative; margin-top: clamp(40px, 8vw, 96px); overflow: hidden; }
+.gm__track { display: flex; flex-wrap: wrap; gap: 0 0.6em; margin: 0; padding: 0 var(--theme-padding-x, 16px); list-style: none; }
+.gm__item { font-family: var(--theme-font-heading), sans-serif; font-size: clamp(3rem, 1.5rem + 9vw, 11rem); line-height: 1; letter-spacing: -0.04em; white-space: nowrap; }
+.gm__item::after { content: "*"; margin-left: 0.3em; color: var(--s-accent); }
+/* Running: one row. Still (reduced motion, no runtime): the words wrap, all of them readable. */
+.gm__run[data-motion-ready] .gm__track { flex-wrap: nowrap; gap: 0; padding: 0; }
+.gm__run[data-motion-ready] .gm__item { padding-right: 0.6em; }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_gradient_marquee",
+  "name": "Gradient band with running line",
+  "category": "text",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Ship the build, not the busywork" },
+    { "type": "textarea", "id": "text", "label": "Text", "default": "Deploy previews for every branch, logs you can read, and a rollback that takes one click." },
+    { "type": "text", "id": "run_label", "label": "What the running line lists (read aloud)", "default": "Teams building on it" },
+    { "type": "text", "id": "motion_palette", "label": "Gradient colours", "default": "scheme", "info": "scheme, accent, mono or up to five #hex colours" },
+    { "type": "range", "id": "motion_speed", "label": "Gradient speed", "min": 0, "max": 2, "step": 0.1, "unit": "x", "default": 0.4 },
+    { "type": "range", "id": "motion_intensity", "label": "Flow", "min": 0, "max": 100, "step": 5, "unit": "%", "default": 60 },
+    { "type": "range", "id": "motion_grain", "label": "Grain", "min": 0, "max": 100, "step": 5, "unit": "%", "default": 12 },
+    { "type": "range", "id": "marquee_speed", "label": "Line speed", "min": 10, "max": 400, "step": 10, "unit": "px/s", "default": 90 },
+    { "type": "range", "id": "marquee_reactive", "label": "Scroll boost", "min": 0, "max": 100, "step": 5, "unit": "%", "default": 50 },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 120 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 8, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "word", "name": "Word", "settings": [ { "type": "text", "id": "text", "label": "Words", "default": "Northwind" } ] }
+  ],
+  "presets": [{ "name": "Gradient band with running line", "blocks": [{ "type": "word", "settings": { "text": "Northwind" } }, { "type": "word", "settings": { "text": "Halden Labs" } }, { "type": "word", "settings": { "text": "Fieldnote" } }, { "type": "word", "settings": { "text": "Oakbridge" } }] }]
+}
+</schema>

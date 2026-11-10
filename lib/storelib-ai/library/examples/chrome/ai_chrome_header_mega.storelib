@@ -1,0 +1,175 @@
+{# example
+title: Mega menu header with link columns, image cards and featured products
+summary: Chrome kit header. Each top link of the site's menu with sub links opens a full width mega panel (a popover: Escape and a press outside close it): its sub links as columns with their own links underneath, then image cards and the creator's chosen products (product_list) for that panel, matched by the top link's name. Cards and product rows are blocks with filled presets. On phones the menu button opens the site's own drawer. Panel width, card ratio, how many columns and motion are settings.
+tags: chrome kit, header, mega menu, megamenu, dropdown, image cards, featured products, columns, navigation, popover, own chrome, site header, store header
+#}
+<template>
+<header class="hmg" data-ratio="{{ settings.card_ratio }}" data-motion="{{ settings.motion }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --hmg-h: {{ settings.bar_height }}px; --hmg-logo: {{ settings.logo_height }}px; --hmg-cols: {{ settings.columns }}; --m-k: calc({{ settings.motion_strength }} / 100);">
+  <div class="hmg__bar">
+    <a class="hmg__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="160" height="40">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
+    <nav class="hmg__nav" aria-label="{{ settings.nav_label }}">
+      <ul class="hmg__tops">
+        {% for link in settings.menu.links %}
+        <li>
+          {% if link.links.size > 0 %}
+          <button class="hmg__top" type="button" popovertarget="hmg-{{ section.id }}-{{ forloop.index }}">{{ link.title }}</button>
+          <div class="hmg__panel" id="hmg-{{ section.id }}-{{ forloop.index }}" popover>
+            <div class="hmg__in">
+              <div class="hmg__cols">
+                {% for child in link.links %}
+                <div class="hmg__col" style="--i: {{ forloop.index }};">
+                  <a class="hmg__col-h" href="{{ child.url }}">{{ child.title }}</a>
+                  {% if child.links.size > 0 %}<ul>{% for leaf in child.links %}<li><a href="{{ leaf.url }}">{{ leaf.title }}</a></li>{% endfor %}</ul>{% endif %}
+                </div>
+                {% endfor %}
+                <a class="hmg__all" href="{{ link.url }}">{{ settings.all_prefix }} {{ link.title }}</a>
+              </div>
+              <div class="hmg__feature">
+                {% for block in section.blocks %}
+                {% if block.settings.under == link.title or block.settings.under == "" %}
+                {% if block.type == "card" %}
+                <a class="hmg__card" href="{{ block.settings.url | url }}" data-block-id="{{ block.id }}">
+                  <span class="hmg__crop">{% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.image_alt }}" width="800" height="1000" loading="lazy">{% else %}<span class="hmg__tone" aria-hidden="true"></span>{% endif %}</span>
+                  <span class="hmg__card-t">{{ block.settings.title }}</span>
+                  {% if block.settings.text %}<span class="hmg__card-x">{{ block.settings.text }}</span>{% endif %}
+                </a>
+                {% elsif block.type == "products" %}
+                <div class="hmg__prods" data-block-id="{{ block.id }}">
+                  <p class="hmg__prods-h">{{ block.settings.heading }}</p>
+                  <ul>
+                    {% for p in block.settings.products %}
+                    <li><a class="hmg__prod" href="{{ p.settings.url | url }}">{% if p.settings.image %}<img src="{{ p.settings.image | asset }}" alt="{{ p.settings.title }}" width="120" height="150" loading="lazy">{% endif %}<span>{{ p.settings.title }}</span><span class="hmg__price">{{ p.settings.price }}</span></a></li>
+                    {% else %}
+                    {% if page.in_editor %}<li class="hmg__hint">Pick products for this row in the sidebar</li>{% endif %}
+                    {% endfor %}
+                  </ul>
+                </div>
+                {% endif %}
+                {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          {% else %}
+          <a class="hmg__top" href="{{ link.url }}">{{ link.title }}</a>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </nav>
+    <div class="hmg__tools">
+      <a class="hmg__tool" href="{{ routes.search_url }}" data-storelib-search><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.6"/></svg><span class="hmg__word">{{ settings.search_label }}</span></a>
+      <a class="hmg__tool" href="{{ routes.cart_url }}" data-storelib-cart>{{ settings.cart_label }} <span class="hmg__count" data-storelib-cart-count></span></a>
+      <button class="hmg__tool hmg__burger" type="button" data-storelib-menu="{{ settings.menu.handle }}">{{ settings.menu_label }}</button>
+    </div>
+  </div>
+</header>
+</template>
+
+<style scoped>
+.hmg, .hmg *, .hmg *::before, .hmg *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.hmg [hidden] { display: none !important; }
+.hmg { position: relative; z-index: 40; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
+.hmg__bar { display: flex; align-items: center; gap: 16px; min-height: var(--hmg-h); padding: 0 var(--theme-padding-x, 16px); }
+.hmg__logo { display: inline-flex; align-items: center; min-height: 44px; color: var(--s-heading); text-decoration: none; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.25rem, 1rem + 0.8vw, 1.75rem); font-weight: 700; letter-spacing: -0.03em; }
+.hmg__logo img { display: block; width: auto; height: var(--hmg-logo); }
+.hmg__nav { display: none; }
+.hmg__tops { display: flex; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.hmg__top { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.9375rem; font-weight: 500; text-decoration: none; cursor: pointer; }
+.hmg__top:hover, .hmg__top:focus-visible { text-decoration: underline; text-underline-offset: 8px; text-decoration-thickness: 2px; }
+.hmg__panel { position: fixed; inset: var(--hmg-h) 0 auto; width: 100%; max-width: none; max-height: calc(100svh - var(--hmg-h)); margin: 0; padding: 0; overflow-y: auto; border: 0; border-top: 1px solid var(--s-border); border-bottom: 1px solid var(--s-border); background: var(--s-bg); color: var(--s-text); }
+.hmg__in { display: grid; gap: 32px; max-width: var(--theme-page-width, 1440px); margin: 0 auto; padding: 32px var(--theme-padding-x, 16px) 40px; }
+.hmg__cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 24px; align-content: start; }
+.hmg__col-h { display: block; margin-bottom: 10px; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: 1.125rem; font-weight: 600; text-decoration: none; }
+.hmg__col ul { margin: 0; padding: 0; list-style: none; }
+.hmg__col li a { display: block; padding: 6px 0; color: inherit; text-decoration: none; }
+.hmg__col a:hover { text-decoration: underline; }
+.hmg__all { grid-column: 1 / -1; align-self: end; color: inherit; font-weight: 500; text-underline-offset: 4px; }
+.hmg__feature { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-content: start; }
+.hmg__card { display: grid; gap: 8px; color: inherit; text-decoration: none; }
+.hmg__crop { display: block; overflow: hidden; aspect-ratio: 4 / 5; background: var(--s-border); }
+.hmg[data-ratio="square"] .hmg__crop { aspect-ratio: 1; }
+.hmg[data-ratio="wide"] .hmg__crop { aspect-ratio: 3 / 2; }
+.hmg__crop img, .hmg__tone { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hmg__tone { background: linear-gradient(160deg, var(--s-border), transparent); }
+.hmg__card-t { font-family: var(--theme-font-heading), sans-serif; font-size: 1.0625rem; font-weight: 600; color: var(--s-heading); }
+.hmg__card-x { font-size: 0.875rem; }
+.hmg__prods { grid-column: 1 / -1; }
+.hmg__prods-h { margin: 0 0 8px; font-weight: 600; }
+.hmg__prods ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.hmg__prod { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
+.hmg__prod img { width: 48px; height: 60px; object-fit: cover; }
+.hmg__price { font-variant-numeric: tabular-nums; }
+.hmg__hint { opacity: 0.7; }
+.hmg__tools { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.hmg__tool { display: inline-flex; align-items: center; gap: 6px; min-width: 44px; min-height: 44px; justify-content: center; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.9375rem; text-decoration: none; cursor: pointer; }
+.hmg__word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.hmg__count { font-variant-numeric: tabular-nums; }
+.hmg__count[data-count="0"] { display: none; }
+.hmg :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .hmg:not([data-motion="off"]) .hmg__panel:popover-open .hmg__col, .hmg:not([data-motion="off"]) .hmg__panel:popover-open .hmg__card { animation: hmg-in var(--t-motion-duration, 650ms) var(--t-motion-ease, ease-out) both; animation-delay: calc(var(--i, 1) * var(--t-motion-stagger, 65ms)); }
+  .hmg:not([data-motion="off"]) .hmg__card img { transition: transform calc(var(--t-motion-hover, 200ms) * 2) var(--t-motion-ease-ui, ease); }
+  .hmg:not([data-motion="off"]) .hmg__card:hover img { transform: scale(calc(1 + (var(--t-motion-scale, 1.06) - 1) * var(--m-k, 1))); }
+  @keyframes hmg-in { from { opacity: 0; transform: translateY(calc(var(--t-motion-distance, 24px) * 0.5 * var(--m-k, 1))); } }
+}
+@media (prefers-reduced-motion: reduce) { .hmg__col, .hmg__card { animation: none; } }
+@media (min-width: 990px) {
+  .hmg__nav { display: block; }
+  .hmg__burger { display: none; }
+  .hmg__in { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 48px; }
+  .hmg__cols { grid-template-columns: repeat(var(--hmg-cols, 3), minmax(0, 1fr)); }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_header_mega",
+  "name": "Mega menu header",
+  "kind": "header",
+  "enabled_on": { "groups": ["header"] },
+  "settings": [
+    { "type": "header", "id": "hdr_menu", "label": "Menu" },
+    { "type": "link_list", "id": "menu", "label": "Menu (top links with sub links open a panel)", "default": "main-menu" },
+    { "type": "text", "id": "brand", "label": "Name when there is no logo", "default": "Home" },
+    { "type": "text", "id": "all_prefix", "label": "Link to the whole section starts with", "default": "All of" },
+    { "type": "header", "id": "hdr_layout", "label": "Layout" },
+    { "type": "range", "id": "bar_height", "label": "Bar height", "min": 56, "max": 96, "step": 4, "unit": "px", "default": 68 },
+    { "type": "range", "id": "logo_height", "label": "Logo height", "min": 20, "max": 64, "step": 2, "unit": "px", "default": 30 },
+    { "type": "range", "id": "columns", "label": "Link columns in a panel", "min": 2, "max": 4, "step": 1, "default": 3 },
+    { "type": "select", "id": "card_ratio", "label": "Card pictures", "default": "portrait", "options": [{ "label": "Portrait", "value": "portrait" }, { "label": "Square", "value": "square" }, { "label": "Wide", "value": "wide" }] },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "nav_label", "label": "Menu name (read aloud)", "default": "Main" },
+    { "type": "text", "id": "menu_label", "label": "Menu button", "default": "Menu" },
+    { "type": "text", "id": "search_label", "label": "Search (read aloud)", "default": "Search" },
+    { "type": "text", "id": "cart_label", "label": "Bag", "default": "Bag" },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "card", "name": "Image card", "settings": [
+      { "type": "text", "id": "under", "label": "Show in the panel of (top link name, empty for every panel)", "default": "" },
+      { "type": "image_picker", "id": "image", "label": "Picture" },
+      { "type": "text", "id": "image_alt", "label": "Picture description", "default": "" },
+      { "type": "text", "id": "title", "label": "Title", "default": "New this season" },
+      { "type": "text", "id": "text", "label": "Line under it", "default": "" },
+      { "type": "url", "id": "url", "label": "Link", "default": "/shop" }
+    ] },
+    { "type": "products", "name": "Featured products", "limit": 2, "settings": [
+      { "type": "text", "id": "under", "label": "Show in the panel of (top link name, empty for every panel)", "default": "" },
+      { "type": "text", "id": "heading", "label": "Heading", "default": "Most loved" },
+      { "type": "product_list", "id": "products", "label": "Products", "limit": 4 }
+    ] }
+  ],
+  "presets": [{ "name": "Mega menu header", "blocks": [
+    { "type": "card", "settings": { "under": "", "title": "New this season", "text": "The latest pieces, as they land", "url": "/shop" } },
+    { "type": "card", "settings": { "under": "", "title": "Our story", "text": "Who makes it and where", "url": "/about" } },
+    { "type": "products", "settings": { "under": "", "heading": "Most loved" } }
+  ] }]
+}
+</schema>

@@ -57,8 +57,12 @@ export const SECTION_KEYS = [
 
 /** Every setting reads these, whatever its type. */
 const SETTING_BASE = ["type", "id", "label", "default", "info", "visible_if"]
-/** A block the section declares, and a theme block it accepts (`{ "type": "@theme" }`, only a type). */
-const BLOCK_KEYS = ["type", "name", "settings", "limit"]
+/**
+ * A block the section declares, and a theme block it accepts (`{ "type": "@theme" }`, only a type).
+ * `min_blocks` (round P): how many of the type a placed section needs, read by the agent's checks
+ * (lib/ai-builder/agent/content-check.ts blockRules).
+ */
+const BLOCK_KEYS = ["type", "name", "settings", "limit", "min_blocks"]
 const PRESET_KEYS = ["name", "category", "settings", "blocks", "block_order"]
 const PRESET_BLOCK_KEYS = ["type", "settings", "static", "id", "blocks", "block_order"]
 const PLACEMENT_KEYS = ["groups", "templates"]

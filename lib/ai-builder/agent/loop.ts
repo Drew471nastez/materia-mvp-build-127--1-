@@ -38,7 +38,7 @@ import type { AgentDeps, AgentJobInput, KnowledgeHit, ModelRole } from "./ports"
 import { AGENT_SYSTEM, briefMessage } from "./prompts"
 import { TOOL_LIST } from "./tool-specs"
 import { compactCheckpoint, compactLive, resumeTurns, toCheckpointTurns } from "./compact"
-import { newCheckpoint, type CriticState, type LoopCheckpoint } from "./state"
+import { addUnique, newCheckpoint, type CriticState, type LoopCheckpoint } from "./state"
 import { describeConcept } from "./concept"
 import { belowTarget, defectLine, type CriticReport, type Defect } from "../visual-critic/types"
 import { createToolSet, renderPage, validateAll, type EventDraft } from "./tools-impl"
@@ -55,6 +55,11 @@ import { MAX_REFERENCES, jobDesignBrief } from "./design-brief"
 import { surfaceRules } from "@/lib/storelib-ai/surfaces"
 import { noveltyIssues, siteFingerprint } from "../novelty"
 import { themeSettingsToTokens } from "../tokens"
+import { roleFor } from "./model-routing"
+import { blockIssues, imageSlotIssues } from "./content-check"
+import { fewShotExamples, templateBlock, templateIssues, templateSlotSkip, templatesOf } from "./templates"
+import { imageBriefNote, makingWords } from "@/lib/storelib-ai/images/prompt"
+import { DEFAULT_MAX_IMAGES } from "./tools-impl"
 
 export interface SliceOptions {
   /** This invocation's end (ms since epoch). No call starts later than deadline - budget.callReserveMs. */
@@ -213,7 +218,37 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     }
     const contract = scoped ? await contractBlock(deps.store) : ""
     const design = await jobDesignBrief({ job, caps, files, references: { list: refs, withImages: cp.referenceImages }, ...(direction ? { direction } : {}), ...(contract ? { contract } : {}) }).catch(() => null)
-    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages, files, knowledge, directions, design }) })
+    /*
+      TEMPLATE FIRST (round P, P5, ./templates.ts): a NEW website starts from the closest starting template
+      (P2's chooseTemplate + applyTemplate, with the brief and direction just chosen), then the agent adapts it.
+      Its files count as this job's (validated, anti-slopped, reviewed); finish refuses while its copy (and,
+      when pictures can be made, its imagery) is still as shipped. No template, or one that fails to apply:
+      the agent builds from zero as before, and says nothing it did not do.
+    */
+    let templateText = ""
+    let pagesNow = pages
+    let filesNow = files
+    if (!job.edit && !job.redesign && cp.brief) {
+      const lib = templatesOf(deps)
+      const brief = cp.brief
+      const choice = direction?.choice ?? null
+      const chosen = await Promise.resolve(lib.choose(brief, choice)).catch(() => null)
+      if (chosen) {
+        const applied = await lib.apply(deps.store, chosen, brief, { jobId: job.jobId, choice }).catch(() => ({ ok: false, files: [] as string[], pages: [] as string[] }))
+        if (applied.ok) {
+          cp.template = { id: chosen.id, name: chosen.name, files: applied.files, pages: applied.pages }
+          for (const path of applied.files) cp.filesTouched = addUnique(cp.filesTouched, path)
+          for (const key of applied.pages) cp.pagesTouched = addUnique(cp.pagesTouched, key)
+          ;[pagesNow, filesNow] = await Promise.all([deps.store.listPages(), deps.store.listFiles()])
+          templateText = templateBlock(chosen, applied, fewShotExamples(chosen))
+          emit({ kind: "note", text: `Starting from the ${chosen.name} template, to be made your own.` })
+        }
+      }
+    }
+        /* Round P (P1): which picture service this environment has, plainly; none means a text-forward design, never a grey box. */
+    const pictures = await (deps.images?.available() ?? Promise.resolve({ generate: null, stock: false })).catch(() => ({ generate: null, stock: false }))
+    const picturesNote = imageBriefNote({ ...pictures, maxImages: deps.images?.maxImages ?? job.budget.maxImages ?? DEFAULT_MAX_IMAGES })
+    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages: pagesNow, files: filesNow, knowledge, directions, design, pictures: picturesNote, ...(templateText ? { template: templateText } : {}) }) })
     if (scoped) setPhase("build", "Making your change")
     else setPhase("plan", "Deciding the look")
   }
@@ -314,6 +349,7 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
         ...(rules ? { rules } : {}),
         pages,
         project: { pages: stored, settings: await deps.store.readSettings(), sources, capabilities: cp.caps ?? null },
+        picturesAvailable: await picturesAvailable(deps),
         maxUsd: Math.max(0, capOf(job, deps) - (job.spentUsd + usage.usd)),
         timeoutMs: Math.min(CRITIC_MAX_MS, left),
       })
@@ -370,7 +406,15 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     return {}
   }
 
-  const tools = createToolSet({ job, deps, cp, emit, onFinish, setPhase })
+  /* Round P (P1): a picture's cost is the job's spend, like a model call's, and is reported the same way. */
+  const spend = (usd: number) => {
+    if (!(usd > 0)) return
+    usage.usd = Math.round((usage.usd + usd) * 1e6) / 1e6
+    cp.usd = Math.round((job.spentUsd + usage.usd) * 1e6) / 1e6
+    emit({ kind: "spend", usd, inputTokens: 0, outputTokens: 0, iteration: cp.iteration })
+  }
+  const spendLeft = () => Math.max(0, capOf(job, deps) - (job.spentUsd + usage.usd))
+  const tools = createToolSet({ job, deps, cp, emit, onFinish, setPhase, spend, spendLeft })
 
   /*
     The reference pictures, on the first turn, while the look is being decided (plan). Loaded once per slice,
@@ -398,7 +442,8 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
       return result("running")
     }
 
-    const role: ModelRole = cp.phase === "plan" ? deps.models.plan : deps.models.loop
+    /* Round P (P5): by phase. Plan on the strong model, the build (the components) on the strong model at effort high, fixes on the loop model (./model-routing.ts). */
+    const role: ModelRole = roleFor(cp.phase, deps.models)
     const maxOutputTokens = job.budget.maxOutputTokensPerCall
     const callTurns = await withReferenceImages(turns)
     /* A picture is billed by its pixels, about 1,600 tokens at the size references are kept: counted as 6,400 characters. */
@@ -462,7 +507,20 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     cp.nudges = 0
 
     const results: ToolResult[] = []
-    for (const call of turn.toolCalls) {
+    /*
+      Round P (P1): pictures asked for in the same turn are made side by side, three at a time: a run of
+      consecutive generate_image / find_photo calls is answered together, results in the order asked.
+    */
+    const pictureRuns = new Map<number, () => Promise<string[]>>()
+    for (let i = 0; i < turn.toolCalls.length; i++) {
+      if (!PICTURE_TOOLS.has(turn.toolCalls[i].name) || (i > 0 && PICTURE_TOOLS.has(turn.toolCalls[i - 1].name))) continue
+      let j = i
+      while (j < turn.toolCalls.length && PICTURE_TOOLS.has(turn.toolCalls[j].name)) j++
+      const run = turn.toolCalls.slice(i, j)
+      if (run.length > 1) pictureRuns.set(i, () => inPool(run.map((call) => () => runTool(tools, call.name, call.argumentsJson, emit, now)), PICTURE_CONCURRENCY))
+    }
+    const settled = new Map<number, string>()
+    for (const [index, call] of turn.toolCalls.entries()) {
       if (done.r) {
         results.push({ id: call.id, output: JSON.stringify({ ok: false, reason: "The job already finished." }) })
         continue
@@ -472,7 +530,10 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
         turns.push({ role: "tool", results })
         return stopFor("cancelled")
       }
-      results.push({ id: call.id, output: await runTool(tools, call.name, call.argumentsJson, emit, now) })
+      const run = pictureRuns.get(index)
+      if (run) (await run()).forEach((output, k) => settled.set(index + k, output))
+      const ready = settled.get(index)
+      results.push({ id: call.id, output: ready ?? (await runTool(tools, call.name, call.argumentsJson, emit, now)) })
     }
     turns.push({ role: "tool", results })
     turns = compactLive(turns)
@@ -549,6 +610,24 @@ function toCheckpointTurnsTail(cp: LoopCheckpoint, fresh: AgentTurn[]): LoopChec
   return [...before, ...toCheckpointTurns(fresh)].slice(-400)
 }
 
+/** Round P (P1): the picture tools, run side by side within a turn, at most this many at once. */
+const PICTURE_TOOLS = new Set<string>(["generate_image", "find_photo"])
+export const PICTURE_CONCURRENCY = 3
+
+/** Runs the tasks with at most `limit` at once; the results in the tasks' order. */
+export async function inPool<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
+  const out: T[] = new Array(tasks.length)
+  let next = 0
+  const worker = async () => {
+    while (next < tasks.length) {
+      const i = next++
+      out[i] = await tasks[i]()
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, limit), tasks.length) }, worker))
+  return out
+}
+
 /** One tool call: arguments parsed, the tool run, its result as the JSON text the model reads. Errors are results. */
 export async function runTool(tools: ToolSet, name: string, argumentsJson: string, emit: (e: EventDraft) => void, now: () => number = Date.now): Promise<string> {
   const started = now()
@@ -587,6 +666,11 @@ function summarise(name: string, args: Record<string, unknown>, output: unknown)
     if (has("plan.site_missing")) return "The site plan comes next: every page and template with its sections"
     return "The visual concept comes first: nothing else can start without it"
   }
+  /* Round P (P1): pictures in plain words, never the prompt: "Made the hero photo". */
+  if (name === "generate_image" || name === "find_photo") {
+    const purpose = typeof args.purpose === "string" ? args.purpose : name === "find_photo" ? "stock" : undefined
+    return o.ok === false ? `${makingWords(purpose).replace(/^Making/, "Could not make")}: ${String(o.reason ?? "refused").replace(/\.$/, "").slice(0, 120)}`.slice(0, 200) : makingWords(purpose, true)
+  }
   return `${name.replace(/_/g, " ")}${target ? ` ${target}` : ""}${o.ok === false ? (errors ? `: ${errors} error${errors === 1 ? "" : "s"}` : o.reason ? `: ${String(o.reason).slice(0, 60)}` : ": refused") : ""}`.slice(0, 200)
 }
 
@@ -609,7 +693,8 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
   const rendered: { page: string; html: string; css: string }[] = []
   for (const page of pages) {
     const r = await renderPage(ctx, page)
-    issues.push(...r.issues.map((i) => ({ ...i, message: `${page}: ${i.message}` })))
+    /* Round P (P5): on a new website or a full redesign a visibly empty section, or an empty picture frame drawn to visitors, blocks finish. */
+    issues.push(...r.issues.map((i) => ({ ...i, ...(!scoped && (i.code === "render.empty" || i.code === "render.empty_media") ? { severity: "error" as const } : {}), message: `${page}: ${i.message}` })))
     if (r.drawn && rendered.length < 12) rendered.push({ page, html: r.drawn.html.slice(0, 400_000), css: r.drawn.css.slice(0, 200_000) })
   }
   const allFiles = await deps.store.listFiles()
@@ -659,7 +744,42 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
     for (const f of await deps.store.listFiles()) if (f.text.trim()) src[f.path] = f.text
     issues.push(...completenessIssues({ pages: stored, sources: src, settings: await deps.store.readSettings(), caps: cp.caps ?? null, mode: job.mode, plan: cp.sitePlan ?? null }))
   }
+  /*
+    COMPLETE SECTIONS AND PICTURES (round P, P5, ./content-check.ts). Every placed ai_ section holds enough real
+    items of each type it declares; every picture slot holds a picture when the job can make or find one (else
+    the section must read text-forward, and a drawn empty frame is refused below); a starting template is never
+    shipped as it came. An edit or a change-only redesign answers for the sections whose files it wrote, on the
+    pages it touched.
+  */
+  {
+    const src: Record<string, string> = {}
+    for (const f of allFiles) if (f.text.trim()) src[f.path] = f.text
+    const touchedTypes = new Set(cp.filesTouched.map((p) => /^sections\/(.+)\.storelib$/.exec(p)?.[1]).filter((t): t is string => !!t))
+    const placed = scoped ? stored.filter((p) => cp.pagesTouched.includes(p.key)).map((p) => ({ ...p, sections: p.sections.filter((s) => touchedTypes.has(s.type)) })) : stored
+    const pictures = await picturesAvailable(deps)
+    const lib = templatesOf(deps)
+    const template = cp.template ? lib.byId(cp.template.id) : null
+    issues.push(...blockIssues({ pages: placed, sources: src, caps: cp.caps ?? null }))
+    issues.push(...imageSlotIssues({ pages: placed, sources: src, picturesAvailable: pictures, ...(template ? { skip: templateSlotSkip(template) } : {}) }))
+    if (template) issues.push(...templateIssues(template, { files: src, pages: stored }, lib, pictures))
+  }
   /* A redesign may be done with the site's own sections and tokens: writing a component is not required of it. */
   if (!job.edit && !job.redesign && !cp.filesTouched.some((p) => p.startsWith("sections/ai_"))) issues.push({ severity: "error", code: "build.nothing", message: "No component was written. A new website is made of components you write." })
   return issues
+}
+
+/**
+ * Whether this job can make or find pictures: an image slot must then hold one before finish. P1's image service
+ * (`deps.images.available()`: a generation provider or stock search); `imageProvider` overrides it (tests, an
+ * environment that wants slots enforced or relaxed). Neither: none, and sections are made text-forward.
+ */
+export async function picturesAvailable(deps: Pick<AgentDeps, "imageProvider" | "images">): Promise<boolean> {
+  try {
+    if (deps.imageProvider) return (await deps.imageProvider()) === true
+    if (!deps.images) return false
+    const a = await deps.images.available()
+    return !!a?.generate || a?.stock === true
+  } catch {
+    return false
+  }
 }
