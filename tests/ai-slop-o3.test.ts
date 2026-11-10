@@ -355,7 +355,7 @@ async function main() {
       check(`${e.id}: no tracked uppercase label`, !/text-transform\s*:\s*uppercase[^}]*letter-spacing\s*:\s*0\.1|letter-spacing\s*:\s*0\.1\d?em[^}]*text-transform\s*:\s*uppercase/i.test(style))
     }
     const lib = knowledgeById("typography-type-library")
-    check("the type library says the editorial-serif look is not the default", !!lib && /Not the default/.test(lib.body) && /only when the creator asked/i.test(lib.body))
+    check("the type library says the editorial-serif look is not the default", !!lib && /never the default/i.test(lib.body) && /only when the direction calls for/i.test(lib.body)) /* integration: O2 rewrote this entry; same rule, its words */
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
