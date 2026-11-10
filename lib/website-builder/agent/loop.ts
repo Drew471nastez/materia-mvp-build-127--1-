@@ -95,6 +95,7 @@ import { followUpTarget } from "./follow-up"
 import { changeHeadline, describeTarget, targetGuidance, type TargetDecision } from "./targeting"
 import { CHECKPOINT_MAX_SOURCE, RunClock, TIME_UP_NOTE, WRITE_NOW_NOTE, describeCheckpoint, guardCall, type ClockLimits, type RunCheckpoint } from "./run-clock"
 import { themeBrief, themeBriefStats } from "./theme-brief"
+import { designContractBlock, findDesignContract, surfaceRules } from "@/lib/storelib-ai/surfaces"
 import { PLANNER_SYSTEM, describeCreativePlan, extractJson, planForCreator, planTurn, readCreativePlan, archetypesFor, type CreativePlan } from "./creative-plan"
 import { BRIEF_KEY, briefOp, describeProject, readBrief, updateBrief } from "./project-state"
 import { describeAccountMemory } from "@/lib/ai-memory/store"
@@ -351,6 +352,8 @@ WORKED EXAMPLES, request then the calls that do it:
 - "Make the whole site feel more editorial": update_theme (fonts, type scale, buttons); set_color_scheme; each section's colour scheme. Content and order stay.
 - "Make the cards slide in on scroll", a section open: edit_section_code with a CSS reveal that stops under prefers-reduced-motion.
 DESIGN LATITUDE. Inside the theme's colours, fonts and spacing you decide layout, proportion, type scale, rhythm and motion: one clear idea per section, a real hierarchy, generous but consistent spacing, and nothing decorative that says nothing about this business.
+
+${surfaceRules("editor_agent")}
 
 ${CREATIVE_BRIEF}
 
@@ -928,6 +931,8 @@ export interface ThemeAgentInput {
    * what it saw before.
    */
   sources?: Record<string, string>
+  /** Round O: the install's DESIGN.md (O2's design contract), read by the route; null or absent when it has none. */
+  designContract?: { path: string; text: string } | null
   /**
    * ===========================================================================
    *  A SETTING IS ONE WAY TO MAKE A CHANGE, NOT THE LIMIT OF WHAT IS POSSIBLE
@@ -1613,6 +1618,8 @@ export async function* themeAgent(
         describeHouseStyle(readHouseStyle(state, [], schemas)),
         /* Compact: the indentation of a pretty-printed dump was a third of its tokens. */
         `THEME SETTINGS\n${compactSettings(state.settings)}`,
+        /* Round O: the site's DESIGN.md (when it has one) and the keep-the-brand rule: an edit changes what was asked and keeps the tokens. */
+        designContractBlock(input.designContract ?? findDesignContract(sourcesNow), { editing: true }),
         codeBrief?.text ?? "",
         /* Only where the code tools are: where a sidebar setting comes from, and which part of the file to change for one. */
         input.code ? describeSchemaRules({ imported: isCompatSource(sourcesNow["layout/theme.storelib"]), settingsSchema: !!input.code.readSettingsSchema && !locked }) : "",

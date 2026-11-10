@@ -58,6 +58,7 @@ import { compileSection } from "@/lib/storelib-theme/storelib/compile"
 import { failureKind } from "@/lib/sites/agent/plain-errors"
 import { instanceFromSchema } from "@/lib/website-builder/ai-placement"
 import { checkSectionSource } from "./compile-feedback"
+import { designContractBlock, surfaceRules } from "@/lib/storelib-ai/surfaces"
 import {
   CREATIVE_RULES,
   DESIGN_CRAFT,
@@ -118,6 +119,8 @@ export function writeSectionSystem(): string {
   return [
     "You write one Storelib section and nothing else.",
     writeSectionRules(),
+    /* Round O: the design rules every Storelib AI carries (lib/storelib-ai/surfaces.ts). Stable, like the rest of the prefix. */
+    surfaceRules("section_writer"),
     INTEGRATION_CONTRACT,
     "PADDING AND SPACING ARE SETTINGS (a range, in px), not fixed numbers in the CSS.",
     CREATIVE_RULES,
@@ -398,6 +401,12 @@ export async function writeSection(opts: {
   memoryText?: string
   /** Round AH: the website runs a theme imported from Shopify, which draws a Storelib section without its script. */
   importedTheme?: boolean
+  /**
+   * Round O: the section is for an EXISTING site (Code a section, Ask for a change): its DESIGN.md when it has one
+   * (lib/storelib-ai/design-contract-server.ts), null when it has none. Either way the writer keeps the site's brand
+   * tokens unless asked (spec I.5). Left out by the classic job's coder, which writes a new site to its own plan.
+   */
+  designContract?: { path: string; text: string } | null
 }): Promise<WriteResult> {
   const system = writeSectionSystem()
   const images = opts.images ?? []
@@ -418,6 +427,7 @@ export async function writeSection(opts: {
      */
     opts.theme ? themeBrief({ ...opts.theme, for: "writer" }).text : "",
     opts.importedTheme ? importedThemeNote(opts.theme?.settings as Record<string, unknown> | null | undefined) : "",
+    opts.designContract !== undefined ? designContractBlock(opts.designContract, { editing: true }) : "",
     opts.memoryText !== undefined ? opts.memoryText : describeAccountMemory(opts.accountMemory ?? []),
     describeImages(images, asked.length > 0, {
       ask: "answer REPLY: with one short question",

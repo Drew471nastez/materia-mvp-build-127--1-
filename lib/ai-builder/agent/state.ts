@@ -30,6 +30,8 @@ export interface LoopCheckpoint extends AgentCheckpoint {
   nudges: number
   /** Provider failures in a row. */
   failures: number
+  /** Round O: the references the job's design brief named; their pictures ride on the plan turn (loop.ts). Ids only. */
+  referenceIds?: string[]
   /** What list_capabilities answered, kept so every slice binds against the same facts. */
   caps?: RuntimeCapabilities | null
   /** Set once the job ended: what to tell the creator. */

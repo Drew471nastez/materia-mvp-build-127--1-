@@ -348,7 +348,7 @@ export function describePatterns(ids?: string[]): string {
 export const DESIGN_DEFAULTS = `DEFAULTS FOR ANYTHING THE BRIEF DOES NOT SAY:
 - Rhythm: vary the layouts down the page. No two sections in a row with the same shape (centred heading, paragraph, button). Alternate full bleed media with contained text, dense with open, light with dark.
 - Width: text lines at 55 to 75 characters; content at the theme's page width; media may go edge to edge.
-- Type: one display face and one text face from the theme's fonts. Display sizes for the hero only; section headings smaller and consistent. Labels in small capitals with letter spacing, used sparingly.
+- Type: one display face and one text face from the theme's fonts. Display sizes for the hero only; section headings smaller and consistent. A small label only where it carries information, never above every heading.
 - Spacing: section padding on one scale (48, 64, 80, 96, 120), larger on desktop than on a phone, the same value for sections of the same weight.
 - Buttons: one primary action per section, named for what happens. Radius from the theme.
 - Images: real slots the creator fills (image_picker with an in editor placeholder of the right shape) or the store's own product pictures. Never stock addresses, never invented people.

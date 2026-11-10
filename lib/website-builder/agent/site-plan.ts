@@ -38,6 +38,7 @@ import { schemaOf, type SchemaMap } from "./schemas"
 import { proofAvailable, type Capabilities } from "../ai-site/capabilities"
 import type { SchemaField } from "../types"
 import type { ToolSpec } from "@/lib/sites/agent/types"
+import { surfaceRules } from "@/lib/storelib-ai/surfaces"
 
 /** Sections on the home page, header and footer apart. */
 export const HOME_MAX_SECTIONS = 9
@@ -205,6 +206,8 @@ RULES THAT ARE NOT TASTE:
 - Palette: leave every palette colour "" to use the preset's palette, which is the right answer almost always. Give colours only when the brief names the brand's own colours. Typography: the preset's two fonts unless the brief asks otherwise.
 - Real content only. Products, prices, reviews, quotes and numbers come from the store facts, never from you. If the store sells nothing yet, the site sells nothing yet: it tells the story, shows the work and asks people to get in touch or sign up.
 - Pages: home first, then two to five more that this business needs (about, contact, and what the brief implies: services, work, classes, menu, faq...). Keys are lowercase words with hyphens. Never product, products, collections, blogs, article, cart, account, login, search.
+
+${surfaceRules("classic_planner")}
 
 Answer by calling submit_site_plan once with the whole plan. No prose.`
 

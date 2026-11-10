@@ -29,6 +29,7 @@ import { looksLikeQuestion, openSteps, refuseToFinish, type SiteScope } from "./
  * design rather than about format. See lib/storelib-ai.
  */
 import { sitesAgentRules } from "@/lib/storelib-ai"
+import { surfaceRules } from "@/lib/storelib-ai/surfaces"
 import { plainRunError } from "./plain-errors"
 import { type CallInfo, compactTurns, compactionNote } from "./compaction"
 import type { Budget } from "./complexity"
@@ -134,7 +135,9 @@ website, and a website has several pages that link to each other.
   fades, beard trims and hot-towel shaves at real prices, not "Service One" at
   "$00".
 
-${sitesAgentRules()}`
+${sitesAgentRules()}
+
+${surfaceRules("sites_agent")}`
 
 /**
  * THE RULES THAT MAKE AN EXISTING PROJECT A PROJECT, RATHER THAN A PROMPT.

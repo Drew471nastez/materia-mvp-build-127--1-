@@ -25,6 +25,7 @@ import { createClient } from "@/lib/supabase/server"
 import { resolveForCreator } from "@/lib/sites/agent/provider"
 import { plainRunError } from "@/lib/sites/agent/plain-errors"
 import { writeSection, type WriteEvent, type WriteStage } from "@/lib/website-builder/agent/write-section"
+import { readDesignContract } from "@/lib/storelib-ai/design-contract-server"
 import { EFFORT } from "@/lib/website-builder/ask-engines"
 import { completeThemeExchange, openThemeConversation, startThemeExchange } from "@/lib/website-builder/agent/chat"
 import { keepImages } from "@/lib/website-builder/agent/attachment-store"
@@ -159,6 +160,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       : (withDraft.data ?? [])
     Object.assign(sources, sourceMap(rows as { path: string; content: string; draft_content?: string | null }[]))
   }
+  /* Round O: the install's DESIGN.md, which the .storelib read above leaves out. */
+  const designContract = await readDesignContract(supabase, installId)
   if (Object.keys(sources).length >= LIMITS.filesPerPackage) {
     return NextResponse.json({ error: `A theme holds ${LIMITS.filesPerPackage} files.` }, { status: 413 })
   }
@@ -230,6 +233,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       takenTypes,
       takenNames,
       importedTheme,
+      /* Round O: the site's DESIGN.md and the keep-the-brand rule (lib/storelib-ai/surfaces.ts). */
+      designContract,
       theme: {
         settings: parsed.data.settings ?? null,
         /* The creator's own section files, read above: the brief lists them and is cached per theme version (lib/website-builder/agent/theme-brief.ts). */

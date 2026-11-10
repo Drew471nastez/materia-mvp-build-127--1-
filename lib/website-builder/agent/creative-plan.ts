@@ -30,6 +30,7 @@
 import { DESIGN_DEFAULTS, DESIGN_PATTERNS, describePatterns, patternById } from "@/lib/storelib-ai/patterns"
 import { archetypeById, describeArchetype, matchArchetypes, type Archetype } from "@/lib/storelib-ai/archetypes"
 import { DESIGN_RULES_BRIEF } from "@/lib/storelib-ai"
+import { surfaceRules } from "@/lib/storelib-ai/surfaces"
 import { OFFERED_FAMILIES } from "../font-link"
 import { SECTION_TYPE } from "./selected-section"
 import { schemaOf, nameOf, type SchemaMap } from "./schemas"
@@ -102,6 +103,8 @@ Rules for the plan:
 ${DESIGN_DEFAULTS}
 
 ${DESIGN_RULES_BRIEF}
+
+${surfaceRules("site_agent")}
 
 Answer with ONE JSON object and nothing else, in exactly this shape:
 {

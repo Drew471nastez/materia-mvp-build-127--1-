@@ -1444,6 +1444,8 @@ const STRICT_SUITES = [
   "tests/ai-builder-whole-site-n3.test.ts",
   /* Round N (N1): Start with AI lands in the editor and the build is seen as it happens. The create call no longer waits for a cover; the Website page draws the editor's shell from the press; the editor knows the build before its first paint and shows a building canvas (never the theme's "Empty Page"); the agent's drafts are read again debounced (not every 8 s), files before the page, following the page it is on until the person picks one; the progress card docked, in plain steps ("Designing the header"); From scratch is the default and, with the new AI builder off for the account, refused in words (409 agent_off) instead of run on the theme's sections. Strict: tests/_journey. */
   "tests/ai-builder-start-live-n1.test.ts",
+  /* Round O (O6): the design intelligence on every AI surface (docs/ai-builder/design-intelligence.md). The website agent, the Ask for a change agent and its creative planner, the section writer, the classic planner and copy filler and the Storelib Sites agent each carry designRulesFor(surface); the agent's system prefix is byte identical across two jobs while the briefs (creative brief, direction, motion) differ; reference pictures ride on the plan turn only; every edit surface gets the install's DESIGN.md and the keep-the-brand rule (spec I.5) and a new site does not; no surface carries round N's "editorial serif" type steering, and a personal trainer is not handed the italic serif bundle. */
+  "tests/ai-surfaces-o6.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

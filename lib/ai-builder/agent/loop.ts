@@ -43,6 +43,9 @@ import { createToolSet, renderPage, validateAll, type EventDraft } from "./tools
 import { directionsFor, libraryKnowledge, librarySlop } from "./knowledge"
 import { errorsOf } from "./validate"
 import { completenessIssues } from "./site-plan"
+import { jobDesignBrief } from "./design-brief"
+import { referenceImagesFor } from "@/lib/storelib-ai/references"
+import type { AgentImage } from "@/lib/sites/agent/attachments"
 
 export interface SliceOptions {
   /** This invocation's end (ms since epoch). No call starts later than deadline - budget.callReserveMs. */
@@ -163,7 +166,10 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     const knowledge = (await search({ query: job.prompt.slice(0, 500), industry, limit: 5 }).catch(() => [])) as KnowledgeHit[]
     const scoped = job.edit || job.redesign === "changes"
     const directions = scoped ? [] : directionsFor(industry ?? job.prompt.slice(0, 80), job.creatorId)
-    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages, files, knowledge, directions }) })
+    /* Round O: the job's design brief (direction, references as text, motion, site story); empty on an edit. */
+    const design = scoped ? null : await jobDesignBrief({ job, caps, files }).catch(() => null)
+    if (design?.referenceIds.length) cp.referenceIds = design.referenceIds
+    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages, files, knowledge, directions, design }) })
     if (scoped) setPhase("build", "Making your change")
     else setPhase("plan", "Deciding the look")
   }
@@ -197,6 +203,20 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
 
   const tools = createToolSet({ job, deps, cp, emit, onFinish, setPhase })
 
+  /*
+    ROUND O: REFERENCE PICTURES RIDE ON THE PLAN TURN. The images of the references the brief named (O1) go on the
+    first user turn as content blocks while the concept is decided, and come off once it is: they are never in the
+    cached system prefix and never in the checkpoint (only their ids are). Read once per slice.
+  */
+  let refImages: AgentImage[] | null = null
+  const withPlanImages = async (list: AgentTurn[]): Promise<AgentTurn[]> => {
+    const first = list[0]
+    if (!first || first.role !== "user") return list
+    if (cp.phase !== "plan" || !cp.referenceIds?.length) return first.images ? [{ role: "user", content: first.content }, ...list.slice(1)] : list
+    refImages ??= await (deps.referenceImages ?? referenceImagesFor)(cp.referenceIds).catch(() => [])
+    return refImages.length ? [{ ...first, images: refImages }, ...list.slice(1)] : list
+  }
+
   while (!done.r) {
     if (await deps.cancelled?.().catch(() => false)) return stopFor("cancelled")
     const t = now()
@@ -208,7 +228,10 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
 
     const role: ModelRole = cp.phase === "plan" ? deps.models.plan : deps.models.loop
     const maxOutputTokens = job.budget.maxOutputTokensPerCall
-    const inputChars = AGENT_SYSTEM.length + JSON.stringify(TOOL_LIST).length + JSON.stringify(turns).length
+    turns = await withPlanImages(turns)
+    /* A picture is priced as ~1,600 tokens, not as its base64 text. */
+    const imageCount = turns[0]?.role === "user" ? turns[0].images?.length ?? 0 : 0
+    const inputChars = AGENT_SYSTEM.length + JSON.stringify(TOOL_LIST).length + JSON.stringify(imageCount ? [{ role: "user", content: (turns[0] as { content: string }).content }, ...turns.slice(1)] : turns).length + imageCount * 4_800
     const spent = job.spentUsd + usage.usd
     if (spent >= capOf(job, deps) || spent + worstCaseUsd(role.model, inputChars, maxOutputTokens) > capOf(job, deps)) return stopFor("spend")
 

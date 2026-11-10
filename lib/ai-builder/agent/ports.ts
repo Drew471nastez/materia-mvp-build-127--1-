@@ -144,6 +144,8 @@ export interface AgentDeps {
   slop?: SlopEvaluator
   renderCheck?: RenderChecker
   tokensToSettings?: TokensMapper
+  /** Round O: pictures of design references for the plan turn (default: lib/storelib-ai/references referenceImagesFor). */
+  referenceImages?: (ids: string[]) => Promise<import("@/lib/sites/agent/attachments").AgentImage[]>
   /** Whether the editor draws form_picker (L4 landed it; default: whether the control registry has it). */
   features?: { formPicker?: boolean }
   /** Each event as it happens (L2 writes ai_site_job_events). Never throws into the loop. */
