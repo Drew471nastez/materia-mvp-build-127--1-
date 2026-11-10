@@ -483,7 +483,8 @@ async function errorPagesTraced() {
   check("the /w page's trace names pages/500.html and 404.html by the path Next reads them from", page.includes("../../../../pages/500.html") && page.includes("../../../../pages/404.html") && page.includes("../../../../chunks/ssr/a.js"), page)
   check("  and so does the minimal server's, and every route's", minimal.includes("server/pages/500.html") && first.changed === 3 && first.traces === 3, first)
   check("  running it again changes nothing", traceErrorPages(dist).changed === 0)
-  check("the build runs it after next build (traces are written before the static pages exist)", /scripts\/build-next\.mjs && node scripts\/trace-error-pages\.mjs"/.test(read("package.json")))
+  /* Changed on purpose (round 53): the build now ends with scripts/minify-after-build.mjs after this step; it still runs right after next build. */
+  check("the build runs it after next build (traces are written before the static pages exist)", /scripts\/build-next\.mjs && node scripts\/trace-error-pages\.mjs( && |")/.test(read("package.json")))
 }
 
 function codeChecks() {
