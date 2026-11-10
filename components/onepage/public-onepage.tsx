@@ -76,6 +76,18 @@ import { ONEPAGE_COLUMN_PX, onePageImageSrc } from "@/lib/onepage/display-image"
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { followDialogLocks, useHeldPage } from "@/lib/onepage/page-hold"
 import { avatarLook, bioSizeClass, bioTypeStyle, titleSizeClass, titleTypeStyle } from "@/lib/onepage/header-style"
+import { nameStyleCss, nameStyleOf, nameStyleReset } from "@/lib/onepage/name-style"
+
+/** The name's words: as they are, or in the style the creator chose (round W10, lib/onepage/name-style). */
+function NameWords({ theme, title }: { theme: unknown; title: string }) {
+  const style = nameStyleOf(theme as never)
+  if (!style) return <>{title}</>
+  return (
+    <span data-name-words={style} style={nameStyleCss(style, theme as never) as React.CSSProperties}>
+      {title}
+    </span>
+  )
+}
 import { bookingProviderName, bookingSource, tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
 import { BookingFrame } from "@/components/onepage/embed-frame"
 import { BlockSheetProvider, useBlockSheet } from "@/components/onepage/block-sheet"
@@ -1565,8 +1577,9 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {/* Noise overlay for image backgrounds */}
         {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
         {/* Pattern overlay for solid/gradient backgrounds */}
-        <WallpaperPattern theme={safeTheme} />
         <ThemeSkinScene theme={safeTheme} label={sellerName} />
+        {/* Round W10: over the skin's scene, as a texture over the whole wallpaper; under it, Aqua's stripes and Grunge's toner hid it. */}
+        <WallpaperPattern theme={safeTheme} />
 
         {/* Centered card container */}
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
@@ -1624,8 +1637,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               <WallpaperNoise strength={(safeTheme as any).noise_strength} className="absolute inset-0 rounded-[40px]" />
             )}
             {/* Pattern overlay inside card */}
-            <WallpaperPattern theme={safeTheme} className="absolute inset-0 rounded-[40px]" clearHeader />
             <ThemeSkinScene theme={safeTheme} label={sellerName} className="absolute inset-0 rounded-[40px]" />
+            <WallpaperPattern theme={safeTheme} className="absolute inset-0 rounded-[40px]" clearHeader />
             {renderPageContent({ isDesktop: true })}
           </div>
         </div>
@@ -1708,8 +1721,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
           {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
           {/* Pattern overlay for mobile, kept out from behind the header (useHeaderClearance above). */}
-          <WallpaperPattern theme={safeTheme} clearHeader />
           <ThemeSkinScene theme={safeTheme} label={sellerName} />
+          <WallpaperPattern theme={safeTheme} clearHeader />
           {renderPageContent()}
         </div>
       </div>
@@ -2864,9 +2877,11 @@ function CoreBlockRenderer({
                         fontFamily: fontStack((theme as any).title_font || theme.font_family),
                         textShadow: "0 2px 8px rgba(0,0,0,0.4)",
                         ...titleTypeStyle(theme as never),
+                        ...(nameStyleOf(theme as never) ? nameStyleReset(true) : null),
                       }}
+                      data-name-style={nameStyleOf(theme as never) ?? undefined}
                     >
-                      {profile.title}
+                      <NameWords theme={theme} title={profile.title} />
                       {settings?.verified_badge_enabled && (
                         <VerifiedBadge isDesktop={isDesktop} badgeType={settings?.verified_badge_type} />
                       )}
@@ -3106,9 +3121,11 @@ function CoreBlockRenderer({
                     color: (theme as any).title_color || theme.text_color,
                     fontFamily: fontStack((theme as any).title_font || theme.font_family),
                     ...titleTypeStyle(theme as never),
+                    ...(nameStyleOf(theme as never) ? nameStyleReset(false) : null),
                   }}
+                  data-name-style={nameStyleOf(theme as never) ?? undefined}
                 >
-                  {profile.title}
+                  <NameWords theme={theme} title={profile.title} />
                   {settings?.verified_badge_enabled && (
                     <VerifiedBadge isDesktop={isDesktop} badgeType={settings?.verified_badge_type} />
                   )}

@@ -13040,7 +13040,17 @@ const words: Record<string, string> = {
  "Where else it shows, a note, a picture": "Onde mais aparece, uma nota, uma imagem",
  "{n, plural, one {# collection or category} other {# collections or categories}}": "{n, plural, one {# coleção ou categoria} other {# coleções ou categorias}}",
  "{n, plural, one {On # product. A change shows there too.} other {On # products. A change shows on all of them.}}": "{n, plural, one {Em # produto. Uma alteração aparece lá também.} other {Em # produtos. Uma alteração aparece em todos eles.}}",
- "{n} members now": "{n} membros agora"
+ "{n} members now": "{n} membros agora",
+ "Name font": "Fonte do nome",
+ "Name style": "Estilo do nome",
+ "Retro shadow": "Sombra retrô",
+ "Highlighter": "Marca-texto",
+ "Chrome": "Cromado",
+ "Neon": "Neon",
+ "Sticker": "Adesivo",
+ "Swash": "Traço",
+ "Spaced caps": "Maiúsculas espaçadas",
+ "Automatic: follows the wallpaper": "Automático: acompanha o fundo"
 }
 
 export default words

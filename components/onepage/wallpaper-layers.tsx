@@ -10,16 +10,22 @@
  * public-onepage.tsx explains what that did on every scroll.
  */
 import * as React from "react"
-import { NOISE_IMAGE, noiseOpacity, patternStyle } from "@/lib/onepage/wallpaper"
+import { NOISE_IMAGE, canonicalPatternId, noiseOpacity, patternStyle } from "@/lib/onepage/wallpaper"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 
-type ThemeLike = { background_type?: unknown; background_pattern?: unknown; pattern_color?: unknown; pattern_opacity?: unknown } | null | undefined
+type ThemeLike = { background_type?: unknown; background_color?: unknown; background_gradient?: unknown; background_pattern?: unknown; pattern_color?: unknown; pattern_opacity?: unknown } | null | undefined
+type GroundLike = { background_type?: unknown; background_color?: unknown; background_gradient?: unknown }
 
-/** Does this theme draw a pattern? Only over a flat colour or a gradient, as before. */
+/**
+ * Does this theme draw a pattern? Only over a flat colour or a gradient, as
+ * before. With no colour of its own the pattern is black on a light
+ * wallpaper and white on a dark one (round W10, lib/onepage/wallpaper
+ * resolvedPatternInk): it was black on every wallpaper, so unseen on a dark one.
+ */
 export function themePattern(theme: ThemeLike) {
   if (!theme) return null
   if (theme.background_type !== "solid" && theme.background_type !== "gradient") return null
-  return patternStyle(theme.background_pattern, theme.pattern_color ?? "#00000090", theme.pattern_opacity ?? "medium")
+  return patternStyle(theme.background_pattern, theme.pattern_color, theme.pattern_opacity ?? "medium", theme)
 }
 
 /*
@@ -46,6 +52,7 @@ export function WallpaperPattern({
   className = "absolute inset-0",
   style,
   clearHeader = false,
+  ground,
 }: {
   /** Read the pattern from a theme, or pass `pattern`, `color` and `level` for a thumbnail. */
   theme?: ThemeLike
@@ -56,10 +63,12 @@ export function WallpaperPattern({
   style?: React.CSSProperties
   /** Keep out from behind the page's header, as measured by useHeaderClearance on a box around both. */
   clearHeader?: boolean
+  /** For a thumbnail: the wallpaper it is drawn on, so an automatic colour shows on it as it will on the page. */
+  ground?: GroundLike
 }) {
-  const s = theme !== undefined ? themePattern(theme) : patternStyle(pattern, color ?? "#00000090", level ?? "medium")
+  const s = theme !== undefined ? themePattern(theme) : patternStyle(pattern, color, level ?? "medium", ground)
   if (!s) return null
-  const id = theme !== undefined ? theme?.background_pattern : pattern
+  const id = canonicalPatternId(theme !== undefined ? theme?.background_pattern : pattern)
   return (
     <div
       aria-hidden

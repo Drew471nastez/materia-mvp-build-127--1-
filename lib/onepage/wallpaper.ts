@@ -39,6 +39,20 @@ export interface WallpaperPattern {
   kind: "none" | "pattern" | "texture"
 }
 
+/*
+  ROUND W10: FEWER ODD ONES, FIVE LOVED ONES. The owner: "get rid of the
+  zigzag, get rid of the weird ones, and create 5 more, the best". Zigzag,
+  Morph (loose squiggles), Organic (grey blobs) and Flow (thick worms) are
+  gone from the picker; Contours is drawn again as a real contour map. New:
+  Gingham, Scales (seigaiha), Honeycomb, Plus and Sparkles, the patterns
+  people reach for on link-in-bio pages. Crosshatch, a third set of plain
+  lines beside Lines and Diagonal, is drawn as Diagonal.
+
+  A page that saved a removed one still draws something close to it
+  (LEGACY_PATTERNS), so no page changes to a bare wallpaper overnight; the
+  next pick in the Design tab writes a pattern that is offered.
+*/
+
 /** Every pattern and texture the Design tab offers, in the order it shows them. */
 export const WALLPAPER_PATTERNS: readonly WallpaperPattern[] = [
   { id: "none", name: "None", kind: "none" },
@@ -47,29 +61,47 @@ export const WALLPAPER_PATTERNS: readonly WallpaperPattern[] = [
   { id: "linen", name: "Linen", kind: "texture" },
   { id: "dots", name: "Dots", kind: "pattern" },
   { id: "grid", name: "Grid", kind: "pattern" },
+  { id: "gingham", name: "Gingham", kind: "pattern" },
+  { id: "checker", name: "Checker", kind: "pattern" },
   { id: "lines", name: "Lines", kind: "pattern" },
   { id: "diagonal", name: "Diagonal", kind: "pattern" },
-  { id: "crosshatch", name: "Crosshatch", kind: "pattern" },
-  { id: "checker", name: "Checker", kind: "pattern" },
-  { id: "waves", name: "Waves", kind: "pattern" },
-  { id: "zigzag", name: "Zigzag", kind: "pattern" },
-  { id: "topographic", name: "Contours", kind: "pattern" },
-  { id: "organic", name: "Organic", kind: "pattern" },
-  { id: "morph", name: "Morph", kind: "pattern" },
-  { id: "flowmaze", name: "Flow", kind: "pattern" },
-  { id: "stars", name: "Stars", kind: "pattern" },
-  { id: "terrazzo", name: "Terrazzo", kind: "pattern" },
-  { id: "blueprint", name: "Blueprint", kind: "pattern" },
+  { id: "plus", name: "Plus", kind: "pattern" },
   { id: "halftone", name: "Halftone", kind: "pattern" },
+  { id: "waves", name: "Waves", kind: "pattern" },
+  { id: "scales", name: "Scales", kind: "pattern" },
+  { id: "honeycomb", name: "Honeycomb", kind: "pattern" },
+  { id: "topographic", name: "Contours", kind: "pattern" },
+  { id: "terrazzo", name: "Terrazzo", kind: "pattern" },
+  { id: "sparkles", name: "Sparkles", kind: "pattern" },
+  { id: "stars", name: "Stars", kind: "pattern" },
+  { id: "blueprint", name: "Blueprint", kind: "pattern" },
 ]
 
-export function isPatternId(v: unknown): boolean {
-  return typeof v === "string" && v !== "none" && WALLPAPER_PATTERNS.some((p) => p.id === v)
+/** Patterns no longer offered, and the offered one each is drawn as, so a page that saved one keeps a pattern like it. */
+export const LEGACY_PATTERNS: Readonly<Record<string, string>> = {
+  zigzag: "waves",
+  morph: "topographic",
+  flowmaze: "topographic",
+  organic: "terrazzo",
+  /* Diagonal both ways, and next to Diagonal and Grid it was one more of the same. */
+  crosshatch: "diagonal",
 }
 
-/** The layer's opacity for each strength. "Very strong" is the pattern drawn twice (see patternStyle). */
+/** The offered pattern a saved value names: itself, what a removed one became, or null for "none" and names nobody knows. */
+export function canonicalPatternId(v: unknown): string | null {
+  if (typeof v !== "string" || v === "none") return null
+  if (Object.prototype.hasOwnProperty.call(LEGACY_PATTERNS, v)) return LEGACY_PATTERNS[v]
+  return WALLPAPER_PATTERNS.some((p) => p.id === v) ? v : null
+}
+
+/** Does a saved value draw a pattern? Offered ones and removed ones (drawn as their stand-in) do. */
+export function isPatternId(v: unknown): boolean {
+  return canonicalPatternId(v) !== null
+}
+
+/** The layer's opacity for each strength. "Very strong" is the pattern drawn twice (see patternStyle). "high", which one old theme wrote, is Strong. */
 export function patternOpacityValue(level: unknown): number {
-  return level === "low" ? 0.4 : level === "hard" || level === "very_hard" ? 1 : 0.7
+  return level === "low" ? 0.4 : level === "hard" || level === "very_hard" || level === "high" ? 1 : 0.7
 }
 
 /** A theme's pattern colour as an rgb hex and an alpha, or the safe default. */
@@ -79,6 +111,81 @@ export function patternInk(raw: unknown): { rgb: string; alpha: number } {
   if (/^[0-9a-f]{6}$/.test(full)) return { rgb: `#${full}`, alpha: 1 }
   if (/^[0-9a-f]{8}$/.test(full)) return { rgb: `#${full.slice(0, 6)}`, alpha: Math.round((parseInt(full.slice(6), 16) / 255) * 100) / 100 }
   return { rgb: "#000000", alpha: 0.56 }
+}
+
+/*
+  THE PATTERN'S COLOUR FOLLOWS THE WALLPAPER (round W10). "Some of them
+  don't work." A page with no pattern colour of its own drew its pattern in
+  black, so on a dark wallpaper (Night, Space, Y2K, any dark gradient) the
+  pattern was there and nobody could see it, while the Design tab's squares
+  showed it in white. And the two colours the Design tab wrote for "the one
+  that shows" (#00000090 on a light wallpaper, #ffffff90 on a dark one)
+  stayed when the wallpaper changed: black lines on a page made dark later.
+
+  Now no colour, or either of those two, means "automatic": black on a light
+  wallpaper, white on a dark one, read off the wallpaper itself each time it
+  is drawn. Any other colour is the creator's and is drawn as chosen.
+*/
+export const AUTO_INKS = ["#00000090", "#ffffff90"] as const
+
+/** Is this saved pattern colour "automatic" (nothing, or one of the two the picker wrote for it)? */
+export function isAutoInk(raw: unknown): boolean {
+  if (raw === null || raw === undefined) return true
+  if (typeof raw !== "string") return true
+  const t = raw.trim().toLowerCase()
+  return t === "" || (AUTO_INKS as readonly string[]).includes(t)
+}
+
+type GroundLike = { background_type?: unknown; background_color?: unknown; background_gradient?: unknown } | null | undefined
+
+const relLum = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16)
+  const lin = (c: number) => {
+    const s = c / 255
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255)
+}
+const hex6 = (raw: string): string | null => {
+  const t = raw.trim().replace(/^#/, "").toLowerCase()
+  if (/^[0-9a-f]{3}$/.test(t)) return `#${t.split("").map((c) => c + c).join("")}`
+  if (/^[0-9a-f]{6}([0-9a-f]{2})?$/.test(t)) return `#${t.slice(0, 6)}`
+  return null
+}
+
+/** Is the wallpaper dark? A flat colour by its own lightness, a gradient by the average of its colours. Unknown: light. */
+export function wallpaperIsDark(ground: GroundLike): boolean {
+  if (!ground) return false
+  const colours: string[] = []
+  if (ground.background_type === "gradient" && typeof ground.background_gradient === "string") {
+    for (const m of ground.background_gradient.match(/#[0-9a-f]{3,8}\b/gi) ?? []) {
+      const h = hex6(m)
+      if (h) colours.push(h)
+    }
+    for (const m of ground.background_gradient.matchAll(/rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/gi)) {
+      colours.push(`#${[m[1], m[2], m[3]].map((v) => Math.min(255, Number(v)).toString(16).padStart(2, "0")).join("")}`)
+    }
+  }
+  if (colours.length === 0 && typeof ground.background_color === "string") {
+    const h = hex6(ground.background_color)
+    if (h) colours.push(h)
+  }
+  if (colours.length === 0) return false
+  const avg = colours.reduce((sum, c) => sum + relLum(c), 0) / colours.length
+  /* 0.18 is where black and white text are about as readable as each other. */
+  return avg < 0.18
+}
+
+/** The automatic pattern colour for a wallpaper: white on a dark one, black on a light one, each at the strength that reads the same. */
+export function autoPatternInk(ground: GroundLike): string {
+  return wallpaperIsDark(ground) ? "#ffffff80" : "#00000073"
+}
+
+/** The colour a pattern is drawn in: the creator's own, or the automatic one for the wallpaper. */
+export function resolvedPatternInk(raw: unknown, ground: GroundLike | undefined): string {
+  /* Without a wallpaper to read (an old caller), the colour is drawn as it is saved, as it always was. */
+  if (ground === undefined) return typeof raw === "string" && raw.trim() ? raw : "#00000090"
+  return isAutoInk(raw) ? autoPatternInk(ground) : String(raw)
 }
 
 const svg = (w: number, h: number, body: string) =>
@@ -144,6 +251,68 @@ const TERRAZZO_CHIPS: readonly { d: string; o: number }[] = (() => {
 /* BLUEPRINT: drafting paper. A fine line every 10px, a firmer one every 50px, and a small cross where the firm ones meet. */
 const BLUEPRINT_MINOR = [10, 20, 30, 40, 60, 70, 80, 90].map((n) => `M0 ${n + 0.5}H100M${n + 0.5} 0V100`).join("")
 
+const r2 = (n: number) => Math.round(n * 100) / 100
+
+/*
+  CONTOURS: a contour map, not rings. Four hills, each a stack of wobbly
+  closed lines (a radius that rises and falls a little around the hill), the
+  tile's edge crossed by copies on the other side so it has no seam. Hills
+  are far enough apart that their lines never cross, as on a real map.
+*/
+const TOPO_SIZE = 280
+const TOPO_PATH = (() => {
+  const W = TOPO_SIZE
+  const hills: [number, number, number[], number, number][] = [
+    [70, 72, [16, 32, 48, 64, 78], 0.4, 1.7],
+    [212, 208, [14, 30, 46, 62, 76], 2.1, 0.6],
+    [214, 66, [12, 24, 36], 1.2, 2.9],
+    [66, 212, [10, 22, 34], 3.3, 0.2],
+  ]
+  const out: string[] = []
+  for (const [cx, cy, radii, p1, p2] of hills) {
+    for (const R of radii) {
+      const pts: string[] = []
+      const n = 48
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2
+        const r = R * (1 + 0.11 * Math.sin(3 * a + p1) + 0.06 * Math.sin(5 * a + p2))
+        pts.push(`${(Math.cos(a) * r).toFixed(1)} ${(Math.sin(a) * r).toFixed(1)}`)
+      }
+      const reach = R * 1.2
+      for (const dx of [-W, 0, W]) for (const dy of [-W, 0, W]) {
+        const x = cx + dx
+        const y = cy + dy
+        if (x < -reach || x > W + reach || y < -reach || y > W + reach) continue
+        out.push(`M${pts.map((pt) => { const [px, py] = pt.split(" ").map(Number); return `${(x + px).toFixed(1)} ${(y + py).toFixed(1)}` }).join("L")}Z`)
+      }
+    }
+  }
+  return out.join("")
+})()
+
+/* SCALES: a half circle of radius 20 and two inside it (14, 8), on a 40px grid, the second row half a step over. */
+const SCALES_PATH = (() => {
+  const arcs = (cx: number, cy: number) => [20, 14, 8].map((r) => `M${cx - r} ${cy}A${r} ${r} 0 0 0 ${cx + r} ${cy}`).join("")
+  return [arcs(20, 0), arcs(0, 20), arcs(40, 20), arcs(20, 40), arcs(-20, 40), arcs(60, 40)].join("")
+})()
+
+/* HONEYCOMB: pointy-top hexagons, 28 wide and 32 tall, on a 28 by 48 tile (a row every 24px, every other one half over). */
+const HONEY_PATH = (() => {
+  const hex = (cx: number, cy: number) => `M${cx} ${cy - 16}L${cx + 14} ${cy - 8}L${cx + 14} ${cy + 8}L${cx} ${cy + 16}L${cx - 14} ${cy + 8}L${cx - 14} ${cy - 8}Z`
+  return [hex(14, 0), hex(14, 48), hex(0, 24), hex(28, 24)].join("")
+})()
+
+/* SPARKLES: four-pointed stars of three sizes and a few specks, each well inside the tile. */
+const SPARKLE_SIZE = 180
+const SPARKLE_PATH = (() => {
+  const star = (x: number, y: number, r: number) => {
+    const k = r * 0.18
+    return `M${x} ${y - r}C${x + k} ${y - k} ${x + k} ${y - k} ${x + r} ${y}C${x + k} ${y + k} ${x + k} ${y + k} ${x} ${y + r}C${x - k} ${y + k} ${x - k} ${y + k} ${x - r} ${y}C${x - k} ${y - k} ${x - k} ${y - k} ${x} ${y - r}Z`
+  }
+  const dot = (x: number, y: number, r: number) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z`
+  return [star(36, 40, 11), star(128, 30, 6.5), star(150, 116, 10), star(62, 134, 7), star(102, 80, 4.5), star(20, 162, 5), star(164, 170, 4), star(92, 168, 3.5), dot(84, 18, 1.6), dot(168, 64, 1.4), dot(28, 94, 1.4), dot(122, 158, 1.6), dot(60, 76, 1.1), dot(140, 76, 1.1)].join("")
+})()
+
 /** One tile for each pattern, in `c` at opacity `o`. The ids inside a data URI belong to that image alone. */
 function tile(id: string, c: string, o: number): { image: string; size: string } | null {
   const s = `stroke='${c}' stroke-opacity='${o}' fill='none'`
@@ -169,67 +338,34 @@ function tile(id: string, c: string, o: number): { image: string; size: string }
       }
     case "waves":
       return { image: svg(50, 25, `<path d='M0 12.5Q12.5 0 25 12.5T50 12.5' ${s} stroke-width='2'/>`), size: "50px 25px" }
-    case "zigzag":
-      return { image: svg(20, 12, `<path d='M0 6L5 0L10 6L15 0L20 6' ${s} stroke-width='1.5'/>`), size: "20px 12px" }
-    case "morph":
-      return {
-        image: svg(
-          200,
-          200,
-          `<g ${s} stroke-width='2'><path d='M40 20Q60 40 40 60Q20 80 40 100Q60 80 80 100Q100 120 80 140Q60 120 40 140Q20 160 40 180' opacity='.5'/><path d='M120 10Q140 30 160 20Q180 40 160 60Q180 80 160 100Q140 80 120 100Q100 80 120 60' opacity='.4'/><path d='M100 140Q120 160 140 150Q160 170 140 190Q120 170 100 180' opacity='.45'/></g>` +
-            `<g ${fill}><circle cx='50' cy='50' r='8' opacity='.3'/><circle cx='150' cy='70' r='6' opacity='.25'/><circle cx='100' cy='160' r='5' opacity='.3'/><rect x='170' y='150' width='20' height='2' rx='1' opacity='.4'/><rect x='10' y='100' width='15' height='2' rx='1' opacity='.35'/></g>`,
-        ),
-        size: "200px 200px",
-      }
-    case "organic":
-      return {
-        image: svg(
-          200,
-          200,
-          `<g ${fill}><path d='M30 40Q50 20 70 40Q90 60 70 80Q50 100 30 80Q10 60 30 40' opacity='.35'/><path d='M120 30Q150 25 160 50Q170 80 140 90Q110 95 100 70Q95 45 120 30' opacity='.3'/><path d='M60 130Q80 110 110 125Q130 140 115 165Q95 185 65 170Q45 155 60 130' opacity='.32'/><path d='M160 140Q180 145 185 165Q188 185 170 190Q150 188 145 170Q143 152 160 140' opacity='.28'/><path d='M20 160Q35 150 45 165Q50 180 35 190Q20 185 15 175Q12 165 20 160' opacity='.25'/></g>`,
-        ),
-        size: "200px 200px",
-      }
-    case "flowmaze":
-      return {
-        image: svg(
-          240,
-          240,
-          `<g ${s} stroke-width='5' stroke-linecap='round'><path d='M12 30Q36 12 60 30Q84 48 72 78Q60 108 36 102Q12 96 18 72Q24 48 48 54Q72 60 84 84Q96 108 78 132Q60 156 36 144' opacity='.5'/><path d='M108 18Q132 6 156 24Q180 42 168 72Q156 102 132 90Q108 78 120 54Q132 30 156 42Q180 54 192 84Q204 114 180 138' opacity='.45'/><path d='M18 168Q42 150 66 168Q90 186 78 216Q66 240 42 228Q18 216 30 192' opacity='.48'/><path d='M120 174Q144 156 168 174Q192 192 180 222Q168 240 144 231Q120 222 132 198Q144 174 174 186Q204 198 216 228' opacity='.42'/></g>`,
-        ),
-        size: "240px 240px",
-      }
     case "topographic":
-      return {
-        image: svg(
-          300,
-          300,
-          `<g ${s} stroke-width='1.5'>` +
-            [
-              [100, 100, 90, 80, 0.3], [100, 100, 70, 62, 0.35], [100, 100, 50, 44, 0.4], [100, 100, 30, 26, 0.45], [100, 100, 12, 10, 0.5],
-              [220, 200, 75, 90, 0.28], [220, 200, 55, 70, 0.33], [220, 200, 35, 50, 0.38], [220, 200, 18, 30, 0.43],
-              [50, 250, 45, 40, 0.3], [50, 250, 28, 25, 0.38], [50, 250, 12, 10, 0.45],
-              [250, 50, 40, 45, 0.32], [250, 50, 22, 28, 0.4], [250, 50, 8, 12, 0.48],
-            ]
-              .map(([cx, cy, rx, ry, op]) => `<ellipse cx='${cx}' cy='${cy}' rx='${rx}' ry='${ry}' opacity='${op}'/>`)
-              .join("") +
-            `</g>`,
-        ),
-        size: "300px 300px",
-      }
+      return { image: svg(TOPO_SIZE, TOPO_SIZE, `<path d='${TOPO_PATH}' ${s} stroke-width='1.2' stroke-linejoin='round'/>`), size: `${TOPO_SIZE}px ${TOPO_SIZE}px` }
     case "stars":
       return {
         image: svg(
           220,
           220,
-          `<g ${fill}>` +
-            [[18, 22, 1], [64, 48, 0.7], [120, 16, 1.1], [170, 60, 0.6], [205, 30, 0.9], [40, 110, 0.8], [96, 92, 0.5], [150, 120, 1], [196, 150, 0.7], [20, 176, 0.6], [78, 160, 1], [130, 196, 0.8], [182, 204, 0.5], [110, 140, 0.4]]
+          /* Stars are points of light: brighter than the lines are, or a starfield is not seen at all. */
+          `<g fill='${c}' fill-opacity='${r2(Math.min(1, o * 1.8))}'>` +
+            [[18, 22, 1.4], [64, 48, 1], [120, 16, 1.6], [170, 60, 0.9], [205, 30, 1.3], [40, 110, 1.1], [96, 92, 0.8], [150, 120, 1.5], [196, 150, 1], [20, 176, 0.9], [78, 160, 1.4], [130, 196, 1.1], [182, 204, 0.8], [110, 140, 0.7]]
               .map(([x, y, r]) => `<circle cx='${x}' cy='${y}' r='${r}'/>`)
               .join("") +
             `</g>`,
         ),
         size: "220px 220px",
       }
+    case "gingham":
+      /* Picnic cloth: a band each way at a third of the strength, twice that where they cross. */
+      return { image: svg(28, 28, `<path d='M0 0h14v28H0z' fill='${c}' fill-opacity='${r2(o * 0.3)}'/><path d='M0 0h28v14H0z' fill='${c}' fill-opacity='${r2(o * 0.3)}'/>`), size: "28px 28px" }
+    case "scales":
+      /* Seigaiha: rows of half circles, each with two inside it, every other row moved over by half. */
+      return { image: svg(40, 40, `<path d='${SCALES_PATH}' ${s} stroke-width='1'/>`), size: "40px 40px" }
+    case "honeycomb":
+      return { image: svg(28, 48, `<path d='${HONEY_PATH}' ${s} stroke-width='1' stroke-linejoin='round'/>`), size: "28px 48px" }
+    case "plus":
+      return { image: svg(32, 32, `<path d='M8 4.5v7M4.5 8h7M24 20.5v7M20.5 24h7' ${s} stroke-width='1.5' stroke-linecap='round'/>`), size: "32px 32px" }
+    case "sparkles":
+      return { image: svg(SPARKLE_SIZE, SPARKLE_SIZE, `<path d='${SPARKLE_PATH}' ${fill}/>`), size: `${SPARKLE_SIZE}px ${SPARKLE_SIZE}px` }
     case "terrazzo":
       return {
         image: svg(TERRAZZO_SIZE, TERRAZZO_SIZE, TERRAZZO_CHIPS.map((g) => `<path d='${g.d}' fill='${c}' fill-opacity='${Math.round(o * g.o * 100) / 100}'/>`).join("")),
@@ -264,12 +400,20 @@ function tile(id: string, c: string, o: number): { image: string; size: string }
 /**
  * The CSS for a pattern layer: an element with this style, absolutely placed
  * over the wallpaper, draws the pattern. Null for "none" or a name nobody
- * knows (an old theme), which draws nothing.
+ * knows (an old theme), which draws nothing. A removed pattern draws the one
+ * that took its place (LEGACY_PATTERNS). With `ground` (the theme, or just
+ * its wallpaper), an automatic colour follows the wallpaper (resolvedPatternInk).
  */
-export function patternStyle(id: unknown, color: unknown, level: unknown = "medium"): { backgroundImage: string; backgroundSize: string; backgroundRepeat: string; opacity: number } | null {
-  if (!isPatternId(id)) return null
-  const { rgb, alpha } = patternInk(color)
-  const t = tile(id as string, rgb, alpha)
+export function patternStyle(
+  id: unknown,
+  color: unknown,
+  level: unknown = "medium",
+  ground?: GroundLike,
+): { backgroundImage: string; backgroundSize: string; backgroundRepeat: string; opacity: number } | null {
+  const kept = canonicalPatternId(id)
+  if (!kept) return null
+  const { rgb, alpha } = patternInk(resolvedPatternInk(color, ground))
+  const t = tile(kept, rgb, alpha)
   if (!t) return null
   /* Very strong: the same tile twice, one over the other, which is what the old 1.5 opacity meant and never did (opacity stops at 1). */
   const twice = level === "very_hard"
