@@ -103,6 +103,8 @@ const SAID_BY_RESULT = new Set<string>(["write_file", "edit_file", "delete_file"
 export function eventLine(e: AgentEvent): { text: string; tone: "phase" | "done" | "plain" | "problem" | "muted" } | null {
   switch (e.kind) {
     case "phase":
+      /* Round O (O4): the design review is its own step in the list, said plainly. */
+      if (e.phase === "verify" && /^Reviewing the design/.test(e.label ?? "")) return { text: tt("Reviewing the design"), tone: "phase" }
       return { text: phaseWords(e.phase), tone: "phase" }
     case "tool": {
       /* A file, page or colours line says these already, done: the tool line would say it twice. */
@@ -244,6 +246,14 @@ export function AgentProgressPanel({
                 : tt("You can close this tab: it keeps going.")
 
   const gaps = state === "partial" || state === "complete" ? view.notes.slice(0, 4) : []
+  /* Round O (O4): the first screen the design review last looked at, when it kept one (a private file, signed by the route). */
+  const reviewShot = React.useMemo(() => {
+    for (let i = events.length - 1; i >= 0; i--) {
+      const e = events[i]
+      if (e.kind === "note" && e.shot) return e.seq
+    }
+    return null
+  }, [events])
   const icon = live ? (
     <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
   ) : state === "failed" || state === "cancelled" ? (
@@ -337,6 +347,19 @@ export function AgentProgressPanel({
             )
           })}
         </ol>
+      )}
+
+      {reviewShot !== null && !collapsed && (
+        <figure className="mx-4 mt-3" data-agent-review-shot="">
+          {/* eslint-disable-next-line @next/next/no-img-element -- a short-lived signed address, not an optimisable asset */}
+          <img
+            src={`/api/website-builder/ai-jobs/${encodeURIComponent(view.id)}/review-shot?v=${reviewShot}`}
+            alt={tt("The first screen of your website, as the design review saw it")}
+            loading="lazy"
+            className="block h-28 w-full rounded-lg border border-[#e5e7eb] bg-[#f8f9fa] object-cover object-top"
+          />
+          <figcaption className="mt-1 text-[12px] text-[#9ca3af]">{tt("What the design review looked at")}</figcaption>
+        </figure>
       )}
 
       {gaps.length > 0 && (

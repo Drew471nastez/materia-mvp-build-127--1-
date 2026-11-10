@@ -8,6 +8,25 @@ import type { RuntimeCapabilities } from "../runtime-contract"
 import type { AgentCheckpoint } from "../types"
 import type { VisualConcept } from "./concept"
 import type { SitePlan } from "./site-plan"
+import type { CriticScores, CriticStatus } from "../visual-critic/types"
+
+/** The design review's rounds so far (round O, O4): small, no pictures. */
+export interface CriticState {
+  /** Reviews run (each one draws, measures and looks). Bounded by MAX_CRITIC_ROUNDS in ./loop.ts. */
+  rounds: number
+  /** The one targeted repair pass a low score or a high defect earns has been used. */
+  targeted: boolean
+  /** Asked to call finish again once because there was no time left in that invocation. */
+  deferred?: boolean
+  status?: CriticStatus
+  reason?: string
+  scores?: CriticScores
+  weighted?: number
+  /** Hard gates still failing after the last review. */
+  gates: string[]
+  /** What the last review still found, one line each, for the honest summary. */
+  open: string[]
+}
 
 export interface LoopCheckpoint extends AgentCheckpoint {
   /** The accepted visual concept. Writes wait for it on a new website. */
@@ -32,6 +51,8 @@ export interface LoopCheckpoint extends AgentCheckpoint {
   failures: number
   /** What list_capabilities answered, kept so every slice binds against the same facts. */
   caps?: RuntimeCapabilities | null
+  /** Round O (O4): the visual critic's rounds and what it still finds. */
+  critic?: CriticState
   /** Set once the job ended: what to tell the creator. */
   final?: { status: "complete" | "partial" | "failed" | "cancelled"; summary: string; failing: string[] }
 }

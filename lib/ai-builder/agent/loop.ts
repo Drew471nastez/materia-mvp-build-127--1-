@@ -38,7 +38,9 @@ import type { AgentDeps, AgentJobInput, KnowledgeHit, ModelRole } from "./ports"
 import { AGENT_SYSTEM, briefMessage } from "./prompts"
 import { TOOL_LIST } from "./tool-specs"
 import { compactCheckpoint, compactLive, resumeTurns, toCheckpointTurns } from "./compact"
-import { newCheckpoint, type LoopCheckpoint } from "./state"
+import { newCheckpoint, type CriticState, type LoopCheckpoint } from "./state"
+import { describeConcept } from "./concept"
+import { belowTarget, defectLine, type CriticReport, type Defect } from "../visual-critic/types"
 import { createToolSet, renderPage, validateAll, type EventDraft } from "./tools-impl"
 import { directionsFor, libraryKnowledge, librarySlop } from "./knowledge"
 import { errorsOf } from "./validate"
@@ -81,6 +83,15 @@ const MAX_FAILURES = 3
 /** Turns without a tool call before the loop takes it as "done". */
 const MAX_NUDGES = 2
 const OPUS_FALLBACK = "claude-opus-5-5"
+/**
+ * THE DESIGN REVIEW'S BOUNDS (round O, O4). At most this many reviews per job (each draws, measures and looks);
+ * a review that finds hard gates or high defects sends the agent back once more, and the next is the last word.
+ */
+export const MAX_CRITIC_ROUNDS = 2
+/** A review needs at least this much of the invocation left (the browser and the vision call); less, and it waits for the next invocation once. */
+export const CRITIC_MIN_MS = 45_000
+/** And never more than this. */
+export const CRITIC_MAX_MS = 150_000
 
 /** The most a call could cost: its input as sent and every output token it may write. */
 export function worstCaseUsd(model: string, inputChars: number, maxOutputTokens: number): number {
@@ -180,7 +191,15 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     const errors = errorsOf(issues)
     emit({ kind: "validation", errors: errors.length, warnings: issues.length - errors.length })
     if (!errors.length) {
-      done.r = finished("complete", String(input.summary ?? "").slice(0, 1_000) || "The website is ready to review.", [], undefined, undefined, true)
+      /* Round O (O4): every check passes; now the agent LOOKS at what it made (the visual critic) before it may finish. */
+      const look = await designReview()
+      if (look.block) return { ok: false, reason: look.block }
+      const said = String(input.summary ?? "").slice(0, 1_000) || "The website is ready to review."
+      if (look.partial) {
+        done.r = finished("partial", `${said} ${look.partial}`.trim(), look.failing ?? [], undefined, undefined, true)
+        return { ok: false, reason: "The design review still finds problems that must be fixed, and its rounds are used up. The job ends as partial and says so." }
+      }
+      done.r = finished("complete", `${said}${criticNote(cp.critic)}`, [], undefined, undefined, true)
       return { ok: true }
     }
     const failing = [...new Set(errors.map((e) => e.path ?? (e.sectionId ? `section ${e.sectionId}` : e.code)))]
@@ -193,6 +212,121 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     const summary = `${String(input.summary ?? "").slice(0, 600)} Not everything passed its checks, so this is a partial website: ${failing.slice(0, 8).join(", ")} still ${failing.length === 1 ? "has a problem" : "have problems"} (${errors.slice(0, 3).map((e) => e.code).join(", ")}). Everything is a draft; nothing is live.`.trim()
     done.r = finished("partial", summary, failing, undefined, undefined, true)
     return { ok: false, reason: "The checks still fail and the repair rounds are used up. The job ends as partial and says so." }
+  }
+
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE DESIGN REVIEW (round O, O4): THE AGENT SEES ITS DRAFT
+    ═══════════════════════════════════════════════════════════════════════
+    Spec 8.3. After every other check passes, the pages the job made are drawn in a headless browser with
+    JavaScript OFF (lib/ai-builder/visual-critic), measured, and looked at by a vision model. What comes back:
+
+      hard gates   sideways scrolling at 390, a dead call to action in the first screen, unreadable text:
+                   they block finish like a compile error; still failing after the last round, the job is partial
+      defects      specific (page, section, selector, what, why, fix): ONE targeted repair pass when the
+                   scores are under target or a defect is high or critical
+      the rest     said honestly in the finish summary
+
+    Bounded: MAX_CRITIC_ROUNDS reviews per job, each inside the job's spending cap (its worst case is checked
+    before the vision call) and the invocation's time. No browser: "not visually checked", never a pass.
+  */
+  const designReview = async (): Promise<{ block?: string; partial?: string; failing?: string[] }> => {
+    if (!deps.visualCritic) return {}
+    const st: CriticState = cp.critic ? { ...cp.critic, gates: [...cp.critic.gates], open: [...cp.critic.open] } : { rounds: 0, targeted: false, gates: [], open: [] }
+    cp.critic = st
+    if (st.rounds >= MAX_CRITIC_ROUNDS) return {}
+    const stored = await deps.store.listPages()
+    const pages = pagesToReview(job, cp, stored)
+    if (!pages.length) return {}
+    /* No browser here at all: said once, plainly, and the job goes on (no review step is announced for a review that cannot happen). */
+    const can = deps.visualCritic.available?.() ?? { ok: true as const }
+    if (can.ok === false) {
+      st.rounds = MAX_CRITIC_ROUNDS
+      st.status = "unverified"
+      st.reason = (can as { reason: string }).reason
+      emit({ kind: "note", text: `Not visually checked: ${st.reason}.` })
+      return {}
+    }
+    const left = opts.deadline - now() - 5_000
+    if (left < CRITIC_MIN_MS) {
+      if (!st.deferred) {
+        st.deferred = true
+        return { block: "Everything passes its checks. The design review (the pages drawn in a browser and looked at) needs a fresh moment: call finish again now with the same summary, changing nothing." }
+      }
+      st.rounds = MAX_CRITIC_ROUNDS
+      st.status = "unverified"
+      st.reason = "there was no time left to draw the pages"
+      emit({ kind: "note", text: "Not visually checked: there was no time left to draw the pages." })
+      return {}
+    }
+    cp.phase = "verify"
+    emit({ kind: "phase", phase: "verify", label: "Reviewing the design" })
+    const files = await deps.store.listFiles()
+    const sources: Record<string, string> = {}
+    for (const f of files) if (f.text.trim()) sources[f.path] = f.text
+    const rules = files.find((f) => /(^|\/)DESIGN\.md$/i.test(f.path))?.text
+    let report: CriticReport
+    try {
+      report = await deps.visualCritic({
+        brief: job.prompt,
+        ...(cp.concept ? { concept: safeConcept(cp.concept) } : {}),
+        ...(rules ? { rules } : {}),
+        pages,
+        project: { pages: stored, settings: await deps.store.readSettings(), sources, capabilities: cp.caps ?? null },
+        maxUsd: Math.max(0, capOf(job, deps) - (job.spentUsd + usage.usd)),
+        timeoutMs: Math.min(CRITIC_MAX_MS, left),
+      })
+    } catch (thrown) {
+      report = { status: "unverified", reason: `the design review failed (${thrown instanceof Error ? thrown.message.slice(0, 120) : "no answer"})`, pages, defects: [], shots: [], usage: { usd: 0, inputTokens: 0, outputTokens: 0, calls: 0 }, ms: 0 }
+    }
+    /* The review's spend is the job's spend. */
+    if (report.usage.calls > 0 || report.usage.usd > 0) {
+      usage.usd = Math.round((usage.usd + report.usage.usd) * 1e6) / 1e6
+      usage.inputTokens += report.usage.inputTokens
+      usage.outputTokens += report.usage.outputTokens
+      usage.calls += report.usage.calls
+      cp.usd = Math.round((job.spentUsd + usage.usd) * 1e6) / 1e6
+      cp.inputTokens += report.usage.inputTokens
+      cp.outputTokens += report.usage.outputTokens
+      emit({ kind: "spend", usd: report.usage.usd, inputTokens: report.usage.inputTokens, outputTokens: report.usage.outputTokens, iteration: cp.iteration })
+    }
+    st.rounds += 1
+    st.status = report.status
+    st.reason = report.reason
+    if (report.scores) {
+      st.scores = report.scores
+      st.weighted = report.weighted
+    }
+    if (report.status === "unverified") {
+      /* Nothing was seen, so nothing passed or failed: said, and the job goes on. No second try. */
+      st.rounds = MAX_CRITIC_ROUNDS
+      st.gates = []
+      st.open = []
+      emit({ kind: "note", text: `Not visually checked: ${report.reason ?? "no browser was available"}.` })
+      return {}
+    }
+    const gates = report.defects.filter((d) => d.gate)
+    const serious = report.defects.filter((d) => !d.gate && (d.severity === "critical" || d.severity === "high"))
+    const worth = report.defects.filter((d) => !d.gate && d.severity !== "low")
+    st.gates = gates.map(defectLine).slice(0, 8)
+    st.open = report.defects.filter((d) => d.severity !== "low").map((d) => plainDefect(d)).slice(0, 6)
+    emit({ kind: "note", text: reviewWords(report, gates.length), ...(report.shotKept ? { shot: true } : {}) })
+
+    const last = st.rounds >= MAX_CRITIC_ROUNDS
+    if (gates.length && !last) {
+      setPhase("repair", `Fixing ${gates.length} design problem${gates.length === 1 ? "" : "s"}`)
+      return { block: repairList(st.rounds, gates, serious) }
+    }
+    if (gates.length && last) {
+      const failing = [...new Set(gates.map((d) => (d.sectionType ? `sections/${d.sectionType}.storelib` : `page ${d.page}`)))]
+      return { partial: `The design review still finds ${gates.length} problem${gates.length === 1 ? "" : "s"} that must be fixed: ${gates.slice(0, 3).map(plainDefect).join("; ")}. Everything is a draft; nothing is live.`, failing }
+    }
+    if (!last && !st.targeted && (belowTarget(report.scores) || serious.length > 0) && worth.length > 0) {
+      st.targeted = true
+      setPhase("repair", "Improving the design")
+      return { block: repairList(st.rounds, [], worth.slice(0, 10), report) }
+    }
+    return {}
   }
 
   const tools = createToolSet({ job, deps, cp, emit, onFinish, setPhase })
@@ -255,9 +389,10 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     if (!turn.toolCalls.length) {
       cp.nudges += 1
       if (cp.nudges > MAX_NUDGES) {
-        await onFinish({ summary: turn.text || "Finished." })
+        const said = await onFinish({ summary: turn.text || "Finished." })
         if (done.r) break
-        turns.push({ role: "user", content: "Fix the problems listed above, then call finish." })
+        /* The list itself (verify's errors or the design review's defects): "listed above" listed nothing before. */
+        turns.push({ role: "user", content: said.ok === false && said.reason ? `${said.reason}` : "Fix the problems listed above, then call finish." })
         continue
       }
       turns.push({ role: "user", content: turn.stop === "length" ? "Your answer was cut off. Use the tools in smaller steps: one file per write_file." : "Carry on with the tools. When the website is done, call finish." })
@@ -287,6 +422,63 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
   const end = done.r as SliceResult | null
   const final = cp.final as LoopCheckpoint["final"]
   return end && final ? result(final.status, final.summary, cp.stopped, end.error) : result("running")
+}
+
+/* ── the design review's words (round O, O4) ─────────────────────────── */
+
+/** Which pages the review looks at: home first on a new site, then the pages the job made or whose components it wrote. */
+export function pagesToReview(job: AgentJobInput, cp: LoopCheckpoint, stored: { key: string; sections: { type: string; hidden?: boolean }[] }[]): string[] {
+  const scoped = !!job.edit || job.redesign === "changes"
+  const types = new Set(cp.filesTouched.map((p) => /^sections\/(.+)\.storelib$/.exec(p)?.[1]).filter((t): t is string => !!t))
+  const has = (key: string) => stored.some((p) => p.key === key && p.sections.some((s) => !s.hidden))
+  const order: string[] = []
+  const add = (key: string) => {
+    if (!order.includes(key) && has(key)) order.push(key)
+  }
+  if (!scoped) add("home")
+  for (const key of cp.pagesTouched) add(key)
+  for (const p of stored) if (p.sections.some((s) => types.has(s.type))) add(p.key)
+  return order
+}
+
+function safeConcept(concept: unknown): string {
+  try {
+    return describeConcept(concept as Parameters<typeof describeConcept>[0])
+  } catch {
+    return JSON.stringify(concept).slice(0, 2_000)
+  }
+}
+
+/** One defect in the creator's words: where and what. */
+function plainDefect(d: Defect): string {
+  return `${d.page}${d.sectionType ? ` (${d.sectionType.replace(/^ai_/, "").replace(/_/g, " ")})` : ""}: ${d.what.replace(/\.$/, "")}`.slice(0, 220)
+}
+
+/** The progress panel's line after a review. Plain, short. */
+function reviewWords(r: CriticReport, gates: number): string {
+  const n = r.defects.filter((d) => d.severity !== "low").length
+  const looked = r.status === "reviewed" ? `Looked at ${r.pages.length === 1 ? "the page" : `${r.pages.length} pages`} on desktop and phone` : `Checked ${r.pages.length === 1 ? "the page" : `${r.pages.length} pages`} in a browser on desktop and phone`
+  const found = n === 0 ? "nothing to fix" : `${n} thing${n === 1 ? "" : "s"} to improve${gates ? `, ${gates} must be fixed` : ""}`
+  return `${looked}: ${found}.${r.status === "measured" && r.reason ? ` No review by eye: ${r.reason}.` : ""}`.slice(0, 300)
+}
+
+/** What the finish tool tells the agent to fix: specific, numbered, and bounded. */
+function repairList(round: number, gates: Defect[], others: Defect[], report?: CriticReport): string {
+  const lines = [...gates, ...others].slice(0, 14).map((d, i) => `${i + 1}. ${defectLine(d)}${d.sectionType ? ` (file sections/${d.sectionType}.storelib)` : ""}`)
+  const scores = report?.scores ? ` Scores (1 to 5): ${Object.entries(report.scores).map(([k, v]) => `${k} ${v}`).join(", ")}${report.verdict ? `. Verdict: ${report.verdict}` : ""}.` : ""
+  const head = gates.length
+    ? `Not finished: the design review drew the pages in a browser (1440 and 390 wide, scripts off) and found ${gates.length} problem${gates.length === 1 ? "" : "s"} that must be fixed (review ${round} of ${MAX_CRITIC_ROUNDS}).`
+    : `Not finished: the design review drew the pages in a browser (1440 and 390 wide, scripts off) and looked at them (review ${round} of ${MAX_CRITIC_ROUNDS}).${scores} Make one targeted pass on these.`
+  return `${head} Fix only these, with edit_file on the named component or its page's settings (no rewrites of what works), then call finish again:\n${lines.join("\n")}`
+}
+
+/** What the finish summary says about the review, honestly. */
+export function criticNote(st: CriticState | undefined): string {
+  if (!st || !st.status) return ""
+  if (st.status === "unverified") return ` Not visually checked: ${st.reason ?? "no browser was available"}.`
+  const open = st.open.length ? ` Still worth a look: ${st.open.slice(0, 3).join("; ")}.` : ""
+  if (st.status === "measured") return ` Checked in a browser on desktop and phone; not reviewed by eye (${st.reason ?? "no vision model"}).${open}`
+  return ` Design review: ${st.weighted ?? "?"} of 5.${open}`
 }
 
 /** The saved turns after the brief: what the checkpoint had before this slice, then this slice's live turns. */
