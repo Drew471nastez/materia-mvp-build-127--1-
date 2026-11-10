@@ -14,34 +14,68 @@
  * Report goes to the Help Center's article on reporting, in a new tab: it is
  * a form somebody fills in, not a text to read.
  */
-import dynamic from "next/dynamic"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState, type ComponentType } from "react"
 import { publicHelpUrl } from "@/lib/help/paths"
 import { LEGAL_DOCS, type LegalKind } from "@/components/legal/legal-parts"
 import { OnePageDialog, SheetClose } from "./onepage-dialog"
 
-const loadReader = () => import("@/components/legal/legal-reader")
-
-const LegalReader = dynamic(loadReader, {
-  ssr: false,
-  loading: () => (
-    <div className="space-y-3 px-5 pt-4 sm:px-8" aria-hidden data-legal-loading="">
-      {[72, 100, 94, 88, 100, 60].map((w, i) => (
-        <div key={i} className="h-3.5 rounded-full bg-[var(--sheet-field)]" style={{ width: `${w}%` }} />
-      ))}
-    </div>
-  ),
-})
+/*
+  ROUND AR: THE TEXT IS HERE BEFORE THE TAP. The reader used to load on the
+  tap behind six grey bars (the owner: "that loading skeleton, I don't want
+  that"). It is fetched once the page is idle and the footer is drawn, and
+  again on hover or a finger coming down; a tap that finds it opens the sheet
+  with the text in it at once. A tap that beats it waits for it (never longer
+  than READER_WAIT_MS) and the sheet then rises with the text, never a
+  placeholder.
+*/
+type ReaderProps = { kind: LegalKind; anchor?: string; onKind?: (k: LegalKind, at?: string) => void }
+let Reader: ComponentType<ReaderProps> | null = null
+let reading: Promise<ComponentType<ReaderProps> | null> | null = null
+const loadReader = () => {
+  reading ??= import("@/components/legal/legal-reader")
+    .then((m) => {
+      Reader = m.default as unknown as ComponentType<ReaderProps>
+      return Reader
+    })
+    .catch(() => {
+      reading = null
+      return null
+    })
+  return reading
+}
+const READER_WAIT_MS = 600
 
 export function OnePageLegalLinks({ dark, color }: { dark: boolean; color: string }) {
   const [open, setOpen] = useState(false)
   const [kind, setKind] = useState<LegalKind>("privacy")
   const [anchor, setAnchor] = useState<string | undefined>()
 
+  const [, setLoaded] = useState(!!Reader)
+  /* Once the page is idle: the reader is a small script, and the tap then opens it with nothing to wait for. */
+  useEffect(() => {
+    if (Reader) return
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (h: number) => void }
+    const run = () => void loadReader().then((r) => r && setLoaded(true))
+    if (w.requestIdleCallback) {
+      const h = w.requestIdleCallback(run, { timeout: 4000 })
+      return () => w.cancelIdleCallback?.(h)
+    }
+    const t = window.setTimeout(run, 1500)
+    return () => window.clearTimeout(t)
+  }, [])
   const show = (k: LegalKind, at?: string) => {
     setKind(k)
     setAnchor(at)
-    setOpen(true)
+    if (Reader) return setOpen(true)
+    let done = false
+    const go = () => {
+      if (done) return
+      done = true
+      setLoaded(true)
+      setOpen(true)
+    }
+    void loadReader().then(go)
+    window.setTimeout(go, READER_WAIT_MS)
   }
   const close = useCallback(() => setOpen(false), [])
   /* A finger on the link starts the download, so the text is usually in before the sheet has finished rising. */
@@ -86,7 +120,7 @@ export function OnePageLegalLinks({ dark, color }: { dark: boolean; color: strin
       </nav>
       <OnePageDialog open={open} onClose={close} dark={dark} label={LEGAL_DOCS[kind].title} header={header} width={720} tall scrollKey={kind}>
         <h2 className="sr-only">{LEGAL_DOCS[kind].title}</h2>
-        <LegalReader kind={kind} anchor={anchor} onKind={show} />
+        {Reader ? <Reader kind={kind} anchor={anchor} onKind={show} /> : <div className="min-h-[50dvh]" aria-hidden data-legal-loading="" />}
       </OnePageDialog>
     </>
   )

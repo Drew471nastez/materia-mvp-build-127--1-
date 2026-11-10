@@ -61,7 +61,11 @@ import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { noteTracked, postBlockClick, watchBlockActivity } from "@/components/onepage/block-activity"
-import { canvasRule, heroHeaderShown } from "@/lib/onepage/page-frame"
+import { canvasRule, heroHeaderShown, pageCanvasColour } from "@/lib/onepage/page-frame"
+import { HeroTopBar } from "@/components/onepage/hero-scroll"
+import { usePressFeel } from "@/components/onepage/press-feel"
+import { leavingProps, useLeavingBlocks } from "@/components/onepage/leaving-block"
+import { heroScrollEffect } from "@/lib/onepage/feel"
 import { PosterVideo } from "@/components/onepage/poster-video"
 import { HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/lib/onepage/poster-video"
 import { readableOn } from "@/lib/onepage/theme-apply"
@@ -837,6 +841,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const sellerName = personName({ name: title })
   /* Round AP: every row on the page that slides sideways follows a mouse as it follows a finger (components/onepage/drag-scroll). */
   useMouseDragRows()
+  /* Round AR: every button and row on the page, and in every sheet over it, answers a press at once (components/onepage/press-feel). */
+  usePressFeel()
 
   // Modal visibility state - to hide buttons when fullscreen modals are open
   /* True in the editor's preview frame (components/onepage/preview-document). */
@@ -1130,6 +1136,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   useHeaderClearance(phonePageRef, patternClears && liveLayout !== "desktop")
   /* Round W8: a classic header flush left sits under the round Share button in the top left corner; it starts clear of it. */
   const clearOfShare = (top: string) => (top === "50px" && headerAlignOf(safeTheme) === "left" && safeSettings.share_enabled !== false ? "68px" : top)
+  /* What the page draws, in order: a block, or two links or two products to a row. */
+  const pageItemsNow = pairLinkTiles(pairProductTiles(safeBlocks
+    /* In the editor's preview a new link still waiting for its address is drawn as a placeholder; never live. */
+    .filter((b) => isBlockVisible(b) || (inEditorPreview && isIncompleteLink(b)))
+    .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0)), safeTheme), blockLayoutOf(safeTheme))
+  /* Round AR: in the editor's preview a block taken off folds away instead of vanishing (components/onepage/leaving-block). */
+  const pageItems = useLeavingBlocks(pageItemsNow, (item) => ((item as { key?: string }).key ?? (item as { id: string }).id), !!inEditorPreview)
   const renderPageContent = ({ isDesktop = false }: { isDesktop?: boolean } = {}) => (
     <div
       className={cn("relative z-10 w-full flex flex-col min-h-full", isDesktop ? "max-w-full" : "max-w-lg mx-auto")}
@@ -1152,17 +1165,14 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         data-block-layout={blockLayoutOf(safeTheme)}
         data-op-align={headerAlignOf(safeTheme)}
       >
-        {pairLinkTiles(pairProductTiles(safeBlocks
-          /* In the editor's preview a new link still waiting for its address is drawn as a placeholder; never live. */
-          .filter((b) => isBlockVisible(b) || (inEditorPreview && isIncompleteLink(b)))
-          .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0)), safeTheme), blockLayoutOf(safeTheme))
-          .map((item, index) => {
+        {pageItems
+          .map(({ item, leaving }, index) => {
             const animClass = !hasBlocksAnimated ? "animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both" : ""
             const animStyle = !hasBlocksAnimated ? { animationDelay: `${index * 50}ms` } : undefined
             /* The Grid layout: plain links that follow one another, two to a row, each a tile (app/globals.css [data-link-tile]). */
             if (isLinkTilePair(item)) {
               return (
-                <div key={item.key} className={cn("grid w-full grid-cols-2 gap-3", animClass)} style={animStyle} data-link-pair="">
+                <div key={item.key} className={cn("grid w-full grid-cols-2 gap-3", animClass)} style={animStyle} data-link-pair="" {...leavingProps(leaving)}>
                   {(item.links as OnePageBlock[]).map((block) => (
                     <div key={block.id} className="min-w-0" data-link-tile="" data-op-block={block.id} data-sensitive-label={sensitiveLabel(block)}>
                       {inEditorPreview && isIncompleteLink(block) ? (
@@ -1186,7 +1196,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             /* Product tiles that follow one another, two to a row (lib/onepage/product-block pairProductTiles). */
             if ("tiles" in item) {
               return (
-                <div key={item.key} className={cn("grid w-full gap-3", item.tiles.length > 1 ? "grid-cols-2" : "grid-cols-1", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined} data-product-pair="">
+                <div key={item.key} className={cn("grid w-full gap-3", item.tiles.length > 1 ? "grid-cols-2" : "grid-cols-1", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined} data-product-pair="" {...leavingProps(leaving)}>
                   {item.tiles.map((block) => (
                     <div key={block.id} className="min-w-0" data-op-block={block.id} data-sensitive-label={sensitiveLabel(block)}>
                       <PublicBlockRenderer
@@ -1207,7 +1217,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             const block = item
             if (inEditorPreview && isIncompleteLink(block)) {
               return (
-                <div key={block.id} className={cn("w-full", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined}>
+                <div key={block.id} className={cn("w-full", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined} {...leavingProps(leaving)}>
                   <IncompleteLinkPlaceholder label={(block.data as LinkButtonBlockData)?.label} theme={safeTheme} />
                 </div>
               )
@@ -1219,6 +1229,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 style={animStyle}
                 data-onepage-enter={animClass ? "" : undefined}
                 data-op-block={block.id}
+                {...leavingProps(leaving)}
                 data-sensitive-label={sensitiveLabel(block)}
                 data-block-size={presentationOf(block).size || (blockLayoutOf(safeTheme) === "masonry" && block.type === "link_button" ? "half" : "full")}
               >
@@ -1468,6 +1479,17 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         />
       )}
 
+      {/* Round AR: once a full picture hero has scrolled away, a slim bar with the creator's picture and name (components/onepage/hero-scroll). */}
+      <HeroTopBar
+        enabled={heroScrollEffect((safeTheme as any).header_layout, heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) && safeBlocks.some((b: OnePageBlock) => b.type === "header" && isBlockVisible(b)))}
+        name={sellerName}
+        avatarUrl={avatar_url}
+        logoUrl={(safeTheme as any).title_style === "logo" ? (safeTheme as any).title_logo_url : null}
+        background={pageCanvasColour(safeTheme)}
+        ink={(safeTheme as any).title_color || safeTheme.text_color || "#111111"}
+        fontFamily={(safeTheme as any).title_font || safeTheme.font_family}
+      />
+
       {/* Desktop layout - NO internal scrollbar, page scrolls naturally. Only built where it is shown (lib/onepage/live-layout). */}
       {liveLayout !== "phone" && (
       <div
@@ -1563,7 +1585,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           <div
             ref={cardRef}
             data-onepage-drag-scope=""
-            className="w-full max-w-[500px] mx-4 rounded-[40px] overflow-hidden relative"
+            /* Round AR: clipped, not hidden: a box with overflow hidden is a scroll container, and the Hero's scroll timeline (components/onepage/hero-scroll) would follow it instead of the page. */
+            className="w-full max-w-[500px] mx-4 rounded-[40px] overflow-clip relative"
             style={{
               background: getBackgroundStyle(),
               boxShadow: "0 25px 80px -12px rgba(0, 0, 0, 0.35)",
@@ -2762,7 +2785,8 @@ function CoreBlockRenderer({
         const heroPosition = { objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }
 
         return (
-          <div className={cn(heroWidth, "relative mb-2 md:mb-1", heroMargin)} data-hero-header="">
+          /* Round AR: the picture darkens and is held back as the page slides up over it (components/onepage/hero-scroll, app/globals.css [data-hero-scroll]). */
+          <div className={cn(heroWidth, "relative mb-2 md:mb-1", heroMargin)} data-hero-header="" data-hero-scroll="">
             {/*
               THE PICTURE IS MASKED, NOT PAINTED OVER (round 40). The page
               colour used to be laid over its bottom, which on a pattern is a
@@ -2777,6 +2801,7 @@ function CoreBlockRenderer({
               data-hero-media={hasVideo ? "video" : "image"}
               style={{ aspectRatio, maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, backgroundColor: `color-mix(in srgb, ${theme.text_color || "#000000"} 6%, transparent)` }}
             >
+              <div className="absolute inset-0" data-hero-shift="">
               {hasVideo ? (
                 <SmoothAvatarVideo
                   videoUrl={profile.avatar_video_url!}
@@ -2804,9 +2829,12 @@ function CoreBlockRenderer({
                   decoding="async"
                 />
               )}
+              </div>
+              <div aria-hidden className="pointer-events-none absolute inset-0 bg-black opacity-0" data-hero-scrim="" />
             </div>
             {/* Over the faded end of the picture, where the page's own wallpaper already shows: always on top of the media. */}
             <div
+              data-hero-title=""
               className={cn(
                 "absolute left-0 right-0 z-[1] text-center px-6",
                 isDesktop ? "bottom-8" : "bottom-4 sm:bottom-6",

@@ -9760,3 +9760,85 @@ html[data-editor-drawer-open]::-webkit-scrollbar {
 [data-story-track] { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 [data-story-track]::-webkit-scrollbar { display: none; }
 [data-story-track][data-dragging] { scroll-snap-type: none; cursor: grabbing; user-select: none; }
+
+/* ===========================================================================
+   OnePage round AR: the press, the hero as the page scrolls, a block leaving
+   ===========================================================================
+   THE PRESS. components/onepage/press-feel marks <html> while a OnePage is
+   drawn and sets data-op-pressing on the button, link or row under a finger
+   or a mouse from pointerdown: it sinks at once and springs back when let go
+   (data-op-letgo). Scale and opacity only, the compositor's. Unlayered, so it
+   is the one press every button shares, whatever its own utilities say. A
+   big card sinks less than a small button. */
+/* :not(#op) only lifts the weight above the hover rules (.op-btn[data-hover]:active), so every button sinks the same. */
+html[data-op-press] [data-op-pressing]:not(#op) {
+  scale: 0.965;
+  opacity: 0.9;
+  transition: scale 60ms cubic-bezier(0.2, 0, 0, 1), opacity 60ms linear;
+  /* Already part way down on the very first frame: a transition's first frame is still the resting size. */
+  animation: op-press-in 60ms cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes op-press-in {
+  from { scale: 0.982; opacity: 0.95; }
+  to { scale: 0.965; opacity: 0.9; }
+}
+html[data-op-press] :is(.op-card, [data-press="soft"])[data-op-pressing]:not(#op),
+html[data-op-press] [data-op-pressing="soft"]:not(#op) {
+  scale: 0.985;
+  animation: none;
+}
+html[data-op-press] [data-op-letgo] {
+  transition: scale 220ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 220ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-op-press] [data-op-pressing]:not(#op) { scale: none; opacity: 0.75; transition-duration: 0ms; animation: none; }
+  html[data-op-press] [data-op-letgo] { transition-duration: 120ms; }
+}
+
+/* Something that looks like loading only once it has taken half a second (round AR, the sheets). */
+@keyframes op-late-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* THE HERO AS THE PAGE SCROLLS (components/onepage/hero-scroll). The hero's
+   own box is the timeline: from when its top leaves the top of the screen to
+   when its foot does. The picture is held back and grows a little, a dark
+   layer fades over it, and the name over it fades out, so the page slides up
+   over the picture. Transform and opacity only; a browser without scroll
+   timelines gets the same curve from hero-scroll's fallback. */
+@keyframes op-hero-shift {
+  from { translate: 0 0; scale: 1; }
+  to { translate: 0 35%; scale: 1.06; }
+}
+@keyframes op-hero-dim {
+  from { opacity: 0; }
+  to { opacity: 0.55; }
+}
+@keyframes op-hero-title {
+  0%, 30% { opacity: 1; }
+  80%, 100% { opacity: 0; }
+}
+@supports (animation-timeline: view()) {
+  [data-hero-scroll] { view-timeline: --op-hero block; }
+  [data-hero-scroll] [data-hero-shift] {
+    transform-origin: 50% 0;
+    animation: op-hero-shift linear both;
+    animation-timeline: --op-hero;
+    animation-range: exit 0% exit 100%;
+  }
+  [data-hero-scroll] [data-hero-scrim] {
+    animation: op-hero-dim linear both;
+    animation-timeline: --op-hero;
+    animation-range: exit 0% exit 100%;
+  }
+  [data-hero-scroll] [data-hero-title] {
+    animation: op-hero-title linear both;
+    animation-timeline: --op-hero;
+    animation-range: exit 0% exit 100%;
+  }
+}
+[data-hero-scroll] [data-hero-shift] { transform-origin: 50% 0; }
+@media (prefers-reduced-motion: reduce) {
+  [data-hero-scroll] :is([data-hero-shift], [data-hero-title]) { animation: none !important; translate: none !important; scale: none !important; }
+}

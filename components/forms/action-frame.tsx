@@ -54,13 +54,49 @@ const FormSheetBody = lazy(() => import("./form-sheet-body"))
 const FORM_READY_MS = 280
 type FormSheetBodyComponent = typeof import("./form-sheet-body").default
 
-/** The room the form will take while its code arrives (usually none: the press asked for it). */
+/*
+ * ROUND AR: READY BEFORE THE PRESS. The owner: a sheet "takes so much to load",
+ * and the grey bars it rose with read as loading. The form's code and its
+ * questions are now read while the page is idle, as soon as its button comes
+ * near the screen (and again on hover or a finger coming down), so the press
+ * finds both and builds the sheet with the form in it in that same task:
+ * no wait and nothing standing in for it. Only a press that beats the read
+ * waits, as before, up to FORM_READY_MS.
+ */
+let sheetBodyModule: FormSheetBodyComponent | null = null
+const loadSheetBody = () =>
+  import("./form-sheet-body").then((m) => {
+    sheetBodyModule = m.default
+    return m.default
+  })
+const readyForms = new Set<string>()
+function warmForm(id: string): Promise<unknown> {
+  return Promise.all([
+    loadSheetBody(),
+    import("./public-form").then((m) => m.prefetchPublicForm(id)).then((r) => {
+      if (r.form) readyForms.add(id)
+      return r
+    }),
+  ])
+}
+/** Run when the browser has a moment, or soon after where it never says so. */
+function whenIdle(run: () => void): () => void {
+  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (h: number) => void }
+  if (w.requestIdleCallback) {
+    const h = w.requestIdleCallback(run, { timeout: 1500 })
+    return () => w.cancelIdleCallback?.(h)
+  }
+  const t = window.setTimeout(run, 200)
+  return () => window.clearTimeout(t)
+}
+
+/** The room the form will take while it arrives on a slow line: quiet, and nothing that looks like loading for half a second. */
 function FormSheetWaiting() {
   return (
-    <div className="space-y-5 px-2 pb-4 pt-1 motion-safe:animate-pulse sm:px-1" role="status" aria-label={tt("Loading form")}>
-      <div className="h-6 w-2/5 rounded-md bg-[var(--sheet-rule,#eef0f2)]" />
-      <div className="h-11 rounded-xl bg-[var(--sheet-field,#f3f4f6)]" />
-      <div className="h-11 rounded-xl bg-[var(--sheet-field,#f3f4f6)]" />
+    <div className="flex min-h-[240px] items-center justify-center gap-1.5" role="status" aria-label={tt("Loading form")} data-form-sheet-waiting="">
+      {[0, 1, 2].map((i) => (
+        <span key={i} aria-hidden className="h-1.5 w-1.5 rounded-full bg-[var(--sheet-muted,#9ca3af)] opacity-60 [animation:op-late-in_200ms_ease-out_500ms_both] motion-reduce:[animation:none]" />
+      ))}
     </div>
   )
 }
@@ -99,7 +135,36 @@ export function NativeActionFrame({
   /* The sheet stays mounted once opened, so closing it slides it away instead of cutting it off. */
   const [sheetMounted, setSheetMounted] = useState(false)
   const trigger = useRef<HTMLElement | null>(null)
+  const frame = useRef<HTMLDivElement>(null)
   const blockSheet = useBlockSheet()
+  const warmId = actionFormId(action)
+  const warmable = !!warmId && blockSheet.available
+  /* Round AR: the form is read once its button is near the screen, when the page is idle (see READY BEFORE THE PRESS). */
+  useEffect(() => {
+    const el = frame.current
+    if (!warmable || !warmId || !el || readyForms.has(warmId)) return
+    let cancelIdle: (() => void) | null = null
+    const go = () => {
+      cancelIdle = whenIdle(() => void warmForm(warmId).catch(() => {}))
+    }
+    if (typeof IntersectionObserver !== "function") {
+      go()
+      return () => cancelIdle?.()
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return
+        io.disconnect()
+        go()
+      },
+      { rootMargin: "600px 0px" },
+    )
+    io.observe(el)
+    return () => {
+      io.disconnect()
+      cancelIdle?.()
+    }
+  }, [warmable, warmId])
   useEffect(() => {
     if (layer.kind !== "handoff") return
     const t = window.setTimeout(() => step({ type: "too-long" }), HANDOFF_MAX_MS)
@@ -116,14 +181,15 @@ export function NativeActionFrame({
 
   /* The form in the block sheet; a chat waits for the sheet to be gone before it opens. */
   const openFormSheet = (id: string) => {
+    /* Read already (READY BEFORE THE PRESS): the sheet is built with the form in it now, in this task. */
+    if (sheetBodyModule && readyForms.has(id)) return showFormSheet(id, sheetBodyModule)
     let opened = false
     const go = (Body: FormSheetBodyComponent | null) => {
       if (opened) return
       opened = true
       showFormSheet(id, Body)
     }
-    const ready = Promise.all([import("./form-sheet-body"), import("./public-form").then((m) => m.prefetchPublicForm(id))])
-    ready.then(([m]) => go(m.default), () => go(null))
+    warmForm(id).then(() => go(sheetBodyModule), () => go(null))
     window.setTimeout(() => go(null), FORM_READY_MS)
   }
 
@@ -163,8 +229,10 @@ export function NativeActionFrame({
   return (
     <>
       <div
-        /* A finger or the pointer on the button: the form is asked for before the press lands. */
-        onPointerDownCapture={formId && blockSheet.available ? () => void import("./public-form").then((m) => m.prefetchPublicForm(formId)).catch(() => {}) : undefined}
+        ref={frame}
+        /* A pointer over the button, or a finger coming down on it: the form is asked for before the press lands. */
+        onPointerEnter={warmable ? () => void warmForm(formId!).catch(() => {}) : undefined}
+        onPointerDownCapture={formId && blockSheet.available ? () => void warmForm(formId).catch(() => {}) : undefined}
         onClickCapture={(e) => {
           const link = (e.target as Element).closest("a")
           if (!link) return
