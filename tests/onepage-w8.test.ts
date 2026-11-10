@@ -46,10 +46,11 @@ section("A block's row")
   /* Changed on purpose (round W9): the more menu's Remove and the row's bin open the same question. */
   check("Remove is the more menu's, asking first", /askedFrom\.current = "menu"\s+setAskingRemove\(true\)/.test(tab) && /<BlockRemoveQuestion\s+open=\{askingRemove\}/.test(tab))
   /* Changed on purpose (round W9): 48px on a phone (56 from 640px), the room the row's bin takes. Still one width on every row. */
-  check("the numbers are one width on every row, with the full figure in its name", /className="flex h-8 w-8 shrink-0 items-center[^"]*sm:w-14/.test(tab) && /rowCountLabel\(clickCount\)/.test(tab) && /tabular-nums/.test(tab))
+  /* Changed on purpose (wave 10, legible): every row key is 28px on a phone, the count left of its icon on a computer (flex-row-reverse), so the gaps between the tools are equal; tests/onepage-legible-w10.test.ts pins them. */
+  check("the numbers are one width on every row, with the full figure in its name", /className="flex h-8 w-7 shrink-0 flex-row-reverse items-center[^"]*sm:w-14/.test(tab) && /rowCountLabel\(clickCount\)/.test(tab) && /tabular-nums/.test(tab))
   /* Changed on purpose (wave 9): on a phone the numbers slot is an icon (32px) and the count shows from sm up, so titles keep their room. */
-  check("a row without numbers keeps their room", /\{!hasStats && <span aria-hidden className="block h-8 w-8 shrink-0 sm:w-14" data-row-slot="stats" \/>\}/.test(tab))
-  check("the header keeps the more button's room, so its switch lines up", /<span aria-hidden className="block h-8 w-8 shrink-0" data-row-slot="menu" \/>/.test(tab))
+  check("a row without numbers keeps their room", /\{!hasStats && <span aria-hidden className="block h-8 w-7 shrink-0 sm:w-14" data-row-slot="stats" \/>\}/.test(tab))
+  check("the header keeps the more button's room, so its switch lines up", /<span aria-hidden className="block h-8 w-7 shrink-0" data-row-slot="menu" \/>/.test(tab))
   check("the remove menu still holds Remove", /id: "block-remove", label: tt\("Remove"\)/.test(code("components/onepage/block-remove.tsx")))
 }
 
@@ -69,7 +70,8 @@ section("The product sheet's gallery")
   const sheet = code("components/onepage/product-sheet.tsx")
   check("a square", SHEET_GALLERY_RATIO === 1 && /const ratio = SHEET_GALLERY_RATIO/.test(sheet))
   check("every picture fills it (object-cover), as the thumbnails do", /function SlidePicture[\s\S]{0,400}fit="cover"/.test(sheet) && /<FramedPicture src=\{still\} frame=\{1\}[^>]*imgClassName="object-cover"/.test(sheet))
-  check("the full width of the sheet's content, with the title's padding", /"px-5 pt-2 sm:px-6 sm:pt-5"/.test(sheet) && /space-y-3 px-5 pb-4 pt-4 sm:px-6/.test(sheet) && /width:`min\(100%, calc\(60dvh \* \$\{ratio\}\)\)`/.test(sheet))
+  /* Changed on purpose (wave 10, legible): the words end with pb-8, room to clear the soft fade over the Buy bar (the owner's phone: the bar cut the Size row). */
+  check("the full width of the sheet's content, with the title's padding", /"px-5 pt-2 sm:px-6 sm:pt-5"/.test(sheet) && /space-y-3 px-5 pb-8 pt-4 sm:px-6/.test(sheet) && /width:`min\(100%, calc\(60dvh \* \$\{ratio\}\)\)`/.test(sheet))
 }
 
 section("The settings matrix probe")

@@ -980,6 +980,8 @@ export async function sendBuyerDownloadEmail(
         const response = await sendEmail({
           from: own?.from ?? buildFromHeaderLocal(fromName),
           ...(own ? { sendingDomain: own.sendingDomain } : {}),
+          /* The store's email: a reply reaches the store, never Storelib's support inbox (lib/emails/reply-to.ts). */
+          store: creatorId,
           to: customerEmail,
           replyTo,
           subject,
@@ -1063,6 +1065,7 @@ export async function sendReceiptCopyEmail(
     const sent = await sendEmail({
       from: own?.from ?? buildFromHeaderLocal(fromName),
       ...(own ? { sendingDomain: own.sendingDomain } : {}),
+      store: params.creatorId,
       to: normalizeEmail(params.buyerEmail),
       replyTo,
       subject,
@@ -1459,6 +1462,7 @@ export async function sendLeadMagnetEmail(
         const response = await sendEmail({
           from: fromHeader,
           ...(own ? { sendingDomain: own.sendingDomain } : {}),
+          store: creatorId,
           to: customerEmail,
           replyTo,
           subject,

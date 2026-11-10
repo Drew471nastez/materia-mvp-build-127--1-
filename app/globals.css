@@ -9764,10 +9764,16 @@ html[data-editor-drawer-open]::-webkit-scrollbar {
   inherits: false;
   initial-value: 0px;
 }
+/*
+  Wave 10, the owner: "a fade, adapted, smooth, clean, adapted to the colour theme". The story's last lines dissolve
+  into whatever is behind the section (a mask, so a dark scheme, a light one or a picture alike) on an eased curve,
+  not a straight ramp, so there is no visible edge where the fade starts. Opening and closing take 240ms.
+*/
 [data-clamp-fade] {
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--sl-fade)), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--sl-fade)), transparent);
-  transition: max-height 380ms cubic-bezier(0.32, 0.72, 0, 1), --sl-fade 380ms cubic-bezier(0.32, 0.72, 0, 1);
+  --sl-fade-mask: linear-gradient(to bottom, #000 calc(100% - var(--sl-fade)), rgb(0 0 0 / 0.82) calc(100% - var(--sl-fade) * 0.72), rgb(0 0 0 / 0.5) calc(100% - var(--sl-fade) * 0.45), rgb(0 0 0 / 0.18) calc(100% - var(--sl-fade) * 0.2), transparent);
+  -webkit-mask-image: var(--sl-fade-mask);
+  mask-image: var(--sl-fade-mask);
+  transition: max-height 240ms cubic-bezier(0.32, 0.72, 0, 1), --sl-fade 240ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 [data-clamp-fade="closed"] { --sl-fade: var(--sl-fade-to, 52px); }
 [data-clamp-fade="open"] { --sl-fade: 0px; }

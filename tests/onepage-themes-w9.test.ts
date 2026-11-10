@@ -65,7 +65,8 @@ const older = [
 
 console.log("\nSix themes, valid and each its own")
 check(`the older catalogue was read (${older.length} themes)`, older.length >= 38)
-check("six themes, new ids, one for each skin", W9_THEMES.length === 6 && W9_THEMES.every((t) => !older.includes(t.id)) && W9_THEMES.map((t) => t.id).join() === THEME_SKINS.join())
+/* Changed on purpose (round W10): THEME_SKINS also holds the second versions and three new skins (tests/onepage-themes-w10.test.ts); the six are its first six. */
+check("six themes, new ids, one for each skin", W9_THEMES.length === 6 && W9_THEMES.every((t) => !older.includes(t.id)) && W9_THEMES.map((t) => t.id).join() === THEME_SKINS.slice(0, 6).join())
 check("each theme names its own skin", W9_THEMES.every((t) => (t.theme_config as Record<string, unknown>).theme_skin === t.id))
 check("in the kinds the picker lists", W9_THEMES.every((t) => ["light", "gradient", "dark"].includes(t.category)) && new Set(W9_THEMES.map((t) => t.category)).size === 3)
 
@@ -117,7 +118,8 @@ for (const t of W9_THEMES) {
 const faces = W9_THEMES.map((t) => familyOf(t.theme_config.title_font))
 check("six title faces, none shared between them", new Set(faces).size === 6, faces.join())
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }, { id: "c", category: "dark" }]).map((t) => t.id).join(",")
-check("each joins the end of its kind", merged.includes("gazette,aqua,messenger,playful,grunge,b") && merged.includes("halo,aero,c") && merged.includes("acid,y2k,atlas"), merged)
+/* Changed on purpose (round W10): the W10 themes follow the six in each kind. */
+check("each joins the end of its kind", merged.includes("gazette,aqua,messenger,playful,grunge,") && merged.includes("halo,aero,") && merged.includes("acid,y2k,"), merged)
 
 console.log("\nWhat the skins paint, read on what they paint it")
 const css = read("components/onepage/themes/theme-skins.css")
@@ -125,9 +127,11 @@ const css = read("components/onepage/themes/theme-skins.css")
 const PAINTED: Array<[string, string, string[]]> = [
   ["Aero's green gel button", "#08325a", ["#a3ec74", "#6fcf45", "#58bd33", "#8ee05e"]],
   ["Aqua's blue gel button", "#06162e", ["#4a94ec", "#3d89e8", "#5aa9f5"]],
-  ["Messenger's green start button", "#ffffff", ["#2b7f22", "#226b1a"]],
+  /* Changed on purpose (round W10): a deeper green, whose white words read on every band (they measured 3.5:1 on the old highlight). */
+  ["Messenger's green start button", "#ffffff", ["#1d7019", "#1a6c17", "#145d12"]],
   ["Messenger's selection blue (hover)", "#ffffff", ["#316ac5"]],
-  ["Y2K's chrome at its darkest band", "#14112b", ["#939bad", "#c5cbd8"]],
+  /* Changed on purpose (round W10): the chrome's horizon is lighter, no longer a dark line through every label. */
+  ["Y2K's chrome at its darkest band", "#14112b", ["#b9c0cf", "#d3d8e3"]],
   ["Y2K's holographic button", "#14112b", ["#ffc2ef", "#bfefff", "#d9cbff", "#c4ffe2", "#ffd9b8"]],
   ["Playful's run of colours", "#161412", ["#ffe066", "#8ee86b", "#ff9fd0", "#c5a8ff", "#8fd3ff", "#ffb36b"]],
   ["Playful's black button", "#ffffff", ["#161412"]],
@@ -207,7 +211,8 @@ check("from one skin to another, the other's skin", toGrunge.theme_skin === "gru
 const back = lookFromTemplate(toAero, plain, "classic", byId("aero")).theme as unknown as Record<string, unknown>
 check("picking a theme without one takes the skin away, its type and frame too", back.theme_skin === null && back.avatar_border_color === null && back.title_weight === null)
 check("the Messenger rows' text side and icon side come and go with it", (lookFromTemplate(start, byId("messenger"), "classic", plain).theme as any).button_text_align === "left" && (lookFromTemplate(lookFromTemplate(start, byId("messenger"), "classic", plain), plain, "classic", byId("messenger")).theme as any).button_text_align === null)
-check("the type knows the skin", /theme_skin\?: "aero" \| "aqua" \| "messenger" \| "y2k" \| "playful" \| "grunge" \| null/.test(read("lib/onepage/types.ts")))
+/* Changed on purpose (round W10): the type names the W10 skins after the six. */
+check("the type knows the skin", /theme_skin\?: "aero" \| "aqua" \| "messenger" \| "y2k" \| "playful" \| "grunge" \| /.test(read("lib/onepage/types.ts")))
 
 console.log("\nEvery name in six languages")
 const names = read("components/onepage/themes/theme-names.ts")

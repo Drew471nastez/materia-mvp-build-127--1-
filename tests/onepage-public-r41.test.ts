@@ -123,7 +123,8 @@ section("Share: the card from before, with the creator's photo")
   check("white words on a dark band, ink on a light one", shareBandInk("#0a0a0a") === "light" && shareBandInk("#fffbeb") === "dark")
   const share = code("components/onepage/share-sheet.tsx")
   /* Changed on purpose (round AP): the owner asked for Share as a bottom sheet on a phone, like Subscribe. The centred card from 640px, the band running under the sheet's grip on a phone. */
-  check("a bottom sheet on a phone and the centred card from 640px, with no surface of its own behind the band", /<OnePageDialog [^>]*\bbare phoneTop=\{band\} header=\{header\}>/.test(share) && !/\bcentered\b/.test(share.slice(share.indexOf("<OnePageDialog"))))
+  /* Changed on purpose (wave 10, legible): the share band melts into the sheet (shareBandBlend) and the grip wears its first colour (shareBandTop); tests/onepage-legible-w10.test.ts pins them. */
+  check("a bottom sheet on a phone and the centred card from 640px, with no surface of its own behind the band", /<OnePageDialog [^>]*\bbare phoneTop=\{shareBandTop\(band\)\} header=\{header\}>/.test(share) && !/\bcentered\b/.test(share.slice(share.indexOf("<OnePageDialog"))))
   check("the creator's photo, or their video, large in the band", /<AppAvatar waitForPhoto src=\{onePageImageSrc\(avatarUrl, 160\)\}/.test(share) && /<PosterVideo src=\{avatarVideoUrl\}/.test(share))
   check("the four places and the Storelib card, as before", ["Copy link", '"X"', '"Facebook"', '"WhatsApp"', "Create your own page", "Build your store with Storelib", ">Join<"].every((w) => share.includes(w)))
   check("a share never leaves the editor's preview", (share.match(/isOnePagePreview\(\)/g) ?? []).length >= 2)

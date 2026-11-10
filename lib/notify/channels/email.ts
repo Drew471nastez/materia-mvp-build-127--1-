@@ -110,7 +110,8 @@ export function emailChannel(o: EmailChannelOptions): EmailSend {
     /* The seller's name in front of Storelib's address, so the buyer sees who is asking; a community's own name as it is, as a store's receipt carries the store's. */
     const fromName = rendered.fromName ? (rendered.fromNameExact ? rendered.fromName : `${rendered.fromName} via Storelib`) : undefined
     /* A store's own email to its buyer, from the store's own verified domain: its name alone, no "via Storelib". */
-    const own = entry.recipient === "customer" && job.creator_id && rendered.fromName && o.ownSender ? await o.ownSender(job.creator_id).catch(() => null) : null
+    const storeMail = entry.recipient === "customer" && !!job.creator_id && !!rendered.fromName
+    const own = storeMail && o.ownSender ? await o.ownSender(job.creator_id!).catch(() => null) : null
     return o.provider.send({
       to,
       subject,
@@ -119,6 +120,8 @@ export function emailChannel(o: EmailChannelOptions): EmailSend {
       fromName,
       ...(own && rendered.fromName ? { from: ownFrom(rendered.fromName, own.address), sendingDomain: own.domain } : {}),
       replyTo: rendered.replyTo ?? undefined,
+      /* The store's email: a reply reaches the store, never Storelib's support inbox. */
+      ...(storeMail ? { store: job.creator_id } : {}),
       headers,
       tags: [entry.type],
       variables: { delivery_id: deliveryId, job_id: job.id },

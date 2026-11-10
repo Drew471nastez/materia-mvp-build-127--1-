@@ -1,3 +1,4 @@
+import { tt } from "@/lib/i18n/text"
 /**
  * ===========================================================================
  *  WHICH SECTIONS /app/analytics DRAWS, FOR WHAT THIS SELLER SELLS AND HAS
@@ -226,4 +227,74 @@ export const DEFAULT_SECTIONS_ALL: Sections = {
   links: false,
   communities: false,
   downloads: true,
+}
+
+/* ─── Wave 10: one page, whatever is chosen ─────────────────────────────── */
+
+/**
+ * THE SAME CARDS IN THE SAME PLACES, WHATEVER IS CHOSEN (wave 10, the owner: "the order of the tabs and the showing
+ * of the tabs and position should not be different when I switch analytics from OnePage to All, to Communities, to
+ * Digital products"). As Shopify, Stripe and Plausible do it: a filter changes the numbers, never the layout. A card
+ * that means something for what the seller sells and has keeps its place for every place and every type; when what
+ * is chosen has nothing for it, it says so in one line (`slotNote`) instead of leaving and coming back.
+ *
+ * What decides a card's place is the seller (`slotsFor`), never the filter, except the product picker: one product
+ * chosen is a different question (a list of one), as before.
+ */
+export interface Slots {
+  /** A seller with a physical product: the Shipping card. */
+  shipping: boolean
+  /** A seller of digital products: Downloads. */
+  downloads: boolean
+  /** A seller with anything to sell: Refunds. */
+  refunds: boolean
+  /** A seller who runs a community: the Communities cards under the rest. */
+  communities: boolean
+  /** A seller with a published website: Clicks between pages. */
+  siteClicks: boolean
+}
+
+export function slotsFor(p: AnalyticsProfile, s: Pick<Selection, "productKind">): Slots {
+  const allProducts = s.productKind === null
+  return {
+    shipping: p.physical && (allProducts || s.productKind === "physical"),
+    downloads: p.digital && (allProducts || s.productKind === "digital"),
+    refunds: p.products > 0,
+    communities: p.communities > 0 && (allProducts || s.productKind === "community"),
+    siteClicks: p.publishedWebsite,
+  }
+}
+
+export type SlotId = keyof Slots
+
+/**
+ * Why a card kept in its place has nothing for what is chosen, said in one line, or null when it applies.
+ * `property` as in Selection ("all", "creator_page", "onepage", "website:<id>").
+ */
+export function slotNote(id: SlotId, s: { property: string; mode: SalesMode }): string | null {
+  if (id === "shipping") return s.mode === "digital" ? tt("Digital products don't ship. Choose All types or Physical to see shipping.") : null
+  if (id === "downloads") return s.mode === "physical" ? tt("Downloads count digital products. Choose All types or Digital to see them.") : null
+  if (id === "communities") {
+    if (s.mode === "physical") return tt("Communities are not physical sales. Choose All types or Communities to see them.")
+    if (s.property !== "all") return tt("Communities have their own pages. Choose All pages or Communities to see them.")
+    return null
+  }
+  if (id === "siteClicks") return s.property === "onepage" || s.property === "creator_page" ? tt("Clicks between pages are counted on your websites. Choose All pages or a website to see them.") : null
+  return null
+}
+
+/**
+ * THE FOUR FIGURES OVER THE CHART, IN FOUR FIXED PLACES. Audience first, then money, then how many, then the rate,
+ * for every type: the store's Visitors, Revenue, Orders and Conversion; the communities' Visits, Payments received,
+ * New members and Join rate in the very same four places. The figure chosen stays chosen by its place when the type
+ * changes (Revenue chosen, Communities shows Payments received).
+ */
+export const STORE_METRICS = ["views", "revenue", "orders", "conversion"] as const
+export const COMMUNITY_METRICS = ["visits", "revenue", "joined", "joinRate"] as const
+export type CommunityMetricSlot = (typeof COMMUNITY_METRICS)[number]
+
+/** The place of a figure in its row, 0 when it is not in it. */
+export function metricSlot(list: readonly string[], key: string): number {
+  const i = list.indexOf(key)
+  return i < 0 ? 0 : i
 }

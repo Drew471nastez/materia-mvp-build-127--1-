@@ -139,7 +139,9 @@ async function sendOne(
     to: m.buyer_email,
     from: loaded.sender.from,
     ...(loaded.sender.sendingDomain ? { sendingDomain: loaded.sender.sendingDomain } : {}),
-    replyTo: loaded.sender.replyTo,
+    replyTo: loaded.sender.replyTo || undefined,
+    /* The store's email: a reply reaches the store, never Storelib's support inbox. */
+    store: loaded.sender.creatorId,
     subject: mail.subject,
     html: mail.html,
     text: mail.text,

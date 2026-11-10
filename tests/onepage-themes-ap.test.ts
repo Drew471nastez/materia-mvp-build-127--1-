@@ -77,7 +77,7 @@ for (const t of AP_THEMES) {
 }
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }])
 /* Changed on purpose (round W8): Gazette (light) and Halo (gradient) now follow Notebook and Cobalt at the end of their kinds. */
-check("Notebook joins the light themes and Cobalt the gradients", merged.map((t) => t.id).join(",").includes("folio,notebook,gazette,aqua,messenger,playful,grunge,b,lagoon,cobalt,halo,aero") /* Changed on purpose (round W9): Aqua, Messenger, Playful and Grunge join the light themes, Aero the gradients. */, merged.map((t) => t.id).join(","))
+check("Notebook joins the light themes and Cobalt the gradients", merged.map((t) => t.id).join(",").includes("folio,notebook,gazette,aqua,messenger,playful,grunge,aqua2,messenger2,grunge2,b,lagoon,cobalt,halo,aero,y2k2,vaporwave") /* Changed on purpose (round W10): the W10 themes follow the W9 ones. */ /* Changed on purpose (round W9): Aqua, Messenger, Playful and Grunge join the light themes, Aero the gradients. */, merged.map((t) => t.id).join(","))
 
 console.log("\nEvery theme's name in six languages")
 const names = read("components/onepage/themes/theme-names.ts")

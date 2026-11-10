@@ -27,8 +27,20 @@
  * its material but draws no scene: the creator's picture is the scene.
  */
 
-/** Every skin a theme can name. Anything else, or nothing, is no skin: the page as it always was. */
-export const THEME_SKINS = ["aero", "aqua", "messenger", "y2k", "playful", "grunge"] as const
+/**
+ * Every skin a theme can name. Anything else, or nothing, is no skin: the page as it always was.
+ *
+ * Round W10: a second version of each of the six ("aero2" is Aero Aquarium,
+ * "aqua2" Aqua Graphite, "messenger2" Messenger Olive, "y2k2" Y2K Kawaii,
+ * "playful2" Playful Night, "grunge2" Grunge Zine), drawn by the same
+ * family of rules with its own palette and scene (scripts/onepage-skins/),
+ * and three more that stand alone: Classic 98, Vaporwave and Arcade.
+ */
+export const THEME_SKINS = [
+  "aero", "aqua", "messenger", "y2k", "playful", "grunge",
+  "aero2", "aqua2", "messenger2", "y2k2", "playful2", "grunge2",
+  "classic98", "vaporwave", "arcade",
+] as const
 export type ThemeSkin = (typeof THEME_SKINS)[number]
 
 type SkinThemeLike = {

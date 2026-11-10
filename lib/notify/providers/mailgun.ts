@@ -14,7 +14,8 @@ import "server-only"
  *   from       MAILGUN_FROM_NAME <MAILGUN_FROM_EMAIL> when both are set,
  *              else EMAIL_FROM. A message that named a sender ("Loudlib via
  *              Storelib") replaces the NAME only; the address stays Storelib's.
- *   reply-to   EMAIL_REPLY_TO
+ *   reply-to   the store's, for a store's email to its customer (`store`,
+ *              lib/emails/reply-to.ts); EMAIL_REPLY_TO for Storelib's own
  *   o:tag      the notification type
  *   v:*        delivery_id and job_id, back on every webhook event
  *
@@ -86,7 +87,9 @@ export class MailgunEmailProvider implements EmailProvider {
       html: email.html,
       text: email.text,
       from: email.from || notifyFrom(process.env, email.fromName),
-      replyTo: email.replyTo || EMAIL_REPLY_TO,
+      /* A store's email replies to the store (resolved in sendMailgunOnce); Storelib's own to Storelib. */
+      replyTo: email.replyTo || (email.store ? undefined : EMAIL_REPLY_TO),
+      ...(email.store ? { store: email.store } : {}),
       headers: email.headers,
       tags: email.tags,
       metadata: email.variables,

@@ -31,6 +31,16 @@ const PIECES: Record<ThemeSkin, ReadonlyArray<readonly [string, number]>> = {
   y2k: [["aurora", 3], ["horizon", 1], ["pixels", 1], ["spark", 10]],
   playful: [["paper", 1], ["blob", 4], ["doodle", 5]],
   grunge: [["copy", 1], ["streaks", 1], ["halftone", 1], ["barbed", 2], ["code", 1], ["edge", 1]],
+  /* Round W10: the second versions, and three that stand alone (scripts/onepage-skins/). */
+  aero2: [["rays", 1], ["caustics", 1], ["sand", 1], ["weed", 2], ["fish", 3], ["bubble", 8], ["glint", 2]],
+  aqua2: [["brush", 1], ["sheen", 1], ["light", 1]],
+  messenger2: [["band", 1], ["ribbon", 2], ["glow", 2]],
+  y2k2: [["glow", 3], ["floor", 1], ["dots", 1], ["charm", 6], ["spark", 6]],
+  playful2: [["paper", 1], ["blob", 4], ["doodle", 5]],
+  grunge2: [["copy", 1], ["streaks", 1], ["halftone", 1], ["columns", 2], ["scribble", 1], ["pin", 1], ["edge", 1], ["staple", 2]],
+  classic98: [["dither", 1], ["taskbar", 1], ["icon", 2]],
+  vaporwave: [["stars", 1], ["sun", 1], ["mountains", 1], ["floor", 1], ["horizon", 1], ["palm", 2], ["vhs", 1]],
+  arcade: [["stars", 1], ["twinkle", 5], ["coin", 2], ["hills", 1], ["hud", 1], ["crt", 1]],
 }
 
 export function ThemeSkinScene({
@@ -51,7 +61,7 @@ export function ThemeSkinScene({
   return (
     <div aria-hidden data-skin-scene={skin} className={`pointer-events-none overflow-hidden ${className}`} style={style}>
       {PIECES[skin].flatMap(([piece, n]) => Array.from({ length: n }, (_, i) => <span key={`${piece}${i}`} data-sk={piece} />))}
-      {skin === "grunge" && words ? (
+      {(skin === "grunge" || skin === "grunge2") && words ? (
         <span data-sk="edge-words">{Array.from({ length: 6 }, () => words).join("  ✕  ")}</span>
       ) : null}
     </div>

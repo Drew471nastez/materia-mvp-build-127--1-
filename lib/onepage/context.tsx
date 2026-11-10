@@ -1,5 +1,6 @@
 "use client"
 
+import { withSkinOwn } from "./skin-own"
 import type React from "react"
 import { createContext, useContext, useState, useCallback, useMemo, useRef, useLayoutEffect } from "react"
 import { useShellAvatar } from "@/lib/account/avatar-store"
@@ -443,7 +444,9 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     if (!prev) return
     const fields = changedFields(prev.theme as any, updates as any)
     if (fields.length === 0) return
-    commit({ ...prev, theme: { ...prev.theme, ...updates } }, editKey("theme", null, fields))
+    /* Wave 10: on a skinned theme, a Design change is the creator's own and shows over the skin (lib/onepage/skin-own). */
+    const own = withSkinOwn(prev.theme as unknown as Record<string, unknown>, updates as Record<string, unknown>)
+    commit({ ...prev, theme: { ...prev.theme, ...own } }, editKey("theme", null, fields))
   }, [commit])
 
   const applyTemplate = useCallback((template: OnePageTemplate) => {

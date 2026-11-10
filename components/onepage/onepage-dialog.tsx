@@ -170,7 +170,8 @@ export function OnePageDialog({
         aboveKeyboard={!tall}
         scrollKey={scrollKey}
         handleBackground={phoneTop}
-        className={dark ? "bg-[#18181c]" : "bg-white"}
+        /* Wave 10 (legible): the sheet is its body's own surface to the bottom edge (safe area too), never a white strip under a themed body. */
+        className={dark ? "bg-[var(--opk-surface,#18181c)]" : "bg-[var(--opk-surface,#ffffff)]"}
       >
         <div style={style} className="text-[var(--sheet-body)]">
           {children}

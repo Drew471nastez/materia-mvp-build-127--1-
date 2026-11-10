@@ -128,10 +128,11 @@ console.log("\nA. A bin on every block's row, Delete still in the more menu, the
 {
   const remove = code("components/onepage/block-remove.tsx")
   const tab = code("components/onepage/tabs/links-tab.tsx")
-  check("the bin: always drawn, a 32px key (28 on a phone) whose press reaches 44px tall", /export const BlockRowDelete = /.test(remove) && /data-block-row-delete=""/.test(remove) && /before:-inset-y-1\.5/.test(remove) && /compact \? "h-7 w-7" : "h-8 w-7 sm:w-8"/.test(remove) && !/opacity-0[^"]*group-hover/.test(remove.slice(remove.indexOf("BlockRowDelete"), remove.indexOf("BlockRowDeleteSlot"))))
+  /* Changed on purpose (wave 10, legible): the owner found the gaps between the row's tools too wide and uneven. Every key is 28px at both widths (the bin too), the numbers end on their icon, the switch carries the same room each side; tests/onepage-legible-w10.test.ts pins the equal gaps. */
+  check("the bin: always drawn, a 28px key whose press reaches 44px tall", /export const BlockRowDelete = /.test(remove) && /data-block-row-delete=""/.test(remove) && /before:-inset-y-1\.5/.test(remove) && /compact \? "h-7 w-7" : "h-8 w-7"/.test(remove) && !/opacity-0[^"]*group-hover/.test(remove.slice(remove.indexOf("BlockRowDelete"), remove.indexOf("BlockRowDeleteSlot"))))
   check("named for the block it removes", /aria-label=\{tt\("Remove \{name\}", \{ name \}\)\}/.test(remove))
-  check("on every page row, in the tools beside the sparkle and the numbers, before the switch", /<BlockRowDelete\s+ref=\{binRef\}[\s\S]{0,400}<BlockRowDeleteSlot \/>[\s\S]{0,200}<BlockToggle checked=\{block\.enabled\}/.test(tab))
-  check("the header keeps the bin's room, so its switch lines up", /export function BlockRowDeleteSlot\(\)[\s\S]{0,200}h-8 w-7 shrink-0 sm:w-8/.test(remove))
+  check("on every page row, in the tools beside the sparkle and the numbers, before the switch", /<BlockRowDelete\s+ref=\{binRef\}[\s\S]{0,400}<BlockRowDeleteSlot \/>[\s\S]{0,260}<BlockToggle checked=\{block\.enabled\}/.test(tab))
+  check("the header keeps the bin's room, so its switch lines up", /export function BlockRowDeleteSlot\(\)[\s\S]{0,200}h-8 w-7 shrink-0" data-row-slot="delete"/.test(remove))
   check("on a group's rows too", /<BlockRowDelete compact name=\{preview\.title\}/.test(tab))
   check("it asks the same question as the menu's Remove", /askedFrom\.current = "bin"\s+setAskingRemove\(\(v\) => !v\)/.test(tab) && /askedFrom\.current = "menu"\s+setAskingRemove\(true\)/.test(tab) && /<BlockRemoveQuestion\s+open=\{askingRemove\}/.test(tab))
   check("focus goes back to whichever asked", /returnFocus=\{askedFrom\.current === "bin" \? binRef : menuRef\}/.test(tab))
@@ -145,7 +146,7 @@ console.log("\nA. A bin on every block's row, Delete still in the more menu, the
   check("the last row eats the space before it", last[1].marginTop === "-16px" && !("marginBottom" in last[1]))
   const collapse = code("lib/onepage/row-collapse.ts")
   check("reduced motion takes it off at once, and done is called exactly once", /prefers-reduced-motion: reduce/.test(collapse) && /if \(called\) return/.test(collapse) && /window\.setTimeout\(finish, ROW_COLLAPSE_MS \+ 150\)/.test(collapse))
-  check("on a phone the row is a step tighter, so the bin costs a title nothing", /"group\/row flex items-center gap-2 p-3 sm:gap-3/.test(tab) && /flex h-8 w-8 shrink-0 items-center[^"]*sm:w-14/.test(tab))
+  check("on a phone the row is a step tighter, so the bin costs a title nothing", /"group\/row flex items-center gap-2 p-3 sm:gap-3/.test(tab) && /flex h-8 w-7 shrink-0 flex-row-reverse items-center[^"]*sm:w-14/.test(tab))
 }
 
 console.log("\nRegistered")

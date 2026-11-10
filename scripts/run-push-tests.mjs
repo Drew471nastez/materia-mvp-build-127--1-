@@ -801,6 +801,12 @@ const SUITES = [
   "tests/compat-languages.test.ts",
   "tests/canvas-currency.test.ts",
   "tests/analytics-ad.test.ts",
+  /* Wave 10: Analytics keeps its shape whatever place or type is chosen: the same cards in the same places (lib/analytics/sections slotsFor, slotNote), four figures in four fixed places for the store and the communities, the community answers kept between views. */
+  "tests/analytics-stable-w10.test.ts",
+  /* Wave 10: the About story fades into its own background on an eased mask (240ms, any theme), its Markdown read and drawn as React elements (lib/storefront/story-markdown, components/store-builder/story-text), never printed or made HTML. */
+  "tests/story-fade-w10.test.ts",
+  /* Wave 10: the product editor's Edit size chart dialog on the shared SheetDialog: one fixed height, Edit and Preview (the storefront's own table), More options folded, Save and Cancel at the foot, a discard question in the foot, the exit played before it unmounts. */
+  "tests/size-chart-dialog-w10.test.ts",
   "tests/tax-settings-wiring.test.ts",
   "tests/customer-email-editor.test.ts",
   /* Round 28: a customer email's six parts, per language, saved and read back, drawn as sent (preview text, footer note), reset. */
@@ -876,6 +882,9 @@ const SUITES = [
   "tests/onepage-themes-w8.test.ts",
   /* Round W9: six themes with a skin (Aero, Aqua, Messenger, Y2K, Playful, Grunge): every text and button pair and every colour the skin paints read at 4.5:1, the skin carried by both roots and the theme card, the generated stylesheet current and styling every kind of block, motion by transform and opacity only and still for reduced motion and in cards, the skin laid on and taken off with the theme. scripts/shot-onepage-skins.mjs photographs them. */
   "tests/onepage-themes-w9.test.ts",
+  "tests/onepage-patterns-w10.test.ts",
+  /* Round W10: the skins fixed at the source (every word on a form, a card and the legal links in a colour picked for that surface, 4.5:1 even at 70%), a second version of each of the six (Aero Aquarium, Aqua Graphite, Messenger Olive, Y2K Kawaii, Playful Night, Grunge Zine) drawn by the same rules with another palette, and Classic 98, Vaporwave and Arcade. */
+  "tests/onepage-themes-w10.test.ts",
   /* Round 10 buttons: every saved button draws as before, the hover system, one drawing for page, preview and Design tab; a social link typed any way saved as the right address. scripts/check-onepage-buttons.mjs measures them. */
   "tests/onepage-buttons.test.ts",
   "tests/onepage-social-input.test.ts",
@@ -1068,6 +1077,7 @@ const SUITES = [
   "tests/connected-platforms.test.ts",
   /* Wave 9, emails: every store email From the store's own verified domain (lib/mailgun.ts `store`), the domain checked again by the cron, the platforms synced within the minute also with physical commerce off. */
   "tests/emails-sending-w9.test.ts",
+  "tests/emails-reply-w10.test.ts",
   "tests/partners24.test.ts",
   /* Round AE3: each partner's cancel and costs against stubs of its API, holds and the partner card read from the timeline, the packing slip's paper and prices, the buyer's paid rate in Buy a label. */
   "tests/fulfilment-ae3.test.ts",
@@ -1447,6 +1457,8 @@ const STRICT_SUITES = [
   "tests/onepage-ar3.test.ts",
   /* Round W9 (opblocks): a bin on every block row (the question first, the row folding away in 180ms, Delete still in the more menu); the block sheets (Contact, Subscribe, Share, music, Privacy) and the product sheet in the page's palette and typeface; a theme taking every block's own colours, a group's too; Mixed tiles as pairs and full rows taking turns, never a featured card halved or a half alone; Cards drawing every plain link as a card. */
   "tests/onepage-blocks-w9.test.ts",
+  /* Wave 10 (legible): every word on a OnePage reads on what is painted under it (lib/onepage/legible, components/onepage/legible-guard), the creator's own Design shown over a skinned theme (lib/onepage/skin-own), the product sheet's square gallery, thumbnails and Buy bar, the share sheet as one surface, and one gap between every tool on a block's row. scripts/check-onepage-legible-w10.mjs walks every theme in the picker on pixels. */
+  "tests/onepage-legible-w10.test.ts",
   /* Round 43: the OnePage editor's font sheet as tall as its list, an off block's controls unfaded, Remove's question in one compact line, a block's stats with the period as a popover and See in Analytics, the header's type and picture frame, the cover's ring that follows a Left header, one hold for every window over the live page. scripts/check-onepage-editor-r43.mjs measures them. */
   "tests/onepage-editor-r43.test.ts",
   /* Round 44: every page of a published website, for search engines: one indexable host (the Storelib address's sitemap goes to the domain's), a website not live is a 404 past its front page, a renamed product's old address a 308, the sitemap to 50,000 products held a page at a time, an imported theme's canonical and noindex, and IndexNow told about the addresses a publish or a deleted page took down. */

@@ -275,8 +275,8 @@ export function ThemePreview({ c: given, name, thumb, photo = null }: { c: Look;
           <img src={thumb(image)} alt="" draggable={false} loading="eager" decoding="sync" data-theme-thumb="" className="absolute inset-0 h-full w-full object-cover" style={c.image_brightness && c.image_brightness !== 100 ? { filter: `brightness(${c.image_brightness}%)` } : undefined} />
         ) : null}
         {(image && c.image_noise) || (c.background_type === "gradient" && c.gradient_noise) ? <WallpaperNoise strength={c.noise_strength} /> : null}
-        <WallpaperPattern theme={c} clearHeader />
         <ThemeSkinScene theme={c} />
+        <WallpaperPattern theme={c} clearHeader />
       </span>
       {/*
         Round W8: the page is as tall as the card and no block is ever cut by

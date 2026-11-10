@@ -191,6 +191,11 @@ export interface CommerceReportsProps {
   showFulfillment?: boolean
   /** A store that sells both kinds: the breakdown has a Digital and a Physical column. */
   showKinds?: boolean
+  /**
+   * Wave 10: a store that ships keeps the Shipping card in its place for every place and type, so nothing under it
+   * moves on a switch: dashes when the period has no physical order, one line when the type chosen does not ship.
+   */
+  keepShipping?: boolean
   /** Who is signed in: a kept answer counted for anybody else is never drawn. */
   viewer?: string | null
   /** The page's minute: asks the same question again. */
@@ -203,7 +208,7 @@ export interface CommerceReportsProps {
 type Metric = "total" | "aov" | "orders"
 type Shape = { showShipping: boolean; showFulfillment: boolean; showKinds: boolean }
 
-export function CommerceReports({ span, compare, timeZone, product = "all", property = "all", kind = "all", showShipping: askShipping = true, showFulfillment: askFulfillment = true, showKinds: askKinds = false, viewer = null, refresh = 0, rangeText, againstText = null }: CommerceReportsProps) {
+export function CommerceReports({ span, compare, timeZone, product = "all", property = "all", kind = "all", showShipping: askShipping = true, showFulfillment: askFulfillment = true, showKinds: askKinds = false, keepShipping = false, viewer = null, refresh = 0, rangeText, againstText = null }: CommerceReportsProps) {
   const currency = useStoreCurrency()
   const key = commerceKey({ start: span.start, end: span.end, compare, product, property, timeZone, currency, kind })
   const question = commerceQuestionOf(key)
@@ -294,6 +299,9 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
   */
   const physicalOrders = Math.max(rate?.orders ?? 0, kinds?.physical.orders ?? 0)
   const shipping = showFulfillment && !!data && physicalOrders > 0
+  /* Kept in its place (wave 10): the type on screen does not ship (Digital), said in one line over the card's own shape. */
+  const shippingCard = keepShipping || (shipping && !!b)
+  const noShipping = shippingCard && !showFulfillment
 
   const figures = [
     /* Nothing to divide by is said in words, not a dash (round 49). */
@@ -569,14 +577,20 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
           ))}
         </div>
       </Card>
-      {shipping && b ? (
+      {shippingCard ? (
         /*
           SHIPPING, A SECTION OF ITS OWN, only for a period with a physical order: how many went out, how
           long they waited and what buyers paid for delivery. Three figures in one card, side by side from
           sm up and one under the other on a phone.
         */
         <Card card="shipping" title={tt("Shipping")} detail="shipping" help={tt("This period's physical orders: the share shipped or delivered, how long a parcel waited from payment to shipped, and the shipping buyers paid.")} className="lg:col-span-3">
-          <dl className="grid grid-cols-1 divide-y divide-[#f1f2f4] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <div className="relative">
+          {noShipping ? (
+            <p data-slot-note="shipping" className="absolute inset-0 z-[1] flex items-center justify-center px-4 text-center text-[13px] text-[#6b7280]">
+              {tt("Digital products don't ship. Choose All types or Physical to see shipping.")}
+            </p>
+          ) : null}
+          <dl aria-hidden={noShipping || undefined} className={cn("grid grid-cols-1 divide-y divide-[#f1f2f4] sm:grid-cols-3 sm:divide-x sm:divide-y-0", noShipping && "invisible")}>
             <div data-card="fulfil" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:py-0 sm:pr-5">
               <dt className="text-[13px] text-[#4b5563]">{tt("Fulfilled")}</dt>
               <dd className="flex flex-col items-end gap-0.5 sm:mt-1 sm:items-start">
@@ -597,11 +611,12 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
             <div data-shipping="charged" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:py-0 sm:pl-5">
               <dt className="text-[13px] text-[#4b5563]">{tt("Shipping charged")}</dt>
               <dd className="flex flex-col items-end gap-0.5 sm:mt-1 sm:items-start">
-                <span className="text-[22px] font-bold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{money((kinds ? kinds.physical.shipping : b.shipping) || 0)}</span>
+                <span className="text-[22px] font-bold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{money((kinds ? kinds.physical.shipping : b?.shipping) || 0)}</span>
                 <span className="text-[12px] tabular-nums text-[#6b7280]">{tt("{count, plural, one {# physical order} other {# physical orders}}", { count: physicalOrders })}</span>
               </dd>
             </div>
           </dl>
+          </div>
         </Card>
       ) : null}
       {data?.truncated ? (

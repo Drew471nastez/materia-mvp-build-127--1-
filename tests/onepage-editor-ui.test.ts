@@ -119,7 +119,8 @@ function main() {
 
   section("Wallpaper")
   {
-    check("the old ten patterns are all still offered", ["grid", "dots", "waves", "zigzag", "diagonal", "morph", "organic", "flowmaze", "topographic", "stars"].every(isPatternId))
+    /* Changed on purpose (round W10): Zigzag, Morph, Organic and Flow are no longer offered; a page that saved one still draws its stand-in (tests/onepage-patterns-w10.test.ts). */
+    check("the old ten patterns still draw on a page that saved one", ["grid", "dots", "waves", "zigzag", "diagonal", "morph", "organic", "flowmaze", "topographic", "stars"].every(isPatternId))
     check("with new textures and patterns", ["grain", "paper", "linen", "lines", "crosshatch", "checker"].every(isPatternId))
     check("none, and names nobody knows, draw nothing", patternStyle("none", "#000") === null && patternStyle("plaid", "#000") === null && patternStyle(undefined, "#000") === null)
     let all = true

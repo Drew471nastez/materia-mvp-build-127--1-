@@ -24,6 +24,7 @@
  *     A colour chosen for a block after the theme stays until the next theme.
  */
 import type { OnePage, OnePageBlock, OnePageTheme } from "./types"
+import { readableOn as readableOnSurface } from "./legible"
 
 /**
  * Every setting of the look a theme or the Design tab can set, at the value
@@ -78,6 +79,8 @@ export const LOOK_RESET: Record<string, unknown> = {
   wallpaper_tint_strength: null,
   /* Round W9: the skin, its material and scene (lib/onepage/theme-skin). Null is none. */
   theme_skin: null,
+  /* Wave 10: what the creator made their own over the skin (lib/onepage/skin-own); a new theme starts over. */
+  skin_own: null,
 }
 
 /**
@@ -235,20 +238,16 @@ export function contrastRatio(a: string, b: string): number | null {
 
 /**
  * `preferred` when it can be read on `background`, else near black or white,
- * whichever reads better. Text a person chose themselves is passed as
- * `chosen` and wins whenever it can be read.
- *
- * Changed on purpose (round AR): the bar is 4.5:1 (WCAG body text), not
- * 3:1, and a chosen colour that cannot be read on its own background (white
- * words on a white card) is rescued too. The page's own theme goes through
- * lib/onepage/contrast readableTheme before any block reads it.
+ * whichever reads. Text a person chose themselves is passed as `chosen` and
+ * wins while it can be read; wave 10 (legible): a chosen colour that cannot
+ * be read on its surface is nudged to the nearest one of its hue that can
+ * (lib/onepage/legible readableOn), never left invisible.
  */
 export function readableOn(background: string, preferred: string, chosen?: string | null): string {
-  const reads = (c: string) => {
-    const r = contrastRatio(background, c)
-    return r === null || r >= 4.5
-  }
-  if (chosen && reads(chosen)) return chosen
-  if (reads(preferred)) return preferred
-  return (contrastRatio(background, "#111827") ?? 0) >= (contrastRatio(background, "#ffffff") ?? 0) ? "#111827" : "#ffffff"
+  if (chosen) return readableOnSurface(background, chosen)
+  const ratio = contrastRatio(background, preferred)
+  /* Round AR: the bar for the theme's own colour is 4.5:1 (WCAG body text), as lib/onepage/contrast holds the page to. */
+  if (ratio === null || ratio >= 4.5) return preferred
+  const lum = luminanceOf(background) ?? 1
+  return lum > 0.4 ? "#111827" : "#ffffff"
 }

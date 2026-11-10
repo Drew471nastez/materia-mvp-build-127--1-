@@ -369,12 +369,26 @@ export function PhoneItem({ head, aside, line, meta, badges, menu, ...row }: { h
  * so a place can be opened in a new tab, linked to and bookmarked.
  */
 export type EmailsPlace = "campaigns" | "automations" | "customer" | "settings"
-export const PLACES: { value: EmailsPlace; tab: EmailsPageTab; section?: SettingsSection; href: string; label: string }[] = [
+export const PLACES: { value: EmailsPlace; tab: EmailsPageTab; section?: SettingsSection; href: string; label: string; short?: string }[] = [
   { value: "campaigns", tab: "campaigns", href: "/app/emails", get label() { return tt("Campaigns") } },
   { value: "automations", tab: "automations", href: "/app/emails?tab=automations", get label() { return tt("Automations") } },
-  { value: "customer", tab: "settings", section: "customer", href: "/app/emails?tab=settings&section=customer", get label() { return tt("Customer emails") } },
+  /* On a phone the one long name is cut to its first word, so the four places fit the screen whole (wave 10). */
+  { value: "customer", tab: "settings", section: "customer", href: "/app/emails?tab=settings&section=customer", get label() { return tt("Customer emails") }, get short() { return tt("Customers") } },
   { value: "settings", tab: "settings", section: "sending", href: "/app/emails?tab=settings&section=sending", get label() { return tt("Settings") } },
 ]
+
+/** A place's name on the track: the short one on a phone, the whole one from sm up (the words are both there; CSS shows one). */
+function placeLabel(p: (typeof PLACES)[number]): React.ReactNode {
+  if (!p.short) return p.label
+  return (
+    <>
+      <span className="sm:hidden" aria-hidden>
+        {p.short}
+      </span>
+      <span className="max-sm:sr-only">{p.label}</span>
+    </>
+  )
+}
 
 /** The place an address's tab and section stand for. */
 export function placeOf(pageTab: EmailsPageTab, section: SettingsSection): EmailsPlace {
@@ -409,10 +423,9 @@ export function EmailsHome(props: EmailsHomeProps) {
   }
   const navRef = React.useRef<HTMLElement>(null)
   /*
-    On a phone the row is wider than the screen: the whole track scrolls
-    sideways from the page's edge to edge, as Settings' pill row does, so
-    its rounded ends are drawn whole and only the screen's edge cuts it. The
-    chosen place is kept in view, clear of the gutter, at once.
+    The track fits a phone's width (PLACE_PILLS_PHONE). Only a row that is
+    still wider (a longer language) scrolls, and then the chosen place is
+    kept in view, clear of the gutter, at once.
   */
   React.useLayoutEffect(() => {
     const row = navRef.current
@@ -450,7 +463,7 @@ export function EmailsHome(props: EmailsHomeProps) {
       </PaneBar>
 
       <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER, props.skeletonAtOnce && "shimmer-now")} style={{ minHeight: "var(--pane-h, 100%)" }} data-tab-content={tab} data-tab-pending={props.chosenTab && props.chosenTab !== tab ? props.chosenTab : undefined}>
-        <nav ref={navRef} aria-label={tt("Emails")} className="orders-strip app-gutter-bleed h-11 overflow-x-auto overflow-y-hidden [overscroll-behavior-x:contain] [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden" data-emails-nav="">
+        <nav ref={navRef} aria-label={tt("Emails")} className="orders-strip h-11 overflow-x-auto overflow-y-hidden [overscroll-behavior-x:contain] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-emails-nav="">
           <SegmentedPills
             label={tt("Emails")}
             className={PLACE_PILLS_PHONE}
@@ -460,7 +473,7 @@ export function EmailsHome(props: EmailsHomeProps) {
               const p = PLACES.find((x) => x.value === v)
               if (p) props.onPageTabIntent?.(p.tab, p.section)
             }}
-            options={PLACES.map((p) => ({ value: p.value, label: p.label, href: p.href }))}
+            options={PLACES.map((p) => ({ value: p.value, label: placeLabel(p), href: p.href }))}
           />
         </nav>
 
@@ -527,12 +540,16 @@ export function EmailsHome(props: EmailsHomeProps) {
 }
 
 /**
- * The places' track on a phone: 13px words with 12px either side, so more of
- * the row is in view, and each place reaches the track's full 44px, the 4px
- * of track above and below it included. The track is as wide as its places
- * and the row around it scrolls (never the track itself).
+ * THE PLACES' TRACK ON A PHONE FITS THE SCREEN (wave 10, the owner: "the top
+ * row of Emails tabs still scrolls sideways"). The track spans the page's
+ * width inside its gutter, as the segmented controls iOS and Shopify's app
+ * draw, and the four places share it, each its words and an even share of what is left (Customer emails says
+ * Customers), 13px words, each reaching the track's full 44px, the 4px of
+ * track above and below it included. Nothing scrolls sideways at 360px or
+ * wider; a longer language that still does not fit scrolls inside the
+ * track rather than past the page's edge.
  */
-const PLACE_PILLS_PHONE = "max-sm:max-w-none max-sm:overflow-visible max-sm:[&>[role=tab]]:px-3 max-sm:[&>[role=tab]]:text-[13px] max-sm:[&>[role=tab]]:before:absolute max-sm:[&>[role=tab]]:before:inset-x-0 max-sm:[&>[role=tab]]:before:-inset-y-1 max-sm:[&>[role=tab]]:before:content-['']"
+const PLACE_PILLS_PHONE = "max-sm:flex max-sm:w-full max-sm:[&>[role=tab]]:flex-auto max-sm:[&>[role=tab]]:px-1.5 max-sm:[&>[role=tab]]:text-[13px] max-sm:[&>[role=tab]]:before:absolute max-sm:[&>[role=tab]]:before:inset-x-0 max-sm:[&>[role=tab]]:before:-inset-y-1 max-sm:[&>[role=tab]]:before:content-['']"
 
 /** How far in from the screen's edge the chosen place is kept: the page's gutter (11px on a phone, app/globals.css --app-gutter) and a little air. */
 const PLACE_CLEAR = 12
@@ -555,11 +572,23 @@ function campaignShowOf(view: EmailsTab, show: CampaignShow): CampaignShow {
  * goes, each with where it is changed. Read with the platforms
  * (./emails-data.ts loadPlatforms).
  */
-function SenderCard({ sender, domain, loading }: { sender: { name: string | null; replyTo: string | null; fromAddress?: string | null; ownDomain?: boolean; storelibAddress?: string | null } | null; domain: { domain: string; status: string; fromAddress?: string } | null; loading: boolean }) {
+function SenderCard({ sender, domain, loading }: { sender: { name: string | null; replyTo: string | null; replyVia?: "contact" | "support" | "account" | null; fromAddress?: string | null; ownDomain?: boolean; storelibAddress?: string | null } | null; domain: { domain: string; status: string; fromAddress?: string } | null; loading: boolean }) {
   /* The domain as it is now (a check or a remove on this page moves it), else what the server said when the page opened. */
   const own = domain ? domain.status === "verified" : !!sender?.ownDomain
   const address = own ? domain?.fromAddress || (sender?.ownDomain ? sender.fromAddress : null) || null : sender?.storelibAddress || (sender?.ownDomain ? null : sender?.fromAddress) || null
-  const rows: Array<{ label: string; value: React.ReactNode; href?: string; action?: string; key: string }> = [
+  /*
+    WHERE A REPLY REALLY GOES (wave 10): the address every store email's
+    Reply-To is (lib/emails/reply-to-server.ts storeReplyTo), and which one
+    it is, so the line says how to change it. Never Storelib's support inbox.
+  */
+  const replyHint = !sender?.replyTo
+    ? tt("Add a contact email in Settings › Store details, so customers can reply to your emails.")
+    : sender.replyVia === "contact"
+      ? tt("Your contact email, from Settings › Store details. Customers who reply to any of your emails write here.")
+      : sender.replyVia === "support"
+        ? tt("Your support email. Customers who reply to any of your emails write here. Add a contact email in Store details to change it.")
+        : tt("Your account email. Customers who reply to any of your emails write here. Add a contact email in Store details to use another.")
+  const rows: Array<{ label: string; value: React.ReactNode; hint?: string; href?: string; action?: string; key: string }> = [
     {
       key: "from",
       label: tt("Sending from"),
@@ -577,7 +606,7 @@ function SenderCard({ sender, domain, loading }: { sender: { name: string | null
       href: "/app/settings?tab=general",
       action: tt("Edit name"),
     },
-    { key: "reply", label: tt("Replies go to"), value: sender?.replyTo || "–", href: "/app/settings?tab=store", action: tt("Edit") },
+    { key: "reply", label: tt("Replies go to"), value: sender?.replyTo || "–", hint: loading && !sender ? undefined : replyHint, href: "/app/settings?tab=store", action: sender?.replyVia === "contact" ? tt("Edit") : tt("Change") },
   ]
   return (
     <section aria-label={tt("Sender")} className={cn(card, "mt-4 overflow-hidden")} data-sender-card="" data-own-domain={own ? "" : undefined}>
@@ -590,7 +619,10 @@ function SenderCard({ sender, domain, loading }: { sender: { name: string | null
                 {r.action}
               </Link>
             ) : null}
-            <dd className="min-w-0 flex-1 text-[14px] text-[#1a1a2e] max-sm:basis-full max-sm:[overflow-wrap:anywhere] sm:truncate">{loading && !sender ? <ShimmerBlock className="shimmer-wait h-3.5 w-40 rounded-full" /> : r.value}</dd>
+            <dd className="min-w-0 flex-1 text-[14px] text-[#1a1a2e] max-sm:basis-full max-sm:[overflow-wrap:anywhere]">
+              <div className="sm:truncate" data-sender-value={r.key}>{loading && !sender ? <ShimmerBlock className="shimmer-wait h-3.5 w-40 rounded-full" /> : r.value}</div>
+              {r.hint ? <p className="mt-0.5 text-[12.5px] leading-[18px] text-[#6b7280]" data-reply-hint={sender?.replyVia ?? "none"}>{r.hint}</p> : null}
+            </dd>
           </div>
         ))}
       </dl>
