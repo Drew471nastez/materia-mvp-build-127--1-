@@ -182,6 +182,11 @@ export function contrast(fg: Rgba, bg: Rgba): number {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
 }
 
+/** A colour as CSS: hex when solid, rgba() when see-through. */
+export function toCss(c: Rgba): string {
+  return c.a >= 0.999 ? toHex(c) : `rgba(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)}, ${Math.round(c.a * 1000) / 1000})`
+}
+
 export function toHex(c: Rgba): string {
   const x = (n: number) => Math.round(Math.min(255, Math.max(0, n))).toString(16).padStart(2, "0")
   return `#${x(c.r)}${x(c.g)}${x(c.b)}`
@@ -225,6 +230,17 @@ export function nudgeOn(wanted: Rgba, grounds: Rgba[], min = MIN_CONTRAST): Rgba
   const opaque = { ...wanted, a: 1 }
   const worst = (c: Rgba) => Math.min(...grounds.map((g) => contrast(c, g)))
   if (worst(wanted) >= min) return wanted
+  if (wanted.a < 1 && worst(opaque) >= min + NUDGE_MARGIN) {
+    /* A see-through colour (a placeholder's half-strength ink): made just strong enough, not solid. */
+    let lo = wanted.a
+    let hi = 1
+    for (let i = 0; i < 16; i++) {
+      const mid = (lo + hi) / 2
+      if (worst({ ...wanted, a: mid }) >= min + NUDGE_MARGIN) hi = mid
+      else lo = mid
+    }
+    return { ...wanted, a: hi }
+  }
   if (worst(opaque) >= min) return opaque
   const { h, s, l } = rgbToHsl(opaque)
   const at = (ll: number): Rgba => ({ ...hslToRgb(h, s, ll), a: 1 })
@@ -595,7 +611,7 @@ export function findIllegible(root: ParentNode): LegibleFinding[] {
       if (!c || c.a === 0) return
       const shown = { ...c, a: c.a * ground.opacity * ownOpacity }
       const ratio = Math.min(...ground.grounds.map((g) => contrast(shown, g)))
-      if (ratio + 0.01 < min) out.push({ el, kind, text: words, color: toHex(c), ground: toHex(ground.grounds[0]), ratio: Math.round(ratio * 100) / 100, min, alsoHalo: kind === "text" && ground.uncertain && !haloOf(cs.textShadow) })
+      if (ratio + 0.01 < min) out.push({ el, kind, text: words, color: toCss(c), ground: toHex(ground.grounds[0]), ratio: Math.round(ratio * 100) / 100, min, alsoHalo: kind === "text" && ground.uncertain && !haloOf(cs.textShadow) })
       else if (kind === "text" && onScene && !haloOf(cs.textShadow) && min - 1 > MIN_CONTRAST - 0.01) {
         /* Small words straight on a skin's scene (grain, dots): a soft outline in the page's own colour lifts them off it. */
         out.push({ el, kind: "halo", text: words, color: toHex(c), ground: toHex(ground.grounds[0]), ratio: Math.round(ratio * 100) / 100, min, halo: toHex(ground.grounds[0]) })
@@ -703,15 +719,15 @@ export function guardLegibility(root: ParentNode): LegibleFinding[] {
       outline(h, wanted, ground, f.halo)
       marks.add("h")
     } else if (f.kind === "placeholder") {
-      h.style.setProperty(PLACEHOLDER_VAR, toHex(fixed))
+      h.style.setProperty(PLACEHOLDER_VAR, toCss(fixed))
       marks.add("p")
     } else {
       if (!marks.has("c")) {
         const was = h.style.getPropertyValue("color")
         if (was) h.dataset.opLegibleWas = h.style.getPropertyPriority("color") === "important" ? `${was} !important` : was
       }
-      h.style.setProperty("color", toHex(fixed), "important")
-      h.style.setProperty("-webkit-text-fill-color", toHex(fixed), "important")
+      h.style.setProperty("color", toCss(fixed), "important")
+      h.style.setProperty("-webkit-text-fill-color", toCss(fixed), "important")
       marks.add("c")
       if (f.alsoHalo) {
         outline(h, fixed, ground)

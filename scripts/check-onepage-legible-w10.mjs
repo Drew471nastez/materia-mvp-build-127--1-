@@ -245,7 +245,7 @@ async function audit(path, width, label) {
   })
   await sleep(450)
   const words = await page.evaluate(COLLECT, path.includes("share=1") ? "[role='dialog']" : null)
-  const hide = await page.addStyleTag({ content: "*,*::before,*::after{color:transparent !important;-webkit-text-fill-color:transparent !important;text-shadow:none !important;text-decoration-color:transparent !important}*::placeholder{color:transparent !important;-webkit-text-fill-color:transparent !important}" })
+  const hide = await page.addStyleTag({ content: "*,*::before,*::after{color:transparent !important;-webkit-text-fill-color:transparent !important;text-shadow:none !important;text-decoration-color:transparent !important}*::placeholder,html body [data-op-legible]::placeholder{color:transparent !important;-webkit-text-fill-color:transparent !important}" })
   /* An inline colour set !important (the guard's own, a block's) is not reached by a stylesheet: clear those too. */
   await page.evaluate(() => {
     window.__lgInline = []
