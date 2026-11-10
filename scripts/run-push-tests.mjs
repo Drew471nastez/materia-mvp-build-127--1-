@@ -796,6 +796,8 @@ const SUITES = [
   "tests/analytics-stable-w10.test.ts",
   /* Wave 10: the About story fades into its own background on an eased mask (240ms, any theme), its Markdown read and drawn as React elements (lib/storefront/story-markdown, components/store-builder/story-text), never printed or made HTML. */
   "tests/story-fade-w10.test.ts",
+  /* Wave 10: the product editor's Edit size chart dialog on the shared SheetDialog: one fixed height, Edit and Preview (the storefront's own table), More options folded, Save and Cancel at the foot, a discard question in the foot, the exit played before it unmounts. */
+  "tests/size-chart-dialog-w10.test.ts",
   "tests/tax-settings-wiring.test.ts",
   "tests/customer-email-editor.test.ts",
   /* Round 28: a customer email's six parts, per language, saved and read back, drawn as sent (preview text, footer note), reset. */

@@ -13009,7 +13009,31 @@ const words: Record<string, string> = {
  "Nothing new to publish": "Nichts Neues zu veröffentlichen",
  "Reviewing the design": "Das Design wird geprüft",
  "The first screen of your website, as the design review saw it": "Der erste Bildschirm deiner Website, so wie ihn die Design-Prüfung gesehen hat",
- "What the design review looked at": "Was die Design-Prüfung angesehen hat"
+ "What the design review looked at": "Was die Design-Prüfung angesehen hat",
+ "Add a size to see the table.": "Füge eine Größe hinzu, um die Tabelle zu sehen.",
+ "As buyers see it": "So sehen es Käufer",
+ "Clicks between pages are counted on your websites. Choose All pages or a website to see them.": "Klicks zwischen Seiten werden auf deinen Websites gezählt. Wähle Alle Seiten oder eine Website, um sie zu sehen.",
+ "Communities are not physical sales. Choose All types or Communities to see them.": "Communitys sind keine physischen Verkäufe. Wähle Alle Typen oder Communitys, um sie zu sehen.",
+ "Communities have their own pages. Choose All pages or Communities to see them.": "Communitys haben eigene Seiten. Wähle Alle Seiten oder Communitys, um sie zu sehen.",
+ "Digital products don't ship. Choose All types or Physical to see shipping.": "Digitale Produkte werden nicht versendet. Wähle Alle Typen oder Physisch, um den Versand zu sehen.",
+ "Discard your changes?": "Änderungen verwerfen?",
+ "Downloads count digital products. Choose All types or Digital to see them.": "Downloads zählen digitale Produkte. Wähle Alle Typen oder Digital, um sie zu sehen.",
+ "MRR at the end {amount}": "MRR am Ende {amount}",
+ "MRR now {amount}": "MRR jetzt {amount}",
+ "New members in this period over the visits to your communities in it.": "Neue Mitglieder in diesem Zeitraum im Verhältnis zu den Besuchen deiner Communitys darin.",
+ "New members per visit": "Neue Mitglieder pro Besuch",
+ "No paid plans in your communities yet.": "Noch keine bezahlten Tarife in deinen Communitys.",
+ "No paid plans yet": "Noch keine bezahlten Tarife",
+ "Not on any product yet.": "Noch bei keinem Produkt.",
+ "One a visitor a day": "Einer pro Besucher und Tag",
+ "Several currencies": "Mehrere Währungen",
+ "Size guide": "Größentabelle",
+ "Start from a kind of garment, then type your measurements.": "Beginne mit einer Kleidungsart und trage dann deine Maße ein.",
+ "Visits to your communities, one a visitor a day, counted by the communities themselves.": "Besuche deiner Communitys, einer pro Besucher und Tag, von den Communitys selbst gezählt.",
+ "Where else it shows, a note, a picture": "Wo sie noch erscheint, eine Notiz, ein Bild",
+ "{n, plural, one {# collection or category} other {# collections or categories}}": "{n, plural, one {# Kollektion oder Kategorie} other {# Kollektionen oder Kategorien}}",
+ "{n, plural, one {On # product. A change shows there too.} other {On # products. A change shows on all of them.}}": "{n, plural, one {Bei # Produkt. Eine Änderung erscheint auch dort.} other {Bei # Produkten. Eine Änderung erscheint bei allen.}}",
+ "{n} members now": "{n} Mitglieder jetzt"
 }
 
 export default words

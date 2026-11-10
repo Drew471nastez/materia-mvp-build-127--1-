@@ -199,7 +199,7 @@ async function main() {
     const form = code("components/physical/size-chart-form.tsx")
     check("size charts: the table's keys and paste are wired", /onKeyDown=\{\(e\) => onCellKey\(e, r, c\)\}/.test(form) && /onPaste=\{\(e\) => onCellPaste\(e, r, c\)\}/.test(form) && /data-size-chart-row-up=/.test(form) && /data-size-chart-row-down=/.test(form))
     check("size charts: a part is a component of its own, so typing never remounts a field", /^function FieldPart\(/m.test(form) && !/const Part = /.test(form))
-    check("size charts: the product editor keeps its dialog, so the product stays as it was under it", /<Modal open=\{open\}/.test(code("components/physical/size-chart-editor.tsx")) && /<SizeChartEditor/.test(code("components/physical/size-chart-card.tsx")))
+    check("size charts: the product editor keeps its dialog, so the product stays as it was under it", /* Changed on purpose (wave 10): the shared SheetDialog, a dialog on a computer and the app's sheet on a phone (tests/size-chart-dialog-w10.test.ts). */ /<SheetDialog\s+open=\{open\}/.test(code("components/physical/size-chart-editor.tsx")) && /<SizeChartEditor/.test(code("components/physical/size-chart-card.tsx")))
 
     /* Buttons with depth */
     const ui = code("components/physical/ui.tsx")
