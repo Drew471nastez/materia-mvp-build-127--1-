@@ -22,10 +22,10 @@
  */
 import type { RuntimeCapabilities } from "../runtime-contract"
 import type { AgentJobInput, StoredFile } from "./ports"
-import { briefFrom, chooseDirection, directionForPrompt } from "@/lib/storelib-ai/direction"
+import { briefFrom, chooseDirection, directionForPrompt, type CreativeBrief, type DirectionChoice } from "@/lib/storelib-ai/direction"
 import { referencesForPrompt, searchReferences, type DesignReference } from "@/lib/storelib-ai/references"
 import { motionAndLayoutBrief } from "@/lib/storelib-ai/layout"
-import { designContractBlock, findDesignContract } from "@/lib/storelib-ai/surfaces"
+import { designContractBlock, findDesignContract, KEEP_BRAND_TOKENS } from "@/lib/storelib-ai/surfaces"
 
 export interface JobDesignBrief {
   /** The text for the first user turn (several blocks, each with its heading). */
@@ -47,25 +47,34 @@ export const MAX_DESIGN_BRIEF_CHARS = 9_000
  * `references`: the references the caller already chose (O1's loop picks
  * them once, with the admin's screenshots, and knows which have a picture
  * attached); without it the built in library is searched here.
+ * `direction`: the brief and choice the caller already made (O2's
+ * planDirection, kept in the checkpoint so the concept is checked against
+ * the same direction the model was shown); without it they are made here
+ * with the same seed O2 uses.
+ * `contract`: on an edit, the site's contract as O2 says it for a prompt
+ * (its DESIGN.md with the creator's overrides); without it briefMessage
+ * reads the DESIGN.md from the files itself.
  */
 export async function jobDesignBrief(input: {
   job: AgentJobInput
   caps: RuntimeCapabilities | null
   files: StoredFile[]
   references?: { list: readonly DesignReference[]; withImages?: readonly string[] }
+  direction?: { brief: CreativeBrief; choice: DirectionChoice }
+  contract?: string
 }): Promise<JobDesignBrief> {
   const { job } = input
   const scoped = !!job.edit || job.redesign === "changes"
-  if (scoped) return { text: "", referenceIds: [] }
+  if (scoped) return { text: input.contract?.trim() ? `${input.contract.trim()}\n\n${KEEP_BRAND_TOKENS}` : "", referenceIds: [] }
   const blocks: string[] = []
   let referenceIds: string[] = []
   const industry = job.options?.category?.replace(/_/g, " ")
   try {
-    const brief = briefFrom(job.prompt, job.options ?? null, input.caps)
+    const brief = input.direction?.brief ?? briefFrom(job.prompt, job.options ?? null, input.caps)
     const found = input.references?.list ?? (await Promise.resolve(searchReferences({ text: job.prompt.slice(0, 1_000), industry }, { limit: MAX_REFERENCES })).catch(() => []))
     const list = [...found].slice(0, MAX_REFERENCES)
     referenceIds = list.map((r) => r.id)
-    const choice = chooseDirection(brief, list.map((r) => ({ id: r.id, styles: r.styleTags, industries: r.industries })))
+    const choice = input.direction?.choice ?? chooseDirection(brief, list.map((r) => ({ id: r.id, styles: r.styleTags, industries: r.industries })), { seed: `${job.creatorId}:${job.installId}` })
     blocks.push(directionForPrompt(brief, choice))
     const refs = referencesForPrompt(list, { withImages: input.references?.withImages ?? [] })
     if (refs) blocks.push(refs)

@@ -157,7 +157,7 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
     capsSummary(input.caps),
     `PAGES NOW:\n${pages.join("\n") || "home: (empty)"}`,
     own.length ? `YOUR COMPONENT FILES NOW: ${own.join(", ")}` : "",
-    scoped ? editDesignContext(input.files) : input.design?.text ?? "",
+    scoped ? input.design?.text || editDesignContext(input.files) : input.design?.text ?? "",
     input.directions?.length
       ? `STARTING DIRECTIONS (${input.design?.text ? "alternatives to weigh the direction above against" : "seeds, deliberately different; adapt one to this creator or go elsewhere, but do not default to the obvious"}):\n${input.directions.map((d) => `- ${d.name} [${d.styles.join(" + ")}]: ${d.mood.join(", ")}; ${d.type.display} / ${d.type.body}; ${d.palette.mode} ${d.palette.background} / ${d.palette.text} / accent ${d.palette.accent}; motion ${d.motion}; imagery: ${d.imagery}; signature: ${d.signature}${d.layout ? `; layout: ${d.layout}` : ""}`).join("\n")}`
       : "",
