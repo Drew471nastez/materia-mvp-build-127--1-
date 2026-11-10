@@ -30,6 +30,7 @@
  * browser.
  */
 import type { Defect } from "./types"
+import { linkProblem } from "../render-check"
 
 export interface MeasuredElement {
   sectionId: string | null
@@ -56,6 +57,17 @@ export interface Measurements {
   placeholders: (MeasuredElement & { text: string })[]
   /** Round P (P5): sections drawn with height but nothing in them a visitor can read or see. */
   emptySections?: MeasuredElement[]
+  /* Round R (R3), the extended measurements: read only when `measuredDefects` is asked for them (MeasureContext.extended). */
+  /** Text cut off by a box that hides its overflow (no ellipsis or line clamp asked for). */
+  clipped?: (MeasuredElement & { text: string; axis: "x" | "y" })[]
+  /** Text drawn over other text in the first two screens; `nav` when one side is the header or a nav. */
+  overlaps?: (MeasuredElement & { text: string; other: string; nav: boolean })[]
+  /** Type families and sizes as drawn, with how many characters use each. */
+  fonts?: { families: { family: string; chars: number }[]; sizes: { px: number; chars: number }[] }
+  /** Animations that loop forever while the visitor asked for reduced motion. */
+  motion?: (MeasuredElement & { name: string })[]
+  /** Every shown link; `missing` for an in-page anchor with nothing to land on. */
+  links?: (MeasuredElement & { href: string; text: string; hooked: boolean; missing: boolean })[]
   pageHeight: number
 }
 
@@ -66,11 +78,13 @@ export const MEASURE_SCRIPT = `(() => {
   const vw = doc.clientWidth
   const out = { width: vw, foldHeight: FOLD, scrollOverflow: Math.max(0, doc.scrollWidth - doc.clientWidth), widest: null, headings: [], smallTargets: [], contrast: [], brokenImages: [], missingImages: [], foldCtas: [], placeholders: [], pageHeight: Math.ceil(doc.scrollHeight) }
   const where = (el) => {
-    const s = el.closest('[data-critic-section]')
+    const s = el.closest('[data-critic-section],[data-section-key]')
     let sel = el.tagName.toLowerCase()
     if (el.id && !/^section-/.test(el.id)) sel += '#' + el.id
     else if (typeof el.className === 'string' && el.className.trim()) sel += '.' + el.className.trim().split(/\\s+/).slice(0, 2).join('.')
-    return { sectionId: s ? s.getAttribute('data-critic-section') : null, sectionType: s ? s.getAttribute('data-critic-type') : null, selector: sel.slice(0, 80) }
+    /* A native page (round R, R3) marks its sections the way the live site does: data-section-key and data-section-type on each box; the built-in header has no box and is found by its own element. */
+    if (!s) { const h = el.closest('header,[data-section-type="header"],[data-chrome]'); if (h) return { sectionId: null, sectionType: 'header', selector: sel.slice(0, 80) } }
+    return { sectionId: s ? (s.getAttribute('data-critic-section') || s.getAttribute('data-section-key')) : null, sectionType: s ? (s.getAttribute('data-critic-type') || s.getAttribute('data-section-type')) : null, selector: sel.slice(0, 80) }
   }
   const shown = (el) => {
     const r = el.getBoundingClientRect()
@@ -221,16 +235,102 @@ export const MEASURE_SCRIPT = `(() => {
   }
   /* Sections with height and nothing in them: no words, no picture, no drawing (round P). */
   out.emptySections = []
-  for (const sec of document.querySelectorAll('[data-critic-section]')) {
+  for (const sec of document.querySelectorAll('[data-critic-section],[data-section-key]:not([data-chrome])')) {
     const r = sec.getBoundingClientRect()
     if (r.height < 60) continue
-    const words = (sec.innerText || sec.textContent || '').replace(/\s+/g, '').length
+    const words = (sec.innerText || sec.textContent || '').replace(/\\s+/g, '').length
     if (words >= 2) continue
     let seen = false
     for (const m of sec.querySelectorAll('img[src], svg, video, canvas, picture, iframe')) { const mr = m.getBoundingClientRect(); if (mr.width > 8 && mr.height > 8) { seen = true; break } }
     if (!seen) for (const el of [sec, ...sec.querySelectorAll('*')]) { const bi = getComputedStyle(el).backgroundImage; if (bi && bi !== 'none') { seen = true; break } }
     if (!seen) out.emptySections.push(where(sec.firstElementChild || sec))
     if (out.emptySections.length >= 8) break
+  }
+  /*
+    ROUND R (R3): what Loupe's pre-gate and reviewer look for, measured. Text cut by its own box, text drawn over
+    other text (the header over the page most of all), how many type families and sizes the page uses, motion that
+    keeps going when the visitor asked for less, and every link (judged against the site's pages outside the page).
+  */
+  out.clipped = []
+  for (const el of document.body.querySelectorAll('*')) {
+    if (out.clipped.length >= 10) break
+    const t = ownText(el)
+    if (t.length < 3) continue
+    const r = shown(el)
+    if (!r) continue
+    const st = getComputedStyle(el)
+    const cutsX = /(hidden|clip)/.test(st.overflowX) && el.scrollWidth > el.clientWidth + 2
+    const cutsY = /(hidden|clip)/.test(st.overflowY) && el.scrollHeight > el.clientHeight + 4
+    if (!cutsX && !cutsY) continue
+    /* An ellipsis or a line clamp is a choice, not a fault. */
+    if (st.textOverflow === 'ellipsis' || (st.webkitLineClamp && st.webkitLineClamp !== 'none')) continue
+    out.clipped.push(Object.assign(where(el), { text: t.slice(0, 60), axis: cutsX ? 'x' : 'y' }))
+  }
+  /* Text over text, in the first two screens: the leaves that carry words, compared pairwise across different boxes. */
+  out.overlaps = []
+  const leaves = []
+  for (const el of document.body.querySelectorAll('*')) {
+    if (leaves.length >= 160) break
+    const t = ownText(el)
+    if (t.length < 2) continue
+    const r = shown(el)
+    if (!r || r.top > FOLD * 2) continue
+    if (el.closest('[aria-hidden="true"]')) continue
+    leaves.push({ el, r, t, nav: !!el.closest('header,nav,[data-section-type="header"]') })
+  }
+  for (let i = 0; i < leaves.length && out.overlaps.length < 4; i++) {
+    for (let j = i + 1; j < leaves.length; j++) {
+      const a = leaves[i], b = leaves[j]
+      if (a.el.contains(b.el) || b.el.contains(a.el)) continue
+      const w = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left)
+      const h = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top)
+      if (w <= 3 || h <= 3) continue
+      const smaller = Math.min(a.r.width * a.r.height, b.r.width * b.r.height)
+      if (w * h < smaller * 0.3) continue
+      const nav = a.nav !== b.nav
+      out.overlaps.push(Object.assign(where(a.nav ? b.el : a.el), { text: a.t.slice(0, 40), other: b.t.slice(0, 40), nav }))
+      break
+    }
+  }
+  /* Type families and sizes actually drawn, by how much text uses each. */
+  const fam = {}, sizes = {}
+  for (const el of document.body.querySelectorAll('*')) {
+    const t = ownText(el)
+    if (t.length < 2) continue
+    if (!shown(el)) continue
+    const st = getComputedStyle(el)
+    const f = (st.fontFamily || '').split(',')[0].replace(/["']/g, '').trim().toLowerCase()
+    if (f && !/icon|symbol|emoji/.test(f)) fam[f] = (fam[f] || 0) + t.length
+    const px = Math.round(parseFloat(st.fontSize) || 0)
+    if (px) sizes[px] = (sizes[px] || 0) + t.length
+  }
+  out.fonts = { families: Object.entries(fam).map(([family, chars]) => ({ family, chars })).sort((a, b) => b.chars - a.chars).slice(0, 12), sizes: Object.entries(sizes).map(([px, chars]) => ({ px: Number(px), chars })).sort((a, b) => b.chars - a.chars).slice(0, 30) }
+  /* Motion that never stops while reduced motion is asked for (the browser asks: ./shoot.ts). The critic's own settle sheet is set aside for the question, and put back. */
+  out.motion = []
+  const settle = document.getElementById('critic-settle')
+  if (settle && document.getAnimations) {
+    settle.disabled = true
+    try {
+      for (const a of document.getAnimations()) {
+        const timing = a.effect && a.effect.getTiming ? a.effect.getTiming() : {}
+        if (timing.iterations !== Infinity || a.playState === 'paused' || a.playState === 'finished') continue
+        const target = a.effect && a.effect.target
+        if (!target || !target.getBoundingClientRect || !shown(target)) continue
+        out.motion.push(Object.assign(where(target), { name: String(a.animationName || 'animation').slice(0, 40) }))
+        if (out.motion.length >= 8) break
+      }
+    } finally { settle.disabled = false }
+  }
+  /* Every link, for the site's own pages to be checked against; an in-page anchor is checked here. */
+  out.links = []
+  for (const a of document.querySelectorAll('a[href]')) {
+    if (out.links.length >= 120) break
+    if (!shown(a)) continue
+    const href = (a.getAttribute('href') || '').trim()
+    const hooked = Array.from(a.attributes).some((x) => /^data-storelib-/.test(x.name)) || a.hasAttribute('aria-controls')
+    let missing = false
+    if (/^#[A-Za-z][\\w:-]*$/.test(href)) { const id = href.slice(1); missing = !document.getElementById(id) && !document.querySelector('[data-anchor="' + id + '"],[data-anchor-alias="' + id + '"],[name="' + id + '"]') }
+    out.links.push(Object.assign(where(a), { href: href.slice(0, 200), text: (a.textContent || a.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().slice(0, 40), hooked, missing }))
   }
   out.headings = out.headings.slice(0, 40)
   out.smallTargets = out.smallTargets.slice(0, 20)
@@ -247,6 +347,10 @@ export function measureScript(foldHeight: number): string {
 
 /** Thresholds, exported for the tests and the docs. */
 export const LIMITS = {
+  /** Round R (R3): more type families than this on one page is a fault (Loupe: two, plus a third for a logo or accent). */
+  fontFamilies: 3,
+  /** And more distinct text sizes than this, each used by real text, is a scale nobody chose. */
+  fontSizes: 11,
   /** Lines a page's first headline may wrap into (the hero), by viewport. */
   firstHeadingLines: { mobile: 5, desktop: 4 },
   /** Any other headline. */
@@ -259,8 +363,18 @@ export const LIMITS = {
 
 const DEAD_HREF = /^\s*(#\s*|javascript:.*)?$/i
 
+/** What the site's links are judged against (lib/ai-builder/render-check.ts linkProblem). */
+export type KnownLinks = NonNullable<Parameters<typeof linkProblem>[1]>
+
+export interface MeasureContext {
+  /** Round R (R3): the extended measurements become defects too. Off for the agent's critic until it opts in. */
+  extended?: boolean
+  /** The site's pages, products and the rest, for links that lead nowhere. */
+  known?: KnownLinks | null
+}
+
 /** The browser's numbers for one page at one width, as defects. */
-export function measuredDefects(page: string, m: Measurements): Defect[] {
+export function measuredDefects(page: string, m: Measurements, ctx: MeasureContext = {}): Defect[] {
   const out: Defect[] = []
   const viewport = m.viewport
   const at = (e: MeasuredElement) => ({ page, ...(e.sectionId ? { sectionId: e.sectionId } : {}), ...(e.sectionType ? { sectionType: e.sectionType } : {}), selector: e.selector })
@@ -353,12 +467,64 @@ export function measuredDefects(page: string, m: Measurements): Defect[] {
   for (const p of m.placeholders) {
     out.push({ ...at(p), severity: "high", kind: "placeholder-copy", viewport, what: `Instructions to the creator are printed in the visitor's page: "${p.text}".`, why: "Visitors read it as an unfinished site.", fix: "Use real content from the store, or draw nothing when the slot is empty (an editable empty state belongs in the editor only).", gate: false, source: "measure" })
   }
+  if (ctx.extended) out.push(...extendedDefects(page, m, ctx))
+  return out
+}
+
+/**
+ * Round R (R3): the checks Loupe's pre-gate and reviewer make, from the extended measurements. Pure. Text drawn
+ * over text is a hard gate when the header is one side of it (the menu over the headline); a link to a page the
+ * site does not have is a gate when it is in the first screen's calls to action, a defect elsewhere.
+ */
+export function extendedDefects(page: string, m: Measurements, ctx: MeasureContext = {}): Defect[] {
+  const out: Defect[] = []
+  const viewport = m.viewport
+  const px = viewport === "mobile" ? "390" : "1440"
+  const at = (e: MeasuredElement) => ({ page, ...(e.sectionId ? { sectionId: e.sectionId } : {}), ...(e.sectionType ? { sectionType: e.sectionType } : {}), selector: e.selector })
+  for (const c of (m.clipped ?? []).slice(0, 4)) {
+    out.push({ ...at(c), severity: /^h[1-3]/.test(c.selector) ? "high" : "medium", kind: "text-clipped", viewport, what: `"${c.text.slice(0, 40)}" is cut off by its box at ${px}px.`, why: "Words cut mid-line read as a broken page.", fix: "Let the box grow with its text (no fixed height), or a smaller heading size at this width.", gate: false, source: "measure" })
+  }
+  for (const o of (m.overlaps ?? []).slice(0, 3)) {
+    out.push({ ...at(o), severity: o.nav ? "critical" : "high", kind: "overlap", viewport, what: o.nav ? `The header is drawn over "${o.text.slice(0, 30)}" at ${px}px (with "${o.other.slice(0, 30)}").` : `"${o.text.slice(0, 30)}" and "${o.other.slice(0, 30)}" are drawn over each other at ${px}px.`, why: "Text on top of text cannot be read.", fix: o.nav ? "Make the header solid (not transparent over the page), or give the first section room under it." : "Give the pieces their own space: smaller text, or a layout that stacks at this width.", gate: o.nav, source: "measure" })
+  }
+  const fonts = m.fonts
+  if (fonts) {
+    const total = fonts.families.reduce((n, f) => n + f.chars, 0) || 1
+    /* Families that carry real text (a stray 1% label is not a family the page uses). */
+    const used = fonts.families.filter((f) => f.chars / total >= 0.02)
+    if (used.length > LIMITS.fontFamilies) {
+      out.push({ page, severity: "medium", kind: "font-families", viewport, what: `The page uses ${used.length} type families (${used.map((f) => f.family).join(", ")}).`, why: "More than two or three families reads as no decision; the site's voice goes.", fix: "Keep the theme's heading and body fonts; take the per-section font choices off.", gate: false, source: "measure" })
+    }
+    const sizeTotal = fonts.sizes.reduce((n, s) => n + s.chars, 0) || 1
+    const sizes = fonts.sizes.filter((s) => s.chars / sizeTotal >= 0.01)
+    if (viewport === "desktop" && sizes.length > LIMITS.fontSizes) {
+      out.push({ page, severity: "low", kind: "type-scale", viewport, what: `Text is drawn at ${sizes.length} different sizes (${sizes.map((s) => s.px).sort((a, b) => b - a).join(", ")}px).`, why: "A scale nobody chose makes the hierarchy muddy.", fix: "Use the theme's type scale: take the per-section heading sizes off so sections share it.", gate: false, source: "measure" })
+    }
+  }
+  const seenMotion = new Set<string>()
+  for (const a of m.motion ?? []) {
+    const key = a.sectionId ?? a.selector
+    if (seenMotion.has(key)) continue
+    seenMotion.add(key)
+    out.push({ ...at(a), severity: "medium", kind: "reduced-motion", viewport, what: `"${a.name}" keeps moving while the visitor asked for reduced motion.`, why: "Endless motion can make some people feel ill; the setting is theirs to ask for.", fix: "Stop the loop under prefers-reduced-motion (the section's animation off, or the theme's motion setting lower).", gate: false, source: "measure" })
+    if (seenMotion.size >= 3) break
+  }
+  const fold = new Set((m.foldCtas ?? []).filter((c) => c.tag === "a").map((c) => `${c.sectionId ?? ""}|${c.href ?? ""}`))
+  let broken = 0
+  for (const l of m.links ?? []) {
+    if (broken >= 6 || l.hooked) continue
+    const problem = l.missing ? { detail: `${l.href} (nothing on the page has that anchor)` } : /^\//.test(l.href) && ctx.known ? linkProblem(l.href, ctx.known) : null
+    if (!problem || ("code" in problem && problem.code !== "render.broken_link")) continue
+    broken++
+    const primary = fold.has(`${l.sectionId ?? ""}|${l.href}`)
+    out.push({ ...at(l), severity: primary ? "critical" : "medium", kind: "broken-link", viewport, what: `"${l.text || l.href}" links to ${problem.detail}.`, why: "A link that leads nowhere is a dead end for a visitor.", fix: "Point it at a page this site has (the contact page, the shop, home).", gate: primary, source: "measure" })
+  }
   return out
 }
 
 /** The same fault at both widths said once (as "both"); the gates first. */
 export function mergeDefects(list: Defect[]): Defect[] {
-  const key = (d: Defect) => `${d.page}|${d.kind}|${d.sectionId ?? ""}|${d.selector ?? ""}|${d.kind === "contrast" || d.kind === "image-broken" || d.kind === "placeholder-copy" || d.kind === "empty-blocks" || d.kind === "image-slot-empty" ? d.what : ""}`
+  const key = (d: Defect) => `${d.page}|${d.kind}|${d.sectionId ?? ""}|${d.selector ?? ""}|${d.kind === "contrast" || d.kind === "image-broken" || d.kind === "placeholder-copy" || d.kind === "empty-blocks" || d.kind === "image-slot-empty" || d.kind === "broken-link" ? d.what : ""}`
   const byKey = new Map<string, Defect>()
   for (const d of list) {
     const k = key(d)

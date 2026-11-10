@@ -20,15 +20,20 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 }
 
-export default async function CoverRender({ params }: { params: Promise<{ pass: string }> }) {
+/* Round R (R3): the design review draws the job's other pages through the same pass (lib/website-builder/ai-site/native-review/render-remote.ts). */
+const PAGE_KEY = /^[a-z0-9][a-z0-9_-]{0,59}$/
+
+export default async function CoverRender({ params, searchParams }: { params: Promise<{ pass: string }>; searchParams: Promise<{ page?: string | string[] }> }) {
   const { pass } = await params
   const installId = readCoverPass(decodeURIComponent(pass))
   if (!installId) notFound()
+  const asked = (await searchParams).page
+  const page = typeof asked === "string" && PAGE_KEY.test(asked) ? asked : "home"
   /* Still: the theme's animations at their end, for the photograph and the small page on the card (lib/website-builder/cover-still.ts). */
   return (
     <>
       <style data-cover-still dangerouslySetInnerHTML={{ __html: COVER_STILL_CSS }} />
-      {await coverPage(installId)}
+      {await coverPage(installId, page)}
     </>
   )
 }

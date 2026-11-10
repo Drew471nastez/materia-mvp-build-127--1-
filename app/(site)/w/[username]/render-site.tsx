@@ -474,7 +474,7 @@ async function previewPage(username: string, token: string, pageKey: string) {
  * section entrance animation (app/globals.css). A screenshot taken during it
  * would catch every section part way through fading in.
  */
-export async function coverPage(installId: string) {
+export async function coverPage(installId: string, pageKey = "home") {
   const admin = createAdminClient()
   const { data: install } = await admin
     .from("store_theme_installs")
@@ -491,21 +491,28 @@ export async function coverPage(installId: string) {
     .from("store_theme_pages")
     .select("sections, draft_sections")
     .eq("install_id", installId)
-    .eq("page_key", "home")
+    .eq("page_key", pageKey)
     .maybeSingle()
+  /* Round R (R3): the design review asks for its other pages too (?page=); a page the draft does not have is not a page. */
+  if (!pageData && pageKey !== "home") notFound()
 
   /* A cover is of what was last saved, files included. */
   const { owner, products, productCount } = await ownerOf(row.creator_id, installId, themeSettings, { cached: false, draft: true })
-  const sections = withUniversalChrome(
-    repairChrome(sanitizeSections(pageSections<SectionInstance[]>(pageData as never, true) ?? []), kindLookup(owner.sources, SECTION_SCHEMAS as never)).sections,
-    {},
-  )
-  const dressed = await dressPage(owner, sections, products, productCount, "index", pageTitleFromKey("home"), undefined, { cached: false })
-  const prerendered = renderWithSources(owner.sources, dressed.sections, themeSettings, "index", products, undefined, dressed.data)
+  const kinds = kindLookup(owner.sources, SECTION_SCHEMAS as never)
+  /* Another page wears home's header and footer, as previewPage above draws it. */
+  let chrome: Chrome = {}
+  if (pageKey !== "home") {
+    const { data: homeRow } = await admin.from("store_theme_pages").select("sections, draft_sections").eq("install_id", installId).eq("page_key", "home").maybeSingle()
+    chrome = chromeOf(repairChrome(sanitizeSections(pageSections<SectionInstance[]>(homeRow as never, true) ?? []), kinds).sections, { homeOnly: homeChromeOnly(themeSettings as Record<string, unknown>) })
+  }
+  const sections = withUniversalChrome(repairChrome(sanitizeSections(pageSections<SectionInstance[]>(pageData as never, true) ?? []), kinds).sections, chrome)
+  const template = pageKey === "home" ? "index" : templateForPage(pageKey)
+  const dressed = await dressPage(owner, sections, products, productCount, template, pageTitleFromKey(pageKey), undefined, { cached: false })
+  const prerendered = renderWithSources(owner.sources, dressed.sections, themeSettings, template, products, pageKey === "home" ? undefined : { title: pageTitleFromKey(pageKey) }, dressed.data)
 
   return (
     <div data-snapshot-stage="">
-      <StorelibSourcesProvider prerendered={prerendered} page={{ template: "index" }}>
+      <StorelibSourcesProvider prerendered={prerendered} page={{ template }}>
         <ThemePage
           theme={themeSettings}
           sections={dressed.sections}

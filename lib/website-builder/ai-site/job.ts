@@ -45,6 +45,12 @@ import { deterministicFindings, rewritable, visualFindings, type SiteFinding } f
 import { callOnce, mergeSpend, NO_SPEND, addSpend, pool, type Models, type Spend } from "./models"
 import type { JobEngine, StartOptions } from "@/lib/ai-builder/types"
 import { startContext } from "./start-options"
+import type { NativeReviewRequest, NativeReviewResult } from "./native-review/review"
+import { REVIEW_PHASE_WORDS, type ReviewPhase } from "./native-review/words"
+import { knownLinks } from "./native-review/checks"
+import { defectLine } from "@/lib/ai-builder/visual-critic/types"
+import { ZERO_USAGE } from "@/lib/sites/agent/types"
+import type { SchemaMap as ReviewSchemas } from "../agent/schemas"
 
 export type JobStatus = "queued" | "running" | "complete" | "partial" | "failed"
 export type JobStep = "plan" | "build" | "code" | "write" | "photos" | "check" | "done"
@@ -101,6 +107,29 @@ export interface JobState {
   codeReasons: Record<string, string>
   /** What the job is doing and has done, newest last, for the progress view: a file being coded, one placed, one left out. */
   activity: { kind: "code" | "coded" | "skipped"; name: string }[]
+  /** Round R (R3): what the check step's words check left (set once it has run, so a resumed check goes straight to the review). */
+  checked?: string[]
+  /** Round R (R3): the design review's phase while it runs, for the progress view. */
+  reviewPhase?: ReviewPhase | null
+  /** Round R (R3): how the design review went, said honestly (./native-review). */
+  review?: JobReview
+}
+
+/** The native design review's outcome, kept on the job (round R, R3). */
+export interface JobReview {
+  status: NativeReviewResult["status"]
+  /** In the creator's words: reviewed, measured only, not visually checked. */
+  label: string
+  reason?: string
+  rounds: number
+  /** Patches kept, taken back, refused. */
+  applied: number
+  reverted: number
+  refused: number
+  /** Defects the first look found, and the ones still there, as lines. */
+  found: number
+  remaining: string[]
+  usd: number
 }
 
 export interface Job {
@@ -177,6 +206,12 @@ export interface JobDeps {
    * Without it (or without SiteIO.writeFile) the plan keeps to the theme's sections and the theme's header and footer.
    */
   code?: SectionCoder
+  /**
+   * Round R (R3): the design review of the finished draft (./native-review): drawn as the live site draws it, at
+   * 1440 and 390 with JavaScript off, measured, and refined with typed patches on the sections' own settings, at
+   * most two rounds. Absent (the AI_NATIVE_ENGINE switch off, or no site address to draw it at): not reviewed.
+   */
+  nativeReview?: NativeReviewPort
   /** Saves the job (and is where the editor's next poll reads it from). */
   save: (job: Job) => Promise<void>
   now?: () => number
@@ -186,6 +221,17 @@ export interface JobDeps {
   concurrency?: number
   signal?: AbortSignal
 }
+
+/** The review as the job calls it: the request, and how it saves the draft and reports its phase. */
+export type NativeReviewPort = ((
+  req: NativeReviewRequest,
+  hooks: { write: (site: SiteState, pages: string[], settings: boolean) => Promise<void>; progress: (phase: ReviewPhase) => Promise<void>; schemas?: ReviewSchemas },
+) => Promise<NativeReviewResult>) & { available?: () => { ok: true } | { ok: false; reason: string } }
+
+/** What the design review may spend on its vision call, USD: one look at three pages, with one repair. */
+export const NATIVE_REVIEW_MAX_USD = 0.9
+/** Less time than this left in the request: the review waits for the next one. */
+export const NATIVE_REVIEW_MIN_MS = 60_000
 
 /** Plain words for each step, for the progress view and the logs. */
 export const STEP_PROGRESS: Record<JobStep, [number, number]> = {
@@ -585,8 +631,25 @@ function creditsSections(site: SiteState, credits: PhotoCredit[]): { sections: S
   return { sections: [...header, section, ...footer] }
 }
 
-async function stepCheck(job: Job, deps: JobDeps): Promise<Job> {
+async function stepCheck(job: Job, deps: JobDeps, now: () => number = Date.now): Promise<Job> {
   deps = { ...deps, schemas: jobSchemas(job, deps) }
+  if (!job.state.checked) job = await checkWords(job, deps)
+  /* Round R (R3): the design review, once, when there is time for it in this request (else the next one). */
+  if (deps.nativeReview && !job.state.review) {
+    if (deps.deadline && deps.deadline - now() < NATIVE_REVIEW_MIN_MS) {
+      await deps.save(job)
+      return job
+    }
+    job = await stepReview(job, deps, now)
+  }
+  const gates = job.state.review?.remaining ?? []
+  const remaining = [...(job.state.checked ?? []), ...gates]
+  const partial = remaining.length > 0 || job.state.failed.length > 0
+  return { ...job, step: "done", progress: 100, status: partial ? "partial" : "complete", state: { ...job.state, reviewPhase: null, findings: remaining.slice(0, 20) } }
+}
+
+/** The check's first half: what the words say, and the flagged sections written again (unchanged since round L). */
+async function checkWords(job: Job, deps: JobDeps): Promise<Job> {
   let site = await deps.site.read()
   const ctx = fillContext(job, deps)
   const placed = stillPlaced(job, site)
@@ -627,8 +690,66 @@ async function stepCheck(job: Job, deps: JobDeps): Promise<Job> {
     findings = deterministicFindings(site, stillPlaced(job, site), job.state.written, ctx, deps.schemas)
   }
   const remaining = findings.map((f) => `${f.page}: ${f.message}`)
-  const partial = remaining.length > 0 || job.state.failed.length > 0
-  return { ...job, step: "done", progress: 100, status: partial ? "partial" : "complete", state: { ...job.state, findings: remaining.slice(0, 20) } }
+  return { ...job, state: { ...job.state, checked: remaining.slice(0, 20) } }
+}
+
+/** Where the site's main action goes, in the words its plan used for the page. */
+function primaryAction(job: Job): { label: string; href: string } | undefined {
+  if (!job.plan) return undefined
+  const { defaultLink } = siteLinks(job.plan, job.state.caps ?? EMPTY_CAPABILITIES)
+  const contact = job.plan.pages.find((p) => pagePath(p.key) === defaultLink)
+  if (contact) return { label: contact.title, href: defaultLink }
+  if (/^\/products\//.test(defaultLink)) return { label: "Shop now", href: defaultLink }
+  return undefined
+}
+
+/**
+ * Round R (R3): the finished draft drawn as the live site draws it, measured at 1440 and 390 with JavaScript off,
+ * and refined with typed patches (./native-review). Its patches are logged like every other change, so the editor
+ * replays them onto the canvas; its spend is the job's; its outcome is kept on the job, said honestly. Never
+ * throws: a review that could not be done is "not visually checked", and the job finishes as it was.
+ */
+async function stepReview(job: Job, deps: JobDeps, now: () => number): Promise<Job> {
+  const review = deps.nativeReview!
+  const site = await deps.site.read()
+  const pages = ["home", ...job.state.pages.map((p) => p.key).filter((k) => k !== "home" && k !== CREDITS_PAGE)].filter((k) => site.pages[k])
+  const products = (job.state.caps?.facts?.products ?? []).map((p) => p.url ?? "").filter((u) => /^\/products\//.test(u)).map((u) => decodeURIComponent(u.replace(/^\/products\//, "")))
+  const progress = async (phase: ReviewPhase) => {
+    job = { ...job, state: { ...job.state, reviewPhase: phase } }
+    await deps.save(job).catch(() => undefined)
+  }
+  const timeoutMs = Math.max(30_000, Math.min(150_000, (deps.deadline ? deps.deadline - now() : 150_000) - 15_000))
+  let r: NativeReviewResult
+  try {
+    r = await review(
+      { site, pages, brief: jobBrief(job), ...(primaryAction(job) ? { primaryAction: primaryAction(job)! } : {}), known: knownLinks(site, { productSlugs: products }), maxUsd: NATIVE_REVIEW_MAX_USD, timeoutMs },
+      { write: (s, p, settings) => deps.site.write(s, p, settings), progress, ...(deps.schemas ? { schemas: deps.schemas } : {}) },
+    )
+  } catch (e) {
+    console.error("[ai-site] design review failed", { job: job.id, error: e instanceof Error ? e.message.slice(0, 200) : "" })
+    return { ...job, state: { ...job.state, reviewPhase: null, review: { status: "unverified", label: "Not visually checked", reason: "the design review failed", rounds: 0, applied: 0, reverted: 0, refused: 0, found: 0, remaining: [], usd: 0 } } }
+  }
+  let next = log(job, r.ops)
+  let spend = next.state.spend
+  if (r.usage.calls && r.model) {
+    spend = addSpend(spend, r.model, { ...ZERO_USAGE, inputTokens: r.usage.inputTokens, outputTokens: r.usage.outputTokens })
+    spend = { ...spend, calls: spend.calls + r.usage.calls - 1 }
+  }
+  /* Only the hard gates still standing hold the job back; the rest are the review's notes for the creator. */
+  const gates = r.remaining.filter((d) => d.gate).map((d) => `${d.page}: ${d.what}`)
+  const notes = r.status === "unverified" ? [...next.state.notes, `The design was not visually checked (${r.reason ?? "no browser"}).`] : next.state.notes
+  console.info("[ai-site] design review", { job: job.id, status: r.status, rounds: r.rounds, applied: r.applied.length, reverted: r.reverted.length, refused: r.refused.length, found: r.found.length, remaining: r.remaining.length, usd: r.usage.usd, ms: r.ms, lines: r.remaining.slice(0, 6).map(defectLine) })
+  next = {
+    ...next,
+    state: {
+      ...next.state,
+      spend,
+      notes,
+      reviewPhase: null,
+      review: { status: r.status, label: r.label, ...(r.reason ? { reason: r.reason } : {}), rounds: r.rounds, applied: r.applied.length, reverted: r.reverted.length, refused: r.refused.length, found: r.found.length, remaining: gates.slice(0, 8), usd: r.usage.usd },
+    },
+  }
+  return next
 }
 
 /**
@@ -667,7 +788,7 @@ export async function runStep(job: Job, deps: JobDeps): Promise<Job> {
     else if (step === "code") next = await stepCode(next, deps, now)
     else if (step === "write") next = await stepWrite(next, deps, now)
     else if (step === "photos") next = await stepPhotos(next, deps, now)
-    else if (step === "check") next = await stepCheck(next, deps)
+    else if (step === "check") next = await stepCheck(next, deps, now)
   } catch (e) {
     const message = e instanceof PlanError ? e.message : `Could not finish ${STEP_LABEL[step]}.`
     console.error("[ai-site] step failed", { job: job.id, step, error: e instanceof Error ? e.message.slice(0, 200) : String(e).slice(0, 200) })
@@ -719,6 +840,9 @@ export function publicView(job: Job, after: number) {
     /* The files coded so far: the editor reads them before it replays an operation that places one. */
     files: job.state.files ?? [],
     activity: (job.state.activity ?? []).slice(-6),
+    /* Round R (R3): the design review's words while it runs, and how it went. */
+    reviewing: job.state.reviewPhase ? REVIEW_PHASE_WORDS[job.state.reviewPhase] : null,
+    review: job.state.review ? { status: job.state.review.status, label: job.state.review.label, rounds: job.state.review.rounds, applied: job.state.review.applied } : null,
   }
 }
 export type JobView = ReturnType<typeof publicView>
