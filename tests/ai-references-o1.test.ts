@@ -149,14 +149,13 @@ async function main() {
   /* ── dedup with the admin's records ──────────────────────────────────── */
   console.log("\nDedup and the admin's records\n")
   const SHA_A = "a".repeat(64)
-  const upload = (sha: string, over: Partial<DesignReference> = {}): DesignReference =>
+  const upload = (sha: string): DesignReference =>
     referenceFromAnalysis({
       fields: coerceAnalysis({ title: "Hard cropped training photo with condensed headline", summary: "A personal trainer page with a split hero.", styleTags: ["high-performance sports"], industries: ["personal trainer", "fitness"], roles: ["identity", "composition"], quality: 5, avoid: ["copying the photo"] }),
       sha256: sha,
       image: { path: `references/${sha.slice(0, 2)}/${sha}/view.jpg`, mediaType: "image/jpeg", width: 1440, height: 900 },
       model: "claude-opus-5-5",
       now: new Date("2026-11-10T10:00:00Z"),
-      ...over,
     })
   {
     const up = upload(SHA_A)
