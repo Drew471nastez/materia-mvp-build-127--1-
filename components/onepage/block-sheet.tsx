@@ -63,11 +63,12 @@ import type { ButtonThemeLike } from "@/lib/onepage/button-style"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { backInFlight, backThen } from "@/lib/navigation/go-back"
 import { KEYBOARD_CHANGE_EVENT, readPublishedKeyboardInset } from "@/lib/ui/keyboard-safe-sheet"
+import { keyboardState, revealDelta, type KeyboardMemory } from "@/lib/onepage/feel"
 
 export type OpenMode = "sheet" | "direct"
 
 /* The contract (the request, the API, the context and its hook) lives in ./block-sheet-context (round AN), so asking for the sheet does not load it. */
-import { BlockSheetContext, type BlockSheetApi, type BlockSheetRequest } from "./block-sheet-context"
+import { BlockSheetContext, SheetBackContext, type BlockSheetApi, type BlockSheetRequest, type SheetBackApi } from "./block-sheet-context"
 export { BlockSheetContext, type BlockSheetApi, type BlockSheetRequest } from "./block-sheet-context"
 
 export function useBlockSheet(): BlockSheetApi {
@@ -196,7 +197,28 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
   /* A field in the sheet has the keyboard up: the foot bar steps aside (round AP). */
   const [typing, setTyping] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
   useStillPage(true, rootRef)
+  /*
+    Back inside the sheet (round AR): a form or a booking with steps takes Back while it has a step to go back to
+    (SheetBackContext). The newest taker answers first.
+  */
+  const backTakers = useRef<(() => boolean)[]>([])
+  const backApi = useMemo<SheetBackApi>(
+    () => ({
+      take: (handler) => {
+        backTakers.current.push(handler)
+        return () => {
+          backTakers.current = backTakers.current.filter((h) => h !== handler)
+        }
+      },
+    }),
+    [],
+  )
+  const stepBack = useCallback((): boolean => {
+    for (let i = backTakers.current.length - 1; i >= 0; i--) if (backTakers.current[i]()) return true
+    return false
+  }, [])
 
   const closeRef = useRef(onClose)
   const goneRef = useRef(onGone)
@@ -307,6 +329,18 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
     }
     const onPop = () => {
       if (mark.current && blockSheetEntryOf(window.history.state) !== mark.current) {
+        /*
+          Back with a step to go back to (round AR): the form moves a step back and the sheet stands on its entry
+          again, so the next Back does the same or closes it. Nothing navigates and nothing reloads.
+        */
+        if (stepBack()) {
+          try {
+            window.history.pushState(historyWith(mark.current), "", window.location.href)
+            return
+          } catch {
+            /* the entry could not be set again: close as before */
+          }
+        }
         mark.current = null
         closeRef.current()
       }
@@ -578,8 +612,9 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
     const panel = panelRef.current
     if (!open || !panel) return
     const vv = window.visualViewport
-    let seen = false
+    let memory: KeyboardMemory = { saw: false }
     let frame = 0
+    let settle = 0
     const touch = () => {
       try {
         return window.matchMedia("(hover: none) and (pointer: coarse)").matches
@@ -587,20 +622,39 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
         return false
       }
     }
+    /*
+      Round AR: the visible height counts as much as the published inset (lib/onepage/feel keyboardState). Once iOS
+      has panned to the field the inset is 0 with the keys still up, and the bar used to come back over them.
+    */
+    const reveal = (field: HTMLElement) => {
+      const body = bodyRef.current
+      if (!body || document.activeElement !== field || !body.contains(field)) return
+      const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight
+      const d = revealDelta(field.getBoundingClientRect(), body.getBoundingClientRect(), visibleBottom)
+      if (Math.abs(d) >= 1) body.scrollBy({ top: d, behavior: reducedMotion() ? "auto" : "smooth" })
+    }
     const read = () => {
       frame = 0
       const f = document.activeElement
       const field = f instanceof HTMLElement && panel.contains(f) && f.matches(FIELDS)
-      const inset = readPublishedKeyboardInset()
-      if (!field) seen = false
-      else if (inset > 0) seen = true
-      setTyping(field && (inset > 0 || (touch() && !seen)))
+      const layoutHeight = rootRef.current?.clientHeight || window.innerHeight
+      const next = keyboardState(
+        { field, touch: touch(), inset: readPublishedKeyboardInset(), layoutHeight, visibleHeight: Math.round(vv?.height ?? layoutHeight) },
+        memory,
+      )
+      memory = next.memory
+      setTyping(next.up)
+      if (next.up && f instanceof HTMLElement) {
+        window.clearTimeout(settle)
+        /* Once the keyboard has settled, the field is brought above it inside the sheet's own scroll. */
+        settle = window.setTimeout(() => reveal(f), 260)
+      }
     }
     const later = () => {
       if (!frame) frame = requestAnimationFrame(read)
     }
     const onFocusIn = () => {
-      seen = false
+      memory = { saw: false }
       read()
     }
     panel.addEventListener("focusin", onFocusIn)
@@ -609,6 +663,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
     vv?.addEventListener("resize", later)
     return () => {
       cancelAnimationFrame(frame)
+      window.clearTimeout(settle)
       panel.removeEventListener("focusin", onFocusIn)
       panel.removeEventListener("focusout", later)
       window.removeEventListener(KEYBOARD_CHANGE_EVENT, later)
@@ -767,18 +822,20 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
         </h2>
         <div
           /* It scrolls with no bar drawn (round AN): a sheet is a small window, and a bar down its side read as a page squeezed into it. */
-          className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden", fill ? "flex flex-col" : "pb-2")}
+          ref={bodyRef}
+          className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden", fill ? "flex flex-col" : "pb-2", typing && "pb-4")}
           data-onepage-dialog-scroll=""
           data-block-sheet-body=""
         >
           {fill ? (
-            <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1.5" data-block-sheet-dots="">
+            /* Round AR: nothing that looks like loading for the first half second; a page that answers by then is simply there. */
+            <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1.5 [animation:op-late-in_200ms_ease-out_500ms_both] motion-reduce:[animation:none]" data-block-sheet-dots="">
               {[0, 1, 2].map((i) => (
                 <span key={i} className="h-1.5 w-1.5 rounded-full bg-[var(--sheet-muted)] opacity-60 motion-safe:animate-pulse" style={{ animationDelay: `${i * 160}ms` }} />
               ))}
             </span>
           ) : null}
-          <div ref={contentRef} className={cn("relative", fill && "flex min-h-0 flex-1 flex-col [&>*]:min-h-0 [&>*]:flex-1")}><InBlockSheetContext.Provider value>{body}</InBlockSheetContext.Provider></div>
+          <div ref={contentRef} className={cn("relative", fill && "flex min-h-0 flex-1 flex-col [&>*]:min-h-0 [&>*]:flex-1")}><InBlockSheetContext.Provider value><SheetBackContext.Provider value={backApi}>{body}</SheetBackContext.Provider></InBlockSheetContext.Provider></div>
         </div>
         <div
           className={cn("shrink-0 items-center gap-2 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3", typing ? "hidden" : "flex")}

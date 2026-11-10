@@ -6,6 +6,7 @@ import { actionLabel } from "@/lib/forms/actions"
 import { formSteps, isChoice, isMulti, pickResult, validDate, type FormField, type PublicForm } from "@/lib/forms/definition"
 import { generateSlots, type Slot } from "@/lib/forms/slots"
 import { formsRequest } from "@/lib/forms/client"
+import { useSheetBack } from "@/components/onepage/block-sheet-context"
 
 /*
   THE VISITOR'S FORM, the same on a OnePage, a website and a creator page.
@@ -72,6 +73,11 @@ function readPublicForm(formId: string): Promise<Loaded> {
 }
 
 /** Start reading a form now, once, for a renderer that is about to need it. */
+/** Whether a form's questions are already here, so a renderer draws them in its first frame. */
+export function publicFormRead(formId: string): boolean {
+  return loadedForms.has(formId)
+}
+
 export function prefetchPublicForm(formId: string): Promise<Loaded> {
   const known = loadedForms.get(formId)
   if (known) return Promise.resolve({ form: known, missing: false, error: null })
@@ -92,7 +98,10 @@ export function PublicFormRenderer({
   onSubmitted,
   onUnavailable,
   shownTitle,
+  quietLoading = false,
 }: {
+  /** Round AR: in a sheet, a form still on its way leaves its room empty rather than drawing grey bars. */
+  quietLoading?: boolean
   /** The form could not be shown (not published, no forms on this store, or no answer after a retry): a chat's questions step aside and the chat opens (components/forms/action-frame). */
   onUnavailable?: () => void
   /** Called once the answers are saved, or accepted in a preview: a pre-chat form hands them to the chat it opens (components/forms/action-frame). */
@@ -196,10 +205,31 @@ export function PublicFormRenderer({
   const stepProblem = () => (onSlots ? (slot ? null : "Choose a time.") : fields.map(problem).find(Boolean) || null)
 
   const focusTop = () => requestAnimationFrame(() => heading.current?.focus({ preventScroll: false }))
+  /*
+    ROUND AR: BACK MOVES A STEP. Inside the OnePage's sheet, the browser's Back and Android's back gesture go a step
+    back while there is one (components/onepage/block-sheet SheetBackContext), and close the sheet from the first step.
+    Nothing navigates. Each step slides in from the side it comes from.
+  */
+  const sheetBack = useSheetBack()
+  const stepRef = useRef({ current, done: !!done })
+  stepRef.current = { current, done: !!done }
+  const [came, setCame] = useState<"next" | "back" | null>(null)
+  useEffect(() => {
+    if (!sheetBack) return
+    return sheetBack.take(() => {
+      const s = stepRef.current
+      if (s.done || s.current <= 0) return false
+      setCame("back")
+      setStep(s.current - 1)
+      setError(null)
+      return true
+    })
+  }, [sheetBack])
   const next = () => {
     const p = stepProblem()
     if (p) return setError(p)
     setError(null)
+    setCame("next")
     setStep(current + 1)
     focusTop()
   }
@@ -294,6 +324,7 @@ export function PublicFormRenderer({
     }
   }
   /* While it is read: the shape of a form, quietly, so what arrives takes the same room and settles in rather than jumping. */
+  if (loading && quietLoading) return <div role="status" aria-label="Loading form" className="min-h-[240px]" data-form-loading="quiet" />
   if (loading)
     return (
       <div role="status" aria-label="Loading form" className="space-y-5 motion-safe:animate-pulse" data-form-loading="">
@@ -355,12 +386,18 @@ export function PublicFormRenderer({
           <input ref={trap} tabIndex={-1} autoComplete="off" name="website" />
         </label>
       </div>
-      {onSlots && d.booking ? (
-        <SlotPicker formId={formId} settings={d.booking} preview={preview} zone={zone} value={slot} version={slotsVersion} onChange={(s) => (setSlot(s), setError(null))} />
-      ) : null}
-      {fields.map((field) => (
-        <Question key={field.id} formId={formId} field={field} value={values[field.id]} file={files[field.id]} onChange={(v) => set(field.id, v)} onFile={(f) => void upload(field, f)} />
-      ))}
+      <div
+        key={current}
+        data-form-step={current}
+        className={`space-y-5 ${came === "next" ? "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-3 motion-safe:duration-200" : came === "back" ? "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-left-3 motion-safe:duration-200" : ""}`}
+      >
+        {onSlots && d.booking ? (
+          <SlotPicker formId={formId} settings={d.booking} preview={preview} zone={zone} value={slot} version={slotsVersion} onChange={(s) => (setSlot(s), setError(null))} />
+        ) : null}
+        {fields.map((field) => (
+          <Question key={field.id} formId={formId} field={field} value={values[field.id]} file={files[field.id]} onChange={(v) => set(field.id, v)} onFile={(f) => void upload(field, f)} />
+        ))}
+      </div>
       {last ? (
         <div className="space-y-3">
           <label className="flex items-start gap-2.5 text-xs leading-relaxed text-[var(--sheet-body,#4b5563)]">
@@ -389,7 +426,7 @@ export function PublicFormRenderer({
       ) : null}
       <div className="flex items-center gap-3">
         {current > 0 ? (
-          <button type="button" className="min-h-11 px-3 text-sm underline" onClick={() => (setStep(current - 1), setError(null), focusTop())}>
+          <button type="button" className="min-h-11 px-3 text-sm underline" onClick={() => (setCame("back"), setStep(current - 1), setError(null), focusTop())}>
             Back
           </button>
         ) : null}

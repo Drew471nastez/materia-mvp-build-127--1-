@@ -48,3 +48,21 @@ export const BlockSheetContext = createContext<BlockSheetApi>(NONE)
 export function useBlockSheet(): BlockSheetApi {
   return useContext(BlockSheetContext)
 }
+
+/**
+ * BACK INSIDE THE SHEET (round AR). Something in the sheet with steps (a
+ * form, a booking) takes Back while it has a step to go back to: the
+ * browser's Back, Android's back gesture and the sheet's own history entry
+ * then move it a step back instead of closing the sheet. `take` returns the
+ * function that gives Back up again. The handler answers true when it used
+ * the press. Null where no sheet is drawn around it.
+ */
+export interface SheetBackApi {
+  take: (handler: () => boolean) => () => void
+}
+
+export const SheetBackContext = createContext<SheetBackApi | null>(null)
+
+export function useSheetBack(): SheetBackApi | null {
+  return useContext(SheetBackContext)
+}

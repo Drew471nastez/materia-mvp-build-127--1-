@@ -49,6 +49,28 @@ export function trackBlockTap(onepageId: string | null | undefined, blockId: str
   }
 }
 
+/*
+  Round AR: a pointer over the button, or a finger coming down on it, opens the connection to the service the sheet
+  will frame (a Calendly page, a player), so its page starts arriving with the sheet's rise rather than after it.
+  Once per origin, never in the editor's preview.
+*/
+const warmed = new Set<string>()
+function preconnect(href: string | null) {
+  if (!href || typeof document === "undefined" || isOnePagePreview()) return
+  try {
+    const origin = new URL(href, window.location.href).origin
+    if (origin === window.location.origin || warmed.has(origin)) return
+    warmed.add(origin)
+    const link = document.createElement("link")
+    link.rel = "preconnect"
+    link.href = origin
+    link.crossOrigin = "anonymous"
+    document.head.appendChild(link)
+  } catch {
+    /* not an address: nothing to warm */
+  }
+}
+
 export function BlockSheetButton({
   blockId,
   onepageId,
@@ -117,6 +139,8 @@ export function BlockSheetButton({
     className: cn(press.className, "flex w-full items-center gap-2 font-medium [-webkit-tap-highlight-color:transparent]"),
     style: { ...press.style, minHeight: 56 * k, padding: `${10 * pad * k}px ${12 * k}px`, fontSize: 15 * k },
     onClick,
+    onPointerEnter: inSheet ? () => preconnect(href) : undefined,
+    onPointerDown: inSheet ? () => preconnect(href) : undefined,
   }
   if (inSheet || !href) {
     return (

@@ -163,6 +163,16 @@ function useLiveData<T extends object>(block: OnePageBlock, look: StorelibBlockL
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!need) return { data, loading: false }
   if (answer && answer.key === key) return { data: answer.data, loading: false }
+  /*
+    Round AR: A SETTING CHANGED, THE PRODUCTS STAY. Every setting is part of the key, so changing a title or a
+    layout asked again and drew the grey stand-ins until the answer came: the owner's product block that "hides,
+    unhides and reveals again". What the last answer filled in stays, under the settings as they are now, until
+    the new answer replaces it in place.
+  */
+  if (answer) {
+    const now = Object.fromEntries(Object.entries(data as object).filter(([, v]) => v !== undefined))
+    return { data: { ...(answer.data as object), ...now } as T, loading: false }
+  }
   return { data, loading: true }
 }
 

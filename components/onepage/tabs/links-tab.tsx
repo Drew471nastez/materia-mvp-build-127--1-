@@ -172,6 +172,7 @@ import { readFileHeader, scanFile } from "@/lib/storage/security"
 import { precheckUpload } from "@/lib/security/uploads"
 import { BlockBadges, BlockExtras, ExtraBlockEditor, extraBlockRow, isExtraBlock } from "@/components/onepage/extra-blocks"
 import { BlockRemoveQuestion, BlockRowMenu } from "@/components/onepage/block-remove"
+import { foldAway } from "@/components/onepage/leaving-block"
 import { AutoHeight, Reveal, revealSettledTop } from "@/components/onepage/reveal"
 import { ModeChoice, QuietAction, SettingsGroup } from "@/components/onepage/block-settings-kit"
 import { ProductPicker } from "@/components/onepage/product-picker"
@@ -459,6 +460,36 @@ function isSpotifyUrl(url: string): boolean {
   if (!url) return false
   const normalizedUrl = normalizeUrlInput(url)
   return normalizedUrl.includes('spotify.com') || normalizedUrl.includes('open.spotify.com')
+}
+
+/**
+ * Round AR: a block's card in the list folds away (its height, the gap after
+ * it and its opacity, components/onepage/leaving-block foldAway), and only
+ * then is the block taken off, so the cards under it glide up instead of
+ * jumping. Without a card to fold (or the motion API), it goes at once.
+ */
+function foldThen(blockId: string, then: () => void): void {
+  const card = typeof document !== "undefined" ? document.querySelector<HTMLElement>(`[data-block-id="${CSS.escape(blockId)}"]`) : null
+  /* The "add here" divider after a card (no height of its own) goes with it, and so does the gap before it. */
+  const divider = card?.nextElementSibling as HTMLElement | null | undefined
+  const motion = card ? foldAway(card, undefined, divider && divider.offsetHeight === 0 && !divider.hasAttribute("data-block-id") ? 2 : 1) : null
+  if (!motion) return then()
+  let done = false
+  const finish = () => {
+    if (done) return
+    done = true
+    then()
+    /* Still there a frame later (the block stayed, or came straight back): it is put back as it was. */
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (!card?.isConnected) return
+      motion.cancel()
+      card.style.overflow = ""
+      card.style.pointerEvents = ""
+    }))
+  }
+  motion.finished.then(finish, finish)
+  /* A background tab never finishes an animation. */
+  window.setTimeout(finish, 400)
 }
 
 export function LinksTab() {
@@ -1731,8 +1762,9 @@ export function LinksTab() {
                     }))
                   }
                 }}
-                onRemove={() => { removeBlock(block.id); setShowBlockRemovedNotification(false); requestAnimationFrame(() => setShowBlockRemovedNotification(true)) }}
-                onArchive={() => { archiveBlock(block.id); setShowBlockArchivedNotification(false); requestAnimationFrame(() => setShowBlockArchivedNotification(true)) }}
+                /* Round AR: the card folds away first (components/onepage/leaving-block foldAway), then it is taken off; the preview folds it away too. */
+                onRemove={() => foldThen(block.id, () => { removeBlock(block.id); setShowBlockRemovedNotification(false); requestAnimationFrame(() => setShowBlockRemovedNotification(true)) })}
+                onArchive={() => foldThen(block.id, () => { archiveBlock(block.id); setShowBlockArchivedNotification(false); requestAnimationFrame(() => setShowBlockArchivedNotification(true)) })}
                 onMoveUp={() => {
                   // Prevent social_row from moving above header when Hero layout
                   const headerLayout = (onepage.theme as any)?.header_layout || "classic"
