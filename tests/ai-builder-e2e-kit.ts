@@ -113,7 +113,7 @@ export interface AiWorld {
  * Supabase project store, L4 capabilities and render check) with scripted
  * models from `scripts`.
  */
-export async function aiWorld(): Promise<AiWorld> {
+export async function aiWorld(opts: { extra?: (job: { id: string; creatorId: string; ownerUserId: string | null; installId: string }) => Partial<import("@/lib/ai-builder/agent/ports").AgentDeps> } = {}): Promise<AiWorld> {
   const { Journey } = await import("./_journey/harness")
   const j = await Journey.start()
   const clock = fakeClock()
@@ -134,7 +134,8 @@ export async function aiWorld(): Promise<AiWorld> {
     const s = scripts.get(job.id)
     if (!s) throw new Error(`no script for job ${job.id}`)
     try {
-      return sliceStepper(await agentDeps({ creatorId: job.creatorId, ownerUserId: job.ownerUserId, installId: job.installId }, { models: s.models, templates: NO_TEMPLATES }))
+      /* Round R (R4): a suite may hand in more of the deps (the eval's template library and picture service). */
+      return sliceStepper(await agentDeps({ creatorId: job.creatorId, ownerUserId: job.ownerUserId, installId: job.installId }, { models: s.models, templates: NO_TEMPLATES, ...(opts.extra?.(job) ?? {}) }))
     } catch (e) {
       console.error("[kit] the stepper could not be made", e)
       throw e
