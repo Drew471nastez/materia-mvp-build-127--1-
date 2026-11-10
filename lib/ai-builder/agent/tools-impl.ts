@@ -2,7 +2,7 @@
  * ===========================================================================
  *  THE AGENT'S TOOLS, BOUND TO ONE JOB
  * ===========================================================================
- * `createToolSet(ctx)` gives the 17 tools of the contract
+ * `createToolSet(ctx)` gives the 19 tools of the contract
  * (lib/ai-builder/agent-tools.ts), every one bound to the job's install
  * through ctx.deps.store: no tool takes an install id, a creator id or a path
  * outside the install, so the model cannot name another tenant's anything.
@@ -47,6 +47,10 @@ import { versionOf } from "./version"
 import { conceptDirectionIssues, contractMetaAfter, refineBrief, syncContractFile, writeContract } from "./direction"
 import { protectOverrides } from "../design-contract"
 import { presetParts } from "./content-check"
+import { artDirection } from "@/lib/storelib-ai/direction/directions"
+import { makingWords } from "@/lib/storelib-ai/images/prompt"
+import { isImageAspect, type ImageAspect, type ImageDirection, type ImageOutcome } from "@/lib/storelib-ai/images/types"
+import type { AgentImageOutput } from "../agent-tools"
 
 /** Whether form bindings are drawn by the editor: what the job says, else whether the control registry has form_picker (L4). */
 export function formPickerOn(deps: Pick<AgentDeps, "features">): boolean {
@@ -83,6 +87,31 @@ export interface ToolContext {
   /** The loop answers finish (verify phase). */
   onFinish: (input: AgentToolInputs["finish"]) => Promise<AgentToolOutputs["finish"]>
   setPhase: (phase: AgentPhase, label: string) => void
+  /**
+   * Round P (P1): money a tool spent outside a model call (a picture), added to the job's spend and
+   * reported as a spend event; and the USD left under the job's cap. Absent (a bare tool set in a test): not counted.
+   */
+  spend?: (usd: number) => void
+  spendLeft?: () => number
+}
+
+/** Pictures per job when neither the budget nor the environment says. */
+export const DEFAULT_MAX_IMAGES = 16
+
+/** The art direction pictures are made to: the accepted concept, with the chosen direction's imagery brief when the concept has none. */
+export function imageDirectionOf(cp: Pick<LoopCheckpoint, "concept" | "direction">): ImageDirection | undefined {
+  const c = cp.concept
+  const d = cp.direction ? artDirection(cp.direction.primary) : undefined
+  const imagery = c?.imagery?.direction || d?.imagery
+  if (!c && !imagery) return undefined
+  const palette = c ? [c.palette.background, c.palette.accent, c.palette.text, c.palette.surface].filter((x): x is string => typeof x === "string" && !!x) : []
+  return {
+    ...(imagery ? { imagery } : {}),
+    ...(c?.mood?.length ? { mood: c.mood } : {}),
+    ...(palette.length ? { palette } : {}),
+    ...(c?.palette?.mode ? { mode: c.palette.mode } : {}),
+    ...(c?.imagery?.avoid?.length ? { avoid: c.imagery.avoid } : {}),
+  }
 }
 
 const SCHEMA_BLOCK = /<schema>[\s\S]*?<\/schema>/
@@ -127,6 +156,64 @@ export function createToolSet(ctx: ToolContext): ToolSet {
 
   function instancesOf(type: string, pages: StoredPage[]): SectionInstance[] {
     return pages.flatMap((p) => p.sections.filter((s) => s.type === type))
+  }
+
+  /* ── pictures (round P, P1) ──────────────────────────────────────────── */
+
+  /* Pictures started in this slice and not yet answered: they hold their place under the limit while several run side by side. */
+  let picturesInFlight = 0
+  const pictureLimit = () => Math.max(0, deps.images?.maxImages ?? job.budget.maxImages ?? DEFAULT_MAX_IMAGES)
+
+  async function picture(kind: "generate" | "find", input: { text: string; aspect?: unknown; purpose?: unknown; alt?: unknown; style?: unknown }): Promise<AgentImageOutput> {
+    const service = deps.images
+    if (!service) return { ok: false, reason: "No picture service is set up here. Design this spot without a picture (type, colour, shape), never a grey box or placeholder words." }
+    if (needsConcept()) return { ok: false, reason: conceptFirst.replace("Nothing was changed.", "Pictures are made to the concept's art direction.") }
+    const st = (cp.images ??= { made: 0, failed: 0, usd: 0, urls: [] })
+    const limit = pictureLimit()
+    const left = () => Math.max(0, limit - st.made - picturesInFlight)
+    if (left() <= 0) return { ok: false, reason: `This site has used its ${limit} pictures. Reuse one you made (its url), or design this spot without a picture.`, left: 0 }
+    /* Tries that keep failing stop too: a refused prompt rewritten forever is not a plan. */
+    if (st.failed >= limit) return { ok: false, reason: "Too many pictures were refused or failed in this job. Design the remaining spots without pictures.", left: left() }
+    const aspect: ImageAspect = isImageAspect(input.aspect) ? input.aspect : "landscape"
+    const room = ctx.spendLeft?.() ?? Infinity
+    if (kind === "generate" && room < service.ceiling(aspect)) return { ok: false, reason: "Not enough of this job's spending is left for a picture. Design this spot without one.", left: left() }
+    const purpose = typeof input.purpose === "string" ? input.purpose.slice(0, 60) : undefined
+    const alt = typeof input.alt === "string" ? input.alt.slice(0, 200) : undefined
+    picturesInFlight += 1
+    ctx.emit({ kind: "note", text: makingWords(purpose ?? (kind === "find" ? "stock" : undefined)) })
+    let out: ImageOutcome
+    try {
+      out =
+        kind === "generate"
+          ? await service.generate({ prompt: input.text, aspect, purpose, alt, style: typeof input.style === "string" ? input.style : undefined, direction: imageDirectionOf(cp), maxUsd: room })
+          : await service.find({ query: input.text, aspect, purpose, alt })
+    } catch {
+      out = { ok: false, code: "failed", reason: "The picture service failed. Design this spot without a picture.", usd: 0 }
+    } finally {
+      picturesInFlight -= 1
+    }
+    const usd = out.usd > 0 ? out.usd : 0
+    if (usd > 0) {
+      st.usd = Math.round((st.usd + usd) * 1e6) / 1e6
+      ctx.spend?.(usd)
+    }
+    if (out.ok === false) {
+      st.failed += 1
+      return { ok: false, reason: out.reason, left: left() }
+    }
+    st.made += 1
+    st.urls = [...st.urls, out.url].slice(-40)
+    return {
+      ok: true,
+      url: out.url,
+      alt: out.alt,
+      width: out.width,
+      height: out.height,
+      mediaId: out.mediaId,
+      source: out.source,
+      ...(out.credit ? { credit: `Photo by ${out.credit.photographer} on Pexels` } : {}),
+      left: left(),
+    }
   }
 
   /* ── files ─────────────────────────────────────────────────────────── */
@@ -676,6 +763,9 @@ Notes: ${fit.warnings.join(" ")}` : ""}`)
     },
 
     finish: (input) => ctx.onFinish(input),
+
+    generate_image: ({ prompt, aspect, purpose, alt, style }) => picture("generate", { text: String(prompt ?? ""), aspect, purpose, alt, style }),
+    find_photo: ({ query, aspect, purpose, alt }) => picture("find", { text: String(query ?? ""), aspect, purpose, alt }),
   }
 }
 

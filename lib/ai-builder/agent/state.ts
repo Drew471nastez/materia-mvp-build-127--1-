@@ -70,6 +70,8 @@ export interface LoopCheckpoint extends AgentCheckpoint {
    * phase. Finish refuses while untouchedTemplateParts still finds its copy or imagery as shipped.
    */
   template?: { id: string; name: string; files: string[]; pages: string[] }
+  /** Round P (P1): pictures this job made or found (`made`), tries that failed or were refused, and their cost. */
+  images?: { made: number; failed: number; usd: number; urls: string[] }
   /** Set once the job ended: what to tell the creator. */
   final?: { status: "complete" | "partial" | "failed" | "cancelled"; summary: string; failing: string[] }
 }

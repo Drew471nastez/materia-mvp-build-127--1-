@@ -407,6 +407,12 @@ export const LIMITS = {
    */
   siteGenerate: [{ limit: 3, seconds: 600 }, { limit: 10, seconds: 86400 }],
   /**
+   * Regenerate on a picture the AI made (round P, app/api/website-builder/images/regenerate): one paid image
+   * call each, at most a few cents. Five in ten minutes and thirty a day per store, so a day costs at most
+   * thirty times the per-picture cap (AI_IMAGE_REGENERATE_MAX_USD).
+   */
+  aiImage: [{ limit: 5, seconds: 600 }, { limit: 30, seconds: 86400 }],
+  /**
    * A lab test (Website settings › Performance) asks Google's PageSpeed
    * Insights to load a page, 10 to 40 seconds each, on a shared daily quota.
    * Two strategies of one page and a retry is four; thirty a day is plenty.

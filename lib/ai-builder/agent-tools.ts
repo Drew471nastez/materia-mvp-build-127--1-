@@ -73,7 +73,20 @@ export interface AgentToolInputs {
   /** `brief` (round O, O2): the plan model's refinements to the creative brief (lib/storelib-ai/direction/brief.ts refineBrief). */
   report_progress: { phase: AgentPhase; label: string; concept?: unknown; tasks?: string[]; pages?: unknown; brief?: unknown }
   finish: { summary: string; notes?: string[] }
+  /**
+   * Round P (P1): an original picture (lib/storelib-ai/images generateImage), kept in the creator's files.
+   * `prompt` is the subject in plain words; the site's art direction, light and palette are added for it.
+   * `purpose`: hero, product, portrait, people, place, detail, gallery, background... `style`: photo (default), studio, editorial, illustration, render.
+   */
+  generate_image: { prompt: string; aspect?: "square" | "landscape" | "portrait"; purpose?: string; alt?: string; style?: string }
+  /** Round P (P1): a licensed stock photo (Pexels), kept in the creator's files with its photographer's credit. */
+  find_photo: { query: string; aspect?: "square" | "landscape" | "portrait"; purpose?: string; alt?: string }
 }
+
+/** What generate_image and find_photo answer: the picture to put in an image_picker setting, or why there is none. */
+export type AgentImageOutput =
+  | { ok: true; url: string; alt: string; width: number; height: number; mediaId: string; source: "ai" | "stock"; credit?: string; left: number }
+  | { ok: false; reason: string; left?: number }
 
 export interface AgentToolOutputs {
   list_files: { files: Pick<ProjectFile, "path" | "updatedAt">[] }
@@ -102,6 +115,8 @@ export interface AgentToolOutputs {
   report_progress: { ok: boolean; note?: string; reason?: string; issues?: ValidationIssue[] }
   /** Refused (ok false) while validate has errors and repairs remain. */
   finish: { ok: boolean; reason?: string }
+  generate_image: AgentImageOutput
+  find_photo: AgentImageOutput
 }
 
 /** Compile-time check that every tool name has an input and an output shape. */

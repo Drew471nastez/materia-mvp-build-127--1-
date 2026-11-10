@@ -58,6 +58,8 @@ import { themeSettingsToTokens } from "../tokens"
 import { roleFor } from "./model-routing"
 import { blockIssues, imageSlotIssues } from "./content-check"
 import { fewShotExamples, templateBlock, templateIssues, templatesOf } from "./templates"
+import { imageBriefNote, makingWords } from "@/lib/storelib-ai/images/prompt"
+import { DEFAULT_MAX_IMAGES } from "./tools-impl"
 
 export interface SliceOptions {
   /** This invocation's end (ms since epoch). No call starts later than deadline - budget.callReserveMs. */
@@ -243,7 +245,10 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
         }
       }
     }
-    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages: pagesNow, files: filesNow, knowledge, directions, design, ...(templateText ? { template: templateText } : {}) }) })
+        /* Round P (P1): which picture service this environment has, plainly; none means a text-forward design, never a grey box. */
+    const pictures = await (deps.images?.available() ?? Promise.resolve({ generate: null, stock: false })).catch(() => ({ generate: null, stock: false }))
+    const picturesNote = imageBriefNote({ ...pictures, maxImages: deps.images?.maxImages ?? job.budget.maxImages ?? DEFAULT_MAX_IMAGES })
+    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages: pagesNow, files: filesNow, knowledge, directions, design, pictures: picturesNote, ...(templateText ? { template: templateText } : {}) }) })
     if (scoped) setPhase("build", "Making your change")
     else setPhase("plan", "Deciding the look")
   }
@@ -401,7 +406,15 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     return {}
   }
 
-  const tools = createToolSet({ job, deps, cp, emit, onFinish, setPhase })
+  /* Round P (P1): a picture's cost is the job's spend, like a model call's, and is reported the same way. */
+  const spend = (usd: number) => {
+    if (!(usd > 0)) return
+    usage.usd = Math.round((usage.usd + usd) * 1e6) / 1e6
+    cp.usd = Math.round((job.spentUsd + usage.usd) * 1e6) / 1e6
+    emit({ kind: "spend", usd, inputTokens: 0, outputTokens: 0, iteration: cp.iteration })
+  }
+  const spendLeft = () => Math.max(0, capOf(job, deps) - (job.spentUsd + usage.usd))
+  const tools = createToolSet({ job, deps, cp, emit, onFinish, setPhase, spend, spendLeft })
 
   /*
     The reference pictures, on the first turn, while the look is being decided (plan). Loaded once per slice,
@@ -494,7 +507,20 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     cp.nudges = 0
 
     const results: ToolResult[] = []
-    for (const call of turn.toolCalls) {
+    /*
+      Round P (P1): pictures asked for in the same turn are made side by side, three at a time: a run of
+      consecutive generate_image / find_photo calls is answered together, results in the order asked.
+    */
+    const pictureRuns = new Map<number, () => Promise<string[]>>()
+    for (let i = 0; i < turn.toolCalls.length; i++) {
+      if (!PICTURE_TOOLS.has(turn.toolCalls[i].name) || (i > 0 && PICTURE_TOOLS.has(turn.toolCalls[i - 1].name))) continue
+      let j = i
+      while (j < turn.toolCalls.length && PICTURE_TOOLS.has(turn.toolCalls[j].name)) j++
+      const run = turn.toolCalls.slice(i, j)
+      if (run.length > 1) pictureRuns.set(i, () => inPool(run.map((call) => () => runTool(tools, call.name, call.argumentsJson, emit, now)), PICTURE_CONCURRENCY))
+    }
+    const settled = new Map<number, string>()
+    for (const [index, call] of turn.toolCalls.entries()) {
       if (done.r) {
         results.push({ id: call.id, output: JSON.stringify({ ok: false, reason: "The job already finished." }) })
         continue
@@ -504,7 +530,10 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
         turns.push({ role: "tool", results })
         return stopFor("cancelled")
       }
-      results.push({ id: call.id, output: await runTool(tools, call.name, call.argumentsJson, emit, now) })
+      const run = pictureRuns.get(index)
+      if (run) (await run()).forEach((output, k) => settled.set(index + k, output))
+      const ready = settled.get(index)
+      results.push({ id: call.id, output: ready ?? (await runTool(tools, call.name, call.argumentsJson, emit, now)) })
     }
     turns.push({ role: "tool", results })
     turns = compactLive(turns)
@@ -581,6 +610,24 @@ function toCheckpointTurnsTail(cp: LoopCheckpoint, fresh: AgentTurn[]): LoopChec
   return [...before, ...toCheckpointTurns(fresh)].slice(-400)
 }
 
+/** Round P (P1): the picture tools, run side by side within a turn, at most this many at once. */
+const PICTURE_TOOLS = new Set<string>(["generate_image", "find_photo"])
+export const PICTURE_CONCURRENCY = 3
+
+/** Runs the tasks with at most `limit` at once; the results in the tasks' order. */
+export async function inPool<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
+  const out: T[] = new Array(tasks.length)
+  let next = 0
+  const worker = async () => {
+    while (next < tasks.length) {
+      const i = next++
+      out[i] = await tasks[i]()
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, limit), tasks.length) }, worker))
+  return out
+}
+
 /** One tool call: arguments parsed, the tool run, its result as the JSON text the model reads. Errors are results. */
 export async function runTool(tools: ToolSet, name: string, argumentsJson: string, emit: (e: EventDraft) => void, now: () => number = Date.now): Promise<string> {
   const started = now()
@@ -618,6 +665,11 @@ function summarise(name: string, args: Record<string, unknown>, output: unknown)
     if (has("plan.site_invalid")) return `The site plan needs another pass (${errors} thing${errors === 1 ? "" : "s"} to fix)`.slice(0, 200)
     if (has("plan.site_missing")) return "The site plan comes next: every page and template with its sections"
     return "The visual concept comes first: nothing else can start without it"
+  }
+  /* Round P (P1): pictures in plain words, never the prompt: "Made the hero photo". */
+  if (name === "generate_image" || name === "find_photo") {
+    const purpose = typeof args.purpose === "string" ? args.purpose : name === "find_photo" ? "stock" : undefined
+    return o.ok === false ? `${makingWords(purpose).replace(/^Making/, "Could not make")}: ${String(o.reason ?? "refused").replace(/\.$/, "").slice(0, 120)}`.slice(0, 200) : makingWords(purpose, true)
   }
   return `${name.replace(/_/g, " ")}${target ? ` ${target}` : ""}${o.ok === false ? (errors ? `: ${errors} error${errors === 1 ? "" : "s"}` : o.reason ? `: ${String(o.reason).slice(0, 60)}` : ": refused") : ""}`.slice(0, 200)
 }
@@ -719,16 +771,15 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
 }
 
 /**
- * Whether this job can make or find pictures: an image slot must then hold one before finish. `imageProvider`
- * when given; else P1's image service (`deps.images.available()`: a generation provider or stock search, read
- * duck-typed so this works before and after P1's port lands); else none.
+ * Whether this job can make or find pictures: an image slot must then hold one before finish. P1's image service
+ * (`deps.images.available()`: a generation provider or stock search); `imageProvider` overrides it (tests, an
+ * environment that wants slots enforced or relaxed). Neither: none, and sections are made text-forward.
  */
-export async function picturesAvailable(deps: Pick<AgentDeps, "imageProvider">): Promise<boolean> {
+export async function picturesAvailable(deps: Pick<AgentDeps, "imageProvider" | "images">): Promise<boolean> {
   try {
     if (deps.imageProvider) return (await deps.imageProvider()) === true
-    const service = (deps as { images?: { available?: () => Promise<{ generate?: unknown; stock?: boolean }> } }).images
-    if (typeof service?.available !== "function") return false
-    const a = await service.available()
+    if (!deps.images) return false
+    const a = await deps.images.available()
     return !!a?.generate || a?.stock === true
   } catch {
     return false

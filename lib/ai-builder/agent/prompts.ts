@@ -155,7 +155,7 @@ function typeSystemsFor(job: AgentJobInput, directions: Direction[]): TypeSystem
 }
 
 /** The first user turn of a job. */
-export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; pages: StoredPage[]; files: StoredFile[]; knowledge: KnowledgeHit[]; directions?: Direction[]; design?: JobDesignBrief | null; template?: string }): string {
+export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; pages: StoredPage[]; files: StoredFile[]; knowledge: KnowledgeHit[]; directions?: Direction[]; design?: JobDesignBrief | null; template?: string; pictures?: string }): string {
   const { job } = input
   /* Round O: an edit's direction is the site's own design, its DESIGN.md and tokens, kept unless asked (spec I.5). */
   const scoped = !!job.edit || job.redesign === "changes"
@@ -189,6 +189,8 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
       : "",
     /* Round O (O5): the business's site story and the motion feel, for a new website. */
     story,
+    /* Round P (P1): which picture service this environment has (lib/storelib-ai/images/prompt.ts imageBriefNote). */
+    input.pictures ?? "",
     /* The first turn is kept whole in the checkpoint up to 20,000 characters: the knowledge gives way to the design brief. */
     input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, Math.max(4_000, 12_000 - (input.design?.text.length ?? 0) - story.length))}` : "",
     /* Round P (P5): the starting template, its picture slots and one or two of its components as examples (few-shot). */

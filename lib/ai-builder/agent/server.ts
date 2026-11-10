@@ -19,6 +19,8 @@ import "server-only"
  *   capabilities  L4's readRuntimeCapabilities: creator scoped, real ids.
  *   renderCheck   L4's renderCheckForInstall: the page as a preview draws it.
  *   references    O1's visual reference library with the admin's screenshots.
+ *   images        P1's pictures (lib/storelib-ai/images): made or found for
+ *                 this creator, kept in the store owner's files.
  *
  * The admin (service role) client is used only for this job's install: the
  * runner checked ownership when it claimed the job; nothing here takes an id
@@ -39,6 +41,9 @@ import { createVisualCritic } from "../visual-critic/critic"
 import { keepReviewShot } from "../visual-critic/storage"
 import { readFingerprints, type SiteFingerprint } from "../novelty"
 import { findReferencesIn, referenceImagesFrom } from "@/lib/storelib-ai/references/store"
+import { findPhoto, generateImage, imageCostCeiling, imageServices, type ImageDeps } from "@/lib/storelib-ai/images/generate"
+import { readKeys } from "@/lib/ai-keys/store"
+import type { ImageService } from "./ports"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -161,6 +166,33 @@ export async function agentModels(creatorId: string): Promise<AgentModels> {
   }
 }
 
+/** AI_BUILDER_MAX_IMAGES: pictures per job on this deployment (0 turns pictures off), else the job budget's. */
+export function maxImagesFromEnv(e: Record<string, string | undefined> = process.env): number | undefined {
+  const raw = (e.AI_BUILDER_MAX_IMAGES ?? "").trim()
+  if (!raw) return undefined
+  const n = Math.floor(Number(raw))
+  return Number.isFinite(n) && n >= 0 ? Math.min(n, 60) : undefined
+}
+
+/**
+ * Round P (P1): pictures for one job, bound to its creator and store owner. `ownKeys: false` (a scripted
+ * run) never looks up the creator's own OpenAI key.
+ */
+export function jobImages(job: { creatorId: string; ownerUserId: string | null; jobId?: string }, opts: { ownKeys?: boolean; deps?: ImageDeps } = {}): ImageService {
+  const deps: ImageDeps = { ...(opts.ownKeys === false ? { ownOpenAIKey: async () => null } : {}), ...opts.deps }
+  const env = deps.env ?? process.env
+  let own: Promise<boolean> | null = null
+  const hasOwn = () => (own ??= opts.ownKeys === false ? Promise.resolve(false) : readKeys(job.creatorId).then((k) => !!k.openai).catch(() => false))
+  const max = maxImagesFromEnv(env)
+  return {
+    available: async () => imageServices(env, await hasOwn()),
+    generate: (input) => generateImage({ ...input, creatorId: job.creatorId, ownerUserId: job.ownerUserId, jobId: job.jobId ?? null }, deps),
+    find: (input) => findPhoto({ ...input, creatorId: job.creatorId, ownerUserId: job.ownerUserId, jobId: job.jobId ?? null }, deps),
+    ceiling: (aspect) => imageCostCeiling(env, aspect),
+    ...(max !== undefined ? { maxImages: max } : {}),
+  }
+}
+
 /**
  * Everything runAgentSlice needs for one job, on the real services. L2 adds
  * `emit` (ai_site_job_events), `cancelled` (cancel_requested_at) and
@@ -190,6 +222,8 @@ export async function agentDeps(job: { creatorId: string; ownerUserId: string | 
       return { ok: r.ok, issues: r.issues, htmlBytes: r.htmlBytes, ...(r.drawn ? { drawn: r.drawn } : {}) }
     },
     features: { formPicker: true },
+    /* P1: pictures made (OpenAI, else Gemini) or found (Pexels) for this creator, into the owner's files. */
+    images: jobImages(job, { ownKeys: !extra.models }),
     recentFingerprints: recentAgentFingerprints(admin),
     /* O1: the built in references and the admin's screenshots (design_references, part 431); their pictures for the plan phase. */
     references: {
