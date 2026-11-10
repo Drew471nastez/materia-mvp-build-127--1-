@@ -604,8 +604,10 @@ export function findIllegible(root: ParentNode): LegibleFinding[] {
      * under it in the tree, so not in `grounds`): they get NUDGE_MARGIN of room over the minimum.
      */
     const onScene = !!ground.owner && ground.owner.hasAttribute("data-op-skin")
-    const min = minimumFor(parseFloat(cs.fontSize) || 16, parseInt(cs.fontWeight) || 400) + (onScene ? 1 : 0)
+    const baseMin = minimumFor(parseFloat(cs.fontSize) || 16, parseInt(cs.fontWeight) || 400) + (onScene ? 1 : 0)
     const check = (kind: LegibleFinding["kind"], colorText: string | null | undefined, words: string, ownOpacity: number) => {
+      /* A field cannot carry an outline, and a placeholder is thin, light type: fields get half a step of room instead. */
+      const min = kind !== "text" ? baseMin + 0.5 : baseMin
       const c = parseColor(colorText)
       /* Clear words are meant to be clear (a placeholder hidden while typing, a label behind its own picture). */
       if (!c || c.a === 0) return
