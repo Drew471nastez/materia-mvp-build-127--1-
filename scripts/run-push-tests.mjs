@@ -801,6 +801,8 @@ const SUITES = [
   "tests/emails-t.test.ts",
   /* Emails › Customer emails in three families, the language and the signature by where it was bought, previews that are the sent email; scripts/check-emails-families.mjs measures the switch and the lists. */
   "tests/emails-families.test.ts",
+  /* Wave 9: a family the store does not use (nothing shipped, no community) keeps its pill and says so, with where to start, instead of listing emails that never go out. */
+  "tests/customer-emails-family-use.test.ts",
   "tests/emails-language.test.ts",
   /* One language for everything about a placed order: the store's default unless the order or a link names another it publishes; never a cookie, the browser or the country (lib/markets/buyer-language.ts). */
   "tests/buyer-language.test.ts",

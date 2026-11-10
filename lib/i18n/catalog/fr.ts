@@ -12984,7 +12984,13 @@ const words: Record<string, string> = {
  "Until it is verified, emails keep coming from Storelib's address.": "Tant qu'il n'est pas vérifié, les e-mails continuent de venir de l'adresse de Storelib.",
  "Where your domain's DNS is kept (your registrar, Cloudflare or your host), add each record below. Copy the name and the value exactly.": "Là où le DNS de ton domaine est géré (ton registraire, Cloudflare ou ton hébergeur), ajoute chaque enregistrement ci-dessous. Copie le nom et la valeur à l'identique.",
  "Records usually show within an hour, sometimes up to a day. Storelib checks again on its own, so you can leave this page.": "Les enregistrements apparaissent en général en moins d'une heure, parfois jusqu'à un jour. Storelib revérifie tout seul, tu peux donc quitter cette page.",
- "Edit name": "Modifier le nom"
+ "Edit name": "Modifier le nom",
+ "You aren't selling physical products": "Vous ne vendez pas de produits physiques",
+ "Order, shipping, pickup and return emails go to your buyers automatically once you sell something you ship.": "Les e-mails de commande, d'expédition, de retrait et de retour partent automatiquement vers vos acheteurs dès que vous vendez quelque chose à expédier.",
+ "You don't have any communities": "Vous n'avez aucune communauté",
+ "Welcome, invite, event ticket and paid plan emails go to your members automatically once you start a community.": "Les e-mails de bienvenue, d'invitation, de billets d'événement et d'abonnement payant partent automatiquement vers vos membres dès que vous lancez une communauté.",
+ "A preview: these go out once you sell something you ship.": "Un aperçu : ils partent dès que vous vendez quelque chose à expédier.",
+ "Preview the emails anyway": "Voir les e-mails quand même"
 }
 
 export default words

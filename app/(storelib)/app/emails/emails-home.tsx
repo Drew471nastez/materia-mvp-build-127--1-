@@ -57,6 +57,7 @@ import { CommunityAutomations } from "@/components/app/emails/community-automati
 import type { CommunityRef } from "@/components/app/emails/community-emails"
 import { api as storeApi, peekGet } from "@/components/physical/ui"
 import { emailsOf } from "@/lib/emails/customer-list"
+import { familyPlan } from "@/lib/emails/family-use"
 import { customerEmailsFrom } from "@/lib/emails/shapes"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
@@ -701,8 +702,9 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
   }
   if (p.tab === "customer") {
     const c = p.customerEmails
-    /* Every family the list shows: digital products, physical products while they are on, communities when there is one. */
-    const listed = emailsOf("all", p.physical).filter((e) => e.family !== "communities" || (c?.communities?.length ?? 0) > 0)
+    /* The emails that go out: every family the store uses (lib/emails/family-use.ts), none of one it only sees an empty state for. */
+    const using = new Set(familyPlan({ physicalOn: p.physical, sells: c?.sells, communities: c?.communities?.length ?? 0 }).filter((f) => f.inUse).map((f) => f.family))
+    const listed = emailsOf("all", p.physical).filter((e) => using.has(e.family))
     return [
       { label: tt("Emails"), help: tt("The emails your buyers and members get: digital products, physical products and communities, each apart."), value: n(listed.length) },
       { label: tt("Edited"), help: tt("Emails you changed the words of. The rest go out with the default words."), value: c ? n(listed.filter((e) => c.copy[e.id]).length) : "–" },
