@@ -1,3 +1,4 @@
+/// <reference path="./three.d.ts" />
 /**
  * The 3D object (round P, P3): a product photo on a real 3D card, or a lit
  * generated shape, turning with the scroll and leaning toward the pointer.
@@ -112,7 +113,7 @@ export async function object3d(ctx: IslandContext): Promise<Island> {
   const canvas = ctx.own(document.createElement("canvas"))
   canvas.setAttribute("aria-hidden", "true")
   canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:1"
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: mode === "full", powerPreference: "default", failIfMajorPerformanceCaveat: true })
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: mode === "full", powerPreference: "default" })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mode === "full" ? 1.75 : 1.25))
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping

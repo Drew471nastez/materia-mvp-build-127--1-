@@ -1,0 +1,65 @@
+{# example
+title: Pinned sideways collection (motion islands)
+summary: The section pins and a row of large product or project panels runs sideways as the visitor scrolls down (the pin-horizontal motion island), with a number and caption per panel; phones and reduced motion get a native swipe with snap points (or a stack), so every panel is always reachable.
+tags: pinned, pin, horizontal scroll, sideways, scroll gallery, collection, lookbook, portfolio, projects, motion islands, scroll storytelling, awwwards
+#}
+<template>
+<section class="pg" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }};">
+  <div class="pg__run" data-storelib-motion="pin-horizontal" data-motion-speed="{{ settings.motion_speed }}" data-motion-direction="{{ settings.motion_direction }}" data-motion-mobile="{{ settings.motion_mobile }}">
+    <div class="pg__stage" data-motion-stage>
+      <div class="pg__track" data-motion-track>
+        <header class="pg__intro">
+          <h2 class="pg__h">{{ settings.heading }}</h2>
+          {% if settings.text %}<p class="pg__text">{{ settings.text }}</p>{% endif %}
+        </header>
+        {% for block in section.blocks %}
+        <figure class="pg__panel" data-block-id="{{ block.id }}">
+          {% if block.settings.image %}<img class="pg__img" src="{{ block.settings.image | asset }}" alt="{{ block.settings.image_alt }}" width="1200" height="1500" loading="lazy">{% elsif page.in_editor %}<span class="pg__ph">Add a photo</span>{% endif %}
+          <figcaption class="pg__cap"><span class="pg__n">{{ forloop.index }}</span>{{ block.settings.caption }}</figcaption>
+        </figure>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+</template>
+
+<style scoped>
+.pg { background: var(--s-bg); color: var(--s-text); padding-block: 48px; }
+.pg__track { display: flex; gap: clamp(12px, 2vw, 28px); padding-inline: var(--theme-padding-x, 16px); align-items: end; }
+.pg__intro { flex: none; width: min(80vw, 420px); align-self: center; }
+.pg__h { margin: 0; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(2.25rem, 1.4rem + 4vw, 5.5rem); line-height: 0.92; letter-spacing: -0.03em; color: var(--s-heading); }
+.pg__text { margin: 18px 0 0; max-width: 34ch; line-height: 1.55; }
+.pg__panel { flex: none; width: min(78vw, 460px); margin: 0; }
+.pg__panel:nth-child(odd) { width: min(70vw, 380px); }
+.pg__img, .pg__ph { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
+.pg__ph { display: grid; place-items: center; border: 1px dashed var(--s-border); }
+.pg__cap { display: flex; gap: 12px; align-items: baseline; margin-top: 12px; font-size: 0.9375rem; }
+.pg__n { font-variant-numeric: tabular-nums; color: var(--s-accent); }
+.pg__panel:focus-within { outline: 2px solid var(--s-accent); outline-offset: 4px; }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_pin_gallery",
+  "name": "Pinned sideways collection",
+  "category": "image",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "The spring run" },
+    { "type": "textarea", "id": "text", "label": "Text", "default": "Six pieces cut from deadstock wool, made in batches of forty." },
+    { "type": "range", "id": "motion_speed", "label": "Scroll distance", "min": 0.5, "max": 2, "step": 0.1, "unit": "x", "default": 1 },
+    { "type": "select", "id": "motion_direction", "label": "Direction", "options": [{ "value": "left", "label": "Right to left" }, { "value": "right", "label": "Left to right" }], "default": "left" },
+    { "type": "select", "id": "motion_mobile", "label": "On phones", "options": [{ "value": "swipe", "label": "Swipe" }, { "value": "stack", "label": "Stack" }], "default": "swipe" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "panel", "name": "Panel", "settings": [
+      { "type": "image_picker", "id": "image", "label": "Photo" },
+      { "type": "text", "id": "image_alt", "label": "Photo description", "default": "" },
+      { "type": "text", "id": "caption", "label": "Caption", "default": "Overshirt in moss" }
+    ] }
+  ],
+  "presets": [{ "name": "Pinned sideways collection", "blocks": [{ "type": "panel", "settings": { "caption": "Overshirt in moss" } }, { "type": "panel", "settings": { "caption": "Wide trouser in slate" } }, { "type": "panel", "settings": { "caption": "Field jacket in rust" } }, { "type": "panel", "settings": { "caption": "Knit vest in oat" } }, { "type": "panel", "settings": { "caption": "Work shirt in ink" } }] }]
+}
+</schema>

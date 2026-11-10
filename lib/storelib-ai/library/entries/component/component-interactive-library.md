@@ -2,9 +2,9 @@
 id: component-interactive-library
 title: Interactive components that run in Storelib, ready to adapt
 category: component
-summary: Nineteen complete .storelib sections for the interactions sites keep asking for (reveals, masked headline, image curtain, sticky story, marquee, sticky stack, sideways gallery, hover index, hover lift, cursor tilt, staggered text, before and after, tabs, accordion, counters, parallax, video opening, own header and footer); ask search_knowledge for one by id.
+summary: Twenty-four complete .storelib sections for the interactions sites keep asking for (3D product hero, scroll scrubbed story, pinned sideways run, living gradient with a velocity marquee, image trail, reveals, masked headline, image curtain, sticky story, marquee, sticky stack, sideways gallery, hover index, hover lift, cursor tilt, staggered text, before and after, tabs, accordion, counters, parallax, video opening, own header and footer); ask search_knowledge for one by id.
 intents: [build-section, add-motion, add-interaction, build-header, build-footer, build-site]
-tags: [interactive, example, examples, components, working code, motion primitives, masked reveal, image reveal, sticky story, hover lift, cursor tilt, marquee, tabs, accordion, faq, slider, before after, gallery, sticky, parallax, counters, video, mega menu, mobile menu, cart drawer, search, popover, scroll reveal]
+tags: [interactive, example, examples, motion islands, 3d, scroll scrub, pinned, webgl gradient, image trail, components, working code, motion primitives, masked reveal, image reveal, sticky story, hover lift, cursor tilt, marquee, tabs, accordion, faq, slider, before after, gallery, sticky, parallax, counters, video, mega menu, mobile menu, cart drawer, search, popover, scroll reveal]
 components: [header, footer, tabs, accordion, carousel, gallery, hero, stats]
 phases: [plan, build]
 priority: 5
@@ -34,6 +34,13 @@ Ask search_knowledge with the id to get the whole file (template, scoped style, 
 | ai_video_hero | an opening over the creator's video | native controls so it can be paused |
 | ai_site_header | own header: mega menu, mobile menu, search window, cart drawer, language and currency | popover API and the page's hooks |
 | ai_site_footer | own footer: sign up, two menus, language and currency, the name set huge | data-storelib-form subscribe and the page's hooks |
+| ai_object_hero | a launch hero: the product photo on a lit 3D card turning with the scroll | the 3d-object motion island (three.js only on that page); the photo is the still state |
+| ai_scrub_story | frames scrubbed by the scroll on a pinned stage, captions per chapter | the scroll-scrub motion island and var(--motion-progress) |
+| ai_pin_gallery | the section pins and a collection runs sideways | the pin-horizontal motion island; a native swipe on phones |
+| ai_gradient_marquee | a living shader gradient band with a giant running line that answers the scroll | the webgl-gradient and marquee motion islands |
+| ai_image_trail | a project index: photos trail the mouse, a View label follows it | the image-trail and cursor-follow motion islands; a still row on touch |
+
+**Motion islands** (the last five): Storelib's own effects, asked for with data-storelib-motion and tuned with data-motion-* params from schema settings; see motion-islands. Use them for 3D, scroll scrubbing, pinned runs and shader backgrounds, which a section's own script cannot do.
 
 **Why these techniques**: a section's script runs in a sandbox on a copy of its markup, so it cannot measure the page, observe intersections, focus elements or play a video. Scroll-driven CSS, :has(), details, popover and sticky run on the real page with no script, work by keyboard, and are easy to switch off under prefers-reduced-motion.
 

@@ -36,6 +36,8 @@ import { STUDIO_CRAFT } from "@/lib/website-builder/ai-site/craft"
 import { PAGES_AND_TEMPLATES } from "./site-plan"
 /* Round O (O5): the business's site story and the motion feel, its own block (O6 owns this file's assembly). */
 import { motionAndLayoutBrief } from "@/lib/storelib-ai/layout"
+/* Round P (P3): the motion islands (3D, scroll scrubbing, pinned runs, shader backgrounds), their own block; O6 may fold it into the assembly. */
+import { motionIslandsForPrompt } from "@/lib/storelib-theme/motion-islands"
 
 /** CLAUDE.md's list, and its shape: words that say nothing. */
 export const BANNED_WORDS = ["unlock", "elevate", "seamless", "powerful", "effortlessly", "supercharge", "transform", "revolutionize", "game-changer"]
@@ -103,7 +105,9 @@ WORKING
 - AN EXISTING WEBSITE (edit mode, or a redesign of one): its content is the creator's. Keep words, pictures and bindings unless the request asks to change them.
 - EDIT MODE (an existing website): change only what is asked. "Make the hero calmer" touches the hero component and nothing else; "add a pricing page" adds that page and its components. Leave every other file, page, section and setting exactly as it is: do not tidy, rename, restyle or re-save what was not asked for.
 
-${PAGES_AND_TEMPLATES}`
+${PAGES_AND_TEMPLATES}
+
+${motionIslandsForPrompt()}`
 
 function capsSummary(c: RuntimeCapabilities | null): string {
   if (!c) return "STORE DATA: could not be read. Bind nothing; leave product and collection settings empty for the creator."

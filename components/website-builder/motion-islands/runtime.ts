@@ -381,8 +381,11 @@ export function mountMotionIslands(root: HTMLElement, opts: MountOptions): () =>
   const queries = ["(prefers-reduced-motion: reduce)", "(max-width: 600px)", "(hover: hover) and (pointer: fine)"].map((q) => (typeof matchMedia === "function" ? matchMedia(q) : null))
   const onChange = () => {
     if (!alive) return
+    /* Only a real change: a screenshot or a zoom can fire these with nothing different. */
+    const next = envFor(opts.inCanvas)
+    if (JSON.stringify(next) === JSON.stringify(env)) return
     stopAll()
-    env = envFor(opts.inCanvas)
+    env = next
     start()
   }
   queries.forEach((q) => q?.addEventListener?.("change", onChange))
@@ -486,6 +489,6 @@ export function positioned(el: HTMLElement): () => void {
 }
 
 /** For tests: how many islands are running and whether the loop is. */
-export function motionRuntimeState(): { running: number; looping: boolean; glInUse: number; editing: boolean } {
-  return { running: running.size, looping: raf !== 0, glInUse, editing }
+export function motionRuntimeState(): { running: number; looping: boolean; glInUse: number; editing: boolean; visible: number; awake: number } {
+  return { running: running.size, looping: raf !== 0, glInUse, editing, visible: [...running].filter((r) => r.visible).length, awake: [...running].filter((r) => r.awake).length }
 }

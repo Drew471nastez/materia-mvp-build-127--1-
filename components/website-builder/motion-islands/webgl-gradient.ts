@@ -59,7 +59,7 @@ gl_FragColor=vec4(col,1.);}`
 export const webglGradient: IslandFactory = (ctx) => {
   const { el, params, mode } = ctx
   const canvas = ctx.own(document.createElement("canvas"))
-  const gl = canvas.getContext("webgl", { antialias: false, alpha: false, premultipliedAlpha: false, powerPreference: "low-power", failIfMajorPerformanceCaveat: true }) as WebGLRenderingContext | null
+  const gl = canvas.getContext("webgl", { antialias: false, alpha: false, premultipliedAlpha: false, powerPreference: "low-power" }) as WebGLRenderingContext | null
   if (!gl) throw new Error("no webgl")
   const compile = (type: number, src: string) => {
     const s = gl.createShader(type)!
