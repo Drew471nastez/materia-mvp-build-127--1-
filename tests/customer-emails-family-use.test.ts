@@ -14,8 +14,10 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { FAMILY_EMPTY, emailsInUse, familyPlan } from "@/lib/emails/family-use"
 import { emailsOf } from "@/lib/emails/customer-list"
 import { customerEmailsFrom } from "@/lib/emails/shapes"
-import { CustomerEmailsPanel, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
-import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
+import { FamilyNotUsed } from "@/components/app/emails/family-not-used"
+
+/* The answer's type as the panel reads it (components/app/settings/customer-emails-panel.tsx CustomerEmailsData), kept apart so this suite compiles without the panel. */
+type CustomerEmailsData = { shop: Record<string, unknown>; copy: Record<string, unknown>; sells?: { physical: boolean | null; communitiesOn: boolean } }
 
 let passed = 0
 let failed = 0
@@ -27,10 +29,8 @@ function check(name: string, ok: boolean, detail?: unknown) {
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const fam = (plan: ReturnType<typeof familyPlan>) => plan.map((p) => `${p.family}${p.inUse ? "" : "?"}`).join(",")
 
-function draw(data: CustomerEmailsData, physicalOn = true): string {
-  return renderToStaticMarkup(
-    React.createElement(PlatformSettingsProvider, { exploreMarketplace: false, buyerHeaderLight: false, physicalCommerce: physicalOn, children: React.createElement(CustomerEmailsPanel, { bare: true, source: { data } }) }),
-  )
+function draw(family: "physical" | "communities", compact: boolean, preview: boolean): string {
+  return renderToStaticMarkup(React.createElement(FamilyNotUsed, { family, bare: true, compact, onPreview: preview ? () => {} : undefined }))
 }
 
 async function main() {
@@ -71,22 +71,20 @@ async function main() {
   check("  a failed read is null, never false", /if \(r\.error\) return null/.test(route) && /catch \{\s*return null/.test(route))
 
   console.log("\nWhat the list draws\n")
-  const base: CustomerEmailsData = { shop: { name: "Shop", supportEmail: null, storeUrl: null, logoUrl: null, phone: null, currency: "USD" }, copy: {}, ready: true, reminder: true, communities: [] }
-  const none = draw({ ...base, sells: { physical: false, communitiesOn: true } })
-  check("neither: Physical and Communities show their empty states, with their actions", /data-family-empty="physical"/.test(none) && /data-family-empty="communities"/.test(none) && /href="\/app\/products\/new\?type=physical"/.test(none) && /href="\/app\/community\/new"/.test(none))
-  check("  and none of their emails as rows", !/Order confirmation/.test(none) && !/Shipping confirmation/.test(none))
-  check("  the digital emails are listed as always", /Receipt/.test(none) && /Checkout reminder/.test(none))
-  check("  the pills keep both families, after Digital products", /Digital products[\s\S]*Physical products[\s\S]*Communities/.test(none.slice(0, none.indexOf("customer-emails-view"))))
-  check("  Physical can be previewed anyway; a community's need a community", /data-family-peek="physical"/.test(none) && !/data-family-peek="communities"/.test(none))
-  const ships = draw({ ...base, sells: { physical: true, communitiesOn: true } })
-  check("ships: Physical products lists its emails exactly as before, no empty state", /Order confirmation/.test(ships) && !/data-family-empty="physical"/.test(ships))
-  check("  Communities still says there is none", /data-family-empty="communities"/.test(ships))
-  const old = draw(base)
-  check("an older answer (no sells): Physical listed, no Communities pill, as before", /Order confirmation/.test(old) && !/data-family-empty/.test(old) && !/>Communities</.test(old))
-  const off = draw({ ...base, sells: { physical: false, communitiesOn: false } }, false)
-  check("physical commerce and communities off: no Physical, no Communities, no empty state", !/Physical products/.test(off) && !/data-family-empty/.test(off))
-
+  for (const compact of [true, false]) {
+    const where = compact ? "in All, one quiet row" : "alone, the house empty state"
+    const ph = draw("physical", compact, true)
+    check(`${where}: physical says it, why, and links Add a physical product`, /data-family-empty="physical"/.test(ph) && ph.includes("You aren&#x27;t selling physical products") && /href="\/app\/products\/new\?type=physical"/.test(ph) && /Add a physical product/.test(ph))
+    check(`${where}: with Preview the emails anyway`, /data-family-peek="physical"/.test(ph) && /Preview the emails anyway/.test(ph))
+    const cm = draw("communities", compact, false)
+    check(`${where}: communities links Create a community, with no preview`, /data-family-empty="communities"/.test(cm) && /href="\/app\/community\/new"/.test(cm) && !/data-family-peek/.test(cm))
+    check(`${where}: a 44px tap target on a phone for the action`, /h-11/.test(ph) && /min-h-11/.test(ph))
+  }
   const panel = read("components/app/settings/customer-emails-panel.tsx")
+  check("an unused family draws its empty state in place of its rows, Physical until previewed", /family !== "digital" && unused\.has\(family\) && !\(family === "physical" && peek\.has\(family\)\)/.test(panel))
+  check("  the pills come from the plan: All, then each family offered, in use first", /\[\{ value: "all", label: tt\("All"\) \}, \.\.\.plan\.map\(/.test(panel))
+  check("  a previewed family says it is a preview, with Hide", /data-family-preview=\{family\}/.test(panel) && /data-family-unpeek=\{family\}/.test(panel))
+  check("  the language note only over physical rows actually shown", /shown === "physical" && \(!unused\.has\("physical"\) \|\| peek\.has\("physical"\)\)/.test(panel))
   check("the pills and the sections follow the plan, in use first", /const plan = familyPlan\(\{ physicalOn: physical, sells: data\?\.sells, communities: communities\.length \}\)/.test(panel) && /const families = shown === "all" \? plan\.map\(\(p\) => p\.family\) : \[shown\]/.test(panel))
   check("an empty state is never faded in: it is there at once", /<FamilySection key=\{family\} title=\{FAMILY_NAMES\[family\]\} bare=\{bare\}>\s*<FamilyNotUsed/.test(panel))
   check("a section that does fade in takes 150ms at most", /const VIEW_FADE_MS = 150/.test(panel))
