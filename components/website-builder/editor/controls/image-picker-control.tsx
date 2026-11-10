@@ -18,14 +18,33 @@
  * An address is sent on as soon as it reads as one (https://..., or a path
  * on this site), so the canvas follows the typing. Half an address is kept
  * in the box and not sent, and leaving the box with one says why.
+ *
+ * A picture the AI made (round P: in the store's ai-images folder) has a
+ * small Regenerate under it: a new one from the same description, through
+ * /api/website-builder/images/regenerate (owner only, limited, capped). The
+ * new picture replaces this one in the setting; the old one stays in Files,
+ * so Undo brings it back.
  */
 import * as React from "react"
 
 import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { pictureAddress } from "@/lib/website-builder/picture-address"
+import { aiImagePathOf } from "@/lib/storelib-ai/images/paths"
 import { useEditorFieldEnv } from "./context"
-import { INPUT, PROBLEM } from "./styles"
+import { INPUT, NOTE, PROBLEM, TEXT_BUTTON } from "./styles"
+
+/** Asks for a new picture in place of an AI one. The new address, or the reason in plain words. */
+async function regenerate(url: string): Promise<{ url: string } | { error: string }> {
+  try {
+    const res = await fetch("/api/website-builder/images/regenerate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url }) })
+    const body = (await res.json().catch(() => null)) as { url?: unknown; error?: unknown } | null
+    if (res.ok && typeof body?.url === "string") return { url: body.url }
+    return { error: typeof body?.error === "string" ? body.error : "Could not make a new picture. Try again." }
+  } catch {
+    return { error: "Could not make a new picture. Try again." }
+  }
+}
 
 /** An address an <img> can load: https, http, or a path on this site. */
 export function isImageAddress(value: string): boolean {
@@ -63,10 +82,36 @@ export function ImagePickerControl({
   */
   const env = useEditorFieldEnv()
   const drawn = shown ? pictureAddress(shown, env?.pictureMedia) : ""
+  /* Only a picture the AI made can be made again. */
+  const madeByAi = !!aiImagePathOf(shown)
+  const [making, setMaking] = React.useState(false)
+  const [madeError, setMadeError] = React.useState<string | null>(null)
+  const remake = async () => {
+    if (making || !shown) return
+    setMaking(true)
+    setMadeError(null)
+    const r = await regenerate(shown)
+    setMaking(false)
+    if ("url" in r) commit(r.url)
+    else setMadeError(r.error)
+  }
 
   return (
     <div className="space-y-1.5" data-image-setting="">
       <WbImagePicker value={drawn || undefined} onChange={(next) => commit(next ?? "")} aspectRatio="video" folder="sections" layout="row" />
+      {madeByAi && (
+        <div className="flex items-center gap-2" data-image-regenerate="">
+          <button type="button" className={TEXT_BUTTON} onClick={() => void remake()} disabled={making} aria-busy={making}>
+            {making ? "Making a new one" : "Regenerate"}
+          </button>
+          {!making && !madeError && <span className={NOTE}>Made by AI</span>}
+        </div>
+      )}
+      {madeError && (
+        <p className={PROBLEM} role="alert">
+          {madeError}
+        </p>
+      )}
       <input
         type="url"
         inputMode="url"

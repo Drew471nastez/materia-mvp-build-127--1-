@@ -1,0 +1,105 @@
+{# example
+title: Centred logo header with the menu split either side
+summary: Chrome kit header. The logo in the middle, one menu on its left and another on its right (two link_list settings, so the creator decides what sits where), a thin line of utility links above, search and bag at the far right; on phones a three part bar (menu, logo, bag) whose menu button opens the site's own drawer. Logo size, line on or off, link style (plain, underline that grows, letters that roll), alignment and colours are settings.
+tags: chrome kit, header, centered logo, centred logo, split nav, split navigation, luxury header, boutique header, own chrome, site header
+#}
+<template>
+<header class="hsp" data-link="{{ settings.link_style }}" data-motion="{{ settings.motion }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --hsp-logo: {{ settings.logo_height }}px; --hsp-pad: {{ settings.padding_y }}px; --m-k: calc({{ settings.motion_strength }} / 100);">
+  {% if settings.show_utility %}
+  <div class="hsp__util">
+    <p class="hsp__note">{{ settings.utility_text }}</p>
+    <ul class="hsp__util-links">{% for link in settings.utility_menu.links limit: 3 %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+  <div class="hsp__bar">
+    <button class="hsp__icon hsp__burger" type="button" data-storelib-menu="{{ settings.menu_left.handle }}" aria-label="{{ settings.menu_label }}"><span class="hsp__lines" aria-hidden="true"></span></button>
+    <nav class="hsp__nav hsp__nav--left" aria-label="{{ settings.left_label }}">
+      <ul>{% for link in settings.menu_left.links limit: 4 %}<li><a class="hsp__link" href="{{ link.url }}"><span class="hsp__roll" data-text="{{ link.title }}">{{ link.title }}</span></a></li>{% endfor %}</ul>
+    </nav>
+    <a class="hsp__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="200" height="60">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
+    <div class="hsp__right">
+      <nav class="hsp__nav" aria-label="{{ settings.right_label }}">
+        <ul>{% for link in settings.menu_right.links limit: 4 %}<li><a class="hsp__link" href="{{ link.url }}"><span class="hsp__roll" data-text="{{ link.title }}">{{ link.title }}</span></a></li>{% endfor %}</ul>
+      </nav>
+      <a class="hsp__icon hsp__search" href="{{ routes.search_url }}" data-storelib-search aria-label="{{ settings.search_label }}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.5"/></svg></a>
+      <a class="hsp__icon hsp__bag" href="{{ routes.cart_url }}" data-storelib-cart aria-label="{{ settings.cart_label }}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2L5 8z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 8a3 3 0 016 0" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span class="hsp__bag-word">{{ settings.cart_label }}</span> <span class="hsp__count" data-storelib-cart-count></span></a>
+    </div>
+  </div>
+</header>
+</template>
+
+<style scoped>
+.hsp, .hsp *, .hsp *::before, .hsp *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.hsp [hidden] { display: none !important; }
+.hsp { position: relative; z-index: 40; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
+.hsp__util { display: none; }
+.hsp__bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: var(--hsp-pad) var(--theme-padding-x, 16px); max-width: var(--theme-page-width, 1440px); margin: 0 auto; }
+.hsp__nav { display: none; }
+.hsp__nav ul { display: flex; flex-wrap: wrap; gap: 0 8px; margin: 0; padding: 0; list-style: none; }
+.hsp__logo { grid-column: 2; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; color: var(--s-heading); text-decoration: none; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.375rem, 1rem + 1.4vw, 2.25rem); font-weight: 600; letter-spacing: -0.02em; text-align: center; }
+.hsp__logo img { display: block; width: auto; height: var(--hsp-logo); }
+.hsp__right { grid-column: 3; display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.hsp__icon { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 0 6px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.9375rem; text-decoration: none; cursor: pointer; }
+.hsp__burger { grid-column: 1; grid-row: 1; justify-self: start; }
+.hsp__lines { display: block; width: 22px; height: 10px; border-top: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; }
+.hsp__bag-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.hsp__count { font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+.hsp__count[data-count="0"] { display: none; }
+.hsp__link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; color: inherit; text-decoration: none; font-size: 0.9375rem; }
+.hsp__roll { position: relative; display: inline-block; overflow: hidden; line-height: 1.3; }
+.hsp[data-link="underline"] .hsp__roll { background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat; }
+.hsp[data-link="underline"] .hsp__link:hover .hsp__roll, .hsp[data-link="underline"] .hsp__link:focus-visible .hsp__roll { background-size: 100% 1px; }
+.hsp[data-link="plain"] .hsp__link:hover { text-decoration: underline; text-underline-offset: 6px; }
+.hsp :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .hsp:not([data-motion="off"])[data-link="underline"] .hsp__roll { transition: background-size var(--t-motion-hover, 200ms) var(--t-motion-ease-ui, ease); }
+  .hsp:not([data-motion="off"])[data-link="roll"] .hsp__roll::after { content: attr(data-text); position: absolute; left: 0; top: 100%; }
+  .hsp:not([data-motion="off"])[data-link="roll"] .hsp__roll { transition: transform calc(var(--t-motion-hover, 200ms) * 1.5) var(--t-motion-ease-ui, ease); }
+  .hsp:not([data-motion="off"])[data-link="roll"] .hsp__link:hover .hsp__roll, .hsp:not([data-motion="off"])[data-link="roll"] .hsp__link:focus-visible .hsp__roll { transform: translateY(calc(-100% * min(1, var(--m-k, 1)))); }
+}
+@media (prefers-reduced-motion: reduce) { .hsp__roll { transition: none; } }
+@media (min-width: 990px) {
+  .hsp__util { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 0 var(--theme-padding-x, 16px); border-bottom: 1px solid var(--s-border); font-size: 0.8125rem; }
+  .hsp__note { margin: 0; padding: 8px 0; }
+  .hsp__util-links { display: flex; gap: 16px; margin: 0; padding: 0; list-style: none; }
+  .hsp__util-links a { display: inline-flex; align-items: center; min-height: 32px; color: inherit; }
+  .hsp__nav { display: block; }
+  .hsp__nav--left { grid-column: 1; grid-row: 1; }
+  .hsp__burger { display: none; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_header_split",
+  "name": "Centred logo header",
+  "kind": "header",
+  "enabled_on": { "groups": ["header"] },
+  "settings": [
+    { "type": "header", "id": "hdr_menus", "label": "Menus" },
+    { "type": "link_list", "id": "menu_left", "label": "Left of the logo (also the phone menu)", "default": "main-menu" },
+    { "type": "link_list", "id": "menu_right", "label": "Right of the logo", "default": "footer" },
+    { "type": "checkbox", "id": "show_utility", "label": "Show the thin line above", "default": true },
+    { "type": "text", "id": "utility_text", "label": "Line above: note", "default": "Free returns within 30 days" },
+    { "type": "link_list", "id": "utility_menu", "label": "Line above: links", "default": "footer" },
+    { "type": "text", "id": "brand", "label": "Name when there is no logo", "default": "Home" },
+    { "type": "header", "id": "hdr_layout", "label": "Layout" },
+    { "type": "range", "id": "logo_height", "label": "Logo height", "min": 24, "max": 96, "step": 2, "unit": "px", "default": 44 },
+    { "type": "range", "id": "padding_y", "label": "Space above and below", "min": 4, "max": 40, "step": 2, "unit": "px", "default": 14 },
+    { "type": "select", "id": "link_style", "label": "Link hover", "default": "roll", "options": [{ "label": "Plain underline", "value": "plain" }, { "label": "Line that grows", "value": "underline" }, { "label": "Words that roll", "value": "roll" }] },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "left_label", "label": "Left menu name (read aloud)", "default": "Shop" },
+    { "type": "text", "id": "right_label", "label": "Right menu name (read aloud)", "default": "More" },
+    { "type": "text", "id": "menu_label", "label": "Menu button (read aloud)", "default": "Menu" },
+    { "type": "text", "id": "search_label", "label": "Search (read aloud)", "default": "Search" },
+    { "type": "text", "id": "cart_label", "label": "Bag", "default": "Bag" },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ]
+}
+</schema>

@@ -60,7 +60,8 @@ export const STEPS = `<template>
       { "type": "textarea", "id": "text", "label": "What happens", "default": "Say what happens in this step, in your own words." }
     ] }
   ],
-  "max_blocks": 6
+  "max_blocks": 6,
+  "presets": [{"name": "Default", "blocks": [{"type": "step", "settings": {"name": "Book a first session", "text": "Pick a time that suits you; it is free and takes an hour."}}, {"type": "step", "settings": {"name": "A movement check", "text": "We watch you squat, hinge and press, and note where to start."}}, {"type": "step", "settings": {"name": "Your plan in writing", "text": "You leave with the next four weeks on one page."}}]}]
 }
 </schema>
 `
@@ -102,7 +103,8 @@ export const FACTS = `<template>
       { "type": "text", "id": "detail", "label": "Detail", "default": "Write what people need to bring." }
     ] }
   ],
-  "max_blocks": 8
+  "max_blocks": 8,
+  "presets": [{"name": "Default", "blocks": [{"type": "fact", "settings": {"term": "What to bring", "detail": "Flat shoes, water and a towel."}}, {"type": "fact", "settings": {"term": "First visit", "detail": "Arrive ten minutes early to warm up."}}]}]
 }
 </schema>
 `
@@ -140,7 +142,8 @@ export const FAQ = `<template>
       { "type": "richtext", "id": "answer", "label": "Answer", "default": "<p>No. Every plan starts from where you are today.</p>" }
     ] }
   ],
-  "max_blocks": 10
+  "max_blocks": 10,
+  "presets": [{"name": "Default", "blocks": [{"type": "question", "settings": {"question": "Do I need to be fit already?", "answer": "<p>No. Every plan starts from where you are today.</p>"}}, {"type": "question", "settings": {"question": "How big are the groups?", "answer": "<p>Six people at most, so the coach sees every lift.</p>"}}, {"type": "question", "settings": {"question": "Can I pause my plan?", "answer": "<p>Yes, for up to four weeks a year.</p>"}}]}]
 }
 </schema>
 `
@@ -219,7 +222,8 @@ export const GALLERY = `<template>
       { "type": "text", "id": "caption", "label": "Caption", "default": "" }
     ] }
   ],
-  "max_blocks": 9
+  "max_blocks": 9,
+  "presets": [{"name": "Default", "blocks": [{"type": "photo", "settings": {"alt": "Chalked hands on a barbell", "caption": "Chalk before the first set"}}, {"type": "photo", "settings": {"alt": "A coach watching a squat", "caption": "Every lift watched"}}, {"type": "photo", "settings": {"alt": "Plates stacked by the rack", "caption": "Plates back after the session"}}]}]
 }
 </schema>
 `
@@ -266,7 +270,8 @@ export const SCHEDULE = `<template>
       { "type": "text", "id": "what", "label": "Session", "default": "Small group strength" }
     ] }
   ],
-  "max_blocks": 14
+  "max_blocks": 14,
+  "presets": [{"name": "Default", "blocks": [{"type": "session", "settings": {"day": "Monday", "time": "06:30", "what": "Small group strength"}}, {"type": "session", "settings": {"day": "Wednesday", "time": "18:00", "what": "Small group strength"}}, {"type": "session", "settings": {"day": "Saturday", "time": "09:00", "what": "Open gym"}}]}]
 }
 </schema>
 `

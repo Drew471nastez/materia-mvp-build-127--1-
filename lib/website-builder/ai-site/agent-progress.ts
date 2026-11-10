@@ -81,6 +81,15 @@ export function toolSummary(tool: AgentToolName, input: Record<string, unknown> 
       return str(input.label) || "Working"
     case "finish":
       return "Finishing up"
+    /* Round P (P1): pictures, by what they are for. */
+    case "generate_image":
+    case "find_photo": {
+      const purpose = str(input.purpose).replace(/\b(photo|picture|image)\b/gi, "").trim().toLowerCase()
+      return `Making ${purpose ? `the ${purpose} photo` : "a photo"}`
+    }
+    /* Round P (P5): the starting templates. */
+    case "list_templates":
+      return "Looking at starting templates"
   }
 }
 

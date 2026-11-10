@@ -15,6 +15,7 @@ import { RESOURCES, type ResourceRecord } from "./resources"
 import { matchExamples, type ComponentExample } from "./examples"
 import { searchKnowledge, tokenize } from "./retrieve"
 import type { KnowledgeCapability } from "./types"
+import { templateEntries } from "@/lib/storelib-ai/templates/gallery"
 
 const KINDS: KnowledgeKind[] = ["core", "industry", "style", "layout", "component", "motion", "storelib", "anti_slop", "debugging", "resource"]
 
@@ -92,12 +93,16 @@ export function runSearchKnowledge(input: AgentToolInputs["search_knowledge"], c
   const query = String(input?.query ?? "").slice(0, 500)
   const limit = Math.max(1, Math.min(8, Math.floor(input?.limit ?? 4)))
   const kinds = (input?.kinds ?? []).filter((k): k is KnowledgeKind => KINDS.includes(k))
+  /* Round P (P2a): a question about site templates ("site template coffee shop", "template:<id>") gets the gallery's answer first. */
+  const templates = !kinds.length || kinds.includes("layout") ? templateEntries(query, Math.min(2, limit)) : []
+  if (templates.length && templates.length >= limit) return { entries: templates }
   const examples = !kinds.length || kinds.includes("component") ? matchExamples(query, 1).map(exampleEntry) : []
   const wantResources = kinds.includes("resource") || (!kinds.length && LIBRARY_NAMES.test(query))
   const resources = wantResources ? matchResources(query, Math.min(limit, 3)) : []
   const otherKinds = kinds.filter((k) => k !== "resource")
-  if (kinds.length && !otherKinds.length) return { entries: [...examples, ...resources] }
+  if (kinds.length && !otherKinds.length) return { entries: [...templates, ...examples, ...resources] }
   const text = [query, ...(ctx.styles ?? [])].join(" ")
   const found = searchKnowledge({ text, kinds: otherKinds.length ? otherKinds : undefined, industry: ctx.industry, limit: Math.max(1, limit - resources.length - examples.length), budgetTokens: ctx.budgetTokens, capabilities: ctx.capabilities })
-  return { entries: [...examples, ...resources, ...found.entries.filter((f) => !examples.some((e) => e.id === f.id))].map(({ id, kind, title, body }) => ({ id, kind, title, body })) }
+  const entries = [...examples, ...resources, ...found.entries.filter((f) => !examples.some((e) => e.id === f.id))].map(({ id, kind, title, body }) => ({ id, kind, title, body }))
+  return { entries: templates.length ? [...templates, ...entries].slice(0, Math.max(limit, templates.length)) : entries }
 }

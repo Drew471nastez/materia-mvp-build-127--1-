@@ -54,6 +54,8 @@ export interface Measurements {
   /** Calls to action whose top is inside the first screen. */
   foldCtas: (MeasuredElement & { href: string | null; tag: string; hooked: boolean })[]
   placeholders: (MeasuredElement & { text: string })[]
+  /** Round P (P5): sections drawn with height but nothing in them a visitor can read or see. */
+  emptySections?: MeasuredElement[]
   pageHeight: number
 }
 
@@ -217,6 +219,19 @@ export const MEASURE_SCRIPT = `(() => {
     out.placeholders.push(Object.assign(where(el), { text: t.slice(0, 80) }))
     if (out.placeholders.length >= 6) break
   }
+  /* Sections with height and nothing in them: no words, no picture, no drawing (round P). */
+  out.emptySections = []
+  for (const sec of document.querySelectorAll('[data-critic-section]')) {
+    const r = sec.getBoundingClientRect()
+    if (r.height < 60) continue
+    const words = (sec.innerText || sec.textContent || '').replace(/\s+/g, '').length
+    if (words >= 2) continue
+    let seen = false
+    for (const m of sec.querySelectorAll('img[src], svg, video, canvas, picture, iframe')) { const mr = m.getBoundingClientRect(); if (mr.width > 8 && mr.height > 8) { seen = true; break } }
+    if (!seen) for (const el of [sec, ...sec.querySelectorAll('*')]) { const bi = getComputedStyle(el).backgroundImage; if (bi && bi !== 'none') { seen = true; break } }
+    if (!seen) out.emptySections.push(where(sec.firstElementChild || sec))
+    if (out.emptySections.length >= 8) break
+  }
   out.headings = out.headings.slice(0, 40)
   out.smallTargets = out.smallTargets.slice(0, 20)
   out.contrast = out.contrast.slice(0, 20)
@@ -317,7 +332,11 @@ export function measuredDefects(page: string, m: Measurements): Defect[] {
     out.push({ ...at(b), severity: "high", kind: "image-broken", viewport, what: `A picture did not load (${b.src}).`, why: "A broken picture shows an empty box or a broken icon to every visitor.", fix: "Use a picture from the creator's media or products, or a designed text-forward composition with an editable image slot that draws nothing until filled.", gate: false, source: "measure" })
   }
   for (const b of m.missingImages.slice(0, 6)) {
-    out.push({ ...at(b), severity: "medium", kind: "image-missing", viewport, what: "An <img> is drawn with no picture address.", why: "Visitors see an empty frame where a picture should be.", fix: "Draw the <img> only when the image prop is set ({% if %}), and design the section so it still reads without it.", gate: false, source: "measure" })
+    /* Round P (P5): an empty picture frame is a hard gate (Andrew's grey box where the photo should be). */
+    out.push({ ...at(b), severity: "high", kind: "image-missing", viewport, what: "An <img> is drawn with no picture address.", why: "Visitors see an empty frame where a picture should be.", fix: "Give the image setting a real picture (generate_image, find_photo, the creator's media), or draw the <img> only when it is set ({% if %}) and let the words carry the section.", gate: true, source: "measure" })
+  }
+  for (const e of (m.emptySections ?? []).slice(0, 6)) {
+    out.push({ ...at(e), severity: "high", kind: "empty-section", viewport, what: "This section takes up space on the page and shows nothing: no words, no picture.", why: "An empty band reads as a broken or unfinished site.", fix: "Fill its items and words (its blocks with this site's real content) or its picture; or remove the section from the page.", gate: true, source: "measure" })
   }
 
   const ctas = m.foldCtas
@@ -339,7 +358,7 @@ export function measuredDefects(page: string, m: Measurements): Defect[] {
 
 /** The same fault at both widths said once (as "both"); the gates first. */
 export function mergeDefects(list: Defect[]): Defect[] {
-  const key = (d: Defect) => `${d.page}|${d.kind}|${d.sectionId ?? ""}|${d.selector ?? ""}|${d.kind === "contrast" || d.kind === "image-broken" || d.kind === "placeholder-copy" ? d.what : ""}`
+  const key = (d: Defect) => `${d.page}|${d.kind}|${d.sectionId ?? ""}|${d.selector ?? ""}|${d.kind === "contrast" || d.kind === "image-broken" || d.kind === "placeholder-copy" || d.kind === "empty-blocks" || d.kind === "image-slot-empty" ? d.what : ""}`
   const byKey = new Map<string, Defect>()
   for (const d of list) {
     const k = key(d)

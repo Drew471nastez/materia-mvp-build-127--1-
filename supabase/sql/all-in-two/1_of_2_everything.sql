@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 431: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 441: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -5702,6 +5702,13 @@ revoke all on public.design_references from public, anon, authenticated;
 grant select, insert, update, delete on public.design_references to service_role;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values ('design-references', 'design-references', false, 5242880, array['image/jpeg', 'image/png', 'image/webp']) on conflict (id) do update set public = false, file_size_limit = 5242880, allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp'];
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('431', '431_design_references.sql', 'd2048b2853375770713954c08b4f567d6f29ce433e3d6c41397917255f3e3298') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 441_ai_images.sql
+/* Round P, part 441: pictures the AI makes or finds (lib/storelib-ai/images). They are stored like any upload, in the public store-builder-images bucket under the owner's ai-images folder, and keep their alt text in public.file_details (part 214). This adds two columns to that table: source ('upload', 'ai' or 'stock') and origin, a small jsonb record of what the picture was made from (the prompt, shape, provider and model, the AI job, a stock photographer's credit), which the editor's Regenerate reads. Nullable, so every existing row is unchanged and reads as an upload. Grants and row level security stay as part 214 set them (the owner reads, only the server writes). Safe to run again. */
+alter table public.file_details add column if not exists source text, add column if not exists origin jsonb;
+do $do$ begin if not exists (select 1 from pg_constraint where conname = 'file_details_source_check' and conrelid = 'public.file_details'::regclass) then alter table public.file_details add constraint file_details_source_check check (source is null or source in ('upload', 'ai', 'stock')); end if; if not exists (select 1 from pg_constraint where conname = 'file_details_origin_check' and conrelid = 'public.file_details'::regclass) then alter table public.file_details add constraint file_details_origin_check check (origin is null or (jsonb_typeof(origin) = 'object' and pg_column_size(origin) <= 16384)); end if; end $do$;
+create index if not exists file_details_creator_source_idx on public.file_details (creator_id, source) where source is not null;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('441', '441_ai_images.sql', '15593480c75c558f2f893b85376cdd6a8864db70a87a0218e5dcbb39d837550f') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

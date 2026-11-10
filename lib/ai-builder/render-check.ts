@@ -51,6 +51,12 @@
  *   import.remote         a <script src>, a remote stylesheet or @import
  *   script.syntax         the section's script does not parse
  *   token.undefined       var(--t-name) with no such token and no fallback
+ *   render.motion         a data-storelib-motion island that does not exist
+ *                         (error: nothing would run), or a param out of range,
+ *                         an unknown param, too many showcases or WebGL
+ *                         islands on one page (warnings). An island's element
+ *                         is never "empty": the page draws into it (round P,
+ *                         P3: lib/storelib-theme/motion-islands.ts).
  *
  * PURE apart from the optional parser, which is passed in, so the tests drive
  * every rule with a stand in and no database.
@@ -58,6 +64,7 @@
 import type { ValidationIssue } from "./types"
 import type { RuntimeCapabilities } from "./runtime-contract"
 import { bindableIds } from "./capabilities"
+import { motionFindings } from "@/lib/storelib-theme/motion-islands"
 import { renderStorelibSection, isStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { checkRenderedSection, checkResponsiveStructure } from "@/lib/storelib-ai/structural"
 import { customTokenVars } from "@/lib/website-builder/theme-css"
@@ -203,6 +210,10 @@ export function hookProblems(html: string, pageHtml: string): { severity: "error
     if (!has(html, "data-storelib-search-close")) out.push({ severity: "warning", message: "The search window has no data-storelib-search-close button. Escape shuts it, but a phone has no Escape key." })
     if (!has(pageHtml, "data-storelib-search")) out.push({ severity: "warning", message: "Nothing on the page opens the search window: give a button data-storelib-search." })
   }
+  if (has(html, "data-storelib-menu-panel")) {
+    if (!has(html, "data-storelib-menu-close")) out.push({ severity: "warning", message: "The menu drawer (data-storelib-menu-panel) has no data-storelib-menu-close button. Escape shuts it, but a phone has no Escape key." })
+    if (!has(pageHtml, "data-storelib-menu")) out.push({ severity: "warning", message: "Nothing on the page opens the menu drawer: give a button data-storelib-menu." })
+  }
   if (has(html, "data-storelib-locale-list") && !has(html, "data-storelib-locale-option")) out.push({ severity: "error", message: "The language list (data-storelib-locale-list) holds no element marked data-storelib-locale-option, the pattern copied once per language." })
   if (has(html, "data-storelib-currency-list") && !has(html, "data-storelib-currency-option")) out.push({ severity: "error", message: "The currency list (data-storelib-currency-list) holds no element marked data-storelib-currency-option, the pattern copied once per currency." })
   return out
@@ -333,6 +344,40 @@ function boundToProducts(section: SectionInstance, products: Set<string>): boole
   return (section.blocks ?? []).some((b) => Object.values(b.settings ?? {}).some(names))
 }
 
+/** Words in a class or role that say "a picture goes here". */
+const FRAME_WORDS = /\b[\w-]*(?:media|photo|image|img|portrait|picture|figure|thumb|placeholder)[\w-]*\b/i
+
+/**
+ * An empty picture frame in drawn markup, described, or null: an <img> with no address, or an element whose
+ * class names a picture (media, photo, image, portrait, figure...) holding nothing at all.
+ */
+/** Empty on purpose: a layer over a picture, a rule, a dot. Never a frame waiting for a picture. */
+const DECORATIVE = /\b[\w-]*(?:overlay|scrim|shade|grain|noise|mask|gradient|veil|tint|shadow|backdrop|deco|decor|line|rule|dot|bar|glow|ring|cursor|spacer|track)[\w-]*\b/i
+
+export function emptyMediaFrame(html: string, css = ""): string | null {
+  for (const m of html.matchAll(/<img\b[^>]*>/gi)) {
+    /* A hook's template picture (a search result, a cart line: data-result-image, data-storelib-line-image...) is filled by the host. */
+    if (/\sdata-[\w-]+/i.test(m[0])) continue
+    const src = /\ssrc\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(m[0])
+    const value = src ? (src[2] ?? src[3] ?? src[4] ?? "") : ""
+    if (!value.trim()) return "an <img> with no address"
+  }
+  for (const m of html.matchAll(/<(div|figure|span|picture)\b([^>]*)>\s*<\/\1>/gi)) {
+    const cls = /\sclass\s*=\s*"([^"]*)"/i.exec(m[2])?.[1] ?? ""
+    if (!cls || !FRAME_WORDS.test(cls) || DECORATIVE.test(cls) || /\b(?:aria-hidden\s*=\s*"true"|role\s*=\s*"presentation")/i.test(m[2]) || /\bstyle\s*=\s*"[^"]*url\(/i.test(m[2])) continue
+    const rules = cls
+      .split(/\s+/)
+      .filter(Boolean)
+      .flatMap((c) => [...css.matchAll(new RegExp(`\\.${c.replace(/[^\w-]/g, "")}(?![\\w-])[^{}]*\\{([^}]*)\\}`, "gi"))].map((m) => m[1]))
+    /* A class whose rule paints a picture (background-image: url(...)) is not empty. */
+    if (rules.some((r) => /url\(/i.test(r))) continue
+    /* Only a frame a visitor can SEE is one: its rule gives it a box (a shape, a height, a fill, a border). An empty wrapper collapses to nothing. */
+    if (!rules.some((r) => /aspect-ratio|(?:^|[;\s])(?:min-)?height\s*:|background|border(?:-[a-z]+)?\s*:|padding-(?:top|bottom|block)\s*:\s*[\d.]+%/i.test(r))) continue
+    return `an empty <${m[1].toLowerCase()} class="${cls.slice(0, 60)}">`
+  }
+  return null
+}
+
 export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckResult> {
   const issues: ValidationIssue[] = []
   const push = (i: ValidationIssue) => {
@@ -381,8 +426,11 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
     const text = textOf(html)
 
     if (/\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}/.test(html)) push({ severity: "error", code: "render.unresolved", message: "Template tags are printed as text in the drawn markup. A tag inside an attribute or a string is not evaluated; check quotes and filters.", ...at })
-    const hasMedia = /<(img|video|iframe|svg|picture|canvas)\b/i.test(html) || /\sdata-storelib-(native-form|offers|island)\b/i.test(html) || /background(-image)?\s*:[^;]*url\(/i.test(html + css)
+    const hasMedia = /<(img|video|iframe|svg|picture|canvas)\b/i.test(html) || /\sdata-storelib-(native-form|offers|island|motion)\b/i.test(html) || /background(-image)?\s*:[^;]*url\(/i.test(html + css)
     if (!text && !hasMedia) push({ severity: "warning", code: "render.empty", message: "The section draws nothing a visitor can see with its current settings. Give its settings defaults, or remove it.", ...at })
+    /* Round P (P5): a picture frame drawn with no picture (the grey box Andrew saw). The agent's verify makes it an error on a new website. */
+    const frame = emptyMediaFrame(html, css)
+    if (frame) push({ severity: "warning", code: "render.empty_media", message: `The section draws ${frame} with no picture in it: visitors see an empty frame. Fill the picture (an image setting with a real picture), or draw the frame only when the picture is set ({% if settings.image %}) and let the words carry the layout.`, ...at })
 
     for (const f of checkRenderedSection({ html, css, theme })) {
       if (f.id === "render-image-alt") push({ severity: "warning", code: "a11y.img_alt", message: f.message, ...at })
@@ -431,6 +479,12 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
         if (BUTTON_WIRED.test(tag) || insideTag(html, "form", m.index ?? 0)) continue
         push({ severity: "error", code: "render.dead_button", message: `The button "${textOf(m[2] ?? "").slice(0, 40) || "(no words)"}" does nothing: it has no data-storelib hook, no form and no script. Make it a link to a real page, or give it its hook (add to cart, cart, menu, checkout).`, ...at })
       }
+    }
+
+    /* Motion islands (round P, P3): an island that does not exist is an error, a param out of range a warning. Per section, so the finding names it. */
+    for (const f of motionFindings(html)) {
+      if (/^This page has|more than once/.test(f.message)) continue
+      push({ severity: f.severity, code: "render.motion", message: f.message, ...at })
     }
 
     /* Panels of the site's own (round N): a search window, a language or currency list that cannot work. */
@@ -487,6 +541,8 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
 
   /* Headings, across the page in order. */
   const h1 = headings.filter((h) => h.level === 1)
+  /* The page's motion budget: showcases, WebGL islands, one smooth-scroll (round P, P3). */
+  for (const f of motionFindings(pageHtml)) if (/^This page has|more than once/.test(f.message)) push({ severity: "warning", code: "render.motion", message: f.message })
   if (drawn.length && h1.length === 0) push({ severity: "warning", code: "a11y.headings", message: `The page "${input.page}" has no h1. The main heading of its first section should be the one h1.` })
   if (h1.length > 1) push({ severity: "warning", code: "a11y.headings", message: `The page "${input.page}" has ${h1.length} h1 headings. Keep one; make the others h2.`, sectionId: h1[1].sectionId })
   for (let i = 1; i < headings.length; i++) {
