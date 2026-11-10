@@ -54,7 +54,7 @@
  */
 
 import { CommerceReports } from "./commerce-reports"
-import { CommunityReports, type CommunityPlace } from "./community-reports"
+import { CommunityReports, prefetchCommunityAnswers, type CommunityPlace } from "./community-reports"
 import { AddReportButton, ReportPicker, reportActions, useAddedReports } from "./add-reports"
 import { ExportButton } from "./export-button"
 import { SendAnalyticsButton } from "@/components/app/analytics/send-analytics"
@@ -71,7 +71,7 @@ import { ProductPicker } from "@/components/app/product-picker"
 import { PropertyPicker } from "@/components/app/property-picker"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, compareBounds, compareRange, rangeLabel, type CompareValue, type DateRange } from "@/lib/date-range/range"
-import { kindOfProduct, modeFor, profileOf, reportOptions, reportShown, sectionsFor, sellsOf, type ReportId, type SalesMode } from "@/lib/analytics/sections"
+import { kindOfProduct, metricSlot, modeFor, profileOf, reportOptions, reportShown, sectionsFor, sellsOf, slotNote, slotsFor, type ReportId, type SalesMode } from "@/lib/analytics/sections"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { KindPicker } from "@/components/app/kind-picker"
 import { EXPORT_REPORTS, type ExportReport } from "@/lib/analytics/export-csv"
@@ -349,6 +349,8 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
   const communitiesOnly = shownView === "communities"
   const chosenProduct = selectedProduct === "all" ? null : products.find((p) => p.id === selectedProduct) ?? null
   const sections = sectionsFor(profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null, mode })
+  /* Wave 10: the cards whose place is kept whatever place or type is chosen (lib/analytics/sections slotsFor). */
+  const slots = slotsFor(profile, { productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null })
   /* The reports the seller added: cards of their own after the rest, never more tabs on the chart. */
   const [added, saveAdded] = useAddedReports(creatorId, savedReports)
   const reportChoices = useMemo(() => reportOptions(profile), [profile])
@@ -451,12 +453,14 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
   */
   const warmView = useCallback(
     (v: AnalyticsView) => {
-      if (v === shownView || v === "communities") return
+      if (v === shownView) return
+      /* Communities: their own answers, kept where the cards under All already read them (./community-reports). */
+      if (v === "communities") return prefetchCommunityAnswers(communities, safeSpan, against, timeZone)
       const kind = v === "all" ? "all" : modeFor(profile, v)
       prefetchReports({ start: safeSpan.start, end: safeSpan.end, compare: against, product: selectedProduct, property: propertyKey, currency: storeCurrency, kind }, userId)
       prefetchCommerce({ start: safeSpan.start, end: safeSpan.end, compare: against, product: selectedProduct, property: propertyKey, timeZone, currency: storeCurrency, kind }, userId)
     },
-    [shownView, profile, safeSpan, against, selectedProduct, propertyKey, storeCurrency, timeZone, userId],
+    [shownView, profile, safeSpan, against, selectedProduct, propertyKey, storeCurrency, timeZone, userId, communities],
   )
   /*
     PULLED DOWN TO REFRESH (components/ui/pull-to-refresh.tsx, around the
@@ -497,11 +501,25 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
   const answeredMode = answer ? new URLSearchParams(answer.key).get("kind") ?? "all" : mode
   const standingView: AnalyticsView = answeredMode === mode ? shownView : answeredMode === "digital" || answeredMode === "physical" ? answeredMode : "all"
   const standingMode: SalesMode = answeredMode === mode ? mode : (answeredMode as SalesMode)
+  /*
+    WAVE 10: THE SAME CARDS FOR ALL, DIGITAL AND PHYSICAL (the owner: "the order of the tabs and the showing of the
+    tabs and position should not be different when I switch"). Downloads and Refunds were drawn for Digital and
+    Physical only, between Top products and the Funnel, so every card under them moved down a row when a type was
+    chosen and back up for All. Now they keep their place for every type the seller has; Downloads under Physical
+    says in one line why it is empty (slotNote), from the type ON SCREEN, so it changes with the rest (round 51).
+  */
   const standingReports = useMemo<ReportId[]>(() => {
-    if (standingView !== "digital" && standingView !== "physical") return []
-    const wanted: ReportId[] = standingView === "digital" ? ["downloads", "refunds"] : ["refunds"]
-    return wanted.filter((id) => reportShown(id, profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null, mode: standingMode }))
-  }, [standingView, profile, property, chosenProduct, standingMode])
+    const wanted: ReportId[] = []
+    if (slots.downloads) wanted.push("downloads")
+    if (slots.refunds) wanted.push("refunds")
+    return wanted
+  }, [slots.downloads, slots.refunds])
+  /* The type the cards on screen were counted for (round 51), for the lines that say why a kept card is empty. */
+  const screenMode: SalesMode = standingView === "digital" || standingView === "physical" ? standingMode : "all"
+  const standingNotes = useMemo<Partial<Record<ReportId, string>>>(() => {
+    const note = slotNote("downloads", { property: propertyParam(property) ?? "all", mode: screenMode })
+    return note ? { downloads: note } : {}
+  }, [property, screenMode])
   /*
     SOFT ONLY WHILE THE FIGURES ARE THE WRONG ONES: a new period, place or
     product is on its way. The minute refresh asks the same question again
@@ -782,7 +800,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
 
         {/* The store's sales reports, for the same period, comparison, place and product as the chart (./commerce-reports). Physical sales are in the chart, the figures and Top products like any other sale; shipping and fulfilment only for a seller who ships or has a published website. */}
         {communitiesOnly ? (
-          <CommunityReports communities={communities} span={safeSpan} compare={against} timeZone={timeZone} refresh={tick} full rangeText={rangeLabel(period)} againstText={compareLabel} legend={<ChartLegend range={period} compare={comparedRange} align="start" />} />
+          <CommunityReports communities={communities} span={safeSpan} compare={against} timeZone={timeZone} refresh={tick} full rangeText={rangeLabel(period)} againstText={compareLabel} legend={<ChartLegend range={period} compare={comparedRange} align="start" />} slot={metricSlot(tabOrder, chartMetricFilter)} onSlot={(i) => setChartMetricFilter(tabOrder[i] ?? tabOrder[0])} />
         ) : sections.sales ? (
           <CommerceReports
             span={safeSpan}
@@ -791,6 +809,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
             product={selectedProduct}
             property={propertyKey}
             showShipping={sections.shipping}
+            keepShipping={slots.shipping}
             showFulfillment={sections.fulfillment}
             showKinds={sections.productKinds}
             kind={mode}
@@ -810,9 +829,11 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
           state={reportsState}
           property={property}
           sections={sections}
-          extra={sections.communities ? <CommunityReports communities={communities} span={safeSpan} compare={against} timeZone={timeZone} refresh={tick} rangeText={rangeLabel(period)} againstText={compareLabel} /> : null}
+          extra={slots.communities ? <CommunityReports communities={communities} span={safeSpan} compare={against} timeZone={timeZone} refresh={tick} rangeText={rangeLabel(period)} againstText={compareLabel} note={slotNote("communities", { property: propertyKey, mode: screenMode })} /> : null}
           added={{ ids: shownAdded, ...actions }}
           standing={standingReports}
+          standingNotes={standingNotes}
+          siteClicks={slots.siteClicks ? { note: slotNote("siteClicks", { property: propertyKey, mode: screenMode }) } : null}
         />}
         {/* The grid's last tile, the full width: where the next report goes. */}
         <AddReportButton marker="add-more" label={tt("Add report")} onClick={() => setPicking(true)} />
