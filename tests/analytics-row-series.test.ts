@@ -205,7 +205,7 @@ console.log("\nAsked only when a report opens, through the page's own question")
   check("every list of pages, links, sources, referrers, countries, devices, products and buttons names its line", ['lines: "page"', 'lines: "link"', 'lines: "product"', 'lines: "nav"', '"share", fmtCount, "source")', '"share", fmtCount, "referrer")', '"share", fmtCount, "country")', '"share", fmtCount, t)'].every((x) => reports.includes(x)))
   const detail = read("app/(storelib)/app/analytics/report-detail.tsx")
   check("a row draws its line beside its number, the column there before the lines come", /<RowLine values=\{series\?\.\[r\.key\]\} ready=\{!!series\} \/>/.test(detail) && /data-detail-line=\{lines\.state\}/.test(detail))
-  check("the Clicks between pages card, for a website, opening its report", /card="siteclicks" detail=\{\{ id: "siteclicks" \}\}/.test(reports) && /case "siteclicks":/.test(reports) && /siteclicks: tt\("Clicks between pages"\)/.test(reports))
+  check("the Clicks between pages card, for a website, opening its report", /* Changed on purpose (wave 10): the card keeps its place for a seller with a website and opens its report once there are clicks (tests/analytics-stable-w10.test.ts). */ /card="siteclicks" detail=\{r\?\.siteClicks \? \{ id: "siteclicks" \} : undefined\}/.test(reports) && /case "siteclicks":/.test(reports) && /siteclicks: tt\("Clicks between pages"\)/.test(reports))
   check("counted for All or a website, with a website and no product", /const nav = !q\.product && q\.properties\.websites\.length > 0 && \(q\.selector\.type === "all" \|\| q\.selector\.type === "website"\) \? readNavClicks\(admin, q\)/.test(answer))
 }
 

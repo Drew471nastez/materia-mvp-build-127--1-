@@ -1018,7 +1018,7 @@ function UnifiedAboutSection({
                       fade ends.
                     */
                     data-story-toggle=""
-                    className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-sm font-medium transition-[background-color,transform] duration-200 ease-out hover:bg-[color-mix(in_srgb,currentColor_12%,transparent)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 md:min-h-9 motion-reduce:transition-none"
+                    className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-sm font-medium transition-[background-color,scale] duration-200 ease-out hover:bg-[color-mix(in_srgb,currentColor_12%,transparent)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 md:min-h-9 motion-reduce:transition-none"
                     style={{ color: textColor || "inherit", backgroundColor: "color-mix(in srgb, currentColor 7%, transparent)", boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)", ["--tw-ring-color" as string]: textColor ? `${textColor}66` : undefined }}
                   >
                     {isExpanded ? "Show less" : "Read more"}
