@@ -96,15 +96,17 @@ export const trail = defineSection({
 .pft { ${BOX} overflow: hidden; }
 .pft__stage { position: relative; display: grid; place-content: center; justify-items: center; gap: 14px; min-height: clamp(520px, 86svh, 980px); text-align: center; }
 .pft__h { position: relative; z-index: 3; margin: 0; ${D} font-size: clamp(3rem, 1rem + 10cqi, 11rem); letter-spacing: -0.045em; line-height: 0.9; mix-blend-mode: difference; color: #fff; }
-.pft__line { position: relative; z-index: 3; margin: 0; ${SMALL} }
-.pft__pic { position: absolute; z-index: 1; width: clamp(110px, 22cqi, 300px); height: auto; aspect-ratio: 4 / 5; object-fit: cover; }
-.pft__pic--1 { left: 2%; top: 6%; transform: rotate(-4deg); }
-.pft__pic--2 { right: 4%; top: 2%; transform: rotate(3deg); }
-.pft__pic--3 { left: 10%; bottom: 4%; transform: rotate(2deg); }
-.pft__pic--4 { right: 12%; bottom: 8%; transform: rotate(-3deg); }
-.pft__pic--5 { left: 40%; top: -4%; transform: rotate(-1deg); }
-.pft__pic--6 { left: 46%; bottom: -6%; transform: rotate(4deg); }
+.pft__line { position: relative; z-index: 3; margin: 0; padding: 4px 8px; background: var(--s-bg); ${SMALL} }
+.pft__pic { position: absolute; z-index: 1; width: clamp(88px, 15cqi, 230px); height: auto; aspect-ratio: 4 / 5; object-fit: cover; }
+.pft__pic--1 { left: 2%; top: 4%; transform: rotate(-4deg); }
+.pft__pic--2 { right: 3%; top: 10%; transform: rotate(3deg); }
+.pft__pic--3 { left: 7%; bottom: 6%; transform: rotate(2deg); }
+.pft__pic--4 { right: 9%; bottom: 3%; transform: rotate(-3deg); }
+.pft__pic--5 { left: 27%; top: 0; transform: rotate(-1deg); }
+.pft__pic--6 { right: 28%; bottom: 0; transform: rotate(4deg); }
 .pft__hint { margin: 0; ${SMALL} text-align: center; opacity: 0.6; }
+@media (hover: none) { .pft__hint { visibility: hidden; } }
+@container (max-width: 600px) { .pft__stage { min-height: 600px; } .pft__pic { width: 30cqi; } }
 @media (prefers-reduced-motion: no-preference) {
   .pft:not([data-motion="off"]) .pft__pic { animation: pft-in calc(var(--t-motion-duration, 650ms) * 1.2) var(--t-motion-ease, ease) both; }
   .pft:not([data-motion="off"]) .pft__pic--2 { animation-delay: var(--t-motion-stagger, 65ms); }
@@ -152,6 +154,7 @@ export const series = defineSection({
   style: `
 .pfs { ${BOX} padding-inline: 0; }
 .pfs__frame { height: clamp(380px, 82svh, 1000px); overflow: hidden; }
+@container (max-width: 600px) { .pfs__frame { height: 70svh; } }
 .pfs__img { width: 100%; height: 112%; object-fit: cover; }
 .pfs__cap { display: grid; gap: 10px; padding: 16px var(--theme-padding-x, 20px) 0; }
 .pfs__h { margin: 0; ${D} font-size: clamp(1.75rem, 1.2rem + 2.4cqi, 3rem); letter-spacing: -0.03em; }

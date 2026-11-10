@@ -8,8 +8,9 @@ import { estateCinema } from "./estate-cinema/template"
 import { studioKinetic } from "./studio-kinetic/template"
 import { courseCoach } from "./course-coach/template"
 import { photoTrail } from "./photo-trail/template"
+import { salonChair } from "./salon-chair/template"
 
-export const TEMPLATES_B: readonly SiteTemplate[] = [saasOrbit, estateCinema, studioKinetic, courseCoach, photoTrail]
+export const TEMPLATES_B: readonly SiteTemplate[] = [saasOrbit, estateCinema, studioKinetic, courseCoach, photoTrail, salonChair]
 
 export function templateBById(id: string): SiteTemplate | undefined {
   return TEMPLATES_B.find((t) => t.id === id)
