@@ -842,6 +842,7 @@ export function publicView(job: Job, after: number) {
     activity: (job.state.activity ?? []).slice(-6),
     /* Round R (R3): the design review's words while it runs, and how it went. */
     reviewing: job.state.reviewPhase ? REVIEW_PHASE_WORDS[job.state.reviewPhase] : null,
+    reviewPhase: job.state.reviewPhase ?? null,
     review: job.state.review ? { status: job.state.review.status, label: job.state.review.label, rounds: job.state.review.rounds, applied: job.state.review.applied } : null,
   }
 }

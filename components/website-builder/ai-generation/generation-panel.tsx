@@ -34,7 +34,7 @@ import type { JobView } from "@/lib/website-builder/ai-site/job"
 export type GenerationMode = "job" | "inline"
 export type GenerationPhase = "working" | "complete" | "partial" | "stopped"
 
-type View = Pick<JobView, "status" | "step" | "progress" | "error" | "notes" | "findings"> & Partial<Pick<JobView, "activity">>
+type View = Pick<JobView, "status" | "step" | "progress" | "error" | "notes" | "findings"> & Partial<Pick<JobView, "activity" | "reviewPhase">>
 
 /** Which ending, if any, the view is in. */
 export function generationPhase(view: View): GenerationPhase {
@@ -99,8 +99,10 @@ export function GenerationPanel({
   const gaps = [...view.notes, ...view.findings].slice(0, 4)
   const working = codeActivity(view.activity ?? [])
 
+  /* Round R (R3): the design review's own words while it runs (lib/website-builder/ai-site/native-review/words.ts). */
+  const reviewing = view.reviewPhase ? { checking: tt("Checking the design on a laptop and a phone"), reviewing: tt("Looking over the design"), fixing: tt("Fixing what the check found"), rechecking: tt("Checking the fixes on a phone") }[view.reviewPhase] : null
   const title =
-    phase === "complete" ? tt("Your website is ready") : phase === "partial" ? tt("Your website is ready, with a few gaps") : phase === "stopped" ? tt("Building stopped part way") : current.doing
+    phase === "complete" ? tt("Your website is ready") : phase === "partial" ? tt("Your website is ready, with a few gaps") : phase === "stopped" ? tt("Building stopped part way") : (reviewing ?? current.doing)
   const line =
     phase === "complete"
       ? tt("Every section is yours to edit. Publish when you are happy with it.")

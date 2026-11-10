@@ -285,8 +285,9 @@ async function main() {
   const reviewedSite: SiteState = { settings: {}, pages: { home: [header(), hero({ font_size_heading: 96 }), sec("rt2", "rich_text", { heading: "How it works", body: "<p>We start with a call.</p>" }), footer()], contact: contactPage() } }
   const rv = await reviewNativeDraft({ site: reviewedSite, pages: ["home"], brief: "A strength coach.", primaryAction: { label: "Contact", href: "/contact" }, known: knownLinks(reviewedSite), maxUsd: 1, timeoutMs: 170_000 }, { ...deps, vision: { provider: vision.provider, model: "claude-opus-5-5" } })
   const sent = vision.calls[0]
+  const firstTurn = (sent?.turns[0] ?? {}) as { content?: unknown; images?: unknown[] }
   check("REVIEWED: the vision model looked, once", rv.status === "reviewed" && vision.calls.length === 1 && rv.label === "Reviewed on a laptop and a phone", { status: rv.status, reason: rv.reason, calls: vision.calls.length })
-  check("it was sent the photographs and the editable settings", !!sent && (sent.turns[0].images?.length ?? 0) === 4 && /THE EDITABLE SETTINGS/.test(String(sent.turns[0].content)) && /hero1 \(hero\)/.test(String(sent.turns[0].content)) && /"patches"/.test(sent.system))
+  check("it was sent the photographs and the editable settings", !!sent && (firstTurn.images?.length ?? 0) === 4 && /THE EDITABLE SETTINGS/.test(String(firstTurn.content)) && /hero1 \(hero\)/.test(String(firstTurn.content)) && /"patches"/.test(sent.system))
   check("its valid patch applied, its invented one refused with the reason", rv.site.pages.home.find((s) => s.id === "hero1")!.settings.font_size_heading === 56 && rv.refused.some((x) => /no setting "sparkle"/.test(x.reason)), { refused: rv.refused })
   check("its spend is counted", rv.usage.calls === 1 && rv.usage.usd > 0 && rv.model === "claude-opus-5-5", rv.usage)
   check("the scores and verdict are kept", rv.weighted !== undefined && rv.verdict === "Clear, a little plain.")
