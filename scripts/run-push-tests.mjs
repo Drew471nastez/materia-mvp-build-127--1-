@@ -62,6 +62,8 @@ const SUITES = [
   "tests/forms-bookings.test.ts",
   "tests/forms-security.test.ts",
   "tests/forms-booking-payment.test.ts",
+  /* Round AR (track 2): OnePage bookings end to end. Availability across time zones and DST with date overrides, buffers, notice, the daily limit and chosen lengths; the double booking guard (capped function, a move refused onto a held time, the database's 23P01 a 409); every booking read and write named by its owner; who hears what for a new, moved and cancelled booking (bell and phone, creator email, visitor email with .ics); Google Calendar OAuth state, tokens, freeBusy and events with Meet replayed from tests/fixtures/google-calendar-ar2.json, never called; the signed change-or-cancel link. scripts/check-bookings-sql-ar2.mjs runs part 410 on a real Postgres. */
+  "tests/onepage-bookings-ar2.test.ts",
   /* Round AL5: Leads in Emails, Forms beside it, the Audience item gone, missing forms tables said plainly, one retry, the pre-chat and the phone country list. */
   "tests/forms-leads-al5.test.ts",
   "tests/forms-an2.test.ts",

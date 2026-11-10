@@ -22,6 +22,23 @@ With "Confirm each request myself" on, requests wait in Leads; Confirm or Declin
 
 For Calendly or another booking page, use a button action of type Appointment instead.
 
+### Round AR: bookings end to end
+
+Run SQL part **410** (`supabase/sql/run-now/410_bookings_calendar.sql`, the same file as `supabase/migrations/20271410_bookings_calendar.sql`) after part 375. Until it runs, bookings keep working as part 375 keeps them (no daily limit under a lock, no stored length or meeting place, no Google Calendar), and the Google card says the update is needed. `node scripts/check-bookings-sql-ar2.mjs` runs it twice on a real Postgres and checks the guard.
+
+- **Setup** (the form's Bookings row): lengths (one default and up to five more the visitor may choose), the break after, notice, days ahead, most per day, the weekly hours, date changes (a day off or other hours), the time zone, confirm each request or not, where (a video link shown only after booking, a Google Meet made per booking, a phone call, an address), a price (free, or one of the creator's products paid at the existing checkout), and a badge. Questions are the form's own.
+- **The sheet**: the month first, every date drawn open or closed, then that date's times in the visitor's zone, then the questions. The steps are the sheet's own state (Back never reloads), and a time taken meanwhile is a 409 that reads the month again.
+- **Change or cancel**: the visitor's emails carry `/booking/<token>`, the booking id signed with HMAC (`lib/bookings/manage-token.ts`). The creator moves or cancels from `/app/bookings`. Both go through `lib/bookings/server.ts`, which checks the new time with the same rules and names the owner on every write.
+- **Notices** (`lib/bookings/announce.ts`): the creator's bell (and so the Storelib app and browser push, at once for a `booking:` key) for a new, moved or cancelled booking; the creator's email for a visitor's move or cancel; the visitor's email with an `.ics` file and an Add to Google Calendar link.
+- **Google Calendar** (`lib/google-calendar/`): OAuth on the server, the refresh token sealed like integration secrets, busy times from the chosen calendars block slots (freeBusy), confirmed bookings written as events (with a Meet when chosen), moved and removed with the booking. Google failing never stops a booking.
+
+Google Calendar needs, on the server only:
+
+- `GOOGLE_CALENDAR_CLIENT_ID` and `GOOGLE_CALENDAR_CLIENT_SECRET`: a Google Cloud OAuth client of type Web application, with the Google Calendar API enabled and the redirect URI `https://storelib.com/api/google-calendar/callback`. Scopes asked: `openid`, `email`, `calendar.readonly`, `calendar.events`.
+- `COMMERCE_SECRETS_KEY` (already used for integration secrets): seals the tokens and signs the visitor's links. Without it the service role key is used, as for the other sealed secrets.
+
+With either Google variable unset, `/app/bookings` and the form's Where setting say Google Calendar is not set up yet, and bookings work without it.
+
 ### Payment
 
 A booking form can name a product. Such a booking is kept as pending and unpaid, and its time is held for 30 minutes (`payment_due_at`). The visitor's Pay button opens the product's normal checkout with `&booking=<token>`, the booking id signed for that product (`lib/forms/booking-payment.ts`).
