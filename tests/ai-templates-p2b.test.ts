@@ -47,6 +47,26 @@ function check(name: string, ok: boolean, detail?: unknown) {
   }
 }
 
+/** Run in the page (as a string: no bundler helpers reach the browser): visible media boxes that are painted and hold nothing. */
+const EMPTY_MEDIA = `(function(){
+      const out = []
+      const visible = (el) => { const cs = getComputedStyle(el); const b = el.getBoundingClientRect(); return cs.display !== "none" && cs.visibility !== "hidden" && b.width > 0 && b.height > 0 && !el.closest("[popover],[hidden],[data-storelib-cart-panel],[data-storelib-search-panel],[data-storelib-cart-line],[data-storelib-search-result]") }
+      for (const img of document.querySelectorAll("[data-p2b] img")) if (!(img.getAttribute("src") ?? "").trim() && visible(img)) out.push(\`img no src: \${(img).className}\`)
+      for (const el of document.querySelectorAll("[data-p2b] *")) {
+        if (!visible(el)) continue
+        const cls = typeof (el).className === "string" ? (el).className : ""
+        if (!/media|frame|fig|stand|still|empty|none|photo|pic|image|img|cover|mat|stage|dial|ring|blank|shot|visual/i.test(cls)) continue
+        const b = el.getBoundingClientRect()
+        if (b.width < 48 || b.height < 48) continue
+        if (el.querySelector("img[src]:not([src='']),video,svg,canvas,picture")) continue
+        if ((el.textContent ?? "").trim()) continue
+        { const cs = getComputedStyle(el); const painted = (cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent') || parseFloat(cs.borderTopWidth) > 0 || parseFloat(cs.borderLeftWidth) > 0 || cs.outlineStyle !== 'none'; if (!painted) continue; if (cs.backgroundImage !== 'none') continue; if ([...el.querySelectorAll('*')].some((c) => { const d = getComputedStyle(c); return d.backgroundColor !== 'rgba(0, 0, 0, 0)' || d.backgroundImage !== 'none' })) continue; const before = getComputedStyle(el, '::before'), after = getComputedStyle(el, '::after'); if ([before, after].some((d) => d.content !== 'none' && (d.backgroundImage !== 'none' || d.backgroundColor !== 'rgba(0, 0, 0, 0)' || parseFloat(d.borderTopWidth) > 0))) continue }
+        if (el.children.length && [...el.querySelectorAll("*")].some((c) => getComputedStyle(c).borderStyle !== "none" && c.getBoundingClientRect().width > 20)) continue
+        out.push(\`empty frame: \${el.tagName.toLowerCase()}.\${cls.split(" ")[0]} \${Math.round(b.width)}x\${Math.round(b.height)}\`)
+      }
+      return [...new Set(out)]
+})()`
+
 const MOTION_KINDS: readonly string[] = MOTION_ISLAND_KINDS
 
 async function main() {
@@ -260,6 +280,30 @@ async function main() {
               check(`${t.id}: ${p.key} at ${width}${reduce ? " (reduced motion)" : ""}: the h1 is drawn`, !!r.h1 && r.h1.w > 0 && r.h1.h > 0 && r.text > 200, r)
               await page.close()
             }
+          }
+        }
+      }
+      /*
+        Untouched templates (round P, P5's render.empty_media and the critic's image-missing): every
+        template in the library, before any picture is made and with a store whose products have no
+        pictures, draws no <img> without an address and no visibly empty media box. A designed
+        fallback (drawn art, words) is fine; a painted empty frame is not.
+      */
+      for (const t of SITE_TEMPLATES) {
+        for (const p of t.pages) {
+          const { html } = pageHtml(t, p.sections, p.key, { bare: true })
+          const noSrc = [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]).filter((tag) => !/data-(?:line|result)-image/.test(tag) && !/\ssrc="[^"]+"/.test(tag))
+          check(`${t.id}: ${p.key} with no pictures draws no <img> without an address`, noSrc.length === 0, noSrc.slice(0, 3))
+          for (const width of [390, 1440]) {
+            const page = await browser.newPage()
+            await page.setViewport({ width, height: 900 })
+            await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
+            await page.setRequestInterception(true)
+            page.on("request", (req) => (req.url().startsWith("data:") ? req.continue() : req.abort()))
+            await page.setContent(html, { waitUntil: "load" })
+            const empty = (await page.evaluate(EMPTY_MEDIA)) as string[]
+            check(`${t.id}: ${p.key} at ${width} with no pictures shows no empty media box`, empty.length === 0, empty)
+            await page.close()
           }
         }
       }

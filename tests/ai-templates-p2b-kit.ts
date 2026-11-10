@@ -83,14 +83,19 @@ export function filled(t: SiteTemplate): SiteTemplate["pages"] {
   return withImages(t, Object.fromEntries(t.imageSlots.map((s) => [s.key, PIXEL])))
 }
 
-export function pageHtml(t: SiteTemplate, sections: SectionInstance[], key: string): { html: string; failed: string[] } {
+/** The same store with not one picture: products without images (`bare`), for the untouched-template check. */
+export const BARE_PRODUCTS = PRODUCTS.map((p) => ({ ...p, settings: { ...p.settings, image: "", images: [] as string[] } }))
+
+export function pageHtml(t: SiteTemplate, sections: SectionInstance[], key: string, opts: { bare?: boolean } = {}): { html: string; failed: string[] } {
   const theme = themeOf(t)
-  const data = dataFor(t)
-  const page = { template: templateFor(key), ...(key === "product" ? { product: { ...PRODUCTS[1], settings: { ...PRODUCTS[1].settings, description: "" } } } : {}) }
+  const base = dataFor(t)
+  const products = opts.bare ? BARE_PRODUCTS : PRODUCTS
+  const data = opts.bare ? ({ ...base, catalog: BARE_PRODUCTS, product: base.product ? { ...base.product, image: "", images: [] } : null, collections: Object.fromEntries(Object.entries(base.collections ?? {}).map(([k, c]) => [k, { ...c, image: "", products: BARE_PRODUCTS }])) } as StorefrontData) : base
+  const page = { template: templateFor(key), ...(key === "product" ? { product: { ...products[1], settings: { ...products[1].settings, description: "" } } } : {}) }
   const parts: string[] = []
   const bad: string[] = []
   for (const s of sections) {
-    const out = renderStorelibSection(s, theme, page, t.files, PRODUCTS as never, data)
+    const out = renderStorelibSection(s, theme, page, t.files, products as never, data)
     if (out.ok) parts.push(`<div data-p2b="${s.id}">${out.css ? `<style>${out.css}</style>` : ""}${out.html}</div>`)
     else bad.push(`${s.id}: ${JSON.stringify(out.errors).slice(0, 300)}`)
   }
