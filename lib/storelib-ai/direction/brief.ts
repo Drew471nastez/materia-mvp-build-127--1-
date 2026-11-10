@@ -16,8 +16,16 @@
  * agent's plan phase (`refineBrief`), within the same shape and never past
  * what the store really has.
  *
+ * The business is classified by O5's site stories first
+ * (lib/storelib-ai/layout/stories.ts classifyStory, one classifier for both
+ * lanes), refined to a finer kind by this file's words where they say more
+ * (a cafe inside "food place", a barber inside "local professional"). The
+ * brief carries the story id and O5's StoryBrief fields (`businessType`,
+ * `primaryAction`, `category`), so `layoutStoryFor(brief)` takes it as is.
+ *
  * Pure. Browser safe.
  */
+import { classifyStory } from "@/lib/storelib-ai/layout/stories"
 
 /** The kinds of business a direction is fitted to. */
 export const BUSINESS_KINDS = [
@@ -62,6 +70,12 @@ export interface CreativeBrief {
   /** The creator's words, trimmed (at most 2000 characters). */
   prompt: string
   business: { kind: BusinessKind; label: string; name: string | null }
+  /** O5's site story id (lib/storelib-ai/layout/stories.ts), the shared classification. */
+  story: string
+  /** O5 StoryBrief fields, so layoutStoryFor(brief) reads this brief directly. */
+  category: string | null
+  businessType: string
+  primaryAction: string
   audience: string | null
   objective: Objective
   /** Page keys the site needs, home first. */
@@ -179,6 +193,22 @@ const KIND_LABEL: Record<BusinessKind, string> = {
   "non-profit": "non-profit",
   outdoor: "outdoor and sport gear",
   general: "business",
+}
+
+/** O5's site stories to the kinds directions are fitted to. */
+const STORY_KIND: Record<string, BusinessKind> = {
+  "fitness-coach": "fitness",
+  "wellness-studio": "wellness",
+  "sample-pack-store": "music-producer",
+  agency: "agency",
+  architect: "architecture",
+  photographer: "photography",
+  "digital-creator": "creator",
+  saas: "saas",
+  "local-professional": "professional",
+  artist: "art-gallery",
+  "food-place": "restaurant",
+  "product-brand": "home-goods",
 }
 
 const CATEGORY_KIND: Record<string, BusinessKind> = { candle_shop: "home-goods", fitness_coach: "fitness", photographer: "photography", online_course: "education" }
@@ -398,6 +428,9 @@ export function briefFrom(prompt: string, options?: BriefOptions | null, caps?: 
   const text = norm(words)
   const assumptions: string[] = []
 
+  /* O5's story first (the shared classifier), then the finer kind this file's words name. */
+  const story = classifyStory({ prompt: words, category: options?.category ?? null })
+  const storyMatched = story.match.test(words) || story.match.test(String(options?.category ?? "").replace(/_/g, " "))
   let kind: BusinessKind = "general"
   for (const [k, list] of KIND_WORDS) {
     if (found(text, list).length) {
@@ -405,6 +438,7 @@ export function briefFrom(prompt: string, options?: BriefOptions | null, caps?: 
       break
     }
   }
+  if (kind === "general" && storyMatched && STORY_KIND[story.id]) kind = STORY_KIND[story.id]
   if (kind === "general" && options?.category && CATEGORY_KIND[options.category]) kind = CATEGORY_KIND[options.category]
   if (kind === "general") assumptions.push("The kind of business was not clear, so the brief treats it as a general business.")
 
@@ -469,6 +503,10 @@ export function briefFrom(prompt: string, options?: BriefOptions | null, caps?: 
   return {
     prompt: words,
     business: { kind, label: KIND_LABEL[kind], name: nameOf(words, caps ?? undefined) },
+    story: story.id,
+    category: options?.category ?? null,
+    businessType: KIND_LABEL[kind],
+    primaryAction: cta,
     audience: audienceOf(words),
     objective,
     pages,
@@ -519,6 +557,7 @@ export function refineBrief(brief: CreativeBrief, raw: unknown): CreativeBrief {
     audience: text(raw.audience, 160) ?? brief.audience,
     offer: text(raw.offer, 200) ?? brief.offer,
     cta: (text(raw.cta, 40) ?? brief.cta).replace(/—/g, " "),
+    primaryAction: (text(raw.cta, 40) ?? brief.primaryAction).replace(/—/g, " "),
     tone: text(raw.tone, 80) ?? brief.tone,
     pages: pages?.length ? [...new Set(["home", ...pages])] : brief.pages,
     assets: { available: brief.assets.available, missing: [...new Set([...brief.assets.missing, ...missing])] },
