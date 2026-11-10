@@ -28,7 +28,7 @@ import { controlFor } from "@/lib/storelib-theme/controls/registry"
 import { outOfAttempts } from "@/lib/website-builder/agent/compile-feedback"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import type { BlockInstance, SectionInstance } from "@/lib/website-builder/types"
-import { manifestToSchema, BINDING_CONTROL } from "../manifest"
+import { manifestToSchema, BINDING_CONTROL, withManifest as mergeManifest } from "../manifest"
 import { WRITABLE_PATH, type AgentToolInputs, type AgentToolOutputs, type PlacedSectionInput, type ToolSet } from "../agent-tools"
 import type { RuntimeCapabilities } from "../runtime-contract"
 import { isAiComponentType, type AgentEvent, type AgentPhase, type ComponentManifest, type DataBindingKind, type FileWriteResult, type ValidationIssue } from "../types"
@@ -46,6 +46,7 @@ import { describeSitePlan, isTemplateKey, readSitePlan, templatesFor } from "./s
 import { versionOf } from "./version"
 import { conceptDirectionIssues, contractMetaAfter, refineBrief, syncContractFile, writeContract } from "./direction"
 import { protectOverrides } from "../design-contract"
+import { presetParts } from "./content-check"
 
 /** Whether form bindings are drawn by the editor: what the job says, else whether the control registry has form_picker (L4). */
 export function formPickerOn(deps: Pick<AgentDeps, "features">): boolean {
@@ -86,8 +87,14 @@ export interface ToolContext {
 
 const SCHEMA_BLOCK = /<schema>[\s\S]*?<\/schema>/
 
-/** The file with the manifest written in as its <schema>. */
+/**
+ * The file with the manifest written in as its <schema>. A schema already in the content is merged, not
+ * replaced (round P): its presets (the filled items a placement starts with) and keys the manifest does not
+ * describe are kept (manifest.ts mergeManifest).
+ */
 export function withManifest(content: string, manifest: ComponentManifest): string {
+  const merged = SCHEMA_BLOCK.test(content) ? mergeManifest(content, manifest) : null
+  if (merged) return merged
   const schema = `<schema>\n${JSON.stringify(manifestToSchema(manifest), null, 2)}\n</schema>`
   return SCHEMA_BLOCK.test(content) ? content.replace(SCHEMA_BLOCK, schema) : `${content.trimEnd()}\n\n${schema}\n`
 }
@@ -137,8 +144,9 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     if (current && cp.known[path] !== currentVersion) {
       return { ok: false, path, reason: "conflict", issues: [{ severity: "error", code: "file.conflict", message: cp.known[path] ? `${path} changed since you read it (the creator edited it). Read it again and redo your change on what is there now.` : `${path} already exists. Read it before you change it.`, path }] }
     }
-    const [all, pages, theme] = await Promise.all([sources(), store.listPages(), store.readSettings()])
+    const [all, pages, theme, c] = await Promise.all([sources(), store.listPages(), store.readSettings(), caps()])
     const issues = validateFile(path, content, {
+      caps: c,
       instances: instancesOf(typeOfPath(path), pages),
       theme,
       sources: all,
@@ -302,12 +310,28 @@ export function createToolSet(ctx: ToolContext): ToolSet {
         const compiled = text ? compileSection(text, { file: `sections/${p.type}.storelib` }) : null
         return compiled && compiled.ok ? compiled.value.schema.name : keep?.name ?? pageTitleFromKey(p.type.replace(/_/g, "-"))
       })()
+      /*
+        ROUND P (P5): A NEW PLACEMENT THAT SENDS NO BLOCKS STARTS FROM THE SCHEMA'S FIRST PRESET, as Add section does
+        for a person (lib/website-builder/ai-placement.ts instanceFromSchema). It used to start with none: a section
+        placed without its items drew its heading and nothing else (Andrew's "Who it is for and not for" with one
+        block, others empty). Blocks the agent sends are its own and are kept as sent; `blocks: []` means none.
+      */
+      let placedBlocks = p.blocks === undefined && keep ? keep.blocks ?? [] : blocks
+      let placedSettings = p.settings === undefined && keep ? keep.settings : cleaned.settings
+      if (!keep && p.blocks === undefined) {
+        const preset = presetParts(p.type, src, mintId)
+        if (preset) {
+          placedBlocks = preset.blocks
+          placedSettings = { ...preset.settings, ...placedSettings }
+          issues.push({ severity: "warning", code: "blocks.from_preset", message: `${where}: ${p.type} was placed with its preset's ${preset.blocks.length} item${preset.blocks.length === 1 ? "" : "s"}. Send blocks to give this placement its own.` })
+        }
+      }
       const section: SectionInstance = {
         id,
         type: p.type,
         name,
-        settings: p.settings === undefined && keep ? keep.settings : cleaned.settings,
-        blocks: p.blocks === undefined && keep ? keep.blocks ?? [] : blocks,
+        settings: placedSettings,
+        blocks: placedBlocks,
         ...(group ? { group } : {}),
         ...(p.hidden ? { hidden: true } : {}),
       }
@@ -669,6 +693,7 @@ export async function validateAll(ctx: Pick<ToolContext, "job" | "deps" | "cp">,
   const src: Record<string, string> = {}
   for (const f of files) if (f.text.trim()) src[f.path] = f.text
   const issues: ValidationIssue[] = []
+  if (cp.caps === undefined) cp.caps = (await deps.capabilities().catch(() => null)) ?? null
   const paths = opts.path ? [opts.path] : cp.filesTouched
   for (const path of paths) {
     const text = src[path]
@@ -677,10 +702,9 @@ export async function validateAll(ctx: Pick<ToolContext, "job" | "deps" | "cp">,
       continue
     }
     const type = typeOfPath(path)
-    issues.push(...validateFile(path, text, { instances: pages.flatMap((p) => p.sections.filter((s) => s.type === type)), theme, sources: src, lenient: (cp.repairs[path] ?? 0) >= 2, formPicker: formPickerOn(deps), brief: job.prompt }))
+    issues.push(...validateFile(path, text, { instances: pages.flatMap((p) => p.sections.filter((s) => s.type === type)), theme, sources: src, lenient: (cp.repairs[path] ?? 0) >= 2, formPicker: formPickerOn(deps), brief: job.prompt, caps: cp.caps ?? null }))
   }
   if (!opts.path) {
-    if (cp.caps === undefined) cp.caps = (await deps.capabilities().catch(() => null)) ?? null
     issues.push(...validateSite({ pages, sources: src, settings: theme, caps: cp.caps ?? null, mode: job.mode, ...(job.edit || job.redesign === "changes" ? { only: new Set(cp.pagesTouched) } : {}) }))
   }
   return issues

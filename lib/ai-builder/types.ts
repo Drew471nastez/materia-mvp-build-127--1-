@@ -169,6 +169,17 @@ export interface ItemManifest {
   props: EditableProp[]
   /** How many of this type at most. */
   limit?: number
+  /**
+   * How many of this type a placed section needs at least (schema `min_blocks`, round P). Absent: 3 for a
+   * repeating list (FAQ, programme, team, steps, plans), 1 otherwise; 0 for an optional item type.
+   */
+  min?: number
+}
+
+/** The items (and settings) a component arrives with when placed or added: its schema's first preset (round P). */
+export interface ComponentPreset {
+  settings?: Record<string, unknown>
+  blocks: { type: string; settings?: Record<string, unknown> }[]
 }
 
 /** Where a component may be placed. */
@@ -198,6 +209,8 @@ export interface ComponentManifest {
   props: EditableProp[]
   items?: ItemManifest[]
   maxItems?: number
+  /** Filled items for every item type (round P): what a placement and the editor's Add section start with. */
+  preset?: ComponentPreset
   placement: ComponentPlacement
   capabilities: ScriptCapability[]
   /** Token CSS variables it reads, for the token panel's "used by". */
