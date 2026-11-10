@@ -17,12 +17,12 @@
  * job says so in its record (state.native.fallback), never silently.
  */
 import { briefFrom, chooseDirection, directionForPrompt, type BriefCapabilities, type BriefOptions, type CreativeBrief } from "@/lib/storelib-ai/direction"
-import { designBrainFor } from "@/lib/storelib-ai/brain"
+import { designBrainFor, type DesignBrainOptions } from "@/lib/storelib-ai/library/brain"
 import type { DesignPreset } from "../../design-presets"
 import type { Capabilities } from "../capabilities"
 import type { ModelRef, Spend } from "../models"
 import { nativeRegistry, type NativeRegistry } from "./registry"
-import { generateNativeSite, type NativeResult } from "./generate"
+import { generateNativeSite, readBrainHints, type NativeResult } from "./generate"
 import { toSitePlan, type NativeSitePlan } from "./plan"
 import type { NativeForm, NativeImage, NativeMapping } from "./types"
 
@@ -31,8 +31,10 @@ export interface NativeEngineDeps {
   images?: () => Promise<NativeImage[]>
   forms?: () => Promise<NativeForm[]>
   designMd?: () => Promise<string | null>
-  /** R1's brain; default designBrainFor. */
-  brain?: (brief: CreativeBrief) => unknown
+  /** R1's brain; default designBrainFor (lib/storelib-ai/library/brain). */
+  brain?: (brief: CreativeBrief, opts: DesignBrainOptions) => unknown
+  /** Recipe ids this creator's recent sites used, so the next one differs (R1's avoidRecipes). */
+  recentRecipes?: () => Promise<string[]>
   registry?: NativeRegistry
   maxRepairs?: number
 }
@@ -42,6 +44,8 @@ export interface NativeRecord {
   version: string
   promptVersion: string
   brainVersion: string | null
+  /** The design brain's recipe this site was built on, read back as avoidRecipes for the creator's next site. */
+  recipeId: string | null
   attempts: number
   sections: number
   /** Issues still found in the kept answer (their values were taken out). */
@@ -91,12 +95,26 @@ export interface NativePlanInput {
 /** The native site as the classic job's plan, with its record and spend. Throws NativeGenerationError when nothing can be placed. */
 export async function nativePlan(input: NativePlanInput, deps: NativeEngineDeps): Promise<{ plan: NativeSitePlan; record: NativeRecord; spend: Spend; result: NativeResult }> {
   const registry = deps.registry ?? nativeRegistry()
-  const [images, forms, designMd] = await Promise.all([quiet(deps.images, [] as NativeImage[]), quiet(deps.forms, [] as NativeForm[]), quiet(deps.designMd, null as string | null)])
+  const [images, forms, designMd, recent] = await Promise.all([quiet(deps.images, [] as NativeImage[]), quiet(deps.forms, [] as NativeForm[]), quiet(deps.designMd, null as string | null), quiet(deps.recentRecipes, [] as string[])])
   const brief = briefFrom(input.request, input.options ?? null, briefCaps(input.caps))
-  const choice = chooseDirection(brief, [], { seed: `${input.creatorId}:${input.installId}` })
+  const brainOf = deps.brain ?? designBrainFor
+  const avoidRecipes = [...new Set(recent.filter((r) => typeof r === "string" && r))].slice(0, 6)
+  /*
+    As the agent engine does it (lib/ai-builder/agent/direction.ts planDirection): the brain's recipe names the
+    directions and type system it realises, the direction is chosen preferring them, and the brain is asked again
+    with that direction so its tokens use the direction's palette and fonts.
+  */
   let brain: unknown = null
+  let prefer: { prefer?: string[]; preferType?: string } = {}
   try {
-    brain = (deps.brain ?? designBrainFor)(brief)
+    const first = brainOf(brief, { avoidRecipes }) as { directions?: unknown; typeSystem?: unknown } | null
+    prefer = { prefer: Array.isArray(first?.directions) ? first!.directions.filter((d): d is string => typeof d === "string") : [], ...(typeof first?.typeSystem === "string" ? { preferType: first.typeSystem } : {}) }
+  } catch {
+    prefer = {}
+  }
+  const choice = chooseDirection(brief, [], { seed: `${input.creatorId}:${input.installId}`, ...prefer })
+  try {
+    brain = brainOf(brief, { direction: choice, avoidRecipes })
   } catch {
     brain = null
   }
@@ -112,11 +130,13 @@ export async function nativePlan(input: NativePlanInput, deps: NativeEngineDeps)
     { model: input.model, signal: input.signal, deadline: input.deadline, now: input.now, maxRepairs: deps.maxRepairs },
   )
   const corrections = result.mapped.map((m) => `${m.path}: ${m.from} ${m.to ? `became ${m.to}` : "left out"} (${m.why})`)
-  const plan = toSitePlan(result.site, registry, input.presets, corrections)
+  const hints = readBrainHints((brain as { hints?: unknown } | null)?.hints)
+  const plan = toSitePlan(result.site, registry, input.presets, corrections, hints?.tokens ?? null)
   const record: NativeRecord = {
     version: result.site.version,
     promptVersion: result.promptVersion,
     brainVersion: result.brainVersion,
+    recipeId: hints?.recipeId || null,
     attempts: result.attempts,
     sections: result.site.pages.reduce((n, p) => n + p.sections.length, 0),
     issues: result.issues.slice(0, 20).map((i) => `${i.path}: ${i.message}`.slice(0, 240)),

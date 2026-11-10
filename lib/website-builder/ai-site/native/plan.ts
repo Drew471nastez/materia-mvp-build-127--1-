@@ -20,9 +20,14 @@ import { applyOp } from "../../agent/operations"
 import { bindOps } from "../fill"
 import type { NativeRegistry } from "./registry"
 import type { NativeSection, NativeSite } from "./types"
+import type { DesignTokens } from "@/lib/ai-builder/types"
+import { tokensToThemeSettings } from "@/lib/ai-builder/tokens"
 
-/** A SitePlan that carries the native site it was made from. */
-export type NativeSitePlan = SitePlan & { native: NativeSite }
+/**
+ * A SitePlan that carries the native site it was made from, and the design brain's tokens with the native site's own
+ * palette and fonts laid over them (`tokens`, null without a brain): what the build writes to Theme settings.
+ */
+export type NativeSitePlan = SitePlan & { native: NativeSite; tokens?: DesignTokens | null }
 
 export function isNativePlan(plan: SitePlan | null | undefined): plan is NativeSitePlan {
   return !!plan && !!(plan as { native?: unknown }).native && typeof (plan as { native?: unknown }).native === "object"
@@ -45,7 +50,7 @@ function contentOf(s: NativeSection): string {
 }
 
 /** The native site as the classic job's plan. Pure. */
-export function toSitePlan(site: NativeSite, reg: NativeRegistry, presets: readonly DesignPreset[] = DESIGN_PRESETS, corrections: string[] = []): NativeSitePlan {
+export function toSitePlan(site: NativeSite, reg: NativeRegistry, presets: readonly DesignPreset[] = DESIGN_PRESETS, corrections: string[] = [], brainTokens: DesignTokens | null = null): NativeSitePlan {
   const preset = presets.find((p) => p.id === site.theme.preset) ?? presets[0]
   const ps = (preset?.settings ?? {}) as Record<string, unknown>
   const heading = site.theme.fonts.heading || (typeof ps.font_heading === "string" ? ps.font_heading : "Inter")
@@ -71,7 +76,40 @@ export function toSitePlan(site: NativeSite, reg: NativeRegistry, presets: reado
     chrome: null,
     corrections,
     native: site,
+    tokens: brainTokens ? mergeTokens(brainTokens, site) : null,
   }
+}
+
+/**
+ * The brain's tokens with what the native site chose laid over them: its palette (when it gave one, the brain's
+ * contrast band is dropped so a band never fights the new palette) and its fonts. Pure.
+ */
+export function mergeTokens(brain: DesignTokens, site: NativeSite): DesignTokens {
+  const t: DesignTokens = JSON.parse(JSON.stringify(brain))
+  const p = site.theme.palette
+  if (p.background) {
+    t.colors = {
+      ...t.colors,
+      background: p.background,
+      surface: p.surface || t.colors.surface,
+      text: p.text || t.colors.text,
+      accent: p.accent || p.button || t.colors.accent,
+      accentText: p.button_text || t.colors.accentText,
+    }
+    delete t.colors.inverse
+  }
+  if (site.theme.fonts.heading) t.fonts = { ...t.fonts, heading: site.theme.fonts.heading }
+  if (site.theme.fonts.body) t.fonts = { ...t.fonts, body: site.theme.fonts.body }
+  return t
+}
+
+/**
+ * The plan's tokens as ONE Theme settings write (lib/ai-builder/tokens.ts tokensToThemeSettings, the agent engine's
+ * own mapping), with the native site's checked Theme settings over them: its explicit choices win. Null without tokens.
+ */
+export function tokenThemeOp(plan: NativeSitePlan, current: Record<string, unknown>): ThemeOp | null {
+  if (!plan.tokens) return null
+  return { kind: "update_theme", settings: { ...tokensToThemeSettings(plan.tokens, current), ...plan.native.theme.settings } }
 }
 
 export interface NativePlacement {
