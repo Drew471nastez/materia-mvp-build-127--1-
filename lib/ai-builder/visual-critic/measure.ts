@@ -191,7 +191,8 @@ export const MEASURE_SCRIPT = `(() => {
   /* Pictures. */
   for (const img of document.images) {
     const src = img.getAttribute('src')
-    if (!src || !src.trim()) { if (shown(img) || img.getAttribute('width')) out.missingImages.push(where(img)); continue }
+    /* Round R (R4): a storefront hook's template picture (a search result or cart line copied and filled by the runtime, hidden until then) is not a frame a visitor sees. */
+    if (!src || !src.trim()) { if (img.closest('[hidden], template, [data-storelib-search-result], [data-storelib-cart-line]') || img.hasAttribute('data-result-image') || img.hasAttribute('data-line-image')) continue; if (shown(img) || img.getAttribute('width')) out.missingImages.push(where(img)); continue }
     if (img.complete && img.naturalWidth === 0) out.brokenImages.push(Object.assign(where(img), { src: src.slice(0, 120) }))
   }
   /* Calls to action in the first screen: buttons, and links that look like buttons or ask for something. */

@@ -193,12 +193,24 @@ async function interactive(browser: Browser, site: EvalSite, html: string, shot:
     await tab.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true })
     await tab.goto("https://site.eval.storelib.test/", { waitUntil: "load", timeout: 20_000 })
     await new Promise((r) => setTimeout(r, 400))
-    const button = await tab.$("[data-chrome] [data-storelib-menu]:not([data-storelib-menu-panel])")
-    const visible = button ? await button.evaluate((el) => (el as HTMLElement).getClientRects().length > 0 && getComputedStyle(el as HTMLElement).visibility !== "hidden") : false
-    if (!button || !visible) return { errors, menu: "no-menu", menuLinks: 0, detail: button ? "the menu button is hidden at 390" : "no data-storelib-menu button in the header" }
+    if (!sections.some((s) => s.group === "header")) return { errors, menu: "builtin", menuLinks: 0, detail: "the site wears Storelib's built-in header (a React component the app draws), not drawn outside the app" }
+    /* The phone menu's button: a hooked one (data-storelib-menu) or a native popover (the P4 kit's headers). */
+    const handles = await tab.$$("[data-chrome] [data-storelib-menu]:not([data-storelib-menu-panel]), [data-chrome] button[popovertarget]")
+    let button: (typeof handles)[number] | null = null
+    for (const h of handles) {
+      const fits = await h.evaluate((el) => (el as HTMLElement).getClientRects().length > 0 && getComputedStyle(el as HTMLElement).visibility !== "hidden" && !/search|cart|bag|currency|language|locale/i.test(`${el.getAttribute("aria-label") ?? ""} ${el.getAttribute("popovertarget") ?? ""}`))
+      if (fits) {
+        button = h
+        break
+      }
+    }
+    if (!button) return { errors, menu: "no-menu", menuLinks: 0, detail: handles.length ? "the menu button is hidden at 390" : "no menu button (data-storelib-menu or a popover) in the header" }
+    const target = await button.evaluate((el) => el.getAttribute("popovertarget"))
     await button.click()
     await new Promise((r) => setTimeout(r, 450))
-    const state = (await tab.evaluate(`(() => { const p = document.querySelector("[data-storelib-menu-panel]"); if (!p) return { open: false, links: 0, how: "no panel of its own (the built-in drawer)" }; const open = p.getAttribute("data-open") === "true" || (!p.hidden && p.getClientRects().length > 0 && getComputedStyle(p).visibility !== "hidden"); const links = [...p.querySelectorAll("a[href]")].filter((a) => a.getClientRects().length > 0).length; return { open, links, how: "the header's own drawer" } })()`)) as { open: boolean; links: number; how: string }
+    /* The drawer's own pictures load lazily once it is open. */
+    await tab.waitForNetworkIdle({ idleTime: 250, timeout: 4_000 }).catch(() => undefined)
+    const state = (await tab.evaluate(`(() => { const t = ${JSON.stringify(target)}; const p = t ? document.getElementById(t) : document.querySelector("[data-storelib-menu-panel]"); if (!p) return { open: false, links: 0, how: "no panel of its own" }; const open = t ? p.matches(":popover-open") : (p.getAttribute("data-open") === "true" || (!p.hidden && p.getClientRects().length > 0 && getComputedStyle(p).visibility !== "hidden")); const links = [...p.querySelectorAll("a[href]")].filter((a) => a.getClientRects().length > 0).length; return { open, links, how: t ? "the header's own popover drawer" : "the header's own drawer (hooks)" } })()`)) as { open: boolean; links: number; how: string }
     let menuShot: string | undefined
     if (shot && state.open) {
       const buf = Buffer.from(await tab.screenshot({ type: "jpeg", quality: 80 }))
@@ -256,5 +268,6 @@ export async function shootHome(browser: Browser | null, site: EvalSite, shotSte
 export async function launchBrowser(): Promise<Browser | null> {
   if (!browserHere()) return null
   const puppeteer = (await import("puppeteer-core")).default
-  return puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--font-render-hinting=none"] })
+  /* Over a pipe, not a socket: the journey's network refuses node's http (tests/_journey/net.ts). */
+  return puppeteer.launch({ executablePath: CHROMIUM, headless: true, pipe: true, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--font-render-hinting=none"] })
 }

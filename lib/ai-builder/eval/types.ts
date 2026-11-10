@@ -63,7 +63,7 @@ export interface BrowserResult {
   unavailable?: string
   pages: BrowserPage[]
   /** JS on: the page's own hooks mounted by the real React runtime (tests/_headless probe). */
-  interactive: { errors: string[]; menu: "opened" | "no-menu" | "did-not-open"; menuLinks: number; detail: string } | null
+  interactive: { errors: string[]; menu: "opened" | "no-menu" | "did-not-open" | "builtin"; menuLinks: number; detail: string } | null
   shots: EvalShot[]
 }
 

@@ -38,12 +38,13 @@ import { briefFrom, type CreativeBrief } from "@/lib/storelib-ai/direction/brief
 import { artDirection } from "@/lib/storelib-ai/direction/directions"
 import { chooseDirection, isDisplaySerif } from "@/lib/storelib-ai/direction/choose"
 import { parseDesignMd, DESIGN_MD_PATH } from "@/lib/storelib-ai/direction/design-md"
-import { layoutStoryFor, planSkeletonIssue } from "@/lib/storelib-ai/layout/stories"
+import { layoutStoryFor, skeletonMatch } from "@/lib/storelib-ai/layout/stories"
 import { conceptClicheIssues, AI_DEFAULT_INDIGO } from "@/lib/ai-builder/slop"
 import { siteFingerprint, fingerprintSimilarity, NOVELTY_THRESHOLD, type SiteFingerprint } from "@/lib/ai-builder/novelty"
 import { contrastOf, themeSettingsToTokens } from "@/lib/ai-builder/tokens"
 import { DESIGN_CONTRACT_SETTING } from "@/lib/ai-builder/design-contract"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
+import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import type { VisualConcept } from "@/lib/storelib-ai/library/concept"
 import type { DesignTokens } from "@/lib/ai-builder/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -101,10 +102,12 @@ export function checkComponents(site: EvalSite): EvalCheck {
   for (const p of site.pages)
     for (const s of p.sections) {
       if (CHROME_TYPES.has(s.type) && site.mode === "theme") continue
-      if (!isStorelibSection(s.type, site.sources) || !schemaInfo(s.type, site.sources)) missing.push(`${p.key} › ${s.type}`)
+      /* A theme site may also hold Storelib's built-in React sections (the product template's product, feature_grid...). */
+      const builtIn = site.mode === "theme" && !!(SECTION_SCHEMAS as Record<string, unknown>)[s.type]
+      if (!builtIn && (!isStorelibSection(s.type, site.sources) || !schemaInfo(s.type, site.sources))) missing.push(`${p.key} › ${s.type}`)
     }
   const own = new Set(site.pages.flatMap((p) => p.sections.map((s) => s.type)).filter((t) => site.sources[`sections/${t}.storelib`]))
-  const native = new Set(site.pages.flatMap((p) => p.sections.map((s) => s.type)).filter((t) => !own.has(t) && DEFAULT_THEME_SOURCES[`sections/${t}.storelib`]))
+  const native = new Set(site.pages.flatMap((p) => p.sections.map((s) => s.type)).filter((t) => !own.has(t) && (DEFAULT_THEME_SOURCES[`sections/${t}.storelib`] || (SECTION_SCHEMAS as Record<string, unknown>)[t])))
   if (missing.length) return bad("components.supported", `no source or schema for: ${[...new Set(missing)].slice(0, 8).join(", ")}`)
   return ok("components.supported", `${own.size} of the site's own components, ${native.size} of Storelib's sections, nothing unknown`)
 }
@@ -138,6 +141,7 @@ export function checkInteractive(site: EvalSite): EvalCheck {
   const i = b.interactive
   if (i.errors.length) return bad("browser.interactive", `page errors with JS on: ${i.errors.slice(0, 3).join(" | ")}`)
   if (i.menu === "did-not-open") return bad("browser.interactive", `the phone menu did not open: ${i.detail}`)
+  if (i.menu === "builtin") return i.errors.length ? bad("browser.interactive", i.errors.join(" | ")) : pending("browser.interactive", `no script errors; ${i.detail}`)
   if (i.menu === "no-menu") return warn("browser.interactive", `no menu button on the phone header (${i.detail})`)
   return ok("browser.interactive", `no script errors; the phone menu opened with ${i.menuLinks} links (${i.detail})`)
 }
@@ -164,7 +168,8 @@ export function checkImages(site: EvalSite): EvalCheck {
   const slots = site.engine === "agent" ? emptyImageSlots({ pages: site.pages, sources: site.sources }) : []
   if (unsafe.length || broken.length || empty.length) return bad("images.ok", [unsafe.length ? `not https or the media library: ${unsafe.slice(0, 3).map((u) => `${u.where} = ${u.value.slice(0, 40)}`).join(", ")}` : "", broken.length ? `broken in Chromium: ${[...new Set(broken)].slice(0, 3).join(", ")}` : "", empty.length ? `<img> with no address: ${[...new Set(empty)].slice(0, 3).join(", ")}` : ""].filter(Boolean).join(" | "))
   if (!site.browser || site.browser.unavailable) return pending("images.ok", `${values.length} picture settings, all https or the media library; not loaded in a browser`)
-  if (slots.length) return warn("images.ok", `${values.length} pictures load; ${slots.length} optional picture settings left empty (drawn text-forward): ${slots.slice(0, 3).map((s) => `${s.page}/${s.sectionType}.${s.setting}`).join(", ")}`)
+  const named = [...new Set(slots.map((s) => `${s.page}/${s.type}.${s.setting}`))]
+  if (slots.length) return warn("images.ok", `${values.length} pictures load; ${slots.length} optional picture settings left empty (drawn text-forward): ${named.slice(0, 4).join(", ")}`)
   return ok("images.ok", `${values.length} picture settings, every one https or the media library, all load in Chromium, no empty <img>`)
 }
 
@@ -198,7 +203,7 @@ export function checkDirection(site: EvalSite): EvalCheck {
 export function homeText(site: EvalSite): { lines: string[]; text: string } {
   const home = site.pages.find((p) => p.key === "home")?.sections ?? []
   const lines = bodyOf(home).map((s) => {
-    const name = s.name || schemaInfo(s.type, site.sources)?.name || s.type
+    const name = s.name || s.type
     return `${s.type.replace(/^ai_[a-z0-9]+_/, "")}: ${name}`
   })
   const words: string[] = [...lines]
@@ -227,7 +232,8 @@ export function checkSections(site: EvalSite): EvalCheck {
   const brief = scenarioBrief(site)
   const story = layoutStoryFor(brief).story
   const essentials = story.essentials.filter((e) => e.pattern.test(text))
-  const skeleton = planSkeletonIssue(lines, brief)
+  /* O5's skeleton rule (planSkeletonIssue) over the FINISHED page: its section roles in order, its essentials over everything it says. */
+  const skeleton = story.id !== "saas" && skeletonMatch(lines) >= 4 && essentials.length < Math.ceil(story.essentials.length / 2) ? `the generic Hero, Features, Pricing, FAQ, CTA skeleton of a software page, for a ${story.name.toLowerCase()} site` : null
   const pages = site.pages.filter((p) => bodyOf(p.sections).length > 0).map((p) => p.key)
   const detail = `home: ${body.length} sections; covers ${covered.length}/${covers.length} of the trade's needs${missing.length ? ` (missing ${missing.join(", ")})` : ""}; ${essentials.length}/${story.essentials.length} of the ${story.id} story's essentials; pages with content: ${pages.join(", ")}`
   if (skeleton) return bad("sections.relevant", `${detail} · ${skeleton.slice(0, 160)}`)
