@@ -3,9 +3,11 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { v4 as uuid } from "uuid"
 import { platformOrigin } from "@/lib/onepage/return-address"
 import { actionLabel } from "@/lib/forms/actions"
-import { formSteps, isChoice, isMulti, pickResult, validDate, type FormField, type PublicForm } from "@/lib/forms/definition"
+import { bookingDurations, formSteps, isChoice, isMulti, pickResult, validDate, type FormField, type PublicForm } from "@/lib/forms/definition"
 import { generateSlots, type Slot } from "@/lib/forms/slots"
 import { formsRequest } from "@/lib/forms/client"
+import { useSheetBack } from "@/components/onepage/block-sheet-context"
+import { BookingPicker, type SlotLoader } from "./booking-picker"
 
 /*
   THE VISITOR'S FORM, the same on a OnePage, a website and a creator page.
@@ -33,7 +35,7 @@ type Done = {
   result?: { title: string; message: string } | null
   score?: number | null
   gated?: { url: string; label: string } | null
-  booking?: { starts_at: string; status: string } | null
+  booking?: { starts_at: string; ends_at?: string; status: string; location?: { label: string; text: string; url: string | null } | null; manage_url?: string | null } | null
   payment_href?: string | null
 }
 type FileState = { ref?: string; name: string; busy?: boolean; error?: string }
@@ -45,9 +47,6 @@ const visitorZone = () => {
     return "UTC"
   }
 }
-const dayKey = (iso: string, tz: string) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso))
-const dayLabel = (iso: string, tz: string) => new Intl.DateTimeFormat(undefined, { timeZone: tz, weekday: "short", day: "numeric", month: "short" }).format(new Date(iso))
-const timeLabel = (iso: string, tz: string) => new Intl.DateTimeFormat(undefined, { timeZone: tz, hour: "numeric", minute: "2-digit" }).format(new Date(iso))
 const fullLabel = (iso: string, tz: string) => new Intl.DateTimeFormat(undefined, { timeZone: tz, dateStyle: "full", timeStyle: "short" }).format(new Date(iso))
 
 /*
@@ -72,6 +71,11 @@ function readPublicForm(formId: string): Promise<Loaded> {
 }
 
 /** Start reading a form now, once, for a renderer that is about to need it. */
+/** Whether a form's questions are already here, so a renderer draws them in its first frame. */
+export function publicFormRead(formId: string): boolean {
+  return loadedForms.has(formId)
+}
+
 export function prefetchPublicForm(formId: string): Promise<Loaded> {
   const known = loadedForms.get(formId)
   if (known) return Promise.resolve({ form: known, missing: false, error: null })
@@ -92,7 +96,10 @@ export function PublicFormRenderer({
   onSubmitted,
   onUnavailable,
   shownTitle,
+  quietLoading = false,
 }: {
+  /** Round AR: in a sheet, a form still on its way leaves its room empty rather than drawing grey bars. */
+  quietLoading?: boolean
   /** The form could not be shown (not published, no forms on this store, or no answer after a retry): a chat's questions step aside and the chat opens (components/forms/action-frame). */
   onUnavailable?: () => void
   /** Called once the answers are saved, or accepted in a preview: a pre-chat form hands them to the chat it opens (components/forms/action-frame). */
@@ -118,7 +125,10 @@ export function PublicFormRenderer({
     [done, setDone] = useState<Done | null>(null),
     [retry, setRetry] = useState(0),
     [slot, setSlot] = useState<Slot | null>(null),
-    [slotsVersion, setSlotsVersion] = useState(0)
+    [slotsVersion, setSlotsVersion] = useState(0),
+    /* Round AR: the booking step's own two views (month, then that day's times) and the chosen length; internal state, never the address. */
+    [slotDay, setSlotDay] = useState<string | null>(null),
+    [length, setLength] = useState<number | null>(null)
   const started = useRef(Date.now()),
     key = useRef(uuid()),
     trap = useRef<HTMLInputElement>(null),
@@ -163,6 +173,7 @@ export function PublicFormRenderer({
   const onSlots = bookingStep === 1 && current === 0
   const fields = onSlots ? [] : steps[current - bookingStep] || []
   const last = current >= total - 1
+  const minutes = d?.booking ? (length && bookingDurations(d.booking).includes(length) ? length : d.booking.duration) : 0
 
   const set = (id: string, v: Value) => {
     setValues((c) => ({ ...c, [id]: v }))
@@ -196,10 +207,31 @@ export function PublicFormRenderer({
   const stepProblem = () => (onSlots ? (slot ? null : "Choose a time.") : fields.map(problem).find(Boolean) || null)
 
   const focusTop = () => requestAnimationFrame(() => heading.current?.focus({ preventScroll: false }))
+  /*
+    ROUND AR: BACK MOVES A STEP. Inside the OnePage's sheet, the browser's Back and Android's back gesture go a step
+    back while there is one (components/onepage/block-sheet SheetBackContext), and close the sheet from the first step.
+    Nothing navigates. Each step slides in from the side it comes from.
+  */
+  const sheetBack = useSheetBack()
+  const stepRef = useRef({ current, done: !!done })
+  stepRef.current = { current, done: !!done }
+  const [came, setCame] = useState<"next" | "back" | null>(null)
+  useEffect(() => {
+    if (!sheetBack) return
+    return sheetBack.take(() => {
+      const s = stepRef.current
+      if (s.done || s.current <= 0) return false
+      setCame("back")
+      setStep(s.current - 1)
+      setError(null)
+      return true
+    })
+  }, [sheetBack])
   const next = () => {
     const p = stepProblem()
     if (p) return setError(p)
     setError(null)
+    setCame("next")
     setStep(current + 1)
     focusTop()
   }
@@ -274,11 +306,12 @@ export function PublicFormRenderer({
           source,
           source_url: window.location.href,
           source_block: sourceBlock || undefined,
-          ...(d.booking && slot ? { slot: slot.start, timezone: zone } : {}),
+          ...(d.booking && slot ? { slot: slot.start, timezone: zone, duration: minutes } : {}),
         }),
       })
       const b = await r.json()
       if (r.status === 409 && b.slot_taken) {
+        /* Someone was quicker: back to that day's times, read again, the taken time gone. */
         setSlot(null)
         setStep(0)
         setSlotsVersion((n) => n + 1)
@@ -294,6 +327,7 @@ export function PublicFormRenderer({
     }
   }
   /* While it is read: the shape of a form, quietly, so what arrives takes the same room and settles in rather than jumping. */
+  if (loading && quietLoading) return <div role="status" aria-label="Loading form" className="min-h-[240px]" data-form-loading="quiet" />
   if (loading)
     return (
       <div role="status" aria-label="Loading form" className="space-y-5 motion-safe:animate-pulse" data-form-loading="">
@@ -356,11 +390,46 @@ export function PublicFormRenderer({
         </label>
       </div>
       {onSlots && d.booking ? (
-        <SlotPicker formId={formId} settings={d.booking} preview={preview} zone={zone} value={slot} version={slotsVersion} onChange={(s) => (setSlot(s), setError(null))} />
+        <SlotPicker
+          formId={formId}
+          settings={d.booking}
+          price={form.price}
+          preview={preview}
+          zone={zone}
+          value={slot}
+          version={slotsVersion}
+          duration={minutes}
+          onDuration={(m) => (setLength(m), setSlot(null), setSlotDay(null), setError(null))}
+          day={slotDay}
+          onDay={(k) => (setSlotDay(k), setError(null))}
+          onChange={(s) => {
+            setSlot(s)
+            setError(null)
+            /* A time chosen with questions still to come: on to them, as Calendly does. */
+            if (!last) {
+              setCame("next")
+              setStep(1)
+              focusTop()
+            }
+          }}
+        />
       ) : null}
-      {fields.map((field) => (
-        <Question key={field.id} formId={formId} field={field} value={values[field.id]} file={files[field.id]} onChange={(v) => set(field.id, v)} onFile={(f) => void upload(field, f)} />
-      ))}
+      {/* Round AR: each step of questions settles in, from the side it came from (a 200ms fade and slide), so Next and Back read as moving, never as a cut. */}
+      {!onSlots ? (
+        <div key={`step-${current}`} className={`space-y-5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200 ${came === "back" ? "motion-safe:slide-in-from-left-3" : came === "next" ? "motion-safe:slide-in-from-right-3" : "motion-safe:slide-in-from-bottom-1"}`} data-form-step={current}>
+          {d.booking && slot ? (
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-[color-mix(in_srgb,var(--sheet-ink,#1a1a2e)_6%,transparent)] px-3 py-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" data-booking-chosen="">
+              <span className="min-w-0 text-sm font-medium">{fullLabel(slot.start, zone)}</span>
+              <button type="button" className="min-h-11 shrink-0 px-1 text-sm underline" onClick={() => (setCame("back"), setStep(0), setError(null), focusTop())}>
+                Change
+              </button>
+            </div>
+          ) : null}
+          {fields.map((field) => (
+            <Question key={field.id} formId={formId} field={field} value={values[field.id]} file={files[field.id]} onChange={(v) => set(field.id, v)} onFile={(f) => void upload(field, f)} />
+          ))}
+        </div>
+      ) : null}
       {last ? (
         <div className="space-y-3">
           <label className="flex items-start gap-2.5 text-xs leading-relaxed text-[var(--sheet-body,#4b5563)]">
@@ -389,13 +458,16 @@ export function PublicFormRenderer({
       ) : null}
       <div className="flex items-center gap-3">
         {current > 0 ? (
-          <button type="button" className="min-h-11 px-3 text-sm underline" onClick={() => (setStep(current - 1), setError(null), focusTop())}>
+          <button type="button" className="min-h-11 px-3 text-sm underline" onClick={() => (setCame("back"), setStep(current - 1), setError(null), focusTop())}>
             Back
           </button>
         ) : null}
-        <button type="submit" className={button} disabled={busy || Object.values(files).some((f) => f.busy)}>
-          {busy ? "Sending…" : last ? d.button_text || "Send" : "Next"}
-        </button>
+        {/* On the month or the times, a time chosen is the step's own Next; the button waits until there is one. */}
+        {onSlots && !last && !slot ? null : (
+          <button type="submit" className={button} disabled={busy || Object.values(files).some((f) => f.busy)}>
+            {busy ? "Sending…" : last ? d.button_text || "Send" : "Next"}
+          </button>
+        )}
       </div>
     </form>
   )
@@ -559,122 +631,91 @@ function Question({
   )
 }
 
+/** Where it happens, in a few words: "Google Meet", "Phone call", "In person". */
+const LOCATION_WORDS: Record<string, string> = { video: "Video call", google_meet: "Google Meet", phone: "Phone call", in_person: "In person" }
+const lengthWords = (m: number) => (m >= 60 && m % 60 === 0 ? `${m / 60} h` : m > 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`)
+
+/**
+ * The booking step (round AR): what it is (length, where, price, a badge),
+ * then the month and the times (./booking-picker). The visitor's times come
+ * from the slots route a month at a time; a preview draws them from the
+ * draft's own hours, saving nothing.
+ */
 function SlotPicker({
   formId,
   settings,
+  price,
   preview,
   zone,
   value,
   version,
+  duration,
+  onDuration,
+  day,
+  onDay,
   onChange,
 }: {
   formId: string
   settings: NonNullable<PublicForm["definition"]["booking"]>
+  price?: string | null
   preview: boolean
   zone: string
   value: Slot | null
   version: number
+  duration: number
+  onDuration: (m: number) => void
+  day: string | null
+  onDay: (d: string | null) => void
   onChange: (s: Slot) => void
 }) {
-  const [slots, setSlots] = useState<Slot[] | null>(null),
-    [next, setNext] = useState<string | null>(null),
-    [failed, setFailed] = useState<string | null>(null),
-    [day, setDay] = useState<string | null>(null)
-  const load = async (from?: string, append = false) => {
+  const load: SlotLoader = async (from, days, length) => {
     if (preview) {
       const now = Date.now()
-      const start = from ? Date.parse(from) : now
-      const list = generateSlots(settings, { fromMs: start, toMs: start + 14 * 86_400_000, nowMs: now, limit: 500 })
-      setSlots((old) => (append && old ? [...old, ...list] : list))
-      setNext(start + 14 * 86_400_000 < now + settings.days_ahead * 86_400_000 ? new Date(start + 14 * 86_400_000).toISOString() : null)
-      return
+      const start = Date.parse(from)
+      return { slots: generateSlots(settings, { fromMs: start, toMs: start + days * 86_400_000, nowMs: now, duration: length, limit: 1500 }), horizon: new Date(now + settings.days_ahead * 86_400_000).toISOString() }
     }
-    try {
-      setFailed(null)
-      const r = await fetch(`${platformOrigin()}/api/forms/${encodeURIComponent(formId)}/slots?days=14${from ? `&from=${encodeURIComponent(from)}` : ""}`, { credentials: "omit", cache: "no-store" })
-      const b = await r.json()
-      if (!r.ok) throw new Error(b.error || "Times could not be loaded.")
-      setSlots((old) => (append && old ? [...old, ...b.slots] : b.slots))
-      setNext(b.next)
-    } catch (e) {
-      setFailed(e instanceof Error ? e.message : "Times could not be loaded.")
-    }
+    const r = await formsRequest<{ slots: Slot[]; horizon?: string }>(`${platformOrigin()}/api/forms/${encodeURIComponent(formId)}/slots?from=${encodeURIComponent(from)}&days=${days}&duration=${length}`, {
+      credentials: "omit",
+      fallback: "Times could not be loaded.",
+    })
+    if (!r.data) throw new Error(r.error || "Times could not be loaded.")
+    return { slots: r.data.slots, horizon: r.data.horizon || null }
   }
-  useEffect(() => {
-    void load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formId, version])
-  const days = useMemo(() => {
-    const map = new Map<string, Slot[]>()
-    for (const s of slots || []) {
-      const k = dayKey(s.start, zone)
-      map.set(k, [...(map.get(k) || []), s])
-    }
-    return [...map.entries()]
-  }, [slots, zone])
-  const active = day && days.some(([k]) => k === day) ? day : days[0]?.[0] || null
-  if (failed)
-    return (
-      <p role="alert" className="text-sm text-[var(--sheet-error,#b42318)]">
-        {failed}{" "}
-        <button type="button" className="underline" onClick={() => void load()}>
-          Try again
-        </button>
-      </p>
-    )
-  if (!slots)
-    return (
-      <div role="status" className="h-32 rounded-xl bg-[var(--form-field,#f3f4f6)] motion-safe:animate-pulse">
-        <span className="sr-only">Loading times…</span>
-      </div>
-    )
+  const where = settings.location?.kind && settings.location.kind !== "none" ? LOCATION_WORDS[settings.location.kind] : null
+  const facts = [lengthWords(duration), where, price || null].filter(Boolean) as string[]
   return (
-    <fieldset className="min-w-0 space-y-3" data-slot-picker="">
-      <legend className="mb-1 text-sm font-medium">Choose a time</legend>
-      <p className="-mt-1 text-xs text-[var(--sheet-muted,#6b7280)]">
-        {settings.duration} minutes. Times shown in {zone.replace(/_/g, " ")}.
-      </p>
-      {!days.length ? <p className="text-sm text-[var(--sheet-muted,#6b7280)]">No free times in the next two weeks.</p> : null}
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]" role="tablist" aria-label="Days">
-        {days.map(([k, list]) => (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={k === active}
-            onClick={() => setDay(k)}
-            className={`shrink-0 rounded-xl border px-3 py-2 text-sm ${k === active ? "border-[var(--sheet-ink,#1a1a2e)] bg-[var(--sheet-ink,#1a1a2e)] text-[var(--sheet-on-ink,#fff)]" : "border-[var(--form-line,#e3e4e8)] bg-[var(--form-field,#fff)]"}`}
-          >
-            {dayLabel(list[0].start, zone)}
-          </button>
-        ))}
-      </div>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Times">
-        {(days.find(([k]) => k === active)?.[1] || []).map((s) => (
-          <button
-            key={s.start}
-            type="button"
-            role="radio"
-            aria-checked={value?.start === s.start}
-            onClick={() => onChange(s)}
-            className={`min-h-11 rounded-xl border px-2 text-sm font-medium ${value?.start === s.start ? "border-[var(--sheet-ink,#1a1a2e)] bg-[var(--sheet-ink,#1a1a2e)] text-[var(--sheet-on-ink,#fff)]" : "border-[var(--form-line,#e3e4e8)] bg-[var(--form-field,#fff)]"}`}
-          >
-            {timeLabel(s.start, zone)}
-          </button>
-        ))}
-      </div>
-      {next ? (
-        <button type="button" className="text-sm underline" onClick={() => void load(next, true)}>
-          Show later dates
-        </button>
-      ) : null}
-      {value ? <p className="text-sm">Selected: {fullLabel(value.start, zone)}</p> : null}
+    <fieldset className="min-w-0" data-slot-picker="">
+      <legend className="sr-only">Choose a time</legend>
+      <BookingPicker
+        load={load}
+        zone={zone}
+        duration={duration}
+        durations={bookingDurations(settings)}
+        onDuration={onDuration}
+        value={value}
+        onPick={onChange}
+        day={day}
+        onDay={onDay}
+        version={version}
+        meta={
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-[var(--sheet-muted,#6b7280)]" data-booking-meta="">
+            {settings.badge ? (
+              <span className="rounded-full bg-[var(--sheet-ink,#1a1a2e)] px-2 py-0.5 text-[11px] font-semibold text-[var(--sheet-on-ink,#fff)]" data-booking-badge="">
+                {settings.badge}
+              </span>
+            ) : null}
+            <span>{facts.join(" · ")}</span>
+          </div>
+        }
+      />
     </fieldset>
   )
 }
 
 function Completion({ done, zone, preview }: { done: Done; zone: string; preview: boolean }) {
   const label = done.action_label || (done.action_type ? actionLabel({ type: done.action_type } as never) : "Continue")
+  const b = done.booking
+  const token = b?.manage_url ? b.manage_url.split("/booking/")[1] : null
   return (
     <section role="status" className="space-y-4 py-2 text-left text-[var(--sheet-ink,#1a1a2e)]" data-form-complete="">
       {done.result ? (
@@ -683,11 +724,34 @@ function Completion({ done, zone, preview }: { done: Done; zone: string; preview
           {done.result.message ? <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{done.result.message}</p> : null}
         </div>
       ) : null}
-      {done.booking ? (
-        <p className="text-[15px]">
-          {done.booking.status === "pending" ? "Requested: " : "Booked: "}
-          <strong>{fullLabel(done.booking.starts_at, zone)}</strong>
-        </p>
+      {b ? (
+        <div className="space-y-2 rounded-2xl border border-[var(--form-line,#e3e4e8)] p-4 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:duration-200" data-booking-done="">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--sheet-muted,#6b7280)]">{b.status === "pending" ? "Requested" : "Booked"}</p>
+          <p className="text-[17px] font-semibold leading-snug">{fullLabel(b.starts_at, zone)}</p>
+          {b.location ? (
+            <p className="text-sm text-[var(--sheet-body,#4b5563)]">
+              {b.location.label}:{" "}
+              {b.location.url && /^https:\/\//.test(b.location.url) ? (
+                <a className="break-all underline" href={b.location.url} target="_blank" rel="noopener noreferrer">
+                  {b.location.text}
+                </a>
+              ) : (
+                b.location.text
+              )}
+            </p>
+          ) : null}
+          {b.status === "pending" && !done.payment_href ? <p className="text-sm text-[var(--sheet-muted,#6b7280)]">You will get an email when it is confirmed.</p> : null}
+          {token && b.status === "confirmed" && !preview ? (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm">
+              <a className="min-h-11 underline inline-flex items-center" href={`${platformOrigin()}/api/bookings/manage/${token}?ics=1`}>
+                Add to calendar
+              </a>
+              <a className="min-h-11 underline inline-flex items-center" href={b.manage_url!} target="_blank" rel="noopener noreferrer">
+                Change or cancel
+              </a>
+            </div>
+          ) : null}
+        </div>
       ) : null}
       <p className={`whitespace-pre-wrap ${done.result ? "text-sm text-[var(--sheet-muted,#6b7280)]" : "text-base"}`}>{done.message}</p>
       <div className="flex flex-wrap gap-2">

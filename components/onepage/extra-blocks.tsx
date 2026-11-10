@@ -52,10 +52,14 @@ import { scheduleLabel, videoSource } from "@/lib/onepage/extra-blocks"
 import { viewerZone, zoneLabel } from "@/lib/onepage/schedule"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DateTimeField } from "@/components/onepage/date-time-field"
+import { LabeledRow, Segmented } from "@/components/onepage/editor-kit"
 import { CreatorBlock, CreatorBlockEditor } from "@/components/onepage/creator-blocks"
 import { storelibBlockRow } from "@/components/onepage/storelib-blocks"
 import { AppBlock, appBlockRow } from "@/components/onepage/app-block"
 import { AppBlockEditor } from "@/components/onepage/app-block-editor"
+import { FileVideoPlayer, MediaCard } from "@/components/onepage/media-blocks"
+import { VideoSourceFields, useCoverFromPreview } from "@/components/onepage/media-editor"
+import { mediaLayoutOf } from "@/lib/onepage/media-layout"
 import { GlyphBooking, GlyphContact, GlyphCountdown, GlyphCourse, GlyphFaq, GlyphHeading, GlyphIntegration, GlyphMap, GlyphMusic, GlyphTestimonials, GlyphVideo } from "@/components/onepage/block-icons"
 import { EMBED_PROVIDER_NAME, MUSIC_PROVIDER_NAME, cleanTestimonials, embedSource, lessonsLabel, musicSource, tiktokPlayerUrl, type EmbedKind } from "@/lib/onepage/creator-blocks"
 import { SocialIcon } from "@/components/onepage/brand-icons"
@@ -257,6 +261,10 @@ function useSettled<T>(value: T, ms: number, active: boolean): T {
   return active ? settled : value
 }
 
+/* Round AR3: the map block's own settings, how close and how tall (Google's z levels, CSS pixels). */
+const MAP_ZOOM: Record<string, number> = { street: 17, area: 15, city: 12 }
+const MAP_HEIGHT: Record<string, number> = { short: 150, medium: 190, tall: 300 }
+
 function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
   const typed = (data.address || "").trim()
   /* In the editor the map follows the address once the typing stops, not on every letter: each change reloads the map. */
@@ -274,12 +282,12 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
           {data.title}
         </p>
       ) : null}
-      <div className="relative w-full overflow-hidden bg-black/5" style={{ borderRadius: radius, height: px(190, look.scale) }}>
+      <div className="relative w-full overflow-hidden bg-black/5" data-map-height={data.map_height || "medium"} style={{ borderRadius: radius, height: px(MAP_HEIGHT[data.map_height || "medium"] ?? 190, look.scale) }}>
         {address ? (
           <iframe
-            key={address}
+            key={`${address}:${data.zoom || "area"}`}
             title={tt("Map of {address}", { address })}
-            src={`https://maps.google.com/maps?q=${q}&z=15&output=embed`}
+            src={`https://maps.google.com/maps?q=${q}&z=${MAP_ZOOM[data.zoom || "area"] ?? 15}&output=embed`}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
             className="h-full w-full border-0"
@@ -311,6 +319,19 @@ function VideoView({ data, look, autoplay = false }: { data: VideoBlockData; loo
   const [playing, setPlaying] = React.useState(autoplay)
   if (!source) return null
   const radius = `${boxRadius(look.theme)}px`
+  /* Round AR3: a video Storelib holds plays in Storelib's own light player (./media-blocks). */
+  if (source.kind === "file") {
+    return (
+      <div data-onepage-video="file" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
+        {data.title?.trim() ? (
+          <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">
+            {data.title}
+          </p>
+        ) : null}
+        <FileVideoPlayer src={source.id} poster={data.poster_url} title={data.title?.trim() || tt("Video")} radius={boxRadius(look.theme)} autoplay={!!data.autoplay && !autoplay} loop={!!data.loop} startPlaying={autoplay} />
+      </div>
+    )
+  }
   const tall = source.kind === "tiktok"
   const src =
     source.kind === "youtube"
@@ -383,8 +404,20 @@ export function ExtraBlock({ block, look: given }: { block: OnePageBlock; look: 
   const inPreview = React.useContext(ExtraBlockPreviewContext)
   const look = inPreview && !given.preview ? { ...given, preview: true } : given
   /* Round AL: a button that opens the block in the sheet, or goes to the service (lib/onepage/block-sheet). */
-  const how = blockInteraction(block)
-  if (how !== "inline" && offersInteraction(block.type)) return <SheetBlock block={block} look={look} mode={how} />
+  /*
+    Round AR3 (lib/onepage/media-layout): a music or video block is drawn by its
+    layout, the player, the card or the button; the Interaction says what a tap
+    on the card or the button does.
+  */
+  if (block.type === "music" || block.type === "video") {
+    const layout = mediaLayoutOf(block.data as never)
+    const mode = (block.data as { open_mode?: unknown }).open_mode === "direct" ? "direct" : "sheet"
+    if (layout === "button") return <SheetBlock block={block} look={look} mode={mode} />
+    if (layout === "card") return <MediaCardBlock block={block} look={look} mode={mode} />
+  } else {
+    const how = blockInteraction(block)
+    if (how !== "inline" && offersInteraction(block.type)) return <SheetBlock block={block} look={look} mode={how} />
+  }
   switch (block.type) {
     case "heading":
       return <HeadingView data={block.data as HeadingBlockData} look={look} />
@@ -398,7 +431,7 @@ export function ExtraBlock({ block, look: given }: { block: OnePageBlock; look: 
       return <VideoView data={block.data as VideoBlockData} look={look} />
     case "app":
       /* Round AL: every service with no block of its own (./app-block). */
-      return <AppBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, onepageId: look.onepageId, still: look.still }} />
+      return <AppBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, onepageId: look.onepageId, sellerId: look.sellerId, still: look.still }} />
     default:
       /* Course, music, testimonials and the contact form (./creator-blocks). */
       return <CreatorBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, sellerId: look.sellerId, onepageId: look.onepageId, still: look.still, button: themeButtonStyle(look.theme) }} />
@@ -432,6 +465,35 @@ function SheetBlock({ block, look, mode }: { block: OnePageBlock; look: ExtraBlo
   )
 }
 
+/** The card layout of a music or video block (components/onepage/media-blocks MediaCard). */
+function MediaCardBlock({ block, look, mode }: { block: OnePageBlock; look: ExtraBlockLook; mode: "sheet" | "direct" }) {
+  const plan = sheetPlan(block, look)
+  if (!plan) return null
+  const isVideo = block.type === "video"
+  const d = block.data as VideoBlockData & MusicBlockData
+  const v = isVideo ? videoSource(d.url) : null
+  const m = isVideo ? null : musicSource(d.url)
+  const image = isVideo ? (d.poster_url || (v?.kind === "youtube" ? `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg` : null)) : d.artwork_url || null
+  const service = isVideo ? (v?.kind === "file" ? tt("Video") : v ? VIDEO_NAME[v.kind] : "") : m ? MUSIC_PROVIDER_NAME[m.kind] : ""
+  return (
+    <MediaCard
+      block={block}
+      theme={look.theme}
+      scale={look.scale}
+      onepageId={look.onepageId}
+      still={look.still}
+      kind={isVideo ? "video" : "music"}
+      mode={mode}
+      title={plan.title}
+      service={service}
+      image={image}
+      icon={plan.icon}
+      href={plan.href}
+      sheet={() => ({ title: plan.title, body: plan.body(), cta: plan.cta, shareUrl: plan.href, fill: plan.fill })}
+    />
+  )
+}
+
 type SheetPlan = {
   title: string
   subtitle?: string
@@ -458,8 +520,18 @@ function sheetPlan(block: OnePageBlock, look: ExtraBlockLook): SheetPlan | null 
       const d = block.data as VideoBlockData
       const s = videoSource(d.url)
       if (!s) return null
-      const name = VIDEO_NAME[s.kind]
       const href = d.url.trim()
+      /* An uploaded video plays in the sheet; there is no service to go on to. */
+      if (s.kind === "file") {
+        return {
+          title: d.title?.trim() || tt("Video"),
+          icon: <Play aria-hidden fill="currentColor" className="h-[18px] w-[18px]" />,
+          href,
+          body: () => <VideoView data={{ ...d, title: "" }} look={inner} autoplay />,
+          cta: null,
+        }
+      }
+      const name = VIDEO_NAME[s.kind]
       return {
         title: d.title?.trim() || name,
         icon: mark(s.kind),
@@ -512,7 +584,7 @@ function sheetPlan(block: OnePageBlock, look: ExtraBlockLook): SheetPlan | null 
         body: () => (
           <iframe
             title={tt("Map of {address}", { address })}
-            src={`https://maps.google.com/maps?q=${q}&z=15&output=embed`}
+            src={`https://maps.google.com/maps?q=${q}&z=${MAP_ZOOM[d.zoom || "area"] ?? 15}&output=embed`}
             referrerPolicy="no-referrer-when-downgrade"
             className="block h-full min-h-[320px] w-full rounded-[16px] border-0"
           />
@@ -723,7 +795,7 @@ function brandGlyph(platform: string): React.ComponentType<{ className?: string 
   return G
 }
 /* i18n-ignore-start: marks' names, not words. */
-const EMBED_MARK: Partial<Record<EmbedKind, string>> = { instagram: "instagram", x: "twitter", typeform: "typeform", googleforms: "google-forms", substack: "substack", podcasts: "apple-podcasts", twitch: "twitch", loom: "loom", mixcloud: "mixcloud", bandcamp: "bandcamp", gcal: "google-calendar" }
+const EMBED_MARK: Partial<Record<EmbedKind, string>> = { instagram: "instagram", x: "twitter", typeform: "typeform", googleforms: "google-forms", substack: "substack", podcasts: "apple-podcasts", twitch: "twitch", loom: "loom", mixcloud: "mixcloud", bandcamp: "bandcamp", gcal: "google-calendar", canva: "canva" }
 const MUSIC_MARK: Record<string, string> = { spotify: "spotify", soundcloud: "soundcloud", apple: "applemusic" }
 /* i18n-ignore-end */
 
@@ -755,7 +827,7 @@ export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: s
     case "video": {
       const d = block.data as VideoBlockData
       const s = videoSource(d.url)
-      return { title: d.title?.trim() || tt("Video"), subtitle: s ? tt("{value} video", { value: s.kind === "youtube" ? "YouTube" : s.kind === "vimeo" ? "Vimeo" : "TikTok" }) : tt("Paste a video link"), icon: s ? brandGlyph(s.kind) : GlyphVideo }
+      return { title: d.title?.trim() || tt("Video"), subtitle: s?.kind === "file" ? tt("Your video") : s ? tt("{value} video", { value: s.kind === "youtube" ? "YouTube" : s.kind === "vimeo" ? "Vimeo" : "TikTok" }) : tt("Paste a video link"), icon: s && s.kind !== "file" ? brandGlyph(s.kind) : GlyphVideo }
     }
     case "course": {
       const d = block.data as CourseBlockData
@@ -891,6 +963,12 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
             <Label className={label}>{tt("Address or place")}</Label>
             <Input value={d.address || ""} maxLength={200} placeholder={tt("Strada Lipscani 12, Bucharest")} onChange={(e) => updateData({ address: e.target.value })} />
           </div>
+          <LabeledRow label={tt("How close")}>
+            <Segmented label={tt("How close")} value={d.zoom || "area"} options={[{ id: "street", label: tt("Street") }, { id: "area", label: tt("Area") }, { id: "city", label: tt("City") }]} onChange={(zoom) => updateData({ zoom: zoom as MapBlockData["zoom"] })} />
+          </LabeledRow>
+          <LabeledRow label={tt("Map height")}>
+            <Segmented label={tt("Map height")} value={d.map_height || "medium"} options={[{ id: "short", label: tt("Short") }, { id: "medium", label: tt("Medium") }, { id: "tall", label: tt("Tall") }]} onChange={(map_height) => updateData({ map_height: map_height as MapBlockData["map_height"] })} />
+          </LabeledRow>
           <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2.5">
             <span className="text-[13px] text-[#1a1a2e]">{tt("Show an Open in Maps button")}</span>
             <button
@@ -911,14 +989,11 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
     }
     case "video": {
       const d = block.data as VideoBlockData
-      const ok = !d.url?.trim() || videoSource(d.url) !== null
       return (
         <div className="space-y-3">
-          <div className={field}>
-            <Label className={label}>{tt("Video link")}</Label>
-            <Input value={d.url || ""} inputMode="url" autoCapitalize="off" autoCorrect="off" placeholder="https://youtube.com/watch?v=..." onChange={(e) => updateData({ url: e.target.value.trim() })} aria-invalid={!ok || undefined} />
-            {!ok ? <p className="text-[12px] text-[#b42318]">{tt("Paste a YouTube, Vimeo or TikTok video link.")}</p> : null}
-          </div>
+          {/* Round AR3: an address, or an upload, or one of the store's videos (./media-editor). */}
+          <VideoSourceFields data={d} blockId={block.id} updateData={(patch) => updateData(patch as Partial<OnePageBlockData>)} />
+          <VideoCover data={d} updateData={updateData} />
           <div className={field}>
             <Label className={label}>{tt("Title (optional)")}</Label>
             <Input value={d.title ?? ""} maxLength={80} placeholder={tt("Watch the trailer")} onChange={(e) => updateData({ title: e.target.value })} />
@@ -1052,6 +1127,13 @@ function InteractionChoice({ block, updateData }: { block: OnePageBlock; updateD
       />
     </SettingsGroup>
   )
+}
+
+/** A Vimeo video's frame for the card layout, from its public preview (YouTube's is read from the address itself). */
+function VideoCover({ data, updateData }: { data: VideoBlockData; updateData: (updates: Partial<OnePageBlockData>) => void }) {
+  const s = videoSource(data.url)
+  useCoverFromPreview(data.url, data.poster_url, "poster_url", s?.kind === "vimeo", (patch) => updateData(patch as Partial<OnePageBlockData>))
+  return null
 }
 
 /** The small marks on a block's row in the editor: when it is scheduled, and when its link asks first. */

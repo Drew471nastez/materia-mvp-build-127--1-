@@ -105,6 +105,11 @@ export interface OnePageTheme {
   image_brightness?: number // 0-200, default 100
   image_blur?: number // 0-20, default 0
   image_noise?: boolean
+  /* Round AR (lib/onepage/wallpaper wallpaperMediaLook): an effect on a photo or video wallpaper, the Blur effect's px, and a tint over it (0 to 100). Missing is none. */
+  wallpaper_effect?: "none" | "mono" | "blur" | "halftone" | "grain" | "duotone" | null
+  wallpaper_blur?: number | null
+  wallpaper_tint?: string | null
+  wallpaper_tint_strength?: number | null
   // Header layout
   header_layout?: "classic" | "hero"
   // Social icons
@@ -126,6 +131,8 @@ export interface OnePageTheme {
 
 export interface OnePageSettings {
   show_branding: boolean
+  /* Hide Storelib branding (a paid plan's switch), saved beside show_branding (lib/onepage/settings-rules SWITCHES). */
+  hide_branding_pro_enabled?: boolean
   seo_title?: string | null
   seo_description?: string | null
   /* The title and description a shared link shows, when not the search ones (lib/onepage/seo). */
@@ -282,6 +289,8 @@ export interface ProductBlockData {
   // Layout and animation options
   layout_type?: BlockLayoutType
   animation_type?: BlockAnimationType
+  /** Round AR3: how the picture sits in its box. Cover crops (as always), contain shows all of it, full is its own shape. */
+  image_fit?: BlockDisplayMode
   // Custom thumbnail (overrides product thumbnail)
   custom_thumbnail?: string | null
   // Button style customization (filled is the only style now)
@@ -401,6 +410,9 @@ export interface EmailCaptureBlockData {
   animation_type?: BlockAnimationType
   // Ask for a first name above the email box
   ask_name?: boolean
+  /** Round AR: ask for a phone number too (lib/onepage/signup-fields), and whether it must be given. */
+  ask_phone?: boolean
+  phone_required?: boolean
   // After they join: a link the success message offers (a free guide, a private video, a group)
   after_signup_url?: string | null
   /** A chat or group the signup leads to (lib/forms/actions); fills after_signup_url. */
@@ -516,11 +528,22 @@ export interface MapBlockData {
   title?: string | null
   address: string
   show_button?: boolean
+  /** Round AR3: how close the map starts (the street, the area, the city) and how tall it is. Missing: the area, medium. */
+  zoom?: "street" | "area" | "city"
+  map_height?: "short" | "medium" | "tall"
 }
 
 export interface VideoBlockData {
+  /** A YouTube, Vimeo or TikTok address, or a video file Storelib holds (an upload, or one from Files). */
   url: string
   title?: string | null
+  /** Round AR3 (lib/onepage/media-layout): player, card or button. Missing: read from open_mode. */
+  layout?: "player" | "card" | "button"
+  /** The picture shown before an uploaded video plays (and on the card). */
+  poster_url?: string | null
+  /** An uploaded video starts by itself, muted, once it is on screen. */
+  autoplay?: boolean
+  loop?: boolean
 }
 
 // The blocks drawn by components/onepage/creator-blocks (lib/onepage/creator-blocks.ts holds their rules)
@@ -541,6 +564,10 @@ export interface MusicBlockData {
   /** A Spotify, SoundCloud or Apple Music link. */
   url: string
   title?: string | null
+  /** Round AR3 (lib/onepage/media-layout): player, card or button. Missing: read from open_mode. */
+  layout?: "player" | "card" | "button"
+  /** The cover, read once from the address's public preview (app/api/onepage/link-preview), for the card. */
+  artwork_url?: string | null
 }
 
 export interface TestimonialItem {
@@ -988,7 +1015,8 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
     case "video":
       return {
         ...baseBlock,
-        data: { url: "", title: "", open_mode: "sheet" } as VideoBlockData,
+        /* Round AR3: a new video plays on the page (the owner: "play it right on the page"); its Layout offers the card and the button. */
+        data: { url: "", title: "", layout: "player", open_mode: "inline" } as VideoBlockData,
       }
     case "course":
       return {
@@ -998,7 +1026,8 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
     case "music":
       return {
         ...baseBlock,
-        data: { url: "", title: "", open_mode: "sheet" } as MusicBlockData,
+        /* Round AR3, the owner: "a music block, as default, shows on the page when added". The player, on the page. */
+        data: { url: "", title: "", layout: "player", open_mode: "inline" } as MusicBlockData,
       }
     case "testimonials":
       return {

@@ -10,6 +10,8 @@ import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { bottomAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import { PhonePreview, MobilePreviewContent } from "./live-preview"
+import { PREVIEW_PICK_EVENT } from "@/lib/onepage/preview-select"
+import { InstagramBioShare } from "./instagram-bio-share"
 import { DesignTab } from "./tabs/design-tab"
 import { LinksTab } from "./tabs/links-tab"
 import { ProductsTab } from "./tabs/products-tab"
@@ -386,6 +388,9 @@ function ShareOnePage({
         {tt("Open in a new tab")}
       </button>
 
+      {/* Round AR: the steps for an Instagram bio, opening here under the row (components/onepage/instagram-bio-share). */}
+      <InstagramBioShare slug={onepage.slug} published={onepage.status === "published" || !!onepage.published_at} phone={isPhone} rowClassName={row} />
+
       {!connectedDomain && (
         <button type="button" onClick={() => { window.location.href = "/app/settings?tab=domains" }} className={cn(row, "justify-between")}>
           <span className="flex items-center gap-3">
@@ -673,6 +678,15 @@ function EditorLayout() {
       refreshLeaveGuard.current()
     }
   }, [])
+
+  /* Round AR: a block clicked in the phone preview opens in the Links list (lib/onepage/preview-select). */
+  useEffect(() => {
+    const onPick = () => {
+      if (activeTabRef.current !== "links") handleTabChange("links")
+    }
+    window.addEventListener(PREVIEW_PICK_EVENT, onPick)
+    return () => window.removeEventListener(PREVIEW_PICK_EVENT, onPick)
+  }, [handleTabChange])
 
   // Sync tab when browser back/forward changes the hash
   useEffect(() => {
@@ -1564,6 +1578,7 @@ function EditorLayout() {
           <div className="hidden md:block">
             <button
               onClick={() => setShowLinkModal(true)}
+              data-onepage-share-desk=""
               className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border text-sm font-medium hover:shadow-md hover:bg-gray-50 transition-[background-color,box-shadow] cursor-pointer whitespace-nowrap"
             >
               <Globe className="h-4 w-4 text-muted-foreground shrink-0" />

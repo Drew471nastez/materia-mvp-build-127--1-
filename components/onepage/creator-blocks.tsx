@@ -69,6 +69,7 @@ import { isDarkColor } from "@/lib/onepage/storelib-blocks"
 import { EMBED_MAX_WIDTH, EmbedFrame } from "@/components/onepage/embed-frame"
 import { StorelibBlock, StorelibBlockEditor } from "@/components/onepage/storelib-blocks"
 import { SignupTools } from "@/components/onepage/page-integrations"
+import { useCoverFromPreview } from "@/components/onepage/cover-from-preview"
 
 type Scale = "small" | "normal" | "live"
 
@@ -507,11 +508,13 @@ function CourseEditor({ data, updateData }: { data: CourseBlockData; updateData:
 function MusicEditor({ data, updateData }: { data: MusicBlockData; updateData: (u: Partial<MusicBlockData>) => void }) {
   const source = musicSource(data.url)
   const ok = !data.url?.trim() || source !== null
+  /* Round AR3: the cover for the Card layout, read once from the address's public preview. */
+  useCoverFromPreview(data.url, data.artwork_url, "artwork_url", !!source, (patch) => updateData(patch as Partial<MusicBlockData>))
   return (
     <div className="space-y-3">
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Music link")}</Label>
-        <Input value={data.url || ""} inputMode="url" autoCapitalize="off" autoCorrect="off" placeholder="https://open.spotify.com/track/..." onChange={(e) => updateData({ url: e.target.value.trim() })} aria-invalid={!ok || undefined} />
+        <Input value={data.url || ""} inputMode="url" autoCapitalize="off" autoCorrect="off" placeholder="https://open.spotify.com/track/..." onChange={(e) => { const url = e.target.value.trim(); updateData(url === (data.url || "").trim() ? { url } : { url, artwork_url: null }) }} aria-invalid={!ok || undefined} />
         {!ok ? (
           <p className="text-[12px] text-[#b42318]">{tt("Paste a Spotify, SoundCloud or Apple Music link to a song, album or playlist.")}</p>
         ) : source ? (
@@ -605,6 +608,7 @@ function ContactFormEditor({ data, updateData }: { data: ContactFormBlockData; u
 /** The settings of one of the four, or null for a type that is not one of them. */
 /* i18n-ignore-start: a link's shape, not words. */
 const EMBED_PLACEHOLDER: Record<string, string> = {
+  canva: "https://www.canva.com/design/.../view",
   instagram: "https://www.instagram.com/p/...",
   x: "https://x.com/you/status/...",
   typeform: "https://form.typeform.com/to/...",
@@ -636,6 +640,8 @@ function EmbedEditor({ data, updateData }: { data: EmbedBlockData; updateData: (
           <p className="text-[12px] text-[#6b7280]">{tt("Shows in the {value} player on your page.", { value: EMBED_PROVIDER_NAME[source.kind] })}</p>
         ) : data.provider === "bandcamp" ? (
           <p className="text-[12px] text-[#6b7280]">{tt("On Bandcamp, press Share, then Embed, and paste the code here.")}</p>
+        ) : data.provider === "canva" ? (
+          <p className="text-[12px] text-[#6b7280]">{tt("In Canva, press Share, then Embed, and paste the smart embed link here.")}</p>
         ) : null}
         {!source ? <p className="text-[11.5px] leading-[16px] text-[#9ca3af]">{Object.values(EMBED_PROVIDER_NAME).join(", ")}</p> : null}
       </div>

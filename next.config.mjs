@@ -256,6 +256,18 @@ const nextConfig = {
      */
     turbopackInputSourceMaps: false,
     /**
+     * A MEMORY TARGET FOR TURBOPACK, off unless STORELIB_TURBOPACK_MEMORY_MB is
+     * set (round AR). Measured on 4 CPUs, cold `pnpm build`, whole process
+     * tree: 8,160 MB with none, 8,244 MB at 3 GB and 8,194 MB at 2 GB, and a
+     * build capped at 7.5 GB was killed at the end of compiling either way. It
+     * does not lower the peak, so it is not on; the build machine was raised
+     * instead. Kept as a switch for the next measurement.
+     */
+    turbopackMemoryLimit: (() => {
+      const mb = Number(process.env.STORELIB_TURBOPACK_MEMORY_MB ?? 0)
+      return Number.isFinite(mb) && mb > 0 ? Math.round(mb * 1024 * 1024) : undefined
+    })(),
+    /**
      * AN ADDRESS NO ROUTE MATCHES (round 52): Storelib's pages and the
      * published websites each have a root layout (app/(storelib)/layout.tsx,
      * app/(site)/layout.tsx), so that 404 is app/global-not-found.tsx.

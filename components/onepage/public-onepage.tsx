@@ -51,7 +51,9 @@ import { ExtraBlock, ExtraBlockPreviewContext, IncompleteLinkPlaceholder, Sensit
 import { isExtraBlock, isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
-import { WallpaperDrift, WallpaperNoise, WallpaperPattern, useHeaderClearance } from "@/components/onepage/wallpaper-layers"
+import { WallpaperDrift, WallpaperEffectLayers, WallpaperNoise, WallpaperPattern, useHeaderClearance, usePictureEnds } from "@/components/onepage/wallpaper-layers"
+import { pixelThroughLook, wallpaperMediaLook, withVeil } from "@/lib/onepage/wallpaper"
+import { wallpaperPhotoSrc } from "@/components/onepage/themes/wallpaper-photo"
 /* Round W9: a theme's skin, its material and the scene behind it (lib/onepage/theme-skin, app/onepage-skins.css). */
 import { ThemeSkinScene } from "@/components/onepage/themes/theme-skin-scene"
 import { skinRootProps, skinVars } from "@/lib/onepage/theme-skin"
@@ -65,10 +67,16 @@ import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { noteTracked, postBlockClick, watchBlockActivity } from "@/components/onepage/block-activity"
-import { canvasRule, heroHeaderShown } from "@/lib/onepage/page-frame"
+import { canvasRule, heroHeaderShown, pageCanvasColour } from "@/lib/onepage/page-frame"
+import { HeroTopBar } from "@/components/onepage/hero-scroll"
+import { usePressFeel } from "@/components/onepage/press-feel"
+import { leavingProps, useLeavingBlocks } from "@/components/onepage/leaving-block"
+import { heroScrollEffect } from "@/lib/onepage/feel"
 import { PosterVideo } from "@/components/onepage/poster-video"
 import { HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/lib/onepage/poster-video"
 import { readableOn } from "@/lib/onepage/theme-apply"
+import { photoVeil, readableInk, readableTheme, signupCard, smallPrintAlpha } from "@/lib/onepage/contrast"
+import { pressableProps } from "@/lib/onepage/block-look"
 import { LegibleGuard } from "@/components/onepage/legible-guard"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
 import { pairProductTiles } from "@/lib/onepage/product-block"
@@ -98,8 +106,9 @@ import { PdfOnPage, PdfPages } from "@/components/onepage/pdf-pages"
 import { blockInteraction } from "@/lib/onepage/block-sheet"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { useMouseDragRows, useMouseDragScroll } from "@/components/onepage/drag-scroll"
-import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
+import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, buttonThemeOn, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 import { EmailSignupView, type EmailSignupFormOptions } from "@/components/onepage/email-signup"
+import { checkSignupPhone, signupExtraFields } from "@/lib/onepage/signup-fields"
 import { OnePageLegalLinks } from "@/components/onepage/onepage-legal-links"
 import { OnePageSubscribeSheet } from "@/components/onepage/subscribe-sheet"
 import { OnePageShareSheet } from "@/components/onepage/share-sheet"
@@ -854,6 +863,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const sellerName = personName({ name: title })
   /* Round AP: every row on the page that slides sideways follows a mouse as it follows a finger (components/onepage/drag-scroll). */
   useMouseDragRows()
+  /* Round AR: every button and row on the page, and in every sheet over it, answers a press at once (components/onepage/press-feel). */
+  usePressFeel()
 
   // Modal visibility state - to hide buttons when fullscreen modals are open
   /* True in the editor's preview frame (components/onepage/preview-document). */
@@ -1030,8 +1041,14 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   useHeldPage(isPhone === false && quickCheckoutModalOpen && !!quickCheckoutModalData)
   useEffect(() => followDialogLocks(), [])
 
-  // Safe defaults - MERGE theme with defaults to ensure all properties exist
-  const safeTheme = {
+  /*
+    Safe defaults, merged with the theme, then made to read (round AR,
+    lib/onepage/contrast readableTheme): every block below reads its words'
+    colours from here, so no theme, Design tab colour or hover can put words
+    in the colour of what they sit on. The editor's preview draws this same
+    component, so both get the same colours.
+  */
+  const mergedTheme = {
     background_type: "solid" as const,
     background_color: "#ffffff",
     background_gradient: "",
@@ -1063,6 +1080,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     header_layout: "classic" as const,
     ...theme, // Spread theme to override defaults with actual values
   }
+  const safeTheme = readableTheme(mergedTheme)
 
   /* Addresses from actions first, so a link made from an action counts as a link with an address. */
   const safeBlocks = useMemo(() => withBlockActions(blocks || []), [blocks])
@@ -1085,6 +1103,30 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     const timer = setTimeout(() => setHasBlocksAnimated(true), (safeBlocks?.length || 0) * 50 + 500)
     return () => clearTimeout(timer)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Round AR: the least opacity the page's small print may have and still read (lib/onepage/contrast smallPrintAlpha, app/globals.css). */
+  const smallPrint = smallPrintAlpha(safeTheme)
+  /* Round AR: a photo or video wallpaper's effect, tint and blur (lib/onepage/wallpaper wallpaperMediaLook): CSS filters and plain layers, nothing per frame. */
+  /*
+    And the veil that keeps the words readable on this picture (round AR):
+    the picture read once from the copy the page draws (usePictureEnds), its
+    ends taken through the page's brightness and effect, and the theme's
+    background colour (or black or white) laid over it just strongly enough
+    (lib/onepage/contrast photoVeil). None on a picture that already reads.
+  */
+  const pictureKind = safeTheme.background_type === "video" ? "video" : "image"
+  const pictureSrc =
+    safeTheme.background_type === "image" && safeTheme.background_image_url
+      ? wallpaperPhotoSrc(safeTheme.background_image_url)
+      : safeTheme.background_type === "video"
+        ? videoPoster((safeTheme as { background_video_crop?: unknown }).background_video_crop)
+        : null
+  const pictureEnds = usePictureEnds(pictureSrc)
+  const veil = photoVeil(safeTheme, pictureEnds ? { dark: pixelThroughLook(pictureEnds.dark, safeTheme, pictureKind), light: pixelThroughLook(pictureEnds.light, safeTheme, pictureKind) } : null)
+  const imageLook = withVeil(wallpaperMediaLook(safeTheme, "image"), veil)
+  const videoLook = withVeil(wallpaperMediaLook(safeTheme, "video"), veil)
+  /* Around the desktop card: the video's still, 20px softer again. */
+  const surroundLook = withVeil(wallpaperMediaLook(safeTheme, "video", 20), veil)
 
   // Animated gradient - only when explicitly enabled
   const isAnimatedGradient = safeTheme.background_type === "gradient" && safeTheme.animated_gradient === true
@@ -1147,6 +1189,16 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   useHeaderClearance(phonePageRef, patternClears && liveLayout !== "desktop")
   /* Round W8: a classic header flush left sits under the round Share button in the top left corner; it starts clear of it. */
   const clearOfShare = (top: string) => (top === "50px" && headerAlignOf(safeTheme) === "left" && safeSettings.share_enabled !== false ? "68px" : top)
+  /* What the page draws, in order: a block, or two links or two products to a row. */
+  const laid = pairProductTiles(safeBlocks
+    /* In the editor's preview a new link still waiting for its address is drawn as a placeholder; never live. */
+    .filter((b) => isBlockVisible(b) || (inEditorPreview && isIncompleteLink(b)))
+    .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0)), safeTheme)
+  /* Round W9: Mixed tiles, which plain links are halves and which full rows (lib/onepage/theme-layout mixedTileSizes). */
+  const mixedSizes = mixedTileSizes(laid, blockLayoutOf(safeTheme))
+  const pageItemsNow = pairLinkTiles(laid, blockLayoutOf(safeTheme))
+  /* Round AR: in the editor's preview a block taken off folds away instead of vanishing (components/onepage/leaving-block). */
+  const pageItems = useLeavingBlocks(pageItemsNow, (item) => ((item as { key?: string }).key ?? (item as { id: string }).id), !!inEditorPreview)
   const renderPageContent = ({ isDesktop = false }: { isDesktop?: boolean } = {}) => (
     <div
       className={cn("relative z-10 w-full flex flex-col min-h-full", isDesktop ? "max-w-full" : "max-w-lg mx-auto")}
@@ -1169,21 +1221,14 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         data-block-layout={blockLayoutOf(safeTheme)}
         data-op-align={headerAlignOf(safeTheme)}
       >
-        {(() => {
-          const laid = pairProductTiles(safeBlocks
-            /* In the editor's preview a new link still waiting for its address is drawn as a placeholder; never live. */
-            .filter((b) => isBlockVisible(b) || (inEditorPreview && isIncompleteLink(b)))
-            .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0)), safeTheme)
-          /* Mixed tiles: which plain links are halves and which full rows (lib/onepage/theme-layout mixedTileSizes). */
-          const mixedSizes = mixedTileSizes(laid, blockLayoutOf(safeTheme))
-          return pairLinkTiles(laid, blockLayoutOf(safeTheme))
-          .map((item, index) => {
+        {pageItems
+          .map(({ item, leaving }, index) => {
             const animClass = !hasBlocksAnimated ? "animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both" : ""
             const animStyle = !hasBlocksAnimated ? { animationDelay: `${index * 50}ms` } : undefined
             /* The Grid layout: plain links that follow one another, two to a row, each a tile (app/globals.css [data-link-tile]). */
             if (isLinkTilePair(item)) {
               return (
-                <div key={item.key} className={cn("grid w-full grid-cols-2 gap-3", animClass)} style={animStyle} data-link-pair="">
+                <div key={item.key} className={cn("grid w-full grid-cols-2 gap-3", animClass)} style={animStyle} data-link-pair="" {...leavingProps(leaving)}>
                   {(item.links as OnePageBlock[]).map((block) => (
                     <div key={block.id} className="min-w-0" data-link-tile="" data-op-block={block.id} data-sensitive-label={sensitiveLabel(block)}>
                       {inEditorPreview && isIncompleteLink(block) ? (
@@ -1207,7 +1252,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             /* Product tiles that follow one another, two to a row (lib/onepage/product-block pairProductTiles). */
             if ("tiles" in item) {
               return (
-                <div key={item.key} className={cn("grid w-full gap-3", item.tiles.length > 1 ? "grid-cols-2" : "grid-cols-1", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined} data-product-pair="">
+                <div key={item.key} className={cn("grid w-full gap-3", item.tiles.length > 1 ? "grid-cols-2" : "grid-cols-1", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined} data-product-pair="" {...leavingProps(leaving)}>
                   {item.tiles.map((block) => (
                     <div key={block.id} className="min-w-0" data-op-block={block.id} data-sensitive-label={sensitiveLabel(block)}>
                       <PublicBlockRenderer
@@ -1228,7 +1273,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             const block = item
             if (inEditorPreview && isIncompleteLink(block)) {
               return (
-                <div key={block.id} className={cn("w-full", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined}>
+                <div key={block.id} className={cn("w-full", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined} data-op-block={block.id} {...leavingProps(leaving)}>
                   <IncompleteLinkPlaceholder label={(block.data as LinkButtonBlockData)?.label} theme={safeTheme} />
                 </div>
               )
@@ -1240,6 +1285,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 style={animStyle}
                 data-onepage-enter={animClass ? "" : undefined}
                 data-op-block={block.id}
+                {...leavingProps(leaving)}
                 data-sensitive-label={sensitiveLabel(block)}
                 data-block-size={(presentationOf(block).size !== "auto" && presentationOf(block).size) || mixedSizes.get(block.id) || "full"}
               >
@@ -1254,8 +1300,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               />
             </div>
             )
-          })
-        })()}
+          })}
       </div>
       {/* Footer - pushed to bottom */}
       <div className="mt-auto pt-10 pb-4">
@@ -1272,7 +1317,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           </div>
         )}
         {/* Footer links: Privacy, Terms and Cookies open in a sheet over the page (components/onepage/onepage-legal-links). */}
-        <OnePageLegalLinks dark={isDarkBackground} color={isDarkBackground ? "#9ca3af" : "#1f2937"} />
+        {/* Round AR: in the page's own small print colour, which reads on it (lib/onepage/contrast); a fixed grey vanished on Sunset and every mid-tone page. */}
+        <OnePageLegalLinks dark={isDarkBackground} color={safeTheme.secondary_text_color || safeTheme.text_color} />
       </div>
     </div>
   )
@@ -1490,6 +1536,16 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         />
       )}
 
+      {/* Round AR: once a full picture hero has scrolled away, a slim bar with the creator's picture and name (components/onepage/hero-scroll). */}
+      <HeroTopBar
+        enabled={heroScrollEffect((safeTheme as any).header_layout, heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) && safeBlocks.some((b: OnePageBlock) => b.type === "header" && isBlockVisible(b)))}
+        name={sellerName}
+        avatarUrl={avatar_url}
+        logoUrl={(safeTheme as any).title_style === "logo" ? (safeTheme as any).title_logo_url : null}
+        background={pageCanvasColour(safeTheme)}
+        ink={(safeTheme as any).title_color || safeTheme.text_color || "#111111"}
+        fontFamily={(safeTheme as any).title_font || safeTheme.font_family}
+      />
       {/* Wave 10: every word on the page and in its sheets reads on what it sits on (components/onepage/legible-guard, lib/onepage/legible). */}
       <LegibleGuard />
 
@@ -1501,6 +1557,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {...skinRootProps(safeTheme)}
         {...skinOwnRootProps(safeTheme)}
         style={{
+          ["--op-small-print" as string]: smallPrint,
           ...skinVars(safeTheme),
           background: getBackgroundStyle(),
           backgroundColor: safeTheme.background_color || "#000000",
@@ -1523,12 +1580,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               backgroundSize: "cover",
               backgroundPosition: "center",
               zIndex: 0,
-              filter: `brightness(${(safeTheme as any).image_brightness || 100}%) blur(${(safeTheme as any).image_blur || 0}px)`,
-              transform: "translateZ(0)",
+              filter: imageLook.filter,
+              transform: `translateZ(0) scale(${imageLook.scale})`,
               willChange: "transform",
             }}
           />
         )}
+        {safeTheme.background_type === "image" && safeTheme.background_image_url && <WallpaperEffectLayers look={imageLook} box={{ position: "fixed", inset: 0, zIndex: 0 }} />}
 
         {/*
           AROUND THE CARD, THE WALLPAPER'S FIRST FRAME, BLURRED (round 42). It
@@ -1550,7 +1608,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               backgroundSize: "cover",
               backgroundPosition: "center",
               zIndex: 0,
-              filter: `brightness(${(safeTheme as any).video_brightness || 100}%) blur(20px)`,
+              filter: surroundLook.filter,
             }}
           />
         ) : (
@@ -1571,10 +1629,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               height: "calc(100% + 100px)",
               objectFit: "cover",
               zIndex: 0,
-              filter: `brightness(${(safeTheme as any).video_brightness || 100}%) blur(20px)`,
+              filter: surroundLook.filter,
             })}
           />
         ))}
+        {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && <WallpaperEffectLayers look={surroundLook} box={{ position: "fixed", inset: 0, zIndex: 0 }} />}
 
         {/* Round AL: the gradient drifting, one layer moved by the compositor (components/onepage/wallpaper-layers WallpaperDrift). */}
         {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} />}
@@ -1593,7 +1652,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           <div
             ref={cardRef}
             data-onepage-drag-scope=""
-            className="w-full max-w-[500px] mx-4 rounded-[40px] overflow-hidden relative"
+            /* Round AR: clipped, not hidden: a box with overflow hidden is a scroll container, and the Hero's scroll timeline (components/onepage/hero-scroll) would follow it instead of the page. */
+            className="w-full max-w-[500px] mx-4 rounded-[40px] overflow-clip relative"
             style={{
               background: getBackgroundStyle(),
               boxShadow: "0 25px 80px -12px rgba(0, 0, 0, 0.35)",
@@ -1611,10 +1671,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                   zIndex: 0,
-                  filter: `brightness(${(safeTheme as any).image_brightness || 100}%) blur(${(safeTheme as any).image_blur || 0}px)`,
+                  filter: imageLook.filter,
+                  scale: String(imageLook.scale),
                 }}
               />
             )}
+            {safeTheme.background_type === "image" && safeTheme.background_image_url && <WallpaperEffectLayers look={imageLook} box={{ position: "absolute", inset: 0, zIndex: 0 }} />}
             {/* Video background inside card - NO blur, cover fit */}
             {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
               <video
@@ -1629,14 +1691,17 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                   height: "calc(100% + 100px)",
                   objectFit: "cover",
                   zIndex: 0,
-                  filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
+                  filter: videoLook.filter,
+                  scale: String(videoLook.scale),
                 })}
+                data-wallpaper-video=""
                 autoPlay
                 loop
                 muted
                 playsInline
               />
             )}
+            {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && <WallpaperEffectLayers look={videoLook} box={{ position: "absolute", inset: 0, zIndex: 0 }} />}
             {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} className="absolute inset-0 rounded-[40px]" />}
             {/* Noise overlay inside card */}
             {((safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise) || (safeTheme.background_type === "image" && (safeTheme as any).image_noise)) && (
@@ -1668,6 +1733,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {...skinRootProps(safeTheme)}
         {...skinOwnRootProps(safeTheme)}
         style={{
+          ["--op-small-print" as string]: smallPrint,
           ...skinVars(safeTheme),
           overflowX: 'clip',
           background: getBackgroundStyle(),
@@ -1691,13 +1757,14 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 zIndex: 0,
-                filter: `brightness(${(safeTheme as any).image_brightness || 100}%) blur(${(safeTheme as any).image_blur || 0}px)`,
-                transform: "translateZ(0)",
+                filter: imageLook.filter,
+                transform: `translateZ(0) scale(${imageLook.scale})`,
                 willChange: "transform",
                 pointerEvents: "none",
               }}
             />
           )}
+          {safeTheme.background_type === "image" && safeTheme.background_image_url && <WallpaperEffectLayers look={imageLook} box={{ position: "absolute", inset: 0, zIndex: 0 }} />}
 
           {/* Video background for mobile */}
           {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
@@ -1713,15 +1780,18 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 height: "calc(100% + 100px)",
                 objectFit: "cover",
                 zIndex: 0,
-                filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
+                filter: videoLook.filter,
+                scale: String(videoLook.scale),
                 pointerEvents: "none",
               })}
+              data-wallpaper-video=""
               autoPlay
               loop
               muted
               playsInline
             />
           )}
+          {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && <WallpaperEffectLayers look={videoLook} box={{ position: "absolute", inset: 0, zIndex: 0 }} />}
 
           {isAnimatedGradient && <WallpaperDrift gradient={safeTheme.background_gradient} />}
           {/* Noise overlays for mobile */}
@@ -2635,6 +2705,9 @@ function CoreBlockRenderer({
   /* The email signup's first name (when the block asks), its hidden field and when it came on screen: the same spam checks as a website's forms (lib/site-contact looksAutomated). */
   const [leadName, setLeadName] = useState("")
   const [leadTrap, setLeadTrap] = useState("")
+  /* Round AR: the phone number, when the block asks for one, and what the server said was wrong with a signup. */
+  const [leadPhone, setLeadPhone] = useState("")
+  const [leadError, setLeadError] = useState<string | null>(null)
   const leadShownAt = useRef(0)
   useEffect(() => {
     leadShownAt.current = Date.now()
@@ -2694,6 +2767,14 @@ function CoreBlockRenderer({
     keepalive, so a link that leaves the page does not cancel its own count.
   */
   const trackClick = async (blockId: string, url: string) => {
+    /*
+      Round AR: never from the editor's preview. The page's own listener
+      (./block-activity) already stood down there, but a link, a product or
+      a document counted itself here with the page's real id, and the
+      creator's own taps while editing reached the page's figures whenever
+      Analytics could not tell it was them.
+    */
+    if (inGroupPreview || isOnePagePreview()) return
     noteTracked()
     try {
       await fetch("/api/onepage/track", {
@@ -2797,7 +2878,8 @@ function CoreBlockRenderer({
         const heroPosition = { objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }
 
         return (
-          <div className={cn(heroWidth, "relative mb-2 md:mb-1", heroMargin)} data-hero-header="">
+          /* Round AR: the picture darkens and is held back as the page slides up over it (components/onepage/hero-scroll, app/globals.css [data-hero-scroll]). */
+          <div className={cn(heroWidth, "relative mb-2 md:mb-1", heroMargin)} data-hero-header="" data-hero-scroll="">
             {/*
               THE PICTURE IS MASKED, NOT PAINTED OVER (round 40). The page
               colour used to be laid over its bottom, which on a pattern is a
@@ -2812,6 +2894,7 @@ function CoreBlockRenderer({
               data-hero-media={hasVideo ? "video" : "image"}
               style={{ aspectRatio, maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, backgroundColor: `color-mix(in srgb, ${theme.text_color || "#000000"} 6%, transparent)` }}
             >
+              <div className="absolute inset-0" data-hero-shift="">
               {hasVideo ? (
                 <SmoothAvatarVideo
                   videoUrl={profile.avatar_video_url!}
@@ -2839,9 +2922,12 @@ function CoreBlockRenderer({
                   decoding="async"
                 />
               )}
+              </div>
+              <div aria-hidden className="pointer-events-none absolute inset-0 bg-black opacity-0" data-hero-scrim="" />
             </div>
             {/* Over the faded end of the picture, where the page's own wallpaper already shows: always on top of the media. */}
             <div
+              data-hero-title=""
               className={cn(
                 "absolute left-0 right-0 z-[1] text-center px-6",
                 isDesktop ? "bottom-8" : "bottom-4 sm:bottom-6",
@@ -3249,8 +3335,16 @@ function CoreBlockRenderer({
       const data = (block.data || { label: "", url: "" }) as LinkButtonBlockData
       if (!data.url) return null
       /* Round AN: "Show on the page" draws the service's own player in place of the button (components/onepage/music-sheet). */
-      if (data.spotify_mode === "on_page" && spotifyEmbedUrl(data.url)) return <MusicPlayer service="spotify" url={data.url} title={data.label || "Spotify"} radius={theme.button_border_radius} />
-      if (data.apple_music_mode === "on_page" && appleMusicEmbedUrl(data.url)) return <MusicPlayer service="apple_music" url={data.url} title={data.label || "Apple Music"} radius={theme.button_border_radius} />
+      /* Round AR3, the owner: "the description and the title of the Spotify block don't display". The player, with the link's title over it and its description under it. */
+      const onPagePlayer = (service: "spotify" | "apple_music", name: string) => (
+        <div className="flex w-full flex-col gap-2" data-link-player={service}>
+          {data.label?.trim() ? <p className="text-center text-[15px] font-semibold" style={{ color: theme.text_color }} data-block-title="">{data.label}</p> : null}
+          <MusicPlayer service={service} url={data.url} title={data.label || name} radius={theme.button_border_radius} />
+          {presentationOf(block).subtitle?.trim() ? <span className="block text-center text-[13px] opacity-75" style={{ color: theme.text_color }}><BlockSubtitle subtitle={presentationOf(block).subtitle} /></span> : null}
+        </div>
+      )
+      if (data.spotify_mode === "on_page" && spotifyEmbedUrl(data.url)) return onPagePlayer("spotify", "Spotify")
+      if (data.apple_music_mode === "on_page" && appleMusicEmbedUrl(data.url)) return onPagePlayer("apple_music", "Apple Music")
 
       /*
         THE BUTTON'S ICON: the one picked in the editor, else its platform's mark
@@ -3394,8 +3488,12 @@ function CoreBlockRenderer({
                   lineHeight: '1.4',
                 }}
               >
-                <span className="truncate font-medium" style={{ color: theme.button_text_color }} data-block-title="">
+                <span className="block truncate font-medium" style={{ color: theme.button_text_color }} data-block-title="">
                   {data.label ?? "Watch on YouTube"}
+                </span>
+                {/* Round AR3: the description line, as every other layout of a link draws it. */}
+                <span className="block text-[13px] leading-snug opacity-75" style={{ color: theme.button_text_color }}>
+                  <BlockSubtitle subtitle={p.subtitle} />
                 </span>
               </a>
             </div>
@@ -4078,21 +4176,6 @@ function CoreBlockRenderer({
       const layout = emailSignupLayout(data.layout_type)
       const layoutImage = emailSignupImage(data)
 
-      // Button styles with shadows and borders (matching link_button and product blocks)
-      const buttonShadow = (theme as any).button_shadow || "none"
-      const shadowColor = (theme as any).button_shadow_color || "#000000"
-      const hexToRgba = (hex: string, alpha: number) => {
-        const r = Number.parseInt(hex.slice(1, 3), 16) || 0
-        const g = Number.parseInt(hex.slice(3, 5), 16) || 0
-        const b = Number.parseInt(hex.slice(5, 7), 16) || 0
-        return `rgba(${r},${g},${b},${alpha})`
-      }
-      const shadowStyles: Record<string, string> = {
-        none: "none",
-        subtle: `0 2px 4px ${hexToRgba(shadowColor, 0.15)}`,
-        strong: `0 4px 12px ${hexToRgba(shadowColor, 0.3)}`,
-        hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
-      }
       /*
         THE FIELD AND THE BUTTON BESIDE IT ARE ONE CONTROL, SO THEY MATCH.
         Measured on a phone at 390 (scripts/check-onepage-bar.mjs): Subscribe
@@ -4105,16 +4188,24 @@ function CoreBlockRenderer({
         from 640px (py-3, 47px tall), at every width, and the box borrows the
         button's radius below.
       */
-      const emailButtonStyles: React.CSSProperties = {
-        backgroundColor: buttonBackground(theme),
-        color: theme.button_text_color,
-        borderRadius: `${theme.button_border_radius}px`,
-        borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
-        borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? (theme.button_border_color || theme.button_color) : theme.button_border_color,
-        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
-        boxShadow: shadowStyles[buttonShadow] || "none",
-      }
+      /*
+        ROUND AR: THE SIGNUP'S WORDS AND ITS BUTTON READ ON ITS OWN CARD.
+        Classic, Featured, Cover, Letter and Bar lay the form on a card tinted
+        with the page's words at 4 to 6%, so a colour that read on the page
+        could fall under 4.5:1 on the card (Peach's and Aurora's description,
+        Sunset's Subscribe on Soft and Glass: scripts/check-onepage-contrast-
+        ar5.mjs). The words are held to the card (lib/onepage/contrast
+        tintGrounds, readableInk) and the button is the page's own button on
+        it (lib/onepage/button-style buttonThemeOn, block-look pressableProps):
+        fill, border, corners, shadow and the page's hover, its words moved
+        only where they would not read. The input fields keep each layout's
+        own shape below.
+      */
+      const { tint: signupTint, ink: signupInk, grounds: signupGrounds } = signupCard(theme)
+      const signupTheme = { ...theme, text_color: signupInk, signup_tint: signupTint, secondary_text_color: theme.secondary_text_color ? readableInk(theme.secondary_text_color, signupGrounds) : theme.secondary_text_color }
+      const emailPress = pressableProps(buttonThemeOn(theme, signupGrounds), isInsideCarousel)
+      const emailButtonStyles: React.CSSProperties = emailPress.style
+      const emailButtonAttrs = { "data-hover": emailPress["data-hover"], "data-shadow": emailPress["data-shadow"] }
 
       // Get animation class for email capture blocks
       const getEmailAnimationClass = (animationType?: string) => {
@@ -4204,6 +4295,13 @@ function CoreBlockRenderer({
           return
         }
 
+        /* Round AR: a phone the block asks for is checked here first, with the server's own rule (lib/onepage/signup-fields). */
+        const phoneCheck = checkSignupPhone(data, leadPhone)
+        if (phoneCheck.ok === false) {
+          setLeadError(phoneCheck.error === "phone_required" ? tt("Enter your phone number.") : tt("Enter a valid phone number."))
+          return
+        }
+        setLeadError(null)
         setIsSubmitting(true)
 
         try {
@@ -4214,6 +4312,7 @@ function CoreBlockRenderer({
               onepage_id: onepageId,
               email,
               name: data.ask_name ? leadName.trim() || undefined : undefined,
+              phone: data.ask_phone ? leadPhone.trim() || undefined : undefined,
               company: leadTrap,
               elapsed: Date.now() - leadShownAt.current,
               block_id: block.id,
@@ -4232,18 +4331,23 @@ function CoreBlockRenderer({
             pixelLead(window, { form: "signup", eventId: typeof result?.lead_id === "string" ? result.lead_id : null })
             // Record the subscription attempt for rate limiting
             recordSubscriptionAttempt()
-            // Store the download link directly from data if digital product is enabled
-            if (data.enable_digital_product && data.digital_product_file_url) {
-              setDownloadLink(data.digital_product_file_url)
-            }
+            /* The server's link: the block's own upload, or a link to the product the block gives (round AR), read from the published page. */
+            const given = typeof result?.downloadLink === "string" && result.downloadLink ? result.downloadLink : data.enable_digital_product && data.digital_product_file_url ? data.digital_product_file_url : null
+            if (given) setDownloadLink(given)
             // Save subscription state to localStorage for persistence
             const storageKey = `onepage_subscribed_${onepageId}_${block.id}`
-            localStorage.setItem(storageKey, JSON.stringify({
-              subscribed: true,
-              email: email,
-              downloadLink: data.enable_digital_product ? data.digital_product_file_url : null,
-              timestamp: Date.now()
-            }))
+            try {
+              localStorage.setItem(storageKey, JSON.stringify({
+                subscribed: true,
+                email: email,
+                downloadLink: given,
+                timestamp: Date.now()
+              }))
+            } catch {
+              /* A private window: the page still says it worked. */
+            }
+          } else {
+            setLeadError(typeof result?.error === "string" && result.error ? result.error : tt("That did not go through. Try again."))
           }
         } catch (error) {
           console.error("Submit error:", error)
@@ -4291,24 +4395,81 @@ function CoreBlockRenderer({
         email box and its button stay one row. The name goes on the
         subscriber (Emails › Subscribers) and into the welcome automation.
       */
-      const emailExtras = (
+      /*
+        ROUND AR: EACH EXTRA FIELD IN THE FORM'S OWN SHAPE. The name was one
+        white box whatever the layout, so on Connect's pill, Letter's line and
+        Bold's filled card it looked pasted on. Each field (first name, phone)
+        is now drawn the way the email box of that layout is: a white pill on
+        Connect, a line in the text colour on Letter, a white box with the
+        button's corners elsewhere, a hairline on Simple. 16px type, so a
+        phone never zooms into it.
+      */
+      const extraField = (kind: "name" | "phone", options: EmailSignupFormOptions) => {
+        const pageInk = theme.text_color || "#111113"
+        const name = kind === "name"
+        const common = {
+          value: name ? leadName : leadPhone,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+            if (name) setLeadName(e.target.value)
+            else setLeadPhone(e.target.value)
+            if (leadError) setLeadError(null)
+          },
+          placeholder: name ? tt("First name") : data.phone_required ? tt("Phone number") : tt("Phone number (optional)"),
+          "aria-label": name ? tt("First name") : tt("Phone number"),
+          autoComplete: name ? "given-name" : "tel",
+          type: name ? "text" : "tel",
+          inputMode: name ? undefined : ("tel" as const),
+          maxLength: name ? 80 : 24,
+          required: !name && data.phone_required === true,
+          disabled: isSubmitting,
+          "data-email-name": name ? "" : undefined,
+          "data-email-phone": name ? undefined : "",
+          "data-email-field": options.shape ?? (options.inverted ? "inverted" : options.outlined ? "outlined" : "box"),
+        }
+        if (options.shape === "pill") {
+          return (
+            <input
+              key={kind}
+              {...common}
+              className="mb-2 h-[52px] w-full rounded-full bg-white px-4 text-[16px] text-[#111113] outline-none transition-shadow duration-150 placeholder:text-[#8b8f98] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.14)] disabled:opacity-70 sm:text-[15px]"
+              style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${pageInk} 14%, transparent), 0 1px 2px rgba(16,24,40,0.05)` }}
+            />
+          )
+        }
+        if (options.shape === "line") {
+          return (
+            <input
+              key={kind}
+              {...common}
+              className="mb-1 h-12 w-full border-b-[1.5px] bg-transparent text-[16px] outline-none transition-[border-color] duration-150 placeholder:opacity-55 disabled:opacity-70 sm:text-[15px]"
+              style={{ color: pageInk, borderColor: `color-mix(in srgb, ${pageInk} 28%, transparent)` }}
+            />
+          )
+        }
+        return (
+          <input
+            key={kind}
+            {...common}
+            className={cn("mb-2 min-h-[46px] w-full border-0 bg-white/90 px-3 py-3 text-[16px] outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 sm:px-4 sm:text-sm", options.inverted && "ring-1 ring-black/10")}
+            style={{
+              color: "#000",
+              borderRadius: emailButtonStyles.borderRadius,
+              backgroundColor: options.inverted ? "#fff" : undefined,
+              boxShadow: options.outlined ? `inset 0 0 0 1px color-mix(in srgb, ${pageInk} 18%, transparent)` : undefined,
+            }}
+          />
+        )
+      }
+      /*
+        ASKED FOR A FIRST NAME OR A PHONE, AND THE HIDDEN FIELD. Above the
+        form, so the email box and its button stay one row. The name and the
+        phone go on the subscriber (Emails › Subscribers) and to the
+        connected tools; the name into the welcome automation.
+      */
+      const emailExtras = (options: EmailSignupFormOptions) => (
         <>
           <input type="text" name="company" tabIndex={-1} autoComplete="off" aria-hidden value={leadTrap} onChange={(e) => setLeadTrap(e.target.value)} className="absolute -left-[9999px] h-px w-px opacity-0" />
-          {data.ask_name && !emailSubmitted ? (
-            <input
-              type="text"
-              value={leadName}
-              onChange={(e) => setLeadName(e.target.value)}
-              placeholder={tt("First name")}
-              aria-label={tt("First name")}
-              autoComplete="given-name"
-              maxLength={80}
-              disabled={isSubmitting}
-              data-email-name=""
-              className="mb-2 w-full border-0 bg-white/90 px-3 py-3 text-[16px] outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 sm:px-4 sm:text-sm"
-              style={{ color: "#000", borderRadius: emailButtonStyles.borderRadius }}
-            />
-          ) : null}
+          {!emailSubmitted ? signupExtraFields(data).map((kind) => extraField(kind, options)) : null}
         </>
       )
       /* After they join: the link the creator chose (a guide, a private video, a group), as the page's own button. */
@@ -4320,7 +4481,8 @@ function CoreBlockRenderer({
           rel="noopener noreferrer"
           data-after-signup=""
           onClick={() => trackClick(block.id, afterUrl)}
-          className="mt-3 flex w-full items-center justify-center px-4 py-3 text-sm font-medium"
+          className={cn(emailPress.className, "mt-3 flex w-full items-center justify-center px-4 py-3 text-sm font-medium")}
+          {...emailButtonAttrs}
           style={emailButtonStyles}
         >
           {(data.after_signup_label || "").trim() || tt("Open your free gift")}
@@ -4337,7 +4499,8 @@ function CoreBlockRenderer({
       */
       const renderEmailFields = ({ stacked, inverted, outlined, shape, avatar }: EmailSignupFormOptions) => {
         const buttonText = getButtonText()
-        const pageInk = theme.text_color || "#111113"
+        /* Round AR: the page's words as they read on the signup's card (signupInk above). */
+        const pageInk = signupInk
         /*
           ROUND 43: CONNECT, ONE PILL. The box and a grey button inside one rounded field, the button carrying the
           creator's picture (the owner's screenshot: "Connect with" and the photo). The whole pill takes the focus
@@ -4416,14 +4579,13 @@ function CoreBlockRenderer({
             </>
           )
         }
-        const submitStyles: React.CSSProperties = inverted
-          ? { ...emailButtonStyles, backgroundColor: inverted.fill, color: inverted.text, borderColor: "transparent", boxShadow: "none", backdropFilter: undefined }
-          : emailButtonStyles
-        const buttonClass = cn(
-          "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity whitespace-nowrap",
-          stacked ? "w-full" : "shrink-0",
-          !isInsideCarousel && "[@media(hover:hover)]:hover:opacity-90",
-        )
+        /* Round AR: Bold's button is the page's button too (corners, hover), filled with the card's own pair turned round. */
+        const submitPress = inverted
+          ? pressableProps({ ...theme, button_style: "filled", button_color: inverted.fill, button_text_color: inverted.text, button_border_color: inverted.fill, button_border_width: 0, button_shadow: "none" }, isInsideCarousel)
+          : emailPress
+        const submitStyles: React.CSSProperties = submitPress.style
+        const submitAttrs = { "data-hover": submitPress["data-hover"], "data-shadow": submitPress["data-shadow"] }
+        const buttonClass = cn(submitPress.className, "px-4 sm:px-5 py-3 text-sm font-medium whitespace-nowrap", stacked ? "w-full" : "shrink-0")
         return (
           <>
             <form onSubmit={handleSubmit} className={stacked ? "flex flex-col gap-2" : "flex flex-row gap-2 items-stretch"} data-email-form={stacked ? "stacked" : "row"}>
@@ -4435,15 +4597,15 @@ function CoreBlockRenderer({
                 aria-label={tt("Email")}
                 required
                 disabled={isSubmitting}
-                className={cn("px-3 sm:px-4 py-3 text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70", stacked ? "w-full" : "flex-1 min-w-0", inverted && "ring-1 ring-black/10")}
+                className={cn("min-h-[46px] px-3 sm:px-4 py-3 text-[16px] sm:text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70", stacked ? "w-full" : "flex-1 min-w-0", inverted && "ring-1 ring-black/10")}
                 style={{ color: "#000", borderRadius: emailButtonStyles.borderRadius, backgroundColor: inverted ? "#fff" : undefined, boxShadow: outlined ? `inset 0 0 0 1px color-mix(in srgb, ${theme.text_color || "#111113"} 18%, transparent)` : undefined }}
               />
               {emailSubmitted && downloadLink ? (
-                <button type="button" onClick={handleDownloadClick} className={buttonClass} style={submitStyles}>
+                <button type="button" onClick={handleDownloadClick} className={buttonClass} style={submitStyles} {...submitAttrs}>
                   Download
                 </button>
               ) : (
-                <button type="submit" disabled={isSubmitting || emailSubmitted} className={cn(buttonClass, "disabled:opacity-50 disabled:cursor-not-allowed")} style={submitStyles}>
+                <button type="submit" disabled={isSubmitting || emailSubmitted} className={cn(buttonClass, "disabled:opacity-50 disabled:cursor-not-allowed")} style={submitStyles} {...submitAttrs}>
                   {isSubmitting ? "..." : buttonText}
                 </button>
               )}
@@ -4454,8 +4616,13 @@ function CoreBlockRenderer({
       /* Every shape (row, stacked, Connect's pill, Letter's line) gets the name field and the hidden field from here, once. */
       const renderEmailForm = (options: EmailSignupFormOptions) => (
         <>
-          {emailExtras}
+          {emailExtras(options)}
           {renderEmailFields(options)}
+          {leadError ? (
+            <p role="alert" data-email-error="" className="mt-2 text-[13px] font-medium" style={{ color: options.inverted ? options.inverted.fill : signupInk }}>
+              {leadError}
+            </p>
+          ) : null}
         </>
       )
 
@@ -4465,7 +4632,7 @@ function CoreBlockRenderer({
           headline={data.headline ?? ""}
           description={data.description}
           image={layoutImage}
-          theme={theme}
+          theme={signupTheme}
           stackedForm={emailSignupStacked(layout, getButtonText())}
           renderForm={renderEmailForm}
           submitted={emailSubmitted}
@@ -4475,6 +4642,7 @@ function CoreBlockRenderer({
           /* Round 43: the creator's picture for Connect, Letter and Bar, and the page's button for Bar's. */
           avatar={{ src: onePageImageSrc(profile.avatar_url, 128) || null, name: profile.title || "" }}
           buttonStyle={emailButtonStyles}
+          buttonPress={{ className: emailPress.className, ...emailButtonAttrs }}
           buttonText={getButtonText()}
         />
       )
@@ -4678,7 +4846,7 @@ function CoreBlockRenderer({
           body: (
             <div className="pb-2 pt-1" style={{ flex: "none" }}>
               {data.description ? <p className="mb-3 px-1 text-[14px] leading-snug text-[var(--sheet-muted)]">{data.description}</p> : null}
-              <PdfPages url={pdfUrl} title={pdfTitle} />
+              <PdfPages url={pdfUrl} title={pdfTitle} tools />
             </div>
           ),
           cta: { label: data.preview_button_text || "View full PDF", href: pdfUrl, icon: <FileText /> },
@@ -4882,7 +5050,7 @@ function CoreBlockRenderer({
           body: (
             <div className="pb-2 pt-1" style={{ flex: "none" }}>
               {data.description ? <p className="mb-3 px-1 text-[14px] leading-snug text-[var(--sheet-muted)]">{data.description}</p> : null}
-              <PdfPages url={pdfUrl} title={pdfTitle} />
+              <PdfPages url={pdfUrl} title={pdfTitle} tools />
             </div>
           ),
           cta: { label: data.preview_button_text || "View Menu", href: pdfUrl, icon: <FileText /> },

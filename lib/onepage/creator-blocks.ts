@@ -148,6 +148,8 @@ export type EmbedKind =
   | "bandcamp"
   | "deezer"
   | "gcal"
+  /* Round AR3: a Canva design published with "Smart embed link" or a view link. */
+  | "canva"
 
 export type EmbedSource = {
   kind: EmbedKind
@@ -173,6 +175,7 @@ export const EMBED_PROVIDER_NAME: Record<EmbedKind, string> = {
   bandcamp: "Bandcamp",
   deezer: "Deezer",
   gcal: "Google Calendar",
+  canva: "Canva",
 }
 
 /** Every host an embed frame loads from: the list frame-src must hold (tests/onepage-addblock-r11.test.ts). */
@@ -192,6 +195,7 @@ export const EMBED_FRAME_HOSTS = [
   "https://bandcamp.com",
   "https://widget.deezer.com",
   "https://calendar.google.com",
+  "https://www.canva.com",
 ] as const
 
 function parseLink(raw: string | null | undefined): URL | null {
@@ -314,6 +318,18 @@ export function embedSource(raw: string | null | undefined): EmbedSource | null 
     const id = at >= 0 ? parts[at + 1] : ""
     if (!id || !/^\d+$/.test(id)) return null
     return { kind: "deezer", embedUrl: `https://widget.deezer.com/widget/auto/${parts[at]}/${id}`, height: parts[at] === "track" ? 150 : 300 }
+  }
+
+  if (host === "canva.com" && parts[0] === "design") {
+    /*
+      /design/<id>/<key>/view (a view link) or /design/<id>/view, the address Canva's
+      Share > Embed gives: the same address with ?embed is Canva's own player.
+      An edit link (/edit) is the creator's private editor: it is read as its view.
+    */
+    const id = parts[1] || ""
+    if (!/^[A-Za-z0-9_-]{8,20}$/.test(id)) return null
+    const key = parts[2] && parts[2] !== "view" && parts[2] !== "edit" && parts[2] !== "watch" && SAFE_ID.test(parts[2]) ? `${parts[2]}/` : ""
+    return { kind: "canva", embedUrl: `https://www.canva.com/design/${id}/${key}view?embed`, height: null }
   }
 
   if (host === "calendar.google.com" && parts[0] === "calendar" && parts[1] === "appointments") {

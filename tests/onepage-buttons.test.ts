@@ -103,7 +103,9 @@ for (const { id, theme } of configs) {
   const { backgroundClip, ...now } = themeButtonStyle(theme as any) as Record<string, unknown>
   check(`${id}: the same button`, same(old, now as any), `${JSON.stringify(old)} vs ${JSON.stringify(now)}`)
   check(`${id}: the fill stops inside a border, and only then`, (backgroundClip === "padding-box") === (parseFloat(String(now.borderWidth)) > 0))
-  check(`${id}: the same size, alignment and icon place`, buttonSize(theme as any) === "regular" && buttonAlign(theme as any) === "center" && buttonIconSide(theme as any) === "left")
+  /* Changed on purpose (round AR): some themes now name a size, an alignment or an icon side as part of their structure; a theme that names none keeps Regular, centred, icon on the left. */
+  const t = theme as Record<string, unknown>
+  check(`${id}: the same size, alignment and icon place`, buttonSize(theme as any) === (t.button_size ?? "regular") && buttonAlign(theme as any) === (t.button_text_align ?? "center") && buttonIconSide(theme as any) === (t.button_icon_position ?? "left"))
 }
 
 /* ─── Every saved combination ─────────────────────────────────────────── */
@@ -176,7 +178,8 @@ check("every default-layout button is an .op-btn with the page's size", (link.ma
 check("a featured (Pro) link hovers as a card, its picture as media", (link.match(/"op-card /g) || []).length === 3 && /"op-media"/.test(link))
 check("no link button transitions everything", !/transition-all/.test(link))
 check("a featured card on a Pill page is a rounded card (28px), not an oval", /const cardRadius = buttonShape\(theme\.button_border_radius\) === "pill" \? 28 : theme\.button_border_radius/.test(link) && (link.match(/borderRadius: `\$\{cardRadius\}px`/g) || []).length === 4)
-check("the PDF, menu, booking and email buttons take the same fill (Soft included)", (page.match(/backgroundColor: buttonBackground\(theme\)/g) || []).length >= 4)
+/* Changed on purpose (round AR): the email button is the page's whole button now (pressableProps over themeButtonStyle, which fills with buttonBackground), its words held to the signup's card. */
+check("the PDF, menu, booking and email buttons take the same fill (Soft included)", (page.match(/backgroundColor: buttonBackground\(theme\)/g) || []).length >= 3 && /const emailPress = pressableProps\(buttonThemeOn\(theme, signupGrounds\)/.test(page))
 // The preview is the same component: components/onepage/preview-document.tsx renders PublicOnePage.
 const preview = readFileSync("components/onepage/preview-document.tsx", "utf8")
 check("the preview renders the live page's own component", /public-onepage/.test(preview))

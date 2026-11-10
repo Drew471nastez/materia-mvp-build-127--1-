@@ -382,6 +382,29 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     }
   }
 
+  /*
+    A TIP ON A ONEPAGE (lib/onepage/tips-server.ts, round AR): its own
+    sessions, marked by metadata.kind "onepage_tip" and naming no product,
+    so nothing below takes one for an order. Paid: one row in onepage_tips,
+    whichever of this and the visitor's return comes first. A server
+    failure answers 500 so Stripe retries.
+  */
+  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
+    const session = event.data.object as Stripe.Checkout.Session
+    if (session.metadata?.kind === "onepage_tip") {
+      const tips = await import("@/lib/onepage/tips-server")
+      if (tips.isTipSession(session)) {
+        if (session.payment_status !== "paid") return NextResponse.json({ received: true, message: "Tip not paid yet" })
+        const done = await tips.recordTipFromSession(supabaseAdmin, session)
+        if (done.ok === false && done.status >= 500) {
+          console.error("[Webhook] tip not recorded:", session.id, done.error)
+          return NextResponse.json({ error: "Tip not recorded yet" }, { status: 500 })
+        }
+        return NextResponse.json({ received: true })
+      }
+    }
+  }
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session
 

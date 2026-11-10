@@ -56,6 +56,7 @@ import { familyOf, onePageFontHref } from "@/lib/onepage/fonts"
 import { PriceCurrency } from "@/components/platform/price-currency"
 import { PREVIEW_NOTICE_EVENT, showPreviewNotice, type PreviewNoticeKind } from "@/lib/onepage/preview-notice"
 import { tt } from "@/lib/i18n/text"
+import { blockIdAt, pickAction, validBlockId } from "@/lib/onepage/preview-select"
 
 /** The writes a visitor's page makes, answered here instead of by the server. */
 const WRITES = /^\/api\/(onepage\/(track|leads|email-capture)|subscribe|checkout\/|download\/|purchases\/)/
@@ -187,6 +188,108 @@ function PreviewNoticeHost() {
   )
 }
 
+/**
+ * ROUND AR: PICK A BLOCK. With the editor's select mode on, the block under
+ * the pointer wears a quiet ring (white then ink, so it reads on a light or
+ * a dark page), moved with transforms on one fixed layer, read once a
+ * frame; a click on a block that is not the open one is taken before the
+ * page hears it (window, capture) and sent to the editor. The open block's
+ * own ring stays while it is open, and a click on it goes to the page.
+ */
+function BlockPicker({ selected }: { selected: string | null }) {
+  const hoverRef = useRef<HTMLDivElement>(null)
+  const openRef = useRef<HTMLDivElement>(null)
+  const selectedRef = useRef(selected)
+  selectedRef.current = selected
+  useEffect(() => {
+    let hovered: Element | null = null
+    let frame = 0
+    const place = (ring: HTMLDivElement | null, el: Element | null) => {
+      if (!ring) return
+      if (!el || !el.isConnected) {
+        ring.style.opacity = "0"
+        return
+      }
+      const r = el.getBoundingClientRect()
+      ring.style.transform = `translate(${r.left - 4}px, ${r.top - 4}px)`
+      ring.style.width = `${r.width + 8}px`
+      ring.style.height = `${r.height + 8}px`
+      ring.style.opacity = "1"
+    }
+    const openEl = () => (selectedRef.current ? document.querySelector(`[data-op-block="${CSS.escape(selectedRef.current)}"]`) : null)
+    const draw = () => {
+      frame = 0
+      const open = openEl()
+      place(hoverRef.current, hovered && hovered !== open ? hovered : null)
+      place(openRef.current, open)
+    }
+    const later = () => {
+      if (!frame) frame = requestAnimationFrame(draw)
+    }
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType === "touch") return
+      const id = blockIdAt(e.target)
+      const el = id ? (e.target as Element).closest("[data-op-block]") : null
+      if (el === hovered) return
+      hovered = el
+      document.documentElement.style.cursor = el ? "pointer" : ""
+      later()
+    }
+    const onLeave = () => {
+      hovered = null
+      document.documentElement.style.cursor = ""
+      later()
+    }
+    const onClick = (e: MouseEvent) => {
+      const hit = blockIdAt(e.target)
+      if (pickAction({ mode: true, selected: selectedRef.current, hit, button: e.button, modified: e.metaKey || e.ctrlKey || e.shiftKey || e.altKey }) !== "select" || !hit) return
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      window.parent?.postMessage({ channel: ONEPAGE_PREVIEW_CHANNEL, kind: "select", id: hit } satisfies PreviewMessage, window.location.origin)
+    }
+    window.addEventListener("pointermove", onMove, { passive: true })
+    document.documentElement.addEventListener("pointerleave", onLeave)
+    window.addEventListener("click", onClick, true)
+    window.addEventListener("scroll", later, { passive: true, capture: true })
+    window.addEventListener("resize", later)
+    later()
+    return () => {
+      cancelAnimationFrame(frame)
+      document.documentElement.style.cursor = ""
+      window.removeEventListener("pointermove", onMove)
+      document.documentElement.removeEventListener("pointerleave", onLeave)
+      window.removeEventListener("click", onClick, true)
+      window.removeEventListener("scroll", later, true)
+      window.removeEventListener("resize", later)
+    }
+  }, [])
+  /* The open block moves when the page redraws (an edit): its ring is put back on the next frame. */
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      const ring = openRef.current
+      const el = selected ? document.querySelector(`[data-op-block="${CSS.escape(selected)}"]`) : null
+      if (!ring) return
+      if (!el) {
+        ring.style.opacity = "0"
+        return
+      }
+      const r = el.getBoundingClientRect()
+      ring.style.transform = `translate(${r.left - 4}px, ${r.top - 4}px)`
+      ring.style.width = `${r.width + 8}px`
+      ring.style.height = `${r.height + 8}px`
+      ring.style.opacity = "1"
+    })
+    return () => cancelAnimationFrame(id)
+  })
+  const ring = "pointer-events-none fixed left-0 top-0 z-[2147482000] rounded-[16px] opacity-0 transition-opacity duration-150 ease-out motion-reduce:transition-none"
+  return (
+    <>
+      <div ref={hoverRef} aria-hidden data-pick-hover="" className={ring} style={{ boxShadow: "0 0 0 1.5px rgba(255,255,255,0.9), 0 0 0 3px rgba(26,26,46,0.55)" }} />
+      <div ref={openRef} aria-hidden data-pick-open="" className={ring} style={{ boxShadow: "0 0 0 1.5px rgba(255,255,255,0.95), 0 0 0 3.5px #1a1a2e" }} />
+    </>
+  )
+}
+
 /*
   A NEW THEME IS DRAWN WITH ITS OWN FACES, NOT A FRAME OF ANOTHER. Picking a
   theme with other fonts drew the page at once in the fallback face, then
@@ -239,6 +342,8 @@ export function OnePagePreviewDocument() {
   /* The store's currency, sent with the page: the live route wraps the page in it (PriceCurrency), so this does too. */
   const [currency, setCurrency] = useState<string | null>(null)
   const drawn = useRef(false)
+  /* Round AR: whether a click picks a block for the editor, and which block is open there. */
+  const [pick, setPick] = useState<{ on: boolean; selected: string | null }>({ on: false, selected: null })
 
   /*
     WHAT THE CATALOGUE SAYS ABOUT THE PRODUCTS THE PAGE NAMES. Asked again
@@ -310,7 +415,13 @@ export function OnePagePreviewDocument() {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin || e.source !== parent) return
       const data = e.data as PreviewMessage | null
-      if (!data || data.channel !== ONEPAGE_PREVIEW_CHANNEL || data.kind !== "page") return
+      if (!data || data.channel !== ONEPAGE_PREVIEW_CHANNEL) return
+      /* Round AR: the phone beside the editor picks blocks (lib/onepage/preview-select). */
+      if (data.kind === "select-mode") {
+        setPick({ on: data.on === true, selected: validBlockId(data.selected) ? data.selected : null })
+        return
+      }
+      if (data.kind !== "page") return
       const n = ++latest
       setCurrency(data.currency ?? null)
       const page = data.page
@@ -359,6 +470,7 @@ export function OnePagePreviewDocument() {
         <PublicOnePage onepage={page as never} />
       </PriceCurrency>
       <PreviewNoticeHost />
+      {pick.on ? <BlockPicker selected={pick.selected} /> : null}
     </ExtraBlockPreviewContext.Provider>
   )
 }

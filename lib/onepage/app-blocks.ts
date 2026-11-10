@@ -59,6 +59,10 @@ export interface AppItem {
   sold_out?: boolean
   /** Stats: the number as typed ("12k", "98%"). */
   value?: string
+  /** Round AR. Stats: where the number comes from: typed, or one Storelib tracks (lib/onepage/stat-count STAT_SOURCES), filled in on the server. */
+  source?: string
+  /** Round AR. Events: the time it starts ("20:00"), shown beside the day. */
+  time?: string
 }
 
 export interface AppContact {
@@ -85,6 +89,8 @@ export interface AppBlockData {
   button_text?: string
   image_url?: string | null
   layout?: AppLayout
+  /** Round AR3: how a list's pictures sit in their boxes (products, books): cover, contain or full. */
+  image_fit?: "cover" | "contain" | "full"
   /** Read by components/onepage/block-sheet openModeOf. */
   open_mode?: AppOpenMode
   /** More posts, shown in a carousel or one after another in the sheet. */
@@ -103,6 +109,47 @@ export interface AppBlockData {
   text?: string
   /** Email: the address shown. */
   email?: string
+
+  /* ─── Round AR: the data and money blocks ─── */
+  /** Tips: Storelib checkout or a link (lib/onepage/tips). */
+  tip_mode?: "storelib" | "link"
+  tip_amounts?: number[]
+  tip_custom?: boolean
+  tip_message?: boolean
+  /** Filled on the server: the creator can take a payment now, and in which currency. */
+  tip_ready?: boolean
+  tip_currency?: string
+  /** Stats: how the numbers arrive (lib/onepage/stat-count). */
+  stats_animation?: "count" | "roll" | "fade" | "none"
+  /** Poll: visitors see the totals after voting (default on). */
+  poll_show_results?: boolean
+  /** Events: Bandsintown's upcoming shows for this artist, merged with the typed ones (lib/onepage/feeds). */
+  bandsintown_artist?: string
+  /** One event: when it starts (an ISO instant), where, and RSVP. */
+  event_start?: string | null
+  venue?: string
+  rsvp?: boolean
+  /** Paid access: the product that opens it, and what it opens. locked_* are never sent to a visitor (lib/onepage/paid-access). */
+  paid_product_id?: string | null
+  locked_text?: string
+  locked_url?: string
+  locked_label?: string
+  /** Filled on the server from the product: its name, price and checkout. */
+  paid_title?: string
+  paid_price?: string
+  paid_checkout?: string
+  paid_ready?: boolean
+  /** Reviews: whose (lib/onepage/reviews-block). */
+  review_source?: "storelib" | "google" | "trustpilot"
+  /** Trustpilot: the TrustBox code as copied from Trustpilot Business, read for its ids. */
+  trustbox?: string
+  /** Filled on the server: the store's own reviews. */
+  review_items?: Array<{ id: string; rating: number; title: string; body: string; author: string; date: string; verified: boolean; product_title?: string }>
+  review_summary?: { average: number; count: number; average_label: string; count_label: string } | null
+  /** Filled on the server: an RSS block's latest posts (lib/onepage/feeds). */
+  feed_items?: Array<{ title: string; url: string; date: string | null }>
+  /** RSS: how many of the latest posts to list, 0 for none. */
+  feed_count?: number
 }
 
 /* ─── Reading an address ─────────────────────────────────────────────── */
@@ -315,6 +362,29 @@ const googleReviews: Parser = (url) => {
   return null
 }
 
+/**
+ * Round AR. Luma: an event's or a calendar's own embed (the address under
+ * Share › Embed in Luma), played in Luma's frame; any other Luma address is a
+ * card that opens it.
+ */
+const luma: Parser = (url) => {
+  const host = bare(url)
+  if (host !== "lu.ma" && host !== "luma.com") return null
+  const p = partsOf(url)
+  const event = p[0] === "embed" && p[1] === "event" ? p[2] : p[0] === "event" ? p[1] : null
+  if (event && /^evt-[A-Za-z0-9]{6,40}$/.test(event)) return { href: `https://lu.ma/event/${event}`, embed: { src: `https://lu.ma/embed/event/${event}/simple`, height: 450 } }
+  const cal = p[0] === "embed" && p[1] === "calendar" ? p[2] : null
+  if (cal && /^cal-[A-Za-z0-9]{6,40}$/.test(cal)) return { href: url.toString(), embed: { src: `https://lu.ma/embed/calendar/${cal}/events`, height: 600 } }
+  return p.length ? { href: url.toString(), handle: `lu.ma/${p[0]}`.slice(0, 40) } : null
+}
+
+/** Round AR. Eventbrite: an event or an organiser's page, as a card (Eventbrite has no frame of its own to show here). */
+const eventbrite: Parser = (url) => {
+  const host = bare(url)
+  if (!/^eventbrite\.[a-z.]{2,8}$/.test(host)) return null
+  return { href: url.toString(), handle: host }
+}
+
 /** Any https page: a shop on its own domain, a feed, a tip page. */
 const anyPage: Parser = (url) => ({ href: url.toString(), handle: bare(url) })
 
@@ -351,6 +421,12 @@ export type AppShape =
   | "note"
   | "email"
   | "reviews"
+  /** Round AR: one event with RSVP and tickets. */
+  | "event"
+  /** Round AR: content behind a payment. */
+  | "paid"
+  /** Round AR: the store's reviews, or a Trustpilot or Google widget. */
+  | "review_wall"
 
 export const APP_PROVIDER_IDS = [
   "instagram",
@@ -382,6 +458,11 @@ export const APP_PROVIDER_IDS = [
   "contact",
   "email",
   "note",
+  "event",
+  "luma",
+  "eventbrite",
+  "paid",
+  "reviews",
 ] as const
 export type AppProviderId = (typeof APP_PROVIDER_IDS)[number]
 
@@ -438,6 +519,12 @@ export const APP_PROVIDERS: Record<AppProviderId, AppProvider> = {
   contact: { id: "contact", brand: null, shape: "contact", mark: "contact", color: "#0F766E", layouts: ["card", "classic", "profile"], layout: "card", open: "sheet" },
   email: { id: "email", brand: null, shape: "email", mark: "mail", color: "#EA580C", layouts: ["classic", "card"], layout: "classic", open: "direct" },
   note: { id: "note", brand: null, shape: "note", mark: "text", color: "#E9DDF7", layouts: ["card", "classic"], layout: "card", open: "direct" },
+  /* Round AR */
+  event: { id: "event", brand: null, shape: "event", mark: "ticket", color: "#F43F5E", layouts: ["card", "featured", "classic"], layout: "card", open: "direct" },
+  luma: { id: "luma", brand: "Luma", shape: "player", mark: "ticket", color: "#111113", layouts: PLAYER_LAYOUTS, layout: "single", open: "sheet", placeholder: "https://lu.ma/embed/event/evt-.../simple", parse: luma },
+  eventbrite: { id: "eventbrite", brand: "Eventbrite", shape: "link", mark: "ticket", color: "#F05537", layouts: LINK_LAYOUTS, layout: "card", open: "direct", placeholder: "https://www.eventbrite.com/e/...", parse: eventbrite },
+  paid: { id: "paid", brand: null, shape: "paid", mark: "lock", color: "#1a1a2e", layouts: ["card", "classic"], layout: "card", open: "direct" },
+  reviews: { id: "reviews", brand: null, shape: "review_wall", mark: "star", color: "#F59E0B", layouts: ["classic", "carousel", "grid", "card"], layout: "carousel", open: "direct" },
 }
 /* i18n-ignore-end */
 
@@ -447,6 +534,16 @@ export function isAppProvider(v: unknown): v is AppProviderId {
 
 export function providerOf(data: Partial<AppBlockData> | null | undefined): AppProvider {
   return APP_PROVIDERS[isAppProvider(data?.provider) ? data!.provider : "note"]
+}
+
+/**
+ * Round AR: services taken out of the Add block sheet. A block saved with one
+ * keeps its data and is drawn as a plain link to its address (and to each of
+ * its items), so no page loses what it showed and nothing is rewritten.
+ */
+export const RETIRED_APP_PROVIDERS: readonly AppProviderId[] = ["bonfire", "fourthwall"]
+export function isRetiredAppProvider(id: unknown): boolean {
+  return (RETIRED_APP_PROVIDERS as readonly unknown[]).includes(id)
 }
 
 /** The layout a block is drawn in: its own when the provider offers it, the provider's otherwise. */
@@ -565,7 +662,19 @@ export function appBlockHasContent(block: { type: string; data?: unknown }): boo
       return appEmail(d.email) !== null
     case "note":
       return !!(d.title?.trim() || d.text?.trim())
+    /* Round AR */
+    case "event":
+      return !!d.title?.trim() && !Number.isNaN(Date.parse(d.event_start || ""))
+    case "paid":
+      /* The server says once the product is read (paid_ready); before that a product is enough. */
+      return !!d.paid_product_id && d.paid_ready !== false
+    case "review_wall":
+      if (d.review_source === "trustpilot") return !!d.trustbox?.trim()
+      if (d.review_source === "google") return appTarget({ ...d, provider: "google_reviews" }) !== null
+      /* The store's own reviews: drawn once the server found some, or before it was asked (the preview). */
+      return !Array.isArray(d.review_items) || d.review_items.length > 0
     default:
+      if (p.id === "tips") return d.tip_mode === "storelib" || (!d.tip_mode && !d.url?.trim()) ? d.tip_ready !== false : appTarget(d) !== null
       return appTarget(d) !== null
   }
 }
@@ -619,6 +728,9 @@ export const APP_FRAME_HOSTS = [
   "https://assets.pinterest.com",
   "https://embed.reddit.com",
   "https://audiomack.com",
+  /* Round AR: Luma's event and calendar embeds, and Trustpilot's TrustBox. */
+  "https://lu.ma",
+  "https://widget.trustpilot.com",
 ] as const
 
 /** A new block's data, for a provider. */
@@ -627,5 +739,10 @@ export function appBlockDefaults(provider: AppProviderId): AppBlockData {
   if (provider === "poll") return { ...base, poll_question: "", poll_options: [{ id: "a", label: "" }, { id: "b", label: "" }] }
   if (provider === "events" || provider === "stats" || provider === "books" || provider === "affiliate" || provider === "bonfire" || provider === "fourthwall") return { ...base, items: [{ id: `i_${Date.now().toString(36)}` }] }
   if (provider === "contact") return { ...base, contact: {} }
+  /* Round AR */
+  if (provider === "tips") return { ...base, tip_mode: "storelib", tip_amounts: [300, 500, 1000], tip_custom: true }
+  if (provider === "event") return { ...base, rsvp: true, event_start: null, venue: "" }
+  if (provider === "paid") return { ...base, paid_product_id: null, locked_text: "", locked_url: "" }
+  if (provider === "reviews") return { ...base, review_source: "storelib", layout: "carousel" }
   return base
 }

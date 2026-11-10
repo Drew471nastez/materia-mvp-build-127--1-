@@ -6,7 +6,7 @@ import { ProductLayoutThumb, layoutHasCard, layoutLabel, useCreatorProducts, typ
 import { OnePageImageField } from "@/components/onepage/image-field"
 import type { ProductBlockData, ProductBlockStyle } from "@/lib/onepage/types"
 import { useBlockPart } from "./block-part"
-import { ArrangePicker, CardsInViewControl, EditorThemeContext, HowManyControl } from "./layout-pickers"
+import { ArrangePicker, CardsInViewControl, EditorThemeContext, HowManyControl, PictureFitControl } from "./layout-pickers"
 import { ChoiceMark } from "./choice-marks"
 import { PRODUCT_LAYOUTS, productLayoutOf } from "@/lib/onepage/product-block"
 import type { BlockPresentation } from "@/lib/onepage/block-presentation"
@@ -53,6 +53,7 @@ import {CompactInstagramPost} from "./compact-post"
 import * as React from "react"
 import dynamic from "next/dynamic"
 import { buttonPadScale, pressableProps } from "@/lib/onepage/block-look"
+import { onCardButtonTheme } from "@/lib/onepage/button-style"
 import { teamStoreForProducts } from "@/lib/onepage/team-context"
 import { Check, ChevronRight, Copy, Loader2, Play, RefreshCw, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -72,6 +73,7 @@ import { EmbedFrame } from "@/components/onepage/embed-frame"
 import { tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
 import {
   FOLLOWER_NETWORKS,
+  detectFollowerInput,
   REFRESHABLE_NETWORKS,
   SHELF_LIMIT_MAX,
   SHELF_SOURCES,
@@ -163,6 +165,16 @@ function useLiveData<T extends object>(block: OnePageBlock, look: StorelibBlockL
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!need) return { data, loading: false }
   if (answer && answer.key === key) return { data: answer.data, loading: false }
+  /*
+    Round AR: A SETTING CHANGED, THE PRODUCTS STAY. Every setting is part of the key, so changing a title or a
+    layout asked again and drew the grey stand-ins until the answer came: the owner's product block that "hides,
+    unhides and reveals again". What the last answer filled in stays, under the settings as they are now, until
+    the new answer replaces it in place.
+  */
+  if (answer) {
+    const now = Object.fromEntries(Object.entries(data as object).filter(([, v]) => v !== undefined))
+    return { data: { ...(answer.data as object), ...now } as T, loading: false }
+  }
   return { data, loading: true }
 }
 
@@ -199,6 +211,8 @@ function shelfSlideWidth(view: StorelibShelfBlockData["carousel_view"], gap: num
 }
 
 function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLook }) {
+  /* Round AR3: Cover, Fit or Full for the shelf's pictures, the plain cards and the product cards alike (product_settings.image_fit). */
+  const shelfFit = (() => { const f = (block.data as StorelibShelfBlockData | undefined)?.product_settings?.image_fit; return f === "contain" || f === "full" ? f : "cover" })()
   const money = usePageMoney()
   const { data, loading } = useLiveData<StorelibShelfBlockData>(block, look, (d) => Array.isArray(d.items))
   /* Round AP: picked products show every one picked, in the creator's order; otherwise as many as How many says. */
@@ -221,14 +235,41 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
   return (
     <div data-onepage-shelf={shelfSource(data.source)} className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       <BlockTitle text={data.title} look={look} />
-      {shelfUsesProductCards(data) && shelfSource(data.source)!=="community" ? <div className={data.layout==="carousel"?"flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none]":data.layout==="grid"?"grid grid-cols-2 gap-3":"flex flex-col gap-3"}>
+      {shelfSource(data.source) === "community" && data.layout === "featured" ? (
+        /*
+          ROUND AR: A COMMUNITY, FEATURED. One large card per community: its cover across the top, its name, its
+          line (members, the price) and Join in the page's button colours, pressed like every card on the page.
+        */
+        <div className="flex flex-col" style={{ gap: px(10, look.scale) }} data-shelf-arrange="featured">
+          {items.map((item) => (
+            <a key={item.id} href={platformHref(item.href)} className="op-card flex w-full flex-col overflow-hidden no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, borderRadius: radius, padding: 0 }} data-community-card="">
+              <span className="relative block w-full overflow-hidden bg-black/10" style={{ aspectRatio: "16 / 9" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {item.image ? <img src={item.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" /> : null}
+              </span>
+              <span className="flex items-center text-left" style={{ padding: px(14, look.scale), gap: px(12, look.scale) }}>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold" style={{ fontSize: px(16, look.scale) }}>{item.title}</span>
+                  {priceLine(item, money) ? <span className="mt-0.5 block truncate opacity-75" style={{ fontSize: px(13, look.scale) }}>{priceLine(item, money)}</span> : null}
+                </span>
+                <span className="inline-flex shrink-0 items-center rounded-full font-semibold" style={{ background: (look.button.color as string) || "#fff", color: (look.button.backgroundColor as string) || "#111", fontSize: px(13.5, look.scale), padding: `${px(8, look.scale)} ${px(16, look.scale)}` }}>
+                  {tt("Join")}
+                </span>
+              </span>
+            </a>
+          ))}
+          {ghosts.map((i) => (
+            <span key={`g${i}`} aria-hidden className="block w-full animate-pulse motion-reduce:animate-none" style={{ ...look.button, borderRadius: radius, aspectRatio: "16 / 11", opacity: 0.5 }} />
+          ))}
+        </div>
+      ) : shelfUsesProductCards(data) && shelfSource(data.source)!=="community" ? <div className={data.layout==="carousel"?"flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none]":data.layout==="grid"?"grid grid-cols-2 gap-3":"flex flex-col gap-3"}>
        {items.map(item=><div key={item.id} className={data.layout==="carousel"?"w-[85%] shrink-0 snap-start":"min-w-0"} style={data.layout==="carousel"&&shelfSlideWidth(data.carousel_view,12)?{width:shelfSlideWidth(data.carousel_view,12)!}:undefined}><OnePageProductBlock block={{id:`${block.id}:${item.id}`,type:"product",enabled:true,sort_order:0,data:{show_price:true,show_description:true,cta_text:tt("View product"),style:"callout",...data.product_settings,...data.product_overrides?.[item.id],product_id:item.id,product_title:item.title,product_thumbnail:item.image,product_slug:item.href.split('/').filter(Boolean).pop(),product_type:item.kind,product_price_cents:item.price_cents,product_variant_min_cents:item.variant_min_price_cents,product_variant_max_cents:item.variant_max_price_cents,product_variant_count:item.variant_count,product_single_variant_id:item.single_variant_id}}} theme={look.theme} quiet={look.still} inPair={data.layout==="grid"} seller={{name:"",avatarUrl:null}} pageMoney={money} plainText={s=>s?.replace(/<[^>]*>/g,'')||''} trackClick={()=>{}} animationClass="" quick={null}/></div>)}
       </div> : list ? (        <div className="flex flex-col" style={{ gap: px(8, look.scale) }}>
           {items.map((item) => (
             <a key={item.id} href={platformHref(item.href)} className="op-card flex w-full items-center no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, borderRadius: radius, padding: px(8, look.scale), gap: px(12, look.scale) }}>
               <span className="relative shrink-0 overflow-hidden bg-black/10" style={{ width: px(52, look.scale), height: px(52, look.scale), borderRadius: Math.max(radius - 6, 6) }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {item.image ? <img src={item.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" /> : null}
+                {item.image ? <img src={item.image} alt="" loading="lazy" data-picture-fit={shelfFit === "cover" ? "cover" : "contain"} className={cn("absolute inset-0 h-full w-full", shelfFit === "cover" ? "object-cover" : "object-contain")} /> : null}
               </span>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block truncate font-semibold" style={{ fontSize: px(14.5, look.scale) }}>{item.title}</span>
@@ -245,9 +286,9 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
         <div data-shelf-arrange={simpleGrid ? "grid" : "carousel"} className={simpleGrid ? "grid grid-cols-2" : "-mx-1 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
           {items.map((item) => (
             <a key={item.id} href={platformHref(item.href)} className="op-card flex shrink-0 snap-start flex-col no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, width: simpleGrid ? "100%" : shelfSlideWidth(data.carousel_view, 10) ?? px(158, look.scale), minWidth: 0, borderRadius: radius, padding: px(6, look.scale) }}>
-              <span className="relative block w-full overflow-hidden bg-black/10" style={{ aspectRatio: "1 / 1", borderRadius: Math.max(radius - 4, 6) }}>
+              <span className="relative block w-full overflow-hidden bg-black/10" data-picture-fit={shelfFit} style={{ aspectRatio: shelfFit === "full" && item.image ? undefined : "1 / 1", borderRadius: Math.max(radius - 4, 6) }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {item.image ? <img src={item.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" /> : null}
+                {item.image ? <img src={item.image} alt="" loading="lazy" className={shelfFit === "full" ? "relative block h-auto w-full" : cn("absolute inset-0 h-full w-full", shelfFit === "cover" ? "object-cover" : "object-contain")} /> : null}
               </span>
               <span className="block text-left" style={{ padding: `${px(8, look.scale)} ${px(4, look.scale)} ${px(4, look.scale)}` }}>
                 <span className="line-clamp-2 block font-semibold leading-snug" style={{ fontSize: px(13.5, look.scale), minHeight: px(36, look.scale) }}>{item.title}</span>
@@ -648,6 +689,13 @@ function PromoCodeView({ block, look }: { block: OnePageBlock; look: StorelibBlo
     href = null
   }
   const radius = radiusOf(look.theme)
+  /*
+    Round AR: Copy is the page's button made to read on the code's card
+    (lib/onepage/button-style onCardButtonTheme), with the page's fill,
+    border, shadow and hover. It was a dashed box in the card's words
+    whatever the page's buttons were.
+  */
+  const copyPress = pressableProps(onCardButtonTheme(look.theme), look.still)
   return (
     <div data-onepage-code="" className="w-full" style={{ ...look.button, borderRadius: radius, padding: px(12, look.scale) }}>
       <div className="flex items-center" style={{ gap: px(10, look.scale) }}>
@@ -670,8 +718,10 @@ function PromoCodeView({ block, look }: { block: OnePageBlock; look: StorelibBlo
             window.setTimeout(() => setCopied(false), 1600)
           }
         }}
-        className="mt-2.5 flex w-full items-center justify-between border border-dashed border-current/40 font-semibold"
-        style={{ borderRadius: Math.max(radius - 4, 8), padding: `${px(10, look.scale)} ${px(14, look.scale)}`, fontSize: px(15, look.scale), borderColor: tt("color-mix(in srgb, currentColor 40%, transparent)") }}
+        className={cn(copyPress.className, "mt-2.5 flex w-full items-center justify-between font-mono font-semibold tracking-[0.06em]")}
+        data-hover={copyPress["data-hover"]}
+        data-shadow={copyPress["data-shadow"]}
+        style={{ ...copyPress.style, borderRadius: Math.max(radius - 4, Math.min(radius, 8)), padding: `${px(10, look.scale)} ${px(14, look.scale)}`, fontSize: px(15, look.scale) }}
       >
         {/* The code in a fixed width face; Copy in the page's own (round W9: font-sans drew it in Inter on every theme). */}
         <span className="truncate font-mono tracking-[0.06em]">{code}</span>
@@ -1033,6 +1083,8 @@ function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updat
           { id: "list", kind: "list", label: tt("List") },
           { id: "grid", kind: "grid", label: tt("Grid") },
           { id: "carousel", kind: "carousel", label: tt("Carousel") },
+          /* Round AR: a community as one large card with its cover and Join. */
+          ...(source === "community" ? [{ id: "featured" as const, kind: "single" as const, label: tt("Featured") }] : []),
         ]}
         /* Round AQ: the shelf's own products, the picked ones in their order, with the picture, name and price the page draws. */
         items={shelfPreviewItems(data, source, products, settings.show_price !== false ? money : null)}
@@ -1054,6 +1106,7 @@ function ShelfEditor({ data, updateData }: { data: StorelibShelfBlockData; updat
           }
         />
       ) : null}
+      {source !== "community" ? <PictureFitControl value={settings.image_fit} onChange={(image_fit) => setSettings({ image_fit })} /> : null}
       {productCards && layoutHasCard(productLayoutOf({ style: settings.style ?? "callout", style_chosen: true })) ? (
         <div className="space-y-3 border-t border-[#eef0f2] pt-4" data-shelf-colours="">
           <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Card colours")}</p>
@@ -1368,20 +1421,75 @@ function FollowersEditor({ data, updateData }: { data: FollowersBlockData; updat
   const [note, setNote] = React.useState<string | null>(null)
   const set = (network: string, patch: Partial<FollowerEntry>) => updateData({ networks: entries.map((e) => (e.network === network ? { ...e, ...patch } : e)) })
   const unused = FOLLOWER_NETWORKS.filter((n) => !entries.some((e) => e.network === n))
-  const refresh = async (e: FollowerEntry) => {
+  /* `list`: the networks as they are about to be (a network just added is not in `entries` yet). */
+  const refresh = async (e: FollowerEntry, list: FollowerEntry[] = entries) => {
     setBusy(e.network)
     setNote(null)
     try {
       const r = await fetch("/api/onepage/followers", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ network: e.network, handle: e.handle }) })
       const d = await r.json().catch(() => ({}))
-      if (!r.ok) setNote(typeof d?.error === "string" ? d.error : tt("That could not be read."))
-      else set(e.network, { count: d.count, refreshed_at: d.refreshed_at })
+      if (!r.ok) setNote(typeof d?.error === "string" ? d.error : tt("That could not be read. Type the number instead."))
+      else updateData({ networks: list.map((x) => (x.network === e.network ? { ...x, count: d.count, refreshed_at: d.refreshed_at } : x)) })
     } finally {
       setBusy(null)
     }
   }
+  /*
+    Round AR3: one field first. Paste a profile link or type @handle; the
+    network is read from the link (lib/onepage/storelib-blocks
+    detectFollowerInput), its count is read at once where Storelib can, and
+    where it cannot the number box says so.
+  */
+  const [quick, setQuick] = React.useState("")
+  const [asking, setAsking] = React.useState<string | null>(null)
+  const addFrom = (network: FollowerNetwork, handle: string) => {
+    const entry: FollowerEntry = { network, handle, count: entries.find((x) => x.network === network)?.count ?? null }
+    const next = [...entries.filter((x) => x.network !== network), entry]
+    updateData({ networks: next })
+    setQuick("")
+    setAsking(null)
+    if (handle && REFRESHABLE_NETWORKS.includes(network)) void refresh(entry, next)
+  }
+  const submitQuick = () => {
+    const found = detectFollowerInput(quick)
+    if (!found) return setNote(tt("Paste a profile link, or type @ and the account name."))
+    setNote(null)
+    if (found.network) addFrom(found.network, found.handle)
+    else setAsking(found.handle)
+  }
   return (
     <div className="space-y-3">
+      <div className="space-y-2" data-followers-quick="">
+        <div className="flex gap-2">
+          <Input
+            value={quick}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            inputMode="url"
+            placeholder={tt("Paste a profile link or @handle")}
+            aria-label={tt("Paste a profile link or @handle")}
+            onChange={(ev) => { setQuick(ev.target.value); setAsking(null) }}
+            onKeyDown={(ev) => { if (ev.key === "Enter") { ev.preventDefault(); submitQuick() } }}
+          />
+          <button type="button" onClick={submitQuick} disabled={!quick.trim()} className="h-11 shrink-0 rounded-xl bg-[#1a1a2e] px-4 text-[13.5px] font-medium text-white transition-opacity disabled:opacity-40">
+            {tt("Add")}
+          </button>
+        </div>
+        {asking !== null ? (
+          <div className="space-y-1.5" data-followers-ask="">
+            <p className="text-[12.5px] text-[#6b7280]">{tt("Which network is @{value} on?", { value: asking })}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {FOLLOWER_NETWORKS.map((n) => (
+                <button key={n} type="button" onClick={() => addFrom(n, asking)} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[#e3e4e8] bg-white px-3 text-[12.5px] font-medium text-[#1a1a2e] hover:border-[#c9cbd1]">
+                  <SocialIcon platform={n} size={14} color="#1a1a2e" tone="brand" />
+                  {NETWORK_NAME[n]}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
       {entries.map((e) => {
         const canRefresh = REFRESHABLE_NETWORKS.includes(e.network)
         return (
@@ -1397,6 +1505,7 @@ function FollowersEditor({ data, updateData }: { data: FollowersBlockData; updat
               <Input value={e.handle || ""} maxLength={120} autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder={e.network === "bluesky" ? "you.bsky.social" : e.network === "youtube" ? "@you" : tt("Account (optional)")} onChange={(ev) => set(e.network, { handle: ev.target.value.trim() })} />
               <Input value={typeof e.count === "number" ? String(e.count) : ""} inputMode="numeric" placeholder="12.5k" onChange={(ev) => set(e.network, { count: parseCount(ev.target.value) })} aria-label={tt("Followers")} />
             </div>
+            {!canRefresh ? <p className="text-[12px] text-[#6b7280]" data-followers-manual="">{tt("{value} does not share follower counts with other sites. Type your number.", { value: NETWORK_NAME[e.network] })}</p> : null}
             {canRefresh ? (
               <button type="button" disabled={!e.handle || busy === e.network} onClick={() => refresh(e)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#e3e4e8] px-2.5 text-[12.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8] disabled:opacity-50">
                 <RefreshCw aria-hidden className={cn("h-3.5 w-3.5", busy === e.network && "animate-spin")} />
@@ -1438,13 +1547,73 @@ function FollowersEditor({ data, updateData }: { data: FollowersBlockData; updat
 
 function PromoCodeEditor({ data, updateData }: { data: PromoCodeBlockData; updateData: (u: Partial<PromoCodeBlockData>) => void }) {
   const ok = !data.code?.trim() || promoCode(data.code) !== null
+  /* Round AR: one of the store's own codes, or a code for another brand typed by hand. */
+  const fromStore = !!data.coupon_id || (data as { code_source?: string }).code_source === "store"
+  const [coupons, setCoupons] = React.useState<CouponRow[] | null>(null)
+  React.useEffect(() => {
+    if (!fromStore || coupons !== null) return
+    let live = true
+    fetch("/api/coupons")
+      .then((r) => (r.ok ? r.json() : { coupons: [] }))
+      .then((d) => live && setCoupons(Array.isArray(d?.coupons) ? d.coupons : []))
+      .catch(() => live && setCoupons([]))
+    return () => {
+      live = false
+    }
+  }, [fromStore, coupons])
   return (
     <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-[#f4f4f6] p-1" role="radiogroup" aria-label={tt("Code")} data-promo-source="">
+        {([
+          ["store", tt("From your store")],
+          ["typed", tt("Another brand's code")],
+        ] as const).map(([id, label]) => {
+          const on = (id === "store") === fromStore
+          return (
+            <button key={id} type="button" role="radio" aria-checked={on} onClick={() => updateData(id === "store" ? ({ code_source: "store" } as never) : ({ code_source: "typed", coupon_id: null } as never))} className={cn("h-9 rounded-lg text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150", on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}>
+              {label}
+            </button>
+          )
+        })}
+      </div>
+      {fromStore ? (
+        <div className={fieldBox} data-promo-coupons="">
+          <Label className={fieldLabel}>{tt("Code")}</Label>
+          {coupons === null ? (
+            <div className="flex h-12 items-center gap-2 rounded-xl border border-[#e3e4e8] px-3 text-[13px] text-[#6b7280]">
+              <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+              {tt("Loading your codes")}
+            </div>
+          ) : coupons.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-[#d9dbe0] p-4 text-center">
+              <p className="text-[13px] font-medium text-[#1a1a2e]">{tt("No codes yet")}</p>
+              <a href="/app/coupons" className="mt-3 inline-flex h-9 items-center rounded-lg bg-[#1a1a2e] px-3.5 text-[13px] font-medium text-white">{tt("New code")}</a>
+            </div>
+          ) : (
+            <div role="listbox" aria-label={tt("Code")} className="max-h-[240px] space-y-1 overflow-y-auto rounded-xl border border-[#e3e4e8] p-1">
+              {coupons.map((c) => {
+                const on = data.coupon_id === c.id
+                return (
+                  <button key={c.id} type="button" role="option" aria-selected={on} onClick={() => updateData({ coupon_id: c.id, code: c.code, ...(data.title?.trim() ? {} : { title: c.code }) })} className={cn("flex w-full items-center gap-3 rounded-lg p-2.5 text-left transition-colors duration-150", on ? "bg-[#f2f2f4]" : "hover:bg-[#f7f7f8]")}>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-mono text-[13.5px] font-semibold text-[#1a1a2e]">{c.code}</span>
+                      {c.is_active === false ? <span className="block truncate text-[12px] text-[#6b7280]">{tt("Off")}</span> : null}
+                    </span>
+                    {on ? <Check aria-hidden className="h-4 w-4 shrink-0 text-[#1a1a2e]" /> : null}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <p className="text-[12px] text-[#6b7280]">{tt("Your page shows the code while it can be used, and hides the block once it is off, used up or ended.")}</p>
+        </div>
+      ) : (
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Code")}</Label>
         <Input value={data.code || ""} maxLength={40} autoCapitalize="characters" autoCorrect="off" spellCheck={false} placeholder="ANNA15" onChange={(e) => updateData({ code: e.target.value.trim() })} aria-invalid={!ok || undefined} />
         {!ok ? <p className="text-[12px] text-[#b42318]">{tt("Letters, numbers and - _ . only, no spaces.")}</p> : null}
       </div>
+      )}
       <div className={fieldBox}>
         <Label className={fieldLabel}>{tt("Title")}</Label>
         <Input value={data.title ?? ""} maxLength={60} placeholder={tt("15% off at Gymshark")} onChange={(e) => updateData({ title: e.target.value })} />

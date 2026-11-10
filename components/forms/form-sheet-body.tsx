@@ -23,7 +23,7 @@ export default function FormSheetBody(props: {
 }) {
   return (
     <div className="px-2 pb-4 pt-1 sm:px-1" data-form-sheet="" style={{ "--form-field": "var(--sheet-field)", "--form-line": "var(--sheet-rule)" } as CSSProperties}>
-      <PublicFormRenderer key={props.formId} {...props} />
+      <PublicFormRenderer key={props.formId} {...props} quietLoading />
     </div>
   )
 }

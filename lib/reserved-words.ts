@@ -50,6 +50,8 @@ export const RESERVED_WORDS = [
   "orders",
   "analytics",
   "checkout",
+  "booking",
+  "bookings",
   "onboarding",
   "terms",
   "privacy",
@@ -59,6 +61,8 @@ export const RESERVED_WORDS = [
   "contact",
   "blog",
   "pricing",
+  /* Round AR: the Instagram bio steps (app/(storelib)/instagram-bio). */
+  "instagram-bio",
 
   // Technical
   "null",

@@ -75,6 +75,8 @@ const SUITES = [
   "tests/forms-bookings.test.ts",
   "tests/forms-security.test.ts",
   "tests/forms-booking-payment.test.ts",
+  /* Round AR (track 2): OnePage bookings end to end. Availability across time zones and DST with date overrides, buffers, notice, the daily limit and chosen lengths; the double booking guard (capped function, a move refused onto a held time, the database's 23P01 a 409); every booking read and write named by its owner; who hears what for a new, moved and cancelled booking (bell and phone, creator email, visitor email with .ics); Google Calendar OAuth state, tokens, freeBusy and events with Meet replayed from tests/fixtures/google-calendar-ar2.json, never called; the signed change-or-cancel link. scripts/check-bookings-sql-ar2.mjs runs part 410 on a real Postgres. */
+  "tests/onepage-bookings-ar2.test.ts",
   /* Round AL5: Leads in Emails, Forms beside it, the Audience item gone, missing forms tables said plainly, one retry, the pre-chat and the phone country list. */
   "tests/forms-leads-al5.test.ts",
   "tests/forms-an2.test.ts",
@@ -877,6 +879,7 @@ const SUITES = [
   "tests/onepage-themes-ap.test.ts",
   /* Round AQ: the onboarding draws the theme preview, Layout pictures draw the block's own content, a form's row is named, the sheet kit's slow pull is slow; scripts/check-onepage-real-preview.mjs reads the preview in next dev. */
   "tests/onepage-aq2.test.ts",
+  "tests/onepage-ar5.test.ts",
   "tests/onepage-themes-w8.test.ts",
   /* Round W9: six themes with a skin (Aero, Aqua, Messenger, Y2K, Playful, Grunge): every text and button pair and every colour the skin paints read at 4.5:1, the skin carried by both roots and the theme card, the generated stylesheet current and styling every kind of block, motion by transform and opacity only and still for reduced motion and in cards, the skin laid on and taken off with the theme. scripts/shot-onepage-skins.mjs photographs them. */
   "tests/onepage-themes-w9.test.ts",
@@ -1241,6 +1244,8 @@ const SUITES = [
   /* Round 41 (OnePage blocks): grey Add block tiles again, settings that glide shut, groups that take any block and delete one, Add to group with the page's own blocks, and every catalogue block checked for settings, a live renderer and the page's look. */
   "tests/onepage-editor-r41.test.ts",
   "tests/onepage-app-blocks-al.test.ts",
+  /* Round AR (track 4): the OnePage data and money blocks. The newsletter's phone and first name (checked, kept, sent to the tools) and its fields in each layout's shape, one of the creator's own products given to joiners; tips through Storelib checkout to the creator's own connected account with the amount checked on the server and one tip per Checkout Session; a poll's one vote each and the owner's totals; Pay to unlock with the locked part never in the page and access checked on the server; show from / until on the server and in every route; stats counted from real numbers; RSS, Bandsintown and Trustpilot read from recorded answers; each tap counted once and never from the preview. scripts/check-onepage-ar4.mjs measures them at 390 and 1440. */
+  "tests/onepage-ar4.test.ts",
   /* Round 12 (WBPERF): a link typed in a menu draws only what shows a menu, memoised menu rows, a 401 asked about before it is a sign out, a page's sections read again quietly; scripts/check-wb-perf-r12.mjs measures them on 120 sections. */
   "tests/wb-perf-r12.test.ts",
   /* Round 12 (website builder): Add block between two blocks in the canvas, the collection pickers' Add collection, a menu link's new tab on the live site, product descriptions bound to Storelib, the shop's filters from real products; scripts/check-wb-ux-r12.mjs measures them. */
@@ -1444,7 +1449,13 @@ const STRICT_SUITES = [
   "tests/onepage-r42.test.ts",
   /* Round AP, track 1: the shared link card at a chat's size, a row's bin under a mouse, the block sheet opening with its content and easing to late content, its foot bar off over the keyboard, drawn down by a mouse, Share as a phone's bottom sheet, no crossed circle on a booking link, no cookie card in the preview, the thumbnail row, row tiles from the Add block entries, a shelf of chosen products (the owner's only), and every sideways row following a mouse. scripts/check-onepage-sheets-ap.mjs, check-onepage-drag-rows-ap.mjs, check-onepage-button-controls-ap.mjs, check-onepage-perf-ap.mjs and shot-onepage-editor-ap.mjs measure them. */
   "tests/onepage-ap1.test.ts",
+  /* Round AR (track 6): the OnePage editor's one compact picture row (cover, group picture), descriptions that grow, the form builder's save round trip for every question type and setting, a block clicked in the phone preview opening in the list, Share's Add link to Instagram bio and its public page, the handoff's token rules and its row in the editor, and the AI's edits to social icons, the social links block and link blocks checked as a change by hand. scripts/check-onepage-ar6.mjs measures them at 390 and 1440. */
+  "tests/onepage-ar6.test.ts",
+  /* Round AR, track 1: how a OnePage feels. No round Close over the keyboard once Safari pans, sheets read while idle and opened with their content (no grey bars), one press on every button from pointerdown, Back a step inside a form sheet, the Hero darkening under the page with a bar once it has gone, a removed block folding away, a shelf kept drawn while a setting changes. scripts/check-onepage-ar1.mjs measures them. */
+  "tests/onepage-ar1.test.ts",
   "tests/onepage-w8.test.ts",
+  /* Round AR3: every block type's settings panel drawn and visible (image 137), music and video layouts with Storelib's own player, Cover, Fit and Full, links shown in place (Calendly, Typeform, Canva, Google Maps, podcasts), oEmbed cards from recorded answers, Fourthwall and Bonfire retired, followers from one field, more links in one block. scripts/check-onepage-ar3.mjs measures the layout matrix, the embeds and the settings at 390 and 1440. */
+  "tests/onepage-ar3.test.ts",
   /* Round W9 (opblocks): a bin on every block row (the question first, the row folding away in 180ms, Delete still in the more menu); the block sheets (Contact, Subscribe, Share, music, Privacy) and the product sheet in the page's palette and typeface; a theme taking every block's own colours, a group's too; Mixed tiles as pairs and full rows taking turns, never a featured card halved or a half alone; Cards drawing every plain link as a card. */
   "tests/onepage-blocks-w9.test.ts",
   /* Wave 10 (legible): every word on a OnePage reads on what is painted under it (lib/onepage/legible, components/onepage/legible-guard), the creator's own Design shown over a skinned theme (lib/onepage/skin-own), the product sheet's square gallery, thumbnails and Buy bar, the share sheet as one surface, and one gap between every tool on a block's row. scripts/check-onepage-legible-w10.mjs walks every theme in the picker on pixels. */

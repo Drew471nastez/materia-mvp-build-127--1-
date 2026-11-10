@@ -27,6 +27,8 @@ import { supabaseOnePageLookup } from "@/lib/onepage/address-lookup"
 import { SiteReadError } from "@/lib/website-builder/site-read"
 import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
 import { withStorelibBlocks } from "@/lib/onepage/storelib-blocks-server"
+import { liveDataDeps, withDataBlocks } from "@/lib/onepage/data-blocks-server"
+import { withoutLocked } from "@/lib/onepage/paid-access"
 import { ONE_PAGE_HOLD_SECONDS, heldRead, onePageNameTag, onePageOwnerTag, onePageShopTag, shopProductsTag } from "@/lib/onepage/public-cache"
 import { creatorDomainsTag } from "@/lib/custom-domains/store"
 
@@ -146,15 +148,23 @@ const liveBlocksOnce = cache((creatorId: string, blocksJson: string) => {
       const db = createAdminClient()
       const products = await withLiveProducts(db as unknown as ProductsDb, creatorId, JSON.parse(blocksJson) as unknown[])
       /* The shelf, the posts and the follower count, read now (lib/onepage/storelib-blocks-server); a page with none of them reads nothing more. */
-      return withStorelibBlocks(db, creatorId, products)
+      const storelib = await withStorelibBlocks(db, creatorId, products)
+      /*
+        Round AR: tips, tracked stats, Paid access, the store's reviews, an
+        RSS feed, Bandsintown and a store code (lib/onepage/data-blocks-server),
+        and every paid access block's locked part taken out, here, before anything
+        is held or sent (lib/onepage/paid-access).
+      */
+      return withDataBlocks(db, await liveDataDeps(db), creatorId, storelib)
     },
-    ["onepage-live-blocks", "v1", creatorId, fingerprint],
+    ["onepage-live-blocks", "v2", creatorId, fingerprint],
     { tags: [onePageShopTag(creatorId), shopProductsTag(creatorId)], revalidate: ONE_PAGE_HOLD_SECONDS },
   )
 })
 export function liveBlocksFor<T>(creatorId: string, blocks: T): Promise<T> {
   if (blocks === null || blocks === undefined) return withLiveProducts(createAdminClient() as unknown as ProductsDb, creatorId, blocks)
-  return liveBlocksOnce(creatorId, JSON.stringify(blocks)) as Promise<T>
+  /* Never a locked part, whatever the cache holds (lib/onepage/paid-access). */
+  return (liveBlocksOnce(creatorId, JSON.stringify(blocks)) as Promise<T>).then(withoutLocked)
 }
 
 /*

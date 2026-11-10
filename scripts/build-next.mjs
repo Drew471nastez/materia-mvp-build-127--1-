@@ -22,5 +22,5 @@ process.loadEnvFile(new URL("./build-limits.env", import.meta.url))
 
 const require = createRequire(import.meta.url)
 const next = require.resolve("next/dist/bin/next")
-process.argv.splice(1, 1, next, "build")
+process.argv.splice(1, 1, next, "build", ...(process.env.STORELIB_BUILD_WEBPACK === "1" ? ["--webpack"] : []))
 require(next)

@@ -32,7 +32,8 @@ check("the creator's own cover is 5:2, the shape the crop editor reads too", OWN
 check("no rounding of its own and no inset margin", !/borderRadius: ownCover && !heroCover \? 16/.test(page) && !/ownCover && !heroCover \? "w-full"/.test(page))
 check("no longer pulled 32px above the top of a phone's page", !/"-mx-5 -mt-8 w-\[calc\(100%\+40px\)\]"/.test(page))
 check("fetched first", /loading="eager" fetchPriority="high" decoding="async"/.test(page))
-check("Your files beside the cover upload", /LibraryButton onClick=\{\(\) => setLibrary\(true\)\}/.test(coverEditor) && /<FilesLibraryChooser/.test(coverEditor))
+/* Changed on purpose (round AR): the cover is the editor's one picture row (components/onepage/image-field), which holds Your files and its chooser itself. */
+check("Your files beside the cover upload", /<OnePageImageField/.test(coverEditor) && /<LibraryButton onClick=\{\(\) => setChoosing\(true\)\} \/>/.test(read("components/onepage/image-field.tsx")) && /<FilesLibraryChooser/.test(read("components/onepage/image-field.tsx")))
 check("the cover sits under the profile image layout in Header", design.indexOf('title={tt("Profile image layout")}') > 0 && design.indexOf("<HeaderCoverEditor />") > design.indexOf('title={tt("Profile image layout")}'))
 
 section("The pattern keeps out from behind the header")

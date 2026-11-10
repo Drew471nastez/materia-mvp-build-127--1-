@@ -14,7 +14,7 @@
  * editor, every theme pressed: scripts/check-onepage-themes.mjs.
  */
 import { readFileSync } from "node:fs"
-import { LOOK_RESET, BLOCK_COLOUR_FIELDS, buttonStyleFor, contrastRatio, lookFromTemplate, readableOn, withoutOwnColours } from "@/lib/onepage/theme-apply"
+import { LOOK_RESET, THEME_TYPE_KEYS, BLOCK_COLOUR_FIELDS, buttonStyleFor, contrastRatio, lookFromTemplate, readableOn, withoutOwnColours } from "@/lib/onepage/theme-apply"
 import type { OnePage, OnePageBlock } from "@/lib/onepage/types"
 import { untt } from "./i18n-source"
 
@@ -37,7 +37,8 @@ check(`the theme catalogue was read (${configs.length} themes)`, configs.length 
 const everyTheme = configs.length ? [...configs[0].keys].filter((k) => configs.every((c) => c.keys.has(k))) : []
 const someThemes = [...new Set(configs.flatMap((c) => [...c.keys]))].filter((k) => !everyTheme.includes(k))
 /* header_layout is the picker's own choice (a Hero theme, or classic for a picture), passed in, never left over. */
-const unreset = someThemes.filter((k) => !(k in LOOK_RESET) && k !== "header_layout")
+/* Changed on purpose (round AR): base themes now set some of the creator's own type and button keys too (THEME_TYPE_KEYS), which a theme change takes back its own way, not through LOOK_RESET. */
+const unreset = someThemes.filter((k) => !(k in LOOK_RESET) && k !== "header_layout" && !(THEME_TYPE_KEYS as readonly string[]).includes(k))
 check("every setting only some themes name is reset before a theme is laid on", unreset.length === 0, unreset.join(", "))
 
 console.log("\nPicking a theme")
@@ -90,7 +91,8 @@ const ctx = read("lib/onepage/context.tsx")
 check("the editor applies a theme in one commit", ctx.includes("commit(lookFromTemplate(prev, template, headerLayout, previous), null)"))
 /* Changed on purpose (round AL): no "Update to Classic" question any more (a Classic theme keeps a creator's Hero), so the one call is the picker's own. */
 check("the theme picker uses it, not a merge", design.includes("applyThemeLook(template as never,") && !design.includes('applyThemeLook(pendingTemplate as never, "classic")'))
-check("a Classic theme keeps a creator's Hero", /needsClassicLayout = !wantsHeroLayout && templateLayout === "classic" && currentHeaderLayout !== "hero"/.test(design))
+/* Changed on purpose (round AR): a Hero the last theme set is that theme's, and a Classic theme takes it back; one the creator chose still stays. */
+check("a Classic theme keeps a creator's Hero, not a theme's", design.includes('(currentHeaderLayout !== "hero" || heroFromTheme)') && design.includes('previous?.profile_layout === "hero"'))
 const pub = read("components/onepage/public-onepage.tsx")
 /* Round 10: the product block is drawn by components/onepage/product-block.tsx, where its theme button is `themeButton`. */
 const productBlock = read("components/onepage/product-block.tsx")
