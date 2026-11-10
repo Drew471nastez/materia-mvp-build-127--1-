@@ -125,14 +125,38 @@ export function buttonStyleFor(template: ThemeTemplateLike, which: "share_style"
   return template.category === "light" ? "white" : "glassmorphism"
 }
 
-/** The page with this block's own colours taken off, or the same block when it has none. */
+/**
+ * Round W9 (opblocks): the colours a block's own Layout tab can set (style.presentation, components/onepage/
+ * block-settings): its surface, its gradient, its title's, line's and icon's colours. They were kept across a
+ * theme, so a link made white on a dark theme stayed a white slab with white words on the next light one.
+ * Like a product's own colours, a theme takes them off; the block's sizes, shape, picture and layout stay.
+ */
+export const PRESENTATION_COLOUR_FIELDS = ["background", "gradient_from", "gradient_to", "title_color", "subtitle_color", "icon_color"] as const
+
+function withoutPresentationColours(block: OnePageBlock): OnePageBlock {
+  const p = (block.style as { presentation?: Record<string, unknown> } | undefined)?.presentation
+  if (!p || !PRESENTATION_COLOUR_FIELDS.some((f) => p[f] != null && p[f] !== "")) return block
+  const next = { ...p }
+  for (const f of PRESENTATION_COLOUR_FIELDS) delete next[f]
+  return { ...block, style: { ...(block.style || {}), presentation: next } as OnePageBlock["style"] }
+}
+
+/** The page with this block's own colours taken off (a group's blocks too), or the same block when it has none. */
 export function withoutOwnColours(block: OnePageBlock): OnePageBlock {
-  const fields = BLOCK_COLOUR_FIELDS[block.type]
-  const data = block.data as unknown as Record<string, unknown> | null | undefined
-  if (!fields || !data || !fields.some((f) => data[f] != null && data[f] !== "")) return block
-  const next = { ...data }
-  for (const f of fields) next[f] = null
-  return { ...block, data: next as unknown as OnePageBlock["data"] }
+  let out = withoutPresentationColours(block)
+  const fields = BLOCK_COLOUR_FIELDS[out.type]
+  const data = out.data as unknown as Record<string, unknown> | null | undefined
+  if (fields && data && fields.some((f) => data[f] != null && data[f] !== "")) {
+    const next = { ...data }
+    for (const f of fields) next[f] = null
+    out = { ...out, data: next as unknown as OnePageBlock["data"] }
+  }
+  const children = out.type === "group" ? ((out.data as unknown as { children?: OnePageBlock[] } | null)?.children ?? null) : null
+  if (Array.isArray(children)) {
+    const recoloured = children.map(withoutOwnColours)
+    if (recoloured.some((c, i) => c !== children[i])) out = { ...out, data: { ...(out.data as object), children: recoloured } as unknown as OnePageBlock["data"] }
+  }
+  return out
 }
 
 /**

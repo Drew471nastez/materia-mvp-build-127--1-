@@ -50,6 +50,8 @@ type ThemeLike = {
   button_color?: unknown
   button_text_color?: unknown
   button_border_radius?: unknown
+  font_family?: unknown
+  title_font?: unknown
 } | null | undefined
 
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i
@@ -85,8 +87,9 @@ export const DARK_GROUND = 0.18
 export function sheetPalette(theme: ThemeLike): SheetPalette {
   const bg = hex6(theme?.background_color) ?? "#ffffff"
   const dark = (luminanceOf(bg) ?? 1) < DARK_GROUND
-  const surface = dark ? mixHex(bg, "#ffffff", 0.06) : mixHex(bg, "#ffffff", 0.82)
-  const raised = dark ? mixHex(bg, "#ffffff", 0.12) : mixHex(bg, "#ffffff", 0.6)
+  /* Round W9: a light page's window keeps its own tint (Gazette's cream, Peach's peach), half toward white rather than nearly all the way; its fields are a step whiter than it. */
+  const surface = dark ? mixHex(bg, "#ffffff", 0.06) : mixHex(bg, "#ffffff", 0.5)
+  const raised = dark ? mixHex(bg, "#ffffff", 0.12) : mixHex(bg, "#ffffff", 0.84)
   const ink = readable(surface, hex6(theme?.text_color), 4.5)
   /* Small print: as far toward the surface as it can go and still read at 4.5:1. */
   let muted = ink
@@ -120,8 +123,28 @@ export function sheetPalette(theme: ThemeLike): SheetPalette {
   }
 }
 
-/** The variables, as one :root rule for a <style> element. */
+/**
+ * A font stack as the theme saves it ("'Merriweather', serif"), safe to write into a stylesheet: letters,
+ * digits, spaces, quotes, commas and hyphens only. Anything else is no font (the sheet keeps its own).
+ */
+export function cssFontStack(v: unknown): string | null {
+  if (typeof v !== "string") return null
+  const s = v.trim()
+  return s && s.length <= 200 && /^[A-Za-z0-9 ,'"_-]+$/.test(s) ? s : null
+}
+
+/**
+ * The variables, as one :root rule for a <style> element.
+ *
+ * Round W9 (opblocks): the block sheets (Contact, Subscribe, Share, music, Privacy; components/onepage/
+ * onepage-dialog sheetTokens) read these too, so they also carry the body's softer ink, a stronger
+ * hairline, the colour scheme for native controls, and the page's typefaces.
+ */
 export function sheetRootCss(theme: ThemeLike): string {
   const p = sheetPalette(theme)
-  return `:root{--opk-surface:${p.surface};--opk-raised:${p.raised};--opk-ink:${p.ink};--opk-muted:${p.muted};--opk-line:${p.line};--opk-accent:${p.accent};--opk-accent-ink:${p.accentInk};--opk-radius:${p.radius}px;--op-scroll-thumb:${p.scrollThumb}}`
+  const font = cssFontStack(theme?.font_family)
+  const title = cssFontStack(theme?.title_font) ?? font
+  const body = mixHex(p.ink, p.surface, 0.12)
+  const extra = `--opk-body:${ratio(p.surface, body) >= 4.5 ? body : p.ink};--opk-line-strong:${mixHex(p.surface, p.ink, 0.3)};--opk-scheme:${p.dark ? "dark" : "light"};${font ? `--opk-font:${font};` : ""}${title ? `--opk-title-font:${title};` : ""}`
+  return `:root{--opk-surface:${p.surface};--opk-raised:${p.raised};--opk-ink:${p.ink};--opk-muted:${p.muted};--opk-line:${p.line};--opk-accent:${p.accent};--opk-accent-ink:${p.accentInk};--opk-radius:${p.radius}px;${extra}--op-scroll-thumb:${p.scrollThumb}}`
 }

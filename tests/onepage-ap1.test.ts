@@ -120,7 +120,8 @@ section("The shared link card and the row bin")
   check("the card is a chat's size, not the column's", /w-full max-w-\[380px\] overflow-hidden rounded-xl/.test(code("components/onepage/seo-panel.tsx")))
   const tab = code("components/onepage/tabs/links-tab.tsx")
   /* Changed on purpose (round W8): the owner asked for the bin to go from the row; Remove is the more menu's, with its question. */
-  check("no bin on the row: Remove is in the more menu, asking the same question", !/data-block-quick-remove/.test(tab) && /onAskRemove=\{\(\) => setAskingRemove\(true\)\}/.test(tab))
+  /* Changed on purpose (round W9, opblocks): the owner asked for the bin back on the row, always drawn (no hover-only one); both it and the more menu ask the same question. tests/onepage-blocks-w9.test.ts pins the new bin. */
+  check("no hover-only bin on the row: Remove is in the more menu, asking the same question", !/data-block-quick-remove/.test(tab) && /askedFrom\.current = "menu"\s+setAskingRemove\(true\)/.test(tab))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

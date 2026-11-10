@@ -41,10 +41,13 @@ section("The count beside a row, in four characters")
 section("A block's row")
 {
   const tab = code("components/onepage/tabs/links-tab.tsx")
-  check("no bin on the row", !/data-block-quick-remove/.test(tab) && !/sm:pointer-fine:grid/.test(tab))
-  check("Remove is the more menu's, asking first", /onAskRemove=\{\(\) => setAskingRemove\(true\)\}/.test(tab) && /<BlockRemoveQuestion\s+open=\{askingRemove\}/.test(tab))
-  check("the numbers are one width on every row, with the full figure in its name", /className="flex h-8 w-14 shrink-0 items-center gap-1 rounded-lg px-1\.5/.test(tab) && /rowCountLabel\(clickCount\)/.test(tab) && /tabular-nums/.test(tab))
-  check("a row without numbers keeps their room", /\{!hasStats && <span aria-hidden className="block h-8 w-14 shrink-0" data-row-slot="stats" \/>\}/.test(tab))
+  /* Changed on purpose (round W9, opblocks): the owner asked for the bin back on the row. It is always drawn now (no hover-only hole), beside the numbers, with a slot on the header row; tests/onepage-blocks-w9.test.ts pins it. */
+  check("no hover-only bin on the row", !/data-block-quick-remove/.test(tab) && !/sm:pointer-fine:grid/.test(tab))
+  /* Changed on purpose (round W9): the more menu's Remove and the row's bin open the same question. */
+  check("Remove is the more menu's, asking first", /askedFrom\.current = "menu"\s+setAskingRemove\(true\)/.test(tab) && /<BlockRemoveQuestion\s+open=\{askingRemove\}/.test(tab))
+  /* Changed on purpose (round W9): 48px on a phone (56 from 640px), the room the row's bin takes. Still one width on every row. */
+  check("the numbers are one width on every row, with the full figure in its name", /className="flex h-8 w-12 shrink-0 items-center gap-0\.5 rounded-lg px-1[^"]*sm:w-14/.test(tab) && /rowCountLabel\(clickCount\)/.test(tab) && /tabular-nums/.test(tab))
+  check("a row without numbers keeps their room", /\{!hasStats && <span aria-hidden className="block h-8 w-12 shrink-0 sm:w-14" data-row-slot="stats" \/>\}/.test(tab))
   check("the header keeps the more button's room, so its switch lines up", /<span aria-hidden className="block h-8 w-8 shrink-0" data-row-slot="menu" \/>/.test(tab))
   check("the remove menu still holds Remove", /id: "block-remove", label: tt\("Remove"\)/.test(code("components/onepage/block-remove.tsx")))
 }

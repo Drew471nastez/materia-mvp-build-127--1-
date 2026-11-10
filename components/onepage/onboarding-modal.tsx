@@ -359,7 +359,7 @@ interface OnboardingProgress {
 }
 
 export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalProps) {
-  const { onepage, updateProfile, updateTheme, updateSocialLinks, addBlock, updateBlock, removeBlock, save } = useOnePage()
+  const { onepage, updateProfile, applyThemeLook, updateSocialLinks, addBlock, updateBlock, removeBlock, save } = useOnePage()
   /*
     FULL SCREEN IN THE APP, AT EVERY WIDTH, like the creator onboarding
     (components/app/creator-onboarding-modal.tsx). Below 640px this has always
@@ -935,10 +935,10 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       // Apply theme with template_id so design tab shows correct selection
       const template = THEME_TEMPLATES.find((t) => t.id === selectedTemplate)
       if (template) {
-        await updateTheme({
-          ...template.theme_config,
-          template_id: template.id,
-        } as any)
+        /* Round W9: picked the way Design › Themes picks it (lib/onepage/theme-apply lookFromTemplate), so the
+           theme's Share and Subscribe styles and its Hero or Classic header come with it, as they do there. */
+        const hero = (template as { profile_layout?: string }).profile_layout === "hero" || (template.theme_config as { header_layout?: string }).header_layout === "hero"
+        applyThemeLook(template as never, hero ? "hero" : (template as { profile_layout?: string }).profile_layout === "classic" ? "classic" : undefined, null)
       }
 
       // Create blocks based on goal

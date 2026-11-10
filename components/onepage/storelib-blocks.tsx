@@ -670,11 +670,12 @@ function PromoCodeView({ block, look }: { block: OnePageBlock; look: StorelibBlo
             window.setTimeout(() => setCopied(false), 1600)
           }
         }}
-        className="mt-2.5 flex w-full items-center justify-between border border-dashed border-current/40 font-mono font-semibold tracking-[0.06em]"
+        className="mt-2.5 flex w-full items-center justify-between border border-dashed border-current/40 font-semibold"
         style={{ borderRadius: Math.max(radius - 4, 8), padding: `${px(10, look.scale)} ${px(14, look.scale)}`, fontSize: px(15, look.scale), borderColor: tt("color-mix(in srgb, currentColor 40%, transparent)") }}
       >
-        <span className="truncate">{code}</span>
-        <span className="inline-flex shrink-0 items-center gap-1 font-sans font-medium tracking-normal" style={{ fontSize: px(13, look.scale) }}>
+        {/* The code in a fixed width face; Copy in the page's own (round W9: font-sans drew it in Inter on every theme). */}
+        <span className="truncate font-mono tracking-[0.06em]">{code}</span>
+        <span className="inline-flex shrink-0 items-center gap-1 font-medium" style={{ fontSize: px(13, look.scale) }}>
           {copied ? <Check aria-hidden style={{ width: px(15, look.scale), height: px(15, look.scale) }} /> : <Copy aria-hidden style={{ width: px(15, look.scale), height: px(15, look.scale) }} />}
           {copied ? tt("Copied") : tt("Copy")}
         </span>

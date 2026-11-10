@@ -157,7 +157,8 @@ check("a page set in a pair reads as that pair", fontPairOf({ font_family: "'Int
 
 /* ─── The page, the Design tab and Settings use it ────────────────────── */
 console.log("\nThe page, the preview, the Design tab and Settings")
-check("the blocks' gap and layout come from the theme", /className=\{cn\("flex flex-col items-center", blockGapClass\(safeTheme\)\)\}/.test(live) && /pairLinkTiles\(pairProductTiles\(/.test(live))
+/* Changed on purpose (round W9, opblocks): the paired list is kept in one place (laid) so Mixed tiles can read the same list (mixedTileSizes). */
+check("the blocks' gap and layout come from the theme", /className=\{cn\("flex flex-col items-center", blockGapClass\(safeTheme\)\)\}/.test(live) && /const laid = pairProductTiles\(/.test(live) && /pairLinkTiles\(laid, blockLayoutOf\(safeTheme\)\)/.test(live))
 check("a link on Cards is drawn as the featured card", /if \(data\.layout_type === 'pro' \|\| linkDrawnAsCard\(theme, data\)\)/.test(live))
 check("the classic header and socials carry their marks for left alignment", /data-op-header=""/.test(live) && /data-op-socials=\{isHeroLayout \? undefined : ""\}/.test(live))
 check("the theme's sheet colours are written once", (live.match(/sheetRootCss\(safeTheme\)/g) ?? []).length === 1)

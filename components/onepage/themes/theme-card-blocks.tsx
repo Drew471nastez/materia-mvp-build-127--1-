@@ -98,9 +98,21 @@ function ThemeCardLinks({ c }: { c: CardConfig }) {
     )
   }
   if (layout === "masonry") {
-    return <span className="mt-[11%] grid w-full grid-cols-2 gap-[7px]" data-theme-card-layout="masonry">
-      {[0, 1, 2, 3].map((i) => <span key={i} className={i === 0 ? "col-span-2 flex h-[27px] items-end p-2" : i === 1 ? "row-span-2 flex h-full min-h-[42px] items-end p-1.5" : "flex h-[18px] items-end p-1.5"} style={{...look, borderRadius:6, background:`linear-gradient(140deg, color-mix(in srgb, ${c.button_color} 40%, ${c.background_color || "#fff"}), ${c.button_color})`}}>{line(i === 0 ? "60%" : "80%")}</span>)}
-    </span>
+    /* Round W9: as the page lays Mixed tiles out now (lib/onepage/theme-layout mixedTileSizes): a full row, a pair of tiles, a full row. */
+    return (
+      <span className="mt-[11%] flex w-full flex-col gap-[7px]" data-theme-card-layout="masonry">
+        <span className="grid h-[14px] w-full place-items-center" style={look}>{line("36%")}</span>
+        <span className="grid w-full grid-cols-2 gap-[7px]">
+          {[0, 1].map((i) => (
+            <span key={i} className="flex h-[30px] w-full flex-col items-center justify-center gap-[4px]" style={look}>
+              <span className="block h-[7px] w-[7px] rounded-[2px]" style={{ background: ink, opacity: 0.55 }} />
+              {line("54%")}
+            </span>
+          ))}
+        </span>
+        <span className="grid h-[14px] w-full place-items-center" style={look}>{line("30%")}</span>
+      </span>
+    )
   }
   if (layout === "cards") {
     return (
@@ -109,7 +121,8 @@ function ThemeCardLinks({ c }: { c: CardConfig }) {
           <span className="block min-h-0 flex-1" style={{ background: `color-mix(in srgb, ${ink} 22%, transparent)` }} />
           <span className="grid h-[13px] shrink-0 place-items-center">{line("40%")}</span>
         </span>
-        <span className="grid h-[14px] w-full place-items-center" style={look}>{line("36%")}</span>
+        {/* Round W9: a plain link is a card too on the page now, taller than a List row. */}
+        <span className="grid h-[20px] w-full place-items-center" style={look}>{line("40%")}</span>
       </span>
     )
   }

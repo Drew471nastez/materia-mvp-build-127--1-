@@ -75,7 +75,8 @@ async function main() {
   const live = stripComments(read("components/onepage/public-onepage.tsx"))
   check("the classic header draws it, the round photo pulled over its edge", /const cover = coverImageOf\(theme\)/.test(live) && /data-cover-image=""/.test(live) && /mb-\[calc\(-1\*var\(--cover-pull\)-0\.75rem\)\] sm:mb-\[calc\(-1\*var\(--cover-pull\)-1rem\)\]/.test(live))
   check("the page starts at the very top under a cover, as under a Hero", /heroHeaderShown\(safeTheme, \{ avatar_url, avatar_video_url \}\) \|\| coverImageOf\(safeTheme\) \? "0" : "50px"/.test(live))
-  check("the page pairs products with its theme", /pairProductTiles\(safeBlocks[\s\S]{0,300}, safeTheme\), blockLayoutOf\(safeTheme\)\)/.test(live) && /productLayoutOf\(data, theme\)/.test(read("components/onepage/product-block.tsx")))
+  /* Changed on purpose (round W9, opblocks): the paired list is kept as one value (laid) that Mixed tiles reads too. */
+  check("the page pairs products with its theme", /const laid = pairProductTiles\(safeBlocks[\s\S]{0,300}, safeTheme\)/.test(live) && /pairLinkTiles\(laid, blockLayoutOf\(safeTheme\)\)/.test(live) && /productLayoutOf\(data, theme\)/.test(read("components/onepage/product-block.tsx")))
   const links = read("components/onepage/tabs/links-tab.tsx")
   check("a layout picked on the block is marked as picked, and the picker shows what the page draws", /updateData\(\{ style: styleId, style_chosen: true, button_style: "filled" \}\)/.test(links) && /<ProductLayoutPicker data=\{data\} theme=\{onepage\?\.theme\}/.test(links))
   const layout = read("components/onepage/themes/layout-section.tsx")
