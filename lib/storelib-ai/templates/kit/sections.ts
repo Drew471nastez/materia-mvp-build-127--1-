@@ -20,6 +20,7 @@
  * Pure. Browser safe.
  */
 import { BOX, DISPLAY, INNER, LABEL, motion, rootAttrs, s, spacing, type ComponentDef, type PresetBlock } from "./schema"
+import { formPolishCss, icon } from "./chrome-parts"
 
 /** A reveal on a view timeline, in @supports and only for visitors who welcome motion. The still state is the default. */
 export function reveal(root: string, target: string, name: string): string {
@@ -317,10 +318,11 @@ export function contact(o: ContactOptions): ComponentDef {
       <div data-storelib-native-form="{{ settings.form.id }}" data-presentation="inline"></div>
       {% else %}
       <form class="ct__form" data-storelib-form="contact">
-        <label class="ct__field"><span>{{ settings.name_label }}</span><input type="text" name="name" autocomplete="name" required></label>
-        <label class="ct__field"><span>{{ settings.email_label }}</span><input type="email" name="email" autocomplete="email" required></label>
-        <label class="ct__field"><span>{{ settings.message_label }}</span><textarea name="message" rows="5" required></textarea></label>
+        <label class="ct__field"><span>{{ settings.name_label }}</span><input type="text" name="name" autocomplete="name" required placeholder="{{ settings.name_hint }}"></label>
+        <label class="ct__field"><span>{{ settings.email_label }}</span><input type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_hint }}"></label>
+        <label class="ct__field"><span>{{ settings.message_label }}</span><textarea name="message" rows="5" required placeholder="{{ settings.message_hint }}"></textarea></label>
         <button class="ct__send" type="submit">{{ settings.send_label }}</button>
+      <p data-storelib-success hidden role="status">${icon("check", "", 18)}<span>{{ settings.thanks_text }}</span></p>
       </form>
       {% endif %}
     </div>
@@ -345,7 +347,8 @@ export function contact(o: ContactOptions): ComponentDef {
 .ct__send:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); }
 @container (min-width: 900px) { .ct__in { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: start; } .ct__row { grid-template-columns: 9rem minmax(0, 1fr); align-items: baseline; } }
 ${reveal(".ct", ".ct__form-wrap", `${o.type}_in`)}
-${o.skin ?? ""}`,
+${o.skin ?? ""}
+${formPolishCss("ct")}`,
     settings: [
       s.inline("heading", "Heading", o.words.heading),
       s.rich("text", "Text", o.words.text),
@@ -354,6 +357,10 @@ ${o.skin ?? ""}`,
       s.text("name_label", "Name field", o.words.name),
       s.text("email_label", "Email field", o.words.email),
       s.text("message_label", "Message field", o.words.message),
+      s.text("name_hint", "Name hint", "Your name"),
+      s.text("email_hint", "Email hint", "Your email address"),
+      s.text("message_hint", "Message hint", "A few lines are plenty"),
+      s.text("thanks_text", "After sending", "Thank you. We will write back soon."),
       s.text("send_label", "Send button", o.words.send),
       s.scheme(o.scheme ?? "site"),
       ...motion(),

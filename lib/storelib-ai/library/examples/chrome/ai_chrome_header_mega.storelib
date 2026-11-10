@@ -58,8 +58,8 @@ tags: chrome kit, header, mega menu, megamenu, dropdown, image cards, featured p
       </ul>
     </nav>
     <div class="hmg__tools">
-      <a class="hmg__tool" href="{{ routes.search_url }}" data-storelib-search><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.6"/></svg><span class="hmg__word">{{ settings.search_label }}</span></a>
-      <a class="hmg__tool" href="{{ routes.cart_url }}" data-storelib-cart>{{ settings.cart_label }} <span class="hmg__count" data-storelib-cart-count></span></a>
+      <a class="hmg__tool" href="{{ routes.search_url }}" data-storelib-search aria-label="{{ settings.search_label }}"><span data-storelib-icon="search" aria-hidden="true"></span><span class="hmg__word">{{ settings.search_label }}</span></a>
+      <a class="hmg__tool" href="{{ routes.cart_url }}" data-storelib-cart aria-label="{{ settings.cart_label }}"><span data-storelib-icon="bag" aria-hidden="true"></span><span class="hmg__word">{{ settings.cart_label }}</span> <span class="hmg__count" data-storelib-cart-count></span></a>
       <button class="hmg__tool hmg__burger" type="button" data-storelib-menu="{{ settings.menu.handle }}">{{ settings.menu_label }}</button>
     </div>
   </div>

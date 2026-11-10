@@ -17,7 +17,7 @@
  */
 import { existsSync } from "node:fs"
 import { TEMPLATES_B } from "@/lib/storelib-ai/templates/registry-b"
-import { targetOf, withImages } from "@/lib/storelib-ai/templates/kit-b"
+import { headerScrollCss, panelCss, prefs, scrollSetting, targetOf, toolButton, withImages } from "@/lib/storelib-ai/templates/kit-b"
 import { SITE_TEMPLATES } from "@/lib/storelib-ai/templates/registry"
 import { MOTION_ISLAND_KINDS, motionFindings } from "@/lib/storelib-theme/motion-islands"
 import { validateSite, errorsOf } from "@/lib/ai-builder/agent/validate"
@@ -344,6 +344,27 @@ async function main() {
     } finally {
       await browser.close()
     }
+  }
+
+
+  console.log("\n── round Q2: the P2b chrome helpers")
+  {
+    const chip = prefs("zz")
+    check("prefs is one compact chip: a button with the current language and currency opening a panel with both lists", /class="zz-loc__chip"[^>]*popovertarget="zz-loc-\{\{ section\.id \}\}"/.test(chip) && /data-storelib-locale-current/.test(chip) && /data-storelib-currency-current/.test(chip) && /popover>[\s\S]*data-storelib-locale-list[\s\S]*data-storelib-currency-list/.test(chip), chip.slice(0, 300))
+    check("  a second chip in the same section gets its own id, and can open upwards", prefs("zz", { where: "d", up: true }).includes('id="zz-loc-d-{{ section.id }}"') && prefs("zz", { up: true }).includes("zz-loc--up"))
+    for (const kind of ["search", "account", "cart", "menu"] as const) {
+      const b = toolButton("zz", kind, { target: "zz-d" })
+      check(`toolButton ${kind}: an icon (host set, inline fallback) with its words as aria-label, no visible word`, /data-storelib-icon="[a-z-]+"/.test(b) && /<svg[^>]*stroke-width="1\.6"/.test(b) && /aria-label="\{\{ settings\.\w+_label \}\}"/.test(b) && !/>\{\{ settings\.\w+_label \}\}</.test(b), b.slice(0, 200))
+    }
+    check("  the cart button carries the count badge", toolButton("zz", "cart").includes('class="zz-badge" data-storelib-cart-count'))
+    const sc = scrollSetting("hide") as { default?: string; options?: { value: string }[] }
+    check("scrollSetting: static, sticky, shrink, hide", sc.default === "hide" && JSON.stringify(sc.options?.map((o) => o.value)) === JSON.stringify(["static", "sticky", "shrink", "hide"]))
+    const css = headerScrollCss("zz", "zz__notice")
+    const kf = [...css.matchAll(/@keyframes[^{]+\{([\s\S]*?\})\s*\}/g)].map((m) => m[1]).join(" ")
+    check("headerScrollCss: reads the host's data-scrolled / data-scroll-dir / data-over-hero, keyframes move only opacity and transform", /data-scrolled/.test(css) && /data-scroll-dir="down"/.test(css) && /data-over-hero="true"/.test(css) && [...kf.matchAll(/([a-z-]+)\s*:/g)].every((m) => ["opacity", "transform"].includes(m[1])))
+    check("  never a transform on the header root (it would trap the fixed cart and search panels)", [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter((m) => /(^|;|\s)transform\s*:/.test(m[2])).flatMap((m) => m[1].split(",")).map((sel) => { let x = sel.trim(); for (let i = 0; i < 4; i++) x = x.replace(/:(?:is|not|has)\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)/g, ""); return x }).every((x) => !/^\.zz(--[a-z]+)?$/.test(x)) && /animation-timeline: scroll\(root\)/.test(css))
+    const pc = panelCss("zz")
+    check("panelCss: round icon buttons and the chip's look, no outlined option buttons", pc.includes(".zz-ib {") && pc.includes(".zz-loc__panel") && !/\.zz-pref__opt\s*\{[^}]*border:\s*1px solid/.test(pc))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

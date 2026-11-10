@@ -46,6 +46,7 @@ import {
   localeOptions,
   menuDrawerItems,
   menuHandleOf,
+  menuLinksFor,
   priceCentsFrom,
   searchPageHref,
   searchTerm,
@@ -65,6 +66,7 @@ import { HeaderCartDrawer, HeaderMobileNavDrawer } from "./renderers/HeaderSecti
 import { SearchModal } from "../header-search-modal"
 import { localizedHref, switchCurrency, switchLanguage } from "../theme/language-switch"
 import { closeOwnPanel, openOwnPanel, usePageHooks } from "./own-panels"
+import { iconSvg } from "@/lib/website-builder/storelib-icons"
 
 const TRIGGERS = `[${H.cart}],[${H.search}],[${H.menu}]`
 /* A cart of the section's own: its buttons (lib/website-builder/storefront-hooks.ts, A CART OF THE SECTION'S OWN). */
@@ -96,9 +98,17 @@ function markPanel(panel: HTMLElement, open: boolean) {
 
 /**
  * A language or currency list drawn from its one pattern: a copy per option,
- * its words as text (data-option-label, data-option-code), its code on
+ * its words as text (data-option-label, data-option-code, and for a
+ * currency data-option-iso, -symbol and -name), its code on
  * `data-option-code`, aria-current on the one in use. The list is hidden
  * when there is nothing to choose between.
+ *
+ * A list marked data-storelib-dropdown (round Q) is a compact switch: the
+ * page gives it a button showing the current choice (its own
+ * data-storelib-dropdown-toggle, or one it makes) and puts the options in a
+ * menu under it (its own data-storelib-dropdown-menu, or one it makes),
+ * shut until the button is pressed. `data-storelib-dropdown="code"` shows the
+ * short code on the button ("EUR", "RO") instead of the label.
  */
 function fillOptions(root: HTMLElement, listSel: string, optionHook: string, kind: "locale" | "currency", options: HookOption[]) {
   root.querySelectorAll<HTMLElement>(listSel).forEach((list) => {
@@ -107,13 +117,18 @@ function fillOptions(root: HTMLElement, listSel: string, optionHook: string, kin
     list.querySelectorAll(`[${OPTION_ITEM}]`).forEach((n) => n.remove())
     if (!pattern) return
     pattern.hidden = true
+    const dropdown = list.hasAttribute(H.dropdown)
+    if (dropdown) dressDropdown(list, pattern, kind, options)
     for (const o of options) {
       const item = pattern.cloneNode(true) as HTMLElement
       item.removeAttribute(optionHook)
       item.hidden = false
       item.setAttribute(OPTION_ITEM, kind)
       within(item, "[data-option-label]").forEach((el) => { el.textContent = o.label })
-      within(item, "[data-option-code]").forEach((el) => { if (el !== item) el.textContent = o.code.toUpperCase() })
+      within(item, "[data-option-code]").forEach((el) => { if (el !== item) el.textContent = (o.iso || o.code).toUpperCase() })
+      within(item, "[data-option-iso]").forEach((el) => { el.textContent = o.iso ?? "" })
+      within(item, "[data-option-symbol]").forEach((el) => { el.textContent = o.symbol ?? "" })
+      within(item, "[data-option-name]").forEach((el) => { el.textContent = o.name || o.label })
       item.setAttribute("data-option-code", o.code)
       if (kind === "locale") item.setAttribute("lang", o.code)
       if (o.current) item.setAttribute("aria-current", "true")
@@ -121,6 +136,158 @@ function fillOptions(root: HTMLElement, listSel: string, optionHook: string, kin
       pattern.parentNode?.insertBefore(item, null)
     }
   })
+}
+
+/** The short form of the current choice: the language's code ("RO") or the currency's ("EUR"). */
+function shortOf(o: HookOption | undefined, kind: "locale" | "currency"): string {
+  if (!o) return ""
+  return (kind === "currency" ? o.iso || o.code : o.code).toUpperCase()
+}
+
+/** A dropdown switch's button and menu, made once and kept; the button says the current choice. */
+function dressDropdown(list: HTMLElement, pattern: HTMLElement, kind: "locale" | "currency", options: HookOption[]) {
+  let menu = list.querySelector<HTMLElement>(`[${H.dropdownMenu}]`)
+  if (!menu) {
+    menu = document.createElement("div")
+    menu.setAttribute(H.dropdownMenu, "")
+    pattern.parentNode?.insertBefore(menu, pattern)
+  }
+  if (pattern.parentNode !== menu) menu.appendChild(pattern)
+  let toggle = list.querySelector<HTMLElement>(`[${H.dropdownToggle}]`)
+  if (!toggle) {
+    toggle = document.createElement("button")
+    toggle.setAttribute("type", "button")
+    toggle.setAttribute(H.dropdownToggle, "")
+    const label = document.createElement("span")
+    label.setAttribute("data-storelib-dropdown-label", "")
+    toggle.appendChild(label)
+    toggle.insertAdjacentHTML("beforeend", iconSvg("chevron-down"))
+    list.insertBefore(toggle, list.firstChild)
+  }
+  const id = menu.id || `sl-dd-${Math.random().toString(36).slice(2, 9)}`
+  menu.id = id
+  toggle.setAttribute("aria-controls", id)
+  toggle.setAttribute("aria-haspopup", "true")
+  toggle.setAttribute("aria-expanded", String(list.getAttribute("data-open") === "true"))
+  if (!toggle.hasAttribute("aria-label") && list.getAttribute("aria-label")) toggle.setAttribute("aria-label", list.getAttribute("aria-label")!)
+  const current = options.find((o) => o.current)
+  const words = list.getAttribute(H.dropdown) === "code" ? shortOf(current, kind) : current?.label ?? ""
+  const label = toggle.querySelector<HTMLElement>("[data-storelib-dropdown-label]")
+  if (label) label.textContent = words
+  else if (toggle.childElementCount === 0) toggle.textContent = words
+}
+
+/** Opens or shuts a dropdown switch; it opens upwards when it sits low on the screen (a footer). */
+function setDropdown(list: HTMLElement, open: boolean) {
+  if (open) {
+    const r = list.getBoundingClientRect()
+    list.setAttribute("data-drop", r.top > window.innerHeight * 0.55 ? "up" : "down")
+  }
+  list.setAttribute("data-open", String(open))
+  list.querySelector(`[${H.dropdownToggle}]`)?.setAttribute("aria-expanded", String(open))
+}
+
+/**
+ * THE MENU DRAWER'S LINKS (round Q). A drawer's own markup draws
+ * settings.menu.links; when that menu was missing (a menu setting naming a
+ * menu the site does not have, or none) the drawer opened on nothing but its
+ * currency buttons. Wherever a drawer marks data-storelib-menu-links, and in
+ * any drawer with no link of its own at all, the page draws the site's menu
+ * (storefront-hooks.ts menuLinksFor): every level, a level with links under
+ * it as a <details> that opens in place.
+ */
+const HOST_LINKS = "data-storelib-menu-links-list"
+function linkList(items: HookNavItem[], level: number): HTMLUListElement {
+  const ul = document.createElement("ul")
+  ul.setAttribute(HOST_LINKS, "")
+  ul.setAttribute("data-level", String(level))
+  for (const it of items) {
+    const li = document.createElement("li")
+    const a = document.createElement("a")
+    a.href = safeHref(it.href) || "#"
+    a.textContent = it.label
+    if (it.openInNew) { a.target = "_blank"; a.rel = "noopener" }
+    if (it.children?.length) {
+      const d = document.createElement("details")
+      const sum = document.createElement("summary")
+      const words = document.createElement("span")
+      words.textContent = it.label
+      sum.appendChild(words)
+      sum.insertAdjacentHTML("beforeend", iconSvg("chevron-down"))
+      d.appendChild(sum)
+      const inner = linkList(it.children, level + 1)
+      if (it.href && it.href !== "#") {
+        const own = document.createElement("li")
+        own.appendChild(a)
+        inner.insertBefore(own, inner.firstChild)
+      }
+      d.appendChild(inner)
+      li.appendChild(d)
+    } else li.appendChild(a)
+    ul.appendChild(li)
+  }
+  return ul
+}
+
+function fillMenuLinks(panel: HTMLElement, linksFor: (handle: string) => HookNavItem[]) {
+  panel.querySelectorAll(`[${HOST_LINKS}]`).forEach((n) => { if (!n.parentElement?.closest(`[${HOST_LINKS}]`)) n.remove() })
+  panel.querySelectorAll("[data-storelib-host-nav]").forEach((n) => n.remove())
+  let targets = Array.from(panel.querySelectorAll<HTMLElement>(`[${H.menuLinks}]`))
+  /* A <nav> of its own that drew no link (its menu setting names a menu the site does not have): filled. */
+  if (targets.length === 0) targets = Array.from(panel.querySelectorAll<HTMLElement>("nav")).filter((n) => !n.querySelector("a[href]") && !n.closest("[hidden]"))
+  if (targets.length === 0) {
+    /* Links of its own, outside the language and currency lists: nothing to add. */
+    const own = Array.from(panel.querySelectorAll("a[href]")).filter((a) => !a.closest(`[${H.localeList}],[${H.currencyList}],[hidden]`))
+    if (own.length > 0) return
+    const nav = document.createElement("nav")
+    nav.setAttribute(H.menuLinks, "")
+    nav.setAttribute("data-storelib-host-nav", "")
+    nav.setAttribute("aria-label", "Menu")
+    /* Above the language and currency lists, beside whatever holds them; else at the end of the drawer. */
+    let at: Element | null = panel.querySelector(`[${H.localeList}],[${H.currencyList}]`)
+    while (at && at.parentElement && at.parentElement !== panel && at.parentElement.childElementCount === 1) at = at.parentElement
+    if (at && at.parentElement) at.parentElement.insertBefore(nav, at)
+    else panel.appendChild(nav)
+    targets = [nav]
+  }
+  for (const t of targets) {
+    const items = linksFor(menuHandleOf(t.getAttribute(H.menuLinks)))
+    if (items.length) t.appendChild(linkList(items, 1))
+  }
+}
+
+/*
+  THE PAGE STAYS STILL UNDER AN OPEN PANEL (round Q). The drawer scrolled and
+  the page behind it scrolled too, one inside the other, and a flick at the
+  end of the drawer carried on into the page. While a panel of the site's own
+  is open the page (the window, or the canvas card) does not scroll; counted,
+  so two panels in a row never leave it locked. The scrollbar's width is kept
+  as padding so nothing moves sideways.
+*/
+const scrollLocks = new Map<HTMLElement, { n: number; overflow: string; padding: string }>()
+export function lockPageScroll(inCanvas: boolean): () => void {
+  const target = (inCanvas ? document.getElementById("wb-preview-root") : null) ?? document.documentElement
+  const held = scrollLocks.get(target)
+  if (held) held.n++
+  else {
+    const bar = target === document.documentElement ? window.innerWidth - document.documentElement.clientWidth : target.offsetWidth - target.clientWidth
+    scrollLocks.set(target, { n: 1, overflow: target.style.overflow, padding: target.style.paddingRight })
+    target.style.overflow = "hidden"
+    if (bar > 0) target.style.paddingRight = `${bar}px`
+    target.setAttribute("data-storelib-scroll-locked", "")
+  }
+  let done = false
+  return () => {
+    if (done) return
+    done = true
+    const h = scrollLocks.get(target)
+    if (!h) return
+    if (--h.n > 0) return
+    scrollLocks.delete(target)
+    target.style.overflow = h.overflow
+    target.style.paddingRight = h.padding
+    target.removeAttribute("data-storelib-scroll-locked")
+  }
 }
 
 /**
@@ -432,15 +599,21 @@ export function useStorefrontHooks({
 
   const menuPanelRef = useRef<HTMLElement | null>(null)
   menuPanelRef.current = flags.menuPanel && scriptRoot ? scriptRoot.querySelector<HTMLElement>(`[${H.menuPanel}]`) : null
+  const menus = useMemo(() => cleanMenus((theme as Record<string, unknown>).menus), [theme])
+  const pageKeys = storefront.pages
   useLayoutEffect(() => {
     if (!scriptRoot || !flags.menuPanel) return
     scriptRoot.querySelectorAll<HTMLElement>(`[${H.menuPanel}]`).forEach((panel) => {
+      fillMenuLinks(panel, (handle) => menuLinksFor(menus, handle, pageKeys ?? []))
       markPanel(panel, ownMenuOpen)
       if (!panel.hasAttribute("role")) panel.setAttribute("role", "dialog")
       if (ownMenuOpen) panel.setAttribute("aria-modal", "true")
       else panel.removeAttribute("aria-modal")
     })
-  }, [scriptRoot, html, flags.menuPanel, ownMenuOpen])
+  }, [scriptRoot, html, flags.menuPanel, ownMenuOpen, menus, pageKeys])
+  /* Any of this section's own panels open: the page behind it holds still (lockPageScroll). */
+  const anyOwnOpen = ownMenuOpen || panelOpen || ownSearchOpen
+  useEffect(() => (anyOwnOpen ? lockPageScroll(inCanvas) : undefined), [anyOwnOpen, inCanvas])
   useFocusTrap(ownMenuOpen, menuPanelRef, !inCanvas)
   useEffect(() => {
     if (!ownMenuOpen) return
@@ -456,17 +629,45 @@ export function useStorefrontHooks({
   const currencies = useMemo(() => currencyOptions(choice), [choice])
   useLayoutEffect(() => {
     if (!scriptRoot || !(flags.locale || flags.currency)) return
+    /* The current choice as text; `="code"` asks for the short form ("EN", "EUR") for a compact chip. */
+    const writeCurrent = (sel: string, options: HookOption[], kind: "locale" | "currency") => {
+      const label = currentLabel(options)
+      if (!label) return
+      scriptRoot.querySelectorAll<HTMLElement>(`[${sel}]`).forEach((el) => {
+        el.textContent = el.getAttribute(sel) === "code" ? shortOf(options.find((o) => o.current), kind) : label
+      })
+    }
     if (flags.locale) {
       fillOptions(scriptRoot, `[${H.localeList}]`, H.localeOption, "locale", locales)
-      const label = currentLabel(locales)
-      if (label) scriptRoot.querySelectorAll<HTMLElement>(`[${H.localeCurrent}]`).forEach((el) => { el.textContent = label })
+      writeCurrent(H.localeCurrent, locales, "locale")
     }
     if (flags.currency) {
       fillOptions(scriptRoot, `[${H.currencyList}]`, H.currencyOption, "currency", currencies)
-      const label = currentLabel(currencies)
-      if (label) scriptRoot.querySelectorAll<HTMLElement>(`[${H.currencyCurrent}]`).forEach((el) => { el.textContent = label })
+      writeCurrent(H.currencyCurrent, currencies, "currency")
     }
   }, [scriptRoot, html, flags.locale, flags.currency, locales, currencies])
+
+  /* A dropdown switch shuts on a press anywhere else and on Escape, focus back on its button. */
+  useEffect(() => {
+    if (!scriptRoot || !(flags.locale || flags.currency)) return
+    const open = () => Array.from(scriptRoot.querySelectorAll<HTMLElement>(`[${H.dropdown}][data-open="true"]`))
+    const onDown = (e: PointerEvent) => {
+      for (const list of open()) if (!list.contains(e.target as Node)) setDropdown(list, false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      for (const list of open()) {
+        setDropdown(list, false)
+        if (list.contains(document.activeElement)) list.querySelector<HTMLElement>(`[${H.dropdownToggle}]`)?.focus()
+      }
+    }
+    document.addEventListener("pointerdown", onDown, true)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("pointerdown", onDown, true)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [scriptRoot, flags.locale, flags.currency])
 
   /** The cart's own buttons: add, a line's plus, minus and remove, check out, close. True when the press was one. */
   const onCartAction = (e: MouseEvent<HTMLElement>): boolean => {
@@ -520,10 +721,24 @@ export function useStorefrontHooks({
 
   /** A language or a currency of the section's own list: the same page in it, or the canvas's preview in it. */
   const onOption = (e: MouseEvent<HTMLElement>): boolean => {
+    /* A dropdown switch's button: open or shut its menu, the others shut. */
+    const toggle = (e.target as HTMLElement).closest?.<HTMLElement>(`[${H.dropdownToggle}]`)
+    const dd = toggle?.closest<HTMLElement>(`[${H.dropdown}]`)
+    if (toggle && dd && e.currentTarget.contains(toggle)) {
+      e.preventDefault()
+      e.stopPropagation()
+      const opening = dd.getAttribute("data-open") !== "true"
+      scriptRoot?.querySelectorAll<HTMLElement>(`[${H.dropdown}][data-open="true"]`).forEach((other) => { if (other !== dd) setDropdown(other, false) })
+      setDropdown(dd, opening)
+      if (opening) dd.querySelector<HTMLElement>(`[${OPTION_ITEM}][aria-current="true"]`)?.focus({ preventScroll: true })
+      return true
+    }
     const el = (e.target as HTMLElement).closest?.<HTMLElement>(`[${OPTION_ITEM}]`)
     if (!el || !e.currentTarget.contains(el)) return false
     e.preventDefault()
     e.stopPropagation()
+    const ownList = el.closest<HTMLElement>(`[${H.dropdown}]`)
+    if (ownList) setDropdown(ownList, false)
     const code = el.getAttribute("data-option-code") ?? ""
     if (!choice || !code) return true
     const preview = inCanvas ? storefront.preview : undefined
@@ -579,7 +794,7 @@ export function useStorefrontHooks({
       }
       if (menu.open) { closeMenu(); return true }
       const handle = menuHandleOf(el.getAttribute(H.menu))
-      let items = menuDrawerItems(cleanMenus((theme as Record<string, unknown>).menus)[handle], handle)
+      let items = menuDrawerItems(menus[handle], handle)
       /* No menu by that name: the links the section drew itself, so the button still opens something true. */
       if (items.length === 0 && scriptRoot) {
         items = Array.from(scriptRoot.querySelectorAll<HTMLAnchorElement>("nav a[href]")).map((a, i) => ({
@@ -589,6 +804,8 @@ export function useStorefrontHooks({
           openInNew: a.target === "_blank",
         }))
       }
+      /* Still nothing: the site's main menu, any menu, or its pages (menuLinksFor), never an empty drawer. */
+      if (items.length === 0) items = menuLinksFor(menus, handle, pageKeys ?? [])
       setSearchOpen(false)
       cart.setOpen(false)
       setMenu({ open: true, edge: hookEdge(el.getAttribute(H.menuFrom)), items })

@@ -22,7 +22,7 @@
  */
 import { automaticHover, type ColorScheme } from "@/lib/storelib-theme/color-schemes"
 import { ANIMATION_STYLES, CUSTOM_TOKENS_SETTING, SHADOW_LEVELS, type DesignTokens, type ValidationIssue } from "../types"
-import { SCALE_TOKENS, SITE_INVERSE_SCHEME, SITE_SCHEME, typeScaleStyles } from "../tokens"
+import { SCALE_TOKENS, SITE_INVERSE_SCHEME, SITE_SCHEME, derivedInverse, inverseButton, typeScaleStyles } from "../tokens"
 import type { TokensMapper } from "./ports"
 import { isMotionTier, pageTransitionFor, tierFromLevel, MOTION_TIER_SETTING } from "@/lib/storelib-ai/motion"
 
@@ -70,9 +70,16 @@ export const tokensToThemeSettings: TokensMapper = (tokens: Partial<DesignTokens
     else {
       const schemes = { ...((current.color_schemes as Record<string, unknown>) ?? {}) }
       schemes[SITE_SCHEME] = scheme("Site", c)
-      if (c.inverse && HEX.test(c.inverse.background) && HEX.test(c.inverse.text) && HEX.test(c.inverse.accent)) {
-        schemes[SITE_INVERSE_SCHEME] = scheme("Site inverse", { background: c.inverse.background, surface: c.inverse.background, text: c.inverse.text, muted: c.inverse.text, accent: c.inverse.accent, accentText: c.inverse.background, border: c.inverse.text })
-      }
+      /*
+        The band is always written (round Q): a section set to site_inverse on a palette without one fell to a scheme
+        that is not the site's. Its button is the site's accent or the band's paper (inverseButton), never the band's
+        accent tint, which was the stray light blue on dark sections.
+      */
+      const inv = c.inverse && HEX.test(c.inverse.background) && HEX.test(c.inverse.text) && HEX.test(c.inverse.accent) ? c.inverse : derivedInverse(c)
+      const band = scheme("Site inverse", { background: inv.background, surface: inv.background, text: inv.text, muted: inv.text, accent: inv.accent, accentText: inv.background, border: inv.text })
+      const btn = inverseButton(c.accent, c.accentText, inv)
+      const buttons = { ...band, primary_button_background: btn.background, primary_button_border: btn.background, primary_button_text: btn.text }
+      schemes[SITE_INVERSE_SCHEME] = { ...buttons, ...automaticHover(buttons) }
       out.color_schemes = schemes
       out.default_color_scheme = SITE_SCHEME
       out.background_color = c.background

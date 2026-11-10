@@ -61,6 +61,7 @@
  * PURE apart from the optional parser, which is passed in, so the tests drive
  * every rule with a stand in and no database.
  */
+import { STORELIB_ICONS, iconName } from "@/lib/website-builder/storelib-icons"
 import type { ValidationIssue } from "./types"
 import type { RuntimeCapabilities } from "./runtime-contract"
 import { bindableIds } from "./capabilities"
@@ -214,6 +215,11 @@ export function hookProblems(html: string, pageHtml: string): { severity: "error
     if (!has(html, "data-storelib-menu-close")) out.push({ severity: "warning", message: "The menu drawer (data-storelib-menu-panel) has no data-storelib-menu-close button. Escape shuts it, but a phone has no Escape key." })
     if (!has(pageHtml, "data-storelib-menu")) out.push({ severity: "warning", message: "Nothing on the page opens the menu drawer: give a button data-storelib-menu." })
   }
+  /* Round Q: an icon by a name the page has no icon for draws nothing. */
+  const unknown = [...new Set([...html.matchAll(/\sdata-storelib-icon\s*=\s*"([^"]*)"/gi)].map((m) => m[1].trim()).filter((n) => n && !/\{\{/.test(n) && !iconName(n)))]
+  if (unknown.length) out.push({ severity: "warning", message: `No icon is called ${unknown.slice(0, 4).map((n) => `"${n}"`).join(", ")}: it draws nothing. The names are ${Object.keys(STORELIB_ICONS).join(", ")}.` })
+  const sticky = /\sdata-storelib-sticky\s*=\s*"([^"]*)"/i.exec(html)?.[1]?.trim()
+  if (sticky && !/\{\{/.test(sticky) && !["always", "up", "off", ""].includes(sticky)) out.push({ severity: "warning", message: `data-storelib-sticky is "always", "up" or "off", not "${sticky}".` })
   if (has(html, "data-storelib-locale-list") && !has(html, "data-storelib-locale-option")) out.push({ severity: "error", message: "The language list (data-storelib-locale-list) holds no element marked data-storelib-locale-option, the pattern copied once per language." })
   if (has(html, "data-storelib-currency-list") && !has(html, "data-storelib-currency-option")) out.push({ severity: "error", message: "The currency list (data-storelib-currency-list) holds no element marked data-storelib-currency-option, the pattern copied once per currency." })
   return out

@@ -68,7 +68,7 @@ tags: chrome kit, footer, multi column footer, columns, footer menus, link colum
 .fcl__base { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 24px; margin-top: clamp(40px, 6vw, 72px); padding-top: 16px; border-top: 1px solid var(--s-border); font-size: 0.875rem; }
 .fcl__prefs { display: flex; flex-wrap: wrap; gap: 8px; }
 .fcl__pick { position: relative; }
-.fcl__pick summary { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 12px; border: 1px solid var(--s-border); cursor: pointer; list-style: none; }
+.fcl__pick summary { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 12px; border: 1px solid transparent; border-radius: 999px; cursor: pointer; list-style: none; }
 .fcl__pick summary::-webkit-details-marker { display: none; }
 .fcl__menu { position: absolute; bottom: calc(100% + 6px); right: 0; z-index: 5; display: grid; min-width: 180px; padding: 6px; border: 1px solid var(--s-border); background: var(--s-bg); }
 .fcl__opt { min-height: 44px; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }

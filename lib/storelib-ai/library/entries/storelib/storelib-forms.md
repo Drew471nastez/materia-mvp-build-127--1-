@@ -11,7 +11,7 @@ priority: 4
 related: [component-forms, state-form-validation, footer-newsletter]
 version: 1
 ---
-**Email sign up**: `<form data-storelib-form="subscribe">` with `<input type="email" name="email">` (and `name="name"` if asked) and a visible label. No script, no action URL: submissions go to the creator's Subscribers. The runtime sets `data-state="sending" | "done" | "error"` on the form for styling, and an element marked `data-storelib-success` (hidden) is shown on success.
+**Email sign up**: `<form data-storelib-form="subscribe">` with `<input type="email" name="email" placeholder="you@example.com">` (and `name="name"` if asked) and a visible label. No script, no action URL: submissions go to the creator's Subscribers. The runtime sets `data-state="sending" | "done" | "error"` on the form for styling, and an element marked `data-storelib-success` (hidden) is shown on success.
 
 ```css
 form[data-state="sending"] button { opacity: .6; pointer-events: none; }

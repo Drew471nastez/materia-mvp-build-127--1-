@@ -20,7 +20,7 @@ const P = "ai_pc_"
 const SKIN = `
 .hd { --hd-h: 68px; }
 .hd__logo { font-weight: 800; text-transform: uppercase; letter-spacing: 0.01em; font-size: 1.625rem; }
-.hd__top, .hd__tool { text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8125rem; font-weight: 600; }
+.hd__top { text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8125rem; font-weight: 600; }
 .hd__mlink, .hd__msum { text-transform: uppercase; font-weight: 800; }
 .hd__count { color: var(--s-bg); }
 `
@@ -314,7 +314,10 @@ const head = header({
   layout: "split",
   drawer: "full",
   cart: "side",
-  sticky: true,
+  scroll: "hide",
+  overlay: true,
+  phoneBar: true,
+  cta: { label: "Book a consultation", url: "/contact" },
   scheme: "site",
   words: { brand: "Coach", cart: "Bag", search: "Search", menu: "Menu" },
   notices: ["Book a consultation before your first session", "Training in the gym, outdoors or online"],
