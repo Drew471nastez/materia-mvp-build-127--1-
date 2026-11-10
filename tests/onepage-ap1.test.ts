@@ -87,7 +87,8 @@ section("The block sheet")
 section("Share on a phone is a bottom sheet")
 {
   const share = code("components/onepage/share-sheet.tsx")
-  check("no centred card at every width any more", !/\bcentered\b/.test(share) && /bare phoneTop=\{band\} header=\{header\}/.test(share))
+  /* Changed on purpose (wave 10, legible): the share band melts into the sheet (shareBandBlend) and the grip wears its first colour (shareBandTop); tests/onepage-legible-w10.test.ts pins them. */
+  check("no centred card at every width any more", !/\bcentered\b/.test(share) && /bare phoneTop=\{shareBandTop\(band\)\} header=\{header\}/.test(share))
   check("the sheet's grip strip takes the band's colour", /handleBackground=\{phoneTop\}/.test(code("components/onepage/onepage-dialog.tsx")) && /style=\{handleBackground \? \{ background: handleBackground \} : undefined\}/.test(code("components/ui/bottom-sheet.tsx")))
 }
 

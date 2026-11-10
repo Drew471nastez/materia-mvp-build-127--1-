@@ -300,7 +300,7 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
   ) : null
 
   const details = (
-    <div className={cn("space-y-3 px-5 pb-4 pt-4 sm:px-6", twoColumns && "pt-6")}>
+    <div className={cn("space-y-3 px-5 pb-8 pt-4 sm:px-6", twoColumns && "pt-6")} data-product-sheet-details="">
       <SheetDialogTitle className={cn("text-[20px] font-semibold leading-snug tracking-[-0.01em] text-[#111113]", twoColumns && "pr-8")}>
         <span style={titleFont}>{p?.title || title}</span>
       </SheetDialogTitle>
@@ -378,7 +378,13 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
   )
 
   const actions = (
-    <div className="shrink-0 border-t border-[#f0f0f3] bg-white px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-5" data-product-sheet-actions="">
+    /*
+      Wave 10 (legible), the owner's phone: the Buy bar "cuts" the Size row. No hard line across the words any more: the
+      bar is the sheet's own surface, and a soft fade of that surface (::before, 24px, over the last words) says there is
+      more under it; the words above end with room to clear that fade (details' pb-8), so the last row scrolls fully into
+      view. The bar's own bottom keeps the iPhone's home indicator clear (safe area).
+    */
+    <div className="relative z-[1] shrink-0 bg-white px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-[color-mix(in_srgb,var(--opk-surface,#ffffff)_88%,transparent)] before:to-transparent before:content-[''] sm:px-6 sm:pb-5" data-product-sheet-actions="">
       {failed && !p ? (
         <p className="flex h-12 items-center justify-center rounded-xl bg-[#f4f4f6] text-[15px] font-semibold text-[#6b7280]" data-product-sheet-unavailable="">
           Not for sale right now
@@ -808,6 +814,14 @@ function Gallery({ images, title, phone, focus = -1, active = true }: { images: 
         ) : null}
       </div>
       {many ? (
+        /*
+          Wave 10 (legible), the owner: "find a way to display the product images there the best, keep the format square".
+          The row was 56px squares at the left with the rest of the width empty. Now each thumbnail is a fifth of the
+          gallery's width (less the gaps, at most 72px), square, the row centred under the square while it fits (auto
+          margins on its ends, so a longer row still scrolls from its first) and a strip that scrolls beyond five.
+          A video's thumbnail is its still, filled, with a small play mark in its corner; without a still, the sheet's
+          raised tone with the mark in the middle, never a grey box or a cut-off screenshot of words.
+        */
         <div ref={thumbs} className="mt-2.5 flex gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-sheet-no-drag="" data-product-sheet-thumbs="">
           {media.map((m, i) => {
             const still = m.type === "video" ? m.poster : m.url
@@ -818,16 +832,20 @@ function Gallery({ images, title, phone, focus = -1, active = true }: { images: 
                 aria-label={m.type === "video" ? `Video ${i + 1}` : `Picture ${i + 1}`}
                 aria-current={i === at ? "true" : undefined}
                 onClick={() => go(i)}
-                className={cn("relative h-14 w-14 shrink-0 overflow-hidden rounded-[10px] bg-[#f4f4f6] outline-none transition-opacity duration-200 focus-visible:ring-2 focus-visible:ring-[#111113]/30 sm:h-16 sm:w-16", i === at ? "opacity-100" : "opacity-55 hover:opacity-85")}
+                className={cn(
+                  "relative aspect-square w-[calc((100%-32px)/5)] max-w-[72px] shrink-0 overflow-hidden rounded-[10px] bg-[#f4f4f6] outline-none transition-opacity duration-200 first:ml-auto last:mr-auto focus-visible:ring-2 focus-visible:ring-[#111113]/30",
+                  i === at ? "opacity-100" : "opacity-60 hover:opacity-90",
+                )}
+                data-product-sheet-thumb={m.type}
               >
                 {still ? (
-                  /* Square, filled, the editor's padding cut off as on the slide itself. */
-                  <FramedPicture src={still} frame={1} className="h-full w-full" imgClassName="object-cover" imgProps={{ loading: "lazy", decoding: "async" }} />
+                  /* Square, filled, the editor's padding cut off as on the slide itself; a still that does not load leaves the tile's tone, never a broken-picture mark. */
+                  <FramedPicture src={still} frame={1} className="h-full w-full" imgClassName="object-cover" imgProps={{ loading: "lazy", decoding: "async", onError: (e) => { e.currentTarget.style.visibility = "hidden" } }} />
                 ) : null}
                 {m.type === "video" ? (
-                  <span aria-hidden className="absolute inset-0 grid place-items-center" data-product-sheet-thumb-video="">
-                    <span className="grid h-6 w-6 place-items-center rounded-full bg-black/50 text-white">
-                      <Play className="ml-px h-3 w-3 fill-current" />
+                  <span aria-hidden className={cn("absolute grid place-items-center", still ? "bottom-1 left-1" : "inset-0")} data-product-sheet-thumb-video="">
+                    <span className={cn("grid place-items-center rounded-full", still ? "h-5 w-5 bg-black/55 text-white" : "h-7 w-7 bg-[var(--opk-surface,#ffffff)] text-[color:var(--opk-ink,#111113)] shadow-sm")}>
+                      <Play className={cn("ml-px fill-current", still ? "h-2.5 w-2.5" : "h-3.5 w-3.5")} />
                     </span>
                   </span>
                 ) : null}

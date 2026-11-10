@@ -79,7 +79,9 @@ check("contrast of black on white is 21", Math.round(contrastRatio("#000000", "#
 check("inherited dark ink on a black block turns white", readableOn("#111111", "#111827") === "#ffffff")
 check("inherited white on a white block turns dark", readableOn("#ffffff", "#ffffff") === "#111827")
 check("a readable inherited colour is kept", readableOn("#ffffff", "#1e40af") === "#1e40af")
-check("a colour the person chose always wins", readableOn("#111111", "#111827", "#222222") === "#222222")
+/* Changed on purpose (wave 10, legible): the owner asked that no word is ever left unreadable. A colour the person chose wins while it reads; an unreadable one is nudged (same hue, lighter or darker), never kept invisible. */
+check("a colour the person chose wins while it reads", readableOn("#111111", "#111827", "#f5a524") === "#f5a524")
+check("a colour the person chose that cannot be read is nudged, not kept", readableOn("#111111", "#111827", "#222222") !== "#222222" && (contrastRatio("#111111", readableOn("#111111", "#111827", "#222222")) ?? 0) >= 4.5)
 check("a background it cannot measure keeps the colour", readableOn("linear-gradient(red, blue)", "#ffffff") === "#ffffff")
 
 console.log("\nThe editor, the renderer and the pickers use it")

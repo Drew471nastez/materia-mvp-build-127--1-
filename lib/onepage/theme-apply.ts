@@ -24,6 +24,7 @@
  *     A colour chosen for a block after the theme stays until the next theme.
  */
 import type { OnePage, OnePageBlock, OnePageTheme } from "./types"
+import { readableOn as readableOnSurface } from "./legible"
 
 /**
  * Every setting of the look a theme or the Design tab can set, at the value
@@ -73,6 +74,8 @@ export const LOOK_RESET: Record<string, unknown> = {
   cover_image_url: null,
   /* Round W9: the skin, its material and scene (lib/onepage/theme-skin). Null is none. */
   theme_skin: null,
+  /* Wave 10: what the creator made their own over the skin (lib/onepage/skin-own); a new theme starts over. */
+  skin_own: null,
 }
 
 /**
@@ -214,10 +217,12 @@ export function contrastRatio(a: string, b: string): number | null {
 /**
  * `preferred` when it can be read on `background`, else near black or white,
  * whichever reads. Text a person chose themselves is passed as `chosen` and
- * always wins: this only rescues the colour that was inherited.
+ * wins while it can be read; wave 10 (legible): a chosen colour that cannot
+ * be read on its surface is nudged to the nearest one of its hue that can
+ * (lib/onepage/legible readableOn), never left invisible.
  */
 export function readableOn(background: string, preferred: string, chosen?: string | null): string {
-  if (chosen) return chosen
+  if (chosen) return readableOnSurface(background, chosen)
   const ratio = contrastRatio(background, preferred)
   if (ratio === null || ratio >= 3) return preferred
   const lum = luminanceOf(background) ?? 1

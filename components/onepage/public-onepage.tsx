@@ -55,6 +55,7 @@ import { WallpaperDrift, WallpaperNoise, WallpaperPattern, useHeaderClearance } 
 /* Round W9: a theme's skin, its material and the scene behind it (lib/onepage/theme-skin, app/onepage-skins.css). */
 import { ThemeSkinScene } from "@/components/onepage/themes/theme-skin-scene"
 import { skinRootProps, skinVars } from "@/lib/onepage/theme-skin"
+import { skinOwnRootProps } from "@/lib/onepage/skin-own"
 /* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
 import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
 import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, mixedTileSizes, pairLinkTiles } from "@/lib/onepage/theme-layout"
@@ -68,6 +69,7 @@ import { canvasRule, heroHeaderShown } from "@/lib/onepage/page-frame"
 import { PosterVideo } from "@/components/onepage/poster-video"
 import { HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/lib/onepage/poster-video"
 import { readableOn } from "@/lib/onepage/theme-apply"
+import { LegibleGuard } from "@/components/onepage/legible-guard"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
 import { pairProductTiles } from "@/lib/onepage/product-block"
 import { tt } from "@/lib/i18n/text"
@@ -1488,12 +1490,16 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         />
       )}
 
+      {/* Wave 10: every word on the page and in its sheets reads on what it sits on (components/onepage/legible-guard, lib/onepage/legible). */}
+      <LegibleGuard />
+
       {/* Desktop layout - NO internal scrollbar, page scrolls naturally. Only built where it is shown (lib/onepage/live-layout). */}
       {liveLayout !== "phone" && (
       <div
         className="onepage-live hidden md:block min-h-screen w-full relative [overflow-x:clip]"
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
         {...skinRootProps(safeTheme)}
+        {...skinOwnRootProps(safeTheme)}
         style={{
           ...skinVars(safeTheme),
           background: getBackgroundStyle(),
@@ -1660,6 +1666,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         data-onepage-drag-scope=""
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
         {...skinRootProps(safeTheme)}
+        {...skinOwnRootProps(safeTheme)}
         style={{
           ...skinVars(safeTheme),
           overflowX: 'clip',
