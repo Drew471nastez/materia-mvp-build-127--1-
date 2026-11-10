@@ -72,8 +72,9 @@ tags: chrome kit, menu drawer, full screen menu, fullscreen menu, overlay menu, 
 .mfs__small, .mfs__social { display: flex; flex-wrap: wrap; gap: 0 20px; margin: 0; padding: 0; list-style: none; }
 .mfs__prefs { display: flex; flex-wrap: wrap; gap: 8px 20px; }
 .mfs__pref { display: flex; flex-wrap: wrap; gap: 6px; }
-.mfs__opt { min-height: 44px; padding: 0 14px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; cursor: pointer; }
-.mfs__opt[aria-current="true"] { background: var(--s-text); color: var(--s-bg); border-color: var(--s-text); }
+.mfs__opt { min-height: 40px; padding: 0 12px; border: 0; border-radius: 999px; background: none; color: inherit; font: inherit; cursor: pointer; opacity: 0.7; }
+.mfs__opt:hover { opacity: 1; }
+.mfs__opt[aria-current="true"] { opacity: 1; font-weight: 600; background: color-mix(in srgb, currentColor 9%, transparent); }
 .mfs :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
 @media (prefers-reduced-motion: no-preference) {
   .mfs:not([data-motion="off"]) .mfs__panel { transition: opacity calc(var(--t-motion-duration, 650ms) * 0.6) var(--t-motion-ease, ease-out), clip-path calc(var(--t-motion-duration, 650ms) * 1.1) var(--t-motion-ease, ease-out), transform calc(var(--t-motion-duration, 650ms) * 0.9) var(--t-motion-ease, ease-out), visibility 0s linear calc(var(--t-motion-duration, 650ms) * 1.1); }

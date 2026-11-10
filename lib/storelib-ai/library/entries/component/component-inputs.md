@@ -17,7 +17,7 @@ version: 1
 ```html
 <div class="field">
   <label for="email-{{ section.id }}">Email</label>
-  <input id="email-{{ section.id }}" name="email" type="email" autocomplete="email" inputmode="email" required aria-describedby="email-hint-{{ section.id }}">
+  <input id="email-{{ section.id }}" name="email" type="email" autocomplete="email" inputmode="email" required aria-describedby="email-hint-{{ section.id }}" placeholder="you@example.com">
   <p id="email-hint-{{ section.id }}" class="hint">We only use it to send your booking.</p>
 </div>
 ```

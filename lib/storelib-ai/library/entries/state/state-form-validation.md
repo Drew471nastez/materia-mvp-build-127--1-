@@ -15,7 +15,7 @@ version: 1
 
 **Error state of a field**
 ```html
-<input id="email" aria-invalid="true" aria-describedby="email-error">
+<input id="email" aria-invalid="true" aria-describedby="email-error" placeholder="you@example.com">
 <p id="email-error" class="error">Enter an email like name@example.com</p>
 ```
 Messages say how to fix it, not just "Invalid". Red border plus an icon plus the text; colour alone is not enough.

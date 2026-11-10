@@ -97,7 +97,8 @@ async function main() {
     check("  a header link's own address never carries the mark", /return withoutNewTab\(url\) \|\| "#"/.test(header))
     const footer = code("components/website-builder/sections/renderers/FooterSection.tsx")
     check("a native footer's menu columns and links draw it too", (footer.match(/\{\.\.\.newTabLink\(link\.url\)\}/g) ?? []).length === 2)
-    check("a coded section's markup is passed through it", /html: withNewTabAnchors\(optimizeSectionMedia\(r\.html\)\)/.test(code("lib/website-builder/storelib-runtime.ts")))
+    /* Changed on purpose (round Q): the icons pass (withStorelibIcons) now wraps it; the new tab pass still sees every anchor. */
+    check("a coded section's markup is passed through it", /html: (?:withStorelibIcons\()?withNewTabAnchors\(optimizeSectionMedia\(r\.html\)\)/.test(code("lib/website-builder/storelib-runtime.ts")))
     const made = menuFromHeader({ id: "h", type: "header", settings: {}, blocks: [{ id: "a", type: "nav_link", settings: { label: "Blog", url: "https://blog.test", open_in_new_tab: true } }, { id: "b", type: "nav_link", settings: { label: "Shop", url: "/products" } }] } as unknown as SectionInstance)
     check("a Main menu made from the header's links keeps their new tab", made?.links[0].url === `https://blog.test${NEW_TAB_MARK}` && made?.links[1].url === "/products", made)
 

@@ -655,9 +655,10 @@ export function themeTokens(settings: Record<string, unknown>): Record<string, u
   return {
     schemes,
     colors: {
-      primary: s("primary_color", "#6366f1"),
+      /* A site of its own (its chrome its own, or the agent's `site` scheme) falls back to its ink, never the platform's indigo (round Q, lib/website-builder/theme-css.ts themeVars). */
+      primary: s("primary_color", settings.site_chrome === "home" || settings.default_color_scheme === "site" ? s("text_color", "#111827") : "#6366f1"),
       secondary: s("secondary_color", "#111827"),
-      accent: s("accent_color", "#f59e0b"),
+      accent: s("accent_color", settings.site_chrome === "home" || settings.default_color_scheme === "site" ? s("text_color", "#111827") : "#f59e0b"),
       background: s("background_color", "#ffffff"),
       surface: s("surface_color", "#f9fafb"),
       text: s("text_color", "#111827"),

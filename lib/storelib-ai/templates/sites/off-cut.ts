@@ -234,10 +234,11 @@ ${reveal(".ft2", ".ft2__cell", "ai_oc_fit_in")}`,
 
 const head = header({
   type: `${P}header`,
-  layout: "split",
-  drawer: "side",
+  layout: "stack",
+  drawer: "full",
   cart: "side",
-  sticky: true,
+  scroll: "hide",
+  phoneBar: true,
   words: { brand: "Label", cart: "Bag", menu: "Menu", searchHint: "Search hoodies, tees, caps", empty: "Your bag is empty. The drop is not." },
   notices: ["New pieces drop on Fridays", "Sign up below to hear first"],
   features: [
@@ -245,7 +246,7 @@ const head = header({
     { title: "How it wears", text: "Fit notes for every piece", url: "/about" },
     { title: "Lookbook", text: "Shot on the street", url: "/about" },
   ],
-  skin: `.hd { border-bottom: 2px solid var(--s-text); } .hd__logo { font-weight: 800; text-transform: uppercase; letter-spacing: -0.05em; font-size: 1.75rem; } .hd__top, .hd__tool { ${MONO} font-size: 0.75rem; letter-spacing: 0.02em; } .hd__mlink, .hd__msum, .hd__mega-all { text-transform: uppercase; font-weight: 800; letter-spacing: -0.05em; } .hd__checkout { border: 2px solid var(--s-text); text-transform: uppercase; } .hd__count { color: var(--s-text); }`,
+  skin: `.hd { border-bottom: 2px solid var(--s-text); } .hd__logo { font-weight: 800; text-transform: uppercase; letter-spacing: -0.05em; font-size: 1.75rem; } .hd__top { ${MONO} font-size: 0.75rem; letter-spacing: 0.02em; } .hd__mlink, .hd__msum, .hd__mega-all { text-transform: uppercase; font-weight: 800; letter-spacing: -0.05em; } .hd__checkout { border: 2px solid var(--s-text); text-transform: uppercase; }`,
 })
 
 const foot = footer({

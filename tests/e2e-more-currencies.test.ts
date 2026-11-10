@@ -161,7 +161,8 @@ async function main() {
   const choiceDe = await languageChoice(creator.id, null, "eu")
   const opts = choiceDe?.currency?.options ?? []
   check("it offers lei, euros and zloty, euros picked", opts.length === 3 && choiceDe?.currency?.current === "eu" && opts.some((o) => o.id === "home") && opts.some((o) => o.id === "pl"), choiceDe?.currency)
-  check("  each says its mark: \"RON lei\", \"Europe (EUR €)\", \"Poland (PLN zł)\"", opts.map((o) => o.label).join("|") === "RON lei|Europe (EUR €)|Poland (PLN zł)", opts.map((o) => o.label))
+  /* Changed on purpose (round Q, Andrew: "All (BRL R$)" in the switch): a currency is named by its currency and mark, never by the market's name. */
+  check("  each says its currency and mark: \"RON lei\", \"EUR €\", \"PLN zł\"", opts.map((o) => o.label).join("|") === "RON lei|EUR €|PLN zł", opts.map((o) => o.label))
   const homePick = opts.find((o) => o.id === "home")!
   check("picking lei: the page is in lei, the card shows the 99–129 lei variant range", marketFor(homePick.country, "DE") === null && (await listCards(creator.id)).find((c) => c.id === mugId)?.settings.price === `99.00${NBSP}lei – 129.00${NBSP}lei`)
   const homeQuote = await j.call("POST /api/checkout/site", { host, headers: { "x-vercel-ip-country": "DE", origin: `https://${host}` }, cookies: { sl_country: chose(homePick.country)! }, body: { action: "quote", items: [{ productId: mugId, variantId: small?.id, quantity: 2 }], country: "DE" } })
