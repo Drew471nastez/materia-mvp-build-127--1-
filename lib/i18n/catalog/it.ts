@@ -12971,7 +12971,17 @@ const words: Record<string, string> = {
  "Opening the website builder": "Apertura dell'editor del sito",
  "New website": "Nuovo sito",
  "Setting up your website": "Preparazione del tuo sito",
- "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Creato con le sezioni del tema. Il nuovo builder con IA non è ancora attivo sul tuo account."
+ "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Creato con le sezioni del tema. Il nuovo builder con IA non è ancora attivo sul tuo account.",
+ "Enter a phone number with digits, spaces, + ( ) or -.": "Inserisci un numero di telefono con cifre, spazi, + ( ) o -.",
+ "Enter their email address.": "Inserisci il suo indirizzo email.",
+ "Only an email address is needed. Everything else is optional.": "Serve solo un indirizzo email. Tutto il resto è facoltativo.",
+ "{name} is already in your contacts. Adding them again keeps everything and adds the tags and notes below.": "{name} è già nei tuoi contatti. Aggiungerlo di nuovo mantiene tutto e aggiunge i tag e le note qui sotto.",
+ "Separate with commas": "Separati da virgole",
+ "VIP, Wholesale": "VIP, Ingrosso",
+ "{name} was already in your contacts. What you typed was added to them.": "{name} era già nei tuoi contatti. Quello che hai scritto è stato aggiunto.",
+ "Adding…": "Aggiunta…",
+ "Form options": "Opzioni del modulo",
+ "Nothing new to publish": "Niente di nuovo da pubblicare"
 }
 
 export default words

@@ -110,6 +110,27 @@ async function findRow(db: Db, scope: ContactsScope, who: Identity): Promise<Con
   return data ? { ...(data as ContactRow), tags: tagList((data as ContactRow).tags) } : null
 }
 
+/**
+ * What was typed beside a person added by hand (wave 9): their notes (added
+ * under any notes already kept, never replacing them) and a phone. Returns
+ * the contact's key (c_<id>), or null when there is no row to keep them on.
+ */
+export async function addDetails(db: Db, scope: ContactsScope, email: string, details: { notes?: string | null; phone?: string | null }): Promise<string | null> {
+  const { data, error } = await db.from("creator_contacts").select("id, notes").eq("creator_id", scope.creatorId).eq("email_normalized", email).maybeSingle()
+  if (error && contactsTableMissing(error)) throw new ContactsMissing()
+  if (!data) return null
+  const row = data as { id: string; notes: string | null }
+  const notes = details.notes?.trim() ? details.notes.trim() : null
+  const phone = cleanPhone(details.phone)
+  if (notes || phone) {
+    await updateRow(db, scope, row.id, {
+      ...(notes ? { notes: row.notes?.trim() ? `${row.notes.trim()}\n\n${notes}` : notes } : {}),
+      ...(phone ? { phone } : {}),
+    })
+  }
+  return `c_${String(row.id).toLowerCase()}`
+}
+
 /* A text[] as an array whatever the client hands back. */
 const tagList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((t): t is string => typeof t === "string") : [])
 
@@ -141,11 +162,31 @@ export async function ensureRow(db: Db, scope: ContactsScope, who: Identity, opt
 
 export const cleanTags = (v: unknown): string[] => [...new Set((Array.isArray(v) ? v : []).map(cleanTag).filter((t): t is string => !!t))].slice(0, 50)
 
-export async function updateRow(db: Db, scope: ContactsScope, id: string, patch: { name?: string | null; notes?: string | null; tags?: string[] }): Promise<void> {
+/**
+ * A phone number as the creator typed it (wave 9): digits, spaces and + ( ) - .
+ * only, 3 to 40 characters, or null. Kept in the row's own `fields` (part 378),
+ * never used to join two people.
+ */
+export function cleanPhone(v: unknown): string | null {
+  if (typeof v !== "string") return null
+  const p = v.replace(/\s+/g, " ").trim()
+  return p.length >= 3 && p.length <= 40 && /^[+0-9()\-. ]+$/.test(p) && /\d{3}/.test(p.replace(/\D/g, "")) ? p : null
+}
+
+export async function updateRow(db: Db, scope: ContactsScope, id: string, patch: { name?: string | null; notes?: string | null; tags?: string[]; phone?: string | null }): Promise<void> {
   const set: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (patch.name !== undefined) set.name = patch.name ? patch.name.replace(/\s+/g, " ").trim().slice(0, 120) || null : null
   if (patch.notes !== undefined) set.notes = patch.notes ? patch.notes.slice(0, 5000) : null
   if (patch.tags !== undefined) set.tags = cleanTags(patch.tags)
+  if (patch.phone !== undefined) {
+    /* The row's other fields stay as they are; only the phone is set or taken off. */
+    const { data } = await db.from("creator_contacts").select("fields").eq("id", id).eq("creator_id", scope.creatorId).maybeSingle()
+    const fields = { ...((data as { fields?: unknown } | null)?.fields && typeof (data as { fields?: unknown }).fields === "object" ? ((data as { fields: Record<string, unknown> }).fields) : {}) }
+    const phone = cleanPhone(patch.phone)
+    if (phone) fields.phone = phone
+    else delete fields.phone
+    set.fields = fields
+  }
   const { error } = await db.from("creator_contacts").update(set).eq("id", id).eq("creator_id", scope.creatorId)
   if (error) {
     if (contactsTableMissing(error)) throw new ContactsMissing()

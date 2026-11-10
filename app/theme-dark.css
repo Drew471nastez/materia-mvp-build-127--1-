@@ -345,7 +345,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 920 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 922 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -438,6 +438,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#2a2a40\]:not([data-own-look], [data-own-look] *):active { background-color: #35353c; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#d9dce1\]:not([data-own-look], [data-own-look] *):active { background-color: #2b2b31; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#e3e6ea\]:not([data-own-look], [data-own-look] *):active { background-color: #2b2b31; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#e4e5e9\]:not([data-own-look], [data-own-look] *):active { background-color: #2b2b31; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#e4e6ea\]:not([data-own-look], [data-own-look] *):active { background-color: #2b2b31; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#e5e7eb\]:not([data-own-look], [data-own-look] *):active { background-color: #2b2b31; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:bg-\[\#e6e8eb\]:not([data-own-look], [data-own-look] *):active { background-color: #2b2b31; }
@@ -1184,6 +1185,7 @@ html[data-sl-dark] [data-own-look] {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#2e2e2e\]:not([data-own-look], [data-own-look] *):hover { background-color: #35353c; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#e1e3e7\]:not([data-own-look], [data-own-look] *):hover { background-color: #2b2b31; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#e2e3e7\]:not([data-own-look], [data-own-look] *):hover { background-color: #2b2b31; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#e4e5e9\]:not([data-own-look], [data-own-look] *):hover { background-color: #2b2b31; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#e4e6ea\]:not([data-own-look], [data-own-look] *):hover { background-color: #2b2b31; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#e5e7eb\]:not([data-own-look], [data-own-look] *):hover { background-color: #2b2b31; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#e6e8eb\]:not([data-own-look], [data-own-look] *):hover { background-color: #2b2b31; }
