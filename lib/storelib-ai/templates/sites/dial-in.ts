@@ -47,7 +47,7 @@ const hero: ComponentDef = {
   style: `
 .ch { ${BOX} overflow: hidden; }
 .ch__in { position: relative; display: grid; gap: clamp(32px, 6vw, 72px); ${INNER} }
-.ch__h { margin: 0; ${DISPLAY} font-size: clamp(3.25rem, 1.4rem + 10cqi, 10rem); line-height: 0.86; letter-spacing: -0.045em; font-weight: 800; }
+.ch__h { margin: 0; ${DISPLAY} font-size: clamp(3rem, 1.2rem + 6.5cqi, 7rem); line-height: 0.86; letter-spacing: -0.045em; font-weight: 800; }
 .ch__h em { font-style: normal; color: var(--s-accent); }
 .ch__text { max-width: 30rem; margin-top: 20px; font-size: 1.1875rem; line-height: 1.5; }
 .ch__text p { margin: 0; }
@@ -294,7 +294,7 @@ const foot = footer({
   skin: `.ft__h { font-weight: 800; letter-spacing: -0.04em; } .ft__row { border-radius: 999px; overflow: hidden; }`,
 })
 
-const band = marquee({ type: `${P}band`, scheme: "site_inverse", items: ["Espresso", "Batch brew", "Out of the oven", "Beans to take home", "Long table by the window"], speed: 40, skin: `.mq__item { font-weight: 800; letter-spacing: -0.04em; }` })
+const band = marquee({ type: `${P}band`, scheme: "site", items: ["Espresso", "Batch brew", "Out of the oven", "Beans to take home", "Long table by the window"], speed: 40, skin: `.mq__item { font-weight: 800; letter-spacing: -0.04em; }` })
 const process = stickySteps({
   type: `${P}process`,
   name: "From bean to cup",

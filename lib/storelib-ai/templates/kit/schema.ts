@@ -143,7 +143,10 @@ function schemaOf(def: ComponentDef): Record<string, unknown> {
 
 /** The whole .storelib file. */
 export function componentFile(def: ComponentDef): string {
-  return `<template>\n${def.template.trim()}\n</template>\n\n<style scoped>\n${def.style.trim()}\n</style>\n\n<schema>\n${JSON.stringify(schemaOf(def), null, 2)}\n</schema>\n`
+  /* Padding never adds to a box's width or height (stand-ins at 100% stay inside their frame), whatever the page's own reset. */
+  const root = /class="([a-z0-9_-]+)/i.exec(def.template)?.[1]
+  const sizing = root ? `.${root}, .${root} *, .${root} *::before, .${root} *::after { box-sizing: border-box; }\n` : ""
+  return `<template>\n${def.template.trim()}\n</template>\n\n<style scoped>\n${sizing}${def.style.trim()}\n</style>\n\n<schema>\n${JSON.stringify(schemaOf(def), null, 2)}\n</schema>\n`
 }
 
 export const pathOf = (type: string) => `sections/${type}.storelib`

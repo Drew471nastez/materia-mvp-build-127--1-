@@ -259,7 +259,7 @@ export function productRail(o: RailOptions): ComponentDef {
 .pr__h { margin: 0; ${DISPLAY} font-size: clamp(2rem, 1.2rem + 4cqi, 4.5rem); line-height: 0.95; letter-spacing: -0.025em; max-width: 16ch; }
 .pr__text { max-width: 36rem; color: var(--s-muted); line-height: 1.6; }
 .pr__text p { margin: 0; }
-.pr__list { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(72%, 1fr); gap: 14px; margin: 0 calc(-1 * var(--theme-padding-x, 20px)); padding: 0 var(--theme-padding-x, 20px) 8px; list-style: none; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: thin; }
+.pr__list { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(72%, 1fr); gap: 14px; margin: 0; padding: 0 0 8px; list-style: none; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: thin; }
 .pr__card, .pr__tile { scroll-snap-align: start; min-width: 0; display: grid; gap: 10px; align-content: start; }
 .pr__card-link { display: grid; gap: 8px; color: inherit; text-decoration: none; }
 .pr__card-media { display: block; aspect-ratio: 4 / 5; overflow: hidden; background: var(--s-surface); }

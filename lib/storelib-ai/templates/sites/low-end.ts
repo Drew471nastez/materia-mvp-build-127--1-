@@ -49,10 +49,11 @@ const hero: ComponentDef = {
         <div class="lo__text">{{ settings.text | raw }}</div>
         {% if settings.product.title %}
         <p class="lo__pack">{{ settings.product.title }} <span class="lo__price">{{ settings.product.price }}</span></p>
+        {% else %}{% for p in products limit: 1 %}<p class="lo__pack">{{ p.settings.title }} <span class="lo__price">{{ p.settings.price }}</span></p>{% endfor %}
         {% endif %}
         {% if settings.preview %}<audio class="lo__audio" controls preload="none" src="{{ settings.preview | asset }}"></audio>{% endif %}
         <div class="lo__actions">
-          {% if settings.product.id %}<button class="lo__btn" type="button" data-storelib-add-to-cart="{{ settings.product.id }}" data-title="{{ settings.product.title }}" data-price="{{ settings.product.price }}" data-url="{{ settings.product.url }}">{{ settings.add_label }}</button>{% endif %}
+          {% if settings.product.id %}<button class="lo__btn" type="button" data-storelib-add-to-cart="{{ settings.product.id }}" data-title="{{ settings.product.title }}" data-price="{{ settings.product.price }}" data-url="{{ settings.product.url }}">{{ settings.add_label }}</button>{% else %}{% for p in products limit: 1 %}<button class="lo__btn" type="button" data-storelib-add-to-cart="{{ p.id }}" data-title="{{ p.settings.title }}" data-price="{{ p.settings.price }}" data-url="{{ p.settings.url }}">{{ settings.add_label }}</button>{% endfor %}{% endif %}
           <a class="lo__link" href="{{ settings.cta_url | url }}">{{ settings.cta_label }}</a>
         </div>
         <dl class="lo__specs">{% for block in section.blocks %}<div class="lo__spec" {{ block.shopify_attributes }}><dt>{{ block.settings.label }}</dt><dd>{{ block.settings.value }}</dd></div>{% endfor %}</dl>
@@ -89,7 +90,7 @@ ${meterCss("lo__meter", "ai_le_hero_meter")}
   settings: [
     s.inline("heading", "Heading", "Drums that <em>hit</em> before the mix"),
     s.rich("text", "Text", "<p>Sample packs and drum kits made in a small studio, processed and named so you can find a sound in seconds.</p>"),
-    s.product("product", "Featured pack"),
+    s.product("product", "Featured pack (empty: the newest product)"),
     s.file("preview", "Audio preview", ["audio"]),
     s.text("add_label", "Add to bag button", "Add to bag"),
     s.text("cta_label", "Link", "Hear every pack"),
@@ -104,8 +105,8 @@ ${meterCss("lo__meter", "ai_le_hero_meter")}
   maxBlocks: 3,
   preset: [
     { type: "spec", settings: { label: "Format", value: "24 bit WAV" } },
-    { type: "spec", settings: { label: "Tempo", value: "In the name" } },
-    { type: "spec", settings: { label: "Key", value: "In the name" } },
+    { type: "spec", settings: { label: "Tempo", value: "Labelled" } },
+    { type: "spec", settings: { label: "Key", value: "Labelled" } },
   ],
 }
 

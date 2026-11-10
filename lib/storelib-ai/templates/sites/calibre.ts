@@ -52,7 +52,7 @@ const hero: ComponentDef = {
 </section>`,
   style: `
 .cx { ${BOX} overflow: hidden; }
-.cx__stage { position: relative; display: grid; place-items: center; min-height: clamp(320px, 62cqi, 760px); ${INNER} }
+.cx__stage { position: relative; display: grid; place-items: center; min-height: clamp(300px, 44cqi, 560px); ${INNER} }
 .cx__word { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; ${DISPLAY} ${CAPS} font-size: min(27cqi, 26rem); line-height: 0.8; white-space: nowrap; pointer-events: none; }
 .cx__word--front { clip-path: inset(56% 0 0 0); z-index: 2; }
 .cx__object { position: relative; z-index: 1; width: clamp(180px, 40cqi, 520px); }

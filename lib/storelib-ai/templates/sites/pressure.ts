@@ -66,7 +66,7 @@ const hero: ComponentDef = {
 .ph__field { position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), var(--s-border) calc(25% - 1px) 25%); }
 .ph__field::before { content: ""; position: absolute; right: -10%; top: 12%; width: 70%; height: 46%; background: var(--s-accent); transform: skewY(-8deg); opacity: 0.9; }
 .ph__in { align-self: end; display: grid; gap: clamp(20px, 4vw, 40px); width: 100%; ${INNER} }
-.ph__h { margin: 0; ${DISPLAY} font-size: clamp(4.25rem, 21cqi, 15rem); line-height: 0.8; letter-spacing: -0.01em; text-transform: uppercase; font-weight: 800; }
+.ph__h { margin: 0; ${DISPLAY} font-size: clamp(5rem, 2.5rem + 10cqi, 11rem); line-height: 0.8; letter-spacing: -0.01em; text-transform: uppercase; font-weight: 800; }
 .ph__line { display: block; overflow: hidden; padding-top: 0.04em; }
 .ph__word { display: inline-block; }
 .ph__line--accent { color: var(--s-accent); }
@@ -117,7 +117,7 @@ const hero: ComponentDef = {
     ]),
     s.scheme("site"),
     ...motion(),
-    ...spacing(120, 48),
+    ...spacing(72, 48),
   ],
   blocks: [
     { type: "line", name: "Headline line", limit: 4, settings: [s.text("text", "Words", "Lift"), s.check("accent", "In the accent colour", false)] },
@@ -142,7 +142,7 @@ const coach: ComponentDef = {
 <section class="co" ${rootAttrs({ motion: true })}>
   <div class="co__in">
     <figure class="co__photo" data-storelib-motion="3d-tilt">
-      {% if settings.image %}<img src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="1000" height="1250" loading="lazy">{% else %}<span class="co__stand" aria-hidden="true">{{ settings.name }}</span>{% endif %}
+      {% if settings.image %}<img src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="1000" height="1250" loading="lazy">{% else %}<span class="co__stand" aria-hidden="true">{{ settings.name | default: shop.name }}</span>{% endif %}
       {% if settings.name %}<figcaption class="co__name">{{ settings.name }}</figcaption>{% endif %}
     </figure>
     <div class="co__words">

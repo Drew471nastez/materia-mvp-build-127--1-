@@ -57,7 +57,7 @@ const hero: ComponentDef = {
 .sh__link { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-underline-offset: 5px; }
 .sh__frame { position: relative; margin: 0; overflow: hidden; border-radius: 220px 220px 28px 28px; background: var(--s-surface); aspect-ratio: 4 / 5; }
 .sh__img { width: 100%; height: 100%; object-fit: cover; }
-.sh__still { position: absolute; inset: 0; background: radial-gradient(120% 70% at 50% 110%, var(--s-accent) 0 30%, transparent 31%), radial-gradient(90% 50% at 50% 118%, var(--s-bg) 0 40%, transparent 41%), var(--s-surface); }
+.sh__still { position: absolute; inset: 0; background: radial-gradient(circle at 50% 52%, var(--s-accent) 0 17%, transparent 17.5%), linear-gradient(to bottom, transparent 0 64%, var(--s-border) 64% 65%, var(--s-bg) 65% 100%), var(--s-surface); }
 .sh__note { position: absolute; left: 16px; right: 16px; bottom: 16px; padding: 12px 16px; border-radius: 16px; background: var(--s-bg); color: var(--s-text); font-size: 0.9375rem; line-height: 1.4; }
 @container (min-width: 960px) {
   .sh__in { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); align-items: center; }

@@ -124,7 +124,7 @@ const lookbook: ComponentDef = {
 .lb__look { scroll-snap-align: start; min-width: 0; }
 .lb__fig { position: relative; margin: 0; border: 2px solid var(--s-text); background: var(--s-surface); }
 .lb__fig img, .lb__stand { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
-.lb__stand { display: flex; align-items: flex-end; padding: 16px; ${DISPLAY} ${HEAVY} font-size: clamp(2rem, 8cqi, 4rem); line-height: 0.85; background: var(--s-accent); color: var(--s-text); }
+.lb__stand { display: flex; align-items: flex-end; padding: 16px; ${DISPLAY} ${HEAVY} font-size: clamp(2rem, 8cqi, 4rem); line-height: 0.85; background: var(--s-accent); color: var(--s-bg); }
 .lb__cap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; padding: 10px 12px; border-top: 2px solid var(--s-text); ${MONO} font-size: 0.8125rem; }
 .lb__shop { color: inherit; font-weight: 700; text-underline-offset: 4px; }
 .lb__track:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 4px; }
@@ -328,7 +328,7 @@ const write = contact({
   words: { heading: "Write to us", text: "<p>Orders, sizing, wholesale or a collaboration. We answer within two working days.</p>", name: "Name", email: "Email", message: "Message", send: "Send" },
   details: [
     { label: "Orders", value: "Put your order number in the message", url: "" },
-    { label: "Wholesale", value: "Say where you sell and what you are after", url: "" },
+    { label: "Wholesale", value: "Shops and stockists welcome", url: "" },
   ],
   skin: `.ct__h { text-transform: uppercase; font-weight: 800; letter-spacing: -0.05em; } .ct__field input, .ct__field textarea { border: 2px solid var(--s-text); } .ct__send { border: 2px solid var(--s-text); text-transform: uppercase; box-shadow: 4px 4px 0 var(--s-text); }`,
 })
@@ -369,7 +369,7 @@ export const offCut: SiteTemplate = assemble({
   header: H,
   footer: F,
   tokens: {
-    colors: { background: "#ebebe8", surface: "#dcdcd8", text: "#0b0b0b", muted: "#4a4a47", accent: "#d4005a", accentText: "#ffffff", border: "#0b0b0b", inverse: { background: "#0b0b0b", text: "#ebebe8", accent: "#ff2e7e" } },
+    colors: { background: "#ebebe8", surface: "#dcdcd8", text: "#0b0b0b", muted: "#4a4a47", accent: "#c40053", accentText: "#ffffff", border: "#0b0b0b", inverse: { background: "#0b0b0b", text: "#ebebe8", accent: "#ff3d8a" } },
     fonts: { heading: "Mona Sans", body: "Mona Sans", accent: "Martian Mono" },
     typeScale: { base: 16, ratio: 1.618 },
     radius: { small: 0, medium: 0, large: 0 },

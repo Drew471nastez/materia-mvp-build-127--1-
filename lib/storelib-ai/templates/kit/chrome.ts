@@ -139,7 +139,8 @@ details[open] > .hd__msum::after { content: "\\2212"; }
 .hd :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
 @container (min-width: 960px) {
   .hd__nav { display: block; }
-  .hd__account, .hd__search-word { display: inline; }
+  .hd__account { display: inline-flex; }
+  .hd__search-word { display: inline; }
   .hd__search-mark { display: none; }
   .hd--split .hd__burger, .hd--center .hd__burger { display: none; }
   .hd--center .hd__bar { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
