@@ -238,7 +238,7 @@ export function productRail(o: RailOptions): ComponentDef {
 <section class="pr" ${rootAttrs({ motion: true })}>
   <div class="pr__in">
     <div class="pr__head"><h2 class="pr__h">{{ settings.heading | raw }}</h2><div class="pr__text">{{ settings.text | raw }}</div></div>
-    <ul class="pr__list" data-storelib-motion="pin-horizontal">
+    <ul class="pr__list" data-storelib-motion="reveal-stagger" data-motion-effect="rise">
       {% for p in settings.products %}
       ${productCard("pr__card", "p", { add: true })}
       {% else %}
@@ -675,11 +675,11 @@ export function collage(o: CollageOptions): ComponentDef {
 <section class="cl" ${rootAttrs({ motion: true })}>
   <div class="cl__in">
     <div class="cl__head"><h2 class="cl__h">{{ settings.heading | raw }}</h2><div class="cl__text">{{ settings.text | raw }}</div></div>
-    <ul class="cl__grid" data-storelib-motion="parallax-depth" data-motion-strength="{{ settings.motion_strength }}">
+    <ul class="cl__grid" data-storelib-motion="parallax-depth" data-motion-intensity="40" data-motion-pointer="false">
       {% for block in section.blocks %}
       <li class="cl__item cl__item--{{ block.settings.size }}" {{ block.shopify_attributes }}>
         <figure class="cl__fig">
-          {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.image_alt }}" width="1000" height="1250" loading="lazy">{% else %}<span class="cl__stand" aria-hidden="true"></span>{% endif %}
+          {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.image_alt }}" width="1000" height="1250" loading="lazy" data-motion-depth="{% if forloop.index == 2 or forloop.index == 4 %}0.4{% else %}0.15{% endif %}">{% endif %}
           {% if block.settings.caption %}<figcaption class="cl__cap">{{ block.settings.caption }}</figcaption>{% endif %}
         </figure>
       </li>

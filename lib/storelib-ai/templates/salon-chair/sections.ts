@@ -115,7 +115,7 @@ export const hero = defineSection({
   template: `
 <section class="sbh" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <div class="sbh__grid">
-    <div class="sbh__media" data-storelib-motion="parallax-depth" data-motion-depth="0.12">{% if settings.photo %}<img class="sbh__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1400" height="1600" fetchpriority="high">{% endif %}</div>
+    {% if settings.photo %}<div class="sbh__media" data-storelib-motion="parallax-depth" data-motion-intensity="30" data-motion-pointer="false">{% if settings.photo %}<img class="sbh__img" data-motion-depth="0.2" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1400" height="1600" fetchpriority="high">{% endif %}</div>{% endif %}
     <div class="sbh__copy">
       <h1 class="sbh__h">{{ settings.heading }}</h1>
       <div class="sbh__intro">{{ settings.intro | raw }}</div>
@@ -233,8 +233,8 @@ export const ticker = defineSection({
   summary: "A running line of shop facts on the dark band (P3 marquee), paused on hover; still and wrapped for reduced motion.",
   template: `
 <section class="sbq" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars("--sbq-speed: {{ settings.speed }}s;")}" aria-label="{{ settings.label }}">
-  <div class="sbq__track" data-storelib-motion="marquee" data-motion-speed="{{ settings.speed }}">
-    <ul class="sbq__run">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.text }}</li>{% endfor %}</ul>
+  <div class="sbq__track" data-storelib-motion="marquee" data-motion-reactive="40">
+    <ul class="sbq__run" data-motion-track>{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.text }}</li>{% endfor %}</ul>
     <ul class="sbq__run" aria-hidden="true">{% for block in section.blocks %}<li>{{ block.settings.text }}</li>{% endfor %}</ul>
   </div>
 </section>`,
@@ -246,6 +246,8 @@ export const ticker = defineSection({
 .sbq__run li::after { content: "\\2726"; margin: 0 0.6em; color: var(--s-accent); font-size: 0.6em; vertical-align: middle; }
 @media (prefers-reduced-motion: reduce) { .sbq__track { width: auto; } .sbq__run { flex-wrap: wrap; } .sbq__run[aria-hidden="true"] { display: none; } .sbq__run li { white-space: normal; } }
 @media (prefers-reduced-motion: no-preference) { .sbq:not([data-motion="off"]) .sbq__track { animation: sbq-run var(--sbq-speed, 40s) linear infinite; } .sbq:hover .sbq__track { animation-play-state: paused; } .sbq[data-motion="off"] .sbq__run[aria-hidden="true"] { display: none; } }
+.sbq__track[data-motion-ready] { animation: none !important; }
+.sbq__track[data-motion-ready] .sbq__run[aria-hidden="true"] { display: none; }
 @keyframes sbq-run { to { transform: translateX(-50%); } }`,
   settings: [text("label", "What it lists (read aloud)", "About the shop"), range("speed", "Seconds per loop", 15, 90, 5, 36, "s"), ...motion(), scheme("site_inverse"), ...spacing(20, 20)],
   blocks: [{ type: "item", name: "Item", settings: [text("text", "Words", "Walk-ins welcome")] }],
@@ -261,7 +263,7 @@ export const chairs = defineSection({
 <section class="sbc" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h2 class="sbc__h">{{ settings.heading }}</h2>
   <ul class="sbc__list">
-    {% for block in section.blocks %}<li class="sbc__item" data-block-id="{{ block.id }}"><span class="sbc__frame" data-storelib-motion="3d-tilt" data-motion-max="6">{% if block.settings.photo %}<img src="{{ block.settings.photo | asset }}" alt="{{ block.settings.alt }}" width="900" height="1100">{% endif %}</span><h3 class="sbc__name">{{ block.settings.name }}</h3><p class="sbc__best">{{ block.settings.best }}</p><p class="sbc__days">{{ block.settings.days }}</p></li>{% endfor %}
+    {% for block in section.blocks %}<li class="sbc__item" data-block-id="{{ block.id }}"><span class="sbc__frame" data-storelib-motion="3d-tilt" data-motion-intensity="6">{% if block.settings.photo %}<img src="{{ block.settings.photo | asset }}" alt="{{ block.settings.alt }}" width="900" height="1100">{% endif %}</span><h3 class="sbc__name">{{ block.settings.name }}</h3><p class="sbc__best">{{ block.settings.best }}</p><p class="sbc__days">{{ block.settings.days }}</p></li>{% endfor %}
   </ul>
 </section>`,
   style: `
@@ -338,19 +340,19 @@ export const cuts = defineSection({
   template: `
 <section class="sbg" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h2 class="sbg__h">{{ settings.heading }}</h2>
-  <ul class="sbg__rail" data-storelib-motion="pin-horizontal" data-motion-distance="{{ section.blocks.size }}" tabindex="0" aria-label="{{ settings.heading }}">
+  <div class="sbg__pin" data-storelib-motion="pin-horizontal" data-motion-speed="1" data-motion-mobile="swipe"><div class="sbg__stage" data-motion-stage><ul class="sbg__rail" data-motion-track tabindex="0" aria-label="{{ settings.heading }}">
     {% for block in section.blocks %}<li class="sbg__item" data-block-id="{{ block.id }}">{% if block.settings.photo %}<img src="{{ block.settings.photo | asset }}" alt="{{ block.settings.alt }}" width="900" height="1125">{% endif %}<p class="sbg__cap"><span>{{ block.settings.cut }}</span> {{ block.settings.by }}</p></li>{% endfor %}
-  </ul>
+  </ul></div></div>
 </section>`,
   style: `
 .sbg { ${BOX} overflow: hidden; }
 .sbg__h { margin: 0 0 22px; ${D} font-size: clamp(2.25rem, 1.4rem + 4cqi, 4.5rem); letter-spacing: -0.025em; line-height: 0.95; }
 .sbg__rail { display: flex; gap: 12px; margin: 0; padding: 0 0 12px; list-style: none; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; }
-.sbg__item { flex: 0 0 72%; scroll-snap-align: start; }
+.sbg__item { flex: none; width: 72cqi; scroll-snap-align: start; }
 .sbg__item img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: cover; }
 .sbg__cap { margin: 8px 0 0; ${SMALL} }
 .sbg__cap span { ${D} font-size: 1.0625rem; }
-@container (min-width: 900px) { .sbg__item { flex-basis: 28%; } }
+@container (min-width: 900px) { .sbg__item { width: 27cqi; } }
 @media (prefers-reduced-motion: reduce) { .sbg__rail { scroll-snap-type: none; } }`,
   settings: [text("heading", "Heading", "This week in the chair"), ...motion(), scheme("site"), ...spacing(96, 96)],
   blocks: [{ type: "cut", name: "Cut", settings: [image("photo", "Photograph"), text("alt", "Photograph description", ""), text("cut", "Cut", "Mid fade"), text("by", "By", "by Callum")] }],
@@ -377,7 +379,7 @@ export const visit = defineSection({
       <p class="sbv__addr">{{ settings.address }}</p>
       <p class="sbv__links"><a href="{{ settings.map_url | url }}">{{ settings.map_label }}</a><a href="{{ settings.phone_url | url }}">{{ settings.phone }}</a></p>
     </div>
-    {% if settings.photo %}<img class="sbv__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1400" height="1050" data-storelib-motion="parallax-depth" data-motion-depth="0.1">{% endif %}
+    {% if settings.photo %}<span class="pdw" style="display: block; overflow: hidden;" data-storelib-motion="parallax-depth" data-motion-intensity="30" data-motion-pointer="false"><img class="sbv__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1400" height="1050" data-motion-depth="0.1"></span>{% endif %}
   </div>
 </section>`,
   style: `
@@ -650,7 +652,7 @@ export const about = defineSection({
 <section class="sba" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <div class="sba__grid">
     <div><h1 class="sba__h">{{ settings.heading }}</h1><div class="sba__story">{{ settings.story | raw }}</div></div>
-    {% if settings.photo %}<img class="sba__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1400" height="1050" data-storelib-motion="parallax-depth" data-motion-depth="0.1">{% endif %}
+    {% if settings.photo %}<span class="pdw" style="display: block; overflow: hidden;" data-storelib-motion="parallax-depth" data-motion-intensity="30" data-motion-pointer="false"><img class="sba__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1400" height="1050" data-motion-depth="0.1"></span>{% endif %}
   </div>
   <ul class="sba__list">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><h2 class="sba__t">{{ block.settings.title }}</h2><p>{{ block.settings.text }}</p></li>{% endfor %}</ul>
 </section>`,

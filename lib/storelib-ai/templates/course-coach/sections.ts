@@ -108,10 +108,10 @@ export const hero = defineSection({
       <div class="cch__actions"><a class="cch__btn" href="{{ settings.cta_url | url }}">{{ settings.cta_label }}</a><a class="cch__link" href="{{ settings.second_url | url }}">{{ settings.second_label }}</a></div>
       <dl class="cch__facts">{% for block in section.blocks %}<div data-block-id="{{ block.id }}"><dt>{{ block.settings.label }}</dt><dd>{{ block.settings.value }}</dd></div>{% endfor %}</dl>
     </div>
-    <figure class="cch__fig" data-storelib-motion="parallax-depth" data-motion-depth="0.15">
-      {% if settings.photo %}<img class="cch__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1200" height="1500" fetchpriority="high">{% endif %}
+    {% if settings.photo %}<figure class="cch__fig" data-storelib-motion="parallax-depth" data-motion-intensity="30" data-motion-pointer="false">
+      {% if settings.photo %}<img class="cch__img" data-motion-depth="0.2" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1200" height="1500" fetchpriority="high">{% endif %}
       {% if settings.caption %}<figcaption class="cch__cap">{{ settings.caption }}</figcaption>{% endif %}
-    </figure>
+    </figure>{% endif %}
   </div>
 </section>`,
   style: `
@@ -170,8 +170,8 @@ export const strip = defineSection({
   summary: "A running line of short facts on the deep band (P3 marquee), pausing on hover; still and wrapped for reduced motion.",
   template: `
 <section class="ccq" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars("--ccq-speed: {{ settings.speed }}s;")}" aria-label="{{ settings.label }}">
-  <div class="ccq__track" data-storelib-motion="marquee" data-motion-speed="{{ settings.speed }}">
-    <ul class="ccq__run">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.text }}</li>{% endfor %}</ul>
+  <div class="ccq__track" data-storelib-motion="marquee" data-motion-reactive="40">
+    <ul class="ccq__run" data-motion-track>{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.text }}</li>{% endfor %}</ul>
     <ul class="ccq__run" aria-hidden="true">{% for block in section.blocks %}<li>{{ block.settings.text }}</li>{% endfor %}</ul>
   </div>
 </section>`,
@@ -183,6 +183,8 @@ export const strip = defineSection({
 .ccq__run li::after { content: "+"; margin: 0 0.6em; color: var(--s-accent); }
 @media (prefers-reduced-motion: reduce) { .ccq__track { width: auto; } .ccq__run { flex-wrap: wrap; } .ccq__run[aria-hidden="true"] { display: none; } .ccq__run li { white-space: normal; } }
 @media (prefers-reduced-motion: no-preference) { .ccq:not([data-motion="off"]) .ccq__track { animation: ccq-run var(--ccq-speed, 40s) linear infinite; } .ccq:hover .ccq__track { animation-play-state: paused; } .ccq[data-motion="off"] .ccq__run[aria-hidden="true"] { display: none; } }
+.ccq__track[data-motion-ready] { animation: none !important; }
+.ccq__track[data-motion-ready] .ccq__run[aria-hidden="true"] { display: none; }
 @keyframes ccq-run { to { transform: translateX(-50%); } }`,
   settings: [text("label", "What it lists (read aloud)", "About the course"), range("speed", "Seconds per loop", 15, 90, 5, 40, "s"), ...motion(), scheme("site_inverse"), ...spacing(22, 22)],
   blocks: [{ type: "item", name: "Item", settings: [text("text", "Words", "Live practice rooms")] }],
@@ -233,10 +235,10 @@ export const curriculum = defineSection({
       <h2 class="ccc__h">{{ settings.heading }}</h2>
       <div class="ccc__intro">{{ settings.intro | raw }}</div>
     </div>
-    <div class="ccc__weeks" data-storelib-motion="scroll-scrub" data-motion-target=".ccc__bar">
+    <div class="ccc__weeks" data-storelib-motion="reveal-stagger" data-motion-effect="slide-right" data-motion-stagger="60">
       <span class="ccc__bar" aria-hidden="true"></span>
       {% for block in section.blocks %}
-        <details class="ccc__week" data-block-id="{{ block.id }}"{% if forloop.first %} open{% endif %}>
+        <details class="ccc__week" data-motion-item data-block-id="{{ block.id }}"{% if forloop.first %} open{% endif %}>
           <summary class="ccc__sum"><span class="ccc__wk">{{ block.settings.week }}</span><span class="ccc__title">{{ block.settings.title }}</span><span class="ccc__len">{{ block.settings.length }}</span></summary>
           <ul class="ccc__lessons">{% for lesson in block.settings.lessons | lines %}<li>{{ lesson }}</li>{% endfor %}</ul>
         </details>
@@ -289,7 +291,7 @@ export const coach = defineSection({
   template: `
 <section class="cck" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <div class="cck__grid">
-    {% if settings.photo %}<img class="cck__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1200" height="1400" data-storelib-motion="parallax-depth" data-motion-depth="0.1">{% endif %}
+    {% if settings.photo %}<span class="pdw" style="display: block; overflow: hidden;" data-storelib-motion="parallax-depth" data-motion-intensity="30" data-motion-pointer="false"><img class="cck__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1200" height="1400" data-motion-depth="0.1"></span>{% endif %}
     <div class="cck__copy">
       <h2 class="cck__h">{{ settings.heading }}</h2>
       <div class="cck__bio">{{ settings.bio | raw }}</div>
@@ -662,7 +664,7 @@ export const about = defineSection({
 <section class="cca" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <div class="cca__grid">
     <div><h1 class="cca__h">{{ settings.heading }}</h1><div class="cca__story">{{ settings.story | raw }}</div></div>
-    {% if settings.photo %}<img class="cca__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1200" height="1400" data-storelib-motion="parallax-depth" data-motion-depth="0.12">{% endif %}
+    {% if settings.photo %}<span class="pdw" style="display: block; overflow: hidden;" data-storelib-motion="parallax-depth" data-motion-intensity="30" data-motion-pointer="false"><img class="cca__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1200" height="1400" data-motion-depth="0.12"></span>{% endif %}
   </div>
   <ol class="cca__list">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><h2 class="cca__t">{{ block.settings.title }}</h2><p>{{ block.settings.text }}</p></li>{% endfor %}</ol>
 </section>`,

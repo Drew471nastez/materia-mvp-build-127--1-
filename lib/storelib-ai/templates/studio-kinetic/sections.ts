@@ -143,7 +143,7 @@ export const hero = defineSection({
     text("availability", "Availability line", "Booking from September"),
     text("cta_label", "Link", "See the work"),
     url("cta_url", "Link goes to", "#section-work"),
-    range("scramble_ms", "Scramble length", 200, 2000, 100, 1100, "ms"),
+    range("scramble_ms", "Scramble length", 300, 3000, 100, 1100, "ms"),
     ...motion(),
     scheme("site"),
     ...spacing(40, 80),
@@ -164,12 +164,12 @@ export const marquee = defineSection({
   summary: "Two running lines in opposite directions, one solid and one outlined (P3 marquee); still and wrapped for reduced motion.",
   template: `
 <section class="agq" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars("--agq-speed: {{ settings.speed }}s;")}" aria-label="{{ settings.label }}">
-  <div class="agq__row" data-storelib-motion="marquee" data-motion-speed="{{ settings.speed }}">
-    <ul class="agq__run">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.word }}</li>{% endfor %}</ul>
+  <div class="agq__row" data-storelib-motion="marquee" data-motion-reactive="40">
+    <ul class="agq__run" data-motion-track>{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.word }}</li>{% endfor %}</ul>
     <ul class="agq__run" aria-hidden="true">{% for block in section.blocks %}<li>{{ block.settings.word }}</li>{% endfor %}</ul>
   </div>
-  <div class="agq__row agq__row--back" aria-hidden="true" data-storelib-motion="marquee" data-motion-speed="{{ settings.speed }}" data-motion-direction="right">
-    <ul class="agq__run">{% for block in section.blocks %}<li>{{ block.settings.word }}</li>{% endfor %}</ul>
+  <div class="agq__row agq__row--back" aria-hidden="true" data-storelib-motion="marquee" data-motion-reactive="40" data-motion-direction="right">
+    <ul class="agq__run" data-motion-track>{% for block in section.blocks %}<li>{{ block.settings.word }}</li>{% endfor %}</ul>
     <ul class="agq__run">{% for block in section.blocks %}<li>{{ block.settings.word }}</li>{% endfor %}</ul>
   </div>
 </section>`,
@@ -186,6 +186,8 @@ export const marquee = defineSection({
   .agq[data-motion="off"] .agq__row--back { display: none; }
   .agq:hover .agq__row { animation-play-state: paused; }
 }
+.agq__row[data-motion-ready] { animation: none !important; }
+.agq__row[data-motion-ready] .agq__run ~ .agq__run { display: none; }
 @keyframes agq-l { to { transform: translateX(-50%); } }
 @keyframes agq-r { from { transform: translateX(-50%); } to { transform: translateX(0); } }`,
   settings: [text("label", "What it lists (read aloud)", "What the studio does"), range("speed", "Seconds per loop", 15, 90, 5, 44, "s"), ...motion(), scheme("site"), ...spacing(20, 20)],
@@ -201,24 +203,24 @@ export const cases = defineSection({
   template: `
 <section class="agc" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <div class="agc__head"><h2 class="agc__h">{{ settings.heading }}</h2><p class="agc__count">{{ section.blocks.size }} {{ settings.count_label }}</p></div>
-  <ol class="agc__rail" data-storelib-motion="pin-horizontal" data-motion-distance="{{ section.blocks.size }}" tabindex="0" aria-label="{{ settings.heading }}">
+  <div class="agc__pin" data-storelib-motion="pin-horizontal" data-motion-speed="1" data-motion-mobile="swipe"><div class="agc__stage" data-motion-stage><ol class="agc__rail" data-motion-track tabindex="0" aria-label="{{ settings.heading }}">
     {% for block in section.blocks %}
       <li class="agc__case" data-block-id="{{ block.id }}">
         <a class="agc__link" href="{{ block.settings.link | url }}">
-          <span class="agc__frame" data-storelib-motion="3d-tilt" data-motion-max="4">{% if block.settings.photo %}<img src="{{ block.settings.photo | asset }}" alt="{{ block.settings.alt }}" width="1600" height="1100">{% else %}<span class="agc__type">{{ block.settings.client }}</span>{% endif %}</span>
+          <span class="agc__frame" data-storelib-motion="3d-tilt" data-motion-intensity="4">{% if block.settings.photo %}<img src="{{ block.settings.photo | asset }}" alt="{{ block.settings.alt }}" width="1600" height="1100">{% else %}<span class="agc__type">{{ block.settings.client }}</span>{% endif %}</span>
           <span class="agc__meta"><span class="agc__n">{{ forloop.index }}</span><span class="agc__client">{{ block.settings.client }}</span><span class="agc__what">{{ block.settings.what }}</span><span class="agc__year">{{ block.settings.year }}</span></span>
         </a>
       </li>
     {% endfor %}
-  </ol>
+  </ol></div></div>
 </section>`,
   style: `
 .agc { ${BOX} overflow: hidden; }
 .agc__head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .agc__h { margin: 0; ${D} font-size: clamp(2.25rem, 1.4rem + 4cqi, 5rem); letter-spacing: -0.055em; line-height: 0.9; }
 .agc__count { margin: 0; ${SMALL} }
-.agc__rail { display: grid; grid-auto-flow: column; grid-auto-columns: 88%; gap: 16px; margin: 0; padding: 0 0 14px; list-style: none; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; }
-.agc__case { scroll-snap-align: start; }
+.agc__rail { display: flex; gap: 16px; margin: 0; padding: 0 0 14px; list-style: none; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; }
+.agc__case { flex: none; width: 88cqi; scroll-snap-align: start; }
 .agc__link { display: grid; gap: 12px; color: inherit; text-decoration: none; }
 .agc__frame { display: grid; place-items: center; aspect-ratio: 16 / 11; overflow: hidden; background: var(--s-text); color: var(--s-bg); }
 .agc__frame img { width: 100%; height: 100%; object-fit: cover; transition: transform calc(var(--t-motion-duration, 650ms) * 1.2) var(--t-motion-ease, ease); }
@@ -229,7 +231,7 @@ export const cases = defineSection({
 .agc__what { grid-column: 2; ${SMALL} }
 .agc__year { grid-column: 3; grid-row: 1; ${SMALL} }
 @media (hover: hover) and (pointer: fine) { .agc:not([data-motion="off"]) .agc__link:hover img { transform: scale(var(--t-motion-scale, 1.06)); } .agc__link:hover .agc__client { background: var(--s-accent); } }
-@container (min-width: 900px) { .agc__rail { grid-auto-columns: 62%; } }
+@container (min-width: 900px) { .agc__case { width: 60cqi; } }
 @media (prefers-reduced-motion: reduce) { .agc__rail { scroll-snap-type: none; } .agc__frame img { transition: none; } }`,
   settings: [text("heading", "Heading", "Selected work"), text("count_label", "After the number", "projects"), ...motion(), scheme("site"), ...spacing(96, 96)],
   blocks: [{ type: "case", name: "Case", settings: [text("client", "Client", "Kunsthal Noord"), text("what", "What was made", "Identity and website"), text("year", "Year", "2026"), image("photo", "Picture"), text("alt", "Picture description", ""), url("link", "Goes to", "/about")] }],
@@ -249,7 +251,7 @@ export const index = defineSection({
   template: `
 <section class="agi" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h2 class="agi__h">{{ settings.heading }}</h2>
-  <ul class="agi__list" data-storelib-motion="cursor-follow" data-motion-target=".agi__pic">
+  <ul class="agi__list" data-storelib-motion="cursor-follow" data-motion-label="{{ settings.follow_label }}" data-motion-size="72">
     {% for block in section.blocks %}
       <li class="agi__row" data-block-id="{{ block.id }}">
         <span class="agi__name">{{ block.settings.name }}</span><span class="agi__kind">{{ block.settings.kind }}</span><span class="agi__year">{{ block.settings.year }}</span>
@@ -275,7 +277,7 @@ export const index = defineSection({
 }
 @media (hover: hover) and (pointer: fine) { .agi__row:hover { background: var(--s-accent); } .agi__row:hover .agi__pic { opacity: 1; transform: translateY(-50%) rotate(-3deg); } }
 @media (prefers-reduced-motion: reduce) { .agi__pic { transition: none; } }`,
-  settings: [text("heading", "Heading", "Index"), ...motion(), scheme("site"), ...spacing(96, 96)],
+  settings: [text("heading", "Heading", "Index"), text("follow_label", "Word on the pointer", "Look"), ...motion(), scheme("site"), ...spacing(96, 96)],
   blocks: [{ type: "project", name: "Project", settings: [text("name", "Project", "Haven Archive"), text("kind", "Kind", "Website"), text("year", "Year", "2024"), image("photo", "Picture"), text("alt", "Picture description", "")] }],
   presetBlocks: [
     { type: "project", settings: { name: "Kunsthal Noord", kind: "Identity, signage", year: "2026", alt: "Art hall signage in black and yellow" } },
@@ -376,7 +378,7 @@ ${revealCss("agm", ".agm__line", "agm-rise")}`,
     text("before", "Words before", "Good design is mostly"),
     text("key", "The word that scrambles", "listening,"),
     text("after", "Words after", "the rest is kerning."),
-    range("scramble_ms", "Scramble length", 200, 2000, 100, 900, "ms"),
+    range("scramble_ms", "Scramble length", 300, 3000, 100, 900, "ms"),
     ...motion(),
     scheme("site"),
     ...spacing(120, 120),
@@ -430,7 +432,7 @@ export const studio = defineSection({
 <section class="agt" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h2 class="agt__h">{{ settings.heading }}</h2>
   <div class="agt__grid">
-    {% for block in section.blocks %}<figure class="agt__fig agt__fig--{{ forloop.index }}" data-block-id="{{ block.id }}" data-storelib-motion="3d-tilt" data-motion-max="6">{% if block.settings.photo %}<img src="{{ block.settings.photo | asset }}" alt="{{ block.settings.alt }}" width="1200" height="900">{% endif %}<figcaption>{{ block.settings.caption }}</figcaption></figure>{% endfor %}
+    {% for block in section.blocks %}<figure class="agt__fig agt__fig--{{ forloop.index }}" data-block-id="{{ block.id }}" data-storelib-motion="3d-tilt" data-motion-intensity="6">{% if block.settings.photo %}<img src="{{ block.settings.photo | asset }}" alt="{{ block.settings.alt }}" width="1200" height="900">{% endif %}<figcaption>{{ block.settings.caption }}</figcaption></figure>{% endfor %}
   </div>
 </section>`,
   style: `
@@ -629,7 +631,7 @@ export const about = defineSection({
   <h1 class="aga__h">{{ settings.heading }}</h1>
   <div class="aga__grid">
     <div class="aga__story">{{ settings.story | raw }}</div>
-    {% if settings.photo %}<img class="aga__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1600" height="1000" data-storelib-motion="parallax-depth" data-motion-depth="0.1">{% endif %}
+    {% if settings.photo %}<span class="pdw" style="display: block; overflow: hidden;" data-storelib-motion="parallax-depth" data-motion-intensity="30" data-motion-pointer="false"><img class="aga__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1600" height="1000" data-motion-depth="0.1"></span>{% endif %}
   </div>
   <ol class="aga__list">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><h2 class="aga__t">{{ block.settings.title }}</h2><p>{{ block.settings.text }}</p></li>{% endfor %}</ol>
 </section>`,

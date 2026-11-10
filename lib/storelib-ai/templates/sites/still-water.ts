@@ -34,8 +34,8 @@ const hero: ComponentDef = {
         {% if settings.cta2_label %}<a class="sh__link" href="{{ settings.cta2_url | url }}">{{ settings.cta2_label }}</a>{% endif %}
       </div>
     </div>
-    <figure class="sh__frame" data-storelib-motion="parallax-depth" data-motion-strength="{{ settings.motion_strength }}">
-      {% if settings.image %}<img class="sh__img" src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="1100" height="1400" fetchpriority="high">{% else %}<span class="sh__still" aria-hidden="true"></span>{% endif %}
+    <figure class="sh__frame" data-storelib-motion="parallax-depth" data-motion-intensity="40" data-motion-pointer="false">
+      {% if settings.image %}<img class="sh__img" src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="1100" height="1400" fetchpriority="high" data-motion-depth="0.3">{% else %}<span class="sh__still" aria-hidden="true"></span>{% endif %}
       {% if settings.note %}<figcaption class="sh__note">{{ settings.note }}</figcaption>{% endif %}
     </figure>
   </div>

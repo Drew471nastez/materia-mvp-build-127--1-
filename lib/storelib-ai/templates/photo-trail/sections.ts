@@ -94,10 +94,10 @@ export const trail = defineSection({
   summary: "The opening: the name set large in the middle, and the work trailing behind the pointer as it moves (P3 image-trail). Without the island, or on phones, the same pictures sit scattered around the name, still.",
   template: `
 <section class="pft" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
-  <div class="pft__stage" data-storelib-motion="image-trail" data-motion-items=".pft__pic" data-motion-spacing="{{ settings.trail_spacing }}" data-motion-life="{{ settings.trail_life }}">
+  <div class="pft__stage" data-storelib-motion="image-trail" data-motion-threshold="{{ settings.trail_spacing }}" data-motion-lifetime="{{ settings.trail_life }}" data-motion-size="200" data-motion-rotate="6">
     <h1 class="pft__h">{{ settings.heading | default: shop.name }}</h1>
     <p class="pft__line">{{ settings.line }}</p>
-    {% for block in section.blocks %}{% if block.settings.photo %}<img class="pft__pic pft__pic--{{ forloop.index }}" src="{{ block.settings.photo | asset }}" alt="{{ block.settings.alt }}" width="800" height="1000" data-block-id="{{ block.id }}">{% endif %}{% endfor %}
+    <div class="pft__pics" data-motion-images>{% for block in section.blocks %}{% if block.settings.photo %}<img class="pft__pic pft__pic--{{ forloop.index }}" src="{{ block.settings.photo | asset }}" alt="{{ block.settings.alt }}" width="800" height="1000" data-block-id="{{ block.id }}">{% endif %}{% endfor %}</div>
   </div>
   <p class="pft__hint">{{ settings.hint }}</p>
 </section>`,
@@ -106,6 +106,7 @@ export const trail = defineSection({
 .pft__stage { position: relative; display: grid; place-content: center; justify-items: center; gap: 14px; min-height: clamp(520px, 86svh, 980px); text-align: center; }
 .pft__h { position: relative; z-index: 3; margin: 0; ${D} font-size: clamp(3rem, 1rem + 10cqi, 11rem); letter-spacing: -0.045em; line-height: 0.9; color: var(--s-heading); }
 .pft__line { position: relative; z-index: 3; margin: 0; padding: 4px 8px; background: var(--s-bg); ${SMALL} }
+.pft__pics { position: absolute; inset: 0; z-index: 1; }
 .pft__pic { position: absolute; z-index: 1; width: clamp(88px, 15cqi, 230px); height: auto; aspect-ratio: 4 / 5; object-fit: cover; }
 .pft__pic--1 { left: 2%; top: 4%; transform: rotate(-4deg); }
 .pft__pic--2 { right: 3%; top: 10%; transform: rotate(3deg); }
@@ -153,7 +154,7 @@ export const series = defineSection({
   summary: "One series at full bleed: the picture drifting slower than the page (P3 parallax-depth), its title, place and year, and a link into it.",
   template: `
 <section class="pfs" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
-  <div class="pfs__frame" data-storelib-motion="parallax-depth" data-motion-depth="{{ settings.depth }}">{% if settings.photo %}<img class="pfs__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="2400" height="1600">{% endif %}</div>
+  {% if settings.photo %}<div class="pfs__frame" data-storelib-motion="parallax-depth" data-motion-intensity="{{ settings.depth }}" data-motion-pointer="false">{% if settings.photo %}<img class="pfs__img" data-motion-depth="0.4" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="2400" height="1600">{% endif %}</div>{% endif %}
   <div class="pfs__cap">
     <h2 class="pfs__h">{{ settings.heading }}</h2>
     <dl class="pfs__meta">{% for block in section.blocks %}<div data-block-id="{{ block.id }}"><dt>{{ block.settings.label }}</dt><dd>{{ block.settings.value }}</dd></div>{% endfor %}</dl>
@@ -174,6 +175,7 @@ export const series = defineSection({
 .pfs__link { justify-self: start; display: inline-flex; min-height: 44px; align-items: center; color: inherit; ${SMALL} text-underline-offset: 5px; }
 @container (min-width: 900px) { .pfs__cap { grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: 24px; } }
 @media (prefers-reduced-motion: no-preference) { @supports (animation-timeline: view()) { .pfs:not([data-motion="off"]) .pfs__img { animation: pfs-drift linear both; animation-timeline: view(); } } }
+.pfs__frame[data-motion-ready] .pfs__img { animation: none; }
 @keyframes pfs-drift { from { transform: translateY(calc(var(--t-motion-parallax, 6%) * -1 * var(--m-k, 1))); } to { transform: translateY(calc(var(--t-motion-parallax, 6%) * var(--m-k, 1))); } }`,
   settings: [
     text("heading", "Series title", "Low Tide, Northumberland"),
@@ -181,7 +183,7 @@ export const series = defineSection({
     text("photo_alt", "Picture description", "A wide flat beach at low tide with one figure walking a dog far away"),
     text("link_label", "Link", "See the series"),
     url("link_url", "Link goes to", "/collections"),
-    range("depth", "Parallax depth", 0, 0.6, 0.05, 0.25),
+    range("depth", "Parallax depth", 0, 100, 5, 35, "%"),
     ...motion(),
     scheme("site"),
     ...spacing(24, 96),
@@ -254,7 +256,7 @@ export const index = defineSection({
   template: `
 <section class="pfi" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h2 class="pfi__h">{{ settings.heading }}</h2>
-  <ul class="pfi__list" data-storelib-motion="cursor-follow" data-motion-target=".pfi__cover">
+  <ul class="pfi__list" data-storelib-motion="cursor-follow" data-motion-label="{{ settings.follow_label }}" data-motion-size="64" data-motion-blend="difference">
     {% for block in section.blocks %}<li class="pfi__row" data-block-id="{{ block.id }}"><a class="pfi__link" href="{{ block.settings.link | url }}"><span class="pfi__name">{{ block.settings.name }}</span><span class="pfi__place">{{ block.settings.place }}</span><span class="pfi__year">{{ block.settings.year }}</span>{% if block.settings.cover %}<img class="pfi__cover" src="{{ block.settings.cover | asset }}" alt="{{ block.settings.alt }}" width="600" height="750">{% endif %}</a></li>{% endfor %}
   </ul>
 </section>`,
@@ -275,7 +277,7 @@ export const index = defineSection({
 }
 @media (hover: hover) and (pointer: fine) { .pfi__link:hover .pfi__cover { opacity: 1; transform: translateY(-50%); } .pfi__link:hover .pfi__name { color: var(--s-accent); } }
 @media (prefers-reduced-motion: reduce) { .pfi__cover { transition: none; } }`,
-  settings: [text("heading", "Heading", "Series"), ...motion(), scheme("site"), ...spacing(96, 96)],
+  settings: [text("heading", "Heading", "Series"), text("follow_label", "Word on the pointer", "Open"), ...motion(), scheme("site"), ...spacing(96, 96)],
   blocks: [{ type: "series", name: "Series", settings: [text("name", "Series", "Low Tide"), text("place", "Place", "Northumberland"), text("year", "Year", "2025"), image("cover", "Cover"), text("alt", "Cover description", ""), url("link", "Goes to", "/collections")] }],
   presetBlocks: [
     { type: "series", settings: { name: "Low Tide", place: "Northumberland", year: "2025", alt: "A wide beach at low tide", link: "/collections" } },
@@ -293,18 +295,18 @@ export const strip = defineSection({
   template: `
 <section class="pfr" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h2 class="pfr__h">{{ settings.heading }}</h2>
-  <ol class="pfr__rail" data-storelib-motion="pin-horizontal" data-motion-distance="{{ section.blocks.size }}" tabindex="0" aria-label="{{ settings.heading }}">
+  <div class="pfr__pin" data-storelib-motion="pin-horizontal" data-motion-speed="1" data-motion-mobile="swipe"><div class="pfr__stage" data-motion-stage><ol class="pfr__rail" data-motion-track tabindex="0" aria-label="{{ settings.heading }}">
     {% for block in section.blocks %}<li class="pfr__frame" data-block-id="{{ block.id }}">{% if block.settings.photo %}<img src="{{ block.settings.photo | asset }}" alt="{{ block.settings.alt }}" width="1500" height="1000">{% endif %}<p class="pfr__n">{{ settings.frame_label }} {{ forloop.index }}, {{ block.settings.caption }}</p></li>{% endfor %}
-  </ol>
+  </ol></div></div>
 </section>`,
   style: `
 .pfr { ${BOX} overflow: hidden; }
 .pfr__h { margin: 0 0 20px; ${D} font-size: clamp(1.75rem, 1.2rem + 2.4cqi, 3rem); letter-spacing: -0.03em; }
 .pfr__rail { display: flex; gap: 10px; margin: 0; padding: 0 0 12px; list-style: none; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; }
-.pfr__frame { flex: 0 0 86%; scroll-snap-align: start; }
+.pfr__frame { flex: none; width: 86cqi; scroll-snap-align: start; }
 .pfr__frame img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; }
 .pfr__n { margin: 8px 0 0; ${SMALL} font-variant-numeric: tabular-nums; }
-@container (min-width: 900px) { .pfr__frame { flex-basis: 48%; } }
+@container (min-width: 900px) { .pfr__frame { width: 46cqi; } }
 @media (prefers-reduced-motion: reduce) { .pfr__rail { scroll-snap-type: none; } }`,
   settings: [text("heading", "Heading", "One morning at the harbour"), text("frame_label", "Before each number", "Frame"), ...motion(), scheme("site"), ...spacing(96, 96)],
   blocks: [{ type: "frame", name: "Frame", settings: [image("photo", "Picture"), text("alt", "Picture description", ""), text("caption", "Caption", "5:40")] }],
@@ -323,8 +325,8 @@ export const places = defineSection({
   summary: "Where the work was made, as a slow running line (P3 marquee), paused on hover, still and wrapped for reduced motion.",
   template: `
 <section class="pfq" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars("--pfq-speed: {{ settings.speed }}s;")}" aria-label="{{ settings.label }}">
-  <div class="pfq__track" data-storelib-motion="marquee" data-motion-speed="{{ settings.speed }}">
-    <ul class="pfq__run">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.place }}</li>{% endfor %}</ul>
+  <div class="pfq__track" data-storelib-motion="marquee" data-motion-reactive="40">
+    <ul class="pfq__run" data-motion-track>{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.place }}</li>{% endfor %}</ul>
     <ul class="pfq__run" aria-hidden="true">{% for block in section.blocks %}<li>{{ block.settings.place }}</li>{% endfor %}</ul>
   </div>
 </section>`,
@@ -336,6 +338,8 @@ export const places = defineSection({
 .pfq__run li:nth-child(odd) { opacity: 0.35; }
 @media (prefers-reduced-motion: reduce) { .pfq__track { width: auto; } .pfq__run { flex-wrap: wrap; } .pfq__run[aria-hidden="true"] { display: none; } .pfq__run li { white-space: normal; } }
 @media (prefers-reduced-motion: no-preference) { .pfq:not([data-motion="off"]) .pfq__track { animation: pfq-run var(--pfq-speed, 60s) linear infinite; } .pfq:hover .pfq__track { animation-play-state: paused; } .pfq[data-motion="off"] .pfq__run[aria-hidden="true"] { display: none; } }
+.pfq__track[data-motion-ready] { animation: none !important; }
+.pfq__track[data-motion-ready] .pfq__run[aria-hidden="true"] { display: none; }
 @keyframes pfq-run { to { transform: translateX(-50%); } }`,
   settings: [text("label", "What it lists (read aloud)", "Where the work was made"), range("speed", "Seconds per loop", 20, 120, 5, 60, "s"), ...motion(), scheme("site"), ...spacing(24, 24)],
   blocks: [{ type: "place", name: "Place", settings: [text("place", "Place", "Porto")] }],
@@ -389,9 +393,9 @@ export const prints = defineSection({
   <div class="pfp__head"><h2 class="pfp__h">{{ settings.heading }}</h2><a class="pfp__all" href="{{ settings.all_url | url }}">{{ settings.all_label }}</a></div>
   <ul class="pfp__list">
     {% if settings.products.size > 0 %}
-      {% for product in settings.products limit: 3 %}<li class="pfp__item"><a class="pfp__link" href="{{ product.settings.url | url }}"><span class="pfp__mat">{% if product.settings.image %}<img src="{{ product.settings.image }}" alt="{{ product.settings.title }}" width="900" height="1125">{% endif %}</span><span class="pfp__name">{{ product.settings.title }}</span><span class="pfp__price">{{ product.settings.price }}</span></a><button class="pfp__add" type="button" data-storelib-add-to-cart="{{ product.id }}" data-title="{{ product.settings.title }}" data-price="{{ product.settings.price }}" data-url="{{ product.settings.url }}">{{ settings.add_label }}</button></li>{% endfor %}
+      {% for product in settings.products limit: 3 %}<li class="pfp__item"><a class="pfp__link" href="{{ product.settings.url | url }}">{% if product.settings.image %}<span class="pfp__mat"><img src="{{ product.settings.image }}" alt="{{ product.settings.title }}" width="900" height="1125"></span>{% endif %}<span class="pfp__name">{{ product.settings.title }}</span><span class="pfp__price">{{ product.settings.price }}</span></a><button class="pfp__add" type="button" data-storelib-add-to-cart="{{ product.id }}" data-title="{{ product.settings.title }}" data-price="{{ product.settings.price }}" data-url="{{ product.settings.url }}">{{ settings.add_label }}</button></li>{% endfor %}
     {% else %}
-      {% for product in products limit: 3 %}<li class="pfp__item"><a class="pfp__link" href="{{ product.settings.url | url }}"><span class="pfp__mat">{% if product.settings.image %}<img src="{{ product.settings.image }}" alt="{{ product.settings.title }}" width="900" height="1125">{% endif %}</span><span class="pfp__name">{{ product.settings.title }}</span><span class="pfp__price">{{ product.settings.price }}</span></a><button class="pfp__add" type="button" data-storelib-add-to-cart="{{ product.id }}" data-title="{{ product.settings.title }}" data-price="{{ product.settings.price }}" data-url="{{ product.settings.url }}">{{ settings.add_label }}</button></li>{% endfor %}
+      {% for product in products limit: 3 %}<li class="pfp__item"><a class="pfp__link" href="{{ product.settings.url | url }}">{% if product.settings.image %}<span class="pfp__mat"><img src="{{ product.settings.image }}" alt="{{ product.settings.title }}" width="900" height="1125"></span>{% endif %}<span class="pfp__name">{{ product.settings.title }}</span><span class="pfp__price">{{ product.settings.price }}</span></a><button class="pfp__add" type="button" data-storelib-add-to-cart="{{ product.id }}" data-title="{{ product.settings.title }}" data-price="{{ product.settings.price }}" data-url="{{ product.settings.url }}">{{ settings.add_label }}</button></li>{% endfor %}
     {% endif %}
   </ul>
   <ul class="pfp__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.note }}</li>{% endfor %}</ul>
@@ -625,7 +629,7 @@ export const about = defineSection({
   template: `
 <section class="pfab" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <div class="pfab__grid">
-    {% if settings.photo %}<img class="pfab__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1200" height="1500" data-storelib-motion="parallax-depth" data-motion-depth="0.1">{% endif %}
+    {% if settings.photo %}<span class="pdw" style="display: block; overflow: hidden;" data-storelib-motion="parallax-depth" data-motion-intensity="30" data-motion-pointer="false"><img class="pfab__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1200" height="1500" data-motion-depth="0.1"></span>{% endif %}
     <div><h1 class="pfab__h">{{ settings.heading }}</h1><div class="pfab__story">{{ settings.story | raw }}</div>
       <dl class="pfab__list">{% for block in section.blocks %}<div data-block-id="{{ block.id }}"><dt>{{ block.settings.label }}</dt><dd>{{ block.settings.value }}</dd></div>{% endfor %}</dl>
     </div>

@@ -126,10 +126,10 @@ export const hero = defineSection({
   summary: "A full-bleed photograph that fills the screen and settles slowly as you scroll (P3 parallax-depth), a quiet serif line over it, where it is, and one action.",
   template: `
 <section class="esh" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars("--esh-dim: {{ settings.dim }};")}">
-  <div class="esh__media" data-storelib-motion="parallax-depth" data-motion-depth="{{ settings.depth }}" data-motion-scale="1.08">
-    {% if settings.photo %}<img class="esh__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="2400" height="1500" fetchpriority="high">{% endif %}
+  {% if settings.photo %}<div class="esh__media" data-storelib-motion="parallax-depth" data-motion-intensity="{{ settings.depth }}" data-motion-pointer="false">
+    <img class="esh__img" data-motion-depth="0.35" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="2400" height="1500" fetchpriority="high">
     {% if settings.photo_mobile %}<img class="esh__img esh__img--m" src="{{ settings.photo_mobile | asset }}" alt="{{ settings.photo_alt }}" width="1080" height="1600">{% endif %}
-  </div>
+  </div>{% endif %}
   <div class="esh__copy">
     <ul class="esh__facts">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.fact }}</li>{% endfor %}</ul>
     <h1 class="esh__h">{{ settings.heading }}</h1>
@@ -162,7 +162,7 @@ export const hero = defineSection({
     image("photo_mobile", "Photograph for phones (tall)"),
     text("photo_alt", "Photograph description", "A stone house on a lake shore at dusk, warm light in every window"),
     range("dim", "Darken the photograph", 0, 0.8, 0.05, 0.35),
-    range("depth", "Parallax depth", 0, 0.6, 0.05, 0.2),
+    range("depth", "Parallax depth", 0, 100, 5, 30, "%"),
     ...motion(),
     scheme("site"),
     ...spacing(0, 64),
@@ -181,7 +181,7 @@ export const intro = defineSection({
 <section class="esi" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <div class="esi__grid">
     <h2 class="esi__h">{{ settings.heading }}</h2>
-    <div class="esi__body" data-storelib-motion="reveal-stagger" data-motion-split="lines">{{ settings.body | raw }}</div>
+    <div class="esi__body" data-storelib-motion="reveal-stagger" data-motion-effect="fade">{{ settings.body | raw }}</div>
     <dl class="esi__facts">
       {% for block in section.blocks %}<div data-block-id="{{ block.id }}"><dt>{{ block.settings.label }}</dt><dd>{{ block.settings.value }}</dd></div>{% endfor %}
     </dl>
@@ -223,7 +223,7 @@ export const chapters = defineSection({
   template: `
 <section class="esc" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h2 class="esc__h">{{ settings.heading }}</h2>
-  <div class="esc__wrap" data-storelib-motion="scroll-scrub" data-motion-target=".esc__frame" data-motion-steps="{{ section.blocks.size }}">
+  <div class="esc__wrap">
     <div class="esc__frames" aria-hidden="true">
       {% for block in section.blocks %}<figure class="esc__frame">{% if block.settings.photo %}<img src="{{ block.settings.photo | asset }}" alt="" width="1600" height="2000">{% endif %}</figure>{% endfor %}
     </div>
@@ -343,23 +343,25 @@ export const photoBreak = defineSection({
   summary: "A full-bleed photograph between chapters that drifts slower than the page (P3 parallax-depth), with one line set small in a corner.",
   template: `
 <section class="esb" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
-  <div class="esb__frame" data-storelib-motion="parallax-depth" data-motion-depth="{{ settings.depth }}">
-    {% if settings.photo %}<img class="esb__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="2400" height="1350">{% endif %}
-  </div>
+  {% if settings.photo %}<div class="esb__frame" data-storelib-motion="parallax-depth" data-motion-intensity="{{ settings.depth }}" data-motion-pointer="false">
+    <img class="esb__img" data-motion-depth="0.4" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="2400" height="1350">
+  </div>{% endif %}
   <ul class="esb__lines">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.line }}</li>{% endfor %}</ul>
 </section>`,
   style: `
 .esb { position: relative; overflow: hidden; background: var(--s-bg); color: #fff; container-type: inline-size; }
+.esb__frame + .esb__lines { position: absolute; left: var(--theme-padding-x, 20px); bottom: 24px; padding: 0; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
 .esb__frame { height: clamp(420px, 80svh, 900px); overflow: hidden; }
 .esb__img { width: 100%; height: 118%; object-fit: cover; }
-.esb__lines { position: absolute; left: var(--theme-padding-x, 20px); bottom: 24px; display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; ${SMALL} text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+.esb__lines { display: grid; padding: 24px var(--theme-padding-x, 20px); color: var(--s-text); gap: 4px; margin: 0; list-style: none; ${SMALL} }
 @media (prefers-reduced-motion: no-preference) {
   @supports (animation-timeline: view()) {
     .esb:not([data-motion="off"]) .esb__img { animation: esb-drift linear both; animation-timeline: view(); }
   }
 }
+.esb__frame[data-motion-ready] .esb__img { animation: none; }
 @keyframes esb-drift { from { transform: translateY(calc(var(--t-motion-parallax, 6%) * -1 * var(--m-k, 1))); } to { transform: translateY(calc(var(--t-motion-parallax, 6%) * var(--m-k, 1))); } }`,
-  settings: [image("photo", "Photograph"), text("photo_alt", "Photograph description", "Lake and pine forest seen from the upper terrace at first light"), range("depth", "Parallax depth", 0, 0.6, 0.05, 0.3), ...motion(), scheme("site"), ...spacing(0, 0)],
+  settings: [image("photo", "Photograph"), text("photo_alt", "Photograph description", "Lake and pine forest seen from the upper terrace at first light"), range("depth", "Parallax depth", 0, 100, 5, 40, "%"), ...motion(), scheme("site"), ...spacing(0, 0)],
   blocks: [{ type: "line", name: "Line", settings: [text("line", "Line", "The upper terrace, 6:40")] }],
   presetBlocks: [{ type: "line", settings: { line: "The upper terrace, 6:40 in May" } }],
   maxBlocks: 2,
@@ -410,13 +412,13 @@ export const gallery = defineSection({
   template: `
 <section class="esg" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <div class="esg__head"><h2 class="esg__h">{{ settings.heading }}</h2><p class="esg__hint">{{ settings.hint }}</p></div>
-  <ul class="esg__rail" data-storelib-motion="pin-horizontal" data-motion-distance="{{ section.blocks.size }}" tabindex="0" aria-label="{{ settings.heading }}">
+  <div class="esg__pin" data-storelib-motion="pin-horizontal" data-motion-speed="1" data-motion-mobile="swipe"><div class="esg__stage" data-motion-stage><ul class="esg__rail" data-motion-track tabindex="0" aria-label="{{ settings.heading }}">
     {% for block in section.blocks %}
       <li class="esg__item esg__item--{{ block.settings.width }}" data-block-id="{{ block.id }}">
         <figure class="esg__fig">{% if block.settings.photo %}<img src="{{ block.settings.photo | asset }}" alt="{{ block.settings.alt }}" width="1600" height="1200">{% endif %}<figcaption>{{ block.settings.caption }}</figcaption></figure>
       </li>
     {% endfor %}
-  </ul>
+  </ul></div></div>
 </section>`,
   style: `
 .esg { ${BOX} overflow: hidden; }
@@ -424,11 +426,11 @@ export const gallery = defineSection({
 .esg__h { margin: 0; ${SERIF} font-size: clamp(2rem, 1.4rem + 3cqi, 4rem); letter-spacing: -0.02em; line-height: 1.02; }
 .esg__hint { margin: 0; ${SMALL} opacity: 0.7; }
 .esg__rail { display: flex; gap: 14px; margin: 0; padding: 0 0 12px; list-style: none; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; }
-.esg__item { flex: 0 0 82%; scroll-snap-align: start; }
+.esg__item { flex: none; width: 82cqi; scroll-snap-align: start; }
 .esg__fig { margin: 0; }
 .esg__fig img { display: block; width: 100%; height: clamp(320px, 62svh, 720px); object-fit: cover; }
 .esg__fig figcaption { margin-top: 10px; ${SMALL} opacity: 0.8; }
-@container (min-width: 900px) { .esg__item { flex-basis: 38%; } .esg__item--wide { flex-basis: 58%; } }
+@container (min-width: 900px) { .esg__item { width: 36cqi; } .esg__item--wide { width: 56cqi; } }
 @media (prefers-reduced-motion: reduce) { .esg__rail { scroll-snap-type: none; } }`,
   settings: [text("heading", "Heading", "Rooms and rooms between"), text("hint", "Small line", "Swipe or scroll"), ...motion(), scheme("site"), ...spacing(120, 120)],
   blocks: [{ type: "photo", name: "Photograph", settings: [image("photo", "Photograph"), text("alt", "Photograph description", ""), text("caption", "Caption", "Room four"), select("width", "Width", "normal", [["normal", "Normal"], ["wide", "Wide"]])] }],
@@ -730,7 +732,7 @@ export const about = defineSection({
       <h1 class="esab__h">{{ settings.heading }}</h1>
       <div class="esab__story">{{ settings.story | raw }}</div>
     </div>
-    {% if settings.photo %}<img class="esab__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1400" height="1800" data-storelib-motion="parallax-depth" data-motion-depth="0.12">{% endif %}
+    {% if settings.photo %}<span class="pdw" style="display: block; overflow: hidden;" data-storelib-motion="parallax-depth" data-motion-intensity="30" data-motion-pointer="false"><img class="esab__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1400" height="1800" data-motion-depth="0.12"></span>{% endif %}
   </div>
   <ul class="esab__people">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><h2 class="esab__role">{{ block.settings.role }}</h2><p>{{ block.settings.text }}</p></li>{% endfor %}</ul>
 </section>`,

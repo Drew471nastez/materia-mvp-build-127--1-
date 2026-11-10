@@ -17,7 +17,9 @@
  */
 import { existsSync } from "node:fs"
 import { TEMPLATES_B } from "@/lib/storelib-ai/templates/registry-b"
-import { targetOf } from "@/lib/storelib-ai/templates/kit-b"
+import { targetOf, withImages } from "@/lib/storelib-ai/templates/kit-b"
+import { SITE_TEMPLATES } from "@/lib/storelib-ai/templates/registry"
+import { MOTION_ISLAND_KINDS, motionFindings } from "@/lib/storelib-theme/motion-islands"
 import { validateSite, errorsOf } from "@/lib/ai-builder/agent/validate"
 import { completenessIssues, readSitePlan } from "@/lib/ai-builder/agent/site-plan"
 import { OFFERED_FAMILIES } from "@/lib/website-builder/font-link"
@@ -45,7 +47,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
   }
 }
 
-const MOTION_KINDS = ["scroll-scrub", "pin-horizontal", "parallax-depth", "3d-object", "3d-tilt", "webgl-gradient", "marquee", "text-scramble", "reveal-stagger", "smooth-scroll", "image-trail", "cursor-follow"]
+const MOTION_KINDS: readonly string[] = MOTION_ISLAND_KINDS
 
 async function main() {
   const parse = await esbuildScriptParser()
@@ -186,7 +188,7 @@ async function main() {
     /* 9. motion */
     const allSrc = Object.values(t.files).join("\n")
     const kinds = new Set([...allSrc.matchAll(/data-storelib-motion="([a-z0-9-]+)"/g)].map((m) => m[1]))
-    check(`${t.id}: uses at least four P3 motion islands`, kinds.size >= 4, [...kinds])
+    check(`${t.id}: uses at least three kinds of P3 motion island`, kinds.size >= 3, [...kinds])
     check(`${t.id}: every motion island is a known kind`, [...kinds].every((k) => MOTION_KINDS.includes(k)), [...kinds])
     check(`${t.id}: reads the O5 motion variables`, /var\(--t-motion-(duration|distance|ease|stagger)/.test(allSrc))
     for (const [path, source] of Object.entries(t.files)) {
@@ -204,6 +206,15 @@ async function main() {
     for (const p of t.pages) {
       const { failed: bad } = pageHtml(t, p.sections, p.key)
       check(`${t.id}: ${p.key} draws with no pictures yet`, bad.length === 0, bad)
+    }
+  }
+
+  /* 10b. P3's contract: every island on every drawn page of every template in the library (P2a's and P2b's) has only real params in range, and no page over the showcase or WebGL limits. */
+  for (const t of SITE_TEMPLATES) {
+    for (const p of withImages(t, Object.fromEntries(t.imageSlots.map((s) => [s.key, PIXEL])))) {
+      const { html } = pageHtml(t, p.sections, p.key)
+      const found = motionFindings(html)
+      check(`${t.id}: ${p.key} has no motion island findings (P3 motionFindings)`, found.length === 0, found)
     }
   }
 

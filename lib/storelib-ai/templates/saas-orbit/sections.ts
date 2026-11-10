@@ -148,7 +148,7 @@ export const hero = defineSection({
   template: `
 <section class="swh" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <div class="swh__grid">
-    <div class="swh__copy" data-storelib-motion="reveal-stagger" data-motion-stagger="{{ settings.motion_strength }}">
+    <div class="swh__copy" data-storelib-motion="reveal-stagger" data-motion-effect="rise">
       <h1 class="swh__h">{{ settings.heading }}</h1>
       <div class="swh__intro">{{ settings.intro | raw }}</div>
       <div class="swh__actions">
@@ -159,11 +159,11 @@ export const hero = defineSection({
         {% for block in section.blocks %}<li class="swh__point" data-block-id="{{ block.id }}"><span class="swh__key">{{ block.settings.key }}</span> {{ block.settings.text }}</li>{% endfor %}
       </ul>
     </div>
-    <div class="swh__stage" data-storelib-motion="3d-object" data-motion-shape="{{ settings.object_shape }}" data-motion-speed="{{ settings.object_speed }}" data-motion-texture="{{ settings.image | asset }}" data-motion-tilt="12">
-      {% if settings.image %}<img class="swh__obj" src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="1200" height="1200" fetchpriority="high">{% else %}<div class="swh__rings" aria-hidden="true"><span></span><span></span><span></span></div>{% endif %}
+    <div class="swh__stage" data-storelib-motion="3d-object" data-motion-shape="{{ settings.object_shape }}" data-motion-speed="{{ settings.object_speed }}" data-motion-rotate="both" data-motion-finish="satin" data-motion-color="accent">
+      {% if settings.image %}<img class="swh__obj" data-motion-fallback src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="1200" height="1200" fetchpriority="high">{% else %}<div class="swh__rings" aria-hidden="true"><span></span><span></span><span></span></div>{% endif %}
     </div>
   </div>
-  <p class="swh__giant" aria-hidden="true" data-storelib-motion="parallax-depth" data-motion-depth="0.25">{{ settings.giant | default: shop.name }}</p>
+  <p class="swh__giant" aria-hidden="true" data-storelib-motion="parallax-depth" data-motion-intensity="40" data-motion-pointer="false"><span class="swh__giant-in" data-motion-depth="0.25">{{ settings.giant | default: shop.name }}</span></p>
 </section>`,
   style: `
 .swh { ${BOX} position: relative; overflow: hidden; }
@@ -184,6 +184,7 @@ export const hero = defineSection({
 .swh__rings span { position: absolute; inset: 0; border: 1px solid var(--s-border); border-radius: 50%; }
 .swh__rings span:nth-child(2) { inset: 14%; border-color: var(--s-accent); transform: rotateX(64deg); }
 .swh__rings span:nth-child(3) { inset: 30%; transform: rotateY(64deg); }
+.swh__giant-in { display: inline-block; }
 .swh__giant { position: relative; z-index: 1; margin: 4px 0 0; ${H} font-size: 31cqi; font-weight: 900; line-height: 0.78; letter-spacing: -0.07em; white-space: nowrap; overflow: hidden; color: var(--s-heading); text-transform: lowercase; }
 @container (min-width: 900px) {
   .swh__grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; }
@@ -207,8 +208,8 @@ export const hero = defineSection({
     url("second_url", "Second link goes to", "#section-walk"),
     image("image", "Product render (transparent background works best)"),
     text("image_alt", "Product render description", "The Orbit app window floating at an angle"),
-    select("object_shape", "3D object", "card", [["card", "Product card"], ["phone", "Phone"], ["sphere", "Sphere"], ["torus", "Ring"]]),
-    range("object_speed", "Turn speed", 0, 10, 1, 3),
+    select("object_shape", "3D object", "card", [["card", "Product card"], ["coin", "Coin"], ["sphere", "Sphere"], ["torus", "Ring"], ["blob", "Blob"]]),
+    range("object_speed", "Turn speed", 0, 2, 0.1, 0.6, "x"),
     text("giant", "Giant word behind (empty uses the shop name)", "orbit"),
     ...motion(),
     scheme("site"),
@@ -230,8 +231,8 @@ export const marquee = defineSection({
   summary: "Giant running words across the full width, the product's verbs; pauses on hover, still and wrapped for reduced motion.",
   template: `
 <section class="swq" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars("--swq-speed: {{ settings.speed }}s;")}" aria-label="{{ settings.label }}">
-  <div class="swq__track" data-storelib-motion="marquee" data-motion-speed="{{ settings.speed }}" data-motion-direction="{{ settings.direction }}">
-    <ul class="swq__run">{% for block in section.blocks %}<li class="swq__item" data-block-id="{{ block.id }}">{{ block.settings.word }}</li>{% endfor %}</ul>
+  <div class="swq__track" data-storelib-motion="marquee" data-motion-reactive="40" data-motion-direction="{{ settings.direction }}">
+    <ul class="swq__run" data-motion-track>{% for block in section.blocks %}<li class="swq__item" data-block-id="{{ block.id }}">{{ block.settings.word }}</li>{% endfor %}</ul>
     <ul class="swq__run" aria-hidden="true">{% for block in section.blocks %}<li class="swq__item">{{ block.settings.word }}</li>{% endfor %}</ul>
   </div>
 </section>`,
@@ -248,6 +249,8 @@ export const marquee = defineSection({
   .swq[data-motion="off"] .swq__track { width: auto; }
   .swq:hover .swq__track, .swq:focus-within .swq__track { animation-play-state: paused; }
 }
+.swq__track[data-motion-ready] { animation: none !important; }
+.swq__track[data-motion-ready] .swq__run[aria-hidden="true"] { display: none; }
 @keyframes swq-run { to { transform: translateX(-50%); } }`,
   settings: [
     text("label", "What it lists (read aloud)", "What Orbit does"),
@@ -270,7 +273,7 @@ export const walkthrough = defineSection({
   template: `
 <section class="swk" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h2 class="swk__h">{{ settings.heading }}</h2>
-  <div class="swk__wrap" data-storelib-motion="scroll-scrub" data-motion-target=".swk__screen" data-motion-steps="{{ section.blocks.size }}">
+  <div class="swk__wrap">
     <div class="swk__steps">
       {% for block in section.blocks %}
         <article class="swk__step" data-block-id="{{ block.id }}">
@@ -405,7 +408,7 @@ export const usecases = defineSection({
   template: `
 <section class="swu" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <h2 class="swu__h">{{ settings.heading }}</h2>
-  <div class="swu__rail" data-storelib-motion="pin-horizontal" data-motion-distance="{{ section.blocks.size }}" tabindex="0" aria-label="{{ settings.heading }}">
+  <div class="swu__pin" data-storelib-motion="pin-horizontal" data-motion-speed="1" data-motion-mobile="swipe"><div class="swu__stage" data-motion-stage><div class="swu__rail" data-motion-track tabindex="0" aria-label="{{ settings.heading }}">
     {% for block in section.blocks %}
       <article class="swu__panel" data-block-id="{{ block.id }}">
         {% if block.settings.photo %}<img class="swu__img" src="{{ block.settings.photo | asset }}" alt="{{ block.settings.alt }}" width="1200" height="800">{% endif %}
@@ -417,18 +420,18 @@ export const usecases = defineSection({
       </article>
     {% endfor %}
   </div>
-</section>`,
+</section></div></div>`,
   style: `
 .swu { ${BOX} overflow: hidden; }
 .swu__h { margin: 0 0 28px; ${H} font-size: clamp(2rem, 1.3rem + 3.6cqi, 4rem); font-weight: 800; letter-spacing: -0.05em; line-height: 0.95; }
-.swu__rail { display: grid; grid-auto-flow: column; grid-auto-columns: 86%; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; padding-bottom: 12px; }
-.swu__panel { scroll-snap-align: start; display: grid; align-content: end; min-height: 420px; position: relative; overflow: hidden; border: 1px solid var(--s-border); background: var(--s-bg); }
+.swu__rail { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; padding-bottom: 12px; }
+.swu__panel { flex: none; width: 86cqi; scroll-snap-align: start; display: grid; align-content: end; min-height: 420px; position: relative; overflow: hidden; border: 1px solid var(--s-border); background: var(--s-bg); }
 .swu__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.55; }
 .swu__copy { position: relative; padding: 22px; }
 .swu__who { margin: 0; ${MONO} font-size: 0.8125rem; color: var(--s-accent); }
 .swu__title { margin: 8px 0 0; ${H} font-size: clamp(1.75rem, 1.3rem + 2cqi, 3rem); font-weight: 800; letter-spacing: -0.045em; line-height: 0.95; }
 .swu__text { max-width: 40ch; margin: 12px 0 0; line-height: 1.5; }
-@container (min-width: 900px) { .swu__rail { grid-auto-columns: 46%; } .swu__panel { min-height: 560px; } }
+@container (min-width: 900px) { .swu__panel { width: 44cqi; min-height: 560px; } }
 @media (prefers-reduced-motion: reduce) { .swu__rail { scroll-snap-type: none; } }`,
   settings: [
     text("heading", "Heading", "Who reads what you ship"),
@@ -467,7 +470,7 @@ export const statement = defineSection({
 ${revealCss("swt", ".swt__line", "swt-rise")}`,
   settings: [
     textarea("line", "Statement", "Release notes are the last mile of every feature. Most teams skip it. Orbit makes it the easy part."),
-    range("scramble_ms", "Scramble length", 200, 2000, 100, 900, "ms"),
+    range("scramble_ms", "Scramble length", 300, 3000, 100, 900, "ms"),
     ...motion(),
     scheme("site_inverse"),
     ...spacing(120, 120),
@@ -643,11 +646,11 @@ export const closing = defineSection({
   summary: "The last ask: a huge line and one button on a slow moving colour field (P3 webgl-gradient; a flat colour without it), the button tilting toward the pointer (3d-tilt).",
   template: `
 <section class="swz" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
-  <div class="swz__field" aria-hidden="true" data-storelib-motion="webgl-gradient" data-motion-colors="{{ settings.field_colors }}" data-motion-speed="{{ settings.field_speed }}"></div>
+  <div class="swz__field" aria-hidden="true" data-storelib-motion="webgl-gradient" data-motion-palette="{{ settings.field_colors }}" data-motion-speed="{{ settings.field_speed }}" data-motion-grain="12"></div>
   <div class="swz__in">
     <h2 class="swz__h">{{ settings.heading }}</h2>
     <div class="swz__text">{{ settings.text | raw }}</div>
-    <a class="swz__btn" href="{{ settings.cta_url | url }}" data-storelib-motion="3d-tilt" data-motion-max="8">{{ settings.cta_label }}</a>
+    <a class="swz__btn" href="{{ settings.cta_url | url }}" data-storelib-motion="3d-tilt" data-motion-intensity="8">{{ settings.cta_label }}</a>
     <ul class="swz__facts">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{{ block.settings.fact }}</li>{% endfor %}</ul>
   </div>
 </section>`,
@@ -668,8 +671,8 @@ ${revealCss("swz", ".swz__h", "swz-rise")}`,
     richtext("text", "Text", "<p>Connect a repository and read your first draft before your coffee is cold.</p>"),
     text("cta_label", "Button", "Start free"),
     url("cta_url", "Button goes to", "/products"),
-    text("field_colors", "Colour field (two or three colours, comma separated)", "#c8f031, #0a0c0b, #1d2a12"),
-    range("field_speed", "Colour field speed", 0, 10, 1, 2),
+    text("field_colors", "Colour field (scheme, accent, mono, or up to five #hex colours)", "#c8f031, #0a0c0b, #1d2a12"),
+    range("field_speed", "Colour field speed", 0, 2, 0.1, 0.4, "x"),
     ...motion(),
     scheme("site"),
     ...spacing(140, 140),
@@ -759,7 +762,7 @@ export const product = defineSection({
   template: `
 <section class="swpd" data-scheme="{{ settings.color_scheme }}" data-motion="{{ settings.motion }}" style="${vars()}">
   <div class="swpd__grid">
-  <div class="swpd__media" data-storelib-motion="3d-tilt" data-motion-max="6">
+  <div class="swpd__media" data-storelib-motion="3d-tilt" data-motion-intensity="6">
     {% for img in product.images limit: 4 %}<img class="swpd__img" src="{{ img }}" alt="{{ product.title }}" width="1200" height="900">{% endfor %}
   </div>
   <div class="swpd__info">
@@ -867,7 +870,7 @@ export const about = defineSection({
     <h1 class="swa__h">{{ settings.heading }}</h1>
     <div class="swa__story">{{ settings.story | raw }}</div>
   </div>
-  {% if settings.photo %}<img class="swa__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1600" height="900" data-storelib-motion="parallax-depth" data-motion-depth="0.15">{% endif %}
+  {% if settings.photo %}<span class="pdw" style="display: block; overflow: hidden;" data-storelib-motion="parallax-depth" data-motion-intensity="30" data-motion-pointer="false"><img class="swa__img" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="1600" height="900" data-motion-depth="0.15"></span>{% endif %}
   <ol class="swa__list">
     {% for block in section.blocks %}<li class="swa__item" data-block-id="{{ block.id }}"><h2 class="swa__title">{{ block.settings.title }}</h2><p class="swa__text">{{ block.settings.text }}</p></li>{% endfor %}
   </ol>

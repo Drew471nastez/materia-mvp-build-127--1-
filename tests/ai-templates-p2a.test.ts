@@ -55,6 +55,7 @@ import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { StorefrontData } from "@/lib/storelib-theme/types"
 import { OFFERED_FAMILIES } from "@/lib/website-builder/font-link"
 import { isSlopDisplayFont } from "@/lib/storelib-ai/library/type-systems"
+import { motionFindings } from "@/lib/storelib-theme/motion-islands"
 
 let passed = 0
 let failed = 0
@@ -227,6 +228,9 @@ async function main() {
       if (rc.drawn) rendered.push({ page: p.key, html: rc.drawn.html, css: rc.drawn.css })
     }
     check(`${t.id}: the render check passes on every page`, renderErrors.length === 0, renderErrors)
+    /* Round P (P3): every motion island's params are the contract's, in range, within the page limits. */
+    const motion = rendered.flatMap((r) => motionFindings(r.html).map((f) => `${r.page}: ${f.message}`))
+    check(`${t.id}: no motion island findings on any page (P3 motionFindings)`, motion.length === 0, motion)
     const slop = await librarySlop({ files: Object.entries(t.files).map(([path, text]) => ({ path, text })), concept: null, capabilities: CAPS, brief: "", settings, rendered, sections: home.map((s) => ({ type: s.type })) })
     const p0 = slop.filter((i) => i.severity === "error")
     check(`${t.id}: no slop P0 on the files, the Theme settings or the drawn pages`, p0.length === 0, p0)

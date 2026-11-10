@@ -33,7 +33,7 @@ const hero: ComponentDef = {
   category: "hero",
   template: `
 <section class="cx" ${rootAttrs({ motion: true })}>
-  <div class="cx__stage" data-storelib-motion="scroll-scrub" data-motion-strength="{{ settings.motion_strength }}">
+  <div class="cx__stage" data-storelib-motion="scroll-scrub" data-motion-length="2" data-motion-mobile="still">
     <p class="cx__word cx__word--back" aria-hidden="true">{{ settings.word }}</p>
     <div class="cx__object">
       {% if settings.image %}<img class="cx__img" src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="1200" height="1200" fetchpriority="high">{% else %}<span class="cx__dial" aria-hidden="true"></span>{% endif %}
@@ -177,8 +177,8 @@ const macro: ComponentDef = {
 <section class="mc" ${rootAttrs({ motion: true })}>
   <div class="mc__in">
     <h2 class="mc__h">{{ settings.heading | raw }}</h2>
-    <figure class="mc__fig" data-storelib-motion="parallax-depth" data-motion-strength="{{ settings.motion_strength }}">
-      {% if settings.image %}<img class="mc__img" src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="2000" height="1125" loading="lazy">{% else %}<span class="mc__dial" aria-hidden="true"></span>{% endif %}
+    <figure class="mc__fig" data-storelib-motion="parallax-depth" data-motion-intensity="30" data-motion-pointer="false">
+      {% if settings.image %}<img class="mc__img" data-motion-depth="0.25" src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="2000" height="1125" loading="lazy">{% else %}<span class="mc__dial" aria-hidden="true"></span>{% endif %}
       <ul class="mc__points">
         {% for block in section.blocks %}<li class="mc__point" style="--x: {{ block.settings.x }}%; --y: {{ block.settings.y }}%;" {{ block.shopify_attributes }}><span class="mc__dot" aria-hidden="true"></span><span class="mc__label">{{ block.settings.label }}</span></li>{% endfor %}
       </ul>
