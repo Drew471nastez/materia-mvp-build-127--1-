@@ -1,6 +1,6 @@
 import type { ComponentType } from "react"
 import type { IconType } from "react-icons"
-import { FaBluesky, FaInstagram, FaLinkedin, FaTiktok, FaXTwitter, FaYoutube } from "react-icons/fa6"
+import { FaBluesky, FaInstagram, FaLinkedin, FaTiktok, FaXTwitter, FaYoutube } from "@/components/icons/brand-icons.generated"
 
 /** Filled monochrome brand marks for join onboarding (Font Awesome Brands style). */
 export const JOIN_SOCIAL_BRANDS: Record<"tiktok" | "instagram" | "youtube" | "bluesky" | "twitter" | "linkedin", IconType> = {
