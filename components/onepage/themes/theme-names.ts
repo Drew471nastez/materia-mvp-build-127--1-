@@ -53,6 +53,16 @@ const NAMES: Record<string, () => string> = {
   y2k: () => ttx("theme", "Y2K"),
   playful: () => ttx("theme", "Playful"),
   grunge: () => ttx("theme", "Grunge"),
+  /* Round W10 (components/onepage/themes/r40-themes W10_THEMES). */
+  aero2: () => ttx("theme", "Aero Aquarium"),
+  aqua2: () => ttx("theme", "Aqua Graphite"),
+  messenger2: () => ttx("theme", "Messenger Olive"),
+  y2k2: () => ttx("theme", "Y2K Kawaii"),
+  playful2: () => ttx("theme", "Playful Night"),
+  grunge2: () => ttx("theme", "Grunge Zine"),
+  classic98: () => ttx("theme", "Classic 98"),
+  vaporwave: () => ttx("theme", "Vaporwave"),
+  arcade: () => ttx("theme", "Arcade"),
 }
 
 /** A theme's name in the reader's language. */

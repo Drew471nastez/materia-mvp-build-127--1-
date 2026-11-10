@@ -7,6 +7,8 @@
  *   ?theme=aero        a theme from the catalogue (components/onepage/tabs/design-tab THEME_TEMPLATES)
  *   &layout=grid       the theme's block layout overridden (list, grid, cards, compact, masonry)
  *   &preview           drawn as the editor's preview draws it
+ *   &email=bold        the first subscribe form's layout (round W10: a second one is always Bold, the
+ *                      layout the owner found white on white in Messenger and Grunge)
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -37,17 +39,19 @@ const blocks: OnePageBlock[] = [
   make("link_button", "l2", { label: "Book a session", url: "https://example.com/book" }),
   make("link_button", "l3", { label: "My podcast", url: "https://example.com/pod" }),
   make("link_button", "l4", { label: "Newsletter archive", url: "https://example.com/news" }),
+  make("link_button", "l5", { label: "Studio tour: a day in the darkroom", url: "https://example.com/tour", layout_type: "pro", thumbnail_url: PIC("#c8d9ef", "#44628f", "#ffd9a0") }),
   product("p1", "Preset pack Vol. 2", 2400, PIC("#f6c9a8", "#c0584a", "#ffe9b0")),
   product("p2", "Field notes zine", 1200, PIC("#c9e6c0", "#4e8a5a", "#f8f3d6")),
   make("image", "img", { display_style: "grid", images: [{ id: "i1", image_url: PIC("#bcd7f2", "#2f5d9a", "#fff3c4") }, { id: "i2", image_url: PIC("#f2c6d8", "#a1416c", "#ffe3b3") }, { id: "i3", image_url: PIC("#d4ecc6", "#3f7a3a", "#fdf6cf") }, { id: "i4", image_url: PIC("#e9dcc9", "#7a5a3a", "#fff") }], image_url: PIC("#bcd7f2", "#2f5d9a", "#fff3c4") }),
   make("text", "tx", { content: "I make presets, zines and slow videos about cities. New drops every first Friday.", alignment: "center" }),
-  make("email_capture", "em", { headline: "Join the letter", description: "One email a month. No spam.", placeholder: "you@email.com", button_text: "Subscribe" }),
+  make("email_capture", "em", { headline: "Join the letter", description: "One email a month. No spam.", placeholder: "you@email.com", button_text: "Subscribe", layout_type: q.get("email") || "default" }),
   make("divider", "dv", { style: "line", height: 24 }),
   make("faq", "fq", { title: "Questions", items: [{ id: "q1", question: "Do you ship worldwide?", answer: "Yes, everywhere." }, { id: "q2", question: "Can I get a refund?", answer: "Within 14 days." }] }),
   make("countdown", "cd", { title: "Next drop", target_at: "2030-01-01T00:00:00.000Z" }),
   make("testimonials", "ts", { title: "Kind words", items: [{ id: "t1", quote: "The presets changed how I edit.", name: "Ana", detail: "Photographer", rating: 5 }] }),
   make("promo_code", "pc", { title: "10% off prints", code: "HELLO10", description: "Use it at checkout", url: "https://example.com" }),
   make("contact_form", "cf", { title: "Get in touch", open_mode: "inline" }),
+  make("email_capture", "em2", { headline: "Join my newsletter", description: "Get updates and exclusive content", placeholder: "Enter your email", button_text: "Subscribe", layout_type: "bold" }),
 ]
 
 const named = q.get("theme") || "default"

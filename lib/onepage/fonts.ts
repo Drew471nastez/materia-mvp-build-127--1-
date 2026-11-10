@@ -81,6 +81,9 @@ export const ONEPAGE_FONTS: Readonly<Record<string, string | null>> = {
   "Great Vibes": null,
   Yellowtail: null,
   "Rubik Mono One": null,
+  /* Round W10: two pixel faces, for Classic 98 and Arcade (components/onepage/themes/r40-themes W10_THEMES). */
+  "Pixelify Sans": "400;500;600;700",
+  "Press Start 2P": null,
 }
 
 /** The family a CSS value names first: "'Playfair Display', serif" is Playfair Display. */
@@ -140,7 +143,7 @@ export function onePageFontSampleHref(names: string[], text?: string): string | 
  */
 const SERIF = new Set(["Playfair Display", "Merriweather", "Lora", "Crimson Text", "Source Serif Pro", "Abril Fatface", "Alfa Slab One", "Fraunces", "Newsreader", "Bodoni Moda", "DM Serif Display", "Instrument Serif"])
 const SCRIPT = new Set(["Dancing Script", "Caveat", "Pacifico", "Lobster", "Permanent Marker", "Satisfy", "Great Vibes", "Yellowtail"])
-const MONO = new Set(["JetBrains Mono", "Geist Mono"])
+const MONO = new Set(["JetBrains Mono", "Geist Mono", "Press Start 2P"])
 const GENERIC = /(^|,)\s*(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|ui-monospace)\s*$/i
 
 export function fontStack(value: unknown, fallback = "Inter"): string {
