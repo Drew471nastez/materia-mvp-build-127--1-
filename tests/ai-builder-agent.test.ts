@@ -37,7 +37,7 @@ import { versionOf } from "@/lib/ai-builder/agent/version"
 import type { AgentDeps, AgentJobInput } from "@/lib/ai-builder/agent/ports"
 import type { ProviderRequest } from "@/lib/sites/agent/types"
 import { AGENT_TOOL_NAMES, DEFAULT_JOB_BUDGET, MAX_CHECKPOINT_BYTES, type AgentEvent, type JobBudget } from "@/lib/ai-builder/types"
-import { ABOUT, BROKEN_HERO, CAPS, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, scripted, type Step } from "./ai-builder-agent-fixtures"
+import { ABOUT, BROKEN_HERO, CAPS, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, scripted, type Step, PROGRAM_BLOCKS } from "./ai-builder-agent-fixtures"
 import { homeSections, pageSections, sitePlan, templateCalls, writeWholeSite } from "./ai-builder-whole-site-fixtures"
 
 /* Round N (N3): a new website hands in its site plan with the concept, and is a whole site before finish (lib/ai-builder/agent/site-plan.ts). */
@@ -143,7 +143,7 @@ function fitnessSteps(store: ReturnType<typeof memoryStore>): Step[] {
             page: "home",
             sections: homeSections([
               { type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } },
-              { type: "ai_program_list", blocks: [{ type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } }] },
+              { type: "ai_program_list", blocks: PROGRAM_BLOCKS },
             ]),
           },
         ],

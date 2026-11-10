@@ -27,7 +27,7 @@ import { describeSmoke, runSmoke, smokeGate, smokeLimits } from "../scripts/ai-b
 import { SMOKE_CAPABILITIES, SMOKE_PROMPT, liveSmoke } from "../scripts/ai-builder/live-smoke"
 import type { AgentModels } from "@/lib/ai-builder/agent/ports"
 import type { ProviderRequest, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
-import { ABOUT, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, type PlainStep } from "./ai-builder-agent-fixtures"
+import { ABOUT, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, type PlainStep, PROGRAM_BLOCKS } from "./ai-builder-agent-fixtures"
 /* Round N (N3): the site plan with the concept, and a whole site before finish. */
 import { WHOLE_SITE_FILES, homeSections, pageSections, sitePlan, templateCalls } from "./ai-builder-whole-site-fixtures"
 
@@ -106,7 +106,7 @@ function coachSteps(seen: { bindFrom: string | null }): Step[] {
     { calls: [["add_page", { key: "programs", title: "Programs" }], ["add_page", { key: "about", title: "About" }]] },
     {
       calls: [
-        ["set_page_sections", { page: "home", sections: homeSections([{ type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } }, { type: "ai_program_list", blocks: [{ type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } }] }]) }],
+        ["set_page_sections", { page: "home", sections: homeSections([{ type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } }, { type: "ai_program_list", blocks: PROGRAM_BLOCKS }]) }],
         ["set_page_sections", { page: "programs", sections: pageSections({ type: "ai_program_list", settings: { heading: "All programs" } }) }],
         ["set_page_sections", { page: "about", sections: pageSections({ type: "ai_coach_story" }) }],
         ...templateCalls(),

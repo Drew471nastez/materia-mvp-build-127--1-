@@ -20,7 +20,7 @@ import { readFileSync } from "node:fs"
 import { memoryStore } from "@/lib/ai-builder/agent/memory-store"
 import type { AgentDeps } from "@/lib/ai-builder/agent/ports"
 import type { ProviderRequest } from "@/lib/sites/agent/types"
-import { ABOUT, CAPS, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, scripted, type Step } from "./ai-builder-agent-fixtures"
+import { ABOUT, CAPS, CONCEPT, FOOTER, HEADER, HERO, PROGRAMS, scripted, type Step, PROGRAM_BLOCKS } from "./ai-builder-agent-fixtures"
 /* Round N (N3): the site plan with the concept, and a whole site before finish. */
 import { homeSections, pageSections, sitePlan, templateCalls, writeWholeSite } from "./ai-builder-whole-site-fixtures"
 
@@ -148,7 +148,7 @@ function fitnessSteps(store: ReturnType<typeof memoryStore>): Step[] {
             page: "home",
             sections: homeSections([
               { type: "ai_coach_hero", settings: { heading: "Lift with a plan", cta_url: "/programs" } },
-              { type: "ai_program_list", blocks: [{ type: "program", settings: { name: "Small group strength", when: "Mon Wed Fri 7am" } }] },
+              { type: "ai_program_list", blocks: PROGRAM_BLOCKS },
             ]),
           },
         ],

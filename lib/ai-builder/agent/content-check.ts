@@ -143,7 +143,7 @@ function blockWords(block: { settings?: Record<string, unknown> }, fields: RawSe
 /**
  * A repeating list: an FAQ, a programme, a team, steps, plans, services, a gallery. One item of these is not a
  * list (Andrew's "Who it is for and not for" with one block). Read from the block type, its name, and the
- * section's own type and name.
+ * section's name (not its type: "ai_coach_facts" is a coach's site, not a list of coaches).
  */
 const REPEATING = /\b(?:faq|faqs|question|questions|qa|program|programme|programs|programmes|class|classes|team|member|members|staff|coach|coaches|trainer|step|steps|process|plan|plans|tier|tiers|pricing|price|service|services|feature|features|benefit|benefits|gallery|project|projects|work|works|course|courses|module|modules|lesson|lessons|treatment|treatments|schedule|session|sessions|value|values|principle|principles|reason|reasons|for|not|who|offer|offers|package|packages|menu|dish|dishes|room|rooms|location|locations|event|events|testimonial|testimonials|review|reviews|quote|quotes)\b/i
 
@@ -184,7 +184,7 @@ export function blockRules(schema: RawSchema, caps: RuntimeCapabilities | null):
     if (typeof b.min_blocks === "number" && Number.isFinite(b.min_blocks)) {
       min = Math.max(0, Math.floor(b.min_blocks))
       why = `its schema says min_blocks ${min}`
-    } else if (REPEATING.test(words(b.type, b.name)) || (own.length === 1 && REPEATING.test(words(schema.type, schema.name)))) {
+    } else if (REPEATING.test(words(b.type, b.name)) || (own.length === 1 && REPEATING.test(words(schema.name)))) {
       min = 3
       why = "it is a repeating list (one or two items are not a list)"
     } else {

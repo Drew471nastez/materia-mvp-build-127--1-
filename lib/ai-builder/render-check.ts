@@ -354,8 +354,14 @@ export function emptyMediaFrame(html: string, css = ""): string | null {
   for (const m of html.matchAll(/<(div|figure|span|picture)\b([^>]*)>\s*<\/\1>/gi)) {
     const cls = /\sclass\s*=\s*"([^"]*)"/i.exec(m[2])?.[1] ?? ""
     if (!cls || !FRAME_WORDS.test(cls) || DECORATIVE.test(cls) || /\b(?:aria-hidden\s*=\s*"true"|role\s*=\s*"presentation")/i.test(m[2]) || /\bstyle\s*=\s*"[^"]*url\(/i.test(m[2])) continue
+    const rules = cls
+      .split(/\s+/)
+      .filter(Boolean)
+      .flatMap((c) => [...css.matchAll(new RegExp(`\\.${c.replace(/[^\w-]/g, "")}(?![\\w-])[^{}]*\\{([^}]*)\\}`, "gi"))].map((m) => m[1]))
     /* A class whose rule paints a picture (background-image: url(...)) is not empty. */
-    if (cls.split(/\s+/).some((c) => c && new RegExp(`\\.${c.replace(/[^\w-]/g, "")}\\b[^{}]*\\{[^}]*url\\(`, "i").test(css))) continue
+    if (rules.some((r) => /url\(/i.test(r))) continue
+    /* Only a frame a visitor can SEE is one: its rule gives it a box (a shape, a height, a fill, a border). An empty wrapper collapses to nothing. */
+    if (!rules.some((r) => /aspect-ratio|(?:^|[;\s])(?:min-)?height\s*:|background|border(?:-[a-z]+)?\s*:|padding-(?:top|bottom|block)\s*:\s*[\d.]+%/i.test(r))) continue
     return `an empty <${m[1].toLowerCase()} class="${cls.slice(0, 60)}">`
   }
   return null

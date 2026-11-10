@@ -228,7 +228,8 @@ async function main() {
     check("picturesAvailable: absent, false, throwing all read as none", (await picturesAvailable({})) === false && (await picturesAvailable({ imageProvider: () => false })) === false && (await picturesAvailable({ imageProvider: () => { throw new Error("x") } })) === false && (await picturesAvailable({ imageProvider: async () => true })) === true)
 
     check("emptyMediaFrame: an <img> with no address", emptyMediaFrame(`<img class="a" src="" alt="">`) !== null)
-    check("  an empty frame named for a picture", /hp__photo/.test(emptyMediaFrame(`<div class="hp__photo"></div>`) ?? ""))
+    check("  an empty frame named for a picture, drawn as a box (a shape, a fill)", /hp__photo/.test(emptyMediaFrame(`<div class="hp__photo"></div>`, `.hp__photo { aspect-ratio: 4 / 5; background: #ddd; }`) ?? ""))
+    check("  an empty wrapper with no box of its own is not a frame (it collapses: a product with no pictures)", emptyMediaFrame(`<div class="pp__media"></div>`, `.pp__media { display: grid; gap: 8px; }`) === null)
     check("  not an overlay, not a hook's template picture, not a class that paints a background", emptyMediaFrame(`<span class="hero__image-overlay"></span><img data-result-image alt=""><div class="cover__media"></div>`, `.cover__media { background-image: url(/x.jpg) }`) === null)
 
     /* A section drawing an empty frame: the render check says so, and a new site's verify makes it an error. */
