@@ -1279,7 +1279,31 @@ function BookingEditor({ booking, onChange }: { booking?: BookingSettings; onCha
               <span className={LABEL}>{tt("Days ahead")}</span>
               <input className={FIELD} type="number" min={1} max={365} value={b.days_ahead} onChange={(e) => set({ days_ahead: Number(e.target.value) || 30 })} />
             </label>
+            <label className={FIELD_STACK}>
+              <span className={LABEL}>{tt("Most per day")}</span>
+              <input className={FIELD} type="number" min={0} max={50} placeholder={tt("No limit")} value={b.max_per_day || ""} onChange={(e) => set({ max_per_day: Math.max(0, Math.min(50, Number(e.target.value) || 0)) || undefined })} />
+            </label>
           </div>
+          {/* Round AR: other lengths the visitor may choose; the length above is the one first offered. */}
+          <fieldset className="min-w-0" data-booking-lengths="">
+            <legend className={cn(LABEL, "mb-2")}>{tt("Visitors can also choose")}</legend>
+            <div className="flex flex-wrap gap-2">
+              {[15, 30, 45, 60, 90, 120].filter((m) => m !== b.duration).map((m) => {
+                const on = (b.durations || []).includes(m)
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => set({ durations: on ? (b.durations || []).filter((x) => x !== m) : [...(b.durations || []), m].sort((x, y) => x - y) })}
+                    className={cn("h-9 rounded-full border px-3.5 text-[13px] font-medium outline-none transition-colors duration-100 focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.08)]", on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e3e4e8] bg-white text-[#1a1a2e] hover:border-[#c9cbd1]")}
+                  >
+                    {tt("{minutes} min", { minutes: m })}
+                  </button>
+                )
+              })}
+            </div>
+          </fieldset>
           <Pick name="booking-zone" label={tt("Your time zone")} value={b.timezone} options={(tzList.includes(b.timezone) ? tzList : [b.timezone, ...tzList]).map((z) => [z, z.replace(/_/g, " ")] as [string, string])} onChange={(z) => set({ timezone: z })} />
           {/*
             Wave 8: the week as one list, a row a day, as the settings' rows are
@@ -1332,18 +1356,128 @@ function BookingEditor({ booking, onChange }: { booking?: BookingSettings; onCha
               })}
             </div>
           </fieldset>
+          <DateChanges overrides={b.overrides || []} onChange={(overrides) => set({ overrides: overrides.length ? overrides : undefined })} />
           <Toggle label={tt("Confirm each request myself")} checked={b.approval} onChange={(on) => set({ approval: on })} />
+          <WhereEditor value={b.location} onChange={(location) => set({ location })} />
           <Pick
             name="booking-payment"
-            label={tt("Payment")}
+            label={tt("Price")}
             value={b.payment_product_id || "none"}
-            options={[["none", tt("No payment")], ...((products || []).map((p) => [p.id, p.title] as [string, string]))]}
+            options={[["none", tt("Free")], ...((products || []).map((p) => [p.id, tt("{product}, paid at checkout", { product: p.title })] as [string, string]))]}
             onChange={(v) => set({ payment_product_id: v === "none" ? undefined : v })}
           />
-          {b.payment_product_id ? <p className={HINT}>{tt("After booking, visitors see a Pay button for this product. Payment does not confirm the booking by itself: check the order, then confirm it in Leads.")}</p> : null}
+          {b.payment_product_id ? <p className={HINT}>{tt("Visitors pay this product's price at checkout after choosing a time. Paying confirms the booking, and the time is held for 30 minutes until then.")}</p> : <p className={HINT}>{tt("For a fixed price, choose one of your products. Its price is what visitors pay.")}</p>}
+          <label className={FIELD_STACK}>
+            <span className={LABEL}>{tt("Badge (optional)")}</span>
+            <input className={FIELD} maxLength={24} placeholder={tt("Most booked")} value={b.badge || ""} onChange={(e) => set({ badge: e.target.value.slice(0, 24) || undefined })} />
+          </label>
+          <a href="/app/bookings" className={cn(textButton, "-ml-2 text-[#4b5563]")} data-booking-manage-link="">
+            {tt("See and manage bookings")}
+            <ExternalLink aria-hidden className="h-3.5 w-3.5" />
+          </a>
         </>
       ) : null}
     </div>
+  )
+}
+
+/*
+  WHERE IT HAPPENS (round AR). A video link the creator pastes, a Google
+  Meet made for each booking (only once Google Calendar is connected in
+  Bookings, said plainly when Storelib has no Google client yet), a phone
+  call, an address, or nothing said.
+*/
+function WhereEditor({ value, onChange }: { value?: BookingSettings["location"]; onChange: (v: BookingSettings["location"]) => void }) {
+  const kind = value?.kind || "none"
+  const [google, setGoogle] = useState<{ configured: boolean; connected: boolean } | null>(null)
+  useEffect(() => {
+    if (kind !== "google_meet" || google) return
+    let live = true
+    formsRequest<{ configured: boolean; connected: boolean }>("/api/google-calendar", { fallback: "" }).then((r) => live && r.data && setGoogle(r.data))
+    return () => {
+      live = false
+    }
+  }, [kind, google])
+  const kinds: [string, string][] = [
+    ["none", tt("Not said")],
+    ["video", tt("Video call link")],
+    ["google_meet", tt("Google Meet, made for each booking")],
+    ["phone", tt("Phone call")],
+    ["in_person", tt("In person")],
+  ]
+  return (
+    <div className="space-y-3" data-booking-where="">
+      <Pick name="booking-where" label={tt("Where")} value={kind} options={kinds} onChange={(k) => onChange(k === "none" ? undefined : { kind: k as NonNullable<BookingSettings["location"]>["kind"] })} />
+      {kind === "video" ? (
+        <input className={FIELD} inputMode="url" autoCapitalize="off" placeholder="https://zoom.us/j/…" aria-label={tt("Meeting link")} value={value?.value || ""} onChange={(e) => onChange({ kind: "video", value: e.target.value.trim() || undefined })} />
+      ) : null}
+      {kind === "phone" ? (
+        <input className={FIELD} inputMode="tel" placeholder={tt("Your number, or leave empty to call them")} aria-label={tt("Phone number")} value={value?.value || ""} onChange={(e) => onChange({ kind: "phone", value: e.target.value || undefined })} />
+      ) : null}
+      {kind === "in_person" ? (
+        <input className={FIELD} placeholder={tt("Address")} aria-label={tt("Address")} value={value?.value || ""} onChange={(e) => onChange({ kind: "in_person", value: e.target.value || undefined })} />
+      ) : null}
+      {kind === "video" ? <p className={HINT}>{tt("Visitors see the link once they have booked.")}</p> : null}
+      {kind === "google_meet" ? (
+        <p className={HINT} data-google-state={google ? (google.configured ? (google.connected ? "connected" : "not_connected") : "not_set_up") : "checking"}>
+          {!google
+            ? tt("Checking Google Calendar…")
+            : !google.configured
+              ? tt("Google Calendar is not set up on Storelib yet, so no Meet link can be made. Choose a video call link for now.")
+              : google.connected
+                ? tt("Each confirmed booking gets its own Meet link, in your Google Calendar and in the visitor's email.")
+                : tt("Connect Google Calendar in Bookings first. Until then, bookings are kept without a Meet link.")}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+/* Round AR: dates that differ from the week, each with its own hours or none (a day off). */
+function DateChanges({ overrides, onChange }: { overrides: NonNullable<BookingSettings["overrides"]>; onChange: (o: NonNullable<BookingSettings["overrides"]>) => void }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const write = (i: number, patch: Partial<NonNullable<BookingSettings["overrides"]>[number]>) => onChange(overrides.map((o, j) => (j === i ? { ...o, ...patch } : o)))
+  const free = () => {
+    let d = new Date(`${today}T12:00:00Z`)
+    while (overrides.some((o) => o.date === d.toISOString().slice(0, 10))) d = new Date(d.getTime() + 86_400_000)
+    return d.toISOString().slice(0, 10)
+  }
+  return (
+    <fieldset className="min-w-0" data-booking-dates="">
+      <legend className={cn(LABEL, "mb-1")}>{tt("Date changes")}</legend>
+      <p className={cn(HINT, "mb-2")}>{tt("A day off, or other hours on one date.")}</p>
+      {overrides.length ? (
+        <div className="mb-2 divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e3e4e8] bg-white">
+          {overrides.map((o, i) => {
+            const open = o.windows.length > 0
+            return (
+              <div key={i} className="flex flex-col gap-1.5 px-3 py-2 sm:flex-row sm:items-center sm:gap-3" data-booking-date={o.date}>
+                <input className={cn(FIELD, "h-10 min-w-0 px-2.5 tabular-nums sm:w-[160px]")} type="date" min={today} aria-label={tt("Date")} value={o.date} onChange={(e) => e.target.value && write(i, { date: e.target.value })} />
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <Switch checked={open} onChange={(yes) => write(i, { windows: yes ? [{ start: "09:00", end: "17:00" }] : [] })} label={tt("Open on this date")} />
+                  {open ? (
+                    <>
+                      <input className={cn(FIELD, "h-10 min-w-0 flex-1 px-2.5 tabular-nums")} type="time" aria-label={tt("From")} value={o.windows[0].start} onChange={(e) => write(i, { windows: [{ ...o.windows[0], start: e.target.value }] })} />
+                      <span className="shrink-0 text-[13px] text-[#6b7280]">{tt("to")}</span>
+                      <input className={cn(FIELD, "h-10 min-w-0 flex-1 px-2.5 tabular-nums")} type="time" aria-label={tt("Until")} value={o.windows[0].end} onChange={(e) => write(i, { windows: [{ ...o.windows[0], end: e.target.value }] })} />
+                    </>
+                  ) : (
+                    <span className={muted}>{tt("Day off")}</span>
+                  )}
+                </div>
+                <button type="button" className={cn(iconButton, "h-10 w-10 shrink-0 self-end sm:self-auto")} aria-label={tt("Remove date")} onClick={() => onChange(overrides.filter((_, j) => j !== i))}>
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      ) : null}
+      <button type="button" className={cn(textButton, "-ml-2 text-[#4b5563]")} onClick={() => onChange([...overrides, { date: free(), windows: [] }])}>
+        <Plus aria-hidden className="h-3.5 w-3.5" />
+        {tt("Add a date")}
+      </button>
+    </fieldset>
   )
 }
 

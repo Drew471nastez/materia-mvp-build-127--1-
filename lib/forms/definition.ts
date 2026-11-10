@@ -102,17 +102,46 @@ export interface WeeklyWindow {
   start: string
   end: string
 }
+/** One date that differs from the week: other hours, or none (a day off). In the owner's zone. */
+export interface DateOverride {
+  date: string
+  windows: { start: string; end: string }[]
+}
+/*
+  WHERE THE MEETING HAPPENS (round AR). A video link the creator pastes, a
+  Google Meet made for each booking (needs Google Calendar connected), a
+  phone call (the creator's number, or the visitor's when none is given),
+  an address, or nothing said. A video link stays on the server until a
+  time is booked (publicDefinition), as Calendly does.
+*/
+export type BookingLocationKind = "none" | "video" | "google_meet" | "phone" | "in_person"
+export const BOOKING_LOCATION_KINDS: BookingLocationKind[] = ["none", "video", "google_meet", "phone", "in_person"]
+export interface BookingLocation {
+  kind: BookingLocationKind
+  /** The video address, the phone number or the street address. */
+  value?: string
+}
 export interface BookingSettings {
   duration: number
+  /** Round AR: other lengths the visitor may choose, besides `duration` (the first offered). */
+  durations?: number[]
   buffer: number
   timezone: string
   weekly: WeeklyWindow[]
+  /** Round AR: dates with other hours, or none. */
+  overrides?: DateOverride[]
   notice_hours: number
   days_ahead: number
+  /** Round AR: at most this many active bookings of this form in one of the owner's days. Unset: no limit. */
+  max_per_day?: number
   /** True: the owner approves each request. False: a free slot is confirmed at once. */
   approval: boolean
   /** A Storelib product the visitor pays for through the existing checkout. */
   payment_product_id?: string
+  /** Round AR: where it happens. */
+  location?: BookingLocation
+  /** Round AR: a short mark over the booking, such as "Most booked". */
+  badge?: string
 }
 
 export type CompletionKind = "message" | "action" | "gated"
@@ -142,6 +171,8 @@ export interface PublicForm {
   id: string
   revision: number
   definition: FormDefinition
+  /** Round AR: a paid booking's price as the checkout will charge it ("$40.00"), read from its product. */
+  price?: string | null
 }
 export type LeadStatus = "new" | "contacted" | "qualified" | "converted"
 export const LEAD_STATUSES: LeadStatus[] = ["new", "contacted", "qualified", "converted"]
@@ -202,16 +233,69 @@ export function validateBooking(raw: unknown): BookingSettings {
   })
   const product = text(b.payment_product_id, 36)
   if (product && !UUID.test(product)) return fail("Choose a valid product for the booking payment.")
+  const duration = int(b.duration, 5, 480, 30)
+  const durations = Array.isArray(b.durations)
+    ? [...new Set((b.durations as unknown[]).filter((n): n is number => typeof n === "number" && Number.isFinite(n)).map((n) => Math.round(n)))]
+        .filter((n) => n >= 5 && n <= 480 && n !== duration)
+        .sort((x, y) => x - y)
+        .slice(0, 5)
+    : []
+  const rawOverrides = b.overrides === undefined || b.overrides === null ? [] : b.overrides
+  if (!Array.isArray(rawOverrides) || rawOverrides.length > 120) return fail("Use at most 120 date changes.")
+  const seen = new Set<string>()
+  const overrides: DateOverride[] = (rawOverrides as unknown[]).map((o) => {
+    const r = (o || {}) as Record<string, unknown>
+    const date = typeof r.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.date) && validDate(r.date) ? r.date : fail("Each date change needs a date.")
+    if (seen.has(date)) return fail("Each date can be changed once.")
+    seen.add(date)
+    const list = Array.isArray(r.windows) ? (r.windows as unknown[]).slice(0, 6) : []
+    const windows = list.map((w) => {
+      const x = (w || {}) as Record<string, unknown>
+      const start = typeof x.start === "string" && TIME.test(x.start) ? x.start : fail("Use HH:MM times for availability.")
+      const end = typeof x.end === "string" && TIME.test(x.end) ? x.end : fail("Use HH:MM times for availability.")
+      if (end <= start) return fail("Each availability window must end after it starts.")
+      return { start, end }
+    })
+    return { date, windows }
+  })
+  const loc = (b.location || null) as Record<string, unknown> | null
+  let location: BookingLocation | undefined
+  if (loc && BOOKING_LOCATION_KINDS.includes(loc.kind as BookingLocationKind) && loc.kind !== "none") {
+    const kind = loc.kind as BookingLocationKind
+    const value = text(loc.value, 500)
+    if (kind === "video") {
+      const url = value ? webUrl(value) : null
+      if (value && (!url || !/^https:\/\//.test(url))) return fail("Use an https meeting link.")
+      location = url ? { kind, value: url } : { kind }
+    } else if (kind === "phone") {
+      const digits = value.replace(/\D/g, "")
+      if (value && (digits.length < 7 || digits.length > 15)) return fail("Enter a valid phone number for the call.")
+      location = value ? { kind, value } : { kind }
+    } else if (kind === "in_person") location = value ? { kind, value } : { kind }
+    else location = { kind }
+  }
+  const badge = text(b.badge, 24)
+  const maxPerDay = int(b.max_per_day, 0, 50, 0)
   return {
-    duration: int(b.duration, 5, 480, 30),
+    duration,
+    ...(durations.length ? { durations } : {}),
     buffer: int(b.buffer, 0, 240, 0),
     timezone: b.timezone as string,
     weekly,
+    ...(overrides.length ? { overrides: overrides.sort((x, y) => x.date.localeCompare(y.date)) } : {}),
     notice_hours: int(b.notice_hours, 0, 720, 12),
     days_ahead: int(b.days_ahead, 1, 365, 30),
+    ...(maxPerDay ? { max_per_day: maxPerDay } : {}),
     approval: b.approval !== false,
     ...(product ? { payment_product_id: product } : {}),
+    ...(location ? { location } : {}),
+    ...(badge ? { badge } : {}),
   }
+}
+
+/** Every length a visitor may choose, the default first. */
+export function bookingDurations(b: Pick<BookingSettings, "duration" | "durations">): number[] {
+  return [b.duration, ...(b.durations || []).filter((n) => n !== b.duration)]
 }
 
 export function validateDefinition(raw: unknown, publish = true): FormDefinition {
@@ -289,7 +373,7 @@ export function validateDefinition(raw: unknown, publish = true): FormDefinition
     })
   }
   const booking = hasBooking ? validateBooking(d.booking) : undefined
-  if (booking && publish && !booking.weekly.length) return fail("Add at least one availability window.")
+  if (booking && publish && !booking.weekly.length && !booking.overrides?.some((o) => o.windows.length)) return fail("Add at least one availability window.")
   let kind: CompletionKind = ["message", "action", "gated"].includes(d.completion?.kind) ? d.completion.kind : action ? "action" : "message"
   let gated: { url: string; label: string } | undefined
   if (kind === "gated") {
@@ -329,8 +413,11 @@ export function validateDefinition(raw: unknown, publish = true): FormDefinition
 export function publicDefinition(def: FormDefinition): FormDefinition {
   const { results: _results, ...rest } = def
   void _results
+  /* A video link is told once a time is booked (the confirmation and its email), never before. */
+  const booking = def.booking?.location?.kind === "video" ? { ...def.booking, location: { kind: "video" as const } } : def.booking
   return {
     ...rest,
+    ...(booking ? { booking } : {}),
     completion: {
       ...def.completion,
       ...(def.completion.gated ? { gated: { url: "", label: def.completion.gated.label } } : {}),

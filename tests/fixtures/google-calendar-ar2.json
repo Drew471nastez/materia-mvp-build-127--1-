@@ -1,0 +1,81 @@
+{
+  "_note": "Google Calendar API and OAuth answers in the shapes Google documents (developers.google.com/identity/protocols/oauth2/web-server, developers.google.com/calendar/api/v3/reference), with made up ids and tokens. Replayed by tests/onepage-bookings-ar2.test.ts; nothing here was fetched from Google.",
+  "token_exchange": {
+    "status": 200,
+    "body": {
+      "access_token": "ya29.test-access-1",
+      "expires_in": 3599,
+      "refresh_token": "1//test-refresh-token",
+      "scope": "openid https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email",
+      "token_type": "Bearer",
+      "id_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJlbWFpbCI6ImNyZWF0b3JAZXhhbXBsZS5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZX0.c2lnbmF0dXJl"
+    }
+  },
+  "token_refresh": {
+    "status": 200,
+    "body": {
+      "access_token": "ya29.test-access-2",
+      "expires_in": 3599,
+      "scope": "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly",
+      "token_type": "Bearer"
+    }
+  },
+  "token_revoked": {
+    "status": 400,
+    "body": { "error": "invalid_grant", "error_description": "Token has been expired or revoked." }
+  },
+  "calendar_list": {
+    "status": 200,
+    "body": {
+      "kind": "calendar#calendarList",
+      "items": [
+        { "kind": "calendar#calendarListEntry", "id": "team@group.calendar.google.com", "summary": "Team", "accessRole": "reader", "backgroundColor": "#9fe1e7" },
+        { "kind": "calendar#calendarListEntry", "id": "creator@example.com", "summary": "creator@example.com", "primary": true, "accessRole": "owner", "backgroundColor": "#9a9cff" }
+      ]
+    }
+  },
+  "free_busy": {
+    "status": 200,
+    "body": {
+      "kind": "calendar#freeBusy",
+      "timeMin": "2026-06-01T00:00:00.000Z",
+      "timeMax": "2026-06-02T00:00:00.000Z",
+      "calendars": {
+        "creator@example.com": { "busy": [{ "start": "2026-06-01T10:00:00Z", "end": "2026-06-01T11:00:00Z" }] },
+        "team@group.calendar.google.com": { "busy": [], "errors": [{ "domain": "global", "reason": "notFound" }] }
+      }
+    }
+  },
+  "event_insert_meet": {
+    "status": 200,
+    "body": {
+      "kind": "calendar#event",
+      "id": "evt123abc",
+      "status": "confirmed",
+      "htmlLink": "https://www.google.com/calendar/event?eid=ZXZ0MTIzYWJj",
+      "hangoutLink": "https://meet.google.com/abc-defg-hij",
+      "conferenceData": {
+        "createRequest": { "requestId": "storelib-x", "conferenceSolutionKey": { "type": "hangoutsMeet" }, "status": { "statusCode": "success" } },
+        "entryPoints": [
+          { "entryPointType": "video", "uri": "https://meet.google.com/abc-defg-hij", "label": "meet.google.com/abc-defg-hij" },
+          { "entryPointType": "phone", "uri": "tel:+1-555-0100", "pin": "123456" }
+        ],
+        "conferenceSolution": { "key": { "type": "hangoutsMeet" }, "name": "Google Meet" },
+        "conferenceId": "abc-defg-hij"
+      }
+    }
+  },
+  "event_patch": {
+    "status": 200,
+    "body": { "kind": "calendar#event", "id": "evt123abc", "status": "confirmed", "htmlLink": "https://www.google.com/calendar/event?eid=ZXZ0MTIzYWJj", "hangoutLink": "https://meet.google.com/abc-defg-hij" }
+  },
+  "event_delete": { "status": 204, "body": null },
+  "event_gone": {
+    "status": 410,
+    "body": { "error": { "errors": [{ "domain": "global", "reason": "deleted", "message": "Resource has been deleted" }], "code": 410, "message": "Resource has been deleted" } }
+  },
+  "unauthorized": {
+    "status": 401,
+    "body": { "error": { "code": 401, "message": "Request had invalid authentication credentials.", "status": "UNAUTHENTICATED" } }
+  }
+}

@@ -50,6 +50,8 @@ export const RESERVED_WORDS = [
   "orders",
   "analytics",
   "checkout",
+  "booking",
+  "bookings",
   "onboarding",
   "terms",
   "privacy",
