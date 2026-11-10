@@ -259,14 +259,14 @@ const head = header({
   drawer: "full",
   cart: "side",
   overlay: false,
-  sticky: false,
+  scroll: "shrink",
   words: { brand: "Atelier", cart: "Bag", menu: "Menu", searchHint: "Search the collection", empty: "Nothing in your bag yet." },
   notices: ["Private viewings by appointment"],
   features: [
     { title: "The collection", text: "Every piece in the shop", url: "/products" },
     { title: "How one is made", text: "The workshop", url: "/about" },
   ],
-  skin: `.hd__logo { text-transform: uppercase; letter-spacing: 0.18em; font-size: 1.125rem; } .hd__top, .hd__tool { ${LABEL} } .hd__mlink, .hd__msum, .hd__mega-all { text-transform: uppercase; font-weight: 400; letter-spacing: 0.02em; } .hd__notes { text-align: center; ${LABEL} } .hd__track { margin: 0 auto; }`,
+  skin: `.hd__logo { text-transform: uppercase; letter-spacing: 0.18em; font-size: 1.125rem; } .hd__top { ${LABEL} } .hd__mlink, .hd__msum, .hd__mega-all { text-transform: uppercase; font-weight: 400; letter-spacing: 0.02em; } .hd__notes { text-align: center; ${LABEL} } .hd__track { margin: 0 auto; }`,
 })
 
 const foot = footer({
@@ -279,7 +279,7 @@ const foot = footer({
     { heading: "Client care", menu: "footer" },
   ],
   notes: [{ heading: "Visits", text: "<p>The workshop is open by appointment. Write and we will find a time.</p>" }],
-  skin: `.ft { border-top: 1px solid var(--s-border); } .ft__h { text-transform: uppercase; font-weight: 400; } .ft__col-h { ${LABEL} font-weight: 400; }`,
+  skin: `.ft { border-top: 1px solid var(--s-border); } .ft__h { text-transform: uppercase; font-weight: 400; } .ft__col-h { font-weight: 400; }`,
 })
 
 const band = marquee({ type: `${P}band`, scheme: "site", items: ["Steel", "Hand wound", "Domed sapphire", "Leather", "Signed by the maker"], speed: 60, skin: `.mq { border-top: 1px solid var(--s-border); border-bottom: 1px solid var(--s-border); } .mq__item { text-transform: uppercase; font-weight: 400; font-size: clamp(1.5rem, 1rem + 3cqi, 3.5rem); } .mq__item:nth-child(even) { color: var(--s-muted); }` })

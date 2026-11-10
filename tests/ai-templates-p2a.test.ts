@@ -24,6 +24,15 @@
  *      in their settings; untouchedTemplateParts sees the template copy and
  *      stops seeing it once a section is changed.
  *   7. The agent can browse it: list_templates and search_knowledge.
+ *   8. Round Q2, the chrome of all twelve: header tools are icons (the
+ *      host's icon set with an inline fallback) with their words read aloud,
+ *      never written out; a scroll behaviour setting and the ask to the page
+ *      (data-storelib-sticky / data-storelib-over); language and currency as
+ *      ONE compact chip with a small panel; footers with no mono or spaced
+ *      capital column labels and no one link columns, social icons, a
+ *      subscribe form with a success line; every text field with a
+ *      placeholder; in Chromium the drawn header holds no tool words and the
+ *      chip is small.
  *
  * Run: NODE_OPTIONS="--conditions=react-server" npx tsx tests/ai-templates-p2a.test.ts
  */
@@ -352,6 +361,78 @@ async function main() {
     const plain = runSearchKnowledge({ query: "product page layout" })
     check("  and leaves other questions alone", !plain.entries.some((e) => e.id.startsWith("template:")))
     check("  a template by id", templateEntries("calibre-watches")[0]?.id === "template:calibre-watches")
+  }
+
+
+  console.log("\n8. Round Q2: the chrome of all twelve")
+  {
+    const styleOf = (src: string) => /<style[^>]*>([\s\S]*?)<\/style>/.exec(src)?.[1] ?? ""
+    const templateOf = (src: string) => /<template>([\s\S]*?)<\/template>/.exec(src)?.[1] ?? ""
+    for (const t of SITE_TEMPLATES) {
+      const home = t.pages.find((p) => p.key === "home")!
+      const head = home.sections.find((x) => x.group === "header")!
+      const foot = home.sections.find((x) => x.group === "footer")!
+      const hsrc = t.files[`sections/${head.type}.storelib`]
+      const fsrc = t.files[`sections/${foot.type}.storelib`]
+      const htpl = templateOf(hsrc)
+      /* Openers of search and cart (not the panels): each draws an icon and says its words to a screen reader only. */
+      const openers = [...htpl.matchAll(/<(a|button)\b([^>]*\sdata-storelib-(?:search|cart)(?=[\s>])[^>]*)>([\s\S]*?)<\/\1>/g)]
+      const bare = openers.filter((m) => !/data-storelib-icon="(search|bag|cart)"/.test(m[3]) || !(/aria-label=/.test(m[2]) || /<span[^>]*>\{\{ settings\.\w+_label \}\}<\/span>/.test(m[3])))
+      check(`${t.id}: search and cart openers are icons with their words read aloud`, openers.length >= 2 && bare.length === 0, bare.map((m) => m[0].slice(0, 160)))
+      const words = [...htpl.matchAll(/<(a|button)\b[^>]*class="[^"]*(?:__tool|-ib)\b[^"]*"[^>]*>\s*\{\{ settings\.(search|cart|account|region)_label \}\}/g)]
+      check(`${t.id}: no header tool written out as a word (Search, Cart, Account, Region)`, words.length === 0 && !/settings\.region_label/.test(htpl), words.map((m) => m[0].slice(0, 120)))
+      const scroll = (JSON.parse(/<schema>([\s\S]*?)<\/schema>/.exec(hsrc)![1]).settings as { id?: string; options?: { value: string }[] }[]).find((x) => x.id === "scroll")
+      check(`${t.id}: a scroll behaviour setting (scrolls away, stays, slimmer, hides going down)`, !!scroll && ["static", "sticky", "shrink", "hide"].every((v) => scroll.options?.some((o) => o.value === v)))
+      check(`${t.id}: the header asks the page to stick (data-storelib-sticky) and styles the scroll state`, /data-storelib-sticky="(up|always)"/.test(htpl) && /data-scrolled/.test(styleOf(hsrc)) && /data-scroll-dir="down"/.test(styleOf(hsrc)))
+      const chips = (src: string) => [...templateOf(src).matchAll(/class="[a-z0-9]+-loc__chip"/g)].length
+      check(`${t.id}: language and currency are one compact chip in the header and in the footer`, chips(hsrc) >= 1 && chips(fsrc) === 1)
+      const opts = [...(styleOf(hsrc) + styleOf(fsrc)).matchAll(/\.[a-z0-9]+-(?:loc__opt|pref__opt)[^{]*\{([^}]*)\}/g)].map((m) => m[1])
+      check(`${t.id}: no outlined buttons for languages or currencies`, opts.every((r) => !/border:\s*1px solid/.test(r)), opts.filter((r) => /border:\s*1px solid/.test(r)))
+      const fstyle = styleOf(fsrc)
+      const labelRules = [...fstyle.matchAll(/([^{}]*(?:col-h|__k|__h|label)[^{]*)\{([^}]*)\}/g)].filter((m) => /monospace|--theme-font-accent|text-transform:\s*uppercase[^}]*letter-spacing:\s*0\.[1-9]/.test(m[2]))
+      check(`${t.id}: footer labels are words, not mono or spaced capitals`, labelRules.length === 0 && !/monospace/.test(fstyle), labelRules.map((m) => m[1].trim()))
+      const ftpl = templateOf(fsrc)
+      check(`${t.id}: footer has social icons, back to top and a subscribe form with a success line`, /data-storelib-icon="(instagram|link|github|linkedin|pin|mail|youtube)"/.test(ftpl) && /data-storelib-scroll="top"/.test(ftpl) && /data-storelib-form="subscribe"/.test(ftpl) && /data-storelib-success/.test(ftpl))
+      check(`${t.id}: a menu becomes a footer column only with two links or more`, !/\{% for link in [^%]+%\}\s*<div class="[a-z0-9]+__col"/.test(ftpl) || /links\.size > 1/.test(ftpl))
+      const fields = Object.entries(t.files).flatMap(([path, src]) => [...templateOf(src).matchAll(/<(input|textarea)\b[^>]*>/g)].filter((m) => !/type="(hidden|checkbox|radio|submit|range|file)"/.test(m[0])).filter((m) => !/placeholder=/.test(m[0])).map((m) => `${path}: ${m[0].slice(0, 100)}`))
+      check(`${t.id}: every text field has a placeholder`, fields.length === 0, fields)
+      const labelled = Object.entries(t.files).flatMap(([path, src]) => ((tpl) => [...tpl.matchAll(/<input\b[^>]*type="email"[^>]*>/g)].filter((m) => !/aria-label=|id="/.test(m[0]) && !(tpl.lastIndexOf("<label", m.index) > tpl.lastIndexOf("</label>", m.index))))(templateOf(src)).map((m) => `${path}: ${m[0].slice(0, 100)}`))
+      check(`${t.id}: every email field is labelled`, labelled.length === 0, labelled)
+    }
+    const chrome = process.env.CHROME ?? "/opt/pw-browsers/chromium"
+    if (existsSync(chrome)) {
+      const { filled, pageHtml } = await import("./ai-templates-p2b-kit")
+      const puppeteer = (await import("puppeteer-core")).default
+      const browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ["--no-sandbox", "--disable-gpu"] })
+      try {
+        for (const t of SITE_TEMPLATES) {
+          const { html } = pageHtml(t, filled(t).find((p) => p.key === "home")!.sections, "home")
+          const tab = await browser.newPage()
+          await tab.setViewport({ width: 1440, height: 900 })
+          await tab.setRequestInterception(true)
+          tab.on("request", (r) => (r.url().startsWith("data:") ? r.continue() : r.respond({ status: 200, contentType: "image/svg+xml", body: "<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8'/>" })))
+          await tab.setContent(html, { waitUntil: "load" })
+          /* What the host does on a site with two languages and three currencies. */
+          const r = await tab.evaluate(`(() => {
+            const fill = (list, opt, cur, items) => { document.querySelectorAll(list).forEach((l) => { const tpl = l.querySelector(opt); if (!tpl) return; items.forEach(([label], i) => { const c = tpl.cloneNode(true); c.hidden = false; c.querySelector('[data-option-label]').textContent = label; if (!i) c.setAttribute('aria-current', 'true'); tpl.before(c) }) }); document.querySelectorAll(cur).forEach((e) => { e.textContent = items[0][1] }) };
+            fill('[data-storelib-locale-list]', '[data-storelib-locale-option]', '[data-storelib-locale-current]', [['English', 'EN'], ['Română', 'RO']]);
+            fill('[data-storelib-currency-list]', '[data-storelib-currency-option]', '[data-storelib-currency-current]', [['EUR €', 'EUR'], ['USD $', 'USD'], ['RON lei', 'RON']]);
+            const header = document.querySelector('header');
+            const visible = (e) => { const b = e.getBoundingClientRect(); const s = getComputedStyle(e); return b.width > 0 && b.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' };
+            const bar = [...header.querySelectorAll('a, button')].filter((e) => visible(e) && !e.closest('[popover], [data-storelib-cart-panel], [data-storelib-search-panel]'));
+            const words = bar.map((e) => e.innerText.trim()).filter((w) => /^(search|cart|bag|account|sign in|region)$/i.test(w));
+            const chip = [...header.querySelectorAll('[class$="-loc__chip"]')].find(visible);
+            const icons = header.querySelectorAll('[data-storelib-icon] svg').length;
+            return { words, chip: chip ? Math.round(chip.getBoundingClientRect().width) : 0, chipText: chip ? chip.innerText.replace(/\\s+/g, ' ').trim() : '', icons };
+          })()`) as { words: string[]; chip: number; chipText: string; icons: number }
+          check(`${t.id}: drawn at 1440, the header shows icons and no tool words`, r.words.length === 0 && r.icons >= 3, r)
+          check(`${t.id}: the language and currency chip is small and says both ("EN / EUR")`, r.chip > 0 && r.chip <= 200 && /EN\s*\/\s*EUR/.test(r.chipText), r)
+          await tab.close()
+        }
+      } finally {
+        await browser.close()
+      }
+    }
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

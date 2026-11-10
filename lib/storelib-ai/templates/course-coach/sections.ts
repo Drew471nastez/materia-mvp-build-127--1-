@@ -7,8 +7,9 @@
  * green for the one action, a deep green band for contrast.
  */
 import {
-  BOX, cartPanel, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, productList, range, revealCss, richtext, scheme, searchPanel, spacing, text, textarea, url, vars,
+  BOX, cartPanel, check, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, toolButton, scrollSetting, headerScrollCss, productList, range, revealCss, richtext, scheme, searchPanel, spacing, text, textarea, url, vars,
 } from "../kit-b"
+import { footerBitsCss, formPolishCss, formStates, icon, stickyAttrs, paymentMarks, socialIcon } from "../kit/chrome-parts"
 
 const D = "font-family: var(--theme-font-heading), sans-serif; color: var(--s-heading); font-weight: 700;"
 const SMALL = "font-size: 0.875rem;"
@@ -19,25 +20,27 @@ export const header = defineSection({
   kind: "header",
   summary: "A thin line with the next start date above a header with the course name, the menu, search, cart and an Enrol button; the menu opens as a side sheet with language and currency.",
   template: `
-<header class="ccn" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
+<header class="ccn ccn--{{ settings.scroll }}"${stickyAttrs("settings.scroll", null)} data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
   {% if settings.notice %}<p class="ccn__notice">{% if settings.notice_url %}<a href="{{ settings.notice_url | url }}">{{ settings.notice }}</a>{% else %}{{ settings.notice }}{% endif %}</p>{% endif %}
   <div class="ccn__bar">
     <a class="ccn__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="{{ settings.logo_width }}" height="32">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
     <nav class="ccn__nav" aria-label="{{ settings.nav_label }}">{% for link in settings.menu.links %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}</nav>
     <div class="ccn__tools">
-      <button class="ccn__tool" type="button" data-storelib-search aria-label="{{ settings.search_label }}"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-4-4" stroke="currentColor" stroke-width="2"/></svg></button>
-      <button class="ccn__tool" type="button" data-storelib-cart>{{ settings.cart_label }} <span class="ccn__count" data-storelib-cart-count></span></button>
+      ${prefs("ccn")}
+      ${toolButton("ccn", "search")}
+      ${toolButton("ccn", "account", { cls: "ccn__wide" })}
+      ${toolButton("ccn", "cart")}
       <a class="ccn__cta" href="{{ settings.cta_url | url }}">{{ settings.cta_label }}</a>
-      <button class="ccn__tool ccn__burger" type="button" popovertarget="ccn-d-{{ section.id }}">{{ settings.menu_label }}</button>
+      ${toolButton("ccn", "menu", { cls: "ccn__burger", target: "ccn-d-{{ section.id }}" })}
     </div>
   </div>
   <div class="ccn__sheet" id="ccn-d-{{ section.id }}" popover>
-    <button class="ccn-x" type="button" popovertarget="ccn-d-{{ section.id }}" popovertargetaction="hide">{{ settings.close_label }}</button>
+    <button class="ccn-x" type="button" popovertarget="ccn-d-{{ section.id }}" popovertargetaction="hide" aria-label="{{ settings.close_label }}">${icon("close", "", 22)}</button>
     <nav aria-label="{{ settings.nav_label }}"><ul class="ccn__list">{% for link in settings.menu.links %}<li><a class="ccn__link" href="{{ link.url }}">{{ link.title }}</a>{% if link.links.size > 0 %}<ul class="ccn__sub">{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul>{% endif %}</li>{% endfor %}</ul></nav>
     <a class="ccn__cta ccn__cta--wide" href="{{ settings.cta_url | url }}">{{ settings.cta_label }}</a>
     <a class="ccn__acct" href="{{ routes.account_url }}">{{ settings.account_label }}</a>
     <ul class="ccn__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{% if block.settings.url %}<a href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>{% else %}{{ block.settings.text }}{% endif %}</li>{% endfor %}</ul>
-    ${prefs("ccn")}
+    ${prefs("ccn", { where: "d", up: true })}
   </div>
   ${searchPanel("ccn")}
   ${cartPanel("ccn")}
@@ -45,7 +48,7 @@ export const header = defineSection({
   style: `
 .ccn__notes { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 0.875rem; }
 .ccn__notes a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
-.ccn { position: sticky; top: 0; z-index: 30; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
+.ccn { position: relative; z-index: 30; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
 .ccn__notice { margin: 0; padding: 8px var(--theme-padding-x, 20px); background: var(--s-text); color: var(--s-bg); ${SMALL} text-align: center; }
 .ccn__notice a { color: inherit; }
 .ccn__bar { display: flex; align-items: center; gap: 16px; min-height: 64px; padding: 0 var(--theme-padding-x, 20px); }
@@ -68,8 +71,11 @@ export const header = defineSection({
 .ccn__acct { display: inline-flex; min-height: 44px; align-items: center; margin-bottom: 12px; color: inherit; }
 .ccn :focus-visible { outline: 3px solid var(--s-accent); outline-offset: 2px; }
 ${panelCss("ccn", { cartFrom: "right", searchFrom: "top" })}
+${headerScrollCss("ccn", "ccn__notice")}
+.ccn__wide { display: none; }
+@container (max-width: 599px) { .ccn__tools > .ccn-loc { display: none; } }
 .ccn-search { box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08); }
-@media (min-width: 960px) { .ccn__nav { display: flex; } .ccn__burger { display: none; } .ccn__cta { display: inline-flex; } }
+@media (min-width: 960px) { .ccn__nav { display: flex; } .ccn__burger { display: none; } .ccn__cta { display: inline-flex; margin-left: 8px; } .ccn__wide { display: inline-grid; } }
 @media (prefers-reduced-motion: no-preference) {
   .ccn__sheet { transition: transform var(--t-motion-duration, 650ms) var(--t-motion-ease, ease), display var(--t-motion-duration, 650ms) allow-discrete, overlay var(--t-motion-duration, 650ms) allow-discrete; transform: translateX(100%); }
   .ccn__sheet:popover-open { transform: none; }
@@ -84,6 +90,7 @@ ${panelCss("ccn", { cartFrom: "right", searchFrom: "top" })}
     text("cta_label", "Button", "Enrol"),
     url("cta_url", "Button goes to", "/products"),
     text("account_label", "Account link", "Your lessons"),
+    scrollSetting("hide"),
     ...chromeWords({ search_placeholder: "Search lessons and questions" }),
     scheme("site"),
   ],
@@ -543,12 +550,12 @@ export const footer = defineSection({
   <form class="cco2__form" data-storelib-form="subscribe">
     <label class="cco2__label" for="cco2-e-{{ section.id }}">{{ settings.newsletter_heading }}</label>
     <p class="cco2__sub">{{ settings.newsletter_text }}</p>
-    <div class="cco2__row"><input id="cco2-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}"><button type="submit">{{ settings.button_label }}</button></div>
-  </form>
+    <div class="cco2__row"><input id="cco2-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}" aria-describedby="cco2-err-{{ section.id }}"><button type="submit">{{ settings.button_label }}</button></div>
+  ${formStates("cco2-err-{{ section.id }}")}</form>
   <div class="cco2__base">
     <nav class="cco2__nav" aria-label="{{ settings.nav_label }}">{% for link in settings.menu.links %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}</nav>
-    <ul class="cco2__links">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}">{{ block.settings.label }}</a></li>{% endfor %}</ul>
-    ${prefs("cco2")}
+    <ul class="cco2__links cco2-social" aria-label="{{ settings.social_label }}">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" aria-label="{{ block.settings.label }}">${socialIcon("block.settings.url")}</a></li>{% endfor %}</ul>
+    <div class="cco2__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("cco2")}{% endif %}${prefs("cco2", { up: true })}<a class="cco2-top" href="#" data-storelib-scroll="top">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div>
     <p class="cco2__small">{{ settings.small_print }}</p>
   </div>
 </footer>`,
@@ -566,6 +573,9 @@ export const footer = defineSection({
 .cco2__nav a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; text-decoration: none; }
 .cco2__small { margin: 0; font-size: 0.8125rem; opacity: 0.75; }
 ${panelCss("cco2")}
+${footerBitsCss("cco2")}
+${formPolishCss("cco2")}
+.cco2__end { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 @container (min-width: 900px) { .cco2__base { grid-template-columns: minmax(0, 1fr) auto; align-items: center; } .cco2__small { grid-column: 1 / -1; } }`,
   settings: [
     menu("menu", "Footer menu", "footer"),
@@ -575,6 +585,12 @@ ${panelCss("cco2")}
     text("button_label", "Subscribe button", "Send it"),
     text("small_print", "Small print", "Floor is a course by Ana Ruiz, Madrid."),
     text("nav_label", "Menu name (read aloud)", "Footer"),
+    text("email_error", "When the email is not right", "That email looks incomplete."),
+    text("thanks_text", "After signing up", "You are on the list. Thank you."),
+    text("social_label", "Social links (read aloud)", "Follow"),
+    check("show_payments", "Show card marks when the shop sells", true),
+    text("payments_label", "Card marks (read aloud)", "Ways to pay"),
+    text("top_label", "Back to top", "Back to top"),
     text("language_label", "Language", "Language"),
     text("currency_label", "Currency", "Currency"),
     scheme("site"),
@@ -707,11 +723,12 @@ export const contact = defineSection({
   <div class="ccm__grid">
     <div><h1 class="ccm__h">{{ settings.heading }}</h1><div class="ccm__text">{{ settings.text | raw }}</div><ul class="ccm__ways">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><span>{{ block.settings.label }}</span>{% if block.settings.link %}<a href="{{ block.settings.link | url }}">{{ block.settings.value }}</a>{% else %}{{ block.settings.value }}{% endif %}</li>{% endfor %}</ul></div>
     <form class="ccm__form" data-storelib-form="contact">
-      <label><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required placeholder="Your name"></label>
-      <label><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required placeholder="you@example.com"></label>
-      <label><span>{{ settings.message_label }}</span><textarea name="message" rows="5" maxlength="5000" required placeholder="A few lines about what you need"></textarea></label>
+      <label><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required placeholder="{{ settings.name_hint }}"></label>
+      <label><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required placeholder="{{ settings.email_hint }}"></label>
+      <label><span>{{ settings.message_label }}</span><textarea name="message" rows="5" maxlength="5000" required placeholder="{{ settings.message_hint }}"></textarea></label>
       <button type="submit">{{ settings.send_label }}</button>
-    </form>
+    <p data-storelib-success hidden role="status">${icon("check", "", 18)}<span>{{ settings.thanks_text }}</span></p>
+      </form>
   </div>
 </section>`,
   style: `
@@ -727,13 +744,18 @@ export const contact = defineSection({
 .ccm__form label { display: grid; gap: 6px; font-weight: 600; }
 .ccm__form input, .ccm__form textarea { min-height: 54px; padding: 12px 14px; border: 2px solid var(--s-text); background: none; color: inherit; font: inherit; font-weight: 400; }
 .ccm__form button { justify-self: start; min-height: 56px; padding: 0 30px; border: 0; background: var(--s-btn); color: var(--s-btn-text); font: inherit; font-weight: 700; cursor: pointer; }
-@container (min-width: 900px) { .ccm__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; } }`,
+@container (min-width: 900px) { .ccm__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; } }
+${formPolishCss("ccm")}`,
   settings: [
     text("heading", "Heading", "Ask before you enrol"),
     richtext("text", "Words", "<p>Not sure it fits? Write a line about where you speak and what goes wrong. Ana answers herself, usually the same day.</p>"),
     text("name_label", "Name field", "Name"),
     text("email_label", "Email field", "Email"),
     text("message_label", "Message field", "Your question"),
+    text("name_hint", "Name hint", "Your name"),
+    text("email_hint", "Email hint", "Your email address"),
+    text("message_hint", "Message hint", "A few lines are plenty"),
+    text("thanks_text", "After sending", "Thank you. We will write back soon."),
     text("send_label", "Send button", "Send"),
     ...motion(),
     scheme("site"),

@@ -8,8 +8,9 @@
  * residences or suites are the store's real products.
  */
 import {
-  BOX, cartPanel, check, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, productList, range, revealCss, richtext, scheme, searchPanel, select, spacing, text, textarea, url, vars,
+  BOX, cartPanel, check, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, toolButton, scrollSetting, headerScrollCss, productList, range, revealCss, richtext, scheme, searchPanel, select, spacing, text, textarea, url, vars,
 } from "../kit-b"
+import { footerBitsCss, formPolishCss, formStates, icon, stickyAttrs, paymentMarks, socialIcon } from "../kit/chrome-parts"
 
 const SERIF = "font-family: var(--theme-font-heading), serif; font-weight: 300; color: var(--s-heading);"
 const SMALL = "font-size: 0.8125rem; letter-spacing: 0.04em;"
@@ -21,21 +22,23 @@ export const header = defineSection({
   kind: "header",
   summary: "Centered name with Menu on the left and Enquire, search and cart on the right; floats over the first photograph when asked; the menu opens full screen beside a photograph, with language and currency.",
   template: `
-<header class="esn{% if settings.overlay %} esn--over{% endif %}" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
+<header class="esn esn--{{ settings.scroll }}{% if settings.overlay %} esn--over esn--overlay{% endif %}"${stickyAttrs("settings.scroll", "settings.overlay")} data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
   <div class="esn__bar">
     <button class="esn__tool esn__menu" type="button" popovertarget="esn-d-{{ section.id }}">{{ settings.menu_label }}</button>
     <a class="esn__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="{{ settings.logo_width }}" height="36">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
     <div class="esn__tools">
       {% if settings.enquire_label %}<a class="esn__tool esn__wide" href="{{ settings.enquire_url | url }}">{{ settings.enquire_label }}</a>{% endif %}
-      <button class="esn__tool esn__wide" type="button" data-storelib-search>{{ settings.search_label }}</button>
-      <button class="esn__tool" type="button" data-storelib-cart>{{ settings.cart_label }} <span class="esn__count" data-storelib-cart-count></span></button>
+      ${prefs("esn")}
+      ${toolButton("esn", "search")}
+      ${toolButton("esn", "account", { cls: "esn__wide" })}
+      ${toolButton("esn", "cart")}
     </div>
   </div>
 
   <div class="esn__drawer" id="esn-d-{{ section.id }}" popover>
     <div class="esn__drawer-in">
       <div class="esn__drawer-nav">
-        <button class="esn-x" type="button" popovertarget="esn-d-{{ section.id }}" popovertargetaction="hide">{{ settings.close_label }}</button>
+        <button class="esn-x" type="button" popovertarget="esn-d-{{ section.id }}" popovertargetaction="hide" aria-label="{{ settings.close_label }}">${icon("close", "", 22)}</button>
         <nav aria-label="{{ settings.nav_label }}">
           <ol class="esn__list">
             {% for link in settings.menu.links %}
@@ -45,9 +48,9 @@ export const header = defineSection({
             {% endfor %}
           </ol>
         </nav>
-        <p class="esn__row"><button class="esn__tool" type="button" data-storelib-search>{{ settings.search_label }}</button><a class="esn__acct" href="{{ routes.account_url }}">{{ settings.account_label }}</a></p>
+        <p class="esn__row">${toolButton("esn", "search")}<a class="esn__acct" href="{{ routes.account_url }}">{{ settings.account_label }}</a></p>
         <ul class="esn__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{% if block.settings.url %}<a href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>{% else %}{{ block.settings.text }}{% endif %}</li>{% endfor %}</ul>
-    ${prefs("esn")}
+    ${prefs("esn", { where: "d", up: true })}
       </div>
       {% if settings.drawer_photo %}<img class="esn__photo" src="{{ settings.drawer_photo | asset }}" alt="{{ settings.drawer_photo_alt }}" width="1200" height="1500">{% endif %}
     </div>
@@ -60,7 +63,8 @@ export const header = defineSection({
 .esn__notes { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 0.875rem; }
 .esn__notes a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
 .esn { position: relative; z-index: 30; background: var(--s-bg); color: var(--s-text); }
-.esn--over { position: absolute; inset: 0 0 auto; background: none; color: #fff; }
+.esn--over { margin-bottom: -76px; color: #fff; }
+.esn--over:is(:is([data-scrolled]:not([data-scrolled="false"]):not([data-scrolled="0"]), [data-scrolled]:not([data-scrolled="false"]):not([data-scrolled="0"]) *)) { color: var(--s-text); }
 .esn__bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 76px; padding: 0 var(--theme-padding-x, 20px); }
 .esn__logo { ${SERIF} color: inherit; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(1.25rem, 1rem + 1vw, 1.75rem); letter-spacing: 0.02em; text-decoration: none; text-align: center; }
 .esn__logo img { display: block; max-height: 36px; width: auto; height: auto; margin: 0 auto; }
@@ -85,6 +89,8 @@ export const header = defineSection({
 .esn__photo { display: none; width: 100%; height: 100%; object-fit: cover; }
 .esn :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
 ${panelCss("esn", { cartFrom: "right", searchFrom: "top" })}
+${headerScrollCss("esn")}
+@container (max-width: 599px) { .esn__tools > .esn-loc { display: none; } }
 .esn-search, .esn-cart { color: var(--s-text); }
 .esn-cart__title { font-weight: 300; }
 @media (min-width: 900px) {
@@ -108,6 +114,7 @@ ${panelCss("esn", { cartFrom: "right", searchFrom: "top" })}
     text("account_label", "Account link", "Your account"),
     image("drawer_photo", "Photograph in the menu"),
     text("drawer_photo_alt", "Photograph description", "A quiet stone hallway with morning light"),
+    scrollSetting("sticky"),
     ...chromeWords({ cart_label: "Reservations", empty_text: "Nothing reserved yet.", checkout_label: "Continue", search_placeholder: "Search residences and journal" }),
     scheme("site"),
   ],
@@ -579,16 +586,17 @@ export const footer = defineSection({
   <div class="eso__grid">
     <div class="eso__col"><p class="eso__k">{{ settings.address_label }}</p><p class="eso__v">{{ settings.address }}</p></div>
     <nav class="eso__nav" aria-label="{{ settings.nav_label }}">
-      {% for link in settings.menu.links %}<div class="eso__col"><a class="eso__k" href="{{ link.url }}">{{ link.title }}</a>{% if link.links.size > 0 %}<ul>{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul>{% endif %}</div>{% endfor %}
+      {% for link in settings.menu.links %}{% if link.links.size > 1 %}<div class="eso__col"><a class="eso__k" href="{{ link.url }}">{{ link.title }}</a><ul>{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul></div>{% endif %}{% endfor %}
+      <div class="eso__col eso__col--flat"><ul>{% for link in settings.menu.links %}{% if link.links.size < 2 %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}{% endif %}{% endfor %}</ul></div>
     </nav>
     <form class="eso__form" data-storelib-form="subscribe">
       <label class="eso__k" for="eso-e-{{ section.id }}">{{ settings.newsletter_label }}</label>
-      <div class="eso__row"><input id="eso-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}"><button type="submit">{{ settings.button_label }}</button></div>
-    </form>
+      <div class="eso__row"><input id="eso-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}" aria-describedby="eso-err-{{ section.id }}"><button type="submit">{{ settings.button_label }}</button></div>
+    ${formStates("eso-err-{{ section.id }}")}</form>
   </div>
   <p class="eso__name" aria-hidden="true">{{ settings.wordmark | default: shop.name }}</p>
-  <div class="eso__base"><ul class="eso__links">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}">{{ block.settings.label }}</a></li>{% endfor %}</ul>
-    ${prefs("eso")}<p class="eso__small">{{ settings.small_print }}</p></div>
+  <div class="eso__base"><ul class="eso__links eso-social" aria-label="{{ settings.social_label }}">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" aria-label="{{ block.settings.label }}">${socialIcon("block.settings.url")}</a></li>{% endfor %}</ul>
+    <div class="eso__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("eso")}{% endif %}${prefs("eso", { up: true })}<a class="eso-top" href="#" data-storelib-scroll="top">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div><p class="eso__small">{{ settings.small_print }}</p></div>
 </footer>`,
   style: `
 .eso__links { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
@@ -599,6 +607,7 @@ export const footer = defineSection({
 .eso__k { display: inline-flex; min-height: 32px; align-items: center; margin: 0 0 6px; font-size: 0.8125rem; letter-spacing: 0.04em; color: var(--s-accent); text-decoration: none; }
 .eso__v { margin: 0; line-height: 1.6; }
 .eso__col ul { margin: 0; padding: 0; list-style: none; }
+.eso__col--flat:has(ul:empty) { display: none; }
 .eso__col li a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; text-decoration: none; }
 .eso__row { display: flex; gap: 0; border-bottom: 1px solid var(--s-text); }
 .eso__row input { flex: 1; min-width: 0; min-height: 48px; border: 0; background: none; color: inherit; font: inherit; }
@@ -607,6 +616,9 @@ export const footer = defineSection({
 .eso__base { display: grid; gap: 14px; padding-top: 18px; border-top: 1px solid var(--s-border); }
 .eso__small { margin: 0; font-size: 0.8125rem; opacity: 0.7; }
 ${panelCss("eso")}
+${footerBitsCss("eso")}
+${formPolishCss("eso")}
+.eso__end { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 @container (min-width: 900px) { .eso__grid { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr) minmax(0, 1fr); } .eso__nav { grid-template-columns: repeat(3, minmax(0, 1fr)); } .eso__base { grid-template-columns: minmax(0, 1fr) auto; align-items: center; } }`,
   settings: [
     menu("menu", "Footer menu", "footer"),
@@ -618,6 +630,12 @@ ${panelCss("eso")}
     text("wordmark", "Name across the bottom (empty uses the shop name)", "Halden"),
     text("small_print", "Small print", "A guest house on the north shore since 2024."),
     text("nav_label", "Menu name (read aloud)", "Footer"),
+    text("email_error", "When the email is not right", "That email looks incomplete."),
+    text("thanks_text", "After signing up", "You are on the list. Thank you."),
+    text("social_label", "Social links (read aloud)", "Follow"),
+    check("show_payments", "Show card marks when the shop sells", true),
+    text("payments_label", "Card marks (read aloud)", "Ways to pay"),
+    text("top_label", "Back to top", "Back to top"),
     text("language_label", "Language", "Language"),
     text("currency_label", "Currency", "Currency"),
     scheme("site"),
@@ -780,12 +798,13 @@ export const contact = defineSection({
       <dl class="esx__ways">{% for block in section.blocks %}<div data-block-id="{{ block.id }}"><dt>{{ block.settings.label }}</dt><dd>{% if block.settings.link %}<a href="{{ block.settings.link | url }}">{{ block.settings.value }}</a>{% else %}{{ block.settings.value }}{% endif %}</dd></div>{% endfor %}</dl>
     </div>
     <form class="esx__form" data-storelib-form="contact">
-      <label class="esx__f"><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required placeholder="Your name"></label>
-      <label class="esx__f"><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required placeholder="you@example.com"></label>
-      <label class="esx__f"><span>{{ settings.dates_label }}</span><input name="subject" type="text" maxlength="150" placeholder="What it is about"></label>
-      <label class="esx__f"><span>{{ settings.message_label }}</span><textarea name="message" rows="5" maxlength="5000" required placeholder="A few lines about what you need"></textarea></label>
+      <label class="esx__f"><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required placeholder="{{ settings.name_hint }}"></label>
+      <label class="esx__f"><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required placeholder="{{ settings.email_hint }}"></label>
+      <label class="esx__f"><span>{{ settings.dates_label }}</span><input name="subject" type="text" maxlength="150" placeholder="{{ settings.subject_hint }}"></label>
+      <label class="esx__f"><span>{{ settings.message_label }}</span><textarea name="message" rows="5" maxlength="5000" required placeholder="{{ settings.message_hint }}"></textarea></label>
       <button class="esx__send" type="submit">{{ settings.send_label }}</button>
-    </form>
+    <p data-storelib-success hidden role="status">${icon("check", "", 18)}<span>{{ settings.thanks_text }}</span></p>
+      </form>
   </div>
 </section>`,
   style: `
@@ -802,7 +821,8 @@ export const contact = defineSection({
 .esx__f { display: grid; gap: 6px; ${SMALL} }
 .esx__f input, .esx__f textarea { min-height: 50px; padding: 10px 0; border: 0; border-bottom: 1px solid var(--s-text); background: none; color: inherit; font: inherit; font-size: 1.0625rem; letter-spacing: 0; }
 .esx__send { justify-self: start; min-height: 54px; padding: 0 30px; border: 0; background: var(--s-btn); color: var(--s-btn-text); font: inherit; ${SMALL} cursor: pointer; }
-@container (min-width: 900px) { .esx__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 80px; } }`,
+@container (min-width: 900px) { .esx__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 80px; } }
+${formPolishCss("esx")}`,
   settings: [
     text("heading", "Heading", "Write to the house"),
     richtext("text", "Words", "<p>Tell us your dates and who is coming. Ingrid or Jonas will answer within a day, usually sooner.</p>"),
@@ -810,6 +830,11 @@ export const contact = defineSection({
     text("email_label", "Email field", "Email"),
     text("dates_label", "Dates field", "Dates you have in mind"),
     text("message_label", "Message field", "Anything we should know"),
+    text("name_hint", "Name hint", "Your name"),
+    text("email_hint", "Email hint", "Your email address"),
+    text("subject_hint", "Subject hint", "What it is about"),
+    text("message_hint", "Message hint", "A few lines are plenty"),
+    text("thanks_text", "After sending", "Thank you. We will write back soon."),
     text("send_label", "Send button", "Send enquiry"),
     ...motion(),
     scheme("site"),

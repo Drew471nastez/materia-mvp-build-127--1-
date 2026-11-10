@@ -245,14 +245,15 @@ const head = header({
   layout: "minimal",
   drawer: "full",
   cart: "side",
-  sticky: true,
+  scroll: "hide",
+  phoneBar: true,
   words: { brand: "Studio", cart: "Bag", menu: "Menu", searchHint: "Search packs, kits, genres", empty: "No sounds in your bag yet." },
   notices: ["Instant download after checkout", "Every file named with tempo and key"],
   features: [
     { title: "All packs", text: "Drum kits, loops and one shots", url: "/products" },
     { title: "How downloads work", text: "Straight after checkout", url: "/about" },
   ],
-  skin: `.hd__logo { ${WIDE} font-size: 1.25rem; } .hd__top, .hd__tool { ${MONO} font-size: 0.8125rem; } .hd__mlink, .hd__msum, .hd__mega-all { ${WIDE} } .hd__count { ${MONO} }`,
+  skin: `.hd__logo { ${WIDE} font-size: 1.25rem; } .hd__top { ${MONO} font-size: 0.8125rem; } .hd__mlink, .hd__msum, .hd__mega-all { ${WIDE} }`,
 })
 const foot = footer({
   type: `${P}footer`,
