@@ -37,7 +37,7 @@ import { Check, ChevronRight, Copy, Download, Mail, Phone, Globe, MapPin, Star, 
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { boxRadius, buttonPadScale, pressableProps } from "@/lib/onepage/block-look"
-import { themeButtonStyle } from "@/lib/onepage/button-style"
+import { buttonFill, cardButtonTheme, themeButtonStyle } from "@/lib/onepage/button-style"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { socialLinkId } from "@/lib/onepage/link-keys"
 import {
@@ -303,25 +303,37 @@ function useParts(look: AppBlockLook) {
   const radius = boxRadius(look.theme)
   const press = pressableProps(look.theme, look.still)
   const pad = buttonPadScale(look.theme)
-  /* A button on the card: the card's colours the other way round. */
-  const ink = (surface.color as string) || look.theme.button_text_color || "#ffffff"
-  const paper = (surface.backgroundColor as string) || look.theme.button_color || "#1a1a2e"
-  return { surface, radius, press, pad, ink, paper }
+  return { surface, radius, press, pad }
 }
 
+/*
+  A BUTTON ON THE CARD IS THE PAGE'S BUTTON (round AR). It was a pill in the
+  card's colours turned round, whatever the page's buttons were: square
+  corners, a border, a hard shadow and the hover never reached it, and on an
+  Outline or Glass page its fill was the card's "transparent", so its words
+  were drawn in no colour at all. It is the page's button now, made to read
+  on the card the way a product card's is (lib/onepage/button-style
+  cardButtonTheme), with the page's hover (pressableProps).
+*/
 function CardButton({ label, look, onClick, href, wide = false }: { label: string; look: AppBlockLook; onClick?: (e: React.MouseEvent) => void; href?: string | null; wide?: boolean }) {
-  const { ink, paper } = useParts(look)
-  const cls = cn("inline-flex shrink-0 items-center justify-center rounded-full font-semibold", wide && "w-full")
-  const style: React.CSSProperties = { background: ink, color: paper, fontSize: px(13, look.scale), padding: `${px(8, look.scale)} ${px(14, look.scale)}`, minHeight: px(36, look.scale) }
+  const t = look.theme
+  const theme = React.useMemo(() => {
+    const surface = buttonFill(t) === "filled" ? t.button_color : t.background_color
+    return cardButtonTheme(t, { surface, cardText: t.button_text_color })
+  }, [t])
+  const press = pressableProps(theme, look.still)
+  const cls = cn(press.className, "inline-flex shrink-0 items-center justify-center font-semibold", wide && "w-full")
+  const style: React.CSSProperties = { ...press.style, fontSize: px(13, look.scale), padding: `${px(8, look.scale)} ${px(14, look.scale)}`, minHeight: px(36, look.scale) }
+  const attrs = { "data-hover": press["data-hover"], "data-shadow": press["data-shadow"], "data-app-cta": "" }
   if (href) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={cls} style={style} data-app-cta="">
+      <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={cls} style={style} {...attrs}>
         {label}
       </a>
     )
   }
   return (
-    <button type="button" onClick={onClick} className={cls} style={style} data-app-cta="">
+    <button type="button" onClick={onClick} className={cls} style={style} {...attrs}>
       {label}
     </button>
   )

@@ -1053,6 +1053,16 @@ html.capacitor body {
   .onepage-live .flex.flex-col > .w-full > p:only-child {
     overflow: hidden;
   }
+  /* Round AR: small print never fainter than the page can afford. The page
+     writes --op-small-print (lib/onepage/contrast smallPrintAlpha): the least
+     opacity at which its words still read at 4.5:1 on every ground. A
+     description at 60% on Sunset's terracotta did not. Never below the
+     class's own value, so a light or dark page keeps its look. */
+  .onepage-live .opacity-60 { opacity: max(0.6, var(--op-small-print, 0)); }
+  .onepage-live .opacity-70 { opacity: max(0.7, var(--op-small-print, 0)); }
+  .onepage-live .opacity-75 { opacity: max(0.75, var(--op-small-print, 0)); }
+  .onepage-live .opacity-80 { opacity: max(0.8, var(--op-small-print, 0)); }
+  .onepage-live .opacity-85 { opacity: max(0.85, var(--op-small-print, 0)); }
 
   .onepage-no-scrollbar {
     scrollbar-width: none;

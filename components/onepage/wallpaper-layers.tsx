@@ -10,7 +10,7 @@
  * public-onepage.tsx explains what that did on every scroll.
  */
 import * as React from "react"
-import { NOISE_IMAGE, noiseOpacity, patternStyle } from "@/lib/onepage/wallpaper"
+import { NOISE_IMAGE, noiseOpacity, patternStyle, type WallpaperMediaLook } from "@/lib/onepage/wallpaper"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 
 type ThemeLike = { background_type?: unknown; background_pattern?: unknown; pattern_color?: unknown; pattern_opacity?: unknown } | null | undefined
@@ -218,6 +218,24 @@ export function WallpaperDrift({ gradient, className = "absolute inset-0" }: { g
       />
       <style>{"@keyframes onepageDrift{from{transform:translate3d(calc(var(--drift-x) * -1),calc(var(--drift-y) * -1),0)}to{transform:translate3d(var(--drift-x),var(--drift-y),0)}}@media (prefers-reduced-motion:reduce){[data-wallpaper-drift]{display:none}}"}</style>
     </div>
+  )
+}
+
+/**
+ * The layers a photo or video wallpaper's effect lays over it (round AR,
+ * lib/onepage/wallpaper wallpaperMediaLook): the duotone's two colours, the
+ * halftone's dot screen, the grain, the tint. Each is one plain element in
+ * `box` (the same place as the picture), drawn once; a video under them
+ * plays on and the blend is the compositor's.
+ */
+export function WallpaperEffectLayers({ look, box }: { look: WallpaperMediaLook; box: React.CSSProperties }) {
+  if (!look.layers.length) return null
+  return (
+    <>
+      {look.layers.map((l) => (
+        <div key={l.key} aria-hidden data-wallpaper-effect={l.key} className="pointer-events-none" style={{ ...box, ...l.style }} />
+      ))}
+    </>
   )
 }
 

@@ -57,7 +57,9 @@ import { AVATAR_BORDER_MAX, AVATAR_RADIUS_DEFAULT, AVATAR_RADIUS_MAX, avatarBord
 import { PILL_FROM, PILL_RADIUS, type ButtonHover, buttonAlign, buttonFill, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow, buttonShape, buttonSize, themeButtonStyle } from "@/lib/onepage/button-style"
 import { normalizeHex } from "@/lib/onepage/color"
 import { WALLPAPER_PATTERNS, isPatternId, patternStyle, type PatternOpacity } from "@/lib/onepage/wallpaper"
-import { WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import { WallpaperEffectLayers, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import { WallpaperEffects } from "@/components/onepage/themes/wallpaper-effects"
+import { wallpaperMediaLook } from "@/lib/onepage/wallpaper"
 import { PillTabs } from "@/components/onepage/pill-tabs"
 import { LAYER_LEAVE_MS, LAYER_MOTION_EASE, LAYER_MOTION_MS, LAYER_PHONE, startWhenFramesFlow } from "@/components/app/page-layer"
 import { CONTENT_IN_EASE, CONTENT_IN_FROM, CONTENT_IN_MS } from "@/lib/ui/pill-switch"
@@ -210,6 +212,24 @@ const SOCIAL_STYLES = [
   theme's bio and text read at 4.5:1 or more on what is behind them
   (scripts/check-onepage-themes.mjs). Only settings the editor already has,
   so each can be changed piece by piece.
+
+  ROUND AR: A DIFFERENT STRUCTURE EACH, NOT A RECOLOUR. Seventeen of these
+  were the same page (a classic header, centred, a list of rounded buttons)
+  in another colour. Each now also sets how its page is built, with the
+  settings round 40 and 42 gave themes (lib/onepage/theme-layout), so no two
+  of the catalogue share a structure (tests/onepage-ar5.test.ts):
+    a Hero (the photo full bleed)  Sunset, Aurora (with Midnight, Neon, Cobalt)
+    a cover picture                Night, Ocean, Editorial (with Folio)
+    links as tiles two to a row    Studio, Riso, Blocks, Fusion, Neon
+    links as picture cards         Paper, Sage, Space, Nature
+    links Mixed (halves)           Terrazzo, Peach, Graphite
+    links Compact                  Astrid, Blueprint, Aurora
+    flush left, an index           Olive, Haze, Editorial (words left, picture right)
+    products as tiles or rows      Studio, Terrazzo, Riso, Blocks, Space, Nature;
+                                   Sunset, Sage, Olive, Paper, Blueprint, Editorial
+    Air keeps the plain list, with large buttons and room to breathe.
+  Their colours are as they were. lib/onepage/theme-apply resets all of it on
+  the next pick; a Hero a theme set is taken back by a Classic theme.
 */
 const BASE_THEME_TEMPLATES = [
   {
@@ -271,11 +291,12 @@ const BASE_THEME_TEMPLATES = [
       title_font: "'DM Sans', sans-serif",
       title_color: "#111827",
       social_icon_color: "#374151",
-      spacing: "normal" as const,
+      spacing: "comfortable" as const,
       card_width: "standard" as const,
       laser_glow_enabled: true,
       laser_glow_color: "#dbdbdb",
       laser_glow_intensity: "medium",
+      button_size: "large",
     },
     // White cards on a cool grey: dark text for outline and glass buttons
     light_button_text_color: "#111827",
@@ -309,6 +330,9 @@ const BASE_THEME_TEMPLATES = [
       header_layout: "classic",
       background_pattern: "none",
       laser_glow_enabled: false,
+      block_layout: "grid",
+      header_align: "left",
+      product_layout: "grid",
     },
     profile_layout: "classic" as const,
     light_button_text_color: "#1c1917",
@@ -344,6 +368,9 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "paper",
       pattern_color: "#8a7a5c40",
       pattern_opacity: "low",
+      block_layout: "cards",
+      header_align: "left",
+      product_layout: "rows",
     },
     profile_layout: "classic" as const,
     light_button_text_color: "#23201b",
@@ -422,6 +449,8 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "dots",
       pattern_color: "#2340c750",
       pattern_opacity: "low",
+      block_layout: "grid",
+      product_layout: "grid",
     },
     profile_layout: "classic" as const,
     light_button_text_color: "#2340c7",
@@ -461,6 +490,8 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "grid",
       pattern_opacity: "low",
       pattern_color: "#11111140",
+      block_layout: "grid",
+      product_layout: "grid",
     },
     solid_button_text_color: "#111111",
     outline_button_text_color: "#111111",
@@ -505,6 +536,12 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "halftone",
       pattern_color: "#15130f2e",
       pattern_opacity: "low",
+      header_align: "left",
+      title_case: "upper",
+      button_text_align: "left",
+      button_icon_position: "right",
+      product_layout: "rows",
+      cover_image_url: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=1600&q=80",
     },
     profile_layout: "classic" as const,
     solid_button_text_color: "#f6f2ea",
@@ -550,6 +587,8 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "terrazzo",
       pattern_color: "#b8664a",
       pattern_opacity: "medium",
+      block_layout: "masonry",
+      product_layout: "grid",
     },
     profile_layout: "classic" as const,
     solid_button_text_color: "#2a231e",
@@ -588,7 +627,10 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "grain",
       pattern_opacity: "low",
       pattern_color: "#ffffff90",
+      header_layout: "hero",
+      product_layout: "rows",
     },
+    profile_layout: "hero" as const,
     share_style: "white",
     subscribe_style: "white",
     solid_button_text_color: "#8a3320",
@@ -619,6 +661,7 @@ const BASE_THEME_TEMPLATES = [
       social_icon_color: "#431407",
       spacing: "normal" as const,
       card_width: "standard" as const,
+      block_layout: "masonry",
     },
     light_button_text_color: "#431407",
     share_style: "white",
@@ -652,6 +695,8 @@ const BASE_THEME_TEMPLATES = [
       header_layout: "classic",
       laser_glow_enabled: false,
       background_pattern: "none",
+      block_layout: "cards",
+      product_layout: "rows",
     },
     profile_layout: "classic" as const,
     light_button_text_color: "#1f2a1f",
@@ -690,6 +735,8 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "waves",
       pattern_opacity: "low",
       pattern_color: "#428ad790",
+      cover_image_url: "https://images.unsplash.com/photo-1557683316-973673baf926?w=1600&q=80",
+      button_size: "large",
     },
     // Ocean theme uses white share/subscribe button styles
     share_style: "white",
@@ -721,7 +768,10 @@ const BASE_THEME_TEMPLATES = [
       spacing: "normal" as const,
       card_width: "standard" as const,
       animated_gradient: false,
+      header_layout: "hero",
+      block_layout: "compact",
     },
+    profile_layout: "hero" as const,
   },
   {
     id: "olive",
@@ -752,6 +802,10 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "linen",
       pattern_color: "#efe9d830",
       pattern_opacity: "low",
+      header_align: "left",
+      button_text_align: "left",
+      button_icon_position: "right",
+      product_layout: "rows",
     },
     profile_layout: "classic" as const,
     solid_button_text_color: "#2e3526",
@@ -787,6 +841,9 @@ const BASE_THEME_TEMPLATES = [
       laser_glow_enabled: true,
       laser_glow_color: "#303030",
       laser_glow_intensity: "medium",
+      block_layout: "compact",
+      button_size: "compact",
+      header_align: "left",
     },
     // Astrid theme uses glassmorphism for share/subscribe icons
     share_style: "glassmorphism",
@@ -819,6 +876,7 @@ const BASE_THEME_TEMPLATES = [
       laser_glow_enabled: true,
       laser_glow_color: "#2b3542",
       laser_glow_intensity: "medium",
+      cover_image_url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1600&q=80",
     },
     share_style: "glassmorphism",
     subscribe_style: "glassmorphism",
@@ -852,6 +910,8 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "grain",
       pattern_color: "#ffffff90",
       pattern_opacity: "low",
+      block_layout: "masonry",
+      header_align: "left",
     },
     profile_layout: "classic" as const,
     share_style: "glassmorphism",
@@ -925,6 +985,8 @@ const BASE_THEME_TEMPLATES = [
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
+      block_layout: "cards",
+      product_layout: "grid",
     },
     profile_layout: "classic" as const,
     // Space theme uses black share/subscribe button styles
@@ -958,6 +1020,7 @@ const BASE_THEME_TEMPLATES = [
       card_width: "standard" as const,
       header_layout: "hero",
       background_pattern: "none",
+      block_layout: "grid",
     },
     profile_layout: "hero" as const,
     // Neon theme uses glassmorphism for share/subscribe buttons
@@ -1002,6 +1065,10 @@ const BASE_THEME_TEMPLATES = [
       background_pattern: "blueprint",
       pattern_color: "#ffffff38",
       pattern_opacity: "medium",
+      block_layout: "compact",
+      header_align: "left",
+      button_size: "compact",
+      product_layout: "rows",
     },
     profile_layout: "classic" as const,
     solid_button_text_color: "#123b66",
@@ -1038,6 +1105,8 @@ const BASE_THEME_TEMPLATES = [
       image_brightness: 32,
       image_noise: true,
       noise_strength: 30,
+      block_layout: "cards",
+      product_layout: "grid",
     },
   },
   {
@@ -1071,6 +1140,8 @@ const BASE_THEME_TEMPLATES = [
       image_brightness: 36,
       image_noise: true,
       noise_strength: 40,
+      block_layout: "grid",
+      header_align: "left",
     },
     profile_layout: "classic" as const,
     // Fusion theme uses glassmorphism for share/subscribe buttons
@@ -1163,6 +1234,9 @@ const BASE_THEME_TEMPLATES = [
       header_layout: "classic",
       image_brightness: 108,
       image_noise: false,
+      header_align: "left",
+      button_text_align: "left",
+      button_icon_position: "right",
     },
     profile_layout: "classic" as const,
     solid_button_text_color: "#1d2124",
@@ -2639,7 +2713,14 @@ function ThemeSection() {
       fade, and a creator who chose Hero keeps it. The theme's Classic still
       applies to a page that is Classic already.
     */
-    const needsClassicLayout = !wantsHeroLayout && templateLayout === "classic" && currentHeaderLayout !== "hero"
+    /*
+      Round AR: a Hero the last theme put there is that theme's, not the
+      creator's, so a Classic theme takes it back (Sunset to Air was a Hero
+      Air). One the creator chose on a Classic theme stays, as above.
+    */
+    const previous = THEME_TEMPLATES.find((t) => t.id === theme.template_id) as { profile_layout?: string; theme_config?: { header_layout?: string } } | undefined
+    const heroFromTheme = previous?.profile_layout === "hero" || previous?.theme_config?.header_layout === "hero"
+    const needsClassicLayout = !wantsHeroLayout && (templateLayout === "classic" || !templateLayout) && (currentHeaderLayout !== "hero" || heroFromTheme)
 
     /* The whole look in one step: nothing of the old theme left behind, Share
        and Subscribe matched, every block's own colours cleared (lib/onepage/theme-apply). */
@@ -2886,6 +2967,9 @@ function WallpaperSection() {
   const bgType = theme.background_type as "solid" | "gradient" | "image" | "video"
   const coverImage = localImage || theme.background_image_url || ""
   const wallpaperVideoUrl: string = (theme as any).background_video_url || ""
+  /* Round AR: the photo's and the video's effect, as the page draws them. */
+  const imageLook = wallpaperMediaLook(theme as any, "image")
+  const videoLook = wallpaperMediaLook(theme as any, "video")
   const currentPattern = (theme as any).background_pattern || "none"
   const patternRaw: string = (theme as any).pattern_color || (bgType === "gradient" ? "#ffffff90" : "#00000090")
   /* The pattern colour carries its own strength as two hex digits on the end (#00000090). The picker has no alpha, so it is kept aside and put back. */
@@ -3083,7 +3167,9 @@ function WallpaperSection() {
             {coverImage ? (
               /* The picture, with Replace and Delete on it. While a new one goes up it shows at once from the device, with the progress and Stop over it, and stays until the uploaded one has loaded: no blank frame, no jump. */
               <div data-wallpaper-cover="image" className="relative aspect-video overflow-hidden rounded-2xl bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
-                <img key={coverImage} src={onePageImageSrc(coverImage, 400)} alt={tt("Wallpaper")} decoding="async" className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)` }} />
+                <img key={coverImage} src={onePageImageSrc(coverImage, 400)} alt={tt("Wallpaper")} decoding="async" className="h-full w-full object-cover" style={{ filter: imageLook.filter, scale: String(imageLook.scale) }} />
+                {/* Round AR: the effect's layers, as the page lays them (lib/onepage/wallpaper wallpaperMediaLook). */}
+                <WallpaperEffectLayers look={imageLook} box={{ position: "absolute", inset: 0 }} />
                 {imageUp.busy ? (
                   <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.6),rgba(0,0,0,0))] px-3 pb-3 pt-10">
                     <UploadProgress state={imageUp.state} onCancel={cancelWallpaperImage} tone="dark" />
@@ -3120,7 +3206,8 @@ function WallpaperSection() {
             <PanelSection>
               <div className="space-y-5">
                 <RangeRow label={tt("Brightness")} value={(theme as any).image_brightness || 100} min={20} max={150} step={5} onChange={(v) => updateTheme({ image_brightness: v } as any)} unit="%" />
-                <RangeRow label={tt("Blur")} value={(theme as any).image_blur || 0} min={0} max={20} step={1} onChange={(v) => updateTheme({ image_blur: v } as any)} unit="px" />
+                {/* Round AR: None, Mono, Blur, Halftone, Grain or Duotone, and a tint (components/onepage/themes/wallpaper-effects). Blur is one of them now. */}
+                <WallpaperEffects theme={theme as any} kind="image" src={onePageImageSrc(theme.background_image_url, 200)} onChange={(patch) => updateTheme(patch as any)} />
                 <div>{noiseRows("image_noise")}</div>
               </div>
             </PanelSection>
@@ -3139,7 +3226,8 @@ function WallpaperSection() {
             <div className="space-y-5">
               {/* The video as the page draws it (the same crop), with Replace and Delete on it, like the picture. */}
               <div data-wallpaper-cover="video" className="relative mx-auto aspect-[9/16] w-[min(100%,210px)] overflow-hidden rounded-2xl bg-[#111113] shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-                <video key={wallpaperVideoUrl} src={wallpaperVideoUrl} className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).video_brightness || 100}%)`, ...(croppedMediaStyle((theme as any).background_video_crop) as React.CSSProperties | undefined) }} autoPlay loop muted playsInline preload="metadata" />
+                <video key={wallpaperVideoUrl} src={wallpaperVideoUrl} className="h-full w-full object-cover" style={{ filter: videoLook.filter, scale: String(videoLook.scale), ...(croppedMediaStyle((theme as any).background_video_crop) as React.CSSProperties | undefined) }} autoPlay loop muted playsInline preload="metadata" />
+                <WallpaperEffectLayers look={videoLook} box={{ position: "absolute", inset: 0 }} />
                 <div className="absolute inset-x-0 bottom-3 flex justify-center gap-2">
                   <button type="button" data-wallpaper-replace="" onClick={pickWallpaperVideo} className={cn(secondaryDepth, "h-10 rounded-full px-4 text-[13.5px]")}>
                     <Upload className="h-4 w-4" />
@@ -3157,6 +3245,7 @@ function WallpaperSection() {
                   onChange={(id) => updateTheme({ video_brightness: Number(id) } as any)}
                 />
               </SettingRow>
+              <WallpaperEffects theme={theme as any} kind="video" src={videoPoster((theme as any).background_video_crop)} onChange={(patch) => updateTheme(patch as any)} />
             </div>
           ) : (
             <button type="button" data-wallpaper-upload="video" onClick={pickWallpaperVideo} className="flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#d9dbe0] px-4 py-8 text-[#1a1a2e] [@media(hover:hover)]:hover:bg-[#f7f7f8]">

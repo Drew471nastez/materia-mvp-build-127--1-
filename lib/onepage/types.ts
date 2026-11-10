@@ -103,6 +103,11 @@ export interface OnePageTheme {
   image_brightness?: number // 0-200, default 100
   image_blur?: number // 0-20, default 0
   image_noise?: boolean
+  /* Round AR (lib/onepage/wallpaper wallpaperMediaLook): an effect on a photo or video wallpaper, the Blur effect's px, and a tint over it (0 to 100). Missing is none. */
+  wallpaper_effect?: "none" | "mono" | "blur" | "halftone" | "grain" | "duotone" | null
+  wallpaper_blur?: number | null
+  wallpaper_tint?: string | null
+  wallpaper_tint_strength?: number | null
   // Header layout
   header_layout?: "classic" | "hero"
   // Social icons
