@@ -119,6 +119,52 @@ export function pairLinkTiles<T>(items: readonly T[], layout: BlockLayout): (T |
   return out
 }
 
+/**
+ * ROUND W9 (opblocks): MIXED TILES, MIXED ON PURPOSE.
+ *
+ * The owner: "Ensure the Blocks layout options List, Grid, Cards, Compact, Mixed tiles work 100%". Mixed
+ * tiles used to make EVERY link a half, a featured card included: the card's picture and title were squeezed
+ * into half the page ("Featured: the s..."), and a half left on its own before a full block left an empty
+ * cell beside it. Now only a plain link (isGridLink: not a featured card, no size of its own) is laid out by
+ * the layout, and each run of them is mixed: pairs of half tiles and full rows taking turns, never a half
+ * left alone. Two links are a pair, three a pair and a row, four a row, a pair and a row, five pair, row, pair,
+ * six row, pair, row, pair, seven row, pair, row, pair, row: it never draws as the Grid's pairs only. The id of each plain link maps to "half" or "full"; anything not in the map keeps
+ * its own size (a size picked on the block always wins).
+ */
+export function mixedTileSizes(items: readonly unknown[], layout: BlockLayout): Map<string, "half" | "full"> {
+  const out = new Map<string, "half" | "full">()
+  if (layout !== "masonry") return out
+  let run: BlockLike[] = []
+  const flush = () => {
+    const n = run.length
+    if (n === 1) out.set(run[0].id, "full")
+    if (n >= 2) {
+      /*
+        Pairs and full rows taking turns, opening on whichever makes the run end on a whole group: a pair when
+        n is 2, 5, 8... (or 3, 9...), a full row when n is 4, 7, 10... (or 6, 12...), so no half is left alone and
+        it never draws as the Grid's pairs only.
+      */
+      let pair = n % 3 === 2 || (n % 3 === 0 && n % 2 === 1)
+      let at = 0
+      while (at < n) {
+        if (pair && n - at >= 2) {
+          out.set(run[at++].id, "half")
+          out.set(run[at++].id, "half")
+        } else out.set(run[at++].id, "full")
+        pair = !pair
+      }
+    }
+    run = []
+  }
+  for (const item of items) {
+    const b = item as BlockLike
+    if (b && typeof b === "object" && "type" in b && isGridLink(b)) run.push(b)
+    else flush()
+  }
+  flush()
+  return out
+}
+
 export function isLinkTilePair<T>(item: T | LinkTilePair<T>): item is LinkTilePair<T> {
   return !!item && typeof item === "object" && "links" in (item as object) && Array.isArray((item as LinkTilePair<T>).links)
 }

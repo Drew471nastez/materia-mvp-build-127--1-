@@ -107,6 +107,55 @@ export const BlockRowMenu = React.forwardRef<HTMLButtonElement, {
 })
 
 /**
+ * ROUND W9, THE ROW'S OWN BIN. The owner: "The delete icon should be as well
+ * as an icon in the block there (next to animations/icon controls), not only
+ * from the menu." Round W8 had taken the bin off the row because it showed
+ * only under a mouse and left a hole where it hid. This one is always drawn,
+ * in the row's tools beside the sparkle and the numbers, the same grey and
+ * size as them, so the columns stay where they are on every row (the header,
+ * which has no bin, keeps its room). It asks the same question as the more
+ * menu's Remove (Cancel, Archive, Delete) under the row; Remove stays in the
+ * menu too. On a phone it is 28px wide and its press reaches 44px tall.
+ */
+export const BlockRowDelete = React.forwardRef<HTMLButtonElement, {
+  name: string
+  onAskRemove: () => void
+  /** The question is open under the row. */
+  asking?: boolean
+  /** Smaller, for a group's rows. */
+  compact?: boolean
+}>(function BlockRowDelete({ name, onAskRemove, asking, compact }, ref) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      data-block-row-delete=""
+      aria-label={tt("Remove {name}", { name })}
+      aria-expanded={asking ? true : undefined}
+      title={tt("Remove")}
+      onClick={(e) => {
+        e.stopPropagation()
+        hapticTap("light")
+        onAskRemove()
+      }}
+      className={cn(
+        "relative grid shrink-0 place-items-center rounded-lg text-gray-400 transition-colors duration-150 hover:bg-[#fef3f2] hover:text-[#b42318] [-webkit-tap-highlight-color:transparent] before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-['']",
+        asking && "bg-[#fef3f2] text-[#b42318]",
+        compact ? "h-7 w-7" : "h-8 w-7 sm:w-8",
+        focusRing,
+      )}
+    >
+      <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.8} />
+    </button>
+  )
+})
+
+/** The bin's room on a row that has none (the header), so its switch stays in the same column. */
+export function BlockRowDeleteSlot() {
+  return <span aria-hidden className="block h-8 w-7 shrink-0 sm:w-8" data-row-slot="delete" />
+}
+
+/**
  * The question Remove asks, opening under the block's row to its own height
  * (./reveal), focus on the first choice.
  */

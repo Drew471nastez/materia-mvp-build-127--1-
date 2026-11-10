@@ -64,19 +64,45 @@ const DARK = {
   "--sheet-error": "#f87171",
 }
 
-/** The colours, as variables, for the sheet and the legal text inside it. */
-export function sheetTokens(dark: boolean): React.CSSProperties {
+/**
+ * The colours, as variables, for the sheet and the legal text inside it.
+ *
+ * Round W9 (opblocks), the owner: themes must reach everything on the page. With `themed`, every colour is
+ * the page's own sheet palette (lib/onepage/sheet-theme, the --opk-* variables the live page and the editor's
+ * preview write on :root), the same one the product sheet wears, and the page's own typeface: a Contact,
+ * Subscribe, Share, music or Privacy sheet over Gazette is Gazette's cream and Merriweather, not a white
+ * Storelib card in Inter. Where no page writes those variables, each falls back to the plain light or dark
+ * colour it always had, so a sheet opened anywhere else is unchanged.
+ */
+export function sheetTokens(dark: boolean, themed = false): React.CSSProperties {
   const t = dark ? DARK : LIGHT
+  const v = (name: string, fallback: string) => (themed ? `var(${name}, ${fallback})` : fallback)
+  const bg = v("--opk-surface", t["--sheet-bg"])
+  const ink = v("--opk-ink", t["--sheet-ink"])
+  const body = themed ? `var(--opk-body, ${t["--sheet-body"]})` : t["--sheet-body"]
+  const muted = v("--opk-muted", t["--sheet-muted"])
+  const rule = v("--opk-line", t["--sheet-rule"])
+  const field = v("--opk-raised", t["--sheet-field"])
+  const onInk = v("--opk-surface", t["--sheet-on-ink"])
   return {
     ...t,
-    "--legal-ink": t["--sheet-ink"],
-    "--legal-body": t["--sheet-body"],
-    "--legal-muted": t["--sheet-muted"],
-    "--legal-rule": t["--sheet-rule"],
-    "--legal-rule-strong": dark ? "rgba(255,255,255,0.3)" : "#c9ccd2",
-    "--legal-panel": t["--sheet-field"],
-    "--legal-on-ink": t["--sheet-on-ink"],
-    colorScheme: dark ? "dark" : "light",
+    "--sheet-bg": bg,
+    "--sheet-ink": ink,
+    "--sheet-body": body,
+    "--sheet-muted": muted,
+    "--sheet-rule": rule,
+    "--sheet-field": field,
+    "--sheet-hover": field,
+    "--sheet-on-ink": onInk,
+    "--legal-ink": ink,
+    "--legal-body": body,
+    "--legal-muted": muted,
+    "--legal-rule": rule,
+    "--legal-rule-strong": themed ? `var(--opk-line-strong, ${dark ? "rgba(255,255,255,0.3)" : "#c9ccd2"})` : dark ? "rgba(255,255,255,0.3)" : "#c9ccd2",
+    "--legal-panel": field,
+    "--legal-on-ink": onInk,
+    colorScheme: themed ? `var(--opk-scheme, ${dark ? "dark" : "light"})` : dark ? "dark" : "light",
+    ...(themed ? { fontFamily: "var(--opk-font, inherit)" } : {}),
   } as React.CSSProperties
 }
 
@@ -130,7 +156,7 @@ export function OnePageDialog({
   phoneTop?: string
 }) {
   const phone = usePhoneWidth()
-  const style = sheetTokens(dark)
+  const style = sheetTokens(dark, true)
   if (phone === null) return null
   if (phone && !centered) {
     return (

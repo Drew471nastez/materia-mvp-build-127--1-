@@ -2999,6 +2999,15 @@ iframe:is([src*="youtube.com/embed"], [src*="youtube-nocookie.com/embed"], [src*
 :is([data-link-tile], [data-mixed-blocks] > [data-block-size="half"]) .op-btn[data-align="left"] > div { align-items: flex-start; text-align: left; }
 :is([data-link-tile], [data-mixed-blocks] > [data-block-size="half"]) .op-btn[data-align="left"] .op-label { text-align: left; }
 
+/* CARDS (round W9, opblocks): "some of them don't control". Cards drew only a link WITH a picture as a card, so a
+   page of plain links looked exactly as it did on List. Now every plain link is a card too: taller, its words a step
+   larger and heavier, the page's own button colours, shape, border and shadow kept. A link with a picture is still
+   the featured card (lib/onepage/theme-layout linkDrawnAsCard). Only static things change; nothing here moves. */
+[data-block-layout="cards"] > [data-op-block] .op-btn[data-size] { min-height: 80px; padding-block: 20px; }
+[data-block-layout="cards"] > [data-op-block] .op-btn[data-size="compact"] { min-height: 66px; padding-block: 16px; }
+[data-block-layout="cards"] > [data-op-block] .op-btn[data-size="large"] { min-height: 96px; padding-block: 24px; }
+[data-block-layout="cards"] > [data-op-block] .op-btn[data-size] .op-label { font-size: 1.07em; font-weight: 600; }
+
 /* HEADER, FLUSH LEFT: the classic header's picture, name and bio, and the social icons under them. The hero header keeps its own layout. */
 [data-op-align="left"] [data-op-header] { align-items: flex-start; text-align: left; }
 [data-op-align="left"] [data-op-header] > h1 { justify-content: flex-start; text-align: left; }
@@ -3019,6 +3028,8 @@ html[data-op-hold] body[data-scroll-locked] { overflow: visible !important; marg
 }
 
 /* THE SHEET AND THE WINDOW IN THE PAGE'S COLOURS. The variables are on :root (sheetRootCss); the class is on the sheet, the checkout window and the free checkout. */
+/* Round W9 (opblocks): in the page's own typeface too, as the block sheets are (components/onepage/onepage-dialog sheetTokens). */
+:where(.op-sheet) { font-family: var(--opk-font, inherit); }
 :where(.op-sheet, .op-sheet *):is(.bg-white, .bg-\[\#fbfbfc\]) { background-color: var(--opk-surface, #ffffff); }
 :where(.op-sheet, .op-sheet *):is(.bg-\[\#f8f9fa\], .bg-\[\#f3f4f6\], .bg-\[\#f7f7f8\], .bg-\[\#f4f4f6\], .bg-\[\#f1f2f4\], .bg-\[\#eceef1\]) { background-color: var(--opk-raised, #f4f4f6); }
 :where(.op-sheet, .op-sheet *):is(.text-\[\#1a1a2e\], .text-\[\#111113\], .text-gray-900) { color: var(--opk-ink, #1a1a2e); }

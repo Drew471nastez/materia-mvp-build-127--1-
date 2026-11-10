@@ -54,7 +54,7 @@ import { fontStack } from "@/lib/onepage/fonts"
 import { WallpaperDrift, WallpaperNoise, WallpaperPattern, useHeaderClearance } from "@/components/onepage/wallpaper-layers"
 /* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
 import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
-import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
+import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, mixedTileSizes, pairLinkTiles } from "@/lib/onepage/theme-layout"
 import { sheetPalette, sheetRootCss } from "@/lib/onepage/sheet-theme"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
@@ -1152,10 +1152,14 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         data-block-layout={blockLayoutOf(safeTheme)}
         data-op-align={headerAlignOf(safeTheme)}
       >
-        {pairLinkTiles(pairProductTiles(safeBlocks
-          /* In the editor's preview a new link still waiting for its address is drawn as a placeholder; never live. */
-          .filter((b) => isBlockVisible(b) || (inEditorPreview && isIncompleteLink(b)))
-          .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0)), safeTheme), blockLayoutOf(safeTheme))
+        {(() => {
+          const laid = pairProductTiles(safeBlocks
+            /* In the editor's preview a new link still waiting for its address is drawn as a placeholder; never live. */
+            .filter((b) => isBlockVisible(b) || (inEditorPreview && isIncompleteLink(b)))
+            .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0)), safeTheme)
+          /* Mixed tiles: which plain links are halves and which full rows (lib/onepage/theme-layout mixedTileSizes). */
+          const mixedSizes = mixedTileSizes(laid, blockLayoutOf(safeTheme))
+          return pairLinkTiles(laid, blockLayoutOf(safeTheme))
           .map((item, index) => {
             const animClass = !hasBlocksAnimated ? "animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both" : ""
             const animStyle = !hasBlocksAnimated ? { animationDelay: `${index * 50}ms` } : undefined
@@ -1220,7 +1224,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 data-onepage-enter={animClass ? "" : undefined}
                 data-op-block={block.id}
                 data-sensitive-label={sensitiveLabel(block)}
-                data-block-size={presentationOf(block).size || (blockLayoutOf(safeTheme) === "masonry" && block.type === "link_button" ? "half" : "full")}
+                data-block-size={(presentationOf(block).size !== "auto" && presentationOf(block).size) || mixedSizes.get(block.id) || "full"}
               >
               <PublicBlockRenderer
                 block={block}
@@ -1233,7 +1237,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               />
             </div>
             )
-          })}
+          })
+        })()}
       </div>
       {/* Footer - pushed to bottom */}
       <div className="mt-auto pt-10 pb-4">

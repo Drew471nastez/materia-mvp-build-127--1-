@@ -271,7 +271,8 @@ function ContactFormView({ data, look }: { data: ContactFormBlockData; look: Cre
   const radius = Math.min(Number(look.theme.button_border_radius) || 0, 14)
   const send = pressableProps(look.theme, look.still)
   const field = "w-full border-0 bg-white/90 text-[16px] text-black outline-none placeholder:text-black/45 focus:ring-2 focus:ring-black/15 disabled:opacity-70 sm:text-sm"
-  const fieldStyle: React.CSSProperties = { borderRadius: `${radius}px`, padding: `${px(12, look.scale)} ${px(14, look.scale)}` }
+  /* Round W9: a hairline round each field, so a white field still shows on a light sheet or a white page (it vanished on Gazette's Contact sheet). */
+  const fieldStyle: React.CSSProperties = { borderRadius: `${radius}px`, padding: `${px(12, look.scale)} ${px(14, look.scale)}`, boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.14)" }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
