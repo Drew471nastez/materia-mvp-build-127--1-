@@ -4,7 +4,7 @@
  * products, a collection, two published reviews, the template's menus.
  */
 import { withImages } from "@/lib/storelib-ai/templates/kit-b"
-import type { SiteTemplate } from "@/lib/storelib-ai/templates/types-b"
+import type { SiteTemplate } from "@/lib/storelib-ai/templates/types"
 /* The agent's own mapper (set_tokens): it makes the `site` and `site_inverse` schemes the sections name. */
 import { tokensToThemeSettings } from "@/lib/ai-builder/agent/tokens"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
