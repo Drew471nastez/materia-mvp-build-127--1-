@@ -19,7 +19,7 @@ export interface TemplateDraft extends Omit<SiteTemplate, "files" | "pages"> {
 export function assemble(d: TemplateDraft): SiteTemplate {
   const { components, header, footer, pages, ...rest } = d
   const framed: TemplatePage[] = pages.map((p) => ({ key: p.key, title: p.title, ...(p.seo ? { seo: p.seo } : {}), sections: [structuredCloneish(header), ...p.sections, structuredCloneish(footer)] }))
-  const t: SiteTemplate = { ...rest, files: filesOf(components), pages: framed, imageSlots: rest.imageSlots.map((s) => ({ ...s, generate: s.generate ?? generateFor(s) })) }
+  const t: SiteTemplate = { ...rest, files: filesOf(components), pages: framed, imageSlots: withHeaderCards(rest.imageSlots, header, framed).map((s) => ({ ...s, generate: s.generate ?? generateFor(s) })) }
   /* A slot that points at nothing is a template bug: fail where it is defined, not when a picture is lost. */
   for (const slot of t.imageSlots) {
     for (const target of slot.targets) {
@@ -30,6 +30,25 @@ export function assemble(d: TemplateDraft): SiteTemplate {
     }
   }
   return t
+}
+
+/**
+ * Round Q2: the header's collection cards (its "feature" blocks, shown in the
+ * mega panels and beside the full screen menu as the picture that follows
+ * the pointer) take pictures the template already makes: each card is one
+ * more target of an existing slot on every page, so the menu is never a
+ * column of empty frames and no extra image is generated.
+ */
+function withHeaderCards(slots: TemplateImageSlot[], header: SectionInstance, pages: TemplatePage[]): TemplateImageSlot[] {
+  const cards = (header.blocks ?? []).filter((b) => b.type === "feature" && !b.settings?.image)
+  const pool = slots.filter((s) => s.style !== "product" && !/mobile/.test(s.key) && s.key !== "hero")
+  if (!cards.length || !pool.length) return slots
+  const extra = new Map<string, TemplateImageSlot["targets"]>()
+  cards.forEach((card, i) => {
+    const slot = pool[(i * 2 + 1) % pool.length]
+    extra.set(slot.key, [...(extra.get(slot.key) ?? []), ...pages.map((p) => ({ page: p.key, section: header.id, block: card.id, setting: "image" }))])
+  })
+  return slots.map((s) => (extra.has(s.key) ? { ...s, targets: [...s.targets, ...extra.get(s.key)!] } : s))
 }
 
 /** The crop ratio as P1's three shapes: wider than 1.1 is landscape, narrower than 0.9 portrait. */

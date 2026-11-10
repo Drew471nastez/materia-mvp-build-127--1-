@@ -341,3 +341,15 @@ export function formPolishCss(root: string): string {
 export function formStates(errorId: string): string {
   return `<p data-field-error id="${errorId}">{{ settings.email_error }}</p><p data-storelib-success hidden role="status">${icon("check", "", 18)}<span>{{ settings.thanks_text }}</span></p>`
 }
+
+/**
+ * The header root's ask to the page (round Q1, lib/website-builder/theme-css.ts
+ * chromePlatformCss): data-storelib-sticky="always" or "up" makes the header's
+ * box stick (and "up" slide away going down), data-storelib-over="hero" lays
+ * it over the first section; the page then writes data-scrolled,
+ * data-scroll-dir and data-over-hero on it for scrollCss above. Template
+ * markup, printed inside the root's opening tag.
+ */
+export function stickyAttrs(scroll = "settings.scroll", overlay: string | null = "settings.overlay"): string {
+  return `{% if ${scroll} == "hide" %} data-storelib-sticky="up"{% elsif ${scroll} == "sticky" or ${scroll} == "shrink" %} data-storelib-sticky="always"{% endif %}${overlay ? `{% if ${overlay} %} data-storelib-over="hero"{% endif %}` : ""}`
+}

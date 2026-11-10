@@ -10,7 +10,7 @@
 import {
   BOX, cartPanel, check, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, toolButton, scrollSetting, headerScrollCss, productList, range, revealCss, richtext, scheme, searchPanel, select, spacing, text, textarea, url, vars,
 } from "../kit-b"
-import { footerBitsCss, formPolishCss, formStates, icon, paymentMarks, socialIcon } from "../kit/chrome-parts"
+import { footerBitsCss, formPolishCss, formStates, icon, stickyAttrs, paymentMarks, socialIcon } from "../kit/chrome-parts"
 
 const SERIF = "font-family: var(--theme-font-heading), serif; font-weight: 300; color: var(--s-heading);"
 const SMALL = "font-size: 0.8125rem; letter-spacing: 0.04em;"
@@ -22,7 +22,7 @@ export const header = defineSection({
   kind: "header",
   summary: "Centered name with Menu on the left and Enquire, search and cart on the right; floats over the first photograph when asked; the menu opens full screen beside a photograph, with language and currency.",
   template: `
-<header class="esn esn--{{ settings.scroll }}{% if settings.overlay %} esn--over esn--overlay{% endif %}" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
+<header class="esn esn--{{ settings.scroll }}{% if settings.overlay %} esn--over esn--overlay{% endif %}"${stickyAttrs("settings.scroll", "settings.overlay")} data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
   <div class="esn__bar">
     <button class="esn__tool esn__menu" type="button" popovertarget="esn-d-{{ section.id }}">{{ settings.menu_label }}</button>
     <a class="esn__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="{{ settings.logo_width }}" height="36">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>

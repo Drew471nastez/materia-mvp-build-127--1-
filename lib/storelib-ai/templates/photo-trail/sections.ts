@@ -9,7 +9,7 @@
 import {
   BOX, cartPanel, check, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, toolButton, scrollSetting, headerScrollCss, productList, range, revealCss, richtext, scheme, searchPanel, select, spacing, text, textarea, url, vars,
 } from "../kit-b"
-import { footerBitsCss, formPolishCss, formStates, icon, paymentMarks, socialIcon } from "../kit/chrome-parts"
+import { footerBitsCss, formPolishCss, formStates, icon, stickyAttrs, paymentMarks, socialIcon } from "../kit/chrome-parts"
 
 const D = "font-family: var(--theme-font-heading), sans-serif; color: var(--s-heading); font-weight: 500;"
 const SMALL = "font-size: 0.8125rem; letter-spacing: 0.01em;"
@@ -20,7 +20,7 @@ export const header = defineSection({
   kind: "header",
   summary: "Quiet header: the name, the menu inline on wide screens, search and cart; on phones Menu drops a top sheet with the whole menu, language and currency.",
   template: `
-<header class="pfn pfn--{{ settings.scroll }}" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
+<header class="pfn pfn--{{ settings.scroll }}"${stickyAttrs("settings.scroll", null)} data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
   <div class="pfn__bar">
     <a class="pfn__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="{{ settings.logo_width }}" height="28">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
     <nav class="pfn__nav" aria-label="{{ settings.nav_label }}">{% for link in settings.menu.links %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}</nav>

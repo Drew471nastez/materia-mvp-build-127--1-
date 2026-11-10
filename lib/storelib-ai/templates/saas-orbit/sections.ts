@@ -10,7 +10,7 @@
 import {
   BOX, cartPanel, check, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, toolButton, scrollSetting, headerScrollCss, productList, range, revealCss, richtext, scheme, searchPanel, select, spacing, text, textarea, url, vars,
 } from "../kit-b"
-import { footerBitsCss, formPolishCss, formStates, icon, paymentMarks, socialIcon } from "../kit/chrome-parts"
+import { footerBitsCss, formPolishCss, formStates, icon, stickyAttrs, paymentMarks, socialIcon } from "../kit/chrome-parts"
 
 const H = "font-family: var(--theme-font-heading), sans-serif; color: var(--s-heading);"
 const MONO = "font-family: var(--t-font-mono, ui-monospace), monospace;"
@@ -22,7 +22,7 @@ export const header = defineSection({
   kind: "header",
   summary: "Split header: wordmark, the main menu with mega panels, search, language and currency, account and cart; a bottom sheet menu on phones.",
   template: `
-<header class="swn swn--{{ settings.scroll }}" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
+<header class="swn swn--{{ settings.scroll }}"${stickyAttrs("settings.scroll", null)} data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
   <div class="swn__bar">
     <a class="swn__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="{{ settings.logo_width }}" height="32">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
     <nav class="swn__nav" aria-label="{{ settings.nav_label }}">

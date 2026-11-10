@@ -9,7 +9,7 @@
 import {
   BOX, cartPanel, check, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, toolButton, scrollSetting, headerScrollCss, productList, range, revealCss, richtext, scheme, searchPanel, spacing, text, textarea, url, vars,
 } from "../kit-b"
-import { footerBitsCss, formPolishCss, formStates, icon, paymentMarks, socialIcon } from "../kit/chrome-parts"
+import { footerBitsCss, formPolishCss, formStates, icon, stickyAttrs, paymentMarks, socialIcon } from "../kit/chrome-parts"
 
 const D = "font-family: var(--theme-font-heading), serif; color: var(--s-heading); font-weight: 700;"
 const SMALL = "font-size: 0.875rem;"
@@ -20,7 +20,7 @@ export const header = defineSection({
   kind: "header",
   summary: "Booking-led header: a line with today's hours and the address, then the name, the menu, search, cart and a Book button; on phones the Book button stays fixed at the bottom of the screen and Menu opens a bottom sheet with language and currency.",
   template: `
-<header class="sbn sbn--{{ settings.scroll }}" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
+<header class="sbn sbn--{{ settings.scroll }}"${stickyAttrs("settings.scroll", null)} data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
   <div class="sbn__util"><span>{{ settings.hours_line }}</span>{% if settings.address %}<a href="{{ settings.map_url | url }}">{{ settings.address }}</a>{% endif %}{% if settings.phone %}<a href="{{ settings.phone_url | url }}">{{ settings.phone }}</a>{% endif %}</div>
   <div class="sbn__bar">
     <a class="sbn__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="{{ settings.logo_width }}" height="40">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>

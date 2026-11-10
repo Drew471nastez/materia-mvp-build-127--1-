@@ -35,7 +35,7 @@
  * Pure. Browser safe.
  */
 import { BOX, INNER, s, rootAttrs, type ComponentDef, type PresetBlock, type Setting } from "./schema"
-import { footerBitsCss, icon, iconButtonCss, localeChip, localeChipCss, newsletterCss, newsletterForm, paymentMarks, scrollCss, socialIcon } from "./chrome-parts"
+import { footerBitsCss, stickyAttrs, icon, iconButtonCss, localeChip, localeChipCss, newsletterCss, newsletterForm, paymentMarks, scrollCss, socialIcon } from "./chrome-parts"
 
 export type HeaderLayout = "split" | "center" | "stack" | "pill" | "minimal"
 export type HeaderScroll = "static" | "sticky" | "shrink" | "hide"
@@ -92,7 +92,8 @@ const headerStyle = `
 .hd a.hd__cta { color: var(--s-btn-text); }
 .hd__cta:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); }
 .hd__cta:active { transform: scale(0.97); }
-.hd__mega { margin: 0; inset: var(--hd-h, 72px) 0 auto; width: 100%; max-width: none; max-height: calc(100svh - var(--hd-h, 72px)); overflow-y: auto; overscroll-behavior: contain; padding: 36px var(--theme-padding-x, 20px) 44px; border: 0; border-bottom: 1px solid var(--s-border); background: var(--s-bg); color: var(--s-text); box-shadow: 0 30px 60px -40px rgb(0 0 0 / 0.45); }
+.hd__mega { margin: 0; inset: calc(var(--hd-h, 72px) + var(--hd-notes-h, 0px)) 0 auto; width: 100%; max-width: none; max-height: calc(100svh - var(--hd-h, 72px)); overflow-y: auto; overscroll-behavior: contain; padding: 36px var(--theme-padding-x, 20px) 44px; border: 0; border-bottom: 1px solid var(--s-border); background: var(--s-bg); color: var(--s-text); box-shadow: 0 30px 60px -40px rgb(0 0 0 / 0.45); }
+@supports (top: anchor(bottom)) { .hd__mega { top: anchor(bottom); max-height: calc(100svh - anchor(bottom)); } }
 .hd__mega-in { display: grid; gap: 28px; ${INNER} }
 .hd__mega-all { display: inline-flex; align-items: center; gap: 10px; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.75rem, 1rem + 2.4vw, 3rem); line-height: 1; letter-spacing: -0.02em; color: var(--s-heading); text-decoration: none; }
 .hd__mega-all [data-storelib-icon] { display: inline-flex; transition: transform 200ms ease; }
@@ -108,7 +109,8 @@ const headerStyle = `
 .hd__feat-text { font-size: 0.875rem; color: var(--s-muted); }
 .hd__prods { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
 .hd__prod a { display: grid; gap: 6px; text-decoration: none; }
-.hd__prod-media { display: block; aspect-ratio: 1; overflow: hidden; border-radius: var(--sl-image-radius, 0); background: var(--s-surface); }
+.hd__prod-stand { display: grid; place-items: end start; height: 100%; padding: 12px; font-family: var(--theme-font-heading), sans-serif; font-size: 1.25rem; line-height: 1; color: var(--s-heading); background: linear-gradient(160deg, color-mix(in srgb, var(--s-accent) 22%, var(--s-bg)), var(--s-bg)); }
+.hd__prod-media { display: block; aspect-ratio: 4 / 5; overflow: hidden; border-radius: var(--sl-image-radius, 0); background: var(--s-surface); }
 .hd__prod-media img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 700ms cubic-bezier(0.2, 0.7, 0.1, 1); }
 .hd__prod-name { font-size: 0.875rem; line-height: 1.3; }
 .hd__prod-price { font-size: 0.8125rem; color: var(--s-muted); font-variant-numeric: tabular-nums; }
@@ -134,6 +136,7 @@ details[open] > .hd__msum [data-storelib-icon] { transform: rotate(45deg); }
 .hd__drawer-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; border-top: 1px solid var(--s-border); }
 .hd__drawer-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; text-decoration: none; }
 .hd__drawer-link [data-storelib-icon] { display: inline-flex; }
+.hd__drawer .hd__feats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .hd__dock { display: none; }
 .hd__search-panel, .hd__cart { position: fixed; z-index: 60; background: var(--s-bg); color: var(--s-text); visibility: hidden; opacity: 0; transition: opacity var(--t-motion-hover, 200ms) ease, transform var(--t-motion-duration, 450ms) var(--t-motion-ease, cubic-bezier(0.2, 0.7, 0.1, 1)), visibility 0s linear var(--t-motion-duration, 450ms); }
 .hd__search-panel { inset: 0 0 auto; max-height: 100svh; overflow-y: auto; overscroll-behavior: contain; padding: 20px var(--theme-padding-x, 20px) 36px; border-bottom: 1px solid var(--s-border); transform: translateY(-24px); box-shadow: 0 30px 60px -40px rgb(0 0 0 / 0.5); }
@@ -185,7 +188,7 @@ ${scrollCss("hd", "hd__bar", "hd__logo", { notes: "hd__notes" })}
   .hd--dock .hd__bar { grid-template-columns: minmax(0, 1fr) auto; }
   .hd--dock .hd__bar > .hd__logo { justify-self: start; }
   .hd--dock .hd__tools > :not(.hd-loc) { display: none; }
-  .hd--dock .hd__lead > .hd__burger { display: none; }
+  .hd--dock .hd__lead { display: none; }
   .hd--dock .hd__dock { position: fixed; z-index: 45; inset: auto 12px calc(12px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 6px; border: 1px solid var(--s-border); border-radius: 18px; background: color-mix(in srgb, var(--s-bg) 92%, transparent); backdrop-filter: blur(12px); box-shadow: 0 18px 40px -20px rgb(0 0 0 / 0.5); }
   .hd__dock-btn { position: relative; display: grid; justify-items: center; gap: 2px; min-height: 52px; padding: 6px 0 4px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; font-size: 0.6875rem; text-decoration: none; cursor: pointer; }
   .hd__dock-btn:active { background: color-mix(in srgb, currentColor 9%, transparent); }
@@ -221,8 +224,9 @@ ${scrollCss("hd", "hd__bar", "hd__logo", { notes: "hd__notes" })}
   .hd--minimal .hd__tools { grid-column: 2; grid-row: 1; }
   .hd__mega-in { grid-template-columns: minmax(0, 3fr) minmax(0, 5fr) minmax(0, 4fr); align-items: start; }
   .hd__drawer--full .hd__drawer-body { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); align-items: start; gap: 48px; }
-  .hd__drawer--full .hd__drawer-body > .hd__feats { display: none; }
-  .hd__drawer--full .hd__prev { position: sticky; top: 0; display: block; aspect-ratio: 4 / 5; max-height: 70svh; margin-top: 20px; overflow: hidden; border-radius: var(--sl-image-radius, 0); background: var(--s-surface); }
+  .hd__drawer--full .hd__drawer-body:has(.hd__prev-img) > .hd__feats { display: none; }
+  .hd__drawer--full .hd__drawer-body:not(:has(.hd__prev-img)) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .hd__drawer--full .hd__prev:has(.hd__prev-img) { position: sticky; top: 0; display: block; aspect-ratio: 4 / 5; max-height: 70svh; margin-top: 20px; overflow: hidden; border-radius: var(--sl-image-radius, 0); background: var(--s-surface); }
   .hd__prev-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transform: scale(1.06); transition: opacity 420ms ease, transform 900ms cubic-bezier(0.2, 0.7, 0.1, 1); }
   .hd__prev-img:first-child { opacity: 1; transform: none; }
 ${Array.from({ length: PREVIEWS }, (_, i) => `  .hd__drawer:has(.hd__mlist > li:nth-child(${i + 1}):is(:hover, :focus-within)) .hd__prev-img:nth-child(${i + 1}) { opacity: 1; transform: none; }`).join("\n")}
@@ -256,9 +260,9 @@ ${Array.from({ length: 8 }, (_, i) => `  .hd__mlist > li:nth-child(${i + 1}) { -
 
 function headerTemplate(): string {
   const feature = (cls: string) => `{% for block in section.blocks %}{% if block.type == "feature" %}<a class="hd__feat ${cls}" href="{{ block.settings.url | url }}" {{ block.shopify_attributes }}>{% if block.settings.image %}<span class="hd__feat-media"><img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" width="480" height="600" loading="lazy"></span>{% endif %}<span class="hd__feat-title">{{ block.settings.title }}</span>{% if block.settings.text %}<span class="hd__feat-text">{{ block.settings.text }}</span>{% endif %}</a>{% endif %}{% endfor %}`
-  const prod = `<li class="hd__prod"><a href="{{ p.url | default: routes.products_url }}"><span class="hd__prod-media">{% if p.image %}<img src="{{ p.image | asset }}" alt="{{ p.title }}" width="300" height="300" loading="lazy">{% endif %}</span><span class="hd__prod-name">{{ p.title }}</span><span class="hd__prod-price">{{ p.price }}</span></a></li>`
+  const prod = `<li class="hd__prod"><a href="{{ p.settings.url | url }}"><span class="hd__prod-media">{% if p.settings.image %}<img src="{{ p.settings.image }}" alt="{{ p.settings.title }}" width="300" height="375" loading="lazy">{% else %}<span class="hd__prod-stand" aria-hidden="true">{{ p.settings.title }}</span>{% endif %}</span><span class="hd__prod-name">{{ p.settings.title }}</span><span class="hd__prod-price">{{ p.settings.price }}</span></a></li>`
   return `
-<header class="hd hd--{{ settings.layout }} hd--{{ settings.scroll }}{% if settings.overlay %} hd--overlay{% endif %}{% if settings.phone_bar %} hd--dock{% endif %}" ${rootAttrs({ spacing: false })}>
+<header class="hd hd--{{ settings.layout }} hd--{{ settings.scroll }}{% if settings.overlay %} hd--overlay{% endif %}{% if settings.phone_bar %} hd--dock{% endif %}"${stickyAttrs()} ${rootAttrs({ spacing: false })}>
   {% if settings.show_notices %}
   <div class="hd__notes" data-run="{{ settings.run_notices }}" data-storelib-motion="marquee" data-motion-speed="{{ settings.notice_speed }}" style="--hd-speed: {{ settings.notice_speed }};">
     <div class="hd__track">
@@ -267,7 +271,7 @@ function headerTemplate(): string {
     </div>
   </div>
   {% endif %}
-  <div class="hd__bar">
+  <div class="hd__bar" style="anchor-name: --hdb-{{ section.id }};">
     <div class="hd__lead">
       <button class="hd__burger hd-ib" type="button" popovertarget="hd-menu-{{ section.id }}" aria-label="{{ settings.menu_label }}">${icon("menu")}</button>
     </div>
@@ -278,7 +282,7 @@ function headerTemplate(): string {
         <li>
           {% if link.links.size > 0 %}
           <button class="hd__top" type="button" popovertarget="hd-mega-{{ section.id }}-{{ forloop.index }}">{{ link.title }}${icon("chevron-down", "", 14)}</button>
-          <div class="hd__mega" id="hd-mega-{{ section.id }}-{{ forloop.index }}" popover>
+          <div class="hd__mega" id="hd-mega-{{ section.id }}-{{ forloop.index }}" style="position-anchor: --hdb-{{ section.id }};" popover>
             <div class="hd__mega-in">
               <div><a class="hd__mega-all" href="{{ link.url }}">{{ link.title }}${icon("arrow-right", "", 22)}</a>
               <ul class="hd__mega-list">{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul></div>

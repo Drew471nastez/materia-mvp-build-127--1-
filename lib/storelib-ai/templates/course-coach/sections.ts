@@ -9,7 +9,7 @@
 import {
   BOX, cartPanel, check, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, toolButton, scrollSetting, headerScrollCss, productList, range, revealCss, richtext, scheme, searchPanel, spacing, text, textarea, url, vars,
 } from "../kit-b"
-import { footerBitsCss, formPolishCss, formStates, icon, paymentMarks, socialIcon } from "../kit/chrome-parts"
+import { footerBitsCss, formPolishCss, formStates, icon, stickyAttrs, paymentMarks, socialIcon } from "../kit/chrome-parts"
 
 const D = "font-family: var(--theme-font-heading), sans-serif; color: var(--s-heading); font-weight: 700;"
 const SMALL = "font-size: 0.875rem;"
@@ -20,7 +20,7 @@ export const header = defineSection({
   kind: "header",
   summary: "A thin line with the next start date above a header with the course name, the menu, search, cart and an Enrol button; the menu opens as a side sheet with language and currency.",
   template: `
-<header class="ccn ccn--{{ settings.scroll }}" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
+<header class="ccn ccn--{{ settings.scroll }}"${stickyAttrs("settings.scroll", null)} data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
   {% if settings.notice %}<p class="ccn__notice">{% if settings.notice_url %}<a href="{{ settings.notice_url | url }}">{{ settings.notice }}</a>{% else %}{{ settings.notice }}{% endif %}</p>{% endif %}
   <div class="ccn__bar">
     <a class="ccn__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="{{ settings.logo_width }}" height="32">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
