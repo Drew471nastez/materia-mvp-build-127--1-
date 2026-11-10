@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic"
  * /api/contacts/<contactId> (round 51): one person of the store.
  *
  *   GET                                   their profile (lib/contacts/profile-server readProfile)
- *   PATCH  { name?, notes?, tags? }       what the creator keeps about them
+ *   PATCH  { name?, notes?, tags?, phone? }   what the creator keeps about them
  *   POST   { action: "unsubscribe" }      off the marketing list (Marketing), as Emails does it
  *   DELETE                                the creator's own row for them only
  *
@@ -35,7 +35,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
   const gate = await requireContacts()
   if (gate instanceof NextResponse) return gate
   const { key } = await params
-  const body = (await request.json().catch(() => null)) as { name?: unknown; notes?: unknown; tags?: unknown } | null
+  const body = (await request.json().catch(() => null)) as { name?: unknown; notes?: unknown; tags?: unknown; phone?: unknown } | null
   if (!body) return json({ error: "Nothing to save.", code: "empty" }, 400)
   const g = await personByKey(gate.db, gate, key)
   if (!g) return json({ error: "Not found", code: "not_found" }, 404)
@@ -48,6 +48,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
       ...(body.name !== undefined ? { name: typeof body.name === "string" ? body.name : null } : {}),
       ...(body.notes !== undefined ? { notes: typeof body.notes === "string" ? body.notes : null } : {}),
       ...(body.tags !== undefined ? { tags: cleanTags(body.tags) } : {}),
+      ...(body.phone !== undefined ? { phone: typeof body.phone === "string" ? body.phone : null } : {}),
     })
     return json({ ok: true, contactId: `c_${row.id}` })
   } catch (error) {

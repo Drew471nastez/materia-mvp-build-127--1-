@@ -23,7 +23,7 @@
 import { displayEmail } from "@/lib/businesses/email-alias"
 import * as React from "react"
 import Link from "next/link"
-import { ChevronDown, Download } from "lucide-react"
+import { ChevronDown, ChevronRight, Download } from "lucide-react"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { confirmForm } from "@/components/forms/form-confirm"
 import { Shimmer, ShimmerBlock, ShimmerRows } from "@/components/ui/shimmer"
@@ -289,7 +289,8 @@ export function ResponsesPanel({ formId, quiz, focus = null, onCount }: { formId
                     <span className="w-[112px] shrink-0 truncate text-[13px] text-[#4b5563] max-md:hidden">{sourceWord(r.source_kind)}</span>
                     <span className="shrink-0 sm:w-[132px]">{statusMenu(r, "-ml-1")}</span>
                     <button type="button" className={cn(iconButton, "h-9 w-9 shrink-0 max-md:h-11 max-md:w-11")} aria-expanded={open} aria-label={open ? tt("Hide answers") : tt("Show answers")} onClick={toggle}>
-                      <ChevronDown aria-hidden className={cn("h-4 w-4 text-[#9ca3af] transition-transform duration-150", open && "rotate-180")} />
+                      {/* Wave 9: a disclosure arrow (right, turning down), so it never reads as a second Follow up menu beside the status's own ⌄. */}
+                      <ChevronRight aria-hidden className={cn("h-4 w-4 text-[#9ca3af] transition-transform duration-150", open && "rotate-90")} data-response-toggle="" />
                     </button>
                   </div>
                   {open ? (

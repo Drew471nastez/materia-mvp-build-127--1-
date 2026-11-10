@@ -118,11 +118,26 @@ function filterOf(kind: FormKind | undefined): Exclude<Filter, "all"> {
   return "forms"
 }
 
+/*
+  Wave 9: the forms as last read in this tab. Coming back to Forms (from
+  People, from a person's answers, from a form) shows them at once, whole,
+  while they are read again behind; only the very first visit waits on the
+  shimmer. Memory only: a reload reads them fresh.
+*/
+type Overview = { forms: ListedForm[]; siteForms: SiteFormRow[]; inbox: { available: boolean; rows: MessageRow[] } }
+let lastOverview: Overview | null = null
+
+/** For tests: what the list would show at once on its next visit. */
+export function formsOverviewKept(): Overview | null {
+  return lastOverview
+}
+
 export function FormsList() {
-  const [forms, setForms] = React.useState<ListedForm[]>([])
-  const [siteForms, setSiteForms] = React.useState<SiteFormRow[]>([])
-  const [inbox, setInbox] = React.useState<{ available: boolean; rows: MessageRow[] } | null>(null)
-  const [loading, setLoading] = React.useState(true)
+  const kept = lastOverview
+  const [forms, setForms] = React.useState<ListedForm[]>(() => kept?.forms ?? [])
+  const [siteForms, setSiteForms] = React.useState<SiteFormRow[]>(() => kept?.siteForms ?? [])
+  const [inbox, setInbox] = React.useState<{ available: boolean; rows: MessageRow[] } | null>(() => kept?.inbox ?? null)
+  const [loading, setLoading] = React.useState(!kept)
   const [missing, setMissing] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -130,7 +145,8 @@ export function FormsList() {
   const [route, setRoute] = React.useState<FormsRoute>(FORMS_HOME)
 
   const load = React.useCallback(async () => {
-    setLoading(true)
+    /* With the last read on screen there is nothing to wait for: it is read again quietly. */
+    if (!lastOverview) setLoading(true)
     setError(null)
     const [r, m] = await Promise.all([
       formsRequest<{ forms: ListedForm[]; siteForms?: SiteFormRow[]; missing?: boolean }>("/api/forms?overview=1", { fallback: tt("Forms could not be loaded. Try again.") }),
@@ -144,7 +160,12 @@ export function FormsList() {
     setSiteForms(r.data?.siteForms ?? [])
     if (r.error) return setError(r.error)
     setForms(r.data?.forms ?? [])
+    lastOverview = { forms: r.data?.forms ?? [], siteForms: r.data?.siteForms ?? [], inbox: m ? { available: m.available !== false, rows: m.rows ?? [] } : { available: false, rows: [] } }
   }, [])
+  /* What changes here (a new form, a save, an archive, a message read) is what the next visit shows first. */
+  React.useEffect(() => {
+    if (lastOverview && !loading) lastOverview = { forms, siteForms, inbox: inbox ?? { available: false, rows: [] } }
+  }, [forms, siteForms, inbox, loading])
 
   React.useEffect(() => {
     void load()
@@ -437,9 +458,17 @@ export function FormsList() {
       />
       <div className={SCREEN} data-forms-list="">
         <section aria-label={tt("Forms")} className={cn(card, "mt-3 overflow-hidden")}>
+          {!settled ? (
+            /* Wave 9: the views' row is there while the forms are first read, so nothing moves down when they arrive. */
+            <div className="flex h-[52px] items-center gap-1.5 border-b border-[#eef0f2] px-3 md:h-12" aria-hidden data-forms-views-wait="">
+              {[44, 64, 72].map((w) => (
+                <span key={w} data-shimmer="" className="shimmer-wait h-5 rounded-md bg-[#f1f2f4]" style={{ width: w }} />
+              ))}
+            </div>
+          ) : null}
           {settled && !missing && !nothing && views.length > 2 ? (
             <div className="flex h-[52px] items-center border-b border-[#eef0f2] px-2 md:h-12">
-              <div role="tablist" aria-label={tt("Show")} className="orders-strip -my-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-2" data-forms-views="">
+              <div role="tablist" aria-label={tt("Show")} className="orders-strip -my-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-2 max-sm:pr-10 max-sm:[mask-image:linear-gradient(to_right,#000_calc(100%-44px),transparent)]" data-forms-views="">
                 {views.map((v) => {
                   const on = filter === v.value
                   return (

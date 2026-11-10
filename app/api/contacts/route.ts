@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { NO_STORE, requireContacts } from "@/lib/contacts/gate"
 import { readPeopleQuery, normalizeEmail } from "@/lib/contacts/identity"
 import { listPeople } from "@/lib/contacts/people-server"
-import { CONTACTS_MISSING, ContactsMissing, cleanTags, importPeople } from "@/lib/contacts/write-server"
+import { CONTACTS_MISSING, ContactsMissing, addDetails, cleanTags, importPeople } from "@/lib/contacts/write-server"
 import { syncPlatformsSoon } from "@/lib/contacts/checkout-contact"
 
 export const runtime = "nodejs"
@@ -12,7 +12,9 @@ export const dynamic = "force-dynamic"
  * /api/contacts (round 51): the store's people.
  *
  *   GET  ?filter=&q=&sort=&page=&<advanced>   one page of people, the counts of the five filters
- *   POST { email, name?, tags?, notes?, subscribe? }   a person added by hand
+ *   POST { email, name?, tags?, notes?, phone?, subscribe? }   a person added by hand;
+ *        answers { ok, added, updated, ..., contactId } (wave 9: notes and a phone are kept,
+ *        and contactId opens the person at once)
  *
  * Customers or Marketing (lib/contacts/gate); adding someone as a subscriber
  * needs Marketing and the creator's word that they agreed to emails.
@@ -28,7 +30,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as { email?: unknown; name?: unknown; tags?: unknown; subscribe?: unknown } | null
+  const body = (await request.json().catch(() => null)) as { email?: unknown; name?: unknown; tags?: unknown; notes?: unknown; phone?: unknown; subscribe?: unknown } | null
   const subscribe = body?.subscribe === true
   const gate = await requireContacts({ marketing: subscribe })
   if (gate instanceof NextResponse) return gate
@@ -39,7 +41,10 @@ export async function POST(request: Request) {
     const res = await importPeople(gate.db, gate, [{ email, name, tags: cleanTags(body?.tags) }], { subscribe, tags: [], source: "manual", by: gate.userId })
     if (res.contactsMissing && res.subscribed === 0 && res.alreadySubscribed === 0) return json({ error: new ContactsMissing().message, code: CONTACTS_MISSING }, 503)
     if (res.subscribed) await syncPlatformsSoon(gate.db, gate.creatorId).catch(() => undefined)
-    return json({ ok: true, ...res })
+    /* Wave 9: the notes and phone typed in Add contact, kept on the row just made (or the one already there). */
+    const notes = typeof body?.notes === "string" ? body.notes.slice(0, 5000) : null
+    const contactId = res.contactsMissing ? null : await addDetails(gate.db, gate, email, { notes, phone: typeof body?.phone === "string" ? body.phone : null }).catch(() => null)
+    return json({ ok: true, ...res, contactId })
   } catch (error) {
     if (error instanceof ContactsMissing) return json({ error: error.message, code: CONTACTS_MISSING }, 503)
     console.error("[contacts] add failed:", (error as Error)?.message)

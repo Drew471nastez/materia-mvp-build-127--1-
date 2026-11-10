@@ -12990,7 +12990,17 @@ const words: Record<string, string> = {
  "You don't have any communities": "Vous n'avez aucune communauté",
  "Welcome, invite, event ticket and paid plan emails go to your members automatically once you start a community.": "Les e-mails de bienvenue, d'invitation, de billets d'événement et d'abonnement payant partent automatiquement vers vos membres dès que vous lancez une communauté.",
  "A preview: these go out once you sell something you ship.": "Un aperçu : ils partent dès que vous vendez quelque chose à expédier.",
- "Preview the emails anyway": "Voir les e-mails quand même"
+ "Preview the emails anyway": "Voir les e-mails quand même",
+ "Enter a phone number with digits, spaces, + ( ) or -.": "Saisissez un numéro de téléphone avec des chiffres, des espaces, + ( ) ou -.",
+ "Enter their email address.": "Saisissez son adresse e-mail.",
+ "Only an email address is needed. Everything else is optional.": "Seule une adresse e-mail est nécessaire. Tout le reste est facultatif.",
+ "{name} is already in your contacts. Adding them again keeps everything and adds the tags and notes below.": "{name} est déjà dans vos contacts. L’ajouter à nouveau conserve tout et ajoute les tags et notes ci-dessous.",
+ "Separate with commas": "Séparés par des virgules",
+ "VIP, Wholesale": "VIP, Grossiste",
+ "{name} was already in your contacts. What you typed was added to them.": "{name} était déjà dans vos contacts. Ce que vous avez saisi a été ajouté à sa fiche.",
+ "Adding…": "Ajout…",
+ "Form options": "Options du formulaire",
+ "Nothing new to publish": "Rien de nouveau à publier"
 }
 
 export default words

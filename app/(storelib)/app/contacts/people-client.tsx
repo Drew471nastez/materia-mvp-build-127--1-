@@ -56,6 +56,9 @@ import { ContactsHeader, ContactsPane, PHONE_ACTION, notePeopleQuery } from "./c
 import { confirmForm } from "@/components/forms/form-confirm"
 import { FilterChip } from "./filter-chip"
 import { contactsRequest, dayOf, labelsOf, leadStatusLabel, memberStatusLabel, originLabel, subscriptionLabel, whoOf } from "./contact-words"
+import { toast } from "@/hooks/use-toast"
+import { ADD_FIELD, AddContactSheet } from "./add-contact"
+import { EMPTY_DRAFT, draftBody, draftEmail, isPendingId, optimisticRow, sameEmail, withAdded, type AddDraft } from "./add-contact-logic"
 
 export interface CommunityOption {
   id: string
@@ -65,7 +68,9 @@ export interface CommunityOption {
 
 const EMAIL_MAX = 200
 const field = "h-9 w-full rounded-lg border border-[#e3e4e8] bg-white px-2.5 text-[14px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e]/40 focus:ring-2 focus:ring-[#1a1a2e]/10"
-const fieldLabel = "mb-1 block text-[12px] font-medium text-[#4b5563]"
+const fieldLabel = "mb-1 block text-[12px] font-medium text-[#4b5563] max-sm:text-[13px]"
+/* A sheet's buttons on a phone: two across, 44px (wave 9, as Add contact). */
+const SHEET_FOOT = "max-sm:[&>button]:h-11 max-sm:[&>button]:flex-1 max-sm:[&>button]:rounded-xl max-sm:[&>button]:text-[15px]"
 
 function viewLabel(f: ContactFilter): string {
   switch (f) {
@@ -144,6 +149,10 @@ export function PeopleClient({ query: serverQuery, page: serverPage, communities
   const [routing, startTransition] = React.useTransition()
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
   const [adding, setAdding] = React.useState(false)
+  /* Wave 9: what Add contact holds (kept while a failed save reopens it) and the people just added, shown at once. */
+  const [addDraft, setAddDraft] = React.useState<AddDraft>(EMPTY_DRAFT)
+  const [addError, setAddError] = React.useState<string | null>(null)
+  const [justAdded, setJustAdded] = React.useState<{ row: PersonRow; done: boolean }[]>([])
   const [importing, setImporting] = React.useState(false)
   const [message, setMessage] = React.useState<{ text: string; failed?: boolean } | null>(null)
 
@@ -169,6 +178,8 @@ export function PeopleClient({ query: serverQuery, page: serverPage, communities
   /* The server's page, whenever it draws one (a reload, router.refresh after a change): the truth, kept for the tab. */
   React.useEffect(() => {
     if (serverPage) peopleCache.set(serverQs, { page: serverPage, at: Date.now() })
+    /* People added here are the server's to show now; one still being saved stays on top until it is. */
+    setJustAdded((x) => (x.some((e) => e.done) ? x.filter((e) => !e.done) : x))
     ask.current++
     setWanted(null)
     /* A Back can bring this page back with the router's copy of an older view; the address says which view it is. */
@@ -235,12 +246,60 @@ export function PeopleClient({ query: serverQuery, page: serverPage, communities
     return () => window.clearTimeout(t)
   }, [text, query.q, go])
 
-  const rows = page?.rows ?? []
   const counts = page?.counts ?? { all: 0, leads: 0, customers: 0, subscribers: 0, members: 0 }
   const total = page?.total ?? 0
   const filtered = !!query.q || advancedCount(query.adv) > 0
+  const rows = withAdded(page?.rows ?? [], justAdded.map((e) => e.row), { filter: query.filter, page: query.page, filtered })
   const [searching, setSearching] = React.useState(filtered)
-  const nothingAtAll = !!page && counts.all === 0 && !filtered
+  const nothingAtAll = !!page && counts.all === 0 && !filtered && justAdded.length === 0
+
+  /* Is this address already one of the store's people? The rows read so far first, then a search for it. */
+  const lookup = React.useCallback(async (email: string): Promise<PersonRow | null> => {
+    for (const hit of peopleCache.values()) {
+      const p = sameEmail(hit.page.rows, email)
+      if (p) return p
+    }
+    const page = await readPeoplePage(peopleQueryString({ ...queryOf(""), q: email }))
+    return page ? sameEmail(page.rows, email) : null
+  }, [])
+  const openAdd = () => {
+    setAddDraft(EMPTY_DRAFT)
+    setAddError(null)
+    setAdding(true)
+  }
+  /* Add contact: the sheet closes and the person is on the list at once; the sheet comes back as it was if the save fails. */
+  const addPerson = async (d: AddDraft, existing: PersonRow | null) => {
+    const email = draftEmail(d.email) ?? ""
+    setAdding(false)
+    setAddError(null)
+    setMessage(null)
+    if (!existing) setJustAdded((x) => [{ row: optimisticRow(d, new Date().toISOString()), done: false }, ...x.filter((e) => e.row.email !== email)])
+    const r = await contactsRequest<{ added?: number; subscribed?: number; contactId?: string | null }>("/api/contacts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(draftBody(d, marketing)),
+      fallback: tt("The person was not added. Try again."),
+    })
+    if (!r.ok) {
+      setJustAdded((x) => x.filter((e) => e.row.email !== email))
+      setAddError(r.error)
+      setAdding(true)
+      return
+    }
+    const id = r.data.contactId
+    setJustAdded((x) => x.map((e) => (e.row.email === email ? { row: { ...e.row, id: id || e.row.id }, done: true } : e)))
+    setAddDraft(EMPTY_DRAFT)
+    /* A toast, not a line above the list: the rows do not move when it says its piece. */
+    toast({
+      title:
+        existing || r.data.added === 0
+          ? tt("{name} was already in your contacts. What you typed was added to them.", { name: existing ? whoOf(existing) : email })
+          : r.data.subscribed
+            ? tt("Added, and subscribed to your emails.")
+            : tt("Added to your contacts."),
+    })
+    refresh()
+  }
 
   const exportHref = (ids?: string[]) => {
     const qs = peopleQueryString({ ...query, page: 1 })
@@ -254,7 +313,7 @@ export function PeopleClient({ query: serverQuery, page: serverPage, communities
     { label: tt("Import from a CSV file"), icon: <Upload className="h-4 w-4" />, onClick: () => setImporting(true), separatorBefore: phone, id: "contacts-import" },
     { label: tt("Export these people"), icon: <Download className="h-4 w-4" />, href: exportHref(), id: "contacts-export" },
   ]
-  const pageIds = rows.map((r) => r.id)
+  const pageIds = rows.filter((r) => !isPendingId(r.id)).map((r) => r.id)
   const pickedOnPage = pageIds.filter((id) => selected.has(id)).length
   const allOnPage = pageIds.length > 0 && pickedOnPage === pageIds.length
   const pick = (ids: string[], on: boolean) =>
@@ -294,7 +353,7 @@ export function PeopleClient({ query: serverQuery, page: serverPage, communities
               }
               items={moreMenu}
             />
-            <button type="button" className={cn(buttonAccent, PHONE_ACTION)} onClick={() => setAdding(true)} data-add-contact="">
+            <button type="button" className={cn(buttonAccent, PHONE_ACTION)} onClick={openAdd} data-add-contact="">
               <Plus className="h-4 w-4 shrink-0" />
               {tt("Add contact")}
             </button>
@@ -406,7 +465,7 @@ export function PeopleClient({ query: serverQuery, page: serverPage, communities
               body={tt("People show up here when they buy from you, join your email list, answer one of your forms or join your community.")}
               action={
                 <>
-                  <button type="button" className={buttonAccent} onClick={() => setAdding(true)}>
+                  <button type="button" className={buttonAccent} onClick={openAdd}>
                     <Plus className="h-4 w-4 shrink-0" />
                     {tt("Add contact")}
                   </button>
@@ -495,7 +554,7 @@ export function PeopleClient({ query: serverQuery, page: serverPage, communities
         </section>
       </div>
 
-      <AddContact open={adding} phone={phone} marketing={marketing} onClose={() => setAdding(false)} onAdded={(t) => { setAdding(false); setMessage({ text: t }); refresh() }} />
+      <AddContactSheet open={adding} phone={phone} marketing={marketing} draft={addDraft} onDraft={setAddDraft} error={addError} lookup={lookup} onClose={() => setAdding(false)} onSubmit={(d, existing) => void addPerson(d, existing)} />
       <ImportPeople open={importing} phone={phone} marketing={marketing} onClose={() => setImporting(false)} onDone={(t) => { setMessage({ text: t }); refresh() }} />
     </ContactsPane>
   )
@@ -735,31 +794,35 @@ function Relationship({ p }: { p: PersonRow }) {
 
 function PersonLine({ p, picked, onPick }: { p: PersonRow; picked: boolean; onPick: (on: boolean) => void }) {
   const router = useRouter()
+  /* Wave 9: a person just added is on the list at once; until the server names them the row says so and opens nothing. */
+  const pending = isPendingId(p.id)
   const href = `/app/contacts/${p.id}`
   const rowBg = picked ? "bg-[#f4f4f6]" : "bg-white group-hover:bg-[#fafafb]"
   const cell = cn("border-t border-[#f0f1f3] max-sm:hidden", rowBg)
   return (
     <tr
-      className="orders-row group cursor-pointer"
+      className={cn("orders-row group", pending ? "cursor-default" : "cursor-pointer")}
       data-contact-row={p.id}
+      data-contact-pending={pending ? "" : undefined}
+      aria-busy={pending || undefined}
       onClick={(e) => {
-        if ((e.target as HTMLElement).closest("a,button,input,label")) return
+        if (pending || (e.target as HTMLElement).closest("a,button,input,label")) return
         router.push(href)
       }}
     >
       <td className={cn(cell, "w-10 p-0")}>
-        <label className="flex h-[52px] w-10 cursor-pointer items-center pl-3">
+        <label className={cn("flex h-[52px] w-10 items-center pl-3", pending ? "pointer-events-none opacity-40" : "cursor-pointer")}>
           <Checkbox label={tt("Pick {name}", { name: whoOf(p) })} checked={picked} onChange={onPick} />
         </label>
       </td>
       <td className={cn(cell, "max-w-[360px] py-2 pl-2 pr-3")}>
-        <Link href={href} className="block truncate font-semibold text-[#1a1a2e] hover:underline">
+        <Link href={href} onClick={pending ? (e) => e.preventDefault() : undefined} aria-disabled={pending || undefined} className="block truncate font-semibold text-[#1a1a2e] hover:underline">
           {whoOf(p)}
         </Link>
         {p.name && displayEmail(p.email) ? <span className="block truncate text-[12px] text-[#6b7280]">{displayEmail(p.email)}</span> : null}
       </td>
       <td className={cn(cell, "px-3")}>
-        <Relationship p={p} />
+        {pending ? <span className="text-[12px] text-[#6b7280]" data-contact-adding="">{tt("Adding…")}</span> : <Relationship p={p} />}
       </td>
       <td className={cn(cell, "whitespace-nowrap px-3 text-[#4b5563]")}>{originLabel(p.origin)}</td>
       <td className={cn(cell, "px-3")}>
@@ -769,14 +832,14 @@ function PersonLine({ p, picked, onPick }: { p: PersonRow; picked: boolean; onPi
       {/* A phone: one stacked cell, as Orders' PhoneRow. */}
       <td data-phone-row="" className="relative w-full max-w-0 border-t border-[#f0f1f3] bg-white px-4 py-3 sm:hidden">
         <div className="flex items-baseline justify-between gap-3">
-          <Link href={href} className="min-w-0 truncate text-[16px] font-semibold text-[#1a1a2e] outline-none after:absolute after:inset-0">
+          <Link href={href} onClick={pending ? (e) => e.preventDefault() : undefined} aria-disabled={pending || undefined} className="min-w-0 truncate text-[16px] font-semibold text-[#1a1a2e] outline-none after:absolute after:inset-0">
             {whoOf(p)}
           </Link>
           <span className="shrink-0 text-[14px] text-[#6b7280]">{dayOf(p.lastSeen)}</span>
         </div>
         {p.name && displayEmail(p.email) ? <p className="mt-0.5 truncate text-[15px] text-[#303036]">{displayEmail(p.email)}</p> : null}
         <div className="mt-1 flex min-w-0 items-center gap-2">
-          <span className="min-w-0 shrink truncate text-[14px] text-[#6b7280]" data-phone-relationship="">{labelsOf(p).join(" · ") || originLabel(p.origin)}</span>
+          <span className="min-w-0 shrink truncate text-[14px] text-[#6b7280]" data-phone-relationship="">{pending ? tt("Adding…") : labelsOf(p).join(" · ") || originLabel(p.origin)}</span>
           <Tags tags={p.tags} max={2} />
         </div>
       </td>
@@ -889,71 +952,6 @@ function SelectionBar({ ids, people, exportHref, onClear, onDone }: { ids: strin
 
 /* ─── Adding and importing ────────────────────────────────────────────── */
 
-function AddContact({ open, phone, marketing, onClose, onAdded }: { open: boolean; phone: boolean; marketing: boolean; onClose: () => void; onAdded: (text: string) => void }) {
-  const [email, setEmail] = React.useState("")
-  const [name, setName] = React.useState("")
-  const [tags, setTags] = React.useState("")
-  const [agreed, setAgreed] = React.useState(false)
-  const [busy, setBusy] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  React.useEffect(() => {
-    if (!open) return
-    setEmail("")
-    setName("")
-    setTags("")
-    setAgreed(false)
-    setError(null)
-  }, [open])
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setBusy(true)
-    setError(null)
-    const r = await contactsRequest<{ subscribed?: number }>("/api/contacts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, name, tags: tags.split(",").map((t) => t.trim()).filter(Boolean), subscribe: marketing && agreed }),
-      fallback: tt("The person was not added. Try again."),
-    })
-    setBusy(false)
-    if (!r.ok) return setError(r.error)
-    onAdded(r.data.subscribed ? tt("Added, and subscribed to your emails.") : tt("Added to your contacts."))
-  }
-  return (
-    <SheetDialog open={open} onClose={onClose} phone={phone} label={tt("Add contact")} className="p-0 sm:max-w-[460px]" dialog={{ "aria-describedby": undefined }}>
-      <form onSubmit={submit} className="space-y-3 p-5">
-        <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{tt("Add contact")}</SheetDialogTitle>
-        <label className="block">
-          <span className={fieldLabel}>{tt("Email")}</span>
-          <input type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} className={field} />
-        </label>
-        <label className="block">
-          <span className={fieldLabel}>{tt("Name")}</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} className={field} />
-        </label>
-        <label className="block">
-          <span className={fieldLabel}>{tt("Tags, separated by commas")}</span>
-          <input value={tags} onChange={(e) => setTags(e.target.value)} className={field} />
-        </label>
-        {marketing ? (
-          <label className="flex items-start gap-2 text-[13px] text-[#1a1a2e]">
-            <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#1a1a2e]" />
-            <span>{tt("They agreed to get my marketing emails. Add them to my email list.")}</span>
-          </label>
-        ) : null}
-        {error ? <p className="text-[13px] text-[#b42318]" role="alert">{error}</p> : null}
-        <div className="flex justify-end gap-2 pt-1">
-          <button type="button" className={buttonSecondary} onClick={onClose}>
-            {tt("Cancel")}
-          </button>
-          <button type="submit" className={buttonAccent} disabled={busy}>
-            {busy ? tt("Adding") : tt("Add contact")}
-          </button>
-        </div>
-      </form>
-    </SheetDialog>
-  )
-}
-
 interface ImportAnswer {
   read: number
   invalid: number
@@ -999,7 +997,7 @@ function ImportPeople({ open, phone, marketing, onClose, onDone }: { open: boole
   }
   return (
     <SheetDialog open={open} onClose={onClose} phone={phone} label={tt("Import contacts")} className="p-0 sm:max-w-[500px]" dialog={{ "aria-describedby": undefined }}>
-      <div className="space-y-3 p-5">
+      <div className="space-y-3 p-5 max-sm:px-4 max-sm:pt-1">
         <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{tt("Import contacts")}</SheetDialogTitle>
         {result ? (
           <div className="space-y-2 text-[14px] text-[#1a1a2e]">
@@ -1014,7 +1012,7 @@ function ImportPeople({ open, phone, marketing, onClose, onDone }: { open: boole
               {result.truncated ? <li>{tt("Only the first 5,000 rows were read. Import the rest in another file.")}</li> : null}
               {result.contactsMissing ? <li>{tt("Only the email addresses were imported. Names and tags are kept once setup finishes.")}</li> : null}
             </ul>
-            <div className="flex justify-end pt-1">
+            <div className={cn("flex justify-end pt-1", SHEET_FOOT)}>
               <button type="button" className={buttonAccent} onClick={onClose}>
                 {tt("Done")}
               </button>
@@ -1023,10 +1021,16 @@ function ImportPeople({ open, phone, marketing, onClose, onDone }: { open: boole
         ) : (
           <form onSubmit={submit} className="space-y-3">
             <p className="text-[13px] text-[#6b7280]">{tt("A CSV file with an Email column. Name, First name, Last name and Tags columns are read too. Up to 5,000 rows.")}</p>
-            <input type="file" accept=".csv,text/csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="block w-full text-[13px] text-[#1a1a2e] file:mr-3 file:h-8 file:rounded-lg file:border file:border-[#e3e4e8] file:bg-white file:px-3 file:text-[13px] file:font-medium" />
+            {/* Wave 9: one clear place to choose the file, saying which one is chosen. */}
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-[#d5d7dd] bg-[#fafafb] px-3.5 py-3 transition-colors duration-100 hover:border-[#b6bac1] focus-within:border-[#1a1a2e]/40 max-sm:py-3.5" data-import-file="">
+              <Upload className="h-4 w-4 shrink-0 text-[#6b7280]" />
+              <span className="min-w-0 flex-1 truncate text-[13px] text-[#1a1a2e] max-sm:text-[15px]">{file ? file.name : tt("Choose a CSV file")}</span>
+              <span className="shrink-0 text-[12px] font-medium text-[#6d4ae0] max-sm:text-[14px]">{tt("Browse")}</span>
+              <input type="file" accept=".csv,text/csv" onChange={(e) => (setFile(e.target.files?.[0] ?? null), setError(null))} className="sr-only" />
+            </label>
             <label className="block">
               <span className={fieldLabel}>{tt("Tag everyone in this file (optional)")}</span>
-              <input value={tag} onChange={(e) => setTag(e.target.value)} maxLength={40} className={field} />
+              <input value={tag} onChange={(e) => setTag(e.target.value)} maxLength={40} className={ADD_FIELD} />
             </label>
             {marketing ? (
               <label className="flex items-start gap-2 text-[13px] text-[#1a1a2e]">
@@ -1036,7 +1040,7 @@ function ImportPeople({ open, phone, marketing, onClose, onDone }: { open: boole
             ) : null}
             <p className="text-[12px] text-[#6b7280]">{tt("Nobody who unsubscribed, bounced or complained is put back on your list, and no welcome email is sent.")}</p>
             {error ? <p className="text-[13px] text-[#b42318]" role="alert">{error}</p> : null}
-            <div className="flex justify-end gap-2 pt-1">
+            <div className={cn("flex justify-end gap-2 pt-1", SHEET_FOOT)}>
               <button type="button" className={buttonSecondary} onClick={onClose}>
                 {tt("Cancel")}
               </button>

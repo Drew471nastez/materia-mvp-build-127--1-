@@ -309,6 +309,8 @@ const SUITES = [
   "tests/contacts-nav-w7.test.ts",
   /* Wave 8: Contacts switches without a flash or a fade: a form's tabs as Storelib's pills with Responses and Insights kept mounted and cached, People's views read ahead and swapped in place, a booking week in switch rows, message links straight to Contacts › Forms. */
   "tests/contacts-smooth-w8.test.ts",
+  /* Wave 9: Add contact as one clean sheet (checked field by field, a person already there named, on the list at once, notes and a phone kept), a person's Edit shown at once and the journey in time order, Forms shown at once on a second visit, Publish resting when there is nothing new. */
+  "tests/contacts-add-w9.test.ts",
   /* Wave 5: Emails on a phone as it was before round 51: one row of views, Automation and New email on every view, no second row; a computer keeps the three tabs. */
   "tests/emails-phone-w5.test.ts",
   "tests/orders-view.test.ts",

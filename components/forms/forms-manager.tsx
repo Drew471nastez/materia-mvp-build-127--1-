@@ -443,7 +443,8 @@ export function FormEditor({
 
       <section aria-labelledby="settings-h" className={inPage ? pageCard : undefined}>
         <H id="settings-h" className={inPage ? cardTitle : cn(heading, "mb-2.5")}>
-          {tt("Settings")}
+          {/* Wave 9: on the page the Settings tab is beside Edit; this card is the form's own options, not a second Settings. */}
+          {inPage ? tt("Form options") : tt("Settings")}
         </H>
         <div className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e3e4e8] bg-white">
           <Disclosure id="after" title={tt("After sending")} summary={afterSummary} open={openSetting === "after"} onToggle={() => toggleSetting("after")}>
@@ -696,7 +697,7 @@ export function FormEditor({
               ) : null}
               {saving ? (
                 <span className="lg:hidden">
-                  <PublishButton busy={busy} onPublish={() => void save(true)} />
+                  <PublishButton busy={busy} upToDate={state === "live"} onPublish={() => void save(true)} />
                 </span>
               ) : null}
             </>
@@ -759,7 +760,7 @@ export function FormEditor({
                 <button type="button" className={barButton} disabled={busy || !dirty} onClick={() => void save(false)} data-save-draft="">
                   {tt("Save draft")}
                 </button>
-                <PublishButton busy={busy} onPublish={() => void save(true)} />
+                <PublishButton busy={busy} upToDate={state === "live"} onPublish={() => void save(true)} />
               </div>
             </div>
           </div>
@@ -825,16 +826,20 @@ const FORM_WIDTH = ORDER_WIDTH
 const PRESS_AREA = "relative after:absolute after:inset-x-0 after:-inset-y-[2px] after:content-[''] sm:after:hidden"
 
 /** Publish, the page's one dark action: the coupon editor's Save (coupon-parts CouponSaveButton), busy while it saves, never changing width. */
-function PublishButton({ busy, onPublish }: { busy: boolean; onPublish: () => void }) {
+function PublishButton({ busy, onPublish, upToDate = false }: { busy: boolean; onPublish: () => void; upToDate?: boolean }) {
+  /* Wave 9: a published form with nothing new has nothing to publish; the button rests, and says why on hover. */
   return (
     <button
       type="button"
       data-publish-form=""
+      data-up-to-date={upToDate ? "" : undefined}
+      disabled={upToDate}
+      title={upToDate ? tt("Nothing new to publish") : undefined}
       onClick={() => {
-        if (!busy) onPublish()
+        if (!busy && !upToDate) onPublish()
       }}
       aria-busy={busy || undefined}
-      className={cn(PRESS_AREA, inkDepth, "h-10 min-w-[72px] rounded-[10px] px-4 text-[15px] sm:h-8 sm:min-w-[68px] sm:rounded-lg sm:px-3 sm:text-[13px]", busy && "cursor-default hover:bg-[#111113] active:bg-[#111113]")}
+      className={cn(PRESS_AREA, inkDepth, "h-10 min-w-[72px] rounded-[10px] px-4 text-[15px] sm:h-8 sm:min-w-[68px] sm:rounded-lg sm:px-3 sm:text-[13px]", busy && "cursor-default hover:bg-[#111113] active:bg-[#111113]", upToDate && "cursor-default bg-[#e4e5e9] text-[#8a8f98] shadow-none hover:bg-[#e4e5e9] active:bg-[#e4e5e9] active:shadow-none")}
     >
       <span className={cn(busy && "opacity-0")}>{tt("Publish")}</span>
       {busy ? (
