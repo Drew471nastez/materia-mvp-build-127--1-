@@ -31,8 +31,8 @@ tags: chrome kit, header, announcement bar, announcement, promo bar, ticker, mar
         <div class="han__menu"><button class="han__opt" type="button" data-storelib-currency-option hidden><span data-option-label></span></button></div>
       </details>
       {% endif %}
-      <a class="han__tool" href="{{ routes.search_url }}" data-storelib-search>{{ settings.search_label }}</a>
-      <a class="han__tool" href="{{ routes.cart_url }}" data-storelib-cart>{{ settings.cart_label }} <span class="han__count" data-storelib-cart-count></span></a>
+      <a class="han__tool" href="{{ routes.search_url }}" data-storelib-search aria-label="{{ settings.search_label }}"><span data-storelib-icon="search" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></span></a>
+      <a class="han__tool han__bag" href="{{ routes.cart_url }}" data-storelib-cart aria-label="{{ settings.cart_label }}"><span data-storelib-icon="bag" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg></span><span class="han__count" data-storelib-cart-count></span></a>
     </div>
   </div>
 </header>
@@ -60,6 +60,9 @@ tags: chrome kit, header, announcement bar, announcement, promo bar, ticker, mar
 .han__tools { display: flex; align-items: center; gap: 2px; }
 .han__tool { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; min-width: 44px; padding: 0 8px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.9375rem; text-decoration: none; cursor: pointer; list-style: none; }
 .han__tool::-webkit-details-marker { display: none; }
+.han__tool > [data-storelib-icon] { display: inline-flex; }
+.han__bag { position: relative; }
+.han__bag .han__count { position: absolute; top: 4px; right: 0; }
 .han__count[data-count="0"] { display: none; }
 .han__pick { position: relative; display: none; }
 .han__menu { position: absolute; top: 100%; right: 0; display: grid; min-width: 160px; padding: 6px; border: 1px solid var(--s-border); background: var(--s-bg); }

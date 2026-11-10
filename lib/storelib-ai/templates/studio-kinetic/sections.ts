@@ -6,8 +6,9 @@
  * the pointer. Grey-green paper, black ink, one signal yellow.
  */
 import {
-  BOX, cartPanel, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, productList, range, revealCss, richtext, scheme, searchPanel, select, spacing, text, textarea, url, vars,
+  BOX, cartPanel, check, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, toolButton, scrollSetting, headerScrollCss, productList, range, revealCss, richtext, scheme, searchPanel, select, spacing, text, textarea, url, vars,
 } from "../kit-b"
+import { footerBitsCss, formPolishCss, formStates, icon, paymentMarks, socialIcon } from "../kit/chrome-parts"
 
 const D = "font-family: var(--theme-font-heading), sans-serif; color: var(--s-heading); font-weight: 800;"
 const SMALL = "font-size: 0.8125rem; letter-spacing: 0.01em;"
@@ -18,20 +19,21 @@ export const header = defineSection({
   kind: "header",
   summary: "Minimal header: the studio's name, three inline links on wide screens, search, cart and an Index button that slides a side drawer in with the whole menu, language and currency.",
   template: `
-<header class="agn" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
+<header class="agn agn--{{ settings.scroll }}" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
   <div class="agn__bar">
     <a class="agn__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="{{ settings.logo_width }}" height="28">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
     <nav class="agn__inline" aria-label="{{ settings.nav_label }}">
       {% for link in settings.menu.links limit: 3 %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}
     </nav>
     <div class="agn__tools">
-      <button class="agn__tool" type="button" data-storelib-search>{{ settings.search_label }}</button>
-      <button class="agn__tool" type="button" data-storelib-cart>{{ settings.cart_label }}<span class="agn__count" data-storelib-cart-count></span></button>
+      ${prefs("agn")}
+      ${toolButton("agn", "search")}
+      ${toolButton("agn", "cart")}
       <button class="agn__tool agn__index" type="button" popovertarget="agn-d-{{ section.id }}">{{ settings.menu_label }}</button>
     </div>
   </div>
   <div class="agn__drawer" id="agn-d-{{ section.id }}" popover>
-    <button class="agn-x" type="button" popovertarget="agn-d-{{ section.id }}" popovertargetaction="hide">{{ settings.close_label }}</button>
+    <button class="agn-x" type="button" popovertarget="agn-d-{{ section.id }}" popovertargetaction="hide" aria-label="{{ settings.close_label }}">${icon("close", "", 22)}</button>
     <nav aria-label="{{ settings.nav_label }}">
       <ul class="agn__list">
         {% for link in settings.menu.links %}<li><a class="agn__link" href="{{ link.url }}">{{ link.title }}</a>{% if link.links.size > 0 %}<ul class="agn__sub">{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul>{% endif %}</li>{% endfor %}
@@ -40,7 +42,7 @@ export const header = defineSection({
     <p class="agn__note">{{ settings.drawer_note }}</p>
     <a class="agn__acct" href="{{ routes.account_url }}">{{ settings.account_label }}</a>
     <ul class="agn__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{% if block.settings.url %}<a href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>{% else %}{{ block.settings.text }}{% endif %}</li>{% endfor %}</ul>
-    ${prefs("agn")}
+    ${prefs("agn", { where: "d", up: true })}
   </div>
   ${searchPanel("agn")}
   ${cartPanel("agn")}
@@ -48,7 +50,7 @@ export const header = defineSection({
   style: `
 .agn__notes { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 0.875rem; }
 .agn__notes a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
-.agn { position: sticky; top: 0; z-index: 30; background: var(--s-bg); color: var(--s-text); }
+.agn { position: relative; z-index: 30; background: var(--s-bg); color: var(--s-text); }
 .agn__bar { display: flex; align-items: center; gap: 16px; min-height: 60px; padding: 0 var(--theme-padding-x, 20px); border-bottom: 2px solid var(--s-text); }
 .agn__logo { margin-right: auto; ${D} font-size: 1.375rem; letter-spacing: -0.05em; text-decoration: none; }
 .agn__logo img { display: block; max-height: 28px; width: auto; height: auto; }
@@ -71,6 +73,8 @@ export const header = defineSection({
 .agn__acct { display: inline-flex; min-height: 44px; align-items: center; margin-bottom: 12px; color: inherit; }
 .agn :focus-visible { outline: 2px solid var(--s-text); outline-offset: 2px; background: var(--s-accent); }
 ${panelCss("agn", { cartFrom: "left", searchFrom: "full" })}
+${headerScrollCss("agn")}
+@container (max-width: 599px) { .agn__tools > .agn-loc { display: none; } }
 .agn-cart { border-right: 2px solid var(--s-text); }
 .agn-search__input { ${D} letter-spacing: -0.04em; }
 .agn-cart__go { background: var(--s-text); color: var(--s-bg); }
@@ -86,6 +90,7 @@ ${panelCss("agn", { cartFrom: "left", searchFrom: "full" })}
     range("logo_width", "Logo width", 60, 220, 4, 120, "px"),
     text("drawer_note", "Line in the menu", "Booking projects from September. Small team, one project at a time."),
     text("account_label", "Account link", "Account"),
+    scrollSetting("hide"),
     ...chromeWords({ menu_label: "Index", cart_label: "Bag", search_placeholder: "Search work, editions and notes" }),
     scheme("site"),
   ],
@@ -502,9 +507,9 @@ export const footer = defineSection({
   <p class="ago__mark" aria-hidden="true">{{ settings.wordmark | default: shop.name }}</p>
   <div class="ago__grid">
     <nav class="ago__nav" aria-label="{{ settings.nav_label }}">{% for link in settings.menu.links %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}</nav>
-    <form class="ago__form" data-storelib-form="subscribe"><label for="ago-e-{{ section.id }}">{{ settings.newsletter_label }}</label><div class="ago__row"><input id="ago-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}"><button type="submit">{{ settings.button_label }}</button></div></form>
-    <ul class="ago__links">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}">{{ block.settings.label }}</a></li>{% endfor %}</ul>
-    ${prefs("ago")}
+    <form class="ago__form" data-storelib-form="subscribe"><label for="ago-e-{{ section.id }}">{{ settings.newsletter_label }}</label><div class="ago__row"><input id="ago-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}" aria-describedby="ago-err-{{ section.id }}"><button type="submit">{{ settings.button_label }}</button></div>${formStates("ago-err-{{ section.id }}")}</form>
+    <ul class="ago__links ago-social" aria-label="{{ settings.social_label }}">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" aria-label="{{ block.settings.label }}">${socialIcon("block.settings.url")}</a></li>{% endfor %}</ul>
+    <div class="ago__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("ago")}{% endif %}${prefs("ago", { up: true })}<a class="ago-top" href="#">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div>
     <p class="ago__small">{{ settings.small_print }}</p>
   </div>
 </footer>`,
@@ -523,6 +528,9 @@ export const footer = defineSection({
 .ago__row button { min-height: 48px; padding: 0 0 0 14px; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
 .ago__small { margin: 0; font-size: 0.8125rem; }
 ${panelCss("ago")}
+${footerBitsCss("ago")}
+${formPolishCss("ago")}
+.ago__end { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .ago-pref__opt { border-color: currentColor; }
 .ago-pref__opt[aria-current="true"] { background: var(--s-bg); color: var(--s-text); }
 @container (min-width: 900px) { .ago__grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); align-items: start; } .ago__small { grid-column: 1 / -1; } }`,
@@ -534,6 +542,12 @@ ${panelCss("ago")}
     text("button_label", "Subscribe button", "Sign up"),
     text("small_print", "Small print", "Fieldwork studio, Rotterdam. Chamber of Commerce 70119322."),
     text("nav_label", "Menu name (read aloud)", "Footer"),
+    text("email_error", "When the email is not right", "That email looks incomplete."),
+    text("thanks_text", "After signing up", "You are on the list. Thank you."),
+    text("social_label", "Social links (read aloud)", "Follow"),
+    check("show_payments", "Show card marks when the shop sells", true),
+    text("payments_label", "Card marks (read aloud)", "Ways to pay"),
+    text("top_label", "Back to top", "Back to top"),
     text("language_label", "Language", "Language"),
     text("currency_label", "Currency", "Currency"),
     scheme("site"),
@@ -676,12 +690,13 @@ export const contact = defineSection({
   <div class="agx__grid">
     <dl class="agx__ways">{% for block in section.blocks %}<div data-block-id="{{ block.id }}"><dt>{{ block.settings.label }}</dt><dd>{% if block.settings.link %}<a href="{{ block.settings.link | url }}">{{ block.settings.value }}</a>{% else %}{{ block.settings.value }}{% endif %}</dd></div>{% endfor %}</dl>
     <form class="agx__form" data-storelib-form="contact">
-      <label><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required></label>
-      <label><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required></label>
-      <label><span>{{ settings.budget_label }}</span><input name="subject" type="text" maxlength="150"></label>
-      <label><span>{{ settings.message_label }}</span><textarea name="message" rows="6" maxlength="5000" required></textarea></label>
+      <label><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required placeholder="{{ settings.name_hint }}"></label>
+      <label><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required placeholder="{{ settings.email_hint }}"></label>
+      <label><span>{{ settings.budget_label }}</span><input name="subject" type="text" maxlength="150" placeholder="{{ settings.subject_hint }}"></label>
+      <label><span>{{ settings.message_label }}</span><textarea name="message" rows="6" maxlength="5000" required placeholder="{{ settings.message_hint }}"></textarea></label>
       <button type="submit">{{ settings.send_label }}</button>
-    </form>
+    <p data-storelib-success hidden role="status">${icon("check", "", 18)}<span>{{ settings.thanks_text }}</span></p>
+      </form>
   </div>
 </section>`,
   style: `
@@ -698,13 +713,19 @@ export const contact = defineSection({
 .agx__form input, .agx__form textarea { min-height: 50px; padding: 10px 12px; border: 2px solid var(--s-text); background: none; color: inherit; font: inherit; font-size: 1rem; }
 .agx__form input:focus, .agx__form textarea:focus { outline: none; background: var(--s-accent); }
 .agx__form button { justify-self: start; min-height: 54px; padding: 0 28px; border: 0; background: var(--s-text); color: var(--s-bg); font: inherit; font-weight: 700; cursor: pointer; }
-@container (min-width: 900px) { .agx__grid { grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr); } }`,
+@container (min-width: 900px) { .agx__grid { grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr); } }
+${formPolishCss("agx")}`,
   settings: [
     text("heading", "Heading", "Tell us about it"),
     text("name_label", "Name field", "Name"),
     text("email_label", "Email field", "Email"),
     text("budget_label", "Budget field", "Budget and deadline"),
     text("message_label", "Message field", "The project"),
+    text("name_hint", "Name hint", "Your name"),
+    text("email_hint", "Email hint", "name@example.com"),
+    text("subject_hint", "Subject hint", "What it is about"),
+    text("message_hint", "Message hint", "A few lines are plenty"),
+    text("thanks_text", "After sending", "Thank you. We will write back soon."),
     text("send_label", "Send button", "Send"),
     ...motion(),
     scheme("site"),

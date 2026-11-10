@@ -198,17 +198,18 @@ ${reveal(".ca", ".ca__item", "ai_ms_care_in")}`,
 
 const head = header({
   type: `${P}header`,
-  layout: "split",
+  layout: "pill",
   drawer: "side",
   cart: "sheet",
-  sticky: true,
+  scroll: "sticky",
+  cta: { label: "Book", url: "/contact" },
   words: { brand: "Clinic", cart: "Bag", menu: "Menu", searchHint: "Search treatments and gift cards", empty: "Nothing in your bag yet." },
   notices: ["Gift cards for any treatment, sent by email"],
   features: [
     { title: "Treatments", text: "Facials, peels and massage", url: "/#treatments" },
     { title: "Gift cards", text: "For any treatment", url: "/products" },
   ],
-  skin: `.hd__logo { font-weight: 500; letter-spacing: -0.02em; } .hd__count { border-radius: 999px; } .hd__drawer--side { border-radius: 0 28px 28px 0; } .hd__cart--sheet { border-radius: 28px 28px 0 0; } .hd__checkout, .hd__close, .hd__opt { border-radius: 999px; } .hd__feat-media { border-radius: 18px; }`,
+  skin: `.hd__logo { font-weight: 500; letter-spacing: -0.02em; } .hd__drawer--side { border-radius: 0 28px 28px 0; } .hd__cart--sheet { border-radius: 28px 28px 0 0; } .hd__checkout { border-radius: 999px; } .hd__feat-media { border-radius: 18px; }`,
 })
 const foot = footer({
   type: `${P}footer`,
@@ -220,7 +221,7 @@ const foot = footer({
     { heading: "Clinic", menu: "footer" },
   ],
   notes: [{ heading: "Hours", text: "<p>Tuesday to Saturday, by appointment.</p>" }],
-  skin: `.ft__h { font-weight: 500; letter-spacing: -0.03em; } .ft__row { border-radius: 999px; overflow: hidden; } .ft__opt { border-radius: 999px; }`,
+  skin: `.ft__h { font-weight: 500; letter-spacing: -0.03em; } .ft-field__input, .ft-news__go { border-radius: 999px; }`,
 })
 const band = marquee({ type: `${P}band`, scheme: "site", items: ["Facials", "Peels", "Massage", "Brows", "Lashes", "Gift cards"], speed: 70, skin: `.mq { border-top: 1px solid var(--s-border); border-bottom: 1px solid var(--s-border); } .mq__item { font-weight: 400; font-size: clamp(1.5rem, 1rem + 3cqi, 3.5rem); } .mq__item:nth-child(even) { color: var(--s-muted); }` })
 const visit = stickySteps({

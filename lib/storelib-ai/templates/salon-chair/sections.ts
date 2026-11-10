@@ -7,8 +7,9 @@
  * green and brass.
  */
 import {
-  BOX, cartPanel, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, productList, range, revealCss, richtext, scheme, searchPanel, spacing, text, textarea, url, vars,
+  BOX, cartPanel, check, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, toolButton, scrollSetting, headerScrollCss, productList, range, revealCss, richtext, scheme, searchPanel, spacing, text, textarea, url, vars,
 } from "../kit-b"
+import { footerBitsCss, formPolishCss, formStates, icon, paymentMarks, socialIcon } from "../kit/chrome-parts"
 
 const D = "font-family: var(--theme-font-heading), serif; color: var(--s-heading); font-weight: 700;"
 const SMALL = "font-size: 0.875rem;"
@@ -19,24 +20,25 @@ export const header = defineSection({
   kind: "header",
   summary: "Booking-led header: a line with today's hours and the address, then the name, the menu, search, cart and a Book button; on phones the Book button stays fixed at the bottom of the screen and Menu opens a bottom sheet with language and currency.",
   template: `
-<header class="sbn" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
+<header class="sbn sbn--{{ settings.scroll }}" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
   <div class="sbn__util"><span>{{ settings.hours_line }}</span>{% if settings.address %}<a href="{{ settings.map_url | url }}">{{ settings.address }}</a>{% endif %}{% if settings.phone %}<a href="{{ settings.phone_url | url }}">{{ settings.phone }}</a>{% endif %}</div>
   <div class="sbn__bar">
     <a class="sbn__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="{{ settings.logo_width }}" height="40">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
     <nav class="sbn__nav" aria-label="{{ settings.nav_label }}">{% for link in settings.menu.links %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}</nav>
     <div class="sbn__tools">
-      <button class="sbn__tool sbn__wide" type="button" data-storelib-search>{{ settings.search_label }}</button>
-      <button class="sbn__tool" type="button" data-storelib-cart>{{ settings.cart_label }} <span class="sbn__count" data-storelib-cart-count></span></button>
-      <button class="sbn__tool sbn__burger" type="button" popovertarget="sbn-d-{{ section.id }}">{{ settings.menu_label }}</button>
+      ${prefs("sbn")}
+      ${toolButton("sbn", "search")}
+      ${toolButton("sbn", "cart")}
+      ${toolButton("sbn", "menu", { cls: "sbn__burger", target: "sbn-d-{{ section.id }}" })}
       <a class="sbn__book" href="{{ settings.book_url | url }}">{{ settings.book_label }}</a>
     </div>
   </div>
   <div class="sbn__sheet" id="sbn-d-{{ section.id }}" popover>
-    <div class="sbn__sheet-head"><p class="sbn__sheet-title">{{ shop.name | default: settings.brand }}</p><button class="sbn-x" type="button" popovertarget="sbn-d-{{ section.id }}" popovertargetaction="hide">{{ settings.close_label }}</button></div>
+    <div class="sbn__sheet-head"><p class="sbn__sheet-title">{{ shop.name | default: settings.brand }}</p><button class="sbn-x" type="button" popovertarget="sbn-d-{{ section.id }}" popovertargetaction="hide" aria-label="{{ settings.close_label }}">${icon("close", "", 22)}</button></div>
     <nav aria-label="{{ settings.nav_label }}"><ul class="sbn__list">{% for link in settings.menu.links %}<li><a class="sbn__link" href="{{ link.url }}">{{ link.title }}</a>{% if link.links.size > 0 %}<ul class="sbn__sub">{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul>{% endif %}</li>{% endfor %}</ul></nav>
-    <p class="sbn__row"><button class="sbn__tool" type="button" data-storelib-search>{{ settings.search_label }}</button><a class="sbn__acct" href="{{ routes.account_url }}">{{ settings.account_label }}</a></p>
+    <p class="sbn__row">${toolButton("sbn", "search")}<a class="sbn__acct" href="{{ routes.account_url }}">{{ settings.account_label }}</a></p>
     <ul class="sbn__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{% if block.settings.url %}<a href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>{% else %}{{ block.settings.text }}{% endif %}</li>{% endfor %}</ul>
-    ${prefs("sbn")}
+    ${prefs("sbn", { where: "d", up: true })}
   </div>
   ${searchPanel("sbn")}
   ${cartPanel("sbn")}
@@ -71,6 +73,8 @@ export const header = defineSection({
 .sbn__acct { display: inline-flex; min-height: 44px; align-items: center; color: inherit; font-weight: 600; }
 .sbn :focus-visible { outline: 3px solid var(--s-accent); outline-offset: 2px; }
 ${panelCss("sbn", { cartFrom: "bottom", searchFrom: "top" })}
+${headerScrollCss("sbn")}
+@container (max-width: 599px) { .sbn__tools > .sbn-loc { display: none; } }
 .sbn-cart { border-top: 2px solid var(--s-text); }
 .sbn-cart__go { background: var(--s-accent); color: var(--s-text); }
 @media (min-width: 960px) {
@@ -97,6 +101,7 @@ ${panelCss("sbn", { cartFrom: "bottom", searchFrom: "top" })}
     text("book_label", "Book button", "Book a chair"),
     url("book_url", "Book button goes to", "/products"),
     text("account_label", "Account link", "Your bookings"),
+    scrollSetting("sticky"),
     ...chromeWords({ cart_label: "Basket", search_placeholder: "Search services and products" }),
     scheme("site"),
   ],
@@ -533,10 +538,10 @@ export const footer = defineSection({
   <div class="sbo__grid">
     <div><p class="sbo__name">{{ shop.name | default: settings.brand }}</p><p class="sbo__v">{{ settings.address }}</p><p class="sbo__v">{{ settings.hours }}</p></div>
     <nav class="sbo__nav" aria-label="{{ settings.nav_label }}">{% for link in settings.menu.links %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}</nav>
-    <form class="sbo__form" data-storelib-form="subscribe"><label for="sbo-e-{{ section.id }}">{{ settings.newsletter_label }}</label><div class="sbo__row"><input id="sbo-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}"><button type="submit">{{ settings.button_label }}</button></div></form>
+    <form class="sbo__form" data-storelib-form="subscribe"><label for="sbo-e-{{ section.id }}">{{ settings.newsletter_label }}</label><div class="sbo__row"><input id="sbo-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}" aria-describedby="sbo-err-{{ section.id }}"><button type="submit">{{ settings.button_label }}</button></div>${formStates("sbo-err-{{ section.id }}")}</form>
   </div>
-  <div class="sbo__base"><ul class="sbo__links">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}">{{ block.settings.label }}</a></li>{% endfor %}</ul>
-    ${prefs("sbo")}<p class="sbo__small">{{ settings.small_print }}</p></div>
+  <div class="sbo__base"><ul class="sbo__links sbo-social" aria-label="{{ settings.social_label }}">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" aria-label="{{ block.settings.label }}">${socialIcon("block.settings.url")}</a></li>{% endfor %}</ul>
+    <div class="sbo__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("sbo")}{% endif %}${prefs("sbo", { up: true })}<a class="sbo-top" href="#">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div><p class="sbo__small">{{ settings.small_print }}</p></div>
 </footer>`,
   style: `
 .sbo__links { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
@@ -555,6 +560,9 @@ export const footer = defineSection({
 .sbo__base { display: grid; gap: 14px; margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--s-border); }
 .sbo__small { margin: 0; font-size: 0.8125rem; opacity: 0.75; }
 ${panelCss("sbo")}
+${footerBitsCss("sbo")}
+${formPolishCss("sbo")}
+.sbo__end { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 @container (min-width: 900px) { .sbo { padding-bottom: 28px; } .sbo__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 0.6fr) minmax(0, 1fr); } .sbo__base { grid-template-columns: minmax(0, 1fr) auto; align-items: center; } }`,
   settings: [
     menu("menu", "Footer menu", "footer"),
@@ -566,6 +574,12 @@ ${panelCss("sbo")}
     text("button_label", "Subscribe button", "Sign up"),
     text("small_print", "Small print", "Sable Barbers Ltd, Leith."),
     text("nav_label", "Menu name (read aloud)", "Footer"),
+    text("email_error", "When the email is not right", "That email looks incomplete."),
+    text("thanks_text", "After signing up", "You are on the list. Thank you."),
+    text("social_label", "Social links (read aloud)", "Follow"),
+    check("show_payments", "Show card marks when the shop sells", true),
+    text("payments_label", "Card marks (read aloud)", "Ways to pay"),
+    text("top_label", "Back to top", "Back to top"),
     text("language_label", "Language", "Language"),
     text("currency_label", "Currency", "Currency"),
     scheme("site"),
@@ -695,11 +709,12 @@ export const contact = defineSection({
   <div class="sbx__grid">
     <div><h1 class="sbx__h">{{ settings.heading }}</h1><div class="sbx__text">{{ settings.text | raw }}</div><ul class="sbx__ways">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><span>{{ block.settings.label }}</span>{% if block.settings.link %}<a href="{{ block.settings.link | url }}">{{ block.settings.value }}</a>{% else %}{{ block.settings.value }}{% endif %}</li>{% endfor %}</ul></div>
     <form class="sbx__form" data-storelib-form="contact">
-      <label><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required></label>
-      <label><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required></label>
-      <label><span>{{ settings.message_label }}</span><textarea name="message" rows="5" maxlength="5000" required></textarea></label>
+      <label><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required placeholder="{{ settings.name_hint }}"></label>
+      <label><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required placeholder="{{ settings.email_hint }}"></label>
+      <label><span>{{ settings.message_label }}</span><textarea name="message" rows="5" maxlength="5000" required placeholder="{{ settings.message_hint }}"></textarea></label>
       <button type="submit">{{ settings.send_label }}</button>
-    </form>
+    <p data-storelib-success hidden role="status">${icon("check", "", 18)}<span>{{ settings.thanks_text }}</span></p>
+      </form>
   </div>
 </section>`,
   style: `
@@ -715,13 +730,18 @@ export const contact = defineSection({
 .sbx__form label { display: grid; gap: 6px; font-weight: 600; }
 .sbx__form input, .sbx__form textarea { min-height: 52px; padding: 10px 12px; border: 2px solid var(--s-text); background: none; color: inherit; font: inherit; font-weight: 400; }
 .sbx__form button { justify-self: start; min-height: 54px; padding: 0 26px; border: 0; background: var(--s-text); color: var(--s-bg); font: inherit; font-weight: 700; cursor: pointer; }
-@container (min-width: 900px) { .sbx__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; } }`,
+@container (min-width: 900px) { .sbx__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; } }
+${formPolishCss("sbx")}`,
   settings: [
     text("heading", "Heading", "Ring, call in or write"),
     richtext("text", "Words", "<p>For bookings the quickest way is online or a phone call. For anything else, write and we answer the same day.</p>"),
     text("name_label", "Name field", "Name"),
     text("email_label", "Email field", "Email"),
     text("message_label", "Message field", "Message"),
+    text("name_hint", "Name hint", "Your name"),
+    text("email_hint", "Email hint", "name@example.com"),
+    text("message_hint", "Message hint", "A few lines are plenty"),
+    text("thanks_text", "After sending", "Thank you. We will write back soon."),
     text("send_label", "Send button", "Send"),
     ...motion(),
     scheme("site"),

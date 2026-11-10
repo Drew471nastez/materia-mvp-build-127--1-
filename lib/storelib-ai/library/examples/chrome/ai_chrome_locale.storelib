@@ -1,13 +1,24 @@
 {# example
 title: Language and currency selectors as pills, a drop down or a sentence
-summary: Chrome kit switches, a small section for the header group, the footer group or any page: the site's real languages and currencies (Settings, Markets) through the hooks, each list hidden by the page when the site has only one. Three styles: inline pills, a compact drop down (details, works by keyboard), or a plain sentence with the current choices ("Shipping to France, prices in EUR") that opens the lists. Flags are off by default (a language is not a country) and can be turned on for common languages; codes, labels, alignment and colours are settings.
-tags: chrome kit, language selector, currency selector, locale switcher, language switcher, currency switcher, country selector, markets, translation, flags, pills, dropdown, own chrome
+summary: Chrome kit switches, by default ONE compact chip ("EN / EUR" with a globe) that opens a small panel holding both lists, never rows of big outlined buttons; a small section for the header group, the footer group or any page: the site's real languages and currencies (Settings, Markets) through the hooks, each list hidden by the page when the site has only one. Three styles: inline pills, a compact drop down (details, works by keyboard), or a plain sentence with the current choices ("Shipping to France, prices in EUR") that opens the lists. Flags are off by default (a language is not a country) and can be turned on for common languages; codes, labels, alignment and colours are settings.
+tags: chrome kit, compact chip, language selector, currency selector, locale switcher, language switcher, currency switcher, country selector, markets, translation, flags, pills, dropdown, own chrome
 #}
 <template>
 <div class="loc" data-style="{{ settings.style }}" data-flags="{{ settings.show_flags }}" data-codes="{{ settings.show_codes }}" data-align="{{ settings.align }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --loc-py: {{ settings.padding_y }}px;">
   {% if settings.style == "sentence" %}
   <p class="loc__sentence">{% if settings.show_language %}<span class="loc__part-l">{{ settings.sentence_before }} <span class="loc__now" data-storelib-locale-current>{{ settings.language_label }}</span></span>{% endif %}{% if settings.show_currency %}<span class="loc__part-c">{{ settings.sentence_middle }} <span class="loc__now" data-storelib-currency-current>{{ settings.currency_label }}</span></span>{% endif %}</p>
   {% endif %}
+  {% if settings.style == "chip" %}
+  <div class="loc__chip-row">
+    <div class="loc-loc">
+      <button class="loc-loc__chip" type="button" popovertarget="loc-p-{{ section.id }}" aria-label="{{ settings.language_label }}, {{ settings.currency_label }}"><span class="loc-loc__globe" data-storelib-icon="globe" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.4 5.2 3.4 8.5s-1 6.1-3.4 8.5c-2.4-2.4-3.4-5.2-3.4-8.5s1-6.1 3.4-8.5Z"/></svg></span><span class="loc-loc__now" data-storelib-locale-current="code"></span><span class="loc-loc__sep" aria-hidden="true">/</span><span class="loc-loc__now" data-storelib-currency-current="code"></span><span class="loc-loc__caret" data-storelib-icon="chevron-down" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></span></button>
+      <div class="loc-loc__panel" id="loc-p-{{ section.id }}" popover>
+        <div class="loc-loc__col" data-storelib-locale-list><p class="loc-loc__h">{{ settings.language_label }}</p><button class="loc-loc__opt" type="button" data-storelib-locale-option hidden><span data-option-label></span><span class="loc-loc__tick" data-storelib-icon="check" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span></button></div>
+        <div class="loc-loc__col" data-storelib-currency-list><p class="loc-loc__h">{{ settings.currency_label }}</p><button class="loc-loc__opt" type="button" data-storelib-currency-option hidden><span data-option-label></span><span class="loc-loc__tick" data-storelib-icon="check" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span></button></div>
+      </div>
+    </div>
+  </div>
+  {% else %}
   <div class="loc__row">
     {% if settings.show_language %}
     <details class="loc__group" data-storelib-locale-list {% if settings.style != "dropdown" %}open{% endif %}>
@@ -22,6 +33,7 @@ tags: chrome kit, language selector, currency selector, locale switcher, languag
     </details>
     {% endif %}
   </div>
+  {% endif %}
 </div>
 </template>
 
@@ -40,9 +52,9 @@ tags: chrome kit, language selector, currency selector, locale switcher, languag
 .loc__cur { font-weight: 400; }
 .loc__cur:empty { display: none; }
 .loc__opts { display: flex; flex-wrap: wrap; gap: 6px; }
-.loc__opt { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid var(--s-border); border-radius: 22px; background: none; color: inherit; font: inherit; cursor: pointer; }
-.loc__opt:hover { border-color: currentColor; }
-.loc__opt[aria-current="true"] { background: var(--s-text); color: var(--s-bg); border-color: var(--s-text); }
+.loc__opt { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: none; color: inherit; font: inherit; cursor: pointer; opacity: 0.7; }
+.loc__opt:hover { opacity: 1; }
+.loc__opt[aria-current="true"] { opacity: 1; font-weight: 600; background: color-mix(in srgb, currentColor 9%, transparent); }
 .loc__code { font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
 .loc[data-codes="false"] .loc__code { display: none; }
 /* Pills: the lists always open, the summary is only a label. */
@@ -55,6 +67,40 @@ tags: chrome kit, language selector, currency selector, locale switcher, languag
 .loc[data-style="dropdown"] .loc__cur::before { content: ": "; }
 .loc[data-style="dropdown"] .loc__opts { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; display: grid; min-width: max(100%, 180px); padding: 6px; border: 1px solid var(--s-border); background: var(--s-bg); }
 .loc[data-style="dropdown"] .loc__opt { justify-content: space-between; border: 0; border-radius: 0; }
+.loc__chip-row { display: flex; }
+.loc[data-align="center"] .loc__chip-row { justify-content: center; }
+.loc[data-align="end"] .loc__chip-row { justify-content: flex-end; }
+.loc-loc { position: relative; display: inline-flex; }
+.loc-loc:not(:has([data-storelib-locale-list]:not([hidden]) [data-storelib-locale-option]:not([hidden]), [data-storelib-currency-list]:not([hidden]) [data-storelib-currency-option]:not([hidden]))) { display: none; }
+.loc-loc__chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 1px solid transparent; border-radius: 999px; background: none; color: inherit; font: inherit; font-size: 0.8125rem; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; white-space: nowrap; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease; }
+.loc-loc__chip:hover, .loc-loc__chip:focus-visible, .loc-loc:has(:popover-open) .loc-loc__chip { border-color: color-mix(in srgb, currentColor 28%, transparent); }
+.loc-loc__now:empty { display: none; }
+.loc-loc__now:empty + .loc-loc__sep, .loc-loc__sep:has(+ .loc-loc__now:empty) { display: none; }
+.loc-loc__sep { opacity: 0.45; }
+.loc-loc__caret svg { transition: transform 200ms ease; }
+.loc-loc:has(:popover-open) .loc-loc__caret svg { transform: rotate(180deg); }
+.loc-loc__globe, .loc-loc__caret, .loc-loc__tick { display: inline-flex; }
+.loc-loc__panel { position: fixed; inset: auto; margin: 0; padding: 14px; width: min(340px, calc(100vw - 24px)); border: 1px solid var(--s-border); border-radius: 14px; background: var(--s-bg); color: var(--s-text); box-shadow: 0 24px 48px -24px rgb(0 0 0 / 0.35); }
+.loc-loc__panel:popover-open { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 4px 14px; }
+@supports (position-area: bottom) {
+  .loc-loc__panel { position-area: bottom span-left; margin-top: 6px; }
+  .loc-loc--up .loc-loc__panel { position-area: top span-right; margin: 0 0 6px; }
+}
+@supports not (position-area: bottom) { .loc-loc__panel { top: 72px; right: 12px; } .loc-loc--up .loc-loc__panel { top: auto; bottom: 64px; right: auto; left: 12px; } }
+.loc-loc__col { display: grid; align-content: start; gap: 2px; }
+.loc-loc__col[hidden] { display: none; }
+.loc-loc__h { margin: 0 0 4px; padding: 0 10px; font-size: 0.8125rem; opacity: 0.6; }
+.loc-loc__opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; padding: 0 10px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; font-size: 0.9375rem; text-align: left; cursor: pointer; }
+.loc-loc__opt:hover, .loc-loc__opt:focus-visible { background: color-mix(in srgb, currentColor 8%, transparent); }
+.loc-loc__opt[hidden] { display: none; }
+.loc-loc__tick { visibility: hidden; color: var(--s-accent); }
+.loc-loc__opt[aria-current="true"] { font-weight: 600; }
+.loc-loc__opt[aria-current="true"] .loc-loc__tick { visibility: visible; }
+@media (prefers-reduced-motion: no-preference) {
+  .loc-loc__panel { transition: opacity 180ms ease, transform 220ms cubic-bezier(0.2, 0.7, 0.1, 1), display 220ms allow-discrete, overlay 220ms allow-discrete; }
+  .loc-loc__panel:popover-open { opacity: 1; transform: none; }
+  @starting-style { .loc-loc__panel:popover-open { opacity: 0; transform: translateY(-6px); } }
+}
 /* Sentence: the words say what is chosen; the lists sit under it. */
 .loc__sentence { margin: 0 0 8px; }
 .loc__now { font-weight: 600; }
@@ -92,7 +138,7 @@ tags: chrome kit, language selector, currency selector, locale switcher, languag
   "name": "Language and currency",
   "settings": [
     { "type": "paragraph", "id": "about", "content": "Shows the languages and currencies set in Settings, Markets. Each list hides itself when there is only one." },
-    { "type": "select", "id": "style", "label": "Style", "default": "dropdown", "options": [{ "label": "Pills", "value": "pills" }, { "label": "Drop down", "value": "dropdown" }, { "label": "A sentence", "value": "sentence" }] },
+    { "type": "select", "id": "style", "label": "Style", "default": "chip", "options": [{ "label": "One small chip", "value": "chip" }, { "label": "Pills", "value": "pills" }, { "label": "Drop down", "value": "dropdown" }, { "label": "A sentence", "value": "sentence" }] },
     { "type": "checkbox", "id": "show_language", "label": "Show languages", "default": true },
     { "type": "checkbox", "id": "show_currency", "label": "Show currencies", "default": true },
     { "type": "checkbox", "id": "show_flags", "label": "Show flags beside languages", "default": false },

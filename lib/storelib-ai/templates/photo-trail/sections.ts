@@ -7,8 +7,9 @@
  * black type, one red used once or twice like a gallery dot.
  */
 import {
-  BOX, cartPanel, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, productList, range, revealCss, richtext, scheme, searchPanel, select, spacing, text, textarea, url, vars,
+  BOX, cartPanel, check, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, toolButton, scrollSetting, headerScrollCss, productList, range, revealCss, richtext, scheme, searchPanel, select, spacing, text, textarea, url, vars,
 } from "../kit-b"
+import { footerBitsCss, formPolishCss, formStates, icon, paymentMarks, socialIcon } from "../kit/chrome-parts"
 
 const D = "font-family: var(--theme-font-heading), sans-serif; color: var(--s-heading); font-weight: 500;"
 const SMALL = "font-size: 0.8125rem; letter-spacing: 0.01em;"
@@ -19,24 +20,24 @@ export const header = defineSection({
   kind: "header",
   summary: "Quiet header: the name, the menu inline on wide screens, search and cart; on phones Menu drops a top sheet with the whole menu, language and currency.",
   template: `
-<header class="pfn" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
+<header class="pfn pfn--{{ settings.scroll }}" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
   <div class="pfn__bar">
     <a class="pfn__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="{{ settings.logo_width }}" height="28">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
     <nav class="pfn__nav" aria-label="{{ settings.nav_label }}">{% for link in settings.menu.links %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}</nav>
     <div class="pfn__tools">
-      <button class="pfn__tool" type="button" popovertarget="pfn-p-{{ section.id }}">{{ settings.region_label }}</button>
-      <button class="pfn__tool" type="button" data-storelib-search>{{ settings.search_label }}</button>
-      <button class="pfn__tool" type="button" data-storelib-cart>{{ settings.cart_label }} <span class="pfn__count" data-storelib-cart-count></span></button>
-      <button class="pfn__tool pfn__burger" type="button" popovertarget="pfn-d-{{ section.id }}">{{ settings.menu_label }}</button>
+      ${prefs("pfn")}
+      ${toolButton("pfn", "search")}
+      ${toolButton("pfn", "account", { cls: "pfn__wide" })}
+      ${toolButton("pfn", "cart")}
+      ${toolButton("pfn", "menu", { cls: "pfn__burger", target: "pfn-d-{{ section.id }}" })}
     </div>
   </div>
-  <div class="pfn__drop" id="pfn-p-{{ section.id }}" popover>${prefs("pfn")}</div>
   <div class="pfn__sheet" id="pfn-d-{{ section.id }}" popover>
-    <button class="pfn-x" type="button" popovertarget="pfn-d-{{ section.id }}" popovertargetaction="hide">{{ settings.close_label }}</button>
+    <button class="pfn-x" type="button" popovertarget="pfn-d-{{ section.id }}" popovertargetaction="hide" aria-label="{{ settings.close_label }}">${icon("close", "", 22)}</button>
     <nav aria-label="{{ settings.nav_label }}"><ul class="pfn__list">{% for link in settings.menu.links %}<li><a class="pfn__link" href="{{ link.url }}">{{ link.title }}</a>{% if link.links.size > 0 %}<ul class="pfn__sub">{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul>{% endif %}</li>{% endfor %}</ul></nav>
     <a class="pfn__acct" href="{{ routes.account_url }}">{{ settings.account_label }}</a>
     <ul class="pfn__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{% if block.settings.url %}<a href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>{% else %}{{ block.settings.text }}{% endif %}</li>{% endfor %}</ul>
-    ${prefs("pfn")}
+    ${prefs("pfn", { where: "d", up: true })}
   </div>
   ${searchPanel("pfn")}
   ${cartPanel("pfn")}
@@ -65,6 +66,10 @@ export const header = defineSection({
 .pfn__acct { display: inline-flex; min-height: 44px; align-items: center; margin-bottom: 12px; color: inherit; }
 .pfn :focus-visible { outline: 1px solid var(--s-text); outline-offset: 3px; }
 ${panelCss("pfn", { cartFrom: "right", searchFrom: "full" })}
+${headerScrollCss("pfn")}
+.pfn__wide { display: none; }
+@container (min-width: 960px) { .pfn__wide { display: inline-grid; } }
+@container (max-width: 599px) { .pfn__tools > .pfn-loc { display: none; } }
 @media (min-width: 900px) { .pfn__nav { display: flex; } .pfn__burger { display: none; } .pfn__tools .pfn__tool:first-child { display: inline-flex; } }
 @media (prefers-reduced-motion: no-preference) {
   .pfn__sheet { transition: transform var(--t-motion-duration, 650ms) var(--t-motion-ease, ease), display var(--t-motion-duration, 650ms) allow-discrete, overlay var(--t-motion-duration, 650ms) allow-discrete; transform: translateY(-100%); }
@@ -75,8 +80,8 @@ ${panelCss("pfn", { cartFrom: "right", searchFrom: "full" })}
     menu(),
     text("brand", "Name when there is no logo", "Vera Hollis"),
     range("logo_width", "Logo width", 60, 220, 4, 120, "px"),
-    text("region_label", "Language and currency button", "Region"),
     text("account_label", "Account link", "Orders"),
+    scrollSetting("shrink"),
     ...chromeWords({ search_placeholder: "Search series and prints" }),
     scheme("site"),
   ],
@@ -505,9 +510,9 @@ export const footer = defineSection({
     <nav class="pfo__nav" aria-label="{{ settings.nav_label }}">{% for link in settings.menu.links %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}</nav>
   </div>
   <div class="pfo__row">
-    <form class="pfo__form" data-storelib-form="subscribe"><label for="pfo-e-{{ section.id }}">{{ settings.newsletter_label }}</label><input id="pfo-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}"><button type="submit">{{ settings.button_label }}</button></form>
-    <ul class="pfo__links">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}">{{ block.settings.label }}</a></li>{% endfor %}</ul>
-    ${prefs("pfo")}
+    <form class="pfo__form" data-storelib-form="subscribe"><label for="pfo-e-{{ section.id }}">{{ settings.newsletter_label }}</label><input id="pfo-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}" aria-describedby="pfo-err-{{ section.id }}"><button type="submit">{{ settings.button_label }}</button>${formStates("pfo-err-{{ section.id }}")}</form>
+    <ul class="pfo__links pfo-social" aria-label="{{ settings.social_label }}">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" aria-label="{{ block.settings.label }}">${socialIcon("block.settings.url")}</a></li>{% endfor %}</ul>
+    <div class="pfo__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("pfo")}{% endif %}${prefs("pfo", { up: true })}<a class="pfo-top" href="#">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div>
   </div>
   <p class="pfo__small">{{ settings.small_print }}</p>
 </footer>`,
@@ -525,6 +530,9 @@ export const footer = defineSection({
 .pfo__form button { min-height: 44px; padding: 0 4px; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
 .pfo__small { margin: 0; opacity: 0.6; }
 ${panelCss("pfo")}
+${footerBitsCss("pfo")}
+${formPolishCss("pfo")}
+.pfo__end { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 @container (min-width: 900px) { .pfo__row { grid-template-columns: minmax(0, 1fr) auto; align-items: center; } }`,
   settings: [
     menu("menu", "Footer menu", "footer"),
@@ -534,6 +542,12 @@ ${panelCss("pfo")}
     text("button_label", "Subscribe button", "Sign up"),
     text("small_print", "Small print", "All photographs by Vera Hollis. Please ask before using them."),
     text("nav_label", "Menu name (read aloud)", "Footer"),
+    text("email_error", "When the email is not right", "That email looks incomplete."),
+    text("thanks_text", "After signing up", "You are on the list. Thank you."),
+    text("social_label", "Social links (read aloud)", "Follow"),
+    check("show_payments", "Show card marks when the shop sells", true),
+    text("payments_label", "Card marks (read aloud)", "Ways to pay"),
+    text("top_label", "Back to top", "Back to top"),
     text("language_label", "Language", "Language"),
     text("currency_label", "Currency", "Currency"),
     scheme("site"),
@@ -674,12 +688,13 @@ export const contact = defineSection({
   <div class="pfx__grid">
     <div><h1 class="pfx__h">{{ settings.heading }}</h1><div class="pfx__text">{{ settings.text | raw }}</div><dl class="pfx__ways">{% for block in section.blocks %}<div data-block-id="{{ block.id }}"><dt>{{ block.settings.label }}</dt><dd>{% if block.settings.link %}<a href="{{ block.settings.link | url }}">{{ block.settings.value }}</a>{% else %}{{ block.settings.value }}{% endif %}</dd></div>{% endfor %}</dl></div>
     <form class="pfx__form" data-storelib-form="contact">
-      <label><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required></label>
-      <label><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required></label>
-      <label><span>{{ settings.when_label }}</span><input name="subject" type="text" maxlength="150"></label>
-      <label><span>{{ settings.message_label }}</span><textarea name="message" rows="5" maxlength="5000" required></textarea></label>
+      <label><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required placeholder="{{ settings.name_hint }}"></label>
+      <label><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required placeholder="{{ settings.email_hint }}"></label>
+      <label><span>{{ settings.when_label }}</span><input name="subject" type="text" maxlength="150" placeholder="{{ settings.subject_hint }}"></label>
+      <label><span>{{ settings.message_label }}</span><textarea name="message" rows="5" maxlength="5000" required placeholder="{{ settings.message_hint }}"></textarea></label>
       <button type="submit">{{ settings.send_label }}</button>
-    </form>
+    <p data-storelib-success hidden role="status">${icon("check", "", 18)}<span>{{ settings.thanks_text }}</span></p>
+      </form>
   </div>
 </section>`,
   style: `
@@ -696,7 +711,8 @@ export const contact = defineSection({
 .pfx__form label { display: grid; gap: 4px; ${SMALL} }
 .pfx__form input, .pfx__form textarea { min-height: 46px; padding: 8px 0; border: 0; border-bottom: 1px solid var(--s-text); background: none; color: inherit; font: inherit; font-size: 1rem; }
 .pfx__form button { justify-self: start; min-height: 50px; padding: 0 24px; border: 0; background: var(--s-text); color: var(--s-bg); font: inherit; cursor: pointer; }
-@container (min-width: 900px) { .pfx__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; } }`,
+@container (min-width: 900px) { .pfx__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; } }
+${formPolishCss("pfx")}`,
   settings: [
     text("heading", "Heading", "Ask about a date"),
     richtext("text", "Words", "<p>Tell me the date, the place and what the pictures are for. I answer within two days.</p>"),
@@ -704,6 +720,11 @@ export const contact = defineSection({
     text("email_label", "Email field", "Email"),
     text("when_label", "Date field", "Date and place"),
     text("message_label", "Message field", "What the pictures are for"),
+    text("name_hint", "Name hint", "Your name"),
+    text("email_hint", "Email hint", "name@example.com"),
+    text("subject_hint", "Subject hint", "What it is about"),
+    text("message_hint", "Message hint", "A few lines are plenty"),
+    text("thanks_text", "After sending", "Thank you. We will write back soon."),
     text("send_label", "Send button", "Send"),
     ...motion(),
     scheme("site"),

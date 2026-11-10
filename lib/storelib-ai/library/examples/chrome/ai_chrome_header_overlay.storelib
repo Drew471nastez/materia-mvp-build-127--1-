@@ -26,7 +26,7 @@ tags: chrome kit, header, transparent header, over hero, solid on scroll, sticky
     </nav>
     <div class="hov__tools">
       {% if settings.show_search %}<a class="hov__tool" href="{{ routes.search_url }}" data-storelib-search aria-label="{{ settings.search_label }}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.6"/></svg><span class="hov__word">{{ settings.search_label }}</span></a>{% endif %}
-      {% if settings.show_account %}<a class="hov__tool hov__wide" href="{{ routes.account_url }}">{{ settings.account_label }}</a>{% endif %}
+      {% if settings.show_account %}<a class="hov__tool hov__wide" href="{{ routes.account_url }}" aria-label="{{ settings.account_label }}"><span data-storelib-icon="user" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20.5c1.2-3.6 4-5.4 7.5-5.4s6.3 1.8 7.5 5.4"/></svg></span></a>{% endif %}
       <a class="hov__tool" href="{{ routes.cart_url }}" data-storelib-cart aria-label="{{ settings.cart_label }}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2L5 8z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 8a3 3 0 016 0" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span class="hov__word">{{ settings.cart_label }}</span><span class="hov__count" data-storelib-cart-count></span></a>
       <button class="hov__tool hov__burger" type="button" data-storelib-menu="{{ settings.menu.handle }}" aria-label="{{ settings.menu_label }}"><span class="hov__lines" aria-hidden="true"></span><span class="hov__word">{{ settings.menu_label }}</span></button>
     </div>
@@ -59,6 +59,7 @@ tags: chrome kit, header, transparent header, over hero, solid on scroll, sticky
 .hov__tools { display: flex; align-items: center; gap: 2px; }
 .hov__tool { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 0 8px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.9375rem; text-decoration: none; cursor: pointer; }
 .hov__wide { display: none; }
+.hov__tool > [data-storelib-icon] { display: inline-flex; }
 .hov[data-tools="icons"] .hov__word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .hov[data-tools="words"] .hov__tool svg { display: none; }
 .hov__count { min-width: 18px; padding: 0 5px; line-height: 18px; background: var(--s-accent); color: var(--s-bg); font-size: 0.75rem; text-align: center; font-variant-numeric: tabular-nums; }

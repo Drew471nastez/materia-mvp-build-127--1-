@@ -24,6 +24,7 @@
  * Pure strings. No React, no I/O.
  */
 import type { SectionInstance, BlockInstance } from "@/lib/website-builder/types"
+import { icon, iconButtonCss, localeChip, localeChipCss, scrollCss, type IconName } from "./kit/chrome-parts"
 import type { GenerateAspect, GeneratePurpose, ImageAspect, ImageSlotTarget, SiteTemplate, SlotGenerate, TemplateImageSlot } from "./types"
 
 /* ── schema settings ──────────────────────────────────────────────────── */
@@ -113,13 +114,13 @@ export function chromeWords(over: Partial<Record<string, string>> = {}): Setting
 /** The cart drawer: one panel the page fills with the site's one cart. */
 export function cartPanel(p: string, extraClass = ""): string {
   return `<aside class="${p}-cart${extraClass ? ` ${extraClass}` : ""}" data-storelib-cart-panel aria-label="{{ settings.cart_label }}">
-    <div class="${p}-cart__head"><p class="${p}-cart__title">{{ settings.cart_label }}</p><button class="${p}-x" type="button" data-storelib-cart-close>{{ settings.close_label }}</button></div>
+    <div class="${p}-cart__head"><p class="${p}-cart__title">{{ settings.cart_label }}</p><button class="${p}-x" type="button" data-storelib-cart-close aria-label="{{ settings.close_label }}">${icon("close", "", 22)}</button></div>
     <p class="${p}-cart__state" data-storelib-cart-empty>{{ settings.empty_text }}</p>
     <ul class="${p}-cart__lines" data-storelib-cart-lines>
       <li class="${p}-cart__line" data-storelib-cart-line hidden>
         <img class="${p}-cart__img" data-line-image alt="" width="72" height="90">
         <div class="${p}-cart__main"><a class="${p}-cart__name" data-line-url><span data-line-title></span></a><span class="${p}-cart__var" data-line-variant></span>
-          <div class="${p}-cart__qty"><button type="button" data-line-dec aria-label="{{ settings.less_label }}">-</button><span data-line-qty></span><button type="button" data-line-inc aria-label="{{ settings.more_label }}">+</button><button class="${p}-cart__rm" type="button" data-line-remove>{{ settings.remove_label }}</button></div>
+          <div class="${p}-cart__qty"><button type="button" data-line-dec aria-label="{{ settings.less_label }}">${icon("minus", "", 16)}</button><span data-line-qty></span><button type="button" data-line-inc aria-label="{{ settings.more_label }}">${icon("plus", "", 16)}</button><button class="${p}-cart__rm" type="button" data-line-remove>{{ settings.remove_label }}</button></div>
         </div>
         <span class="${p}-cart__price" data-line-price></span>
       </li>
@@ -135,8 +136,8 @@ export function cartPanel(p: string, extraClass = ""): string {
 export function searchPanel(p: string): string {
   return `<div class="${p}-search" data-storelib-search-panel role="dialog" aria-label="{{ settings.search_label }}">
     <div class="${p}-search__in">
-      <input class="${p}-search__input" type="search" data-storelib-search-input placeholder="{{ settings.search_placeholder }}" aria-label="{{ settings.search_label }}">
-      <button class="${p}-x" type="button" data-storelib-search-close>{{ settings.close_label }}</button>
+      <label class="${p}-search__field">${icon("search", `${p}-search__mark`, 22)}<input class="${p}-search__input" type="search" data-storelib-search-input placeholder="{{ settings.search_placeholder }}" aria-label="{{ settings.search_label }}"></label>
+      <button class="${p}-x" type="button" data-storelib-search-close aria-label="{{ settings.close_label }}">${icon("close", "", 22)}</button>
       <p class="${p}-search__state" data-storelib-search-loading hidden>{{ settings.loading_text }}</p>
       <p class="${p}-search__state" data-storelib-search-empty hidden>{{ settings.no_results_text }}</p>
       <ul class="${p}-search__results" data-storelib-search-results>
@@ -146,12 +147,36 @@ export function searchPanel(p: string): string {
   </div>`
 }
 
-/** Language and currency lists (hidden by the page on a one-language, one-currency site). */
-export function prefs(p: string): string {
-  return `<div class="${p}-prefs">
-      <div class="${p}-pref" data-storelib-locale-list><span class="${p}-pref__label">{{ settings.language_label }} <span class="${p}-pref__now" data-storelib-locale-current></span></span><button class="${p}-pref__opt" type="button" data-storelib-locale-option hidden><span data-option-label></span></button></div>
-      <div class="${p}-pref" data-storelib-currency-list><span class="${p}-pref__label">{{ settings.currency_label }} <span class="${p}-pref__now" data-storelib-currency-current></span></span><button class="${p}-pref__opt" type="button" data-storelib-currency-option hidden><span data-option-label></span></button></div>
-    </div>`
+/**
+ * Language and currency as one compact chip ("EN / EUR") opening a small
+ * panel with both lists (./kit/chrome-parts.ts), hidden by the page on a one
+ * language, one currency site. `where` keeps two chips in one section apart
+ * (the bar and the drawer); `up` opens the panel upwards (a footer, a drawer's
+ * foot).
+ */
+export function prefs(p: string, o: { where?: string; up?: boolean } = {}): string {
+  return localeChip(p, `${p}-loc${o.where ? `-${o.where}` : ""}-{{ section.id }}`, { up: o.up })
+}
+
+/** A round icon button (search, account, bag with its count, menu): the words are its aria-label. */
+export function toolButton(p: string, kind: "search" | "account" | "cart" | "menu", o: { cls?: string; target?: string } = {}): string {
+  const cls = `${p}-ib${o.cls ? ` ${o.cls}` : ""}`
+  const ic: Record<typeof kind, IconName> = { search: "search", account: "user", cart: "bag", menu: "menu" }
+  if (kind === "account") return `<a class="${cls}" href="{{ routes.account_url }}" aria-label="{{ settings.account_label }}">${icon("user")}</a>`
+  if (kind === "search") return `<button class="${cls}" type="button" data-storelib-search aria-label="{{ settings.search_label }}">${icon(ic.search)}</button>`
+  if (kind === "cart") return `<button class="${cls}" type="button" data-storelib-cart aria-label="{{ settings.cart_label }}">${icon("bag")}<span class="${p}-badge" data-storelib-cart-count></span></button>`
+  return `<button class="${cls}" type="button" popovertarget="${o.target}" aria-label="{{ settings.menu_label }}">${icon("menu")}</button>`
+}
+
+/** The header's scroll behaviour as a setting (static, sticky, shrink, hide going down). */
+export function scrollSetting(def: "static" | "sticky" | "shrink" | "hide"): Setting {
+  return select("scroll", "While scrolling", def, [["static", "Scrolls away"], ["sticky", "Stays at the top"], ["shrink", "Stays, and gets slimmer"], ["hide", "Hides going down, back going up"]])
+}
+
+/** The scroll behaviours for a header whose root is `.${p}`, bar `.${p}__bar`, logo `.${p}__logo`. */
+export function headerScrollCss(p: string, height = "64px"): string {
+  return `.${p}--static { position: relative; }
+${scrollCss(p, `${p}__bar`, `${p}__logo`, { height })}`
 }
 
 /** The mechanics of the panels: shut by default, open on data-open, still for reduced motion. Each template adds its own look. */
@@ -162,7 +187,9 @@ export function panelCss(p: string, o: { cartFrom?: "right" | "bottom" | "left";
 .${p}-cart { ${cart} display: flex; flex-direction: column; padding: 18px 20px; }
 .${p}-search { ${search} padding: 18px var(--theme-padding-x, 20px) 40px; }
 .${p}-search[data-open="true"], .${p}-cart[data-open="true"] { visibility: visible; opacity: 1; transform: none; transition-delay: 0s; }
-.${p}-x { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; cursor: pointer; }
+.${p}-x { display: inline-grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--s-border); border-radius: 999px; background: none; color: inherit; font: inherit; cursor: pointer; transition: transform 200ms ease, background-color 160ms ease; }
+.${p}-x:hover { background: color-mix(in srgb, currentColor 8%, transparent); transform: rotate(90deg); }
+.${p}-x > [data-storelib-icon], .${p}-cart__qty [data-storelib-icon] { display: inline-flex; }
 .${p}-cart__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .${p}-cart__title { margin: 0; font-family: var(--theme-font-heading), sans-serif; font-size: 1.5rem; color: var(--s-heading); }
 .${p}-cart__state, .${p}-search__state { margin: 8px 0; }
@@ -172,23 +199,25 @@ export function panelCss(p: string, o: { cartFrom?: "right" | "bottom" | "left";
 .${p}-cart__img { width: 72px; height: 90px; object-fit: cover; }
 .${p}-cart__name { color: inherit; }
 .${p}-cart__var { display: block; font-size: 0.875rem; opacity: 0.75; }
-.${p}-cart__qty { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
-.${p}-cart__qty button { min-width: 44px; min-height: 44px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; cursor: pointer; }
+.${p}-cart__qty { display: flex; align-items: center; gap: 4px; margin-top: 8px; }
+.${p}-cart__qty button { display: inline-grid; place-items: center; min-width: 40px; min-height: 40px; border: 1px solid var(--s-border); border-radius: 999px; background: none; color: inherit; font: inherit; cursor: pointer; }
 .${p}-cart__qty .${p}-cart__rm { min-width: 0; padding: 0 8px; border: 0; text-decoration: underline; }
 .${p}-cart__sub { display: flex; justify-content: space-between; margin: 14px 0; font-variant-numeric: tabular-nums; }
 .${p}-cart__go { width: 100%; min-height: 54px; border: 0; background: var(--s-btn); color: var(--s-btn-text); font: inherit; font-weight: 600; cursor: pointer; }
 .${p}-search__in { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; max-width: 980px; margin: 0 auto; }
-.${p}-search__input { min-width: 0; min-height: 56px; padding: 0 4px; border: 0; border-bottom: 2px solid currentColor; background: none; color: inherit; font: inherit; font-size: clamp(1.25rem, 1rem + 1.4vw, 2.25rem); }
+.${p}-search__field { display: flex; align-items: center; gap: 12px; min-width: 0; border-bottom: 2px solid color-mix(in srgb, currentColor 35%, transparent); transition: border-color 200ms ease; }
+.${p}-search__field:focus-within { border-bottom-color: var(--s-accent); }
+.${p}-search__mark { display: inline-flex; opacity: 0.6; }
+.${p}-search__input { flex: 1; min-width: 0; min-height: 56px; padding: 0 4px; border: 0; background: none; color: inherit; font: inherit; font-size: clamp(1.25rem, 1rem + 1.4vw, 2.25rem); }
+.${p}-search__input::placeholder { color: inherit; opacity: 0.45; }
+.${p}-search__input:focus { outline: none; }
 .${p}-search__state, .${p}-search__results { grid-column: 1 / -1; }
 .${p}-search__link { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: 4px 14px; padding: 10px 0; border-bottom: 1px solid var(--s-border); color: inherit; text-decoration: none; }
 .${p}-search__link img { grid-row: span 2; width: 64px; height: 80px; object-fit: cover; }
 .${p}-search__kind { grid-column: 2; font-size: 0.8125rem; opacity: 0.7; }
 .${p}-search__price { grid-column: 3; grid-row: 1; font-variant-numeric: tabular-nums; }
-.${p}-prefs { display: grid; gap: 12px; }
-.${p}-pref { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.${p}-pref__label { font-size: 0.875rem; }
-.${p}-pref__opt { min-height: 44px; padding: 0 12px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; cursor: pointer; }
-.${p}-pref__opt[aria-current="true"] { border-color: currentColor; background: var(--s-text); color: var(--s-bg); }
+${iconButtonCss(p)}
+${localeChipCss(p)}
 @media (prefers-reduced-motion: reduce) { .${p}-search, .${p}-cart { transition: none; } }`
 }
 

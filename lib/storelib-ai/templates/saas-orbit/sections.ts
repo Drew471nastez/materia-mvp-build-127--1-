@@ -8,8 +8,9 @@
  * numbers: plans come from the store's real products.
  */
 import {
-  BOX, cartPanel, check, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, productList, range, revealCss, richtext, scheme, searchPanel, select, spacing, text, textarea, url, vars,
+  BOX, cartPanel, check, chromeVars, chromeWords, defineSection, image, menu, motion, panelCss, prefs, toolButton, scrollSetting, headerScrollCss, productList, range, revealCss, richtext, scheme, searchPanel, select, spacing, text, textarea, url, vars,
 } from "../kit-b"
+import { footerBitsCss, formPolishCss, formStates, icon, paymentMarks, socialIcon } from "../kit/chrome-parts"
 
 const H = "font-family: var(--theme-font-heading), sans-serif; color: var(--s-heading);"
 const MONO = "font-family: var(--t-font-mono, ui-monospace), monospace;"
@@ -21,7 +22,7 @@ export const header = defineSection({
   kind: "header",
   summary: "Split header: wordmark, the main menu with mega panels, search, language and currency, account and cart; a bottom sheet menu on phones.",
   template: `
-<header class="swn" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
+<header class="swn swn--{{ settings.scroll }}" data-scheme="{{ settings.color_scheme }}" style="${chromeVars()}">
   <div class="swn__bar">
     <a class="swn__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="{{ settings.logo_width }}" height="32">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
     <nav class="swn__nav" aria-label="{{ settings.nav_label }}">
@@ -43,21 +44,17 @@ export const header = defineSection({
       </ul>
     </nav>
     <div class="swn__tools">
-      <button class="swn__tool swn__wide" type="button" popovertarget="swn-p-{{ section.id }}">{{ settings.region_label }}</button>
-      <button class="swn__tool" type="button" data-storelib-search>{{ settings.search_label }}</button>
-      <a class="swn__tool swn__wide" href="{{ routes.account_url }}">{{ settings.account_label }}</a>
-      <button class="swn__tool swn__cartbtn" type="button" data-storelib-cart>{{ settings.cart_label }} <span class="swn__count" data-storelib-cart-count></span></button>
+      ${prefs("swn")}
+      ${toolButton("swn", "search")}
+      ${toolButton("swn", "account", { cls: "swn__wide" })}
+      ${toolButton("swn", "cart")}
       {% if settings.cta_label %}<a class="swn__cta" href="{{ settings.cta_url | url }}">{{ settings.cta_label }}</a>{% endif %}
-      <button class="swn__tool swn__burger" type="button" popovertarget="swn-d-{{ section.id }}">{{ settings.menu_label }}</button>
+      ${toolButton("swn", "menu", { cls: "swn__burger", target: "swn-d-{{ section.id }}" })}
     </div>
   </div>
 
-  <div class="swn__region" id="swn-p-{{ section.id }}" popover>
-    ${prefs("swn")}
-  </div>
-
   <div class="swn__sheet" id="swn-d-{{ section.id }}" popover>
-    <div class="swn__sheet-head"><span class="swn__grab" aria-hidden="true"></span><button class="swn-x" type="button" popovertarget="swn-d-{{ section.id }}" popovertargetaction="hide">{{ settings.close_label }}</button></div>
+    <div class="swn__sheet-head"><span class="swn__grab" aria-hidden="true"></span><button class="swn-x" type="button" popovertarget="swn-d-{{ section.id }}" popovertargetaction="hide" aria-label="{{ settings.close_label }}">${icon("close", "", 22)}</button></div>
     <nav aria-label="{{ settings.nav_label }}">
       <ul class="swn__mlist">
         {% for link in settings.menu.links %}
@@ -69,7 +66,7 @@ export const header = defineSection({
     </nav>
     <a class="swn__macct" href="{{ routes.account_url }}">{{ settings.account_label }}</a>
     <ul class="swn__notes">{% for block in section.blocks %}<li data-block-id="{{ block.id }}">{% if block.settings.url %}<a href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>{% else %}{{ block.settings.text }}{% endif %}</li>{% endfor %}</ul>
-    ${prefs("swn")}
+    ${prefs("swn", { where: "d", up: true })}
   </div>
 
   ${searchPanel("swn")}
@@ -78,7 +75,7 @@ export const header = defineSection({
   style: `
 .swn__notes { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 0.875rem; }
 .swn__notes a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; }
-.swn { position: sticky; top: 0; z-index: 30; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
+.swn { position: relative; z-index: 30; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
 .swn__bar { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 0 var(--theme-padding-x, 20px); }
 .swn__logo { margin-right: auto; ${H} font-size: 1.25rem; font-weight: 800; letter-spacing: -0.04em; text-decoration: none; }
 .swn__logo img { display: block; max-height: 32px; width: auto; height: auto; }
@@ -106,6 +103,8 @@ export const header = defineSection({
 .swn__macct { display: inline-flex; min-height: 44px; align-items: center; margin-bottom: 14px; color: inherit; }
 .swn :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
 ${panelCss("swn", { cartFrom: "right", searchFrom: "full" })}
+${headerScrollCss("swn")}
+@container (max-width: 599px) { .swn__tools > .swn-loc { display: none; } }
 .swn-search { border-bottom: 1px solid var(--s-border); }
 .swn-search__input { ${H} font-weight: 700; letter-spacing: -0.03em; }
 .swn-cart { border-left: 1px solid var(--s-border); }
@@ -125,10 +124,10 @@ ${panelCss("swn", { cartFrom: "right", searchFrom: "full" })}
     text("brand", "Name when there is no logo", "Orbit"),
     range("logo_width", "Logo width", 60, 220, 4, 110, "px"),
     text("account_label", "Account link", "Sign in"),
-    text("region_label", "Language and currency button", "Region"),
     text("cta_label", "Button", "Get the app"),
     url("cta_url", "Button goes to", "/products"),
     text("mega_note", "Line under the big menu", "Every plan runs on Mac, Windows and Linux."),
+    scrollSetting("sticky"),
     ...chromeWords({ cart_label: "Cart", search_placeholder: "Search plans, guides and updates" }),
     scheme("site"),
   ],
@@ -693,21 +692,22 @@ export const footer = defineSection({
   <div class="swo__top">
     <form class="swo__form" data-storelib-form="subscribe">
       <label class="swo__label" for="swo-e-{{ section.id }}">{{ settings.newsletter_heading }}</label>
-      <div class="swo__row"><input class="swo__input" id="swo-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}"><button class="swo__go" type="submit">{{ settings.button_label }}</button></div>
-    </form>
+      <div class="swo__row"><input class="swo__input" id="swo-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}" aria-describedby="swo-err-{{ section.id }}"><button class="swo__go" type="submit">{{ settings.button_label }}</button></div>
+    ${formStates("swo-err-{{ section.id }}")}</form>
     <nav class="swo__cols" aria-label="{{ settings.nav_label }}">
-      {% for link in settings.menu.links %}
+      {% for link in settings.menu.links %}{% if link.links.size > 1 %}
         <div class="swo__col">
           <a class="swo__col-h" href="{{ link.url }}">{{ link.title }}</a>
-          {% if link.links.size > 0 %}<ul>{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul>{% endif %}
+          <ul>{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul>
         </div>
-      {% endfor %}
+      {% endif %}{% endfor %}
+      <div class="swo__col swo__col--flat"><ul>{% for link in settings.menu.links %}{% if link.links.size < 2 %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}{% endif %}{% endfor %}</ul></div>
     </nav>
   </div>
   <p class="swo__mark" aria-hidden="true">{{ settings.wordmark | default: shop.name }}</p>
   <div class="swo__base">
-    <ul class="swo__links">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}">{{ block.settings.label }}</a></li>{% endfor %}</ul>
-    ${prefs("swo")}
+    <ul class="swo__links swo-social" aria-label="{{ settings.social_label }}">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" aria-label="{{ block.settings.label }}">${socialIcon("block.settings.url")}</a></li>{% endfor %}</ul>
+    <div class="swo__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("swo")}{% endif %}${prefs("swo", { up: true })}<a class="swo-top" href="#">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div>
     <p class="swo__small">{{ settings.small_print }}</p>
   </div>
 </footer>`,
@@ -723,12 +723,17 @@ export const footer = defineSection({
 .swo__cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 .swo__col-h { display: inline-flex; min-height: 44px; align-items: center; font-weight: 700; color: inherit; text-decoration: none; }
 .swo__col ul { margin: 0; padding: 0; list-style: none; }
+.swo__col--flat ul:empty, .swo__col--flat:has(ul:empty) { display: none; }
+.swo__col--flat li a { opacity: 1; font-weight: 600; }
 .swo__col li a { display: inline-flex; min-height: 40px; align-items: center; color: inherit; opacity: 0.8; text-decoration: none; }
 .swo__col li a:hover { opacity: 1; text-decoration: underline; }
 .swo__mark { margin: 48px 0 20px; font-family: var(--theme-font-heading), sans-serif; font-size: 22cqi; font-weight: 900; line-height: 0.8; letter-spacing: -0.07em; color: var(--s-heading); white-space: nowrap; overflow: hidden; text-transform: lowercase; }
 .swo__base { display: grid; gap: 16px; padding-top: 18px; border-top: 1px solid var(--s-border); }
 .swo__small { margin: 0; font-size: 0.8125rem; opacity: 0.7; }
 ${panelCss("swo")}
+${footerBitsCss("swo")}
+${formPolishCss("swo")}
+.swo__end { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 @container (min-width: 900px) {
   .swo__top { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
   .swo__cols { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -742,6 +747,12 @@ ${panelCss("swo")}
     text("wordmark", "Giant word (empty uses the shop name)", "orbit"),
     text("small_print", "Small print", "Made for teams who ship every week."),
     text("nav_label", "Menu name (read aloud)", "Footer"),
+    text("email_error", "When the email is not right", "That email looks incomplete."),
+    text("thanks_text", "After signing up", "You are on the list. Thank you."),
+    text("social_label", "Social links (read aloud)", "Follow"),
+    check("show_payments", "Show card marks when the shop sells", true),
+    text("payments_label", "Card marks (read aloud)", "Ways to pay"),
+    text("top_label", "Back to top", "Back to top"),
     text("language_label", "Language", "Language"),
     text("currency_label", "Currency", "Currency"),
     scheme("site"),
@@ -922,11 +933,12 @@ export const contact = defineSection({
     </ul>
   </div>
   <form class="swx__form" data-storelib-form="contact">
-    <label class="swx__field"><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required></label>
-    <label class="swx__field"><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required></label>
-    <label class="swx__field"><span>{{ settings.message_label }}</span><textarea name="message" rows="6" maxlength="5000" required></textarea></label>
+    <label class="swx__field"><span>{{ settings.name_label }}</span><input name="name" type="text" autocomplete="name" maxlength="120" required placeholder="{{ settings.name_hint }}"></label>
+    <label class="swx__field"><span>{{ settings.email_label }}</span><input name="email" type="email" autocomplete="email" maxlength="254" required placeholder="{{ settings.email_hint }}"></label>
+    <label class="swx__field"><span>{{ settings.message_label }}</span><textarea name="message" rows="6" maxlength="5000" required placeholder="{{ settings.message_hint }}"></textarea></label>
     <button class="swx__send" type="submit">{{ settings.send_label }}</button>
-  </form>
+  <p data-storelib-success hidden role="status">${icon("check", "", 18)}<span>{{ settings.thanks_text }}</span></p>
+      </form>
   </div>
 </section>`,
   style: `
@@ -942,13 +954,18 @@ export const contact = defineSection({
 .swx__field { display: grid; gap: 6px; font-size: 0.9375rem; }
 .swx__field input, .swx__field textarea { min-height: 52px; padding: 12px 14px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; }
 .swx__send { justify-self: start; min-height: 54px; padding: 0 26px; border: 0; background: var(--s-btn); color: var(--s-btn-text); font: inherit; font-weight: 700; cursor: pointer; }
-@container (min-width: 900px) { .swx__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }`,
+@container (min-width: 900px) { .swx__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+${formPolishCss("swx")}`,
   settings: [
     text("heading", "Heading", "Talk to the people who build it"),
     richtext("text", "Text", "<p>Questions about plans, security or a migration. A person from the team answers within a working day.</p>"),
     text("name_label", "Name field", "Name"),
     text("email_label", "Email field", "Work email"),
     text("message_label", "Message field", "What can we help with?"),
+    text("name_hint", "Name hint", "Your name"),
+    text("email_hint", "Email hint", "name@example.com"),
+    text("message_hint", "Message hint", "A few lines are plenty"),
+    text("thanks_text", "After sending", "Thank you. We will write back soon."),
     text("send_label", "Send button", "Send"),
     ...motion(),
     scheme("site"),

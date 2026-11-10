@@ -271,14 +271,14 @@ const head = header({
   layout: "center",
   drawer: "sheet",
   cart: "side",
-  sticky: true,
+  scroll: "shrink",
   words: { brand: "Cafe", cart: "Bag", menu: "Menu", searchHint: "Search beans and gifts" },
   notices: ["Beans roasted this week are on the shelf", "Ask about bringing your own cup"],
   features: [
     { title: "Beans to take home", text: "Roasted this week", url: "/products" },
     { title: "Visit", text: "Hours and the address", url: "/contact" },
   ],
-  skin: `.hd__logo { font-weight: 800; letter-spacing: -0.04em; font-size: 1.75rem; } .hd__top { font-weight: 600; } .hd__count { border-radius: 999px; } .hd__drawer--sheet { border-radius: 22px 22px 0 0; } .hd__checkout { border-radius: 999px; }`,
+  skin: `.hd__logo { font-weight: 800; letter-spacing: -0.04em; font-size: 1.75rem; } .hd__top { font-weight: 600; } .hd__drawer--sheet { border-radius: 22px 22px 0 0; } .hd__checkout { border-radius: 999px; }`,
 })
 
 const foot = footer({
@@ -291,7 +291,7 @@ const foot = footer({
     { heading: "Shop", menu: "footer" },
   ],
   notes: [{ heading: "Hours", text: "<p>Weekdays 7 to 4, Saturday 8 to 5, Sunday 9 to 3.</p>" }],
-  skin: `.ft__h { font-weight: 800; letter-spacing: -0.04em; } .ft__row { border-radius: 999px; overflow: hidden; }`,
+  skin: `.ft__h { font-weight: 800; letter-spacing: -0.04em; } .ft-field__input, .ft-news__go { border-radius: 999px; }`,
 })
 
 const band = marquee({ type: `${P}band`, scheme: "site", items: ["Espresso", "Batch brew", "Out of the oven", "Beans to take home", "Long table by the window"], speed: 40, skin: `.mq__item { font-weight: 800; letter-spacing: -0.04em; }` })
