@@ -188,8 +188,8 @@ async function main() {
         && integrations.every((e) => ["video", "music", "calendly", "email_capture", "embed", "social_posts"].includes(e.type)))
     /* Changed on purpose (round AL): Sell is Commerce, and the courses are the Commerce shelf of courses (the single course block is found by search). */
     check("courses and coaching are in Commerce", ["shelf_course", "coaching", "course"].every((id) => PICKER_ENTRIES.find((e) => e.id === id)?.category === "commerce") && PICKER_ENTRIES.find((e) => e.id === "coaching")?.type === "calendly")
-    /* Changed on purpose (round AL): "reviews" now finds the Google reviews block first; the testimonials are found by their own name. */
-    check("search finds a block by what people call it", searchEntries(PICKER_ENTRIES, "newsletter")[0]?.type === "email_capture" && searchEntries(PICKER_ENTRIES, "reviews")[0]?.id === "app_google_reviews" && searchEntries(PICKER_ENTRIES, "testimonials")[0]?.id === "testimonials" && searchEntries(PICKER_ENTRIES, "spot")[0]?.label === "Spotify")
+    /* Changed on purpose (round AL): the testimonials are found by their own name. Changed on purpose (round AR): "reviews" finds the Reviews block (Storelib, Trustpilot or Google) first, Google reviews still listed. */
+    check("search finds a block by what people call it", searchEntries(PICKER_ENTRIES, "newsletter")[0]?.type === "email_capture" && searchEntries(PICKER_ENTRIES, "reviews")[0]?.id === "app_reviews" && searchEntries(PICKER_ENTRIES, "reviews").some((e) => e.id === "app_google_reviews") && searchEntries(PICKER_ENTRIES, "testimonials")[0]?.id === "testimonials" && searchEntries(PICKER_ENTRIES, "spot")[0]?.label === "Spotify")
     check("and nothing for words nothing has", searchEntries(PICKER_ENTRIES, "zzqx").length === 0)
     const picker = read("components/onepage/add-block-picker.tsx")
     check("the recent list is per browser, guarded, at most four", /localStorage\.getItem\(RECENT_KEY\)/.test(picker) && /\.slice\(0, 4\)/.test(picker) && (picker.match(/\} catch \{/g) ?? []).length >= 2)

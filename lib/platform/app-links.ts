@@ -107,7 +107,7 @@ export const APP_PATHS = [
  * whole) and the proxy's reserved paths.
  */
 export const WEB_ONLY_SEGMENTS = [
-  "_next", "access", "account", "account-deletion", "admin", "alternatives", "api", "app", "auth", "blog", "c", "checkout",
+  "_next", "access", "account", "account-deletion", "admin", "alternatives", "api", "app", "auth", "blog", "booking", "c", "checkout",
   "community", "cover-render", "creator-page", "creators", "dashboard", "developers", "downloads", "editions",
   "explore", "faq", "features", "feed", "help", "instagram-bio", "l", "legal", "library", "login", "logout", "marketplace", "media",
   "member", "native-start", "onboarding", "onepage-preview", "order-help", "p", "pay", "payouts-sheet", "pricing", "privacy", "products", "purchase",

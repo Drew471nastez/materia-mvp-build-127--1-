@@ -311,6 +311,8 @@ async function main() {
       "components/website-builder", "components/platform", "components/storefront", "components/product", "hooks",
     ]
     const ALLOWED: Record<string, { count: number; why: string }> = {
+      /* Round AR: OnePage paid access. */
+      "app/api/onepage/access/route.ts": { count: 1, why: "only the id, to confirm the product named by the published block is the page owner's; a buyer keeps access to what they bought even after it is unpublished, and nothing about the product is returned" },
       "app/api/reviews/route.ts": { count: 1, why: "a buyer writing a review of a product they have, whatever its status" },
       "app/api/reviews/stats/route.ts": { count: 1, why: "two numbers for a product page, which is a 404 when the product is not published" },
       "app/api/reviews/storefront/route.ts": { count: 1, why: "the signed in owner's own product, previewed in their builder's canvas, whatever its status" },

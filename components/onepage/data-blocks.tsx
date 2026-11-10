@@ -247,12 +247,12 @@ export function DataTipsView({ block, data: given, look }: Props) {
         <>
           <div role="radiogroup" aria-label={tt("Amount")} className="mt-3 grid grid-cols-4" style={{ gap: px(8, look.scale) }}>
             {presets.map((c) => (
-              <button key={c} type="button" role="radio" aria-checked={picked === c} onClick={() => { setPicked(c); setError(null) }} data-tip-amount={c} className="font-semibold tabular-nums transition-[background-color,color,transform] duration-150 active:scale-[0.97]" style={chip(picked === c)}>
+              <button key={c} type="button" role="radio" aria-checked={picked === c} onClick={() => { setPicked(c); setError(null) }} data-tip-amount={c} className="font-semibold tabular-nums transition-[background-color,color,scale] duration-150 active:scale-[0.97]" style={chip(picked === c)}>
                 {tipLabel(c, currency, locale)}
               </button>
             ))}
             {data.tip_custom ? (
-              <button type="button" role="radio" aria-checked={picked === "other"} onClick={() => { setPicked("other"); setError(null) }} data-tip-amount="other" className="font-semibold transition-[background-color,color,transform] duration-150 active:scale-[0.97]" style={chip(picked === "other")}>
+              <button type="button" role="radio" aria-checked={picked === "other"} onClick={() => { setPicked("other"); setError(null) }} data-tip-amount="other" className="font-semibold transition-[background-color,color,scale] duration-150 active:scale-[0.97]" style={chip(picked === "other")}>
                 {tt("Other")}
               </button>
             ) : null}
@@ -289,7 +289,7 @@ export function DataTipsView({ block, data: given, look }: Props) {
             onClick={send}
             disabled={busy}
             data-tip-send=""
-            className="mt-3 w-full font-semibold transition-[opacity,transform] duration-150 active:scale-[0.985] disabled:opacity-60"
+            className="mt-3 w-full font-semibold transition-[opacity,scale] duration-150 active:scale-[0.985] disabled:opacity-60"
             style={{ background: parts.ink, color: parts.paper, borderRadius: 999, minHeight: px(48, look.scale), fontSize: px(15, look.scale) }}
           >
             {busy ? tt("Opening checkout...") : cents !== null && allowed ? tt("Tip {amount}", { amount: tipLabel(cents, currency, locale) }) : tt("Tip")}
@@ -665,7 +665,7 @@ function RsvpForm({ blockId, look, title }: { blockId: string; look: AppBlockLoo
         {tt("Send me news by email too")}
       </label>
       {error ? <p className="text-[13px] font-medium text-[#b42318]" role="alert">{error}</p> : null}
-      <button type="submit" disabled={state === "busy"} className="h-12 rounded-full bg-[#111113] text-[15px] font-semibold text-white transition-[opacity,transform] duration-150 active:scale-[0.985] disabled:opacity-60">
+      <button type="submit" disabled={state === "busy"} className="h-12 rounded-full bg-[#111113] text-[15px] font-semibold text-white transition-[opacity,scale] duration-150 active:scale-[0.985] disabled:opacity-60">
         {state === "busy" ? tt("Saving...") : tt("RSVP")}
       </button>
     </form>
