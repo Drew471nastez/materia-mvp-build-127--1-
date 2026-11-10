@@ -73,7 +73,7 @@ export const header = defineSection({
 .sbn__acct { display: inline-flex; min-height: 44px; align-items: center; color: inherit; font-weight: 600; }
 .sbn :focus-visible { outline: 3px solid var(--s-accent); outline-offset: 2px; }
 ${panelCss("sbn", { cartFrom: "bottom", searchFrom: "top" })}
-${headerScrollCss("sbn")}
+${headerScrollCss("sbn", "sbn__util")}
 @container (max-width: 599px) { .sbn__tools > .sbn-loc { display: none; } }
 .sbn-cart { border-top: 2px solid var(--s-text); }
 .sbn-cart__go { background: var(--s-accent); color: var(--s-text); }
@@ -541,7 +541,7 @@ export const footer = defineSection({
     <form class="sbo__form" data-storelib-form="subscribe"><label for="sbo-e-{{ section.id }}">{{ settings.newsletter_label }}</label><div class="sbo__row"><input id="sbo-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}" aria-describedby="sbo-err-{{ section.id }}"><button type="submit">{{ settings.button_label }}</button></div>${formStates("sbo-err-{{ section.id }}")}</form>
   </div>
   <div class="sbo__base"><ul class="sbo__links sbo-social" aria-label="{{ settings.social_label }}">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" aria-label="{{ block.settings.label }}">${socialIcon("block.settings.url")}</a></li>{% endfor %}</ul>
-    <div class="sbo__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("sbo")}{% endif %}${prefs("sbo", { up: true })}<a class="sbo-top" href="#">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div><p class="sbo__small">{{ settings.small_print }}</p></div>
+    <div class="sbo__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("sbo")}{% endif %}${prefs("sbo", { up: true })}<a class="sbo-top" href="#" data-storelib-scroll="top">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div><p class="sbo__small">{{ settings.small_print }}</p></div>
 </footer>`,
   style: `
 .sbo__links { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
@@ -739,7 +739,7 @@ ${formPolishCss("sbx")}`,
     text("email_label", "Email field", "Email"),
     text("message_label", "Message field", "Message"),
     text("name_hint", "Name hint", "Your name"),
-    text("email_hint", "Email hint", "name@example.com"),
+    text("email_hint", "Email hint", "Your email address"),
     text("message_hint", "Message hint", "A few lines are plenty"),
     text("thanks_text", "After sending", "Thank you. We will write back soon."),
     text("send_label", "Send button", "Send"),

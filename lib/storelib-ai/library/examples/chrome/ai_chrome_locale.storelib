@@ -72,7 +72,7 @@ tags: chrome kit, compact chip, language selector, currency selector, locale swi
 .loc[data-align="end"] .loc__chip-row { justify-content: flex-end; }
 .loc-loc { position: relative; display: inline-flex; }
 .loc-loc:not(:has([data-storelib-locale-list]:not([hidden]) [data-storelib-locale-option]:not([hidden]), [data-storelib-currency-list]:not([hidden]) [data-storelib-currency-option]:not([hidden]))) { display: none; }
-.loc-loc__chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 1px solid transparent; border-radius: 999px; background: none; color: inherit; font: inherit; font-size: 0.8125rem; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; white-space: nowrap; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease; }
+.loc-loc__chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 1px solid transparent; border-radius: 999px; background: none; color: inherit; font: inherit; font-size: 0.8125rem; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease; }
 .loc-loc__chip:hover, .loc-loc__chip:focus-visible, .loc-loc:has(:popover-open) .loc-loc__chip { border-color: color-mix(in srgb, currentColor 28%, transparent); }
 .loc-loc__now:empty { display: none; }
 .loc-loc__now:empty + .loc-loc__sep, .loc-loc__sep:has(+ .loc-loc__now:empty) { display: none; }

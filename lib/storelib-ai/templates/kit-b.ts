@@ -174,9 +174,8 @@ export function scrollSetting(def: "static" | "sticky" | "shrink" | "hide"): Set
 }
 
 /** The scroll behaviours for a header whose root is `.${p}`, bar `.${p}__bar`, logo `.${p}__logo`. */
-export function headerScrollCss(p: string, height = "64px"): string {
-  return `.${p}--static { position: relative; }
-${scrollCss(p, `${p}__bar`, `${p}__logo`, { height })}`
+export function headerScrollCss(p: string, notes?: string): string {
+  return `.${p}--static { position: relative; }\n${scrollCss(p, `${p}__bar`, `${p}__logo`, { notes })}`
 }
 
 /** The mechanics of the panels: shut by default, open on data-open, still for reduced motion. Each template adds its own look. */

@@ -89,7 +89,7 @@ export const header = defineSection({
 .esn__photo { display: none; width: 100%; height: 100%; object-fit: cover; }
 .esn :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
 ${panelCss("esn", { cartFrom: "right", searchFrom: "top" })}
-${headerScrollCss("esn", "76px")}
+${headerScrollCss("esn")}
 @container (max-width: 599px) { .esn__tools > .esn-loc { display: none; } }
 .esn-search, .esn-cart { color: var(--s-text); }
 .esn-cart__title { font-weight: 300; }
@@ -596,7 +596,7 @@ export const footer = defineSection({
   </div>
   <p class="eso__name" aria-hidden="true">{{ settings.wordmark | default: shop.name }}</p>
   <div class="eso__base"><ul class="eso__links eso-social" aria-label="{{ settings.social_label }}">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" aria-label="{{ block.settings.label }}">${socialIcon("block.settings.url")}</a></li>{% endfor %}</ul>
-    <div class="eso__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("eso")}{% endif %}${prefs("eso", { up: true })}<a class="eso-top" href="#">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div><p class="eso__small">{{ settings.small_print }}</p></div>
+    <div class="eso__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("eso")}{% endif %}${prefs("eso", { up: true })}<a class="eso-top" href="#" data-storelib-scroll="top">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div><p class="eso__small">{{ settings.small_print }}</p></div>
 </footer>`,
   style: `
 .eso__links { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
@@ -831,7 +831,7 @@ ${formPolishCss("esx")}`,
     text("dates_label", "Dates field", "Dates you have in mind"),
     text("message_label", "Message field", "Anything we should know"),
     text("name_hint", "Name hint", "Your name"),
-    text("email_hint", "Email hint", "name@example.com"),
+    text("email_hint", "Email hint", "Your email address"),
     text("subject_hint", "Subject hint", "What it is about"),
     text("message_hint", "Message hint", "A few lines are plenty"),
     text("thanks_text", "After sending", "Thank you. We will write back soon."),

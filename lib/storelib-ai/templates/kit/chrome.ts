@@ -106,7 +106,7 @@ const headerStyle = `
 .hd__feat-media img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 700ms cubic-bezier(0.2, 0.7, 0.1, 1); }
 .hd__feat-title { font-family: var(--theme-font-heading), sans-serif; font-size: 1.125rem; color: var(--s-heading); }
 .hd__feat-text { font-size: 0.875rem; color: var(--s-muted); }
-.hd__prods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.hd__prods { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
 .hd__prod a { display: grid; gap: 6px; text-decoration: none; }
 .hd__prod-media { display: block; aspect-ratio: 1; overflow: hidden; border-radius: var(--sl-image-radius, 0); background: var(--s-surface); }
 .hd__prod-media img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 700ms cubic-bezier(0.2, 0.7, 0.1, 1); }
@@ -179,7 +179,7 @@ details[open] > .hd__msum [data-storelib-icon] { transform: rotate(45deg); }
 .hd :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
 ${iconButtonCss("hd")}
 ${localeChipCss("hd")}
-${scrollCss("hd", "hd__bar", "hd__logo")}
+${scrollCss("hd", "hd__bar", "hd__logo", { notes: "hd__notes" })}
 @container (max-width: 599px) { .hd__tools > .hd-loc { display: none; } }
 @container (max-width: 959px) {
   .hd--dock .hd__bar { grid-template-columns: minmax(0, 1fr) auto; }
@@ -256,7 +256,7 @@ ${Array.from({ length: 8 }, (_, i) => `  .hd__mlist > li:nth-child(${i + 1}) { -
 
 function headerTemplate(): string {
   const feature = (cls: string) => `{% for block in section.blocks %}{% if block.type == "feature" %}<a class="hd__feat ${cls}" href="{{ block.settings.url | url }}" {{ block.shopify_attributes }}>{% if block.settings.image %}<span class="hd__feat-media"><img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" width="480" height="600" loading="lazy"></span>{% endif %}<span class="hd__feat-title">{{ block.settings.title }}</span>{% if block.settings.text %}<span class="hd__feat-text">{{ block.settings.text }}</span>{% endif %}</a>{% endif %}{% endfor %}`
-  const prod = `<li class="hd__prod"><a href="{{ p.url }}"><span class="hd__prod-media">{% if p.image %}<img src="{{ p.image | asset }}" alt="{{ p.title }}" width="300" height="300" loading="lazy">{% endif %}</span><span class="hd__prod-name">{{ p.title }}</span><span class="hd__prod-price">{{ p.price }}</span></a></li>`
+  const prod = `<li class="hd__prod"><a href="{{ p.url | default: routes.products_url }}"><span class="hd__prod-media">{% if p.image %}<img src="{{ p.image | asset }}" alt="{{ p.title }}" width="300" height="300" loading="lazy">{% endif %}</span><span class="hd__prod-name">{{ p.title }}</span><span class="hd__prod-price">{{ p.price }}</span></a></li>`
   return `
 <header class="hd hd--{{ settings.layout }} hd--{{ settings.scroll }}{% if settings.overlay %} hd--overlay{% endif %}{% if settings.phone_bar %} hd--dock{% endif %}" ${rootAttrs({ spacing: false })}>
   {% if settings.show_notices %}
@@ -532,7 +532,7 @@ function footerTemplate(): string {
     <div class="ft__base-end">
       {% if settings.show_payments and products.size > 0 %}${paymentMarks("ft")}{% endif %}
       ${localeChip("ft", "ft-loc-{{ section.id }}", { up: true })}
-      <a class="ft-top" href="#">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a>
+      <a class="ft-top" href="#" data-storelib-scroll="top">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a>
     </div>
   </div>
 </footer>`
@@ -559,7 +559,7 @@ export function footer(o: FooterOptions): ComponentDef {
       s.inline("news_heading", "Heading", o.words.newsHeading),
       s.rich("news_text", "Text", o.words.newsText),
       s.text("email_label", "Email label", o.words.email ?? "Your email"),
-      s.text("email_placeholder", "Email hint", o.words.emailHint ?? "name@example.com"),
+      s.text("email_placeholder", "Email hint", o.words.emailHint ?? "Your email address"),
       s.text("email_error", "When the email is not right", o.words.emailError ?? "That email looks incomplete."),
       s.text("subscribe_label", "Button", o.words.subscribe ?? "Sign up"),
       s.text("thanks_text", "After signing up", o.words.thanks ?? "You are on the list. Thank you."),

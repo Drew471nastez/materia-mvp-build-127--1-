@@ -707,7 +707,7 @@ export const footer = defineSection({
   <p class="swo__mark" aria-hidden="true">{{ settings.wordmark | default: shop.name }}</p>
   <div class="swo__base">
     <ul class="swo__links swo-social" aria-label="{{ settings.social_label }}">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" aria-label="{{ block.settings.label }}">${socialIcon("block.settings.url")}</a></li>{% endfor %}</ul>
-    <div class="swo__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("swo")}{% endif %}${prefs("swo", { up: true })}<a class="swo-top" href="#">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div>
+    <div class="swo__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("swo")}{% endif %}${prefs("swo", { up: true })}<a class="swo-top" href="#" data-storelib-scroll="top">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div>
     <p class="swo__small">{{ settings.small_print }}</p>
   </div>
 </footer>`,
@@ -963,7 +963,7 @@ ${formPolishCss("swx")}`,
     text("email_label", "Email field", "Work email"),
     text("message_label", "Message field", "What can we help with?"),
     text("name_hint", "Name hint", "Your name"),
-    text("email_hint", "Email hint", "name@example.com"),
+    text("email_hint", "Email hint", "Your email address"),
     text("message_hint", "Message hint", "A few lines are plenty"),
     text("thanks_text", "After sending", "Thank you. We will write back soon."),
     text("send_label", "Send button", "Send"),

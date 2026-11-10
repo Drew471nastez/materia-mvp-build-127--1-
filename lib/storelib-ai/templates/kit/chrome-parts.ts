@@ -104,36 +104,48 @@ export const NO_HOST_STATE = ":not(:is([data-scrolled], [data-scrolled] *))"
  * The header's scroll behaviours on root class `root` (the element the
  * modifier classes sit on):
  *   .<root>--sticky   stays at the top
- *   .<root>--shrink   stays, and its bar gets shorter once scrolled
+ *   .<root>--shrink   stays, and draws slimmer once scrolled (the logo
+ *                     scales and the bar rises: transforms only, no layout)
  *   .<root>--hide     stays, slides away going down and back going up
  *   .<root>--overlay  see-through over the first section, solid once scrolled
- * The bar is `bar`, the logo `logo`. The solid colour is var(--s-bg).
+ * A notice line above the bar (`notes`) scrolls away, the bar stays. The
+ * solid colour is a layer under the bar (::before) that fades in, so
+ * nothing but opacity and transform ever moves.
  */
-export function scrollCss(root: string, bar: string, logo: string, opts: { height?: string; shrunk?: string } = {}): string {
-  const h = opts.height ?? "var(--hd-h, 72px)"
-  const small = opts.shrunk ?? "56px"
+export function scrollCss(root: string, bar: string, logo: string, opts: { notes?: string } = {}): string {
   const r = `.${root}`
+  const lift = "var(--hd-lift, 10px)"
+  /* Never a transform on the root: it would become the containing block of the fixed cart, search and drawer panels inside it. */
+  const moving = `${r} .${bar}${opts.notes ? `, ${r} .${opts.notes}` : ""}, ${r}::before`
   return `
-${r}--sticky, ${r}--shrink, ${r}--hide { position: sticky; top: 0; }
-${r} { transition: background-color var(--t-motion-hover, 220ms) ease, box-shadow var(--t-motion-hover, 220ms) ease, transform calc(var(--t-motion-duration, 450ms) * 0.8) var(--t-motion-ease, cubic-bezier(0.2, 0.7, 0.1, 1)); }
-${r} .${bar} { transition: min-height calc(var(--t-motion-duration, 450ms) * 0.6) var(--t-motion-ease, ease); }
+${r}--sticky, ${r}--shrink, ${r}--hide { position: sticky; top: calc(-1 * var(--hd-notes-h, 0px)); }
+${opts.notes ? `${r}:has(.${opts.notes}) { --hd-notes-h: 37px; }` : ""}
+${r} { isolation: isolate; }
+${r}::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--s-bg); box-shadow: 0 1px 0 var(--s-border), 0 12px 30px -20px rgb(0 0 0 / 0.4); opacity: 0; pointer-events: none; }
+${moving} { transition: transform calc(var(--t-motion-duration, 450ms) * 0.7) var(--t-motion-ease, cubic-bezier(0.2, 0.7, 0.1, 1)), opacity var(--t-motion-hover, 220ms) ease; }
 ${r} .${logo} { transition: transform calc(var(--t-motion-duration, 450ms) * 0.6) var(--t-motion-ease, ease); transform-origin: left center; }
 ${r}--overlay { background: transparent; }
-${r}--overlay:is(${SCROLLED}), ${r}--overlay:is(${ON("data-over-hero", "false")}) { background: var(--s-bg); box-shadow: 0 1px 0 var(--s-border); }
-${r}--overlay:is(${OVER_HERO}):not(:is(${SCROLLED})) { background: transparent; box-shadow: none; }
-${r}:is(${SCROLLED}):not(${r}--overlay) { box-shadow: 0 1px 0 var(--s-border), 0 10px 30px -18px rgb(0 0 0 / 0.35); }
-${r}--shrink:is(${SCROLLED}) .${bar} { min-height: ${small}; }
+${r}:is(${SCROLLED})::before, ${r}--overlay:is(${ON("data-over-hero", "false")})::before { opacity: 1; }
+${r}--overlay:is(${OVER_HERO}):not(:is(${SCROLLED}))::before { opacity: 0; }
+${r}--shrink:is(${SCROLLED})::before { transform: translateY(calc(-1 * ${lift})); }
+${r}--shrink:is(${SCROLLED}) .${bar} { transform: translateY(calc(-1 * ${lift} / 2)); }
 ${r}--shrink:is(${SCROLLED}) .${logo} { transform: scale(0.86); }
-${r}--hide:is(${SCROLLED}):is(${GOING_DOWN}):not(:focus-within):not(:has(:popover-open)) { transform: translateY(-100%); }
+${r}--hide:is(${SCROLLED}):is(${GOING_DOWN}):not(:focus-within):not(:has(:popover-open, [data-open="true"])) { pointer-events: none; }
+${r}--hide:is(${SCROLLED}):is(${GOING_DOWN}):not(:focus-within):not(:has(:popover-open, [data-open="true"])) :is(.${bar}${opts.notes ? `, .${opts.notes}` : ""}) { transform: translateY(-100%); }
+${r}--hide:is(${SCROLLED}):is(${GOING_DOWN}):not(:focus-within):not(:has(:popover-open, [data-open="true"]))::before { transform: translateY(-100%); }
 @supports (animation-timeline: scroll()) {
   @media (prefers-reduced-motion: no-preference) {
-    ${r}--overlay${NO_HOST_STATE} { animation: hd-solid linear both; animation-timeline: scroll(root); animation-range: 0 120px; }
-    ${r}--shrink${NO_HOST_STATE} .${bar} { animation: hd-shrink linear both; animation-timeline: scroll(root); animation-range: 0 160px; }
+    ${r}${NO_HOST_STATE}:is(${r}--sticky, ${r}--shrink, ${r}--hide, ${r}--overlay)::before { animation: hd-solid linear both; animation-timeline: scroll(root); animation-range: 0 120px; }
+    ${r}--shrink${NO_HOST_STATE}::before { animation: hd-solid-lift linear both; animation-timeline: scroll(root); animation-range: 0 160px; }
+    ${r}--shrink${NO_HOST_STATE} .${bar} { animation: hd-drop linear both; animation-timeline: scroll(root); animation-range: 0 160px; }
+    ${r}--shrink${NO_HOST_STATE} .${logo} { animation: hd-small linear both; animation-timeline: scroll(root); animation-range: 0 160px; }
   }
 }
-@keyframes hd-solid { from { background-color: transparent; } to { background-color: var(--s-bg); color: var(--s-text); box-shadow: 0 1px 0 var(--s-border); } }
-@keyframes hd-shrink { from { min-height: ${h}; } to { min-height: ${small}; } }
-@media (prefers-reduced-motion: reduce) { ${r}, ${r} .${bar}, ${r} .${logo} { transition: none; } ${r}--hide { transform: none !important; } }`
+@keyframes hd-solid { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hd-solid-lift { from { opacity: 0; } to { opacity: 1; transform: translateY(calc(-1 * ${lift})); } }
+@keyframes hd-drop { to { transform: translateY(calc(-1 * ${lift} / 2)); } }
+@keyframes hd-small { to { transform: scale(0.86); } }
+@media (prefers-reduced-motion: reduce) { ${moving}, ${r} .${logo} { transition: none; } ${r}--hide :is(.${bar}${opts.notes ? `, .${opts.notes}` : ""}), ${r}--hide::before { transform: none !important; } }`
 }
 
 /* ── language and currency: one chip, one small panel ─────────────────── */
@@ -161,7 +173,7 @@ export function localeChipCss(p: string): string {
   return `
 .${p}-loc { position: relative; display: inline-flex; }
 .${p}-loc:not(${has}) { display: none; }
-.${p}-loc__chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 1px solid transparent; border-radius: 999px; background: none; color: inherit; font: inherit; font-size: 0.8125rem; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; white-space: nowrap; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease; }
+.${p}-loc__chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 1px solid transparent; border-radius: 999px; background: none; color: inherit; font: inherit; font-size: 0.8125rem; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease; }
 .${p}-loc__chip:hover, .${p}-loc__chip:focus-visible, .${p}-loc:has(:popover-open) .${p}-loc__chip { border-color: color-mix(in srgb, currentColor 28%, transparent); }
 .${p}-loc__now:empty { display: none; }
 .${p}-loc__now:empty + .${p}-loc__sep, .${p}-loc__sep:has(+ .${p}-loc__now:empty) { display: none; }

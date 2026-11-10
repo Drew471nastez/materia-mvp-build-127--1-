@@ -512,7 +512,7 @@ export const footer = defineSection({
   <div class="pfo__row">
     <form class="pfo__form" data-storelib-form="subscribe"><label for="pfo-e-{{ section.id }}">{{ settings.newsletter_label }}</label><input id="pfo-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}" aria-describedby="pfo-err-{{ section.id }}"><button type="submit">{{ settings.button_label }}</button>${formStates("pfo-err-{{ section.id }}")}</form>
     <ul class="pfo__links pfo-social" aria-label="{{ settings.social_label }}">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" aria-label="{{ block.settings.label }}">${socialIcon("block.settings.url")}</a></li>{% endfor %}</ul>
-    <div class="pfo__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("pfo")}{% endif %}${prefs("pfo", { up: true })}<a class="pfo-top" href="#">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div>
+    <div class="pfo__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("pfo")}{% endif %}${prefs("pfo", { up: true })}<a class="pfo-top" href="#" data-storelib-scroll="top">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div>
   </div>
   <p class="pfo__small">{{ settings.small_print }}</p>
 </footer>`,
@@ -721,7 +721,7 @@ ${formPolishCss("pfx")}`,
     text("when_label", "Date field", "Date and place"),
     text("message_label", "Message field", "What the pictures are for"),
     text("name_hint", "Name hint", "Your name"),
-    text("email_hint", "Email hint", "name@example.com"),
+    text("email_hint", "Email hint", "Your email address"),
     text("subject_hint", "Subject hint", "What it is about"),
     text("message_hint", "Message hint", "A few lines are plenty"),
     text("thanks_text", "After sending", "Thank you. We will write back soon."),

@@ -71,7 +71,7 @@ export const header = defineSection({
 .ccn__acct { display: inline-flex; min-height: 44px; align-items: center; margin-bottom: 12px; color: inherit; }
 .ccn :focus-visible { outline: 3px solid var(--s-accent); outline-offset: 2px; }
 ${panelCss("ccn", { cartFrom: "right", searchFrom: "top" })}
-${headerScrollCss("ccn")}
+${headerScrollCss("ccn", "ccn__notice")}
 .ccn__wide { display: none; }
 @container (max-width: 599px) { .ccn__tools > .ccn-loc { display: none; } }
 .ccn-search { box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08); }
@@ -555,7 +555,7 @@ export const footer = defineSection({
   <div class="cco2__base">
     <nav class="cco2__nav" aria-label="{{ settings.nav_label }}">{% for link in settings.menu.links %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}</nav>
     <ul class="cco2__links cco2-social" aria-label="{{ settings.social_label }}">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" aria-label="{{ block.settings.label }}">${socialIcon("block.settings.url")}</a></li>{% endfor %}</ul>
-    <div class="cco2__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("cco2")}{% endif %}${prefs("cco2", { up: true })}<a class="cco2-top" href="#">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div>
+    <div class="cco2__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("cco2")}{% endif %}${prefs("cco2", { up: true })}<a class="cco2-top" href="#" data-storelib-scroll="top">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div>
     <p class="cco2__small">{{ settings.small_print }}</p>
   </div>
 </footer>`,
@@ -753,7 +753,7 @@ ${formPolishCss("ccm")}`,
     text("email_label", "Email field", "Email"),
     text("message_label", "Message field", "Your question"),
     text("name_hint", "Name hint", "Your name"),
-    text("email_hint", "Email hint", "name@example.com"),
+    text("email_hint", "Email hint", "Your email address"),
     text("message_hint", "Message hint", "A few lines are plenty"),
     text("thanks_text", "After sending", "Thank you. We will write back soon."),
     text("send_label", "Send button", "Send"),

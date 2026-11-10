@@ -509,7 +509,7 @@ export const footer = defineSection({
     <nav class="ago__nav" aria-label="{{ settings.nav_label }}">{% for link in settings.menu.links %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}</nav>
     <form class="ago__form" data-storelib-form="subscribe"><label for="ago-e-{{ section.id }}">{{ settings.newsletter_label }}</label><div class="ago__row"><input id="ago-e-{{ section.id }}" type="email" name="email" autocomplete="email" required placeholder="{{ settings.email_placeholder }}" aria-describedby="ago-err-{{ section.id }}"><button type="submit">{{ settings.button_label }}</button></div>${formStates("ago-err-{{ section.id }}")}</form>
     <ul class="ago__links ago-social" aria-label="{{ settings.social_label }}">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" aria-label="{{ block.settings.label }}">${socialIcon("block.settings.url")}</a></li>{% endfor %}</ul>
-    <div class="ago__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("ago")}{% endif %}${prefs("ago", { up: true })}<a class="ago-top" href="#">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div>
+    <div class="ago__end">{% if settings.show_payments and products.size > 0 %}${paymentMarks("ago")}{% endif %}${prefs("ago", { up: true })}<a class="ago-top" href="#" data-storelib-scroll="top">{{ settings.top_label }}${icon("arrow-up", "", 18)}</a></div>
     <p class="ago__small">{{ settings.small_print }}</p>
   </div>
 </footer>`,
@@ -722,7 +722,7 @@ ${formPolishCss("agx")}`,
     text("budget_label", "Budget field", "Budget and deadline"),
     text("message_label", "Message field", "The project"),
     text("name_hint", "Name hint", "Your name"),
-    text("email_hint", "Email hint", "name@example.com"),
+    text("email_hint", "Email hint", "Your email address"),
     text("subject_hint", "Subject hint", "What it is about"),
     text("message_hint", "Message hint", "A few lines are plenty"),
     text("thanks_text", "After sending", "Thank you. We will write back soon."),
