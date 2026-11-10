@@ -12971,7 +12971,13 @@ const words: Record<string, string> = {
  "Opening the website builder": "Abriendo el editor web",
  "New website": "Nuevo sitio web",
  "Setting up your website": "Preparando tu sitio web",
- "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Creado con las secciones del tema. El nuevo creador con IA aún no está activo en tu cuenta."
+ "Built from the theme's sections. The new AI builder isn't on for your account yet.": "Creado con las secciones del tema. El nuevo creador con IA aún no está activo en tu cuenta.",
+ "You aren't selling physical products": "No vendes productos físicos",
+ "Order, shipping, pickup and return emails go to your buyers automatically once you sell something you ship.": "Los emails de pedido, envío, recogida y devolución llegan a tus compradores automáticamente en cuanto vendas algo que envíes.",
+ "You don't have any communities": "No tienes ninguna comunidad",
+ "Welcome, invite, event ticket and paid plan emails go to your members automatically once you start a community.": "Los emails de bienvenida, invitación, entradas a eventos y planes de pago llegan a tus miembros automáticamente en cuanto crees una comunidad.",
+ "A preview: these go out once you sell something you ship.": "Una vista previa: se envían en cuanto vendas algo que envíes.",
+ "Preview the emails anyway": "Ver los emails de todos modos"
 }
 
 export default words

@@ -32,6 +32,11 @@ type Db = any
  *   copy         the store's own words for any email it changed
  *   communities  the owner's communities, whose emails are in the same list
  *   reminder     whether the checkout reminder is on (Settings › Checkout)
+ *   sells        { physical, communitiesOn }: whether the store has a product
+ *                it ships (null when it could not be read) and whether
+ *                communities are on for Storelib, so a family it does not
+ *                use says so instead of listing emails that never go out
+ *                (lib/emails/family-use.ts)
  *
  *   GET                      all of the above
  *   GET ?lang=fr             { language }: the email words in one published language, for a preview in it
@@ -51,7 +56,8 @@ export async function GET(request: Request) {
     const language = await emailLanguageFor(c.creatorId, asked).catch(() => ({ lang: "en", words: {}, own: true }))
     return physicalJson({ language })
   }
-  const [identity, store, selling, copy, ready, look, website, languages, language, checkout, communities] = await Promise.all([
+  const communitiesOn = await communitiesEnabled().catch(() => false)
+  const [identity, store, selling, copy, ready, look, website, languages, language, checkout, communities, physical] = await Promise.all([
     resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
     storeIdentity(db, c.creatorId).catch(() => null),
     /* The store's selling currency, the one its customer emails are written in (never the payout currency). */
@@ -64,7 +70,8 @@ export async function GET(request: Request) {
     websiteEmailLanguages(c.creatorId),
     emailLanguageFor(c.creatorId, null).catch(() => ({ lang: "en", words: {}, own: true })),
     loadCheckoutConfig(db, c.creatorId).catch(() => null),
-    ownCommunities(db, c.creatorId),
+    communitiesOn ? ownCommunities(db, c.creatorId) : [],
+    sellsPhysical(db, c.creatorId),
   ])
   return physicalJson({
     shop: {
@@ -84,13 +91,29 @@ export async function GET(request: Request) {
     ready,
     reminder: checkout ? checkout.abandonedRecovery : null,
     communities,
+    sells: { physical, communitiesOn },
   })
 }
 
-/** The owner's communities, by name, while communities are on. A read that fails lists none. */
+/**
+ * Whether the store has any product it ships, in any state (a draft is a
+ * store setting up; an archived one can still have orders on their way).
+ * One indexed row at most, the caller's own store only. A failed read is
+ * null: the list is then shown as it always was.
+ */
+async function sellsPhysical(db: Db, creatorId: string): Promise<boolean | null> {
+  try {
+    const r = await db.from("products").select("id").eq("creator_id", creatorId).eq("type", "physical").limit(1)
+    if (r.error) return null
+    return Array.isArray(r.data) && r.data.length > 0
+  } catch {
+    return null
+  }
+}
+
+/** The owner's communities, by name (asked only while communities are on). A read that fails lists none. */
 async function ownCommunities(db: Db, creatorId: string): Promise<Array<{ id: string; name: string; slug: string }>> {
   try {
-    if (!(await communitiesEnabled())) return []
     const first = await db.from("communities").select("id, name, slug").eq("creator_id", creatorId).is("deleted_at", null).order("name")
     const read = first.error ? await db.from("communities").select("id, name, slug").eq("creator_id", creatorId).order("name") : first
     if (read.error) return []

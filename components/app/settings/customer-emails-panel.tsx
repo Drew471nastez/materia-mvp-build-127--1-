@@ -48,7 +48,8 @@ import * as React from "react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { BTN_GHOST, Card, SaveButton, FIELD, Field, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
+import { Package, Users } from "lucide-react"
+import { BTN_GHOST, BTN_PRIMARY, Card, SaveButton, FIELD, Field, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
 import { Switch } from "@/components/ui/switch"
@@ -59,6 +60,7 @@ import { CommunityEmails, type CommunityRef } from "@/components/app/emails/comm
 import { CommunityAutomations } from "@/components/app/emails/community-automations"
 import { EmailRow, PHONE_SHEET_HEIGHT, PaneSwitch, PreviewFrame, languageName, sentLine } from "@/components/app/emails/email-parts"
 import { FAMILY_NAMES, GROUP_NAMES, GROUP_ORDER, emailsOf, type CustomerEmail, type EmailFamily } from "@/lib/emails/customer-list"
+import { FAMILY_EMPTY, familyPlan, type FamilyUse } from "@/lib/emails/family-use"
 import type { PreviewShop } from "@/lib/emails/customer-catalog"
 import { ShimmerBlock } from "@/components/ui/shimmer"
 import { COPY_FIELDS, COPY_LIMITS, DEFAULT_COPY, pickCopy, placeholdersFor, readCopy, type CopyField, type CustomerEmailsCopy, type EmailCopy, type EmailWords } from "@/lib/emails/customer-custom"
@@ -71,8 +73,8 @@ import { activityFrom, customerEmailsFrom, wordsInFrom } from "@/lib/emails/shap
 
 export const CUSTOMER_EMAILS_PATH = "/api/store/emails"
 const ACTIVITY_PATH = "/api/store/emails/activity"
-/* Settings' section fade (app/globals.css .settings-panel), on the family list. */
-const VIEW_FADE_MS = 160
+/* A family section a press brings in eases in this fast; wave 9 holds every /app switch to 150ms at most (was Settings' 160). */
+const VIEW_FADE_MS = 150
 
 export interface CustomerEmailsShop extends PreviewShop {
   name: string
@@ -105,6 +107,8 @@ export interface CustomerEmailsData {
   /** Settings › Checkout › Send a checkout reminder; null when it could not be read. */
   reminder?: boolean | null
   communities?: CommunityRef[]
+  /** Whether the store ships anything and communities are on (lib/emails/family-use.ts); missing from an older answer. */
+  sells?: FamilyUse
 }
 
 const FALLBACK_SHOP: CustomerEmailsShop = { name: "Your store", supportEmail: null, storeUrl: null, logoUrl: null, phone: null, currency: "USD" }
@@ -232,13 +236,17 @@ export function CustomerEmailsPanel({
     setViewState(v)
     writeView(v)
   }
-  const tabs: FilterPillOption<View>[] = [
-    { value: "all", label: tt("All") },
-    { value: "digital", label: FAMILY_NAMES.digital },
-    ...(physical ? [{ value: "physical" as const, label: FAMILY_NAMES.physical }] : []),
-    ...(communities.length ? [{ value: "communities" as const, label: FAMILY_NAMES.communities }] : []),
-  ]
-  /* A family that is not offered here (physical off, no community): All. */
+  /*
+    WHAT THE STORE DOES, FIRST (wave 9, lib/emails/family-use.ts). A family offered here that the store does
+    not use (nothing that ships, no community) keeps its pill, after the ones it uses, and says so in place
+    of its list; one Storelib does not offer (physical commerce off) is not here at all.
+  */
+  const plan = familyPlan({ physicalOn: physical, sells: data?.sells, communities: communities.length })
+  const unused = new Set(plan.filter((p) => !p.inUse).map((p) => p.family))
+  /* "Preview the emails anyway": a family the store does not use, opened for a look, until the page is left. */
+  const [peek, setPeek] = React.useState<ReadonlySet<EmailFamily>>(() => new Set())
+  const tabs: FilterPillOption<View>[] = [{ value: "all", label: tt("All") }, ...plan.map((p) => ({ value: p.family as View, label: FAMILY_NAMES[p.family] }))]
+  /* A family that is not offered here (physical commerce off): All. */
   const shown: View = tabs.some((t) => t.value === view) ? view : "all"
   /*
     WHAT STAYS, STAYS; WHAT ARRIVES, FADES IN (r51, the owner: "no flash or jump, with the content kept
@@ -254,7 +262,7 @@ export function CustomerEmailsPanel({
   React.useLayoutEffect(() => {
     viewDrawn.current = shown
   }, [shown])
-  const families = (shown === "all" ? (["digital", "physical", "communities"] as EmailFamily[]) : [shown]).filter((f) => (f !== "physical" || physical) && (f !== "communities" || communities.length > 0))
+  const families = shown === "all" ? plan.map((p) => p.family) : [shown]
   const community = communities.find((c) => c.id === communityId || c.slug === communityId) ?? communities[0] ?? null
 
   const toggleReminder = async (on: boolean) => {
@@ -313,7 +321,12 @@ export function CustomerEmailsPanel({
       */}
       <div ref={viewPanel} id="customer-emails-view" role="tabpanel" aria-label={tabs.find((t) => t.value === shown)?.label as string} data-email-view={shown}>
         {families.map((family) =>
-          family === "communities" ? (
+          family !== "digital" && unused.has(family) && !(family === "physical" && peek.has(family)) ? (
+            /* Not faded in: a still card, there at once, so a press never shows a blank moment. */
+            <FamilySection key={family} title={FAMILY_NAMES[family]} bare={bare}>
+              <FamilyNotUsed family={family} bare={bare} compact={shown === "all"} onPreview={family === "physical" ? () => setPeek((s) => new Set(s).add(family)) : undefined} />
+            </FamilySection>
+          ) : family === "communities" ? (
             community ? (
               <FamilySection key={family} title={FAMILY_NAMES.communities} bare={bare} arrive={switched}>
                 <CommunityEmails community={community} sent={activity?.communities[community.id] ?? null} days={activity?.days ?? 30} bare={bare} />
@@ -323,6 +336,15 @@ export function CustomerEmailsPanel({
             ) : null
           ) : (
             <FamilySection key={family} title={FAMILY_NAMES[family]} bare={bare} arrive={switched}>
+              {unused.has(family) ? (
+                <p className={cn("text-[13px] leading-5 text-[#6b7280]", bare ? "px-4 pt-1.5 sm:px-5" : "mt-1.5")} data-family-preview={family}>
+                  {tt("A preview: these go out once you sell something you ship.")}{" "}
+                  {/* Inline in the sentence; its padding makes the tap target 44px tall without a line of its own. */}
+                  <button type="button" className="-my-3 inline py-3 font-medium text-[#1a1a2e] underline-offset-2 hover:underline" onClick={() => setPeek((s) => { const n = new Set(s); n.delete(family); return n })} data-family-unpeek={family}>
+                    {tt("Hide")}
+                  </button>
+                </p>
+              ) : null}
               {GROUP_ORDER.map((g) => {
                 const rows = emailsOf(family, physical).filter((e) => e.group === g)
                 if (rows.length === 0) return null
@@ -364,7 +386,7 @@ export function CustomerEmailsPanel({
           UNDER THE LIST, NOT OVER IT (r51). Above the rows it came and went with Digital and Physical, so
           every row under it moved 15px (25px on a phone) on the press: the jump. Here it moves nothing.
         */}
-        {shown === "digital" || shown === "physical" ? (
+        {shown === "digital" || (shown === "physical" && (!unused.has("physical") || peek.has("physical"))) ? (
           <p className={cn("max-w-[70ch] text-[12.5px] leading-[18px] text-[#6b7280]", bare ? "px-4 pb-3 pt-3 sm:px-5" : "mt-3")} data-language-rule="">
             {tt("Orders on your website get their emails in the language the buyer used there. Purchases on your creator page, Explore and in communities get them in English.")}
           </p>
@@ -412,6 +434,61 @@ function FamilySection({ title, bare, arrive = false, children }: { title: strin
       {title ? <h3 className={cn("text-[14px] font-semibold text-[#1a1a2e]", bare ? "px-4 pt-3 sm:px-5" : "")}>{title}</h3> : null}
       {children}
     </section>
+  )
+}
+
+/**
+ * A FAMILY THE STORE DOES NOT USE (wave 9): what it would send and how to start, in the list's own card
+ * instead of rows that never go out. In All it is one quiet row under the family's name (icon, why, the
+ * action at the end, stacked on a phone); alone, the house empty state, centred. Physical products can be
+ * previewed anyway: their emails are drawn with sample orders. A community's need a community to draw.
+ */
+function FamilyNotUsed({ family, bare, compact, onPreview }: { family: Exclude<EmailFamily, "digital">; bare: boolean; compact: boolean; onPreview?: () => void }) {
+  const copy = FAMILY_EMPTY[family]
+  const Icon = family === "physical" ? Package : Users
+  const icon = (
+    <span aria-hidden className={cn("flex shrink-0 items-center justify-center rounded-full bg-[#f1f2f4] text-[#4b5563]", compact ? "h-10 w-10" : "h-12 w-12")}>
+      <Icon className={compact ? "h-[18px] w-[18px]" : "h-5 w-5"} strokeWidth={1.75} />
+    </span>
+  )
+  const preview = onPreview ? (
+    <button type="button" onClick={onPreview} className="inline-flex min-h-11 items-center whitespace-nowrap text-[13px] font-medium text-[#4b5563] underline-offset-2 hover:text-[#1a1a2e] hover:underline sm:min-h-9" data-family-peek={family}>
+      {tt("Preview the emails anyway")}
+    </button>
+  ) : null
+  const action = (
+    <Link href={copy.href} className={cn(BTN_PRIMARY, "inline-flex h-11 items-center justify-center sm:h-10")} data-family-start={family}>
+      {copy.action}
+    </Link>
+  )
+  if (compact)
+    return (
+      <div className={cn("flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:gap-4", bare ? "mt-1.5 border-t border-[#f1f2f4] px-4 sm:px-5" : "mt-3 rounded-xl border border-[#eceef1] px-4")} data-family-empty={family}>
+        <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+          {icon}
+          <div className="min-w-0">
+            <p className="text-[14px] font-medium text-[#1a1a2e]">{copy.title}</p>
+            <p className="mt-0.5 text-[13px] leading-[19px] text-[#6b7280]">
+              {copy.body}
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col items-start gap-1 pl-[52px] sm:flex-row-reverse sm:items-center sm:gap-4 sm:pl-0">
+          {action}
+          {preview}
+        </div>
+      </div>
+    )
+  return (
+    <div className={cn("flex flex-col items-center px-6 py-12 text-center sm:py-14", !bare && "mt-3 rounded-xl border border-[#eceef1]")} data-family-empty={family}>
+      {icon}
+      <p className="mt-4 text-[15px] font-semibold text-[#1a1a2e]">{copy.title}</p>
+      <p className="mt-1 max-w-[420px] text-[14px] leading-[21px] text-[#6b7280]">{copy.body}</p>
+      <div className="mt-5 flex flex-col items-center gap-1 sm:flex-row-reverse sm:gap-4">
+        {action}
+        {preview}
+      </div>
+    </div>
   )
 }
 

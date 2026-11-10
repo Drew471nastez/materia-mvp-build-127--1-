@@ -159,6 +159,8 @@ export function customerEmailsFrom<T = Obj>(body: unknown): T | null {
     ...(language ? { language } : { language: undefined }),
     ...(languages ? { languages } : { languages: undefined }),
     reminder: typeof body.reminder === "boolean" ? body.reminder : null,
+    /* What the store does (lib/emails/family-use.ts); missing from an older answer, which then lists as before. */
+    sells: isRecord(body.sells) ? { physical: typeof body.sells.physical === "boolean" ? body.sells.physical : null, communitiesOn: body.sells.communitiesOn === true } : undefined,
   } as unknown as T
 }
 
