@@ -124,13 +124,15 @@ section("2. Licences and attribution")
 section("3. Recipes: palettes that read, not the 2025 AI look")
 {
   const bad: string[] = []
+  /* contrastRatio is null for a colour it cannot parse; the records' hex values are checked in section 1. */
+  const contrast = (a: string, b: string) => contrastRatio(a, b) ?? 0
   for (const r of RECIPES) {
     const p = r.palette
-    if (contrastRatio(p.text, p.background) < 7) bad.push(`${r.id} text ${contrastRatio(p.text, p.background).toFixed(2)}`)
-    if (contrastRatio(p.muted, p.background) < 4.5) bad.push(`${r.id} muted ${contrastRatio(p.muted, p.background).toFixed(2)}`)
-    if (contrastRatio(p.accentText, p.accent) < 4.5) bad.push(`${r.id} accentText ${contrastRatio(p.accentText, p.accent).toFixed(2)}`)
-    if (contrastRatio(p.inverse.text, p.inverse.background) < 4.5) bad.push(`${r.id} inverse ${contrastRatio(p.inverse.text, p.inverse.background).toFixed(2)}`)
-    if (contrastRatio(p.text, p.surface) < 4.5) bad.push(`${r.id} surface ${contrastRatio(p.text, p.surface).toFixed(2)}`)
+    if (contrast(p.text, p.background) < 7) bad.push(`${r.id} text ${contrast(p.text, p.background).toFixed(2)}`)
+    if (contrast(p.muted, p.background) < 4.5) bad.push(`${r.id} muted ${contrast(p.muted, p.background).toFixed(2)}`)
+    if (contrast(p.accentText, p.accent) < 4.5) bad.push(`${r.id} accentText ${contrast(p.accentText, p.accent).toFixed(2)}`)
+    if (contrast(p.inverse.text, p.inverse.background) < 4.5) bad.push(`${r.id} inverse ${contrast(p.inverse.text, p.inverse.background).toFixed(2)}`)
+    if (contrast(p.text, p.surface) < 4.5) bad.push(`${r.id} surface ${contrast(p.text, p.surface).toFixed(2)}`)
   }
   check("text 7:1, muted 4.5:1, action text 4.5:1, inverse 4.5:1, text on surface 4.5:1", bad.length === 0, bad)
   check("no recipe is a cream ground or a rust accent", RECIPES.every((r) => !isCream(r.palette.background) && !isRust(r.palette.accent)), RECIPES.filter((r) => isCream(r.palette.background) || isRust(r.palette.accent)).map((r) => r.id))
@@ -152,7 +154,7 @@ section("4. Ranking: deterministic, cached, diverse, fitted to the business")
   check("rankBrain is deterministic", JSON.stringify(rankBrain(TECHNIQUES, q).map((s) => [s.record.id, s.score])) === JSON.stringify(rankBrain(TECHNIQUES, q).map((s) => [s.record.id, s.score])))
   /* MMR: the top six by relevance alone against the top six by MMR: MMR covers more areas. */
   const ranked = rankBrain(TECHNIQUES, { text: "typography type tracking leading measure scale headline", business: "general" })
-  const areas = (xs: { record: { kind: string } }[]) => new Set(xs.map((x) => (x.record as { area: string }).area)).size
+  const areas = (xs: { record: { kind: string } }[]) => new Set(xs.map((x) => (x.record as unknown as { area: string }).area)).size
   const pure = ranked.slice(0, 6)
   const div = mmr(ranked, 6, 0.65)
   check("MMR picks six craft moves over more areas than relevance alone", areas(div) > areas(pure), { pure: areas(pure), mmr: areas(div) })
@@ -184,7 +186,7 @@ section("5. Six scenarios: six recipes, different craft, diverse references")
     const pre = designBrainFor(brief)
     const choice = chooseDirection(brief, [], { seed: `creator:${s.name}`, prefer: pre.directions, preferType: pre.typeSystem })
     const brain = designBrainFor(brief, { direction: choice })
-    const refs = selectReferences(brief, { limit: 4 })
+    const refs = selectReferences(brief as unknown as Record<string, unknown>, { limit: 4 })
     return { s, brief, choice, brain, refs }
   })
   for (const o of out) check(`${o.s.name}: classified ${o.brief.business.kind}, recipe ${o.brain.recipe.id}`, o.brief.business.kind === o.s.kind && o.brain.recipe.id === o.s.recipe, { kind: o.brief.business.kind, recipe: o.brain.recipe.id, why: o.brain.recipe.why })
