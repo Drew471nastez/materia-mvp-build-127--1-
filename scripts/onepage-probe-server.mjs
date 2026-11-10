@@ -83,7 +83,7 @@ export function createClient() { return { auth: { getUser: async () => ({ data: 
     --loader:.css=empty) are added after the app's, as Next.js bundles them, so
     a probe sees an open block's fields in their real look (block-fields.css).
   */
-  const ownCss = ["components/onepage/block-fields.css"].map((f) => (existsSync(join(root, f)) ? readFileSync(join(root, f), "utf8") : "")).join("\n")
+  const ownCss = ["components/onepage/block-fields.css", "components/onepage/themes/theme-skins.css"].map((f) => (existsSync(join(root, f)) ? readFileSync(join(root, f), "utf8") : "")).join("\n")
   const css = (await appCss(root)) + "\n" + ownCss
   const bundle = readFileSync(join(dir, "probe.js"), "utf8")
   rmSync(dir, { recursive: true, force: true })

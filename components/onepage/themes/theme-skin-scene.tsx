@@ -1,0 +1,59 @@
+/**
+ * ===========================================================================
+ *  THE SCENE BEHIND A SKINNED PAGE (round W9)
+ * ===========================================================================
+ * The page's wallpaper for a theme with a skin (lib/onepage/theme-skin):
+ * Aero's clouds, sun, glass ribbon, bubbles and meadow; Aqua's pinstripes
+ * and light; Messenger's title band and ribbons; Y2K's aurora, horizon grid
+ * and sparkles; Playful's paper blobs and doodles; Grunge's photocopy grain,
+ * streaks, barbed line art and the name run down the edge.
+ *
+ * Plain elements, every one drawn by app/onepage-skins.css
+ * ([data-skin-scene=...] [data-sk=...]): no images fetched, no state, no
+ * effects, nothing that measures. Whatever moves moves by transform or
+ * opacity alone, slowly, and stands still for a visitor who asked for less
+ * motion and inside a theme card.
+ *
+ * It sits where the page's pattern sits (components/onepage/wallpaper-layers
+ * WallpaperPattern): in the phone page, in the desktop card and around it,
+ * and in the theme card (components/onepage/themes/theme-preview).
+ */
+import type * as React from "react"
+/* The skins' stylesheet (scripts/build-onepage-skins.mjs writes it): only a page that can draw a skin loads it. */
+import "./theme-skins.css"
+import { skinSceneOf, type ThemeSkin } from "@/lib/onepage/theme-skin"
+
+/** How many of each piece a scene draws, in the order the stylesheet places them (nth-child). */
+const PIECES: Record<ThemeSkin, ReadonlyArray<readonly [string, number]>> = {
+  aero: [["sun", 1], ["swoosh", 1], ["cloud", 3], ["meadow", 1], ["bubble", 9], ["glint", 3]],
+  aqua: [["stripes", 1], ["light", 1], ["wave", 2]],
+  messenger: [["band", 1], ["ribbon", 2], ["glow", 2]],
+  y2k: [["aurora", 3], ["horizon", 1], ["pixels", 1], ["spark", 10]],
+  playful: [["paper", 1], ["blob", 4], ["doodle", 5]],
+  grunge: [["copy", 1], ["streaks", 1], ["halftone", 1], ["barbed", 2], ["code", 1], ["edge", 1]],
+}
+
+export function ThemeSkinScene({
+  theme,
+  label,
+  className = "absolute inset-0",
+  style,
+}: {
+  theme: Parameters<typeof skinSceneOf>[0]
+  /** The page's name, which Grunge runs down the edge of the page. */
+  label?: string | null
+  className?: string
+  style?: React.CSSProperties
+}) {
+  const skin = skinSceneOf(theme)
+  if (!skin) return null
+  const words = (label || "").trim().toUpperCase().slice(0, 40)
+  return (
+    <div aria-hidden data-skin-scene={skin} className={`pointer-events-none overflow-hidden ${className}`} style={style}>
+      {PIECES[skin].flatMap(([piece, n]) => Array.from({ length: n }, (_, i) => <span key={`${piece}${i}`} data-sk={piece} />))}
+      {skin === "grunge" && words ? (
+        <span data-sk="edge-words">{Array.from({ length: 6 }, () => words).join("  ✕  ")}</span>
+      ) : null}
+    </div>
+  )
+}

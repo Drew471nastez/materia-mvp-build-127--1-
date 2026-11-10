@@ -47,6 +47,12 @@ const NAMES: Record<string, () => string> = {
   gazette: () => ttx("theme", "Gazette"),
   halo: () => ttx("theme", "Halo"),
   acid: () => ttx("theme", "Acid"),
+  aero: () => ttx("theme", "Aero"),
+  aqua: () => ttx("theme", "Aqua"),
+  messenger: () => ttx("theme", "Messenger"),
+  y2k: () => ttx("theme", "Y2K"),
+  playful: () => ttx("theme", "Playful"),
+  grunge: () => ttx("theme", "Grunge"),
 }
 
 /** A theme's name in the reader's language. */
