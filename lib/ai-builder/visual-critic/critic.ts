@@ -35,6 +35,7 @@ import { measuredDefects, mergeDefects } from "./measure"
 import { browserAvailable, shootPages, type ShootOptions, type ShotPage, type ShotResult } from "./shoot"
 import { MAX_REVIEW_ATTEMPTS, runReview, type ReviewPageInput } from "./review"
 import { defectLine, weightedScore, type CriticReport, type Defect } from "./types"
+import { blockIssues, emptyImageSlots } from "../agent/content-check"
 
 /** At most this many pages are reviewed in one round (home first): the cost and the time stay bounded. */
 export const MAX_CRITIC_PAGES = 3
@@ -55,6 +56,11 @@ export interface CriticRequest {
   pages: string[]
   /** The job's own draft: nothing else is drawn. */
   project: { pages: StoredPage[]; settings: Record<string, unknown>; sources: Record<string, string>; capabilities: RuntimeCapabilities | null }
+  /**
+   * Round P (P5): whether the job can make or find pictures. True: a placed section's empty picture slot is a
+   * hard gate (image-slot-empty). Empty item lists are a hard gate either way (empty-blocks).
+   */
+  picturesAvailable?: boolean
   /** What the job may still spend, USD. */
   maxUsd: number
   /** Everything (drawing and the review) inside this. */
@@ -112,7 +118,7 @@ export function createVisualCritic(opts: CriticOptions = {}): VisualCriticRunner
     /* 2. Photographed and measured, scripts off. Most of the time is the browser's; the review keeps what is left. */
     const shot = await (opts.shoot ?? shootPages)(docs, { timeoutMs: Math.max(15_000, Math.round(req.timeoutMs * 0.55)), ...(opts.launch ? { launch: opts.launch } : {}) })
     if (!shot) return unverified("the browser could not draw the pages")
-    const measured = mergeDefects(shot.measurements.flatMap((m) => [...measuredDefects(m.page, m.desktop), ...measuredDefects(m.page, m.mobile)]))
+    const measured = mergeDefects([...structuralDefects(req, docs.map((d) => d.page)), ...shot.measurements.flatMap((m) => [...measuredDefects(m.page, m.desktop), ...measuredDefects(m.page, m.mobile)])])
     const first = shot.shots[0]
     const kept = first?.desktopFold && opts.keepShot ? (await opts.keepShot(first.desktopFold, first.page).catch(() => false)) !== false : false
 
@@ -159,6 +165,28 @@ export function createVisualCritic(opts: CriticOptions = {}): VisualCriticRunner
   }
   run.available = available
   return run
+}
+
+/**
+ * Round P (P5): what the draft's own data says for certain, before any picture is looked at. A placed section
+ * whose item lists are too short or placeholders, and (when pictures can be made) a picture slot left empty, are
+ * HARD GATES: they block finish like a sideways scroll does. Pure; the same rules as the agent's verify
+ * (lib/ai-builder/agent/content-check.ts).
+ */
+export function structuralDefects(req: Pick<CriticRequest, "project" | "picturesAvailable">, pages: string[]): Defect[] {
+  const only = new Set(pages)
+  const placed = req.project.pages.filter((p) => only.has(p.key))
+  const out: Defect[] = []
+  for (const i of blockIssues({ pages: placed, sources: req.project.sources, caps: req.project.capabilities })) {
+    const page = /^([^ ]+) ›/.exec(i.message)?.[1] ?? pages[0] ?? "home"
+    out.push({ page, ...(i.sectionId ? { sectionId: i.sectionId } : {}), ...(i.path ? { sectionType: i.path.replace(/^sections\//, "").replace(/\.storelib$/, "") } : {}), severity: "high", kind: "empty-blocks", viewport: "both", what: i.message.replace(/^[^ ]+ › /, "").slice(0, 300), why: "A list with one item, or items that say nothing, reads as an unfinished site.", fix: "Fill the section's items with this site's real words (set_page_sections with its blocks).", gate: true, source: "measure" })
+  }
+  if (req.picturesAvailable) {
+    for (const slot of emptyImageSlots({ pages: placed, sources: req.project.sources })) {
+      out.push({ page: slot.page, sectionId: slot.sectionId, sectionType: slot.type, severity: "high", kind: "image-slot-empty", viewport: "both", what: `The picture "${slot.setting}"${slot.at === "section" ? "" : ` of item ${slot.at}`} is empty.`, why: "The design has a picture here; without it the section is a frame with nothing in it.", fix: "Make or find this business's picture (generate_image, find_photo, the creator's media) and set it.", gate: true, source: "measure" })
+    }
+  }
+  return out
 }
 
 /** Two descriptions of the same fault share most of their longer words. */

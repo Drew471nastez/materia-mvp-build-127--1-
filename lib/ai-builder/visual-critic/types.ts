@@ -53,6 +53,10 @@ export type DefectKind =
   | "no-cta"
   | "dead-cta"
   | "placeholder-copy"
+  /* Round P (P5): a drawn section with nothing in it; a placed section whose item lists are empty or placeholders; a picture slot with no picture. Hard gates. */
+  | "empty-section"
+  | "empty-blocks"
+  | "image-slot-empty"
   | "review"
 
 export interface Defect {

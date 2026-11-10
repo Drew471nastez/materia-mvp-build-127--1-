@@ -35,7 +35,7 @@ import { compileSection } from "@/lib/storelib-theme/storelib/compile"
 import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
 import { freshBlocks } from "@/lib/website-builder/block-tree"
 import { placeholderIn } from "@/lib/website-builder/ai-site/craft"
-import type { BlockInstance, SectionInstance } from "@/lib/website-builder/types"
+import type { BlockInstance } from "@/lib/website-builder/types"
 import type { RuntimeCapabilities } from "../runtime-contract"
 import { isAiComponentType, type ValidationIssue } from "../types"
 
@@ -260,9 +260,18 @@ export function presetBlockIssues(path: string, text: string, caps: RuntimeCapab
 
 /* ── the placed site ──────────────────────────────────────────────────── */
 
+/** A placed section, as much of it as these checks read (a SectionInstance is one). */
+export interface PlacedSection {
+  id: string
+  type: string
+  settings?: Record<string, unknown>
+  blocks?: BlockInstance[]
+  hidden?: boolean
+}
+
 export interface PlacedPage {
   key: string
-  sections: SectionInstance[]
+  sections: PlacedSection[]
 }
 
 /**

@@ -25,6 +25,7 @@ import type { DesignReference } from "@/lib/storelib-ai/references/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { RuntimeCapabilities } from "../runtime-contract"
 import type { VisualCriticRunner } from "../visual-critic/critic"
+import type { AppliedTemplate, SiteTemplate, TemplateBrief, UntouchedParts } from "@/lib/storelib-ai/templates"
 import type { AgentEvent, DesignTokens, FileAuthor, GenerationMode, JobBudget, KnowledgeEntry, KnowledgeKind, StartOptions, ValidationIssue } from "../types"
 
 /* ── the website ──────────────────────────────────────────────────────── */
@@ -77,6 +78,11 @@ export interface ModelRole {
 export interface AgentModels {
   plan: ModelRole
   loop: ModelRole
+  /**
+   * Round P (P5): the build phase, where the components are written (the quality-critical calls):
+   * claude-opus-5-5 at effort high (./models.ts routeFor). Absent: the build runs on `loop`.
+   */
+  write?: ModelRole
   small: ModelRole
   /**
    * The vision model the design review looks at the rendered draft with (round O, O4: claude-opus-5-5 through
@@ -136,6 +142,17 @@ export interface ReferenceSource {
   images: (ids: string[]) => Promise<{ id: string; image: AgentImage }[]>
 }
 
+/**
+ * Round P (P2 + P5): the starting templates (lib/storelib-ai/templates). The agent starts a new website from
+ * the closest one, then adapts it; ./templates.ts defaultTemplates is the library module behind it.
+ */
+export interface TemplateLibrary {
+  choose(brief: TemplateBrief): SiteTemplate | null | Promise<SiteTemplate | null>
+  byId(id: string): SiteTemplate | null
+  apply(store: ProjectStore, template: SiteTemplate, brief: TemplateBrief, meta: { jobId: string }): Promise<AppliedTemplate>
+  untouched(project: { files: Record<string, string>; pages: StoredPage[] }, template: SiteTemplate): UntouchedParts
+}
+
 /** Turns tokens into Theme settings keys (L5 owns the real one). */
 export type TokensMapper = (tokens: Partial<DesignTokens>, current: Record<string, unknown>) => { settings: Record<string, unknown>; changed: string[]; issues: ValidationIssue[] }
 
@@ -190,6 +207,14 @@ export interface AgentDeps {
    * back as repair work. Absent: no design review (and nothing is claimed about one).
    */
   visualCritic?: VisualCriticRunner
+  /** Round P (P5): the starting templates. Absent: lib/storelib-ai/templates (./templates.ts defaultTemplates). */
+  templates?: TemplateLibrary
+  /**
+   * Round P (P1 + P5): whether this job can make or find pictures (P1's generate_image / find_photo with a
+   * provider key, or stock search). True: every image slot the design has must hold a picture before finish.
+   * False or absent: sections are made text-forward instead (never an empty frame to visitors).
+   */
+  imageProvider?: () => boolean | Promise<boolean>
   /** Whether the editor draws form_picker (L4 landed it; default: whether the control registry has it). */
   features?: { formPicker?: boolean }
   /** Each event as it happens (L2 writes ai_site_job_events). Never throws into the loop. */

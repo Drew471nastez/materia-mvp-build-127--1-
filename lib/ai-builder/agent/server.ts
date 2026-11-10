@@ -148,6 +148,12 @@ export async function agentModels(creatorId: string): Promise<AgentModels> {
   return {
     plan: { provider: plan.provider, model: plan.model, effort: "medium" },
     loop: { provider: loop.provider, model: loop.model, effort: "medium" /* round N: agent coding wants medium; low wrote thinner sites */ },
+    /*
+      Round P (P5): the build phase (writing the components, the quality-critical calls) on the strong model at
+      effort high, on the same key as plan. Routed by phase, not per turn (./model-routing.ts: caches are per
+      model). Typical site estimate there: about $13.50 against $7.30 before, inside the raised JobBudget cap.
+    */
+    write: { provider: plan.provider, model: plan.model, effort: "high" },
     small: { provider: small.provider, model: small.model, effort: "low" },
     /* Round O (O4): the design review looks at the rendered draft with the strong model (claude-opus-5-5), on the same key. */
     review: { provider: plan.provider, model: plan.model, effort: "medium" },

@@ -38,7 +38,7 @@ import type { AgentDeps, AgentJobInput, KnowledgeHit, ModelRole } from "./ports"
 import { AGENT_SYSTEM, briefMessage } from "./prompts"
 import { TOOL_LIST } from "./tool-specs"
 import { compactCheckpoint, compactLive, resumeTurns, toCheckpointTurns } from "./compact"
-import { newCheckpoint, type CriticState, type LoopCheckpoint } from "./state"
+import { addUnique, newCheckpoint, type CriticState, type LoopCheckpoint } from "./state"
 import { describeConcept } from "./concept"
 import { belowTarget, defectLine, type CriticReport, type Defect } from "../visual-critic/types"
 import { createToolSet, renderPage, validateAll, type EventDraft } from "./tools-impl"
@@ -55,6 +55,9 @@ import { MAX_REFERENCES, jobDesignBrief } from "./design-brief"
 import { surfaceRules } from "@/lib/storelib-ai/surfaces"
 import { noveltyIssues, siteFingerprint } from "../novelty"
 import { themeSettingsToTokens } from "../tokens"
+import { roleFor } from "./model-routing"
+import { blockIssues, imageSlotIssues } from "./content-check"
+import { fewShotExamples, templateBlock, templateBrief, templateIssues, templatesOf } from "./templates"
 
 export interface SliceOptions {
   /** This invocation's end (ms since epoch). No call starts later than deadline - budget.callReserveMs. */
@@ -213,7 +216,33 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     }
     const contract = scoped ? await contractBlock(deps.store) : ""
     const design = await jobDesignBrief({ job, caps, files, references: { list: refs, withImages: cp.referenceImages }, ...(direction ? { direction } : {}), ...(contract ? { contract } : {}) }).catch(() => null)
-    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages, files, knowledge, directions, design }) })
+    /*
+      TEMPLATE FIRST (round P, P5, ./templates.ts): a NEW website starts from the closest starting template
+      (P2's chooseTemplate + applyTemplate, with the brief and direction just chosen), then the agent adapts it.
+      Its files count as this job's (validated, anti-slopped, reviewed); finish refuses while its copy (and,
+      when pictures can be made, its imagery) is still as shipped. No template, or one that fails to apply:
+      the agent builds from zero as before, and says nothing it did not do.
+    */
+    let templateText = ""
+    let pagesNow = pages
+    let filesNow = files
+    if (!job.edit && !job.redesign) {
+      const lib = templatesOf(deps)
+      const tb = templateBrief(job.prompt, cp.brief, cp.direction?.primary)
+      const chosen = await Promise.resolve(lib.choose(tb)).catch(() => null)
+      if (chosen) {
+        const applied = await lib.apply(deps.store, chosen, tb, { jobId: job.jobId }).catch((e: unknown) => ({ ok: false as const, templateId: chosen.id, files: [] as string[], pages: [] as string[], error: e instanceof Error ? e.message : String(e) }))
+        if (applied.ok) {
+          cp.template = { id: chosen.id, name: chosen.name, files: applied.files, pages: applied.pages }
+          for (const path of applied.files) cp.filesTouched = addUnique(cp.filesTouched, path)
+          for (const key of applied.pages) cp.pagesTouched = addUnique(cp.pagesTouched, key)
+          ;[pagesNow, filesNow] = await Promise.all([deps.store.listPages(), deps.store.listFiles()])
+          templateText = templateBlock(chosen, applied, fewShotExamples(chosen))
+          emit({ kind: "note", text: `Starting from the ${chosen.name} template, to be made your own.` })
+        }
+      }
+    }
+    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages: pagesNow, files: filesNow, knowledge, directions, design, ...(templateText ? { template: templateText } : {}) }) })
     if (scoped) setPhase("build", "Making your change")
     else setPhase("plan", "Deciding the look")
   }
@@ -314,6 +343,7 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
         ...(rules ? { rules } : {}),
         pages,
         project: { pages: stored, settings: await deps.store.readSettings(), sources, capabilities: cp.caps ?? null },
+        picturesAvailable: await picturesAvailable(deps),
         maxUsd: Math.max(0, capOf(job, deps) - (job.spentUsd + usage.usd)),
         timeoutMs: Math.min(CRITIC_MAX_MS, left),
       })
@@ -398,7 +428,8 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
       return result("running")
     }
 
-    const role: ModelRole = cp.phase === "plan" ? deps.models.plan : deps.models.loop
+    /* Round P (P5): by phase. Plan on the strong model, the build (the components) on the strong model at effort high, fixes on the loop model (./model-routing.ts). */
+    const role: ModelRole = roleFor(cp.phase, deps.models)
     const maxOutputTokens = job.budget.maxOutputTokensPerCall
     const callTurns = await withReferenceImages(turns)
     /* A picture is billed by its pixels, about 1,600 tokens at the size references are kept: counted as 6,400 characters. */
@@ -609,7 +640,8 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
   const rendered: { page: string; html: string; css: string }[] = []
   for (const page of pages) {
     const r = await renderPage(ctx, page)
-    issues.push(...r.issues.map((i) => ({ ...i, message: `${page}: ${i.message}` })))
+    /* Round P (P5): on a new website or a full redesign a visibly empty section, or an empty picture frame drawn to visitors, blocks finish. */
+    issues.push(...r.issues.map((i) => ({ ...i, ...(!scoped && (i.code === "render.empty" || i.code === "render.empty_media") ? { severity: "error" as const } : {}), message: `${page}: ${i.message}` })))
     if (r.drawn && rendered.length < 12) rendered.push({ page, html: r.drawn.html.slice(0, 400_000), css: r.drawn.css.slice(0, 200_000) })
   }
   const allFiles = await deps.store.listFiles()
@@ -659,7 +691,38 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
     for (const f of await deps.store.listFiles()) if (f.text.trim()) src[f.path] = f.text
     issues.push(...completenessIssues({ pages: stored, sources: src, settings: await deps.store.readSettings(), caps: cp.caps ?? null, mode: job.mode, plan: cp.sitePlan ?? null }))
   }
+  /*
+    COMPLETE SECTIONS AND PICTURES (round P, P5, ./content-check.ts). Every placed ai_ section holds enough real
+    items of each type it declares; every picture slot holds a picture when the job can make or find one (else
+    the section must read text-forward, and a drawn empty frame is refused below); a starting template is never
+    shipped as it came. An edit or a change-only redesign answers for the sections whose files it wrote, on the
+    pages it touched.
+  */
+  {
+    const src: Record<string, string> = {}
+    for (const f of allFiles) if (f.text.trim()) src[f.path] = f.text
+    const touchedTypes = new Set(cp.filesTouched.map((p) => /^sections\/(.+)\.storelib$/.exec(p)?.[1]).filter((t): t is string => !!t))
+    const placed = scoped ? stored.filter((p) => cp.pagesTouched.includes(p.key)).map((p) => ({ ...p, sections: p.sections.filter((s) => touchedTypes.has(s.type)) })) : stored
+    const pictures = await picturesAvailable(deps)
+    issues.push(...blockIssues({ pages: placed, sources: src, caps: cp.caps ?? null }))
+    issues.push(...imageSlotIssues({ pages: placed, sources: src, picturesAvailable: pictures }))
+    if (cp.template) {
+      const lib = templatesOf(deps)
+      const template = lib.byId(cp.template.id)
+      if (template) issues.push(...templateIssues(template, { files: src, pages: stored }, lib, pictures))
+    }
+  }
   /* A redesign may be done with the site's own sections and tokens: writing a component is not required of it. */
   if (!job.edit && !job.redesign && !cp.filesTouched.some((p) => p.startsWith("sections/ai_"))) issues.push({ severity: "error", code: "build.nothing", message: "No component was written. A new website is made of components you write." })
   return issues
+}
+
+/** Whether this job can make or find pictures (P1's provider chain): an image slot must then hold one before finish. */
+export async function picturesAvailable(deps: Pick<AgentDeps, "imageProvider">): Promise<boolean> {
+  if (!deps.imageProvider) return false
+  try {
+    return (await deps.imageProvider()) === true
+  } catch {
+    return false
+  }
 }
