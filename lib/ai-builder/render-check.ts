@@ -51,6 +51,12 @@
  *   import.remote         a <script src>, a remote stylesheet or @import
  *   script.syntax         the section's script does not parse
  *   token.undefined       var(--t-name) with no such token and no fallback
+ *   render.motion         a data-storelib-motion island that does not exist
+ *                         (error: nothing would run), or a param out of range,
+ *                         an unknown param, too many showcases or WebGL
+ *                         islands on one page (warnings). An island's element
+ *                         is never "empty": the page draws into it (round P,
+ *                         P3: lib/storelib-theme/motion-islands.ts).
  *
  * PURE apart from the optional parser, which is passed in, so the tests drive
  * every rule with a stand in and no database.
@@ -58,6 +64,7 @@
 import type { ValidationIssue } from "./types"
 import type { RuntimeCapabilities } from "./runtime-contract"
 import { bindableIds } from "./capabilities"
+import { motionFindings } from "@/lib/storelib-theme/motion-islands"
 import { renderStorelibSection, isStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { checkRenderedSection, checkResponsiveStructure } from "@/lib/storelib-ai/structural"
 import { customTokenVars } from "@/lib/website-builder/theme-css"
@@ -381,7 +388,7 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
     const text = textOf(html)
 
     if (/\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}/.test(html)) push({ severity: "error", code: "render.unresolved", message: "Template tags are printed as text in the drawn markup. A tag inside an attribute or a string is not evaluated; check quotes and filters.", ...at })
-    const hasMedia = /<(img|video|iframe|svg|picture|canvas)\b/i.test(html) || /\sdata-storelib-(native-form|offers|island)\b/i.test(html) || /background(-image)?\s*:[^;]*url\(/i.test(html + css)
+    const hasMedia = /<(img|video|iframe|svg|picture|canvas)\b/i.test(html) || /\sdata-storelib-(native-form|offers|island|motion)\b/i.test(html) || /background(-image)?\s*:[^;]*url\(/i.test(html + css)
     if (!text && !hasMedia) push({ severity: "warning", code: "render.empty", message: "The section draws nothing a visitor can see with its current settings. Give its settings defaults, or remove it.", ...at })
 
     for (const f of checkRenderedSection({ html, css, theme })) {
@@ -431,6 +438,12 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
         if (BUTTON_WIRED.test(tag) || insideTag(html, "form", m.index ?? 0)) continue
         push({ severity: "error", code: "render.dead_button", message: `The button "${textOf(m[2] ?? "").slice(0, 40) || "(no words)"}" does nothing: it has no data-storelib hook, no form and no script. Make it a link to a real page, or give it its hook (add to cart, cart, menu, checkout).`, ...at })
       }
+    }
+
+    /* Motion islands (round P, P3): an island that does not exist is an error, a param out of range a warning. Per section, so the finding names it. */
+    for (const f of motionFindings(html)) {
+      if (/^This page has|more than once/.test(f.message)) continue
+      push({ severity: f.severity, code: "render.motion", message: f.message, ...at })
     }
 
     /* Panels of the site's own (round N): a search window, a language or currency list that cannot work. */
@@ -487,6 +500,8 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
 
   /* Headings, across the page in order. */
   const h1 = headings.filter((h) => h.level === 1)
+  /* The page's motion budget: showcases, WebGL islands, one smooth-scroll (round P, P3). */
+  for (const f of motionFindings(pageHtml)) if (/^This page has|more than once/.test(f.message)) push({ severity: "warning", code: "render.motion", message: f.message })
   if (drawn.length && h1.length === 0) push({ severity: "warning", code: "a11y.headings", message: `The page "${input.page}" has no h1. The main heading of its first section should be the one h1.` })
   if (h1.length > 1) push({ severity: "warning", code: "a11y.headings", message: `The page "${input.page}" has ${h1.length} h1 headings. Keep one; make the others h2.`, sectionId: h1[1].sectionId })
   for (let i = 1; i < headings.length; i++) {

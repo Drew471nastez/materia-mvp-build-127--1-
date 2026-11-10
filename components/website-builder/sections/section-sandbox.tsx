@@ -24,6 +24,7 @@
  *     width. CSS does that better anyway;
  *   - anything that loads: no src, no href, no innerHTML. See ATTR_ALLOWED.
  */
+import { MOTION_NODE_ATTR } from "@/lib/storelib-theme/motion-islands-base"
 import { PREVIEW_ERROR_EVENT } from "@/lib/ai-builder/preview-errors"
 import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
@@ -63,7 +64,8 @@ const Ctx = createContext<SandboxApi | null>(null)
 
 /** The same walk the guest does, so an index means the same element in both. */
 function elementsOf(root: HTMLElement): HTMLElement[] {
-  return [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))]
+  /* Not a node a motion island added (a canvas, a marquee's copy): the guest's copy of the markup has none. */
+  return [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))].filter((el) => !el.closest(`[${MOTION_NODE_ATTR}]`))
 }
 
 function applyPatch(nodes: HTMLElement[], patch: Patch): void {
