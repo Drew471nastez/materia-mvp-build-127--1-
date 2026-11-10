@@ -71,7 +71,8 @@ import { heroScrollEffect } from "@/lib/onepage/feel"
 import { PosterVideo } from "@/components/onepage/poster-video"
 import { HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/lib/onepage/poster-video"
 import { readableOn } from "@/lib/onepage/theme-apply"
-import { photoVeil, readableTheme, smallPrintAlpha } from "@/lib/onepage/contrast"
+import { photoVeil, readableInk, readableTheme, smallPrintAlpha, tintGrounds } from "@/lib/onepage/contrast"
+import { pressableProps } from "@/lib/onepage/block-look"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
 import { pairProductTiles } from "@/lib/onepage/product-block"
 import { tt } from "@/lib/i18n/text"
@@ -88,7 +89,7 @@ import { PdfOnPage, PdfPages } from "@/components/onepage/pdf-pages"
 import { blockInteraction } from "@/lib/onepage/block-sheet"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { useMouseDragRows, useMouseDragScroll } from "@/components/onepage/drag-scroll"
-import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
+import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, buttonThemeOn, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 import { EmailSignupView, type EmailSignupFormOptions } from "@/components/onepage/email-signup"
 import { checkSignupPhone, signupExtraFields } from "@/lib/onepage/signup-fields"
 import { OnePageLegalLinks } from "@/components/onepage/onepage-legal-links"
@@ -4139,21 +4140,6 @@ function CoreBlockRenderer({
       const layout = emailSignupLayout(data.layout_type)
       const layoutImage = emailSignupImage(data)
 
-      // Button styles with shadows and borders (matching link_button and product blocks)
-      const buttonShadow = (theme as any).button_shadow || "none"
-      const shadowColor = (theme as any).button_shadow_color || "#000000"
-      const hexToRgba = (hex: string, alpha: number) => {
-        const r = Number.parseInt(hex.slice(1, 3), 16) || 0
-        const g = Number.parseInt(hex.slice(3, 5), 16) || 0
-        const b = Number.parseInt(hex.slice(5, 7), 16) || 0
-        return `rgba(${r},${g},${b},${alpha})`
-      }
-      const shadowStyles: Record<string, string> = {
-        none: "none",
-        subtle: `0 2px 4px ${hexToRgba(shadowColor, 0.15)}`,
-        strong: `0 4px 12px ${hexToRgba(shadowColor, 0.3)}`,
-        hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
-      }
       /*
         THE FIELD AND THE BUTTON BESIDE IT ARE ONE CONTROL, SO THEY MATCH.
         Measured on a phone at 390 (scripts/check-onepage-bar.mjs): Subscribe
@@ -4166,16 +4152,25 @@ function CoreBlockRenderer({
         from 640px (py-3, 47px tall), at every width, and the box borrows the
         button's radius below.
       */
-      const emailButtonStyles: React.CSSProperties = {
-        backgroundColor: buttonBackground(theme),
-        color: theme.button_text_color,
-        borderRadius: `${theme.button_border_radius}px`,
-        borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
-        borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? (theme.button_border_color || theme.button_color) : theme.button_border_color,
-        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
-        boxShadow: shadowStyles[buttonShadow] || "none",
-      }
+      /*
+        ROUND AR: THE SIGNUP'S WORDS AND ITS BUTTON READ ON ITS OWN CARD.
+        Classic, Featured, Cover, Letter and Bar lay the form on a card tinted
+        with the page's words at 4 to 6%, so a colour that read on the page
+        could fall under 4.5:1 on the card (Peach's and Aurora's description,
+        Sunset's Subscribe on Soft and Glass: scripts/check-onepage-contrast-
+        ar5.mjs). The words are held to the card (lib/onepage/contrast
+        tintGrounds, readableInk) and the button is the page's own button on
+        it (lib/onepage/button-style buttonThemeOn, block-look pressableProps):
+        fill, border, corners, shadow and the page's hover, its words moved
+        only where they would not read. The input fields keep each layout's
+        own shape below.
+      */
+      const signupGrounds = tintGrounds(theme, theme.text_color || "#111113", 6)
+      const signupInk = readableInk(theme.text_color || "#111113", signupGrounds)
+      const signupTheme = { ...theme, text_color: signupInk, secondary_text_color: theme.secondary_text_color ? readableInk(theme.secondary_text_color, signupGrounds) : theme.secondary_text_color }
+      const emailPress = pressableProps(buttonThemeOn(theme, signupGrounds), isInsideCarousel)
+      const emailButtonStyles: React.CSSProperties = emailPress.style
+      const emailButtonAttrs = { "data-hover": emailPress["data-hover"], "data-shadow": emailPress["data-shadow"] }
 
       // Get animation class for email capture blocks
       const getEmailAnimationClass = (animationType?: string) => {
@@ -4451,7 +4446,8 @@ function CoreBlockRenderer({
           rel="noopener noreferrer"
           data-after-signup=""
           onClick={() => trackClick(block.id, afterUrl)}
-          className="mt-3 flex w-full items-center justify-center px-4 py-3 text-sm font-medium"
+          className={cn(emailPress.className, "mt-3 flex w-full items-center justify-center px-4 py-3 text-sm font-medium")}
+          {...emailButtonAttrs}
           style={emailButtonStyles}
         >
           {(data.after_signup_label || "").trim() || tt("Open your free gift")}
@@ -4468,7 +4464,8 @@ function CoreBlockRenderer({
       */
       const renderEmailFields = ({ stacked, inverted, outlined, shape, avatar }: EmailSignupFormOptions) => {
         const buttonText = getButtonText()
-        const pageInk = theme.text_color || "#111113"
+        /* Round AR: the page's words as they read on the signup's card (signupInk above). */
+        const pageInk = signupInk
         /*
           ROUND 43: CONNECT, ONE PILL. The box and a grey button inside one rounded field, the button carrying the
           creator's picture (the owner's screenshot: "Connect with" and the photo). The whole pill takes the focus
@@ -4547,14 +4544,13 @@ function CoreBlockRenderer({
             </>
           )
         }
-        const submitStyles: React.CSSProperties = inverted
-          ? { ...emailButtonStyles, backgroundColor: inverted.fill, color: inverted.text, borderColor: "transparent", boxShadow: "none", backdropFilter: undefined }
-          : emailButtonStyles
-        const buttonClass = cn(
-          "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity whitespace-nowrap",
-          stacked ? "w-full" : "shrink-0",
-          !isInsideCarousel && "[@media(hover:hover)]:hover:opacity-90",
-        )
+        /* Round AR: Bold's button is the page's button too (corners, hover), filled with the card's own pair turned round. */
+        const submitPress = inverted
+          ? pressableProps({ ...theme, button_style: "filled", button_color: inverted.fill, button_text_color: inverted.text, button_border_color: inverted.fill, button_border_width: 0, button_shadow: "none" }, isInsideCarousel)
+          : emailPress
+        const submitStyles: React.CSSProperties = submitPress.style
+        const submitAttrs = { "data-hover": submitPress["data-hover"], "data-shadow": submitPress["data-shadow"] }
+        const buttonClass = cn(submitPress.className, "px-4 sm:px-5 py-3 text-sm font-medium whitespace-nowrap", stacked ? "w-full" : "shrink-0")
         return (
           <>
             <form onSubmit={handleSubmit} className={stacked ? "flex flex-col gap-2" : "flex flex-row gap-2 items-stretch"} data-email-form={stacked ? "stacked" : "row"}>
@@ -4570,11 +4566,11 @@ function CoreBlockRenderer({
                 style={{ color: "#000", borderRadius: emailButtonStyles.borderRadius, backgroundColor: inverted ? "#fff" : undefined, boxShadow: outlined ? `inset 0 0 0 1px color-mix(in srgb, ${theme.text_color || "#111113"} 18%, transparent)` : undefined }}
               />
               {emailSubmitted && downloadLink ? (
-                <button type="button" onClick={handleDownloadClick} className={buttonClass} style={submitStyles}>
+                <button type="button" onClick={handleDownloadClick} className={buttonClass} style={submitStyles} {...submitAttrs}>
                   Download
                 </button>
               ) : (
-                <button type="submit" disabled={isSubmitting || emailSubmitted} className={cn(buttonClass, "disabled:opacity-50 disabled:cursor-not-allowed")} style={submitStyles}>
+                <button type="submit" disabled={isSubmitting || emailSubmitted} className={cn(buttonClass, "disabled:opacity-50 disabled:cursor-not-allowed")} style={submitStyles} {...submitAttrs}>
                   {isSubmitting ? "..." : buttonText}
                 </button>
               )}
@@ -4588,7 +4584,7 @@ function CoreBlockRenderer({
           {emailExtras(options)}
           {renderEmailFields(options)}
           {leadError ? (
-            <p role="alert" data-email-error="" className="mt-2 text-[13px] font-medium" style={{ color: options.inverted ? options.inverted.fill : theme.text_color || "#111113" }}>
+            <p role="alert" data-email-error="" className="mt-2 text-[13px] font-medium" style={{ color: options.inverted ? options.inverted.fill : signupInk }}>
               {leadError}
             </p>
           ) : null}
@@ -4601,7 +4597,7 @@ function CoreBlockRenderer({
           headline={data.headline ?? ""}
           description={data.description}
           image={layoutImage}
-          theme={theme}
+          theme={signupTheme}
           stackedForm={emailSignupStacked(layout, getButtonText())}
           renderForm={renderEmailForm}
           submitted={emailSubmitted}
@@ -4611,6 +4607,7 @@ function CoreBlockRenderer({
           /* Round 43: the creator's picture for Connect, Letter and Bar, and the page's button for Bar's. */
           avatar={{ src: onePageImageSrc(profile.avatar_url, 128) || null, name: profile.title || "" }}
           buttonStyle={emailButtonStyles}
+          buttonPress={{ className: emailPress.className, ...emailButtonAttrs }}
           buttonText={getButtonText()}
         />
       )

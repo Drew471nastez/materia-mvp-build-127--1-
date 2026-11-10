@@ -27,6 +27,8 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { useBlockSheet } from "@/components/onepage/block-sheet"
 import { CardButton, MIX, px, useParts, useTrack, type AppBlockLook } from "@/components/onepage/app-block"
+import { pressableProps } from "@/lib/onepage/block-look"
+import { chipColors, inkOn } from "@/lib/onepage/contrast"
 import { socialLinkId } from "@/lib/onepage/link-keys"
 import { appItems, appLayoutOf, pollOptions, type AppBlockData, type AppItem } from "@/lib/onepage/app-blocks"
 import { checkTipAmount, tipAmounts, tipLabel, typedTipCents } from "@/lib/onepage/tips"
@@ -227,9 +229,18 @@ export function DataTipsView({ block, data: given, look }: Props) {
   }
 
   const title = data.title?.trim() || tt("Leave a tip")
+  /*
+    Round AR: an amount is a chip that reads on the card (parts.chip); the one
+    picked is that chip's words as its fill, with words that read on them
+    (lib/onepage/contrast inkOn). They were the card's words and paper turned
+    round from a part that no longer existed, so the picked one had no fill,
+    and on mid-tone pages the others fell to 3.8:1
+    (scripts/check-onepage-contrast-ar5.mjs). Send is the page's button.
+  */
+  const pickedInk = inkOn(parts.chip.color, look.theme.button_color)
   const chip = (on: boolean): React.CSSProperties => ({
-    background: on ? parts.ink : MIX[12],
-    color: on ? parts.paper : "inherit",
+    background: on ? parts.chip.color : parts.chip.background,
+    color: on ? pickedInk : parts.chip.color,
     fontSize: px(14.5, look.scale),
     minHeight: px(42, look.scale),
     borderRadius: 999,
@@ -284,16 +295,17 @@ export function DataTipsView({ block, data: given, look }: Props) {
               style={{ borderRadius: Math.min(parts.radius, 14), height: px(46, look.scale) }}
             />
           ) : null}
-          <button
-            type="button"
-            onClick={send}
-            disabled={busy}
-            data-tip-send=""
-            className="mt-3 w-full font-semibold transition-[opacity,transform] duration-150 active:scale-[0.985] disabled:opacity-60"
-            style={{ background: parts.ink, color: parts.paper, borderRadius: 999, minHeight: px(48, look.scale), fontSize: px(15, look.scale) }}
-          >
-            {busy ? tt("Opening checkout...") : cents !== null && allowed ? tt("Tip {amount}", { amount: tipLabel(cents, currency, locale) }) : tt("Tip")}
-          </button>
+          <div className="mt-3 flex">
+            <CardButton
+              look={look}
+              onClick={send}
+              disabled={busy}
+              wide
+              big
+              data={{ "data-tip-send": "" }}
+              label={busy ? tt("Opening checkout...") : cents !== null && allowed ? tt("Tip {amount}", { amount: tipLabel(cents, currency, locale) }) : tt("Tip")}
+            />
+          </div>
           {error ? <p className="mt-2 font-medium" style={{ fontSize: px(13, look.scale) }} role="alert" data-tip-error="">{error}</p> : null}
         </>
       )}
@@ -363,6 +375,15 @@ export function DataPollView({ block, data, look }: Props) {
   }
   const results = !!tally && showResults
   const row = (id: string) => tally?.options.find((o) => o.id === id)
+  /*
+    Round AR: each option is the page's button made to read on the card
+    (parts.onCard), with the page's hover until a vote is in. It was a
+    hairline pill whatever the page's buttons were. The vote and the result
+    bars are a shade that the option's words read on (lib/onepage/contrast
+    chipColors), not the words' own colour laid under them.
+  */
+  const option = pressableProps(parts.onCard, look.still)
+  const shade = { on: chipColors(parts.onCard, 24), off: chipColors(parts.onCard, 12) }
   return (
     <div data-onepage-app="poll" data-app-layout="card" className="w-full text-left" style={{ ...parts.surface, borderRadius: parts.radius, padding: px(14, look.scale) }}>
       <p className="font-semibold" style={{ fontSize: px(15.5, look.scale) }} data-block-title="">{data.poll_question}</p>
@@ -379,15 +400,17 @@ export function DataPollView({ block, data, look }: Props) {
               disabled={!!voted}
               onClick={() => vote(o.id)}
               data-poll-option={o.id}
-              className={cn("relative flex w-full items-center justify-between overflow-hidden rounded-full border text-left font-medium transition-[background-color,opacity] duration-150 disabled:cursor-default", voted && !on && !results && "opacity-60")}
-              style={{ borderColor: MIX[35], background: on && !results ? MIX[16] : "transparent", padding: `${px(10, look.scale)} ${px(14, look.scale)}`, fontSize: px(14, look.scale) }}
+              data-hover={voted ? "none" : option["data-hover"]}
+              data-shadow={option["data-shadow"]}
+              className={cn(option.className, "relative flex w-full items-center justify-between overflow-hidden text-left font-medium disabled:cursor-default", voted && !on && !results && "opacity-60")}
+              style={{ ...option.style, ...(results ? { color: shade.on.color } : null), padding: `${px(10, look.scale)} ${px(14, look.scale)}`, fontSize: px(14, look.scale) }}
             >
-              {r ? (
+              {r || (on && !results) ? (
                 <span
                   aria-hidden
-                  data-poll-bar={r.percent}
+                  data-poll-bar={r ? r.percent : undefined}
                   className="absolute inset-y-0 left-0 transition-[width] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
-                  style={{ width: grown ? `${r.percent}%` : "0%", background: on ? MIX[35] : MIX[16] }}
+                  style={{ width: r ? (grown ? `${r.percent}%` : "0%") : "100%", background: on ? shade.on.background : shade.off.background }}
                 />
               ) : null}
               <span className="relative flex min-w-0 items-center gap-1.5">
@@ -712,9 +735,11 @@ export function DataEventView({ block, data, look }: Props) {
     a.remove()
     window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
+  /* Round AR: on the card, a chip in colours that read on it (lib/onepage/contrast chipColors); over a photo, white words on dark glass. */
+  const onPhoto = layout === "featured" && !!data.image_url
   const chip = (
-    <span className="flex shrink-0 flex-col items-center justify-center rounded-xl text-center" style={{ width: px(50, look.scale), height: px(54, look.scale), background: MIX[12] }} data-event-day="">
-      <span suppressHydrationWarning className="font-semibold tracking-[0.04em] opacity-80" style={{ fontSize: px(10.5, look.scale) }}>{month}</span>
+    <span className="flex shrink-0 flex-col items-center justify-center rounded-xl text-center" style={{ width: px(50, look.scale), height: px(54, look.scale), ...(onPhoto ? { background: "rgba(0, 0, 0, 0.32)", color: "#ffffff" } : parts.chip) }} data-event-day="">
+      <span suppressHydrationWarning className="font-semibold tracking-[0.04em]" style={{ fontSize: px(10.5, look.scale) }}>{month}</span>
       <span suppressHydrationWarning className="font-bold tabular-nums leading-none" style={{ fontSize: px(21, look.scale) }}>{day}</span>
     </span>
   )
@@ -760,12 +785,13 @@ export function DataEventView({ block, data, look }: Props) {
   }
   if (layout === "featured") {
     return (
-      <div data-onepage-app="event" data-app-layout="featured" className="relative w-full overflow-hidden text-left text-white" style={{ borderRadius: parts.radius, background: data.image_url ? "#111113" : parts.paper }}>
+      /* Round AR: without a picture the featured card is the page's button as a card (parts.surface), as the other layouts are. It named a part that no longer existed and drew nothing behind white words. */
+      <div data-onepage-app="event" data-app-layout="featured" className="relative w-full overflow-hidden text-left" style={data.image_url ? { borderRadius: parts.radius, background: "#111113", color: "#ffffff" } : { ...parts.surface, borderRadius: parts.radius }}>
         {data.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={data.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : null}
-        <div className="relative flex min-h-[220px] flex-col justify-end bg-[linear-gradient(180deg,rgba(0,0,0,0)_20%,rgba(0,0,0,0.72))]" style={{ padding: px(16, look.scale), color: data.image_url ? "#ffffff" : parts.ink }}>
+        <div className={cn("relative flex min-h-[220px] flex-col justify-end", data.image_url && "bg-[linear-gradient(180deg,rgba(0,0,0,0)_20%,rgba(0,0,0,0.72))]")} style={{ padding: px(16, look.scale) }}>
           <div className="flex items-end" style={{ gap: px(12, look.scale) }}>
             {chip}
             <div className="min-w-0 flex-1">{lines}</div>

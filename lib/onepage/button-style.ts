@@ -24,7 +24,7 @@
  */
 import type { CSSProperties } from "react"
 import { readableOn } from "./theme-apply"
-import { buttonGrounds, contrastOn, over, pageGrounds, parseColor, readableInk, worstContrast } from "./contrast"
+import { buttonGrounds, contrastOn, over, pageGrounds, parseColor, readableInk, worstContrast, type Rgba } from "./contrast"
 
 export type ButtonFill = "filled" | "soft" | "outline" | "glass"
 export type ButtonShadow = "none" | "subtle" | "strong" | "hard"
@@ -175,9 +175,16 @@ export function themeButtonStyle(theme: ButtonThemeLike): CSSProperties {
   }
 }
 
-/** The fill a header strip inside a button takes (the YouTube and Pro titles): the button colour when solid, else none. */
+/**
+ * The fill a header strip inside a button takes (the YouTube and Pro titles): the button colour when solid, else none.
+ * Round AR: a see-through Solid colour (a glass theme saved as Solid, rgba(255,255,255,0.15)) is already the
+ * card's own fill, so the strip laid it a second time and white words fell under 4.5:1 on it
+ * (scripts/check-onepage-contrast-ar5.mjs, Ocean and Aurora). The strip is clear then: the card shows through.
+ */
 export function themeButtonStripFill(theme: ButtonThemeLike): string {
-  return buttonFill(theme) === "filled" ? (theme.button_color as string) : "transparent"
+  if (buttonFill(theme) !== "filled") return "transparent"
+  const c = parseColor(theme.button_color)
+  return c && c.a < 1 ? "transparent" : (theme.button_color as string)
 }
 
 function luminance(color: string): number | null {
@@ -330,4 +337,28 @@ function wordsOn(fill: unknown, preferred: unknown, theme: ButtonThemeLike): str
   const f = parseColor(fill)
   if (!f) return String(preferred ?? "#111113")
   return readableInk(preferred, [f.a < 1 ? over(f, ground) : f])
+}
+
+/**
+ * THE PAGE'S BUTTON ON A BOX THE BLOCK DRAWS ITSELF (round AR). The email
+ * signup lays its form on a card tinted with the page's words at a few
+ * percent, so the page's button sits on that, not on the page. `grounds` is
+ * what the box shows (lib/onepage/contrast tintGrounds). The button keeps
+ * the page's style, corners, border, shadow and hover; only its words move,
+ * and only when they would not read on the button there.
+ */
+export function buttonThemeOn<T extends ButtonThemeLike>(theme: T, grounds: readonly Rgba[]): T {
+  const words = readableInk(theme.button_text_color, buttonGrounds(theme as never, grounds))
+  return words === theme.button_text_color ? theme : { ...theme, button_text_color: words }
+}
+
+/**
+ * The page's button on a card that is itself drawn as the page's button
+ * (themeButtonStyle): an event's ticket button, a poll's options, the tip
+ * amounts and Send, a discount code's Copy. cardButtonTheme with the card's
+ * own surface, so every such block reads one rule.
+ */
+export function onCardButtonTheme(theme: ButtonThemeLike): ButtonThemeLike {
+  const surface = buttonFill(theme) === "filled" ? (theme.button_color as string) : ((theme as { background_color?: string }).background_color ?? "#ffffff")
+  return cardButtonTheme(theme, { surface, cardText: theme.button_text_color as string })
 }

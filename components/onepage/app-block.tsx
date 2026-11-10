@@ -37,7 +37,8 @@ import { Check, ChevronRight, Copy, Download, Mail, Phone, Globe, MapPin, Star, 
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { boxRadius, buttonPadScale, pressableProps } from "@/lib/onepage/block-look"
-import { buttonFill, cardButtonTheme, themeButtonStyle } from "@/lib/onepage/button-style"
+import { onCardButtonTheme, themeButtonStyle } from "@/lib/onepage/button-style"
+import { chipColors } from "@/lib/onepage/contrast"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { socialLinkId } from "@/lib/onepage/link-keys"
 import {
@@ -317,7 +318,11 @@ export function useParts(look: AppBlockLook) {
   const radius = boxRadius(look.theme)
   const press = pressableProps(look.theme, look.still)
   const pad = buttonPadScale(look.theme)
-  return { surface, radius, press, pad }
+  /* Round AR: a chip on the card (an event's date, a tip amount) in colours that read on it (lib/onepage/contrast chipColors). */
+  const chip = React.useMemo(() => chipColors(look.theme), [look.theme])
+  /* Round AR: the page's button made to read on the card (lib/onepage/button-style onCardButtonTheme), for the card's own buttons. */
+  const onCard = React.useMemo(() => onCardButtonTheme(look.theme), [look.theme])
+  return { surface, radius, press, pad, chip, onCard }
 }
 
 /*
@@ -329,16 +334,32 @@ export function useParts(look: AppBlockLook) {
   on the card the way a product card's is (lib/onepage/button-style
   cardButtonTheme), with the page's hover (pressableProps).
 */
-export function CardButton({ label, look, onClick, href, wide = false }: { label: string; look: AppBlockLook; onClick?: (e: React.MouseEvent) => void; href?: string | null; wide?: boolean }) {
-  const t = look.theme
-  const theme = React.useMemo(() => {
-    const surface = buttonFill(t) === "filled" ? t.button_color : t.background_color
-    return cardButtonTheme(t, { surface, cardText: t.button_text_color })
-  }, [t])
+export function CardButton({
+  label,
+  look,
+  onClick,
+  href,
+  wide = false,
+  big = false,
+  disabled = false,
+  data,
+}: {
+  label: string
+  look: AppBlockLook
+  onClick?: (e: React.MouseEvent) => void
+  href?: string | null
+  wide?: boolean
+  /** The block's one main action (a tip's Send): 15px words, 48px tall. */
+  big?: boolean
+  disabled?: boolean
+  /** Extra data attributes the block's tests and probes look for. */
+  data?: Record<`data-${string}`, string>
+}) {
+  const theme = React.useMemo(() => onCardButtonTheme(look.theme), [look.theme])
   const press = pressableProps(theme, look.still)
-  const cls = cn(press.className, "inline-flex shrink-0 items-center justify-center font-semibold", wide && "w-full")
-  const style: React.CSSProperties = { ...press.style, fontSize: px(13, look.scale), padding: `${px(8, look.scale)} ${px(14, look.scale)}`, minHeight: px(36, look.scale) }
-  const attrs = { "data-hover": press["data-hover"], "data-shadow": press["data-shadow"], "data-app-cta": "" }
+  const cls = cn(press.className, "inline-flex shrink-0 items-center justify-center font-semibold disabled:opacity-60", wide && "w-full")
+  const style: React.CSSProperties = { ...press.style, fontSize: px(big ? 15 : 13, look.scale), padding: `${px(8, look.scale)} ${px(14, look.scale)}`, minHeight: px(big ? 48 : 36, look.scale) }
+  const attrs = { "data-hover": press["data-hover"], "data-shadow": press["data-shadow"], "data-app-cta": "", ...data }
   if (href) {
     return (
       <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={cls} style={style} {...attrs}>
@@ -347,7 +368,7 @@ export function CardButton({ label, look, onClick, href, wide = false }: { label
     )
   }
   return (
-    <button type="button" onClick={onClick} className={cls} style={style} {...attrs}>
+    <button type="button" onClick={onClick} disabled={disabled} className={cls} style={style} {...attrs}>
       {label}
     </button>
   )
@@ -836,10 +857,10 @@ function EventsView({ block, data, provider, look }: Omit<ViewProps, "provider">
               className={cn("flex items-center", carousel && "w-[80%] shrink-0 snap-start")}
               style={card ? { ...parts.surface, borderRadius: parts.radius, padding: px(12, look.scale), gap: px(12, look.scale) } : { ...parts.press.style, borderRadius: parts.radius, padding: `${px(10, look.scale)} ${px(12, look.scale)}`, gap: px(12, look.scale) }}
             >
-              <span className="flex shrink-0 flex-col items-center justify-center rounded-xl text-center" style={{ width: px(46, look.scale), height: px(50, look.scale), background: MIX[12] }}>
+              <span className="flex shrink-0 flex-col items-center justify-center rounded-xl text-center" style={{ width: px(46, look.scale), height: px(50, look.scale), ...parts.chip }} data-event-day="">
                 {day ? (
                   <>
-                    {/* Round AR: the month at full strength: at 80% on the date chip's tint it fell under 4.5:1 on mid-tone pages (scripts/check-onepage-contrast-ar5.mjs). */}
+                    {/* Round AR: the month at full strength, on a chip in colours that read on the card (lib/onepage/contrast chipColors). */}
                     <span className="font-semibold tracking-[0.04em]" style={{ fontSize: px(10.5, look.scale) }}>{day.month}</span>
                     <span className="font-bold tabular-nums leading-none" style={{ fontSize: px(19, look.scale) }}>{day.day}</span>
                   </>

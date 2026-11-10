@@ -88,6 +88,7 @@ export function EmailSignupView({
   animationClass,
   avatar = null,
   buttonStyle,
+  buttonPress,
   buttonText,
 }: {
   layout: EmailSignupLayout
@@ -106,6 +107,8 @@ export function EmailSignupView({
   avatar?: { src: string | null; name: string } | null
   /** Round 43: the page's own button and its words, for Bar's button that opens the form. */
   buttonStyle?: React.CSSProperties
+  /** Round AR: the page's hover for that button (lib/onepage/block-look pressableProps: its class and data attributes). */
+  buttonPress?: { className: string; "data-hover": string; "data-shadow": string }
   buttonText?: string
 }) {
   const [barOpen, setBarOpen] = React.useState(false)
@@ -202,7 +205,9 @@ export function EmailSignupView({
               /* Into the box once it is there: the keyboard comes up with the form. */
               window.setTimeout(() => barForm.current?.querySelector<HTMLInputElement>("input[type=email]")?.focus({ preventScroll: true }), 220)
             }}
-            className={cn("h-9 shrink-0 px-4 text-[13.5px] font-medium transition-[opacity,scale] duration-200", open ? "pointer-events-none scale-95 opacity-0" : "opacity-100")}
+            className={cn(buttonPress?.className, "h-9 shrink-0 px-4 text-[13.5px] font-medium transition-[opacity,scale] duration-200", open ? "pointer-events-none scale-95 opacity-0" : "opacity-100")}
+            data-hover={buttonPress?.["data-hover"]}
+            data-shadow={buttonPress?.["data-shadow"]}
             style={{ ...buttonStyle, borderRadius: buttonStyle?.borderRadius ?? 999 }}
             data-email-bar-open=""
           >

@@ -53,6 +53,7 @@ import {CompactInstagramPost} from "./compact-post"
 import * as React from "react"
 import dynamic from "next/dynamic"
 import { buttonPadScale, pressableProps } from "@/lib/onepage/block-look"
+import { onCardButtonTheme } from "@/lib/onepage/button-style"
 import { teamStoreForProducts } from "@/lib/onepage/team-context"
 import { Check, ChevronRight, Copy, Loader2, Play, RefreshCw, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -688,6 +689,13 @@ function PromoCodeView({ block, look }: { block: OnePageBlock; look: StorelibBlo
     href = null
   }
   const radius = radiusOf(look.theme)
+  /*
+    Round AR: Copy is the page's button made to read on the code's card
+    (lib/onepage/button-style onCardButtonTheme), with the page's fill,
+    border, shadow and hover. It was a dashed box in the card's words
+    whatever the page's buttons were.
+  */
+  const copyPress = pressableProps(onCardButtonTheme(look.theme), look.still)
   return (
     <div data-onepage-code="" className="w-full" style={{ ...look.button, borderRadius: radius, padding: px(12, look.scale) }}>
       <div className="flex items-center" style={{ gap: px(10, look.scale) }}>
@@ -710,8 +718,10 @@ function PromoCodeView({ block, look }: { block: OnePageBlock; look: StorelibBlo
             window.setTimeout(() => setCopied(false), 1600)
           }
         }}
-        className="mt-2.5 flex w-full items-center justify-between border border-dashed border-current/40 font-mono font-semibold tracking-[0.06em]"
-        style={{ borderRadius: Math.max(radius - 4, 8), padding: `${px(10, look.scale)} ${px(14, look.scale)}`, fontSize: px(15, look.scale), borderColor: "color-mix(in srgb, currentColor 40%, transparent)" }}
+        className={cn(copyPress.className, "mt-2.5 flex w-full items-center justify-between font-mono font-semibold tracking-[0.06em]")}
+        data-hover={copyPress["data-hover"]}
+        data-shadow={copyPress["data-shadow"]}
+        style={{ ...copyPress.style, borderRadius: Math.max(radius - 4, Math.min(radius, 8)), padding: `${px(10, look.scale)} ${px(14, look.scale)}`, fontSize: px(15, look.scale) }}
       >
         <span className="truncate">{code}</span>
         <span className="inline-flex shrink-0 items-center gap-1 font-sans font-medium tracking-normal" style={{ fontSize: px(13, look.scale) }}>

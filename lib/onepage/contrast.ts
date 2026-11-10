@@ -357,3 +357,28 @@ export function inkOn(surface: unknown, preferred: unknown, chosen?: unknown, mi
   const pick = parseColor(chosen) ? chosen : preferred
   return readableInk(pick, [g], min)
 }
+
+/**
+ * A SMALL CHIP ON A CARD (round AR): an event's date, a tip amount not
+ * picked. It was the card's words at 12% laid over the card, so on a
+ * mid-tone page white words on a white tint over a Soft or Glass card fell
+ * to 3.8:1 (scripts/check-onepage-contrast-ar5.mjs: Sunset, Ocean, Cobalt).
+ * Light words now get a shade of black under them, dark words a tint of
+ * themselves, so the chip still shows and its words gain contrast instead of
+ * losing it. The words are then held to 4.5:1 on every ground the card has
+ * (the card is drawn as the page's button: buttonGrounds). Returns the chip's
+ * background and its words.
+ */
+export function chipColors(theme: ContrastThemeLike, percent: number = 12): { background: string; color: string } {
+  const ink = parseColor(theme.button_text_color) ?? BLACK
+  const shade: Rgba = lum(ink) > 0.4 ? { ...BLACK, a: percent / 100 } : { ...ink, a: (ink.a * percent) / 100 }
+  const on = buttonGrounds(theme).map((g) => over(shade, g))
+  return { background: `rgba(${shade.r}, ${shade.g}, ${shade.b}, ${Math.round(shade.a * 1000) / 1000})`, color: readableInk(theme.button_text_color, on, TEXT_MIN) }
+}
+
+/** The page's grounds with `tint` at `percent` laid over each: a box a block tints itself (the email signup's card is the page's words at 4 to 6%). */
+export function tintGrounds(theme: ContrastThemeLike, tint: unknown, percent: number): Rgba[] {
+  const t = parseColor(tint)
+  const grounds = pageGrounds(theme)
+  return t ? grounds.map((g) => over({ ...t, a: (t.a * percent) / 100 }, g)) : grounds
+}
