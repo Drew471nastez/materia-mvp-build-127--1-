@@ -68,7 +68,7 @@ const HONEST = `REAL DATA ONLY. Products, prices, reviews, numbers, logos, quote
 
 const COPY = `COPY: specific, compact, the owner's own voice. Never: unlock, elevate, seamless, powerful, effortless, supercharge, transform, game changer, cutting edge, next level, empower, streamline, "Welcome to our website", "Learn more", "Get started today". No em dashes.`
 
-const EDIT_RULES = `KEEP THE SITE'S OWN DIRECTION: change only what was asked, in the site's tokens, type and spacing. A change never introduces the defaults: no indigo or violet accent, no purple to blue gradient, no emoji icons, no hardcoded Inter or system-ui heading, no rounded card with a coloured left border, no invented numbers or quotes, no filler or instructions to the creator in visible text ("Add your photo", "Your name", "Replace this"); a missing fact stays out or goes in an editor-only empty state ({% if request.design_mode %}).`
+const EDIT_RULES = `KEEP THE SITE'S OWN DIRECTION: change only what was asked, in the site's tokens, type and spacing. A change never introduces the defaults: no indigo or violet accent, no purple to blue gradient, no emoji icons, no hardcoded Inter or system-ui heading, no rounded card with a coloured left border, no invented numbers or quotes, no filler or instructions to the creator in visible text ("Add your photo", "Your name", "Replace this"); a missing fact stays out or goes in an editor-only empty state ({% if request.design_mode %}). Never drift toward the editorial-serif cliché (italic display serif + cream background + mono caps captions + terracotta) or the SaaS-gradient cliché unless the creator asked for that look.`
 
 /** The whole rule set, for the website agent's system prompt. */
 export const DESIGN_RULES = [

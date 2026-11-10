@@ -161,9 +161,11 @@ section("2. The website agent: one cached prefix, a brief per job")
 
 section("3. References: their analyses in the brief, nothing claimed that was not sent")
 {
-  const ref: DesignReference = { id: "ref-strength-split", title: "Strength studio split hero", summary: "A full-bleed training photo beside a condensed headline.", styleTags: ["sport", "bold"], industries: ["fitness"], borrow: ["one strong photo per screen"], avoid: ["copying its words"], image: null }
+  /* Integration: O1's real record shape, from its seed, with this test's id and borrow line. */
+  const { SEED_REFERENCES } = await import("@/lib/storelib-ai/references/seed")
+  const ref: DesignReference = { ...SEED_REFERENCES[0], id: "ref-strength-split", borrow: ["one strong photo per screen"] }
   const brief = await jobDesignBrief({ job: job(), caps: CAPS, files: [], references: { list: [ref] } })
-  check("references chosen for the job are in its brief, by id, as evidence", brief.referenceIds.join() === "ref-strength-split" && brief.text.includes("ref-strength-split") && /one strong photo per screen/.test(brief.text))
+  check("references chosen for the job are in its brief, by id, as evidence", brief.referenceIds.join() === "ref-strength-split" && /\[R1\]/.test(brief.text) && /one strong photo per screen/.test(brief.text)) /* integration: O1's block labels references [R1]..., never by id or URL */
   const none = await jobDesignBrief({ job: job(), caps: CAPS, files: [], references: { list: [] } })
   check("with none, the brief says nothing about references or pictures", none.referenceIds.length === 0 && !/ref-|picture is attached|pictures are attached/i.test(none.text))
   const edit = await jobDesignBrief({ job: job({ edit: true }), caps: CAPS, files: [], references: { list: [ref] } })
