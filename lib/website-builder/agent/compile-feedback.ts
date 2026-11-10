@@ -32,6 +32,7 @@ import { isCompatSource, splitCompatFile } from "@/lib/storelib-theme/compat/the
 import { parseCompat } from "@/lib/storelib-theme/compat/parser"
 import { CompatSyntaxError } from "@/lib/storelib-theme/compat/lexer"
 import type { ThemeError } from "@/lib/storelib-theme/types"
+import { sectionSlopFindings } from "./slop-gate"
 import { renderStorelibSection } from "../storelib-runtime"
 import type { SectionInstance, ThemeSettingsValues } from "../types"
 
@@ -108,6 +109,11 @@ export function checkSectionSource(input: {
   strict?: boolean
   /** Quality findings are not held: the run was already sent back over them, or this is Storelib's own file. */
   lenient?: boolean
+  /**
+   * The creator's own words for this change (round O): the anti-slop gate allows a look only
+   * they may ask for (purple, emoji, the editorial serif) when these words ask for it.
+   */
+  brief?: string
 }): SourceCheck {
   /* An imported theme's file is the theme's own template language, not Storelib's: read by the theme engine's parser instead. */
   if (isCompatSource(input.source)) return checkCompatSource(input.path, input.source)
@@ -133,6 +139,8 @@ export function checkSectionSource(input: {
       qualityErrors(input.strict === false ? checkSectionQuality(text) : [...checkSectionQuality(text), ...checkSectionIntegration(text)]).filter((f) => !input.lenient || HARD.test(f.id))
     const had = new Set(input.before ? findingsOf(input.before).map((f) => f.id) : [])
     const introduced = findingsOf(input.source).filter((f) => !had.has(f.id))
+    /* Round O: the anti-slop P0 rules an agent's section answers for on its own (./slop-gate.ts). */
+    if (input.strict === true) introduced.push(...sectionSlopFindings(input.path, input.source, input.before ?? null, { brief: input.brief, lenient: input.lenient }))
     if (introduced.length) {
       return {
         ok: false,

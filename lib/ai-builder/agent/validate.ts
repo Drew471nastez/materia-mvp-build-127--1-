@@ -48,6 +48,8 @@ export interface FileCheckContext {
   /** After two refusals a quality heuristic is let through; facts still refuse (compile-feedback.ts). */
   lenient?: boolean
   formPicker?: boolean
+  /** The creator's own words: the anti-slop gate allows a look only they may ask for (round O). */
+  brief?: string
 }
 
 export function typeOfPath(path: string): string {
@@ -113,7 +115,7 @@ export function validateFile(path: string, text: string, ctx: FileCheckContext =
   for (const p of sourceProblems(text)) if (p.code === "secret" || p.code === "endless_motion") issues.push({ severity: "error", code: `gate.${p.code}`, message: p.message, path })
   const type = typeOfPath(path)
   if (path.startsWith("sections/")) {
-    const checked = checkSectionSource({ path, type, source: text, instances: ctx.instances, theme: ctx.theme, sources: ctx.sources, before: ctx.before ?? null, strict: true, lenient: ctx.lenient })
+    const checked = checkSectionSource({ path, type, source: text, instances: ctx.instances, theme: ctx.theme, sources: ctx.sources, before: ctx.before ?? null, strict: true, lenient: ctx.lenient, ...(ctx.brief !== undefined ? { brief: ctx.brief } : {}) })
     if (checked.ok === false) {
       issues.push({ severity: "error", code: `compile.${checked.reason}`, message: checked.feedback.slice(0, 2000), path, line: checked.errors?.[0]?.line })
       return issues

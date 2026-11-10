@@ -110,7 +110,7 @@ tags: header, navigation, mega menu, mobile menu, hamburger, cart drawer, search
 .sh__msub a { display: block; padding: 8px 0; color: inherit; }
 .sh__prefs { display: grid; gap: 12px; padding-top: 20px; border-top: 1px solid var(--s-border); }
 .sh__pref { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.sh__pref-label { font-size: 0.8125rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.sh__pref-label { font-size: 0.875rem; font-weight: 500; }
 .sh__opt { min-height: 44px; padding: 0 12px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; cursor: pointer; }
 .sh__opt[aria-current="true"] { border-color: currentColor; }
 .sh__search, .sh__cart { position: fixed; z-index: 30; background: var(--s-bg); color: var(--s-text); visibility: hidden; opacity: 0; transition: opacity 200ms ease, transform 280ms cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 280ms; }

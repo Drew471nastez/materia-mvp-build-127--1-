@@ -34,6 +34,7 @@ import { PLAN_MODEL, SMALL_MODEL, WRITE_MODEL } from "@/lib/website-builder/ai-s
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { AgentDeps, AgentModels, ProjectStore, StoredFile, StoredPage, StoreWriteResult } from "./ports"
 import { versionOf } from "./version"
+import { readFingerprints, type SiteFingerprint } from "../novelty"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -104,6 +105,31 @@ export function supabaseProjectStore(db: Db, installId: string): ProjectStore {
   }
 }
 
+/**
+ * ROUND O (spec 8.4): the fingerprints of the platform's recent finished agent sites, for the soft novelty warning.
+ * One small query per job (memoised), reading only checkpoint->fingerprint: a handful of words per site (section
+ * roles, hero shape, palette and type buckets), no copy, no names, no ids, so nothing of another creator's site
+ * reaches this job. Live jobs (this one included) are not compared. Fails quiet: no comparison, never a blocked job.
+ */
+export function recentAgentFingerprints(db: Db, limit = 40): () => Promise<SiteFingerprint[]> {
+  let memo: Promise<SiteFingerprint[]> | null = null
+  return () => {
+    memo ??= (async () => {
+      const { data, error } = await db
+        .from("ai_site_jobs")
+        .select("fp:checkpoint->fingerprint")
+        .eq("engine", "agent")
+        .in("status", ["complete", "partial"])
+        .not("checkpoint->fingerprint", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(limit)
+      if (error) return []
+      return readFingerprints(((data ?? []) as { fp: unknown }[]).map((r) => r.fp), limit)
+    })().catch(() => [])
+    return memo
+  }
+}
+
 /** The three models, answered on the creator's own Claude key when they connected one (as ai-site/runner.ts jobModels). */
 export async function agentModels(creatorId: string): Promise<AgentModels> {
   const [plan, loop, small] = await Promise.all([
@@ -135,9 +161,10 @@ export async function agentDeps(job: { creatorId: string; ownerUserId: string | 
     /* L4: the page as a preview link draws it (draft page in home's chrome, saved files, this creator's data), rendered by the template engine. */
     renderCheck: async ({ page, capabilities }) => {
       const r = await renderCheckForInstall(admin, { creatorId: job.creatorId, installId: job.installId, page, ...(capabilities ? { capabilities } : {}) })
-      return { ok: r.ok, issues: r.issues, htmlBytes: r.htmlBytes }
+      return { ok: r.ok, issues: r.issues, htmlBytes: r.htmlBytes, ...(r.drawn ? { drawn: r.drawn } : {}) }
     },
     features: { formPicker: true },
+    recentFingerprints: recentAgentFingerprints(admin),
     ...extra,
   }
 }

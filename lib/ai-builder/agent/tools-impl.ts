@@ -34,6 +34,7 @@ import type { RuntimeCapabilities } from "../runtime-contract"
 import { isAiComponentType, type AgentEvent, type AgentPhase, type ComponentManifest, type DataBindingKind, type FileWriteResult, type ValidationIssue } from "../types"
 import type { AgentDeps, AgentJobInput, StoredPage } from "./ports"
 import { describeConcept, readConcept } from "./concept"
+import { conceptClicheIssues } from "../slop"
 import { libraryKnowledge } from "./knowledge"
 import { renderCheckPage } from "./render-check"
 import { addUnique, type LoopCheckpoint } from "./state"
@@ -142,6 +143,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       before: current?.text ?? null,
       lenient: attempts >= 2,
       formPicker: formPickerOn(deps),
+      brief: job.prompt,
     })
     const errors = errorsOf(issues)
     if (errors.length) {
@@ -566,6 +568,8 @@ export function createToolSet(ctx: ToolContext): ToolSet {
         if (read.ok === true) {
           cp.concept = read.concept
           notes.push(`Concept "${read.concept.name}" accepted. Keep to it:\n${describeConcept(read.concept)}`)
+          /* Round O (O3): the editorial-serif cliché by the concept's own words, unless the creator asked for that look. Refused at finish if built. */
+          for (const w of conceptClicheIssues(read.concept, job.prompt)) notes.push(`Warning: ${w.message}`)
         } else {
           /*
             A refused concept is a refusal, not a success with a footnote (round M): before, this answered
@@ -647,7 +651,7 @@ export async function validateAll(ctx: Pick<ToolContext, "job" | "deps" | "cp">,
       continue
     }
     const type = typeOfPath(path)
-    issues.push(...validateFile(path, text, { instances: pages.flatMap((p) => p.sections.filter((s) => s.type === type)), theme, sources: src, lenient: (cp.repairs[path] ?? 0) >= 2, formPicker: formPickerOn(deps) }))
+    issues.push(...validateFile(path, text, { instances: pages.flatMap((p) => p.sections.filter((s) => s.type === type)), theme, sources: src, lenient: (cp.repairs[path] ?? 0) >= 2, formPicker: formPickerOn(deps), brief: job.prompt }))
   }
   if (!opts.path) {
     if (cp.caps === undefined) cp.caps = (await deps.capabilities().catch(() => null)) ?? null
@@ -657,7 +661,7 @@ export async function validateAll(ctx: Pick<ToolContext, "job" | "deps" | "cp">,
 }
 
 /** One page drawn and checked, with the runtime errors the editor reported for it. */
-export async function renderPage(ctx: Pick<ToolContext, "deps" | "cp">, page: string): Promise<{ ok: boolean; issues: ValidationIssue[]; htmlBytes: number }> {
+export async function renderPage(ctx: Pick<ToolContext, "deps" | "cp">, page: string): Promise<{ ok: boolean; issues: ValidationIssue[]; htmlBytes: number; drawn?: { html: string; css: string } }> {
   const { deps, cp } = ctx
   const [files, pages, settings] = await Promise.all([deps.store.listFiles(), deps.store.listPages(), deps.store.readSettings()])
   const p = pages.find((x) => x.key === page)
@@ -669,5 +673,5 @@ export async function renderPage(ctx: Pick<ToolContext, "deps" | "cp">, page: st
   const r = await (deps.renderCheck ?? renderCheckPage)({ page, sections: p.sections, settings, sources: src, routes, capabilities: cp.caps ? { ...cp.caps, pages: pages.map((x) => ({ key: x.key, title: x.key, url: pagePath(x.key) })) } : null })
   const runtime = (await deps.previewErrors?.().catch(() => []))?.filter((e) => e.page === page) ?? []
   const issues = [...r.issues, ...runtime.slice(0, 10).map((e) => ({ severity: "error" as const, code: "runtime.preview", message: `The editor's preview hit an error in section ${e.sectionId}: ${e.message.slice(0, 200)}`, sectionId: e.sectionId }))]
-  return { ok: r.ok && !runtime.length, issues, htmlBytes: r.htmlBytes }
+  return { ok: r.ok && !runtime.length, issues, htmlBytes: r.htmlBytes, ...(r.drawn ? { drawn: r.drawn } : {}) }
 }

@@ -58,6 +58,7 @@ import { compileSection } from "@/lib/storelib-theme/storelib/compile"
 import { failureKind } from "@/lib/sites/agent/plain-errors"
 import { instanceFromSchema } from "@/lib/website-builder/ai-placement"
 import { checkSectionSource } from "./compile-feedback"
+import { sectionSlopFindings } from "./slop-gate"
 import {
   CREATIVE_RULES,
   DESIGN_CRAFT,
@@ -268,7 +269,7 @@ export function importedThemeNote(settings?: Record<string, unknown> | null): st
   return lines.filter(Boolean).join("\n")
 }
 
-function gate(text: string, opts: { takenTypes: string[]; takenNames: string[]; theme?: ThemeBriefInput; importedTheme?: boolean }): Gate {
+function gate(text: string, opts: { takenTypes: string[]; takenNames: string[]; theme?: ThemeBriefInput; importedTheme?: boolean; prompt?: string }): Gate {
   /**
    * The type comes from the file's own schema, and the file name follows it
    * rather than the other way round: the compiler insists the two agree, so
@@ -313,6 +314,20 @@ function gate(text: string, opts: { takenTypes: string[]; takenNames: string[]; 
         checked.reason === "compile"
           ? { error: "The section did not compile.", errors: checked.errors }
           : { error: "The section compiled but would not be correct on a real page." },
+    }
+  }
+  /*
+    AND IT IS NOT AI SLOP (round O): the anti-slop P0 rules one section answers for (./slop-gate.ts): no filler
+    or instructions to the creator in visible text, no invented numbers or quotes, no default indigo, no
+    purple to blue gradient, no emoji icons, no rounded card with a coloured left border. A look the
+    creator asked for in their own words is allowed.
+  */
+  const slop = sectionSlopFindings(path, text, null, { brief: opts.prompt ?? "" })
+  if (slop.length) {
+    return {
+      ok: false,
+      feedback: `${path} compiles, but it was not saved because it reads as machine-made:\n${slop.map((f) => `- ${f.message}`).join("\n")}\n\nFix those and send the whole file again, keeping everything else exactly as it is.`,
+      final: { error: "The section compiled but would not be correct on a real page." },
     }
   }
   const name = checked.name

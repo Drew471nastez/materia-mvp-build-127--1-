@@ -18,6 +18,7 @@
  * in-memory website, and every collaborator another lane is still building
  * is one function to swap.
  */
+import type { SiteFingerprint } from "../novelty"
 import type { AgentProvider } from "@/lib/sites/agent/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { RuntimeCapabilities } from "../runtime-contract"
@@ -90,8 +91,21 @@ export interface KnowledgeHit {
 
 export type KnowledgeSearch = (q: { query: string; kinds?: KnowledgeKind[]; industry?: string; limit?: number }) => Promise<Pick<KnowledgeEntry, "id" | "kind" | "title" | "body" | "examples">[]>
 
-/** Anti slop review of the files the job wrote. `slop.*` issues; error severity is "high". */
-export type SlopEvaluator = (input: { files: { path: string; text: string }[]; concept: unknown; capabilities: RuntimeCapabilities | null }) => Promise<ValidationIssue[]>
+/**
+ * Anti slop review of the files the job wrote. `slop.*` issues; error severity is "high".
+ * Round O: also the creator's own words (`brief`, so only they can ask for the editorial serif
+ * or purple look), the Theme settings (the tokens a visitor sees) and the pages as drawn.
+ */
+export type SlopEvaluator = (input: {
+  files: { path: string; text: string }[]
+  concept: unknown
+  capabilities: RuntimeCapabilities | null
+  brief?: string
+  settings?: Record<string, unknown>
+  rendered?: { page: string; html: string; css?: string }[]
+  /** Home's sections in order, for the page-level rules (template skeleton). */
+  sections?: { type: string }[]
+}) => Promise<ValidationIssue[]>
 
 /** A page drawn with the template engine (interpretation only) and checked. */
 export type RenderChecker = (input: {
@@ -101,7 +115,7 @@ export type RenderChecker = (input: {
   sources: Record<string, string>
   routes: Set<string>
   capabilities?: RuntimeCapabilities | null
-}) => Promise<{ ok: boolean; issues: ValidationIssue[]; htmlBytes: number }>
+}) => Promise<{ ok: boolean; issues: ValidationIssue[]; htmlBytes: number; drawn?: { html: string; css: string } }>
 
 /** Turns tokens into Theme settings keys (L5 owns the real one). */
 export type TokensMapper = (tokens: Partial<DesignTokens>, current: Record<string, unknown>) => { settings: Record<string, unknown>; changed: string[]; issues: ValidationIssue[] }
@@ -142,6 +156,11 @@ export interface AgentDeps {
   capabilities: () => Promise<RuntimeCapabilities | null>
   knowledge?: KnowledgeSearch
   slop?: SlopEvaluator
+  /**
+   * Round O (spec 8.4): fingerprints of the platform's recent agent-built sites, for the soft
+   * novelty warning at verify. Absent or failing: no comparison (never blocks a job).
+   */
+  recentFingerprints?: () => Promise<SiteFingerprint[]>
   renderCheck?: RenderChecker
   tokensToSettings?: TokensMapper
   /** Whether the editor draws form_picker (L4 landed it; default: whether the control registry has it). */

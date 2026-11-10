@@ -7,6 +7,8 @@ import "server-only"
  */
 import { capabilitiesFromSite, runSearchKnowledge, suggestDirections, type Direction, type KnowledgeCapability } from "@/lib/storelib-ai/library"
 import { slopIssues } from "../slop"
+import { themeSettingsToTokens } from "../tokens"
+import type { DesignTokens } from "../types"
 import type { RuntimeCapabilities } from "../runtime-contract"
 import type { KnowledgeSearch, SlopEvaluator } from "./ports"
 import type { VisualConcept } from "./concept"
@@ -31,11 +33,28 @@ export function libraryKnowledge(ctx: { industry?: string; concept?: () => Visua
   }
 }
 
-/** L6's anti slop evaluator over the job's files, relative to its concept and the store's real facts. */
-export const librarySlop: SlopEvaluator = async ({ files, concept, capabilities }) => {
+/**
+ * L6's anti slop evaluator over the job's files, relative to its concept and the store's real facts.
+ * Round O: with the creator's own words (only they can ask for the editorial serif or purple look), the
+ * Theme settings' tokens a visitor really sees, the pages as drawn and home's section order.
+ */
+export const librarySlop: SlopEvaluator = async ({ files, concept, capabilities, brief, settings, rendered, sections }) => {
   const c = capabilities
   const facts = c ? { numbers: [String(c.products.length), ...(c.reviews.count ? [String(c.reviews.count), ...(c.reviews.average !== null ? [c.reviews.average.toFixed(1)] : [])] : [])].filter((n) => n !== "0"), reviews: c.reviews.count > 0, quotes: false, logos: false } : undefined
-  return slopIssues({ sources: files.map((f) => ({ path: f.path, content: f.text })), ...(facts ? { facts } : {}) }, (concept as VisualConcept | null) ?? null)
+  /* The tokens a visitor sees. Fonts only when the site set a heading face (the reader's default is Inter, which is not a choice anyone made). */
+  const read = settings ? themeSettingsToTokens(settings) : undefined
+  const tokens: Partial<DesignTokens> | undefined = read && settings ? { colors: read.colors, ...(typeof settings.font_heading === "string" && settings.font_heading.trim() ? { fonts: read.fonts } : {}) } : undefined
+  return slopIssues(
+    {
+      sources: files.map((f) => ({ path: f.path, content: f.text })),
+      ...(facts ? { facts } : {}),
+      ...(typeof brief === "string" ? { brief } : {}),
+      ...(tokens ? { tokens } : {}),
+      ...(rendered?.length ? { rendered } : {}),
+      ...(sections?.length ? { sections } : {}),
+    },
+    (concept as VisualConcept | null) ?? null,
+  )
 }
 
 /** Starting directions for the plan phase: distinct, suited to the industry first. */
