@@ -339,7 +339,7 @@ async function main() {
     const shows = bandsintownEvents(recorded)
     check("Bandsintown: the day, the place, the ticket link, sold out", shows.length === 2 && shows[0].date === "2026-12-01" && shows[0].venue === "Paradiso, Amsterdam, Netherlands" && shows[0].url === "https://www.bandsintown.com/t/1001" && shows[1].sold_out === true)
     check("an artist's link or name is read; anything else refused", bandsintownArtist("https://www.bandsintown.com/a/12345-the-band") === "the band" && bandsintownArtist("Phoebe Bridgers") === "Phoebe Bridgers" && bandsintownArtist("a/b?c") === null)
-    check("typed dates and imported ones merge, one per day and place, in order", mergeEvents([{ id: "own", date: "2026-12-05", venue: "Roundhouse, London, United Kingdom" }], shows).map((e) => e.id).join() === "bit_1001,own")
+    check("typed dates and imported ones merge, one per day and place, in order", mergeEvents([{ id: "own", title: "", date: "2026-12-05", venue: "Roundhouse, London, United Kingdom" }], shows).map((e) => e.id).join() === "bit_1001,own")
     check("Bandsintown is only asked with BANDSINTOWN_APP_ID", /process\.env\.BANDSINTOWN_APP_ID/.test(read("lib/onepage/data-blocks-server.ts")))
     const event = app("e1", { provider: "event", title: "Launch night", event_start: "2026-12-01T19:00:00Z", venue: "Paradiso", url: "https://tickets.example.com", rsvp: true })
     check("an event with a name and a start is drawn; without a start it is left out", appBlockHasContent(event) && !appBlockHasContent(app("e2", { provider: "event", title: "x" })))

@@ -317,7 +317,10 @@ export function useParts(look: AppBlockLook) {
   const radius = boxRadius(look.theme)
   const press = pressableProps(look.theme, look.still)
   const pad = buttonPadScale(look.theme)
-  return { surface, radius, press, pad }
+  /* A button on the card: the card's colours the other way round (the data blocks' chips and fills read these). */
+  const ink = (surface.color as string) || look.theme.button_text_color || "#ffffff"
+  const paper = (surface.backgroundColor as string) || look.theme.button_color || "#1a1a2e"
+  return { surface, radius, press, pad, ink, paper }
 }
 
 /*
