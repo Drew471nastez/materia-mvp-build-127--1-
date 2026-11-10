@@ -41,6 +41,7 @@ import { compactCheckpoint, compactLive, resumeTurns, toCheckpointTurns } from "
 import { newCheckpoint, type LoopCheckpoint } from "./state"
 import { createToolSet, renderPage, validateAll, type EventDraft } from "./tools-impl"
 import { directionsFor, libraryKnowledge, librarySlop } from "./knowledge"
+import { contractBlock, planDirection } from "./direction"
 import { errorsOf } from "./validate"
 import { completenessIssues } from "./site-plan"
 
@@ -162,8 +163,31 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     const search = deps.knowledge ?? libraryKnowledge({ industry, caps: () => caps })
     const knowledge = (await search({ query: job.prompt.slice(0, 500), industry, limit: 5 }).catch(() => [])) as KnowledgeHit[]
     const scoped = job.edit || job.redesign === "changes"
-    const directions = scoped ? [] : directionsFor(industry ?? job.prompt.slice(0, 80), job.creatorId)
-    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages, files, knowledge, directions }) })
+    /*
+      Round O (O2): creative direction before generation. A new website (or a full redesign) gets a
+      CreativeBrief and an art direction fitted to the business (lib/storelib-ai/direction); its
+      STARTING DIRECTIONS are that choice. An existing site's job gets its DESIGN.md contract and the
+      creator's overrides instead, so brand tokens stay unless asked.
+    */
+    let directions: ReturnType<typeof directionsFor> = []
+    const blocks: string[] = []
+    if (!scoped) {
+      try {
+        const plan = planDirection(job, caps)
+        cp.brief = plan.brief
+        cp.direction = { primary: plan.choice.primary.id, secondary: plan.choice.secondary?.id ?? null, typeSystem: plan.choice.typeSystem.id, seed: plan.choice.seed }
+        directions = plan.seeds
+        blocks.push(plan.block)
+      } catch {
+        directions = directionsFor(industry ?? job.prompt.slice(0, 80), job.creatorId)
+      }
+    }
+    if (job.edit || job.redesign) {
+      const contract = await contractBlock(deps.store)
+      if (contract) blocks.push(contract)
+    }
+    const base = briefMessage({ job, caps, pages, files, knowledge, directions })
+    cp.turns.push({ role: "user", text: blocks.length ? `${base}\n\n${blocks.join("\n\n")}` : base })
     if (scoped) setPhase("build", "Making your change")
     else setPhase("plan", "Deciding the look")
   }
