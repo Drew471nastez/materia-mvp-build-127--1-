@@ -437,7 +437,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const picture = (cls: string, ratio?: string) =>
     !image ? null : fit === "full" && ratio ? (
       /* eslint-disable-next-line @next/next/no-img-element */
-      <img src={image} alt={title} loading="lazy" decoding="async" data-picture-fit="full" className={cn("block h-auto shrink-0", cls)} />
+      <img src={image} alt={title || ""} loading="lazy" decoding="async" data-picture-fit="full" className={cn("block h-auto shrink-0", cls)} />
     ) : (
       /* Round AK: the editor's grey padding is cut off when the picture carries it (components/ui/framed-picture). */
       <FramedPicture src={image} alt={title} fit={fit === "cover" ? "cover" : "contain"} className={cn("shrink-0 bg-black/5", ratio, cls)} imgClassName={fit === "cover" ? "object-cover" : "object-contain"} imgProps={{ loading: "lazy", decoding: "async", ...({ "data-picture-fit": fit } as object) }} />

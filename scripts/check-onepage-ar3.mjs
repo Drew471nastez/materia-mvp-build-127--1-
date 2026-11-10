@@ -178,9 +178,11 @@ if (!ONLY || ONLY === "settings") {
       const sel = `[data-block-open="${b.id}"]`
       if (!(await p.$(sel))) { empty.push(`${b.id}: no row`); continue }
       await p.$eval(sel, (e) => e.scrollIntoView({ block: "center" }))
+      /* The pane may still be gliding from the last row's close: the press lands once it is still. */
+      await sleep(450)
       if ((await p.$eval(sel, (e) => e.getAttribute("aria-expanded"))) !== "true") await p.click(sel)
       /* At 1440 the very first press on the list after load is sometimes not taken (seen on the first row only); pressed again, as a person would. */
-      await sleep(250)
+      await sleep(700)
       if ((await p.$eval(sel, (e) => e.getAttribute("aria-expanded"))) !== "true") { firstMissed.push(b.id); await p.click(sel) }
       /* Image 137's cause: the editor grows while its open is held for two frames. The first block opened is made to grow then. */
       if (n === 0 || b.id === "e_shelf_digital") {
