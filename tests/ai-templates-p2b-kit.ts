@@ -5,7 +5,8 @@
  */
 import { withImages } from "@/lib/storelib-ai/templates/kit-b"
 import type { SiteTemplate } from "@/lib/storelib-ai/templates/types-b"
-import { tokensToThemeSettings } from "@/lib/ai-builder/tokens"
+/* The agent's own mapper (set_tokens): it makes the `site` and `site_inverse` schemes the sections name. */
+import { tokensToThemeSettings } from "@/lib/ai-builder/agent/tokens"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { THEME_ROOT_ATTRIBUTE, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
 import { MOTION_TIER_SETTING } from "@/lib/storelib-ai/motion"
@@ -70,7 +71,7 @@ const TEMPLATE_OF: Record<string, string> = { home: "index", product: "product",
 export const templateFor = (key: string) => TEMPLATE_OF[key] ?? `page.${key}`
 
 export function themeOf(t: SiteTemplate): ThemeSettingsValues {
-  return { ...tokensToThemeSettings(t.tokens), site_chrome: "home", [MOTION_TIER_SETTING]: t.tokens.motion.tier ?? "balanced" } as unknown as ThemeSettingsValues
+  return { ...tokensToThemeSettings(t.tokens, {}), site_chrome: "home", [MOTION_TIER_SETTING]: t.tokens.motion.tier ?? "balanced" } as unknown as ThemeSettingsValues
 }
 
 export function schemaOf(source: string): { type: string; settings?: { id?: string; type: string }[]; blocks?: { type: string; settings?: { id?: string; type: string }[] }[]; presets?: { blocks?: { type: string; settings?: Record<string, unknown> }[] }[]; kind?: string } {

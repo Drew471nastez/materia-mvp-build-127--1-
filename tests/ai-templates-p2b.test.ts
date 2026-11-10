@@ -124,7 +124,8 @@ async function main() {
 
     /* 7. slop */
     const sources = Object.entries(t.files).map(([path, content]) => ({ path, content }))
-    const slop = slopIssues({ sources, rendered: drawn, tokens: t.tokens })
+    /* The store has two published reviews (CAPS.reviews): a section that prints them shows real proof. */
+    const slop = slopIssues({ sources, rendered: drawn, tokens: t.tokens, facts: { reviews: CAPS.reviews.count > 0 } })
     check(`${t.id}: no anti-slop P0 and the warning budget holds`, slop.filter((i) => i.severity === "error").length === 0, slop.filter((i) => i.severity === "error"))
     if (process.env.VERBOSE) for (const w of slop.filter((i) => i.severity === "warning")) console.log(`        slop warn ${w.code}: ${w.message.slice(0, 140)}`)
 
