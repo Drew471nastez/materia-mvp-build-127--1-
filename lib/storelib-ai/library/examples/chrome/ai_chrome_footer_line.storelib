@@ -1,0 +1,65 @@
+{# example
+title: Minimal one line footer
+summary: Chrome kit footer for quiet sites: one line holding the name and a short note, the menu, socials (blocks) and the current language and currency, wrapping into two or three short rows on a phone. A thin rule or none above it, one link at the end (contact, press), spacing, text size and colours are settings.
+tags: chrome kit, footer, minimal footer, one line footer, simple footer, small footer, portfolio footer, socials, own chrome, site footer
+#}
+<template>
+<footer class="fln" data-rule="{{ settings.rule }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --fln-py: {{ settings.padding_y }}px; --fln-size: {{ settings.text_size }}px;">
+  <div class="fln__in">
+    <p class="fln__name"><a href="{{ routes.root_url }}">{{ shop.name | default: settings.brand }}</a> <span>{{ settings.note }}</span></p>
+    <nav class="fln__nav" aria-label="{{ settings.nav_label }}"><ul>{% for link in settings.menu.links limit: 6 %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% endfor %}{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" target="_blank" rel="noopener">{{ block.settings.label }}</a></li>{% endfor %}</ul></nav>
+    <p class="fln__end"><span class="fln__prefs"><span data-storelib-locale-current></span> <span data-storelib-currency-current></span></span>{% if settings.end_label %}<a class="fln__top" href="{{ settings.end_url | url }}">{{ settings.end_label }}</a>{% endif %}</p>
+  </div>
+</footer>
+</template>
+
+<style scoped>
+.fln, .fln *, .fln *::before, .fln *::after { box-sizing: border-box; }
+/* The page hides and shows parts with the hidden attribute (a list with one choice, the empty cart, the copied patterns): it always wins over a display set here. */
+.fln [hidden] { display: none !important; }
+.fln { padding: var(--fln-py, 28px) var(--theme-padding-x, 16px); background: var(--s-bg); color: var(--s-text); font-size: var(--fln-size, 15px); }
+.fln[data-rule="true"] .fln__in { padding-top: 16px; border-top: 1px solid var(--s-border); }
+.fln__in { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 28px; }
+.fln__name { margin: 0; }
+.fln__name a { color: var(--s-heading); font-weight: 700; text-decoration: none; }
+.fln__nav ul { display: flex; flex-wrap: wrap; gap: 0 18px; margin: 0; padding: 0; list-style: none; }
+.fln a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; }
+.fln__nav a { text-decoration: none; }
+.fln__nav a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.fln__end { display: flex; flex-wrap: wrap; align-items: center; gap: 0 18px; margin: 0; }
+.fln__prefs:has(> span:empty + span:empty) { display: none; }
+.fln :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@media (min-width: 900px) { .fln__nav { margin-left: auto; } }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_footer_line",
+  "name": "One line footer",
+  "kind": "footer",
+  "enabled_on": { "groups": ["footer"] },
+  "settings": [
+    { "type": "text", "id": "brand", "label": "Name when there is no shop name", "default": "Studio" },
+    { "type": "text", "id": "note", "label": "Note beside the name", "default": "Leeds, since 2019" },
+    { "type": "link_list", "id": "menu", "label": "Menu", "default": "footer" },
+    { "type": "text", "id": "nav_label", "label": "Menu name (read aloud)", "default": "Footer" },
+    { "type": "text", "id": "end_label", "label": "Link at the end", "default": "Contact" },
+    { "type": "url", "id": "end_url", "label": "That link goes to", "default": "/contact" },
+    { "type": "checkbox", "id": "rule", "label": "Thin line above", "default": true },
+    { "type": "range", "id": "padding_y", "label": "Space above and below", "min": 8, "max": 80, "step": 4, "unit": "px", "default": 28 },
+    { "type": "range", "id": "text_size", "label": "Text size", "min": 13, "max": 18, "step": 1, "unit": "px", "default": 15 },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "social", "name": "Social link", "limit": 4, "settings": [
+      { "type": "text", "id": "label", "label": "Name", "default": "Instagram" },
+      { "type": "url", "id": "url", "label": "Address", "default": "https://instagram.com" }
+    ] }
+  ],
+  "presets": [{ "name": "One line footer", "blocks": [
+    { "type": "social", "settings": { "label": "Instagram", "url": "https://instagram.com" } },
+    { "type": "social", "settings": { "label": "LinkedIn", "url": "https://linkedin.com" } }
+  ] }]
+}
+</schema>

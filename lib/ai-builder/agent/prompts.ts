@@ -38,6 +38,8 @@ import { PAGES_AND_TEMPLATES } from "./site-plan"
 import { motionAndLayoutBrief } from "@/lib/storelib-ai/layout"
 /* Round P (P3): the motion islands (3D, scroll scrubbing, pinned runs, shader backgrounds), their own block; O6 may fold it into the assembly. */
 import { motionIslandsForPrompt } from "@/lib/storelib-theme/motion-islands"
+/* Round P (P4): the chrome kit, premium headers, drawers, search, switches and footers to adapt. */
+import { chromeKitForPrompt } from "@/lib/storelib-ai/library/chrome-kit"
 
 /** CLAUDE.md's list, and its shape: words that say nothing. */
 export const BANNED_WORDS = ["unlock", "elevate", "seamless", "powerful", "effortlessly", "supercharge", "transform", "revolutionize", "game-changer"]
@@ -80,7 +82,7 @@ A FREE SITE (its chrome is yours)
 - Your header holds: the logo (theme.logo.url, else shop.name), the Main menu (link_list, sub links in link.links as a mega panel or dropdown, e.g. with the popover attribute and popovertarget buttons), a mobile menu of your own (popover) or data-storelib-menu, search and cart.
 - The hooks your own cart drawer, search window and language and currency switches are built with (put the switches in the header's mobile menu or the footer):
 ${HEADLESS_HOOK_GUIDE}
-- Cart and search buttons are links to routes.cart_url and routes.search_url, so they work before the page's script loads. Working examples: search_knowledge "ai_site_header" and "ai_site_footer".
+- Cart and search buttons are links to routes.cart_url and routes.search_url, so they work before the page's script loads. Working examples: search_knowledge "ai_site_header" and "ai_site_footer"; for a new site start from the chrome kit the brief lists (search_knowledge "chrome-kit").
 
 LINKS AND BUTTONS (checked on every drawn page; a broken one blocks finish)
 - A link with a job (a call to action, any link in a <nav> or in your header/footer, add to cart, checkout, Buy now) must go somewhere real: a page from list_capabilities, a product's url or checkout_url, a collection, a form's page, or an id that is on the same page (href="#classes" with id="classes"; #section-<section id>). Never href="#", href="", javascript: or an <a> with no href.
@@ -165,6 +167,7 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
   /* Round O: an edit's direction is the site's own design, its DESIGN.md and tokens, kept unless asked (spec I.5). */
   const scoped = !!job.edit || job.redesign === "changes"
   const story = !job.edit && !job.redesign ? motionAndLayoutBrief({ prompt: job.prompt, category: job.options?.category ?? null }) : ""
+  const chrome = !scoped ? chromeKitForPrompt({ text: `${job.prompt} ${job.options?.category?.replace(/_/g, " ") ?? ""}`, styles: input.directions?.[0]?.styles }) : ""
   /* The creator's choices on Describe your website, in L1's words (start-options.ts startContext): kind, blank or theme, preset, preferences. */
   const choices = job.redesign ? "" : startContext(job.options ?? null)
   const own = input.files.filter((f) => /^(sections|blocks|snippets)\/ai_/.test(f.path)).map((f) => f.path)
@@ -196,8 +199,10 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
     story,
     /* Round P (P1): which picture service this environment has (lib/storelib-ai/images/prompt.ts imageBriefNote). */
     input.pictures ?? "",
+    /* Round P (P4): the chrome kit, for a new website (an edit keeps the site's own chrome). */
+    chrome,
     /* The first turn is kept whole in the checkpoint up to 20,000 characters: the knowledge gives way to the design brief. */
-    input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, Math.max(4_000, 12_000 - (input.design?.text.length ?? 0) - story.length))}` : "",
+    input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, Math.max(4_000, 12_000 - (input.design?.text.length ?? 0) - story.length - chrome.length - (input.template?.length ?? 0)))}` : "",
     /* Round P (P5): the starting template, its picture slots and one or two of its components as examples (few-shot). */
     input.template ? `${TEMPLATE_FIRST}\n\n${input.template}` : "",
     scoped

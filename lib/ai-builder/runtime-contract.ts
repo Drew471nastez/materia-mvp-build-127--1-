@@ -166,7 +166,10 @@ export interface RuntimeCapabilities {
  *                  -currency-current, the same way, from the site's markets.
  *   MENU           data-storelib-menu="<menu handle>" opens the menu drawer
  *                  (data-storelib-menu-from left, right, top); or draw the
- *                  menu yourself from a link_list setting.
+ *                  menu yourself from a link_list setting. A drawer of the
+ *                  section's own: data-storelib-menu-panel with a
+ *                  data-storelib-menu-close button (round P), opened by
+ *                  every data-storelib-menu button as a dialog.
  *   ADD TO CART    data-storelib-add-to-cart="<product id>" with
  *                  data-variant-id, data-title, data-price, data-image,
  *                  data-url, data-kind, data-quantity. Buy now is a link to
@@ -211,7 +214,7 @@ export const HEADLESS_HOOK_GUIDE = `A free site draws its own header, footer, ca
 - Search panel: a button data-storelib-search opens it; an element data-storelib-search-panel (data-open, data-state idle|loading|results|empty) holding <input data-storelib-search-input>, data-storelib-search-results with ONE hidden data-storelib-search-result pattern (data-result-title, data-result-price, data-result-kind, img data-result-image, a data-result-url), data-storelib-search-empty, data-storelib-search-loading and a data-storelib-search-close button. It finds this store's products, pages and posts as the visitor types; Enter opens /search; Escape closes; focus is kept inside and returned.
 - Languages: data-storelib-locale-list with ONE hidden data-storelib-locale-option pattern (a <button> holding data-option-label, optionally data-option-code); the page's language gets aria-current="true"; a press opens the page in that language. data-storelib-locale-current shows the current one. The list is hidden on a one language site.
 - Currencies: data-storelib-currency-list, data-storelib-currency-option, data-storelib-currency-current, the same way.
-- Menu: data-storelib-menu="{{ settings.menu.handle }}" opens the menu drawer, or draw the menu from the link_list yourself.
+- Menu: data-storelib-menu="{{ settings.menu.handle }}" opens the menu drawer, or draw the menu from the link_list yourself. A drawer of your own: an element data-storelib-menu-panel (data-open, inert while shut) holding your links and a data-storelib-menu-close button; every data-storelib-menu button then opens it as a dialog (focus kept inside and returned, Escape and a link press shut it).
 - Add to cart: <button data-storelib-add-to-cart="{{ block.id }}" data-title data-price data-image data-url data-kind>; Buy now is a link to checkout_url. Wishlist: data-storelib-wishlist="<product id>". Account: a link to {{ routes.account_url }}.
 - Without a panel of your own, data-storelib-cart and data-storelib-search open Storelib's built-in drawer and window.`
 

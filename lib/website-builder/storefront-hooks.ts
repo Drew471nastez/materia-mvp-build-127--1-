@@ -92,6 +92,20 @@
  *   data-storelib-currency-current keeps the visitor's market, as the
  *                                  built-in switch does. Hidden with one.
  *
+ * A MENU DRAWER OF THE SECTION'S OWN (round P, P4 chrome kit). Same model:
+ *
+ *   data-storelib-menu-panel       an element of the section that IS its menu
+ *                                  drawer (full screen, a side sheet, a sheet
+ *                                  from the bottom: its own CSS). Every
+ *                                  data-storelib-menu button on the page opens
+ *                                  it (data-open, aria-hidden, inert) instead
+ *                                  of the built-in drawer. A dialog while open:
+ *                                  focus moves in, stays inside, and goes back
+ *                                  to the button that opened it; Escape, a
+ *                                  data-storelib-menu-close button and a press
+ *                                  on any link inside it shut it.
+ *   data-storelib-menu-close       a button: shuts the drawer
+ *
  * A FREE SITE (lib/website-builder/free-site.ts) gets none of the built-in
  * windows, bars or switches unless its code asks with one of these. A plain
  * data-storelib-search with no panel anywhere on the page still opens the
@@ -115,6 +129,8 @@ export const STOREFRONT_HOOKS = {
   cartFilled: "data-storelib-cart-filled",
   checkout: "data-storelib-checkout",
   cartClose: "data-storelib-cart-close",
+  menuPanel: "data-storelib-menu-panel",
+  menuClose: "data-storelib-menu-close",
   searchPanel: "data-storelib-search-panel",
   searchInput: "data-storelib-search-input",
   searchResults: "data-storelib-search-results",
@@ -144,6 +160,8 @@ export interface HooksIn {
   cartPanel: boolean
   /** A search window of the section's own. */
   searchPanel: boolean
+  /** A menu drawer of the section's own (round P). */
+  menuPanel: boolean
   /** A language list of the section's own, or a place for the current language. */
   locale: boolean
   /** A currency list of the section's own, or a place for the current currency. */
@@ -160,6 +178,7 @@ export function hooksIn(html: string): HooksIn {
     addToCart: has(html, STOREFRONT_HOOKS.addToCart),
     cartPanel: has(html, STOREFRONT_HOOKS.cartPanel),
     searchPanel: has(html, STOREFRONT_HOOKS.searchPanel),
+    menuPanel: has(html, STOREFRONT_HOOKS.menuPanel),
     locale: has(html, STOREFRONT_HOOKS.localeList) || has(html, STOREFRONT_HOOKS.localeCurrent),
     currency: has(html, STOREFRONT_HOOKS.currencyList) || has(html, STOREFRONT_HOOKS.currencyCurrent),
   }
