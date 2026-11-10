@@ -22,7 +22,7 @@ tags: chrome kit, header, centered logo, centred logo, split nav, split navigati
         <ul>{% for link in settings.menu_right.links limit: 4 %}<li><a class="hsp__link" href="{{ link.url }}"><span class="hsp__roll" data-text="{{ link.title }}">{{ link.title }}</span></a></li>{% endfor %}</ul>
       </nav>
       <a class="hsp__icon hsp__search" href="{{ routes.search_url }}" data-storelib-search aria-label="{{ settings.search_label }}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.5"/></svg></a>
-      <a class="hsp__icon hsp__bag" href="{{ routes.cart_url }}" data-storelib-cart aria-label="{{ settings.cart_label }}"><span class="hsp__bag-word">{{ settings.cart_label }}</span> <span class="hsp__count" data-storelib-cart-count></span></a>
+      <a class="hsp__icon hsp__bag" href="{{ routes.cart_url }}" data-storelib-cart aria-label="{{ settings.cart_label }}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2L5 8z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 8a3 3 0 016 0" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span class="hsp__bag-word">{{ settings.cart_label }}</span> <span class="hsp__count" data-storelib-cart-count></span></a>
     </div>
   </div>
 </header>
@@ -44,7 +44,6 @@ tags: chrome kit, header, centered logo, centred logo, split nav, split navigati
 .hsp__burger { grid-column: 1; grid-row: 1; justify-self: start; }
 .hsp__lines { display: block; width: 22px; height: 10px; border-top: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; }
 .hsp__bag-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.hsp__bag::before { content: ""; width: 18px; height: 20px; border: 1.5px solid currentColor; border-top-width: 5px; }
 .hsp__count { font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
 .hsp__count[data-count="0"] { display: none; }
 .hsp__link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; color: inherit; text-decoration: none; font-size: 0.9375rem; }

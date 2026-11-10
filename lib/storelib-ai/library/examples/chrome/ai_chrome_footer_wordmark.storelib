@@ -31,13 +31,13 @@ tags: chrome kit, footer, giant wordmark, big type footer, huge logo footer, bra
 .fwm__line { margin: 0; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.75rem, 1.1rem + 3vw, 3.5rem); line-height: 1.02; letter-spacing: -0.03em; font-weight: 600; text-wrap: balance; }
 .fwm__cta { display: inline-flex; align-items: center; gap: 12px; min-height: 48px; color: inherit; font-size: 1.0625rem; font-weight: 600; text-decoration: underline; text-underline-offset: 6px; text-decoration-thickness: 1px; }
 .fwm__arrow { width: 22px; height: 1.5px; background: currentColor; position: relative; }
-.fwm__arrow::after { content: ""; position: absolute; right: 0; top: -4px; width: 9px; height: 9px; border-top: 1.5px solid currentColor; border-right: 1.5px solid currentColor; transform: rotate(45deg); transform-origin: 100% 0; }
+.fwm__arrow::after { content: ""; position: absolute; right: 0; top: 50%; width: 9px; height: 9px; margin-top: -4.5px; border-top: 1.5px solid currentColor; border-right: 1.5px solid currentColor; transform: rotate(45deg); }
 .fwm__row { display: grid; gap: 8px; margin-top: clamp(40px, 7vw, 96px); padding-top: 16px; border-top: 1px solid var(--s-border); }
 .fwm__links, .fwm__legal { display: flex; flex-wrap: wrap; gap: 0 22px; margin: 0; padding: 0; list-style: none; }
 .fwm__links a, .fwm__legal a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
 .fwm__links a:hover, .fwm__legal a:hover { text-decoration: underline; text-underline-offset: 4px; }
 .fwm__mark { margin: clamp(24px, 5vw, 56px) 0 0; overflow: hidden; }
-.fwm__word { display: block; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: min(40cqi, calc(var(--fwm-fill, 96) * 1cqi / (max(var(--fwm-chars, 8), 2) * 0.56))); font-weight: var(--fwm-weight, 800); line-height: 0.8; letter-spacing: -0.06em; white-space: nowrap; overflow: hidden; text-overflow: clip; padding-bottom: 0.04em; }
+.fwm__word { display: block; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: min(40cqi, calc(var(--fwm-fill, 96) * 1cqi / (max(var(--fwm-chars, 8), 2) * 0.5))); font-weight: var(--fwm-weight, 800); line-height: 0.82; letter-spacing: -0.06em; white-space: nowrap; overflow: hidden; text-overflow: clip; padding-bottom: 0.14em; margin-bottom: -0.1em; }
 .fwm__base { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 24px; margin-top: 16px; font-size: 0.875rem; }
 .fwm__prefs:has(> span:empty + span:empty) { display: none; }
 .fwm :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }

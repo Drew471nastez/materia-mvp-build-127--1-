@@ -31,6 +31,7 @@ tags: chrome kit, footer, image footer, photo footer, full bleed footer, backgro
 .fim[data-has-image="true"][data-text="light"] { color: #fff; --s-heading: #fff; --s-border: rgba(255, 255, 255, 0.35); }
 .fim[data-has-image="false"] { background: var(--s-heading); color: var(--s-bg); --s-border: color-mix(in srgb, var(--s-bg) 30%, transparent); }
 .fim[data-has-image="false"] .fim__h { color: var(--s-bg); }
+.fim[data-has-image="false"] .fim__cta { background: var(--s-bg); color: var(--s-heading); }
 .fim__in { display: grid; align-content: end; gap: clamp(32px, 6vw, 72px); width: 100%; padding: clamp(64px, 12vw, 160px) var(--theme-padding-x, 16px) 20px; }
 .fim__lead { display: grid; gap: 24px; justify-items: start; }
 .fim__h { margin: 0; max-width: 14ch; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: clamp(2.5rem, 1.2rem + 6vw, 6.5rem); line-height: 0.95; letter-spacing: -0.04em; font-weight: 700; text-wrap: balance; }

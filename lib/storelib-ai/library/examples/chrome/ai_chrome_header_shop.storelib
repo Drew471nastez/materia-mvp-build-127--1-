@@ -39,7 +39,7 @@ tags: chrome kit, header, shop header, store header, sticky header, compact head
 .hsh__field span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.75; }
 .hsh__field:hover { border-color: currentColor; }
 .hsh__promise { display: none; }
-.hsh__account { display: none; }
+.hsh__row .hsh__account { display: none; }
 .hsh__bag { grid-area: bag; }
 .hsh__icon { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 0 8px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.9375rem; text-decoration: none; cursor: pointer; }
 .hsh__lines { display: block; width: 20px; height: 12px; border-top: 2px solid currentColor; border-bottom: 2px solid currentColor; }
@@ -69,7 +69,7 @@ tags: chrome kit, header, shop header, store header, sticky header, compact head
   .hsh__row { grid-template-columns: auto minmax(0, 560px) minmax(0, 1fr) auto auto; grid-template-areas: "logo field promise account bag"; gap: 16px; min-height: var(--hsh-row); }
   .hsh__burger { display: none; }
   .hsh__promise { grid-area: promise; display: block; margin: 0; font-size: 0.875rem; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .hsh__account { grid-area: account; display: inline-flex; }
+  .hsh__row .hsh__account { grid-area: account; display: inline-flex; }
 }
 </style>
 

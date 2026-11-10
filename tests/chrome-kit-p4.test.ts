@@ -321,7 +321,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       type Page = import("puppeteer-core").Page
       const shots = process.env.CHROME_KIT_SHOTS
       if (shots) mkdirSync(shots, { recursive: true })
-      const shot = async (p: Page, name: string) => { if (shots) await p.screenshot({ path: join(shots, `${name}.png`) as `${string}.png` }) }
+      const shot = async (p: Page, name: string, fullPage = false) => { if (shots) await p.screenshot({ path: join(shots, `${name}.png`) as `${string}.png`, fullPage }) }
       /*
         Sideways overflow as a visitor sees it: the page's own scroll width, and any visible element past the window's
         edges that nothing clips. An ancestor that clips sideways counts only up to the nearest fixed element: a fixed
@@ -356,7 +356,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         const html = htmlFor(pg.ids)
         for (const width of [390, 1440]) {
           const { p, errors } = await open(html, width)
-          await shot(p, `${pg.name}-${width}`)
+          await shot(p, `${pg.name}-${width}`, true)
           const o = await overflow(p)
           check(`${pg.name} @${width}: no sideways scroll, shut`, o.scroll <= o.inner && o.wide.length === 0, o)
           const has = (sel: string) => p.$(sel).then((h) => !!h)

@@ -50,8 +50,8 @@ tags: chrome kit, language selector, currency selector, locale switcher, languag
 .loc[data-style="pills"] .loc__sum { pointer-events: none; }
 .loc[data-style="pills"] .loc__cur { display: none; }
 /* Drop down: a closed details; open, the choices hang under it. */
-.loc[data-style="dropdown"] .loc__sum { padding: 0 14px; border: 1px solid var(--s-border); }
-.loc[data-style="dropdown"] .loc__sum::after { content: ""; width: 7px; height: 7px; margin-left: 4px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg); }
+.loc[data-style="dropdown"] .loc__sum { gap: 0; padding: 0 14px; border: 1px solid var(--s-border); }
+.loc[data-style="dropdown"] .loc__sum::after { content: ""; width: 7px; height: 7px; margin-left: 10px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg); }
 .loc[data-style="dropdown"] .loc__cur::before { content: ": "; }
 .loc[data-style="dropdown"] .loc__opts { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; display: grid; min-width: max(100%, 180px); padding: 6px; border: 1px solid var(--s-border); background: var(--s-bg); }
 .loc[data-style="dropdown"] .loc__opt { justify-content: space-between; border: 0; border-radius: 0; }
