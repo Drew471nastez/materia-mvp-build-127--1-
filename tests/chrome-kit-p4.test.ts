@@ -54,6 +54,7 @@ import { HEADLESS_HOOK_GUIDE, STORELIB_HOOKS } from "@/lib/ai-builder/runtime-co
 import { claimOwnPanel, closeOwnPanel, openOwnPanel, pageHooks } from "@/components/website-builder/sections/own-panels"
 import { briefMessage } from "@/lib/ai-builder/agent/prompts"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import { ICON_NAMES, icon, localeChip, newsletterForm, scrollCss, socialIcon } from "@/lib/storelib-ai/templates/kit/chrome-parts"
 
 let passed = 0
 let failed = 0
@@ -235,6 +236,30 @@ async function main() {
 
   section("5. In a real browser")
   await inBrowser()
+
+
+  section("8. Round Q2: icons, the compact chip, forms")
+  {
+    for (const name of ["bag", "search", "user", "menu", "close", "globe", "heart", "arrow-right", "plus", "minus", "play", "pause"] as const) {
+      const html = icon(name)
+      check(`icon ${name}: the host's name with a 1.6px line drawing inside, hidden from screen readers`, ICON_NAMES.includes(name) && html.includes(`data-storelib-icon="${name}"`) && /aria-hidden="true"/.test(html) && /stroke-width="1\.6"/.test(html) && /stroke="currentColor"/.test(html))
+    }
+    const social = socialIcon("block.settings.url")
+    check("socialIcon picks the mark from the address and falls back to a link", /contains "instagram" %\}[^{]*data-storelib-icon="instagram"/.test(social) && /\{% else %\}[\s\S]*data-storelib-icon="link"/.test(social))
+    const loc = sourceOf("ai_chrome_locale")
+    const locSchema = schemaOf(loc)
+    check("ai_chrome_locale: the default style is one compact chip", locSchema.settings.find((x) => x.id === "style")?.default === "chip" && /class="loc-loc__chip"/.test(loc) && /popovertarget="loc-p-\{\{ section\.id \}\}"/.test(loc))
+    const chip = localeChip("q", "q-p")
+    check("  the chip holds both lists in one small panel, each option with a tick for the current one", /data-storelib-locale-list[\s\S]*data-storelib-currency-list/.test(chip) && (chip.match(/data-storelib-icon="check"/g) ?? []).length === 2)
+    const outlined = disk.filter((d) => /^ai_chrome_(menu|footer|locale)/.test(d.file)).flatMap((d) => [...d.source.matchAll(/\.[a-z]+__opt\s*\{([^}]*)\}/g)].filter((m) => /border:\s*1px solid/.test(m[1])).map(() => d.file))
+    check("  menus, footers and the switches draw no outlined option buttons", outlined.length === 0, outlined)
+    const monoLabels = disk.filter((d) => /^ai_chrome_footer/.test(d.file) && /monospace/.test(d.source)).map((d) => d.file)
+    check("footers: no mono labels", monoLabels.length === 0, monoLabels)
+    const news = newsletterForm("n", { label: "Email", placeholder: "Your email address", button: "Sign up", error: "Not right", thanks: "Thanks" })
+    check("newsletter form: label, placeholder, the error it is described by, and a success line the page reveals", /<label[^>]*for="n-email-/.test(news) && /placeholder="Your email address"/.test(news) && /aria-describedby="n-email-err-/.test(news) && /data-storelib-success hidden role="status"/.test(news))
+    const css = scrollCss("x", "x__bar", "x__logo")
+    check("scrollCss: the host's state wherever it is written (root or an ancestor), and a scroll timeline only until it is", css.includes(':is([data-scrolled]:not([data-scrolled="false"]):not([data-scrolled="0"]), [data-scrolled]:not([data-scrolled="false"]):not([data-scrolled="0"]) *)') && css.includes(":not(:is([data-scrolled], [data-scrolled] *))"))
+  }
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
