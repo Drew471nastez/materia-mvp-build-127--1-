@@ -1,0 +1,141 @@
+{# example
+title: Side sheet menu with sub menus that slide in
+summary: Chrome kit menu drawer, a section placed after the header: a sheet from the left or right edge over a dimmed page, opened by every Menu button through the hooks (a dialog: focus kept inside and returned, Escape, the close button, the dimmed page and any link shut it). Top links with sub links open a second level that slides over the first (details, no script) and their row turns into Back; featured cards (blocks) at the foot and the language and currency switches. Edge, width, dimming, card pictures and motion are settings.
+tags: chrome kit, menu drawer, side sheet, side menu, slide out menu, offcanvas, off canvas, drill down menu, sub menu, mobile menu, featured cards, locale, currency, own chrome
+#}
+<template>
+<div class="msh" data-edge="{{ settings.edge }}" data-motion="{{ settings.motion }}" {% if page.in_editor and settings.editor_open %}data-editor-open{% endif %} data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --msh-w: {{ settings.width }}px; --msh-dim: {{ settings.dim }}; --m-k: calc({{ settings.motion_strength }} / 100);">
+  <div class="msh__panel" data-storelib-menu-panel aria-label="{{ settings.panel_label }}">
+    <button class="msh__scrim" type="button" data-storelib-menu-close tabindex="-1" aria-label="{{ settings.close_label }}"></button>
+    <div class="msh__sheet">
+      <div class="msh__head">
+        <p class="msh__title">{{ settings.panel_label }}</p>
+        <button class="msh__btn" type="button" data-storelib-menu-close>{{ settings.close_label }}</button>
+      </div>
+      <nav class="msh__levels" aria-label="{{ settings.nav_label }}">
+        <ul class="msh__list msh__root">
+          {% for link in settings.menu.links %}
+          <li style="--i: {{ forloop.index }};">
+            {% if link.links.size > 0 %}
+            <details class="msh__group">
+              <summary class="msh__link"><span class="msh__back-word">{{ settings.back_label }}</span><span class="msh__name">{{ link.title }}</span><span class="msh__chev" aria-hidden="true"></span></summary>
+              <div class="msh__level">
+                <a class="msh__level-h" href="{{ link.url }}">{{ settings.all_label }} {{ link.title }}</a>
+                <ul class="msh__list">{% for child in link.links %}<li style="--i: {{ forloop.index }};"><a class="msh__link" href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul>
+              </div>
+            </details>
+            {% else %}
+            <a class="msh__link" href="{{ link.url }}">{{ link.title }}</a>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </nav>
+      <div class="msh__cards">
+        {% for block in section.blocks %}
+        <a class="msh__card" href="{{ block.settings.url | url }}" data-block-id="{{ block.id }}">
+          {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.image_alt }}" width="400" height="300" loading="lazy">{% endif %}
+          <span>{{ block.settings.title }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      <div class="msh__prefs">
+        <div class="msh__pref" data-storelib-locale-list role="group" aria-label="{{ settings.language_label }}"><button class="msh__opt" type="button" data-storelib-locale-option hidden><span data-option-label></span></button></div>
+        <div class="msh__pref" data-storelib-currency-list role="group" aria-label="{{ settings.currency_label }}"><button class="msh__opt" type="button" data-storelib-currency-option hidden><span data-option-label></span></button></div>
+      </div>
+    </div>
+  </div>
+</div>
+</template>
+
+<style scoped>
+.msh__panel { position: fixed; inset: 0; z-index: 80; visibility: hidden; }
+.msh__panel[data-open="true"], .msh[data-editor-open] .msh__panel { visibility: visible; }
+.msh[data-editor-open] .msh__panel { position: relative; min-height: 640px; }
+.msh__scrim { position: absolute; inset: 0; width: 100%; border: 0; padding: 0; background: rgba(0, 0, 0, var(--msh-dim, 0.4)); opacity: 0; cursor: pointer; }
+.msh__panel[data-open="true"] .msh__scrim, .msh[data-editor-open] .msh__scrim { opacity: 1; }
+.msh__sheet { position: absolute; inset: 0 auto 0 0; display: flex; flex-direction: column; gap: 20px; width: min(var(--msh-w), 100%); padding: 0 20px 24px; overflow: hidden auto; overscroll-behavior: contain; background: var(--s-bg); color: var(--s-text); transform: translateX(-100%); }
+.msh[data-edge="right"] .msh__sheet { inset: 0 0 0 auto; transform: translateX(100%); }
+.msh__panel[data-open="true"] .msh__sheet, .msh[data-editor-open] .msh__sheet { transform: none; }
+.msh__head { display: flex; align-items: center; justify-content: space-between; min-height: 64px; border-bottom: 1px solid var(--s-border); }
+.msh__title { margin: 0; font-family: var(--theme-font-heading), sans-serif; font-size: 1.25rem; font-weight: 700; color: var(--s-heading); }
+.msh__btn { min-height: 44px; padding: 0 12px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; cursor: pointer; }
+/* A top link with sub links is a details: open, its level covers the first one and its summary turns into Back. */
+.msh__levels { position: relative; flex: 1; min-height: 340px; }
+.msh__level { position: absolute; inset: 0; z-index: 1; padding-top: 56px; overflow-y: auto; background: var(--s-bg); }
+.msh__group[open] > .msh__link { position: absolute; inset: 0 0 auto; z-index: 2; justify-content: flex-start; background: var(--s-bg); font-family: inherit; font-size: 1rem; font-weight: 500; letter-spacing: 0; }
+.msh__group[open] .msh__chev { order: -1; transform: rotate(-135deg); }
+.msh__back-word { display: none; }
+.msh__group[open] .msh__back-word { display: inline; }
+.msh__group[open] .msh__name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.msh__levels:has(details[open]) .msh__root > li:not(:has(details[open])) { visibility: hidden; }
+.msh__group > summary { list-style: none; }
+.msh__group > summary::-webkit-details-marker { display: none; }
+.msh__list { margin: 0; padding: 0; list-style: none; }
+.msh__link { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; color: var(--s-heading); text-decoration: none; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.375rem, 1.2rem + 0.8vw, 1.75rem); font-weight: 600; letter-spacing: -0.02em; border-bottom: 1px solid var(--s-border); cursor: pointer; }
+.msh__link:hover { color: var(--s-accent); }
+.msh__chev { width: 10px; height: 10px; border-top: 2px solid currentColor; border-right: 2px solid currentColor; transform: rotate(45deg); }
+.msh__level-h { display: block; margin: 4px 0 8px; color: inherit; font-size: 0.9375rem; text-underline-offset: 4px; }
+.msh__cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr)); gap: 12px; margin-top: auto; }
+.msh__card { display: grid; gap: 6px; color: inherit; text-decoration: none; font-size: 0.9375rem; font-weight: 500; }
+.msh__card img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; }
+.msh__prefs { display: grid; gap: 8px; }
+.msh__pref { display: flex; flex-wrap: wrap; gap: 6px; }
+.msh__opt { min-height: 44px; padding: 0 12px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; cursor: pointer; }
+.msh__opt[aria-current="true"] { border-color: currentColor; font-weight: 600; }
+.msh :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .msh:not([data-motion="off"]) .msh__panel { transition: visibility 0s linear var(--t-motion-duration, 650ms); }
+  .msh:not([data-motion="off"]) .msh__panel[data-open="true"] { transition-delay: 0s; }
+  .msh:not([data-motion="off"]) .msh__sheet { transition: transform calc(var(--t-motion-duration, 650ms) * 0.75) cubic-bezier(0.32, 0.72, 0, 1); }
+  .msh:not([data-motion="off"]) .msh__scrim { transition: opacity calc(var(--t-motion-duration, 650ms) * 0.6) ease; }
+  .msh:not([data-motion="off"]) .msh__group[open] .msh__level { animation: msh-over calc(var(--t-motion-duration, 650ms) * 0.6) var(--t-motion-ease, ease-out) both; }
+  @keyframes msh-over { from { transform: translateX(calc(40px * var(--m-k, 1))); opacity: 0; } }
+  .msh:not([data-motion="off"]) .msh__panel[data-open="true"] .msh__root li { animation: msh-in var(--t-motion-duration, 650ms) var(--t-motion-ease, ease-out) both; animation-delay: calc(var(--i, 1) * var(--t-motion-stagger, 65ms) + 100ms); }
+  @keyframes msh-in { from { opacity: 0; transform: translateX(calc(var(--t-motion-distance, 24px) * -1 * var(--m-k, 1))); } }
+}
+@media (prefers-reduced-motion: reduce) { .msh__panel, .msh__sheet, .msh__scrim, .msh__level, .msh__root li { transition: none; animation: none; } }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_menu_sheet",
+  "name": "Side sheet menu",
+  "settings": [
+    { "type": "paragraph", "id": "about", "content": "Opens from every Menu button on the page. Keep it right after the header." },
+    { "type": "checkbox", "id": "editor_open", "label": "Keep it open in the editor", "default": false },
+    { "type": "header", "id": "hdr_menu", "label": "Menu" },
+    { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" },
+    { "type": "header", "id": "hdr_layout", "label": "Layout" },
+    { "type": "select", "id": "edge", "label": "Comes from", "default": "left", "options": [{ "label": "Left", "value": "left" }, { "label": "Right", "value": "right" }] },
+    { "type": "range", "id": "width", "label": "Width", "min": 300, "max": 560, "step": 10, "unit": "px", "default": 420 },
+    { "type": "range", "id": "dim", "label": "Page dimming", "min": 0, "max": 0.8, "step": 0.05, "default": 0.4 },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "panel_label", "label": "Title", "default": "Menu" },
+    { "type": "text", "id": "nav_label", "label": "Links name (read aloud)", "default": "Main" },
+    { "type": "text", "id": "close_label", "label": "Close button", "default": "Close" },
+    { "type": "text", "id": "back_label", "label": "Back button", "default": "Back" },
+    { "type": "text", "id": "all_label", "label": "Link to the whole section starts with", "default": "All of" },
+    { "type": "text", "id": "language_label", "label": "Language (read aloud)", "default": "Language" },
+    { "type": "text", "id": "currency_label", "label": "Currency (read aloud)", "default": "Currency" },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "card", "name": "Featured card", "limit": 4, "settings": [
+      { "type": "image_picker", "id": "image", "label": "Picture" },
+      { "type": "text", "id": "image_alt", "label": "Picture description", "default": "" },
+      { "type": "text", "id": "title", "label": "Title", "default": "New in" },
+      { "type": "url", "id": "url", "label": "Link", "default": "/shop" }
+    ] }
+  ],
+  "presets": [{ "name": "Side sheet menu", "blocks": [
+    { "type": "card", "settings": { "title": "New in", "url": "/shop" } },
+    { "type": "card", "settings": { "title": "Our story", "url": "/about" } }
+  ] }]
+}
+</schema>

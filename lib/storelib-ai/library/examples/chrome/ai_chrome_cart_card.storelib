@@ -1,0 +1,114 @@
+{# example
+title: Floating card cart that drops from the bag
+summary: Chrome kit cart drawer, a section placed after the header: the site's own cart panel as a compact card that drops from the top right corner under the header on wide screens and rises as a card above the bottom edge on phones, the page still visible around it. Small pictures, quantity steppers, a just added confirmation line, subtotal, checkout and keep shopping. Opened by every bag button and add to cart through the hooks; Escape and the close button shut it, keyboard kept inside. Corner, offset from the top, card width, radius, shadow and motion are settings.
+tags: chrome kit, cart drawer, floating cart, cart card, mini cart, dropdown cart, popover cart, added to cart, quick cart, own chrome
+#}
+<template>
+<div class="ccd" data-corner="{{ settings.corner }}" data-shadow="{{ settings.shadow }}" data-motion="{{ settings.motion }}" {% if page.in_editor and settings.editor_open %}data-editor-open{% endif %} data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --ccd-top: {{ settings.top_offset }}px; --ccd-w: {{ settings.width }}px; --ccd-r: {{ settings.radius }}px; --m-k: calc({{ settings.motion_strength }} / 100);">
+  <aside class="ccd__card" data-storelib-cart-panel aria-label="{{ settings.title }}" role="dialog">
+    <div class="ccd__head">
+      <p class="ccd__title">{{ settings.title }} <span class="ccd__n" data-storelib-cart-count></span></p>
+      <button class="ccd__close" type="button" data-storelib-cart-close aria-label="{{ settings.close_label }}"><span class="ccd__x" aria-hidden="true"></span></button>
+    </div>
+    <p class="ccd__empty" data-storelib-cart-empty>{{ settings.empty_text }}</p>
+    <div data-storelib-cart-filled><p class="ccd__added">{{ settings.added_text }}</p></div>
+    <ul class="ccd__lines" data-storelib-cart-lines>
+      <li class="ccd__line" data-storelib-cart-line hidden>
+        <img data-line-image alt="" width="52" height="52">
+        <div class="ccd__info">
+          <a class="ccd__name" data-line-url><span data-line-title></span></a>
+          <span class="ccd__var" data-line-variant></span>
+          <span class="ccd__qty"><button type="button" data-line-dec aria-label="{{ settings.less_label }}">&minus;</button><span data-line-qty></span><button type="button" data-line-inc aria-label="{{ settings.more_label }}">+</button></span>
+        </div>
+        <div class="ccd__end"><span data-line-price></span><button class="ccd__rm" type="button" data-line-remove aria-label="{{ settings.remove_label }}"><span class="ccd__x ccd__x--s" aria-hidden="true"></span></button></div>
+      </li>
+    </ul>
+    <div class="ccd__foot" data-storelib-cart-filled>
+      <p class="ccd__sub"><span>{{ settings.subtotal_label }}</span><span data-storelib-cart-subtotal></span></p>
+      <div class="ccd__acts">
+        <button class="ccd__ghost" type="button" data-storelib-cart-close>{{ settings.keep_label }}</button>
+        <button class="ccd__checkout" type="button" data-storelib-checkout>{{ settings.checkout_label }}</button>
+      </div>
+    </div>
+  </aside>
+</div>
+</template>
+
+<style scoped>
+.ccd__card { position: fixed; inset: auto 12px calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 85; display: flex; flex-direction: column; gap: 12px; max-height: min(78svh, 640px); padding: 16px; overflow: hidden; border: 1px solid var(--s-border); border-radius: var(--ccd-r, 6px); background: var(--s-bg); color: var(--s-text); visibility: hidden; opacity: 0; }
+.ccd[data-shadow="true"] .ccd__card { box-shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.28); }
+.ccd__card[data-open="true"], .ccd[data-editor-open] .ccd__card { visibility: visible; opacity: 1; transform: none; }
+.ccd[data-editor-open] .ccd__card { position: relative; inset: auto; margin: 24px auto; width: min(var(--ccd-w), 100%); }
+.ccd__head { display: flex; align-items: center; justify-content: space-between; }
+.ccd__title { margin: 0; color: var(--s-heading); font-weight: 700; font-size: 1.125rem; }
+.ccd__n { font-weight: 500; font-variant-numeric: tabular-nums; }
+.ccd__n[data-count="0"] { display: none; }
+.ccd__close, .ccd__rm { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin: -8px -8px -8px 0; border: 0; background: none; color: inherit; cursor: pointer; }
+.ccd__rm { margin: 0 -10px 0 0; }
+.ccd__x { position: relative; width: 16px; height: 16px; }
+.ccd__x--s { width: 12px; height: 12px; }
+.ccd__x::before, .ccd__x::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1.5px; background: currentColor; transform: rotate(45deg); }
+.ccd__x::after { transform: rotate(-45deg); }
+.ccd__empty, .ccd__added { margin: 0; font-size: 0.9375rem; }
+.ccd__added::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; background: var(--s-accent); vertical-align: 1px; }
+.ccd__lines { flex: 1; min-height: 0; margin: 0; padding: 0; overflow-y: auto; overscroll-behavior: contain; list-style: none; }
+.ccd__line { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 12px; padding: 10px 0; border-top: 1px solid var(--s-border); }
+.ccd__line img { width: 52px; height: 52px; object-fit: cover; border-radius: calc(var(--ccd-r, 6px) / 2); }
+.ccd__info { display: grid; gap: 2px; min-width: 0; font-size: 0.9375rem; }
+.ccd__name { color: inherit; font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ccd__var { font-size: 0.8125rem; }
+.ccd__qty { display: inline-flex; align-items: center; }
+.ccd__qty button { min-width: 44px; min-height: 36px; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.ccd__qty button:first-child { margin-left: -14px; }
+.ccd__end { display: grid; justify-items: end; align-content: space-between; font-variant-numeric: tabular-nums; font-size: 0.9375rem; }
+.ccd__foot { display: grid; gap: 10px; padding-top: 12px; border-top: 1px solid var(--s-border); }
+.ccd__sub { display: flex; justify-content: space-between; margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ccd__acts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 8px; }
+.ccd__ghost, .ccd__checkout { min-height: 48px; padding: 0 12px; border: 1px solid var(--s-text); border-radius: calc(var(--ccd-r, 6px) / 1.5); background: none; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.ccd__checkout { border-color: var(--s-btn); background: var(--s-btn); color: var(--s-btn-text); }
+.ccd :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .ccd:not([data-motion="off"]) .ccd__card { transform: translateY(calc(16px * var(--m-k, 1))) scale(calc(1 - 0.03 * var(--m-k, 1))); transform-origin: 50% 100%; transition: opacity calc(var(--t-motion-hover, 200ms) * 1.2) ease, transform calc(var(--t-motion-duration, 650ms) * 0.6) cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear calc(var(--t-motion-duration, 650ms) * 0.6); }
+  .ccd:not([data-motion="off"]) .ccd__card[data-open="true"] { transition-delay: 0s; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .ccd__card { transition: none; } }
+@media (min-width: 760px) {
+  .ccd__card { inset: var(--ccd-top, 76px) 20px auto auto; width: min(var(--ccd-w, 400px), calc(100% - 40px)); }
+  .ccd[data-corner="left"] .ccd__card { inset: var(--ccd-top, 76px) auto auto 20px; }
+  .ccd:not([data-motion="off"]) .ccd__card { transform-origin: 90% 0; transform: translateY(calc(-10px * var(--m-k, 1))) scale(calc(1 - 0.03 * var(--m-k, 1))); }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_cart_card",
+  "name": "Floating card cart",
+  "settings": [
+    { "type": "paragraph", "id": "about", "content": "Opens from every bag button and every add to cart on the page. Keep it right after the header." },
+    { "type": "checkbox", "id": "editor_open", "label": "Keep it open in the editor", "default": false },
+    { "type": "header", "id": "hdr_layout", "label": "Layout" },
+    { "type": "select", "id": "corner", "label": "Corner on wide screens", "default": "right", "options": [{ "label": "Top right", "value": "right" }, { "label": "Top left", "value": "left" }] },
+    { "type": "range", "id": "top_offset", "label": "Space from the top", "min": 8, "max": 160, "step": 4, "unit": "px", "default": 76 },
+    { "type": "range", "id": "width", "label": "Width", "min": 320, "max": 480, "step": 10, "unit": "px", "default": 400 },
+    { "type": "range", "id": "radius", "label": "Corners", "min": 0, "max": 16, "step": 1, "unit": "px", "default": 6 },
+    { "type": "checkbox", "id": "shadow", "label": "Shadow", "default": true },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "title", "label": "Title", "default": "Bag" },
+    { "type": "text", "id": "added_text", "label": "Line over the items", "default": "In your bag now" },
+    { "type": "text", "id": "close_label", "label": "Close (read aloud)", "default": "Close" },
+    { "type": "text", "id": "empty_text", "label": "When it is empty", "default": "Your bag is empty." },
+    { "type": "text", "id": "subtotal_label", "label": "Subtotal", "default": "Subtotal" },
+    { "type": "text", "id": "keep_label", "label": "Keep shopping button", "default": "Keep shopping" },
+    { "type": "text", "id": "checkout_label", "label": "Checkout button", "default": "Check out" },
+    { "type": "text", "id": "remove_label", "label": "Remove (read aloud)", "default": "Remove" },
+    { "type": "text", "id": "less_label", "label": "One less (read aloud)", "default": "One less" },
+    { "type": "text", "id": "more_label", "label": "One more (read aloud)", "default": "One more" },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ]
+}
+</schema>

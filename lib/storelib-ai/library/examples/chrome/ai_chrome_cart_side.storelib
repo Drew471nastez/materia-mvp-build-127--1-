@@ -1,0 +1,163 @@
+{# example
+title: Side cart drawer with product pictures and an upsell row
+summary: Chrome kit cart drawer, a section placed after the header: the site's own cart panel (data-storelib-cart-panel) that every bag button and every add to cart on the page opens, sliding from the right over a dimmed page. Lines with pictures, options, quantity steppers and remove, a sideways row of the creator's chosen products to add (product_list, real add to cart buttons), an order note line, subtotal and checkout. Edge, width, picture shape, upsell on or off and its heading, and motion are settings; keyboard stays inside while it is open.
+tags: chrome kit, cart drawer, side cart, slide out cart, mini cart, upsell, cross sell, add to cart, product thumbnails, quantity, checkout, own chrome
+#}
+<template>
+<div class="csd" data-edge="{{ settings.edge }}" data-shape="{{ settings.picture_shape }}" data-motion="{{ settings.motion }}" {% if page.in_editor and settings.editor_open %}data-editor-open{% endif %} data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --csd-w: {{ settings.width }}px; --m-k: calc({{ settings.motion_strength }} / 100);">
+  <aside class="csd__panel" data-storelib-cart-panel aria-label="{{ settings.title }}">
+    <button class="csd__scrim" type="button" data-storelib-cart-close tabindex="-1" aria-label="{{ settings.close_label }}"></button>
+    <div class="csd__sheet" role="dialog" aria-label="{{ settings.title }}">
+      <div class="csd__head">
+        <h2 class="csd__title">{{ settings.title }} <span class="csd__n" data-storelib-cart-count></span></h2>
+        <button class="csd__close" type="button" data-storelib-cart-close>{{ settings.close_label }}</button>
+      </div>
+      <div class="csd__body">
+        <div class="csd__empty" data-storelib-cart-empty>
+          <p>{{ settings.empty_text }}</p>
+          <a class="csd__ghost" href="{{ settings.empty_url | url }}">{{ settings.empty_link }}</a>
+        </div>
+        <ul class="csd__lines" data-storelib-cart-lines>
+          <li class="csd__line" data-storelib-cart-line hidden>
+            <a class="csd__pic" data-line-url><img data-line-image alt="" width="96" height="120"></a>
+            <div class="csd__info">
+              <a class="csd__name" data-line-url><span data-line-title></span></a>
+              <span class="csd__var" data-line-variant></span>
+              <div class="csd__qty">
+                <button type="button" data-line-dec aria-label="{{ settings.less_label }}">&minus;</button>
+                <span data-line-qty></span>
+                <button type="button" data-line-inc aria-label="{{ settings.more_label }}">+</button>
+              </div>
+            </div>
+            <div class="csd__end"><span class="csd__price" data-line-price></span><button class="csd__remove" type="button" data-line-remove>{{ settings.remove_label }}</button></div>
+          </li>
+        </ul>
+        {% if settings.show_upsell and settings.upsell.size > 0 %}
+        <div class="csd__up">
+          <h3 class="csd__up-h">{{ settings.upsell_heading }}</h3>
+          <ul class="csd__up-row">
+            {% for p in settings.upsell %}
+            <li class="csd__up-card">
+              <a class="csd__up-link" href="{{ p.settings.url | url }}">{% if p.settings.image %}<img src="{{ p.settings.image | asset }}" alt="{{ p.settings.title }}" width="240" height="300" loading="lazy">{% endif %}<span>{{ p.settings.title }}</span></a>
+              <span class="csd__up-price">{{ p.settings.price }}</span>
+              {% if p.settings.available %}<button class="csd__add" type="button" data-storelib-add-to-cart="{{ p.id }}" data-title="{{ p.settings.title }}" data-price="{{ p.settings.price }}" data-image="{{ p.settings.image | asset }}" data-url="{{ p.settings.url }}" data-kind="{{ p.settings.kind }}">{{ settings.add_label }}</button>{% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+      <div class="csd__foot" data-storelib-cart-filled>
+        <p class="csd__sub"><span>{{ settings.subtotal_label }}</span><span data-storelib-cart-subtotal></span></p>
+        {% if settings.note %}<p class="csd__note">{{ settings.note }}</p>{% endif %}
+        <button class="csd__checkout" type="button" data-storelib-checkout>{{ settings.checkout_label }}</button>
+        <a class="csd__view" href="{{ routes.cart_url }}">{{ settings.view_label }}</a>
+      </div>
+    </div>
+  </aside>
+</div>
+</template>
+
+<style scoped>
+.csd__panel { position: fixed; inset: 0; z-index: 85; visibility: hidden; }
+.csd__panel[data-open="true"], .csd[data-editor-open] .csd__panel { visibility: visible; }
+.csd[data-editor-open] .csd__panel { position: relative; min-height: 720px; }
+.csd__scrim { position: absolute; inset: 0; width: 100%; padding: 0; border: 0; background: rgba(0, 0, 0, 0.4); opacity: 0; cursor: pointer; }
+.csd__panel[data-open="true"] .csd__scrim, .csd[data-editor-open] .csd__scrim { opacity: 1; }
+.csd__sheet { position: absolute; inset: 0 0 0 auto; display: flex; flex-direction: column; width: min(var(--csd-w), 100%); background: var(--s-bg); color: var(--s-text); transform: translateX(100%); }
+.csd[data-edge="left"] .csd__sheet { inset: 0 auto 0 0; transform: translateX(-100%); }
+.csd__panel[data-open="true"] .csd__sheet, .csd[data-editor-open] .csd__sheet { transform: none; }
+.csd__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; padding: 0 20px; border-bottom: 1px solid var(--s-border); }
+.csd__title { margin: 0; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.625rem); font-weight: 700; letter-spacing: -0.02em; }
+.csd__n { font-family: var(--theme-font-body), sans-serif; font-size: 0.875rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.csd__n[data-count="0"] { display: none; }
+.csd__close { min-height: 44px; padding: 0 12px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; cursor: pointer; }
+.csd__body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px; }
+.csd__empty { display: grid; justify-items: start; gap: 12px; padding: 32px 0; }
+.csd__empty p { margin: 0; font-size: 1.125rem; }
+.csd__ghost { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid currentColor; color: inherit; text-decoration: none; }
+.csd__lines { margin: 0; padding: 0; list-style: none; }
+.csd__line { display: grid; grid-template-columns: 80px minmax(0, 1fr) auto; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--s-border); }
+.csd__pic { display: block; }
+.csd__pic img { display: block; width: 80px; height: 100px; object-fit: cover; background: var(--s-border); }
+.csd[data-shape="square"] .csd__pic img { height: 80px; }
+.csd__info { display: grid; gap: 4px; align-content: start; min-width: 0; }
+.csd__name { color: inherit; font-weight: 600; text-decoration: none; }
+.csd__var { font-size: 0.875rem; opacity: 0.8; }
+.csd__qty { display: inline-flex; align-items: center; width: max-content; margin-top: 6px; border: 1px solid var(--s-border); }
+.csd__qty button { min-width: 44px; min-height: 40px; border: 0; background: none; color: inherit; font: inherit; font-size: 1.125rem; cursor: pointer; }
+.csd__qty span { min-width: 24px; text-align: center; font-variant-numeric: tabular-nums; }
+.csd__end { display: grid; justify-items: end; align-content: space-between; gap: 8px; }
+.csd__price { font-variant-numeric: tabular-nums; font-weight: 600; }
+.csd__remove { min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-size: 0.875rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.csd__up { padding: 20px 0; }
+.csd__up-h { margin: 0 0 12px; font-size: 1rem; font-weight: 600; }
+.csd__up-row { display: flex; gap: 12px; margin: 0 -20px; padding: 0 20px 4px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: thin; list-style: none; }
+.csd__up-card { flex: 0 0 136px; display: grid; gap: 6px; scroll-snap-align: start; font-size: 0.875rem; }
+.csd__up-link { display: grid; gap: 6px; color: inherit; text-decoration: none; }
+.csd__up-link img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: cover; }
+.csd__up-price { font-variant-numeric: tabular-nums; }
+.csd__add { min-height: 40px; border: 1px solid currentColor; background: none; color: inherit; font: inherit; cursor: pointer; }
+.csd__add:hover { background: var(--s-text); color: var(--s-bg); }
+.csd__foot { display: grid; gap: 10px; padding: 16px 20px calc(16px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--s-border); }
+.csd__sub { display: flex; justify-content: space-between; margin: 0; font-size: 1.125rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.csd__note { margin: 0; font-size: 0.875rem; }
+.csd__checkout { min-height: 54px; border: 0; background: var(--s-btn); color: var(--s-btn-text); font: inherit; font-size: 1.0625rem; font-weight: 600; cursor: pointer; }
+.csd__checkout[disabled] { opacity: 0.6; cursor: progress; }
+.csd__view { justify-self: center; display: inline-flex; align-items: center; min-height: 44px; color: inherit; font-size: 0.9375rem; }
+.csd :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .csd:not([data-motion="off"]) .csd__panel { transition: visibility 0s linear var(--t-motion-duration, 650ms); }
+  .csd:not([data-motion="off"]) .csd__panel[data-open="true"] { transition-delay: 0s; }
+  .csd:not([data-motion="off"]) .csd__sheet { transition: transform calc(var(--t-motion-duration, 650ms) * 0.7) cubic-bezier(0.32, 0.72, 0, 1); }
+  .csd:not([data-motion="off"]) .csd__scrim { transition: opacity calc(var(--t-motion-duration, 650ms) * 0.5) ease; }
+  .csd:not([data-motion="off"]) .csd__panel[data-open="true"] .csd__line { animation: csd-in calc(var(--t-motion-duration, 650ms) * 0.7) var(--t-motion-ease, ease-out) 120ms both; }
+  @keyframes csd-in { from { opacity: 0; transform: translateX(calc(var(--t-motion-distance, 24px) * var(--m-k, 1))); } }
+}
+@media (prefers-reduced-motion: reduce) { .csd__panel, .csd__sheet, .csd__scrim, .csd__line { transition: none; animation: none; } }
+@media (min-width: 600px) {
+  .csd__line { grid-template-columns: 96px minmax(0, 1fr) auto; }
+  .csd__pic img { width: 96px; height: 120px; }
+  .csd[data-shape="square"] .csd__pic img { height: 96px; }
+  .csd__head, .csd__body, .csd__foot { padding-left: 24px; padding-right: 24px; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_cart_side",
+  "name": "Side cart with upsell",
+  "settings": [
+    { "type": "paragraph", "id": "about", "content": "Opens from every bag button and every add to cart on the page. Keep it right after the header." },
+    { "type": "checkbox", "id": "editor_open", "label": "Keep it open in the editor", "default": false },
+    { "type": "header", "id": "hdr_upsell", "label": "Upsell" },
+    { "type": "checkbox", "id": "show_upsell", "label": "Show products to add", "default": true },
+    { "type": "text", "id": "upsell_heading", "label": "Heading", "default": "Goes well with it" },
+    { "type": "product_list", "id": "upsell", "label": "Products", "limit": 8 },
+    { "type": "text", "id": "add_label", "label": "Add button", "default": "Add" },
+    { "type": "header", "id": "hdr_layout", "label": "Layout" },
+    { "type": "select", "id": "edge", "label": "Comes from", "default": "right", "options": [{ "label": "Right", "value": "right" }, { "label": "Left", "value": "left" }] },
+    { "type": "range", "id": "width", "label": "Width", "min": 340, "max": 560, "step": 10, "unit": "px", "default": 440 },
+    { "type": "select", "id": "picture_shape", "label": "Line pictures", "default": "portrait", "options": [{ "label": "Portrait", "value": "portrait" }, { "label": "Square", "value": "square" }] },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "title", "label": "Title", "default": "Your bag" },
+    { "type": "text", "id": "close_label", "label": "Close button", "default": "Close" },
+    { "type": "text", "id": "empty_text", "label": "When it is empty", "default": "Nothing in here yet." },
+    { "type": "text", "id": "empty_link", "label": "Link when it is empty", "default": "Start with the shop" },
+    { "type": "url", "id": "empty_url", "label": "That link goes to", "default": "/shop" },
+    { "type": "text", "id": "subtotal_label", "label": "Subtotal", "default": "Subtotal" },
+    { "type": "text", "id": "note", "label": "Line above checkout", "default": "Delivery and taxes are worked out at checkout." },
+    { "type": "text", "id": "checkout_label", "label": "Checkout button", "default": "Check out" },
+    { "type": "text", "id": "view_label", "label": "Link to the full bag", "default": "View the full bag" },
+    { "type": "text", "id": "remove_label", "label": "Remove", "default": "Remove" },
+    { "type": "text", "id": "less_label", "label": "One less (read aloud)", "default": "One less" },
+    { "type": "text", "id": "more_label", "label": "One more (read aloud)", "default": "One more" },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ]
+}
+</schema>

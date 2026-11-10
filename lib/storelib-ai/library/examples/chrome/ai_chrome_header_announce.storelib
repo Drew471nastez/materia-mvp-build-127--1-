@@ -1,0 +1,135 @@
+{# example
+title: Header with an announcement bar that rotates, scrolls or stays
+summary: Chrome kit header. A thin bar of the creator's own messages above the header (up to five blocks, each with an optional link) shown one after another, as a moving line, or side by side, then a bar with the menu inline, the language and currency switches as a compact drop down, search and bag. The bar's style, speed, colours (its own scheme), and whether the switches show are settings; everything stops for reduced motion and while hovered or focused.
+tags: chrome kit, header, announcement bar, announcement, promo bar, ticker, marquee, rotating messages, free shipping message, locale, currency, language, own chrome, site header
+#}
+<template>
+<header class="han" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --m-k: calc({{ settings.motion_strength }} / 100);">
+  {% if section.blocks.size > 0 %}
+  <div class="han__ann" data-n="{{ section.blocks.size }}" data-style="{{ settings.bar_style }}" data-motion="{{ settings.motion }}" data-scheme="{{ settings.bar_scheme }}" style="--a-bg: {{ settings.bar_scheme.bg }}; --a-text: {{ settings.bar_scheme.text }}; --n: {{ section.blocks.size }}; --step: {{ settings.seconds }}s;" aria-label="{{ settings.bar_label }}" role="region">
+    <ul class="han__msgs">
+      {% for block in section.blocks %}
+      <li class="han__msg" style="--i: {{ forloop.index0 }};" data-block-id="{{ block.id }}">{% if block.settings.url %}<a href="{{ block.settings.url | url }}">{{ block.settings.text }}</a>{% else %}<span>{{ block.settings.text }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  <div class="han__bar">
+    <button class="han__tool han__burger" type="button" data-storelib-menu="{{ settings.menu.handle }}">{{ settings.menu_label }}</button>
+    <a class="han__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="150" height="40">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
+    <nav class="han__nav" aria-label="{{ settings.nav_label }}">
+      <ul>{% for link in settings.menu.links %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% endfor %}</ul>
+    </nav>
+    <div class="han__tools">
+      {% if settings.show_switches %}
+      <details class="han__pick" data-storelib-locale-list>
+        <summary class="han__tool"><span data-storelib-locale-current>{{ settings.language_label }}</span></summary>
+        <div class="han__menu"><button class="han__opt" type="button" data-storelib-locale-option hidden><span data-option-label></span></button></div>
+      </details>
+      <details class="han__pick" data-storelib-currency-list>
+        <summary class="han__tool"><span data-storelib-currency-current>{{ settings.currency_label }}</span></summary>
+        <div class="han__menu"><button class="han__opt" type="button" data-storelib-currency-option hidden><span data-option-label></span></button></div>
+      </details>
+      {% endif %}
+      <a class="han__tool" href="{{ routes.search_url }}" data-storelib-search>{{ settings.search_label }}</a>
+      <a class="han__tool" href="{{ routes.cart_url }}" data-storelib-cart>{{ settings.cart_label }} <span class="han__count" data-storelib-cart-count></span></a>
+    </div>
+  </div>
+</header>
+</template>
+
+<style scoped>
+.han { position: relative; z-index: 40; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
+.han__ann { position: relative; overflow: hidden; background: var(--a-bg); color: var(--a-text); font-size: 0.875rem; }
+.han__msgs { display: grid; margin: 0; padding: 0; list-style: none; }
+.han__msg { grid-area: 1 / 1; display: flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 16px; text-align: center; }
+.han__msg:not(:first-child) { visibility: hidden; }
+.han__msg a { display: inline-flex; align-items: center; min-height: 40px; color: inherit; text-underline-offset: 3px; }
+.han__ann[data-style="row"] .han__msgs { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 32px; }
+.han__ann[data-style="row"] .han__msg { grid-area: auto; visibility: visible; }
+.han__bar { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 0 var(--theme-padding-x, 16px); }
+.han__logo { display: inline-flex; align-items: center; min-height: 44px; margin-right: auto; color: var(--s-heading); text-decoration: none; font-family: var(--theme-font-heading), sans-serif; font-size: 1.375rem; font-weight: 700; letter-spacing: -0.02em; }
+.han__logo img { display: block; width: auto; height: 34px; }
+.han__nav { display: none; }
+.han__nav ul { display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.han__nav a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; color: inherit; text-decoration: none; }
+.han__nav a:hover { text-decoration: underline; text-underline-offset: 6px; }
+.han__tools { display: flex; align-items: center; gap: 2px; }
+.han__tool { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; min-width: 44px; padding: 0 8px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.9375rem; text-decoration: none; cursor: pointer; list-style: none; }
+.han__tool::-webkit-details-marker { display: none; }
+.han__count[data-count="0"] { display: none; }
+.han__pick { position: relative; display: none; }
+.han__menu { position: absolute; top: 100%; right: 0; display: grid; min-width: 160px; padding: 6px; border: 1px solid var(--s-border); background: var(--s-bg); }
+.han__opt { min-height: 44px; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.han__opt[aria-current="true"] { text-decoration: underline; }
+.han :focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  /* One after another: each message has its slice of one cycle (n messages, n slices); keyframe stops cannot be computed, so there is one set per count. */
+  .han__ann[data-style="rotate"]:not([data-motion="off"]):not([data-n="1"]) .han__msg { visibility: visible; opacity: 0; animation: han-rot-5 calc(var(--n) * var(--step)) linear infinite; animation-delay: calc(var(--i) * var(--step)); }
+  .han__ann[data-n="2"] .han__msg { animation-name: han-rot-2 !important; }
+  .han__ann[data-n="3"] .han__msg { animation-name: han-rot-3 !important; }
+  .han__ann[data-n="4"] .han__msg { animation-name: han-rot-4 !important; }
+  .han__ann[data-style="rotate"]:is(:hover, :focus-within) .han__msg { animation-play-state: paused; }
+  @keyframes han-rot-2 { 0% { opacity: 0; transform: translateY(calc(8px * var(--m-k, 1))); } 3%, 47% { opacity: 1; transform: none; } 50%, 100% { opacity: 0; } }
+  @keyframes han-rot-3 { 0% { opacity: 0; transform: translateY(calc(8px * var(--m-k, 1))); } 3%, 30% { opacity: 1; transform: none; } 33.34%, 100% { opacity: 0; } }
+  @keyframes han-rot-4 { 0% { opacity: 0; transform: translateY(calc(8px * var(--m-k, 1))); } 2%, 23% { opacity: 1; transform: none; } 25%, 100% { opacity: 0; } }
+  @keyframes han-rot-5 { 0% { opacity: 0; transform: translateY(calc(8px * var(--m-k, 1))); } 2%, 18% { opacity: 1; transform: none; } 20%, 100% { opacity: 0; } }
+  .han__ann[data-style="scroll"]:not([data-motion="off"]) .han__msgs { display: flex; width: max-content; gap: 48px; padding-left: 100%; animation: han-scroll calc(var(--n) * var(--step) * 2 / max(var(--m-k, 1), 0.2)) linear infinite; }
+  .han__ann[data-style="scroll"]:not([data-motion="off"]) .han__msg { grid-area: auto; visibility: visible; white-space: nowrap; }
+  .han__ann[data-style="scroll"]:not([data-motion="off"]):is(:hover, :focus-within) .han__msgs { animation-play-state: paused; }
+  @keyframes han-scroll { to { transform: translateX(-100%); } }
+}
+@media (prefers-reduced-motion: reduce) { .han__msgs, .han__msg { animation: none; } }
+@media (min-width: 990px) {
+  .han__burger { display: none; }
+  .han__nav { display: block; order: 0; }
+  .han__logo { margin-right: 24px; }
+  .han__tools { margin-left: auto; }
+  .han__pick { display: block; }
+  .han__pick[hidden] { display: none; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_header_announce",
+  "name": "Header with announcement bar",
+  "kind": "header",
+  "enabled_on": { "groups": ["header"] },
+  "settings": [
+    { "type": "header", "id": "hdr_bar", "label": "Announcement bar" },
+    { "type": "select", "id": "bar_style", "label": "Messages", "default": "rotate", "options": [{ "label": "One after another", "value": "rotate" }, { "label": "A moving line", "value": "scroll" }, { "label": "Side by side", "value": "row" }] },
+    { "type": "range", "id": "seconds", "label": "Seconds per message", "min": 2, "max": 10, "step": 1, "unit": "s", "default": 5 },
+    { "type": "color_scheme", "id": "bar_scheme", "label": "Bar colours", "default": "site" },
+    { "type": "text", "id": "bar_label", "label": "Bar name (read aloud)", "default": "News" },
+    { "type": "header", "id": "hdr_menu", "label": "Menu" },
+    { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" },
+    { "type": "text", "id": "brand", "label": "Name when there is no logo", "default": "Home" },
+    { "type": "checkbox", "id": "show_switches", "label": "Show language and currency", "default": true },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "nav_label", "label": "Menu name (read aloud)", "default": "Main" },
+    { "type": "text", "id": "menu_label", "label": "Menu button", "default": "Menu" },
+    { "type": "text", "id": "search_label", "label": "Search", "default": "Search" },
+    { "type": "text", "id": "cart_label", "label": "Bag", "default": "Bag" },
+    { "type": "text", "id": "language_label", "label": "Language", "default": "Language" },
+    { "type": "text", "id": "currency_label", "label": "Currency", "default": "Currency" },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Strength", "min": 20, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "message", "name": "Message", "limit": 5, "settings": [
+      { "type": "text", "id": "text", "label": "Message", "default": "Free delivery on orders over 50" },
+      { "type": "url", "id": "url", "label": "Link (optional)" }
+    ] }
+  ],
+  "presets": [{ "name": "Header with announcement bar", "blocks": [
+    { "type": "message", "settings": { "text": "Free delivery on orders over 50" } },
+    { "type": "message", "settings": { "text": "New pieces every first Friday", "url": "/shop" } },
+    { "type": "message", "settings": { "text": "Gift wrapping on request, no charge", "url": "/about" } }
+  ] }]
+}
+</schema>

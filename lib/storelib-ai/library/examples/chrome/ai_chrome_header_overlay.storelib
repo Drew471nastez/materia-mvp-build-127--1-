@@ -1,0 +1,118 @@
+{# example
+title: Header over the hero that turns solid on scroll
+summary: Chrome kit header. Sits transparent over a full bleed first section with a soft scrim, then fills with the scheme's colour after the first scroll (a CSS scroll timeline, no script); drop down sub menus as popovers, search, bag with live count and a menu button that opens the site's own menu drawer through the hooks. Behaviour (over the hero, always solid and pinned, or in the page), logo size, text colour over the picture, which tools show and motion are settings.
+tags: chrome kit, header, transparent header, over hero, solid on scroll, sticky header, scroll timeline, dropdown, popover, own chrome, site header
+#}
+<template>
+<header class="hov" data-mode="{{ settings.behaviour }}" data-over="{{ settings.over_image_text }}" data-tools="{{ settings.tool_style }}" data-motion="{{ settings.motion }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --hov-h: {{ settings.bar_height }}px; --hov-logo: {{ settings.logo_height }}px; --m-k: calc({{ settings.motion_strength }} / 100);">
+  <div class="hov__bar">
+    <a class="hov__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="160" height="40">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
+    <nav class="hov__nav" aria-label="{{ settings.nav_label }}">
+      <ul class="hov__links">
+        {% for link in settings.menu.links %}
+        <li>
+          {% if link.links.size > 0 %}
+          <button class="hov__top" type="button" popovertarget="hov-{{ section.id }}-{{ forloop.index }}">{{ link.title }}<svg class="hov__caret" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+          <div class="hov__drop" id="hov-{{ section.id }}-{{ forloop.index }}" popover>
+            <a class="hov__drop-all" href="{{ link.url }}">{{ link.title }}</a>
+            <ul class="hov__drop-list">{% for child in link.links %}<li style="--i: {{ forloop.index }};"><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}</ul>
+          </div>
+          {% else %}
+          <a class="hov__top" href="{{ link.url }}">{{ link.title }}</a>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </nav>
+    <div class="hov__tools">
+      {% if settings.show_search %}<a class="hov__tool" href="{{ routes.search_url }}" data-storelib-search aria-label="{{ settings.search_label }}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.6"/></svg><span class="hov__word">{{ settings.search_label }}</span></a>{% endif %}
+      {% if settings.show_account %}<a class="hov__tool hov__wide" href="{{ routes.account_url }}">{{ settings.account_label }}</a>{% endif %}
+      <a class="hov__tool" href="{{ routes.cart_url }}" data-storelib-cart aria-label="{{ settings.cart_label }}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2L5 8z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 8a3 3 0 016 0" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span class="hov__word">{{ settings.cart_label }}</span><span class="hov__count" data-storelib-cart-count></span></a>
+      <button class="hov__tool hov__burger" type="button" data-storelib-menu="{{ settings.menu.handle }}" aria-label="{{ settings.menu_label }}"><span class="hov__lines" aria-hidden="true"></span><span class="hov__word">{{ settings.menu_label }}</span></button>
+    </div>
+  </div>
+</header>
+<div class="hov-space" data-mode="{{ settings.behaviour }}" style="--hov-h: {{ settings.bar_height }}px;" aria-hidden="true"></div>
+</template>
+
+<style scoped>
+.hov { position: relative; z-index: 40; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); }
+.hov[data-mode="overlay"], .hov[data-mode="pinned"] { position: fixed; inset: 0 0 auto; }
+.hov-space { display: none; }
+.hov-space[data-mode="pinned"] { display: block; height: var(--hov-h); }
+.hov__bar { display: flex; align-items: center; gap: 12px; min-height: var(--hov-h); padding: 0 var(--theme-padding-x, 16px); max-width: var(--theme-page-width, 1440px); margin: 0 auto; }
+.hov__logo { display: inline-flex; align-items: center; min-height: 44px; margin-right: auto; color: inherit; text-decoration: none; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.125rem, 1rem + 0.6vw, 1.5rem); font-weight: 700; letter-spacing: -0.02em; }
+.hov__logo img { display: block; width: auto; height: var(--hov-logo); }
+.hov__nav { display: none; }
+.hov__links { display: flex; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.hov__top { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.9375rem; text-decoration: none; cursor: pointer; }
+.hov__caret { opacity: 0.7; }
+.hov__top:hover { text-decoration: underline; text-underline-offset: 6px; }
+.hov__drop { position: fixed; inset: var(--hov-h) auto auto 50%; translate: -50% 0; margin: 0; min-width: min(560px, calc(100% - 32px)); padding: 28px 32px 32px; border: 1px solid var(--s-border); background: var(--s-bg); color: var(--s-text); }
+.hov__drop-all { display: inline-block; margin-bottom: 16px; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.25rem); letter-spacing: -0.02em; text-decoration: none; }
+.hov__drop-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin: 0; padding: 0; list-style: none; }
+.hov__drop-list a { display: block; padding: 10px 0; color: inherit; text-decoration: none; border-bottom: 1px solid var(--s-border); }
+.hov__drop-list a:hover { text-decoration: underline; }
+.hov__tools { display: flex; align-items: center; gap: 2px; }
+.hov__tool { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 0 8px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.9375rem; text-decoration: none; cursor: pointer; }
+.hov__wide { display: none; }
+.hov[data-tools="icons"] .hov__word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.hov[data-tools="words"] .hov__tool svg { display: none; }
+.hov__count { min-width: 18px; padding: 0 5px; line-height: 18px; background: var(--s-accent); color: var(--s-bg); font-size: 0.75rem; text-align: center; font-variant-numeric: tabular-nums; }
+.hov[data-tools="icons"] .hov__count { position: absolute; top: 6px; right: 2px; }
+.hov__count[data-count="0"] { display: none; }
+.hov__lines { position: relative; display: block; width: 22px; height: 12px; border-top: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor; }
+.hov :focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+/* Over the first section: transparent with a scrim for contrast, then solid from the first 120px of scroll. Without scroll timelines it stays solid. */
+@supports (animation-timeline: scroll()) {
+  .hov[data-mode="overlay"] { border-bottom-color: transparent; background: linear-gradient(to bottom, rgba(0, 0, 0, 0.42), transparent); color: var(--hov-over, #fff); animation: hov-solid linear both; animation-timeline: scroll(root); animation-range: 0 120px; }
+  .hov[data-mode="overlay"][data-over="dark"] { --hov-over: var(--s-heading); background: linear-gradient(to bottom, rgba(255, 255, 255, 0.5), transparent); }
+  .hov[data-mode="overlay"] .hov__logo img { filter: var(--hov-logo-filter, none); }
+  @keyframes hov-solid { 99% { background-image: linear-gradient(transparent, transparent); } to { background: var(--s-bg); color: var(--s-text); border-bottom-color: var(--s-border); } }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hov:not([data-motion="off"]) .hov__drop:popover-open .hov__drop-list li { animation: hov-in calc(var(--t-motion-duration, 650ms) * 0.6) var(--t-motion-ease, ease-out) both; animation-delay: calc(var(--i, 1) * var(--t-motion-stagger, 65ms) * 0.5); }
+  @keyframes hov-in { from { opacity: 0; transform: translateY(calc(var(--t-motion-distance, 24px) * 0.4 * var(--m-k, 1))); } }
+  .hov__top, .hov__tool { transition: opacity var(--t-motion-hover, 200ms) var(--t-motion-ease-ui, ease); }
+}
+@media (prefers-reduced-motion: reduce) { .hov__drop-list li { animation: none; } }
+@media (min-width: 990px) {
+  .hov__nav { display: block; }
+  .hov__wide { display: inline-flex; }
+  .hov__burger { display: none; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_header_overlay",
+  "name": "Header over the hero",
+  "kind": "header",
+  "enabled_on": { "groups": ["header"] },
+  "settings": [
+    { "type": "header", "id": "hdr_menu", "label": "Menu" },
+    { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" },
+    { "type": "text", "id": "brand", "label": "Name when there is no logo", "default": "Home" },
+    { "type": "header", "id": "hdr_layout", "label": "Layout" },
+    { "type": "select", "id": "behaviour", "label": "Behaviour", "default": "overlay", "options": [{ "label": "Over the first section, solid on scroll", "value": "overlay" }, { "label": "Solid and pinned to the top", "value": "pinned" }, { "label": "In the page", "value": "static" }] },
+    { "type": "select", "id": "over_image_text", "label": "Text over the picture", "default": "light", "options": [{ "label": "Light", "value": "light" }, { "label": "Dark", "value": "dark" }] },
+    { "type": "range", "id": "bar_height", "label": "Bar height", "min": 56, "max": 104, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "logo_height", "label": "Logo height", "min": 20, "max": 72, "step": 2, "unit": "px", "default": 32 },
+    { "type": "select", "id": "tool_style", "label": "Search and bag as", "default": "icons", "options": [{ "label": "Icons", "value": "icons" }, { "label": "Words", "value": "words" }] },
+    { "type": "checkbox", "id": "show_search", "label": "Show search", "default": true },
+    { "type": "checkbox", "id": "show_account", "label": "Show account link", "default": false },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "nav_label", "label": "Menu name (read aloud)", "default": "Main" },
+    { "type": "text", "id": "menu_label", "label": "Menu button", "default": "Menu" },
+    { "type": "text", "id": "search_label", "label": "Search", "default": "Search" },
+    { "type": "text", "id": "cart_label", "label": "Bag", "default": "Bag" },
+    { "type": "text", "id": "account_label", "label": "Account", "default": "Account" },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ]
+}
+</schema>

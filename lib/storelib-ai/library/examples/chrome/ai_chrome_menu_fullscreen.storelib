@@ -1,0 +1,134 @@
+{# example
+title: Full screen menu drawer with huge staggered links
+summary: Chrome kit menu drawer, a section of its own placed after the header: every Menu button on the page (data-storelib-menu) opens it through the hooks as a dialog (focus kept inside and returned, Escape, its close button and any link shut it). The site's menu set huge, each link rising in turn, sub links folding open under their parent (details), small links, socials (blocks) and the language and currency switches at the foot. How it opens (fade, wipe from a corner, drop), type size, alignment, colours and motion are settings; it can be kept open in the editor to style it.
+tags: chrome kit, menu drawer, full screen menu, fullscreen menu, overlay menu, mobile menu, hamburger menu, staggered links, big type menu, locale, currency, own chrome
+#}
+<template>
+<div class="mfs" data-reveal="{{ settings.reveal }}" data-align="{{ settings.align }}" data-motion="{{ settings.motion }}" {% if page.in_editor and settings.editor_open %}data-editor-open{% endif %} data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --mfs-size: {{ settings.type_size }}; --m-k: calc({{ settings.motion_strength }} / 100);">
+  <div class="mfs__panel" data-storelib-menu-panel aria-label="{{ settings.panel_label }}">
+    <div class="mfs__top">
+      <a class="mfs__logo" href="{{ routes.root_url }}">{{ shop.name | default: settings.brand }}</a>
+      <button class="mfs__close" type="button" data-storelib-menu-close><span>{{ settings.close_label }}</span><span class="mfs__x" aria-hidden="true"></span></button>
+    </div>
+    <nav class="mfs__nav" aria-label="{{ settings.nav_label }}">
+      <ul class="mfs__list">
+        {% for link in settings.menu.links %}
+        <li class="mfs__item" style="--i: {{ forloop.index }};">
+          {% if link.links.size > 0 %}
+          <details class="mfs__group">
+            <summary class="mfs__big">{{ link.title }}<span class="mfs__plus" aria-hidden="true"></span></summary>
+            <ul class="mfs__sub">
+              <li><a href="{{ link.url }}">{{ settings.all_label }}</a></li>
+              {% for child in link.links %}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{% endfor %}
+            </ul>
+          </details>
+          {% else %}
+          <a class="mfs__big" href="{{ link.url }}">{{ link.title }}</a>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </nav>
+    <div class="mfs__foot">
+      <ul class="mfs__small">{% for link in settings.small_menu.links limit: 6 %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% endfor %}</ul>
+      <ul class="mfs__social">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" target="_blank" rel="noopener">{{ block.settings.label }}</a></li>{% endfor %}</ul>
+      <div class="mfs__prefs">
+        <div class="mfs__pref" data-storelib-locale-list role="group" aria-label="{{ settings.language_label }}"><button class="mfs__opt" type="button" data-storelib-locale-option hidden><span data-option-label></span></button></div>
+        <div class="mfs__pref" data-storelib-currency-list role="group" aria-label="{{ settings.currency_label }}"><button class="mfs__opt" type="button" data-storelib-currency-option hidden><span data-option-label></span></button></div>
+      </div>
+    </div>
+  </div>
+</div>
+</template>
+
+<style scoped>
+.mfs__panel { position: fixed; inset: 0; z-index: 80; display: flex; flex-direction: column; gap: 24px; padding: 0 var(--theme-padding-x, 16px) 24px; overflow-y: auto; overscroll-behavior: contain; background: var(--s-bg); color: var(--s-text); visibility: hidden; opacity: 0; }
+.mfs__panel[data-open="true"], .mfs[data-editor-open] .mfs__panel { visibility: visible; opacity: 1; clip-path: none; transform: none; }
+.mfs[data-editor-open] .mfs__panel { position: relative; inset: auto; min-height: 640px; }
+.mfs__top { display: flex; align-items: center; justify-content: space-between; min-height: 64px; }
+.mfs__logo { display: inline-flex; align-items: center; min-height: 44px; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: 1.25rem; font-weight: 700; text-decoration: none; }
+.mfs__close { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 4px 0 12px; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.mfs__x { position: relative; width: 28px; height: 28px; }
+.mfs__x::before, .mfs__x::after { content: ""; position: absolute; left: 3px; right: 3px; top: 13px; height: 2px; background: currentColor; transform: rotate(45deg); }
+.mfs__x::after { transform: rotate(-45deg); }
+.mfs__nav { flex: 1; display: flex; align-items: center; }
+.mfs__list { width: 100%; margin: 0; padding: 0; list-style: none; }
+.mfs[data-align="center"] .mfs__list { text-align: center; }
+.mfs__big { display: flex; align-items: center; gap: 16px; padding: 2px 0; color: var(--s-heading); text-decoration: none; font-family: var(--theme-font-heading), sans-serif; font-size: calc(clamp(2.75rem, 1rem + 9vw, 8.5rem) * var(--mfs-size, 100) / 100); line-height: 1; letter-spacing: -0.045em; font-weight: 700; cursor: pointer; list-style: none; overflow-wrap: anywhere; }
+.mfs[data-align="center"] .mfs__big { justify-content: center; }
+.mfs__big::-webkit-details-marker { display: none; }
+.mfs__big:hover, .mfs__big:focus-visible { color: var(--s-accent); }
+.mfs__plus { position: relative; flex: none; width: 0.4em; height: 0.4em; }
+.mfs__plus::before, .mfs__plus::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1.5px; background: currentColor; }
+.mfs__plus::after { transform: rotate(90deg); }
+.mfs__group[open] .mfs__plus::after { transform: none; }
+.mfs__sub { display: flex; flex-wrap: wrap; gap: 0 20px; margin: 4px 0 16px; padding: 0; list-style: none; font-size: 1.125rem; }
+.mfs[data-align="center"] .mfs__sub { justify-content: center; }
+.mfs__sub a, .mfs__small a, .mfs__social a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; }
+.mfs__foot { display: grid; gap: 12px; padding-top: 16px; border-top: 1px solid var(--s-border); font-size: 0.9375rem; }
+.mfs__small, .mfs__social { display: flex; flex-wrap: wrap; gap: 0 20px; margin: 0; padding: 0; list-style: none; }
+.mfs__prefs { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.mfs__pref { display: flex; flex-wrap: wrap; gap: 6px; }
+.mfs__opt { min-height: 44px; padding: 0 14px; border: 1px solid var(--s-border); background: none; color: inherit; font: inherit; cursor: pointer; }
+.mfs__opt[aria-current="true"] { background: var(--s-text); color: var(--s-bg); border-color: var(--s-text); }
+.mfs :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+  .mfs:not([data-motion="off"]) .mfs__panel { transition: opacity calc(var(--t-motion-duration, 650ms) * 0.6) var(--t-motion-ease, ease-out), clip-path calc(var(--t-motion-duration, 650ms) * 1.1) var(--t-motion-ease, ease-out), transform calc(var(--t-motion-duration, 650ms) * 0.9) var(--t-motion-ease, ease-out), visibility 0s linear calc(var(--t-motion-duration, 650ms) * 1.1); }
+  .mfs:not([data-motion="off"]) .mfs__panel[data-open="true"] { transition-delay: 0s; }
+  .mfs[data-reveal="wipe"]:not([data-motion="off"]) .mfs__panel:not([data-open="true"]) { opacity: 1; clip-path: circle(0% at calc(100% - 40px) 32px); }
+  .mfs[data-reveal="wipe"]:not([data-motion="off"]) .mfs__panel[data-open="true"] { clip-path: circle(150% at calc(100% - 40px) 32px); }
+  .mfs[data-reveal="drop"]:not([data-motion="off"]) .mfs__panel:not([data-open="true"]) { opacity: 1; transform: translateY(-100%); }
+  .mfs:not([data-motion="off"]) .mfs__panel[data-open="true"] .mfs__item { animation: mfs-rise var(--t-motion-duration, 650ms) var(--t-motion-ease, ease-out) both; animation-delay: calc(var(--i, 1) * var(--t-motion-stagger, 65ms) + 120ms); }
+  .mfs:not([data-motion="off"]) .mfs__panel[data-open="true"] .mfs__foot { animation: mfs-fade var(--t-motion-duration, 650ms) var(--t-motion-ease, ease-out) 360ms both; }
+  @keyframes mfs-rise { from { opacity: 0; transform: translateY(calc(var(--t-motion-distance, 24px) * 2.5 * var(--m-k, 1))); } }
+  @keyframes mfs-fade { from { opacity: 0; } }
+}
+@media (prefers-reduced-motion: reduce) { .mfs__panel, .mfs__item, .mfs__foot { transition: none; animation: none; } }
+@media (min-width: 900px) {
+  .mfs__panel { padding-left: clamp(24px, 6vw, 96px); padding-right: clamp(24px, 6vw, 96px); }
+  .mfs__foot { grid-template-columns: 1fr auto auto; align-items: center; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_menu_fullscreen",
+  "name": "Full screen menu",
+  "settings": [
+    { "type": "paragraph", "id": "about", "content": "Opens from every Menu button on the page. Keep it right after the header." },
+    { "type": "checkbox", "id": "editor_open", "label": "Keep it open in the editor", "default": false },
+    { "type": "header", "id": "hdr_menu", "label": "Menu" },
+    { "type": "link_list", "id": "menu", "label": "Big links", "default": "main-menu" },
+    { "type": "link_list", "id": "small_menu", "label": "Small links", "default": "footer" },
+    { "type": "text", "id": "brand", "label": "Name when there is no shop name", "default": "Home" },
+    { "type": "header", "id": "hdr_layout", "label": "Layout" },
+    { "type": "select", "id": "reveal", "label": "How it opens", "default": "wipe", "options": [{ "label": "Fade", "value": "fade" }, { "label": "Wipe from the corner", "value": "wipe" }, { "label": "Drop from the top", "value": "drop" }] },
+    { "type": "select", "id": "align", "label": "Links", "default": "start", "options": [{ "label": "Left", "value": "start" }, { "label": "Centre", "value": "center" }] },
+    { "type": "range", "id": "type_size", "label": "Type size", "min": 50, "max": 130, "step": 5, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "panel_label", "label": "Menu name (read aloud)", "default": "Menu" },
+    { "type": "text", "id": "nav_label", "label": "Links name (read aloud)", "default": "Main" },
+    { "type": "text", "id": "close_label", "label": "Close button", "default": "Close" },
+    { "type": "text", "id": "all_label", "label": "Link to the whole section", "default": "See all" },
+    { "type": "text", "id": "language_label", "label": "Language (read aloud)", "default": "Language" },
+    { "type": "text", "id": "currency_label", "label": "Currency (read aloud)", "default": "Currency" },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "social", "name": "Social link", "settings": [
+      { "type": "text", "id": "label", "label": "Name", "default": "Instagram" },
+      { "type": "url", "id": "url", "label": "Address", "default": "https://instagram.com" }
+    ] }
+  ],
+  "presets": [{ "name": "Full screen menu", "blocks": [
+    { "type": "social", "settings": { "label": "Instagram", "url": "https://instagram.com" } },
+    { "type": "social", "settings": { "label": "YouTube", "url": "https://youtube.com" } },
+    { "type": "social", "settings": { "label": "Newsletter", "url": "/contact" } }
+  ] }]
+}
+</schema>

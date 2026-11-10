@@ -1,0 +1,110 @@
+{# example
+title: Full height minimal cart, set in type
+summary: Chrome kit cart drawer, a section placed after the header: the site's own cart panel as a full height column (the whole screen on a phone, a third or half of it on wide screens) with no boxes: lines as a numbered typographic list (title, option, quantity and price on one rule), the subtotal set large, one checkout button running the full width. Opened by every bag button and add to cart through the hooks; keyboard kept inside. Width, pictures on or off, the size of the total and motion are settings.
+tags: chrome kit, cart drawer, minimal cart, full height cart, typographic cart, editorial cart, luxury cart, checkout, own chrome
+#}
+<template>
+<div class="cmn" data-pics="{{ settings.show_pictures }}" data-width="{{ settings.width }}" data-motion="{{ settings.motion }}" {% if page.in_editor and settings.editor_open %}data-editor-open{% endif %} data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --cmn-total: {{ settings.total_size }}; --m-k: calc({{ settings.motion_strength }} / 100);">
+  <aside class="cmn__panel" data-storelib-cart-panel aria-label="{{ settings.title }}">
+    <div class="cmn__col" role="dialog" aria-label="{{ settings.title }}">
+      <div class="cmn__head">
+        <h2 class="cmn__title">{{ settings.title }}</h2>
+        <button class="cmn__close" type="button" data-storelib-cart-close>{{ settings.close_label }}</button>
+      </div>
+      <p class="cmn__empty" data-storelib-cart-empty>{{ settings.empty_text }}</p>
+      <ol class="cmn__lines" data-storelib-cart-lines>
+        <li class="cmn__line" data-storelib-cart-line hidden>
+          <img class="cmn__img" data-line-image alt="" width="56" height="70">
+          <div class="cmn__main">
+            <a class="cmn__name" data-line-url><span data-line-title></span></a>
+            <span class="cmn__var" data-line-variant></span>
+            <span class="cmn__ctl"><button type="button" data-line-dec aria-label="{{ settings.less_label }}">&minus;</button><span class="cmn__q" data-line-qty></span><button type="button" data-line-inc aria-label="{{ settings.more_label }}">+</button><button class="cmn__rm" type="button" data-line-remove>{{ settings.remove_label }}</button></span>
+          </div>
+          <span class="cmn__price" data-line-price></span>
+        </li>
+      </ol>
+      <div class="cmn__foot" data-storelib-cart-filled>
+        <p class="cmn__sub-l">{{ settings.subtotal_label }}</p>
+        <p class="cmn__total" data-storelib-cart-subtotal></p>
+        <p class="cmn__note">{{ settings.note }}</p>
+        <button class="cmn__checkout" type="button" data-storelib-checkout>{{ settings.checkout_label }}</button>
+      </div>
+    </div>
+  </aside>
+</div>
+</template>
+
+<style scoped>
+.cmn__panel { position: fixed; inset: 0; z-index: 85; visibility: hidden; pointer-events: none; }
+.cmn__panel[data-open="true"], .cmn[data-editor-open] .cmn__panel { visibility: visible; pointer-events: auto; }
+.cmn[data-editor-open] .cmn__panel { position: relative; min-height: 680px; }
+.cmn__col { position: absolute; inset: 0 0 0 auto; display: flex; flex-direction: column; width: 100%; padding: 0 var(--theme-padding-x, 16px) calc(20px + env(safe-area-inset-bottom, 0px)); overflow-y: auto; overscroll-behavior: contain; background: var(--s-bg); color: var(--s-text); border-left: 1px solid var(--s-border); opacity: 0; }
+.cmn__panel[data-open="true"] .cmn__col, .cmn[data-editor-open] .cmn__col { opacity: 1; }
+.cmn__head { display: flex; align-items: center; justify-content: space-between; min-height: 72px; }
+.cmn__title { margin: 0; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.25rem); font-weight: 700; letter-spacing: -0.03em; }
+.cmn__close { min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.cmn__empty { margin: 24px 0; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.75rem, 1.3rem + 2vw, 3rem); line-height: 1.05; letter-spacing: -0.03em; color: var(--s-heading); }
+.cmn__lines { flex: 1; margin: 0; padding: 0; list-style: none; counter-reset: line; border-top: 1px solid var(--s-text); }
+.cmn__line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 16px 0; border-bottom: 1px solid var(--s-border); counter-increment: line; }
+.cmn__line::before { content: counter(line, decimal-leading-zero); font-size: 0.8125rem; font-variant-numeric: tabular-nums; padding-top: 4px; }
+.cmn__img { display: none; }
+.cmn[data-pics="true"] .cmn__line { grid-template-columns: auto 56px minmax(0, 1fr) auto; }
+.cmn[data-pics="true"] .cmn__img { display: block; width: 56px; height: 70px; object-fit: cover; }
+.cmn__main { display: grid; gap: 2px; min-width: 0; }
+.cmn__name { color: var(--s-heading); font-size: 1.125rem; font-weight: 600; text-decoration: none; }
+.cmn__var { font-size: 0.875rem; }
+.cmn__ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-top: 4px; }
+.cmn__ctl button { min-width: 44px; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-size: 1.125rem; cursor: pointer; }
+.cmn__ctl .cmn__rm { min-width: 0; margin-left: 8px; font-size: 0.875rem; text-decoration: underline; text-underline-offset: 3px; }
+.cmn__q { min-width: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+.cmn__price { font-variant-numeric: tabular-nums; font-size: 1.0625rem; padding-top: 2px; }
+.cmn__foot { padding-top: 24px; }
+.cmn__sub-l { margin: 0; font-size: 0.9375rem; }
+.cmn__total { margin: 0 0 8px; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: calc(clamp(2.5rem, 1.6rem + 4vw, 4.5rem) * var(--cmn-total, 100) / 100); line-height: 1; letter-spacing: -0.04em; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cmn__note { margin: 0 0 16px; font-size: 0.875rem; }
+.cmn__checkout { width: 100%; min-height: 56px; border: 0; background: var(--s-btn); color: var(--s-btn-text); font: inherit; font-size: 1.125rem; font-weight: 600; cursor: pointer; }
+.cmn :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .cmn:not([data-motion="off"]) .cmn__panel { transition: visibility 0s linear var(--t-motion-duration, 650ms); }
+  .cmn:not([data-motion="off"]) .cmn__panel[data-open="true"] { transition-delay: 0s; }
+  .cmn:not([data-motion="off"]) .cmn__col { transform: translateY(calc(var(--t-motion-distance, 24px) * var(--m-k, 1))); transition: opacity calc(var(--t-motion-duration, 650ms) * 0.5) ease, transform calc(var(--t-motion-duration, 650ms) * 0.8) var(--t-motion-ease, ease-out); }
+  .cmn:not([data-motion="off"]) .cmn__panel[data-open="true"] .cmn__col { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .cmn__panel, .cmn__col { transition: none; transform: none; } }
+@media (min-width: 760px) {
+  .cmn[data-width="third"] .cmn__col { width: max(420px, 34%); }
+  .cmn[data-width="half"] .cmn__col { width: 50%; }
+  .cmn__col { padding-left: 32px; padding-right: 32px; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_cart_minimal",
+  "name": "Minimal full height cart",
+  "settings": [
+    { "type": "paragraph", "id": "about", "content": "Opens from every bag button and every add to cart on the page. Keep it right after the header." },
+    { "type": "checkbox", "id": "editor_open", "label": "Keep it open in the editor", "default": false },
+    { "type": "header", "id": "hdr_layout", "label": "Layout" },
+    { "type": "select", "id": "width", "label": "Width on wide screens", "default": "third", "options": [{ "label": "A third", "value": "third" }, { "label": "Half", "value": "half" }, { "label": "The whole screen", "value": "full" }] },
+    { "type": "checkbox", "id": "show_pictures", "label": "Show pictures", "default": false },
+    { "type": "range", "id": "total_size", "label": "Total size", "min": 50, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "title", "label": "Title", "default": "Bag" },
+    { "type": "text", "id": "close_label", "label": "Close button", "default": "Close" },
+    { "type": "text", "id": "empty_text", "label": "When it is empty", "default": "Your bag is empty." },
+    { "type": "text", "id": "subtotal_label", "label": "Subtotal", "default": "Subtotal" },
+    { "type": "text", "id": "note", "label": "Line above checkout", "default": "Delivery and taxes at checkout." },
+    { "type": "text", "id": "checkout_label", "label": "Checkout button", "default": "Check out" },
+    { "type": "text", "id": "remove_label", "label": "Remove", "default": "Remove" },
+    { "type": "text", "id": "less_label", "label": "One less (read aloud)", "default": "One less" },
+    { "type": "text", "id": "more_label", "label": "One more (read aloud)", "default": "One more" },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ]
+}
+</schema>
