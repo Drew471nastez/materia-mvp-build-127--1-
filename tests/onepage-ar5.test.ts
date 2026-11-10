@@ -188,7 +188,7 @@ for (const k of ["wallpaper_effect", "wallpaper_blur", "wallpaper_tint", "wallpa
 console.log("\nEvery block's buttons are the page's buttons")
 const app = read("components/onepage/app-block.tsx")
 /* Changed on purpose (round AR): CardButton reads the one rule for a button on a card, onCardButtonTheme (lib/onepage/button-style), which is cardButtonTheme with the card's own surface. */
-check("an app block's button is the page's button, made to read on its card", /function CardButton[\s\S]{0,900}onCardButtonTheme\(look\.theme\)[\s\S]{0,200}pressableProps\(theme, look\.still\)/.test(app) && /return cardButtonTheme\(theme, \{ surface, cardText: theme\.button_text_color as string \}\)/.test(read("lib/onepage/button-style.ts")))
+check("an app block's button is the page's button, made to read on its card", /function CardButton[\s\S]{0,900}onCardButtonTheme\(look\.theme\)[\s\S]{0,200}pressableProps\(theme, look\.still\)/.test(app) && /const out = cardButtonTheme\(theme, \{ surface, cardText: theme\.button_text_color as string \}\)/.test(read("lib/onepage/button-style.ts")) /* Changed on purpose (round AR, Classic 98): it falls back to a solid button where no words read. */)
 check("it carries the page's hover", /"data-hover": press\["data-hover"\]/.test(app) && /cn\(press\.className,/.test(app))
 check("it no longer turns the card's colours round by hand", !/background: ink, color: paper/.test(app))
 
