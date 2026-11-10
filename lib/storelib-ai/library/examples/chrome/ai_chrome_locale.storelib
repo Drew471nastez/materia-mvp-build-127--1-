@@ -1,0 +1,108 @@
+{# example
+title: Language and currency selectors as pills, a drop down or a sentence
+summary: Chrome kit switches, a small section for the header group, the footer group or any page: the site's real languages and currencies (Settings, Markets) through the hooks, each list hidden by the page when the site has only one. Three styles: inline pills, a compact drop down (details, works by keyboard), or a plain sentence with the current choices ("Shipping to France, prices in EUR") that opens the lists. Flags are off by default (a language is not a country) and can be turned on for common languages; codes, labels, alignment and colours are settings.
+tags: chrome kit, language selector, currency selector, locale switcher, language switcher, currency switcher, country selector, markets, translation, flags, pills, dropdown, own chrome
+#}
+<template>
+<div class="loc" data-style="{{ settings.style }}" data-flags="{{ settings.show_flags }}" data-codes="{{ settings.show_codes }}" data-align="{{ settings.align }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --loc-py: {{ settings.padding_y }}px;">
+  {% if settings.style == "sentence" %}
+  <p class="loc__sentence">{% if settings.show_language %}<span class="loc__part-l">{{ settings.sentence_before }} <span class="loc__now" data-storelib-locale-current>{{ settings.language_label }}</span></span>{% endif %}{% if settings.show_currency %}<span class="loc__part-c">{{ settings.sentence_middle }} <span class="loc__now" data-storelib-currency-current>{{ settings.currency_label }}</span></span>{% endif %}</p>
+  {% endif %}
+  <div class="loc__row">
+    {% if settings.show_language %}
+    <details class="loc__group" data-storelib-locale-list {% if settings.style != "dropdown" %}open{% endif %}>
+      <summary class="loc__sum">{{ settings.language_label }}<span class="loc__cur" data-storelib-locale-current></span></summary>
+      <div class="loc__opts" role="group" aria-label="{{ settings.language_label }}"><button class="loc__opt" type="button" data-storelib-locale-option hidden><span data-option-label></span><span class="loc__code" data-option-code></span></button></div>
+    </details>
+    {% endif %}
+    {% if settings.show_currency %}
+    <details class="loc__group" data-storelib-currency-list {% if settings.style != "dropdown" %}open{% endif %}>
+      <summary class="loc__sum">{{ settings.currency_label }}<span class="loc__cur" data-storelib-currency-current></span></summary>
+      <div class="loc__opts" role="group" aria-label="{{ settings.currency_label }}"><button class="loc__opt" type="button" data-storelib-currency-option hidden><span data-option-label></span></button></div>
+    </details>
+    {% endif %}
+  </div>
+</div>
+</template>
+
+<style scoped>
+.loc { padding: var(--loc-py, 12px) var(--theme-padding-x, 16px); background: var(--s-bg); color: var(--s-text); font-size: 0.9375rem; }
+.loc__row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.loc[data-align="center"] .loc__row, .loc[data-align="center"] .loc__sentence { justify-content: center; text-align: center; }
+.loc[data-align="end"] .loc__row, .loc[data-align="end"] .loc__sentence { justify-content: flex-end; text-align: right; }
+.loc__group { position: relative; }
+.loc__group[hidden] { display: none; }
+.loc__sum { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; list-style: none; font-weight: 500; }
+.loc__sum::-webkit-details-marker { display: none; }
+.loc__cur { font-weight: 400; }
+.loc__cur:empty { display: none; }
+.loc__opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.loc__opt { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid var(--s-border); border-radius: 22px; background: none; color: inherit; font: inherit; cursor: pointer; }
+.loc__opt:hover { border-color: currentColor; }
+.loc__opt[aria-current="true"] { background: var(--s-text); color: var(--s-bg); border-color: var(--s-text); }
+.loc__code { font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+.loc[data-codes="false"] .loc__code { display: none; }
+/* Pills: the lists always open, the summary is only a label. */
+.loc[data-style="pills"] .loc__group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.loc[data-style="pills"] .loc__sum { pointer-events: none; }
+.loc[data-style="pills"] .loc__cur { display: none; }
+/* Drop down: a closed details; open, the choices hang under it. */
+.loc[data-style="dropdown"] .loc__sum { padding: 0 14px; border: 1px solid var(--s-border); }
+.loc[data-style="dropdown"] .loc__sum::after { content: ""; width: 7px; height: 7px; margin-left: 4px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg); }
+.loc[data-style="dropdown"] .loc__cur::before { content: ": "; }
+.loc[data-style="dropdown"] .loc__opts { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; display: grid; min-width: max(100%, 180px); padding: 6px; border: 1px solid var(--s-border); background: var(--s-bg); }
+.loc[data-style="dropdown"] .loc__opt { justify-content: space-between; border: 0; border-radius: 0; }
+/* Sentence: the words say what is chosen; the lists sit under it. */
+.loc__sentence { margin: 0 0 8px; }
+.loc__now { font-weight: 600; }
+.loc[data-style="sentence"] .loc__sum { display: none; }
+/* A list the page hid (one language, or one currency) takes its half of the sentence with it; nothing to choose, nothing shows. */
+.loc:has([data-storelib-locale-list][hidden]) .loc__part-l, .loc:has([data-storelib-currency-list][hidden]) .loc__part-c { display: none; }
+.loc:not(:has(.loc__group:not([hidden]))) { display: none; }
+.loc :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+.loc[data-flags="true"] .loc__opt[data-option-code="en"]::before { content: "\1F1EC \1F1E7" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="fr"]::before { content: "\1F1EB \1F1F7" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="de"]::before { content: "\1F1E9 \1F1EA" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="es"]::before { content: "\1F1EA \1F1F8" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="it"]::before { content: "\1F1EE \1F1F9" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="nl"]::before { content: "\1F1F3 \1F1F1" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="pt"]::before { content: "\1F1F5 \1F1F9" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="sv"]::before { content: "\1F1F8 \1F1EA" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="da"]::before { content: "\1F1E9 \1F1F0" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="nb"]::before { content: "\1F1F3 \1F1F4" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="fi"]::before { content: "\1F1EB \1F1EE" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="pl"]::before { content: "\1F1F5 \1F1F1" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="ja"]::before { content: "\1F1EF \1F1F5" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="zh"]::before { content: "\1F1E8 \1F1F3" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="ko"]::before { content: "\1F1F0 \1F1F7" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="el"]::before { content: "\1F1EC \1F1F7" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="tr"]::before { content: "\1F1F9 \1F1F7" / ""; }
+.loc[data-flags="true"] .loc__opt[data-option-code="cs"]::before { content: "\1F1E8 \1F1FF" / ""; }
+@media (min-width: 760px) { .loc__row { gap: 12px 40px; } }
+@media (prefers-reduced-motion: no-preference) { .loc__opt { transition: background-color var(--t-motion-hover, 200ms) ease, color var(--t-motion-hover, 200ms) ease; } }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_locale",
+  "name": "Language and currency",
+  "settings": [
+    { "type": "paragraph", "id": "about", "content": "Shows the languages and currencies set in Settings, Markets. Each list hides itself when there is only one." },
+    { "type": "select", "id": "style", "label": "Style", "default": "dropdown", "options": [{ "label": "Pills", "value": "pills" }, { "label": "Drop down", "value": "dropdown" }, { "label": "A sentence", "value": "sentence" }] },
+    { "type": "checkbox", "id": "show_language", "label": "Show languages", "default": true },
+    { "type": "checkbox", "id": "show_currency", "label": "Show currencies", "default": true },
+    { "type": "checkbox", "id": "show_flags", "label": "Show flags beside languages", "default": false },
+    { "type": "checkbox", "id": "show_codes", "label": "Show language codes", "default": false },
+    { "type": "select", "id": "align", "label": "Alignment", "default": "start", "options": [{ "label": "Left", "value": "start" }, { "label": "Centre", "value": "center" }, { "label": "Right", "value": "end" }] },
+    { "type": "range", "id": "padding_y", "label": "Space above and below", "min": 0, "max": 48, "step": 4, "unit": "px", "default": 12 },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "language_label", "label": "Language", "default": "Language" },
+    { "type": "text", "id": "currency_label", "label": "Currency", "default": "Currency" },
+    { "type": "text", "id": "sentence_before", "label": "Sentence: start", "default": "Reading in" },
+    { "type": "text", "id": "sentence_middle", "label": "Sentence: middle", "default": ", prices in" },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ]
+}
+</schema>

@@ -1,0 +1,127 @@
+{# example
+title: Drop down search with suggestions and quick links
+summary: Chrome kit search window, a section placed after the header: the site's own search panel drops from under the header (the full width on phones, a centred box on wide screens) over a dimmed page. Suggestions (blocks) and quick links (a menu) beside the field until the visitor types, then a compact live list of this store's products, pages and posts with small pictures, prices and what each is, plus a link to every result. Opened by every search button through the hooks; focus kept inside; Escape and the close button shut it. Width, offset from the top, dimming and motion are settings.
+tags: chrome kit, search, search panel, search dropdown, drop down search, live search, autocomplete, suggestions, quick links, predictive search, own chrome
+#}
+<template>
+<div class="sdr" data-motion="{{ settings.motion }}" {% if page.in_editor and settings.editor_open %}data-editor-open{% endif %} data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --sdr-top: {{ settings.top_offset }}px; --sdr-w: {{ settings.width }}px; --sdr-dim: {{ settings.dim }}; --m-k: calc({{ settings.motion_strength }} / 100);">
+  <div class="sdr__panel" data-storelib-search-panel role="dialog" aria-label="{{ settings.label }}">
+    <button class="sdr__scrim" type="button" data-storelib-search-close tabindex="-1" aria-label="{{ settings.close_label }}"></button>
+    <div class="sdr__box">
+      <div class="sdr__field">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.8"/></svg>
+        <input class="sdr__input" type="search" autocomplete="off" enterkeyhint="search" data-storelib-search-input placeholder="{{ settings.placeholder }}" aria-label="{{ settings.label }}">
+        <button class="sdr__close" type="button" data-storelib-search-close>{{ settings.close_label }}</button>
+      </div>
+      <div class="sdr__idle">
+        {% if section.blocks.size > 0 %}
+        <div>
+          <p class="sdr__h">{{ settings.suggest_heading }}</p>
+          <ul class="sdr__sugg">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ routes.search_url }}?q={{ block.settings.term }}"><span class="sdr__arrow" aria-hidden="true"></span>{{ block.settings.term }}</a></li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+        {% if settings.quick_links.links.size > 0 %}
+        <div>
+          <p class="sdr__h">{{ settings.links_heading }}</p>
+          <ul class="sdr__quick">{% for link in settings.quick_links.links limit: 6 %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+      </div>
+      <p class="sdr__state" data-storelib-search-loading hidden>{{ settings.loading_text }}</p>
+      <p class="sdr__state" data-storelib-search-empty hidden>{{ settings.empty_text }}</p>
+      <ul class="sdr__results" data-storelib-search-results aria-live="polite">
+        <li data-storelib-search-result hidden><a class="sdr__hit" data-result-url><img data-result-image alt="" width="48" height="60"><span class="sdr__hit-main"><span class="sdr__hit-t" data-result-title></span><span class="sdr__hit-k" data-result-kind></span></span><span class="sdr__hit-p" data-result-price></span></a></li>
+      </ul>
+      <a class="sdr__all" href="{{ routes.search_url }}">{{ settings.all_label }}</a>
+    </div>
+  </div>
+</div>
+</template>
+
+<style scoped>
+.sdr__panel { position: fixed; inset: 0; z-index: 90; visibility: hidden; }
+.sdr__panel[data-open="true"], .sdr[data-editor-open] .sdr__panel { visibility: visible; }
+.sdr[data-editor-open] .sdr__panel { position: relative; min-height: 560px; }
+.sdr__scrim { position: absolute; inset: 0; width: 100%; padding: 0; border: 0; background: rgba(0, 0, 0, var(--sdr-dim, 0.35)); opacity: 0; cursor: pointer; }
+.sdr__panel[data-open="true"] .sdr__scrim, .sdr[data-editor-open] .sdr__scrim { opacity: 1; }
+.sdr__box { position: absolute; inset: 0 0 auto; display: grid; gap: 16px; max-height: 100svh; padding: 12px var(--theme-padding-x, 16px) 20px; overflow-y: auto; overscroll-behavior: contain; background: var(--s-bg); color: var(--s-text); border-bottom: 1px solid var(--s-border); opacity: 0; }
+.sdr__panel[data-open="true"] .sdr__box, .sdr[data-editor-open] .sdr__box { opacity: 1; transform: none; }
+.sdr__field { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 52px; padding: 0 4px 0 14px; border: 1.5px solid var(--s-text); border-radius: 4px; }
+.sdr__input { min-width: 0; min-height: 48px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-size: 1.125rem; }
+.sdr__input:focus-visible { outline-offset: 10px; }
+.sdr__close { min-height: 44px; padding: 0 12px; border: 0; background: none; color: inherit; font: inherit; font-size: 0.9375rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.sdr__idle { display: grid; gap: 20px; }
+.sdr__panel:not([data-state="idle"]) .sdr__idle { display: none; }
+.sdr__panel[data-state="idle"] .sdr__all { display: none; }
+.sdr__h { margin: 0 0 6px; font-size: 0.875rem; font-weight: 600; }
+.sdr__sugg, .sdr__quick, .sdr__results { margin: 0; padding: 0; list-style: none; }
+.sdr__sugg a { display: flex; align-items: center; gap: 12px; min-height: 44px; color: inherit; text-decoration: none; font-size: 1.0625rem; }
+.sdr__sugg a:hover { color: var(--s-accent); }
+.sdr__arrow { width: 8px; height: 8px; border-top: 1.5px solid currentColor; border-right: 1.5px solid currentColor; transform: rotate(45deg); }
+.sdr__quick { display: flex; flex-wrap: wrap; gap: 8px; }
+.sdr__quick a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border: 1px solid var(--s-border); border-radius: 4px; color: inherit; text-decoration: none; font-size: 0.9375rem; }
+.sdr__hit { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 60px; padding: 6px 0; color: inherit; text-decoration: none; border-bottom: 1px solid var(--s-border); }
+.sdr__hit:hover .sdr__hit-t { text-decoration: underline; }
+.sdr__hit img { width: 48px; height: 60px; object-fit: cover; }
+.sdr__hit img[hidden] { display: block; visibility: hidden; }
+.sdr__hit-main { display: grid; min-width: 0; }
+.sdr__hit-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.sdr__hit-k { font-size: 0.8125rem; }
+.sdr__hit-p { font-variant-numeric: tabular-nums; }
+.sdr__state { margin: 0; }
+.sdr__all { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; color: inherit; font-weight: 600; text-underline-offset: 4px; }
+.sdr :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .sdr:not([data-motion="off"]) .sdr__panel { transition: visibility 0s linear calc(var(--t-motion-duration, 650ms) * 0.5); }
+  .sdr:not([data-motion="off"]) .sdr__panel[data-open="true"] { transition-delay: 0s; }
+  .sdr:not([data-motion="off"]) .sdr__box { transform: translateY(calc(-16px * var(--m-k, 1))); transition: opacity calc(var(--t-motion-duration, 650ms) * 0.4) ease, transform calc(var(--t-motion-duration, 650ms) * 0.5) var(--t-motion-ease, ease-out); }
+  .sdr:not([data-motion="off"]) .sdr__scrim { transition: opacity calc(var(--t-motion-duration, 650ms) * 0.4) ease; }
+}
+@media (prefers-reduced-motion: reduce) { .sdr__panel, .sdr__box, .sdr__scrim { transition: none; transform: none; } }
+@media (min-width: 760px) {
+  .sdr__box { inset: var(--sdr-top, 72px) auto auto 50%; width: min(var(--sdr-w, 720px), calc(100% - 48px)); max-height: calc(100svh - var(--sdr-top, 72px) - 24px); margin-left: calc(min(var(--sdr-w, 720px), calc(100% - 48px)) / -2); padding: 16px 20px 20px; border: 1px solid var(--s-border); border-radius: 6px; }
+  .sdr__idle { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_search_drop",
+  "name": "Drop down search",
+  "settings": [
+    { "type": "paragraph", "id": "about", "content": "Opens from every search button on the page. Keep it right after the header." },
+    { "type": "checkbox", "id": "editor_open", "label": "Keep it open in the editor", "default": false },
+    { "type": "header", "id": "hdr_idle", "label": "Before anything is typed" },
+    { "type": "text", "id": "suggest_heading", "label": "Suggestions heading", "default": "Try" },
+    { "type": "text", "id": "links_heading", "label": "Quick links heading", "default": "Go to" },
+    { "type": "link_list", "id": "quick_links", "label": "Quick links", "default": "main-menu" },
+    { "type": "header", "id": "hdr_layout", "label": "Layout" },
+    { "type": "range", "id": "top_offset", "label": "Space from the top on wide screens", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "width", "label": "Width on wide screens", "min": 480, "max": 960, "step": 20, "unit": "px", "default": 720 },
+    { "type": "range", "id": "dim", "label": "Page dimming", "min": 0, "max": 0.8, "step": 0.05, "default": 0.35 },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "label", "label": "Label (read aloud)", "default": "Search" },
+    { "type": "text", "id": "placeholder", "label": "Hint in the field", "default": "Search products and pages" },
+    { "type": "text", "id": "close_label", "label": "Close button", "default": "Close" },
+    { "type": "text", "id": "loading_text", "label": "While searching", "default": "Looking..." },
+    { "type": "text", "id": "empty_text", "label": "Nothing found", "default": "Nothing matches that yet." },
+    { "type": "text", "id": "all_label", "label": "Link to every result", "default": "See every result" },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "term", "name": "Suggestion", "limit": 8, "settings": [
+      { "type": "text", "id": "term", "label": "Words", "default": "Gift" }
+    ] }
+  ],
+  "presets": [{ "name": "Drop down search", "blocks": [
+    { "type": "term", "settings": { "term": "New in" } },
+    { "type": "term", "settings": { "term": "Gift ideas" } },
+    { "type": "term", "settings": { "term": "Delivery" } }
+  ] }]
+}
+</schema>

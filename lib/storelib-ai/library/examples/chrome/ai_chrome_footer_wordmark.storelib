@@ -1,0 +1,96 @@
+{# example
+title: Footer with a giant wordmark that fills the width
+summary: Chrome kit footer. A short line and a link, the menu and socials (blocks) in a quiet row, then the name set so large it spans the whole width (sized from its own length in container units, so it fills the width and never runs off), rising out of a mask as it scrolls into view (a CSS view timeline; still under reduced motion). The current language and currency and a bottom line close it. Wordmark words, size, weight, whether it rises, alignment and colours are settings.
+tags: chrome kit, footer, giant wordmark, big type footer, huge logo footer, brand footer, wordmark, scroll reveal, view timeline, socials, own chrome, site footer
+#}
+<template>
+<footer class="fwm" data-reveal="{{ settings.reveal }}" data-motion="{{ settings.motion }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --fwm-fill: {{ settings.size }}; --fwm-chars: {{ settings.wordmark | default: shop.name | default: settings.fallback | size }}; --fwm-weight: {{ settings.weight }}; --m-k: calc({{ settings.motion_strength }} / 100);">
+  <div class="fwm__top">
+    <p class="fwm__line">{{ settings.line }}</p>
+    {% if settings.link_label %}<a class="fwm__cta" href="{{ settings.link_url | url }}">{{ settings.link_label }}<span class="fwm__arrow" aria-hidden="true"></span></a>{% endif %}
+  </div>
+  <div class="fwm__row">
+    <nav aria-label="{{ settings.nav_label }}"><ul class="fwm__links">{% for link in settings.menu.links %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% endfor %}</ul></nav>
+    <ul class="fwm__links">{% for block in section.blocks %}<li data-block-id="{{ block.id }}"><a href="{{ block.settings.url | url }}" target="_blank" rel="noopener">{{ block.settings.label }}</a></li>{% endfor %}</ul>
+  </div>
+  <div class="fwm__mark" aria-hidden="true"><span class="fwm__word">{{ settings.wordmark | default: shop.name | default: settings.fallback }}</span></div>
+  <div class="fwm__base">
+    <span>{{ settings.copyright }}</span>
+    <span class="fwm__prefs"><span data-storelib-locale-current></span> <span data-storelib-currency-current></span></span>
+    {% if settings.legal_menu.links.size > 0 %}<ul class="fwm__legal">{% for link in settings.legal_menu.links limit: 4 %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% endfor %}</ul>{% endif %}
+  </div>
+</footer>
+</template>
+
+<style scoped>
+.fwm { container-type: inline-size; overflow: hidden; padding: clamp(56px, 9vw, 120px) var(--theme-padding-x, 16px) 20px; background: var(--s-bg); color: var(--s-text); }
+.fwm__top { display: grid; gap: 20px; justify-items: start; max-width: 880px; }
+.fwm__line { margin: 0; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.75rem, 1.1rem + 3vw, 3.5rem); line-height: 1.02; letter-spacing: -0.03em; font-weight: 600; text-wrap: balance; }
+.fwm__cta { display: inline-flex; align-items: center; gap: 12px; min-height: 48px; color: inherit; font-size: 1.0625rem; font-weight: 600; text-decoration: underline; text-underline-offset: 6px; text-decoration-thickness: 1px; }
+.fwm__arrow { width: 22px; height: 1.5px; background: currentColor; position: relative; }
+.fwm__arrow::after { content: ""; position: absolute; right: 0; top: -4px; width: 9px; height: 9px; border-top: 1.5px solid currentColor; border-right: 1.5px solid currentColor; transform: rotate(45deg); transform-origin: 100% 0; }
+.fwm__row { display: grid; gap: 8px; margin-top: clamp(40px, 7vw, 96px); padding-top: 16px; border-top: 1px solid var(--s-border); }
+.fwm__links, .fwm__legal { display: flex; flex-wrap: wrap; gap: 0 22px; margin: 0; padding: 0; list-style: none; }
+.fwm__links a, .fwm__legal a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
+.fwm__links a:hover, .fwm__legal a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.fwm__mark { margin: clamp(24px, 5vw, 56px) 0 0; overflow: hidden; }
+.fwm__word { display: block; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: min(40cqi, calc(var(--fwm-fill, 96) * 1cqi / (max(var(--fwm-chars, 8), 2) * 0.56))); font-weight: var(--fwm-weight, 800); line-height: 0.8; letter-spacing: -0.06em; white-space: nowrap; overflow: hidden; text-overflow: clip; padding-bottom: 0.04em; }
+.fwm__base { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 24px; margin-top: 16px; font-size: 0.875rem; }
+.fwm__prefs:has(> span:empty + span:empty) { display: none; }
+.fwm :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .fwm[data-reveal="true"]:not([data-motion="off"]) .fwm__word { animation: fwm-rise linear both; animation-timeline: view(); animation-range: entry 0% cover 40%; }
+    @keyframes fwm-rise { from { transform: translateY(calc(70% * var(--m-k, 1))); opacity: 0.2; } }
+  }
+}
+@media (prefers-reduced-motion: no-preference) { .fwm__cta .fwm__arrow { transition: transform var(--t-motion-hover, 200ms) var(--t-motion-ease-ui, ease); } .fwm__cta:hover .fwm__arrow { transform: translateX(var(--t-motion-lift, 4px)); } }
+@media (prefers-reduced-motion: reduce) { .fwm__word, .fwm__arrow { animation: none; transition: none; } }
+@container (min-width: 760px) {
+  .fwm__row { grid-template-columns: minmax(0, 1fr) auto; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_footer_wordmark",
+  "name": "Giant wordmark footer",
+  "kind": "footer",
+  "enabled_on": { "groups": ["footer"] },
+  "settings": [
+    { "type": "header", "id": "hdr_top", "label": "Top" },
+    { "type": "text", "id": "line", "label": "Line", "default": "Made slowly, sent quickly." },
+    { "type": "text", "id": "link_label", "label": "Link", "default": "Get in touch" },
+    { "type": "url", "id": "link_url", "label": "Link goes to", "default": "/contact" },
+    { "type": "header", "id": "hdr_menus", "label": "Menus" },
+    { "type": "link_list", "id": "menu", "label": "Menu", "default": "footer" },
+    { "type": "link_list", "id": "legal_menu", "label": "Bottom links", "default": "" },
+    { "type": "header", "id": "hdr_mark", "label": "Wordmark" },
+    { "type": "text", "id": "wordmark", "label": "Words (empty for the shop name)", "default": "" },
+    { "type": "range", "id": "size", "label": "How much of the width it fills", "min": 40, "max": 100, "step": 2, "unit": "%", "default": 96 },
+    { "type": "text", "id": "fallback", "label": "Words when there is no shop name", "default": "Studio" },
+    { "type": "select", "id": "weight", "label": "Weight", "default": "800", "options": [{ "label": "Regular", "value": "400" }, { "label": "Semibold", "value": "600" }, { "label": "Heavy", "value": "800" }] },
+    { "type": "checkbox", "id": "reveal", "label": "Rise as it comes into view", "default": true },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "nav_label", "label": "Menu name (read aloud)", "default": "Footer" },
+    { "type": "text", "id": "copyright", "label": "Bottom line", "default": "Studio of one, since 2019" },
+    { "type": "header", "id": "hdr_motion", "label": "Motion" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "social", "name": "Social link", "settings": [
+      { "type": "text", "id": "label", "label": "Name", "default": "Instagram" },
+      { "type": "url", "id": "url", "label": "Address", "default": "https://instagram.com" }
+    ] }
+  ],
+  "presets": [{ "name": "Giant wordmark footer", "blocks": [
+    { "type": "social", "settings": { "label": "Instagram", "url": "https://instagram.com" } },
+    { "type": "social", "settings": { "label": "Pinterest", "url": "https://pinterest.com" } },
+    { "type": "social", "settings": { "label": "Newsletter", "url": "/contact" } }
+  ] }]
+}
+</schema>

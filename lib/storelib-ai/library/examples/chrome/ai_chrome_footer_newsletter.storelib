@@ -1,0 +1,106 @@
+{# example
+title: Newsletter led footer with a big sign up
+summary: Chrome kit footer that leads with the sign up: a large promise, the email field and button on one line (joins the creator's Subscribers through data-storelib-form="subscribe", with a thank you line), a short consent line, then reasons to join as a numbered row (blocks), the menus and a bottom line with language and currency. Layout (split or stacked), field style (underline or box), the promise size and colours are settings.
+tags: chrome kit, footer, newsletter footer, signup, sign up, subscribe, email capture, mailing list, community, own chrome, site footer
+#}
+<template>
+<footer class="fnl" data-layout="{{ settings.layout }}" data-field="{{ settings.field_style }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --fnl-size: {{ settings.promise_size }};">
+  <div class="fnl__lead">
+    <h2 class="fnl__promise">{{ settings.promise }}</h2>
+    <form class="fnl__form" data-storelib-form="subscribe">
+      <label class="fnl__label" for="{{ section.id }}-mail">{{ settings.field_label }}</label>
+      <div class="fnl__row">
+        <input class="fnl__input" id="{{ section.id }}-mail" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="{{ settings.placeholder }}" required>
+        <button class="fnl__btn" type="submit">{{ settings.button }}</button>
+      </div>
+      <p class="fnl__small">{{ settings.consent }}</p>
+      <p class="fnl__done" data-storelib-success hidden>{{ settings.success }}</p>
+    </form>
+  </div>
+  {% if section.blocks.size > 0 %}
+  <ol class="fnl__reasons">
+    {% for block in section.blocks %}<li data-block-id="{{ block.id }}"><span class="fnl__n" aria-hidden="true">{{ forloop.index }}</span><span class="fnl__r-t">{{ block.settings.title }}</span><span class="fnl__r-x">{{ block.settings.text }}</span></li>{% endfor %}
+  </ol>
+  {% endif %}
+  <div class="fnl__menus">
+    <nav aria-label="{{ settings.nav_label }}"><ul>{% for link in settings.menu.links %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% endfor %}</ul></nav>
+    <nav aria-label="{{ settings.second_label }}"><ul>{% for link in settings.second_menu.links %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% endfor %}</ul></nav>
+  </div>
+  <div class="fnl__base">
+    <span>{{ settings.copyright }}</span>
+    <span class="fnl__prefs"><span data-storelib-locale-current></span> <span data-storelib-currency-current></span></span>
+  </div>
+</footer>
+</template>
+
+<style scoped>
+.fnl { container-type: inline-size; padding: clamp(56px, 9vw, 128px) var(--theme-padding-x, 16px) 20px; background: var(--s-bg); color: var(--s-text); }
+.fnl__lead { display: grid; gap: 28px; }
+.fnl__promise { margin: 0; max-width: 16ch; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: calc(clamp(2.25rem, 1.2rem + 5vw, 5.5rem) * var(--fnl-size, 100) / 100); line-height: 0.98; letter-spacing: -0.04em; font-weight: 700; text-wrap: balance; }
+.fnl__form { display: grid; gap: 10px; max-width: 560px; }
+.fnl__label { font-weight: 600; }
+.fnl__row { display: flex; gap: 8px; }
+.fnl__input { flex: 1; min-width: 0; min-height: 52px; padding: 0 14px; border: 1px solid var(--s-text); background: none; color: inherit; font: inherit; font-size: 1.0625rem; }
+.fnl[data-field="underline"] .fnl__input { padding: 0; border-width: 0 0 2px; }
+.fnl__btn { min-height: 52px; padding: 0 22px; border: 0; background: var(--s-btn); color: var(--s-btn-text); font: inherit; font-weight: 600; cursor: pointer; }
+.fnl__small { margin: 0; font-size: 0.875rem; }
+.fnl__done { margin: 0; font-weight: 600; }
+.fnl__reasons { display: grid; gap: 20px; margin: clamp(40px, 7vw, 88px) 0 0; padding: 24px 0 0; border-top: 1px solid var(--s-border); list-style: none; }
+.fnl__reasons li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 14px; }
+.fnl__n { grid-row: span 2; font-variant-numeric: tabular-nums; font-weight: 600; }
+.fnl__r-t { font-weight: 600; color: var(--s-heading); }
+.fnl__menus { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: clamp(40px, 6vw, 72px); }
+.fnl__menus ul { margin: 0; padding: 0; list-style: none; }
+.fnl__menus a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
+.fnl__menus a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.fnl__base { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 20px; margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--s-border); font-size: 0.875rem; }
+.fnl :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) { .fnl__btn { transition: transform var(--t-motion-hover, 200ms) var(--t-motion-ease-ui, ease); } .fnl__btn:active { transform: scale(0.98); } }
+@container (min-width: 820px) {
+  .fnl[data-layout="split"] .fnl__lead { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); align-items: end; gap: 48px; }
+  .fnl__reasons { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+  .fnl__menus { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_footer_newsletter",
+  "name": "Newsletter footer",
+  "kind": "footer",
+  "enabled_on": { "groups": ["footer"] },
+  "settings": [
+    { "type": "header", "id": "hdr_signup", "label": "Sign up" },
+    { "type": "text", "id": "promise", "label": "Promise", "default": "One letter a month. New work first, no noise." },
+    { "type": "text", "id": "field_label", "label": "Field label", "default": "Your email" },
+    { "type": "text", "id": "placeholder", "label": "Hint in the field", "default": "Your email address" },
+    { "type": "text", "id": "button", "label": "Button", "default": "Join" },
+    { "type": "text", "id": "consent", "label": "Small print", "default": "Leave whenever you like, one click." },
+    { "type": "text", "id": "success", "label": "After signing up", "default": "You are in. Check your inbox." },
+    { "type": "header", "id": "hdr_layout", "label": "Layout" },
+    { "type": "select", "id": "layout", "label": "Promise and form", "default": "split", "options": [{ "label": "Side by side", "value": "split" }, { "label": "Stacked", "value": "stacked" }] },
+    { "type": "select", "id": "field_style", "label": "Field", "default": "underline", "options": [{ "label": "Underline", "value": "underline" }, { "label": "Box", "value": "box" }] },
+    { "type": "range", "id": "promise_size", "label": "Promise size", "min": 50, "max": 130, "step": 5, "unit": "%", "default": 100 },
+    { "type": "header", "id": "hdr_menus", "label": "Menus" },
+    { "type": "link_list", "id": "menu", "label": "First menu", "default": "main-menu" },
+    { "type": "link_list", "id": "second_menu", "label": "Second menu", "default": "footer" },
+    { "type": "text", "id": "nav_label", "label": "First menu name (read aloud)", "default": "Shop" },
+    { "type": "text", "id": "second_label", "label": "Second menu name (read aloud)", "default": "Help" },
+    { "type": "text", "id": "copyright", "label": "Bottom line", "default": "Independent and proud of it" },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "reason", "name": "Reason to join", "limit": 3, "settings": [
+      { "type": "text", "id": "title", "label": "Title", "default": "First look" },
+      { "type": "text", "id": "text", "label": "Line", "default": "New pieces a day before the shop." }
+    ] }
+  ],
+  "presets": [{ "name": "Newsletter footer", "blocks": [
+    { "type": "reason", "settings": { "title": "First look", "text": "New pieces a day before the shop." } },
+    { "type": "reason", "settings": { "title": "Behind the work", "text": "How each batch is made, start to finish." } },
+    { "type": "reason", "settings": { "title": "Members' prices", "text": "Twice a year, only by email." } }
+  ] }]
+}
+</schema>

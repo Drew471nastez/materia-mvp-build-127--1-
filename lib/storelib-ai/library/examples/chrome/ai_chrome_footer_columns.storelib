@@ -1,0 +1,123 @@
+{# example
+title: Multi column footer built from blocks
+summary: Chrome kit footer whose columns are blocks the creator adds, orders and removes: a menu column (any of the site's menus, its own heading), a text column (address, hours, a note with a link), and a social column. A brand line and the logo lead, columns follow (two per row on phones, up to six on wide screens), then the language and currency drop downs and the bottom line. Columns per row, divider lines, the brand line and colours are settings.
+tags: chrome kit, footer, multi column footer, columns, footer menus, link columns, address, opening hours, socials, store footer, own chrome, site footer
+#}
+<template>
+<footer class="fcl" data-lines="{{ settings.lines }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --fcl-cols: {{ settings.columns }};">
+  <div class="fcl__grid">
+    <div class="fcl__brand">
+      <a class="fcl__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="160" height="40" loading="lazy">{% else %}{{ shop.name | default: settings.brand }}{% endif %}</a>
+      <p class="fcl__line">{{ settings.brand_line }}</p>
+    </div>
+    {% for block in section.blocks %}
+    <div class="fcl__col" data-block-id="{{ block.id }}">
+      {% if block.type == "menu" %}
+      <h2 class="fcl__h">{{ block.settings.heading | default: block.settings.menu.title }}</h2>
+      <ul>{% for link in block.settings.menu.links %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% endfor %}</ul>
+      {% elsif block.type == "text" %}
+      <h2 class="fcl__h">{{ block.settings.heading }}</h2>
+      <p class="fcl__text">{{ block.settings.text }}</p>
+      {% if block.settings.link_label %}<a class="fcl__more" href="{{ block.settings.link_url | url }}">{{ block.settings.link_label }}</a>{% endif %}
+      {% elsif block.type == "social" %}
+      <h2 class="fcl__h">{{ block.settings.heading }}</h2>
+      <ul>
+        {% if block.settings.instagram %}<li><a href="{{ block.settings.instagram | url }}" target="_blank" rel="noopener">Instagram</a></li>{% endif %}
+        {% if block.settings.tiktok %}<li><a href="{{ block.settings.tiktok | url }}" target="_blank" rel="noopener">TikTok</a></li>{% endif %}
+        {% if block.settings.youtube %}<li><a href="{{ block.settings.youtube | url }}" target="_blank" rel="noopener">YouTube</a></li>{% endif %}
+        {% if block.settings.pinterest %}<li><a href="{{ block.settings.pinterest | url }}" target="_blank" rel="noopener">Pinterest</a></li>{% endif %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <div class="fcl__base">
+    <span>{{ settings.copyright }}</span>
+    <div class="fcl__prefs">
+      <details class="fcl__pick" data-storelib-locale-list>
+        <summary>{{ settings.language_label }}: <span data-storelib-locale-current></span></summary>
+        <div class="fcl__menu"><button class="fcl__opt" type="button" data-storelib-locale-option hidden><span data-option-label></span></button></div>
+      </details>
+      <details class="fcl__pick" data-storelib-currency-list>
+        <summary>{{ settings.currency_label }}: <span data-storelib-currency-current></span></summary>
+        <div class="fcl__menu"><button class="fcl__opt" type="button" data-storelib-currency-option hidden><span data-option-label></span></button></div>
+      </details>
+    </div>
+  </div>
+</footer>
+</template>
+
+<style scoped>
+.fcl { container-type: inline-size; padding: clamp(48px, 7vw, 96px) var(--theme-padding-x, 16px) 20px; background: var(--s-bg); color: var(--s-text); }
+.fcl__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 20px; }
+.fcl__brand { grid-column: 1 / -1; display: grid; gap: 12px; align-content: start; }
+.fcl__logo { display: inline-flex; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: 1.75rem; font-weight: 700; letter-spacing: -0.03em; text-decoration: none; }
+.fcl__logo img { display: block; width: auto; height: 36px; }
+.fcl__line { margin: 0; max-width: 34ch; font-size: 1.0625rem; }
+.fcl__col { min-width: 0; }
+.fcl[data-lines="true"] .fcl__col { padding-top: 14px; border-top: 1px solid var(--s-border); }
+.fcl__h { margin: 0 0 10px; color: var(--s-heading); font-family: var(--theme-font-body), sans-serif; font-size: 0.9375rem; font-weight: 700; }
+.fcl__col ul { margin: 0; padding: 0; list-style: none; }
+.fcl__col a { display: inline-flex; align-items: center; min-height: 40px; color: inherit; text-decoration: none; }
+.fcl__col a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.fcl__text { margin: 0; white-space: pre-line; line-height: 1.6; }
+.fcl__more { font-weight: 600; text-decoration: underline !important; text-underline-offset: 4px; }
+.fcl__base { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 24px; margin-top: clamp(40px, 6vw, 72px); padding-top: 16px; border-top: 1px solid var(--s-border); font-size: 0.875rem; }
+.fcl__prefs { display: flex; flex-wrap: wrap; gap: 8px; }
+.fcl__pick { position: relative; }
+.fcl__pick summary { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 12px; border: 1px solid var(--s-border); cursor: pointer; list-style: none; }
+.fcl__pick summary::-webkit-details-marker { display: none; }
+.fcl__menu { position: absolute; bottom: calc(100% + 6px); right: 0; z-index: 5; display: grid; min-width: 180px; padding: 6px; border: 1px solid var(--s-border); background: var(--s-bg); }
+.fcl__opt { min-height: 44px; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.fcl__opt[aria-current="true"] { font-weight: 700; }
+.fcl :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+@container (min-width: 900px) {
+  .fcl__grid { grid-template-columns: minmax(0, 2fr) repeat(var(--fcl-cols, 4), minmax(0, 1fr)); gap: 40px 32px; }
+  .fcl__brand { grid-column: auto; grid-row: span 2; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_footer_columns",
+  "name": "Multi column footer",
+  "kind": "footer",
+  "enabled_on": { "groups": ["footer"] },
+  "settings": [
+    { "type": "text", "id": "brand", "label": "Name when there is no logo", "default": "Studio" },
+    { "type": "text", "id": "brand_line", "label": "Brand line", "default": "Small batches, made to last, sent with care." },
+    { "type": "range", "id": "columns", "label": "Columns on wide screens", "min": 2, "max": 6, "step": 1, "default": 4 },
+    { "type": "checkbox", "id": "lines", "label": "Line above each column", "default": true },
+    { "type": "text", "id": "copyright", "label": "Bottom line", "default": "Made by hand in small batches" },
+    { "type": "text", "id": "language_label", "label": "Language", "default": "Language" },
+    { "type": "text", "id": "currency_label", "label": "Currency", "default": "Currency" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ],
+  "blocks": [
+    { "type": "menu", "name": "Menu column", "settings": [
+      { "type": "text", "id": "heading", "label": "Heading (empty for the menu's name)", "default": "" },
+      { "type": "link_list", "id": "menu", "label": "Menu", "default": "footer" }
+    ] },
+    { "type": "text", "name": "Text column", "settings": [
+      { "type": "text", "id": "heading", "label": "Heading", "default": "Visit" },
+      { "type": "textarea", "id": "text", "label": "Text", "default": "12 Mill Lane, Leeds\nTuesday to Saturday, 10 to 5" },
+      { "type": "text", "id": "link_label", "label": "Link", "default": "Directions" },
+      { "type": "url", "id": "link_url", "label": "Link goes to", "default": "/contact" }
+    ] },
+    { "type": "social", "name": "Social column", "limit": 1, "settings": [
+      { "type": "text", "id": "heading", "label": "Heading", "default": "Follow" },
+      { "type": "url", "id": "instagram", "label": "Instagram", "default": "https://instagram.com" },
+      { "type": "url", "id": "tiktok", "label": "TikTok" },
+      { "type": "url", "id": "youtube", "label": "YouTube" },
+      { "type": "url", "id": "pinterest", "label": "Pinterest", "default": "https://pinterest.com" }
+    ] }
+  ],
+  "presets": [{ "name": "Multi column footer", "blocks": [
+    { "type": "menu", "settings": { "heading": "Shop", "menu": "main-menu" } },
+    { "type": "menu", "settings": { "heading": "Help", "menu": "footer" } },
+    { "type": "text", "settings": { "heading": "Visit", "text": "12 Mill Lane, Leeds\nTuesday to Saturday, 10 to 5", "link_label": "Directions", "link_url": "/contact" } },
+    { "type": "social", "settings": { "heading": "Follow", "instagram": "https://instagram.com", "pinterest": "https://pinterest.com" } }
+  ] }]
+}
+</schema>

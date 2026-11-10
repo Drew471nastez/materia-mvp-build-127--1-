@@ -1,0 +1,81 @@
+{# example
+title: Image backed footer with a last call to action
+summary: Chrome kit footer over a full bleed photograph (the creator's own, image_picker, with a focal point and a scrim so the words stay readable): a last statement and one action, then the menus, address and the language and currency over the picture, drifting slowly as it scrolls past (a CSS view timeline, off under reduced motion). Without a picture it falls back to a designed solid panel in the scheme's colours, never a grey box. Scrim strength, height, text colour, drift and the action are settings.
+tags: chrome kit, footer, image footer, photo footer, full bleed footer, background image, call to action footer, cta, parallax, restaurant, hotel, travel, own chrome, site footer
+#}
+<template>
+<footer class="fim" data-has-image="{% if settings.image %}true{% else %}false{% endif %}" data-text="{{ settings.text_tone }}" data-drift="{{ settings.drift }}" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-border: {{ scheme.border }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --fim-scrim: {{ settings.scrim }}; --fim-h: {{ settings.min_height }}svh;">
+  {% if settings.image %}<div class="fim__media" aria-hidden="true"><img src="{{ settings.image | asset }}" alt="" width="2400" height="1600" loading="lazy" style="object-position: {{ settings.focus }};"></div>{% endif %}
+  <div class="fim__in">
+    <div class="fim__lead">
+      <h2 class="fim__h">{{ settings.statement }}</h2>
+      {% if settings.cta_label %}<a class="fim__cta" href="{{ settings.cta_url | url }}">{{ settings.cta_label }}</a>{% endif %}
+    </div>
+    <div class="fim__cols">
+      <nav aria-label="{{ settings.nav_label }}"><ul>{% for link in settings.menu.links %}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{% endfor %}</ul></nav>
+      <p class="fim__addr">{{ settings.address }}</p>
+    </div>
+    <div class="fim__base"><span>{{ settings.copyright }}</span><span class="fim__prefs"><span data-storelib-locale-current></span> <span data-storelib-currency-current></span></span></div>
+  </div>
+</footer>
+</template>
+
+<style scoped>
+.fim { container-type: inline-size; position: relative; isolation: isolate; overflow: hidden; display: flex; min-height: var(--fim-h, 80svh); background: var(--s-bg); color: var(--s-text); }
+.fim__media { position: absolute; inset: -8% 0; z-index: -2; }
+.fim__media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.fim[data-has-image="true"]::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(to top, rgba(0, 0, 0, var(--fim-scrim, 0.6)), rgba(0, 0, 0, calc(var(--fim-scrim, 0.6) * 0.35)) 70%, transparent); }
+.fim[data-has-image="true"][data-text="light"] { color: #fff; --s-heading: #fff; --s-border: rgba(255, 255, 255, 0.35); }
+.fim[data-has-image="false"] { background: var(--s-heading); color: var(--s-bg); --s-border: color-mix(in srgb, var(--s-bg) 30%, transparent); }
+.fim[data-has-image="false"] .fim__h { color: var(--s-bg); }
+.fim__in { display: grid; align-content: end; gap: clamp(32px, 6vw, 72px); width: 100%; padding: clamp(64px, 12vw, 160px) var(--theme-padding-x, 16px) 20px; }
+.fim__lead { display: grid; gap: 24px; justify-items: start; }
+.fim__h { margin: 0; max-width: 14ch; color: var(--s-heading); font-family: var(--theme-font-heading), sans-serif; font-size: clamp(2.5rem, 1.2rem + 6vw, 6.5rem); line-height: 0.95; letter-spacing: -0.04em; font-weight: 700; text-wrap: balance; }
+.fim__cta { display: inline-flex; align-items: center; min-height: 52px; padding: 0 26px; background: var(--s-btn); color: var(--s-btn-text); font-weight: 600; text-decoration: none; }
+.fim__cols { display: grid; gap: 20px; padding-top: 20px; border-top: 1px solid var(--s-border); }
+.fim__cols ul { display: flex; flex-wrap: wrap; gap: 0 22px; margin: 0; padding: 0; list-style: none; }
+.fim__cols a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
+.fim__cols a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.fim__addr { margin: 0; white-space: pre-line; line-height: 1.6; }
+.fim__base { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 20px; font-size: 0.875rem; }
+.fim :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .fim[data-drift="true"] .fim__media { animation: fim-drift linear both; animation-timeline: view(); }
+    @keyframes fim-drift { from { transform: translateY(calc(var(--t-motion-parallax, 6%) * -1)); } to { transform: translateY(var(--t-motion-parallax, 6%)); } }
+  }
+}
+@media (prefers-reduced-motion: reduce) { .fim__media { animation: none; } }
+@container (min-width: 820px) {
+  .fim__cols { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
+}
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "ai_chrome_footer_image",
+  "name": "Image footer",
+  "kind": "footer",
+  "enabled_on": { "groups": ["footer"] },
+  "settings": [
+    { "type": "header", "id": "hdr_image", "label": "Picture" },
+    { "type": "image_picker", "id": "image", "label": "Picture" },
+    { "type": "select", "id": "focus", "label": "Keep in view", "default": "center", "options": [{ "label": "Centre", "value": "center" }, { "label": "Top", "value": "top" }, { "label": "Bottom", "value": "bottom" }] },
+    { "type": "range", "id": "scrim", "label": "Shade over the picture", "min": 0, "max": 0.9, "step": 0.05, "default": 0.6 },
+    { "type": "select", "id": "text_tone", "label": "Text over the picture", "default": "light", "options": [{ "label": "Light", "value": "light" }, { "label": "Scheme colours", "value": "scheme" }] },
+    { "type": "checkbox", "id": "drift", "label": "Picture drifts on scroll", "default": true },
+    { "type": "range", "id": "min_height", "label": "Height (share of the screen)", "min": 40, "max": 100, "step": 5, "unit": "%", "default": 80 },
+    { "type": "header", "id": "hdr_words", "label": "Words" },
+    { "type": "text", "id": "statement", "label": "Statement", "default": "Come and see it in person." },
+    { "type": "text", "id": "cta_label", "label": "Button", "default": "Book a visit" },
+    { "type": "url", "id": "cta_url", "label": "Button goes to", "default": "/contact" },
+    { "type": "link_list", "id": "menu", "label": "Menu", "default": "footer" },
+    { "type": "text", "id": "nav_label", "label": "Menu name (read aloud)", "default": "Footer" },
+    { "type": "textarea", "id": "address", "label": "Address and hours", "default": "4 Harbour Street\nOpen Thursday to Sunday" },
+    { "type": "text", "id": "copyright", "label": "Bottom line", "default": "Family run since 1998" },
+    { "type": "header", "id": "hdr_style", "label": "Style" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
+  ]
+}
+</schema>
