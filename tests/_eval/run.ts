@@ -85,10 +85,10 @@ export async function runEval(opts: EvalRunOptions = {}): Promise<EvalRunResult>
                 })
               : await runNativeScenario(w, sc, {
                   ...(opts.live?.native ? { models: await opts.live.native() } : {}),
-                  afterBuild: async ({ installId }) => {
+                  beforeReview: async ({ installId }) => {
                     const snap = await snapshot(w, { ...pendingSite("native", sc, ""), mode: "theme" }, installId)
                     before = await photographBefore(browser, { ...snap, status: "partial" }, stem ? `${stem}-before` : null)
-                    beforeLabel = "Placed (before the photo and check steps) → finished"
+                    beforeLabel = "Before R3's design review (built, photos in) → after it (the finished draft)"
                   },
                 })
           const { person, ...rest } = site
@@ -98,7 +98,7 @@ export async function runEval(opts: EvalRunOptions = {}): Promise<EvalRunResult>
           evalSite.browser = await lookInBrowser(browser, evalSite, stem)
           const slug = String(w.j.rows("creators").find((c) => c.id === creatorId)?.slug ?? "")
           const after = evalSite.browser.shots.find((s) => s.page === "home") ?? null
-          evalSite.refinement = beforeLabel ? { label: beforeLabel, before, after, detail: engine === "agent" ? "The same install photographed after the brief phase applied the starting template (with the direction's palette and type), and again when the job finished." : "R3's native review (targeted JSON patches) is not on this branch yet; this shows the native placement before the photo and check steps, and the finished site." } : null
+          evalSite.refinement = beforeLabel ? { label: beforeLabel, before, after, detail: engine === "agent" ? "The same install photographed after the brief phase applied the starting template (with the direction's palette and type), and again when the job finished." : evalSite.notes.find((n) => n.startsWith("R3 design review")) ?? "R3's design review did not run." } : null
           const { editor, publish } = await editAndPublish(w, evalSite, person, slug)
           evalSite.editor = editor
           evalSite.publish = publish
@@ -150,6 +150,7 @@ function honestyLines(live: boolean, browser: boolean, results: EvalResult[]): s
         "So this measures the SYSTEM (does a realistic answer become a valid, editable, publishable, distinct site; do the direction, story, novelty and slop rules hold), not how good a real model's words or choices are. `scripts/ai-builder/eval.ts --live` does that when keys are configured.",
         "Copy in the agent runs is placed by the role of each setting (heading, paragraph, question...) from a per-business deck, not composed per section the way a model reads it, so a heading can sit a little off its spot.",
       ]
+  lines.push("NATIVE sites are drawn by R3's local renderer (the live site's own React sections, built-in header and footer included, with the app's compiled stylesheet), and R3's design review runs in each native job's check step, measured only (no vision model in a scripted run). The JS-on check covers the agent's own headers; a native site's built-in React header is only mounted by the app, so that check is 'not run' for native sites.")
   lines.push("PICTURES are stand-ins: no image provider has a key here, so the agent's picture service and the native photo search answer with abstract compositions in each business's palette, at the asked size. The screenshots show where and how big pictures are, not real photography.")
   if (!browser) lines.push("NO BROWSER: Chromium was not available, so the screenshot, measurement and interactivity checks are reported as not run (never as a pass).")
   else lines.push(`Fonts: ${fontsLoaded() === false ? "Google Fonts could not be reached here, so the screenshots use fallback faces" : "Google Fonts were fetched through the environment's proxy, so the screenshots use the real faces"}. JS-off pictures are what a visitor sees before any script; the menu picture is the live runtime with JS on.`)
@@ -164,6 +165,9 @@ export const SYSTEM_NOTES = [
   "After the brief phase applies a starting template, its files are not marked as read for the agent: the first write_file to any of them is refused (\"already exists. Read it before you change it\"), so a model spends a turn reading every file first.",
   "The course-coach and studio-kinetic product templates draw an empty media frame for a product with no pictures; finish refuses it (render.empty_media) and the model has to repair it (the script does: the frame only when there are pictures).",
   "O4's browser measure counted a storefront hook's hidden template picture (the search result and cart line <img width> inside a hidden element) as an empty picture, a hard gate: with Chromium on, the critic would refuse every P4 kit header. Fixed here in lib/ai-builder/visual-critic/measure.ts.",
+  "The native sites' built-in header draws its \"Shop now\" button in rgb(99, 102, 241) (#6366f1, the AI-default indigo O3 names) whatever the site's palette, at 4.47:1 under white text; R3's review measures it on every native site (medium) but it is not a section setting it can patch.",
+  "R3's design review runs inside every native job here (local renderer, the critic's browser, no vision model when scripted: \"measured\"); its before and after are in each native card. It kept up to 14 typed patches per site (tap targets, sizes) and leaves a token-level colour it cannot patch as a gate.",
+  "The agent's art direction is seeded by the install's id, so palettes and type move from run to run: the O3 novelty pair is different between runs (once fitness and consulting at 0.84). The suite holds novelty as O3 does, a soft rule: at most one near pair per engine.",
   "R2's native engine has no novelty pressure across a creator's sites (O3's noveltyIssues runs in the agent loop only): the first hand-written native answers put three sites on one fingerprint and the engine took them. The answers were then varied as a careful model would; a real model is not held to it.",
   "Consulting has no starting template close enough (chooseTemplate scores 0), so the agent builds it from zero.",
 ]

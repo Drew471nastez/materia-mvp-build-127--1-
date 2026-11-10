@@ -43,7 +43,7 @@ const UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Geck
 let fontsReachable: boolean | null = null
 
 /** A Google Fonts file through curl (the environment's proxy), cached on disk. Null when it cannot be had. */
-function fontBytes(url: string): { body: Buffer; type: string } | null {
+export function fontBytes(url: string): { body: Buffer; type: string } | null {
   if (!/^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(url) || fontsReachable === false) return null
   mkdirSync(FONT_CACHE, { recursive: true })
   const file = join(FONT_CACHE, createHash("sha1").update(url).digest("hex"))
@@ -87,8 +87,18 @@ async function save(buf: Buffer, file: string, width: number): Promise<void> {
   await sharp(buf).resize({ width, withoutEnlargement: true }).jpeg({ quality: 70 }).toFile(file)
 }
 
-/** The draft document O4 photographs (JS off), for one page. */
-export function draftHtml(site: EvalSite, page: string): { html: string; failed: string[] } {
+/**
+ * The page as the browser checks see it, JS off. An agent site: O4's draft document (its own components by the
+ * template engine). A native site: R3's local render (the live site's own React sections and stylesheet), so the
+ * built-in header and footer and every native section are drawn as visitors get them.
+ */
+export async function draftHtml(site: EvalSite, page: string): Promise<{ html: string; failed: string[] }> {
+  if (site.mode === "theme") {
+    const { renderNative, warmPictures } = await import("./native-view")
+    await warmPictures(site.pages)
+    const html = await renderNative(site, page)
+    if (html) return { html, failed: [] }
+  }
   const doc = composeDraftDocument({ page, pages: site.pages, settings: site.settings, sources: site.sources, capabilities: site.capabilities })
   return { html: doc.html, failed: doc.failed.map((f) => `${f.type}: ${f.error}`) }
 }
@@ -242,7 +252,7 @@ export async function browseSite(browser: Browser | null, site: EvalSite, shotSt
   const shots: EvalShot[] = []
   let homeHtml = ""
   for (const key of pagesToCheck(site)) {
-    const { html } = draftHtml(site, key)
+    const { html } = await draftHtml(site, key)
     if (key === "home") homeHtml = html
     const stem = shotStem ? `${shotStem}-${key}` : null
     const d = await measurePage(browser, html, "desktop", stem)
@@ -250,16 +260,17 @@ export async function browseSite(browser: Browser | null, site: EvalSite, shotSt
     pages.push({ page: key, desktop: d.m, mobile: m.m, defects: [...measuredDefects(key, d.m), ...measuredDefects(key, m.m)] })
     shots.push({ page: key, ...(d.full ? { desktop: d.full } : {}), ...(m.full ? { mobile: m.full } : {}), ...(d.fold ? { desktopFold: d.fold } : {}), ...(m.fold ? { mobileFold: m.fold } : {}) })
   }
-  const i = await interactive(browser, site, homeHtml, shotStem ? `${shotStem}-home` : null)
+  /* JS on: the agent's components in the live runtime's probe. A native site wears the app's own React header, which only the app mounts. */
+  const i = site.mode === "theme" ? { errors: [], menu: "builtin" as const, menuLinks: 0, detail: "the site wears Storelib's built-in header (a React component only the app mounts); its menu is covered by the app's own suites" } : await interactive(browser, site, homeHtml, shotStem ? `${shotStem}-home` : null)
   if (i.menuShot) shots[0] = { ...shots[0], mobileMenu: i.menuShot }
-  const { menuShot: _m, ...rest } = i
+  const { menuShot: _m, ...rest } = i as typeof i & { menuShot?: string }
   return { pages, interactive: rest, shots }
 }
 
 /** Only photographs of one state (the refinement's before), JS off, home. */
 export async function shootHome(browser: Browser | null, site: EvalSite, shotStem: string): Promise<EvalShot | null> {
   if (!browser) return null
-  const { html } = draftHtml(site, "home")
+  const { html } = await draftHtml(site, "home")
   const d = await measurePage(browser, html, "desktop", shotStem)
   const m = await measurePage(browser, html, "mobile", shotStem)
   return { page: "home", ...(d.full ? { desktop: d.full } : {}), ...(m.full ? { mobile: m.full } : {}), ...(d.fold ? { desktopFold: d.fold } : {}), ...(m.fold ? { mobileFold: m.fold } : {}) }

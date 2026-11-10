@@ -56,8 +56,8 @@ export function nativeProvider(answer: () => Record<string, unknown>, plan: () =
 export interface NativeRunOptions {
   /** Live mode: real models. */
   models?: Models
-  /** Before the job's photos and check (the site as first placed), the harness may look at it. */
-  afterBuild?: (state: { installId: string; jobId: string }) => Promise<void>
+  /** Before the job's check step (where R3's design review runs), the harness may look at the site. */
+  beforeReview?: (state: { installId: string; jobId: string }) => Promise<void>
 }
 
 export async function runNativeScenario(w: AiWorld, sc: EvalScenario, opts: NativeRunOptions = {}): Promise<EvalSite & { person: Awaited<ReturnType<typeof seller>>["person"] }> {
@@ -92,6 +92,10 @@ export async function runNativeScenario(w: AiWorld, sc: EvalScenario, opts: Nati
   const admin = createAdminClient() as never
 
   const native = nativeEngineEnabled()
+  const { nativeReviewEnabled } = await import("@/lib/website-builder/ai-site/native-review/flag")
+  const { evalReview } = await import("./native-view")
+  const { browserHere } = await import("./browser")
+  const reviewOn = nativeReviewEnabled() && browserHere()
   const provider = nativeProvider(
     () => nativeAnswer(deck, nativeRegistry(), products),
     () => classicPlan(deck),
@@ -108,15 +112,17 @@ export async function runNativeScenario(w: AiWorld, sc: EvalScenario, opts: Nati
     schemas: SECTION_SCHEMAS,
     addable: [...ADDABLE_SECTIONS],
     ...(native ? { native: nativeServerDeps(admin, { creatorId: owner.creatorId, ownerUserId: owner.person.id, installId }) } : {}),
+    /* R3's design review in the check step: the local renderer and the critic's browser (no vision model when scripted: measured). */
+    ...(reviewOn ? { nativeReview: await evalReview(opts.models ? opts.models.plan : null) } : {}),
     save: (j: typeof job) => saveJob(admin, j!),
   }
   job = { ...job, status: "running" }
   const steps: string[] = []
   let looked = false
   while (job.step !== "done" && steps.length < 14) {
-    if (!looked && job.step === "photos" && opts.afterBuild) {
+    if (!looked && job.step === "check" && opts.beforeReview) {
       looked = true
-      await opts.afterBuild({ installId, jobId })
+      await opts.beforeReview({ installId, jobId })
     }
     steps.push(job.step)
     job = await runStep(job, deps as never)
@@ -151,6 +157,10 @@ export async function runNativeScenario(w: AiWorld, sc: EvalScenario, opts: Nati
       `steps ${steps.join(" → ")}; ${provider.calls.filter((c) => c.kind === "write").length} writer calls`,
       ...(record ? [`native: ${record.sections ?? 0} sections in ${record.attempts ?? 0} call(s)${record.issues?.length ? `; ${record.issues.length} issues taken out: ${record.issues.slice(0, process.env.R4_DEBUG ? 20 : 3).join(" | ")}` : ""}${record.mapped?.length ? `; ${record.mapped.length} mapped` : ""}${record.fallback ? `; FELL BACK: ${record.fallback}` : ""}`] : []),
       ...(job.error ? [`error: ${job.error}`] : []),
+      ...(() => {
+        const r = (job.state as { review?: { status: string; label: string; reason?: string; rounds: number; applied: number; reverted: number; refused: number; found: number; remaining: string[] } }).review
+        return r ? [`R3 design review: ${r.label} (${r.status}${r.reason ? `: ${r.reason}` : ""}); ${r.found} defects found, ${r.rounds} round(s), ${r.applied} patches kept, ${r.reverted} taken back, ${r.refused} refused${r.remaining.length ? `; gates left: ${r.remaining.join(" | ")}` : ""}`] : [reviewOn ? "R3 design review: did not run" : "R3 design review: off (no browser or AI_NATIVE_REVIEW=0)"]
+      })(),
       ...((job.state as { findings?: { message?: string }[] }).findings ?? []).slice(0, 4).map((f) => `finding: ${String(f.message ?? JSON.stringify(f)).slice(0, 200)}`),
     ],
   }
