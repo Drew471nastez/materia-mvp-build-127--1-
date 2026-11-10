@@ -165,7 +165,8 @@ const stubs: Record<string, string> = {
   "@/components/analytics/track-view": stub("track", `export const TrackView = () => null\n`),
   "@/components/attribution/capture-touch": stub("touch", `export const CaptureTouch = () => null\n`),
   "@/lib/onepage/ensure-onepage": stub("ensure", `export const ensureOnePage = async () => null\n`),
-  "@/lib/api/public-fetch": stub("fetch", `export const fetchPublic = async (url) => globalThis.__shareStubs.fetch(url)\n`),
+  /* Changed on purpose (round AR): the page now reaches the OnePage integrations (lib/onepage/integrations/post-public), which name publicLookup and publicUrlProblem; not this suite's subject. */
+  "@/lib/api/public-fetch": stub("fetch", `export const fetchPublic = async (url) => globalThis.__shareStubs.fetch(url)\nexport const publicLookup = () => {}\nexport const publicUrlProblem = () => null\nexport const isPrivateAddress = () => false\nexport const redirectTarget = async () => null\n`),
   "next/navigation": stub("nav", `export const notFound = () => { throw new Error("NOT_FOUND") }\nexport const permanentRedirect = () => {}\nexport const redirect = () => {}\nexport const usePathname = () => "/"\nexport const useRouter = () => ({ push() {}, replace() {}, refresh() {}, back() {}, prefetch() {} })\nexport const useSearchParams = () => new URLSearchParams()\n`),
   "next/og": stub(
     "og",
