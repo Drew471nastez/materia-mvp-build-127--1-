@@ -128,7 +128,7 @@ async function main() {
 
     const themed = themeSettingsFor(plan!)
     const preset = DESIGN_PRESETS.find((p) => p.id === "warm_atelier")!
-    check("theme settings: the preset's whole look (schemes, text styles), the fonts and the brand, each checked", themed.settings.font_heading === "Fraunces" && themed.settings.brand_name === "Clay & Kiln" && JSON.stringify(themed.settings.color_schemes) === JSON.stringify((preset.settings as Record<string, unknown>).color_schemes) && !!themed.settings.typography_styles && themed.notes.length === 0, themed.notes)
+    check("theme settings: the preset's whole look (schemes, text styles), the fonts and the brand, each checked", themed.settings.font_heading === (preset.settings as Record<string, unknown>).font_heading /* changed on purpose (round O, O2): Warm Atelier no longer sets a serif on cream with terracotta */ && themed.settings.brand_name === "Clay & Kiln" && JSON.stringify(themed.settings.color_schemes) === JSON.stringify((preset.settings as Record<string, unknown>).color_schemes) && !!themed.settings.typography_styles && themed.notes.length === 0, themed.notes)
     check("the plan left the palette to the preset", Object.keys(plan!.palette.colors).length === 0)
     check("each section takes the preset's scheme rhythm", rhythmFor(plan!).length > 0 && rhythmFor(plan!)[0] === preset.sectionRhythm[0])
   }
