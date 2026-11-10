@@ -30,6 +30,7 @@ import type { SitePlan, SitePlanSection } from "../agent/site-plan"
 import { realNumbers, type Capabilities } from "./capabilities"
 import { addSpend, callOnce, NO_SPEND, type Models, type Spend } from "./models"
 import type { SchemaField, SectionInstance } from "../types"
+import { surfaceRules } from "@/lib/storelib-ai/surfaces"
 
 /** Items one section is given at most, whatever its schema allows: a page, not a catalogue. */
 export const MAX_ITEMS = 8
@@ -120,6 +121,8 @@ export function fillSystem(ctx: FillContext): string {
   const pages = s.pages.map((p) => `  ${p.key === "home" ? "/" : `/${p.key}`}: ${p.title}. ${p.purpose}`).join("\n")
   return [
     FILL_RULES,
+    /* Round O: the design rules every Storelib AI carries (lib/storelib-ai/surfaces.ts), the copy side of them here. */
+    surfaceRules("classic"),
     `THE BRIEF\n${ctx.prompt.trim()}`,
     `THE BRAND: ${s.brand.name || "(unnamed: do not invent a name; write around it)"}${s.brand.tagline ? `, "${s.brand.tagline}"` : ""}
 Voice: ${s.voice.tone}${s.voice.use.length ? `. Words that fit: ${s.voice.use.join(", ")}` : ""}${s.voice.avoid.length ? `. Never: ${s.voice.avoid.join(", ")}` : ""}

@@ -378,7 +378,8 @@ export type AgentEvent =
   | (EventBase & { kind: "tokens"; changed: string[] })
   | (EventBase & { kind: "validation"; path?: string; errors: number; warnings: number })
   | (EventBase & { kind: "repair"; path: string; attempt: number })
-  | (EventBase & { kind: "note"; text: string })
+  /* `shot` (round O, O4): the design review kept a photograph of the draft's first screen for this job (GET .../ai-jobs/[id]/review-shot). */
+  | (EventBase & { kind: "note"; text: string; shot?: boolean })
   | (EventBase & { kind: "spend"; usd: number; inputTokens: number; outputTokens: number; iteration: number })
   | (EventBase & { kind: "error"; message: string; retryable: boolean })
   | (EventBase & { kind: "finished"; status: AgentJobStatus; stopped?: BudgetStop })

@@ -45,7 +45,7 @@ export function planDirection(job: AgentJobInput, caps: RuntimeCapabilities | nu
 /** The choice a checkpoint was planned with, chosen again (deterministic from the brief and the seed). */
 export function choiceOf(cp: Pick<LoopCheckpoint, "brief" | "direction">): DirectionChoice | null {
   if (!cp.brief || !cp.direction) return null
-  return chooseDirection(cp.brief, [], { seed: cp.direction.seed })
+  return chooseDirection(cp.brief, cp.direction.refs ?? [], { seed: cp.direction.seed })
 }
 
 /** The direction's objections to a concept, as sentences (errors refuse it). */

@@ -133,7 +133,7 @@ export function scopedStore(store: ProjectStore, path: string): ProjectStore {
 }
 
 /** The real loop for a job: its models (the creator's own key first), project store, capabilities and checks. */
-const loopFactory: AgentStepperFactory = async (job) => sliceStepper(await agentDeps({ creatorId: job.creatorId, ownerUserId: job.ownerUserId, installId: job.installId }))
+const loopFactory: AgentStepperFactory = async (job) => sliceStepper(await agentDeps({ creatorId: job.creatorId, ownerUserId: job.ownerUserId, installId: job.installId, jobId: job.id }))
 
 let registered: AgentStepperFactory = loopFactory
 

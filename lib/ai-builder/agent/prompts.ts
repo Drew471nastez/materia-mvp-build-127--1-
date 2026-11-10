@@ -3,10 +3,21 @@
  *  WHAT THE AGENT IS TOLD
  * ===========================================================================
  * `AGENT_SYSTEM` is the stable prefix (cached by the provider: it never
- * changes inside a job and is the same for every job). Everything about THIS
- * job is in the first user turn, `briefMessage`: the person's words, the
- * mode, the store's real data, the pages and files there are, and the
- * knowledge retrieved for it.
+ * changes inside a job and is the same for every job). It holds the core
+ * rules and the design rules (round O: designRulesFor("site_agent"), through
+ * lib/storelib-ai/surfaces.ts). Everything about THIS job is in the first
+ * user turn, `briefMessage`: the person's words, the mode, the store's real
+ * data, the pages and files there are, the job's design brief (round O,
+ * ./design-brief.ts: creative brief, direction, references as text, motion
+ * tier, site story) or, on an edit, the site's DESIGN.md with the
+ * keep-the-brand rule, and the knowledge retrieved for it. Reference
+ * pictures ride on the plan turn as content blocks (O1, ./loop.ts), never in
+ * the prefix.
+ *
+ * Round O removed round N's type steering ("a display face with character
+ * (editorial serif, ...)"), which made an italic serif on cream with mono
+ * caps labels the first build of every business. The face now comes from
+ * the direction and fits the business (TYPE_FROM_DIRECTION).
  *
  * The rules the engine also enforces in code (path rule, concept first,
  * compile before save, real ids only, finish refused with errors) are stated
@@ -15,7 +26,9 @@
 import { STORELIB_HOOKS, AGENT_DEFAULT_CAPABILITIES, HEADLESS_HOOK_GUIDE, type RuntimeCapabilities } from "../runtime-contract"
 import type { AgentJobInput, KnowledgeHit, StoredFile, StoredPage } from "./ports"
 import type { Direction } from "@/lib/storelib-ai/library/concept"
-import { describeTypeSystem, suggestTypeSystems } from "@/lib/storelib-ai/library/type-systems"
+import { describeTypeSystem, suggestTypeSystems, type TypeSystem } from "@/lib/storelib-ai/library/type-systems"
+import { editDesignContext, surfaceRules, TYPE_FROM_DIRECTION } from "@/lib/storelib-ai/surfaces"
+import type { JobDesignBrief } from "./design-brief"
 import { startContext } from "@/lib/website-builder/ai-site/start-options"
 /* Round AQ: the classic job's design rules (round AP), the same text for both engines. */
 import { STUDIO_CRAFT } from "@/lib/website-builder/ai-site/craft"
@@ -62,11 +75,13 @@ REAL DATA ONLY
 
 DESIGN
 - A new website starts from a visual concept: before any write, call report_progress with phase "plan", a concept (name, mood, styles, typeSystem, palette, layout, motion, imagery, signatureMoves; text on background at least 4.5:1) and the plan as tasks. Writes are refused until it is accepted. A refused concept comes back ok: false with every problem listed: fix them all and send the whole concept again; nothing else starts until one is accepted.
-- The concept is for THIS business: its name, what it sells, who it is for. Starting directions are seeds, not answers; a concept that would fit any business is not finished. Think like the best sites in curated galleries: one strong idea held everywhere, type as image, the real work or product as the hero, a rhythm that changes on purpose.
+- The concept is for THIS business: its name, what it sells, who it is for. Start from the DIRECTION FOR THIS SITE in the brief when there is one; starting directions are seeds, not answers; a concept that would fit any business is not finished. Think like the best sites in curated galleries: one strong idea held everywhere, type as image, the real work or product as the hero, a rhythm that changes on purpose.
 - The theme is optional. Storelib's default theme (Foundation) is not a starting point: do not keep its look, its sections or its section catalogue because they are there. Design original components for this business and concept; keep a theme section only when it already fits the concept. Avoid the default AI look: purple gradients, glassmorphism, identical card grids, a giant centred hero over three cards, random pills, icons beside every label, excessive rounding. Vary rhythm, scale and density between sections, and do not repeat one section skeleton with new words. If it could belong to any business, redesign it.
 - Mobile first: design at 375px wide, then widen with min-width or container queries. No fixed widths, no width: 100vw, big type through clamp(), tap targets at least 44px, nothing that scrolls sideways.
 - A new website has its own frame: write its header and footer as your own components and place them in group "header"/"footer", in place of any theme header or footer. Nothing of the theme's frame is required.
 - Every component is editable: a <schema> with settings for its words, pictures, colour scheme and spacing. write_file refuses a section with no settings.
+
+${surfaceRules("site_agent")}
 
 ${STUDIO_CRAFT}
 
@@ -74,7 +89,7 @@ WHOLE SITE
 - The home page has 10 or more sections that each do a different job for this business (opening, the offer or the work, products bound to real ids, how it works, the story, a gallery or index, details people ask for, a sign up, ...), each with its own form; never ten variations of one card grid. Every other page is complete too: an about page with a real story layout, a shop or programme page with bound products, a contact page with a real form or address settings, and the pages the brief needs. No page is a single heading.
 
 TYPE
-- Pick a type system from the type library (search_knowledge "type library"): a display face with character (editorial serif, characterful grotesk, condensed display, mono) and a calm text face, both from the Typography list so they load. Inter, Roboto, Open Sans, Lato, Montserrat, Poppins, Plus Jakarta Sans, Raleway, Arial, Helvetica or system-ui are never the display face unless the creator named one (then the concept says allow "default-fonts"); they may be body text.
+- ${TYPE_FROM_DIRECTION} Pick the type system from the type library (search_knowledge "type library"): that display face and a calm text face, both from the Typography list so they load. Labels in mono or spaced capitals only where the design has a reason, never above every heading. Inter, Roboto, Open Sans, Lato, Montserrat, Poppins, Plus Jakarta Sans, Raleway, Arial, Helvetica or system-ui are never the display face unless the creator named one (then the concept says allow "default-fonts"); they may be body text.
 - A fluid scale with clamp() on every heading, display tracking chosen (negative for large lowercase, positive for caps and labels), leading 0.86 to 1.05 for display, weights chosen on purpose, tabular numerals for prices and times. Read fonts with var(--theme-font-heading) and var(--theme-font-body) plus a real stack.
 
 LAYOUT AND INTERACTION
@@ -104,9 +119,27 @@ function capsSummary(c: RuntimeCapabilities | null): string {
   return lines.filter(Boolean).join("\n")
 }
 
+/** A type system that is the editorial serif bundle: an italic display serif, or a serif with spaced capital labels. */
+function editorialSerifType(t: TypeSystem): boolean {
+  return t.voice === "serif" && (t.display.italic === true || t.mono?.case === "upper")
+}
+
+/** The creator asked for the editorial look in their own words. */
+const ASKS_EDITORIAL = /\b(editorial|serif|magazine|literary|journal)\b/i
+
+/** Three type systems that fit, the editorial serif bundle left out unless the creator asked for it. */
+function typeSystemsFor(job: AgentJobInput, directions: Direction[]): TypeSystem[] {
+  const all = suggestTypeSystems({ industry: job.options?.category?.replace(/_/g, " ") ?? job.prompt.slice(0, 120), styles: directions.flatMap((d) => d.styles), count: 8, seed: job.creatorId })
+  const fit = ASKS_EDITORIAL.test(job.prompt) ? all : all.filter((t) => !editorialSerifType(t))
+  return [...fit, ...all.filter((t) => !fit.includes(t))].slice(0, 3)
+}
+
 /** The first user turn of a job. */
-export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; pages: StoredPage[]; files: StoredFile[]; knowledge: KnowledgeHit[]; directions?: Direction[] }): string {
+export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; pages: StoredPage[]; files: StoredFile[]; knowledge: KnowledgeHit[]; directions?: Direction[]; design?: JobDesignBrief | null }): string {
   const { job } = input
+  /* Round O: an edit's direction is the site's own design, its DESIGN.md and tokens, kept unless asked (spec I.5). */
+  const scoped = !!job.edit || job.redesign === "changes"
+  const story = !job.edit && !job.redesign ? motionAndLayoutBrief({ prompt: job.prompt, category: job.options?.category ?? null }) : ""
   /* The creator's choices on Describe your website, in L1's words (start-options.ts startContext): kind, blank or theme, preset, preferences. */
   const choices = job.redesign ? "" : startContext(job.options ?? null)
   const own = input.files.filter((f) => /^(sections|blocks|snippets)\/ai_/.test(f.path)).map((f) => f.path)
@@ -127,15 +160,18 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
     capsSummary(input.caps),
     `PAGES NOW:\n${pages.join("\n") || "home: (empty)"}`,
     own.length ? `YOUR COMPONENT FILES NOW: ${own.join(", ")}` : "",
+    scoped ? input.design?.text || editDesignContext(input.files) : input.design?.text ?? "",
     input.directions?.length
-      ? `STARTING DIRECTIONS (seeds, deliberately different; adapt one to this creator or go elsewhere, but do not default to the obvious):\n${input.directions.map((d) => `- ${d.name} [${d.styles.join(" + ")}]: ${d.mood.join(", ")}; ${d.type.display} / ${d.type.body}; ${d.palette.mode} ${d.palette.background} / ${d.palette.text} / accent ${d.palette.accent}; motion ${d.motion}; imagery: ${d.imagery}; signature: ${d.signature}${d.layout ? `; layout: ${d.layout}` : ""}`).join("\n")}`
+      ? `STARTING DIRECTIONS (${input.design?.text ? "alternatives to weigh the direction above against" : "seeds, deliberately different; adapt one to this creator or go elsewhere, but do not default to the obvious"}):\n${input.directions.map((d) => `- ${d.name} [${d.styles.join(" + ")}]: ${d.mood.join(", ")}; ${d.type.display} / ${d.type.body}; ${d.palette.mode} ${d.palette.background} / ${d.palette.text} / accent ${d.palette.accent}; motion ${d.motion}; imagery: ${d.imagery}; signature: ${d.signature}${d.layout ? `; layout: ${d.layout}` : ""}`).join("\n")}`
       : "",
     input.directions?.length
-      ? `TYPE SYSTEMS THAT FIT (all load on Storelib; adapt or pick another from the type library, never a default face as display):\n${suggestTypeSystems({ industry: job.options?.category?.replace(/_/g, " ") ?? job.prompt.slice(0, 120), styles: input.directions.flatMap((d) => d.styles), count: 3, seed: job.creatorId }).map((t) => `* ${describeTypeSystem(t)}`).join("\n")}`
+      ? `TYPE SYSTEMS THAT FIT (all load on Storelib; adapt or pick another from the type library, never a default face as display):\n${typeSystemsFor(job, input.directions).map((t) => `* ${describeTypeSystem(t)}`).join("\n")}`
       : "",
-    !job.edit && !job.redesign ? motionAndLayoutBrief({ prompt: job.prompt, category: job.options?.category ?? null }) : "",
-    input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, 12_000)}` : "",
-    job.edit || job.redesign === "changes" ? "Start by reading what the request is about (list_pages, read_file), then change it. Before finish, render_check every page you changed." : "Start with report_progress phase \"plan\": the concept, the tasks and pages (every page and template with its sections). Then tokens, components, pages and templates, bindings with real ids, render_check on every page, finish.",
+    /* Round O (O5): the business's site story and the motion feel, for a new website. */
+    story,
+    /* The first turn is kept whole in the checkpoint up to 20,000 characters: the knowledge gives way to the design brief. */
+    input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, Math.max(4_000, 12_000 - (input.design?.text.length ?? 0) - story.length))}` : "",
+    scoped ? "Start by reading what the request is about (list_pages, read_file), then change it. Before finish, render_check every page you changed." : "Start with report_progress phase \"plan\": the concept, the tasks and pages (every page and template with its sections). Then tokens, components, pages and templates, bindings with real ids, render_check on every page, finish.",
   ]
     .filter(Boolean)
     .join("\n\n")
