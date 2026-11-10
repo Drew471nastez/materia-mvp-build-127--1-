@@ -25,7 +25,7 @@ import { skinSceneOf, type ThemeSkin } from "@/lib/onepage/theme-skin"
 
 /** How many of each piece a scene draws, in the order the stylesheet places them (nth-child). */
 const PIECES: Record<ThemeSkin, ReadonlyArray<readonly [string, number]>> = {
-  aero: [["sun", 1], ["swoosh", 1], ["cloud", 3], ["meadow", 1], ["bubble", 9]],
+  aero: [["sun", 1], ["swoosh", 1], ["cloud", 3], ["meadow", 1], ["bubble", 9], ["glint", 3]],
   aqua: [["stripes", 1], ["light", 1], ["wave", 2]],
   messenger: [["band", 1], ["ribbon", 2], ["glow", 2]],
   y2k: [["aurora", 3], ["horizon", 1], ["pixels", 1], ["spark", 10]],

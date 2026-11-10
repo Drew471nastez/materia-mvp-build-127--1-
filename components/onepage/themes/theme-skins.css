@@ -66,17 +66,28 @@
 [data-skin-scene="aero"] [data-sk="bubble"]:nth-child(15) {
   top: 4%; left: 40%; width: 18px; animation-delay: -4s; animation-duration: 9s;
 }
+[data-skin-scene="aero"] [data-sk="glint"] {
+  position: absolute; width: 26px; aspect-ratio: 1; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='g'%3E%3Cstop offset='0' stop-color='%23ffffff' stop-opacity='.55'/%3E%3Cstop offset='1' stop-color='%23ffffff' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='50' fill='url(%23g)'/%3E%3Cpath d='M50 4 C 53 38 62 47 96 50 C 62 53 53 62 50 96 C 47 62 38 53 4 50 C 38 47 47 38 50 4Z' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='50' r='5' fill='%23fff'/%3E%3C/svg%3E") center / contain no-repeat; animation: sk-twinkle 4.2s ease-in-out infinite;
+}
+[data-skin-scene="aero"] [data-sk="glint"]:nth-child(16) {
+  top: 58px; right: 92px;
+}
+[data-skin-scene="aero"] [data-sk="glint"]:nth-child(17) {
+  top: 132px; right: 34px; width: 16px; animation-delay: -1.6s;
+}
+[data-skin-scene="aero"] [data-sk="glint"]:nth-child(18) {
+  top: 33%; left: 16%; width: 14px; animation-delay: -2.8s;
+}
 
 /* Aero: frosted glass with a gel highlight, a soft blue shadow; the words stay the theme's. */
 [data-op-skin="aero"] :is(a.op-btn, [data-tp-link]) {
-  background-color: color-mix(in srgb, var(--sk-surface) 66%, transparent) !important;
+  background-color: color-mix(in srgb, var(--sk-surface) 72%, transparent) !important;
   background-image: linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(255,255,255,.45) 46%, rgba(255,255,255,.06) 50%, rgba(255,255,255,0) 78%, rgba(180,232,255,.4) 100%);
   border-color: rgba(255,255,255,.95) !important;
   box-shadow: inset 0 1px 0 #fff, inset 0 -10px 18px -12px rgba(40,140,220,.45), 0 10px 24px -12px rgba(8,70,140,.55), 0 1px 2px rgba(8,60,120,.12) !important;
-  -webkit-backdrop-filter: blur(12px) saturate(1.5); backdrop-filter: blur(12px) saturate(1.5);
   font-weight: 600;
 }
-[data-op-skin="aero"] .op-btn::after {
+[data-op-skin="aero"] .op-btn[data-hover]:not(.animate-onepage-swipe)::after {
   background-image: linear-gradient(180deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.14) 48%, rgba(255,255,255,0) 52%);
 }
 [data-op-skin="aero"] :is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]) {
@@ -86,11 +97,10 @@
   box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 6px 14px -6px rgba(40,120,30,.55) !important;
 }
 [data-op-skin="aero"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div, :where([style*="background-clip: padding-box"]:not(.op-btn, button, [data-product-block], [data-tp-product], .op-card, [data-tp-card], [data-tp-link], [data-onepage-code], figure, [data-onepage-countdown] .grid > div))) {
-  background-color: color-mix(in srgb, var(--sk-surface) 58%, transparent) !important;
+  background-color: color-mix(in srgb, var(--sk-surface) 66%, transparent) !important;
   background-image: linear-gradient(180deg, rgba(255,255,255,.75) 0%, rgba(255,255,255,0) 42px);
   border-color: rgba(255,255,255,.95) !important; border-radius: 20px !important;
   box-shadow: inset 0 1px 0 #fff, 0 14px 34px -16px rgba(8,70,140,.5), 0 1px 3px rgba(8,60,120,.1) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4);
 }
 [data-op-skin="aero"] [data-onepage-countdown] .grid > div {
   border-radius: 16px !important;
@@ -99,10 +109,9 @@
   background-color: transparent !important;
 }
 [data-op-skin="aero"] :is([data-email-layout], [data-onepage-contact]) {
-  background-color: rgba(255,255,255,.42) !important; border: 1px solid rgba(255,255,255,.9); border-radius: 22px !important;
+  background-color: rgba(255,255,255,.5) !important; border: 1px solid rgba(255,255,255,.9); border-radius: 22px !important;
   background-image: linear-gradient(180deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,0) 56px);
   box-shadow: inset 0 1px 0 #fff, 0 16px 36px -18px rgba(8,70,140,.5);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4);
 }
 [data-op-skin="aero"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea) {
   background: rgba(255,255,255,.92) !important; border: 1px solid rgba(120,180,230,.7) !important; border-radius: 12px !important;
@@ -166,7 +175,7 @@
 [data-op-skin="aqua"] :is([data-link-tile], [data-block-size='half'], [data-tp-pair], [data-tp-masonry]) :is(a.op-btn, [data-tp-link]) {
   border-radius: 22px !important;
 }
-[data-op-skin="aqua"] .op-btn::after {
+[data-op-skin="aqua"] .op-btn[data-hover]:not(.animate-onepage-swipe)::after {
   background-image: linear-gradient(180deg, rgba(255,255,255,.88) 0%, rgba(255,255,255,.35) 46%, rgba(255,255,255,0) 50%), radial-gradient(120% 70% at 50% 115%, rgba(190,235,255,.95) 0%, rgba(150,210,255,0) 70%), linear-gradient(180deg, #7cb9f6 0%, #4a94ec 50%, #3d89e8 51%, #5aa9f5 100%);
 }
 [data-op-skin="aqua"] :is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]) {
@@ -256,7 +265,7 @@
 [data-op-skin="messenger"] :is([data-link-tile], [data-block-size="half"], [data-tp-masonry], [data-tp-pair]) :is(a.op-btn, [data-tp-link]) {
   background-image: radial-gradient(circle at calc(calc(100% - 16px) - 1.5px) calc(16px - 2px), rgba(255,255,255,.95) 0 1.6px, transparent 2.4px), radial-gradient(circle at calc(100% - 16px) 16px, #8fe35c 0 4px, #3c9a1d 5px, rgba(60,154,29,0) 5.8px), linear-gradient(180deg, #ffffff 0%, #ffffff 55%, #edf3fd 100%); padding-left: 14px !important;
 }
-[data-op-skin="messenger"] .op-btn::after {
+[data-op-skin="messenger"] .op-btn[data-hover]:not(.animate-onepage-swipe)::after {
   background-image: linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 52%);
 }
 [data-op-skin="messenger"] :is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]) {
@@ -386,7 +395,7 @@
 [data-op-skin="y2k"] :is([data-link-tile], [data-block-size='half'], [data-tp-pair], [data-tp-masonry]) :is(a.op-btn, [data-tp-link]) {
   border-radius: 26px !important;
 }
-[data-op-skin="y2k"] .op-btn::after {
+[data-op-skin="y2k"] .op-btn[data-hover]:not(.animate-onepage-swipe)::after {
   background-image: linear-gradient(115deg, #ffc2ef 0%, #bfefff 30%, #d9cbff 55%, #c4ffe2 78%, #ffd9b8 100%);
 }
 [data-op-skin="y2k"] :is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]) {
@@ -720,6 +729,9 @@
 [data-op-skin="grunge"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea):focus {
   box-shadow: 4px 4px 0 #0d0d0d !important;
 }
+[data-op-skin="grunge"] [data-op-header] {
+  padding-right: 16px;
+}
 [data-op-skin="grunge"] :is([data-op-header] h1, [data-tp-title]) {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.62' numOctaves='3' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -11 7.4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.62' numOctaves='3' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -11 7.4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); -webkit-mask-size: 160px 160px; mask-size: 160px 160px;
   letter-spacing: .01em; text-shadow: 2px 1px 0 rgba(13,13,13,.28);
@@ -786,7 +798,4 @@
 }
 [data-tp-page] [data-skin-scene] *, [data-tp-page][data-op-skin] *, [data-tp-page][data-op-skin] *::before, [data-tp-page][data-op-skin] *::after {
   animation: none !important;
-}
-[data-tp-page] :is([data-op-skin] [data-tp-link], [data-op-skin] [data-tp-card]) {
-  -webkit-backdrop-filter: none; backdrop-filter: none;
 }

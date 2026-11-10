@@ -51,6 +51,8 @@ const BLOCK_TITLE = ":is([data-onepage-faq], [data-onepage-countdown], [data-one
 const DIVIDER = "[data-op-block] > .flex.items-center > .h-px:only-child"
 const PICTURE = "[data-op-block] div[class*='aspect-']:has(> img):not(.op-card div)"
 const STRIP = ".op-card > div:last-child"
+/* The layer a Fill or Pop hover fills (app/globals.css .op-btn::after), at a weight that wins over the page's own rule for it. */
+const FILL_LAYER = ".op-btn[data-hover]:not(.animate-onepage-swipe)::after"
 const HOVER = "@media (hover: hover) and (pointer: fine)"
 const HOVERED = ":is(.op-btn:hover, .op-host:hover .op-btn)"
 /* A link that is a tile (Grid, Mixed tiles), on the page and on a card. */
@@ -64,6 +66,11 @@ const banner = (text) => css.push(`\n/* ========================================
 /* ── Shared art ─────────────────────────────────────────────────────── */
 
 const NOISE = (alpha) => svg(`<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 ${alpha} 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/>`, "0 0 200 200")
+
+const SPARK = (fill) => svg(
+  `<defs><radialGradient id='g'><stop offset='0' stop-color='${fill}' stop-opacity='.55'/><stop offset='1' stop-color='${fill}' stop-opacity='0'/></radialGradient></defs><circle cx='50' cy='50' r='50' fill='url(#g)'/><path d='M50 4 C 53 38 62 47 96 50 C 62 53 53 62 50 96 C 47 62 38 53 4 50 C 38 47 47 38 50 4Z' fill='${fill}'/><circle cx='50' cy='50' r='5' fill='#fff'/>`,
+  "0 0 100 100",
+)
 
 /* ── AERO ───────────────────────────────────────────────────────────── */
 
@@ -117,33 +124,34 @@ rule(`[data-skin-scene="aero"] [data-sk="bubble"]`, `
 const bubbles = [["9%", "left: 6%", 54, 0], ["16%", "right: 5%", 30, -3], ["27%", "left: 84%", 74, -6], ["40%", "left: 2%", 22, -2], ["52%", "right: 3%", 42, -8], ["63%", "left: 3%", 62, -5], ["74%", "right: 7%", 26, -1], ["85%", "left: 14%", 36, -7], ["4%", "left: 40%", 18, -4]]
 bubbles.forEach(([top, side, size, delay], i) => rule(`[data-skin-scene="aero"] [data-sk="bubble"]:nth-child(${7 + i})`, `top: ${top}; ${side}; width: ${size}px; animation-delay: ${delay}s; animation-duration: ${9 + (i % 4) * 1.6}s;`))
 
+rule(`[data-skin-scene="aero"] [data-sk="glint"]`, `position: absolute; width: 26px; aspect-ratio: 1; background: ${SPARK("#ffffff")} center / contain no-repeat; animation: sk-twinkle 4.2s ease-in-out infinite;`)
+rule(`[data-skin-scene="aero"] [data-sk="glint"]:nth-child(16)`, `top: 58px; right: 92px;`)
+rule(`[data-skin-scene="aero"] [data-sk="glint"]:nth-child(17)`, `top: 132px; right: 34px; width: 16px; animation-delay: -1.6s;`)
+rule(`[data-skin-scene="aero"] [data-sk="glint"]:nth-child(18)`, `top: 33%; left: 16%; width: 14px; animation-delay: -2.8s;`)
 comment("Aero: frosted glass with a gel highlight, a soft blue shadow; the words stay the theme's.")
 rule(`${A} ${LINK}`, `
-  background-color: color-mix(in srgb, var(--sk-surface) 66%, transparent) !important;
+  background-color: color-mix(in srgb, var(--sk-surface) 72%, transparent) !important;
   background-image: ${AERO_GLOSS};
   border-color: rgba(255,255,255,.95) !important;
   box-shadow: inset 0 1px 0 #fff, inset 0 -10px 18px -12px rgba(40,140,220,.45), 0 10px 24px -12px rgba(8,70,140,.55), 0 1px 2px rgba(8,60,120,.12) !important;
-  -webkit-backdrop-filter: blur(12px) saturate(1.5); backdrop-filter: blur(12px) saturate(1.5);
   font-weight: 600;`)
-rule(`${A} .op-btn::after`, `background-image: linear-gradient(180deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.14) 48%, rgba(255,255,255,0) 52%);`)
+rule(`${A} ${FILL_LAYER}`, `background-image: linear-gradient(180deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.14) 48%, rgba(255,255,255,0) 52%);`)
 rule(`${A} ${CTA}`, `
   background-color: #7fdc56 !important;
   background-image: linear-gradient(180deg, rgba(255,255,255,.85) 0%, rgba(255,255,255,.3) 46%, rgba(255,255,255,0) 50%), linear-gradient(180deg, #a3ec74 0%, #6fcf45 50%, #58bd33 51%, #8ee05e 100%);
   color: #08325a !important; border-color: #3f9a2a !important; font-weight: 700;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 6px 14px -6px rgba(40,120,30,.55) !important;`)
 rule(`${A} :is(${CARD}, ${FAQ}, ${CELL}, ${SURF})`, `
-  background-color: color-mix(in srgb, var(--sk-surface) 58%, transparent) !important;
+  background-color: color-mix(in srgb, var(--sk-surface) 66%, transparent) !important;
   background-image: linear-gradient(180deg, rgba(255,255,255,.75) 0%, rgba(255,255,255,0) 42px);
   border-color: rgba(255,255,255,.95) !important; border-radius: 20px !important;
-  box-shadow: inset 0 1px 0 #fff, 0 14px 34px -16px rgba(8,70,140,.5), 0 1px 3px rgba(8,60,120,.1) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4);`)
+  box-shadow: inset 0 1px 0 #fff, 0 14px 34px -16px rgba(8,70,140,.5), 0 1px 3px rgba(8,60,120,.1) !important;`)
 rule(`${A} ${CELL}`, `border-radius: 16px !important;`)
 rule(`${A} ${STRIP}`, `background-color: transparent !important;`)
 rule(`${A} ${BOX}`, `
-  background-color: rgba(255,255,255,.42) !important; border: 1px solid rgba(255,255,255,.9); border-radius: 22px !important;
+  background-color: rgba(255,255,255,.5) !important; border: 1px solid rgba(255,255,255,.9); border-radius: 22px !important;
   background-image: linear-gradient(180deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,0) 56px);
-  box-shadow: inset 0 1px 0 #fff, 0 16px 36px -18px rgba(8,70,140,.5);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4);`)
+  box-shadow: inset 0 1px 0 #fff, 0 16px 36px -18px rgba(8,70,140,.5);`)
 rule(`${A} ${INPUT}`, `
   background: rgba(255,255,255,.92) !important; border: 1px solid rgba(120,180,230,.7) !important; border-radius: 12px !important;
   box-shadow: inset 0 2px 4px rgba(8,60,120,.12) !important; color: #063a6b !important;`)
@@ -199,7 +207,7 @@ rule(`${Q} ${LINK}`, `
   box-shadow: inset 0 1px 0 #fff, inset 0 -1px 1px rgba(255,255,255,.9), 0 1px 1px rgba(0,0,0,.28), 0 3px 8px -2px rgba(0,0,0,.2) !important;
   font-weight: 700; text-shadow: 0 1px 0 rgba(255,255,255,.8);`)
 rule(`${Q} ${TILE} ${LINK}`, `border-radius: 22px !important;`)
-rule(`${Q} .op-btn::after`, `background-image: ${BLUE_GEL};`)
+rule(`${Q} ${FILL_LAYER}`, `background-image: ${BLUE_GEL};`)
 rule(`${Q} ${CTA}`, `
   background-color: #4a94ec !important; background-image: ${BLUE_GEL};
   color: #06162e !important; border-color: #2459a8 !important; font-weight: 700; text-shadow: 0 1px 0 rgba(255,255,255,.35);
@@ -260,7 +268,7 @@ rule(`${M} ${LINK}`, `
   box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 2px 5px -2px rgba(30,80,170,.35) !important;
   font-weight: 700;`)
 rule(`${M} :is([data-link-tile], [data-block-size="half"], [data-tp-masonry], [data-tp-pair]) ${LINK}`, `background-image: ${STATUS_DOT("calc(100% - 16px)", "16px")}, ${ROW}; padding-left: 14px !important;`)
-rule(`${M} .op-btn::after`, `background-image: linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 52%);`)
+rule(`${M} ${FILL_LAYER}`, `background-image: linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 52%);`)
 rule(`${M} ${CTA}`, `
   background-color: #2b7f22 !important; background-image: ${XP_GREEN};
   color: #ffffff !important; border-color: #1d5c16 !important; font-weight: 800; font-style: italic; text-shadow: 0 1px 1px rgba(0,0,0,.45);
@@ -293,10 +301,6 @@ rule(`${M} ${PICTURE}`, `border-radius: 8px !important; border: 1px solid #9fb9e
 
 /* ── Y2K ────────────────────────────────────────────────────────────── */
 
-const SPARK = (fill) => svg(
-  `<defs><radialGradient id='g'><stop offset='0' stop-color='${fill}' stop-opacity='.55'/><stop offset='1' stop-color='${fill}' stop-opacity='0'/></radialGradient></defs><circle cx='50' cy='50' r='50' fill='url(#g)'/><path d='M50 4 C 53 38 62 47 96 50 C 62 53 53 62 50 96 C 47 62 38 53 4 50 C 38 47 47 38 50 4Z' fill='${fill}'/><circle cx='50' cy='50' r='5' fill='#fff'/>`,
-  "0 0 100 100",
-)
 const CHROME = "linear-gradient(180deg, #ffffff 0%, #eef1f6 16%, #c5cbd8 47%, #939bad 50%, #d8dde7 76%, #ffffff 100%)"
 const HOLO = "linear-gradient(115deg, #ffc2ef 0%, #bfefff 30%, #d9cbff 55%, #c4ffe2 78%, #ffd9b8 100%)"
 
@@ -324,7 +328,7 @@ rule(`${Y} ${LINK}`, `
   box-shadow: inset 0 1px 0 #fff, inset 0 -2px 5px rgba(70,80,110,.35), 0 0 0 1px rgba(10,8,30,.55), 0 10px 26px -10px rgba(140,110,255,.75), 0 0 22px -6px rgba(90,220,255,.45) !important;
   font-weight: 600; letter-spacing: .01em; text-shadow: 0 1px 0 rgba(255,255,255,.7);`)
 rule(`${Y} ${TILE} ${LINK}`, `border-radius: 26px !important;`)
-rule(`${Y} .op-btn::after`, `background-image: ${HOLO};`)
+rule(`${Y} ${FILL_LAYER}`, `background-image: ${HOLO};`)
 rule(`${Y} ${CTA}`, `
   background-color: #d9cbff !important; background-image: linear-gradient(180deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.15) 48%, rgba(255,255,255,0) 52%), ${HOLO};
   color: #14112b !important; border-color: rgba(255,255,255,.9) !important; font-weight: 700;
@@ -500,6 +504,7 @@ rule(`${G} ${BOX}`, `
   border: 2px solid #0d0d0d; border-radius: 0 !important; box-shadow: 6px 6px 0 #0d0d0d; rotate: -.4deg;`)
 rule(`${G} ${INPUT}`, `background: #fff !important; border: 2px solid #0d0d0d !important; border-radius: 0 !important; color: #0d0d0d !important; font-family: 'JetBrains Mono', ui-monospace, monospace;`)
 rule(`${G} ${INPUT}:focus`, `box-shadow: 4px 4px 0 #0d0d0d !important;`)
+rule(`${G} [data-op-header]`, `padding-right: 16px;`)
 rule(`${G} ${TITLE}`, `
   -webkit-mask-image: ${HOLES}; mask-image: ${HOLES}; -webkit-mask-size: 160px 160px; mask-size: 160px 160px;
   letter-spacing: .01em; text-shadow: 2px 1px 0 rgba(13,13,13,.28);`)
@@ -537,7 +542,6 @@ css.push(`@keyframes sk-spin { to { rotate: 360deg; } }
 comment("Still for anyone who asked for less motion, and in a theme card (components/onepage/themes/theme-preview), which is a picture.")
 css.push(`@media (prefers-reduced-motion: reduce) {\n  [data-skin-scene] *, [data-skin-scene] *::after, [data-op-skin] *, [data-op-skin] *::before, [data-op-skin] *::after { animation: none !important; }\n}`)
 rule(`[data-tp-page] [data-skin-scene] *, [data-tp-page][data-op-skin] *, [data-tp-page][data-op-skin] *::before, [data-tp-page][data-op-skin] *::after`, `animation: none !important;`)
-rule(`[data-tp-page] :is([data-op-skin] [data-tp-link], [data-op-skin] [data-tp-card])`, `-webkit-backdrop-filter: none; backdrop-filter: none;`)
 
 const header = `/*
  * GENERATED by scripts/build-onepage-skins.mjs from its source: edit that, then run it.
