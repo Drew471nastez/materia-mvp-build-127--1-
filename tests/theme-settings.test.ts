@@ -66,6 +66,8 @@ function stripComments(src: string): string {
 
 /** Everything that could read a theme setting. */
 const CONSUMERS = [
+  /* Round O (O5): motion_tier, the site's motion feel, read by the motion module (its --t-motion-* variables). */
+  "lib/storelib-ai/motion/index.ts",
   "lib/website-builder/theme-css.ts",
   "lib/storelib-theme/typography.ts",
   "lib/storelib-theme/color-schemes.ts",

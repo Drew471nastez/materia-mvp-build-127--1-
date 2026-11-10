@@ -119,6 +119,7 @@ export function recentAgentFingerprints(db: Db, limit = 40): () => Promise<SiteF
   let memo: Promise<SiteFingerprint[]> | null = null
   return () => {
     memo ??= (async () => {
+      try {
       const { data, error } = await db
         .from("ai_site_jobs")
         .select("fp:checkpoint->fingerprint")
@@ -129,7 +130,10 @@ export function recentAgentFingerprints(db: Db, limit = 40): () => Promise<SiteF
         .limit(limit)
       if (error) return []
       return readFingerprints(((data ?? []) as { fp: unknown }[]).map((r) => r.fp), limit)
-    })().catch(() => [])
+      } catch {
+        return []
+      }
+    })()
     return memo
   }
 }

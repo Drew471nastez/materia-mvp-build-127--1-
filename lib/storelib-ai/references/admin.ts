@@ -229,7 +229,7 @@ export function createReferenceAdmin(deps: ReferenceAdminDeps) {
       const row = await rowById(db, id)
       if (!row) return json({ ok: true })
       const paths = [row.original_path, row.view_path, row.page_path].filter((p): p is string => !!p)
-      if (paths.length) await db.storage.from(REFERENCES_BUCKET).remove(paths).catch(() => null)
+      if (paths.length) await db.storage.from(REFERENCES_BUCKET).remove(paths).then(() => null, () => null)
       const { error } = await db.from(REFERENCES_TABLE).delete().eq("id", id)
       if (error) return json({ error: "The reference was not removed. Try again." }, 500)
       forgetStoredReferences()
