@@ -6,9 +6,10 @@ import "server-only"
  * client bundle, so only the engine's server modules import this file.
  */
 import { capabilitiesFromSite, runSearchKnowledge, suggestDirections, type Direction, type KnowledgeCapability } from "@/lib/storelib-ai/library"
+import { searchReferences } from "@/lib/storelib-ai/references"
 import { slopIssues } from "../slop"
 import type { RuntimeCapabilities } from "../runtime-contract"
-import type { KnowledgeSearch, SlopEvaluator } from "./ports"
+import type { KnowledgeSearch, ReferenceSource, SlopEvaluator } from "./ports"
 import type { VisualConcept } from "./concept"
 
 export { SEARCH_KNOWLEDGE_TOOL } from "@/lib/storelib-ai/library"
@@ -41,4 +42,10 @@ export const librarySlop: SlopEvaluator = async ({ files, concept, capabilities 
 /** Starting directions for the plan phase: distinct, suited to the industry first. */
 export function directionsFor(industry: string | undefined, seed: string): Direction[] {
   return suggestDirections(industry, { count: 3, seed })
+}
+
+/** O1's references without the database: the built in library (Storelib's patterns, open-source notes), no pictures. */
+export const libraryReferences: ReferenceSource = {
+  search: async ({ query, industry, limit }) => searchReferences({ text: query, industry }, { limit: limit ?? 4 }),
+  images: async () => [],
 }

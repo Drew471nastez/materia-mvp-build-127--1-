@@ -18,7 +18,9 @@
  * in-memory website, and every collaborator another lane is still building
  * is one function to swap.
  */
+import type { AgentImage } from "@/lib/sites/agent/attachments"
 import type { AgentProvider } from "@/lib/sites/agent/types"
+import type { DesignReference } from "@/lib/storelib-ai/references/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { RuntimeCapabilities } from "../runtime-contract"
 import type { AgentEvent, DesignTokens, FileAuthor, GenerationMode, JobBudget, KnowledgeEntry, KnowledgeKind, StartOptions, ValidationIssue } from "../types"
@@ -103,6 +105,17 @@ export type RenderChecker = (input: {
   capabilities?: RuntimeCapabilities | null
 }) => Promise<{ ok: boolean; issues: ValidationIssue[]; htmlBytes: number }>
 
+/**
+ * Round O (O1): the visual reference library. `search` picks the few
+ * references for this brief (lib/storelib-ai/references searchReferences,
+ * with the admin's screenshots on the server); `images` loads the pictures
+ * of those that have one, as base64 for a multimodal turn.
+ */
+export interface ReferenceSource {
+  search: (brief: { query: string; industry?: string; limit?: number }) => Promise<DesignReference[]>
+  images: (ids: string[]) => Promise<{ id: string; image: AgentImage }[]>
+}
+
 /** Turns tokens into Theme settings keys (L5 owns the real one). */
 export type TokensMapper = (tokens: Partial<DesignTokens>, current: Record<string, unknown>) => { settings: Record<string, unknown>; changed: string[]; issues: ValidationIssue[] }
 
@@ -141,6 +154,8 @@ export interface AgentDeps {
   models: AgentModels
   capabilities: () => Promise<RuntimeCapabilities | null>
   knowledge?: KnowledgeSearch
+  /** O1's visual references (./knowledge.ts libraryReferences by default: the built in library, no pictures). */
+  references?: ReferenceSource
   slop?: SlopEvaluator
   renderCheck?: RenderChecker
   tokensToSettings?: TokensMapper

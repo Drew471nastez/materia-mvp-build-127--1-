@@ -40,7 +40,9 @@ import { TOOL_LIST } from "./tool-specs"
 import { compactCheckpoint, compactLive, resumeTurns, toCheckpointTurns } from "./compact"
 import { newCheckpoint, type LoopCheckpoint } from "./state"
 import { createToolSet, renderPage, validateAll, type EventDraft } from "./tools-impl"
-import { directionsFor, libraryKnowledge, librarySlop } from "./knowledge"
+import { directionsFor, libraryKnowledge, libraryReferences, librarySlop } from "./knowledge"
+import { referencesForPrompt } from "@/lib/storelib-ai/references/prompt"
+import type { AgentImage } from "@/lib/sites/agent/attachments"
 import { errorsOf } from "./validate"
 import { completenessIssues } from "./site-plan"
 
@@ -163,7 +165,19 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
     const knowledge = (await search({ query: job.prompt.slice(0, 500), industry, limit: 5 }).catch(() => [])) as KnowledgeHit[]
     const scoped = job.edit || job.redesign === "changes"
     const directions = scoped ? [] : directionsFor(industry ?? job.prompt.slice(0, 80), job.creatorId)
-    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages, files, knowledge, directions }) })
+    /*
+      Round O (O1): the visual references for this brief, chosen once (deterministic) and kept by id. Those with a
+      picture (the admin's screenshots) are LOOKED AT in the plan phase: the pictures ride with the first turn
+      (withReferenceImages below), and the block says which image is which reference.
+    */
+    const references = deps.references ?? libraryReferences
+    const refs = scoped ? [] : await references.search({ query: job.prompt.slice(0, 1_000), industry, limit: 4 }).catch(() => [])
+    const pictured = refs.filter((r) => r.image).map((r) => r.id).slice(0, 4)
+    const shown = pictured.length ? await references.images(pictured).catch(() => []) : []
+    cp.references = refs.map((r) => r.id)
+    cp.referenceImages = shown.map((x) => x.id)
+    const refBlock = referencesForPrompt(refs, { withImages: cp.referenceImages })
+    cp.turns.push({ role: "user", text: [briefMessage({ job, caps, pages, files, knowledge, directions }), refBlock].filter(Boolean).join("\n\n") })
     if (scoped) setPhase("build", "Making your change")
     else setPhase("plan", "Deciding the look")
   }
@@ -197,6 +211,23 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
 
   const tools = createToolSet({ job, deps, cp, emit, onFinish, setPhase })
 
+  /*
+    The reference pictures, on the first turn, while the look is being decided (plan). Loaded once per slice,
+    never stored in the checkpoint; all of them or none, so "image 2" in the text is always the second picture.
+  */
+  let refImages: AgentImage[] | null = null
+  const withReferenceImages = async (list: AgentTurn[]): Promise<AgentTurn[]> => {
+    const ids = cp.referenceImages ?? []
+    if (cp.phase !== "plan" || !ids.length || list[0]?.role !== "user") return list
+    if (refImages === null) {
+      const got = await (deps.references ?? libraryReferences).images(ids).catch(() => [])
+      refImages = got.length === ids.length && got.every((g, i) => g.id === ids[i]) ? got.map((g) => g.image) : []
+    }
+    if (!refImages.length) return list
+    const first = list[0]
+    return [{ ...first, images: [...refImages, ...(first.images ?? [])] }, ...list.slice(1)]
+  }
+
   while (!done.r) {
     if (await deps.cancelled?.().catch(() => false)) return stopFor("cancelled")
     const t = now()
@@ -208,7 +239,10 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
 
     const role: ModelRole = cp.phase === "plan" ? deps.models.plan : deps.models.loop
     const maxOutputTokens = job.budget.maxOutputTokensPerCall
-    const inputChars = AGENT_SYSTEM.length + JSON.stringify(TOOL_LIST).length + JSON.stringify(turns).length
+    const callTurns = await withReferenceImages(turns)
+    /* A picture is billed by its pixels, about 1,600 tokens at the size references are kept: counted as 6,400 characters. */
+    const imageChars = callTurns === turns ? 0 : (callTurns[0].role === "user" ? (callTurns[0].images?.length ?? 0) : 0) * 6_400
+    const inputChars = AGENT_SYSTEM.length + JSON.stringify(TOOL_LIST).length + JSON.stringify(turns).length + imageChars
     const spent = job.spentUsd + usage.usd
     if (spent >= capOf(job, deps) || spent + worstCaseUsd(role.model, inputChars, maxOutputTokens) > capOf(job, deps)) return stopFor("spend")
 
@@ -217,7 +251,7 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
       turn = await role.provider.complete({
         model: role.model,
         system: AGENT_SYSTEM,
-        turns,
+        turns: callTurns,
         tools: TOOL_LIST,
         maxOutputTokens,
         effort: role.effort,
