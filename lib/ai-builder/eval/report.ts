@@ -50,13 +50,13 @@ export function renderReport(input: ReportInput): string {
   const novelty = engines
     .map((e) => {
       const rows = noveltyTable(results.filter((r) => r.site.engine === e).map((r) => r.site))
-      return `<h3>${esc(e)}</h3><table class="nov"><thead><tr><th>Site</th><th>Hero</th><th>Palette</th><th>Type</th><th>Closest (similarity)</th><th>Palette ΔE to closest</th><th>Fonts</th></tr></thead><tbody>${rows
+      return `<h3>${esc(e)}</h3><div class="scroll"><table class="nov"><thead><tr><th>Site</th><th>Hero</th><th>Palette</th><th>Type</th><th>Closest (similarity)</th><th>Palette ΔE to closest</th><th>Fonts</th></tr></thead><tbody>${rows
         .map((r) => {
           const site = results.find((x) => x.site.engine === e && x.site.scenario.id === r.scenario)!.site
           const t = siteTokens(site)
           return `<tr><td>${esc(site.scenario.name)}</td><td>${esc(r.fingerprint.hero)}</td><td><span class="sw" style="background:${esc(t.colors.background)}"></span><span class="sw" style="background:${esc(t.colors.accent)}"></span><span class="sw" style="background:${esc(t.colors.text)}"></span> ${esc(r.fingerprint.palette)}</td><td>${esc(r.fingerprint.type)}</td><td>${esc(r.nearest?.scenario ?? "")} (${r.nearest?.similarity ?? "-"})</td><td>${r.palette?.deltaE ?? "-"}</td><td>${esc(t.fonts.heading)} / ${esc(t.fonts.body)}</td></tr>`
         })
-        .join("")}</tbody></table>`
+        .join("")}</tbody></table></div>`
     })
     .join("")
 
@@ -84,7 +84,7 @@ export function renderReport(input: ReportInput): string {
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121314;--card:#1b1c1e;--ink:#ececea;--muted:#a3a39e;--line:#33352f;--pass:#5bc58a;--fail:#ff8a80;--warn:#f2c14e;--pending:#9a9a9a}}
 :root[data-theme="dark"]{--bg:#121314;--card:#1b1c1e;--ink:#ececea;--muted:#a3a39e;--line:#33352f;--pass:#5bc58a;--fail:#ff8a80;--warn:#f2c14e;--pending:#9a9a9a}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
-header,section,nav{max-width:1400px;margin:0 auto;padding:16px}h1{font-size:28px;margin:8px 0}h2{font-size:21px;margin:24px 0 8px}h3{font-size:16px}h4{font-size:15px;margin:0 0 4px}h5{margin:8px 0 2px;font-size:14px}
+header,section,nav{max-width:1400px;margin:0 auto;padding:16px}.checks th,.checks td{white-space:nowrap}h1{font-size:28px;margin:8px 0}h2{font-size:21px;margin:24px 0 8px}h3{font-size:16px}h4{font-size:15px;margin:0 0 4px}h5{margin:8px 0 2px;font-size:14px}
 .meta,.hint{color:var(--muted);font-size:13px}.honest{background:var(--card);border:1px solid var(--line);border-radius:8px}
 nav{display:flex;flex-wrap:wrap;gap:12px}nav a{color:var(--ink)}
 .scroll{overflow-x:auto}table{border-collapse:collapse;font-size:13px}th,td{border:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}thead th span{color:var(--muted);font-weight:400}
@@ -92,7 +92,7 @@ td.pass{color:var(--pass);font-weight:600}td.fail{color:var(--fail);font-weight:
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:16px}.col{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;min-width:0}
 .prompt{font-style:normal;color:var(--muted)}.pair{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}.shots{margin:8px 0}figcaption{font-size:12px;color:var(--muted)}
 img.desk{width:min(100%,380px);height:auto;border:1px solid var(--line)}img.phone{width:120px;height:auto;border:1px solid var(--line)}.tall img.desk{width:220px}.tall img.phone{width:110px}
-.detail{width:100%;margin-top:8px}.detail th{width:30%;font-weight:500}.notes{font-size:12px;color:var(--muted);padding-left:18px;overflow-wrap:anywhere}.noshot{font-size:12px;color:var(--muted);padding:8px;border:1px dashed var(--line)}
+.detail{width:100%;margin-top:8px;table-layout:fixed;overflow-wrap:anywhere}.detail th{width:30%;font-weight:500}.notes{font-size:12px;color:var(--muted);padding-left:18px;overflow-wrap:anywhere}.noshot{font-size:12px;color:var(--muted);padding:8px;border:1px dashed var(--line)}
 .sw{display:inline-block;width:12px;height:12px;border:1px solid var(--line);vertical-align:middle;margin-right:2px}.ba{border-top:1px solid var(--line);margin-top:8px}
 </style></head><body>${header}${nav}${honesty}${findings}${versions ? `<section>${versions}</section>` : ""}${table}<section><h2>Distinct from each other (O3 fingerprints, palette and type)</h2>${novelty}</section>${cards}</body></html>`
 }

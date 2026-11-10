@@ -129,7 +129,7 @@ async function main() {
   const r = await runEval({ outDir: out, ...(scenarios ? { scenarios } : {}), ...(engines ? { engines } : {}), ...(liveOpts ? { live: liveOpts } : {}) })
   const counts = { pass: 0, warn: 0, fail: 0, pending: 0 } as Record<string, number>
   for (const x of r.results) for (const c of x.checks) counts[c.status] = (counts[c.status] ?? 0) + 1
-  console.log(`\n${r.results.length} sites, ${counts.pass} pass, ${counts.warn} warn, ${counts.fail} fail, ${counts.pending} not run, in ${Math.round((Date.now() - t0) / 1000)} s (wall clock, fake job clock aside).`)
+  console.log(`\n${r.results.length} sites, ${counts.pass} pass, ${counts.warn} warn, ${counts.fail} fail, ${counts.pending} not run, (${Math.round((Date.now() - t0) / 1000)} s on the jobs' clock, which the scripted runs move forward by each model call's time).`)
   for (const x of r.results) for (const c of x.checks) if (c.status === "fail") console.log(`  FAIL ${x.site.engine} ${x.site.scenario.id} ${c.id}: ${c.detail.slice(0, 300)}`)
   console.log(`Report: ${r.reportPath}`)
   if (r.serverErrors.length) console.log(`Server errors: ${JSON.stringify(r.serverErrors).slice(0, 600)}`)
