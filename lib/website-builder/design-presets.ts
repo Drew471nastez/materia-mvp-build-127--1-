@@ -230,7 +230,7 @@ export const DESIGN_PRESETS: readonly DesignPreset[] = [
         white: scheme("Chalk", { bg: "#ffffff", bg2: "#f1f1ef", text: "#2b2b2b", muted: "#5c5c5c", heading: "#0b0b0c", accent: "#c8102e", border: "#dededb", btn: "#c8102e", btnText: "#ffffff" }),
         light: scheme("Concrete", { bg: "#ececea", bg2: "#ffffff", text: "#2b2b2b", muted: "#555553", heading: "#0b0b0c", accent: "#b00e28", border: "#d2d2ce", btn: "#0b0b0c", btnText: "#ffffff" }),
         dark: scheme("Floodlight", { bg: "#0b0b0c", bg2: "#161618", text: "#d9d9d9", muted: "#a3a3a3", heading: "#ffffff", accent: "#ff5a4e", border: "#2c2c2f", btn: "#c8102e", btnText: "#ffffff", secText: "#ffffff" }),
-        black: scheme("Signal", { bg: "#c8102e", bg2: "#b00e28", text: "#ffffff", muted: "#ffe1e4", heading: "#ffffff", accent: "#ffffff", border: "#e04a5f", btn: "#ffffff", btnText: "#c8102e", secText: "#ffffff" }),
+        black: scheme("Signal", { bg: "#b00e28", bg2: "#9c0c23", text: "#ffffff", muted: "#ffe1e4", heading: "#ffffff", accent: "#ffffff", border: "#d8475b", btn: "#ffffff", btnText: "#9c0c23", secText: "#ffffff" }),
         highlight: scheme("Track", { bg: "#16161a", bg2: "#0b0b0c", text: "#e6e6e6", muted: "#ababab", heading: "#ffffff", accent: "#ffffff", border: "#33333a", btn: "#ffffff", btnText: "#0b0b0c", secText: "#ffffff" }),
       },
       default_color_scheme: "dark",
