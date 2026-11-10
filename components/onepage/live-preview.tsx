@@ -28,6 +28,10 @@ import { publicOnePageFromDraft, type PublicOnePageData } from "@/lib/onepage/pu
 import { ONEPAGE_PREVIEW_CHANNEL, ONEPAGE_PREVIEW_PATH, type PreviewMessage } from "@/lib/onepage/preview-channel"
 import { cn } from "@/lib/utils"
 import { notePreviewPick, PREVIEW_PICK_EVENT, validBlockId } from "@/lib/onepage/preview-select"
+import { Clock } from "lucide-react"
+import { tt } from "@/lib/i18n/text"
+import { isScheduledNow, scheduleLabel } from "@/lib/onepage/extra-blocks"
+import type { OnePageBlock } from "@/lib/onepage/types"
 import { createClient } from "@/lib/supabase/client"
 import { acceptAvatarRead, avatarReadToken, useShellAvatar } from "@/lib/account/avatar-store"
 import { useStoreCurrencyIfSet } from "@/lib/store/currency-context"
@@ -106,9 +110,65 @@ export function useOwnerProfile(ownerId: string | undefined) {
 function usePreviewPage(): PublicOnePageData | null {
   const { onepage } = useOnePage()
   const owner = useOwnerProfile(onepage?.owner_id)
+  /* Round AR: shaped again each minute while a block is scheduled, so it comes and goes on time here as it does live. */
+  const scheduled = !!onepage?.draft_blocks?.some((b) => !!b?.schedule)
+  const [minute, setMinute] = useState(0)
+  useEffect(() => {
+    if (!scheduled) return
+    const t = window.setInterval(() => setMinute((m) => m + 1), 60_000)
+    return () => window.clearInterval(t)
+  }, [scheduled])
   return useMemo(
     () => (onepage ? publicOnePageFromDraft(onepage as never, { displayName: owner.displayName, liveAvatarUrl: owner.avatarUrl }) : null),
-    [onepage, owner.displayName, owner.avatarUrl],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onepage, owner.displayName, owner.avatarUrl, minute],
+  )
+}
+
+/**
+ * ROUND AR: WHAT THE SCHEDULE HIDES RIGHT NOW. A block outside its show
+ * from / until window is left out of the preview exactly as it is left out
+ * of the live page (lib/onepage/public-shape), so the preview says so, on a
+ * small note over its foot: how many, and when the next one starts. Read
+ * again every minute, so a block whose time has come appears and the note
+ * goes without a reload.
+ */
+function useScheduledAway(): { count: number; next: string | null } {
+  const { onepage } = useOnePage()
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(t)
+  }, [])
+  return useMemo(() => {
+    const all: OnePageBlock[] = []
+    for (const b of (onepage?.draft_blocks ?? []) as OnePageBlock[]) {
+      all.push(b)
+      const kids = (b.data as { children?: OnePageBlock[] } | null)?.children
+      if (b.type === "group" && Array.isArray(kids)) all.push(...kids)
+    }
+    const away = all.filter((b) => b?.enabled !== false && b?.schedule && !isScheduledNow(b, now))
+    const soonest = away
+      .map((b) => ({ b, start: Date.parse(b.schedule?.start_at || "") }))
+      .filter((x) => !Number.isNaN(x.start) && x.start > now)
+      .sort((a, c) => a.start - c.start)[0]
+    return { count: away.length, next: soonest ? scheduleLabel(soonest.b, now)?.text ?? null : null }
+  }, [onepage?.draft_blocks, now])
+}
+
+function ScheduledNote() {
+  const { count, next } = useScheduledAway()
+  if (!count) return null
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-3" data-preview-scheduled={count}>
+      <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full bg-[#1a1a2e]/85 px-3 py-1.5 text-[11.5px] font-medium text-white shadow-[0_4px_14px_rgba(0,0,0,0.18)] backdrop-blur-sm">
+        <Clock aria-hidden className="h-3 w-3 shrink-0" />
+        <span className="truncate">
+          {tt("{count, plural, one {# scheduled block hidden now} other {# scheduled blocks hidden now}}", { count })}
+          {next ? ` · ${next}` : ""}
+        </span>
+      </span>
+    </div>
   )
 }
 
@@ -328,6 +388,7 @@ export function PhonePreview({ className, onDrawn }: { className?: string; onDra
       {side({ right: -2, top: 145, height: 55, borderRadius: "0 2px 2px 0" })}
       <div className="relative overflow-hidden" style={{ width: SCREEN_W, height: SCREEN_H, borderRadius: 34, background: pageColour(page), isolation: "isolate" }}>
         {shown && <LivePreviewFrame page={page} width={PREVIEW_PHONE_WIDTH} height={FRAME_H} scale={SCALE} onDrawn={onDrawn} pick={pick} />}
+        {shown ? <ScheduledNote /> : null}
       </div>
     </div>
   )
@@ -344,6 +405,7 @@ export function MobilePreviewContent({ onDrawn }: { onDrawn?: () => void }) {
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden" data-onepage-mobile-preview="" style={{ background: pageColour(page) }}>
       {shown && <LivePreviewFrame page={page} width="100%" height="100%" onDrawn={onDrawn} />}
+      {shown ? <ScheduledNote /> : null}
     </div>
   )
 }

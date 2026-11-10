@@ -252,7 +252,7 @@ export async function deliverSignup(db: Db, creatorId: string | null | undefined
 }
 
 /** The signup as the routes have it, into the shape that goes out. */
-export function pageSignup(input: { email: string; name?: string | null; form: string; magnet?: string | null; detail?: string | null; blockId?: string | null; onepageId?: string | null; pageUrl?: string | null; eventId?: string | null }): PageSignup {
+export function pageSignup(input: { email: string; name?: string | null; phone?: string | null; form: string; magnet?: string | null; detail?: string | null; blockId?: string | null; onepageId?: string | null; pageUrl?: string | null; eventId?: string | null }): PageSignup {
   let pageUrl: string | null = null
   try {
     pageUrl = input.pageUrl ? new URL(input.pageUrl).toString().slice(0, 500) : null
@@ -262,6 +262,7 @@ export function pageSignup(input: { email: string; name?: string | null; form: s
   return {
     email: input.email.trim().toLowerCase(),
     name: input.name ? String(input.name).slice(0, 80) : null,
+    ...(input.phone ? { phone: String(input.phone).slice(0, 20) } : {}),
     form: input.form,
     magnet: input.magnet ?? null,
     detail: input.detail ? String(input.detail).slice(0, 200) : null,

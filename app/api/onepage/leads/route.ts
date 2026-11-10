@@ -15,6 +15,16 @@ import { signupLooksAutomated, signupName } from "@/lib/onepage/creator-blocks"
 import { signupFileFor } from "@/lib/onepage/signup-file"
 import { deliverSignup, pageSignup } from "@/lib/onepage/integrations/deliver-server"
 import { readUserForRoute } from "@/lib/auth/route-user"
+import { checkSignupPhone, signupProductId } from "@/lib/onepage/signup-fields"
+import { findPageBlock, publishedBlocksOf } from "@/lib/onepage/page-block"
+import { grantSignupProduct } from "@/lib/onepage/signup-grant-server"
+
+/* The site's own address, for a product download link (as app/api/onepage/email-capture). */
+function siteBaseUrl(): string {
+  const raw = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "").trim()
+  if (!raw) return "https://storelib.com"
+  return (raw.startsWith("http://") || raw.startsWith("https://") ? raw : `https://${raw}`).replace(/\/+$/, "")
+}
 
 export const runtime = "nodejs"
 
@@ -126,7 +136,31 @@ export async function POST(request: Request) {
       ids to find them by.
     */
     const pageFile = signupFileFor((onepage as { published_blocks?: unknown }).published_blocks ?? (onepage as { draft_blocks?: unknown }).draft_blocks, block_id)
-    const fileUrl = pageFile.found ? pageFile.url : (enable_digital_product && typeof digital_product_file_url === "string" && /^https:\/\//i.test(digital_product_file_url) ? digital_product_file_url : null)
+    let fileUrl = pageFile.found ? pageFile.url : (enable_digital_product && typeof digital_product_file_url === "string" && /^https:\/\//i.test(digital_product_file_url) ? digital_product_file_url : null)
+
+    /*
+      ROUND AR: THE BLOCK'S OWN RULES, READ FROM THE PUBLISHED PAGE. A phone
+      number only when the block asks for one, valid, and required only when
+      the block says so (lib/onepage/signup-fields). And one of the creator's
+      own products in place of an upload, when the block gives one: a
+      download link to its files, checked to be theirs and on sale
+      (lib/onepage/signup-grant-server).
+    */
+    const blockData = (() => {
+      const found = findPageBlock(publishedBlocksOf(onepage as { published_blocks?: unknown; draft_blocks?: unknown }), block_id)
+      return found && found.block.type === "email_capture" ? ((found.block.data ?? {}) as Record<string, unknown>) : null
+    })()
+    const phoneCheck = checkSignupPhone(blockData, body?.phone)
+    if (phoneCheck.ok === false) {
+      return NextResponse.json({ error: phoneCheck.error === "phone_required" ? "Enter your phone number." : "Enter a valid phone number.", code: phoneCheck.error }, { status: 400 })
+    }
+    const phone = phoneCheck.phone
+    const giftProductId = signupProductId(blockData)
+    const giftOwner = onepage.seller_id || onepage.creator_id || null
+    if (giftProductId && giftOwner) {
+      const granted = await grantSignupProduct(adminSupabase, { productId: giftProductId, creatorId: giftOwner, onepageId: onepage.id, email: subscriberEmail, baseUrl: siteBaseUrl() })
+      if (granted) fileUrl = granted.link
+    }
     const hasDigitalProduct = !!fileUrl
 
     // Check for existing subscription
@@ -169,10 +203,11 @@ export async function POST(request: Request) {
       delivery_status: hasDigitalProduct ? "not_applicable" : "not_applicable",
       country_code: countryCode,
       country_name: countryName,
+      ...(phone ? { phone } : {}),
     }
     let { data: lead, error: insertError } = await insertLead(leadRow)
     if (insertError && (insertError.code === "PGRST204" || insertError.code === "42703")) {
-      const withoutCountry = Object.fromEntries(Object.entries(leadRow).filter(([k]) => k !== "country_code" && k !== "country_name"))
+      const withoutCountry = Object.fromEntries(Object.entries(leadRow).filter(([k]) => k !== "country_code" && k !== "country_name" && k !== "phone"))
       ;({ data: lead, error: insertError } = await insertLead(withoutCountry))
     }
 
@@ -202,9 +237,10 @@ export async function POST(request: Request) {
         .single()
 
       if (!existingSub) {
-        const { error: subscriberInsertError } = await adminSupabase.from("subscribers").insert({
+        const subscriberRow: Record<string, unknown> = {
           email: subscriberEmail,
           name: name || null,
+          ...(phone ? { phone } : {}),
           source: "onepage",
           source_id: onepage_id,
           creator_id: creatorId,
@@ -214,7 +250,13 @@ export async function POST(request: Request) {
           consent_text: "Subscribed via OnePage",
           consent_timestamp: new Date().toISOString(),
           unsubscribe_token: uuidv4(),
-        })
+        }
+        let { error: subscriberInsertError } = await adminSupabase.from("subscribers").insert(subscriberRow)
+        /* Before run-now part 411 there is no phone column: the subscriber is kept without it. */
+        if (subscriberInsertError && phone && (subscriberInsertError.code === "PGRST204" || subscriberInsertError.code === "42703")) {
+          delete subscriberRow.phone
+          ;({ error: subscriberInsertError } = await adminSupabase.from("subscribers").insert(subscriberRow))
+        }
         console.log("[leads] Added to subscribers")
 
         // Trigger new_subscriber email flows if insert was successful
@@ -277,7 +319,7 @@ export async function POST(request: Request) {
       subscriber list on their own sync (lib/integrations/marketing).
     */
     const toolsOwner = onepage.seller_id || onepage.creator_id || null
-    after(() => deliverSignup(adminSupabase, toolsOwner, pageSignup({ email: subscriberEmail, name, form: "signup", blockId: block_id, onepageId: onepage_id, pageUrl: request.headers.get("referer"), eventId: lead.id })))
+    after(() => deliverSignup(adminSupabase, toolsOwner, pageSignup({ email: subscriberEmail, name, phone, form: "signup", blockId: block_id, onepageId: onepage_id, pageUrl: request.headers.get("referer"), eventId: lead.id })))
 
     // No email sending - download happens directly on the page
     console.log("[leads] ========== REQUEST COMPLETE ==========")

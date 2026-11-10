@@ -56,7 +56,8 @@ export interface StorelibShelfBlockData {
   card_style?: "simple" | null
   source: ShelfSource
   title?: string | null
-  layout?: "carousel" | "list" | "grid"
+  /** Round AR: "featured", a community drawn as one large card with its cover, its line and Join. */
+  layout?: "carousel" | "list" | "grid" | "featured"
   /** A carousel's cards in view (round AL). Missing: the width each kind of card always had. */
   carousel_view?: "1" | "1.2" | "1.5" | "2" | null
   /** How many to show, 1 to 12. */
@@ -410,6 +411,12 @@ export interface PromoCodeBlockData {
   description?: string | null
   /** Where the code is used. */
   url?: string | null
+  /**
+   * Round AR: one of the store's own codes (Coupons). The live page's server
+   * reads the code from the coupon each time (lib/onepage/data-blocks-server),
+   * so a code that was changed, switched off, used up or ended is never shown.
+   */
+  coupon_id?: string | null
 }
 
 export function promoCode(raw: unknown): string | null {

@@ -70,6 +70,8 @@ import { CompactInstagramPost } from "@/components/onepage/compact-post"
 import { AppMark, INSTAGRAM_FILL, isMulticolorMark, markOn } from "@/components/onepage/brand-icons"
 import { APP_GLYPHS, RoundTile } from "@/components/onepage/block-icons"
 import type { OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
+import { DataEventView, DataFeedList, DataPollView, DataReviewsView, DataStatsView, DataTipsView, DataPaidView } from "@/components/onepage/data-blocks"
+import { tipModeOf } from "@/lib/onepage/tips"
 
 type Scale = "small" | "normal" | "live"
 
@@ -79,17 +81,19 @@ export interface AppBlockLook {
   /** The editor's preview: nothing is counted there. */
   preview?: boolean
   onepageId?: string | null
+  /** Round AR: the page's seller, for the editor's preview to ask for what the live page is given (app/api/onepage/blocks-live). */
+  sellerId?: string | null
   /** Inside a group or a carousel, where a button keeps still. */
   still?: boolean
 }
 
 /* i18n-ignore-start: CSS values and the stores' own names. */
-const MIX: Record<number, string> = Object.fromEntries([10, 12, 14, 16, 35].map((n) => [n, `color-mix(in srgb, currentColor ${n}%, transparent)`]))
+export const MIX: Record<number, string> = Object.fromEntries([10, 12, 14, 16, 35].map((n) => [n, `color-mix(in srgb, currentColor ${n}%, transparent)`]))
 const STORE_NAME = { ios: "App Store", android: "Google Play" } as const
 /* i18n-ignore-end */
 
 const k = (scale: Scale) => (scale === "small" ? 0.8 : 1)
-const px = (n: number, scale: Scale) => `${Math.round(n * k(scale) * 10) / 10}px`
+export const px = (n: number, scale: Scale) => `${Math.round(n * k(scale) * 10) / 10}px`
 
 /* ─── Names and words ─────────────────────────────────────────────────── */
 
@@ -116,6 +120,12 @@ export function appProviderName(id: AppProviderId): string {
       return tt("Stats")
     case "poll":
       return tt("Poll")
+    case "event":
+      return tt("Event")
+    case "paid":
+      return tt("Paid access")
+    case "reviews":
+      return tt("Reviews")
     case "contact":
       return tt("Contact details")
     case "email":
@@ -167,7 +177,10 @@ export function appDefaultButton(p: AppProvider): string {
     case "mobile_app":
       return tt("Get the app")
     case "events":
+    case "event":
       return tt("Tickets")
+    case "paid":
+      return tt("Get access")
     case "contact":
       return tt("Save contact")
     case "email":
@@ -180,7 +193,7 @@ export function appDefaultButton(p: AppProvider): string {
 /* ─── Counting a tap ──────────────────────────────────────────────────── */
 
 /** The page's own click count (as public-onepage trackClick), sent with keepalive so a link that leaves still counts. Nothing from the editor. */
-function useTrack(look: AppBlockLook) {
+export function useTrack(look: AppBlockLook) {
   const { onepageId, preview } = look
   return React.useCallback(
     (linkId: string, url: string) => {
@@ -298,7 +311,7 @@ export function AppEmbedView({ embed, href, title, radius, compact = false, fall
 
 /* ─── Pieces in the page's colours ───────────────────────────────────── */
 
-function useParts(look: AppBlockLook) {
+export function useParts(look: AppBlockLook) {
   const surface = React.useMemo(() => themeButtonStyle(look.theme), [look.theme])
   const radius = boxRadius(look.theme)
   const press = pressableProps(look.theme, look.still)
@@ -309,7 +322,7 @@ function useParts(look: AppBlockLook) {
   return { surface, radius, press, pad, ink, paper }
 }
 
-function CardButton({ label, look, onClick, href, wide = false }: { label: string; look: AppBlockLook; onClick?: (e: React.MouseEvent) => void; href?: string | null; wide?: boolean }) {
+export function CardButton({ label, look, onClick, href, wide = false }: { label: string; look: AppBlockLook; onClick?: (e: React.MouseEvent) => void; href?: string | null; wide?: boolean }) {
   const { ink, paper } = useParts(look)
   const cls = cn("inline-flex shrink-0 items-center justify-center rounded-full font-semibold", wide && "w-full")
   const style: React.CSSProperties = { background: ink, color: paper, fontSize: px(13, look.scale), padding: `${px(8, look.scale)} ${px(14, look.scale)}`, minHeight: px(36, look.scale) }
@@ -338,9 +351,17 @@ export function AppBlock({ block, look }: { block: OnePageBlock; look: AppBlockL
     case "events":
       return <EventsView block={block} data={data} provider={provider} look={look} />
     case "stats":
-      return <StatsView data={data} provider={provider} look={look} />
+      /* Round AR: counted up into view, from typed or tracked numbers (./data-blocks). */
+      return <DataStatsView block={block} data={data} look={look} />
     case "poll":
-      return <PollView block={block} data={data} look={look} />
+      /* Round AR: votes kept on the server, one each, with the totals after (./data-blocks). */
+      return <DataPollView block={block} data={data} look={look} />
+    case "event":
+      return <DataEventView block={block} data={data} look={look} />
+    case "paid":
+      return <DataPaidView block={block} data={data} look={look} />
+    case "review_wall":
+      return <DataReviewsView block={block} data={data} look={look} />
     case "contact":
       return <ContactView block={block} data={data} provider={provider} look={look} />
     case "app":
@@ -350,6 +371,15 @@ export function AppBlock({ block, look }: { block: OnePageBlock; look: AppBlockL
     case "note":
       return <NoteView block={block} data={data} look={look} />
     default:
+      /* Round AR: tips through Storelib checkout, and an RSS feed's latest posts under its card (./data-blocks). */
+      if (provider.id === "tips" && tipModeOf(data) === "storelib") return <DataTipsView block={block} data={data} look={look} />
+      if (provider.id === "rss")
+        return (
+          <>
+            <LinkView block={block} data={data} provider={provider} look={look} />
+            <DataFeedList block={block} data={data} look={look} />
+          </>
+        )
       return <LinkView block={block} data={data} provider={provider} look={look} />
   }
 }
@@ -724,10 +754,11 @@ function EventsView({ block, data, provider, look }: Omit<ViewProps, "provider">
               </span>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block truncate font-semibold" style={{ fontSize: px(15, look.scale) }}>{ev.title}</span>
-                {ev.venue ? (
+                {ev.venue || ev.time ? (
                   <span className="flex items-center gap-1 truncate opacity-75" style={{ fontSize: px(12.5, look.scale) }}>
-                    <MapPin aria-hidden className="shrink-0" style={{ width: px(12, look.scale), height: px(12, look.scale) }} />
-                    <span className="truncate">{ev.venue}</span>
+                    {ev.venue ? <MapPin aria-hidden className="shrink-0" style={{ width: px(12, look.scale), height: px(12, look.scale) }} /> : null}
+                    {/* Round AR: the time it starts, beside the place. */}
+                    <span className="truncate">{[ev.time && /^\d{1,2}:\d{2}$/.test(ev.time) ? ev.time : null, ev.venue].filter(Boolean).join(" · ")}</span>
                   </span>
                 ) : null}
               </span>
@@ -744,98 +775,7 @@ function EventsView({ block, data, provider, look }: Omit<ViewProps, "provider">
   )
 }
 
-/* ─── Stats ───────────────────────────────────────────────────────────── */
-
-function StatsView({ data, look }: Omit<ViewProps, "block">) {
-  const parts = useParts(look)
-  const stats = appItems(data)
-  const layout = appLayoutOf(data)
-  if (!stats.length) return null
-  const tile = (s: AppItem, big = false) => (
-    <div key={s.id} data-app-stat={s.id} className="flex flex-col items-center justify-center text-center" style={{ ...parts.surface, borderRadius: parts.radius, padding: `${px(big ? 22 : 14, look.scale)} ${px(10, look.scale)}` }}>
-      <span className="font-bold tabular-nums tracking-[-0.02em]" style={{ fontSize: px(big ? 40 : 26, look.scale), lineHeight: 1.05 }}>{s.value}</span>
-      <span className="mt-1 opacity-75" style={{ fontSize: px(12.5, look.scale) }}>{s.title}</span>
-    </div>
-  )
-  return (
-    <div data-onepage-app="stats" data-app-layout={layout} className="w-full">
-      {data.title?.trim() ? <p className="mb-2 text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">{data.title}</p> : null}
-      {layout === "single" ? (
-        tile(stats[0], true)
-      ) : layout === "carousel" ? (
-        <div className="-mx-1 flex snap-x snap-mandatory overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ gap: px(10, look.scale) }}>
-          {stats.map((s) => (
-            <div key={s.id} className="w-[42%] shrink-0 snap-start">{tile(s)}</div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2" style={{ gap: px(10, look.scale) }}>{stats.map((s) => tile(s))}</div>
-      )}
-    </div>
-  )
-}
-
-/* ─── A poll ──────────────────────────────────────────────────────────── */
-
-const pollKey = (blockId: string) => `storelib:onepage:poll:${blockId}`
-
-/**
- * A QUESTION AND TWO TO SIX ANSWERS. A vote is counted as a tap on that
- * answer (`<block>__vote-<answer>`), so the creator reads the answers in
- * the block's figures, and this browser remembers it voted. Visitors are not
- * shown a running total: that needs a table of votes the page does not have.
- */
-function PollView({ block, data, look }: Omit<ViewProps, "provider">) {
-  const track = useTrack(look)
-  const parts = useParts(look)
-  const options = pollOptions(data)
-  const [voted, setVoted] = React.useState<string | null>(null)
-  React.useEffect(() => {
-    try {
-      setVoted(window.localStorage.getItem(pollKey(block.id)))
-    } catch {
-      /* Private window: the poll asks again, nothing else changes. */
-    }
-  }, [block.id])
-  if (!data.poll_question?.trim() || options.length < 2) return null
-  const vote = (id: string) => {
-    if (voted) return
-    setVoted(id)
-    track(socialLinkId(block.id, `vote-${id}`), "#poll")
-    try {
-      window.localStorage.setItem(pollKey(block.id), id)
-    } catch {
-      /* Remembered for this visit only. */
-    }
-  }
-  return (
-    <div data-onepage-app="poll" data-app-layout="card" className="w-full text-left" style={{ ...parts.surface, borderRadius: parts.radius, padding: px(14, look.scale) }}>
-      <p className="font-semibold" style={{ fontSize: px(15.5, look.scale) }} data-block-title="">{data.poll_question}</p>
-      <div role="radiogroup" aria-label={data.poll_question} className="mt-3 flex flex-col" style={{ gap: px(8, look.scale) }}>
-        {options.map((o) => {
-          const on = voted === o.id
-          return (
-            <button
-              key={o.id}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              disabled={!!voted}
-              onClick={() => vote(o.id)}
-              data-poll-option={o.id}
-              className={cn("flex w-full items-center justify-between rounded-full border text-left font-medium transition-[background-color,opacity] duration-150 disabled:cursor-default", voted && !on && "opacity-60")}
-              style={{ borderColor: MIX[35], background: on ? MIX[16] : "transparent", padding: `${px(10, look.scale)} ${px(14, look.scale)}`, fontSize: px(14, look.scale) }}
-            >
-              <span className="truncate">{o.label}</span>
-              {on ? <Check aria-hidden className="shrink-0" style={{ width: px(16, look.scale), height: px(16, look.scale) }} /> : null}
-            </button>
-          )
-        })}
-      </div>
-      {voted ? <p className="mt-2.5 opacity-75" style={{ fontSize: px(12.5, look.scale) }} data-poll-thanks="">{tt("Thanks for voting")}</p> : null}
-    </div>
-  )
-}
+/* Round AR: Stats and the poll are drawn by ./data-blocks (DataStatsView, DataPollView). */
 
 /* ─── Contact details ─────────────────────────────────────────────────── */
 
@@ -1094,7 +1034,15 @@ export function appBlockRow(block: OnePageBlock): { title: string; subtitle: str
       return { title: data.title?.trim() || name, subtitle: appEmail(data.email) || tt("Add an email address"), icon }
     case "note":
       return { title: data.title?.trim() || data.text?.trim().slice(0, 40) || name, subtitle: name, icon }
+    /* Round AR */
+    case "event":
+      return { title: data.title?.trim() || name, subtitle: data.event_start ? name : tt("Add the date"), icon }
+    case "paid":
+      return { title: data.title?.trim() || name, subtitle: data.paid_product_id ? name : tt("Choose the product that opens it"), icon }
+    case "review_wall":
+      return { title: data.title?.trim() || name, subtitle: name, icon }
     default:
+      if (provider.id === "tips" && tipModeOf(data) === "storelib") return { title: data.title?.trim() || name, subtitle: tt("Through Storelib checkout"), icon }
       return { title: data.title?.trim() || target?.handle || name, subtitle: target ? name : tt("Add your {name} address", { name }), icon }
   }
 }

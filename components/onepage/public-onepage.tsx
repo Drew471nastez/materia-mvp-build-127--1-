@@ -87,6 +87,7 @@ import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notic
 import { useMouseDragRows, useMouseDragScroll } from "@/components/onepage/drag-scroll"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 import { EmailSignupView, type EmailSignupFormOptions } from "@/components/onepage/email-signup"
+import { checkSignupPhone, signupExtraFields } from "@/lib/onepage/signup-fields"
 import { OnePageLegalLinks } from "@/components/onepage/onepage-legal-links"
 import { OnePageSubscribeSheet } from "@/components/onepage/subscribe-sheet"
 import { OnePageShareSheet } from "@/components/onepage/share-sheet"
@@ -2623,6 +2624,9 @@ function CoreBlockRenderer({
   /* The email signup's first name (when the block asks), its hidden field and when it came on screen: the same spam checks as a website's forms (lib/site-contact looksAutomated). */
   const [leadName, setLeadName] = useState("")
   const [leadTrap, setLeadTrap] = useState("")
+  /* Round AR: the phone number, when the block asks for one, and what the server said was wrong with a signup. */
+  const [leadPhone, setLeadPhone] = useState("")
+  const [leadError, setLeadError] = useState<string | null>(null)
   const leadShownAt = useRef(0)
   useEffect(() => {
     leadShownAt.current = Date.now()
@@ -2682,6 +2686,14 @@ function CoreBlockRenderer({
     keepalive, so a link that leaves the page does not cancel its own count.
   */
   const trackClick = async (blockId: string, url: string) => {
+    /*
+      Round AR: never from the editor's preview. The page's own listener
+      (./block-activity) already stood down there, but a link, a product or
+      a document counted itself here with the page's real id, and the
+      creator's own taps while editing reached the page's figures whenever
+      Analytics could not tell it was them.
+    */
+    if (inGroupPreview || isOnePagePreview()) return
     noteTracked()
     try {
       await fetch("/api/onepage/track", {
@@ -4193,6 +4205,13 @@ function CoreBlockRenderer({
           return
         }
 
+        /* Round AR: a phone the block asks for is checked here first, with the server's own rule (lib/onepage/signup-fields). */
+        const phoneCheck = checkSignupPhone(data, leadPhone)
+        if (phoneCheck.ok === false) {
+          setLeadError(phoneCheck.error === "phone_required" ? tt("Enter your phone number.") : tt("Enter a valid phone number."))
+          return
+        }
+        setLeadError(null)
         setIsSubmitting(true)
 
         try {
@@ -4203,6 +4222,7 @@ function CoreBlockRenderer({
               onepage_id: onepageId,
               email,
               name: data.ask_name ? leadName.trim() || undefined : undefined,
+              phone: data.ask_phone ? leadPhone.trim() || undefined : undefined,
               company: leadTrap,
               elapsed: Date.now() - leadShownAt.current,
               block_id: block.id,
@@ -4221,18 +4241,23 @@ function CoreBlockRenderer({
             pixelLead(window, { form: "signup", eventId: typeof result?.lead_id === "string" ? result.lead_id : null })
             // Record the subscription attempt for rate limiting
             recordSubscriptionAttempt()
-            // Store the download link directly from data if digital product is enabled
-            if (data.enable_digital_product && data.digital_product_file_url) {
-              setDownloadLink(data.digital_product_file_url)
-            }
+            /* The server's link: the block's own upload, or a link to the product the block gives (round AR), read from the published page. */
+            const given = typeof result?.downloadLink === "string" && result.downloadLink ? result.downloadLink : data.enable_digital_product && data.digital_product_file_url ? data.digital_product_file_url : null
+            if (given) setDownloadLink(given)
             // Save subscription state to localStorage for persistence
             const storageKey = `onepage_subscribed_${onepageId}_${block.id}`
-            localStorage.setItem(storageKey, JSON.stringify({
-              subscribed: true,
-              email: email,
-              downloadLink: data.enable_digital_product ? data.digital_product_file_url : null,
-              timestamp: Date.now()
-            }))
+            try {
+              localStorage.setItem(storageKey, JSON.stringify({
+                subscribed: true,
+                email: email,
+                downloadLink: given,
+                timestamp: Date.now()
+              }))
+            } catch {
+              /* A private window: the page still says it worked. */
+            }
+          } else {
+            setLeadError(typeof result?.error === "string" && result.error ? result.error : tt("That did not go through. Try again."))
           }
         } catch (error) {
           console.error("Submit error:", error)
@@ -4280,24 +4305,81 @@ function CoreBlockRenderer({
         email box and its button stay one row. The name goes on the
         subscriber (Emails › Subscribers) and into the welcome automation.
       */
-      const emailExtras = (
+      /*
+        ROUND AR: EACH EXTRA FIELD IN THE FORM'S OWN SHAPE. The name was one
+        white box whatever the layout, so on Connect's pill, Letter's line and
+        Bold's filled card it looked pasted on. Each field (first name, phone)
+        is now drawn the way the email box of that layout is: a white pill on
+        Connect, a line in the text colour on Letter, a white box with the
+        button's corners elsewhere, a hairline on Simple. 16px type, so a
+        phone never zooms into it.
+      */
+      const extraField = (kind: "name" | "phone", options: EmailSignupFormOptions) => {
+        const pageInk = theme.text_color || "#111113"
+        const name = kind === "name"
+        const common = {
+          value: name ? leadName : leadPhone,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+            if (name) setLeadName(e.target.value)
+            else setLeadPhone(e.target.value)
+            if (leadError) setLeadError(null)
+          },
+          placeholder: name ? tt("First name") : data.phone_required ? tt("Phone number") : tt("Phone number (optional)"),
+          "aria-label": name ? tt("First name") : tt("Phone number"),
+          autoComplete: name ? "given-name" : "tel",
+          type: name ? "text" : "tel",
+          inputMode: name ? undefined : ("tel" as const),
+          maxLength: name ? 80 : 24,
+          required: !name && data.phone_required === true,
+          disabled: isSubmitting,
+          "data-email-name": name ? "" : undefined,
+          "data-email-phone": name ? undefined : "",
+          "data-email-field": options.shape ?? (options.inverted ? "inverted" : options.outlined ? "outlined" : "box"),
+        }
+        if (options.shape === "pill") {
+          return (
+            <input
+              key={kind}
+              {...common}
+              className="mb-2 h-[52px] w-full rounded-full bg-white px-4 text-[16px] text-[#111113] outline-none transition-shadow duration-150 placeholder:text-[#8b8f98] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.14)] disabled:opacity-70 sm:text-[15px]"
+              style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${pageInk} 14%, transparent), 0 1px 2px rgba(16,24,40,0.05)` }}
+            />
+          )
+        }
+        if (options.shape === "line") {
+          return (
+            <input
+              key={kind}
+              {...common}
+              className="mb-1 h-12 w-full border-b-[1.5px] bg-transparent text-[16px] outline-none transition-[border-color] duration-150 placeholder:opacity-55 disabled:opacity-70 sm:text-[15px]"
+              style={{ color: pageInk, borderColor: `color-mix(in srgb, ${pageInk} 28%, transparent)` }}
+            />
+          )
+        }
+        return (
+          <input
+            key={kind}
+            {...common}
+            className={cn("mb-2 min-h-[46px] w-full border-0 bg-white/90 px-3 py-3 text-[16px] outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 sm:px-4 sm:text-sm", options.inverted && "ring-1 ring-black/10")}
+            style={{
+              color: "#000",
+              borderRadius: emailButtonStyles.borderRadius,
+              backgroundColor: options.inverted ? "#fff" : undefined,
+              boxShadow: options.outlined ? `inset 0 0 0 1px color-mix(in srgb, ${pageInk} 18%, transparent)` : undefined,
+            }}
+          />
+        )
+      }
+      /*
+        ASKED FOR A FIRST NAME OR A PHONE, AND THE HIDDEN FIELD. Above the
+        form, so the email box and its button stay one row. The name and the
+        phone go on the subscriber (Emails › Subscribers) and to the
+        connected tools; the name into the welcome automation.
+      */
+      const emailExtras = (options: EmailSignupFormOptions) => (
         <>
           <input type="text" name="company" tabIndex={-1} autoComplete="off" aria-hidden value={leadTrap} onChange={(e) => setLeadTrap(e.target.value)} className="absolute -left-[9999px] h-px w-px opacity-0" />
-          {data.ask_name && !emailSubmitted ? (
-            <input
-              type="text"
-              value={leadName}
-              onChange={(e) => setLeadName(e.target.value)}
-              placeholder={tt("First name")}
-              aria-label={tt("First name")}
-              autoComplete="given-name"
-              maxLength={80}
-              disabled={isSubmitting}
-              data-email-name=""
-              className="mb-2 w-full border-0 bg-white/90 px-3 py-3 text-[16px] outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 sm:px-4 sm:text-sm"
-              style={{ color: "#000", borderRadius: emailButtonStyles.borderRadius }}
-            />
-          ) : null}
+          {!emailSubmitted ? signupExtraFields(data).map((kind) => extraField(kind, options)) : null}
         </>
       )
       /* After they join: the link the creator chose (a guide, a private video, a group), as the page's own button. */
@@ -4424,7 +4506,7 @@ function CoreBlockRenderer({
                 aria-label={tt("Email")}
                 required
                 disabled={isSubmitting}
-                className={cn("px-3 sm:px-4 py-3 text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70", stacked ? "w-full" : "flex-1 min-w-0", inverted && "ring-1 ring-black/10")}
+                className={cn("min-h-[46px] px-3 sm:px-4 py-3 text-[16px] sm:text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70", stacked ? "w-full" : "flex-1 min-w-0", inverted && "ring-1 ring-black/10")}
                 style={{ color: "#000", borderRadius: emailButtonStyles.borderRadius, backgroundColor: inverted ? "#fff" : undefined, boxShadow: outlined ? `inset 0 0 0 1px color-mix(in srgb, ${theme.text_color || "#111113"} 18%, transparent)` : undefined }}
               />
               {emailSubmitted && downloadLink ? (
@@ -4443,8 +4525,13 @@ function CoreBlockRenderer({
       /* Every shape (row, stacked, Connect's pill, Letter's line) gets the name field and the hidden field from here, once. */
       const renderEmailForm = (options: EmailSignupFormOptions) => (
         <>
-          {emailExtras}
+          {emailExtras(options)}
           {renderEmailFields(options)}
+          {leadError ? (
+            <p role="alert" data-email-error="" className="mt-2 text-[13px] font-medium" style={{ color: options.inverted ? options.inverted.fill : theme.text_color || "#111113" }}>
+              {leadError}
+            </p>
+          ) : null}
         </>
       )
 
