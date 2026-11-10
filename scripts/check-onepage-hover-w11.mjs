@@ -202,6 +202,8 @@ const BOXES = (n) => {
     const r = el.getBoundingClientRect()
     if (r.width > 8 && r.height > 8) boxes.push({ what, left: r.left, top: r.top, width: r.width, height: r.height })
   }
+  /* A block given its own surface by the creator (Design › block › Layout) wears the colour they chose, the page's own included. */
+  if (root.closest("[data-block-bg]")) return boxes
   if (root.matches(".op-btn:not([data-visual-link-action]), button[type=submit]")) add(root, "button")
   for (const cta of root.querySelectorAll("[data-product-cta]")) add(cta, "product button")
   return boxes
@@ -474,10 +476,13 @@ async function auditPage({ path, width, label, states }, browser) {
     const th0 = Date.now()
     const timeline = [restColours]
     await page.mouse.move(box.x, box.y)
-    for (let i = 0; i < 20; i++) {
-      await sleep(25)
-      timeline.push(await page.evaluate(COLOURS, c.n))
-    }
+    /* The colour timeline on the full walk; the layout and design walks look at where the hover settles. */
+    if (states.focus)
+      for (let i = 0; i < 20; i++) {
+        await sleep(25)
+        timeline.push(await page.evaluate(COLOURS, c.n))
+      }
+    else await sleep(450)
     await sleep(150)
     timeline.push(await page.evaluate(COLOURS, c.n), await page.evaluate(COLOURS, c.n), await page.evaluate(COLOURS, c.n))
     if (process.env.TIMING) console.log("hover timeline", Date.now() - th0)
@@ -486,6 +491,7 @@ async function auditPage({ path, width, label, states }, browser) {
     const hover = await shoot(page, c.n, hoverWords, hoverBoxes)
     if (hover) {
       for (const b of hover.bad) pageFails.push(`${where} on hover: "${b.words}" ${b.ratio}:1 < ${b.min} (${b.color})`)
+      if (process.env.DEBUG && hover.bad.length) console.log(await page.evaluate((n) => [...document.querySelector(`[data-hv="${n}"]`).querySelectorAll("[style], [data-op-legible]")].map((e) => `${e.tagName} ${e.getAttribute("data-op-legible") || ""} ${(e.getAttribute("style") || "").replace(/.*?(color|--op-fill)/, "$1").slice(0, 160)}`).join("\n"), c.n))
       for (const e of hover.edges) if (e.edge < 1.15) pageFails.push(`${where} on hover: the ${e.what}'s edge does not show (${e.edge}:1)`)
     }
     const held = plateaus(timeline)
@@ -500,10 +506,11 @@ async function auditPage({ path, width, label, states }, browser) {
     calm = await calmSpot(page)
     await page.mouse.move(calm.x, calm.y)
     const after = [timeline[timeline.length - 1]]
-    for (let i = 0; i < 12; i++) {
-      await sleep(25)
-      after.push(await page.evaluate(COLOURS, c.n))
-    }
+    if (states.focus)
+      for (let i = 0; i < 12; i++) {
+        await sleep(25)
+        after.push(await page.evaluate(COLOURS, c.n))
+      }
     await sleep(300)
     const back = await page.evaluate(COLOURS, c.n)
     after.push(back, back, back)

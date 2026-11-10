@@ -139,8 +139,8 @@ console.log("\n3. Skins say their hover as the pair, never as a colour of their 
 console.log("\n4. Words over a picture keep their own colour (the owner's 20)")
 {
   const card = code("components/onepage/block-presentation.tsx")
-  check("a picture card's words carry their colour and say they are on a photo", /data-on-photo=\{overImage && !native \? "" : undefined\}/.test(card) && /\.\.\.\(overImage\?\{color:colors\.color\}:\{\}\)/.test(card))
-  check("a picture card does not fill on hover (the fill is under the picture and its shade)", /data-hover=\{overImage && !native \? "none" : buttonHover\(theme,true\)\}/.test(card))
+  check("a picture card's words carry their colour and say they are on a photo", /data-on-photo=\{overImage && !native && !bare \? "" : undefined\}/.test(card) && /\.\.\.\(overImage && !bare\?\{color:colors\.color\}:\{\}\)/.test(card))
+  check("a picture card does not fill on hover (the fill is under the picture and its shade)", /data-hover=\{overImage && !native && !bare \? "none" : buttonHover\(theme,true\)\}/.test(card))
   check("a product's Overlay words say they are on a photo", /<span className="min-w-0 flex-1" data-on-photo="">/.test(code("components/onepage/product-block.tsx")))
   const shared = read("scripts/onepage-skins/shared.mjs")
   check("a skin's surface ink never reaches words on a photo", /INLINE_INK = `[^`]*\$\{ON_PHOTO\}, \$\{ON_PHOTO\} \*\)`/.test(shared))

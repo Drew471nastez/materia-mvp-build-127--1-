@@ -116,6 +116,9 @@ if (template) {
   const hero = (template as { profile_layout?: string }).profile_layout === "hero" || config.header_layout === "hero"
   onepage = lookFromTemplate(onepage, template as never, hero ? "hero" : (template as { profile_layout?: string }).profile_layout === "classic" ? "classic" : undefined, null)
 }
+/* A block's own look set after the theme (picking a theme clears blocks' own colours, so it is laid on again here, as the creator would). */
+const OWN_STYLE = Object.fromEntries(blocks.filter((b) => (b as { style?: unknown }).style).map((b) => [b.id, (b as { style?: unknown }).style]))
+onepage = { ...onepage, draft_blocks: (onepage.draft_blocks as OnePageBlock[]).map((b) => (OWN_STYLE[b.id] ? ({ ...b, style: { ...((b as { style?: object }).style || {}), ...(OWN_STYLE[b.id] as object) } } as OnePageBlock) : b)) } as OnePage
 const setting = params.get("s")
 for (const u of (setting && SETTINGS[setting]) || []) onepage = { ...onepage, theme: { ...onepage.theme, ...withSkinOwn(onepage.theme as never, u) } as never }
 if (params.get("guard") === "0") (globalThis as any).__ONEPAGE_LEGIBLE_OFF = true

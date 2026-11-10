@@ -1272,7 +1272,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           </div>
         )}
         {/* Footer links: Privacy, Terms and Cookies open in a sheet over the page (components/onepage/onepage-legal-links). */}
-        <OnePageLegalLinks dark={isDarkBackground} color={isDarkBackground ? "#9ca3af" : "#1f2937"} />
+        {/* Wave 11: in the page's own words colour (made to read on its background, a photo's included), not a grey guessed from the background colour alone (Haze's links were pale grey on its pale photo). */}
+        <OnePageLegalLinks dark={isDarkBackground} color={/^#[0-9a-f]{6}$/i.test(String(safeTheme.text_color || "")) ? safeTheme.text_color : isDarkBackground ? "#9ca3af" : "#1f2937"} />
       </div>
     </div>
   )

@@ -2793,7 +2793,8 @@ html.capacitor .subscribe-bar-spacer {
    OnePage hover: buttons, cards and media each answer a pointer their own way
    ===========================================================================
    .op-btn  a link button. Its hover is the page's choice (data-hover):
-            lift (the default: up 2px, a shadow, a slight tint), fade, zoom,
+            lift (the default: up 2px and a shadow; wave 11 took its tint
+            away, which only ever made the words read less), fade, zoom,
             glow, fill, underline or none.
    .op-card a block that is a card (a featured link with a picture): a quiet
             ring, no movement.
@@ -2821,7 +2822,8 @@ html.capacitor .subscribe-bar-spacer {
 .op-btn {
   position: relative;
   isolation: isolate;
-  transition-property: translate, scale, opacity, color;
+  /* Wave 11: the words switch in one step (rest, then hover); only the fill fades. A fading colour let a word pass through a third colour, and the guard measure it there. */
+  transition-property: translate, scale, opacity;
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
@@ -2846,7 +2848,8 @@ html.capacitor .subscribe-bar-spacer {
 .op-btn:not(.animate-onepage-swipe)::after {
   content: "";
   position: absolute;
-  inset: calc(var(--op-bw, 0px) * -1);
+  /* Wave 11: the fill stays inside the border, so a hover never takes a button's edge away (an outline on a page of its fill's colour). */
+  inset: 0;
   border-radius: inherit;
   pointer-events: none;
   z-index: -1;
@@ -2913,7 +2916,6 @@ html.capacitor .subscribe-bar-spacer {
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"] { translate: 0 -2px; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"][data-shadow="hard"] { translate: -2px -2px; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"]::before { opacity: 1; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"]:not(.animate-onepage-swipe)::after { opacity: 0.05; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fade"] { opacity: 0.8; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="zoom"] { scale: 1.03; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="glow"]::before { opacity: 1; }

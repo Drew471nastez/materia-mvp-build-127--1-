@@ -352,12 +352,12 @@ function restingOpacity(node: Element, cs: CSSStyleDeclaration): number {
  * blur and the page's pattern under them change what shows), or words straight on the page, where a pattern, a grain
  * or a drifting gradient is drawn beside the page's box rather than under it in the tree.
  */
-export type GroundRead = { grounds: Rgba[]; photo: boolean; opacity: number; sheened: Rgba[] | null; owner: Element | null; uncertain: boolean }
+export type GroundRead = { grounds: Rgba[]; photo: boolean; opacity: number; sheened: Rgba[] | null; owner: Element | null; uncertain: boolean; frosted?: boolean }
 
 /** One painted layer of a box, top first: the colours it may show, or a picture. */
 type Stops = { axis: "x" | "y"; from: number; length: number; stops: { c: Rgba; at: number }[] }
 type Entry = { colors: Rgba[]; sheen?: boolean; stops?: Stops } | { photo: true }
-export type GroundCache = Map<Element, { entries: Entry[]; opacity: number; clipText: boolean }>
+export type GroundCache = Map<Element, { entries: Entry[]; opacity: number; clipText: boolean; frosted?: boolean }>
 
 function entriesOf(node: Element, cache: GroundCache) {
   let info = cache.get(node)
@@ -388,7 +388,9 @@ function entriesOf(node: Element, cache: GroundCache) {
   }
   const bg = parseColor(cs.backgroundColor)
   if (bg && bg.a > 0 && !clipText) entries.push({ colors: [bg] })
-  info = { entries, opacity: restingOpacity(node, cs), clipText }
+  const bf = (cs as unknown as Record<string, string>).backdropFilter || (cs as unknown as Record<string, string>).webkitBackdropFilter || "none"
+  /* A highlighted link's moving shine (.animate-onepage-swipe) passes a light band under its words: a ground that changes, so a guess too. */
+  info = { entries, opacity: restingOpacity(node, cs), clipText, frosted: (bf !== "none" && bf !== "") || node.classList.contains("animate-onepage-swipe") }
   cache.set(node, info)
   return info
 }
@@ -471,8 +473,8 @@ function colorsBetween(st: Stops, a: number, b: number): Rgba[] {
 }
 
 /** A stack of layers (top first) composited bottom up, over white when nothing was opaque (the document's own ground). */
-function composite(stack: Rgba[][]): Rgba[] {
-  let grounds: Rgba[] = [{ r: 255, g: 255, b: 255, a: 1 }]
+function composite(stack: Rgba[][], base: Rgba[] = [{ r: 255, g: 255, b: 255, a: 1 }]): Rgba[] {
+  let grounds: Rgba[] = base
   for (let i = stack.length - 1; i >= 0; i--) {
     const next: Rgba[] = []
     for (const top of stack[i]) for (const under of grounds) next.push(over(top, under))
@@ -527,6 +529,8 @@ export function groundUnder(el: Element, cache: GroundCache = new Map()): Ground
   let done = false
   let owner: Element | null = null
   let child: Element | null = null
+  let frosted = false
+  let realFrost = false
   for (let node: Element | null = el; node && !done; child = node, node = node.parentElement) {
     owner = node
     /*
@@ -550,6 +554,7 @@ export function groundUnder(el: Element, cache: GroundCache = new Map()): Ground
         }
         const colors = e.stops ? (e.stops.axis === "y" ? colorsBetween(e.stops, r.top - e.stops.from, r.bottom - e.stops.from) : colorsBetween(e.stops, r.left - e.stops.from, r.right - e.stops.from)) : e.colors
         full.push(colors)
+        if (!e.stops && e.colors.length > 1) frosted = true
         if (!e.sheen) stack.push(colors)
         if (colors.every((c) => c.a >= 0.999)) {
           done = true
@@ -559,6 +564,8 @@ export function groundUnder(el: Element, cache: GroundCache = new Map()): Ground
     }
     if (done) break
     const info = entriesOf(node, cache)
+    /* Frosted glass (backdrop-filter) shows a blur of whatever is behind it, not the colours in the tree: a guess. */
+    if (info.frosted) frosted = realFrost = true
     for (const e of info.entries) {
       if ("photo" in e) {
         photo = true
@@ -567,6 +574,8 @@ export function groundUnder(el: Element, cache: GroundCache = new Map()): Ground
       }
       const colors = e.stops ? (e.stops.axis === "y" ? colorsBetween(e.stops, r.top - e.stops.from, r.bottom - e.stops.from) : colorsBetween(e.stops, r.left - e.stops.from, r.right - e.stops.from)) : e.colors
       full.push(colors)
+      /* An angled gradient is measured by its colours, not where they fall under the words: a guess. */
+      if (!e.stops && e.colors.length > 1) frosted = true
       if (!e.sheen) stack.push(colors)
       if (colors.every((c) => c.a >= 0.999)) {
         done = true
@@ -575,10 +584,18 @@ export function groundUnder(el: Element, cache: GroundCache = new Map()): Ground
     }
     if (!done && node !== el) opacity *= info.opacity
   }
-  const grounds = composite(stack)
+  /*
+    Wave 11: a photo under a veil that all but covers it (a card of 90% white over the page's photo, Nature's) is not
+    a photo to the words: they sit on the veil over ANY picture, so they are measured over the darkest and the
+    lightest a picture can be, and kept readable on both.
+  */
+  const veil = 1 - stack.reduce((left, layer) => left * (1 - Math.min(...layer.map((c) => c.a))), 1)
+  const veiled = photo && stack.length > 0 && veil >= 0.8
+  if (veiled) photo = false
+  const grounds = veiled ? composite(stack, [{ r: 0, g: 0, b: 0, a: 1 }, { r: 255, g: 255, b: 255, a: 1 }]) : composite(stack)
   const seeThrough = stack.filter((l) => l.some((c) => c.a < 0.999)).length
   const onPage = !!owner && owner.matches(".onepage-live, [data-onepage-drag-scope], [data-op-skin]")
-  return { grounds, photo, opacity, sheened: full.length !== stack.length ? composite(full) : null, owner, uncertain: seeThrough >= 2 || onPage }
+  return { grounds, photo, opacity, sheened: full.length !== stack.length ? composite(full) : null, owner, uncertain: seeThrough >= 2 || onPage || frosted, frosted: realFrost }
 }
 
 export type LegibleFinding = {
@@ -690,7 +707,7 @@ export function findIllegible(root: ParentNode): LegibleFinding[] {
       else if (kind === "text" && onScene && !haloOf(cs.textShadow) && min - 1 > MIN_CONTRAST - 0.01) {
         /* Small words straight on a skin's scene (grain, dots): a soft outline in the page's own colour lifts them off it. */
         out.push({ el, kind: "halo", text: words, color: toHex(c), ground: toHex(ground.grounds[0]), ratio: Math.round(ratio * 100) / 100, min, halo: toHex(ground.grounds[0]) })
-      } else if (kind === "text" && ground.uncertain && ratio + 0.01 < min + NUDGE_MARGIN && !haloOf(cs.textShadow)) {
+      } else if (kind === "text" && ground.uncertain && ratio + 0.01 < min + (ground.frosted ? 3 : NUDGE_MARGIN) && !haloOf(cs.textShadow)) {
         /* Reads, but on a ground that is a guess (glass on glass, the page's own pattern): a soft outline of the other tone, rather than a new colour. */
         out.push({ el, kind: "halo", text: words, color: toHex(c), ground: toHex(ground.grounds[0]), ratio: Math.round(ratio * 100) / 100, min })
       } else if (kind === "text" && ground.sheened) {
@@ -716,6 +733,8 @@ const NUDGED = "data-op-legible"
 const PLACEHOLDER_VAR = "--op-legible-ph"
 /* The words a Fill or Pop hover puts on its fill (lib/onepage/button-style buttonHoverVars, app/globals.css .op-btn). */
 const FILL_TEXT = "--op-fill-text"
+/* The hover's fill itself, moved (its hue kept) only when no words could read on it. */
+const FILL = "--op-fill"
 /**
  * A colour the guard sets on words: what a hovered Fill or Pop button defines as --op-hover-ink (its fill's words)
  * while it is hovered, else this colour. An inline !important colour is beyond any stylesheet, so without this a
@@ -744,6 +763,12 @@ export function releaseLegibility(root: ParentNode): void {
     if (what.includes("h")) h.style.removeProperty("text-shadow")
     if (what.includes("p")) h.style.removeProperty(PLACEHOLDER_VAR)
     if (what.includes("w")) h.removeAttribute(WHOLE_ON_HOVER)
+    if (what.includes("F")) {
+      h.style.removeProperty(FILL)
+      const was = h.dataset.opLegibleFillBg
+      if (was) h.style.setProperty(FILL, was)
+      delete h.dataset.opLegibleFillBg
+    }
     if (what.includes("f")) {
       h.style.removeProperty(FILL_TEXT)
       const was = h.dataset.opLegibleFill
@@ -813,8 +838,22 @@ export function guardLegibility(root: ParentNode): LegibleFinding[] {
     const own = f.kind === "text" || f.kind === "value" ? restingOpacity(h, getComputedStyle(h)) : 1
     /* Words faded by their own opacity that still do not read at full colour: shown whole. */
     const whole = own < 1 && Math.min(...ground.grounds.map((g) => contrast({ ...fixed, a: own * ground.opacity }, g))) < f.min
-    return { f, h, ground, wanted, fixed, whole }
+    /*
+      Wave 11: words faded by a box around them (a PDF button's "View PDF" line at 70%) that do not read even in
+      their best colour at that fade: the box between them and their ground is shown whole.
+    */
+    const dimmed: HTMLElement[] = []
+    if (f.kind !== "placeholder" && ground.opacity < 0.999 && Math.min(...ground.grounds.map((g) => contrast({ ...fixed, a: own * ground.opacity }, g))) < f.min)
+      for (let a = h.parentElement; a && a !== ground.owner; a = a.parentElement) if (parseFloat(getComputedStyle(a).opacity) < 0.999 && !(a.getAnimations?.().length)) dimmed.push(a)
+    return { f, h, ground, wanted, fixed, whole, dimmed }
   })
+  for (const { dimmed } of plans)
+    for (const d of dimmed) {
+      d.style.setProperty("opacity", "1", "important")
+      const m = new Set((d.getAttribute(NUDGED) || "").split("").filter(Boolean))
+      m.add("o")
+      d.setAttribute(NUDGED, [...m].join(""))
+    }
   for (const { f, h, ground, wanted, fixed, whole } of plans) {
     const marks = new Set((h.getAttribute(NUDGED) || "").split("").filter(Boolean))
     if (f.kind === "halo") {
@@ -847,7 +886,7 @@ export function guardLegibility(root: ParentNode): LegibleFinding[] {
 }
 
 /** A Fill or Pop hover that would not read: the button, its fill and its words as they are, and the words that would. */
-export type HoverFinding = { el: HTMLElement; text: string; fill: string; ratio: number; min: number; fixed: string; faded: HTMLElement[] }
+export type HoverFinding = { el: HTMLElement; text: string; fill: string; ratio: number; min: number; fixed: string; fillFixed: string; faded: HTMLElement[] }
 
 /**
  * THE HOVER'S PAIR (wave 11). A Fill or Pop button's hover paints a layer over the button (app/globals.css
@@ -868,38 +907,95 @@ export function findHoverPairs(root: ParentNode): HoverFinding[] {
     if (!layer || layer.content === "none") continue
     const under = groundUnder(h, cache)
     if (under.photo) continue
-    let grounds = under.grounds
-    const paint = (top: Rgba[]) => {
-      const next: Rgba[] = []
-      for (const t of top) for (const g of grounds) next.push({ ...over(t, g), a: 1 })
-      grounds = next.length <= 8 ? next : next.sort((a, b) => luminance(a) - luminance(b)).filter((_, i, a) => i === 0 || i === a.length - 1 || i % Math.ceil(a.length / 6) === 0)
-    }
-    const bg = parseColor(layer.backgroundColor)
-    if (bg && bg.a > 0) paint([bg])
-    const image = layer.backgroundImage
-    if (image && image !== "none") {
-      /* Bottom layer first: a computed background-image lists the top one first. */
-      const layers = splitLayers(image).reverse()
-      for (const l of layers) {
-        if (/^url\(/i.test(l)) {
-          if (!/^url\(["']?data:image\/svg\+xml/i.test(l)) grounds = []
-          continue
-        }
-        const colors = gradientColors(l)
-        /* A gloss of only translucent white or black (a gel's highlight) is a sheen: the words read on the colour under it, as at rest. */
-        const sheen = colors.every((c) => c.a < 1 && ((c.r > 250 && c.g > 250 && c.b > 250) || (c.r < 5 && c.g < 5 && c.b < 5) || c.a === 0))
-        if (colors.length && !sheen) paint(colors)
-      }
-      if (!grounds.length) continue
-    }
-    const raw = cs.getPropertyValue(FILL_TEXT).trim()
-    const text = parseColor(raw)
-    if (!text || text.a === 0) continue
     const label = h.querySelector(".op-label") || h
     const lcs = label === h ? cs : getComputedStyle(label)
     const min = minimumFor(parseFloat(lcs.fontSize) || 16, parseInt(lcs.fontWeight) || 400)
-    const ratio = Math.min(...grounds.map((g) => contrast({ ...text, a: 1 }, g)))
-    const fixed = ratio + 0.01 < min ? nudgeOn({ ...text, a: 1 }, grounds, min) : { ...text, a: 1 }
+    const raw = cs.getPropertyValue(FILL_TEXT).trim()
+    const text = parseColor(raw)
+    if (!text || text.a === 0) continue
+    /*
+      The layer's paint where the words are: its colour (--op-fill), then its pictures bottom up, a gloss or a gel
+      read over the stretch of the button the words sit on (a gel's highlight across the top is under the top of
+      the words, not under the whole button).
+    */
+    const box = h.getBoundingClientRect()
+    /* Where the words are: the boxes of the elements with words of their own (a button with no label element is mostly padding). */
+    const wordBoxes = [h, ...h.querySelectorAll("*")].filter((w) => ownText(w) && !w.closest("svg")).map((w) => w.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
+    const at = wordBoxes.length ? { top: Math.min(...wordBoxes.map((r) => r.top)), bottom: Math.max(...wordBoxes.map((r) => r.bottom)), left: Math.min(...wordBoxes.map((r) => r.left)), right: Math.max(...wordBoxes.map((r) => r.right)) } : label.getBoundingClientRect()
+    const layers: Rgba[][] = []
+    let picture = false
+    const image = layer.backgroundImage
+    if (image && image !== "none")
+      for (const l of splitLayers(image).reverse()) {
+        if (/^url\(/i.test(l)) {
+          if (!/^url\(["']?data:image\/svg\+xml/i.test(l)) picture = true
+          continue
+        }
+        const st = linearStops(l, box)
+        const colors = st ? (st.axis === "y" ? colorsBetween(st, at.top - st.from, at.bottom - st.from) : colorsBetween(st, at.left - st.from, at.right - st.from)) : gradientColors(l)
+        if (colors.length) layers.push(colors)
+      }
+    if (picture) continue
+    const groundsFor = (fill: Rgba | null) => {
+      let grounds = under.grounds
+      for (const top of [...(fill && fill.a > 0 ? [[fill]] : []), ...layers]) {
+        const next: Rgba[] = []
+        for (const t of top) for (const g of grounds) next.push({ ...over(t, g), a: 1 })
+        grounds = next.length <= 8 ? next : next.sort((p, q) => luminance(p) - luminance(q)).filter((_, i, all) => i === 0 || i === all.length - 1 || i % Math.ceil(all.length / 6) === 0)
+      }
+      return grounds
+    }
+    let fillNow = parseColor(layer.backgroundColor)
+    let fillFixed = ""
+    /*
+      The hover keeps the button seen: a fill the colour of what is around it (Atlas: a white pill that filled with
+      the page's own navy) and no border that shows takes the nearest shade of its hue that stands out from it.
+    */
+    if (fillNow && fillNow.a > 0.9 && h.parentElement) {
+      let around = groundUnder(h.parentElement, cache)
+      /* Over the page's photo: the page's own colour (what it shows while the photo comes, and its average). */
+      if (around.photo)
+        for (let a: Element | null = h.parentElement; a; a = a.parentElement) {
+          const c = parseColor(getComputedStyle(a).backgroundColor)
+          if (c && c.a >= 0.999) {
+            around = { ...around, photo: false, grounds: [c] }
+            break
+          }
+        }
+      if (!around.photo) {
+        const edge = parseColor(cs.borderTopColor)
+        const bordered = parseFloat(cs.borderTopWidth) >= 1 && !!edge && edge.a > 0.5 && Math.min(...around.grounds.map((g) => contrast({ ...edge, a: 1 }, g))) >= 1.5
+        const stands = Math.min(...around.grounds.map((g) => contrast({ ...fillNow!, a: 1 }, g)))
+        if (!bordered && stands < 1.3) {
+          const moved = nudgeOn({ ...fillNow, a: 1 }, around.grounds, 1.6)
+          fillNow = moved
+          fillFixed = toCss(moved)
+        }
+      }
+    }
+    let grounds = groundsFor(fillNow)
+    const worst = (c: Rgba, gs: Rgba[]) => Math.min(...gs.map((g) => contrast({ ...c, a: 1 }, g)))
+    const ratio = worst(text, grounds)
+    let fixed = { ...text, a: 1 }
+    if (ratio + 0.01 < min) {
+      fixed = nudgeOn({ ...text, a: 1 }, grounds, min)
+      /* No words read on it (a gloss too bright for white, a fill too dark for black): the fill moves instead, its hue kept. */
+      if (worst(fixed, grounds) + 0.01 < min && fillNow) {
+        fixed = { ...text, a: 1 }
+        let moved = false
+        for (let target = min + 0.5; target <= 15; target += 0.5) {
+          const f2 = nudgeOn({ ...fillNow, a: 1 }, [fixed], target)
+          const g2 = groundsFor(f2)
+          if (worst(fixed, g2) + 0.01 >= min) {
+            fillFixed = toCss(f2)
+            grounds = g2
+            moved = true
+            break
+          }
+        }
+        if (!moved) fixed = nudgeOn({ ...text, a: 1 }, grounds, min)
+      }
+    }
     /* Words the button draws faded (a second line at 70%) that would not read faded on the fill: whole on hover. */
     const faded: HTMLElement[] = []
     for (const w of h.querySelectorAll("*")) {
@@ -916,9 +1012,11 @@ export function findHoverPairs(root: ParentNode): HoverFinding[] {
       if (!dim || fade < 0.05) continue
       const wcs = getComputedStyle(w)
       const wmin = minimumFor(parseFloat(wcs.fontSize) || 16, parseInt(wcs.fontWeight) || 400)
-      if (Math.min(...grounds.map((g) => contrast({ ...fixed, a: fade }, g))) + 0.01 < wmin) faded.push(dim)
+      /* With half a step of room: a gloss over part of the line is measured as a stretch, not pixel by pixel. */
+      if (Math.min(...grounds.map((g) => contrast({ ...fixed, a: fade }, g))) + 0.01 < wmin + 0.5) faded.push(dim)
     }
-    if (ratio + 0.01 < min || faded.length) out.push({ el: h, text: toCss(text), fill: toHex(grounds[0]), ratio: Math.round(ratio * 100) / 100, min, fixed: ratio + 0.01 < min ? toCss(fixed) : "", faded })
+    const textMoved = ratio + 0.01 < min && (fixed.r !== text.r || fixed.g !== text.g || fixed.b !== text.b)
+    if (ratio + 0.01 < min || faded.length || fillFixed) out.push({ el: h, text: toCss(text), fill: toHex(grounds[0]), ratio: Math.round(ratio * 100) / 100, min, fixed: textMoved ? toCss(fixed) : "", fillFixed, faded })
   }
   return out
 }
@@ -931,6 +1029,16 @@ function guardHoverPairs(root: ParentNode): HoverFinding[] {
       const dm = new Set((d.getAttribute(NUDGED) || "").split("").filter(Boolean))
       dm.add("w")
       d.setAttribute(NUDGED, [...dm].join(""))
+    }
+    if (f.fillFixed) {
+      const marks = new Set((f.el.getAttribute(NUDGED) || "").split("").filter(Boolean))
+      if (!marks.has("F")) {
+        const was = f.el.style.getPropertyValue(FILL)
+        if (was) f.el.dataset.opLegibleFillBg = was
+      }
+      f.el.style.setProperty(FILL, f.fillFixed, "important")
+      marks.add("F")
+      f.el.setAttribute(NUDGED, [...marks].join(""))
     }
     if (!f.fixed) continue
     const marks = new Set((f.el.getAttribute(NUDGED) || "").split("").filter(Boolean))
