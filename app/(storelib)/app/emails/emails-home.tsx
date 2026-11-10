@@ -590,7 +590,7 @@ function SenderCard({ sender, domain, loading }: { sender: { name: string | null
                 {r.action}
               </Link>
             ) : null}
-            <dd className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e] max-sm:basis-full">{loading && !sender ? <ShimmerBlock className="shimmer-wait h-3.5 w-40 rounded-full" /> : r.value}</dd>
+            <dd className="min-w-0 flex-1 text-[14px] text-[#1a1a2e] max-sm:basis-full max-sm:[overflow-wrap:anywhere] sm:truncate">{loading && !sender ? <ShimmerBlock className="shimmer-wait h-3.5 w-40 rounded-full" /> : r.value}</dd>
           </div>
         ))}
       </dl>
