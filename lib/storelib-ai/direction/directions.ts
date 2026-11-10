@@ -628,7 +628,7 @@ export const ART_DIRECTIONS: readonly ArtDirection[] = [
     suits: ["art-gallery", "education", "non-profit"],
     moods: ["serious", "quiet", "warm"],
     styles: ["editorial", "light-editorial", "literary", "publishing"],
-    typeSystems: ["newsprint", "editorial-italic", "humanist-clear"],
+    typeSystems: ["newsprint", "humanist-clear"],
     serif: true,
     palettes: [
       P("Proof", "light", "#f6f5f2", "#ebe9e4", "#1b1a18", "#57544e", "#1f4fd1", "#ffffff", "#d6d3cc"),

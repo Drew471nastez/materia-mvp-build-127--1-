@@ -183,7 +183,8 @@ async function main() {
     const patch = designPatch(theme, clay, "#0f766e")
     const schemes = patch.color_schemes as Record<string, Record<string, string>> | undefined
     check("changing it rewrites the site scheme and keeps it the default", schemes?.site?.accent === "#0f766e" && schemes.site.primary_button_background === "#0f766e" && typeof schemes.site.primary_button_hover_background === "string" && patch.default_color_scheme === undefined && !("white" in (schemes ?? {}) && JSON.stringify(schemes!.white) !== JSON.stringify((theme.color_schemes as Record<string, unknown>).white)), patch)
-    check("only the colour group's settings are written", Object.keys(patch).every((k) => ["color_schemes", "default_color_scheme", "background_color", "text_color", "primary_color"].includes(k)), Object.keys(patch))
+    /* Changed on purpose (round O, O2): the colour group also writes secondary_color and link_color, so an AI site never falls back to the platform's indigo. */
+    check("only the colour group's settings are written", Object.keys(patch).every((k) => ["color_schemes", "default_color_scheme", "background_color", "text_color", "primary_color", "secondary_color", "link_color"].includes(k)), Object.keys(patch))
     const overlay = groups[2].settings.find((s) => s.id === "hero-overlay")!
     check("a range of its own reads as a number and writes with its unit", designValue(theme, overlay) === 35 && (designPatch(theme, overlay, 50).custom_tokens as Record<string, string>)["hero-overlay"] === "50%")
     check("and is held to its limits", (designPatch(theme, overlay, 500).custom_tokens as Record<string, string>)["hero-overlay"] === "80%")

@@ -16,7 +16,7 @@ import { briefFrom, refineBrief, BUSINESS_KINDS, type CreativeBrief } from "@/li
 import { ART_DIRECTIONS, artDirection } from "@/lib/storelib-ai/direction/directions"
 import { checkConceptAgainstDirection, chooseDirection, directionForPrompt, directionSeeds, isDisplaySerif, isCream, isRust } from "@/lib/storelib-ai/direction/choose"
 import { DESIGN_MD_PATH, SECTION_ORDER, parseDesignMd, parseYaml, renderDesignMd } from "@/lib/storelib-ai/direction/design-md"
-import { contrastRatio, type VisualConcept } from "@/lib/storelib-ai/library/concept"
+import { DIRECTIONS, contrastRatio, type VisualConcept } from "@/lib/storelib-ai/library/concept"
 import { TYPE_SYSTEMS, suggestTypeSystems } from "@/lib/storelib-ai/library/type-systems"
 import { layoutStoryFor } from "@/lib/storelib-ai/layout"
 import { OFFERED_FAMILIES, FAMILY_WEIGHTS } from "@/lib/website-builder/font-link"
@@ -127,7 +127,10 @@ async function main() {
     const serifInNonSerif = ART_DIRECTIONS.filter((d) => !d.serif && isDisplaySerif(TYPE_SYSTEMS.find((t) => t.id === d.typeSystems[0])?.display.family ?? ""))
     check("a direction's first type is a display serif only when the direction calls for one", serifInNonSerif.length === 0, serifInNonSerif.map((d) => d.id))
     check("display serifs are a minority of directions", ART_DIRECTIONS.filter((d) => d.serif).length <= 4)
-    check("the italic serif system is never suggested by default, only for literary styles", !suggestTypeSystems({ industry: "fitness coach", count: 6, seed: "x" }).some((t) => t.id === "editorial-italic") && suggestTypeSystems({ industry: "books", styles: ["literary"], count: 30 }).some((t) => t.id === "editorial-italic"))
+    check("the italic serif system is opt in only: not even a literary brief gets it unless the creator asked", !suggestTypeSystems({ industry: "fitness coach", count: 6, seed: "x" }).some((t) => t.id === "editorial-italic") && !suggestTypeSystems({ industry: "books", styles: ["literary", "publishing"], count: 30 }).some((t) => t.id === "editorial-italic") && suggestTypeSystems({ industry: "books", styles: ["italic-serif"], count: 30 }).some((t) => t.id === "editorial-italic") && !ART_DIRECTIONS.some((d) => d.typeSystems.includes("editorial-italic")))
+    check("no starting direction (concept.ts) pairs a display serif with a cream ground and a rust accent", !DIRECTIONS.some((d) => isDisplaySerif(d.type.display) && isCream(d.palette.background) && isRust(d.palette.accent)), DIRECTIONS.filter((d) => isDisplaySerif(d.type.display) && isCream(d.palette.background) && isRust(d.palette.accent)).map((d) => d.id))
+    const mapped = agentTokens({ colors: { background: "#0b0b0c", surface: "#1b1b1c", text: "#f4f4f2", muted: "#a2a2a2", accent: "#e1251b", accentText: "#ffffff", border: "#353535" } } as Partial<DesignTokens>, {}).settings
+    check("an AI site's colours set primary, secondary and link, so the page never falls back to indigo", mapped.primary_color === "#e1251b" && mapped.secondary_color === "#f4f4f2" && mapped.link_color === "#e1251b" && !/6366f1|8b5cf6/.test(JSON.stringify(mapped)), mapped)
     const uncovered = BUSINESS_KINDS.filter((k) => !ART_DIRECTIONS.some((d) => d.fits.includes(k) || d.suits.includes(k)))
     check("every business kind has a direction made for it or able to serve it", uncovered.length === 0, uncovered)
     check("no copy in a direction has an em dash", !/—/.test(JSON.stringify(ART_DIRECTIONS)))

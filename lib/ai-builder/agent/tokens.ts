@@ -78,6 +78,9 @@ export const tokensToThemeSettings: TokensMapper = (tokens: Partial<DesignTokens
       out.background_color = c.background
       out.text_color = c.text
       out.primary_color = c.accent
+      /* Round O (O2): never the platform's indigo fallbacks (theme-css.ts --theme-secondary #8b5cf6, --theme-link): the site's own colours. */
+      out.secondary_color = c.inverse && HEX.test(c.inverse.background) ? c.inverse.background : c.text
+      out.link_color = c.accent
     }
   }
   if (tokens.fonts) {

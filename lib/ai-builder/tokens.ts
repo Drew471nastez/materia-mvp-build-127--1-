@@ -222,6 +222,9 @@ export function tokensToThemeSettings(tokens: DesignTokens, current?: Record<str
     background_color: c.background,
     text_color: c.text,
     primary_color: c.accent,
+    /* Round O (O2): set, so the page never falls back to the platform's indigo (theme-css.ts). */
+    secondary_color: c.inverse?.background ?? c.text,
+    link_color: c.accent,
     font_heading: tokens.fonts.heading,
     font_body: tokens.fonts.body,
     font_accent: tokens.fonts.accent ?? "",
@@ -313,7 +316,7 @@ export type TokenGroup = "colors" | "fonts" | "typeScale" | "radius" | "spacing"
 
 /** The Theme settings each group writes, and only those: changing a colour never rewrites a radius somebody set in Layout. */
 export const TOKEN_GROUP_SETTINGS: Record<TokenGroup, readonly string[]> = {
-  colors: ["color_schemes", "default_color_scheme", "background_color", "text_color", "primary_color"],
+  colors: ["color_schemes", "default_color_scheme", "background_color", "text_color", "primary_color", "secondary_color", "link_color"],
   fonts: ["font_heading", "font_body", "font_accent"],
   typeScale: ["typography_styles"],
   radius: ["input_radius", "button_border_radius", "border_radius", "image_border_radius", "popup_radius"],
