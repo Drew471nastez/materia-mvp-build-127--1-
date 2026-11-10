@@ -32,7 +32,7 @@ export function LegibleGuard() {
     let frame = 0
     let observer: MutationObserver | null = null
     const observe = () =>
-      observer?.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["class", "style", "data-state", "data-open", "open", "inert", "value", "placeholder"] })
+      observer?.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "style", "data-state", "data-open", "open", "inert", "value", "placeholder"] })
     const run = () => {
       frame = 0
       observer?.disconnect()
@@ -49,7 +49,20 @@ export function LegibleGuard() {
     const soon = () => {
       if (!frame) frame = requestAnimationFrame(run)
     }
-    observer = new MutationObserver(soon)
+    /*
+      A box added or removed, a class, a sheet's state: measured on the next frame. Only inline styles changing (a
+      carousel's dot riding the scroll, a sheet following the thumb, a drag) is motion, not a new look: measured once
+      it has rested for 250ms, so the guard never runs frame after frame.
+    */
+    let rest = 0
+    const settle = () => {
+      window.clearTimeout(rest)
+      rest = window.setTimeout(soon, 250)
+    }
+    observer = new MutationObserver((records) => {
+      if (records.some((r) => r.type === "childList" || r.attributeName !== "style")) soon()
+      else settle()
+    })
     run()
     /* Sheets rise, cards fade in, transitions settle: once more after they do. */
     const late = window.setTimeout(soon, 450)
@@ -83,6 +96,7 @@ export function LegibleGuard() {
       observer = null
       if (frame) cancelAnimationFrame(frame)
       window.clearTimeout(late)
+      window.clearTimeout(rest)
       window.removeEventListener("resize", soon)
       document.removeEventListener("contentvisibilityautostatechange", now, true)
       document.removeEventListener("input", soon, true)

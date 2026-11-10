@@ -535,7 +535,17 @@ function ownText(el: Element): string {
   return t.replace(/\s+/g, " ").trim()
 }
 
-function visible(el: Element, cs: CSSStyleDeclaration): boolean {
+/** Is any box from `el` up hidden (inert, or at no opacity)? Remembered per box for one pass. */
+function shut(el: Element | null, memo: Map<Element, boolean>): boolean {
+  if (!el) return false
+  const known = memo.get(el)
+  if (known !== undefined) return known
+  const v = el.hasAttribute("inert") || getComputedStyle(el).opacity === "0" || shut(el.parentElement, memo)
+  memo.set(el, v)
+  return v
+}
+
+function visible(el: Element, cs: CSSStyleDeclaration, memo: Map<Element, boolean> = new Map()): boolean {
   if (cs.visibility !== "visible" || cs.display === "none") return false
   /* Off screen under content-visibility: auto, the browser has not drawn it; it is measured when it comes into view. */
   const check = (el as Element & { checkVisibility?: (o: object) => boolean }).checkVisibility
@@ -543,27 +553,32 @@ function visible(el: Element, cs: CSSStyleDeclaration): boolean {
   const r = el.getBoundingClientRect()
   if (r.width < 1 || r.height < 1) return false
   /* A closed sheet or menu: an ancestor at no opacity, or out of the page's flow and hidden. */
-  for (let n: Element | null = el; n; n = n.parentElement) {
-    if (n.hasAttribute("inert")) return false
-    const s = n === el ? cs : getComputedStyle(n)
-    if (s.opacity === "0") return false
-  }
-  return true
+  return !shut(el, memo)
 }
 
 /** Every visible word (and field) under `root` that does not read on what is under it. Nothing is changed. */
+function skipMemo(el: Element, memo: Map<Element, boolean>): boolean {
+  const known = memo.get(el)
+  if (known !== undefined) return known
+  const v = el.matches(SKIP) || (!!el.parentElement && skipMemo(el.parentElement, memo))
+  memo.set(el, v)
+  return v
+}
+
 export function findIllegible(root: ParentNode): LegibleFinding[] {
   const cache: GroundCache = new Map()
+  const memo = new Map<Element, boolean>()
+  const skipped = new Map<Element, boolean>()
   const out: LegibleFinding[] = []
   const all = root.querySelectorAll("*")
   for (const el of all) {
-    if (el.closest(SKIP)) continue
+    if (skipMemo(el, skipped)) continue
     const field = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
     if (field && el instanceof HTMLInputElement && /^(checkbox|radio|hidden|range|color|file|submit|button|image)$/.test(el.type)) continue
     const text = field ? "" : ownText(el)
     if (!field && !text) continue
     const cs = getComputedStyle(el)
-    if (!visible(el, cs)) continue
+    if (!visible(el, cs, memo)) continue
     const fill = (cs as unknown as Record<string, string>).webkitTextFillColor
     if (fill && parseColor(fill)?.a === 0) continue
     const ground = groundUnder(el, cache)
@@ -669,20 +684,25 @@ function outline(h: HTMLElement, words: Rgba, ground: GroundRead, color?: string
 export function guardLegibility(root: ParentNode): LegibleFinding[] {
   releaseLegibility(root)
   const found = findIllegible(root)
+  /* Every read first (grounds, inks, opacities), then every write: a write between reads would make the browser
+     work out the page's styles again for each word. */
   const cache: GroundCache = new Map()
-  for (const f of found) {
+  const plans = found.map((f) => {
     const h = f.el as HTMLElement
     const ground = groundUnder(h, cache)
     const wanted = parseColor(f.color)!
     const fixed = (f.ratio < 2 && f.kind !== "halo" && inkAround(h, ground.grounds, f.min + NUDGE_MARGIN)) || nudgeOn(wanted, ground.grounds, f.min)
-    const marks = new Set((h.getAttribute(NUDGED) || "").split(""))
+    const own = f.kind === "text" || f.kind === "value" ? restingOpacity(h, getComputedStyle(h)) : 1
+    /* Words faded by their own opacity that still do not read at full colour: shown whole. */
+    const whole = own < 1 && Math.min(...ground.grounds.map((g) => contrast({ ...fixed, a: own * ground.opacity }, g))) < f.min
+    return { f, h, ground, wanted, fixed, whole }
+  })
+  for (const { f, h, ground, wanted, fixed, whole } of plans) {
+    const marks = new Set((h.getAttribute(NUDGED) || "").split("").filter(Boolean))
     if (f.kind === "halo") {
       outline(h, wanted, ground, f.halo)
       marks.add("h")
-      h.setAttribute(NUDGED, [...marks].join(""))
-      continue
-    }
-    if (f.kind === "placeholder") {
+    } else if (f.kind === "placeholder") {
       h.style.setProperty(PLACEHOLDER_VAR, toHex(fixed))
       marks.add("p")
     } else {
@@ -697,9 +717,7 @@ export function guardLegibility(root: ParentNode): LegibleFinding[] {
         outline(h, fixed, ground)
         marks.add("h")
       }
-      /* Words faded by their own opacity that still do not read at full colour: shown whole. */
-      const own = restingOpacity(h, getComputedStyle(h))
-      if (own < 1 && Math.min(...ground.grounds.map((g) => contrast({ ...fixed, a: own * ground.opacity }, g))) < f.min) {
+      if (whole) {
         h.style.setProperty("opacity", "1", "important")
         marks.add("o")
       }
