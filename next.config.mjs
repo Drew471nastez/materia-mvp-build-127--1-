@@ -255,6 +255,7 @@ const nextConfig = {
      * overrides it (0 turns it off). The output is the same; see
      * scripts/build-limits.env for the measured numbers.
      */
+    turbopackFileSystemCacheForBuild: process.env.STORELIB_TURBOPACK_FS_CACHE === "1",
     turbopackMemoryLimit: (() => {
       const mb = Number(process.env.STORELIB_TURBOPACK_MEMORY_MB ?? 3072)
       return Number.isFinite(mb) && mb > 0 ? Math.round(mb * 1024 * 1024) : undefined
