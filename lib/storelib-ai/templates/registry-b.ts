@@ -4,8 +4,10 @@
  */
 import type { SiteTemplate } from "./types-b"
 import { saasOrbit } from "./saas-orbit/template"
+import { estateCinema } from "./estate-cinema/template"
+import { studioKinetic } from "./studio-kinetic/template"
 
-export const TEMPLATES_B: readonly SiteTemplate[] = [saasOrbit]
+export const TEMPLATES_B: readonly SiteTemplate[] = [saasOrbit, estateCinema, studioKinetic]
 
 export function templateBById(id: string): SiteTemplate | undefined {
   return TEMPLATES_B.find((t) => t.id === id)
