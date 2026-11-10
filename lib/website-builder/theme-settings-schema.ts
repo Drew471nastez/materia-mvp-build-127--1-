@@ -392,6 +392,24 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
     icon: "sparkles",
     fields: [
       /* Off until switched on, which is what every page has always drawn (section-anchors.ts themeAnimation): the panel said on while nothing moved, and a section's Animation read "Same as theme (None)". */
+      /*
+        THE MOTION FEEL (round O, O5, lib/storelib-ai/motion): how much the
+        site's own components move, as the --t-motion-* variables they read
+        (duration, easing, travel, stagger, hover lift). A visitor who asked
+        their device for less motion gets none, whatever this says.
+      */
+      {
+        id: "motion_tier",
+        label: "Motion feel",
+        type: "select",
+        default: "balanced",
+        options: [
+          { label: "Quiet", value: "quiet" },
+          { label: "Balanced", value: "balanced" },
+          { label: "Expressive", value: "expressive" },
+        ],
+        info: "How much your site's own sections move. Visitors who ask for less motion always get none.",
+      },
       { id: "animations_enabled", label: "Enable scroll animations", type: "toggle", default: false },
       {
         id: "animation_style",

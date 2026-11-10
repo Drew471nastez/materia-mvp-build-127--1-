@@ -4,7 +4,7 @@ summary: A statement whose lines rise into place one after another, split by the
 tags: split text, staggered text, text reveal, headline, statement, hero, typography, stagger
 #}
 <template>
-<section class="sx" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
+<section class="sx" data-motion="{{ settings.motion }}" data-scheme="{{ settings.color_scheme }}" style="--m-k: calc({{ settings.motion_strength }} / 100); --s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-accent: {{ scheme.accent }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
   {% if settings.label %}<p class="sx__label">{{ settings.label }}</p>{% endif %}
   <h1 class="sx__h sx__h--{{ settings.align }}">
     {% for block in section.blocks %}<span class="sx__line" data-block-id="{{ block.id }}" style="--d: {{ forloop.index0 }};"><span class="sx__inner{% if block.settings.accent %} sx__inner--accent{% endif %}">{{ block.settings.line }}</span></span>{% endfor %}
@@ -24,8 +24,8 @@ tags: split text, staggered text, text reveal, headline, statement, hero, typogr
 .sx__cta { display: inline-block; margin-top: clamp(24px, 4vw, 48px); padding: 14px 22px; background: var(--s-heading); color: var(--s-bg); text-decoration: none; border-radius: 2px; }
 .sx__cta:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 3px; }
 @media (prefers-reduced-motion: no-preference) {
-  .sx__inner { animation: sx-up 700ms cubic-bezier(0.2, 0.7, 0, 1) both; animation-delay: calc(var(--d) * 90ms + 120ms); }
-  @keyframes sx-up { from { transform: translateY(105%); } to { transform: none; } }
+  .sx:not([data-motion="off"]) .sx__inner { animation: sx-up var(--t-motion-duration, 700ms) var(--t-motion-ease, cubic-bezier(0.2, 0.7, 0, 1)) both; animation-delay: calc(var(--d) * var(--t-motion-stagger, 90ms) + 120ms); }
+  @keyframes sx-up { from { transform: translateY(calc(105% * var(--m-k, 1))); } to { transform: none; } }
 }
 </style>
 
@@ -40,6 +40,8 @@ tags: split text, staggered text, text reveal, headline, statement, hero, typogr
     { "type": "select", "id": "align", "label": "Lines", "default": "offset", "options": [{ "label": "Stepped", "value": "offset" }, { "label": "Flush left", "value": "left" }] },
     { "type": "text", "id": "cta_label", "label": "Button", "default": "See today's bakes" },
     { "type": "url", "id": "cta_url", "label": "Button link", "default": "/about" },
+    { "type": "select", "id": "motion", "label": "Motion", "default": "site", "options": [{ "label": "Follow the site", "value": "site" }, { "label": "Still", "value": "off" }] },
+    { "type": "range", "id": "motion_strength", "label": "Motion strength", "min": 0, "max": 150, "step": 10, "unit": "%", "default": 100 },
     { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" },
     { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 240, "step": 8, "unit": "px", "default": 112 },
     { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 240, "step": 8, "unit": "px", "default": 80 }

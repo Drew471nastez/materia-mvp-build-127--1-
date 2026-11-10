@@ -21,6 +21,8 @@ import { startContext } from "@/lib/website-builder/ai-site/start-options"
 import { STUDIO_CRAFT } from "@/lib/website-builder/ai-site/craft"
 /* Round N (N3): pages and templates, its own block so the design rules above it can change without touching it. */
 import { PAGES_AND_TEMPLATES } from "./site-plan"
+/* Round O (O5): the business's site story and the motion feel, its own block (O6 owns this file's assembly). */
+import { motionAndLayoutBrief } from "@/lib/storelib-ai/layout"
 
 /** CLAUDE.md's list, and its shape: words that say nothing. */
 export const BANNED_WORDS = ["unlock", "elevate", "seamless", "powerful", "effortlessly", "supercharge", "transform", "revolutionize", "game-changer"]
@@ -131,6 +133,7 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
     input.directions?.length
       ? `TYPE SYSTEMS THAT FIT (all load on Storelib; adapt or pick another from the type library, never a default face as display):\n${suggestTypeSystems({ industry: job.options?.category?.replace(/_/g, " ") ?? job.prompt.slice(0, 120), styles: input.directions.flatMap((d) => d.styles), count: 3, seed: job.creatorId }).map((t) => `* ${describeTypeSystem(t)}`).join("\n")}`
       : "",
+    !job.edit && !job.redesign ? motionAndLayoutBrief({ prompt: job.prompt, category: job.options?.category ?? null }) : "",
     input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, 12_000)}` : "",
     job.edit || job.redesign === "changes" ? "Start by reading what the request is about (list_pages, read_file), then change it. Before finish, render_check every page you changed." : "Start with report_progress phase \"plan\": the concept, the tasks and pages (every page and template with its sections). Then tokens, components, pages and templates, bindings with real ids, render_check on every page, finish.",
   ]
