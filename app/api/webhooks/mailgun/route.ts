@@ -1,3 +1,4 @@
+import { syncPlatformsSoon } from "@/lib/contacts/checkout-contact"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import crypto from "crypto"
@@ -259,7 +260,7 @@ async function recordCampaignDelivery(event: string, severity: string, eventData
 async function suppressEmail(email: string, reason: string, message: string) {
   try {
     // Update all subscriber records for this email
-    const { error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("subscribers")
       .update({
         status: "bounced",
@@ -267,15 +268,23 @@ async function suppressEmail(email: string, reason: string, message: string) {
       })
       .eq("email", email)
       .in("status", ["subscribed", "pending"])
+      .select("creator_id")
 
     if (error) {
       console.error(`[mailgun-webhook] Failed to suppress ${masked(email)}:`, error.code, error.message)
     } else {
       console.log(`[mailgun-webhook] Suppressed ${masked(email)}: ${reason} - ${message}`)
+      await platformsSoon(data)
     }
   } catch (err) {
     console.error(`[mailgun-webhook] Error suppressing ${masked(email)}:`, err instanceof Error ? err.message : "unknown error")
   }
+}
+
+/** The stores whose list just lost this address: their connected email platforms hear of it within the minute (lib/contacts/checkout-contact.ts). */
+async function platformsSoon(rows: unknown): Promise<void> {
+  const ids = [...new Set((Array.isArray(rows) ? rows : []).map((r) => (r as { creator_id?: unknown })?.creator_id).filter((x): x is string => typeof x === "string"))].slice(0, 20)
+  for (const id of ids) await syncPlatformsSoon(supabaseAdmin, id).catch(() => undefined)
 }
 
 /**
@@ -283,7 +292,7 @@ async function suppressEmail(email: string, reason: string, message: string) {
  */
 async function unsubscribeEmail(email: string) {
   try {
-    const { error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("subscribers")
       .update({
         status: "unsubscribed",
@@ -292,11 +301,13 @@ async function unsubscribeEmail(email: string) {
       })
       .eq("email", email)
       .eq("status", "subscribed")
+      .select("creator_id")
 
     if (error) {
       console.error(`[mailgun-webhook] Failed to unsubscribe ${masked(email)}:`, error.code, error.message)
     } else {
       console.log(`[mailgun-webhook] Unsubscribed ${masked(email)}`)
+      await platformsSoon(data)
     }
   } catch (err) {
     console.error(`[mailgun-webhook] Error unsubscribing ${masked(email)}:`, err instanceof Error ? err.message : "unknown error")

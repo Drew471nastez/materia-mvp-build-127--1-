@@ -17,7 +17,7 @@ version: 1
 
 **First step**: a free call is booked through a booking form with real availability, or an enquiry form with three or four fields. Do not invent a calendar.
 
-**Visual**: coaching sites default to beige, script fonts and arms-wide stock photos. Better: an editorial personal brand (large portrait, serif, generous margins); a practical consultancy (clean grotesk, structured, data friendly); a bold personality (strong colour from the coach's wardrobe or brand, oversized quotes in their voice).
+**Visual**: coaching sites default to beige, script fonts and arms-wide stock photos. Better: an editorial personal brand (large portrait, a characterful grotesk, generous margins; a serif only when the coach's brand already uses one); a practical consultancy (clean grotesk, structured, data friendly); a bold personality (strong colour from the coach's wardrobe or brand, oversized quotes in their voice).
 
 **Copy**: specific situations ("You run a team of 6 for the first time"), not "Step into your power". No income claims, no "6 figure" promises.
 

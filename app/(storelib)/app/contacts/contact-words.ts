@@ -161,3 +161,18 @@ export async function contactsRequest<T>(url: string, init: RequestInit & { fall
   if (!res.ok) return { ok: false, error: res.status === 403 ? tt("You don't have access to this. Ask the store's owner.") : contactsError(data.code, init.fallback) }
   return { ok: true, data: data as T }
 }
+
+/**
+ * Wave 9: the steps in the order they happened (a subscriber in May who
+ * answered a form in September reads May, then September), First seen
+ * always first, the steps not reached yet after the rest in their usual
+ * order. A step with no day keeps its place among the reached ones.
+ */
+export function journeyInTime<S extends { reached: boolean; at: string | null }>(steps: S[]): S[] {
+  const [first, ...rest] = steps
+  const reached = rest.filter((s) => s.reached)
+  const dated = reached.filter((s) => s.at && !Number.isNaN(Date.parse(s.at))).sort((a, b) => Date.parse(a.at!) - Date.parse(b.at!))
+  let k = 0
+  const ordered = reached.map((s) => (s.at && !Number.isNaN(Date.parse(s.at)) ? dated[k++] : s))
+  return [first, ...ordered, ...rest.filter((s) => !s.reached)]
+}

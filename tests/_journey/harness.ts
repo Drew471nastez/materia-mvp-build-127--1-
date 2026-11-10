@@ -150,6 +150,8 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/website-builder/themes/[installId]/ai-edit": () => import("@/app/api/website-builder/themes/[installId]/ai-edit/route"),
   "/api/website-builder/themes/[installId]/sections": () => import("@/app/api/website-builder/themes/[installId]/sections/route"),
   "/api/website-builder/themes/[installId]/files": () => import("@/app/api/website-builder/themes/[installId]/files/route"),
+  /* Round O (O2): Theme settings saves, which keep the site's DESIGN.md in step. */
+  "/api/website-builder/themes/[installId]/settings": () => import("@/app/api/website-builder/themes/[installId]/settings/route"),
   "/api/website-builder/themes/[installId]/publish": () => import("@/app/api/website-builder/themes/[installId]/publish/route"),
   "/api/website-builder/themes/[installId]/backups": () => import("@/app/api/website-builder/themes/[installId]/backups/route"),
   "/api/website-builder/themes/[installId]/backups/[backupId]": () => import("@/app/api/website-builder/themes/[installId]/backups/[backupId]/route"),

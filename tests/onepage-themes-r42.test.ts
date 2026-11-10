@@ -50,7 +50,7 @@ async function main() {
   check("Folio's cover is the editor's own library photo", /photo-1507400492013-162706c8c05e/.test(cover) && read("lib/onepage/wallpaper-library.ts").includes("photo-1507400492013-162706c8c05e"))
   const merged = withR40Themes([{ id: "a", category: "light" }, { id: "c", category: "dark" }])
   /* Changed on purpose (round AP): Notebook and Cobalt join after them, in their own kinds. */
-  check("Folio joins the light themes and Ledger the dark", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,gazette,lagoon,cobalt,halo,c,ember,ledger,acid,atlas" /* Changed on purpose (round W8): Gazette, Halo and Acid. */, merged.map((t) => t.id).join(","))
+  check("Folio joins the light themes and Ledger the dark", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,gazette,aqua,messenger,playful,grunge,lagoon,cobalt,halo,aero,c,ember,ledger,acid,y2k,atlas" /* Changed on purpose (round W8): Gazette, Halo and Acid. Changed on purpose (round W9): the six W9 themes. */, merged.map((t) => t.id).join(","))
   const page = { id: "p", theme: { template_id: "folio", ...R42_THEMES[0].theme_config }, settings: {}, draft_blocks: [] } as never
   /* Changed on purpose (round AR): the picker passes the theme the page wore (lib/onepage/theme-apply ownCover), so Folio's own cover is known as Folio's and taken back; a cover the creator chose stays. */
   const after = lookFromTemplate(page, { id: "air", category: "light", theme_config: { background_color: "#eef0f3" } }, undefined, R42_THEMES[0] as never).theme as unknown as Record<string, unknown>
@@ -79,7 +79,8 @@ async function main() {
   const live = stripComments(read("components/onepage/public-onepage.tsx"))
   check("the classic header draws it, the round photo pulled over its edge", /const cover = coverImageOf\(theme\)/.test(live) && /data-cover-image=""/.test(live) && /mb-\[calc\(-1\*var\(--cover-pull\)-0\.75rem\)\] sm:mb-\[calc\(-1\*var\(--cover-pull\)-1rem\)\]/.test(live))
   check("the page starts at the very top under a cover, as under a Hero", /heroHeaderShown\(safeTheme, \{ avatar_url, avatar_video_url \}\) \|\| coverImageOf\(safeTheme\) \? "0" : "50px"/.test(live))
-  check("the page pairs products with its theme", /pairProductTiles\(safeBlocks[\s\S]{0,300}, safeTheme\), blockLayoutOf\(safeTheme\)\)/.test(live) && /productLayoutOf\(data, theme\)/.test(read("components/onepage/product-block.tsx")))
+  /* Changed on purpose (round W9, opblocks): the paired list is kept as one value (laid) that Mixed tiles reads too. */
+  check("the page pairs products with its theme", /const laid = pairProductTiles\(safeBlocks[\s\S]{0,300}, safeTheme\)/.test(live) && /pairLinkTiles\(laid, blockLayoutOf\(safeTheme\)\)/.test(live) && /productLayoutOf\(data, theme\)/.test(read("components/onepage/product-block.tsx")))
   const links = read("components/onepage/tabs/links-tab.tsx")
   check("a layout picked on the block is marked as picked, and the picker shows what the page draws", /updateData\(\{ style: styleId, style_chosen: true, button_style: "filled" \}\)/.test(links) && /<ProductLayoutPicker data=\{data\} theme=\{onepage\?\.theme\}/.test(links))
   const layout = read("components/onepage/themes/layout-section.tsx")

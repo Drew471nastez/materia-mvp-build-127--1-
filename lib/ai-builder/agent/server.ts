@@ -18,6 +18,7 @@ import "server-only"
  *                 small claude-haiku-5-5).
  *   capabilities  L4's readRuntimeCapabilities: creator scoped, real ids.
  *   renderCheck   L4's renderCheckForInstall: the page as a preview draws it.
+ *   references    O1's visual reference library with the admin's screenshots.
  *
  * The admin (service role) client is used only for this job's install: the
  * runner checked ownership when it claimed the job; nothing here takes an id
@@ -34,6 +35,10 @@ import { PLAN_MODEL, SMALL_MODEL, WRITE_MODEL } from "@/lib/website-builder/ai-s
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { AgentDeps, AgentModels, ProjectStore, StoredFile, StoredPage, StoreWriteResult } from "./ports"
 import { versionOf } from "./version"
+import { createVisualCritic } from "../visual-critic/critic"
+import { keepReviewShot } from "../visual-critic/storage"
+import { readFingerprints, type SiteFingerprint } from "../novelty"
+import { findReferencesIn, referenceImagesFrom } from "@/lib/storelib-ai/references/store"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -104,6 +109,35 @@ export function supabaseProjectStore(db: Db, installId: string): ProjectStore {
   }
 }
 
+/**
+ * ROUND O (spec 8.4): the fingerprints of the platform's recent finished agent sites, for the soft novelty warning.
+ * One small query per job (memoised), reading only checkpoint->fingerprint: a handful of words per site (section
+ * roles, hero shape, palette and type buckets), no copy, no names, no ids, so nothing of another creator's site
+ * reaches this job. Live jobs (this one included) are not compared. Fails quiet: no comparison, never a blocked job.
+ */
+export function recentAgentFingerprints(db: Db, limit = 40): () => Promise<SiteFingerprint[]> {
+  let memo: Promise<SiteFingerprint[]> | null = null
+  return () => {
+    memo ??= (async () => {
+      try {
+      const { data, error } = await db
+        .from("ai_site_jobs")
+        .select("fp:checkpoint->fingerprint")
+        .eq("engine", "agent")
+        .in("status", ["complete", "partial"])
+        .not("checkpoint->fingerprint", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(limit)
+      if (error) return []
+      return readFingerprints(((data ?? []) as { fp: unknown }[]).map((r) => r.fp), limit)
+      } catch {
+        return []
+      }
+    })()
+    return memo
+  }
+}
+
 /** The three models, answered on the creator's own Claude key when they connected one (as ai-site/runner.ts jobModels). */
 export async function agentModels(creatorId: string): Promise<AgentModels> {
   const [plan, loop, small] = await Promise.all([
@@ -115,6 +149,8 @@ export async function agentModels(creatorId: string): Promise<AgentModels> {
     plan: { provider: plan.provider, model: plan.model, effort: "medium" },
     loop: { provider: loop.provider, model: loop.model, effort: "medium" /* round N: agent coding wants medium; low wrote thinner sites */ },
     small: { provider: small.provider, model: small.model, effort: "low" },
+    /* Round O (O4): the design review looks at the rendered draft with the strong model (claude-opus-5-5), on the same key. */
+    review: { provider: plan.provider, model: plan.model, effort: "medium" },
     ownKey: loop.own !== null,
   }
 }
@@ -124,20 +160,36 @@ export async function agentModels(creatorId: string): Promise<AgentModels> {
  * `emit` (ai_site_job_events), `cancelled` (cancel_requested_at) and
  * `previewErrors` (the editor bridge) from the job row it holds.
  */
-export async function agentDeps(job: { creatorId: string; ownerUserId: string | null; installId: string }, extra: Partial<AgentDeps> = {}): Promise<AgentDeps> {
+export async function agentDeps(job: { creatorId: string; ownerUserId: string | null; installId: string; jobId?: string }, extra: Partial<AgentDeps> = {}): Promise<AgentDeps> {
   const admin = createAdminClient() as unknown as Db
+  /* Given models (a scripted run, tests/ai-builder-e2e-kit.ts) are used as they are: no key is looked up for them. */
+  const models = extra.models ?? (await agentModels(job.creatorId))
   return {
     store: supabaseProjectStore(admin, job.installId),
-    /* Given models (a scripted run, tests/ai-builder-e2e-kit.ts) are used as they are: no key is looked up for them. */
-    models: extra.models ?? (await agentModels(job.creatorId)),
+    models,
+    /*
+      Round O (O4): the visual critic. The draft drawn from this install's own project in headless Chromium with
+      JavaScript off, measured, and looked at by models.review (absent for scripted models: measured only). No
+      browser here: "not visually checked". The newest first-screen photograph is kept privately for the panel.
+    */
+    visualCritic: createVisualCritic({
+      review: models.review ?? null,
+      ...(job.jobId ? { keepShot: (jpeg: string) => keepReviewShot(admin as never, { installId: job.installId, jobId: job.jobId as string }, jpeg) } : {}),
+    }),
     /* L4: this creator's real data with ids (products with variants and Buy now links, collections, communities, forms, pages, menus). */
     capabilities: () => readRuntimeCapabilities(admin, { creatorId: job.creatorId, ownerUserId: job.ownerUserId, installId: job.installId }),
     /* L4: the page as a preview link draws it (draft page in home's chrome, saved files, this creator's data), rendered by the template engine. */
     renderCheck: async ({ page, capabilities }) => {
       const r = await renderCheckForInstall(admin, { creatorId: job.creatorId, installId: job.installId, page, ...(capabilities ? { capabilities } : {}) })
-      return { ok: r.ok, issues: r.issues, htmlBytes: r.htmlBytes }
+      return { ok: r.ok, issues: r.issues, htmlBytes: r.htmlBytes, ...(r.drawn ? { drawn: r.drawn } : {}) }
     },
     features: { formPicker: true },
+    recentFingerprints: recentAgentFingerprints(admin),
+    /* O1: the built in references and the admin's screenshots (design_references, part 431); their pictures for the plan phase. */
+    references: {
+      search: ({ query, industry, limit }) => findReferencesIn(admin as unknown as Parameters<typeof findReferencesIn>[0], { text: query, industry }, { limit: limit ?? 4 }),
+      images: (ids) => referenceImagesFrom(admin as unknown as Parameters<typeof referenceImagesFrom>[0], ids),
+    },
     ...extra,
   }
 }

@@ -30,10 +30,11 @@ import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { formatMinor } from "@/lib/markets/money"
 import type { Profile } from "@/lib/contacts/profile-server"
-import { ContactsPane, backToPeople, peopleHref } from "../contacts-header"
+import { BACK_ARROW, ContactsPane, backToPeople, peopleHref } from "../contacts-header"
 import { confirmForm } from "@/components/forms/form-confirm"
+import { draftPhone, draftTags } from "../add-contact-logic"
 import { GUTTER, ORDER_WIDTH, PaneBar, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../../orders/order-parts"
-import { contactsRequest, dayOf, labelsOf, leadStatusLabel, memberStatusLabel, membershipStatusLabel, originLabel, subscriptionLabel, whoOf } from "../contact-words"
+import { contactsRequest, dayOf, journeyInTime, labelsOf, leadStatusLabel, memberStatusLabel, membershipStatusLabel, originLabel, subscriptionLabel, whoOf } from "../contact-words"
 
 const field = "w-full rounded-lg border border-[#e3e4e8] bg-white px-2.5 text-[14px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e]/40 focus:ring-2 focus:ring-[#1a1a2e]/10"
 const money = (cents: number, currency: string) => formatMinor(cents, currency, appLocale())
@@ -48,9 +49,13 @@ function emailBlock(p: Profile): string | null {
   return null
 }
 
-export function ProfileClient({ profile, marketing }: { profile: Profile; marketing: boolean }) {
+export function ProfileClient({ profile: served, marketing }: { profile: Profile; marketing: boolean }) {
   const router = useRouter()
   const phone = usePhoneWidth()
+  /* Wave 9: what Edit just saved is shown at once, not after the server's next draw; the server's own draw replaces it. */
+  const [saved, setSaved] = React.useState<EditValues | null>(null)
+  React.useEffect(() => setSaved(null), [served])
+  const profile = React.useMemo(() => withEdits(served, saved), [served, saved])
   const p = profile.person
   const [editing, setEditing] = React.useState(false)
   const [message, setMessage] = React.useState<{ text: string; failed?: boolean } | null>(null)
@@ -99,9 +104,10 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
   return (
     <ContactsPane>
       <PaneBar width={ORDER_WIDTH} sticky className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 pb-2.5 pt-2 lg:pb-3 lg:pt-5">
-        <div className="-ml-1.5 flex h-9 w-9 items-center justify-center">
-          <a href={peopleHref()} onClick={back} className={cn(iconButton, "h-9 w-9")} aria-label={tt("Back to contacts")}>
-            <ArrowLeft className="h-[18px] w-[18px]" />
+        <div className="flex items-center">
+          {/* Wave 9: the same back arrow as every bar in Contacts (contacts-header BACK_ARROW): a 44px press on a phone. */}
+          <a href={peopleHref()} onClick={back} className={BACK_ARROW} aria-label={tt("Back to contacts")} data-contacts-back="">
+            <ArrowLeft className="h-5 w-5" />
           </a>
         </div>
         <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
@@ -160,12 +166,11 @@ export function ProfileClient({ profile, marketing }: { profile: Profile; market
         phone={phone}
         profile={profile}
         onClose={() => setEditing(false)}
-        onSaved={(t, failed) => {
-          setMessage({ text: t, failed })
-          if (!failed) {
-            setEditing(false)
-            router.refresh()
-          }
+        onSaved={(t, values) => {
+          setMessage({ text: t })
+          setSaved(values)
+          setEditing(false)
+          router.refresh()
         }}
       />
     </ContactsPane>
@@ -204,6 +209,13 @@ function Details({ profile, blocked }: { profile: Profile; blocked: string | nul
       <dl className="grid gap-2" data-contact-details="">
         <Row label={tt("Email")}>{shown || <span className="text-[#9ca3af]">{tt("No email")}</span>}</Row>
         {others.length ? <Row label={tt("Other emails")}>{others.join(", ")}</Row> : null}
+        {profile.contact?.phone ? (
+          <Row label={tt("Phone")}>
+            <a href={`tel:${profile.contact.phone.replace(/[^+0-9]/g, "")}`} className="hover:underline" data-contact-phone="">
+              {profile.contact.phone}
+            </a>
+          </Row>
+        ) : null}
         <Row label={tt("Marketing emails")}>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {/* Quiet text, not a coloured pill (round 52); only a bounce or complaint is red. */}
@@ -343,7 +355,7 @@ export function journeyOf(profile: Profile): JourneyStep[] {
   const c = profile.consent
   const orders = profile.purchases.length
   const answered = profile.forms.length + profile.messages.length + profile.leads.length
-  return [
+  const steps: JourneyStep[] = [
     { id: "seen", label: tt("First seen"), reached: true, at: p.firstSeen, detail: originLabel(p.origin) },
     { id: "lead", label: tt("Lead"), reached: p.lead || answered > 0, at: leadAt, detail: answered ? tt("{n, plural, one {# answer} other {# answers}}", { n: answered }) : null },
     {
@@ -356,6 +368,7 @@ export function journeyOf(profile: Profile): JourneyStep[] {
     { id: "customer", label: tt("Customer"), reached: p.customer || orders > 0 || profile.memberships.length > 0, at: buyAt, detail: orders ? tt("{n, plural, one {# order} other {# orders}}", { n: orders }) : null },
     { id: "member", label: tt("Member"), reached: p.member || profile.communities.length > 0, at: joinAt, detail: profile.communities[0]?.name || null },
   ]
+  return journeyInTime(steps)
 }
 
 function Journey({ profile }: { profile: Profile }) {
@@ -555,11 +568,24 @@ function Emails({ profile }: { profile: Profile }) {
   )
 }
 
-function EditPerson({ open, phone, profile, onClose, onSaved }: { open: boolean; phone: boolean; profile: Profile; onClose: () => void; onSaved: (text: string, failed?: boolean) => void }) {
+type EditValues = { name: string; tags: string[]; notes: string; phone: string }
+
+/** The profile with what Edit saved laid over it, until the server draws it again. */
+function withEdits(profile: Profile, v: EditValues | null): Profile {
+  if (!v) return profile
+  const contact = { id: profile.contact?.id ?? "", ...profile.contact, name: v.name || null, tags: v.tags, notes: v.notes || null, phone: v.phone || null }
+  return { ...profile, contact, person: { ...profile.person, name: v.name || profile.person.name, tags: v.tags, hasContact: true } }
+}
+
+const EDIT_FIELD = cn(field, "h-9 max-sm:h-11 max-sm:rounded-xl max-sm:px-3 max-sm:text-[16px]")
+const EDIT_LABEL = "mb-1 block text-[12px] font-medium text-[#4b5563] max-sm:text-[13px]"
+
+function EditPerson({ open, phone, profile, onClose, onSaved }: { open: boolean; phone: boolean; profile: Profile; onClose: () => void; onSaved: (text: string, values: EditValues) => void }) {
   const p = profile.person
   const [name, setName] = React.useState("")
   const [tags, setTags] = React.useState("")
   const [notes, setNotes] = React.useState("")
+  const [tel, setTel] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   React.useEffect(() => {
@@ -567,41 +593,49 @@ function EditPerson({ open, phone, profile, onClose, onSaved }: { open: boolean;
     setName(profile.contact?.name ?? p.name ?? "")
     setTags((profile.contact?.tags ?? []).join(", "))
     setNotes(profile.contact?.notes ?? "")
+    setTel(profile.contact?.phone ?? "")
     setError(null)
   }, [open, profile, p.name])
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
+    const phoneValue = tel.trim() ? draftPhone(tel) : ""
+    if (phoneValue === null) return setError(tt("Enter a phone number with digits, spaces, + ( ) or -."))
     setBusy(true)
     setError(null)
+    const values: EditValues = { name: name.replace(/\s+/g, " ").trim(), tags: draftTags(tags), notes, phone: phoneValue }
     const r = await contactsRequest(`/api/contacts/${p.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, notes, tags: tags.split(",").map((t) => t.trim()).filter(Boolean) }),
+      body: JSON.stringify(values),
       fallback: tt("Not saved. Try again."),
     })
     setBusy(false)
     if (!r.ok) return setError(r.error)
-    onSaved(tt("Saved."))
+    onSaved(tt("Saved."), values)
   }
   return (
     <SheetDialog open={open} onClose={onClose} phone={phone} label={tt("Edit contact")} className="p-0 sm:max-w-[480px]" dialog={{ "aria-describedby": undefined }}>
-      <form onSubmit={save} className="space-y-3 p-5">
+      <form onSubmit={save} noValidate className="space-y-3 p-5 max-sm:px-4 max-sm:pt-1" data-edit-contact="">
         <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{tt("Edit contact")}</SheetDialogTitle>
         <label className="block">
-          <span className="mb-1 block text-[12px] font-medium text-[#4b5563]">{tt("Name")}</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} className={cn(field, "h-9")} />
+          <span className={EDIT_LABEL}>{tt("Name")}</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} className={EDIT_FIELD} />
         </label>
         <label className="block">
-          <span className="mb-1 block text-[12px] font-medium text-[#4b5563]">{tt("Tags, separated by commas")}</span>
-          <input value={tags} onChange={(e) => setTags(e.target.value)} className={cn(field, "h-9")} />
+          <span className={EDIT_LABEL}>{tt("Phone")}</span>
+          <input type="tel" inputMode="tel" value={tel} onChange={(e) => setTel(e.target.value)} maxLength={40} className={EDIT_FIELD} data-edit-phone="" />
         </label>
         <label className="block">
-          <span className="mb-1 block text-[12px] font-medium text-[#4b5563]">{tt("Notes")}</span>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={5000} rows={5} className={cn(field, "py-2")} />
+          <span className={EDIT_LABEL}>{tt("Tags, separated by commas")}</span>
+          <input value={tags} onChange={(e) => setTags(e.target.value)} className={EDIT_FIELD} />
         </label>
-        <p className="text-[12px] text-[#6b7280]">{tt("Only you and your team see these. The name here does not change their orders or account.")}</p>
+        <label className="block">
+          <span className={EDIT_LABEL}>{tt("Notes")}</span>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={5000} rows={5} className={cn(field, "resize-none py-2 max-sm:rounded-xl max-sm:px-3 max-sm:text-[16px]")} />
+        </label>
+        <p className="text-[12px] text-[#6b7280] max-sm:text-[13px]">{tt("Only you and your team see these. The name here does not change their orders or account.")}</p>
         {error ? <p className="text-[13px] text-[#b42318]" role="alert">{error}</p> : null}
-        <div className="flex justify-end gap-2 pt-1">
+        <div className="flex justify-end gap-2 pt-1 max-sm:[&>button]:h-11 max-sm:[&>button]:flex-1 max-sm:[&>button]:rounded-xl max-sm:[&>button]:text-[15px]">
           <button type="button" className={buttonSecondary} onClick={onClose}>
             {tt("Cancel")}
           </button>

@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 411: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 431: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -5690,6 +5690,18 @@ REVOKE ALL ON TABLE public.onepage_poll_votes FROM anon, authenticated;
 GRANT ALL ON TABLE public.onepage_poll_votes TO service_role;
 DO $do$ BEGIN IF to_regclass('public.onepage_leads') IS NOT NULL THEN ALTER TABLE public.onepage_leads ADD COLUMN IF NOT EXISTS phone text; END IF; IF to_regclass('public.subscribers') IS NOT NULL THEN ALTER TABLE public.subscribers ADD COLUMN IF NOT EXISTS phone text; END IF; END $do$;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('411', '411_onepage_tips_polls_phone.sql', 'e2c35f03d79a702bb2df5d352ae1f82a9b3037da0429f29721d2f68051df7197') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 431_design_references.sql
+/* Design intelligence round O, part 431: the AI's visual reference library (lib/storelib-ai/references). public.design_references holds one row per screenshot the Storelib admin uploads at /admin/design-references (keyed by the picture's SHA-256, so the same picture twice is one reference), the vision model's analysis as a jsonb record, the admin's note, and where its pictures are. The pictures go in a PRIVATE bucket design-references (JPEG, PNG or WebP, 5 MB each). Server only: row level security on with no policy and no grant to anon or authenticated, and no storage policy on the bucket, so only the service role behind the admin cookie, or an AI job on the server, can read or write either. No existing rows change. Safe to run again. */
+create table if not exists public.design_references ( id text primary key check (id ~ '^ref_up-[0-9a-f]{16}$'), version integer not null default 1 check (version >= 1), status text not null default 'analyzing' check (status in ('analyzing', 'ready', 'failed')), enabled boolean not null default true, record jsonb, notes text check (notes is null or char_length(notes) <= 2000), source_note text check (source_note is null or char_length(source_note) <= 300), image_sha256 text not null check (image_sha256 ~ '^[0-9a-f]{64}$'), original_path text, view_path text, page_path text, width integer, height integer, bytes integer, analysis_model text, analysis_usd numeric(12, 6), analysed_at timestamptz, error text check (error is null or char_length(error) <= 400), created_at timestamptz not null default now(), updated_at timestamptz not null default now(), check (record is null or (jsonb_typeof(record) = 'object' and pg_column_size(record) <= 65536)) );
+create unique index if not exists design_references_image_sha256 on public.design_references (image_sha256);
+create index if not exists idx_design_references_ready on public.design_references (status, enabled);
+create index if not exists idx_design_references_analysed_at on public.design_references (analysed_at);
+alter table public.design_references enable row level security;
+revoke all on public.design_references from public, anon, authenticated;
+grant select, insert, update, delete on public.design_references to service_role;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values ('design-references', 'design-references', false, 5242880, array['image/jpeg', 'image/png', 'image/webp']) on conflict (id) do update set public = false, file_size_limit = 5242880, allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp'];
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('431', '431_design_references.sql', 'd2048b2853375770713954c08b4f567d6f29ce433e3d6c41397917255f3e3298') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

@@ -9,6 +9,7 @@
 import type { ToolSpec } from "@/lib/sites/agent/types"
 import { AGENT_TOOL_NAMES, type AgentToolName } from "../types"
 import { CONCEPT_SCHEMA } from "./concept"
+import { BRIEF_REFINE_JSON_SCHEMA } from "@/lib/storelib-ai/direction/brief"
 import { SEARCH_KNOWLEDGE_TOOL } from "./knowledge"
 import { DESIGN_BINDINGS, DESIGN_CONTROLS } from "../site-settings"
 
@@ -83,7 +84,7 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
           fonts: obj({ heading: { type: "string" }, body: { type: "string" }, accent: { type: "string" } }),
           radius: obj({ small: { type: "number" }, medium: { type: "number" }, large: { type: "number" } }),
           spacing: obj({ scale: { type: "number" }, sectionY: { type: "number" }, pageWidth: { type: "number" }, gutter: { type: "number" } }),
-          motion: obj({ level: { type: "string", enum: ["none", "subtle", "expressive"] }, style: { type: "string" }, durationMs: { type: "number" } }),
+          motion: obj({ level: { type: "string", enum: ["none", "subtle", "expressive"] }, style: { type: "string" }, durationMs: { type: "number" }, tier: { type: "string", enum: ["quiet", "balanced", "expressive"], description: "The site's motion feel; components read it as var(--t-motion-*)." } }),
           typeScale: obj({ base: { type: "number", description: "Body size in px, 12 to 22." }, ratio: { type: "number", description: "Each heading step, 1.05 to 1.6." } }),
           shadow: { type: "string", enum: ["none", "sm", "md", "lg"] },
           custom: { type: "object", description: "name (no --t-) to CSS value. No url()." },
@@ -130,7 +131,7 @@ export const TOOL_SPECS: Record<AgentToolName, ToolSpec<AgentToolName>> = {
   search_knowledge: SEARCH_KNOWLEDGE_TOOL as ToolSpec<AgentToolName>,
   validate: { name: "validate", description: "Check one file, or (no path) every file you touched and every page: compile, manifest, remote imports, bindings, links.", parameters: obj({ path: { type: "string" } }) },
   render_check: { name: "render_check", description: "Draw a page with the template engine and read it: empty sections, leftover template code, pictures without alt, heading order, broken internal links, and runtime errors the editor reported.", parameters: obj({ page: { type: "string" } }, ["page"]) },
-  report_progress: { name: "report_progress", description: "Say what you are doing, for the progress view. With phase \"plan\", hand in the visual concept and the site plan as pages (both required before the first write on a new website) and the work as tasks.", parameters: obj({ phase: { type: "string", enum: PHASES }, label: { type: "string" }, concept: CONCEPT_SCHEMA, tasks: { type: "array", items: { type: "string" } }, pages: SITE_PLAN }, ["phase", "label"]) },
+  report_progress: { name: "report_progress", description: "Say what you are doing, for the progress view. With phase \"plan\", hand in the visual concept (following the ART DIRECTION in the brief), optionally sharper brief facts (brief), and the site plan as pages (both required before the first write on a new website) and the work as tasks.", parameters: obj({ phase: { type: "string", enum: PHASES }, label: { type: "string" }, concept: CONCEPT_SCHEMA, tasks: { type: "array", items: { type: "string" } }, pages: SITE_PLAN, brief: BRIEF_REFINE_JSON_SCHEMA }, ["phase", "label"]) },
   finish: { name: "finish", description: "Say the website is done. Everything is validated first: with errors, finish is refused and you get the list to fix.", parameters: obj({ summary: str("Two or three plain sentences for the creator: what was made, what to fill in."), notes: { type: "array", items: { type: "string" } } }, ["summary"]) },
 }
 

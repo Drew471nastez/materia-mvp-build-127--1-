@@ -40,8 +40,14 @@ const SUITES = [
   "tests/ai-site-agent-engine.test.ts",
   /* Round L (L6): the design knowledge library under lib/storelib-ai/library (179 markdown entries embedded by scripts/build-ai-knowledge.mjs, kept in step), retrieval for sample briefs within a token budget, the search_knowledge tool in the contract shapes, the anti-slop evaluator (lib/ai-builder/slop.ts) on seeded slop and clean pages relative to a visual concept, concept validation and diverse directions, and the external component registry with verified licences. */
   "tests/ai-knowledge.test.ts",
+  /* Round O (O1): the visual reference library under lib/storelib-ai/references. Every record valid with rights and provenance (52 original seed patterns, condensed taste-skill and impeccable principles, generated awesome-design-md and ui-ux-pro-max records with their licences, NOTICE.md); no seed names a brand and the prompt block never names an analysed brand or a URL; searchReferences deterministic, fitting the business, roles and kinds spread, deduplicated by picture, file and brand; the vision analysis (scripted model) bounded and analysis only; uploads checked, admin handlers refuse non admins, store privately, dedup by hash, edit with a version bump; the agent's plan phase is shown the reference pictures and the build phase is not; SQL part 431. */
+  "tests/ai-references-o1.test.ts",
   /* Round N (N4): design intelligence. A type library whose faces all load (font-options TYPE_LIBRARY_FAMILIES, font-link weights), the concept refusing a default display face (Inter, Poppins...) or one that cannot load, directions for many subjects, the anti-slop type and layout rules (default fonts, fixed type, equal card grids, centred hero over cards, one rhythm, emoji icons, stock copy), the fourteen interactive .storelib examples compiled, checked and drawn through the agent's own checks, search_knowledge handing one over by id, and the prompt teaching a free site's own chrome (HEADLESS_HOOK_GUIDE), 10+ sections and restrained motion. */
   "tests/ai-design-n4.test.ts",
+  /* Round O (O5): the site motion feel (Theme settings > Animations > Motion feel) as --t-motion-* on the canvas and the page, stilled for reduced motion; the motion primitives compiled, drawn, render checked and editable; site stories per business and the planner refusing the generic Hero, Features, Pricing, FAQ, CTA skeleton outside software; Chromium at 390px with and without reduced motion. */
+  "tests/ai-motion-layout-o5.test.ts",
+  /* Round O (O2): creative direction before generation (lib/storelib-ai/direction: the brief, art directions fitted to the business, the choice and the concept check) and the per-site DESIGN.md contract in Google's format, synced both ways with Theme settings, user overrides kept across AI edits (lib/ai-builder/design-contract.ts). */
+  "tests/ai-direction-o2.test.ts",
   /* Round L (L3): the agent engine (lib/ai-builder/agent) with a scripted provider and an in-memory website: a blank fitness coach site (concept first, tokens as Theme settings, five original ai_ components, three real pages in the Main menu, its own header and footer, a real product bound), edit mode touching only the target file, compile repair and the verify/repair cycle ending partial when it must, iteration/spend/wall clock budgets, cancel, provider failures, the path rule and other permissions, and checkpoint compaction and resume across slices. */
   "tests/ai-builder-agent.test.ts",
   /* Round M: the live smoke (scripts/ai-builder/live-smoke.ts) run with a SCRIPTED model through the real runner and stepper on an in-memory job table: one call per step, requests handed over with the checkpoint through JSON and a fresh stepper each, a step after a hand over that depends on the tool answer before it, the spend, wall clock and request caps, the report and the saved files, and the gate (switch and key by name, no value printed). */
@@ -311,6 +317,8 @@ const SUITES = [
   "tests/contacts-nav-w7.test.ts",
   /* Wave 8: Contacts switches without a flash or a fade: a form's tabs as Storelib's pills with Responses and Insights kept mounted and cached, People's views read ahead and swapped in place, a booking week in switch rows, message links straight to Contacts › Forms. */
   "tests/contacts-smooth-w8.test.ts",
+  /* Wave 9: Add contact as one clean sheet (checked field by field, a person already there named, on the list at once, notes and a phone kept), a person's Edit shown at once and the journey in time order, Forms shown at once on a second visit, Publish resting when there is nothing new. */
+  "tests/contacts-add-w9.test.ts",
   /* Wave 5: Emails on a phone as it was before round 51: one row of views, Automation and New email on every view, no second row; a computer keeps the three tabs. */
   "tests/emails-phone-w5.test.ts",
   "tests/orders-view.test.ts",
@@ -803,6 +811,8 @@ const SUITES = [
   "tests/emails-t.test.ts",
   /* Emails › Customer emails in three families, the language and the signature by where it was bought, previews that are the sent email; scripts/check-emails-families.mjs measures the switch and the lists. */
   "tests/emails-families.test.ts",
+  /* Wave 9: a family the store does not use (nothing shipped, no community) keeps its pill and says so, with where to start, instead of listing emails that never go out. */
+  "tests/customer-emails-family-use.test.ts",
   "tests/emails-language.test.ts",
   /* One language for everything about a placed order: the store's default unless the order or a link names another it publishes; never a cookie, the browser or the country (lib/markets/buyer-language.ts). */
   "tests/buyer-language.test.ts",
@@ -857,6 +867,8 @@ const SUITES = [
   "tests/onepage-aq2.test.ts",
   "tests/onepage-ar5.test.ts",
   "tests/onepage-themes-w8.test.ts",
+  /* Round W9: six themes with a skin (Aero, Aqua, Messenger, Y2K, Playful, Grunge): every text and button pair and every colour the skin paints read at 4.5:1, the skin carried by both roots and the theme card, the generated stylesheet current and styling every kind of block, motion by transform and opacity only and still for reduced motion and in cards, the skin laid on and taken off with the theme. scripts/shot-onepage-skins.mjs photographs them. */
+  "tests/onepage-themes-w9.test.ts",
   /* Round 10 buttons: every saved button draws as before, the hover system, one drawing for page, preview and Design tab; a social link typed any way saved as the right address. scripts/check-onepage-buttons.mjs measures them. */
   "tests/onepage-buttons.test.ts",
   "tests/onepage-social-input.test.ts",
@@ -1047,6 +1059,8 @@ const SUITES = [
   "tests/marketing24.test.ts",
   /* Connected email platforms: Brevo, MailerLite and Kit on the marketing sync (key checked, subscribers pushed, unsubscribes both ways and by webhook, order events as events, groups and tags, a 429 retried without sending twice), and the store's own sending domain with Mailgun, all against fake HTTP. */
   "tests/connected-platforms.test.ts",
+  /* Wave 9, emails: every store email From the store's own verified domain (lib/mailgun.ts `store`), the domain checked again by the cron, the platforms synced within the minute also with physical commerce off. */
+  "tests/emails-sending-w9.test.ts",
   "tests/partners24.test.ts",
   /* Round AE3: each partner's cancel and costs against stubs of its API, holds and the partner card read from the timeline, the packing slip's paper and prices, the buyer's paid rate in Buy a label. */
   "tests/fulfilment-ae3.test.ts",
@@ -1276,6 +1290,8 @@ const SUITES = [
   "tests/cdn-r54.test.ts",
   /* Round N (N2): a free site is headless. The host draws no default theme UI on an AI built site (lib/website-builder/free-site.ts: breadcrumbs, the language switch and the bars only when asked, the Overlay group from home only), and the site's own code gets a search window (this creator's products, pages and posts, rate limited), language and currency lists, and panels opened from any section (sections/own-panels.ts); the render check knows the hooks; in Chromium: results as text, Escape, focus kept and given back, aria-expanded, the canvas, the built-in fallback. */
   "tests/storefront-headless-n2.test.ts",
+  /* Round O (O4): the rendered visual critic (lib/ai-builder/visual-critic). The draft drawn from the job's own project with no script in it (stripped, CSP), photographed in REAL Chromium at 1440 and 390 with JavaScript disabled (proven: a page script that would hide its overflow never runs) and a fenced network; measured (sideways scroll at 390, a dead call to action in the first screen and unreadable contrast are hard gates; heading wrap, tap targets, broken or missing pictures, no CTA, instructions to the creator printed in the page); a scripted vision model reviews 4 pictures per page on spec 8.2's seven axes with a bounded JSON repair retry; in the agent loop the defects come back as numbered repair tasks naming the file, two reviews at most, the review's spend in the job's spend, a gate that stays ends partial, and no browser is "Not visually checked", never a pass. Without Chromium the browser sections say so and skip. */
+  "tests/ai-visual-critic-o4.test.ts",
 ]
 
 /**
@@ -1416,6 +1432,8 @@ const STRICT_SUITES = [
   "tests/onepage-w8.test.ts",
   /* Round AR3: every block type's settings panel drawn and visible (image 137), music and video layouts with Storelib's own player, Cover, Fit and Full, links shown in place (Calendly, Typeform, Canva, Google Maps, podcasts), oEmbed cards from recorded answers, Fourthwall and Bonfire retired, followers from one field, more links in one block. scripts/check-onepage-ar3.mjs measures the layout matrix, the embeds and the settings at 390 and 1440. */
   "tests/onepage-ar3.test.ts",
+  /* Round W9 (opblocks): a bin on every block row (the question first, the row folding away in 180ms, Delete still in the more menu); the block sheets (Contact, Subscribe, Share, music, Privacy) and the product sheet in the page's palette and typeface; a theme taking every block's own colours, a group's too; Mixed tiles as pairs and full rows taking turns, never a featured card halved or a half alone; Cards drawing every plain link as a card. */
+  "tests/onepage-blocks-w9.test.ts",
   /* Round 43: the OnePage editor's font sheet as tall as its list, an off block's controls unfaded, Remove's question in one compact line, a block's stats with the period as a popover and See in Analytics, the header's type and picture frame, the cover's ring that follows a Left header, one hold for every window over the live page. scripts/check-onepage-editor-r43.mjs measures them. */
   "tests/onepage-editor-r43.test.ts",
   /* Round 44: every page of a published website, for search engines: one indexable host (the Storelib address's sitemap goes to the domain's), a website not live is a 404 past its front page, a renamed product's old address a 308, the sitemap to 50,000 products held a page at a time, an imported theme's canonical and noindex, and IndexNow told about the addresses a publish or a deleted page took down. */
@@ -1455,6 +1473,8 @@ const STRICT_SUITES = [
   "tests/ai-builder-whole-site-n3.test.ts",
   /* Round N (N1): Start with AI lands in the editor and the build is seen as it happens. The create call no longer waits for a cover; the Website page draws the editor's shell from the press; the editor knows the build before its first paint and shows a building canvas (never the theme's "Empty Page"); the agent's drafts are read again debounced (not every 8 s), files before the page, following the page it is on until the person picks one; the progress card docked, in plain steps ("Designing the header"); From scratch is the default and, with the new AI builder off for the account, refused in words (409 agent_off) instead of run on the theme's sections. Strict: tests/_journey. */
   "tests/ai-builder-start-live-n1.test.ts",
+  /* Round O (O6): the design intelligence on every AI surface (docs/ai-builder/design-intelligence.md). The website agent, the Ask for a change agent and its creative planner, the section writer, the classic planner and copy filler and the Storelib Sites agent each carry designRulesFor(surface); the agent's system prefix is byte identical across two jobs while the briefs (creative brief, art direction, references as text, motion) differ; every edit surface gets the install's DESIGN.md and the keep-the-brand rule (spec I.5) and a new site does not; no surface carries round N's "editorial serif" type steering, and a personal trainer is not handed the italic serif bundle. */
+  "tests/ai-surfaces-o6.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

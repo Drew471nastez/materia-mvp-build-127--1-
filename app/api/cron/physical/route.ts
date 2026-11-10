@@ -11,6 +11,7 @@ import { closeUnconfirmedDeliveries } from "@/lib/physical/unconfirmed-delivery-
 import { noteOrdersWaiting } from "@/lib/physical/orders-waiting-server"
 import { runTrackingSweep } from "@/lib/physical/tracking/sync-server"
 import { scheduleMarketingSyncs } from "@/lib/integrations/marketing/sync-server"
+import { recheckSendingDomains } from "@/lib/emails/sending-domain-server"
 import { runFollowupSweep } from "@/lib/checkout/followups-sweep"
 
 /**
@@ -62,7 +63,28 @@ async function runJob(request: Request) {
     console.error("[cron/physical] follow-ups:", e instanceof Error ? e.message : e)
     return { resumed: 0, failed: 0 }
   })
-  if (!(await isPhysicalCommerceEnabled())) return NextResponse.json({ enabled: false, swept, followups }, { headers: { "Cache-Control": "no-store" } })
+  /* Stores' own sending domains waiting for DNS, checked again without a press (lib/emails/sending-domain-server.ts recheckSendingDomains). */
+  const domains = await recheckSendingDomains(db).catch(() => 0)
+  if (!(await isPhysicalCommerceEnabled())) {
+    /*
+      THE EMAIL PLATFORMS DO NOT WAIT ON PHYSICAL COMMERCE. Klaviyo, Omnisend,
+      Brevo, MailerLite and Kit run on the same job queue, and the quarter
+      hour sync (unsubscribes read back, retries after a busy provider) was
+      only ever scheduled below this switch, which is off unless an admin
+      turned it on: a store selling downloads got its subscribers pushed on
+      signup and nothing else. The sync is scheduled and the queue run here
+      too (the same queue a signup already runs at once, lib/integrations/
+      marketing/sync-server.ts runSoon).
+    */
+    const marketing = await scheduleMarketingSyncs(db).catch(() => 0)
+    let jobs = { done: 0, failed: 0 }
+    for (let round = 0; round < 3 && Date.now() - started < 36_000; round++) {
+      const ran = await runJobs(db, 25).catch(() => ({ done: 0, failed: 0 }))
+      jobs = { done: jobs.done + ran.done, failed: jobs.failed + ran.failed }
+      if (ran.done + ran.failed < 25) break
+    }
+    return NextResponse.json({ enabled: false, swept, followups, marketing, jobs, domains }, { headers: { "Cache-Control": "no-store" } })
+  }
   const { data: expired, error } = await db.rpc("physical_expire_holds", { p_limit: 200 })
   if (error && (error.code === "PGRST202" || error.code === "42883")) return NextResponse.json({ available: false }, { headers: { "Cache-Control": "no-store" } })
   /* Klaviyo and Omnisend: a sync per connected store each quarter hour, run by the loop below with the rest (lib/integrations/marketing/sync-server.ts). */
@@ -90,7 +112,7 @@ async function runJob(request: Request) {
   /* A line only when the run did something; an idle run every few minutes was a log line each time. Changed on purpose (the owner: lower Vercel costs). */
   const didWork = !tracking || Number(expired ?? 0) + jobs.done + jobs.failed + tracking.checked + tracking.moved + unconfirmed.closed + swept.shipped + swept.baskets + marketing + waiting.raised > 0
   if (didWork) console.log(`[cron/physical] ${Number(expired ?? 0)} holds expired, jobs ${jobs.done} done ${jobs.failed} failed, tracking ${tracking ? `${tracking.checked} read ${tracking.moved} moved` : "failed"}, ${unconfirmed.closed} deliveries not confirmed, ${ms}ms`)
-  return NextResponse.json({ expired: Number(expired ?? 0), swept, followups, jobs, marketing, tracking, unconfirmed: unconfirmed.closed, waiting, ms }, { headers: { "Cache-Control": "no-store" } })
+  return NextResponse.json({ expired: Number(expired ?? 0), swept, followups, jobs, marketing, domains, tracking, unconfirmed: unconfirmed.closed, waiting, ms }, { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function GET(request: Request) {

@@ -76,7 +76,7 @@ const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", categor
 /* Changed on purpose (round 42): Folio (light) and Ledger (dark) join after round 40's, each in its kind. */
 /* Changed on purpose (round AP): Notebook (light) and Cobalt (gradient) join at the end of their kinds. */
 /* Changed on purpose (round W8): Gazette (light), Halo (gradient) and Acid (dark) join at the end of their kinds. */
-check("each lands in its own kind, after that kind's old ones", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,gazette,b,lagoon,cobalt,halo,c,ember,ledger,acid,d,atlas")
+check("each lands in its own kind, after that kind's old ones", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,gazette,aqua,messenger,playful,grunge,b,lagoon,cobalt,halo,aero,c,ember,ledger,acid,y2k,d,atlas" /* Changed on purpose (round W9): Aqua, Messenger, Playful, Grunge, Aero and Y2K, each at the end of its kind. */)
 
 /* ─── Block layouts ───────────────────────────────────────────────────── */
 console.log("\nBlocks can be laid out four ways")
@@ -157,7 +157,8 @@ check("a page set in a pair reads as that pair", fontPairOf({ font_family: "'Int
 
 /* ─── The page, the Design tab and Settings use it ────────────────────── */
 console.log("\nThe page, the preview, the Design tab and Settings")
-check("the blocks' gap and layout come from the theme", /className=\{cn\("flex flex-col items-center", blockGapClass\(safeTheme\)\)\}/.test(live) && /pairLinkTiles\(pairProductTiles\(/.test(live))
+/* Changed on purpose (round W9, opblocks): the paired list is kept in one place (laid) so Mixed tiles can read the same list (mixedTileSizes). */
+check("the blocks' gap and layout come from the theme", /className=\{cn\("flex flex-col items-center", blockGapClass\(safeTheme\)\)\}/.test(live) && /const laid = pairProductTiles\(/.test(live) && /pairLinkTiles\(laid, blockLayoutOf\(safeTheme\)\)/.test(live))
 check("a link on Cards is drawn as the featured card", /if \(data\.layout_type === 'pro' \|\| linkDrawnAsCard\(theme, data\)\)/.test(live))
 check("the classic header and socials carry their marks for left alignment", /data-op-header=""/.test(live) && /data-op-socials=\{isHeroLayout \? undefined : ""\}/.test(live))
 check("the theme's sheet colours are written once", (live.match(/sheetRootCss\(safeTheme\)/g) ?? []).length === 1)

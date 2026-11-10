@@ -6,9 +6,13 @@ import "server-only"
  * client bundle, so only the engine's server modules import this file.
  */
 import { capabilitiesFromSite, runSearchKnowledge, suggestDirections, type Direction, type KnowledgeCapability } from "@/lib/storelib-ai/library"
+import { searchReferences } from "@/lib/storelib-ai/references"
 import { slopIssues } from "../slop"
+import { themeSettingsToTokens } from "../tokens"
+import { isSlopDisplayFont } from "@/lib/storelib-ai/library/type-systems"
+import type { DesignTokens } from "../types"
 import type { RuntimeCapabilities } from "../runtime-contract"
-import type { KnowledgeSearch, SlopEvaluator } from "./ports"
+import type { KnowledgeSearch, ReferenceSource, SlopEvaluator } from "./ports"
 import type { VisualConcept } from "./concept"
 
 export { SEARCH_KNOWLEDGE_TOOL } from "@/lib/storelib-ai/library"
@@ -31,14 +35,42 @@ export function libraryKnowledge(ctx: { industry?: string; concept?: () => Visua
   }
 }
 
-/** L6's anti slop evaluator over the job's files, relative to its concept and the store's real facts. */
-export const librarySlop: SlopEvaluator = async ({ files, concept, capabilities }) => {
+/**
+ * L6's anti slop evaluator over the job's files, relative to its concept and the store's real facts.
+ * Round O: with the creator's own words (only they can ask for the editorial serif or purple look), the
+ * Theme settings' tokens a visitor really sees, the pages as drawn and home's section order.
+ */
+export const librarySlop: SlopEvaluator = async ({ files, concept, capabilities, brief, settings, rendered, sections }) => {
   const c = capabilities
   const facts = c ? { numbers: [String(c.products.length), ...(c.reviews.count ? [String(c.reviews.count), ...(c.reviews.average !== null ? [c.reviews.average.toFixed(1)] : [])] : [])].filter((n) => n !== "0"), reviews: c.reviews.count > 0, quotes: false, logos: false } : undefined
-  return slopIssues({ sources: files.map((f) => ({ path: f.path, content: f.text })), ...(facts ? { facts } : {}) }, (concept as VisualConcept | null) ?? null)
+  /*
+    The tokens a visitor sees. Fonts only when the heading face is one with character: set_tokens already refuses a
+    default display face unless the creator asked for it, so an Inter heading here is the platform's own default
+    (the reader's fallback), not a choice to judge; an editorial serif heading is, for the cliché combination.
+  */
+  const read = settings ? themeSettingsToTokens(settings) : undefined
+  const heading = typeof settings?.font_heading === "string" ? settings.font_heading.trim() : ""
+  const tokens: Partial<DesignTokens> | undefined = read ? { colors: read.colors, ...(heading && !isSlopDisplayFont(heading) ? { fonts: read.fonts } : {}) } : undefined
+  return slopIssues(
+    {
+      sources: files.map((f) => ({ path: f.path, content: f.text })),
+      ...(facts ? { facts } : {}),
+      ...(typeof brief === "string" ? { brief } : {}),
+      ...(tokens ? { tokens } : {}),
+      ...(rendered?.length ? { rendered } : {}),
+      ...(sections?.length ? { sections } : {}),
+    },
+    (concept as VisualConcept | null) ?? null,
+  )
 }
 
 /** Starting directions for the plan phase: distinct, suited to the industry first. */
 export function directionsFor(industry: string | undefined, seed: string): Direction[] {
   return suggestDirections(industry, { count: 3, seed })
+}
+
+/** O1's references without the database: the built in library (Storelib's patterns, open-source notes), no pictures. */
+export const libraryReferences: ReferenceSource = {
+  search: async ({ query, industry, limit }) => searchReferences({ text: query, industry }, { limit: limit ?? 4 }),
+  images: async () => [],
 }

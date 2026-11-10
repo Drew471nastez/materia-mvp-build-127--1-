@@ -216,7 +216,7 @@ export interface Profile {
   account: { email: string | null; verified: boolean } | null
   emails: string[]
   consent: { state: SubscriptionState; subscriberId: string | null; consentText: string | null; consentAt: string | null; unsubscribedAt: string | null; suppressed: boolean }
-  contact: { id: string; notes: string | null; tags: string[]; name: string | null } | null
+  contact: { id: string; notes: string | null; tags: string[]; name: string | null; phone?: string | null } | null
   purchases: { id: string; at: string; product: string | null; amountCents: number; refundCents: number; currency: string; status: string }[]
   spent: { currency: string; cents: number }[]
   memberships: { id: string; title: string | null; status: string; amountCents: number; currency: string; interval: string | null; at: string }[]
@@ -271,7 +271,7 @@ export async function readProfile(db: Db, scope: ContactsScope, g: Gathered, opt
       : [],
     ids("message").length ? many(inIds(db.from("site_contact_messages").select("id, subject, message, created_at").eq("creator_id", c), "id", ids("message")).order("created_at", { ascending: false })) : [],
     ids("subscriber").length ? one(db.from("subscribers").select("*").eq("creator_id", c).in("id", ids("subscriber")).limit(1).maybeSingle()) : null,
-    ids("contact").length ? one(db.from("creator_contacts").select("id, name, notes, tags").eq("creator_id", c).in("id", ids("contact")).limit(1).maybeSingle()) : null,
+    ids("contact").length ? one(db.from("creator_contacts").select("id, name, notes, tags, fields").eq("creator_id", c).in("id", ids("contact")).limit(1).maybeSingle()) : null,
   ])
 
   /* The emails sent to them, by address, for this store only. */
@@ -385,7 +385,7 @@ export async function readProfile(db: Db, scope: ContactsScope, g: Gathered, opt
       unsubscribedAt: sub ? s(sub.unsubscribed_at) : null,
       suppressed: scopes.includes("all") || scopes.includes("optional"),
     },
-    contact: contact ? { id: String(contact.id), notes: s(contact.notes), tags: Array.isArray(contact.tags) ? (contact.tags as string[]) : [], name: s(contact.name) } : null,
+    contact: contact ? { id: String(contact.id), notes: s(contact.notes), tags: Array.isArray(contact.tags) ? (contact.tags as string[]) : [], name: s(contact.name), phone: contact.fields && typeof contact.fields === "object" ? s((contact.fields as Record<string, unknown>).phone) : null } : null,
     purchases,
     spent: [...by.entries()].sort((a, b) => b[1] - a[1]).map(([currency, cents]) => ({ currency, cents })),
     memberships: memberships.map((m) => ({ id: String(m.id), title: s(m.title), status: String(m.status ?? ""), amountCents: n(m.amount_cents), currency: (s(m.currency) || "USD").toUpperCase(), interval: s(m.billing_interval), at: String(m.created_at ?? "") })),

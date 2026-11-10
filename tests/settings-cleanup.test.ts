@@ -179,6 +179,8 @@ console.log("\nEvery setting is read by something")
     social_show_in_header: "components/website-builder/theme/ThemeSocials.tsx",
     animations_enabled: "components/website-builder/theme/use-site-motion.ts",
     animation_style: "components/website-builder/theme/use-site-motion.ts",
+    /* Round O (O5): the site's motion feel, printed as --t-motion-* by lib/storelib-ai/motion (themeVars). */
+    motion_tier: "lib/storelib-ai/motion/index.ts",
     animation_duration: "components/website-builder/theme/use-site-motion.ts",
     animation_stagger: "components/website-builder/theme/use-site-motion.ts",
     intro_enabled: "components/website-builder/theme/site-intro.tsx",

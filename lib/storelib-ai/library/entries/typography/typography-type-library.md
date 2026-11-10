@@ -13,8 +13,10 @@ version: 1
 ---
 **Rule**: the display face carries the personality. Inter, Roboto, Open Sans, Lato, Montserrat, Poppins, Plus Jakarta Sans, Raleway, Arial, Helvetica and system-ui as the display face read as "nobody chose this" and are refused by the concept check and the anti-slop check, unless the creator named one (then the concept says allow "default-fonts"). They are fine as body text. Every family below is in the Typography list, so set_tokens fonts loads it for real.
 
-**Serif**
-- Editorial italic: Instrument Serif 400 italic display (tracking -0.02em, leading 0.95), Instrument Sans text, DM Mono caps labels; ratio 1.5. Headlines huge, one or two words a line; never bold the serif.
+**A display serif is a choice, never the default.** The 2025 to 2026 AI look is an italic display serif (Instrument Serif, Fraunces, Playfair, DM Serif, Cormorant) on a cream ground with mono caps labels and a rust or terracotta accent. Use a serif display only when the direction calls for one (luxury, fashion, literary, publishing, heritage, wine, hotel, wedding, Japanese minimal); a personal trainer, a producer, an agency or a shop gets a grotesk, condensed, geometric, wide, slab, rounded or mono display.
+
+**Serif (only when the direction calls for it)**
+- Editorial italic: Instrument Serif 400 italic display (tracking -0.02em, leading 0.95), Instrument Sans text; ratio 1.5. Literary, publishing or gallery only; never with cream, mono caps labels and a rust accent together.
 - Newsprint: Source Serif 4 600 for display and 400 for text, IBM Plex Mono for bylines; ratio 1.333.
 - Soft serif: Fraunces 400 display, Karla text at 17px; ratio 1.333. Warm services, food, wellness.
 - High contrast fashion: Bodoni Moda 500 caps display (only above 40px), Jost text, Jost caps labels tracked 0.18em; ratio 1.618.
@@ -35,7 +37,26 @@ version: 1
 - Athletic numerals: Barlow Condensed 700 caps for times and prices, IBM Plex Sans text; ratio 1.5.
 - Gothic poster: League Gothic caps stacked tall, Karla text, Space Mono dates; ratio 1.75.
 
+- Sport condensed: Saira Condensed 800 caps cropped by the viewport edge, Barlow text, big tabular numbers; ratio 1.75. Trainers, gyms, sport.
+- Scoreboard: Teko 600 caps like a stadium board, Chivo text, Azeret Mono for times and sets; ratio 1.75.
+
+**Geometric, wide, slab**
+- Geometric clean: Outfit 500 display, Albert Sans text; calm without a serif (wellness, skincare, apps).
+- Geometric pop: Urbanist 800 display and text, flat colour fields.
+- Wide tech: Syncopate 700 caps for two or three words, Host Grotesk text, Martian Mono specs.
+- Wide statement: Krona One at poster scale, Epilogue text.
+- Y2K chrome: Orbitron 800 caps, Silkscreen tiny UI labels, Outfit text. Only for a Y2K or club direction.
+- Slab workshop: Zilla Slab 700 display, Bitter text; barbers, coffee, trades, craft.
+
+**More grotesks**
+- Neo grotesk: Mona Sans 800 at -0.04em, Mona Sans text, Martian Mono specs; ratio 1.618. Product led, fashion commerce, agencies.
+- Poster heavy: Bowlby One caps, Darker Grotesque text a size up; neo brutalist and event posters.
+- Kinetic grotesk: Funnel Display 800 at -0.05em stacked across the grid, Chivo text; experimental studios.
+- Japanese quiet: Zen Kaku Gothic New small and widely spaced, long line height; Mincho quiet adds Shippori Mincho for a few words.
+
 **Mono, humanist, rounded**
+- Mono led: Martian Mono 600 display, Host Grotesk text; software, tools, producers' spec sheets.
+- Rounded soft: Baloo 2 700 display, Varela Round text.
 - Terminal: JetBrains Mono 700 display at -0.04em, IBM Plex Sans text. Spec tables in mono.
 - Typewriter zine: Space Mono for everything, hierarchy from size and one colour.
 - Humanist clear: Literata 500 display, Atkinson Hyperlegible text; for services where clarity is the point.

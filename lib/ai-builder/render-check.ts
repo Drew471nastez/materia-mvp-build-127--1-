@@ -93,6 +93,11 @@ export interface RenderCheckResult {
   htmlBytes: number
   /** Per section, how many bytes it drew; 0 for one that failed. Handy for a progress note. */
   sections: { id: string; type: string; bytes: number }[]
+  /**
+   * The page as drawn (not in the editor): every section's markup and CSS, for the
+   * anti-slop check of what a visitor really reads (round O, lib/ai-builder/slop.ts `rendered`).
+   */
+  drawn?: { html: string; css: string }
 }
 
 /**
@@ -491,7 +496,7 @@ export async function renderCheck(input: RenderCheckInput): Promise<RenderCheckR
     }
   }
 
-  return { ok: !issues.some((i) => i.severity === "error"), issues, htmlBytes, sections: perSection }
+  return { ok: !issues.some((i) => i.severity === "error"), issues, htmlBytes, sections: perSection, drawn: { html: pageHtml, css: drawn.map((d) => d.css).join("\n") } }
 }
 
 /**

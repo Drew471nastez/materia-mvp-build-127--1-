@@ -298,6 +298,8 @@ async function visitorEmail(db: Db, job: JobRow, s: SubmissionRow, booking: Book
     html: mail.html,
     text: mail.text,
     from: buildFromHeader(name),
+    /* From the store's own domain when it has one verified; Storelib's when the store has no name to send as. */
+    store: identity?.fromName ? job.owner_id : null,
     replyTo: identity?.replyTo || identity?.sellerEmail || undefined,
     transactional: true,
     keepBounce: true,

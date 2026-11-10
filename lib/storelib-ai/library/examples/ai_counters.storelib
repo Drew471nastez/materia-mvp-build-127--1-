@@ -24,7 +24,7 @@ tags: counters, stats, numbers, count up, figures, facts, @property, view-timeli
 <style scoped>
 @property --ct-n { syntax: "<integer>"; inherits: false; initial-value: 0; }
 .ct { container-type: inline-size; padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 16px) calc(var(--s-pb) * var(--theme-spacing-scale, 1)); background: var(--s-bg); color: var(--s-text); }
-.ct__h { margin: 0 0 28px; font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--s-accent); }
+.ct__h { margin: 0 0 28px; font-family: var(--theme-font-heading), sans-serif; font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.25rem); font-weight: 600; letter-spacing: -0.01em; line-height: 1.1; color: var(--s-heading, var(--s-text)); }
 .ct__list { display: grid; gap: 0; margin: 0; }
 .ct__item { display: flex; flex-direction: column-reverse; gap: 6px; padding: 20px 0; border-top: 1px solid var(--s-border); }
 .ct__label { font-size: 0.9375rem; line-height: 1.4; }

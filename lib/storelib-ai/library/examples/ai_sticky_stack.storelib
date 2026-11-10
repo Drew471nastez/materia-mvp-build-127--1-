@@ -30,7 +30,7 @@ tags: sticky, stacked cards, stack, scroll, panels, services, steps, layering
 <style scoped>
 .st { container-type: inline-size; padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 16px) calc(var(--s-pb) * var(--theme-spacing-scale, 1)); background: var(--s-bg); color: var(--s-text); }
 .st__head { margin-bottom: clamp(24px, 5vw, 56px); }
-.st__label { margin: 0 0 10px; font-size: 0.8125rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--s-accent); }
+.st__label { margin: 0 0 10px; font-size: 1rem; font-weight: 500; letter-spacing: 0; color: var(--s-text); }
 .st__h { margin: 0; max-width: 16ch; font-family: var(--theme-font-heading), serif; font-size: clamp(2rem, 1.3rem + 3.4vw, 4.5rem); line-height: 0.95; letter-spacing: -0.03em; font-weight: 600; color: var(--s-heading); }
 .st__stack { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
 .st__panel { display: grid; gap: 20px; padding: clamp(20px, 4vw, 40px); background: var(--s-bg); border: 1px solid var(--s-border); border-radius: 4px; }

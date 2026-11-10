@@ -365,7 +365,7 @@ async function main() {
   await poll()
   /* Twenty calls of 70 s each is more than the job's 20 minutes of working time (DEFAULT_JOB_BUDGET.maxWallMs): it stops, says so, keeps its drafts. */
   const stopped = jobRow(w, hJob)
-  check("H: the working time budget ends it partial, in plain words, drafts kept", stopped.status === "partial" && stopped.state?.agent?.errorCode === "budget_time" && /time/i.test(String(stopped.error)) && Object.keys(installFiles(w, String(hMade.json?.install?.id))).length === 5, { status: stopped.status, code: stopped.state?.agent?.errorCode, error: stopped.error })
+  check("H: the working time budget ends it partial, in plain words, drafts kept", stopped.status === "partial" && stopped.state?.agent?.errorCode === "budget_time" && /time/i.test(String(stopped.error)) && Object.keys(installFiles(w, String(hMade.json?.install?.id))).filter((f) => f !== "DESIGN.md").length === 5, { status: stopped.status, code: stopped.state?.agent?.errorCode, error: stopped.error })
   check("  the view offers Continue", (await poll())?.error?.actions?.includes("continue"))
   const more = await j.call(`POST /api/website-builder/ai-jobs/${hJob}/continue`, { as: h.person, body: { action: "continue" } })
   check("  Continue extends the budget once and runs on", more.status === 202 && more.json?.extended === true, more.json)
@@ -456,7 +456,8 @@ async function main() {
   const jRun = scriptModels(jScript, { clock: w.clock, callMs: 10_000 }) /* short calls: the whole job in one turn, so the model's raw tool answers stay in its requests */
   w.scripts.set(jJob, jRun)
   await driveTurns(w, jJob)
-  const jFiles = Object.keys(installFiles(w, jInstall))
+  /* Changed on purpose (round O, O2): the accepted concept is the site's DESIGN.md; the component files are checked apart from it. */
+  const jFiles = Object.keys(installFiles(w, jInstall)).filter((f) => f !== "DESIGN.md")
   /* Changed on purpose (round N, N3): the whole site's own files are there too; none of the refused ones. */
   check("unsafe files are refused by validate and never saved: script src, link, iframe, a remote picture, @import", jFiles.includes("sections/ai_coach_hero.storelib") && jFiles.every((f) => /^sections\/ai_(coach_hero|guard_[a-z]+)\.storelib$/.test(f)) && jFiles.length === 1 + Object.keys(jWhole.files).length, jFiles)
   const jToolEvents = jobEvents(w, jJob).filter((x) => x.kind === "tool")

@@ -54,9 +54,12 @@ import { fontStack } from "@/lib/onepage/fonts"
 import { WallpaperDrift, WallpaperEffectLayers, WallpaperNoise, WallpaperPattern, useHeaderClearance, usePictureEnds } from "@/components/onepage/wallpaper-layers"
 import { pixelThroughLook, wallpaperMediaLook, withVeil } from "@/lib/onepage/wallpaper"
 import { wallpaperPhotoSrc } from "@/components/onepage/themes/wallpaper-photo"
+/* Round W9: a theme's skin, its material and the scene behind it (lib/onepage/theme-skin, app/onepage-skins.css). */
+import { ThemeSkinScene } from "@/components/onepage/themes/theme-skin-scene"
+import { skinRootProps, skinVars } from "@/lib/onepage/theme-skin"
 /* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
 import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
-import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
+import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, mixedTileSizes, pairLinkTiles } from "@/lib/onepage/theme-layout"
 import { sheetPalette, sheetRootCss } from "@/lib/onepage/sheet-theme"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
@@ -1173,10 +1176,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   /* Round W8: a classic header flush left sits under the round Share button in the top left corner; it starts clear of it. */
   const clearOfShare = (top: string) => (top === "50px" && headerAlignOf(safeTheme) === "left" && safeSettings.share_enabled !== false ? "68px" : top)
   /* What the page draws, in order: a block, or two links or two products to a row. */
-  const pageItemsNow = pairLinkTiles(pairProductTiles(safeBlocks
+  const laidNow = pairProductTiles(safeBlocks
     /* In the editor's preview a new link still waiting for its address is drawn as a placeholder; never live. */
     .filter((b) => isBlockVisible(b) || (inEditorPreview && isIncompleteLink(b)))
-    .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0)), safeTheme), blockLayoutOf(safeTheme))
+    .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0)), safeTheme)
+  /* Round W9: Mixed tiles, which plain links are halves and which full rows (lib/onepage/theme-layout mixedTileSizes). */
+  const mixedSizes = mixedTileSizes(laidNow, blockLayoutOf(safeTheme))
+  const pageItemsNow = pairLinkTiles(laidNow, blockLayoutOf(safeTheme))
   /* Round AR: in the editor's preview a block taken off folds away instead of vanishing (components/onepage/leaving-block). */
   const pageItems = useLeavingBlocks(pageItemsNow, (item) => ((item as { key?: string }).key ?? (item as { id: string }).id), !!inEditorPreview)
   const renderPageContent = ({ isDesktop = false }: { isDesktop?: boolean } = {}) => (
@@ -1267,7 +1273,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 data-op-block={block.id}
                 {...leavingProps(leaving)}
                 data-sensitive-label={sensitiveLabel(block)}
-                data-block-size={presentationOf(block).size || (blockLayoutOf(safeTheme) === "masonry" && block.type === "link_button" ? "half" : "full")}
+                data-block-size={(presentationOf(block).size !== "auto" && presentationOf(block).size) || mixedSizes.get(block.id) || "full"}
               >
               <PublicBlockRenderer
                 block={block}
@@ -1532,8 +1538,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       <div
         className="onepage-live hidden md:block min-h-screen w-full relative [overflow-x:clip]"
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
+        {...skinRootProps(safeTheme)}
         style={{
           ["--op-small-print" as string]: smallPrint,
+          ...skinVars(safeTheme),
           background: getBackgroundStyle(),
           backgroundColor: safeTheme.background_color || "#000000",
           fontFamily: fontStack(safeTheme.font_family),
@@ -1618,6 +1626,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
         {/* Pattern overlay for solid/gradient backgrounds */}
         <WallpaperPattern theme={safeTheme} />
+        <ThemeSkinScene theme={safeTheme} label={sellerName} />
 
         {/* Centered card container */}
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
@@ -1682,6 +1691,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             )}
             {/* Pattern overlay inside card */}
             <WallpaperPattern theme={safeTheme} className="absolute inset-0 rounded-[40px]" clearHeader />
+            <ThemeSkinScene theme={safeTheme} label={sellerName} className="absolute inset-0 rounded-[40px]" />
             {renderPageContent({ isDesktop: true })}
           </div>
         </div>
@@ -1702,8 +1712,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         className="onepage-live md:hidden min-h-screen w-full relative"
         data-onepage-drag-scope=""
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
+        {...skinRootProps(safeTheme)}
         style={{
           ["--op-small-print" as string]: smallPrint,
+          ...skinVars(safeTheme),
           overflowX: 'clip',
           background: getBackgroundStyle(),
           backgroundColor: safeTheme.background_color || "#000000",
@@ -1768,6 +1780,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
           {/* Pattern overlay for mobile, kept out from behind the header (useHeaderClearance above). */}
           <WallpaperPattern theme={safeTheme} clearHeader />
+          <ThemeSkinScene theme={safeTheme} label={sellerName} />
           {renderPageContent()}
         </div>
       </div>

@@ -128,7 +128,7 @@ check("Acid: acid lime square buttons two to a row with a hard magenta shadow, a
   buttonShadow(acid as never) === "hard" && acid.button_border_radius === 0 && blockLayoutOf(acid) === "grid" && avatarShapeOf(acid) === "square" && themeProductLayoutOf(acid) === "grid" && acid.background_pattern === "grid")
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }, { id: "c", category: "dark" }])
 const order = merged.map((t) => t.id).join(",")
-check("each joins the end of its kind", order.includes("notebook,gazette,b") && order.includes("cobalt,halo,c") && order.endsWith("ledger,acid,atlas"), order)
+check("each joins the end of its kind", order.includes("notebook,gazette,aqua,messenger,playful,grunge,b") && order.includes("cobalt,halo,aero,c") && order.endsWith("ledger,acid,y2k,atlas") /* Changed on purpose (round W9): the six W9 themes join the end of their kinds after these. */, order)
 
 console.log("\nPicking a theme, and the next")
 const byId = (id: string) => W8_THEMES.find((t) => t.id === id) as unknown as ThemeTemplateLike

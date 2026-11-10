@@ -80,7 +80,7 @@ export async function POST(req: Request, { params }: Params) {
     text,
     original: { name: message.name ?? null, subject: message.subject ?? null, message: message.message, created_at: message.created_at },
   })
-  const sent = await sendEmail({ from: buildFromHeader(shopName), to: message.email, replyTo, subject: mail.subject, html: mail.html, text: mail.text, transactional: true })
+  const sent = await sendEmail({ from: buildFromHeader(shopName), store: gate.creatorId, to: message.email, replyTo, subject: mail.subject, html: mail.html, text: mail.text, transactional: true })
   if (!sent.success) return json({ error: "Your reply was not sent. Try again." }, 502)
 
   const at = new Date().toISOString()

@@ -133,6 +133,8 @@ export type EditablePropKind = EditableProp["kind"]
 export type BindingProp = Extract<EditableProp, { kind: "binding" }>
 
 /** The section Animation values the theme already offers (lib/website-builder/theme-settings-schema.ts animation_style). */
+import type { MotionTier } from "@/lib/storelib-ai/motion"
+
 export const ANIMATION_STYLES = ["fade-up", "fade-in", "rise", "blur-in", "zoom-in", "slide-left", "slide-right"] as const
 export type AnimationStyle = (typeof ANIMATION_STYLES)[number]
 
@@ -237,7 +239,8 @@ export interface DesignTokens {
   /** Pixels. */
   radius: { small: number; medium: number; large: number }
   spacing: { scale: number; sectionY: number; pageWidth: number; gutter: number }
-  motion: { level: "none" | "subtle" | "expressive"; style?: AnimationStyle; durationMs?: number }
+  /** `tier` is the site's motion feel (round O, O5, lib/storelib-ai/motion): Theme setting motion_tier, the --t-motion-* variables. Absent follows `level`. */
+  motion: { level: "none" | "subtle" | "expressive"; style?: AnimationStyle; durationMs?: number; tier?: MotionTier }
   /** CSS custom properties without a Theme setting: name (no `--t-`) to value. Checked: no url(), no expression. */
   custom?: Record<string, string>
 }
@@ -375,7 +378,8 @@ export type AgentEvent =
   | (EventBase & { kind: "tokens"; changed: string[] })
   | (EventBase & { kind: "validation"; path?: string; errors: number; warnings: number })
   | (EventBase & { kind: "repair"; path: string; attempt: number })
-  | (EventBase & { kind: "note"; text: string })
+  /* `shot` (round O, O4): the design review kept a photograph of the draft's first screen for this job (GET .../ai-jobs/[id]/review-shot). */
+  | (EventBase & { kind: "note"; text: string; shot?: boolean })
   | (EventBase & { kind: "spend"; usd: number; inputTokens: number; outputTokens: number; iteration: number })
   | (EventBase & { kind: "error"; message: string; retryable: boolean })
   | (EventBase & { kind: "finished"; status: AgentJobStatus; stopped?: BudgetStop })

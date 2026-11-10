@@ -84,7 +84,8 @@ section("One gate for both engines")
 
   const cases: { name: string; src: string; code: string; role?: "section" | "header" }[] = [
     { name: "an env read", src: hero.replace(".hx__photo {", "/* process.env.ANTHROPIC_API_KEY */ .hx__photo {"), code: "gate.secret" },
-    { name: "a placeholder slot", src: hero.replace('"default": "Lift with a plan"', '"default": "Your class times go here"'), code: "gate.placeholder" },
+    /* Changed on purpose (round O, O3): the strict anti-slop pass (compile.quality, placeholder copy) names it before the shared gate; refused by both engines either way. */
+    { name: "a placeholder slot", src: hero.replace('"default": "Lift with a plan"', '"default": "Your class times go here"'), code: "" },
     { name: "a banned word", src: hero.replace('"default": "Lift with a plan"', '"default": "Unlock your strength"'), code: "gate.banned_copy" },
     { name: "a richtext setting printed without | raw (its <p> tags shown as text)", src: hero.replace("{{ settings.intro | raw }}", "{{ settings.intro }}"), code: "gate.escaped_richtext" },
     { name: "a loop with no reduced motion rule", src: hero.replace(".hx__photo {", "@keyframes hx-pulse { 50% { opacity: .6; } } .hx__cta { animation: hx-pulse 2s ease-in-out infinite; } .hx__photo {"), code: "gate.endless_motion" },

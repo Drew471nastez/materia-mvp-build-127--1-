@@ -105,6 +105,7 @@ export async function POST(request: Request) {
         replyTo: mail.replyTo || undefined,
         tags: ["site-sign-in"],
         transactional: true,
+        store: creatorId ?? null,
       }),
     brand: (creatorId) => siteBrand(db, creatorId),
   }

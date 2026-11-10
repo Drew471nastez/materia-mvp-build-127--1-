@@ -70,7 +70,8 @@ export interface AgentToolInputs {
    * sections ({ key, sections: string[], reason? }[]), required with the
    * concept before a new website's first write (lib/ai-builder/agent/site-plan.ts).
    */
-  report_progress: { phase: AgentPhase; label: string; concept?: unknown; tasks?: string[]; pages?: unknown }
+  /** `brief` (round O, O2): the plan model's refinements to the creative brief (lib/storelib-ai/direction/brief.ts refineBrief). */
+  report_progress: { phase: AgentPhase; label: string; concept?: unknown; tasks?: string[]; pages?: unknown; brief?: unknown }
   finish: { summary: string; notes?: string[] }
 }
 

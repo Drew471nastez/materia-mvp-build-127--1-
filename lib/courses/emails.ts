@@ -172,7 +172,7 @@ async function sendOne(db: Db, store: ReturnType<typeof supabaseStore>, kind: "r
   /* One click in the mail client: the creator's list when they are on it, otherwise this course's emails. */
   const headers = mail.headers ?? { "List-Unsubscribe": `<${stopUrl}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
 
-  const sent = await sendEmail({ from: buildFromHeader(identity.fromName), to: email, replyTo: identity.replyTo, subject: content.subject, html: mail.html, text: mail.text, headers })
+  const sent = await sendEmail({ from: buildFromHeader(identity.fromName), store: product.creator_id, to: email, replyTo: identity.replyTo, subject: content.subject, html: mail.html, text: mail.text, headers })
   if (!sent.success) {
     console.error(`[courses/emails] ${kind} to ${maskEmail(email)} failed`)
     await unclaim(db, kind, row)

@@ -121,6 +121,8 @@ export interface OnePageTheme {
   social_icon_tone?: "brand" | "mono"
   // Animated gradient
   animated_gradient?: boolean
+  /* Round W9 (lib/onepage/theme-skin): the material a theme draws its blocks in and the scene behind them. Missing is none. */
+  theme_skin?: "aero" | "aqua" | "messenger" | "y2k" | "playful" | "grunge" | null
 }
 
 export interface OnePageSettings {

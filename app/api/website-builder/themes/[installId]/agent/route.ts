@@ -46,6 +46,7 @@ import {
 import { customAddableSections, customSectionSchemas } from "@/lib/website-builder/storelib-schemas"
 import { agentRateLimit, limitStatus, themeAgentLimit } from "@/lib/sites/rate-limit"
 import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/loop"
+import { readDesignContract } from "@/lib/storelib-ai/design-contract-server"
 import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { readSelection, selectedShapeOf } from "@/lib/website-builder/agent/selection-intent"
 import { plainRunError } from "@/lib/sites/agent/plain-errors"
@@ -749,9 +750,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          */
         const runLog: TraceEntry[] = []
         const startedAt = Date.now()
+        /* Round O: the install's DESIGN.md, which the .storelib read above leaves out (lib/storelib-ai/surfaces.ts). */
+        const designContract = await readDesignContract(supabase, installId)
         const loop = themeAgent({
           provider: resolved.provider,
           sources: agentSources,
+          designContract,
           code,
           model: resolved.model,
           /*

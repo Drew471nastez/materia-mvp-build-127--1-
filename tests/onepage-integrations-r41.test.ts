@@ -285,9 +285,10 @@ async function main() {
     }
     const at = Date.parse("2026-10-28T10:00:30Z")
     const n = await queueMarketingSignup(db, "c1", at)
-    const minute = Math.floor(at / 60_000)
+    /* Changed on purpose (wave 9): keyed by the quarter minute, so a signup just after a sync ran gets its own rather than waiting for the quarter hour. */
+    const minute = Math.floor(at / 15_000)
     check("one sync job per connected provider", n === 2 && jobs.length === 2)
-    check("  keyed by the minute, so a burst of signups is one sync", jobs.map((j) => j.idempotency_key).join() === `mkt:klaviyo:sync:c1:signup${minute},mkt:omnisend:sync:c1:signup${minute}` && jobs.every((j) => j.kind === "marketing_sync" && (j.payload as { op: string }).op === "sync"))
+    check("  keyed by the quarter minute, so a burst of signups is one sync", jobs.map((j) => j.idempotency_key).join() === `mkt:klaviyo:sync:c1:signup${minute},mkt:omnisend:sync:c1:signup${minute}` && jobs.every((j) => j.kind === "marketing_sync" && (j.payload as { op: string }).op === "sync"))
     const deliver = read("lib/onepage/integrations/deliver-server.ts")
     check("  every OnePage signup route reaches it through deliverSignup", /await nudge\(db, creatorId\)/.test(deliver) && /queueMarketingSignup/.test(deliver))
   }

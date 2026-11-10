@@ -126,3 +126,38 @@ export function ownFrom(name: string, address: string): string {
   const n = String(name ?? "").replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/[<>"\\]/g, "").replace(/\s+/g, " ").trim().slice(0, 78) || address.split("@")[1]
   return `${/[(),.:;@[\]]/.test(n) ? `"${n}"` : n} <${address}>`
 }
+
+/** The display name of a From header ("Ana <a@b.c>" → "Ana"), unquoted; "" when it has none. */
+export function fromName(from: string | null | undefined): string {
+  const m = String(from ?? "").match(/^\s*([\s\S]*?)\s*<[^<>]+>\s*$/)
+  return (m?.[1] ?? "").replace(/^"([\s\S]*)"$/, "$1").trim()
+}
+
+/**
+ * ONE ANSWER TO "WHICH ADDRESS DOES THIS STORE'S EMAIL COME FROM". A send
+ * made for a store names the store's name in From (lib/mailgun.ts
+ * buildMailgunFromHeader puts Storelib's address after it). With the
+ * store's own domain verified, the address becomes the store's own and the
+ * message goes through that domain (signed with its DKIM); the name is
+ * kept. Without one, the send is left exactly as asked. Pure: the lookup is
+ * the caller's (lib/mailgun.ts resolves `store` with verifiedSender).
+ */
+export function asOwnSender(from: string | null | undefined, own: { address: string; domain: string } | null): { from?: string; sendingDomain?: string } {
+  if (!own?.address || !own.domain) return from ? { from } : {}
+  return { from: ownFrom(fromName(from), own.address), sendingDomain: own.domain }
+}
+
+/**
+ * The host as most DNS providers ask for it: the name without the zone at
+ * its end ("_dmarc.mail" for _dmarc.mail.shop.com in shop.com), "@" for the
+ * zone itself. The zone is the registrable domain (two labels, or three for
+ * a two letter country's second level, isRootDomain's rule).
+ */
+export function hostOf(name: string, domain: string): string {
+  const parts = domain.toLowerCase().split(".")
+  const three = parts.slice(-3).join(".")
+  const zone = parts.length >= 3 && isRootDomain(three) ? three : parts.slice(-2).join(".")
+  const n = name.toLowerCase().replace(/\.$/, "")
+  if (n === zone) return "@"
+  return n.endsWith(`.${zone}`) ? n.slice(0, -(zone.length + 1)) : n
+}

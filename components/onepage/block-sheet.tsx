@@ -822,7 +822,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
         ref={panelRef}
         tabIndex={-1}
         data-block-sheet-panel=""
-        style={{ ...sheetTokens(dark), opacity: 0 }}
+        style={{ ...sheetTokens(dark, true), opacity: 0 }}
         className={cn(
           "relative mx-2 flex w-full origin-bottom flex-col overflow-hidden rounded-t-[24px] bg-[var(--sheet-bg)] text-[var(--sheet-body)] shadow-[0_-8px_40px_rgba(0,0,0,0.18)] outline-none will-change-[translate,scale,opacity]",
           "sm:mx-0 sm:origin-center sm:rounded-[24px] sm:shadow-[0_24px_64px_rgba(0,0,0,0.24),0_2px_8px_rgba(0,0,0,0.08)]",

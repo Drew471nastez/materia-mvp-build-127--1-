@@ -17,7 +17,7 @@ version: 1
 
 **Layout moves**: full screen photographs that hold still; each room introduced by an italic line and the view from its window; a sticky booking bar at the bottom on phones that goes to the real booking form or page; a map and the journey written as steps (train, taxi, walk); a seasonal calendar if the place changes through the year.
 
-**Type**: Instrument Serif or Cormorant Garamond italic for display, Instrument Sans or Jost for text, tiny tracked caps for labels.
+**Type**: Instrument Serif or Cormorant Garamond for display, Instrument Sans or Jost for text, labels in sentence case. Not italic serif + mono caps + cream + terracotta together (the editorial-serif cliché).
 
 **Motion**: subtle: slow crossfades, a clip path reveal on scroll; never autoplay sound.
 

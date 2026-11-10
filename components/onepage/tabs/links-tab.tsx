@@ -172,8 +172,9 @@ import { createClient } from "@/lib/supabase/client"
 import { readFileHeader, scanFile } from "@/lib/storage/security"
 import { precheckUpload } from "@/lib/security/uploads"
 import { BlockBadges, BlockExtras, ExtraBlockEditor, extraBlockRow, isExtraBlock } from "@/components/onepage/extra-blocks"
-import { BlockRemoveQuestion, BlockRowMenu } from "@/components/onepage/block-remove"
+import { BlockRemoveQuestion, BlockRowDelete, BlockRowDeleteSlot, BlockRowMenu } from "@/components/onepage/block-remove"
 import { foldAway } from "@/components/onepage/leaving-block"
+import { collapseRow } from "@/lib/onepage/row-collapse"
 import { AutoHeight, Reveal, revealSettledTop } from "@/components/onepage/reveal"
 import { ModeChoice, QuietAction, SettingsGroup } from "@/components/onepage/block-settings-kit"
 import { ProductPicker } from "@/components/onepage/product-picker"
@@ -3470,6 +3471,9 @@ function BlockItem({
   /* Round AO: Remove's question, opened from the row's more menu and drawn under the row. */
   const [askingRemove, setAskingRemove] = useState(false)
   const menuRef = useRef<HTMLButtonElement>(null)
+  /* Round W9: the row's own bin; the question gives focus back to whichever of the two asked it. */
+  const binRef = useRef<HTMLButtonElement>(null)
+  const askedFrom = useRef<"menu" | "bin">("menu")
   const settingsId = `block-settings-${block.id}`
 
   // Close button text menu when clicking outside
@@ -3647,7 +3651,8 @@ function BlockItem({
       */}
       <div
         className={cn(
-          "group/row flex items-center gap-3 p-3 max-[383px]:flex-wrap max-[383px]:gap-2",
+          /* Round W9: a step tighter on a phone, the room the row's bin takes, so a title keeps what it had. */
+          "group/row flex items-center gap-2 p-3 sm:gap-3 max-[383px]:flex-wrap",
           !isHeaderBlock && "select-none [-webkit-touch-callout:none]"
         )}
         data-reorder-zone={isHeaderBlock ? undefined : ""}
@@ -3659,7 +3664,7 @@ function BlockItem({
             aria-label={tt("Move {title}", { title: preview.title })}
             aria-describedby="onepage-reorder-help"
             onKeyDown={(e) => onGripKeyDown?.(e, preview.title)}
-            className="-my-0.5 -ml-1.5 -mr-1 grid h-11 w-8 shrink-0 cursor-grab touch-none select-none place-items-center rounded-lg text-[#b4b8c0] outline-none transition-colors duration-150 hover:text-[#6b7280] active:cursor-grabbing focus-visible:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.35)] [-webkit-tap-highlight-color:transparent]"
+            className="-my-0.5 -ml-1.5 -mr-0.5 grid h-11 w-7 shrink-0 cursor-grab sm:-mr-1 sm:w-8 touch-none select-none place-items-center rounded-lg text-[#b4b8c0] outline-none transition-colors duration-150 hover:text-[#6b7280] active:cursor-grabbing focus-visible:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.35)] [-webkit-tap-highlight-color:transparent]"
           >
             <GripVertical className="h-5 w-5" />
           </button>
@@ -3739,7 +3744,8 @@ function BlockItem({
             }
           }}
         >
-          <p className="font-medium text-sm truncate">{preview.title}</p>
+          {/* Wave 9: on a phone the title may take two lines and the count shows in the stats sheet, so a title is never cut to four letters. */}
+          <p className="font-medium text-sm leading-[18px] line-clamp-2 [overflow-wrap:anywhere] sm:block sm:truncate sm:leading-5">{preview.title}</p>
           <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
             <span className={cn("truncate", ((preview as any).incomplete || productGone) && "font-medium text-[#b54708]")} data-row-incomplete={(preview as any).incomplete ? "" : undefined}>{productGone ? tt("Not on your page") : preview.subtitle}</span>
             <BlockBadges block={block} />
@@ -3789,7 +3795,7 @@ function BlockItem({
           <BlockAnimationButton value={(block.data as { animation_type?: string }).animation_type} onChange={setAnimation} />
         )}
         {/* Stats control for link buttons and email capture; a row without numbers keeps their room, so its switch lines up. */}
-        {!hasStats && <span aria-hidden className="block h-8 w-14 shrink-0" data-row-slot="stats" />}
+        {!hasStats && <span aria-hidden className="block h-8 w-8 shrink-0 sm:w-14" data-row-slot="stats" />}
         {hasStats && (
           <>
             <button
@@ -3800,14 +3806,14 @@ function BlockItem({
                 setShowStatsModal(true)
               }}
               /* Round W8: one width on every row (the count kept to four characters, rowCountLabel), so nothing beside it moves from row to row. */
-              className="flex h-8 w-14 shrink-0 items-center gap-1 rounded-lg px-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              className="flex h-8 w-8 shrink-0 items-center justify-center gap-0.5 rounded-lg px-1 text-gray-400 sm:justify-start transition-colors hover:bg-gray-100 hover:text-gray-600 sm:w-14 sm:gap-1 sm:px-1.5"
               title={tt("View Stats")}
               aria-label={clickCount !== null ? `${tt("View Stats")}: ${clickCount}` : tt("View Stats")}
               data-row-slot="stats"
             >
               <BarChart2 aria-hidden className="h-4 w-4 shrink-0" />
               {clickCount !== null && (
-                <span className="text-xs font-medium tabular-nums">{rowCountLabel(clickCount)}</span>
+                <span className="hidden text-[11px] font-medium tabular-nums sm:inline sm:text-xs">{rowCountLabel(clickCount)}</span>
               )}
             </button>
 
@@ -3859,6 +3865,20 @@ function BlockItem({
           </>
         )}
 
+        {/* Round W9: the row's own bin, beside the sparkle and the numbers (components/onepage/block-remove BlockRowDelete). */}
+        {!isHeaderBlock ? (
+          <BlockRowDelete
+            ref={binRef}
+            name={preview.title}
+            asking={askingRemove && askedFrom.current === "bin"}
+            onAskRemove={() => {
+              askedFrom.current = "bin"
+              setAskingRemove((v) => !v)
+            }}
+          />
+        ) : (
+          <BlockRowDeleteSlot />
+        )}
         <BlockToggle checked={block.enabled} onCheckedChange={onToggle} label={tt("Show {title}", { title: preview.title })} />
         {/*
           Round AO: move and Remove in the row's more menu, open or closed, so it
@@ -3876,7 +3896,10 @@ function BlockItem({
             isLast={isLast}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
-            onAskRemove={() => setAskingRemove(true)}
+            onAskRemove={() => {
+              askedFrom.current = "menu"
+              setAskingRemove(true)
+            }}
           />
         ) : (
           /* The header has no menu: its room is kept, so its switch sits in the same column as every row's. */
@@ -3889,7 +3912,7 @@ function BlockItem({
         <BlockRemoveQuestion
           open={askingRemove}
           onCancel={() => setAskingRemove(false)}
-          returnFocus={menuRef}
+          returnFocus={askedFrom.current === "bin" ? binRef : menuRef}
           question={block.type === "group" && ((block.data as GroupBlockData).children?.length ?? 0) > 0 ? tt("Remove this group? Its blocks stay on your page.") : tt("Remove this block?")}
           onRemove={onRemove}
           onArchive={onArchive}
@@ -6509,6 +6532,7 @@ function BlockEditor({
                           Round AO: move, Move out and Remove in the row's more menu, as on
                           the page's own blocks (components/onepage/block-remove).
                         */}
+                        <BlockRowDelete compact name={preview.title} asking={askingChildId === child.id} onAskRemove={() => setAskingChildId(askingChildId === child.id ? null : child.id)} />
                         <div className="contents" data-group-child-menu={child.id}>
                           <BlockRowMenu
                             compact
@@ -6527,7 +6551,7 @@ function BlockEditor({
                         onCancel={() => setAskingChildId(null)}
                         className="px-0 pb-0 pt-1.5"
                         question={tt("Remove this block from the group?")}
-                        onRemove={() => deleteChild(child.id)}
+                        onRemove={() => collapseRow(document.querySelector(`[data-group-child-item="${CSS.escape(child.id)}"]`), () => deleteChild(child.id))}
                         keep={{ label: tt("Move out"), line: tt("Back on your page, under the group"), onPick: () => removeChildFromGroup(child.id) }}
                       />
                       </div>
