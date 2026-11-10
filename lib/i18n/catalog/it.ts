@@ -13016,7 +13016,31 @@ const words: Record<string, string> = {
  "Your account email. Customers who reply to any of your emails write here. Add a contact email in Store details to use another.": "L'email del tuo account. I clienti che rispondono a una tua email scrivono qui. Aggiungi un'email di contatto in Dettagli del negozio per usarne un'altra.",
  "One domain for every email your store sends: campaigns, automations and order emails. Set it up once.": "Un dominio per ogni email che il tuo negozio invia: campagne, automazioni ed email degli ordini. Lo configuri una volta.",
  "No inbox needed. Replies go to your reply address, not this one.": "Non serve una casella di posta. Le risposte vanno al tuo indirizzo di risposta, non a questo.",
- "Used for all your emails: campaigns, automations and order emails.": "Usato per tutte le tue email: campagne, automazioni ed email degli ordini."
+ "Used for all your emails: campaigns, automations and order emails.": "Usato per tutte le tue email: campagne, automazioni ed email degli ordini.",
+ "Add a size to see the table.": "Aggiungi una taglia per vedere la tabella.",
+ "As buyers see it": "Come lo vedono gli acquirenti",
+ "Clicks between pages are counted on your websites. Choose All pages or a website to see them.": "I clic tra le pagine si contano sui tuoi siti web. Scegli Tutte le pagine o un sito web per vederli.",
+ "Communities are not physical sales. Choose All types or Communities to see them.": "Le community non sono vendite fisiche. Scegli Tutti i tipi o Community per vederle.",
+ "Communities have their own pages. Choose All pages or Communities to see them.": "Le community hanno pagine proprie. Scegli Tutte le pagine o Community per vederle.",
+ "Digital products don't ship. Choose All types or Physical to see shipping.": "I prodotti digitali non si spediscono. Scegli Tutti i tipi o Fisico per vedere le spedizioni.",
+ "Discard your changes?": "Annullare le modifiche?",
+ "Downloads count digital products. Choose All types or Digital to see them.": "I download riguardano i prodotti digitali. Scegli Tutti i tipi o Digitale per vederli.",
+ "MRR at the end {amount}": "MRR alla fine {amount}",
+ "MRR now {amount}": "MRR attuale {amount}",
+ "New members in this period over the visits to your communities in it.": "Nuovi membri in questo periodo rispetto alle visite alle tue community nello stesso periodo.",
+ "New members per visit": "Nuovi membri per visita",
+ "No paid plans in your communities yet.": "Ancora nessun piano a pagamento nelle tue community.",
+ "No paid plans yet": "Ancora nessun piano a pagamento",
+ "Not on any product yet.": "Non è ancora su nessun prodotto.",
+ "One a visitor a day": "Una per visitatore al giorno",
+ "Several currencies": "Più valute",
+ "Size guide": "Guida alle taglie",
+ "Start from a kind of garment, then type your measurements.": "Parti da un tipo di capo, poi inserisci le tue misure.",
+ "Visits to your communities, one a visitor a day, counted by the communities themselves.": "Visite alle tue community, una per visitatore al giorno, contate dalle community stesse.",
+ "Where else it shows, a note, a picture": "Dove altro appare, una nota, un'immagine",
+ "{n, plural, one {# collection or category} other {# collections or categories}}": "{n, plural, one {# collezione o categoria} other {# collezioni o categorie}}",
+ "{n, plural, one {On # product. A change shows there too.} other {On # products. A change shows on all of them.}}": "{n, plural, one {Su # prodotto. Una modifica appare anche lì.} other {Su # prodotti. Una modifica appare su tutti.}}",
+ "{n} members now": "{n} membri ora"
 }
 
 export default words

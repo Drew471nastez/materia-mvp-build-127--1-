@@ -19,6 +19,9 @@
  *   ?products=many  fourteen products: the product picker's search
  *   ?empty=1        a creator with nothing yet: every card's empty state
  *   ?view=summary   the Website screen's and the OnePage editor's summary lines
+ *   ?communities=2  a seller who runs two communities (wave 10): each answers
+ *                   /api/app/community/<id>/analytics from a made-up report,
+ *                   so the Communities view and the Communities cards draw
  *   ?seller=digital | physical | both | none
  *                   what the store sells (round AB2): the products' kinds, so
  *                   the page morphs; the sales reports and the export are
@@ -178,6 +181,9 @@ w.fetch = (async (input: RequestInfo | URL) => {
     const none = (provider: string) => ({ provider, connected: false, label: null, hint: null, testEventCode: null, lastSentAt: null, lastEvent: null, waiting: 0, errors: [], log: [] })
     return json({ ready: true, canEdit: true, destinations: [{ ...none("ga4"), connected: true, label: "G-8KQ2LM4XYZ", hint: "x9Qa", lastSentAt: new Date(now - 3 * 60_000).toISOString(), lastEvent: "purchase" }, none("meta"), none("posthog"), none("webhook")] })
   }
+  /* A community's own analytics (wave 10): a made-up report for the period's buckets, one a day. */
+  const community = u.pathname.match(/\/api\/app\/community\/([^/]+)\/analytics$/)
+  if (community) return json(communityReport(community[1], Date.parse(q.get("start")!), Date.parse(q.get("end")!), !!q.get("cstart")))
   const selector = parseProperty(q.get("property"))
   /* As the server does: a place the creator does not have is nothing at all. */
   const known = selector.type === "all" || selector.type === "creator_page" || (selector.type === "onepage" && !!PLACES.onePageId) || (selector.type === "website" && PLACES.websites.some((x) => x.id === selector.id))
@@ -249,6 +255,35 @@ w.fetch = (async (input: RequestInfo | URL) => {
   return new Response(body, { headers: { "content-type": "application/x-ndjson" } })
 }) as typeof fetch
 
+/* ?communities=<n>: the seller runs that many communities (wave 10). */
+const COMMUNITIES = Array.from({ length: Math.min(3, Number(params.get("communities")) || 0) }, (_, i) => ({ id: `cm${i + 1}`, name: ["Preset club", "Portrait circle", "Night shooters"][i], slug: `club-${i + 1}` }))
+function communityReport(id: string, start: number, end: number, compared: boolean) {
+  const n = Math.max(1, Math.round((end - start) / DAY))
+  const k = id === "cm1" ? 1 : 0.6
+  const line = (base: number, wobble: number) => {
+    const current = Array.from({ length: n }, (_, i) => (empty ? 0 : Math.max(0, Math.round(base * k + wobble * Math.sin(i * 1.3 + base)))))
+    return { current, previous: compared ? current.map((v, i) => Math.max(0, v - 1 + (i % 3))) : null }
+  }
+  const sum = (l: { current: number[]; previous: number[] | null }) => ({ value: l.current.reduce((a, b) => a + b, 0), previous: l.previous ? l.previous.reduce((a, b) => a + b, 0) : null })
+  const members = Array.from({ length: n }, (_, i) => (empty ? 0 : Math.round(120 * k + i * 2)))
+  const lines = { members: { current: members, previous: compared ? members.map((m) => m - 6) : null }, joined: line(4, 2), left: line(1, 1), active: line(30, 6), posts: line(5, 3), comments: line(9, 4), reactions: line(20, 7), visits: line(60, 15) }
+  const revenue = line(2900, 1400)
+  return {
+    version: 1, grain: "day", buckets: n, firstDay: "2025-01-01",
+    figures: { members: { value: members[n - 1], previous: compared ? members[n - 1] - 6 : null }, joined: sum(lines.joined), left: sum(lines.left), churn: { value: 1.2, previous: compared ? 1.6 : null }, active: sum(lines.active), engagement: { value: 24, previous: compared ? 21 : null }, posts: sum(lines.posts), comments: sum(lines.comments), reactions: sum(lines.reactions), visits: sum(lines.visits) },
+    lines,
+    counted: { visits: true, visitsByHour: true, active: true, engagement: true, detail: true },
+    countedSince: { visits: null, active: null },
+    live: { members: members[n - 1], active1: 9, active7: 31, active30: 58, stickiness: 15.5 },
+    money: { currency: "usd", figures: { revenue: sum(revenue), mrr: { value: empty ? 0 : 41900, previous: compared ? 38000 : null }, subscribers: { value: empty ? 0 : 21, previous: compared ? 19 : null }, newPaid: { value: 3, previous: 2 }, cancellations: { value: 1, previous: 1 } }, lines: { revenue, mrr: line(41900, 300), subscribers: line(21, 1) }, bySource: empty ? [] : [{ key: "memberships", cents: 18000 }, { key: "programs", cents: 6000 }], reasons: [], refunds: { count: 0, totalCents: 0 }, upgrades: 1, churnRate: 4.8 },
+    topSpaces: empty ? [] : [{ id: "s1", name: "General", posts: 12, comments: 30, slug: "general" }, { id: "s2", name: "Critique", posts: 7, comments: 22, slug: "critique" }],
+    topPosts: empty ? [] : [{ id: "t1", title: "Golden hour settings", reactions: 41, comments: 12 }, { id: "t2", title: "My first portrait set", reactions: 25, comments: 9 }],
+    joins: { bySource: empty ? [] : [{ key: "free", label: "free", value: 9 }, { key: "subscription", label: "subscription", value: 4 }], invites: [] },
+    leaveReasons: [],
+    activeSplit: null,
+  }
+}
+
 const many = params.get("products") === "many"
 const products = many
   ? Array.from({ length: 14 }, (_, i) => ({ id: `p${i + 1}`, title: PRODUCTS[i % 4].title + (i >= 4 ? ` ${Math.floor(i / 4) + 1}` : "") }))
@@ -285,10 +320,10 @@ const page = () =>
         {/* ?outer=1: the pull wrapped round the whole page, as page.tsx did before round 12, for scripts/check-analytics-pull.mjs to compare. */}
         {params.get("outer") === "1" ? (
           <RouterPullToRefresh scope="app-analytics" fill>
-            <AnalyticsClient creatorId="c1" userId="u1" products={products} properties={PLACES} />
+            <AnalyticsClient creatorId="c1" userId="u1" products={products} properties={PLACES} communities={COMMUNITIES} />
           </RouterPullToRefresh>
         ) : (
-          <AnalyticsClient creatorId="c1" userId="u1" products={products} properties={PLACES} />
+          <AnalyticsClient creatorId="c1" userId="u1" products={products} properties={PLACES} communities={COMMUNITIES} />
         )}
       </div>
       </PlatformSettingsProvider>

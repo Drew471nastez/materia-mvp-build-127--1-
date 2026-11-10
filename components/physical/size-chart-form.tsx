@@ -34,7 +34,8 @@ import { cn } from "@/lib/utils"
 import { SIZE_CHART_LIMITS, SIZE_CHART_TEMPLATES, sizeChartTemplate, type SizeChart, type SizeChartTemplate, type SizeUnit } from "@/lib/size-charts/model"
 import { moveRow, nextCell, pasteIntoRows, readPastedBlock, type GridKey } from "@/lib/size-charts/grid"
 import { secondaryDepth } from "@/components/ui/depth-button"
-import { FIELD, FIELD_COMPACT, Field, Notice, TextInput } from "./ui"
+import { FIELD, FIELD_COMPACT, Field, Notice, Reveal, TextInput } from "./ui"
+import { ChevronDown } from "lucide-react"
 import { tt } from "@/lib/i18n/text"
 
 export interface SizeChartTargetsLike {
@@ -157,6 +158,7 @@ export function SizeChartFields({
   rules = false,
   card,
   cardTitle,
+  folded = false,
 }: {
   state: SizeChartDraftState
   uploadImage?: (file: File) => Promise<string>
@@ -165,8 +167,16 @@ export function SizeChartFields({
   /** A card's classes, to draw each part as its own card (the page); none keeps one column (the dialog). */
   card?: string
   cardTitle?: string
+  /**
+   * Wave 10, the dialog (the owner: "simpler, cleaner, easier to set up"): what most charts never need (where else
+   * it shows, a note, a picture) folded under one "More options" row that says what is set, so the dialog is the
+   * name, the unit and the table.
+   */
+  folded?: boolean
 }) {
   const { draft, edit, template, pickTemplate, touched, isNew, setError } = state
+  const extrasSet = [draft.notes.trim() ? tt("Note") : null, draft.imageUrl ? tt("Picture") : null, draft.collectionIds.length + draft.categories.length ? tt("{n, plural, one {# collection or category} other {# collections or categories}}", { n: draft.collectionIds.length + draft.categories.length }) : null].filter(Boolean).join(" · ")
+  const [moreOpen, setMoreOpen] = React.useState(false)
   const [uploading, setUploading] = React.useState(false)
   const fileRef = React.useRef<HTMLInputElement>(null)
   const pickImage = async (file: File | undefined) => {
@@ -209,7 +219,7 @@ export function SizeChartFields({
       ) : null}
 
       <FieldPart card={card} cardTitle={cardTitle} id="name" title={card ? tt("Chart") : undefined}>
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
           <Field label={tt("Name")} hint={tt("Buyers see it as the title of the chart.")}>
             <TextInput value={draft.name} maxLength={SIZE_CHART_LIMITS.name} onChange={(e) => edit((d) => ({ ...d, name: e.target.value }))} placeholder={tt("Tees, Jeans, Running shoes")} data-size-chart-name="" />
           </Field>
@@ -237,6 +247,23 @@ export function SizeChartFields({
         <SizeChartTable state={state} labelled={!card} />
       </FieldPart>
 
+      {folded ? (
+        <button
+          type="button"
+          aria-expanded={moreOpen}
+          aria-controls="size-chart-more"
+          onClick={() => setMoreOpen((v) => !v)}
+          className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#eceef1] bg-[#fafafb] px-3.5 text-left transition-colors hover:bg-[#f4f5f7] sm:min-h-10"
+          data-size-chart-more=""
+        >
+          <span className="min-w-0">
+            <span className="block text-[14px] font-medium text-[#1a1a2e]">{tt("More options")}</span>
+            <span className="block truncate text-[12.5px] leading-[18px] text-[#6b7280]">{extrasSet || tt("Where else it shows, a note, a picture")}</span>
+          </span>
+          <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 text-[#6b7280] transition-[rotate] duration-200 motion-reduce:transition-none", moreOpen && "rotate-180")} />
+        </button>
+      ) : null}
+      <MaybeFold folded={folded} open={moreOpen}>
       {targets ? (
         <FieldPart card={card} cardTitle={cardTitle} id="also" title={card ? tt("Also show it on") : undefined}>
           <AlsoShowOn draft={draft} targets={targets} rules={rules} titled={!card} onChange={(patch) => edit((d) => ({ ...d, ...patch }))} />
@@ -287,7 +314,20 @@ export function SizeChartFields({
           ) : null}
         </div>
       </FieldPart>
+      </MaybeFold>
     </div>
+  )
+}
+
+/** The folded options in the dialog (Reveal: height and opacity, 200ms), or the parts as they are elsewhere. */
+function MaybeFold({ folded, open, children }: { folded: boolean; open: boolean; children: React.ReactNode }) {
+  if (!folded) return <>{children}</>
+  return (
+    <Reveal open={open} className="!mt-0">
+      <div id="size-chart-more" className="space-y-5 pt-5" data-size-chart-more-body="">
+        {children}
+      </div>
+    </Reveal>
   )
 }
 

@@ -799,6 +799,12 @@ const SUITES = [
   "tests/compat-languages.test.ts",
   "tests/canvas-currency.test.ts",
   "tests/analytics-ad.test.ts",
+  /* Wave 10: Analytics keeps its shape whatever place or type is chosen: the same cards in the same places (lib/analytics/sections slotsFor, slotNote), four figures in four fixed places for the store and the communities, the community answers kept between views. */
+  "tests/analytics-stable-w10.test.ts",
+  /* Wave 10: the About story fades into its own background on an eased mask (240ms, any theme), its Markdown read and drawn as React elements (lib/storefront/story-markdown, components/store-builder/story-text), never printed or made HTML. */
+  "tests/story-fade-w10.test.ts",
+  /* Wave 10: the product editor's Edit size chart dialog on the shared SheetDialog: one fixed height, Edit and Preview (the storefront's own table), More options folded, Save and Cancel at the foot, a discard question in the foot, the exit played before it unmounts. */
+  "tests/size-chart-dialog-w10.test.ts",
   "tests/tax-settings-wiring.test.ts",
   "tests/customer-email-editor.test.ts",
   /* Round 28: a customer email's six parts, per language, saved and read back, drawn as sent (preview text, footer note), reset. */

@@ -1643,7 +1643,8 @@ function main() {
     check("through the allow list the rest of the product uses", api.includes('from "@/lib/website-builder/sanitize"'))
     check("the renderer prints markup as markup", renderer.includes("dangerouslySetInnerHTML={{ __html: cleanStoredHtml(settings.aboutContent") /* round 48: through the allow list at the sink too */)
     /** A story with no tags in it keeps its line breaks, which is all it has. */
-    check("and a plain story still keeps its line breaks", renderer.includes('<p className="whitespace-pre-wrap">{settings.aboutContent}</p>'))
+    /* Changed on purpose (wave 10): a plain story is read as the Markdown it was typed in (components/store-builder/story-text), each line break a <br>, each blank line a new paragraph (tests/story-fade-w10.test.ts). */
+    check("and a plain story still keeps its line breaks", renderer.includes('<StoryText text={settings.aboutContent || ""} />') && /case "br":\s*return <br key=\{k\} \/>/.test(read("components/store-builder/story-text.tsx")))
     /** Preflight flattens h2 and ul to nothing, so markup needs typography. */
     check("written text is given typography", css.includes(".storelib-prose ul { list-style: disc"))
   }

@@ -74,7 +74,12 @@ export function SizeChartCard({ productId, handle, onDirty, uploadImage }: { pro
   const [chosen, setChosen] = React.useState<string | null>(null)
   /* What the server has for this product, so Save writes only a change. */
   const saved = React.useRef<string | null>(null)
-  const [editing, setEditing] = React.useState<{ key: number; chart: SavedSizeChart | null } | null>(null)
+  const [editing, setEditing] = React.useState<{ key: number; chart: SavedSizeChart | null; open: boolean } | null>(null)
+  /* Wave 10: closing plays the dialog's own exit (components/ui/sheet-dialog), then the editor is let go. */
+  const closeEditor = React.useCallback(() => {
+    setEditing((e) => (e ? { ...e, open: false } : e))
+    window.setTimeout(() => setEditing((e) => (e && !e.open ? null : e)), 420)
+  }, [])
   const [error, setError] = React.useState<string | null>(null)
   /* Round 13: what a chart can be set for, and the chart this product shows anyway from a collection or its category. */
   const [targets, setTargets] = React.useState<SizeChartTargets | undefined>(undefined)
@@ -122,7 +127,7 @@ export function SizeChartCard({ productId, handle, onDirty, uploadImage }: { pro
     onDirty()
   }
   const chart = charts.find((c) => c.id === chosen) ?? null
-  const open = (c: SavedSizeChart | null) => setEditing({ key: Date.now(), chart: c })
+  const open = (c: SavedSizeChart | null) => setEditing({ key: Date.now(), chart: c, open: true })
 
   return (
     <Card
@@ -190,15 +195,15 @@ export function SizeChartCard({ productId, handle, onDirty, uploadImage }: { pro
       {editing ? (
         <SizeChartEditor
           key={editing.key}
-          open
+          open={editing.open}
           chart={editing.chart}
           uploadImage={uploadImage}
           targets={targets}
           rules={rules}
-          onClose={() => setEditing(null)}
+          onClose={closeEditor}
           onSaved={({ id, charts: next }) => {
             setCharts(next)
-            setEditing(null)
+            closeEditor()
             /* A chart made from here is the one this product gets. */
             if (!editing.chart) choose(id)
           }}

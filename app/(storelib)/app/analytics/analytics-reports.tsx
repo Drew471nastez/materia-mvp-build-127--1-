@@ -803,7 +803,10 @@ function ProductsBody({ r, both, onAll }: { r: Reports; both: boolean; onAll?: (
  * THE CARDS, drawn whether or not the answer is in (`r` null): every title
  * and every switcher on the first paint, each body waiting in its own height.
  */
-function Grid({ r, property, sections, extra, added, standing = [] }: { r: Reports | null; property: PropertySelector; sections: Sections; extra?: React.ReactNode; added?: AddedProps; standing?: readonly ReportId[] }) {
+/** Wave 10: Clicks between pages kept in its place for a seller with a website; `note` says why it is empty for what is chosen. */
+type KeptSiteClicks = { note: string | null } | null
+
+function Grid({ r, property, sections, extra, added, standing = [], standingNotes = {}, siteClicks = null }: { r: Reports | null; property: PropertySelector; sections: Sections; extra?: React.ReactNode; added?: AddedProps; standing?: readonly ReportId[]; standingNotes?: Partial<Record<ReportId, string>>; siteClicks?: KeptSiteClicks }) {
   const [sourceTab, setSourceTab] = React.useState<SourceTab>("source")
   const [deviceTab, setDeviceTab] = React.useState<DeviceTab>("device")
   const [signupTab, setSignupTab] = React.useState<SignupTab>(property.type === "all" ? "property" : "source")
@@ -813,7 +816,8 @@ function Grid({ r, property, sections, extra, added, standing = [] }: { r: Repor
   const b = r?.breakdowns
   const onePage = property.type === "onepage"
   const both = sections.productKinds
-  const signupsByPage = property.type === "all" && signupTab === "property"
+  /* Wave 10: the Page and Source tabs are there for every place, so the card never changes shape on a switch. */
+  const signupsByPage = signupTab === "property"
   /* Every card opens its report (./report-detail), and a list's "View all" opens the same. */
   const openDetail = React.useContext(OpenDetailContext)
   const all = (id: string, tab?: string) => (openDetail ? () => openDetail(id, tab) : undefined)
@@ -878,10 +882,13 @@ function Grid({ r, property, sections, extra, added, standing = [] }: { r: Repor
         </Card>
       )}
 
-      {r?.siteClicks && !onePage ? (
-        <Card card="siteclicks" detail={{ id: "siteclicks" }} title={tt("Clicks between pages")} help={siteClicksHelp()}>
+      {/* Wave 10: kept in its place for a seller with a website, whatever place is chosen; one line says why it is empty. */}
+      {siteClicks || (r?.siteClicks && !onePage) ? (
+        <Card card="siteclicks" detail={r?.siteClicks ? { id: "siteclicks" } : undefined} title={tt("Clicks between pages")} help={siteClicksHelp()}>
           <Body blank={!lists} wait="list">
-            {lists ? (
+            {lists && (siteClicks?.note || !r?.siteClicks) ? (
+              <Empty>{siteClicks?.note || tt("No clicks between pages in this period.")}</Empty>
+            ) : lists && r?.siteClicks ? (
               <List
                 title={tt("Clicks between pages")}
                 rows={r.siteClicks.rows.map((x) => ({ key: x.key, label: x.label, value: x.clicks, note: siteClickNote(x) }))}
@@ -916,7 +923,7 @@ function Grid({ r, property, sections, extra, added, standing = [] }: { r: Repor
       {standing.filter((id) => !added?.ids.includes(id)).map((id) => (
         <Card key={`standing-${id}`} card={`standing-${id}`} detail={{ id: `added:${id}` }} title={REPORT_COPY[id].title} help={REPORT_COPY[id].help}>
           <Body blank={!lists} wait="figure">
-            {lists && r ? <AddedBody id={id} r={r} onAll={all(`added:${id}`)} /> : null}
+            {lists && r ? standingNotes[id] ? <Empty>{standingNotes[id]}</Empty> : <AddedBody id={id} r={r} onAll={all(`added:${id}`)} /> : null}
           </Body>
         </Card>
       ))}
@@ -938,7 +945,7 @@ function Grid({ r, property, sections, extra, added, standing = [] }: { r: Repor
           detail={{ id: "subscribers", tab: signupsByPage ? "property" : "source" }}
           title={tt("Subscribers")}
           help={tt("People who left their email on your pages or at checkout, and where they came from. Imports and contacts you added yourself are not counted.")}
-          tabs={property.type === "all" ? <Tabs label={tt("Subscribers")} value={signupTab} onChange={setSignupTab} options={[{ value: "property", label: tt("Page") }, { value: "source", label: tt("Source") }]} /> : undefined}
+          tabs={<Tabs label={tt("Subscribers")} value={signupTab} onChange={setSignupTab} options={[{ value: "property", label: tt("Page") }, { value: "source", label: tt("Source") }]} />}
         >
           <Body blank={!lists} wait="figure">
             {lists && r ? (
@@ -1745,6 +1752,8 @@ export function AnalyticsReports({
   extra,
   added,
   standing,
+  standingNotes,
+  siteClicks,
 }: {
   start?: Date
   end?: Date
@@ -1757,12 +1766,16 @@ export function AnalyticsReports({
   extra?: React.ReactNode
   /** The reports the seller added: cards of their own, never figures on the chart. */
   added?: AddedProps
-  /** Reports drawn without being added, for what is chosen (Digital: downloads and refunds; Physical: refunds). */
+  /** Reports drawn without being added: Downloads and Refunds, for every type the seller has (wave 10). */
   standing?: readonly ReportId[]
+  /** Why a standing report has nothing for what is chosen (Downloads under Physical). */
+  standingNotes?: Partial<Record<ReportId, string>>
+  /** Clicks between pages kept in its place (wave 10), or null. */
+  siteClicks?: KeptSiteClicks
 }) {
   reportCurrency = useStoreCurrency()
   return state ? (
-    <ReportsView state={state} property={property} sections={sections} extra={extra} added={added} standing={standing} />
+    <ReportsView state={state} property={property} sections={sections} extra={extra} added={added} standing={standing} standingNotes={standingNotes} siteClicks={siteClicks} />
   ) : (
     <SelfLoading start={(start ?? new Date()).getTime()} end={(end ?? new Date()).getTime()} product={product} property={property} sections={sections} currency={reportCurrency} />
   )
@@ -1775,7 +1788,7 @@ function SelfLoading({ start, end, product, property, sections, currency }: { st
   return <ReportsView state={state} property={property} sections={sections} />
 }
 
-function ReportsView({ state, property, sections, extra, added, standing }: { state: ReportsState; property: PropertySelector; sections: Sections; extra?: React.ReactNode; added?: AddedProps; standing?: readonly ReportId[] }) {
+function ReportsView({ state, property, sections, extra, added, standing, standingNotes, siteClicks }: { state: ReportsState; property: PropertySelector; sections: Sections; extra?: React.ReactNode; added?: AddedProps; standing?: readonly ReportId[]; standingNotes?: Partial<Record<ReportId, string>>; siteClicks?: KeptSiteClicks }) {
   const { data, lists, loading, failed, stale, again } = state
   /* A quick first answer to a new question keeps the last whole answer's lists on screen, softened, until the rest comes. */
   const shown = data && data.reports.partial && lists && !lists.reports.partial ? lists : data
@@ -1806,7 +1819,7 @@ function ReportsView({ state, property, sections, extra, added, standing }: { st
         ) : null}
 
         {/* Given up on (round 53): the line above stands in their place, not gray shapes that never fill. */}
-        {failed && !shown ? null : <Grid r={shown?.reports ?? null} property={countedFor} sections={sections} extra={extra} added={added} standing={standing} />}
+        {failed && !shown ? null : <Grid r={shown?.reports ?? null} property={countedFor} sections={sections} extra={extra} added={added} standing={standing} standingNotes={standingNotes} siteClicks={siteClicks} />}
 
         {shown?.truncated ? (
           <p className="text-[12px] text-[#9ca3af] md:col-span-2 xl:col-span-3">

@@ -153,7 +153,7 @@ async function main() {
     check("no gradient to white over the story", !/transparent, white|from-white|to-white/.test(about))
     check("the text masks itself (data-clamp-fade)", /data-clamp-fade=\{needsTruncation \? \(isExpanded \? "open" : "closed"\) : undefined\}/.test(about))
     const css = read("app/globals.css")
-    check("  a mask over the text, so a colour, a dark scheme or a picture behind it shows through", /\[data-clamp-fade\] \{[\s\S]*?mask-image: linear-gradient\(to bottom, #000 calc\(100% - var\(--sl-fade\)\), transparent\)/.test(css))
+    check("  a mask over the text, so a colour, a dark scheme or a picture behind it shows through", /* Changed on purpose (wave 10): the same mask, on an eased curve through four stops instead of a straight ramp (tests/story-fade-w10.test.ts). */ /\[data-clamp-fade\] \{[\s\S]*?--sl-fade-mask: linear-gradient\(to bottom, #000 calc\(100% - var\(--sl-fade\)\),[^;]*transparent\);[\s\S]*?mask-image: var\(--sl-fade-mask\)/.test(css))
     check("  eased open with a registered property, and no motion when reduced", /@property --sl-fade/.test(css) && /prefers-reduced-motion: reduce\) \{ \[data-clamp-fade\] \{ transition: none; \} \}/.test(css))
     check("Read more in the scheme's text colour, with aria-expanded and aria-controls", /aria-expanded=\{isExpanded\}/.test(about) && /aria-controls=\{storyTextId\}/.test(about) && /color: textColor \|\| "inherit"/.test(about))
     check("the clamp is measured from the text's line height and watched as its box changes", /parseFloat\(getComputedStyle\(el\)\.lineHeight\)/.test(about) && /new ResizeObserver\(measure\)/.test(about))

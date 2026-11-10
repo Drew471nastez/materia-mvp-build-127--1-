@@ -52,6 +52,7 @@ import { bucketLabel, bucketStarts } from "@/lib/analytics/buckets"
 import { combineReports, type Combined } from "@/lib/communities/report-total"
 import type { CommunityReport, Figure, Line } from "@/lib/communities/analytics-report"
 import { fetchWithDeadline } from "@/lib/net/request"
+import { COMMUNITY_METRICS, type CommunityMetricSlot } from "@/lib/analytics/sections"
 
 export interface CommunityPlace {
   id: string
@@ -96,24 +97,76 @@ const MONEY_SOURCE: Record<string, string> = {
 
 type Answers = Record<string, CommunityReport | "failed">
 
+/*
+  KEPT BETWEEN VIEWS (wave 10, the owner: switching types must not flash). The cards under All types and the
+  Communities view ask the very same question; each answer is kept here by community and question, so choosing
+  Communities draws the answers the page already has in its first frame instead of a row of placeholders, and a
+  pointer resting on Communities reads them ahead (prefetchCommunityAnswers). A minute's refresh still asks again.
+*/
+const KEPT_MAX = 48
+const kept = new Map<string, CommunityReport>()
+const asking = new Map<string, Promise<CommunityReport>>()
+const askOf = (span: { start: number; end: number }, compare: { start: number; end: number } | null, timeZone: string) => `${span.start}|${span.end}|${compare?.start ?? ""}|${compare?.end ?? ""}|${timeZone}`
+function askCommunity(id: string, span: { start: number; end: number }, compare: { start: number; end: number } | null, timeZone: string, fresh: boolean): Promise<CommunityReport> {
+  const key = `${id}|${askOf(span, compare, timeZone)}`
+  const waiting = asking.get(key)
+  if (waiting && !fresh) return waiting
+  const q = new URLSearchParams({ start: new Date(span.start).toISOString(), end: new Date(span.end).toISOString(), tz: timeZone })
+  if (compare) {
+    q.set("cstart", new Date(compare.start).toISOString())
+    q.set("cend", new Date(compare.end).toISOString())
+  }
+  /* Round AL: with an end (lib/net/request WAIT_MS.read): a community that never answers is "failed" with Try again, not a card waiting for ever. */
+  const p = fetchWithDeadline(`/api/app/community/${encodeURIComponent(id)}/analytics?${q}`, { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+    .then((d: CommunityReport) => {
+      kept.delete(key)
+      kept.set(key, d)
+      while (kept.size > KEPT_MAX) kept.delete(kept.keys().next().value as string)
+      return d
+    })
+    .finally(() => {
+      if (asking.get(key) === p) asking.delete(key)
+    })
+  asking.set(key, p)
+  return p
+}
+const keptAnswers = (communities: CommunityPlace[], ask: string): Answers => {
+  const out: Answers = {}
+  for (const c of communities) {
+    const d = kept.get(`${c.id}|${ask}`)
+    if (d) out[c.id] = d
+  }
+  return out
+}
+
+/** Read the communities' answers ahead, for a pointer resting on Communities (app/app/analytics). */
+export function prefetchCommunityAnswers(communities: CommunityPlace[], span: { start: number; end: number }, compare: { start: number; end: number } | null, timeZone: string) {
+  const ask = askOf(span, compare, timeZone)
+  for (const c of communities.slice(0, 12)) if (!kept.has(`${c.id}|${ask}`)) askCommunity(c.id, span, compare, timeZone, false).catch(() => {})
+}
+
 /** Each community's answer for the page's question, one request each; the last answers stay drawn, softened, until the new ones come. */
 function useCommunityAnswers(communities: CommunityPlace[], span: { start: number; end: number }, compare: { start: number; end: number } | null, timeZone: string, refresh: number) {
-  const [answers, setAnswers] = React.useState<Answers>({})
-  const [question, setQuestion] = React.useState("")
-  const ask = `${span.start}|${span.end}|${compare?.start ?? ""}|${compare?.end ?? ""}|${timeZone}`
+  const ask = askOf(span, compare, timeZone)
+  const [answers, setAnswers] = React.useState<Answers>(() => keptAnswers(communities, ask))
+  const [question, setQuestion] = React.useState(() => (Object.keys(keptAnswers(communities, ask)).length ? ask : ""))
   const ids = communities.map((c) => c.id).join(",")
+  const asked = React.useRef<{ ask: string; refresh: number } | null>(null)
   React.useEffect(() => {
     let live = true
-    const q = new URLSearchParams({ start: new Date(span.start).toISOString(), end: new Date(span.end).toISOString(), tz: timeZone })
-    if (compare) {
-      q.set("cstart", new Date(compare.start).toISOString())
-      q.set("cend", new Date(compare.end).toISOString())
+    /* A question already answered is drawn at once; only the minute's refresh asks again for it. */
+    const fresh = asked.current !== null && asked.current.ask === ask && asked.current.refresh !== refresh
+    asked.current = { ask, refresh }
+    const known = keptAnswers(communities, ask)
+    if (Object.keys(known).length) {
+      setAnswers((a) => ({ ...a, ...known }))
+      setQuestion(ask)
     }
     for (const c of communities) {
-      /* Round AL: with an end (lib/net/request WAIT_MS.read): a community that never answers is "failed" with Try again, not a card waiting for ever. */
-      fetchWithDeadline(`/api/app/community/${encodeURIComponent(c.id)}/analytics?${q}`, { cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-        .then((d: CommunityReport) => {
+      if (known[c.id] && !fresh) continue
+      askCommunity(c.id, span, compare, timeZone, fresh)
+        .then((d) => {
           if (!live) return
           setAnswers((a) => ({ ...a, [c.id]: d }))
           setQuestion(ask)
@@ -143,8 +196,6 @@ const nums = (xs: (number | null)[] | null | undefined) => (xs ?? []).map((x) =>
 
 /* ── The page's part ─────────────────────────────────────────────────── */
 
-type MetricKey = "members" | "joined" | "active" | "posts" | "revenue" | "mrr"
-
 export function CommunityReports({
   communities,
   span,
@@ -155,6 +206,9 @@ export function CommunityReports({
   rangeText,
   againstText = null,
   legend = null,
+  slot = 0,
+  onSlot,
+  note = null,
 }: {
   communities: CommunityPlace[]
   span: { start: number; end: number }
@@ -168,6 +222,11 @@ export function CommunityReports({
   againstText?: string | null
   /** The page's own legend under the chart (analytics-client ChartLegend), so both charts name their lines alike. */
   legend?: React.ReactNode
+  /** The place of the figure chosen over the chart, shared with the page's own row (wave 10): Revenue chosen is Payments received here. */
+  slot?: number
+  onSlot?: (slot: number) => void
+  /** Beside the rest: why the communities have nothing for the place or type chosen, in one line on each card (wave 10). */
+  note?: string | null
 }) {
   const shown = React.useMemo(() => communities.slice(0, 12), [communities])
   const { answers, stale } = useCommunityAnswers(shown, span, compare, timeZone, refresh)
@@ -198,24 +257,35 @@ export function CommunityReports({
   const detailView = React.useMemo<DetailView | null>(() => (detailId && total ? viewOf(detailId, { total, labels, compared, money, runsToNow, several: named.length > 1 }) : null), [detailId, total, labels, compared, money, runsToNow, named.length])
   const range = rangeText ? (againstText ? tt("{range} compared with {against}", { range: rangeText, against: againstText }) : rangeText) : null
 
+  /* Under the figures, never over them (wave 10): the figures' card is where the page's own is, for every type. */
   const switcher =
     shown.length > 1 ? (
-      <div className="orders-strip -mx-1 overflow-x-auto px-1" data-community-switch="">
+      <div className="orders-strip -mx-1 -mb-2 overflow-x-auto px-1" data-community-switch="">
         <ReportTabs label={tt("Community")} value={chosen} onChange={setPicked} options={[{ value: "all", label: tt("All communities") }, ...shown.map((c) => ({ value: c.id, label: c.name }))]} />
       </div>
     ) : null
 
   const soft = stale ? "opacity-60 transition-opacity duration-300" : "transition-opacity duration-300"
   const sells = !!total?.money || (total?.currencies.length ?? 0) > 1
-  const cards = (
+  /*
+    ONE ORDER, THE PAGE'S OWN (wave 10): money first, as the sales come first under All types, then who joined and
+    how, then what they do, then each community. Community revenue is always there on their own view, with one line
+    when no community sells yet, so the cards never change places when the answers land.
+  */
+  const cards = full ? (
     <>
-      {full ? <GrowthCard total={total} blank={blank} className={soft} /> : null}
-      {full ? <ActivityCard total={total} blank={blank} className={soft} /> : null}
-      {sells || !total ? <RevenueCard total={total} blank={blank} money={money} runsToNow={runsToNow} className={soft} hideWhileBlank={!full} /> : null}
-      {full ? <SpacesCard total={total} blank={blank} className={soft} /> : null}
-      {full ? <PostsCard total={total} blank={blank} className={soft} /> : null}
-      {full ? <JoinsCard total={total} blank={blank} className={soft} /> : null}
+      <RevenueCard total={total} blank={blank} money={money} runsToNow={runsToNow} className={soft} />
+      <GrowthCard total={total} blank={blank} className={soft} />
+      <JoinsCard total={total} blank={blank} className={soft} />
+      <ActivityCard total={total} blank={blank} className={soft} />
+      <SpacesCard total={total} blank={blank} className={soft} />
+      <PostsCard total={total} blank={blank} className={soft} />
       <CommunitiesCard communities={shown} answers={answers} className={soft} />
+    </>
+  ) : (
+    <>
+      {sells || !total ? <RevenueCard total={total} blank={blank} money={money} runsToNow={runsToNow} className={soft} hideWhileBlank note={note} /> : null}
+      <CommunitiesCard communities={shown} answers={answers} className={soft} note={note} />
     </>
   )
 
@@ -224,8 +294,8 @@ export function CommunityReports({
       <ReportComparedContext.Provider value={compared}>
         {full ? (
           <>
+            <Overview total={total} labels={labels} money={money} runsToNow={runsToNow} soft={stale} compareLabel={compared ? againstText : null} legend={legend} slot={slot} onSlot={onSlot} />
             {switcher}
-            <Overview total={total} labels={labels} money={money} runsToNow={runsToNow} soft={stale} compareLabel={compared ? againstText : null} legend={legend} />
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-community-cards="">
               {cards}
             </div>
@@ -243,8 +313,22 @@ export function CommunityReports({
 
 /* ── The figures and the chart ───────────────────────────────────────── */
 
+/**
+ * THE FOUR FIGURES, IN THE PAGE'S FOUR PLACES (wave 10, the owner: "the order of the tabs and the showing of the tabs
+ * and position should not be different when I switch ... to Communities"). They were six (Members, New members,
+ * Active members, Posts, Payments received, MRR) in six columns, four when no community sold: another row, another
+ * width, another order. Now they are the store's four in the same places (lib/analytics/sections COMMUNITY_METRICS):
+ *
+ *   Visitors     Visits        one a visitor a day, the communities' own beacon
+ *   Revenue      Payments received, less refunds; MRR under it
+ *   Orders       New members   who joined; members now under it
+ *   Conversion   Join rate     new members over visits
+ *
+ * Members, Active members, Posts and MRR are not lost: each is under a figure and in the Growth, Activity and
+ * Community revenue cards, and their reports open from there.
+ */
 interface MetricSpec {
-  key: MetricKey
+  key: CommunityMetricSlot
   label: string
   figure: Figure
   line: Line
@@ -253,38 +337,58 @@ interface MetricSpec {
   format: (v: number) => string
 }
 
+/** New members over visits, as a percentage; null with no visit to divide by. */
+const rateOf = (joined: number | null | undefined, visits: number | null | undefined) => (visits === null || visits === undefined || visits <= 0 || joined === null || joined === undefined ? null : Math.round((joined / visits) * 1000) / 10)
+
+export function joinRateOf(total: Pick<Combined, "figures" | "lines"> | null): { figure: Figure; line: Line } {
+  if (!total) return { figure: { value: null, previous: null }, line: { current: [], previous: null } }
+  const j = total.lines.joined
+  const v = total.lines.visits
+  return {
+    figure: { value: rateOf(total.figures.joined.value, total.figures.visits.value), previous: rateOf(total.figures.joined.previous, total.figures.visits.previous) },
+    line: {
+      current: v.current.map((x, i) => rateOf(j.current[i] ?? 0, x)),
+      previous: v.previous && j.previous ? v.previous.map((x, i) => rateOf(j.previous?.[i] ?? 0, x)) : null,
+    },
+  }
+}
+
 function metricsOf(total: Combined | null, money: (c: number | null | undefined, cur?: string | null) => string, runsToNow: boolean): MetricSpec[] {
   const t = total
   const empty: Line = { current: [], previous: null }
   const fig = (f: Figure | undefined): Figure => f ?? { value: null, previous: null }
-  const net = t ? (t.figures.joined.value ?? 0) - (t.figures.left.value ?? 0) : 0
-  const out: MetricSpec[] = [
-    { key: "members", label: tt("Members"), figure: fig(t?.figures.members), line: t?.lines.members ?? empty, value: n(t?.figures.members.value), foot: tt("Net {value}", { value: `${net > 0 ? "+" : ""}${n(net)}` }), format: n },
-    { key: "joined", label: tt("New members"), figure: fig(t?.figures.joined), line: t?.lines.joined ?? empty, value: n(t?.figures.joined.value ?? 0), foot: tt("{left} left", { left: n(t?.figures.left.value ?? 0) }), format: n },
-    { key: "active", label: tt("Active members"), figure: fig(t?.figures.active), line: t?.lines.active ?? empty, value: n(t?.figures.active.value), foot: tt("Churn rate {rate}", { rate: pct(t?.figures.churn.value) }), format: n },
-    { key: "posts", label: tt("Posts"), figure: fig(t?.figures.posts), line: t?.lines.posts ?? empty, value: n(t?.figures.posts.value ?? 0), foot: tt("{n} comments", { n: n(t?.figures.comments.value ?? 0) }), format: n },
-  ]
-  if (!t || t.money) {
-    const m = t?.money
-    const fmt = (v: number) => money(v)
-    out.push(
-      { key: "revenue", label: tt("Payments received"), figure: fig(m?.revenue), line: m?.lines.revenue ?? empty, value: money(m?.revenue.value ?? 0), foot: tt("Less refunds"), format: fmt },
-      { key: "mrr", label: runsToNow ? tt("MRR now") : tt("MRR at the end"), figure: fig(m?.mrr), line: m?.lines.mrr ?? empty, value: money(m?.mrr.value ?? 0), foot: tt("{n} paying", { n: n(m?.subscribers.value ?? 0) }), format: fmt },
-    )
+  const m = t?.money ?? null
+  const fmt = (v: number) => money(v)
+  const join = joinRateOf(t)
+  const byKey: Record<CommunityMetricSlot, MetricSpec> = {
+    visits: { key: "visits", label: tt("Visits"), figure: fig(t?.figures.visits), line: t?.lines.visits ?? empty, value: n(t?.figures.visits.value), foot: tt("One a visitor a day"), format: n },
+    revenue: {
+      key: "revenue",
+      label: tt("Payments received"),
+      figure: fig(m?.revenue),
+      line: m?.lines.revenue ?? empty,
+      value: t && !m ? "–" : money(m?.revenue.value ?? 0),
+      foot: m ? (runsToNow ? tt("MRR now {amount}", { amount: money(m.mrr.value ?? 0) }) : tt("MRR at the end {amount}", { amount: money(m.mrr.value ?? 0) })) : t && t.currencies.length > 1 ? tt("Several currencies") : t ? tt("No paid plans yet") : tt("Less refunds"),
+      format: fmt,
+    },
+    joined: { key: "joined", label: tt("New members"), figure: fig(t?.figures.joined), line: t?.lines.joined ?? empty, value: n(t?.figures.joined.value ?? 0), foot: tt("{n} members now", { n: n(t?.figures.members.value) }), format: n },
+    joinRate: { key: "joinRate", label: tt("Join rate"), figure: join.figure, line: join.line, value: pct(join.figure.value), foot: tt("New members per visit"), format: (v) => pct(v) },
   }
-  return out
+  return COMMUNITY_METRICS.map((k) => byKey[k])
 }
 
-/** One figure's line as the page chart's rows (components/app/analytics-chart): a count in the views slot, money in the revenue one. */
-function chartRows(labels: string[], line: Line, money: boolean): AnalyticsChartData[] {
+/** One figure's line as the page chart's rows (components/app/analytics-chart): a count in the views slot, money in the revenue one, a rate in the conversion one. */
+function chartRows(labels: string[], line: Line, kind: "count" | "money" | "rate"): AnalyticsChartData[] {
   return labels.map((date, i) => {
     const v = line.current[i] ?? 0
     const p = line.previous ? line.previous[i] ?? 0 : undefined
     const row: AnalyticsChartData = { date, views: 0, sales: 0, revenue: 0 }
-    if (money) row.revenue = v
+    if (kind === "money") row.revenue = v
+    else if (kind === "rate") row.conversion = line.current[i] ?? null
     else row.views = v
     if (p !== undefined) {
-      if (money) row.prev_revenue = p
+      if (kind === "money") row.prev_revenue = p
+      else if (kind === "rate") row.prev_conversion = line.previous?.[i] ?? null
       else row.prev_views = p
     }
     return row
@@ -293,27 +397,29 @@ function chartRows(labels: string[], line: Line, money: boolean): AnalyticsChart
 
 /**
  * THE COMMUNITIES' FIGURES AND THEIR CHART, where the page's own are for the
- * rest: the same card, the same figure tabs and the same chart with its
- * dates, its axis and the period before dashed, its legend under it and the
- * way into the chosen figure's report beside the legend.
+ * rest: the same card, the same four figure tabs in the same places and the
+ * same chart with its dates, its axis and the period before dashed, its
+ * legend under it and the way into the chosen figure's report beside it.
  */
-function Overview({ total, labels, money, runsToNow, soft, compareLabel, legend }: { total: Combined | null; labels: string[]; money: (c: number | null | undefined, cur?: string | null) => string; runsToNow: boolean; soft: boolean; compareLabel: string | null; legend: React.ReactNode }) {
-  const [metric, setMetric] = React.useState<MetricKey>("members")
+function Overview({ total, labels, money, runsToNow, soft, compareLabel, legend, slot = 0, onSlot }: { total: Combined | null; labels: string[]; money: (c: number | null | undefined, cur?: string | null) => string; runsToNow: boolean; soft: boolean; compareLabel: string | null; legend: React.ReactNode; slot?: number; onSlot?: (slot: number) => void }) {
+  /* The place chosen is the page's (analytics-client), so Revenue chosen there is Payments received here and back. */
+  const [own, setOwn] = React.useState(slot)
+  const at = onSlot ? slot : own
   const specs = metricsOf(total, money, runsToNow)
-  const on = specs.find((s) => s.key === metric) ?? specs[0]
-  const isMoney = on.key === "revenue" || on.key === "mrr"
-  const rows = React.useMemo(() => chartRows(labels, on.line, isMoney), [labels, on.line, isMoney])
-  const seriesLabels = React.useMemo(() => ({ views: on.label, revenue: on.label }), [on.label])
+  const on = specs[Math.min(Math.max(0, at), specs.length - 1)]
+  const kind = on.key === "revenue" ? "money" : on.key === "joinRate" ? "rate" : "count"
+  const rows = React.useMemo(() => chartRows(labels, on.line, kind), [labels, on.line, kind])
+  const seriesLabels = React.useMemo(() => ({ views: on.label, revenue: on.label, conversion: on.label }), [on.label])
   const formatPrice = React.useCallback((cents: number) => money(cents), [money])
   return (
     <div className="relative overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]" data-community-overview="" aria-busy={!total}>
-      <div role="tablist" aria-label={tt("Metric")} data-scroll-x className={cn("relative flex divide-x divide-[#e5e7eb]/60 overflow-x-auto scrollbar-hide", specs.length === 6 ? "lg:grid lg:grid-cols-6" : "md:grid md:grid-cols-4")}>
+      <div role="tablist" aria-label={tt("Metric")} data-scroll-x className="relative flex divide-x divide-[#e5e7eb]/60 overflow-x-auto scrollbar-hide md:grid md:grid-cols-4">
         <MetricTabLine value={on.key} />
-        {specs.map((s) => (
+        {specs.map((s, i) => (
           <MetricTab
             key={s.key}
             tab={s.key}
-            className={cn("min-w-[130px] flex-shrink-0", specs.length === 6 ? "lg:min-w-0" : "md:min-w-0")}
+            className="min-w-[130px] flex-shrink-0 md:min-w-0"
             label={s.label}
             value={s.value}
             change={<ReportChange h={headline(s.figure)} />}
@@ -321,7 +427,7 @@ function Overview({ total, labels, money, runsToNow, soft, compareLabel, legend 
             selected={s.key === on.key}
             soft={soft}
             loading={!total}
-            onSelect={() => setMetric(s.key)}
+            onSelect={() => (onSlot ? onSlot(i) : setOwn(i))}
             line={false}
           />
         ))}
@@ -331,7 +437,7 @@ function Overview({ total, labels, money, runsToNow, soft, compareLabel, legend 
           chartDisplayData={rows}
           isLoading={!total}
           analyticsMode="store"
-          chartMetricFilter={isMoney ? "revenue" : "views"}
+          chartMetricFilter={kind === "money" ? "revenue" : kind === "rate" ? "conversion" : "views"}
           onePageChartFilter="views"
           formatPrice={formatPrice}
           compareLabel={compareLabel}
@@ -420,7 +526,7 @@ function ActivityCard({ total, blank, className }: { total: Combined | null; bla
   )
 }
 
-function RevenueCard({ total, blank, money, runsToNow, className, hideWhileBlank }: { total: Combined | null; blank: boolean; money: (c: number | null | undefined, cur?: string | null) => string; runsToNow: boolean; className?: string; hideWhileBlank?: boolean }) {
+function RevenueCard({ total, blank, money, runsToNow, className, hideWhileBlank, note = null }: { total: Combined | null; blank: boolean; money: (c: number | null | undefined, cur?: string | null) => string; runsToNow: boolean; className?: string; hideWhileBlank?: boolean; note?: string | null }) {
   if (blank && hideWhileBlank) return null
   const m = total?.money ?? null
   return (
@@ -431,9 +537,11 @@ function RevenueCard({ total, blank, money, runsToNow, className, hideWhileBlank
       help={tt("Payments received is the money paid in this period, less refunds. MRR is what the plans being paid for bring in a month, a yearly plan counted as a twelfth.")}
       className={className}
     >
-      <ReportBody blank={blank} wait="figure">
-        {total && !m ? (
-          <ReportEmpty>{tt("Your communities sell in more than one currency. Choose one community to see its revenue.")}</ReportEmpty>
+      <ReportBody blank={blank && !note} wait="figure">
+        {note ? (
+          <ReportEmpty>{note}</ReportEmpty>
+        ) : total && !m ? (
+          <ReportEmpty>{total.currencies.length > 1 ? tt("Your communities sell in more than one currency. Choose one community to see its revenue.") : tt("No paid plans in your communities yet.")}</ReportEmpty>
         ) : m ? (
           <div className="flex h-full flex-col" data-community-money="">
             <div className="flex items-baseline gap-2.5">
@@ -492,9 +600,9 @@ function JoinsCard({ total, blank, className }: { total: Combined | null; blank:
 }
 
 /** Each community, its members now, who joined and its visits, and the way into its own Analytics. */
-function CommunitiesCard({ communities, answers, className }: { communities: CommunityPlace[]; answers: Answers; className?: string }) {
+function CommunitiesCard({ communities, answers, className, note = null }: { communities: CommunityPlace[]; answers: Answers; className?: string; note?: string | null }) {
   const list = communities.slice(0, 6)
-  const blank = list.every((c) => !answers[c.id])
+  const blank = !note && list.every((c) => !answers[c.id])
   return (
     <ReportCard
       card="communities"
@@ -504,6 +612,7 @@ function CommunitiesCard({ communities, answers, className }: { communities: Com
       className={className}
     >
       <ReportBody blank={blank} wait="list">
+        {note ? <ReportEmpty>{note}</ReportEmpty> : (
         <div className="flex h-full flex-col">
           <div className="flex h-7 items-center gap-2 text-[11.5px] font-medium text-[#9ca3af]">
             <span className="min-w-0 flex-1" />
@@ -541,6 +650,7 @@ function CommunitiesCard({ communities, answers, className }: { communities: Com
             })}
           </ol>
         </div>
+        )}
       </ReportBody>
     </ReportCard>
   )
@@ -579,6 +689,12 @@ function viewOf(id: string, x: ViewContext): DetailView | null {
     several ? [{ title, format, bars: true, rows: t.each.map((e) => ({ key: e.id, label: e.name, value: pick(e) ?? 0, text: pick(e) === null ? "–" : undefined })).sort((a, b) => b.value - a.value) }] : []
   const m = t.money
   switch (id) {
+    case "metric:visits":
+      return { title: tt("Visits"), figure: figureOf(t.figures.visits, n, tt("One a visitor a day")), chart: chartOf(t.lines.visits, labels, n, tt("Visits"), compared), sections: [overTime(t.lines.visits, labels, n, compared), ...each((e) => e.visits, n)], help: tt("Visits to your communities, one a visitor a day, counted by the communities themselves.") }
+    case "metric:joinRate": {
+      const j = joinRateOf(t)
+      return { title: tt("Join rate"), figure: figureOf(j.figure, pct, tt("New members per visit")), chart: chartOf(j.line, labels, pct, tt("Join rate"), compared, false), sections: [overTime(j.line, labels, pct, compared)], help: tt("New members in this period over the visits to your communities in it.") }
+    }
     case "metric:members":
       return { title: tt("Members"), figure: figureOf(t.figures.members, n), chart: chartOf(t.lines.members, labels, n, tt("Members"), compared), sections: [overTime(t.lines.members, labels, n, compared), ...each((e) => e.members, n)], help: tt("Members at the end of each day, or each hour or month: members now, less who joined after it, plus who left after it.") }
     case "metric:joined":

@@ -6,6 +6,7 @@ import { cleanStoredHtml } from "@/lib/rich-text/html"
 import { useStoryDraft } from "@/lib/storefront/story-draft"
 import { storyIsEmpty } from "@/lib/storefront/story"
 import { StoryGallery } from "@/components/store-builder/story-gallery"
+import { StoryText } from "@/components/store-builder/story-text"
 import { useContactShown, useCreatorPageOwner, useCreatorPageViewer } from "@/components/storefront/creator-page-viewer"
 import { useProfileDraft, type ProfileDraft } from "@/lib/storefront/profile-draft"
 import { personName } from "@/lib/profile/display-name"
@@ -651,8 +652,8 @@ function UnifiedAboutSection({
     if (!el) return
     const measure = () => {
       const line = parseFloat(getComputedStyle(el).lineHeight) || 26
-      /* Five lines, the last two under the fade: three read, the fourth says "there is more", and a line the box cuts is never seen cut. */
-      const clamp = Math.round(line * 5)
+      /* Six lines (wave 10: five left a story that opens with a heading two lines to read), the last two and a half under the fade: a line the box cuts is never seen cut. */
+      const clamp = Math.round(line * 6)
       const inner = el.firstElementChild as HTMLElement | null
       const full = inner ? inner.scrollHeight : el.scrollHeight
       setCollapsedHeight(clamp)
@@ -926,7 +927,8 @@ function UnifiedAboutSection({
             {hasContent ? (
               <div
                 ref={storyRootRef}
-                className="relative group"
+                /* Not a `.group` (wave 10): on a touch screen app/globals.css takes every transition off a group's children, so the story snapped open on a phone instead of easing. Its Edit button follows hoveredField, not group-hover. */
+                className="relative"
                 onMouseEnter={() => setHoveredField("content")}
                 onMouseLeave={() => setHoveredField(null)}
               >
@@ -966,7 +968,8 @@ function UnifiedAboutSection({
                   style={{
                     maxHeight: !needsTruncation ? undefined : isExpanded ? `${(fullHeight ?? 4000) + 8}px` : `${collapsedHeight}px`,
                     color: textColor ? `${textColor}cc` : "inherit",
-                    ["--sl-fade-to" as string]: `${Math.round(lineHeight * 2)}px`,
+                    /* Wave 10: two and a half lines fade into the section's own background (a mask: any colour, picture or theme). */
+                    ["--sl-fade-to" as string]: `${Math.round(lineHeight * 2.5)}px`,
                   }}
                 >
                   {/*
@@ -997,7 +1000,8 @@ function UnifiedAboutSection({
                       dangerouslySetInnerHTML={{ __html: cleanStoredHtml(settings.aboutContent || "") }}
                     />
                   ) : (
-                    <p className="whitespace-pre-wrap">{settings.aboutContent}</p>
+                    /* Wave 10: a plain story's Markdown is read, never printed ("# Storelib —" on the owner's page). */
+                    <StoryText text={settings.aboutContent || ""} />
                   )}
                 </div>
 
@@ -1007,12 +1011,18 @@ function UnifiedAboutSection({
                     onClick={toggleStory}
                     aria-expanded={isExpanded}
                     aria-controls={storyTextId}
-                    /* The scheme's own text colour, so it reads on any page. */
-                    className="mt-2 inline-flex items-center gap-1 rounded text-sm font-medium underline-offset-4 transition-opacity hover:underline focus-visible:outline-none focus-visible:ring-2"
-                    style={{ color: textColor || "inherit", ["--tw-ring-color" as string]: textColor ? `${textColor}66` : undefined }}
+                    /*
+                      Wave 10, the owner: "not only Read more ... a fade, adapted to the colour theme, very smooth,
+                      modern". A soft pill in the scheme's own text colour (color-mix on currentColor, so it reads on a
+                      dark, a light or a picture background alike), 44px to the touch on a phone, sitting where the
+                      fade ends.
+                    */
+                    data-story-toggle=""
+                    className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-sm font-medium transition-[background-color,scale] duration-200 ease-out hover:bg-[color-mix(in_srgb,currentColor_12%,transparent)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 md:min-h-9 motion-reduce:transition-none"
+                    style={{ color: textColor || "inherit", backgroundColor: "color-mix(in srgb, currentColor 7%, transparent)", boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)", ["--tw-ring-color" as string]: textColor ? `${textColor}66` : undefined }}
                   >
                     {isExpanded ? "Show less" : "Read more"}
-                    <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-300", isExpanded && "rotate-180")} />
+                    <ChevronDown aria-hidden className={cn("h-4 w-4 transition-transform duration-200 ease-out motion-reduce:transition-none", isExpanded && "rotate-180")} />
                   </button>
                 )}
               </div>

@@ -392,7 +392,7 @@ function allowServerOnly() {
     check("  a chart made from the card is the one the product gets", /if \(!editing\.chart\) choose\(id\)/.test(card))
     /* The fields moved to size-chart-form.tsx, shared with the chart's own page (tests/offers-subpages.test.ts); the dialog stays for the product editor. */
     const editor = code("components/physical/size-chart-editor.tsx") + code("components/physical/size-chart-form.tsx")
-    check("the table editor over the product editor is the app's Modal: a dialog on a computer, the bottom sheet on a phone", /<Modal open=\{open\}/.test(editor) && /from "\.\/ui"/.test(editor))
+    check("the table editor over the product editor is the app's Modal: a dialog on a computer, the bottom sheet on a phone", /* Changed on purpose (wave 10): the shared SheetDialog (components/ui/sheet-dialog), its own exit on a computer and the app's sheet on a phone (tests/size-chart-dialog-w10.test.ts). */ /<SheetDialog\s+open=\{open\}/.test(editor) && /from "@\/components\/ui\/sheet-dialog"/.test(editor))
     check("  columns and sizes added and removed, a ruler per column, cm or in", ["addColumn", "removeColumn", "addRow", "removeRow", "data-column-measure", 'data-size-unit={u}'].every((s) => editor.includes(s)))
     check("  the first column stays while the rest scroll sideways", /sticky left-0/.test(editor) && /overflow-x-auto/.test(editor))
     check("  16px type on a phone so iOS does not zoom (the compact field)", /FIELD_COMPACT/.test(editor))
