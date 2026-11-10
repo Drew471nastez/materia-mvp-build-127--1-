@@ -120,7 +120,7 @@ tags: chrome kit, menu drawer, bottom sheet, mobile menu, thumb zone, sheet, qui
     { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
   ],
   "blocks": [
-    { "type": "tile", "name": "Quick action", "limit": 4, "settings": [
+    { "type": "tile", "name": "Quick action", "limit": 4, "min_blocks": 2, "settings": [
       { "type": "text", "id": "title", "label": "Title", "default": "Contact us" },
       { "type": "text", "id": "text", "label": "Line under it", "default": "" },
       { "type": "url", "id": "url", "label": "Link", "default": "/contact" }

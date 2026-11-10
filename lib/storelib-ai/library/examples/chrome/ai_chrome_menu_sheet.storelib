@@ -130,7 +130,7 @@ tags: chrome kit, menu drawer, side sheet, side menu, slide out menu, offcanvas,
     { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" }
   ],
   "blocks": [
-    { "type": "card", "name": "Featured card", "limit": 4, "settings": [
+    { "type": "card", "name": "Featured card", "limit": 4, "min_blocks": 2, "settings": [
       { "type": "image_picker", "id": "image", "label": "Picture" },
       { "type": "text", "id": "image_alt", "label": "Picture description", "default": "" },
       { "type": "text", "id": "title", "label": "Title", "default": "New in" },
