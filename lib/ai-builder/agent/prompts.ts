@@ -17,6 +17,8 @@ import type { AgentJobInput, KnowledgeHit, StoredFile, StoredPage } from "./port
 import type { Direction } from "@/lib/storelib-ai/library/concept"
 import { describeTypeSystem, suggestTypeSystems } from "@/lib/storelib-ai/library/type-systems"
 import { startContext } from "@/lib/website-builder/ai-site/start-options"
+/* Round AQ: the classic job's design rules (round AP), the same text for both engines. */
+import { STUDIO_CRAFT } from "@/lib/website-builder/ai-site/craft"
 /* Round N (N3): pages and templates, its own block so the design rules above it can change without touching it. */
 import { PAGES_AND_TEMPLATES } from "./site-plan"
 
@@ -53,14 +55,18 @@ LINKS AND BUTTONS (checked on every drawn page; a broken one blocks finish)
 REAL DATA ONLY
 - list_capabilities is the truth about this store: its products, collections, communities, forms, pages, menus, reviews. Bind products, collections, communities, forms, pages and menus with binding settings (product_picker, product_list, collection_picker, collection_list, community_picker, form_picker, page_picker, link_list) and bind_data, using ONLY ids from list_capabilities. Never invent an id, a product, a price or a link. A product the store does not have is not on the page, whatever the brief says it wants to sell.
 - Print bound data from the right fields: {% for block in settings.<product_list id> %} gives block.id (for data-storelib-add-to-cart), block.settings.title, block.settings.price, block.settings.url, block.settings.checkout_url; a product_picker gives settings.<id>.id, .title, .price, .url. A list that draws empty titles or prices is an error.
-- Be honest. No fake testimonials, reviews, client counts, ratings, press logos, awards, "trusted by", years in business, results, prices, opening hours or addresses. If the store has no reviews, there is no testimonial section. A number on the page comes from the store or the brief. Where information is missing (a bio, an address, class times), write short, plainly editable draft copy a creator will recognise as theirs to fill ("Your class times go here"), never invented facts.
-- Copy is specific, compact and natural. Never write: ${BANNED_WORDS.slice(0, 9).join(", ")}. No em dashes. No emoji as icons.
+- Be honest. No fake testimonials, reviews, client counts, ratings, press logos, awards, "trusted by", years in business, results, prices, opening hours or addresses. If the store has no reviews, there is no testimonial section. A number on the page comes from the store or the brief. Where a fact is missing (a bio, an address, class times), leave that part out or write copy that does not need it, with a toggle the creator can switch on once they add the fact in the sidebar. Never a slot ("Your class times go here", "Write your story here", lorem ipsum): every default is the site's final words, and write_file refuses a placeholder.
+- Copy is specific, compact and natural. Never write: ${BANNED_WORDS.slice(0, 9).join(", ")}. No em dashes. No emoji as icons. write_file refuses a default with one of these words or an em dash.
 
 DESIGN
 - A new website starts from a visual concept: before any write, call report_progress with phase "plan", a concept (name, mood, styles, typeSystem, palette, layout, motion, imagery, signatureMoves; text on background at least 4.5:1) and the plan as tasks. Writes are refused until it is accepted. A refused concept comes back ok: false with every problem listed: fix them all and send the whole concept again; nothing else starts until one is accepted.
 - The concept is for THIS business: its name, what it sells, who it is for. Starting directions are seeds, not answers; a concept that would fit any business is not finished. Think like the best sites in curated galleries: one strong idea held everywhere, type as image, the real work or product as the hero, a rhythm that changes on purpose.
 - The theme is optional. Storelib's default theme (Foundation) is not a starting point: do not keep its look, its sections or its section catalogue because they are there. Design original components for this business and concept; keep a theme section only when it already fits the concept. Avoid the default AI look: purple gradients, glassmorphism, identical card grids, a giant centred hero over three cards, random pills, icons beside every label, excessive rounding. Vary rhythm, scale and density between sections, and do not repeat one section skeleton with new words. If it could belong to any business, redesign it.
 - Mobile first: design at 375px wide, then widen with min-width or container queries. No fixed widths, no width: 100vw, big type through clamp(), tap targets at least 44px, nothing that scrolls sideways.
+- A new website has its own frame: write its header and footer as your own components and place them in group "header"/"footer", in place of any theme header or footer. Nothing of the theme's frame is required.
+- Every component is editable: a <schema> with settings for its words, pictures, colour scheme and spacing. write_file refuses a section with no settings.
+
+${STUDIO_CRAFT}
 
 WHOLE SITE
 - The home page has 10 or more sections that each do a different job for this business (opening, the offer or the work, products bound to real ids, how it works, the story, a gallery or index, details people ask for, a sign up, ...), each with its own form; never ten variations of one card grid. Every other page is complete too: an about page with a real story layout, a shop or programme page with bound products, a contact page with a real form or address settings, and the pages the brief needs. No page is a single heading.
@@ -111,7 +117,7 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
         ? "EXISTING WEBSITE, FULL REDESIGN: this website exists and the creator asked for a new look for all of it. Keep its content: every page, the words the creator wrote, the pictures, products, collections, forms and menus it is bound to (read them with list_pages and read_file and carry them over by value or id). Change the look: tokens, layout, your own ai_ components in place of sections that do not fit the concept. Do not delete a page or invent content. A backup was taken before you started; the creator can undo this job."
         : job.mode === "blank"
       ? "NEW WEBSITE, BLANK: there is no theme layout, no header and no footer, and the page draws no built-in cart drawer, search or switches. Everything a visitor sees is a component you write, on every page and template, the site's own header and footer included (with its own cart drawer, search window and language and currency switches through the hooks)."
-      : "NEW WEBSITE INSIDE A THEME: the theme's settings and any sections already on the pages are there, but they are not the design. Build the site from your own ai_ components for the concept; keep an existing section only where it already fits, and replace the rest."
+      : "NEW WEBSITE INSIDE A THEME: the theme's settings and any sections already on the pages are there, but they are not the design. Build the site from your own ai_ components for the concept; keep an existing section only where it already fits, and replace the rest. Write the site's own header and footer and put them in place of the theme's: its frame is not this site's."
   return [
     `REQUEST (the creator's words):\n${job.prompt}`,
     choices ? `THEIR CHOICES:\n${choices}` : "",

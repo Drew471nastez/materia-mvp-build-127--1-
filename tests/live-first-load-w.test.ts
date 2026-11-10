@@ -130,7 +130,8 @@ function documentOnly() {
   const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
   const block = route.slice(route.indexOf("if (html && !token && page && out.status === 200"), route.indexOf("const body = html ??"))
   /* Changed on purpose (r53): the shared copy's fill script goes in first (lib/storelib-theme/compat/personal-fill.ts), then the page is prepared as before. */
-  check("the route prepares a live page (not a preview, not a 404, not a script's answer), and only when opened as one", /if \(openedAsDocument\(req\.headers\)\) \{\s*if \(shared\) \{[\s\S]{0,300}?personalFillTag\([^\n]*\n\s*\}\s*html = readierFirstLoad\(html\)\.html/.test(block), block.slice(0, 200))
+  /* Changed on purpose (round AQ): the fill script goes to the top of the head (withPersonalFill), so the visitor's parts are asked for while the page arrives. */
+  check("the route prepares a live page (not a preview, not a 404, not a script's answer), and only when opened as one", /if \(openedAsDocument\(req\.headers\)\) \{\s*if \(shared\) \{[\s\S]{0,300}?withPersonalFill\([^\n]*\n\s*\}\s*html = readierFirstLoad\(html\)\.html/.test(block), block.slice(0, 200))
 }
 
 function noReact() {

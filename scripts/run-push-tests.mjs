@@ -30,6 +30,8 @@ const SUITES = [
   "tests/ai-site-generator.test.ts",
   /* Round AP (track 3): Start with AI from the Fitness coach preset to a site of its own. The preset's words reach the create route, the job row and the planner verbatim; with a coder the plan may hold custom sections and header and footer briefs; each coded file is accepted only after the strict compile and quality gate, its schema, its kind, no secret, no remote script, no typed picture, no placeholder and no banned word; the coded header and footer replace the theme's on every page reading the site's own menu; the code step stops before its deadline and the next turn carries on, with a ceiling on turns; placeholders, banned words and broken pictures are findings; no key in any prompt; the Website page refreshes through one transition. */
   "tests/ai-site-free-design-ap.test.ts",
+  /* Round AQ (track 3): the two engines after AP and L met. New jobs are classic unless AI_BUILDER_AGENT=1; a file the classic job codes and a file the agent writes are refused for the same reasons in the same words (lib/website-builder/ai-site/gate.ts: secrets and env reads, no settings, a header without the menu, a picture default, placeholders, banned words, em dashes); the agent's system prompt carries STUDIO_CRAFT and its own frame; the inline build (no jobs table) carries on after a reload from the checkpoint this tab kept; both progress panels drawn. */
+  "tests/ai-site-engines-aq.test.ts",
   /* Round L (AI website builder as a coding agent, docs/ai-builder/architecture.md): the shared contract. AI components are ai_ .storelib section files; a manifest written as <schema> is accepted by the real compiler and the editor's schema reader with every prop on a registry control (form_picker included); SQL part 401 (agent columns on ai_site_jobs, ai_site_job_events owner read and server write, file version author) follows the run-now conventions and agrees with the TypeScript event kinds, statuses, phases and steps. */
   "tests/ai-builder-contracts.test.ts",
   /* Round L, L2: Start with AI's agent jobs on Vercel. Each request runs the loop's iterations that fit with room for one more call, saves a bounded checkpoint after each and hands over through the signed self call; budgets (iterations, spend with the own key's larger cap, working time over invocations, repair cycles) end a job partial with drafts kept or failed when nothing was made; cancel at the next safe point; a crashed runner resumed from its checkpoint and fenced out; duplicate kicks held; crash loops and stale jobs given up on; the global live limit; progress events numbered once, batched, resumed and capped; plain words and recovery actions; Continue's bounded extension; the five minute sweep and cron; the poll's view, the client's merge and back off; the progress panel's states. */
@@ -849,6 +851,8 @@ const SUITES = [
   /* Round 42: two more themes (a cover page, a price list), products shown the theme's way, one-row pill rows with arrows, + Add's turn, the steady tab bar, the photo save's reasons, the OnePage SQL in one file. */
   "tests/onepage-themes-r42.test.ts",
   "tests/onepage-themes-ap.test.ts",
+  /* Round AQ: the onboarding draws the theme preview, Layout pictures draw the block's own content, a form's row is named, the sheet kit's slow pull is slow; scripts/check-onepage-real-preview.mjs reads the preview in next dev. */
+  "tests/onepage-aq2.test.ts",
   "tests/onepage-themes-w8.test.ts",
   /* Round 10 buttons: every saved button draws as before, the hover system, one drawing for page, preview and Design tab; a social link typed any way saved as the right address. scripts/check-onepage-buttons.mjs measures them. */
   "tests/onepage-buttons.test.ts",
@@ -1073,6 +1077,8 @@ const SUITES = [
   "tests/live-publish-am.test.ts",
   /* Round AP: a live page never waits Supabase's 20 seconds for a read it can do without (offers, menus, sold counts, size charts, tags), the theme's files fail within seconds, a page drawn without something is never held, shared or kept, and the hold no longer keeps "draw it again" for five minutes; scripts/check-live-nav-ap.mjs clicks through a live website and times it. */
   "tests/live-nav-ap.test.ts",
+  /* Round AQ (track 1): live websites from themes right after a deploy. An imported theme's files read together and kept under their content address only when the bytes hash to it, the Liquid engine loaded for a .liquid file only; the warm after a deploy and after a Publish asks for the files its pages name; a buyer's own parts asked for from the top of the head and put in as each section is read; a picture's id the same in every draw; a market's page kept by the CDN; a stored copy naming another deployment's files never served. scripts/check-personal-flash-aq.mjs and scripts/check-site-nav-aq.mjs measure it in a browser. */
+  "tests/live-assets-aq.test.ts",
   /* Round W1: an imported theme's live page stored by the CDN (no Vary: Cookie), its body's CSS gathered in the head in order, its flags lazy, plain HTML with no React, links fetched ahead (scripts/check-live-first-load.mjs measures it) */
   "tests/live-first-load-w.test.ts",
   "tests/live-speed-ax.test.ts",

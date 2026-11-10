@@ -23,14 +23,23 @@ export const EditorThemeContext = React.createContext<Partial<OnePageTheme> | nu
 
 export type ArrangeKind = "list" | "grid" | "carousel" | "single"
 
-/** A few cards drawn as the page draws them: a picture, a name and a price line, in the page's button colours. */
-function ArrangeThumb({ kind, theme, images }: { kind: ArrangeKind; theme?: Partial<OnePageTheme> | null; images?: (string | null | undefined)[] }) {
+/** What an arrangement's picture draws in each card: the block's own picture, name and line (a price), where it has them. */
+export type ArrangeItem = { image?: string | null; title?: string | null; meta?: string | null }
+
+/**
+ * A few cards drawn as the page draws them, in the page's button colours.
+ * Round AQ: with the block's own things in them, its products' pictures,
+ * names and prices, a group's titles, a gallery's pictures. A grey stand-in
+ * is drawn only where the block has nothing to show (no picture, no name).
+ */
+function ArrangeThumb({ kind, theme, items }: { kind: ArrangeKind; theme?: Partial<OnePageTheme> | null; items: ArrangeItem[] }) {
   const btn = theme?.button_color || "#1a1a2e"
   const ink = theme?.button_text_color || "#ffffff"
   const page = theme?.background_color || "#f7f7f8"
   const r = Math.max(2, Math.min(Number(theme?.button_border_radius ?? 8) * 0.35, 8))
+  const item = (i: number): ArrangeItem => (items.length ? items[i % items.length] : {})
   const pic = (i: number, cls: string) => {
-    const src = images?.[i % Math.max(1, images?.length ?? 0)]
+    const src = item(i).image
     return src ? (
       // eslint-disable-next-line @next/next/no-img-element
       <img src={src} alt="" className={cn("block shrink-0 object-cover", cls)} style={{ borderRadius: Math.max(2, r - 1) }} draggable={false} />
@@ -39,21 +48,34 @@ function ArrangeThumb({ kind, theme, images }: { kind: ArrangeKind; theme?: Part
     )
   }
   const line = (w: string, o = 0.85) => <span className="block h-[3px] shrink-0 rounded-full" style={{ width: w, background: ink, opacity: o }} />
+  /* Real words, small, where the block has them; a bar of their colour where it does not. */
+  const words = (text: string | null | undefined, w: string, o = 0.85, size = 7) =>
+    text?.trim() ? (
+      <span className="block min-w-0 max-w-full truncate font-semibold leading-none" style={{ fontSize: size, color: ink, opacity: o }}>
+        {text.trim()}
+      </span>
+    ) : (
+      line(w, o)
+    )
   const card = (i: number, style?: React.CSSProperties) => (
     <span key={i} className="flex min-w-0 flex-col gap-[3px] p-[3px]" style={{ background: btn, borderRadius: r, ...style }}>
       {pic(i, "aspect-square w-full")}
-      {line("70%")}
-      {line("40%", 0.5)}
+      {words(item(i).title, "70%")}
+      {item(i).title?.trim() && !item(i).meta?.trim() ? null : words(item(i).meta, "40%", 0.6, 6.5)}
     </span>
   )
   let body: React.ReactNode
   if (kind === "list") {
     body = (
       <span className="flex w-full flex-col gap-[5px]">
-        {[0, 1, 2].map((i) => (
+        {/* As many rows as the block has, up to three: two products are two rows, not a third repeating the first. */}
+        {[0, 1, 2].slice(0, items.length ? Math.min(3, items.length) : 3).map((i) => (
           <span key={i} className="flex h-[17px] items-center gap-1.5 px-[3px]" style={{ background: btn, borderRadius: r }}>
             {pic(i, "h-[11px] w-[11px]")}
-            <span className="flex min-w-0 flex-1 flex-col gap-[2px]">{line("60%")}{line("30%", 0.5)}</span>
+            <span className="flex min-w-0 flex-1 flex-col gap-[2px]">
+              {words(item(i).title, "60%")}
+              {item(i).title?.trim() && !item(i).meta?.trim() ? null : words(item(i).meta, "30%", 0.6, 6)}
+            </span>
           </span>
         ))}
       </span>
@@ -70,7 +92,7 @@ function ArrangeThumb({ kind, theme, images }: { kind: ArrangeKind; theme?: Part
     )
   }
   return (
-    <span aria-hidden className="flex h-full w-full items-center justify-center overflow-hidden rounded-xl px-[10%]" style={{ background: page }}>
+    <span aria-hidden className="flex h-full w-full items-center justify-center overflow-hidden rounded-xl px-[10%] text-left" style={{ background: page }}>
       {body}
     </span>
   )
@@ -86,18 +108,23 @@ export function ArrangePicker<T extends string>({
   options,
   theme,
   images,
+  items,
   label,
   onChange,
 }: {
   value: T
   options: { id: T; kind: ArrangeKind; label: string }[]
   theme?: Partial<OnePageTheme> | null
+  /** Pictures alone (a gallery); `items` when the block has names and prices too. */
   images?: (string | null | undefined)[]
+  items?: ArrangeItem[]
   label?: string
   onChange: (id: T) => void
 }) {
   const pageTheme = React.useContext(EditorThemeContext)
   theme = theme ?? pageTheme
+  const given: ArrangeItem[] = items ?? (images ?? []).map((image) => ({ image }))
+  const things = given.filter((t) => t.image || t.title?.trim() || t.meta?.trim())
   return (
     <div className="space-y-2.5" data-arrange="">
       <p className={heading}>{label ?? tt("Arrange")}</p>
@@ -115,7 +142,7 @@ export function ArrangePicker<T extends string>({
             >
               <ChoiceMark on={on} />
               <span className="block aspect-[4/3] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
-                <ArrangeThumb kind={o.kind} theme={theme} images={images} />
+                <ArrangeThumb kind={o.kind} theme={theme} items={things} />
               </span>
               <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{o.label}</span>
             </button>

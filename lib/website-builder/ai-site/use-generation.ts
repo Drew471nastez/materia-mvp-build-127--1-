@@ -55,7 +55,8 @@ import { listenOwn } from "@/lib/realtime/own-topic"
 import { browserSupabase } from "@/lib/supabase/browser-lazy"
 import { newStartKey } from "../start-handoff"
 
-export type GenerationSource = { kind: "job"; jobId: string } | { kind: "inline"; prompt: string }
+/** An inline build may start from a checkpoint this tab kept when a reload cut the last request short (round AQ). */
+export type GenerationSource = { kind: "job"; jobId: string } | { kind: "inline"; prompt: string; checkpoint?: unknown }
 
 export const POLL_MS = 1_500
 export const POLL_HIDDEN_MS = 6_000
@@ -152,6 +153,11 @@ export function useSiteGeneration(input: {
   onAgentChange?: (finished: boolean, events: AgentEvent[]) => void
   /** An agent job was started over: the new job's id (the editor remembers it for a reload). */
   onJobChange?: (jobId: string) => void
+  /**
+   * An inline build (no jobs table) reached a checkpoint: what to send back to carry on after a reload, or null
+   * once it is done (round AQ). The editor keeps it in this tab (lib/website-builder/start-handoff.ts saveInlineBuild).
+   */
+  onCheckpoint?: (checkpoint: unknown) => void
   /** A Redesign with AI job was undone: the draft is the backup again (the editor reads the website again). */
   onUndone?: (answer: UndoAnswer) => void
 }): { view: JobView | null; continuing: boolean; resume: () => void; agent: AgentGeneration } {
@@ -242,6 +248,8 @@ export function useSiteGeneration(input: {
   /* ── no job table: the build runs inside this request ── */
   React.useEffect(() => {
     if (!source || source.kind !== "inline" || !ready) return
+    /* The first request of a build cut short by a reload starts from what this tab kept. */
+    if (checkpoint.current === null && source.checkpoint) checkpoint.current = source.checkpoint
     const controller = new AbortController()
     void (async () => {
       try {
@@ -265,6 +273,11 @@ export function useSiteGeneration(input: {
             buffer = buffer.slice(nl + 1)
             if (!lineText) continue
             const line = JSON.parse(lineText) as { type: string; job: JobView; checkpoint?: unknown }
+            /* Kept as it comes, after every saved step: a reload from here on carries on from it. */
+            if ("checkpoint" in line) {
+              checkpoint.current = line.checkpoint ?? null
+              latest.current.onCheckpoint?.(line.checkpoint ?? null)
+            }
             if (line.type === "end") {
               checkpoint.current = line.checkpoint ?? null
               /* Out of time with work left: stopped, with Continue. */

@@ -170,10 +170,48 @@ export async function readSnapshot(store: SnapshotStore, host: string, pathname:
 /** A OnePage's or a community's copy is kept fresh by its visitors and its saves; one nobody has refreshed for a week (a page deleted, say) is not served. A site's follows its publishes and never ages out. */
 export const PAGE_COPY_MAX_AGE_MS = 7 * 24 * 60 * 60_000
 
-export function servable(record: PageRecord, now = Date.now()): boolean {
+export function servable(record: PageRecord, now = Date.now(), deployment: string | null = currentDeployment()): boolean {
+  if (!drawableNow(record.html, deployment)) return false
   if (record.kind === "site") return true
   const at = Date.parse(record.capturedAt)
   return Number.isFinite(at) && now - at < PAGE_COPY_MAX_AGE_MS
+}
+
+/*
+  ===========================================================================
+   NEVER A COPY WHOSE OWN FILES ARE GONE (round AQ)
+  ===========================================================================
+  A Storelib theme's page, a OnePage and a community page are Next pages:
+  their stylesheets and scripts are this deployment's files
+  (/_next/static/…?dpl=<deployment>). A site's copy is taken at its Publish
+  and kept until the next one, so after a deploy it names files the site no
+  longer has. Measured on asgardshop.storelib.com on Nov 9: a proxy that had
+  just seen one database read fail served the copy taken on Nov 4, every one
+  of its stylesheets and 53 scripts answered 404, and the visitor got the
+  page unstyled with nothing on it working: every link a full reload
+  (scratchpad ap/aq1/snapshot-probe-asgard.txt). Such a copy is not served;
+  the request goes on as if there were none (the live page, its CDN copy,
+  or "One moment"). An imported theme's copy names no deployment (its files
+  are at /api/site-theme/assets, which no deploy moves) and is served as
+  before, and so is every copy where the running deployment is not known.
+*/
+const COPY_DEPLOYMENT = /\/_next\/static\/[^"'\s?]+\?dpl=(dpl_[A-Za-z0-9]+)/
+
+/** The deployment whose files a copy names, or null when it names none. */
+export function copyDeployment(html: string): string | null {
+  return COPY_DEPLOYMENT.exec(html)?.[1] ?? null
+}
+
+/** The deployment this server is, when the platform says. */
+export function currentDeployment(env: Record<string, string | undefined> = process.env): string | null {
+  return env.VERCEL_DEPLOYMENT_ID || env.NEXT_DEPLOYMENT_ID || null
+}
+
+/** Whether a browser can still draw a copy: it names no deployment's files, or this one's, or this deployment is not known. */
+export function drawableNow(html: string, deployment: string | null): boolean {
+  if (!deployment) return true
+  const named = copyDeployment(html)
+  return named === null || named === deployment
 }
 
 /** Forget what this server holds for a page (after it was written or deleted here). */

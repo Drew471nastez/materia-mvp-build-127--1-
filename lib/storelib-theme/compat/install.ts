@@ -32,8 +32,9 @@ import { shopifyAddress } from "./links"
 /** Where the theme's own files are kept, under their own paths. */
 export const COMPAT_PREFIX = "shopify/"
 
-/** The asset names a theme's pictures and videos were stored under, to their addresses. */
-export const ASSET_MAP_PATH = `${COMPAT_PREFIX}config/assets.json`
+/** The asset names a theme's pictures and videos were stored under, to their addresses (./asset-file.ts, the same path). */
+import { ASSET_MAP_PATH } from "./asset-file"
+export { ASSET_MAP_PATH }
 
 export interface CompatSettings {
   kind: "shopify"
@@ -184,38 +185,5 @@ export function assetAddresses(rows: Record<string, string>): Record<string, str
   }
 }
 
-/** A font kept as `base64:` and its bytes. */
-export function binaryOf(text: string): Uint8Array | null {
-  if (!text.startsWith("base64:")) return null
-  try {
-    const raw = atob(text.slice(7))
-    const out = new Uint8Array(raw.length)
-    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i)
-    return out
-  } catch {
-    return null
-  }
-}
-
-const TYPES: Record<string, string> = {
-  css: "text/css; charset=utf-8",
-  js: "text/javascript; charset=utf-8",
-  mjs: "text/javascript; charset=utf-8",
-  json: "application/json; charset=utf-8",
-  map: "application/json; charset=utf-8",
-  svg: "image/svg+xml",
-  txt: "text/plain; charset=utf-8",
-  md: "text/plain; charset=utf-8",
-  xml: "application/xml",
-  woff: "font/woff",
-  woff2: "font/woff2",
-  ttf: "font/ttf",
-  otf: "font/otf",
-  eot: "application/vnd.ms-fontobject",
-}
-
-/** The type a theme's file is served as, from its extension. */
-export function assetType(name: string): string | null {
-  const ext = name.split(".").pop()?.toLowerCase() ?? ""
-  return TYPES[ext] ?? null
-}
+/* A file's bytes and type: in ./asset-file.ts, so the asset route loads them without the Liquid engine (round AQ). */
+export { assetType, binaryOf } from "./asset-file"

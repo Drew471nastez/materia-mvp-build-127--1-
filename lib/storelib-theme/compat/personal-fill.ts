@@ -25,6 +25,19 @@
  * guess (the proxy's 1 for a cart from before the hint) or went stale is
  * put right.
  *
+ * AS SOON AS IT CAN BE (round AQ). The script used to stand at the end of
+ * the body and put the answer in at DOMContentLoaded, which waits for every
+ * deferred theme script: measured on a phone (scripts/check-personal-flash-
+ * aq.mjs, andrewrullz.storelib.com, CPU 4x, the answer 700 ms), the cart
+ * count read 0 for 5.0 s after the page first painted, then 3. Now it is
+ * the first thing in the head (withPersonalFill), so the private address is
+ * asked for while the page is still arriving, and each section is put right
+ * the moment the browser has read past its end (a node after it exists),
+ * before that section's first paint whenever the answer is in by then. The
+ * layout, what the page adds at its end and the event are done once the
+ * page is read (readyState "interactive", before the deferred scripts run,
+ * so they bind to what is already the visitor's).
+ *
  * HOW. The private answer (GET <page>?sl_personal=<ids>[&sl_layout=1], the
  * handler's personalAnswer in ./site.ts) sends each personal section twice:
  * as the shared page drew it and as it is for this visitor. The browser
@@ -80,11 +93,30 @@ export interface PersonalParts {
   the differing element's children set from the visitor's drawing instead;
   an element holding SLOT_MARK is left alone, since it holds the page.
 */
-const FILL = `(function(){var c=document.cookie||"";var cart=/(?:^|;\\s*)sl_cart_n=([1-9][0-9]*)/.exec(c),signed=/(?:^|;\\s*)sl_signed_in=1(?:;|$)/.test(c),owned=/(?:^|;\\s*)sl_owned_hint=1(?:;|$)/.test(c);if(!cart&&!signed&&!owned)return;var S=window.Shopify=window.Shopify||{};S.storelibFilling=1;function slot(n){return n.nodeType===1&&(n.matches("template[data-sl-slot]")||!!n.querySelector("template[data-sl-slot]"))}function kids(n){var o=[];for(var k=n.firstChild;k;k=k.nextSibling){if(k.nodeType===3&&!/\\S/.test(k.nodeValue))continue;if(k.nodeType===1&&(/^(?:STYLE|LINK)$/.test(k.nodeName)||(k.nodeName==="TEMPLATE"&&k.hasAttribute("data-sl-moved"))))continue;o.push(k)}return o}function patch(L,A,B){if(!L||A.isEqualNode(B))return;if(A.nodeType!==B.nodeType||A.nodeName!==B.nodeName||L.nodeName!==B.nodeName){if(!slot(A)&&L.parentNode)L.parentNode.replaceChild(document.importNode(B,true),L);return}if(B.nodeType===3||B.nodeType===8){L.nodeValue=B.nodeValue;return}if(B.nodeType!==1)return;var i,n,names={};for(i=0;i<A.attributes.length;i++)names[A.attributes[i].name]=1;for(i=0;i<B.attributes.length;i++)names[B.attributes[i].name]=1;for(n in names){var a=A.getAttribute(n),b=B.getAttribute(n);if(a!==b){if(b===null)L.removeAttribute(n);else L.setAttribute(n,b)}}var x=kids(A),y=kids(B),z=kids(L);if(x.length===y.length&&z.length===x.length){for(i=0;i<x.length;i++)patch(z[i],x[i],y[i]);return}if(!slot(A)&&!slot(B))L.innerHTML=B.innerHTML}function doc(h){return new DOMParser().parseFromString("<!doctype html><body>"+h,"text/html")}function root(d){var b=d.body;return b&&b.firstElementChild}function apply(d){if(!d)return;S.storelibSignedIn=!!d.signedIn;S.storelibCartAtDraw=d.count|0;if(!cart||Number(cart[1])!==(d.count|0))document.cookie="sl_cart_n="+(d.count|0)+";path=/;max-age=1209600;samesite=lax"+(location.protocol==="https:"?";secure":"");var id,p;for(id in d.sections||{}){p=d.sections[id];if(!p)continue;var a=root(doc(p[0])),b=root(doc(p[1]));if(!a||!b||!a.id)continue;patch(document.getElementById(a.id),a,b)}if(d.layout){var A=new DOMParser().parseFromString(d.layout[0],"text/html"),B=new DOMParser().parseFromString(d.layout[1],"text/html"),done=[];B.querySelectorAll("[id]").forEach(function(e){if(/^(?:html|head|body)$/i.test(e.nodeName)||slot(e))return;for(var k=0;k<done.length;k++)if(done[k].contains(e))return;var s=A.getElementById(e.id);if(!s||s.isEqualNode(e))return;done.push(e);patch(document.getElementById(e.id),s,e)})}if(d.end){var f=document.createRange().createContextualFragment(d.end);document.body.appendChild(f)}if(d.signedIn)document.querySelectorAll("a[data-storelib-account]").forEach(function(a){a.href=a.getAttribute("href").replace(/\\/account\\/login$/,"/account");a.setAttribute("aria-label","Account")});document.dispatchEvent(new CustomEvent("storelib:personal",{detail:{count:d.count|0,signedIn:!!d.signedIn}}))}var q=new URLSearchParams(location.search);q.set("sl_personal",P.s.join(","));if(P.l)q.set("sl_layout","1");var got=fetch(location.pathname+"?"+q.toString(),{credentials:"same-origin",cache:"no-store",headers:{Accept:"*/*"}}).then(function(r){return r.ok?r.json():null}).catch(function(){return null});function run(){got.then(apply).catch(function(){})}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",run,{once:true});else run()})()`
+const FILL = `(function(){var c=document.cookie||"";var cart=/(?:^|;\\s*)sl_cart_n=([1-9][0-9]*)/.exec(c),signed=/(?:^|;\\s*)sl_signed_in=1(?:;|$)/.test(c),owned=/(?:^|;\\s*)sl_owned_hint=1(?:;|$)/.test(c);if(!cart&&!signed&&!owned)return;var S=window.Shopify=window.Shopify||{};S.storelibFilling=1;function slot(n){return n.nodeType===1&&(n.matches("template[data-sl-slot]")||!!n.querySelector("template[data-sl-slot]"))}function kids(n){var o=[];for(var k=n.firstChild;k;k=k.nextSibling){if(k.nodeType===3&&!/\\S/.test(k.nodeValue))continue;if(k.nodeType===1&&(/^(?:STYLE|LINK)$/.test(k.nodeName)||(k.nodeName==="TEMPLATE"&&k.hasAttribute("data-sl-moved"))))continue;o.push(k)}return o}function patch(L,A,B){if(!L||A.isEqualNode(B))return;if(A.nodeType!==B.nodeType||A.nodeName!==B.nodeName||L.nodeName!==B.nodeName){if(!slot(A)&&L.parentNode)L.parentNode.replaceChild(document.importNode(B,true),L);return}if(B.nodeType===3||B.nodeType===8){L.nodeValue=B.nodeValue;return}if(B.nodeType!==1)return;var i,n,names={};for(i=0;i<A.attributes.length;i++)names[A.attributes[i].name]=1;for(i=0;i<B.attributes.length;i++)names[B.attributes[i].name]=1;for(n in names){var a=A.getAttribute(n),b=B.getAttribute(n);if(a!==b){if(b===null)L.removeAttribute(n);else L.setAttribute(n,b)}}var x=kids(A),y=kids(B),z=kids(L);if(x.length===y.length&&z.length===x.length){for(i=0;i<x.length;i++)patch(z[i],x[i],y[i]);return}if(!slot(A)&&!slot(B))L.innerHTML=B.innerHTML}function doc(h){return new DOMParser().parseFromString("<!doctype html><body>"+h,"text/html")}function root(d){var b=d.body;return b&&b.firstElementChild}function apply(d){if(!d)return;S.storelibSignedIn=!!d.signedIn;S.storelibCartAtDraw=d.count|0;if(!cart||Number(cart[1])!==(d.count|0))document.cookie="sl_cart_n="+(d.count|0)+";path=/;max-age=1209600;samesite=lax"+(location.protocol==="https:"?";secure":"");var id,p,w=[],mo;for(id in d.sections||{}){p=d.sections[id];if(!p)continue;var a=root(doc(p[0])),b=root(doc(p[1]));if(a&&b&&a.id)w.push([a,b])}function past(n){for(;n;n=n.parentNode)if(n.nextSibling)return 1}function each(all){w=w.filter(function(x){var L=document.getElementById(x[0].id);if(!L)return !all;if(!all&&!past(L))return 1;patch(L,x[0],x[1]);return 0})}function end(){if(mo)mo.disconnect();each(1);if(d.layout){var A=new DOMParser().parseFromString(d.layout[0],"text/html"),B=new DOMParser().parseFromString(d.layout[1],"text/html"),done=[];B.querySelectorAll("[id]").forEach(function(e){if(/^(?:html|head|body)$/i.test(e.nodeName)||slot(e))return;for(var k=0;k<done.length;k++)if(done[k].contains(e))return;var s=A.getElementById(e.id);if(!s||s.isEqualNode(e))return;done.push(e);patch(document.getElementById(e.id),s,e)})}if(d.end){var f=document.createRange().createContextualFragment(d.end);document.body.appendChild(f)}if(d.signedIn)document.querySelectorAll("a[data-storelib-account]").forEach(function(a){a.href=a.getAttribute("href").replace(/\\/account\\/login$/,"/account");a.setAttribute("aria-label","Account")});document.dispatchEvent(new CustomEvent("storelib:personal",{detail:{count:d.count|0,signedIn:!!d.signedIn}}))}each();if(document.readyState!=="loading")end();else{mo=new MutationObserver(function(){each()});mo.observe(document,{childList:true,subtree:true});document.addEventListener("readystatechange",end,{once:true})}}var q=new URLSearchParams(location.search);q.set("sl_personal",P.s.join(","));if(P.l)q.set("sl_layout","1");fetch(location.pathname+"?"+q.toString(),{credentials:"same-origin",cache:"no-store",headers:{Accept:"*/*"}}).then(function(r){return r.ok?r.json():null}).then(apply).catch(function(){})})()`
 
 /** The script a shared page carries: what to ask for, and the code that puts it in place. */
 export function personalFillTag(parts: PersonalParts): string {
   const sections = parts.sections.filter((id) => SECTION_ID.test(id)).slice(0, MAX_IDS)
   const p = JSON.stringify({ s: sections, l: parts.layout ? 1 : 0 }).replace(/</g, "\\u003c")
   return `<script data-storelib-personal>(function(P){${FILL}})(${p})</script>`
+}
+
+/**
+ * The shared page with its fill script at the top of its head: right after
+ * the `<meta charset>` when the head starts with one (the charset stays in
+ * the first bytes), else right after `<head>`. A page with no head gets it
+ * before `</body>`, as before. Text in, text out.
+ */
+export function withPersonalFill(html: string, parts: PersonalParts): string {
+  const tag = personalFillTag(parts)
+  const head = html.match(/<head\b[^>]*>/i)
+  if (head && head.index !== undefined) {
+    let at = head.index + head[0].length
+    const charset = html.slice(at).match(/^\s*<meta\b[^>]*\bcharset\b[^>]*>/i)
+    if (charset) at += charset[0].length
+    return `${html.slice(0, at)}${tag}${html.slice(at)}`
+  }
+  const end = html.search(/<\/body>(?![\s\S]*<\/body>)/i)
+  return end < 0 ? `${html}${tag}` : `${html.slice(0, end)}${tag}${html.slice(end)}`
 }

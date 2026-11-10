@@ -715,12 +715,13 @@ export function SignupDestination({ suggest }: { suggest?: string | null } = {})
       </p>
       {/* Round 40: Mailchimp, Kit, beehiiv and the webhooks, each sent the signup as it happens; the one this block was added as first (./page-integrations). */}
       <SignupTools suggest={suggest} />
-      <div className="flex gap-2">
-        <a href="/app/emails?tab=subscribers" className="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#2a2a40]">
+      {/* Round AQ: each label on one line; where both do not fit side by side (a phone), they stack at full width rather than one wrapping inside its button. */}
+      <div className="flex flex-wrap gap-2">
+        <a href="/app/emails?tab=subscribers" className="inline-flex h-9 flex-[1_1_auto] items-center justify-center whitespace-nowrap rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#2a2a40]">
           {tt("See subscribers")}
         </a>
         {!on.length && tools !== null ? (
-          <a href={`/app/integrations?integration=${suggest === "omnisend" ? "omnisend" : "klaviyo"}`} className="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-[#e3e4e8] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]">
+          <a href={`/app/integrations?integration=${suggest === "omnisend" ? "omnisend" : "klaviyo"}`} className="inline-flex h-9 flex-[1_1_auto] items-center justify-center whitespace-nowrap rounded-lg border border-[#e3e4e8] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]">
             {tt("Connect an email tool")}
           </a>
         ) : null}

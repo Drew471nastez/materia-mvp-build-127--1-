@@ -98,7 +98,15 @@ check("drawn from the live page's own helpers", ["avatarLook", "titleSizeClass",
 check("laid out at the phone's 390px and scaled by one number", /export const PREVIEW_WIDTH = 390/.test(preview) && /transform: "scale\(var\(--tp-scale, 0\.42\)\)"/.test(preview))
 check("the phone's classes, never a computer's sm: steps", /const phone = \(cls: string\) => cls\.split/.test(preview) && /phone\(BUTTON_SIZE_CLASS\[size\]\)/.test(preview) && /phone\(titleSizeClass\(/.test(preview))
 check("the name never shrinks: one line, its own height", /data-tp-title=""[\s\S]{0,80}whitespace-nowrap font-bold leading-\[1\.5\]/.test(preview) && !/truncate/.test(preview))
-check("the Design tab measures one card for the whole grid", /grid\.style\.setProperty\("--tp-scale", String\(w \/ PREVIEW_WIDTH\)\)/.test(design) && /new ResizeObserver\(measure\)/.test(design))
+/* Changed on purpose (round AQ): the measuring is one helper beside the preview (themes/preview-scale), shared by the Design tab and the onboarding. */
+const scaleFile = readFileSync(join(process.cwd(), "components/onepage/themes/preview-scale.ts"), "utf8")
+check("the Design tab measures one card for the whole grid", /grid\.style\.setProperty\("--tp-scale", String\(w \/ PREVIEW_WIDTH\)\)/.test(scaleFile) && /new ResizeObserver\(measure\)/.test(scaleFile) && /useThemePreviewScale\(gridRef, "\[data-theme-kind-shown\] \[data-theme-frame\]"\)/.test(design))
+{
+  /* Round AQ: the onboarding's template step draws the same preview, at one scale for its grid, with no webfonts. */
+  const onboarding = readFileSync(join(process.cwd(), "components/onepage/onboarding-modal.tsx"), "utf8")
+  check("the onboarding's template cards are the Design tab's preview", /<ThemePreview c=\{look\} name=\{name\} thumb=\{themeThumbSrc\} photo=\{photo\} \/>/.test(onboarding) && /scaleThemePreviews\(grid, "\[data-template-frame\]"\)/.test(onboarding) && /aspect-\[4\/5\]/.test(onboarding))
+  check("the onboarding draws no hand made template card and loads no name faces", !/TEMPLATE_THUMBS/.test(onboarding) && !/themeNameFontsHref/.test(onboarding) && !/<WallpaperPattern/.test(onboarding))
+}
 check("no state and no effects inside a card", !/use(State|Effect|LayoutEffect|Ref)\(/.test(preview))
 check("a Hero theme's card draws its Hero", /profile_layout === "hero" \? \{ \.\.\.c, header_layout: "hero" \} : c/.test(design))
 check("a theme's cover picture is fetched with the photos, before the page opens", /coverImageOf\(c\)\]\.filter/.test(design))

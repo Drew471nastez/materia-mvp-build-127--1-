@@ -271,3 +271,15 @@ What stood in the way, and what replaced it:
 | Start with AI built inside Storelib's theme unless a checkbox was ticked; with the agent off a "from scratch" press ran the classic builder on the theme's sections | From scratch is the default (`START_GENERATION = "blank"`), "Inside Storelib's theme" the second option; the Website page knows whether the agent is on (`agentEnabledFor`), says so in one line when it is not, and the create route refuses a blank press without it (409 `agent_off`) before anything is made or counted. The classic progress card says it is built from the theme's sections |
 
 Tests: `tests/ai-builder-start-live-n1.test.ts`. Measured in the real editor with a scripted job (scripts/render-editor-probe.tsx with the job's routes answered locally): building canvas from the first frames, never "Loading the editor" or "Empty Page", a placed section drawn about 1 s after the poll that brought it, the canvas following the agent to the About page, desktop and a 390 px phone.
+
+---
+
+---
+
+## 11. After round AP met round L (round AQ)
+
+* **Which engine runs.** `startEngine()` (`lib/website-builder/ai-site/start.ts`) makes a new Start with AI job `agent` unless the platform turns it off (`AI_BUILDER_AGENT=0`, `off` or `false`), or `agentEnabledFor` allows it for one account; otherwise `classic`. Classic is the five step job plus round AP's `code` step (stored as step `build` with `state.coding`, because part 380's step CHECK has no `code`): its own header, footer and custom sections written by `writerCoder`, the theme's frame removed (`placementOps`). The agent engine is the same freedom by construction: `ai_` files, its own chrome, Theme settings as tokens.
+* **One gate.** `lib/website-builder/ai-site/gate.ts` holds the file rules both engines refuse a file for, in the same words: a secret or env read, a remote script, a typed picture, a loop with no reduced motion rule, no settings, a header without the menu (the classic job also asks it of the footer), a picture default that is not https, a richtext setting printed without `| raw`, a placeholder, a banned word or an em dash. `acceptCoded` (classic) and `validateFile` (agent, `gate.*` codes) both call it.
+* **One craft.** `STUDIO_CRAFT` (`ai-site/craft.ts`) is in the classic planner and coder prompts and, whole, in `AGENT_SYSTEM`. The agent is told to write its own header and footer in place of the theme's in theme mode too, and no longer to leave "goes here" slots.
+* **Inline build.** Without the jobs table, `themes/[installId]/generate` sends a checkpoint with every saved state; the editor keeps the latest in this tab (`start-handoff.ts saveInlineBuild`) and a reload carries the build on. A closed tab or another device cannot: before part 380 there is no server row to keep it in, and the website's own settings and files are published and synced, so they are not a place for a description.
+* **Measured.** `scripts/check-ai-sample-site.mjs` draws the test designs end to end through the real engine at 390 and 1440; `scripts/check-website-refresh.mjs` counts the Website page's `router.refresh()` calls per trigger.

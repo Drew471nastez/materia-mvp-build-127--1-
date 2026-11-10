@@ -51,7 +51,8 @@ import { pagePath } from "../site-pages"
 import type { SectionInstance, SectionSchema } from "../types"
 import type { Menu } from "@/lib/storelib-theme/values"
 import { ANY_PAGE, type PageOp, type PlacedSection, type SiteState } from "./apply"
-import { placeholderIn, slopIn, STUDIO_CRAFT } from "./craft"
+import { STUDIO_CRAFT } from "./craft"
+import { schemaProblem, sourceProblem } from "./gate"
 import type { ModelRef } from "./models"
 
 export type CodeRole = "header" | "footer" | "section"
@@ -89,12 +90,7 @@ export const CODE_START_RESERVE_MS = 100_000
 /** Where a coded section's file lives: one folder, one name, nothing else. */
 export const CODED_PATH = /^sections\/[a-z0-9_]{1,64}\.storelib$/
 
-/** What a written file may never contain: a key, a server secret, an env read, a token. */
-const SECRET = /(sk-ant-[a-z0-9-]+|sk_(?:live|test)_[a-z0-9]+|service_role|SUPABASE_SERVICE|ANTHROPIC_API_KEY|OPENAI_API_KEY|process\.env|eyJhbGciOi[A-Za-z0-9_-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)/i
-/** A script loaded from somewhere else: generated code runs only what is in its own file. */
-const REMOTE_SCRIPT = /<script\b[^>]*\bsrc\s*=/i
-/** A picture typed into the markup: pictures are image settings, filled with real photos and editable. */
-const TYPED_PICTURE = /<img\b[^>]*\bsrc\s*=\s*["']\s*(?:https?:)?\/\//i
+/* What a written file may never contain, and what its schema must give an owner, are ./gate.ts: the agent's write_file holds a file to the same rules (round AQ). */
 
 /* ── the tasks ────────────────────────────────────────────────────────── */
 
@@ -147,6 +143,7 @@ function roleBrief(task: CodeTask, ctx: CodeContext): string {
       `- On a phone the links fold into a menu that opens and closes (data-storelib-menu), usable with a thumb and a keyboard.`,
       ctx.shop ? `- The shop sells products: a cart link with data-storelib-cart and the item count, and a search link with data-storelib-search.` : `- The store sells nothing yet: no cart, no search.`,
       `- Settings for what an owner changes: colour scheme, logo width, sticky on or off, layout. Nothing else.`,
+      `- The brand is a link, never a heading: each page's <h1> is in its first section.`,
     ].join("\n")
   }
   if (task.role === "footer") {
@@ -154,7 +151,7 @@ function roleBrief(task: CodeTask, ctx: CodeContext): string {
       `WRITE THE SITE'S FOOTER. Its schema says "kind": "footer". It is on every page.`,
       `- The site's menu: { "type": "link_list", "id": "menu", "label": "Menu", "default": "${ctx.menuHandle}" }, looped {% for link in settings.menu.links %}.`,
       `- The brand name, one line in the brand's voice, and how to reach them, each a text setting. A copyright line with the year as a setting.`,
-      `- Settings: colour scheme and layout. Never a newsletter form unless the brief asks for one.`,
+      `- Settings: colour scheme and layout. Never a newsletter form unless the brief asks for one. No <h1> in a footer.`,
     ].join("\n")
   }
   return [
@@ -164,6 +161,10 @@ function roleBrief(task: CodeTask, ctx: CodeContext): string {
       ? `Pictures: ${task.pictures.length === 1 ? "one" : task.pictures.length} image_picker setting${task.pictures.length === 1 ? "" : "s"} (default "") with an alt text setting each. The builder fills them with real photos of: ${task.pictures.map((p) => `"${p}"`).join(", ")}. Never an <img> with an address typed in.`
       : `No pictures unless the brief needs one; then an image_picker setting (default ""), never an address typed in.`,
     `Repeating things (steps, programs, questions, plans) are blocks with their own settings, so the owner adds, removes and reorders them, with three to six written blocks in the preset.`,
+    /* Round AQ: drawn samples had pages with no <h1> at all; the page's hierarchy is decided here, by place. */
+    task.index === 0
+      ? `HEADINGS: this is the first section of its page, so its heading is the page's one <h1>. Nothing else on the page is an <h1>.`
+      : `HEADINGS: the page's <h1> is in its first section; this section's heading is an <h2>, its items <h3>.`,
   ].join("\n")
 }
 
@@ -182,7 +183,12 @@ export function codePrompt(task: CodeTask, ctx: CodeContext, extra = ""): string
       `EDITABLE, ALWAYS: every word a visitor reads is a setting (text, textarea or richtext) whose default is the FINAL copy for this site, written in the brand's voice, never a placeholder. Colours come from the colour scheme (a color_scheme setting) so the owner's palette repaints it. Spacing top and bottom are range settings. The section must look finished with its defaults.`,
       `LIVE DATA, NEVER TYPED: products from {% for block in products %}, collections, the menu from a link_list, the cart through data-storelib-cart. No product, price, review, quote, statistic or name that is not in WHAT IS REAL.`,
       `MOBILE FIRST: written for a phone, then wider screens. Nothing scrolls sideways. Respect prefers-reduced-motion.`,
-    ].join("\n"),
+      /*
+        Round AQ: the writer is also shown a worked example of what the format CAN draw (a flag with a looping light
+        sweep and a pulsing glow, ../agent/creative-section.ts) for a person who asks for exactly that. Drawn whole
+        sites showed that effect copied into sections nobody asked it of.
+      */
+      `MOTION ONLY WHERE IT HELPS: the worked example's looping sweep and glow are for a request that asks for one. A site section enters once at most (a short fade or rise), never loops for decoration, and has no sheen, shine or glow unless the brief names it. Anything that moves stops under prefers-reduced-motion.`,    ].join("\n"),
     STUDIO_CRAFT,
     extra ? `THE LAST FILE FOR THIS PART WAS REFUSED; fix exactly this:\n${extra}` : "",
   ]
@@ -194,31 +200,6 @@ export function codePrompt(task: CodeTask, ctx: CodeContext, extra = ""): string
 
 export type Accepted = { ok: true; type: string; name: string; path: string; schema: SectionSchema } | { ok: false; reason: string }
 
-/** Every text default a schema carries: its settings', its blocks' and its presets'. */
-function schemaTexts(schema: SectionSchema): string[] {
-  const out: string[] = []
-  const take = (v: unknown) => {
-    if (typeof v === "string") out.push(v)
-    else if (Array.isArray(v)) v.forEach(take)
-    else if (v && typeof v === "object") Object.values(v).forEach(take)
-  }
-  for (const f of schema.fields ?? []) if (f.type !== "image_picker" && f.type !== "url" && f.type !== "link_list" && f.type !== "color_scheme") take((f as { default?: unknown }).default)
-  for (const b of schema.blocks ?? []) for (const f of b.fields ?? []) if (f.type !== "image_picker" && f.type !== "url") take((f as { default?: unknown }).default)
-  for (const pr of schema.presets ?? []) take((pr as { settings?: unknown }).settings), take((pr as { blocks?: unknown }).blocks)
-  return out
-}
-
-/** Picture defaults that are not empty and not a real https address. */
-function badPictureDefault(schema: SectionSchema): string | null {
-  const fields = [...(schema.fields ?? []), ...(schema.blocks ?? []).flatMap((b) => b.fields ?? [])]
-  for (const f of fields) {
-    if (f.type !== "image_picker") continue
-    const d = (f as { default?: unknown }).default
-    if (typeof d === "string" && d.trim() && !/^https:\/\/[^\s"'<>]+$/i.test(d.trim())) return f.id
-  }
-  return null
-}
-
 /**
  * The file as written, checked as if nobody had checked it: the path, the
  * strict compile and quality gate, the schema, its kind, its words and what
@@ -228,9 +209,8 @@ export function acceptCoded(source: string, opts: { role: CodeRole; takenTypes: 
   const text = (source ?? "").trim()
   if (!text) return { ok: false, reason: "The file was empty." }
   if (text.length > 120_000) return { ok: false, reason: "The file is too long for one section." }
-  if (SECRET.test(text)) return { ok: false, reason: "The file contains something that looks like a key or a server setting. Generated code never holds one." }
-  if (REMOTE_SCRIPT.test(text)) return { ok: false, reason: "The file loads a script from another address. A section runs only the code in its own file." }
-  if (TYPED_PICTURE.test(text)) return { ok: false, reason: "A picture's address is typed into the markup. Every picture is an image_picker setting, so it can be replaced and is copied into the creator's media." }
+  const unsafe = sourceProblem(text)
+  if (unsafe) return { ok: false, reason: unsafe.message }
   const declared = /"type"\s*:\s*"([a-z0-9_]{1,64})"/.exec(text)
   if (!declared) return { ok: false, reason: 'The schema needs a "type": lower case letters, digits and underscores.' }
   const type = declared[1]
@@ -241,18 +221,8 @@ export function acceptCoded(source: string, opts: { role: CodeRole; takenTypes: 
   if (checked.ok === false) return { ok: false, reason: checked.feedback.slice(0, 800) }
   const schema = schemasFromSources({ [path]: text })[type]
   if (!schema) return { ok: false, reason: "Its schema could not be read." }
-  if ((schema.fields ?? []).length === 0) return { ok: false, reason: "It has no settings, so the owner could not edit it. Every word and picture is a setting." }
-  const kind = declaredChromeKind(schema)
-  if (opts.role === "section" && kind) return { ok: false, reason: `A page section must not say "kind": "${kind}".` }
-  if (opts.role !== "section" && kind !== opts.role) return { ok: false, reason: `The ${opts.role} must say "kind": "${opts.role}" in its schema.` }
-  if (opts.role !== "section" && !(schema.fields ?? []).some((f) => f.type === "link_list")) return { ok: false, reason: `The ${opts.role} must read the site's menu through a link_list setting.` }
-  const picture = badPictureDefault(schema)
-  if (picture) return { ok: false, reason: `The picture setting "${picture}" has a default that is not an https address. Leave it "" for the builder to fill.` }
-  const words = schemaTexts(schema).join("\n")
-  const hold = placeholderIn(words)
-  if (hold) return { ok: false, reason: `A default still says "${hold}". Write the final words for this site.` }
-  const slop = slopIn(words)
-  if (slop) return { ok: false, reason: `A default uses "${slop}". Say what happens in plain words.` }
+  const held = schemaProblem(schema, { role: opts.role, source: text })
+  if (held) return { ok: false, reason: held.message }
   return { ok: true, type, name: schema.name || type, path, schema }
 }
 

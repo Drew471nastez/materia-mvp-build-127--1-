@@ -22,7 +22,7 @@ import "server-only"
  */
 import { request as httpRequest } from "node:http"
 import { after } from "next/server"
-import { capturable, forgetHeldSnapshot, hostKey, indexKey, pageKey, pageRecord, snapshotHost, snapshotPath, type HostRecord, type SnapshotKind } from "./public-snapshot"
+import { capturable, currentDeployment, drawableNow, forgetHeldSnapshot, hostKey, indexKey, pageKey, pageRecord, snapshotHost, snapshotPath, type HostRecord, type PageRecord, type SnapshotKind } from "./public-snapshot"
 import { storeConfig, supabaseSnapshotStore, type SnapshotStore } from "./snapshot-store"
 
 /** Pages kept per site: the same list Publish draws ahead (warm-sites.ts publishWarmList). */
@@ -349,7 +349,20 @@ export async function backfillSiteCopies(origin: string, urls: string[], until: 
   const iKey = indexKey(scope)
   if (!iKey) return false
   const had = await store.get(iKey)
-  if (had !== null) return false
+  /*
+    A site that has copies keeps them, unless its front page's copy names
+    another deployment's files (./public-snapshot.ts drawableNow): taken
+    again in the first warm after a deploy, so its copy can be served if
+    the database goes away (round AQ). One read of the store a site.
+  */
+  if (had === "failed") return false
+  if (had !== null) {
+    const deployment = currentDeployment()
+    if (!deployment) return false
+    const front = await pageKey(host, "/")
+    const copy = front ? await store.get<PageRecord>(front) : null
+    if (!copy || copy === "failed" || typeof copy.html !== "string" || drawableNow(copy.html, deployment)) return false
+  }
   const paths = sitePagePaths(urls)
   if (!paths.includes("/")) paths.unshift("/")
   const r = await capturePages(scope, paths.map((path) => ({ host: host as string, path, kind: "site" as const })), { store, fetcher: opts.fetcher, until })

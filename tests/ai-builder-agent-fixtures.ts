@@ -3,6 +3,16 @@
  * "model" writes for a fitness coach, and a scripted provider that plays a
  * list of turns. Every component is original (no theme section copied) and
  * passes the same checks a real model's files are held to.
+ *
+ * Changed on purpose (round AQ): the defaults that were slots for the
+ * creator ("Your class times go here", "Your studio address goes here",
+ * "Your story goes here", "Write your qualifications here.", "Your program
+ * name") are final words now. The agent's write_file holds a file to the
+ * classic job's gate (lib/website-builder/ai-site/gate.ts), which refuses a
+ * placeholder, as the classic job always did. And the hero's intro and the
+ * story's body, both richtext, are printed with | raw: drawn in a browser
+ * (scripts/check-ai-sample-site.mjs) they showed "<p>...</p>" as text, which
+ * the gate now refuses.
  */
 import type { AgentProvider, ProviderRequest, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
 import type { RuntimeCapabilities } from "@/lib/ai-builder/runtime-contract"
@@ -61,7 +71,7 @@ export const HERO = `<template>
   <div class="hx__copy">
     {% if settings.kicker %}<p class="hx__kicker">{{ settings.kicker }}</p>{% endif %}
     <h1 class="hx__h">{{ settings.heading }}</h1>
-    {% if settings.intro %}<div class="hx__intro">{{ settings.intro }}</div>{% endif %}
+    {% if settings.intro %}<div class="hx__intro">{{ settings.intro | raw }}</div>{% endif %}
     {% if settings.cta_label %}<a class="hx__cta" href="{{ settings.cta_url | default: '#' | url }}">{{ settings.cta_label }}</a>{% endif %}
   </div>
   {% if settings.photo %}<img class="hx__photo" src="{{ settings.photo | asset }}" alt="{{ settings.photo_alt }}" width="900" height="1100">{% endif %}
@@ -88,7 +98,7 @@ export const HERO = `<template>
   "settings": [
     { "type": "text", "id": "kicker", "label": "Small line above", "default": "Strength coaching, small groups" },
     { "type": "text", "id": "heading", "label": "Heading", "default": "Lift with a plan" },
-    { "type": "richtext", "id": "intro", "label": "Intro", "default": "<p>Tell people who you coach and how a first week looks.</p>" },
+    { "type": "richtext", "id": "intro", "label": "Intro", "default": "<p>Small groups, a written plan, and a coach watching every lift.</p>" },
     { "type": "text", "id": "cta_label", "label": "Button", "default": "See the programs" },
     { "type": "url", "id": "cta_url", "label": "Button link", "default": "/programs" },
     { "type": "image_picker", "id": "photo", "label": "Photo" },
@@ -142,9 +152,9 @@ export const PROGRAMS = `<template>
   ],
   "blocks": [
     { "type": "program", "name": "Program", "settings": [
-      { "type": "text", "id": "name", "label": "Name", "default": "Your program name" },
-      { "type": "text", "id": "when", "label": "When", "default": "Your class times go here" },
-      { "type": "textarea", "id": "detail", "label": "What it is", "default": "Describe who it is for and what a session looks like." }
+      { "type": "text", "id": "name", "label": "Name", "default": "Strength block" },
+      { "type": "text", "id": "when", "label": "When", "default": "Two evenings a week" },
+      { "type": "textarea", "id": "detail", "label": "What it is", "default": "For lifters who want a plan they can keep up with." }
     ] }
   ],
   "max_blocks": 8
@@ -172,7 +182,7 @@ export const FOOTER = `<template>
   "kind": "footer",
   "enabled_on": { "groups": ["footer"] },
   "settings": [
-    { "type": "text", "id": "line", "label": "Line", "default": "Your studio address goes here" },
+    { "type": "text", "id": "line", "label": "Line", "default": "Small group strength coaching" },
     { "type": "text", "id": "contact_label", "label": "Contact link", "default": "Get in touch" },
     { "type": "url", "id": "contact_url", "label": "Contact link goes to", "default": "/about" },
     { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site_inverse" }
@@ -184,7 +194,7 @@ export const FOOTER = `<template>
 export const ABOUT = `<template>
 <section class="ab ab--{{ settings.align }}" data-scheme="{{ settings.color_scheme }}" style="${ROOT_VARS}">
   <h2 class="ab__h">{{ settings.heading }}</h2>
-  <div class="ab__body">{{ settings.body }}</div>
+  <div class="ab__body">{{ settings.body | raw }}</div>
   {% if settings.show_note %}<p class="ab__note">{{ settings.note }}</p>{% endif %}
 </section>
 </template>
@@ -206,9 +216,9 @@ export const ABOUT = `<template>
   "category": "text",
   "settings": [
     { "type": "text", "id": "heading", "label": "Heading", "default": "Who coaches you" },
-    { "type": "richtext", "id": "body", "label": "Story", "default": "<p>Your story goes here: how you started coaching and who you work with.</p>" },
+    { "type": "richtext", "id": "body", "label": "Story", "default": "<p>I coach small groups who want to get strong without living in the gym.</p>" },
     { "type": "checkbox", "id": "show_note", "label": "Show the note", "default": true },
-    { "type": "text", "id": "note", "label": "Note", "default": "Write your qualifications here." },
+    { "type": "text", "id": "note", "label": "Note", "default": "Groups of six or fewer, so every lift is watched." },
     { "type": "select", "id": "align", "label": "Text sits", "default": "left", "options": [{ "label": "Left", "value": "left" }, { "label": "Centre", "value": "center" }] },
     { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "site" },${SPACING}
   ]
@@ -217,7 +227,7 @@ export const ABOUT = `<template>
 `
 
 /** The hero with a template mistake: an unclosed {% if %}. */
-export const BROKEN_HERO = HERO.replace("{{ settings.intro }}</div>{% endif %}", "{{ settings.intro }}</div>")
+export const BROKEN_HERO = HERO.replace("{{ settings.intro | raw }}</div>{% endif %}", "{{ settings.intro }}</div>")
 
 export const CAPS: RuntimeCapabilities = {
   store: { name: "Iron & Chalk", currency: "GBP", brandImage: null, tagline: null },

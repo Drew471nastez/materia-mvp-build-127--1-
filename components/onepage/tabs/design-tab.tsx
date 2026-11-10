@@ -86,7 +86,8 @@ import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 /* Round 40: five more themes, the Layout panel, font pairs, the gradient's direction and the wallpaper library (components/onepage/themes). */
 import { withR40Themes } from "@/components/onepage/themes/r40-themes"
-import { ThemePreview, PREVIEW_WIDTH } from "@/components/onepage/themes/theme-preview"
+import { ThemePreview } from "@/components/onepage/themes/theme-preview"
+import { useThemePreviewScale } from "@/components/onepage/themes/preview-scale"
 import { themeLabel } from "@/components/onepage/themes/theme-names"
 import { LayoutSection } from "@/components/onepage/themes/layout-section"
 import { FontPairs } from "@/components/onepage/themes/font-pairs"
@@ -2328,7 +2329,7 @@ function HeaderSection() {
 /* The theme names, each drawn in its theme's title face: one request cut to the letters of the names, as the language spells them (round AP). */
 const THEME_NAME_FAMILIES = [...new Set(THEME_TEMPLATES.map((t) => familyOf(t.theme_config.title_font || t.theme_config.font_family)).filter((f): f is string => !!f))]
 /* In capitals too (round W8): Gazette, Halo and Acid set their names in capitals, and a letter missing from the cut is drawn in another face. */
-const themeNameFontsHref = () => { const names = THEME_TEMPLATES.map((t) => themeLabel(t)).join(""); return onePageFontSampleHref(THEME_NAME_FAMILIES, names + names.toUpperCase()) }
+export const themeNameFontsHref = () => { const names = THEME_TEMPLATES.map((t) => themeLabel(t)).join(""); return onePageFontSampleHref(THEME_NAME_FAMILIES, names + names.toUpperCase()) }
 
 /**
  * A THEME, AS A SMALL PAGE. The cards were one grey skeleton in eighteen
@@ -2352,7 +2353,7 @@ const themeNameFontsHref = () => { const names = THEME_TEMPLATES.map((t) => them
 const THEME_THUMB_WIDTH = 320
 
 /** A photo theme's card picture: the optimizer's 640px copy, the same address the card asks for. */
-const themeThumbSrc = (url: string) => optimizedImageUrl(url, THEME_THUMB_WIDTH, 75)
+export const themeThumbSrc = (url: string) => optimizedImageUrl(url, THEME_THUMB_WIDTH, 75)
 
 /*
   EVERY CARD'S PHOTO IS IN AND DECODED BEFORE THE THEME PAGE IS OPENED. The
@@ -2617,23 +2618,7 @@ function ThemeSection() {
     are the same width, so one is measured, once and when the panel's width
     changes, and the scale is one number on the grid that every card reads.
   */
-  useLayoutEffect(() => {
-    const grid = gridRef.current
-    if (!grid) return
-    const frameOf = () => grid.querySelector<HTMLElement>("[data-theme-kind-shown] [data-theme-frame]")
-    let last = 0
-    const measure = () => {
-      const w = frameOf()?.clientWidth ?? 0
-      if (!w || w === last) return
-      last = w
-      grid.style.setProperty("--tp-scale", String(w / PREVIEW_WIDTH))
-    }
-    measure()
-    if (typeof ResizeObserver !== "function") return
-    const ro = new ResizeObserver(measure)
-    ro.observe(grid)
-    return () => ro.disconnect()
-  }, [gridRef])
+  useThemePreviewScale(gridRef, "[data-theme-kind-shown] [data-theme-frame]")
   const pickRef = useRef<(template: typeof THEME_TEMPLATES[0]) => void>(() => {})
   const onPick = useCallback((template: typeof THEME_TEMPLATES[0]) => pickRef.current(template), [])
 

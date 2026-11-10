@@ -182,7 +182,73 @@ export function warmHeaders(country: string | null = null): Record<string, strin
   return value && value !== countryCookieValue("home") ? { ...WARM_HEADERS, cookie: `${COUNTRY_COOKIE}=${value}` } : { ...WARM_HEADERS }
 }
 
-async function ask(url: string, fetcher: typeof fetch, hardStop = Number.POSITIVE_INFINITY, country: string | null = null): Promise<"held" | "drawn" | "failed"> {
+/*
+  ===========================================================================
+   AND THE THEME FILES THOSE PAGES NAME (round AQ)
+  ===========================================================================
+  An imported theme's page names forty or more of its own files at
+  /api/site-theme/assets/<install>/h-<hash>/<name>. Their addresses are the
+  content's hash and say `immutable`, yet after every deploy each was a
+  function call again: Vercel's CDN key includes the deployment (docs,
+  Purging Vercel CDN cache, "Cache keys"), so nothing a function answered
+  survives a deploy. A phone's first visit after a deploy waited 5 to 6 s on
+  each, 8.5 s for the page (andrewrullz.storelib.com, round AP). So the warm
+  asks for them too, as soon as it has the page that names them. Only the
+  content addresses (`h-`): a draft's address is never cached anyway, and an
+  old `published_at` one belongs to a page from before. Each once per run.
+  The CDN keeps them per region; the warm fills the region it runs from, and
+  starts the function's servers, which every region's miss then reaches.
+  Measured: neither Accept nor Accept-Encoding splits these entries
+  (scratchpad ap/aq1/key-probe.txt), so the warm's plain request fills the
+  entry a browser's script request reads.
+*/
+const THEME_ASSET = /\/api\/site-theme\/assets\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/h-[0-9a-f]{16}\/[A-Za-z0-9_][A-Za-z0-9_.@%()+-]*/g
+/** At most this many of a page's theme files are asked for. */
+export const ASSETS_PER_PAGE = 120
+const ASSETS_AT_ONCE = 8
+const ASSET_EACH_MS = 10_000
+
+/** The theme files a page names at a content address, on the page's own host, each once, at most ASSETS_PER_PAGE. Exported for the tests. */
+export function themeAssetsOf(html: string, pageUrl: string): string[] {
+  let origin: string
+  try {
+    origin = new URL(pageUrl).origin
+  } catch {
+    return []
+  }
+  const out: string[] = []
+  for (const m of html.matchAll(THEME_ASSET)) {
+    const u = `${origin}${m[0]}`
+    if (!out.includes(u)) out.push(u)
+    if (out.length >= ASSETS_PER_PAGE) break
+  }
+  return out
+}
+
+export type Counted = { held: number; drawn: number; failed: number }
+
+/** Asks for each theme file not asked for yet in this run, a few at a time, stopping at the hard stop. */
+async function warmAssets(urls: string[], fetcher: typeof fetch, hardStop: number, seen: Set<string>, counted: Counted): Promise<void> {
+  const fresh = urls.filter((u) => !seen.has(u))
+  for (const u of fresh) seen.add(u)
+  await some(fresh, async (u) => {
+    if (hardStop - Date.now() < MIN_REQUEST_MS) return false
+    const ctl = new AbortController()
+    const timer = setTimeout(() => ctl.abort(), Math.max(MIN_REQUEST_MS, Math.min(ASSET_EACH_MS, hardStop - Date.now())))
+    try {
+      /* Nobody's cookie, nothing but a plain GET: the request a page's script tag makes. */
+      const r = await fetcher(u, { headers: { accept: "*/*", "user-agent": WARM_HEADERS["user-agent"] }, redirect: "manual", signal: ctl.signal, cache: "no-store" })
+      await r.arrayBuffer().catch(() => undefined)
+      counted[r.ok && (r.headers.get("x-vercel-cache") ?? "").toUpperCase() === "HIT" ? "held" : r.ok ? "drawn" : "failed"]++
+    } catch {
+      counted.failed++
+    } finally {
+      clearTimeout(timer)
+    }
+  }, hardStop - MIN_REQUEST_MS, ASSETS_AT_ONCE)
+}
+
+async function ask(url: string, fetcher: typeof fetch, hardStop = Number.POSITIVE_INFINITY, country: string | null = null, onPage?: (html: string, at: string) => void): Promise<"held" | "drawn" | "failed"> {
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), Math.max(MIN_REQUEST_MS, limitFor(hardStop)))
   try {
@@ -200,8 +266,9 @@ async function ask(url: string, fetcher: typeof fetch, hardStop = Number.POSITIV
       if (next.origin !== new URL(url).origin) return "drawn"
       r = await fetcher(next.toString(), { headers, redirect: "manual", signal: ctl.signal, cache: "no-store" })
     }
-    /* The body is read so the page is drawn to the end and kept. */
-    await r.arrayBuffer().catch(() => undefined)
+    /* The body is read so the page is drawn to the end and kept; its text, when somebody wants the theme files it names. */
+    if (onPage && r.ok && /text\/html/i.test(r.headers.get("content-type") ?? "text/html")) onPage(await r.text().catch(() => ""), r.url || url)
+    else await r.arrayBuffer().catch(() => undefined)
     /* Held by the CDN, or by the hold of an imported theme's pages (X-Storelib-Held). */
     return (r.headers.get("x-vercel-cache") ?? "").toUpperCase() === "HIT" || r.headers.get("x-storelib-held") === "hit" ? "held" : "drawn"
   } catch {
@@ -242,18 +309,22 @@ export async function warmPublishedSites(options: { budgetMs: number; fetcher?: 
   source?: Source
   sites: number
   pages: { held: number; drawn: number; failed: number }
+  /** The theme files those pages name (round AQ). */
+  assets: Counted
   done: boolean
 }> {
   const deployment = deploymentOf()
   const pages = { held: 0, drawn: 0, failed: 0 }
-  if (!deployment) return { deployment, skipped: "no-deployment", sites: 0, pages, done: false }
+  const assets: Counted = { held: 0, drawn: 0, failed: 0 }
+  const seenAssets = new Set<string>()
+  if (!deployment) return { deployment, skipped: "no-deployment", sites: 0, pages, assets, done: false }
   const until = (options.started ?? Date.now()) + options.budgetMs
   const hardStop = until + (options.hardStopMs ?? WARM_HARD_STOP_MS)
   const fetcher = options.fetcher ?? fetch
   const admin = options.admin ?? createAdminClient()
   const { data } = await admin.from("platform_settings").select("value").eq("key", WARM_KEY).maybeSingle()
   const saved = (data as { value?: unknown } | null)?.value ?? null
-  if (startFrom(saved, deployment).done) return { deployment, skipped: "already-warmed", sites: 0, pages, done: true }
+  if (startFrom(saved, deployment).done) return { deployment, skipped: "already-warmed", sites: 0, pages, assets, done: true }
 
   /* Who to warm: the sites visited lately, or (the rollup cannot say) every published one, front page only. */
   const visited = options.origins ? null : await visitedWebsites(admin, options.now)
@@ -289,8 +360,11 @@ export async function warmPublishedSites(options: { budgetMs: number; fetcher?: 
       const list = warmListOf(site)
       for (const u of list) {
         if (hardStop - Date.now() < MIN_REQUEST_MS) return false
-        const answer = await ask(u, fetcher, hardStop)
+        let named: string[] = []
+        const answer = await ask(u, fetcher, hardStop, null, (html, at) => (named = themeAssetsOf(html, at)))
         pages[answer]++
+        /* The theme files the page names, before the next page: what its first visitor's phone asks for next. */
+        if (named.length) await warmAssets(named, fetcher, hardStop, seenAssets, assets)
         /* Cut off by the hard stop: not warmed, so done again next run (a site is one or two pages now, so this is often its last). */
         if (answer === "failed" && hardStop - Date.now() < MIN_REQUEST_MS) return false
       }
@@ -318,7 +392,7 @@ export async function warmPublishedSites(options: { budgetMs: number; fetcher?: 
     }
   }
   await admin.from("platform_settings").upsert({ key: WARM_KEY, value: { deployment, offset, done, source }, updated_at: new Date().toISOString(), updated_by: "cron/warm-sites" })
-  return { deployment, source, sites, pages, done }
+  return { deployment, source, sites, pages, assets, done }
 }
 
 /* ─────────────────── after a Publish: the pages a visitor opens next ─────────────────── */
@@ -376,19 +450,27 @@ export function publishWarmList(addresses: string[]): string[] {
  * pressed Publish got when they opened their site a moment later. The
  * publish route names the publisher's country first, then the warm's own.
  */
-export async function warmAfterPublish(creatorId: string, options: { fetcher?: typeof fetch; addresses?: (id: string) => Promise<string[]>; countries?: (string | null)[] } = {}): Promise<{ held: number; drawn: number; failed: number }> {
+export async function warmAfterPublish(creatorId: string, options: { fetcher?: typeof fetch; addresses?: (id: string) => Promise<string[]>; countries?: (string | null)[] } = {}): Promise<{ held: number; drawn: number; failed: number; assets: Counted }> {
   const pages = { held: 0, drawn: 0, failed: 0 }
+  const assets: Counted = { held: 0, drawn: 0, failed: 0 }
+  const seenAssets = new Set<string>()
   try {
     const list = publishWarmList(await (options.addresses ?? websiteAddresses)(creatorId))
     const fetcher = options.fetcher ?? fetch
     const countries = publishWarmCountries(options.countries)
     /* Each page for each country before the next page: the front page first, for whoever opens it first. */
     const asks = list.flatMap((u) => countries.map((c) => ({ u, c })))
-    await some(asks, async ({ u, c }) => { pages[await ask(u, fetcher, Number.POSITIVE_INFINITY, c)]++ }, Date.now() + PUBLISH_WARM_MS, PUBLISH_AT_ONCE)
+    const until = Date.now() + PUBLISH_WARM_MS
+    /* A Publish moves the addresses of the files it changed (their hash): those are asked for too, once each (round AQ). */
+    await some(asks, async ({ u, c }) => {
+      let named: string[] = []
+      pages[await ask(u, fetcher, Number.POSITIVE_INFINITY, c, (html, at) => (named = themeAssetsOf(html, at)))]++
+      if (named.length) await warmAssets(named, fetcher, until + WARM_HARD_STOP_MS, seenAssets, assets)
+    }, until, PUBLISH_AT_ONCE)
   } catch (e) {
     console.warn("[publish] the pages were not drawn ahead:", e instanceof Error ? e.message : e)
   }
-  return pages
+  return { ...pages, assets }
 }
 
 /** At most this many countries per page after a Publish. */

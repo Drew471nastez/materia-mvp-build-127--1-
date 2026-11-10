@@ -365,7 +365,8 @@ function main() {
     check("the Links tab's profile picture keeps its size beside a long name", /data-editor-avatar="" className="h-14 w-14 aspect-square shrink-0/.test(read("components/onepage/tabs/links-tab.tsx")))
     const onboarding = read("components/onepage/onboarding-modal.tsx")
     /* One card at every width now (the phone's grid and the computer's carousel were two copies of it), so one circle, sized once. */
-    check("the onboarding's theme cards keep the creator's picture round", (onboarding.match(/data-theme-avatar="" className="w-10 h-10 aspect-square shrink-0 rounded-full/g) ?? []).length === 1)
+    /* Changed on purpose (round AQ): the onboarding's cards are the Design tab's preview, whose avatar (checked above) is the theme's own shape at its own size, the creator's photo in it. */
+    check("the onboarding's theme cards keep the creator's picture in the preview's own avatar", /<ThemePreview c=\{look\} name=\{name\} thumb=\{themeThumbSrc\} photo=\{photo\} \/>/.test(onboarding) && /\{photo \? <img src=\{photo\}[^>]*className="block h-full w-full object-cover" \/> : null\}/.test(read("components/onepage/themes/theme-preview.tsx")))
   }
 
   section("+ Add")
