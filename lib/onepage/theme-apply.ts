@@ -71,6 +71,8 @@ export const LOOK_RESET: Record<string, unknown> = {
   /* Round 42: how products are shown, and the cover picture (lib/onepage/theme-layout). Null is each block's own layout, and no cover. */
   product_layout: null,
   cover_image_url: null,
+  /* Round W9: the skin, its material and scene (lib/onepage/theme-skin). Null is none. */
+  theme_skin: null,
 }
 
 /**

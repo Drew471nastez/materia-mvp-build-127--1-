@@ -52,6 +52,9 @@ import { isExtraBlock, isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
 import { WallpaperDrift, WallpaperNoise, WallpaperPattern, useHeaderClearance } from "@/components/onepage/wallpaper-layers"
+/* Round W9: a theme's skin, its material and the scene behind it (lib/onepage/theme-skin, app/onepage-skins.css). */
+import { ThemeSkinScene } from "@/components/onepage/themes/theme-skin-scene"
+import { skinRootProps, skinVars } from "@/lib/onepage/theme-skin"
 /* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
 import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
 import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
@@ -1473,7 +1476,9 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       <div
         className="onepage-live hidden md:block min-h-screen w-full relative [overflow-x:clip]"
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
+        {...skinRootProps(safeTheme)}
         style={{
+          ...skinVars(safeTheme),
           background: getBackgroundStyle(),
           backgroundColor: safeTheme.background_color || "#000000",
           fontFamily: fontStack(safeTheme.font_family),
@@ -1556,6 +1561,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
         {/* Pattern overlay for solid/gradient backgrounds */}
         <WallpaperPattern theme={safeTheme} />
+        <ThemeSkinScene theme={safeTheme} label={sellerName} />
 
         {/* Centered card container */}
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
@@ -1614,6 +1620,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             )}
             {/* Pattern overlay inside card */}
             <WallpaperPattern theme={safeTheme} className="absolute inset-0 rounded-[40px]" clearHeader />
+            <ThemeSkinScene theme={safeTheme} label={sellerName} className="absolute inset-0 rounded-[40px]" />
             {renderPageContent({ isDesktop: true })}
           </div>
         </div>
@@ -1634,7 +1641,9 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         className="onepage-live md:hidden min-h-screen w-full relative"
         data-onepage-drag-scope=""
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
+        {...skinRootProps(safeTheme)}
         style={{
+          ...skinVars(safeTheme),
           overflowX: 'clip',
           background: getBackgroundStyle(),
           backgroundColor: safeTheme.background_color || "#000000",
@@ -1695,6 +1704,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
           {/* Pattern overlay for mobile, kept out from behind the header (useHeaderClearance above). */}
           <WallpaperPattern theme={safeTheme} clearHeader />
+          <ThemeSkinScene theme={safeTheme} label={sellerName} />
           {renderPageContent()}
         </div>
       </div>

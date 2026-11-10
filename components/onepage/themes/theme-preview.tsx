@@ -38,6 +38,9 @@
 import type * as React from "react"
 import { SocialIcon } from "@/components/onepage/brand-icons"
 import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+/* Round W9: a theme with a skin draws its material and scene here too (lib/onepage/theme-skin). */
+import { ThemeSkinScene } from "@/components/onepage/themes/theme-skin-scene"
+import { skinRootProps, skinVars } from "@/lib/onepage/theme-skin"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonFill, buttonIconSide, buttonSize, buttonAlign, cardButtonTheme, cardRadius, buttonShape, themeButtonStripFill, themeButtonStyle, type ButtonThemeLike } from "@/lib/onepage/button-style"
 import { avatarLook, titleSizeClass, titleTypeStyle } from "@/lib/onepage/header-style"
 import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, headerAlignOf, themeProductLayoutOf } from "@/lib/onepage/theme-layout"
@@ -246,8 +249,10 @@ export function ThemePreview({ c, name, thumb, photo = null }: { c: Look; name: 
     <span
       data-tp-page=""
       aria-hidden
+      {...skinRootProps(c)}
       className="absolute left-0 top-0 block origin-top-left overflow-hidden text-left"
       style={{
+        ...skinVars(c),
         width: PREVIEW_WIDTH,
         height: PREVIEW_HEIGHT,
         transform: "scale(var(--tp-scale, 0.42))",
@@ -268,6 +273,7 @@ export function ThemePreview({ c, name, thumb, photo = null }: { c: Look; name: 
         ) : null}
         {(image && c.image_noise) || (c.background_type === "gradient" && c.gradient_noise) ? <WallpaperNoise strength={c.noise_strength} /> : null}
         <WallpaperPattern theme={c} clearHeader />
+        <ThemeSkinScene theme={c} />
       </span>
       {/*
         Round W8: the page is as tall as the card and no block is ever cut by
