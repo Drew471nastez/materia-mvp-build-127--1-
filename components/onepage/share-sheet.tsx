@@ -165,6 +165,21 @@ export function shareBandInk(band: string): "light" | "dark" {
   return L > 0.35 ? "dark" : "light"
 }
 
+/**
+ * Wave 10: the band over the sheet's surface, its bottom 48px fading into that surface (--sheet-bg), so there is no
+ * line where the band ends. The words sit above that last stretch (the band's pb-14, 56px), so they keep the band's contrast.
+ */
+export function shareBandBlend(band: string): string {
+  return `linear-gradient(180deg, transparent calc(100% - 48px), var(--sheet-bg, #ffffff) 100%), ${band}`
+}
+
+/** Wave 10: the band's first colour (a gradient's first stop), for the grip's strip above it: one tone, no step. */
+export function shareBandTop(band: string): string {
+  if (!/gradient\(/i.test(band)) return band
+  const m = /(#[0-9a-f]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\))/i.exec(band)
+  return m ? m[1] : band
+}
+
 export function OnePageShareSheet({
   open,
   onClose,
@@ -239,7 +254,14 @@ export function OnePageShareSheet({
   */
   /* The band: the page's own colour, its corners the card's (the card clips; nothing is behind it). */
   const header = (
-    <div className="relative px-6 pb-9 pt-5 text-center sm:pt-8" style={{ background: band }} data-share-band="" data-onepage-share-sheet="">
+    /*
+      Wave 10 (legible), the owner's phone: "get rid of the cuts in the colours". The band ended on a hard line, the
+      actions were another tone under it and a white strip showed at the bottom. Now the band's last 48px (inside its
+      bottom padding, under the words) melt into the sheet's surface (shareBandBlend), the sheet itself is that
+      surface to its very bottom, safe area included (components/onepage/onepage-dialog), and its grip strip wears the
+      band's top colour (shareBandTop), so the sheet is one piece from the grip to the home indicator.
+    */
+    <div className="relative px-6 pb-14 pt-5 text-center sm:pt-8" style={{ background: shareBandBlend(band) }} data-share-band="" data-onepage-share-sheet="">
       <button
         type="button"
         onClick={onClose}
@@ -262,8 +284,8 @@ export function OnePageShareSheet({
     </div>
   )
   return (
-    <OnePageDialog open={open} onClose={onClose} dark={dark} label={`Share ${pageTitle}`} width={380} bare phoneTop={band} header={header}>
-    {/* The body: one surface in the page's light or dark, under the band with a straight seam. */}
+    <OnePageDialog open={open} onClose={onClose} dark={dark} label={`Share ${pageTitle}`} width={380} bare phoneTop={shareBandTop(band)} header={header}>
+    {/* The body: one surface in the page's light or dark, the band melting into it (no seam). */}
     <div className="bg-[var(--sheet-bg)] px-5 pb-6 pt-2" data-share-body="">
       <div className="flex items-start justify-center gap-3">
         {targets.map((t) => (
@@ -272,13 +294,13 @@ export function OnePageShareSheet({
             type="button"
             onClick={t.go}
             aria-live={t.live ? "polite" : undefined}
-            className="flex w-[68px] flex-col items-center gap-1.5 rounded-xl p-2 transition-opacity duration-150 hover:opacity-75 active:opacity-60"
+            className="flex w-[76px] flex-col items-center gap-1.5 rounded-xl p-2 transition-opacity duration-150 hover:opacity-75 active:opacity-60"
             data-share-target={t.name}
           >
             <span className="grid h-[46px] w-[46px] place-items-center rounded-full" style={{ backgroundColor: `${t.color}1f`, color: t.color }}>
               {t.icon}
             </span>
-            <span className="text-[11px] font-medium text-[var(--sheet-muted)]">{t.name}</span>
+            <span className="whitespace-nowrap text-[11px] font-medium text-[var(--sheet-muted)]">{t.name}</span>
           </button>
         ))}
       </div>

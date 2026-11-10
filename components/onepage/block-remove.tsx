@@ -95,7 +95,7 @@ export const BlockRowMenu = React.forwardRef<HTMLButtonElement, {
           onClick={(e) => e.stopPropagation()}
           className={cn(
             "grid shrink-0 place-items-center rounded-lg text-[#6b7280] transition-colors duration-150 hover:bg-[#f1f2f4] hover:text-[#1a1a2e] data-[state=open]:bg-[#f1f2f4] data-[state=open]:text-[#1a1a2e] [-webkit-tap-highlight-color:transparent]",
-            compact ? "h-7 w-7" : "h-8 w-8",
+            compact ? "h-7 w-7" : "h-8 w-7",
             focusRing,
           )}
         >
@@ -141,7 +141,7 @@ export const BlockRowDelete = React.forwardRef<HTMLButtonElement, {
       className={cn(
         "relative grid shrink-0 place-items-center rounded-lg text-gray-400 transition-colors duration-150 hover:bg-[#fef3f2] hover:text-[#b42318] [-webkit-tap-highlight-color:transparent] before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-['']",
         asking && "bg-[#fef3f2] text-[#b42318]",
-        compact ? "h-7 w-7" : "h-8 w-7 sm:w-8",
+        compact ? "h-7 w-7" : "h-8 w-7",
         focusRing,
       )}
     >
@@ -152,7 +152,7 @@ export const BlockRowDelete = React.forwardRef<HTMLButtonElement, {
 
 /** The bin's room on a row that has none (the header), so its switch stays in the same column. */
 export function BlockRowDeleteSlot() {
-  return <span aria-hidden className="block h-8 w-7 shrink-0 sm:w-8" data-row-slot="delete" />
+  return <span aria-hidden className="block h-8 w-7 shrink-0" data-row-slot="delete" />
 }
 
 /**

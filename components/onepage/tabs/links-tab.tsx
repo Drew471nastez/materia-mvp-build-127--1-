@@ -3711,8 +3711,15 @@ function BlockItem({
           return null
         })()}
 
-        {/* Round AO: the row's tools as one tight cluster (sparkle, numbers, switch, more), so a title keeps its room on a 390px phone. */}
-        <div className="-mr-1 flex shrink-0 items-center gap-1 sm:gap-1.5" data-row-tools="">
+        {/*
+          Round AO: the row's tools as one tight cluster (sparkle, numbers, switch, more), so a title keeps its room on a 390px phone.
+          Wave 10 (legible), the owner: "too much horizontal gap, inconsistent, between the analytics icon and the bin". Every
+          key is now 28px wide with its 16px icon centred (6px each side), the switch carries the same 6px (8px before the more
+          button, whose dots sit inside their box), and the
+          numbers end on their icon (the count sits to its left), so the gap between any two marks is the same 12px plus the
+          cluster's gap, on a phone and a computer, and every row's marks still stand in the same columns.
+        */}
+        <div className="-mr-1 flex shrink-0 items-center gap-0 sm:gap-0.5" data-row-tools="">
         {/*
           Round AN: the animation is the sparkle beside the numbers again, on the
           blocks the page animates (components/onepage/block-settings
@@ -3722,7 +3729,7 @@ function BlockItem({
           <BlockAnimationButton value={(block.data as { animation_type?: string }).animation_type} onChange={setAnimation} />
         )}
         {/* Stats control for link buttons and email capture; a row without numbers keeps their room, so its switch lines up. */}
-        {!hasStats && <span aria-hidden className="block h-8 w-8 shrink-0 sm:w-14" data-row-slot="stats" />}
+        {!hasStats && <span aria-hidden className="block h-8 w-7 shrink-0 sm:w-14" data-row-slot="stats" />}
         {hasStats && (
           <>
             <button
@@ -3732,8 +3739,9 @@ function BlockItem({
                 /* Opening the dialog fetches, in the effect that watches it. */
                 setShowStatsModal(true)
               }}
-              /* Round W8: one width on every row (the count kept to four characters, rowCountLabel), so nothing beside it moves from row to row. */
-              className="flex h-8 w-8 shrink-0 items-center justify-center gap-0.5 rounded-lg px-1 text-gray-400 sm:justify-start transition-colors hover:bg-gray-100 hover:text-gray-600 sm:w-14 sm:gap-1 sm:px-1.5"
+              /* Round W8: one width on every row (the count kept to four characters, rowCountLabel), so nothing beside it moves from row to row.
+                 Wave 10: the icon at the slot's right edge and the count to its left (flex-row-reverse), so the gap to the bin is the cluster's own. */
+              className="flex h-8 w-7 shrink-0 flex-row-reverse items-center justify-center gap-1 rounded-lg px-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 sm:w-14 sm:justify-start sm:pl-0"
               title={tt("View Stats")}
               aria-label={clickCount !== null ? `${tt("View Stats")}: ${clickCount}` : tt("View Stats")}
               data-row-slot="stats"
@@ -3806,7 +3814,7 @@ function BlockItem({
         ) : (
           <BlockRowDeleteSlot />
         )}
-        <BlockToggle checked={block.enabled} onCheckedChange={onToggle} label={tt("Show {title}", { title: preview.title })} />
+        <span className="flex shrink-0 pl-1.5 pr-2" data-row-slot="switch"><BlockToggle checked={block.enabled} onCheckedChange={onToggle} label={tt("Show {title}", { title: preview.title })} /></span>
         {/*
           Round AO: move and Remove in the row's more menu, open or closed, so it
           is found at once (a menu on a computer, the shared sheet on a phone).
@@ -3830,7 +3838,7 @@ function BlockItem({
           />
         ) : (
           /* The header has no menu: its room is kept, so its switch sits in the same column as every row's. */
-          <span aria-hidden className="block h-8 w-8 shrink-0" data-row-slot="menu" />
+          <span aria-hidden className="block h-8 w-7 shrink-0" data-row-slot="menu" />
         )}
         </div>
       </div>

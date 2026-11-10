@@ -118,6 +118,8 @@ export interface OnePageTheme {
   animated_gradient?: boolean
   /* Round W9 (lib/onepage/theme-skin): the material a theme draws its blocks in and the scene behind them. Missing is none. */
   theme_skin?: "aero" | "aqua" | "messenger" | "y2k" | "playful" | "grunge" | null
+  /** Wave 10: the Design groups the creator changed after picking a skinned theme, shown over the skin (lib/onepage/skin-own). */
+  skin_own?: string[] | null
 }
 
 export interface OnePageSettings {
