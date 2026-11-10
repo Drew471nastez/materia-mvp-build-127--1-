@@ -177,7 +177,8 @@ check("the page and the picker card both use it", (live.match(/heroWordsShadow\(
 
 console.log("\nThe legibility guard leaves a hovered button alone")
 const legible = read("lib/onepage/legible.ts")
-check("a button under the pointer is skipped", legible.includes('const HOVERED_BUTTON = ".op-btn:hover, .op-host:hover .op-btn, .op-demo:hover .op-btn"') && /findIllegible\(root\)\.filter\(\(f\) => !inHoveredButton\(f\.el\)\)/.test(legible))
+/* Changed on purpose (wave 11 hover): one skip for a button in use, engagedButton, in findIllegible and releaseLegibility (tests/onepage-hover-w11.test.ts). */
+check("a button under the pointer is skipped", legible.includes('b.matches(":hover, :active") || b.closest(".op-host, .op-demo")?.matches(":hover, :active")') && /if \(engagedButton\(el\)\) continue/.test(legible))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) {
