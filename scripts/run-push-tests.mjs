@@ -48,6 +48,7 @@ const SUITES = [
   "tests/ai-motion-layout-o5.test.ts",
   /* Round P (P2a): the site template library: six original whole sites, each file through the agent's gate, every section with filled blocks, the site and finish rules, the render check, no slop P0, real Chromium at 1440 and 390 with JavaScript off; chooseTemplate, applyTemplate through a memory store, untouchedTemplateParts, list_templates and search_knowledge. */
   "tests/ai-templates-p2a.test.ts",
+  "tests/ai-templates-p2b.test.ts",
   /* Round P (P3): motion islands, Storelib's own interactive effects a section configures with data-storelib-motion and data-motion-* params (lib/storelib-theme/motion-islands.ts, components/website-builder/motion-islands): params clamped, modes for reduced motion, low power, no WebGL, phones and the canvas; the sandbox may not set them; the render check knows them; three.js only in a chunk a 3d-object island loads; nothing from the markup runs; knowledge, examples and prompt; every island in Chromium, scrub frames on scroll, the still page, the markup put back. */
   "tests/motion-islands-p3.test.ts",
   /* Round O (O2): creative direction before generation (lib/storelib-ai/direction: the brief, art directions fitted to the business, the choice and the concept check) and the per-site DESIGN.md contract in Google's format, synced both ways with Theme settings, user overrides kept across AI edits (lib/ai-builder/design-contract.ts). */

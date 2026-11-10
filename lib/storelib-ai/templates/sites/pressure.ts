@@ -31,11 +31,11 @@ const hero: ComponentDef = {
   category: "hero",
   template: `
 <section class="ph" ${rootAttrs({ motion: true })}>
-  <div class="ph__media" data-storelib-motion="parallax-depth" data-motion-strength="{{ settings.motion_strength }}">
+  <div class="ph__media" data-storelib-motion="parallax-depth" data-motion-intensity="40" data-motion-pointer="false">
     {% if settings.image %}
     <picture>
       {% if settings.image_mobile %}<source media="(max-width: 699px)" srcset="{{ settings.image_mobile | asset }}">{% endif %}
-      <img class="ph__img" src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="2000" height="1250" fetchpriority="high" style="object-position: {{ settings.focus }};">
+      <img class="ph__img" data-motion-depth="0.3" src="{{ settings.image | asset }}" alt="{{ settings.image_alt }}" width="2000" height="1250" fetchpriority="high" style="object-position: {{ settings.focus }};">
     </picture>
     {% else %}
     <span class="ph__field" aria-hidden="true"></span>
