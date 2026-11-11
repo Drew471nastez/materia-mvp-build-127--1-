@@ -4,6 +4,7 @@ import { handoffDeps } from "@/lib/handoff/deps"
 import { acceptClaim, metaOf } from "@/lib/handoff/server"
 import { claimPath, tokenShapeOk } from "@/lib/handoff/rules"
 import { fromOwnPage } from "@/lib/team/own-page"
+import { requestUserUnavailable } from "@/lib/businesses/server"
 
 /**
  * ===========================================================================
@@ -37,7 +38,8 @@ export async function POST(request: Request) {
   if (!fromOwnPage(request.headers, request.url)) return back(request, token, "again")
   const deps = handoffDeps()
   const user = await deps.requestUser(request)
-  if (!user) return back(request, token)
+  /* Auth could not say who pressed: back to the link with "Try again", never to sign in (round rel2-auth). */
+  if (!user) return back(request, token, requestUserUnavailable(request) ? "failed" : undefined)
   const limited = await deps.rateLimit({
     bucket: "handoff-claim",
     subjects: [`user:${user.id}`, addressSubject(request)],

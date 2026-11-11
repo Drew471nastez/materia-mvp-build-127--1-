@@ -3,7 +3,7 @@ import type { User } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { permits, type TeamPermission } from "./permissions"
-import { actingStore, type ActingStore } from "./server"
+import { actingStoreRead, type ActingStore } from "./server"
 import { teamStampDb } from "./audit"
 import { routeUser, authUnavailableResponse } from "@/lib/auth/route-user"
 
@@ -112,7 +112,9 @@ export async function moneyCaller(kind: MoneyKind, level: MoneyLevel, opts: { no
   if (who.kind !== "user") return { ok: false, response: NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE }) }
   const user = who.user
   const admin = createAdminClient()
-  const acting = await actingStore(admin, user.id).catch(() => null)
+  /* The membership read failed: 503, never the member's own payouts in the store's place (round rel2-auth). */
+  const { acting, failed } = await actingStoreRead(admin, user.id)
+  if (failed) return { ok: false, response: NextResponse.json({ error: "Storelib could not reach your store just now. Try again in a moment." }, { status: 503, headers: NO_STORE }) }
   const found = await moneyStoreFor(admin, user.id, kind, level, acting)
   if (found.kind === "denied") return { ok: false, response: NextResponse.json({ error: MONEY_REFUSED[kind][level] }, { status: 403, headers: NO_STORE }) }
   if (found.kind === "unreachable") return { ok: false, response: NextResponse.json({ error: "Storelib could not reach your store just now. Try again in a moment." }, { status: 503, headers: NO_STORE }) }

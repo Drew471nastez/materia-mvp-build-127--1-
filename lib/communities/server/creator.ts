@@ -180,7 +180,8 @@ export const creatorCommunityPage = cache(async (id: string): Promise<CreatorPag
   /* Supabase did not answer in time: the layout's gate recovers the session in the browser (lib/auth/page-user.ts). */
   if (!user) return "no-session"
   /* Round 40: working in a store as a member of its team (lib/team). The owner pays no read here: no cookie, no query. */
-  const team = await teamStoreForRequest(user.id).catch(() => null)
+  /* A failed read throws (round rel2-auth): the page's boundary says Try again, never the member's own account in the store's place. */
+  const team = await teamStoreForRequest(user.id)
   if (team) return permits(team.acting.permissions, "community") ? teamStaffContext(admin(), key, user.id, team.acting, team.store) : null
   return staffContext(admin(), key, user.id, creatorForRequest(user.id))
 })

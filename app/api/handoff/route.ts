@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { addressSubject } from "@/lib/api/rate-limit"
 import { handoffDeps } from "@/lib/handoff/deps"
 import { createHandoff, metaOf, panelFor } from "@/lib/handoff/server"
+import { signedOutAnswer } from "@/lib/businesses/server"
 
 /**
  * Settings, Team: handing this business over.
@@ -21,7 +22,7 @@ const NO_STORE = { "Cache-Control": "no-store" }
 export async function GET(request: Request) {
   const deps = handoffDeps()
   const user = await deps.requestUser(request)
-  if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE })
+  if (!user) return signedOutAnswer(request, NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE }))
   const panel = await panelFor(deps, user.id)
   return NextResponse.json(panel, { status: panel.ready ? 200 : 503, headers: NO_STORE })
 }
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const deps = handoffDeps()
   const user = await deps.requestUser(request)
-  if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE })
+  if (!user) return signedOutAnswer(request, NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE }))
   const limited = await deps.rateLimit({
     bucket: "handoff-create",
     subjects: [`user:${user.id}`, addressSubject(request)],

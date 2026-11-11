@@ -3,7 +3,7 @@ import "server-only"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { permits, type TeamPermission } from "./permissions"
-import { NO_ACCESS, actingStore, type ActingStore } from "./server"
+import { NO_ACCESS, actingStoreRead, type ActingStore } from "./server"
 import { teamStampDb } from "./audit"
 
 /**
@@ -70,7 +70,9 @@ export async function areaStoreFor(
 /** For a route: whose store, for this area, from the cookie and the database. */
 export async function areaStore(own: Db, userId: string, area: TeamPermission): Promise<AreaStore> {
   const admin = createAdminClient()
-  const acting = await actingStore(admin, userId).catch(() => null)
+  /* The membership read failed: unreachable (503), never their own store in its place (round rel2-auth). */
+  const { acting, failed } = await actingStoreRead(admin, userId)
+  if (failed) return { kind: "unreachable" }
   return areaStoreFor(own, admin, userId, area, acting)
 }
 

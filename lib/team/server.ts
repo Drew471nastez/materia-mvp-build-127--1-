@@ -187,7 +187,13 @@ export interface TeamScope {
  * given (a suite hands it in, as the cookie would name it).
  */
 export async function teamScope(db: Db, userId: string, given?: ActingStore | null): Promise<Result<{ scope: TeamScope }>> {
-  const acting = given !== undefined ? given : await actingStore(db, userId).catch(() => null)
+  /* A failed read is a 503, never the signed in account's own team in its place (round rel2-auth). */
+  let acting: ActingStore | null
+  try {
+    acting = given !== undefined ? given : await actingStore(db, userId)
+  } catch {
+    return { ok: false, status: 503, error: "Storelib is not answering right now. Try again." }
+  }
   if (acting) {
     if (!permits(acting.permissions, "team")) return { ok: false, status: 403, error: "Only the store's owner, or someone they gave Team to, can change its team." }
     const { data } = await db.from("creators").select("id, user_id, slug, display_name, subscription_plan_id").eq("id", acting.creatorId).maybeSingle()
@@ -523,13 +529,20 @@ export async function storesRead(db: Db, userId: string): Promise<{ stores: Memb
   const { data, error } = await readRows<Record<string, unknown>[] | null>((cols) => db.from("store_team_members").select(cols).eq("user_id", userId).eq("status", "active"))
   if (error) return { stores: [], failed: true }
   if (!data?.length) return { stores: [], failed: false }
-  return { stores: await storesFrom(db, data), failed: false }
+  try {
+    return { stores: await storesFrom(db, data), failed: false }
+  } catch (e) {
+    if (isServiceUnavailable(e)) return { stores: [], failed: true }
+    throw e
+  }
 }
 
 async function storesFrom(db: Db, data: Record<string, unknown>[]): Promise<MemberStore[]> {
   const rows = data.map(memberOf)
   const ids = rows.map((r) => r.creator_id)
-  const [{ data: creators }, names] = await Promise.all([db.from("creators").select("id, slug, display_name, avatar_url").in("id", ids), storeNames(db, ids)])
+  const [read, names] = await Promise.all([db.from("creators").select("id, slug, display_name, avatar_url").in("id", ids), storeNames(db, ids)])
+  /* The stores' own rows could not be read: thrown, so storesRead says "failed", never "on no team" (round rel2-auth). */
+  const creators = dataOrThrow("team stores", read)
   const byId = new Map(((creators ?? []) as { id: string; slug: string | null; display_name: string | null; avatar_url: string | null }[]).map((c) => [c.id, c]))
   return rows
     .filter((r) => byId.has(r.creator_id))
@@ -560,16 +573,37 @@ export async function actingStore(db: Db, userId: string): Promise<ActingStore |
   return actingStoreIn(db, userId, chosen)
 }
 
-/** The database half of actingStore: the store the cookie names, if this account is an active member of it, with its permissions as the row holds them now. */
+/**
+ * The database half of actingStore: the store the cookie names, if this account is an active member of it, with its permissions as the row holds them now.
+ *
+ * A READ THAT FAILED IS NOT "THEIR OWN ACCOUNT" (round rel2-auth). Either read
+ * failing came back null, which every caller takes to mean "working in their
+ * own account": a member's upload, payout screen or search went to their own
+ * (often empty) store, and a page with no store of theirs sent them to /sell.
+ * Now a failed read throws a ServiceUnavailable (lib/net/service-error), and
+ * callers answer 503 Try again (actingStoreRead below says which). Only the
+ * team table not being set up yet (SQL part 135) is still "no store".
+ */
 export async function actingStoreIn(db: Db, userId: string, chosen: string | null | undefined): Promise<ActingStore | null> {
   if (!chosen || !/^[0-9a-f-]{36}$/i.test(chosen)) return null
-  const { data, error } = await readRows<Record<string, unknown> | null>((cols) => db.from("store_team_members").select(cols).eq("creator_id", chosen).eq("user_id", userId).eq("status", "active").maybeSingle())
-  if (error || !data || !isMemberRole((data as { role: unknown }).role)) return null
+  const read = await readRows<Record<string, unknown> | null>((cols) => db.from("store_team_members").select(cols).eq("creator_id", chosen).eq("user_id", userId).eq("status", "active").maybeSingle())
+  if (read.error && teamMissing(read.error)) return null
+  const data = dataOrThrow("team membership", read)
+  if (!data || !isMemberRole((data as { role: unknown }).role)) return null
   const row = memberOf(data)
-  const { data: c } = await db.from("creators").select("slug, display_name, user_id").eq("id", chosen).maybeSingle()
+  const c = dataOrThrow("team store", await db.from("creators").select("slug, display_name, user_id").eq("id", chosen).maybeSingle())
   if (!c) return null
   const store = c as { slug: string | null; display_name: string | null; user_id?: string | null }
   return { creatorId: chosen, name: await storeNameOf(db, { id: chosen, slug: store.slug, display_name: store.display_name }, "Store"), ownerUserId: store.user_id ?? null, role: row.role, permissions: row.permissions, memberId: row.id }
+}
+
+/** actingStore, and whether its read failed: `failed` is never "their own account" (round rel2-auth). */
+export async function actingStoreRead(db: Db, userId: string): Promise<{ acting: ActingStore | null; failed: boolean }> {
+  try {
+    return { acting: await actingStore(db, userId), failed: false }
+  } catch {
+    return { acting: null, failed: true }
+  }
 }
 
 /**
@@ -579,18 +613,29 @@ export async function actingStoreIn(db: Db, userId: string, chosen: string | nul
  * everyone working in their own account, which costs them no query (no
  * cookie, no read).
  */
+/* Round rel2-auth: a read that failed throws (ServiceUnavailable); teamStoreReadForRequest says "failed" instead. */
 export const teamStoreForRequest = cache(async (userId: string): Promise<{ acting: ActingStore; store: RequestCreator } | null> => {
   const db = createAdminClient()
-  const acting = await actingStore(db, userId).catch(() => null)
+  const acting = await actingStore(db, userId)
   if (!acting) return null
-  const [{ data }, { data: privateCols }] = await Promise.all([
+  const [shell, privateRead] = await Promise.all([
     db.from("creators").select(SHELL_CREATOR_COLUMNS).eq("id", acting.creatorId).maybeSingle(),
     db.from("creators").select(SHELL_PRIVATE_CREATOR_COLUMNS).eq("id", acting.creatorId).maybeSingle(),
   ])
+  const data = dataOrThrow("team store", shell)
+  const privateCols = privateRead.error ? null : privateRead.data
   if (!data) return null
   const store = { stripe_onboarding_status: null, stripe_account_id: null, subscription_plan_id: null, ...(data as object), ...((privateCols as object | null) ?? {}) } as RequestCreator
   return { acting, store }
 })
+
+/** The same, and whether it failed: a store the cookie names that could not be read is never "working in their own account" (round rel2-auth). */
+export const teamStoreReadForRequest = cache(async (userId: string): Promise<{ team: { acting: ActingStore; store: RequestCreator } | null; failed: boolean }> =>
+  teamStoreForRequest(userId).then(
+    (team) => ({ team, failed: false }),
+    () => ({ team: null, failed: true }),
+  ),
+)
 
 /** The stores this account is on as a member, once per request, for the account menu (app/app/layout.tsx). One indexed read; none listed is []. */
 export const teamStoresForRequest = cache(async (userId: string): Promise<MemberStore[]> => (await teamStoresReadForRequest(userId)).stores)
@@ -609,7 +654,8 @@ export const teamStoresReadForRequest = cache(async (userId: string): Promise<{ 
  */
 export async function teamStoreIdFor(userId: string | null, area: TeamArea): Promise<string | null> {
   if (!userId) return null
-  const acting = await actingStore(createAdminClient(), userId).catch(() => null)
+  /* A read that failed throws (round rel2-auth): never "not on the team", which refused a member as if they had no access. */
+  const acting = await actingStore(createAdminClient(), userId)
   return acting && permits(acting.permissions, area) ? acting.creatorId : null
 }
 
@@ -722,13 +768,16 @@ export async function storeAccessOf(
   userId: string,
   creatorId: string,
   area: TeamArea,
-): Promise<{ ok: true; isOwner: boolean; ownerUserId: string | null } | { ok: false }> {
+): Promise<{ ok: true; isOwner: boolean; ownerUserId: string | null } | { ok: false; failed?: true }> {
   if (!/^[0-9a-f-]{36}$/i.test(creatorId)) return { ok: false }
-  const { data: c } = await db.from("creators").select("id, user_id").eq("id", creatorId).maybeSingle()
+  /* Round rel2-auth: a read that failed is `failed` (a 503 Try again), never "no access any more". Still never a yes. */
+  const { data: c, error: storeError } = await db.from("creators").select("id, user_id").eq("id", creatorId).maybeSingle()
+  if (storeError) return { ok: false, failed: true }
   const store = c as { id: string; user_id: string | null } | null
   if (!store) return { ok: false }
   if (store.user_id === userId) return { ok: true, isOwner: true, ownerUserId: userId }
   const { data, error } = await readRows<Record<string, unknown> | null>((cols) => db.from("store_team_members").select(cols).eq("creator_id", creatorId).eq("user_id", userId).eq("status", "active").maybeSingle())
+  if (error && !teamMissing(error)) return { ok: false, failed: true }
   if (error || !data) return { ok: false }
   return permits(memberOf(data).permissions, area) ? { ok: true, isOwner: false, ownerUserId: store.user_id } : { ok: false }
 }
@@ -763,7 +812,8 @@ export const teamPageStore = cache(async (area: TeamArea): Promise<TeamPageStore
   const user = await pageUser()
   if (!user) return { kind: "signed_out" }
   /* The answers the /app layout already asked for, once per request: an owner pays no read of their own here. */
-  const team = await teamStoreForRequest(user.id).catch(() => null)
+  /* A read that failed throws (round rel2-auth): the page's error boundary says Try again, never the member's own account or its "no store" path. */
+  const team = await teamStoreForRequest(user.id)
   if (team) {
     const acting = team.acting
     if (!permits(acting.permissions, area)) return { kind: "denied", userId: user.id, acting }
@@ -777,23 +827,37 @@ export const teamPageStore = cache(async (area: TeamArea): Promise<TeamPageStore
 /**
  * The stores this account is on as an active member, each with when it was
  * joined, for picking one to open (lib/team/landing pickTeamStore). Only
- * stores that still exist. [] when the team is not set up or the read fails.
+ * stores that still exist. [] when the team is not set up.
+ *
+ * Round rel2-auth: a read that FAILED throws a ServiceUnavailable. It was [],
+ * "on no team", and a member was sent to /sell when the database was slow.
  */
 export async function memberRowsOf(db: Db, userId: string): Promise<{ creatorId: string; acceptedAt: string | null }[]> {
-  const { data, error } = await db.from("store_team_members").select("creator_id, accepted_at").eq("user_id", userId).eq("status", "active")
-  if (error || !data?.length) return []
+  const read = await db.from("store_team_members").select("creator_id, accepted_at").eq("user_id", userId).eq("status", "active")
+  if (read.error && teamMissing(read.error)) return []
+  const data = dataOrThrow("team memberships", read)
+  if (!data?.length) return []
   const rows = data as { creator_id: string; accepted_at: string | null }[]
-  const { data: creators } = await db.from("creators").select("id").in("id", rows.map((r) => r.creator_id))
+  const creators = dataOrThrow("team stores", await db.from("creators").select("id").in("id", rows.map((r) => r.creator_id)))
   const live = new Set(((creators ?? []) as { id: string }[]).map((c) => c.id))
   return rows.filter((r) => live.has(r.creator_id)).map((r) => ({ creatorId: r.creator_id, acceptedAt: r.accepted_at }))
 }
 
-/** On at least one store's team, for where a sign in ends (lib/auth/continue destinationAfterAuth). false on any error. */
+/** On at least one store's team, for where a sign in ends (lib/auth/continue destinationAfterAuth). false on any error (onATeamRead says when it failed). */
 export async function onATeam(db: Db, userId: string): Promise<boolean> {
   try {
     return (await memberRowsOf(db, userId)).length > 0
   } catch {
     return false
+  }
+}
+
+/** Whether this account is on a team, and whether the read failed: a failed read is never "on no team" (round rel2-auth). */
+export async function onATeamRead(db: Db, userId: string): Promise<{ onTeam: boolean; failed: boolean }> {
+  try {
+    return { onTeam: (await memberRowsOf(db, userId)).length > 0, failed: false }
+  } catch {
+    return { onTeam: false, failed: true }
   }
 }
 
@@ -823,9 +887,11 @@ export async function noStorePage(path: string): Promise<null> {
   }
   const user = current.user
   const db = createAdminClient()
-  const acting = await actingStore(db, user.id).catch(() => null)
-  if (acting) return null
-  const rows = await memberRowsOf(db, user.id).catch(() => [])
+  /* Round rel2-auth: a membership read that failed draws nothing here (the page's own retry), never /sell. */
+  const read = await actingStoreRead(db, user.id)
+  if (read.failed || read.acting) return null
+  const rows = await memberRowsOf(db, user.id).catch(() => null)
+  if (rows === null) return null
   if (rows.length > 0) redirect(teamHomeHref(path))
   redirect("/sell")
 }
