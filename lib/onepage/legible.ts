@@ -718,7 +718,9 @@ export function findIllegible(root: ParentNode): LegibleFinding[] {
       /* Clear words are meant to be clear (a placeholder hidden while typing, a label behind its own picture). */
       if (!c || c.a === 0) return
       const shown = { ...c, a: c.a * ground.opacity * ownOpacity }
-      const ratio = Math.min(...ground.grounds.map((g) => contrast(shown, g)))
+      /* Wave 11: a gel's gloss under the words is under them too (words fixed on the gel alone read 4:1 on its shine). */
+      const all = ground.sheened ? [...ground.grounds, ...ground.sheened] : ground.grounds
+      const ratio = Math.min(...all.map((g) => contrast(shown, g)))
       if (ratio + 0.01 < min) out.push({ el, kind, text: words, color: toCss(c), ground: toHex(ground.grounds[0]), ratio: Math.round(ratio * 100) / 100, min, alsoHalo: kind === "text" && ground.uncertain && !haloOf(cs.textShadow) })
       else if (kind === "text" && onScene && !haloOf(cs.textShadow) && min - 1 > MIN_CONTRAST - 0.01) {
         /* Small words straight on a skin's scene (grain, dots): a soft outline in the page's own colour lifts them off it. */
@@ -856,7 +858,8 @@ export function guardLegibility(root: ParentNode): LegibleFinding[] {
     const h = f.el as HTMLElement
     const ground = groundUnder(h, cache)
     const wanted = parseColor(f.color)!
-    const fixed = (f.ratio < 2 && f.kind !== "halo" && inkAround(h, ground.grounds, f.min + NUDGE_MARGIN)) || nudgeOn(wanted, ground.grounds, f.min)
+    const under = ground.sheened ? [...ground.grounds, ...ground.sheened] : ground.grounds
+    const fixed = (f.ratio < 2 && f.kind !== "halo" && inkAround(h, under, f.min + NUDGE_MARGIN)) || nudgeOn(wanted, under, f.min)
     const own = f.kind === "text" || f.kind === "value" ? restingOpacity(h, getComputedStyle(h)) : 1
     /* Words faded by their own opacity that still do not read at full colour: shown whole. */
     const whole = own < 1 && Math.min(...ground.grounds.map((g) => contrast({ ...fixed, a: own * ground.opacity }, g))) < f.min
@@ -995,7 +998,12 @@ export function findHoverPairs(root: ParentNode): HoverFinding[] {
           continue
         }
         const st = linearStops(l, box)
-        const colors = st ? (st.axis === "y" ? colorsBetween(st, at.top - st.from, at.bottom - st.from) : colorsBetween(st, at.left - st.from, at.right - st.from)) : gradientColors(l)
+        /* A gloss (translucent white or black only) is read under the body of the letters (their middle 60%), as the eye reads them, not under their tips. */
+        const gloss = gradientColors(l).every((c) => c.a < 1 && ((c.r > 250 && c.g > 250 && c.b > 250) || (c.r < 5 && c.g < 5 && c.b < 5) || c.a === 0))
+        const inset = gloss ? 0.2 : 0
+        const y0 = at.top + (at.bottom - at.top) * inset
+        const y1 = at.bottom - (at.bottom - at.top) * inset
+        const colors = st ? (st.axis === "y" ? colorsBetween(st, y0 - st.from, y1 - st.from) : colorsBetween(st, at.left - st.from, at.right - st.from)) : gradientColors(l)
         if (colors.length) layers.push(colors)
       }
     if (picture) continue
@@ -1057,7 +1065,11 @@ export function findHoverPairs(root: ParentNode): HoverFinding[] {
             break
           }
         }
-        if (!moved) fixed = nudgeOn({ ...text, a: 1 }, grounds, min + HOVER_ROOM)
+        if (!moved) {
+          /* Nothing reaches the room: the better of the words as they are and their nearest move, never a worse one. */
+          const nudged = nudgeOn({ ...text, a: 1 }, grounds, min + HOVER_ROOM)
+          fixed = worst(nudged, grounds) > worst(text, grounds) ? nudged : { ...text, a: 1 }
+        }
       }
     }
     /* Words the button draws faded (a second line at 70%) that would not read faded on the fill: whole on hover. */

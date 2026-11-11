@@ -366,7 +366,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const hoverAttrs = (t: ButtonThemeLike) => ({ "data-hover": hoverKind, "data-shadow": themeShadowKind(t) })
   /* The button inside a card: the page's button, made to read on the card (cardButtonTheme). */
   const ctaTheme = (onPhoto = false) =>
-    cardButtonTheme(theme as ButtonThemeLike, { surface: surfaceColor, cardText: textColor, ownBackground, ownButtonColor: data.button_color || null, ownButtonText: data.button_text_color || null, onPhoto, skinned: !!(theme as { theme_skin?: string | null }).theme_skin })
+    cardButtonTheme(theme as ButtonThemeLike, { surface: surfaceColor, cardText: textColor, ownBackground, ownButtonColor: data.button_color || null, ownButtonText: data.button_text_color || null, onPhoto })
 
   /* ── Words ── */
   const title = data.product_title || "Product"
@@ -600,7 +600,9 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     }
     case "minimal": {
       /* The price pill sits on the page, as a link button does: the page's button exactly, its words readable on the page. */
-      const pillTheme: ButtonThemeLike = themeFill ? (theme as ButtonThemeLike) : { ...(theme as ButtonThemeLike), button_text_color: readableOn(theme.background_color, theme.button_text_color) }
+      /* Wave 11: on a skinned page the skin draws this row as a card too (its CARD material), so its pill is a card's button, alike with every other layout's. */
+      const skinned = !!(theme as { theme_skin?: string | null }).theme_skin
+      const pillTheme: ButtonThemeLike = skinned ? ctaTheme() : themeFill ? (theme as ButtonThemeLike) : { ...(theme as ButtonThemeLike), button_text_color: readableOn(theme.background_color, theme.button_text_color) }
       body = shell(
         <span className="flex items-center gap-3 px-1 py-3" style={{ borderBottom: `1px solid ${tintOf(theme.text_color, "26")}` }}>
           <span className="min-w-0 flex-1">

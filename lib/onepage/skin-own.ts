@@ -26,7 +26,9 @@
 
 /** The Design settings, grouped as the skin's rules are. */
 export const SKIN_OWN_GROUPS = {
-  button_colour: ["button_color", "button_text_color", "button_style", "button_hover_fill", "button_hover_text", "button_hover_color"],
+  button_colour: ["button_color", "button_text_color", "button_style"],
+  /* Wave 11: a hover chosen over a skin is the hover's pair only; the button keeps the skin's rest colours (choosing Fill used to raise the theme's rest words over the skin's gel). */
+  button_hover: ["button_hover_fill", "button_hover_text", "button_hover_color"],
   button_shape: ["button_border_radius"],
   button_shadow: ["button_shadow", "button_shadow_color"],
   button_border: ["button_border_width", "button_border_color"],
@@ -73,6 +75,7 @@ export function skinOwnRootProps(theme: { theme_skin?: unknown; skin_own?: unkno
 /** What each group raises to !important, on which boxes. */
 const RAISE: Record<SkinOwnGroup, { boxes: string; props: string[]; clear?: Record<string, string> }> = {
   button_colour: { boxes: ".op-btn, [data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]", props: ["background-color", "color", "--op-fill", "--op-fill-text"], clear: { "text-shadow": "none" } },
+  button_hover: { boxes: ".op-btn, [data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]", props: ["--op-fill", "--op-fill-text"] },
   button_shape: { boxes: ".op-btn, [data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit], .op-card", props: ["border-radius"], clear: { "clip-path": "none" } },
   button_shadow: { boxes: ".op-btn, [data-product-cta], .op-card", props: ["box-shadow"] },
   button_border: { boxes: ".op-btn, [data-product-cta], .op-card", props: ["border-width", "border-style", "border-color"] },

@@ -292,7 +292,7 @@ const sameColor = (a?: string | null, b?: string | null) => String(a ?? "").trim
  */
 export function cardButtonTheme(
   theme: ButtonThemeLike,
-  o: { surface: string; cardText: string; ownBackground?: string | null; ownButtonColor?: string | null; ownButtonText?: string | null; onPhoto?: boolean; skinned?: boolean },
+  o: { surface: string; cardText: string; ownBackground?: string | null; ownButtonColor?: string | null; ownButtonText?: string | null; onPhoto?: boolean },
 ): ButtonThemeLike {
   let t: ButtonThemeLike
   if (o.onPhoto) {
@@ -301,8 +301,7 @@ export function cardButtonTheme(
     const hex = /^#[0-9a-f]{6}$/i.test(o.ownButtonColor)
     t = { ...theme, button_style: "filled", button_color: o.ownButtonColor, button_text_color: readableOn(hex ? o.ownButtonColor : o.surface, o.cardText, o.ownButtonText) }
   } else if (buttonFill(theme) === "filled") {
-    /* Wave 11: a skin paints every card its own material (lib/onepage/theme-skin), never the button colour, so a card's button is the page's button there, alike in every layout. */
-    const onButtonColour = !o.skinned && (!o.ownBackground || sameColor(o.ownBackground, theme.button_color))
+    const onButtonColour = !o.ownBackground || sameColor(o.ownBackground, theme.button_color)
     /* Round AR: the pair turned round must still read: a see-through button colour (a glass theme saved as Solid) as words on its own text colour was white on white. */
     t = onButtonColour ? { ...theme, button_color: theme.button_text_color, button_text_color: wordsOn(theme.button_text_color, theme.button_color, theme) } : { ...theme }
   } else if (buttonFill(theme) !== "outline" && !o.ownBackground && !readsOnDoubleTint(theme, (theme.button_text_color as string) || o.cardText) && readsOnDoubleTint(theme, deeperInk(theme, (theme.button_text_color as string) || o.cardText))) {
