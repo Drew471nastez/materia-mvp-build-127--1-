@@ -1096,7 +1096,7 @@ const SUITES = [
   "tests/ops-safety-nets.test.ts",
   /* Indexes for the reads that searched a whole table (SQL part 187), the wishlist's one profile read, More from seller's columns */
   "tests/db-indexes.test.ts",
-  /* Round rel-db: database load and store isolation, SQL part 334 (indexes for reads and deletes that searched whole tables, functions and policies that opened every store's rows, statement timeouts); Orders reads the store's currency once per request. */
+  /* Round rel-db: database load and store isolation, SQL part 334 (indexes for reads and deletes that searched whole tables, functions and policies that opened every store's rows, statement timeouts); Orders reads the store's currency once per request. Round rel2-db: SQL part 443 (indexes for the foreign keys an account, store, website, product, order or message delete walked, community_space_counts for the service role only, open insert policies closed) and loadSpaces counting every space in one read, falling back to the old counts where the function is missing. */
   "tests/db-load-isolation.test.ts",
   /* Round rel-db (fix): every server Supabase client with a deadline, analytics that fall back to raw events only when the function is missing, Home without waiting on all time sales, Customers, Payouts and the tax summary past 1,000 rows, the /app shell's lean reads, the Products page's columns and paging. */
   "tests/rel-db-dashboard.test.ts",
