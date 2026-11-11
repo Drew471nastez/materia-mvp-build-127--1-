@@ -27,9 +27,23 @@
     const ps = path ? getComputedStyle(path) : null
     return [cs.backgroundColor, cs.backgroundImage === "none" ? "" : cs.backgroundImage.slice(0, 80), cs.color, cs.borderTopColor, ls.color, ls.webkitTextFillColor, ss ? ss.color : "", ps ? ps.fill : ""].join(" ; ")
   }
+  /* Entrances: which ran, and any block seen whole that then went (a flash). */
+  obs.anims = {}
+  obs.flashes = []
+  const seenWhole = new WeakSet()
+  for (const type of ["animationstart", "animationend"])
+    document.addEventListener(type, (e) => { const k = `${type}:${e.animationName}`; obs.anims[k] = (obs.anims[k] || 0) + 1 }, true)
   const tick = () => {
     if (obs.stopped) return
     obs.frames++
+    for (const el of document.querySelectorAll("[data-op-block], [data-link-pair], [data-product-pair]")) {
+      const r = el.getBoundingClientRect()
+      if (r.bottom <= 0 || r.top >= innerHeight || r.width < 1) continue
+      let o = 1
+      for (let a = el; a && a !== document.body; a = a.parentElement) o *= parseFloat(getComputedStyle(a).opacity)
+      if (o >= 0.99) seenWhole.add(el)
+      else if (o < 0.5 && seenWhole.has(el) && obs.flashes.length < 50) obs.flashes.push(`${el.getAttribute("data-op-block") || "pair"} at ${Math.round(performance.now() - obs.t0)}ms`)
+    }
     const t = Math.round(performance.now() - obs.t0)
     for (const el of document.querySelectorAll(SEL)) {
       const r = el.getBoundingClientRect()

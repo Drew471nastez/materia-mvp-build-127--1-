@@ -47,6 +47,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
+import { PREVIEW_SHOWN_EVENT } from "@/components/onepage/block-entrance"
 import { answersForBlocks, productIdsInBlocks, resolveProductBlocks, type ProductAnswers, type ProductsDb } from "@/lib/onepage/live-products"
 import { createClient } from "@/lib/supabase/client"
 import { ExtraBlockPreviewContext } from "@/components/onepage/extra-blocks"
@@ -454,6 +455,9 @@ export function OnePagePreviewDocument() {
       if (done) return
       done = true
       window.parent?.postMessage({ channel: ONEPAGE_PREVIEW_CHANNEL, kind: "drawn" } satisfies PreviewMessage, window.location.origin)
+      /* The editor shows the frame now: the blocks' entrance starts (components/onepage/block-entrance). */
+      ;(window as Window & { __onepagePreviewShown?: boolean }).__onepagePreviewShown = true
+      window.dispatchEvent(new Event(PREVIEW_SHOWN_EVENT))
     }
     const fonts = document.fonts?.ready ?? Promise.resolve()
     /* Fonts that do not come in a second are not waited for. */

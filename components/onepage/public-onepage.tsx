@@ -71,6 +71,7 @@ import { canvasRule, heroHeaderShown, pageCanvasColour } from "@/lib/onepage/pag
 import { HeroTopBar } from "@/components/onepage/hero-scroll"
 import { usePressFeel } from "@/components/onepage/press-feel"
 import { useLookStill } from "@/components/onepage/look-still"
+import { useBlockEntrance } from "@/components/onepage/block-entrance"
 import { pageGroundIsLight, socialIconColorOf, socialIconStyleOf, socialIconToneOf, socialTileStyle } from "@/lib/onepage/social-look"
 import { leavingProps, useLeavingBlocks } from "@/components/onepage/leaving-block"
 import { heroScrollEffect } from "@/lib/onepage/feel"
@@ -1099,6 +1100,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
   /* The page holds still while it takes on a look: no transition on its first paint, at hydration or as a new theme arrives (components/onepage/look-still). */
   const lookStill = useLookStill(safeTheme)
+  /* Each block arrives as it comes into view, in the preview once the editor shows it (components/onepage/block-entrance). */
+  useBlockEntrance()
 
   /* Round AR: the least opacity the page's small print may have and still read (lib/onepage/contrast smallPrintAlpha, app/globals.css). */
   const smallPrint = smallPrintAlpha(safeTheme)
@@ -1224,7 +1227,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             /* The Grid layout: plain links that follow one another, two to a row, each a tile (app/globals.css [data-link-tile]). */
             if (isLinkTilePair(item)) {
               return (
-                <div key={item.key} className={cn("grid w-full grid-cols-2 gap-3", animClass)} style={animStyle} data-link-pair="" {...leavingProps(leaving)}>
+                <div key={item.key} className={cn("grid w-full grid-cols-2 gap-3", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined} data-link-pair="" {...leavingProps(leaving)}>
                   {(item.links as OnePageBlock[]).map((block) => (
                     <div key={block.id} className="min-w-0" data-link-tile="" data-op-block={block.id} data-sensitive-label={sensitiveLabel(block)}>
                       {inEditorPreview && isIncompleteLink(block) ? (

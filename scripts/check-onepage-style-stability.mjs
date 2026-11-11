@@ -47,7 +47,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const OBSERVE = readFileSync(new URL("./onepage-style-observe.js", import.meta.url), "utf8")
 
 const problems = []
-const counts = { pages: 0, boxes: 0, loadChanges: 0, hovered: 0, hoverBad: 0, hoverUnreadable: 0, switchBad: 0, overlaps: 0, iconBad: 0, motionBad: 0 }
+const counts = { pages: 0, boxes: 0, loadChanges: 0, hovered: 0, hoverBad: 0, hoverUnreadable: 0, switchBad: 0, overlaps: 0, iconBad: 0, motionBad: 0, entranceFlashes: 0 }
 const fail = (where, what) => problems.push(`${where}: ${what}`)
 
 const { base, server } = await serveEditorProbe({ entry: "scripts/render-onepage-style-stability.tsx" })
@@ -217,8 +217,12 @@ async function loadPass(path, editor, where, extra = {}) {
   await sleep(1500)
   const result = await frame.evaluate(() => {
     const o = window.__styleObs
-    return { boxes: o.boxes.size, frames: o.frames, changes: o.changes.slice(0, 400) }
+    return { boxes: o.boxes.size, frames: o.frames, changes: o.changes.slice(0, 400), flashes: o.flashes }
   })
+  for (const f of result.flashes) {
+    counts.entranceFlashes++
+    fail(where, `a block seen whole went out again: ${f}`)
+  }
   counts.pages++
   counts.boxes += result.boxes
   if (errors.length) fail(where, `the page threw: ${errors[0]}`)
@@ -388,6 +392,24 @@ if (ONLY.has("motion")) {
         const frame = await pageFrame(page, editor)
         await frame.waitForFunction(() => document.querySelectorAll(".op-btn").length > 0, { timeout: 15000 })
         await sleep(2600)
+        /* The entrance: the first screen arrived (in the preview, once the frame was shown), and a block below it arrives when scrolled to. */
+        const first = await frame.evaluate(() => ({ ...window.__styleObs.anims }))
+        const firstIn = (first["animationend:op-block-enter"] || 0) + (first["animationend:enter"] || 0)
+        if (!reduced && !firstIn) { counts.motionBad++; fail(where, `the first screen's blocks never arrived (${JSON.stringify(first)})`) }
+        if (reduced && firstIn) { counts.motionBad++; fail(where, `blocks faded in under reduced motion (${JSON.stringify(first)})`) }
+        const below = await frame.evaluate(async () => {
+          const before = window.__styleObs.anims["animationend:op-block-enter"] || 0
+          const last = [...document.querySelectorAll("[data-op-block]")].pop()
+          const waiting = last.closest("[data-op-enter]")?.getAttribute("data-op-enter") || null
+          last.scrollIntoView({ block: "center" })
+          await new Promise((r) => setTimeout(r, 900))
+          let o = 1
+          for (let a = last; a && a !== document.body; a = a.parentElement) o *= parseFloat(getComputedStyle(a).opacity)
+          return { waiting, arrived: (window.__styleObs.anims["animationend:op-block-enter"] || 0) - before, opacity: o }
+        })
+        if (!reduced && (below.waiting !== "wait" || below.arrived < 1)) { counts.motionBad++; fail(where, `the last block did not wait for its turn and arrive when scrolled to (${JSON.stringify(below)})`) }
+        if (below.opacity < 0.99) { counts.motionBad++; fail(where, `the last block is at opacity ${below.opacity} once scrolled to`) }
+        if (reduced && below.waiting) { counts.motionBad++; fail(where, "a block was held for an entrance under reduced motion") }
         const r = await frame.evaluate(() => {
           const els = [...document.querySelectorAll('[class*="animate-onepage-"]')]
           return els.map((el) => {
@@ -429,6 +451,7 @@ console.log(`  theme switch, not once    ${counts.switchBad}`)
 console.log(`  product overlaps          ${counts.overlaps}`)
 console.log(`  social icon rows wrong    ${counts.iconBad}`)
 console.log(`  block animations wrong    ${counts.motionBad}`)
+console.log(`  entrance flashes          ${counts.entranceFlashes}`)
 if (problems.length) {
   const shown = problems.slice(0, Number(process.env.SHOW || 60))
   console.error(`\n${problems.length} problems${problems.length > shown.length ? ` (first ${shown.length})` : ""}:\n${shown.map((p) => `  - ${p}`).join("\n")}\n`)
