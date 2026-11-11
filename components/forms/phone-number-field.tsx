@@ -17,6 +17,12 @@
  * What is kept is the E.164 number ("+40712345678") and the country's ISO
  * code, through lib/account/phone, as the action model expects
  * (lib/forms/actions e164 and internationalPhone).
+ *
+ * A number with no code starts in the country the person is in (their time
+ * zone, then their language's region: lib/forms/phone-check guessCountry).
+ * Its length is checked for that country: a number that is short says so
+ * once the field is left, in one line naming the country; one with too
+ * many digits says so at once.
  */
 import { useMemo, useState } from "react"
 import { ChoicePicker } from "@/components/ui/choice-list"
@@ -24,15 +30,28 @@ import { CountryFlag } from "@/components/app/settings/country-picker"
 import { dialChoices } from "@/lib/forms/dial-codes"
 import { callingCode, countryOfInternational, digitsFromKept, examplePhone, formatNational, fullNumber, nationalDigits } from "@/lib/account/phone"
 import { e164, internationalPhone } from "@/lib/forms/actions"
+import { guessCountry, phoneProblem } from "@/lib/forms/phone-check"
 import { appLocale } from "@/lib/i18n/format"
 import { tt } from "@/lib/i18n/text"
 import { LABEL, PROBLEM } from "./fields"
 
-/** The visitor's or creator's country from the browser, for a number with no code yet. */
+/** The visitor's or creator's country from the browser, for a number with no code yet: where their clock is, then their language's region. */
 export function browserCountry(): string {
   if (typeof navigator === "undefined") return "US"
-  const region = (navigator.language || "").split("-")[1]
-  return region && callingCode(region) ? region.toUpperCase() : "US"
+  let timeZone: string | null = null
+  try {
+    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || null
+  } catch {}
+  return guessCountry({ timeZone, languages: navigator.languages?.length ? navigator.languages : [navigator.language || ""] })
+}
+
+/** A country's name in the creator's language ("Romania"), its code when the browser has no names. */
+function countryName(cc: string): string {
+  try {
+    return new Intl.DisplayNames([appLocale()], { type: "region" }).of(cc) || cc
+  } catch {
+    return cc
+  }
 }
 
 export function PhoneNumberField({
@@ -40,6 +59,7 @@ export function PhoneNumberField({
   country,
   onChange,
   label,
+  placeholder,
 }: {
   /** As kept: "+40712345678", or what is being typed before it is a full number. */
   phone: string
@@ -47,6 +67,8 @@ export function PhoneNumberField({
   country?: string | null
   onChange: (next: { phone: string; country: string }) => void
   label: string
+  /** In place of the country's example number. */
+  placeholder?: string
 }) {
   /* The country: the chosen one, else the one the number's code says, else the browser's. */
   const cc = (country && callingCode(country) ? country : null) || (phone ? countryOfInternational(phone, []) : null) || browserCountry()
@@ -54,7 +76,12 @@ export function PhoneNumberField({
   /* A number being typed with its own code, before the code is known. */
   const [typing, setTyping] = useState<string | null>(null)
   const choices = useMemo(() => () => dialChoices(appLocale()), [])
-  const invalid = !!phone && !internationalPhone(phone)
+  const [left, setLeft] = useState(false)
+  const problem = phoneProblem(phone, cc)
+  const notInternational = !!phone && !internationalPhone(phone)
+  /* Short is said once the field is left (it is short while it is typed); too long at once. */
+  const said = problem === "long" ? "long" : left && problem === "short" ? "short" : left && notInternational ? "short" : null
+  const invalid = !!said
   return (
     <div className="space-y-2" data-phone-number-field="">
       <span className={LABEL}>{label}</span>
@@ -90,7 +117,7 @@ export function PhoneNumberField({
           autoComplete="off"
           aria-label={label}
           aria-invalid={invalid}
-          placeholder={examplePhone(cc)}
+          placeholder={placeholder ?? examplePhone(cc)}
           className="min-w-0 flex-1 rounded-r-xl bg-transparent px-3.5 tabular-nums outline-none placeholder:text-[#9ca3af]"
           value={typing ?? formatNational(digitsFromKept(phone, cc), cc)}
           onChange={(e) => {
@@ -105,10 +132,18 @@ export function PhoneNumberField({
             setTyping(null)
             onChange({ country: cc, phone: e164(fullNumber(nationalDigits(v, cc), cc)) })
           }}
-          onBlur={() => setTyping(null)}
+          onFocus={() => setLeft(false)}
+          onBlur={() => {
+            setTyping(null)
+            setLeft(true)
+          }}
         />
       </div>
-      {invalid ? <p className={PROBLEM}>{tt("Enter the whole number, without a leading 0.")}</p> : null}
+      {said ? (
+        <p className={PROBLEM} role="status" data-phone-problem={said}>
+          {said === "long" ? tt("That is more digits than a number in {country} has.", { country: countryName(cc) }) : tt("That looks short for a number in {country}. Check the digits, or pick the country.", { country: countryName(cc) })}
+        </p>
+      ) : null}
     </div>
   )
 }

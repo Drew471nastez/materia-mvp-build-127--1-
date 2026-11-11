@@ -69,7 +69,10 @@ export interface AppItem {
 export interface AppContact {
   name?: string
   org?: string
+  /** As shown: "+40 712 345 678" (components/forms/phone-number-field), or as typed before. */
   phone?: string
+  /** The phone's country, ISO code. */
+  phone_country?: string
   email?: string
   website?: string
   address?: string

@@ -23,6 +23,9 @@
  *   header     a click on the name in the preview opens the header block
  *   autoplay   a YouTube video set to play by itself loads its player muted
  *              once it is on screen, and not before
+ *   phone      a WhatsApp number starts in the country the clock is in
+ *              (Europe/Bucharest: +40), formats as typed, says "long" at
+ *              once and "short" once the field is left; +44 moves it to the UK
  *   map        the map's field takes a typed address, a Google Maps place
  *              link and a short Share link (read once); the preview's map
  *              searches for what was found
@@ -53,6 +56,7 @@ const blocks = [
   { id: "auto", type: "video", enabled: true, sort_order: 30, data: { url: "https://youtu.be/aqz-KE-bpKQ", layout: "player", autoplay: true } },
   ...links,
   { id: "last", type: "link_button", enabled: true, sort_order: 40, data: { label: "The last link", url: "https://example.com/last" } },
+  { id: "wa", type: "link_button", enabled: true, sort_order: 42, data: { label: "Book on WhatsApp", url: "", action: { type: "whatsapp", phone: "", message: "Hi, I'd like to book {service}. When are you free?" } } },
   { id: "map", type: "map", enabled: true, sort_order: 41, data: { title: "Visit", address: "350 5th Ave, New York, NY 10118" } },
 ]
 /* The short link Google Maps' Share button makes, read by app/api/onepage/map-place: answered here as Google would lead it. */
@@ -65,6 +69,8 @@ const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-
 try {
   const p = await browser.newPage()
   await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 })
+  /* Where the creator is, for a number typed without its code. */
+  await p.emulateTimezone("Europe/Bucharest")
   const errors = []
   p.on("pageerror", (e) => errors.push(String(e).slice(0, 240)))
   await p.goto(`${base}/app/onepage#links`)
@@ -244,6 +250,39 @@ try {
   const src4 = await mapSrc()
   expect(s4 === null && /q=Times%20Square%2C%20New%20York/.test(src4 || ""), "a typed address is the map's search, nothing more to say", { s4, src4 })
   await shotIf(p, "editor-op-map")
+
+  console.log("\nphone: a WhatsApp number")
+  await scrollFrameTo('[data-op-block="wa"]')
+  await sleep(300)
+  t = await at('[data-op-block="wa"]')
+  await p.mouse.click(t.x, t.y)
+  await sleep(900)
+  const tel = '[data-block-id="wa"] [data-phone-number-field] input[type=tel]'
+  const prefix = await p.$eval('[data-block-id="wa"] [data-phone-prefix]', (e) => e.getAttribute("data-phone-prefix")).catch(() => null)
+  expect(prefix === "+40", "an empty number starts in the clock's country (Bucharest: +40)", prefix)
+  const typeTel = async (v) => p.evaluate((sel, v) => { const el = document.querySelector(sel); el.focus(); el.select(); document.execCommand("insertText", false, v) }, tel, v)
+  const problemNow = () => p.evaluate(() => document.querySelector('[data-block-id="wa"] [data-phone-problem]')?.getAttribute("data-phone-problem") ?? null)
+  await typeTel("0712345678")
+  await sleep(200)
+  const shown = await p.$eval(tel, (e) => e.value)
+  expect(shown === "712 345 678" && (await problemNow()) === null, "typed with its local 0: shown as Romania writes it, no problem", { shown, problem: await problemNow() })
+  await typeTel("71234567890")
+  await sleep(200)
+  expect((await problemNow()) === "long", "too many digits: said at once", await problemNow())
+  await typeTel("7123")
+  await sleep(200)
+  const whileTyping = await problemNow()
+  await p.evaluate((sel) => document.querySelector(sel).blur(), tel)
+  await sleep(200)
+  const afterLeaving = await problemNow()
+  const words = await p.evaluate(() => document.querySelector('[data-block-id="wa"] [data-phone-problem]')?.textContent ?? "")
+  expect(whileTyping === null && afterLeaving === "short" && /Romania/.test(words), "short: quiet while typing, said once left, naming the country", { whileTyping, afterLeaving, words })
+  await typeTel("+44 7700 900123")
+  await sleep(250)
+  const uk = await p.$eval('[data-block-id="wa"] [data-phone-prefix]', (e) => e.getAttribute("data-phone-prefix"))
+  const ukShown = await p.$eval(tel, (e) => e.value)
+  expect(uk === "+44" && ukShown === "7700 900123", "a number typed with +44 moves the country to the UK", { uk, ukShown })
+  await shotIf(p, "editor-op-phone")
 
   expect(errors.length === 0, "no error in the page", errors)
 } finally {

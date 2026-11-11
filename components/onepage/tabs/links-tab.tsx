@@ -13,6 +13,8 @@ import { editedMark, mergeLinkPreview } from "@/lib/onepage/link-preview"
 import { ProfileImage } from "@/components/onepage/profile-image"
 import { growTextareas } from "@/components/onepage/grow-textareas"
 import { PREVIEW_PICK_EVENT, takePreviewPick } from "@/lib/onepage/preview-select"
+import { PhoneNumberField } from "@/components/forms/phone-number-field"
+import { countryOfInternational } from "@/lib/account/phone"
 
 import { hapticTap } from "@/lib/native-bridge"
 import { useProductMoney } from "@/components/platform/price-currency"
@@ -525,6 +527,8 @@ export function LinksTab() {
   const [showSocialModal, setShowSocialModal] = useState(false)
   const [selectedSocial, setSelectedSocial] = useState<string | null>(null)
   const [socialUrl, setSocialUrl] = useState("")
+  /* The WhatsApp number's country while it has no digits yet (components/forms/phone-number-field keeps it in the number once there are some). */
+  const [whatsappCountry, setWhatsappCountry] = useState<string | undefined>(undefined)
   const [socialUrlError, setSocialUrlError] = useState<string | null>(null)
   const [showImageLibrary, setShowImageLibrary] = useState(false)
   const [imageBlockId, setImageBlockId] = useState<string | null>(null)
@@ -2058,6 +2062,25 @@ export function LinksTab() {
                       link is tidied to the right address (lib/onepage/social-input).
                     */}
                     {(() => {
+                      /* WhatsApp is a phone number: the country with its flag and code, the number as written there, checked for that country. A wa.me link pasted before keeps the link field. */
+                      if (selectedSocial === "whatsapp" && !socialFieldIsLink("whatsapp", socialUrl)) {
+                        const kept = /^\d{6,15}$/.test(socialUrl) ? `+${socialUrl}` : socialUrl
+                        return (
+                          <div data-social-phone="">
+                            <PhoneNumberField
+                              label={tt("WhatsApp number")}
+                              phone={kept}
+                              country={(kept && countryOfInternational(kept, whatsappCountry ? [whatsappCountry] : [])) || whatsappCountry}
+                              onChange={(next) => {
+                                setWhatsappCountry(next.country)
+                                setSocialUrl(next.phone)
+                                if (socialUrlError) setSocialUrlError(null)
+                              }}
+                            />
+                            {socialUrlError ? <p className="mt-2 text-xs text-red-600">{socialUrlError}</p> : null}
+                          </div>
+                        )
+                      }
                       const format = socialFormat(selectedSocial ?? "")
                       const pastedLink = format.kind !== "url" && socialFieldIsLink(selectedSocial ?? "", socialUrl)
                       const prefix = format.kind === "url" || pastedLink ? "URL" : format.kind === "email" ? tt("Email") : format.prefix

@@ -53,6 +53,8 @@ import type { OnePageBlock, OnePageBlockData, OnePageTheme } from "@/lib/onepage
 import { DataBlockSettings, dataLayoutLabel } from "@/components/onepage/data-block-editor"
 import { tipModeOf } from "@/lib/onepage/tips"
 import { STAT_SOURCES, statSourceOf, type StatSource } from "@/lib/onepage/stat-count"
+import { PhoneNumberField } from "@/components/forms/phone-number-field"
+import { digitsFromKept, fullNumber } from "@/lib/account/phone"
 
 type Update = (updates: Partial<OnePageBlockData>) => void
 
@@ -489,11 +491,22 @@ function SettingsHalf({ block, data, provider, update }: { block: OnePageBlock; 
             ["email", tt("Email"), "email"],
             ["website", tt("Website"), "url"],
             ["address", tt("Address"), "text"],
-          ] as const).map(([key, label, type]) => (
+          ] as const).map(([key, label, type]) =>
+            key === "phone" ? (
+              /* The country with its flag and code, the number as it is written there (components/forms/phone-number-field); kept as the page shows it. */
+              <PhoneNumberField
+                key={key}
+                label={label}
+                phone={data.contact?.phone ?? ""}
+                country={data.contact?.phone_country}
+                onChange={(next) => set({ contact: { ...data.contact, phone: fullNumber(digitsFromKept(next.phone, next.country), next.country), phone_country: next.country } })}
+              />
+            ) : (
             <Field key={key} label={label}>
               <TextInput type={type} value={data.contact?.[key] ?? ""} maxLength={key === "address" ? 240 : 120} onChange={(e) => set({ contact: { ...data.contact, [key]: e.target.value } })} />
             </Field>
-          ))}
+            ),
+          )}
         </div>
       ) : null}
 

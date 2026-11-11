@@ -18,6 +18,8 @@ import { createDefaultBlock } from "@/lib/onepage/types"
 import { actionHref, fillTemplate, formVars, normaliseAction, slotVars, templateVariablesIn, TEMPLATE_VARIABLES } from "@/lib/forms/actions"
 import { blockActionVars } from "@/lib/onepage/block-action"
 import { isGoogleMapsLink, isShortMapsLink, mapEmbedSrc, mapPlace, mapPlaceOf } from "@/lib/onepage/map-place"
+import { guessCountry, phoneLengths, phoneProblem } from "@/lib/forms/phone-check"
+import { countryOfInternational, digitsFromKept, formatNational, fullNumber, nationalDigits } from "@/lib/account/phone"
 import { isLinkBrandIcon, linkIconFromUrl, linkIconLabel } from "@/components/onepage/link-icons"
 
 let passed = 0
@@ -171,6 +173,27 @@ section("Map: a typed address or a Google Maps link")
   check("the field's example is in New York, not a Romanian street", /350 5th Ave, New York/.test(field) && !/Strada/.test(field + code("components/onepage/extra-blocks.tsx")))
   const route = code("app/api/onepage/map-place/route.ts")
   check("the short link is read signed in, rate limited, only Google's short hosts, through the public-only guard", /routeUser\(\)/.test(route) && /bucket: "onepage-map-place"/.test(route) && /isShortMapsLink\(raw\)/.test(route) && /redirectTarget\(/.test(route))
+}
+
+section("Phone numbers: the country, the shape, a calm check")
+{
+  check("a US number: ten digits", phoneProblem("+14155550123", "US") === null && phoneProblem("+1415555012", "US") === "short" && phoneProblem("+141555501234", "US") === "long")
+  check("an area code never starts with 0 or 1", phoneProblem("+10155550123", "US") === "short")
+  check("Romania: nine digits after +40", phoneProblem("+40712345678", "RO") === null && phoneProblem("+4071234567", "RO") === "short" && phoneProblem("+407123456789", "RO") === "long")
+  check("the UK takes nine or ten", phoneProblem("+447700900123", "GB") === null && phoneProblem("+44770090012", "GB") === null && phoneProblem("+4477009", "GB") === "short")
+  check("a number kept with spaces is read the same", phoneProblem("+40 712 345 678", "RO") === null)
+  check("nothing typed is no problem", phoneProblem("", "RO") === null)
+  check("a country not listed gets E.164's bounds", phoneLengths("FJ")[0] === 4 && phoneLengths("FJ")[1] === 12)
+  check("the country from the clock first", guessCountry({ timeZone: "Europe/Bucharest", languages: ["en-US"] }) === "RO")
+  check("then the language's region", guessCountry({ timeZone: "Etc/UTC", languages: ["fr", "pt-BR"] }) === "BR")
+  check("then the US", guessCountry({ timeZone: null, languages: ["en"] }) === "US")
+  check("a number typed with its code finds its country", countryOfInternational("+44 7700 900123", []) === "GB" && countryOfInternational("0040 712 345 678", []) === "RO" && countryOfInternational("+1 604 555 0101", ["CA"]) === "CA")
+  check("the local 0 is dropped, the shape is the country's", nationalDigits("0712 345 678", "RO") === "712345678" && formatNational("712345678", "RO") === "712 345 678" && formatNational("4155550123", "US") === "(415) 555-0123")
+  check("kept as the page shows it", fullNumber(digitsFromKept("+40712345678", "RO"), "RO") === "+40 712 345 678")
+  const field = code("components/forms/phone-number-field.tsx")
+  check("the field says short once left, long at once, naming the country", /left && problem === "short"/.test(field) && /problem === "long" \? "long"/.test(field) && /countryName\(cc\)/.test(field))
+  check("every phone in the OnePage editor is that field: actions, WhatsApp icon, contact card, a booking's number", /<PhoneNumberField/.test(code("components/forms/action-editor.tsx")) && /data-social-phone/.test(code("components/onepage/tabs/links-tab.tsx")) && /<PhoneNumberField/.test(code("components/onepage/app-block-editor.tsx")) && /<PhoneNumberField/.test(code("components/forms/forms-manager.tsx")))
+  check("no phone library was added", !/libphonenumber/.test(code("package.json")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
