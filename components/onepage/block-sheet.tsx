@@ -834,7 +834,7 @@ const BlockSheetView = memo(function BlockSheetView({
     ;(to === "first" ? nodes[0] : nodes[nodes.length - 1])?.focus({ preventScroll: true })
   }
 
-  const { title, body, cta, shareUrl } = request
+  const { title, body, cta, shareUrl, footless } = request
 
   const pressCta = (e: React.MouseEvent) => {
     if (!cta) return
@@ -939,10 +939,16 @@ const BlockSheetView = memo(function BlockSheetView({
         >
           {title}
         </h2>
+        {footless ? (
+          /* Round AS: the sheet's own button is in its body; Close moves up to the top right, a step smaller. */
+          <button type="button" onClick={onClose} aria-label={tt("Close")} {...tag("data-block-sheet-close")} className="absolute right-3 top-2.5 z-[1] grid h-9 w-9 place-items-center rounded-full bg-[var(--sheet-field)] text-[var(--sheet-muted)] transition-[scale,color] duration-150 [-webkit-tap-highlight-color:transparent] hover:text-[var(--sheet-ink)] active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink)]">
+            <X aria-hidden className="h-4 w-4" />
+          </button>
+        ) : null}
         <div
           /* It scrolls with no bar drawn (round AN): a sheet is a small window, and a bar down its side read as a page squeezed into it. */
           ref={bodyRef}
-          className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden", fill ? "flex flex-col" : "pb-2", typing && "pb-4")}
+          className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden", fill ? "flex flex-col" : "pb-2", typing && "pb-4", footless && !typing && "pb-[max(16px,env(safe-area-inset-bottom))]")}
           data-onepage-dialog-scroll=""
           {...tag("data-block-sheet-body")}
         >
@@ -957,7 +963,7 @@ const BlockSheetView = memo(function BlockSheetView({
           <div ref={contentRef} className={cn("relative", fill && "flex min-h-0 flex-1 flex-col [&>*]:min-h-0 [&>*]:flex-1")}><InBlockSheetContext.Provider value><SheetBackContext.Provider value={backApi}>{body}</SheetBackContext.Provider></InBlockSheetContext.Provider></div>
         </div>
         <div
-          className={cn("shrink-0 items-center gap-2 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3", typing ? "hidden" : "flex")}
+          className={cn("shrink-0 items-center gap-2 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3", typing || footless ? "hidden" : "flex")}
           {...tag("data-block-sheet-foot")}
           data-block-sheet-typing={typing ? "" : undefined}
         >

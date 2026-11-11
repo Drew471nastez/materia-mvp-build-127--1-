@@ -23,6 +23,11 @@ export interface BlockSheetRequest {
   shareUrl?: string | null
   /** Let the body use the sheet's full height (an embed) instead of its natural height (a form). */
   fill?: boolean
+  /**
+   * Round AS: no bar at the foot; the body draws its own main button (the tip sheet's Continue, full width) and a
+   * round Close sits at the top right instead. Swipe, the dimmed page, Escape and Back close it as ever.
+   */
+  footless?: boolean
   /** Told once when the sheet starts to close, however it was closed. */
   onClose?: () => void
   /**
