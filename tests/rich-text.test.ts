@@ -226,8 +226,9 @@ section("A save is capped, and only for somebody signed in")
   const body = action.slice(action.indexOf("export async function cleanDescription"))
   check("the server action refuses too much before it parses anything",
     /const tooLong = descriptionTooLong\(html(, tt)?\)\s*\n\s*if \(tooLong\) return \{ ok: false, error: tooLong \}/.test(body) && body.indexOf("descriptionTooLong(") < body.indexOf("sanitizeDescription("))
+  /* Changed on purpose (rel2-auth): still Supabase Auth itself, through routeUser({ fresh: true }); Auth not answering says "try again", not "sign in again". */
   check("and refuses anybody not signed in",
-    /auth\.getUser\(\)/.test(body) && /if \(!user\) return \{ ok: false/.test(body) && body.indexOf("!user") < body.indexOf("sanitizeDescription("))
+    /routeUser\(\{ fresh: true \}\)/.test(body) && /if \(who\.kind !== "user"\) return \{ ok: false/.test(body) && body.indexOf('who.kind !== "user"') < body.indexOf("sanitizeDescription("))
   check("it answers rather than throws, so the editor can show why", /Promise<CleanedDescription>/.test(action))
   const save = read("app/(storelib)/app/products/new/description-save.ts")
   check("the save shows a refusal's own words", /if \(!result\.ok\) throw new Error\(result\.error\)/.test(save))
