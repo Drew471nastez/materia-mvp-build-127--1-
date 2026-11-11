@@ -50,6 +50,7 @@ import {
   SiBandcamp,
   SiBluesky,
   SiBuymeacoffee,
+  SiCanva,
   SiCashapp,
   SiEtsy,
   SiGoogleforms,
@@ -198,6 +199,7 @@ const LINK_BRAND_MARKS: Record<LinkBrandIcon, IconType> = {
   "apple-music": SiApplemusic,
   notion: SiNotion,
   vimeo: SiVimeo,
+  canva: SiCanva,
 }
 
 /* ─── Brand colours ───────────────────────────────────────────────────── */
@@ -234,6 +236,7 @@ export const BRAND_COLORS: Readonly<Record<string, string>> = {
   reddit: "#FF4500",
   notion: INK,
   vimeo: "#1AB7EA",
+  canva: "#00C4CC",
   amazon: "#FF9900",
   etsy: "#F16521",
   kofi: "#FF5E5B",
@@ -624,6 +627,8 @@ function monogram(letter: string, key: string) {
 /* i18n-ignore-start: marks' keys and letters, not words. */
 const APP_MARKS: Record<string, { brand?: IconType; draw?: (p: MarkProps) => React.ReactElement; multicolor?: boolean }> = {
   "google-maps": { draw: GoogleMapsMark, multicolor: true },
+  /* Canva's mark is its round badge with the name cut out: drawn whole in its own teal, never shrunk onto a teal tile. */
+  canva: { draw: ({ size = 20, className }) => <BrandSvg Icon={SiCanva} size={size} color={BRAND_COLORS.canva} className={className} aria-hidden focusable="false" data-mark="canva" data-tone="brand" />, multicolor: true },
   google: { draw: GoogleMark, multicolor: true },
   audiomack: { brand: SiAudiomack },
   rss: { brand: SiRss },

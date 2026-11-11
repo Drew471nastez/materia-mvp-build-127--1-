@@ -76,6 +76,29 @@ export function videoSource(raw: string | null | undefined): VideoSource | null 
   return null
 }
 
+/** A pasted video that can start by itself on the page: muted, as every browser asks of a video that plays without a press. */
+export function videoAutoplays(source: VideoSource | null): boolean {
+  return !!source && (source.kind === "youtube" || source.kind === "vimeo" || source.kind === "file")
+}
+
+/**
+ * The player's address for a YouTube, Vimeo or TikTok video. `muted` is the
+ * autoplay on the page (no press, so the sound is off and it loops quietly
+ * as a muted video does); without it the press that loaded the player is
+ * the press that plays it, with sound.
+ */
+export function videoEmbedUrl(source: VideoSource, opts: { muted?: boolean } = {}): string | null {
+  if (source.kind === "youtube") {
+    const id = encodeURIComponent(source.id)
+    return opts.muted
+      ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&playsinline=1&rel=0&loop=1&playlist=${id}&enablejsapi=1`
+      : /* enablejsapi: a kept sheet tells it to pause as the sheet goes (lib/onepage/embed-warm pauseFrames). */ `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&playsinline=1&enablejsapi=1`
+  }
+  if (source.kind === "vimeo") return `https://player.vimeo.com/video/${encodeURIComponent(source.id)}?autoplay=1${opts.muted ? "&muted=1&loop=1&playsinline=1" : ""}`
+  if (source.kind === "tiktok") return null
+  return null
+}
+
 /** Is there anything to draw? An empty one of these blocks is left out, so it leaves no gap. */
 export function extraBlockHasContent(block: Pick<OnePageBlock, "type" | "data">): boolean {
   switch (block.type) {

@@ -35,6 +35,8 @@ import {
 import type { ClientIntegrations } from "@/lib/forms/integrations"
 import type { FormUsage } from "@/lib/forms/kind"
 import { AREA, ERROR, FIELD, FIELD_STACK, HINT, LABEL, THIN_SCROLL } from "./fields"
+import { PhoneNumberField } from "./phone-number-field"
+import { digitsFromKept, fullNumber } from "@/lib/account/phone"
 import { useFormConfirm } from "./form-confirm"
 
 /*
@@ -1422,7 +1424,11 @@ function WhereEditor({ value, onChange }: { value?: BookingSettings["location"];
         <input className={FIELD} inputMode="url" autoCapitalize="off" placeholder="https://zoom.us/j/…" aria-label={tt("Meeting link")} value={value?.value || ""} onChange={(e) => onChange({ kind: "video", value: e.target.value.trim() || undefined })} />
       ) : null}
       {kind === "phone" ? (
-        <input className={FIELD} inputMode="tel" placeholder={tt("Your number, or leave empty to call them")} aria-label={tt("Phone number")} value={value?.value || ""} onChange={(e) => onChange({ kind: "phone", value: e.target.value || undefined })} />
+        <>
+          {/* The country with its flag and code, the number as written there (./phone-number-field), kept as visitors read it. */}
+          <PhoneNumberField label={tt("Your number")} phone={value?.value || ""} onChange={(next) => onChange({ kind: "phone", value: fullNumber(digitsFromKept(next.phone, next.country), next.country) || undefined })} />
+          <p className={HINT}>{tt("Leave it empty to call them on the number they give.")}</p>
+        </>
       ) : null}
       {kind === "in_person" ? (
         <input className={FIELD} placeholder={tt("Address")} aria-label={tt("Address")} value={value?.value || ""} onChange={(e) => onChange({ kind: "in_person", value: e.target.value || undefined })} />

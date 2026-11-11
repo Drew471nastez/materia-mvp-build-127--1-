@@ -13,9 +13,9 @@ import type {ProductBlockData} from "./types"
 //                    (./storelib-blocks-server), never from a saved copy.
 //   lead_magnet      a free download, a discount code or a waitlist, given
 //                    for an email in a sheet (app/api/onepage/lead-magnet).
-//   social_posts     a sliding row of posts: a YouTube channel's latest
-//                    videos from its public feed (synced at render), or
-//                    Instagram, TikTok and YouTube posts pasted by address.
+//   social_posts     a sliding row of the Instagram, TikTok and YouTube posts
+//                    the creator pastes by address. Nothing is pulled from a
+//                    profile or a channel by itself: the creator picks.
 //   followers        "1.2M followers" summed over the networks the creator
 //                    names, each with its own count; Bluesky and YouTube can
 //                    be read again from the network (app/api/onepage/followers).
@@ -214,7 +214,7 @@ export interface SocialPostsBlockData {
   thumbnails?:Record<string,string|null>
   network: SocialPostsNetwork
   title?: string | null
-  /** YouTube: a channel's address. Its latest videos come from the channel's public feed, read again every hour. */
+  /** Kept from before posts were picked by hand: no longer read for posts (a channel's videos are not pulled by themselves). */
   channel_url?: string | null
   /** Posts pasted by address, in the creator's order. */
   post_urls?: string[]
@@ -482,7 +482,7 @@ export function storelibBlockHasContent(block: { type: string; data?: unknown })
     case "social_posts": {
       if (Array.isArray(d.items)) return d.items.length > 0
       const data = d as unknown as SocialPostsBlockData
-      return pastedPosts(data).length > 0 || (data.network === "youtube" && youtubeChannel(data.channel_url) !== null)
+      return pastedPosts(data).length > 0
     }
     case "followers":
       return followerTotal((d as unknown as FollowersBlockData).networks) > 0

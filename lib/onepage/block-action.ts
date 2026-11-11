@@ -31,7 +31,8 @@ export function blockActionVars(block: BlockLike, action: NativeAction | null): 
   const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null)
   return {
     product_name: str((action as { title?: unknown } | null)?.title) || str(d.product_title),
-    service: str(d.service) || str(d.label) || str(d.title) || str(d.headline),
+    /* The service the creator typed on the action first, then the block's own words. */
+    service: str((action as { service?: unknown } | null)?.service) || str(d.service) || str(d.label) || str(d.title) || str(d.headline),
   }
 }
 

@@ -12,8 +12,10 @@ import { editedMark, mergeLinkPreview } from "@/lib/onepage/link-preview"
 
 import { ProfileImage } from "@/components/onepage/profile-image"
 import { growTextareas } from "@/components/onepage/grow-textareas"
-import { takePreviewPick } from "@/lib/onepage/preview-select"
-import { AiEditBar } from "@/components/onepage/ai-edit-bar"
+import { PREVIEW_PICK_EVENT, takePreviewPick } from "@/lib/onepage/preview-select"
+import { PhoneNumberField } from "@/components/forms/phone-number-field"
+import { blockActionVars } from "@/lib/onepage/block-action"
+import { countryOfInternational } from "@/lib/account/phone"
 
 import { hapticTap } from "@/lib/native-bridge"
 import { useProductMoney } from "@/components/platform/price-currency"
@@ -526,6 +528,8 @@ export function LinksTab() {
   const [showSocialModal, setShowSocialModal] = useState(false)
   const [selectedSocial, setSelectedSocial] = useState<string | null>(null)
   const [socialUrl, setSocialUrl] = useState("")
+  /* The WhatsApp number's country while it has no digits yet (components/forms/phone-number-field keeps it in the number once there are some). */
+  const [whatsappCountry, setWhatsappCountry] = useState<string | undefined>(undefined)
   const [socialUrlError, setSocialUrlError] = useState<string | null>(null)
   const [showImageLibrary, setShowImageLibrary] = useState(false)
   const [imageBlockId, setImageBlockId] = useState<string | null>(null)
@@ -1151,9 +1155,17 @@ export function LinksTab() {
     card's settings have started to open (two frames), the card's top a
     little under the top of the list's scroller, as a press on the card does.
   */
+  /* A click on the block that is already open says so too: the list glides back to it however far it was scrolled away. */
+  const [pickTick, setPickTick] = useState(0)
+  useEffect(() => {
+    const onPick = () => setPickTick((n) => n + 1)
+    window.addEventListener(PREVIEW_PICK_EVENT, onPick)
+    return () => window.removeEventListener(PREVIEW_PICK_EVENT, onPick)
+  }, [])
   useEffect(() => {
     const id = takePreviewPick(selectedBlockId)
     if (!id) return
+    setShowArchiveView(false)
     let raf = requestAnimationFrame(() => {
       raf = requestAnimationFrame(() => {
         const el = document.querySelector(`[data-block-id="${CSS.escape(id)}"]`) as HTMLElement | null
@@ -1173,7 +1185,7 @@ export function LinksTab() {
       })
     })
     return () => cancelAnimationFrame(raf)
-  }, [selectedBlockId])
+  }, [selectedBlockId, pickTick])
 
   if (!onepage) return null
 
@@ -1707,9 +1719,6 @@ export function LinksTab() {
         </div>
       )}
 
-      {/* Round AR: ask AI to change the links and social icons (components/onepage/ai-edit-bar). */}
-      {!showArchiveView ? <AiEditBar /> : null}
-
       {/* The cards. Each one is picked up and moved by link-reorder.ts; the list only says which are cards. */}
       {!showArchiveView && (
       <div ref={reorderListRef} onPointerDown={onReorderPointerDown} className="group/list flex flex-col gap-2" data-reorder-list="">
@@ -2054,6 +2063,25 @@ export function LinksTab() {
                       link is tidied to the right address (lib/onepage/social-input).
                     */}
                     {(() => {
+                      /* WhatsApp is a phone number: the country with its flag and code, the number as written there, checked for that country. A wa.me link pasted before keeps the link field. */
+                      if (selectedSocial === "whatsapp" && !socialFieldIsLink("whatsapp", socialUrl)) {
+                        const kept = /^\d{6,15}$/.test(socialUrl) ? `+${socialUrl}` : socialUrl
+                        return (
+                          <div data-social-phone="">
+                            <PhoneNumberField
+                              label={tt("WhatsApp number")}
+                              phone={kept}
+                              country={(kept && countryOfInternational(kept, whatsappCountry ? [whatsappCountry] : [])) || whatsappCountry}
+                              onChange={(next) => {
+                                setWhatsappCountry(next.country)
+                                setSocialUrl(next.phone)
+                                if (socialUrlError) setSocialUrlError(null)
+                              }}
+                            />
+                            {socialUrlError ? <p className="mt-2 text-xs text-red-600">{socialUrlError}</p> : null}
+                          </div>
+                        )
+                      }
                       const format = socialFormat(selectedSocial ?? "")
                       const pastedLink = format.kind !== "url" && socialFieldIsLink(selectedSocial ?? "", socialUrl)
                       const prefix = format.kind === "url" || pastedLink ? "URL" : format.kind === "email" ? tt("Email") : format.prefix
@@ -4457,7 +4485,7 @@ function BlockEditor({
               itself, so the field is hidden. An old wa.me, t.me or mailto
               address is read as the action it is.
             */}
-            <ActionEditor value={data.action} url={data.url} noneLabel={tt("Web address")} types={LINK_ACTION_TYPES} onChange={action=>updateData({action,url:action?actionHref(action)||"":data.action?"":data.url})}/>
+            <ActionEditor value={data.action} url={data.url} noneLabel={tt("Web address")} types={LINK_ACTION_TYPES} vars={blockActionVars(block, data.action ?? null)} onChange={action=>updateData({action,url:action?actionHref(action)||"":data.action?"":data.url})}/>
             {(() => {
               /* A group invite saved by the old "WhatsApp Group URL" field, which the page never showed: kept, and one press makes it the link's action. */
               const group = whatsappGroupUrl((data as { whatsapp_group_url?: unknown }).whatsapp_group_url)

@@ -150,7 +150,7 @@ console.log("MORE")
   check("TikTok and Instagram: Single without a post is the profile as a large card, Carousel always slides with the profile last", /data-app-spotlight=""/.test(read("components/onepage/app-block.tsx")) && /data-app-profile-slide=""/.test(read("components/onepage/app-block.tsx")))
   check("a Featured YouTube link and a Spotify player link draw their description", /<BlockSubtitle subtitle=\{p\.subtitle\} \/>/.test(read("components/onepage/public-onepage.tsx")) && /data-link-player=\{service\}/.test(read("components/onepage/public-onepage.tsx")))
   const extraSrc = read("components/onepage/extra-blocks.tsx")
-  check("a map block has its own settings: how close and how tall, on the page and in the sheet", extraSrc.includes('z=${MAP_ZOOM[data.zoom || "area"] ?? 15}') && extraSrc.includes('z=${MAP_ZOOM[d.zoom || "area"] ?? 15}') && extraSrc.includes('tt("Map height")'))
+  check("a map block has its own settings: how close and how tall, on the page and in the sheet", extraSrc.includes('mapEmbedSrc(place, data.zoom || "area")') && extraSrc.includes('mapEmbedSrc(place, d.zoom || "area")') && /&z=\$\{ZOOM\[zoom\] \?\? 15\}/.test(readFileSync(join(process.cwd(), "lib/onepage/map-place.ts"), "utf8")) && extraSrc.includes('tt("Map height")'))
   check("the probe and this test are registered", read("scripts/run-push-tests.mjs").includes("tests/onepage-ar3.test.ts"))
 }
 

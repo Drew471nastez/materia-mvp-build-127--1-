@@ -65,7 +65,7 @@ async function main() {
   check("kept sheets are memoised", /const BlockSheetView = memo\(function BlockSheetView/.test(sheet))
   const extra = read("components/onepage/extra-blocks.tsx")
   check("a video is never started early, nor a form", /prewarm=\{block\.type !== "video" && block\.type !== "contact_form"\}/.test(extra))
-  check("a video in the sheet takes pause messages and shows its picture until it loads", /enablejsapi=1/.test(extra) && /<img src=\{poster\} alt="" aria-hidden/.test(extra))
+  check("a video in the sheet takes pause messages and shows its picture until it loads", /enablejsapi=1/.test(read("lib/onepage/extra-blocks.ts")) && /videoEmbedUrl\(source, \{ muted \}\)/.test(extra) && /<img src=\{poster\} alt="" aria-hidden/.test(extra))
   const shell = read("components/onepage/embed-shell.tsx")
   check("frames in the sheet load eagerly", /useInBlockSheet\(\) \? "eager" : "lazy"/.test(shell))
   for (const f of ["components/onepage/music-sheet.tsx", "components/onepage/creator-blocks.tsx", "components/onepage/embed-frame.tsx", "components/onepage/app-block.tsx"]) check(`${f}: the frame's loading follows the sheet`, /loading=\{loading\}/.test(read(f)) && /useFrameLoading\(\)/.test(read(f)))
