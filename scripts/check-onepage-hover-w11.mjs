@@ -141,7 +141,8 @@ const WORDS = (n) => {
   if (!root) return []
   const out = []
   for (const el of [root, ...root.querySelectorAll("*")]) {
-    if (el.closest("svg, [aria-hidden='true'], iframe")) continue
+    /* Words laid on a creator's photo (data-on-photo) read on the photo's own shade; the harness's photos are flat test pictures. */
+    if (el.closest("svg, [aria-hidden='true'], iframe, [data-on-photo]")) continue
     const nodes = [...el.childNodes].filter((c) => c.nodeType === 3 && c.textContent.trim())
     if (!nodes.length) continue
     const cs = getComputedStyle(el)

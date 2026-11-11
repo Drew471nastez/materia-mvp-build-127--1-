@@ -366,7 +366,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const hoverAttrs = (t: ButtonThemeLike) => ({ "data-hover": hoverKind, "data-shadow": themeShadowKind(t) })
   /* The button inside a card: the page's button, made to read on the card (cardButtonTheme). */
   const ctaTheme = (onPhoto = false) =>
-    cardButtonTheme(theme as ButtonThemeLike, { surface: surfaceColor, cardText: textColor, ownBackground, ownButtonColor: data.button_color || null, ownButtonText: data.button_text_color || null, onPhoto })
+    cardButtonTheme(theme as ButtonThemeLike, { surface: surfaceColor, cardText: textColor, ownBackground, ownButtonColor: data.button_color || null, ownButtonText: data.button_text_color || null, onPhoto, skinned: !!(theme as { theme_skin?: string | null }).theme_skin })
 
   /* ── Words ── */
   const title = data.product_title || "Product"
