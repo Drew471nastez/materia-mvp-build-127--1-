@@ -1172,8 +1172,9 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
    * the old tree away and build a new one. So every state change in this
    * component unmounted and rebuilt the entire page.
    *
-   * There is a state change on almost every scroll — `buttonsVisible` above
-   * flips as you move — and on a phone you are always scrolling. Measured on
+   * There was a state change on almost every scroll (the corner buttons'
+   * visibility, held here until round AS gave it to the buttons themselves)
+   * and on a phone you are always scrolling. Measured on
    * the real page in scripts/check-onepage-stability.mjs: ONE scroll event
    * destroyed 12 <img> elements and built 12 fresh ones. A rebuilt <img>
    * repaints from nothing, the avatar drops back to the grey disc Radix shows
