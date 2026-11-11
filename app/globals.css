@@ -2831,6 +2831,11 @@ html.capacitor .subscribe-bar-spacer {
 .op-btn:is([data-hover="fill"], [data-hover="pop"]) {
   transition-property: translate, scale, opacity, color;
 }
+/* SOCIAL ICONS THE CREATOR STYLED AFTER PICKING A SKINNED THEME (lib/onepage/skin-own "socials"): the marks in the
+   colours they chose (Brand colours, One colour), not the skin's recolouring of them (Grunge, Classic 98, Arcade
+   draw every mark black or white through a filter). The tile itself is raised by honourOwnStyles. */
+[data-op-skin][data-sk-own~="socials"] [data-op-social-icon] svg { filter: none !important; }
+
 /* A BLOCK ARRIVES AS IT COMES INTO VIEW (components/onepage/block-entrance). Held while it is out of sight, then
    faded up from 10px below, opacity and translate only; the box lets go when it ends. "wait" also stops the first
    screen's fade the server drew, which would otherwise play out of sight. */
