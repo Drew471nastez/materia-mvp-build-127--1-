@@ -480,7 +480,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         <a
           href={href}
           onClick={onClick}
-          className={cn("op-btn @container flex w-full cursor-pointer items-center justify-center px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:px-5 sm:py-4 sm:text-base", animationClass)}
+          className={cn("op-btn flex w-full cursor-pointer items-center justify-center px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:px-5 sm:py-4 sm:text-base @container", animationClass)}
           style={themeButton}
           {...hoverAttrs(theme as ButtonThemeLike)}
           data-product-block="button"

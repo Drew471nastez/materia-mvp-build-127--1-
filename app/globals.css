@@ -2831,44 +2831,6 @@ html.capacitor .subscribe-bar-spacer {
 .op-btn:is([data-hover="fill"], [data-hover="pop"]) {
   transition-property: translate, scale, opacity, color;
 }
-/* SOCIAL ICONS THE CREATOR STYLED AFTER PICKING A SKINNED THEME (lib/onepage/skin-own "socials"): the marks in the
-   colours they chose (Brand colours, One colour), not the skin's recolouring of them (Grunge, Classic 98, Arcade
-   draw every mark black or white through a filter). The tile itself is raised by honourOwnStyles. */
-[data-op-skin][data-sk-own~="socials"] [data-op-social-icon] svg { filter: none !important; }
-
-/* A BLOCK ARRIVES AS IT COMES INTO VIEW (components/onepage/block-entrance). Held while it is out of sight, then
-   faded up from 10px below, opacity and translate only; the box lets go when it ends. "wait" also stops the first
-   screen's fade the server drew, which would otherwise play out of sight. */
-.onepage-live [data-op-enter="wait"] {
-  opacity: 0;
-  animation: none !important;
-}
-.onepage-live [data-op-enter="in"] {
-  animation: op-block-enter 460ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--op-enter-delay, 0ms) both !important;
-}
-@keyframes op-block-enter {
-  from { opacity: 0; translate: 0 10px; }
-  to { opacity: 1; translate: 0 0; }
-}
-/* THE BLOCK ANIMATIONS (Pulse, Bounce, Shake, Glow, Swipe) keep moving under a press: the press's own keyframe
-   (data-op-pressing, below) replaced the block's, which then restarted from its first frame when let go. */
-html[data-op-press] .animate-onepage-pulse[data-op-pressing]:not(#op) { animation: onepage-pulse 2.5s ease-in-out infinite; }
-html[data-op-press] .animate-onepage-bounce[data-op-pressing]:not(#op) { animation: onepage-bounce 2.5s ease-in-out infinite; }
-html[data-op-press] .animate-onepage-shake[data-op-pressing]:not(#op) { animation: onepage-shake 3.5s ease-in-out infinite; }
-html[data-op-press] .animate-onepage-glow[data-op-pressing]:not(#op) { animation: onepage-glow 2s ease-in-out infinite; }
-/* Nothing arrives and nothing loops for anyone who asked for less motion. */
-@media (prefers-reduced-motion: reduce) {
-  .onepage-live [data-onepage-enter],
-  .onepage-live [data-op-enter] { animation: none !important; opacity: 1; }
-  .animate-onepage-pulse,
-  .animate-onepage-bounce,
-  .animate-onepage-shake,
-  .animate-onepage-glow,
-  .animate-onepage-swipe::after { animation: none !important; }
-  .animate-onepage-swipe::after { opacity: 0; }
-  html[data-op-press] :is(.animate-onepage-pulse, .animate-onepage-bounce, .animate-onepage-shake, .animate-onepage-glow)[data-op-pressing]:not(#op) { animation: none; }
-}
-
 /* AND NOTHING ANIMATES WHILE THE PAGE TAKES ON A LOOK: its first paint, hydration, and a theme or colour arriving
    in the editor's preview (components/onepage/public-onepage data-op-still, for two frames). */
 .onepage-live[data-op-still],
@@ -3029,6 +2991,44 @@ iframe:is([src*="youtube.com/embed"], [src*="youtube-nocookie.com/embed"], [src*
   );
   animation: btn-shine 5s ease-in-out infinite;
   animation-delay: 1s;
+}
+
+/* SOCIAL ICONS THE CREATOR STYLED AFTER PICKING A SKINNED THEME (lib/onepage/skin-own "socials"): the marks in the
+   colours they chose (Brand colours, One colour), not the skin's recolouring of them (Grunge, Classic 98, Arcade
+   draw every mark black or white through a filter). The tile itself is raised by honourOwnStyles. */
+[data-op-skin][data-sk-own~="socials"] [data-op-social-icon] svg { filter: none !important; }
+
+/* A BLOCK ARRIVES AS IT COMES INTO VIEW (components/onepage/block-entrance). Held while it is out of sight, then
+   faded up from 10px below, opacity and translate only; the box lets go when it ends. "wait" also stops the first
+   screen's fade the server drew, which would otherwise play out of sight. */
+.onepage-live [data-op-enter="wait"] {
+  opacity: 0;
+  animation: none !important;
+}
+.onepage-live [data-op-enter="in"] {
+  animation: op-block-enter 460ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--op-enter-delay, 0ms) both !important;
+}
+@keyframes op-block-enter {
+  from { opacity: 0; translate: 0 10px; }
+  to { opacity: 1; translate: 0 0; }
+}
+/* THE BLOCK ANIMATIONS (Pulse, Bounce, Shake, Glow, Swipe) keep moving under a press: the press's own keyframe
+   (data-op-pressing, below) replaced the block's, which then restarted from its first frame when let go. */
+html[data-op-press] .animate-onepage-pulse[data-op-pressing]:not(#op) { animation: onepage-pulse 2.5s ease-in-out infinite; }
+html[data-op-press] .animate-onepage-bounce[data-op-pressing]:not(#op) { animation: onepage-bounce 2.5s ease-in-out infinite; }
+html[data-op-press] .animate-onepage-shake[data-op-pressing]:not(#op) { animation: onepage-shake 3.5s ease-in-out infinite; }
+html[data-op-press] .animate-onepage-glow[data-op-pressing]:not(#op) { animation: onepage-glow 2s ease-in-out infinite; }
+/* Nothing arrives and nothing loops for anyone who asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .onepage-live [data-onepage-enter],
+  .onepage-live [data-op-enter] { animation: none !important; opacity: 1; }
+  .animate-onepage-pulse,
+  .animate-onepage-bounce,
+  .animate-onepage-shake,
+  .animate-onepage-glow,
+  .animate-onepage-swipe::after { animation: none !important; }
+  .animate-onepage-swipe::after { opacity: 0; }
+  html[data-op-press] :is(.animate-onepage-pulse, .animate-onepage-bounce, .animate-onepage-shake, .animate-onepage-glow)[data-op-pressing]:not(#op) { animation: none; }
 }
 
 /* ===========================================================================
