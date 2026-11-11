@@ -10,6 +10,7 @@ import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { suggestionCards } from "@/lib/offers/offers-server"
 import { variantChoices } from "@/lib/checkout/variant-choices-server"
 import { codFeeFor } from "@/lib/checkout/site-quote-server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -30,9 +31,9 @@ export async function POST(request: Request) {
   if (limited) return limited
 
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   const db = createAdminClient()
   const items = readItems(body.items)
   const shopId = typeof body.shopId === "string" ? body.shopId : null

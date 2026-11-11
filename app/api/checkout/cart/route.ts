@@ -39,6 +39,7 @@ import { servingSiteOrigin } from "@/lib/checkout/site-checkout-server"
 import { CLAIM_HOLD_SECONDS, SALE_HOLDER_KEY, holdBasket, releaseSales, saleHolderForEmail } from "@/lib/checkout/sales-limit"
 import { soldOutMessage } from "@/lib/products/sales-limit"
 import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -167,9 +168,9 @@ async function handlePOST(request: Request) {
     : null
   if (limited) return limited
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
 
   /* Every price, every line left out, and the code, from the database (lib/checkout/pricing). */
   const handOff = await isPhysicalCommerceEnabled().catch(() => false)

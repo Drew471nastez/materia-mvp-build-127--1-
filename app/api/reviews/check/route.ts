@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { checkGuestReviewEligibility, checkReviewEligibility } from "@/lib/reviews/eligibility"
 import { canDeliver } from "@/lib/receipts/rules"
 import { accountForOrder, existingReview, orderByReceipt, type ReviewRow } from "@/lib/reviews/access"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /**
  * May this person review this product, and have they already?
@@ -45,9 +46,9 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
 
   const order = receiptToken ? await orderByReceipt(admin, receiptToken) : null
   if (order && (!productId || productId === order.product_id)) {

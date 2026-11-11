@@ -246,6 +246,8 @@ export async function authUnavailableForRequest({ full = false, fresh = false }:
  * Auth said nobody, 503 Try again when Auth could not say.
  */
 export async function signedOutOrRetry(signedOut: NextResponse, opts: { full?: boolean; fresh?: boolean } = {}): Promise<NextResponse> {
+  /* Only a 401 is ever changed, so a route may hand any refusal through here. */
+  if (signedOut.status !== 401) return signedOut
   return (await authUnavailableForRequest(opts)) ? authUnavailableResponse() : signedOut
 }
 

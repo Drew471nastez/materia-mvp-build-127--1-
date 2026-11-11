@@ -18,6 +18,7 @@ import { grantsAccess, type BillingInterval } from "@/lib/memberships/state"
 import { MEMBERSHIP_COLUMNS, NOT_SET_UP, PLAN_COLUMNS, UUID, ownerFilter, tableMissing, type MembershipRow, type PlanRow } from "@/lib/memberships/server"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -72,9 +73,9 @@ export async function POST(request: Request) {
 
   const supabase = await createClient()
   const admin = createAdminClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
 
   const [productRead, planRead] = await Promise.all([
     admin.from("products").select("id, title, status, type, creator_id").eq("id", productId).maybeSingle(),

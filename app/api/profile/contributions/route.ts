@@ -14,6 +14,7 @@ import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { contributionsFor } from "@/lib/profile/contributions"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -30,9 +31,9 @@ export async function GET(request: Request) {
   const targetId = params.get("userId") || ""
   if (!UUID.test(targetId)) return NextResponse.json({ error: "not_found" }, { status: 404, headers: NO_STORE })
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user?.id) return NextResponse.json({ sections: [] }, { headers: NO_STORE })
   const only = (params.get("only") || "")
     .split(",")

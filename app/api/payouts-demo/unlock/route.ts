@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { callerAddress, rateLimit } from "@/lib/api/rate-limit"
 import { DEMO_COOKIE, DEMO_TTL_SECONDS, demoToken, passwordMatches } from "@/lib/payouts-demo/gate"
+import { routeUser } from "@/lib/auth/route-user"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 /**
  * POST   { password }  opens the Payouts demo for the signed in person (lib/payouts-demo/gate)
@@ -17,9 +19,8 @@ const NO_STORE = { "cache-control": "no-store" }
 
 async function signedInUserId(): Promise<string | null> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  const user = who.kind === "user" ? who.user : null
   return user?.id ?? null
 }
 
@@ -29,7 +30,7 @@ function secureCookie(request: NextRequest): boolean {
 
 export async function POST(request: NextRequest) {
   const userId = await signedInUserId()
-  if (!userId) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE })
+  if (!userId) return signedOutOrRetry(NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE }))
 
   const limited = await rateLimit({
     bucket: "payouts-demo",

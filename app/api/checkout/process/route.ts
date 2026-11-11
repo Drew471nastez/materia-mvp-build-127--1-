@@ -19,6 +19,7 @@ import { communityAccessAfterEntitlement } from "@/lib/communities/server/paymen
 import { CLAIM_HOLD_SECONDS, holdSale, limitOf, releaseSale, saleHolderForEmail } from "@/lib/checkout/sales-limit"
 import { soldOutMessage } from "@/lib/products/sales-limit"
 import { timed } from "@/lib/perf/server-timing"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -66,9 +67,9 @@ async function handlePOST(request: Request) {
     const supabase = await createClient()
     const admin = createAdminClient()
     const cookieStore = await cookies()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
 
     const priced = await priceOrder(
       admin,

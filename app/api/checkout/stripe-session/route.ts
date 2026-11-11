@@ -42,6 +42,7 @@ import { stripeIdempotencyKey, stripeIdentityKey } from "@/lib/stripe/resilience
 import { applyAttemptTokens, attemptIdFrom, isIdempotencyMismatch, openCheckoutAttempt, orderHash, pruneExpiredAttempts, recordAttemptIntent, renewCheckoutAttempt, type AttemptScope, type AttemptTokens, type CheckoutAttempt } from "@/lib/checkout/checkout-attempts"
 import { trustedRequestOrigin } from "@/lib/billing/return-url"
 import { prepareBookingCheckout } from "@/lib/forms/booking-payment"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /**
  * POST /api/checkout/stripe-session
@@ -98,9 +99,9 @@ async function handlePOST(request: Request) {
 
   const supabase = await createClient()
   const admin = createAdminClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
 
   const priced = await priceOrder(
     admin,

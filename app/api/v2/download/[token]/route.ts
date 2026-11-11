@@ -12,6 +12,7 @@ import { callerAddress } from "@/lib/api/rate-limit"
 import { downloadRateLimit, purchaseRateLimit } from "@/lib/storage/download-limits"
 import { resolveDownloadAccess } from "@/lib/receipts/download-access"
 import { DENY_MESSAGES, isUuid } from "@/lib/receipts/rules"
+import { routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -54,7 +55,8 @@ export async function GET(
     let userId: string | null = null
     try {
       const supabase = await createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const who = await routeUser()
+      const user = who.kind === "user" ? who.user : null
       userId = user?.id ?? null
     } catch {
       /* A guest opening a link from their email has no session. */
@@ -84,7 +86,8 @@ async function handleAssetDownload(
   let userId: string | null = null
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const who = await routeUser()
+    const user = who.kind === "user" ? who.user : null
     userId = user?.id ?? null
   } catch {
     // A guest with a receipt has no session

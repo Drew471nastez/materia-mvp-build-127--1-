@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { checkReplyInput } from "@/lib/reviews/rules"
 import { sellersReview } from "@/lib/reviews/access"
 import { forgetReviewPages, missingColumn } from "@/lib/reviews/store"
+import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 
 /**
  * ===========================================================================
@@ -23,9 +24,8 @@ type Params = { params: Promise<{ id: string }> }
 
 async function userId() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  const user = who.kind === "user" ? who.user : null
   return user?.id ?? null
 }
 
@@ -45,7 +45,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
   const admin = createAdminClient()
   const who = await userId()
   const mine = await sellersReview(admin, id, who, await teamStoreIdFor(who, "products"))
-  if (!mine.ok) return NextResponse.json({ error: mine.error }, { status: mine.status })
+  if (!mine.ok) return signedOutOrRetry(NextResponse.json({ error: mine.error }, { status: mine.status }))
 
   const { data, error } = await admin
     .from("reviews")
@@ -66,7 +66,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   const admin = createAdminClient()
   const who = await userId()
   const mine = await sellersReview(admin, id, who, await teamStoreIdFor(who, "products"))
-  if (!mine.ok) return NextResponse.json({ error: mine.error }, { status: mine.status })
+  if (!mine.ok) return signedOutOrRetry(NextResponse.json({ error: mine.error }, { status: mine.status }))
   const { error } = await admin.from("reviews").update({ seller_reply: null, seller_reply_at: null }).eq("id", mine.review.id)
   if (error) {
     if (missingColumn(error)) return NextResponse.json({ error: NOT_YET }, { status: 503 })

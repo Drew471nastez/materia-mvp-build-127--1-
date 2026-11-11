@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { routeUser } from "@/lib/auth/route-user"
 
 /**
  * GET /api/native/checkout-status?productId=X
@@ -24,7 +25,8 @@ export async function GET(request: Request) {
 
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const who = await routeUser()
+    const user = who.kind === "user" ? who.user : null
 
     if (!user) {
       return NextResponse.json({ purchased: false })

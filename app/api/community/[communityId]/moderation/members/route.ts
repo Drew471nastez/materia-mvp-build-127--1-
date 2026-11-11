@@ -7,6 +7,7 @@ import { readJson } from "@/lib/email-campaigns/route-auth"
 import { manageLimit } from "@/lib/communities/server/creator"
 import { MEMBER_ACTIONS, actOnMember, memberActionNeeds } from "@/lib/communities/server/moderation"
 import { isOneOf } from "@/lib/communities/types"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -26,9 +27,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   const { communityId } = await params
   const body = await readJson(request)
   if (!isOneOf(MEMBER_ACTIONS, body.action)) return NextResponse.json({ error: "Unknown action." }, { status: 400, headers: noStore })
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   const db = admin()
   const gate = await requireMember(db, communityId, user?.id ?? null, memberActionNeeds(body.action))
   if (gate instanceof NextResponse) return gate

@@ -115,9 +115,9 @@ export async function POST(request: NextRequest) {
     */
     if (resendType !== "buyer") {
       const supabase = await createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      const who = await routeUser()
+      if (who.kind === "unavailable") return authUnavailableResponse()
+      const user = who.kind === "user" ? who.user : null
       const { data: owner } = user && creatorId
         ? await admin.from("creators").select("id").eq("id", creatorId).eq("user_id", user.id).maybeSingle()
         : { data: null }

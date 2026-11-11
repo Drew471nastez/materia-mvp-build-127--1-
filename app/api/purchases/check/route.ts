@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { routeUser } from "@/lib/auth/route-user"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -12,9 +13,8 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient()
 
   // Get current user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  const user = who.kind === "user" ? who.user : null
 
   if (!user) {
     return NextResponse.json({

@@ -47,6 +47,7 @@ import { assetAllowedForVariants, canDeliver } from "@/lib/receipts/rules"
 import { guestAccessFromCookieHeader } from "@/lib/receipts/guest-access"
 import { heldGrants } from "@/lib/receipts/guest-access-server"
 import { membershipForProductPage } from "@/lib/memberships/product-page"
+import { routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -93,9 +94,8 @@ export async function POST(request: NextRequest) {
 
     try {
       const supabase = await createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      const who = await routeUser()
+      const user = who.kind === "user" ? who.user : null
 
       if (user) {
         isLoggedIn = true

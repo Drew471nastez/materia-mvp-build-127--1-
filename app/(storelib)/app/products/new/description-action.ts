@@ -23,10 +23,10 @@
  * An answer rather than a throw: Next replaces a thrown error's message in
  * production, and the editor has to be able to say what was wrong.
  */
-import { createClient } from "@/lib/supabase/server"
 import { descriptionTooLong } from "@/lib/rich-text/policy"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import { getServerTt } from "@/lib/i18n/server"
+import { routeUser } from "@/lib/auth/route-user"
 
 export type CleanedDescription = { ok: true; html: string } | { ok: false; error: string }
 
@@ -35,10 +35,9 @@ export async function cleanDescription(html: string): Promise<CleanedDescription
   if (typeof html !== "string") return { ok: false, error: tt("The description could not be read.") }
   const tooLong = descriptionTooLong(html, tt)
   if (tooLong) return { ok: false, error: tooLong }
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: tt("Sign in again to save the description.") }
+  /* The request's one read (round rel2-auth): Auth not answering is "try again", never "sign in again". */
+  const who = await routeUser()
+  if (who.kind === "unavailable") return { ok: false, error: tt("Something went wrong on our side. Try again in a moment.") }
+  if (who.kind !== "user") return { ok: false, error: tt("Sign in again to save the description.") }
   return { ok: true, html: sanitizeDescription(html) }
 }

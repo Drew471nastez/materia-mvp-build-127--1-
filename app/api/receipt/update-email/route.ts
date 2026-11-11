@@ -5,6 +5,7 @@ import { sendBuyerDownloadEmail, resolveSellerEmail } from "@/lib/email"
 import { rateLimit, addressSubject, emailSubject, callerAddress, LIMITS } from "@/lib/api/rate-limit"
 import { isPlausibleToken, isUuid } from "@/lib/receipts/rules"
 import { moveCheckoutEmail } from "@/lib/orders/checkout-email"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -75,9 +76,9 @@ export async function POST(request: NextRequest) {
     let isSeller = false
     try {
       const supabase = await createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      const who = await routeUser()
+      if (who.kind === "unavailable") return authUnavailableResponse()
+      const user = who.kind === "user" ? who.user : null
       if (user && creatorId) {
         const { data: creator } = await admin.from("creators").select("id").eq("id", creatorId).eq("user_id", user.id).maybeSingle()
         isSeller = !!creator

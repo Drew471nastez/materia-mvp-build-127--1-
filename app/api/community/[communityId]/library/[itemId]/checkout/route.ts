@@ -8,6 +8,7 @@ import { isLibraryId } from "@/lib/communities/library"
 import { addressSubject, rateLimit, LIMITS } from "@/lib/api/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import { detectedCountry } from "@/lib/store/settings-server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -29,9 +30,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   const { communityId, itemId } = await params
   if (!isLibraryId(itemId)) return NextResponse.json({ error: "not_found" }, { status: 404, headers: noStore })
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }))
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   const db = admin()
   const gate = await requireMember(db, communityId, user?.id ?? null, "view")
   if (gate instanceof NextResponse) return gate

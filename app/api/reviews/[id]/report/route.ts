@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { MAX_REPLY_CHARS, isReportReason } from "@/lib/reviews/rules"
 import { sellersReview } from "@/lib/reviews/access"
 import { missingColumn, refreshReviewStats } from "@/lib/reviews/store"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 /**
  * ===========================================================================
@@ -33,9 +34,9 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (note.length > MAX_REPLY_CHARS) return NextResponse.json({ error: "Keep the note short." }, { status: 400 })
 
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   const admin = createAdminClient()
   const mine = await sellersReview(admin, id, user?.id ?? null, await teamStoreIdFor(user?.id ?? null, "products"))
   if (!mine.ok) return NextResponse.json({ error: mine.error }, { status: mine.status })

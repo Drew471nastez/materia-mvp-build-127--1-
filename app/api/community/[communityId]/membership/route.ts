@@ -5,7 +5,7 @@ import { parseCancelReason } from "@/lib/communities/membership-policy"
 import { loadCommunity, viewerContext } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { changeCommunityMembership, communityMembershipView, type PersonRef } from "@/lib/communities/server/membership-lifecycle"
-import { createClient } from "@/lib/supabase/server"
+import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -31,10 +31,10 @@ type Params = { params: Promise<{ communityId: string }> }
  * muted in the community (or whose access just ran out) must still be able
  * to see and stop what they pay for. Rate limited like /account's Manage.
  */
-async function person(): Promise<PersonRef | null> {
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser()
+/* Round rel2-auth: the request's one read (Supabase Auth first, for email_confirmed_at); a change asks Auth itself (`fresh`). A refusal says 503 Try again when Auth did not answer (signedOutOrRetry). */
+async function person({ fresh = false }: { fresh?: boolean } = {}): Promise<PersonRef | null> {
+  const asked = await routeUser(fresh ? { fresh: true } : { full: true })
+  const user = asked.kind === "user" ? asked.user : null
   if (!user) return null
   return { id: user.id, email: user.email ? user.email.trim().toLowerCase() : null, emailConfirmed: Boolean(user.email_confirmed_at || (user as { confirmed_at?: string | null }).confirmed_at) }
 }
@@ -44,7 +44,7 @@ export async function GET(_request: Request, { params }: Params) {
   if (off) return off
   const { communityId } = await params
   const who = await person()
-  if (!who) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })
+  if (!who) return signedOutOrRetry(NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE }), { full: true })
   const db = admin()
   const community = await loadCommunity(db, { id: communityId })
   if (!community) return NextResponse.json({ error: "not_found" }, { status: 404, headers: NO_STORE })
@@ -58,8 +58,8 @@ export async function POST(request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
   if (off) return off
   const { communityId } = await params
-  const who = await person()
-  if (!who) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })
+  const who = await person({ fresh: true })
+  if (!who) return signedOutOrRetry(NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE }), { fresh: true })
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
   const action = body.action === "cancel" || body.action === "resume" ? body.action : null
   if (!action) return NextResponse.json({ error: "Unknown action." }, { status: 400, headers: NO_STORE })

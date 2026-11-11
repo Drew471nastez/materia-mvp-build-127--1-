@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { effectiveHandle, handleProblem, normalizeHandle } from "@/lib/website-builder/site-address"
 import { handleTakenFor, websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
+import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 
 /**
  * ===========================================================================
@@ -24,7 +25,8 @@ import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 
 async function owner() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const who = await routeUser()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return null
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator) return null
@@ -34,14 +36,14 @@ async function owner() {
 
 export async function GET() {
   const me = await owner()
-  if (!me) return NextResponse.json({ error: "Sign in first." }, { status: 401 })
+  if (!me) return signedOutOrRetry(NextResponse.json({ error: "Sign in first." }, { status: 401 }))
   const own = await websiteHandleOf(me.creatorId)
   return NextResponse.json({ handle: effectiveHandle(own, me.username), username: me.username, own: Boolean(own) })
 }
 
 export async function POST(request: Request) {
   const me = await owner()
-  if (!me) return NextResponse.json({ error: "Sign in first." }, { status: 401 })
+  if (!me) return signedOutOrRetry(NextResponse.json({ error: "Sign in first." }, { status: 401 }))
   const body = (await request.json().catch(() => ({}))) as { handle?: unknown }
   const wanted = normalizeHandle(typeof body.handle === "string" ? body.handle : "")
   const problem = handleProblem(wanted)

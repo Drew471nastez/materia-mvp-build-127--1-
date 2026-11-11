@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { STAGE_WORDS, cleanCreatorNote, isInquiry, reasonWords, stageOf } from "@/lib/stripe/dispute-facts"
+import { routeUser } from "@/lib/auth/route-user"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 /**
  * ===========================================================================
@@ -44,9 +46,8 @@ export interface CreatorDispute {
 
 async function creatorId(): Promise<string | null> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return null
   const { data } = await createAdminClient().from("creators").select("id").eq("user_id", user.id).maybeSingle()
   return (data as { id: string } | null)?.id ?? null
@@ -90,7 +91,7 @@ function shown(r: Row): CreatorDispute {
 
 export async function GET() {
   const id = await creatorId()
-  if (!id) return NextResponse.json({ error: "Sign in to see your disputes." }, { status: 401, headers: NO_STORE })
+  if (!id) return signedOutOrRetry(NextResponse.json({ error: "Sign in to see your disputes." }, { status: 401, headers: NO_STORE }))
   const db = createAdminClient()
 
   const recorded = await db
@@ -123,7 +124,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const id = await creatorId()
-  if (!id) return NextResponse.json({ error: "Sign in to add evidence." }, { status: 401, headers: NO_STORE })
+  if (!id) return signedOutOrRetry(NextResponse.json({ error: "Sign in to add evidence." }, { status: 401, headers: NO_STORE }))
 
   const limited = await rateLimit({
     bucket: "dispute-note",

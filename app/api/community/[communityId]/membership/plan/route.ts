@@ -5,7 +5,7 @@ import { loadCommunity, viewerContext } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { communityMembershipView, type PersonRef } from "@/lib/communities/server/membership-lifecycle"
 import { applyPlanChange, finishPlanChange, planChoices, previewPlanChange } from "@/lib/communities/server/plan-change"
-import { createClient } from "@/lib/supabase/server"
+import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -31,10 +31,10 @@ type Params = { params: Promise<{ communityId: string }> }
  * membership route next door. viewerContext, not requireMember, for the same
  * reason: somebody whose access just changed can still see what they pay.
  */
-async function person(): Promise<PersonRef | null> {
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser()
+/* Round rel2-auth: the request's one read (Supabase Auth first, for email_confirmed_at); a change asks Auth itself (`fresh`). A refusal says 503 Try again when Auth did not answer (signedOutOrRetry). */
+async function person({ fresh = false }: { fresh?: boolean } = {}): Promise<PersonRef | null> {
+  const asked = await routeUser(fresh ? { fresh: true } : { full: true })
+  const user = asked.kind === "user" ? asked.user : null
   if (!user) return null
   return { id: user.id, email: user.email ? user.email.trim().toLowerCase() : null, emailConfirmed: Boolean(user.email_confirmed_at || (user as { confirmed_at?: string | null }).confirmed_at) }
 }
@@ -44,7 +44,7 @@ export async function GET(_request: Request, { params }: Params) {
   if (off) return off
   const { communityId } = await params
   const who = await person()
-  if (!who) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })
+  if (!who) return signedOutOrRetry(NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE }), { full: true })
   const db = admin()
   const community = await loadCommunity(db, { id: communityId })
   if (!community) return NextResponse.json({ error: "not_found" }, { status: 404, headers: NO_STORE })
@@ -58,8 +58,8 @@ export async function POST(request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
   if (off) return off
   const { communityId } = await params
-  const who = await person()
-  if (!who) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })
+  const who = await person({ fresh: true })
+  if (!who) return signedOutOrRetry(NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE }), { fresh: true })
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
   const confirm = body.confirm === true || body.finish === true
   const limited = await rateLimit({

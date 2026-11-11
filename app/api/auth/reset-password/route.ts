@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 import { resetPasswordEmail } from "@/lib/account/reset-email"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -13,9 +14,10 @@ export async function POST(request: Request) {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    /* Supabase Auth itself (a password is on the strict list), and 503 Try again when it did not answer, never 401 (round rel2-auth). */
+    const who = await routeUser({ fresh: true })
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
 
     if (!user || !user.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

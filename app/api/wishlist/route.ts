@@ -4,6 +4,7 @@ import { isPubliclyVisible } from "@/lib/products/visibility"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cookies } from "next/headers"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 const GUEST_ID_COOKIE = "materia_guest_id"
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60
@@ -53,14 +54,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Try to get authenticated user
-    let userId: string | null = null
-    try {
-      const supabase = await createClient()
-      const { data } = await supabase.auth.getUser()
-      userId = data?.user?.id || null
-    } catch {
-      // Not logged in
-    }
+    /* The request's one read; Auth not answering is a 503 Try again, never the guest list in a signed in person's place (round rel2-auth). */
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const userId: string | null = who.kind === "user" ? who.user.id : null
 
     // Get guest ID from cookies or header
     let guestId = await getGuestIdFromCookies()
@@ -193,14 +190,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Try to get authenticated user
-    let userId: string | null = null
-    try {
-      const supabase = await createClient()
-      const { data } = await supabase.auth.getUser()
-      userId = data?.user?.id || null
-    } catch {
-      // Not authenticated
-    }
+    /* The request's one read; Auth not answering is a 503 Try again, never the guest list in a signed in person's place (round rel2-auth). */
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const userId: string | null = who.kind === "user" ? who.user.id : null
 
     if (userId) {
       // Logged in user flow
@@ -322,14 +315,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Try to get authenticated user
-    let userId: string | null = null
-    try {
-      const supabase = await createClient()
-      const { data } = await supabase.auth.getUser()
-      userId = data?.user?.id || null
-    } catch {
-      // Not authenticated
-    }
+    /* The request's one read; Auth not answering is a 503 Try again, never the guest list in a signed in person's place (round rel2-auth). */
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const userId: string | null = who.kind === "user" ? who.user.id : null
 
     if (userId) {
       await adminClient

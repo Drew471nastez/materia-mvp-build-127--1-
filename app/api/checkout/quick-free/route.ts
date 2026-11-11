@@ -19,6 +19,7 @@ import { CLAIM_HOLD_SECONDS, holdSale, limitOf, releaseSale, saleHolderForEmail 
 import { soldOutMessage } from "@/lib/products/sales-limit"
 import { timed } from "@/lib/perf/server-timing"
 import { loadCheckoutConfig } from "@/lib/store/settings-server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -49,9 +50,9 @@ async function handlePOST(request: Request) {
     })
     if (limited) return limited
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser()
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
 
     console.log("[quick-free] User authenticated:", user ? user.id : "guest")
 

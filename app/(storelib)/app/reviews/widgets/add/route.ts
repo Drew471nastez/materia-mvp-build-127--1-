@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorFor } from "@/lib/team/server"
 import { editorAddress, readPlacement } from "@/lib/reviews/widgets/placement"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -20,10 +21,10 @@ export async function GET(request: Request) {
   const want = readPlacement(url.searchParams)
   const back = (path: string) => NextResponse.redirect(new URL(path, url), 303)
   if (!want) return back("/app/reviews/widgets")
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /* The request's one read (round rel2-auth): Auth not answering is a 503 Try again, never a trip to sign in. */
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user) return back(`/login?next=${encodeURIComponent(url.pathname + url.search)}`)
   const db = createAdminClient()
   const found = await creatorFor(db, user.id, "store")

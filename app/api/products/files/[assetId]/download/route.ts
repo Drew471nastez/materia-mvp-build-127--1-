@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { ownerDownload } from "@/lib/storage/owner-download"
+import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -31,15 +32,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
   let userId: string | null = null
   try {
     const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser()
+    const user = who.kind === "user" ? who.user : null
     userId = user?.id ?? null
   } catch {
     userId = null
   }
   if (!userId) {
-    return NextResponse.json({ error: "Sign in to download this file." }, { status: 401, headers: NO_STORE })
+    return signedOutOrRetry(NextResponse.json({ error: "Sign in to download this file." }, { status: 401, headers: NO_STORE }))
   }
 
   const limited = await rateLimit({

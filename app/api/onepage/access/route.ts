@@ -8,6 +8,7 @@ import { lockedContent } from "@/lib/onepage/paid-access"
 import { ownsProduct } from "@/lib/courses/server"
 import { guestOwns } from "@/lib/receipts/guest-access-server"
 import { guestAccessFromCookieHeader } from "@/lib/receipts/guest-access"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -52,9 +53,9 @@ export async function POST(request: Request) {
 
   let allowed = false
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }))
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (user) allowed = user.id === page.owner_id || (await ownsProduct(db, user.id, productId).catch(() => false))
   if (!allowed) {
     const held = await guestOwns(db, guestAccessFromCookieHeader(request.headers.get("cookie")), { creatorId }, [productId]).catch(() => ({}) as Record<string, { whole: boolean }>)

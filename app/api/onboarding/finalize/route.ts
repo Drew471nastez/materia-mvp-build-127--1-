@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ensureStorePublished } from "@/lib/store-builder/ensure-store-published"
 import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
+import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 
 /**
  * POST /api/onboarding/finalize
@@ -34,7 +35,8 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     let userId: string | null = null
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const who = await routeUser()
+    const user = who.kind === "user" ? who.user : null
     if (user) {
       userId = user.id
     } else {
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!userId) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
+      return signedOutOrRetry(NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 }))
     }
 
     const admin = createAdminClient()

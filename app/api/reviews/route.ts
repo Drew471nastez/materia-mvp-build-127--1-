@@ -9,6 +9,7 @@ import { readPublishedReviews, refreshReviewStats, missingColumn } from "@/lib/r
 import { accountForOrder, existingReview, orderByReceipt } from "@/lib/reviews/access"
 import { loadReviewsApp } from "@/lib/reviews/app-server"
 import { startingStatus } from "@/lib/reviews/app-settings"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 const ALREADY_REVIEWED = "You already reviewed this product."
 
@@ -56,9 +57,9 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
 
   /* What arrives is whatever a browser sent: shape is checked, not trusted. */
   let body: Body
