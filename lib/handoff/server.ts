@@ -12,6 +12,9 @@ import { handoffAcceptedEmail, handoffInviteEmail } from "./email"
 import {
   BLOCKER_TEXT,
   DEFAULT_TTL_DAYS,
+  TOKEN_BYTES,
+  canonicalToken,
+  makeToken,
   RESEND_COOLDOWN_MS,
   claimPath,
   claimStateOf,
@@ -51,10 +54,14 @@ import {
  * link makes a new token and the old one stops working.
  */
 
+/** The statuses of a Storelib plan that is still billed: the transfer refuses while one is (blockersOf, business_handoff_accept). */
+export const LIVE_PLAN_STATUSES = ["active", "trialing", "past_due", "unpaid", "incomplete"] as const
+
 export const NOT_SET_UP = "Handing over a business is not set up on Storelib yet. Try again later."
 
+/** The SHA-256 of a token's canonical form (rules canonicalToken), so k7m2-x9qp-4hfd-w3nc and K7M2X9QP4HFDW3NC are the same link. */
 export function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex")
+  return createHash("sha256").update(canonicalToken(token) ?? token).digest("hex")
 }
 
 export function claimLink(token: string): string {
@@ -182,7 +189,7 @@ export async function blockersOf(deps: HandoffDeps, creator: Pick<CreatorRow, "i
   if (!creator) return []
   const out: Blocker[] = []
   const [plan, members] = await Promise.all([
-    deps.db.from("subscriptions").select("id").eq("creator_id", creator.id).not("stripe_subscription_id", "is", null).in("status", ["active", "trialing", "past_due", "unpaid", "incomplete"]).limit(1),
+    deps.db.from("subscriptions").select("id").eq("creator_id", creator.id).not("stripe_subscription_id", "is", null).in("status", [...LIVE_PLAN_STATUSES]).limit(1),
     deps.db.from("memberships").select("id").eq("creator_id", creator.id).in("status", ["active", "trialing", "past_due"]).limit(1),
   ])
   if (!plan.error && Array.isArray(plan.data) && plan.data.length > 0) out.push("paid_plan")
@@ -316,7 +323,7 @@ export async function createHandoff(
     await deps.db.from("business_handoffs").update({ status: "expired", updated_at: new Date(deps.now()).toISOString() }).eq("id", open.row.id).eq("status", "pending")
   }
 
-  const token = deps.randomBytes(32).toString("base64url")
+  const token = makeToken(deps.randomBytes(TOKEN_BYTES))
   const nowIso = new Date(deps.now()).toISOString()
   const row = {
     business_user_id: sessionUser.id,
@@ -370,7 +377,7 @@ export async function renewHandoff(deps: HandoffDeps, sessionUser: { id: string 
   if (opts.send && Number.isFinite(sentAt) && deps.now() - sentAt < RESEND_COOLDOWN_MS) {
     return { ok: false, status: 429, error: `It was just sent. You can send it again in ${Math.ceil((sentAt + RESEND_COOLDOWN_MS - deps.now()) / 1000)} seconds.` }
   }
-  const token = deps.randomBytes(32).toString("base64url")
+  const token = makeToken(deps.randomBytes(TOKEN_BYTES))
   const nowIso = new Date(deps.now()).toISOString()
   const changes: Record<string, unknown> = { token_hash: hashToken(token), expires_at: new Date(deps.now() + row.ttl_days * 86_400_000).toISOString(), updated_at: nowIso }
   const { data: updated, error: upErr } = await deps.db.from("business_handoffs").update(changes).eq("id", row.id).eq("status", "pending").select(HANDOFF_COLUMNS)
@@ -486,6 +493,26 @@ export async function acceptClaim(deps: HandoffDeps, token: unknown, sessionUser
 }
 
 /**
+ * BILLING STARTS FRESH FOR THE NEW OWNER. The transfer detaches the founder's
+ * billing customer from the creator row, but the subscriptions row the
+ * webhook wrote for the founder's ended plan still named the founder's Stripe
+ * customer, and Billing reads a plan from either (lib/billing
+ * subscription-reader): the new owner's Billing asked Stripe about the
+ * founder's customer and showed the founder's old plan. The plan had ended
+ * (the transfer refuses a live one), so its row is removed here; a plan the
+ * new owner starts writes its own. Never a live plan, whoever's it is.
+ */
+async function forgetEndedPlan(db: Db, creatorId: string | null): Promise<boolean> {
+  if (!creatorId) return true
+  try {
+    const { error } = await db.from("subscriptions").delete().eq("creator_id", creatorId).not("status", "in", `(${LIVE_PLAN_STATUSES.join(",")})`)
+    return !error || handoffMissing(error)
+  } catch {
+    return false
+  }
+}
+
+/**
  * What the database cannot do inside its transaction, after it committed:
  * the business's sign in address is made from the new owner's (so seller
  * emails reach them, not the founder), every session the business had is
@@ -511,6 +538,7 @@ export async function finishHandoff(deps: HandoffDeps, handoffId: string, viewer
     steps.profile = !error
   }
   steps.sessions = await deps.signOutEverywhere(row.business_user_id)
+  steps.billing = await forgetEndedPlan(deps.db, row.creator_id)
   await deps.forgetCaches({ userId: row.business_user_id, creatorId: row.creator_id }).catch(() => undefined)
   const done = Object.values(steps).every(Boolean)
   if (!done) {

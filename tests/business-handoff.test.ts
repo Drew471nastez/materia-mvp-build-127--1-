@@ -35,7 +35,10 @@ import { setHandoffDepsForTests, type HandoffDeps } from "@/lib/handoff/deps"
 import { acceptClaim, hashToken, readClaim, viewerOf } from "@/lib/handoff/server"
 import {
   CLAIM_PREFIX,
+  TOKEN_BYTES,
   TOKEN_PATTERN,
+  canonicalToken,
+  makeToken,
   claimPath,
   claimSignInPath,
   claimStateOf,
@@ -237,18 +240,29 @@ async function main() {
     const body = (await res.json()) as { link: string; pending: { id: string; email: string; expiresAt: string }; emailed: boolean }
     const token = body.link.split(CLAIM_PREFIX)[1]
     check("a link is made for the business, signed in as it", res.status === 200 && typeof body.link === "string", body)
-    check("  its token is 32 random bytes in base64url (43 characters)", TOKEN_PATTERN.test(token ?? "") && tokenShapeOk(token), token)
+    const canonical = (token ?? "").replace(/-/g, "")
+    check("  the link is short and clean: /team/claim/ and four groups of four, no ids", /^https:\/\/storelib\.com\/team\/claim\/[0-9a-hjkmnp-tv-z]{4}(-[0-9a-hjkmnp-tv-z]{4}){3}$/.test(body.link) && body.link.length <= 60 && !body.link.includes(STUDIO) && !body.link.includes(body.pending.id), body.link)
+    check("  its token is 80 random bits in Crockford base32 (16 characters)", TOKEN_PATTERN.test(canonical) && tokenShapeOk(token), token)
     const row = w.db.tables.business_handoffs[0]
-    check("  only the SHA-256 of it is stored", row.token_hash === createHash("sha256").update(token).digest("hex") && row.token_hash === hashToken(token) && /^[0-9a-f]{64}$/.test(row.token_hash))
+    check("  only the SHA-256 of it is stored", row.token_hash === createHash("sha256").update(canonical).digest("hex") && row.token_hash === hashToken(token) && /^[0-9a-f]{64}$/.test(row.token_hash))
     const everything = JSON.stringify(w.db.tables) + JSON.stringify(w.db.log)
-    check("  and the token itself is in no row and no line of the record", !everything.includes(token))
+    check("  and the token itself is in no row and no line of the record", !everything.includes(token) && !everything.includes(canonical))
+    const typed = await readClaim(w.deps, canonical.toUpperCase(), null)
+    check("  the same link opens typed in capitals or without its dashes", typed.ok && typed.state.kind === "signed_out" && hashToken(canonical.toUpperCase()) === row.token_hash, typed.ok ? typed.state.kind : typed)
+    check("  a lookalike letter (i, l, o, u) is not a token", ["i", "l", "o", "u"].every((c) => !tokenShapeOk(c + canonical.slice(1))))
     check("  the email kept lower case, the expiry seven days on, the founder's login recorded", row.recipient_email === "tom@example.com" && Date.parse(row.expires_at) === NOW + 7 * DAY && row.from_owner_id === LIA && row.business_user_id === STUDIO)
     check("  the email went out through the mailer, with the link", w.calls.mails.length === 1 && w.calls.mails[0].to === "tom@example.com" && w.calls.mails[0].text.includes(body.link), w.calls.mails)
     const events = w.db.tables.business_handoff_events.map((e: any) => e.event)
     check("  and the record says created, then sent", events.join(",") === "created,sent", events)
-    const tokens = new Set(Array.from({ length: 200 }, () => randomBytes(32).toString("base64url")))
-    check("two hundred tokens, two hundred different ones, every one the right shape", tokens.size === 200 && [...tokens].every((t) => TOKEN_PATTERN.test(t)))
-    check("a token of another shape is not ours", !tokenShapeOk("short") && !tokenShapeOk(`${token}x`) && !tokenShapeOk("a".repeat(42) + "/") && !tokenShapeOk(null))
+    const tokens = new Set(Array.from({ length: 2000 }, () => makeToken(randomBytes(TOKEN_BYTES))))
+    check("two thousand tokens, two thousand different ones, every one the right shape", tokens.size === 2000 && [...tokens].every((t) => TOKEN_PATTERN.test(t)))
+    const counts = new Map<string, number>()
+    for (const t of tokens) for (const ch of t) counts.set(ch, (counts.get(ch) ?? 0) + 1)
+    check("  every one of the 32 letters is used, none much more than another (no bias)", counts.size === 32 && Math.max(...counts.values()) / Math.min(...counts.values()) < 1.5, Object.fromEntries(counts))
+    check("  ten bytes of ones and of zeros give the ends of the alphabet", makeToken(new Uint8Array(10).fill(255)) === "z".repeat(16) && makeToken(new Uint8Array(10)) === "0".repeat(16))
+    check("a token of another shape is not ours", !tokenShapeOk("short") && !tokenShapeOk(`${token}x`) && !tokenShapeOk("a".repeat(42) + "/") && !tokenShapeOk(null) && !tokenShapeOk(`${canonical}0`))
+    const legacy = randomBytes(32).toString("base64url")
+    check("a link made before the short ones (43 base64url characters) still opens as it was", tokenShapeOk(legacy) && canonicalToken(legacy) === legacy && claimPath(legacy) === `${CLAIM_PREFIX}${legacy}` && hashToken(legacy) === createHash("sha256").update(legacy).digest("hex"))
 
     const again = await handoffRoute.POST(jsonReq("/api/handoff", "POST", STUDIO, {}))
     check("one open link per business: a second one is refused", again.status === 409)
@@ -477,6 +491,9 @@ async function main() {
   {
     const w = world()
     const { token } = await made(w, { keepFounder: true, founderAccess: "content" })
+    /* Lia's plan for the studio ended last month; the webhook's row still names her Stripe customer. Tom's own store pays. */
+    w.db.tables.subscriptions.push({ id: "sub-ended", creator_id: STUDIO_CREATOR, stripe_subscription_id: "sub_lia", stripe_customer_id: "cus_lia", plan_id: "pro", status: "canceled" })
+    w.db.tables.subscriptions.push({ id: "sub-tom", creator_id: "tom-creator", stripe_subscription_id: "sub_tom", stripe_customer_id: "cus_tom", plan_id: "pro", status: "active" })
     const signedOut = await readClaim(w.deps, token, null)
     check("signed out: the business, its addresses and counts, and Create account", signedOut.ok && signedOut.state.kind === "signed_out" && signedOut.preview?.products === 3 && signedOut.preview?.domains[0] === "glowstudio.co" && signedOut.preview?.onePageAddress?.endsWith("/glowstudio") === true)
     const signup = claimSignInPath(token, { signup: true, email: null })
@@ -513,6 +530,7 @@ async function main() {
     const upd = w.calls.updates.find((u) => u.id === STUDIO)
     check("the business's sign in address is made from the new owner's, so seller emails reach them", !!upd && /^new\+slb-[0-9a-f]{8}@example\.com$/.test(String(upd.attrs.email)) && (upd.attrs.app_metadata as any)?.business_owner === NEWBIE, upd)
     check("  every session the business had (the founder's) is ended", w.calls.signOuts.includes(STUDIO))
+    check("  billing starts fresh: the founder's ended plan row (her Stripe customer) is gone, nobody else's plan touched", !w.db.tables.subscriptions.some((r: any) => r.creator_id === STUDIO_CREATOR) && w.db.tables.subscriptions.some((r: any) => r.id === "sub-tom"))
     check("  the OnePage, store and domain caches forget it", w.calls.caches.some((c: any) => c.userId === STUDIO && c.creatorId === STUDIO_CREATOR))
     check("  the founder is emailed that it was taken", w.calls.mails.some((m) => m.to === "lia@example.com" && /new owner/.test(m.subject + m.text)))
     const ev = w.db.tables.business_handoff_events.map((e: any) => e.event)
