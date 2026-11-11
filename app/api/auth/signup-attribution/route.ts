@@ -4,7 +4,6 @@ import { routeUser } from "@/lib/auth/route-user"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { accountAttributionRow, isNewAccount, platformTouchesFrom } from "@/lib/attribution/account"
-import { routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"

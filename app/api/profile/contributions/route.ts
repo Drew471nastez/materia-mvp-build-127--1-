@@ -12,7 +12,6 @@ import { NextResponse } from "next/server"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { contributionsFor } from "@/lib/profile/contributions"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
@@ -30,7 +29,6 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams
   const targetId = params.get("userId") || ""
   if (!UUID.test(targetId)) return NextResponse.json({ error: "not_found" }, { status: 404, headers: NO_STORE })
-  const supabase = await createClient()
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null

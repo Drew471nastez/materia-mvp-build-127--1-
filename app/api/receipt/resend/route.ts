@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail } from "@/lib/email"
 import { rateLimit, addressSubject, callerAddress, LIMITS } from "@/lib/api/rate-limit"
 import { isPlausibleToken, isUuid } from "@/lib/receipts/rules"
@@ -95,7 +94,6 @@ export async function POST(request: NextRequest) {
     let recipient: string = order.buyer_email
     const toAccount = body.to === "account" && resendType === "buyer"
     if (toAccount) {
-      const supabase = await createClient()
       const who = await routeUser()
       if (who.kind === "unavailable") return authUnavailableResponse()
       const user = who.kind === "user" ? who.user : null
@@ -114,7 +112,6 @@ export async function POST(request: NextRequest) {
       the product may resend it.
     */
     if (resendType !== "buyer") {
-      const supabase = await createClient()
       const who = await routeUser()
       if (who.kind === "unavailable") return authUnavailableResponse()
       const user = who.kind === "user" ? who.user : null

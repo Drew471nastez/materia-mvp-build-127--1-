@@ -41,7 +41,6 @@
  * named back so the browser can drop it, and nothing else.
  */
 import { NextResponse, type NextRequest } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { assetAllowedForVariants, canDeliver } from "@/lib/receipts/rules"
 import { guestAccessFromCookieHeader } from "@/lib/receipts/guest-access"
@@ -93,7 +92,6 @@ export async function POST(request: NextRequest) {
     let hasPurchased = false
 
     try {
-      const supabase = await createClient()
       const who = await routeUser()
       const user = who.kind === "user" ? who.user : null
 

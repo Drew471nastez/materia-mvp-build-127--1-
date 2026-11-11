@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { teamStoreIdFor } from "@/lib/team/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkReplyInput } from "@/lib/reviews/rules"
 import { sellersReview } from "@/lib/reviews/access"
@@ -23,7 +22,6 @@ import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 type Params = { params: Promise<{ id: string }> }
 
 async function userId() {
-  const supabase = await createClient()
   const who = await routeUser()
   const user = who.kind === "user" ? who.user : null
   return user?.id ?? null

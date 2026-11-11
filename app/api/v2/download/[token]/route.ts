@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generateSignedDownloadUrl, logDownloadEvent } from "@/lib/storage"
 import { SIGNED_DOWNLOAD_SECONDS } from "@/lib/storage/download"
@@ -54,7 +53,6 @@ export async function GET(
 
     let userId: string | null = null
     try {
-      const supabase = await createClient()
       const who = await routeUser()
       const user = who.kind === "user" ? who.user : null
       userId = user?.id ?? null
@@ -85,7 +83,6 @@ async function handleAssetDownload(
 
   let userId: string | null = null
   try {
-    const supabase = await createClient()
     const who = await routeUser()
     const user = who.kind === "user" ? who.user : null
     userId = user?.id ?? null

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { SIGNED_URL_EXPIRY_SECONDS } from "@/lib/security"
 import { callerAddress } from "@/lib/api/rate-limit"
@@ -44,7 +43,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
 
     let userId: string | null = null
     try {
-      const supabase = await createClient()
       const who = await routeUser()
       const user = who.kind === "user" ? who.user : null
       userId = user?.id ?? null

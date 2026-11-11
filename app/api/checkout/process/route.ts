@@ -1,7 +1,6 @@
 import { loadCheckoutConfig } from "@/lib/store/settings-server"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
@@ -64,7 +63,6 @@ async function handlePOST(request: Request) {
   if (limited) return limited
 
   try {
-    const supabase = await createClient()
     const admin = createAdminClient()
     const cookieStore = await cookies()
     const who = await routeUser()

@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse, after } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkGuestReviewEligibility, checkReviewEligibility } from "@/lib/reviews/eligibility"
 import { resolveSellerEmail, sendReviewNotificationEmail } from "@/lib/email"
@@ -54,7 +53,6 @@ export async function GET(request: NextRequest) {
 type Body = { productId?: unknown; rating?: unknown; content?: unknown; orderId?: unknown; receiptToken?: unknown }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
   const admin = createAdminClient()
 
   const who = await routeUser()

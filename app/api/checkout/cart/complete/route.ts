@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { fulfilCartSession } from "@/lib/checkout/fulfil-cart-session"
@@ -43,7 +42,6 @@ export async function GET(request: Request) {
   if (!sessionId) return NextResponse.redirect(`${platform}/explore`)
 
   try {
-    const supabase = await createClient()
     const who = await routeUser()
     const user = who.kind === "user" ? who.user : null
 

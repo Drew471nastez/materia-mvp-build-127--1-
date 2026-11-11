@@ -16,7 +16,6 @@
  * looked up in the database; anything else goes back to storelib.com.
  */
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { classifySiteHost, siteOwnerOfHost } from "@/lib/site-accounts/hosts"

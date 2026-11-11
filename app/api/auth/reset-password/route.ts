@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { randomBytes } from "crypto"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 import { resetPasswordEmail } from "@/lib/account/reset-email"
@@ -11,7 +10,6 @@ export const runtime = "nodejs"
 // POST - Send password reset email (authenticated - for logged-in users from settings)
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
     /* Supabase Auth itself (a password is on the strict list), and 503 Try again when it did not answer, never 401 (round rel2-auth). */

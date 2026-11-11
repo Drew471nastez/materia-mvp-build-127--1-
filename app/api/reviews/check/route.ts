@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkGuestReviewEligibility, checkReviewEligibility } from "@/lib/reviews/eligibility"
 import { canDeliver } from "@/lib/receipts/rules"
@@ -43,7 +42,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "productId required" }, { status: 400 })
   }
 
-  const supabase = await createClient()
   const admin = createAdminClient()
 
   const who = await routeUser()

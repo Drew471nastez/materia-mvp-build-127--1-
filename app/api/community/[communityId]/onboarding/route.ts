@@ -3,7 +3,6 @@ import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { finishOnboarding, joinRateLimit } from "@/lib/communities/server/join"
-import { createClient } from "@/lib/supabase/server"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"

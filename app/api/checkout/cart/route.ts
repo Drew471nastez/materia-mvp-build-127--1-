@@ -9,7 +9,6 @@ import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-
 import { priceCart } from "@/lib/checkout/pricing"
 import { stripe } from "@/lib/stripe"
 import { accountGoneFromPlatform, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
@@ -134,7 +133,6 @@ async function safeReturnOrigin(origin: string | null, creatorId: string): Promi
 }
 
 async function handlePOST(request: Request) {
-  const supabase = await createClient()
   const admin = createAdminClient()
 
   let body: {

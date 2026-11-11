@@ -1,10 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { STAGE_WORDS, cleanCreatorNote, isInquiry, reasonWords, stageOf } from "@/lib/stripe/dispute-facts"
-import { routeUser } from "@/lib/auth/route-user"
-import { signedOutOrRetry } from "@/lib/auth/route-user"
+import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 
 /**
  * ===========================================================================
@@ -45,7 +43,6 @@ export interface CreatorDispute {
 }
 
 async function creatorId(): Promise<string | null> {
-  const supabase = await createClient()
   const who = await routeUser()
   const user = who.kind === "user" ? who.user : null
   if (!user) return null

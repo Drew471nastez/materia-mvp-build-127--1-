@@ -20,13 +20,11 @@
  */
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { isValidUsername } from "@/lib/reserved-words"
 import { handleAvailable } from "@/lib/profile/ensure-username"
 import { normalizeHandle } from "@/lib/profile/username-rules"
-import { routeUser } from "@/lib/auth/route-user"
-import { signedOutOrRetry } from "@/lib/auth/route-user"
+import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -35,7 +33,6 @@ const NO_STORE = { "Cache-Control": "no-store" }
 
 /* The signed in person, from the session the auth server confirms; never an id from the request. */
 async function signedIn() {
-  const supabase = await createClient()
   const who = await routeUser()
   const user = who.kind === "user" ? who.user : null
   return user ?? null

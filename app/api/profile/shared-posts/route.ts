@@ -8,7 +8,6 @@
 import { NextResponse } from "next/server"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { sharedPostsPage } from "@/lib/profile/shared-posts"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
@@ -20,7 +19,6 @@ const NO_STORE = { "Cache-Control": "no-store" }
 export async function GET(request: Request) {
   const off = await requireCommunitiesOn()
   if (off) return off
-  const supabase = await createClient()
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null

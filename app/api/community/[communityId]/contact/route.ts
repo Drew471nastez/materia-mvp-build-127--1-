@@ -5,7 +5,6 @@ import { CONTACT_RATE, CONTACT_RATE_ANY, cleanContactMessage } from "@/lib/commu
 import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { sendContactMessage } from "@/lib/communities/server/membership-lifecycle"
-import { createClient } from "@/lib/supabase/server"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"

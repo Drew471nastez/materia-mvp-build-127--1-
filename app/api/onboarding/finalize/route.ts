@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ensureStorePublished } from "@/lib/store-builder/ensure-store-published"
 import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
@@ -32,7 +31,6 @@ export async function POST(request: NextRequest) {
     // Verify the caller is authenticated via cookie-based session (web browsers).
     // Capacitor apps store the session in Preferences (not cookies), so the server
     // client may return null. In that case, fall back to the Authorization header.
-    const supabase = await createClient()
     let userId: string | null = null
 
     const who = await routeUser()

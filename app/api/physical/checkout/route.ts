@@ -1,6 +1,5 @@
 import { cookies } from "next/headers"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { siteHostsFor } from "@/lib/checkout/site-hosts"
@@ -40,7 +39,6 @@ export async function POST(request: Request) {
   })
   if (limited) return limited
 
-  const supabase = await createClient()
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null

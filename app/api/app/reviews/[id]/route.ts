@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { teamStoreIdFor } from "@/lib/team/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sellersReview } from "@/lib/reviews/access"
 import { refreshReviewStats } from "@/lib/reviews/store"
@@ -55,7 +54,6 @@ const answer = (body: unknown, status = 200) => NextResponse.json(body, { status
 type Params = { params: Promise<{ id: string }> }
 
 async function seller(id: string) {
-  const supabase = await createClient()
   const who = await routeUser()
   const user = who.kind === "user" ? who.user : null
   const db = createAdminClient()

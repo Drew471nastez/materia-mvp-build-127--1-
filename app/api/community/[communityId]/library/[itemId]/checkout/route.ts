@@ -6,7 +6,6 @@ import { startLibraryCheckout } from "@/lib/communities/server/library-checkout"
 import { libraryCheckoutDeps } from "@/lib/communities/server/library-checkout-deps"
 import { isLibraryId } from "@/lib/communities/library"
 import { addressSubject, rateLimit, LIMITS } from "@/lib/api/rate-limit"
-import { createClient } from "@/lib/supabase/server"
 import { detectedCountry } from "@/lib/store/settings-server"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
@@ -29,7 +28,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   if (off) return off
   const { communityId, itemId } = await params
   if (!isLibraryId(itemId)) return NextResponse.json({ error: "not_found" }, { status: 404, headers: noStore })
-  const supabase = await createClient()
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null

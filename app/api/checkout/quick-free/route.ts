@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { productPriceCurrency } from "@/lib/money/product-currency"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
@@ -25,7 +24,6 @@ export const runtime = "nodejs"
 
 async function handlePOST(request: Request) {
   try {
-    const supabase = await createClient()
     const admin = createAdminClient()
     const body = await request.json()
     const cookieStore = await cookies()

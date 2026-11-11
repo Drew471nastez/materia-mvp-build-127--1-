@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { sendBuyerDownloadEmail, resolveSellerEmail } from "@/lib/email"
 import { rateLimit, addressSubject, emailSubject, callerAddress, LIMITS } from "@/lib/api/rate-limit"
 import { isPlausibleToken, isUuid } from "@/lib/receipts/rules"
@@ -75,7 +74,6 @@ export async function POST(request: NextRequest) {
     /* Is the caller the seller? Then the buyer-side limits do not apply. */
     let isSeller = false
     try {
-      const supabase = await createClient()
       const who = await routeUser()
       if (who.kind === "unavailable") return authUnavailableResponse()
       const user = who.kind === "user" ? who.user : null

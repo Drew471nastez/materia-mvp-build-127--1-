@@ -7,7 +7,6 @@ import { startModuleCheckout } from "@/lib/communities/server/module-sales"
 import { readJson } from "@/lib/email-campaigns/route-auth"
 import { isUuid } from "@/lib/courses/access"
 import { addressSubject, rateLimit, LIMITS } from "@/lib/api/rate-limit"
-import { createClient } from "@/lib/supabase/server"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
@@ -30,7 +29,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   if (off) return off
   const { communityId, programId } = await params
   if (!isUuid(programId)) return NextResponse.json({ error: "not_found" }, { status: 404, headers: noStore })
-  const supabase = await createClient()
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null

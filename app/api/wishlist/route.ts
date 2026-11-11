@@ -1,7 +1,6 @@
 import { marketplacePricer } from "@/lib/money/marketplace-server"
 import { type NextRequest, NextResponse } from "next/server"
 import { isPubliclyVisible } from "@/lib/products/visibility"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cookies } from "next/headers"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"

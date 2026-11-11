@@ -1,5 +1,4 @@
 import { rateLimit, addressSubject, LIMITS } from "@/lib/api/rate-limit"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { physicalApiGate } from "@/lib/physical/gate"
 import { physicalJson, readBody } from "@/lib/physical/auth"
@@ -30,7 +29,6 @@ export async function POST(request: Request) {
   const limited = await rateLimit({ bucket: "coupon", subjects: [addressSubject(request)], windows: [{ limit: 120, seconds: 600 }], message: "Too many requests. Wait a moment and try again." })
   if (limited) return limited
 
-  const supabase = await createClient()
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null

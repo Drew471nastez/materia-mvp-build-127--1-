@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { teamStoreIdFor } from "@/lib/team/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { MAX_REPLY_CHARS, isReportReason } from "@/lib/reviews/rules"
 import { sellersReview } from "@/lib/reviews/access"
@@ -33,7 +32,6 @@ export async function POST(request: NextRequest, { params }: Params) {
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 500) : ""
   if (note.length > MAX_REPLY_CHARS) return NextResponse.json({ error: "Keep the note short." }, { status: 400 })
 
-  const supabase = await createClient()
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null

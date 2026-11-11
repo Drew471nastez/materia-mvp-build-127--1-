@@ -13,7 +13,6 @@ import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { stripe } from "@/lib/stripe"
 import { getValidatedPlatformStatementDescriptor, statementParams } from "@/lib/payments/platform-descriptor"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
@@ -97,7 +96,6 @@ async function handlePOST(request: Request) {
 
   let business: ReturnType<typeof checkBusiness> | null = body.business !== undefined && body.business !== null ? checkBusiness(body.business) : null
 
-  const supabase = await createClient()
   const admin = createAdminClient()
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()

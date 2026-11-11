@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { liveAppBlockData, pageCreatorId, publishedBlocksOf } from "@/lib/onepage/page-block"
 import { readLivePage } from "@/lib/onepage/tips-server"
@@ -52,7 +51,6 @@ export async function POST(request: Request) {
   if (!product) return NextResponse.json({ error: "not_found" }, { status: 404, headers: noStore })
 
   let allowed = false
-  const supabase = await createClient()
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null
