@@ -21,6 +21,22 @@
  *   const stub = await serveSupabaseStub({ port: 54321, tables })
  *   stub.sessionCookie()        the cookie a signed in browser carries
  *   stub.sessionCookie(userId)  the same, for one of `users`
+ *
+ * THE CONTROL (round rel2-db, scripts/load-public.mjs). A load test makes the
+ * database slow or down part way through a run and counts what reached it:
+ *
+ *   stub.control.set({ delayMs: 3000, failStatus: 503 })   every answer 3 s late, then a 503
+ *   stub.control.set({ delayMs: 0, failStatus: null })     recovered
+ *   stub.control.requests()                                requests answered since the start
+ *   stub.control.reset()                                   that count back to 0
+ *
+ * With `controlPath: "/__stub"` the same is reachable over HTTP for a stub
+ * in another process: GET /__stub reads { requests, delayMs, failStatus },
+ * POST /__stub with a JSON body sets it (`reset: true` zeroes the count). A
+ * forced failure answers /rest/v1 and /auth/v1 alike, with PostgREST's error
+ * shape. `keepLog: false` stops `log` growing for a run of millions. The
+ * defaults change nothing for an existing caller: no delay but `delayMs`, no
+ * failure, no control path, a log of every request.
  */
 import { createServer } from "node:http"
 
@@ -67,14 +83,44 @@ function matches(row, key, raw) {
  * and read the page back (round 50, scripts/check-story-r50.mjs). Off by
  * default: every other probe expects writes to be forgotten.
  */
-export async function serveSupabaseStub({ port = 54321, tables = {}, user = null, users = [], delayMs = 0, files = {}, writable = false, writes = false } = {}) {
+export async function serveSupabaseStub({ port = 54321, tables = {}, user = null, users = [], delayMs = 0, files = {}, writable = false, writes = false, controlPath = null, keepLog = true } = {}) {
   const log = []
+  const state = { delayMs: Math.max(0, Number(delayMs) || 0), failStatus: null, requests: 0 }
+  const control = {
+    set({ delayMs: d, failStatus: f } = {}) {
+      if (d !== undefined) state.delayMs = Math.max(0, Number(d) || 0)
+      if (f !== undefined) state.failStatus = f == null ? null : Number(f)
+      return control.read()
+    },
+    read: () => ({ requests: state.requests, delayMs: state.delayMs, failStatus: state.failStatus }),
+    requests: () => state.requests,
+    reset() { state.requests = 0 },
+  }
   const tokenOf = (u) => fakeJwt({ sub: u.id, role: "authenticated", aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 86400, email: u.email })
   const token = user ? tokenOf(user) : null
   /* Everybody who can be signed in, by their token and by their refresh token. */
   const people = [...(user ? [user] : []), ...users].map((u) => ({ user: u, token: tokenOf(u), refresh: `probe-refresh-${u.id}` }))
   /* `delayMs`: every answer that long late, the way a real database across a network is, so serial round trips show in a measured time. */
-  const server = createServer((req, res) => (delayMs > 0 ? setTimeout(() => answer(req, res), delayMs) : answer(req, res)))
+  const onControl = (req, res) => {
+    const reply = () => {
+      res.writeHead(200, { "content-type": "application/json" })
+      res.end(JSON.stringify(control.read()))
+    }
+    if (req.method !== "POST") return reply()
+    let raw = ""
+    req.on("data", (d) => { raw += d })
+    req.on("end", () => {
+      let body = {}
+      try { body = JSON.parse(raw || "{}") } catch { body = {} }
+      if (body && body.reset) control.reset()
+      control.set(body || {})
+      reply()
+    })
+  }
+  const server = createServer((req, res) => {
+    if (controlPath && req.url && (req.url === controlPath || req.url.startsWith(`${controlPath}?`))) return onControl(req, res)
+    return state.delayMs > 0 ? setTimeout(() => answer(req, res), state.delayMs) : answer(req, res)
+  })
   const answer = (req, res) => {
     const url = new URL(req.url, `http://127.0.0.1:${port}`)
     const send = (status, body, headers = {}) => {
@@ -82,7 +128,12 @@ export async function serveSupabaseStub({ port = 54321, tables = {}, user = null
       res.end(body === undefined ? "" : JSON.stringify(body))
     }
     if (req.method === "OPTIONS") return send(204)
-    log.push(`${req.method} ${url.pathname}${url.search}`)
+    state.requests++
+    if (keepLog) log.push(`${req.method} ${url.pathname}${url.search}`)
+    if (state.failStatus) {
+      req.resume()
+      return send(state.failStatus, { code: String(state.failStatus), message: "stub: forced failure", details: null, hint: null })
+    }
     const auth = req.headers.authorization || ""
 
     if (url.pathname === "/auth/v1/user") {
@@ -164,7 +215,7 @@ export async function serveSupabaseStub({ port = 54321, tables = {}, user = null
           changed = table.filter((r) => filters.every(([k, v]) => matches(r, k, v)))
           tables[m[1]] = table.filter((r) => !changed.includes(r))
         }
-        log.push(`  wrote ${changed.length} ${m[1]}`)
+        if (keepLog) log.push(`  wrote ${changed.length} ${m[1]}`)
         send(req.method === "POST" ? 201 : 200, changed)
       })
       return
@@ -196,6 +247,7 @@ export async function serveSupabaseStub({ port = 54321, tables = {}, user = null
     server,
     log,
     token,
+    control,
     /** The cookie @supabase/ssr reads a session from, for this address. */
     sessionCookie(userId) {
       const who = userId ? people.find((p) => p.user.id === userId) : people[0]
