@@ -31,6 +31,7 @@
  *                opened as https. As it was saved, the page drew it as a
  *                path on storelib.me, which is a 404.
  */
+import { withoutRetiredTheme } from "./retired-themes"
 import { isScheduledNow } from "@/lib/onepage/extra-blocks"
 import { syncedSocialPlatforms } from "@/lib/onepage/editor-state"
 import { creatorName, creatorPhoto } from "@/lib/account/identity"
@@ -146,7 +147,8 @@ export function publicOnePage(
   const published = source === "published"
   const profile = (published ? (row.published_profile as Record<string, any> | null) : null) || null
   const settings = row.settings || { show_branding: true, analytics_enabled: true, subscribe_enabled: true }
-  const theme = (published ? row.published_theme : null) || row.theme || FALLBACK_PUBLIC_THEME
+  /* A theme no longer offered (Editorial) is drawn as its successor, the creator's own changes kept (lib/onepage/retired-themes). */
+  const theme = withoutRetiredTheme((published ? row.published_theme : null) || row.theme || FALLBACK_PUBLIC_THEME)
   const blocks = ((published ? row.published_blocks || row.draft_blocks : row.draft_blocks) || []) as any[]
   const social = (published ? row.published_social_links || row.social_links : row.social_links) || {}
   return {

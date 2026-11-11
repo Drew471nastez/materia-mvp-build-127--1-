@@ -886,6 +886,8 @@ const SUITES = [
   "tests/onepage-patterns-w10.test.ts",
   /* Round W10: the skins fixed at the source (every word on a form, a card and the legal links in a colour picked for that surface, 4.5:1 even at 70%), a second version of each of the six (Aero Aquarium, Aqua Graphite, Messenger Olive, Y2K Kawaii, Playful Night, Grunge Zine) drawn by the same rules with another palette, and Classic 98, Vaporwave and Arcade. */
   "tests/onepage-themes-w10.test.ts",
+  /* OnePage themes (op-themes): Editorial retired and a page still on it drawn as Paper with the creator's own changes kept (lib/onepage/retired-themes, the live page and the editor), Renaissance (its settings, fonts, contrast at rest and on hover, its skin over every kind of block, its scene and every pair of words and paint), the picker's All in five groups with the quiet, most chosen first, and Aero Aquarium made quieter. scripts/shot-onepage-skins.mjs THEMES=renaissance,aero2 photographs them. */
+  "tests/onepage-themes-renaissance.test.ts",
   /* Round 10 buttons: every saved button draws as before, the hover system, one drawing for page, preview and Design tab; a social link typed any way saved as the right address. scripts/check-onepage-buttons.mjs measures them. */
   "tests/onepage-buttons.test.ts",
   "tests/onepage-social-input.test.ts",

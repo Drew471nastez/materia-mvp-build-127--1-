@@ -66,8 +66,8 @@ const olderNames = [...design.matchAll(/\n    name: "([^"]+)",/g)].map((m) => m[
 
 console.log("\nNine themes, valid and each its own")
 const NEW = ["aero2", "aqua2", "messenger2", "y2k2", "playful2", "grunge2", "classic98", "vaporwave", "arcade"]
-check(`the older catalogue was read (${older.length} themes)`, older.length >= 44)
-check("nine themes, new ids and names, one for each new skin", W10_THEMES.length === 9 && W10_THEMES.map((t) => t.id).join() === NEW.join() && W10_THEMES.every((t) => !older.includes(t.id) && !olderNames.includes(t.name)) && THEME_SKINS.slice(6).join() === NEW.join())
+check(`the older catalogue was read (${older.length} themes)`, older.length >= 43) /* Editorial retired */
+check("nine themes, new ids and names, one for each new skin", W10_THEMES.length === 9 && W10_THEMES.map((t) => t.id).join() === NEW.join() && W10_THEMES.every((t) => !older.includes(t.id) && !olderNames.includes(t.name)) && THEME_SKINS.slice(6, 15).join() === NEW.join())
 check("each theme names its own skin", W10_THEMES.every((t) => (t.theme_config as Record<string, unknown>).theme_skin === t.id))
 check("the two popular looks the catalogue lacked are new, not a renamed Neon or Swiss", ["Vaporwave", "Arcade"].every((n) => W10_THEMES.some((t) => t.name === n)) && !olderNames.some((n) => /vapor|synth|arcade|pixel|8.?bit/i.test(n)))
 check("no maker's name or mark: Classic 98 is not called Windows", W10_THEMES.every((t) => !/windows|microsoft|msn|apple|mac ?os/i.test(t.name)) && !/Windows|Microsoft/.test(css))
@@ -145,7 +145,7 @@ for (const skin of THEME_SKINS) {
 }
 
 console.log("\nFifteen skins, each styling every kind of block, each with its scene")
-check("the skins are the six and the nine", THEME_SKINS.length === 15 && THEME_SKINS.every((s) => themeSkinOf({ theme_skin: s }) === s) && themeSkinOf({ theme_skin: "windows98" }) === null)
+check("the skins are the six and the nine (and Renaissance after them)", THEME_SKINS.length >= 15 && THEME_SKINS.every((s) => themeSkinOf({ theme_skin: s }) === s) && themeSkinOf({ theme_skin: "windows98" }) === null)
 check("a new skin is carried by the page and its scene drawn over a colour or gradient only", skinRootProps({ theme_skin: "classic98" })["data-op-skin"] === "classic98" && skinSceneOf({ theme_skin: "vaporwave", background_type: "gradient" }) === "vaporwave" && skinSceneOf({ theme_skin: "arcade", background_type: "image" }) === null)
 const KINDS: Record<string, string> = {
   "links": ":is(a.op-btn, [data-tp-link])",

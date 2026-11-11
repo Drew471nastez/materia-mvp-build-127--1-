@@ -61,7 +61,7 @@ const older = [
 ]
 
 console.log("\nThree more themes, valid and each its own")
-check(`the older catalogue was read (${older.length} themes)`, older.length >= 35)
+check(`the older catalogue was read (${older.length} themes)`, older.length >= 34) /* Editorial retired */
 check("three themes, new ids", W8_THEMES.length === 3 && W8_THEMES.every((t) => !older.some((o) => o.id === t.id)))
 check("in three kinds: light, gradient, dark", W8_THEMES.map((t) => t.category).sort().join() === "dark,gradient,light")
 

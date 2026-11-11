@@ -164,7 +164,7 @@ check("the classic header and socials carry their marks for left alignment", /da
 check("the theme's sheet colours are written once", (live.match(/sheetRootCss\(safeTheme\)/g) ?? []).length === 1)
 check("the preview is the live page's own component", /PublicOnePage/.test(read("components/onepage/preview-document.tsx")))
 check("the product sheet and the checkout window are themed", /className=\{cn\(\s*"op-sheet /.test(read("components/onepage/product-sheet.tsx")) /* round 43: two columns on a computer, so the classes are joined */ && /themed && "op-sheet"/.test(read("components/checkout/checkout-window.tsx")) && /themed\b/.test(read("components/onepage/product-block.tsx")))
-check("the Design tab has a Layout panel and the themes", /<NavRow dataKey="layout"/.test(design) && /<LayoutSection \/>/.test(design) && /withR40Themes\(BASE_THEME_TEMPLATES\)/.test(design))
+check("the Design tab has a Layout panel and the themes", /<NavRow dataKey="layout"/.test(design) && /<LayoutSection \/>/.test(design) && /withR40Themes\(\[\.\.\.BASE_THEME_TEMPLATES/.test(design)) /* Renaissance joins the base, and the picker orders them (components/onepage/themes/theme-order) */
 /* Changed on purpose (round AP): a card is the page itself at a card's scale (components/onepage/themes/theme-preview), which lays the blocks out as the page does. */
 check("the theme cards draw each theme's layout", /<ThemePreview c=\{look\} name=\{name\} thumb=\{themeThumbSrc\} \/>/.test(design) && /blockLayoutOf\(c\)/.test(read("components/onepage/themes/theme-preview.tsx")))
 const layoutSrc = read("components/onepage/themes/layout-section.tsx")

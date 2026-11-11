@@ -89,6 +89,8 @@ import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 /* Round 40: five more themes, the Layout panel, font pairs, the gradient's direction and the wallpaper library (components/onepage/themes). */
 import { withR40Themes } from "@/components/onepage/themes/r40-themes"
+import { RENAISSANCE_THEMES } from "@/components/onepage/themes/renaissance-theme"
+import { orderThemes, themeGroupOf, type ThemeGroupId } from "@/components/onepage/themes/theme-order"
 import { ThemePreview } from "@/components/onepage/themes/theme-preview"
 import { useThemePreviewScale } from "@/components/onepage/themes/preview-scale"
 import { themeLabel } from "@/components/onepage/themes/theme-names"
@@ -134,6 +136,8 @@ const FONTS = [
   { name: "Fraunces", category: "serif", get style() { return tt("Soft & Warm") }, value: "'Fraunces', serif" },
   { name: "Newsreader", category: "serif", get style() { return tt("Editorial & Calm") }, value: "'Newsreader', serif" },
   { name: "Bodoni Moda", category: "serif", get style() { return tt("Fashion & Sharp") }, value: "'Bodoni Moda', serif" },
+  /* Renaissance's book face (components/onepage/themes/renaissance-theme). */
+  { name: "EB Garamond", category: "serif", get style() { return tt("Classic & Readable") }, value: "'EB Garamond', serif" },
   { name: "Big Shoulders", category: "display", get style() { return tt("Tall & Condensed") }, value: "'Big Shoulders', sans-serif" },
   { name: "Geist Mono", category: "mono", get style() { return tt("Code & Tech") }, value: "'Geist Mono', monospace" },
 ]
@@ -169,6 +173,7 @@ const TITLE_FONTS = [
   { name: "Fraunces", value: "'Fraunces', serif" },
   { name: "Newsreader", value: "'Newsreader', serif" },
   { name: "Bodoni Moda", value: "'Bodoni Moda', serif" },
+  { name: "Cormorant Garamond", value: "'Cormorant Garamond', serif" },
   { name: "Bricolage Grotesque", value: "'Bricolage Grotesque', sans-serif" },
   { name: "Big Shoulders", value: "'Big Shoulders', sans-serif" },
   { name: "Geist", value: "'Geist', sans-serif" },
@@ -214,9 +219,10 @@ const SOCIAL_STYLES = [
   Graphite (graphite with soft glass cards), Midnight, Space and Neon (the
   one loud one). Image: Nature and Fusion (a warm grain). Round 11 added
   five made pieces, each with its own pattern or photograph, type and
-  buttons: Editorial and Terrazzo (light), Blueprint (dark), Darkroom and
-  Haze (image); the note above each says what it is and where its photo
-  comes from. No violet: Blocks
+  buttons: Terrazzo (light), Blueprint (dark), Darkroom and Haze (image);
+  the note above each says what it is and where its photo comes from.
+  Editorial was the fifth; the owner asked for it to go, and a page
+  that wore it drawn as Paper (lib/onepage/retired-themes). No violet: Blocks
   was a violet to pink gradient, Aurora violet glass, Night a violet black
   with lilac buttons and Fusion a violet swirl; each is now its own thing
   under the same name, so a page that chose one keeps the id it saved. What
@@ -231,14 +237,14 @@ const SOCIAL_STYLES = [
   settings round 40 and 42 gave themes (lib/onepage/theme-layout), so no two
   of the catalogue share a structure (tests/onepage-ar5.test.ts):
     a Hero (the photo full bleed)  Sunset, Aurora (with Midnight, Neon, Cobalt)
-    a cover picture                Night, Ocean, Editorial (with Folio)
+    a cover picture                Night, Ocean (with Folio)
     links as tiles two to a row    Studio, Riso, Blocks, Fusion, Neon
     links as picture cards         Paper, Sage, Space, Nature
     links Mixed (halves)           Terrazzo, Peach, Graphite
     links Compact                  Astrid, Blueprint, Aurora
-    flush left, an index           Olive, Haze, Editorial (words left, picture right)
+    flush left, an index           Olive, Haze
     products as tiles or rows      Studio, Terrazzo, Riso, Blocks, Space, Nature;
-                                   Sunset, Sage, Olive, Paper, Blueprint, Editorial
+                                   Sunset, Sage, Olive, Paper, Blueprint
     Air keeps the plain list, with large buttons and room to breathe.
   Their colours are as they were. lib/onepage/theme-apply resets all of it on
   the next pick; a Hero a theme set is taken back by a Classic theme.
@@ -510,57 +516,6 @@ const BASE_THEME_TEMPLATES = [
     outline_button_text_color: "#111111",
     glass_button_text_color: "#111111",
     light_button_text_color: "#111111",
-    share_style: "black",
-    subscribe_style: "black",
-  },
-  /*
-    EDITORIAL: a magazine's page. Newsprint with the faint dot screen of
-    print (the Halftone pattern), the name set big in a high contrast
-    display face, words in a book serif, and buttons as solid ink bars
-    with square ends. The one colour is vermilion, in the social icons.
-  */
-  {
-    id: "editorial",
-    name: "Editorial",
-    category: "light",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#f2ede3",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#15130f",
-      secondary_text_color: "#4a443a",
-      button_color: "#15130f",
-      button_text_color: "#f6f2ea",
-      button_style: "filled" as const,
-      button_border_radius: 0,
-      button_border_width: 0,
-      button_border_color: "#15130f",
-      button_shadow: "none",
-      font_family: "'Source Serif Pro', serif",
-      title_font: "'Abril Fatface', cursive",
-      title_color: "#15130f",
-      social_icon_color: "#c2361f",
-      social_icon_style: "outline",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      header_layout: "classic",
-      laser_glow_enabled: false,
-      background_pattern: "halftone",
-      pattern_color: "#15130f2e",
-      pattern_opacity: "low",
-      header_align: "left",
-      title_case: "upper",
-      button_text_align: "left",
-      button_icon_position: "right",
-      product_layout: "rows",
-      cover_image_url: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=1600&q=80",
-    },
-    profile_layout: "classic" as const,
-    solid_button_text_color: "#f6f2ea",
-    outline_button_text_color: "#15130f",
-    glass_button_text_color: "#15130f",
-    light_button_text_color: "#15130f",
     share_style: "black",
     subscribe_style: "black",
   },
@@ -1262,7 +1217,8 @@ const BASE_THEME_TEMPLATES = [
 ]
 
 /* Round 40: Gallery, Swiss, Ember, Lagoon and Atlas (components/onepage/themes/r40-themes), each laid into its kind. */
-export const THEME_TEMPLATES = withR40Themes(BASE_THEME_TEMPLATES)
+/* Renaissance (components/onepage/themes/renaissance-theme), and the picker's order: the best and most chosen first, in groups (components/onepage/themes/theme-order). */
+export const THEME_TEMPLATES = orderThemes(withR40Themes([...BASE_THEME_TEMPLATES, ...(RENAISSANCE_THEMES as unknown as typeof BASE_THEME_TEMPLATES)]))
 
 /** The gradient a page starts from when it has none of its own: warm, and nothing like the old violet default. */
 const DEFAULT_GRADIENT = "linear-gradient(160deg, #f0a8b8 0%, #b2846c 100%)"
@@ -2605,6 +2561,14 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
 })
 
 type ThemeFilter = "all" | "light" | "dark" | "gradient" | "image"
+/* The names of All's groups (components/onepage/themes/theme-order). */
+const THEME_GROUP_LABELS: Record<ThemeGroupId, () => string> = {
+  clean: () => tt("Clean"),
+  dark: () => tt("Dark"),
+  colour: () => tt("Colour"),
+  photo: () => tt("Photo"),
+  styled: () => tt("Eras and styles"),
+}
 const THEME_KINDS: readonly { id: ThemeFilter; label: string }[] = [
   { id: "all", get label() { return tt("All") } },
   { id: "light", get label() { return tt("Light") } },
@@ -2877,9 +2841,17 @@ function ThemeSection() {
             data-theme-kind-shown={kind.id === filter ? "" : undefined}
             aria-hidden={kind.id !== filter ? true : undefined}
           >
-            {THEME_TEMPLATES.filter((t) => kind.id === "all" || t.category === kind.id).map((template) => (
-              <ThemeCard key={template.id} template={template} selected={theme.template_id === template.id} shown={kind.id === filter} copy={kind.id !== "all"} onPick={onPick} />
-            ))}
+            {THEME_TEMPLATES.filter((t) => kind.id === "all" || t.category === kind.id).map((template, i, list) => {
+              /* All is in groups, each named once where it starts (components/onepage/themes/theme-order); a kind is one group already. */
+              const group = kind.id === "all" ? themeGroupOf(template.id) : null
+              const starts = group && (i === 0 || themeGroupOf(list[i - 1].id) !== group)
+              return (
+                <ReactModule.Fragment key={template.id}>
+                  {starts ? <h3 data-theme-group={group} className="col-span-full pt-4 text-[13px] font-semibold text-[#1a1a2e] first:pt-0">{THEME_GROUP_LABELS[group]()}</h3> : null}
+                  <ThemeCard template={template} selected={theme.template_id === template.id} shown={kind.id === filter} copy={kind.id !== "all"} onPick={onPick} />
+                </ReactModule.Fragment>
+              )
+            })}
           </div>
         ))}
       </div>

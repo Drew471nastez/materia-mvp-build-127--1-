@@ -117,7 +117,7 @@ function typeKeysFor(current: Record<string, unknown>, template: ThemeTemplateLi
 
 /**
  * A COVER THE CREATOR CHOSE IS THEIRS (round AR). The cover picture is in
- * LOOK_RESET because a theme can set one (Folio, Night, Ocean, Editorial),
+ * LOOK_RESET because a theme can set one (Folio, Night, Ocean),
  * and picking the next theme took that one away, as it should. It took the
  * creator's own upload away too. Now a cover is the theme's only while it
  * is the one the last theme set (or there is none); any other is kept, with

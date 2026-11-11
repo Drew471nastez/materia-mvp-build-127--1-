@@ -16,7 +16,6 @@ const NAMES: Record<string, () => string> = {
   cream: () => ttx("theme", "Cream"),
   riso: () => ttx("theme", "Riso"),
   blocks: () => ttx("theme", "Blocks"),
-  editorial: () => ttx("theme", "Editorial"),
   terrazzo: () => ttx("theme", "Terrazzo"),
   sunset: () => ttx("theme", "Sunset"),
   peach: () => ttx("theme", "Peach"),
@@ -63,6 +62,7 @@ const NAMES: Record<string, () => string> = {
   classic98: () => ttx("theme", "Classic 98"),
   vaporwave: () => ttx("theme", "Vaporwave"),
   arcade: () => ttx("theme", "Arcade"),
+  renaissance: () => ttx("theme", "Renaissance"),
 }
 
 /** A theme's name in the reader's language. */
