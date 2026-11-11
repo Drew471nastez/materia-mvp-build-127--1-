@@ -33,15 +33,14 @@ const BUBBLE = [
   "radial-gradient(circle at 68% 76%, rgba(255,255,255,.55) 0, rgba(255,255,255,0) 20%)",
   "radial-gradient(circle at 50% 50%, rgba(160,225,255,0) 52%, rgba(170,235,255,.28) 62%, rgba(230,255,240,.55) 67%, rgba(255,255,255,.85) 70%, rgba(255,255,255,0) 70.8%)",
 ].join(", ")
-/* A goldfish, side on, facing right: an orange body with a pale belly, a veil tail, an eye and a glint. */
+/* A goldfish, side on, facing right: a sleek coral body, a forked veil tail, one fin and a small dark eye. */
 const GOLDFISH = svg(
-  `<defs><linearGradient id='b' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#ffb04a'/><stop offset='.55' stop-color='#ff7a1a'/><stop offset='1' stop-color='#ffd08a'/></linearGradient><linearGradient id='t' x1='1' x2='0'><stop offset='0' stop-color='#ff8a2a' stop-opacity='.95'/><stop offset='1' stop-color='#ffc27a' stop-opacity='.35'/></linearGradient></defs>` +
-    `<path d='M30 30 C 18 14 6 10 2 16 C 8 24 10 28 10 32 C 10 36 8 40 2 48 C 6 54 18 50 30 34Z' fill='url(#t)'/>` +
-    `<path d='M28 32 C 34 18 52 12 66 16 C 78 20 86 28 88 32 C 86 38 76 46 62 48 C 46 50 34 44 28 32Z' fill='url(#b)'/>` +
-    `<path d='M50 16 C 54 8 62 6 66 8 C 64 12 62 15 60 17Z' fill='#ff9a3a'/><path d='M52 46 C 54 52 60 54 62 52 C 60 49 58 47 57 47Z' fill='#ff9a3a'/>` +
-    `<path d='M36 26 C 46 22 60 22 70 26' stroke='#fff' stroke-opacity='.6' stroke-width='2' fill='none' stroke-linecap='round'/>` +
-    `<circle cx='76' cy='29' r='3.4' fill='#1b1209'/><circle cx='77.2' cy='27.8' r='1.1' fill='#fff'/>`,
-  "0 0 92 60",
+  `<defs><linearGradient id='b' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#ffb067'/><stop offset='.6' stop-color='#ff8a3d'/><stop offset='1' stop-color='#ffc996'/></linearGradient><linearGradient id='t' x1='1' x2='0'><stop offset='0' stop-color='#ff9a4e' stop-opacity='.85'/><stop offset='1' stop-color='#ffc996' stop-opacity='.2'/></linearGradient></defs>` +
+    `<path d='M17 20 C 11 13 6 9 1 7 C 4 13 5 17 5 20 C 5 23 4 27 1 33 C 6 31 11 27 17 20Z' fill='url(#t)'/>` +
+    `<path d='M15 20 C 27 9 50 8 65 15 C 71 18 74 20 74 20 C 74 20 71 22 65 25 C 50 32 27 31 15 20Z' fill='url(#b)'/>` +
+    `<path d='M37 11 C 43 5 51 5 55 10Z' fill='#ff9a4e' fill-opacity='.7'/>` +
+    `<circle cx='64' cy='18.5' r='1.5' fill='#3a1a08' fill-opacity='.85'/>`,
+  "0 0 76 40",
 )
 const WEED = (fill) => svg(
   `<path d='M30 300 C 18 240 44 210 28 160 C 14 116 40 84 30 30 C 26 12 34 4 36 2 C 42 30 50 70 44 108 C 38 150 58 186 48 230 C 42 260 46 282 44 300Z' fill='${fill}'/>` +
@@ -72,19 +71,27 @@ const DAY = {
   social: "rgba(255,255,255,.55)",
   divider: "#fff",
 }
+/*
+  Round op-themes: the aquarium made quieter. The owner found it "a little
+  cringe": the same gel split in two as the day's (a bright half over a dark
+  half), orange gel, a glow round every word and cartoon goldfish with a
+  white glint in the eye. Now the glass is lit from above and fades evenly,
+  its rims are a thin wet line, the products' button is a smooth coral, the
+  words carry only a soft shadow, and the fish are small and sleek.
+*/
 const NIGHT = {
-  gloss: "linear-gradient(180deg, rgba(190,240,255,.42) 0%, rgba(160,225,255,.16) 46%, rgba(255,255,255,0) 50%, rgba(255,255,255,0) 80%, rgba(90,220,255,.22) 100%)",
-  rim: "rgba(150,225,255,.55)",
-  rimInset: "inset 0 1px 0 rgba(200,245,255,.55)",
-  glow: "rgba(60,200,255,.35)",
-  shadow: "rgba(0,10,30,.7)",
-  gel: { color: "#ff9a3a", art: "linear-gradient(180deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.22) 46%, rgba(255,255,255,0) 50%), linear-gradient(180deg, #ffc46e 0%, #ffa043 50%, #ff8a2a 51%, #ffb45c 100%)", stops: ["#ffc46e", "#ffa043", "#ff8a2a", "#ffb45c"], ink: "#2e1300", edge: "#c45f0d", glow: "rgba(255,140,40,.55)" },
-  box: { fill: "rgba(6,48,78,.72)", top: "rgba(160,230,255,.18)", ink: "#eafaff", under: ["#0a3552", "#0b3d5c"], border: "rgba(150,225,255,.5)" },
-  field: { ink: "#06324a", border: "rgba(150,225,255,.7)" },
-  titleShadow: "0 0 18px rgba(90,220,255,.65), 0 2px 0 rgba(0,20,40,.6)",
-  textShadow: "0 0 12px rgba(0,30,50,.9), 0 1px 0 rgba(0,20,40,.6)",
-  social: "rgba(20,90,130,.55)",
-  divider: "#9fe8ff",
+  gloss: "linear-gradient(180deg, rgba(200,245,255,.2) 0%, rgba(200,245,255,.06) 45%, rgba(200,245,255,0) 70%, rgba(110,220,255,.08) 100%)",
+  rim: "rgba(150,225,255,.36)",
+  rimInset: "inset 0 1px 0 rgba(210,248,255,.32)",
+  glow: "rgba(60,200,255,.16)",
+  shadow: "rgba(0,12,28,.6)",
+  gel: { color: "#ffad66", art: "linear-gradient(180deg, rgba(255,255,255,.3) 0%, rgba(255,255,255,0) 55%), linear-gradient(180deg, #ffc685 0%, #ff9f58 100%)", stops: ["#ffc685", "#ff9f58"], ink: "#2e1300", edge: "rgba(255,200,150,.85)", glow: "rgba(255,140,60,.32)" },
+  box: { fill: "rgba(6,48,78,.7)", top: "rgba(160,230,255,.07)", ink: "#eafaff", under: ["#0a3552", "#0b3d5c"], border: "rgba(150,225,255,.32)" },
+  field: { ink: "#06324a", border: "rgba(150,225,255,.6)" },
+  titleShadow: "0 0 28px rgba(90,220,255,.3), 0 1px 2px rgba(0,20,40,.5)",
+  textShadow: "0 1px 2px rgba(0,20,40,.55)",
+  social: "rgba(20,90,130,.38)",
+  divider: "#7fd6f5",
 }
 
 function material(skin, p) {
@@ -129,7 +136,7 @@ function material(skin, p) {
     background-image: ${p.gloss};
     box-shadow: ${p.rimInset}, 0 6px 14px -6px ${p.shadow};`)
   rule(`${A} ${DIVIDER}`, `height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, ${p.divider} 30%, ${p.divider} 70%, transparent) !important; box-shadow: 0 0 10px ${p.divider};`)
-  rule(`${A} ${PICTURE}`, `border-radius: 20px !important; box-shadow: 0 0 0 3px ${p === DAY ? "rgba(255,255,255,.85)" : "rgba(150,225,255,.45)"}, 0 12px 26px -12px ${p.shadow};`)
+  rule(`${A} ${PICTURE}`, `border-radius: 20px !important; box-shadow: 0 0 0 ${p === DAY ? "3px rgba(255,255,255,.85)" : "1.5px rgba(150,225,255,.4)"}, 0 12px 26px -12px ${p.shadow};`)
   rule(`${A} [data-framed-picture]`, `border-radius: 14px; box-shadow: 0 0 0 2px ${p.rim};`)
 }
 
@@ -166,27 +173,27 @@ export function aeroAquarium() {
   const sc = SCENE("aero2")
   rule(`${sc} [data-sk="rays"]`, `
     position: absolute; left: 50%; top: -60px; width: 900px; height: 820px; margin-left: -450px; transform-origin: 50% 0;
-    background: repeating-conic-gradient(from 168deg at 50% 0%, rgba(170,240,255,.13) 0deg 4deg, rgba(170,240,255,0) 4deg 11deg, rgba(170,240,255,.08) 11deg 13deg, rgba(170,240,255,0) 13deg 22deg);
+    background: repeating-conic-gradient(from 168deg at 50% 0%, rgba(170,240,255,.08) 0deg 3deg, rgba(170,240,255,0) 3deg 11deg, rgba(170,240,255,.05) 11deg 13deg, rgba(170,240,255,0) 13deg 22deg);
     -webkit-mask-image: radial-gradient(70% 90% at 50% 0%, #000 0%, transparent 78%); mask-image: radial-gradient(70% 90% at 50% 0%, #000 0%, transparent 78%);
-    animation: sk-sway 22s ease-in-out infinite alternate;`)
+    animation: sk-sway 30s ease-in-out infinite alternate;`)
   rule(`${sc} [data-sk="caustics"]`, `
-    position: absolute; left: 0; right: 0; top: 0; height: 240px; opacity: .55;
+    position: absolute; left: 0; right: 0; top: 0; height: 240px; opacity: .4;
     background: radial-gradient(60px 18px at 20% 30%, rgba(190,245,255,.35), transparent 70%), radial-gradient(80px 20px at 62% 18%, rgba(190,245,255,.3), transparent 70%), radial-gradient(70px 16px at 84% 44%, rgba(190,245,255,.25), transparent 70%), radial-gradient(90px 22px at 38% 58%, rgba(190,245,255,.2), transparent 70%);
     animation: sk-shimmer 6s ease-in-out infinite alternate;`)
-  rule(`${sc} [data-sk="sand"]`, `position: absolute; left: 0; right: 0; bottom: 0; height: 110px; background: ${SAND} center bottom / 100% 100% no-repeat; opacity: .85;`)
-  rule(`${sc} [data-sk="weed"]`, `position: absolute; bottom: 30px; width: 70px; height: 220px; background: center bottom / contain no-repeat; transform-origin: 50% 100%; animation: sk-weed 7s ease-in-out infinite alternate;`)
-  rule(`${sc} [data-sk="weed"]:nth-child(4)`, `left: -6px; background-image: ${WEED("#2f9e6a")};`)
-  rule(`${sc} [data-sk="weed"]:nth-child(5)`, `right: -2px; height: 260px; background-image: ${WEED("#3cb37a")}; animation-delay: -3s; animation-duration: 8.5s;`)
-  rule(`${sc} [data-sk="fish"]`, `position: absolute; width: 58px; height: 38px; background: ${GOLDFISH} center / contain no-repeat; animation: sk-swim 14s ease-in-out infinite alternate; filter: drop-shadow(0 4px 6px rgba(0,0,0,.35));`)
+  rule(`${sc} [data-sk="sand"]`, `position: absolute; left: 0; right: 0; bottom: 0; height: 90px; background: ${SAND} center bottom / 100% 100% no-repeat; opacity: .55;`)
+  rule(`${sc} [data-sk="weed"]`, `position: absolute; bottom: 30px; width: 70px; height: 220px; background: center bottom / contain no-repeat; transform-origin: 50% 100%; opacity: .55; animation: sk-weed 9s ease-in-out infinite alternate;`)
+  rule(`${sc} [data-sk="weed"]:nth-child(4)`, `left: -6px; background-image: ${WEED("#1f7a63")};`)
+  rule(`${sc} [data-sk="weed"]:nth-child(5)`, `right: -2px; height: 260px; background-image: ${WEED("#26876b")}; animation-delay: -3s; animation-duration: 8.5s;`)
+  rule(`${sc} [data-sk="fish"]`, `position: absolute; width: 46px; height: 24px; background: ${GOLDFISH} center / contain no-repeat; opacity: .9; animation: sk-swim 18s ease-in-out infinite alternate; filter: drop-shadow(0 3px 4px rgba(0,10,25,.3));`)
   rule(`${sc} [data-sk="fish"]:nth-child(6)`, `top: 128px; left: 5%;`)
-  rule(`${sc} [data-sk="fish"]:nth-child(7)`, `top: 64px; right: 16%; width: 44px; height: 29px; scale: -1 1; animation-duration: 17s; animation-delay: -6s;`)
-  rule(`${sc} [data-sk="fish"]:nth-child(8)`, `top: 46%; left: -4px; width: 36px; height: 24px; animation-duration: 12s; animation-delay: -9s; opacity: .85;`)
+  rule(`${sc} [data-sk="fish"]:nth-child(7)`, `top: 64px; right: 16%; width: 34px; height: 18px; scale: -1 1; animation-duration: 21s; animation-delay: -6s; opacity: .75;`)
+  rule(`${sc} [data-sk="fish"]:nth-child(8)`, `top: 46%; left: -4px; width: 28px; height: 15px; animation-duration: 16s; animation-delay: -9s; opacity: .6;`)
   rule(`${sc} [data-sk="bubble"]`, `
     position: absolute; bottom: 60px; width: 18px; aspect-ratio: 1; border-radius: 50%; background: ${BUBBLE}; opacity: 0;
     animation: sk-rise 9s linear infinite;`)
   const rising = [["6%", 14, 0], ["11%", 9, -2.5], ["15%", 20, -5], ["86%", 12, -1], ["90%", 18, -4], ["94%", 8, -6.5], ["9%", 11, -7.5], ["88%", 10, -3.2]]
   rising.forEach(([left, size, delay], i) => rule(`${sc} [data-sk="bubble"]:nth-child(${9 + i})`, `left: ${left}; width: ${size}px; animation-delay: ${delay}s; animation-duration: ${8 + (i % 3) * 2}s;`))
-  rule(`${sc} [data-sk="glint"]`, `position: absolute; width: 18px; aspect-ratio: 1; background: ${SPARK("#bff4ff")} center / contain no-repeat; animation: sk-twinkle 5s ease-in-out infinite;`)
+  rule(`${sc} [data-sk="glint"]`, `position: absolute; width: 12px; aspect-ratio: 1; background: ${SPARK("#bff4ff")} center / contain no-repeat; opacity: .6; animation: sk-twinkle 6s ease-in-out infinite;`)
   rule(`${sc} [data-sk="glint"]:nth-child(17)`, `top: 64px; right: 18%;`)
   rule(`${sc} [data-sk="glint"]:nth-child(18)`, `top: 38%; left: 10%; width: 12px; animation-delay: -2s;`)
   material("aero2", NIGHT)
