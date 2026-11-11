@@ -85,6 +85,7 @@ import { hapticTap } from "@/lib/native-bridge"
 import { SHEET_BLOCKS, blockInteraction, interactionPatch, offersInteraction, type BlockInteraction } from "@/lib/onepage/block-sheet"
 import { ModeChoice, SettingsGroup } from "@/components/onepage/block-settings-kit"
 import { BlockSheetButton } from "@/components/onepage/block-sheet-trigger"
+import { FRAME_FADE_MS, frameFade, useFrameShown } from "@/components/onepage/embed-shell"
 
 export { EXTRA_BLOCK_TYPES, extraBlockHasContent, isExtraBlock, isScheduledNow, scheduleLabel, videoSource, type ExtraBlockType } from "@/lib/onepage/extra-blocks"
 
@@ -312,11 +313,23 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
   )
 }
 
+/** A map in the sheet (round AS): the sheet's quiet fill until the map has loaded, then the map faded in over it. */
+function MapSheetFrame({ title, src }: { title: string; src: string }) {
+  const [shown, onLoad] = useFrameShown(src)
+  return (
+    <div className="relative h-full min-h-[320px] w-full overflow-hidden rounded-[16px]" data-map-sheet="" data-embed-shown={shown ? "" : undefined} style={{ background: "var(--sheet-field, rgba(127,127,127,0.12))" }}>
+      <iframe title={title} src={src} onLoad={onLoad} referrerPolicy="no-referrer-when-downgrade" className="absolute inset-0 block h-full w-full border-0" style={frameFade(shown)} />
+    </div>
+  )
+}
+
 /* ─── Video ────────────────────────────────────────────────────────────── */
 
 function VideoView({ data, look, autoplay = false }: { data: VideoBlockData; look: ExtraBlockLook; /** In the sheet: the tap that opened it was the press. */ autoplay?: boolean }) {
   const source = videoSource(data.url)
   const [playing, setPlaying] = React.useState(autoplay)
+  /* Round AS (./embed-shell): the video's own picture under the player until the player has loaded. */
+  const [shown, onLoad] = useFrameShown(playing && source && source.kind !== "file" ? data.url : null)
   if (!source) return null
   const radius = `${boxRadius(look.theme)}px`
   /* Round AR3: a video Storelib holds plays in Storelib's own light player (./media-blocks). */
@@ -335,7 +348,7 @@ function VideoView({ data, look, autoplay = false }: { data: VideoBlockData; loo
   const tall = source.kind === "tiktok"
   const src =
     source.kind === "youtube"
-      ? `https://www.youtube-nocookie.com/embed/${source.id}?autoplay=1&rel=0&playsinline=1`
+      ? /* enablejsapi: a kept sheet tells it to pause as the sheet goes (lib/onepage/embed-warm pauseFrames). */ `https://www.youtube-nocookie.com/embed/${source.id}?autoplay=1&rel=0&playsinline=1&enablejsapi=1`
       : source.kind === "vimeo"
         ? `https://player.vimeo.com/video/${source.id}?autoplay=1`
         : tiktokPlayerUrl(source.id)
@@ -350,15 +363,24 @@ function VideoView({ data, look, autoplay = false }: { data: VideoBlockData; loo
       <div
         className={cn("relative mx-auto w-full overflow-hidden bg-black", tall ? "aspect-[9/16] max-w-[320px]" : "aspect-video")}
         style={{ borderRadius: radius }}
+        data-embed-shown={playing && shown ? "" : undefined}
       >
         {playing ? (
-          <iframe
-            title={data.title || tt("Video")}
-            src={src}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            className="absolute inset-0 h-full w-full border-0"
-          />
+          <>
+            {poster ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={poster} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover motion-safe:transition-opacity" style={{ opacity: shown ? 0 : 1, transitionDuration: `${FRAME_FADE_MS}ms` }} />
+            ) : null}
+            <iframe
+              title={data.title || tt("Video")}
+              src={src}
+              onLoad={onLoad}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              className="absolute inset-0 h-full w-full border-0"
+              style={frameFade(shown)}
+            />
+          </>
         ) : (
           /*
             THE PLAYER LOADS ON THE FIRST PRESS. A YouTube player is close to a
@@ -461,6 +483,7 @@ function SheetBlock({ block, look, mode }: { block: OnePageBlock; look: ExtraBlo
       still={look.still}
       small={look.scale === "small"}
       sheet={() => ({ title: plan.title, body: plan.body(), cta: plan.cta, shareUrl: plan.href, fill: plan.fill })}
+      prewarm={block.type !== "video" && block.type !== "contact_form"}
     />
   )
 }
@@ -581,14 +604,7 @@ function sheetPlan(block: OnePageBlock, look: ExtraBlockLook): SheetPlan | null 
         icon: <MapPin aria-hidden className="h-[22px] w-[22px]" />,
         href,
         fill: true,
-        body: () => (
-          <iframe
-            title={tt("Map of {address}", { address })}
-            src={`https://maps.google.com/maps?q=${q}&z=${MAP_ZOOM[d.zoom || "area"] ?? 15}&output=embed`}
-            referrerPolicy="no-referrer-when-downgrade"
-            className="block h-full min-h-[320px] w-full rounded-[16px] border-0"
-          />
-        ),
+        body: () => <MapSheetFrame title={tt("Map of {address}", { address })} src={`https://maps.google.com/maps?q=${q}&z=${MAP_ZOOM[d.zoom || "area"] ?? 15}&output=embed`} />,
         cta: { label: tt("Open in Maps"), href, icon: <MapPin aria-hidden /> },
       }
     }

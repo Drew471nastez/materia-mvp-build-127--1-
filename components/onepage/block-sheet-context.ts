@@ -37,13 +37,31 @@ export interface BlockSheetRequest {
 export interface BlockSheetApi {
   open: (request: BlockSheetRequest) => void
   close: () => void
+  /**
+   * Round AS: start a sheet's content hidden, before the tap lands (a mouse
+   * resting on the button, a finger coming down on it), so an embed in it is
+   * already loading when the sheet rises (lib/onepage/embed-warm). Never for
+   * content that plays on its own. Does nothing where no sheet is drawn.
+   */
+  prewarm: (request: BlockSheetRequest) => void
   /** False where no provider is drawn (a block rendered on its own): callers then go to the address directly. */
   available: boolean
 }
 
-const NONE: BlockSheetApi = { open: () => {}, close: () => {}, available: false }
+const NONE: BlockSheetApi = { open: () => {}, close: () => {}, prewarm: () => {}, available: false }
 
 export const BlockSheetContext = createContext<BlockSheetApi>(NONE)
+
+/**
+ * True inside the sheet's body: a post drawn there shows whole
+ * (components/onepage/compact-post), and a frame there loads at once rather
+ * than lazily (round AS), since the sheet is on screen the moment it exists.
+ */
+export const InBlockSheetContext = createContext(false)
+
+export function useInBlockSheet(): boolean {
+  return useContext(InBlockSheetContext)
+}
 
 export function useBlockSheet(): BlockSheetApi {
   return useContext(BlockSheetContext)

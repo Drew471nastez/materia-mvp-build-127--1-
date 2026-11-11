@@ -102,6 +102,7 @@ import { bookingProviderName, bookingSource, tiktokPlayerUrl } from "@/lib/onepa
 import { BookingFrame } from "@/components/onepage/embed-frame"
 import { BlockSheetProvider, useBlockSheet } from "@/components/onepage/block-sheet"
 import { MusicPlayer, appleMusicEmbedUrl, musicSheetRequest, spotifyEmbedUrl } from "@/components/onepage/music-sheet"
+import { warmEmbed } from "@/lib/onepage/embed-warm"
 import { PdfOnPage, PdfPages } from "@/components/onepage/pdf-pages"
 import { blockInteraction } from "@/lib/onepage/block-sheet"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
@@ -2804,17 +2805,18 @@ function CoreBlockRenderer({
   }
 
   /* The player in the block sheet; with "Show streaming", the other services under it. */
+  const spotifyRequest = (data: LinkButtonBlockData) => ({
+    blockId: block.id,
+    ...musicSheetRequest({
+      service: "spotify",
+      url: data.url,
+      title: data.label || "Spotify",
+      streaming: data.spotify_mode === "show_streaming" ? data.streaming_services : null,
+    }),
+  })
   const openSpotifyModal = (data: LinkButtonBlockData) => {
     if (!spotifyEmbedUrl(data.url)) return
-    pageSheet.open({
-      blockId: block.id,
-      ...musicSheetRequest({
-        service: "spotify",
-        url: data.url,
-        title: data.label || "Spotify",
-        streaming: data.spotify_mode === "show_streaming" ? data.streaming_services : null,
-      }),
-    })
+    pageSheet.open(spotifyRequest(data))
   }
 
   // Apple Music URL helper
@@ -2836,10 +2838,14 @@ function CoreBlockRenderer({
     return match ? match[1] : null
   }
 
+  const appleMusicRequest = (data: LinkButtonBlockData) => ({ blockId: block.id, ...musicSheetRequest({ service: "apple_music", url: data.url, title: data.label || "Apple Music" }) })
   const openAppleMusicModal = (data: LinkButtonBlockData) => {
     if (!appleMusicEmbedUrl(data.url)) return
-    pageSheet.open({ blockId: block.id, ...musicSheetRequest({ service: "apple_music", url: data.url, title: data.label || "Apple Music" }) })
+    pageSheet.open(appleMusicRequest(data))
   }
+  /* Round AS (lib/onepage/embed-warm): the player's hosts warmed on screen, and the player itself started hidden on a press or a resting mouse. */
+  const musicWarm = (data: LinkButtonBlockData, service: "spotify" | "apple_music") =>
+    warmEmbed(data.url, () => pageSheet.prewarm(service === "spotify" ? spotifyRequest(data) : appleMusicRequest(data)))
 
   // Parse gradient to get colors for fade
   const getGradientBottomColor = () => {
@@ -3668,6 +3674,7 @@ function CoreBlockRenderer({
                 trackClick(block.id, data.url)
                 openSpotifyModal(data)
               }}
+              {...musicWarm(data, "spotify")}
               className={cn("op-card w-full overflow-hidden cursor-pointer block", getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
@@ -3691,6 +3698,7 @@ function CoreBlockRenderer({
                 trackClick(block.id, data.url)
                 openAppleMusicModal(data)
               }}
+              {...musicWarm(data, "apple_music")}
               className={cn("op-card w-full overflow-hidden cursor-pointer block", getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
@@ -3754,6 +3762,7 @@ function CoreBlockRenderer({
               trackClick(block.id, data.url)
               openSpotifyModal(data)
             }}
+            {...musicWarm(data, "spotify")}
             {...buttonHoverAttrs}
             className={cn(
               "op-btn w-full flex items-center font-medium cursor-pointer",
@@ -3809,6 +3818,7 @@ function CoreBlockRenderer({
               trackClick(block.id, data.url)
               openAppleMusicModal(data)
             }}
+            {...musicWarm(data, "apple_music")}
             {...buttonHoverAttrs}
             className={cn(
               "op-btn w-full relative flex items-center justify-center font-medium cursor-pointer",

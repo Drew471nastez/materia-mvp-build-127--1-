@@ -64,11 +64,12 @@ import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notic
 import { backInFlight, backThen } from "@/lib/navigation/go-back"
 import { KEYBOARD_CHANGE_EVENT, readPublishedKeyboardInset } from "@/lib/ui/keyboard-safe-sheet"
 import { keyboardState, revealDelta, type KeyboardMemory } from "@/lib/onepage/feel"
+import { keepableSheet, pauseFrames } from "@/lib/onepage/embed-warm"
 
 export type OpenMode = "sheet" | "direct"
 
 /* The contract (the request, the API, the context and its hook) lives in ./block-sheet-context (round AN), so asking for the sheet does not load it. */
-import { BlockSheetContext, SheetBackContext, type BlockSheetApi, type BlockSheetRequest, type SheetBackApi } from "./block-sheet-context"
+import { BlockSheetContext, InBlockSheetContext, SheetBackContext, type BlockSheetApi, type BlockSheetRequest, type SheetBackApi } from "./block-sheet-context"
 export { BlockSheetContext, type BlockSheetApi, type BlockSheetRequest } from "./block-sheet-context"
 
 export function useBlockSheet(): BlockSheetApi {
@@ -81,8 +82,8 @@ export function openModeOf(data: unknown, fallback: OpenMode = "direct"): OpenMo
   return mode === "sheet" || mode === "direct" ? mode : fallback
 }
 
-/** True inside the sheet's body: a post drawn there shows whole (components/onepage/compact-post). */
-export const InBlockSheetContext = createContext(false)
+/* True inside the sheet's body (./block-sheet-context, round AS: there, so an embed asks without loading the sheet). */
+export { InBlockSheetContext } from "./block-sheet-context"
 
 /**
  * The page's theme, for what a block draws in the page's own button style
@@ -93,7 +94,21 @@ export const PageThemeContext = createContext<ButtonThemeLike | null>(null)
 
 /* ── The provider ───────────────────────────────────────────────────────── */
 
-type Shown = { request: BlockSheetRequest; key: number }
+/*
+ * KEPT (round AS). A sheet that held an embed (a player, a map, a post) is
+ * not thrown away when it closes: it stays mounted, hidden and out of reach,
+ * and the next tap on the same block shows it again with its frame already
+ * loaded, nothing asked for twice. A player in it is told to pause as the
+ * sheet goes (lib/onepage/embed-warm pauseFrames); a frame whose service
+ * cannot be told is not kept. The same hidden sheet is how a sheet is
+ * started before the tap (prewarm). At most KEEP_SHEETS are kept, the
+ * longest unused going first. A sheet without a frame (a form, a list) goes
+ * as it always did, so it opens fresh each time.
+ */
+const KEEP_SHEETS = 3
+
+type SheetState = "open" | "closing" | "kept"
+type Shown = { request: BlockSheetRequest; key: number; state: SheetState; session: number; used: number }
 
 export function BlockSheetProvider({
   children,
@@ -106,27 +121,48 @@ export function BlockSheetProvider({
   /** The page's theme, handed on to the blocks inside (PageThemeContext). */
   theme?: ButtonThemeLike | null
 }) {
-  const [shown, setShown] = useState<Shown | null>(null)
-  const [open, setOpen] = useState(false)
+  const [sheets, setSheets] = useState<Shown[]>([])
   const count = useRef(0)
-  const api = useMemo<BlockSheetApi>(
-    () => ({
+  const api = useMemo<BlockSheetApi>(() => {
+    const trim = (list: Shown[]) => {
+      const kept = list.filter((x) => x.state === "kept").sort((a, b) => b.used - a.used)
+      const drop = new Set(kept.slice(KEEP_SHEETS).map((x) => x.key))
+      return drop.size ? list.filter((x) => !drop.has(x.key)) : list
+    }
+    return {
       open: (request) => {
         count.current += 1
-        setShown({ request, key: count.current })
-        setOpen(true)
+        const n = count.current
+        setSheets((list) => {
+          const same = list.find((x) => x.request.blockId === request.blockId && x.state !== "open")
+          /* One window at a time: anything else still up goes at once, as a new sheet always replaced the last. */
+          const rest = list.filter((x) => x !== same && x.state === "kept")
+          const next: Shown = same ? { ...same, request, state: "open", session: n, used: n } : { request, key: n, state: "open", session: n, used: n }
+          return trim([...rest, next])
+        })
       },
-      close: () => setOpen(false),
+      close: () => setSheets((list) => (list.some((x) => x.state === "open") ? list.map((x) => (x.state === "open" ? { ...x, state: "closing" as const } : x)) : list)),
+      prewarm: (request) => {
+        setSheets((list) => {
+          if (list.some((x) => x.request.blockId === request.blockId)) return list
+          count.current += 1
+          return trim([...list, { request, key: count.current, state: "kept", session: 0, used: count.current }])
+        })
+      },
       available: true,
-    }),
-    [],
-  )
-  const gone = useCallback(() => setShown(null), [])
+    }
+  }, [])
+  /* Gone from the screen: kept for the next tap when it holds what is worth keeping, else unmounted. */
+  const gone = useCallback((key: number, keep: boolean) => {
+    setSheets((list) => list.flatMap((x) => (x.key !== key || x.state !== "closing" ? [x] : keep ? [{ ...x, state: "kept" as const }] : [])))
+  }, [])
   return (
     <BlockSheetContext.Provider value={api}>
       <PageThemeContext.Provider value={theme}>
         {children}
-        {shown ? <BlockSheetView key={shown.key} request={shown.request} open={open} dark={dark} onClose={api.close} onGone={gone} /> : null}
+        {sheets.map((x) => (
+          <BlockSheetView key={x.key} sheetKey={x.key} request={x.request} open={x.state === "open"} kept={x.state === "kept"} session={x.session} dark={dark} onClose={api.close} onGone={gone} />
+        ))}
       </PageThemeContext.Provider>
     </BlockSheetContext.Provider>
   )
@@ -172,7 +208,27 @@ function historyWith(mark: string | null): Record<string, unknown> {
   return mark ? { ...st, [BLOCK_SHEET_HISTORY_KEY]: mark } : st
 }
 
-function BlockSheetView({ request, open, dark, onClose, onGone }: { request: BlockSheetRequest; open: boolean; dark: boolean; onClose: () => void; onGone: () => void }) {
+function BlockSheetView({
+  sheetKey,
+  request,
+  open,
+  kept,
+  session,
+  dark,
+  onClose,
+  onGone,
+}: {
+  sheetKey: number
+  request: BlockSheetRequest
+  open: boolean
+  /** Hidden and out of reach, its content kept for the next tap (KEPT above). */
+  kept: boolean
+  /** Which opening this is: what belongs to one opening (history, focus, the page held still) starts again with each. */
+  session: number
+  dark: boolean
+  onClose: () => void
+  onGone: (key: number, keep: boolean) => void
+}) {
   const rootRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
@@ -198,7 +254,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
   const [typing, setTyping] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
-  useStillPage(true, rootRef)
+  useStillPage(!kept, rootRef)
   /*
     Back inside the sheet (round AR): a form or a booking with steps takes Back while it has a step to go back to
     (SheetBackContext). The newest taker answers first.
@@ -221,25 +277,41 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
   }, [])
 
   const closeRef = useRef(onClose)
-  const goneRef = useRef(onGone)
+  /* Gone from the screen: kept when its content holds frames that can be (lib/onepage/embed-warm keepableSheet). */
+  const goneRef = useRef(() => onGone(sheetKey, keepableSheet(bodyRef.current)))
   const requestRef = useRef(request)
   useEffect(() => {
     closeRef.current = onClose
-    goneRef.current = onGone
+    goneRef.current = () => onGone(sheetKey, keepableSheet(bodyRef.current))
     requestRef.current = request
   })
+
+  /* A new opening of a kept sheet starts clean: nothing of the last one's closing carries over. */
+  useLayoutEffect(() => {
+    if (kept) return
+    after.current = { run: null, gone: false, left: true }
+    swipedOut.current = false
+    setTyping(false)
+    setCopied(false)
+  }, [session, kept])
 
   const fill = !!request.fill
 
   /* Who opened it, read before anything inside takes focus. */
   useLayoutEffect(() => {
+    if (kept) return
     opener.current = document.activeElement as HTMLElement | null
-  }, [])
+  }, [session, kept])
 
   /* ── The motion: before the first paint, from where the card is. ── */
   useLayoutEffect(() => {
     const panel = panelRef.current
     const backdrop = backdropRef.current
+    if (kept) {
+      /* Put away: nothing of the last motion stays, so the next opening rises from the start. */
+      if (panel && backdrop && typeof panel.getAnimations === "function") for (const a of [...panel.getAnimations(), ...backdrop.getAnimations()]) a.cancel()
+      return
+    }
     if (!panel || !backdrop || typeof panel.animate !== "function") {
       if (!open) goneRef.current()
       return
@@ -283,6 +355,8 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
       move = panel.animate([from, { ...end, opacity: "0" }], { duration: ms, easing: M.closeEase, fill: "both" })
     }
     backdrop.animate([{ opacity: wasBackdrop }, { opacity: "0" }], { duration: ms, easing: "ease-in", fill: "both" })
+    /* A player in it stops as the sheet goes, whether or not the sheet is kept. */
+    pauseFrames(bodyRef.current)
     let done = false
     const finish = () => {
       if (done) return
@@ -293,7 +367,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
     /* A background tab never finishes an animation: gone regardless, a little after it should have. */
     const t = window.setTimeout(finish, ms + 120)
     return () => window.clearTimeout(t)
-  }, [open])
+  }, [open, kept])
 
   /* ── Told once that it is closing; the floating page buttons hide while it is up, as under every window on the page. ── */
   useEffect(() => {
@@ -301,11 +375,12 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
       told.current = false
       return
     }
-    if (told.current) return
+    if (kept || told.current) return
     told.current = true
     requestRef.current.onClose?.()
-  }, [open])
+  }, [open, kept])
   useEffect(() => {
+    if (kept) return
     window.dispatchEvent(new CustomEvent("pdfModalStateChange", { detail: { isOpen: true } }))
     return () => {
       window.dispatchEvent(new CustomEvent("pdfModalStateChange", { detail: { isOpen: false } }))
@@ -315,12 +390,12 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
       if (!after.current.run && requestRef.current.onGone) after.current.run = requestRef.current.onGone
       runAfter()
     }
-  }, [runAfter])
+  }, [runAfter, session, kept])
 
   /* ── History: the sheet stands on an entry of its own, so Back closes it. ── */
   useEffect(() => {
-    if (isOnePagePreview()) return
-    const m = `${request.blockId}:${Date.now().toString(36)}`
+    if (kept || isOnePagePreview()) return
+    const m = `${requestRef.current.blockId}:${Date.now().toString(36)}`
     try {
       window.history.pushState(historyWith(m), "", window.location.href)
       mark.current = m
@@ -347,8 +422,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
     }
     window.addEventListener("popstate", onPop)
     return () => window.removeEventListener("popstate", onPop)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [session, kept, stepBack])
 
   /* Closed some other way than Back: step off our entry, so Back from the page leaves the page and nothing else. */
   const leaveHistory = useCallback((then?: () => void) => {
@@ -807,21 +881,29 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
     "grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--sheet-bg)] text-[var(--sheet-ink)] shadow-[0_1px_2px_rgba(0,0,0,0.08),0_4px_14px_rgba(0,0,0,0.10)] ring-1 ring-[var(--sheet-rule)] transition-[scale] duration-150 [-webkit-tap-highlight-color:transparent] active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink)]"
   const external = !!cta?.href && /^https?:/i.test(cta.href)
 
+  /* The sheet's own marks, which the page's probes and drag-scroll look for, only while it is up: a kept sheet carries none. */
+  const tag = (name: string): Record<string, string> => (kept ? {} : { [name]: "" })
+
   return createPortal(
     <div
       ref={rootRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      data-block-sheet=""
+      role={kept ? undefined : "dialog"}
+      aria-modal={kept ? undefined : true}
+      aria-label={kept ? undefined : title}
+      aria-hidden={kept ? true : undefined}
+      inert={kept ? true : undefined}
+      data-block-sheet-kept={kept ? "" : undefined}
+      {...tag("data-block-sheet")}
       data-block-sheet-open={open ? "" : undefined}
       className="fixed inset-0 z-[200] flex items-end justify-center overscroll-contain sm:items-center sm:p-6"
+      /* Kept: laid out where it opens, so its frame keeps its size and nothing reflows when it comes back, but unseen and out of reach. */
+      style={kept ? { visibility: "hidden", pointerEvents: "none" } : undefined}
     >
-      <div ref={backdropRef} aria-hidden onClick={onClose} data-block-sheet-backdrop="" className="absolute inset-0" style={{ background: `rgba(0,0,0,${SHEET_MOTION.backdrop})`, opacity: 0 }} />
+      <div ref={backdropRef} aria-hidden onClick={onClose} {...tag("data-block-sheet-backdrop")} className="absolute inset-0" style={{ background: `rgba(0,0,0,${SHEET_MOTION.backdrop})`, opacity: 0 }} />
       <div
         ref={panelRef}
         tabIndex={-1}
-        data-block-sheet-panel=""
+        {...tag("data-block-sheet-panel")}
         style={{ ...sheetTokens(dark, true), opacity: 0 }}
         className={cn(
           "relative mx-2 flex w-full origin-bottom flex-col overflow-hidden rounded-t-[24px] bg-[var(--sheet-bg)] text-[var(--sheet-body)] shadow-[0_-8px_40px_rgba(0,0,0,0.18)] outline-none will-change-[translate,scale,opacity]",
@@ -848,11 +930,11 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
           The grip: the sheet can be drawn down, by a finger from anywhere, by a mouse from here and the title
           (round AP, on a computer too). Drawn over the title's top padding, so nothing moves.
         */}
-        <span aria-hidden data-block-sheet-grip="" className="pointer-events-none absolute left-1/2 top-[6px] h-[4px] w-9 -translate-x-1/2 rounded-full bg-[var(--sheet-muted)] opacity-35" />
+        <span aria-hidden {...tag("data-block-sheet-grip")} className="pointer-events-none absolute left-1/2 top-[6px] h-[4px] w-9 -translate-x-1/2 rounded-full bg-[var(--sheet-muted)] opacity-35" />
         <h2
           className="shrink-0 cursor-grab select-none truncate px-14 pb-2.5 pt-4 text-center text-[15px] font-medium text-[var(--sheet-ink)] active:cursor-grabbing"
-          data-block-sheet-title=""
-          data-block-sheet-handle=""
+          {...tag("data-block-sheet-title")}
+          {...tag("data-block-sheet-handle")}
         >
           {title}
         </h2>
@@ -861,11 +943,11 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
           ref={bodyRef}
           className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden", fill ? "flex flex-col" : "pb-2", typing && "pb-4")}
           data-onepage-dialog-scroll=""
-          data-block-sheet-body=""
+          {...tag("data-block-sheet-body")}
         >
           {fill ? (
             /* Round AR: nothing that looks like loading for the first half second; a page that answers by then is simply there. */
-            <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1.5 [animation:op-late-in_200ms_ease-out_500ms_both] motion-reduce:[animation:none]" data-block-sheet-dots="">
+            <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1.5 [animation:op-late-in_200ms_ease-out_500ms_both] motion-reduce:[animation:none]" {...tag("data-block-sheet-dots")}>
               {[0, 1, 2].map((i) => (
                 <span key={i} className="h-1.5 w-1.5 rounded-full bg-[var(--sheet-muted)] opacity-60 motion-safe:animate-pulse" style={{ animationDelay: `${i * 160}ms` }} />
               ))}
@@ -875,7 +957,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
         </div>
         <div
           className={cn("shrink-0 items-center gap-2 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3", typing ? "hidden" : "flex")}
-          data-block-sheet-foot=""
+          {...tag("data-block-sheet-foot")}
           data-block-sheet-typing={typing ? "" : undefined}
         >
           {cta ? (
@@ -885,7 +967,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
                 target={external ? "_blank" : undefined}
                 rel={external ? "noopener noreferrer" : undefined}
                 onClick={pressCta}
-                data-block-sheet-cta=""
+                {...tag("data-block-sheet-cta")}
                 className="flex h-11 min-w-0 max-w-[60%] items-center gap-2 rounded-full bg-[var(--sheet-ink)] px-4 text-[14px] font-semibold text-[var(--sheet-on-ink)] transition-[scale] duration-150 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink)] focus-visible:ring-offset-2"
               >
                 {cta.icon ? <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center [&>svg]:h-[18px] [&>svg]:w-[18px]">{cta.icon}</span> : null}
@@ -895,7 +977,7 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
               <button
                 type="button"
                 onClick={pressCta}
-                data-block-sheet-cta=""
+                {...tag("data-block-sheet-cta")}
                 className="flex h-11 min-w-0 max-w-[60%] items-center gap-2 rounded-full bg-[var(--sheet-ink)] px-4 text-[14px] font-semibold text-[var(--sheet-on-ink)] transition-[scale] duration-150 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink)] focus-visible:ring-offset-2"
               >
                 {cta.icon ? <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center [&>svg]:h-[18px] [&>svg]:w-[18px]">{cta.icon}</span> : null}
@@ -905,11 +987,11 @@ function BlockSheetView({ request, open, dark, onClose, onGone }: { request: Blo
           ) : null}
           <span className="flex-1" />
           {shareUrl ? (
-            <button type="button" onClick={() => void share()} aria-label={copied ? tt("Link copied") : tt("Share")} data-block-sheet-share="" className={round}>
+            <button type="button" onClick={() => void share()} aria-label={copied ? tt("Link copied") : tt("Share")} {...tag("data-block-sheet-share")} className={round}>
               {copied ? <Check aria-hidden className="h-[18px] w-[18px]" /> : <Share aria-hidden className="h-[18px] w-[18px]" />}
             </button>
           ) : null}
-          <button type="button" onClick={onClose} aria-label={tt("Close")} data-block-sheet-close="" className={round}>
+          <button type="button" onClick={onClose} aria-label={tt("Close")} {...tag("data-block-sheet-close")} className={round}>
             <X aria-hidden className="h-[18px] w-[18px]" />
           </button>
           <span aria-live="polite" className="sr-only">
