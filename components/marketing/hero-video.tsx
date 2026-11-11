@@ -30,7 +30,10 @@ export function HeroVideo() {
       frame: number | undefined,
       stallTimer: ReturnType<typeof setTimeout> | undefined,
       retryTimer: ReturnType<typeof setTimeout> | undefined,
-      retries = 0
+      retries = 0,
+      attempt = 0,
+      autoplayBlocked = false,
+      resumeFrame = 0
     const allowed = () =>
       !motion.matches &&
       !data.matches &&
@@ -40,6 +43,7 @@ export function HeroVideo() {
       clearTimeout(stallTimer)
       const enabled = allowed()
       if (!enabled) {
+        attempt++
         video.pause()
         if (video.hasAttribute("src")) {
           video.removeAttribute("src")
@@ -53,6 +57,7 @@ export function HeroVideo() {
         !visible ||
         hero.getAttribute("data-motion-paused") === "true"
       ) {
+        attempt++
         video.pause()
         return
       }
@@ -63,11 +68,18 @@ export function HeroVideo() {
         video.load()
       }
       // Autoplay policies may reject even a muted video. Keep the poster and form.
+      const ticket = ++attempt
       video.play()?.catch((error: unknown) => {
         if (
           !disposed &&
+          ticket === attempt &&
+          !document.hidden &&
+          visible &&
+          hero.getAttribute("data-motion-paused") !== "true" &&
           !(error instanceof DOMException && error.name === "AbortError")
         ) {
+          autoplayBlocked =
+            error instanceof DOMException && error.name === "NotAllowedError"
           failed = true
           setReady(false)
         }
@@ -123,6 +135,30 @@ export function HeroVideo() {
         retryTimer = setTimeout(retry, 1500 * (retries + 1))
       }
     }
+    const resume = () => {
+      if (document.hidden || disposed) return
+      const rect = hero.getBoundingClientRect()
+      visible = rect.bottom > 0 && rect.top < innerHeight
+      if (autoplayBlocked) {
+        autoplayBlocked = false
+        failed = false
+      }
+      if (failed) {
+        retry()
+        return
+      }
+      update()
+    }
+    const onResume = () => {
+      if (document.hidden) {
+        attempt++
+        video.pause()
+        return
+      }
+      resume()
+      cancelAnimationFrame(resumeFrame)
+      resumeFrame = requestAnimationFrame(resume)
+    }
     const observer =
       typeof IntersectionObserver === "function"
         ? new IntersectionObserver(([entry]) => {
@@ -142,7 +178,10 @@ export function HeroVideo() {
     motion.addEventListener("change", update)
     data.addEventListener("change", update)
     connection?.addEventListener("change", update)
-    document.addEventListener("visibilitychange", update)
+    document.addEventListener("visibilitychange", onResume)
+    document.addEventListener("resume", onResume)
+    window.addEventListener("pageshow", onResume)
+    window.addEventListener("focus", onResume)
     video.addEventListener("playing", playing)
     video.addEventListener("error", error)
     video.addEventListener("waiting", waiting)
@@ -153,6 +192,8 @@ export function HeroVideo() {
     else if (video.readyState >= 2 && !video.paused) playing()
     return () => {
       disposed = true
+      attempt++
+      cancelAnimationFrame(resumeFrame)
       clearTimeout(stallTimer)
       clearTimeout(retryTimer)
       observer?.disconnect()
@@ -162,7 +203,10 @@ export function HeroVideo() {
       motion.removeEventListener("change", update)
       data.removeEventListener("change", update)
       connection?.removeEventListener("change", update)
-      document.removeEventListener("visibilitychange", update)
+      document.removeEventListener("visibilitychange", onResume)
+      document.removeEventListener("resume", onResume)
+      window.removeEventListener("pageshow", onResume)
+      window.removeEventListener("focus", onResume)
       video.removeEventListener("playing", playing)
       video.removeEventListener("error", error)
       video.removeEventListener("waiting", waiting)

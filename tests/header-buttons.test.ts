@@ -76,7 +76,7 @@ console.log("\n3. the cinematic hero signup")
   const hero = readCode("components/marketing/hero.tsx")
   const css = hero
   check("signup stays below the description", hero.indexOf("<HeroCta") > hero.indexOf("cinematic-description"))
-  check("signup has the requested pill controls and the marketplace is a link", /border-radius: 999px/.test(css) && /className="cinematic-marketplace"/.test(readCode("components/marketing/hero-cta.tsx")) && !/role="search"/.test(hero))
+  check("signup and search use one shared corner and the marketplace is a link", /--hero-control-radius: 12px/.test(css) && /className="cinematic-marketplace"/.test(readCode("components/marketing/hero-cta.tsx")) && !/role="search"/.test(hero))
 }
 
 

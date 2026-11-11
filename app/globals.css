@@ -9906,3 +9906,13 @@ html[data-op-press] [data-op-letgo] {
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--op-bar-ink, #000) 8%, transparent), 0 14px 32px -18px rgba(0, 0, 0, 0.4);
   }
 }
+
+/* The header's search tail follows its dark field; Explore's light field keeps its own look. */
+[data-header-tone="dark"] [data-header-search-tail] > div > span[aria-hidden] { background-color:rgba(255,255,255,.15); }
+[data-header-tone="dark"] [data-header-search-tail] .search-categories-trigger { color:rgba(255,255,255,.68); background-color:transparent; }
+[data-header-tone="dark"] [data-header-search-tail] .search-categories-trigger:hover,
+[data-header-tone="dark"] [data-header-search-tail] .search-categories-trigger:focus-visible,
+[data-header-tone="dark"] [data-header-search-tail] .search-categories-trigger[aria-expanded="true"] { color:#fff; background-color:rgba(255,255,255,.09); }
+
+[data-header-tone="dark"] [data-header-search-tail] > button { color:rgba(255,255,255,.6); }
+[data-header-tone="dark"] [data-header-search-tail] > button:hover { color:#fff; background-color:rgba(255,255,255,.07); }
