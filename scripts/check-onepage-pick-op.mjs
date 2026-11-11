@@ -21,6 +21,8 @@
  *   again      the list scrolled away, a click on the open block brings the
  *              list back to its card, and the page still hears it
  *   header     a click on the name in the preview opens the header block
+ *   autoplay   a YouTube video set to play by itself loads its player muted
+ *              once it is on screen, and not before
  *
  *   node scripts/check-onepage-pick-op.mjs
  *   SHOTS=<dir>  screenshots;  REPORT=1  numbers only, nothing fails
@@ -45,6 +47,7 @@ const links = Array.from({ length: 12 }, (_, i) => ({ id: `l${i}`, type: "link_b
 const blocks = [
   { id: "hdr", type: "header", enabled: true, sort_order: 0, data: { show_avatar: true, show_name: true, show_bio: true } },
   { id: "yt", type: "video", enabled: true, sort_order: 1, data: { url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", layout: "player" } },
+  { id: "auto", type: "video", enabled: true, sort_order: 30, data: { url: "https://youtu.be/aqz-KE-bpKQ", layout: "player", autoplay: true } },
   ...links,
   { id: "last", type: "link_button", enabled: true, sort_order: 40, data: { label: "The last link", url: "https://example.com/last" } },
 ]
@@ -62,6 +65,8 @@ try {
   const frame = await (await p.$("[data-onepage-phone] iframe")).contentFrame()
   await frame.waitForSelector('[data-op-block="last"]', { timeout: 20000 })
   await sleep(600)
+  /* Before anything scrolls: the self playing video is far down the page. */
+  const before = await frame.evaluate(() => document.querySelector('[data-op-block="auto"] [data-video-autoplay]')?.getAttribute("data-video-autoplay") ?? null)
 
   /* Where a point in the frame is on the editor's screen (the phone is zoomed). */
   const at = (sel, fx = 0.5, fy = 0.5) => p.evaluate((sel, fx, fy) => {
@@ -185,6 +190,16 @@ try {
   await p.mouse.click(t.x, t.y)
   await sleep(800)
   expect((await openId()) === "hdr", "a click on the name opens the header", await openId())
+
+  console.log("\nautoplay: a YouTube video that plays by itself")
+  await scrollFrameTo('[data-op-block="auto"]')
+  await sleep(700)
+  const after = await frame.evaluate(() => {
+    const f = document.querySelector('[data-op-block="auto"] iframe')
+    return { state: document.querySelector('[data-op-block="auto"] [data-video-autoplay]')?.getAttribute("data-video-autoplay") ?? null, src: f ? f.getAttribute("src") : null }
+  })
+  expect(before === "waiting", "off screen it waits (no player loaded)", before)
+  expect(after.state === "playing" && /autoplay=1/.test(after.src || "") && /mute=1/.test(after.src || ""), "on screen its player loads, muted, playing", after)
 
   expect(errors.length === 0, "no error in the page", errors)
 } finally {

@@ -541,7 +541,7 @@ export interface VideoBlockData {
   layout?: "player" | "card" | "button"
   /** The picture shown before an uploaded video plays (and on the card). */
   poster_url?: string | null
-  /** An uploaded video starts by itself, muted, once it is on screen. */
+  /** The video starts by itself, muted, once it is on screen: an upload, YouTube or Vimeo. On for a new block. */
   autoplay?: boolean
   loop?: boolean
 }
@@ -1016,7 +1016,8 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
       return {
         ...baseBlock,
         /* Round AR3: a new video plays on the page (the owner: "play it right on the page"); its Layout offers the card and the button. */
-        data: { url: "", title: "", layout: "player", open_mode: "inline" } as VideoBlockData,
+        /* A new video starts by itself, muted, once it is on screen (the owner: "autoplay on by default"); a block saved before keeps its own choice. */
+        data: { url: "", title: "", layout: "player", open_mode: "inline", autoplay: true } as VideoBlockData,
       }
     case "course":
       return {

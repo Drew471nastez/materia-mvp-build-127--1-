@@ -13,6 +13,8 @@ import { join } from "node:path"
 import { nearestBlock, pickAction, pickStyle } from "@/lib/onepage/preview-select"
 import { appAddressFromInput, appAddressShown, appTarget, appUrlProblem } from "@/lib/onepage/app-blocks"
 import { storelibBlockHasContent, pastedPosts } from "@/lib/onepage/storelib-blocks"
+import { videoAutoplays, videoEmbedUrl, videoSource } from "@/lib/onepage/extra-blocks"
+import { createDefaultBlock } from "@/lib/onepage/types"
 import { isLinkBrandIcon, linkIconFromUrl, linkIconLabel } from "@/components/onepage/link-icons"
 
 let passed = 0
@@ -95,6 +97,20 @@ section("Canva has its own mark")
   const icons = code("components/onepage/brand-icons.tsx")
   check("drawn from SiCanva, in Canva's teal, whole", /canva: SiCanva/.test(icons) && /canva: "#00C4CC"/.test(icons) && /canva: \{ draw:/.test(icons))
   check("the Add block sheet shows it", /embed\("int_canva", "Canva", "canva", "canva"/.test(code("components/onepage/add-block-picker.tsx")))
+}
+
+section("YouTube: plays by itself, muted, on for a new block")
+{
+  const yt = videoSource("https://youtu.be/dQw4w9WgXcQ")!
+  const muted = videoEmbedUrl(yt, { muted: true }) || ""
+  check("the page's own start is muted, inline and looping", /autoplay=1/.test(muted) && /mute=1/.test(muted) && /playsinline=1/.test(muted) && /loop=1&playlist=dQw4w9WgXcQ/.test(muted))
+  check("a press loads it with its sound", !/mute=1/.test(videoEmbedUrl(yt) || "") && /autoplay=1/.test(videoEmbedUrl(yt) || ""))
+  check("Vimeo starts muted too", /muted=1/.test(videoEmbedUrl(videoSource("https://vimeo.com/76979871")!, { muted: true }) || ""))
+  check("YouTube, Vimeo and uploads can play by themselves; TikTok cannot", videoAutoplays(yt) && videoAutoplays(videoSource("https://vimeo.com/76979871")) && !videoAutoplays(videoSource("https://www.tiktok.com/@a/video/1234567890123")))
+  check("a new video block plays by itself", (createDefaultBlock("video").data as { autoplay?: boolean }).autoplay === true)
+  const view = code("components/onepage/extra-blocks.tsx")
+  check("it waits until half of it is on screen, and never for reduced motion or in a carousel", /threshold: 0\.5/.test(view) && /prefers-reduced-motion: reduce/.test(view) && /!look\.still/.test(view))
+  check("the editor offers the switch for a YouTube or Vimeo link", /data-video-autoplay-option/.test(code("components/onepage/media-editor.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

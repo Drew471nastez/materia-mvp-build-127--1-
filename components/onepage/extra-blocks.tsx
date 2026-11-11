@@ -48,7 +48,7 @@ import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { scheduleLabel, videoSource } from "@/lib/onepage/extra-blocks"
+import { scheduleLabel, videoAutoplays, videoEmbedUrl, videoSource } from "@/lib/onepage/extra-blocks"
 import { viewerZone, zoneLabel } from "@/lib/onepage/schedule"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DateTimeField } from "@/components/onepage/date-time-field"
@@ -317,6 +317,32 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
 function VideoView({ data, look, autoplay = false }: { data: VideoBlockData; look: ExtraBlockLook; /** In the sheet: the tap that opened it was the press. */ autoplay?: boolean }) {
   const source = videoSource(data.url)
   const [playing, setPlaying] = React.useState(autoplay)
+  /*
+    PLAYS BY ITSELF, MUTED (VideoBlockData autoplay, on for a new block). A
+    browser only lets a video start without a press when it is muted, so
+    the player is loaded muted once half of it is on screen, and never for
+    someone who asked for less motion or inside a carousel. The sheet's own
+    player (autoplay, above) was pressed for, so it keeps its sound.
+  */
+  const [muted, setMuted] = React.useState(false)
+  const box = React.useRef<HTMLDivElement>(null)
+  const startsAlone = !autoplay && !!data.autoplay && !look.still && !!source && source.kind !== "file" && videoAutoplays(source)
+  React.useEffect(() => {
+    const el = box.current
+    if (!startsAlone || playing || !el || typeof IntersectionObserver === "undefined") return
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return
+        io.disconnect()
+        setMuted(true)
+        setPlaying(true)
+      },
+      { threshold: 0.5 },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [startsAlone, playing])
   if (!source) return null
   const radius = `${boxRadius(look.theme)}px`
   /* Round AR3: a video Storelib holds plays in Storelib's own light player (./media-blocks). */
@@ -333,12 +359,7 @@ function VideoView({ data, look, autoplay = false }: { data: VideoBlockData; loo
     )
   }
   const tall = source.kind === "tiktok"
-  const src =
-    source.kind === "youtube"
-      ? `https://www.youtube-nocookie.com/embed/${source.id}?autoplay=1&rel=0&playsinline=1`
-      : source.kind === "vimeo"
-        ? `https://player.vimeo.com/video/${source.id}?autoplay=1`
-        : tiktokPlayerUrl(source.id)
+  const src = videoEmbedUrl(source, { muted }) ?? tiktokPlayerUrl(source.id)
   const poster = source.kind === "youtube" ? `https://i.ytimg.com/vi/${source.id}/hqdefault.jpg` : null
   return (
     <div data-onepage-video="" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
@@ -348,8 +369,10 @@ function VideoView({ data, look, autoplay = false }: { data: VideoBlockData; loo
         </p>
       ) : null}
       <div
+        ref={box}
         className={cn("relative mx-auto w-full overflow-hidden bg-black", tall ? "aspect-[9/16] max-w-[320px]" : "aspect-video")}
         style={{ borderRadius: radius }}
+        data-video-autoplay={startsAlone ? (playing ? "playing" : "waiting") : undefined}
       >
         {playing ? (
           <iframe
