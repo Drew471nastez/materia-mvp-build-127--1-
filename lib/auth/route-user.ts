@@ -225,14 +225,15 @@ export function authUnavailableResponse(): NextResponse {
  * cookie nobody could check), as against signed out. Outside a request (a
  * script, a suite with no cookie store) there is nobody to ask about: false.
  */
-export async function authUnavailableForRequest({ full = false }: { full?: boolean } = {}): Promise<boolean> {
+export async function authUnavailableForRequest({ full = false, fresh = false }: { full?: boolean; fresh?: boolean } = {}): Promise<boolean> {
   try {
     await cookies()
   } catch {
     return false
   }
   try {
-    const current = await (full ? fullReaderForRequest() : readerForRequest())
+    /* The same read the route asked (each is kept once per request), so the answer here is the one it refused on. */
+    const current = await (fresh ? strictUserForRequest() : full ? fullReaderForRequest() : readerForRequest())
     return !current.user && current.state !== "anonymous"
   } catch {
     return true
@@ -244,7 +245,7 @@ export async function authUnavailableForRequest({ full = false }: { full?: boole
  * routeUser(), readUserForRoute(), a sessionUserId helper): its own 401 when
  * Auth said nobody, 503 Try again when Auth could not say.
  */
-export async function signedOutOrRetry(signedOut: NextResponse, opts: { full?: boolean } = {}): Promise<NextResponse> {
+export async function signedOutOrRetry(signedOut: NextResponse, opts: { full?: boolean; fresh?: boolean } = {}): Promise<NextResponse> {
   return (await authUnavailableForRequest(opts)) ? authUnavailableResponse() : signedOut
 }
 

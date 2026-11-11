@@ -6,6 +6,7 @@ import { generateSignedDownloadUrl, SIGNED_DOWNLOAD_SECONDS } from "@/lib/storag
 import { canReadMembership } from "@/lib/memberships/access"
 import { requestViewer } from "@/lib/memberships/viewer"
 import { UUID } from "@/lib/memberships/server"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -25,7 +26,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pos
   const { postId, assetId } = await params
   if (!UUID.test(postId) || !UUID.test(assetId)) return NextResponse.json({ error: "File not found" }, { status: 404 })
   const viewer = await requestViewer()
-  if (!viewer) return NextResponse.json({ error: "Sign in to download this file." }, { status: 401 })
+  if (!viewer) return signedOutOrRetry(NextResponse.json({ error: "Sign in to download this file." }, { status: 401 }), { full: true })
   const admin = createAdminClient()
 
   const { data: post } = await admin.from("membership_posts").select("id, product_id, attachments, deleted_at").eq("id", postId).maybeSingle()
