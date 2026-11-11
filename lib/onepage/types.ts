@@ -73,6 +73,8 @@ export interface OnePageTheme {
   cover_crop?: { x: number; y: number; zoom: number } | null
   cover_previous_header_layout?: "classic" | "hero"
   cover_profile_layout?: boolean
+  /* Round AS (lib/onepage/theme-layout coverFades): the creator's own cover fades into the page at its foot. Missing is on. */
+  cover_fade?: boolean
   font_family: string
   // Title customization
   title_font?: string | null

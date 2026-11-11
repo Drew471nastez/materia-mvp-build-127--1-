@@ -263,7 +263,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
             <span key={`g${i}`} aria-hidden className="block w-full animate-pulse motion-reduce:animate-none" style={{ ...look.button, borderRadius: radius, aspectRatio: "16 / 11", opacity: 0.5 }} />
           ))}
         </div>
-      ) : shelfUsesProductCards(data) && shelfSource(data.source)!=="community" ? <div className={data.layout==="carousel"?"flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none]":data.layout==="grid"?"grid grid-cols-2 gap-3":"flex flex-col gap-3"}>
+      ) : shelfUsesProductCards(data) && shelfSource(data.source)!=="community" ? <div className={data.layout==="carousel"?"op-rail flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden":data.layout==="grid"?"grid grid-cols-2 gap-3":"flex flex-col gap-3"}>
        {items.map(item=><div key={item.id} className={data.layout==="carousel"?"w-[85%] shrink-0 snap-start":"min-w-0"} style={data.layout==="carousel"&&shelfSlideWidth(data.carousel_view,12)?{width:shelfSlideWidth(data.carousel_view,12)!}:undefined}><OnePageProductBlock block={{id:`${block.id}:${item.id}`,type:"product",enabled:true,sort_order:0,data:{show_price:true,show_description:true,cta_text:tt("View product"),style:"callout",...data.product_settings,...data.product_overrides?.[item.id],product_id:item.id,product_title:item.title,product_thumbnail:item.image,product_slug:item.href.split('/').filter(Boolean).pop(),product_type:item.kind,product_price_cents:item.price_cents,product_variant_min_cents:item.variant_min_price_cents,product_variant_max_cents:item.variant_max_price_cents,product_variant_count:item.variant_count,product_single_variant_id:item.single_variant_id}}} theme={look.theme} quiet={look.still} inPair={data.layout==="grid"} seller={{name:"",avatarUrl:null}} pageMoney={money} plainText={s=>s?.replace(/<[^>]*>/g,'')||''} trackClick={()=>{}} animationClass="" quick={null}/></div>)}
       </div> : list ? (        <div className="flex flex-col" style={{ gap: px(8, look.scale) }}>
           {items.map((item) => (
@@ -284,7 +284,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
           ))}
         </div>
       ) : (
-        <div data-shelf-arrange={simpleGrid ? "grid" : "carousel"} className={simpleGrid ? "grid grid-cols-2" : "-mx-1 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
+        <div data-shelf-arrange={simpleGrid ? "grid" : "carousel"} className={simpleGrid ? "grid grid-cols-2" : "op-rail flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
           {items.map((item) => (
             <a key={item.id} href={platformHref(item.href)} className="op-card flex shrink-0 snap-start flex-col no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, width: simpleGrid ? "100%" : shelfSlideWidth(data.carousel_view, 10) ?? px(158, look.scale), minWidth: 0, borderRadius: radius, padding: px(6, look.scale) }}>
               <span className="relative block w-full overflow-hidden bg-black/10" data-picture-fit={shelfFit} style={{ aspectRatio: shelfFit === "full" && item.image ? undefined : "1 / 1", borderRadius: Math.max(radius - 4, 6) }}>
@@ -622,7 +622,7 @@ function PostsView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
   return (
     <div data-onepage-posts={raw.network} className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       <BlockTitle text={raw.title} look={look} />
-      <div className={raw.layout==="grid"?(cardish?"grid grid-cols-2 gap-3":"grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-3"):raw.layout==="list"||raw.layout==="single"?"flex flex-col gap-3":"flex w-full snap-x snap-mandatory items-start overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
+      <div className={raw.layout==="grid"?(cardish?"grid grid-cols-2 gap-3":"grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-3"):raw.layout==="list"||raw.layout==="single"?"flex flex-col gap-3":"op-rail flex snap-x snap-mandatory items-start overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"} style={{ gap: px(10, look.scale) }}>
         {loading
           ? [0, 1, 2].map((i) => <span key={i} aria-hidden className="block shrink-0 animate-pulse rounded-xl bg-[rgba(127,127,127,0.14)] motion-reduce:animate-none" style={{ width: "100%", maxHeight: tall || raw.network === "instagram" ? 380 : undefined, aspectRatio: tall ? "9 / 16" : raw.network === "instagram" ? "326 / 470" : "16 / 9" }} />)
           : (raw.layout==="single"?items.slice(0,1):items).map((item) => <div key={`${item.kind}:${item.id}`} className={raw.layout&&raw.layout!=="carousel"?(cardish?"min-w-0":"min-w-0 flex justify-center"):"w-full min-w-0 shrink-0 snap-start"}>

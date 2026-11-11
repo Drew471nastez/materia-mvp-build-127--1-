@@ -119,6 +119,55 @@ export function heroScrollEffect(headerLayout: string | null | undefined, heroDr
   return heroDrawn && headerLayout === "hero"
 }
 
+/* ── The profile bar and the corner buttons (round AS) ─────────────────────── */
+
+/** The bar's height below the safe area: on a phone, and on a computer, where it floats inside the card. */
+export const BAR_PHONE_PX = 60
+export const BAR_DESKTOP_PX = 56
+/** On a computer the bar floats this far inside the card's edges, its corner concentric with the card's 40px. */
+export const BAR_DESKTOP_INSET_PX = 12
+/** How far the name travels while the bar forms over it. */
+export const BAR_MORPH_PX = 64
+
+/**
+ * How far the bar has formed, 0 to 1, for the profile's name (its foot,
+ * `anchorBottom`, in viewport coordinates) under a bar whose foot is at
+ * `barBottom`. Nothing while the name is more than BAR_MORPH_PX below the
+ * bar; all of it once the name has gone under. The page's own scroll drives
+ * it, so it runs backwards exactly as it ran forwards: no timer, nothing to
+ * jump when the page comes back to the top.
+ */
+export function barMorph(anchorBottom: number, barBottom: number, range = BAR_MORPH_PX): number {
+  if (!Number.isFinite(anchorBottom) || !(range > 0)) return 0
+  const p = (barBottom + range - anchorBottom) / range
+  return Math.round(Math.min(1, Math.max(0, p)) * 1000) / 1000
+}
+
+/** The Share and Subscribe buttons always show this close to the top. */
+export const CORNER_TOP_PX = 48
+/** And otherwise change only after this much travel one way: a finger's wobble, a toolbar folding or a rubber band never flips them. */
+export const CORNER_TRAVEL_PX = 28
+
+export type CornerState = { shown: boolean; y: number; travel: number }
+
+export const CORNER_START: CornerState = { shown: true, y: 0, travel: 0 }
+
+/**
+ * The corner buttons' next state for a scroll position `y`, already held
+ * between 0 and the page's end (a pull past either end is not a direction).
+ * Travel adds up while the page keeps going one way and starts again when it
+ * turns; down hides them, up shows them, near the top they always show.
+ */
+export function cornerNext(s: CornerState, y: number): CornerState {
+  const at = Math.max(0, y)
+  if (at <= CORNER_TOP_PX) return { shown: true, y: at, travel: 0 }
+  const d = at - s.y
+  if (d === 0) return s
+  const travel = s.travel === 0 || d > 0 === s.travel > 0 ? s.travel + d : d
+  const shown = travel >= CORNER_TRAVEL_PX ? false : travel <= -CORNER_TRAVEL_PX ? true : s.shown
+  return { shown, y: at, travel }
+}
+
 /* ── A block leaving the page ────────────────────────────────────────────── */
 
 /** How long a removed block takes to fold away, in the editor's list and in the preview. */

@@ -9842,9 +9842,10 @@ html[data-op-press] [data-op-letgo] {
   from { opacity: 0; }
   to { opacity: 0.55; }
 }
+/* Round AS: the name stays until the bar forms over it (components/onepage/hero-scroll), then hands over. */
 @keyframes op-hero-title {
-  0%, 30% { opacity: 1; }
-  80%, 100% { opacity: 0; }
+  0%, 62% { opacity: 1; }
+  92%, 100% { opacity: 0; }
 }
 @supports (animation-timeline: view()) {
   [data-hero-scroll] { view-timeline: --op-hero block; }
@@ -9868,4 +9869,40 @@ html[data-op-press] [data-op-letgo] {
 [data-hero-scroll] [data-hero-shift] { transform-origin: 50% 0; }
 @media (prefers-reduced-motion: reduce) {
   [data-hero-scroll] :is([data-hero-shift], [data-hero-title]) { animation: none !important; translate: none !important; scale: none !important; }
+}
+
+/* A ROW THAT SLIDES SIDEWAYS RUNS TO THE PAGE'S EDGE (round AS). Every
+   carousel on a OnePage (a group's, a shelf's, posts, reviews, stats, an app's,
+   testimonials, the picture slider) is a scroller, and a scroller clips. It
+   used to clip a few px outside the column, so a card was cut by a hard line
+   20px in from the screen (28px in from the computer's card) and a shadow or
+   ring was cut at the top and the side. The row now reaches the column's own
+   edge (--op-gutter, the page's side padding, set by components/onepage/
+   public-onepage), snaps its first card back in line with the column
+   (scroll-padding), and has room above and below for a shadow: a card is cut
+   only by the screen or the card's own rounded edge. Inside a half width
+   block or a pair, where the edge is a neighbour, it keeps a few px. */
+.op-rail {
+  width: auto;
+  margin-inline: calc(-1 * var(--op-gutter, 4px));
+  padding-inline: var(--op-gutter, 4px);
+  scroll-padding-inline: var(--op-gutter, 4px);
+  margin-block: -10px;
+  padding-block: 10px;
+}
+:is([data-block-size="half"], [data-block-size="tall"], [data-link-tile], [data-product-pair] > *, [data-group-grid] > *) { --op-gutter: 4px; }
+
+/* THE PROFILE BAR (components/onepage/hero-scroll HeroTopBar, round AS): 60px
+   across a phone with a hairline under it; on a computer 56px, floating
+   inside the card with a ring and a soft shadow. Its height is read by the
+   bar's own row (--op-bar-h); lib/onepage/feel names the same numbers. */
+.op-topbar {
+  --op-bar-h: 60px;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--op-bar-ink, #000) 10%, transparent);
+}
+@media (min-width: 48rem) {
+  .op-topbar {
+    --op-bar-h: 56px;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--op-bar-ink, #000) 8%, transparent), 0 14px 32px -18px rgba(0, 0, 0, 0.4);
+  }
 }

@@ -81,11 +81,13 @@ try {
     await page.mouse.move(x0, y0)
     await page.mouse.down()
     const lag = []
+    /* Round AS (changed on purpose): rows run to the page's edge and slides are the column's width, so the drag is a share of the row, not a fixed 160px. */
+    const step = Math.max(16, Math.round(box.w * 0.04))
     for (let i = 1; i <= 10; i++) {
-      await page.mouse.move(x0 - i * 16, y0)
+      await page.mouse.move(x0 - i * step, y0)
       const left = await page.$eval(sel, (el) => el.scrollLeft)
       /* After the 6px that make a press a drag, the row is the pointer's travel. */
-      if (i * 16 > 8) lag.push(Math.abs(left - start - i * 16))
+      if (i * step > 8) lag.push(Math.abs(left - start - i * step))
       await sleep(16)
     }
     await page.mouse.up()

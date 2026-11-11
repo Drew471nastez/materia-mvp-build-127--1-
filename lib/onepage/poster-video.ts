@@ -113,4 +113,17 @@ export function posterPlan(o: { poster: string | null; fallback: string | null; 
  * gradient or pattern, show through as the picture fades, so there is
  * nothing to match and nothing to cut off.
  */
-export const HERO_FADE_MASK = "linear-gradient(to bottom, #000 0%, #000 42%, rgba(0,0,0,0.55) 68%, rgba(0,0,0,0.18) 86%, transparent 100%)"
+/*
+ * Round AS: eased rather than three straight runs, so no step shows where one
+ * run meets the next (the owner's "fade" look: the picture melts into the
+ * page with the name over the melted part).
+ */
+export const HERO_FADE_MASK = "linear-gradient(to bottom, #000 0%, #000 46%, rgba(0,0,0,0.93) 54%, rgba(0,0,0,0.79) 62%, rgba(0,0,0,0.6) 70%, rgba(0,0,0,0.4) 78%, rgba(0,0,0,0.21) 86%, rgba(0,0,0,0.07) 94%, transparent 100%)"
+
+/**
+ * THE CREATOR'S OWN COVER FADES TOO (round AS). A band with a hard foot
+ * stopped where the page began; on any wallpaper the mask lets the page show
+ * through instead, so it suits every theme with nothing to match. Shorter
+ * than the Hero's: the profile photo sits over this foot.
+ */
+export const COVER_FADE_MASK = "linear-gradient(to bottom, #000 0%, #000 52%, rgba(0,0,0,0.9) 62%, rgba(0,0,0,0.68) 72%, rgba(0,0,0,0.4) 82%, rgba(0,0,0,0.14) 92%, transparent 100%)"

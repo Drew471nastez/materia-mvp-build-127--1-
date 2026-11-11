@@ -278,13 +278,24 @@ export function heroCoverShown(theme: CoverThemeLike): boolean {
 }
 
 /**
+ * Whether the creator's own cover fades into the page at its foot (round AS,
+ * the owner: "add a fade at its bottom so it blends into the page"). On by
+ * default, off with `cover_fade: false` (Design, under the cover). A Hero
+ * made from the cover always fades; a theme's own cover keeps its band.
+ */
+export function coverFades(theme: (CoverThemeLike & { cover_fade?: unknown }) | null | undefined): boolean {
+  if (!theme || theme.cover_profile_layout !== true || coverImageOf(theme) === null) return false
+  return heroCoverShown(theme) || theme.cover_fade !== false
+}
+
+/**
  * The cover band's shape, width over height. The editor's crop frame and the
  * page both read it, so the crop dragged into place is the crop drawn.
  *
  * Round AL: the creator's own cover runs edge to edge, like a theme's, with
  * no rounding. At the old 3:1 a phone's band was 130px, most of it under the
- * profile photo, so it is 5:2 now (156px on a 390px phone, 200px across the
- * computer's 500px card). The crop is stored as percentages, so a cover
+ * profile photo, so it is 5:2 now (156px on a 390px phone, 220px across the
+ * computer's 550px card). The crop is stored as percentages, so a cover
  * saved at 3:1 keeps its point of focus and simply shows a little more.
  */
 export const OWN_COVER_ASPECT = 5 / 2

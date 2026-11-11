@@ -398,7 +398,7 @@ export function DataStatsView({ block, data, look }: Props) {
       {layout === "single" ? (
         tile(stats[0], 0, true)
       ) : layout === "carousel" ? (
-        <div className="-mx-1 flex snap-x snap-mandatory overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ gap: px(10, look.scale) }}>
+        <div className="op-rail flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ gap: px(10, look.scale) }}>
           {stats.map((s, i) => (
             <div key={s.id} className="w-[42%] shrink-0 snap-start">{tile(s, i)}</div>
           ))}
@@ -898,7 +898,7 @@ export function DataReviewsView({ block, data: given, look }: Props) {
       <div data-onepage-app="reviews" data-app-layout="carousel" className="w-full">
         <Title text={data.title} look={look} />
         {head}
-        <div className="-mx-1 flex snap-x snap-mandatory overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ gap: px(10, look.scale) }}>
+        <div className="op-rail flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ gap: px(10, look.scale) }}>
           {items.map((r) => (
             <div key={r.id} className="w-[82%] shrink-0 snap-start sm:w-[62%]">
               <ReviewCard r={r} look={look} />

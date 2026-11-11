@@ -1457,6 +1457,8 @@ const STRICT_SUITES = [
   "tests/onepage-ar6.test.ts",
   /* Round AR, track 1: how a OnePage feels. No round Close over the keyboard once Safari pans, sheets read while idle and opened with their content (no grey bars), one press on every button from pointerdown, Back a step inside a form sheet, the Hero darkening under the page with a bar once it has gone, a removed block folding away, a shelf kept drawn while a setting changes. scripts/check-onepage-ar1.mjs measures them. */
   "tests/onepage-ar1.test.ts",
+  /* Round AS: the OnePage shell. The profile bar forms over the name as it scrolls under (every header layout, the verified badge in it, floating inside the computer's card), Share and Subscribe from one listener after real travel, faded on the button while the box only moves, the fade layout's large melting picture from the top of a phone's page, the own cover's fade and its switch, the 550px card, every sideways row out to the column's edge. scripts/check-onepage-header-as.mjs measures them frame by frame at 390 and 1440 and in the preview. */
+  "tests/onepage-header-as.test.ts",
   "tests/onepage-w8.test.ts",
   /* Round AR3: every block type's settings panel drawn and visible (image 137), music and video layouts with Storelib's own player, Cover, Fit and Full, links shown in place (Calendly, Typeform, Canva, Google Maps, podcasts), oEmbed cards from recorded answers, Fourthwall and Bonfire retired, followers from one field, more links in one block. scripts/check-onepage-ar3.mjs measures the layout matrix, the embeds and the settings at 390 and 1440. */
   "tests/onepage-ar3.test.ts",

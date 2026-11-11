@@ -3,10 +3,11 @@
 import { useState } from "react"
 import { useOnePage } from "@/lib/onepage/context"
 import { cropFromSettings, coverEditorSrc, DEFAULT_COVER_CROP, isDefaultCrop } from "@/lib/images/cover-crop"
-import { coverAspect } from "@/lib/onepage/theme-layout"
+import { coverAspect, heroCoverShown } from "@/lib/onepage/theme-layout"
 import { CoverCropFrame } from "@/components/app/cover-crop-frame"
 import { Reveal } from "@/components/ui/reveal"
 import { OnePageImageField } from "./image-field"
+import { SwitchRow } from "./editor-kit"
 import { tt } from "@/lib/i18n/text"
 import { cn } from "@/lib/utils"
 
@@ -81,6 +82,16 @@ export function HeaderCoverEditor() {
         }
       />
       {!cover ? <p className="text-[13px] text-[#6b7280]">{tt("Optional. Your profile photo stays separate.")}</p> : null}
+      {/* Round AS: the cover melts into the page at its foot (lib/onepage/theme-layout coverFades); a Hero made from it always does. */}
+      {cover && !heroCoverShown({ ...theme, cover_profile_layout: true }) ? (
+        <div data-cover-fade-switch="">
+          <SwitchRow
+            label={tt("Fade into the page")}
+            checked={theme.cover_fade !== false}
+            onChange={(on) => updateTheme({ cover_fade: on, cover_profile_layout: true })}
+          />
+        </div>
+      ) : null}
       <Reveal open={!!cover && adjusting}>
         {cover ? (
           <div className="max-w-[360px] space-y-2 pt-1" data-cover-crop="">
