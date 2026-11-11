@@ -338,9 +338,19 @@ function covers(size: string, box: DOMRect): boolean {
  * A box's opacity at rest: a box fading in (an entrance, a sheet rising) is not a word that cannot be read, so while
  * an animation or a transition runs on it its opacity counts as whole; the guard measures again when it ends.
  */
+/** A block waiting for, or in, its entrance (components/onepage/block-entrance): measured as it will be seen. */
+const ENTERING = "[data-op-enter], [data-onepage-enter]"
+
 function restingOpacity(node: Element, cs: CSSStyleDeclaration): number {
   const o = parseFloat(cs.opacity)
   if (!Number.isFinite(o)) return 1
+  /*
+    An entrance is not a word that cannot be read. A block below the first screen waits at opacity 0 (no animation
+    yet) and the first screen's stagger sits at 0 before its turn: counted as faded, or as shut, their words were
+    measured only after they arrived, and the guard's correction then landed a moment after the block was on screen
+    (a colour change after the first paint). Measured whole, they arrive already right.
+  */
+  if (o < 1 && node.matches(ENTERING)) return 1
   if (o < 1 && typeof (node as Element & { getAnimations?: () => Animation[] }).getAnimations === "function") {
     if (node.getAnimations().some((a) => a.playState === "running" || a.playState === "paused")) return 1
   }
@@ -556,7 +566,7 @@ function shut(el: Element | null, memo: Map<Element, boolean>): boolean {
   if (!el) return false
   const known = memo.get(el)
   if (known !== undefined) return known
-  const v = el.hasAttribute("inert") || getComputedStyle(el).opacity === "0" || shut(el.parentElement, memo)
+  const v = el.hasAttribute("inert") || (getComputedStyle(el).opacity === "0" && !el.matches(ENTERING)) || shut(el.parentElement, memo)
   memo.set(el, v)
   return v
 }
@@ -593,6 +603,7 @@ export function findIllegible(root: ParentNode): LegibleFinding[] {
     if (field && el instanceof HTMLInputElement && /^(checkbox|radio|hidden|range|color|file|submit|button|image)$/.test(el.type)) continue
     const text = field ? "" : ownText(el)
     if (!field && !text) continue
+    if (held(el)) continue
     const cs = getComputedStyle(el)
     if (!visible(el, cs, memo)) continue
     const fill = (cs as unknown as Record<string, string>).webkitTextFillColor
@@ -642,10 +653,43 @@ export function findIllegible(root: ParentNode): LegibleFinding[] {
 const NUDGED = "data-op-legible"
 const PLACEHOLDER_VAR = "--op-legible-ph"
 
+/**
+ * On every box a guard pass took a colour back from or gave one to, for the length of the pass: its transitions
+ * (and its children's) are off (LEGIBLE_CSS), so neither the taking back nor the giving animates. The pass's owner
+ * (components/onepage/legible-guard) lets the browser work the styles out with the result in place, then lifts it
+ * (settleGuard): nothing changed between, so lifting it starts nothing either. Only these boxes: a sheet rising or a
+ * hover running elsewhere on the page keeps its transition.
+ */
+export const GUARD_TOUCH = "data-op-guard-touch"
+
+/** Lifts what GUARD_TOUCH held still. Call once the browser has computed the pass's styles. */
+export function settleGuard(root: ParentNode): void {
+  for (const el of root.querySelectorAll(`[${GUARD_TOUCH}]`)) el.removeAttribute(GUARD_TOUCH)
+}
+
+/** A button that answers a pointer (app/globals.css .op-btn, a product card's button inside .op-host, a Design tab sample in .op-demo). */
+export const PRESSED_LOOK = ".op-btn, [data-product-cta]"
+
+/**
+ * HELD WHILE IT IS POINTED AT. A button under the pointer wears its hover: Fill turns its words to the fill's
+ * colour, drawn by a layer (::after) the guard cannot see, so measured then the words were "unreadable" on the
+ * button's resting colour, and the guard recoloured them for the fill it could not see: a third colour, kept
+ * after the pointer left until the next pass (the owner's "cycling through 3 colours on hover"). The hover's
+ * colours are made to read by lib/onepage/button-style buttonHoverVars; the guard leaves a hovered button's words
+ * as they were and measures them again when the hover ends (legible-guard's transitionend).
+ */
+function held(el: Element): boolean {
+  const button = el.closest(PRESSED_LOOK)
+  if (!button) return false
+  return button.matches(":hover") || !!button.closest(".op-host:hover, .op-demo:hover")
+}
+
 /** Takes back every colour the guard set under `root`, so the next pass measures what the page itself draws. */
 export function releaseLegibility(root: ParentNode): void {
   for (const el of root.querySelectorAll(`[${NUDGED}]`)) {
+    if (held(el)) continue
     const h = el as HTMLElement
+    h.setAttribute(GUARD_TOUCH, "")
     const what = h.getAttribute(NUDGED) || ""
     if (what.includes("c")) {
       h.style.removeProperty("color")
@@ -665,7 +709,7 @@ export function releaseLegibility(root: ParentNode): void {
 }
 
 /** The rule that lets the guard colour a placeholder (inline styles cannot reach ::placeholder). */
-export const LEGIBLE_CSS = `[${NUDGED}*="p"]::placeholder{color:var(${PLACEHOLDER_VAR}) !important;-webkit-text-fill-color:var(${PLACEHOLDER_VAR}) !important;opacity:1 !important}`
+export const LEGIBLE_CSS = `[${NUDGED}*="p"]::placeholder{color:var(${PLACEHOLDER_VAR}) !important;-webkit-text-fill-color:var(${PLACEHOLDER_VAR}) !important;opacity:1 !important}${["", " *"].flatMap((d) => ["", "::before", "::after"].map((p) => `[${GUARD_TOUCH}]${d}${p}`)).join(",")}{transition:none !important}`
 
 /**
  * Words all but invisible (under 2:1: white on a white window) have no colour of their own worth keeping: they take
@@ -716,6 +760,7 @@ export function guardLegibility(root: ParentNode): LegibleFinding[] {
     return { f, h, ground, wanted, fixed, whole }
   })
   for (const { f, h, ground, wanted, fixed, whole } of plans) {
+    h.setAttribute(GUARD_TOUCH, "")
     const marks = new Set((h.getAttribute(NUDGED) || "").split("").filter(Boolean))
     if (f.kind === "halo") {
       outline(h, wanted, ground, f.halo)

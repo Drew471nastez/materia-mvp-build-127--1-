@@ -70,6 +70,9 @@ import { noteTracked, postBlockClick, watchBlockActivity } from "@/components/on
 import { canvasRule, heroHeaderShown, pageCanvasColour } from "@/lib/onepage/page-frame"
 import { HeroTopBar, useCornerButtonsShown } from "@/components/onepage/hero-scroll"
 import { usePressFeel } from "@/components/onepage/press-feel"
+import { useLookStill } from "@/components/onepage/look-still"
+import { useBlockEntrance } from "@/components/onepage/block-entrance"
+import { pageGroundIsLight, socialIconColorOf, socialIconStyleOf, socialIconToneOf, socialTileStyle } from "@/lib/onepage/social-look"
 import { leavingProps, useLeavingBlocks } from "@/components/onepage/leaving-block"
 import { heroScrollEffect } from "@/lib/onepage/feel"
 import { PosterVideo } from "@/components/onepage/poster-video"
@@ -331,17 +334,16 @@ const GLASS_ON_LIGHT_SHARE = {
  * the average of a gradient's colours, brighter than the middle. A picture
  * or a video counts as dark, as glass was made for it.
  */
+/** The blocks a page item draws: a block, or each block of a pair of links or products (components/onepage/leaving-block). */
+function blocksOfItem(item: unknown): string[] {
+  const i = item as { id?: string; links?: { id: string }[]; tiles?: { id: string }[] }
+  if (Array.isArray(i.links)) return i.links.map((b) => b.id)
+  if (Array.isArray(i.tiles)) return i.tiles.map((b) => b.id)
+  return i.id ? [i.id] : []
+}
+
 export function pageIsLight(theme: { background_type?: string | null; background_color?: string | null; background_gradient?: string | null }): boolean {
-  if (theme.background_type === "image" || theme.background_type === "video") return false
-  const src = theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color || "#ffffff"
-  const hexes = src.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g)
-  if (!hexes) return true
-  const lum = hexes.map((h) => {
-    let x = h.slice(1)
-    if (x.length === 3) x = x.split("").map((c) => c + c).join("")
-    return (0.299 * parseInt(x.slice(0, 2), 16) + 0.587 * parseInt(x.slice(2, 4), 16) + 0.114 * parseInt(x.slice(4, 6), 16)) / 255
-  })
-  return lum.reduce((a, b) => a + b, 0) / lum.length > 0.6
+  return pageGroundIsLight(theme)
 }
 
 /*
@@ -1108,6 +1110,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     return () => clearTimeout(timer)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* The page holds still while it takes on a look: no transition on its first paint, at hydration or as a new theme arrives (components/onepage/look-still). */
+  const lookStill = useLookStill(safeTheme)
+  /* Each block arrives as it comes into view, in the preview once the editor shows it (components/onepage/block-entrance). */
+  useBlockEntrance()
+
   /* Round AR: the least opacity the page's small print may have and still read (lib/onepage/contrast smallPrintAlpha, app/globals.css). */
   const smallPrint = smallPrintAlpha(safeTheme)
   /* Round AR: a photo or video wallpaper's effect, tint and blur (lib/onepage/wallpaper wallpaperMediaLook): CSS filters and plain layers, nothing per frame. */
@@ -1203,7 +1210,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const mixedSizes = mixedTileSizes(laid, blockLayoutOf(safeTheme))
   const pageItemsNow = pairLinkTiles(laid, blockLayoutOf(safeTheme))
   /* Round AR: in the editor's preview a block taken off folds away instead of vanishing (components/onepage/leaving-block). */
-  const pageItems = useLeavingBlocks(pageItemsNow, (item) => ((item as { key?: string }).key ?? (item as { id: string }).id), !!inEditorPreview)
+  const pageItems = useLeavingBlocks(pageItemsNow, (item) => ((item as { key?: string }).key ?? (item as { id: string }).id), !!inEditorPreview, blocksOfItem)
   const renderPageContent = ({ isDesktop = false }: { isDesktop?: boolean } = {}) => (
     <div
       className={cn("relative z-10 w-full flex flex-col min-h-full", isDesktop ? "max-w-full" : "max-w-lg mx-auto")}
@@ -1235,7 +1242,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             /* The Grid layout: plain links that follow one another, two to a row, each a tile (app/globals.css [data-link-tile]). */
             if (isLinkTilePair(item)) {
               return (
-                <div key={item.key} className={cn("grid w-full grid-cols-2 gap-3", animClass)} style={animStyle} data-link-pair="" {...leavingProps(leaving)}>
+                <div key={item.key} className={cn("grid w-full grid-cols-2 gap-3", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined} data-link-pair="" {...leavingProps(leaving)}>
                   {(item.links as OnePageBlock[]).map((block) => (
                     <div key={block.id} className="min-w-0" data-link-tile="" data-op-block={block.id} data-sensitive-label={sensitiveLabel(block)}>
                       {inEditorPreview && isIncompleteLink(block) ? (
@@ -1556,12 +1563,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         fontFamily={(safeTheme as any).title_font || safeTheme.font_family}
       />
       {/* Wave 10: every word on the page and in its sheets reads on what it sits on (components/onepage/legible-guard, lib/onepage/legible). */}
-      <LegibleGuard />
+      <LegibleGuard look={lookStill} />
 
       {/* Desktop layout - NO internal scrollbar, page scrolls naturally. Only built where it is shown (lib/onepage/live-layout). */}
       {liveLayout !== "phone" && (
       <div
         className="onepage-live hidden md:block min-h-screen w-full relative [overflow-x:clip]"
+        data-op-still={lookStill}
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
         {...skinRootProps(safeTheme)}
         {...skinOwnRootProps(safeTheme)}
@@ -1737,6 +1745,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       {liveLayout !== "desktop" && (
       <div
         className="onepage-live md:hidden min-h-screen w-full relative"
+        data-op-still={lookStill}
         data-onepage-drag-scope=""
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
         {...skinRootProps(safeTheme)}
@@ -2760,10 +2769,9 @@ function CoreBlockRenderer({
   /* Round AN: a Spotify or Apple Music link's player opens in the block sheet (components/onepage/music-sheet), as every block's does. */
   const pageSheet = useBlockSheet()
 
-  const socialStyle = (theme as any).social_icon_style || "filled"
-  const socialColor = (theme as any).social_icon_color || theme.text_color
-  /* Design › Social icons: each mark in its brand's colour, or all in the icon colour. A page saved before the choice existed has none, and stays one colour. */
-  const socialTone: "brand" | "mono" = (theme as any).social_icon_tone === "brand" ? "brand" : "mono"
+  /* Design › Social icons (lib/onepage/social-look): Solid, Outline or Glass; each mark in its brand's colour, or all in the icon colour. */
+  const socialColor = socialIconColorOf(theme as never)
+  const socialTone = socialIconToneOf(theme as never)
 
   // Button hover animation - based on theme setting, disabled inside carousel or group
   const buttonHoverAnimation = (theme as any).button_hover_animation || "default"
@@ -3348,16 +3356,12 @@ function CoreBlockRenderer({
                   changes: nothing about its box, or anything beside it, moves.
                 */
                 className={cn(
-                  "flex items-center justify-center transition-opacity duration-150 ease-out",
+                  "flex w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] items-center justify-center transition-opacity duration-150 ease-out",
                   !isInsideCarousel && "hover:opacity-70",
-                  socialStyle === "filled" && "w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] rounded-full",
-                  socialStyle === "outline" && "w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] rounded-full border-2",
-                  socialStyle === "minimal" && "p-2.5",
                 )}
-                style={{
-                  backgroundColor: socialStyle === "filled" ? `${socialColor}20` : "transparent",
-                  borderColor: socialStyle === "outline" ? `${socialColor}40` : "transparent",
-                }}
+                /* Every value inline, so a skin's tile gives way to the creator's choice once it is theirs (lib/onepage/skin-own). */
+                style={socialTileStyle(theme as never, { onLight: pageIsLight(theme as never) })}
+                data-social-style={socialIconStyleOf(theme as never)}
               >
                 {/* Mobile: 20px (+2px), Desktop: 19px (+2px) */}
                 <span className="w-[20px] h-[20px] sm:w-[19px] sm:h-[19px] flex items-center justify-center [&>svg]:w-full [&>svg]:h-full">

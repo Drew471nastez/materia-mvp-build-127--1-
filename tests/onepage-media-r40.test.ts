@@ -122,7 +122,7 @@ function run() {
     check("a picture saved with its size reserves its box", /width=\{\(img as \{ width\?: number \}\)\.width \|\| undefined\}/.test(live))
     check("autoplay waits off screen and in a hidden tab, and never runs with reduced motion",
       /if \(!autoplay \|\| isHovered \|\| !inView \|\| images\.length <= 1\) return/.test(live) && /prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(live) && /document\.hidden\) return/.test(live))
-    check("the blocks' entrance is marked, so a return can take it off", (live.match(/data-onepage-enter=\{animClass \? "" : undefined\}/g) ?? []).length === 3)
+    check("the blocks' entrance is marked, so a return can take it off", (live.match(/data-onepage-enter=\{animClass \? "" : undefined\}/g) ?? []).length === 4)
   }
 
   console.log("\na return never flashes (components/onepage/page-arrival)")

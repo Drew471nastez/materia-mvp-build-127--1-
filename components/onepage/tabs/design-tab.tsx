@@ -15,6 +15,7 @@ import { flushSync } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { SocialIcon } from "@/components/onepage/brand-icons"
+import { pageGroundIsLight, socialIconColorOf, socialIconStyleOf, socialIconToneOf, socialTileStyle } from "@/lib/onepage/social-look"
 import {
   ArrowLeft,
   AtSign,
@@ -4156,8 +4157,8 @@ function SocialsSection() {
   const { onepage, updateTheme } = useOnePage()
   if (!onepage) return null
   const { theme } = onepage
-  const socialStyle = (theme as any).social_icon_style || "filled"
-  const socialColor = (theme as any).social_icon_color || theme.text_color
+  const socialStyle = socialIconStyleOf(theme as never)
+  const socialColor = socialIconColorOf(theme as never)
 
   return (
     <div>
@@ -4170,13 +4171,11 @@ function SocialsSection() {
                 {["instagram", "youtube"].map((platform) => (
                   <span
                     key={platform}
-                    className="grid h-7 w-7 place-items-center rounded-full"
-                    style={{
-                      backgroundColor: style.id === "filled" ? `${socialColor}22` : style.id === "minimal" ? "rgba(255,255,255,0.22)" : "transparent",
-                      border: style.id === "outline" ? `1.5px solid ${socialColor}` : "none",
-                    }}
+                    className="grid h-7 w-7 place-items-center"
+                    /* The tile the page draws (lib/onepage/social-look), in this page's colours. */
+                    style={socialTileStyle({ ...(theme as object), social_icon_style: style.id } as never, { onLight: pageGroundIsLight(theme as never) })}
                   >
-                    <SocialIcon platform={platform} size={13} color={socialColor} />
+                    <SocialIcon platform={platform} size={13} color={socialColor} tone={socialIconToneOf(theme as never)} />
                   </span>
                 ))}
               </div>
@@ -4200,7 +4199,7 @@ function SocialsSection() {
             <ChoiceCard key={choice.id} selected={((theme as any).social_icon_tone === "brand" ? "brand" : "mono") === choice.id} onClick={() => updateTheme({ social_icon_tone: choice.id } as any)} label={choice.label}>
               <div className="flex h-[60px] items-center justify-center gap-1.5 rounded-xl" style={{ background: theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color || "#f7f7f8" }}>
                 {["instagram", "youtube", "spotify"].map((platform) => (
-                  <span key={platform} className="grid h-7 w-7 place-items-center rounded-full" style={{ backgroundColor: socialStyle === "filled" ? `${socialColor}22` : "transparent" }}>
+                  <span key={platform} className="grid h-7 w-7 place-items-center" style={socialTileStyle(theme as never, { onLight: pageGroundIsLight(theme as never) })}>
                     <SocialIcon platform={platform} size={13} color={socialColor} tone={choice.id} />
                   </span>
                 ))}
