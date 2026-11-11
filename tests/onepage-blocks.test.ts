@@ -111,7 +111,7 @@ function main() {
     const module = read("components/onepage/extra-blocks.tsx")
     check("the blocks take the page's own button look", /export function themeButtonStyle\(theme: OnePageTheme\)/.test(module) && (module.match(/themeButtonStyle\(look\.theme\)/g) ?? []).length >= 3)
     check("a countdown reads the clock only in the browser, so the first drawing matches the server's", /const \[now, setNow\] = React\.useState<number \| null>\(null\)/.test(module))
-    check("a video's player loads on the first press, not with the page", /\{playing \? \(\s*<iframe/.test(module) && /youtube-nocookie\.com\/embed\//.test(module))
+    check("a video's player loads on the first press, not with the page", /* Round AS: the video\'s picture under the player while it loads. */ /\{playing \? \(\s*(<>[\s\S]{0,700}?)?<iframe/.test(module) && /youtube-nocookie\.com\/embed\//.test(module))
     check("the editor's map waits for the typing to stop", /useSettled\(typed, 700, !!look\.preview\)/.test(module)
       && /<ExtraBlockPreviewContext\.Provider value=\{true\}>/.test(read("components/onepage/preview-document.tsx")))
     check("the FAQ opens by its own height", /grid-rows-\[1fr\]/.test(module) && /grid-rows-\[0fr\]/.test(module))
