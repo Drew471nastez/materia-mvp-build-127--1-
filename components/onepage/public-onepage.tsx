@@ -68,7 +68,7 @@ import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { noteTracked, postBlockClick, watchBlockActivity } from "@/components/onepage/block-activity"
 import { canvasRule, heroHeaderShown, pageCanvasColour } from "@/lib/onepage/page-frame"
-import { HeroTopBar } from "@/components/onepage/hero-scroll"
+import { HeroTopBar, useCornerButtonsShown } from "@/components/onepage/hero-scroll"
 import { usePressFeel } from "@/components/onepage/press-feel"
 import { leavingProps, useLeavingBlocks } from "@/components/onepage/leaving-block"
 import { heroScrollEffect } from "@/lib/onepage/feel"
@@ -343,6 +343,31 @@ export function pageIsLight(theme: { background_type?: string | null; background
   return lum.reduce((a, b) => a + b, 0) / lum.length > 0.6
 }
 
+/*
+  THE CORNER BUTTONS COME AND GO IN ONE MOVE (round AS, the owner: "the share
+  and subscribe icons must not interfere with the header, flash or stutter").
+
+  A phone: 10px under the status bar, so each sits at an end of the profile
+  bar's 60px row (components/onepage/hero-scroll) rather than half over its
+  edge. A computer: in the window's corners, outside the card and its bar.
+
+  The box only moves (transform); the fade is on the button itself. A box that
+  fades is, while it fades, the edge of what a frosted button can blur, so
+  the frost went off when the fade began and came back when it ended: the
+  flash. The button fading on its own keeps its frost the whole way. Both
+  layers are kept by the compositor (will-change), so neither is made or
+  dropped as the move starts and ends. One 240ms move, from one listener
+  that waits for real travel one way (lib/onepage/feel cornerNext).
+*/
+const CORNER_BOX_CLASS = "fixed top-[calc(env(safe-area-inset-top)+10px)] sm:top-[calc(env(safe-area-inset-top)+8px)] md:top-6 z-[20] will-change-transform transition-transform duration-[240ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+const CORNER_BUTTON_CLASS = "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full will-change-[opacity] transition-opacity duration-[240ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+function cornerBoxStyle(shown: boolean): React.CSSProperties {
+  return { transform: shown ? "translate3d(0, 0, 0)" : "translate3d(0, -8px, 0)", pointerEvents: shown ? "auto" : "none" }
+}
+function cornerButtonStyle(shown: boolean): React.CSSProperties {
+  return { opacity: shown ? 1 : 0 }
+}
+
 // Notification Bell Component with Subscribe Form
 function NotificationBell({
   sellerName,
@@ -355,6 +380,8 @@ function NotificationBell({
   avatarVideoUrl = null,
 }: { sellerName: string; sellerId: string | null; onepageId: string; style?: "glass" | "white" | "black"; isVisible?: boolean; onLight?: boolean; avatarUrl?: string | null; avatarVideoUrl?: string | null }) {
   const [isOpen, setIsOpen] = useState(false)
+  /* Round AS: from the one shared listener (components/onepage/hero-scroll), so a scroll renders the buttons and not the page. */
+  const scrolledIn = useCornerButtonsShown()
   const styles = {
     glass: {
       buttonBg: "rgba(255, 255, 255, 0.15)",
@@ -450,7 +477,7 @@ function NotificationBell({
   // On mobile, hide smoothly when PDF modal is open
   const hideForModal = pdfModalOpen && isMobile
   // Show when visible OR when panel is open (so it doesn't vanish mid-interaction)
-  const shouldShow = (isVisible || isOpen) && !hideForModal
+  const shouldShow = ((isVisible && scrolledIn) || isOpen) && !hideForModal
 
   /*
     THE PANEL IS A SHEET NOW (components/onepage/subscribe-sheet): its own
@@ -459,12 +486,8 @@ function NotificationBell({
   */
   return (
     <div
-      className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[20] transition-[opacity,translate] duration-500 ease-out"
-      style={{
-        opacity: shouldShow ? 1 : 0,
-        translate: shouldShow ? "0 0" : "0 -10px",
-        pointerEvents: shouldShow ? "auto" : "none",
-      }}
+      className={CORNER_BOX_CLASS + " right-[10px] sm:right-2 md:right-6"}
+      style={cornerBoxStyle(shouldShow)}
     >
       {/* Bell Button */}
       <button
@@ -474,7 +497,7 @@ function NotificationBell({
         aria-label={`Subscribe to ${sellerName}`}
         aria-haspopup="dialog"
         className={cn(
-          "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-opacity duration-200 hover:opacity-85",
+          CORNER_BUTTON_CLASS,
           style === "glass" && "backdrop-blur-md",
         )}
         style={{
@@ -483,6 +506,7 @@ function NotificationBell({
           /* Round 41: the fill stops inside the ring, so the round edge is the ring's alone (no hair of fill outside it). */
           backgroundClip: "padding-box",
           boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+          ...cornerButtonStyle(shouldShow),
         }}
       >
         <Bell
@@ -550,6 +574,7 @@ function ShareButton({
   onLight?: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
+  const scrolledIn = useCornerButtonsShown()
   const styles = {
     glass: {
       buttonBg: "rgba(255, 255, 255, 0.15)",
@@ -584,8 +609,8 @@ function ShareButton({
 
   // Share icon is always positioned on the TOP LEFT (both mobile and desktop)
   // Subscribe icon stays on TOP RIGHT
-  // Desktop (md): top-[22px] to align 2px above the subscribe button which is at top-6 (24px)
-  const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 md:top-[22px] md:left-8 z-[20]"
+  // Desktop (md): 2px above the subscribe button, as it always sat
+  const positionClass = CORNER_BOX_CLASS + " left-[10px] sm:left-2 md:left-8 md:-mt-0.5"
   const [pdfModalOpen, setPdfModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -608,18 +633,13 @@ function ShareButton({
   // On mobile, hide smoothly when PDF modal is open
   const hideForModal = pdfModalOpen && isMobile
   // Show when visible OR when share modal is open (don't vanish mid-interaction)
-  const shouldShow = (isVisible || isOpen) && !hideForModal
+  const shouldShow = ((isVisible && scrolledIn) || isOpen) && !hideForModal
 
   return (
     <>
       <div
         className={positionClass}
-        style={{
-          transition: "opacity 500ms ease-out, translate 500ms ease-out",
-          opacity: shouldShow ? 1 : 0,
-          translate: shouldShow ? "0 0" : "0 -10px",
-          pointerEvents: shouldShow ? "auto" : "none",
-        }}
+        style={cornerBoxStyle(shouldShow)}
       >
         <div>
           {/* Share Button - icons 3px smaller on desktop */}
@@ -630,7 +650,7 @@ function ShareButton({
             aria-label={`Share ${pageTitle}`}
             aria-haspopup="dialog"
             className={cn(
-              "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-opacity duration-200 hover:opacity-85",
+              CORNER_BUTTON_CLASS,
               style === "glass" && "backdrop-blur-md",
             )}
             style={{
@@ -638,6 +658,7 @@ function ShareButton({
               border: s.buttonBorder,
               backgroundClip: "padding-box",
               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+              ...cornerButtonStyle(shouldShow),
             }}
           >
             {/* Mobile: 18px (2px smaller than 20), Desktop: 17px (3px smaller than 20) */}
@@ -877,22 +898,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false)
   const modalVisibilityContextValue = { isAnyModalOpen, setIsAnyModalOpen }
 
-  // Scroll-based fade for share/notification buttons (same as editor preview)
-  const [buttonsVisible, setButtonsVisible] = useState(true)
-  const lastScrollY = useRef(0)
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY
-      const nearTop = currentScrollY < 50
-      const scrollingUp = currentScrollY < lastScrollY.current - 5
-
-      setButtonsVisible(nearTop || scrollingUp)
-      lastScrollY.current = currentScrollY
-    }
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+  /* The Share and Subscribe buttons follow the scroll on their own (components/onepage/hero-scroll useCornerButtonsShown): the page is never rendered by a scroll. */
 
   /* Below 640px the music and checkout panels are the shared sheet (see THE SPOTIFY, APPLE MUSIC below). */
   const isPhone = usePhoneWidth()
@@ -1513,7 +1519,6 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           sellerId={seller_id}
           onepageId={onepage.id}
           style={safeSettings.subscribe_style || "glass"}
-          isVisible={buttonsVisible}
           onLight={pageIsLight(safeTheme)}
           avatarUrl={avatar_url}
           avatarVideoUrl={avatar_video_url}
@@ -1533,16 +1538,19 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           themeBackgroundType={safeTheme.background_type}
           themeBackgroundColor={safeTheme.background_color}
           themeBackgroundGradient={safeTheme.background_gradient}
-          isVisible={buttonsVisible}
           onLight={pageIsLight(safeTheme)}
         />
       )}
 
-      {/* Round AR: once a full picture hero has scrolled away, a slim bar with the creator's picture and name (components/onepage/hero-scroll). */}
+      {/* Round AR: once the profile has scrolled away, a slim bar with the creator's picture and name (components/onepage/hero-scroll); round AS, on every header layout, with the badge. */}
       <HeroTopBar
-        enabled={heroScrollEffect((safeTheme as any).header_layout, heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) && safeBlocks.some((b: OnePageBlock) => b.type === "header" && isBlockVisible(b)))}
+        enabled={safeBlocks.some((b: OnePageBlock) => b.type === "header" && isBlockVisible(b))}
+        heroEffect={heroScrollEffect((safeTheme as any).header_layout, heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) && safeBlocks.some((b: OnePageBlock) => b.type === "header" && isBlockVisible(b)))}
         name={sellerName}
         avatarUrl={avatar_url}
+        /* The picture's own corner, at the bar's 32px: a rounded square stays a rounded square. */
+        avatarRadius={heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) ? "9999px" : barAvatarRadius(avatarLook(safeTheme as never, false))}
+        badge={safeSettings.verified_badge_enabled ? <VerifiedBadge size={16} badgeType={safeSettings.verified_badge_type} tip={false} /> : null}
         logoUrl={(safeTheme as any).title_style === "logo" ? (safeTheme as any).title_logo_url : null}
         background={pageCanvasColour(safeTheme)}
         ink={(safeTheme as any).title_color || safeTheme.text_color || "#111111"}
@@ -1883,10 +1891,16 @@ function getAnimationClassForProduct(animationType?: string) {
   }
 }
 
+/** The header picture's corner at the profile bar's 32px (components/onepage/hero-scroll). */
+function barAvatarRadius(look: { size: number; radius: string }): string {
+  if (look.radius === "9999px") return "9999px"
+  return `${Math.round((parseFloat(look.radius) / look.size) * 32 * 10) / 10}px`
+}
+
 // Verified Badge Component with tooltip
-function VerifiedBadge({ isDesktop = false, badgeType }: { isDesktop?: boolean; badgeType?: string }) {
-  // 10% bigger: desktop 22 -> 24, mobile 18 -> 20
-  const size = isDesktop ? 24 : 20
+function VerifiedBadge({ isDesktop = false, badgeType, size: sizeOwn, tip = true }: { isDesktop?: boolean; badgeType?: string; size?: number; tip?: boolean }) {
+  // 10% bigger: desktop 22 -> 24, mobile 18 -> 20; the profile bar's is its own (round AS)
+  const size = sizeOwn ?? (isDesktop ? 24 : 20)
   const badgeLabels: Record<string, string> = {
     verified_creator: "Verified Creator",
     verified_brand: "Verified Brand",
@@ -1897,8 +1911,8 @@ function VerifiedBadge({ isDesktop = false, badgeType }: { isDesktop?: boolean; 
   const label = badgeLabels[badgeType || "verified_creator"] || "Verified"
 
   return (
-    <span className="group relative inline-flex items-center ml-1.5">
-      <svg viewBox="0 0 22 22" width={size} height={size}>
+    <span className="group relative inline-flex items-center ml-1.5" data-verified-badge="">
+      <svg viewBox="0 0 22 22" width={size} height={size} role={tip ? undefined : "img"} aria-label={tip ? undefined : label}>
         {/* Blue badge background */}
         <path
           fill="#3b82f6"
@@ -1910,12 +1924,14 @@ function VerifiedBadge({ isDesktop = false, badgeType }: { isDesktop?: boolean; 
           d="M9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"
         />
       </svg>
-      <span
-        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50"
-        style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}
-      >
-        {label}
-      </span>
+      {tip ? (
+        <span
+          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50"
+          style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}
+        >
+          {label}
+        </span>
+      ) : null}
     </span>
   )
 }
@@ -2944,6 +2960,7 @@ function CoreBlockRenderer({
                   <img
                     src={onePageImageSrc((theme as any).title_logo_url, 320) || "/placeholder.svg"}
                     alt={profile.title || "Logo"}
+                    data-op-bar-anchor=""
                     className="mx-auto w-auto"
                     style={{
                       maxHeight:
@@ -2979,6 +2996,7 @@ function CoreBlockRenderer({
                         ...(nameStyleOf(theme as never) ? nameStyleReset(true) : null),
                       }}
                       data-name-style={nameStyleOf(theme as never) ?? undefined}
+                      data-op-bar-anchor=""
                     >
                       <NameWords theme={theme} title={profile.title} />
                       {settings?.verified_badge_enabled && (
@@ -3196,6 +3214,7 @@ function CoreBlockRenderer({
               <img
                 src={onePageImageSrc((theme as any).title_logo_url, 320) || "/placeholder.svg"}
                 alt={profile.title || "Logo"}
+                data-op-bar-anchor=""
                 className="mx-auto w-auto my-2"
                 style={{
                   maxHeight:
@@ -3223,6 +3242,7 @@ function CoreBlockRenderer({
                     ...(nameStyleOf(theme as never) ? nameStyleReset(false) : null),
                   }}
                   data-name-style={nameStyleOf(theme as never) ?? undefined}
+                  data-op-bar-anchor=""
                 >
                   <NameWords theme={theme} title={profile.title} />
                   {settings?.verified_badge_enabled && (
