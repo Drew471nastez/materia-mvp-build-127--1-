@@ -122,12 +122,46 @@ function inOrder(ids: readonly string[], els: Map<string, HTMLElement>): boolean
   return true
 }
 
+/*
+  WHILE A FINGER HOLDS A SECTION, THE PAGE MAY STILL MOVE UNDER IT (rel2).
+  The canvas is a deferred copy of the editor's sections, so a drop is drawn
+  a moment after it is made, and a second drag can be picked up in that
+  moment. Its slides were worked out from where the boxes stood before the
+  first drop was drawn; once React moved them, the same slides put them in
+  the wrong places (overlapping, with a hole) until the second drop. So
+  while a drag is held, the boxes' parent is watched: when React moves them,
+  the slides are worked out again from where they are now, or let go when
+  the page already has them in the order shown.
+*/
+let watching: { mo: MutationObserver; parent: Element } | null = null
+let lastLifted: string | null = null
+
+function stopWatching() {
+  watching?.mo.disconnect()
+  watching = null
+}
+
+function watchWhileHeld(parent: Element) {
+  if (watching?.parent === parent || typeof MutationObserver === "undefined") return
+  stopWatching()
+  const mo = new MutationObserver(() => {
+    const ids = lastIds
+    if (!ids || !held.size) return
+    const els = new Map([...held].map(([id, h]) => [id, h.el]))
+    if (inOrder(ids, els)) releaseAll()
+    else previewNative({ ids, lifted: lastLifted })
+  })
+  mo.observe(parent, { childList: true })
+  watching = { mo, parent }
+}
+
 /** Storelib's canvas: slide the boxes, by transform, to the order asked for. */
 function previewNative(p: PreviewOrder) {
   if (typeof document === "undefined") return
   const root = document.getElementById("wb-preview-root")
   if (!root) return
   if (p.ids === null) {
+    stopWatching()
     const els = new Map([...held].map(([id, h]) => [id, h.el]))
     const ids = lastIds
     if (p.end === "commit" && ids && held.size) {
@@ -164,8 +198,10 @@ function previewNative(p: PreviewOrder) {
   settle?.stop()
   settle = null
   lastIds = p.ids
+  lastLifted = p.lifted ?? null
   const els = p.ids.map((id) => document.getElementById(`wb-section-${id}`)).filter((el): el is HTMLElement => !!el && root.contains(el))
   if (els.length < 2) return
+  if (els[0].parentElement) watchWhileHeld(els[0].parentElement)
   /* One layout for all of them: offsetTop is only comparable between boxes that share an offsetParent. */
   const parent = els[0].offsetParent
   if (els.some((el) => el.offsetParent !== parent)) return

@@ -21,6 +21,7 @@
  *   npx tsx scripts/check-section-drag-canvas.mjs
  *   THEME=storelib|imported   one theme only
  *   LIVE=1                    the owner's real Materia theme (scripts/materia-live-fixture.mjs)
+ *   CPU=<n>                   the CPU slowed n times, as a phone
  *   STORE=1                   the owner's store over the imported fixture (SCENARIO=consent,...)
  *   TOUCH=0|1                 the mouse only, or the finger only
  *   EDITOR_REACT=package      bundled with package.json's React instead of Next's
@@ -37,7 +38,7 @@ const expect = (ok, what, got) => {
 }
 
 async function run({ kind, bundle, css, compat, touch }) {
-  const { page, front, js, close, errors } = await openEditor({ kind, bundle, css, compat, touch, ...(touch ? { width: Number(process.env.TOUCH_W ?? 1024), height: Number(process.env.TOUCH_H ?? 768) } : {}) })
+  const { page, front, js, close, errors } = await openEditor({ kind, bundle, css, compat, touch, cpu: Number(process.env.CPU ?? 1), ...(touch ? { width: Number(process.env.TOUCH_W ?? 1024), height: Number(process.env.TOUCH_H ?? 768) } : {}) })
   try {
     console.log(`\n${kind === "imported" ? "IMPORTED THEME (Materia fixture)" : "STORELIB THEME"}, ${touch ? "FINGER" : "MOUSE"}`)
     /* The canvas: the page's sections in the document, and in the order they are seen (their boxes' tops). */
@@ -195,6 +196,40 @@ async function run({ kind, bundle, css, compat, touch }) {
         const c = await canvas()
         expect(c.mark, "without loading the canvas again")
       }
+    }
+    /* ── TWICE: a second drag straight after the first, before the canvas has taken the first in ── */
+    if (!touch) {
+      const dragRow = async (n, slots) => {
+        const p = await js((n) => { const g = document.querySelectorAll("[data-reorder-row] [aria-label$=' to reorder']")[n]; g.scrollIntoView({ block: "center" }); const r = g.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, h: g.closest("[data-reorder-row]").getBoundingClientRect().height } }, n)
+        const d = p.h * slots + Math.sign(slots) * 4
+        await page.mouse.move(p.x, p.y)
+        await page.mouse.down()
+        for (let i = 1; i <= 8; i++) { await page.mouse.move(p.x, p.y + (d * i) / 8); await sleep(16) }
+        await sleep(60)
+        await page.mouse.up()
+      }
+      /* The block tree folded again, so the rows are the sections'. */
+      await js(() => document.querySelectorAll("[data-section-expand]").forEach((t) => { if (t.getAttribute("aria-label")?.startsWith("Hide")) t.click() }))
+      await sleep(400)
+      await markFrame()
+      const s0 = await sidebar()
+      await dragRow(1, 1)
+      await dragRow(3, -2)
+      const trace = []
+      const t1 = Date.now()
+      while (Date.now() - t1 < 6000) { trace.push({ ms: Date.now() - t1, ...(await canvas()) }); await sleep(150) }
+      const s1 = await sidebar()
+      const want4 = s1.filter((id) => c0.dom.includes(id))
+      const end = trace[trace.length - 1]
+      const firstRight = trace.findIndex((x) => x.seen.join() === want4.join())
+      const leftAgain = firstRight < 0 ? -1 : trace.findIndex((x, i) => i > firstRight && x.seen.join() !== want4.join())
+      console.log(`  twice: sidebar ${JSON.stringify(s0)} -> ${JSON.stringify(s1)}`)
+      console.log(`         canvas right from ${firstRight < 0 ? "never" : `${trace[firstRight].ms}ms`}, ${leftAgain < 0 ? "stayed right" : `wrong again at ${trace[leftAgain].ms}ms ${JSON.stringify(trace[leftAgain].seen)}`}`)
+      expect(s1.join() !== s0.join(), "two drags changed the sidebar", s1)
+      expect(end.dom.join() === want4.join() && end.seen.join() === want4.join(), "the canvas has both, in place", { dom: end.dom, seen: end.seen })
+      expect(end.moved === 0, "nothing left held by a transform", end.moved)
+      expect(leftAgain < 0, "once right, the canvas stays right", leftAgain < 0 ? null : trace[leftAgain])
+      expect(end.mark, "without loading the canvas again")
     }
     expect(errors.length === 0, "no page errors", errors)
   } finally {

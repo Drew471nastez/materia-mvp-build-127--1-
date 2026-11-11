@@ -1143,6 +1143,8 @@ const SUITES = [
   "tests/round-bc-checkout.test.ts",
   "tests/round-bc-accounts.test.ts",
   "tests/round-bc-sidebar.test.ts",
+  /* Rel2: a section or block reordered in the sidebar moves on the canvas. Every reorder (the grip, Move up and down in the menu and on the toolbar, a block's drag) sets the editor's one list; in Chromium, the imported theme's frame (canvas-bridge.ts) and Storelib's canvas (live-order.ts) end with the sections in order and nothing held whatever order the drop and the patch arrive in, with no drop heard at all, and under a second drag; scripts/check-section-drag-canvas.mjs measures the real editor. */
+  "tests/section-drag-canvas.test.ts",
   "tests/round-bc-canvas.test.ts",
   /* Round 13 (THEMESET): ten new fonts in every picker, previews fetched for the rows in view; a swatch choice in an imported theme's settings shown at once; scripts/check-themeset-r13.mjs measures them. */
   "tests/themeset-r13.test.ts",
