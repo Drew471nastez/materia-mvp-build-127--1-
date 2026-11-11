@@ -168,7 +168,9 @@ async function run({ kind, bundle, css, compat, touch }) {
       const b0 = await blocksIn()
       await markFrame()
       const g = await js((id) => { const all = [...(document.querySelector(`[data-section-blocks="${CSS.escape(id)}"]`)?.querySelectorAll("[data-tree-block] [aria-label^='Drag to reorder']") ?? [])]; const g = all[0]; if (g) { g.scrollIntoView({ block: "center" }); for (let n = g.parentElement; n; n = n.parentElement) { if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) { const a = n.getBoundingClientRect(), b = g.getBoundingClientRect(); n.scrollTop += b.top - (a.top + Math.min(a.height, innerHeight - a.top) / 2); break } } } return all.map((x) => { const r = x.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, h: x.closest("[data-tree-block]").getBoundingClientRect().height } }) }, owner)
-      if (g.length < 2) expect(false, "the section's blocks are in the sidebar's tree", { owner, rows: g.length })
+      /* The owner's live theme draws its sections as raw markup, with no block the sidebar can open: nothing to drag there. */
+      if (!owner) console.log("  --    no section here whose blocks the sidebar opens")
+      else if (g.length < 2) expect(false, "the section's blocks are in the sidebar's tree", { owner, rows: g.length })
       else {
         const p = g[0]
         const d = p.h * 1 + 4
