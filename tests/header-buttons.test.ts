@@ -71,16 +71,14 @@ check("both computer rows wait with an invisible copy of the logged out row", (h
 check("the stand in cannot be reached or read", /aria-hidden=\{placeholder \|\| undefined\}/.test(header) && /inert=\{placeholder \|\| undefined\}/.test(header))
 check("no grey pills: the old skeleton is gone", !/HeaderActionsSkeleton|<Skeleton\b/.test(header))
 
-console.log("\n3. the hero's button and search")
+console.log("\n3. the cinematic hero signup")
 {
-  /* Changed on purpose (round AA1, the owner's remake from a reference): one button and the marketplace search, under the subheading. */
   const hero = readCode("components/marketing/hero.tsx")
-  const actions = hero.slice(hero.indexOf("data-hero-actions"), hero.indexOf("<HeroCarousel"))
-  check("they are under the subheading", hero.indexOf("data-hero-actions") > hero.indexOf("The e-commerce platform for creators"))
-  /* Changed on purpose (round AC1): both take one CONTROL class list (52px, full width on a phone), which carries the corner. */
-  check("the button and the search field take the Log in button's corner", (actions.match(/\$\{CONTROL\}/g) ?? []).length === 2 && /const CONTROL = "[^"]*\brounded-action\b/.test(hero))
-  check("and neither is a pill", !/rounded-full/.test(actions))
+  const css = hero
+  check("signup stays below the description", hero.indexOf("<HeroCta") > hero.indexOf("cinematic-description"))
+  check("signup has the requested pill controls and the marketplace is a link", /border-radius: 999px/.test(css) && /className="cinematic-marketplace"/.test(hero) && !/role="search"/.test(hero))
 }
+
 
 console.log("\n4 and 5. the phone menu, logged out")
 {

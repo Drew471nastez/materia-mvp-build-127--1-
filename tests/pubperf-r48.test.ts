@@ -130,8 +130,8 @@ async function main() {
       check(`${f} downloads no detached copy of an original upload`, !/new window\.Image\(\)/.test(code(f)))
     }
     check("the plans' pictures stay eager on /pricing, where the cards are the page", /pictureLoading=\{headingLevel === 1 \? "eager" : "lazy"\}/.test(code("components/marketing/pricing-section.tsx")) && /pictureLoading = "eager"/.test(code("components/billing/plan-cards.tsx")))
-    const slider = code("components/marketing/hero-carousel.tsx")
-    check("the hero keeps one priority picture: its first slide", /priority=\{i === 0\}/.test(slider) && /loading=\{i === 0 \? undefined : "lazy"\}/.test(slider))
+    const video = code("components/marketing/hero-video.tsx")
+    check("the hero prioritizes only its local poster and defers video until preferences are known", /fetchPriority="high"/.test(video) && /preload="none"/.test(video) && /allowed\(\)/.test(video))
   }
 
   console.log("\n2. The cookie card is drawn by the server")

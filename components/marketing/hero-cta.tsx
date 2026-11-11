@@ -1,52 +1,43 @@
 "use client"
 
-import { useLayoutEffect, useState } from "react"
-import Link from "next/link"
-import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
-import { HERO_CTA, heroCtaState, type HeroCtaState } from "@/lib/marketing/hero-cta-state"
+import { useId, useState } from "react"
 
-/**
- * The hero's one button, by who is looking:
- *
- *   a creator (seller access)           Dashboard       /app
- *   signed in, not selling yet          Start Creating  /sell (seller onboarding)
- *   signed out                          Start Now       /sell (asks them to sign up first)
- *
- * WHY NOT A SERVER READ. Reading the session in the page would make
- * storelib.com's front page render per request and lose the CDN copy the
- * marketing layout is careful to keep (see app/(marketing)/layout.tsx). The
- * header already verifies the session and writes the result to the auth
- * snapshot (lib/auth/auth-snapshot); this reads that snapshot before the
- * first paint after hydration and follows it when the header corrects it.
- *
- * The three labels, each with its arrow, share one grid cell: the button is
- * as wide as the longest whichever is showing, the one showing is centred in
- * it, and a label that changes moves nothing around it.
- */
-
-export function HeroCta({ className }: { className?: string }) {
-  const [state, setState] = useState<HeroCtaState>("guest")
-
-  useLayoutEffect(() => {
-    const read = () => setState(heroCtaState(readAuthSnapshot()))
-    read()
-    return subscribeAuthSnapshot(read)
-  }, [])
-
-  const { href } = HERO_CTA[state]
+/** Same /signup endpoint and email prefill used by existing auth screens.
+ * GET also works before hydration; no account or marketing consent is created here. */
+export function HeroCta() {
+  const id = useId()
+  const [invalid, setInvalid] = useState(false)
   return (
-    <Link href={href} data-hero-cta={state} className={className}>
-      <span className="grid justify-items-center">
-        {(Object.keys(HERO_CTA) as HeroCtaState[]).map((key) => (
-          <span key={key} aria-hidden={key !== state || undefined} className={`col-start-1 row-start-1 inline-flex items-center gap-2 ${key === state ? "" : "invisible"}`}>
-            <span data-hero-cta-label="">{HERO_CTA[key].label}</span>
-            <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-              <path d="M5 12h14" />
-              <path d="m12 5 7 7-7 7" />
-            </svg>
-          </span>
-        ))}
-      </span>
-    </Link>
+    <form
+      action="/signup"
+      method="get"
+      className="cinematic-signup"
+      data-hero-signup=""
+    >
+      <input type="hidden" name="intent" value="sell" />
+      <label htmlFor={id} className="cinematic-sr-only">
+        Email address
+      </label>
+      <input
+        id={id}
+        type="email"
+        name="email"
+        autoComplete="email"
+        inputMode="email"
+        enterKeyHint="go"
+        maxLength={254}
+        placeholder="Enter your email address"
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? `${id}-error` : undefined}
+        onInvalid={() => setInvalid(true)}
+        onInput={() => setInvalid(false)}
+      />
+      <button type="submit">Start for free</button>
+      {invalid && (
+        <p id={`${id}-error`} className="cinematic-error" role="alert">
+          Enter a valid email address, or leave it empty to continue.
+        </p>
+      )}
+    </form>
   )
 }

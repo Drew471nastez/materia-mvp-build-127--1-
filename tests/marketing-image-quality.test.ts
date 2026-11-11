@@ -55,7 +55,7 @@ function main() {
   const manage = read("components/marketing/manage-section.tsx")
   const helper = read("lib/images/optimized-url.ts")
   const hero = read("components/marketing/hero.tsx")
-  const slider = read("components/marketing/hero-carousel.tsx")
+  const video = read("components/marketing/hero-video.tsx")
   const probe = read("scripts/check-marketing-image-quality.mjs")
 
   console.log("\nThe descriptors come from the same number as the files")
@@ -90,15 +90,8 @@ function main() {
     "it fetched a different width than the <img> rendered: six downloads for three pictures",
   )
 
-  console.log("\nThe hero slider sizes the slide it has, not the one beside it")
-
-  /* Changed on purpose (round AA1): the collage became the storefront slider; its centre slide is the widest, at --hc-w per breakpoint. */
-  check(
-    "sizes is the centre slide's width at each breakpoint",
-    /sizes="\(max-width: 639px\) 78vw, \(max-width: 1023px\) 56vw, 680px"/.test(slider) &&
-      /--hc-w: min\(78vw, 340px\)/.test(hero) && /--hc-w: min\(56vw, 560px\)/.test(hero) && /--hc-w: min\(50vw, 680px\)/.test(hero),
-    "the side slides are drawn smaller; under-stating costs the centre one its sharpness",
-  )
+  console.log("\nThe cinematic hero never preloads the old screenshots")
+  check("only a lightweight local poster is high priority", /fetchPriority="high"/.test(video) && /preload="none"/.test(video) && !/HeroCarousel|HERO_BACKDROP/.test(hero))
 
   console.log("\nAnd the probe measures the file, not the layout")
 

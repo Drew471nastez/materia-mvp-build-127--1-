@@ -45,7 +45,7 @@ const root = process.cwd()
 const code = (p: string) => stripComments(readFileSync(join(root, p), "utf8"))
 
 /* Changed on purpose (round AA1): the hero was remade, and its pictures are listed in lib/marketing/hero-media.ts and drawn through next/image. */
-const hero = ["components/marketing/hero.tsx", "components/marketing/hero-carousel.tsx", "lib/marketing/hero-media.ts"].map(code).join("\n")
+const hero = ["components/marketing/hero.tsx", "components/marketing/hero-video.tsx", "lib/marketing/hero-video.ts"].map(code).join("\n")
 const gallery = code("components/product/product-gallery.tsx")
 const viewer = code("components/product/product-media-viewer.tsx")
 
@@ -58,12 +58,11 @@ console.log("\nThe pictures on the front page's hero\n")
   slides still go through next/image. Neither is ever fetched at full size.
 */
 check(
-  "its images go through the optimizer, or are made at the size they are drawn",
-  /from "next\/image"/.test(code("components/marketing/hero-carousel.tsx")) &&
-    /width=\{360\} height=\{450\}/.test(code("components/marketing/hero.tsx")) &&
-    /tile-\$\{name\}\.webp/.test(code("lib/marketing/hero-media.ts")) &&
-    /resize\(360, 450/.test(code("scripts/hero-shots.mjs")),
-  "they were being fetched at full size",
+  "the cinematic hero uses a local poster with reserved geometry and native video decoding",
+  /width=\{1600\}/.test(code("components/marketing/hero-video.tsx")) &&
+    /height=\{900\}/.test(code("components/marketing/hero-video.tsx")) &&
+    /preload="none"/.test(code("components/marketing/hero-video.tsx")) &&
+    /object-fit: cover/.test(code("components/marketing/hero.tsx")),
 )
 check(
   "the parameters that did nothing are gone",
