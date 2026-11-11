@@ -61,6 +61,7 @@ import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
 import { CLAIM_COOKIE, claimFallbackNext, claimSignInHref } from "@/lib/handoff/rules"
 import { HANDED_HOME, handedBusinessOf } from "@/lib/handoff/home"
 import { opensInApp } from "@/lib/platform/app-links"
+import { inviteEmailFrom } from "@/lib/team/invite-links"
 import { MAX_BUSINESSES } from "@/lib/businesses/rules"
 
 let passed = 0
@@ -645,6 +646,7 @@ async function main() {
     const cookie = /sl_handoff_claim=([^;]+)/.exec(toSignup.headers.get("set-cookie") ?? "")?.[1] ?? ""
     check("4. Create account to accept: sign up with her email filled in, the claim kept as next and in the cookie", signupAt.pathname === "/signup" && signupAt.searchParams.get("email") === "ana@example.com" && signupAt.searchParams.get("next") === claimPath(token) && tokenShapeOk(cookie), { at: signupAt.toString(), cookie })
     w.auth.push({ id: ANA, email: "ana@example.com", app_metadata: { verified_email: "ana@example.com" } })
+    check("   the sign up and log in pages fill in ana@ and keep it, as for a team invite (only that email can accept)", inviteEmailFrom(signupAt.searchParams) === "ana@example.com" && inviteEmailFrom(new URLSearchParams(claimSignInPath(token, { signup: false, email: "ana@example.com" }).split("?")[1])) === "ana@example.com" && inviteEmailFrom(new URLSearchParams(claimSignInPath(token, { signup: false, email: null }).split("?")[1])) === null)
     check("5. Signed up and confirmed: back to the claim, from next or, if an OAuth trip lost it, from the cookie", destinationAfterAuth(readCarry(signupAt.searchParams, "storelib.com"), { state: "none" } as never) === claimPath(token) && claimFallbackNext(null, cookie) === claimPath(token))
     const ready = await readClaim(w.deps, token, await viewerOf(w.deps, { id: ANA, email: "ana@example.com" }))
     check("   ready: Manage Glow Studio, Accept ownership", ready.ok && ready.state.kind === "ready" && /Manage Glow Studio[\s\S]*Accept ownership/.test(renderToStaticMarkup(createElement(ClaimCard, { state: (ready as { state: ClaimState }).state, token, note: "", signedIn: true, preview: (ready as any).preview }))))

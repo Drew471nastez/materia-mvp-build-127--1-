@@ -663,7 +663,7 @@ function SignUpFormContent() {
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">{t("auth.signup_title")}</h1>
           {/* Sell on Storelib: says the setup comes next, so nobody wonders whether the click was lost. */}
-          <p className="mb-8 text-[15px] text-neutral-500">{inviteEmail ? `Create your account as ${inviteEmail} to accept the team invite.` : t(carry.intent ? "auth.signup_subtitle_sell" : "auth.signup_subtitle")}</p>
+          <p className="mb-8 text-[15px] text-neutral-500">{inviteEmail ? `Create your account as ${inviteEmail} to accept the invite.` : t(carry.intent ? "auth.signup_subtitle_sell" : "auth.signup_subtitle")}</p>
 
           <form onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">
