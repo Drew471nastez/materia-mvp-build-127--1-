@@ -268,7 +268,9 @@ export function SocialShowAs({ block, onChange, getBlock }: { block: OnePageBloc
   if (!embed) return null
   const p = presentationOf(block)
   const value = p.media_mode === "native" ? "embed" : "link"
-  const options = [{ id: "link", label: tt("Link") }, { id: "embed", label: embed.platform === "YouTube" || embed.platform === "Vimeo" || embed.platform === "TikTok" ? tt("Play here") : tt("Show the post") }]
+  /* Round AR3: a form, a booking page, a map, a design or a show is shown in place, not "the post". */
+  const kindOf = ["YouTube", "Vimeo", "TikTok", "Spotify", "SoundCloud", "Apple Music", "Apple Podcasts", "Loom", "Mixcloud", "Deezer"].includes(embed.platform) ? "play" : ["Instagram", "X"].includes(embed.platform) ? "post" : "here"
+  const options = [{ id: "link", label: tt("Link") }, { id: "embed", label: kindOf === "play" ? tt("Play here") : kindOf === "post" ? tt("Show the post") : tt("Show it here") }]
   return (
     <div className="space-y-1.5" data-social-show-as="">
       <p className="text-[13px] font-medium text-[#1a1a2e]">{tt("Show as")}</p>
@@ -835,4 +837,4 @@ export function ClassicFeaturedPicker({
 }
 
 /* How a block of many is arranged, its cards in view and how many: components/onepage/layout-pickers. */
-export { ArrangePicker, CardsInViewControl, EditorThemeContext, HowManyControl, CARDS_IN_VIEW, type ArrangeKind, type CardsInView } from "./layout-pickers"
+export { ArrangePicker, CardsInViewControl, EditorThemeContext, HowManyControl, PictureFitControl, CARDS_IN_VIEW, type ArrangeKind, type CardsInView, type PictureFit } from "./layout-pickers"

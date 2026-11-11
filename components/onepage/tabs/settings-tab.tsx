@@ -11,6 +11,7 @@ import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { ProMark, SwitchRow, fieldInput } from "@/components/onepage/editor-kit"
 import { EditorSelect } from "@/components/onepage/editor-choice"
 import { SeoPanel } from "@/components/onepage/seo-panel"
+import { OnePageHandoffRow } from "@/components/onepage/handoff-row"
 import { OnePageDomainRow, OnePageIntegrations } from "@/components/onepage/settings-integrations"
 import { SignupDestination } from "@/components/onepage/creator-blocks"
 import { getLinksShareUrl, getOnePageDomain } from "@/lib/url-helpers"
@@ -446,6 +447,9 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
 
       {/* The page's own domain (Settings › Domains), and how to connect one. */}
       <OnePageDomainRow />
+
+      {/* Round AR: a page made for somebody else is handed to them from here (components/onepage/handoff-row). */}
+      <OnePageHandoffRow />
 
       {saveRow("basic")}
     </div>

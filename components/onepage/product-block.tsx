@@ -432,11 +432,16 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
       </span>
     )
   }
+  /* Round AR3: Cover (as always), Fit (all of it, on a soft ground) or Full (its own shape, where the layout gives it a box of a set shape). */
+  const fit = data.image_fit === "contain" || data.image_fit === "full" ? data.image_fit : "cover"
   const picture = (cls: string, ratio?: string) =>
-    image ? (
+    !image ? null : fit === "full" && ratio ? (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img src={image} alt={title || ""} loading="lazy" decoding="async" data-picture-fit="full" className={cn("block h-auto shrink-0", cls)} />
+    ) : (
       /* Round AK: the editor's grey padding is cut off when the picture carries it (components/ui/framed-picture). */
-      <FramedPicture src={image} alt={title} className={cn("shrink-0 bg-black/5", ratio, cls)} imgClassName="object-cover" imgProps={{ loading: "lazy", decoding: "async" }} />
-    ) : null
+      <FramedPicture src={image} alt={title} fit={fit === "cover" ? "cover" : "contain"} className={cn("shrink-0 bg-black/5", ratio, cls)} imgClassName={fit === "cover" ? "object-cover" : "object-contain"} imgProps={{ loading: "lazy", decoding: "async", ...({ "data-picture-fit": fit } as object) }} />
+    )
 
   const shell = (children: React.ReactNode, cls: string, style: React.CSSProperties = cardStyle) => (
     <a
@@ -468,7 +473,15 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           data-stays-here={staysHere}
         >
           {image ? <FramedPicture src={image} alt={title} frame={1} className="relative h-6 w-6 shrink-0 rounded sm:h-7 sm:w-7" imgClassName="object-cover" /> : null}
-          {presentationOf(block).subtitle ? <span className="relative min-w-0"><span className="op-label block break-words">{cta}</span><BlockSubtitle subtitle={presentationOf(block).subtitle} /></span> : <span className="op-label relative truncate">{cta}</span>}
+          {/*
+            Round AR3: the product's name is on the button too. With button words of the creator's own, they lead and the
+            name is the line under them; without, the name is the button (it said "Get My Guide" for every product).
+          */}
+          <span className="relative min-w-0">
+            <span className="op-label block truncate" data-block-title={data.cta_text?.trim() ? undefined : ""}>{data.cta_text?.trim() || purchased ? cta : title}</span>
+            {data.cta_text?.trim() || purchased ? <span className="block truncate text-[0.82em] font-normal opacity-75" data-block-title="">{title}</span> : null}
+            <BlockSubtitle subtitle={presentationOf(block).subtitle} />
+          </span>
           {showPrice && !purchased ? (
             <span className="relative shrink-0 text-sm tabular-nums opacity-75">
               {now}

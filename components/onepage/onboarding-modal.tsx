@@ -359,7 +359,7 @@ interface OnboardingProgress {
 }
 
 export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalProps) {
-  const { onepage, updateProfile, applyThemeLook, updateSocialLinks, addBlock, updateBlock, removeBlock, save } = useOnePage()
+  const { onepage, updateProfile, updateSocialLinks, addBlock, updateBlock, removeBlock, save, applyThemeLook } = useOnePage()
   /*
     FULL SCREEN IN THE APP, AT EVERY WIDTH, like the creator onboarding
     (components/app/creator-onboarding-modal.tsx). Below 640px this has always
@@ -932,13 +932,17 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         await updateSocialLinks(socialUpdates)
       }
 
-      // Apply theme with template_id so design tab shows correct selection
+      /*
+        The theme, laid on exactly as the Design tab lays it (round AR,
+        lib/onepage/theme-apply lookFromTemplate): the whole look in one step,
+        Share and Subscribe matched, a Hero theme with its Hero. It was merged
+        into the page's theme here, so a Hero theme picked here came out
+        Classic, and Share and Subscribe kept the default theme's style.
+      */
       const template = THEME_TEMPLATES.find((t) => t.id === selectedTemplate)
       if (template) {
-        /* Round W9: picked the way Design › Themes picks it (lib/onepage/theme-apply lookFromTemplate), so the
-           theme's Share and Subscribe styles and its Hero or Classic header come with it, as they do there. */
         const hero = (template as { profile_layout?: string }).profile_layout === "hero" || (template.theme_config as { header_layout?: string }).header_layout === "hero"
-        applyThemeLook(template as never, hero ? "hero" : (template as { profile_layout?: string }).profile_layout === "classic" ? "classic" : undefined, null)
+        applyThemeLook(template as never, hero ? "hero" : "classic", (THEME_TEMPLATES.find((t) => t.id === onepage?.theme?.template_id) ?? null) as never)
       }
 
       // Create blocks based on goal

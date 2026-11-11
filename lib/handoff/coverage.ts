@@ -47,7 +47,7 @@ export const BUSINESS_TABLES: Readonly<Record<string, string>> = Object.fromEntr
 )
 
 export const MONEY_TABLES: Readonly<Record<string, string>> = Object.fromEntries(
-  ["ledger_events", "payment_disputes", "payment_fee_records", "payment_payouts", "payouts", "refunds", "seller_ledger"].map((t) => [t, MONEY_HISTORY]),
+  ["ledger_events", "onepage_tips", "payment_disputes", "payment_fee_records", "payment_payouts", "payouts", "refunds", "seller_ledger"].map((t) => [t, MONEY_HISTORY]),
 )
 
 export const CONNECTION_TABLES: Readonly<Record<string, string>> = Object.fromEntries(

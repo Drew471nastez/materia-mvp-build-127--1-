@@ -139,6 +139,8 @@ export function pushPriority(kind: string, dedupeKey?: string | null): PushPrior
   if ((IMMEDIATE_KINDS as readonly string[]).includes(kind)) return "now"
   /* "A spot opened: you are going", and an event you are going to that moved or was called off: about the person alone. */
   if (kind === "event" && typeof dedupeKey === "string" && (dedupeKey.startsWith("event_promoted:") || dedupeKey.startsWith("event_change:"))) return "now"
+  /* Round AR: a booking made, moved or cancelled on the creator's page is about their own day: it reaches the phone at once (lib/bookings/announce.ts). */
+  if (kind === "system" && typeof dedupeKey === "string" && dedupeKey.startsWith("booking:")) return "now"
   return "coalesce"
 }
 

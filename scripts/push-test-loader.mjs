@@ -245,6 +245,8 @@ export async function load(url, context, nextLoad) {
 
 export async function resolve(specifier, context, nextResolve) {
   if (specifier === "server-only") return { url: EMPTY_MODULE, shortCircuit: true }
+  /* A stylesheet a component imports for its side effect (components/onepage/themes/theme-skin-scene.tsx): the bundler injects it; a suite under Node only needs the import to resolve. */
+  if (/\.css(\?.*)?$/.test(specifier)) return { url: EMPTY_MODULE, shortCircuit: true }
   if (specifier in NEXT_STUB_SOURCE) {
     const stub = nextStub(specifier)
     if (stub) return { url: stub, shortCircuit: true }

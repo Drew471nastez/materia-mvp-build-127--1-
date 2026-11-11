@@ -159,7 +159,7 @@ function main() {
   section("Block settings: one choice, not two switches")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    check("YouTube, Spotify and Apple Music choose their mode with one list", (tab.match(/<ModeChoice/g) ?? []).length === 3 && /role="radiogroup"/.test(kit) && /role="radio"/.test(kit) && /aria-checked=\{on\}/.test(kit))
+    check("YouTube, Spotify and Apple Music choose their mode with one list", /* Changed on purpose (round AR): a fourth, the email signup choosing a file or one of your products. */ (tab.match(/<ModeChoice/g) ?? []).length === 4 && /role="radiogroup"/.test(kit) && /role="radio"/.test(kit) && /aria-checked=\{on\}/.test(kit))
     check("the switches that acted as a choice are gone", !/<Toggle label=\{mode\.label\}/.test(tab))
     check("the open block is the app's card, its settings on a light wash", /data-block-settings=""/.test(tab) && !/ring-1 ring-gray-400 border-gray-300/.test(tab))
   }

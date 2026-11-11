@@ -340,7 +340,7 @@ const app = (provider: AppProviderId, category: PickerCategory, label: () => str
 }
 
 /* i18n-ignore-start: names of services, and the English words a search also answers to (each entry's own name and line are translated). */
-const BRAND = { sheets: "Google Sheets", kit: "Kit", mailerlite: "MailerLite", brevo: "Brevo", flodesk: "Flodesk", make: "Make", webhook: "Webhook", email: "Klaviyo / Omnisend", threads: "Threads", applemusic: "Apple Music", podcasts: "Apple Podcasts", gforms: "Google Forms", gcal: "Google Calendar", bmac: "Buy Me a Coffee", cashapp: "Cash App", loom: "Loom", bandcamp: "Bandcamp", mixcloud: "Mixcloud", typeform: "Typeform", tally: "Tally", bluesky: "Bluesky", snapchat: "Snapchat", venmo: "Venmo", maps: "Google Maps", calendly: "Calendly", audiomack: "Audiomack", fourthwall: "Fourthwall", bonfire: "Bonfire", cameo: "Cameo", reddit: "Reddit", discord: "Discord" }
+const BRAND = { sheets: "Google Sheets", kit: "Kit", mailerlite: "MailerLite", brevo: "Brevo", flodesk: "Flodesk", make: "Make", webhook: "Webhook", email: "Klaviyo / Omnisend", threads: "Threads", applemusic: "Apple Music", podcasts: "Apple Podcasts", gforms: "Google Forms", gcal: "Google Calendar", bmac: "Buy Me a Coffee", cashapp: "Cash App", loom: "Loom", bandcamp: "Bandcamp", mixcloud: "Mixcloud", typeform: "Typeform", tally: "Tally", bluesky: "Bluesky", snapchat: "Snapchat", venmo: "Venmo", maps: "Google Maps", calendly: "Calendly", audiomack: "Audiomack", fourthwall: "Fourthwall", bonfire: "Bonfire", cameo: "Cameo", reddit: "Reddit", discord: "Discord", luma: "Luma", eventbrite: "Eventbrite" }
 const KEYWORDS = {
   heading: "title section header organize",
   faq: "questions answers help",
@@ -438,8 +438,6 @@ const KEYWORDS = {
   app_typeform: "form survey quiz",
   app_discord: "server community chat",
   app_whatsapp_group: "group channel community telegram",
-  app_bonfire: "merch shirts apparel",
-  app_fourthwall: "merch apparel shop",
   app_books: "amazon author book",
   app_affiliate: "affiliate picks products recommend amazon",
   app_tips: "tip donate support ko-fi paypal coffee",
@@ -447,9 +445,15 @@ const KEYWORDS = {
   app_events: "tour concerts tickets shows events dates",
   app_stats: "numbers metrics key figures",
   app_poll: "vote question survey",
+  app_event: "event rsvp party launch meetup workshop tickets countdown",
+  app_luma: "luma lu.ma event calendar embed rsvp",
+  app_eventbrite: "eventbrite event tickets",
+  app_paid: "paid access paywall locked members only premium exclusive",
+  app_reviews: "reviews testimonials trustpilot google rating stars",
   app_contact: "vcard business card phone save contact",
   app_email: "email address mail",
   app_note: "text button paragraph",
+  int_canva: "canva design slides presentation poster flyer deck",
 }
 /* i18n-ignore-end */
 
@@ -486,10 +490,10 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   { id: "shelf_membership", type: "storelib_shelf", category: "commerce", get label() { return tt("Memberships") }, get description() { return tt("Your memberships and their price") }, icon: GlyphStar, tile: TILE.plum, data: { source: "membership" }, keywords: KEYWORDS.shelf_membership },
   { id: "shelf_community", type: "storelib_shelf", category: "commerce", get label() { return tt("Community") }, get description() { return tt("Your Storelib community") }, icon: GlyphPeople, tile: TILE.sky, data: { source: "community", layout: "list" }, keywords: KEYWORDS.shelf_community },
   app("tips", "commerce", () => tt("Tips"), () => tt("Accept tips from your audience"), KEYWORDS.app_tips),
+  app("paid", "commerce", () => tt("Paid access"), () => tt("Text and a link people pay to see"), KEYWORDS.app_paid),
   app("affiliate", "commerce", () => tt("Affiliate products"), () => tt("Earn by sharing products you love"), KEYWORDS.app_affiliate),
   { id: "referral", type: "promo_code", category: "commerce", get label() { return tt("Discount code") }, get description() { return tt("Show a code people can copy") }, icon: GlyphTag, tile: TILE.rose, keywords: KEYWORDS.referral },
-  app("fourthwall", "commerce", () => BRAND.fourthwall, () => tt("Sell your own merch"), KEYWORDS.app_fourthwall),
-  app("bonfire", "commerce", () => BRAND.bonfire, () => tt("Sell shirts and merch"), KEYWORDS.app_bonfire),
+  /* Round AR: Fourthwall and Bonfire are gone from the sheet (the owner: "get rid of Fourthwall, or Bonfire"); a saved one is drawn as a plain link (components/onepage/app-block RetiredView). */
   app("books", "commerce", () => tt("Books"), () => tt("Promote your books"), KEYWORDS.app_books),
   app("discord", "commerce", () => BRAND.discord, () => tt("Invite people to your server"), KEYWORDS.app_discord),
   app("whatsapp_group", "commerce", () => tt("WhatsApp group"), () => tt("Grow your group or channel"), KEYWORDS.app_whatsapp_group),
@@ -505,7 +509,9 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   app("pinterest", "social", () => "Pinterest", () => tt("Show your pins and boards"), KEYWORDS.app_pinterest),
   app("twitch", "social", () => "Twitch", () => tt("Get more viewers for your stream"), KEYWORDS.app_twitch),
   app("reddit", "social", () => BRAND.reddit, () => tt("Show your Reddit profile or a post"), KEYWORDS.app_reddit),
-  app("google_reviews", "social", () => tt("Reviews"), () => tt("Show your Google reviews"), KEYWORDS.app_google_reviews),
+  /* Round AR: one Reviews block for the store's own, Trustpilot's and a Google score; the Google card stays beside it. */
+  app("reviews", "social", () => tt("Reviews"), () => tt("Your Storelib, Google or Trustpilot reviews"), KEYWORDS.app_reviews),
+  app("google_reviews", "social", () => tt("Google reviews"), () => tt("Show your Google reviews"), KEYWORDS.app_google_reviews),
   extra("testimonials", "social", TILE.butter),
   { id: "followers", type: "followers", category: "social", get label() { return tt("Followers") }, get description() { return tt("Your total followers across networks") }, icon: GlyphTestimonials, tile: TILE.mint, keywords: KEYWORDS.followers },
   app("cameo", "social", () => BRAND.cameo, () => tt("Let fans book a personal video"), KEYWORDS.app_cameo),
@@ -524,6 +530,8 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   { id: "int_soundcloud", type: "music", category: "media", label: "SoundCloud", get description() { return tt("Get your music heard on SoundCloud") }, brand: "soundcloud", keywords: KEYWORDS.int_soundcloud },
   app("audiomack", "media", () => BRAND.audiomack, () => tt("Share your songs and albums"), KEYWORDS.app_audiomack),
   app("podcasts", "media", () => tt("Podcasts"), () => tt("Get more listeners and subscribers"), KEYWORDS.app_podcasts),
+  /* Round AR3: a Canva design in Canva's own player (lib/onepage/creator-blocks embedSource "canva"). */
+  { ...embed("int_canva", "Canva", null, "canva", () => tt("Show a Canva design on your page"), KEYWORDS.int_canva, GlyphImage), hidden: false },
   { id: "food_menu", type: "food_menu", category: "media", get label() { return tt("Menu") }, get description() { return tt("A food and drinks menu") }, icon: GlyphMenu, tile: TILE.butter, keywords: KEYWORDS.food_menu },
 
   /* Contact: forms, a map, a way to reach you. */
@@ -543,6 +551,9 @@ export const PICKER_ENTRIES: PickerEntry[] = [
 
   /* Events */
   app("events", "events", () => tt("Tour and events"), () => tt("Sell tickets by listing your events"), KEYWORDS.app_events),
+  app("event", "events", () => tt("Event"), () => tt("One event with RSVP and tickets"), KEYWORDS.app_event),
+  app("luma", "events", () => BRAND.luma, () => tt("Show your Luma event or calendar"), KEYWORDS.app_luma),
+  app("eventbrite", "events", () => BRAND.eventbrite, () => tt("Link to your Eventbrite event"), KEYWORDS.app_eventbrite),
   extra("countdown", "events", TILE.cyan, { icon: GlyphCountdown }),
 
   /* Text */

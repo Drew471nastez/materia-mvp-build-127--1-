@@ -250,6 +250,8 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "401", file: "401_ai_builder_agent.sql", sha256: "67291db8e09d9c204d30a7f34c497e57d7939f4ca3566feffaba9580fac74b7d" },
   { part: "405", file: "405_ai_job_preview_errors.sql", sha256: "caec345959a8eb1ce55ad2feffd0ed798f30e660844cd5923cd208b32aaab9fb" },
   { part: "406", file: "406_creator_people_alias_merge.sql", sha256: "a5909f448d5651bd696871d9c5d3542be1c7be784354c99eca2e8e29837abdae" },
+  { part: "410", file: "410_bookings_calendar.sql", sha256: "f5d287eb8d98c1f4ab693029a4c4c452959dd622a0cd66e231caa147fc616fdc" },
+  { part: "411", file: "411_onepage_tips_polls_phone.sql", sha256: "e2c35f03d79a702bb2df5d352ae1f82a9b3037da0429f29721d2f68051df7197" },
   { part: "431", file: "431_design_references.sql", sha256: "d2048b2853375770713954c08b4f567d6f29ce433e3d6c41397917255f3e3298" },
   { part: "441", file: "441_ai_images.sql", sha256: "15593480c75c558f2f893b85376cdd6a8864db70a87a0218e5dcbb39d837550f" },
 ]

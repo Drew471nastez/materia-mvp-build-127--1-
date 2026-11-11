@@ -3,6 +3,7 @@ import { routeUser, authUnavailableResponse } from "@/lib/auth/route-user"
 import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { fetchPublic, publicUrlProblem } from "@/lib/api/public-fetch"
 import { parseLinkMetadata } from "@/lib/onepage/link-metadata"
+import { oembedEndpoint, parseOEmbed } from "@/lib/onepage/oembed"
 export const runtime = "nodejs"
 
 /*
@@ -38,6 +39,19 @@ const noPreview = () =>
     { status: 422, headers: { "Cache-Control": "no-store" } },
   )
 
+/** The service's own oEmbed answer, as a preview, or null. Never throws. */
+async function readOEmbed(url: string): Promise<Preview | null> {
+  const at = oembedEndpoint(url)
+  if (!at) return null
+  try {
+    const r = await fetchPublic(at.url, { maxBytes: 65_536, timeoutMs: 3500, maxRedirects: 1 })
+    if (!r.ok || !/json/i.test(r.headers.get("content-type") || "")) return null
+    return parseOEmbed(JSON.parse(await r.text()), url, at.provider)
+  } catch {
+    return null
+  }
+}
+
 export async function GET(request: Request) {
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
@@ -71,6 +85,17 @@ export async function GET(request: Request) {
     const deadline = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new Error("timed out")), TOTAL_MS)
     })
+    /*
+      Round AR3: a service that publishes oEmbed (lib/onepage/oembed) is asked
+      there first, at its fixed address, through the same guard: TikTok,
+      Spotify and SoundCloud give a server little in Open Graph. A miss falls
+      through to the page itself.
+    */
+    const viaOEmbed = await Promise.race([readOEmbed(url), deadline]).catch(() => null)
+    if (viaOEmbed) {
+      remember(url, viaOEmbed)
+      return NextResponse.json(viaOEmbed, { headers: { "Cache-Control": "no-store" } })
+    }
     const r = await Promise.race([
       fetchPublic(url, {
         maxBytes: 524_288,

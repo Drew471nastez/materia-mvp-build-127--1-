@@ -24,6 +24,7 @@
  */
 import type { CSSProperties } from "react"
 import { readableOn } from "./theme-apply"
+import { TEXT_MIN, buttonGrounds, contrastOn, over, pageGrounds, parseColor, readableInk, toHex, worstContrast, type Rgba } from "./contrast"
 
 export type ButtonFill = "filled" | "soft" | "outline" | "glass"
 export type ButtonShadow = "none" | "subtle" | "strong" | "hard"
@@ -174,9 +175,16 @@ export function themeButtonStyle(theme: ButtonThemeLike): CSSProperties {
   }
 }
 
-/** The fill a header strip inside a button takes (the YouTube and Pro titles): the button colour when solid, else none. */
+/**
+ * The fill a header strip inside a button takes (the YouTube and Pro titles): the button colour when solid, else none.
+ * Round AR: a see-through Solid colour (a glass theme saved as Solid, rgba(255,255,255,0.15)) is already the
+ * card's own fill, so the strip laid it a second time and white words fell under 4.5:1 on it
+ * (scripts/check-onepage-contrast-ar5.mjs, Ocean and Aurora). The strip is clear then: the card shows through.
+ */
 export function themeButtonStripFill(theme: ButtonThemeLike): string {
-  return buttonFill(theme) === "filled" ? (theme.button_color as string) : "transparent"
+  if (buttonFill(theme) !== "filled") return "transparent"
+  const c = parseColor(theme.button_color)
+  return c && c.a < 1 ? "transparent" : (theme.button_color as string)
 }
 
 function luminance(color: string): number | null {
@@ -217,7 +225,11 @@ export function buttonHoverVars(theme: ButtonThemeLike): CSSProperties {
   */
   const ownFill = validColour(theme.button_hover_fill)
   const ownText = validColour(theme.button_hover_text)
-  const inkOn = (c: string) => ((luminance(c) ?? 0) > 0.6 ? "#111113" : "#ffffff")
+  /* Round AR: whichever of near black and white reads better on the fill, by WCAG contrast (lib/onepage/contrast), not a guess from brightness. */
+  const inkOn = (c: string) => {
+    const ground = parseColor(c)
+    return ground && contrastOn(parseColor("#111113")!, ground) >= contrastOn(parseColor("#ffffff")!, ground) ? "#111113" : "#ffffff"
+  }
   const fillWith = ownFill ?? (fill === "filled" ? (theme.button_text_color as string) : accent)
   const wantText = ownText ?? (ownFill ? inkOn(ownFill) : fill === "filled" ? accent : inkOn(accent))
   /*
@@ -290,10 +302,95 @@ export function cardButtonTheme(
     t = { ...theme, button_style: "filled", button_color: o.ownButtonColor, button_text_color: readableOn(hex ? o.ownButtonColor : o.surface, o.cardText, o.ownButtonText) }
   } else if (buttonFill(theme) === "filled") {
     const onButtonColour = !o.ownBackground || sameColor(o.ownBackground, theme.button_color)
-    t = onButtonColour ? { ...theme, button_color: theme.button_text_color, button_text_color: theme.button_color } : { ...theme }
+    /* Round AR: the pair turned round must still read: a see-through button colour (a glass theme saved as Solid) as words on its own text colour was white on white. */
+    t = onButtonColour ? { ...theme, button_color: theme.button_text_color, button_text_color: wordsOn(theme.button_text_color, theme.button_color, theme) } : { ...theme }
+  } else if (buttonFill(theme) !== "outline" && !o.ownBackground && !readsOnDoubleTint(theme, (theme.button_text_color as string) || o.cardText) && readsOnDoubleTint(theme, deeperInk(theme, (theme.button_text_color as string) || o.cardText))) {
+    /* Round AR: the words, deepened just enough to read on the tint laid twice; the button keeps the page's Soft or Glass. */
+    t = { ...theme, button_text_color: deeperInk(theme, (theme.button_text_color as string) || o.cardText) }
+  } else if (buttonFill(theme) !== "outline" && !o.ownBackground && !readsOnDoubleTint(theme, (theme.button_text_color as string) || o.cardText)) {
+    /*
+      Round AR: Soft and Glass on a card that is itself Soft or Glass lay
+      the tint twice, and on a mid-tone page (Sunset, Ocean, Cobalt) no
+      words could read on the double tint. Only there, the card's button is
+      a solid one in the card's words' colour, its words in the page's
+      colour; where the words read, it stays the page's own Soft or Glass.
+    */
+    const ink = (theme.button_text_color as string) || o.cardText
+    t = { ...theme, button_style: "filled", button_color: ink, button_border_color: ink, button_text_color: wordsOn(ink, (theme as { background_color?: string }).background_color ?? "#111113", theme) }
   } else {
     t = { ...theme, button_text_color: readableOn(o.surface, (theme.button_text_color as string) || o.cardText) }
   }
-  if (o.ownButtonText && !o.ownButtonColor && !o.onPhoto) t.button_text_color = o.ownButtonText
+  if (o.ownButtonText && !o.ownButtonColor && !o.onPhoto) t.button_text_color = wordsOn(t.button_color, o.ownButtonText, theme)
   return t
+}
+
+/** Do the words read on a Soft or Glass button laid on a card that is itself Soft or Glass (the tint twice over the page)? */
+function readsOnDoubleTint(theme: ButtonThemeLike, ink: string): boolean {
+  const c = parseColor(ink)
+  if (!c) return true
+  const onCard = buttonGrounds(theme as never, buttonGrounds(theme as never))
+  return worstContrast(c, onCard) >= 4.5
+}
+
+/** The words moved toward black or white until they read on the tint laid twice (lib/onepage/contrast readableInk). */
+function deeperInk(theme: ButtonThemeLike, ink: string): string {
+  return readableInk(ink, buttonGrounds(theme as never, buttonGrounds(theme as never)))
+}
+
+/** Words in `preferred` on a button filled with `fill` (over the page when see-through), rescued when they would not read (lib/onepage/contrast). */
+function wordsOn(fill: unknown, preferred: unknown, theme: ButtonThemeLike): string {
+  const ground = pageGrounds(theme as never)[0]
+  const f = parseColor(fill)
+  if (!f) return String(preferred ?? "#111113")
+  return readableInk(preferred, [f.a < 1 ? over(f, ground) : f])
+}
+
+/**
+ * THE PAGE'S BUTTON ON A BOX THE BLOCK DRAWS ITSELF (round AR). The email
+ * signup lays its form on a card tinted with the page's words at a few
+ * percent, so the page's button sits on that, not on the page. `grounds` is
+ * what the box shows (lib/onepage/contrast tintGrounds). The button keeps
+ * the page's style, corners, border, shadow and hover; only its words move,
+ * and only when they would not read on the button there.
+ */
+export function buttonThemeOn<T extends ButtonThemeLike>(theme: T, grounds: readonly Rgba[]): T {
+  const on = buttonGrounds(theme as never, grounds)
+  const words = readableInk(theme.button_text_color, on)
+  const w = parseColor(words)
+  if (w && worstContrast(w, on) >= 4.5) return words === theme.button_text_color ? theme : { ...theme, button_text_color: words }
+  /*
+    No words read there: a Soft or Glass button over a tinted card on a
+    mid-tone page (Sunset: neither white nor near black reaches 4.5:1 on it).
+    As cardButtonTheme does for the tint laid twice, the button turns solid
+    in its words' colour, with words that read on that; corners, border,
+    shadow and hover stay the page's.
+  */
+  const ink = (theme.button_text_color as string) || "#111113"
+  const fill = parseColor(ink)
+  const ground = grounds[0] ?? pageGrounds(theme as never)[0]
+  const solid = fill && fill.a < 1 ? toHex(over(fill, ground)) : ink
+  return { ...theme, button_style: "filled", button_color: solid, button_border_color: solid, button_text_color: readableInk((theme as { background_color?: string }).background_color ?? "#111113", [parseColor(solid) ?? ground]) }
+}
+
+/**
+ * The page's button on a card that is itself drawn as the page's button
+ * (themeButtonStyle): an event's ticket button, a poll's options, the tip
+ * amounts and Send, a discount code's Copy. cardButtonTheme with the card's
+ * own surface, so every such block reads one rule.
+ */
+export function onCardButtonTheme(theme: ButtonThemeLike): ButtonThemeLike {
+  const surface = buttonFill(theme) === "filled" ? (theme.button_color as string) : ((theme as { background_color?: string }).background_color ?? "#ffffff")
+  const out = cardButtonTheme(theme, { surface, cardText: theme.button_text_color as string })
+  /*
+    Round AR: where a Soft or Glass button on the card cannot be read in any
+    words (Classic 98: white words on a see-through grey over teal), it turns
+    solid in the page's own button colour with words that read on it, as
+    buttonThemeOn does for the signup. Its corners, border, shadow and hover stay.
+  */
+  const words = parseColor(out.button_text_color)
+  if (!words || worstContrast(words, buttonGrounds(out as never, buttonGrounds(theme as never))) >= TEXT_MIN) return out
+  const fill = parseColor(theme.button_color)
+  const ground = buttonGrounds(theme as never)[0] ?? parseColor("#ffffff")!
+  const solid = fill ? toHex(fill.a < 1 ? over(fill, ground) : fill) : "#111113"
+  return { ...out, button_style: "filled", button_color: solid, button_border_color: solid, button_text_color: readableInk(theme.button_text_color, [parseColor(solid) ?? ground]) }
 }

@@ -83,3 +83,17 @@
     font-size: 14px;
   }
 }
+
+/*
+ * Round AR: a long description grows with its text, from the height it
+ * starts at up to about twelve lines, then scrolls (components/onepage/
+ * grow-textareas measures where the browser cannot size it itself). No
+ * resize handle: the box is already the size of what is in it.
+ */
+[data-block-settings] textarea {
+  field-sizing: content;
+  min-height: 76px;
+  max-height: 320px;
+  overflow-y: auto;
+  resize: none;
+}

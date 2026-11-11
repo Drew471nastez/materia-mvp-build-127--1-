@@ -52,8 +52,12 @@ async function main() {
   /* Changed on purpose (round AP): Notebook and Cobalt join after them, in their own kinds. */
   check("Folio joins the light themes and Ledger the dark", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,gazette,linen,harbor,portrait,aqua,messenger,playful,grunge,aqua2,messenger2,grunge2,lagoon,cobalt,halo,aero,y2k2,vaporwave,c,ember,ledger,acid,y2k,aero2,playful2,classic98,arcade,atlas" /* Changed on purpose (round W8): Gazette, Halo and Acid. Changed on purpose (round W9): the six W9 themes. Changed on purpose (round W10): the nine W10 themes. */, merged.map((t) => t.id).join(",") /* Changed on purpose (wave 11): Linen, Harbor and Portrait come right after the first six in All (with this test's short catalogue, after its sixth), whatever their kind. */)
   const page = { id: "p", theme: { template_id: "folio", ...R42_THEMES[0].theme_config }, settings: {}, draft_blocks: [] } as never
-  const after = lookFromTemplate(page, { id: "air", category: "light", theme_config: { background_color: "#eef0f3" } }).theme as unknown as Record<string, unknown>
+  /* Changed on purpose (round AR): the picker passes the theme the page wore (lib/onepage/theme-apply ownCover), so Folio's own cover is known as Folio's and taken back; a cover the creator chose stays. */
+  const after = lookFromTemplate(page, { id: "air", category: "light", theme_config: { background_color: "#eef0f3" } }, undefined, R42_THEMES[0] as never).theme as unknown as Record<string, unknown>
   check("from Folio to a theme that names neither, no cover and products as each block has them", after.cover_image_url === null && after.product_layout === null)
+  const own = { ...(page as any), theme: { ...(page as any).theme, cover_image_url: "https://cdn.example.com/my-cover.jpg" } } as never
+  const kept = lookFromTemplate(own, { id: "air", category: "light", theme_config: { background_color: "#eef0f3" } }, undefined, R42_THEMES[0] as never).theme as unknown as Record<string, unknown>
+  check("a cover the creator chose stays through a theme change", kept.cover_image_url === "https://cdn.example.com/my-cover.jpg")
 
   console.log("\nA theme shows products its own way, and what a person picked stays")
   check("missing, or anything unknown, is each block's own", themeProductLayoutOf({}) === "own" && themeProductLayoutOf(null) === "own" && themeProductLayoutOf({ product_layout: "x" }) === "own")

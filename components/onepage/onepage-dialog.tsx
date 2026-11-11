@@ -229,13 +229,25 @@ function CenteredCard({
     keptHeader.current = header
   }
 
-  useEffect(() => {
-    if (open) {
+  /*
+    Round AR: it starts moving on the first frame. It used to wait two animation frames before it began (about 35ms
+    with nothing on screen, measured at 104ms from the tap to its first frame at 1440). Now the card is drawn hidden,
+    its starting style is read once (which commits it), and the transition starts in the same layout pass, before
+    that frame is painted.
+  */
+  useLayoutEffect(() => {
+    if (!open) return
+    if (!mounted) {
       setMounted(true)
-      let second = 0
-      const f = requestAnimationFrame(() => { second = requestAnimationFrame(() => setShown(true)) })
-      return () => { cancelAnimationFrame(f); cancelAnimationFrame(second) }
+      return
     }
+    if (!shown) {
+      void panelRef.current?.getBoundingClientRect()
+      setShown(true)
+    }
+  }, [open, mounted, shown])
+  useEffect(() => {
+    if (open) return
     setShown(false)
     const t = window.setTimeout(() => setMounted(false), OUT_MS)
     return () => window.clearTimeout(t)
