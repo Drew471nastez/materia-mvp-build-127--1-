@@ -58,8 +58,8 @@ export async function GET(request: NextRequest) {
     const page = onepage as StatsPage
 
     if (blockId) {
-      const blocks = (page.draft_blocks ?? page.published_blocks) as Array<{ id?: string; type?: string; data?: { children?: Array<{ id?: string; type?: string }> } }> | null
-      const find = (list: typeof blocks): { type?: string } | undefined => {
+      const blocks = (page.draft_blocks ?? page.published_blocks) as Array<{ id?: string; type?: string; data?: { provider?: string; children?: Array<{ id?: string; type?: string }> } }> | null
+      const find = (list: typeof blocks): { type?: string; data?: { provider?: string } } | undefined => {
         for (const b of list ?? []) {
           if (b?.id === blockId) return b
           const inner = find((b?.data?.children ?? null) as typeof blocks)
@@ -67,7 +67,8 @@ export async function GET(request: NextRequest) {
         }
         return undefined
       }
-      const stats = await readBlockStats(admin, page, { blockId, window, timeZone, blockType: find(blocks)?.type ?? null })
+      const found = find(blocks)
+      const stats = await readBlockStats(admin, page, { blockId, window, timeZone, blockType: found?.type ?? null, provider: found?.type === "app" ? (found.data?.provider ?? null) : null })
       if (!stats) return NextResponse.json({ total_views: 0, total_visitors: 0, total_clicks: 0, click_rate: null, counts: "clicks", chart_data: [], truncated: false })
       return NextResponse.json(stats, { headers: { "Cache-Control": "private, no-store" } })
     }

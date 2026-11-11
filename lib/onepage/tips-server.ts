@@ -30,11 +30,19 @@ import "server-only"
  * the part has run the tip is still paid and confirmed from Stripe; it is
  * only not kept here.
  *
+ * WHERE IT CAME FROM (round AS, run-now part 442). The page says which way
+ * in (the block's card or its amount sheet), its own host and the site the
+ * visitor came from; lib/onepage/tips tipSource keeps only those shapes, with
+ * the block's title from the published block. They travel in the session's
+ * metadata and land in onepage_tips.source and source_detail, which OnePage
+ * and Storelib analytics read (tips by block, by surface). Before part 442
+ * the tip is kept without them.
+ *
  * Stripe, the fee and the readiness check are handed in, so the tests run
  * all of it against stubs.
  */
 import type Stripe from "stripe"
-import { checkTipAmount, tipModeOf, tipText, type TipFields } from "./tips"
+import { checkTipAmount, tipModeOf, tipSource, tipText, type TipFields, type TipSource } from "./tips"
 import { liveAppBlockData, pageCreatorId, publishedBlocksOf } from "./page-block"
 import type { PlatformFee } from "@/lib/communities/server/learn-checkout"
 import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
@@ -92,6 +100,8 @@ export function tipCheckoutParams(p: {
   message: string | null
   successUrl: string
   cancelUrl: string
+  /** Where the tip came from (round AS). */
+  source?: TipSource | null
 }): Stripe.Checkout.SessionCreateParams {
   const metadata: Record<string, string> = {
     kind: TIP_SESSION_KIND,
@@ -105,6 +115,7 @@ export function tipCheckoutParams(p: {
     plan_used: p.fee.planId,
     ...(p.name ? { tipper_name: p.name.slice(0, 80) } : {}),
     ...(p.message ? { tip_message: p.message.slice(0, 280) } : {}),
+    ...(p.source ? { tip_source: JSON.stringify(p.source).slice(0, 480) } : {}),
   }
   const who = (p.creatorName || p.page.title || "the creator").slice(0, 120)
   return {
@@ -127,11 +138,11 @@ export function tipCheckoutParams(p: {
 export async function startTipCheckout(
   db: Db,
   deps: TipDeps,
-  a: { onepageId: unknown; blockId: unknown; amountCents: unknown; name?: unknown; message?: unknown; origin: string; /** The page's path on `origin`, or null for the page's own address on Storelib. */ returnPath: string | null; /** Who is asking (their address, hashed): a double tap reuses a page, two people never share one. */ visitor: string },
+  a: { onepageId: unknown; blockId: unknown; amountCents: unknown; name?: unknown; message?: unknown; /** What the page says about where the tip came from (tipSource keeps only its shapes). */ source?: unknown; origin: string; /** The page's path on `origin`, or null for the page's own address on Storelib. */ returnPath: string | null; /** Who is asking (their address, hashed): a double tap reuses a page, two people never share one. */ visitor: string },
 ): Promise<TipStart> {
   const page = await readLivePage(db, a.onepageId)
   if (!page) return refuse(404, "not_found", "This page is not available.")
-  const data = liveAppBlockData<TipFields & { tip_message?: boolean }>(publishedBlocksOf(page), a.blockId, "tips")
+  const data = liveAppBlockData<TipFields & { tip_message?: boolean; title?: string | null }>(publishedBlocksOf(page), a.blockId, "tips")
   if (!data || tipModeOf(data) !== "storelib") return refuse(404, "not_found", "Tips are not open on this page.")
   const creatorId = pageCreatorId(page)
   if (!creatorId) return refuse(409, "seller_unavailable", "This creator cannot take tips right now. Nothing was charged.")
@@ -139,7 +150,7 @@ export async function startTipCheckout(
   const account = (creator as { stripe_account_id?: string | null } | null)?.stripe_account_id ?? null
   if (!account || !account.startsWith("acct_") || !(await deps.ready(creatorId))) return refuse(409, "seller_unavailable", "This creator cannot take tips right now. Nothing was charged.")
   const currency = (await deps.currency(creatorId)).toLowerCase()
-  const checked = checkTipAmount(data, a.amountCents, deps.minimum(currency))
+  const checked = checkTipAmount(data, a.amountCents, deps.minimum(currency), currency)
   if (checked.ok === false) {
     if (checked.error === "too_small") return refuse(400, "too_small", "That amount is below the smallest card payment.")
     if (checked.error === "too_large") return refuse(400, "too_large", "That amount is above the largest tip.")
@@ -167,6 +178,7 @@ export async function startTipCheckout(
     message: data.tip_message === true ? tipText(a.message, 280) : null,
     successUrl: `${back}?tip=thanks&tip_session={CHECKOUT_SESSION_ID}`,
     cancelUrl: `${back}?tip=cancelled`,
+    source: tipSource(a.source, data.title),
   })
   try {
     /* A double tap inside a minute opens the same page at Stripe, not a second one (lib/stripe/resilience). */
@@ -186,6 +198,21 @@ export function isTipSession(session: Pick<Stripe.Checkout.Session, "metadata">)
 }
 
 export type TipRecord = { ok: true; created: boolean; stored: boolean; amountCents: number; currency: string; onepageId: string } | { ok: false; status: number; error: string }
+
+/** The source a paid session carries, read back in its shapes (a session from before round AS has none: the OnePage, by its card). */
+export function sessionTipSource(metadata: Record<string, string> | null | undefined): TipSource {
+  let raw: unknown = null
+  try {
+    raw = metadata?.tip_source ? JSON.parse(metadata.tip_source) : null
+  } catch {
+    raw = null
+  }
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
+  return tipSource({ placement: r.placement, host: r.host, referrer: r.referrer_host }, r.block_title)
+}
+
+/* The columns part 442 adds: a database without them still keeps the tip, without its source. */
+const SOURCE_MISSING = new Set(["42703", "PGRST204"])
 
 const MISSING = new Set(["42P01", "PGRST205", "42703", "PGRST204"])
 
@@ -219,8 +246,10 @@ export async function recordTipFromSession(db: Db, session: Stripe.Checkout.Sess
     message: m.tip_message || null,
     status: "paid",
   }
+  const source = sessionTipSource(m)
   try {
-    const { data, error } = await db.from("onepage_tips").upsert(row, { onConflict: "checkout_session_id", ignoreDuplicates: true }).select("id")
+    let { data, error } = await db.from("onepage_tips").upsert({ ...row, source: source.surface, source_detail: source }, { onConflict: "checkout_session_id", ignoreDuplicates: true }).select("id")
+    if (error && SOURCE_MISSING.has(error.code)) ({ data, error } = await db.from("onepage_tips").upsert(row, { onConflict: "checkout_session_id", ignoreDuplicates: true }).select("id"))
     if (error) {
       if (MISSING.has(error.code)) return { ok: true, created: false, stored: false, amountCents: amount, currency, onepageId: m.onepage_id }
       return { ok: false, status: 500, error: "not_saved" }
@@ -244,13 +273,68 @@ export async function confirmTip(db: Db, stripe: TipStripe, a: { sessionId: unkn
   return recordTipFromSession(db, session, { onepageId: a.onepageId })
 }
 
-/** The creator's tips on their page, newest first, for /app. Empty before part 411. */
-export async function pageTips(db: Db, onepageId: string, limit = 50): Promise<{ rows: Array<{ id: string; block_id: string; amount_cents: number; currency: string; tipper_name: string | null; message: string | null; created_at: string }>; ready: boolean }> {
+export type TipRow = { id: string; block_id: string; amount_cents: number; currency: string; tipper_name: string | null; message: string | null; created_at: string; source?: string | null; source_detail?: Partial<TipSource> | null }
+
+const TIP_COLUMNS = "id, block_id, amount_cents, currency, tipper_name, message, created_at"
+
+/** The creator's tips on their page, newest first, for /app. Empty before part 411; without their source before part 442. */
+export async function pageTips(db: Db, onepageId: string, limit = 50): Promise<{ rows: TipRow[]; ready: boolean }> {
+  const ask = (columns: string) => db.from("onepage_tips").select(columns).eq("onepage_id", onepageId).eq("status", "paid").order("created_at", { ascending: false }).limit(limit)
   try {
-    const { data, error } = await db.from("onepage_tips").select("id, block_id, amount_cents, currency, tipper_name, message, created_at").eq("onepage_id", onepageId).eq("status", "paid").order("created_at", { ascending: false }).limit(limit)
+    let { data, error } = await ask(`${TIP_COLUMNS}, source, source_detail`)
+    if (error && SOURCE_MISSING.has(error.code)) ({ data, error } = await ask(TIP_COLUMNS))
     if (error) return { rows: [], ready: !MISSING.has(error.code) }
-    return { rows: (data ?? []) as never, ready: true }
+    return { rows: (data ?? []) as TipRow[], ready: true }
   } catch {
     return { rows: [], ready: false }
+  }
+}
+
+/**
+ * A creator's OnePage tips in a period, for Storelib analytics (lib/analytics/tip-sources): every page of theirs,
+ * oldest first, at most `limit`. Empty before part 411; without their source before part 442.
+ */
+export async function creatorTipsIn(db: Db, creatorId: string, span: { start: number; end: number }, limit = 5000): Promise<{ rows: Array<TipRow & { onepage_id: string }>; truncated: boolean }> {
+  const ask = (columns: string) =>
+    db
+      .from("onepage_tips")
+      .select(columns)
+      .eq("creator_id", creatorId)
+      .eq("status", "paid")
+      .gte("created_at", new Date(span.start).toISOString())
+      .lt("created_at", new Date(span.end).toISOString())
+      .order("created_at", { ascending: true })
+      .limit(limit)
+  try {
+    let { data, error } = await ask(`onepage_id, ${TIP_COLUMNS}, source, source_detail`)
+    if (error && SOURCE_MISSING.has(error.code)) ({ data, error } = await ask(`onepage_id, ${TIP_COLUMNS}`))
+    if (error) return { rows: [], truncated: false }
+    const rows = (data ?? []) as Array<TipRow & { onepage_id: string }>
+    return { rows, truncated: rows.length >= limit }
+  } catch {
+    return { rows: [], truncated: false }
+  }
+}
+
+/** One tips block's tips in a period, for its stats in the OnePage editor (lib/onepage/link-stats-server). */
+export async function blockTipsIn(db: Db, onepageId: string, blockIds: string[], span: { start: number; end: number }, limit = 5000): Promise<TipRow[]> {
+  if (!blockIds.length) return []
+  const ask = (columns: string) =>
+    db
+      .from("onepage_tips")
+      .select(columns)
+      .eq("onepage_id", onepageId)
+      .in("block_id", blockIds)
+      .eq("status", "paid")
+      .gte("created_at", new Date(span.start).toISOString())
+      .lt("created_at", new Date(span.end).toISOString())
+      .order("created_at", { ascending: true })
+      .limit(limit)
+  try {
+    let { data, error } = await ask(`${TIP_COLUMNS}, source, source_detail`)
+    if (error && SOURCE_MISSING.has(error.code)) ({ data, error } = await ask(TIP_COLUMNS))
+    return error ? [] : ((data ?? []) as TipRow[])
+  } catch {
+    return []
   }
 }

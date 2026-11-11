@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 import type { BlockStats } from "@/lib/onepage/link-stats"
+import { tipLabel } from "@/lib/onepage/tips"
 
 /** The answer of /api/onepage/stats for a block; the older answer had only the first three. */
 export type LinkStats = Pick<BlockStats, "total_clicks" | "total_views" | "chart_data"> & Partial<Omit<BlockStats, "total_clicks" | "total_views" | "chart_data">>
@@ -133,6 +134,38 @@ export function LinkStatsChart({
           <span>{endIsToday ? tt("Now") : longDate(end)}</span>
         </div>
       </div>
+      {stats?.tips ? <TipsBySource tips={stats.tips} /> : null}
+    </div>
+  )
+}
+
+/*
+  Round AS: a tips block's tips in the period, and where the tippers came from (lib/analytics/tip-sources): the site
+  that sent them to the page (Instagram, TikTok), or Direct.
+*/
+function TipsBySource({ tips }: { tips: NonNullable<BlockStats["tips"]> }) {
+  const locale = appLocale()
+  const top = tips.from.slice(0, 5)
+  return (
+    <div data-link-stats-tips="" className="border-t border-[#e5e7eb]/60 px-4 py-3.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Tips")}</span>
+        <span className="text-[13px] tabular-nums text-[#1a1a2e]">
+          {tipLabel(tips.cents, tips.currency, locale)} <span className="text-[12px] text-[#9ca3af]">· {tt("{count, plural, one {# tip} other {# tips}}", { count: tips.count })}</span>
+        </span>
+      </div>
+      {top.length ? (
+        <ul className="mt-2 space-y-1.5" aria-label={tt("Where tippers came from")}>
+          {top.map((f) => (
+            <li key={f.key} data-tip-from={f.key} className="flex items-center justify-between gap-3 text-[12.5px] text-[#4b5563]">
+              <span className="min-w-0 truncate">{f.key === "direct" ? tt("Direct") : f.label}</span>
+              <span className="shrink-0 tabular-nums">
+                {tipLabel(f.cents, tips.currency, locale)} <span className="text-[#9ca3af]">· {f.count}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   )
 }
