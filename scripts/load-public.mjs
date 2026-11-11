@@ -39,7 +39,8 @@
  * (3000), --json FILE. Local only: the base is always http://127.0.0.1.
  *
  * Reports per phase, target and level: requests, throughput, p50/p95/p99/max
- * to the last byte, errors (network, timeout, status >= 500), statuses, the
+ * to the last byte, errors (network, timeout, status >= 500), the share of
+ * answers that were the page itself (its own words in a 200), statuses, the
  * database requests per second the stub answered while it ran, and the
  * server's resident memory at its peak.
  */
@@ -64,15 +65,15 @@ export const SIGNED_IN = { id: USER, aud: "authenticated", role: "authenticated"
 
 /** What each target sends. `visitor` is a number unique to the request. */
 export const TARGETS = {
-  onepage: { path: `/l/${HANDLE}` },
-  product: { path: BENCH_PATHS.product },
-  explore: { path: BENCH_PATHS.explore },
+  onepage: { path: `/l/${HANDLE}`, mark: "Satori Studio" },
+  product: { path: BENCH_PATHS.product, mark: products[0].title },
+  explore: { path: BENCH_PATHS.explore, mark: products[0].title },
   track: {
     path: "/api/track-view",
     method: "POST",
     body: (visitor) => JSON.stringify({ creatorId: CREATOR, productId: products[0].id, sessionId: `s-${visitor}`, visitorId: `v-${visitor}`, referrerDomain: "Direct", pageUrl: `/${HANDLE}/${products[0].slug}`, deviceType: "desktop", browser: "Chrome", os: "Linux", screenWidth: 1440, screenHeight: 900, language: "en", pageTitle: "Loop Pack 1" }),
   },
-  app: { path: "/app/products", signedIn: true },
+  app: { path: "/app/products", signedIn: true, mark: products[0].title },
 }
 
 /* ── Memory of a process and everything it started, from /proc (Linux) ── */
@@ -116,6 +117,7 @@ export async function hammer(base, target, { concurrency, seconds, cookie = null
   const until = Date.now() + seconds * 1000
   const times = []
   let errors = 0
+  let shown = 0
   const statuses = {}
   const worker = async () => {
     while (Date.now() < until) {
@@ -126,7 +128,10 @@ export async function hammer(base, target, { concurrency, seconds, cookie = null
       const t0 = performance.now()
       try {
         const res = await fetch(`${base}${target.path}`, { method: target.method ?? "GET", body: target.body ? target.body(n) : undefined, redirect: "manual", headers, signal: AbortSignal.timeout(timeoutMs) })
-        await res.arrayBuffer()
+        /* A 200 is not the page: an error screen answers 200 too. `shown` counts the answers that carry the page's own words. */
+        if (target.mark) {
+          if (res.status === 200 && (await res.text()).includes(target.mark)) shown++
+        } else await res.arrayBuffer()
         statuses[res.status] = (statuses[res.status] ?? 0) + 1
         if (res.status >= 500) errors++
       } catch (e) {
@@ -151,6 +156,8 @@ export async function hammer(base, target, { concurrency, seconds, cookie = null
     max: Math.round(sorted[sorted.length - 1] ?? 0),
     errors,
     errorRate: times.length ? Math.round((errors / times.length) * 1000) / 10 : 0,
+    /* The share of answers that were the real page (null where there is no page, as for a beacon). */
+    shownRate: target.mark ? (times.length ? Math.round((shown / times.length) * 1000) / 10 : 0) : null,
     statuses,
   }
 }
@@ -204,9 +211,9 @@ async function main() {
     for (let i = 0; i < 3; i++) await fetch(`${base}${t.path}`, { method: t.method ?? "GET", body: t.body ? t.body(0) : undefined, headers, redirect: "manual" }).then((r) => r.arrayBuffer()).catch(() => {})
     const res = await fetch(`${base}${t.path}`, { method: t.method ?? "GET", body: t.body ? t.body(0) : undefined, headers, redirect: "manual" })
     const html = await res.text()
-    const marks = { onepage: "Satori Studio", product: products[0].title, explore: products[0].title, app: products[0].title }
-    proof[name] = { status: res.status, bytes: html.length, shows: marks[name] ? html.includes(marks[name]) : res.status === 204, location: res.headers.get("location") }
-    console.log(`proof  ${name.padEnd(8)} ${res.status} ${html.length} bytes, ${marks[name] ? `shows "${marks[name]}": ${proof[name].shows}` : `answers ${res.status}`}${proof[name].location ? `, to ${proof[name].location}` : ""}`)
+    const mark = t.mark
+    proof[name] = { status: res.status, bytes: html.length, shows: mark ? html.includes(mark) : res.status === 204, location: res.headers.get("location") }
+    console.log(`proof  ${name.padEnd(8)} ${res.status} ${html.length} bytes, ${mark ? `shows "${mark}": ${proof[name].shows}` : `answers ${res.status}`}${proof[name].location ? `, to ${proof[name].location}` : ""}`)
   }
 
   const rows = []
@@ -226,7 +233,7 @@ async function main() {
         const dbRequests = stub.control.requests() - before
         const row = { phase, target: name, path: TARGETS[name].path, concurrency, ...r, dbRequests, dbPerSecond: Math.round((dbRequests / r.wall) * 10) / 10, dbPerRequest: r.requests ? Math.round((dbRequests / r.requests) * 10) / 10 : 0, peakRssMb: peak }
         rows.push(row)
-        console.log(`${phase.padEnd(9)} ${name.padEnd(8)} c=${String(concurrency).padEnd(4)} ${String(r.requests).padStart(6)} req ${String(r.rps).padStart(7)}/s  p50 ${String(r.p50).padStart(6)}  p95 ${String(r.p95).padStart(6)}  p99 ${String(r.p99).padStart(6)}  max ${String(r.max).padStart(6)} ms  err ${r.errors} (${r.errorRate}%)  db ${row.dbPerSecond}/s (${row.dbPerRequest}/req)  rss ${peak} MB  ${JSON.stringify(r.statuses)}`)
+        console.log(`${phase.padEnd(9)} ${name.padEnd(8)} c=${String(concurrency).padEnd(4)} ${String(r.requests).padStart(6)} req ${String(r.rps).padStart(7)}/s  p50 ${String(r.p50).padStart(6)}  p95 ${String(r.p95).padStart(6)}  p99 ${String(r.p99).padStart(6)}  max ${String(r.max).padStart(6)} ms  err ${r.errors} (${r.errorRate}%)  page ${r.shownRate === null ? "-" : `${r.shownRate}%`}  db ${row.dbPerSecond}/s (${row.dbPerRequest}/req)  rss ${peak} MB  ${JSON.stringify(r.statuses)}`)
         /* Let the server finish what the run left in flight before the next one is measured. */
         stub.control.set({ delayMs: 0, failStatus: null })
         await sleep(2000)
