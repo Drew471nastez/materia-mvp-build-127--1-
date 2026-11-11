@@ -500,7 +500,8 @@ async function main() {
     const elsewhere = await spendOwnerPass({ host: HOST_B, note, returnTo: "/" }, { db, owner: deps.owner, now })
     check("and never on another website", elsewhere.ok === false)
     const ownerRoute = code("app/api/site-password/owner/route.ts")
-    check("the owner route reads the storelib.com session and checks the creator is that user's", /auth\.getUser\(\)/.test(ownerRoute) && /\.eq\("id", creatorId\)\.eq\("user_id", userId\)/.test(ownerRoute) && /login\?next=/.test(ownerRoute))
+    /* Changed on purpose (rel2-auth): still Supabase Auth itself, through routeUser({ fresh: true }); Auth not answering is 503, not a trip to sign in. */
+    check("the owner route reads the storelib.com session and checks the creator is that user's", /routeUser\(\{ fresh: true \}\)/.test(ownerRoute) && /\.eq\("id", creatorId\)\.eq\("user_id", userId\)/.test(ownerRoute) && /login\?next=/.test(ownerRoute))
     const enterRoute = code("app/api/site-password/route.ts")
     check("the password route takes same-origin forms only and limits per visitor and per website", /sameOriginForm\(request, host\)/.test(enterRoute) && /bucket: "site-password-visitor"/.test(enterRoute) && /bucket: "site-password-site"/.test(enterRoute))
     const page = read("app/(site)/w/[username]/password/page.tsx")
