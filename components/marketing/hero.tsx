@@ -35,8 +35,8 @@ export function Hero() {
         </p>
         <HeroHeadline />
         <p className="cinematic-description">
-          The e-commerce platform for creators &amp; entrepreneurs. Sell
-          products, manage links &amp; grow an audience.
+          <span>Everything you need to create, sell,</span>{" "}
+          <span>and grow your business. All in one place</span>
         </p>
         <HeroCta />
       </div>
@@ -50,7 +50,7 @@ const HERO_CSS = `
   --hero-grain-opacity: .03675;
   --hero-control-radius: 12px;
   --hero-tint-opacity: .60;
-  position: relative; isolation: isolate; width: 100%; overflow: hidden;
+  position: relative; isolation: isolate; width: 100%; overflow: clip;
   background: #141516; color: #fff;
   min-height: min(820px, calc(100svh - 70.35px));
   display: grid; place-items: start center;
@@ -60,14 +60,14 @@ const HERO_CSS = `
 }
 [data-home-hero="cinematic"] *, [data-home-hero="cinematic"] *::before { box-sizing: border-box; }
 .cinematic-media, .cinematic-poster, .cinematic-video, .cinematic-tint, .cinematic-grain, .cinematic-fade { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.cinematic-media { z-index: -5; }
+.cinematic-media { z-index: 0; }
 .cinematic-poster, .cinematic-video { object-fit: cover; object-position: var(--hero-video-position, 50% 50%); }
 .cinematic-video { opacity: 0; transition: opacity 240ms ease; }
 .cinematic-video[data-ready="true"] { opacity: 1; }
-.cinematic-tint { z-index: -4; background: #000; opacity: var(--hero-tint-opacity); }
-.cinematic-grain { z-index: -3; opacity: var(--hero-grain-opacity); background: url('/marketing/hero/cinematic-grain.png') repeat; }
-.cinematic-fade { z-index: -2; background: linear-gradient(to bottom, transparent 62%, rgba(0,0,0,.15) 78%, rgba(0,0,0,.68) 100%); }
-.cinematic-copy { position: relative; width: 100%; max-width: 1040px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+.cinematic-tint { z-index: 1; background: #000; opacity: var(--hero-tint-opacity); }
+.cinematic-grain { z-index: 2; opacity: var(--hero-grain-opacity); background: url('/marketing/hero/cinematic-grain.png') repeat; }
+.cinematic-fade { z-index: 3; background: linear-gradient(to bottom, transparent 62%, rgba(0,0,0,.15) 78%, rgba(0,0,0,.68) 100%); }
+.cinematic-copy { position: relative; z-index:4; width: 100%; max-width: 1040px; text-align: center; display: flex; flex-direction: column; align-items: center; }
 .cinematic-eyebrow { margin: 0 0 28px; padding: 8px 14px; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; background: rgba(255,255,255,.08); font-size: 12px; font-weight: 500; letter-spacing: .045em; color: rgba(255,255,255,.94); }
 .cinematic-heading { width: 100%; margin: 0; font-size: clamp(82px, 8vw, 116px); line-height: 1.04; letter-spacing: -.055em; font-weight: 600; color: #fff; }
 .cinematic-heading-fixed { display: block; font-weight: 500; }
@@ -86,16 +86,16 @@ const HERO_CSS = `
 .cinematic-primary, .cinematic-signup button { min-width: 160px; display: flex; align-items: center; justify-content: center; height: 54px; padding: 0 28px; border: 0; border-radius: var(--hero-control-radius); background: #7c3aed; color: #fff; font: inherit; font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer; transition: background 160ms, transform 160ms; }
 .cinematic-primary:hover, .cinematic-signup button:hover { background: #6d28d9; }
 .cinematic-primary:active, .cinematic-signup button:active { transform: scale(.985); }
-.cinematic-actions input { width: 100%; min-width: 0; height: 54px; padding: 0 20px; border: 1px solid rgba(255,255,255,.42); border-radius: var(--hero-control-radius); background: rgba(255,255,255,.12); color: #fff; font: inherit; font-size: 15px; outline: none; -webkit-backdrop-filter: blur(16px) saturate(135%); backdrop-filter: blur(16px) saturate(135%); box-shadow: inset 0 1px 0 rgba(255,255,255,.1); }
+.cinematic-actions input { width: 100%; min-width: 0; height: 54px; padding: 0 20px; border: 1px solid rgba(255,255,255,.26); border-radius: var(--hero-control-radius); background: rgba(255,255,255,.12); color: #fff; font: inherit; font-size: 15px; outline: none; -webkit-backdrop-filter: blur(16px) saturate(135%); backdrop-filter: blur(16px) saturate(135%); box-shadow: inset 0 1px 0 rgba(255,255,255,.1); }
 .cinematic-actions input::placeholder { color: rgba(255,255,255,.9); opacity: 1; }
 .cinematic-search { position: relative; min-width: 0; }
 .cinematic-search input { padding-right: 48px; }
 .cinematic-search button { position: absolute; right: 0; top: 0; width: 48px; height: 54px; background: transparent; border: 0; color: #fff; cursor: pointer; display: grid; place-items: center; border-radius: var(--hero-control-radius); }
 .cinematic-actions button:focus-visible, .cinematic-primary:focus-visible, .cinematic-marketplace:focus-visible, .cinematic-motion:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
-.cinematic-actions input:focus, .cinematic-actions input:focus-visible { outline:none; border-color:rgba(255,255,255,.55); box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 3px 10px rgba(0,0,0,.16); }
+.cinematic-actions input:focus, .cinematic-actions input:focus-visible { outline:none; border-color:rgba(255,255,255,.38); box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 3px 10px rgba(0,0,0,.16); }
 .cinematic-error { font-size: 13px; color: #fff; margin: 2px 0 0; text-align: left; }
 .cinematic-marketplace { display: none; color: rgba(255,255,255,.94); font-size: 14px; text-decoration: underline; text-underline-offset: 5px; text-decoration-color: rgba(255,255,255,.4); }
-.cinematic-motion { position: absolute; z-index: 2; bottom: max(58px, calc(env(safe-area-inset-bottom, 0px) + 38px)); right: max(20px, env(safe-area-inset-right, 0px)); display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; color: #fff; background: rgba(0,0,0,.25); cursor: pointer; }
+.cinematic-motion { position: absolute; z-index: 5; bottom: max(58px, calc(env(safe-area-inset-bottom, 0px) + 38px)); right: max(20px, env(safe-area-inset-right, 0px)); display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; color: #fff; background: rgba(0,0,0,.25); cursor: pointer; }
 .cinematic-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-header-tone="dark"], body:has([data-home-hero="cinematic"]) #platform-header-root[data-header-tone="dark"] > header { background-color: #101012; }
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-header-tone="dark"] > header { border-bottom-color:rgba(0,0,0,.096); }
@@ -121,9 +121,10 @@ body:has([data-home-hero="cinematic"]) #platform-header-root { --bar-depth-dark:
 }
 @media (max-width: 639px) {
   .cinematic-poster, .cinematic-video { object-position: var(--hero-video-position-mobile, 50% 50%); }
-  .cinematic-heading { font-size: clamp(42px, 11.4vw, 60px); letter-spacing: -.055em; }
+  .cinematic-heading { font-size: clamp(44px, 12vw, 63px); letter-spacing: -.055em; }
+  .cinematic-description span {display:block;white-space:nowrap}
   .cinematic-eyebrow { font-size: 10px; margin-bottom: 22px; letter-spacing: .03em; }
-  .cinematic-description { font-size: 15px; max-width: 340px; margin-top: 24px; }
+  .cinematic-description { font-size:clamp(14px,3.7vw,15px); max-width:none; width:100%; margin-top:clamp(36px,11.3vw,48px); line-height:1.65; }
 }
 @media (max-width: 1023px) and (hover: none) and (pointer: coarse) and (orientation: landscape) {
   [data-home-hero="cinematic"] { padding-top: 44px; padding-bottom: 64px; min-height: 0; }

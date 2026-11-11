@@ -26,6 +26,14 @@ if (shots) mkdirSync(shots, { recursive: true })
 const alias = {
   name: "root-alias",
   setup(b) {
+    b.onResolve({ filter: /^next\/navigation$/ }, () => ({
+      path: "navigation",
+      namespace: "hero-navigation",
+    }))
+    b.onLoad({ filter: /.*/, namespace: "hero-navigation" }, () => ({
+      contents: 'export const usePathname = () => "/"',
+      loader: "js",
+    }))
     b.onResolve({ filter: /^@\// }, (a) =>
       b.resolve("./" + a.path.slice(2), { resolveDir: root, kind: a.kind }),
     )
@@ -44,7 +52,7 @@ await build({
 await build({
   stdin: {
     contents:
-      'import React from "react"; import {renderToString} from "react-dom/server"; import {Hero} from "./components/marketing/hero"; import {BuildShowcase} from "./components/marketing/build-showcase"; process.stdout.write(renderToString(React.createElement(React.Fragment,null,React.createElement(Hero),React.createElement(BuildShowcase))));',
+      'import React from "react"; import {renderToString} from "react-dom/server"; import {BodyScrollRestorer} from "./components/body-scroll-restorer"; import {Hero} from "./components/marketing/hero"; import {BuildShowcase} from "./components/marketing/build-showcase"; process.stdout.write(renderToString(React.createElement(React.Fragment,null,React.createElement(BodyScrollRestorer),React.createElement("div",{"data-homepage-surface":"",className:"bg-white"},React.createElement(Hero),React.createElement(BuildShowcase)))));',
     resolveDir: root,
     loader: "tsx",
   },
@@ -197,12 +205,34 @@ try {
     [375, 568],
     [844, 390],
   ]) {
-    if (process.env.HERO_FAST && width !== 768) continue
+    if (
+      process.env.HERO_FAST &&
+      width !== Number(process.env.HERO_FAST_WIDTH || 768)
+    )
+      continue
     const page = await pageFor()
     await page.setViewport({ width, height })
     await page.goto(origin, { waitUntil: "networkidle0" })
     await page.waitForSelector('video[data-ready="true"]')
     const before = await page.evaluate(metrics)
+    await page.evaluate(() => {
+      const line = document.querySelector(".cinematic-phrases")
+      window.__phraseChanges = [
+        document.querySelector('[data-active="true"]').textContent,
+      ]
+      new MutationObserver(() => {
+        const phrase = document.querySelector(
+          '[data-active="true"]',
+        ).textContent
+        if (window.__phraseChanges.at(-1) !== phrase)
+          window.__phraseChanges.push(phrase)
+      }).observe(line, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["data-active"],
+      })
+    })
+
     assert.equal(before.doc, width, "no horizontal overflow")
     assert.equal(before.hero.x, 0)
     assert.equal(before.hero.w, width)
@@ -211,6 +241,26 @@ try {
       "cover",
     )
     assert.equal(await page.$$eval("video", (v) => v.length), 1)
+    if (width < 640) {
+      const d = await page.$eval(".cinematic-description", (e) => ({
+        h: e.getBoundingClientRect().height,
+        line: parseFloat(getComputedStyle(e).lineHeight),
+        overflow: e.scrollWidth > e.clientWidth + 1,
+        align: getComputedStyle(e).textAlign,
+      }))
+      assert.ok(
+        Math.abs(d.h - d.line * 2) < 1 && !d.overflow,
+        `${width}: centered two-line subheading without clipping`,
+      )
+      assert.equal(d.align, "center")
+      assert.ok(
+        await page.$eval(
+          ".cinematic-heading",
+          (e) => parseFloat(getComputedStyle(e).fontSize) >= 44,
+        ),
+      )
+    }
+
     const seen = new Set([before.active])
     const cycles = width === 1440 || width === 390 ? 7 : 2
     for (let i = 0; i < cycles; i++) {
@@ -224,8 +274,28 @@ try {
         `CLS ${m.cls}: ${JSON.stringify(await page.evaluate(() => window.__shifts))}`,
       )
     }
-    if (cycles === 7)
-      assert.equal(seen.size, 7, "all seven phrases and wraparound")
+    if (cycles === 7) {
+      await page.waitForFunction(
+        () => new Set(window.__phraseChanges).size === 7,
+        { timeout: 20000 },
+      )
+      const observed = await page.evaluate(() => window.__phraseChanges)
+      const phrases = [
+        "website.",
+        "online store.",
+        "link in bio.",
+        "community.",
+        "landing page.",
+        "brand.",
+        "business.",
+      ]
+      for (let i = 1; i < observed.length; i++)
+        assert.equal(
+          observed[i],
+          phrases[(phrases.indexOf(observed[i - 1]) + 1) % 7],
+          "phrases preserve their full ordered cycle",
+        )
+    }
     const layout = await page.evaluate(() => {
       const email = document.querySelector("input[type=email]"),
         signup = document.querySelector("[data-hero-signup]"),
@@ -294,6 +364,41 @@ try {
     await page.setViewport({ width: 390, height: 844 })
     await page.goto(origin, { waitUntil: "networkidle0" })
     const initial = (await page.evaluate(metrics)).hero.h
+    const copy = await page.$eval(".cinematic-description", (e) => ({
+      text: e.textContent.replace(/\s+/g, " ").trim(),
+      height: e.getBoundingClientRect().height,
+      line: parseFloat(getComputedStyle(e).lineHeight),
+      overflow: e.scrollWidth > e.clientWidth + 1,
+      gap:
+        e.getBoundingClientRect().top -
+        document.querySelector(".cinematic-heading").getBoundingClientRect()
+          .bottom,
+      align: getComputedStyle(e).textAlign,
+    }))
+    assert.equal(
+      copy.text,
+      "Everything you need to create, sell, and grow your business. All in one place",
+    )
+    assert.ok(
+      Math.abs(copy.height - copy.line * 2) < 1 && !copy.overflow,
+      "mobile subheading is exactly two unclipped lines",
+    )
+    assert.equal(copy.align, "center")
+    assert.ok(copy.gap >= 36 && copy.gap <= 48)
+    assert.equal(
+      await page.$eval(
+        "[data-homepage-surface]",
+        (e) => getComputedStyle(e).overflowY,
+      ),
+      "visible",
+    )
+    assert.ok(
+      await page.$eval(
+        ".cinematic-media",
+        (e) => Number(getComputedStyle(e).zIndex) >= 0,
+      ),
+    )
+
     await page.evaluate(() => {
       const fixture = document.createElement("div")
       fixture.id = "search-tail-audit"
@@ -524,6 +629,179 @@ try {
     await page.close()
     console.log(
       "ok refinements: stable mobile toolbar/auth height, dark header, glass input, live buyer/creator controls, marketplace search, scroll-filled showcase, autoplay and mouse dragging",
+    )
+  }
+  {
+    const page = await pageFor()
+    await page.setViewport({
+      width: 390,
+      height: 844,
+      isMobile: true,
+      hasTouch: true,
+    })
+    await page.goto(origin, { waitUntil: "networkidle0" })
+    // A closed, kept portal must not keep an orphaned body lock alive.
+    await page.evaluate(() => {
+      const wrap = document.createElement("div")
+      wrap.id = "lock-test"
+      wrap.setAttribute("data-radix-popper-content-wrapper", "")
+      wrap.innerHTML =
+        '<div data-slot="select-content" data-state="open" style="visibility:hidden">Positioning</div>'
+      document.body.append(wrap)
+      const platform = document.createElement("style")
+      platform.id = "platform-style-test"
+      platform.textContent = "body[data-scroll-locked] .brand {color:red}"
+      const lock = document.createElement("style")
+      lock.id = "injected-lock-style-test"
+      lock.textContent =
+        "body[data-scroll-locked]{overflow:hidden!important}.with-scroll-bars-hidden{overflow:hidden!important}"
+      document.head.append(platform, lock)
+
+      document.body.style.overflow = "hidden"
+    })
+    await pause(180)
+    assert.equal(
+      await page.evaluate(() => document.body.style.overflow),
+      "hidden",
+      "an open Select retains its lock while positioning",
+    )
+    await page.evaluate(() => {
+      const content = document.querySelector("#lock-test > div")
+      content.style.visibility = "visible"
+      const style = document.createElement("style")
+      style.id = "infinite-spinner-probe"
+      style.textContent =
+        "@keyframes spinnerProbe{to{transform:rotate(360deg)}}"
+      document.head.append(style)
+      content.innerHTML =
+        '<span style="display:block;animation:spinnerProbe 1s linear infinite">Loading</span>'
+      content.setAttribute("data-state", "closed")
+    })
+    await page.waitForFunction(() => document.body.style.overflow !== "hidden")
+    assert.ok(
+      await page.$("#platform-style-test"),
+      "shared styles mentioning locks must survive recovery",
+    )
+    assert.equal(
+      await page.$("#injected-lock-style-test"),
+      null,
+      "injected lock-only styles are removed",
+    )
+    await page.$eval("#platform-style-test", (e) => e.remove())
+    await page.$eval("#infinite-spinner-probe", (e) => e.remove())
+    await page.evaluate(() => {
+      const style = document.createElement("style")
+      style.id = "class-lock-style-test"
+      style.textContent =
+        ".block-interactivity-probe{pointer-events:none}.allow-interactivity-probe{pointer-events:all}"
+      document.head.append(style)
+      document.body.classList.add("block-interactivity-probe")
+    })
+    await page.waitForFunction(
+      () => !document.body.classList.contains("block-interactivity-probe"),
+    )
+    assert.equal(
+      await page.$("#class-lock-style-test"),
+      null,
+      "orphaned class-only interaction locks are cleared",
+    )
+
+    await page.evaluate(() => {
+      const content = document.querySelector("#lock-test > div")
+      content.style.visibility = "visible"
+      content.setAttribute("data-state", "open")
+      document.body.style.overflow = "hidden"
+      const style = document.createElement("style")
+      style.id = "scroll-exit-test"
+      style.textContent =
+        "@keyframes scrollExitProbe{from{opacity:1}to{opacity:0}}"
+      document.head.append(style)
+    })
+    await pause(80)
+    await page.evaluate(() => {
+      const content = document.querySelector("#lock-test > div")
+      content.style.animation = "scrollExitProbe 300ms linear both"
+      content.setAttribute("data-state", "closed")
+    })
+    await pause(100)
+    assert.equal(
+      await page.evaluate(() => document.body.style.overflow),
+      "hidden",
+      "closing overlay keeps its lock during the exit animation",
+    )
+    await page.waitForFunction(() => document.body.style.overflow !== "hidden")
+    await page.evaluate(() =>
+      document.querySelector("#scroll-exit-test").remove(),
+    )
+
+    await page.evaluate(() => {
+      document.querySelector("#lock-test").remove()
+      scrollTo(0, 260)
+      const sheet = document.createElement("div")
+      sheet.id = "fixed-lock-test"
+      sheet.setAttribute("role", "dialog")
+      sheet.setAttribute("data-state", "open")
+      sheet.textContent = "Open menu"
+      document.body.append(sheet)
+      document.body.style.position = "fixed"
+      document.body.style.top = "-260px"
+      document.body.style.overflow = "hidden"
+    })
+    await pause(150)
+    assert.equal(
+      await page.evaluate(() => document.body.style.position),
+      "fixed",
+      "genuine open menu stays locked",
+    )
+    await page.evaluate(() =>
+      document
+        .querySelector("#fixed-lock-test")
+        .setAttribute("aria-hidden", "true"),
+    )
+    await page.waitForFunction(() => document.body.style.position !== "fixed")
+    assert.ok(
+      Math.abs((await page.evaluate(() => scrollY)) - 260) < 2,
+      "orphaned fixed-body lock restores scroll position",
+    )
+    await page.evaluate(() => {
+      document.querySelector("#fixed-lock-test").remove()
+      scrollTo(0, 500)
+    })
+    const cdp = await page.createCDPSession()
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: 180, y: 300 }],
+    })
+    for (let i = 1; i <= 12; i++) {
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: 180, y: 300 + i * 20 }],
+      })
+      await pause(16)
+    }
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    })
+    await pause(250)
+    assert.ok(
+      await page.evaluate(() => scrollY < 490),
+      "scrolling back up works after orphan cleanup",
+    )
+    await page.evaluate(() => scrollTo(0, 0))
+    await page.waitForSelector('video[data-ready="true"]')
+    const source = await page.$eval("video", (v) => v.currentSrc)
+    await page.$eval("video", (v) => v.pause())
+    await page.waitForFunction(() => !document.querySelector("video").paused)
+    assert.equal(
+      await page.$eval("video", (v) => v.currentSrc),
+      source,
+      "unexpected pause resumes the same decoder/source",
+    )
+    assert.deepEqual(page.errors, [])
+    await page.close()
+    console.log(
+      "ok mobile recovery: positioned/open overlays remain protected; kept closed overlays release stale locks, preserve offset and allow upward touch scrolling; unsolicited media pause resumes",
     )
   }
   // Touch input and landscape toolbar changes, with actual coarse-pointer media queries.

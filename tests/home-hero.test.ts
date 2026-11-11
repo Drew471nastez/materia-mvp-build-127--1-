@@ -91,7 +91,7 @@ console.log(
   "Cinematic hero passed: server-rendered copy/signup, exact phrases, one deferred video, local fallback, shared auth, accessible motion and cleanup",
 )
 
-assert.ok(doc.includes("The e-commerce platform for creators"))
+assert.ok(doc.includes("Everything you need to create, sell,"))
 assert.ok(!doc.includes("Free to start. No card required."))
 assert.ok(
   read("components/marketing/hero.tsx").includes(
@@ -134,3 +134,8 @@ assert.ok(!showcaseMarkup.includes("<button"))
 assert.ok(
   showcaseMarkup.includes('aria-label="What you can build with Storelib"'),
 )
+
+assert.ok(
+  !read("app/(storelib)/(marketing)/page.tsx").includes("overflow-x-hidden"),
+)
+assert.ok(read("components/marketing/hero.tsx").includes("overflow: clip"))

@@ -90,6 +90,9 @@ function isScrollLocked(): boolean {
     html.hasAttribute("data-scroll-locked") ||
     body.hasAttribute("data-scroll-locked") ||
     body.classList.contains("modal-open") ||
+    Array.from(body.classList).some((name) =>
+      name.startsWith("block-interactivity-"),
+    ) ||
     body.classList.contains("with-scroll-bars-hidden") ||
     html.style.overflow === "hidden" ||
     body.style.overflow === "hidden" ||
@@ -98,7 +101,32 @@ function isScrollLocked(): boolean {
 }
 
 function hasOpenOverlay(): boolean {
-  return !!document.querySelector(OVERLAY_SELECTOR)
+  return Array.from(
+    document.querySelectorAll<HTMLElement>(OVERLAY_SELECTOR),
+  ).some((el) => {
+    // Kept, closed sheets/popovers must not protect an orphaned scroll lock.
+    // Their actual exit animations still retain the lock until completion.
+    if (el.getAttribute("aria-hidden") === "true") return false
+    const content = el.hasAttribute("data-radix-popper-content-wrapper")
+      ? el.firstElementChild
+      : el
+    // An open or unmarked layer may still be positioning its first frame.
+    // Visibility alone must never unlock it (Radix Select closes on resize).
+    if (content?.getAttribute("data-state") !== "closed") return true
+    const style = getComputedStyle(el)
+    if (style.display === "none" || style.visibility === "hidden") return false
+    return (
+      el
+        .getAnimations?.({ subtree: true })
+        .some(
+          (animation) =>
+            (animation.playState === "running" || animation.pending) &&
+            Number.isFinite(
+              Number(animation.effect?.getComputedTiming().endTime),
+            ),
+        ) ?? false
+    )
+  })
 }
 
 /**
@@ -113,21 +141,28 @@ function hasOpenOverlay(): boolean {
  */
 function hasLiveOverlay(): boolean {
   return Array.from(document.querySelectorAll(OVERLAY_SELECTOR)).some(
-    (el) => el.getAttribute("data-state") === "open" || !!el.querySelector('[data-state="open"]'),
+    (el) =>
+      el.getAttribute("data-state") === "open" ||
+      !!el.querySelector('[data-state="open"]'),
   )
 }
 
 /** The page is inert: it looks completely normal and nothing responds. */
 function isInteractionBlocked(): boolean {
-  return document.body.style.pointerEvents === "none" || document.documentElement.style.pointerEvents === "none"
+  return (
+    document.body.style.pointerEvents === "none" ||
+    document.documentElement.style.pointerEvents === "none"
+  )
 }
 
-function cleanScrollLocks() {
+function cleanScrollLocks(restorePosition = true) {
   const body = document.body
   const html = document.documentElement
+  const fixedOffset =
+    body.style.position === "fixed" ? -parseFloat(body.style.top) : NaN
 
   // Remove data attributes from BOTH html and body.
-  // react-remove-scroll adds data-scroll-locked to <html>, not <body>.
+  // Overlay libraries can record the lock on either html or body.
   html.removeAttribute("data-scroll-locked")
   body.removeAttribute("data-scroll-locked")
 
@@ -177,9 +212,26 @@ function cleanScrollLocks() {
       t.includes("with-scroll-bars-hidden") ||
       t.includes("data-remove-scroll-bar")
     ) {
-      el.remove()
+      // Global/platform styles also mention these attributes. Only remove
+      // a lock-only stylesheet, never an application stylesheet or @layer.
+      const rules = Array.from(el.sheet?.cssRules ?? [])
+      const lockSelector =
+        /^(?:(?:html|body)\[(?:data-scroll-locked|data-remove-scroll-bar)(?:=[^\]]+)?\]|\.(?:with-scroll-bars-hidden|(?:block|allow)-interactivity-[\w-]+|right-scroll-bar-position|width-before-scroll-bar))(?:\s+\.(?:right-scroll-bar-position|width-before-scroll-bar))?$/
+      if (
+        rules.length &&
+        rules.every(
+          (rule) =>
+            rule instanceof CSSStyleRule &&
+            rule.selectorText
+              .split(",")
+              .every((selector) => lockSelector.test(selector.trim())),
+        )
+      )
+        el.remove()
     }
   })
+  if (restorePosition && Number.isFinite(fixedOffset) && fixedOffset >= 0)
+    window.scrollTo(0, fixedOffset)
 }
 
 function forceScrollRecalculation() {
@@ -204,7 +256,7 @@ function forceScrollRecalculation() {
  * resize into a page that was working fine. Now the resize only goes out
  * behind an actual lock we just removed.
  */
-function repair() {
+function repair(restorePosition = true) {
   /**
    * AN INERT PAGE IS ALWAYS A BUG, and it is repaired even when an overlay
    * node is still in the DOM — because a leaked one is exactly how the page
@@ -214,13 +266,13 @@ function repair() {
    * at all — and the clicks come back.
    */
   if (isInteractionBlocked() && !hasLiveOverlay()) {
-    cleanScrollLocks()
+    cleanScrollLocks(restorePosition)
     forceScrollRecalculation()
     return
   }
 
   if (!isScrollLocked() || hasOpenOverlay()) return
-  cleanScrollLocks()
+  cleanScrollLocks(restorePosition)
   forceScrollRecalculation()
 }
 
@@ -229,10 +281,10 @@ export function BodyScrollRestorer() {
 
   useEffect(() => {
     // ── Immediate + timed cleanup on every navigation ──
-    repair()
-    const raf = requestAnimationFrame(repair)
+    repair(false)
+    const raf = requestAnimationFrame(() => repair(false))
     const timers = [50, 150, 300, 500, 1000].map((ms) =>
-      setTimeout(repair, ms)
+      setTimeout(() => repair(false), ms),
     )
 
     // ── MutationObserver: catch scroll locks re-applied AFTER cleanup ──
@@ -252,27 +304,51 @@ export function BodyScrollRestorer() {
       // as nothing else, so without it the freeze goes unnoticed until the next
       // navigation.
       attributes: true,
-      attributeFilter: ["data-scroll-locked", "data-remove-scroll-bar", "class", "style"],
+      attributeFilter: [
+        "data-scroll-locked",
+        "data-remove-scroll-bar",
+        "class",
+        "style",
+      ],
     })
 
     // ── Child observer: catch portal unmount without proper cleanup ──
     // When a Radix dialog portal unmounts but react-remove-scroll doesn't
     // clean up, the attribute observer won't fire (no attribute change).
     // Watching childList on body catches the portal removal.
+    let settle: ReturnType<typeof setTimeout> | undefined
+    const scheduleRepair = () => {
+      if (!isScrollLocked()) return
+      repair()
+      clearTimeout(settle)
+      settle = setTimeout(repair, 600)
+    }
     const childObserver = new MutationObserver(() => {
-      if (isScrollLocked() && !hasOpenOverlay()) {
+      if (isScrollLocked()) {
         // Small delay to let react-remove-scroll finish its own teardown
-        setTimeout(repair, 100)
+        scheduleRepair()
       }
     })
 
-    childObserver.observe(document.body, { childList: true })
+    childObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-state", "aria-hidden"],
+    })
+    window.addEventListener("pageshow", scheduleRepair)
+    window.addEventListener("focus", scheduleRepair)
+    document.addEventListener("visibilitychange", scheduleRepair)
 
     return () => {
       cancelAnimationFrame(raf)
       timers.forEach(clearTimeout)
       attrObserver.disconnect()
       childObserver.disconnect()
+      clearTimeout(settle)
+      window.removeEventListener("pageshow", scheduleRepair)
+      window.removeEventListener("focus", scheduleRepair)
+      document.removeEventListener("visibilitychange", scheduleRepair)
     }
   }, [pathname])
 

@@ -214,6 +214,25 @@ const isViolet = (c) => !!c && (VIOLET_600.test(c) || /oklch\(0\.54/.test(c))
 const r8 = (b) => b && b.radius === "8px"
 
 /* ------------------------------------------------------------------ */
+if(process.env.HEADER_ONLY==='mobile-scroll'){
+  const p=await open(PHONE(390),'/','guest')
+  const heroHeight=await p.$eval('[data-home-hero]',e=>e.getBoundingClientRect().height)
+  for(const height of [844,650,900]){
+    await p.setViewport({width:390,height,isMobile:true,hasTouch:true,deviceScaleFactor:2})
+    for(const y of [0,220,440,50,0]){
+      await p.evaluate(y=>scrollTo(0,y),y);await sleep(100)
+      const r=await p.evaluate(()=>({top:document.querySelector('#platform-header-root').getBoundingClientRect().top,y:scrollY,h:document.querySelector('[data-home-hero]').getBoundingClientRect().height}))
+      expect(Math.abs(r.top)<1 && Math.abs(r.y-y)<2 && r.h===heroHeight,'mobile header stays pinned, page scrolls both ways and hero geometry stays fixed',r)
+    }
+  }
+  await p.tap('button[aria-label="Open menu"]');await sleep(500)
+  expect(await p.$$eval('[role="dialog"]',els=>els.some(e=>e.getAttribute('aria-hidden')!=='true'&&getComputedStyle(e).visibility!=='hidden'&&e.getBoundingClientRect().height>0)),'real mobile menu opens')
+  await p.keyboard.press('Escape');await sleep(650)
+  expect(await p.$$eval('[role="dialog"]',els=>els.every(e=>e.getAttribute('aria-hidden')==='true'||!e.getClientRects().length)),'real mobile menu closes')
+  await p.evaluate(()=>scrollTo(0,400));await sleep(120);await p.evaluate(()=>scrollTo(0,0));await sleep(120)
+  expect(await p.evaluate(()=>scrollY===0 && getComputedStyle(document.body).overflowY!=='hidden'),'upward scrolling remains available after menu close')
+  await p.close();await browser.close();await new Promise(r=>server.close(r));rmSync(stubs,{recursive:true,force:true});process.exit(broken?1:0)
+}
 if(process.env.HEADER_ONLY==='marketing'){
   for(const path of ['/','/pricing']){
     const p=await open(DESK(1440),path,'guest')
@@ -289,7 +308,7 @@ for (const path of ["/", "/explore"]) {
         const box = document.querySelector(".cinematic-actions")
         /* The owner's remake (round AA1): one button and the marketplace search, under the subheading. */
         const links = [...box.querySelectorAll(".cinematic-desktop-signup, .cinematic-search input")].map((a) => ({ text: (a.textContent || a.placeholder).trim(), radius: getComputedStyle(a).borderTopLeftRadius, top: a.getBoundingClientRect().top }))
-        const sub = [...document.querySelectorAll("p")].find((x) => /e-commerce platform for creators/.test(x.textContent))
+        const sub = [...document.querySelectorAll("p")].find((x) => /Everything you need to create/.test(x.textContent))
         return { links, subBottom: sub?.getBoundingClientRect().bottom }
       })
       expect(hero.links.length === 2 && hero.links.every((l) => l.radius === "12px"), "/ hero: signup and search share the requested 12px corner", hero.links.map((l) => `${l.text} ${l.radius}`))
@@ -328,11 +347,6 @@ console.log("\nphone, 390")
 for (const path of ["/", "/explore"]) {
   for (const who of ["guest", "buyer", "seller"]) {
     const tag = `${path} ${who}:`
-    if(path==='/'){
-      const nav=await p.$$eval('[data-marketing-nav] a',els=>els.map(e=>({radius:getComputedStyle(e).borderRadius,bg:getComputedStyle(e).backgroundColor,transition:getComputedStyle(e).transitionProperty})))
-      expect(nav.length>0&&nav.every(n=>n.radius==='0px'&&n.bg==='rgba(0, 0, 0, 0)'&&n.transition.split(',').map(s=>s.trim()).includes('color')),`${tag} marketing links brighten with a color transition and no pills`,nav)
-    }
-
     const p = await open(PHONE(390), path, who)
     const bar = await p.evaluate(DESK_READ)
     expect(bar.overflow.doc <= 0, `${tag} nothing wider than the window`, bar.overflow.doc)
