@@ -2872,8 +2872,8 @@ html.capacitor .subscribe-bar-spacer {
 .op-btn:is([data-hover="fill"], [data-hover="pop"]):not(.animate-onepage-swipe)::after {
   background: var(--op-fill, currentColor);
 }
-/* Wave 11: a highlighted link's shine passes under its words, never over them (it lightened white words to grey). */
-.op-btn.animate-onepage-swipe::after { z-index: -1; }
+/* Wave 11: a highlighted link's shine passes under its words, never over them (it lightened white words to grey), and softer. */
+.op-btn.animate-onepage-swipe::after { z-index: -1; background-image: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.18) 50%, transparent 100%); }
 /* A highlighted link's swipe already owns ::after. Its hover fill uses
    the shadow layer, so the chosen colours still work without losing it. */
 .op-btn.animate-onepage-swipe:is([data-hover="fill"], [data-hover="pop"])::before {

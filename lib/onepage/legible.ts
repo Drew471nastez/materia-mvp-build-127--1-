@@ -751,6 +751,8 @@ const PLACEHOLDER_VAR = "--op-legible-ph"
 const FILL_TEXT = "--op-fill-text"
 /* The hover's fill itself, moved (its hue kept) only when no words could read on it. */
 const FILL = "--op-fill"
+/* The room a hover's pair keeps over the minimum. */
+const HOVER_ROOM = 0.6
 /**
  * A colour the guard sets on words: what a hovered Fill or Pop button defines as --op-hover-ink (its fill's words)
  * while it is hovered, else this colour. An inline !important colour is beyond any stylesheet, so without this a
@@ -1036,25 +1038,26 @@ export function findHoverPairs(root: ParentNode): HoverFinding[] {
     }
     let grounds = groundsFor(fillNow)
     const worst = (c: Rgba, gs: Rgba[]) => Math.min(...gs.map((g) => contrast({ ...c, a: 1 }, g)))
-    const ratio = worst(text, grounds)
+    /* With room (HOVER_ROOM): a pressed button is drawn a little smaller and its words a little softer than a hovered one. */
+    const ratio = worst(text, grounds) - HOVER_ROOM
     let fixed = { ...text, a: 1 }
     if (ratio + 0.01 < min) {
-      fixed = nudgeOn({ ...text, a: 1 }, grounds, min)
+      fixed = nudgeOn({ ...text, a: 1 }, grounds, min + HOVER_ROOM)
       /* No words read on it (a gloss too bright for white, a fill too dark for black): the fill moves instead, its hue kept. */
-      if (worst(fixed, grounds) + 0.01 < min && fillNow) {
+      if (worst(fixed, grounds) + 0.01 < min + HOVER_ROOM && fillNow) {
         fixed = { ...text, a: 1 }
         let moved = false
         for (let target = min + 0.5; target <= 15; target += 0.5) {
           const f2 = nudgeOn({ ...fillNow, a: 1 }, [fixed], target)
           const g2 = groundsFor(f2)
-          if (worst(fixed, g2) + 0.01 >= min) {
+          if (worst(fixed, g2) + 0.01 >= min + HOVER_ROOM) {
             fillFixed = toCss(f2)
             grounds = g2
             moved = true
             break
           }
         }
-        if (!moved) fixed = nudgeOn({ ...text, a: 1 }, grounds, min)
+        if (!moved) fixed = nudgeOn({ ...text, a: 1 }, grounds, min + HOVER_ROOM)
       }
     }
     /* Words the button draws faded (a second line at 70%) that would not read faded on the fill: whole on hover. */
@@ -1071,10 +1074,8 @@ export function findHoverPairs(root: ParentNode): HoverFinding[] {
         }
       }
       if (!dim || fade < 0.05) continue
-      const wcs = getComputedStyle(w)
-      const wmin = minimumFor(parseFloat(wcs.fontSize) || 16, parseInt(wcs.fontWeight) || 400)
-      /* With half a step of room: a gloss over part of the line is measured as a stretch, not pixel by pixel. */
-      if (Math.min(...grounds.map((g) => contrast({ ...fixed, a: fade }, g))) + 0.01 < wmin + 0.5) faded.push(dim)
+      /* Faded words on a hover's fill are shown whole: the fill is one colour picked for whole words, and a fade measured as a stretch of gloss is a guess. */
+      faded.push(dim)
     }
     const textMoved = ratio + 0.01 < min && (fixed.r !== text.r || fixed.g !== text.g || fixed.b !== text.b)
     if (ratio + 0.01 < min || faded.length || fillFixed) out.push({ el: h, text: toCss(text), fill: toHex(grounds[0]), ratio: Math.round(ratio * 100) / 100, min, fixed: textMoved ? toCss(fixed) : "", fillFixed, faded })
