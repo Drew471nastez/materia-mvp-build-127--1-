@@ -209,6 +209,120 @@ async function publishing() {
   }
 }
 
+/* ── A COMMUNITY'S PUBLIC PAGE ─────────────────────────────────────────── */
+
+async function communityPages() {
+  section("A community's public page: the row is read once per visit, everything shown alike is held (lib/communities/server/public-cache)")
+  const { loadSalesPage, topBarData, communityBySlug } = await import("@/lib/communities/server/public")
+  const { memberPage } = await import("@/components/community/member/data")
+  const { publicAboutExtras } = await import("@/lib/communities/server/about")
+  const { communitySummary, communityDeleting } = await import("@/lib/communities/server/community-summary")
+  const { communityPublicChanged, communityPublicTag, communityCreatorTags } = await import("@/lib/communities/server/public-cache")
+  const { creatorTag } = await import("@/lib/commerce/product-page-cache")
+  const { shopProductsTag } = await import("@/lib/onepage/public-cache")
+  nextCache.resetCache()
+  const fixture = buildFixture()
+  useFixture(fixture)
+  const community = fixture.tables.communities[0]
+  const CID = community.id as string
+  community.updated_at = "2026-10-01T09:00:00.000Z"
+  const sold = fixture.tables.products.find((r) => r.creator_id === SITE.creatorId)!
+  fixture.tables.community_tiers.push(
+    { id: "7a000001-0000-4000-8000-000000000001", community_id: CID, name: "Free", description: null, position: 0, kind: "free", billing: null, product_id: null, benefits: [], is_default: true, archived_at: null, created_at: "2026-10-01T09:00:00.000Z", updated_at: "2026-10-01T09:00:00.000Z" },
+    { id: "7a000001-0000-4000-8000-000000000002", community_id: CID, name: "Studio", description: null, position: 1, kind: "paid", billing: "one_time", product_id: sold.id, benefits: [], is_default: false, archived_at: null, created_at: "2026-10-01T09:00:00.000Z", updated_at: "2026-10-01T09:00:00.000Z" },
+  )
+  const slug = community.slug as string
+
+  /* What /community/<slug> and /about read for a stranger: the layout's memberPage, the page's load, the bar, the About facts and the metadata's. */
+  const oneVisit = async () => {
+    const page = await memberPage(slug)
+    const meta = await communityBySlug(slug)
+    const load = await loadSalesPage(slug, null)
+    if (!load) return { state: page.state, meta: !!meta, load: null }
+    const [bar, extras, summary, deleting] = await Promise.all([topBarData(load.community, null), publicAboutExtras(load.community), communitySummary(load.community.id), communityDeleting(load.community.id)])
+    return { state: page.state, meta: !!meta, load: load.data, bar, extras, summary, deleting }
+  }
+  const first = await visit(oneVisit)
+  const communityReads = (trips: { table: string }[]) => trips.filter((t) => t.table === "communities").length
+  /* React's cache (one community read per request for the layout, the page and the metadata) is not per request outside Next; scripts/check-public-roundtrips.mjs measures it on a production build. */
+  check("the first visitor reads the tiers, the creator and the figures", !!first.value?.load && ["community_tiers", "creators", "profiles", "products"].every((t) => tablesOf(first.trips).includes(t)), tablesOf(first.trips))
+  const second = await visit(oneVisit)
+  check("the second visitor reads the community's own row and nothing else", second.trips.length > 0 && second.trips.every((t) => t.table === "communities" && /select=id%2Ccreator_id|select=id,creator_id/.test(t.query)), second.trips.map((t) => `${t.table}${t.query.slice(0, 40)}`))
+  check("  and is shown the same page", JSON.stringify(second.value) === JSON.stringify(first.value))
+  console.log(`        measured: ${first.foreground} round trips for the first visitor, ${second.trips.length} for each after`)
+  check("  the join is worked out for this viewer, from held prices", (first.value?.load?.join as { kind?: string } | undefined)?.kind !== undefined && JSON.stringify(first.value?.load?.community.options.map((o) => o.priceLine)).includes("$"))
+
+  const held = JSON.stringify(nextCache.cacheEntries().map((e) => e.value))
+  check("nothing private of the creator is held (no Stripe account, no email)", !/stripe_account_id|charges_enabled|@fixture\.test|PRIVATE-ROW/.test(held))
+  check("  no entry is keyed by who is looking", nextCache.cacheEntries().every((e) => !/user-token|11111111-1111-4111-8111-111111111111/.test(e.key) || e.key.includes(SITE.creatorId)))
+
+  section("Draft and suspended are decided from the live row: a 404 on the very next request, with nothing cleared")
+  community.status = "draft"
+  const drafted = await visit(oneVisit)
+  check("made a draft: the next stranger gets no page (a 404)", drafted.value?.load === null && drafted.value?.state === "signed_out", drafted.value)
+  community.status = "published"
+  community.suspended_at = "2026-10-02T00:00:00.000Z"
+  const suspended = await visit(oneVisit)
+  check("suspended: the next stranger gets no page either", suspended.value?.load === null)
+  community.suspended_at = null
+  community.deleted_at = "2026-10-02T00:00:00.000Z"
+  const deleted = await visit(oneVisit)
+  check("deleted: the address leads nowhere", deleted.value?.load === null && deleted.value?.state === "missing")
+  community.deleted_at = null
+  const back = await visit(oneVisit)
+  check("restored: the page is back at the next visit", !!back.value?.load)
+
+  section("Every writer clears what it changed")
+  sold.price_cents = 4321
+  const stalePrice = await visit(oneVisit)
+  check("without a clear the held price is served (the minute's backstop)", !JSON.stringify(stalePrice.value).includes("43.21"))
+  nextCache.revalidateTag(shopProductsTag(SITE.creatorId), { expire: 0 })
+  const newPrice = await visit(oneVisit)
+  check("a product saved (the store's product tag, cleared by every product writer) is on the page at the next visit", JSON.stringify(newPrice.value).includes("43.21"))
+  fixture.tables.community_tiers[1].name = "Studio pass"
+  communityPublicChanged(CID)
+  const renamedTier = await visit(oneVisit)
+  check("a staff write (the community's tag, cleared after every gated request) is on the page at the next visit", JSON.stringify(renamedTier.value).includes("Studio pass"))
+  const profile = fixture.tables.profiles.find((r) => r.id === SITE.userId)!
+  profile.display_name = "Maya Renamed"
+  nextCache.revalidateTag(creatorTag(SITE.creatorId), { expire: 0 })
+  const renamedCreator = await visit(oneVisit)
+  check("a new name or photo (identityChanged clears creator:<creator id>) is on the page and its bar at the next visit", JSON.stringify(renamedCreator.value?.bar).includes("Maya Renamed") && JSON.stringify(renamedCreator.value?.load).includes("Maya Renamed"))
+  community.name = "Maya Club Two"
+  community.updated_at = "2026-10-03T09:00:00.000Z"
+  const renamedCommunity = await visit(oneVisit)
+  check("a change to the row itself is a new held entry at once (keyed by updated_at)", JSON.stringify(renamedCommunity.value?.load).includes("Maya Club Two") && renamedCommunity.trips.length > 1)
+  check("the creator's tags are the product page's and the store's own", JSON.stringify(communityCreatorTags(SITE.creatorId)) === JSON.stringify([creatorTag(SITE.creatorId), shopProductsTag(SITE.creatorId)]))
+  check("  and every held entry carries the community's tag", nextCache.cacheEntries().filter((e) => e.key.includes(CID)).every((e) => e.tags.includes(communityPublicTag(CID))))
+
+  section("A failed read and a draft are never held")
+  nextCache.resetCache()
+  const failing = buildFixture()
+  failing.tables.communities[0].updated_at = "2026-10-01T09:00:00.000Z"
+  failing.fail = ["community_tiers"]
+  useFixture(failing)
+  await visit(oneVisit)
+  failing.fail = []
+  const afterFailure = await visit(oneVisit)
+  check("tiers that could not be read are asked again by the next visitor", tablesOf(afterFailure.trips).includes("community_tiers"), tablesOf(afterFailure.trips))
+  nextCache.resetCache()
+  failing.tables.communities[0].status = "draft"
+  await visit(() => loadSalesPage(slug, null))
+  check("a draft community's page is never held", nextCache.cacheEntries().length === 0, nextCache.cacheEntries().map((e) => e.key))
+
+  section("Wiring")
+  const gate = readCode("lib/communities/server/context.ts")
+  const gateEnd = gate.slice(gate.indexOf("export async function requireCreatorCommunity"))
+  check("every gated staff request clears the community's public page once it has answered", /communityPublicChangedAfter\(community\.id\)\s*return \{ ok: true, ctx, community/.test(gateEnd) && (gate.match(/communityPublicChangedAfter\(community\.id\)/g) ?? []).length === 2)
+  const cache = readCode("lib/communities/server/public-cache.ts")
+  check("  expired at once, never stale: { expire: 0 }", /revalidateTag\(communityPublicTag\(communityId\), \{ expire: 0 \}\)/.test(cache))
+  check("  held a minute at most", /COMMUNITY_PUBLIC_HOLD_SECONDS = 60/.test(cache) && /revalidate: COMMUNITY_PUBLIC_HOLD_SECONDS/.test(cache))
+  const lib = readCode("lib/communities/server/public.ts")
+  check("only a community anybody may see is held; a caller's own database reads its own", /const held = !given && sharePreviewable\(community\)/.test(lib))
+  check("the held reads ask nothing about the visitor", !/userId|viewer/.test(lib.slice(lib.indexOf("async function readSalesFacts"), lib.indexOf("export async function loadSalesPage"))))
+  check("the layout's community is the page's (one read per request)", /communityBySlug\(slug\), currentUserForRequest\(\)/.test(readCode("components/community/member/data.ts")))
+}
+
 /* ── PRIVATE ───────────────────────────────────────────────────────────── */
 
 async function privatePages() {
@@ -353,6 +467,7 @@ async function spikes() {
 async function main() {
   await roundTrips()
   await publishing()
+  await communityPages()
   await privatePages()
   await spikes()
   console.log(`\n${passed} passed, ${failed} failed`)

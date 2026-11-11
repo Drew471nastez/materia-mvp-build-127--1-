@@ -5,7 +5,7 @@ import { connection } from "next/server"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { communityBySlug, sharePreviewable, loadSalesPage, seoFacts } from "@/lib/communities/server/public"
-import { aboutExtras } from "@/lib/communities/server/about"
+import { publicAboutExtras } from "@/lib/communities/server/about"
 import { admin } from "@/lib/communities/server/db"
 import { leaveReasonsReady } from "@/lib/communities/server/leave-reasons"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
@@ -52,7 +52,7 @@ export default async function CommunityAboutPage({ params }: { params: Promise<{
   if ((await memberPage(load.community.slug)).state === "member") return <PlacePage slug={load.community.slug} place={{ kind: "about" }} />
   /* The About page's extra facts: who runs it, how alive it is, the classroom (round 10, lib/communities/server/about.ts). */
   /* Leaving asks why once part 98 is in (round 12), for a member who can leave; the check is remembered by the server. */
-  const [extras, askWhy] = await Promise.all([aboutExtras(admin(), load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false)])
+  const [extras, askWhy] = await Promise.all([publicAboutExtras(load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false)])
   /* A stranger's About page: its stored copy kept fresh, at most hourly per server (lib/edge/snapshot-capture.ts). */
   if (!user) keepPageFresh(`community-${load.community.slug}`, process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com", `/community/${load.community.slug}/about`, "community")
   return <CommunitySalesPage data={{ ...load.data, extras, askWhy }} />

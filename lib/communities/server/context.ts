@@ -27,6 +27,7 @@ import { admin, missing, reasonOf, type Db } from "./db"
 import { communityIdForOldSlug } from "./slug-history"
 import { staffPermissions } from "./creator-roles"
 import { TEAM_COMMUNITY_ROLE, teamAuditDb, teamCommunityIdentity } from "./team"
+import { communityPublicChangedAfter } from "./public-cache"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -281,6 +282,12 @@ export async function requireCreatorCommunity(communityId: string, action: Commu
     announcements, no events. Only publishing refused this before, so a taken down community could still send invites.
   */
   if ((community.suspended_at || community.status === "suspended") && SUSPENDED_REFUSES.includes(action)) return answer(403, "suspended")
+  /*
+    EVERY STAFF WRITE CLEARS THE PUBLIC PAGE (round rel2-public). Each route under /api/app/community/[id] passes here
+    before it writes (tiers, settings, the page, the gallery, a deletion), so the community's held public reads are
+    expired once the request has answered (./public-cache.ts), and the next visitor reads what was saved.
+  */
+  communityPublicChangedAfter(community.id)
   return { ok: true, ctx, community, viewer: ownsIt ? { ...viewer, role: "owner", active: true } : viewer, role }
 }
 
@@ -298,5 +305,7 @@ export async function teamCommunityGate(ctx: CreatorContext, db: Parameters<type
   if (!can(role, action, perms)) return answer(403, "forbidden")
   if ((community.suspended_at || community.status === "suspended") && SUSPENDED_REFUSES.includes(action)) return answer(403, "suspended")
   const viewer: Viewer = { ...NOBODY, userId: identity, role, active: true, status: "active", perms }
+  /* A team member's write clears the public page as the owner's does (requireCreatorCommunity). */
+  communityPublicChangedAfter(community.id)
   return { ok: true, ctx: { ...ctx, userId: identity, admin: teamAuditDb(db, ctx.userId) }, community, viewer, role }
 }
