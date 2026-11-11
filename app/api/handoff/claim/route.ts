@@ -46,6 +46,7 @@ export async function POST(request: Request) {
   })
   if (limited) return back(request, token, "slow")
   const out = await acceptClaim(deps, token, user, metaOf(request))
-  if (out.ok === false) return back(request, token, out.code === "failed" || out.code === "not_set_up" || out.status >= 500 ? "failed" : out.code)
+  /* A link somebody else already used is refused as "used": "accepted" is only ever this press's own success (the page opens the business on it). */
+  if (out.ok === false) return back(request, token, out.code === "failed" || out.code === "not_set_up" || out.status >= 500 ? "failed" : out.code === "accepted" ? "used" : out.code)
   return back(request, token, "accepted")
 }

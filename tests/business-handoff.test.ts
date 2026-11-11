@@ -14,6 +14,9 @@
  *   a new account (sign up with the claim as `next`) and an existing one, each
  *   through the real route handlers on the repo's in-memory PostgREST
  *   a failed transfer changes nothing and the link still works
+ *   end to end: the founder sends it, tracks it, the client signs up from the
+ *   email, a payout balance holds it, accept, and every owner, team, billing
+ *   and address change checked; then resend, cancel and expiry
  *
  * The SQL itself ran on a local Postgres 16 built by scripts/sql-harness
  * (scripts/sql-harness/business-handoff.sql). It has not run on Storelib's
@@ -613,6 +616,93 @@ async function main() {
     check("/app sends such a login there instead of onboarding", /!memberRead\.failed \? await handedHomeFor\(user\.id\) : null\s*\n\s*if \(handed\) redirect\(handed\)/.test(layout) && layout.indexOf("if (handed) redirect(handed)") < layout.indexOf('redirect("/sell")'))
     check("the page that opens it switches the way the account menu does", /<OpenBusiness userId=\{handed\.userId\} name=\{handed\.name\} auto \/>/.test(read("app/(storelib)/team/claim/home/page.tsx")))
     check("the read is indexed", /create index if not exists business_handoffs_accepted_by on public\.business_handoffs \(accepted_by, accepted_at desc\) where status = 'accepted';/.test(read("supabase/migrations/20271131_business_handoff.sql")))
+  }
+
+  console.log("\nEnd to end: the founder hands Glow Studio to Ana, who signs up from the email")
+  {
+    const w = world()
+    const ANA = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    const meta = { origin: SITE, "sec-fetch-site": "same-origin" }
+    /* Lia was on Pro for the studio until last month (the row names her Stripe customer), and its payouts went to her Connect account. */
+    w.db.tables.subscriptions.push({ id: "sub-ended", creator_id: STUDIO_CREATOR, stripe_subscription_id: "sub_lia", stripe_customer_id: "cus_lia", plan_id: "pro", status: "canceled" })
+    w.db.tables.creators[0].stripe_account_id = "acct_lia"
+
+    const before = (await (await handoffRoute.GET(jsonReq("/api/handoff", "GET", STUDIO))).json()) as { eligible: boolean; pending: unknown }
+    check("1. Settings, Team in the studio: Transfer ownership is offered, nothing open", before.eligible === true && before.pending === null)
+    const made = await handoffRoute.POST(jsonReq("/api/handoff", "POST", STUDIO, { email: "Ana@Example.com", days: 3, keepFounder: true, founderAccess: "support" }))
+    const madeBody = (await made.json()) as { link: string; pending: { id: string; email: string; ttlDays: number; keepFounder: boolean; founderAccess: string }; emailed: boolean }
+    const token = madeBody.link.split(CLAIM_PREFIX)[1]
+    check("2. Send link: a short clean link, emailed to ana@, three days, Lia staying for support", made.status === 200 && /^https:\/\/storelib\.com\/team\/claim\/[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}$/.test(madeBody.link) && madeBody.emailed && madeBody.pending.email === "ana@example.com" && madeBody.pending.ttlDays === 3 && madeBody.pending.keepFounder && madeBody.pending.founderAccess === "support", madeBody)
+    const invite = w.calls.mails.find((m) => m.to === "ana@example.com")
+    check("   the email is from the Storelib Team, with the link and the business, and not Lia's name", !!invite && invite.text.includes(madeBody.link) && /manage Glow Studio/.test(invite.subject) && /Storelib Team invited you/.test(invite.text) && !/\bLia\b/.test(invite.subject + invite.text), invite?.subject)
+    const panel = (await (await handoffRoute.GET(jsonReq("/api/handoff", "GET", STUDIO))).json()) as { pending: { id: string; email: string; lastSentAt: string | null }; events: { event: string }[] }
+    check("   the panel tracks it: waiting for ana@, sent, its record", panel.pending?.id === madeBody.pending.id && panel.pending.email === "ana@example.com" && !!panel.pending.lastSentAt && panel.events.map((e) => e.event).sort().join(",") === "created,sent", panel)
+
+    const opened = await readClaim(w.deps, token, null)
+    check("3. Ana opens it signed out: Create account or Log in, the business and what comes with it", opened.ok && opened.state.kind === "signed_out" && opened.preview?.products === 3)
+    const toSignup = await signInRoute.GET(new Request(`${SITE}${claimSignInHref(token, { signup: true })}`))
+    const signupAt = new URL(toSignup.headers.get("location") ?? "", SITE)
+    const cookie = /sl_handoff_claim=([^;]+)/.exec(toSignup.headers.get("set-cookie") ?? "")?.[1] ?? ""
+    check("4. Create account to accept: sign up with her email filled in, the claim kept as next and in the cookie", signupAt.pathname === "/signup" && signupAt.searchParams.get("email") === "ana@example.com" && signupAt.searchParams.get("next") === claimPath(token) && tokenShapeOk(cookie), { at: signupAt.toString(), cookie })
+    w.auth.push({ id: ANA, email: "ana@example.com", app_metadata: { verified_email: "ana@example.com" } })
+    check("5. Signed up and confirmed: back to the claim, from next or, if an OAuth trip lost it, from the cookie", destinationAfterAuth(readCarry(signupAt.searchParams, "storelib.com"), { state: "none" } as never) === claimPath(token) && claimFallbackNext(null, cookie) === claimPath(token))
+    const ready = await readClaim(w.deps, token, await viewerOf(w.deps, { id: ANA, email: "ana@example.com" }))
+    check("   ready: Manage Glow Studio, Accept ownership", ready.ok && ready.state.kind === "ready" && /Manage Glow Studio[\s\S]*Accept ownership/.test(renderToStaticMarkup(createElement(ClaimCard, { state: (ready as { state: ClaimState }).state, token, note: "", signedIn: true, preview: (ready as any).preview }))))
+
+    w.deps.payoutBalance = async () => "held"
+    const held = await claimRoute.POST(formReq("/api/handoff/claim", ANA, { token }, meta))
+    check("6. Lia's payout account still holds money: Accept says not yet, nothing moves, the link still works", new URL(held.headers.get("location") ?? "", SITE).searchParams.get("note") === "not_ready" && w.db.tables.business_links.some((l: any) => l.member_id === STUDIO && l.owner_id === LIA) && w.db.tables.business_handoffs[0].status === "pending")
+    w.deps.payoutBalance = async () => "none"
+
+    const accepted = await claimRoute.POST(formReq("/api/handoff/claim", ANA, { token }, meta))
+    check("7. Accept ownership: back to the page, accepted", new URL(accepted.headers.get("location") ?? "", SITE).searchParams.get("note") === "accepted")
+    const links = w.db.tables.business_links
+    check("   ownership: the studio is on Ana's login; Lia keeps her login and her other business", links.some((l: any) => l.member_id === STUDIO && l.owner_id === ANA) && !links.some((l: any) => l.member_id === STUDIO && l.owner_id === LIA) && links.some((l: any) => l.member_id === SIDE && l.owner_id === LIA))
+    check("   the OnePage, store, products and domain are where they were (same ids and addresses)", w.db.tables.onepages[0].owner_id === STUDIO && w.db.tables.creators[0].user_id === STUDIO && w.db.tables.custom_domains[0].creator_id === STUDIO_CREATOR && w.db.tables.products.length === 3)
+    const team = (w.db.tables.store_team_members ?? []) as any[]
+    check("   team roles: Lia stays as a member with support access only, never payouts, billing or the team", team.length === 1 && team[0].user_id === LIA && team[0].permissions.join(",") === "orders,customers")
+    check("   billing: the ended plan that named Lia's Stripe customer is gone, so Ana's Billing starts fresh", !w.db.tables.subscriptions.some((r: any) => r.creator_id === STUDIO_CREATOR))
+    const alias = w.calls.updates.find((u) => u.id === STUDIO)
+    check("   sign in address: the studio's is made from Ana's, Lia's sessions in it ended, caches forgotten", /^ana\+slb-[0-9a-f]{8}@example\.com$/.test(String(alias?.attrs.email)) && w.calls.signOuts.includes(STUDIO) && w.calls.caches.some((c: any) => c.userId === STUDIO))
+    check("   Lia is told it has a new owner", w.calls.mails.some((m) => m.to === "lia@example.com" && /new owner/.test(m.subject + m.text)))
+    const row = w.db.tables.business_handoffs[0]
+    check("   the record: accepted by Ana, finished", row.status === "accepted" && row.accepted_by === ANA && !!row.finished_at)
+
+    const again = await claimRoute.POST(formReq("/api/handoff/claim", TOM, { token }, meta))
+    const tomRead = await readClaim(w.deps, token, await viewerOf(w.deps, { id: TOM, email: "tom@example.com" }))
+    check("8. Single use: Tom opening the same link reads already used and cannot take it", tomRead.ok && tomRead.state.kind === "accepted" && !(tomRead.state as any).mine && new URL(again.headers.get("location") ?? "", SITE).searchParams.get("note") !== "accepted" && w.db.tables.business_links.some((l: any) => l.member_id === STUDIO && l.owner_id === ANA), { tom: tomRead.ok ? tomRead.state : tomRead, again: again.headers.get("location") })
+    const anaRead = await readClaim(w.deps, token, await viewerOf(w.deps, { id: ANA, email: "ana@example.com" }))
+    check("   Ana reads It's yours, with Open", anaRead.ok && anaRead.state.kind === "accepted" && (anaRead.state as any).mine)
+    const lia = (await (await handoffRoute.GET(jsonReq("/api/handoff", "GET", LIA))).json()) as { eligible: boolean; reason: string }
+    check("9. Lia's login: her first business, so nothing to hand over from there", lia.eligible === false && lia.reason === "first_business")
+    const anaPanel = (await (await handoffRoute.GET(jsonReq("/api/handoff", "GET", STUDIO))).json()) as { eligible: boolean; pending: unknown }
+    check("   in the studio now (Ana's): Transfer ownership is hers to use, nothing open", anaPanel.eligible === true && anaPanel.pending === null)
+    const lateRevoke = await oneRoute.DELETE(jsonReq(`/api/handoff/${row.id}`, "DELETE", STUDIO), idParams(row.id))
+    check("   an accepted transfer cannot be cancelled after the fact", lateRevoke.status === 404 && w.db.tables.business_handoffs[0].status === "accepted")
+  }
+
+  console.log("\nEnd to end: cancelled, resent and expired links")
+  {
+    const w = world()
+    const first = await made(w, { email: "tom@example.com" })
+    w.tick(61_000)
+    const resent = await oneRoute.POST(jsonReq(`/api/handoff/${first.id}`, "POST", STUDIO, { send: true }), idParams(first.id))
+    const second = ((await resent.json()) as { link: string }).link.split(CLAIM_PREFIX)[1]
+    const old = await readClaim(w.deps, first.token, null)
+    check("Resend: a new link goes out and the earlier one stops", resent.status === 200 && second !== first.token && old.ok && old.state.kind === "gone" && w.calls.mails.filter((m) => m.to === "tom@example.com").length === 2)
+    const cancel = await oneRoute.DELETE(jsonReq(`/api/handoff/${first.id}`, "DELETE", STUDIO), idParams(first.id))
+    const afterCancel = await readClaim(w.deps, second, await viewerOf(w.deps, { id: TOM, email: "tom@example.com" }))
+    const tryCancelled = await claimRoute.POST(formReq("/api/handoff/claim", TOM, { token: second }))
+    check("Cancel transfer: the link says cancelled and Accept moves nothing", cancel.status === 200 && afterCancel.ok && afterCancel.state.kind === "revoked" && new URL(tryCancelled.headers.get("location") ?? "", SITE).searchParams.get("note") === "revoked" && w.db.tables.business_links.some((l: any) => l.member_id === STUDIO && l.owner_id === LIA))
+    const panel = (await (await handoffRoute.GET(jsonReq("/api/handoff", "GET", STUDIO))).json()) as { pending: unknown }
+    check("  and the panel is back to a new transfer", panel.pending === null)
+    const third = await made(w, {})
+    w.tick(8 * DAY)
+    const expiredPanel = (await (await handoffRoute.GET(jsonReq("/api/handoff", "GET", STUDIO))).json()) as { pending: { expired: boolean } }
+    const expiredRead = await readClaim(w.deps, third.token, await viewerOf(w.deps, { id: TOM, email: "tom@example.com" }))
+    check("Expired: the panel says so, the link says so, and Accept moves nothing", expiredPanel.pending?.expired === true && expiredRead.ok && expiredRead.state.kind === "expired" && (await acceptClaim(w.deps, third.token, { id: TOM, email: "tom@example.com" }, { ip: null, userAgent: null })).ok === false)
+    const fourth = await made(w, {})
+    check("  a new link replaces it", !!fourth.token && w.db.tables.business_handoffs.find((r: any) => r.id === third.id)?.status === "expired")
   }
 
   setHandoffDepsForTests(null)
