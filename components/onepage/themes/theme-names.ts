@@ -62,6 +62,7 @@ const NAMES: Record<string, () => string> = {
   classic98: () => ttx("theme", "Classic 98"),
   vaporwave: () => ttx("theme", "Vaporwave"),
   arcade: () => ttx("theme", "Arcade"),
+  renaissance: () => ttx("theme", "Renaissance"),
 }
 
 /** A theme's name in the reader's language. */

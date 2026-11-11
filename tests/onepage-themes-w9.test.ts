@@ -64,7 +64,7 @@ const older = [
 ]
 
 console.log("\nSix themes, valid and each its own")
-check(`the older catalogue was read (${older.length} themes)`, older.length >= 38)
+check(`the older catalogue was read (${older.length} themes)`, older.length >= 37) /* Editorial retired */
 /* Changed on purpose (round W10): THEME_SKINS also holds the second versions and three new skins (tests/onepage-themes-w10.test.ts); the six are its first six. */
 check("six themes, new ids, one for each skin", W9_THEMES.length === 6 && W9_THEMES.every((t) => !older.includes(t.id)) && W9_THEMES.map((t) => t.id).join() === THEME_SKINS.slice(0, 6).join())
 check("each theme names its own skin", W9_THEMES.every((t) => (t.theme_config as Record<string, unknown>).theme_skin === t.id))

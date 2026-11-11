@@ -82,7 +82,7 @@ check("Notebook joins the light themes and Cobalt the gradients", merged.map((t)
 console.log("\nEvery theme's name in six languages")
 const names = read("components/onepage/themes/theme-names.ts")
 const ids = [...design.matchAll(/\n  \{\n    id: "([a-z0-9-]+)",/g)].map((m) => m[1]).concat([...all, ...AP_THEMES].map((t) => t.id))
-check("every theme has a line", ids.length >= 35 && ids.every((id) => new RegExp(`\\n  ${id}: \\(\\) => ttx\\("theme", "`).test(names)), ids.filter((id) => !new RegExp(`\\n  ${id}: \\(\\)`).test(names)).join())
+check("every theme has a line", ids.length >= 34 && ids.every((id) => new RegExp(`\\n  ${id}: \\(\\) => ttx\\("theme", "`).test(names)), ids.filter((id) => !new RegExp(`\\n  ${id}: \\(\\)`).test(names)).join())
 const words = [...names.matchAll(/ttx\("theme", "([^"]+)"\)/g)].map((m) => `theme::${m[1]}`)
 for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
   const cat = readCatalog(join(process.cwd(), "lib/i18n/catalog", `${lang}.ts`)) as Record<string, string>

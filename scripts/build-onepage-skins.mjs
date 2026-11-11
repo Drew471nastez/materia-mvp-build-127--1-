@@ -17,7 +17,7 @@
  * its versions with that version's palette (round W10: Aero and Aero
  * Aquarium, Aqua and Aqua Graphite, Messenger and Messenger Olive, Y2K and
  * Y2K Kawaii, Playful and Playful Night, Grunge and Grunge Zine), and the
- * three that stand alone (Classic 98, Vaporwave, Arcade).
+ * three that stand alone (Classic 98, Vaporwave, Arcade), and Renaissance.
  *
  * Every pair of words and the paint a skin puts under them is recorded
  * (`pairs`, exported, and printed by --pairs): tests/onepage-themes-w10.test.ts measures each.
@@ -35,6 +35,7 @@ import { grunge, grungeZine } from "./onepage-skins/grunge.mjs"
 import { classic98 } from "./onepage-skins/classic98.mjs"
 import { vaporwave } from "./onepage-skins/vaporwave.mjs"
 import { arcade } from "./onepage-skins/arcade.mjs"
+import { renaissance } from "./onepage-skins/renaissance.mjs"
 
 const OUT = join(process.cwd(), "components/onepage/themes/theme-skins.css")
 
@@ -53,6 +54,7 @@ grungeZine()
 classic98()
 vaporwave()
 arcade()
+renaissance()
 
 /* ── All: hover words, motion, theme cards ──────────────────────────── */
 

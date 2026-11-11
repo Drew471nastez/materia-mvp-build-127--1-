@@ -89,6 +89,8 @@ import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 /* Round 40: five more themes, the Layout panel, font pairs, the gradient's direction and the wallpaper library (components/onepage/themes). */
 import { withR40Themes } from "@/components/onepage/themes/r40-themes"
+import { RENAISSANCE_THEMES } from "@/components/onepage/themes/renaissance-theme"
+import { orderThemes, themeGroupOf, type ThemeGroupId } from "@/components/onepage/themes/theme-order"
 import { ThemePreview } from "@/components/onepage/themes/theme-preview"
 import { useThemePreviewScale } from "@/components/onepage/themes/preview-scale"
 import { themeLabel } from "@/components/onepage/themes/theme-names"
@@ -134,6 +136,8 @@ const FONTS = [
   { name: "Fraunces", category: "serif", get style() { return tt("Soft & Warm") }, value: "'Fraunces', serif" },
   { name: "Newsreader", category: "serif", get style() { return tt("Editorial & Calm") }, value: "'Newsreader', serif" },
   { name: "Bodoni Moda", category: "serif", get style() { return tt("Fashion & Sharp") }, value: "'Bodoni Moda', serif" },
+  /* Renaissance's book face (components/onepage/themes/renaissance-theme). */
+  { name: "EB Garamond", category: "serif", get style() { return tt("Classic & Readable") }, value: "'EB Garamond', serif" },
   { name: "Big Shoulders", category: "display", get style() { return tt("Tall & Condensed") }, value: "'Big Shoulders', sans-serif" },
   { name: "Geist Mono", category: "mono", get style() { return tt("Code & Tech") }, value: "'Geist Mono', monospace" },
 ]
@@ -169,6 +173,7 @@ const TITLE_FONTS = [
   { name: "Fraunces", value: "'Fraunces', serif" },
   { name: "Newsreader", value: "'Newsreader', serif" },
   { name: "Bodoni Moda", value: "'Bodoni Moda', serif" },
+  { name: "Cormorant Garamond", value: "'Cormorant Garamond', serif" },
   { name: "Bricolage Grotesque", value: "'Bricolage Grotesque', sans-serif" },
   { name: "Big Shoulders", value: "'Big Shoulders', sans-serif" },
   { name: "Geist", value: "'Geist', sans-serif" },
@@ -1212,7 +1217,8 @@ const BASE_THEME_TEMPLATES = [
 ]
 
 /* Round 40: Gallery, Swiss, Ember, Lagoon and Atlas (components/onepage/themes/r40-themes), each laid into its kind. */
-export const THEME_TEMPLATES = withR40Themes(BASE_THEME_TEMPLATES)
+/* Renaissance (components/onepage/themes/renaissance-theme), and the picker's order: the best and most chosen first, in groups (components/onepage/themes/theme-order). */
+export const THEME_TEMPLATES = orderThemes(withR40Themes([...BASE_THEME_TEMPLATES, ...(RENAISSANCE_THEMES as unknown as typeof BASE_THEME_TEMPLATES)]))
 
 /** The gradient a page starts from when it has none of its own: warm, and nothing like the old violet default. */
 const DEFAULT_GRADIENT = "linear-gradient(160deg, #f0a8b8 0%, #b2846c 100%)"
@@ -2555,6 +2561,14 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
 })
 
 type ThemeFilter = "all" | "light" | "dark" | "gradient" | "image"
+/* The names of All's groups (components/onepage/themes/theme-order). */
+const THEME_GROUP_LABELS: Record<ThemeGroupId, () => string> = {
+  clean: () => tt("Clean"),
+  dark: () => tt("Dark"),
+  colour: () => tt("Colour"),
+  photo: () => tt("Photo"),
+  styled: () => tt("Eras and styles"),
+}
 const THEME_KINDS: readonly { id: ThemeFilter; label: string }[] = [
   { id: "all", get label() { return tt("All") } },
   { id: "light", get label() { return tt("Light") } },
@@ -2827,9 +2841,17 @@ function ThemeSection() {
             data-theme-kind-shown={kind.id === filter ? "" : undefined}
             aria-hidden={kind.id !== filter ? true : undefined}
           >
-            {THEME_TEMPLATES.filter((t) => kind.id === "all" || t.category === kind.id).map((template) => (
-              <ThemeCard key={template.id} template={template} selected={theme.template_id === template.id} shown={kind.id === filter} copy={kind.id !== "all"} onPick={onPick} />
-            ))}
+            {THEME_TEMPLATES.filter((t) => kind.id === "all" || t.category === kind.id).map((template, i, list) => {
+              /* All is in groups, each named once where it starts (components/onepage/themes/theme-order); a kind is one group already. */
+              const group = kind.id === "all" ? themeGroupOf(template.id) : null
+              const starts = group && (i === 0 || themeGroupOf(list[i - 1].id) !== group)
+              return (
+                <ReactModule.Fragment key={template.id}>
+                  {starts ? <h3 data-theme-group={group} className="col-span-full pt-4 text-[13px] font-semibold text-[#1a1a2e] first:pt-0">{THEME_GROUP_LABELS[group]()}</h3> : null}
+                  <ThemeCard template={template} selected={theme.template_id === template.id} shown={kind.id === filter} copy={kind.id !== "all"} onPick={onPick} />
+                </ReactModule.Fragment>
+              )
+            })}
           </div>
         ))}
       </div>
