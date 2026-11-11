@@ -51,13 +51,16 @@ function creditNoteAsked(raw: unknown): string | null {
 }
 
 /* The store's, for its owner or a team member whose role has orders (lib/team). */
-async function signedInCreator(): Promise<string | null> {
+/* Round rel2-auth: a refusal other than "signed out" is handed back as it is (503 Try again, 403 no Orders), never "Sign in again". */
+async function signedInCreator(): Promise<string | NextResponse | null> {
   const store = await storeIdFor("orders")
-  return store.ok ? store.creatorId : null
+  if (store.ok) return store.creatorId
+  return store.status === 401 ? null : NextResponse.json({ error: store.error, ...(store.status === 503 ? { retry: true } : {}) }, { status: store.status, headers: store.status === 503 ? { "Cache-Control": "no-store", "Retry-After": "2" } : undefined })
 }
 
 export async function POST(request: Request) {
   const creatorId = await signedInCreator()
+  if (creatorId instanceof NextResponse) return creatorId
   if (!creatorId) return NextResponse.json({ error: "Sign in again to download the invoice." }, { status: 401 })
 
   const body = await request.json().catch(() => null)
@@ -100,7 +103,9 @@ export async function GET(request: Request) {
     disposition = link.d === "inline" ? "inline" : "attachment"
     creditNote = creditNoteAsked(link.cn)
   } else {
-    creatorId = await signedInCreator()
+    const signedIn = await signedInCreator()
+    if (signedIn instanceof NextResponse) return signedIn
+    creatorId = signedIn
     if (!creatorId) return NextResponse.json({ error: "Sign in again to download the invoice." }, { status: 401 })
     orderId = searchParams.get("orderId")
     const tz = searchParams.get("tz")

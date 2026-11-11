@@ -10,6 +10,7 @@ import { AUTH_UNAVAILABLE_HEADER } from "@/lib/auth/recovery-backoff"
 import { currentUserForRequest, fullUserForRequest, oncePerRequest } from "@/lib/auth/request-scope"
 import { verifierKind } from "@/lib/auth/verify-token"
 import { AUTH_CHECK_HEADER } from "@/lib/auth/auth-check-header"
+import { carriesSignIn } from "@/lib/auth/no-session-paths"
 
 export { AUTH_CHECK_HEADER }
 
@@ -98,7 +99,8 @@ export async function readUserForRoute({ full = false }: { full?: boolean } = {}
     const current = await (full ? fullReaderForRequest() : readerForRequest())
     return { data: { user: current.user }, unavailable: !current.user && current.state !== "anonymous" }
   } catch {
-    return { data: { user: null }, unavailable: true }
+    /* The read threw (no client, no cookie store): unsure only when there was a session to be unsure about. */
+    return { data: { user: null }, unavailable: await requestCarriesSignIn() }
   }
 }
 
@@ -220,17 +222,24 @@ export function authUnavailableResponse(): NextResponse {
   refusal gives: 503 with Try again instead of 401 Sign in.
 */
 
+/** Whether this request carries a Supabase session cookie at all (lib/auth/no-session-paths carriesSignIn). Outside a request: no. */
+async function requestCarriesSignIn(): Promise<boolean> {
+  try {
+    const jar = (await cookies()) as { getAll?: () => { name: string }[] }
+    return carriesSignIn((jar.getAll?.() ?? []).map((c) => c.name))
+  } catch {
+    return false
+  }
+}
+
 /**
  * Whether this request's read of who is asking could not tell (a session
  * cookie nobody could check), as against signed out. Outside a request (a
  * script, a suite with no cookie store) there is nobody to ask about: false.
  */
 export async function authUnavailableForRequest({ full = false, fresh = false }: { full?: boolean; fresh?: boolean } = {}): Promise<boolean> {
-  try {
-    await cookies()
-  } catch {
-    return false
-  }
+  /* No session cookie: nobody to be unsure about, whatever else failed. */
+  if (!(await requestCarriesSignIn())) return false
   try {
     /* The same read the route asked (each is kept once per request), so the answer here is the one it refused on. */
     const current = await (fresh ? strictUserForRequest() : full ? fullReaderForRequest() : readerForRequest())

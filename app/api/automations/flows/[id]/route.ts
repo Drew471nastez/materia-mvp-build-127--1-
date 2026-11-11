@@ -17,7 +17,7 @@ type Params = { params: Promise<{ id: string }> }
 export async function PATCH(request: Request, { params }: Params) {
   const { id } = await params
   const me = await signedInCreator()
-  if (!me) return NextResponse.json({ error: "Sign in again." }, { status: 401 })
+  if (me instanceof Response) return me
 
   let body: Record<string, unknown>
   try {
@@ -61,7 +61,7 @@ export async function PATCH(request: Request, { params }: Params) {
 export async function DELETE(_request: Request, { params }: Params) {
   const { id } = await params
   const me = await signedInCreator()
-  if (!me) return NextResponse.json({ error: "Sign in again." }, { status: 401 })
+  if (me instanceof Response) return me
   const { data: flow } = await me.supabase.from("email_flows").select("id").eq("id", id).eq("creator_id", me.creatorId).maybeSingle()
   if (!flow) return NextResponse.json({ ok: true })
   await me.supabase.from("email_flows").update({ status: "paused" }).eq("id", id).eq("creator_id", me.creatorId)

@@ -835,9 +835,8 @@ export const teamPageStore = cache(async (area: TeamArea): Promise<TeamPageStore
 export async function memberRowsOf(db: Db, userId: string): Promise<{ creatorId: string; acceptedAt: string | null }[]> {
   const read = await db.from("store_team_members").select("creator_id, accepted_at").eq("user_id", userId).eq("status", "active")
   if (read.error && teamMissing(read.error)) return []
-  const data = dataOrThrow("team memberships", read)
-  if (!data?.length) return []
-  const rows = data as { creator_id: string; accepted_at: string | null }[]
+  const rows = (dataOrThrow("team memberships", read) ?? []) as { creator_id: string; accepted_at: string | null }[]
+  if (!rows.length) return []
   const creators = dataOrThrow("team stores", await db.from("creators").select("id").in("id", rows.map((r) => r.creator_id)))
   const live = new Set(((creators ?? []) as { id: string }[]).map((c) => c.id))
   return rows.filter((r) => live.has(r.creator_id)).map((r) => ({ creatorId: r.creator_id, acceptedAt: r.accepted_at }))
