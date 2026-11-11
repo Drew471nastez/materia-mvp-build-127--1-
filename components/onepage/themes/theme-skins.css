@@ -290,7 +290,7 @@
   background-image: radial-gradient(circle at calc(calc(100% - 16px) - 1.5px) calc(16px - 2px), rgba(255,255,255,.95) 0 1.6px, transparent 2.4px), radial-gradient(circle at calc(100% - 16px) 16px, #8fe35c 0 4px, #3c9a1d 5px, transparent 5.8px), linear-gradient(180deg, #ffffff 0%, #ffffff 55%, #edf3fd 100%); padding-left: 14px !important;
 }
 [data-op-skin="messenger"] .op-btn[data-hover]:not(.animate-onepage-swipe)::after {
-  background-image: linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 52%);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,0) 30%);
 }
 [data-op-skin="messenger"] :is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]) {
   background-color: #1a6c17 !important; background-image: linear-gradient(180deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,.03) 46%, rgba(255,255,255,0) 50%), linear-gradient(180deg, #1d7019 0%, #1a6c17 50%, #145d12 51%, #1a6a16 100%);
@@ -1179,7 +1179,7 @@
   background-image: radial-gradient(circle at calc(calc(100% - 16px) - 1.5px) calc(16px - 2px), rgba(255,255,255,.95) 0 1.6px, transparent 2.4px), radial-gradient(circle at calc(100% - 16px) 16px, #8fe35c 0 4px, #3c9a1d 5px, transparent 5.8px), linear-gradient(180deg, #fffef8 0%, #fffef8 55%, #f1f2e2 100%); padding-left: 14px !important;
 }
 [data-op-skin="messenger2"] .op-btn[data-hover]:not(.animate-onepage-swipe)::after {
-  background-image: linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 52%);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,0) 30%);
 }
 [data-op-skin="messenger2"] :is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]) {
   background-color: #f6c349 !important; background-image: linear-gradient(180deg, rgba(255,255,255,.75) 0%, rgba(255,255,255,.25) 46%, rgba(255,255,255,0) 50%), linear-gradient(180deg, #ffdf7e 0%, #f8c94f 50%, #f0b636 51%, #f9cf5c 100%);

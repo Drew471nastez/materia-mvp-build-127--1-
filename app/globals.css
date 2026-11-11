@@ -9819,16 +9819,17 @@ html[data-editor-drawer-open]::-webkit-scrollbar {
    is the one press every button shares, whatever its own utilities say. A
    big card sinks less than a small button. */
 /* :not(#op) only lifts the weight above the hover rules (.op-btn[data-hover]:active), so every button sinks the same. */
+/* Wave 11 (ONE HOVER): the press sinks, it does not fade: a 90% button let the page through its fill and took white words on a coloured fill under 4.5:1 (Messenger's blue selection). */
 html[data-op-press] [data-op-pressing]:not(#op) {
   scale: 0.965;
-  opacity: 0.9;
+  opacity: 1;
   transition: scale 60ms cubic-bezier(0.2, 0, 0, 1), opacity 60ms linear;
   /* Already part way down on the very first frame: a transition's first frame is still the resting size. */
   animation: op-press-in 60ms cubic-bezier(0.2, 0, 0, 1);
 }
 @keyframes op-press-in {
-  from { scale: 0.982; opacity: 0.95; }
-  to { scale: 0.965; opacity: 0.9; }
+  from { scale: 0.982; }
+  to { scale: 0.965; }
 }
 html[data-op-press] :is(.op-card, [data-press="soft"])[data-op-pressing]:not(#op),
 html[data-op-press] [data-op-pressing="soft"]:not(#op) {

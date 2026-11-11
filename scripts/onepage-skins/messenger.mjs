@@ -87,7 +87,8 @@ function material(skin, p) {
   rule(`${M} :is([data-block-layout] > *, [data-tp-blocks] > *):nth-child(3n+2) ${LINK}, ${M} [data-tp-blocks] > [data-tp-link]:nth-child(3n+2)`, `--sk-dot: ${DOT("21px", "50%", AWAY)};`)
   rule(`${M} :is([data-block-layout] > *, [data-tp-blocks] > *):nth-child(3n) ${LINK}, ${M} [data-tp-blocks] > [data-tp-link]:nth-child(3n)`, `--sk-dot: ${DOT("21px", "50%", BUSY)};`)
   rule(`${M} :is([data-link-tile], [data-block-size="half"], [data-tp-masonry], [data-tp-pair]) ${LINK}`, `background-image: ${DOT("calc(100% - 16px)", "16px", ONLINE)}, ${p.row}; padding-left: 14px !important;`)
-  rule(`${M} ${FILL_LAYER}`, `background-image: linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 52%);`)
+  /* Wave 11: the selection's gloss stops above the words, so white words keep their pair on it, pressed too. */
+  rule(`${M} ${FILL_LAYER}`, `background-image: linear-gradient(180deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,0) 30%);`)
   rule(`${M} ${CTA}`, `
     background-color: ${p.cta.color} !important; background-image: ${p.cta.art};
     color: ${p.cta.ink} !important; border-color: ${p.cta.edge} !important; font-weight: 800; font-style: italic; text-shadow: ${p.cta.ink === "#ffffff" ? "0 1px 1px rgba(0,0,0,.45)" : "0 1px 0 rgba(255,255,255,.5)"};
