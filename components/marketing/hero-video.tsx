@@ -33,7 +33,10 @@ export function HeroVideo() {
       retries = 0,
       attempt = 0,
       autoplayBlocked = false,
-      resumeFrame = 0
+      resumeFrame = 0,
+      lastProgress = performance.now(),
+      lastTime = video.currentTime,
+      stallRecoveries = 0
     const allowed = () =>
       !motion.matches &&
       !data.matches &&
@@ -159,6 +162,75 @@ export function HeroVideo() {
       cancelAnimationFrame(resumeFrame)
       resumeFrame = requestAnimationFrame(resume)
     }
+    const gestureResume = () => {
+      if (autoplayBlocked) resume()
+    }
+    const progress = () => {
+      const current = video.currentTime
+      if (Math.abs(current - lastTime) > 0.025) {
+        lastTime = current
+        lastProgress = performance.now()
+        stallRecoveries = 0
+      }
+    }
+    const unexpectedPause = () => {
+      if (
+        disposed ||
+        !video.paused ||
+        document.hidden ||
+        !visible ||
+        !allowed() ||
+        hero.getAttribute("data-motion-paused") === "true" ||
+        autoplayBlocked
+      )
+        return
+      cancelAnimationFrame(resumeFrame)
+      resumeFrame = requestAnimationFrame(resume)
+    }
+    // Some mobile engines stop the playback clock without raising an error.
+    // Only recover buffered decoder stalls; reloading a slow download would
+    // discard its buffer and make the connection problem worse.
+    const watchdog = setInterval(() => {
+      if (disposed || document.hidden || !allowed() || autoplayBlocked) return
+      const rect = hero.getBoundingClientRect()
+      visible = rect.bottom > 0 && rect.top < innerHeight
+      if (!visible || hero.getAttribute("data-motion-paused") === "true") {
+        lastProgress = performance.now()
+        return
+      }
+      progress()
+      if (failed) {
+        retry()
+        return
+      }
+      if (video.paused) {
+        resume()
+        return
+      }
+      if (performance.now() - lastProgress < 6500 || stallRecoveries >= 2)
+        return
+      let bufferedAhead = 0
+      for (let i = 0; i < video.buffered.length; i++)
+        if (
+          video.buffered.start(i) <= video.currentTime &&
+          video.buffered.end(i) > video.currentTime
+        )
+          bufferedAhead = video.buffered.end(i) - video.currentTime
+      if (video.readyState < 3 || bufferedAhead < 0.3) return
+      stallRecoveries++
+      lastProgress = performance.now()
+      if (stallRecoveries === 1) {
+        video.pause()
+        update()
+      } else {
+        const position = video.currentTime
+        video.load()
+        try {
+          video.currentTime = position
+        } catch {}
+        update()
+      }
+    }, 2000)
     const observer =
       typeof IntersectionObserver === "function"
         ? new IntersectionObserver(([entry]) => {
@@ -183,6 +255,10 @@ export function HeroVideo() {
     window.addEventListener("pageshow", onResume)
     window.addEventListener("focus", onResume)
     video.addEventListener("playing", playing)
+    video.addEventListener("timeupdate", progress)
+    video.addEventListener("pause", unexpectedPause)
+    video.addEventListener("canplay", unexpectedPause)
+    document.addEventListener("pointerup", gestureResume, { passive: true })
     video.addEventListener("error", error)
     video.addEventListener("waiting", waiting)
     video.addEventListener("stalled", waiting)
@@ -192,6 +268,7 @@ export function HeroVideo() {
     else if (video.readyState >= 2 && !video.paused) playing()
     return () => {
       disposed = true
+      clearInterval(watchdog)
       attempt++
       cancelAnimationFrame(resumeFrame)
       clearTimeout(stallTimer)
@@ -208,6 +285,10 @@ export function HeroVideo() {
       window.removeEventListener("pageshow", onResume)
       window.removeEventListener("focus", onResume)
       video.removeEventListener("playing", playing)
+      video.removeEventListener("timeupdate", progress)
+      video.removeEventListener("pause", unexpectedPause)
+      video.removeEventListener("canplay", unexpectedPause)
+      document.removeEventListener("pointerup", gestureResume)
       video.removeEventListener("error", error)
       video.removeEventListener("waiting", waiting)
       video.removeEventListener("stalled", waiting)

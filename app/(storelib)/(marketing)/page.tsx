@@ -31,7 +31,7 @@ const ProductMarquee = dynamic(() => import("@/components/marketing/product-marq
 
 export default function StorelibLanding() {
   return (
-    <div className="bg-white overflow-x-hidden">
+    <div className="bg-white">
       {/* Who Storelib is, the site and the product, as one graph (lib/seo/structured-data.ts). No SearchAction: Google retired it, and /explore?q= is not crawled. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(storelibHomeJsonLd()) }} />
 
