@@ -19,7 +19,7 @@ rows="${ROWS:-100000}"
 part="$root/supabase/sql/run-now/443_database_load_round_two.sql"
 PGOPTIONS="-c client_min_messages=warning" psql -X -q -U supabase_admin -d postgres -c "drop database if exists $db" -c "create database $db template $src" || exit 1
 # The state before the part, also on a copy where it already ran: its indexes dropped.
-grep -o 'CREATE INDEX IF NOT EXISTS [a-z_0-9]*' "$part" | awk '{print "DROP INDEX IF EXISTS public." $6 ";"}' | psql -X -q -U supabase_admin -d "$db" >/dev/null
+grep -o 'CREATE INDEX IF NOT EXISTS [a-z_0-9]*' "$part" | awk '{print "DROP INDEX IF EXISTS public." $6 ";"}' | PGOPTIONS="-c client_min_messages=warning" psql -X -q -U supabase_admin -d "$db" >/dev/null
 psql -X -q -U supabase_admin -d "$db" -v phase=seed -v rows="$rows" -f "$here/delete-timing-443.sql" 2>&1 | grep -v '^$'
 psql -X -q -U supabase_admin -d "$db" -v phase=time -f "$here/delete-timing-443.sql" 2>&1 | grep -v '^$' | sed 's/^/before | /'
 t0=$(date +%s.%N)
