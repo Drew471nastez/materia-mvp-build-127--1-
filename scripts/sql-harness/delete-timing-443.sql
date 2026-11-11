@@ -88,19 +88,19 @@ DO $seed$
 DECLARE r record; n int; rows int := current_setting('rel2.rows')::int;
 BEGIN
   FOR r IN SELECT * FROM (VALUES
-    ('library_items', 'user_id'), ('community_comments', 'author_id'), ('notifications', 'actor_id'), ('community_poll_votes', 'user_id'),
-    ('community_point_events', 'user_id'), ('community_member_days', 'user_id'), ('community_member_hours', 'user_id'), ('community_conversations', 'user_a'),
-    ('community_invite_uses', 'user_id'), ('community_member_badges', 'user_id'), ('community_join_answers', 'user_id'), ('community_library_activity', 'user_id'),
-    ('community_chat_automation_deliveries', 'user_id'), ('creator_contacts', 'user_id'), ('store_activity_log', 'actor_user_id'), ('site_versions', 'created_by'),
-    ('entitlements', 'creator_id'), ('theme_publish_history', 'creator_id'), ('email_flow_jobs', 'creator_id'), ('membership_posts', 'creator_id'),
-    ('review_drafts', 'creator_id'), ('inventory_reservations', 'creator_id'),
-    ('theme_chat_reports', 'install_id'), ('store_theme_installs', 'parent_install_id'),
-    ('flow_execution_log', 'product_id'), ('fulfilment_variant_links', 'product_id'), ('community_library_purchases', 'product_id'),
-    ('product_bundles', 'variant_id'), ('inventory_transfer_items', 'variant_id'), ('course_progress', 'course_id'), ('course_enrollments', 'course_id'),
-    ('refunds', 'order_id'), ('community_spaces', 'pinned_message_id'), ('inventory_movements', 'location_id'), ('orders', 'fulfillment_location_id')
-  ) AS v(child, col) LOOP
+    ('library_items', 'user_id', '{}'), ('community_comments', 'author_id', '{}'), ('notifications', 'actor_id', '{}'), ('community_poll_votes', 'user_id', '{}'),
+    ('community_point_events', 'user_id', '{}'), ('community_member_days', 'user_id', '{}'), ('community_member_hours', 'user_id', '{}'), ('community_conversations', 'user_a', '{"user_b": "''ffffffff-ffff-4fff-bfff-ffffffffffff''::uuid"}'),
+    ('community_invite_uses', 'user_id', '{}'), ('community_member_badges', 'user_id', '{}'), ('community_join_answers', 'user_id', '{}'), ('community_library_activity', 'user_id', '{}'),
+    ('community_chat_automation_deliveries', 'user_id', '{}'), ('creator_contacts', 'user_id', '{}'), ('store_activity_log', 'actor_user_id', '{}'), ('site_versions', 'created_by', '{}'),
+    ('entitlements', 'creator_id', '{}'), ('theme_publish_history', 'creator_id', '{}'), ('email_flow_jobs', 'creator_id', '{}'), ('membership_posts', 'creator_id', '{}'),
+    ('review_drafts', 'creator_id', '{}'), ('inventory_reservations', 'creator_id', '{}'),
+    ('theme_chat_reports', 'install_id', '{}'), ('store_theme_installs', 'parent_install_id', '{}'),
+    ('flow_execution_log', 'product_id', '{}'), ('fulfilment_variant_links', 'product_id', '{}'), ('community_library_purchases', 'product_id', '{}'),
+    ('product_bundles', 'variant_id', '{}'), ('inventory_transfer_items', 'variant_id', '{}'), ('course_progress', 'course_id', '{}'), ('course_enrollments', 'course_id', '{}'),
+    ('refunds', 'order_id', '{}'), ('community_spaces', 'pinned_message_id', '{"slug": "''space-'' || g"}'), ('inventory_movements', 'location_id', '{}'), ('orders', 'fulfillment_location_id', '{}')
+  ) AS v(child, col, extra) LOOP
     IF to_regclass('public.' || r.child) IS NULL OR EXISTS (SELECT 1 FROM public.rel2_timing_seeded s WHERE s.child = r.child || '.' || r.col) THEN CONTINUE; END IF;
-    n := pg_temp.fill(('public.' || r.child)::regclass, rows, jsonb_build_object(r.col, 'gen_random_uuid()'));
+    n := pg_temp.fill(('public.' || r.child)::regclass, rows, r.extra::jsonb || jsonb_build_object(r.col, 'gen_random_uuid()'));
     INSERT INTO public.rel2_timing_seeded VALUES (r.child || '.' || r.col, n);
   END LOOP;
 END $seed$;
