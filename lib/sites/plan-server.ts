@@ -47,9 +47,11 @@ function normalise(planId: string | null | undefined): SitePlan {
  * ServiceUnavailable (lib/net/service-error) and the routes answer 503 Try
  * again. Only a creator with no row, or no plan, is Free.
  */
-export async function creatorSitePlan(creatorId: string): Promise<SitePlan> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function creatorSitePlan(creatorId: string, db?: { from: (table: string) => any }): Promise<SitePlan> {
   if (!creatorId) return "free"
-  const admin = createAdminClient()
+  /* `db`: the service role client a caller already holds (the community gates hand theirs in, so a suite's fake answers too). */
+  const admin = db ?? createAdminClient()
   const read = await Promise.resolve(admin.from("creators").select("subscription_plan_id, subscription_status").eq("id", creatorId).maybeSingle()).catch((e: unknown) => ({
     data: null,
     error: { message: e instanceof Error ? `${e.name}: ${e.message}` : String(e) },

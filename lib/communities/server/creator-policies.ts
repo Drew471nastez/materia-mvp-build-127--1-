@@ -79,7 +79,7 @@ async function slotHolders(db: Db, creatorId: string): Promise<{ id: string; cre
  * `plan` is for a caller (or a test) that already knows it.
  */
 export async function communityRoom(db: Db, creatorId: string, plan?: CommunityPlan): Promise<{ ok: boolean; limit: CommunityLimitView }> {
-  const [p, holders] = await Promise.all([plan ?? creatorSitePlan(creatorId), slotHolders(db, creatorId)])
+  const [p, holders] = await Promise.all([plan ?? creatorSitePlan(creatorId, db), slotHolders(db, creatorId)])
   const limit = { max: communityLimitFor(p), owned: holders.length }
   return { ok: mayCreateCommunity(p, limit.owned), limit }
 }
@@ -92,7 +92,7 @@ export async function communityRoom(db: Db, creatorId: string, plan?: CommunityP
  * takes it back. Never more communities than the plan holds.
  */
 export async function madeWithinLimit(db: Db, creatorId: string, communityId: string, plan?: CommunityPlan): Promise<boolean> {
-  const [p, holders] = await Promise.all([plan ?? creatorSitePlan(creatorId), slotHolders(db, creatorId)])
+  const [p, holders] = await Promise.all([plan ?? creatorSitePlan(creatorId, db), slotHolders(db, creatorId)])
   const max = communityLimitFor(p)
   if (max === null) return true
   const at = holders.findIndex((h) => h.id === communityId)

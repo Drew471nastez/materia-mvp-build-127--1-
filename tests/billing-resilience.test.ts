@@ -529,7 +529,7 @@ async function main() {
     const overview = code("lib/billing/overview.ts")
     check("the overview reads the creator, the stored row and the override together, through the per request reads",
       /await Promise\.all\(\[\s*billingCreatorFor\(creatorId\),\s*billingSubscriptionRowFor\(creatorId\),\s*billingPlanOverrideFor\(creatorId\),/.test(overview) && !/readSubscriptionRow\(admin/.test(overview) && !/readPlanOverride\(admin/.test(overview))
-    check("  and does not ask who is signed in again when the route already did", /if \(!creatorId\) \{\s*const \{\s*data: \{ user \},\s*\} = await supabase\.auth\.getUser\(\)/.test(overview))
+    check("  and does not ask who is signed in again when the route already did", /* Changed on purpose (rel2-auth): when it asks, it asks Supabase Auth itself through routeUser({ fresh: true }). */ /if \(!creatorId\) \{\s*const who = await routeUser\(\{ fresh: true \}\)/.test(overview))
     check("the overview route gives the request its own memo", /withBillingRequest\(\(\) => loadBillingOverview\(\{ creatorId: who\.creatorId \}\)\)/.test(code("app/api/billing/overview/route.ts")))
     const reads = code("lib/billing/request-reads.ts")
     const memo = code("lib/billing/request-memo.ts")

@@ -200,7 +200,8 @@ async function main() {
   const full = fakeDb({ communities: [{ id: CID, creator_id: UID(70), deleted_at: null, name: "A", tagline: null, description: "", logo_url: null, cover_url: null, visibility: "public", access: "free", rules: [], faq: [], benefits: [], links: [], onboarding: {} }, { id: UID(71), creator_id: UID(70), deleted_at: null }] })
   const third = await duplicateCommunity(full, { source: full.tables.communities[0] as unknown as CommunityRow, creatorId: UID(70), userId: OWNER })
   check("a duplicate at the limit answers 402 plan_limit and makes nothing", !third.ok && status(third) === 402 && (third as { error?: string }).error === PLAN_LIMIT_ERROR && full.tables.communities.length === 2)
-  check("creating at the limit answers 402 plan_limit first", /if \(!\(await communityRoom\(db, a\.creatorId\)\)\.ok\) return no\(402, PLAN_LIMIT_ERROR\)\n\s+const \{ access, visibility \}/.test(creator))
+  /* Changed on purpose (rel2-auth): a plan nobody could read is 503 Try again, never the Free limit; the full plan is still 402 first, before anything is made. */
+  check("creating at the limit answers 402 plan_limit first", /const room = await communityRoom\(db, a\.creatorId\)\.catch\(\(\) => null\)\n\s+if \(!room\) return no\(503, [^\n]+\n\s+if \(!room\.ok\) return no\(402, PLAN_LIMIT_ERROR\)\n\s+const \{ access, visibility \}/.test(creator))
   check("the plan comes from the one place Sites reads it", /creatorSitePlan\(creatorId\)/.test(creator) && /from "@\/lib\/sites\/plan-server"/.test(creator))
   const list = code("components/community/creator/community-list.tsx")
   const create = code("components/community/creator/create-flow.tsx")
