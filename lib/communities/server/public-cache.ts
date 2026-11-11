@@ -50,6 +50,9 @@ export const COMMUNITY_PUBLIC_HOLD_SECONDS = 60
 
 export const communityPublicTag = (communityId: string) => `community-public:${communityId}`
 
+/** The cards on a creator's page (its Communities tab): one creator's published, public communities. */
+export const communityCardsTag = (creatorId: string) => `community-cards:${creatorId}`
+
 /**
  * The creator's tags, written out here so the community pages do not load the
  * product page's cache module to name them; tests/public-delivery.test.ts
@@ -97,11 +100,15 @@ export async function heldCommunityRead<T>(read: () => Promise<T>, key: string[]
   }
 }
 
-/** A community's public page changed: the next visitor reads it afresh. Never in the way of the write it follows. */
-export function communityPublicChanged(communityId: string | null | undefined): void {
+/**
+ * A community's public page changed: the next visitor reads it afresh, and its creator's page draws its card afresh.
+ * Never in the way of the write it follows.
+ */
+export function communityPublicChanged(communityId: string | null | undefined, creatorId?: string | null): void {
   if (!communityId) return
   try {
     revalidateTag(communityPublicTag(communityId), { expire: 0 })
+    if (creatorId) revalidateTag(communityCardsTag(creatorId), { expire: 0 })
   } catch (e) {
     /* Outside a request (a script, a test) there is no cache to clear. */
     console.warn(`[community-cache] ${communityId} not cleared: ${(e as Error).message}`)
@@ -112,11 +119,11 @@ export function communityPublicChanged(communityId: string | null | undefined): 
  * The same, once the request that wrote has answered (next/server `after`),
  * for a gate that runs before the write. Outside a request it clears now.
  */
-export function communityPublicChangedAfter(communityId: string | null | undefined): void {
+export function communityPublicChangedAfter(communityId: string | null | undefined, creatorId?: string | null): void {
   if (!communityId) return
   try {
-    after(() => communityPublicChanged(communityId))
+    after(() => communityPublicChanged(communityId, creatorId))
   } catch {
-    communityPublicChanged(communityId)
+    communityPublicChanged(communityId, creatorId)
   }
 }

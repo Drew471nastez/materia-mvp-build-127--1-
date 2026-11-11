@@ -33,6 +33,7 @@ import { homeTotals } from "@/lib/analytics/home-figures"
 import { KEYSET_PAGE, keysetFrom, readByKeyset } from "@/lib/analytics/keyset"
 import type { OrderRow } from "@/lib/orders/order-view"
 import { audit } from "./audit"
+import { communityPublicChanged } from "./public-cache"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 
 const DAY_MS = 86_400_000
@@ -352,7 +353,7 @@ export async function applyAdminAction(db: Db, action: AdminCommunityAction, com
   if (!UUID.test(communityId)) return { ok: false, status: 400, error: "That is not a community id." }
   const why = reason.trim().slice(0, REASON_MAX)
   if ((action === "suspend" || action === "hide") && !why) return { ok: false, status: 400, error: "Say why. The reason is kept in the community's audit log." }
-  const { data: row, error } = await db.from("communities").select("id, slug, name, status, platform_hidden, suspended_at, archived_at").eq("id", communityId).is("deleted_at", null).maybeSingle()
+  const { data: row, error } = await db.from("communities").select("id, slug, name, status, platform_hidden, suspended_at, archived_at, creator_id").eq("id", communityId).is("deleted_at", null).maybeSingle()
   if (error) return { ok: false, status: missing(error) ? 503 : 500, error: missing(error) ? NOT_READY : "The community could not be read." }
   if (!row) return { ok: false, status: 404, error: "No such community." }
 
@@ -380,6 +381,8 @@ export async function applyAdminAction(db: Db, action: AdminCommunityAction, com
       .maybeSingle()
     if (writeError) return { ok: false, status: 500, error: "The change was not saved. Nothing was changed." }
     if (updated) next = updated
+    /* Its page reads the row live; what is held of it, and its card on the creator's page, go too (./public-cache.ts). */
+    communityPublicChanged(communityId, (row as { creator_id?: string | null }).creator_id ?? null)
   }
   const audited = patch
     ? await audit(db, {

@@ -120,7 +120,7 @@ async function main() {
   check("one product: indexed", creatorIndexable({ publishedProducts: 1, handle: "mariapopescu" }))
   check("a farm with a decoy product: not", !creatorIndexable({ publishedProducts: 1, handle: FARM }))
   const storefront = code("app/(storelib)/(marketing)/u/[username]/page.tsx")
-  const metaCount = storefront.slice(storefront.indexOf('.select("id", { count: "exact", head: true })'), storefront.indexOf(".then(({ count }) => count ?? 0)"))
+  const metaCount = storefront.slice(storefront.indexOf('.select("id", { count: "exact", head: true })'), storefront.indexOf(".then(({ count, error }) => ({ count: count ?? 0, failed: !!error }))")) /* Changed on purpose (round rel2-public): the count is held for every visitor, and a failed count is not held. */
   check("the storefront's metadata counts every product type", metaCount.length > 0 && !/neq\("type", "physical"\)/.test(metaCount))
   check("and its body counts them when none is drawn", /creatorIndexable\(\{ publishedProducts: listedCount,/.test(storefront))
   check("a product page and a website keep the handle rule", productIndexable({ status: "published", slug: "pack" }, "mariapopescu") && !productIndexable({ status: "published", slug: "pack" }, FARM) && builtSiteIndexable({}, "mariapopescu") && !builtSiteIndexable({}, FARM) && !builtSiteIndexable({ seo_robots: false }, "mariapopescu"))

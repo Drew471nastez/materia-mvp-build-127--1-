@@ -55,7 +55,7 @@ import { admin, missing, reasonOf, type Db } from "./db"
 import { storefrontsOf } from "./directory"
 import { communityStats } from "./presence"
 import { readCommunitySummary } from "./community-summary"
-import { communityCreatorTags, communityTags, heldCommunityRead, noteHeldReadFailure } from "./public-cache"
+import { communityCardsTag, communityCreatorTags, communityTags, heldCommunityRead, noteHeldReadFailure } from "./public-cache"
 
 /** What a card needs, and nothing as heavy as the description. */
 /* Round 33: `onboarding` for the cover's focus (lib/communities/page-look.ts), so a card crops the cover where the creator set it. */
@@ -882,8 +882,19 @@ export async function topBarData(community: CommunityRow, viewer: Viewer | null,
  * public, open and not hidden by Storelib, biggest first. Unlisted and
  * private ones are reachable by link only, so they are not listed here.
  */
-export async function creatorCommunityCards(creatorId: string, db: Db = admin()): Promise<CommunityCard[]> {
+export async function creatorCommunityCards(creatorId: string, db?: Db): Promise<CommunityCard[]> {
   if (!creatorId) return []
+  if (db) return readCreatorCommunityCards(creatorId, db)
+  /*
+    HELD FOR EVERY VISITOR of the creator's page (round rel2-public, ./public-cache.ts): only published, public, open
+    communities are listed, the same cards for everybody. Cleared by every staff write to one of them and a Storelib
+    suspension or hiding (communityCardsTag), a new name or photo and a product change (the creator's tags), and a
+    minute at most otherwise. A read that failed is not held.
+  */
+  return heldCommunityRead(() => readCreatorCommunityCards(creatorId, admin()), ["community-cards", "v1", creatorId], [communityCardsTag(creatorId), ...communityCreatorTags(creatorId)])
+}
+
+async function readCreatorCommunityCards(creatorId: string, db: Db): Promise<CommunityCard[]> {
   const found = await rows<CardRow>("creator communities", () =>
     db
       .from("communities")

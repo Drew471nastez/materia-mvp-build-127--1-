@@ -313,7 +313,7 @@ async function communityPages() {
   section("Wiring")
   const gate = readCode("lib/communities/server/context.ts")
   const gateEnd = gate.slice(gate.indexOf("export async function requireCreatorCommunity"))
-  check("every gated staff request clears the community's public page once it has answered", /communityPublicChangedAfter\(community\.id\)\s*return \{ ok: true, ctx, community/.test(gateEnd) && (gate.match(/communityPublicChangedAfter\(community\.id\)/g) ?? []).length === 2)
+  check("every gated staff request clears the community's public page once it has answered", /communityPublicChangedAfter\(community\.id, community\.creator_id\)\s*return \{ ok: true, ctx, community/.test(gateEnd) && (gate.match(/communityPublicChangedAfter\(community\.id, community\.creator_id\)/g) ?? []).length === 2)
   const cache = readCode("lib/communities/server/public-cache.ts")
   check("  expired at once, never stale: { expire: 0 }", /revalidateTag\(communityPublicTag\(communityId\), \{ expire: 0 \}\)/.test(cache))
   check("  held a minute at most", /COMMUNITY_PUBLIC_HOLD_SECONDS = 60/.test(cache) && /revalidate: COMMUNITY_PUBLIC_HOLD_SECONDS/.test(cache))
@@ -321,6 +321,58 @@ async function communityPages() {
   check("only a community anybody may see is held; a caller's own database reads its own", /const held = !given && sharePreviewable\(community\)/.test(lib))
   check("the held reads ask nothing about the visitor", !/userId|viewer/.test(lib.slice(lib.indexOf("async function readSalesFacts"), lib.indexOf("export async function loadSalesPage"))))
   check("the layout's community is the page's (one read per request)", /communityBySlug\(slug\), currentUserForRequest\(\)/.test(readCode("components/community/member/data.ts")))
+}
+
+/* ── THE CREATOR PAGE ──────────────────────────────────────────────────── */
+
+async function creatorPage() {
+  section("storelib.com/<handle>: who the address is, read live; what it shows everybody, held (lib/commerce/creator-page-held)")
+  const { heldForCreatorPage, creatorPageTags } = await import("@/lib/commerce/creator-page-held")
+  const { creatorTag } = await import("@/lib/commerce/product-page-cache")
+  const { shopProductsTag } = await import("@/lib/onepage/public-cache")
+  nextCache.resetCache()
+  let reads = 0
+  const read = async () => {
+    reads++
+    return { rows: [1, 2, 3], failed: false }
+  }
+  await visit(() => heldForCreatorPage(["t", SITE.creatorId, SITE.userId], SITE.creatorId, SITE.userId, read, (v) => v.failed))
+  await visit(() => heldForCreatorPage(["t", SITE.creatorId, SITE.userId], SITE.creatorId, SITE.userId, read, (v) => v.failed))
+  check("read once, then held for every visitor", reads === 1, reads)
+  nextCache.revalidateTag(creatorTag(SITE.creatorId), { expire: 0 })
+  await visit(() => heldForCreatorPage(["t", SITE.creatorId, SITE.userId], SITE.creatorId, SITE.userId, read, (v) => v.failed))
+  check("  a writer of the page (creatorPagesChanged clears creator:<creator id>) is read at the next visit", reads === 2, reads)
+  let failing = 0
+  const broken = async () => {
+    failing++
+    return { rows: [], failed: true }
+  }
+  await visit(() => heldForCreatorPage(["f", SITE.creatorId, SITE.userId], SITE.creatorId, SITE.userId, broken, (v) => v.failed))
+  await visit(() => heldForCreatorPage(["f", SITE.creatorId, SITE.userId], SITE.creatorId, SITE.userId, broken, (v) => v.failed))
+  check("  a read that failed is answered and never held", failing === 2, failing)
+  check("  its tags are the ones every writer of the page clears (the creator, the person, the store's products)",
+    JSON.stringify(creatorPageTags(SITE.creatorId, SITE.userId)) === JSON.stringify([creatorTag(SITE.creatorId), creatorTag(SITE.userId), shopProductsTag(SITE.creatorId)]) &&
+      /if \(creatorId\) expire\(creatorTag\(creatorId\)\)/.test(readCode("lib/storefront/creator-page-purge.ts")) && /if \(userId\) expire\(creatorTag\(userId\)\)/.test(readCode("lib/storefront/creator-page-purge.ts")))
+
+  const page = readCode("app/(storelib)/(marketing)/u/[username]/page.tsx")
+  check("the profile by the name in the address and its creator are read live, never held (a renamed account never shows somebody else's page)",
+    /const profile = await loadProfileByUsernameStrict\(username\)/.test(page) && /const creator = await loadCreatorForUserStrict\(profile\.id\)/.test(page) && /export const loadProfileByUsernameStrict = cache\(async \(username: string\) => \{\s*return publicProfileByNameStrict\(stranger\(\), username\)/.test(readCode("lib/commerce/creator-page-data.ts")) && /export const loadCreatorForUserStrict = cache\(async \(userId: string\) => \{\s*return readPublicRowStrict\(/.test(readCode("lib/commerce/creator-page-data.ts")))
+  check("  every held read of the page is keyed by the ids that lookup answered, never by the name alone",
+    /heldForCreatorPage\(\["creator-page-catalogue", "v1", creator\.id, profile\.id\], creator\.id, profile\.id, readCatalogue/.test(page) && /heldForCreatorPage\(\["creator-page-head", "v1", creator\.id, profile\.id, handle\], creator\.id, profile\.id, readHead/.test(page))
+  check("  and still reads nobody's cookie or header", !/cookies\(\)|headers\(\)|currentUserForRequest/.test(page))
+  const held = readCode("lib/commerce/creator-page-held.ts")
+  check("  held a minute at most, the CDN's own minute", /CREATOR_PAGE_HOLD_SECONDS = 60/.test(held) && /revalidate: CREATOR_PAGE_HOLD_SECONDS/.test(held))
+
+  section("A creator's community cards are held, and cleared with the community")
+  const lib = readCode("lib/communities/server/public.ts")
+  check("the cards on a creator's page are held under the creator's and the cards' tags", /\["community-cards", "v1", creatorId\], \[communityCardsTag\(creatorId\), \.\.\.communityCreatorTags\(creatorId\)\]/.test(lib))
+  check("  a Storelib suspension or hiding clears the community and its card", /communityPublicChanged\(communityId, \(row as \{ creator_id\?: string \| null \}\)\.creator_id \?\? null\)/.test(readCode("lib/communities/server/admin.ts")))
+
+  section("A OnePage click is one request's worth of work (app/api/onepage/track)")
+  const track = readCode("app/api/onepage/track/route.ts")
+  check("it writes no onepage_clicks or onepage_views row (read only before the first event, which this click is after or would double)", !/from\("onepage_clicks"\)|from\("onepage_views"\)/.test(track) && /await recordLinkClick\(request, body\)/.test(track))
+  check("  and uses only the server's own client, never the visitor's", !/lib\/supabase\/server/.test(track) && /createAdminClient\(\)/.test(track))
+  check("  the older rows are still read before the first event", /"onepage_clicks", "id, block_id, url, visitor_id, created_at"/.test(readCode("lib/analytics/report-read.ts")))
 }
 
 /* ── PRIVATE ───────────────────────────────────────────────────────────── */
@@ -468,6 +520,7 @@ async function main() {
   await roundTrips()
   await publishing()
   await communityPages()
+  await creatorPage()
   await privatePages()
   await spikes()
   console.log(`\n${passed} passed, ${failed} failed`)
