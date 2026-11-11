@@ -263,7 +263,7 @@ export function validEmail(value: unknown): string | null {
  */
 export const TEMPLATE_VARIABLES = [
   { token: "{name}", label: "Name", means: "The visitor's name, when your questions ask for it" },
-  { token: "{service}", label: "Service", means: "The service you type below, or what the visitor picks in your questions" },
+  { token: "{service}", label: "Service", means: "The service you type below, else what the visitor picks in your questions, else this button's words" },
   { token: "{product_name}", label: "Product", means: "The product this button is for" },
   { token: "{date}", label: "Date", means: "The day the visitor picks: a booking form's time, or a date question" },
   { token: "{time}", label: "Time", means: "The time the visitor picks in a booking form, or a time question" },

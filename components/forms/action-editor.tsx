@@ -168,7 +168,7 @@ const variableWords = (): Record<string, string> => ({
 /** What each variable puts in the message (lib/forms/actions TEMPLATE_VARIABLES), in the creator's language. */
 const variableMeanings = (): Record<string, string> => ({
   "{name}": tt("The visitor's name, when your questions ask for it"),
-  "{service}": tt("The service you type below, or what the visitor picks in your questions"),
+  "{service}": tt("The service you type below, else what the visitor picks in your questions, else this button's words"),
   "{product_name}": tt("The product this button is for"),
   "{date}": tt("The day the visitor picks: a booking form's time, or a date question"),
   "{time}": tt("The time the visitor picks in a booking form, or a time question"),

@@ -14,6 +14,7 @@ import { ProfileImage } from "@/components/onepage/profile-image"
 import { growTextareas } from "@/components/onepage/grow-textareas"
 import { PREVIEW_PICK_EVENT, takePreviewPick } from "@/lib/onepage/preview-select"
 import { PhoneNumberField } from "@/components/forms/phone-number-field"
+import { blockActionVars } from "@/lib/onepage/block-action"
 import { countryOfInternational } from "@/lib/account/phone"
 
 import { hapticTap } from "@/lib/native-bridge"
@@ -4484,7 +4485,7 @@ function BlockEditor({
               itself, so the field is hidden. An old wa.me, t.me or mailto
               address is read as the action it is.
             */}
-            <ActionEditor value={data.action} url={data.url} noneLabel={tt("Web address")} types={LINK_ACTION_TYPES} onChange={action=>updateData({action,url:action?actionHref(action)||"":data.action?"":data.url})}/>
+            <ActionEditor value={data.action} url={data.url} noneLabel={tt("Web address")} types={LINK_ACTION_TYPES} vars={blockActionVars(block, data.action ?? null)} onChange={action=>updateData({action,url:action?actionHref(action)||"":data.action?"":data.url})}/>
             {(() => {
               /* A group invite saved by the old "WhatsApp Group URL" field, which the page never showed: kept, and one press makes it the link's action. */
               const group = whatsappGroupUrl((data as { whatsapp_group_url?: unknown }).whatsapp_group_url)
