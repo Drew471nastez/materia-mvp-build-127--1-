@@ -214,9 +214,10 @@ const SOCIAL_STYLES = [
   Graphite (graphite with soft glass cards), Midnight, Space and Neon (the
   one loud one). Image: Nature and Fusion (a warm grain). Round 11 added
   five made pieces, each with its own pattern or photograph, type and
-  buttons: Editorial and Terrazzo (light), Blueprint (dark), Darkroom and
-  Haze (image); the note above each says what it is and where its photo
-  comes from. No violet: Blocks
+  buttons: Terrazzo (light), Blueprint (dark), Darkroom and Haze (image);
+  the note above each says what it is and where its photo comes from.
+  Editorial was the fifth; the owner asked for it to go, and a page
+  that wore it drawn as Paper (lib/onepage/retired-themes). No violet: Blocks
   was a violet to pink gradient, Aurora violet glass, Night a violet black
   with lilac buttons and Fusion a violet swirl; each is now its own thing
   under the same name, so a page that chose one keeps the id it saved. What
@@ -231,14 +232,14 @@ const SOCIAL_STYLES = [
   settings round 40 and 42 gave themes (lib/onepage/theme-layout), so no two
   of the catalogue share a structure (tests/onepage-ar5.test.ts):
     a Hero (the photo full bleed)  Sunset, Aurora (with Midnight, Neon, Cobalt)
-    a cover picture                Night, Ocean, Editorial (with Folio)
+    a cover picture                Night, Ocean (with Folio)
     links as tiles two to a row    Studio, Riso, Blocks, Fusion, Neon
     links as picture cards         Paper, Sage, Space, Nature
     links Mixed (halves)           Terrazzo, Peach, Graphite
     links Compact                  Astrid, Blueprint, Aurora
-    flush left, an index           Olive, Haze, Editorial (words left, picture right)
+    flush left, an index           Olive, Haze
     products as tiles or rows      Studio, Terrazzo, Riso, Blocks, Space, Nature;
-                                   Sunset, Sage, Olive, Paper, Blueprint, Editorial
+                                   Sunset, Sage, Olive, Paper, Blueprint
     Air keeps the plain list, with large buttons and room to breathe.
   Their colours are as they were. lib/onepage/theme-apply resets all of it on
   the next pick; a Hero a theme set is taken back by a Classic theme.
@@ -510,57 +511,6 @@ const BASE_THEME_TEMPLATES = [
     outline_button_text_color: "#111111",
     glass_button_text_color: "#111111",
     light_button_text_color: "#111111",
-    share_style: "black",
-    subscribe_style: "black",
-  },
-  /*
-    EDITORIAL: a magazine's page. Newsprint with the faint dot screen of
-    print (the Halftone pattern), the name set big in a high contrast
-    display face, words in a book serif, and buttons as solid ink bars
-    with square ends. The one colour is vermilion, in the social icons.
-  */
-  {
-    id: "editorial",
-    name: "Editorial",
-    category: "light",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#f2ede3",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#15130f",
-      secondary_text_color: "#4a443a",
-      button_color: "#15130f",
-      button_text_color: "#f6f2ea",
-      button_style: "filled" as const,
-      button_border_radius: 0,
-      button_border_width: 0,
-      button_border_color: "#15130f",
-      button_shadow: "none",
-      font_family: "'Source Serif Pro', serif",
-      title_font: "'Abril Fatface', cursive",
-      title_color: "#15130f",
-      social_icon_color: "#c2361f",
-      social_icon_style: "outline",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      header_layout: "classic",
-      laser_glow_enabled: false,
-      background_pattern: "halftone",
-      pattern_color: "#15130f2e",
-      pattern_opacity: "low",
-      header_align: "left",
-      title_case: "upper",
-      button_text_align: "left",
-      button_icon_position: "right",
-      product_layout: "rows",
-      cover_image_url: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=1600&q=80",
-    },
-    profile_layout: "classic" as const,
-    solid_button_text_color: "#f6f2ea",
-    outline_button_text_color: "#15130f",
-    glass_button_text_color: "#15130f",
-    light_button_text_color: "#15130f",
     share_style: "black",
     subscribe_style: "black",
   },

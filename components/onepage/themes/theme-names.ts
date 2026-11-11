@@ -16,7 +16,6 @@ const NAMES: Record<string, () => string> = {
   cream: () => ttx("theme", "Cream"),
   riso: () => ttx("theme", "Riso"),
   blocks: () => ttx("theme", "Blocks"),
-  editorial: () => ttx("theme", "Editorial"),
   terrazzo: () => ttx("theme", "Terrazzo"),
   sunset: () => ttx("theme", "Sunset"),
   peach: () => ttx("theme", "Peach"),

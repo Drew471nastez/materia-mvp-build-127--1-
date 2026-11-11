@@ -12367,7 +12367,6 @@ const words: Record<string, string> = {
  "theme::Cream": "Krem",
  "theme::Darkroom": "Ciemnia",
  "theme::Default": "Domyślny",
- "theme::Editorial": "Magazyn",
  "theme::Ember": "Żar",
  "theme::Folio": "Folio",
  "theme::Fusion": "Fuzja",

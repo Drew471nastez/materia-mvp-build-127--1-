@@ -66,7 +66,7 @@ const olderNames = [...design.matchAll(/\n    name: "([^"]+)",/g)].map((m) => m[
 
 console.log("\nNine themes, valid and each its own")
 const NEW = ["aero2", "aqua2", "messenger2", "y2k2", "playful2", "grunge2", "classic98", "vaporwave", "arcade"]
-check(`the older catalogue was read (${older.length} themes)`, older.length >= 44)
+check(`the older catalogue was read (${older.length} themes)`, older.length >= 43) /* Editorial retired */
 check("nine themes, new ids and names, one for each new skin", W10_THEMES.length === 9 && W10_THEMES.map((t) => t.id).join() === NEW.join() && W10_THEMES.every((t) => !older.includes(t.id) && !olderNames.includes(t.name)) && THEME_SKINS.slice(6).join() === NEW.join())
 check("each theme names its own skin", W10_THEMES.every((t) => (t.theme_config as Record<string, unknown>).theme_skin === t.id))
 check("the two popular looks the catalogue lacked are new, not a renamed Neon or Swiss", ["Vaporwave", "Arcade"].every((n) => W10_THEMES.some((t) => t.name === n)) && !olderNames.some((n) => /vapor|synth|arcade|pixel|8.?bit/i.test(n)))

@@ -257,7 +257,8 @@ for (const t of THEME_TEMPLATES) {
 }
 check(`no two of the ${THEME_TEMPLATES.length} themes share a structure (header, cover, layout, products, alignment, button, corners, skin)`, twins.length === 0, twins.join("; "))
 const kinds = (k: (t: T) => boolean) => THEME_TEMPLATES.filter((t) => k(t.theme_config as T)).length
-check("some open on a full-bleed Hero, some on a cover picture", kinds((t) => t.header_layout === "hero") >= 5 && kinds((t) => !!t.cover_image_url) >= 4)
+/* Editorial, one of the four with a cover, was retired (lib/onepage/retired-themes). */
+check("some open on a full-bleed Hero, some on a cover picture", kinds((t) => t.header_layout === "hero") >= 5 && kinds((t) => !!t.cover_image_url) >= 3)
 check("every links layout is used by three themes or more", ["grid", "cards", "compact", "masonry"].every((l) => kinds((t) => t.block_layout === l) >= 3))
 check("products as tiles and as rows, each in four themes or more", kinds((t) => t.product_layout === "grid") >= 4 && kinds((t) => t.product_layout === "rows") >= 4)
 check("a Hero theme names its Hero", THEME_TEMPLATES.filter((t) => (t.theme_config as T).header_layout === "hero").every((t) => (t as T).profile_layout === "hero"))
