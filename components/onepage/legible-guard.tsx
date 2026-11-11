@@ -24,7 +24,20 @@ import { honourOwnStyles } from "@/lib/onepage/skin-own"
 
 const useIsoLayoutEffect = typeof window === "undefined" ? React.useEffect : React.useLayoutEffect
 
-export function LegibleGuard() {
+export function LegibleGuard({ look }: { look?: string } = {}) {
+  const runNow = React.useRef<(() => void) | null>(null)
+  /*
+    A NEW LOOK IS MEASURED BEFORE IT IS PAINTED. A theme sent to the editor's preview used to be painted once as the
+    theme drew it and corrected on the next frame (a skin's light window under the theme's white words, then dark
+    words: two changes where there should be one). `look` is the page's fingerprint (components/onepage/look-still):
+    when it changes, the pass runs in this commit's layout phase, before the browser paints the new look.
+  */
+  const firstLook = React.useRef(look)
+  useIsoLayoutEffect(() => {
+    if (look === firstLook.current) return
+    firstLook.current = look
+    runNow.current?.()
+  }, [look])
   useIsoLayoutEffect(() => {
     if (typeof document === "undefined" || !document.body) return
     /* A probe's "before" picture (scripts/check-onepage-legible-w10.mjs ?guard=0) turns it off; nothing else does. */
@@ -75,6 +88,10 @@ export function LegibleGuard() {
       if (records.some((r) => r.type === "childList" || r.attributeName !== "style")) soon()
       else settle()
     })
+    runNow.current = () => {
+      if (frame) cancelAnimationFrame(frame)
+      run()
+    }
     run()
     /* Sheets rise, cards fade in, transitions settle: once more after they do. */
     const late = window.setTimeout(soon, 450)
@@ -105,6 +122,7 @@ export function LegibleGuard() {
     document.addEventListener("transitionend", settled, true)
     document.addEventListener("animationend", settled, true)
     return () => {
+      runNow.current = null
       observer?.disconnect()
       observer = null
       if (frame) cancelAnimationFrame(frame)

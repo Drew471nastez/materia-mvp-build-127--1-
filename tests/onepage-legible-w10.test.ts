@@ -71,7 +71,7 @@ console.log("\n1. The guarantee: on every live OnePage, its sheets too, whatever
   const guard = code("components/onepage/legible-guard.tsx")
   const live = code("components/onepage/public-onepage.tsx")
   const lib = code("lib/onepage/legible.ts")
-  check("the live page (and the editor's preview, which is the live page in a frame) runs the guard", /<LegibleGuard \/>/.test(live))
+  check("the live page (and the editor's preview, which is the live page in a frame) runs the guard", /<LegibleGuard( [^>]*)? \/>/.test(live))
   check("over the whole document, so a sheet in a portal is guarded too", /guardLegibility\(document\.body\)/.test(guard))
   check("before the first paint, and again on every change, on fonts, on a resize, when a sheet has risen", /useLayoutEffect/.test(guard) && /new MutationObserver\(\(records\)/.test(guard) && /document\.fonts\?\.ready/.test(guard) && /"resize"/.test(guard) && /"transitionend"/.test(guard) && /"animationend"/.test(guard))
   check("a block under content-visibility is measured as it comes into view, before it is painted", /"contentvisibilityautostatechange"/.test(guard) && /queueMicrotask/.test(guard) && /contentVisibilityAuto: true/.test(lib))

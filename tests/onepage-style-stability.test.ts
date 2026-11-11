@@ -58,6 +58,9 @@ console.log("\n2. The legibility guard's pass starts no transition, and leaves a
   const guard = code("components/onepage/legible-guard.tsx")
   check("the guard lets the browser work the styles out with the result in place, then lifts the hold", /guardLegibility\(document\.body\)[\s\S]*?void document\.documentElement\.offsetWidth\s*settleGuard\(document\.body\)/.test(guard))
   check("a button's hover ending measures it again, whatever its width", /t\.matches\(PRESSED_LOOK\)/.test(guard))
+  check("a new look is measured in the commit that brings it, before it is painted", /if \(look === firstLook\.current\) return\s*firstLook\.current = look\s*runNow\.current\?\.\(\)/.test(guard) && /<LegibleGuard look=\{lookStill\} \/>/.test(code("components/onepage/public-onepage.tsx")))
+  const leaving = code("components/onepage/leaving-block.tsx")
+  check("a theme that regroups the links (Grid to List) leaves nothing behind to fold away: only a block taken off does", /blocksOf\(d\.item\.item\)\.every\(\(b\) => here\.has\(b\)\)/.test(leaving) && /!!inEditorPreview, blocksOfItem\)/.test(code("components/onepage/public-onepage.tsx")))
 }
 
 console.log("\n3. Social icons: one rule for the page, the theme cards and Design")

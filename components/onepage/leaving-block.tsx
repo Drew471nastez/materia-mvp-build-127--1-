@@ -56,14 +56,27 @@ export function foldAway(el: HTMLElement, ms = LEAVE_MS, gaps = 1): Animation | 
  * leaving. `keyOf` names an item (a block's id, a pair's key). Off, it hands
  * the items back as they are.
  */
-export function useLeavingBlocks<T>(items: readonly T[], keyOf: (item: T) => string, enabled: boolean): Entry<T>[] {
+export function useLeavingBlocks<T>(items: readonly T[], keyOf: (item: T) => string, enabled: boolean, blocksOf?: (item: T) => readonly string[]): Entry<T>[] {
   type Keyed = { id: string; item: T }
   const drawn = useRef<{ id: string; item: Keyed; leaving: boolean }[]>([])
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set())
   const list = useMemo<Entry<T>[]>(() => {
     const keyed: Keyed[] = items.map((item) => ({ id: keyOf(item), item }))
     if (!enabled) return keyed.map((k) => ({ ...k, leaving: false }))
-    return withLeaving(drawn.current, keyed, gone).map((e) => ({ id: e.id, item: e.item.item, leaving: e.leaving }))
+    /*
+      REGROUPED IS NOT REMOVED. A theme or a layout that pairs links differently (Grid to List) drops a pair's key
+      and draws its blocks as rows: none of them left the page, so the old pair is not kept to fold away beside
+      them (it showed every block twice for a moment, and shifted every row after it once it went: on a skin
+      that alternates its bars by position, each one turned colour a second time). `blocksOf` names the blocks
+      an item draws; an item whose blocks are all still on the page simply goes.
+    */
+    let skip = gone
+    if (blocksOf) {
+      const here = new Set(items.flatMap((i) => blocksOf(i)))
+      const regrouped = drawn.current.filter((d) => !d.leaving && !keyed.some((k) => k.id === d.id) && blocksOf(d.item.item).every((b) => here.has(b))).map((d) => d.id)
+      if (regrouped.length) skip = new Set([...gone, ...regrouped])
+    }
+    return withLeaving(drawn.current, keyed, skip).map((e) => ({ id: e.id, item: e.item.item, leaving: e.leaving }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, enabled, gone])
   useLayoutEffect(() => {

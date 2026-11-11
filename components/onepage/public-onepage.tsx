@@ -333,6 +333,14 @@ const GLASS_ON_LIGHT_SHARE = {
  * the average of a gradient's colours, brighter than the middle. A picture
  * or a video counts as dark, as glass was made for it.
  */
+/** The blocks a page item draws: a block, or each block of a pair of links or products (components/onepage/leaving-block). */
+function blocksOfItem(item: unknown): string[] {
+  const i = item as { id?: string; links?: { id: string }[]; tiles?: { id: string }[] }
+  if (Array.isArray(i.links)) return i.links.map((b) => b.id)
+  if (Array.isArray(i.tiles)) return i.tiles.map((b) => b.id)
+  return i.id ? [i.id] : []
+}
+
 export function pageIsLight(theme: { background_type?: string | null; background_color?: string | null; background_gradient?: string | null }): boolean {
   return pageGroundIsLight(theme)
 }
@@ -1197,7 +1205,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const mixedSizes = mixedTileSizes(laid, blockLayoutOf(safeTheme))
   const pageItemsNow = pairLinkTiles(laid, blockLayoutOf(safeTheme))
   /* Round AR: in the editor's preview a block taken off folds away instead of vanishing (components/onepage/leaving-block). */
-  const pageItems = useLeavingBlocks(pageItemsNow, (item) => ((item as { key?: string }).key ?? (item as { id: string }).id), !!inEditorPreview)
+  const pageItems = useLeavingBlocks(pageItemsNow, (item) => ((item as { key?: string }).key ?? (item as { id: string }).id), !!inEditorPreview, blocksOfItem)
   const renderPageContent = ({ isDesktop = false }: { isDesktop?: boolean } = {}) => (
     <div
       className={cn("relative z-10 w-full flex flex-col min-h-full", isDesktop ? "max-w-full" : "max-w-lg mx-auto")}
@@ -1546,7 +1554,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         fontFamily={(safeTheme as any).title_font || safeTheme.font_family}
       />
       {/* Wave 10: every word on the page and in its sheets reads on what it sits on (components/onepage/legible-guard, lib/onepage/legible). */}
-      <LegibleGuard />
+      <LegibleGuard look={lookStill} />
 
       {/* Desktop layout - NO internal scrollbar, page scrolls naturally. Only built where it is shown (lib/onepage/live-layout). */}
       {liveLayout !== "phone" && (
