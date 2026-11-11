@@ -2258,7 +2258,7 @@ export function PlatformHeaderClient({
                 {/* Center - Nav Links (show for all users). On a tablet they
                     close up and Home goes (the logo is Home), so the owner's
                     four on the right still fit beside them at 768px. */}
-                <nav className="flex items-center gap-1 lg:gap-2">
+                <nav data-marketing-nav="" className="flex items-center gap-1 lg:gap-2">
                   {[
                     { href: "/", label: "Home", active: pathname === '/', wide: true },
                     ...(exploreMarketplaceOn
@@ -2274,9 +2274,9 @@ export function PlatformHeaderClient({
                       href={item.href}
                       onClick={(e) => onCanonicalNav(e, item.href)}
                       className={cn(
-                        "px-3 lg:px-4 py-2 text-[14px] lg:text-[15px] font-medium rounded-full border transition-[background-color,border-color,color,scale] duration-180 ease-out",
+                        "px-3 lg:px-4 py-2 text-[14px] lg:text-[15px] font-medium transition-colors duration-200 ease-out motion-reduce:transition-none outline-none focus-visible:underline focus-visible:underline-offset-4",
                         "wide" in item && item.wide && "hidden lg:inline",
-                        item.active ? chrome.navActive : chrome.navIdle,
+                        item.active ? (buyerHeaderLight ? "text-[#1a1a2e]" : "text-white") : (buyerHeaderLight ? "text-neutral-500 hover:text-[#1a1a2e]" : "text-white/65 hover:text-white"),
                       )}
                     >
                       {item.label}

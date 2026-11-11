@@ -294,6 +294,57 @@ try {
     await page.setViewport({ width: 390, height: 844 })
     await page.goto(origin, { waitUntil: "networkidle0" })
     const initial = (await page.evaluate(metrics)).hero.h
+    await page.evaluate(() => {
+      const fixture = document.createElement("div")
+      fixture.id = "search-tail-audit"
+      fixture.innerHTML =
+        '<div data-header-tone="dark"><div data-header-search-tail><div><span aria-hidden="true" class="h-5 w-px bg-neutral-200"></span><button class="search-categories-trigger bg-neutral-100 hover:bg-neutral-100/80">Categories</button></div></div></div>'
+      document.body.append(fixture)
+    })
+    const darkTrigger = "#search-tail-audit .search-categories-trigger"
+    await page.hover(darkTrigger)
+    assert.equal(
+      await page.$eval(darkTrigger, (e) => getComputedStyle(e).backgroundColor),
+      "rgba(255, 255, 255, 0.09)",
+    )
+    assert.equal(
+      await page.$eval(
+        "#search-tail-audit span",
+        (e) => getComputedStyle(e).backgroundColor,
+      ),
+      "rgba(255, 255, 255, 0.15)",
+    )
+    await page.$eval("#search-tail-audit", (e) => e.remove())
+    await page.evaluate(() => scrollTo(0, 0))
+
+    assert.equal(
+      await page.$$eval(".build-showcase button", (e) => e.length),
+      0,
+    )
+    assert.equal(
+      await page.$eval(".build-showcase-card", (e) =>
+        Math.round(e.getBoundingClientRect().width),
+      ),
+      390,
+    )
+    await page.focus("input[type=email]")
+    assert.equal(
+      await page.$eval(
+        "input[type=email]",
+        (e) => getComputedStyle(e).outlineStyle,
+      ),
+      "none",
+    )
+    assert.equal(
+      await page.$eval(
+        ".cinematic-signup button",
+        (e) => getComputedStyle(e).borderRadius,
+      ),
+      await page.$eval(
+        "input[type=email]",
+        (e) => getComputedStyle(e).borderRadius,
+      ),
+    )
     for (const height of [650, 900, 568, 844]) {
       await page.setViewport({ width: 390, height })
       await pause(120)
@@ -308,7 +359,7 @@ try {
         "#platform-header-root",
         (e) => getComputedStyle(e).backgroundColor,
       ),
-      "rgb(18, 18, 20)",
+      "rgb(16, 16, 18)",
     )
     assert.equal(
       await page.$$eval(".cinematic-reassurance", (e) => e.length),
@@ -407,14 +458,34 @@ try {
     const prior = await page.$eval(track, (e) => e.scrollLeft)
     await page.mouse.move(box.x + 280, box.y + 80)
     await page.mouse.down()
+    assert.equal(
+      await page.$eval(track, (e) => getComputedStyle(e).cursor),
+      "grabbing",
+    )
     await page.mouse.move(box.x + 70, box.y + 80, { steps: 12 })
     assert.ok(
       await page.$eval(track, (e, prior) => e.scrollLeft > prior + 150, prior),
       "mouse drag follows the pointer",
     )
     await page.mouse.up()
-    await pause(500)
-    await page.click('[aria-label="Pause showcase"]')
+    const released = await page.$eval(track, (e) => e.scrollLeft)
+    await pause(160)
+    const coast = await page.$eval(track, (e) => e.scrollLeft)
+    assert.ok(coast > released + 5, "release continues with inertia")
+    await pause(1500)
+    const settled = await page.$eval(track, (e) => e.scrollLeft)
+    await pause(300)
+    assert.ok(
+      Math.abs((await page.$eval(track, (e) => e.scrollLeft)) - settled) < 2,
+      "inertia gently settles",
+    )
+    await page.focus(track)
+    await page.keyboard.press("Space")
+    assert.equal(
+      await page.$eval(track, (e) => e.dataset.autoplayPaused),
+      "true",
+    )
+    await page.$eval(track, (e) => e.blur())
     const held = await page.$eval(track, (e) => e.scrollLeft)
     await pause(4200)
     assert.equal(await page.$eval(track, (e) => e.scrollLeft), held)
@@ -510,12 +581,9 @@ try {
       touchPoints: [],
     })
     await pause(400)
+    const touchAfter = await page.$eval(track, (e) => e.scrollLeft)
     assert.ok(
-      await page.$eval(
-        track,
-        (e, before) => e.scrollLeft > before + 60,
-        before,
-      ),
+      Math.abs(touchAfter - before) > 60,
       "native finger swipe moves the carousel",
     )
     assert.deepEqual(page.errors, [])
@@ -592,6 +660,47 @@ try {
     if (mode === "slow") await page.waitForSelector('video[data-ready="true"]')
     await page.close()
     console.log(`ok ${mode}: media preferences/fallback and usable signup`)
+  }
+  {
+    const page = await pageFor()
+    await page.evaluateOnNewDocument(() => {
+      const play = HTMLMediaElement.prototype.play
+      let blocked = true
+      HTMLMediaElement.prototype.play = function () {
+        if (blocked) {
+          this.autoplay = false
+          this.pause()
+          return Promise.reject(
+            new DOMException("Temporarily backgrounded", "NotAllowedError"),
+          )
+        }
+        return play.call(this)
+      }
+      window.__allowResume = () => {
+        blocked = false
+      }
+    })
+    await page.goto(origin, { waitUntil: "networkidle0" })
+    assert.equal(await page.$eval("video", (v) => v.dataset.ready), "false")
+    await page.evaluate(() => {
+      window.__allowResume()
+      dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }))
+      dispatchEvent(new Event("focus"))
+    })
+    await page.waitForSelector('video[data-ready="true"]')
+    assert.equal(await page.$eval("video", (v) => v.paused), false)
+    await page.click(".cinematic-motion")
+    await page.evaluate(() => dispatchEvent(new Event("focus")))
+    await pause(250)
+    assert.ok(
+      await page.$eval("video", (v) => v.paused),
+      "manual pause survives tab restoration",
+    )
+    assert.deepEqual(page.errors, [])
+    await page.close()
+    console.log(
+      "ok tab return: transient autoplay rejection recovers on BFCache/focus and manual pause is respected",
+    )
   }
   // Native validation + Enter, safe prefill and unchanged signup intent, no auth API called.
   const page = await pageFor("failure")

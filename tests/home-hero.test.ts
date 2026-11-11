@@ -94,7 +94,9 @@ console.log(
 assert.ok(doc.includes("The e-commerce platform for creators"))
 assert.ok(!doc.includes("Free to start. No card required."))
 assert.ok(
-  read("components/marketing/hero.tsx").includes("--hero-grain-opacity: .035"),
+  read("components/marketing/hero.tsx").includes(
+    "--hero-grain-opacity: .03675",
+  ),
 )
 assert.ok(
   read("components/marketing/hero.tsx").includes(
@@ -121,13 +123,14 @@ assert.ok(
   ),
 )
 assert.ok(
-  showcase.includes("onPointerMove") && showcase.includes('loading="lazy"'),
+  read("components/marketing/use-showcase-motion.ts").includes("pointermove") &&
+    showcase.includes('loading="lazy"'),
 )
 
 const showcaseMarkup = renderToString(createElement(BuildShowcase))
-assert.equal((showcaseMarkup.match(/data-showcase-slide=""/g) || []).length, 10)
+assert.equal((showcaseMarkup.match(/data-showcase-slide=""/g) || []).length, 15)
 assert.equal((showcaseMarkup.match(/data-showcase-word=""/g) || []).length, 5)
-assert.ok(showcaseMarkup.includes('aria-label="Pause showcase"'))
+assert.ok(!showcaseMarkup.includes("<button"))
 assert.ok(
   showcaseMarkup.includes('aria-label="What you can build with Storelib"'),
 )
