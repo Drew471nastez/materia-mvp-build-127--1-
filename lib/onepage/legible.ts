@@ -870,7 +870,9 @@ export function guardLegibility(root: ParentNode): LegibleFinding[] {
     const dimmed: HTMLElement[] = []
     if (f.kind !== "placeholder" && ground.opacity < 0.999 && Math.min(...ground.grounds.map((g) => contrast({ ...fixed, a: own * ground.opacity }, g))) < f.min)
       for (let a = h.parentElement; a && a !== ground.owner; a = a.parentElement) if (parseFloat(getComputedStyle(a).opacity) < 0.999 && !(a.getAnimations?.().length)) dimmed.push(a)
-    return { f, h, ground, wanted, fixed, whole, dimmed }
+    /* Wave 11: words that no colour of their own can carry over this ground (white on a dark button under a skin's white gloss) get an outline of the other tone as well. */
+    const stranded = f.kind === "text" && Math.min(...under.map((g) => contrast({ ...fixed, a: 1 }, g))) + 0.01 < f.min
+    return { f, h, ground, wanted, fixed, whole, dimmed, stranded }
   })
   for (const { dimmed } of plans)
     for (const d of dimmed) {
@@ -879,7 +881,7 @@ export function guardLegibility(root: ParentNode): LegibleFinding[] {
       m.add("o")
       d.setAttribute(NUDGED, [...m].join(""))
     }
-  for (const { f, h, ground, wanted, fixed, whole } of plans) {
+  for (const { f, h, ground, wanted, fixed, whole, stranded } of plans) {
     const marks = new Set((h.getAttribute(NUDGED) || "").split("").filter(Boolean))
     if (f.kind === "halo") {
       outline(h, wanted, ground, f.halo)
@@ -895,7 +897,7 @@ export function guardLegibility(root: ParentNode): LegibleFinding[] {
       h.style.setProperty("color", inkVar(toCss(fixed)), "important")
       h.style.setProperty("-webkit-text-fill-color", inkVar(toCss(fixed)), "important")
       marks.add("c")
-      if (f.alsoHalo) {
+      if (f.alsoHalo || stranded) {
         outline(h, fixed, ground)
         marks.add("h")
       }

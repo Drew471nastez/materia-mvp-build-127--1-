@@ -88,7 +88,7 @@
   font-weight: 600;
 }
 [data-op-skin="aero"] .op-btn[data-hover]:not(.animate-onepage-swipe)::after {
-  background-image: linear-gradient(180deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.14) 48%, rgba(255,255,255,0) 52%);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.45) 0%, rgba(255,255,255,.1) 26%, rgba(255,255,255,0) 32%);
 }
 [data-op-skin="aero"] :is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]) {
   background-color: #7fdc56 !important; background-image: linear-gradient(180deg, rgba(255,255,255,.85) 0%, rgba(255,255,255,.3) 46%, rgba(255,255,255,0) 50%), linear-gradient(180deg, #a3ec74 0%, #6fcf45 50%, #58bd33 51%, #8ee05e 100%);
@@ -976,7 +976,7 @@
   font-weight: 600;
 }
 [data-op-skin="aero2"] .op-btn[data-hover]:not(.animate-onepage-swipe)::after {
-  background-image: linear-gradient(180deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.14) 48%, rgba(255,255,255,0) 52%);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.45) 0%, rgba(255,255,255,.1) 26%, rgba(255,255,255,0) 32%);
 }
 [data-op-skin="aero2"] :is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]) {
   background-color: #ff9a3a !important; background-image: linear-gradient(180deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.22) 46%, rgba(255,255,255,0) 50%), linear-gradient(180deg, #ffc46e 0%, #ffa043 50%, #ff8a2a 51%, #ffb45c 100%);

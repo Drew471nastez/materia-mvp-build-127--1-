@@ -96,7 +96,8 @@ function material(skin, p) {
     border-color: ${p.rim} !important;
     box-shadow: ${p.rimInset}, inset 0 -10px 18px -12px ${p.glow}, 0 10px 24px -12px ${p.shadow}, 0 1px 2px rgba(8,60,120,.12) !important;
     font-weight: 600;`)
-  rule(`${A} ${FILL_LAYER}`, `background-image: linear-gradient(180deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.14) 48%, rgba(255,255,255,0) 52%);`)
+  /* Wave 11: the hover's glass highlight sits over the top of the button, above the words, so its white words keep their pair. */
+  rule(`${A} ${FILL_LAYER}`, `background-image: linear-gradient(180deg, rgba(255,255,255,.45) 0%, rgba(255,255,255,.1) 26%, rgba(255,255,255,0) 32%);`)
   rule(`${A} ${CTA}`, `
     background-color: ${p.gel.color} !important; background-image: ${p.gel.art};
     color: ${p.gel.ink} !important; border-color: ${p.gel.edge} !important; font-weight: 700;
