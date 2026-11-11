@@ -1650,12 +1650,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
         {/* Centered card container */}
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
-          {/* Phone-like card - wider than before (500px instead of 420px) */}
+          {/* The page as a card: 420px, then 500px, then (round AS, the owner: "about 10% more width") 550px. */}
           <div
             ref={cardRef}
             data-onepage-drag-scope=""
             /* Round AR: clipped, not hidden: a box with overflow hidden is a scroll container, and the Hero's scroll timeline (components/onepage/hero-scroll) would follow it instead of the page. */
-            className="w-full max-w-[500px] mx-4 rounded-[40px] overflow-clip relative"
+            className="w-full max-w-[550px] mx-4 rounded-[40px] overflow-clip relative"
             style={{
               background: getBackgroundStyle(),
               boxShadow: "0 25px 80px -12px rgba(0, 0, 0, 0.35)",

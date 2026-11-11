@@ -283,8 +283,8 @@ export function heroCoverShown(theme: CoverThemeLike): boolean {
  *
  * Round AL: the creator's own cover runs edge to edge, like a theme's, with
  * no rounding. At the old 3:1 a phone's band was 130px, most of it under the
- * profile photo, so it is 5:2 now (156px on a 390px phone, 200px across the
- * computer's 500px card). The crop is stored as percentages, so a cover
+ * profile photo, so it is 5:2 now (156px on a 390px phone, 220px across the
+ * computer's 550px card). The crop is stored as percentages, so a cover
  * saved at 3:1 keeps its point of focus and simply shows a little more.
  */
 export const OWN_COVER_ASPECT = 5 / 2
