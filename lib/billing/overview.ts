@@ -104,7 +104,7 @@ export async function loadBillingOverview(store?: { creatorId: string }): Promis
   */
   let creatorId = store?.creatorId ?? null
   if (!creatorId) {
-    const who = await routeUser()
+    const who = await routeUser({ fresh: true })
     const user = who.kind === "user" ? who.user : null
     if (!user) return null
     const { data: own } = await createAdminClient().from("creators").select("id").eq("user_id", user.id).maybeSingle()

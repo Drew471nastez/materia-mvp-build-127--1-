@@ -65,7 +65,7 @@ async function handlePOST(request: Request) {
   try {
     const admin = createAdminClient()
     const cookieStore = await cookies()
-    const who = await routeUser()
+    const who = await routeUser({ fresh: true })
     if (who.kind === "unavailable") return authUnavailableResponse()
     const user = who.kind === "user" ? who.user : null
 

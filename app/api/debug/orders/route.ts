@@ -9,7 +9,7 @@ export async function GET() {
     const adminSupabase = createAdminClient()
 
     // Get current user
-    const who = await routeUser()
+    const who = await routeUser({ fresh: true })
     if (who.kind === "unavailable") return authUnavailableResponse()
     if (who.kind !== "user") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })

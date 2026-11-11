@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     let hasPurchased = false
 
     try {
-      const who = await routeUser()
+      const who = await routeUser({ fresh: true })
       const user = who.kind === "user" ? who.user : null
 
       if (user) {

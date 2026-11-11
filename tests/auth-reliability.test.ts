@@ -289,12 +289,88 @@ async function run() {
     check("every route function that answers 401 to a missing session can also answer 503 when Auth did not answer", mapped.length === 0, mapped)
     check("  every allowlisted file still exists (an entry for a deleted route is removed with it)", Object.keys(RAW_GET_USER_ALLOWED).every((f) => { try { return !!read(f) } catch { return false } }))
 
+
+    /*
+      NOTHING THAT ASKED SUPABASE AUTH ITSELF NOW TAKES LESS. Every file below called auth.getUser() on origin/main
+      (682605d55), so a session ended within its token's life was refused there. Each one now goes through
+      lib/auth/route-user `fresh` (Supabase Auth itself, with retries, and "could not tell" as its own answer), never
+      the token's signature alone: no routeUser() or routeUser({ full: true }), no readUserForRoute, no reader. A
+      file that only ever read through the signature on main (readUserForRoute's routes) is not on this list.
+    */
+    const WAS_GET_USER = [
+      "app/(storelib)/app/products/new/description-action.ts",
+      "app/(storelib)/app/reviews/widgets/add/route.ts",
+      "app/api/ai-memory/caller.ts",
+      "app/api/app/reviews/[id]/route.ts",
+      "app/api/auth/reset-password/route.ts",
+      "app/api/auth/signup-attribution/route.ts",
+      "app/api/checkout/cart/complete/route.ts",
+      "app/api/checkout/cart/route.ts",
+      "app/api/checkout/process/route.ts",
+      "app/api/checkout/quick-free/route.ts",
+      "app/api/checkout/stripe-session/route.ts",
+      "app/api/community/[communityId]/contact/route.ts",
+      "app/api/community/[communityId]/events/[eventId]/checkout/route.ts",
+      "app/api/community/[communityId]/learn/[programId]/checkout/route.ts",
+      "app/api/community/[communityId]/library/[itemId]/checkout/route.ts",
+      "app/api/community/[communityId]/membership/plan/route.ts",
+      "app/api/community/[communityId]/membership/route.ts",
+      "app/api/community/[communityId]/moderation/act/route.ts",
+      "app/api/community/[communityId]/moderation/members/route.ts",
+      "app/api/community/[communityId]/moderation/reports/route.ts",
+      "app/api/community/[communityId]/onboarding/route.ts",
+      "app/api/debug/orders/route.ts",
+      "app/api/download/[assetId]/route.ts",
+      "app/api/help/me/route.ts",
+      "app/api/memberships/checkout/route.ts",
+      "app/api/native/checkout-status/route.ts",
+      "app/api/onboarding/finalize/route.ts",
+      "app/api/onepage/access/route.ts",
+      "app/api/onepage/product/route.ts",
+      "app/api/payments/disputes/route.ts",
+      "app/api/payouts-demo/unlock/route.ts",
+      "app/api/physical/checkout/quote/route.ts",
+      "app/api/physical/checkout/route.ts",
+      "app/api/products/files/[assetId]/download/route.ts",
+      "app/api/profile/contributions/route.ts",
+      "app/api/profile/shared-posts/route.ts",
+      "app/api/profile/username/route.ts",
+      "app/api/purchases/check/route.ts",
+      "app/api/purchases/verify/route.ts",
+      "app/api/receipt/resend/route.ts",
+      "app/api/receipt/update-email/route.ts",
+      "app/api/reviews/[id]/reply/route.ts",
+      "app/api/reviews/[id]/report/route.ts",
+      "app/api/reviews/[id]/route.ts",
+      "app/api/reviews/check/route.ts",
+      "app/api/reviews/route.ts",
+      "app/api/settings/statement-descriptor/route.ts",
+      "app/api/site-password/owner/route.ts",
+      "app/api/v2/download/[token]/route.ts",
+      "app/api/website-address/route.ts",
+      "app/api/wishlist/check/route.ts",
+      "app/api/wishlist/route.ts",
+      "lib/billing/overview.ts",
+      "lib/businesses/server.ts",
+      "lib/communities/server/feed.ts",
+      "lib/courses/route-auth.ts",
+      "lib/github-sync/own-install.ts",
+      "lib/memberships/viewer.ts",
+      "lib/push/request-user.ts",
+      "lib/sites/agent/run.ts",
+    ]
+    const NON_FRESH = /routeUser\(\)|routeUser\(\{ full: true \}\)|routeUser\(\{ fresh: false|readUserForRoute\(|readerForRequest\(|fullReaderForRequest\(|currentUserForRequest\(|fresh: false/
+    const weakened = WAS_GET_USER.filter((f) => NON_FRESH.test(code(read(f))) || !/routeUser\(\{ fresh: true \}\)|requestUserId\(\)|sessionUserId\(\)|requestUser\(|requestViewer\(|pushRequestUser\(|ownInstall\(/.test(code(read(f))))
+    check(`every route and helper that asked Supabase Auth itself on main still does (${WAS_GET_USER.length} files, fresh), never the signature alone`, weakened.length === 0, weakened)
+    const ru = code(read("lib/auth/route-user.ts"))
+    check("  requestUserId (sessionUserId's) asks fresh, and signedOutOrRetry asks the same read by default", /export async function requestUserId\(\)[^{]*\{\s*const who = await routeUser\(\{ fresh: true \}\)/.test(ru) && /authUnavailableForRequest\(\{ full = false, fresh = !full \}/.test(ru))
+
     /* The shared helpers the routes stand on. */
     const helpers: Array<[string, string, RegExp]> = [
       ["lib/courses/route-auth.ts", "sessionUserId (courses, notifications, the account's posts)", /return requestUserId\(\)/],
       ["lib/communities/server/feed.ts", "sessionUserId (every community member route)", /return requestUserId\(\)/],
       ["lib/memberships/viewer.ts", "requestViewer (a buyer's membership routes)", /await routeUser\(/],
-      ["lib/push/request-user.ts", "pushRequestUser (the app's push routes)", /await routeUser\(\)[\s\S]*unavailable/],
+      ["lib/push/request-user.ts", "pushRequestUser (the app's push routes)", /await routeUser\(\{ fresh: true \}\)[\s\S]*unavailable/],
       ["lib/github-sync/own-install.ts", "ownInstall (GitHub and Supabase connections)", /who\.kind === "unavailable"\) return "unavailable"/],
       ["lib/businesses/server.ts", "requestUser (businesses, the team, handoffs)", /routeUser\(\{ fresh: true \}\)[\s\S]*couldNotTell\.add\(request\)/],
     ]

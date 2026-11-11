@@ -237,7 +237,7 @@ async function requestCarriesSignIn(): Promise<boolean> {
  * cookie nobody could check), as against signed out. Outside a request (a
  * script, a suite with no cookie store) there is nobody to ask about: false.
  */
-export async function authUnavailableForRequest({ full = false, fresh = false }: { full?: boolean; fresh?: boolean } = {}): Promise<boolean> {
+export async function authUnavailableForRequest({ full = false, fresh = !full }: { full?: boolean; fresh?: boolean } = {}): Promise<boolean> {
   /* No session cookie: nobody to be unsure about, whatever else failed. */
   if (!(await requestCarriesSignIn())) return false
   try {
@@ -250,9 +250,11 @@ export async function authUnavailableForRequest({ full = false, fresh = false }:
 }
 
 /**
- * For a route that found nobody through the request's read (readerForRequest:
- * routeUser(), readUserForRoute(), a sessionUserId helper): its own 401 when
- * Auth said nobody, 503 Try again when Auth could not say.
+ * For a route that found nobody: its own 401 when Auth said nobody, 503 Try
+ * again when Auth could not say. It asks the same read the route refused on:
+ * Supabase Auth itself by default (`fresh`, what requestUserId, sessionUserId,
+ * requestViewer and every route that used to call getUser() ask), the
+ * signature path with `{ fresh: false }`, Auth first with `{ full: true }`.
  */
 export async function signedOutOrRetry(signedOut: NextResponse, opts: { full?: boolean; fresh?: boolean } = {}): Promise<NextResponse> {
   /* Only a 401 is ever changed, so a route may hand any refusal through here. */
@@ -260,8 +262,13 @@ export async function signedOutOrRetry(signedOut: NextResponse, opts: { full?: b
   return (await authUnavailableForRequest(opts)) ? authUnavailableResponse() : signedOut
 }
 
-/** The signed in person's id through the request's one read, or null for signed out and could not tell alike; pair with signedOutOrRetry. */
+/**
+ * The signed in person's id, Supabase Auth itself (`fresh`, as the getUser()
+ * calls this replaced asked, so a session ended within the token's life is
+ * refused), or null for signed out and could not tell alike; pair with
+ * signedOutOrRetry.
+ */
 export async function requestUserId(): Promise<string | null> {
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   return who.kind === "user" ? who.user.id : null
 }

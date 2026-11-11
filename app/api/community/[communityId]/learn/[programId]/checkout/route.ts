@@ -29,7 +29,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   if (off) return off
   const { communityId, programId } = await params
   if (!isUuid(programId)) return NextResponse.json({ error: "not_found" }, { status: 404, headers: noStore })
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null
   const db = admin()

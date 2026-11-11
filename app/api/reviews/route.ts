@@ -55,7 +55,7 @@ type Body = { productId?: unknown; rating?: unknown; content?: unknown; orderId?
 export async function POST(request: NextRequest) {
   const admin = createAdminClient()
 
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null
 

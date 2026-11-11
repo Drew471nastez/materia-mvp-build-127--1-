@@ -19,7 +19,7 @@ export const runtime = "nodejs"
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const viewer = await requestViewer()
-  if (!viewer) return signedOutOrRetry(NextResponse.json({ error: "Sign in first." }, { status: 401 }), { full: true })
+  if (!viewer) return signedOutOrRetry(NextResponse.json({ error: "Sign in first." }, { status: 401 }), { fresh: true })
   const before = new URL(request.url).searchParams.get("before")
   if (before && !Number.isFinite(Date.parse(before))) return NextResponse.json({ error: "Bad date" }, { status: 400 })
   const admin = createAdminClient()

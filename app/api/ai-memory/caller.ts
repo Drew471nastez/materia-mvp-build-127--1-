@@ -19,8 +19,8 @@ export async function memoryCaller(
   supabase: Client,
   installId: string | null,
 ): Promise<{ db: MemoryDb; creatorId: string; installId: string | null } | NextResponse> {
-  /* The request's one read; Auth not answering is 503 Try again, never "Sign in" (round rel2-auth). */
-  const who = await routeUser()
+  /* Supabase Auth itself, as before; Auth not answering is 503 Try again, never "Sign in" (round rel2-auth). */
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   if (who.kind !== "user") return NextResponse.json({ error: "Sign in to continue." }, { status: 401 })
   const user = who.user

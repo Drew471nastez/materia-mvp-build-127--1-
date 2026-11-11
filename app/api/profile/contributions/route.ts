@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams
   const targetId = params.get("userId") || ""
   if (!UUID.test(targetId)) return NextResponse.json({ error: "not_found" }, { status: 404, headers: NO_STORE })
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null
   if (!user?.id) return NextResponse.json({ sections: [] }, { headers: NO_STORE })

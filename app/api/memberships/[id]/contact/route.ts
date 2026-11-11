@@ -25,7 +25,7 @@ export const runtime = "nodejs"
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const viewer = await requestViewer()
-  if (!viewer) return signedOutOrRetry(NextResponse.json({ error: "Sign in to write to the creator." }, { status: 401 }), { full: true })
+  if (!viewer) return signedOutOrRetry(NextResponse.json({ error: "Sign in to write to the creator." }, { status: 401 }), { fresh: true })
   let body: { message?: unknown }
   try {
     body = await request.json()

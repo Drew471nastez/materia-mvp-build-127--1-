@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic"
 const NO_STORE = { "cache-control": "no-store" }
 
 async function signedInUserId(): Promise<string | null> {
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   const user = who.kind === "user" ? who.user : null
   return user?.id ?? null
 }

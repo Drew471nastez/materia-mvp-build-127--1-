@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   if (!product) return NextResponse.json({ error: "not_found" }, { status: 404, headers: noStore })
 
   let allowed = false
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null
   if (user) allowed = user.id === page.owner_id || (await ownsProduct(db, user.id, productId).catch(() => false))

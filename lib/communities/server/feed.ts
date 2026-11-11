@@ -1262,7 +1262,7 @@ export { displayName }
 /* ── For the member routes ─────────────────────────────────────────────── */
 
 /**
- * The signed in person's id from the request's one read (lib/auth/route-user),
+ * The signed in person's id, Supabase Auth itself as before (lib/auth/route-user requestUserId, `fresh`),
  * or null. null also when Supabase Auth could not say (round rel2-auth):
  * requireMember and the routes that refuse on null answer through
  * signedOutOrRetry, so that is a 503 Try again, never "sign_in".

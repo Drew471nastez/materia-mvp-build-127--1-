@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient()
 
   // Get current user
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   const user = who.kind === "user" ? who.user : null
 
   if (!user) {

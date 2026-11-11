@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Try to get authenticated user
-    /* The request's one read; Auth not answering is a 503 Try again, never the guest list in a signed in person's place (round rel2-auth). */
-    const who = await routeUser()
+    /* Supabase Auth itself, as before; Auth not answering is a 503 Try again, never the guest list in a signed in person's place (round rel2-auth). */
+    const who = await routeUser({ fresh: true })
     if (who.kind === "unavailable") return authUnavailableResponse()
     const userId: string | null = who.kind === "user" ? who.user.id : null
 

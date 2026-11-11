@@ -54,7 +54,7 @@ const answer = (body: unknown, status = 200) => NextResponse.json(body, { status
 type Params = { params: Promise<{ id: string }> }
 
 async function seller(id: string) {
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   const user = who.kind === "user" ? who.user : null
   const db = createAdminClient()
   return { db, found: await sellersReview(db, id, user?.id ?? null, await teamStoreIdFor(user?.id ?? null, "products")) }

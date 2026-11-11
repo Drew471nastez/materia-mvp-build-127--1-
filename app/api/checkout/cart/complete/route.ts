@@ -42,7 +42,7 @@ export async function GET(request: Request) {
   if (!sessionId) return NextResponse.redirect(`${platform}/explore`)
 
   try {
-    const who = await routeUser()
+    const who = await routeUser({ fresh: true })
     const user = who.kind === "user" ? who.user : null
 
     const result = await fulfilCartSession(createAdminClient(), sessionId, { baseUrl: platform, request, viewerId: user?.id ?? null })

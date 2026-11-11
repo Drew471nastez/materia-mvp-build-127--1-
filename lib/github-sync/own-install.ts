@@ -9,7 +9,7 @@
  */
 export async function ownInstall(installId: string): Promise<{ creatorId: string; installId: string; name: string } | null | "unavailable"> {
   if (!/^[0-9a-f-]{36}$/i.test(installId)) return null
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return "unavailable"
   if (who.kind !== "user") return null
   const supabase = await createClient()

@@ -43,7 +43,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
 
     let userId: string | null = null
     try {
-      const who = await routeUser()
+      const who = await routeUser({ fresh: true })
       const user = who.kind === "user" ? who.user : null
       userId = user?.id ?? null
     } catch {

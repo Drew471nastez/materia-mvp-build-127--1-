@@ -20,8 +20,8 @@ export async function GET(request: Request) {
   const want = readPlacement(url.searchParams)
   const back = (path: string) => NextResponse.redirect(new URL(path, url), 303)
   if (!want) return back("/app/reviews/widgets")
-  /* The request's one read (round rel2-auth): Auth not answering is a 503 Try again, never a trip to sign in. */
-  const who = await routeUser()
+  /* Supabase Auth itself, as before (round rel2-auth): Auth not answering is a 503 Try again, never a trip to sign in. */
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null
   if (!user) return back(`/login?next=${encodeURIComponent(url.pathname + url.search)}`)

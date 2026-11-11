@@ -26,7 +26,7 @@ export const runtime = "nodejs"
  */
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const viewer = await requestViewer({ fresh: true })
+  const viewer = await requestViewer()
   if (!viewer) return signedOutOrRetry(NextResponse.json({ error: "Sign in to manage your membership." }, { status: 401 }), { fresh: true })
   const admin = createAdminClient()
   const read = await viewerMembership(admin, viewer, id)

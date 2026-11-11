@@ -22,7 +22,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
   const off = await requireCommunitiesOn()
   if (off) return off
   const { communityId } = await params
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null
   const db = admin()

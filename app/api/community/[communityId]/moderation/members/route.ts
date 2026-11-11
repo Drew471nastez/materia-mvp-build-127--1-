@@ -26,7 +26,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   const { communityId } = await params
   const body = await readJson(request)
   if (!isOneOf(MEMBER_ACTIONS, body.action)) return NextResponse.json({ error: "Unknown action." }, { status: 400, headers: noStore })
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null
   const db = admin()

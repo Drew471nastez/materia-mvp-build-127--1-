@@ -34,8 +34,8 @@ export async function GET(request: Request) {
   if (!site) return privateResponse(NextResponse.redirect(main, 303))
   const back = passReturnPath(url.searchParams.get("return"))
 
-  /* The request's one read (round rel2-auth). Auth not answering: back to the site, never to sign in for nothing. */
-  const who = await routeUser()
+  /* Supabase Auth itself, as before (round rel2-auth). Auth not answering: back to the site, never to sign in for nothing. */
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return privateResponse(authUnavailableResponse())
   const auth = { user: who.kind === "user" ? who.user : null }
   if (!auth.user) {

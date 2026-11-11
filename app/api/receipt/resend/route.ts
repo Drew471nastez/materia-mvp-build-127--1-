@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     let recipient: string = order.buyer_email
     const toAccount = body.to === "account" && resendType === "buyer"
     if (toAccount) {
-      const who = await routeUser()
+      const who = await routeUser({ fresh: true })
       if (who.kind === "unavailable") return authUnavailableResponse()
       const user = who.kind === "user" ? who.user : null
       if (!user) return NextResponse.json({ error: "Sign in again to send it to your account email." }, { status: 401 })
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
       the product may resend it.
     */
     if (resendType !== "buyer") {
-      const who = await routeUser()
+      const who = await routeUser({ fresh: true })
       if (who.kind === "unavailable") return authUnavailableResponse()
       const user = who.kind === "user" ? who.user : null
       const { data: owner } = user && creatorId

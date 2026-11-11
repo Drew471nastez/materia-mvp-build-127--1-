@@ -26,7 +26,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pos
   const { postId, assetId } = await params
   if (!UUID.test(postId) || !UUID.test(assetId)) return NextResponse.json({ error: "File not found" }, { status: 404 })
   const viewer = await requestViewer()
-  if (!viewer) return signedOutOrRetry(NextResponse.json({ error: "Sign in to download this file." }, { status: 401 }), { full: true })
+  if (!viewer) return signedOutOrRetry(NextResponse.json({ error: "Sign in to download this file." }, { status: 401 }), { fresh: true })
   const admin = createAdminClient()
 
   const { data: post } = await admin.from("membership_posts").select("id, product_id, attachments, deleted_at").eq("id", postId).maybeSingle()

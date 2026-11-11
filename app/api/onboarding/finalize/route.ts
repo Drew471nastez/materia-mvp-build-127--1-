@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     // client may return null. In that case, fall back to the Authorization header.
     let userId: string | null = null
 
-    const who = await routeUser()
+    const who = await routeUser({ fresh: true })
     const user = who.kind === "user" ? who.user : null
     if (user) {
       userId = user.id

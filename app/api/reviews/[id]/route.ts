@@ -21,7 +21,7 @@ import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 type Params = { params: Promise<{ id: string }> }
 
 async function who() {
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   const user = who.kind === "user" ? who.user : null
   return user ? { id: user.id, email: user.email ?? null } : null
 }

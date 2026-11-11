@@ -25,7 +25,7 @@ import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 
 async function owner() {
   const supabase = await createClient()
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   const user = who.kind === "user" ? who.user : null
   if (!user) return null
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()

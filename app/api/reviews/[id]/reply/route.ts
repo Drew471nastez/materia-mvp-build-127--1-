@@ -22,7 +22,7 @@ import { routeUser, signedOutOrRetry } from "@/lib/auth/route-user"
 type Params = { params: Promise<{ id: string }> }
 
 async function userId() {
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   const user = who.kind === "user" ? who.user : null
   return user?.id ?? null
 }

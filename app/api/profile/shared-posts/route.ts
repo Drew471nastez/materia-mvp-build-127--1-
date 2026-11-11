@@ -19,7 +19,7 @@ const NO_STORE = { "Cache-Control": "no-store" }
 export async function GET(request: Request) {
   const off = await requireCommunitiesOn()
   if (off) return off
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null
   const viewerId = user?.id ?? null

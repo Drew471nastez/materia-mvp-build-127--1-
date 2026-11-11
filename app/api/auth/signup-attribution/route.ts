@@ -21,8 +21,8 @@ export const dynamic = "force-dynamic"
 export async function POST(request: Request) {
   const done = () => new NextResponse(null, { status: 204 })
   try {
-    /* The request's one read, Supabase Auth first for created_at (round rel2-auth); not knowing is "nothing to record", as before. */
-    const who = await routeUser({ full: true })
+    /* Supabase Auth itself, as before (it carries created_at) (round rel2-auth); not knowing is "nothing to record", as before. */
+    const who = await routeUser({ fresh: true })
     const user = who.kind === "user" ? who.user : null
     if (!user || !isNewAccount(user.created_at)) return done()
     const text = await request.text()

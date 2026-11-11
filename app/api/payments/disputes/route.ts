@@ -43,7 +43,7 @@ export interface CreatorDispute {
 }
 
 async function creatorId(): Promise<string | null> {
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   const user = who.kind === "user" ? who.user : null
   if (!user) return null
   const { data } = await createAdminClient().from("creators").select("id").eq("user_id", user.id).maybeSingle()

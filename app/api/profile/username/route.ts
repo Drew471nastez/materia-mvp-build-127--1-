@@ -33,7 +33,7 @@ const NO_STORE = { "Cache-Control": "no-store" }
 
 /* The signed in person, from the session the auth server confirms; never an id from the request. */
 async function signedIn() {
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   const user = who.kind === "user" ? who.user : null
   return user ?? null
 }

@@ -19,8 +19,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
  * route answers 503 Try again, never 401 (round rel2-auth).
  */
 export async function pushRequestUser(req: Request): Promise<{ user: User | null; via: "cookie" | "bearer" | null; authError: string | null; unavailable: boolean }> {
-  /* Round rel2-auth: the request's one read (lib/auth/route-user), not a second Supabase Auth round trip; it says when Auth could not tell. */
-  const who = await routeUser()
+  /* Round rel2-auth: Supabase Auth itself, as before (lib/auth/route-user `fresh`, retries and a ceiling); it says when Auth could not tell. */
+  const who = await routeUser({ fresh: true })
   if (who.kind === "user") return { user: who.user, via: "cookie", authError: null, unavailable: false }
   let unavailable = who.kind === "unavailable"
   const header = req.headers.get("authorization")

@@ -97,7 +97,7 @@ async function handlePOST(request: Request) {
   let business: ReturnType<typeof checkBusiness> | null = body.business !== undefined && body.business !== null ? checkBusiness(body.business) : null
 
   const admin = createAdminClient()
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null
 

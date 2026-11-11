@@ -511,7 +511,7 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
  */
 async function snapshot(siteId: string, files: ProjectFiles, label: string): Promise<string | null> {
   const supabase = await createClient()
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   const user = who.kind === "user" ? who.user : null
 
   const { data } = await createAdminClient()

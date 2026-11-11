@@ -35,8 +35,8 @@ export async function cleanDescription(html: string): Promise<CleanedDescription
   if (typeof html !== "string") return { ok: false, error: tt("The description could not be read.") }
   const tooLong = descriptionTooLong(html, tt)
   if (tooLong) return { ok: false, error: tooLong }
-  /* The request's one read (round rel2-auth): Auth not answering is "try again", never "sign in again". */
-  const who = await routeUser()
+  /* Supabase Auth itself, as before (round rel2-auth): Auth not answering is "try again", never "sign in again". */
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return { ok: false, error: tt("Something went wrong on our side. Try again in a moment.") }
   if (who.kind !== "user") return { ok: false, error: tt("Sign in again to save the description.") }
   return { ok: true, html: sanitizeDescription(html) }

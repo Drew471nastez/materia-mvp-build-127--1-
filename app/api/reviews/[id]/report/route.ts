@@ -32,7 +32,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 500) : ""
   if (note.length > MAX_REPLY_CHARS) return NextResponse.json({ error: "Keep the note short." }, { status: 400 })
 
-  const who = await routeUser()
+  const who = await routeUser({ fresh: true })
   if (who.kind === "unavailable") return authUnavailableResponse()
   const user = who.kind === "user" ? who.user : null
   const admin = createAdminClient()
