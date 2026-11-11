@@ -148,7 +148,8 @@ export async function GET(request: Request) {
       return await fileFor(link.u, link.q, link.c)
     }
     const supabase = await createClient()
-    const { data: { user } } = await readUserForRoute()
+    const { data: { user }, unavailable } = await readUserForRoute()
+    if (unavailable) return authUnavailableResponse()
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     return await fileFor(user.id, questionOf(url.searchParams))
   } catch (error) {

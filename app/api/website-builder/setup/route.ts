@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { readSetupState } from "@/lib/website-builder/setup-state"
-import { readUserForRoute } from "@/lib/auth/route-user"
+import { authUnavailableResponse, readUserForRoute } from "@/lib/auth/route-user"
 
 /**
  * GET /api/website-builder/setup
@@ -14,7 +14,8 @@ import { readUserForRoute } from "@/lib/auth/route-user"
  * those tables and nothing about any particular creator.
  */
 export async function GET() {
-  const { data: { user } } = await readUserForRoute()
+  const { data: { user }, unavailable } = await readUserForRoute()
+  if (unavailable) return authUnavailableResponse()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   return NextResponse.json({ setup: await readSetupState() })
