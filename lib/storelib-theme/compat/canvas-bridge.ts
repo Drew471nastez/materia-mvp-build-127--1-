@@ -2951,7 +2951,8 @@ export const CANVAS_BRIDGE = `
       if (r.id === m.lifted) r.el.setAttribute("data-sl-order-lifted", ""); else r.el.removeAttribute("data-sl-order-lifted");
     }
     /* Its new place in sight, moving the page only as far as it needs. */
-    if (liftedEl && liftedMove) {
+    /* Not for the same order worked out again under a patch (orderSettled): the section has not moved on screen. */
+    if (liftedEl && liftedMove && !m.relaid) {
       var b = liftedEl.getBoundingClientRect();
       var top = b.top + liftedMove;
       var bottom = top + Math.min(b.height, innerHeight * 0.6);
@@ -2982,7 +2983,7 @@ export const CANVAS_BRIDGE = `
     for (var k in ordered.held) { any = true; break; }
     if (!any) return;
     if (orderInPlace(ordered.ids)) { orderRelease(); return; }
-    if (ordered.live) { try { previewOrder({ ids: ordered.ids, lifted: ordered.lifted }); } catch (err) { orderRelease(); } }
+    if (ordered.live) { try { previewOrder({ ids: ordered.ids, lifted: ordered.lifted, relaid: true }); } catch (err) { orderRelease(); } }
   };
   window.addEventListener("message", function (e) {
     if (window.__slFrom && e.origin !== window.__slFrom) return;

@@ -149,14 +149,14 @@ function watchWhileHeld(parent: Element) {
     if (!ids || !held.size) return
     const els = new Map([...held].map(([id, h]) => [id, h.el]))
     if (inOrder(ids, els)) releaseAll()
-    else previewNative({ ids, lifted: lastLifted })
+    else previewNative({ ids, lifted: lastLifted }, true)
   })
   mo.observe(parent, { childList: true })
   watching = { mo, parent }
 }
 
-/** Storelib's canvas: slide the boxes, by transform, to the order asked for. */
-function previewNative(p: PreviewOrder) {
+/** Storelib's canvas: slide the boxes, by transform, to the order asked for. `relaid`: the same order again, for boxes React moved; the canvas is not scrolled for it. */
+function previewNative(p: PreviewOrder, relaid = false) {
   if (typeof document === "undefined") return
   const root = document.getElementById("wb-preview-root")
   if (!root) return
@@ -227,7 +227,7 @@ function previewNative(p: PreviewOrder) {
     else el.removeAttribute("data-wb-order-lifted")
   }
   /* Its new place in sight: the canvas moves only when that place is off screen, and only as far as it needs. */
-  if (liftedEl && liftedMove) {
+  if (liftedEl && liftedMove && !relaid) {
     const r = liftedEl.getBoundingClientRect()
     const scale = liftedEl.offsetHeight ? r.height / liftedEl.offsetHeight : 1
     const top = r.top + liftedMove * scale
