@@ -317,7 +317,9 @@ console.log("\nRound AR7: the signup, the chips and the cards' own buttons read 
   check("the signup's words are held to its card", /theme=\{signupTheme\}/.test(email) && /const pageInk = signupInk/.test(email))
   const data = read("components/onepage/data-blocks.tsx")
   check("poll options are the page's button made to read on the card", /const option = pressableProps\(parts\.onCard, look\.still\)/.test(data) && /className=\{cn\(option\.className/.test(data))
-  check("tip amounts and Send are the page's button; nothing reads a part that is gone", /const amount = pressableProps\(parts\.onCard, look\.still\)/.test(data) && /data=\{\{ "data-tip-send": "" \}\}/.test(data) && !/parts\.(ink|paper)\b/.test(data))
+  /* Round AS: the tips card is its own file; its amounts are the card's own words turned round (contrast measured by scripts/check-onepage-tips-as.mjs), Send is the page's button. */
+  const tips = read("components/onepage/tip-block.tsx")
+  check("tip amounts read on the card and Send is the page's button; nothing reads a part that is gone", /inkOn\(pickedFill,/.test(tips) && /data=\{\{ "data-tip-send": "" \}\}/.test(tips) && /<CardButton/.test(tips) && !/parts\.(ink|paper)\b/.test(tips) && !/parts\.(ink|paper)\b/.test(data))
   check("an event's date chip reads on the card, in both event blocks", /: parts\.chip\)/.test(data) && /\.\.\.parts\.chip/.test(read("components/onepage/app-block.tsx")))
   const shelf = read("components/onepage/storelib-blocks.tsx")
   check("a discount code's Copy is the page's button", /const copyPress = pressableProps\(onCardButtonTheme\(look\.theme\), look\.still\)/.test(shelf) && !/border-dashed border-current\/40/.test(shelf))

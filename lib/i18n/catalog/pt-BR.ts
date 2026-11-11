@@ -5,6 +5,13 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "OnePage, {block}": "OnePage, {block}",
+ "Checkout, {channel}": "Checkout, {channel}",
+ "Tips added at checkout are part of total sales. Tips on your OnePage are paid to you on their own and are not in total sales.": "Gorjetas adicionadas no checkout fazem parte das vendas totais. Gorjetas na sua OnePage são pagas a você separadamente e não entram nas vendas totais.",
+ "Tips by source": "Gorjetas por origem",
+ "{count, plural, one {# tip} other {# tips}}": "{count, plural, one {# gorjeta} other {# gorjetas}}",
+ "Tips are paid to your own payout account, as your sales are. Until payouts are set up, this block stays off your page.": "As gorjetas são pagas na sua própria conta de repasses, como suas vendas. Até os repasses estarem configurados, este bloco fica fora da sua página.",
+ "Where tippers came from": "De onde vieram as gorjetas",
  "  ·  not published yet": "  ·  ainda não publicada",
  " (buyer's reference {orderRef})": " (referência do comprador {orderRef})",
  " (free for them)": " (grátis para eles)",

@@ -90,7 +90,7 @@ function main() {
     check("a Radix lock is followed, and its own margin not added twice", /useEffect\(\(\) => followDialogLocks\(\), \[\]\)/.test(live) && /html\[data-op-hold\] body\[data-scroll-locked\] \{ overflow: visible !important; margin-right: 0 !important; \}/.test(css))
     /* Changed on purpose (round AL): Calendly's own pop-up is gone; it opens in the block sheet, which keeps the page still with its scrollbar (components/onepage/block-sheet useStillPage). */
     /* Changed on purpose (round AN): music and a PDF open in the block sheet too, so the free checkout is the one centred window left for useHeldPage. */
-    check("the centred windows hold the page on a computer", /useHeldPage\(isPhone === false && quickCheckoutModalOpen/.test(live) && !/showCalendlyModal|spotifyModalOpen|pdfModalData/.test(live) && /useStillPage\(true, rootRef\)/.test(read("components/onepage/block-sheet.tsx")))
+    check("the centred windows hold the page on a computer", /useHeldPage\(isPhone === false && quickCheckoutModalOpen/.test(live) && !/showCalendlyModal|spotifyModalOpen|pdfModalData/.test(live) && /* Round AS: held while the sheet is up, not while kept hidden. */ /useStillPage\((true|!kept), rootRef\)/.test(read("components/onepage/block-sheet.tsx")))
   }
 
   section("6. A block's stats")

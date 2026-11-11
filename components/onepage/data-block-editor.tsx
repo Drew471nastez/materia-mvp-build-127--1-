@@ -25,7 +25,8 @@ import { ProductPicker } from "@/components/onepage/product-picker"
 import { useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
 import { useProductMoney, useSellerCurrency } from "@/components/platform/price-currency"
 import { editorProductState, pickableProducts } from "@/lib/onepage/product-block"
-import { TIP_PRESETS_MAX, tipAmounts, tipLabel, tipModeOf, typedTipCents } from "@/lib/onepage/tips"
+import { TIP_PRESETS_MAX, tipAmounts, tipDefaultAmounts, tipLabel, tipModeOf, typedTipCents } from "@/lib/onepage/tips"
+import { referrerName } from "@/lib/analytics/tip-sources"
 import { STAT_ANIMATIONS, type StatAnimation, statAnimationOf } from "@/lib/onepage/stat-count"
 import { readTrustBox, reviewSourceOf } from "@/lib/onepage/reviews-block"
 import { bandsintownArtist } from "@/lib/onepage/feeds"
@@ -98,12 +99,18 @@ const box = "space-y-2 rounded-2xl border border-[#e3e4e8] bg-white p-3.5"
 
 function TipsSettings({ block, data, set }: { block: OnePageBlock; data: AppBlockData; set: Set }) {
   const mode = tipModeOf(data)
-  const amounts = tipAmounts(data)
   const currency = useSellerCurrency()
+  const amounts = tipAmounts(data, currency)
+  /*
+    Round AS: three sets of amounts, one tap each, in the store's currency (the middle one is what a visitor sees
+    picked), so a creator rarely has to type one. The chips below still take any amount.
+  */
+  const base = tipDefaultAmounts(currency)
+  const sets = [1, 2, 5].map((k) => base.map((c) => c * k))
   const [adding, setAdding] = React.useState("")
-  const activity = useActivity<{ ready: boolean; totals: Record<string, { count: number; cents: number }>; tips: Array<{ id: string; amount_cents: number; currency: string; tipper_name: string | null; message: string | null; created_at: string }> }>(block.id, mode === "storelib")
+  const activity = useActivity<{ ready: boolean; totals: Record<string, { count: number; cents: number }>; tips: Array<{ id: string; amount_cents: number; currency: string; tipper_name: string | null; message: string | null; created_at: string; source_detail?: { referrer_host?: string | null } | null }> }>(block.id, mode === "storelib")
   const add = () => {
-    const cents = typedTipCents(adding)
+    const cents = typedTipCents(adding, currency)
     if (cents === null || amounts.length >= TIP_PRESETS_MAX) return
     set({ tip_amounts: [...amounts, cents] })
     setAdding("")
@@ -123,6 +130,23 @@ function TipsSettings({ block, data, set }: { block: OnePageBlock; data: AppBloc
         <>
           <div className="space-y-2" data-tip-amounts="">
             <span className={fieldLabel}>{tt("Amounts")}</span>
+            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={tt("Amounts")} data-tip-sets="">
+              {sets.map((choice) => {
+                const on = choice.join() === amounts.join()
+                return (
+                  <button
+                    key={choice.join()}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => set({ tip_amounts: choice })}
+                    className={cn("h-11 rounded-xl border text-[13.5px] font-medium tabular-nums transition-colors", on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e3e4e8] bg-white text-[#1a1a2e] hover:bg-[#f7f7f8]")}
+                  >
+                    {choice.map((c) => tipLabel(c, currency)).join(" · ")}
+                  </button>
+                )
+              })}
+            </div>
             <div className="flex flex-wrap gap-2">
               {amounts.map((c) => (
                 <span key={c} className="inline-flex h-10 items-center gap-1 rounded-full bg-[#f4f4f6] pl-3.5 pr-1 text-[14px] font-medium tabular-nums text-[#1a1a2e]">
@@ -147,7 +171,10 @@ function TipsSettings({ block, data, set }: { block: OnePageBlock; data: AppBloc
           </div>
           <SwitchLine label={tt("Let them choose the amount")} checked={data.tip_custom === true} onChange={(tip_custom) => set({ tip_custom })} />
           <SwitchLine label={tt("Let them leave a message")} checked={data.tip_message === true} onChange={(tip_message) => set({ tip_message })} />
-          <p className={hint}>{tt("Tips are paid to your own payout account, as your sales are. Until payouts are set up in Payouts, this block stays off your page.")}</p>
+          <p className={hint}>
+            {tt("Tips are paid to your own payout account, as your sales are. Until payouts are set up, this block stays off your page.")}{" "}
+            <a href="/app/settings/payments" className="font-medium text-[#1a1a2e] underline underline-offset-2">{tt("Set up payouts")}</a>
+          </p>
           {activity?.ready === false ? <p className={hint}>{tt("Tips are paid but not listed here until the latest database update has run.")}</p> : null}
           {activity && activity.tips?.length ? (
             <div className={box} data-tips-received="">
@@ -157,7 +184,11 @@ function TipsSettings({ block, data, set }: { block: OnePageBlock; data: AppBloc
               <ul className="divide-y divide-[#f0f1f3]">
                 {activity.tips.slice(0, 8).map((t) => (
                   <li key={t.id} className="flex items-baseline justify-between gap-3 py-2 text-[13px]">
-                    <span className="min-w-0 truncate text-[#1a1a2e]">{[t.tipper_name || tt("Someone"), t.message].filter(Boolean).join(": ")}</span>
+                    <span className="min-w-0 truncate text-[#1a1a2e]">
+                      {[t.tipper_name || tt("Someone"), t.message].filter(Boolean).join(": ")}
+                      {/* Round AS: where the tipper came to the page from. */}
+                      <span className="text-[#9ca3af]"> · {t.source_detail?.referrer_host ? referrerName(t.source_detail.referrer_host).label : tt("Direct")}</span>
+                    </span>
                     <span className="shrink-0 font-medium tabular-nums text-[#1a1a2e]">{tipLabel(t.amount_cents, t.currency)}</span>
                   </li>
                 ))}

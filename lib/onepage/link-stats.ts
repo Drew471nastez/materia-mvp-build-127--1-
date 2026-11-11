@@ -54,6 +54,11 @@ export interface BlockStats {
   chart_data: StatsPoint[]
   /** True when a read hit its ceiling and the figures are a floor. */
   truncated: boolean
+  /**
+   * Round AS: a tips block's tips in the period, in the currency most of them were given in, with where the
+   * tippers came from (lib/analytics/tip-sources blockTipSummary). Only for a tips block.
+   */
+  tips?: { count: number; cents: number; currency: string; from: Array<{ key: string; label: string; count: number; cents: number }> } | null
 }
 
 /** A click as read: when, and the link id it was kept under. */

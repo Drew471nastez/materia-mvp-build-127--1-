@@ -254,4 +254,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "411", file: "411_onepage_tips_polls_phone.sql", sha256: "e2c35f03d79a702bb2df5d352ae1f82a9b3037da0429f29721d2f68051df7197" },
   { part: "431", file: "431_design_references.sql", sha256: "d2048b2853375770713954c08b4f567d6f29ce433e3d6c41397917255f3e3298" },
   { part: "441", file: "441_ai_images.sql", sha256: "15593480c75c558f2f893b85376cdd6a8864db70a87a0218e5dcbb39d837550f" },
+  { part: "442", file: "442_onepage_tip_source.sql", sha256: "5bc940af187322e0ef9d67e2e61c7d5d00a89554825bcae22d46551db3f55ca1" },
 ]

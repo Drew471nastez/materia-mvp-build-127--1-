@@ -23,6 +23,7 @@ import type * as React from "react"
 import { ChevronRight } from "lucide-react"
 import { tt } from "@/lib/i18n/text"
 import { LinkIcon } from "./brand-icons"
+import { PlayerShape, frameFade, useFrameLoading, useFrameShown } from "./embed-shell"
 import type { BlockSheetRequest } from "./block-sheet"
 
 export type MusicService = "spotify" | "apple_music"
@@ -55,18 +56,25 @@ export function MusicPlayer({ service, url, title, radius = 12 }: { service: Mus
   const sp = service === "spotify" ? spotifyEmbedUrl(url) : null
   const am = service === "apple_music" ? appleMusicEmbedUrl(url) : null
   const src = sp?.src ?? am?.src
+  /* Round AS (./embed-shell): the player's own shape until it has loaded, at once in the sheet, then faded in over it. */
+  const [shown, onLoad] = useFrameShown(src)
+  const loading = useFrameLoading()
   if (!src) return null
   const single = sp ? sp.type === "track" || sp.type === "episode" : !!am?.song
   const height = musicPlayerHeight(service, single)
+  const r = Math.min(Math.max(radius, 0), 16)
   return (
-    <div data-music-player={service} className="relative w-full overflow-hidden bg-[rgba(127,127,127,0.12)]" style={{ height, borderRadius: Math.min(Math.max(radius, 0), 16) }}>
+    <div data-music-player={service} data-embed-shown={shown ? "" : undefined} className="relative w-full overflow-hidden" style={{ height, borderRadius: r }}>
+      <PlayerShape single={single} shown={shown} radius={r} />
       <iframe
         src={src}
         title={title}
-        loading="lazy"
+        loading={loading}
+        onLoad={onLoad}
         allow="autoplay *; clipboard-write; encrypted-media *; fullscreen *; picture-in-picture"
         {...(service === "apple_music" ? { sandbox: "allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation" } : {})}
         className="absolute inset-0 block h-full w-full border-0 bg-transparent"
+        style={{ colorScheme: "normal", ...frameFade(shown) }}
       />
     </div>
   )

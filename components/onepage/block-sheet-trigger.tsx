@@ -15,7 +15,7 @@
  * the address too, so a tap always leads somewhere.
  */
 
-import type * as React from "react"
+import * as React from "react"
 import { cn } from "@/lib/utils"
 import { buttonPadScale, pressableProps } from "@/lib/onepage/block-look"
 import type { OnePageTheme } from "@/lib/onepage/types"
@@ -23,6 +23,7 @@ import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notic
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { useBlockSheet, type BlockSheetRequest } from "./block-sheet"
 import { noteTracked } from "./block-activity"
+import { warmEmbed, type WarmProps } from "@/lib/onepage/embed-warm"
 
 /** A tap counted as the block's click, as a link's is (app/api/onepage/track). Never in the editor's preview. */
 export function trackBlockTap(onepageId: string | null | undefined, blockId: string, url: string | null | undefined): void {
@@ -49,26 +50,18 @@ export function trackBlockTap(onepageId: string | null | undefined, blockId: str
   }
 }
 
-/*
-  Round AR: a pointer over the button, or a finger coming down on it, opens the connection to the service the sheet
-  will frame (a Calendly page, a player), so its page starts arriving with the sheet's rise rather than after it.
-  Once per origin, never in the editor's preview.
-*/
-const warmed = new Set<string>()
-function preconnect(href: string | null) {
-  if (!href || typeof document === "undefined" || isOnePagePreview()) return
-  try {
-    const origin = new URL(href, window.location.href).origin
-    if (origin === window.location.origin || warmed.has(origin)) return
-    warmed.add(origin)
-    const link = document.createElement("link")
-    link.rel = "preconnect"
-    link.href = origin
-    link.crossOrigin = "anonymous"
-    document.head.appendChild(link)
-  } catch {
-    /* not an address: nothing to warm */
-  }
+/**
+ * Round AS (lib/onepage/embed-warm): the button's service connected to once it has been on screen a moment and on a
+ * pointer or focus, and, when `prewarm`, the sheet's content started hidden on a press or a resting mouse, so the embed
+ * is loading before the tap lands. `sheet` is read when it starts, so the latest is used.
+ */
+export function useSheetWarm(href: string | null, on: boolean, prewarm: boolean, blockId: string, sheet: () => Omit<BlockSheetRequest, "blockId">): Partial<WarmProps> {
+  const api = useBlockSheet()
+  const latest = React.useRef(sheet)
+  React.useEffect(() => {
+    latest.current = sheet
+  })
+  return React.useMemo(() => (on ? warmEmbed(href, prewarm ? () => api.prewarm({ blockId, ...latest.current() }) : null) : {}), [on, href, prewarm, blockId, api])
 }
 
 export function BlockSheetButton({
@@ -83,6 +76,7 @@ export function BlockSheetButton({
   still = false,
   small = false,
   sheet,
+  prewarm = false,
 }: {
   blockId: string
   onepageId?: string | null
@@ -98,14 +92,17 @@ export function BlockSheetButton({
   still?: boolean
   /** The editor's small phone (0.8 of a real one). */
   small?: boolean
-  /** What the sheet shows; built on the tap, so nothing of the embed loads before it. */
+  /** What the sheet shows; built on the tap (or on the press, with `prewarm`). */
   sheet: () => Omit<BlockSheetRequest, "blockId">
+  /** Start the sheet's content hidden before the tap lands (round AS). Never for a player that plays on its own. */
+  prewarm?: boolean
 }) {
   const api = useBlockSheet()
   const press = pressableProps(theme, still)
   const pad = buttonPadScale(theme)
   const k = small ? 0.8 : 1
   const inSheet = mode === "sheet" && api.available
+  const warm = useSheetWarm(href, inSheet, prewarm, blockId, sheet)
   const onClick = (e: React.MouseEvent) => {
     trackBlockTap(onepageId, blockId, href)
     if (inSheet) {
@@ -139,8 +136,7 @@ export function BlockSheetButton({
     className: cn(press.className, "flex w-full items-center gap-2 font-medium [-webkit-tap-highlight-color:transparent]"),
     style: { ...press.style, minHeight: 56 * k, padding: `${10 * pad * k}px ${12 * k}px`, fontSize: 15 * k },
     onClick,
-    onPointerEnter: inSheet ? () => preconnect(href) : undefined,
-    onPointerDown: inSheet ? () => preconnect(href) : undefined,
+    ...warm,
   }
   if (inSheet || !href) {
     return (

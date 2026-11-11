@@ -5390,5 +5390,10 @@ do $do$ begin if not exists (select 1 from pg_constraint where conname = 'file_d
 create index if not exists file_details_creator_source_idx on public.file_details (creator_id, source) where source is not null;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('441', '441_ai_images.sql', '15593480c75c558f2f893b85376cdd6a8864db70a87a0218e5dcbb39d837550f') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 442_onepage_tip_source.sql
+/* OnePage tips, round AS, part 442 (run after 411): where each tip came from. public.onepage_tips gains source (the surface it was given on: 'onepage') and source_detail (jsonb: which way in, the block's card or its amount sheet; the block's title at the time; the page's host; the site the visitor came from), written from the Checkout Session's own metadata by the webhook and the visitor's return, and read by Storelib analytics (tips by source in the Sales breakdown) and a tips block's stats in the OnePage editor. An index on (creator_id, source, created_at) for the analytics read. Both columns nullable: every existing tip is unchanged and reads as the OnePage. Does nothing before part 411 has made the table. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.onepage_tips') IS NOT NULL THEN ALTER TABLE public.onepage_tips ADD COLUMN IF NOT EXISTS source text; ALTER TABLE public.onepage_tips ADD COLUMN IF NOT EXISTS source_detail jsonb; CREATE INDEX IF NOT EXISTS onepage_tips_creator_source_idx ON public.onepage_tips (creator_id, source, created_at DESC); END IF; END $do$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('442', '442_onepage_tip_source.sql', '5bc940af187322e0ef9d67e2e61c7d5d00a89554825bcae22d46551db3f55ca1') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

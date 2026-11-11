@@ -29,6 +29,8 @@ import { spansToRead } from "./buckets"
 import { commerceReport, commerceRowCounts, customersOf, grainFor, salesOf, linesFor, withListTotal, type CommerceOrderRow, type CommerceReport, type Span } from "./commerce"
 import { ownsProperty, type CreatorProperties, type PropertySelector } from "./properties"
 import { lineInMode, type SalesMode } from "./sections"
+import { tipSourcesFor } from "./tip-sources-server"
+import type { TipSourceRow } from "./tip-sources"
 
 type Admin = ReturnType<typeof createAdminClient>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,6 +61,8 @@ export interface CommerceQuestion {
 
 export interface CommerceAnswer extends CommerceReport {
   currency: string
+  /** Round AS: the period's tips by where they came from (lib/analytics/tip-sources): order tips by channel, OnePage tips by block. */
+  tipSources: TipSourceRow[]
   grain: ReturnType<typeof grainFor>
   timeZone: string
   compared: boolean
@@ -236,8 +240,10 @@ export async function countCommerce(admin: Admin, q: CommerceQuestion): Promise<
     q.previous ? fulfillmentIn(admin, q, q.previous, filtered) : Promise.resolve({ hours: null, shipped: 0 }),
   ])
   const report = commerceReport({ rows, span: q.span, previous: q.previous, timeZone: q.timeZone, selector, properties: q.properties, productId: q.productId, mode: q.mode, productTypes: q.productTypes, earlier: { now: earlierNow, before: earlierBefore }, checkouts })
+  const tipSources = await tipSourcesFor(admin, { creatorId: q.creatorId, selector, productId: q.productId, span: q.span, properties: q.properties }, report.orders, inStore.currency).catch(() => [])
   return {
     ...report,
+    tipSources,
     currency: inStore.currency,
     grain: grainFor(q.span),
     timeZone: q.timeZone,

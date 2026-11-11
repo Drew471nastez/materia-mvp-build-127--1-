@@ -33,7 +33,7 @@ import { mediaLayoutOf, mediaLayoutPatch, type MediaLayout } from "@/lib/onepage
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import type { OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
 import { useBlockSheet, type BlockSheetRequest } from "./block-sheet"
-import { trackBlockTap } from "./block-sheet-trigger"
+import { trackBlockTap, useSheetWarm } from "./block-sheet-trigger"
 import { ChoiceMark } from "./choice-marks"
 
 type Scale = "small" | "normal" | "live"
@@ -79,6 +79,8 @@ export function MediaCard({
   const paper = (surface.backgroundColor as string) || theme.button_color || "#1a1a2e"
   const radius = boxRadius(theme)
   const inSheet = mode === "sheet" && api.available
+  /* Round AS: a song's player starts on the press; a video, which plays on its own, only has its connections warmed. */
+  const warm = useSheetWarm(href, inSheet, kind === "music", block.id, sheet)
   const onClick = (e: React.MouseEvent) => {
     trackBlockTap(onepageId, block.id, href)
     if (inSheet) {
@@ -148,6 +150,7 @@ export function MediaCard({
     className: cn(press.className, "group flex w-full flex-col font-medium [-webkit-tap-highlight-color:transparent]"),
     style: { ...press.style, padding: kind === "video" ? px(6, scale) : px(10, scale), textAlign: "left" as const },
     onClick,
+    ...warm,
   }
   if (inSheet || !href) {
     return (

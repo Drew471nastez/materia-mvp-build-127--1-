@@ -72,8 +72,10 @@ import { CompactInstagramPost } from "@/components/onepage/compact-post"
 import { AppMark, INSTAGRAM_FILL, isMulticolorMark, markOn } from "@/components/onepage/brand-icons"
 import { APP_GLYPHS, RoundTile } from "@/components/onepage/block-icons"
 import type { OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
-import { DataEventView, DataFeedList, DataPollView, DataReviewsView, DataStatsView, DataTipsView, DataPaidView } from "@/components/onepage/data-blocks"
+import { DataEventView, DataFeedList, DataPollView, DataReviewsView, DataStatsView, DataPaidView } from "@/components/onepage/data-blocks"
+import { DataTipsView } from "@/components/onepage/tip-block"
 import { tipModeOf } from "@/lib/onepage/tips"
+import { useFrameLoading } from "@/components/onepage/embed-shell"
 
 type Scale = "small" | "normal" | "live"
 
@@ -264,6 +266,8 @@ export function AppEmbedView({ embed, href, title, radius, compact = false, fall
   const host = React.useSyncExternalStore(noHost, readHost, serverHost)
   const [loaded, setLoaded] = React.useState(false)
   const [failed, setFailed] = React.useState(false)
+  /* Round AS: at once in the sheet (./embed-shell). */
+  const loading = useFrameLoading()
   React.useEffect(() => {
     if (loaded || embed.embedKind) return
     const t = window.setTimeout(() => setFailed(true), 15000)
@@ -299,7 +303,7 @@ export function AppEmbedView({ embed, href, title, radius, compact = false, fall
       <iframe
         title={title}
         src={src}
-        loading="lazy"
+        loading={loading}
         onLoad={() => setLoaded(true)}
         allow="autoplay; encrypted-media; picture-in-picture; clipboard-write; fullscreen"
         allowFullScreen
