@@ -48,6 +48,7 @@ import { createAsker } from "./asking"
 import { chooseModel, costOf } from "./models"
 import { ProjectWorkspace } from "./tools"
 import type { AgentEvent, AgentProvider } from "./types"
+import { routeUser } from "@/lib/auth/route-user"
 
 export interface RunInput {
   siteId: string
@@ -510,9 +511,8 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
  */
 async function snapshot(siteId: string, files: ProjectFiles, label: string): Promise<string | null> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser()
+  const user = who.kind === "user" ? who.user : null
 
   const { data } = await createAdminClient()
     .from("site_versions")

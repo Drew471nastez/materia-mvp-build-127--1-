@@ -27,13 +27,14 @@ import { readPlanOverride, type PlanOverride } from "@/lib/billing/plan-override
 import { readSubscriptionRow } from "@/lib/billing/subscription-reader"
 import type { DbBilling } from "@/lib/billing/subscription-state"
 import { perRequest, withRequestMemo } from "@/lib/billing/request-memo"
+import { dataOrThrow } from "@/lib/net/service-error"
 
 /** Run a route handler's work with its own per request billing reads. */
 export const withBillingRequest = withRequestMemo
 
-/** The creator's whole row by id, or null. */
+/** The creator's whole row by id, or null when there is none. A read that failed throws (round rel2-auth): it was null, and the Billing tab said "Not signed in". */
 export const billingCreatorFor = perRequest("creator", async (creatorId: string): Promise<Record<string, any> | null> => {
-  const { data } = await createAdminClient().from("creators").select("*").eq("id", creatorId).maybeSingle()
+  const data = dataOrThrow("billing creator", await createAdminClient().from("creators").select("*").eq("id", creatorId).maybeSingle())
   return (data as Record<string, any> | null) ?? null
 })
 

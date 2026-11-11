@@ -9,6 +9,7 @@ import { teamPageStore } from "@/lib/team/server"
 import { TeamAreaClosed } from "@/components/app/team-area-closed"
 import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
 import { msg } from "@/lib/i18n/text"
+import { dataOrThrow, isServiceUnavailable } from "@/lib/net/service-error"
 
 const FREE_PLAN = {
   id: "free",
@@ -65,11 +66,15 @@ export default async function UpgradePage() {
   let cancelAtPeriodEnd = false
 
   try {
-    const { data: creator } = await createAdminClient()
-      .from("creators")
-      .select("id, subscription_plan_id, subscription_status, stripe_customer_id")
-      .eq(access.kind === "store" ? "id" : "user_id", access.kind === "store" ? access.creatorId : access.userId)
-      .maybeSingle()
+    /* A read that failed throws (round rel2-auth): it was "no store", and a seller was sent to /sell. */
+    const creator = dataOrThrow(
+      "upgrade creator", // i18n-ignore: a label for the log
+      await createAdminClient()
+        .from("creators")
+        .select("id, subscription_plan_id, subscription_status, stripe_customer_id")
+        .eq(access.kind === "store" ? "id" : "user_id", access.kind === "store" ? access.creatorId : access.userId)
+        .maybeSingle(),
+    )
 
     if (!creator) {
       redirect("/sell")
@@ -100,6 +105,11 @@ export default async function UpgradePage() {
     /* redirect("/sell") throws Next's own error: it goes on to Next, not into this catch's fallback. */
     unstable_rethrow(error)
     console.error("Upgrade page data loading error:", error)
+    /*
+      Round rel2-auth: the store or its plan could not be read. Drawn anyway, this page showed a paying store as Free
+      with every plan on offer, a second checkout included. The page's boundary says Try again instead.
+    */
+    if (isServiceUnavailable(error)) throw error
   }
 
   return (

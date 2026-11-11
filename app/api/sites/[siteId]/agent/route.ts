@@ -26,6 +26,7 @@ import { canAnswer, modelFor, resolveForCreator } from "@/lib/sites/agent/provid
 import { AI_LIMIT_UNREADABLE, agentRateLimit, limitStatus } from "@/lib/sites/rate-limit"
 import { runAgent } from "@/lib/sites/agent/run"
 import type { AgentEvent } from "@/lib/sites/agent/types"
+import { storeUnavailableResponse } from "@/lib/team/server"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -110,7 +111,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
     )
   }
 
-  const plan = await creatorSitePlan(creatorId)
+  /* A plan read that failed is a 503 Try again, never Free's limits for a paying store (round rel2-auth). */
+  const plan = await creatorSitePlan(creatorId).catch(() => null)
+  if (plan === null) return storeUnavailableResponse()
 
   /**
    * esbuild for `run_build`.

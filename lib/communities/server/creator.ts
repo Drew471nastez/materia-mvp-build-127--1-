@@ -436,7 +436,10 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
  * taken back, so a paid community never exists without a price.
  */
 export async function createFromFlow(db: Db, a: { creatorId: string; userId: string; input: CreateInput & Partial<Pick<WizardInput, "slug" | "spaceName" | "welcome">> }): Promise<Result<{ community: CommunityRow }>> {
-  if (!(await communityRoom(db, a.creatorId)).ok) return no(402, PLAN_LIMIT_ERROR)
+  /* The plan could not be read: 503 Try again, never "your plan is full" to a paying store (round rel2-auth, lib/sites/plan-server). */
+  const room = await communityRoom(db, a.creatorId).catch(() => null)
+  if (!room) return no(503, "Storelib is not answering right now. Try again.")
+  if (!room.ok) return no(402, PLAN_LIMIT_ERROR)
   const { access, visibility } = accessForType(a.input.type)
   const made = await createCommunity(db, {
     creatorId: a.creatorId,
@@ -458,9 +461,11 @@ export async function createFromFlow(db: Db, a: { creatorId: string; userId: str
     return no(500, "The community could not be made. Try again.")
   }
   /* Round 26: two tabs making one at the same moment both passed the room check; the later one is taken back here. */
-  if (!(await madeWithinLimit(db, a.creatorId, made.community.id))) {
+  /* The plan could not be read the second time: taken back with Try again, never kept past a plan nobody could check (round rel2-auth). */
+  const within = await madeWithinLimit(db, a.creatorId, made.community.id).catch(() => null)
+  if (within !== true) {
     await db.from("communities").delete().eq("id", made.community.id)
-    return no(402, PLAN_LIMIT_ERROR)
+    return within === null ? no(503, "Storelib is not answering right now. Try again.") : no(402, PLAN_LIMIT_ERROR)
   }
   let community = made.community
   if (a.input.description) {

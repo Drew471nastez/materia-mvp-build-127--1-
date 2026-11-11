@@ -21,6 +21,7 @@ import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config
 import { subscriptionReader } from "@/lib/billing/subscription-reader"
 import { billingCreatorFor, billingPlanOverrideFor, billingSubscriptionRowFor } from "@/lib/billing/request-reads"
 import { resolveSubscriptionView, STRIPE_READ_TIMEOUT_MS, type SubscriptionsRead } from "@/lib/billing/subscription-state"
+import { routeUser } from "@/lib/auth/route-user"
 
 const FREE_PLAN = {
   id: "free",
@@ -103,9 +104,8 @@ export async function loadBillingOverview(store?: { creatorId: string }): Promis
   */
   let creatorId = store?.creatorId ?? null
   if (!creatorId) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser()
+    const user = who.kind === "user" ? who.user : null
     if (!user) return null
     const { data: own } = await createAdminClient().from("creators").select("id").eq("user_id", user.id).maybeSingle()
     creatorId = (own as { id?: string } | null)?.id ?? null
