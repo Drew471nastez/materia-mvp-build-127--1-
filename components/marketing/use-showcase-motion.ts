@@ -19,7 +19,7 @@ export function useShowcaseMotion(
       lastFrame = 0,
       velocity = 0
     let visible = true,
-      hovered = false,
+      keyboardActive = false,
       touching = false,
       paused = false,
       ownUntil = 0,
@@ -112,16 +112,16 @@ export function useShowcaseMotion(
         el.releasePointerCapture(event.pointerId)
       const samples = d.samples,
         last = samples[samples.length - 1],
-        first = samples.find((s) => s.t >= last.t - 85) || samples[0]
+        first = samples.find((s) => s.t >= last.t - 160) || samples[0]
       velocity =
         event.type === "pointerup" &&
         !reduce.matches &&
-        event.timeStamp - last.t < 100
+        event.timeStamp - last.t < 180
           ? Math.max(
               -2.5,
               Math.min(
                 2.5,
-                -(last.x - first.x) / Math.max(16, last.t - first.t),
+                -(last.x - first.x) / Math.max(16, event.timeStamp - first.t),
               ),
             )
           : 0
@@ -131,6 +131,7 @@ export function useShowcaseMotion(
       interact()
     }
     const down = (event: PointerEvent) => {
+      keyboardActive = false
       interact()
       stop()
       if (event.pointerType !== "mouse") {
@@ -159,7 +160,11 @@ export function useShowcaseMotion(
       event.preventDefault()
       position = drag.left - (event.clientX - drag.x)
       drag.samples.push({ x: event.clientX, t: event.timeStamp })
-      if (drag.samples.length > 12) drag.samples.shift()
+      while (
+        drag.samples.length > 2 &&
+        drag.samples[1].t < event.timeStamp - 180
+      )
+        drag.samples.shift()
       if (!frame) frame = requestAnimationFrame(tick)
     }
     const lost = () => {
@@ -185,13 +190,8 @@ export function useShowcaseMotion(
       interact()
       position = el.scrollLeft
     }
-    const enter = (event: PointerEvent) => {
-      if (event.pointerType === "mouse") hovered = true
-    }
-    const leave = () => {
-      hovered = false
-    }
     const key = (event: KeyboardEvent) => {
+      keyboardActive = true
       interact()
       stop()
       if (event.key === " ") {
@@ -231,14 +231,13 @@ export function useShowcaseMotion(
     const timer = setInterval(() => {
       if (
         !visible ||
-        hovered ||
         paused ||
         touching ||
         drag ||
         frame ||
         document.hidden ||
         reduce.matches ||
-        el.matches(":focus-within") ||
+        (keyboardActive && el.matches(":focus-within")) ||
         performance.now() < resumeAt
       )
         return
@@ -252,8 +251,6 @@ export function useShowcaseMotion(
     el.addEventListener("pointerup", end)
     el.addEventListener("pointercancel", end)
     el.addEventListener("lostpointercapture", lost)
-    el.addEventListener("pointerenter", enter)
-    el.addEventListener("pointerleave", leave)
     el.addEventListener("scroll", scroll, { passive: true })
     el.addEventListener("wheel", wheel, { passive: true })
     el.addEventListener("keydown", key)
@@ -272,8 +269,6 @@ export function useShowcaseMotion(
       el.removeEventListener("pointerup", end)
       el.removeEventListener("pointercancel", end)
       el.removeEventListener("lostpointercapture", lost)
-      el.removeEventListener("pointerenter", enter)
-      el.removeEventListener("pointerleave", leave)
       el.removeEventListener("scroll", scroll)
       el.removeEventListener("wheel", wheel)
       el.removeEventListener("keydown", key)

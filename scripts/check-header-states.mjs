@@ -216,6 +216,12 @@ const r8 = (b) => b && b.radius === "8px"
 /* ------------------------------------------------------------------ */
 if(process.env.HEADER_ONLY==='mobile-scroll'){
   const p=await open(PHONE(390),'/','guest')
+  await sleep(400)
+  const initialHeader=await p.evaluate(()=>({bg:getComputedStyle(document.querySelector('#platform-header-root')).backgroundColor,heroTop:document.querySelector('[data-home-hero]').getBoundingClientRect().top,transition:getComputedStyle(document.querySelector('#platform-header-root')).transitionProperty}))
+  expect(initialHeader.bg==='rgba(0, 0, 0, 0)' && Math.abs(initialHeader.heroTop)<1 && initialHeader.transition.includes('background-color'),'transparent header overlays the hero from the first layout',initialHeader)
+  await p.evaluate(()=>scrollTo(0,150));await sleep(400)
+  expect(await p.$eval('#platform-header-root',e=>getComputedStyle(e).backgroundColor)==='rgb(16, 16, 18)','scrolling fades the homepage header to solid')
+  await p.evaluate(()=>scrollTo(0,0));await sleep(400)
   const heroHeight=await p.$eval('[data-home-hero]',e=>e.getBoundingClientRect().height)
   for(const height of [844,650,900]){
     await p.setViewport({width:390,height,isMobile:true,hasTouch:true,deviceScaleFactor:2})
@@ -236,6 +242,13 @@ if(process.env.HEADER_ONLY==='mobile-scroll'){
 if(process.env.HEADER_ONLY==='marketing'){
   for(const path of ['/','/pricing']){
     const p=await open(DESK(1440),path,'guest')
+    if(path==='/'){
+      const top=await p.evaluate(()=>({heroTop:document.querySelector('[data-home-hero]').getBoundingClientRect().top,bg:getComputedStyle(document.querySelector('#platform-header-root')).backgroundColor,sell:!!document.querySelector('a[href="/sell"]'),divider:getComputedStyle(document.querySelector('[data-guest-divider]')).display}))
+      expect(Math.abs(top.heroTop)<1 && top.bg==='rgba(0, 0, 0, 0)' && top.sell && top.divider==='none','desktop header overlays video transparently and keeps Sell on Storelib',top)
+      await p.evaluate(()=>scrollTo(0,160));await sleep(400)
+      expect(await p.$eval('#platform-header-root',e=>getComputedStyle(e).backgroundColor)==='rgb(16, 16, 18)','desktop header becomes solid after scrolling')
+      await p.evaluate(()=>scrollTo(0,0));await sleep(400)
+    }
     const selector='[data-marketing-nav] a[href="/blog"]'
     const links=await p.$$eval('[data-marketing-nav] a',els=>els.map(e=>({radius:getComputedStyle(e).borderRadius,bg:getComputedStyle(e).backgroundColor,transition:getComputedStyle(e).transitionProperty})))
     expect(links.length>=4&&links.every(n=>n.radius==='0px'&&n.bg==='rgba(0, 0, 0, 0)'&&n.transition.includes('color')),`${path}: plain marketing links, no pills, color transitions`,links)

@@ -432,6 +432,10 @@ try {
       ),
       390,
     )
+    const showcaseStyle = await page.$eval('[data-build-showcase]', e => ({bg:getComputedStyle(e).backgroundColor, radius:getComputedStyle(e).borderRadius, margin:getComputedStyle(e).marginTop}))
+    assert.deepEqual(showcaseStyle, {bg:'rgb(255, 255, 255)',radius:'0px',margin:'0px'}, 'showcase is a normal white section without corner wedges')
+    assert.equal(await page.$eval('.build-showcase-track', e => Math.round(e.getBoundingClientRect().left)), 22, 'the carousel stays inset from the phone edges')
+    assert.equal(await page.$eval('.cinematic-period', e => getComputedStyle(e).color), await page.$eval('.cinematic-phrases', e => getComputedStyle(e).color), 'headline dot inherits the headline color')
     await page.focus("input[type=email]")
     assert.equal(
       await page.$eval(
@@ -464,7 +468,7 @@ try {
         "#platform-header-root",
         (e) => getComputedStyle(e).backgroundColor,
       ),
-      "rgb(16, 16, 18)",
+      "rgba(0, 0, 0, 0)",
     )
     assert.equal(
       await page.$$eval(".cinematic-reassurance", (e) => e.length),
@@ -550,7 +554,7 @@ try {
       els.map((e) => getComputedStyle(e).color),
     )
     assert.notDeepEqual(before, after, "words fill with scroll")
-    assert.ok(after.every((c) => c === "rgb(248, 248, 248)"))
+    assert.ok(after.every((c) => c === "rgb(20, 20, 20)"))
     const track = ".build-showcase-track"
     const start = await page.$eval(track, (e) => e.scrollLeft)
     await page.mouse.move(0, 0)
@@ -584,6 +588,26 @@ try {
       Math.abs((await page.$eval(track, (e) => e.scrollLeft)) - settled) < 2,
       "inertia gently settles",
     )
+    for (const duration of [1000, 2000]) {
+      await page.mouse.move(box.x + 280, box.y + 80)
+      await page.mouse.down()
+      for (let i = 1; i <= 20; i++) {
+        await page.mouse.move(box.x + 280 - i * 10, box.y + 80)
+        await pause(duration / 20)
+      }
+      await page.mouse.up()
+      const release = await page.$eval(track, e => e.scrollLeft)
+      await pause(180)
+      const longCoast = await page.$eval(track, e => e.scrollLeft)
+      const period = await page.$eval(track, e => (e.querySelector('[data-showcase-slide]').getBoundingClientRect().width + parseFloat(getComputedStyle(e).columnGap)) * 5)
+      const distance = (longCoast - release + period) % period
+      assert.ok(distance > 5 && distance < period / 2, `a ${duration}ms drag coasts on release: ${release} -> ${longCoast}, distance ${distance}`)
+      await pause(1800)
+    }
+    const resumeStart = await page.$eval(track, e => e.scrollLeft)
+    await page.focus(track) // Pointer focus must not indefinitely disable autoplay.
+    await pause(12500)
+    assert.ok(await page.$eval(track, (e, start) => Math.abs(e.scrollLeft - start) > 20, resumeStart), "autoplay resumes after interaction with the pointer still over the rail")
     await page.focus(track)
     await page.keyboard.press("Space")
     assert.equal(

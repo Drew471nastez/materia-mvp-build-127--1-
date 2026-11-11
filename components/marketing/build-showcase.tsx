@@ -51,7 +51,7 @@ export function BuildShowcase() {
           const fill = reduce.matches
             ? 1
             : Math.max(0, Math.min(1, progress * WORDS.length - i))
-          const tone = Math.round(110 + fill * 138)
+          const tone = Math.round(145 - fill * 125)
           word.style.color = `rgb(${tone},${tone},${tone})`
         })
     }
@@ -100,7 +100,7 @@ export function BuildShowcase() {
               <span
                 key={word}
                 data-showcase-word=""
-                style={{ color: i === 0 ? "#f8f8f8" : "#6e6e6e" }}
+                style={{ color: i === 0 ? "#141414" : "#919191" }}
               >
                 {word}
                 {i < WORDS.length - 1 ? " " : ""}
@@ -147,19 +147,20 @@ export function BuildShowcase() {
 }
 
 const CSS = `
-.build-showcase { position:relative; z-index:2; margin-top:-24px; padding:0; color:#f8f8f8; background:transparent; }
-.build-showcase-card { width:100%; margin:0; overflow:hidden; border-radius:40px 40px 0 0; background:#040505; padding:58px 0 34px; transition:transform 220ms ease-out; transform:translate3d(0,calc((1 - var(--showcase-enter,0))*24px),0); }
-.build-showcase-top { padding:0 clamp(24px,6vw,96px); display:flex; align-items:flex-end; justify-content:space-between; gap:32px; margin-bottom:34px; }
+.build-showcase { position:relative; z-index:2; margin-top:0; padding:0; color:#141414; background:#fff; }
+.build-showcase-card { width:100%; margin:0; overflow:hidden; background:#fff; padding:64px 0 48px; }
+.build-showcase-top { padding:0; margin-inline:clamp(24px,6vw,96px); display:flex; align-items:flex-end; justify-content:space-between; gap:32px; margin-bottom:34px; }
 .build-showcase h2 { max-width:760px; margin:0; font-size:clamp(36px,4.3vw,64px); line-height:1.08; font-weight:500; letter-spacing:-.05em; }
 .build-showcase-help {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .build-showcase-track:focus-visible {outline:none;box-shadow:inset 0 0 0 1px rgba(185,160,255,.4)}
-.build-showcase-track { display:flex; gap:20px; padding:0 0 14px; overflow-x:auto; scrollbar-width:none; overscroll-behavior-x:contain; cursor:grab; touch-action:pan-x pan-y; user-select:none;-webkit-user-select:none;-webkit-overflow-scrolling:touch; }
+.build-showcase-top, .build-showcase-track { transition:transform 320ms ease-out; transform:translate3d(0,calc((1 - var(--showcase-enter,0))*24px),0); }
+.build-showcase-track { margin-inline:clamp(24px,6vw,96px); display:flex; gap:20px; padding:0 0 14px; overflow-x:auto; scrollbar-width:none; overscroll-behavior-x:contain; cursor:grab; touch-action:pan-x pan-y; user-select:none;-webkit-user-select:none;-webkit-overflow-scrolling:touch; }
 .build-showcase-track::-webkit-scrollbar { display:none; }
 .build-showcase-track[data-dragging] { cursor:grabbing; user-select:none; }
 .build-showcase-slide { position:relative; flex:0 0 min(56vw,680px); margin:0; overflow:hidden; border-radius:20px; background:#17191a; }
 .build-showcase-slide img { display:block; width:100%; height:auto; aspect-ratio:16/10; object-fit:cover; pointer-events:none; }
 .build-showcase-slide figcaption { padding:16px 20px; font-size:14px; color:#fff; }
-@media(max-width:767px){.build-showcase{padding:0;margin-top:-18px}.build-showcase-card{border-radius:28px 28px 0 0;padding:32px 0 18px}.build-showcase-top{padding:0 22px;gap:22px;margin-bottom:24px;align-items:start;flex-direction:column}.build-showcase h2{font-size:clamp(32px,8vw,45px);max-width:520px}.build-showcase-track{padding-inline:0;gap:14px}.build-showcase-slide{flex-basis:84vw;border-radius:16px}}
+@media(max-width:767px){.build-showcase{padding:0;margin-top:0}.build-showcase-card{padding:36px 0 28px}.build-showcase-top{padding:0;margin-inline:22px;gap:22px;margin-bottom:24px;align-items:start;flex-direction:column}.build-showcase h2{font-size:clamp(32px,8vw,45px);max-width:520px}.build-showcase-track{margin-inline:22px;padding-inline:0;gap:14px}.build-showcase-slide{flex-basis:calc(100vw - 70px);border-radius:16px}}
 @media(min-width:1024px){.build-showcase h2{font-size:clamp(34px,4.15vw,61px)}.build-showcase-slide figcaption{font-size:13.3px}}
-@media(prefers-reduced-motion:reduce){.build-showcase-card{transform:none;transition:none}.build-showcase h2 span{color:#f8f8f8!important}}
+@media(prefers-reduced-motion:reduce){.build-showcase-top,.build-showcase-track{transform:none;transition:none}.build-showcase h2 span{color:#141414!important}}
 `
