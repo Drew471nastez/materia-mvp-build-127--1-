@@ -278,6 +278,17 @@ export function heroCoverShown(theme: CoverThemeLike): boolean {
 }
 
 /**
+ * Whether the creator's own cover fades into the page at its foot (round AS,
+ * the owner: "add a fade at its bottom so it blends into the page"). On by
+ * default, off with `cover_fade: false` (Design, under the cover). A Hero
+ * made from the cover always fades; a theme's own cover keeps its band.
+ */
+export function coverFades(theme: (CoverThemeLike & { cover_fade?: unknown }) | null | undefined): boolean {
+  if (!theme || theme.cover_profile_layout !== true || coverImageOf(theme) === null) return false
+  return heroCoverShown(theme) || theme.cover_fade !== false
+}
+
+/**
  * The cover band's shape, width over height. The editor's crop frame and the
  * page both read it, so the crop dragged into place is the crop drawn.
  *

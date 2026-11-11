@@ -60,7 +60,7 @@ import { skinRootProps, skinVars } from "@/lib/onepage/theme-skin"
 import { skinOwnRootProps } from "@/lib/onepage/skin-own"
 /* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
 import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
-import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, mixedTileSizes, pairLinkTiles } from "@/lib/onepage/theme-layout"
+import { blockGapClass, blockLayoutOf, coverAspect, coverFades, coverImageOf, heroCoverShown, headerAlignOf, isLinkTilePair, linkDrawnAsCard, mixedTileSizes, pairLinkTiles } from "@/lib/onepage/theme-layout"
 import { sheetPalette, sheetRootCss } from "@/lib/onepage/sheet-theme"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
@@ -73,7 +73,7 @@ import { usePressFeel } from "@/components/onepage/press-feel"
 import { leavingProps, useLeavingBlocks } from "@/components/onepage/leaving-block"
 import { heroScrollEffect } from "@/lib/onepage/feel"
 import { PosterVideo } from "@/components/onepage/poster-video"
-import { HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/lib/onepage/poster-video"
+import { COVER_FADE_MASK, HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/lib/onepage/poster-video"
 import { readableOn } from "@/lib/onepage/theme-apply"
 import { photoVeil, readableInk, readableTheme, signupCard, smallPrintAlpha } from "@/lib/onepage/contrast"
 import { pressableProps } from "@/lib/onepage/block-look"
@@ -2893,8 +2893,13 @@ function CoreBlockRenderer({
 
       // Hero layout: the picture fades into the page itself (a mask), so any wallpaper under it, a pattern included, carries on
       if (heroHeaderShown(theme as any, profile)) {
-        // Desktop: +10% taller (14/11 vs old 7/5), Mobile: +20% taller (10/9 vs old 4/3)
-        const aspectRatio = isDesktop ? "14/11" : "10/9"
+        /*
+          Round AS, the owner's "fade" layout, as link.me draws it: a large picture that melts into the page, the name
+          over the melted part. Taller than it was (10/9 on a phone, 14/11 on a computer): 4/5 and square.
+        */
+        const aspectRatio = isDesktop ? "1/1" : "4/5"
+        /* The words over the melted part get a halo of the page's own colour, not a black shadow: dark words on a light page stay crisp. */
+        const halo = `color-mix(in srgb, ${pageCanvasColour(theme as any)} 72%, transparent)`
         const heroMargin = isDesktop ? "-mx-7 -mt-0" : "-mx-5 -mt-8"
         const heroWidth = isDesktop ? "w-[calc(100%+56px)]" : "w-[calc(100%+40px)]"
         const heroPosition = { objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }
@@ -2991,7 +2996,7 @@ function CoreBlockRenderer({
                       style={{
                         color: (theme as any).title_color || theme.text_color,
                         fontFamily: fontStack((theme as any).title_font || theme.font_family),
-                        textShadow: "0 2px 8px rgba(0,0,0,0.4)",
+                        textShadow: `0 1px 14px ${halo}, 0 0 2px ${halo}`,
                         ...titleTypeStyle(theme as never),
                         ...(nameStyleOf(theme as never) ? nameStyleReset(true) : null),
                       }}
@@ -3010,7 +3015,7 @@ function CoreBlockRenderer({
                   className={cn("mt-2 max-w-sm mx-auto", bioSizeClass(theme as never, true, isDesktop))}
                   style={{
                     color: theme.secondary_text_color || theme.text_color,
-                    textShadow: "0 1px 4px rgba(0,0,0,0.4)",
+                    textShadow: `0 1px 10px ${halo}`,
                     ...bioTypeStyle(theme as never),
                   }}
                 >
@@ -3047,6 +3052,9 @@ function CoreBlockRenderer({
       const ownCover = (theme as any).cover_profile_layout === true
       const heroCover = heroCoverShown(theme as any)
       const coverRatio = coverAspect(theme as any, isDesktop)
+      /* Round AS: the creator's own cover melts into the page at its foot, unless switched off (lib/onepage/theme-layout coverFades). */
+      const coverFade = coverFades(theme as any)
+      const coverMask = heroCover ? HERO_FADE_MASK : coverFade ? COVER_FADE_MASK : undefined
 
       return (
         <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")} data-op-header="" data-op-cover={cover ? (heroCover ? "hero" : "") : undefined}>
@@ -3077,11 +3085,12 @@ function CoreBlockRenderer({
               <div
                 className="relative w-full overflow-hidden"
                 data-cover-band={heroCover ? "hero" : ownCover ? "own" : "theme"}
+                data-cover-fade={coverMask ? "" : undefined}
                 style={{
                   aspectRatio: String(coverRatio),
-                  backgroundColor: heroCover ? undefined : `color-mix(in srgb, ${theme.text_color || "#000000"} 8%, transparent)`,
-                  maskImage: heroCover ? HERO_FADE_MASK : undefined,
-                  WebkitMaskImage: heroCover ? HERO_FADE_MASK : undefined,
+                  backgroundColor: coverMask ? undefined : `color-mix(in srgb, ${theme.text_color || "#000000"} 8%, transparent)`,
+                  maskImage: coverMask,
+                  WebkitMaskImage: coverMask,
                 }}
               >
                 <ProfileImage
