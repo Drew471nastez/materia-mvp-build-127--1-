@@ -93,7 +93,6 @@ import {
   shelfTakes,
   shelfUsesProductCards,
   socialPost,
-  youtubeChannel,
   type FollowerEntry,
   type FollowerNetwork,
   type FollowersBlockData,
@@ -610,8 +609,8 @@ function postCardLook(raw: SocialPostsBlockData, image: string | undefined): Blo
 
 function PostsView({ block, look }: { block: OnePageBlock; look: StorelibBlockLook }) {
   const raw = block.data as SocialPostsBlockData
-  /* Pasted posts need no server unless a TikTok wants its picture or a channel is named. */
-  const ready = (d: SocialPostsBlockData) => Array.isArray(d.items) || (!(d.network === "youtube" && youtubeChannel(d.channel_url)) && !pastedPosts(d).some((p) => p.kind === "tiktok"))
+  /* Pasted posts need no server unless a TikTok wants its picture. Nothing is pulled from a profile or a channel. */
+  const ready = (d: SocialPostsBlockData) => Array.isArray(d.items) || !pastedPosts(d).some((p) => p.kind === "tiktok")
   const { data, loading } = useLiveData<SocialPostsBlockData>(block, look, ready)
   const items = Array.isArray(data.items) ? data.items : pastedPosts(raw)
   if (!loading && items.length === 0) return null
@@ -789,8 +788,7 @@ export function storelibBlockRow(block: OnePageBlock): { title: string; subtitle
     case "social_posts": {
       const data = d as unknown as SocialPostsBlockData
       const n = pastedPosts(data).length
-      const synced = data.network === "youtube" && youtubeChannel(data.channel_url)
-      return { title: data.title?.trim() || tt("Posts"), subtitle: synced ? tt("Latest videos, synced") : n ? tt("{count, plural, one {# post} other {# posts}}", { count: n }) : tt("Paste your posts"), icon: GlyphSocial }
+      return { title: data.title?.trim() || tt("Posts"), subtitle: n ? tt("{count, plural, one {# post} other {# posts}}", { count: n }) : tt("Paste your posts"), icon: GlyphSocial }
     }
     case "followers": {
       const total = followerTotal((d as unknown as FollowersBlockData).networks)
@@ -1292,7 +1290,8 @@ function PostsEditor({ data, updateData }: { data: SocialPostsBlockData; updateD
   const [text, setText] = React.useState(urls.join("\n"))
   const valid = pastedPosts({ post_urls: text.split(/\s+/), network })
   const bad = text.split(/\s+/).filter((u) => u.trim() && !socialPost(u)).length
-  const channelOk = !data.channel_url?.trim() || youtubeChannel(data.channel_url) !== null
+  /* A block from before posts were picked by hand: its channel is no longer read, so it says so until posts are pasted. */
+  const oldChannel = network === "youtube" && !!data.channel_url?.trim() && urls.length === 0
   const shown = data.presentation || "native"
   const settingsHalf = (
     <div className="space-y-4" data-posts-settings="">
@@ -1300,19 +1299,13 @@ function PostsEditor({ data, updateData }: { data: SocialPostsBlockData; updateD
         <Label className={fieldLabel}>{tt("Network")}</Label>
         <Segmented<SocialPostsNetwork> label={tt("Network")} value={network} options={[{ id: "youtube", label: "YouTube" }, { id: "instagram", label: "Instagram" }, { id: "tiktok", label: "TikTok" }]} onChange={(v) => updateData({ network: v })} />
       </div>
-      {network === "youtube" ? (
-        <div className={fieldBox}>
-          <Label className={fieldLabel}>{tt("Your channel")}</Label>
-          <Input value={data.channel_url || ""} inputMode="url" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="https://www.youtube.com/@you" onChange={(e) => updateData({ channel_url: e.target.value.trim() })} aria-invalid={!channelOk || undefined} />
-          <p className={cn("text-[12px]", channelOk ? "text-[#6b7280]" : "text-[#b42318]")}>{channelOk ? tt("Your latest videos show by themselves, checked every hour.") : tt("Paste your channel link, like youtube.com/@you.")}</p>
-        </div>
-      ) : (
-        <p className="rounded-xl bg-[#f6f6f7] p-3 text-[12.5px] leading-relaxed text-[#4b5563]">
-          {network === "instagram" ? tt("Instagram has no public feed to read, so paste the posts and reels you want to show.") : tt("Paste the TikToks you want to show. Each shows its cover and plays on a tap.")}
+      {oldChannel ? (
+        <p className="rounded-xl bg-[#f6f6f7] p-3 text-[12.5px] leading-relaxed text-[#4b5563]" data-posts-old-channel="">
+          {tt("Videos no longer come from your channel by themselves. Paste the ones you want to show.")}
         </p>
-      )}
-      <div className={fieldBox}>
-        <Label className={fieldLabel}>{network === "youtube" ? tt("Or pick videos (one link a line)") : tt("Post links (one a line)")}</Label>
+      ) : null}
+      <div className={fieldBox} data-posts-paste="">
+        <Label className={fieldLabel}>{network === "youtube" ? tt("Video links (optional, one a line)") : network === "instagram" ? tt("Post and reel links (optional, one a line)") : tt("TikTok links (optional, one a line)")}</Label>
         <Textarea
           value={text}
           rows={4}

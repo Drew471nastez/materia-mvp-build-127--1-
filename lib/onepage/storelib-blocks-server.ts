@@ -14,10 +14,8 @@ import {withVariantPrices} from "@/lib/pricing/variant-price"
  *                    not archived, on the Creator page channel, not selling a
  *                    community tier), newest first; or their public
  *                    communities (lib/communities/server/public).
- *   social_posts     a YouTube channel's latest videos from its public feed
- *                    (youtube.com/feeds/videos.xml, no key), read again
- *                    every hour; a @handle is turned into its channel id
- *                    once a day. Pasted TikToks get their picture and caption
+ *   social_posts     only the posts the creator pasted; no profile or channel
+ *                    is read for posts by itself. Pasted TikToks get their picture and caption
  *                    from TikTok's public oEmbed (no key). Pasted Instagram
  *                    posts have no picture without a Meta app token, so they
  *                    are drawn in Instagram's own embed.
@@ -36,17 +34,13 @@ import { planIntervals } from "@/lib/memberships/intervals"
 import { offChannel } from "@/lib/store/channel-filter"
 import { creatorCommunityCards } from "@/lib/communities/server/public"
 import {
-  SOCIAL_POSTS_MAX,
   blueskyHandle,
-  channelIdFromPage,
-  parseYouTubeFeed,
   pastedPosts,
   shelfLimit,
   shelfPickedIds,
   shelfSource,
   shelfTakes,
   youtubeChannel,
-  youtubeFeedUrl,
   type FollowerEntry,
   type FollowersBlockData,
   type ShelfItem,
@@ -142,23 +136,6 @@ export async function shelfItems(db: Db, creatorId: string, source: ShelfSource,
 
 /* ── the posts ─────────────────────────────────────────────────────────── */
 
-/** A @handle's channel id, from its channel page, once a day. */
-async function channelIdOf(raw: string | null | undefined): Promise<string | null> {
-  const ch = youtubeChannel(raw)
-  if (!ch) return null
-  if (ch.kind === "id") return ch.id
-  const html = await cachedText(`https://www.youtube.com/@${encodeURIComponent(ch.handle)}`, 86_400, "text/html")
-  return html ? channelIdFromPage(html) : null
-}
-
-export async function channelVideos(channelUrl: string | null | undefined, limit: number): Promise<SocialPostItem[] | null> {
-  const id = await channelIdOf(channelUrl)
-  const feed = id ? youtubeFeedUrl(id) : null
-  if (!feed) return null
-  const xml = await cachedText(feed, 3600, "application/atom+xml")
-  return xml ? parseYouTubeFeed(xml, limit) : null
-}
-
 /** TikTok's public oEmbed: the video's picture and its caption. */
 async function withTikTokThumb(item: SocialPostItem): Promise<SocialPostItem> {
   if (item.kind !== "tiktok") return item
@@ -168,12 +145,8 @@ async function withTikTokThumb(item: SocialPostItem): Promise<SocialPostItem> {
   return { ...item, thumb, title }
 }
 
+/** The posts the creator pasted, and only those: a profile or a channel is never read for posts by itself. */
 export async function postsItems(data: SocialPostsBlockData): Promise<SocialPostItem[] | null> {
-  const limit = Math.min(SOCIAL_POSTS_MAX, Math.max(3, Number(data.limit) || 6))
-  if (data.network === "youtube" && youtubeChannel(data.channel_url)) {
-    const videos = await channelVideos(data.channel_url, limit)
-    if (videos) return videos
-  }
   const pasted = pastedPosts(data)
   if (pasted.length === 0) return null
   return Promise.all(pasted.map(withTikTokThumb))
