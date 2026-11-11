@@ -526,7 +526,10 @@ export interface CountdownBlockData {
 
 export interface MapBlockData {
   title?: string | null
+  /** A typed address or a Google Maps link (lib/onepage/map-place). */
   address: string
+  /** A short Google Maps link read once in the editor: the whole link it leads to, for the short link it was read from. */
+  place?: { from: string; url: string } | null
   show_button?: boolean
   /** Round AR3: how close the map starts (the street, the area, the city) and how tall it is. Missing: the area, medium. */
   zoom?: "street" | "area" | "city"

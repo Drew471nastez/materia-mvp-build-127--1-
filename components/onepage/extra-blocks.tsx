@@ -49,6 +49,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { scheduleLabel, videoAutoplays, videoEmbedUrl, videoSource } from "@/lib/onepage/extra-blocks"
+import { mapEmbedSrc, mapPlaceOf } from "@/lib/onepage/map-place"
+import { MapPlaceField } from "@/components/onepage/map-place-field"
 import { viewerZone, zoneLabel } from "@/lib/onepage/schedule"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DateTimeField } from "@/components/onepage/date-time-field"
@@ -270,7 +272,10 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
   /* In the editor the map follows the address once the typing stops, not on every letter: each change reloads the map. */
   const address = useSettled(typed, 700, !!look.preview)
   if (!typed) return null
-  const q = encodeURIComponent(address || typed)
+  /* A typed address or a Google Maps link, short ones read once in the editor (lib/onepage/map-place). */
+  const place = mapPlaceOf({ address: address || typed, place: data.place })
+  const src = place ? mapEmbedSrc(place, data.zoom || "area") : null
+  const openHref = place?.href ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(typed)}`
   /* Round 41: Open in Maps is the page's button, hover and size included (lib/onepage/block-look); the frame stops short of an oval. */
   const press = pressableProps(look.theme, look.still)
   const pad = buttonPadScale(look.theme)
@@ -283,11 +288,11 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
         </p>
       ) : null}
       <div className="relative w-full overflow-hidden bg-black/5" data-map-height={data.map_height || "medium"} style={{ borderRadius: radius, height: px(MAP_HEIGHT[data.map_height || "medium"] ?? 190, look.scale) }}>
-        {address ? (
+        {address && src ? (
           <iframe
-            key={`${address}:${data.zoom || "area"}`}
-            title={tt("Map of {address}", { address })}
-            src={`https://maps.google.com/maps?q=${q}&z=${MAP_ZOOM[data.zoom || "area"] ?? 15}&output=embed`}
+            key={`${src}`}
+            title={tt("Map of {address}", { address: place?.label || address })}
+            src={src}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
             className="h-full w-full border-0"
@@ -296,7 +301,7 @@ function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
       </div>
       {data.show_button !== false ? (
         <a
-          href={`https://www.google.com/maps/search/?api=1&query=${q}`}
+          href={openHref}
           target="_blank"
           rel="noopener noreferrer"
           data-hover={press["data-hover"]}
@@ -594,10 +599,12 @@ function sheetPlan(block: OnePageBlock, look: ExtraBlockLook): SheetPlan | null 
     }
     case "map": {
       const d = block.data as MapBlockData
-      const address = (d.address || "").trim()
-      if (!address) return null
-      const q = encodeURIComponent(address)
-      const href = `https://www.google.com/maps/search/?api=1&query=${q}`
+      const typed = (d.address || "").trim()
+      if (!typed) return null
+      const place = mapPlaceOf(d)
+      const address = place?.label || typed
+      const href = place?.href ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(typed)}`
+      const src = place ? mapEmbedSrc(place, d.zoom || "area") : null
       return {
         title: d.title?.trim() || address,
         subtitle: d.title?.trim() ? address : undefined,
@@ -605,9 +612,10 @@ function sheetPlan(block: OnePageBlock, look: ExtraBlockLook): SheetPlan | null 
         href,
         fill: true,
         body: () => (
-          <iframe
+          /* A short link not read yet has no place to draw: the sheet keeps its Open in Maps. */
+          !src ? null : <iframe
             title={tt("Map of {address}", { address })}
-            src={`https://maps.google.com/maps?q=${q}&z=${MAP_ZOOM[d.zoom || "area"] ?? 15}&output=embed`}
+            src={src}
             referrerPolicy="no-referrer-when-downgrade"
             className="block h-full min-h-[320px] w-full rounded-[16px] border-0"
           />
@@ -845,7 +853,7 @@ export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: s
     }
     case "map": {
       const d = block.data as MapBlockData
-      return { title: d.title?.trim() || tt("Map"), subtitle: d.address?.trim() || tt("Add an address"), icon: GlyphMap }
+      return { title: d.title?.trim() || tt("Map"), subtitle: (d.address?.trim() && (mapPlaceOf(d)?.label || d.address.trim())) || tt("Add an address"), icon: GlyphMap }
     }
     case "video": {
       const d = block.data as VideoBlockData
@@ -982,10 +990,7 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
             <Label className={label}>{tt("Title (optional)")}</Label>
             <Input value={d.title ?? ""} maxLength={80} placeholder={tt("Visit the studio")} onChange={(e) => updateData({ title: e.target.value })} />
           </div>
-          <div className={field}>
-            <Label className={label}>{tt("Address or place")}</Label>
-            <Input value={d.address || ""} maxLength={200} placeholder={tt("Strada Lipscani 12, Bucharest")} onChange={(e) => updateData({ address: e.target.value })} />
-          </div>
+          <MapPlaceField data={d} updateData={updateData} />
           <LabeledRow label={tt("How close")}>
             <Segmented label={tt("How close")} value={d.zoom || "area"} options={[{ id: "street", label: tt("Street") }, { id: "area", label: tt("Area") }, { id: "city", label: tt("City") }]} onChange={(zoom) => updateData({ zoom: zoom as MapBlockData["zoom"] })} />
           </LabeledRow>

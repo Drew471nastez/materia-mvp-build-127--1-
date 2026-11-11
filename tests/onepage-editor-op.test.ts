@@ -5,7 +5,7 @@
  * placeholders, YouTube autoplay, the Canva mark, addresses and phone
  * numbers).
  *
- * scripts/check-onepage-pick-op.mjs measures the click to select in
+ * scripts/check-onepage-editor-op.mjs measures the click to select in
  * Chromium.
  */
 import { existsSync, readFileSync } from "node:fs"
@@ -17,6 +17,7 @@ import { videoAutoplays, videoEmbedUrl, videoSource } from "@/lib/onepage/extra-
 import { createDefaultBlock } from "@/lib/onepage/types"
 import { actionHref, fillTemplate, formVars, normaliseAction, slotVars, templateVariablesIn, TEMPLATE_VARIABLES } from "@/lib/forms/actions"
 import { blockActionVars } from "@/lib/onepage/block-action"
+import { isGoogleMapsLink, isShortMapsLink, mapEmbedSrc, mapPlace, mapPlaceOf } from "@/lib/onepage/map-place"
 import { isLinkBrandIcon, linkIconFromUrl, linkIconLabel } from "@/components/onepage/link-icons"
 
 let passed = 0
@@ -146,6 +147,30 @@ section("Booking message: what each variable puts in, filled in every channel")
   check("a booking form's chat after booking carries the slot as {date} and {time}", /slotVars\(booking\.starts_at, definition\.booking\?\.timezone\)/.test(route))
   const ed = code("components/forms/action-editor.tsx")
   check("the editor says what each used variable puts in, asks for the service, and shows an example", /data-variable-meanings/.test(ed) && /data-variable-service/.test(ed) && /data-message-example/.test(ed))
+}
+
+section("Map: a typed address or a Google Maps link")
+{
+  const typed = mapPlace("350 5th Ave, New York, NY 10118")!
+  check("a typed address is searched as typed", typed.kind === "address" && typed.query === "350 5th Ave, New York, NY 10118" && typed.href === "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("350 5th Ave, New York, NY 10118"))
+  const place = mapPlace("https://www.google.com/maps/place/Empire+State+Building/@40.7484405,-73.9878531,17z/data=!3m1!4b1!4m6!3m5!1s0x89c259a9b3117469:0xd134e199a405a163!8m2!3d40.7484405!4d-73.9856644!16zL20vMDJuZF8?entry=ttu")!
+  check("a place link: its name, and its exact point (not the screen's centre)", place.kind === "link" && place.label === "Empire State Building" && /^40\.7484[0-9]*,-73\.98566[0-9]*$/.test(place.query) && /^https:\/\/www\.google\.com\/maps\/place\//.test(place.href))
+  check("a dropped point", mapPlace("https://www.google.com/maps/@40.7484,-73.9857,17z")?.query === "40.7484,-73.9857")
+  check("a search link", mapPlace("https://www.google.com/maps/search/?api=1&query=Joe%27s+Pizza+Carmine+St")?.query === "Joe's Pizza Carmine St")
+  check("q= with a point, and maps.google.com", mapPlace("https://maps.google.com/?q=40.7484,-73.9857")?.query === "40.7484,-73.9857")
+  check("directions: where they end", mapPlace("https://www.google.com/maps/dir/Home/Joe's+Pizza,+7+Carmine+St,+New+York/@40.73,-74.00,15z")?.label === "Joe's Pizza, 7 Carmine St, New York")
+  check("a link pasted without https", mapPlace("google.com/maps/place/Katz's+Delicatessen")?.label === "Katz's Delicatessen")
+  check("typed coordinates pin that point", mapPlace("40.7484, -73.9857")?.query === "40.7484,-73.9857")
+  check("a short Share link waits to be read", mapPlace("https://maps.app.goo.gl/AbCdEf123")?.kind === "short" && isShortMapsLink("maps.app.goo.gl/AbCdEf123") && isShortMapsLink("https://goo.gl/maps/xyz") && !isShortMapsLink("https://goo.gl/abc"))
+  check("another site's link is not a place", mapPlace("https://example.com/where") === null && !isGoogleMapsLink("https://google.com/search?q=x"))
+  const kept = mapPlaceOf({ address: "https://maps.app.goo.gl/AbCdEf123", place: { from: "https://maps.app.goo.gl/AbCdEf123", url: "https://www.google.com/maps/place/Joe's+Pizza/@40.73,-74.00,17z/data=!3d40.7305!4d-74.0021" } })
+  check("a short link read once draws its place, and Open in Maps keeps the short link", kept?.query === "40.7305,-74.0021" && kept?.label === "Joe's Pizza" && kept?.href === "https://maps.app.goo.gl/AbCdEf123")
+  check("a kept reading for another link is not used", mapPlaceOf({ address: "Times Square", place: { from: "https://maps.app.goo.gl/old", url: "https://www.google.com/maps/@1,2,3z" } })?.query === "Times Square")
+  check("the frame is Google's embed, at the chosen distance", mapEmbedSrc(typed, "street") === "https://maps.google.com/maps?q=" + encodeURIComponent("350 5th Ave, New York, NY 10118") + "&z=17&output=embed" && mapEmbedSrc(mapPlace("https://maps.app.goo.gl/x")!) === null)
+  const field = code("components/onepage/map-place-field.tsx")
+  check("the field's example is in New York, not a Romanian street", /350 5th Ave, New York/.test(field) && !/Strada/.test(field + code("components/onepage/extra-blocks.tsx")))
+  const route = code("app/api/onepage/map-place/route.ts")
+  check("the short link is read signed in, rate limited, only Google's short hosts, through the public-only guard", /routeUser\(\)/.test(route) && /bucket: "onepage-map-place"/.test(route) && /isShortMapsLink\(raw\)/.test(route) && /redirectTarget\(/.test(route))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

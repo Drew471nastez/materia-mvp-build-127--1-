@@ -23,8 +23,11 @@
  *   header     a click on the name in the preview opens the header block
  *   autoplay   a YouTube video set to play by itself loads its player muted
  *              once it is on screen, and not before
+ *   map        the map's field takes a typed address, a Google Maps place
+ *              link and a short Share link (read once); the preview's map
+ *              searches for what was found
  *
- *   node scripts/check-onepage-pick-op.mjs
+ *   node scripts/check-onepage-editor-op.mjs
  *   SHOTS=<dir>  screenshots;  REPORT=1  numbers only, nothing fails
  */
 import { mkdirSync } from "node:fs"
@@ -50,8 +53,13 @@ const blocks = [
   { id: "auto", type: "video", enabled: true, sort_order: 30, data: { url: "https://youtu.be/aqz-KE-bpKQ", layout: "player", autoplay: true } },
   ...links,
   { id: "last", type: "link_button", enabled: true, sort_order: 40, data: { label: "The last link", url: "https://example.com/last" } },
+  { id: "map", type: "map", enabled: true, sort_order: 41, data: { title: "Visit", address: "350 5th Ave, New York, NY 10118" } },
 ]
-const { base, server } = await serveEditorProbe({ blocks, fail })
+/* The short link Google Maps' Share button makes, read by app/api/onepage/map-place: answered here as Google would lead it. */
+const SHORT = "https://maps.app.goo.gl/AbCdEf123"
+const LONG = "https://www.google.com/maps/place/Joe's+Pizza/@40.7305,-74.0021,17z/data=!3d40.730546!4d-74.002136"
+const api = (req) => (req.url.startsWith("/api/onepage/map-place") ? (new URL(req.url, "http://x").searchParams.get("url") === SHORT ? { body: { url: LONG, label: "Joe's Pizza" } } : { status: 422, body: { error: "This link did not lead to a place. Paste the address instead." } }) : null)
+const { base, server } = await serveEditorProbe({ blocks, fail, api })
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"], protocolTimeout: 600000 })
 
 try {
@@ -200,6 +208,42 @@ try {
   })
   expect(before === "waiting", "off screen it waits (no player loaded)", before)
   expect(after.state === "playing" && /autoplay=1/.test(after.src || "") && /mute=1/.test(after.src || ""), "on screen its player loads, muted, playing", after)
+
+  console.log("\nmap: a typed address or a Google Maps link")
+  await scrollFrameTo('[data-op-block="map"]')
+  await sleep(400)
+  t = await at('[data-op-block="map"]', 0.5, 0.4)
+  await p.mouse.click(t.x, t.y)
+  await sleep(900)
+  expect((await openId()) === "map", "a click on the map opens it (its frame does not take the click)", await openId())
+  const field = '[data-block-id="map"] [data-map-place-field] input'
+  const placeholder = await p.$eval(field, (e) => e.placeholder).catch(() => null)
+  expect(placeholder && /New York/.test(placeholder) && !/Strada/.test(placeholder), "the example address is in New York", placeholder)
+  const typeIn = async (text) => {
+    await p.evaluate((sel, v) => { const el = document.querySelector(sel); el.focus(); el.select(); document.execCommand("insertText", false, v) }, field, text)
+  }
+  const said = () => p.evaluate(() => { const e = document.querySelector('[data-block-id="map"] [data-map-place-said]'); return e ? { tone: e.getAttribute("data-map-place-said"), text: e.textContent } : null })
+  const mapSrc = () => frame.evaluate(() => document.querySelector('[data-op-block="map"] iframe')?.getAttribute("src") ?? null)
+  await typeIn(SHORT)
+  await sleep(1800)
+  const s1 = await said()
+  expect(s1 && s1.tone === "quiet" && /Joe's Pizza/.test(s1.text), "a short Share link is read once: Found Joe's Pizza", s1)
+  const src1 = await mapSrc()
+  expect(/q=40\.730546%2C-74\.002136/.test(src1 || ""), "the preview's map pins the place's own point", src1)
+  await typeIn("https://www.google.com/maps/place/Katz's+Delicatessen/@40.7223,-73.9874,17z")
+  await sleep(1200)
+  const s2 = await said()
+  expect(s2 && /Katz's Delicatessen/.test(s2.text), "a whole place link says what it found", s2)
+  await typeIn("https://example.com/where")
+  await sleep(400)
+  const s3 = await said()
+  expect(s3 && s3.tone === "problem", "another site's link says, calmly, what to paste", s3)
+  await typeIn("Times Square, New York")
+  await sleep(1300)
+  const s4 = await said()
+  const src4 = await mapSrc()
+  expect(s4 === null && /q=Times%20Square%2C%20New%20York/.test(src4 || ""), "a typed address is the map's search, nothing more to say", { s4, src4 })
+  await shotIf(p, "editor-op-map")
 
   expect(errors.length === 0, "no error in the page", errors)
 } finally {
