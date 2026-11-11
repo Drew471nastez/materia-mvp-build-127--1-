@@ -368,7 +368,8 @@ async function main() {
     check("the new blocks count through the page's one counter (noteTracked)", /useTrack\(look\)/.test(views) && /noteTracked\(\)/.test(code(read("components/onepage/app-block.tsx"))))
     check("a vote is not counted as a click any more: the vote is the record", !/vote-\$\{/.test(views))
     const route = code(read("app/api/onepage/track/route.ts"))
-    check("a click is written only when Analytics says a person pressed it", /legacyClickAllowed\(outcome\)/.test(route) && /\.eq\("visitor_id", visitorId\)/.test(route))
+    /* Changed on purpose (round rel2-public): the older click table is not written at all; Analytics' link_click is the record. */
+    check("a click is recorded by Analytics alone", /await recordLinkClick\(request, body\)/.test(route) && !/onepage_clicks/.test(route.replace(/\/\*[\s\S]*?\*\//g, "")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
