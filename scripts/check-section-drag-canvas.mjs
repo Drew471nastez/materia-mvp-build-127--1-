@@ -20,6 +20,8 @@
  *
  *   npx tsx scripts/check-section-drag-canvas.mjs
  *   THEME=storelib|imported   one theme only
+ *   LIVE=1                    the owner's real Materia theme (scripts/materia-live-fixture.mjs)
+ *   STORE=1                   the owner's store over the imported fixture (SCENARIO=consent,...)
  *   TOUCH=0|1                 the mouse only, or the finger only
  *   EDITOR_REACT=package      bundled with package.json's React instead of Next's
  *   EDITOR_BUNDLE=<file>      reuse a bundle (one from another commit, to compare)
@@ -35,7 +37,7 @@ const expect = (ok, what, got) => {
 }
 
 async function run({ kind, bundle, css, compat, touch }) {
-  const { page, front, js, close, errors } = await openEditor({ kind, bundle, css, compat, touch, ...(touch ? { width: 1024, height: 768 } : {}) })
+  const { page, front, js, close, errors } = await openEditor({ kind, bundle, css, compat, touch, ...(touch ? { width: Number(process.env.TOUCH_W ?? 1024), height: Number(process.env.TOUCH_H ?? 768) } : {}) })
   try {
     console.log(`\n${kind === "imported" ? "IMPORTED THEME (Materia fixture)" : "STORELIB THEME"}, ${touch ? "FINGER" : "MOUSE"}`)
     /* The canvas: the page's sections in the document, and in the order they are seen (their boxes' tops). */
@@ -66,7 +68,7 @@ async function run({ kind, bundle, css, compat, touch }) {
     /* The sidebar's page rows, in order (their wrap ids), and the grips. */
     const sidebar = () => js(() => [...document.querySelectorAll("[data-reorder-row] [data-section-row-wrap], [data-reorder-row][data-section-row-wrap]")].map((r) => r.getAttribute("data-section-row-wrap")))
     const saved = () => js(() => {
-      const s = (window.probeSaves ?? []).filter((x) => /\/sections/.test(x.url)).pop()
+      const s = (window.probeSaves ?? []).filter((x) => /\/sections$/.test(x.url) && Array.isArray(x.body?.sections)).pop()
       const list = s?.body?.sections ?? null
       return list ? list.map((x) => x.id) : null
     })
@@ -78,20 +80,31 @@ async function run({ kind, bundle, css, compat, touch }) {
 
     /* ── DRAG ── */
     await markFrame()
-    const grips = await js(() => [...document.querySelectorAll("[data-reorder-row] [aria-label$=' to reorder']")].map((g) => { g.scrollIntoView({ block: "nearest" }); const r = g.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } }))
-    const rows = await js(() => [...document.querySelectorAll("[data-reorder-row]")].map((r) => r.getBoundingClientRect().height))
-    const from = grips[1]
-    const dy = rows[1] * 2 + 4
+    /* A phone (TOUCH_W under 768): the list is in the sheet, taken to its half stop by a tap on its grab bar. */
+    const phone = touch && Number(process.env.TOUCH_W ?? 1024) < 768
+    if (phone) {
+      const h = await js(() => { const s = [...document.querySelectorAll("[data-mobile-bottom-sheet]")].map((n) => ({ n, r: n.getBoundingClientRect() })).filter((x) => x.r.top < innerHeight - 1).sort((a, b) => a.r.top - b.r.top)[0]; if (!s) return null; const r = s.n.firstElementChild.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+      if (h) { await page.touchscreen.tap(h.x, h.y); await sleep(900) }
+    }
+    /* The second row's grip, brought into the sidebar's view first. */
+    const from = await js(() => { const g = document.querySelectorAll("[data-reorder-row] [aria-label$=' to reorder']")[1]; g.scrollIntoView({ block: "center" }); for (let n = g.parentElement; n; n = n.parentElement) { if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) { const a = n.getBoundingClientRect(), b = g.getBoundingClientRect(); n.scrollTop += b.top - (a.top + Math.min(a.height, innerHeight - a.top) / 2); break } } const r = g.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2; const hit = document.elementFromPoint(x, y); return { x, y, h: g.closest("[data-reorder-row]").getBoundingClientRect().height, hit: !!hit && (hit === g || g.contains(hit)) } })
+    await sleep(200)
+    expect(from.hit, "the grip is under the pointer", from)
+    const dy = from.h * 2 + 4
+    /* The canvas while the finger is still down (round BC: it shows where the section would go). */
+    let mid = null
     if (touch) {
       await page.touchscreen.touchStart(from.x, from.y)
       for (let i = 1; i <= 12; i++) { await page.touchscreen.touchMove(from.x, from.y + (dy * i) / 12); await sleep(16) }
-      await sleep(120)
+      await sleep(400)
+      mid = await canvas()
       await page.touchscreen.touchEnd()
     } else {
       await page.mouse.move(from.x, from.y)
       await page.mouse.down()
       for (let i = 1; i <= 12; i++) { await page.mouse.move(from.x, from.y + (dy * i) / 12); await sleep(16) }
-      await sleep(120)
+      await sleep(400)
+      mid = await canvas()
       await page.mouse.up()
     }
     const at = []
@@ -104,7 +117,9 @@ async function run({ kind, bundle, css, compat, touch }) {
     const want = after.filter((id) => c0.dom.includes(id))
     console.log(`  sidebar after ${JSON.stringify(after)}`)
     for (const a of at) console.log(`    ${String(a.ms).padStart(5)}ms  dom ${JSON.stringify(a.dom)}  seen ${JSON.stringify(a.seen)}  transformed ${a.moved}  same frame ${a.mark}`)
+    console.log(`    held   seen ${JSON.stringify(mid.seen)}  transformed ${mid.moved}`)
     expect(after.join() !== before.join(), "the sidebar's order changed", after)
+    expect(mid.seen.join() === want.join(), "while held, the canvas shows where the section would go", mid.seen)
     const last = at[at.length - 1]
     expect(at[0].seen.join() === want.join(), "150ms after the drop the canvas SHOWS the new order", at[0].seen)
     expect(last.dom.join() === want.join(), "the canvas's sections are in the new order in the page", last.dom)
@@ -135,6 +150,52 @@ async function run({ kind, bundle, css, compat, touch }) {
       expect(c.dom.join() === want2.join() && c.seen.join() === want2.join(), "and the canvas, in place", c.dom)
       expect(c.mark, "without loading the canvas again")
     }
+    /* ── BLOCKS: the first block of a section with blocks, dragged one row down in the sidebar's tree ── */
+    {
+      /* The first page section the sidebar can open whose canvas box holds two blocks or more. */
+      const withBlocks = kind === "imported"
+        ? await (await front()).evaluate(() => [...document.querySelectorAll(".shopify-section")].filter((x) => x.querySelectorAll("[data-block-id]").length >= 2).map((x) => x.id.replace(/^shopify-section-/, "")))
+        : await js(() => [...document.querySelectorAll("#wb-preview-root [data-section-box]")].filter((x) => x.querySelectorAll("[data-block-id]").length >= 2).map((x) => x.getAttribute("data-section-key")))
+      const owner = await js((ids) => ids.find((id) => document.querySelector(`[data-reorder-row] [data-section-expand="${CSS.escape(id)}"]`)) ?? null, withBlocks)
+      const blocksIn = async () => kind === "imported"
+        ? (await front()).evaluate((id) => [...(document.getElementById(`shopify-section-${id}`)?.querySelectorAll("[data-block-id]") ?? [])].map((b) => ({ id: b.getAttribute("data-block-id"), top: b.getBoundingClientRect().top })), owner)
+        : js((id) => [...(document.getElementById(`wb-section-${id}`)?.querySelectorAll("[data-block-id]") ?? [])].map((b) => ({ id: b.getAttribute("data-block-id"), top: b.getBoundingClientRect().top })), owner)
+      await js((id) => { const t = document.querySelector(`[data-section-expand="${CSS.escape(id)}"]`); if (t && t.getAttribute("aria-label")?.startsWith("Show")) t.click() }, owner)
+      await sleep(500)
+      const tree = () => js((id) => [...(document.querySelector(`[data-section-blocks="${CSS.escape(id)}"]`)?.querySelectorAll("[data-tree-block]") ?? [])].map((r) => r.getAttribute("data-tree-block")), owner)
+      const t0b = await tree()
+      const b0 = await blocksIn()
+      await markFrame()
+      const g = await js((id) => { const all = [...(document.querySelector(`[data-section-blocks="${CSS.escape(id)}"]`)?.querySelectorAll("[data-tree-block] [aria-label^='Drag to reorder']") ?? [])]; const g = all[0]; if (g) { g.scrollIntoView({ block: "center" }); for (let n = g.parentElement; n; n = n.parentElement) { if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) { const a = n.getBoundingClientRect(), b = g.getBoundingClientRect(); n.scrollTop += b.top - (a.top + Math.min(a.height, innerHeight - a.top) / 2); break } } } return all.map((x) => { const r = x.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, h: x.closest("[data-tree-block]").getBoundingClientRect().height } }) }, owner)
+      if (g.length < 2) expect(false, "the section's blocks are in the sidebar's tree", { owner, rows: g.length })
+      else {
+        const p = g[0]
+        const d = p.h * 1 + 4
+        if (touch) {
+          await page.touchscreen.touchStart(p.x, p.y)
+          for (let i = 1; i <= 10; i++) { await page.touchscreen.touchMove(p.x, p.y + (d * i) / 10); await sleep(16) }
+          await sleep(120)
+          await page.touchscreen.touchEnd()
+        } else {
+          await page.mouse.move(p.x, p.y)
+          await page.mouse.down()
+          for (let i = 1; i <= 10; i++) { await page.mouse.move(p.x, p.y + (d * i) / 10); await sleep(16) }
+          await sleep(120)
+          await page.mouse.up()
+        }
+        await sleep(kind === "imported" ? 2500 : 1200)
+        const t1b = await tree()
+        const b1 = await blocksIn()
+        const shownIds = b1.map((b) => b.id)
+        const want3 = t1b.filter((k) => shownIds.includes(k))
+        const seen3 = b1.slice().sort((a, b) => a.top - b.top).map((b) => b.id)
+        console.log(`  blocks of ${owner}: tree ${JSON.stringify(t0b)} -> ${JSON.stringify(t1b)}  canvas ${JSON.stringify(b0.map((b) => b.id))} -> ${JSON.stringify(shownIds)}`)
+        expect(t1b.join() !== t0b.join(), "the block moved in the sidebar", t1b)
+        expect(want3.length >= 2 && shownIds.filter((k) => want3.includes(k)).join() === want3.join() && seen3.filter((k) => want3.includes(k)).join() === want3.join(), "and on the canvas", { want3, shownIds, seen3 })
+        const c = await canvas()
+        expect(c.mark, "without loading the canvas again")
+      }
+    }
     expect(errors.length === 0, "no page errors", errors)
   } finally {
     await close()
@@ -146,7 +207,11 @@ process.env.EDITOR_REACT ??= "next"
 const { bundle, css } = await import("./editor-probe-harness.mjs")
 const kinds = process.env.THEME ? [process.env.THEME] : ["imported", "storelib"]
 const touches = process.env.TOUCH === "1" ? [true] : process.env.TOUCH === "0" ? [false] : [false, true]
-const compat = kinds.includes("imported") ? await importedTheme() : null
+/* STORE=1: the owner's store laid over the fixture (scripts/materia-store-kit.mjs), SCENARIO its first paint. */
+/* LIVE=1: the owner's real Materia theme as its store serves it (scripts/materia-live-fixture.mjs), 26 sections and its own theme.js. */
+const compat = !kinds.includes("imported") ? null
+  : process.env.LIVE === "1" ? await (await import("./materia-live-fixture.mjs")).materiaLiveTheme()
+  : await importedTheme({ store: process.env.STORE === "1", scenario: process.env.SCENARIO ?? "" })
 for (const kind of kinds) for (const touch of touches) await run({ kind, bundle, css, compat, touch })
 console.log(broken ? `\n${broken} check(s) failed\n` : "\nall checks passed\n")
 process.exit(broken ? 1 : 0)
