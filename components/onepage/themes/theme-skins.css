@@ -2348,6 +2348,10 @@
    ALL SKINS: a button's words on hover, motion, theme cards
    =========================================================================== */
 
+/* Social icons the creator styled after picking the theme (lib/onepage/skin-own "socials"): the marks in the colours
+   they chose (Brand colours, One colour), not the skin's recolouring of them. */
+[data-op-skin][data-sk-own~="socials"] [data-op-social-icon] svg { filter: none !important; }
+
 /* A button the skin paints keeps the hover's own words when it fills (app/globals.css .op-btn). */
 @media (hover: hover) and (pointer: fine) {
   [data-op-skin] :is(.op-btn:hover, .op-host:hover .op-btn):is([data-hover="fill"], [data-hover="pop"]) { color: var(--op-fill-text, inherit) !important; text-shadow: none; }

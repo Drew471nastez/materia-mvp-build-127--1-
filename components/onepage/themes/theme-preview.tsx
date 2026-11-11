@@ -47,6 +47,7 @@ import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, headerAlignOf,
 import { fontStack } from "@/lib/onepage/fonts"
 import { readableOn } from "@/lib/onepage/theme-apply"
 import { readableTheme } from "@/lib/onepage/contrast"
+import { pageGroundIsLight, socialIconColorOf, socialTileStyle } from "@/lib/onepage/social-look"
 import { HERO_FADE_MASK } from "@/lib/onepage/poster-video"
 import { cn } from "@/lib/utils"
 
@@ -118,8 +119,9 @@ export function ThemePreview({ c: given, name, thumb, photo = null }: { c: Look;
   const iconSide = buttonIconSide(theme)
   const layout = blockLayoutOf(c)
   const products = themeProductLayoutOf(c)
-  const socialStyle: string = c.social_icon_style || "filled"
-  const socialColor: string = c.social_icon_color || text
+  /* The social icons as the page draws them (lib/onepage/social-look). */
+  const socialColor: string = socialIconColorOf(c as never)
+  const pageLight = pageGroundIsLight(c as never)
   const titleFace = fontStack(c.title_font || c.font_family)
   const pagePaint = c.background_type === "gradient" && c.background_gradient ? c.background_gradient : bg
   /*
@@ -333,8 +335,8 @@ export function ThemePreview({ c: given, name, thumb, photo = null }: { c: Look;
             {SOCIALS.map((p) => (
               <span
                 key={p}
-                className={cn("flex items-center justify-center", socialStyle === "minimal" ? "p-2.5" : "h-[42px] w-[42px] rounded-full", socialStyle === "outline" && "border-2")}
-                style={{ backgroundColor: socialStyle === "filled" ? `${socialColor}20` : "transparent", borderColor: socialStyle === "outline" ? `${socialColor}40` : "transparent" }}
+                className="flex h-[42px] w-[42px] items-center justify-center"
+                style={socialTileStyle(c as never, { onLight: pageLight })}
               >
                 <span className="flex h-[20px] w-[20px] items-center justify-center [&>svg]:h-full [&>svg]:w-full">
                   <SocialIcon platform={p} size={20} color={socialColor} tone={c.social_icon_tone === "brand" ? "brand" : "mono"} />

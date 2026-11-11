@@ -18,6 +18,7 @@ import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { OnePagePreviewDocument } from "@/components/onepage/preview-document"
 import { THEME_TEMPLATES } from "@/components/onepage/tabs/design-tab"
 import { lookFromTemplate } from "@/lib/onepage/theme-apply"
+import { withSkinOwn } from "@/lib/onepage/skin-own"
 import { publicOnePageFromDraft } from "@/lib/onepage/public-shape"
 import { ONEPAGE_PREVIEW_CHANNEL } from "@/lib/onepage/preview-channel"
 import { createDefaultBlock, defaultTheme, defaultSettings, type OnePage, type OnePageBlock, type OnePageBlockType } from "@/lib/onepage/types"
@@ -93,7 +94,9 @@ function pageFor(themeId: string | null): OnePage {
   const icons = params.get("icons")
   if (icons) {
     const [style, tone] = icons.split("/")
-    onepage = { ...onepage, theme: { ...onepage.theme, social_icon_style: style, social_icon_tone: tone || "mono" } as never }
+    /* As Design › Social icons sets them (lib/onepage/context updateTheme through withSkinOwn): over a skin they become the creator's own. */
+    const u = { social_icon_style: style, social_icon_tone: tone || "mono" }
+    onepage = { ...onepage, theme: { ...onepage.theme, ...withSkinOwn(onepage.theme as never, u) } as never }
   }
   return onepage
 }
