@@ -807,7 +807,7 @@ function LoginFormContent() {
               )}
             </p>
           ) : (
-            <p className="mb-8 text-[15px] text-neutral-500">{inviteEmail ? `Log in as ${inviteEmail} to accept the team invite.` : carry.intent ? "Log in, then set up your shop." : "Log in to your account"}</p>
+            <p className="mb-8 text-[15px] text-neutral-500">{inviteEmail ? `Log in as ${inviteEmail} to accept the invite.` : carry.intent ? "Log in, then set up your shop." : "Log in to your account"}</p>
           )}
 
           <form onSubmit={handleContinue} className="space-y-4">

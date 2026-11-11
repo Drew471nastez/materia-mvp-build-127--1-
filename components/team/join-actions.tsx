@@ -8,11 +8,11 @@
 import * as React from "react"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
+import { AUTH_BTN_PRIMARY, AUTH_BTN_SECONDARY } from "@/components/auth/auth-buttons"
 
-export const JOIN_BTN_PRIMARY =
-  "inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] px-4 text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.12)] outline-none transition-[background-color,opacity] hover:bg-[#2a2a44] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 disabled:opacity-60 [-webkit-tap-highlight-color:transparent]"
-export const JOIN_BTN_QUIET =
-  "inline-flex h-11 w-full items-center justify-center rounded-xl px-4 text-[14px] font-medium text-[#4b5563] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40 disabled:opacity-60 [-webkit-tap-highlight-color:transparent]"
+/* The log in page's buttons (components/auth/auth-buttons): the invite and the handover open in its layout. */
+export const JOIN_BTN_PRIMARY = AUTH_BTN_PRIMARY
+export const JOIN_BTN_QUIET = AUTH_BTN_SECONDARY
 
 function Spinner() {
   return <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
