@@ -149,21 +149,19 @@ export interface BusinessPreview {
   products: number
   websites: number
   domains: string[]
-  sender: string | null
 }
 
-/** What the claim page shows before anybody accepts: read only, a handful of reads. */
+/** What the claim page shows before anybody accepts: read only, a handful of reads. Never the founder's name: the page speaks as the Storelib Team. */
 export async function previewOf(db: Db, handoff: HandoffRow): Promise<BusinessPreview> {
   const creator = await creatorOf(db, handoff.business_user_id).catch(() => null)
   const shown = await businessShown(db, handoff.business_user_id, creator).catch(() => ({ name: "A Storelib business", avatarUrl: null, handle: null }))
   const none = { data: null, count: 0 }
   const safe = (p: PromiseLike<unknown>) => Promise.resolve(p).then((r) => r as { data: unknown; count?: number | null }, () => none)
-  const [page, products, sites, domains, sender] = await Promise.all([
+  const [page, products, sites, domains] = await Promise.all([
     safe(db.from("onepages").select("slug").eq("owner_id", handoff.business_user_id).limit(1).maybeSingle()),
     creator ? safe(db.from("products").select("id", { count: "exact", head: true }).eq("creator_id", creator.id)) : Promise.resolve(none),
     creator ? safe(db.from("sites").select("id", { count: "exact", head: true }).eq("creator_id", creator.id)) : Promise.resolve(none),
     creator ? safe(db.from("custom_domains").select("domain, status").eq("creator_id", creator.id).limit(10)) : Promise.resolve(none),
-    safe(db.from("profiles").select("display_name").eq("id", handoff.from_owner_id).maybeSingle()),
   ])
   const pageSlug = (page.data as { slug?: string | null } | null)?.slug ?? null
   const domainRows = Array.isArray(domains.data) ? (domains.data as { domain?: string | null }[]) : []
@@ -175,7 +173,6 @@ export async function previewOf(db: Db, handoff: HandoffRow): Promise<BusinessPr
     products: typeof products.count === "number" ? products.count : 0,
     websites: typeof sites.count === "number" ? sites.count : 0,
     domains: domainRows.map((d) => (d.domain ?? "").trim()).filter(Boolean),
-    sender: ((sender.data as { display_name?: string | null } | null)?.display_name ?? "").trim() || null,
   }
 }
 
@@ -284,11 +281,8 @@ export async function panelFor(deps: HandoffDeps, sessionUserId: string): Promis
 async function sendInvite(deps: HandoffDeps, row: { recipient_email: string | null; ttl_days: number; from_owner_id: string; business_user_id: string }, token: string): Promise<boolean> {
   if (!row.recipient_email) return false
   const creator = await creatorOf(deps.db, row.business_user_id).catch(() => null)
-  const [shown, sender] = await Promise.all([
-    businessShown(deps.db, row.business_user_id, creator).catch(() => ({ name: "A Storelib business", avatarUrl: null, handle: null })),
-    deps.db.from("profiles").select("display_name").eq("id", row.from_owner_id).maybeSingle().then((r: { data: unknown }) => r.data as { display_name?: string | null } | null, () => null),
-  ])
-  const mail = handoffInviteEmail({ businessName: shown.name, senderName: sender?.display_name ?? null, email: row.recipient_email, link: claimLink(token), days: row.ttl_days })
+  const shown = await businessShown(deps.db, row.business_user_id, creator).catch(() => ({ name: "A Storelib business", avatarUrl: null, handle: null }))
+  const mail = handoffInviteEmail({ businessName: shown.name, email: row.recipient_email, link: claimLink(token), days: row.ttl_days })
   return deps.sendEmail({ to: row.recipient_email, subject: mail.subject, text: mail.text, html: mail.html })
 }
 

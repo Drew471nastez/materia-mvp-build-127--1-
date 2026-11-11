@@ -517,8 +517,10 @@ async function main() {
 
     const ready = await readClaim(w.deps, token, await viewerOf(w.deps, { id: NEWBIE, email: "new@example.com" }))
     check("signed up and confirmed: ready, with what comes with it and what stays", ready.ok && ready.state.kind === "ready")
-    const readyCard = renderToStaticMarkup(createElement(ClaimCard, { state: (ready as { state: ClaimState }).state, token, note: "", signedIn: true, preview: (ready as any).preview })).replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'")
-    check("  the preview names the addresses, the counts, what comes and what stays with Lia", /storelib\.me\/glowstudio|glowstudio/.test(readyCard) && /3 products/.test(readyCard) && /Comes with it/.test(readyCard) && /Stays with Lia/.test(readyCard) && /Lia's payout account/.test(readyCard) && /Accept ownership/.test(readyCard))
+    const readyCard = renderToStaticMarkup(createElement(ClaimCard, { state: (ready as { state: ClaimState }).state, token, note: "", signedIn: true, preview: (ready as any).preview, founderAccess: (ready as any).handoff?.founder_access })).replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'")
+    check("  the preview names the business, its addresses, the counts, and what the new owner sets up", /Manage Glow Studio/.test(readyCard) && /glowstudio\.co/.test(readyCard) && /3 products/.test(readyCard) && /Connect your own after you accept/.test(readyCard) && /You choose your own/.test(readyCard) && /Accept ownership/.test(readyCard), readyCard)
+    check("  it speaks as the Storelib Team, never as the founder: her name is nowhere on it", /Storelib Team invited you/.test(readyCard) && !/\bLia\b/.test(readyCard) && !("sender" in ((ready as any).preview ?? {})))
+    check("  the founder who stays is said, with her access and never money", /stays on your team with content access, never payouts or billing/.test(readyCard))
 
     const res = await claimRoute.POST(formReq("/api/handoff/claim", NEWBIE, { token }))
     const loc = new URL(res.headers.get("location") ?? "", SITE)
@@ -583,10 +585,10 @@ async function main() {
     check("each state has its own card", states.map((s) => s.kind).join(",") === "invalid,gone,revoked,expired,stale,not_ready", states.map((s) => s.kind))
     check("  a refusal for each that is not ready", states.every((s) => refusalOf(s) !== null))
     const words = states.map((s) => renderToStaticMarkup(createElement(ClaimCard, { state: s, token, note: "failed", signedIn: true, preview: null })).replace(/<[^>]+>/g, " ")).join(" ")
-    const mail = handoffInviteEmail({ businessName: "Glow Studio", senderName: "Lia", email: "tom@example.com", link: `${SITE}${claimPath(token)}`, days: 7 })
+    const mail = handoffInviteEmail({ businessName: "Glow Studio", email: "tom@example.com", link: `${SITE}${claimPath(token)}`, days: 7 })
     const all = words + mail.text + read("components/app/settings/handoff-panel.tsx") + read("components/handoff/claim-card.tsx") + read("lib/handoff/rules.ts")
     check("no em dash and none of the words the owner banned", !/—/.test(all) && !/\b(unlock|elevate|seamless|powerful|effortlessly|supercharge|transform)\b/i.test(all))
-    check("the invite email carries the link once, the sender and the days", mail.text.includes(claimPath(token)) && /Lia built Glow Studio/.test(mail.text) && /7 days/.test(mail.text))
+    check("the invite email carries the link, the business and the days, from the Storelib Team", mail.text.includes(claimPath(token)) && /Storelib Team invited you to take over Glow Studio/.test(mail.text) && /7 days/.test(mail.text) && /manage Glow Studio/.test(mail.subject))
     check("the settings panel is in the Team tab, loaded with it", /panelTab === "team" && \([\s\S]{0,120}<HandoffPanel \/>/.test(read("components/app/settings-form-new.tsx")) && /team: \["team", "handoff"\]/.test(read("components/app/settings/lazy-panels.tsx")))
   }
 

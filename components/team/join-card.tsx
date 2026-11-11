@@ -1,16 +1,15 @@
 import Link from "next/link"
-import { StorelibLogo } from "@/components/brand/storelib-logo"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { AuthHeading, AuthSplit, AuthStore } from "@/components/auth/auth-split"
 import { AcceptDecline, JOIN_BTN_PRIMARY, JOIN_BTN_QUIET, UseAnotherAccount } from "@/components/team/join-actions"
 import { OWNER_KEEPS_EN, accessSummaryEn, permissionLinesEn, type TeamPermission } from "@/lib/team/permissions"
 import type { InviteState, InviteStore } from "@/lib/team/invite-state"
 
 /**
- * The invite page's cards (app/team/join), one per state of the invite
- * (lib/team/invite-state). In Storelib's own look: the page grey, one white
- * card with the hairline border, the store's photo and name at the top, the
- * near black primary button the auth pages use. Kept apart from the page so
- * a harness can draw every state without a database.
+ * The invite page's states (app/team/join), one per state of the invite
+ * (lib/team/invite-state). In the log in page's layout (components/auth/
+ * auth-split): white, the logo, the store's photo and name, a 32px heading,
+ * the near black round button. Kept apart from the page so a harness can
+ * draw every state without a database.
  */
 export function StateCard({ state, token, note, signedIn }: { state: InviteState; token: string; note: string; signedIn: boolean }) {
   const home = signedIn ? "/app" : "/"
@@ -37,7 +36,7 @@ export function StateCard({ state, token, note, signedIn }: { state: InviteState
     case "accepted":
       return (
         <StoreCard store={state.store} eyebrow={state.mine ? "You're on the team" : "Invite already used"} title={state.mine ? `You're in ${state.store.name}` : "This invite has been used"}>
-          <p className="text-center text-[14px] leading-[21px] text-[#6b7280]">
+          <p className="text-[15px] leading-[22px] text-neutral-500">
             {state.mine ? `You work in it with ${accessSummaryEn(state.permissions).toLowerCase()}. Open it from your account menu any time.` : "Someone already joined with it. If that wasn't you, ask the store's owner for a new invite."}
           </p>
           <div className="mt-5">
@@ -48,7 +47,7 @@ export function StateCard({ state, token, note, signedIn }: { state: InviteState
     case "expired":
       return (
         <StoreCard store={state.store} eyebrow="Invite expired" title="This invite has expired">
-          <p className="text-center text-[14px] leading-[21px] text-[#6b7280]">
+          <p className="text-[15px] leading-[22px] text-neutral-500">
             Invites work for 7 days. Ask the owner of {state.store.name} to send a new one to {state.email}.
           </p>
           <div className="mt-5">
@@ -59,7 +58,7 @@ export function StateCard({ state, token, note, signedIn }: { state: InviteState
     case "own_store":
       return (
         <StoreCard store={state.store} eyebrow="Your store" title="This is your own store">
-          <p className="text-center text-[14px] leading-[21px] text-[#6b7280]">You already own it, so there is nothing to join. Invites are for other people.</p>
+          <p className="text-[15px] leading-[22px] text-neutral-500">You already own it, so there is nothing to join. Invites are for other people.</p>
           <div className="mt-5">
             <Link href="/app/settings?tab=team" className={JOIN_BTN_PRIMARY}>Open Team settings</Link>
           </div>
@@ -68,7 +67,7 @@ export function StateCard({ state, token, note, signedIn }: { state: InviteState
     case "seats_full":
       return (
         <StoreCard store={state.store} eyebrow="Team is full" title={`${state.store.name}'s team is full`}>
-          <p className="text-center text-[14px] leading-[21px] text-[#6b7280]">
+          <p className="text-[15px] leading-[22px] text-neutral-500">
             Its plan has room for {state.limit} people. Ask the owner to free a seat or upgrade, then open this link again.
           </p>
           <div className="mt-5">
@@ -79,6 +78,7 @@ export function StateCard({ state, token, note, signedIn }: { state: InviteState
     case "signed_out":
       return (
         <StoreCard store={state.store} eyebrow="Team invite" title={`Join ${state.store.name}`}>
+          <Invited />
           <RoleBox permissions={state.permissions} email={state.email} />
           <div className="mt-5 space-y-2">
             {/* Through the route that keeps the invite for after sign in, whichever way that is (app/api/team/join/sign-in). */}
@@ -94,8 +94,9 @@ export function StateCard({ state, token, note, signedIn }: { state: InviteState
     case "wrong_account":
       return (
         <StoreCard store={state.store} eyebrow="Team invite" title={`Join ${state.store.name}`}>
+          <Invited />
           <RoleBox permissions={state.permissions} email={state.email} />
-          <p className="mt-4 text-center text-[13.5px] leading-5 text-[#6b7280]" data-join="other-email">
+          <p className="mt-4 text-[14px] leading-5 text-neutral-500" data-join="other-email">
             {state.signedInAs ? (
               <>
                 You're signed in as <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{state.signedInAs}</span>. Joining adds this account to the team.
@@ -114,6 +115,7 @@ export function StateCard({ state, token, note, signedIn }: { state: InviteState
     case "ready":
       return (
         <StoreCard store={state.store} eyebrow="Team invite" title={`Join ${state.store.name}`}>
+          <Invited />
           <RoleBox permissions={state.permissions} email={state.email} />
           {note ? <Note kind={note} /> : null}
           <div className="mt-5">
@@ -122,6 +124,11 @@ export function StateCard({ state, token, note, signedIn }: { state: InviteState
         </StoreCard>
       )
   }
+}
+
+/** Who the invite comes from, as the handover says it: the Storelib Team, not a personal note. */
+function Invited() {
+  return <p className="mb-6 text-[15px] leading-[22px] text-neutral-500">Storelib Team invited you to help run this store.</p>
 }
 
 export function signInHref(token: string, hasAccount: boolean): string {
@@ -167,47 +174,26 @@ export function RoleBox({ permissions, email }: { permissions: readonly TeamPerm
 
 export function StoreCard({ store, eyebrow, title, children }: { store: InviteStore; eyebrow: string; title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 pb-5 pt-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-7 sm:pb-7 sm:pt-8" data-join-card="">
-      <div className="flex flex-col items-center text-center">
-        {store.avatarUrl ? (
-          <AppAvatar src={store.avatarUrl} name={store.name} size={56} className="ring-1 ring-[#e5e7eb]" />
-        ) : (
-          /* No photo: the store's first letter, never a stranger's silhouette. */
-          <span aria-hidden className="grid h-14 w-14 place-items-center rounded-full bg-[#1a1a2e] text-[22px] font-semibold text-white">
-            {store.name.trim().charAt(0).toUpperCase() || "S"}
-          </span>
-        )}
-        <p className="mt-3 text-[12.5px] font-medium uppercase tracking-[0.04em] text-[#6b7280]">{eyebrow}</p>
-        <h1 className="mt-1 text-[22px] font-bold leading-[28px] tracking-tight text-[#1a1a2e] [overflow-wrap:anywhere]">{title}</h1>
+    <section data-join-card="">
+      <div className="mb-6">
+        <AuthStore name={store.name} avatarUrl={store.avatarUrl} line={eyebrow} />
       </div>
-      <div className="mt-5">{children}</div>
+      <h1 className="mb-3 text-[28px] font-bold leading-[34px] tracking-tight text-neutral-900 [overflow-wrap:anywhere] sm:text-[32px] sm:leading-[38px]">{title}</h1>
+      {children}
     </section>
   )
 }
 
 export function Plain({ title, body, children }: { title: string; body: string; children?: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 py-6 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-7 sm:py-8" data-join-card="">
-      <h1 className="text-[20px] font-bold leading-[26px] tracking-tight text-[#1a1a2e]">{title}</h1>
-      <p className="mt-2 text-[14px] leading-[21px] text-[#6b7280]">{body}</p>
-      {children ? <div className="mt-5">{children}</div> : null}
+    <section data-join-card="">
+      <AuthHeading title={title} sub={body} />
+      {children}
     </section>
   )
 }
 
+/** The log in page's layout (components/auth/auth-split). */
 export function Frame({ children }: { children: React.ReactNode }) {
-  return (
-    <main
-      className="flex min-h-svh w-full flex-col items-center bg-[#f8f9fa] px-4 pb-[calc(env(safe-area-inset-bottom,0px)+24px)] pt-[calc(env(safe-area-inset-top,0px)+28px)] font-sans text-[#1a1a2e] sm:justify-center sm:pt-10"
-      data-page="team-join"
-    >
-      <div className="w-full max-w-[420px]">
-        <div className="mb-6 flex items-center justify-center gap-2" aria-label="Storelib">
-          <StorelibLogo size={28} />
-          <span className="text-[18px] font-bold tracking-tight text-[#1a1a2e]">Storelib</span>
-        </div>
-        {children}
-      </div>
-    </main>
-  )
+  return <AuthSplit page="team-join">{children}</AuthSplit>
 }

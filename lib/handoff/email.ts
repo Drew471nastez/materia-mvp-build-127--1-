@@ -6,23 +6,26 @@
  */
 import { identity, platformEmail } from "@/lib/emails/layout"
 
-export function handoffInviteEmail(v: { businessName: string; senderName: string | null; email: string; link: string; days: number }): { subject: string; html: string; text: string } {
+/**
+ * From the Storelib Team, not a personal note from the founder: the page it
+ * opens says the same (components/handoff/claim-card). The founder's name is
+ * not in it.
+ */
+export function handoffInviteEmail(v: { businessName: string; email: string; link: string; days: number }): { subject: string; html: string; text: string } {
   const business = v.businessName.trim() || "a business"
-  const sender = v.senderName?.trim() || null
-  const subject = sender ? `${sender} is handing ${business} over to you` : `${business} is ready for you on Storelib`
-  const opener = sender ? `${sender} built ${business} on Storelib and is handing it over to you.` : `${business} on Storelib is being handed over to you.`
+  const days = `${v.days} ${v.days === 1 ? "day" : "days"}`
   return platformEmail({
-    subject,
-    preview: `${opener} The link works for ${v.days} ${v.days === 1 ? "day" : "days"}.`,
-    heading: `${business} is yours to take`,
+    subject: `You're invited to manage ${business} on Storelib`,
+    preview: `Storelib Team invited you to take over ${business} as its owner. The link works for ${days}.`,
+    heading: `Manage ${business}`,
     paragraphs: [
-      opener,
+      `Storelib Team invited you to take over ${business} as its owner.`,
       "Its OnePage, store, products and web addresses stay as they are. You sign in with your own account and connect your own payout account to get paid.",
-      { html: `Sign in or create an account with ${identity(v.email)} to accept.`, text: `Sign in or create an account with ${v.email} to accept.` },
+      { html: `Log in or create an account with ${identity(v.email)} to accept.`, text: `Log in or create an account with ${v.email} to accept.` },
     ],
     action: { label: "Review and accept", url: v.link },
-    note: `The link works for ${v.days} ${v.days === 1 ? "day" : "days"} and only once. If you weren't expecting this, you can ignore it.`,
-    reason: `You got this because ${sender ?? "a Storelib seller"} entered your address to hand a business over to you.`,
+    note: `The link works for ${days} and only once. If you weren't expecting this, you can ignore it.`,
+    reason: `You got this because the person who set up ${business} on Storelib entered your address to hand it over to you.`,
   })
 }
 

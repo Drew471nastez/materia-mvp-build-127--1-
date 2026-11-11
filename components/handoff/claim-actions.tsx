@@ -10,7 +10,7 @@
 import * as React from "react"
 import { createClient } from "@/lib/supabase/client"
 import { switchBusiness } from "@/lib/businesses/switch-client"
-import { JOIN_BTN_PRIMARY, JOIN_BTN_QUIET } from "@/components/team/join-actions"
+import { AUTH_BTN_PRIMARY, AUTH_BTN_SECONDARY } from "@/components/auth/auth-buttons"
 
 function Spinner() {
   return <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -21,7 +21,7 @@ export function AcceptOwnership({ token }: { token: string }) {
   return (
     <form method="post" action="/api/handoff/claim" onSubmit={(e) => (busy ? e.preventDefault() : setBusy(true))}>
       <input type="hidden" name="token" value={token} />
-      <button type="submit" className={JOIN_BTN_PRIMARY} disabled={busy} data-claim="accept">
+      <button type="submit" className={AUTH_BTN_PRIMARY} disabled={busy} data-claim="accept">
         {busy ? <><Spinner /> Taking ownership</> : "Accept ownership"}
       </button>
     </form>
@@ -52,10 +52,10 @@ export function OpenBusiness({ userId, name, auto = false }: { userId: string; n
   }, [auto])
   return (
     <div>
-      <button type="button" className={JOIN_BTN_PRIMARY} onClick={() => void open()} disabled={busy} data-claim="open">
+      <button type="button" className={AUTH_BTN_PRIMARY} onClick={() => void open()} disabled={busy} data-claim="open">
         {busy ? <><Spinner /> Opening</> : `Open ${name}`}
       </button>
-      {error ? <p role="alert" className="mt-2 text-center text-[13px] leading-5 text-[#b42318]">{error}</p> : null}
+      {error ? <p role="alert" className="mt-2 text-center text-[13px] leading-5 text-red-600">{error}</p> : null}
     </div>
   )
 }
@@ -83,7 +83,7 @@ export function SwitchAccount({ token, email, label = "Switch account", quiet = 
     <form ref={form} method="post" action="/api/handoff/claim/switch" onSubmit={go}>
       <input type="hidden" name="token" value={token} />
       {email ? <input type="hidden" name="email" value={email} /> : null}
-      <button type="submit" className={quiet ? JOIN_BTN_QUIET : JOIN_BTN_PRIMARY} disabled={busy} data-claim="switch">
+      <button type="submit" className={quiet ? AUTH_BTN_SECONDARY : AUTH_BTN_PRIMARY} disabled={busy} data-claim="switch">
         {busy ? "Signing out" : label}
       </button>
     </form>
