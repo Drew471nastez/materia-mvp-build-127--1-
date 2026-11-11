@@ -9,10 +9,12 @@
  * and checked here.
  *
  * MESSAGES ARE TEMPLATES. A WhatsApp, Telegram, SMS or email message may
- * carry {product_name}, {visitor_name}, {service} and {answer:field_id}.
- * They are filled when the button is used (fillTemplate): from the block
- * (a product's name), and from a pre-chat form's answers when the action
- * asks for one. A variable with no value, or one this file does not know,
+ * carry {name} (the visitor's; {visitor_name} is the same), {service},
+ * {product_name}, {date}, {time} and {answer:field_id} (TEMPLATE_VARIABLES
+ * says where each comes from). They are filled when the button is used
+ * (fillTemplate): from the action (the service it books), the block (a
+ * product's name, its words as the service), a pre-chat form's answers and
+ * a booking form's chosen time. A variable with no value, or one this file does not know,
  * is removed, never left in the text. Every value is stripped of control
  * characters and capped before it is encoded.
  *
@@ -42,6 +44,8 @@ export type NativeAction =
       type: "whatsapp"
       phone: string
       message?: string
+      /** What {service} says in the message, typed by the creator. A visitor's own answer wins. */
+      service?: string
       country?: string
       pre_chat?: PreChat
       label?: string
@@ -51,6 +55,7 @@ export type NativeAction =
       type: "telegram"
       target: string
       message?: string
+      service?: string
       pre_chat?: PreChat
       label?: string
     }
@@ -59,6 +64,7 @@ export type NativeAction =
       email: string
       subject?: string
       message?: string
+      service?: string
       label?: string
     }
   | { type: "phone"; phone: string; country?: string; label?: string }
@@ -66,6 +72,7 @@ export type NativeAction =
       type: "sms"
       phone: string
       message?: string
+      service?: string
       country?: string
       label?: string
     }
@@ -92,6 +99,9 @@ export interface ActionVars {
   product_name?: string | null
   visitor_name?: string | null
   service?: string | null
+  /** The day and the time the visitor chose: a booking form's slot, or a date or time question, as words ("Fri 14 Nov", "3:30 PM"). */
+  date?: string | null
+  time?: string | null
   /** A pre-chat form's answers, by field id. */
   answers?: Record<string, string | string[] | null | undefined> | null
 }
@@ -246,12 +256,31 @@ export function validEmail(value: unknown): string | null {
 
 /* ── templates ─────────────────────────────────────────────────────────── */
 
-/** The variables a message can use, for the editor's chips. */
+/**
+ * The variables a message can use, for the editor's chips, each with what
+ * it puts in the message. A variable with nothing to put in is left out of
+ * the message, never sent as braces.
+ */
 export const TEMPLATE_VARIABLES = [
-  { token: "{visitor_name}", label: "Visitor's name" },
-  { token: "{product_name}", label: "Product" },
-  { token: "{service}", label: "Service" },
+  { token: "{name}", label: "Name", means: "The visitor's name, when your questions ask for it" },
+  { token: "{service}", label: "Service", means: "The service you type below, or what the visitor picks in your questions" },
+  { token: "{product_name}", label: "Product", means: "The product this button is for" },
+  { token: "{date}", label: "Date", means: "The day the visitor picks: a booking form's time, or a date question" },
+  { token: "{time}", label: "Time", means: "The time the visitor picks in a booking form, or a time question" },
 ] as const
+
+/** The variables a message or subject uses, each once, in the order of TEMPLATE_VARIABLES ({visitor_name} reads as {name}). */
+export function templateVariablesIn(...texts: unknown[]): string[] {
+  const used = new Set<string>()
+  for (const t of texts) {
+    if (typeof t !== "string") continue
+    for (const m of t.matchAll(/\{\s*([a-z_]{1,32})\s*\}/gi)) {
+      const n = m[1].toLowerCase()
+      used.add(n === "visitor_name" ? "name" : n)
+    }
+  }
+  return TEMPLATE_VARIABLES.map((v) => v.token).filter((t) => used.has(t.slice(1, -1)))
+}
 
 /** Starting messages the editor offers. Plain, short, and each one reads well with its variables removed. */
 export const MESSAGE_TEMPLATES = [
@@ -290,9 +319,11 @@ export function fillTemplate(template: unknown, vars: ActionVars = {}): string {
       const n = name.toLowerCase()
       if (n === "answer") return value(key ? cleanValue(vars.answers?.[key]) : "")
       if (key) return GAP
-      if (n === "product_name") return value(cleanValue(vars.product_name))
-      if (n === "visitor_name") return value(cleanValue(vars.visitor_name))
+      if (n === "product_name" || n === "product") return value(cleanValue(vars.product_name))
+      if (n === "visitor_name" || n === "name") return value(cleanValue(vars.visitor_name))
       if (n === "service") return value(cleanValue(vars.service))
+      if (n === "date") return value(cleanValue(vars.date))
+      if (n === "time") return value(cleanValue(vars.time))
       return GAP
     })
   if (!filled.includes(GAP)) return filled.trim().slice(0, MESSAGE_MAX)
@@ -336,12 +367,54 @@ export function formVars(
     out[k] = cleanValue(options?.length ? (Array.isArray(v) ? v.map(word) : word(v)) : v)
   }
   const nameField = (fields || []).find((f) => f.type === "name")
+  const dateField = (fields || []).find((f) => f.type === "date")
+  const day = out.date || (dateField && out[dateField.id]) || null
   return {
     answers: out,
     visitor_name: (nameField && out[nameField.id]) || out.name || out.visitor_name || null,
     service: out.service || null,
     product_name: out.product_name || out.product || null,
+    date: day ? dayWords(day) : null,
+    time: out.time || null,
   }
+}
+
+/** A date answer ("2026-11-14") as a person writes it ("Sat, 14 Nov 2026"); anything else as it was given. */
+export function dayWords(value: string, locale = "en-GB"): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
+  if (!m) return value
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])))
+  if (Number.isNaN(d.getTime())) return value
+  try {
+    return d.toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
+  } catch {
+    return value
+  }
+}
+
+/**
+ * A booked slot's day and time as {date} and {time}, in the booking's own
+ * time zone (the one its times were offered in), so the message says the
+ * time the visitor clicked.
+ */
+export function slotVars(startsAt: string | null | undefined, timeZone: string | null | undefined, locale = "en-GB"): Pick<ActionVars, "date" | "time"> {
+  const at = startsAt ? new Date(startsAt) : null
+  if (!at || Number.isNaN(at.getTime())) return {}
+  const tz = timeZone || "UTC"
+  try {
+    return {
+      date: at.toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: tz }),
+      time: at.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit", timeZone: tz }),
+    }
+  } catch {
+    return {}
+  }
+}
+
+/** The variables an action carries itself (the service the creator typed), under what the page and the visitor give. */
+function withOwnVars(a: Record<string, any>, vars: ActionVars): ActionVars {
+  const own = typeof a.service === "string" ? cleanValue(a.service) : ""
+  return own && !cleanValue(vars.service) ? { ...vars, service: own } : vars
 }
 
 /** Percent encoding for a query value: spaces as %20 (a mail app shows a "+" as a plus), line breaks as %0A, and every character outside ASCII as UTF-8. */
@@ -364,6 +437,7 @@ export function actionHref(
 ): string | null {
   if (!action || typeof action !== "object") return null
   const a = action as Record<string, any>
+  vars = withOwnVars(a, vars)
   switch (action.type) {
     case "url":
     case "appointment":
@@ -474,6 +548,7 @@ export function normaliseAction(raw: unknown): NativeAction | null {
         type: "whatsapp" as const,
         phone: e164(s(a.phone, 40)),
         message: keepText(a.message),
+        ...(s(a.service, 120) ? { service: s(a.service, 120) } : {}),
         ...(country(a.country) ? { country: country(a.country) } : {}),
         ...(preChat(a.pre_chat) ? { pre_chat: preChat(a.pre_chat) } : {}),
       })
@@ -486,6 +561,7 @@ export function normaliseAction(raw: unknown): NativeAction | null {
         type: "telegram" as const,
         target: s(a.target, 300),
         message: keepText(a.message),
+        ...(s(a.service, 120) ? { service: s(a.service, 120) } : {}),
         ...(preChat(a.pre_chat) ? { pre_chat: preChat(a.pre_chat) } : {}),
       })
       break
@@ -497,6 +573,7 @@ export function normaliseAction(raw: unknown): NativeAction | null {
         type: "sms" as const,
         phone: e164(s(a.phone, 40)),
         message: keepText(a.message),
+        ...(s(a.service, 120) ? { service: s(a.service, 120) } : {}),
         ...(country(a.country) ? { country: country(a.country) } : {}),
       })
       break
@@ -506,6 +583,7 @@ export function normaliseAction(raw: unknown): NativeAction | null {
         email: s(a.email, 254),
         subject: s(a.subject, 300).replace(/[\r\n]+/g, " "),
         message: keepText(a.message),
+        ...(s(a.service, 120) ? { service: s(a.service, 120) } : {}),
       })
       break
     case "product": {

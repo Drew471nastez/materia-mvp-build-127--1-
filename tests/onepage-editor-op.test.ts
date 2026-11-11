@@ -15,6 +15,8 @@ import { appAddressFromInput, appAddressShown, appTarget, appUrlProblem } from "
 import { storelibBlockHasContent, pastedPosts } from "@/lib/onepage/storelib-blocks"
 import { videoAutoplays, videoEmbedUrl, videoSource } from "@/lib/onepage/extra-blocks"
 import { createDefaultBlock } from "@/lib/onepage/types"
+import { actionHref, fillTemplate, formVars, normaliseAction, slotVars, templateVariablesIn, TEMPLATE_VARIABLES } from "@/lib/forms/actions"
+import { blockActionVars } from "@/lib/onepage/block-action"
 import { isLinkBrandIcon, linkIconFromUrl, linkIconLabel } from "@/components/onepage/link-icons"
 
 let passed = 0
@@ -111,6 +113,39 @@ section("YouTube: plays by itself, muted, on for a new block")
   const view = code("components/onepage/extra-blocks.tsx")
   check("it waits until half of it is on screen, and never for reduced motion or in a carousel", /threshold: 0\.5/.test(view) && /prefers-reduced-motion: reduce/.test(view) && /!look\.still/.test(view))
   check("the editor offers the switch for a YouTube or Vimeo link", /data-video-autoplay-option/.test(code("components/onepage/media-editor.tsx")))
+}
+
+section("Booking message: what each variable puts in, filled in every channel")
+{
+  check("the editor's variables: name, service, product, date and time, each with what it means", TEMPLATE_VARIABLES.map((v) => v.token).join() === "{name},{service},{product_name},{date},{time}" && TEMPLATE_VARIABLES.every((v) => v.means.length > 10))
+  check("the variables a message uses, once each, {visitor_name} read as {name}", templateVariablesIn("Hi {visitor_name}, {service} on {date} at {time}? {name}", "About {service}").join() === "{name},{service},{date},{time}")
+  const msg = "Hi, I'm {name}. I'd like to book {service} on {date} at {time}."
+  const vars = { visitor_name: "Ana", service: "a haircut", date: "Fri 14 Nov 2026", time: "15:30" }
+  check("filled: name, service, date, time", fillTemplate(msg, vars) === "Hi, I'm Ana. I'd like to book a haircut on Fri 14 Nov 2026 at 15:30.")
+  check("{visitor_name} and {name} are the same", fillTemplate("{visitor_name}/{name}", { visitor_name: "Ana" }) === "Ana/Ana")
+  check("the default booking message with its service", fillTemplate("Hi, I'd like to book {service}. When are you free?", { service: "a haircut" }) === "Hi, I'd like to book a haircut. When are you free?")
+  check("no service: left out, the sentence still reads", fillTemplate("Hi, I'd like to book {service}. When are you free?", {}) === "Hi, I'd like to book. When are you free?")
+  const book = "Hi, I'd like to book {service} on {date}. When are you free?"
+  const wa = actionHref({ type: "whatsapp", phone: "+14155550123", message: book, service: "a haircut" }, { date: "Fri 14 Nov" }) || ""
+  check("WhatsApp: the action's own service, encoded once", wa === "https://wa.me/14155550123?text=" + encodeURIComponent("Hi, I'd like to book a haircut on Fri 14 Nov. When are you free?"))
+  const sms = actionHref({ type: "sms", phone: "+14155550123", message: book, service: "a haircut" }) || ""
+  check("SMS: the same words in the body", sms === "sms:+14155550123?body=" + encodeURIComponent("Hi, I'd like to book a haircut on. When are you free?"))
+  const mail = actionHref({ type: "email", email: "ana@example.com", subject: "Booking {service}", message: book, service: "a haircut" }, { date: "Fri 14 Nov" }) || ""
+  check("email: subject and body both filled, spaces as %20", mail === "mailto:ana@example.com?subject=" + encodeURIComponent("Booking a haircut") + "&body=" + encodeURIComponent("Hi, I'd like to book a haircut on Fri 14 Nov. When are you free?") && !/\+/.test(mail.split("?")[1]))
+  const tg = actionHref({ type: "telegram", target: "@anastudio", message: book, service: "a haircut" }) || ""
+  check("Telegram: filled too", tg.startsWith("https://t.me/anastudio?text=") && decodeURIComponent(tg.split("text=")[1]).startsWith("Hi, I'd like to book a haircut"))
+  check("a visitor's own answer beats the typed service", (actionHref({ type: "whatsapp", phone: "+14155550123", message: "{service}", service: "a haircut" }, { service: "Colour" }) || "").endsWith("text=Colour"))
+  check("the service is kept when saved, capped", (normaliseAction({ type: "whatsapp", phone: "+14155550123", message: "x", service: "  a haircut  " }) as { service?: string }).service === "a haircut")
+  check("the block's words fill {service} when the action has none, the action's own first", blockActionVars({ type: "link_button", data: { label: "Book" } }, { type: "whatsapp", phone: "1", service: "Massage" } as never).service === "Massage" && blockActionVars({ type: "link_button", data: { label: "Book" } }, null).service === "Book")
+  const fv = formVars([{ id: "when", type: "date" }, { id: "time", type: "text" }, { id: "full", type: "name" }], { when: "2026-11-14", time: "3:30 PM", full: "Ana" })
+  check("questions fill {date} (as words), {time} and {name}", /^Sat,? 14 Nov 2026$/.test(fv.date || "") && fv.time === "3:30 PM" && fv.visitor_name === "Ana")
+  const slot = slotVars("2026-11-14T15:30:00.000Z", "America/New_York")
+  check("a booked slot is said in the booking's own time zone", /^Sat,? 14 Nov 2026$/.test(slot.date || "") && /^10:30/.test(slot.time || ""))
+  check("a slot that is not a time gives nothing", Object.keys(slotVars("soon", "UTC")).length === 0)
+  const route = code("app/api/forms/[id]/submit/route.ts")
+  check("a booking form's chat after booking carries the slot as {date} and {time}", /slotVars\(booking\.starts_at, definition\.booking\?\.timezone\)/.test(route))
+  const ed = code("components/forms/action-editor.tsx")
+  check("the editor says what each used variable puts in, asks for the service, and shows an example", /data-variable-meanings/.test(ed) && /data-variable-service/.test(ed) && /data-message-example/.test(ed))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

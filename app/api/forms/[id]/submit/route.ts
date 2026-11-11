@@ -2,7 +2,7 @@ import { NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { notifyUser } from "@/lib/notifications/user-inbox"
-import { UUID, actionHref, actionLabel, formVars, type NativeAction } from "@/lib/forms/actions"
+import { UUID, actionHref, actionLabel, formVars, slotVars, type NativeAction } from "@/lib/forms/actions"
 import { validateDefinition, validateAnswers, pickResult, fillTemplate, validTimeZone, answerText, bookingDurations, type Answer, type BookingLocation, type FormDefinition } from "@/lib/forms/definition"
 import { expireUnpaidBookings } from "@/lib/forms/booking-payment"
 import { PUBLIC_HEADERS, formError, boundedJson, isMissingSchema, NEEDS_SQL, logFormsError, noteFormsTables } from "@/lib/forms/server"
@@ -262,7 +262,8 @@ function completion(
     score: definition.mode === "quiz" ? valid.score : null,
     result: result ? { title: result.title, message: result.message } : null,
     /* AK5's {name}, {email} and {question_id} are filled above; the action's own {visitor_name}, {service} and {answer:id} here (lib/forms/actions). The two never share a token. */
-    href: actionHref(action, { ...formVars(definition.fields, Object.fromEntries(valid.answers.map((a) => [a.field_id, a.type === "file" ? "" : a.value]))), visitor_name: valid.name || null }),
+    /* {date} and {time} are the booked slot, in the booking's own time zone, when there is one (lib/forms/actions slotVars). */
+    href: actionHref(action, { ...formVars(definition.fields, Object.fromEntries(valid.answers.map((a) => [a.field_id, a.type === "file" ? "" : a.value]))), visitor_name: valid.name || null, ...(booking ? slotVars(booking.starts_at, definition.booking?.timezone) : {}) }),
     action_type: action?.type || null,
     action_label: action ? actionLabel(action) : null,
     gated: gated ? { url: gated.url, label: gated.label } : null,

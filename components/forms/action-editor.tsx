@@ -45,7 +45,10 @@ import {
   UUID,
   actionFromUrl,
   actionHref,
+  fillTemplate,
+  slotVars,
   telegramTarget,
+  templateVariablesIn,
   whatsappGroupUrl,
   type ActionType,
   type ActionVars,
@@ -144,7 +147,7 @@ const ANSWER_TOKEN = "{answer:message}"
 const prechatMessage = () => [tt("Hi, I'm {visitor_name}. It's about {service}.", { visitor_name: "{visitor_name}", service: "{service}" }), ANSWER_TOKEN].join(" ")
 
 /* The variables keep their braces in every language: tt() is handed each one as itself. */
-const KEEP = { visitor_name: "{visitor_name}", product_name: "{product_name}", service: "{service}" }
+const KEEP = { visitor_name: "{visitor_name}", product_name: "{product_name}", service: "{service}", name: "{name}", date: "{date}", time: "{time}" }
 
 /** The starting messages (lib/forms/actions MESSAGE_TEMPLATES), in the creator's language. */
 const templateWords = (): Record<string, { label: string; text: string }> => ({
@@ -155,10 +158,39 @@ const templateWords = (): Record<string, { label: string; text: string }> => ({
 })
 
 const variableWords = (): Record<string, string> => ({
-  "{visitor_name}": tt("Visitor's name"),
-  "{product_name}": tt("Product"),
+  "{name}": tt("Name"),
   "{service}": tt("Service"),
+  "{product_name}": tt("Product"),
+  "{date}": tt("Date"),
+  "{time}": tt("Time"),
 })
+
+/** What each variable puts in the message (lib/forms/actions TEMPLATE_VARIABLES), in the creator's language. */
+const variableMeanings = (): Record<string, string> => ({
+  "{name}": tt("The visitor's name, when your questions ask for it"),
+  "{service}": tt("The service you type below, or what the visitor picks in your questions"),
+  "{product_name}": tt("The product this button is for"),
+  "{date}": tt("The day the visitor picks: a booking form's time, or a date question"),
+  "{time}": tt("The time the visitor picks in a booking form, or a time question"),
+})
+
+/** A message filled with example values, so the creator reads what a visitor sends. Tomorrow at 3:30 in the afternoon, where the creator is. */
+function exampleMessage(text: string, vars: ActionVars | undefined, service: unknown): string {
+  const at = new Date()
+  at.setDate(at.getDate() + 1)
+  at.setHours(15, 30, 0, 0)
+  let zone = "UTC"
+  try {
+    zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+  } catch {}
+  const typed = typeof service === "string" && service.trim() ? service.trim() : null
+  return fillTemplate(text, {
+    visitor_name: tt("Alex"),
+    service: typed || vars?.service || tt("a haircut"),
+    product_name: vars?.product_name || tt("the linen shirt"),
+    ...slotVars(at.toISOString(), zone),
+  })
+}
 
 function reducedMotion(): boolean {
   try {
@@ -274,6 +306,9 @@ export function ActionEditor({
   const preChatForm = forms.find((f) => f.id === a.pre_chat?.form_id)
   const answerFields = (preChatForm?.published?.fields || preChatForm?.draft?.fields || []).slice(0, 8)
   const varWords = variableWords()
+  const varMeanings = variableMeanings()
+  const used = templateVariablesIn(a.message, a.subject)
+  const example = used.length && typeof a.message === "string" && a.message.trim() ? exampleMessage(a.message, vars, a.service) : ""
   const templates = templateWords()
   const templateChoices: Choice[] = MESSAGE_TEMPLATES.map((m) => ({ value: m.id, label: templates[m.id]?.label ?? m.label, detail: templates[m.id]?.text ?? m.text }))
   const messageId = `${ids}-message`
@@ -330,11 +365,12 @@ export function ActionEditor({
         }}
       />
       <div className="mt-2.5 flex flex-wrap gap-1.5" role="group" aria-label={tt("Insert a variable")} data-variable-chips="">
-        {[...TEMPLATE_VARIABLES.map((v) => ({ token: v.token as string, label: varWords[v.token] ?? v.label })), ...answerFields.map((f) => ({ token: `{answer:${f.id}}`, label: f.label || f.id }))].map((v) => (
+        {[...TEMPLATE_VARIABLES.map((v) => ({ token: v.token as string, label: varWords[v.token] ?? v.label, means: varMeanings[v.token] ?? v.means })), ...answerFields.map((f) => ({ token: `{answer:${f.id}}`, label: f.label || f.id, means: tt("The visitor's answer to this question") }))].map((v) => (
           <button
             key={v.token}
             type="button"
             data-variable={v.token}
+            title={`${v.token}: ${v.means}`}
             /* The press does not take the focus: the caret, and a keyboard that is up, stay in the message. */
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => insert(v.token)}
@@ -345,6 +381,31 @@ export function ActionEditor({
           </button>
         ))}
       </div>
+      {/*
+        WHAT EACH ONE PUTS IN. Only for the variables the message uses, one
+        line each, then the message as a visitor would send it, with example
+        values. {service} gets its own field: the service this button books.
+      */}
+      {used.length ? (
+        <div className="mt-3 space-y-1.5" data-variable-meanings="">
+          <dl className="space-y-1.5">
+            {used.map((token) => (
+              <div key={token} className="flex min-w-0 gap-2 text-[12.5px] leading-[1.45]" data-variable-meaning={token}>
+                <dt className="shrink-0 font-medium text-[#1a1a2e]">{token}</dt>
+                <dd className="min-w-0 text-[#6b7280]">{varMeanings[token]}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="text-[12.5px] leading-[1.45] text-[#6b7280]">{tt("One with nothing to put in is left out of the message.")}</p>
+        </div>
+      ) : null}
+      {used.includes("{service}") ? <div className="mt-3" data-variable-service="">{text("service", tt("Service"), { placeholder: tt("Haircut"), max: 120 })}</div> : null}
+      {example ? (
+        <p className="mt-3 rounded-xl bg-[#f6f6f7] px-3 py-2.5 text-[13px] leading-[1.45] text-[#4b5563]" data-message-example="">
+          <span className="block text-[12px] font-medium text-[#6b7280]">{tt("Example")}</span>
+          <span className="whitespace-pre-line break-words">{example}</span>
+        </p>
+      ) : null}
     </div>
   )
 
