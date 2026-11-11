@@ -2819,9 +2819,25 @@ html.capacitor .subscribe-bar-spacer {
 .op-btn {
   position: relative;
   isolation: isolate;
-  transition-property: translate, scale, opacity, color;
+  transition-property: translate, scale, opacity;
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+/* ONLY A HOVER THAT CHANGES THE WORDS' COLOUR ANIMATES IT (the owner: buttons whose words "flash and change colours
+   on their own"). `color` was transitioned on every button, so any change of it that was not a hover animated too:
+   a theme picked in the editor (the words crossing over the new fill for 200ms, unreadable on the way), the
+   legibility guard's corrections, the creator's own colours raised over a skin. Fill and Pop change the words on
+   hover, so they alone carry it; every other change of colour is a cut. */
+.op-btn:is([data-hover="fill"], [data-hover="pop"]) {
+  transition-property: translate, scale, opacity, color;
+}
+/* AND NOTHING ANIMATES WHILE THE PAGE TAKES ON A LOOK: its first paint, hydration, and a theme or colour arriving
+   in the editor's preview (components/onepage/public-onepage data-op-still, for two frames). */
+.onepage-live[data-op-still],
+.onepage-live[data-op-still] *,
+.onepage-live[data-op-still] *::before,
+.onepage-live[data-op-still] *::after {
+  transition: none !important;
 }
 .op-btn::before {
   content: "";
