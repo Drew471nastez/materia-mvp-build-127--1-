@@ -239,6 +239,7 @@ async function loadPass(path, editor, where, extra = {}) {
 }
 
 for (const id of themeIds) {
+  if (process.env.PROGRESS) console.log(`  ${id}: ${problems.length} problems so far`)
   /* The published page. */
   {
     const { page, frame } = await loadPass(`/app?live&t=${encodeURIComponent(id)}`, false, `live ${id}`)

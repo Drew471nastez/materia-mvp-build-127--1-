@@ -2999,10 +2999,13 @@ iframe:is([src*="youtube.com/embed"], [src*="youtube-nocookie.com/embed"], [src*
 [data-op-skin][data-sk-own~="socials"] [data-op-social-icon] svg { filter: none !important; }
 
 /* A BLOCK ARRIVES AS IT COMES INTO VIEW (components/onepage/block-entrance). Held while it is out of sight, then
-   faded up from 10px below, opacity and translate only; the box lets go when it ends. "wait" also stops the first
+   faded up from 10px below, opacity and translate only; "done" once it has, so nothing replays. "wait" also stops the first
    screen's fade the server drew, which would otherwise play out of sight. */
 .onepage-live [data-op-enter="wait"] {
   opacity: 0;
+  animation: none !important;
+}
+.onepage-live [data-op-enter="done"] {
   animation: none !important;
 }
 .onepage-live [data-op-enter="in"] {

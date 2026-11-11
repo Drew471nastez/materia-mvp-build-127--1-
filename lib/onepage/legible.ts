@@ -338,9 +338,19 @@ function covers(size: string, box: DOMRect): boolean {
  * A box's opacity at rest: a box fading in (an entrance, a sheet rising) is not a word that cannot be read, so while
  * an animation or a transition runs on it its opacity counts as whole; the guard measures again when it ends.
  */
+/** A block waiting for, or in, its entrance (components/onepage/block-entrance): measured as it will be seen. */
+const ENTERING = "[data-op-enter], [data-onepage-enter]"
+
 function restingOpacity(node: Element, cs: CSSStyleDeclaration): number {
   const o = parseFloat(cs.opacity)
   if (!Number.isFinite(o)) return 1
+  /*
+    An entrance is not a word that cannot be read. A block below the first screen waits at opacity 0 (no animation
+    yet) and the first screen's stagger sits at 0 before its turn: counted as faded, or as shut, their words were
+    measured only after they arrived, and the guard's correction then landed a moment after the block was on screen
+    (a colour change after the first paint). Measured whole, they arrive already right.
+  */
+  if (o < 1 && node.matches(ENTERING)) return 1
   if (o < 1 && typeof (node as Element & { getAnimations?: () => Animation[] }).getAnimations === "function") {
     if (node.getAnimations().some((a) => a.playState === "running" || a.playState === "paused")) return 1
   }
@@ -556,7 +566,7 @@ function shut(el: Element | null, memo: Map<Element, boolean>): boolean {
   if (!el) return false
   const known = memo.get(el)
   if (known !== undefined) return known
-  const v = el.hasAttribute("inert") || getComputedStyle(el).opacity === "0" || shut(el.parentElement, memo)
+  const v = el.hasAttribute("inert") || (getComputedStyle(el).opacity === "0" && !el.matches(ENTERING)) || shut(el.parentElement, memo)
   memo.set(el, v)
   return v
 }

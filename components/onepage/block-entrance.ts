@@ -23,8 +23,8 @@
  * once the editor shows the frame (preview-document's "drawn"). Under reduced
  * motion nothing waits and nothing moves (app/globals.css).
  *
- * Only opacity and `translate` move, on the block's own box, and the box lets
- * go of the animation when it ends.
+ * Only opacity and `translate` move, on the block's own box, and the box is
+ * marked done when it ends, so nothing replays.
  */
 import { useLayoutEffect } from "react"
 import { isOnePagePreview } from "@/lib/onepage/preview-notice"
@@ -55,7 +55,8 @@ function enter(el: HTMLElement, delay: number): void {
   const done = (e: AnimationEvent) => {
     if (e.target !== el) return
     el.removeEventListener("animationend", done)
-    el.removeAttribute(ATTR)
+    /* "done", not gone: the server's first-screen fade (animate-in) is still on the box until the page lets it go, and would play again. */
+    el.setAttribute(ATTR, "done")
     el.style.removeProperty("--op-enter-delay")
   }
   el.addEventListener("animationend", done)
