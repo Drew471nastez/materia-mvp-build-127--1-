@@ -58,6 +58,7 @@ check("on every header layout, not only the Hero", /<HeroTopBar\s+enabled=\{safe
 check("the verified badge rides in it, without a tip that would hang off the top", /badge=\{safeSettings\.verified_badge_enabled \? <VerifiedBadge size=\{16\} badgeType=\{safeSettings\.verified_badge_type\} tip=\{false\} \/> : null\}/.test(page) && /data-op-topbar-badge=""/.test(bar))
 check("on a computer it floats inside the 550px card, its corner concentric with the card's 40px", /md:inset-x-\[max\(28px,calc\(50%_-_263px\)\)\] md:top-3 md:rounded-\[28px\]/.test(bar) && 275 - BAR_DESKTOP_INSET_PX === 263 && 40 - BAR_DESKTOP_INSET_PX === 28)
 check("its heights live in one stylesheet rule the row reads", /\.op-topbar \{\s*--op-bar-h: 60px;/.test(css) && /\.op-topbar \{\s*--op-bar-h: 56px;/.test(css) && /height: `var\(--op-bar-h, \$\{BAR_PHONE_PX\}px\)`/.test(bar))
+check("a browser without scroll timelines never moves the picture from a script (it lands a frame behind the scroll)", !/style\.translate = /.test(bar) && !/style\.scale = /.test(bar) && /scrim\.style\.opacity = String\(s\.dim\)/.test(bar))
 check("the Hero's name stays until the bar forms over it, in the stylesheet and the fallback alike", /@keyframes op-hero-title \{\s*0%, 62% \{ opacity: 1; \}\s*92%, 100% \{ opacity: 0; \}/.test(css) && /-r\.top \/ r\.height - 0\.62\) \/ 0\.3/.test(bar))
 
 /* ── The corner buttons ── */

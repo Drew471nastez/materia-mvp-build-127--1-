@@ -17,9 +17,11 @@
  *                 The picture is held back (translate and scale) and a dark
  *                 layer over it fades in; the name over it fades out. Only
  *                 transform and opacity change. A browser without scroll
- *                 timelines gets the same curve (lib/onepage/feel heroScroll)
- *                 from a passive scroll listener, one write per frame, and
- *                 only while the hero is on screen.
+ *                 timelines gets the dark layer and the name's fade on the
+ *                 same curve (lib/onepage/feel heroScroll) from a passive
+ *                 scroll listener, one write per frame, only while the hero
+ *                 is on screen; never the picture's own move, which a script
+ *                 can only draw a frame behind the scroll (round AS).
  *   THE BAR       round AS, on every header layout, not only the Hero:
  *                 it forms over the profile's name as the name slides up
  *                 under it (lib/onepage/feel barMorph), driven by the page's
@@ -91,13 +93,13 @@ function useHeroFallback(enabled: boolean) {
       if (!hero) return
       const r = hero.getBoundingClientRect()
       const s = heroScroll(-r.top, r.height)
-      const shift = hero.querySelector<HTMLElement>("[data-hero-shift]")
       const scrim = hero.querySelector<HTMLElement>("[data-hero-scrim]")
       const title = hero.querySelector<HTMLElement>("[data-hero-title]")
-      if (shift) {
-        shift.style.translate = `0 ${s.shift}px`
-        shift.style.scale = String(s.scale)
-      }
+      /*
+        Round AS: no held back picture here, only the dark layer and the name. A transform written from a script
+        lands a frame after the page has moved (an iPhone scrolls on its own thread), so the picture shook against
+        the scroll, worst on the way back to the top: the owner's "stutter". Opacity a frame late cannot be seen.
+      */
       if (scrim) scrim.style.opacity = String(s.dim)
       /* The same curve as op-hero-title (app/globals.css): whole until 62% of the way out, gone by 92%, while the bar forms over it. */
       if (title) title.style.opacity = String(Math.round(Math.min(1, Math.max(0, 1 - (-r.top / r.height - 0.62) / 0.3)) * 1000) / 1000)
