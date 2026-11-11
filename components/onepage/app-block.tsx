@@ -568,7 +568,7 @@ function LinkView({ block, data, provider, look }: ViewProps) {
       return (
         <div data-onepage-app={provider.id} data-app-layout="carousel" className="w-full">
           {titled ? <p className="mb-2 text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">{data.title}</p> : null}
-          <div className="-mx-1 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="op-rail flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {embeds.map((e) => (
               <div key={e.embed.src} className="w-[78%] max-w-[320px] shrink-0 snap-start">
                 <AppEmbedView embed={e.embed} href={e.href} title={title} radius={radius} compact fallback={null} />
@@ -809,7 +809,7 @@ function ItemsView({ block, data, provider, look }: ViewProps) {
   return (
     <div data-onepage-app={provider.id} data-app-layout={layout} className="w-full">
       {heading}
-      <div className={carousel ? "-mx-1 flex snap-x snap-mandatory overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "grid grid-cols-2"} style={{ gap: px(10, look.scale) }}>
+      <div className={carousel ? "op-rail flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "grid grid-cols-2"} style={{ gap: px(10, look.scale) }}>
         {items.map((item) => {
           const href = itemHref(item)
           return (
@@ -846,7 +846,7 @@ function EventsView({ block, data, provider, look }: Omit<ViewProps, "provider">
   return (
     <div data-onepage-app="events" data-app-layout={layout} className="w-full">
       {data.title?.trim() ? <p className="mb-2 text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }} data-block-title="">{data.title}</p> : null}
-      <div className={carousel ? "-mx-1 flex snap-x snap-mandatory overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "flex flex-col"} style={{ gap: px(10, look.scale) }}>
+      <div className={carousel ? "op-rail flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "flex flex-col"} style={{ gap: px(10, look.scale) }}>
         {events.map((ev) => {
           const day = eventDay(ev.date, locale)
           const href = ev.sold_out ? null : itemHref(ev)

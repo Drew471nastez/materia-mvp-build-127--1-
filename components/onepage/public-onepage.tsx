@@ -1203,8 +1203,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     <div
       className={cn("relative z-10 w-full flex flex-col min-h-full", isDesktop ? "max-w-full" : "max-w-lg mx-auto")}
       style={{
-        paddingLeft: isDesktop ? "28px" : "20px",
-        paddingRight: isDesktop ? "28px" : "20px",
+        /* The side padding, once: a row that slides sideways runs out to it (app/globals.css .op-rail). */
+        ["--op-gutter" as string]: isDesktop ? "28px" : "20px",
+        paddingLeft: "var(--op-gutter)",
+        paddingRight: "var(--op-gutter)",
         // More top padding on mobile to push avatar/content down
         /* No top padding only above a hero that is really drawn: without a
            picture the header is the classic one and needs the same 50px it
@@ -2069,7 +2071,7 @@ function GroupBlockRenderer({
         <div
           ref={scrollContainerRef}
           data-group-carousel=""
-          className="w-full scrollbar-hide snap-x snap-mandatory select-none cursor-grab data-[dragging]:cursor-grabbing"
+          className="op-rail scrollbar-hide snap-x snap-mandatory select-none cursor-grab data-[dragging]:cursor-grabbing"
           /*
             ROOM FOR EVERY EDGE (round 42, "buttons still have cut borders").
             A scroller clips on all four sides, and the first slide used to
@@ -2087,9 +2089,11 @@ function GroupBlockRenderer({
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             overflowX: 'auto',
-            margin: `-${CAROUSEL_ROOM}px -${CAROUSEL_ROOM - 8}px`,
-            padding: `${CAROUSEL_ROOM + 12}px ${CAROUSEL_ROOM}px ${CAROUSEL_ROOM + 20}px`,
-            scrollPaddingInline: `${CAROUSEL_ROOM}px`,
+            /* Round AS: to the column's edge sideways (app/globals.css .op-rail); the room above and below stays. */
+            marginTop: -CAROUSEL_ROOM,
+            marginBottom: -CAROUSEL_ROOM,
+            paddingTop: CAROUSEL_ROOM + 12,
+            paddingBottom: CAROUSEL_ROOM + 20,
             ...(data.carousel_fade_edges ? { maskImage: SOFT_EDGES, WebkitMaskImage: SOFT_EDGES } : {}),
           }}
           onScroll={handleScroll}
@@ -2104,7 +2108,8 @@ function GroupBlockRenderer({
               <div
                 key={child.id}
                 className="shrink-0 snap-start"
-                style={itemStyle}
+                /* A row inside a slide stays inside it. */
+                style={{ ...itemStyle, ["--op-gutter" as string]: "4px" }}
                 data-sensitive-label={sensitiveLabel(child)}
               >
                 <div className="w-full" style={{ overflow: 'visible' }}>
@@ -2200,7 +2205,8 @@ function GroupBlockRenderer({
   return (
     <div 
       className="w-full flex flex-col gap-3"
-      style={{
+      /* A carousel lines up with the column itself and runs out to its edge (app/globals.css .op-rail); a stack keeps its 8px either side. */
+      style={data.layout === "carousel" ? { overflow: 'visible' } : {
         marginLeft: '-8px',
         marginRight: '-8px',
         width: 'calc(100% + 16px)',
@@ -2229,7 +2235,7 @@ function GroupBlockRenderer({
 /** The room a group carousel's scroller keeps around its slides: the widest glow or hard shadow a button draws, and a lift. */
 const CAROUSEL_ROOM = 16
 /* A group carousel's soft edges, as a mask: no colour of its own, so it suits any page background. */
-const SOFT_EDGES = `linear-gradient(to right, transparent 0, #000 ${CAROUSEL_ROOM + 12}px, #000 calc(100% - ${CAROUSEL_ROOM + 12}px), transparent 100%)`
+const SOFT_EDGES = "linear-gradient(to right, transparent 0, #000 var(--op-gutter, 28px), #000 calc(100% - var(--op-gutter, 28px)), transparent 100%)"
 
 /**
  * A COLLECTION'S OPTIONAL PICTURE AND LINE (GroupBlockData image_url and
@@ -2568,7 +2574,7 @@ function PublicImageCarousel({
         onTouchStart={hold}
         onPointerDown={hold}
         data-onepage-slides=""
-        className={cn("w-full scrollbar-hide select-none", images.length > 1 && "cursor-grab data-[dragging]:cursor-grabbing")}
+        className={cn("op-rail scrollbar-hide select-none", images.length > 1 && "cursor-grab data-[dragging]:cursor-grabbing")}
         style={{
           display: 'flex',
           gap: `${gap}px`,
@@ -4731,6 +4737,8 @@ function CoreBlockRenderer({
                 <div
                   key={child.id}
                   className="w-full px-3"
+                  /* A row in a collection runs out past its 12px to the page's edge too (app/globals.css .op-rail). */
+                  style={{ ["--op-gutter" as string]: isDesktop ? "40px" : "32px" }}
                   data-sensitive-label={sensitiveLabel(child)}
                 >
                   {inGroupPreview && isIncompleteLink(child) ? (

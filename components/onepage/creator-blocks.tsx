@@ -230,7 +230,7 @@ function TestimonialsView({ data, look }: { data: TestimonialsBlockData; look: C
         </p>
       ) : null}
       <div
-        className={cn("flex w-full", many && "snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden")}
+        className={cn("flex w-full", many && "op-rail snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden")}
         style={{ gap: px(10, look.scale) }}
       >
         {items.map((item) => (

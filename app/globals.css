@@ -9869,3 +9869,24 @@ html[data-op-press] [data-op-letgo] {
 @media (prefers-reduced-motion: reduce) {
   [data-hero-scroll] :is([data-hero-shift], [data-hero-title]) { animation: none !important; translate: none !important; scale: none !important; }
 }
+
+/* A ROW THAT SLIDES SIDEWAYS RUNS TO THE PAGE'S EDGE (round AS). Every
+   carousel on a OnePage (a group's, a shelf's, posts, reviews, stats, an app's,
+   testimonials, the picture slider) is a scroller, and a scroller clips. It
+   used to clip a few px outside the column, so a card was cut by a hard line
+   20px in from the screen (28px in from the computer's card) and a shadow or
+   ring was cut at the top and the side. The row now reaches the column's own
+   edge (--op-gutter, the page's side padding, set by components/onepage/
+   public-onepage), snaps its first card back in line with the column
+   (scroll-padding), and has room above and below for a shadow: a card is cut
+   only by the screen or the card's own rounded edge. Inside a half width
+   block or a pair, where the edge is a neighbour, it keeps a few px. */
+.op-rail {
+  width: auto;
+  margin-inline: calc(-1 * var(--op-gutter, 4px));
+  padding-inline: var(--op-gutter, 4px);
+  scroll-padding-inline: var(--op-gutter, 4px);
+  margin-block: -10px;
+  padding-block: 10px;
+}
+:is([data-block-size="half"], [data-block-size="tall"], [data-link-tile], [data-product-pair] > *, [data-group-grid] > *) { --op-gutter: 4px; }
