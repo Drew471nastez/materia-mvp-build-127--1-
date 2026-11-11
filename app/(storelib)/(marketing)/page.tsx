@@ -1,4 +1,5 @@
 import dynamic from "next/dynamic"
+import { BuildShowcase } from "@/components/marketing/build-showcase"
 import { Hero } from "@/components/marketing/hero"
 import { BentoGrid } from "@/components/marketing/bento-grid"
 import { StatsBar } from "@/components/marketing/stats-bar"
@@ -36,6 +37,7 @@ export default function StorelibLanding() {
 
       {/* HERO SECTION */}
       <Hero />
+      <BuildShowcase />
 
       {/* BENTO GRID */}
       <BentoGrid />

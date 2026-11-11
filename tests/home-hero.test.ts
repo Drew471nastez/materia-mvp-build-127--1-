@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 import { readFileSync, existsSync, statSync } from "node:fs"
 import { createElement } from "react"
 import { renderToString } from "react-dom/server"
+import { BuildShowcase } from "../components/marketing/build-showcase"
 import { Hero } from "../components/marketing/hero"
 import {
   HERO_PHRASES,
@@ -28,7 +29,8 @@ assert.equal((doc.match(/<h1/g) || []).length, 1)
 assert.ok(
   doc.includes("Build your website.") && doc.includes("Build your</span>"),
 )
-for (const phrase of HERO_PHRASES) assert.ok(doc.includes(phrase))
+for (const phrase of HERO_PHRASES)
+  assert.ok(doc.replace(/<[^>]*>/g, "").includes(phrase))
 assert.ok(
   doc.includes('action="/signup"') &&
     doc.includes('name="intent" value="sell"'),
@@ -49,7 +51,7 @@ assert.ok(
   /muted=""/.test(doc) && /playsInline=""/.test(doc) && /loop=""/.test(doc),
 )
 assert.ok(
-  !/<video[^>]+src=/.test(doc),
+  !/<video[^>]+\ssrc=/.test(doc),
   "SSR must not download video before preferences are known",
 )
 assert.ok(
@@ -87,4 +89,45 @@ assert.ok(
 )
 console.log(
   "Cinematic hero passed: server-rendered copy/signup, exact phrases, one deferred video, local fallback, shared auth, accessible motion and cleanup",
+)
+
+assert.ok(doc.includes("The e-commerce platform for creators"))
+assert.ok(!doc.includes("Free to start. No card required."))
+assert.ok(
+  read("components/marketing/hero.tsx").includes("--hero-grain-opacity: .035"),
+)
+assert.ok(
+  read("components/marketing/hero.tsx").includes(
+    "min-height: 0; padding-block: 40px",
+  ),
+)
+assert.ok(
+  read("lib/marketing/hero-startup.ts").includes("navigator.connection"),
+)
+assert.ok(
+  read("components/marketing/hero-cta.tsx").includes("subscribeAuthSnapshot"),
+)
+assert.ok(read("components/marketing/hero-cta.tsx").includes('"/account"'))
+assert.ok(
+  read("components/marketing/hero-headline.tsx").includes(
+    'className="cinematic-period"',
+  ),
+)
+assert.ok(HERO_VIDEO.src.includes("1794404095596918.mp4"))
+const showcase = read("components/marketing/build-showcase.tsx")
+assert.ok(
+  showcase.includes(
+    'const WORDS = ["Build", "anything.", "Make", "it", "yours."]',
+  ),
+)
+assert.ok(
+  showcase.includes("onPointerMove") && showcase.includes('loading="lazy"'),
+)
+
+const showcaseMarkup = renderToString(createElement(BuildShowcase))
+assert.equal((showcaseMarkup.match(/data-showcase-slide=""/g) || []).length, 10)
+assert.equal((showcaseMarkup.match(/data-showcase-word=""/g) || []).length, 5)
+assert.ok(showcaseMarkup.includes('aria-label="Pause showcase"'))
+assert.ok(
+  showcaseMarkup.includes('aria-label="What you can build with Storelib"'),
 )

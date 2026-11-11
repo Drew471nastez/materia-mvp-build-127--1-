@@ -44,7 +44,7 @@ await build({
 await build({
   stdin: {
     contents:
-      'import React from "react"; import {renderToString} from "react-dom/server"; import {Hero} from "./components/marketing/hero"; process.stdout.write(renderToString(React.createElement(Hero)));',
+      'import React from "react"; import {renderToString} from "react-dom/server"; import {Hero} from "./components/marketing/hero"; import {BuildShowcase} from "./components/marketing/build-showcase"; process.stdout.write(renderToString(React.createElement(React.Fragment,null,React.createElement(Hero),React.createElement(BuildShowcase))));',
     resolveDir: root,
     loader: "tsx",
   },
@@ -81,7 +81,7 @@ execFileSync("ffmpeg", [
   join(out, "test.mp4"),
 ])
 const video = readFileSync(join(out, "test.mp4"))
-const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>body{margin:0;font-family:Arial,system-ui,sans-serif}header{height:72px;display:flex;align-items:center;padding:0 24px;background:#fff;color:#161616}header a{margin-left:auto}</style><script>window.__cls=0;window.__shifts=[];new PerformanceObserver(l=>l.getEntries().forEach(e=>{if(!e.hadRecentInput){window.__cls+=e.value;window.__shifts.push({value:e.value,time:e.startTime,sources:e.sources.map(s=>({node:s.node?.outerHTML?.slice(0,150),before:s.previousRect.toJSON(),after:s.currentRect.toJSON()}))})}})).observe({type:'layout-shift',buffered:true});</script></head><body><header>Storelib <a href="/explore">Marketplace</a></header><main id="app">${ssr}</main><section style="height:1400px;background:#fff">Unrelated content</section><script src="/client.js"></script></body></html>`
+const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>body{margin:0;font-family:Arial,system-ui,sans-serif}header{height:72px;display:flex;align-items:center;padding:0 24px;background:#16161a;color:#fff}header a{margin-left:auto}</style><script>window.__cls=0;window.__shifts=[];new PerformanceObserver(l=>l.getEntries().forEach(e=>{if(!e.hadRecentInput){window.__cls+=e.value;window.__shifts.push({value:e.value,time:e.startTime,sources:e.sources.map(s=>({node:s.node?.outerHTML?.slice(0,150),before:s.previousRect.toJSON(),after:s.currentRect.toJSON()}))})}})).observe({type:'layout-shift',buffered:true});</script></head><body><div id="platform-header-root" data-header-tone="dark" class="platform-header-depth"><header>Storelib <a href="/explore">Marketplace</a></header></div><main id="app">${ssr}</main><section style="height:1400px;background:#fff">Unrelated content</section><script src="/client.js"></script></body></html>`
 const server = createServer((req, res) => {
   const url = new URL(req.url, "http://local")
   if (url.pathname === "/") {
@@ -129,10 +129,18 @@ async function pageFor(mode = "video") {
   page.on("pageerror", (e) => page.errors.push(e.message))
   await page.setRequestInterception(true)
   page.on("request", async (r) => {
-    if (r.url().startsWith(origin)) return r.continue()
-    if (r.url().includes("1794399738580785.mp4")) {
+    if (r.url().startsWith(origin)) {
+      if (mode === "no-hydration" && r.url().includes("client.js"))
+        return r.abort()
+      return r.continue()
+    }
+    if (r.url().includes("1794404095596918.mp4")) {
       page.videoRequests++
-      if (mode === "failure") return r.abort("failed")
+      if (
+        mode === "failure" ||
+        (mode === "recover" && page.videoRequests === 1)
+      )
+        return r.abort("failed")
       if (mode === "slow") {
         await pause(1800)
         if (r.isInterceptResolutionHandled()) return
@@ -189,6 +197,7 @@ try {
     [375, 568],
     [844, 390],
   ]) {
+    if (process.env.HERO_FAST && width !== 768) continue
     const page = await pageFor()
     await page.setViewport({ width, height })
     await page.goto(origin, { waitUntil: "networkidle0" })
@@ -218,13 +227,33 @@ try {
     if (cycles === 7)
       assert.equal(seen.size, 7, "all seven phrases and wraparound")
     const layout = await page.evaluate(() => {
-      const f = document.querySelector("form"),
-        input = f.querySelector("input[type=email]").getBoundingClientRect(),
-        btn = f.querySelector("button").getBoundingClientRect()
-      return { inputY: input.y, buttonY: btn.y, gap: btn.y - input.bottom }
+      const email = document.querySelector("input[type=email]"),
+        signup = document.querySelector("[data-hero-signup]"),
+        search = document.querySelector(".cinematic-search")
+      const input = email.getBoundingClientRect(),
+        btn = signup.querySelector("button").getBoundingClientRect()
+      return {
+        inputY: input.y,
+        buttonY: btn.y,
+        gap: btn.y - input.bottom,
+        emailVisible: !!email.getClientRects().length,
+        searchVisible: !!search.getClientRects().length,
+      }
     })
-    if (width < 640) assert.ok(layout.gap >= 10, "mobile form stacked")
-    else assert.equal(layout.inputY, layout.buttonY, "desktop form inline")
+    if (width < 768) {
+      assert.ok(layout.emailVisible)
+      assert.ok(layout.gap >= 10)
+      assert.equal(layout.searchVisible, false)
+    } else {
+      assert.equal(layout.emailVisible, false)
+      assert.ok(layout.searchVisible)
+      assert.ok(
+        await page.$eval(
+          ".cinematic-desktop-signup",
+          (e) => !!e.getClientRects().length,
+        ),
+      )
+    }
     // All phrases fit the same reserved line, including narrow landscape and 320px.
     assert.ok(
       await page.$$eval(".cinematic-phrase", (els) =>
@@ -234,6 +263,7 @@ try {
     if (shots)
       await page.screenshot({ path: join(shots, `${width}x${height}.png`) })
     await page.click(".cinematic-motion")
+    await page.waitForSelector('.cinematic-motion[aria-pressed="true"]')
     const held = await page.evaluate(metrics)
     await pause(2200)
     assert.equal((await page.evaluate(metrics)).active, held.active)
@@ -258,6 +288,242 @@ try {
       `ok ${width}x${height}: playback, full bleed, reserved headline, signup layout, no CLS/overflow, pause/resume`,
     )
   }
+  // Browser toolbar resizing must not stretch the content-driven mobile hero.
+  {
+    const page = await pageFor()
+    await page.setViewport({ width: 390, height: 844 })
+    await page.goto(origin, { waitUntil: "networkidle0" })
+    const initial = (await page.evaluate(metrics)).hero.h
+    for (const height of [650, 900, 568, 844]) {
+      await page.setViewport({ width: 390, height })
+      await pause(120)
+      assert.equal(
+        (await page.evaluate(metrics)).hero.h,
+        initial,
+        "stable height while mobile toolbar changes",
+      )
+    }
+    assert.equal(
+      await page.$eval(
+        "#platform-header-root",
+        (e) => getComputedStyle(e).backgroundColor,
+      ),
+      "rgb(18, 18, 20)",
+    )
+    assert.equal(
+      await page.$$eval(".cinematic-reassurance", (e) => e.length),
+      0,
+    )
+    assert.ok(
+      await page.$eval("input[type=email]", (e) =>
+        getComputedStyle(e).backdropFilter.includes("blur(16px)"),
+      ),
+    )
+    const setViewer = async (audience) => {
+      await page.evaluate((a) => {
+        localStorage.setItem(
+          "_sl_auth_v1",
+          JSON.stringify({
+            signedIn: a !== "guest",
+            isSeller: a === "creator",
+            userId: a === "guest" ? null : "test-user",
+          }),
+        )
+        dispatchEvent(new Event("storelib:auth-snapshot"))
+      }, audience)
+      await page.waitForFunction(
+        (a) =>
+          document.querySelector(".cinematic-actions").dataset.audience === a,
+        {},
+        audience,
+      )
+    }
+    for (const audience of ["buyer", "creator", "guest"]) {
+      await setViewer(audience)
+      assert.equal(
+        (await page.evaluate(metrics)).hero.h,
+        initial,
+        "auth changes preserve hero height",
+      )
+      if (audience !== "guest") {
+        assert.equal(
+          await page.$eval(
+            "input[type=email]",
+            (e) => !!e.getClientRects().length,
+          ),
+          false,
+        )
+        assert.equal(
+          await page.$eval(".cinematic-account", (e) => e.getAttribute("href")),
+          audience === "creator" ? "/app" : "/account",
+        )
+        assert.ok(
+          await page.$eval(
+            ".cinematic-search",
+            (e) => !!e.getClientRects().length,
+          ),
+        )
+      }
+    }
+    await page.$eval("video", (v) => {
+      v.pause()
+      Object.defineProperty(v, "paused", { configurable: true, value: false })
+      Object.defineProperty(v, "readyState", { configurable: true, value: 2 })
+      v.dispatchEvent(new Event("waiting"))
+    })
+    await pause(4200)
+    assert.equal(
+      await page.$eval("video", (v) => v.dataset.ready),
+      "false",
+      "long stalls return to poster without blocking controls",
+    )
+    await page.$eval("video", (v) => {
+      delete v.paused
+      delete v.readyState
+      return v.play()
+    })
+    await page.waitForSelector('video[data-ready="true"]')
+    const before = await page.$$eval("[data-showcase-word]", (els) =>
+      els.map((e) => getComputedStyle(e).color),
+    )
+    await page.$eval("[data-build-showcase]", (e) =>
+      e.scrollIntoView({ block: "start", behavior: "instant" }),
+    )
+    await pause(150)
+    const after = await page.$$eval("[data-showcase-word]", (els) =>
+      els.map((e) => getComputedStyle(e).color),
+    )
+    assert.notDeepEqual(before, after, "words fill with scroll")
+    assert.ok(after.every((c) => c === "rgb(248, 248, 248)"))
+    const track = ".build-showcase-track"
+    const start = await page.$eval(track, (e) => e.scrollLeft)
+    await page.mouse.move(0, 0)
+    await pause(4400)
+    assert.ok(
+      await page.$eval(track, (e, start) => e.scrollLeft > start + 20, start),
+      "showcase advances automatically",
+    )
+    const box = await (await page.$(track)).boundingBox()
+    const prior = await page.$eval(track, (e) => e.scrollLeft)
+    await page.mouse.move(box.x + 280, box.y + 80)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 70, box.y + 80, { steps: 12 })
+    assert.ok(
+      await page.$eval(track, (e, prior) => e.scrollLeft > prior + 150, prior),
+      "mouse drag follows the pointer",
+    )
+    await page.mouse.up()
+    await pause(500)
+    await page.click('[aria-label="Pause showcase"]')
+    const held = await page.$eval(track, (e) => e.scrollLeft)
+    await pause(4200)
+    assert.equal(await page.$eval(track, (e) => e.scrollLeft), held)
+    if (shots)
+      await page.screenshot({ path: join(shots, "showcase-mobile.png") })
+    await page.setViewport({ width: 1440, height: 900 })
+    await page.evaluate(() => scrollTo(0, 0))
+    await pause(200)
+    await setViewer("creator")
+    assert.equal(
+      await page.$eval(".cinematic-account", (e) => e.textContent),
+      "Dashboard",
+    )
+    await setViewer("buyer")
+    assert.equal(
+      await page.$eval(".cinematic-account", (e) => e.textContent),
+      "Account",
+    )
+    await setViewer("guest")
+    assert.equal(
+      await page.$eval(
+        ".cinematic-desktop-signup",
+        (e) => getComputedStyle(e).backgroundColor,
+      ),
+      "rgb(124, 58, 237)",
+    )
+    await page.type(".cinematic-search input", "templates & courses")
+    await Promise.all([
+      page.waitForNavigation(),
+      page.click(".cinematic-search button"),
+    ])
+    assert.equal(
+      new URL(page.url()).searchParams.get("q"),
+      "templates & courses",
+    )
+    await page.close()
+    console.log(
+      "ok refinements: stable mobile toolbar/auth height, dark header, glass input, live buyer/creator controls, marketplace search, scroll-filled showcase, autoplay and mouse dragging",
+    )
+  }
+  // Touch input and landscape toolbar changes, with actual coarse-pointer media queries.
+  {
+    const page = await pageFor()
+    await page.setViewport({
+      width: 844,
+      height: 390,
+      isMobile: true,
+      hasTouch: true,
+    })
+    await page.goto(origin, { waitUntil: "networkidle0" })
+    const height = (await page.evaluate(metrics)).hero.h
+    for (const h of [500, 560, 390]) {
+      await page.setViewport({
+        width: 844,
+        height: h,
+        isMobile: true,
+        hasTouch: true,
+      })
+      await pause(160)
+      assert.equal(
+        (await page.evaluate(metrics)).hero.h,
+        height,
+        "landscape toolbar does not change height/typography",
+      )
+    }
+    await page.setViewport({
+      width: 390,
+      height: 844,
+      isMobile: true,
+      hasTouch: true,
+    })
+    await page.$eval("[data-build-showcase]", (e) =>
+      e.scrollIntoView({ block: "start", behavior: "instant" }),
+    )
+    await pause(200)
+    const track = ".build-showcase-track",
+      box = await (await page.$(track)).boundingBox(),
+      before = await page.$eval(track, (e) => e.scrollLeft),
+      client = await page.createCDPSession()
+    await client.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: 300, y: box.y + 85 }],
+    })
+    for (let i = 1; i <= 12; i++) {
+      await client.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: 300 - i * 20, y: box.y + 85 }],
+      })
+      await pause(16)
+    }
+    await client.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    })
+    await pause(400)
+    assert.ok(
+      await page.$eval(
+        track,
+        (e, before) => e.scrollLeft > before + 60,
+        before,
+      ),
+      "native finger swipe moves the carousel",
+    )
+    assert.deepEqual(page.errors, [])
+    await page.close()
+    console.log(
+      "ok touch: coarse-pointer landscape toolbar stability and native carousel swiping",
+    )
+  }
   for (const mode of [
     "reduced-motion",
     "reduced-data",
@@ -265,6 +531,8 @@ try {
     "slow",
     "autoplay-denied",
     "no-intersection-observer",
+    "no-hydration",
+    "recover",
   ]) {
     const page = await pageFor(mode)
     await page.setViewport({ width: 390, height: 844 })
@@ -297,10 +565,14 @@ try {
           }),
       )
     await page.goto(origin, { waitUntil: "domcontentloaded" })
-    await pause(mode === "slow" ? 400 : 2400)
+    await pause(mode === "slow" ? 400 : mode === "failure" ? 6400 : 2400)
     assert.equal(
       await page.$eval("video", (v) => v.dataset.ready),
-      mode === "no-intersection-observer" ? "true" : "false",
+      mode === "no-intersection-observer" ||
+        mode === "no-hydration" ||
+        mode === "recover"
+        ? "true"
+        : "false",
       `${mode} poster`,
     )
     assert.ok(
@@ -310,6 +582,9 @@ try {
       ),
     )
     assert.ok(await page.$eval("button[type=submit]", (b) => !b.disabled))
+    if (mode === "failure")
+      assert.ok(page.videoRequests <= 3, "network retries are bounded")
+    assert.deepEqual(page.errors, [])
     if (mode === "reduced-motion" || mode === "reduced-data")
       assert.equal(page.videoRequests, 0)
     if (mode === "reduced-motion")
@@ -320,6 +595,7 @@ try {
   }
   // Native validation + Enter, safe prefill and unchanged signup intent, no auth API called.
   const page = await pageFor("failure")
+  await page.setViewport({ width: 390, height: 844 })
   await page.goto(origin)
   await page.type("input[type=email]", "invalid")
   await page.click("button[type=submit]")
@@ -341,6 +617,7 @@ try {
   assert.equal(new URL(page.url()).searchParams.get("email"), "")
   await page.close()
   const nojs = await pageFor()
+  await nojs.setViewport({ width: 390, height: 844 })
   await nojs.setJavaScriptEnabled(false)
   await nojs.goto(origin)
   assert.equal(

@@ -75,7 +75,8 @@ export function HeroHeadline() {
             data-active={index === state.index}
             data-exiting={index === state.previous}
           >
-            {phrase}
+            {phrase.slice(0, -1)}
+            <span className="cinematic-period">.</span>
           </span>
         ))}
       </span>

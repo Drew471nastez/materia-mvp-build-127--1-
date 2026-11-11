@@ -1,0 +1,5 @@
+/** Runs as HTML is parsed, without waiting for React or requesting a second video.
+ * Data/motion preferences are checked before assigning a media URL. React adopts
+ * the native element and its current frame instead of restarting it on hydration.
+ */
+export const HERO_MEDIA_BOOT = `(()=>{try{const s=document.currentScript,v=s.closest('[data-home-hero]').querySelector('video');if(!v||document.hidden||!matchMedia('(prefers-reduced-motion:no-preference)').matches||matchMedia('(prefers-reduced-data:reduce)').matches)return;const c=navigator.connection;if(c&&(c.saveData||/^(slow-2g|2g)$/.test(c.effectiveType)))return;let frame;const paint=()=>{if(v.requestVideoFrameCallback)frame=v.requestVideoFrameCallback(()=>v.dataset.ready='true');else v.dataset.ready='true'};const error=()=>v.dataset.ready='false';v.addEventListener('playing',paint);v.addEventListener('error',error);v.__heroBootCleanup=()=>{v.removeEventListener('playing',paint);v.removeEventListener('error',error);if(frame!==undefined)v.cancelVideoFrameCallback?.(frame)};v.muted=true;v.preload='metadata';v.src=v.dataset.videoSrc;v.play()?.catch(error)}catch{}})()`

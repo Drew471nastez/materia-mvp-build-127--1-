@@ -10,10 +10,16 @@ export function HeroVideo() {
   const ref = useRef<HTMLVideoElement>(null)
   const [ready, setReady] = useState(false)
   const [paused, setPaused] = useState(false)
+  const [mounted, setMounted] = useState(false)
   useEffect(() => {
     const video = ref.current
     const hero = video?.closest("[data-home-hero]")
     if (!video || !hero) return
+    setMounted(true)
+    ;(
+      video as HTMLVideoElement & { __heroBootCleanup?: () => void }
+    ).__heroBootCleanup?.()
+    if (video.dataset.ready === "true") setReady(true)
     const motion = matchMedia("(prefers-reduced-motion: reduce)")
     const data = matchMedia("(prefers-reduced-data: reduce)")
     const connection = (navigator as Navigator & { connection?: Connection })
@@ -21,13 +27,17 @@ export function HeroVideo() {
     let visible = true,
       failed = false,
       disposed = false,
-      frame: number | undefined
+      frame: number | undefined,
+      stallTimer: ReturnType<typeof setTimeout> | undefined,
+      retryTimer: ReturnType<typeof setTimeout> | undefined,
+      retries = 0
     const allowed = () =>
       !motion.matches &&
       !data.matches &&
       !connection?.saveData &&
       !["slow-2g", "2g"].includes(connection?.effectiveType || "")
     const update = () => {
+      clearTimeout(stallTimer)
       const enabled = allowed()
       if (!enabled) {
         video.pause()
@@ -64,6 +74,7 @@ export function HeroVideo() {
       })
     }
     const playing = () => {
+      clearTimeout(stallTimer)
       if (failed || !allowed()) return
       if (video.requestVideoFrameCallback)
         frame = video.requestVideoFrameCallback(() => {
@@ -71,9 +82,46 @@ export function HeroVideo() {
         })
       else setReady(true)
     }
+    const retry = () => {
+      clearTimeout(retryTimer)
+      if (
+        disposed ||
+        !failed ||
+        ![2, 4].includes(video.error?.code || 0) ||
+        retries >= 2 ||
+        !allowed() ||
+        !visible ||
+        document.hidden ||
+        hero.getAttribute("data-motion-paused") === "true"
+      )
+        return
+      retries++
+      failed = false
+      const position = video.currentTime
+      video.load()
+      try {
+        if (Number.isFinite(position) && position > 0)
+          video.currentTime = position
+      } catch {
+        /* The opening-frame poster remains a safe fallback. */
+      }
+      update()
+    }
+    const waiting = () => {
+      clearTimeout(stallTimer)
+      if (video.paused || video.readyState >= 3) return
+      stallTimer = setTimeout(() => {
+        if (!disposed && video.readyState < 3) setReady(false)
+      }, 4000)
+    }
     const error = () => {
+      clearTimeout(stallTimer)
       failed = true
       setReady(false)
+      if ([2, 4].includes(video.error?.code || 0) && retries < 2) {
+        clearTimeout(retryTimer)
+        retryTimer = setTimeout(retry, 1500 * (retries + 1))
+      }
     }
     const observer =
       typeof IntersectionObserver === "function"
@@ -97,9 +145,16 @@ export function HeroVideo() {
     document.addEventListener("visibilitychange", update)
     video.addEventListener("playing", playing)
     video.addEventListener("error", error)
+    video.addEventListener("waiting", waiting)
+    video.addEventListener("stalled", waiting)
+    window.addEventListener("online", retry)
     update()
+    if (video.error) error()
+    else if (video.readyState >= 2 && !video.paused) playing()
     return () => {
       disposed = true
+      clearTimeout(stallTimer)
+      clearTimeout(retryTimer)
       observer?.disconnect()
       mutation.disconnect()
       video.pause()
@@ -110,6 +165,9 @@ export function HeroVideo() {
       document.removeEventListener("visibilitychange", update)
       video.removeEventListener("playing", playing)
       video.removeEventListener("error", error)
+      video.removeEventListener("waiting", waiting)
+      video.removeEventListener("stalled", waiting)
+      window.removeEventListener("online", retry)
     }
   }, [])
   return (
@@ -127,6 +185,8 @@ export function HeroVideo() {
         />
         <video
           ref={ref}
+          data-video-src={HERO_VIDEO.src}
+          suppressHydrationWarning
           className="cinematic-video"
           data-ready={ready}
           autoPlay
@@ -141,6 +201,7 @@ export function HeroVideo() {
       <button
         type="button"
         className="cinematic-motion"
+        style={{ visibility: mounted ? "visible" : "hidden" }}
         aria-label={
           paused ? "Resume background motion" : "Pause background motion"
         }
