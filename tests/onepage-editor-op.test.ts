@@ -13,6 +13,7 @@ import { join } from "node:path"
 import { nearestBlock, pickAction, pickStyle } from "@/lib/onepage/preview-select"
 import { appAddressFromInput, appAddressShown, appTarget, appUrlProblem } from "@/lib/onepage/app-blocks"
 import { storelibBlockHasContent, pastedPosts } from "@/lib/onepage/storelib-blocks"
+import { isLinkBrandIcon, linkIconFromUrl, linkIconLabel } from "@/components/onepage/link-icons"
 
 let passed = 0
 let failed = 0
@@ -84,6 +85,16 @@ section("Posts: only what the creator pastes")
   const editor = code("components/onepage/storelib-blocks.tsx")
   check("the editor asks for links, optional, and no channel", /Video links \(optional, one a line\)/.test(editor) && !/Your latest videos show by themselves/.test(editor) && !/tt\("Your channel"\)/.test(editor))
   check("the Add block sheet promises no syncing", !/Your latest videos, synced|A row of your latest posts/.test(code("components/onepage/add-block-picker.tsx")))
+}
+
+section("Canva has its own mark")
+{
+  check("Canva is a brand mark with its name", isLinkBrandIcon("canva") && linkIconLabel("canva") === "Canva")
+  check("a canva.com link draws it", linkIconFromUrl("https://www.canva.com/design/DAF123/view") === "canva" && linkIconFromUrl("ana.my.canva.site") === "canva")
+  check("the mark is in the trimmed set, from Simple Icons", /export function SiCanva\(/.test(code("components/icons/brand-icons.generated.ts")))
+  const icons = code("components/onepage/brand-icons.tsx")
+  check("drawn from SiCanva, in Canva's teal, whole", /canva: SiCanva/.test(icons) && /canva: "#00C4CC"/.test(icons) && /canva: \{ draw:/.test(icons))
+  check("the Add block sheet shows it", /embed\("int_canva", "Canva", "canva", "canva"/.test(code("components/onepage/add-block-picker.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

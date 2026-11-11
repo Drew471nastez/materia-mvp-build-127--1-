@@ -531,7 +531,7 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   app("audiomack", "media", () => BRAND.audiomack, () => tt("Share your songs and albums"), KEYWORDS.app_audiomack),
   app("podcasts", "media", () => tt("Podcasts"), () => tt("Get more listeners and subscribers"), KEYWORDS.app_podcasts),
   /* Round AR3: a Canva design in Canva's own player (lib/onepage/creator-blocks embedSource "canva"). */
-  { ...embed("int_canva", "Canva", null, "canva", () => tt("Show a Canva design on your page"), KEYWORDS.int_canva, GlyphImage), hidden: false },
+  { ...embed("int_canva", "Canva", "canva", "canva", () => tt("Show a Canva design on your page"), KEYWORDS.int_canva, GlyphImage), hidden: false },
   { id: "food_menu", type: "food_menu", category: "media", get label() { return tt("Menu") }, get description() { return tt("A food and drinks menu") }, icon: GlyphMenu, tile: TILE.butter, keywords: KEYWORDS.food_menu },
 
   /* Contact: forms, a map, a way to reach you. */
