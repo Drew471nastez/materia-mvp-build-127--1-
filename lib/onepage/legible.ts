@@ -778,6 +778,10 @@ export function releaseLegibility(root: ParentNode): void {
     if (what.includes("o")) h.style.removeProperty("opacity")
     if (what.includes("h")) h.style.removeProperty("text-shadow")
     if (what.includes("p")) h.style.removeProperty(PLACEHOLDER_VAR)
+    if (what.includes("e")) {
+      h.style.removeProperty("outline")
+      h.style.removeProperty("outline-offset")
+    }
     if (what.includes("w")) h.removeAttribute(WHOLE_ON_HOVER)
     if (what.includes("F")) {
       h.style.removeProperty(FILL)
@@ -898,7 +902,48 @@ export function guardLegibility(root: ParentNode): LegibleFinding[] {
     h.setAttribute(NUDGED, [...marks].join(""))
   }
   guardHoverPairs(root)
+  guardEdges(root)
   return found
+}
+
+/**
+ * EVERY BUTTON IS SEEN (wave 11). A button whose paint is the colour of what is around it, with no border that shows
+ * (a creator's dark button on a dark page, Glass on a white one), was words floating on the page: it gets a hairline
+ * in its own words' colour, so the button's edge shows whatever the colours chosen.
+ */
+const EDGED = ".op-btn:not([data-visual-link-action]), [data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]"
+export function findEdgeless(root: ParentNode): HTMLElement[] {
+  const out: HTMLElement[] = []
+  const cache: GroundCache = new Map()
+  for (const el of root.querySelectorAll(EDGED)) {
+    const h = el as HTMLElement
+    if (engagedButton(h) || h.closest("[data-block-bg]") || !h.parentElement || skipMemo(h, new Map())) continue
+    const cs = getComputedStyle(h)
+    if (!visible(h, cs)) continue
+    const own = groundUnder(h, cache)
+    const around = groundUnder(h.parentElement, cache)
+    if (own.photo || around.photo) continue
+    const edge = parseColor(cs.borderTopColor)
+    const width = parseFloat(cs.borderTopWidth) || 0
+    const worst = (c: Rgba) => Math.min(...around.grounds.map((g) => contrast({ ...c, a: 1 }, g)))
+    if (width >= 1 && edge && edge.a > 0.3 && worst(over(edge, around.grounds[0])) >= 1.3) continue
+    const fill = Math.min(...own.grounds.flatMap((f) => around.grounds.map((g) => contrast(f, g))))
+    if (fill < 1.15) out.push(h)
+  }
+  return out
+}
+
+function guardEdges(root: ParentNode): void {
+  for (const h of findEdgeless(root)) {
+    /* The hairline in the colour its words are drawn in (the guard's own, when it moved them). */
+    const words = [h, ...h.querySelectorAll("*")].find((w) => ownText(w))
+    const ink = words ? getComputedStyle(words).color : "currentColor"
+    h.style.setProperty("outline", `1px solid color-mix(in srgb, ${ink} 45%, transparent)`, "important")
+    h.style.setProperty("outline-offset", "-1px", "important")
+    const marks = new Set((h.getAttribute(NUDGED) || "").split("").filter(Boolean))
+    marks.add("e")
+    h.setAttribute(NUDGED, [...marks].join(""))
+  }
 }
 
 /** A Fill or Pop hover that would not read: the button, its fill and its words as they are, and the words that would. */

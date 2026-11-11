@@ -146,6 +146,15 @@ console.log("\n4. Words over a picture keep their own colour (the owner's 20)")
   check("a skin's surface ink never reaches words on a photo", /INLINE_INK = `[^`]*\$\{ON_PHOTO\}, \$\{ON_PHOTO\} \*\)`/.test(shared))
 }
 
+console.log("\n4. Every button plays the one hover")
+{
+  const page = code("components/onepage/public-onepage.tsx")
+  check("the newsletter's button plays the page's hover with its own pair, never a fade that takes its words under", /"op-btn px-4 sm:px-5 py-3 text-sm font-medium whitespace-nowrap"/.test(page) && /\.\.\.buttonHoverVars\(submitTheme as never\)/.test(page) && !/hover:opacity-90",\s*\)/.test(page))
+  const css = read("app/globals.css")
+  check("a highlighted link's shine runs under its words and rests on a Fill or Pop hover", /\.op-btn\.animate-onepage-swipe::after \{ z-index: -1; \}/.test(css) && /\.animate-onepage-swipe:is\(\[data-hover="fill"\], \[data-hover="pop"\]\)::after \{ opacity: 0; \}/.test(css))
+  check("words switch colour in one step (no colour fade on a button), and the fill stays inside the border", /transition-property: translate, scale, opacity;/.test(css) && /\.op-btn:not\(\.animate-onepage-swipe\)::after \{[^}]*inset: 0;/.test(css))
+}
+
 console.log("\n5. The guard: one hover, and every hover reads (lib/onepage/legible)")
 {
   const lg = code("lib/onepage/legible.ts")

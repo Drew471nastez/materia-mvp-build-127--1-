@@ -441,8 +441,15 @@ async function auditPage({ path, width, label, states }, browser) {
   })
   await sleep(500)
   const controls = await page.evaluate(ENUMERATE)
-  /* The guard's own passes after load (fonts, the late pass) are over before anything is measured. */
+  /* The guard's own passes after load (fonts, the late pass) are over before anything is measured, and a first
+     picture (the slowest: the page's first capture) is taken and thrown away, with the guard's answer to it. */
   await sleep(700)
+  if (controls.length) {
+    await page.evaluate(HIDE, HIDE_CSS)
+    await page.screenshot({ encoding: "base64", clip: { x: 0, y: 0, width: 50, height: 50 }, captureBeyondViewport: false })
+    await page.evaluate(SHOW)
+    await sleep(700)
+  }
   controlsSeen += controls.length
   const want = states.filter
   const list = controls.filter((c) => !want || want(c))

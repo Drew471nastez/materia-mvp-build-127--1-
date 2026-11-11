@@ -4470,13 +4470,22 @@ function CoreBlockRenderer({
             </>
           )
         }
-        const submitStyles: React.CSSProperties = inverted
-          ? { ...emailButtonStyles, backgroundColor: inverted.fill, color: inverted.text, borderColor: "transparent", boxShadow: "none", backdropFilter: undefined }
-          : emailButtonStyles
+        /*
+          Wave 11 (ONE HOVER): the form's button plays the page's hover, as every other button does (app/globals.css
+          .op-btn), with the pair worked out for the colours it wears here. It used to fade to 90% on hover, which
+          only ever took its words under what reads (a pink with white words went from 4.4:1 to 3.7:1).
+        */
+        const submitTheme = inverted ? { ...theme, button_style: "filled", button_color: inverted.fill, button_text_color: inverted.text } : theme
+        const submitStyles: React.CSSProperties = {
+          ...(inverted
+            ? { ...emailButtonStyles, backgroundColor: inverted.fill, color: inverted.text, borderColor: "transparent", boxShadow: "none", backdropFilter: undefined }
+            : emailButtonStyles),
+          ...buttonHoverVars(submitTheme as never),
+        }
+        const submitHover = { "data-hover": buttonHover(submitTheme as never, isInsideCarousel), "data-shadow": themeButtonShadow(submitTheme as never) }
         const buttonClass = cn(
-          "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity whitespace-nowrap",
+          "op-btn px-4 sm:px-5 py-3 text-sm font-medium whitespace-nowrap",
           stacked ? "w-full" : "shrink-0",
-          !isInsideCarousel && "[@media(hover:hover)]:hover:opacity-90",
         )
         return (
           <>
@@ -4493,11 +4502,11 @@ function CoreBlockRenderer({
                 style={{ color: "#000", borderRadius: emailButtonStyles.borderRadius, backgroundColor: inverted ? "#fff" : undefined, boxShadow: outlined ? `inset 0 0 0 1px color-mix(in srgb, ${theme.text_color || "#111113"} 18%, transparent)` : undefined }}
               />
               {emailSubmitted && downloadLink ? (
-                <button type="button" onClick={handleDownloadClick} className={buttonClass} style={submitStyles}>
+                <button type="button" onClick={handleDownloadClick} className={buttonClass} style={submitStyles} {...submitHover}>
                   Download
                 </button>
               ) : (
-                <button type="submit" disabled={isSubmitting || emailSubmitted} className={cn(buttonClass, "disabled:opacity-50 disabled:cursor-not-allowed")} style={submitStyles}>
+                <button type="submit" disabled={isSubmitting || emailSubmitted} className={cn(buttonClass, "disabled:opacity-50 disabled:cursor-not-allowed")} style={submitStyles} {...submitHover}>
                   {isSubmitting ? "..." : buttonText}
                 </button>
               )}
