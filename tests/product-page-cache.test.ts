@@ -94,7 +94,8 @@ function main() {
   check("nothing in the cache layer asks who is signed in", !/auth\.getUser|getSession/.test(cacheLayer))
   /* Round 49: the page is one HTML for everybody (a CDN holds it); who is looking and what they own is asked by the browser after load, of /api/purchases/verify, per request, never cached. */
   const verifyRoute = readFileSync(join(process.cwd(), "app/api/purchases/verify/route.ts"), "utf8")
-  check("and the page does not ask; the purchase check asks, per request", !/supabase\.auth\.getUser\(\)|currentUserForRequest\(\)/.test(page) && /supabase\.auth\.getUser\(\)/.test(verifyRoute))
+  /* Changed on purpose (rel2-auth): the purchase check still asks Supabase Auth itself, through routeUser({ fresh: true }); the page still asks nobody. */
+  check("and the page does not ask; the purchase check asks, per request", !/supabase\.auth\.getUser\(\)|currentUserForRequest\(\)|routeUser\(/.test(page) && /routeUser\(\{ fresh: true \}\)/.test(verifyRoute))
   check("entitlements are read per request for the signed in person, never cached", /\.from\("entitlements"\)/.test(verifyRoute) && !/\.from\("entitlements"\)/.test(page))
 
   /* ---------------------------------------------------------------------
