@@ -56,7 +56,7 @@ import { familyOf, onePageFontHref } from "@/lib/onepage/fonts"
 import { PriceCurrency } from "@/components/platform/price-currency"
 import { PREVIEW_NOTICE_EVENT, showPreviewNotice, type PreviewNoticeKind } from "@/lib/onepage/preview-notice"
 import { tt } from "@/lib/i18n/text"
-import { blockIdAt, pickAction, validBlockId } from "@/lib/onepage/preview-select"
+import { blockIdAt, nearestBlock, pickAction, pickStyle, validBlockId, type PickRect } from "@/lib/onepage/preview-select"
 
 /** The writes a visitor's page makes, answered here instead of by the server. */
 const WRITES = /^\/api\/(onepage\/(track|leads|email-capture)|subscribe|checkout\/|download\/|purchases\/)/
@@ -189,105 +189,52 @@ function PreviewNoticeHost() {
 }
 
 /**
- * ROUND AR: PICK A BLOCK. With the editor's select mode on, the block under
- * the pointer wears a quiet ring (white then ink, so it reads on a light or
- * a dark page), moved with transforms on one fixed layer, read once a
- * frame; a click on a block that is not the open one is taken before the
- * page hears it (window, capture) and sent to the editor. The open block's
- * own ring stays while it is open, and a click on it goes to the page.
+ * PICK A BLOCK, INVISIBLY (lib/onepage/preview-select). With the editor's
+ * select mode on, nothing is drawn over the page: the pointer is a hand over
+ * a block and that is all. A click anywhere on a block that is not the open
+ * one is taken before the page hears it (window, capture) and sent to the
+ * editor; a click in the gap between blocks goes to the nearer one. A click
+ * on the open block goes to the page, and the editor is told as well, so
+ * its list glides back to the card.
+ *
+ * An embedded player or map is a document of its own, and a click inside it
+ * never reaches this one, so while select mode is on a block's frames take
+ * no clicks until that block is the open one (the style below; nothing in
+ * how the block looks changes).
  */
 function BlockPicker({ selected }: { selected: string | null }) {
-  const hoverRef = useRef<HTMLDivElement>(null)
-  const openRef = useRef<HTMLDivElement>(null)
   const selectedRef = useRef(selected)
   selectedRef.current = selected
   useEffect(() => {
-    let hovered: Element | null = null
-    let frame = 0
-    const place = (ring: HTMLDivElement | null, el: Element | null) => {
-      if (!ring) return
-      if (!el || !el.isConnected) {
-        ring.style.opacity = "0"
-        return
-      }
-      const r = el.getBoundingClientRect()
-      ring.style.transform = `translate(${r.left - 4}px, ${r.top - 4}px)`
-      ring.style.width = `${r.width + 8}px`
-      ring.style.height = `${r.height + 8}px`
-      ring.style.opacity = "1"
-    }
-    const openEl = () => (selectedRef.current ? document.querySelector(`[data-op-block="${CSS.escape(selectedRef.current)}"]`) : null)
-    const draw = () => {
-      frame = 0
-      const open = openEl()
-      place(hoverRef.current, hovered && hovered !== open ? hovered : null)
-      place(openRef.current, open)
-    }
-    const later = () => {
-      if (!frame) frame = requestAnimationFrame(draw)
-    }
-    const onMove = (e: PointerEvent) => {
-      if (e.pointerType === "touch") return
-      const id = blockIdAt(e.target)
-      const el = id ? (e.target as Element).closest("[data-op-block]") : null
-      if (el === hovered) return
-      hovered = el
-      document.documentElement.style.cursor = el ? "pointer" : ""
-      later()
-    }
-    const onLeave = () => {
-      hovered = null
-      document.documentElement.style.cursor = ""
-      later()
+    const blockAt = (e: MouseEvent): string | null => {
+      const direct = blockIdAt(e.target)
+      if (direct) return direct
+      /* Only on the page round the blocks, never in a sheet or a note drawn over it. */
+      const target = e.target as Element | null
+      if (!target || typeof target.querySelector !== "function" || !target.querySelector("[data-op-block]")) return null
+      const rects: PickRect[] = []
+      document.querySelectorAll<HTMLElement>("[data-op-block]").forEach((el) => {
+        const id = el.getAttribute("data-op-block")
+        if (!id || el.parentElement?.closest("[data-op-block]")) return
+        const r = el.getBoundingClientRect()
+        rects.push({ id, left: r.left, top: r.top, right: r.right, bottom: r.bottom })
+      })
+      return nearestBlock(rects, e.clientX, e.clientY)
     }
     const onClick = (e: MouseEvent) => {
-      const hit = blockIdAt(e.target)
-      if (pickAction({ mode: true, selected: selectedRef.current, hit, button: e.button, modified: e.metaKey || e.ctrlKey || e.shiftKey || e.altKey }) !== "select" || !hit) return
-      e.preventDefault()
-      e.stopImmediatePropagation()
+      const hit = blockAt(e)
+      const action = pickAction({ mode: true, selected: selectedRef.current, hit, button: e.button, modified: e.metaKey || e.ctrlKey || e.shiftKey || e.altKey })
+      if (action === "pass" || !hit) return
+      if (action === "select") {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+      }
       window.parent?.postMessage({ channel: ONEPAGE_PREVIEW_CHANNEL, kind: "select", id: hit } satisfies PreviewMessage, window.location.origin)
     }
-    window.addEventListener("pointermove", onMove, { passive: true })
-    document.documentElement.addEventListener("pointerleave", onLeave)
     window.addEventListener("click", onClick, true)
-    window.addEventListener("scroll", later, { passive: true, capture: true })
-    window.addEventListener("resize", later)
-    later()
-    return () => {
-      cancelAnimationFrame(frame)
-      document.documentElement.style.cursor = ""
-      window.removeEventListener("pointermove", onMove)
-      document.documentElement.removeEventListener("pointerleave", onLeave)
-      window.removeEventListener("click", onClick, true)
-      window.removeEventListener("scroll", later, true)
-      window.removeEventListener("resize", later)
-    }
+    return () => window.removeEventListener("click", onClick, true)
   }, [])
-  /* The open block moves when the page redraws (an edit): its ring is put back on the next frame. */
-  useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      const ring = openRef.current
-      const el = selected ? document.querySelector(`[data-op-block="${CSS.escape(selected)}"]`) : null
-      if (!ring) return
-      if (!el) {
-        ring.style.opacity = "0"
-        return
-      }
-      const r = el.getBoundingClientRect()
-      ring.style.transform = `translate(${r.left - 4}px, ${r.top - 4}px)`
-      ring.style.width = `${r.width + 8}px`
-      ring.style.height = `${r.height + 8}px`
-      ring.style.opacity = "1"
-    })
-    return () => cancelAnimationFrame(id)
-  })
-  const ring = "pointer-events-none fixed left-0 top-0 z-[2147482000] rounded-[16px] opacity-0 transition-opacity duration-150 ease-out motion-reduce:transition-none"
-  return (
-    <>
-      <div ref={hoverRef} aria-hidden data-pick-hover="" className={ring} style={{ boxShadow: "0 0 0 1.5px rgba(255,255,255,0.9), 0 0 0 3px rgba(26,26,46,0.55)" }} />
-      <div ref={openRef} aria-hidden data-pick-open="" className={ring} style={{ boxShadow: "0 0 0 1.5px rgba(255,255,255,0.95), 0 0 0 3.5px #1a1a2e" }} />
-    </>
-  )
+  return <style data-op-pick-style="">{pickStyle(selected)}</style>
 }
 
 /*

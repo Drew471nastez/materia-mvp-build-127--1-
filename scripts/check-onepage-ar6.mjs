@@ -12,7 +12,7 @@
  *   share      Share › Add link to Instagram bio opens in place: its height
  *              frame by frame, no second dialog, a QR code drawn (1440), the
  *              steps and Open Instagram (390)
- *   pick       1440: hovering a block in the phone preview rings it; a click
+ *   pick       1440: hovering a block in the phone preview draws nothing; a click
  *              opens that block in the list (its card in view), the page's
  *              own link does not run; a click on the open block goes to the
  *              page
@@ -199,14 +199,8 @@ async function run(vp) {
     if (target) {
       await p.mouse.move(target.x, target.y, { steps: 4 })
       await sleep(250)
-      const ring = await frame.evaluate(() => {
-        const r = document.querySelector("[data-pick-hover]")
-        const b = document.querySelector('[data-op-block="lk2"]').getBoundingClientRect()
-        if (!r) return null
-        const rb = r.getBoundingClientRect()
-        return { opacity: getComputedStyle(r).opacity, dx: Math.round(rb.left - (b.left - 4)), dy: Math.round(rb.top - (b.top - 4)), dw: Math.round(rb.width - (b.width + 8)) }
-      })
-      expect(ring && ring.opacity === "1" && ring.dx === 0 && ring.dy === 0 && ring.dw === 0, `${w}: hover rings exactly that block`, ring)
+      const drawn = await frame.evaluate(() => ({ rings: document.querySelectorAll("[data-pick-hover],[data-pick-open]").length, cursor: getComputedStyle(document.querySelector('[data-op-block="lk2"]')).cursor }))
+      expect(drawn.rings === 0 && drawn.cursor === "pointer", `${w}: hover draws nothing over the page, the pointer is a hand`, drawn)
       const t0 = Date.now()
       await p.mouse.click(target.x, target.y)
       let openAt = null
@@ -226,8 +220,8 @@ async function run(vp) {
       expect(openAt !== null && openAt < 500, `${w}: a click opens that block's settings (under 500ms)`, openAt)
       expect(inView, `${w}: the list scrolled its card into view`)
       expect(!notice, `${w}: the page's own link did not run`)
-      const openRing = await frame.evaluate(() => getComputedStyle(document.querySelector("[data-pick-open]")).opacity)
-      expect(openRing === "1", `${w}: the open block keeps its ring`, openRing)
+      const openRing = await frame.evaluate(() => document.querySelectorAll("[data-pick-hover],[data-pick-open]").length)
+      expect(openRing === 0, `${w}: the open block wears no ring`, openRing)
       await shot(p, `ar6-pick-${w}`)
       await p.mouse.click(target.x, target.y)
       await sleep(400)

@@ -12,7 +12,7 @@ import { editedMark, mergeLinkPreview } from "@/lib/onepage/link-preview"
 
 import { ProfileImage } from "@/components/onepage/profile-image"
 import { growTextareas } from "@/components/onepage/grow-textareas"
-import { takePreviewPick } from "@/lib/onepage/preview-select"
+import { PREVIEW_PICK_EVENT, takePreviewPick } from "@/lib/onepage/preview-select"
 
 import { hapticTap } from "@/lib/native-bridge"
 import { useProductMoney } from "@/components/platform/price-currency"
@@ -1150,9 +1150,17 @@ export function LinksTab() {
     card's settings have started to open (two frames), the card's top a
     little under the top of the list's scroller, as a press on the card does.
   */
+  /* A click on the block that is already open says so too: the list glides back to it however far it was scrolled away. */
+  const [pickTick, setPickTick] = useState(0)
+  useEffect(() => {
+    const onPick = () => setPickTick((n) => n + 1)
+    window.addEventListener(PREVIEW_PICK_EVENT, onPick)
+    return () => window.removeEventListener(PREVIEW_PICK_EVENT, onPick)
+  }, [])
   useEffect(() => {
     const id = takePreviewPick(selectedBlockId)
     if (!id) return
+    setShowArchiveView(false)
     let raf = requestAnimationFrame(() => {
       raf = requestAnimationFrame(() => {
         const el = document.querySelector(`[data-block-id="${CSS.escape(id)}"]`) as HTMLElement | null
@@ -1172,7 +1180,7 @@ export function LinksTab() {
       })
     })
     return () => cancelAnimationFrame(raf)
-  }, [selectedBlockId])
+  }, [selectedBlockId, pickTick])
 
   if (!onepage) return null
 
