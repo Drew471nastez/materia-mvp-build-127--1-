@@ -29,6 +29,7 @@ import { ChoiceMark, Switch, fieldInput } from "@/components/onepage/editor-kit"
 import { OnePageImageField } from "@/components/onepage/image-field"
 import { PictureFitControl } from "@/components/onepage/layout-pickers"
 import { AppTileMark, appDefaultButton, appProviderName } from "@/components/onepage/app-block"
+import { INSTAGRAM_FILL } from "@/components/onepage/brand-icons"
 import {
   APP_ITEMS_MAX,
   APP_POSTS_MAX,
@@ -142,7 +143,7 @@ export function AppLayoutThumb({ id, provider, theme }: { id: AppLayout; provide
       break
     case "featured":
       body = (
-        <span className="relative block aspect-[16/10] w-full overflow-hidden" style={{ ...card, background: provider.color === "instagram" ? "#d6249f" : provider.color }}>
+        <span className="relative block aspect-[16/10] w-full overflow-hidden" style={{ ...card, background: provider.color === "instagram" ? INSTAGRAM_FILL : provider.color }}>
           <span className="absolute inset-0 grid place-items-center">{tile(22)}</span>
           <span className="absolute inset-x-0 bottom-0 flex flex-col gap-[3px] bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.5))] p-1.5 pt-3">{line("60%", "#ffffff")}</span>
         </span>

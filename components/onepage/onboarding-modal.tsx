@@ -15,12 +15,12 @@ import {
   Check,
   X,
   ChevronLeft,
-  Instagram,
   Youtube,
   Loader2,
   Pencil
 } from "lucide-react"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { SocialIcon } from "@/components/onepage/brand-icons"
 import { isNativeApp } from "@/lib/native-bridge"
 import { THEME_TEMPLATES, preloadThemeThumbs, themeThumbSrc } from "./tabs/design-tab"
 import { ThemePreview } from "./themes/theme-preview"
@@ -1440,7 +1440,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     <div className="flex-1 space-y-3">
                       {/* Instagram */}
                       <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] border-2 border-transparent focus-within:bg-white focus-within:border-black transition-all">
-                        <Instagram className="w-5 h-5 text-pink-500 shrink-0" />
+                        <SocialIcon platform="instagram" tone="brand" size={20} className="shrink-0" />
                         <input
                           type="text"
                           value={socials.instagram}
