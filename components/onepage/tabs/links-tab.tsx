@@ -13,7 +13,6 @@ import { editedMark, mergeLinkPreview } from "@/lib/onepage/link-preview"
 import { ProfileImage } from "@/components/onepage/profile-image"
 import { growTextareas } from "@/components/onepage/grow-textareas"
 import { takePreviewPick } from "@/lib/onepage/preview-select"
-import { AiEditBar } from "@/components/onepage/ai-edit-bar"
 
 import { hapticTap } from "@/lib/native-bridge"
 import { useProductMoney } from "@/components/platform/price-currency"
@@ -1706,9 +1705,6 @@ export function LinksTab() {
           )}
         </div>
       )}
-
-      {/* Round AR: ask AI to change the links and social icons (components/onepage/ai-edit-bar). */}
-      {!showArchiveView ? <AiEditBar /> : null}
 
       {/* The cards. Each one is picked up and moved by link-reorder.ts; the list only says which are cards. */}
       {!showArchiveView && (

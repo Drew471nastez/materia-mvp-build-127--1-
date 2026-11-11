@@ -1,6 +1,6 @@
 /**
  * Round AR, track 6: the OnePage editor's UX, sharing, the admin handoff
- * and the AI edits.
+ * and the AI line taken out of the OnePage editor.
  *
  *   - one compact picture row for every picture field in the editor (the
  *     cover, the group's picture), and long descriptions that grow
@@ -9,19 +9,17 @@
  *   - click a block in the phone preview: the message mapping
  *   - Share › Add link to Instagram bio, and its public page
  *   - the handoff's token rules, and the way to it from the OnePage editor
- *   - the AI's edits to social icons, the social links block and link
- *     blocks, checked as a change by hand is
+ *   - the AI line is gone from the OnePage editor, with its edits and route
  *
  * scripts/check-onepage-ar6.mjs measures the editor in a browser at 390
  * and 1440.
  */
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { grownHeight, GROW_MAX_PX } from "@/components/onepage/grow-textareas"
 import { draftForSave, typedHttpsUrl, validateDefinition, type FormDefinition } from "@/lib/forms/definition"
 import { blockIdAt, notePreviewPick, pickAction, takePreviewPick, validBlockId } from "@/lib/onepage/preview-select"
 import { INSTAGRAM_APP_URL, INSTAGRAM_WEB_URL, instagramBioPath, instagramBioUrl, shownAddress } from "@/lib/onepage/instagram-bio"
-import { aiLinkUrl, applyAiEdits, readAiEdit, AI_EDIT_TOOLS, MAX_AI_EDITS } from "@/lib/onepage/ai-edits"
 import { claimStateOf, refusalOfSql, tokenShapeOk, ttlDays, STAYS_BEHIND, type HandoffRow, type Viewer } from "@/lib/handoff/rules"
 import { isReservedWord } from "@/lib/reserved-words"
 
@@ -195,55 +193,10 @@ section("Handing a OnePage to its creator")
   check("the editor's Settings holds the row", /<OnePageHandoffRow \/>/.test(code("components/onepage/tabs/settings-tab.tsx")))
 }
 
-section("The AI's edits to social icons, the social links block and link blocks")
+section("No AI in the OnePage editor")
 {
-  let n = 0
-  const newId = () => `block_ai_${++n}`
-  const page = {
-    social_links: { instagram: "https://instagram.com/old" },
-    draft_blocks: [
-      { id: "hdr", type: "header", enabled: true, sort_order: 0, data: {} },
-      { id: "l1", type: "link_button", enabled: true, sort_order: 1, data: { label: "Shop", url: "https://ana.example.com/shop" } },
-      { id: "p1", type: "product", enabled: true, sort_order: 2, data: { product_id: "x" } },
-    ],
-  }
-  const r = applyAiEdits(page, [
-    { op: "set_social", platform: "tiktok", value: "@ana" },
-    { op: "set_social", platform: "instagram", value: "https://www.instagram.com/ana_new/" },
-    { op: "set_social", platform: "youtube", value: "https://evil.example.com/x" },
-    { op: "remove_social", platform: "twitter" },
-    { op: "add_link", label: "Book a call", url: "cal.example.com/ana", after_id: "l1" },
-    { op: "add_link", label: "Bad", url: "javascript:alert(1)" },
-    { op: "update_link", id: "l1", url: "ana.example.com/new-shop" },
-    { op: "update_link", id: "p1", label: "Not a link" },
-    { op: "social_block", style: "buttons" },
-    { op: "drop_table" },
-  ], { newId })
-  check("a handle becomes the profile link, as the social sheet saves it", r.page.social_links.tiktok === "https://tiktok.com/@ana")
-  check("a pasted profile link is cleaned", r.page.social_links.instagram === "https://instagram.com/ana_new")
-  check("another site for a platform is refused", !r.page.social_links.youtube && r.refused.some((s) => /youtube/.test(s)))
-  check("removing an icon that is not there says so", r.refused.some((s) => /twitter/.test(s)))
-  const ids = r.page.draft_blocks.map((b) => b.id)
-  check("a new link goes where it was asked, its address made whole", ids.join() === "hdr,block_ai_2,l1,block_ai_1,p1" && r.page.draft_blocks.find((b) => b.id === "block_ai_1")?.data?.url === "https://cal.example.com/ana")
-  check("a script address is never a link", !r.page.draft_blocks.some((b) => b.data?.label === "Bad") && aiLinkUrl("javascript:alert(1)") === null && aiLinkUrl("data:text/html,x") === null && aiLinkUrl("https://user:pw@x.com") === null)
-  check("a link's address changed, its old preview gone", r.page.draft_blocks.find((b) => b.id === "l1")?.data?.url === "https://ana.example.com/new-shop")
-  check("only link blocks are changed as links", r.page.draft_blocks.find((b) => b.id === "p1")?.data?.label === undefined && r.refused.some((s) => /not on the page/.test(s)))
-  check("the social links block is made under the header when there is none", r.page.draft_blocks[1]?.type === "social_row" && r.page.draft_blocks[1]?.data?.style === "buttons")
-  check("an edit nobody asked for is refused", r.refused.some((s) => /could not be read/.test(s)) && readAiEdit({ op: "drop_table" }) === null)
-  check("the order is renumbered", r.page.draft_blocks.every((b, i) => b.sort_order === i))
-  check("the original page is untouched", page.draft_blocks.length === 3 && page.social_links.instagram === "https://instagram.com/old")
-  const removed = applyAiEdits(r.page, [{ op: "remove_link", id: "l1" }, { op: "remove_social", platform: "tiktok" }, { op: "social_block", show: false }], { newId })
-  check("remove a link, an icon, hide the block", !removed.page.draft_blocks.some((b) => b.id === "l1") && removed.page.social_links.tiktok === null && removed.page.draft_blocks.find((b) => b.type === "social_row")?.enabled === false)
-  const many = applyAiEdits(page, Array.from({ length: MAX_AI_EDITS + 5 }, (_, i) => ({ op: "add_link", label: `L${i}`, url: "https://x.example.com" })), { newId })
-  check("at most twenty edits at once", many.page.draft_blocks.length === 3 + MAX_AI_EDITS && many.refused.length === 1)
-  check("one tool per edit", AI_EDIT_TOOLS.map((t) => t.name).join() === "set_social,remove_social,add_link,update_link,remove_link,social_block")
-  const route = code("app/api/onepage/ai/route.ts")
-  check("the route asks who is signing in and whose page it is, as saving does", /routeUser\(\)/.test(route) && /onePageActor\(supabase, user\.id\)/.test(route) && /\.eq\("owner_id", actor\.pageOwnerId\)/.test(route))
-  check("rate limited", /bucket: "onepage-ai"/.test(route))
-  check("the key stays on the server; without it the answer says so", /process\.env\.ANTHROPIC_API_KEY/.test(route) && /The AI is not set up on Storelib yet/.test(route) && !/apiKey/.test(code("components/onepage/ai-edit-bar.tsx")))
-  check("the route only hands back edits read into their shapes", /readAiEdit\(\{ \.\.\.\(part\.input as Record<string, unknown>\), op: part\.name \}\)/.test(route))
-  const bar = code("components/onepage/ai-edit-bar.tsx")
-  check("the editor applies them with the same checks, in one Undo step", /applyAiEdits\(/.test(bar) && /updateOnePage\(\{ social_links:/.test(bar))
+  check("the AI line, its edits and its route are gone", !existsSync(join(process.cwd(), "components/onepage/ai-edit-bar.tsx")) && !existsSync(join(process.cwd(), "lib/onepage/ai-edits.ts")) && !existsSync(join(process.cwd(), "app/api/onepage/ai/route.ts")))
+  check("the Links tab has no AI line", !/AiEditBar|ai-edit-bar/.test(code("components/onepage/tabs/links-tab.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
