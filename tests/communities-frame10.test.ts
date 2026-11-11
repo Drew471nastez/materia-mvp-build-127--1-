@@ -224,7 +224,7 @@ async function main() {
     const page = code("components/community/public/sales-page.tsx")
     /* Changed on purpose (round 26, the owner): no Membership block on the page; the price and the way in are the card's and the button's. */
     check("the sheet: no Membership block, who runs it, no Learn list", !/<PricingCard /.test(page) && !/<ClassroomPreview /.test(page) && /<CreatorBlock creator=\{c\.creator\} bio=\{extras\?\.creatorBio \?\? null\}/.test(page))
-    check("both pages read the extras", ["page.tsx", "about/page.tsx"].every((f) => /* Changed on purpose (round AH: the reads start together). */ /const \[extras, askWhy(, origin)?\] = await Promise\.all\(\[aboutExtras\(admin\(\), load\.community\)/.test(code(`app/(storelib)/(marketing)/community/[slug]/${f}`))))
+    check("both pages read the extras", ["page.tsx", "about/page.tsx"].every((f) => /* Changed on purpose (round AH: the reads start together). */ /* Changed on purpose (round rel2-public): the extras are held for a public community (lib/communities/server/about.ts publicAboutExtras). */ /const \[extras, askWhy(, origin)?\] = await Promise\.all\(\[publicAboutExtras\(load\.community\)/.test(code(`app/(storelib)/(marketing)/community/[slug]/${f}`))))
   }
 
   /* ── Copy ────────────────────────────────────────────────────────────── */

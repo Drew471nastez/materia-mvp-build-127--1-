@@ -53,7 +53,7 @@ import { communitiesEnabled } from "../flag"
 import { communityOpen, loadCommunity, viewerContext, type Viewer } from "./context"
 import { admin, missing, reasonOf, type Db } from "./db"
 import { storefrontsOf } from "./directory"
-import { communityStats } from "./presence"
+import { communityStats, type CommunityStats } from "./presence"
 import { readCommunitySummary } from "./community-summary"
 import { communityCardsTag, communityCreatorTags, communityTags, heldCommunityRead, noteHeldReadFailure } from "./public-cache"
 
@@ -622,7 +622,7 @@ interface SalesFacts {
   accessCurrency: string | null
   reviews: PublicCommunityView["reviews"]
   gallery: GalleryItemView[]
-  stats: { members: number; online: number | null; admins: number | null }
+  stats: CommunityStats
 }
 
 async function readSalesFacts(db: Db, community: CommunityRow, light: boolean): Promise<SalesFacts> {
