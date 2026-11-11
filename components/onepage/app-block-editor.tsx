@@ -32,7 +32,10 @@ import { AppTileMark, appDefaultButton, appProviderName } from "@/components/one
 import {
   APP_ITEMS_MAX,
   APP_POSTS_MAX,
+  appAddressFromInput,
+  appAddressShown,
   appEmbeds,
+  appTakesHandle,
   isRetiredAppProvider,
   appLayoutOf,
   appOpenModeOf,
@@ -72,6 +75,43 @@ function Field({ label, children, note }: { label: string; children: React.React
 
 function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cn(fieldInput, props.className)} />
+}
+
+/**
+ * THE ADDRESS OF A SERVICE WITH HANDLES (Instagram, TikTok, X, Threads):
+ * "@ana", "ana", "instagram.com/ana" or a post's whole address all go in.
+ * A handle is saved as its profile's address and shown back as @ana once
+ * the field is left; a link stays as it was pasted. What is typed is kept
+ * while typing, so the field never rewrites a word under the cursor.
+ */
+function HandleAddressInput({ providerId, value, placeholder, invalid, onChange }: { providerId: string; value: string; placeholder: string; invalid: boolean; onChange: (url: string) => void }) {
+  const [text, setText] = React.useState(() => appAddressShown(providerId, value))
+  const [focused, setFocused] = React.useState(false)
+  /* A change from elsewhere (Undo, another tab) shows when the field is not being typed in. */
+  React.useEffect(() => {
+    if (!focused) setText(appAddressShown(providerId, value))
+  }, [providerId, value, focused])
+  return (
+    <TextInput
+      value={text}
+      inputMode="url"
+      autoCapitalize="off"
+      autoCorrect="off"
+      spellCheck={false}
+      placeholder={placeholder}
+      aria-invalid={invalid || undefined}
+      data-app-handle-input=""
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false)
+        setText(appAddressShown(providerId, appAddressFromInput(providerId, text).url))
+      }}
+      onChange={(e) => {
+        setText(e.target.value)
+        onChange(appAddressFromInput(providerId, e.target.value).url)
+      }}
+    />
+  )
 }
 
 /** The page's theme in the editor, for the layout pictures; none outside the editor. */
@@ -386,18 +426,22 @@ function SettingsHalf({ block, data, provider, update }: { block: OnePageBlock; 
       <DataBlockSettings block={block} data={data} set={set} />
       {takesUrl ? (
         <Field
-          label={shape === "items" ? tt("Shop address (optional)") : tt("{name} address", { name })}
+          label={shape === "items" ? tt("Shop address (optional)") : appTakesHandle(provider.id) ? tt("{name} username or link", { name }) : tt("{name} address", { name })}
           note={
             bad ? (
-              <p className={problem} data-app-url-problem="">{tt("This is not a {name} address.", { name })}</p>
+              <p className={problem} data-app-url-problem="">{appTakesHandle(provider.id) ? tt("This is not a {name} username or link.", { name }) : tt("This is not a {name} address.", { name })}</p>
             ) : target?.embed ? (
               <p className={hint} data-app-url-found="embed">{tt("It plays right on your page.")}</p>
-            ) : target?.handle ? (
+            ) : target?.handle && !appTakesHandle(provider.id) ? (
               <p className={hint} data-app-url-found="handle">{target.handle}</p>
             ) : null
           }
         >
-          <TextInput value={data.url ?? ""} inputMode="url" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder={provider.placeholder} aria-invalid={bad || undefined} onChange={(e) => set({ url: e.target.value.trim() })} />
+          {appTakesHandle(provider.id) ? (
+            <HandleAddressInput providerId={provider.id} value={data.url ?? ""} placeholder={tt("@yourname or a link")} invalid={bad} onChange={(url) => set({ url })} />
+          ) : (
+            <TextInput value={data.url ?? ""} inputMode="url" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder={provider.placeholder} aria-invalid={bad || undefined} onChange={(e) => set({ url: e.target.value.trim() })} />
+          )}
         </Field>
       ) : null}
 

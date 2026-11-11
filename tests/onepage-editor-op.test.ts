@@ -11,6 +11,8 @@
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { nearestBlock, pickAction, pickStyle } from "@/lib/onepage/preview-select"
+import { appAddressFromInput, appAddressShown, appTarget, appUrlProblem } from "@/lib/onepage/app-blocks"
+import { storelibBlockHasContent, pastedPosts } from "@/lib/onepage/storelib-blocks"
 
 let passed = 0
 let failed = 0
@@ -51,6 +53,37 @@ section("No AI in the OnePage editor")
 {
   check("the AI line is gone, with its edits and route", !existsSync(join(process.cwd(), "components/onepage/ai-edit-bar.tsx")) && !existsSync(join(process.cwd(), "lib/onepage/ai-edits.ts")) && !existsSync(join(process.cwd(), "app/api/onepage/ai")))
   check("nothing in the OnePage editor asks for it", !/AiEditBar|api\/onepage\/ai/.test(code("components/onepage/tabs/links-tab.tsx") + code("components/onepage/onepage-editor.tsx")))
+}
+
+section("Instagram: @handle, a bare handle or a link")
+{
+  const ig = (raw: string) => appAddressFromInput("instagram", raw).url
+  check("@handle becomes the profile", ig("@ana.studio") === "https://instagram.com/ana.studio")
+  check("a bare handle too", ig("ana_studio") === "https://instagram.com/ana_studio")
+  check("a link without https", ig("instagram.com/ana") === "https://instagram.com/ana")
+  check("a shared link loses www., its tracking and its slash", ig("https://www.instagram.com/ana/?igsh=abc123") === "https://instagram.com/ana" && ig("m.instagram.com/ana") === "https://instagram.com/ana" && ig("http://instagram.com/ana") === "https://instagram.com/ana")
+  check("a post or reel is kept whole, so it plays", ig("https://www.instagram.com/p/C0abcDEF12/") === "https://www.instagram.com/p/C0abcDEF12/" && ig("instagram.com/reel/C0abcDEF12") === "https://instagram.com/reel/C0abcDEF12")
+  check("a name with a space is not a handle", appAddressFromInput("instagram", "@bad name").valid === false)
+  check("shown as @handle", appAddressShown("instagram", "https://instagram.com/ana") === "@ana" && appAddressShown("instagram", "https://www.instagram.com/ana/") === "@ana")
+  check("a post is shown as its link", appAddressShown("instagram", "https://www.instagram.com/p/C0abcDEF12/") === "https://www.instagram.com/p/C0abcDEF12/")
+  check("a handle saved as typed before still draws its profile", appTarget({ provider: "instagram", url: "@ana" } as never)?.href === "https://instagram.com/ana" && !appUrlProblem({ provider: "instagram", url: "ana" } as never))
+  check("another site in the Instagram field is a problem", appUrlProblem({ provider: "instagram", url: appAddressFromInput("instagram", "tiktok.com/@ana").url } as never))
+  check("TikTok, X and Threads read handles the same way", appAddressFromInput("tiktok", "@ana").url === "https://tiktok.com/@ana" && appAddressFromInput("x", "jack").url === "https://x.com/jack" && appAddressShown("tiktok", "https://tiktok.com/@ana") === "@ana")
+  check("an X post stays a post", appAddressFromInput("x", "https://x.com/jack/status/20").url === "https://x.com/jack/status/20")
+  check("a service without handles is left as typed", appAddressFromInput("facebook", "facebook.com/page").url === "facebook.com/page")
+  const ed = code("components/onepage/app-block-editor.tsx")
+  check("the editor's field reads handles and shows @handle once left", /HandleAddressInput/.test(ed) && /appAddressShown\(providerId, appAddressFromInput\(providerId, text\)\.url\)/.test(ed))
+}
+
+section("Posts: only what the creator pastes")
+{
+  check("a YouTube channel alone draws nothing (no videos pulled by themselves)", !storelibBlockHasContent({ type: "social_posts", data: { network: "youtube", channel_url: "https://www.youtube.com/@mkbhd" } } as never))
+  check("pasted posts draw", storelibBlockHasContent({ type: "social_posts", data: { network: "youtube", post_urls: ["https://youtu.be/dQw4w9WgXcQ"] } } as never) && pastedPosts({ network: "instagram", post_urls: ["https://www.instagram.com/p/C0abcDEF12/"] }).length === 1)
+  const server = code("lib/onepage/storelib-blocks-server.ts")
+  check("the server reads no channel feed for posts", !/channelVideos|feeds\/videos\.xml|youtubeFeedUrl/.test(server))
+  const editor = code("components/onepage/storelib-blocks.tsx")
+  check("the editor asks for links, optional, and no channel", /Video links \(optional, one a line\)/.test(editor) && !/Your latest videos show by themselves/.test(editor) && !/tt\("Your channel"\)/.test(editor))
+  check("the Add block sheet promises no syncing", !/Your latest videos, synced|A row of your latest posts/.test(code("components/onepage/add-block-picker.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

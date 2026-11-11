@@ -29,6 +29,7 @@
 // Pure: no React, so the server and the tests can read it.
 
 import { embedSource, musicSource, tiktokPlayerUrl, type EmbedKind } from "./creator-blocks"
+import { parseSocialInput, socialFieldValue } from "./social-input"
 
 export const APP_BLOCK_TYPES = ["app"] as const
 
@@ -562,7 +563,8 @@ export function appOpenModeOf(data: Partial<AppBlockData> | null | undefined): A
 /** The block's address read by its provider, or null when it has none it takes. */
 export function appTarget(data: Partial<AppBlockData> | null | undefined): AppTarget | null {
   const p = providerOf(data)
-  const url = parseAppUrl(data?.url)
+  /* A handle saved as typed ("@ana", from before the field read handles) is still its profile. */
+  const url = parseAppUrl(appAddressFromInput(p.id, data?.url ?? "").url)
   if (!url || !p.parse) return null
   return p.parse(url)
 }
@@ -572,6 +574,51 @@ export function appUrlProblem(data: Partial<AppBlockData> | null | undefined): b
   const raw = (data?.url || "").trim()
   if (!raw) return false
   return appTarget(data) === null
+}
+
+/* ─── The address field: a handle or a link ─────────────────────────────── */
+
+/**
+ * The services whose address field takes a handle as well as a link
+ * ("@ana", "ana", "instagram.com/ana", a post's whole address), each with
+ * the platform its handle rules come from (./social-input).
+ */
+const HANDLE_PLATFORM: Record<string, string> = { instagram: "instagram", tiktok: "tiktok", x: "twitter", threads: "threads" }
+
+export function appTakesHandle(providerId: string | null | undefined): boolean {
+  return !!providerId && Object.prototype.hasOwnProperty.call(HANDLE_PLATFORM, providerId)
+}
+
+/**
+ * What was typed or pasted in the address field, as the address to save.
+ * A handle (with or without its @) becomes the profile's address; a link,
+ * a post or reel included, is kept as it was pasted with https:// in front.
+ * `valid` is false when it looked like a handle and was not a valid one.
+ */
+export function appAddressFromInput(providerId: string | null | undefined, raw: string): { url: string; valid: boolean } {
+  const typed = String(raw ?? "").trim()
+  if (!typed || !providerId || !appTakesHandle(providerId)) return { url: typed, valid: true }
+  const platform = HANDLE_PLATFORM[providerId]
+  if (/[/:]/.test(typed) || /^(www\.|m\.)/i.test(typed)) {
+    const link = /^https?:\/\//i.test(typed) ? typed.replace(/^http:\/\//i, "https://") : `https://${typed}`
+    /* A profile's link is made plain (no www., no tracking, no trailing slash); a post or reel is kept whole, so it can play. */
+    const u = parseAppUrl(link)
+    if (u && u.pathname.split("/").filter(Boolean).length === 1) {
+      const parsed = parseSocialInput(platform, link)
+      if (parsed.ok) return { url: parsed.url, valid: true }
+    }
+    return { url: link, valid: true }
+  }
+  const parsed = parseSocialInput(platform, typed)
+  return parsed.ok ? { url: parsed.url, valid: true } : { url: typed, valid: false }
+}
+
+/** The address as the field shows it: "@ana" for a profile, the whole link for anything else. */
+export function appAddressShown(providerId: string | null | undefined, saved: string | null | undefined): string {
+  const value = String(saved ?? "").trim()
+  if (!value || !providerId || !appTakesHandle(providerId)) return value
+  const field = socialFieldValue(HANDLE_PLATFORM[providerId], appAddressFromInput(providerId, value).url)
+  return field && !/[/:]/.test(field) ? `@${field.replace(/^@/, "")}` : value
 }
 
 export const APP_POSTS_MAX = 8
