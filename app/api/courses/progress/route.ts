@@ -4,6 +4,7 @@ import { isUuid, keepsProgress } from "@/lib/courses/access"
 import { shouldAutoComplete } from "@/lib/courses/progress"
 import { PRIVATE, sessionUserId } from "@/lib/courses/route-auth"
 import { lessonContext, outlineOf, readCourseTreeById, syncEnrollment, toProgress } from "@/lib/courses/server"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -30,7 +31,7 @@ export const dynamic = "force-dynamic"
  */
 export async function POST(request: Request) {
   const userId = await sessionUserId()
-  if (!userId) return NextResponse.json({ error: "Sign in to keep your place." }, { status: 401, headers: PRIVATE })
+  if (!userId) return signedOutOrRetry(NextResponse.json({ error: "Sign in to keep your place." }, { status: 401, headers: PRIVATE }))
 
   let body: Record<string, unknown>
   try {

@@ -7,6 +7,7 @@ import { communityOpen, loadCommunity, requireMember, viewerContext } from "@/li
 import { readCommunityVideo, videoAccess } from "@/lib/communities/server/videos"
 import { isCommunityMediaPath } from "@/lib/video/storage"
 import { sessionUserId } from "@/lib/courses/route-auth"
+import { authUnavailableForRequest, authUnavailableResponse } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -25,6 +26,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ com
   if (off) return off
   const { communityId, videoId } = await params
   const userId = await sessionUserId()
+  /* A visitor sees the preview; a signed in person Auth could not check is asked to try again, not shown the locked view (round rel2-auth). */
+  if (!userId && (await authUnavailableForRequest())) return authUnavailableResponse()
   const db = admin()
   const community = await loadCommunity(db, { id: communityId })
   if (!community || !communityOpen(community)) return new NextResponse("", { status: 404, headers: noStore })
