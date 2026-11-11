@@ -1,4 +1,5 @@
 "use client"
+import { signupEmailReady } from "@/lib/onepage/email-signup"
 import {VisualLinkCard} from "./block-presentation"
 import { ColorRow, LabeledRow, Segmented, Switch } from "./editor-kit"
 import { OnePageProductBlock } from "./product-block"
@@ -543,7 +544,8 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
                 className="h-12 w-full rounded-xl border border-[#e3e4e8] bg-white px-4 text-[16px] text-[#111113] outline-none transition-[border-color,box-shadow] focus:border-[#111113] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.08)]"
               />
               {error ? <p role="alert" className="text-[13px] text-[#b42318]">{error}</p> : null}
-              <button type="submit" disabled={sending} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#111113] text-[15px] font-semibold text-white transition-opacity disabled:opacity-60">
+              {/* Round AS: waits, faded, until the address could be taken (lib/onepage/email-signup signupEmailReady). */}
+              <button type="submit" disabled={sending || !signupEmailReady(email)} data-email-ready={signupEmailReady(email) ? "" : undefined} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#111113] text-[15px] font-semibold text-white transition-opacity duration-200 ease-out disabled:cursor-not-allowed disabled:opacity-45">
                 {sending ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : null}
                 {button}
               </button>

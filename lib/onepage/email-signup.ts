@@ -102,3 +102,29 @@ export function connectButtonPatch(data: { button_preset?: string | null; custom
   const standard = (!data.button_preset || data.button_preset === "subscribe") && !(data.custom_button_text ?? "").trim()
   return standard ? { button_preset: "custom", custom_button_text: words } : null
 }
+
+/**
+ * Round AS, the owner: "Subscribe should be disabled until a valid email is
+ * entered, then become clickable with a smooth state change." Whether what
+ * is typed is an address the signup would take: something, an @, a host
+ * with a dot and two letters after it, no spaces, at most 254 characters.
+ * Every OnePage signup and subscribe button reads this (the email block in
+ * each layout, the header's Subscribe sheet, the free gift's form); the
+ * servers still check for themselves. Pure.
+ */
+const SIGNUP_EMAIL = /^[^\s@<>()[\]\\,;:"]+@[^\s@<>()[\]\\,;:"]+\.[^\s@<>()[\]\\,;:".]{2,}$/
+
+export function signupEmailReady(raw: unknown): boolean {
+  if (typeof raw !== "string") return false
+  const v = raw.trim()
+  return v.length <= 254 && SIGNUP_EMAIL.test(v)
+}
+
+/**
+ * The page's own button (.op-btn) waiting for an address: faded by a filter,
+ * eased with the button's own timing (app/globals.css .op-btn, which drops to
+ * no time under reduced motion), and back to itself once `ready`.
+ */
+export function signupWait(ready: boolean): { filter?: string; transitionProperty: string } {
+  return { ...(ready ? {} : { filter: "opacity(0.45)" }), transitionProperty: "translate, scale, opacity, color, filter" }
+}

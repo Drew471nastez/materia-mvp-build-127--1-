@@ -113,7 +113,7 @@ import { checkSignupPhone, signupExtraFields } from "@/lib/onepage/signup-fields
 import { OnePageLegalLinks } from "@/components/onepage/onepage-legal-links"
 import { OnePageSubscribeSheet } from "@/components/onepage/subscribe-sheet"
 import { OnePageShareSheet } from "@/components/onepage/share-sheet"
-import { emailSignupImage, emailSignupLayout, emailSignupStacked } from "@/lib/onepage/email-signup"
+import { emailSignupImage, emailSignupLayout, emailSignupStacked, signupEmailReady, signupWait } from "@/lib/onepage/email-signup"
 import { pixelLead } from "@/lib/analytics/pixels"
 import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 
@@ -4509,6 +4509,12 @@ function CoreBlockRenderer({
       */
       const renderEmailFields = ({ stacked, inverted, outlined, shape, avatar }: EmailSignupFormOptions) => {
         const buttonText = getButtonText()
+        /*
+          Round AS (lib/onepage/email-signup signupEmailReady): the button waits, faded, until an address could be taken,
+          then eases in. The page's button fades by a filter (signupWait), not its opacity, which the page's own button
+          rules and the blocks' arrival also move.
+        */
+        const emailReady = signupEmailReady(email)
         /* Round AR: the page's words as they read on the signup's card (signupInk above). */
         const pageInk = signupInk
         /*
@@ -4539,8 +4545,9 @@ function CoreBlockRenderer({
                 <button
                   type={done ? "button" : "submit"}
                   onClick={done ? handleDownloadClick : undefined}
-                  disabled={!done && (isSubmitting || emailSubmitted)}
-                  className="inline-flex h-10 max-w-[58%] shrink-0 items-center gap-2 rounded-full bg-[#ececef] pl-4 pr-1 text-[14px] font-medium text-[#111113] transition-[background-color,opacity] duration-150 disabled:cursor-not-allowed disabled:opacity-60 [@media(hover:hover)]:hover:bg-[#e2e2e6]"
+                  disabled={!done && (isSubmitting || emailSubmitted || !emailReady)}
+                  data-email-ready={emailReady ? "" : undefined}
+                  className="inline-flex h-10 max-w-[58%] shrink-0 items-center gap-2 rounded-full bg-[#ececef] pl-4 pr-1 text-[14px] font-medium text-[#111113] transition-[background-color,opacity] duration-200 ease-out disabled:cursor-not-allowed disabled:opacity-45 [@media(hover:hover)]:hover:bg-[#e2e2e6]"
                   data-email-connect=""
                 >
                   <span className="truncate">{done ? "Download" : isSubmitting ? "..." : buttonText}</span>
@@ -4577,9 +4584,10 @@ function CoreBlockRenderer({
                 <button
                   type={done ? "button" : "submit"}
                   onClick={done ? handleDownloadClick : undefined}
-                  disabled={!done && (isSubmitting || emailSubmitted)}
-                  className="group/send inline-flex h-12 shrink-0 items-center gap-1.5 text-[14.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-                  style={{ color: pageInk }}
+                  disabled={!done && (isSubmitting || emailSubmitted || !emailReady)}
+                  data-email-ready={emailReady ? "" : undefined}
+                  className="group/send inline-flex h-12 shrink-0 items-center gap-1.5 text-[14.5px] font-semibold duration-200 ease-out disabled:cursor-not-allowed motion-reduce:transition-none"
+                  style={{ color: pageInk, ...signupWait(done || emailReady || isSubmitting) }}
                   data-email-send=""
                 >
                   {done ? "Download" : isSubmitting ? "..." : buttonText}
@@ -4615,7 +4623,7 @@ function CoreBlockRenderer({
                   Download
                 </button>
               ) : (
-                <button type="submit" disabled={isSubmitting || emailSubmitted} className={cn(buttonClass, "disabled:opacity-50 disabled:cursor-not-allowed")} style={submitStyles} {...submitAttrs}>
+                <button type="submit" disabled={isSubmitting || emailSubmitted || !emailReady} data-email-ready={emailReady ? "" : undefined} data-email-submit="" className={cn(buttonClass, "disabled:cursor-not-allowed")} style={{ ...submitStyles, ...signupWait(emailReady || isSubmitting) }} {...submitAttrs}>
                   {isSubmitting ? "..." : buttonText}
                 </button>
               )}
