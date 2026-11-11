@@ -52,7 +52,7 @@
  *                 the product sheet and the checkout).
  */
 
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { Check, Share, X } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -208,7 +208,8 @@ function historyWith(mark: string | null): Record<string, unknown> {
   return mark ? { ...st, [BLOCK_SHEET_HISTORY_KEY]: mark } : st
 }
 
-function BlockSheetView({
+/* Memoised: a kept sheet (and the frames in it) is not drawn again each time another opens or closes. */
+const BlockSheetView = memo(function BlockSheetView({
   sheetKey,
   request,
   open,
@@ -1003,4 +1004,4 @@ function BlockSheetView({
     </div>,
     document.body,
   )
-}
+})
