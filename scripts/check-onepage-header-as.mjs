@@ -229,7 +229,7 @@ try {
         const runs = await page.evaluate(() => window.__runs)
         const opac = show.map((s) => s.o)
         check(opac.every((o, i) => i === 0 || o >= opac[i - 1] - 0.001) && opac.at(-1) > 0.5, `${label} ${layout}: scrolling up brings them back with the opacity only rising (${opac[0]} -> ${opac.at(-1)}, ${opac.length} frames)`)
-        const want2 = ["share:opacity", "share:transform", "bell:opacity", "bell:transform"]
+        const want2 = ["share:opacity", "share:translate", "bell:opacity", "bell:translate"]
         check(want2.every((w) => runs.filter((r) => r === w).length === 1) && runs.length === 4, `${label} ${layout}: one transition per layer (${runs.join(", ")})`)
         check(show.every((s) => !s.fadingAncestor), `${label} ${layout}: nothing above the frosted button fades or filters while it comes in`)
         await run(page, range(M - 80, 0, 40), () => ({}))

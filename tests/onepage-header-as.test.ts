@@ -71,7 +71,7 @@ check("travel up brings them back", walk([400 - CORNER_TRAVEL_PX - 1], down).sho
 check("the same position again changes nothing", cornerNext(down, 400) === down)
 check("the page renders no state of its own on a scroll", !/buttonsVisible/.test(page) && !/lastScrollY/.test(page) && (page.match(/useCornerButtonsShown\(\)/g) || []).length === 2)
 check("one shared listener, held between the top and the page's end", /window\.addEventListener\("scroll", onCornerScroll, \{ passive: true \}\)/.test(bar) && /Math\.min\(Math\.max\(0, window\.scrollY\), end\)/.test(bar))
-check("the box only moves and the button fades, so the frosted fill never drops", /const CORNER_BOX_CLASS = "[^"]*will-change-transform transition-transform/.test(page) && /const CORNER_BUTTON_CLASS = "[^"]*will-change-\[opacity\] transition-opacity/.test(page) && !/transition-\[opacity,translate\] duration-500/.test(page))
+check("the box only moves and the button fades, so the frosted fill never drops", /const CORNER_BOX_CLASS = "[^"]*will-change-\[translate\] transition-\[translate\]/.test(page) && /const CORNER_BUTTON_CLASS = "[^"]*will-change-\[opacity\] transition-opacity/.test(page) && !/transition-\[opacity,translate\] duration-500/.test(page))
 check("on a phone they sit on the bar's row, under the status bar", /top-\[calc\(env\(safe-area-inset-top\)\+10px\)\]/.test(page))
 
 /* ── The fade layout and the cover ── */

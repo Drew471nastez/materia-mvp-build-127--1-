@@ -351,7 +351,7 @@ export function pageIsLight(theme: { background_type?: string | null; background
   bar's 60px row (components/onepage/hero-scroll) rather than half over its
   edge. A computer: in the window's corners, outside the card and its bar.
 
-  The box only moves (transform); the fade is on the button itself. A box that
+  The box only moves (translate); the fade is on the button itself. A box that
   fades is, while it fades, the edge of what a frosted button can blur, so
   the frost went off when the fade began and came back when it ended: the
   flash. The button fading on its own keeps its frost the whole way. Both
@@ -359,11 +359,8 @@ export function pageIsLight(theme: { background_type?: string | null; background
   dropped as the move starts and ends. One 240ms move, from one listener
   that waits for real travel one way (lib/onepage/feel cornerNext).
 */
-const CORNER_BOX_CLASS = "fixed top-[calc(env(safe-area-inset-top)+10px)] sm:top-[calc(env(safe-area-inset-top)+8px)] md:top-6 z-[20] will-change-transform transition-transform duration-[240ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+const CORNER_BOX_CLASS = "fixed top-[calc(env(safe-area-inset-top)+10px)] sm:top-[calc(env(safe-area-inset-top)+8px)] md:top-6 z-[20] will-change-[translate] transition-[translate] duration-[240ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
 const CORNER_BUTTON_CLASS = "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full will-change-[opacity] transition-opacity duration-[240ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
-function cornerBoxStyle(shown: boolean): React.CSSProperties {
-  return { transform: shown ? "translate3d(0, 0, 0)" : "translate3d(0, -8px, 0)", pointerEvents: shown ? "auto" : "none" }
-}
 function cornerButtonStyle(shown: boolean): React.CSSProperties {
   return { opacity: shown ? 1 : 0 }
 }
@@ -487,7 +484,7 @@ function NotificationBell({
   return (
     <div
       className={CORNER_BOX_CLASS + " right-[10px] sm:right-2 md:right-6"}
-      style={cornerBoxStyle(shouldShow)}
+      style={{ translate: shouldShow ? "0 0" : "0 -10px", pointerEvents: shouldShow ? "auto" : "none" }}
     >
       {/* Bell Button */}
       <button
@@ -639,7 +636,7 @@ function ShareButton({
     <>
       <div
         className={positionClass}
-        style={cornerBoxStyle(shouldShow)}
+        style={{ translate: shouldShow ? "0 0" : "0 -10px", pointerEvents: shouldShow ? "auto" : "none" }}
       >
         <div>
           {/* Share Button - icons 3px smaller on desktop */}
