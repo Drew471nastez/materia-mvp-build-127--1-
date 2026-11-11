@@ -751,46 +751,51 @@ html.capacitor body {
     touch-action: pan-y pinch-zoom;
   }
 
-  /*
-    AND NO SCROLLBAR PROPERTIES ON <html>.
-
-    A slim bar was styled here at first, and the note further down this file
-    says why that was wrong: every scrollbar property, `scrollbar-width` and
-    `scrollbar-color` and the ::-webkit-scrollbar rules alike, opts an element
-    OUT of the platform's overlay scrollbar and into a classic one that
-    reserves a column of layout. On macOS that would have put the empty
-    column straight back the moment a page had anything to scroll, which is
-    the exact complaint being fixed.
-
-    Left alone, the platform floats its own bar over the content and reserves
-    nothing. The slim bar stays where it belongs: `.wb-slim-scroll`, on the
-    editor's own light panels, where a reserved column is invisible.
-
-    Round 13 brings a slim bar back for pointer screens only, by the two
-    standard properties and nothing else (the rule under this note): the
-    owner asked for one slim, light grey bar everywhere, the same one /app's
-    scrollers already draw.
-  */
-
-  /*
-    THE PAGE'S SCROLLBAR: SLIM, LIGHT GREY, NO TRACK (round 13, ask 26: "the
-    page scrollbar everywhere: slim, light grey, modern, and the post
-    panel's"). Where a pointer drives the page, the window's bar (and the
-    opened post's panel, and the notifications list) is the thin one in a
-    light grey on a clear track, by the two standard properties only. No
-    ::-webkit-scrollbar rules: those are what took a classic, full width bar
-    with a reserved column, and a browser that knows the standard pair
-    ignores them anyway. A page that has nothing to scroll still reserves
-    nothing (`overflow-y: auto` above); the community's frame keeps its
-    own stable gutter so its columns never move. Touch screens keep no bar
-    at all (the rule under this one).
-  */
+  /* Site scrollbar: muted rounded thumb on charcoal rather than a white
+   * gutter. Keep native scrolling and overflow:auto so short pages do not
+   * reserve an empty rail. Dedicated editor scrollers retain their own styles. */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: #777777 #292929;
+  }
   @media (hover: hover) and (pointer: fine) {
-    html,
     [data-post-overlay-scroll],
     [data-bell-list] {
       scrollbar-width: thin;
-      scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+      scrollbar-color: #777777 #292929;
+    }
+  }
+
+  /* Safari versions without the standard scrollbar properties. Modern
+   * browsers use the standard thin bar above; no JavaScript scroll wrapper. */
+  html::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    background: #292929;
+  }
+  html::-webkit-scrollbar-track,
+  html::-webkit-scrollbar-corner {
+    background: #292929;
+  }
+  html::-webkit-scrollbar-thumb {
+    background: #777777;
+    border: 1px solid #292929;
+    border-radius: 999px;
+    background-clip: padding-box;
+  }
+  html::-webkit-scrollbar-thumb:hover {
+    background-color: #929292;
+  }
+  html::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  @media (forced-colors: active) {
+    html,
+    [data-post-overlay-scroll],
+    [data-bell-list] {
+      scrollbar-color: auto;
     }
   }
 

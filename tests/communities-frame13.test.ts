@@ -7,8 +7,7 @@
  *   WARM        leaving the community asks for its home again
  *   EMPTY       the bell's empty list is calm and specific, per filter
  *   STACK       every avatar stack: 2px ring of the ground, 8px overlap
- *   SCROLLBAR   slim and light grey on pointer screens, by the two standard
- *               properties only
+ *   SCROLLBAR   slim gray thumb on charcoal, with a Safari fallback
  *   ACTIVE      the right column's cards have Polaris depth
  *   TAB         "(3) Club" in the title and a red dot on the icon
  *   MEMBERSHIP  the page, its entry in the "..." menu, M's two slots
@@ -130,7 +129,7 @@ async function main() {
   console.log("\nSCROLLBAR: slim and light grey")
   {
     const css = code("app/globals.css")
-    check("pointer screens: thin, light grey, on the page, the opened post and the bell's list", /@media \(hover: hover\) and \(pointer: fine\) \{\s*html,\s*\[data-post-overlay-scroll\],\s*\[data-bell-list\] \{\s*scrollbar-width: thin;\s*scrollbar-color: rgba\(156, 163, 175, 0\.5\) transparent;/.test(css))
+    check("pointer screens: thin gray thumb on charcoal across the page, opened post and bell list", /@media \(hover: hover\) and \(pointer: fine\) \{\s*\[data-post-overlay-scroll\],\s*\[data-bell-list\] \{\s*scrollbar-width: thin;\s*scrollbar-color: #777777 #292929;/.test(css))
     check("no ::-webkit-scrollbar rule on the page's html for pointers", !/@media \(hover: hover\) and \(pointer: fine\) \{[^}]*html::-webkit-scrollbar/.test(css))
   }
 
