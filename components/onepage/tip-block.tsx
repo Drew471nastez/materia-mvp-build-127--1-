@@ -265,14 +265,16 @@ function TipSheet({ blockId, look, data, currency, start }: { blockId: string; l
   /* The server's own rule (checkTipAmount): a preset, or, when the block lets visitors choose, any amount from the floor to the cap. */
   const check = checkTipAmount(data, cents, floor, currency)
   const ok = check.ok
+  /* Read off the refusal without narrowing, which the tests' non-strict build does not do. */
+  const refused = check.ok ? null : (check as { error: string }).error
   const hint =
-    check.ok || !cents
+    !refused || !cents
       ? null
-      : check.error === "too_small"
+      : refused === "too_small"
         ? tt("At least {amount}", { amount: tipLabel(floor, currency, locale) })
-        : check.error === "too_large"
+        : refused === "too_large"
           ? tt("At most {amount}", { amount: tipLabel(TIP_MAX_CENTS, currency, locale) })
-          : check.error === "not_offered"
+          : refused === "not_offered"
             ? tt("Choose one of the amounts")
             : null
   const presets = tipAmounts(data, currency)
