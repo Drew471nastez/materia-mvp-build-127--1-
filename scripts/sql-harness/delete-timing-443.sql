@@ -81,10 +81,11 @@ END $f$;
 SELECT :'phase' = 'seed' AS seeding \gset
 \if :seeding
 SET session_replication_role = replica;
+SELECT set_config('rel2.rows', :'rows', false);
 CREATE TABLE IF NOT EXISTS public.rel2_timing_seeded (child text PRIMARY KEY, rows integer);
 -- The children part 443 indexes, each pointing at ids nothing else has.
 DO $seed$
-DECLARE r record; n int; rows int := :rows;
+DECLARE r record; n int; rows int := current_setting('rel2.rows')::int;
 BEGIN
   FOR r IN SELECT * FROM (VALUES
     ('library_items', 'user_id'), ('community_comments', 'author_id'), ('notifications', 'actor_id'), ('community_poll_votes', 'user_id'),
