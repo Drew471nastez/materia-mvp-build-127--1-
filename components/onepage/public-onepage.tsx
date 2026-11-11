@@ -2900,7 +2900,8 @@ function CoreBlockRenderer({
         const aspectRatio = isDesktop ? "1/1" : "4/5"
         /* The words over the melted part get a halo of the page's own colour, not a black shadow: dark words on a light page stay crisp. */
         const halo = `color-mix(in srgb, ${pageCanvasColour(theme as any)} 72%, transparent)`
-        const heroMargin = isDesktop ? "-mx-7 -mt-0" : "-mx-5 -mt-8"
+        /* Round AS: from the very top of a phone's page; it was pulled 32px above it, and the top of the picture was never seen. */
+        const heroMargin = isDesktop ? "-mx-7 -mt-0" : "-mx-5"
         const heroWidth = isDesktop ? "w-[calc(100%+56px)]" : "w-[calc(100%+40px)]"
         const heroPosition = { objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }
 

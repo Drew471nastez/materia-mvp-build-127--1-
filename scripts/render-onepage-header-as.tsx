@@ -1,5 +1,5 @@
 /**
- * The page shell's harness (scripts/check-onepage-header.mjs): the header as the page
+ * The page shell's harness (scripts/check-onepage-header-as.mjs): the header as the page
  * scrolls, the bar that takes its place, the Share and Subscribe buttons in the corners,
  * the cover's fade, the column's width and the rows that slide sideways.
  *
