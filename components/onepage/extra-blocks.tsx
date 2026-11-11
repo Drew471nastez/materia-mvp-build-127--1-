@@ -264,7 +264,6 @@ function useSettled<T>(value: T, ms: number, active: boolean): T {
 }
 
 /* Round AR3: the map block's own settings, how close and how tall (Google's z levels, CSS pixels). */
-const MAP_ZOOM: Record<string, number> = { street: 17, area: 15, city: 12 }
 const MAP_HEIGHT: Record<string, number> = { short: 150, medium: 190, tall: 300 }
 
 function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
