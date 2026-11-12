@@ -68,8 +68,8 @@ function createHeadingMotion() {
         section it was inherited by every card, picture and caption in it, so
         each scroll frame restyled all of them to fade one box.
       */
-      if (section && gallery && entry.reveal !== reveal) {
-        ;(gallery as HTMLElement).style.setProperty("--showcase-reveal", reveal)
+      if (section && entry.gallery && entry.reveal !== reveal) {
+        ;(entry.gallery as HTMLElement).style.setProperty("--showcase-reveal", reveal)
         entry.reveal = reveal
       }
     }

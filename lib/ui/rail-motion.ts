@@ -584,7 +584,7 @@ export class RailMotion {
   /* ── Input ── */
 
   private listen() {
-    const on = <K extends keyof HTMLElementEventMap>(el: HTMLElement | Document, type: K, fn: (e: HTMLElementEventMap[K]) => void, opts?: AddEventListenerOptions) => {
+    const on = <E extends Event>(el: HTMLElement | Document, type: string, fn: (e: E) => void, opts?: AddEventListenerOptions) => {
       el.addEventListener(type, fn as EventListener, opts)
       this.cleanup.push(() => el.removeEventListener(type, fn as EventListener, opts))
     }
