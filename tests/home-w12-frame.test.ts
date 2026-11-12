@@ -51,7 +51,8 @@ async function main() {
     const removed = ["BentoGrid", "StatsBar", "ManageSection", "SplitFeaturesSection", "ToolStackSection", "FeaturesBadgesSection", "CtaSection", "CarouselSection"]
     check("none of the removed sections is on the page", removed.every((c) => !page.includes(c)), removed.filter((c) => page.includes(c)))
     check("the hero and the showcase stay, first", page.indexOf("<Hero />") > 0 && page.indexOf("<Hero />") < page.indexOf("<BuildShowcase />"))
-    const order = ["<BuildShowcase />", "W12 SLOT 3", "W12 SLOT 4", "<ProductMarquee />", "W12 SLOT 6", "W12 SLOT 7", "W12 SLOT 8", "W12 SLOT 9", "W12 SLOT 10", "W12 SLOT 11", "W12 SLOT 12", "W12 SLOT 13", "W12 SLOT 14", "W12 SLOT 15", "<PricingSection", "<FaqSection", "<FinalCta />"]
+    /* Changed on purpose (wave 12 integration): the slots are now the sections themselves, loaded by components/marketing/home/lazy-sections. */
+    const order = ["<BuildShowcase />", "<LazyEverythingInOnePlace />", "<LazyIdeasComeToLife />", "<ProductMarquee />", "<LazyBusinessCarousel />", "<LazyCreatorsCarousel />", "<LazyHowItWorks />", "<LazyCheckoutScene />", "<LazyAudienceOwnership />", "<LazyAnalyticsShowcase />", "<LazySellEverywhereMap />", "<LazyIntegrationsSection />", "<LazyEarningsCalculator />", "<LazyAppAnywhere />", "<PricingSection", "<FaqSection", "<FinalCta />"]
     const at = order.map((s) => pageRaw.indexOf(s))
     check("the sections and the other tracks' slots in the owner's order", at.every((n, i) => n > 0 && (i === 0 || n > at[i - 1])), order.filter((_, i) => at[i] <= 0 || (i > 0 && at[i] <= at[i - 1])))
     check("pricing is kept, without its See full pricing button", /<PricingSection editorial hideDetailsLink \/>/.test(page) && /\{!hideDetailsLink && \(/.test(read("components/marketing/pricing-section.tsx")))
