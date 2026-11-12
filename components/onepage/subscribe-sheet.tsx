@@ -95,7 +95,12 @@ export function OnePageSubscribeSheet({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     const address = email.toLowerCase().trim()
-    if (!address) return
+    /* Round AT: the button is at full strength from the start; the address is checked on the press, with the inline error. */
+    if (!signupEmailReady(address)) {
+      setError("Enter a valid email address.")
+      field.current?.focus({ preventScroll: true })
+      return
+    }
     if (!sellerId) {
       setError("Subscribing is not available on this page right now.")
       return
@@ -160,7 +165,7 @@ export function OnePageSubscribeSheet({
           <div style={pane(!done)} aria-hidden={done || undefined}>
             <h2 className="text-[19px] font-semibold leading-snug tracking-[-0.01em] text-[var(--sheet-ink)]">Subscribe to {sellerName}</h2>
             <p className="mt-1.5 text-[14px] leading-relaxed text-[var(--sheet-muted)]">Get emails from {sellerName}. Unsubscribe any time.</p>
-            <form onSubmit={submit} className="mt-5 text-left">
+            <form onSubmit={submit} noValidate className="mt-5 text-left">
               <label htmlFor="onepage-subscribe-email" className="sr-only">
                 Email address
               </label>
@@ -173,7 +178,10 @@ export function OnePageSubscribeSheet({
                 enterKeyHint="go"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  if (error) setError("")
+                }}
                 placeholder="you@example.com"
                 disabled={busy || done}
                 tabIndex={done ? -1 : undefined}
@@ -188,8 +196,8 @@ export function OnePageSubscribeSheet({
               ) : null}
               <button
                 type="submit"
-                /* Round AS: waits, faded, until the address could be taken (lib/onepage/email-signup signupEmailReady). */
-                disabled={busy || done || !signupEmailReady(email)}
+                /* Changed on purpose (round AT): never faded for an empty box; submit checks the address (signupEmailReady). */
+                disabled={busy || done}
                 data-email-ready={signupEmailReady(email) ? "" : undefined}
                 tabIndex={done ? -1 : undefined}
                 className="mt-3 h-12 w-full rounded-2xl bg-[var(--sheet-ink)] text-[15px] font-semibold text-[var(--sheet-on-ink)] transition-opacity duration-200 ease-out hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:opacity-40"

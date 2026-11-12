@@ -37,7 +37,8 @@ import type {
 import { normalizeSocialUrl } from "@/lib/onepage/types"
 import { socialLinkId } from "@/lib/onepage/link-keys"
 import { LinkIcon, SocialIcon, socialPlatformLabel } from "@/components/onepage/brand-icons"
-import { resolveLinkIcon } from "@/components/onepage/link-icons"
+import { isLinkBrandIcon, linkIconKey, resolveLinkIcon } from "@/components/onepage/link-icons"
+import { BlockMarkTile } from "@/components/onepage/block-mark"
 import { cn } from "@/lib/utils"
 import { Avatar } from "@/components/ui/avatar"
 import { AvatarMark } from "@/components/app/app-avatar"
@@ -72,7 +73,8 @@ import { HeroTopBar, useCornerButtonsShown } from "@/components/onepage/hero-scr
 import { usePressFeel } from "@/components/onepage/press-feel"
 import { useLookStill } from "@/components/onepage/look-still"
 import { useBlockEntrance } from "@/components/onepage/block-entrance"
-import { pageGroundIsLight, socialIconColorOf, socialIconStyleOf, socialIconToneOf, socialTileStyle } from "@/lib/onepage/social-look"
+import { SocialRowScroller } from "@/components/onepage/social-row-scroller"
+import { blockIconLookOf, pageGroundIsLight, socialMarkColorOf, socialIconStyleOf, socialIconToneOf, socialTileStyle } from "@/lib/onepage/social-look"
 import { leavingProps, useLeavingBlocks } from "@/components/onepage/leaving-block"
 import { heroScrollEffect } from "@/lib/onepage/feel"
 import { PosterVideo } from "@/components/onepage/poster-video"
@@ -80,6 +82,8 @@ import { COVER_FADE_MASK, HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/l
 import { readableOn } from "@/lib/onepage/theme-apply"
 import { photoVeil, readableInk, readableTheme, signupCard, smallPrintAlpha } from "@/lib/onepage/contrast"
 import { pressableProps } from "@/lib/onepage/block-look"
+import { imageStyleOf } from "@/lib/onepage/image-fade"
+import { FadeWords, fadeSizeFor } from "./image-fade"
 import { LegibleGuard } from "@/components/onepage/legible-guard"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
 import { pairProductTiles } from "@/lib/onepage/product-block"
@@ -116,7 +120,7 @@ import { checkSignupPhone, signupExtraFields } from "@/lib/onepage/signup-fields
 import { OnePageLegalLinks } from "@/components/onepage/onepage-legal-links"
 import { OnePageSubscribeSheet } from "@/components/onepage/subscribe-sheet"
 import { OnePageShareSheet } from "@/components/onepage/share-sheet"
-import { emailSignupImage, emailSignupLayout, emailSignupStacked, signupEmailReady, signupWait } from "@/lib/onepage/email-signup"
+import { emailSignupImage, emailSignupLayout, emailSignupStacked, signupEmailReady } from "@/lib/onepage/email-signup"
 import { pixelLead } from "@/lib/analytics/pixels"
 import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 
@@ -362,7 +366,7 @@ export function pageIsLight(theme: { background_type?: string | null; background
   dropped as the move starts and ends. One 240ms move, from one listener
   that waits for real travel one way (lib/onepage/feel cornerNext).
 */
-const CORNER_BOX_CLASS = "fixed top-[calc(env(safe-area-inset-top)+10px)] sm:top-[calc(env(safe-area-inset-top)+8px)] md:top-6 z-[20] will-change-[translate] transition-[translate] duration-[240ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+const CORNER_BOX_CLASS = "fixed top-[calc(var(--op-safe-top,0px)+10px)] sm:top-[calc(var(--op-safe-top,0px)+8px)] md:top-6 z-[20] will-change-[translate] transition-[translate] duration-[240ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
 const CORNER_BUTTON_CLASS = "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full will-change-[opacity] transition-opacity duration-[240ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
 function cornerButtonStyle(shown: boolean): React.CSSProperties {
   return { opacity: shown ? 1 : 0 }
@@ -1669,14 +1673,16 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {/* Centered card container */}
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
           {/* The page as a card: 420px, then 500px, then (round AS, the owner: "about 10% more width") 550px. */}
+          {/* Round R3: the shadow is the box around the card's, so the card can keep its corners at the top of the window (app/globals.css [data-op-card]) without cutting it. */}
+          <div className="w-full max-w-[550px] mx-4 rounded-[40px]" style={{ boxShadow: "0 25px 80px -12px rgba(0, 0, 0, 0.35)" }}>
           <div
             ref={cardRef}
             data-onepage-drag-scope=""
+            data-op-card=""
             /* Round AR: clipped, not hidden: a box with overflow hidden is a scroll container, and the Hero's scroll timeline (components/onepage/hero-scroll) would follow it instead of the page. */
-            className="w-full max-w-[550px] mx-4 rounded-[40px] overflow-clip relative"
+            className="w-full max-w-[550px] rounded-[40px] overflow-clip relative"
             style={{
               background: getBackgroundStyle(),
-              boxShadow: "0 25px 80px -12px rgba(0, 0, 0, 0.35)",
             }}
           >
             {safeTheme.background_type === "image" && safeTheme.background_image_url && (
@@ -1731,6 +1737,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             <ThemeSkinScene theme={safeTheme} label={sellerName} className="absolute inset-0 rounded-[40px]" />
             <WallpaperPattern theme={safeTheme} className="absolute inset-0 rounded-[40px]" clearHeader />
             {renderPageContent({ isDesktop: true })}
+          </div>
           </div>
         </div>
 
@@ -2392,8 +2399,10 @@ function PublicImageCarousel({
   theme,
   isDesktop,
   carouselView = "1",
+  arrowsHigh = false,
 }: {
   images: { id: string; image_url: string; alt_text?: string; title?: string; link_url?: string | null }[]
+  arrowsHigh?: boolean
   renderImage: (img: typeof images[0], index: number) => React.ReactNode
   autoplay?: boolean
   theme: OnePageTheme
@@ -2636,7 +2645,9 @@ function PublicImageCarousel({
             type="button"
             onClick={goToPrev}
             className={cn(
-              "absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60 z-10",
+              "absolute left-2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60 z-10",
+              /* Over the picture, clear of words laid on its foot (round 3, lib/onepage/image-fade). */
+              arrowsHigh ? "top-[34%]" : "top-1/2",
               isDesktop ? "opacity-0 group-hover:opacity-100" : "opacity-70"
             )}
             aria-label="Previous image"
@@ -2649,7 +2660,9 @@ function PublicImageCarousel({
             type="button"
             onClick={goToNext}
             className={cn(
-              "absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60 z-10",
+              "absolute right-2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60 z-10",
+              /* Over the picture, clear of words laid on its foot (round 3, lib/onepage/image-fade). */
+              arrowsHigh ? "top-[34%]" : "top-1/2",
               isDesktop ? "opacity-0 group-hover:opacity-100" : "opacity-70"
             )}
             aria-label="Next image"
@@ -2773,7 +2786,7 @@ function CoreBlockRenderer({
   const pageSheet = useBlockSheet()
 
   /* Design › Social icons (lib/onepage/social-look): Solid, Outline or Glass; each mark in its brand's colour, or all in the icon colour. */
-  const socialColor = socialIconColorOf(theme as never)
+  const socialColor = socialMarkColorOf(theme as never)
   const socialTone = socialIconToneOf(theme as never)
 
   // Button hover animation - based on theme setting, disabled inside carousel or group
@@ -2911,8 +2924,10 @@ function CoreBlockRenderer({
         /*
           Round AS, the owner's "fade" layout, as link.me draws it: a large picture that melts into the page, the name
           over the melted part. Taller than it was (10/9 on a phone, 14/11 on a computer): 4/5 and square.
+          Round R3, the owner: that took almost the whole window before the name. 8/9 on a phone (4 to 4.5) and
+          5/4 on a computer (shorter than square): the name still sits over the melted part.
         */
-        const aspectRatio = isDesktop ? "1/1" : "4/5"
+        const aspectRatio = isDesktop ? "5/4" : "8/9"
         /* The words over the melted part get a halo of the page's own colour, not a black shadow: dark words on a light page stay crisp. */
         const halo = `color-mix(in srgb, ${pageCanvasColour(theme as any)} 72%, transparent)`
         /* Round AS: from the very top of a phone's page; it was pulled 32px above it, and the top of the picture was never seen. */
@@ -3319,20 +3334,23 @@ function CoreBlockRenderer({
       const paddingBottom = data.padding_bottom ?? (isHeroLayout ? 20 : 3)
 
       return (
-        <div
+        /*
+          Round 3: centred while they fit, and past that the full width of the column, sliding sideways with the
+          platform's own momentum (components/onepage/social-row-scroller). It carries data-op-social-row, which the
+          wallpaper's pattern keeps out from behind (components/onepage/wallpaper-layers useHeaderClearance).
+        */
+        <SocialRowScroller
           className={cn(
-            "flex items-center justify-center gap-2.5 flex-wrap",
             /* Pulled up onto the hero, so it is drawn (and pressed) above the hero's box, not under it. */
             isHeroLayout && "relative z-[1]",
             !hasCustomPadding && isHeroLayout && "md:mt-[-20px] md:mb-7"
           )}
           /* Under a classic header set flush left, the icons are too (app/globals.css [data-op-socials]). */
-          data-op-socials={isHeroLayout ? undefined : ""}
-          /* The wallpaper's pattern keeps out from behind a social row right under the header (components/onepage/wallpaper-layers useHeaderClearance). */
-          data-op-social-row=""
+          trackProps={{ "data-op-socials": isHeroLayout ? undefined : "" }}
+          /* Less the track's 4px above and below (room for a tile's ring inside the clip), so the row sits where it did. */
           style={{
-            marginTop: `${paddingTop}px`,
-            marginBottom: `${paddingBottom}px`
+            marginTop: `${paddingTop - 4}px`,
+            marginBottom: `${paddingBottom - 4}px`
           }}
         >
           {data.platforms.map(({ platform, url }) => {
@@ -3362,7 +3380,7 @@ function CoreBlockRenderer({
                   changes: nothing about its box, or anything beside it, moves.
                 */
                 className={cn(
-                  "flex w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] items-center justify-center transition-opacity duration-150 ease-out",
+                  "flex shrink-0 w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] items-center justify-center transition-opacity duration-150 ease-out",
                   !isInsideCarousel && "hover:opacity-70",
                 )}
                 /* Every value inline, so a skin's tile gives way to the creator's choice once it is theirs (lib/onepage/skin-own). */
@@ -3376,7 +3394,7 @@ function CoreBlockRenderer({
               </a>
             )
           })}
-        </div>
+        </SocialRowScroller>
       )
     }
 
@@ -3406,6 +3424,15 @@ function CoreBlockRenderer({
       const p = presentationOf(block)
       if ((p.variant && p.variant !== "original") || p.media_mode === "native" || p.media_mode === "card") return <VisualLinkCard block={block} theme={theme} onClick={() => { void trackClick(block.id, data.url) }} />
       const linkIcon = resolveLinkIcon(data.icon, data.url)
+      /* Round 3: Layout › Icon style, for a link whose icon is a service's mark (components/onepage/block-mark). Original is the mark in the button's words. */
+      const iconLook = blockIconLookOf(p.icon_look)
+      const linkKey = linkIconKey(linkIcon)
+      const drawLinkIcon = (className: string) =>
+        iconLook !== "original" && linkKey && isLinkBrandIcon(linkKey) ? (
+          <BlockMarkTile look={iconLook} className={className} draw={(tone, inner) => <LinkIcon name={linkIcon} size={inner} tone={tone} />} />
+        ) : (
+          <LinkIcon name={linkIcon} className={className} />
+        )
 
       /*
         THE BUTTON, from lib/onepage/button-style.ts: the same drawing every
@@ -3823,7 +3850,7 @@ function CoreBlockRenderer({
                 className={cn(iconPlace, "rounded object-cover")}
               />
             ) : linkIcon ? (
-              <LinkIcon name={linkIcon} className={iconPlace} />
+              drawLinkIcon(iconPlace)
             ) : null}
             <div className={labelColumn(hasThumbnail)}>
               <span className={labelText} data-block-title="">{data.label ?? "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
@@ -3879,7 +3906,7 @@ function CoreBlockRenderer({
                 className={cn(iconPlace, "rounded object-cover")}
               />
             ) : linkIcon ? (
-              <LinkIcon name={linkIcon} className={iconPlace} />
+              drawLinkIcon(iconPlace)
             ) : null}
             <div className={labelColumn(true)}>
               <span className={labelText} data-block-title="">{data.label ?? "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
@@ -3943,7 +3970,7 @@ function CoreBlockRenderer({
               className={cn(iconPlace, "rounded object-cover")}
             />
           ) : linkIcon ? (
-            <LinkIcon name={linkIcon} className={iconPlace} />
+            drawLinkIcon(iconPlace)
           ) : null}
           <div className={labelColumn(!!(hasIconOnly || hasThumbnail))}>
             <span className={labelText} data-block-title="">{data.label ?? "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
@@ -4113,11 +4140,15 @@ function CoreBlockRenderer({
       /* How many slides are within one swipe of the first one. */
       const isImageCarousel = data.display_style === 'carousel' && !isInsideGroup && images.length > 1
       const eagerSlides = Math.ceil(parseFloat(data.carousel_view || "1") || 1) + 1
+      /* Round 3: each picture's words on a fade over its foot (lib/onepage/image-fade), smaller on a smaller tile or slide. */
+      const faded = imageStyleOf(data) === "fade"
+      const shownAs: "single" | "grid" | "carousel" = images.length > 1 && data.display_style === 'grid' ? "grid" : isImageCarousel ? "carousel" : "single"
+      const fadeSize = fadeSizeFor(shownAs, data.grid_columns || 2, parseFloat(data.carousel_view || "1") || 1)
 
       // Render single image
       const renderImage = (img: typeof images[0], index: number) => {
         const imageContent = (
-          <div className="w-full">
+          <div className={cn("w-full", faded && "relative")}>
             <div
               className={cn("w-full overflow-hidden", aspectRatioClass)}
               style={{ borderRadius }}
@@ -4148,7 +4179,18 @@ function CoreBlockRenderer({
                 draggable={false}
               />
             </div>
-            {data.show_captions && img.title && (
+            {/* Beside the picture's frame, not inside it, so its own corners cover the picture's (lib/onepage/image-fade). */}
+            {faded ? (
+              <FadeWords
+                theme={theme}
+                title={img.title}
+                caption={(img as { caption?: string }).caption}
+                button={data.clickable && img.link_url ? (img as { button_label?: string }).button_label : null}
+                size={fadeSize}
+                radius={borderRadius}
+              />
+            ) : null}
+            {!faded && data.show_captions && img.title && (
               <p
                 className="text-center text-sm mt-2.5 opacity-70"
                 style={{ color: theme.text_color }}
@@ -4205,6 +4247,7 @@ function CoreBlockRenderer({
               theme={theme}
               isDesktop={isDesktop}
               carouselView={data.carousel_view}
+              arrowsHigh={faded}
             />
           </div>
         )
@@ -4341,7 +4384,17 @@ function CoreBlockRenderer({
 
       const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!email || isSubmitting || emailSubmitted) return
+        if (isSubmitting || emailSubmitted) return
+        /*
+          Round AT, the owner: Subscribe "should not be faded if I didn't enter an email". The button is always at full
+          strength; the address is checked here, on the press, with the block's own inline error under the form, and the
+          box gets the focus so the visitor can type straight away.
+        */
+        if (!signupEmailReady(email)) {
+          setLeadError(tt("Enter a valid email address."))
+          ;(e.currentTarget as HTMLFormElement | null)?.querySelector<HTMLInputElement>("input[type=email]")?.focus({ preventScroll: true })
+          return
+        }
 
         // Check subscription rate limit
         if (!checkSubscriptionLimit()) {
@@ -4413,6 +4466,7 @@ function CoreBlockRenderer({
       // Handle email input change - reactivate button if modified after submission
       const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setEmail(e.target.value)
+        if (leadError) setLeadError(null)
         if (emailSubmitted) {
           setEmailSubmitted(false)
           setDownloadLink(null)
@@ -4554,9 +4608,9 @@ function CoreBlockRenderer({
       const renderEmailFields = ({ stacked, inverted, outlined, shape, avatar }: EmailSignupFormOptions) => {
         const buttonText = getButtonText()
         /*
-          Round AS (lib/onepage/email-signup signupEmailReady): the button waits, faded, until an address could be taken,
-          then eases in. The page's button fades by a filter (signupWait), not its opacity, which the page's own button
-          rules and the blocks' arrival also move.
+          Round AS faded the button until an address could be taken. Changed on purpose (round AT): the owner wants it
+          at full strength from the start, so it is never disabled for an empty box; handleSubmit checks the address on
+          the press (signupEmailReady) and shows the inline error. data-email-ready still says whether it could be taken.
         */
         const emailReady = signupEmailReady(email)
         /* Round AR: the page's words as they read on the signup's card (signupInk above). */
@@ -4572,6 +4626,7 @@ function CoreBlockRenderer({
             <>
               <form
                 onSubmit={handleSubmit}
+                noValidate
                 className="flex h-[52px] items-center gap-1.5 rounded-full bg-white py-1.5 pl-4 pr-1.5 transition-shadow duration-150 focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.14)]"
                 style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${pageInk} 14%, transparent), 0 1px 2px rgba(16,24,40,0.05)` }}
                 data-email-form="pill"
@@ -4589,7 +4644,7 @@ function CoreBlockRenderer({
                 <button
                   type={done ? "button" : "submit"}
                   onClick={done ? handleDownloadClick : undefined}
-                  disabled={!done && (isSubmitting || emailSubmitted || !emailReady)}
+                  disabled={!done && (isSubmitting || emailSubmitted)}
                   data-email-ready={emailReady ? "" : undefined}
                   className="inline-flex h-10 max-w-[58%] shrink-0 items-center gap-2 rounded-full bg-[#ececef] pl-4 pr-1 text-[14px] font-medium text-[#111113] transition-[background-color,opacity] duration-200 ease-out disabled:cursor-not-allowed disabled:opacity-45 [@media(hover:hover)]:hover:bg-[#e2e2e6]"
                   data-email-connect=""
@@ -4613,7 +4668,7 @@ function CoreBlockRenderer({
           const done = emailSubmitted && downloadLink
           return (
             <>
-              <form onSubmit={handleSubmit} className="flex items-center gap-3 border-b-[1.5px] transition-[border-color] duration-150" style={{ borderColor: `color-mix(in srgb, ${pageInk} 28%, transparent)`, color: pageInk }} data-email-form="line">
+              <form onSubmit={handleSubmit} noValidate className="flex items-center gap-3 border-b-[1.5px] transition-[border-color] duration-150" style={{ borderColor: `color-mix(in srgb, ${pageInk} 28%, transparent)`, color: pageInk }} data-email-form="line">
                 <input
                   type="email"
                   value={email}
@@ -4628,10 +4683,10 @@ function CoreBlockRenderer({
                 <button
                   type={done ? "button" : "submit"}
                   onClick={done ? handleDownloadClick : undefined}
-                  disabled={!done && (isSubmitting || emailSubmitted || !emailReady)}
+                  disabled={!done && (isSubmitting || emailSubmitted)}
                   data-email-ready={emailReady ? "" : undefined}
                   className="group/send inline-flex h-12 shrink-0 items-center gap-1.5 text-[14.5px] font-semibold duration-200 ease-out disabled:cursor-not-allowed motion-reduce:transition-none"
-                  style={{ color: pageInk, ...signupWait(Boolean(done || emailReady || isSubmitting)) }}
+                  style={{ color: pageInk }}
                   data-email-send=""
                 >
                   {done ? "Download" : isSubmitting ? "..." : buttonText}
@@ -4650,7 +4705,7 @@ function CoreBlockRenderer({
         const buttonClass = cn(submitPress.className, "px-4 sm:px-5 py-3 text-sm font-medium whitespace-nowrap", stacked ? "w-full" : "shrink-0")
         return (
           <>
-            <form onSubmit={handleSubmit} className={stacked ? "flex flex-col gap-2" : "flex flex-row gap-2 items-stretch"} data-email-form={stacked ? "stacked" : "row"}>
+            <form onSubmit={handleSubmit} noValidate className={stacked ? "flex flex-col gap-2" : "flex flex-row gap-2 items-stretch"} data-email-form={stacked ? "stacked" : "row"}>
               <input
                 type="email"
                 value={email}
@@ -4667,7 +4722,7 @@ function CoreBlockRenderer({
                   Download
                 </button>
               ) : (
-                <button type="submit" disabled={isSubmitting || emailSubmitted || !emailReady} data-email-ready={emailReady ? "" : undefined} data-email-submit="" className={cn(buttonClass, "disabled:cursor-not-allowed")} style={{ ...submitStyles, ...signupWait(emailReady || isSubmitting) }} {...submitAttrs}>
+                <button type="submit" disabled={isSubmitting || emailSubmitted} data-email-ready={emailReady ? "" : undefined} data-email-submit="" className={cn(buttonClass, "disabled:cursor-not-allowed")} style={submitStyles} {...submitAttrs}>
                   {isSubmitting ? "..." : buttonText}
                 </button>
               )}

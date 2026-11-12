@@ -79,6 +79,9 @@ export function storelibLogoRadius(size: number): number {
  * pixel hairline at 6% ink, so the edge holds on white, and a one pixel
  * shadow at 5% under it. On the dark headers neither shows, which is right.
  */
+/** The logo's square, measured from storelib-logo-v2.png (opaque edge to edge): what shows before the picture does. */
+export const STORELIB_LOGO_GROUND = "#895ffe"
+
 export const STORELIB_LOGO_SHADOW = "0 0 0 0.5px rgba(15,23,42,0.06), 0 1px 1.5px rgba(15,23,42,0.05)"
 
 /** A touch more depth on light surfaces (onboarding, join). */

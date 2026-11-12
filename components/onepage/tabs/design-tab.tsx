@@ -15,7 +15,7 @@ import { flushSync } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { SocialIcon } from "@/components/onepage/brand-icons"
-import { pageGroundIsLight, socialIconColorOf, socialIconStyleOf, socialIconToneOf, socialTileStyle } from "@/lib/onepage/social-look"
+import { pageGroundIsLight, socialIconStyleOf, socialIconToneOf, socialMarkColorOf, socialTileStyle } from "@/lib/onepage/social-look"
 import {
   ArrowLeft,
   AtSign,
@@ -54,8 +54,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { usePhone } from "@/components/app/date-range-picker"
 import { secondaryDepth } from "@/components/ui/depth-button"
-import { familyOf, fontStack, onePageFontHref, onePageFontSampleHref } from "@/lib/onepage/fonts"
-import { AVATAR_BORDER_MAX, AVATAR_RADIUS_DEFAULT, AVATAR_RADIUS_MAX, avatarBorderWidth, avatarRadius, avatarShapeOf, avatarSizeOf, bioWeightOf, caseOf, textSizeOf, titleWeightOf, trackingOf } from "@/lib/onepage/header-style"
+import { familyOf, fontStack, onePageFontHref, onePageFontSampleHref, realWeight } from "@/lib/onepage/fonts"
+import { AVATAR_BORDER_MAX, AVATAR_RADIUS_DEFAULT, AVATAR_RADIUS_MAX, avatarBorderWidth, avatarRadius, avatarShapeOf, avatarSizeOf, bioFamilyOf, bioWeightOf, caseOf, textSizeOf, titleFamilyOf, titleWeightOf, trackingOf } from "@/lib/onepage/header-style"
 import { PILL_FROM, PILL_RADIUS, type ButtonHover, buttonAlign, buttonFill, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow, buttonShape, buttonSize, themeButtonStyle } from "@/lib/onepage/button-style"
 import { normalizeHex } from "@/lib/onepage/color"
 import { NAME_STYLES, nameColours, nameStyleCss, nameStyleOf, type NameStyle } from "@/lib/onepage/name-style"
@@ -94,7 +94,9 @@ import { RENAISSANCE_THEMES } from "@/components/onepage/themes/renaissance-them
 import { orderThemes, themeGroupOf, type ThemeGroupId } from "@/components/onepage/themes/theme-order"
 import { ThemePreview } from "@/components/onepage/themes/theme-preview"
 import { useThemePreviewScale } from "@/components/onepage/themes/preview-scale"
-import { loadPreviewContent } from "@/components/onepage/themes/preview-content-loader"
+import { previewAccountKey, previewAccountOf, type PreviewAccount } from "@/components/onepage/themes/preview-account"
+import { usePageMoney } from "@/components/platform/price-currency"
+import { useShellAvatar } from "@/lib/account/avatar-store"
 import { themeLabel } from "@/components/onepage/themes/theme-names"
 import { LayoutSection } from "@/components/onepage/themes/layout-section"
 import { FontPairs } from "@/components/onepage/themes/font-pairs"
@@ -1685,6 +1687,17 @@ function reducedMotion() {
   room and moves nothing under it. Whether to show it is one
   IntersectionObserver on the panel's header against the editor's scroll
   box, never a scroll listener.
+
+  ROUND AT, THE OWNER: on a phone "it glitches and stutters" while a panel
+  scrolls. The slot was 0px tall with the bar hung out of it (absolute), and
+  the bar slid 8px as well as fading: each time it came or went mid scroll,
+  iOS made the bar a layer of its own for the slide, placed from the main
+  thread a frame behind the scroll, and dropped it again after, so it
+  jumped. Now the sticky box is the bar's own height (56px, given back with a
+  -56px margin, so it still takes no room), it is its own layer for good
+  (will-change), nothing in it is a blur, and a change is opacity only, which
+  the compositor draws with the scroll. scripts/check-onepage-at2.mjs scrolls
+  a panel at 390 and counts frames over 25ms and the bar's height.
 */
 function StickyPanelBack({ panelRef, section, title, onBack }: { panelRef: React.RefObject<HTMLDivElement | null>; section: DesignSection; title: string; onBack: () => void }) {
   const [stuck, setStuck] = useState(false)
@@ -1705,13 +1718,13 @@ function StickyPanelBack({ panelRef, section, title, onBack }: { panelRef: React
     return () => io.disconnect()
   }, [panelRef, section])
   return (
-    <div data-sticky-back-slot="" className="sticky top-0 z-20 h-0">
+    <div data-sticky-back-slot="" className="pointer-events-none sticky top-0 z-20 -mb-14 h-14 will-change-transform">
       <div
         data-sticky-back={stuck ? "shown" : "hidden"}
         aria-hidden={stuck ? undefined : true}
         inert={!stuck}
-        className="absolute inset-x-0 top-0 border-b border-[#eef0f2] bg-white transition-[opacity,translate] duration-[180ms] ease-out motion-reduce:transition-none"
-        style={{ opacity: stuck ? 1 : 0, translate: stuck ? "0 0" : "0 -8px", pointerEvents: stuck ? undefined : "none" }}
+        className="h-14 border-b border-[#eef0f2] bg-white transition-opacity duration-[180ms] ease-out will-change-[opacity] motion-reduce:transition-none"
+        style={{ opacity: stuck ? 1 : 0, pointerEvents: stuck ? "auto" : "none" }}
       >
         <div className="mx-auto flex h-14 w-full max-w-xl items-center gap-2.5 px-4 md:px-6">
           <button
@@ -2443,12 +2456,13 @@ function HeaderSection() {
 }
 
 /* The theme names, each drawn in its theme's title face: one request cut to the letters of the names, as the language spells them (round AP). */
-/* Round AS: and the body faces, since each card now sets a creator's line, links and prices in them (./themes/preview-content). */
+/* Round AS: and the body faces, since each card sets the creator's line, links and prices in them (./themes/preview-account). */
 const THEME_NAME_FAMILIES = [...new Set(THEME_TEMPLATES.flatMap((t) => [familyOf(t.theme_config.title_font || t.theme_config.font_family), familyOf(t.theme_config.font_family)]).filter((f): f is string => !!f))]
 /* The letters the cards' words use: the alphabet both ways, the accents the creators' names carry, figures and the price signs. */
 const PREVIEW_LETTERS = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i, 97 + i)).join("") + "áéêíóú0123456789$€£&.,:'/ "
 /* In capitals too (round W8): Gazette, Halo and Acid set their names in capitals, and a letter missing from the cut is drawn in another face. */
-export const themeNameFontsHref = () => { const names = THEME_TEMPLATES.map((t) => themeLabel(t)).join(""); return onePageFontSampleHref(THEME_NAME_FAMILIES, names + names.toUpperCase() + PREVIEW_LETTERS) }
+/* Round AT: and the creator's own words, which the cards draw now (a name with a letter outside the alphabet above). */
+export const themeNameFontsHref = (own = "") => { const names = THEME_TEMPLATES.map((t) => themeLabel(t)).join(""); const extra = [...new Set(own.replace(/[A-Za-z0-9\s]/g, ""))].join(""); return onePageFontSampleHref(THEME_NAME_FAMILIES, names + names.toUpperCase() + PREVIEW_LETTERS + extra + extra.toUpperCase()) }
 
 /**
  * A THEME, AS A SMALL PAGE. The cards were one grey skeleton in eighteen
@@ -2492,8 +2506,6 @@ const keptThemeThumbs: HTMLImageElement[] = []
 let themeThumbHolders = 0
 export function preloadThemeThumbs(): () => void {
   if (typeof window === "undefined") return () => {}
-  /* Round AS: the cards' creators and drawings, their own small chunk, asked for with the pictures. */
-  void loadPreviewContent()
   themeThumbHolders++
   let held = true
   const release = () => {
@@ -2531,7 +2543,7 @@ export const keptThemeThumbCount = () => keptThemeThumbs.length
 */
 const HIDDEN_GRID: React.CSSProperties = { position: "absolute", top: 0, left: 0, right: 0, zIndex: -1, opacity: 0, contentVisibility: "hidden" }
 
-const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onPick }: { template: typeof THEME_TEMPLATES[number]; selected: boolean; shown: boolean; copy: boolean; onPick: (template: typeof THEME_TEMPLATES[number]) => void }) {
+const ThemeCard = memo(function ThemeCard({ template, who, selected, shown, copy, onPick }: { template: typeof THEME_TEMPLATES[number]; who: PreviewAccount; selected: boolean; shown: boolean; copy: boolean; onPick: (template: typeof THEME_TEMPLATES[number]) => void }) {
   const c = template.theme_config as typeof THEME_TEMPLATES[number]["theme_config"] & Record<string, any>
   const name = themeLabel(template)
   /* A Hero theme's card is drawn with its Hero, as picking it lays the page out (handleApplyTemplate). */
@@ -2547,7 +2559,8 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
       data-theme-copy={copy ? template.id : undefined}
       data-theme-shown={shown ? "" : undefined}
       className={cn(
-        "group/theme relative flex cursor-pointer flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
+        /* Round AT: nothing on a card is selected by a long press or a double click (the owner's blue Blocks card). */
+        "group/theme relative flex cursor-pointer select-none flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
         choiceOff,
       )}
     >
@@ -2558,8 +2571,9 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
         (components/onepage/themes/theme-preview). Its own layer of layout and
         paint, so nothing inside it is worked out again for the rest of the grid.
       */}
-      <span data-theme-frame="" className="relative block aspect-[5/7] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: c.background_color }}>
-        <ThemePreview c={look} id={template.id} kind={template.category} thumb={themeThumbSrc} />
+      {/* op-demo: pointing at the card plays the theme's own hover on its buttons (app/globals.css). */}
+      <span data-theme-frame="" className="op-demo relative block aspect-[5/7] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: c.background_color }}>
+        <ThemePreview c={look} who={who} thumb={themeThumbSrc} />
         <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
         <CheckMark on={selected} className="right-1.5 top-1.5" />
       </span>
@@ -2741,7 +2755,20 @@ function ThemeSection() {
   const { onepage, updateBlock, applyThemeLook } = useOnePage()
   const [filter, setFilter] = useState<ThemeFilter>("all")
   const { gridRef, pickFilter } = useSteadyFilter(filter, setFilter)
-  const nameFontsHref = themeNameFontsHref()
+  /*
+    Round AT: every card draws this creator's own page (./themes/preview-account): the name, the photo the
+    editor shows (useShellAvatar, a new upload included), the socials, links, products and newsletter the page
+    already holds. One object for the grid, the same one until something a card draws changes, so a card is
+    drawn again only then (ThemeCard is memo).
+  */
+  const money = usePageMoney()
+  const avatar = useShellAvatar(onepage?.avatar_url, onepage?.owner_id)
+  const fresh = previewAccountOf(onepage ? { ...onepage, avatar_url: avatar } : null, (cents) => money(cents))
+  const freshKey = previewAccountKey(fresh)
+  const whoRef = useRef<{ key: string; who: PreviewAccount } | null>(null)
+  if (!whoRef.current || whoRef.current.key !== freshKey) whoRef.current = { key: freshKey, who: fresh }
+  const who = whoRef.current.who
+  const nameFontsHref = themeNameFontsHref([who.name, who.bio, ...who.links.map((l) => l.label), ...who.products.flatMap((p) => [p.title, p.price, p.cta]), who.news.headline, who.news.desc, who.news.button].join(""))
   /*
     Round AP: every card draws the page at a phone's width, scaled to the
     card (components/onepage/themes/theme-preview). The cards of every kind
@@ -2856,7 +2883,7 @@ function ThemeSection() {
               return (
                 <ReactModule.Fragment key={template.id}>
                   {starts ? <h3 data-theme-group={group} className="col-span-full pt-4 text-[13px] font-semibold text-[#1a1a2e] first:pt-0">{THEME_GROUP_LABELS[group]()}</h3> : null}
-                  <ThemeCard template={template} selected={theme.template_id === template.id} shown={kind.id === filter} copy={kind.id !== "all"} onPick={onPick} />
+                  <ThemeCard template={template} who={who} selected={theme.template_id === template.id} shown={kind.id === filter} copy={kind.id !== "all"} onPick={onPick} />
                 </ReactModule.Fragment>
               )
             })}
@@ -3673,6 +3700,28 @@ function TypeRows({
   onChange: (patch: Record<string, unknown>) => void
 }) {
   const weight = which === "title" ? titleWeightOf(theme) : bioWeightOf(theme)
+  /*
+    Only the weights the chosen face really has (lib/onepage/fonts realWeight):
+    Medium on Lato would draw its Regular, and every weight of Bebas Neue is
+    the one it has, so those choices are not offered twice. The one picked is
+    the one that draws what the page draws.
+  */
+  const family = which === "title" ? titleFamilyOf(theme) : bioFamilyOf(theme)
+  const seen = new Set<number>()
+  const offered = weights.filter((w) => {
+    const real = realWeight(family, Number(w.id))
+    if (seen.has(real)) return false
+    seen.add(real)
+    return true
+  })
+  const drawn = realWeight(family, weight)
+  /* The nearest on offer, so a bio saved as Semibold (600) before Bold was offered shows as Bold, the heavier on a tie. */
+  const picked = offered.reduce<string | null>((best, w) => {
+    if (best === null) return w.id
+    const d = Math.abs(realWeight(family, Number(w.id)) - drawn)
+    const bd = Math.abs(realWeight(family, Number(best)) - drawn)
+    return d < bd || (d === bd && Number(w.id) > Number(best)) ? w.id : best
+  }, null) ?? String(weight)
   /* Wide enough for four weights' names side by side. */
   const row = "w-full sm:w-[308px]"
   return (
@@ -3687,13 +3736,17 @@ function TypeRows({
         />
       </SettingRow>
       <SettingRow label={tt("Weight")} stackOnPhone>
-        <Segmented
-          className={row}
-          label={tt("Weight")}
-          value={String(weight)}
-          options={weights}
-          onChange={(id) => onChange({ [`${which}_weight`]: Number(id) === (which === "title" ? 700 : 400) ? null : Number(id) })}
-        />
+        {offered.length > 1 ? (
+          <Segmented
+            className={row}
+            label={tt("Weight")}
+            value={picked}
+            options={offered}
+            onChange={(id) => onChange({ [`${which}_weight`]: Number(id) === (which === "title" ? 700 : 400) ? null : Number(id) })}
+          />
+        ) : (
+          <p className="text-[13.5px] text-[#6b7280]" data-one-weight="">{tt("This font has one weight")}</p>
+        )}
       </SettingRow>
       <SettingRow label={tt("Letter spacing")} stackOnPhone>
         <Segmented
@@ -3740,7 +3793,7 @@ function HeaderTypeSections() {
         <TypeRows
           which="bio"
           theme={theme}
-          weights={[{ id: "400", label: tt("Regular") }, { id: "500", label: tt("Medium") }, { id: "600", label: tt("Semibold") }]}
+          weights={[{ id: "400", label: tt("Regular") }, { id: "500", label: tt("Medium") }, { id: "700", label: tt("Bold") }]}
           onChange={(patch) => updateTheme(patch as never)}
         />
       </PanelSection>
@@ -4165,7 +4218,6 @@ function SocialsSection() {
   if (!onepage) return null
   const { theme } = onepage
   const socialStyle = socialIconStyleOf(theme as never)
-  const socialColor = socialIconColorOf(theme as never)
 
   return (
     <div>
@@ -4182,7 +4234,7 @@ function SocialsSection() {
                     /* The tile the page draws (lib/onepage/social-look), in this page's colours. */
                     style={socialTileStyle({ ...(theme as object), social_icon_style: style.id } as never, { onLight: pageGroundIsLight(theme as never) })}
                   >
-                    <SocialIcon platform={platform} size={13} color={socialColor} tone={socialIconToneOf(theme as never)} />
+                    <SocialIcon platform={platform} size={13} color={socialMarkColorOf({ ...(theme as object), social_icon_style: style.id } as never)} tone={socialIconToneOf(theme as never)} />
                   </span>
                 ))}
               </div>
@@ -4206,8 +4258,8 @@ function SocialsSection() {
             <ChoiceCard key={choice.id} selected={((theme as any).social_icon_tone === "brand" ? "brand" : "mono") === choice.id} onClick={() => updateTheme({ social_icon_tone: choice.id } as any)} label={choice.label}>
               <div className="flex h-[60px] items-center justify-center gap-1.5 rounded-xl" style={{ background: theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color || "#f7f7f8" }}>
                 {["instagram", "youtube", "spotify"].map((platform) => (
-                  <span key={platform} className="grid h-7 w-7 place-items-center" style={socialTileStyle(theme as never, { onLight: pageGroundIsLight(theme as never) })}>
-                    <SocialIcon platform={platform} size={13} color={socialColor} tone={choice.id} />
+                  <span key={platform} className="grid h-7 w-7 place-items-center" style={socialTileStyle({ ...(theme as object), social_icon_tone: choice.id } as never, { onLight: pageGroundIsLight(theme as never) })}>
+                    <SocialIcon platform={platform} size={13} color={socialMarkColorOf({ ...(theme as object), social_icon_tone: choice.id } as never)} tone={choice.id} />
                   </span>
                 ))}
               </div>

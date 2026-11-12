@@ -147,15 +147,15 @@ function main() {
   check("the row names its height", !!row, `matched: ${row}`)
   if (row) {
     const n = Number(row)
-    check(`the row is 69.35px, down from ${ORIGINAL}`, n === 69.35)
+    check(`the row is 67.96px, down from ${ORIGINAL}`, n === 67.96)
     /* Three cuts, asked for separately: 3% off the original, 5% off that,
        then 2% off that. The chain is what the numbers below check. */
     check(
-      "which is two percent off the previous 70.75",
-      Math.abs(1 - n / 70.75 - 0.02) < 0.002,
-      `${(100 * (1 - n / 70.75)).toFixed(1)}%`,
+      "which is two percent off the previous 69.35 (round 61)",
+      Math.abs(1 - n / 69.35 - 0.02) < 0.002,
+      `${(100 * (1 - n / 69.35)).toFixed(1)}%`,
     )
-    check("and about ten percent off where it started", Math.abs(1 - n / ORIGINAL - 0.099) < 0.006)
+    check("and about ten percent off where it started", Math.abs(1 - n / ORIGINAL - 0.117) < 0.006)
     void AFTER_FIRST_CUT
   }
   check("the padding rails are untouched", /md:pb-\[3px\]/.test(header) && /padding-top: 3px/.test(read("app/globals.css")))

@@ -1540,6 +1540,13 @@ const words: Record<string, string> = {
  "Brand Strategy": "Stratégie de marque",
  "Brand and tags": "Marque et tags",
  "Brand colours": "Couleurs des marques",
+ "Share to Instagram Story": "Partager en story Instagram",
+ "Image saved and link copied. In your story, add a Link sticker and paste it.": "Image enregistrée et lien copié. Dans votre story, ajoutez un sticker Lien et collez-le.",
+ "Use my Instagram photo": "Utiliser ma photo Instagram",
+ "Getting your photo": "Récupération de votre photo",
+ "Instagram didn't share this profile's picture. Upload one instead.": "Instagram n'a pas partagé la photo de ce profil. Importez-en une.",
+ "Instagram didn't answer. Try again or upload a picture.": "Instagram n'a pas répondu. Réessayez ou importez une image.",
+ "Add your latest posts ({value})": "Ajouter vos dernières publications ({value})",
  "Brand name": "Nom de la marque",
  "Brand or maker": "Marque ou fabricant",
  "Branding": "Image de marque",
@@ -12429,7 +12436,12 @@ const words: Record<string, string> = {
  "theme::Olive": "Olive",
  "theme::Paper": "Papier",
  "theme::Peach": "Pêche",
- "theme::Plaster": "Plâtre",
+ "theme::Stoicism": "Stoïcisme",
+ "theme::Dune": "Dune",
+ "Latest video": "Dernière vidéo",
+ "Starter guide": "Guide de démarrage",
+ "One to one session": "Séance individuelle",
+ "New work and news, now and then.": "Nouveautés et actualités, de temps en temps.",
  "theme::Playful": "Ludique",
  "theme::Playful Night": "Playful Nuit",
  "theme::Renaissance": "Renaissance",
@@ -13372,7 +13384,13 @@ const words: Record<string, string> = {
  "Your number": "Ton numéro",
  "a haircut": "une coupe de cheveux",
  "the linen shirt": "la chemise en lin",
- "{name} username or link": "Nom d'utilisateur ou lien {name}"
+ "{name} username or link": "Nom d'utilisateur ou lien {name}",
+ "This font has one weight": "Cette police n'a qu'une graisse",
+ "Pills": "Pastilles",
+ "Big amount": "Grand montant",
+ "Below": "Dessous",
+ "On the picture": "Sur l'image",
+ "Title, caption and a button on a fade at the bottom of each picture.": "Titre, légende et un bouton sur un fondu en bas de chaque image."
 }
 
 export default words

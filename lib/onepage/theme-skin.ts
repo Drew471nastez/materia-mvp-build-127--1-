@@ -42,6 +42,8 @@ export const THEME_SKINS = [
   "classic98", "vaporwave", "arcade",
   /* Renaissance: an old master's canvas, ivory panels in gilt frames (scripts/onepage-skins/renaissance.mjs). */
   "renaissance",
+  /* Stoicism (round AT, was Plaster): dark stone with pale veins and a faint construction, ivory tablets with an inner rule (scripts/onepage-skins/stoicism.mjs). */
+  "stoicism",
 ] as const
 export type ThemeSkin = (typeof THEME_SKINS)[number]
 

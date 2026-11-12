@@ -29,10 +29,11 @@ import { tt } from "@/lib/i18n/text"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ColorRow, LabeledRow, RangeRow, Segmented, Switch } from "@/components/onepage/editor-kit"
 import { ChoiceMark } from "@/components/onepage/choice-marks"
+import { tipStyleOf } from "@/lib/onepage/tips"
 import {
   BLOCK_ASPECTS,
   LINK_LAYOUTS,
-  blockSurface,
+  blockSurfaceOf,
   blockTakesDescription,
   layoutControlsFor,
   linkLayoutHasImage,
@@ -48,8 +49,14 @@ import {
 } from "@/lib/onepage/block-presentation"
 import type { LinkButtonBlockData, OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
 import { restorePreview } from "@/lib/onepage/link-preview"
-import { resolveLinkIcon } from "./link-icons"
-import { LinkIcon } from "./brand-icons"
+import { isLinkBrandIcon, linkIconKey, resolveLinkIcon } from "./link-icons"
+import { LinkIcon, SocialIcon, hasAppMark, type MarkTone } from "./brand-icons"
+import { BlockIconLookScope, BlockMarkTile } from "./block-mark"
+import { AppTileMark } from "./app-block"
+import { APP_GLYPHS } from "./block-icons"
+import { EditorThemeContext } from "./layout-pickers"
+import { BLOCK_ICON_LOOKS, type BlockIconLook } from "@/lib/onepage/social-look"
+import { isRetiredAppProvider, providerOf, type AppBlockData } from "@/lib/onepage/app-blocks"
 import { useBlockPart } from "./block-part"
 /* Every field in an open block in Storelib's own look (round AL): see the file. */
 import "./block-fields.css"
@@ -530,7 +537,8 @@ export function BlockStyleControls({ block, onChange, getBlock }: { block: OnePa
   if (!controls.length) return null
   const has = (c: (typeof controls)[number]) => controls.includes(c)
   const p = presentationOf(block)
-  const panel = blockSurface(block.type) === "panel"
+  /* A tips block's card takes its corners, shadow and padding from the start (lib/onepage/block-presentation blockSurfaceOf). */
+  const panel = blockSurfaceOf(block) === "panel"
   const shaped = !panel || !!p.background
   const hasDescription = has("description") && !!p.subtitle?.trim()
   /*
@@ -539,13 +547,16 @@ export function BlockStyleControls({ block, onChange, getBlock }: { block: OnePa
     duplicate in their Settings is gone, so there is one Alignment.
   */
   const ownAlign = block.type === "heading" || block.type === "text"
-  const alignNow = (ownAlign ? ((block.data as { alignment?: BlockPresentation["align"] }).alignment || p.align) : p.align) || "center"
-  const touched = (["align", "title_color", "title_size", "title_weight", "subtitle_color", "subtitle_size", "icon_color", "icon_size", "background", "radius", "shadow", "padding", "gap"] as const).some((k) => p[k] !== undefined)
+  /* A tips card's words sit at the left until told otherwise (components/onepage/tip-block); every other block is centred. */
+  const alignDefault = blockSurfaceOf(block) === "card" && tipStyleOf(block.data as never) === "card" ? "left" : "center"
+  const alignNow = (ownAlign ? ((block.data as { alignment?: BlockPresentation["align"] }).alignment || p.align) : p.align) || alignDefault
+  const touched = (["align", "icon_look", "title_color", "title_size", "title_weight", "subtitle_color", "subtitle_size", "icon_color", "icon_size", "background", "radius", "shadow", "padding", "gap"] as const).some((k) => p[k] !== undefined)
   const color = (label: string, key: "title_color" | "subtitle_color" | "icon_color" | "background") => (
     <ColorRow label={label} value={p[key]} onChange={(value) => write({ [key]: value })} onClear={() => write({ [key]: undefined })} emptyLabel={tt("Page default")} />
   )
   return (
     <div className="space-y-5" data-block-style="">
+      <BlockIconLookPicker block={block} value={p.icon_look} onPick={(icon_look) => write({ icon_look: icon_look === "original" ? undefined : icon_look })} />
       {has("align") || has("title") ? (
         <section className="space-y-4 border-t border-[#eef0f2] pt-4">
           <p className={heading}>{tt("Text")}</p>
@@ -655,6 +666,94 @@ export function BlockStyleControls({ block, onChange, getBlock }: { block: OnePa
         </button>
       ) : null}
     </div>
+  )
+}
+
+/* ── Layout: the Icon style of a block that shows a service's mark ──────── */
+
+/**
+ * The mark a block shows that is a service's own (Instagram, TikTok...), or
+ * null: an app block's provider, a link's brand icon, the followers block's
+ * first network. Only these blocks are offered an Icon style.
+ */
+export function blockServiceMark(block: OnePageBlock): string | null {
+  if (block.type === "app") {
+    const data = (block.data ?? {}) as AppBlockData
+    if (isRetiredAppProvider(data.provider)) return null
+    const mark = providerOf(data).mark
+    return mark && !APP_GLYPHS[mark] && hasAppMark(mark) ? mark : null
+  }
+  if (block.type === "link_button") {
+    const data = (block.data ?? {}) as LinkButtonBlockData
+    const key = linkIconKey(resolveLinkIcon(data.icon, data.url))
+    return key && isLinkBrandIcon(key) ? key : null
+  }
+  if (block.type === "followers") {
+    const first = ((block.data as { networks?: { network?: string; count?: number | null }[] } | null)?.networks || []).find((n) => n.network)
+    return first?.network || null
+  }
+  return null
+}
+
+const ICON_LOOK_LABEL: Record<BlockIconLook, () => string> = {
+  original: () => tt("Original"),
+  solid: () => tt("Solid"),
+  outline: () => tt("Outline"),
+  glass: () => tt("Glass"),
+}
+
+/**
+ * ROUND 3, THE OWNER: "the Instagram block shows only the purple pink icon;
+ * let the creator choose the block's icon style". Four pictures of this
+ * block's own mark, as the page draws each (components/onepage/block-mark):
+ * Original, then the social row's Solid, Outline and Glass.
+ */
+export function BlockIconLookPicker({ block, value, onPick }: { block: OnePageBlock; value: BlockIconLook | undefined; onPick: (look: BlockIconLook) => void }) {
+  const theme = React.useContext(EditorThemeContext)
+  const mark = blockServiceMark(block)
+  if (!mark) return null
+  const current = value ?? "original"
+  const ground = theme?.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme?.background_color || "#f7f7f8"
+  const ink = theme?.text_color || "#1a1a2e"
+  const sample = (look: BlockIconLook) => {
+    if (block.type === "app") {
+      return (
+        <BlockIconLookScope look={look}>
+          <AppTileMark provider={providerOf((block.data ?? {}) as AppBlockData)} size={30} />
+        </BlockIconLookScope>
+      )
+    }
+    const draw = (tone: MarkTone, size: number | string) => (block.type === "link_button" ? <LinkIcon name={mark} size={size} tone={tone} /> : <SocialIcon platform={mark} size={size} color="currentColor" tone={tone} />)
+    return look === "original" ? draw("mono", 18) : <BlockMarkTile look={look} size={30} inner={16} draw={draw} />
+  }
+  return (
+    <section className="space-y-3" data-icon-look-picker="">
+      <p className={heading}>{tt("Icon style")}</p>
+      <div role="radiogroup" aria-label={tt("Icon style")} className="grid grid-cols-4 gap-2">
+        {BLOCK_ICON_LOOKS.map((look) => {
+          const on = current === look
+          return (
+            <button
+              key={look}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              data-icon-look-choice={look}
+              onClick={() => onPick(look)}
+              className={cn(
+                "flex flex-col items-center overflow-hidden rounded-xl border bg-white text-[12.5px] font-medium transition-[border-color,box-shadow] duration-150",
+                on ? "border-[#1a1a2e] text-[#1a1a2e] shadow-[0_0_0_0.5px_#1a1a2e]" : "border-[#e3e4e8] text-[#4b5563] hover:border-[#c9cbd1]",
+              )}
+            >
+              <span className="grid h-[52px] w-full place-items-center" style={{ background: ground, color: ink }}>
+                {sample(look)}
+              </span>
+              <span className="py-1.5">{ICON_LOOK_LABEL[look]()}</span>
+            </button>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 

@@ -64,14 +64,15 @@ for (const e of SHOWCASE_EXAMPLES) {
 }
 const gallery = renderToString(createElement(BuildShowcase))
 assert.equal((gallery.match(/data-showcase-slide=""/g) || []).length, 9)
-/* Each slide: its picture and the blurred fill behind it (the same cached file, decorative). */
-assert.equal((gallery.match(/loading="lazy"/g) || []).length, 18)
-assert.equal((gallery.match(/decoding="async"/g) || []).length, 18)
-assert.equal((gallery.match(/class="build-showcase-fill"[^>]*aria-hidden="true"/g) || []).length, 9)
+/* Changed on purpose (merge of main's round 60): each card is its picture's own shape, so a slide is its picture alone, with no blurred fill behind it. */
+assert.equal((gallery.match(/loading="lazy"/g) || []).length, 9)
+assert.equal((gallery.match(/decoding="async"/g) || []).length, 9)
+assert.equal((gallery.match(/build-showcase-fill/g) || []).length, 0)
 // Three wide–OnePage–wide pages, each a store, a OnePage and a community.
 assert.deepEqual(SHOWCASE_EXAMPLES.map((e) => e.format), ["wide", "portrait", "wide", "wide", "portrait", "wide", "wide", "portrait", "wide"])
 assert.equal((gallery.match(/data-showcase-group=""/g) || []).length, 3)
-const motion = read("components/marketing/use-showcase-motion.ts")
+/* Changed on purpose (merge of main's round 60): the rail's motion moved to lib/ui/rail-motion, which the showcase's hook drives. */
+const motion = read("components/marketing/use-showcase-motion.ts") + read("lib/ui/rail-motion.ts")
 assert.ok(motion.includes("prefers-reduced-motion") && motion.includes("IntersectionObserver") && motion.includes("document.hidden"))
 
 /* ---- section 4: builder previews */

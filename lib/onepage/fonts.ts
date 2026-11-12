@@ -23,33 +23,43 @@
 // not have with an error for the whole request. Each family has its own link
 // and its own weights, so one wrong entry can only lose that one family.
 
+/*
+ * EVERY WEIGHT A FAMILY REALLY HAS, 400 TO 900 (round 3 of the OnePage
+ * design work). The list stopped at 700, so the Title's Heavy (800) asked a
+ * face for a weight nothing had loaded and the browser drew the 700 it had:
+ * Heavy and Bold were the same letters. Each entry is now what Google Fonts
+ * answers for the family (each weight asked for on its own, November 2026),
+ * so 800 and 900 load where they exist. A browser downloads only the faces a
+ * page draws, so a longer list costs a few lines of stylesheet, not files.
+ * Null: the family has one weight (400), asked for as it is.
+ */
 /** The weights each family is asked for. Null: the family has one weight, asked for as it is. */
 export const ONEPAGE_FONTS: Readonly<Record<string, string | null>> = {
-  Inter: "400;500;600;700",
-  Poppins: "400;500;600;700",
-  Montserrat: "400;500;600;700",
-  Lato: "400;700",
-  "Open Sans": "400;500;600;700",
-  Roboto: "400;500;600;700",
-  Raleway: "400;500;600;700",
-  Nunito: "400;500;600;700",
+  Inter: "400;500;600;700;800;900",
+  Poppins: "400;500;600;700;800;900",
+  Montserrat: "400;500;600;700;800;900",
+  Lato: "400;700;900",
+  "Open Sans": "400;500;600;700;800",
+  Roboto: "400;500;600;700;800;900",
+  Raleway: "400;500;600;700;800;900",
+  Nunito: "400;500;600;700;800;900",
   Quicksand: "400;500;600;700",
   Comfortaa: "400;500;600;700",
-  "DM Sans": "400;500;600;700",
+  "DM Sans": "400;500;600;700;800;900",
   "Space Grotesk": "400;500;600;700",
-  Sora: "400;500;600;700",
-  "Playfair Display": "400;500;600;700",
-  Merriweather: "400;700",
+  Sora: "400;500;600;700;800",
+  "Playfair Display": "400;500;600;700;800;900",
+  Merriweather: "400;500;600;700;800;900",
   Lora: "400;500;600;700",
   "Crimson Text": "400;600;700",
-  "Source Serif Pro": "400;600;700",
+  "Source Serif Pro": "400;600;700;900",
   Oswald: "400;500;600;700",
   "Archivo Black": null,
-  "Barlow Condensed": "400;500;600;700",
+  "Barlow Condensed": "400;500;600;700;800;900",
   "Dancing Script": "400;500;600;700",
   Caveat: "400;500;600;700",
-  "JetBrains Mono": "400;500;600;700",
-  Orbitron: "400;500;600;700",
+  "JetBrains Mono": "400;500;600;700;800",
+  Orbitron: "400;500;600;700;800;900",
   "Bebas Neue": null,
   Pacifico: null,
   Lobster: null,
@@ -62,19 +72,19 @@ export const ONEPAGE_FONTS: Readonly<Record<string, string | null>> = {
   "Abril Fatface": null,
   Satisfy: null,
   /* Round 13: ten more, the same ten the website builder offers (lib/website-builder/font-options.ts), every one with 400 to 700. */
-  Fraunces: "400;500;600;700",
-  Newsreader: "400;500;600;700",
-  "Bodoni Moda": "400;500;600;700",
-  "Bricolage Grotesque": "400;500;600;700",
-  Geist: "400;500;600;700",
-  Manrope: "400;500;600;700",
-  Figtree: "400;500;600;700",
+  Fraunces: "400;500;600;700;800;900",
+  Newsreader: "400;500;600;700;800",
+  "Bodoni Moda": "400;500;600;700;800;900",
+  "Bricolage Grotesque": "400;500;600;700;800",
+  Geist: "400;500;600;700;800;900",
+  Manrope: "400;500;600;700;800",
+  Figtree: "400;500;600;700;800;900",
   Fredoka: "400;500;600;700",
-  "Geist Mono": "400;500;600;700",
-  "Big Shoulders": "400;500;600;700",
+  "Geist Mono": "400;500;600;700;800;900",
+  "Big Shoulders": "400;500;600;700;800;900",
   /* Round W10: the display faces creators reach for to write their name, each loaded only by a page whose title uses it. */
-  Syne: "400;500;600;700",
-  Unbounded: "400;500;600;700",
+  Syne: "400;500;600;700;800",
+  Unbounded: "400;500;600;700;800;900",
   "DM Serif Display": null,
   "Instrument Serif": null,
   Shrikhand: null,
@@ -86,7 +96,33 @@ export const ONEPAGE_FONTS: Readonly<Record<string, string | null>> = {
   "Press Start 2P": null,
   /* Renaissance: a Garamond display for the name and a Garamond for reading (components/onepage/themes/r40-themes). */
   "Cormorant Garamond": "400;500;600;700",
-  "EB Garamond": "400;500;600;700",
+  "EB Garamond": "400;500;600;700;800",
+}
+
+/** The weights a listed family really has, lightest first; null for a family that is not on the list. */
+export function fontWeightsOf(family: string | null | undefined): number[] | null {
+  if (!family || !Object.prototype.hasOwnProperty.call(ONEPAGE_FONTS, family)) return null
+  const w = ONEPAGE_FONTS[family]
+  return w ? w.split(";").map(Number) : [400]
+}
+
+/**
+ * THE WEIGHT A FAMILY CAN DRAW FOR THE ONE ASKED. The nearest weight the
+ * family has, the heavier one on a tie (Heavy on Lato is its 900, not its
+ * 700), so nothing is ever drawn as a faux bold: a browser asked for 700
+ * from a face that only has 400 smears the 400 thicker. A family not on the
+ * list (an old hand-written value) is asked for the weight as it is.
+ */
+export function realWeight(family: string | null | undefined, wanted: number): number {
+  const have = fontWeightsOf(family)
+  if (!have) return wanted
+  let best = have[0]
+  for (const w of have) {
+    const d = Math.abs(w - wanted)
+    const bd = Math.abs(best - wanted)
+    if (d < bd || (d === bd && w > best)) best = w
+  }
+  return best
 }
 
 /** The family a CSS value names first: "'Playfair Display', serif" is Playfair Display. */

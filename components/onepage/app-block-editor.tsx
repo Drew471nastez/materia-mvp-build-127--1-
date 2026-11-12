@@ -19,7 +19,7 @@
  */
 
 import * as React from "react"
-import { ArrowUpRight, Plus, Trash2 } from "lucide-react"
+import { ArrowUpRight, Loader2, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { useOnePage } from "@/lib/onepage/context"
@@ -29,7 +29,8 @@ import { ChoiceMark, Switch, fieldInput } from "@/components/onepage/editor-kit"
 import { OnePageImageField } from "@/components/onepage/image-field"
 import { PictureFitControl } from "@/components/onepage/layout-pickers"
 import { AppTileMark, appDefaultButton, appProviderName } from "@/components/onepage/app-block"
-import { INSTAGRAM_FILL } from "@/components/onepage/brand-icons"
+import { INSTAGRAM_FILL, SocialIcon } from "@/components/onepage/brand-icons"
+import { instagramUsername } from "@/lib/onepage/instagram-username"
 import {
   APP_ITEMS_MAX,
   APP_POSTS_MAX,
@@ -52,7 +53,7 @@ import {
 } from "@/lib/onepage/app-blocks"
 import type { OnePageBlock, OnePageBlockData, OnePageTheme } from "@/lib/onepage/types"
 import { DataBlockSettings, dataLayoutLabel } from "@/components/onepage/data-block-editor"
-import { tipModeOf } from "@/lib/onepage/tips"
+import { TIP_STYLES, tipModeOf, tipStyleOf, type TipStyle } from "@/lib/onepage/tips"
 import { STAT_SOURCES, statSourceOf, type StatSource } from "@/lib/onepage/stat-count"
 import { PhoneNumberField } from "@/components/forms/phone-number-field"
 import { digitsFromKept, fullNumber } from "@/lib/account/phone"
@@ -265,6 +266,115 @@ function LayoutPicker({ data, provider, update }: { data: AppBlockData; provider
   )
 }
 
+/* ─── A Storelib tips block's styles (round 3, lib/onepage/tips TIP_STYLES) ─── */
+
+const TIP_STYLE_LABEL: Record<TipStyle, () => string> = {
+  card: () => tt("Card"),
+  pills: () => tt("Pills"),
+  button: () => tt("Button"),
+  amount: () => tt("Big amount"),
+}
+
+/** One tip style drawn small, in the page's colours. */
+export function TipStyleThumb({ id, theme }: { id: TipStyle; theme?: Partial<OnePageTheme> | null }) {
+  const btn = theme?.button_color || "#1a1a2e"
+  const ink = theme?.button_text_color || "#ffffff"
+  const page = theme?.background_color || "#f4f4f6"
+  const words = theme?.text_color || "#1a1a2e"
+  const r = Math.max(3, Math.min(Number(theme?.button_border_radius ?? 10) * 0.45, 10))
+  const line = (w: string, c: string, o = 0.85, h = 3) => <span className="block shrink-0 rounded-full" style={{ width: w, height: h, background: c, opacity: o }} />
+  let body: React.ReactNode
+  switch (id) {
+    case "card":
+      body = (
+        <span className="flex w-full flex-col gap-1.5 p-1.5" style={{ background: btn, borderRadius: r }}>
+          <span className="flex items-center gap-1">
+            <span className="block h-[10px] w-[10px] rounded-full" style={{ background: ink, opacity: 0.25 }} />
+            {line("44%", ink)}
+          </span>
+          <span className="grid grid-cols-4 gap-[3px]">
+            {[0, 1, 2, 3].map((i) => (
+              <span key={i} className="block h-[9px] rounded-[3px]" style={{ background: ink, opacity: i === 1 ? 0.9 : 0.18 }} />
+            ))}
+          </span>
+          <span className="block h-[9px] w-full rounded-[3px]" style={{ background: ink, opacity: 0.9 }} />
+        </span>
+      )
+      break
+    case "pills":
+      body = (
+        <span className="flex w-full flex-col items-center gap-1.5">
+          {line("40%", words)}
+          <span className="flex w-full justify-center gap-[4px]">
+            {[0, 1, 2].map((i) => (
+              <span key={i} className="block h-[13px] w-[22%] rounded-full" style={{ background: btn }} />
+            ))}
+            <span className="block h-[13px] w-[22%] rounded-full" style={{ boxShadow: `inset 0 0 0 1px ${words}55` }} />
+          </span>
+        </span>
+      )
+      break
+    case "button":
+      body = (
+        <span className="flex h-[22px] w-full items-center justify-center gap-1" style={{ background: btn, borderRadius: r }}>
+          <span className="block h-[8px] w-[8px] rounded-full" style={{ background: ink, opacity: 0.7 }} />
+          {line("40%", ink)}
+        </span>
+      )
+      break
+    case "amount":
+      body = (
+        <span className="flex w-full flex-col items-center gap-1 p-1.5" style={{ background: btn, borderRadius: r }}>
+          {line("34%", ink, 0.6, 2)}
+          <span className="flex w-full items-center justify-between">
+            <span className="block h-[9px] w-[9px] rounded-full" style={{ background: ink, opacity: 0.2 }} />
+            <span className="block h-[11px] w-[30%] rounded-[2px]" style={{ background: ink }} />
+            <span className="block h-[9px] w-[9px] rounded-full" style={{ background: ink, opacity: 0.2 }} />
+          </span>
+          <span className="block h-[8px] w-full rounded-[3px]" style={{ background: ink, opacity: 0.9 }} />
+        </span>
+      )
+      break
+  }
+  return (
+    <span aria-hidden data-tip-style-thumb={id} className="flex h-full w-full items-center justify-center overflow-hidden rounded-xl px-[10%]" style={{ background: page }}>
+      {body}
+    </span>
+  )
+}
+
+function TipStylePicker({ data, update }: { data: AppBlockData; update: Update }) {
+  const theme = useEditorTheme()
+  const current = tipStyleOf(data)
+  return (
+    <div className="space-y-2.5" data-tip-styles="">
+      <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Layout")}</p>
+      <div role="radiogroup" aria-label={tt("Layout")} className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        {TIP_STYLES.map((id) => {
+          const on = current === id
+          return (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              data-tip-style-choice={id}
+              onClick={() => update({ tip_style: id } as Partial<AppBlockData>)}
+              className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-1.5 outline-none transition-[border-color] duration-150 hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+            >
+              <ChoiceMark on={on} />
+              <span className="block aspect-[4/3] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
+                <TipStyleThumb id={id} theme={theme} />
+              </span>
+              <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{TIP_STYLE_LABEL[id]()}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 /* ─── Lists ───────────────────────────────────────────────────────────── */
 
 function ItemsEditor({ data, provider, update, blockId }: { data: AppBlockData; provider: AppProvider; update: Update; blockId: string }) {
@@ -392,7 +502,14 @@ export function AppBlockEditor({ block, updateData }: { block: OnePageBlock; upd
       {showSettings ? <SettingsHalf block={block} data={data} provider={provider} update={update} /> : null}
       {showLayout ? (
         <>
-          {isRetiredAppProvider(data.provider) ? <p className="text-[12.5px] text-[#6b7280]" data-app-retired="">{tt("Shown as a plain link on your page.")}</p> : <LayoutPicker data={data} provider={provider} update={update} />}
+          {isRetiredAppProvider(data.provider) ? (
+            <p className="text-[12.5px] text-[#6b7280]" data-app-retired="">{tt("Shown as a plain link on your page.")}</p>
+          ) : provider.id === "tips" && tipModeOf(data) === "storelib" ? (
+            /* Round 3: Classic, Card and Featured are a tip link's layouts and drew nothing different here; a Storelib tips block has its own. */
+            <TipStylePicker data={data} update={update} />
+          ) : (
+            <LayoutPicker data={data} provider={provider} update={update} />
+          )}
           {provider.shape === "items" ? <PictureFitControl value={data.image_fit} onChange={(image_fit) => update({ image_fit } as Partial<AppBlockData>)} /> : null}
           {/* Round AR3: Single and Carousel play the posts given in Settings; without one they draw the profile as a large card. */}
           {provider.shape === "social" && (layout === "single" || layout === "carousel") && appEmbeds(data).length < (layout === "carousel" ? 2 : 1) ? (
@@ -402,9 +519,57 @@ export function AppBlockEditor({ block, updateData }: { block: OnePageBlock; upd
             <div className="space-y-2" data-app-picture="">
               <span className={fieldLabel}>{provider.shape === "app" ? tt("App icon") : tt("Picture (optional)")}</span>
               <OnePageImageField value={data.image_url} prefix={`app_${block.id}`} onChange={(url) => update({ image_url: url } as Partial<AppBlockData>)} />
+              {provider.id === "instagram" ? <InstagramPhoto data={data} update={update} /> : null}
             </div>
           ) : null}
         </>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * ROUND 3: THE PROFILE'S OWN PICTURE FROM INSTAGRAM, copied into Storelib
+ * (app/api/onepage/instagram-profile; what Instagram allows is set out in
+ * lib/onepage/instagram-profile). When Instagram does not give it, the line
+ * says so and the upload above stays the way in. With Meta's token the latest
+ * posts come too, offered as one tap into Posts.
+ */
+function InstagramPhoto({ data, update }: { data: AppBlockData; update: Update }) {
+  const [state, setState] = React.useState<{ busy: boolean; error: string | null; posts: string[] }>({ busy: false, error: null, posts: [] })
+  const username = instagramUsername(data.url)
+  if (!username) return null
+  const fetchPhoto = async () => {
+    setState({ busy: true, error: null, posts: [] })
+    try {
+      const r = await fetch("/api/onepage/instagram-profile", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: data.url }) })
+      const body = (await r.json().catch(() => ({}))) as { avatar_url?: string; posts?: string[]; error?: string }
+      const posts = (body.posts || []).filter((p) => !(data.posts || []).includes(p))
+      if (r.ok && body.avatar_url) {
+        update({ image_url: body.avatar_url } as Partial<AppBlockData>)
+        setState({ busy: false, error: null, posts })
+      } else setState({ busy: false, error: tt("Instagram didn't share this profile's picture. Upload one instead."), posts })
+    } catch {
+      setState({ busy: false, error: tt("Instagram didn't answer. Try again or upload a picture."), posts: [] })
+    }
+  }
+  return (
+    <div className="space-y-2" data-instagram-photo="">
+      <button
+        type="button"
+        onClick={fetchPhoto}
+        disabled={state.busy}
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#e3e4e8] bg-white text-[13.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8] disabled:opacity-60"
+      >
+        {state.busy ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <SocialIcon platform="instagram" tone="brand" size={16} />}
+        {state.busy ? tt("Getting your photo") : tt("Use my Instagram photo")}
+      </button>
+      {state.error ? <p className="text-[12.5px] text-[#6b7280]" aria-live="polite">{state.error}</p> : null}
+      {state.posts.length ? (
+        <button type="button" onClick={() => { update({ posts: [...(data.posts || []).filter((p) => p.trim()), ...state.posts] } as Partial<AppBlockData>); setState((s) => ({ ...s, posts: [] })) }} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#d5d7dd] text-[13.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]">
+          <Plus className="h-4 w-4" />
+          {tt("Add your latest posts ({value})", { value: state.posts.length })}
+        </button>
       ) : null}
     </div>
   )

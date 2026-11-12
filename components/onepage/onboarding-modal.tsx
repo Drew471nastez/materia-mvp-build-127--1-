@@ -24,6 +24,8 @@ import { SocialIcon } from "@/components/onepage/brand-icons"
 import { isNativeApp } from "@/lib/native-bridge"
 import { THEME_TEMPLATES, preloadThemeThumbs, themeThumbSrc } from "./tabs/design-tab"
 import { ThemePreview } from "./themes/theme-preview"
+import { previewAccountKey, previewAccountOf, type PreviewAccount } from "./themes/preview-account"
+import { usePageMoney } from "@/components/platform/price-currency"
 import { scaleThemePreviews } from "./themes/preview-scale"
 import { themeLabel } from "./themes/theme-names"
 import { getOnePageDomain } from "@/lib/onepage/address"
@@ -115,23 +117,24 @@ const GoalCard = memo(function GoalCard({ goal, selected, onPick }: { goal: (typ
   pick draws the two cards that changed, not all of them.
 */
 /* The page itself, apart from the marks: a pick changes the marks, and this is not drawn again. */
-const TemplatePicture = memo(function TemplatePicture({ template, name, photo }: { template: (typeof THEME_TEMPLATES)[number]; name: string; photo: string | null }) {
+/* Round AT: `who` is the person's own page so far (./themes/preview-account): the name and photo they just gave, their socials, and plain sample blocks. */
+const TemplatePicture = memo(function TemplatePicture({ template, who }: { template: (typeof THEME_TEMPLATES)[number]; who: PreviewAccount }) {
   const c = template.theme_config as (typeof THEME_TEMPLATES)[number]["theme_config"] & Record<string, any>
   /* A Hero template is drawn with its Hero, as picking it lays the page out. */
   const look = (template as any).profile_layout === "hero" ? { ...c, header_layout: "hero" } : c
-  return <ThemePreview c={look} id={template.id} kind={template.category} name={name} thumb={themeThumbSrc} photo={photo} />
+  return <ThemePreview c={look} who={who} thumb={themeThumbSrc} />
 })
 
 const TemplateCard = memo(function TemplateCard({
   template,
   selected,
   onPick,
-  avatarUrl,
+  who,
 }: {
   template: (typeof THEME_TEMPLATES)[number]
   selected: boolean
   onPick: (id: string) => void
-  avatarUrl: string | null
+  who: PreviewAccount
 }) {
   const name = themeLabel(template)
   return (
@@ -142,13 +145,13 @@ const TemplateCard = memo(function TemplateCard({
       aria-label={tt("{name} template", { name })}
       data-template-card={template.id}
       className={cn(
-        "relative flex cursor-pointer flex-col rounded-2xl border border-[#e3e4e8] bg-white p-1.5 text-left transition-[border-color] duration-150 hover:border-[#c9cbd1] [-webkit-tap-highlight-color:transparent]",
+        "relative flex cursor-pointer select-none flex-col rounded-2xl border border-[#e3e4e8] bg-white p-1.5 text-left transition-[border-color] duration-150 hover:border-[#c9cbd1] [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
         focusRing,
       )}
     >
       <ChoiceMark on={selected} />
-      <span data-template-frame="" className="relative block aspect-[4/5] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: template.theme_config.background_color }}>
-        <TemplatePicture template={template} name={name} photo={avatarUrl} />
+      <span data-template-frame="" className="op-demo relative block aspect-[4/5] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: template.theme_config.background_color }}>
+        <TemplatePicture template={template} who={who} />
         <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
         <CheckMark on={selected} className="right-1.5 top-1.5" />
       </span>
@@ -447,6 +450,13 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
   })
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  /* Round AT: the template cards draw the person's own page so far, one object for the grid, kept until it changes. */
+  const pageMoney = usePageMoney()
+  const templateFresh = previewAccountOf({ title: displayName, bio, avatar_url: avatarUrl, social_links: socials, draft_blocks: onepage?.draft_blocks }, (cents) => pageMoney(cents))
+  const templateKey = previewAccountKey(templateFresh)
+  const templateWhoRef = useRef<{ key: string; who: PreviewAccount } | null>(null)
+  if (!templateWhoRef.current || templateWhoRef.current.key !== templateKey) templateWhoRef.current = { key: templateKey, who: templateFresh }
+  const templateWho = templateWhoRef.current.who
 
   // Step 4 state - initialize from saved progress
   const [selectedTemplate, setSelectedTemplate] = useState(() => {
@@ -1513,7 +1523,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                           template={template}
                           selected={selectedTemplate === template.id}
                           onPick={setSelectedTemplate}
-                          avatarUrl={avatarUrl}
+                          who={templateWho}
                         />
                       ))}
                     </div>

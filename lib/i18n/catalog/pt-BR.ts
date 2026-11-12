@@ -1540,6 +1540,13 @@ const words: Record<string, string> = {
  "Brand Strategy": "Estratégia de marca",
  "Brand and tags": "Marca e tags",
  "Brand colours": "Cores das marcas",
+ "Share to Instagram Story": "Compartilhar no story do Instagram",
+ "Image saved and link copied. In your story, add a Link sticker and paste it.": "Imagem salva e link copiado. No seu story, adicione uma figurinha de link e cole.",
+ "Use my Instagram photo": "Usar minha foto do Instagram",
+ "Getting your photo": "Buscando sua foto",
+ "Instagram didn't share this profile's picture. Upload one instead.": "O Instagram não compartilhou a foto deste perfil. Envie uma.",
+ "Instagram didn't answer. Try again or upload a picture.": "O Instagram não respondeu. Tente de novo ou envie uma imagem.",
+ "Add your latest posts ({value})": "Adicionar seus posts mais recentes ({value})",
  "Brand name": "Nome da marca",
  "Brand or maker": "Marca ou fabricante",
  "Branding": "Branding",
@@ -12429,7 +12436,12 @@ const words: Record<string, string> = {
  "theme::Olive": "Oliva",
  "theme::Paper": "Papel",
  "theme::Peach": "Pêssego",
- "theme::Plaster": "Gesso",
+ "theme::Stoicism": "Estoicismo",
+ "theme::Dune": "Duna",
+ "Latest video": "Último vídeo",
+ "Starter guide": "Guia para começar",
+ "One to one session": "Sessão individual",
+ "New work and news, now and then.": "Trabalhos novos e novidades, de vez em quando.",
  "theme::Playful": "Divertido",
  "theme::Playful Night": "Playful Noite",
  "theme::Renaissance": "Renascença",
@@ -13372,7 +13384,13 @@ const words: Record<string, string> = {
  "Your number": "Seu número",
  "a haircut": "um corte de cabelo",
  "the linen shirt": "a camisa de linho",
- "{name} username or link": "Usuário ou link do {name}"
+ "{name} username or link": "Usuário ou link do {name}",
+ "This font has one weight": "Esta fonte tem um só peso",
+ "Pills": "Pílulas",
+ "Big amount": "Valor grande",
+ "Below": "Abaixo",
+ "On the picture": "Na imagem",
+ "Title, caption and a button on a fade at the bottom of each picture.": "Título, legenda e um botão sobre um degradê na parte de baixo de cada imagem."
 }
 
 export default words

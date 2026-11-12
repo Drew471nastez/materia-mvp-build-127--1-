@@ -492,6 +492,8 @@ const SUITES = [
   "tests/quick-access-urls.test.ts",
   "tests/header-link-navigates.test.ts",
   "tests/header-buttons.test.ts",
+  /* Round 3 (sign in pages and scrollbars): Log in, Sign up and a stranger's Sell on Storelib open whole on their first frame (no loading screen, no session spinner without a session cookie, no fade, no Suspense spinner streamed first, drawn per request), the photo preloaded for wide screens only over a blurred copy of itself, the logo's violet under it, and every scroller inside the page thin with a quiet thumb on no track while the page keeps its charcoal bar. scripts/check-auth-arrival-r3.mjs films the presses and cold opens frame by frame on a production build; scripts/check-app-scrollbars-r3.mjs photographs the Share your OnePage dialog, a sheet, a dropdown and a dark panel. */
+  "tests/auth-arrival-r3.test.ts",
   /* Cinematic homepage: fixed first line, reserved rotating phrases, one deferred video, native signup. scripts/check-home-hero.mjs measures real SSR/hydration and media fallbacks. */
   "tests/home-hero.test.ts",
   /* Wave 12, the home page's frame: the order and slots, Unlimited possibilities (three edge-to-edge rows), the closing call, the dark footer with the app badges, lazySection/LazySection. */
@@ -502,6 +504,8 @@ const SUITES = [
   "tests/home-w12-creators.test.ts",
   /* Wave 12, commerce: the home page's How it works tiles and profit picker, the checkout scroll scene, the dotted world map and the earnings calculator (components/marketing/home). Fees from lib/payments/fees, Pro's price from lib/billing/plans, server rendered roles and copy, reduced motion, compositor-only motion, local webp under budget. */
   "tests/home-w12-commerce.test.ts",
+  /* Round 60: the showcase rail's motion as numbers: drag, flick, settle, wheel, loop, any frame rate. */
+  "tests/rail-motion.test.ts",
   /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */
   "tests/library-courses-ad5.test.ts",
   "tests/header-flex.test.ts",
@@ -893,6 +897,8 @@ const SUITES = [
   "tests/onepage-ar5.test.ts",
   /* Round AS (track 1): every theme card is a fictional creator's page drawn with the page's own helpers (no grey bars, its own chunk), Plaster (its structure, colours, cover and names), and no glow nobody chose (the guard's hairline, no theme's ring, a faint Glow). scripts/check-onepage-theme-previews-as1.mjs and scripts/check-onepage-glow-as1.mjs measure them. */
   "tests/onepage-as1.test.ts",
+  /* Round AT (track 1): every theme card draws the account's own page (its name, photo or monogram, socials, links, products and newsletter, samples for the rest; components/onepage/themes/preview-account), links as the page's .op-btn with the theme's hover, nothing selectable; Plaster is Stoicism (a stone skin, ivory tablets, its cover kept, saved pages moved with their own changes) and Dune is new. scripts/check-onepage-theme-previews-as1.mjs measures the cards against the live page. */
+  "tests/onepage-at1.test.ts",
   "tests/onepage-themes-w8.test.ts",
   /* Round W9: six themes with a skin (Aero, Aqua, Messenger, Y2K, Playful, Grunge): every text and button pair and every colour the skin paints read at 4.5:1, the skin carried by both roots and the theme card, the generated stylesheet current and styling every kind of block, motion by transform and opacity only and still for reduced motion and in cards, the skin laid on and taken off with the theme. scripts/shot-onepage-skins.mjs photographs them. */
   "tests/onepage-themes-w9.test.ts",
@@ -1056,6 +1062,8 @@ const SUITES = [
   "tests/header-round8.test.ts",
   "tests/native-app-links.test.ts",
   "tests/native-shell.test.ts",
+  /* Round AT (AT3): opening the phone app. The shell opens the gate itself and the gate lands in one router.replace; no spinner under the launch screen, Android's overlay kept up over the gate, iOS's launch screen down on every /app page once the session gate lets it draw; nobody signed in goes to /welcome without the Supabase client, only on proof of no session; scripts/check-app-launch-at3.mjs measures it in Chromium. */
+  "tests/app-launch-at3.test.ts",
   "tests/account-round11.test.ts",
   "tests/elastic-and-landings.test.ts",
   "tests/communities-shell15.test.ts",
@@ -1478,8 +1486,12 @@ const STRICT_SUITES = [
   "tests/onepage-ar1.test.ts",
   /* Round AS: the OnePage shell. The profile bar forms over the name as it scrolls under (every header layout, the verified badge in it, floating inside the computer's card), Share and Subscribe from one listener after real travel, faded on the button while the box only moves, the fade layout's large melting picture from the top of a phone's page, the own cover's fade and its switch, the 550px card, every sideways row out to the column's edge. scripts/check-onepage-header-as.mjs measures them frame by frame at 390 and 1440 and in the preview. */
   "tests/onepage-header-as.test.ts",
+  /* Round R3, the page shell: on a computer the profile bar is the card's own top (its width and corners, the page's colour, a soft fade at its foot, no pill), drawn from the name's own scroll timeline so it never lags; the card keeps its corners at the top of the window; the fade layout's picture 8/9 on a phone and 5/4 on a computer; every block sheet drawn whole on its first frame. scripts/check-onepage-header-as.mjs and check-onepage-sheet-first-frame.mjs measure them at 390 and 1440. */
+  "tests/onepage-shell-r3.test.ts",
   /* Round AS (track 2): Share and Subscribe clear of the editor phone's rounded screen (its own radius, concentric) and of a notch (safe area, no device check); Terms, Privacy and Cookies as tabs of one fixed height sheet with a sliding thumb and a fade through; cookie choices saved as pressed (never in the preview); Report as a checked form with a thanks in the same place; Back and Tab. scripts/check-onepage-as2.mjs measures them at 390 and 1440. */
   "tests/onepage-as2.test.ts",
+  /* Round AT (track 2): Subscribe at full strength, checked on the press; every Links row with the block's own picture (a map of the place, a still, a cover, a preview image); + Add tinted only by a resting finger and opened only by a tap; a haptic on Share; the preview frame with no notch inset, so the profile bar is slim under the editor's; Preview warmed while idle and switched without a layout; the Design panels' sticky way back on its own layer; a block's stats period as a sheet on a phone. scripts/check-onepage-at2.mjs measures them at 390 and 1440. */
+  "tests/onepage-at2.test.ts",
   "tests/onepage-w8.test.ts",
   /* Round AR3: every block type's settings panel drawn and visible (image 137), music and video layouts with Storelib's own player, Cover, Fit and Full, links shown in place (Calendly, Typeform, Canva, Google Maps, podcasts), oEmbed cards from recorded answers, Fourthwall and Bonfire retired, followers from one field, more links in one block. scripts/check-onepage-ar3.mjs measures the layout matrix, the embeds and the settings at 390 and 1440. */
   "tests/onepage-ar3.test.ts",
@@ -1489,8 +1501,14 @@ const STRICT_SUITES = [
   "tests/onepage-legible-w10.test.ts",
   /* OnePage style stability: a button's colour animates only on a Fill or Pop hover, the page holds still while it takes on a look, the legibility guard's pass starts no transition and leaves a hovered button alone; social icons from one rule (lib/onepage/social-look); entrances where they can be seen, still under reduced motion; a narrow product card restacks; Instagram's current colours. scripts/check-onepage-style-stability.mjs reads every button and icon each frame on every theme. */
   "tests/onepage-style-stability.test.ts",
+  /* Round 3, social: Brand colours as the white disc with each brand's own mark, a social row that slides when it overflows, a block's Icon style (Original, Solid, Outline, Glass), Share to Instagram Story (1080 x 1920), an Instagram profile's picture copied into Storelib. scripts/check-onepage-social-r3.mjs measures them in Chromium at 390 and 1440. */
+  "tests/onepage-social-r3.test.ts",
+  /* Round 3 (themes): no button's words disappear in any state on any theme. A hover's fill and words measured against each other (a see-through fill laid over the page first), Fade and a waiting signup button fading only as far as keeps 4.5:1 (lib/onepage/contrast fadeThatReads), Lift's tint the words' opposite, words on Soft and Glass held to 5.5:1 with a card's tint counted three times, the product sheet's blocked button at full strength, and the legibility guard reading a picture and shade laid under words beside them (a product's Overlay). scripts/check-onepage-style-stability.mjs ONLY=contrast measures every state of every button of every theme on pixels. */
+  "tests/onepage-contrast-r3.test.ts",
   /* Round 43: the OnePage editor's font sheet as tall as its list, an off block's controls unfaded, Remove's question in one compact line, a block's stats with the period as a popover and See in Analytics, the header's type and picture frame, the cover's ring that follows a Left header, one hold for every window over the live page. scripts/check-onepage-editor-r43.mjs measures them. */
   "tests/onepage-editor-r43.test.ts",
+  /* Round 3 of the OnePage design work: every weight each font really has loaded and the nearest one drawn (Heavy was Bold's letters, a one-weight face a faux bold), the bio's Regular, Medium and Bold, a Storelib tips block's four styles with the Layout tab on its own card, and an image block's title, caption and button on a smooth fade in the page's colours. scripts/check-onepage-design-r3.mjs measures them at 390 and 1440. */
+  "tests/onepage-design-r3.test.ts",
   /* Round 44: every page of a published website, for search engines: one indexable host (the Storelib address's sitemap goes to the domain's), a website not live is a 404 past its front page, a renamed product's old address a 308, the sitemap to 50,000 products held a page at a time, an imported theme's canonical and noindex, and IndexNow told about the addresses a publish or a deleted page took down. */
   "tests/seo-sites-r44.test.ts",
   /* Creator blogs, package 4: the Blog and Blog post templates on a Storelib theme (main_blog, main_article, blog_featured drawn with real posts), the /blogs routes' metadata, JSON-LD, 308s and private previews, a creator's own "blog" page kept, the canvas and link picker, and read_blog kept after the cached prefix. */

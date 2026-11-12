@@ -84,8 +84,8 @@ async function main() {
 
   section("TIPS: the card and the sheet")
   const tip = read("components/onepage/tip-block.tsx")
-  check("the card: an icon, the amounts in one row with Other, the page's button", /<HandCoins/.test(tip) && /gridTemplateColumns: `repeat\(\$\{columns\}, minmax\(0, 1fr\)\)`/.test(tip) && /<CardButton look=\{look\} onClick=\{send\}/.test(tip))
-  check("Other and a note asked for open the sheet; Tip otherwise pays at once, marked card", /data-tip-amount="other"/.test(tip) && /if \(data\.tip_message && sheet\.available\) return openSheet\(shownPick\)/.test(tip) && /startTip\(look, block\.id, shownPick, null, "card"\)/.test(tip))
+  check("the card: an icon, the amounts in one row with Other, the page's button", /<HandCoins/.test(tip) && /gridTemplateColumns: `repeat\(\$\{columns\}, minmax\(0, 1fr\)\)`/.test(tip) && /* Changed on purpose (round 3 of the OnePage design work): the card's button reads the card's own look (a background of the creator's own) and sends the amount it is given. */ /<CardButton look=\{cardLook\} onClick=\{\(\) => void send\(\)\}/.test(tip))
+  check("Other and a note asked for open the sheet; Tip otherwise pays at once, marked card", /data-tip-amount="other"/.test(tip) && /const send = async \(cents: number = shownPick\)/.test(tip) && /if \(data\.tip_message && sheet\.available\) return openSheet\(cents\)/.test(tip) && /startTip\(look, block\.id, cents, null, "card"\)/.test(tip))
   check("the sheet: footless, a big amount between - and +, a keypad, Continue in the page's accent", /footless: true/.test(tip) && /data-tip-minus/.test(tip) && /data-tip-plus/.test(tip) && /data-tip-keypad=""/.test(tip) && /var\(--opk-accent, var\(--sheet-ink\)\)/.test(tip) && /startTip\(look, blockId, cents, data\.tip_message \? note\.trim\(\) : null, "sheet"\)/.test(tip))
   check("the page sends where the tip came from", /source: \{ placement, host: window\.location\.hostname, referrer: document\.referrer \|\| null \}/.test(tip))
   check("the app block draws the tips card from its own file", /import \{ DataTipsView \} from "@\/components\/onepage\/tip-block"/.test(read("components/onepage/app-block.tsx")))
@@ -143,8 +143,9 @@ async function main() {
   check("a valid address and nothing less", signupEmailReady("anna@site.co") && signupEmailReady("  a.b+c@mail.example.org ") && !signupEmailReady("") && !signupEmailReady("anna@") && !signupEmailReady("anna@site") && !signupEmailReady("anna@site.c") && !signupEmailReady("an na@site.co") && !signupEmailReady(`${"a".repeat(250)}@x.co`) && !signupEmailReady(null))
   check("waiting is a filter, eased with the button's own timing", signupWait(false).filter === "opacity(0.45)" && signupWait(true).filter === undefined && /filter/.test(signupWait(true).transitionProperty))
   const live = read("components/onepage/public-onepage.tsx")
-  check("the email block's three shapes wait for an address", (live.match(/!emailReady/g) ?? []).length >= 3 && /signupWait\(emailReady \|\| isSubmitting\)/.test(live))
-  check("the Subscribe sheet and a free gift's form too", /disabled=\{busy \|\| done \|\| !signupEmailReady\(email\)\}/.test(read("components/onepage/subscribe-sheet.tsx")) && /disabled=\{sending \|\| !signupEmailReady\(email\)\}/.test(read("components/onepage/storelib-blocks.tsx")))
+  /* Changed on purpose (round AT): the owner wants Subscribe at full strength while the box is empty; the address is checked on the press (tests/onepage-at2.test.ts). */
+  check("the email block's three shapes check the address on the press, never faded", !/!emailReady/.test(live) && !/signupWait\(/.test(live) && /if \(!signupEmailReady\(email\)\) \{\s*setLeadError/.test(live))
+  check("the Subscribe sheet and a free gift's form too", /disabled=\{busy \|\| done\}/.test(read("components/onepage/subscribe-sheet.tsx")) && /disabled=\{sending\}/.test(read("components/onepage/storelib-blocks.tsx")))
 
   section("SQL part 442")
   const sql = read("supabase/sql/run-now/442_onepage_tip_source.sql")

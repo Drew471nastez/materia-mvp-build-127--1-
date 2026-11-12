@@ -53,7 +53,8 @@ console.log("\n1 and 2. the logged out row on a computer")
   /* Changed on purpose: 158acdef (light buyer header theme) takes the row's colours from lib/platform/header-chrome.ts, the dark bar's still white at 15%. */
   const chromeSrc = readCode("lib/platform/header-chrome.ts")
   check("a thin vertical rule first", /data-guest-divider=""[^>]*className=\{cn\("ml-1 h-6 w-px", chrome\.guestDivider\)\}/.test(row) && /guestDivider: "bg-white\/15"/.test(chromeSrc))
-  check("Sell on Storelib is a plain text link to /sell", /link\("\/sell"\)/.test(row) && /Sell on Storelib/.test(row) && !/data-guest-sell=""[^>]*bg-violet/.test(row))
+  /* Changed on purpose: round 3 sends a stranger's Sell on Storelib straight to /signup?intent=sell, where /sell itself would send them, without /sell's spinner on the way (scripts/check-auth-arrival-r3.mjs). */
+  check("Sell on Storelib is a plain text link to sign up for selling", /link\(GUEST_SELL\)/.test(row) && /const GUEST_SELL = withCarry\("\/signup", \{ intent: SELL_INTENT \}\)/.test(header) && /Sell on Storelib/.test(row) && !/data-guest-sell=""[^>]*bg-violet/.test(row))
   /* Changed on purpose: 158acdef (light buyer header theme) moved the outline's colour into lib/platform/header-chrome.ts, the dark bar's still white at 30%. */
   check("Log in is outlined, to /login, and only where asked for", /\{withLogin && \(\s*<Link\s+\{\.\.\.link\("\/login"\)\}/.test(row) && /data-guest-login=""[\s\S]{0,40}className=\{cn\("[^"]*rounded-action border [^"]*", chrome\.guestLogin/.test(row) && /guestLogin: "border-white\/30 /.test(chromeSrc))
   check("Sign up is filled Storelib purple, to /signup", /link\("\/signup"\)/.test(row) && /data-guest-signup=""[\s\S]{0,140}rounded-action bg-violet-600/.test(row) && />\s*Sign up\s*</.test(row))
@@ -87,7 +88,7 @@ console.log("\n4 and 5. the phone menu, logged out")
   check("Sign up first, filled purple, not blue", /data-menu-sign-up=""[^>]*bg-violet-600/.test(sheet) && !/blue-|#2563eb|#3b82f6|#4f46e5/i.test(sheet))
   check("Discover outlined with its compass, to /explore", /go\("\/explore"\)\}\s*data-menu-discover=""[^>]*border border-/.test(sheet) && /<Compass /.test(sheet))
   check("or Log in outlined, to /login", /go\("\/login"\)\}\s*data-menu-log-in=""[^>]*border border-/.test(sheet))
-  check("Sell on Storelib as purple text, to /sell", /go\("\/sell"\)\}\s*data-menu-sell=""[^>]*text-violet-600/.test(sheet))
+  check("Sell on Storelib as purple text, to sign up for selling", /go\(GUEST_SELL\)\}\s*data-menu-sell=""[^>]*text-violet-600/.test(sheet))
   check("the buttons take the shared corner", /SHEET_BUTTON =\s*"[^"]*rounded-action/.test(header))
   /* Changed on purpose: e6a207bd (admin toggle to hide Discover) offers Discover only while the marketplace is on, and Log in in its place otherwise. */
   check("the marketing menu has Discover", /<GuestSheetActions second=\{exploreMarketplaceOn \? "discover" : "login"\}/.test(header))
@@ -177,7 +178,7 @@ console.log("\n7. the logo, a touch smaller in headers only")
   const m = header.match(/HEADER_LOGO = \{ desktop: ([\d.]+), marketingPhone: ([\d.]+), phone: ([\d.]+) \}/)
   const [d, mp, p] = (m?.slice(1) ?? []).map(Number)
   const five = (was: number, now: number) => Math.abs(now - was * 0.95) < 0.02
-  check("the site header: another ~5% under the last header sizes", !!m && five(41.8, d) && five(39.9, mp) && five(36.1, p), m?.slice(1))
+  check("the site header: another ~5% under the last header sizes", !!m && five(39.71, d) && five(37.91, mp) && five(34.3, p), m?.slice(1))
   check("every logo in the site header draws at one of them", (header.match(/<StorelibLogo size=\{HEADER_LOGO\.(desktop|marketingPhone|phone)\}/g) ?? []).length === 4 && !/<StorelibLogo size=\{\d/.test(header))
   check("the /app top bar: 27 becomes 25.65", /<StorelibLogo size=\{25\.65\} priority \/>/.test(readCode("components/app/sidebar.tsx")) && five(27, 25.65))
   check("and its still copy matches it", /<StorelibLogo size=\{25\.65\} alt="" \/>/.test(readCode("components/app/shell-header-still.tsx")))

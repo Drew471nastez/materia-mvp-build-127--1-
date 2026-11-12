@@ -10,7 +10,9 @@ import { useBlockPart } from "./block-part"
 import { ArrangePicker, CardsInViewControl, EditorThemeContext, HowManyControl, PictureFitControl } from "./layout-pickers"
 import { ChoiceMark } from "./choice-marks"
 import { PRODUCT_LAYOUTS, productLayoutOf } from "@/lib/onepage/product-block"
-import type { BlockPresentation } from "@/lib/onepage/block-presentation"
+import { presentationOf, type BlockPresentation } from "@/lib/onepage/block-presentation"
+import { blockIconLookOf } from "@/lib/onepage/social-look"
+import { BlockMarkTile } from "./block-mark"
 import {CompactInstagramPost} from "./compact-post"
 
 /**
@@ -400,7 +402,7 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
       return
     }
     const address = email.trim().toLowerCase()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+    if (!signupEmailReady(address)) {
       setError(tt("Enter a valid email address."))
       return
     }
@@ -543,8 +545,8 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
                 className="h-12 w-full rounded-xl border border-[#e3e4e8] bg-white px-4 text-[16px] text-[#111113] outline-none transition-[border-color,box-shadow] focus:border-[#111113] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.08)]"
               />
               {error ? <p role="alert" className="text-[13px] text-[#b42318]">{error}</p> : null}
-              {/* Round AS: waits, faded, until the address could be taken (lib/onepage/email-signup signupEmailReady). */}
-              <button type="submit" disabled={sending || !signupEmailReady(email)} data-email-ready={signupEmailReady(email) ? "" : undefined} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#111113] text-[15px] font-semibold text-white transition-opacity duration-200 ease-out disabled:cursor-not-allowed disabled:opacity-45">
+              {/* Changed on purpose (round AT): at full strength from the start; submit checks the address and shows the error above. */}
+              <button type="submit" disabled={sending} data-email-ready={signupEmailReady(email) ? "" : undefined} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#111113] text-[15px] font-semibold text-white transition-opacity duration-200 ease-out disabled:cursor-not-allowed disabled:opacity-45">
                 {sending ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : null}
                 {button}
               </button>
@@ -644,6 +646,14 @@ function FollowersView({ block, look }: { block: OnePageBlock; look: StorelibBlo
   if (total <= 0) return null
   const label = (data.label ?? "").trim() || tt("followers")
   const color = look.theme.text_color
+  /* Round 3: Layout › Icon style (components/onepage/block-mark). Original is each mark in the words' colour, no tile. */
+  const iconLook = blockIconLookOf(presentationOf(block).icon_look)
+  const mark = (network: string, size: number, title?: string) =>
+    iconLook === "original" ? (
+      <SocialIcon key={network} platform={network} size={px(size, look.scale)} color="currentColor" title={title} />
+    ) : (
+      <BlockMarkTile key={network} look={iconLook} size={Math.round((size + 12) * k(look.scale))} inner={Math.round(size * k(look.scale))} draw={(tone, inner) => <SocialIcon platform={network} size={inner} color="currentColor" tone={tone} title={title} />} />
+    )
   if (data.style === "card") {
     return (
       <div data-onepage-followers="card" className="w-full text-center" style={{ ...look.button, borderRadius: radiusOf(look.theme), padding: `${px(14, look.scale)} ${px(16, look.scale)}` }}>
@@ -654,7 +664,7 @@ function FollowersView({ block, look }: { block: OnePageBlock; look: StorelibBlo
         <div className="mt-2.5 flex flex-wrap items-center justify-center" style={{ gap: `${px(6, look.scale)} ${px(14, look.scale)}` }}>
           {counted.map((e) => (
             <span key={e.network} className="inline-flex items-center tabular-nums" style={{ gap: px(5, look.scale), fontSize: px(12.5, look.scale) }}>
-              <SocialIcon platform={e.network === "twitter" ? "twitter" : e.network} size={px(14, look.scale)} color="currentColor" title={NETWORK_NAME[e.network]} />
+              {mark(e.network, 14, NETWORK_NAME[e.network])}
               {compactCount(e.count as number)}
             </span>
           ))}
@@ -666,7 +676,7 @@ function FollowersView({ block, look }: { block: OnePageBlock; look: StorelibBlo
     <p data-onepage-followers="line" className="flex w-full flex-wrap items-center justify-center" style={{ color, fontSize: px(14, look.scale), gap: px(8, look.scale) }}>
       <span className="inline-flex items-center" style={{ gap: px(4, look.scale) }} aria-hidden>
         {counted.slice(0, 6).map((e) => (
-          <SocialIcon key={e.network} platform={e.network} size={px(15, look.scale)} color="currentColor" />
+          mark(e.network, 15)
         ))}
       </span>
       <span>

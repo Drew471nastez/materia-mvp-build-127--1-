@@ -14,7 +14,7 @@
  *   Colour           gradients and pages built on one strong colour
  *   Photo            a photograph behind the page
  *   Eras and styles  the themes with a material of their own (a skin) or a
- *                    period: Renaissance, a newspaper, glass, chrome, pixels,
+ *                    period: Renaissance, Stoicism's stone, a newspaper, glass, chrome, pixels,
  *                    stickers, a zine
  * The kind pills (Light, Dark, Gradient, Image) keep their own filter, in
  * this same order. A theme added without a line here joins the end of All,
@@ -23,12 +23,12 @@
 
 export const THEME_GROUPS = [
   { id: "clean", ids: ["default", "air", "gallery", "studio", "paper", "swiss", "folio", "cream", "notebook"] },
-  { id: "dark", ids: ["graphite", "night", "midnight", "ember", "ledger", "olive", "astrid", "space", "blueprint", "plaster"] },
-  { id: "colour", ids: ["sunset", "peach", "sage", "lagoon", "ocean", "aurora", "cobalt", "halo", "terrazzo", "riso", "blocks", "neon", "acid"] },
+  { id: "dark", ids: ["graphite", "night", "midnight", "ember", "ledger", "olive", "astrid", "space", "blueprint"] },
+  { id: "colour", ids: ["sunset", "peach", "sage", "lagoon", "ocean", "aurora", "cobalt", "halo", "dune", "terrazzo", "riso", "blocks", "neon", "acid"] },
   { id: "photo", ids: ["nature", "atlas", "haze", "darkroom", "fusion"] },
   {
     id: "styled",
-    ids: ["renaissance", "gazette", "aero", "aero2", "aqua", "aqua2", "vaporwave", "y2k", "y2k2", "messenger", "messenger2", "classic98", "arcade", "playful", "playful2", "grunge", "grunge2"],
+    ids: ["renaissance", "stoicism", "gazette", "aero", "aero2", "aqua", "aqua2", "vaporwave", "y2k", "y2k2", "messenger", "messenger2", "classic98", "arcade", "playful", "playful2", "grunge", "grunge2"],
   },
 ] as const
 

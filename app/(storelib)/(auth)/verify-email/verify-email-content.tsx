@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Loader2, CheckCircle2, ShieldCheck, AlertCircle } from "lucide-react"
-import Image from "next/image"
+import { AuthPhoto, SIGNUP_PHOTO } from "@/components/auth/auth-photo"
 import { createClient } from "@/lib/supabase/client"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { continueHref, readCarry } from "@/lib/auth/continue"
@@ -21,7 +21,6 @@ export default function VerifyEmailContent() {
   const [resendLoading, setResendLoading] = useState(false)
   const [resendCountdown, setResendCountdown] = useState(0)
   const [initialSendStatus, setInitialSendStatus] = useState<"pending" | "sent" | "failed">("pending")
-  const [isBannerLoaded, setIsBannerLoaded] = useState(false)
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -293,22 +292,7 @@ export default function VerifyEmailContent() {
         </div>
       </div>
 
-      {/* Right side - Same image as signup page */}
-      <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden">
-        {!isBannerLoaded && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-neutral-100 via-neutral-200 to-neutral-100" />}
-        <Image
-          src="https://storelib.com/media/platform%20images/collage%20imags/awapage.png"
-          alt="Verify email banner"
-          fill
-          className="object-cover object-center transition-opacity duration-500"
-          sizes="(min-width: 1024px) 50vw, 0px"
-          quality={75}
-          priority
-          fetchPriority="high"
-          decoding="async"
-          onLoad={() => setIsBannerLoaded(true)}
-        />
-      </div>
+      <AuthPhoto src={SIGNUP_PHOTO} />
     </div>
   )
 }

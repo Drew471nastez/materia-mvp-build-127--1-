@@ -68,7 +68,8 @@ console.log("\nLoaded the way the others are\n")
   /* Changed on purpose (w5 aifix): each family is asked for every weight it has inside 300..900 (lib/website-builder/font-link.ts FAMILY_WEIGHTS), still 400 to 700 included. */
   const bad = NEW.filter((f) => fontStylesheetHref({ font_heading: f }) !== `https://fonts.googleapis.com/css2?family=${f.replace(/ /g, "+")}:wght@${weightsFor(f)}&display=swap` || !/^(?:[34]00\.\.(?:[7-9]00)|300;400;500;600;700;800;900)$/.test(weightsFor(f)))
   check("a website asks Google for each at 400 to 700 with swap, only when chosen", bad.length === 0 && fontStylesheetHref({ font_heading: "Inter" }) === null, bad)
-  check("a OnePage has each on its allow-list, 400 to 700", NEW.every((f) => ONEPAGE_FONTS[f] === "400;500;600;700" && (onePageFontHref(f) ?? "").includes(`family=${f.replace(/ /g, "+")}:wght@400;500;600;700`)))
+  /* Changed on purpose (round 3 of the OnePage design work): with the 800 and 900 each one has, so Heavy loads its own face. */
+  check("a OnePage has each on its allow-list, 400 to 700 at least", NEW.every((f) => (ONEPAGE_FONTS[f] ?? "").startsWith("400;500;600;700") && (onePageFontHref(f) ?? "").includes(`family=${f.replace(/ /g, "+")}:wght@400;500;600;700`)))
   check("  with the right generic family behind it while it loads", SERIF.every((f) => fontStack(f).endsWith("Georgia, serif")) && fontStack("Geist Mono").endsWith("monospace") && fontStack("Fredoka").endsWith("sans-serif"))
   const o = fontObject("bodoni_moda_n7")!
   check("an imported theme set to one: its font object names it, bold kept, serif behind it", o.family === "Bodoni Moda" && o.weight === "700" && o.fallback_families === "serif")

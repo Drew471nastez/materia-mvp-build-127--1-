@@ -27,9 +27,18 @@
  *                 under it (lib/onepage/feel barMorph), driven by the page's
  *                 own scroll, so it runs backwards exactly as it ran
  *                 forwards and nothing jumps at the top. The creator's
- *                 picture, name and verified badge settle into it. On a
- *                 computer it floats inside the card, its corners concentric
- *                 with the card's, instead of a strip cut off at its sides.
+ *                 picture, name and verified badge settle into it.
+ *                 Round R3, the owner: on a computer it was a pill floating
+ *                 over the content, with a ring, a shadow and the page
+ *                 showing round it. It is now the card's own top: the card's
+ *                 width, the card's 40px corners at the top of the window
+ *                 (the card keeps its corners there as it scrolls, app/
+ *                 globals.css [data-op-card]), the page's own colour, and a
+ *                 soft fade of that colour at its foot instead of an edge.
+ *                 Where the browser has scroll timelines it is drawn by the
+ *                 compositor from the name's own place (a view timeline on
+ *                 the name, app/globals.css .op-topbar), so it never lags a
+ *                 frame behind the scroll; elsewhere the script writes it.
  *   THE CORNERS   the Share and Subscribe buttons (useCornerButtonsShown)
  *                 change only after real travel one way, from one shared
  *                 listener, so the page itself never renders on a scroll.
@@ -58,6 +67,18 @@ function scrollTimelines(): boolean {
     return false
   }
 }
+
+/* The bar follows a timeline named on the name, which is not its ancestor: that needs timeline-scope too. */
+function namedTimelines(): boolean {
+  try {
+    return scrollTimelines() && CSS.supports("timeline-scope: --op-bar-anchor")
+  } catch {
+    return false
+  }
+}
+
+/** The timeline the bar's stylesheet follows (app/globals.css .op-topbar[data-op-topbar-css]). */
+const BAR_TIMELINE = "--op-bar-anchor"
 
 /*
   The CSS timeline follows the hero's nearest scroll container. Where a box between the hero and the page clips
@@ -239,16 +260,36 @@ export function HeroTopBar({
     let last = -1
     let on = false
     let barBottom = 0
+    /* The stylesheet draws it from the name's own timeline: the script only says whether it can be pressed. */
+    let css = false
+    /* The name the bar forms over; where the compositor can, the timeline is named on it and nowhere else. */
+    const pick = () => {
+      const next = barAnchor()
+      if (next === anchor) return
+      anchor?.style.removeProperty("view-timeline-name")
+      anchor = next
+      css = !!anchor && namedTimelines() && pageScrollsHero(anchor)
+      if (css && anchor) anchor.style.setProperty("view-timeline-name", BAR_TIMELINE)
+      bar.toggleAttribute("data-op-topbar-css", css)
+      if (css) {
+        bar.style.removeProperty("opacity")
+        inner.style.removeProperty("transform")
+      }
+      last = -1
+    }
     /* The bar is fixed: its foot is measured once, and again when the window changes (a phone turned, a computer's window resized). */
     const measure = () => {
       barBottom = bar.getBoundingClientRect().bottom
+      /* Where the card starts on the page, so it keeps its corners at the top of the window from there (app/globals.css [data-op-card]). */
+      const card = visibleOf("[data-op-card]")
+      if (card) card.style.setProperty("--op-card-top", `${Math.max(0, Math.round(card.getBoundingClientRect().top + window.scrollY))}px`)
     }
     const write = () => {
       frame = 0
-      if (!anchor?.isConnected || anchor.getClientRects().length === 0) anchor = barAnchor()
+      if (!anchor?.isConnected || anchor.getClientRects().length === 0) pick()
       if (!anchor) return
       const p = barMorph(anchor.getBoundingClientRect().bottom, barBottom)
-      if (p !== last) {
+      if (!css && p !== last) {
         last = p
         bar.style.opacity = String(p)
         /* The picture and the name rise the last 10px into place and the picture grows to its size: transform and opacity only. */
@@ -271,7 +312,7 @@ export function HeroTopBar({
     let tries = 0
     let timer = 0
     const attach = () => {
-      anchor = barAnchor()
+      pick()
       if (!anchor && tries++ < 20) {
         timer = window.setTimeout(attach, 100)
         return
@@ -290,6 +331,7 @@ export function HeroTopBar({
       window.removeEventListener("scroll", onScroll)
       window.removeEventListener("resize", onResize)
       mq.removeEventListener("change", onResize)
+      anchor?.style.removeProperty("view-timeline-name")
     }
   }, [enabled])
 
@@ -304,6 +346,7 @@ export function HeroTopBar({
     opacity: 0,
     pointerEvents: shown ? "auto" : "none",
     ["--op-bar-ink" as string]: ink,
+    ["--op-bar-bg" as string]: background,
   }
   return (
     <div
@@ -312,10 +355,10 @@ export function HeroTopBar({
       data-op-topbar={shown ? "shown" : "hidden"}
       /*
         A phone: the full width, under the status bar, 60px, the corner buttons at its ends.
-        A computer: inside the card (550px, components/onepage/public-onepage), 12px in from its edges,
-        its corner the card's 40px less those 12, so the two curves run side by side.
+        A computer (round R3): the card's own top, its full 550px (components/onepage/public-onepage), at the top of
+        the window, where the card keeps its 40px corners as it scrolls; the corners are app/globals.css's.
       */
-      className="op-topbar fixed inset-x-0 top-0 z-[19] pt-[env(safe-area-inset-top)] transition-opacity duration-[120ms] ease-linear will-change-[opacity] motion-reduce:transition-none md:inset-x-[max(28px,calc(50%_-_263px))] md:top-3 md:rounded-[28px] md:pt-0"
+      className="op-topbar fixed inset-x-0 top-0 z-[19] pt-[var(--op-safe-top,0px)] will-change-[opacity] md:inset-x-[max(16px,calc(50%_-_275px))] md:pt-0"
       style={style}
     >
       <button
@@ -323,7 +366,7 @@ export function HeroTopBar({
         type="button"
         tabIndex={shown ? 0 : -1}
         onClick={() => window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })}
-        className="mx-auto flex max-w-[calc(100%-120px)] origin-center items-center justify-center gap-2.5 px-1 outline-none transition-transform duration-[120ms] ease-out will-change-transform focus-visible:underline motion-reduce:transition-none md:max-w-[calc(100%-32px)]"
+        className="mx-auto flex max-w-[calc(100%-120px)] origin-center items-center justify-center gap-2.5 px-1 outline-none will-change-transform focus-visible:underline md:max-w-[calc(100%-96px)]"
         style={{ height: `var(--op-bar-h, ${BAR_PHONE_PX}px)`, transform: "translate3d(0, 10px, 0) scale(0.94)" }}
         data-op-topbar-button=""
       >

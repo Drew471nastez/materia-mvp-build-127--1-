@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react"
 import type { OnePageBlock } from "./types"
 import { embedSource, musicSource } from "./creator-blocks"
+import { BLOCK_ICON_LOOKS, type BlockIconLook } from "./social-look"
 
 /** Optional, versionless JSON additions. No value means the original renderer. */
 export interface BlockPresentation {
@@ -31,6 +32,8 @@ export interface BlockPresentation {
   fade?: boolean
   /** The picture's shape on an image card. */
   aspect?: BlockAspect
+  /** Round 3: how a block draws a service's mark (lib/onepage/social-look BLOCK_ICON_LOOKS). None is "original". */
+  icon_look?: BlockIconLook
 }
 export const LINK_VARIANTS = ["original", "visual", "image-first", "featured", "compact", "profile", "tile"] as const
 export type LinkVariant = (typeof LINK_VARIANTS)[number]
@@ -75,6 +78,7 @@ export function presentationOf(block: Pick<OnePageBlock, "style"> | null | undef
     media_mode: choice(raw.media_mode, ["card", "native"]),
     background: color(raw.background), radius: number(raw.radius, 0, 40), shadow: choice(raw.shadow, BLOCK_SHADOWS),
     fade: typeof raw.fade === "boolean" ? raw.fade : undefined, aspect: choice(raw.aspect, BLOCK_ASPECTS),
+    icon_look: choice(raw.icon_look, BLOCK_ICON_LOOKS),
   }
 }
 export function presentationVars(p: BlockPresentation): CSSProperties {
@@ -124,10 +128,25 @@ export function linkLayoutHasImage(layout: LinkLayout): boolean {
   picked. Product blocks keep their own colour rows, so they get shape only.
 */
 export type LayoutControl = "align" | "title" | "description" | "icon" | "background" | "radius" | "shadow" | "padding"
-export type BlockSurface = "own" | "panel"
+export type BlockSurface = "own" | "panel" | "card"
 const OWN_SURFACE = new Set(["link_button", "product", "storelib_shelf"])
 export function blockSurface(type: string): BlockSurface {
   return OWN_SURFACE.has(type) ? "own" : "panel"
+}
+/*
+  A TIPS BLOCK DRAWS ITS OWN CARD (round 3). Its background, corners,
+  shadow and padding were a "panel" laid round the tip card, so a
+  background drew a card inside a card, and the corners, shadow and padding
+  showed nothing until a background was picked. A Storelib tips block reads
+  them itself (components/onepage/tip-block), so they land on the card and
+  are offered from the start; nothing in app/globals.css draws a panel for it.
+*/
+export function blockSurfaceOf(block: Pick<OnePageBlock, "type" | "data">): BlockSurface {
+  if (block.type === "app") {
+    const d = (block.data ?? {}) as { provider?: unknown; tip_mode?: unknown; url?: unknown }
+    if (d.provider === "tips" && (d.tip_mode === "storelib" || (d.tip_mode !== "link" && !String(d.url ?? "").trim()))) return "card"
+  }
+  return blockSurface(block.type)
 }
 export function layoutControlsFor(type: string): LayoutControl[] {
   if (!PRESENTABLE_BLOCKS.has(type)) return []

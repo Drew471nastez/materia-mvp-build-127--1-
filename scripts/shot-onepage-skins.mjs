@@ -30,7 +30,7 @@ const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 const shots = process.env.SHOTS || mkdtempSync(join(tmpdir(), "storelib-skins-"))
 mkdirSync(shots, { recursive: true })
-const THEMES = (process.env.THEMES || "aero,aqua,messenger,y2k,playful,grunge,aero2,aqua2,messenger2,y2k2,playful2,grunge2,classic98,vaporwave,arcade,renaissance").split(",")
+const THEMES = (process.env.THEMES || "aero,aqua,messenger,y2k,playful,grunge,aero2,aqua2,messenger2,y2k2,playful2,grunge2,classic98,vaporwave,arcade,renaissance,stoicism").split(",")
 const LAYOUTS = (process.env.LAYOUTS || "own,list,grid,cards,compact,masonry").split(",")
 const WIDTHS = (process.env.WIDTHS || "390,1280").split(",").map(Number)
 const FULL = process.env.FULL !== "0"
@@ -116,8 +116,13 @@ try {
         await page.evaluate(async () => {
           await document.fonts.ready
           await Promise.all([...document.images].map((i) => (i.complete ? null : new Promise((r) => { i.onload = i.onerror = r; setTimeout(r, 4000) }))))
-          window.scrollTo(0, document.body.scrollHeight)
+          /* Down the page a screen at a time, so each block's entrance runs, then every entrance finished. */
+          for (let y = 0; y < document.body.scrollHeight; y += innerHeight / 2) {
+            window.scrollTo(0, y)
+            await new Promise((r) => setTimeout(r, 90))
+          }
           await new Promise((r) => setTimeout(r, 400))
+          for (const a of document.getAnimations()) if (a.effect?.getComputedTiming().endTime !== Infinity) a.finish()
           window.scrollTo(0, 0)
           await new Promise((r) => setTimeout(r, 900))
         })

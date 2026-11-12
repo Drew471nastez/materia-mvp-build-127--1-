@@ -152,7 +152,8 @@ try {
         (e) =>
           e.getBoundingClientRect().height /
             parseFloat(getComputedStyle(e).lineHeight) <=
-          (innerWidth < 768 ? 4.05 : 2.05),
+          /* Round 61's longer heading: five lines on a phone, three on a tablet, two from 900px. */
+          (innerWidth < 768 ? 5.05 : innerWidth < 900 ? 3.05 : 2.05),
       ),
     )
     // Freeze movement for geometry/screenshots; the hero probe separately exercises autoplay and settled slide navigation.
@@ -161,6 +162,10 @@ try {
     await wait(1200)
     await p.keyboard.press("Space")
     await p.$eval(".build-showcase-track", (e) => e.blur())
+    /* Lazy pictures off screen report no size until they load; load the three measured ones first. */
+    await p.$$eval('[data-showcase-slide]:not([aria-hidden="true"]) img', (is) =>
+      Promise.all(is.slice(0, 3).map((i) => ((i.loading = "eager"), i.decode().catch(() => {})))),
+    )
     const cards = await p.$$eval(
       '[data-showcase-slide]:not([aria-hidden="true"])',
       (es) =>
@@ -170,37 +175,27 @@ try {
           w: e.getBoundingClientRect().width,
           h: e.querySelector("img").getBoundingClientRect().height,
           fit: getComputedStyle(e.querySelector("img")).objectFit,
-          backdrop: e.querySelector(".build-showcase-fill").getAttribute("src"),
-          source: e.querySelector("img").getAttribute("src"),
-          fill: getComputedStyle(e.querySelector(".build-showcase-fill"))
-            .objectFit,
-          decorative: e
-            .querySelector(".build-showcase-fill")
-            .getAttribute("aria-hidden"),
-          lazy: e.querySelector(".build-showcase-fill").getAttribute("loading"),
+          /* Round 60: the picture's own shape, so cover crops nothing; there is no second, blurred copy behind it. */
+          natural: e.querySelector("img").naturalWidth / e.querySelector("img").naturalHeight,
+          imgW: e.querySelector("img").getBoundingClientRect().width,
+          fills: e.querySelectorAll("img").length,
         })),
     )
     assert.ok(
-      cards.every((c) => c.fit === "contain"),
-      "screenshots are never cover-cropped",
+      cards.every((c) => c.fills === 1),
+      "one picture per card: no blurred copy painted behind it",
     )
     assert.ok(
-      cards.every(
-        (c) =>
-          c.fill === "cover" &&
-          c.backdrop === c.source &&
-          c.decorative === "true" &&
-          c.lazy === "lazy",
-      ),
-      "image-derived fill covers the frame behind the complete screenshot",
+      cards.every((c) => Math.abs(c.imgW / c.h - c.natural) < 0.015),
+      "each card is its picture's own shape, so the picture fills it with no bars and nothing cropped",
     )
     assert.ok(
-      Math.abs(cards[0].w / cards[0].h - 4 / 3) < 0.015,
-      "wide cards are 4:3",
+      Math.abs(cards[0].imgW / cards[0].h - 16 / 10) < 0.02,
+      "wide cards are 16:10, the screenshots' own shape",
     )
     assert.ok(
-      Math.abs(cards[1].w / cards[1].h - 9 / 16) < 0.015,
-      "OnePage cards are 9:16",
+      Math.abs(cards[1].imgW / cards[1].h - 4 / 5) < 0.02,
+      "OnePage cards are 4:5, the OnePages' own shape",
     )
     assert.ok(
       await p.$$eval('[data-format="portrait"] figcaption', (es) =>

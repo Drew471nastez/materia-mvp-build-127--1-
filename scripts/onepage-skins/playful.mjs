@@ -113,6 +113,8 @@ function material(skin, p) {
   rule(`${P} ${SOCIAL}`, `
     width: 44px; height: 44px; padding: 0; border-radius: 12px !important; color: ${p.ink} !important;
     background-color: var(--sk-fill, ${F[0]}) !important; border: 3px solid ${p.line} !important; box-shadow: 3px 3px 0 ${p.shadow};`)
+  /* Round 3: the mark on a coloured tile is the tile's ink, not the theme's icon colour (Playful Night's cream marks on its pastel tiles read 1.5:1). A brand's own colours stay. */
+  rule(`${P} ${SOCIAL} svg:not([data-tone="brand"])`, `color: ${p.ink} !important;`)
   F.slice(0, 5).forEach((fill, i) => rule(`${P} ${SOCIAL}:nth-child(5n+${i + 1})`, `--sk-fill: ${[F[3], F[4], F[1], F[5], F[2]][i]};`))
   rule(`${P} ${DIVIDER}`, `height: 12px; background: ${svg(`<path d='M0 9 L 6 3 L 12 9 L 18 3 L 24 9' fill='none' stroke='${p.doodleInk}' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/>`, "0 0 24 12")} 0 0 / 24px 12px repeat-x !important;`)
   rule(`${P} ${PICTURE}`, `border-radius: 18px !important; border: 3px solid ${p.line}; box-shadow: 4px 4px 0 ${p.shadow};`)

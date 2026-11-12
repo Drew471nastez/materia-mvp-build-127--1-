@@ -62,6 +62,23 @@ export function pageGroundIsLight(theme: { background_type?: string | null; back
   return lum.reduce((a, b) => a + b, 0) / lum.length > 0.6
 }
 
+/**
+ * BRAND COLOURS ON SOLID IS THE WHITE DISC. Each mark in its own colours (the
+ * Instagram gradient, YouTube's red, TikTok's cyan and red) on a white circle,
+ * as the owner's reference draws them. A mark that is black (X, Threads,
+ * GitHub, TikTok's note) is near black on the disc whatever the icon colour,
+ * since a white icon colour would vanish on white.
+ */
+export function socialIsBrandDisc(theme: SocialThemeLike | null | undefined): boolean {
+  return socialIconToneOf(theme) === "brand" && socialIconStyleOf(theme) === "filled"
+}
+
+/** The ink a mark is drawn in: near black on the white disc, else the icon colour. */
+export const BRAND_DISC_INK = "#111113"
+export function socialMarkColorOf(theme: SocialThemeLike | null | undefined): string {
+  return socialIsBrandDisc(theme) ? BRAND_DISC_INK : socialIconColorOf(theme)
+}
+
 /** `colour` at `percent`, whatever form it was saved in. */
 const tint = (colour: string, percent: number) => `color-mix(in srgb, ${colour} ${percent}%, transparent)`
 
@@ -71,6 +88,8 @@ const tint = (colour: string, percent: number) => `color-mix(in srgb, ${colour} 
  *   Solid    a 12.5% tint of the icon colour (what `${colour}20` drew when it drew at all)
  *   Outline  a 2px ring of the icon colour at 25% (`${colour}40`)
  *   Glass    frosted: white over the page, blurred, with a hairline ring
+ *   Solid in brand colours: the white disc (socialIsBrandDisc), a hairline and
+ *            a soft shadow on a light page so white still reads on white
  */
 export function socialTileStyle(theme: SocialThemeLike | null | undefined, { onLight, size }: { onLight: boolean; size?: number }): CSSProperties {
   const style = socialIconStyleOf(theme)
@@ -82,6 +101,15 @@ export function socialTileStyle(theme: SocialThemeLike | null | undefined, { onL
     color: colour,
     boxShadow: "none",
   }
+  if (style === "filled" && socialIconToneOf(theme) === "brand")
+    return {
+      ...base,
+      color: BRAND_DISC_INK,
+      backgroundColor: "#ffffff",
+      borderWidth: 0,
+      borderColor: "transparent",
+      boxShadow: onLight ? "0 0 0 1px rgba(17, 17, 19, 0.08), 0 1px 3px rgba(17, 17, 19, 0.08)" : "0 1px 3px rgba(0, 0, 0, 0.18)",
+    }
   if (style === "outline") return { ...base, backgroundColor: "transparent", borderWidth: 2, borderColor: tint(colour, 25) }
   if (style === "minimal")
     return {
@@ -94,4 +122,52 @@ export function socialTileStyle(theme: SocialThemeLike | null | undefined, { onL
       boxShadow: onLight ? "0 1px 2px rgba(17, 17, 19, 0.06)" : "none",
     }
   return { ...base, backgroundColor: tint(colour, 12.5), borderWidth: 0, borderColor: "transparent" }
+}
+
+/* ─── A block's brand mark (round 3) ──────────────────────────────────── */
+
+/**
+ * THE SAME CHOICE FOR A BLOCK'S MARK. The owner: "the Instagram block shows
+ * only the purple pink icon; let the creator choose the block's icon style".
+ * Saved per block as style.presentation.icon_look (lib/onepage/block-
+ * presentation), and drawn by components/onepage/block-mark wherever a block
+ * shows a service's mark: the app blocks (Instagram, TikTok, YouTube...), a
+ * link with a brand icon, and the followers block.
+ *
+ *   original  the block's own drawing: the app's coloured tile, a link's mark
+ *             in the button's words, as before this choice existed
+ *   solid     the social row's Solid: a 12.5% tint behind a one colour mark
+ *   outline   the social row's Outline: a ring at 25% round a one colour mark
+ *   glass     the social row's Glass: frosted, the mark in its own colours
+ *
+ * One colour is the colour of the words where the mark sits (currentColor),
+ * so a mark inside a dark button is the button's words and one on the page
+ * is the page's, with nothing to pick twice.
+ */
+export const BLOCK_ICON_LOOKS = ["original", "solid", "outline", "glass"] as const
+export type BlockIconLook = (typeof BLOCK_ICON_LOOKS)[number]
+
+export function blockIconLookOf(value: unknown): BlockIconLook {
+  return (BLOCK_ICON_LOOKS as readonly unknown[]).includes(value) ? (value as BlockIconLook) : "original"
+}
+
+/** The tile, and the mark's tone, for a chosen look other than Original. */
+export function blockMarkLook(look: Exclude<BlockIconLook, "original">, size?: number): { tile: CSSProperties; tone: SocialIconTone } {
+  const colour = "currentColor"
+  const base: CSSProperties = { ...(size ? { width: size, height: size } : {}), borderRadius: 999, borderStyle: "solid", boxShadow: "none" }
+  if (look === "outline") return { tone: "mono", tile: { ...base, backgroundColor: "transparent", borderWidth: 2, borderColor: tint(colour, 25) } }
+  if (look === "glass")
+    return {
+      tone: "brand",
+      tile: {
+        ...base,
+        backgroundColor: tint(colour, 8),
+        borderWidth: 1,
+        borderColor: tint(colour, 16),
+        backdropFilter: "blur(12px) saturate(1.4)",
+        WebkitBackdropFilter: "blur(12px) saturate(1.4)",
+        boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.22)",
+      },
+    }
+  return { tone: "mono", tile: { ...base, backgroundColor: tint(colour, 12.5), borderWidth: 0, borderColor: "transparent" } }
 }

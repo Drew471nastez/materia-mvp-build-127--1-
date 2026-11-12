@@ -39,7 +39,8 @@ check("the cover sits under the profile image layout in Header", design.indexOf(
 section("The pattern keeps out from behind the header")
 check("the phone page and the computer's card both clear the header", (page.match(/<WallpaperPattern theme=\{safeTheme\}[^>]*clearHeader \/>/g) ?? []).length === 2)
 check("each measures once, with one hook", /useHeaderClearance\(cardRef,/.test(page) && /useHeaderClearance\(phonePageRef,/.test(page))
-check("the social row is marked for it", /data-op-social-row=""/.test(page))
+/* Changed on purpose (round 3, social): the row is the sliding row now, which carries the mark (tests/onepage-social-r3). */
+check("the social row is marked for it", /<SocialRowScroller/.test(page) && /data-op-social-row=""/.test(read("components/onepage/social-row-scroller.tsx")))
 check("measured by layout, not as drawn during the arrival rise", /function layoutTop\(/.test(layers) && /offsetTop/.test(layers))
 
 section("The gradient drifts on the compositor")
@@ -55,7 +56,8 @@ section("The avatar opens, as on the creator pages")
 check("the creator pages' viewer, around the page's photo", /<AvatarLightbox src=\{hasVideo \? null : onePageImageSrc\(profile\.avatar_url, 640\)\}/.test(page))
 
 section("Design: the way back stays in reach")
-check("a sticky slot at the top of an open panel", /<StickyPanelBack panelRef=\{panelRef\}/.test(design) && /className="sticky top-0 z-20 h-0"/.test(design))
+/* Changed on purpose (round AT): the sticky box is the bar's own 56px, given back with a -56px margin, its own layer for good. */
+check("a sticky slot at the top of an open panel", /<StickyPanelBack panelRef=\{panelRef\}/.test(design) && /className="pointer-events-none sticky top-0 z-20 -mb-14 h-14 will-change-transform"/.test(design))
 check("shown by an IntersectionObserver on the panel's header, not a scroll listener", /new IntersectionObserver\(/.test(design) && /io\.observe\(header\)/.test(design))
 check("a Classic theme keeps a creator's Hero", /currentHeaderLayout !== "hero"/.test(design) && !/Update to Classic"\)\}\s*<\/button>[\s\S]{0,400}function WallpaperSection/.test(design))
 

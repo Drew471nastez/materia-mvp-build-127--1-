@@ -121,13 +121,17 @@ export function heroScrollEffect(headerLayout: string | null | undefined, heroDr
 
 /* ── The profile bar and the corner buttons (round AS) ─────────────────────── */
 
-/** The bar's height below the safe area: on a phone, and on a computer, where it floats inside the card. */
+/** The bar's height below the safe area: on a phone, and on a computer, where it is the top of the card. */
 export const BAR_PHONE_PX = 60
 export const BAR_DESKTOP_PX = 56
-/** On a computer the bar floats this far inside the card's edges, its corner concentric with the card's 40px. */
-export const BAR_DESKTOP_INSET_PX = 12
-/** How far the name travels while the bar forms over it. */
-export const BAR_MORPH_PX = 64
+/**
+ * Round R3: on a computer the bar is the card's own top, edge to edge (the
+ * card's 550px, its 40px corners), not a pill floating inside it.
+ */
+export const CARD_PX = 550
+export const CARD_RADIUS_PX = 40
+/** How far the name travels while the bar forms over it (80px, round R3: it was 64, and a flick crossed it in two frames). */
+export const BAR_MORPH_PX = 80
 
 /**
  * How far the bar has formed, 0 to 1, for the profile's name (its foot,

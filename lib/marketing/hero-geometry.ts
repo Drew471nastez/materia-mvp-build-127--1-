@@ -24,13 +24,13 @@ export function freezeHeroGeometry(hero: HTMLElement | null) {
     const css = getComputedStyle(hero)
     const bottom = css.getPropertyValue("--home-env-bottom").trim() || "0px"
     const top = Math.max(
-      11.3,
+      10.65, // round 61: the phone header's top rail, 2% off the bar (app/globals.css)
       parseFloat(css.getPropertyValue("--home-env-top")) || 0,
     )
     root.style.setProperty("--hero-stable-safe-bottom", bottom)
     if (width < 768 && !root.classList.contains("capacitor")) {
       root.style.setProperty("--hero-stable-row-top", `${top}px`)
-      root.style.setProperty("--hero-stable-header-height", `${top + 53.3}px`)
+      root.style.setProperty("--hero-stable-header-height", `${top + 52.65}px`)
     }
   }
   hero.dataset.geometryWidth = String(width)

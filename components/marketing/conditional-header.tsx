@@ -20,7 +20,7 @@ function HeaderPlaceholder({ buyerHeaderLight = false, concave = false }: { buye
   // so the page moved when the real header replaced it. The phone row is now
   // 11.3 + 42 + 10.3 + 1 = 64.6px, and the safe-area form is the same sum
   // with the inset in place of the 11.3px floor.
-  // mobile:  max(64.6px, safe-area + 53.3px)
+  // mobile:  max(63.3px, safe-area + 52.65px) (round 61: 10.65 + 42 + 9.65 + 1)
   // desktop: a 70.75px row (border-box, padding included) + 1px measured
   return (
     <>
@@ -28,7 +28,7 @@ function HeaderPlaceholder({ buyerHeaderLight = false, concave = false }: { buye
       id="platform-header-root"
       data-header-tone={buyerHeaderLight ? "light" : "dark"}
       className={buyerHeaderLight ? "sticky top-0 z-40 w-full bg-white" : "sticky top-0 z-40 w-full bg-[#16161a]"}
-      style={{ minHeight: 'max(64.6px, calc(env(safe-area-inset-top, 0px) + 53.3px))' }}
+      style={{ minHeight: 'max(63.3px, calc(env(safe-area-inset-top, 0px) + 52.65px))' }}
       aria-hidden
     >
       {/* The band under the clock in this bar's colour, as the bar it stands in for says (platform-header-client). */}

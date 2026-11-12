@@ -63,8 +63,9 @@ const NAMES: Record<string, () => string> = {
   vaporwave: () => ttx("theme", "Vaporwave"),
   arcade: () => ttx("theme", "Arcade"),
   renaissance: () => ttx("theme", "Renaissance"),
-  /* Round AS (components/onepage/themes/r40-themes AS_THEMES). */
-  plaster: () => ttx("theme", "Plaster"),
+  /* Round AT: Plaster is Stoicism now (a page saved on "plaster" is moved to it, lib/onepage/retired-themes), and Dune. */
+  stoicism: () => ttx("theme", "Stoicism"),
+  dune: () => ttx("theme", "Dune"),
 }
 
 /** A theme's name in the reader's language. */

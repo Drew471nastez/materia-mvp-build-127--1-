@@ -36,6 +36,7 @@ import { classic98 } from "./onepage-skins/classic98.mjs"
 import { vaporwave } from "./onepage-skins/vaporwave.mjs"
 import { arcade } from "./onepage-skins/arcade.mjs"
 import { renaissance } from "./onepage-skins/renaissance.mjs"
+import { stoicism } from "./onepage-skins/stoicism.mjs"
 
 const OUT = join(process.cwd(), "components/onepage/themes/theme-skins.css")
 
@@ -55,6 +56,7 @@ classic98()
 vaporwave()
 arcade()
 renaissance()
+stoicism()
 
 /* ── All: hover words, motion, theme cards ──────────────────────────── */
 

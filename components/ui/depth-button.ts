@@ -88,6 +88,14 @@ export const accentDepth = cn(
   "[-webkit-tap-highlight-color:transparent]",
 )
 
+/**
+ * accentDepth with no pressed state: :active keeps the resting colour and
+ * light. For a button a scroll can start on (+ Add in the OnePage editor),
+ * where the browser sets :active as the finger lands and the tint reads as
+ * a fade; that button draws its own press from data-pressed instead.
+ */
+export const accentNoActive = "active:bg-[#8b5cf6] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.18),0_1px_1px_rgba(76,29,149,0.25)]"
+
 /** Red, for the one action that throws work away. The same light and shade as the primary. */
 export const criticalDepth = cn(
   "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap bg-[#c4290c] font-semibold text-white outline-none",

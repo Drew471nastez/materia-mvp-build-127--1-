@@ -36,6 +36,8 @@ import { useLocale } from "@/components/locale-provider"
 import "@/lib/i18n/locale-words-shell"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { headerAuthBack } from "@/lib/auth/return-to"
+import { SELL_INTENT, withCarry } from "@/lib/auth/continue"
+import { warmAuthPhoto } from "@/components/auth/auth-photo"
 import { hasStoredSessionToken, signedOutForSure, storedSessionKey } from "@/lib/auth/session-read"
 import { hasSellerAccess, sellerAccessFrom, type SellerState } from "@/lib/account/seller-access"
 import { useShellAvatar } from "@/lib/account/avatar-store"
@@ -182,17 +184,48 @@ function MobileBottomSheet({
   it is drawn. Latest pass: ~5% under 41.8 / 39.9 / 36.1. Footers and sign-in
   keep their sizes.
 */
-export const HEADER_LOGO = { desktop: 39.71, marketingPhone: 37.91, phone: 34.3 } as const
+/* Round 60, the owner: "reduce the size of the Storelib logo next to the Storelib text a little bit,
+   extremely just a little bit". About 5% off each, and the wordmark beside it is left as it is. */
+export const HEADER_LOGO = { desktop: 37.72, marketingPhone: 36.01, phone: 32.59 } as const
+
+/**
+ * HOME, PRESSED ON THE HOME PAGE, GOES TO ITS TOP. It used to reload the
+ * page (window.location.href = "/"), which threw the reader back to a blank
+ * screen and a fresh hero to read the page they were already on. Now it is
+ * the browser's own smooth scroll, which runs on the compositor in Chrome and
+ * Safari rather than in a JavaScript loop, so it stays smooth while the page
+ * is still drawing, stops the moment the reader scrolls themselves, and
+ * becomes an instant jump for anybody who asked for less motion. A press with
+ * a modifier (a new tab, a new window) is left to the link.
+ */
+export function scrollHomeToTop(e: React.MouseEvent<HTMLElement>, targetPath: string, pathname: string | null): boolean {
+  if (targetPath !== "/" || pathname !== "/") return false
+  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return false
+  e.preventDefault()
+  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  window.scrollTo({ top: 0, left: 0, behavior: still ? "auto" : "smooth" })
+  return true
+}
 
 /** A focus ring that reads on the black bar. */
 const DARK_FOCUS =
   "outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113]"
 
 /** Where a header link goes, and the click that gets it there (canonical host, native shell). */
-export type HeaderLink = (path: string) => { href: string; onClick: (e: React.MouseEvent<HTMLElement>) => void; prefetch?: false }
+export type HeaderLink = (path: string) => { href: string; onClick: (e: React.MouseEvent<HTMLElement>) => void; prefetch?: false; onPointerEnter?: () => void }
 
 /* Log in and Sign up are read when pressed, not on sight: on a stranger's Explore every copy of each asked the server for its page, five Sign ups at once (round 54, scripts/check-cdn-r54.mjs). */
 const READ_ON_PRESS = /^\/(?:login|signup)(?:[/?#]|$)/
+
+/*
+  SELL ON STORELIB, FOR SOMEBODY SIGNED OUT, GOES STRAIGHT TO SIGN UP (round 3).
+  /sell sends a stranger to exactly this address (lib/auth/continue.ts
+  sellDecision), but only after a server round trip of its own that showed
+  /sell's spinner first: a white screen between the press and the form. The
+  buttons that carry it are only drawn for somebody the header knows is
+  signed out; a session it missed is sent on by the sign up page anyway.
+*/
+const GUEST_SELL = withCarry("/signup", { intent: SELL_INTENT })
 
 /*
   ═══════════════════════════════════════════════════════════════════════════
@@ -231,7 +264,7 @@ function GuestHeaderActions({
       <span aria-hidden data-guest-divider="" className={cn("ml-1 h-6 w-px", chrome.guestDivider)} />
       {/* "Sell" alone on a tablet, where the bar has no room for three words; the name stays whole for a screen reader. */}
       <Link
-        {...link("/sell")}
+        {...link(GUEST_SELL)}
         data-guest-sell=""
         aria-label="Sell on Storelib"
         className={cn("ml-5 whitespace-nowrap rounded-md px-2 py-2 text-[15px] font-medium transition-colors", chrome.guestSell, chrome.focus)}
@@ -811,7 +844,7 @@ function GuestSheetActions({ second, link, onDone }: { second: "discover" | "log
           Log in
         </Link>
       )}
-      <Link {...go("/sell")} data-menu-sell="" className={cn(SHEET_BUTTON, "h-11 font-medium text-violet-600 active:bg-violet-50")}>
+      <Link {...go(GUEST_SELL)} data-menu-sell="" className={cn(SHEET_BUTTON, "h-11 font-medium text-violet-600 active:bg-violet-50")}>
         Sell on Storelib
       </Link>
     </div>
@@ -2061,6 +2094,7 @@ export function PlatformHeaderClient({
 
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
+      if (scrollHomeToTop(e, targetPath, pathname)) return
       if (targetPath !== pathname) startNavigationLoading()
       // When on a seller subdomain (e.g. sellername.storelib.com), ALL navigation
       // to non-seller routes (/library, /app, /explore, /signup, etc.) MUST use
@@ -2104,7 +2138,7 @@ export function PlatformHeaderClient({
 
   /* The href and the click for one path, in the form the buttons above take. */
   const headerLink: HeaderLink = useCallback(
-    (path: string) => ({ href: getCanonicalOrRelativePath(path), onClick: (e: React.MouseEvent<HTMLElement>) => onCanonicalNav(e, path), ...(READ_ON_PRESS.test(path) ? { prefetch: false as const } : {}) }),
+    (path: string) => ({ href: getCanonicalOrRelativePath(path), onClick: (e: React.MouseEvent<HTMLElement>) => onCanonicalNav(e, path), ...(READ_ON_PRESS.test(path) ? { prefetch: false as const, onPointerEnter: () => warmAuthPhoto(path) } : {}) }),
     [getCanonicalOrRelativePath, onCanonicalNav],
   )
   /*
@@ -2236,7 +2270,8 @@ export function PlatformHeaderClient({
             drawn the band is its colour, from the server's HTML on. */}
         {buyerHeaderLight ? null : <style>{`:root{--native-band:${BUYER_HEADER_DARK_BG}}`}</style>}
     <header className={cn(chrome.header, !(isNativePlatform() && isSellerOrProductPage) && chrome.headerBorder)}>
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+      {/* data-landing-width: on the home page the row takes the showcase's own width (app/globals.css, --landing-*). */}
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8" data-landing-width={pathname === "/" ? "" : undefined}>
         <div
           /*
             THREE PERCENT OFF, MEASURED ON THE DEPLOYED PAGE RATHER THAN
@@ -2252,6 +2287,7 @@ export function PlatformHeaderClient({
                 74.5px   3.2% off
                 70.75px  another 5% off that
                 69.35px  and a further 2%
+                67.96px  and 2% more (round 61)
 
             and the measured root is one pixel more than whichever of those
             the row is set to. The padding is left alone on purpose — it holds
@@ -2260,7 +2296,7 @@ export function PlatformHeaderClient({
           */
           /* pb-[10.3px]: the phone half of the 5% cut, the other half being the
              padding-top in .platform-header-row. The md rails are untouched. */
-          className="platform-header-row flex md:h-[69.35px] items-center justify-between gap-4 pb-[10.3px] md:pb-[3px]"
+          className="platform-header-row flex md:h-[67.96px] items-center justify-between gap-4 pb-[9.65px] md:pb-[3px]"
         >
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
           {isMarketingNavRoute ? (
@@ -2268,7 +2304,7 @@ export function PlatformHeaderClient({
               {/* Homepage Desktop Header */}
               <div className="hidden md:flex items-center justify-between w-full">
                 {/* Left - Logo - refreshes main page */}
-                <Link href="/" onClick={(e) => { e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-2">
+                <Link href="/" onClick={(e) => { if (scrollHomeToTop(e, "/", pathname)) return; e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-2">
                   <StorelibLogo size={HEADER_LOGO.desktop} priority />
                   <span className={chrome.wordmark}>Storelib</span>
                 </Link>
@@ -2360,7 +2396,7 @@ export function PlatformHeaderClient({
               <div className="md:hidden flex min-h-[42px] items-center justify-between w-full">
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
-                  <Link href="/" onClick={(e) => { e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-1.5">
+                  <Link href="/" onClick={(e) => { if (scrollHomeToTop(e, "/", pathname)) return; e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-1.5">
                     <StorelibLogo size={HEADER_LOGO.marketingPhone} priority />
                     <span className={chrome.wordmarkPhone}>Storelib</span>
                   </Link>

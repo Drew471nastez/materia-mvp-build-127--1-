@@ -1540,6 +1540,13 @@ const words: Record<string, string> = {
  "Brand Strategy": "Strategia marki",
  "Brand and tags": "Marka i tagi",
  "Brand colours": "Kolory marek",
+ "Share to Instagram Story": "Udostępnij w relacji na Instagramie",
+ "Image saved and link copied. In your story, add a Link sticker and paste it.": "Obraz zapisany, link skopiowany. W relacji dodaj naklejkę z linkiem i wklej go.",
+ "Use my Instagram photo": "Użyj mojego zdjęcia z Instagrama",
+ "Getting your photo": "Pobieranie zdjęcia",
+ "Instagram didn't share this profile's picture. Upload one instead.": "Instagram nie udostępnił zdjęcia tego profilu. Prześlij własne.",
+ "Instagram didn't answer. Try again or upload a picture.": "Instagram nie odpowiedział. Spróbuj ponownie lub prześlij zdjęcie.",
+ "Add your latest posts ({value})": "Dodaj najnowsze posty ({value})",
  "Brand name": "Nazwa marki",
  "Brand or maker": "Marka lub producent",
  "Branding": "Branding",
@@ -12429,7 +12436,12 @@ const words: Record<string, string> = {
  "theme::Olive": "Oliwka",
  "theme::Paper": "Papier",
  "theme::Peach": "Brzoskwinia",
- "theme::Plaster": "Gips",
+ "theme::Stoicism": "Stoicyzm",
+ "theme::Dune": "Wydma",
+ "Latest video": "Najnowszy film",
+ "Starter guide": "Przewodnik na start",
+ "One to one session": "Sesja indywidualna",
+ "New work and news, now and then.": "Nowe prace i wieści, od czasu do czasu.",
  "theme::Playful": "Zabawny",
  "theme::Playful Night": "Playful Noc",
  "theme::Renaissance": "Renesans",
@@ -13372,7 +13384,13 @@ const words: Record<string, string> = {
  "Your number": "Twój numer",
  "a haircut": "strzyżenie",
  "the linen shirt": "lnianą koszulę",
- "{name} username or link": "Nazwa użytkownika lub link {name}"
+ "{name} username or link": "Nazwa użytkownika lub link {name}",
+ "This font has one weight": "Ta czcionka ma jedną grubość",
+ "Pills": "Pigułki",
+ "Big amount": "Duża kwota",
+ "Below": "Pod spodem",
+ "On the picture": "Na zdjęciu",
+ "Title, caption and a button on a fade at the bottom of each picture.": "Tytuł, podpis i przycisk na przejściu u dołu każdego zdjęcia."
 }
 
 export default words

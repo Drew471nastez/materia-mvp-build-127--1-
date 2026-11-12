@@ -63,8 +63,13 @@ function createHeadingMotion() {
         node.style.setProperty("--story-progress", progress)
         entry.progress = progress
       }
-      if (section && entry.reveal !== reveal) {
-        section.style.setProperty("--showcase-reveal", reveal)
+      /*
+        On the gallery itself, the only thing that reads it. Set on the whole
+        section it was inherited by every card, picture and caption in it, so
+        each scroll frame restyled all of them to fade one box.
+      */
+      if (section && entry.gallery && entry.reveal !== reveal) {
+        ;(entry.gallery as HTMLElement).style.setProperty("--showcase-reveal", reveal)
         entry.reveal = reveal
       }
     }
@@ -115,7 +120,8 @@ function createHeadingMotion() {
         : null
       details.set(node, {
         section,
-        gallery: section?.querySelector(".build-showcase-viewport") || null,
+        /* Round 61: the gallery fades in once on entry (build-showcase.tsx); nothing reads a scroll-linked reveal any more. */
+        gallery: null,
         progress: "",
         reveal: "",
       })
@@ -148,11 +154,11 @@ let headingMotion: ReturnType<typeof createHeadingMotion> | undefined
  * same progress, from the same positions, with no script on each frame. The
  * rise then runs on the compositor; set from script, a transform that changes
  * every frame of a scroll made Chromium re-layer the whole page each frame
- * (5 to 15 ms at 4x CPU). The script keeps the showcase heading (it also
- * reveals the gallery under it), browsers without scroll-driven animations,
- * and a heading inside a box that clips by scrolling (overflow: hidden or
- * auto), whose view timeline would follow that box instead of the page;
- * those are marked data-story-js, which the stylesheet leaves alone.
+ * (5 to 15 ms at 4x CPU). The script keeps browsers without scroll-driven
+ * animations and a heading inside a box that clips by scrolling (overflow:
+ * hidden or auto), whose view timeline would follow that box instead of the
+ * page; those are marked data-story-js, which the stylesheet leaves alone.
+ * The showcase heading has neither: it stands still, fully inked.
  */
 function inkedByCss(node: HTMLElement) {
   if (node.hasAttribute("data-story-showcase")) return false
@@ -185,11 +191,12 @@ export function StoryHeading({
   const ref = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     const node = ref.current
-    if (!node || inkedByCss(node)) return
+    /* Round 61: the showcase heading stands still and fully inked; it does no scroll work at all. */
+    if (!node || showcase || inkedByCss(node)) return
     node.setAttribute("data-story-js", "")
     headingMotion ??= createHeadingMotion()
     return headingMotion.add(node)
-  }, [])
+  }, [showcase])
   const words = text.trim().split(/\s+/)
   return (
     <Tag
@@ -199,6 +206,7 @@ export function StoryHeading({
       data-story-heading=""
       data-story-showcase={showcase || undefined}
       data-story-dark={dark || undefined}
+      style={showcase ? ({ "--story-progress": 1, transform: "none" } as CSSProperties) : undefined}
       aria-label={text}
     >
       <span aria-hidden="true">
@@ -222,9 +230,6 @@ export function StoryHeading({
               {word}
             </span>
             {i < words.length - 1 ? " " : ""}
-            {showcase && i === 5 ? (
-              <br className="showcase-heading-break" />
-            ) : null}
           </span>
         ))}
       </span>

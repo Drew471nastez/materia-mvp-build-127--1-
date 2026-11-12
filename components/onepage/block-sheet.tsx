@@ -107,6 +107,38 @@ export const PageThemeContext = createContext<ButtonThemeLike | null>(null)
  */
 const KEEP_SHEETS = 3
 
+/*
+ * THE SHEET'S WEIGHTS OF THE PAGE'S TYPEFACE, READ BEFORE THE TAP (round R3).
+ * A theme's family comes one file per weight (lib/onepage/fonts), each asked
+ * for only when something first draws in it. A page in its regular weight
+ * opened its first sheet with the title (500) and the button (600) in a
+ * fallback face, swapped a moment later: the owner's sheet content "popping
+ * in". The weights a sheet draws in are read while the page is idle, so the
+ * first sheet is drawn in its own face on its first frame
+ * (scripts/check-onepage-sheet-first-frame.mjs ?plain).
+ */
+const SHEET_WEIGHTS = [400, 500, 600, 700] as const
+export function warmSheetFaces(): void {
+  try {
+    if (typeof document === "undefined" || !document.fonts?.load) return
+    const root = getComputedStyle(document.documentElement)
+    const stacks = new Set([root.getPropertyValue("--opk-font"), root.getPropertyValue("--opk-title-font")].map((v) => v.trim()).filter(Boolean))
+    for (const stack of stacks) for (const weight of SHEET_WEIGHTS) void document.fonts.load(`${weight} 16px ${stack}`).catch(() => {})
+  } catch {
+    /* a stack the browser cannot read: the sheet draws in what it has */
+  }
+}
+
+function whenIdle(run: () => void): () => void {
+  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (h: number) => void }
+  if (w.requestIdleCallback) {
+    const h = w.requestIdleCallback(run, { timeout: 1200 })
+    return () => w.cancelIdleCallback?.(h)
+  }
+  const t = window.setTimeout(run, 300)
+  return () => window.clearTimeout(t)
+}
+
 type SheetState = "open" | "closing" | "kept"
 type Shown = { request: BlockSheetRequest; key: number; state: SheetState; session: number; used: number }
 
@@ -123,6 +155,8 @@ export function BlockSheetProvider({
 }) {
   const [sheets, setSheets] = useState<Shown[]>([])
   const count = useRef(0)
+  /* The weights the sheet draws in, once the page is idle (THE SHEET'S WEIGHTS above). */
+  useEffect(() => whenIdle(warmSheetFaces), [])
   const api = useMemo<BlockSheetApi>(() => {
     const trim = (list: Shown[]) => {
       const kept = list.filter((x) => x.state === "kept").sort((a, b) => b.used - a.used)
@@ -909,7 +943,7 @@ const BlockSheetView = memo(function BlockSheetView({
         className={cn(
           "relative mx-2 flex w-full origin-bottom flex-col overflow-hidden rounded-t-[24px] bg-[var(--sheet-bg)] text-[var(--sheet-body)] shadow-[0_-8px_40px_rgba(0,0,0,0.18)] outline-none will-change-[translate,scale,opacity]",
           "sm:mx-0 sm:origin-center sm:rounded-[24px] sm:shadow-[0_24px_64px_rgba(0,0,0,0.24),0_2px_8px_rgba(0,0,0,0.08)]",
-          fill ? "h-[calc(100dvh-env(safe-area-inset-top)-16px)] sm:h-[min(760px,calc(100dvh-64px))] sm:max-w-[520px]" : "max-h-[calc(100dvh-env(safe-area-inset-top)-16px)] sm:max-h-[min(760px,calc(100dvh-64px))] sm:max-w-[480px]",
+          fill ? "h-[calc(100dvh-var(--op-safe-top,0px)-16px)] sm:h-[min(760px,calc(100dvh-64px))] sm:max-w-[520px]" : "max-h-[calc(100dvh-var(--op-safe-top,0px)-16px)] sm:max-h-[min(760px,calc(100dvh-64px))] sm:max-w-[480px]",
           /*
             ON THE KEYBOARD ON A PHONE (round AN, a form in the sheet). The
             panel stays at the foot of the screen and its content is pushed
@@ -922,8 +956,8 @@ const BlockSheetView = memo(function BlockSheetView({
           */
           "max-sm:pb-[var(--kb-inset,0px)] max-sm:transition-[padding-bottom,max-height,height] max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
           fill
-            ? "max-sm:h-[calc(min(100dvh_-_env(safe-area-inset-top)_-_16px,var(--vv-h,100dvh)_-_24px)_+_var(--kb-inset,0px))]"
-            : "max-sm:max-h-[calc(min(100dvh_-_env(safe-area-inset-top)_-_16px,var(--vv-h,100dvh)_-_24px)_+_var(--kb-inset,0px))]",
+            ? "max-sm:h-[calc(min(100dvh_-_var(--op-safe-top,0px)_-_16px,var(--vv-h,100dvh)_-_24px)_+_var(--kb-inset,0px))]"
+            : "max-sm:max-h-[calc(min(100dvh_-_var(--op-safe-top,0px)_-_16px,var(--vv-h,100dvh)_-_24px)_+_var(--kb-inset,0px))]",
         )}
       >
         <span tabIndex={0} data-focus-guard="" aria-hidden onFocus={guard("last")} className="sr-only" />

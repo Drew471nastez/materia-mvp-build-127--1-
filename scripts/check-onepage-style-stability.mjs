@@ -31,27 +31,43 @@
  *             same way, Glass a frosted tile, One colour one colour.
  *   motion    with a block animation chosen, the block runs it; with
  *             reduced motion it stands still.
+ *   contrast  (round 3) every button, chip, radio, product button, social
+ *             icon and sheet button, at rest (selected and disabled among
+ *             them), hovered, focused and held down: its words read on what
+ *             is painted under them, 4.5:1 (3:1 large words and icon marks),
+ *             from pixels (scripts/onepage-button-contrast.mjs).
  *
  *   node scripts/check-onepage-style-stability.mjs
  *   THEMES=a,b   only these        QUICK=1   live page only, no switch pass
- *   ONLY=load,hover,switch,overlap,icons,motion
+ *   ONLY=load,hover,switch,overlap,icons,motion,contrast
+ *   STYLES=filled,soft,outline,glass  the contrast pass per button style      WIDTH=1280  at a computer's width
+ *   SHOW=n      how many problems to print     CONTRAST_JSON=<file>  every contrast failure, as JSON
  */
 import { existsSync, readFileSync } from "node:fs"
 import puppeteer from "puppeteer-core"
 import { serveEditorProbe } from "./onepage-probe-server.mjs"
+import { contrastPass } from "./onepage-button-contrast.mjs"
 
 const CHROMIUM = process.env.CHROMIUM || ["/opt/pw-browsers/chromium-1243/chrome-linux64/chrome", "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", "/opt/pw-browsers/chromium"].find((p) => existsSync(p))
 const QUICK = process.env.QUICK === "1"
-const ONLY = new Set((process.env.ONLY || "load,hover,switch,overlap,icons,motion").split(","))
+const ONLY = new Set((process.env.ONLY || "load,hover,switch,overlap,icons,motion,contrast").split(","))
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const OBSERVE = readFileSync(new URL("./onepage-style-observe.js", import.meta.url), "utf8")
 
 const problems = []
-const counts = { pages: 0, boxes: 0, loadChanges: 0, hovered: 0, hoverBad: 0, hoverUnreadable: 0, switchBad: 0, overlaps: 0, iconBad: 0, motionBad: 0, entranceFlashes: 0 }
+const counts = { pages: 0, boxes: 0, loadChanges: 0, hovered: 0, hoverBad: 0, hoverUnreadable: 0, switchBad: 0, overlaps: 0, iconBad: 0, motionBad: 0, entranceFlashes: 0, contrastButtons: 0, contrastReadings: 0, contrastBad: 0 }
+const contrastByState = {}
+const contrastAll = []
 const fail = (where, what) => problems.push(`${where}: ${what}`)
 
 const { base, server } = await serveEditorProbe({ entry: "scripts/render-onepage-style-stability.tsx" })
-const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--disable-gpu", "--font-render-hinting=none"] })
+/*
+  A mouse, as far as CSS can tell. Headless Chromium reports no hover and no fine pointer, so every rule under
+  @media (hover: hover) and (pointer: fine) (every button's hover, app/globals.css .op-btn) never applied, and the
+  hover pass read buttons at rest under the pointer. These settings make it the desktop browser the rules are for.
+*/
+const MOUSE = "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4"
+const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--disable-gpu", "--font-render-hinting=none", MOUSE] })
 
 async function open(path, { width = 390, height = 900, reduced = false } = {}) {
   const page = await browser.newPage()
@@ -84,6 +100,11 @@ const themeIds = await (async () => {
   return only ? ids.filter((id) => only.includes(id)) : ids
 })()
 console.log(`\n${themeIds.length} themes\n`)
+{
+  const { page } = await open("/app?live")
+  if (!(await page.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches))) fail("setup", "the browser reports no mouse: hover rules would never apply")
+  await page.close()
+}
 
 /* Rest → hover → rest, read every frame: does it move once, on one line, and come back? */
 const HOVER_READ = () => {
@@ -238,7 +259,35 @@ async function loadPass(path, editor, where, extra = {}) {
   return { page, frame }
 }
 
-for (const id of themeIds) {
+/* STYLES=filled,soft,...: the contrast pass again with each button style a creator can pick over every theme; WIDTH=1280 at a computer's width. */
+const STYLES = process.env.STYLES ? process.env.STYLES.split(",") : [null]
+const CONTRAST_WIDTH = Number(process.env.WIDTH || 390)
+for (const [id, style] of ONLY.has("contrast") ? themeIds.flatMap((t) => STYLES.map((st) => [t, st])) : []) {
+  /* A page's renderer that goes down (memory shared with other probes) is opened again once; twice is a failure. */
+  let r = null
+  for (let attempt = 0; attempt < 2 && !r; attempt++) {
+    try {
+      r = await contrastPass(open, id, { style, width: CONTRAST_WIDTH, sheets: !style })
+    } catch (e) {
+      if (attempt) fail(`${id} contrast`, `the pass could not read the page: ${String(e.message || e).slice(0, 160)}`)
+      for (const p of await browser.pages()) if (p.url() !== "about:blank") await p.close().catch(() => {})
+    }
+  }
+  if (!r) continue
+  counts.contrastButtons += r.buttons
+  counts.contrastReadings += r.readings
+  counts.contrastBad += r.failures.length
+  for (const f of r.failures) {
+    contrastByState[f.state] = (contrastByState[f.state] || 0) + 1
+    contrastAll.push({ theme: id, where: f.where, state: f.state, block: f.block, kind: f.kind, text: f.text, ratio: f.ratio, min: f.min, color: f.color, ground: f.ground })
+    fail(`${f.where} ${f.state}`, `${f.block || "page"} ${f.kind} "${f.text}" reads at ${f.ratio}:1 (needs ${f.min}) on ${f.ground}`)
+  }
+  if (process.env.PROGRESS) console.log(`  ${id}${style ? `/${style}` : ""}: ${r.buttons} buttons, ${r.readings} readings, ${r.failures.length} under the minimum (sheets: ${r.opened.join(", ") || "none"})`)
+}
+if (process.env.CONTRAST_JSON) (await import("node:fs")).writeFileSync(process.env.CONTRAST_JSON, JSON.stringify(contrastAll, null, 1))
+
+const STATE_PASSES = ["load", "hover", "switch", "overlap"].some((p) => ONLY.has(p))
+for (const id of STATE_PASSES ? themeIds : []) {
   if (process.env.PROGRESS) console.log(`  ${id}: ${problems.length} problems so far`)
   /* The published page. */
   {
@@ -453,6 +502,11 @@ console.log(`  product overlaps          ${counts.overlaps}`)
 console.log(`  social icon rows wrong    ${counts.iconBad}`)
 console.log(`  block animations wrong    ${counts.motionBad}`)
 console.log(`  entrance flashes          ${counts.entranceFlashes}`)
+if (ONLY.has("contrast")) {
+  console.log(`  contrast: buttons read    ${counts.contrastButtons}`)
+  console.log(`  contrast: words measured  ${counts.contrastReadings}`)
+  console.log(`  contrast: under minimum   ${counts.contrastBad}${counts.contrastBad ? `  (${Object.entries(contrastByState).map(([k, v]) => `${k} ${v}`).join(", ")})` : ""}`)
+}
 if (problems.length) {
   const shown = problems.slice(0, Number(process.env.SHOW || 60))
   console.error(`\n${problems.length} problems${problems.length > shown.length ? ` (first ${shown.length})` : ""}:\n${shown.map((p) => `  - ${p}`).join("\n")}\n`)

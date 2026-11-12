@@ -44,8 +44,9 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    /* The main landmark of every sign in step: a screen reader or a browser agent goes straight to the form. */
-    <main className="min-h-svh bg-white animate-in fade-in duration-300 motion-reduce:animate-none" data-page="auth">
+    /* The main landmark of every sign in step: a screen reader or a browser agent goes straight to the form.
+       No fade on it (round 3): a press on Log in shows the page whole on its first frame, not white first. */
+    <main className="min-h-svh bg-white" data-page="auth">
       <HtmlClass name="with-page-auth" />
       {children}
     </main>

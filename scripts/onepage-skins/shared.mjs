@@ -87,8 +87,14 @@ export const banner = (text) => css.push(`\n/* =================================
  * the paint shows under the words (each stop of a gradient), for the test.
  */
 export function onSurface(skin, what, sel, ink, under, { whole = false } = {}) {
-  rule(`${S(skin)} ${sel}`, `color: ${ink} !important;`)
-  rule(`${S(skin)} ${sel} ${INLINE_INK}`, `color: ${ink} !important;`)
+  /*
+    Round 3: never a product drawn over its own picture (product-block Overlay). Its words are on the photo and its
+    shade, white; the surface's ink there was dark words on a dark photo (Aqua, Y2K, Messenger: 1.2:1). The
+    legibility guard used to turn them back, measuring the card under the picture; it now sees the picture.
+  */
+  const on = `${sel}:not([data-product-block="overlay"])`
+  rule(`${S(skin)} ${on}`, `color: ${ink} !important;`)
+  rule(`${S(skin)} ${on} ${INLINE_INK}`, `color: ${ink} !important;`)
   /* `whole`: a heading or a name, never drawn faded. */
   pairs.push({ skin, what, ink, under, faded: !whole })
 }
