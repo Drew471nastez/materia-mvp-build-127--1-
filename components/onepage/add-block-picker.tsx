@@ -53,6 +53,7 @@ import * as React from "react"
 import { ChevronRight, Plus, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AppMark, INSTAGRAM_FILL, IntegrationMark, brandColor, isMulticolorMark, markOn } from "@/components/onepage/brand-icons"
+import { accentNoActive } from "@/components/ui/depth-button"
 import { EXTRA_BLOCK_CATALOG } from "@/components/onepage/extra-blocks"
 import {
   APP_GLYPHS,
@@ -267,7 +268,8 @@ export function AddBlockButton({ fromButton, className, onPress, children }: { f
         /* Round AN: the colour and the shade settle on the + 's clock (ADD_PLUS_MS on ADD_PLUS_EASE); a press is a tint only, never a scale. */
         "transition-[background-color,box-shadow] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-[open]:bg-[#7c3aed] motion-reduce:transition-none",
         /* Round AT: no :active tint (a scroll that starts here sets it); the press is data-pressed, above, quick to come and go. */
-        "touch-manipulation active:bg-[#8b5cf6] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.18),0_1px_1px_rgba(76,29,149,0.25)]",
+        "touch-manipulation",
+        accentNoActive,
         "data-[pressed]:bg-[#6d28d9] data-[pressed]:shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)] data-[pressed]:duration-100",
       )}
     >
