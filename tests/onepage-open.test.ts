@@ -94,7 +94,8 @@ console.log("\nThe preview is the live page")
   const frame = code("components/onepage/preview-document.tsx")
   check("the frame draws the live page's component, and nothing of its own", /<PublicOnePage onepage=\{page as never\} \/>/.test(frame))
   check("it listens only to its own parent on this origin", /e\.origin !== window\.location\.origin \|\| e\.source !== parent/.test(frame))
-  check("a visitor's writes are answered in the frame, never sent", /const WRITES = \/\^\\\/api\\\/\(onepage\\\/\(track\|leads\|email-capture\)\|subscribe\|checkout\\\/\|download\\\/\|purchases\\\/\)\//.test(read("components/onepage/preview-document.tsx")))
+  /* Changed on purpose (round AS): a report from the footer (help/contact) is answered in the frame too. */
+  check("a visitor's writes are answered in the frame, never sent", /const WRITES = \/\^\\\/api\\\/\(onepage\\\/\(track\|leads\|email-capture\)\|subscribe\|checkout\\\/\|download\\\/\|purchases\\\/\|help\\\/contact\)\//.test(read("components/onepage/preview-document.tsx")))
   /* Round 11 changed this on purpose: the owner asked that nothing in the preview take them out of it, a new tab included. */
   check("and a link that would leave stays, with a note that it opens on the live page", /e\.preventDefault\(\)\s*\n\s*showPreviewNotice\("link"\)/.test(frame) && !/window\.open\(a\.href/.test(frame) && /<PreviewNoticeHost \/>/.test(frame))
   const live = code("components/onepage/live-preview.tsx")

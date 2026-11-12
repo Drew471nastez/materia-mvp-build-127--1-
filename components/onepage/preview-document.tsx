@@ -59,7 +59,7 @@ import { tt } from "@/lib/i18n/text"
 import { blockIdAt, pickAction, validBlockId } from "@/lib/onepage/preview-select"
 
 /** The writes a visitor's page makes, answered here instead of by the server. */
-const WRITES = /^\/api\/(onepage\/(track|leads|email-capture)|subscribe|checkout\/|download\/|purchases\/)/
+const WRITES = /^\/api\/(onepage\/(track|leads|email-capture)|subscribe|checkout\/|download\/|purchases\/|help\/contact)/
 
 function sandboxWrites() {
   const w = window as Window & { __onepagePreviewSandbox?: boolean }
@@ -344,6 +344,19 @@ export function OnePagePreviewDocument() {
   const drawn = useRef(false)
   /* Round AR: whether a click picks a block for the editor, and which block is open there. */
   const [pick, setPick] = useState<{ on: boolean; selected: string | null }>({ on: false, selected: null })
+
+  /*
+    THE PHONE'S ROUNDED SCREEN (round AS, the owner's image 140: the bell
+    sat on the curve and its dot was cut). The editor's phone says how round
+    its screen is, in this page's own pixels (?corner=, components/onepage/
+    live-preview PHONE_SCREEN_RADIUS); the corner buttons read it
+    (app/globals.css [data-onepage-corner]) and sit concentric with the
+    curve. Set before the first paint, so they never move once drawn.
+  */
+  useLayoutEffect(() => {
+    const corner = Number(new URLSearchParams(window.location.search).get("corner"))
+    if (Number.isFinite(corner) && corner > 0 && corner < 200) document.documentElement.style.setProperty("--onepage-screen-radius", `${corner}px`)
+  }, [])
 
   /*
     WHAT THE CATALOGUE SAYS ABOUT THE PRODUCTS THE PAGE NAMES. Asked again

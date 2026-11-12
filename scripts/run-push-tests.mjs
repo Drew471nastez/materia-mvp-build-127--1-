@@ -821,6 +821,8 @@ const SUITES = [
   "tests/round-u.test.ts",
   "tests/compat-resilience.test.ts",
   "tests/physical-setup-t.test.ts",
+  /* Round AS (track 2): Home's "Selling physical products" card only for a store that has started selling things it ships (a physical product, how it fulfils, a location, a rate, pickup or a package), read off the same facts, never for a digital only store. */
+  "tests/app-home-physical-as2.test.ts",
   "tests/physical-readiness.test.ts",
   "tests/emails-t.test.ts",
   /* Emails › Customer emails in three families, the language and the signature by where it was bought, previews that are the sent email; scripts/check-emails-families.mjs measures the switch and the lists. */
@@ -1453,6 +1455,8 @@ const STRICT_SUITES = [
   "tests/onepage-ar6.test.ts",
   /* Round AR, track 1: how a OnePage feels. No round Close over the keyboard once Safari pans, sheets read while idle and opened with their content (no grey bars), one press on every button from pointerdown, Back a step inside a form sheet, the Hero darkening under the page with a bar once it has gone, a removed block folding away, a shelf kept drawn while a setting changes. scripts/check-onepage-ar1.mjs measures them. */
   "tests/onepage-ar1.test.ts",
+  /* Round AS (track 2): Share and Subscribe clear of the editor phone's rounded screen (its own radius, concentric) and of a notch (safe area, no device check); Terms, Privacy and Cookies as tabs of one fixed height sheet with a sliding thumb and a fade through; cookie choices saved as pressed (never in the preview); Report as a checked form with a thanks in the same place; Back and Tab. scripts/check-onepage-as2.mjs measures them at 390 and 1440. */
+  "tests/onepage-as2.test.ts",
   "tests/onepage-w8.test.ts",
   /* Round AR3: every block type's settings panel drawn and visible (image 137), music and video layouts with Storelib's own player, Cover, Fit and Full, links shown in place (Calendly, Typeform, Canva, Google Maps, podcasts), oEmbed cards from recorded answers, Fourthwall and Bonfire retired, followers from one field, more links in one block. scripts/check-onepage-ar3.mjs measures the layout matrix, the embeds and the settings at 390 and 1440. */
   "tests/onepage-ar3.test.ts",

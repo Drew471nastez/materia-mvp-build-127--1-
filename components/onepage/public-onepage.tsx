@@ -459,7 +459,9 @@ function NotificationBell({
   */
   return (
     <div
-      className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[20] transition-[opacity,translate] duration-500 ease-out"
+      /* Where it sits is app/globals.css [data-onepage-corner]: clear of a rounded screen and a notch (round AS). */
+      data-onepage-corner="right"
+      className="fixed z-[20] transition-[opacity,translate] duration-500 ease-out"
       style={{
         opacity: shouldShow ? 1 : 0,
         translate: shouldShow ? "0 0" : "0 -10px",
@@ -585,7 +587,8 @@ function ShareButton({
   // Share icon is always positioned on the TOP LEFT (both mobile and desktop)
   // Subscribe icon stays on TOP RIGHT
   // Desktop (md): top-[22px] to align 2px above the subscribe button which is at top-6 (24px)
-  const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 md:top-[22px] md:left-8 z-[20]"
+  // Round AS: the offsets are app/globals.css [data-onepage-corner="left"] (16, 24 from 640, 22 and 32 from 768), kept clear of a rounded screen and a notch.
+  const positionClass = "fixed z-[20]"
   const [pdfModalOpen, setPdfModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -614,6 +617,7 @@ function ShareButton({
     <>
       <div
         className={positionClass}
+        data-onepage-corner="left"
         style={{
           transition: "opacity 500ms ease-out, translate 500ms ease-out",
           opacity: shouldShow ? 1 : 0,
