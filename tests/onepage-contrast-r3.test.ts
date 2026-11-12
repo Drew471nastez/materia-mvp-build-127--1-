@@ -151,6 +151,8 @@ console.log("\n4. See-through: Soft and Glass on a card, the tint counted three 
 console.log("\n5. Disabled and waiting buttons keep their words")
 {
   const sheet = code("components/onepage/product-sheet.tsx")
+  const css = read("app/globals.css")
+  check("a press sinks and never fades the words (Neon's title read 3.1:1 under a finger); standing still it is a ring", /html\[data-op-press\] \[data-op-pressing\]:not\(#op\) \{\s*scale: 0\.965;\s*opacity: 1;/.test(css) && /\[data-op-pressing\]:not\(#op\) \{ scale: none; opacity: 1; outline: 2px solid/.test(css))
   check("the product sheet's Choose an option and Sold out are not faded", !/blocker === "sold out"\) && "opacity-50"/.test(sheet) && !/"pointer-events-none opacity-60"/.test(sheet) && /blocker && "cursor-default/.test(sheet))
 }
 
@@ -169,7 +171,7 @@ console.log("\n7. Measured in a browser")
 {
   const probe = read("scripts/check-onepage-style-stability.mjs")
   const pass = read("scripts/onepage-button-contrast.mjs")
-  check("the stability probe has a contrast pass over every theme", /import \{ contrastPass \} from "\.\/onepage-button-contrast\.mjs"/.test(probe) && /ONLY\.has\("contrast"\) \? themeIds : \[\]/.test(probe))
+  check("the stability probe has a contrast pass over every theme, in a browser that has a mouse (hover rules apply)", /import \{ contrastPass \} from "\.\/onepage-button-contrast\.mjs"/.test(probe) && /ONLY\.has\("contrast"\) \? themeIds\.flatMap/.test(probe) && /primaryHoverType=2/.test(probe) && /the browser reports no mouse/.test(probe))
   check("every pressable: links, buttons, chips, radios, product buttons, social icons", /\[role=radio\]/.test(pass) && /\[data-product-cta\]/.test(pass) && /\[data-op-social-icon\]/.test(pass))
   check("in each state: rest (selected, disabled), hover, focus, held down", /\["rest", "hover", "focus", "active"\]/.test(pass) && /"disabled" : .*"selected"/.test(pass) && /focusVisible: true/.test(pass) && /page\.mouse\.down\(\)/.test(pass))
   check("and in the sheets: a product's, Share, Subscribe, the tip amounts", /\["product", /.test(pass) && /\["share", /.test(pass) && /\["subscribe", /.test(pass) && /\["tip", /.test(pass))
