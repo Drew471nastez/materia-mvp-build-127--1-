@@ -127,10 +127,11 @@ export function rowPictureOf(
       const place = mapPlaceOf(d as { address?: string; place?: { from?: string; url?: string } })
       if (!place) return null
       const label = place.label || text(d.address)
-      if (typeof place.lat === "number" && typeof place.lng === "number") {
-        const tile = mapTile(place.lat, place.lng, MAP_ZOOM[text(d.zoom)] ?? 14)
-        if (tile) return { kind: "map", ...tile, label }
-      }
+      /*
+        The drawn map with a pin, always (round AT, the lead's call). OpenStreetMap's public tile server asks for low
+        volume and a visible credit, already refuses some clients, and would be told every creator's place just to
+        draw a 40px picture in the editor. mapTile stays for a licensed tile host later.
+      */
       return { kind: "map-drawn", label }
     }
     default:

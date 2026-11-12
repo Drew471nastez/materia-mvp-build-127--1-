@@ -65,9 +65,10 @@ const tile = mapTile(44.407097, 26.153009, 14)
 check("a point's tile, by the Web Mercator tiling", !!tile && tile.src === "https://tile.openstreetmap.org/14/9382/5931.png" && tile.x > 0 && tile.x < 1 && tile.y > 0 && tile.y < 1, tile)
 check("no tile past the map's edge", mapTile(89, 0) === null && mapTile(0, 200) === null && mapTile(NaN, 1) === null)
 const pin = rowPictureOf({ type: "map", data: { title: "See", address: "44.407097,26.153009" } })
-check("the owner's map block (a pasted point) shows its map", pin?.kind === "map" && pin.src.startsWith("https://tile.openstreetmap.org/14/"), pin)
+/* Changed on purpose (round AT, lead): a place is always the drawn map with a pin; no third party tile is asked for. */
+check("the owner's map block (a pasted point) shows its map", pin?.kind === "map-drawn", pin)
 const link = rowPictureOf({ type: "map", data: { address: "https://www.google.com/maps/place/Empire+State+Building/@40.74,-73.98,17z/data=!3d40.7484405!4d-73.9856644", zoom: "street" } })
-check("a Google Maps link with its point, at the street's zoom", link?.kind === "map" && /\/16\//.test(link.src), link)
+check("a Google Maps link with its point draws the map too", link?.kind === "map-drawn", link)
 check("a typed address with no point: a drawn map with a pin, never the glyph", rowPictureOf({ type: "map", data: { address: "350 5th Ave, New York" } })?.kind === "map-drawn")
 check("an empty map block keeps its glyph", rowPictureOf({ type: "map", data: { address: "" } }) === null)
 const img = (b: Parameters<typeof rowPictureOf>[0], ctx?: Parameters<typeof rowPictureOf>[1]) => {
