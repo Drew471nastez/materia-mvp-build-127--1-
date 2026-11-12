@@ -112,7 +112,7 @@ export function stoicism() {
     background-image: radial-gradient(120% 80% at 50% 0%, rgba(236,230,218,.05) 0%, rgba(236,230,218,0) 70%);
     box-shadow: inset 0 0 0 6px ${P.panel}, inset 0 0 0 7px ${P.hairSoft};`)
   onSurface("stoicism", "the subscribe and contact forms' panel", BOX, P.ivory, [P.panel, P.panelHi])
-  rule(`${A} ${INPUT}`, `background: rgba(236,230,218,.06) !important; border: 1px solid rgba(236,230,218,.3) !important; border-radius: 0 !important; color: ${P.ivory} !important; box-shadow: none !important;`)
+  rule(`${A} ${INPUT}`, `background: ${P.panelHi} !important; border: 1px solid rgba(236,230,218,.3) !important; border-radius: 0 !important; color: ${P.ivory} !important; box-shadow: none !important;`)
   promise("stoicism", "a field", P.ivory, [P.panelHi])
   rule(`${A} ${INPUT}::placeholder`, `color: rgba(236,230,218,.62) !important;`)
   rule(`${A} ${INPUT}:focus`, `border-color: ${P.ivory} !important; box-shadow: 0 0 0 3px rgba(236,230,218,.14) !important;`)

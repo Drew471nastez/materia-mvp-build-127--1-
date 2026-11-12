@@ -2518,7 +2518,7 @@
   color: #ece6da !important;
 }
 [data-op-skin="stoicism"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea) {
-  background: rgba(236,230,218,.06) !important; border: 1px solid rgba(236,230,218,.3) !important; border-radius: 0 !important; color: #ece6da !important; box-shadow: none !important;
+  background: #1c1b19 !important; border: 1px solid rgba(236,230,218,.3) !important; border-radius: 0 !important; color: #ece6da !important; box-shadow: none !important;
 }
 [data-op-skin="stoicism"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea)::placeholder {
   color: rgba(236,230,218,.62) !important;
