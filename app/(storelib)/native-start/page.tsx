@@ -22,11 +22,12 @@
  * Splash hide is NOT called here.  The destination page hides it.
  */
 
-import { useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { sanitizeNativeHome } from "@/lib/native-bridge"
 import { isResumablePlace, readLastPlace, startTarget } from "@/lib/native-resume"
 import { landInPlace } from "@/lib/native-start-landing"
+import { hasStoredSessionToken, storedSessionKey } from "@/lib/auth/session-read"
 import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
 
 /**
@@ -80,14 +81,53 @@ function documentOpenedHere(): boolean {
  */
 let startUsed = false
 
+/**
+ * ROUND AT: NOBODY SIGNED IN GOES STRAIGHT TO WELCOME. A phone holding no
+ * session anywhere (not in localStorage, not in the session cookie, not in
+ * Preferences, where the app keeps its backup) used to download the whole
+ * Supabase client to be told "no session", then the Preferences plugin to be
+ * told it again, before /welcome was even asked for: about a second and a
+ * half of launch screen on a 4G phone (scripts/check-app-launch-at3.mjs).
+ * The outcome is the same /welcome; only the evidence is read without a
+ * download. Preferences is asked through the bridge the shell injects, as the
+ * launch URL is above. "unknown" (no bridge, a plugin that did not answer)
+ * never takes the shortcut: the full reads below decide, as before.
+ */
+async function preferencesHoldSession(): Promise<boolean | "unknown"> {
+  const key = storedSessionKey()
+  if (!key) return "unknown"
+  const prefs = (window as unknown as {
+    Capacitor?: { Plugins?: { Preferences?: { get?: (o: { key: string }) => Promise<{ value?: string | null } | null> } } }
+  }).Capacitor?.Plugins?.Preferences
+  if (!prefs?.get) return "unknown"
+  try {
+    const [whole, first] = await Promise.all([prefs.get({ key }), prefs.get({ key: `${key}.0` })])
+    return Boolean(whole?.value || first?.value)
+  } catch {
+    return "unknown"
+  }
+}
+
 export default function NativeStartPage() {
   const exploreOn = useExploreMarketplaceEnabled()
   const router = useRouter()
+  /* One hand over per visit, even if the effect runs again (Discover's switch answering late): never two router.replace calls. */
+  const landed = useRef(false)
+  /*
+    ROUND AT: NO SPINNER UNDER THE LAUNCH SCREEN. On a start the launch screen
+    stays up until the page this sends to has drawn (iOS: SplashScreen.hide,
+    Android: StorelibNative.appReady, neither called here), so a spinner here
+    was a second loader, and on Android, where the overlay used to drop on
+    this screen, it was seen. A visit ("/" from inside the app) has no launch
+    screen over it, so it keeps the late spinner.
+  */
+  const [visit, setVisit] = useState(false)
   useEffect(() => {
-    let didRedirect = false
     /* Where a signed in start goes for this home: the kept page, else the home's own default. */
-    const kept = !startUsed && documentOpenedHere() && !startedJustNow()
+    const isStart = !startUsed && documentOpenedHere()
+    const kept = isStart && !startedJustNow()
     startUsed = true
+    if (!isStart) setVisit(true)
     const go = (home: string | null | undefined) => startTarget({ last: kept ? readLastPlace() : null, home, exploreOn })
 
     /**
@@ -105,13 +145,13 @@ export default function NativeStartPage() {
     const HANDOFF_OK = ["/welcome", "/login", "/signup", "/reset-password", "/auth/"]
 
     function safeRedirect(url: string) {
-      if (didRedirect) return
+      if (landed.current) return
       /* A tap on a push already chose the page (lib/push/client.ts): that navigation stands. */
       if ((window as unknown as { __storelibPushTap?: string }).__storelibPushTap) return
       const isHandoff = HANDOFF_OK.some((h) => url === h || url.startsWith(h))
       const target = isHandoff || isResumablePlace(url) ? url : sanitizeNativeHome(url)
       if (target === "/native-start" || target.startsWith("/native-start")) return
-      didRedirect = true
+      landed.current = true
       /* In this document, not a second one: see lib/native-start-landing.ts. */
       landInPlace(target, router)
     }
@@ -208,6 +248,16 @@ export default function NativeStartPage() {
         }
       } catch { /* ignore */ }
 
+      // ── Layer 1b: nothing stored anywhere, so nobody is signed in ─────────
+      // See preferencesHoldSession above: the same /welcome the layers below
+      // end on, without downloading them first.
+      try {
+        if (!hasStoredSessionToken() && (await preferencesHoldSession()) === false) {
+          safeRedirect("/welcome")
+          return
+        }
+      } catch { /* the full reads below decide */ }
+
       // ── Layer 2: Supabase SDK session + DB role resolution ────────────────
       try {
         const { createClient } = await import("@/lib/supabase/client")
@@ -278,7 +328,7 @@ export default function NativeStartPage() {
     // unreachable, Preferences stuck, etc.), force a redirect so the user is
     // never stuck on the spinner indefinitely.
     const timeout = setTimeout(() => {
-      if (didRedirect) return
+      if (landed.current) return
       console.warn("[native-start] resolve() timed out after 8 s: forcing redirect")
       try {
         const cachedHome = localStorage.getItem("sb-native-home")
@@ -331,7 +381,7 @@ export default function NativeStartPage() {
           paddingBottom: "72px",
         }}
       >
-        <div className="ns-spinner" />
+        {visit ? <div className="ns-spinner" data-native-start-spinner="" /> : null}
       </div>
     </>
   )

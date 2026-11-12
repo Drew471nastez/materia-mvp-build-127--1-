@@ -184,13 +184,36 @@ export function shouldHideSplashOn(pathname: string, authInProgress: boolean): b
 
 let splashDown = false
 
+/** The fade every landing uses: one number, so the dashboard, welcome, the library and the rest come in alike. */
+export const SPLASH_FADE_MS = 250
+
+type SplashLike = { hide?: (o: { fadeOutDuration: number }) => Promise<unknown> }
+
+/**
+ * ROUND AT: THE LAUNCH SCREEN IS TAKEN DOWN WITHOUT A DOWNLOAD. The shell
+ * injects its plugins as Capacitor.Plugins before any page loads (as
+ * app/native-start reads App's launch URL), so the splash is hidden through
+ * that and the @capacitor/splash-screen chunk is fetched only when it is not
+ * there. That chunk was asked for at the very moment the page was ready, a
+ * round trip of launch screen on a 4G phone.
+ */
 export async function hideSplashOnce(): Promise<void> {
   if (splashDown || !isNativeShell()) return
   splashDown = true
   try {
+    const injected = (window as unknown as { Capacitor?: { Plugins?: { SplashScreen?: SplashLike } } }).Capacitor?.Plugins?.SplashScreen
+    if (injected?.hide) {
+      await injected.hide({ fadeOutDuration: SPLASH_FADE_MS })
+      return
+    }
     const { SplashScreen } = await import("@capacitor/splash-screen")
-    await SplashScreen.hide({ fadeOutDuration: 250 })
+    await SplashScreen.hide({ fadeOutDuration: SPLASH_FADE_MS })
   } catch {
     /* no splash plugin in this shell: the launch screen is the system's own */
   }
+}
+
+/** Test seam: forget that the launch screen came down. */
+export function resetSplashMemory(): void {
+  splashDown = false
 }
