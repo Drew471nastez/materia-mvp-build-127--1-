@@ -86,7 +86,8 @@ console.log("\ndisc: Brand colours on Solid")
 for (const width of [390, 1440]) {
   const { page, errors } = await open("social=few&icons=filled/brand", width)
   await page.waitForSelector("[data-op-social-icon]")
-  await sleep(300)
+  /* The desktop card and its blocks rise in; read and shoot them once they have. */
+  await sleep(1800)
   const row = await readRow(page)
   check(`${width}: five icons, each on a white disc`, row.n === 5 && row.tiles.every((t) => t.bg === "rgb(255, 255, 255)"), row.tiles.map((t) => t.bg))
   const by = Object.fromEntries(row.tiles.map((t) => [t.platform, t]))
@@ -107,7 +108,8 @@ console.log("\nrow: sixteen icons slide")
 for (const width of [390, 1440]) {
   const { page, errors } = await open("social=many&icons=filled/brand", width)
   await page.waitForSelector("[data-op-social-icon]")
-  await sleep(300)
+  /* The desktop card and its blocks rise in; read and shoot them once they have. */
+  await sleep(1800)
   const row = await readRow(page)
   check(`${width}: sixteen icons on one line, the column's full width`, row.n === 16 && Math.abs(row.rowWidth - row.colWidth) <= 1, { rowWidth: row.rowWidth, colWidth: row.colWidth })
   check(`${width}: they overflow and scroll sideways (snap on x, no scrollbar)`, row.scrollWidth > row.clientWidth && row.overflowX === "auto" && /x/.test(row.snap) && row.scrollbar === "none", row)
@@ -131,7 +133,8 @@ for (const width of [390, 1440]) {
 {
   const { page } = await open("social=many&icons=outline/brand", 390)
   await page.waitForSelector("[data-op-social-icon]")
-  await sleep(300)
+  /* The desktop card and its blocks rise in; read and shoot them once they have. */
+  await sleep(1800)
   await (await page.$("[data-op-social-row]")).screenshot({ path: join(SHOTS, "social-many-390-outline-brand.png") })
   await page.close()
 }
@@ -149,7 +152,7 @@ for (const t of themes) {
   for (const look of ["original", "solid", "outline", "glass"]) {
     const { page, errors } = await open(`social=few&look=${look}${t ? `&t=${t}` : ""}`, 390)
     await page.waitForSelector("[data-onepage-app]")
-    await sleep(400)
+    await sleep(1500)
     const r = await page.evaluate(() => {
       const tiles = [...document.querySelectorAll("[data-icon-look]")].map((e) => {
         const s = getComputedStyle(e)
