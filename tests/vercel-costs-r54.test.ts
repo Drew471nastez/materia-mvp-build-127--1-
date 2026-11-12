@@ -86,6 +86,11 @@ const rest = cfg.indexOf('{ source: "/media/:path*", destination: `${storage}/st
 check("rewrites: ?direct=1 first, then pictures to the route, then every other file as before", direct > 0 && pics > direct && rest > pics)
 check("only picture types go through the route (video and downloads keep range requests as before)", /\(\?:jpg\|jpeg\|png\|gif\|webp\|avif\|ico\|bmp\|/.test(cfg) && !/api\/media[^\n]*mp4/.test(cfg))
 
+/* Third pass */
+const seo = read("app/api/ai/seo/route.ts")
+check("the SEO description helper is limited per account, after sign in, before the model call", /bucket: "ai-seo"/.test(seo) && seo.indexOf('bucket: "ai-seo"') > seo.indexOf('"Sign in to use this."') && seo.indexOf('bucket: "ai-seo"') < seo.indexOf("request.json()"))
+check("the CDN check script asks every kind of public address", ["website (crawler)", "live marker", "picture"].every((k) => read("scripts/check-cdn-cache.mjs").includes(k)))
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
