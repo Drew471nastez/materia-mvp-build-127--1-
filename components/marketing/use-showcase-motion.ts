@@ -22,8 +22,10 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
     easing: (t: number) => 1 - Math.pow(1 - t, 3),
   })
   const section = el.closest<HTMLElement>("[data-build-showcase]")
-  const browsing = (active: boolean) =>
+  const browsing = (active: boolean) => {
     section?.toggleAttribute("data-showcase-browsing", active)
+    if (active) section?.removeAttribute("data-showcase-pristine")
+  }
   const eligible = () =>
     !disposed &&
     visible &&
@@ -42,7 +44,12 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
           schedule()
           return
         }
-        slider.moveToIdx(slider.track.details.abs + 1, true, animation())
+        slider.moveToIdx(slider.track.details.abs + 1, true, {
+          duration: 1100,
+          // Start and stop gently during autoplay; direct dragging keeps Keen's
+          // velocity-aware release, without imposing this easing on the hand.
+          easing: (t: number) => t * t * t * (t * (t * 6 - 15) + 10),
+        })
       },
       Math.max(5000, resumeAt - performance.now()),
     )
@@ -244,10 +251,12 @@ export function useShowcaseMotion() {
           slides: (size: number, slides: HTMLElement[]) => {
             // Preserve the same wide/portrait ratio at a common measured height.
             const cardHeight = slides[0]?.getBoundingClientRect().height || 220
+            const gutter = Math.min(96, Math.max(22, innerWidth * 0.06))
             return slides.map((slide) => ({
+              origin: gutter / size,
               size:
                 (cardHeight *
-                  (slide.dataset.format === "portrait" ? 0.63 : 1.6)) /
+                  (slide.dataset.format === "portrait" ? 9 / 16 : 4 / 3)) /
                 size,
               spacing: 12 / size,
             }))
