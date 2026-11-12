@@ -64,7 +64,8 @@ check("and on hover and a finger coming down", /onPointerEnter=\{warmable \?/.te
 check("a press that finds both opens the sheet in that same task", /if \(sheetBodyModule && readyForms\.has\(id\)\) return showFormSheet\(id, sheetBodyModule\)/.test(frame))
 check("no pulsing bars while a form is on its way in the sheet", !/animate-pulse/.test(frame) && /quietLoading/.test(read("components/forms/form-sheet-body.tsx")) && /if \(loading && quietLoading\)/.test(read("components/forms/public-form.tsx")))
 const legal = read("components/onepage/onepage-legal-links.tsx")
-check("Privacy and Terms: the reader is fetched while idle and opened with its text, no grey bars", /requestIdleCallback\(run/.test(legal) && /if \(Reader\) return setOpen\(true\)/.test(legal) && !/rounded-full bg-\[var\(--sheet-field\)\]" style=\{\{ width/.test(legal) && !/next\/dynamic/.test(legal))
+/* Changed on purpose (round AS): the sheets open through whenLoaded, which opens at once when the reader is here. */
+check("Privacy and Terms: the reader is fetched while idle and opened with its text, no grey bars", /requestIdleCallback\(run/.test(legal) && /if \(Reader\) return go\(\)/.test(legal) && !/rounded-full bg-\[var\(--sheet-field\)\]" style=\{\{ width/.test(legal) && !/next\/dynamic/.test(legal))
 check("an embed's dots appear only after half a second", /\[animation:op-late-in_200ms_ease-out_500ms_both\]/.test(sheet) && /@keyframes op-late-in/.test(read("app/globals.css")))
 
 /* ── Press ── */

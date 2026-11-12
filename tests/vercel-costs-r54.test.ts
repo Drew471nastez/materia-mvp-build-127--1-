@@ -11,6 +11,7 @@ import { sharedAtCdn, openedAsDocument } from "../lib/storelib-theme/compat/firs
 import { visiblePollDelay, POLL_ACTIVE_MS, POLL_BASE_MS, POLL_LEFT_ALONE_MS } from "../lib/agent-access/connection-mark"
 import { failedPollDelay, POLL_MS, POLL_FAILED_MAX_MS } from "../lib/website-builder/ai-site/use-generation"
 import { slowingDelay } from "../lib/ui/slowing-poll"
+import { cdnRuleFor, CDN_MAX_S, LARGE_BYTES } from "../app/api/media/[...path]/route"
 
 let passed = 0
 let failed = 0
@@ -70,6 +71,25 @@ check("and is otherwise part 179's function, triggers untouched", part.includes(
 check("the check after has its column", / as p444_cache_ping_real_changes;/.test(read("supabase/sql/run-now/99_check_after.sql")))
 check("an email being sent is checked every 5 s at first, slower if it waits", /slowingPoll\(\(\) => void ask\(\), 5000\)/.test(read("components/email/compose/composer.tsx")) && /slowingPoll\(\(\) => \{\s*if \(!document\.hidden\) refresh/.test(read("app/(storelib)/app/emails/email-detail.tsx")))
 check("Settings is warmed at most every four minutes, on a computer too", /if \(Date\.now\(\) - settingsWarmedAt < 4 \* 60_000\) return/.test(read("components/app/sidebar.tsx")))
+
+/* Pictures through app/api/media (live: Supabase's __cf_bm cookie kept the CDN from holding the plain rewrite) */
+const media = read("app/api/media/[...path]/route.ts")
+const cfg = read("next.config.mjs")
+check("the CDN keeps a picture a day at most, never longer than the file says", cdnRuleFor("public, max-age=31536000") === "max-age=86400, stale-while-revalidate=604800" && cdnRuleFor("max-age=3600") === "max-age=3600, stale-while-revalidate=604800" && cdnRuleFor(null) === `max-age=${CDN_MAX_S}, stale-while-revalidate=604800`)
+check("the storage host's cookie is not passed on (only named headers are)", !/set-cookie/i.test(media.replace(/\/\*[\s\S]*?\*\//g, "")) && /const KEEP = \["content-type", "cache-control", "etag", "last-modified", "content-disposition"\]/.test(media))
+check("a missing or failing file is never held", /headers\.set\("Vercel-CDN-Cache-Control", "no-store"\)/.test(media))
+check("a picture over 4 MB goes the old way (?direct=1), so no answer outgrows a function", LARGE_BYTES === 4 * 1024 * 1024 && /to\.searchParams\.set\("direct", "1"\)/.test(media))
+check("a path that climbs or is empty is refused", /p !== "\." && p !== "\.\."/.test(media) && /path\.length < 2/.test(media))
+const direct = cfg.indexOf('{ source: "/media/:path*", has: [{ type: "query", key: "direct" }]')
+const pics = cfg.indexOf('destination: "/api/media/:path"')
+const rest = cfg.indexOf('{ source: "/media/:path*", destination: `${storage}/storage/v1/object/public/:path*` }')
+check("rewrites: ?direct=1 first, then pictures to the route, then every other file as before", direct > 0 && pics > direct && rest > pics)
+check("only picture types go through the route (video and downloads keep range requests as before)", /\(\?:jpg\|jpeg\|png\|gif\|webp\|avif\|ico\|bmp\|/.test(cfg) && !/api\/media[^\n]*mp4/.test(cfg))
+
+/* Third pass */
+const seo = read("app/api/ai/seo/route.ts")
+check("the SEO description helper is limited per account, after sign in, before the model call", /bucket: "ai-seo"/.test(seo) && seo.indexOf('bucket: "ai-seo"') > seo.indexOf('"Sign in to use this."') && seo.indexOf('bucket: "ai-seo"') < seo.indexOf("request.json()"))
+check("the CDN check script asks every kind of public address", ["website (crawler)", "live marker", "picture"].every((k) => read("scripts/check-cdn-cache.mjs").includes(k)))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {

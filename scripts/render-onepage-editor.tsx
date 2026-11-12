@@ -13,6 +13,27 @@ import { THEME_TEMPLATES } from "@/components/onepage/tabs/design-tab"
 import { ViewportVars } from "@/components/viewport-vars"
 import { KeyboardGuard } from "@/components/platform/keyboard-guard"
 import { defaultTheme, defaultSettings, type OnePage } from "@/lib/onepage/types"
+import { artUri, creatorFor, faceUri } from "@/components/onepage/themes/preview-content"
+import { slotsFor } from "@/components/onepage/themes/theme-preview"
+import { blockLayoutOf, themeProductLayoutOf } from "@/lib/onepage/theme-layout"
+
+/**
+ * Round AS (scripts/check-onepage-theme-previews-as1.mjs): ?live&template=x&creator draws the live page of the
+ * creator the theme's card draws (components/onepage/themes/preview-content), with the blocks in the card's order.
+ */
+function creatorPage(template: { id: string; category: string }, theme: Record<string, unknown>) {
+  const who = creatorFor(template.id, template.category)
+  const products = themeProductLayoutOf(theme)
+  const blocks: any[] = [{ id: "s", type: "social_row", enabled: true, sort_order: 0, data: { platforms: who.socials.map((p) => ({ platform: p, url: `https://example.com/${p}` })) } }]
+  const add = (type: string, data: Record<string, unknown>) => blocks.push({ id: `b${blocks.length}`, type, enabled: true, sort_order: blocks.length, data })
+  for (const s of slotsFor(who, blockLayoutOf(theme))) {
+    if (s === "link") add("link_button", { label: who.link.label, url: "https://example.com/book", thumbnail_url: artUri(who.link.art, who.palette) })
+    else if (s === "link2") add("link_button", { label: who.link2, url: "https://example.com/more" })
+    else if (s === "news") add("email_capture", { headline: who.news.headline, description: who.news.desc, placeholder: "Your email", button_preset: "custom", custom_button_text: who.news.button })
+    else for (const p of products === "own" ? who.products.slice(0, 1) : who.products) add("product", { product_id: `p${blocks.length}`, product_slug: `p${blocks.length}`, product_title: p.title, product_price_cents: Math.round(parseFloat(p.price.replace(/[^0-9.]/g, "")) * 100), product_thumbnail: artUri(p.art, who.palette), cta_text: who.cta, show_description: false })
+  }
+  return { title: who.name, bio: who.bio, avatar_url: faceUri(who.face), blocks }
+}
 
 const px = (n: number) =>
   `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="hsl(${n * 47},55%,62%)"/></svg>`)}`
@@ -90,7 +111,10 @@ if (location.pathname.startsWith("/onepage-preview")) {
      two would draw the avatar, the name and the bio twice. */
   const header = { id: "h", type: "header", enabled: true, sort_order: -1, data: { show_avatar: true, show_name: true, show_bio: true } }
   const own = onepage.draft_blocks.filter((b) => !b.schedule && b.type !== "header")
-  const live = { ...onepage, theme: live_theme, blocks: [header, ...own], seller_id: "seller_probe" }
+  const made = template && new URLSearchParams(location.search).has("creator") ? creatorPage(template, live_theme) : null
+  const live = made
+    ? { ...onepage, title: made.title, bio: made.bio, avatar_url: made.avatar_url, theme: live_theme, blocks: [header, ...made.blocks], seller_id: "seller_probe" }
+    : { ...onepage, theme: live_theme, blocks: [header, ...own], seller_id: "seller_probe" }
   createRoot(document.getElementById("app")!).render(<PublicOnePage onepage={live as any} />)
 } else {
   /* A probe of the keyboard (scripts/check-onepage-addblock-r11.mjs) asks for app/(storelib)/layout.tsx's two publishers of it, so a sheet reads --kb-inset and --vv-h as in the app. */

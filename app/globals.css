@@ -2746,12 +2746,15 @@ html.capacitor .subscribe-bar-spacer {
 
 /* Glow - pulsing shadow effect, in the button's own colour (--op-accent, set by
    lib/onepage/button-style.ts); a block without it glows near-black. It was violet. */
+/* Round AS: the owner saw white buttons glowing white on dark pages. The Glow is the creator's pick, so it stays,
+   as a quiet breath at the button's edge: a 1px ring and a 10px glow at a quarter strength at its widest, where it
+   was a 20px and a 30px cloud at 55% and 35% (scripts/check-onepage-glow-as1.mjs). */
 @keyframes onepage-glow {
   0%, 100% {
-    box-shadow: 0 0 5px color-mix(in srgb, var(--op-accent, #1a1a2e) 30%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--op-accent, #1a1a2e) 14%, transparent);
   }
   50% {
-    box-shadow: 0 0 20px color-mix(in srgb, var(--op-accent, #1a1a2e) 55%, transparent), 0 0 30px color-mix(in srgb, var(--op-accent, #1a1a2e) 35%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--op-accent, #1a1a2e) 26%, transparent), 0 0 10px color-mix(in srgb, var(--op-accent, #1a1a2e) 24%, transparent);
   }
 }
 
@@ -2858,10 +2861,11 @@ html.capacitor .subscribe-bar-spacer {
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
+/* Round AS: the Glow hover, tighter and fainter (a 2px ring at 14%, a 16px shadow at 30%), so a white button on a dark page is lit, not haloed. */
 .op-btn[data-hover="glow"]::before {
   box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--op-accent, #1a1a2e) 16%, transparent),
-    0 8px 28px -6px color-mix(in srgb, var(--op-accent, #1a1a2e) 45%, transparent);
+    0 0 0 2px color-mix(in srgb, var(--op-accent, #1a1a2e) 14%, transparent),
+    0 6px 16px -6px color-mix(in srgb, var(--op-accent, #1a1a2e) 30%, transparent);
 }
 .op-btn:not(.animate-onepage-swipe)::after {
   content: "";
@@ -10029,6 +10033,43 @@ html[data-op-press] [data-op-letgo] {
    while they wait offscreen, particularly on 320px devices. */
 [data-landing-story] [data-story-reveal][data-story-visible="false"] {transform:translate3d(0,18px,0)!important}
 @media(prefers-reduced-motion:reduce){[data-landing-story] [data-story-reveal]{opacity:1!important;transform:none!important;transition:none!important}}
+/*
+  THE ONEPAGE'S CORNER BUTTONS, SHARE AND SUBSCRIBE (round AS, the owner's
+  image 140: the bell sat on the phone's rounded corner and its dot was cut).
+  Two things push them in, and the larger wins:
+
+    the screen's curve   the editor's phone hands its screen radius to the
+                         page (--onepage-screen-radius, components/onepage/
+                         preview-document); a 40px button then sits concentric
+                         with the curve, radius minus half the button
+    the device           a notch, the status bar in the app shell, or a
+                         landscape phone's rounded side: env(safe-area-inset-*),
+                         0 in a browser, so nothing branches on the device
+
+  A browser page with neither keeps the old 16px (24px from 640px).
+*/
+[data-onepage-corner] {
+  --onepage-corner-edge: max(16px, calc(var(--onepage-screen-radius, 0px) - 20px));
+  top: max(var(--onepage-corner-edge), calc(env(safe-area-inset-top, 0px) + 8px));
+}
+[data-onepage-corner="left"] {
+  left: max(var(--onepage-corner-edge), calc(env(safe-area-inset-left, 0px) + 8px));
+}
+[data-onepage-corner="right"] {
+  right: max(var(--onepage-corner-edge), calc(env(safe-area-inset-right, 0px) + 8px));
+}
+@media (min-width: 640px) {
+  [data-onepage-corner] {
+    --onepage-corner-edge: max(24px, calc(var(--onepage-screen-radius, 0px) - 22px));
+  }
+}
+@media (min-width: 768px) {
+  /* Share sits 2px above Subscribe and a little further in, as it always has. */
+  [data-onepage-corner="left"] {
+    top: max(22px, calc(env(safe-area-inset-top, 0px) + 8px));
+    left: max(32px, calc(env(safe-area-inset-left, 0px) + 8px));
+  }
+}
 
 /* The rounded showcase overlaps the video, rather than rounding the hero. */
 body:has([data-home-hero="cinematic"]) [data-landing-story] {background:linear-gradient(#090909 0 100px,transparent 100px)}

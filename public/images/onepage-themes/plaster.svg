@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice">
+<defs>
+<radialGradient id="g" cx=".6" cy=".42" r=".7"><stop offset="0" stop-color="#1c1c1a"/><stop offset="1" stop-color="#0a0a0a"/></radialGradient>
+<linearGradient id="m" x1=".1" y1="0" x2=".9" y2="1"><stop offset="0" stop-color="#f7f4ed"/><stop offset=".5" stop-color="#dcd7cd"/><stop offset="1" stop-color="#7f7a71"/></linearGradient>
+<radialGradient id="s" cx=".72" cy=".38" r=".62"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".42"/></radialGradient>
+<pattern id="h" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(38)"><path d="M0 0V5" stroke="#121211" stroke-opacity=".38" stroke-width="1.1"/></pattern>
+<clipPath id="half"><rect width="252" height="250"/></clipPath>
+<clipPath id="form"><path id="p" d="M150 250C158 230 184 216 214 211L218 202C206 198 196 190 190 178C178 160 180 116 196 92C212 68 244 58 270 66C294 74 304 96 302 112C301 117 298 120 298 124C302 132 310 143 312 150C313 155 307 157 300 157C302 161 302 166 297 169C300 172 300 177 294 180C297 187 298 195 292 200C284 206 272 206 266 207L268 213C296 218 318 230 330 250Z"/></clipPath>
+</defs>
+<rect width="400" height="250" fill="url(#g)"/>
+<g stroke="#ece8df" stroke-opacity=".14" stroke-width=".7" fill="none"><path d="M26 0V250M374 0V250M0 26H400M0 224H400"/></g>
+<g stroke="#ece8df" stroke-opacity=".38" stroke-width=".8" fill="none">
+<circle cx="246" cy="126" r="76"/>
+<path d="M118 112H362M118 150H362M118 200H362M248 18V250M112 236L344 30"/>
+<path d="M196 92C232 70 290 74 304 112" stroke-dasharray="3 4"/>
+<path d="M300 157L330 157M294 180L326 180" stroke-opacity=".6"/>
+</g>
+<g clip-path="url(#half)">
+<use href="#p" fill="url(#m)"/>
+<use href="#p" fill="url(#s)"/>
+<g clip-path="url(#form)"><rect x="150" y="150" width="70" height="100" fill="url(#h)"/><rect x="180" y="90" width="24" height="96" fill="url(#h)" opacity=".7"/></g>
+<g fill="none" stroke="#6f6a61" stroke-width=".9" stroke-linecap="round" stroke-opacity=".6">
+<path d="M242 74a4 4 0 1 1 4 4a2 2 0 0 1-2-2M227 84a4 4 0 1 1 4 4a2 2 0 0 1-2-2M237 84a4 4 0 1 1 4 4a2 2 0 0 1-2-2M210 94a4 4 0 1 1 4 4a2 2 0 0 1-2-2M220 94a4 4 0 1 1 4 4a2 2 0 0 1-2-2M230 94a4 4 0 1 1 4 4a2 2 0 0 1-2-2M240 94a4 4 0 1 1 4 4a2 2 0 0 1-2-2M208 104a4 4 0 1 1 4 4a2 2 0 0 1-2-2M218 104a4 4 0 1 1 4 4a2 2 0 0 1-2-2M228 104a4 4 0 1 1 4 4a2 2 0 0 1-2-2M238 104a4 4 0 1 1 4 4a2 2 0 0 1-2-2M199 114a4 4 0 1 1 4 4a2 2 0 0 1-2-2M209 114a4 4 0 1 1 4 4a2 2 0 0 1-2-2M219 114a4 4 0 1 1 4 4a2 2 0 0 1-2-2M229 114a4 4 0 1 1 4 4a2 2 0 0 1-2-2M239 114a4 4 0 1 1 4 4a2 2 0 0 1-2-2M201 124a4 4 0 1 1 4 4a2 2 0 0 1-2-2M211 124a4 4 0 1 1 4 4a2 2 0 0 1-2-2M221 124a4 4 0 1 1 4 4a2 2 0 0 1-2-2M231 124a4 4 0 1 1 4 4a2 2 0 0 1-2-2M241 124a4 4 0 1 1 4 4a2 2 0 0 1-2-2M195 134a4 4 0 1 1 4 4a2 2 0 0 1-2-2M205 134a4 4 0 1 1 4 4a2 2 0 0 1-2-2M215 134a4 4 0 1 1 4 4a2 2 0 0 1-2-2M225 134a4 4 0 1 1 4 4a2 2 0 0 1-2-2M235 134a4 4 0 1 1 4 4a2 2 0 0 1-2-2M245 134a4 4 0 1 1 4 4a2 2 0 0 1-2-2M200 144a4 4 0 1 1 4 4a2 2 0 0 1-2-2M210 144a4 4 0 1 1 4 4a2 2 0 0 1-2-2M220 144a4 4 0 1 1 4 4a2 2 0 0 1-2-2M230 144a4 4 0 1 1 4 4a2 2 0 0 1-2-2M240 144a4 4 0 1 1 4 4a2 2 0 0 1-2-2M197 154a4 4 0 1 1 4 4a2 2 0 0 1-2-2M207 154a4 4 0 1 1 4 4a2 2 0 0 1-2-2M217 154a4 4 0 1 1 4 4a2 2 0 0 1-2-2M227 154a4 4 0 1 1 4 4a2 2 0 0 1-2-2M237 154a4 4 0 1 1 4 4a2 2 0 0 1-2-2M207 164a4 4 0 1 1 4 4a2 2 0 0 1-2-2M217 164a4 4 0 1 1 4 4a2 2 0 0 1-2-2M227 164a4 4 0 1 1 4 4a2 2 0 0 1-2-2M237 164a4 4 0 1 1 4 4a2 2 0 0 1-2-2"/>
+<path d="M231 134c7-1 12 6 11 13s-7 11-12 8" stroke-width="1.2" stroke-opacity=".85"/><path d="M234 140c3 1 4 5 2 8" stroke-opacity=".8"/>
+</g>
+</g>
+<use href="#p" fill="none" stroke="#ece8df" stroke-width="1.2" stroke-opacity=".92"/>
+<g fill="none" stroke="#ece8df" stroke-width="1" stroke-opacity=".8" stroke-linecap="round">
+<path d="M268 120c6-3 14-3 20 1"/><path d="M272 125c5 2 10 2 14-1"/>
+<path d="M286 168c-3 1-6 1-8 0"/>
+<path d="M300 112c-8 4-20 5-30 2" stroke-opacity=".5"/>
+</g>
+</svg>
