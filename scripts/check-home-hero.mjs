@@ -591,8 +591,8 @@ try {
       await page.mouse.move(box.x + 280, box.y + 80)
       await page.mouse.down()
       for (let i = 1; i <= 20; i++) {
-        await page.mouse.move(box.x + 280 - i * 10, box.y + 80)
         await pause(duration / 20)
+        await page.mouse.move(box.x + 280 - i * 10, box.y + 80)
       }
       await page.mouse.up()
       const release = await page.$eval(track, e => e.scrollLeft)
