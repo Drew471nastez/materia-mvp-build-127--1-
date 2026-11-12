@@ -43,7 +43,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { PUBLIC_PAGE_CACHE, SHAREABLE_HEADER, SHARED_PAGE_CDN, publicAnswer, readStrangerMarker, sharedQuery } from "@/lib/storelib-theme/compat/anonymous-cache"
 import { CART_HINT_COOKIE, PERSONAL_PARAM, cartHintCookie, withPersonalFill } from "@/lib/storelib-theme/compat/personal-fill"
 import { heldStrangerPage, strangerKey } from "@/lib/storelib-theme/compat/stranger-hold"
-import { openedAsDocument, readierFirstLoad } from "@/lib/storelib-theme/compat/first-load"
+import { openedAsDocument, readierFirstLoad, sharedAtCdn } from "@/lib/storelib-theme/compat/first-load"
 import { withLcpHint } from "@/lib/storelib-theme/compat/lcp-hint"
 import { calmerScripts, runsThirdPartyScripts } from "@/lib/storelib-theme/compat/script-order"
 import { withDesktopPrerender } from "@/lib/storelib-theme/compat/prerender"
@@ -513,7 +513,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
       at a marked address is that market's for everybody sent there. The
       visitor's country is said in Vary as well.
     */
-    if (openedAsDocument(req.headers)) {
+    if (sharedAtCdn(req.headers)) {
       const id = found.site.creatorId
       headers.set("Vercel-CDN-Cache-Control", SHARED_PAGE_CDN)
       headers.set("Vercel-Cache-Tag", [creatorSiteTag(id), creatorShopTag(id), siteBlogTag(id)].join(","))

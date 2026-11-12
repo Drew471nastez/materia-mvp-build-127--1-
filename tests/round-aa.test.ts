@@ -66,7 +66,8 @@ console.log("\nA push to GitHub reaches an open editor")
   // Changed on purpose (the owner: lower Vercel costs): ten seconds while someone is at the editor; left alone two minutes, every thirty (tests/polling-costs.test.ts). Coming back reads at once.
   check("an idle editor asks at least every ten seconds", nextPollDelay(POLL_MAX_MS, false) === 10_000)
   const hook = read("components/website-builder/site-connections.tsx")
-  check("and while the tab is visible it asks once a second, so a push does not wait on that", /document\.visibilityState === "visible" \? \(arrived && eventsFull \? 200 : POLL_ACTIVE_MS\)/.test(hook))
+  /* Changed on purpose (round 54): once a second while the editor is in use; slower only when left alone (connection-mark.ts visiblePollDelay). */
+  check("and while the tab is visible and in use it asks once a second, so a push does not wait on that", /document\.visibilityState === "visible" \? \(arrived && eventsFull \? 200 : visiblePollDelay\(quiet\)\)/.test(hook))
   check("  and at once when the pointer comes back over it, at most every few seconds", /addEventListener\("pointerenter", wake\)/.test(hook) && /removeEventListener\("pointerenter", wake\)/.test(hook) && /if \(!back && Date\.now\(\) - woke < WAKE_GAP_MS && \(timer !== null \|\| busy\)\) return/.test(hook))
   const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   check("what arrives is a draft, so Publish says the site has changes", /const handleAgentEvents = async[\s\S]{0,900}?if \(events\.length > 0\) setUnpublished\(true\)/.test(editor))

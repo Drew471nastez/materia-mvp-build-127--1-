@@ -10,7 +10,8 @@ import { jsonLdScript } from "@/lib/seo/json-ld"
 import { helpCategoryJsonLd } from "@/lib/help/structured-data"
 
 export const dynamicParams = false
-export const revalidate = 60
+/* An hour (round 54, Vercel cost): saving, publishing and a post going live clear these at once (lib/blog/admin-http.ts, went-live.ts; the platform switch clears /help). */
+export const revalidate = 3600
 
 export function generateStaticParams() {
   return ALL_HELP_CATEGORIES.map((c) => ({ category: c.slug }))

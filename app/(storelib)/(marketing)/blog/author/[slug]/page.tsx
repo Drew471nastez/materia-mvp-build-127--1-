@@ -8,7 +8,8 @@ import { BlogAuthorView, blogAuthorMetadata, blogAuthorPage } from "../../_blog-
   the category pages are. Drawn on first request: no list of authors is
   read at build time.
 */
-export const revalidate = 60
+/* An hour (round 54, Vercel cost): saving, publishing and a post going live clear these at once (lib/blog/admin-http.ts, went-live.ts; the platform switch clears /help). */
+export const revalidate = 3600
 
 export function generateStaticParams() {
   return [] as { slug: string }[]

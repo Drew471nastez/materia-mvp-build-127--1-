@@ -106,7 +106,7 @@ async function main() {
     check("  a database that cannot write it down still leaves the owner out", (await consumeOwnHandoff(down, String(signOwnHandoff(SHOP, now)), "shop.example", now)) === SHOP)
     const site = read("lib/analytics/own-site.ts")
     const refresh = Number(/export const REFRESH_MS = (\d+(?:_\d+)?)/.exec(site)?.[1].replace(/_/g, ""))
-    check("the app asks for a new one before the last runs out, and never links an old one", refresh > 0 && refresh < HANDOFF_TTL_MS && /window\.setInterval\(primeOwnMarker/.test(site) && /Date\.now\(\) - mintedAt > TOKEN_USABLE_MS\) return siteUrl/.test(site))
+    check("the app asks for a new one before the last runs out, and never links an old one", refresh > 0 && refresh < HANDOFF_TTL_MS && /* Changed on purpose (round 54): the refresh skips a hidden tab. */ /window\.setInterval\(\(\) => \{\s*if \(document\.visibilityState === \"visible\"\) primeOwnMarker\(\)/.test(site) && /Date\.now\(\) - mintedAt > TOKEN_USABLE_MS\) return siteUrl/.test(site))
     check("the tracker and the marker route both take it once", /consumeOwnHandoff\(db, handoff, handoffHost\(body\.href/.test(read("lib/analytics/collect.ts")) && /consumeOwnHandoff\(createAdminClient\(\), given, here\.host\)/.test(read("app/api/analytics/own/route.ts")))
   }
 

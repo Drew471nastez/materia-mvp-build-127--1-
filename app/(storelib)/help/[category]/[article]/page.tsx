@@ -27,7 +27,8 @@ import ReadingProgress from "@/app/(storelib)/(marketing)/blog/[slug]/_reading-p
 import { helpArticleJsonLd } from "@/lib/help/structured-data"
 
 export const dynamicParams = false
-export const revalidate = 60
+/* An hour (round 54, Vercel cost): saving, publishing and a post going live clear these at once (lib/blog/admin-http.ts, went-live.ts; the platform switch clears /help). */
+export const revalidate = 3600
 
 export function generateStaticParams() {
   /* The articles, and the addresses of the ones that moved, which send people on (HELP_MOVED). */

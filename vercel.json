@@ -146,6 +146,15 @@
           "value": "usb=(), serial=(), hid=(), bluetooth=(), display-capture=()"
         }
       ]
+    },
+    {
+      "source": "/media/:path*",
+      "headers": [
+        {
+          "key": "x-vercel-enable-rewrite-caching",
+          "value": "1"
+        }
+      ]
     }
   ]
 }

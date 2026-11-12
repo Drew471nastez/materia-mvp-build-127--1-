@@ -10,7 +10,8 @@ import { BlogCategoryView, blogCategoryMetadata, blogCategoryPage } from "../../
   Rebuilt in the background at most once a minute, the same minute
   next.config's `/blog/:path*` rule already gives the CDN.
 */
-export const revalidate = 60
+/* An hour (round 54, Vercel cost): saving, publishing and a post going live clear these at once (lib/blog/admin-http.ts, went-live.ts; the platform switch clears /help). */
+export const revalidate = 3600
 
 type Props = { params: Promise<{ slug: string }> }
 

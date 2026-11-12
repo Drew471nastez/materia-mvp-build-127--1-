@@ -60,6 +60,14 @@ export type GenerationSource = { kind: "job"; jobId: string } | { kind: "inline"
 
 export const POLL_MS = 1_500
 export const POLL_HIDDEN_MS = 6_000
+/** After failed reads in a row the poll waits longer, doubling, up to this (round 54). */
+export const POLL_FAILED_MAX_MS = 60_000
+
+/** The next poll's delay: the usual one, doubled for each failed read in a row after the second, at most a minute. Pure. */
+export function failedPollDelay(base: number, failures: number): number {
+  if (failures <= 2) return base
+  return Math.min(POLL_FAILED_MAX_MS, base * 2 ** (failures - 2))
+}
 /** The most operations one poll answers with (lib/website-builder/ai-site/job.ts publicView). */
 export const OPS_PAGE = 400
 
@@ -217,10 +225,13 @@ export function useSiteGeneration(input: {
     if (agentJob === source.jobId) return
     let stop = false
     let timer: ReturnType<typeof setTimeout> | null = null
+    /* Failed reads in a row (round 54): each one waits longer, up to a minute, instead of asking every 1.5 s for as long as the server errors. */
+    let failures = 0
     const tick = async () => {
       if (stop) return
       try {
         const res = await fetch(`/api/website-builder/ai-jobs/${source.jobId}?after=${cursor.current}`, { cache: "no-store" })
+        failures = res.ok ? 0 : failures + 1
         if (res.ok) {
           const answer = (await res.json()) as JobView | AgentJobView
           if ((answer as AgentJobView).engine === "agent") {
@@ -235,8 +246,9 @@ export function useSiteGeneration(input: {
         } else if (res.status === 404) return
       } catch {
         /* offline for a moment: the next tick asks again */
+        failures++
       }
-      if (!stop) timer = setTimeout(tick, document.visibilityState === "hidden" ? POLL_HIDDEN_MS : POLL_MS)
+      if (!stop) timer = setTimeout(tick, failedPollDelay(document.visibilityState === "hidden" ? POLL_HIDDEN_MS : POLL_MS, failures))
     }
     void tick()
     return () => {
