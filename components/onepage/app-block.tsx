@@ -95,7 +95,7 @@ export interface AppBlockLook {
 }
 
 /* i18n-ignore-start: CSS values and the stores' own names. */
-export const MIX: Record<number, string> = Object.fromEntries([10, 12, 14, 16, 35].map((n) => [n, `color-mix(in srgb, currentColor ${n}%, transparent)`]))
+export const MIX: Record<number, string> = Object.fromEntries([7, 10, 12, 14, 16, 35].map((n) => [n, `color-mix(in srgb, currentColor ${n}%, transparent)`]))
 const STORE_NAME = { ios: "App Store", android: "Google Play" } as const
 /* i18n-ignore-end */
 
@@ -551,7 +551,7 @@ function LinkView({ block, data, provider, look }: ViewProps) {
   */
   const spotlight = (
     <div data-onepage-app={provider.id} data-app-layout="single" data-app-spotlight="" className="flex w-full flex-col overflow-hidden" style={{ ...parts.surface, borderRadius: parts.radius, padding: px(10, look.scale), gap: px(12, look.scale) }}>
-      <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "4 / 3", borderRadius: Math.max(6, parts.radius - 6), background: ownCover ? coverFill : "color-mix(in srgb, currentColor 7%, transparent)" }}>
+      <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "4 / 3", borderRadius: Math.max(6, parts.radius - 6), background: ownCover ? coverFill : MIX[7] }}>
         {data.image_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img src={data.image_url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
