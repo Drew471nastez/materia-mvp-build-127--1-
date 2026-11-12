@@ -93,6 +93,32 @@ if (params.get("all") === "1")
     ((b) => ({ ...b, data: { ...(b.data as object), instant_checkout: false, tap_action: "sheet" } as never }))(product("p-sheet", "callout", 21, "Sketchbook, the first year")),
   )
 
+/* The product sheet's facts (components/checkout/instant-checkout loadProductFacts): for sale, two editions to pick between. */
+if (params.get("all") === "1") {
+  const facts = (id: string) => ({
+    product: {
+      id, title: "Sketchbook, the first year", slug: "sketchbook", type: "digital", descriptionHtml: "<p>Every page of the first sketchbook, scanned.</p>",
+      priceCents: 4900, compareAtCents: 6900, pwyw: false, pwywMinCents: 0, currency: "USD", images: [IMG(21)],
+      variants: [
+        { id: "v1", name: "Digital", description: null, priceCents: 4900, pwyw: false, available: true, imageUrl: null },
+        { id: "v2", name: "Printed", description: null, priceCents: 7900, pwyw: false, available: true, imageUrl: null },
+      ],
+      soldOut: false, left: null, pageUrl: "/p/sketchbook", ships: false,
+      faqs: [{ question: "What is included?", answer: "Ninety six pages." }],
+    },
+    seller: { name: "Satori Studio", avatarUrl: IMG(7) },
+    checkout: { instant: true, reason: null, url: `/checkout?productId=${id}`, tax: null, marketingOptIn: false, lastNameRequired: false },
+    buyer: null,
+  })
+  const original = window.fetch.bind(window)
+  window.fetch = async (input, init) => {
+    const url = String(input instanceof Request ? input.url : input)
+    const m = /\/api\/onepage\/product\?id=([^&]+)/.exec(url)
+    if (m) return new Response(JSON.stringify(facts(decodeURIComponent(m[1]))), { headers: { "Content-Type": "application/json" } })
+    return original(input, init)
+  }
+}
+
 const header = { id: "hdr", type: "header", enabled: true, sort_order: -1, data: { show_avatar: true, show_name: true, show_bio: true } } as unknown as OnePageBlock
 const base = {
   id: "op_probe",
