@@ -32,7 +32,7 @@ import { ChoiceMark } from "@/components/onepage/choice-marks"
 import {
   BLOCK_ASPECTS,
   LINK_LAYOUTS,
-  blockSurface,
+  blockSurfaceOf,
   blockTakesDescription,
   layoutControlsFor,
   linkLayoutHasImage,
@@ -530,7 +530,8 @@ export function BlockStyleControls({ block, onChange, getBlock }: { block: OnePa
   if (!controls.length) return null
   const has = (c: (typeof controls)[number]) => controls.includes(c)
   const p = presentationOf(block)
-  const panel = blockSurface(block.type) === "panel"
+  /* A tips block's card takes its corners, shadow and padding from the start (lib/onepage/block-presentation blockSurfaceOf). */
+  const panel = blockSurfaceOf(block) === "panel"
   const shaped = !panel || !!p.background
   const hasDescription = has("description") && !!p.subtitle?.trim()
   /*

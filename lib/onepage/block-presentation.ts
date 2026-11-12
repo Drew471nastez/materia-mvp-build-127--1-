@@ -124,10 +124,25 @@ export function linkLayoutHasImage(layout: LinkLayout): boolean {
   picked. Product blocks keep their own colour rows, so they get shape only.
 */
 export type LayoutControl = "align" | "title" | "description" | "icon" | "background" | "radius" | "shadow" | "padding"
-export type BlockSurface = "own" | "panel"
+export type BlockSurface = "own" | "panel" | "card"
 const OWN_SURFACE = new Set(["link_button", "product", "storelib_shelf"])
 export function blockSurface(type: string): BlockSurface {
   return OWN_SURFACE.has(type) ? "own" : "panel"
+}
+/*
+  A TIPS BLOCK DRAWS ITS OWN CARD (round 3). Its background, corners,
+  shadow and padding were a "panel" laid round the tip card, so a
+  background drew a card inside a card, and the corners, shadow and padding
+  showed nothing until a background was picked. A Storelib tips block reads
+  them itself (components/onepage/tip-block), so they land on the card and
+  are offered from the start; nothing in app/globals.css draws a panel for it.
+*/
+export function blockSurfaceOf(block: Pick<OnePageBlock, "type" | "data">): BlockSurface {
+  if (block.type === "app") {
+    const d = (block.data ?? {}) as { provider?: unknown; tip_mode?: unknown; url?: unknown }
+    if (d.provider === "tips" && (d.tip_mode === "storelib" || (d.tip_mode !== "link" && !String(d.url ?? "").trim()))) return "card"
+  }
+  return blockSurface(block.type)
 }
 export function layoutControlsFor(type: string): LayoutControl[] {
   if (!PRESENTABLE_BLOCKS.has(type)) return []

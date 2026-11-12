@@ -42,11 +42,13 @@ import { useBlockSheet } from "@/components/onepage/block-sheet-context"
 import { CardButton, px, useParts, useTrack, type AppBlockLook } from "@/components/onepage/app-block"
 import { useFilled } from "@/components/onepage/data-blocks"
 import { inkOn } from "@/lib/onepage/contrast"
-import { boxRadius } from "@/lib/onepage/block-look"
+import { boxRadius, pressableProps } from "@/lib/onepage/block-look"
+import { onCardButtonTheme } from "@/lib/onepage/button-style"
+import { SHADOW_CSS, presentationOf } from "@/lib/onepage/block-presentation"
 import { showPreviewNotice } from "@/lib/onepage/preview-notice"
-import { TIP_MAX_CENTS, checkTipAmount, keypadInput, keypadText, tipAmounts, tipFloor, tipLabel, tipStepped, typedTipCents } from "@/lib/onepage/tips"
+import { TIP_MAX_CENTS, checkTipAmount, keypadInput, keypadText, tipAmounts, tipFloor, tipLabel, tipNext, tipStepped, tipStyleOf, typedTipCents } from "@/lib/onepage/tips"
 import type { AppBlockData } from "@/lib/onepage/app-blocks"
-import type { OnePageBlock } from "@/lib/onepage/types"
+import type { OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
 
 type Props = { block: OnePageBlock; data: AppBlockData; look: AppBlockLook }
 
@@ -94,7 +96,23 @@ async function startTip(look: AppBlockLook, blockId: string, cents: number, mess
 
 export function DataTipsView({ block, data: given, look }: Props) {
   const data = useFilled(block, given, look, given.tip_ready !== undefined)
-  const parts = useParts(look)
+  /*
+    Round 3: the block's Layout tab lands on the tip card itself
+    (lib/onepage/block-presentation blockSurfaceOf "card"): its alignment, a
+    background of the creator's own (the card filled with it, its words and
+    buttons chosen to read on it), corners, shadow and padding.
+  */
+  const pres = presentationOf(block)
+  const tipStyle = tipStyleOf(data)
+  const align = pres.align ?? (tipStyle === "card" ? "left" : "center")
+  const justify = align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center"
+  const ownBg = pres.background
+  const cardTheme = React.useMemo<OnePageTheme>(
+    () => (ownBg ? { ...look.theme, button_style: "filled", button_color: ownBg, button_border_color: ownBg, button_text_color: inkOn(ownBg, look.theme.button_text_color) } : look.theme),
+    [look.theme, ownBg],
+  )
+  const cardLook = React.useMemo(() => (cardTheme === look.theme ? look : { ...look, theme: cardTheme }), [look, cardTheme])
+  const parts = useParts(cardLook)
   const track = useTrack(look)
   const sheet = useBlockSheet()
   const currency = data.tip_currency || "usd"
@@ -152,17 +170,23 @@ export function DataTipsView({ block, data: given, look }: Props) {
       body: <TipSheet blockId={block.id} look={look} data={data} currency={currency} start={cents} />,
     })
   }
-  const send = async () => {
+  const send = async (cents: number = shownPick) => {
     if (busy) return
     /* A note asked for: the sheet, with this amount in it. */
-    if (data.tip_message && sheet.available) return openSheet(shownPick)
+    if (data.tip_message && sheet.available) return openSheet(cents)
     setBusy(true)
     setError(null)
     track(block.id, "#tip")
-    const failed = await startTip(look, block.id, shownPick, null, "card")
+    const failed = await startTip(look, block.id, cents, null, "card")
     if (failed) setError(failed)
     setBusy(false)
   }
+  const custom = data.tip_custom === true
+  /* The Big amount style's own amount: any amount on the block's ladder (lib/onepage/tips tipNext), the middle preset first. */
+  const [amount, setAmount] = React.useState<number>(shownPick)
+  const ladderLow = custom ? tipFloor(currency) : presets[0]
+  const ladderHigh = custom ? TIP_MAX_CENTS : presets[presets.length - 1]
+  const shownAmount = custom ? Math.max(ladderLow, Math.min(ladderHigh, amount)) : presets.includes(amount) ? amount : shownPick
 
   /*
     The amounts: tinted from the card's own words (currentColor), so they read on any page; the picked one filled with
@@ -170,12 +194,12 @@ export function DataTipsView({ block, data: given, look }: Props) {
     follow the page's buttons, a pill at most.
   */
   /* The picked amount is the card turned round: filled with the card's own words' colour, its words in the card's colour where that reads. */
-  const cardInk = String(parts.surface.color || look.theme.button_text_color || "#111113")
+  const cardInk = String(parts.surface.color || cardTheme.button_text_color || "#111113")
   const cardGround = String(parts.surface.backgroundColor || "#ffffff")
   const pickedFill = /^(#|rgb|hsl)/.test(cardInk) ? cardInk : "#111113"
   const pickedInk = inkOn(pickedFill, /^(#|rgb|hsl)/.test(cardGround) && !/^(transparent|rgba\([^)]*,\s*0\))$/.test(cardGround) ? cardGround : "#ffffff")
   const chipRadius = Math.min(boxRadius(look.theme), 999)
-  const columns = presets.length + (data.tip_custom ? 1 : 0)
+  const columns = presets.length + (custom ? 1 : 0)
   const chip = (on: boolean): React.CSSProperties => ({
     borderRadius: chipRadius,
     minHeight: px(44, look.scale),
@@ -186,27 +210,179 @@ export function DataTipsView({ block, data: given, look }: Props) {
   })
   const chipClass = "relative grid place-items-center px-1 font-semibold tabular-nums outline-none transition-[background-color,color,box-shadow,scale] duration-200 ease-out [-webkit-tap-highlight-color:transparent] active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-1 motion-reduce:transition-none"
 
-  return (
-    <div data-onepage-app="tips" data-tip-mode="storelib" className="w-full text-left" style={{ ...parts.surface, borderRadius: parts.radius, padding: px(16, look.scale) }}>
-      <div className="flex items-center" style={{ gap: px(12, look.scale) }}>
-        <span aria-hidden className="grid shrink-0 place-items-center rounded-full" style={{ width: px(40, look.scale), height: px(40, look.scale), background: "color-mix(in srgb, currentColor 12%, transparent)" }}>
-          {thanks ? <Check style={{ width: px(19, look.scale), height: px(19, look.scale) }} /> : <HandCoins style={{ width: px(19, look.scale), height: px(19, look.scale) }} />}
+  /* The card the Card and Big amount styles draw: the page's button made a card, with the creator's corners, shadow and padding. */
+  const cardStyle: React.CSSProperties = {
+    ...parts.surface,
+    borderRadius: pres.radius ?? parts.radius,
+    padding: px(pres.padding ?? 16, look.scale),
+    ...(pres.shadow ? { boxShadow: SHADOW_CSS[pres.shadow] } : null),
+  }
+  const label = (c: number) => tipLabel(c, currency, locale)
+  const icon = (size: number) => (thanks ? <Check style={{ width: px(size, look.scale), height: px(size, look.scale) }} /> : <HandCoins style={{ width: px(size, look.scale), height: px(size, look.scale) }} />)
+  const thanksLine = thanks ? (
+    <span className="mt-0.5 block font-medium leading-snug [animation:op-late-in_240ms_ease-out_both] motion-reduce:[animation:none]" style={{ fontSize: px(13.5, look.scale) }} data-tip-thanks="" role="status">
+      {tt("Thank you for the {amount} tip.", { amount: thanks })}
+    </span>
+  ) : null
+  const subtitle = data.subtitle?.trim() ? (
+    <span className="mt-0.5 block leading-snug opacity-75" style={{ fontSize: `var(--op-block-subtitle-size, ${px(13, look.scale)})` }} data-tip-subtitle="">
+      {data.subtitle}
+    </span>
+  ) : null
+  const errorLine = error ? (
+    <p className="mt-2 font-medium" style={{ fontSize: px(13, look.scale) }} role="alert" data-tip-error="">
+      {error}
+    </p>
+  ) : null
+  const common = { "data-onepage-app": "tips", "data-tip-mode": "storelib", "data-tip-style": tipStyle, "data-tip-align": align } as const
+
+  /* ── Pills: no card, the title over a row of the page's own buttons, one per amount ── */
+  if (tipStyle === "pills") {
+    const pillTheme = ownBg ? onCardButtonTheme(cardTheme) : look.theme
+    const press = pressableProps(pillTheme, look.still)
+    const pill = (wide: boolean): React.CSSProperties => ({
+      ...press.style,
+      ...(pres.radius !== undefined ? { borderRadius: pres.radius } : null),
+      ...(pres.shadow ? { boxShadow: SHADOW_CSS[pres.shadow] } : null),
+      minHeight: px(44, look.scale),
+      minWidth: px(wide ? 84 : 68, look.scale),
+      paddingInline: px(18, look.scale),
+      fontSize: px(15, look.scale),
+    })
+    const pillClass = cn(press.className, "inline-flex items-center justify-center font-semibold tabular-nums disabled:opacity-60")
+    return (
+      <div
+        {...common}
+        className="w-full"
+        style={{
+          textAlign: align,
+          color: ownBg ? cardTheme.button_text_color : undefined,
+          ...(ownBg ? { background: ownBg, borderRadius: pres.radius ?? parts.radius, padding: px(pres.padding ?? 16, look.scale) } : null),
+        }}
+      >
+        <span className="block font-semibold leading-tight" style={{ fontSize: px(15, look.scale) }} data-block-title="">
+          {title}
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold leading-tight" style={{ fontSize: px(16, look.scale) }} data-block-title="">
-            {title}
-          </span>
-          {thanks ? (
-            <span className="mt-0.5 block font-medium leading-snug [animation:op-late-in_240ms_ease-out_both] motion-reduce:[animation:none]" style={{ fontSize: px(13.5, look.scale) }} data-tip-thanks="" role="status">
-              {tt("Thank you for the {amount} tip.", { amount: thanks })}
-            </span>
-          ) : data.subtitle?.trim() ? (
-            <span className="mt-0.5 block leading-snug opacity-75" style={{ fontSize: px(13, look.scale) }}>
-              {data.subtitle}
-            </span>
-          ) : null}
-        </span>
+        {thanks ? thanksLine : subtitle}
+        {thanks ? null : (
+          <div role="group" aria-label={tt("Amount")} className="flex flex-wrap" style={{ justifyContent: justify, gap: px(8, look.scale), marginTop: px(10, look.scale) }} data-tip-pills="">
+            {presets.map((c) => (
+              <button key={c} type="button" onClick={() => void send(c)} disabled={busy} data-tip-amount={c} className={pillClass} style={pill(false)} data-hover={press["data-hover"]} data-shadow={press["data-shadow"]}>
+                {label(c)}
+              </button>
+            ))}
+            {custom ? (
+              <button type="button" aria-haspopup="dialog" onClick={() => openSheet(shownPick)} disabled={busy} data-tip-amount="other" className={pillClass} style={{ ...pill(true), backgroundColor: "transparent", backdropFilter: undefined, color: "inherit", borderStyle: "solid", borderWidth: 1.5, borderColor: "color-mix(in srgb, currentColor 35%, transparent)", boxShadow: "none" }} data-hover={press["data-hover"]}>
+                {tt("Other")}
+              </button>
+            ) : null}
+          </div>
+        )}
+        {errorLine}
       </div>
+    )
+  }
+
+  /* ── Button: one of the page's own buttons that opens the amount sheet ── */
+  if (tipStyle === "button") {
+    const press = pressableProps(cardTheme, look.still)
+    const open = () => (sheet.available ? openSheet(shownPick) : void send(shownPick))
+    return (
+      <div {...common} className="w-full">
+        <button
+          type="button"
+          aria-haspopup={sheet.available ? "dialog" : undefined}
+          onClick={open}
+          disabled={busy}
+          data-tip-open=""
+          className={cn(press.className, "flex w-full items-center font-semibold disabled:opacity-60")}
+          data-hover={press["data-hover"]}
+          data-shadow={press["data-shadow"]}
+          style={{
+            ...press.style,
+            ...(pres.radius !== undefined ? { borderRadius: pres.radius } : null),
+            ...(pres.shadow ? { boxShadow: SHADOW_CSS[pres.shadow] } : null),
+            justifyContent: justify,
+            textAlign: align,
+            gap: px(10, look.scale),
+            minHeight: px(52, look.scale),
+            padding: `${px(pres.padding !== undefined ? Math.max(8, pres.padding * 0.6) : 12, look.scale)} ${px(18, look.scale)}`,
+            fontSize: px(16, look.scale),
+          }}
+        >
+          <span aria-hidden className="grid shrink-0 place-items-center">{icon(19)}</span>
+          <span className="min-w-0">
+            <span className="block leading-tight" data-block-title="">{title}</span>
+            {thanks ? thanksLine : subtitle}
+          </span>
+        </button>
+        {errorLine}
+      </div>
+    )
+  }
+
+  /* The card's head: the icon, the title and the line under it, placed by the block's alignment. */
+  const head = (
+    <div className="flex items-center" style={{ gap: px(12, look.scale), justifyContent: justify, textAlign: align, flexDirection: align === "right" ? "row-reverse" : undefined }}>
+      <span aria-hidden className="grid shrink-0 place-items-center rounded-full" style={{ width: px(40, look.scale), height: px(40, look.scale), background: "color-mix(in srgb, currentColor 12%, transparent)" }}>
+        {icon(19)}
+      </span>
+      <span className={cn("min-w-0", align === "center" ? "" : "flex-1")}>
+        <span className="block truncate font-semibold leading-tight" style={{ fontSize: px(16, look.scale) }} data-block-title="">
+          {title}
+        </span>
+        {thanks ? thanksLine : subtitle}
+      </span>
+    </div>
+  )
+
+  /* ── Big amount: the amount large between - and +, then Tip ── */
+  if (tipStyle === "amount") {
+    const round = "grid shrink-0 place-items-center rounded-full outline-none transition-[scale,opacity] duration-150 [-webkit-tap-highlight-color:transparent] active:scale-95 disabled:opacity-35 focus-visible:ring-2 focus-visible:ring-current"
+    const roundStyle: React.CSSProperties = { width: px(44, look.scale), height: px(44, look.scale), background: "color-mix(in srgb, currentColor 10%, transparent)" }
+    const big = label(shownAmount)
+    return (
+      <div {...common} className="w-full" style={{ ...cardStyle, textAlign: align }}>
+        <span className="block truncate font-semibold leading-tight" style={{ fontSize: px(15, look.scale) }} data-block-title="">
+          {title}
+        </span>
+        {thanks ? thanksLine : subtitle}
+        {thanks ? null : (
+          <>
+            <div className="flex items-center justify-between" style={{ gap: px(10, look.scale), marginTop: px(12, look.scale) }}>
+              <button type="button" aria-label={tt("Less")} onClick={() => setAmount(tipNext(shownAmount, -1, presets, custom, currency))} disabled={shownAmount <= ladderLow} className={round} style={roundStyle} data-tip-minus="">
+                <Minus aria-hidden style={{ width: px(18, look.scale), height: px(18, look.scale) }} />
+              </button>
+              <button
+                type="button"
+                onClick={custom ? () => openSheet(shownAmount) : undefined}
+                aria-label={custom ? tt("Enter tip amount") : undefined}
+                aria-live="polite"
+                tabIndex={custom ? 0 : -1}
+                data-tip-value={shownAmount}
+                className="min-w-0 flex-1 truncate rounded-xl text-center font-bold tabular-nums leading-none tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-current"
+                style={{ fontSize: px(big.length > 7 ? 34 : 44, look.scale), paddingBlock: px(6, look.scale), fontFamily: "inherit", cursor: custom ? "text" : "default" }}
+              >
+                {big}
+              </button>
+              <button type="button" aria-label={tt("More")} onClick={() => setAmount(tipNext(shownAmount, 1, presets, custom, currency))} disabled={shownAmount >= ladderHigh} className={round} style={roundStyle} data-tip-plus="">
+                <Plus aria-hidden style={{ width: px(18, look.scale), height: px(18, look.scale) }} />
+              </button>
+            </div>
+            <div className="flex" style={{ marginTop: px(12, look.scale) }}>
+              <CardButton look={cardLook} onClick={() => void send(shownAmount)} disabled={busy} wide big data={{ "data-tip-send": "" }} label={busy ? tt("Opening checkout...") : tt("Tip {amount}", { amount: big })} />
+            </div>
+          </>
+        )}
+        {errorLine}
+      </div>
+    )
+  }
+
+  /* ── Card: the head, the amounts as choices and one Tip button ── */
+  return (
+    <div {...common} className="w-full" style={{ ...cardStyle, textAlign: align }}>
+      {head}
       {thanks ? null : (
         <>
           <div role="radiogroup" aria-label={tt("Amount")} className="grid" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: px(8, look.scale), marginTop: px(14, look.scale) }}>
@@ -224,23 +400,19 @@ export function DataTipsView({ block, data: given, look }: Props) {
                 className={chipClass}
                 style={chip(shownPick === c)}
               >
-                {tipLabel(c, currency, locale)}
+                {label(c)}
               </button>
             ))}
-            {data.tip_custom ? (
+            {custom ? (
               <button type="button" aria-haspopup="dialog" onClick={() => openSheet(shownPick)} data-tip-amount="other" className={chipClass} style={chip(false)}>
                 {tt("Other")}
               </button>
             ) : null}
           </div>
           <div className="flex" style={{ marginTop: px(12, look.scale) }}>
-            <CardButton look={look} onClick={send} disabled={busy} wide big data={{ "data-tip-send": "" }} label={busy ? tt("Opening checkout...") : tt("Tip {amount}", { amount: tipLabel(shownPick, currency, locale) })} />
+            <CardButton look={cardLook} onClick={() => void send()} disabled={busy} wide big data={{ "data-tip-send": "" }} label={busy ? tt("Opening checkout...") : tt("Tip {amount}", { amount: label(shownPick) })} />
           </div>
-          {error ? (
-            <p className="mt-2 font-medium" style={{ fontSize: px(13, look.scale) }} role="alert" data-tip-error="">
-              {error}
-            </p>
-          ) : null}
+          {errorLine}
         </>
       )}
     </div>
