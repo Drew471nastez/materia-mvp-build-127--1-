@@ -111,7 +111,9 @@ export function renaissance() {
   rule(`${A} ${INPUT}`, `background: ${P.field} !important; border: 1px solid ${P.hair} !important; border-radius: 2px !important; color: ${P.white} !important; box-shadow: none !important;`)
   promise("renaissance", "a field", P.white, [P.field])
   rule(`${A} ${INPUT}:focus`, `border-color: ${P.white} !important; box-shadow: 0 0 0 1px ${P.white} !important;`)
-  rule(`${A} ${TITLE}`, `letter-spacing: -.035em; line-height: .98; text-shadow: 0 2px 28px rgba(6,9,20,.45);`)
+  rule(`${A} ${TITLE}`, `letter-spacing: -.035em; text-shadow: 0 2px 28px rgba(6,9,20,.45);`)
+  /* Tight leading on the page's name only: a theme card's name keeps its own line (scripts/check-onepage-theme-previews). */
+  rule(`${A} [data-op-header] h1`, `line-height: 1.04;`)
   rule(`${A} :is(${BIO}, ${TEXT})`, `text-shadow: 0 1px 14px rgba(6,9,20,.55);`)
   rule(`${A} :is(${HEADING}, ${BLOCK_TITLE})`, `
     font-size: .8rem !important; font-weight: 600 !important; letter-spacing: .14em; text-transform: uppercase;

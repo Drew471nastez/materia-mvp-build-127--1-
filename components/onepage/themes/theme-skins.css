@@ -2430,7 +2430,10 @@
   border-color: #ffffff !important; box-shadow: 0 0 0 1px #ffffff !important;
 }
 [data-op-skin="renaissance"] :is([data-op-header] h1, [data-tp-title]) {
-  letter-spacing: -.035em; line-height: .98; text-shadow: 0 2px 28px rgba(6,9,20,.45);
+  letter-spacing: -.035em; text-shadow: 0 2px 28px rgba(6,9,20,.45);
+}
+[data-op-skin="renaissance"] [data-op-header] h1 {
+  line-height: 1.04;
 }
 [data-op-skin="renaissance"] :is([data-op-header] > p, [data-op-block] > p.whitespace-pre-line) {
   text-shadow: 0 1px 14px rgba(6,9,20,.55);
