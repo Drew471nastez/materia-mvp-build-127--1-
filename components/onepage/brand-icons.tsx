@@ -341,10 +341,13 @@ export const TIKTOK_STOPS = ["#25F4EE", "#FE2C55"] as const
 function TikTokMark({ size, color, className, style, ...a11y }: SvgProps) {
   const ink = color && color !== "currentColor" ? color : "currentColor"
   return (
-    <svg viewBox="-1 -1 26 26" width={size ?? "1em"} height={size ?? "1em"} className={className} style={style} data-mark="tiktok" data-tone="brand" {...a11y}>
-      <path d={TIKTOK_PATH} fill={TIKTOK_STOPS[0]} transform="translate(-0.8 -0.8)" />
-      <path d={TIKTOK_PATH} fill={TIKTOK_STOPS[1]} transform="translate(0.8 0.8)" />
-      <path d={TIKTOK_PATH} fill={ink} />
+    <svg viewBox="0 0 24 24" width={size ?? "1em"} height={size ?? "1em"} className={className} style={style} data-mark="tiktok" data-tone="brand" {...a11y}>
+      {/* Drawn at 92% about the centre, so the offset copies stay inside the box. */}
+      <g transform="translate(0.96 0.96) scale(0.92)">
+        <path d={TIKTOK_PATH} fill={TIKTOK_STOPS[0]} transform="translate(-0.8 -0.8)" />
+        <path d={TIKTOK_PATH} fill={TIKTOK_STOPS[1]} transform="translate(0.8 0.8)" />
+        <path d={TIKTOK_PATH} fill={ink} />
+      </g>
     </svg>
   )
 }
