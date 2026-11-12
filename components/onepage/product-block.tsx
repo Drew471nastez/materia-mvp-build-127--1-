@@ -436,7 +436,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     showPrice && !purchased ? (
       <p className={cn("flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1.5 tabular-nums", cls)} style={{ color }} data-product-price="">
         <span className="min-w-0 max-w-full truncate">{now}</span>
-        {parts.was ? <s className="min-w-0 max-w-full truncate text-[0.85em] font-normal opacity-60">{parts.was}</s> : null}
+        {parts.was ? <s className="min-w-0 max-w-full truncate text-[0.85em] font-normal">{parts.was}</s> : null}
       </p>
     ) : null
   const ctaButton = (cls: string, onPhoto = false) => {
