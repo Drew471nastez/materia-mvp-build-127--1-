@@ -64,8 +64,10 @@ for (const e of SHOWCASE_EXAMPLES) {
 }
 const gallery = renderToString(createElement(BuildShowcase))
 assert.equal((gallery.match(/data-showcase-slide=""/g) || []).length, 9)
-assert.equal((gallery.match(/loading="lazy"/g) || []).length, 9)
-assert.equal((gallery.match(/decoding="async"/g) || []).length, 9)
+/* Each slide: its picture and the blurred fill behind it (the same cached file, decorative). */
+assert.equal((gallery.match(/loading="lazy"/g) || []).length, 18)
+assert.equal((gallery.match(/decoding="async"/g) || []).length, 18)
+assert.equal((gallery.match(/class="build-showcase-fill"[^>]*aria-hidden="true"/g) || []).length, 9)
 // Three wide–OnePage–wide pages, each a store, a OnePage and a community.
 assert.deepEqual(SHOWCASE_EXAMPLES.map((e) => e.format), ["wide", "portrait", "wide", "wide", "portrait", "wide", "wide", "portrait", "wide"])
 assert.equal((gallery.match(/data-showcase-group=""/g) || []).length, 3)
