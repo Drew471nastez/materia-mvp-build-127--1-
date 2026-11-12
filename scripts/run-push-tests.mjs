@@ -1463,6 +1463,8 @@ const STRICT_SUITES = [
   "tests/onepage-ar1.test.ts",
   /* Round AS: the OnePage shell. The profile bar forms over the name as it scrolls under (every header layout, the verified badge in it, floating inside the computer's card), Share and Subscribe from one listener after real travel, faded on the button while the box only moves, the fade layout's large melting picture from the top of a phone's page, the own cover's fade and its switch, the 550px card, every sideways row out to the column's edge. scripts/check-onepage-header-as.mjs measures them frame by frame at 390 and 1440 and in the preview. */
   "tests/onepage-header-as.test.ts",
+  /* Round R3, the page shell: on a computer the profile bar is the card's own top (its width and corners, the page's colour, a soft fade at its foot, no pill), drawn from the name's own scroll timeline so it never lags; the card keeps its corners at the top of the window; the fade layout's picture 8/9 on a phone and 5/4 on a computer; every block sheet drawn whole on its first frame. scripts/check-onepage-header-as.mjs and check-onepage-sheet-first-frame.mjs measure them at 390 and 1440. */
+  "tests/onepage-shell-r3.test.ts",
   "tests/onepage-w8.test.ts",
   /* Round AR3: every block type's settings panel drawn and visible (image 137), music and video layouts with Storelib's own player, Cover, Fit and Full, links shown in place (Calendly, Typeform, Canva, Google Maps, podcasts), oEmbed cards from recorded answers, Fourthwall and Bonfire retired, followers from one field, more links in one block. scripts/check-onepage-ar3.mjs measures the layout matrix, the embeds and the settings at 390 and 1440. */
   "tests/onepage-ar3.test.ts",

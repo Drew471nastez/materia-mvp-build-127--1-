@@ -1666,14 +1666,16 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {/* Centered card container */}
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
           {/* The page as a card: 420px, then 500px, then (round AS, the owner: "about 10% more width") 550px. */}
+          {/* Round R3: the shadow is the box around the card's, so the card can keep its corners at the top of the window (app/globals.css [data-op-card]) without cutting it. */}
+          <div className="w-full max-w-[550px] mx-4 rounded-[40px]" style={{ boxShadow: "0 25px 80px -12px rgba(0, 0, 0, 0.35)" }}>
           <div
             ref={cardRef}
             data-onepage-drag-scope=""
+            data-op-card=""
             /* Round AR: clipped, not hidden: a box with overflow hidden is a scroll container, and the Hero's scroll timeline (components/onepage/hero-scroll) would follow it instead of the page. */
-            className="w-full max-w-[550px] mx-4 rounded-[40px] overflow-clip relative"
+            className="w-full max-w-[550px] rounded-[40px] overflow-clip relative"
             style={{
               background: getBackgroundStyle(),
-              boxShadow: "0 25px 80px -12px rgba(0, 0, 0, 0.35)",
             }}
           >
             {safeTheme.background_type === "image" && safeTheme.background_image_url && (
@@ -1728,6 +1730,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             <ThemeSkinScene theme={safeTheme} label={sellerName} className="absolute inset-0 rounded-[40px]" />
             <WallpaperPattern theme={safeTheme} className="absolute inset-0 rounded-[40px]" clearHeader />
             {renderPageContent({ isDesktop: true })}
+          </div>
           </div>
         </div>
 
@@ -2908,8 +2911,10 @@ function CoreBlockRenderer({
         /*
           Round AS, the owner's "fade" layout, as link.me draws it: a large picture that melts into the page, the name
           over the melted part. Taller than it was (10/9 on a phone, 14/11 on a computer): 4/5 and square.
+          Round R3, the owner: that took almost the whole window before the name. 8/9 on a phone (4 to 4.5) and
+          5/4 on a computer (shorter than square): the name still sits over the melted part.
         */
-        const aspectRatio = isDesktop ? "1/1" : "4/5"
+        const aspectRatio = isDesktop ? "5/4" : "8/9"
         /* The words over the melted part get a halo of the page's own colour, not a black shadow: dark words on a light page stay crisp. */
         const halo = `color-mix(in srgb, ${pageCanvasColour(theme as any)} 72%, transparent)`
         /* Round AS: from the very top of a phone's page; it was pulled 32px above it, and the top of the picture was never seen. */
