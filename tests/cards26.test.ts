@@ -248,7 +248,7 @@ async function main() {
     check("the first made keeps its place, the later one is over", first === true && second === false)
     check("on Pro both stay", (await madeWithinLimit(db, CREATOR, B, "pro")) === true)
     const creator = code("lib/communities/server/creator.ts")
-    check("the create path takes the later one back and answers plan_limit", /if \(!\(await madeWithinLimit\(db, a\.creatorId, made\.community\.id\)\)\) \{\s*await db\.from\("communities"\)\.delete\(\)\.eq\("id", made\.community\.id\)\s*return no\(402, PLAN_LIMIT_ERROR\)/.test(creator))
+    check("the create path takes the later one back and answers plan_limit", /* Changed on purpose (rel2-auth): a read that failed takes it back too, and answers 503 rather than a limit nobody checked. */ /const within = await madeWithinLimit\(db, a\.creatorId, made\.community\.id\)\.catch\(\(\) => null\)\s*if \(within !== true\) \{\s*await db\.from\("communities"\)\.delete\(\)\.eq\("id", made\.community\.id\)\s*return within === null \? no\(503, [^\n]+\) : no\(402, PLAN_LIMIT_ERROR\)/.test(creator))
     const policies = code("lib/communities/server/creator-policies.ts")
     check("Duplicate does the same", /madeWithinLimit\(db, a\.creatorId, made\.community\.id\)/.test(policies))
     check("the immediate delete only acts on a row not yet deleted", /\.eq\("id", c\.id\)\.is\("deleted_at", null\)\.select\("id"\)/.test(creator) && /It has already been deleted\./.test(creator))

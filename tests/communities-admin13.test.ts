@@ -202,7 +202,7 @@ async function main() {
   check("a duplicate at the limit answers 402 plan_limit and makes nothing", !third.ok && status(third) === 402 && (third as { error?: string }).error === PLAN_LIMIT_ERROR && full.tables.communities.length === 2)
   /* Changed on purpose (rel2-auth): a plan nobody could read is 503 Try again, never the Free limit; the full plan is still 402 first, before anything is made. */
   check("creating at the limit answers 402 plan_limit first", /const room = await communityRoom\(db, a\.creatorId\)\.catch\(\(\) => null\)\n\s+if \(!room\) return no\(503, [^\n]+\n\s+if \(!room\.ok\) return no\(402, PLAN_LIMIT_ERROR\)\n\s+const \{ access, visibility \}/.test(creator))
-  check("the plan comes from the one place Sites reads it", /creatorSitePlan\(creatorId\)/.test(creator) && /from "@\/lib\/sites\/plan-server"/.test(creator))
+  check("the plan comes from the one place Sites reads it", /* Changed on purpose (merge of rel2-auth and rel2-db): through the caller's own service role client. */ /creatorSitePlan\(creatorId, db\)/.test(creator) && /from "@\/lib\/sites\/plan-server"/.test(creator))
   const list = code("components/community/creator/community-list.tsx")
   const create = code("components/community/creator/create-flow.tsx")
   check("New community and Duplicate open the upgrade sheet at the limit", /setUpgrade\(true\)/.test(list) && /res\.status === 402/.test(list) && /<UpgradeSheet/.test(list) && /res\.status === 402/.test(create) && /<UpgradeSheet/.test(create))
