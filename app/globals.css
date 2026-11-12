@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "keen-slider/keen-slider.min.css";
 @import "tw-animate-css";
 @import "./hover-variant.css";
 
@@ -10044,3 +10045,10 @@ body:has([data-landing-story]) .storelib-footer [role="status"] {color:#047857}
    while they wait offscreen, particularly on 320px devices. */
 [data-landing-story] [data-story-reveal][data-story-visible="false"] {transform:translate3d(0,18px,0)!important}
 @media(prefers-reduced-motion:reduce){[data-landing-story] [data-story-reveal]{opacity:1!important;transform:none!important;transition:none!important}}
+
+/* The rounded showcase overlaps the video, rather than rounding the hero. */
+body:has([data-home-hero="cinematic"]) [data-landing-story] {background:transparent}
+.build-showcase-viewport {transform:translate3d(0,calc((1 - var(--showcase-enter,1))*18px),0);transition:transform 600ms cubic-bezier(.2,.75,.25,1)}
+@media(prefers-reduced-motion:reduce){.build-showcase-viewport{transform:none;transition:none}}
+
+@media(forced-colors:none){.build-showcase .story-heading [data-story-word]{--word-front:calc(var(--word-fill)*1.24 - 12%);background:linear-gradient(90deg,var(--word-target) calc(var(--word-front) - 6%),var(--story-muted) calc(var(--word-front) + 6%));background-clip:text;-webkit-background-clip:text}}

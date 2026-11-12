@@ -9,6 +9,8 @@ function createHeadingMotion() {
   const active = new Set<HTMLElement>()
   const motion = matchMedia("(prefers-reduced-motion: reduce)")
   let frame = 0
+  let viewportWidth = document.documentElement.clientWidth
+  let viewportHeight = innerHeight
   const paint = () => {
     frame = 0
     if (document.hidden) return
@@ -20,8 +22,8 @@ function createHeadingMotion() {
             0,
             Math.min(
               1,
-              (innerHeight - rect.top - 64) /
-                (innerHeight * 0.68 + rect.height * 0.25),
+              (viewportHeight - rect.top - 64) /
+                (viewportHeight * 0.68 + rect.height * 0.25),
             ),
           )
       return { node, progress: progress.toFixed(3) }
@@ -34,6 +36,17 @@ function createHeadingMotion() {
   }
   const schedule = () => {
     if (!frame) frame = requestAnimationFrame(paint)
+  }
+  const resize = () => {
+    const width = document.documentElement.clientWidth
+    if (
+      width !== viewportWidth ||
+      (!matchMedia("(pointer:coarse)").matches && width >= 1024)
+    ) {
+      viewportWidth = width
+      viewportHeight = innerHeight
+      schedule()
+    }
   }
   const observer =
     typeof IntersectionObserver === "function"
@@ -54,7 +67,7 @@ function createHeadingMotion() {
         )
       : null
   window.addEventListener("scroll", schedule, { passive: true })
-  window.addEventListener("resize", schedule)
+  window.addEventListener("resize", resize)
   document.addEventListener("visibilitychange", schedule)
   motion.addEventListener("change", schedule)
   return {
@@ -71,7 +84,7 @@ function createHeadingMotion() {
           cancelAnimationFrame(frame)
           observer?.disconnect()
           window.removeEventListener("scroll", schedule)
-          window.removeEventListener("resize", schedule)
+          window.removeEventListener("resize", resize)
           document.removeEventListener("visibilitychange", schedule)
           motion.removeEventListener("change", schedule)
           headingMotion = undefined

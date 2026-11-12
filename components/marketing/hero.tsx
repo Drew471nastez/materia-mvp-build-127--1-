@@ -1,3 +1,4 @@
+import { HERO_GEOMETRY_BOOT } from "@/lib/marketing/hero-geometry"
 import { HERO_MEDIA_BOOT } from "@/lib/marketing/hero-startup"
 import { HeroHeadline } from "./hero-headline"
 import { HeroVideo } from "./hero-video"
@@ -10,6 +11,7 @@ export function Hero() {
   return (
     <section
       data-home-hero="cinematic"
+      suppressHydrationWarning
       data-own-look=""
       aria-label="Build with Storelib"
       style={
@@ -37,7 +39,7 @@ export function Hero() {
         </p>
         <HeroCta />
       </div>
-      <script dangerouslySetInnerHTML={{ __html: HERO_MEDIA_BOOT }} />
+      <script dangerouslySetInnerHTML={{ __html: HERO_GEOMETRY_BOOT + HERO_MEDIA_BOOT }} />
     </section>
   )
 }
@@ -49,9 +51,9 @@ const HERO_CSS = `
   --hero-tint-opacity: .60;
   position: relative; isolation: isolate; width: 100%; overflow: clip;
   background: #141516; color: #fff;
-  min-height: min(820px, calc(100svh - 70.35px));
+  min-height: min(861px, calc((100svh - 70.35px)*1.05));
   display: grid; place-items: start center;
-  padding: clamp(96px, 8vw, 152px) 24px calc(clamp(92px, 7vw, 128px) + env(safe-area-inset-bottom, 0px));
+  padding: clamp(96px, 8vw, 152px) 24px calc(clamp(92px, 7vw, 128px) + 32px + var(--home-safe-bottom));
   padding-left: max(24px, env(safe-area-inset-left, 0px));
   padding-right: max(24px, env(safe-area-inset-right, 0px));
 }
@@ -92,9 +94,9 @@ const HERO_CSS = `
 .cinematic-actions input:focus, .cinematic-actions input:focus-visible { outline:none; border-color:rgba(255,255,255,.38); box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 3px 10px rgba(0,0,0,.16); }
 .cinematic-error { font-size: 13px; color: #fff; margin: 2px 0 0; text-align: left; }
 .cinematic-marketplace { display: none; color: rgba(255,255,255,.94); font-size: 14px; text-decoration: underline; text-underline-offset: 5px; text-decoration-color: rgba(255,255,255,.4); }
-.cinematic-motion { position: absolute; z-index: 5; bottom: max(58px, calc(env(safe-area-inset-bottom, 0px) + 38px)); right: max(20px, env(safe-area-inset-right, 0px)); display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; color: #fff; background: rgba(0,0,0,.25); cursor: pointer; }
+.cinematic-motion { position: absolute; z-index: 5; bottom: max(58px, calc(var(--home-safe-bottom) + 38px)); right: max(20px, env(safe-area-inset-right, 0px)); display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; color: #fff; background: rgba(0,0,0,.25); cursor: pointer; }
 .cinematic-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-body:has([data-home-hero="cinematic"]) { --home-header-height:70.35px; }
+body:has([data-home-hero="cinematic"]) { --home-env-top:env(safe-area-inset-top,0px); --home-env-bottom:env(safe-area-inset-bottom,0px); --home-safe-bottom:var(--hero-stable-safe-bottom,var(--home-env-bottom)); --home-header-height:var(--hero-stable-header-height,70.35px); }
 body:has([data-home-hero="cinematic"]) #platform-header-root { --bar-depth-dark:0 1px 2px rgba(0,0,0,.21),0 5px 14px -14px rgba(0,0,0,.33); --bar-depth-dark-raised:0 1px 2px rgba(0,0,0,.26),0 8px 21px -10px rgba(0,0,0,.44); transition:background-color 320ms ease,box-shadow 320ms ease,backdrop-filter 320ms ease; }
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-header-tone="dark"] { background-color:transparent; }
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-header-tone="dark"] > header { background-color:transparent; border-bottom-color:transparent; transition:border-color 320ms ease; }
@@ -102,7 +104,7 @@ body:has([data-home-hero="cinematic"]) #platform-header-root:not([data-scrolled]
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-header-tone="dark"][data-scrolled] { background-color:#101012; }
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-scrolled] > header { border-bottom-color:rgba(0,0,0,.096); }
 @media (min-width:1024px) {
-  [data-home-hero="cinematic"] { --hero-tint-opacity:.57; min-height:min(844.6px,calc((100svh - 70.35px)*1.03)); }
+  [data-home-hero="cinematic"] { --hero-tint-opacity:.57; min-height:min(886.83px,calc((100svh - 70.35px)*1.0815)); }
   .cinematic-heading {font-size:clamp(77.9px,7.6vw,110.2px)}
   .cinematic-description {font-size:16.15px}
   .cinematic-eyebrow {font-size:11.4px}
@@ -118,7 +120,7 @@ body:has([data-home-hero="cinematic"]) #platform-header-root[data-scrolled] > he
   .cinematic-actions[data-audience="guest"] .cinematic-search { display: none; }
   .cinematic-actions[data-audience="guest"] .cinematic-marketplace { display: block; margin-top: 10px; }
   .cinematic-actions:not([data-audience="guest"]) .cinematic-account { grid-row: 2; }
-  [data-home-hero="cinematic"] { min-height: 0; padding-block: 40px calc(88px + env(safe-area-inset-bottom, 0px)); }
+  [data-home-hero="cinematic"] { min-height: 0; padding-block: 40px calc(120px + var(--home-safe-bottom)); }
 }
 @media (max-width: 639px) {
   .cinematic-poster, .cinematic-video { object-position: var(--hero-video-position-mobile, 50% 50%); }
@@ -128,15 +130,17 @@ body:has([data-home-hero="cinematic"]) #platform-header-root[data-scrolled] > he
   .cinematic-description { font-size:clamp(14px,3.7vw,15px); max-width:none; width:100%; margin-top:clamp(36px,11.3vw,48px); line-height:1.65; }
 }
 @media (max-width: 1023px) and (hover: none) and (pointer: coarse) and (orientation: landscape) {
-  [data-home-hero="cinematic"] { padding-top: 44px; padding-bottom: 64px; min-height: 0; }
+  [data-home-hero="cinematic"] { padding-top: 44px; padding-bottom: 96px; min-height: 0; }
   .cinematic-heading { font-size: clamp(40px, 7.5vw, 72px); }
 }
 @media (hover: none) and (pointer: coarse) {
   [data-home-hero="cinematic"] { min-height: 0; }
 }
-[data-home-hero="cinematic"] { border-radius:0 0 clamp(28px,4vw,64px) clamp(28px,4vw,64px); margin-top:calc(-1 * var(--home-header-height)); padding-top:calc(clamp(96px,8vw,152px) + var(--home-header-height)); }
-@media(max-width:767px){body:has([data-home-hero="cinematic"]){--home-header-height:max(64.6px,calc(env(safe-area-inset-top,0px) + 53.3px))}[data-home-hero="cinematic"]{padding-top:calc(40px + var(--home-header-height))}}
+[data-home-hero="cinematic"] { border-radius:0; margin-top:calc(-1 * var(--home-header-height)); padding-top:calc(clamp(96px,8vw,152px) + var(--home-header-height)); }
+@media(max-width:767px){body:has([data-home-hero="cinematic"]){--home-header-height:var(--hero-stable-header-height,max(64.6px,calc(var(--home-env-top) + 53.3px)))}[data-home-hero="cinematic"]{padding-top:calc(40px + var(--home-header-height))}}
 @media(max-width:1023px) and (hover:none) and (pointer:coarse) and (orientation:landscape){[data-home-hero="cinematic"]{padding-top:calc(44px + var(--home-header-height))}}
+[data-home-hero="cinematic"][data-stable-touch] {min-height:0}
+@media(max-width:767px){html:not(.capacitor) body:has([data-home-hero="cinematic"]) #platform-header-root .platform-header-row{padding-top:var(--hero-stable-row-top,max(var(--home-env-top),11.3px))}}
 @media (prefers-reduced-motion: reduce) {
   body:has([data-home-hero="cinematic"]) #platform-header-root, body:has([data-home-hero="cinematic"]) #platform-header-root > header {transition:none}
   .cinematic-video { transition: none; }

@@ -20,6 +20,12 @@ import { tmpdir } from "node:os"
 import { appCss } from "./probe-css.mjs"
 const root = process.cwd(),
   out = mkdtempSync(join(tmpdir(), "storelib-cinematic-"))
+const carouselPosition = el => {
+  const slides = [...el.querySelectorAll('[data-showcase-slide]')]
+  const period = slides.reduce((sum,e)=>sum+e.getBoundingClientRect().width,0) + (parseFloat(getComputedStyle(el).getPropertyValue('--showcase-gap'))||0)*slides.length
+  const position = el.getBoundingClientRect().left - slides[0].getBoundingClientRect().left
+  return ((position % period) + period) % period
+}
 const pause = (ms) => new Promise((r) => setTimeout(r, ms))
 const shots = process.env.HERO_SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
@@ -142,7 +148,7 @@ async function pageFor(mode = "video") {
         return r.abort()
       return r.continue()
     }
-    if (r.url().includes("1794404095596918.mp4")) {
+    if (r.url().includes("1794426925775466.mp4")) {
       page.videoRequests++
       if (
         mode === "failure" ||
@@ -430,11 +436,11 @@ try {
       await page.$eval(".build-showcase-card", (e) =>
         Math.round(e.getBoundingClientRect().width),
       ),
-      390,
+      388,
     )
     const showcaseStyle = await page.$eval('[data-build-showcase]', e => ({bg:getComputedStyle(e).backgroundColor, radius:getComputedStyle(e).borderRadius, margin:getComputedStyle(e).marginTop}))
-    assert.deepEqual(showcaseStyle, {bg:'rgb(255, 255, 255)',radius:'0px',margin:'0px'}, 'showcase is a normal white section without corner wedges')
-    assert.ok(await page.$eval('.build-showcase-track', e => e.getBoundingClientRect().left >= 22 && e.getBoundingClientRect().left <= 26), 'the carousel stays inset from the phone edges')
+    assert.deepEqual(showcaseStyle, {bg:'rgb(7, 16, 17)',radius:'32px',margin:'-32px'}, 'rounded showcase overlaps the square hero')
+    assert.ok(await page.$eval('.build-showcase-viewport', e => e.getBoundingClientRect().left >= 22 && e.getBoundingClientRect().left <= 27), 'the carousel stays inset from the phone edges')
     assert.equal(await page.$eval('.cinematic-period', e => getComputedStyle(e).color), await page.$eval('.cinematic-phrases', e => getComputedStyle(e).color), 'headline dot inherits the headline color')
     await page.focus("input[type=email]")
     assert.equal(
@@ -463,6 +469,12 @@ try {
         "stable height while mobile toolbar changes",
       )
     }
+    const stableGalleryHeight=await page.$eval('[data-build-showcase]',e=>e.getBoundingClientRect().height)
+    await page.evaluate(()=>{document.body.style.setProperty('--home-env-bottom','34px');document.body.style.setProperty('--home-env-top','44px');dispatchEvent(new Event('resize'))})
+    await pause(150)
+    assert.equal((await page.evaluate(metrics)).hero.h,initial,'toolbar safe-area changes do not resize the hero')
+    assert.equal(await page.$eval('[data-build-showcase]',e=>e.getBoundingClientRect().height),stableGalleryHeight,'toolbar safe-area changes do not resize the showcase')
+    await page.evaluate(()=>{document.body.style.removeProperty('--home-env-bottom');document.body.style.removeProperty('--home-env-top')})
     assert.equal(
       await page.$eval(
         "#platform-header-root",
@@ -548,75 +560,52 @@ try {
     )
     await pause(150)
     assert.equal(await page.$eval('[data-story-heading]', e => e.style.getPropertyValue('--story-progress')), '1.000', 'headline fills completely when scrolled into view')
-    assert.ok(await page.$$eval('[data-story-accent]', els => els.length >= 3 && els.every(e => getComputedStyle(e).getPropertyValue('--word-target').trim() === '#7c3aed')), 'selected headline words fill purple')
+    assert.ok(await page.$$eval('[data-story-accent]', els => els.length === 1 && els.every(e => getComputedStyle(e).getPropertyValue('--word-target').trim() === '#bca3ff')), 'selected headline words fill purple')
     const showcaseGeometry = await page.$$eval('[data-showcase-slide]', els => els.slice(0, 6).map(e => ({format:e.dataset.format,w:e.getBoundingClientRect().width,h:e.querySelector('.build-showcase-media').getBoundingClientRect().height,fit:getComputedStyle(e.querySelector('img')).objectFit})))
     assert.deepEqual(showcaseGeometry.map(e => e.format), ['wide','portrait','wide','portrait','wide','portrait'])
     assert.ok(showcaseGeometry.every(e => e.fit==='contain'), 'all screenshots fit without cropping')
     assert.ok(showcaseGeometry[0].w > showcaseGeometry[1].w * 2, 'portrait cards are genuinely narrower')
     assert.ok(Math.abs((showcaseGeometry[1].w-2)/showcaseGeometry[1].h - 9/16) < .02, 'portrait media uses a phone ratio')
     const track = ".build-showcase-track"
-    const start = await page.$eval(track, (e) => e.scrollLeft)
-    await page.mouse.move(0, 0)
-    await pause(4400)
-    assert.ok(
-      await page.$eval(track, (e, start) => e.scrollLeft > start + 20, start),
-      "showcase advances automatically",
-    )
-    const box = await (await page.$(track)).boundingBox()
-    const prior = await page.$eval(track, (e) => e.scrollLeft)
-    await page.mouse.move(box.x + 280, box.y + 80)
-    await page.mouse.down()
-    assert.equal(
-      await page.$eval(track, (e) => getComputedStyle(e).cursor),
-      "grabbing",
-    )
-    await page.mouse.move(box.x + 70, box.y + 80, { steps: 12 })
-    assert.ok(
-      await page.$eval(track, (e, prior) => e.scrollLeft > prior + 150, prior),
-      "mouse drag follows the pointer",
-    )
-    await page.mouse.up()
-    const released = await page.$eval(track, (e) => e.scrollLeft)
-    await pause(160)
-    const coast = await page.$eval(track, (e) => e.scrollLeft)
-    assert.ok(coast > released + 5, "release continues with inertia")
-    await pause(1500)
-    const settled = await page.$eval(track, (e) => e.scrollLeft)
-    await pause(300)
-    assert.ok(
-      Math.abs((await page.$eval(track, (e) => e.scrollLeft)) - settled) < 2,
-      "inertia gently settles",
-    )
-    for (const duration of [1000, 2000]) {
-      await page.mouse.move(box.x + 280, box.y + 80)
-      await page.mouse.down()
-      for (let i = 1; i <= 20; i++) {
-        await pause(duration / 20)
-        await page.mouse.move(box.x + 280 - i * 10, box.y + 80)
-      }
-      await page.mouse.up()
-      const release = await page.$eval(track, e => e.scrollLeft)
-      await pause(180)
-      const longCoast = await page.$eval(track, e => e.scrollLeft)
-      const period = await page.$eval(track, e => {const slides=e.querySelectorAll('[data-showcase-slide]'); return slides[Number(e.dataset.showcaseCount)].offsetLeft-slides[0].offsetLeft})
-      const distance = (longCoast - release + period) % period
-      assert.ok(distance > 5 && distance < period / 2, `a ${duration}ms drag coasts on release: ${release} -> ${longCoast}, distance ${distance}`)
-      await pause(1800)
+    await page.waitForSelector(`${track}[data-keen-ready]`)
+    const pos = () => page.$eval(track, carouselPosition)
+    const period = await page.$eval(track, el => [...el.querySelectorAll('[data-showcase-slide]')].reduce((sum,e)=>sum+e.getBoundingClientRect().width,0)+(parseFloat(getComputedStyle(el).getPropertyValue('--showcase-gap'))||0)*Number(el.dataset.showcaseCount))
+    const travel = (a,b) => ((b-a)%period+period)%period
+    const rest = async () => {
+      for(let i=0;i<12;i++){const a=await pos();await pause(250);const d=travel(a,await pos());if(Math.min(d,period-d)<.5)return}
+      assert.fail('Keen Free Mode inertia should settle')
     }
-    const resumeStart = await page.$eval(track, e => e.scrollLeft)
-    await page.focus(track) // Pointer focus must not indefinitely disable autoplay.
-    await pause(12500)
-    assert.ok(await page.$eval(track, (e, start) => Math.abs(e.scrollLeft - start) > 20, resumeStart), "autoplay resumes after interaction with the pointer still over the rail")
-    await page.focus(track)
-    await page.keyboard.press("Space")
-    assert.equal(
-      await page.$eval(track, (e) => e.dataset.autoplayPaused),
-      "true",
-    )
-    await page.$eval(track, (e) => e.blur())
-    const held = await page.$eval(track, (e) => e.scrollLeft)
-    await pause(4200)
-    assert.equal(await page.$eval(track, (e) => e.scrollLeft), held)
+    const start = await pos()
+    await page.mouse.move(0,0);await pause(4400)
+    assert.ok(travel(start,await pos())>20,'Keen continuous autoplay advances')
+    const box=await(await page.$(track)).boundingBox()
+    const prior=await pos()
+    await page.mouse.move(box.x+280,box.y+80);await page.mouse.down()
+    assert.equal(await page.$eval(track,e=>getComputedStyle(e).cursor),'grabbing')
+    await page.mouse.move(box.x+70,box.y+80,{steps:12})
+    assert.ok(travel(prior,await pos())>100,'free drag follows the pointer')
+    await page.mouse.up();const release=await pos();await pause(180)
+    assert.ok(travel(release,await pos())>2,'Keen Free Mode coasts after release')
+    await rest()
+    for(const duration of [1000,2000]){
+      await page.mouse.move(box.x+280,box.y+80);await page.mouse.down()
+      const steps=Math.ceil(duration/16)
+      for(let i=1;i<=steps;i++){await pause(duration/steps);await page.mouse.move(box.x+280-i*200/steps,box.y+80)}
+      await page.mouse.up();const release=await pos();await pause(180)
+      const coast=travel(release,await pos());assert.ok(coast>1,`${duration}ms continuous free drag coasts: ${coast}px`)
+      await rest()
+    }
+    const resumeStart=await pos();await page.focus(track);await pause(12500)
+    assert.ok(travel(resumeStart,await pos())>20,'autoplay resumes after inactivity even with pointer focus')
+    await page.keyboard.press('Space')
+    assert.equal(await page.$eval(track,e=>e.dataset.autoplayPaused),'true')
+    await page.$eval(track,e=>e.blur());const held=await pos();await pause(4200)
+    assert.ok(Math.abs((await pos())-held)<.5,'Space pauses autoplay')
+    const wheelBefore=await pos();await page.mouse.move(box.x+100,box.y+80);await page.mouse.wheel({deltaX:120,deltaY:0});await pause(80)
+    assert.ok(travel(wheelBefore,await pos())>100,'horizontal trackpad movement advances naturally')
+    const verticalBefore=await page.evaluate(()=>scrollY);await page.mouse.wheel({deltaX:0,deltaY:120});await pause(350)
+    assert.ok(await page.evaluate(y=>scrollY>y+40,verticalBefore),'vertical wheel scrolling stays native over the gallery')
+
     if (shots)
       await page.screenshot({ path: join(shots, "showcase-mobile.png") })
     await page.setViewport({ width: 1440, height: 900 })
@@ -864,7 +853,7 @@ try {
     await pause(200)
     const track = ".build-showcase-track",
       box = await (await page.$(track)).boundingBox(),
-      before = await page.$eval(track, (e) => e.scrollLeft),
+      before = await page.$eval(track, carouselPosition),
       client = await page.createCDPSession()
     await client.send("Input.dispatchTouchEvent", {
       type: "touchStart",
@@ -882,11 +871,16 @@ try {
       touchPoints: [],
     })
     await pause(400)
-    const touchAfter = await page.$eval(track, (e) => e.scrollLeft)
+    const touchAfter = await page.$eval(track, carouselPosition)
     assert.ok(
       Math.abs(touchAfter - before) > 60,
       "native finger swipe moves the carousel",
     )
+    const verticalStart=await page.evaluate(()=>scrollY)
+    await client.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:200,y:box.y+100}]})
+    for(let i=1;i<=10;i++){await client.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[{x:200,y:box.y+100-i*14}]});await pause(16)}
+    await client.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});await pause(300)
+    assert.ok(await page.evaluate(y=>scrollY>y+40,verticalStart),'vertical finger swipes remain native over Keen Free Mode')
     assert.deepEqual(page.errors, [])
     await page.close()
     console.log(
@@ -937,11 +931,9 @@ try {
     await pause(mode === "slow" ? 400 : mode === "failure" ? 6400 : 2400)
     assert.equal(
       await page.$eval("video", (v) => v.dataset.ready),
-      mode === "no-intersection-observer" ||
-        mode === "no-hydration" ||
-        mode === "recover"
-        ? "true"
-        : "false",
+      mode === "autoplay-denied"
+        ? await page.$eval("video", v => v.readyState >= 2 && !v.error ? "true" : "false")
+        : mode === "no-intersection-observer" || mode === "no-hydration" || mode === "recover" ? "true" : "false",
       `${mode} poster`,
     )
     assert.ok(
@@ -982,7 +974,7 @@ try {
       }
     })
     await page.goto(origin, { waitUntil: "networkidle0" })
-    assert.equal(await page.$eval("video", (v) => v.dataset.ready), "false")
+    assert.equal(await page.$eval("video", (v) => v.paused), true)
     await page.evaluate(() => {
       window.__allowResume()
       dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }))

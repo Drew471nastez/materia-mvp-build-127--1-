@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { freezeHeroGeometry } from "@/lib/marketing/hero-geometry"
 import { HERO_VIDEO } from "@/lib/marketing/hero-video"
 
 type Connection = EventTarget & { saveData?: boolean; effectiveType?: string }
@@ -11,6 +12,28 @@ export function HeroVideo() {
   const [ready, setReady] = useState(false)
   const [paused, setPaused] = useState(false)
   const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    const hero = ref.current?.closest<HTMLElement>("[data-home-hero]") || null
+    const refresh = () => freezeHeroGeometry(hero)
+    refresh()
+    window.addEventListener("resize", refresh)
+    window.addEventListener("pageshow", refresh)
+    window.addEventListener("focus", refresh)
+    document.addEventListener("visibilitychange", refresh)
+    return () => {
+      window.removeEventListener("resize", refresh)
+      window.removeEventListener("pageshow", refresh)
+      window.removeEventListener("focus", refresh)
+      document.removeEventListener("visibilitychange", refresh)
+      if (hero) delete hero.dataset.geometryWidth
+      for (const name of [
+        "--hero-stable-safe-bottom",
+        "--hero-stable-row-top",
+        "--hero-stable-header-height",
+      ])
+        document.documentElement.style.removeProperty(name)
+    }
+  }, [])
   useEffect(() => {
     const video = ref.current
     const hero = video?.closest("[data-home-hero]")
@@ -84,13 +107,21 @@ export function HeroVideo() {
           autoplayBlocked =
             error instanceof DOMException && error.name === "NotAllowedError"
           failed = true
-          setReady(false)
+          setReady(autoplayBlocked && video.readyState >= 2 && !video.error)
         }
       })
+    }
+    const firstFrame = () => {
+      if (!disposed && allowed() && video.readyState >= 2 && !video.error)
+        setReady(true)
     }
     const playing = () => {
       clearTimeout(stallTimer)
       if (failed || !allowed()) return
+      if (video.readyState >= 2) {
+        setReady(true)
+        return
+      }
       if (video.requestVideoFrameCallback)
         frame = video.requestVideoFrameCallback(() => {
           if (!disposed && !failed && allowed()) setReady(true)
@@ -254,6 +285,7 @@ export function HeroVideo() {
     document.addEventListener("resume", onResume)
     window.addEventListener("pageshow", onResume)
     window.addEventListener("focus", onResume)
+    video.addEventListener("loadeddata", firstFrame)
     video.addEventListener("playing", playing)
     video.addEventListener("timeupdate", progress)
     video.addEventListener("pause", unexpectedPause)
@@ -284,6 +316,7 @@ export function HeroVideo() {
       document.removeEventListener("resume", onResume)
       window.removeEventListener("pageshow", onResume)
       window.removeEventListener("focus", onResume)
+      video.removeEventListener("loadeddata", firstFrame)
       video.removeEventListener("playing", playing)
       video.removeEventListener("timeupdate", progress)
       video.removeEventListener("pause", unexpectedPause)

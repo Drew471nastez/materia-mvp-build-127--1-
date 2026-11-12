@@ -149,13 +149,22 @@ try {
     assert.ok(
       await p.$eval(
         "#build-showcase-title",
-        (e) => e.textContent.trim().split(/\s+/).length >= 12,
+        (e) =>
+          e.getBoundingClientRect().height /
+            parseFloat(getComputedStyle(e).lineHeight) <=
+          2.05,
       ),
     )
-    const cards = await p.$$eval('[data-showcase-slide]:not([aria-hidden="true"])', (es) =>
-      es
-        .slice(0, 3)
-        .map((e) => ({
+    // Freeze movement for geometry/screenshots; the hero probe separately exercises autoplay and Free Mode inertia.
+    await p.focus(".build-showcase-track")
+    await p.keyboard.press("Home")
+    await wait(750)
+    await p.keyboard.press("Space")
+    await p.$eval(".build-showcase-track", (e) => e.blur())
+    const cards = await p.$$eval(
+      '[data-showcase-slide]:not([aria-hidden="true"])',
+      (es) =>
+        es.slice(0, 3).map((e) => ({
           x: e.getBoundingClientRect().x,
           right: e.getBoundingClientRect().right,
           w: e.getBoundingClientRect().width,

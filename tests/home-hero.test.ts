@@ -115,16 +115,16 @@ assert.ok(
     'className="cinematic-period"',
   ),
 )
-assert.ok(HERO_VIDEO.src.includes("1794404095596918.mp4"))
+assert.ok(HERO_VIDEO.src.includes("1794426925775466.mp4"))
 const showcase = read("components/marketing/build-showcase.tsx")
-assert.ok(SHOWCASE_HEADING.split(/\s+/).length >= 12)
+assert.ok(SHOWCASE_HEADING.split(/\s+/).length <= 8)
 assert.ok(
-  read("components/marketing/use-showcase-motion.ts").includes("pointermove") &&
+  read("components/marketing/use-showcase-motion.ts").includes('mode: "free"') &&
     showcase.includes('loading="lazy"'),
 )
 
 const showcaseMarkup = renderToString(createElement(BuildShowcase))
-assert.equal((showcaseMarkup.match(/data-showcase-slide=""/g) || []).length, 18)
+assert.equal((showcaseMarkup.match(/data-showcase-slide=""/g) || []).length, 6)
 assert.equal((showcaseMarkup.match(/data-showcase-word=""/g) || []).length, SHOWCASE_HEADING.split(/\s+/).length)
 assert.ok(!showcaseMarkup.includes("<button"))
 assert.ok(
