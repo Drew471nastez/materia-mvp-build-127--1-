@@ -39,7 +39,7 @@
  * URL the browser chose now, and naturalWidth is used only where there is no
  * srcset and it is the honest answer.
  */
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 let passed = 0
@@ -52,7 +52,6 @@ function check(label: string, ok: boolean, detail?: string) {
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 function main() {
-  const manage = read("components/marketing/manage-section.tsx")
   const helper = read("lib/images/optimized-url.ts")
   const hero = read("components/marketing/hero.tsx")
   const video = read("components/marketing/hero-video.tsx")
@@ -75,20 +74,9 @@ function main() {
     "anything else is a 400 rather than a picture",
   )
 
-  console.log("\nThe laptop carousel asks for what it paints")
-
-  check("it uses the shared builder", /srcSet=\{optimizedSrcSet\(url, \[640, 828, 1080, 1920, 2048\], 75\)\}/.test(manage))
-  check(
-    "sizes describes the frame it is actually in",
-    /sizes="\(max-width: 848px\) calc\(100vw - 48px\), 800px"/.test(manage),
-    "it said 600px for a max-w-[800px] frame",
-  )
-  check("nothing hand-builds a srcSet here any more", !/ 360w,/.test(manage) && !/ 600w`/.test(manage))
-  check(
-    "and the duplicate preload is gone",
-    !/img\.src = getOptimized/.test(manage) && /THE PRELOAD IS GONE, AND IT WAS COSTING DOUBLE/.test(manage),
-    "it fetched a different width than the <img> rendered: six downloads for three pictures",
-  )
+  /* Changed on purpose (wave 12): the laptop carousel (manage-section) left the home page and was deleted with it. */
+  console.log("\nThe laptop carousel is gone with its section")
+  check("manage-section.tsx is gone", !existsSync(join(process.cwd(), "components/marketing/manage-section.tsx")))
 
   console.log("\nThe cinematic hero never preloads the old screenshots")
   check("only a lightweight local poster is high priority", /fetchPriority="high"/.test(video) && /preload="none"/.test(video) && !/HeroCarousel|HERO_BACKDROP/.test(hero))

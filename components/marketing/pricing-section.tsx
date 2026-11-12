@@ -3,7 +3,7 @@
 import { StoryHeading } from "./story-heading"
 
 import Link from "next/link"
-import { AnimateOnScroll } from "./bento-grid"
+import { AnimateOnScroll } from "./animate-on-scroll"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { PLAN_FOOTNOTE, PRO_CHECKOUT_PLAN_ID, type OfferedPlanId } from "@/lib/billing/plans"
 

@@ -3,7 +3,7 @@
 import { StoryHeading } from "./story-heading"
 
 import { useState, useRef, useEffect } from "react"
-import { AnimateOnScroll } from "./bento-grid"
+import { AnimateOnScroll } from "./animate-on-scroll"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 

@@ -111,24 +111,21 @@ function chain(g: Map<string, string | null>, f: string): string {
 async function main() {
   console.log("\n1. The home page's head preloads the hero and nothing below it")
   {
-    const { ManageSection } = await import("@/components/marketing/manage-section")
     const { SplitFeaturesSection } = await import("@/components/marketing/split-features-section")
     const { PricingSection } = await import("@/components/marketing/pricing-section")
     /* A whole document, so React hoists the preloads it decides on into <head>, as on the page. */
     const doc = renderToString(
-      createElement("html", null, createElement("head", null), createElement("body", null, createElement(ManageSection), createElement(SplitFeaturesSection), createElement(PricingSection))),
+      createElement("html", null, createElement("head", null), createElement("body", null, createElement(SplitFeaturesSection), createElement(PricingSection))),
     )
     const preloads = doc.match(/<link rel="preload" as="image"[^>]*>/g) ?? []
-    check("Manage, the split features and the plans put no image preload in the head", preloads.length === 0, preloads.map((p) => p.slice(0, 160)))
+    check("the split features and the plans put no image preload in the head", preloads.length === 0, preloads.map((p) => p.slice(0, 160)))
     const imgs = doc.match(/<img [^>]*>/g) ?? []
-    check("  and every picture in them is lazy", imgs.length >= 8 && imgs.every((i) => /loading="lazy"/.test(i)), imgs.filter((i) => !/loading="lazy"/.test(i)).map((i) => i.slice(0, 160)))
+    /* Changed on purpose (wave 12): the manage section and its pictures were deleted, so fewer pictures are rendered here. */
+    check("  and every picture in them is lazy", imgs.length >= 4 && imgs.every((i) => /loading="lazy"/.test(i)), [imgs.length, ...imgs.filter((i) => !/loading="lazy"/.test(i)).map((i) => i.slice(0, 160))])
     check("  none of them asks for high priority", !imgs.some((i) => /fetchpriority="high"/i.test(i)))
 
-    const bento = code("components/marketing/bento-grid.tsx")
-    check("the bento's Sell anything pictures are lazy (the computer one is display:none on a phone)", /SELL_ANYTHING_PHONE, 500, 75\)\}[\s\S]{0,200}loading="lazy"/.test(bento) && /SELL_ANYTHING_WIDE, 800, 75\)\}[\s\S]{0,200}loading="lazy"/.test(bento))
-    for (const f of ["components/marketing/manage-section.tsx", "components/marketing/split-features-section.tsx"]) {
-      check(`${f} downloads no detached copy of an original upload`, !/new window\.Image\(\)/.test(code(f)))
-    }
+    /* Changed on purpose (wave 12): the bento and the manage section left the home page and were deleted. */
+    check(`components/marketing/split-features-section.tsx downloads no detached copy of an original upload`, !/new window\.Image\(\)/.test(code("components/marketing/split-features-section.tsx")))
     check("the plans' pictures stay eager on /pricing, where the cards are the page", /pictureLoading=\{headingLevel === 1 \? "eager" : "lazy"\}/.test(code("components/marketing/pricing-section.tsx")) && /pictureLoading = "eager"/.test(code("components/billing/plan-cards.tsx")))
     const video = code("components/marketing/hero-video.tsx")
     check("the hero prioritizes only its local poster and defers video until preferences are known", /fetchPriority="high"/.test(video) && /preload="none"/.test(video) && /allowed\(\)/.test(video))

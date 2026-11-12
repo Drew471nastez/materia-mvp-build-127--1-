@@ -3,7 +3,7 @@
 import { StoryHeading } from "./story-heading"
 
 import Image from "next/image"
-import { AnimateOnScroll } from "./bento-grid"
+import { AnimateOnScroll } from "./animate-on-scroll"
 
 // Supabase object storage — original full images (no render crop).
 const FEATURES = [

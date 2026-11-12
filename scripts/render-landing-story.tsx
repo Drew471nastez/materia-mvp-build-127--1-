@@ -3,33 +3,22 @@ import React from "react"
 import { hydrateRoot } from "react-dom/client"
 import { LandingStory } from "@/components/marketing/landing-story"
 import { BuildShowcase } from "@/components/marketing/build-showcase"
-import { BentoGrid } from "@/components/marketing/bento-grid"
-import { StatsBar } from "@/components/marketing/stats-bar"
-import { ManageSection } from "@/components/marketing/manage-section"
 import { ProductMarquee } from "@/components/marketing/product-marquee"
-import { SplitFeaturesSection } from "@/components/marketing/split-features-section"
-import { ToolStackSection } from "@/components/marketing/tool-stack-section"
 import { PricingSection } from "@/components/marketing/pricing-section"
-import { FeaturesBadgesSection } from "@/components/marketing/features-badges-section"
 import { FaqSection } from "@/components/marketing/faq-section"
-import { CtaSection } from "@/components/marketing/cta-section"
+import { FinalCta } from "@/components/marketing/home/final-cta"
 import { MarketingFooter } from "@/components/marketing/footer"
 
+/* Changed on purpose (wave 12): the home page's own sections, in its order; the other tracks' sections are added by the integration. */
 export function LandingStoryFixture() {
   return (
     <>
       <LandingStory>
         <BuildShowcase />
-        <BentoGrid />
-        <StatsBar />
-        <ManageSection />
         <ProductMarquee />
-        <SplitFeaturesSection />
-        <ToolStackSection editorial />
-        <PricingSection editorial />
-        <FeaturesBadgesSection />
+        <PricingSection editorial hideDetailsLink />
         <FaqSection editorial />
-        <CtaSection editorial />
+        <FinalCta />
       </LandingStory>
       <MarketingFooter />
     </>

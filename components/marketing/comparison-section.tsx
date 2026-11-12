@@ -1,6 +1,6 @@
 "use client"
 
-import { AnimateOnScroll } from "./bento-grid"
+import { AnimateOnScroll } from "./animate-on-scroll"
 
 const ROWS = [
   { feature: "Digital products", storelib: "Instant checkout, no extra tools", other: "Requires separate storefront" },

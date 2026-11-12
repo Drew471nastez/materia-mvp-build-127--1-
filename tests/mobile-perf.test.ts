@@ -24,6 +24,8 @@
  *
  * Run with:  pnpm test:push
  */
+import { existsSync } from "node:fs"
+import { join } from "node:path"
 import { prefetchPlan, planFor, resetPrefetchPolicy } from "@/lib/nav/prefetch-policy"
 import { readCode } from "./_source"
 
@@ -43,19 +45,8 @@ function check(name: string, ok: boolean, detail?: unknown) {
 
 console.log("\nThe front page's globe")
 {
-  const src = readCode("components/marketing/globe-widget.tsx")
-  const importAt = src.indexOf('import("globe.gl")')
-  const buildAt = src.indexOf("const build = async () =>")
-  check("globe.gl is imported inside build(), not straight from the effect", buildAt > 0 && importAt > buildAt)
-  check("build() waits for an IntersectionObserver with a lookahead margin", /new IntersectionObserver\([\s\S]*?approach\.disconnect\(\)\s*void build\(\)[\s\S]*?rootMargin: `\$\{GLOBE_AHEAD_PX\}px/.test(src))
-  check("the lookahead is under the globe's distance below a phone's first screen (1903px top, 844px screen)", (() => {
-    const m = /export const GLOBE_AHEAD_PX = (\d+)/.exec(src)
-    const px = m ? Number(m[1]) : NaN
-    return px >= 400 && px < 1903 - 844
-  })())
-  check("a browser without IntersectionObserver still gets the globe", /typeof IntersectionObserver !== "function"\)\s*\{\s*void build\(\)/.test(src))
-  check("the approach observer is taken off on unmount", /stopApproach\(\)/.test(src) && /stopApproach = \(\) => approach\.disconnect\(\)/.test(src))
-  check("the widget itself is still a client-only dynamic import", /dynamic\(\(\) => import\("\.\/globe-widget"\), \{\s*ssr: false/.test(readCode("components/marketing/bento-grid.tsx")))
+  /* Changed on purpose (wave 12): the bento that drew the globe left the home page, and the widget with it. */
+  check("the front page loads no globe.gl at all", !existsSync(join(process.cwd(), "components/marketing/globe-widget.tsx")) && !/globe\.gl|globe-widget/.test(readCode("app/(storelib)/(marketing)/page.tsx")))
 }
 
 console.log("\nThe root layout's read ahead")

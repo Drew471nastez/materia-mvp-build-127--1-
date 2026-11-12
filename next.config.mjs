@@ -311,6 +311,14 @@ const nextConfig = {
   // `sass` compiles a theme's SCSS in one route (lib/storelib-theme/compat/scss.ts).
   // Bundled, it was one 5.9 MB module the build parsed and minified for that
   // route; Node loads it from node_modules as it is, and the trace ships it.
+  //
+  // Measured and NOT added (wave 12, cold `pnpm build`, 4 CPUs, whole cgroup):
+  // firebase-admin, stripe, openai, @anthropic-ai/sdk, web-push and
+  // sanitize-html as externals peaked at 8,157 and 8,956 MB in two runs against
+  // 8,927 MB without them: inside the run-to-run noise, and killed under a
+  // 7 GiB cap with or without STORELIB_TURBOPACK_MEMORY_MB=3500. And
+  // experimental.turbopackClientSideNestedAsyncChunking: false hangs Next
+  // 16.1.7's build (no CPU at about 6 GB, never finishes).
   serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js', 'sharp', 'esbuild', 'typescript', 'sass', '@sparticuz/chromium', 'puppeteer-core'],
   // Note: Vercel serverless functions have a 4.5MB body size limit.
   // Large file uploads bypass the server via direct-to-storage signed URLs
