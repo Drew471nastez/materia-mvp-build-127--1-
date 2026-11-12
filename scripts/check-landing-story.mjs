@@ -170,11 +170,29 @@ try {
           w: e.getBoundingClientRect().width,
           h: e.querySelector("img").getBoundingClientRect().height,
           fit: getComputedStyle(e.querySelector("img")).objectFit,
+          backdrop: e.querySelector(".build-showcase-fill").getAttribute("src"),
+          source: e.querySelector("img").getAttribute("src"),
+          fill: getComputedStyle(e.querySelector(".build-showcase-fill"))
+            .objectFit,
+          decorative: e
+            .querySelector(".build-showcase-fill")
+            .getAttribute("aria-hidden"),
+          lazy: e.querySelector(".build-showcase-fill").getAttribute("loading"),
         })),
     )
     assert.ok(
       cards.every((c) => c.fit === "contain"),
       "screenshots are never cover-cropped",
+    )
+    assert.ok(
+      cards.every(
+        (c) =>
+          c.fill === "cover" &&
+          c.backdrop === c.source &&
+          c.decorative === "true" &&
+          c.lazy === "lazy",
+      ),
+      "image-derived fill covers the frame behind the complete screenshot",
     )
     assert.ok(
       Math.abs(cards[0].w / cards[0].h - 4 / 3) < 0.015,

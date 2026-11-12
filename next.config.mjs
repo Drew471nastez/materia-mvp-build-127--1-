@@ -330,7 +330,19 @@ const nextConfig = {
         /* The app links files, built from env vars (lib/platform/app-links.ts): before the public folder, which no longer holds them. */
         { source: "/.well-known/apple-app-site-association", destination: "/api/app-links/apple-app-site-association" },
         { source: "/.well-known/assetlinks.json", destination: "/api/app-links/assetlinks" },
-        ...(storage ? [{ source: "/media/:path*", destination: `${storage}/storage/v1/object/public/:path*` }] : []),
+        /*
+          PICTURES THROUGH app/api/media (round 54, Vercel cost): the same bytes
+          without the storage host's cookie, so the CDN keeps them. ?direct=1
+          (a picture too large for that route) and every other file go straight
+          to storage, as before.
+        */
+        ...(storage
+          ? [
+              { source: "/media/:path*", has: [{ type: "query", key: "direct" }], destination: `${storage}/storage/v1/object/public/:path*` },
+              { source: "/media/:path(.+\\.(?:jpg|jpeg|png|gif|webp|avif|ico|bmp|JPG|JPEG|PNG|GIF|WEBP|AVIF))", destination: "/api/media/:path" },
+              { source: "/media/:path*", destination: `${storage}/storage/v1/object/public/:path*` },
+            ]
+          : []),
       ],
     }
   },

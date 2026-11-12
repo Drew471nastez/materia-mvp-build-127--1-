@@ -25,25 +25,36 @@ export function LandingStory({ children }: { children: ReactNode }) {
             { rootMargin: "100px 0px" },
           )
         : null
-    const scan = () => {
-      for (const node of root.querySelectorAll<HTMLElement>(
-        "[data-story-section]",
-      )) {
-        if (!watched.has(node)) {
-          watched.add(node)
-          observer?.observe(node)
-        }
-      }
-      for (const node of watched) {
-        if (!root.contains(node)) {
-          observer?.unobserve(node)
-          watched.delete(node)
+    const discover = (node: Node) => {
+      if (!(node instanceof Element)) return
+      const candidates = node.matches("[data-story-section]")
+        ? [node, ...node.querySelectorAll("[data-story-section]")]
+        : node.querySelectorAll("[data-story-section]")
+      for (const candidate of candidates) {
+        const section = candidate as HTMLElement
+        if (!watched.has(section)) {
+          watched.add(section)
+          observer?.observe(section)
         }
       }
     }
-    scan()
-    // Dynamically imported sections can arrive after the first paint.
-    const additions = new MutationObserver(scan)
+    discover(root)
+    // Only inspect added subtrees. FAQ text, counters and other small updates
+    // no longer cause a scan of the entire landing page.
+    const additions = new MutationObserver((records) => {
+      let removed = false
+      for (const record of records) {
+        record.addedNodes.forEach(discover)
+        if (record.removedNodes.length) removed = true
+      }
+      if (removed)
+        for (const node of watched) {
+          if (!root.contains(node)) {
+            watched.delete(node)
+            observer?.unobserve(node)
+          }
+        }
+    })
     additions.observe(root, { childList: true, subtree: true })
     return () => {
       observer?.disconnect()
