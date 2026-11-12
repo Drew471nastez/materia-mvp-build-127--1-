@@ -152,7 +152,8 @@ try {
         (e) =>
           e.getBoundingClientRect().height /
             parseFloat(getComputedStyle(e).lineHeight) <=
-          (innerWidth < 768 ? 4.05 : 2.05),
+          /* Round 61's longer heading: five lines on a phone, three on a tablet, two from 900px. */
+          (innerWidth < 768 ? 5.05 : innerWidth < 900 ? 3.05 : 2.05),
       ),
     )
     // Freeze movement for geometry/screenshots; the hero probe separately exercises autoplay and settled slide navigation.

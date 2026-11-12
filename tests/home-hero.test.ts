@@ -91,7 +91,7 @@ console.log(
   "Cinematic hero passed: server-rendered copy/signup, exact phrases, one deferred video, local fallback, shared auth, accessible motion and cleanup",
 )
 
-assert.ok(doc.includes("Everything you need to create, sell,"))
+assert.ok(doc.includes("Build your page, sell your products,"))
 assert.ok(!doc.includes("Free to start. No card required."))
 assert.ok(
   read("components/marketing/hero.tsx").includes(
@@ -117,7 +117,7 @@ assert.ok(
 )
 assert.ok(HERO_VIDEO.src.includes("1794426925775466.mp4"))
 const showcase = read("components/marketing/build-showcase.tsx")
-assert.equal(SHOWCASE_HEADING, "Everything you need to create, sell, and manage your business online.")
+assert.equal(SHOWCASE_HEADING, "Build your page, sell your products, reach your audience, and manage everything in one platform.")
 assert.ok(
   /* Round 60: the showcase's own rail motion (lib/ui/rail-motion, tests/rail-motion.test.ts), no slider library. */
   read("components/marketing/use-showcase-motion.ts").includes("new RailMotion(") &&

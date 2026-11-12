@@ -120,7 +120,8 @@ function createHeadingMotion() {
         : null
       details.set(node, {
         section,
-        gallery: section?.querySelector(".build-showcase-viewport") || null,
+        /* Round 61: the gallery fades in once on entry (build-showcase.tsx); nothing reads a scroll-linked reveal any more. */
+        gallery: null,
         progress: "",
         reveal: "",
       })
@@ -168,9 +169,11 @@ export function StoryHeading({
   const ref = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     if (!ref.current) return
+    /* Round 61: the showcase heading stands still and fully inked; it does no scroll work at all. */
+    if (showcase) return
     headingMotion ??= createHeadingMotion()
     return headingMotion.add(ref.current)
-  }, [])
+  }, [showcase])
   const words = text.trim().split(/\s+/)
   return (
     <Tag
@@ -180,6 +183,7 @@ export function StoryHeading({
       data-story-heading=""
       data-story-showcase={showcase || undefined}
       data-story-dark={dark || undefined}
+      style={showcase ? ({ "--story-progress": 1, transform: "none" } as CSSProperties) : undefined}
       aria-label={text}
     >
       <span aria-hidden="true">
@@ -203,9 +207,6 @@ export function StoryHeading({
               {word}
             </span>
             {i < words.length - 1 ? " " : ""}
-            {showcase && i === 5 ? (
-              <br className="showcase-heading-break" />
-            ) : null}
           </span>
         ))}
       </span>

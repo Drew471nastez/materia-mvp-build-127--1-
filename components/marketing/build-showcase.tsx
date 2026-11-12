@@ -46,7 +46,7 @@ const GROUPS = [
   ],
 ]
 export const SHOWCASE_HEADING =
-  "Everything you need to create, sell, and manage your business online."
+  "Build your page, sell your products, reach your audience, and manage everything in one platform."
 
 /** Each desktop page is a complete wide–OnePage–wide composition. */
 export function BuildShowcase() {
@@ -70,7 +70,7 @@ export function BuildShowcase() {
           <StoryHeading
             id="build-showcase-title"
             text={SHOWCASE_HEADING}
-            accent={["create"]}
+            accent={["everything"]}
             dark
             showcase
           />
@@ -132,15 +132,13 @@ export function BuildShowcase() {
 const CSS = `
 /* The hairline is an inset shadow, not a border, so it takes no width: the cards line up with the bar above to the pixel. */
 .build-showcase {position:relative;z-index:2;margin:-20px 0 40px;color:#fafafa;background:#090909;border-radius:40px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 -8px 32px rgba(0,0,0,.08)}
-.build-showcase-card {width:100%;max-width:var(--landing-max,1980px);margin:0 auto;padding:clamp(72px,7vw,112px) 0 clamp(96px,9vw,156px)}
-.build-showcase-top {margin:0 calc(var(--landing-gutter,clamp(22px,6vw,96px)) + var(--landing-card-inset,14px)) clamp(40px,5vw,68px)}
-.build-showcase h2 {max-width:1100px;margin:0;font-size:clamp(32px,3.4vw,58px);text-wrap:balance;line-height:1.13}
+.build-showcase-card {width:100%;max-width:var(--showcase-max,2020px);margin:0 auto;padding:clamp(72px,7vw,112px) 0 clamp(96px,9vw,156px)}
+.build-showcase-top {margin:0 calc(var(--showcase-gutter,clamp(20px,5.15vw,84px)) + var(--landing-card-inset,14px)) clamp(38px,4.8vw,65px)}
+.build-showcase h2 {max-width:none;margin:0;font-size:clamp(32px,3.4vw,58px);text-wrap:balance;line-height:1.13}
 .build-showcase .story-heading {--story-muted:#85858c;transition:opacity 400ms ease}.build-showcase[data-showcase-browsing] .story-heading {opacity:.64}
-.showcase-heading-break {display:none}
-@media(min-width:768px){.showcase-heading-break{display:initial}}
 .build-showcase-help {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-.build-showcase-viewport {position:relative;overflow:hidden;opacity:calc(.4 + var(--showcase-reveal,1)*.6);translate:0 calc((1 - var(--showcase-reveal,1))*32px);transition:opacity 120ms linear,translate 120ms linear;margin-inline:var(--landing-gutter,clamp(22px,6vw,96px));mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
-.build-showcase-viewport::after {content:"";position:absolute;inset:0 auto 0 0;width:var(--landing-gutter,clamp(22px,6vw,96px));background:#090909;pointer-events:none;opacity:0;transition:opacity 200ms ease}
+.build-showcase-viewport {position:relative;overflow:hidden;margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px));mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
+.build-showcase-viewport::after {content:"";position:absolute;inset:0 auto 0 0;width:var(--showcase-gutter,clamp(20px,5.15vw,84px));background:#090909;pointer-events:none;opacity:0;transition:opacity 200ms ease}
 @media(max-width:767px){.build-showcase[data-showcase-pristine] .build-showcase-viewport::after{opacity:1}}
 /*
   THE RAIL. Before the script it is a plain horizontal scroller, so the cards
@@ -154,20 +152,18 @@ const CSS = `
 .build-showcase-track:focus-visible {outline:2px solid #bca3ff;outline-offset:4px}
 .build-showcase-track::-webkit-scrollbar {display:none}
 .build-showcase-track[data-dragging] {cursor:grabbing}
-.build-showcase[data-showcase-browsing] .build-showcase-group {will-change:transform}
-@media(max-width:767px){.build-showcase[data-showcase-browsing] .build-showcase-slide{will-change:transform}}
+/* Round 61: the moving boxes keep their own GPU layers for as long as the rail runs; adding and dropping them at every autoplay step re-rasterised the pictures at the start of each move. */
+.build-showcase-track[data-rail-ready] .build-showcase-group {will-change:transform;backface-visibility:hidden}
+@media(max-width:767px){.build-showcase-track[data-rail-ready] .build-showcase-group{will-change:auto}.build-showcase-track[data-rail-ready] .build-showcase-slide{will-change:transform;backface-visibility:hidden}}
 .build-showcase-group {display:grid;grid-template-columns:2fr 1fr 2fr;gap:var(--showcase-gap);align-items:center;flex:0 0 100%;width:100%;padding:10px var(--landing-card-inset,14px);min-width:0;box-sizing:border-box}
 .build-showcase-slide {position:relative;min-width:0;width:100%;height:auto;aspect-ratio:16/10;margin:0;border:1px solid rgba(255,255,255,.12);border-radius:5px;contain:paint;isolation:isolate;background:#151515;overflow:hidden}
 .build-showcase-slide[data-format="portrait"] {aspect-ratio:4/5}
 .build-showcase-media {position:relative;height:100%}
 .build-showcase-slide img {display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-user-drag:none}
 .build-showcase-slide figcaption {position:absolute;inset:auto 0 0;min-height:80px;display:flex;align-items:flex-end;padding:36px 16px 14px;font-size:14px;line-height:1.35;color:#fff;text-shadow:0 1px 4px #000;background:linear-gradient(transparent,rgba(0,0,0,.55) 50%,rgba(0,0,0,.88))}
-.build-showcase-viewport[data-showcase-entered] .build-showcase-slide {animation:showcase-card-enter 850ms cubic-bezier(.2,.7,.2,1) both}
-.build-showcase-viewport[data-showcase-entered] .build-showcase-slide:nth-child(2) {animation-delay:90ms}
-.build-showcase-viewport[data-showcase-entered] .build-showcase-slide:nth-child(3) {animation-delay:180ms}
-.build-showcase[data-showcase-entered] .build-showcase-top {animation:showcase-heading-enter 700ms cubic-bezier(.2,.7,.2,1) both}
-@keyframes showcase-heading-enter{from{opacity:.6;translate:0 16px}to{opacity:1;translate:0 0}}
-@keyframes showcase-card-enter{from{opacity:.45;translate:0 28px;scale:.98}to{opacity:1;translate:0 0;scale:1}}
-@media(max-width:767px){.build-showcase{margin-top:-12px;border-radius:28px}.build-showcase-card{padding:64px 0 108px}.build-showcase-top{margin-inline:var(--landing-gutter,clamp(22px,6vw,96px))}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0;mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent)}.build-showcase-track{--showcase-gap:10px;--showcase-height:clamp(180px,58vw,360px);height:var(--showcase-height);gap:var(--showcase-gap);padding-left:var(--landing-gutter,clamp(22px,6vw,96px))}.build-showcase-group{display:contents}.build-showcase-slide,.build-showcase-slide[data-format="portrait"]{height:var(--showcase-height);flex:0 0 auto;min-width:0;width:calc(var(--showcase-height)*1.6);aspect-ratio:auto}.build-showcase-slide[data-format="portrait"]{width:calc(var(--showcase-height)*.8)}.build-showcase-slide figcaption{min-height:76px;padding:36px 16px 14px;font-size:14px}}
-@media(prefers-reduced-motion:reduce){.build-showcase-viewport[data-showcase-entered] .build-showcase-slide{animation:none}.build-showcase[data-showcase-entered] .build-showcase-top{animation:none}.build-showcase-viewport{opacity:1;translate:none;transition:none}.build-showcase .story-heading{opacity:1;transition:none}}
+/* Round 61: the pictures appear where they are, a fade and nothing else. Hidden only once the script is there to show them. */
+.build-showcase-track[data-rail-ready] {opacity:0;transition:opacity 650ms cubic-bezier(.25,.1,.25,1)}
+.build-showcase-viewport[data-showcase-entered] .build-showcase-track {opacity:1}
+@media(max-width:767px){.build-showcase{margin-top:-12px;border-radius:28px}.build-showcase-card{padding:64px 0 108px}.build-showcase-top{margin-inline:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase h2{font-size:clamp(30px,8vw,36px)}.build-showcase-viewport{margin-inline:0;mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent)}.build-showcase-track{--showcase-gap:10px;--showcase-height:clamp(180px,58vw,360px);height:var(--showcase-height);gap:var(--showcase-gap);padding-left:var(--showcase-gutter,clamp(20px,5.15vw,84px))}.build-showcase-group{display:contents}.build-showcase-slide,.build-showcase-slide[data-format="portrait"]{height:var(--showcase-height);flex:0 0 auto;min-width:0;width:calc(var(--showcase-height)*1.6);aspect-ratio:auto}.build-showcase-slide[data-format="portrait"]{width:calc(var(--showcase-height)*.8)}.build-showcase-slide figcaption{min-height:76px;padding:36px 16px 14px;font-size:14px}}
+@media(prefers-reduced-motion:reduce){.build-showcase-track[data-rail-ready]{opacity:1;transition:none}.build-showcase .story-heading{opacity:1;transition:none}}
 `

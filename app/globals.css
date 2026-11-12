@@ -5192,7 +5192,8 @@ html.capacitor {
     rails: 13 -> 11.3 here and 12 -> 10.3 on the row. Splitting it keeps the
     contents centred in the bar rather than sliding them up.
   */
-  padding-top: max(env(safe-area-inset-top, 0px), 11.3px);
+  /* Round 61: 2% more off the 64.6px bar, again split between the rails: 11.3 -> 10.65, 10.3 -> 9.65. */
+  padding-top: max(env(safe-area-inset-top, 0px), 10.65px);
 }
 @media (min-width: 768px) {
   .platform-header-row {
@@ -10234,12 +10235,15 @@ body:has([data-home-hero="cinematic"]) [data-landing-story] {background:linear-g
 :root {
   --landing-max: 1980px;
   --landing-gutter: clamp(22px, 6vw, 96px);
+  /* Round 61: the showcase and the header over it, 2% wider than the 6vw gutter gave (measured at 390 to 1920). */
+  --showcase-gutter: clamp(20px, 5.15vw, 84px);
+  --showcase-max: 2020px;
   --landing-card-inset: 14px;
 }
 @media (min-width: 768px) {
   #platform-header-root [data-landing-width] {
-    max-width: var(--landing-max);
-    padding-inline: calc(var(--landing-gutter) + var(--landing-card-inset));
+    max-width: var(--showcase-max);
+    padding-inline: calc(var(--showcase-gutter) + var(--landing-card-inset));
   }
 }
 

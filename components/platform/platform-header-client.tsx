@@ -2269,6 +2269,7 @@ export function PlatformHeaderClient({
                 74.5px   3.2% off
                 70.75px  another 5% off that
                 69.35px  and a further 2%
+                67.96px  and 2% more (round 61)
 
             and the measured root is one pixel more than whichever of those
             the row is set to. The padding is left alone on purpose — it holds
@@ -2277,7 +2278,7 @@ export function PlatformHeaderClient({
           */
           /* pb-[10.3px]: the phone half of the 5% cut, the other half being the
              padding-top in .platform-header-row. The md rails are untouched. */
-          className="platform-header-row flex md:h-[69.35px] items-center justify-between gap-4 pb-[10.3px] md:pb-[3px]"
+          className="platform-header-row flex md:h-[67.96px] items-center justify-between gap-4 pb-[9.65px] md:pb-[3px]"
         >
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
           {isMarketingNavRoute ? (
