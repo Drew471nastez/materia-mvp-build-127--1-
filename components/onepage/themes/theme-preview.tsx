@@ -18,22 +18,18 @@
  * its top, scaled down as one picture (`--tp-scale`, measured once for the
  * whole grid by the Design tab).
  *
- * ROUND AS: A REAL PAGE, NOT GREY LINES. The owner: "it has those lines in
- * the theme cards, which looks absolutely cheap", "show how it would look
- * using that theme with some creators ... real offers and real products and
- * newsletter and social icons". Every card is now a fictional creator's
- * page for its theme (./preview-content): their name, a line about them, a
- * drawn portrait, three socials in the theme's icon style, and the blocks a
- * creator really adds, with real words: a product with its price (the
- * page's callout, or the theme's rows or tiles), a booking link with a
- * picture, a newsletter, a plain link, each drawn the way the live page
- * draws that block. The creators arrive with the theme page
- * (./preview-content-loader); until then a card is the theme's colours and
- * header.
- *
- * It is plain markup, no effects, and the pictures are small drawings
- * passed as data addresses (one decode each, shared by every card that
- * draws the same one), so the picker stays light.
+ * ROUND AT: THIS CREATOR'S OWN PAGE. The owner: "instead of adding those
+ * cartoonish avatars, you can actually fetch ... the actual avatar and
+ * profile of the creator", "the blocks and the buttons more accurate and
+ * realistic". Every card draws the page the editor holds
+ * (./preview-account): the creator's name and photo (or the page's
+ * monogram), their bio and socials, their own links with thumbnails, their
+ * own products with prices and pictures, and their newsletter, filled with
+ * plain samples where the page has none yet. Each block is drawn the way
+ * the live page draws it, with the page's own classes where the look lives
+ * in them: a link is an .op-btn with the theme's hover (data-hover and its
+ * variables), so pointing at a card plays the theme's real hover on its
+ * buttons (.op-demo, app/globals.css). Nothing on a card can be selected.
  *
  * scripts/check-onepage-theme-previews-as1.mjs draws the live page with the
  * same creator beside its card and compares them.
@@ -43,10 +39,9 @@ import { SocialIcon } from "@/components/onepage/brand-icons"
 import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
 /* Round W9: a theme with a skin draws its material and scene here too (lib/onepage/theme-skin). */
 import { ThemeSkinScene } from "@/components/onepage/themes/theme-skin-scene"
-import { usePreviewContent } from "@/components/onepage/themes/preview-content-loader"
-import type { PreviewCreator, Slot } from "@/components/onepage/themes/preview-content"
+import type { PreviewAccount } from "@/components/onepage/themes/preview-account"
 import { skinRootProps, skinVars } from "@/lib/onepage/theme-skin"
-import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonFill, buttonIconSide, buttonSize, buttonAlign, buttonThemeOn, cardButtonTheme, cardRadius, buttonShape, themeButtonStripFill, themeButtonStyle, type ButtonThemeLike } from "@/lib/onepage/button-style"
+import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonFill, buttonHover, buttonHoverVars, buttonShadow, buttonIconSide, buttonSize, buttonAlign, buttonThemeOn, cardButtonTheme, cardRadius, buttonShape, themeButtonStripFill, themeButtonStyle, type ButtonThemeLike } from "@/lib/onepage/button-style"
 import { avatarLook, bioSizeClass, bioTypeStyle, titleSizeClass, titleTypeStyle } from "@/lib/onepage/header-style"
 import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, headerAlignOf, themeProductLayoutOf } from "@/lib/onepage/theme-layout"
 import { fontStack } from "@/lib/onepage/fonts"
@@ -55,6 +50,7 @@ import { readableInk, readableTheme, signupCard } from "@/lib/onepage/contrast"
 import { tintOf } from "@/lib/onepage/email-signup"
 import { pageGroundIsLight, socialIconColorOf, socialTileStyle } from "@/lib/onepage/social-look"
 import { HERO_FADE_MASK } from "@/lib/onepage/poster-video"
+import { onePageImageSrc } from "@/lib/onepage/display-image"
 import { cn } from "@/lib/utils"
 
 type Look = Record<string, any>
@@ -72,6 +68,14 @@ export const PREVIEW_HEIGHT = 546
  * that was an empty band over every header, so the card keeps 18.
  */
 export const PREVIEW_TOP = 18
+/**
+ * A Hero card shows the page scrolled this far (round AT). The live Hero is
+ * 4:5 on a phone since round AS (487px of a 546px card), so its card was the
+ * picture and the name and nothing else: no socials, no buttons. The card
+ * now starts 170px into the picture, where the fade has begun, so the name,
+ * the socials and the first links are on it, all at the page's own sizes.
+ */
+export const HERO_CARD_SHIFT = 170
 /** The phone's screen, which the page's wallpaper fills (390 by 844). */
 const SCREEN_HEIGHT = 844
 
@@ -82,38 +86,52 @@ const SCREEN_HEIGHT = 844
  */
 const phone = (cls: string) => cls.split(/\s+/).filter((c) => c && !/^(sm|md|lg|xl):/.test(c)).join(" ")
 
-/** A drawn picture where a photo goes. */
-const pictureOf = (src: string): React.CSSProperties => ({ backgroundImage: `url("${src}")`, backgroundSize: "cover", backgroundPosition: "center" })
+/** A photo where the page puts one, at the size the card needs. */
+const pictureOf = (src: string, width: number): React.CSSProperties => ({ backgroundImage: `url("${onePageImageSrc(src, width)}")`, backgroundSize: "cover", backgroundPosition: "center" })
+/**
+ * A sample block's picture (round AT): no drawing, a quiet tint of the
+ * colours it sits on, lit from one corner, so it reads as "a picture goes
+ * here" in the theme's own palette.
+ */
+const tintOfPicture = (ink: string, ground: string): React.CSSProperties => ({
+  backgroundColor: `color-mix(in srgb, ${ink} 14%, ${ground})`,
+  backgroundImage: `radial-gradient(120% 90% at 18% 12%, color-mix(in srgb, ${ground} 70%, transparent) 0%, transparent 60%), linear-gradient(150deg, color-mix(in srgb, ${ink} 6%, transparent) 0%, color-mix(in srgb, ${ink} 26%, transparent) 100%)`,
+})
 
-/** The blocks under the socials, in the order the layout shows best in a card's height. */
-export function slotsFor(who: PreviewCreator, layout: string): readonly Slot[] {
-  if (who.order) return who.order
-  return layout === "grid" || layout === "masonry" ? ["link", "link2", "product", "news"] : ["link", "product", "news", "link2"]
+/** A plain link under Cards is a taller row with bolder words (app/globals.css [data-block-layout="cards"] .op-btn). */
+const CARDS_ROW: Record<string, string> = { compact: "min-h-[66px] py-4", regular: "min-h-[80px] py-5", large: "min-h-[96px] py-6" }
+
+/** The blocks under the socials, in the page's own order: its first two links, a product, the newsletter, a third link. */
+export type Slot = { kind: "link"; at: number } | { kind: "product" } | { kind: "news" }
+export function slotsFor(who: PreviewAccount): Slot[] {
+  const out: Slot[] = [{ kind: "link", at: 0 }, { kind: "link", at: 1 }, { kind: "product" }, { kind: "news" }]
+  if (who.links.length > 2) out.push({ kind: "link", at: 2 })
+  return out
 }
 
 /**
- * `id` and `kind` name the theme, whose creator the card draws. `name` (the
- * onboarding, round AQ) is the person's own name, and `photo` their own
- * picture, drawn where the page draws it (the avatar, or a Hero's band);
- * without them the creator's.
+ * `who` is the creator whose page every card draws (./preview-account),
+ * one object for the whole grid. `thumb` is the address of a theme's own
+ * picture (its wallpaper photo or cover) at a card's size.
  */
-export function ThemePreview({ c: given, id, kind, name = null, thumb, photo = null }: { c: Look; id: string; kind?: string | null; name?: string | null; thumb: (url: string) => string; photo?: string | null }) {
-  const pack = usePreviewContent()
-  const who = pack ? pack.creatorFor(id, kind) : null
+export function ThemePreview({ c: given, who, thumb }: { c: Look; who: PreviewAccount; thumb: (url: string) => string }) {
   /* Round AR: the colours the page will really draw, made to read as the page makes them (lib/onepage/contrast readableTheme). */
   const c = readableTheme(given)
   const bg: string = c.background_color || "#ffffff"
   const text: string = c.text_color || "#111111"
   const secondary: string = c.secondary_text_color || `${text}cc`
   const image = c.background_type === "image" && c.background_image_url ? (c.background_image_url as string) : null
-  const hero = c.header_layout === "hero"
+  /* A Hero is drawn only with a photo, as the page draws it (lib/onepage/page-frame heroHeaderShown). */
+  const hero = c.header_layout === "hero" && !!who.avatar
   const cover = hero ? null : coverImageOf(c)
   const left = !hero && headerAlignOf(c) === "left"
   const look = avatarLook(c as never, false)
   const theme = c as ButtonThemeLike
   const size = buttonSize(theme)
-  const button: React.CSSProperties = themeButtonStyle(theme)
+  const button: React.CSSProperties = { ...themeButtonStyle(theme), ...buttonHoverVars(theme) }
+  const hoverAttrs = { "data-hover": buttonHover(theme), "data-shadow": buttonShadow(theme) }
   const ink = (c.button_text_color as string) || text
+  const surface = buttonFill(theme) === "filled" ? ((theme.button_color as string) || bg) : bg
   const align = buttonAlign(theme)
   const iconSide = buttonIconSide(theme)
   const layout = blockLayoutOf(c)
@@ -123,116 +141,129 @@ export function ThemePreview({ c: given, id, kind, name = null, thumb, photo = n
   const pageLight = pageGroundIsLight(c as never)
   const titleFace = fontStack(c.title_font || c.font_family)
   const pagePaint = c.background_type === "gradient" && c.background_gradient ? c.background_gradient : bg
-  const shownName = name ?? who?.name ?? ""
-  const face = photo ?? (who && pack ? pack.faceUri(who.face) : null)
-  const art = (a: Parameters<NonNullable<typeof pack>["artUri"]>[0]) => (who && pack ? pack.artUri(a, who.palette) : "")
+  const face = who.avatar
   /*
     Where the header ends, for the pattern to keep out from behind it, as
     the page's useHeaderClearance measures it: worked out here from the
     same numbers, since every card draws the same header.
   */
-  const headerEnd = hero ? 351 + 70 : (cover ? (PREVIEW_WIDTH / coverAspect(c, false)) + look.size / 2 + 4 : PREVIEW_TOP + look.size) + 12 + 44 + 12 + 23 + 16 + 49
+  const headerEnd = hero ? PREVIEW_WIDTH * 5 / 4 - HERO_CARD_SHIFT + 20 : (cover ? (PREVIEW_WIDTH / coverAspect(c, false)) + look.size / 2 + 4 : PREVIEW_TOP + look.size) + 12 + 44 + 12 + (who.bio ? 23 + 16 : 0) + 49
 
-  /* A link's label, as the page sets it (public-onepage labelText). */
-  const label = (words: string, cls?: string) => (
-    <span className={cn(align === "left" ? "text-left" : "text-center", "break-words whitespace-normal leading-tight", cls)} data-tp-label="" data-block-title="">{words}</span>
-  )
-  /* A link row: the page's button, its words, and a picture inside its edge when it has one (public-onepage, link_button). */
-  const labelRow = (words: string, picture: string | null, key: string) => (
-    <span
-      key={key}
-      data-tp-link=""
-      className={cn("relative flex w-full items-center justify-center font-medium", phone(BUTTON_SIZE_CLASS[size]))}
-      style={button}
-    >
-      {picture ? <span data-tp-photo="" className={cn(phone(BUTTON_ICON_CLASS[size]), "absolute shrink-0 rounded", phone(BUTTON_ICON_INSET[size][iconSide]))} style={pictureOf(picture)} /> : null}
-      <span className={cn("flex w-full min-w-0 flex-col", align === "left" ? "items-start" : "items-center", picture ? (align === "left" ? (iconSide === "left" ? "pl-12" : "pr-12") : "px-12") : "")}>
-        {label(words)}
+  /* A link's thumbnail: the creator's picture, or none (the page draws none). */
+  const linkPicture = (l: PreviewAccount["links"][number]) => (l.picture ? pictureOf(l.picture, 48) : null)
+  /* A link row: the page's button (.op-btn with the theme's hover), its words, and its thumbnail inside its edge (public-onepage, link_button). */
+  const labelRow = (l: PreviewAccount["links"][number], key: string) => {
+    const pic = linkPicture(l)
+    return (
+      <span
+        key={key}
+        data-tp-link=""
+        {...hoverAttrs}
+        data-align={align}
+        className={cn("op-btn relative flex w-full items-center justify-center font-medium", phone(BUTTON_SIZE_CLASS[size]), layout === "cards" && CARDS_ROW[size])}
+        style={button}
+      >
+        {pic ? <span data-tp-photo="" className={cn(phone(BUTTON_ICON_CLASS[size]), "absolute shrink-0 rounded", phone(BUTTON_ICON_INSET[size][iconSide]))} style={pic} /> : null}
+        <span className={cn("flex w-full min-w-0 flex-col", align === "left" ? "items-start" : "items-center", pic ? (align === "left" ? (iconSide === "left" ? "pl-12" : "pr-12") : "px-12") : "")}>
+          <span className={cn("op-label break-words whitespace-normal leading-tight", align === "left" ? "text-left" : "text-center", layout === "cards" && "text-[1.07em] font-semibold")} data-tp-label="" data-block-title="">{l.label}</span>
+        </span>
       </span>
-    </span>
-  )
+    )
+  }
   /* A link that is a tile (the Grid's pairs and the Mixed tiles, app/globals.css [data-link-tile]): the picture over the words. */
-  const tile = (words: string, picture: string | null, key: string, grid: boolean) => (
-    <span
-      key={key}
-      data-tp-link=""
-      className={cn("flex w-full flex-col items-center justify-center font-medium", grid ? "min-h-[96px] gap-[10px] px-3 py-4" : "gap-2 px-3", phone(BUTTON_SIZE_CLASS[size]).replace(grid ? /\bp[xy]-\S+/g : /\bpx-\S+/g, ""))}
-      style={button}
-    >
-      {picture ? <span data-tp-photo="" className={cn(phone(BUTTON_ICON_CLASS[size]), "shrink-0 rounded")} style={pictureOf(picture)} /> : null}
-      <span className="shrink-0 text-center leading-tight" data-tp-label="" data-block-title="">{words}</span>
-    </span>
-  )
+  const tile = (l: PreviewAccount["links"][number], key: string, grid: boolean) => {
+    const pic = linkPicture(l)
+    return (
+      <span
+        key={key}
+        data-tp-link=""
+        {...hoverAttrs}
+        className={cn("op-btn flex w-full flex-col items-center justify-center font-medium", grid ? "min-h-[96px] gap-[10px] px-3 py-4" : "gap-2 px-3", phone(BUTTON_SIZE_CLASS[size]).replace(grid ? /\bp[xy]-\S+/g : /\bpx-\S+/g, ""))}
+        style={button}
+      >
+        {pic ? <span data-tp-photo="" className={cn(phone(BUTTON_ICON_CLASS[size]), "shrink-0 rounded")} style={pic} /> : null}
+        <span className="op-label shrink-0 text-center leading-tight" data-tp-label="" data-block-title="">{l.label}</span>
+      </span>
+    )
+  }
 
   /* The product, in the theme's way: the page's callout, two rows, or two tiles (components/onepage/product-block). */
   const product = (key: string) => {
-    if (!who) return null
-    const surface = buttonFill(theme) === "filled" ? (theme.button_color as string) : bg
     const cardText = readableOn(surface, ink)
     const card: React.CSSProperties = { ...themeButtonStyle(theme), borderRadius: `${cardRadius(theme)}px`, color: undefined }
-    const cta = themeButtonStyle(cardButtonTheme(theme, { surface, cardText }))
+    const ctaTheme = cardButtonTheme(theme, { surface, cardText })
+    const cta: React.CSSProperties = { ...themeButtonStyle(ctaTheme), ...buttonHoverVars(ctaTheme) }
+    const ctaAttrs = { "data-hover": buttonHover(ctaTheme), "data-shadow": buttonShadow(ctaTheme) }
+    /* A product's picture: its own, a sample's tint, or none (the page draws none without one). */
+    const shot = (p: PreviewAccount["products"][number], width: number) => (p.picture ? pictureOf(p.picture, width) : p.sample ? tintOfPicture(cardText, surface) : null)
     const [one, two] = who.products
     if (products === "grid") {
       return (
         <span key={key} className="grid w-full grid-cols-2 gap-3">
-          {[one, two].map((p, i) => (
-            <span key={i} data-tp-product="tile" className="flex h-full flex-col overflow-hidden" style={card}>
-              <span data-tp-photo="" className="block aspect-square w-full" style={pictureOf(art(p.art))} />
-              <span className="flex flex-1 flex-col gap-0.5 p-3">
-                <span className="line-clamp-2 text-[14.5px] font-semibold leading-snug" style={{ color: cardText }} data-block-title="">{p.title}</span>
-                <span className="text-[13.5px] font-semibold tabular-nums opacity-85" style={{ color: cardText }}>{p.price}</span>
-                <span className="mt-auto pt-2.5">
-                  <span data-product-cta="" className="flex h-9 w-full items-center justify-center px-2 text-[13.5px] font-medium" style={cta}><span className="truncate">{who.cta}</span></span>
+          {[one, two].map((p, i) => {
+            const pic = shot(p, 175)
+            return (
+              <span key={i} data-tp-product="tile" className="op-host flex h-full flex-col overflow-hidden" style={card}>
+                {pic ? <span data-tp-photo="" className="block aspect-square w-full" style={pic} /> : null}
+                <span className="flex flex-1 flex-col gap-0.5 p-3">
+                  <span className="line-clamp-2 text-[14.5px] font-semibold leading-snug" style={{ color: cardText }} data-block-title="">{p.title}</span>
+                  <span className="truncate text-[13.5px] font-semibold tabular-nums opacity-85" style={{ color: cardText }}>{p.price}</span>
+                  <span className="mt-auto pt-2.5">
+                    <span data-product-cta="" {...ctaAttrs} className="op-btn flex h-9 w-full items-center justify-center px-2 text-[13.5px] font-medium" style={cta}><span className="op-label truncate">{p.cta}</span></span>
+                  </span>
                 </span>
               </span>
-            </span>
-          ))}
+            )
+          })}
         </span>
       )
     }
     if (products === "rows") {
-      return [one, two].map((p, i) => (
-        <span key={`${key}${i}`} data-tp-product="row" className="block w-full overflow-hidden" style={card}>
-          <span className="flex items-center gap-3 p-2.5">
-            <span data-tp-photo="" className="block h-12 w-12 shrink-0" style={pictureOf(art(p.art))} />
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="block truncate text-[15px] font-medium" style={{ color: cardText }} data-block-title="">{p.title}</span>
-              <span className="text-[13.5px] font-semibold tabular-nums opacity-80" style={{ color: cardText }}>{p.price}</span>
+      return [one, two].map((p, i) => {
+        const pic = shot(p, 48)
+        return (
+          <span key={`${key}${i}`} data-tp-product="row" className="op-host block w-full overflow-hidden" style={card}>
+            <span className="flex items-center gap-3 p-2.5">
+              {pic ? <span data-tp-photo="" className="block h-12 w-12 shrink-0" style={pic} /> : null}
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="block truncate text-[15px] font-medium" style={{ color: cardText }} data-block-title="">{p.title}</span>
+                <span className="truncate text-[13.5px] font-semibold tabular-nums opacity-80" style={{ color: cardText }}>{p.price}</span>
+              </span>
+              <span data-product-cta="" {...ctaAttrs} className="op-btn flex h-9 max-w-[45%] shrink-0 items-center justify-center px-3.5 text-[13.5px] font-medium" style={cta}><span className="op-label truncate">{p.cta}</span></span>
             </span>
-            <span data-product-cta="" className="flex h-9 max-w-[45%] shrink-0 items-center justify-center px-3.5 text-[13.5px] font-medium" style={cta}><span className="truncate">{who.cta}</span></span>
           </span>
-        </span>
-      ))
+        )
+      })
     }
+    const pic = shot(one, 56)
     return (
-      <span key={key} data-tp-product="callout" className="block w-full overflow-hidden" style={card}>
+      <span key={key} data-tp-product="callout" className="op-host block w-full overflow-hidden" style={card}>
         <span className="flex gap-3 p-3">
-          <span data-tp-photo="" className="block h-14 w-14 shrink-0 rounded-lg" style={pictureOf(art(one.art))} />
+          {pic ? <span data-tp-photo="" className="block h-14 w-14 shrink-0 rounded-lg" style={pic} /> : null}
           <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
             <span className="block truncate text-base font-medium" style={{ color: cardText }} data-block-title="">{one.title}</span>
-            <span className="text-sm font-semibold tabular-nums" style={{ color: cardText }}>{one.price}</span>
+            <span className="truncate text-sm font-semibold tabular-nums" style={{ color: cardText }}>{one.price}</span>
           </span>
         </span>
         <span className="block px-3 pb-3">
-          <span data-product-cta="" className="flex h-11 w-full items-center justify-center px-4 text-sm font-medium" style={cta}><span className="truncate">{who.cta}</span></span>
+          <span data-product-cta="" {...ctaAttrs} className="op-btn flex h-11 w-full items-center justify-center px-4 text-sm font-medium" style={cta}><span className="op-label truncate">{one.cta}</span></span>
         </span>
       </span>
     )
   }
 
-  /* The newsletter, as its Classic layout draws it (components/onepage/email-signup), on the card the page tints for it. */
+  /* The newsletter, as its Classic layout draws it (components/onepage/email-signup), on the card the page tints for it; its button at full strength, as the page draws it before an email is typed. */
   const newsletter = (key: string) => {
-    if (!who) return null
     const signup = signupCard(c)
     const soft = c.secondary_text_color ? readableInk(c.secondary_text_color, signup.grounds) : signup.ink
     const send = themeButtonStyle(buttonThemeOn(theme, signup.grounds))
     return (
       <span key={key} data-email-layout="default" data-tp-news="" className="block w-full rounded-xl p-5" style={{ backgroundColor: tintOf(signup.tint, 5) }}>
         <span className="mb-1 block text-center text-base font-semibold leading-snug" style={{ color: signup.ink }}>{who.news.headline}</span>
-        <span className="mb-4 block text-center text-xs leading-relaxed" style={{ color: soft }}>{who.news.desc}</span>
+        {who.news.desc ? <span className="mb-4 block text-center text-xs leading-relaxed" style={{ color: soft }}>{who.news.desc}</span> : <span className="mb-3 block" />}
         <span data-email-form="row" className="flex flex-row items-stretch gap-2">
           <span className="flex min-h-[46px] min-w-0 flex-1 items-center bg-white/90 px-3 py-3 text-[16px]" style={{ borderRadius: send.borderRadius }}>
-            <span className="truncate text-black/50">Your email</span>
+            <span className="truncate text-black/50">Email</span>
           </span>
           <span data-product-cta="" className="flex shrink-0 items-center justify-center whitespace-nowrap px-4 py-3 text-sm font-medium" style={send}>{who.news.button}</span>
         </span>
@@ -242,35 +273,36 @@ export function ThemePreview({ c: given, id, kind, name = null, thumb, photo = n
 
   /* The blocks, in their order, in the theme's layout (lib/onepage/theme-layout pairLinkTiles, mixedTileSizes, linkDrawnAsCard). */
   const blocks: React.ReactNode[] = []
-  if (who) {
-    const slots = slotsFor(who, layout)
-    const linkPicture = art(who.link.art)
-    for (let i = 0; i < slots.length; i++) {
-      const s = slots[i]
-      const next = slots[i + 1]
-      if (s === "product") blocks.push(product("product"))
-      else if (s === "news") blocks.push(newsletter("news"))
-      else if ((layout === "grid" || layout === "masonry") && (s === "link" || s === "link2") && (next === "link" || next === "link2")) {
-        /* Two links that follow one another: a pair of tiles. */
-        const pair = [s, next].map((x) => (x === "link" ? { words: who.link.label, picture: linkPicture } : { words: who.link2, picture: null }))
-        blocks.push(
-          <span key={`pair${i}`} className="grid w-full grid-cols-2 gap-3" data-tp-pair={layout === "grid" ? "" : undefined} data-tp-masonry={layout === "masonry" ? "" : undefined}>
-            {pair.map((p, j) => tile(p.words, p.picture, String(j), layout === "grid"))}
-          </span>,
-        )
-        i++
-      } else if (s === "link" && layout === "cards") {
-        /* A link with a picture is a featured card: its picture large, its words on a strip under it. */
+  const slots = slotsFor(who)
+  for (let i = 0; i < slots.length; i++) {
+    const s = slots[i]
+    const next = slots[i + 1]
+    if (s.kind === "product") blocks.push(product("product"))
+    else if (s.kind === "news") blocks.push(newsletter("news"))
+    else if ((layout === "grid" || layout === "masonry") && next?.kind === "link") {
+      /* Two links that follow one another: a pair of tiles. */
+      const pair = [s, next] as { kind: "link"; at: number }[]
+      blocks.push(
+        <span key={`pair${i}`} className="grid w-full grid-cols-2 gap-3" data-tp-pair={layout === "grid" ? "" : undefined} data-tp-masonry={layout === "masonry" ? "" : undefined}>
+          {pair.map((x, j) => tile(who.links[x.at], String(j), layout === "grid"))}
+        </span>,
+      )
+      i++
+    } else {
+      const l = who.links[s.at]
+      /* Cards: a link with a picture is a featured card, its picture large and its words on a strip under it. A sample's first link shows the card with a tint. */
+      const cardPicture = layout === "cards" ? (l.picture ? pictureOf(l.picture, 350) : l.sample && s.at === 0 ? tintOfPicture(ink, surface) : null) : null
+      if (cardPicture) {
         const radius = buttonShape(theme.button_border_radius) === "pill" ? 28 : Number(theme.button_border_radius ?? 8)
         blocks.push(
-          <span key="card" data-tp-card="" className="block w-full overflow-hidden" style={{ ...button, borderRadius: radius, padding: 0 }}>
-            <span data-tp-photo="" className="block aspect-[2/1] w-full" style={{ borderRadius: `${radius}px ${radius}px 0 0`, ...pictureOf(linkPicture) }} />
+          <span key={`card${i}`} data-tp-card="" className="op-card block w-full overflow-hidden" style={{ ...themeButtonStyle(theme), borderRadius: radius, padding: 0 }}>
+            <span data-tp-photo="" className="block aspect-[2/1] w-full" style={{ borderRadius: `${radius}px ${radius}px 0 0`, ...cardPicture }} />
             <span className="flex w-full items-center justify-center px-5 py-3.5 text-[15px] font-medium" style={{ backgroundColor: themeButtonStripFill(theme), color: ink }}>
-              <span className="truncate">{who.link.label}</span>
+              <span className="truncate" data-tp-label="" data-block-title="">{l.label}</span>
             </span>
           </span>,
         )
-      } else blocks.push(labelRow(s === "link" ? who.link.label : who.link2, s === "link" ? linkPicture : null, s))
+      } else blocks.push(labelRow(l, `link${i}`))
     }
   }
 
@@ -280,21 +312,25 @@ export function ThemePreview({ c: given, id, kind, name = null, thumb, photo = n
       className={cn("block max-w-full font-bold leading-[1.5]", phone(titleSizeClass(c as never, hero, false)))}
       style={{ color: c.title_color || text, fontFamily: titleFace, textShadow: hero ? "0 2px 8px rgba(0,0,0,0.4)" : undefined, ...titleTypeStyle(c as never) }}
     >
-      {shownName}
+      {who.name}
     </span>
   )
-  const bio = who ? (
-    <span data-tp-bio="" className={cn("block max-w-sm leading-relaxed", left ? "text-left" : "text-center", phone(bioSizeClass(c as never, hero, false)))} style={{ color: hero ? c.secondary_text_color || text : secondary, ...bioTypeStyle(c as never) }}>
+  const bio = who.bio ? (
+    <span data-tp-bio="" className={cn("line-clamp-2 block max-w-sm leading-relaxed", left ? "text-left" : "text-center", phone(bioSizeClass(c as never, hero, false)))} style={{ color: hero ? c.secondary_text_color || text : secondary, ...bioTypeStyle(c as never) }}>
       {who.bio}
     </span>
   ) : null
+  /* No photo: the page's monogram, the name's first letter on the theme's button colour (public-onepage ProfileImage fallback). */
+  const monogram: React.CSSProperties = c.button_style === "glass" || c.button_style === "outline"
+    ? { backgroundColor: `color-mix(in srgb, ${text} 16%, ${bg})`, color: text }
+    : { backgroundColor: c.button_color || text, color: c.button_text_color || bg }
 
   return (
     <span
       data-tp-page=""
       aria-hidden
       {...skinRootProps(c)}
-      className="absolute left-0 top-0 block origin-top-left overflow-hidden text-left"
+      className="absolute left-0 top-0 block origin-top-left select-none overflow-hidden text-left [-webkit-touch-callout:none]"
       style={{
         ...skinVars(c),
         width: PREVIEW_WIDTH,
@@ -327,12 +363,12 @@ export function ThemePreview({ c: given, id, kind, name = null, thumb, photo = n
         whole moves to a second column out of sight, and the card ends on the
         last whole block, never on the top sliver of the next one.
       */}
-      <span className="relative flex h-full w-full flex-col px-5 pb-2.5" style={{ paddingTop: hero || cover ? 0 : PREVIEW_TOP }}>
+      <span className="relative flex h-full w-full flex-col px-5 pb-0.5" style={{ paddingTop: hero || cover ? 0 : PREVIEW_TOP }}>
         <span className={cn("flex min-h-0 flex-1 flex-col items-center", phone(blockGapClass(c)))}>
           {hero ? (
-            <span className="relative -mx-5 -mt-8 mb-2 block w-[calc(100%+40px)]" data-tp-header="hero">
-              <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "10/9", maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, background: `color-mix(in srgb, ${text} 18%, ${bg})` }}>
-                {face ? <img src={face} alt="" draggable={false} decoding="async" data-tp-photo="" className="absolute inset-0 h-full w-full object-cover" /> : null}
+            <span className="relative -mx-5 mb-2 block w-[calc(100%+40px)] shrink-0" style={{ marginTop: -HERO_CARD_SHIFT }} data-tp-header="hero">
+              <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "4/5", maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, background: `color-mix(in srgb, ${text} 18%, ${bg})` }}>
+                {face ? <img src={onePageImageSrc(face, PREVIEW_WIDTH)} alt="" draggable={false} decoding="async" data-tp-photo="" className="absolute inset-0 h-full w-full object-cover" /> : null}
               </span>
               <span className="absolute inset-x-0 bottom-4 z-[1] flex flex-col items-center gap-2 px-6 text-center">
                 {title}
@@ -340,7 +376,7 @@ export function ThemePreview({ c: given, id, kind, name = null, thumb, photo = n
               </span>
             </span>
           ) : (
-            <span className={cn("flex w-full flex-col gap-3", left ? "items-start text-left" : "items-center text-center")} data-tp-header="">
+            <span className={cn("flex w-full shrink-0 flex-col gap-3", left ? "items-start text-left" : "items-center text-center")} data-tp-header="">
               {cover ? (
                 <span className="relative -mx-5 block w-[calc(100%+40px)]" style={{ marginBottom: `calc(${-(look.size / 2)}px - 0.75rem)` }}>
                   <span className="relative block w-full overflow-hidden" style={{ aspectRatio: String(coverAspect(c, false)), backgroundColor: `color-mix(in srgb, ${text} 8%, transparent)` }}>
@@ -348,10 +384,11 @@ export function ThemePreview({ c: given, id, kind, name = null, thumb, photo = n
                   </span>
                 </span>
               ) : null}
+              {/* Round AT: the photo is clipped to the avatar's own shape, so nothing drawn in it can stand out of the ring (the owner's cut Neon card). */}
               <span
                 data-tp-avatar=""
                 data-theme-avatar=""
-                className="relative block shrink-0 shadow-lg"
+                className="relative flex shrink-0 items-center justify-center overflow-hidden text-2xl font-semibold shadow-lg"
                 style={{
                   width: look.size,
                   height: look.size,
@@ -359,12 +396,11 @@ export function ThemePreview({ c: given, id, kind, name = null, thumb, photo = n
                   borderStyle: "solid",
                   borderWidth: look.borderWidth,
                   borderColor: look.borderColor,
-                  background: `color-mix(in srgb, ${text} 16%, ${bg})`,
+                  ...(face ? { background: `color-mix(in srgb, ${text} 16%, ${bg})` } : monogram),
                   boxShadow: cover && c.background_type === "solid" ? `0 0 0 4px ${bg}, 0 10px 15px -3px rgba(0,0,0,0.1)` : undefined,
-                  overflow: face ? "hidden" : undefined,
                 }}
               >
-                {face ? <img src={face} alt="" draggable={false} decoding="async" data-tp-photo="" className="block h-full w-full object-cover" /> : null}
+                {face ? <img src={onePageImageSrc(face, 160)} alt="" draggable={false} decoding="async" data-tp-photo="" className="block h-full w-full rounded-[inherit] object-cover" /> : <span data-tp-monogram="">{who.name.charAt(0).toUpperCase()}</span>}
               </span>
               {title}
               {bio}
@@ -373,7 +409,7 @@ export function ThemePreview({ c: given, id, kind, name = null, thumb, photo = n
           {/* Round AS: 24px wider than the column, so the -mx-3 px-3 that gives a hard shadow room leaves the blocks the page's own width (they were 326px, not 350). */}
           <span data-tp-blocks="" className={cn("flex min-h-0 w-[calc(100%+24px)] flex-1 flex-col flex-wrap content-start items-stretch overflow-hidden [&>*]:shrink-0", phone(blockGapClass(c)), "!gap-x-[200px] -mx-3 px-3 pb-1", hero ? "relative z-[1] -mt-4" : "mt-1")}>
             <span className={cn("flex w-full items-center gap-2.5", left ? "justify-start" : "justify-center")} style={{ marginBottom: hero ? 20 : 3 }} data-tp-socials="">
-              {(who?.socials ?? ["instagram", "tiktok", "youtube"]).map((p) => (
+              {who.socials.map((p) => (
                 <span
                   key={p}
                   className="flex h-[42px] w-[42px] items-center justify-center"

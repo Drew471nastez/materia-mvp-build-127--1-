@@ -169,7 +169,7 @@ for (const p of pairs) {
   const faded = p.faded ? Math.min(...p.under.map((u) => ratio(u, over(p.ink, 0.7, u)))) : full
   check(`${p.what}: ${full.toFixed(2)}${p.faded ? `, at 70% ${faded.toFixed(2)}` : ""}`, full >= 4.5 && faded >= 4.5)
 }
-check("the type knows the skin", /\| "renaissance" \| null/.test(read("lib/onepage/types.ts")))
+check("the type knows the skin", /\| "renaissance" (\| "stoicism" )?\| null/.test(read("lib/onepage/types.ts")) /* Changed on purpose (round AT): Stoicism after it. */)
 check("the sheet stays under 260 KB", css.length < 260 * 1024, `${(css.length / 1024).toFixed(1)} KB`)
 
 console.log("\nPicking Renaissance, and the next")

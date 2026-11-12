@@ -94,7 +94,9 @@ import { RENAISSANCE_THEMES } from "@/components/onepage/themes/renaissance-them
 import { orderThemes, themeGroupOf, type ThemeGroupId } from "@/components/onepage/themes/theme-order"
 import { ThemePreview } from "@/components/onepage/themes/theme-preview"
 import { useThemePreviewScale } from "@/components/onepage/themes/preview-scale"
-import { loadPreviewContent } from "@/components/onepage/themes/preview-content-loader"
+import { previewAccountKey, previewAccountOf, type PreviewAccount } from "@/components/onepage/themes/preview-account"
+import { usePageMoney } from "@/components/platform/price-currency"
+import { useShellAvatar } from "@/lib/account/avatar-store"
 import { themeLabel } from "@/components/onepage/themes/theme-names"
 import { LayoutSection } from "@/components/onepage/themes/layout-section"
 import { FontPairs } from "@/components/onepage/themes/font-pairs"
@@ -2443,12 +2445,13 @@ function HeaderSection() {
 }
 
 /* The theme names, each drawn in its theme's title face: one request cut to the letters of the names, as the language spells them (round AP). */
-/* Round AS: and the body faces, since each card now sets a creator's line, links and prices in them (./themes/preview-content). */
+/* Round AS: and the body faces, since each card sets the creator's line, links and prices in them (./themes/preview-account). */
 const THEME_NAME_FAMILIES = [...new Set(THEME_TEMPLATES.flatMap((t) => [familyOf(t.theme_config.title_font || t.theme_config.font_family), familyOf(t.theme_config.font_family)]).filter((f): f is string => !!f))]
 /* The letters the cards' words use: the alphabet both ways, the accents the creators' names carry, figures and the price signs. */
 const PREVIEW_LETTERS = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i, 97 + i)).join("") + "áéêíóú0123456789$€£&.,:'/ "
 /* In capitals too (round W8): Gazette, Halo and Acid set their names in capitals, and a letter missing from the cut is drawn in another face. */
-export const themeNameFontsHref = () => { const names = THEME_TEMPLATES.map((t) => themeLabel(t)).join(""); return onePageFontSampleHref(THEME_NAME_FAMILIES, names + names.toUpperCase() + PREVIEW_LETTERS) }
+/* Round AT: and the creator's own words, which the cards draw now (a name with a letter outside the alphabet above). */
+export const themeNameFontsHref = (own = "") => { const names = THEME_TEMPLATES.map((t) => themeLabel(t)).join(""); const extra = [...new Set(own.replace(/[A-Za-z0-9\s]/g, ""))].join(""); return onePageFontSampleHref(THEME_NAME_FAMILIES, names + names.toUpperCase() + PREVIEW_LETTERS + extra + extra.toUpperCase()) }
 
 /**
  * A THEME, AS A SMALL PAGE. The cards were one grey skeleton in eighteen
@@ -2492,8 +2495,6 @@ const keptThemeThumbs: HTMLImageElement[] = []
 let themeThumbHolders = 0
 export function preloadThemeThumbs(): () => void {
   if (typeof window === "undefined") return () => {}
-  /* Round AS: the cards' creators and drawings, their own small chunk, asked for with the pictures. */
-  void loadPreviewContent()
   themeThumbHolders++
   let held = true
   const release = () => {
@@ -2531,7 +2532,7 @@ export const keptThemeThumbCount = () => keptThemeThumbs.length
 */
 const HIDDEN_GRID: React.CSSProperties = { position: "absolute", top: 0, left: 0, right: 0, zIndex: -1, opacity: 0, contentVisibility: "hidden" }
 
-const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onPick }: { template: typeof THEME_TEMPLATES[number]; selected: boolean; shown: boolean; copy: boolean; onPick: (template: typeof THEME_TEMPLATES[number]) => void }) {
+const ThemeCard = memo(function ThemeCard({ template, who, selected, shown, copy, onPick }: { template: typeof THEME_TEMPLATES[number]; who: PreviewAccount; selected: boolean; shown: boolean; copy: boolean; onPick: (template: typeof THEME_TEMPLATES[number]) => void }) {
   const c = template.theme_config as typeof THEME_TEMPLATES[number]["theme_config"] & Record<string, any>
   const name = themeLabel(template)
   /* A Hero theme's card is drawn with its Hero, as picking it lays the page out (handleApplyTemplate). */
@@ -2547,7 +2548,8 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
       data-theme-copy={copy ? template.id : undefined}
       data-theme-shown={shown ? "" : undefined}
       className={cn(
-        "group/theme relative flex cursor-pointer flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
+        /* Round AT: nothing on a card is selected by a long press or a double click (the owner's blue Blocks card). */
+        "group/theme relative flex cursor-pointer select-none flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
         choiceOff,
       )}
     >
@@ -2558,8 +2560,9 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
         (components/onepage/themes/theme-preview). Its own layer of layout and
         paint, so nothing inside it is worked out again for the rest of the grid.
       */}
-      <span data-theme-frame="" className="relative block aspect-[5/7] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: c.background_color }}>
-        <ThemePreview c={look} id={template.id} kind={template.category} thumb={themeThumbSrc} />
+      {/* op-demo: pointing at the card plays the theme's own hover on its buttons (app/globals.css). */}
+      <span data-theme-frame="" className="op-demo relative block aspect-[5/7] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: c.background_color }}>
+        <ThemePreview c={look} who={who} thumb={themeThumbSrc} />
         <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
         <CheckMark on={selected} className="right-1.5 top-1.5" />
       </span>
@@ -2741,7 +2744,20 @@ function ThemeSection() {
   const { onepage, updateBlock, applyThemeLook } = useOnePage()
   const [filter, setFilter] = useState<ThemeFilter>("all")
   const { gridRef, pickFilter } = useSteadyFilter(filter, setFilter)
-  const nameFontsHref = themeNameFontsHref()
+  /*
+    Round AT: every card draws this creator's own page (./themes/preview-account): the name, the photo the
+    editor shows (useShellAvatar, a new upload included), the socials, links, products and newsletter the page
+    already holds. One object for the grid, the same one until something a card draws changes, so a card is
+    drawn again only then (ThemeCard is memo).
+  */
+  const money = usePageMoney()
+  const avatar = useShellAvatar(onepage?.avatar_url, onepage?.owner_id)
+  const fresh = previewAccountOf(onepage ? { ...onepage, avatar_url: avatar } : null, (cents) => money(cents))
+  const freshKey = previewAccountKey(fresh)
+  const whoRef = useRef<{ key: string; who: PreviewAccount } | null>(null)
+  if (!whoRef.current || whoRef.current.key !== freshKey) whoRef.current = { key: freshKey, who: fresh }
+  const who = whoRef.current.who
+  const nameFontsHref = themeNameFontsHref([who.name, who.bio, ...who.links.map((l) => l.label), ...who.products.flatMap((p) => [p.title, p.price, p.cta]), who.news.headline, who.news.desc, who.news.button].join(""))
   /*
     Round AP: every card draws the page at a phone's width, scaled to the
     card (components/onepage/themes/theme-preview). The cards of every kind
@@ -2856,7 +2872,7 @@ function ThemeSection() {
               return (
                 <ReactModule.Fragment key={template.id}>
                   {starts ? <h3 data-theme-group={group} className="col-span-full pt-4 text-[13px] font-semibold text-[#1a1a2e] first:pt-0">{THEME_GROUP_LABELS[group]()}</h3> : null}
-                  <ThemeCard template={template} selected={theme.template_id === template.id} shown={kind.id === filter} copy={kind.id !== "all"} onPick={onPick} />
+                  <ThemeCard template={template} who={who} selected={theme.template_id === template.id} shown={kind.id === filter} copy={kind.id !== "all"} onPick={onPick} />
                 </ReactModule.Fragment>
               )
             })}

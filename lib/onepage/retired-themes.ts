@@ -89,9 +89,98 @@ export const PAPER_LOOK: Readonly<Record<string, unknown>> = {
   product_layout: "rows",
 }
 
+/*
+  ROUND AT: PLASTER IS STOICISM. The owner: "The new theme, plaster, is bad ...
+  It should be called stoicism". Plaster (round AS) was live, so a page may
+  hold "plaster": it is moved to Stoicism the same way, with the creator's
+  own changes kept, and the next save keeps it. The cover is the same file
+  (public/images/onepage-themes/plaster.svg), so it stays where it is.
+*/
+/** Plaster's settings as round AS shipped them. */
+export const PLASTER_LOOK: Readonly<Record<string, unknown>> = {
+  background_type: "solid",
+  background_color: "#0b0b0a",
+  background_gradient: "",
+  background_image_url: "",
+  text_color: "#ece8df",
+  secondary_text_color: "#a9a49a",
+  button_color: "#ece8df",
+  button_text_color: "#ece8df",
+  button_style: "outline",
+  button_border_radius: 0,
+  button_border_width: 1,
+  button_border_color: "#ece8df",
+  button_shadow: "none",
+  button_hover_animation: "fill",
+  button_hover_fill: "#ece8df",
+  button_hover_text: "#0b0b0a",
+  font_family: "'Inter', sans-serif",
+  title_font: "'Instrument Serif', serif",
+  title_color: "#f4f1ea",
+  title_size: "large",
+  title_weight: 400,
+  title_tracking: "tight",
+  social_icon_color: "#ece8df",
+  social_icon_style: "minimal",
+  spacing: "normal",
+  card_width: "standard",
+  header_layout: "classic",
+  laser_glow_enabled: false,
+  background_pattern: "none",
+  block_layout: "list",
+  product_layout: "rows",
+  header_align: "left",
+  avatar_size: "small",
+  avatar_border_width: 1,
+  avatar_border_color: "#ece8df",
+  cover_image_url: "https://storelib.com/images/onepage-themes/plaster.svg",
+}
+
+/** Stoicism's settings (components/onepage/themes/r40-themes AS_THEMES, id "stoicism"); tests/onepage-at1.test.ts fails if the two drift apart. */
+export const STOICISM_LOOK: Readonly<Record<string, unknown>> = {
+  background_type: "solid",
+  background_color: "#0e0e0d",
+  background_gradient: "",
+  background_image_url: "",
+  text_color: "#ece6da",
+  secondary_text_color: "#aaa396",
+  button_color: "#ece6da",
+  button_text_color: "#121110",
+  button_style: "filled",
+  button_border_radius: 0,
+  button_border_width: 1,
+  button_border_color: "#ece6da",
+  button_shadow: "none",
+  button_hover_animation: "fill",
+  button_hover_fill: "#0e0e0d",
+  button_hover_text: "#ece6da",
+  font_family: "'Inter', sans-serif",
+  title_font: "'Instrument Serif', serif",
+  title_color: "#f4efe6",
+  title_size: "large",
+  title_weight: 400,
+  title_tracking: "tight",
+  social_icon_color: "#ece6da",
+  social_icon_style: "outline",
+  spacing: "comfortable",
+  card_width: "standard",
+  header_layout: "classic",
+  laser_glow_enabled: false,
+  background_pattern: "none",
+  block_layout: "list",
+  product_layout: "rows",
+  header_align: "left",
+  avatar_size: "small",
+  avatar_border_width: 1,
+  avatar_border_color: "#ece6da",
+  cover_image_url: "https://storelib.com/images/onepage-themes/plaster.svg",
+  theme_skin: "stoicism",
+}
+
 /** A retired theme's id, its last settings, and the theme (id and settings) a page wearing it moves to. */
 export const RETIRED_THEMES: Readonly<Record<string, { look: Readonly<Record<string, unknown>>; to: string; toLook: Readonly<Record<string, unknown>> }>> = {
   editorial: { look: EDITORIAL_LOOK, to: "paper", toLook: PAPER_LOOK },
+  plaster: { look: PLASTER_LOOK, to: "stoicism", toLook: STOICISM_LOOK },
 }
 
 /** Is this the id of a theme no longer offered? */
