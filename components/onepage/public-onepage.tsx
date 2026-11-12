@@ -80,6 +80,8 @@ import { COVER_FADE_MASK, HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/l
 import { readableOn } from "@/lib/onepage/theme-apply"
 import { photoVeil, readableInk, readableTheme, signupCard, smallPrintAlpha } from "@/lib/onepage/contrast"
 import { pressableProps } from "@/lib/onepage/block-look"
+import { imageStyleOf } from "@/lib/onepage/image-fade"
+import { FadeWords, fadeSizeFor } from "./image-fade"
 import { LegibleGuard } from "@/components/onepage/legible-guard"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
 import { pairProductTiles } from "@/lib/onepage/product-block"
@@ -2392,8 +2394,10 @@ function PublicImageCarousel({
   theme,
   isDesktop,
   carouselView = "1",
+  arrowsHigh = false,
 }: {
   images: { id: string; image_url: string; alt_text?: string; title?: string; link_url?: string | null }[]
+  arrowsHigh?: boolean
   renderImage: (img: typeof images[0], index: number) => React.ReactNode
   autoplay?: boolean
   theme: OnePageTheme
@@ -2636,7 +2640,9 @@ function PublicImageCarousel({
             type="button"
             onClick={goToPrev}
             className={cn(
-              "absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60 z-10",
+              "absolute left-2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60 z-10",
+              /* Over the picture, clear of words laid on its foot (round 3, lib/onepage/image-fade). */
+              arrowsHigh ? "top-[34%]" : "top-1/2",
               isDesktop ? "opacity-0 group-hover:opacity-100" : "opacity-70"
             )}
             aria-label="Previous image"
@@ -2649,7 +2655,9 @@ function PublicImageCarousel({
             type="button"
             onClick={goToNext}
             className={cn(
-              "absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60 z-10",
+              "absolute right-2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60 z-10",
+              /* Over the picture, clear of words laid on its foot (round 3, lib/onepage/image-fade). */
+              arrowsHigh ? "top-[34%]" : "top-1/2",
               isDesktop ? "opacity-0 group-hover:opacity-100" : "opacity-70"
             )}
             aria-label="Next image"
@@ -4112,11 +4120,15 @@ function CoreBlockRenderer({
       /* How many slides are within one swipe of the first one. */
       const isImageCarousel = data.display_style === 'carousel' && !isInsideGroup && images.length > 1
       const eagerSlides = Math.ceil(parseFloat(data.carousel_view || "1") || 1) + 1
+      /* Round 3: each picture's words on a fade over its foot (lib/onepage/image-fade), smaller on a smaller tile or slide. */
+      const faded = imageStyleOf(data) === "fade"
+      const shownAs: "single" | "grid" | "carousel" = images.length > 1 && data.display_style === 'grid' ? "grid" : isImageCarousel ? "carousel" : "single"
+      const fadeSize = fadeSizeFor(shownAs, data.grid_columns || 2, parseFloat(data.carousel_view || "1") || 1)
 
       // Render single image
       const renderImage = (img: typeof images[0], index: number) => {
         const imageContent = (
-          <div className="w-full">
+          <div className={cn("w-full", faded && "relative")}>
             <div
               className={cn("w-full overflow-hidden", aspectRatioClass)}
               style={{ borderRadius }}
@@ -4147,7 +4159,18 @@ function CoreBlockRenderer({
                 draggable={false}
               />
             </div>
-            {data.show_captions && img.title && (
+            {/* Beside the picture's frame, not inside it, so its own corners cover the picture's (lib/onepage/image-fade). */}
+            {faded ? (
+              <FadeWords
+                theme={theme}
+                title={img.title}
+                caption={(img as { caption?: string }).caption}
+                button={data.clickable && img.link_url ? (img as { button_label?: string }).button_label : null}
+                size={fadeSize}
+                radius={borderRadius}
+              />
+            ) : null}
+            {!faded && data.show_captions && img.title && (
               <p
                 className="text-center text-sm mt-2.5 opacity-70"
                 style={{ color: theme.text_color }}
@@ -4204,6 +4227,7 @@ function CoreBlockRenderer({
               theme={theme}
               isDesktop={isDesktop}
               carouselView={data.carousel_view}
+              arrowsHigh={faded}
             />
           </div>
         )

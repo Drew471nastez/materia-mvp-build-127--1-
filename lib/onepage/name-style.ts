@@ -25,6 +25,9 @@
  * Pure: no DOM, no React types beyond the style object's shape.
  */
 
+import { drawnTitleWeight, titleFamilyOf } from "./header-style"
+import { realWeight } from "./fonts"
+
 type Look = Record<string, unknown> | null | undefined
 type Css = Record<string, string | number>
 
@@ -192,7 +195,8 @@ export function nameStyleCss(style: NameStyle, theme: Look): Css {
     }
     case "spaced":
       /* The trailing space after the last letter is taken back, so the line stays centred. */
-      return { color: ink, textTransform: "uppercase", letterSpacing: "0.2em", marginRight: "-0.2em", fontSize: "0.8em", fontWeight: 600 }
+      /* Semibold unless the creator chose the name's weight, and always one the face has (no faux bold). */
+      return { color: ink, textTransform: "uppercase", letterSpacing: "0.2em", marginRight: "-0.2em", fontSize: "0.8em", fontWeight: theme?.title_weight != null ? drawnTitleWeight(theme) : realWeight(titleFamilyOf(theme), 600), fontSynthesisWeight: "none" }
     case "label": {
       const fill = accentDistinct ? accent : dark ? "#ffffff" : "#111111"
       const word = contrastOf(fill, "#ffffff") >= contrastOf(fill, "#111111") ? "#ffffff" : "#111111"

@@ -52,7 +52,7 @@ import {
 } from "@/lib/onepage/app-blocks"
 import type { OnePageBlock, OnePageBlockData, OnePageTheme } from "@/lib/onepage/types"
 import { DataBlockSettings, dataLayoutLabel } from "@/components/onepage/data-block-editor"
-import { tipModeOf } from "@/lib/onepage/tips"
+import { TIP_STYLES, tipModeOf, tipStyleOf, type TipStyle } from "@/lib/onepage/tips"
 import { STAT_SOURCES, statSourceOf, type StatSource } from "@/lib/onepage/stat-count"
 import { PhoneNumberField } from "@/components/forms/phone-number-field"
 import { digitsFromKept, fullNumber } from "@/lib/account/phone"
@@ -265,6 +265,115 @@ function LayoutPicker({ data, provider, update }: { data: AppBlockData; provider
   )
 }
 
+/* ─── A Storelib tips block's styles (round 3, lib/onepage/tips TIP_STYLES) ─── */
+
+const TIP_STYLE_LABEL: Record<TipStyle, () => string> = {
+  card: () => tt("Card"),
+  pills: () => tt("Pills"),
+  button: () => tt("Button"),
+  amount: () => tt("Big amount"),
+}
+
+/** One tip style drawn small, in the page's colours. */
+export function TipStyleThumb({ id, theme }: { id: TipStyle; theme?: Partial<OnePageTheme> | null }) {
+  const btn = theme?.button_color || "#1a1a2e"
+  const ink = theme?.button_text_color || "#ffffff"
+  const page = theme?.background_color || "#f4f4f6"
+  const words = theme?.text_color || "#1a1a2e"
+  const r = Math.max(3, Math.min(Number(theme?.button_border_radius ?? 10) * 0.45, 10))
+  const line = (w: string, c: string, o = 0.85, h = 3) => <span className="block shrink-0 rounded-full" style={{ width: w, height: h, background: c, opacity: o }} />
+  let body: React.ReactNode
+  switch (id) {
+    case "card":
+      body = (
+        <span className="flex w-full flex-col gap-1.5 p-1.5" style={{ background: btn, borderRadius: r }}>
+          <span className="flex items-center gap-1">
+            <span className="block h-[10px] w-[10px] rounded-full" style={{ background: ink, opacity: 0.25 }} />
+            {line("44%", ink)}
+          </span>
+          <span className="grid grid-cols-4 gap-[3px]">
+            {[0, 1, 2, 3].map((i) => (
+              <span key={i} className="block h-[9px] rounded-[3px]" style={{ background: ink, opacity: i === 1 ? 0.9 : 0.18 }} />
+            ))}
+          </span>
+          <span className="block h-[9px] w-full rounded-[3px]" style={{ background: ink, opacity: 0.9 }} />
+        </span>
+      )
+      break
+    case "pills":
+      body = (
+        <span className="flex w-full flex-col items-center gap-1.5">
+          {line("40%", words)}
+          <span className="flex w-full justify-center gap-[4px]">
+            {[0, 1, 2].map((i) => (
+              <span key={i} className="block h-[13px] w-[22%] rounded-full" style={{ background: btn }} />
+            ))}
+            <span className="block h-[13px] w-[22%] rounded-full" style={{ boxShadow: `inset 0 0 0 1px ${words}55` }} />
+          </span>
+        </span>
+      )
+      break
+    case "button":
+      body = (
+        <span className="flex h-[22px] w-full items-center justify-center gap-1" style={{ background: btn, borderRadius: r }}>
+          <span className="block h-[8px] w-[8px] rounded-full" style={{ background: ink, opacity: 0.7 }} />
+          {line("40%", ink)}
+        </span>
+      )
+      break
+    case "amount":
+      body = (
+        <span className="flex w-full flex-col items-center gap-1 p-1.5" style={{ background: btn, borderRadius: r }}>
+          {line("34%", ink, 0.6, 2)}
+          <span className="flex w-full items-center justify-between">
+            <span className="block h-[9px] w-[9px] rounded-full" style={{ background: ink, opacity: 0.2 }} />
+            <span className="block h-[11px] w-[30%] rounded-[2px]" style={{ background: ink }} />
+            <span className="block h-[9px] w-[9px] rounded-full" style={{ background: ink, opacity: 0.2 }} />
+          </span>
+          <span className="block h-[8px] w-full rounded-[3px]" style={{ background: ink, opacity: 0.9 }} />
+        </span>
+      )
+      break
+  }
+  return (
+    <span aria-hidden data-tip-style-thumb={id} className="flex h-full w-full items-center justify-center overflow-hidden rounded-xl px-[10%]" style={{ background: page }}>
+      {body}
+    </span>
+  )
+}
+
+function TipStylePicker({ data, update }: { data: AppBlockData; update: Update }) {
+  const theme = useEditorTheme()
+  const current = tipStyleOf(data)
+  return (
+    <div className="space-y-2.5" data-tip-styles="">
+      <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Layout")}</p>
+      <div role="radiogroup" aria-label={tt("Layout")} className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        {TIP_STYLES.map((id) => {
+          const on = current === id
+          return (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              data-tip-style-choice={id}
+              onClick={() => update({ tip_style: id } as Partial<AppBlockData>)}
+              className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-1.5 outline-none transition-[border-color] duration-150 hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+            >
+              <ChoiceMark on={on} />
+              <span className="block aspect-[4/3] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
+                <TipStyleThumb id={id} theme={theme} />
+              </span>
+              <span className={cn("block py-1.5 text-center text-[12.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{TIP_STYLE_LABEL[id]()}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 /* ─── Lists ───────────────────────────────────────────────────────────── */
 
 function ItemsEditor({ data, provider, update, blockId }: { data: AppBlockData; provider: AppProvider; update: Update; blockId: string }) {
@@ -392,7 +501,14 @@ export function AppBlockEditor({ block, updateData }: { block: OnePageBlock; upd
       {showSettings ? <SettingsHalf block={block} data={data} provider={provider} update={update} /> : null}
       {showLayout ? (
         <>
-          {isRetiredAppProvider(data.provider) ? <p className="text-[12.5px] text-[#6b7280]" data-app-retired="">{tt("Shown as a plain link on your page.")}</p> : <LayoutPicker data={data} provider={provider} update={update} />}
+          {isRetiredAppProvider(data.provider) ? (
+            <p className="text-[12.5px] text-[#6b7280]" data-app-retired="">{tt("Shown as a plain link on your page.")}</p>
+          ) : provider.id === "tips" && tipModeOf(data) === "storelib" ? (
+            /* Round 3: Classic, Card and Featured are a tip link's layouts and drew nothing different here; a Storelib tips block has its own. */
+            <TipStylePicker data={data} update={update} />
+          ) : (
+            <LayoutPicker data={data} provider={provider} update={update} />
+          )}
           {provider.shape === "items" ? <PictureFitControl value={data.image_fit} onChange={(image_fit) => update({ image_fit } as Partial<AppBlockData>)} /> : null}
           {/* Round AR3: Single and Carousel play the posts given in Settings; without one they draw the profile as a large card. */}
           {provider.shape === "social" && (layout === "single" || layout === "carousel") && appEmbeds(data).length < (layout === "carousel" ? 2 : 1) ? (

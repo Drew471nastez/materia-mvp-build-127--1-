@@ -87,7 +87,7 @@ export interface OnePageTheme {
   /* Round W10 (lib/onepage/name-style): how the name is drawn (outline, gradient, marker, ...). Missing is the theme's own. */
   name_style?: string | null
   bio_size?: "small" | "default" | "large" | null
-  bio_weight?: 400 | 500 | 600 | null
+  bio_weight?: 400 | 500 | 600 | 700 | null
   bio_tracking?: "tight" | "normal" | "wide" | null
   bio_case?: "none" | "upper" | null
   avatar_size?: "small" | "medium" | "large" | null
@@ -344,6 +344,9 @@ export interface ImageItem {
   image_url: string
   alt_text?: string
   title?: string
+  /** Round 3: the line under the title, and the button's words, drawn on the picture's fade (lib/onepage/image-fade). */
+  caption?: string
+  button_label?: string
   link_url?: string | null
   /** What a press on the picture does (lib/forms/actions); fills link_url (lib/onepage/block-action). */
   action?: import("@/lib/forms/actions").NativeAction
@@ -375,6 +378,8 @@ export interface ImageBlockData {
   image_fit?: "cover" | "contain"
   border_radius?: "none" | "sm" | "md" | "lg" | "full"
   show_captions?: boolean
+  /** Round 3: "fade" lays each picture's title, caption and button on a fade over its foot (lib/onepage/image-fade); missing is the plain picture. */
+  image_style?: "plain" | "fade"
   // Interaction
   clickable?: boolean
 }

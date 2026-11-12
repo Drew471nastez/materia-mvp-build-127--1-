@@ -120,6 +120,8 @@ export interface AppBlockData {
   tip_amounts?: number[]
   tip_custom?: boolean
   tip_message?: boolean
+  /** How a Storelib tips block is drawn (lib/onepage/tips TIP_STYLES): card (missing), pills, button or amount. */
+  tip_style?: "card" | "pills" | "button" | "amount"
   /** Filled on the server: the creator can take a payment now, and in which currency. */
   tip_ready?: boolean
   tip_currency?: string

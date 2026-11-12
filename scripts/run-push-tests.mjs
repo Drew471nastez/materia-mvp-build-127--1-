@@ -1477,6 +1477,8 @@ const STRICT_SUITES = [
   "tests/onepage-style-stability.test.ts",
   /* Round 43: the OnePage editor's font sheet as tall as its list, an off block's controls unfaded, Remove's question in one compact line, a block's stats with the period as a popover and See in Analytics, the header's type and picture frame, the cover's ring that follows a Left header, one hold for every window over the live page. scripts/check-onepage-editor-r43.mjs measures them. */
   "tests/onepage-editor-r43.test.ts",
+  /* Round 3 of the OnePage design work: every weight each font really has loaded and the nearest one drawn (Heavy was Bold's letters, a one-weight face a faux bold), the bio's Regular, Medium and Bold, a Storelib tips block's four styles with the Layout tab on its own card, and an image block's title, caption and button on a smooth fade in the page's colours. scripts/check-onepage-design-r3.mjs measures them at 390 and 1440. */
+  "tests/onepage-design-r3.test.ts",
   /* Round 44: every page of a published website, for search engines: one indexable host (the Storelib address's sitemap goes to the domain's), a website not live is a 404 past its front page, a renamed product's old address a 308, the sitemap to 50,000 products held a page at a time, an imported theme's canonical and noindex, and IndexNow told about the addresses a publish or a deleted page took down. */
   "tests/seo-sites-r44.test.ts",
   /* Creator blogs, package 4: the Blog and Blog post templates on a Storelib theme (main_blog, main_article, blog_featured drawn with real posts), the /blogs routes' metadata, JSON-LD, 308s and private previews, a creator's own "blog" page kept, the canvas and link picker, and read_blog kept after the cached prefix. */
