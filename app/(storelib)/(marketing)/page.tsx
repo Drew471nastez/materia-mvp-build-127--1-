@@ -2,8 +2,7 @@ import dynamic from "next/dynamic"
 import { LandingStory } from "@/components/marketing/landing-story"
 import { BuildShowcase } from "@/components/marketing/build-showcase"
 import { Hero } from "@/components/marketing/hero"
-import { BentoGrid } from "@/components/marketing/bento-grid"
-import { StatsBar } from "@/components/marketing/stats-bar"
+import { LazySection } from "@/components/marketing/home/lazy-section"
 import { storelibHomeJsonLd } from "@/lib/seo/structured-data"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import type { Metadata } from "next"
@@ -18,17 +17,25 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://storelib.com" },
 }
 
-// Below-the-fold sections — dynamically imported to reduce initial JS bundle.
-// Hero + BentoGrid + StatsBar load eagerly (above the fold).
-const ManageSection = dynamic(() => import("@/components/marketing/manage-section").then(m => ({ default: m.ManageSection })))
-const SplitFeaturesSection = dynamic(() => import("@/components/marketing/split-features-section").then(m => ({ default: m.SplitFeaturesSection })))
-const CarouselSection = dynamic(() => import("@/components/marketing/carousel-section").then(m => ({ default: m.CarouselSection })))
-const ToolStackSection = dynamic<{ editorial?: boolean }>(() => import("@/components/marketing/tool-stack-section").then(m => ({ default: m.ToolStackSection })))
-const PricingSection = dynamic<{ editorial?: boolean }>(() => import("@/components/marketing/pricing-section").then(m => ({ default: m.PricingSection })))
-const FeaturesBadgesSection = dynamic(() => import("@/components/marketing/features-badges-section").then(m => ({ default: m.FeaturesBadgesSection })))
-const FaqSection = dynamic<{ editorial?: boolean }>(() => import("@/components/marketing/faq-section").then(m => ({ default: m.FaqSection })))
-const CtaSection = dynamic<{ editorial?: boolean }>(() => import("@/components/marketing/cta-section").then(m => ({ default: m.CtaSection })))
-const ProductMarquee = dynamic(() => import("@/components/marketing/product-marquee").then(m => ({ default: m.ProductMarquee })))
+/*
+  THE PAGE, TOP TO BOTTOM (wave 12). The hero and the showcase under it are
+  the first screen and load with the page. Everything else is below the fold:
+
+    sections the server still draws (their words are read by search engines:
+    the possibilities, pricing, the questions, the closing call) are
+    dynamically imported, so their code is a chunk of its own, and the long
+    ones are wrapped in <LazySection>, which lets the browser skip their
+    layout and paint until they come near the screen;
+
+    the motion sections from the other wave-12 tracks are mounted near the
+    screen by lazySection() (components/marketing/home/lazy-section): their
+    code is not in the first load at all. The slots below mark where each
+    one goes; the integration wires them.
+*/
+const ProductMarquee = dynamic(() => import("@/components/marketing/product-marquee").then((m) => ({ default: m.ProductMarquee })))
+const PricingSection = dynamic<{ editorial?: boolean; hideDetailsLink?: boolean }>(() => import("@/components/marketing/pricing-section").then((m) => ({ default: m.PricingSection })))
+const FaqSection = dynamic<{ editorial?: boolean }>(() => import("@/components/marketing/faq-section").then((m) => ({ default: m.FaqSection })))
+const FinalCta = dynamic(() => import("@/components/marketing/home/final-cta").then((m) => ({ default: m.FinalCta })))
 
 export default function StorelibLanding() {
   return (
@@ -36,44 +43,55 @@ export default function StorelibLanding() {
       {/* Who Storelib is, the site and the product, as one graph (lib/seo/structured-data.ts). No SearchAction: Google retired it, and /explore?q= is not crawled. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(storelibHomeJsonLd()) }} />
 
-      {/* HERO SECTION */}
+      {/* 1 HERO */}
       <Hero />
       <LandingStory>
+        {/* 2 BUILD SHOWCASE (its content: track showcase) */}
         <BuildShowcase />
 
-        {/* BENTO GRID */}
-        <BentoGrid />
+        {/* W12 SLOT 3: EverythingInOnePlace, four cards (platform) */}
 
-        {/* STATS BAR */}
-        <StatsBar />
+        {/* W12 SLOT 4: IdeasToLife, pill tabs with builder previews (showcase) */}
 
-        {/* MANAGE YOUR BUSINESS */}
-        <ManageSection />
+        {/* 5 UNLIMITED POSSIBILITIES (frame) */}
+        <LazySection name="possibilities" minHeight="560px">
+          <ProductMarquee />
+        </LazySection>
 
-        {/* PRODUCT CATEGORIES MARQUEE */}
-        <ProductMarquee />
+        {/* W12 SLOT 6: EveryKindOfBusiness carousel (showcase) */}
 
-        {/* SPLIT FEATURE ROWS */}
-        <SplitFeaturesSection />
+        {/* W12 SLOT 7: CreatorsCarousel (creators) */}
 
-        {/* CAROUSEL / ONEPAGE TESTIMONIALS */}
-        {/* <CarouselSection /> */}
+        {/* W12 SLOT 8: HowItWorks motion graphics + earnings picker (commerce) */}
 
-        {/* TOOL STACK COMPARISON */}
-        <ToolStackSection editorial />
+        {/* W12 SLOT 9: CheckoutScene, the checkout scroll scene (commerce; sticky inside: wrap in lazySection(), never <LazySection> without `sticky`) */}
 
-        {/* PRICING */}
-        <PricingSection editorial />
+        {/* W12 SLOT 10: AudienceOwnership, "Your audience belongs to you" (platform) */}
 
-        {/* FEATURE BADGES */}
-        <FeaturesBadgesSection />
+        {/* W12 SLOT 11: AnalyticsShowcase (platform) */}
 
-        {/* FAQ */}
-        <FaqSection editorial />
+        {/* W12 SLOT 12: SellEverywhere world map (commerce) */}
 
-        {/* CTA */}
-        <CtaSection editorial />
+        {/* W12 SLOT 13: Integrations (platform) */}
+
+        {/* W12 SLOT 14: EarningsCalculator (commerce) */}
+
+        {/* W12 SLOT 15: RunFromAnywhere, app badges (platform) */}
+
+        {/* 16 PRICING (kept as it was, without its See full pricing button here) */}
+        <LazySection name="pricing" minHeight="1300px">
+          <PricingSection editorial hideDetailsLink />
+        </LazySection>
+
+        {/* 17 FAQ */}
+        <LazySection name="faq" minHeight="1000px">
+          <FaqSection editorial />
+        </LazySection>
+
+        {/* 18 FINAL CTA (frame) */}
+        <FinalCta />
       </LandingStory>
+      {/* 19 FOOTER: components/marketing/footer.tsx, drawn under every marketing page by the layout (ConditionalFooter). */}
     </div>
   )
 }

@@ -184,7 +184,7 @@ async function main() {
 
   console.log("\nCopy: not a product kind any more")
   {
-    check("the home page's Sell anything says communities", /Courses, digital products, communities, bookings\. If you made it, you can sell it here on Storelib\./.test(read("components/marketing/bento-grid.tsx")))
+    /* Changed on purpose (wave 12): the bento and its Sell anything card left the home page. */
     check("the marquee says Communities", /label: "Communities"/.test(read("components/marketing/product-marquee.tsx")) && !/label: "Memberships"/.test(read("components/marketing/product-marquee.tsx")))
     check("onboarding and the store builder offer Communities as a niche, not Memberships", ["components/app/creator-onboarding-modal.tsx", "components/store-builder/sections-sidebar.tsx"].every((f) => !/"Memberships"/.test(read(f)) && /"Communities"/.test(read(f))))
     check("a new site's goals say Run a community", /"Run a community"/.test(read("components/sites/new-site-flow.tsx")) && !/Sell memberships/.test(read("components/sites/new-site-flow.tsx")))

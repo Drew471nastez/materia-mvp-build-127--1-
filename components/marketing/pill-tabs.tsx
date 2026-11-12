@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { AnimateOnScroll } from "./bento-grid"
+import { AnimateOnScroll } from "./animate-on-scroll"
 
 const TABS = [
   {

@@ -494,6 +494,8 @@ const SUITES = [
   "tests/header-buttons.test.ts",
   /* Cinematic homepage: fixed first line, reserved rotating phrases, one deferred video, native signup. scripts/check-home-hero.mjs measures real SSR/hydration and media fallbacks. */
   "tests/home-hero.test.ts",
+  /* Wave 12, the home page's frame: the order and slots, Unlimited possibilities (three edge-to-edge rows), the closing call, the dark footer with the app badges, lazySection/LazySection. */
+  "tests/home-w12-frame.test.ts",
   /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */
   "tests/library-courses-ad5.test.ts",
   "tests/header-flex.test.ts",

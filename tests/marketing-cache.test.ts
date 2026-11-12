@@ -66,7 +66,7 @@ const pricing = code("app/(storelib)/(marketing)/pricing/pricing-client.tsx")
 check("who is signed in is the header's record of the session, read after hydration", /useSyncExternalStore\(subscribeAuthSnapshot, readSignedIn, \(\) => false\)/.test(pricing))
 check("the upgrade mode is read from the address before the browser paints again", /useLayoutEffect\(\(\) => setQuery\(readUpgradeQuery\(\)\), \[\]\)/.test(pricing) && /new URLSearchParams\(window\.location\.search\)/.test(pricing))
 check("returnTo is decoded once more, as the server did, and a bad escape does not throw", /try \{ returnTo = decodeURIComponent\(raw\) \} catch \{ returnTo = raw \}/.test(pricing))
-check("the heading the upgrade mode renames is inside a scroll-in that starts hidden", /<AnimateOnScroll variant="blur-in">[\s\S]{0,400}headingOverride/.test(code("components/marketing/pricing-section.tsx")) && /"blur-in":\s*\{ opacity: 0/.test(read("components/marketing/bento-grid.tsx")))
+check("the heading the upgrade mode renames is inside a scroll-in that starts hidden", /<AnimateOnScroll variant="blur-in">[\s\S]{0,400}headingOverride/.test(code("components/marketing/pricing-section.tsx")) && /"blur-in":\s*\{ opacity: 0/.test(read("components/marketing/animate-on-scroll.tsx")))
 
 console.log("\nThe blog is rebuilt at most once a minute")
 for (const p of ["app/(storelib)/(marketing)/blog/page.tsx", "app/(storelib)/(marketing)/blog/[slug]/page.tsx", "app/(storelib)/(marketing)/blog/category/[slug]/page.tsx"]) {

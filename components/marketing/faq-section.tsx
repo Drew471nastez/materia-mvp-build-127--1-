@@ -3,7 +3,7 @@
 import { StoryHeading } from "./story-heading"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { AnimateOnScroll } from "./bento-grid"
+import { AnimateOnScroll } from "./animate-on-scroll"
 
 const FAQS = [
   {
