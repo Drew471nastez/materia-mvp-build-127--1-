@@ -42,12 +42,14 @@ export function useStoryShare({ open, name, address, avatarUrl, ground, fontFami
       setSaved(false)
       return
     }
-    const idle = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
-    const id = idle ? idle(() => void draw().catch(() => {}), { timeout: 800 }) : window.setTimeout(() => void draw().catch(() => {}), 200)
+    /* After the window has settled: the idle callback where the browser has one (Safari has not), else a short timer. */
+    const w = window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    const run = () => void draw().catch(() => {})
+    const viaIdle = typeof w.requestIdleCallback === "function" && typeof w.cancelIdleCallback === "function"
+    const id = viaIdle ? w.requestIdleCallback!(run, { timeout: 800 }) : window.setTimeout(run, 200)
     return () => {
-      const cancel = (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback
-      if (idle && cancel) cancel(id as number)
-      else window.clearTimeout(id as number)
+      if (viaIdle) w.cancelIdleCallback!(id)
+      else window.clearTimeout(id)
     }
   }, [open, draw])
 
