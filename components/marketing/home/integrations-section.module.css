@@ -1,0 +1,167 @@
+/* Section 13, integrations: three marquee rows of tiles that flip in 3D. */
+
+.rows {
+  position: relative;
+  display: grid;
+  gap: 14px;
+}
+.rows::before,
+.rows::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: clamp(28px, 8vw, 140px);
+  pointer-events: none;
+}
+.rows::before {
+  left: 0;
+  background: linear-gradient(90deg, #0b0b0c, rgba(11, 11, 12, 0));
+}
+.rows::after {
+  right: 0;
+  background: linear-gradient(270deg, #0b0b0c, rgba(11, 11, 12, 0));
+}
+
+.row {
+  overflow: hidden;
+  /* Room for a tile's lift and shadow. */
+  padding-block: 6px;
+}
+/* Each tile carries its own 14px on the right (no flex gap), so the four
+   copies are four equal quarters and one loop is exactly -50%. */
+.track {
+  display: flex;
+  width: max-content;
+  animation: slide var(--dur, 60s) linear infinite;
+}
+.reverse .track {
+  animation-direction: reverse;
+}
+@keyframes slide {
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+/* A row stops while a pointer is over it, or while a tapped tile is turned. */
+@media (hover: hover) and (pointer: fine) {
+  .row:hover .track {
+    animation-play-state: paused;
+  }
+}
+.row[data-held] .track {
+  animation-play-state: paused;
+}
+
+/*
+  THE FLIP COSTS NOTHING AT REST. Three rows of a hundred tiles must not be
+  a hundred 3D layers: at rest no tile has a 3D transform (the back face is
+  hidden and flat), so the whole row is one composited track. Only the tile
+  being turned gets its perspective and its rotated back face, and the back
+  keeps them until the turn back has finished (the 700ms delays).
+*/
+.tile {
+  position: relative;
+  flex: none;
+  margin-right: 14px;
+  width: var(--tile, 132px);
+  height: var(--tile, 132px);
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (max-width: 639px) {
+  .tile {
+    --tile: 108px;
+  }
+}
+.tile:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 3px;
+  border-radius: 28px;
+}
+.inner {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: none;
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.face {
+  position: absolute;
+  inset: 0;
+  border-radius: 28px;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  overflow: hidden;
+}
+@media (max-width: 639px) {
+  .face {
+    border-radius: 24px;
+  }
+}
+.front {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset, 0 18px 36px -22px rgba(0, 0, 0, 0.9);
+}
+.back {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 12px;
+  text-align: left;
+  color: #fff;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 55%),
+    linear-gradient(150deg, #4f46e5 0%, #7c3aed 55%, #a855f7 100%);
+  visibility: hidden;
+  transform: none;
+  transition:
+    visibility 0s linear 700ms,
+    transform 0s linear 700ms;
+}
+.tile[aria-pressed="true"] .inner {
+  transform: perspective(700px) rotateY(180deg);
+}
+.tile[aria-pressed="true"] .back {
+  visibility: visible;
+  transform: rotateY(180deg);
+  transition: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover .inner {
+    transform: perspective(700px) rotateY(180deg);
+  }
+  .tile:hover .back {
+    visibility: visible;
+    transform: rotateY(180deg);
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: auto;
+  }
+  .track > [data-copy] {
+    display: none;
+  }
+  .rows::before,
+  .rows::after {
+    display: none;
+  }
+  .inner {
+    transition: none;
+  }
+}

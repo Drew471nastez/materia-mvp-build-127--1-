@@ -31,6 +31,7 @@ const OUT = process.env.PUSH_TEST_OUT
 
 /** `server-only` is a bundler marker; outside one it is nothing. */
 const EMPTY_MODULE = "data:text/javascript,export{}"
+const CSS_MODULE = "data:text/javascript," + encodeURIComponent("export default new Proxy({}, { get: (_, k) => (typeof k === 'string' ? k : undefined) })")
 
 /**
  * NEXT'S OWN SUBPATHS, which only a bundler can resolve.
@@ -246,6 +247,8 @@ export async function load(url, context, nextLoad) {
 export async function resolve(specifier, context, nextResolve) {
   if (specifier === "server-only") return { url: EMPTY_MODULE, shortCircuit: true }
   /* A stylesheet a component imports for its side effect (components/onepage/themes/theme-skin-scene.tsx): the bundler injects it; a suite under Node only needs the import to resolve. */
+  /* A CSS module (components/marketing/home/*.module.css) is imported for its class names: each name stands for itself, so markup rendered under Node still carries readable classes. */
+  if (/\.module\.css(\?.*)?$/.test(specifier)) return { url: CSS_MODULE, shortCircuit: true }
   if (/\.css(\?.*)?$/.test(specifier)) return { url: EMPTY_MODULE, shortCircuit: true }
   if (specifier in NEXT_STUB_SOURCE) {
     const stub = nextStub(specifier)
