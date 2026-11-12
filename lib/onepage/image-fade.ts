@@ -72,21 +72,23 @@ export function fadeColours(theme: ThemeLike): FadeColours {
 }
 
 /**
- * The fade itself: clear over the top of the picture, then easing into the
- * ground, full strength under the words. Many stops, so it reads as one
- * smooth fall rather than a band (a two stop gradient shows its edge).
+ * The fade itself, laid over the top `lead` px of the words' own box: clear
+ * where it starts, easing into the ground, which is then solid under the
+ * words, so they read on it whatever the picture holds. Many stops, so it
+ * reads as one smooth fall rather than a band (a two stop gradient shows
+ * its edge).
  */
-export function fadeGradient(ground: string, start = 30): string {
-  const at = (p: number, a: number) => `color-mix(in srgb, ${ground} ${Math.round(a * 100)}%, transparent) ${Math.round(start + (100 - start) * p)}%`
+export function fadeGradient(ground: string, lead: number): string {
   const stops = [
     [0, 0],
-    [0.2, 0.08],
-    [0.38, 0.28],
-    [0.54, 0.55],
-    [0.68, 0.78],
-    [0.8, 0.92],
-    [0.9, 0.98],
+    [0.16, 0.06],
+    [0.32, 0.2],
+    [0.48, 0.42],
+    [0.64, 0.66],
+    [0.78, 0.84],
+    [0.9, 0.95],
     [1, 1],
   ] as const
-  return `linear-gradient(to bottom, ${stops.map(([p, a]) => at(p, a)).join(", ")})`
+  const at = (p: number, a: number) => `color-mix(in srgb, ${ground} ${Math.round(a * 100)}%, transparent) ${Math.round(lead * p)}px`
+  return `linear-gradient(to bottom, ${stops.map(([p, a]) => at(p, a)).join(", ")}, ${ground} 100%)`
 }

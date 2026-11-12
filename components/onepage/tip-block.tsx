@@ -240,13 +240,16 @@ export function DataTipsView({ block, data: given, look }: Props) {
   if (tipStyle === "pills") {
     const pillTheme = ownBg ? onCardButtonTheme(cardTheme) : look.theme
     const press = pressableProps(pillTheme, look.still)
-    const pill = (wide: boolean): React.CSSProperties => ({
+    /* Every pill the same width (Other too), sharing the row up to a comfortable size. */
+    const pill = (): React.CSSProperties => ({
       ...press.style,
       ...(pres.radius !== undefined ? { borderRadius: pres.radius } : null),
       ...(pres.shadow ? { boxShadow: SHADOW_CSS[pres.shadow] } : null),
+      flex: "1 1 0",
+      minWidth: px(64, look.scale),
+      maxWidth: px(112, look.scale),
       minHeight: px(44, look.scale),
-      minWidth: px(wide ? 84 : 68, look.scale),
-      paddingInline: px(18, look.scale),
+      paddingInline: px(10, look.scale),
       fontSize: px(15, look.scale),
     })
     const pillClass = cn(press.className, "inline-flex items-center justify-center font-semibold tabular-nums disabled:opacity-60")
@@ -257,7 +260,8 @@ export function DataTipsView({ block, data: given, look }: Props) {
         style={{
           textAlign: align,
           color: ownBg ? cardTheme.button_text_color : undefined,
-          ...(ownBg ? { background: ownBg, borderRadius: pres.radius ?? parts.radius, padding: px(pres.padding ?? 16, look.scale) } : null),
+          /* On the page the row has no card; padding still gives it room, and a background makes it a panel of its own. */
+          ...(ownBg ? { background: ownBg, borderRadius: pres.radius ?? parts.radius, padding: px(pres.padding ?? 16, look.scale) } : pres.padding !== undefined ? { padding: px(pres.padding, look.scale) } : null),
         }}
       >
         <span className="block font-semibold leading-tight" style={{ fontSize: px(15, look.scale) }} data-block-title="">
@@ -267,12 +271,12 @@ export function DataTipsView({ block, data: given, look }: Props) {
         {thanks ? null : (
           <div role="group" aria-label={tt("Amount")} className="flex flex-wrap" style={{ justifyContent: justify, gap: px(8, look.scale), marginTop: px(10, look.scale) }} data-tip-pills="">
             {presets.map((c) => (
-              <button key={c} type="button" onClick={() => void send(c)} disabled={busy} data-tip-amount={c} className={pillClass} style={pill(false)} data-hover={press["data-hover"]} data-shadow={press["data-shadow"]}>
+              <button key={c} type="button" onClick={() => void send(c)} disabled={busy} data-tip-amount={c} className={pillClass} style={pill()} data-hover={press["data-hover"]} data-shadow={press["data-shadow"]}>
                 {label(c)}
               </button>
             ))}
             {custom ? (
-              <button type="button" aria-haspopup="dialog" onClick={() => openSheet(shownPick)} disabled={busy} data-tip-amount="other" className={pillClass} style={{ ...pill(true), backgroundColor: "transparent", backdropFilter: undefined, color: "inherit", borderStyle: "solid", borderWidth: 1.5, borderColor: "color-mix(in srgb, currentColor 35%, transparent)", boxShadow: "none" }} data-hover={press["data-hover"]}>
+              <button type="button" aria-haspopup="dialog" onClick={() => openSheet(shownPick)} disabled={busy} data-tip-amount="other" className={pillClass} style={pill()} data-hover={press["data-hover"]} data-shadow={press["data-shadow"]}>
                 {tt("Other")}
               </button>
             ) : null}
@@ -311,7 +315,7 @@ export function DataTipsView({ block, data: given, look }: Props) {
           }}
         >
           <span aria-hidden className="grid shrink-0 place-items-center">{icon(19)}</span>
-          <span className="min-w-0">
+          <span className="min-w-0 [&_[data-tip-subtitle]]:font-normal">
             <span className="block leading-tight" data-block-title="">{title}</span>
             {thanks ? thanksLine : subtitle}
           </span>
@@ -323,11 +327,12 @@ export function DataTipsView({ block, data: given, look }: Props) {
 
   /* The card's head: the icon, the title and the line under it, placed by the block's alignment. */
   const head = (
-    <div className="flex items-center" style={{ gap: px(12, look.scale), justifyContent: justify, textAlign: align, flexDirection: align === "right" ? "row-reverse" : undefined }}>
+    /* Centred, the icon sits over the words, so the title is in the card's middle; left and right, beside them. */
+    <div className="flex items-center" style={{ gap: px(align === "center" ? 8 : 12, look.scale), justifyContent: justify, textAlign: align, flexDirection: align === "right" ? "row-reverse" : align === "center" ? "column" : undefined }}>
       <span aria-hidden className="grid shrink-0 place-items-center rounded-full" style={{ width: px(40, look.scale), height: px(40, look.scale), background: "color-mix(in srgb, currentColor 12%, transparent)" }}>
         {icon(19)}
       </span>
-      <span className={cn("min-w-0", align === "center" ? "" : "flex-1")}>
+      <span className={cn("min-w-0", align === "center" ? "max-w-full" : "flex-1")}>
         <span className="block truncate font-semibold leading-tight" style={{ fontSize: px(16, look.scale) }} data-block-title="">
           {title}
         </span>

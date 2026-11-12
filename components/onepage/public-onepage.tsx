@@ -2391,8 +2391,10 @@ function PublicImageCarousel({
   theme,
   isDesktop,
   carouselView = "1",
+  arrowsHigh = false,
 }: {
   images: { id: string; image_url: string; alt_text?: string; title?: string; link_url?: string | null }[]
+  arrowsHigh?: boolean
   renderImage: (img: typeof images[0], index: number) => React.ReactNode
   autoplay?: boolean
   theme: OnePageTheme
@@ -2635,7 +2637,9 @@ function PublicImageCarousel({
             type="button"
             onClick={goToPrev}
             className={cn(
-              "absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60 z-10",
+              "absolute left-2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60 z-10",
+              /* Over the picture, clear of words laid on its foot (round 3, lib/onepage/image-fade). */
+              arrowsHigh ? "top-[34%]" : "top-1/2",
               isDesktop ? "opacity-0 group-hover:opacity-100" : "opacity-70"
             )}
             aria-label="Previous image"
@@ -2648,7 +2652,9 @@ function PublicImageCarousel({
             type="button"
             onClick={goToNext}
             className={cn(
-              "absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60 z-10",
+              "absolute right-2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-black/60 z-10",
+              /* Over the picture, clear of words laid on its foot (round 3, lib/onepage/image-fade). */
+              arrowsHigh ? "top-[34%]" : "top-1/2",
               isDesktop ? "opacity-0 group-hover:opacity-100" : "opacity-70"
             )}
             aria-label="Next image"
@@ -4117,9 +4123,9 @@ function CoreBlockRenderer({
       // Render single image
       const renderImage = (img: typeof images[0], index: number) => {
         const imageContent = (
-          <div className="w-full">
+          <div className={cn("w-full", faded && "relative")}>
             <div
-              className={cn("w-full overflow-hidden", aspectRatioClass, faded && "relative")}
+              className={cn("w-full overflow-hidden", aspectRatioClass)}
               style={{ borderRadius }}
             >
               <img
@@ -4147,16 +4153,18 @@ function CoreBlockRenderer({
                 decoding="async"
                 draggable={false}
               />
-              {faded ? (
-                <FadeWords
-                  theme={theme}
-                  title={img.title}
-                  caption={(img as { caption?: string }).caption}
-                  button={data.clickable && img.link_url ? (img as { button_label?: string }).button_label : null}
-                  size={fadeSize}
-                />
-              ) : null}
             </div>
+            {/* Beside the picture's frame, not inside it, so its own corners cover the picture's (lib/onepage/image-fade). */}
+            {faded ? (
+              <FadeWords
+                theme={theme}
+                title={img.title}
+                caption={(img as { caption?: string }).caption}
+                button={data.clickable && img.link_url ? (img as { button_label?: string }).button_label : null}
+                size={fadeSize}
+                radius={borderRadius}
+              />
+            ) : null}
             {!faded && data.show_captions && img.title && (
               <p
                 className="text-center text-sm mt-2.5 opacity-70"
@@ -4214,6 +4222,7 @@ function CoreBlockRenderer({
               theme={theme}
               isDesktop={isDesktop}
               carouselView={data.carousel_view}
+              arrowsHigh={faded}
             />
           </div>
         )
