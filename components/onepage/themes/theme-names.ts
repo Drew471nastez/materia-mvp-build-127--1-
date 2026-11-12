@@ -63,6 +63,8 @@ const NAMES: Record<string, () => string> = {
   vaporwave: () => ttx("theme", "Vaporwave"),
   arcade: () => ttx("theme", "Arcade"),
   renaissance: () => ttx("theme", "Renaissance"),
+  /* Round AS (components/onepage/themes/r40-themes AS_THEMES). */
+  plaster: () => ttx("theme", "Plaster"),
 }
 
 /** A theme's name in the reader's language. */

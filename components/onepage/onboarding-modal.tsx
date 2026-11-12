@@ -119,7 +119,7 @@ const TemplatePicture = memo(function TemplatePicture({ template, name, photo }:
   const c = template.theme_config as (typeof THEME_TEMPLATES)[number]["theme_config"] & Record<string, any>
   /* A Hero template is drawn with its Hero, as picking it lays the page out. */
   const look = (template as any).profile_layout === "hero" ? { ...c, header_layout: "hero" } : c
-  return <ThemePreview c={look} name={name} thumb={themeThumbSrc} photo={photo} />
+  return <ThemePreview c={look} id={template.id} kind={template.category} name={name} thumb={themeThumbSrc} photo={photo} />
 })
 
 const TemplateCard = memo(function TemplateCard({

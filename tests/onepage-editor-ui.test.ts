@@ -367,7 +367,7 @@ function main() {
     const onboarding = read("components/onepage/onboarding-modal.tsx")
     /* One card at every width now (the phone's grid and the computer's carousel were two copies of it), so one circle, sized once. */
     /* Changed on purpose (round AQ): the onboarding's cards are the Design tab's preview, whose avatar (checked above) is the theme's own shape at its own size, the creator's photo in it. */
-    check("the onboarding's theme cards keep the creator's picture in the preview's own avatar", /<ThemePreview c=\{look\} name=\{name\} thumb=\{themeThumbSrc\} photo=\{photo\} \/>/.test(onboarding) && /\{photo \? <img src=\{photo\}[^>]*className="block h-full w-full object-cover" \/> : null\}/.test(read("components/onepage/themes/theme-preview.tsx")))
+    check("the onboarding's theme cards keep the creator's picture in the preview's own avatar", /<ThemePreview c=\{look\} id=\{template\.id\} kind=\{template\.category\} name=\{name\} thumb=\{themeThumbSrc\} photo=\{photo\} \/>/ /* Changed on purpose (round AS): the card names its theme, whose creator it draws around the person's own name and photo. */.test(onboarding) && /\{face \? <img src=\{face\}[^>]*className="block h-full w-full object-cover" \/> : null\}/.test(read("components/onepage/themes/theme-preview.tsx")))
   }
 
   section("+ Add")

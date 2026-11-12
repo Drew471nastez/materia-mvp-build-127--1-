@@ -3048,9 +3048,13 @@ function CoreBlockRenderer({
       const laserGlowEnabled = (theme as any).laser_glow_enabled
       const laserGlowColor = (theme as any).laser_glow_color || "#3b82f6"
       const laserGlowIntensity = (theme as any).laser_glow_intensity || "medium"
-      // Glow intensity settings - reduced spread by 40%
-      const glowSpread = laserGlowIntensity === "low" ? 4 : laserGlowIntensity === "hard" ? 8 : 6
-      const glowOpacity = laserGlowIntensity === "low" ? 0.7 : laserGlowIntensity === "hard" ? 1 : 0.85
+      /*
+        Round AS, the owner: "why certain buttons, texts are glowing white". The ring is the creator's own choice
+        (Header › Glowing ring), so it stays, but as a light that runs round the edge of the photo rather than a
+        cloud around it: a tighter blur, less of it, and no second box-shadow halo under the brightest layer.
+      */
+      const glowSpread = laserGlowIntensity === "low" ? 3 : laserGlowIntensity === "hard" ? 6 : 4
+      const glowOpacity = laserGlowIntensity === "low" ? 0.55 : laserGlowIntensity === "hard" ? 0.85 : 0.7
       /* The picture's size, corner and ring are the creator's (lib/onepage/header-style); medium, round and a light ring when unset. */
       const look = avatarLook(theme as never, isDesktop)
       const avatarSize = look.size
@@ -3173,7 +3177,6 @@ function CoreBlockRenderer({
                       animation: "laserGlowRotate 3.25s linear infinite",
                       filter: `blur(${glowSpread}px)`,
                       opacity: glowOpacity,
-                      boxShadow: `0 0 ${glowSpread * 2}px ${laserGlowColor}`,
                     }}
                   />
                 </>

@@ -128,7 +128,7 @@ check("Acid: acid lime square buttons two to a row with a hard magenta shadow, a
   buttonShadow(acid as never) === "hard" && acid.button_border_radius === 0 && blockLayoutOf(acid) === "grid" && avatarShapeOf(acid) === "square" && themeProductLayoutOf(acid) === "grid" && acid.background_pattern === "grid")
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }, { id: "c", category: "dark" }])
 const order = merged.map((t) => t.id).join(",")
-check("each joins the end of its kind", order.includes("notebook,gazette,aqua,messenger,playful,grunge,aqua2,messenger2,grunge2,b") && order.includes("cobalt,halo,aero,y2k2,vaporwave,c") && order.endsWith("ledger,acid,y2k,aero2,playful2,classic98,arcade,atlas") /* Changed on purpose (round W10): the W10 themes after the W9 ones. */ /* Changed on purpose (round W9): the six W9 themes join the end of their kinds after these. */, order)
+check("each joins the end of its kind", order.includes("notebook,gazette,aqua,messenger,playful,grunge,aqua2,messenger2,grunge2,b") && order.includes("cobalt,halo,aero,y2k2,vaporwave,c") && order.endsWith("ledger,acid,y2k,aero2,playful2,classic98,arcade,plaster,atlas") /* Changed on purpose (round AS): Plaster. */ /* Changed on purpose (round W10): the W10 themes after the W9 ones. */ /* Changed on purpose (round W9): the six W9 themes join the end of their kinds after these. */, order)
 
 console.log("\nPicking a theme, and the next")
 const byId = (id: string) => W8_THEMES.find((t) => t.id === id) as unknown as ThemeTemplateLike
@@ -175,11 +175,14 @@ for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
 console.log("\nA card ends on a whole block")
 const preview = read("components/onepage/themes/theme-preview.tsx")
 check("a card is 5:7 of the 390px page", /export const PREVIEW_HEIGHT = 546/.test(preview) && /data-theme-frame="" className="relative block aspect-\[5\/7\]/.test(design) && Math.abs(390 / 546 - 5 / 7) < 0.001)
-check("the blocks are one column that wraps out of sight, never cut by the edge", /data-tp-blocks="" className=\{cn\("flex min-h-0 w-full flex-1 flex-col flex-wrap content-start items-stretch overflow-hidden \[&>\*\]:shrink-0"/.test(preview) && /"!gap-x-\[200px\]/.test(preview))
+/* Changed on purpose (round AS): 24px wider than the column, so the blocks keep the page's 350px. */
+check("the blocks are one column that wraps out of sight, never cut by the edge", /data-tp-blocks="" className=\{cn\("flex min-h-0 w-\[calc\(100%\+24px\)\] flex-1 flex-col flex-wrap content-start items-stretch overflow-hidden \[&>\*\]:shrink-0"/.test(preview) && /"!gap-x-\[200px\]/.test(preview))
 check("the page is the card's height, its blocks the rest under the header", /className="relative flex h-full w-full flex-col px-5/.test(preview) && /flex min-h-0 flex-1 flex-col items-center/.test(preview))
 check("a card keeps 18px over a plain header, not the page's 50 for Share", /export const PREVIEW_TOP = 18/.test(preview) && /paddingTop: hero \|\| cover \? 0 : PREVIEW_TOP/.test(preview))
-check("product tiles after the links, so they never take the links out of sight", /\{products === "grid" \? links : shelf\}\s*\{products === "grid" \? shelf : links\}/.test(preview))
-check("pictures are a soft wash, not a grey slab", /const photoWash = /.test(preview) && /const linkPicture = photoWash\(/.test(preview) && /background: photoWash\(text, bg, 20\)/.test(preview))
+/* Changed on purpose (round AS): the blocks come in the creator's order (slotsFor); on Grid and Mixed the links' pair first, the product tiles after it. */
+check("product tiles after the links, so they never take the links out of sight", /layout === "grid" \|\| layout === "masonry" \? \["link", "link2", "product", "news"\]/.test(preview))
+/* Changed on purpose (round AS): every picture is a drawing of the creator's (a portrait, a product, a link's), not a wash. */
+check("pictures are drawings, not a grey slab", /const pictureOf = /.test(preview) && /pack\.faceUri\(who\.face\)/.test(preview) && /pack\.artUri\(a, who\.palette\)/.test(preview) && !/photoWash/.test(preview))
 check("still no state and no effects inside a card", !/use(State|Effect|LayoutEffect|Ref)\(/.test(preview))
 const script = read("scripts/check-onepage-theme-previews.mjs")
 check("the picker check measures every block against the card's edge and each other, and one card size", /blocks sliced by the edge/.test(script) && /two blocks overlap/.test(script) && /cards of \$\{sizes\.length\} sizes/.test(script))
