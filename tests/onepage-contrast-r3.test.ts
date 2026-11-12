@@ -107,8 +107,9 @@ check(`fadeThatReads: the deepest that reads (${deep} for black words on white a
   const grey = { words: "#ffffff", fill: "#2d6a4f", grounds: [parseColor("#f6f6f6")!] }
   const a = waitFade(grey)
   check(`a waiting Subscribe fades only to ${a} on a mid-tone fill, and still reads`, a > 0.45 && ratioOf(over({ ...parseColor("#ffffff")!, a }, grey.grounds[0]), over({ ...parseColor("#2d6a4f")!, a }, grey.grounds[0])) >= TEXT_MIN)
-  check("the signup's three shapes hand their colours to the wait", (code("components/onepage/public-onepage.tsx").match(/signupWait\((?:Boolean\([^)]*\)|[^)]*), \{ words: /g) || []).length >= 2)
-  check("a button a skin paints in its own colours does not fade (those colours are not the ones measured)", waitFade({ ...grey, painted: "vaporwave" }) === 1 && (code("components/onepage/public-onepage.tsx").match(/painted: \(theme as \{ theme_skin\?: unknown \}\)\.theme_skin/g) || []).length === 2)
+  /* Changed on purpose (round AT): the owner wants Subscribe at full strength while the box is empty, checked on the press, so the page's signup never waits faded (tests/onepage-at2.test.ts, tests/onepage-sheets-as.test.ts). The helper and its own checks stay, unused by the page. */
+  check("the page's signup shapes never fade while they wait", !/signupWait\(/.test(code("components/onepage/public-onepage.tsx")))
+  check("a button a skin paints in its own colours does not fade (those colours are not the ones measured)", waitFade({ ...grey, painted: "vaporwave" }) === 1)
   check("with nothing known it waits at 45% as before", signupWait(false).filter === "opacity(0.45)" && signupWait(true).filter === undefined)
   check("the Fade hover reads its depth from the button", /\[data-hover="fade"\] \{ opacity: var\(--op-fade, 0\.8\); \}/.test(read("app/globals.css")))
 }

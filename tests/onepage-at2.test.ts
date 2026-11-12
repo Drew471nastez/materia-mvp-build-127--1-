@@ -102,7 +102,8 @@ check("the map is OpenStreetMap's public tile, credited, lazy", /title=\{`\$\{pi
 section("+ ADD ON A PHONE")
 const picker = read("components/onepage/add-block-picker.tsx")
 check("a click that ends a scroll (travel past TAP_SLOP_PX, or the browser's cancel) opens nothing; a key always does", /const wasScroll = scrolled\.current && e\.detail > 0/.test(picker) && /onPointerCancel=\{\(\) => \{\s*\/\*[^*]*\*\/\s*scrolled\.current = true/.test(picker) && /TAP_SLOP_PX\)\) \{\s*scrolled\.current = true/.test(picker))
-check("no :active tint; the press is data-pressed, after a finger rests", /"touch-manipulation active:bg-\[#8b5cf6\] active:shadow-/.test(picker) && /data-\[pressed\]:bg-\[#6d28d9\]/.test(picker) && /window\.setTimeout\(\(\) => setPressed\(true\), ADD_PRESS_DELAY_MS\)/.test(picker))
+/* The resting :active style lives in components/ui/depth-button.ts (accentNoActive), so the picker names no violet (tests/onepage-creator-blocks.test.ts). */
+check("no :active tint; the press is data-pressed, after a finger rests", /"touch-manipulation",\s*accentNoActive,/.test(picker) && /export const accentNoActive = "active:bg-\[#8b5cf6\] active:shadow-/.test(read("components/ui/depth-button.ts")) && /data-\[pressed\]:bg-\[#6d28d9\]/.test(picker) && /window\.setTimeout\(\(\) => setPressed\(true\), ADD_PRESS_DELAY_MS\)/.test(picker))
 check("a finger that travels lets go at once", /Math\.abs\(e\.clientX - p\.x\) > TAP_SLOP_PX \|\| Math\.abs\(e\.clientY - p\.y\) > TAP_SLOP_PX\)\) \{\s*scrolled\.current = true\s*letGo\(\)/.test(picker))
 
 section("SHARE")
