@@ -13371,7 +13371,13 @@ const words: Record<string, string> = {
  "Your number": "Tu número",
  "a haircut": "un corte de pelo",
  "the linen shirt": "la camisa de lino",
- "{name} username or link": "Usuario o enlace de {name}"
+ "{name} username or link": "Usuario o enlace de {name}",
+ "This font has one weight": "Esta fuente tiene un solo grosor",
+ "Pills": "Píldoras",
+ "Big amount": "Cantidad grande",
+ "Below": "Debajo",
+ "On the picture": "Sobre la imagen",
+ "Title, caption and a button on a fade at the bottom of each picture.": "Título, pie de foto y un botón sobre un degradado en la parte inferior de cada imagen."
 }
 
 export default words

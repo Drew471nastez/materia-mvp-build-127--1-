@@ -5623,9 +5623,20 @@ function BlockEditor({
                       <Input
                         value={img.title || ''}
                         onChange={(e) => updateImage(img.id, { title: e.target.value })}
-                        placeholder={tt("Caption (optional)")}
+                        placeholder={data.image_style === "fade" ? tt("Title (optional)") : tt("Caption (optional)")}
                         className="h-8 text-xs"
                       />
+                      {/* Round 3: on a fade (Layout, Text: On the picture) a picture also takes a line under its title, and a button when it has a link. */}
+                      {data.image_style === "fade" ? (
+                        <Input
+                          value={img.caption || ''}
+                          onChange={(e) => updateImage(img.id, { caption: e.target.value })}
+                          placeholder={tt("Caption (optional)")}
+                          maxLength={160}
+                          className="h-8 text-xs"
+                          data-image-caption-input=""
+                        />
+                      ) : null}
                     </div>
 
                     {/* Link URL for this image */}
@@ -5646,6 +5657,16 @@ function BlockEditor({
                             placeholder="https://..."
                             aria-label={tt("Link URL")}
                             className="h-8 text-xs"
+                          />
+                        ) : null}
+                        {data.image_style === "fade" ? (
+                          <Input
+                            value={img.button_label || ''}
+                            onChange={(e) => updateImage(img.id, { button_label: e.target.value })}
+                            placeholder={tt("Button text (optional)")}
+                            maxLength={40}
+                            className="h-8 text-xs"
+                            data-image-button-input=""
                           />
                         ) : null}
                       </div>
@@ -5679,7 +5700,8 @@ function BlockEditor({
                 />
               </div>
 
-              {/* Show Captions Toggle */}
+              {/* Show Captions Toggle: a fade always shows the words it is given. */}
+              {data.image_style === "fade" ? null : (
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-xs font-medium">{tt("Show captions")}</Label>
@@ -5690,6 +5712,7 @@ function BlockEditor({
                   onCheckedChange={(checked) => updateData({ show_captions: checked })}
                 />
               </div>
+              )}
             </PartContent>
 
             <PartContent value="layout" className="mt-0 space-y-4">
@@ -5735,6 +5758,18 @@ function BlockEditor({
 
               <div className="space-y-4 border-t border-[#eef0f2] pt-4" data-image-look="">
                 <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Picture")}</p>
+                {/* Round 3: the words under the picture, or on a smooth fade over its foot in the page's colours (lib/onepage/image-fade). */}
+                <LabeledRow label={tt("Text")} hint={data.image_style === "fade" ? tt("Title, caption and a button on a fade at the bottom of each picture.") : undefined}>
+                  <Segmented
+                    label={tt("Text")}
+                    value={data.image_style === "fade" ? "fade" : "plain"}
+                    options={[
+                      { id: "plain", label: tt("Below") },
+                      { id: "fade", label: tt("On the picture") },
+                    ]}
+                    onChange={(image_style) => updateData({ image_style: image_style as ImageBlockData["image_style"] })}
+                  />
+                </LabeledRow>
                 <LabeledRow label={tt("Shape")}>
                   <Segmented
                     label={tt("Shape")}

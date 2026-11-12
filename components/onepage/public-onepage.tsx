@@ -80,6 +80,8 @@ import { COVER_FADE_MASK, HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/l
 import { readableOn } from "@/lib/onepage/theme-apply"
 import { photoVeil, readableInk, readableTheme, signupCard, smallPrintAlpha } from "@/lib/onepage/contrast"
 import { pressableProps } from "@/lib/onepage/block-look"
+import { imageStyleOf } from "@/lib/onepage/image-fade"
+import { FadeWords, fadeSizeFor } from "./image-fade"
 import { LegibleGuard } from "@/components/onepage/legible-guard"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
 import { pairProductTiles } from "@/lib/onepage/product-block"
@@ -4107,13 +4109,17 @@ function CoreBlockRenderer({
       /* How many slides are within one swipe of the first one. */
       const isImageCarousel = data.display_style === 'carousel' && !isInsideGroup && images.length > 1
       const eagerSlides = Math.ceil(parseFloat(data.carousel_view || "1") || 1) + 1
+      /* Round 3: each picture's words on a fade over its foot (lib/onepage/image-fade), smaller on a smaller tile or slide. */
+      const faded = imageStyleOf(data) === "fade"
+      const shownAs: "single" | "grid" | "carousel" = images.length > 1 && data.display_style === 'grid' ? "grid" : isImageCarousel ? "carousel" : "single"
+      const fadeSize = fadeSizeFor(shownAs, data.grid_columns || 2, parseFloat(data.carousel_view || "1") || 1)
 
       // Render single image
       const renderImage = (img: typeof images[0], index: number) => {
         const imageContent = (
           <div className="w-full">
             <div
-              className={cn("w-full overflow-hidden", aspectRatioClass)}
+              className={cn("w-full overflow-hidden", aspectRatioClass, faded && "relative")}
               style={{ borderRadius }}
             >
               <img
@@ -4141,8 +4147,17 @@ function CoreBlockRenderer({
                 decoding="async"
                 draggable={false}
               />
+              {faded ? (
+                <FadeWords
+                  theme={theme}
+                  title={img.title}
+                  caption={(img as { caption?: string }).caption}
+                  button={data.clickable && img.link_url ? (img as { button_label?: string }).button_label : null}
+                  size={fadeSize}
+                />
+              ) : null}
             </div>
-            {data.show_captions && img.title && (
+            {!faded && data.show_captions && img.title && (
               <p
                 className="text-center text-sm mt-2.5 opacity-70"
                 style={{ color: theme.text_color }}
