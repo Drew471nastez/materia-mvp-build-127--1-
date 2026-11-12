@@ -731,8 +731,9 @@ function ItemsView({ block, data, provider, look }: ViewProps) {
         body: (
           <div className="flex flex-col items-center gap-3 py-4 text-center text-[#111113]">
             {item.image_url ? (
+              /* Round R3: its height is set before it loads, so the words under it are where they stay on the sheet's first frame. */
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={item.image_url} alt="" className="max-h-[50vh] w-auto max-w-full rounded-2xl object-contain" />
+              <img src={item.image_url} alt="" data-sheet-picture="" className="h-[min(50vh,360px)] w-auto max-w-full rounded-2xl object-contain" />
             ) : null}
             <p className="text-[18px] font-semibold">{item.title}</p>
             {item.note ? <p className="text-[14px] text-[#6b7280]">{item.note}</p> : null}

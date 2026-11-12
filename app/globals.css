@@ -9955,18 +9955,76 @@ html[data-op-press] [data-op-letgo] {
 }
 :is([data-block-size="half"], [data-block-size="tall"], [data-link-tile], [data-product-pair] > *, [data-group-grid] > *) { --op-gutter: 4px; }
 
-/* THE PROFILE BAR (components/onepage/hero-scroll HeroTopBar, round AS): 60px
-   across a phone with a hairline under it; on a computer 56px, floating
-   inside the card with a ring and a soft shadow. Its height is read by the
-   bar's own row (--op-bar-h); lib/onepage/feel names the same numbers. */
+/* THE PROFILE BAR (components/onepage/hero-scroll HeroTopBar, round AS; round
+   R3). 60px across a phone, under the status bar; on a computer 56px, the
+   card's own top: the card's width, its 40px corners at the top of the window.
+   No ring and no shadow: the page's own colour, and a soft fade of that colour
+   at its foot, so the content slides under it without a line. Its height is
+   read by the bar's own row (--op-bar-h); lib/onepage/feel names the same
+   numbers (BAR_PHONE_PX, BAR_DESKTOP_PX, BAR_MORPH_PX, CARD_RADIUS_PX). */
 .op-topbar {
   --op-bar-h: 60px;
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--op-bar-ink, #000) 10%, transparent);
+  --op-bar-foot: calc(env(safe-area-inset-top, 0px) + var(--op-bar-h));
+}
+.op-topbar::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  height: 14px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--op-bar-bg, transparent), color-mix(in srgb, var(--op-bar-bg, transparent) 55%, transparent) 40%, transparent);
 }
 @media (min-width: 48rem) {
   .op-topbar {
     --op-bar-h: 56px;
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--op-bar-ink, #000) 8%, transparent), 0 14px 32px -18px rgba(0, 0, 0, 0.4);
+    --op-bar-foot: var(--op-bar-h);
+  }
+}
+/* Where no stylesheet draws it, the script writes it a frame at a time: a short ease covers the step. */
+.op-topbar:not([data-op-topbar-css]) { transition: opacity 120ms linear; }
+.op-topbar:not([data-op-topbar-css]) > [data-op-topbar-button] { transition: transform 120ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .op-topbar, .op-topbar > [data-op-topbar-button] { transition: none !important; }
+}
+
+/* Drawn by the compositor from the name's own place (a view timeline the script names on it): the bar forms while the
+   name's foot travels the last 80px (BAR_MORPH_PX) to the bar's foot, exactly as lib/onepage/feel barMorph says,
+   in step with the scroll on every frame, and runs backwards on the way up. */
+:root { timeline-scope: --op-bar-anchor; }
+@keyframes op-bar-form { from { opacity: 0; } to { opacity: 1; } }
+@keyframes op-bar-settle { from { transform: translate3d(0, 10px, 0) scale(0.94); } to { transform: none; } }
+.op-topbar[data-op-topbar-css] {
+  animation: op-bar-form linear both;
+  animation-timeline: --op-bar-anchor;
+  animation-range: cover calc(100% - var(--op-bar-foot) - 80px) cover calc(100% - var(--op-bar-foot));
+}
+.op-topbar[data-op-topbar-css] > [data-op-topbar-button] {
+  animation: op-bar-settle linear both;
+  animation-timeline: --op-bar-anchor;
+  animation-range: cover calc(100% - var(--op-bar-foot) - 80px) cover calc(100% - var(--op-bar-foot));
+}
+@media (prefers-reduced-motion: reduce) {
+  .op-topbar[data-op-topbar-css] > [data-op-topbar-button] { animation: none; }
+}
+
+/* THE CARD KEEPS ITS CORNERS AT THE TOP OF THE WINDOW (round R3). On a
+   computer, once the card's top has scrolled past the window's, the card is
+   cut there with its own 40px corners, so the bar above sits in the card's
+   rounded top and the wallpaper shows in the corners, not the content
+   scrolling under them. A scroll timeline on the page, so it moves with the
+   scroll on the compositor; --op-card-top is where the card starts (written
+   by HeroTopBar, 32px by default). Its shadow is drawn by the box around it,
+   which this does not cut. */
+@keyframes op-card-top { from { clip-path: inset(0 round 40px); } to { clip-path: inset(20000px 0 0 0 round 40px); } }
+@supports (animation-timeline: scroll()) {
+  @media (min-width: 48rem) {
+    [data-op-card] {
+      animation: op-card-top linear both;
+      animation-timeline: scroll(root block);
+      animation-range: var(--op-card-top, 32px) calc(var(--op-card-top, 32px) + 20000px);
+    }
+    .op-topbar { border-radius: 40px 40px 0 0; }
   }
 }
 
