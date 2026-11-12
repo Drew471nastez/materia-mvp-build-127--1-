@@ -498,6 +498,8 @@ const SUITES = [
   "tests/home-w12-frame.test.ts",
   /* Wave 12 showcase: nine branded examples in the build gallery, live builder previews (section 4) and the business carousel (section 6), with lazy local images and timer-free autoplay. */
   "tests/home-w12-showcase.test.ts",
+  /* W12 creators: section 7, the creators carousel (endless transform-only rail, bubble morph on hover/centre/tap, drag, reduced-motion grid) and the motion primitives in components/marketing/home/motion (morphing pill cluster, orbit badge, sale pop). */
+  "tests/home-w12-creators.test.ts",
   /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */
   "tests/library-courses-ad5.test.ts",
   "tests/header-flex.test.ts",
