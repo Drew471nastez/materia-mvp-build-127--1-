@@ -19,7 +19,7 @@
  */
 
 import * as React from "react"
-import { ArrowUpRight, Plus, Trash2 } from "lucide-react"
+import { ArrowUpRight, Loader2, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { useOnePage } from "@/lib/onepage/context"
@@ -29,7 +29,8 @@ import { ChoiceMark, Switch, fieldInput } from "@/components/onepage/editor-kit"
 import { OnePageImageField } from "@/components/onepage/image-field"
 import { PictureFitControl } from "@/components/onepage/layout-pickers"
 import { AppTileMark, appDefaultButton, appProviderName } from "@/components/onepage/app-block"
-import { INSTAGRAM_FILL } from "@/components/onepage/brand-icons"
+import { INSTAGRAM_FILL, SocialIcon } from "@/components/onepage/brand-icons"
+import { instagramUsername } from "@/lib/onepage/instagram-username"
 import {
   APP_ITEMS_MAX,
   APP_POSTS_MAX,
@@ -518,9 +519,57 @@ export function AppBlockEditor({ block, updateData }: { block: OnePageBlock; upd
             <div className="space-y-2" data-app-picture="">
               <span className={fieldLabel}>{provider.shape === "app" ? tt("App icon") : tt("Picture (optional)")}</span>
               <OnePageImageField value={data.image_url} prefix={`app_${block.id}`} onChange={(url) => update({ image_url: url } as Partial<AppBlockData>)} />
+              {provider.id === "instagram" ? <InstagramPhoto data={data} update={update} /> : null}
             </div>
           ) : null}
         </>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * ROUND 3: THE PROFILE'S OWN PICTURE FROM INSTAGRAM, copied into Storelib
+ * (app/api/onepage/instagram-profile; what Instagram allows is set out in
+ * lib/onepage/instagram-profile). When Instagram does not give it, the line
+ * says so and the upload above stays the way in. With Meta's token the latest
+ * posts come too, offered as one tap into Posts.
+ */
+function InstagramPhoto({ data, update }: { data: AppBlockData; update: Update }) {
+  const [state, setState] = React.useState<{ busy: boolean; error: string | null; posts: string[] }>({ busy: false, error: null, posts: [] })
+  const username = instagramUsername(data.url)
+  if (!username) return null
+  const fetchPhoto = async () => {
+    setState({ busy: true, error: null, posts: [] })
+    try {
+      const r = await fetch("/api/onepage/instagram-profile", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: data.url }) })
+      const body = (await r.json().catch(() => ({}))) as { avatar_url?: string; posts?: string[]; error?: string }
+      const posts = (body.posts || []).filter((p) => !(data.posts || []).includes(p))
+      if (r.ok && body.avatar_url) {
+        update({ image_url: body.avatar_url } as Partial<AppBlockData>)
+        setState({ busy: false, error: null, posts })
+      } else setState({ busy: false, error: tt("Instagram didn't share this profile's picture. Upload one instead."), posts })
+    } catch {
+      setState({ busy: false, error: tt("Instagram didn't answer. Try again or upload a picture."), posts: [] })
+    }
+  }
+  return (
+    <div className="space-y-2" data-instagram-photo="">
+      <button
+        type="button"
+        onClick={fetchPhoto}
+        disabled={state.busy}
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#e3e4e8] bg-white text-[13.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8] disabled:opacity-60"
+      >
+        {state.busy ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <SocialIcon platform="instagram" tone="brand" size={16} />}
+        {state.busy ? tt("Getting your photo") : tt("Use my Instagram photo")}
+      </button>
+      {state.error ? <p className="text-[12.5px] text-[#6b7280]" aria-live="polite">{state.error}</p> : null}
+      {state.posts.length ? (
+        <button type="button" onClick={() => { update({ posts: [...(data.posts || []).filter((p) => p.trim()), ...state.posts] } as Partial<AppBlockData>); setState((s) => ({ ...s, posts: [] })) }} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#d5d7dd] text-[13.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]">
+          <Plus className="h-4 w-4" />
+          {tt("Add your latest posts ({value})", { value: state.posts.length })}
+        </button>
       ) : null}
     </div>
   )
