@@ -143,8 +143,9 @@ async function main() {
   check("a valid address and nothing less", signupEmailReady("anna@site.co") && signupEmailReady("  a.b+c@mail.example.org ") && !signupEmailReady("") && !signupEmailReady("anna@") && !signupEmailReady("anna@site") && !signupEmailReady("anna@site.c") && !signupEmailReady("an na@site.co") && !signupEmailReady(`${"a".repeat(250)}@x.co`) && !signupEmailReady(null))
   check("waiting is a filter, eased with the button's own timing", signupWait(false).filter === "opacity(0.45)" && signupWait(true).filter === undefined && /filter/.test(signupWait(true).transitionProperty))
   const live = read("components/onepage/public-onepage.tsx")
-  check("the email block's three shapes wait for an address", (live.match(/!emailReady/g) ?? []).length >= 3 && /signupWait\(emailReady \|\| isSubmitting(, \{[^}]*\})?\)/.test(live))
-  check("the Subscribe sheet and a free gift's form too", /disabled=\{busy \|\| done \|\| !signupEmailReady\(email\)\}/.test(read("components/onepage/subscribe-sheet.tsx")) && /disabled=\{sending \|\| !signupEmailReady\(email\)\}/.test(read("components/onepage/storelib-blocks.tsx")))
+  /* Changed on purpose (round AT): the owner wants Subscribe at full strength while the box is empty; the address is checked on the press (tests/onepage-at2.test.ts). */
+  check("the email block's three shapes check the address on the press, never faded", !/!emailReady/.test(live) && !/signupWait\(/.test(live) && /if \(!signupEmailReady\(email\)\) \{\s*setLeadError/.test(live))
+  check("the Subscribe sheet and a free gift's form too", /disabled=\{busy \|\| done\}/.test(read("components/onepage/subscribe-sheet.tsx")) && /disabled=\{sending\}/.test(read("components/onepage/storelib-blocks.tsx")))
 
   section("SQL part 442")
   const sql = read("supabase/sql/run-now/442_onepage_tip_source.sql")

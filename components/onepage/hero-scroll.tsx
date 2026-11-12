@@ -358,7 +358,7 @@ export function HeroTopBar({
         A computer (round R3): the card's own top, its full 550px (components/onepage/public-onepage), at the top of
         the window, where the card keeps its 40px corners as it scrolls; the corners are app/globals.css's.
       */
-      className="op-topbar fixed inset-x-0 top-0 z-[19] pt-[env(safe-area-inset-top)] will-change-[opacity] md:inset-x-[max(16px,calc(50%_-_275px))] md:pt-0"
+      className="op-topbar fixed inset-x-0 top-0 z-[19] pt-[var(--op-safe-top,0px)] will-change-[opacity] md:inset-x-[max(16px,calc(50%_-_275px))] md:pt-0"
       style={style}
     >
       <button

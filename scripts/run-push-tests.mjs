@@ -889,6 +889,8 @@ const SUITES = [
   "tests/onepage-ar5.test.ts",
   /* Round AS (track 1): every theme card is a fictional creator's page drawn with the page's own helpers (no grey bars, its own chunk), Plaster (its structure, colours, cover and names), and no glow nobody chose (the guard's hairline, no theme's ring, a faint Glow). scripts/check-onepage-theme-previews-as1.mjs and scripts/check-onepage-glow-as1.mjs measure them. */
   "tests/onepage-as1.test.ts",
+  /* Round AT (track 1): every theme card draws the account's own page (its name, photo or monogram, socials, links, products and newsletter, samples for the rest; components/onepage/themes/preview-account), links as the page's .op-btn with the theme's hover, nothing selectable; Plaster is Stoicism (a stone skin, ivory tablets, its cover kept, saved pages moved with their own changes) and Dune is new. scripts/check-onepage-theme-previews-as1.mjs measures the cards against the live page. */
+  "tests/onepage-at1.test.ts",
   "tests/onepage-themes-w8.test.ts",
   /* Round W9: six themes with a skin (Aero, Aqua, Messenger, Y2K, Playful, Grunge): every text and button pair and every colour the skin paints read at 4.5:1, the skin carried by both roots and the theme card, the generated stylesheet current and styling every kind of block, motion by transform and opacity only and still for reduced motion and in cards, the skin laid on and taken off with the theme. scripts/shot-onepage-skins.mjs photographs them. */
   "tests/onepage-themes-w9.test.ts",
@@ -1052,6 +1054,8 @@ const SUITES = [
   "tests/header-round8.test.ts",
   "tests/native-app-links.test.ts",
   "tests/native-shell.test.ts",
+  /* Round AT (AT3): opening the phone app. The shell opens the gate itself and the gate lands in one router.replace; no spinner under the launch screen, Android's overlay kept up over the gate, iOS's launch screen down on every /app page once the session gate lets it draw; nobody signed in goes to /welcome without the Supabase client, only on proof of no session; scripts/check-app-launch-at3.mjs measures it in Chromium. */
+  "tests/app-launch-at3.test.ts",
   "tests/account-round11.test.ts",
   "tests/elastic-and-landings.test.ts",
   "tests/communities-shell15.test.ts",
@@ -1476,6 +1480,8 @@ const STRICT_SUITES = [
   "tests/onepage-shell-r3.test.ts",
   /* Round AS (track 2): Share and Subscribe clear of the editor phone's rounded screen (its own radius, concentric) and of a notch (safe area, no device check); Terms, Privacy and Cookies as tabs of one fixed height sheet with a sliding thumb and a fade through; cookie choices saved as pressed (never in the preview); Report as a checked form with a thanks in the same place; Back and Tab. scripts/check-onepage-as2.mjs measures them at 390 and 1440. */
   "tests/onepage-as2.test.ts",
+  /* Round AT (track 2): Subscribe at full strength, checked on the press; every Links row with the block's own picture (a map of the place, a still, a cover, a preview image); + Add tinted only by a resting finger and opened only by a tap; a haptic on Share; the preview frame with no notch inset, so the profile bar is slim under the editor's; Preview warmed while idle and switched without a layout; the Design panels' sticky way back on its own layer; a block's stats period as a sheet on a phone. scripts/check-onepage-at2.mjs measures them at 390 and 1440. */
+  "tests/onepage-at2.test.ts",
   "tests/onepage-w8.test.ts",
   /* Round AR3: every block type's settings panel drawn and visible (image 137), music and video layouts with Storelib's own player, Cover, Fit and Full, links shown in place (Calendly, Typeform, Canva, Google Maps, podcasts), oEmbed cards from recorded answers, Fourthwall and Bonfire retired, followers from one field, more links in one block. scripts/check-onepage-ar3.mjs measures the layout matrix, the embeds and the settings at 390 and 1440. */
   "tests/onepage-ar3.test.ts",

@@ -10,9 +10,10 @@
  * The real OnePage editor and the real live page (scripts/onepage-probe-server.mjs,
  * scripts/render-onepage-editor.tsx ?live&template=<id>&creator):
  *
- *   SIDE BY SIDE  each theme's live page, built from the same creator the
- *                 card draws (components/onepage/themes/preview-content,
- *                 the blocks in the card's order), at 390, beside its card,
+ *   SIDE BY SIDE  each theme's live page, built from the same account the
+ *                 card draws (round AT: components/onepage/themes/preview-account,
+ *                 the editor's own page and its samples, in the card's
+ *                 order), at 390, beside its card,
  *                 in side-by-side-<id>.png and side-by-side.png.
  *   MATCH         read from both: the background, the name's face and
  *                 colour, the avatar's size and place, the first link's
@@ -27,9 +28,11 @@
  *                 CPU slowed four times.
  *   TEXT          no two text boxes in a card meet, none runs out of the
  *                 card or is cut, none is squeezed.
+ *   WHOLE         (round AT) every card shows a link whole, its avatar is
+ *                 inside the card, and nothing on it can be selected.
  *
  *   node scripts/check-onepage-theme-previews-as1.mjs
- *   SHOTS=/some/dir THEMES=plaster,folio PARTS=side node scripts/check-onepage-theme-previews-as1.mjs
+ *   SHOTS=/some/dir THEMES=stoicism,folio PARTS=side node scripts/check-onepage-theme-previews-as1.mjs
  */
 import { existsSync, mkdirSync, mkdtempSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -184,6 +187,8 @@ if (PARTS.has("side")) {
     await sleep(150)
     const cardShot = await card.screenshot()
     const cardLook = await ed.evaluate(`(${readLook})(document.querySelector('[data-theme-card="${t.id}"] [data-tp-page]'))`)
+    /* Round AT: a Hero card shows the page scrolled 170px into its picture (theme-preview HERO_CARD_SHIFT), so its places are read as the page's. */
+    if (await ed.$(`[data-theme-card="${t.id}"] [data-tp-header="hero"]`)) cardLook.tops = cardLook.tops.map((y) => (y === null ? null : y + 170))
     const W = 780, H = 1092
     const a = await sharp(liveShot).resize(W, H, { fit: "cover", position: "top" }).png().toBuffer()
     const b = await sharp(cardShot).resize(W, H, { fit: "cover", position: "top" }).png().toBuffer()
@@ -244,7 +249,7 @@ if (PARTS.has("side")) {
 
 /* ── The grid: drawn whole, its cost, and its words ── */
 const textReport = (scope) => {
-  const out = { cards: 0, texts: 0, meet: [], out: [], cut: [], squeezed: [], bars: [], empty: [] }
+  const out = { cards: 0, texts: 0, meet: [], out: [], cut: [], squeezed: [], bars: [], empty: [], nolink: [], avatar: [], selectable: [] }
   const clipBox = (el, stop) => {
     for (let n = el.parentElement; n && n !== stop.parentElement; n = n.parentElement) {
       const s = getComputedStyle(n)
@@ -264,6 +269,12 @@ const textReport = (scope) => {
       if (r.height > 0 && r.height <= 4 && r.width > 12 && cs.backgroundColor !== "rgba(0, 0, 0, 0)" && cs.borderRadius !== "0px") out.bars.push(id)
     }
     if (!card.querySelector("[data-tp-blocks] [data-tp-label], [data-tp-blocks] [data-tp-product], [data-tp-blocks] [data-tp-news]")) out.empty.push(id)
+    /* Round AT: a link drawn whole inside the card, the avatar inside it, and no words that can be selected. */
+    const whole = (r) => r.width > 0 && r.left >= frame.left - 0.5 && r.right <= frame.right + 0.5 && r.top >= frame.top - 0.5 && r.bottom <= frame.bottom + 0.5
+    if (![...card.querySelectorAll("[data-tp-link], [data-tp-card]")].some((l) => whole(l.getBoundingClientRect()))) out.nolink.push(id)
+    const av = card.querySelector("[data-tp-avatar]")
+    if (av && !whole(av.getBoundingClientRect())) out.avatar.push(id)
+    if (getComputedStyle(card).userSelect !== "none" || getComputedStyle(card.querySelector("[data-tp-page]")).userSelect !== "none") out.selectable.push(id)
     const boxes = []
     const walk = document.createTreeWalker(card, NodeFilter.SHOW_TEXT)
     for (let n = walk.nextNode(); n; n = walk.nextNode()) {
@@ -331,9 +342,10 @@ if (PARTS.has("cost") || PARTS.has("text")) {
     console.log(`  ${nodes.shown} cards shown, ${nodes.all} kept in all the kinds' grids; DOM nodes per card: mean ${nodes.mean}, most ${nodes.max}; the whole document ${nodes.document}`)
     if (PARTS.has("text")) {
       const r = await p.evaluate(`(${textReport})("[data-theme-kind-shown]")`)
-      console.log(`  ${r.cards} cards, ${r.texts} text boxes: ${r.meet.length} meet, ${r.out.length} run out, ${r.cut.length} cut, ${r.squeezed.length} squeezed; ${r.bars.length} grey bars; ${r.empty.length} cards without blocks`)
-      for (const k of ["meet", "out", "cut", "squeezed", "bars", "empty"]) for (const x of [...new Set(r[k])].slice(0, 8)) console.log(`    ${k}: ${x}`)
-      for (const k of ["meet", "out", "cut", "squeezed", "bars", "empty"]) if (r[k].length) problems.push(`${width}: ${r[k].length} ${k}`)
+      console.log(`  ${r.cards} cards, ${r.texts} text boxes: ${r.meet.length} meet, ${r.out.length} run out, ${r.cut.length} cut, ${r.squeezed.length} squeezed; ${r.bars.length} grey bars; ${r.empty.length} cards without blocks; ${r.nolink.length} without a whole link; ${r.avatar.length} avatars cut; ${r.selectable.length} selectable`)
+      const KINDS = ["meet", "out", "cut", "squeezed", "bars", "empty", "nolink", "avatar", "selectable"]
+      for (const k of KINDS) for (const x of [...new Set(r[k])].slice(0, 8)) console.log(`    ${k}: ${x}`)
+      for (const k of KINDS) if (r[k].length) problems.push(`${width}: ${r[k].length} ${k}`)
     }
     const grid = await p.$("[data-theme-grid]")
     await grid.evaluate((e) => e.scrollIntoView({ block: "start" }))

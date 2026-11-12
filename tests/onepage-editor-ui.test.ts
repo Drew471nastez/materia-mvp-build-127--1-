@@ -358,7 +358,7 @@ function main() {
     */
     const preview = read("components/onepage/themes/theme-preview.tsx")
     check("a theme card's avatar is the page's fixed square box that cannot be stretched or squashed",
-      /<ThemePreview\b/.test(card) && /data-theme-avatar=""[\s\S]{0,120}className="relative block shrink-0 shadow-lg"[\s\S]{0,80}width: look\.size,\s*height: look\.size,/.test(preview) && !/w-\[22%\]/.test(card))
+      /<ThemePreview\b/.test(card) && /data-theme-avatar=""[\s\S]{0,120}className="relative flex shrink-0 items-center justify-center overflow-hidden text-2xl font-semibold shadow-lg"[\s\S]{0,80}width: look\.size,\s*height: look\.size,/.test(preview) /* Changed on purpose (round AT): it clips the photo to its shape and holds the monogram. */ && !/w-\[22%\]/.test(card))
     /* Changed on purpose (round AL): 2. Theme's "Update to Classic" question, with its little page, is gone; a Classic theme keeps a creator's Hero now. */
     check("the layout pictures in the Header panel are circles that cannot shrink", (design.match(/data-layout-avatar="" className="(h-7 w-7|w-10 h-10) aspect-square shrink-0 rounded-full/g) ?? []).length === 2)
     check("the live page's avatar keeps its own square box in the column", /data-page-avatar="" style=\{\{ width: avatarSize, height: avatarSize, aspectRatio: "1 \/ 1", flexShrink: 0/.test(read("components/onepage/public-onepage.tsx")))
@@ -367,7 +367,7 @@ function main() {
     const onboarding = read("components/onepage/onboarding-modal.tsx")
     /* One card at every width now (the phone's grid and the computer's carousel were two copies of it), so one circle, sized once. */
     /* Changed on purpose (round AQ): the onboarding's cards are the Design tab's preview, whose avatar (checked above) is the theme's own shape at its own size, the creator's photo in it. */
-    check("the onboarding's theme cards keep the creator's picture in the preview's own avatar", /<ThemePreview c=\{look\} id=\{template\.id\} kind=\{template\.category\} name=\{name\} thumb=\{themeThumbSrc\} photo=\{photo\} \/>/ /* Changed on purpose (round AS): the card names its theme, whose creator it draws around the person's own name and photo. */.test(onboarding) && /\{face \? <img src=\{face\}[^>]*className="block h-full w-full object-cover" \/> : null\}/.test(read("components/onepage/themes/theme-preview.tsx")))
+    check("the onboarding's theme cards keep the creator's picture in the preview's own avatar", /<ThemePreview c=\{look\} who=\{who\} thumb=\{themeThumbSrc\} \/>/ /* Changed on purpose (round AT): the person's own page so far. */ /* Changed on purpose (round AS): the card names its theme, whose creator it draws around the person's own name and photo. */.test(onboarding) && /\{face \? <img src=\{onePageImageSrc\(face, 160\)\}[^>]*className="block h-full w-full rounded-\[inherit\] object-cover" \/> :/.test(read("components/onepage/themes/theme-preview.tsx")))
   }
 
   section("+ Add")

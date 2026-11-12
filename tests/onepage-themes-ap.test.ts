@@ -91,7 +91,7 @@ for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
 }
 check("the card and its label show the name in the reader's language", /const name = themeLabel\(template\)/.test(design) && /aria-label=\{tt\("\{name\} theme", \{ name \}\)\}/.test(design))
 /* Changed on purpose (round W8): the cut carries the names in capitals too, for the themes that set their name in capitals. */
-check("the names' faces are cut to the letters of the names as the language spells them", /const names = THEME_TEMPLATES\.map\(\(t\) => themeLabel\(t\)\)\.join\(""\); return onePageFontSampleHref\(THEME_NAME_FAMILIES, names \+ names\.toUpperCase\(\) \+ PREVIEW_LETTERS\)/.test(design) /* Changed on purpose (round AS): and the letters the cards' creators, links and prices use. */)
+check("the names' faces are cut to the letters of the names as the language spells them", /const names = THEME_TEMPLATES\.map\(\(t\) => themeLabel\(t\)\)\.join\(""\);[^\n]*return onePageFontSampleHref\(THEME_NAME_FAMILIES, names \+ names\.toUpperCase\(\) \+ PREVIEW_LETTERS \+ extra/.test(design) /* Changed on purpose (round AT): and any letter of the creator's own words outside the alphabet. */ /* Changed on purpose (round AS): and the letters the cards' creators, links and prices use. */)
 
 console.log("\nA theme card is the page, at a card's scale")
 const preview = read("components/onepage/themes/theme-preview.tsx")
@@ -106,7 +106,7 @@ check("the Design tab measures one card for the whole grid", /grid\.style\.setPr
 {
   /* Round AQ: the onboarding's template step draws the same preview, at one scale for its grid, with no webfonts. */
   const onboarding = readFileSync(join(process.cwd(), "components/onepage/onboarding-modal.tsx"), "utf8")
-  check("the onboarding's template cards are the Design tab's preview", /<ThemePreview c=\{look\} id=\{template\.id\} kind=\{template\.category\} name=\{name\} thumb=\{themeThumbSrc\} photo=\{photo\} \/>/ /* Changed on purpose (round AS): the card names its theme, whose creator it draws around the person's own name and photo. */.test(onboarding) && /scaleThemePreviews\(grid, "\[data-template-frame\]"\)/.test(onboarding) && /aspect-\[4\/5\]/.test(onboarding))
+  check("the onboarding's template cards are the Design tab's preview", /<ThemePreview c=\{look\} who=\{who\} thumb=\{themeThumbSrc\} \/>/ /* Changed on purpose (round AT): the person's own page so far (name, photo, socials, samples). */ /* Changed on purpose (round AS): the card names its theme, whose creator it draws around the person's own name and photo. */.test(onboarding) && /scaleThemePreviews\(grid, "\[data-template-frame\]"\)/.test(onboarding) && /aspect-\[4\/5\]/.test(onboarding))
   check("the onboarding draws no hand made template card and loads no name faces", !/TEMPLATE_THUMBS/.test(onboarding) && !/themeNameFontsHref/.test(onboarding) && !/<WallpaperPattern/.test(onboarding))
 }
 check("no state and no effects inside a card", !/use(State|Effect|LayoutEffect|Ref)\(/.test(preview))

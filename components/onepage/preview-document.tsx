@@ -302,6 +302,20 @@ export function OnePagePreviewDocument() {
     curve. Set before the first paint, so they never move once drawn.
   */
   useLayoutEffect(() => {
+    /*
+      ROUND AT: THE FRAME HAS NO NOTCH. The head script marks this document
+      before its first paint (app/(storelib)/layout.tsx); this says it again
+      before the page is drawn, for a document that did not run it, and
+      takes off the app class, whose status bar shield belongs to the screen.
+      --op-safe-top is then 0 here (app/globals.css), so the profile bar is
+      its slim 60px under the editor's own bar.
+    */
+    if (window.self !== window.top) {
+      document.documentElement.setAttribute("data-onepage-embedded", "")
+      document.documentElement.classList.remove("capacitor")
+    }
+  }, [])
+  useLayoutEffect(() => {
     const corner = Number(new URLSearchParams(window.location.search).get("corner"))
     if (Number.isFinite(corner) && corner > 0 && corner < 200) document.documentElement.style.setProperty("--onepage-screen-radius", `${corner}px`)
   }, [])

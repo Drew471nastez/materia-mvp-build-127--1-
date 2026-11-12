@@ -30,7 +30,7 @@ const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 const shots = process.env.SHOTS || mkdtempSync(join(tmpdir(), "storelib-skins-"))
 mkdirSync(shots, { recursive: true })
-const THEMES = (process.env.THEMES || "aero,aqua,messenger,y2k,playful,grunge,aero2,aqua2,messenger2,y2k2,playful2,grunge2,classic98,vaporwave,arcade,renaissance").split(",")
+const THEMES = (process.env.THEMES || "aero,aqua,messenger,y2k,playful,grunge,aero2,aqua2,messenger2,y2k2,playful2,grunge2,classic98,vaporwave,arcade,renaissance,stoicism").split(",")
 const LAYOUTS = (process.env.LAYOUTS || "own,list,grid,cards,compact,masonry").split(",")
 const WIDTHS = (process.env.WIDTHS || "390,1280").split(",").map(Number)
 const FULL = process.env.FULL !== "0"

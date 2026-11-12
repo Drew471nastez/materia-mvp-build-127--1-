@@ -71,7 +71,8 @@ check("the same position again changes nothing", cornerNext(down, 400) === down)
 check("the page renders no state of its own on a scroll", !/buttonsVisible/.test(page) && !/lastScrollY/.test(page) && (page.match(/useCornerButtonsShown\(\)/g) || []).length === 2)
 check("one shared listener, held between the top and the page's end", /window\.addEventListener\("scroll", onCornerScroll, \{ passive: true \}\)/.test(bar) && /Math\.min\(Math\.max\(0, window\.scrollY\), end\)/.test(bar))
 check("the box only moves and the button fades, so the frosted fill never drops", /const CORNER_BOX_CLASS = "[^"]*will-change-\[translate\] transition-\[translate\]/.test(page) && /const CORNER_BUTTON_CLASS = "[^"]*will-change-\[opacity\] transition-opacity/.test(page) && !/transition-\[opacity,translate\] duration-500/.test(page))
-check("on a phone they sit on the bar's row, under the status bar", /top-\[calc\(env\(safe-area-inset-top\)\+10px\)\]/.test(page))
+/* Changed on purpose (round AT): through --op-safe-top, the notch on a phone and 0 inside the editor's preview frame. */
+check("on a phone they sit on the bar's row, under the status bar", /top-\[calc\(var\(--op-safe-top,0px\)\+10px\)\]/.test(page))
 
 /* ── The fade layout and the cover ── */
 const stops = (m: string) => (m.match(/rgba\(/g) || []).length

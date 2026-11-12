@@ -402,7 +402,7 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
       return
     }
     const address = email.trim().toLowerCase()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+    if (!signupEmailReady(address)) {
       setError(tt("Enter a valid email address."))
       return
     }
@@ -545,8 +545,8 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
                 className="h-12 w-full rounded-xl border border-[#e3e4e8] bg-white px-4 text-[16px] text-[#111113] outline-none transition-[border-color,box-shadow] focus:border-[#111113] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.08)]"
               />
               {error ? <p role="alert" className="text-[13px] text-[#b42318]">{error}</p> : null}
-              {/* Round AS: waits, faded, until the address could be taken (lib/onepage/email-signup signupEmailReady). */}
-              <button type="submit" disabled={sending || !signupEmailReady(email)} data-email-ready={signupEmailReady(email) ? "" : undefined} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#111113] text-[15px] font-semibold text-white transition-opacity duration-200 ease-out disabled:cursor-not-allowed disabled:opacity-45">
+              {/* Changed on purpose (round AT): at full strength from the start; submit checks the address and shows the error above. */}
+              <button type="submit" disabled={sending} data-email-ready={signupEmailReady(email) ? "" : undefined} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#111113] text-[15px] font-semibold text-white transition-opacity duration-200 ease-out disabled:cursor-not-allowed disabled:opacity-45">
                 {sending ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : null}
                 {button}
               </button>

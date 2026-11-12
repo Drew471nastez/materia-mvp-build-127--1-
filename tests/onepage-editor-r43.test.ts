@@ -95,7 +95,8 @@ function main() {
 
   section("6. A block's stats")
   {
-    check("the period is a popover over the stats, not inline", /<DateRangePicker value=\{statsPeriod\} onChange=\{setStatsPeriod\} today=\{statsToday\} overlay \/>/.test(tab) && /if \(phone && !overlay\)/.test(picker) && /data-drp-overlay/.test(picker))
+    /* Changed on purpose (round AT): on a phone the overlay picker is a sheet above the stats sheet; a computer keeps the popover. */
+    check("the period is a popover over the stats, not inline", /<DateRangePicker value=\{statsPeriod\} onChange=\{setStatsPeriod\} today=\{statsToday\} overlay \/>/.test(tab) && /if \(phone\) \{/.test(picker) && /zIndex=\{overlay \? OVERLAY_SHEET_Z : undefined\}/.test(picker) && /data-drp-overlay/.test(picker))
     check("See in Analytics, through the router", /<NextLink\s+href=\{blockAnalyticsHref\(statsPeriod/.test(tab) && /tt\("See in Analytics"\)/.test(tab))
     check("to the OnePage's Top links on the same period", blockAnalyticsHref({ preset: "last_7_days", start: "2026-10-22", end: "2026-10-28" } as never, "clicks") === "/app/analytics?property=onepage&report=links")
     check("a custom period goes with it", blockAnalyticsHref({ preset: "custom", start: "2026-10-01", end: "2026-10-10" } as never, "clicks") === "/app/analytics?property=onepage&range=custom&from=2026-10-01&to=2026-10-10&report=links")

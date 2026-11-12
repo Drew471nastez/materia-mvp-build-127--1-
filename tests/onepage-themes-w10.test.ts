@@ -119,7 +119,7 @@ for (const t of W10_THEMES) {
 }
 check("the two pixel faces are loaded, each with a fallback of its kind", ONEPAGE_FONTS["Pixelify Sans"] === "400;500;600;700" && ONEPAGE_FONTS["Press Start 2P"] === null && /monospace$/.test(fontStack("Press Start 2P")) && /sans-serif$/.test(fontStack("Pixelify Sans")))
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }, { id: "c", category: "dark" }]).map((t) => t.id).join(",")
-check("each joins the end of its kind, after round W9's", merged.includes("grunge,aqua2,messenger2,grunge2,b") && merged.includes("aero,y2k2,vaporwave,c") && merged.endsWith("y2k,aero2,playful2,classic98,arcade,plaster,atlas") /* Changed on purpose (round AS): Plaster after them. */, merged)
+check("each joins the end of its kind, after round W9's", merged.includes("grunge,aqua2,messenger2,grunge2,b") && merged.includes("aero,y2k2,vaporwave,dune,c") && merged.endsWith("y2k,aero2,playful2,classic98,arcade,stoicism,atlas") /* Changed on purpose (round AT): Stoicism (was Plaster), and Dune after the gradients. */ /* Changed on purpose (round AS): Plaster after them. */, merged)
 
 console.log("\nEvery word a skin paints under, read on it (at 4.5:1, and still at 70%)")
 const pairs = JSON.parse(execFileSync(process.execPath, ["scripts/build-onepage-skins.mjs", "--pairs"], { encoding: "utf8", maxBuffer: 1 << 24 })) as Array<{ skin: string; what: string; ink: string; under: string[]; faded?: boolean }>

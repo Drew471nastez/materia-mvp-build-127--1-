@@ -1461,50 +1461,61 @@ export const W10_THEMES = [
 
 /**
  * ===========================================================================
- *  PLASTER (ROUND AS): A CAST STUDY ON A BLACK GROUND
+ *  STOICISM (ROUND AT, WAS PLASTER IN ROUND AS) AND DUNE (ROUND AT)
  * ===========================================================================
- * The owner's two pictures: a chalk drawing of a classical head on black,
- * half shaded and half construction lines, and a dark editorial page with a
- * big serif and thin ruled columns. Plaster is its own take: a black ground,
- * a head in profile drawn in SVG (public/images/onepage-themes/plaster.svg,
- * 4KB, our own drawing) as the cover, half modelled in a plaster white and
- * half left as line work over a ruled grid and a construction circle; a
- * large Instrument Serif for the name, set tight; thin chalk rules for every
- * button (Outline, one pixel, square ends) that fill with chalk under the
- * pointer; products as ruled rows; the header set flush left so the photo
- * sits under the empty half of the drawing.
+ * The owner: "The new theme, plaster, is bad ... It should be called
+ * stoicism and should be more good and clean and like with some background,
+ * more complex", "from the plaster, I like the cover ... you can keep it".
+ *
+ * Stoicism keeps Plaster's cover (public/images/onepage-themes/plaster.svg,
+ * our own drawing of a head in profile, half modelled and half line work)
+ * and its large Instrument Serif set tight and flush left. What was a black
+ * page with one-pixel white outlines is now a page cut in dark stone: faint
+ * pale veins, a fine grain, a geometer's construction drawn very faintly over
+ * the top and a vignette (its skin, scripts/onepage-skins/stoicism.mjs).
+ * Links are solid ivory tablets with a fine inner rule, in spaced capitals,
+ * that turn to stone with ivory words under the pointer; products are rows
+ * on stone panels framed by two hairlines. A page saved on "plaster" is
+ * moved to it when read (lib/onepage/retired-themes), the creator's own
+ * changes kept.
+ *
+ * Dune: "one more theme better with pattern or background, very clean and
+ * smooth". Warm sand that clears to a pale morning at the top, with fine
+ * contour lines over it like a map of the dunes (the Contours pattern), pill
+ * shaped frosted buttons that lift under the pointer, Manrope throughout and
+ * products as tiles. Light, quiet, and unlike any other theme in structure.
  */
 export const AS_THEMES = [
   {
-    id: "plaster",
-    name: "Plaster",
+    id: "stoicism",
+    name: "Stoicism",
     category: "dark",
     theme_config: {
       background_type: "solid" as const,
-      background_color: "#0b0b0a",
+      background_color: "#0e0e0d",
       background_gradient: "",
       background_image_url: "",
-      text_color: "#ece8df",
-      secondary_text_color: "#a9a49a",
-      button_color: "#ece8df",
-      button_text_color: "#ece8df",
-      button_style: "outline" as const,
+      text_color: "#ece6da",
+      secondary_text_color: "#aaa396",
+      button_color: "#ece6da",
+      button_text_color: "#121110",
+      button_style: "filled" as const,
       button_border_radius: 0,
       button_border_width: 1,
-      button_border_color: "#ece8df",
+      button_border_color: "#ece6da",
       button_shadow: "none",
       button_hover_animation: "fill",
-      button_hover_fill: "#ece8df",
-      button_hover_text: "#0b0b0a",
+      button_hover_fill: "#0e0e0d",
+      button_hover_text: "#ece6da",
       font_family: "'Inter', sans-serif",
       title_font: "'Instrument Serif', serif",
-      title_color: "#f4f1ea",
+      title_color: "#f4efe6",
       title_size: "large",
       title_weight: 400,
       title_tracking: "tight",
-      social_icon_color: "#ece8df",
-      social_icon_style: "minimal",
-      spacing: "normal" as const,
+      social_icon_color: "#ece6da",
+      social_icon_style: "outline",
+      spacing: "comfortable" as const,
       card_width: "standard" as const,
       header_layout: "classic",
       laser_glow_enabled: false,
@@ -1514,16 +1525,63 @@ export const AS_THEMES = [
       header_align: "left",
       avatar_size: "small",
       avatar_border_width: 1,
-      avatar_border_color: "#ece8df",
+      avatar_border_color: "#ece6da",
       cover_image_url: "https://storelib.com/images/onepage-themes/plaster.svg",
+      theme_skin: "stoicism",
     },
     profile_layout: "classic" as const,
-    light_button_text_color: "#ece8df",
-    solid_button_text_color: "#0b0b0a",
-    outline_button_text_color: "#ece8df",
-    glass_button_text_color: "#ece8df",
+    light_button_text_color: "#121110",
+    solid_button_text_color: "#121110",
+    outline_button_text_color: "#ece6da",
+    glass_button_text_color: "#ece6da",
     share_style: "black",
     subscribe_style: "black",
+  },
+  {
+    id: "dune",
+    name: "Dune",
+    category: "gradient",
+    theme_config: {
+      background_type: "gradient" as const,
+      background_color: "#efe6d8",
+      background_gradient: "linear-gradient(180deg, #f6f3ee 0%, #f1e8db 38%, #e9dac4 100%)",
+      background_image_url: "",
+      text_color: "#2c2219",
+      secondary_text_color: "#5e4f3f",
+      button_color: "#ffffff",
+      button_text_color: "#2c2219",
+      button_style: "glass" as const,
+      button_border_radius: 999,
+      button_border_width: 1,
+      button_border_color: "#ffffffcc",
+      button_shadow: "subtle",
+      button_shadow_color: "#6b5236",
+      button_hover_animation: "lift",
+      font_family: "'Manrope', sans-serif",
+      title_font: "'Manrope', sans-serif",
+      title_color: "#2c2219",
+      title_weight: 700,
+      title_tracking: "tight",
+      social_icon_color: "#2c2219",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "topographic",
+      pattern_color: "#8a6a4430",
+      pattern_opacity: "low",
+      block_layout: "list",
+      product_layout: "grid",
+      header_align: "center",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#2c2219",
+    solid_button_text_color: "#2c2219",
+    outline_button_text_color: "#2c2219",
+    glass_button_text_color: "#2c2219",
+    share_style: "white",
+    subscribe_style: "white",
   },
 ]
 

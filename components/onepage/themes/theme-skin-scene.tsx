@@ -43,6 +43,7 @@ const PIECES: Record<ThemeSkin, ReadonlyArray<readonly [string, number]>> = {
   vaporwave: [["stars", 1], ["sun", 1], ["mountains", 1], ["floor", 1], ["horizon", 1], ["palm", 2], ["vhs", 1]],
   arcade: [["stars", 1], ["twinkle", 5], ["coin", 2], ["hills", 1], ["hud", 1], ["crt", 1]],
   renaissance: [["sky", 1], ["painting", 1], ["scrim", 1], ["frame", 1]],
+  stoicism: [["stone", 1], ["grid", 1], ["construction", 1], ["vignette", 1]],
 }
 
 export function ThemeSkinScene({

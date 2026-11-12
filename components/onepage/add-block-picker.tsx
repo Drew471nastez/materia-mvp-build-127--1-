@@ -53,6 +53,7 @@ import * as React from "react"
 import { ChevronRight, Plus, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AppMark, INSTAGRAM_FILL, IntegrationMark, brandColor, isMulticolorMark, markOn } from "@/components/onepage/brand-icons"
+import { accentNoActive } from "@/components/ui/depth-button"
 import { EXTRA_BLOCK_CATALOG } from "@/components/onepage/extra-blocks"
 import {
   APP_GLYPHS,
@@ -95,6 +96,7 @@ import { tt } from "@/lib/i18n/text"
 import { PillTabs } from "@/components/onepage/pill-tabs"
 import { landContent } from "@/lib/ui/pill-switch"
 import { hapticTap, isNativeApp } from "@/lib/native-bridge"
+import { TAP_SLOP_PX } from "@/lib/gestures/use-tap"
 
 /* ─── The + on + Add ──────────────────────────────────────────────────── */
 
@@ -192,15 +194,70 @@ export function AddSheetGate({ children }: { children: (open: boolean) => React.
  * + Add itself. `fromButton` is LinksTab's: no card or group is waiting for
  * the block, so the sheet that is up is this button's, and its + shows it.
  */
+/*
+  ROUND AT, THE OWNER: "when I hover over the plus add button ... it doesn't apply a fade ... because it gets confused
+  by my actual scroll." On a phone a finger that lands on + Add to scroll the list set :active, so the button darkened
+  over 280ms and faded back as the scroll took over, and a short drag could still count as a press. Now:
+    - a mouse's hover tint is only where there is a hover (Tailwind's hover: is `@media (hover: hover)`);
+    - the press tint is data-pressed, set by the pointer, not :active: at once for a mouse, and for a finger only once it
+      has rested ADD_PRESS_DELAY_MS without travelling TAP_SLOP_PX, so a scroll never tints it;
+    - the sheet opens on the click, as before (not on pointerup: the click the browser makes after a touch would land
+      on the sheet's own scrim and close it at once), and a click that ends a gesture which travelled more than
+      TAP_SLOP_PX (lib/gestures/use-tap), or that the browser took over as a scroll, is not a press. Enter and Space
+      still open it.
+*/
+export const ADD_PRESS_DELAY_MS = 90
+
 export function AddBlockButton({ fromButton, className, onPress, children }: { fromButton: boolean; className?: string; onPress: () => void; children: React.ReactNode }) {
   const open = useAddSheetOpen() && fromButton
+  const [pressed, setPressed] = React.useState(false)
+  const press = React.useRef<{ x: number; y: number; timer: number } | null>(null)
+  /* The gesture that ends in the next click travelled, or became a scroll: that click is not a press. */
+  const scrolled = React.useRef(false)
+  const letGo = () => {
+    if (press.current) window.clearTimeout(press.current.timer)
+    press.current = null
+    setPressed(false)
+  }
+  React.useEffect(() => () => {
+    if (press.current) window.clearTimeout(press.current.timer)
+  }, [])
   return (
     <button
       type="button"
       data-add-block=""
       data-open={open ? "" : undefined}
+      data-pressed={pressed ? "" : undefined}
       aria-expanded={open}
-      onClick={() => {
+      onPointerDown={(e) => {
+        scrolled.current = false
+        if (e.pointerType === "mouse" && e.button !== 0) return
+        if (press.current) window.clearTimeout(press.current.timer)
+        const timer = e.pointerType === "mouse" ? 0 : window.setTimeout(() => setPressed(true), ADD_PRESS_DELAY_MS)
+        press.current = { x: e.clientX, y: e.clientY, timer }
+        if (e.pointerType === "mouse") setPressed(true)
+      }}
+      onPointerMove={(e) => {
+        const p = press.current
+        if (p && (Math.abs(e.clientX - p.x) > TAP_SLOP_PX || Math.abs(e.clientY - p.y) > TAP_SLOP_PX)) {
+          scrolled.current = true
+          letGo()
+        }
+      }}
+      onPointerUp={letGo}
+      onPointerCancel={() => {
+        /* The browser took the gesture over: a scroll. */
+        scrolled.current = true
+        letGo()
+      }}
+      onPointerLeave={() => {
+        if (press.current) letGo()
+      }}
+      onClick={(e) => {
+        /* detail 0 is Enter or Space: a key press always opens it. */
+        const wasScroll = scrolled.current && e.detail > 0
+        scrolled.current = false
+        if (wasScroll) return
         /* A light tick in the iOS and Android apps; a browser feels nothing (lib/native-bridge). */
         if (isNativeApp()) hapticTap("light")
         onPress()
@@ -210,6 +267,10 @@ export function AddBlockButton({ fromButton, className, onPress, children }: { f
         className,
         /* Round AN: the colour and the shade settle on the + 's clock (ADD_PLUS_MS on ADD_PLUS_EASE); a press is a tint only, never a scale. */
         "transition-[background-color,box-shadow] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-[open]:bg-[#7c3aed] motion-reduce:transition-none",
+        /* Round AT: no :active tint (a scroll that starts here sets it); the press is data-pressed, above, quick to come and go. */
+        "touch-manipulation",
+        accentNoActive,
+        "data-[pressed]:bg-[#6d28d9] data-[pressed]:shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)] data-[pressed]:duration-100",
       )}
     >
       <AddBlockPlus open={open} />
