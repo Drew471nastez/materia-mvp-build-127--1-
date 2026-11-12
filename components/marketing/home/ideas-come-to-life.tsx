@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import { Pause, Play } from "lucide-react"
 import { StoryHeading } from "@/components/marketing/story-heading"
 import { FRAME_CSS, MockFrame } from "./showcase-mocks/frame"
@@ -46,10 +47,19 @@ export const IDEAS_TABS = [
   },
 ] as const
 
+/* The mocks never change once drawn; switching tabs re-renders only the frame around them. */
+const IdeasMock = memo(function IdeasMock({ i }: { i: number }) {
+  const { Mock, alt } = IDEAS_TABS[i]
+  return (
+    <MockFrame label={alt} className="ideas-mock bm-frame">
+      <Mock />
+    </MockFrame>
+  )
+})
+
 /** Section 4: pill tabs over large, live previews of Storelib's own builders. */
 export function IdeasComeToLife() {
   const t = useAutoTabs(IDEAS_TABS.length)
-  const active = IDEAS_TABS[t.index]
   return (
     <section
       ref={t.rootRef}
@@ -88,15 +98,14 @@ export function IdeasComeToLife() {
               >
                 {tab.label}
                 <span className="ideas-more">{tab.more}</span>
-                {i === t.index && t.playing && (
-                  <span
-                    key={t.index}
-                    className="ideas-progress"
-                    style={{ animationDuration: `${BUILDER_DURATION_MS}ms` }}
-                    onAnimationEnd={t.advance}
-                    aria-hidden="true"
-                  />
-                )}
+                {/* Always mounted (no DOM churn): only the active, playing bar animates. */}
+                <span
+                  className="ideas-progress"
+                  data-on={(i === t.index && t.playing) || undefined}
+                  style={{ animationDuration: `${BUILDER_DURATION_MS}ms` }}
+                  onAnimationEnd={i === t.index ? t.advance : undefined}
+                  aria-hidden="true"
+                />
               </button>
             ))}
           </div>
@@ -104,10 +113,12 @@ export function IdeasComeToLife() {
             <button
               type="button"
               className="ideas-pause"
+              data-playing={t.playing || undefined}
               aria-label={t.playing ? "Pause the tour" : "Play the tour"}
               onClick={() => t.setPlaying(!t.playing)}
             >
-              {t.playing ? <Pause /> : <Play />}
+              <Pause className="ideas-icon-pause" />
+              <Play className="ideas-icon-play" />
             </button>
           )}
         </div>
@@ -115,7 +126,6 @@ export function IdeasComeToLife() {
           {IDEAS_TABS.map((tab, i) => {
             const state = t.states.get(i)
             if (!state) return null
-            const { Mock } = tab
             return (
               <div
                 key={tab.id}
@@ -124,19 +134,21 @@ export function IdeasComeToLife() {
                 aria-labelledby={`ideas-tab-${tab.id}`}
                 aria-hidden={state !== "active" || undefined}
                 className="ideas-panel"
-                data-state={state}
+                data-pane={state}
                 data-mock-live={(state === "active" && t.live) || undefined}
               >
-                <MockFrame label={tab.alt} className="ideas-mock">
-                  <Mock />
-                </MockFrame>
+                <IdeasMock i={i} />
               </div>
             )
           })}
         </div>
-        <p className="ideas-caption" key={active.id}>
-          <b>{active.title}.</b> {active.text}
-        </p>
+        <div className="ideas-captions">
+          {IDEAS_TABS.map((tab, i) => (
+            <p key={tab.id} className="ideas-caption" data-on={i === t.index || undefined} aria-hidden={i !== t.index || undefined}>
+              <b>{tab.title}.</b> {tab.text}
+            </p>
+          ))}
+        </div>
       </div>
     </section>
   )
@@ -150,27 +162,32 @@ const CSS = `
 .ideas-head p{max-width:56ch;margin:20px 0 0;font-size:clamp(16px,1.4vw,19px);line-height:1.6;color:#a3a0ac;text-wrap:pretty}
 .ideas-controls{display:flex;align-items:center;gap:10px;margin:clamp(32px,4vw,48px) 0 20px}
 .ideas-tabs{display:inline-flex;gap:4px;padding:4px;border-radius:999px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
-.ideas-tab{position:relative;height:44px;padding:0 20px;border:0;border-radius:999px;background:transparent;color:rgba(255,255,255,.72);font:500 15px/1 var(--font-inter),Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;overflow:hidden;transition:background-color .35s cubic-bezier(.2,.7,.2,1),color .35s}
+.ideas-tab{position:relative;height:44px;padding:0 20px;border:0;border-radius:999px;background:transparent;color:rgba(255,255,255,.72);font:500 15px/1 var(--font-inter,Inter),Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;overflow:hidden;transition:background-color .35s cubic-bezier(.2,.7,.2,1),color .35s}
 .ideas-tab:hover{color:#fff}
 .ideas-tab[aria-selected="true"]{background:#fff;color:#0b0b0c}
 .ideas-tab:focus-visible,.ideas-pause:focus-visible{outline:2px solid #bca3ff;outline-offset:3px}
-.ideas-progress{position:absolute;left:20px;right:20px;bottom:7px;height:2px;border-radius:2px;background:linear-gradient(90deg,#7c3aed,#4f6bff);transform:scaleX(0);transform-origin:left;animation:ideas-progress linear both paused}
-.ideas[data-run] .ideas-progress{animation-play-state:running}
+.ideas-progress{position:absolute;left:20px;right:20px;bottom:7px;height:2px;border-radius:2px;background:linear-gradient(90deg,#7c3aed,#4f6bff);transform:scaleX(0);transform-origin:left;opacity:0}
+.ideas-progress[data-on]{opacity:1;animation-name:ideas-progress;animation-timing-function:linear;animation-fill-mode:both;animation-play-state:paused}
+.ideas[data-run] .ideas-progress[data-on]{animation-play-state:running}
 @keyframes ideas-progress{to{transform:scaleX(1)}}
 .ideas-pause{display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.08);color:#fff;cursor:pointer;transition:background-color .2s}
 .ideas-pause:hover{background:rgba(255,255,255,.16)}
 .ideas-pause svg{width:16px;height:16px}
+.ideas-pause .ideas-icon-play,.ideas-pause[data-playing] .ideas-icon-pause{display:block}
+.ideas-pause .ideas-icon-pause,.ideas-pause[data-playing] .ideas-icon-play{display:none}
 .ideas-stage{position:relative;display:grid;padding:clamp(14px,3.2vw,48px);border-radius:clamp(22px,2.6vw,32px);background:radial-gradient(70% 90% at 15% 0%,rgba(124,58,237,.42),transparent 70%),radial-gradient(60% 80% at 100% 100%,rgba(79,107,255,.34),transparent 70%),#0e0d14;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
 .ideas-panel{grid-area:1/1;border-radius:clamp(12px,1.4vw,16px);overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.1),0 30px 80px rgba(0,0,0,.5);transition:opacity .6s cubic-bezier(.2,.7,.2,1),transform .6s cubic-bezier(.2,.7,.2,1)}
-.ideas-panel[data-state="active"]{z-index:2}
-.ideas-panel[data-state="leaving"]{z-index:1}
-.ideas-panel[data-state="next"]{z-index:0;opacity:0;visibility:hidden;transition:none}
-.ideas-panel[data-state="active"]{animation:ideas-in .6s cubic-bezier(.2,.7,.2,1) both}
+.ideas-panel[data-pane="active"]{z-index:2}
+.ideas-panel[data-pane="leaving"]{z-index:1}
+.ideas-panel[data-pane="next"]{z-index:0;opacity:0;pointer-events:none;transition:none}
+.ideas-panel[data-pane="rest"]{z-index:0;opacity:0;content-visibility:hidden;pointer-events:none;transition:none}
+.ideas-panel[data-pane="active"]{animation:ideas-in .6s cubic-bezier(.2,.7,.2,1) both}
 @keyframes ideas-in{from{opacity:0;transform:translate3d(0,14px,0) scale(.99)}}
 .ideas-mock{aspect-ratio:16/10;background:#fff}
-.ideas-caption{max-width:62ch;margin:22px 0 0;font-size:16px;line-height:1.55;color:#a3a0ac;animation:ideas-fade .5s ease both}
+.ideas-captions{display:grid;margin:22px 0 0}
+.ideas-caption{grid-area:1/1;max-width:62ch;margin:0;font-size:16px;line-height:1.55;color:#a3a0ac;opacity:0;transition:opacity .45s ease}
+.ideas-caption[data-on]{opacity:1}
 .ideas-caption b{color:#fafafa;font-weight:600}
-@keyframes ideas-fade{from{opacity:0}}
 @media(max-width:767px){
   .ideas{border-radius:28px}
   .ideas-head .story-heading{font-size:clamp(32px,9vw,40px)}

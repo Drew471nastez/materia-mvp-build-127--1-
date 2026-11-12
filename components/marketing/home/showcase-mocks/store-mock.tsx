@@ -440,12 +440,12 @@ export const STORE_CSS = u(`
 .sm-stars{display:inline-flex;gap:1u;color:#f5a524;vertical-align:-1u}
 .sm-stars svg{width:12u;height:12u}
 
-.hp{height:100%;background:#f3eee3;color:#1f2a22;font-family:"DM Sans",var(--font-inter),Inter,sans-serif}
+.hp{height:100%;background:#f3eee3;color:#1f2a22;font-family:"DM Sans",var(--font-inter,Inter),Inter,sans-serif}
 .hp-ann{height:30u;display:flex;align-items:center;justify-content:center;background:#1f2a22;color:#efe7d6;font-size:11.5u;letter-spacing:.02em}
 .hp-nav{height:62u;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 36u;border-bottom:1u solid rgba(31,42,34,.12)}
 .hp-links{display:flex;gap:26u;font-size:13.5u}
 .hp-links b{font-weight:600;border-bottom:1.5u solid currentColor;padding-bottom:2u}
-.hp-mark{display:flex;align-items:center;gap:8u;font-family:Montserrat,var(--font-inter),sans-serif;font-weight:700;font-size:17u;letter-spacing:.24em}
+.hp-mark{display:flex;align-items:center;gap:8u;font-family:Montserrat,var(--font-inter,Inter),sans-serif;font-weight:700;font-size:17u;letter-spacing:.24em}
 .hp-mark svg{width:20u;height:20u;color:#b5532b}
 .hp-icons{display:flex;justify-content:flex-end;gap:20u}
 .hp-icons svg,.hpm-nav svg{width:19u;height:19u;stroke-width:1.7}
@@ -497,7 +497,7 @@ export const STORE_CSS = u(`
 .hpm-buy{margin-top:8u;background:#b5532b}
 .hpm-note{margin-top:10u!important;text-align:center;font-size:11.5u;opacity:.65}
 
-.gl{height:100%;background:#f6f6f2;color:#111;font-family:"Space Grotesk",var(--font-inter),sans-serif}
+.gl{height:100%;background:#f6f6f2;color:#111;font-family:"Space Grotesk",var(--font-inter,Inter),sans-serif}
 .gl-nav{height:62u;display:flex;align-items:center;gap:36u;padding:0 40u}
 .gl-logo{display:flex;align-items:center;gap:8u;font-size:19u;font-weight:700;letter-spacing:-.03em}
 .gl-mark{display:grid;grid-template-columns:1fr 1fr;gap:2u;width:20u;height:20u}
@@ -520,7 +520,7 @@ export const STORE_CSS = u(`
 .gl-faces img:first-child{margin-left:0}
 .gl-cover{position:absolute;inset:0;display:grid;place-items:center;padding:12%;background:linear-gradient(140deg,#3b5bff 0%,#8f6bff 55%,#ffb58a 100%)}
 .gl-cover.big{position:relative;height:290u;border-radius:18u;padding:34u 40u}
-.gl-win{width:100%;border-radius:8u;background:#fff;box-shadow:0 12u 30u rgba(17,17,40,.25);overflow:hidden;font-family:var(--font-inter),Inter,sans-serif}
+.gl-win{width:100%;border-radius:8u;background:#fff;box-shadow:0 12u 30u rgba(17,17,40,.25);overflow:hidden;font-family:var(--font-inter,Inter),Inter,sans-serif}
 .gl-win-bar{display:flex;gap:4u;padding:7u 9u;border-bottom:1u solid #eee}
 .gl-win-bar i{width:7u;height:7u;border-radius:50%;background:#e3e3e3}
 .gl-win-body{padding:10u 12u 12u}
@@ -567,7 +567,7 @@ export const STORE_CSS = u(`
 .glm-note{display:flex;justify-content:center;align-items:center;gap:5u;margin-top:10u!important;font-size:11.5u;color:#6b6b63}
 .glm-note svg{width:12u;height:12u}
 
-.bb{height:100%;background:#faf6f0;color:#2b2a26;font-family:"Plus Jakarta Sans",var(--font-inter),sans-serif}
+.bb{height:100%;background:#faf6f0;color:#2b2a26;font-family:"Plus Jakarta Sans",var(--font-inter,Inter),sans-serif}
 .bb-nav{height:64u;display:flex;align-items:center;gap:34u;padding:0 40u;border-bottom:1u solid #ece4d8}
 .bb-logo{font-family:${SERIF};font-style:italic;font-size:22u;letter-spacing:-.01em;color:#3f4f3d}
 .bb-links{display:flex;gap:24u;font-size:13.5u;color:#6d675c}

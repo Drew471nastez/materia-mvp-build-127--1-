@@ -81,13 +81,16 @@ assert.ok(ideas.includes(`aria-label="${IDEAS_HEADING}"`))
 assert.equal((ideas.match(/role="tab"/g) || []).length, 3)
 assert.equal((ideas.match(/<button[^>]*aria-selected="true"/g) || []).length, 1)
 // Only the active panel and the next one are mounted.
-assert.equal((ideas.match(/role="tabpanel"/g) || []).length, 2)
-assert.ok(ideas.includes('data-state="active"') && ideas.includes('data-state="next"'))
+assert.equal((ideas.match(/role="tabpanel"/g) || []).length, 1)
+assert.ok(/<div[^>]*data-pane="active"/.test(ideas) && !/<div[^>]*data-pane="next"/.test(ideas), "the next panel waits for an idle moment after first view")
 assert.ok(ideas.includes(IDEAS_TABS[0].alt.slice(11, 60)))
 assert.ok(!ideas.includes("data-mock-live=\""), "nothing animates before the section is seen")
 const builders = read(`${MOCKS}/builder-mocks.tsx`)
-assert.ok(builders.includes("@media(prefers-reduced-motion:reduce){.bm *{animation:none!important}}"))
-assert.ok(builders.includes("animation-play-state:paused") && builders.includes("[data-mock-live] .bm *{animation-play-state:running}"))
+// Animations attach only under [data-mock-live], only without reduced motion, and never via * or :has().
+const animRules = [...builders.matchAll(/\{animation:([\w-]+) var\(--bm-t\)/g)]
+assert.ok(animRules.length >= 20)
+assert.equal((builders.match(/@media\(prefers-reduced-motion:no-preference\)\{\[data-mock-live\] /g) || []).length, animRules.length)
+assert.ok(!/\.bm \*|:has\(/.test(builders))
 // Keyframes animate transform and opacity only.
 for (const block of builders.matchAll(/@keyframes [\w-]+\{(.*?)\}\}/g)) {
   for (const prop of block[1].matchAll(/([a-z-]+):/g))
@@ -103,9 +106,9 @@ assert.deepEqual(
 )
 const biz = renderToString(createElement(BusinessCarousel))
 assert.equal((biz.match(/role="tab"/g) || []).length, 5)
-assert.equal((biz.match(/role="tabpanel"/g) || []).length, 2, "active + next only")
-assert.equal((biz.match(/<figure/g) || []).length, 4, "each mounted slide has a desktop and a phone preview")
-assert.equal((biz.match(/<figcaption/g) || []).length, 4)
+assert.equal((biz.match(/role="tabpanel"/g) || []).length, 1, "only the active slide is server-rendered")
+assert.equal((biz.match(/<figure/g) || []).length, 2, "each mounted slide has a desktop and a phone preview")
+assert.equal((biz.match(/<figcaption/g) || []).length, 2)
 assert.ok(biz.includes('aspect-ratio:16/9') && biz.includes('aspect-ratio:9/16'))
 assert.ok(/>Next<svg/.test(biz), "a Next button")
 const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/'/g, "&#x27;")
@@ -118,11 +121,11 @@ for (const html of [ideas, biz]) {
 /* ---- autoplay: no timers, pauses when unseen, stops on a choice, off for reduced motion */
 const tabs = read(`${MOCKS}/use-auto-tabs.ts`)
 assert.ok(!/setInterval/.test(tabs) && tabs.includes("IntersectionObserver") && tabs.includes("visibilitychange"))
-assert.ok(tabs.includes("prefers-reduced-motion") && tabs.includes("playing && !reduce"))
+assert.ok(tabs.includes("prefers-reduced-motion") && tabs.includes("playing && !reduce") && tabs.includes("requestIdleCallback") && tabs.includes("startTransition"))
 assert.ok(/const select = useCallback\(\s*\(to: number\) => \{\s*setPlaying\(false\)/.test(tabs), "manual selection stops autoplay")
 for (const f of ["ideas-come-to-life.tsx", "business-carousel.tsx"]) {
   const s = read(`components/marketing/home/${f}`)
-  assert.ok(s.includes("onAnimationEnd={t.advance}") && s.includes("animation-play-state:running"))
+  assert.ok(s.includes("onAnimationEnd={i === t.index ? t.advance : undefined}") && s.includes("animation-play-state:running"))
   assert.ok(s.includes("prefers-reduced-motion:reduce"))
   assert.ok(/height:44px/.test(s), "44px tap targets")
 }

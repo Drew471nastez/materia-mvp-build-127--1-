@@ -44,8 +44,10 @@ import { PostCard } from "./community-mock"
 
   Motion is CSS keyframes on transform and opacity only. The resting styles
   ARE the finished state, so with reduced motion (or before the animation
-  starts) every mock is a complete, still picture. Keyframes are scoped to
-  [data-mock-live] so only the visible panel animates.
+  starts) every mock is a complete, still picture. Animations are attached
+  only under [data-mock-live] (the visible panel, in view), and only to the
+  ~20 elements that move: no universal or relational selectors, so switching a
+  tab restyles a handful of nodes, not the whole mock.
   Desktop is drawn at 1280 design px; on screens under 768px each mock
   switches to a 440px phone layout (the editors' own mobile shapes).
 */
@@ -64,7 +66,7 @@ const TREE_AFTER = ["Curriculum", "Instructor", "Newsletter"]
 
 function SectionThumb({ kind }: { kind: "quote" | "faq" | "split" | "list" }) {
   return (
-    <span className={`wb-thumb wb-thumb-${kind}`}>
+    <span className={`wx-thumb wx-thumb-${kind}`}>
       {kind === "quote" ? (
         <>
           <i />
@@ -94,38 +96,38 @@ function SectionThumb({ kind }: { kind: "quote" | "faq" | "split" | "list" }) {
 
 function BloomPage() {
   return (
-    <div className="wbp">
-      <div className="wbp-nav">
+    <div className="wxp">
+      <div className="wxp-nav">
         <span className="bb-logo">Brush &amp; Bloom</span>
-        <span className="wbp-links">
+        <span className="wxp-links">
           <span>Courses</span>
           <span>Workshops</span>
           <span>Journal</span>
         </span>
-        <span className="wbp-btn sm">Enroll</span>
+        <span className="wxp-btn sm">Enroll</span>
       </div>
-      <div className="wbp-hero">
+      <div className="wxp-hero">
         <div>
-          <p className="wbp-eyebrow">Online course</p>
+          <p className="wxp-eyebrow">Online course</p>
           <h3>
             Loose florals,
             <br />
             <i>in 21 days.</i>
           </h3>
-          <p className="wbp-sub">42 short lessons, tracing sheets and a private studio community.</p>
-          <span className="wbp-btn">Enroll · $129</span>
+          <p className="wxp-sub">42 short lessons, tracing sheets and a private studio community.</p>
+          <span className="wxp-btn">Enroll · $129</span>
         </div>
-        <div className="wbp-img">
+        <div className="wxp-img">
           <Pic n="bb-hero" w={1200} h={700} />
         </div>
-        <span className="wb-sel wb-sel-a">
+        <span className="wx-sel wx-sel-a">
           <em>Hero</em>
         </span>
       </div>
-      <div className="wbp-line" />
-      <div className="wbp-strip">
-        <p className="wbp-strip-h">Loved by 2,140 painters</p>
-        <div className="wbp-quotes">
+      <div className="wxp-line" />
+      <div className="wxp-strip">
+        <p className="wxp-strip-h">Loved by 2,140 painters</p>
+        <div className="wxp-quotes">
           {[
             ["av-h", "Ines D.", "I finally paint loosely instead of tracing every petal."],
             ["av-c", "Rachel P.", "Short lessons I could fit into lunch breaks. Worth it."],
@@ -139,13 +141,13 @@ function BloomPage() {
             </span>
           ))}
         </div>
-        <span className="wb-sel wb-sel-b">
+        <span className="wx-sel wx-sel-b">
           <em>Testimonials</em>
         </span>
       </div>
-      <div className="wbp-after">
-        <p className="wbp-mods-h">What you’ll paint</p>
-        <div className="wbp-mods">
+      <div className="wxp-after">
+        <p className="wxp-mods-h">What you’ll paint</p>
+        <div className="wxp-mods">
           {[
             ["bb-brush", "Mixing greens"],
             ["bb-table", "Three-stroke petals"],
@@ -157,7 +159,7 @@ function BloomPage() {
             </span>
           ))}
         </div>
-        <div className="wbp-teacher">
+        <div className="wxp-teacher">
           <Pic n="av-o" w={160} h={160} />
           <span>
             <b>Hi, I’m Elena.</b>
@@ -173,17 +175,17 @@ function BloomPage() {
 export function WebsiteBuilderMock() {
   return (
     <div className="bm wb">
-      <div className="wb-bar">
-        <span className="wb-x">
+      <div className="wx-bar">
+        <span className="wx-x">
           <X />
         </span>
-        <span className="wb-site">
+        <span className="wx-site">
           <i>B</i> Brush &amp; Bloom <ChevronDown />
         </span>
-        <span className="wb-page">
+        <span className="wx-page">
           Home <ChevronDown />
         </span>
-        <span className="wb-device">
+        <span className="wx-device">
           <b>
             <Monitor />
           </b>
@@ -191,157 +193,157 @@ export function WebsiteBuilderMock() {
             <Smartphone />
           </span>
         </span>
-        <span className="wb-undo">
+        <span className="wx-undo">
           <Undo2 />
           <Redo2 />
         </span>
-        <span className="wb-preview">Preview</span>
-        <span className="wb-publish">Publish</span>
+        <span className="wx-preview">Preview</span>
+        <span className="wx-publish">Publish</span>
       </div>
-      <aside className="wb-tree">
-        <p className="wb-tree-h">Home page</p>
-        <p className="wb-group">Header</p>
+      <aside className="wx-tree">
+        <p className="wx-tree-h">Home page</p>
+        <p className="wx-group">Header</p>
         {TREE_TOP.map((t) => (
-          <span className="wb-row" key={t}>
+          <span className="wx-row" key={t}>
             <GripVertical />
             <LayoutTemplate /> {t}
           </span>
         ))}
-        <p className="wb-group">Template</p>
-        <span className="wb-row">
+        <p className="wx-group">Template</p>
+        <span className="wx-row">
           <GripVertical />
           <ImageIcon /> Hero
         </span>
-        <span className="wb-row">
+        <span className="wx-row">
           <GripVertical />
           <GraduationCap /> Featured course
         </span>
-        <span className="wb-row wb-row-new on">
+        <span className="wx-row wx-row-new on">
           <GripVertical />
-          <Quote /> Testimonials <Eye className="wb-eye" />
+          <Quote /> Testimonials <Eye className="wx-eye" />
         </span>
-        <div className="wb-row-after">
+        <div className="wx-row-after">
           {TREE_AFTER.map((t) => (
-            <span className="wb-row" key={t}>
+            <span className="wx-row" key={t}>
               <GripVertical />
               <LayoutList /> {t}
             </span>
           ))}
-          <span className="wb-add">
+          <span className="wx-add">
             <Plus /> Add section
           </span>
-          <p className="wb-group">Footer</p>
-          <span className="wb-row">
+          <p className="wx-group">Footer</p>
+          <span className="wx-row">
             <GripVertical />
             <LayoutTemplate /> Footer
           </span>
         </div>
       </aside>
-      <div className="wb-canvas">
-        <div className="wb-pageframe">
-          <MockFrame w={640} ratio="640/760" label="" className="wb-pagemock">
+      <div className="wx-canvas">
+        <div className="wx-pageframe">
+          <MockFrame w={640} ratio="640/760" label="" className="wx-pagemock">
             <BloomPage />
           </MockFrame>
         </div>
       </div>
-      <aside className="wb-ins">
-        <div className="wb-ins-a">
-          <p className="wb-ins-h">
+      <aside className="wx-ins">
+        <div className="wx-ins-a">
+          <p className="wx-ins-h">
             Hero <MoreHorizontal />
           </p>
           <label>Heading</label>
-          <span className="wb-field tall">Loose florals, in 21 days.</span>
+          <span className="wx-field tall">Loose florals, in 21 days.</span>
           <label>Color scheme</label>
-          <span className="wb-schemes">
+          <span className="wx-schemes">
             <i className="on" style={{ background: "#faf6f0" }} />
             <i style={{ background: "#3f4f3d" }} />
             <i style={{ background: "#f1ece3" }} />
             <i style={{ background: "#2b2a26" }} />
           </span>
           <label>Layout</label>
-          <span className="wb-seg">
+          <span className="wx-seg">
             <b>Image right</b>
             <span>Image left</span>
             <span>Stacked</span>
           </span>
           <label>Image</label>
-          <span className="wb-img">
+          <span className="wx-img">
             <Pic n="bb-hero" w={1200} h={700} />
             <span>Change</span>
           </span>
           <label>Animation</label>
-          <span className="wb-field">
+          <span className="wx-field">
             Fade up <ChevronDown />
           </span>
         </div>
-        <div className="wb-ins-b">
-          <p className="wb-ins-h">
+        <div className="wx-ins-b">
+          <p className="wx-ins-h">
             Testimonials <MoreHorizontal />
           </p>
           <label>Heading</label>
-          <span className="wb-field">Loved by 2,140 painters</span>
+          <span className="wx-field">Loved by 2,140 painters</span>
           <label>Quotes</label>
           {[
             ["av-h", "Ines D."],
             ["av-c", "Rachel P."],
             ["av-n", "Amara K."],
           ].map(([av, n]) => (
-            <span className="wb-quote" key={n}>
+            <span className="wx-quote" key={n}>
               <GripVertical />
               <Pic n={av} w={96} h={96} /> {n}
             </span>
           ))}
           <label>Card style</label>
-          <span className="wb-seg">
+          <span className="wx-seg">
             <span>Plain</span>
             <b>Card</b>
             <span>Bubble</span>
           </span>
-          <span className="wb-toggle-row">
+          <span className="wx-toggle-row">
             Autoplay quotes
-            <span className="wb-toggle">
-              <i className="wb-track-on" />
-              <b className="wb-knob" />
+            <span className="wx-toggle">
+              <i className="wx-track-on" />
+              <b className="wx-knob" />
             </span>
           </span>
         </div>
       </aside>
-      <div className="wb-pop">
-        <p className="wb-pop-h">
+      <div className="wx-pop">
+        <p className="wx-pop-h">
           Add section <X />
         </p>
-        <span className="wb-search">
+        <span className="wx-search">
           <Search /> Search sections
         </span>
-        <span className="wb-chips">
+        <span className="wx-chips">
           <b>All</b>
           <span>Social proof</span>
           <span>Text</span>
         </span>
-        <div className="wb-tiles">
-          <span className="wb-tile wb-tile-hot">
+        <div className="wx-tiles">
+          <span className="wx-tile wx-tile-hot">
             <SectionThumb kind="quote" />
             Testimonials
           </span>
-          <span className="wb-tile">
+          <span className="wx-tile">
             <SectionThumb kind="faq" />
             FAQ
           </span>
-          <span className="wb-tile">
+          <span className="wx-tile">
             <SectionThumb kind="split" />
             Image with text
           </span>
-          <span className="wb-tile">
+          <span className="wx-tile">
             <SectionThumb kind="list" />
             Curriculum
           </span>
         </div>
       </div>
-      <span className="wb-tile wb-ghost">
+      <span className="wx-tile wx-ghost">
         <SectionThumb kind="quote" />
         Testimonials
       </span>
-      <Cursor className="wb-cur" />
+      <Cursor className="wx-cur" />
     </div>
   )
 }
@@ -599,156 +601,154 @@ const T = 8.4 // seconds per scripted moment; the tabs advance after one
 export const BUILDER_DURATION_MS = T * 1000
 
 export const BUILDER_CSS = u(`
-.bm{position:absolute;inset:0;background:#fff;color:#18181b;font-family:var(--font-inter),Inter,sans-serif;font-size:13u}
+.bm{position:absolute;inset:0;background:#fff;color:#18181b;font-family:var(--font-inter,Inter),Inter,sans-serif;font-size:13u}
 .bm-cursor{position:absolute;z-index:30;width:22u;height:22u;opacity:0;filter:drop-shadow(0 2u 3u rgba(0,0,0,.25));pointer-events:none}
-.smk:has(.bm){--w:1280}
-@media (max-width:767px){.smk:has(.bm){--w:440}}
-@media(prefers-reduced-motion:reduce){.bm *{animation:none!important}}
-.bm *{animation-duration:${T}s;animation-iteration-count:infinite;animation-fill-mode:both;animation-timing-function:cubic-bezier(.45,0,.2,1);animation-play-state:paused}
-[data-mock-live] .bm *{animation-play-state:running}
+.bm-frame>.smk{--w:1280}
+@media (max-width:767px){.bm-frame>.smk{--w:440}}
+.bm{--bm-t:${T}s;--bm-ease:cubic-bezier(.45,0,.2,1)}
 
 /* ---------- website builder */
 .wb{--gx:26;--gy:526;--dx:534;--dy:-218;--tx:1148;--ty:-126;background:#eef1f5}
-.wb-bar{position:absolute;inset:0 0 auto;height:48u;display:flex;align-items:center;gap:10u;padding:0 12u;background:#171717;color:#fff;font-size:13u}
-.wb-bar svg{width:15u;height:15u}
-.wb-x{display:grid;place-items:center;width:30u;height:30u;border-radius:8u;color:rgba(255,255,255,.75);border-right:1u solid rgba(255,255,255,.1)}
-.wb-site{display:flex;align-items:center;gap:7u;font-weight:600}
-.wb-site i{width:22u;height:22u;border-radius:6u;background:#3f4f3d;font-family:${SERIF};font-style:italic;display:grid;place-items:center;font-size:13u}
-.wb-page{display:flex;align-items:center;gap:6u;padding:6u 10u;border-radius:8u;background:rgba(255,255,255,.1);color:rgba(255,255,255,.85)}
-.wb-device{display:flex;margin:0 auto;padding:3u;border-radius:9u;background:rgba(255,255,255,.08)}
-.wb-device>*{display:grid;place-items:center;width:34u;height:26u;border-radius:6u;color:rgba(255,255,255,.6)}
-.wb-device b{background:rgba(255,255,255,.16);color:#fff}
-.wb-undo{display:flex;gap:12u;color:rgba(255,255,255,.6);padding-right:6u}
-.wb-preview{padding:7u 12u;border-radius:8u;color:rgba(255,255,255,.85)}
-.wb-publish{padding:7u 14u;border-radius:8u;background:#fff;color:#111;font-weight:600}
-.wb-tree{position:absolute;left:0;top:48u;bottom:0;width:260u;padding:14u 10u;background:#fff;border-right:1u solid #e5e7eb;overflow:hidden}
-.wb-tree-h{padding:0 8u 10u;font-size:14u;font-weight:600}
-.wb-group{padding:10u 8u 4u;font-size:11u;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9ca3af}
-.wb-row{display:flex;align-items:center;gap:7u;height:30u;padding:0 8u;border-radius:7u;font-size:13u;color:#374151}
-.wb-row svg{width:14u;height:14u;color:#9ca3af}
-.wb-row svg:first-child{width:12u;color:#d1d5db}
-.wb-row.on{background:#eef2ff;color:#1e3a8a;font-weight:500}
-.wb-row.on svg{color:#3b5bdb}
-.wb-eye{margin-left:auto}
-.wb-add{display:flex;align-items:center;gap:7u;height:32u;padding:0 8u;color:#3b5bdb;font-weight:500}
-.wb-add svg{width:15u;height:15u}
-.wb-canvas{position:absolute;left:260u;right:290u;top:48u;bottom:0;overflow:hidden}
-.wb-pageframe{position:absolute;left:45u;top:28u;width:640u;border-radius:10u;overflow:hidden;background:#fff;box-shadow:0 1u 2u rgba(16,24,40,.06),0 12u 32u rgba(16,24,40,.1)}
-.wb-ins{position:absolute;right:0;top:48u;bottom:0;width:290u;background:#fff;border-left:1u solid #e5e7eb}
-.wb-ins>div{position:absolute;inset:0;padding:14u 16u}
-.wb-ins-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:6u!important;font-size:14u;font-weight:600}
-.wb-ins-h svg{width:16u;height:16u;color:#9ca3af}
-.wb-ins label{display:block;margin:12u 0 6u;font-size:11.5u;font-weight:500;color:#6b7280}
-.wb-field{display:flex;align-items:center;justify-content:space-between;min-height:34u;padding:0 10u;border-radius:8u;box-shadow:inset 0 0 0 1u #e5e7eb;font-size:12.5u}
-.wb-field.tall{min-height:52u;align-items:flex-start;padding-top:8u}
-.wb-field svg{width:14u;height:14u;color:#9ca3af}
-.wb-schemes{display:flex;gap:8u}
-.wb-schemes i{width:30u;height:30u;border-radius:8u;box-shadow:inset 0 0 0 1u rgba(0,0,0,.12)}
-.wb-schemes i.on{box-shadow:0 0 0 2u #fff,0 0 0 3.5u #3b5bdb}
-.wb-seg{display:grid;grid-template-columns:repeat(3,1fr);padding:3u;border-radius:9u;background:#f3f4f6;font-size:11.5u;text-align:center}
-.wb-seg>*{padding:6u 0;border-radius:7u;color:#6b7280}
-.wb-seg b{background:#fff;color:#111;font-weight:600;box-shadow:0 1u 2u rgba(0,0,0,.08)}
-.wb-img{display:flex;align-items:center;gap:10u;font-size:12u;color:#3b5bdb;font-weight:500}
-.wb-img img{width:76u!important;height:48u!important;border-radius:7u}
-.wb-quote{display:flex;align-items:center;gap:8u;height:34u;margin-bottom:5u;padding:0 8u;border-radius:8u;box-shadow:inset 0 0 0 1u #e5e7eb;font-size:12.5u}
-.wb-quote svg{width:12u;height:12u;color:#d1d5db}
-.wb-quote img{width:20u!important;height:20u!important;border-radius:50%}
-.wb-toggle-row{position:absolute;left:16u;right:16u;top:404u;display:flex;align-items:center;justify-content:space-between;font-size:12.5u}
-.wb-toggle{position:relative;width:34u;height:20u;border-radius:10u;background:#d1d5db}
-.wb-track-on{position:absolute;inset:0;border-radius:10u;background:#3b5bdb}
-.wb-knob{position:absolute;left:3u;top:3u;width:14u;height:14u;border-radius:50%;background:#fff;box-shadow:0 1u 2u rgba(0,0,0,.2);transform:translateX(14u)}
-.wb-pop{position:absolute;z-index:20;left:14u;top:404u;width:292u;padding:12u;border-radius:14u;background:#fff;box-shadow:0 0 0 1u rgba(0,0,0,.06),0 18u 40u rgba(16,24,40,.18);opacity:0}
-.wb-pop-h{display:flex;justify-content:space-between;align-items:center;height:20u;margin-bottom:10u!important;font-size:13.5u;font-weight:600}
-.wb-pop-h svg{width:14u;height:14u;color:#9ca3af}
-.wb-search{display:flex;align-items:center;gap:7u;height:34u;padding:0 10u;border-radius:8u;background:#f3f4f6;font-size:12.5u;color:#9ca3af}
-.wb-search svg{width:14u;height:14u}
-.wb-chips{display:flex;gap:6u;height:26u;margin:10u 0;font-size:11.5u}
-.wb-chips>*{display:flex;align-items:center;padding:0 10u;border-radius:999u;box-shadow:inset 0 0 0 1u #e5e7eb;color:#4b5563}
-.wb-chips b{background:#111;color:#fff;box-shadow:none;font-weight:500}
-.wb-tiles{display:grid;grid-template-columns:repeat(2,130u);gap:8u}
-.wb-tile{display:flex;flex-direction:column;gap:5u;width:130u;height:96u;padding:7u;border-radius:10u;background:#fff;box-shadow:inset 0 0 0 1u #e5e7eb;font-size:11.5u;font-weight:500}
-.wb-tile-hot{box-shadow:inset 0 0 0 2u #3b5bdb}
-.wb-thumb{flex:1;display:flex;gap:4u;align-items:center;justify-content:center;padding:6u;border-radius:6u;background:#f5f2ec}
-.wb-thumb i{width:30u;height:34u;border-radius:4u;background:#fff;box-shadow:0 1u 2u rgba(0,0,0,.08)}
-.wb-thumb-faq{flex-direction:column;align-items:stretch;justify-content:center;background:#f3f4f6}
-.wb-thumb b{display:block;height:8u;border-radius:3u;background:#d8dbe0}
-.wb-thumb-list{flex-direction:column;align-items:stretch;background:#eef1ea}
-.wb-thumb-list b{height:12u;background:#cfd8c9}
-.wb-thumb em{width:42u;height:36u;border-radius:4u;background:#c9b8a4}
-.wb-thumb s{flex:1;height:22u;border-radius:3u;background:repeating-linear-gradient(#d8dbe0 0 5u,transparent 5u 9u)}
-.wb-ghost{position:absolute;z-index:25;left:calc(var(--gx)*var(--u));top:calc(var(--gy)*var(--u));box-shadow:inset 0 0 0 2u #3b5bdb,0 16u 36u rgba(16,24,40,.24);opacity:0}
-.wb-cur{left:calc((var(--gx) + 70)*var(--u));top:calc((var(--gy) + 60)*var(--u));transform:translate(calc(var(--tx)*var(--u)),calc(var(--ty)*var(--u)))}
+.wx-bar{position:absolute;inset:0 0 auto;height:48u;display:flex;align-items:center;gap:10u;padding:0 12u;background:#171717;color:#fff;font-size:13u}
+.wx-bar svg{width:15u;height:15u}
+.wx-x{display:grid;place-items:center;width:30u;height:30u;border-radius:8u;color:rgba(255,255,255,.75);border-right:1u solid rgba(255,255,255,.1)}
+.wx-site{display:flex;align-items:center;gap:7u;font-weight:600}
+.wx-site i{width:22u;height:22u;border-radius:6u;background:#3f4f3d;font-family:${SERIF};font-style:italic;display:grid;place-items:center;font-size:13u}
+.wx-page{display:flex;align-items:center;gap:6u;padding:6u 10u;border-radius:8u;background:rgba(255,255,255,.1);color:rgba(255,255,255,.85)}
+.wx-device{display:flex;margin:0 auto;padding:3u;border-radius:9u;background:rgba(255,255,255,.08)}
+.wx-device>*{display:grid;place-items:center;width:34u;height:26u;border-radius:6u;color:rgba(255,255,255,.6)}
+.wx-device b{background:rgba(255,255,255,.16);color:#fff}
+.wx-undo{display:flex;gap:12u;color:rgba(255,255,255,.6);padding-right:6u}
+.wx-preview{padding:7u 12u;border-radius:8u;color:rgba(255,255,255,.85)}
+.wx-publish{padding:7u 14u;border-radius:8u;background:#fff;color:#111;font-weight:600}
+.wx-tree{position:absolute;left:0;top:48u;bottom:0;width:260u;padding:14u 10u;background:#fff;border-right:1u solid #e5e7eb;overflow:hidden}
+.wx-tree-h{padding:0 8u 10u;font-size:14u;font-weight:600}
+.wx-group{padding:10u 8u 4u;font-size:11u;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9ca3af}
+.wx-row{display:flex;align-items:center;gap:7u;height:30u;padding:0 8u;border-radius:7u;font-size:13u;color:#374151}
+.wx-row svg{width:14u;height:14u;color:#9ca3af}
+.wx-row svg:first-child{width:12u;color:#d1d5db}
+.wx-row.on{background:#eef2ff;color:#1e3a8a;font-weight:500}
+.wx-row.on svg{color:#3b5bdb}
+.wx-eye{margin-left:auto}
+.wx-add{display:flex;align-items:center;gap:7u;height:32u;padding:0 8u;color:#3b5bdb;font-weight:500}
+.wx-add svg{width:15u;height:15u}
+.wx-canvas{position:absolute;left:260u;right:290u;top:48u;bottom:0;overflow:hidden}
+.wx-pageframe{position:absolute;left:45u;top:28u;width:640u;border-radius:10u;overflow:hidden;background:#fff;box-shadow:0 1u 2u rgba(16,24,40,.06),0 12u 32u rgba(16,24,40,.1)}
+.wx-ins{position:absolute;right:0;top:48u;bottom:0;width:290u;background:#fff;border-left:1u solid #e5e7eb}
+.wx-ins>div{position:absolute;inset:0;padding:14u 16u}
+.wx-ins-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:6u!important;font-size:14u;font-weight:600}
+.wx-ins-h svg{width:16u;height:16u;color:#9ca3af}
+.wx-ins label{display:block;margin:12u 0 6u;font-size:11.5u;font-weight:500;color:#6b7280}
+.wx-field{display:flex;align-items:center;justify-content:space-between;min-height:34u;padding:0 10u;border-radius:8u;box-shadow:inset 0 0 0 1u #e5e7eb;font-size:12.5u}
+.wx-field.tall{min-height:52u;align-items:flex-start;padding-top:8u}
+.wx-field svg{width:14u;height:14u;color:#9ca3af}
+.wx-schemes{display:flex;gap:8u}
+.wx-schemes i{width:30u;height:30u;border-radius:8u;box-shadow:inset 0 0 0 1u rgba(0,0,0,.12)}
+.wx-schemes i.on{box-shadow:0 0 0 2u #fff,0 0 0 3.5u #3b5bdb}
+.wx-seg{display:grid;grid-template-columns:repeat(3,1fr);padding:3u;border-radius:9u;background:#f3f4f6;font-size:11.5u;text-align:center}
+.wx-seg>*{padding:6u 0;border-radius:7u;color:#6b7280}
+.wx-seg b{background:#fff;color:#111;font-weight:600;box-shadow:0 1u 2u rgba(0,0,0,.08)}
+.wx-img{display:flex;align-items:center;gap:10u;font-size:12u;color:#3b5bdb;font-weight:500}
+.wx-img img{width:76u!important;height:48u!important;border-radius:7u}
+.wx-quote{display:flex;align-items:center;gap:8u;height:34u;margin-bottom:5u;padding:0 8u;border-radius:8u;box-shadow:inset 0 0 0 1u #e5e7eb;font-size:12.5u}
+.wx-quote svg{width:12u;height:12u;color:#d1d5db}
+.wx-quote img{width:20u!important;height:20u!important;border-radius:50%}
+.wx-toggle-row{position:absolute;left:16u;right:16u;top:404u;display:flex;align-items:center;justify-content:space-between;font-size:12.5u}
+.wx-toggle{position:relative;width:34u;height:20u;border-radius:10u;background:#d1d5db}
+.wx-track-on{position:absolute;inset:0;border-radius:10u;background:#3b5bdb}
+.wx-knob{position:absolute;left:3u;top:3u;width:14u;height:14u;border-radius:50%;background:#fff;box-shadow:0 1u 2u rgba(0,0,0,.2);transform:translateX(14u)}
+.wx-pop{position:absolute;z-index:20;left:14u;top:404u;width:292u;padding:12u;border-radius:14u;background:#fff;box-shadow:0 0 0 1u rgba(0,0,0,.06),0 18u 40u rgba(16,24,40,.18);opacity:0}
+.wx-pop-h{display:flex;justify-content:space-between;align-items:center;height:20u;margin-bottom:10u!important;font-size:13.5u;font-weight:600}
+.wx-pop-h svg{width:14u;height:14u;color:#9ca3af}
+.wx-search{display:flex;align-items:center;gap:7u;height:34u;padding:0 10u;border-radius:8u;background:#f3f4f6;font-size:12.5u;color:#9ca3af}
+.wx-search svg{width:14u;height:14u}
+.wx-chips{display:flex;gap:6u;height:26u;margin:10u 0;font-size:11.5u}
+.wx-chips>*{display:flex;align-items:center;padding:0 10u;border-radius:999u;box-shadow:inset 0 0 0 1u #e5e7eb;color:#4b5563}
+.wx-chips b{background:#111;color:#fff;box-shadow:none;font-weight:500}
+.wx-tiles{display:grid;grid-template-columns:repeat(2,130u);gap:8u}
+.wx-tile{display:flex;flex-direction:column;gap:5u;width:130u;height:96u;padding:7u;border-radius:10u;background:#fff;box-shadow:inset 0 0 0 1u #e5e7eb;font-size:11.5u;font-weight:500}
+.wx-tile-hot{box-shadow:inset 0 0 0 2u #3b5bdb}
+.wx-thumb{flex:1;display:flex;gap:4u;align-items:center;justify-content:center;padding:6u;border-radius:6u;background:#f5f2ec}
+.wx-thumb i{width:30u;height:34u;border-radius:4u;background:#fff;box-shadow:0 1u 2u rgba(0,0,0,.08)}
+.wx-thumb-faq{flex-direction:column;align-items:stretch;justify-content:center;background:#f3f4f6}
+.wx-thumb b{display:block;height:8u;border-radius:3u;background:#d8dbe0}
+.wx-thumb-list{flex-direction:column;align-items:stretch;background:#eef1ea}
+.wx-thumb-list b{height:12u;background:#cfd8c9}
+.wx-thumb em{width:42u;height:36u;border-radius:4u;background:#c9b8a4}
+.wx-thumb s{flex:1;height:22u;border-radius:3u;background:repeating-linear-gradient(#d8dbe0 0 5u,transparent 5u 9u)}
+.wx-ghost{position:absolute;z-index:25;left:calc(var(--gx)*var(--u));top:calc(var(--gy)*var(--u));box-shadow:inset 0 0 0 2u #3b5bdb,0 16u 36u rgba(16,24,40,.24);opacity:0}
+.wx-cur{left:calc((var(--gx) + 70)*var(--u));top:calc((var(--gy) + 60)*var(--u));transform:translate(calc(var(--tx)*var(--u)),calc(var(--ty)*var(--u)))}
 
-.wbp{height:100%;background:#faf6f0;color:#2b2a26;font-family:"Plus Jakarta Sans",var(--font-inter),sans-serif;font-size:12u}
-.wbp-nav{height:44u;display:flex;align-items:center;gap:20u;padding:0 22u;border-bottom:1u solid #ece4d8}
-.wbp-nav .bb-logo{font-family:${SERIF};font-style:italic;font-size:17u;color:#3f4f3d}
-.wbp-links{display:flex;gap:14u;color:#6d675c;font-size:11u}
-.wbp-btn{display:inline-flex;margin-top:14u;padding:9u 15u;border-radius:999u;background:#3f4f3d;color:#faf6f0;font-size:11.5u;font-weight:600}
-.wbp-btn.sm{margin:0 0 0 auto;padding:6u 12u;font-size:10.5u}
-.wbp-hero{position:relative;height:236u;display:grid;grid-template-columns:1fr 1fr;gap:22u;align-items:center;padding:0 22u}
-.wbp-eyebrow{font-size:9.5u;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#c46f4f}
-.wbp-hero h3{margin-top:6u!important;font-family:${SERIF};font-weight:400;font-size:31u;line-height:1.05;letter-spacing:-.02em}
-.wbp-hero h3 i{color:#5b6e58}
-.wbp-sub{margin-top:8u!important;font-size:11.5u;line-height:1.5;color:#6d675c}
-.wbp-img{height:188u;border-radius:12u 12u 70u 12u;overflow:hidden}
-.wbp-line{position:relative;height:0}
-.wbp-line::before{content:"";position:absolute;left:10u;right:10u;top:-1.5u;height:3u;border-radius:2u;background:#3b5bdb;box-shadow:0 0 0 3u rgba(59,91,219,.18)}
-.wbp-line{opacity:0}
-.wbp-strip{position:relative;height:120u;padding:16u 22u;background:#f1ece3;text-align:center}
-.wbp-strip-h{font-family:${SERIF};font-size:18u}
-.wbp-quotes{display:grid;grid-template-columns:repeat(3,1fr);gap:10u;margin-top:12u;text-align:left}
-.wbp-quotes span{padding:9u;border-radius:9u;background:#fff;font-size:10u;line-height:1.4;color:#6d675c}
-.wbp-quotes b{display:flex;align-items:center;gap:5u;margin-bottom:4u;font-size:10u;color:#2b2a26}
-.wbp-quotes img{width:16u!important;height:16u!important;border-radius:50%}
-.wbp-after{padding:18u 22u}
-.wbp-mods-h{font-family:${SERIF};font-size:18u}
-.wbp-mods{display:grid;grid-template-columns:repeat(3,1fr);gap:10u;margin-top:10u}
-.wbp-mods span{display:grid;gap:6u;font-size:11u;font-weight:600}
-.wbp-mods img{height:84u;border-radius:9u}
-.wbp-teacher{display:flex;gap:14u;align-items:center;margin-top:18u;padding:14u;border-radius:12u;background:#fff;box-shadow:inset 0 0 0 1u #ece4d8;font-size:11u;line-height:1.5;color:#6d675c}
-.wbp-teacher img{flex:none;width:58u!important;height:58u!important;border-radius:50%}
-.wbp-teacher b{display:block;font-family:${SERIF};font-weight:400;font-size:16u;color:#2b2a26}
-.wb-sel{position:absolute;inset:0;box-shadow:inset 0 0 0 2u #3b5bdb;pointer-events:none}
-.wb-sel em{position:absolute;left:0;top:0;padding:2u 7u;border-radius:0 0 6u 0;background:#3b5bdb;color:#fff;font-size:9.5u;font-style:normal;font-weight:600}
-.wb-sel-a{opacity:0}
-.wb-ins-a{opacity:0}
+.wxp{height:100%;background:#faf6f0;color:#2b2a26;font-family:"Plus Jakarta Sans",var(--font-inter,Inter),sans-serif;font-size:12u}
+.wxp-nav{height:44u;display:flex;align-items:center;gap:20u;padding:0 22u;border-bottom:1u solid #ece4d8}
+.wxp-nav .bb-logo{font-family:${SERIF};font-style:italic;font-size:17u;color:#3f4f3d}
+.wxp-links{display:flex;gap:14u;color:#6d675c;font-size:11u}
+.wxp-btn{display:inline-flex;margin-top:14u;padding:9u 15u;border-radius:999u;background:#3f4f3d;color:#faf6f0;font-size:11.5u;font-weight:600}
+.wxp-btn.sm{margin:0 0 0 auto;padding:6u 12u;font-size:10.5u}
+.wxp-hero{position:relative;height:236u;display:grid;grid-template-columns:1fr 1fr;gap:22u;align-items:center;padding:0 22u}
+.wxp-eyebrow{font-size:9.5u;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#c46f4f}
+.wxp-hero h3{margin-top:6u!important;font-family:${SERIF};font-weight:400;font-size:31u;line-height:1.05;letter-spacing:-.02em}
+.wxp-hero h3 i{color:#5b6e58}
+.wxp-sub{margin-top:8u!important;font-size:11.5u;line-height:1.5;color:#6d675c}
+.wxp-img{height:188u;border-radius:12u 12u 70u 12u;overflow:hidden}
+.wxp-line{position:relative;height:0}
+.wxp-line::before{content:"";position:absolute;left:10u;right:10u;top:-1.5u;height:3u;border-radius:2u;background:#3b5bdb;box-shadow:0 0 0 3u rgba(59,91,219,.18)}
+.wxp-line{opacity:0}
+.wxp-strip{position:relative;height:120u;padding:16u 22u;background:#f1ece3;text-align:center}
+.wxp-strip-h{font-family:${SERIF};font-size:18u}
+.wxp-quotes{display:grid;grid-template-columns:repeat(3,1fr);gap:10u;margin-top:12u;text-align:left}
+.wxp-quotes span{padding:9u;border-radius:9u;background:#fff;font-size:10u;line-height:1.4;color:#6d675c}
+.wxp-quotes b{display:flex;align-items:center;gap:5u;margin-bottom:4u;font-size:10u;color:#2b2a26}
+.wxp-quotes img{width:16u!important;height:16u!important;border-radius:50%}
+.wxp-after{padding:18u 22u}
+.wxp-mods-h{font-family:${SERIF};font-size:18u}
+.wxp-mods{display:grid;grid-template-columns:repeat(3,1fr);gap:10u;margin-top:10u}
+.wxp-mods span{display:grid;gap:6u;font-size:11u;font-weight:600}
+.wxp-mods img{height:84u;border-radius:9u}
+.wxp-teacher{display:flex;gap:14u;align-items:center;margin-top:18u;padding:14u;border-radius:12u;background:#fff;box-shadow:inset 0 0 0 1u #ece4d8;font-size:11u;line-height:1.5;color:#6d675c}
+.wxp-teacher img{flex:none;width:58u!important;height:58u!important;border-radius:50%}
+.wxp-teacher b{display:block;font-family:${SERIF};font-weight:400;font-size:16u;color:#2b2a26}
+.wx-sel{position:absolute;inset:0;box-shadow:inset 0 0 0 2u #3b5bdb;pointer-events:none}
+.wx-sel em{position:absolute;left:0;top:0;padding:2u 7u;border-radius:0 0 6u 0;background:#3b5bdb;color:#fff;font-size:9.5u;font-style:normal;font-weight:600}
+.wx-sel-a{opacity:0}
+.wx-ins-a{opacity:0}
 
-[data-mock-live] .wb-pop{animation-name:wb-pop}
-[data-mock-live] .wb-tile-hot{animation-name:wb-hot}
-[data-mock-live] .wb-ghost{animation-name:wb-ghost}
-[data-mock-live] .wb-cur{animation-name:wb-cur}
-[data-mock-live] .wbp-line{animation-name:wb-line}
-[data-mock-live] .wbp-strip,[data-mock-live] .wb-row-new{animation-name:wb-in}
-[data-mock-live] .wbp-after{animation-name:wb-after-page}
-[data-mock-live] .wb-row-after{animation-name:wb-after-tree}
-[data-mock-live] .wb-sel-a,[data-mock-live] .wb-ins-a{animation-name:wb-a}
-[data-mock-live] .wb-sel-b,[data-mock-live] .wb-ins-b{animation-name:wb-b}
-[data-mock-live] .wb-knob{animation-name:wb-knob}
-[data-mock-live] .wb-track-on{animation-name:wb-track}
-@keyframes wb-pop{0%{opacity:0;transform:translateY(10u) scale(.98)}6%,38%{opacity:1;transform:none}46%,100%{opacity:0;transform:translateY(10u) scale(.98)}}
-@keyframes wb-hot{0%,12%{box-shadow:inset 0 0 0 1u #e5e7eb}16%,46%{box-shadow:inset 0 0 0 2u #3b5bdb}}
-@keyframes wb-ghost{0%,19%{opacity:0;transform:none}23%{opacity:1;transform:translate(4u,-6u) rotate(-2deg) scale(1.03)}42%{opacity:1;transform:translate(calc(var(--dx)*var(--u)),calc(var(--dy)*var(--u))) rotate(0) scale(1)}47%,100%{opacity:0;transform:translate(calc(var(--dx)*var(--u)),calc(var(--dy)*var(--u))) scale(.94)}}
-@keyframes wb-cur{0%{opacity:0;transform:translate(150u,110u)}6%{opacity:1}16%{transform:none}18%{transform:scale(.86)}20%{transform:none}23%{transform:translate(4u,-6u)}42%,50%{transform:translate(calc(var(--dx)*var(--u)),calc(var(--dy)*var(--u)))}66%{transform:translate(calc(var(--tx)*var(--u)),calc(var(--ty)*var(--u)))}69%{transform:translate(calc(var(--tx)*var(--u)),calc(var(--ty)*var(--u))) scale(.86)}72%,86%{opacity:1;transform:translate(calc(var(--tx)*var(--u)),calc(var(--ty)*var(--u)))}92%,100%{opacity:0;transform:translate(calc(var(--tx)*var(--u)),calc(var(--ty)*var(--u)))}}
-@keyframes wb-line{0%,28%{opacity:0}36%,43%{opacity:1}47%,100%{opacity:0}}
-@keyframes wb-in{0%,43%{opacity:0;transform:scale(.985)}52%,92%{opacity:1;transform:none}99%,100%{opacity:0;transform:scale(.985)}}
-@keyframes wb-after-page{0%,43%{transform:translateY(-120u)}53%,92%{transform:none}100%{transform:translateY(-120u)}}
-@keyframes wb-after-tree{0%,43%{transform:translateY(-30u)}53%,92%{transform:none}100%{transform:translateY(-30u)}}
-@keyframes wb-a{0%,45%{opacity:1}52%,94%{opacity:0}100%{opacity:1}}
-@keyframes wb-b{0%,45%{opacity:0}52%,94%{opacity:1}100%{opacity:0}}
-@keyframes wb-knob{0%,68%{transform:none}73%,94%{transform:translateX(14u)}100%{transform:none}}
-@keyframes wb-track{0%,68%{opacity:0}73%,94%{opacity:1}100%{opacity:0}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-pop{animation:sxk-wx-pop var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-tile-hot{animation:sxk-wx-hot var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-ghost{animation:sxk-wx-ghost var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-cur{animation:sxk-wx-cur var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .wxp-line{animation:sxk-wx-line var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .wxp-strip,[data-mock-live] .wx-row-new{animation:sxk-wx-in var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .wxp-after{animation:sxk-wx-after-page var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-row-after{animation:sxk-wx-after-tree var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-sel-a,[data-mock-live] .wx-ins-a{animation:sxk-wx-a var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-sel-b,[data-mock-live] .wx-ins-b{animation:sxk-wx-b var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-knob{animation:sxk-wx-knob var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .wx-track-on{animation:sxk-wx-track var(--bm-t) var(--bm-ease) infinite both}}
+@keyframes sxk-wx-pop{0%{opacity:0;transform:translateY(10u) scale(.98)}6%,38%{opacity:1;transform:none}46%,100%{opacity:0;transform:translateY(10u) scale(.98)}}
+@keyframes sxk-wx-hot{0%,12%{box-shadow:inset 0 0 0 1u #e5e7eb}16%,46%{box-shadow:inset 0 0 0 2u #3b5bdb}}
+@keyframes sxk-wx-ghost{0%,19%{opacity:0;transform:none}23%{opacity:1;transform:translate(4u,-6u) rotate(-2deg) scale(1.03)}42%{opacity:1;transform:translate(calc(var(--dx)*var(--u)),calc(var(--dy)*var(--u))) rotate(0) scale(1)}47%,100%{opacity:0;transform:translate(calc(var(--dx)*var(--u)),calc(var(--dy)*var(--u))) scale(.94)}}
+@keyframes sxk-wx-cur{0%{opacity:0;transform:translate(150u,110u)}6%{opacity:1}16%{transform:none}18%{transform:scale(.86)}20%{transform:none}23%{transform:translate(4u,-6u)}42%,50%{transform:translate(calc(var(--dx)*var(--u)),calc(var(--dy)*var(--u)))}66%{transform:translate(calc(var(--tx)*var(--u)),calc(var(--ty)*var(--u)))}69%{transform:translate(calc(var(--tx)*var(--u)),calc(var(--ty)*var(--u))) scale(.86)}72%,86%{opacity:1;transform:translate(calc(var(--tx)*var(--u)),calc(var(--ty)*var(--u)))}92%,100%{opacity:0;transform:translate(calc(var(--tx)*var(--u)),calc(var(--ty)*var(--u)))}}
+@keyframes sxk-wx-line{0%,28%{opacity:0}36%,43%{opacity:1}47%,100%{opacity:0}}
+@keyframes sxk-wx-in{0%,43%{opacity:0;transform:scale(.985)}52%,92%{opacity:1;transform:none}99%,100%{opacity:0;transform:scale(.985)}}
+@keyframes sxk-wx-after-page{0%,43%{transform:translateY(-120u)}53%,92%{transform:none}100%{transform:translateY(-120u)}}
+@keyframes sxk-wx-after-tree{0%,43%{transform:translateY(-30u)}53%,92%{transform:none}100%{transform:translateY(-30u)}}
+@keyframes sxk-wx-a{0%,45%{opacity:1}52%,94%{opacity:0}100%{opacity:1}}
+@keyframes sxk-wx-b{0%,45%{opacity:0}52%,94%{opacity:1}100%{opacity:0}}
+@keyframes sxk-wx-knob{0%,68%{transform:none}73%,94%{transform:translateX(14u)}100%{transform:none}}
+@keyframes sxk-wx-track{0%,68%{opacity:0}73%,94%{opacity:1}100%{opacity:0}}
 
 @media (max-width:767px){
   .wb{--gx:16;--gy:470;--dx:139;--dy:-248;--tx:200;--ty:-120}
-  .wb-tree,.wb-ins,.wb-undo,.wb-preview,.wb-page{display:none}
-  .wb-device{margin:0 6u 0 auto}
-  .wb-canvas{left:0;right:0}
-  .wb-pageframe{left:14u;top:14u;width:412u}
-  .wb-pop{left:0;right:0;top:400u;width:auto;padding:14u 16u;border-radius:18u 18u 0 0;opacity:1}
-  .wb-search{display:none}
-  .wb-chips{margin-top:0}
-  .wb-tiles{grid-template-columns:repeat(3,130u)}
-  [data-mock-live] .wb-pop{animation-name:none}
+  .wx-tree,.wx-ins,.wx-undo,.wx-preview,.wx-page{display:none}
+  .wx-device{margin:0 6u 0 auto}
+  .wx-canvas{left:0;right:0}
+  .wx-pageframe{left:14u;top:14u;width:412u}
+  .wx-pop{left:0;right:0;top:400u;width:auto;padding:14u 16u;border-radius:18u 18u 0 0;opacity:1}
+  .wx-search{display:none}
+  .wx-chips{margin-top:0}
+  .wx-tiles{grid-template-columns:repeat(3,130u)}
+  [data-mock-live] .wx-pop{animation:none}
 }
 
 /* ---------- OnePage editor */
@@ -792,18 +792,18 @@ export const BUILDER_CSS = u(`
 .ope-toast{position:absolute;left:50%;bottom:28u;display:flex;align-items:center;gap:7u;padding:9u 14u;margin-left:-80u;border-radius:999u;background:#18181b;color:#fff;font-size:12.5u;font-weight:500;opacity:0}
 .ope-toast svg{width:14u;height:14u;color:#4ade80}
 .ope-cur{left:calc(var(--cx)*var(--u));top:calc(var(--cy)*var(--u))}
-[data-mock-live] .ope-ring{animation-name:op-ring}
-[data-mock-live] .ope-dark{animation-name:op-dark}
-[data-mock-live] .ope-cur{animation-name:op-cur}
-[data-mock-live] .ope-saving{animation-name:op-saving}
-[data-mock-live] .ope-saved{animation-name:op-saved}
-[data-mock-live] .ope-toast{animation-name:op-toast}
-@keyframes op-ring{0%,31%{transform:none}37%,93%{transform:translateX(142u)}100%{transform:none}}
-@keyframes op-dark{0%,32%{opacity:0}46%,93%{opacity:1}100%{opacity:0}}
-@keyframes op-cur{0%{opacity:0;transform:translate(260u,200u)}8%{opacity:1}28%{transform:none}31%{transform:scale(.86)}34%,66%{opacity:1;transform:none}76%,100%{opacity:0;transform:translate(120u,240u)}}
-@keyframes op-saving{0%,33%{opacity:0}36%,50%{opacity:1}54%,100%{opacity:0}}
-@keyframes op-saved{0%,33%{opacity:1}36%,50%{opacity:0}54%,100%{opacity:1}}
-@keyframes op-toast{0%,44%{opacity:0;transform:translateY(8u)}50%,80%{opacity:1;transform:none}86%,100%{opacity:0;transform:translateY(8u)}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-ring{animation:sxk-op-ring var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-dark{animation:sxk-op-dark var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-cur{animation:sxk-op-cur var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-saving{animation:sxk-op-saving var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-saved{animation:sxk-op-saved var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .ope-toast{animation:sxk-op-toast var(--bm-t) var(--bm-ease) infinite both}}
+@keyframes sxk-op-ring{0%,31%{transform:none}37%,93%{transform:translateX(142u)}100%{transform:none}}
+@keyframes sxk-op-dark{0%,32%{opacity:0}46%,93%{opacity:1}100%{opacity:0}}
+@keyframes sxk-op-cur{0%{opacity:0;transform:translate(260u,200u)}8%{opacity:1}28%{transform:none}31%{transform:scale(.86)}34%,66%{opacity:1;transform:none}76%,100%{opacity:0;transform:translate(120u,240u)}}
+@keyframes sxk-op-saving{0%,33%{opacity:0}36%,50%{opacity:1}54%,100%{opacity:0}}
+@keyframes sxk-op-saved{0%,33%{opacity:1}36%,50%{opacity:0}54%,100%{opacity:1}}
+@keyframes sxk-op-toast{0%,44%{opacity:0;transform:translateY(8u)}50%,80%{opacity:1;transform:none}86%,100%{opacity:0;transform:translateY(8u)}}
 
 @media (max-width:767px){
   .ope{--cx:220;--cy:520}
@@ -874,24 +874,24 @@ export const BUILDER_CSS = u(`
 .cb-toast{position:absolute;z-index:20;left:0;right:0;bottom:26u;width:max-content;margin:0 auto;display:flex;align-items:center;gap:8u;padding:10u 16u;border-radius:999u;background:#18181b;color:#fff;font-size:12.5u;font-weight:500;opacity:0;box-shadow:0 12u 30u rgba(0,0,0,.2)}
 .cb-toast svg{width:14u;height:14u;color:#4ade80}
 .cb-cur{left:600u;top:524u}
-[data-mock-live] .cb-type{animation-name:cb-type}
-[data-mock-live] .cb-post{animation-name:cb-press}
-[data-mock-live] .cb-new{animation-name:cb-new}
-[data-mock-live] .cb-after{animation-name:cb-after}
-[data-mock-live] .cb-toast{animation-name:cb-toast}
-[data-mock-live] .cb-cur{animation-name:cb-cur}
-[data-mock-live] .cb-n0,[data-mock-live] .cb-h0,[data-mock-live] .cb-l0{animation-name:cb-old}
-[data-mock-live] .cb-n1{animation-name:cb-num}
-[data-mock-live] .cb-h1,[data-mock-live] .cb-l1{animation-name:cb-like}
-@keyframes cb-type{0%,5%{transform:none;animation-timing-function:steps(36,end)}27%,100%{transform:translateX(100%)}}
-@keyframes cb-press{0%,33%{transform:none}35%{transform:scale(.93)}38%,100%{transform:none}}
-@keyframes cb-new{0%,37%{opacity:0;transform:translateY(-14u) scale(.98)}47%,93%{opacity:1;transform:none}100%{opacity:0;transform:none}}
-@keyframes cb-after{0%,37%{transform:translateY(-292u)}48%,93%{transform:none}100%{transform:translateY(-292u)}}
-@keyframes cb-toast{0%,42%{opacity:0;transform:translateY(-8u)}47%,78%{opacity:1;transform:none}84%,100%{opacity:0;transform:translateY(-8u)}}
-@keyframes cb-cur{0%{opacity:0;transform:translate(-200u,-150u)}6%{opacity:1}30%{transform:none}35%{transform:scale(.86)}38%,58%{opacity:1;transform:none}68%,100%{opacity:0;transform:translate(150u,90u)}}
-@keyframes cb-old{0%,45%{opacity:1}50%,93%{opacity:0}100%{opacity:1}}
-@keyframes cb-num{0%,45%{opacity:0}50%,93%{opacity:1}100%{opacity:0}}
-@keyframes cb-like{0%,60%{opacity:0;transform:scale(.6)}66%,93%{opacity:1;transform:none}100%{opacity:0}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cb-type{animation:sxk-cb-type var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cb-post{animation:sxk-cb-press var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cb-new{animation:sxk-cb-new var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cb-after{animation:sxk-cb-after var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cb-toast{animation:sxk-cb-toast var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cb-cur{animation:sxk-cb-cur var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cb-n0,[data-mock-live] .cb-h0,[data-mock-live] .cb-l0{animation:sxk-cb-old var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cb-n1{animation:sxk-cb-num var(--bm-t) var(--bm-ease) infinite both}}
+@media(prefers-reduced-motion:no-preference){[data-mock-live] .cb-h1,[data-mock-live] .cb-l1{animation:sxk-cb-like var(--bm-t) var(--bm-ease) infinite both}}
+@keyframes sxk-cb-type{0%,5%{transform:none;animation-timing-function:steps(36,end)}27%,100%{transform:translateX(100%)}}
+@keyframes sxk-cb-press{0%,33%{transform:none}35%{transform:scale(.93)}38%,100%{transform:none}}
+@keyframes sxk-cb-new{0%,37%{opacity:0;transform:translateY(-14u) scale(.98)}47%,93%{opacity:1;transform:none}100%{opacity:0;transform:none}}
+@keyframes sxk-cb-after{0%,37%{transform:translateY(-292u)}48%,93%{transform:none}100%{transform:translateY(-292u)}}
+@keyframes sxk-cb-toast{0%,42%{opacity:0;transform:translateY(-8u)}47%,78%{opacity:1;transform:none}84%,100%{opacity:0;transform:translateY(-8u)}}
+@keyframes sxk-cb-cur{0%{opacity:0;transform:translate(-200u,-150u)}6%{opacity:1}30%{transform:none}35%{transform:scale(.86)}38%,58%{opacity:1;transform:none}68%,100%{opacity:0;transform:translate(150u,90u)}}
+@keyframes sxk-cb-old{0%,45%{opacity:1}50%,93%{opacity:0}100%{opacity:1}}
+@keyframes sxk-cb-num{0%,45%{opacity:0}50%,93%{opacity:1}100%{opacity:0}}
+@keyframes sxk-cb-like{0%,60%{opacity:0;transform:scale(.6)}66%,93%{opacity:1;transform:none}100%{opacity:0}}
 
 @media (max-width:767px){
   .cb-composer,.cb-view,.cb-cur,.cb-back{display:none}

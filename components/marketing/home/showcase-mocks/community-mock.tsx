@@ -352,7 +352,7 @@ export function CommunityMobile({ brand }: { brand: CommunityBrand }) {
 }
 
 export const COMMUNITY_CSS = u(`
-.cm{height:100%;background:#f6f6f7;color:#18181b;font-family:var(--font-inter),Inter,sans-serif}
+.cm{height:100%;background:#f6f6f7;color:#18181b;font-family:var(--font-inter,Inter),Inter,sans-serif}
 .cm-top{height:58u;display:flex;align-items:center;gap:26u;padding:0 22u;background:#fff;border-bottom:1u solid #ececef}
 .cm-logo{display:flex;align-items:center;gap:10u;font-size:14.5u;font-weight:700;letter-spacing:-.01em}
 .cm-logo>i{width:32u;height:32u;border-radius:9u;background:var(--acc);color:#fff;font-style:normal;font-size:11u;font-weight:800;display:grid;place-items:center;letter-spacing:-.02em}

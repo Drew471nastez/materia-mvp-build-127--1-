@@ -75,7 +75,7 @@ export function MockFrame({
 
 export const FRAME_CSS = u(`
 .smk-frame{position:relative;width:100%;container-type:inline-size;overflow:hidden;contain:layout paint;isolation:isolate}
-.smk{--u:calc(100cqw / var(--w));position:absolute;inset:0;overflow:hidden;font-family:var(--font-inter),Inter,system-ui,sans-serif;font-size:14u;line-height:1.4;color:#16161a;text-align:left;letter-spacing:0;-webkit-font-smoothing:antialiased}
+.smk{--u:calc(100cqw / var(--w));position:absolute;inset:0;overflow:hidden;font-family:var(--font-inter,Inter),Inter,system-ui,sans-serif;font-size:14u;line-height:1.4;color:#16161a;text-align:left;letter-spacing:0;-webkit-font-smoothing:antialiased}
 .smk *{box-sizing:border-box}
 .smk p,.smk h1,.smk h2,.smk h3,.smk h4{margin:0}
 .smk-pic{display:block;width:100%;height:100%;object-fit:cover;background:#e9e6e1}

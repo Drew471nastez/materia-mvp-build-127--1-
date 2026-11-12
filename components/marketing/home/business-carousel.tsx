@@ -1,6 +1,6 @@
 "use client"
 
-import type { ReactNode } from "react"
+import { memo, type ReactNode } from "react"
 import { ArrowRight, Pause, Play } from "lucide-react"
 import { StoryHeading } from "@/components/marketing/story-heading"
 import { FRAME_CSS, MockFrame } from "./showcase-mocks/frame"
@@ -89,6 +89,43 @@ export const BUSINESS_SLIDES: Slide[] = [
   },
 ]
 
+/* Slides never change once drawn; switching re-renders only the frame around them. */
+const BizPreviews = memo(function BizPreviews({ i }: { i: number }) {
+  const s = BUSINESS_SLIDES[i]
+  return (
+    <>
+      <figure className="biz-desktop">
+        <div className="biz-window">
+          {s.url && (
+            <div className="biz-chrome" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+              <span>{s.url}</span>
+            </div>
+          )}
+          <MockFrame w={1040} ratio="16/9" label={s.desktopAlt}>
+            {s.desktop}
+          </MockFrame>
+        </div>
+        <figcaption>
+          <b>{s.desktopCaption[0]}</b> {s.desktopCaption[1]}
+        </figcaption>
+      </figure>
+      <figure className="biz-mobile">
+        <div className="biz-phone">
+          <MockFrame w={390} ratio="9/16" label={s.mobileAlt}>
+            {s.mobile}
+          </MockFrame>
+        </div>
+        <figcaption>
+          <b>{s.mobileCaption[0]}</b> {s.mobileCaption[1]}
+        </figcaption>
+      </figure>
+    </>
+  )
+})
+
 /** Section 6: five kinds of business, each as a desktop and a phone preview. */
 export function BusinessCarousel() {
   const t = useAutoTabs(BUSINESS_SLIDES.length)
@@ -130,15 +167,13 @@ export function BusinessCarousel() {
                 }}
               >
                 {s.label}
-                {i === t.index && t.playing && (
-                  <span
-                    key={t.index}
-                    className="biz-progress"
-                    style={{ animationDuration: `${SLIDE_MS}ms` }}
-                    onAnimationEnd={t.advance}
-                    aria-hidden="true"
-                  />
-                )}
+                <span
+                  className="biz-progress"
+                  data-on={(i === t.index && t.playing) || undefined}
+                  style={{ animationDuration: `${SLIDE_MS}ms` }}
+                  onAnimationEnd={i === t.index ? t.advance : undefined}
+                  aria-hidden="true"
+                />
               </button>
             ))}
           </div>
@@ -147,10 +182,12 @@ export function BusinessCarousel() {
               <button
                 type="button"
                 className="biz-round"
+                data-playing={t.playing || undefined}
                 aria-label={t.playing ? "Pause the slideshow" : "Play the slideshow"}
                 onClick={() => t.setPlaying(!t.playing)}
               >
-                {t.playing ? <Pause /> : <Play />}
+                <Pause className="biz-icon-pause" />
+                <Play className="biz-icon-play" />
               </button>
             )}
             <button type="button" className="biz-next" onClick={() => t.select(t.index + 1)}>
@@ -172,37 +209,10 @@ export function BusinessCarousel() {
                 aria-label={`${i + 1} of ${BUSINESS_SLIDES.length}: ${s.label}`}
                 aria-hidden={state !== "active" || undefined}
                 className="biz-slide"
-                data-state={state}
+                data-pane={state}
                 style={{ background: s.tint }}
               >
-                <figure className="biz-desktop">
-                  <div className="biz-window">
-                    {s.url && (
-                      <div className="biz-chrome" aria-hidden="true">
-                        <i />
-                        <i />
-                        <i />
-                        <span>{s.url}</span>
-                      </div>
-                    )}
-                    <MockFrame w={1040} ratio="16/9" label={s.desktopAlt}>
-                      {s.desktop}
-                    </MockFrame>
-                  </div>
-                  <figcaption>
-                    <b>{s.desktopCaption[0]}</b> {s.desktopCaption[1]}
-                  </figcaption>
-                </figure>
-                <figure className="biz-mobile">
-                  <div className="biz-phone">
-                    <MockFrame w={390} ratio="9/16" label={s.mobileAlt}>
-                      {s.mobile}
-                    </MockFrame>
-                  </div>
-                  <figcaption>
-                    <b>{s.mobileCaption[0]}</b> {s.mobileCaption[1]}
-                  </figcaption>
-                </figure>
+                <BizPreviews i={i} />
               </div>
             )
           })}
@@ -221,29 +231,33 @@ const CSS = `
 .biz-controls{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:clamp(32px,4vw,48px) 0 20px}
 .biz-tabs{display:flex;gap:8px;min-width:0;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;padding:2px;margin:-2px}
 .biz-tabs::-webkit-scrollbar{display:none}
-.biz-tab{position:relative;flex:none;height:44px;padding:0 20px;border:0;border-radius:999px;background:#f3f2f5;color:#3f3c46;font:500 15px/1 var(--font-inter),Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;overflow:hidden;scroll-snap-align:start;transition:background-color .35s cubic-bezier(.2,.7,.2,1),color .35s}
+.biz-tab{position:relative;flex:none;height:44px;padding:0 20px;border:0;border-radius:999px;background:#f3f2f5;color:#3f3c46;font:500 15px/1 var(--font-inter,Inter),Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;overflow:hidden;scroll-snap-align:start;transition:background-color .35s cubic-bezier(.2,.7,.2,1),color .35s}
 .biz-tab:hover{background:#ebe9ef}
 .biz-tab[aria-selected="true"]{background:#18181b;color:#fff}
 .biz-tab:focus-visible,.biz-round:focus-visible,.biz-next:focus-visible{outline:2px solid #7c3aed;outline-offset:3px}
-.biz-progress{position:absolute;left:20px;right:20px;bottom:7px;height:2px;border-radius:2px;background:linear-gradient(90deg,#a78bfa,#7c3aed);transform:scaleX(0);transform-origin:left;animation:biz-progress linear both paused}
-.biz[data-run] .biz-progress{animation-play-state:running}
+.biz-progress{position:absolute;left:20px;right:20px;bottom:7px;height:2px;border-radius:2px;background:linear-gradient(90deg,#a78bfa,#7c3aed);transform:scaleX(0);transform-origin:left;opacity:0}
+.biz-progress[data-on]{opacity:1;animation-name:biz-progress;animation-timing-function:linear;animation-fill-mode:both;animation-play-state:paused}
+.biz[data-run] .biz-progress[data-on]{animation-play-state:running}
 @keyframes biz-progress{to{transform:scaleX(1)}}
 .biz-buttons{flex:none;display:flex;gap:8px}
-.biz-round,.biz-next{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;border:0;border-radius:999px;cursor:pointer;font:500 15px/1 var(--font-inter),Inter,system-ui,sans-serif;transition:background-color .2s,transform .2s}
+.biz-round,.biz-next{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;border:0;border-radius:999px;cursor:pointer;font:500 15px/1 var(--font-inter,Inter),Inter,system-ui,sans-serif;transition:background-color .2s,transform .2s}
 .biz-round{width:44px;background:#f3f2f5;color:#18181b}
 .biz-round:hover{background:#ebe9ef}
 .biz-next{padding:0 18px 0 20px;background:#18181b;color:#fff}
 .biz-next:hover{background:#2c2a33}
 .biz-next:active{transform:scale(.97)}
 .biz-round svg,.biz-next svg{width:16px;height:16px}
+.biz-round .biz-icon-play,.biz-round[data-playing] .biz-icon-pause{display:block}
+.biz-round .biz-icon-pause,.biz-round[data-playing] .biz-icon-play{display:none}
 .biz-stage{position:relative;display:grid;border-radius:clamp(22px,2.6vw,32px);overflow:hidden;background:#f6f6f7}
 .biz-slide{grid-area:1/1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.29fr);gap:clamp(20px,3vw,48px);align-items:start;padding:clamp(24px,4vw,64px)}
-.biz-slide[data-state="active"]{z-index:2;animation:biz-in .65s cubic-bezier(.2,.7,.2,1) both}
-.biz-slide[data-state="leaving"]{z-index:1}
-.biz-slide[data-state="next"]{z-index:0;visibility:hidden}
+.biz-slide[data-pane="active"]{z-index:2;animation:biz-in .4s cubic-bezier(.2,.7,.2,1) both}
+.biz-slide[data-pane="leaving"]{z-index:1}
+.biz-slide[data-pane="next"]{z-index:0;opacity:0;pointer-events:none}
+.biz-slide[data-pane="rest"]{z-index:0;opacity:0;content-visibility:hidden;pointer-events:none}
 @keyframes biz-in{from{opacity:0}}
-.biz-slide[data-state="active"] .biz-window{animation:biz-rise .75s cubic-bezier(.2,.7,.2,1) both}
-.biz-slide[data-state="active"] .biz-phone{animation:biz-rise .75s .08s cubic-bezier(.2,.7,.2,1) both}
+.biz-slide[data-pane="active"] .biz-window{animation:biz-rise .75s cubic-bezier(.2,.7,.2,1) both}
+.biz-slide[data-pane="active"] .biz-phone{animation:biz-rise .75s .08s cubic-bezier(.2,.7,.2,1) both}
 @keyframes biz-rise{from{transform:translate3d(0,22px,0) scale(.985)}}
 .biz figure{margin:0;min-width:0}
 .biz-window{border-radius:clamp(10px,1.2vw,14px);overflow:hidden;background:#fff;box-shadow:0 1px 2px rgba(20,16,40,.06),0 24px 60px -12px rgba(20,16,40,.22)}
