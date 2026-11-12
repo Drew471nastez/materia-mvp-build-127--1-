@@ -123,3 +123,51 @@ export function socialTileStyle(theme: SocialThemeLike | null | undefined, { onL
     }
   return { ...base, backgroundColor: tint(colour, 12.5), borderWidth: 0, borderColor: "transparent" }
 }
+
+/* ─── A block's brand mark (round 3) ──────────────────────────────────── */
+
+/**
+ * THE SAME CHOICE FOR A BLOCK'S MARK. The owner: "the Instagram block shows
+ * only the purple pink icon; let the creator choose the block's icon style".
+ * Saved per block as style.presentation.icon_look (lib/onepage/block-
+ * presentation), and drawn by components/onepage/block-mark wherever a block
+ * shows a service's mark: the app blocks (Instagram, TikTok, YouTube...), a
+ * link with a brand icon, and the followers block.
+ *
+ *   original  the block's own drawing: the app's coloured tile, a link's mark
+ *             in the button's words, as before this choice existed
+ *   solid     the social row's Solid: a 12.5% tint behind a one colour mark
+ *   outline   the social row's Outline: a ring at 25% round a one colour mark
+ *   glass     the social row's Glass: frosted, the mark in its own colours
+ *
+ * One colour is the colour of the words where the mark sits (currentColor),
+ * so a mark inside a dark button is the button's words and one on the page
+ * is the page's, with nothing to pick twice.
+ */
+export const BLOCK_ICON_LOOKS = ["original", "solid", "outline", "glass"] as const
+export type BlockIconLook = (typeof BLOCK_ICON_LOOKS)[number]
+
+export function blockIconLookOf(value: unknown): BlockIconLook {
+  return (BLOCK_ICON_LOOKS as readonly unknown[]).includes(value) ? (value as BlockIconLook) : "original"
+}
+
+/** The tile, and the mark's tone, for a chosen look other than Original. */
+export function blockMarkLook(look: Exclude<BlockIconLook, "original">, size?: number): { tile: CSSProperties; tone: SocialIconTone } {
+  const colour = "currentColor"
+  const base: CSSProperties = { ...(size ? { width: size, height: size } : {}), borderRadius: 999, borderStyle: "solid", boxShadow: "none" }
+  if (look === "outline") return { tone: "mono", tile: { ...base, backgroundColor: "transparent", borderWidth: 2, borderColor: tint(colour, 25) } }
+  if (look === "glass")
+    return {
+      tone: "brand",
+      tile: {
+        ...base,
+        backgroundColor: tint(colour, 8),
+        borderWidth: 1,
+        borderColor: tint(colour, 16),
+        backdropFilter: "blur(12px) saturate(1.4)",
+        WebkitBackdropFilter: "blur(12px) saturate(1.4)",
+        boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.22)",
+      },
+    }
+  return { tone: "mono", tile: { ...base, backgroundColor: tint(colour, 12.5), borderWidth: 0, borderColor: "transparent" } }
+}

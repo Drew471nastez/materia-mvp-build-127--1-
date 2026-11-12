@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react"
 import type { OnePageBlock } from "./types"
 import { embedSource, musicSource } from "./creator-blocks"
+import { BLOCK_ICON_LOOKS, type BlockIconLook } from "./social-look"
 
 /** Optional, versionless JSON additions. No value means the original renderer. */
 export interface BlockPresentation {
@@ -31,6 +32,8 @@ export interface BlockPresentation {
   fade?: boolean
   /** The picture's shape on an image card. */
   aspect?: BlockAspect
+  /** Round 3: how a block draws a service's mark (lib/onepage/social-look BLOCK_ICON_LOOKS). None is "original". */
+  icon_look?: BlockIconLook
 }
 export const LINK_VARIANTS = ["original", "visual", "image-first", "featured", "compact", "profile", "tile"] as const
 export type LinkVariant = (typeof LINK_VARIANTS)[number]
@@ -75,6 +78,7 @@ export function presentationOf(block: Pick<OnePageBlock, "style"> | null | undef
     media_mode: choice(raw.media_mode, ["card", "native"]),
     background: color(raw.background), radius: number(raw.radius, 0, 40), shadow: choice(raw.shadow, BLOCK_SHADOWS),
     fade: typeof raw.fade === "boolean" ? raw.fade : undefined, aspect: choice(raw.aspect, BLOCK_ASPECTS),
+    icon_look: choice(raw.icon_look, BLOCK_ICON_LOOKS),
   }
 }
 export function presentationVars(p: BlockPresentation): CSSProperties {

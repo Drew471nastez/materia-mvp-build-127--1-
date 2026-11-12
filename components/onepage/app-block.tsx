@@ -71,6 +71,9 @@ import { noteTracked } from "@/components/onepage/block-activity"
 import { CompactInstagramPost } from "@/components/onepage/compact-post"
 import { AppMark, INSTAGRAM_FILL, isMulticolorMark, markOn } from "@/components/onepage/brand-icons"
 import { APP_GLYPHS, RoundTile } from "@/components/onepage/block-icons"
+import { BlockIconLookScope, BlockMarkTile, useBlockIconLook } from "@/components/onepage/block-mark"
+import { blockIconLookOf } from "@/lib/onepage/social-look"
+import { presentationOf } from "@/lib/onepage/block-presentation"
 import type { OnePageBlock, OnePageTheme } from "@/lib/onepage/types"
 import { DataEventView, DataFeedList, DataPollView, DataReviewsView, DataStatsView, DataPaidView } from "@/components/onepage/data-blocks"
 import { DataTipsView } from "@/components/onepage/tip-block"
@@ -234,6 +237,11 @@ export function useTrack(look: AppBlockLook) {
 export function AppTileMark({ provider, size, mark }: { provider: AppProvider; size: number; mark?: string | null }) {
   const key = mark || provider.mark
   const glyph = APP_GLYPHS[key]
+  /* Round 3: Layout › Icon style. Original is the service's own tile below; the others are the social row's looks (./block-mark). */
+  const chosen = useBlockIconLook()
+  if (chosen !== "original" && !glyph) {
+    return <BlockMarkTile look={chosen} size={size} inner={Math.round(size * 0.5)} draw={(tone, inner) => <AppMark id={key} size={inner} color="currentColor" tone={tone} />} />
+  }
   const multi = isMulticolorMark(key)
   const fill = provider.color === "instagram" ? INSTAGRAM_FILL : multi ? "#ffffff" : provider.color
   const ink = provider.color === "instagram" ? "#ffffff" : multi ? "#1a1a2e" : markOn(provider.color)
@@ -381,6 +389,15 @@ export function CardButton({
 /* ─── The block ───────────────────────────────────────────────────────── */
 
 export function AppBlock({ block, look }: { block: OnePageBlock; look: AppBlockLook }) {
+  /* Round 3: every mark this block draws, in every layout, wears the Icon style picked for it (./block-mark). */
+  return (
+    <BlockIconLookScope look={blockIconLookOf(presentationOf(block).icon_look)}>
+      <AppBlockBody block={block} look={look} />
+    </BlockIconLookScope>
+  )
+}
+
+function AppBlockBody({ block, look }: { block: OnePageBlock; look: AppBlockLook }) {
   const data = (block.data ?? {}) as AppBlockData
   const provider = providerOf(data)
   if (isRetiredAppProvider(data.provider)) return <RetiredView block={block} data={data} look={look} />
@@ -475,6 +492,9 @@ function SheetSummary({ provider, data, handle, children }: { provider: AppProvi
  * how it is drawn; the Interaction what a tap does.
  */
 function LinkView({ block, data, provider, look }: ViewProps) {
+  /* Round 3: a cover in the service's colour is the Original look; another Icon style draws the cover in the page's own colours. */
+  const ownCover = useBlockIconLook() === "original"
+  const coverFill = provider.color === "instagram" ? INSTAGRAM_FILL : provider.color
   const sheet = useBlockSheet()
   const track = useTrack(look)
   const parts = useParts(look)
@@ -531,7 +551,7 @@ function LinkView({ block, data, provider, look }: ViewProps) {
   */
   const spotlight = (
     <div data-onepage-app={provider.id} data-app-layout="single" data-app-spotlight="" className="flex w-full flex-col overflow-hidden" style={{ ...parts.surface, borderRadius: parts.radius, padding: px(10, look.scale), gap: px(12, look.scale) }}>
-      <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "4 / 3", borderRadius: Math.max(6, parts.radius - 6), background: provider.color === "instagram" ? INSTAGRAM_FILL : provider.color }}>
+      <span className="relative block w-full overflow-hidden" style={{ aspectRatio: "4 / 3", borderRadius: Math.max(6, parts.radius - 6), background: ownCover ? coverFill : "color-mix(in srgb, currentColor 7%, transparent)" }}>
         {data.image_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img src={data.image_url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
@@ -625,13 +645,13 @@ function LinkView({ block, data, provider, look }: ViewProps) {
         data-onepage-app={provider.id}
         data-app-layout="featured"
         className="relative block w-full overflow-hidden"
-        style={{ borderRadius: parts.radius, aspectRatio: "16 / 10", background: provider.color === "instagram" ? INSTAGRAM_FILL : provider.color }}
+        style={{ borderRadius: parts.radius, aspectRatio: "16 / 10", background: ownCover ? coverFill : look.theme.button_color || "#111113" }}
       >
         {data.image_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img src={data.image_url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
-          <span className="absolute inset-0 grid place-items-center" style={{ color: isMulticolorMark(provider.mark) ? "#1a1a2e" : markOn(provider.color) }}>
+          <span className="absolute inset-0 grid place-items-center" style={{ color: !ownCover ? look.theme.button_text_color || "#ffffff" : isMulticolorMark(provider.mark) ? "#1a1a2e" : markOn(provider.color) }}>
             {provider.shape === "reviews" && rating ? (
               <span className="flex flex-col items-center gap-1">
                 <span className="font-bold tabular-nums" style={{ fontSize: px(44, look.scale), lineHeight: 1 }}>{rating.toFixed(1)}</span>

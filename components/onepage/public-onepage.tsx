@@ -37,7 +37,8 @@ import type {
 import { normalizeSocialUrl } from "@/lib/onepage/types"
 import { socialLinkId } from "@/lib/onepage/link-keys"
 import { LinkIcon, SocialIcon, socialPlatformLabel } from "@/components/onepage/brand-icons"
-import { resolveLinkIcon } from "@/components/onepage/link-icons"
+import { isLinkBrandIcon, linkIconKey, resolveLinkIcon } from "@/components/onepage/link-icons"
+import { BlockMarkTile } from "@/components/onepage/block-mark"
 import { cn } from "@/lib/utils"
 import { Avatar } from "@/components/ui/avatar"
 import { AvatarMark } from "@/components/app/app-avatar"
@@ -73,7 +74,7 @@ import { usePressFeel } from "@/components/onepage/press-feel"
 import { useLookStill } from "@/components/onepage/look-still"
 import { useBlockEntrance } from "@/components/onepage/block-entrance"
 import { SocialRowScroller } from "@/components/onepage/social-row-scroller"
-import { pageGroundIsLight, socialMarkColorOf, socialIconStyleOf, socialIconToneOf, socialTileStyle } from "@/lib/onepage/social-look"
+import { blockIconLookOf, pageGroundIsLight, socialMarkColorOf, socialIconStyleOf, socialIconToneOf, socialTileStyle } from "@/lib/onepage/social-look"
 import { leavingProps, useLeavingBlocks } from "@/components/onepage/leaving-block"
 import { heroScrollEffect } from "@/lib/onepage/feel"
 import { PosterVideo } from "@/components/onepage/poster-video"
@@ -3404,6 +3405,15 @@ function CoreBlockRenderer({
       const p = presentationOf(block)
       if ((p.variant && p.variant !== "original") || p.media_mode === "native" || p.media_mode === "card") return <VisualLinkCard block={block} theme={theme} onClick={() => { void trackClick(block.id, data.url) }} />
       const linkIcon = resolveLinkIcon(data.icon, data.url)
+      /* Round 3: Layout › Icon style, for a link whose icon is a service's mark (components/onepage/block-mark). Original is the mark in the button's words. */
+      const iconLook = blockIconLookOf(p.icon_look)
+      const linkKey = linkIconKey(linkIcon)
+      const drawLinkIcon = (className: string) =>
+        iconLook !== "original" && linkKey && isLinkBrandIcon(linkKey) ? (
+          <BlockMarkTile look={iconLook} className={className} draw={(tone, inner) => <LinkIcon name={linkIcon} size={inner} tone={tone} />} />
+        ) : (
+          <LinkIcon name={linkIcon} className={className} />
+        )
 
       /*
         THE BUTTON, from lib/onepage/button-style.ts: the same drawing every
@@ -3821,7 +3831,7 @@ function CoreBlockRenderer({
                 className={cn(iconPlace, "rounded object-cover")}
               />
             ) : linkIcon ? (
-              <LinkIcon name={linkIcon} className={iconPlace} />
+              drawLinkIcon(iconPlace)
             ) : null}
             <div className={labelColumn(hasThumbnail)}>
               <span className={labelText} data-block-title="">{data.label ?? "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
@@ -3877,7 +3887,7 @@ function CoreBlockRenderer({
                 className={cn(iconPlace, "rounded object-cover")}
               />
             ) : linkIcon ? (
-              <LinkIcon name={linkIcon} className={iconPlace} />
+              drawLinkIcon(iconPlace)
             ) : null}
             <div className={labelColumn(true)}>
               <span className={labelText} data-block-title="">{data.label ?? "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
@@ -3941,7 +3951,7 @@ function CoreBlockRenderer({
               className={cn(iconPlace, "rounded object-cover")}
             />
           ) : linkIcon ? (
-            <LinkIcon name={linkIcon} className={iconPlace} />
+            drawLinkIcon(iconPlace)
           ) : null}
           <div className={labelColumn(!!(hasIconOnly || hasThumbnail))}>
             <span className={labelText} data-block-title="">{data.label ?? "Link"}</span><BlockSubtitle subtitle={p.subtitle} />
