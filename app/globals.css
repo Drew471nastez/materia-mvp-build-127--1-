@@ -10044,3 +10044,40 @@ body:has([data-landing-story]) .storelib-footer [role="status"] {color:#047857}
    while they wait offscreen, particularly on 320px devices. */
 [data-landing-story] [data-story-reveal][data-story-visible="false"] {transform:translate3d(0,18px,0)!important}
 @media(prefers-reduced-motion:reduce){[data-landing-story] [data-story-reveal]{opacity:1!important;transform:none!important;transition:none!important}}
+/*
+  THE ONEPAGE'S CORNER BUTTONS, SHARE AND SUBSCRIBE (round AS, the owner's
+  image 140: the bell sat on the phone's rounded corner and its dot was cut).
+  Two things push them in, and the larger wins:
+
+    the screen's curve   the editor's phone hands its screen radius to the
+                         page (--onepage-screen-radius, components/onepage/
+                         preview-document); a 40px button then sits concentric
+                         with the curve, radius minus half the button
+    the device           a notch, the status bar in the app shell, or a
+                         landscape phone's rounded side: env(safe-area-inset-*),
+                         0 in a browser, so nothing branches on the device
+
+  A browser page with neither keeps the old 16px (24px from 640px).
+*/
+[data-onepage-corner] {
+  --onepage-corner-edge: max(16px, calc(var(--onepage-screen-radius, 0px) - 20px));
+  top: max(var(--onepage-corner-edge), calc(env(safe-area-inset-top, 0px) + 8px));
+}
+[data-onepage-corner="left"] {
+  left: max(var(--onepage-corner-edge), calc(env(safe-area-inset-left, 0px) + 8px));
+}
+[data-onepage-corner="right"] {
+  right: max(var(--onepage-corner-edge), calc(env(safe-area-inset-right, 0px) + 8px));
+}
+@media (min-width: 640px) {
+  [data-onepage-corner] {
+    --onepage-corner-edge: max(24px, calc(var(--onepage-screen-radius, 0px) - 22px));
+  }
+}
+@media (min-width: 768px) {
+  /* Share sits 2px above Subscribe and a little further in, as it always has. */
+  [data-onepage-corner="left"] {
+    top: max(22px, calc(env(safe-area-inset-top, 0px) + 8px));
+    left: max(32px, calc(env(safe-area-inset-left, 0px) + 8px));
+  }
+}

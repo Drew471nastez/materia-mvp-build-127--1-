@@ -486,6 +486,8 @@ function NotificationBell({
   */
   return (
     <div
+      /* Round AS (track 2): app/globals.css [data-onepage-corner] keeps it clear of a rounded screen and a notch; it wins over the offsets below. */
+      data-onepage-corner="right"
       className={CORNER_BOX_CLASS + " right-[10px] sm:right-2 md:right-6"}
       style={{ translate: shouldShow ? "0 0" : "0 -10px", pointerEvents: shouldShow ? "auto" : "none" }}
     >
@@ -639,6 +641,7 @@ function ShareButton({
     <>
       <div
         className={positionClass}
+        data-onepage-corner="left"
         style={{ translate: shouldShow ? "0 0" : "0 -10px", pointerEvents: shouldShow ? "auto" : "none" }}
       >
         <div>

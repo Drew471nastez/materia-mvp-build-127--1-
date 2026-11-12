@@ -192,7 +192,10 @@ export function LivePreviewFrame({
   onDrawn,
   title = "Preview of your OnePage",
   pick,
+  corner,
 }: {
+  /** Round AS: how round the screen around the frame is, in screen pixels; the page's corner buttons keep clear of it. */
+  corner?: number
   /** Round AR: the phone beside the editor picks blocks (lib/onepage/preview-select): which is open, and what a pick does. */
   pick?: { selected: string | null; onPick: (id: string) => void }
   page: PublicOnePageData | null
@@ -291,6 +294,8 @@ export function LivePreviewFrame({
     holds nothing up.
   */
   const [attempt, setAttempt] = useState(0)
+  /* The screen's corner in the page's own pixels (it is drawn at `scale`), for the corner buttons (components/onepage/preview-document). */
+  const cornerQuery = corner ? `&corner=${Math.round((corner / scale) * 10) / 10}` : ""
   useEffect(() => {
     if (attempt > 0) return
     const id = window.setTimeout(() => { if (!ready.current) setAttempt(1) }, FRAME_READY_MS)
@@ -315,7 +320,7 @@ export function LivePreviewFrame({
     >
       <iframe
         ref={frame}
-        src={attempt ? `${ONEPAGE_PREVIEW_PATH}&again=${attempt}` : ONEPAGE_PREVIEW_PATH}
+        src={`${ONEPAGE_PREVIEW_PATH}${cornerQuery}${attempt ? `&again=${attempt}` : ""}`}
         title={title}
         /*
           THE PREVIEW CANNOT TAKE THE EDITOR ANYWHERE (round 11). No
@@ -346,6 +351,8 @@ export function LivePreviewFrame({
 /* The phone's own screen, inside its 10px bezel. */
 const SCREEN_W = 287
 const SCREEN_H = 607
+/** The screen's own corner radius: drawn here once, and handed to the page so its corner buttons sit clear of it (round AS). */
+export const PHONE_SCREEN_RADIUS = 34
 const SCALE = SCREEN_W / PREVIEW_PHONE_WIDTH
 const FRAME_H = Math.round(SCREEN_H / SCALE)
 
@@ -386,8 +393,8 @@ export function PhonePreview({ className, onDrawn }: { className?: string; onDra
       {side({ left: -2, top: 125, height: 44, borderRadius: "2px 0 0 2px" })}
       {side({ left: -2, top: 180, height: 44, borderRadius: "2px 0 0 2px" })}
       {side({ right: -2, top: 145, height: 55, borderRadius: "0 2px 2px 0" })}
-      <div className="relative overflow-hidden" style={{ width: SCREEN_W, height: SCREEN_H, borderRadius: 34, background: pageColour(page), isolation: "isolate" }}>
-        {shown && <LivePreviewFrame page={page} width={PREVIEW_PHONE_WIDTH} height={FRAME_H} scale={SCALE} onDrawn={onDrawn} pick={pick} />}
+      <div className="relative overflow-hidden" style={{ width: SCREEN_W, height: SCREEN_H, borderRadius: PHONE_SCREEN_RADIUS, background: pageColour(page), isolation: "isolate" }}>
+        {shown && <LivePreviewFrame page={page} width={PREVIEW_PHONE_WIDTH} height={FRAME_H} scale={SCALE} onDrawn={onDrawn} pick={pick} corner={PHONE_SCREEN_RADIUS} />}
         {shown ? <ScheduledNote /> : null}
       </div>
     </div>
