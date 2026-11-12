@@ -39,7 +39,8 @@ check("the cover sits under the profile image layout in Header", design.indexOf(
 section("The pattern keeps out from behind the header")
 check("the phone page and the computer's card both clear the header", (page.match(/<WallpaperPattern theme=\{safeTheme\}[^>]*clearHeader \/>/g) ?? []).length === 2)
 check("each measures once, with one hook", /useHeaderClearance\(cardRef,/.test(page) && /useHeaderClearance\(phonePageRef,/.test(page))
-check("the social row is marked for it", /data-op-social-row=""/.test(page))
+/* Changed on purpose (round 3, social): the row is the sliding row now, which carries the mark (tests/onepage-social-r3). */
+check("the social row is marked for it", /<SocialRowScroller/.test(page) && /data-op-social-row=""/.test(read("components/onepage/social-row-scroller.tsx")))
 check("measured by layout, not as drawn during the arrival rise", /function layoutTop\(/.test(layers) && /offsetTop/.test(layers))
 
 section("The gradient drifts on the compositor")

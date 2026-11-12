@@ -2,7 +2,7 @@
 
 import { useState, type CSSProperties, type ReactNode } from "react"
 import { useAvatarImage } from "@/lib/account/avatar-image"
-import { aspectCss, blockSurface, embedIsTool, presentationOf, presentationVars, safeCardMedia, socialPresentation, socialProfile, type BlockPresentation } from "@/lib/onepage/block-presentation"
+import { aspectCss, blockSurfaceOf, embedIsTool, presentationOf, presentationVars, safeCardMedia, socialPresentation, socialProfile, type BlockPresentation } from "@/lib/onepage/block-presentation"
 import type { OnePageBlock, OnePageTheme, LinkButtonBlockData } from "@/lib/onepage/types"
 import { themeButtonStyle, buttonHoverVars, buttonHover, buttonShadow } from "@/lib/onepage/button-style"
 import { LinkIcon } from "./brand-icons"
@@ -32,7 +32,7 @@ export function BlockSubtitle({ subtitle }: { subtitle?: string }) {
 export function BlockPresentationFrame({ block, children }: { block: OnePageBlock; children: ReactNode }) {
   if (!block.style?.presentation) return <>{children}</>
   const p = presentationOf(block)
-  return <div data-block-presentation="" data-block-surface={blockSurface(block.type)} data-block-align={p.align} data-title-size={p.title_size} data-title-weight={p.title_weight} data-title-color={p.title_color} data-icon-size={p.icon_size} data-icon-color={p.icon_color} data-block-gap={p.gap} data-block-padding={p.padding} data-block-bg={p.background} data-block-radius={p.radius} data-block-shadow={p.shadow} style={{...presentationVars(p), textAlign:p.align}}>
+  return <div data-block-presentation="" data-block-surface={blockSurfaceOf(block)} data-block-align={p.align} data-title-size={p.title_size} data-title-weight={p.title_weight} data-title-color={p.title_color} data-icon-size={p.icon_size} data-icon-color={p.icon_color} data-block-gap={p.gap} data-block-padding={p.padding} data-block-bg={p.background} data-block-radius={p.radius} data-block-shadow={p.shadow} style={{...presentationVars(p), textAlign:p.align}}>
     {children}
     {!["link_button","product","pdf_document","food_menu","calendly"].includes(block.type) ? <BlockSubtitle subtitle={p.subtitle} /> : null}
   </div>

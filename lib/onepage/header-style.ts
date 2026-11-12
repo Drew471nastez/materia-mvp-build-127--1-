@@ -13,7 +13,9 @@
  *   avatar_border_color  a colour, or missing for the theme's own: the text
  *                        colour at an eighth, as the ring always was
  *
- *   title_weight / bio_weight      400 to 800 (missing: 700 and 400)
+ *   title_weight / bio_weight      400 to 800 (missing: 700 and 400); drawn
+ *                                  as the nearest weight the face really
+ *                                  has (lib/onepage/fonts realWeight)
  *   title_tracking / bio_tracking  "tight" | "normal" (missing) | "wide"
  *   title_case / bio_case          "none" (missing) | "upper"
  *   title_size                     "small" | "default" (missing) | "large"
@@ -23,6 +25,8 @@
  * the ring: the owner found the old 2px ring heavy, so a page that never
  * chose one now draws it at 1px. Nothing else of an existing page moves.
  */
+
+import { familyOf, realWeight } from "./fonts"
 
 type Look = Record<string, unknown> | null | undefined
 
@@ -50,7 +54,8 @@ const AVATAR_PX: Record<AvatarSize, [phone: number, desktop: number]> = {
 }
 
 export const TITLE_WEIGHTS = [400, 500, 600, 700, 800] as const
-export const BIO_WEIGHTS = [400, 500, 600] as const
+/* The bio offers Regular, Medium and Bold; 600 is kept for a page that chose Semibold before Bold was offered. */
+export const BIO_WEIGHTS = [400, 500, 600, 700] as const
 
 const pick = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T => (allowed.includes(v as T) ? (v as T) : fallback)
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : null)
@@ -121,21 +126,44 @@ export function bioWeightOf(theme: Look): number {
   return w !== null && (BIO_WEIGHTS as readonly number[]).includes(w) ? w : 400
 }
 
-/** The weight, the spacing and the case of a line, as inline style. Nothing is written for a default, so an old page's markup is unchanged. */
-function typeStyle(weight: number, fallbackWeight: number, tracking: TextTracking, textCase: TextCase): { fontWeight?: number; letterSpacing?: string; textTransform?: "uppercase" } {
+/** The family the name is drawn in: its own title font, else the page's. */
+export function titleFamilyOf(theme: Look): string | null {
+  return familyOf(theme?.title_font) ?? familyOf(theme?.font_family)
+}
+/** The family the bio is drawn in: the page's. */
+export function bioFamilyOf(theme: Look): string | null {
+  return familyOf(theme?.font_family)
+}
+
+/** The weight a line is drawn at: the chosen one, moved to the nearest the face really has. */
+export function drawnTitleWeight(theme: Look): number {
+  return realWeight(titleFamilyOf(theme), titleWeightOf(theme))
+}
+export function drawnBioWeight(theme: Look): number {
+  return realWeight(bioFamilyOf(theme), bioWeightOf(theme))
+}
+
+/**
+ * The weight, the spacing and the case of a line, as inline style. Nothing
+ * is written for what the element already draws (the name's 700 from
+ * `font-bold`, the bio's 400), so an old page's markup is unchanged. A
+ * weight is written as one the face has, with synthesis off, so a face with
+ * one weight is never smeared into a faux bold.
+ */
+function typeStyle(weight: number, fallbackWeight: number, tracking: TextTracking, textCase: TextCase): { fontWeight?: number; fontSynthesisWeight?: "none"; letterSpacing?: string; textTransform?: "uppercase" } {
   return {
-    ...(weight !== fallbackWeight ? { fontWeight: weight } : null),
+    ...(weight !== fallbackWeight ? { fontWeight: weight, fontSynthesisWeight: "none" as const } : null),
     ...(TRACKING[tracking] ? { letterSpacing: TRACKING[tracking] } : null),
     ...(textCase === "upper" ? { textTransform: "uppercase" as const } : null),
   }
 }
 
 export function titleTypeStyle(theme: Look) {
-  return typeStyle(titleWeightOf(theme), 700, trackingOf(theme?.title_tracking), caseOf(theme?.title_case))
+  return typeStyle(drawnTitleWeight(theme), 700, trackingOf(theme?.title_tracking), caseOf(theme?.title_case))
 }
 
 export function bioTypeStyle(theme: Look) {
-  return typeStyle(bioWeightOf(theme), 400, trackingOf(theme?.bio_tracking), caseOf(theme?.bio_case))
+  return typeStyle(drawnBioWeight(theme), 400, trackingOf(theme?.bio_tracking), caseOf(theme?.bio_case))
 }
 
 /**

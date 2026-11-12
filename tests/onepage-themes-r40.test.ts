@@ -160,7 +160,8 @@ console.log("\nThe page, the preview, the Design tab and Settings")
 /* Changed on purpose (round W9, opblocks): the paired list is kept in one place (laid) so Mixed tiles can read the same list (mixedTileSizes). */
 check("the blocks' gap and layout come from the theme", /className=\{cn\("flex flex-col items-center", blockGapClass\(safeTheme\)\)\}/.test(live) && /const laid = pairProductTiles\(/.test(live) && /pairLinkTiles\(laid, blockLayoutOf\(safeTheme\)\)/.test(live))
 check("a link on Cards is drawn as the featured card", /if \(data\.layout_type === 'pro' \|\| linkDrawnAsCard\(theme, data\)\)/.test(live))
-check("the classic header and socials carry their marks for left alignment", /data-op-header=""/.test(live) && /data-op-socials=\{isHeroLayout \? undefined : ""\}/.test(live))
+/* Changed on purpose (round 3, social): the icons sit on the sliding row's track, which carries the mark (tests/onepage-social-r3). */
+check("the classic header and socials carry their marks for left alignment", /data-op-header=""/.test(live) && /trackProps=\{\{ "data-op-socials": isHeroLayout \? undefined : "" \}\}/.test(live))
 check("the theme's sheet colours are written once", (live.match(/sheetRootCss\(safeTheme\)/g) ?? []).length === 1)
 check("the preview is the live page's own component", /PublicOnePage/.test(read("components/onepage/preview-document.tsx")))
 check("the product sheet and the checkout window are themed", /className=\{cn\(\s*"op-sheet /.test(read("components/onepage/product-sheet.tsx")) /* round 43: two columns on a computer, so the classes are joined */ && /themed && "op-sheet"/.test(read("components/checkout/checkout-window.tsx")) && /themed\b/.test(read("components/onepage/product-block.tsx")))

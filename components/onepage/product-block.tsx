@@ -436,7 +436,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     showPrice && !purchased ? (
       <p className={cn("flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1.5 tabular-nums", cls)} style={{ color }} data-product-price="">
         <span className="min-w-0 max-w-full truncate">{now}</span>
-        {parts.was ? <s className="min-w-0 max-w-full truncate text-[0.85em] font-normal opacity-60">{parts.was}</s> : null}
+        {parts.was ? <s className="min-w-0 max-w-full truncate text-[0.85em] font-normal">{parts.was}</s> : null}
       </p>
     ) : null
   const ctaButton = (cls: string, onPhoto = false) => {
@@ -495,13 +495,14 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           */}
           <span className="relative min-w-0 max-w-full">
             <span className="op-label block truncate" data-block-title={data.cta_text?.trim() ? undefined : ""}>{data.cta_text?.trim() || purchased ? cta : title}</span>
-            {data.cta_text?.trim() || purchased ? <span className="block truncate text-[0.82em] font-normal opacity-75" data-block-title="">{title}</span> : null}
+            {/* Round 3: words inside a button are never faded: the button's hover turns them to the fill's words, and a fade under that took Ledger's old price to 4:1. Smaller and lighter in weight instead. */}
+            {data.cta_text?.trim() || purchased ? <span className="block truncate text-[0.82em] font-normal" data-block-title="">{title}</span> : null}
             <BlockSubtitle subtitle={presentationOf(block).subtitle} />
           </span>
           {showPrice && !purchased ? (
-            <span className="relative max-w-full shrink-0 truncate text-sm tabular-nums opacity-75" data-product-price="">
+            <span className="relative max-w-full shrink-0 truncate text-sm font-normal tabular-nums" data-product-price="">
               {now}
-              {parts.was ? <s className={cn("ml-1 opacity-70", NARROW_HIDE)}>{parts.was}</s> : null}
+              {parts.was ? <s className={cn("ml-1 text-[0.9em]", NARROW_HIDE)}>{parts.was}</s> : null}
             </span>
           ) : null}
           </span>
@@ -573,7 +574,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         body = shell(
           <span className="relative block aspect-[4/3] w-full @max-[18rem]:aspect-[4/5]">
             {picture("absolute inset-0 h-full w-full", undefined)}
-            <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_35%,rgba(0,0,0,0.72)_100%)]" />
+            {/* Round 3: the shade reaches 60% where the words start, so white words read on any picture, a white one too. */}
+            <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_26%,rgba(0,0,0,0.6)_60%,rgba(0,0,0,0.8)_100%)]" />
             <span className={cn("absolute inset-x-0 bottom-0 flex items-end gap-3 p-4 @max-[18rem]:gap-2 @max-[18rem]:p-3", NARROW_COLUMN)}>
               <span className="min-w-0 flex-1">
                 <ProductTitle block={block}>
@@ -634,7 +636,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           </span>
           <span className={cn("inline-flex h-9 max-w-[60%] shrink-0 items-center gap-1.5 whitespace-nowrap px-3.5 text-[13.5px] font-semibold tabular-nums", PRODUCT_CTA_HOVER)} style={{ ...themeButtonStyle(pillTheme), ...buttonHoverVars(pillTheme) }} {...hoverAttrs(pillTheme)} data-product-cta="">
             <span className="op-label relative min-w-0 truncate">{showPrice && !purchased ? now : cta}</span>
-            {showPrice && parts.was && !purchased ? <s className={cn("relative text-[12px] font-normal opacity-60", NARROW_HIDE)}>{parts.was}</s> : null}
+            {showPrice && parts.was && !purchased ? <s className={cn("relative text-[12px] font-normal", NARROW_HIDE)}>{parts.was}</s> : null}
           </span>
         </span>,
         "",

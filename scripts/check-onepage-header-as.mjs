@@ -16,7 +16,8 @@
  *              one transition per layer with the opacity only rising, no layout shift,
  *              no ancestor fading over the frosted button; a wobble never flips them; on
  *              a phone each sits on the bar's row.
- *   fade       the fade layout's picture (eased mask, the name over its melted part) and
+ *   fade       the fade layout's picture (8/9 on a phone, 5/4 on a computer, round R3;
+ *              eased mask, the name over its melted part) and
  *              the own cover's fade, on by default and off with cover_fade false.
  *   rows       every sideways row reaches the column's edge (the screen, or the card),
  *              its first card in line with the column, room above and below, nothing
@@ -102,7 +103,11 @@ const BAR_SAMPLE = () => {
   const bar = document.querySelector("[data-op-topbar]")
   const vis = (s) => [...document.querySelectorAll(s)].find((e) => e.getClientRects().length)
   const name = vis("[data-op-bar-anchor]")
-  return { o: Math.round(parseFloat(getComputedStyle(bar).opacity) * 1000) / 1000, state: bar.getAttribute("data-op-topbar"), name: name ? Math.round(name.getBoundingClientRect().bottom) : null }
+  const foot = bar.getBoundingClientRect().bottom
+  /* What lib/onepage/feel barMorph says for where the name is on this frame (80px of travel). */
+  const nb = name ? name.getBoundingClientRect().bottom : null
+  const want = nb === null ? null : Math.round(Math.min(1, Math.max(0, (foot + 80 - nb) / 80)) * 1000) / 1000
+  return { o: Math.round(parseFloat(getComputedStyle(bar).opacity) * 1000) / 1000, want, css: bar.hasAttribute("data-op-topbar-css"), state: bar.getAttribute("data-op-topbar"), name: nb === null ? null : Math.round(nb) }
 }
 
 try {
@@ -124,6 +129,9 @@ try {
         check(rises && falls, `${label} ${layout}: its opacity only rises going down and only falls going up (${down.length} + ${up.length} frames)`)
         check(jump <= 0.2 && formed >= 6, `${label} ${layout}: it forms over ${formed} frames, at most ${jump} a frame (no jump)`)
         check(up.at(-1).o === 0 && up.at(-1).state === "hidden", `${label} ${layout}: back at the top it is gone (${up.at(-1).o})`)
+        /* Round R3: drawn from the name's own timeline, so on every frame it is exactly where the scroll puts it, no frame behind. */
+        const lag = Math.max(...[...down, ...up].map((s) => (s.want === null ? 1 : Math.abs(s.o - s.want))))
+        check(down.every((s) => s.css) && lag <= 0.02, `${label} ${layout}: drawn by the compositor from the name's place, on every frame within ${Math.round(lag * 1000) / 1000} of where the scroll puts it`)
         await page.evaluate((y) => scrollTo(0, y), end + 200)
         await sleep(400)
         const geo = await page.evaluate(() => {
@@ -131,12 +139,21 @@ try {
           const r = bar.getBoundingClientRect()
           const card = document.querySelector("[data-onepage-drag-scope].rounded-\\[40px\\]")
           const c = card && card.getClientRects().length ? card.getBoundingClientRect() : null
-          return { left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), height: Math.round(r.height), radius: getComputedStyle(bar).borderTopLeftRadius, card: c ? { left: Math.round(c.left), right: Math.round(c.right), width: Math.round(c.width) } : null, badge: !!bar.querySelector("[data-op-topbar-badge] svg"), name: bar.querySelector("[data-op-topbar-name]")?.textContent, face: !!bar.querySelector("[data-op-topbar-face]") }
+          const cs = getComputedStyle(bar)
+          const after = getComputedStyle(bar, "::after")
+          return { left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), height: Math.round(r.height), radius: cs.borderTopLeftRadius, foot: cs.borderBottomLeftRadius, shadow: cs.boxShadow, fade: after.backgroundImage.startsWith("linear-gradient") ? Math.round(parseFloat(after.height)) : 0, clip: card ? getComputedStyle(card).clipPath : null, cardTop: c ? Math.round(c.top) : null, card: c ? { left: Math.round(c.left), right: Math.round(c.right), width: Math.round(c.width) } : null, badge: !!bar.querySelector("[data-op-topbar-badge] svg"), name: bar.querySelector("[data-op-topbar-name]")?.textContent, face: !!bar.querySelector("[data-op-topbar-face]") }
         })
         console.log(`   ${label} ${layout} bar ${JSON.stringify(geo)}`)
         check(geo.badge && geo.name === "Ana Studio" && geo.face, `${label} ${layout}: the bar carries the picture, the name and the verified badge`)
         if (label === "390") check(geo.left === 0 && geo.right === 390 && geo.top === 0 && geo.height === 60, `390 ${layout}: the bar spans the phone, 60px (${geo.left}..${geo.right}, ${geo.height})`)
-        else check(geo.card && geo.left === geo.card.left + 12 && geo.right === geo.card.right - 12 && geo.top === 12 && geo.radius === "28px", `1440 ${layout}: the bar floats inside the ${geo.card?.width}px card, 12px in, corner 28px (${geo.left}..${geo.right} in ${geo.card?.left}..${geo.card?.right})`)
+        else {
+          /* Round R3: the card's own top, not a pill floating in it. */
+          check(geo.card && geo.left === geo.card.left && geo.right === geo.card.right && geo.top === 0 && geo.height === 56 && geo.radius === "40px" && geo.foot === "0px", `1440 ${layout}: the bar is the ${geo.card?.width}px card's own top, edge to edge, its 40px corners at the top of the window (${geo.left}..${geo.right} in ${geo.card?.left}..${geo.card?.right}, top ${geo.top}, ${geo.radius})`)
+          /* The card is cut at the top of the window with the same corners, so the wallpaper, not the content, shows round the bar's. */
+          const m = /inset\(([\d.]+)px/.exec(geo.clip || "")
+          check(m && Math.abs(parseFloat(m[1]) + geo.cardTop) <= 1 && /40px/.test(geo.clip), `1440 ${layout}: the card keeps its 40px corners at the top of the window (${geo.clip}, card top ${geo.cardTop})`)
+        }
+        check(geo.shadow === "none" && geo.fade >= 10, `${label} ${layout}: no ring and no shadow, a ${geo.fade}px fade of the page's colour at its foot`)
         if (shots) await page.screenshot({ path: join(shots, `bar-${label}-${layout}.png`) })
         await page.close()
       }
@@ -271,7 +288,9 @@ try {
         })
         console.log(`   ${label}${dark} hero ${JSON.stringify(hero)}`)
         const ratio = hero.w / hero.h
-        check(label === "390" ? Math.abs(ratio - 0.8) < 0.02 : Math.abs(ratio - 1) < 0.02, `${label}${dark}: the fade layout's picture is large (${hero.w}x${hero.h})`)
+        /* Round R3, the owner: it took almost the whole window. 8/9 on a phone (4 to 4.5), 5/4 on a computer (shorter than square). */
+        check(label === "390" ? Math.abs(ratio - 8 / 9) < 0.02 : Math.abs(ratio - 1.25) < 0.02, `${label}${dark}: the fade layout's picture is ${label === "390" ? "8/9" : "5/4"} (${hero.w}x${hero.h})`)
+        check(hero.h + hero.top <= vp.height * (label === "390" ? 0.55 : 0.55), `${label}${dark}: its foot is in the top ${label === "390" ? 55 : 55}% of the window, so the links show on the first screen (${hero.top + hero.h} of ${vp.height})`)
         check(hero.top === (label === "390" ? 0 : 32), `${label}${dark}: it starts at the top of the ${label === "390" ? "screen" : "card"}, nothing of it above (${hero.top})`)
         check(hero.stops >= 7 && hero.title >= 0.6, `${label}${dark}: it melts on an eased mask (${hero.stops} stops) with the name over the melted part (${hero.title} down)`)
         check(!/rgba\(0, 0, 0/.test(hero.shadow), `${label}${dark}: the name's halo is the page's colour, not black (${hero.shadow.slice(0, 60)})`)

@@ -10,11 +10,15 @@
  *                 still holds it is drawn as Paper (the live page and the
  *                 editor), every setting the creator changed kept
  *                 (lib/onepage/retired-themes).
- *   RENAISSANCE   every setting a value the editor offers, fonts the page
- *                 loads, its words at 4.5:1 on its canvas and on its
- *                 buttons at rest and on hover; its skin styles every kind
- *                 of block and draws its scene; every pair of words and
- *                 paint it promises reads; named in six languages.
+ *   RENAISSANCE   (round 3, after Shopify Editions Winter '26) every
+ *                 setting a value the editor offers, a modern grotesk the
+ *                 page loads, its words at 4.5:1 on its night, its sky and
+ *                 its scrimmed clouds, on its buttons at rest and on hover;
+ *                 its skin styles every kind of block and draws its scene,
+ *                 a public domain painting served from the site itself in
+ *                 AVIF and WebP within a size budget, credited; every pair
+ *                 of words and paint it promises reads; named in six
+ *                 languages.
  *   ORDER         All in five groups, quiet and most chosen first; every
  *                 theme placed once; the kinds keep the same order.
  *   AQUARIUM      Aero Aquarium's glass is no longer split in two, its fish
@@ -25,7 +29,7 @@
  * Run with:  node scripts/run-push-tests.mjs (registered there)
  */
 import { execFileSync } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { THEME_TEMPLATES } from "@/components/onepage/tabs/design-tab"
 import { RENAISSANCE_THEMES } from "@/components/onepage/themes/renaissance-theme"
@@ -95,7 +99,7 @@ check("the editor opens it as Paper (its first state, so it is not an unsaved ch
 console.log("\nRenaissance: valid, readable, its own")
 const ren = RENAISSANCE_THEMES[0]
 const c = ren.theme_config as C
-check("in the picker, by its name, as a light theme", ids.includes("renaissance") && ren.name === "Renaissance" && ren.category === "light" && themeLabel(ren) === "Renaissance")
+check("in the picker, by its name, as a dark theme (white words on the painting's night)", ids.includes("renaissance") && ren.name === "Renaissance" && ren.category === "dark" && themeLabel(ren) === "Renaissance")
 check("its own skin", c.theme_skin === "renaissance" && THEME_SKINS.includes("renaissance") && themeSkinOf(c) === "renaissance" && skinSceneOf(c) === "renaissance")
 const REQUIRED = ["background_type", "background_color", "text_color", "secondary_text_color", "button_style", "button_color", "button_text_color", "button_border_radius", "button_border_width", "button_border_color", "button_shadow", "button_hover_animation", "button_hover_fill", "button_hover_text", "font_family", "title_font", "title_color", "social_icon_color", "social_icon_style", "spacing", "card_width", "header_layout", "background_pattern", "block_layout", "header_align", "theme_skin"]
 const ENUMS: Record<string, readonly unknown[]> = {
@@ -122,14 +126,17 @@ check("every colour is a hex colour", Object.entries(c).filter(([k]) => /_color$
 const known = new Set([...REQUIRED, ...Object.keys(LOOK_RESET), ...THEME_TYPE_KEYS])
 check("sets only what the next theme takes back", Object.keys(c).every((k) => known.has(k)), Object.keys(c).filter((k) => !known.has(k)).join())
 check("a border, so the skin finds every surface drawn in the button's look", c.button_border_width >= 1 && buttonFill(c as never) === "filled")
-check("a Garamond for the name and one for reading, both loaded, both with a serif fallback", familyOf(c.title_font) === "Cormorant Garamond" && familyOf(c.font_family) === "EB Garamond" && [c.font_family, c.title_font].every((f) => Object.prototype.hasOwnProperty.call(ONEPAGE_FONTS, familyOf(f)!) && /serif$/.test(fontStack(familyOf(f)))))
-check("both offered in the Text settings too", /name: "EB Garamond", category: "serif"/.test(design) && /name: "Cormorant Garamond", value:/.test(design))
+check("a modern grotesk for the name and for reading (Geist), loaded, with a sans fallback; no serif", familyOf(c.title_font) === "Geist" && familyOf(c.font_family) === "Geist" && [c.font_family, c.title_font].every((f) => Object.prototype.hasOwnProperty.call(ONEPAGE_FONTS, familyOf(f)!) && /sans-serif$/.test(fontStack(familyOf(f)))))
+check("offered in the Text settings too", /name: "Geist", category: "sans"/.test(design))
+check("the name confident: bold, large, set left like an editorial page", c.title_weight === 700 && c.title_size === "large" && c.header_align === "left")
 const ground = c.background_color
-for (const k of ["title_color", "text_color", "secondary_text_color"]) check(`${k} reads at 4.5:1 on the canvas, and still on its sky (#b9c3c4)`, ratio(ground, c[k]) >= 4.5 && ratio("#b9c3c4", c[k]) >= 4.5, `${ratio(ground, c[k]).toFixed(2)}`)
-check("the social icons read at 3:1", ratio(ground, c.social_icon_color) >= 3)
+/* Where words sit: the night, the painting's own sky continued above it (#3a507f), and its brightest cloud (#ece6d8) under the scrim's lightest (.24 of #090c18). */
+const cloud = over("#090c18", 0.24, "#ece6d8")
+for (const k of ["title_color", "text_color", "secondary_text_color"]) check(`${k} reads at 4.5:1 on the night, on the sky, and on a cloud with a panel over it`, ratio(ground, c[k]) >= 4.5 && ratio("#3a507f", c[k]) >= 4.5 && ratio(over("#0b0e1a", 0.6, cloud), c[k]) >= 4.5, `${ratio(ground, c[k]).toFixed(2)} ${ratio("#3a507f", c[k]).toFixed(2)}`)
+check("the social icons read at 3:1", ratio(ground, c.social_icon_color) >= 3 && ratio("#3a507f", c.social_icon_color) >= 3)
 check("button words at rest, 4.5:1", ratio(c.button_color, c.button_text_color) >= 4.5, ratio(c.button_color, c.button_text_color).toFixed(2))
-check("and on hover (madder), in its own colours", buttonHover(c as never) === "fill" && ratio(c.button_hover_fill, c.button_hover_text) >= 4.5, ratio(c.button_hover_fill, c.button_hover_text).toFixed(2))
-check("no gradient buttons, no violet", !/gradient/.test(String(c.button_color)) && !Object.values(c).some((v) => /^#(8b5cf6|7c3aed|a855f7)$/i.test(String(v))))
+check("and on hover (white, ink words), in its own colours", buttonHover(c as never) === "fill" && ratio(c.button_hover_fill, c.button_hover_text) >= 4.5, ratio(c.button_hover_fill, c.button_hover_text).toFixed(2))
+check("no gradient buttons, no violet, no gold", !/gradient/.test(String(c.button_color)) && !Object.values(c).some((v) => /^#(8b5cf6|7c3aed|a855f7|a8843f)$/i.test(String(v))))
 
 console.log("\nRenaissance's skin: every block, its scene, its words")
 const KINDS: Record<string, string> = {
@@ -155,15 +162,24 @@ const unstyled = Object.entries(KINDS).filter(([, sel]) => !css.includes(`[data-
 check(`styles ${Object.keys(KINDS).length} kinds of block`, unstyled.length === 0, unstyled.join(", "))
 const scene = read("components/onepage/themes/theme-skin-scene.tsx")
 const pieces = [...(scene.match(/\n  renaissance: \[(.*)\],/)?.[1] ?? "").matchAll(/\["([a-z-]+)", (\d+)\]/g)].map((m) => m[1])
-check(`a scene of ${pieces.length} pieces (sky, varnish, canvas, hills, vignette), each drawn`, pieces.join() === "sky,varnish,canvas,hills,vignette" && pieces.every((p) => css.includes(`[data-skin-scene="renaissance"] [data-sk="${p}"]`)))
+check(`a scene of ${pieces.length} pieces (sky, painting, scrim, frame), each drawn`, pieces.join() === "sky,painting,scrim,frame" && pieces.every((p) => css.includes(`[data-skin-scene="renaissance"] [data-sk="${p}"]`)))
 check("the scene stands still: nothing in it animates", !/\[data-skin-scene="renaissance"\][^{]*\{[^}]*animation/.test(css))
-check("nothing fetched: every picture drawn inline", !/\[data-op-skin="renaissance"\][^{]*\{[^}]*url\("?https?:/.test(css) && !/\[data-skin-scene="renaissance"\][^{]*\{[^}]*url\("?https?:/.test(css))
-check("gold only as a line: never a gold fill behind words", !/\[data-op-skin="renaissance"\][^{]*\{[^}]*background-color: #a8843f/i.test(css))
+const urls = [...css.matchAll(/url\("([^"]+)"\)/g)].map((m) => m[1]).filter((u) => /renaissance/.test(u))
+const skinCss = css.slice(css.indexOf("RENAISSANCE: Titian"), css.indexOf("ALL SKINS"))
+check("nothing fetched from another host: every picture is the site's own", !/url\("?https?:/.test(skinCss) && urls.length >= 4 && urls.every((u) => u.startsWith("/images/onepage-themes/renaissance/")), urls.join())
+check("the painting in AVIF with WebP after it, for a phone and for the room around the card (by the scene's own width)", /image-set\(url\("\/images\/onepage-themes\/renaissance\/portrait\.avif"\) type\("image\/avif"\), url\("\/images\/onepage-themes\/renaissance\/portrait\.webp"\) type\("image\/webp"\)\)/.test(skinCss) && /@container \(min-width: 720px\)[\s\S]*wide\.avif/.test(skinCss))
+const files = ["portrait.avif", "portrait.webp", "wide.avif", "wide.webp"].map((f) => `public/images/onepage-themes/renaissance/${f}`)
+const kb = (f: string) => (existsSync(f) ? statSync(f).size / 1024 : Infinity)
+check("each file there, the phone's under 120 KB and the wide one under 220 KB", files.every((f) => existsSync(f)) && kb(files[0]) < 120 && kb(files[1]) < 120 && kb(files[2]) < 220 && kb(files[3]) < 220, files.map((f) => `${f.split("/").pop()} ${Math.round(kb(f))}KB`).join(", "))
+const credit = read("scripts/build-renaissance-paintings.mjs")
+check("credited: the painting, the painter, the museum, public domain, and where the photograph is from", /Titian, "Bacchus and Ariadne"/.test(credit) && /The National Gallery, London/.test(credit) && /Public domain/.test(credit) && /commons\.wikimedia\.org\/wiki\/File:Titian_Bacchus_and_Ariadne\.jpg/.test(credit))
+check("words never sit on the bare painting: a scrim over it, panels under the buttons", css.includes('[data-skin-scene="renaissance"] [data-sk="scrim"]') && /\[data-op-skin="renaissance"\] :is\(a\.op-btn, \[data-tp-link\]\) \{[^}]*background-color: rgba\(11,14,26,\.6\) !important/.test(css))
+check("no gold anywhere in it, and thin white lines for frames", !/#a8843f|168,132,63/i.test(skinCss) && /border: 1px solid rgba\(255,255,255,\.72\) !important/.test(skinCss))
 let current = true
 try { execFileSync(process.execPath, ["scripts/build-onepage-skins.mjs", "--check"], { stdio: "pipe" }) } catch { current = false }
 check("the stylesheet is what scripts/build-onepage-skins.mjs writes", current)
 const pairs = (JSON.parse(execFileSync(process.execPath, ["scripts/build-onepage-skins.mjs", "--pairs"], { encoding: "utf8", maxBuffer: 1 << 24 })) as Array<{ skin: string; what: string; ink: string; under: string[]; faded?: boolean }>).filter((p) => p.skin === "renaissance")
-check(`promises ${pairs.length} pairs of words and paint (cards, forms, fields, lapis buttons, legal links)`, pairs.length >= 7 && ["an ivory card", "the subscribe and contact forms' parchment", "the lapis button", "the legal links"].every((w) => pairs.some((p) => p.what === w)))
+check(`promises ${pairs.length} pairs of words and paint (panels, forms, fields, the white button at rest and under the pointer, legal links)`, pairs.length >= 7 && ["a panel", "the subscribe and contact forms' panel", "the white button", "the white button under the pointer", "the legal links"].every((w) => pairs.some((p) => p.what === w)))
 for (const p of pairs) {
   const full = Math.min(...p.under.map((u) => ratio(u, p.ink)))
   const faded = p.faded ? Math.min(...p.under.map((u) => ratio(u, over(p.ink, 0.7, u)))) : full
@@ -178,9 +194,9 @@ const start = { id: "p", theme: { template_id: "air", ...plain.theme_config }, s
 const picked = lookFromTemplate(start, ren as unknown as ThemeTemplateLike, "classic", plain)
 const pt = picked.theme as unknown as C
 check("every setting laid on, the skin with it", Object.entries(c).filter(([k]) => !(THEME_TYPE_KEYS as readonly string[]).includes(k)).every(([k, v]) => k === "header_layout" || pt[k] === v) && pt.template_id === "renaissance")
-check("its name's weight and size, as a theme's type", pt.title_weight === 600 && pt.title_size === "large")
+check("its name's weight and size, as a theme's type", pt.title_weight === 700 && pt.title_size === "large")
 const after = lookFromTemplate(picked, plain, "classic", ren as unknown as ThemeTemplateLike).theme as unknown as C
-check("the next theme takes the skin, the Garamonds and the type back", after.theme_skin === null && after.title_font === null && after.title_weight == null && after.title_size == null)
+check("the next theme takes the skin, the grotesk and the type back", after.theme_skin === null && after.title_font === null && after.title_weight == null && after.title_size == null)
 
 console.log("\nRenaissance's name in six languages")
 check("a name line", /\n  renaissance: \(\) => ttx\("theme", "Renaissance"\),/.test(names))

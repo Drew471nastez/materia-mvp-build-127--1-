@@ -1540,6 +1540,13 @@ const words: Record<string, string> = {
  "Brand Strategy": "Markenstrategie",
  "Brand and tags": "Marke und Tags",
  "Brand colours": "Markenfarben",
+ "Share to Instagram Story": "In einer Instagram-Story teilen",
+ "Image saved and link copied. In your story, add a Link sticker and paste it.": "Bild gespeichert und Link kopiert. Füge in deiner Story einen Link-Sticker hinzu und setze ihn dort ein.",
+ "Use my Instagram photo": "Mein Instagram-Foto verwenden",
+ "Getting your photo": "Dein Foto wird geholt",
+ "Instagram didn't share this profile's picture. Upload one instead.": "Instagram hat das Profilbild nicht freigegeben. Lade stattdessen eins hoch.",
+ "Instagram didn't answer. Try again or upload a picture.": "Instagram hat nicht geantwortet. Versuch es noch einmal oder lade ein Bild hoch.",
+ "Add your latest posts ({value})": "Deine neuesten Beiträge hinzufügen ({value})",
  "Brand name": "Markenname",
  "Brand or maker": "Marke oder Hersteller",
  "Branding": "Branding",
@@ -13377,7 +13384,13 @@ const words: Record<string, string> = {
  "Your number": "Deine Nummer",
  "a haircut": "einen Haarschnitt",
  "the linen shirt": "das Leinenhemd",
- "{name} username or link": "{name}-Nutzername oder -Link"
+ "{name} username or link": "{name}-Nutzername oder -Link",
+ "This font has one weight": "Diese Schrift hat nur eine Stärke",
+ "Pills": "Pillen",
+ "Big amount": "Großer Betrag",
+ "Below": "Darunter",
+ "On the picture": "Auf dem Bild",
+ "Title, caption and a button on a fade at the bottom of each picture.": "Titel, Bildunterschrift und eine Schaltfläche auf einem Verlauf am unteren Rand jedes Bildes."
 }
 
 export default words

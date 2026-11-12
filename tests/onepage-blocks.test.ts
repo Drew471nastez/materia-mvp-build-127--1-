@@ -179,9 +179,10 @@ function main() {
   {
     check("a CSS value is read for its family", familyOf("'Playfair Display', serif") === "Playfair Display" && familyOf("Inter") === "Inter" && familyOf(`"DM Sans", sans-serif`) === "DM Sans" && familyOf(null) === null)
     const href = onePageFontHref("Playfair Display")
-    check("a family is asked for with the weights the blocks use", href === "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap", String(href))
+    /* Changed on purpose (round 3 of the OnePage design work): every weight the family has from 400 to 900, so the name's Heavy (800) loads a face of its own. */
+    check("a family is asked for with every weight it has from 400 up", href === "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&display=swap", String(href))
     check("a family with one weight is asked for as it is", onePageFontHref("Bebas Neue") === "https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap")
-    check("Lato is not asked for weights it does not have", onePageFontHref("Lato")?.includes("wght@400;700&") === true)
+    check("Lato is not asked for weights it does not have", onePageFontHref("Lato")?.includes("wght@400;700;900&") === true)
     check("a family not on the list is never requested", onePageFontHref("Comic Sans MS") === null && onePageFontHref("x&family=evil") === null && onePageFontHrefs({ font_family: "'x&family=evil', serif" }).length === 0)
     check("body and title, once each", onePageFontHrefs({ font_family: "'Poppins', sans-serif", title_font: "'Poppins', sans-serif" }).length === 1 && onePageFontHrefs({ font_family: "'Inter', sans-serif", title_font: "'Bebas Neue', sans-serif" }).length === 2)
     check("the default Inter is the real Inter now", onePageFontHrefs({ font_family: "Inter" })[0]?.includes("family=Inter:") === true)

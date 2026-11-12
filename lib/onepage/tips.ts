@@ -249,3 +249,40 @@ export function tipReturnPath(raw: unknown): string {
   if (!path.startsWith("/") || path.startsWith("//") || path.includes("\\") || path.length > 300 || /[\s<>"']/.test(path)) return "/"
   return path.split("#")[0].split("?")[0] || "/"
 }
+
+/* ── How the block is drawn (round 3 of the OnePage design work) ── */
+
+/*
+ * The owner: "verify every layout setting actually changes the block" and
+ * "provide several modern styles for the tip block". The Layout tab offered
+ * Classic, Card and Featured, which are the layouts of a tip LINK (Ko-fi,
+ * PayPal); a block taking tips through Storelib drew its one card whatever
+ * was picked. A Storelib tips block has its own styles now, each in the
+ * page's own colours:
+ *
+ *   card     the card: icon, title, the amounts as choices and one Tip button
+ *   pills    no card: the title over a row of the page's own buttons, one per
+ *            amount; a tap on one tips that amount
+ *   button   one button of the page's, "Leave a tip", that opens the amount sheet
+ *   amount   a big amount between - and +, then Tip
+ *
+ * Missing (every block saved before) is the card, as it always was.
+ */
+export const TIP_STYLES = ["card", "pills", "button", "amount"] as const
+export type TipStyle = (typeof TIP_STYLES)[number]
+
+export function tipStyleOf(data: { tip_style?: unknown } | null | undefined): TipStyle {
+  const s = data?.tip_style
+  return typeof s === "string" && (TIP_STYLES as readonly string[]).includes(s) ? (s as TipStyle) : "card"
+}
+
+/**
+ * The next amount from `cents` on the block's own ladder: the presets when
+ * visitors only pick one of them, else the sheet's grid (tipStepped).
+ */
+export function tipNext(cents: number, dir: 1 | -1, presets: readonly number[], custom: boolean, currency: string | null | undefined): number {
+  if (custom) return tipStepped(cents, dir, currency)
+  const sorted = [...presets].sort((a, b) => a - b)
+  const next = dir > 0 ? sorted.find((p) => p > cents) : [...sorted].reverse().find((p) => p < cents)
+  return next ?? (dir > 0 ? sorted[sorted.length - 1] : sorted[0])
+}

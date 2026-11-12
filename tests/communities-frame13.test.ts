@@ -7,7 +7,7 @@
  *   WARM        leaving the community asks for its home again
  *   EMPTY       the bell's empty list is calm and specific, per filter
  *   STACK       every avatar stack: 2px ring of the ground, 8px overlap
- *   SCROLLBAR   slim gray thumb on charcoal, with a Safari fallback
+ *   SCROLLBAR   the page's slim gray thumb on charcoal, quiet thin bars inside it
  *   ACTIVE      the right column's cards have Polaris depth
  *   TAB         "(3) Club" in the title and a red dot on the icon
  *   MEMBERSHIP  the page, its entry in the "..." menu, M's two slots
@@ -129,7 +129,9 @@ async function main() {
   console.log("\nSCROLLBAR: slim and light grey")
   {
     const css = code("app/globals.css")
-    check("pointer screens: thin gray thumb on charcoal across the page, opened post and bell list", /@media \(hover: hover\) and \(pointer: fine\) \{\s*\[data-post-overlay-scroll\],\s*\[data-bell-list\] \{\s*scrollbar-width: thin;\s*scrollbar-color: #777777 #292929;/.test(css))
+    check("the page's own bar: thin gray thumb on charcoal", /html \{\s*scrollbar-width: thin;\s*scrollbar-color: #777777 #292929;/.test(css))
+    /* Changed on purpose: round 3. The charcoal reached every scroller by inheritance, the opened post and the bell's list among them; inside <body> each now draws the thin thumb in its own text colour on no track (scripts/check-app-scrollbars-r3.mjs). */
+    check("pointer screens: the opened post, the bell's list and every other scroller thin, thumb only", /@media \(hover: hover\) and \(pointer: fine\) \{\s*body \{\s*scrollbar-color: rgba\([^)]*\) transparent;\s*scrollbar-color: color-mix\(in srgb, currentColor \d+%, transparent\) transparent;\s*\}\s*:where\(body \*\) \{\s*scrollbar-width: thin;/.test(css))
     check("no ::-webkit-scrollbar rule on the page's html for pointers", !/@media \(hover: hover\) and \(pointer: fine\) \{[^}]*html::-webkit-scrollbar/.test(css))
   }
 

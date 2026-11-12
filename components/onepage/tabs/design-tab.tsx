@@ -15,7 +15,7 @@ import { flushSync } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { SocialIcon } from "@/components/onepage/brand-icons"
-import { pageGroundIsLight, socialIconColorOf, socialIconStyleOf, socialIconToneOf, socialTileStyle } from "@/lib/onepage/social-look"
+import { pageGroundIsLight, socialIconStyleOf, socialIconToneOf, socialMarkColorOf, socialTileStyle } from "@/lib/onepage/social-look"
 import {
   ArrowLeft,
   AtSign,
@@ -54,8 +54,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { usePhone } from "@/components/app/date-range-picker"
 import { secondaryDepth } from "@/components/ui/depth-button"
-import { familyOf, fontStack, onePageFontHref, onePageFontSampleHref } from "@/lib/onepage/fonts"
-import { AVATAR_BORDER_MAX, AVATAR_RADIUS_DEFAULT, AVATAR_RADIUS_MAX, avatarBorderWidth, avatarRadius, avatarShapeOf, avatarSizeOf, bioWeightOf, caseOf, textSizeOf, titleWeightOf, trackingOf } from "@/lib/onepage/header-style"
+import { familyOf, fontStack, onePageFontHref, onePageFontSampleHref, realWeight } from "@/lib/onepage/fonts"
+import { AVATAR_BORDER_MAX, AVATAR_RADIUS_DEFAULT, AVATAR_RADIUS_MAX, avatarBorderWidth, avatarRadius, avatarShapeOf, avatarSizeOf, bioFamilyOf, bioWeightOf, caseOf, textSizeOf, titleFamilyOf, titleWeightOf, trackingOf } from "@/lib/onepage/header-style"
 import { PILL_FROM, PILL_RADIUS, type ButtonHover, buttonAlign, buttonFill, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow, buttonShape, buttonSize, themeButtonStyle } from "@/lib/onepage/button-style"
 import { normalizeHex } from "@/lib/onepage/color"
 import { NAME_STYLES, nameColours, nameStyleCss, nameStyleOf, type NameStyle } from "@/lib/onepage/name-style"
@@ -3700,6 +3700,28 @@ function TypeRows({
   onChange: (patch: Record<string, unknown>) => void
 }) {
   const weight = which === "title" ? titleWeightOf(theme) : bioWeightOf(theme)
+  /*
+    Only the weights the chosen face really has (lib/onepage/fonts realWeight):
+    Medium on Lato would draw its Regular, and every weight of Bebas Neue is
+    the one it has, so those choices are not offered twice. The one picked is
+    the one that draws what the page draws.
+  */
+  const family = which === "title" ? titleFamilyOf(theme) : bioFamilyOf(theme)
+  const seen = new Set<number>()
+  const offered = weights.filter((w) => {
+    const real = realWeight(family, Number(w.id))
+    if (seen.has(real)) return false
+    seen.add(real)
+    return true
+  })
+  const drawn = realWeight(family, weight)
+  /* The nearest on offer, so a bio saved as Semibold (600) before Bold was offered shows as Bold, the heavier on a tie. */
+  const picked = offered.reduce<string | null>((best, w) => {
+    if (best === null) return w.id
+    const d = Math.abs(realWeight(family, Number(w.id)) - drawn)
+    const bd = Math.abs(realWeight(family, Number(best)) - drawn)
+    return d < bd || (d === bd && Number(w.id) > Number(best)) ? w.id : best
+  }, null) ?? String(weight)
   /* Wide enough for four weights' names side by side. */
   const row = "w-full sm:w-[308px]"
   return (
@@ -3714,13 +3736,17 @@ function TypeRows({
         />
       </SettingRow>
       <SettingRow label={tt("Weight")} stackOnPhone>
-        <Segmented
-          className={row}
-          label={tt("Weight")}
-          value={String(weight)}
-          options={weights}
-          onChange={(id) => onChange({ [`${which}_weight`]: Number(id) === (which === "title" ? 700 : 400) ? null : Number(id) })}
-        />
+        {offered.length > 1 ? (
+          <Segmented
+            className={row}
+            label={tt("Weight")}
+            value={picked}
+            options={offered}
+            onChange={(id) => onChange({ [`${which}_weight`]: Number(id) === (which === "title" ? 700 : 400) ? null : Number(id) })}
+          />
+        ) : (
+          <p className="text-[13.5px] text-[#6b7280]" data-one-weight="">{tt("This font has one weight")}</p>
+        )}
       </SettingRow>
       <SettingRow label={tt("Letter spacing")} stackOnPhone>
         <Segmented
@@ -3767,7 +3793,7 @@ function HeaderTypeSections() {
         <TypeRows
           which="bio"
           theme={theme}
-          weights={[{ id: "400", label: tt("Regular") }, { id: "500", label: tt("Medium") }, { id: "600", label: tt("Semibold") }]}
+          weights={[{ id: "400", label: tt("Regular") }, { id: "500", label: tt("Medium") }, { id: "700", label: tt("Bold") }]}
           onChange={(patch) => updateTheme(patch as never)}
         />
       </PanelSection>
@@ -4192,7 +4218,6 @@ function SocialsSection() {
   if (!onepage) return null
   const { theme } = onepage
   const socialStyle = socialIconStyleOf(theme as never)
-  const socialColor = socialIconColorOf(theme as never)
 
   return (
     <div>
@@ -4209,7 +4234,7 @@ function SocialsSection() {
                     /* The tile the page draws (lib/onepage/social-look), in this page's colours. */
                     style={socialTileStyle({ ...(theme as object), social_icon_style: style.id } as never, { onLight: pageGroundIsLight(theme as never) })}
                   >
-                    <SocialIcon platform={platform} size={13} color={socialColor} tone={socialIconToneOf(theme as never)} />
+                    <SocialIcon platform={platform} size={13} color={socialMarkColorOf({ ...(theme as object), social_icon_style: style.id } as never)} tone={socialIconToneOf(theme as never)} />
                   </span>
                 ))}
               </div>
@@ -4233,8 +4258,8 @@ function SocialsSection() {
             <ChoiceCard key={choice.id} selected={((theme as any).social_icon_tone === "brand" ? "brand" : "mono") === choice.id} onClick={() => updateTheme({ social_icon_tone: choice.id } as any)} label={choice.label}>
               <div className="flex h-[60px] items-center justify-center gap-1.5 rounded-xl" style={{ background: theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color || "#f7f7f8" }}>
                 {["instagram", "youtube", "spotify"].map((platform) => (
-                  <span key={platform} className="grid h-7 w-7 place-items-center" style={socialTileStyle(theme as never, { onLight: pageGroundIsLight(theme as never) })}>
-                    <SocialIcon platform={platform} size={13} color={socialColor} tone={choice.id} />
+                  <span key={platform} className="grid h-7 w-7 place-items-center" style={socialTileStyle({ ...(theme as object), social_icon_tone: choice.id } as never, { onLight: pageGroundIsLight(theme as never) })}>
+                    <SocialIcon platform={platform} size={13} color={socialMarkColorOf({ ...(theme as object), social_icon_tone: choice.id } as never)} tone={choice.id} />
                   </span>
                 ))}
               </div>
