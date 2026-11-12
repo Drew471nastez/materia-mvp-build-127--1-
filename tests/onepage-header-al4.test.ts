@@ -55,7 +55,8 @@ section("The avatar opens, as on the creator pages")
 check("the creator pages' viewer, around the page's photo", /<AvatarLightbox src=\{hasVideo \? null : onePageImageSrc\(profile\.avatar_url, 640\)\}/.test(page))
 
 section("Design: the way back stays in reach")
-check("a sticky slot at the top of an open panel", /<StickyPanelBack panelRef=\{panelRef\}/.test(design) && /className="sticky top-0 z-20 h-0"/.test(design))
+/* Changed on purpose (round AT): the sticky box is the bar's own 56px, given back with a -56px margin, its own layer for good. */
+check("a sticky slot at the top of an open panel", /<StickyPanelBack panelRef=\{panelRef\}/.test(design) && /className="pointer-events-none sticky top-0 z-20 -mb-14 h-14 will-change-transform"/.test(design))
 check("shown by an IntersectionObserver on the panel's header, not a scroll listener", /new IntersectionObserver\(/.test(design) && /io\.observe\(header\)/.test(design))
 check("a Classic theme keeps a creator's Hero", /currentHeaderLayout !== "hero"/.test(design) && !/Update to Classic"\)\}\s*<\/button>[\s\S]{0,400}function WallpaperSection/.test(design))
 

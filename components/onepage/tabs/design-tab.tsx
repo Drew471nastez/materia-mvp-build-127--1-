@@ -1685,6 +1685,17 @@ function reducedMotion() {
   room and moves nothing under it. Whether to show it is one
   IntersectionObserver on the panel's header against the editor's scroll
   box, never a scroll listener.
+
+  ROUND AT, THE OWNER: on a phone "it glitches and stutters" while a panel
+  scrolls. The slot was 0px tall with the bar hung out of it (absolute), and
+  the bar slid 8px as well as fading: each time it came or went mid scroll,
+  iOS made the bar a layer of its own for the slide, placed from the main
+  thread a frame behind the scroll, and dropped it again after, so it
+  jumped. Now the sticky box is the bar's own height (56px, given back with a
+  -56px margin, so it still takes no room), it is its own layer for good
+  (will-change), nothing in it is a blur, and a change is opacity only, which
+  the compositor draws with the scroll. scripts/check-onepage-at2.mjs scrolls
+  a panel at 390 and counts frames over 25ms and the bar's height.
 */
 function StickyPanelBack({ panelRef, section, title, onBack }: { panelRef: React.RefObject<HTMLDivElement | null>; section: DesignSection; title: string; onBack: () => void }) {
   const [stuck, setStuck] = useState(false)
@@ -1705,13 +1716,13 @@ function StickyPanelBack({ panelRef, section, title, onBack }: { panelRef: React
     return () => io.disconnect()
   }, [panelRef, section])
   return (
-    <div data-sticky-back-slot="" className="sticky top-0 z-20 h-0">
+    <div data-sticky-back-slot="" className="pointer-events-none sticky top-0 z-20 -mb-14 h-14 will-change-transform">
       <div
         data-sticky-back={stuck ? "shown" : "hidden"}
         aria-hidden={stuck ? undefined : true}
         inert={!stuck}
-        className="absolute inset-x-0 top-0 border-b border-[#eef0f2] bg-white transition-[opacity,translate] duration-[180ms] ease-out motion-reduce:transition-none"
-        style={{ opacity: stuck ? 1 : 0, translate: stuck ? "0 0" : "0 -8px", pointerEvents: stuck ? undefined : "none" }}
+        className="h-14 border-b border-[#eef0f2] bg-white transition-opacity duration-[180ms] ease-out will-change-[opacity] motion-reduce:transition-none"
+        style={{ opacity: stuck ? 1 : 0, pointerEvents: stuck ? "auto" : "none" }}
       >
         <div className="mx-auto flex h-14 w-full max-w-xl items-center gap-2.5 px-4 md:px-6">
           <button

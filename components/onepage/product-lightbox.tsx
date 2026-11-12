@@ -129,11 +129,11 @@ export function ProductLightbox({
           data-lightbox-strip=""
         >
           {media.map((m, i) => (
-            <div key={i} className="relative grid h-full w-full shrink-0 snap-center snap-always place-items-center px-0 sm:px-16" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 56px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 84px)" }}>
+            <div key={i} className="relative grid h-full w-full shrink-0 snap-center snap-always place-items-center px-0 sm:px-16" style={{ paddingTop: "calc(var(--op-safe-top, 0px) + 56px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 84px)" }}>
               {m.type === "image" ? (
                 <LightboxPicture src={m.url} alt={i === 0 ? title : ""} eager={Math.abs(i - at) <= 1} />
               ) : i === at && open ? (
-                <div className="w-full" style={{ maxWidth: `min(100%, calc((var(--vv-h, 100dvh) - 140px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) * ${ratios?.[i] || 16 / 9}))` }}>
+                <div className="w-full" style={{ maxWidth: `min(100%, calc((var(--vv-h, 100dvh) - 140px - var(--op-safe-top, 0px) - env(safe-area-inset-bottom, 0px)) * ${ratios?.[i] || 16 / 9}))` }}>
                   <React.Suspense fallback={<LightboxPoster entry={m} />}>
                     <VideoPlayer
                       source={{ url: m.url, expiresAt: Date.now() + LONG_MS, mime: m.mime, captions: null }}
@@ -158,14 +158,14 @@ export function ProductLightbox({
           onClick={close}
           aria-label="Close"
           className="absolute z-20 grid h-11 w-11 place-items-center rounded-full bg-white/12 text-white outline-none transition-[background-color] duration-150 hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/80"
-          style={{ top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)", right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)" }}
+          style={{ top: "calc(var(--op-safe-top, 0px) + 0.75rem)", right: "calc(env(safe-area-inset-right, 0px) + 0.75rem)" }}
           data-lightbox-close=""
         >
           <X aria-hidden className="h-5 w-5" strokeWidth={2.25} />
         </button>
         {count > 1 ? (
           <>
-            <span aria-live="polite" className="absolute left-1/2 z-20 -translate-x-1/2 rounded-full bg-white/12 px-3 py-1 text-[13px] font-medium tabular-nums text-white" style={{ top: "calc(env(safe-area-inset-top, 0px) + 1.1rem)" }} data-lightbox-count="">
+            <span aria-live="polite" className="absolute left-1/2 z-20 -translate-x-1/2 rounded-full bg-white/12 px-3 py-1 text-[13px] font-medium tabular-nums text-white" style={{ top: "calc(var(--op-safe-top, 0px) + 1.1rem)" }} data-lightbox-count="">
               {at + 1} / {count}
             </span>
             <div className="pointer-events-none absolute inset-x-0 z-20 flex items-center justify-between px-4" style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1.25rem)" }}>

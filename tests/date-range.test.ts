@@ -247,7 +247,8 @@ function main() {
      tell their page about a release once they have arrived: the page's redraw was in the frames of the slide down. */
   check("a preset applies at once and closes; the page catches up behind the close",
     /* Changed on purpose (round 43): an `overlay` picker (a popover in a block's stats) applies at once like `inline`. */
-    /const pick = \(v: RangeValue\) => \{\s*setOpen\(false\)\s*if \(phone && !inline && !overlay\) \{\s*pendingPick\.current = v\s*return\s*\}\s*React\.startTransition\(\(\) => onChange\(v\)\)/.test(picker)
+    /* Changed on purpose (round AT): on a phone an `overlay` picker is a sheet too, so it waits for its sheet to leave like the rest. */
+    /const pick = \(v: RangeValue\) => \{\s*setOpen\(false\)\s*if \(phone && !inline\) \{\s*pendingPick\.current = v\s*return\s*\}\s*React\.startTransition\(\(\) => onChange\(v\)\)/.test(picker)
       && /const onSheetClosed = React\.useCallback\(\(\) => \{\s*setRestart\(\(n\) => n \+ 1\)\s*flushPick\(\)/.test(picker)
       && /if \(v\) React\.startTransition\(\(\) => onChangeRef\.current\(v\)\)/.test(picker)
       && /const preset = \(id: PresetId\) => onPick\(/.test(picker))
@@ -272,7 +273,8 @@ function main() {
   /* The phone's sheet is kept (keepMounted) and goes back to the list once it is out of sight (restart), rather than
      a new panel built on the tap that opens it. The popover and the inline picker still get a new one each time. */
   check("the sheet keeps its panel while it closes, and a new one opens each time",
-    /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title="Date range" keepMounted=\{onScreen\} onClosed=\{onSheetClosed\}>\s*<PickerPanel value=\{value\} today=\{today\} firstDay=\{firstDay\} compact onPick=\{pick\} restart=\{restart\} ahead=\{CUSTOM_AHEAD\} \/>/.test(picker)
+    /* Changed on purpose (round AT): over another sheet (a block's stats) the period's sheet takes a layer above it. */
+    /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title="Date range" keepMounted=\{onScreen\} onClosed=\{onSheetClosed\} zIndex=\{overlay \? OVERLAY_SHEET_Z : undefined\}>\s*<PickerPanel value=\{value\} today=\{today\} firstDay=\{firstDay\} compact onPick=\{pick\} restart=\{restart\} ahead=\{CUSTOM_AHEAD\} \/>/.test(picker)
       && /if \(restart !== lastRestart\) \{\s*setLastRestart\(restart\)\s*setStep\("list"\)/.test(picker)
       && !/\{open && panel\(/.test(picker) && /<PickerPanel key=\{session\}/.test(picker))
   check("days can be walked with the arrow keys", /ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7/.test(picker))

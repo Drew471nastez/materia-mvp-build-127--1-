@@ -1,4 +1,8 @@
 /**
+ * SUPERSEDED (round AT): the owner asked for Subscribe at full strength with an
+ * empty box, checked on the press. scripts/check-onepage-at2.mjs measures that;
+ * this probe's "disabled and faded" expectations no longer hold.
+ *
  * EVERY ONEPAGE SUBSCRIBE BUTTON WAITS FOR AN ADDRESS (round AS).
  *
  * The owner: "Subscribe should be disabled until a valid email is entered,

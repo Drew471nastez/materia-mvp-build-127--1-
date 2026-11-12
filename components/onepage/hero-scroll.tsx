@@ -315,7 +315,7 @@ export function HeroTopBar({
         A computer: inside the card (550px, components/onepage/public-onepage), 12px in from its edges,
         its corner the card's 40px less those 12, so the two curves run side by side.
       */
-      className="op-topbar fixed inset-x-0 top-0 z-[19] pt-[env(safe-area-inset-top)] transition-opacity duration-[120ms] ease-linear will-change-[opacity] motion-reduce:transition-none md:inset-x-[max(28px,calc(50%_-_263px))] md:top-3 md:rounded-[28px] md:pt-0"
+      className="op-topbar fixed inset-x-0 top-0 z-[19] pt-[var(--op-safe-top,0px)] transition-opacity duration-[120ms] ease-linear will-change-[opacity] motion-reduce:transition-none md:inset-x-[max(28px,calc(50%_-_263px))] md:top-3 md:rounded-[28px] md:pt-0"
       style={style}
     >
       <button
