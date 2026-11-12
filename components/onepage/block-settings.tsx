@@ -29,6 +29,7 @@ import { tt } from "@/lib/i18n/text"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ColorRow, LabeledRow, RangeRow, Segmented, Switch } from "@/components/onepage/editor-kit"
 import { ChoiceMark } from "@/components/onepage/choice-marks"
+import { tipStyleOf } from "@/lib/onepage/tips"
 import {
   BLOCK_ASPECTS,
   LINK_LAYOUTS,
@@ -540,7 +541,9 @@ export function BlockStyleControls({ block, onChange, getBlock }: { block: OnePa
     duplicate in their Settings is gone, so there is one Alignment.
   */
   const ownAlign = block.type === "heading" || block.type === "text"
-  const alignNow = (ownAlign ? ((block.data as { alignment?: BlockPresentation["align"] }).alignment || p.align) : p.align) || "center"
+  /* A tips card's words sit at the left until told otherwise (components/onepage/tip-block); every other block is centred. */
+  const alignDefault = blockSurfaceOf(block) === "card" && tipStyleOf(block.data as never) === "card" ? "left" : "center"
+  const alignNow = (ownAlign ? ((block.data as { alignment?: BlockPresentation["align"] }).alignment || p.align) : p.align) || alignDefault
   const touched = (["align", "title_color", "title_size", "title_weight", "subtitle_color", "subtitle_size", "icon_color", "icon_size", "background", "radius", "shadow", "padding", "gap"] as const).some((k) => p[k] !== undefined)
   const color = (label: string, key: "title_color" | "subtitle_color" | "icon_color" | "background") => (
     <ColorRow label={label} value={p[key]} onChange={(value) => write({ [key]: value })} onClear={() => write({ [key]: undefined })} emptyLabel={tt("Page default")} />
