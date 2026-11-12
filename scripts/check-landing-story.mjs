@@ -161,6 +161,10 @@ try {
     await wait(1200)
     await p.keyboard.press("Space")
     await p.$eval(".build-showcase-track", (e) => e.blur())
+    /* Lazy pictures off screen report no size until they load; load the three measured ones first. */
+    await p.$$eval('[data-showcase-slide]:not([aria-hidden="true"]) img', (is) =>
+      Promise.all(is.slice(0, 3).map((i) => ((i.loading = "eager"), i.decode().catch(() => {})))),
+    )
     const cards = await p.$$eval(
       '[data-showcase-slide]:not([aria-hidden="true"])',
       (es) =>
@@ -185,11 +189,11 @@ try {
       "each card is its picture's own shape, so the picture fills it with no bars and nothing cropped",
     )
     assert.ok(
-      Math.abs(cards[0].w / cards[0].h - 16 / 10) < 0.02,
+      Math.abs(cards[0].imgW / cards[0].h - 16 / 10) < 0.02,
       "wide cards are 16:10, the screenshots' own shape",
     )
     assert.ok(
-      Math.abs(cards[1].w / cards[1].h - 4 / 5) < 0.02,
+      Math.abs(cards[1].imgW / cards[1].h - 4 / 5) < 0.02,
       "OnePage cards are 4:5, the OnePages' own shape",
     )
     assert.ok(
