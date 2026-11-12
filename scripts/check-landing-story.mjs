@@ -170,11 +170,43 @@ try {
           w: e.getBoundingClientRect().width,
           h: e.querySelector("img").getBoundingClientRect().height,
           fit: getComputedStyle(e.querySelector("img")).objectFit,
+          backdrop: e.querySelector(".build-showcase-fill").getAttribute("src"),
+          source: e.querySelector("img").getAttribute("src"),
+          fill: getComputedStyle(e.querySelector(".build-showcase-fill"))
+            .objectFit,
+          decorative: e
+            .querySelector(".build-showcase-fill")
+            .getAttribute("aria-hidden"),
+          lazy: e.querySelector(".build-showcase-fill").getAttribute("loading"),
         })),
     )
     assert.ok(
       cards.every((c) => c.fit === "contain"),
       "screenshots are never cover-cropped",
+    )
+    assert.ok(
+      cards.every(
+        (c) =>
+          c.fill === "cover" &&
+          c.backdrop === c.source &&
+          c.decorative === "true" &&
+          c.lazy === "lazy",
+      ),
+      "image-derived fill covers the frame behind the complete screenshot",
+    )
+    assert.ok(
+      Math.abs(cards[0].w / cards[0].h - 4 / 3) < 0.015,
+      "wide cards are 4:3",
+    )
+    assert.ok(
+      Math.abs(cards[1].w / cards[1].h - 9 / 16) < 0.015,
+      "OnePage cards are 9:16",
+    )
+    assert.ok(
+      await p.$$eval('[data-format="portrait"] figcaption', (es) =>
+        es.every((e) => e.textContent === "OnePage"),
+      ),
+      "portrait captions consistently say OnePage",
     )
     if (width >= 1024) {
       assert.ok(
@@ -188,14 +220,24 @@ try {
     }
     if (width < 768) {
       assert.ok(
-        cards[0].w > cards[1].w * 2.4,
-        "mobile retains distinct desktop and portrait proportions",
-      )
-      assert.ok(
         cards.every((c) => Math.abs(c.h - cards[0].h) < 2),
         "mobile card heights align",
       )
-      assert.ok(Math.abs(cards[0].x) <= 2, "mobile gallery has no inset gutter")
+      const headingX = await p.$eval(
+        "#build-showcase-title",
+        (e) => e.getBoundingClientRect().left,
+      )
+      assert.ok(
+        Math.abs(cards[0].x - headingX) <= 2,
+        "initial mobile card aligns with heading",
+      )
+      assert.ok(
+        await p.$eval(
+          ".build-showcase-viewport",
+          (e) => innerWidth - e.getBoundingClientRect().right <= 2,
+        ),
+        "mobile rail extends to right edge",
+      )
     }
     for (const heading of await p.$$("[data-story-heading]")) {
       await heading.evaluate((e) =>

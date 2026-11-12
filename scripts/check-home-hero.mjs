@@ -561,7 +561,7 @@ try {
     )
     await pause(150)
     assert.equal(await page.$eval('[data-story-heading]', e => e.style.getPropertyValue('--story-progress')), '1.000', 'headline fills completely when scrolled into view')
-    assert.ok(await page.$$eval('[data-story-accent]', els => els.length === 0), 'showcase uses neutral scroll-filled text')
+    assert.ok(await page.$$eval('[data-story-accent]', els => els.length === 1 && els[0].textContent === 'create,'), 'showcase has one scroll-filled purple accent')
     const formats=await page.$$eval('[data-showcase-group]',es=>es.map(e=>[...e.querySelectorAll('[data-showcase-slide]')].map(c=>c.dataset.format)))
     assert.deepEqual(formats,Array.from({length:3},()=>['wide','portrait','wide']),'each desktop page contains one complete composition')
     const track='.build-showcase-track'
@@ -571,6 +571,8 @@ try {
     assert.equal(await index(),start,'gallery rests initially')
     await pause(5300)
     assert.equal(await index(),(start+1)%9,'autoplay advances one mobile page')
+    assert.ok(await page.$eval('[data-build-showcase]', e => !e.hasAttribute('data-showcase-pristine')), 'initial left cover releases after browsing begins')
+    assert.ok(await page.$eval(track, e => e.querySelector('[data-showcase-slide]').getBoundingClientRect().left < e.getBoundingClientRect().left), 'cards move through the full left edge after the initial inset')
     const settled=await index();await pause(900);assert.equal(await index(),settled,'autoplay rests between pages')
     await page.mouse.move(box.x+260,box.y+90);await page.mouse.down();await page.mouse.move(box.x+240,box.y+90,{steps:5});await page.mouse.up();await pause(1100)
     assert.ok([settled,(settled+1)%9].includes(await index()),'a small flick settles without racing through slides')
@@ -595,7 +597,7 @@ try {
     await pause(1200)
     assert.ok(await page.$eval(track, e => {
       const active = e.querySelectorAll('[data-showcase-slide]')[Number(e.dataset.showcaseIndex)]
-      return Math.abs(active.getBoundingClientRect().left - e.getBoundingClientRect().left) < 2
+      return Math.abs(active.getBoundingClientRect().left - document.querySelector('#build-showcase-title').getBoundingClientRect().left) < 2
     }), 'returning to an interrupted gallery settles to a complete page')
     if (shots)
       await page.screenshot({ path: join(shots, "showcase-mobile.png") })
