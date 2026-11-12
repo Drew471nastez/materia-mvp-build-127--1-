@@ -65,7 +65,7 @@ export function renaissance() {
   /* The scrim: a breath over the sky where the name sits, more over the bright clouds behind the first buttons and headings, then the night. */
   rule(`${sc} [data-sk="scrim"]`, `
     position: absolute; left: 0; right: 0; top: 0; height: calc(${SKY} + ${TALL});
-    background: linear-gradient(180deg, rgba(9,12,24,.28) 0, rgba(9,12,24,.1) ${SKY}, rgba(9,12,24,.3) calc(${SKY} + 10%), rgba(9,12,24,.24) calc(${SKY} + 45%), rgba(9,12,24,.24) calc(${SKY} + 60%), rgba(14,18,32,.86) 94%, ${P.night} 100%);`)
+    background: linear-gradient(180deg, rgba(9,12,24,.28) 0, rgba(9,12,24,.2) calc(${SKY} - 60px), rgba(9,12,24,.36) calc(${SKY} + 40px), rgba(9,12,24,.32) calc(${SKY} + 12%), rgba(9,12,24,.24) calc(${SKY} + 45%), rgba(9,12,24,.24) calc(${SKY} + 60%), rgba(14,18,32,.86) 94%, ${P.night} 100%);`)
   /* A thin white editorial frame round the painting, inside the page's edge, open at the foot where the painting fades. */
   rule(`${sc} [data-sk="frame"]`, `
     position: absolute; left: 14px; right: 14px; top: 14px; height: calc((${SKY} + ${TALL}) * .72);

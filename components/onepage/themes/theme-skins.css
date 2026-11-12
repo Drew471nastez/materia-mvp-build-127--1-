@@ -2360,7 +2360,7 @@
 }
 [data-skin-scene="renaissance"] [data-sk="scrim"] {
   position: absolute; left: 0; right: 0; top: 0; height: calc(min(72cqw, 300px) + min(250cqw, 1120px));
-  background: linear-gradient(180deg, rgba(9,12,24,.28) 0, rgba(9,12,24,.1) min(72cqw, 300px), rgba(9,12,24,.3) calc(min(72cqw, 300px) + 10%), rgba(9,12,24,.24) calc(min(72cqw, 300px) + 45%), rgba(9,12,24,.24) calc(min(72cqw, 300px) + 60%), rgba(14,18,32,.86) 94%, #0e1220 100%);
+  background: linear-gradient(180deg, rgba(9,12,24,.28) 0, rgba(9,12,24,.2) calc(min(72cqw, 300px) - 60px), rgba(9,12,24,.36) calc(min(72cqw, 300px) + 40px), rgba(9,12,24,.32) calc(min(72cqw, 300px) + 12%), rgba(9,12,24,.24) calc(min(72cqw, 300px) + 45%), rgba(9,12,24,.24) calc(min(72cqw, 300px) + 60%), rgba(14,18,32,.86) 94%, #0e1220 100%);
 }
 [data-skin-scene="renaissance"] [data-sk="frame"] {
   position: absolute; left: 14px; right: 14px; top: 14px; height: calc((min(72cqw, 300px) + min(250cqw, 1120px)) * .72);
