@@ -2890,6 +2890,9 @@ html.capacitor .subscribe-bar-spacer {
     0 0 0 3px color-mix(in srgb, var(--op-accent, #1a1a2e) 16%, transparent),
     0 8px 28px -6px color-mix(in srgb, var(--op-accent, #1a1a2e) 45%, transparent);
 }
+/* Lift's slight tint. ROUND 3: it was the words' own colour (currentColor) at 5%, which moves the fill toward the
+   words, always against them: Graphite's light words on its glass read 4.4:1 at rest and 3.6:1 under the pointer.
+   It is the words' opposite now (relative colour syntax), so the tint can only part them further. */
 .op-btn:not(.animate-onepage-swipe)::after {
   content: "";
   position: absolute;
@@ -2899,6 +2902,7 @@ html.capacitor .subscribe-bar-spacer {
   z-index: -1;
   opacity: 0;
   background: currentColor;
+  background: rgb(from currentColor calc(255 - r) calc(255 - g) calc(255 - b));
   transition-property: opacity;
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -2961,7 +2965,7 @@ html.capacitor .subscribe-bar-spacer {
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"][data-shadow="hard"] { translate: -2px -2px; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"]::before { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"]:not(.animate-onepage-swipe)::after { opacity: 0.05; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fade"] { opacity: 0.8; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fade"] { opacity: var(--op-fade, 0.8); }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="zoom"] { scale: 1.03; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="glow"]::before { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fill"] { color: var(--op-fill-text, inherit) !important; }
@@ -9912,16 +9916,18 @@ html[data-editor-drawer-open]::-webkit-scrollbar {
    is the one press every button shares, whatever its own utilities say. A
    big card sinks less than a small button. */
 /* :not(#op) only lifts the weight above the hover rules (.op-btn[data-hover]:active), so every button sinks the same. */
+/* Round 3: the press sinks, it no longer fades. At 90% a button's words lost a tenth of their contrast for as long as
+   it was held (Neon's product title read 3.1:1 under a finger); the sink alone is the answer. */
 html[data-op-press] [data-op-pressing]:not(#op) {
   scale: 0.965;
-  opacity: 0.9;
+  opacity: 1;
   transition: scale 60ms cubic-bezier(0.2, 0, 0, 1), opacity 60ms linear;
   /* Already part way down on the very first frame: a transition's first frame is still the resting size. */
   animation: op-press-in 60ms cubic-bezier(0.2, 0, 0, 1);
 }
 @keyframes op-press-in {
-  from { scale: 0.982; opacity: 0.95; }
-  to { scale: 0.965; opacity: 0.9; }
+  from { scale: 0.982; }
+  to { scale: 0.965; }
 }
 html[data-op-press] :is(.op-card, [data-press="soft"])[data-op-pressing]:not(#op),
 html[data-op-press] [data-op-pressing="soft"]:not(#op) {
@@ -9932,7 +9938,8 @@ html[data-op-press] [data-op-letgo] {
   transition: scale 220ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 220ms ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
-  html[data-op-press] [data-op-pressing]:not(#op) { scale: none; opacity: 0.75; transition-duration: 0ms; animation: none; }
+  /* Standing still, a press is a ring round the button, not a fade over its words. */
+  html[data-op-press] [data-op-pressing]:not(#op) { scale: none; opacity: 1; outline: 2px solid color-mix(in srgb, currentColor 45%, transparent); outline-offset: 2px; transition-duration: 0ms; animation: none; }
   html[data-op-press] [data-op-letgo] { transition-duration: 120ms; }
 }
 

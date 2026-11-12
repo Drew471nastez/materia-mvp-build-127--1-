@@ -4668,7 +4668,7 @@ function CoreBlockRenderer({
                   disabled={!done && (isSubmitting || emailSubmitted || !emailReady)}
                   data-email-ready={emailReady ? "" : undefined}
                   className="group/send inline-flex h-12 shrink-0 items-center gap-1.5 text-[14.5px] font-semibold duration-200 ease-out disabled:cursor-not-allowed motion-reduce:transition-none"
-                  style={{ color: pageInk, ...signupWait(done || emailReady || isSubmitting) }}
+                  style={{ color: pageInk, ...signupWait(done || emailReady || isSubmitting, { words: pageInk, grounds: signupGrounds, painted: (theme as { theme_skin?: unknown }).theme_skin }) }}
                   data-email-send=""
                 >
                   {done ? "Download" : isSubmitting ? "..." : buttonText}
@@ -4704,7 +4704,7 @@ function CoreBlockRenderer({
                   Download
                 </button>
               ) : (
-                <button type="submit" disabled={isSubmitting || emailSubmitted || !emailReady} data-email-ready={emailReady ? "" : undefined} data-email-submit="" className={cn(buttonClass, "disabled:cursor-not-allowed")} style={{ ...submitStyles, ...signupWait(emailReady || isSubmitting) }} {...submitAttrs}>
+                <button type="submit" disabled={isSubmitting || emailSubmitted || !emailReady} data-email-ready={emailReady ? "" : undefined} data-email-submit="" className={cn(buttonClass, "disabled:cursor-not-allowed")} style={{ ...submitStyles, ...signupWait(emailReady || isSubmitting, { words: submitStyles.color, fill: submitStyles.backgroundColor, grounds: signupGrounds, painted: (theme as { theme_skin?: unknown }).theme_skin }) }} {...submitAttrs}>
                   {isSubmitting ? "..." : buttonText}
                 </button>
               )}

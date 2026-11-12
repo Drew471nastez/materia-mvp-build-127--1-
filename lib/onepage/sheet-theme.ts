@@ -88,14 +88,24 @@ export function sheetPalette(theme: ThemeLike): SheetPalette {
   const bg = hex6(theme?.background_color) ?? "#ffffff"
   const dark = (luminanceOf(bg) ?? 1) < DARK_GROUND
   /* Round W9: a light page's window keeps its own tint (Gazette's cream, Peach's peach), half toward white rather than nearly all the way; its fields are a step whiter than it. */
-  const surface = dark ? mixHex(bg, "#ffffff", 0.06) : mixHex(bg, "#ffffff", 0.5)
-  const raised = dark ? mixHex(bg, "#ffffff", 0.12) : mixHex(bg, "#ffffff", 0.84)
+  /*
+    Round 3: a mid-tone page (Classic 98's teal) gave a window on which neither near black nor white reached 4.5:1:
+    its labels read 4.4:1. Such a page's window is taken toward its own dark (or light) until white (or ink) reads
+    at 5:1, keeping its hue.
+  */
+  let base = bg
+  for (let t = 0.1; t <= 0.9 && Math.max(ratio(dark ? mixHex(base, "#ffffff", 0.12) : mixHex(base, "#ffffff", 0.5), "#ffffff"), ratio(dark ? mixHex(base, "#ffffff", 0.12) : mixHex(base, "#ffffff", 0.5), "#111113")) < 5; t += 0.1) base = mixHex(bg, dark ? "#000000" : "#ffffff", t)
+  const surface = dark ? mixHex(base, "#ffffff", 0.06) : mixHex(base, "#ffffff", 0.5)
+  const raised = dark ? mixHex(base, "#ffffff", 0.12) : mixHex(base, "#ffffff", 0.84)
   const ink = readable(surface, hex6(theme?.text_color), 4.5)
-  /* Small print: as far toward the surface as it can go and still read at 4.5:1. */
+  /*
+    Small print: as far toward the surface as it can go and still read at 4.5:1, with half a step to spare (round 3:
+    Classic 98's sheet labels sat at 4.5:1 to the hundredth and read 4.44:1 drawn, rounding and all).
+  */
   let muted = ink
   for (const t of [0.42, 0.36, 0.3, 0.24, 0.18, 0.12, 0.06]) {
     const m = mixHex(ink, surface, t)
-    if (ratio(surface, m) >= 4.5 && ratio(raised, m) >= 4.5) {
+    if (ratio(surface, m) >= 5 && ratio(raised, m) >= 5) {
       muted = m
       break
     }

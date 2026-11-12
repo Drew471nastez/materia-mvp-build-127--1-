@@ -409,7 +409,8 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
           href={checkoutHref ?? "#"}
           onClick={buy}
           aria-disabled={blocker ? true : undefined}
-          className={cn(MAIN_BUTTON, blocker === "loading" && "pointer-events-none opacity-60", (blocker === "choose option" || blocker === "sold out") && "opacity-50")}
+          /* Round 3: a button that cannot be pressed yet says why in its own words ("Choose an option", "Sold out"), at full strength: faded to half it read at 2:1. */
+          className={cn(MAIN_BUTTON, blocker === "loading" && "pointer-events-none", blocker && "cursor-default hover:translate-y-0 hover:before:opacity-0")}
           data-product-sheet-buy=""
           data-product-sheet-action="checkout"
         >

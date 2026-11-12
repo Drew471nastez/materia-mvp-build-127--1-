@@ -308,7 +308,7 @@ export function OnePageShareSheet({
             onClick={t.go}
             aria-live={t.live ? "polite" : undefined}
             aria-label={"label" in t ? t.label : undefined}
-            className="flex w-[76px] flex-col items-center gap-1.5 rounded-xl p-2 transition-opacity duration-150 hover:opacity-75 active:opacity-60"
+            className="flex w-[76px] flex-col items-center gap-1.5 rounded-xl p-2 transition-colors duration-150 hover:bg-[color-mix(in_srgb,currentColor_8%,transparent)] active:bg-[color-mix(in_srgb,currentColor_12%,transparent)]"
             data-share-target={t.name}
           >
             <span className="grid h-[46px] w-[46px] place-items-center rounded-full" style={{ backgroundColor: `${t.color}1f`, color: t.color }}>

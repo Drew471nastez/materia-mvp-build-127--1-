@@ -70,7 +70,8 @@ check("an embed's dots appear only after half a second", /\[animation:op-late-in
 /* ── Press ── */
 const css = read("app/globals.css")
 const press = read("components/onepage/press-feel.ts")
-check("one press rule for every OnePage button, from pointerdown, scale and opacity only", /html\[data-op-press\] \[data-op-pressing\]:not\(#op\) \{\s*scale: 0\.965;\s*opacity: 0\.9;/.test(css) && /document\.addEventListener\("pointerdown", onDown, opts\)/.test(press))
+/* Round 3 (tests/onepage-contrast-r3): the press sinks without fading the words. */
+check("one press rule for every OnePage button, from pointerdown, scale only, no fade over its words", /html\[data-op-press\] \[data-op-pressing\]:not\(#op\) \{\s*scale: 0\.965;\s*opacity: 1;/.test(css) && /document\.addEventListener\("pointerdown", onDown, opts\)/.test(press))
 check("the press listeners are passive: the click is never held back", /const opts = \{ passive: true, capture: true \} as const/.test(press) && !/preventDefault/.test(press))
 check("a finger that scrolls lets go", /pointercancel/.test(press) && /SLOP_PX/.test(press))
 check("the public page turns it on", /usePressFeel\(\)/.test(read("components/onepage/public-onepage.tsx")))

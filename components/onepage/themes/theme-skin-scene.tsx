@@ -9,8 +9,9 @@
  * streaks, barbed line art and the name run down the edge.
  *
  * Plain elements, every one drawn by app/onepage-skins.css
- * ([data-skin-scene=...] [data-sk=...]): no images fetched, no state, no
- * effects, nothing that measures. Whatever moves moves by transform or
+ * ([data-skin-scene=...] [data-sk=...]): no state, no effects, nothing that
+ * measures, and no images fetched except Renaissance's painting, the site's
+ * own file (public/images/onepage-themes/renaissance). Whatever moves moves by transform or
  * opacity alone, slowly, and stands still for a visitor who asked for less
  * motion and inside a theme card.
  *
@@ -41,7 +42,7 @@ const PIECES: Record<ThemeSkin, ReadonlyArray<readonly [string, number]>> = {
   classic98: [["dither", 1], ["taskbar", 1], ["icon", 2]],
   vaporwave: [["stars", 1], ["sun", 1], ["mountains", 1], ["floor", 1], ["horizon", 1], ["palm", 2], ["vhs", 1]],
   arcade: [["stars", 1], ["twinkle", 5], ["coin", 2], ["hills", 1], ["hud", 1], ["crt", 1]],
-  renaissance: [["sky", 1], ["varnish", 1], ["canvas", 1], ["hills", 1], ["vignette", 1]],
+  renaissance: [["sky", 1], ["painting", 1], ["scrim", 1], ["frame", 1]],
 }
 
 export function ThemeSkinScene({
