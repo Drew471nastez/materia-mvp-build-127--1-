@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react"
 import { StoryHeading } from "../story-heading"
-import { MorphPillCluster } from "./motion/morph-pill-cluster"
-import { OrbitBadge } from "./motion/orbit-badge"
-import { SalePop, type SalePopItem } from "./motion/sale-pop"
+import type { SectionStyle } from "./lazy-section"
+import { MORPH_PILL_CSS, MorphPillCluster } from "./motion/morph-pill-cluster"
+import { ORBIT_BADGE_CSS, OrbitBadge } from "./motion/orbit-badge"
+import { SALE_POP_CSS, SalePop, type SalePopItem } from "./motion/sale-pop"
+import { MOTION_STYLE_PRECEDENCE } from "./motion/use-motion-gate"
 
 type Shape = "arch" | "tear" | "tilt"
 export type CreatorCard = {
@@ -522,7 +524,8 @@ export const CREATORS_CSS = `
 .cc-ctl:active{transform:scale(.94)}
 @media(max-width:480px){.cc-ctas{width:100%}.cc-ctas .cc-btn{flex:1 1 100%}.cc-foot{flex-wrap:wrap}.cc-salepop{flex-basis:100%;max-width:none;order:2}.cc-controls{margin-left:auto}}
 
-[data-landing-story] [data-story-section][data-story-in-view="false"] .cc-card *,[data-landing-story][data-story-paused] .cc-card *{animation-play-state:paused!important}
+/* The cards' loops, named (not .cc-card *): a rule ending in * makes every section's data-story-in-view change restyle that whole section in Chromium (300 to 800 elements, 30 to 130 ms at 4x CPU, each time one scrolls in or out). */
+[data-landing-story] [data-story-section][data-story-in-view="false"] .cc-card :is(.cc-eq span,.ob-ring,.ob-orbit,.mp-sat),[data-landing-story][data-story-paused] .cc-card :is(.cc-eq span,.ob-ring,.ob-orbit,.mp-sat){animation-play-state:paused!important}
 
 /* Reduced motion: the same cards, standing still in a grid. */
 @media(prefers-reduced-motion:reduce){
@@ -545,3 +548,11 @@ export const CREATORS_CSS = `
   .cc-sells{font-size:12.5px}
 }
 `
+
+/** This section's stylesheets, as it and its motion pieces draw them: put in place while idle, before it mounts (lazy-section.tsx, SectionStyle). */
+export const CREATORS_STYLES: readonly SectionStyle[] = [
+  { href: "w12-creators-carousel", precedence: "w12-section", css: CREATORS_CSS },
+  { href: "w12-morph-pill", precedence: MOTION_STYLE_PRECEDENCE, css: MORPH_PILL_CSS },
+  { href: "w12-orbit-badge", precedence: MOTION_STYLE_PRECEDENCE, css: ORBIT_BADGE_CSS },
+  { href: "w12-sale-pop", precedence: MOTION_STYLE_PRECEDENCE, css: SALE_POP_CSS },
+]

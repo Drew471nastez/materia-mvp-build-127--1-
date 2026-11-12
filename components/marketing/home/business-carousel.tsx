@@ -3,7 +3,8 @@
 import { memo, type ReactNode } from "react"
 import { ArrowRight, Pause, Play } from "lucide-react"
 import { StoryHeading } from "@/components/marketing/story-heading"
-import { FRAME_CSS, MockFrame } from "./showcase-mocks/frame"
+import type { SectionStyle } from "./lazy-section"
+import { FRAME_CSS, MockFrame, SHOWCASE_PRECEDENCE, ShowcaseStyles } from "./showcase-mocks/frame"
 import { STORE_CSS, StoreDesktop, StoreMobile } from "./showcase-mocks/store-mock"
 import { ONEPAGE_CSS, OnePageDesktop, OnePagePhone } from "./showcase-mocks/onepage-mock"
 import { COMMUNITY_CSS, CommunityDesktop, CommunityMobile } from "./showcase-mocks/community-mock"
@@ -139,7 +140,7 @@ export function BusinessCarousel() {
       aria-labelledby="biz-title"
       aria-roledescription="carousel"
     >
-      <style>{FRAME_CSS + STORE_CSS + ONEPAGE_CSS + COMMUNITY_CSS + CSS}</style>
+      <ShowcaseStyles styles={BUSINESS_STYLES} />
       <div className="biz-in">
         <div className="biz-head">
           <StoryHeading id="biz-title" text={BUSINESS_HEADING} accent={["business"]} />
@@ -283,3 +284,12 @@ const CSS = `
 }
 @media(prefers-reduced-motion:reduce){.biz-slide,.biz-window,.biz-phone{animation:none!important}}
 `
+
+/** This section's stylesheets (the mocks it shares with the ideas section under the same names, so each is added once): put in place while idle, before it mounts (lazy-section.tsx, SectionStyle). */
+export const BUSINESS_STYLES: readonly SectionStyle[] = [
+  { href: "w12-smk-frame", precedence: SHOWCASE_PRECEDENCE, css: FRAME_CSS },
+  { href: "w12-smk-store", precedence: SHOWCASE_PRECEDENCE, css: STORE_CSS },
+  { href: "w12-smk-onepage", precedence: SHOWCASE_PRECEDENCE, css: ONEPAGE_CSS },
+  { href: "w12-smk-community", precedence: SHOWCASE_PRECEDENCE, css: COMMUNITY_CSS },
+  { href: "w12-biz", precedence: SHOWCASE_PRECEDENCE, css: CSS },
+]

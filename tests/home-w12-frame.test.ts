@@ -134,6 +134,41 @@ async function main() {
     check("but no containment for a section with a sticky child", !/content-visibility/.test(sticky))
   }
 
+  console.log("\nScrolling without building (the frame-time pass)")
+  {
+    const src = code("components/marketing/home/lazy-section.tsx")
+    const { LAZY_IDLE_AHEAD, insertSectionStyles } = await import("@/components/marketing/home/lazy-section")
+    check("a section is drawn as a transition, so its render is sliced between frames", /startTransition\(\(\) => setSection/.test(src))
+    check("further ahead it mounts when idle, and once the code is here the rest mount one per roomy idle slot", LAZY_IDLE_AHEAD === "300% 0px 300% 0px" && /function mountNext/.test(src) && /timeRemaining\(\) < IDLE_ROOM_MS/.test(src) && /else idle\(mountNext\)/.test(src))
+    check("the idle prefetch has no timeout, starts after load, and skips Save-Data and 2g", /afterLoad\(\)\.then\(start\)/.test(src) && /saveData/.test(src) && !/timeout: 4000/.test(src))
+    check("insertSectionStyles does nothing on the server", (insertSectionStyles([{ href: "x", precedence: "default", css: "" }]), true))
+    /* Every stylesheet a lazy section lists is one it draws: the same href, so React finds it in <head> and adds none on mount. */
+    const lazy = read("components/marketing/home/lazy-sections.tsx")
+    const listed = [...lazy.matchAll(/styles: \(\) => import\("\.\/([\w-]+)"\)\.then\(\(m\) => m\.(\w+)\)/g)]
+    check("the sections that draw their own stylesheets list them", listed.length === 7, listed.map((m) => m[1]))
+    const modules: Record<string, Record<string, unknown>> = {
+      "ideas-come-to-life": await import("@/components/marketing/home/ideas-come-to-life"),
+      "business-carousel": await import("@/components/marketing/home/business-carousel"),
+      "creators-carousel": await import("@/components/marketing/home/creators-carousel"),
+      "how-it-works": await import("@/components/marketing/home/how-it-works"),
+      "checkout-scene": await import("@/components/marketing/home/checkout-scene"),
+      "sell-everywhere-map": await import("@/components/marketing/home/sell-everywhere-map"),
+      "earnings-calculator": await import("@/components/marketing/home/earnings-calculator"),
+    }
+    for (const [, file, name] of listed) {
+      const mod = modules[file] ?? {}
+      const styles = mod[name] as { href: string; precedence: string; css: string }[]
+      const own = read(`components/marketing/home/${file}.tsx`)
+      check(`${file}: ${name} names real stylesheets it draws`, Array.isArray(styles) && styles.length > 0 && styles.every((s) => s.css.length > 100 && /^w12-/.test(s.href) && (own.includes(`href="${s.href}"`) || own.includes(`"${s.href}"`) || /CommerceKitStyle/.test(own))), styles?.map((s) => s.href))
+    }
+    const html = renderToStaticMarkup(createElement(modules["ideas-come-to-life"].IdeasComeToLife as () => null))
+    check("the showcase sections draw their mocks' styles as React stylesheets (href and precedence), once each", !/<style>/.test(html) && !/\.smk-frame\{[\s\S]*\.smk-frame\{/.test(html))
+    const css = read("app/globals.css").replace(/\/\*[\s\S]*?\*\//g, "")
+    check("no :has() before a combinator whose last part is * in globals.css (it restyled the whole page on every insertion)", !/:has\([^{}]*\)\s*>\s*\*\s*\{/.test(css))
+    const creators = read("components/marketing/home/creators-carousel.tsx")
+    check("no rule keyed on data-story-in-view ends in * (each section scrolling in or out restyled all of itself)", !/data-story-in-view[^{}]*\*\s*[,{]/.test(creators) && !/data-story-in-view[^{}]*\s\*\s*[,{]/.test(css))
+  }
+
   console.log("\nNo hotlinked pictures")
   {
     const files = ["components/marketing/product-marquee.tsx", "components/marketing/home/final-cta.tsx", "components/marketing/home/lazy-section.tsx", "components/marketing/footer.tsx"]

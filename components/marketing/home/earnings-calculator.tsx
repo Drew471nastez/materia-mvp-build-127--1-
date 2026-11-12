@@ -17,10 +17,11 @@
  * A month is 30 days. Every figure is labelled an example. Stripe's card fee
  * is named and not taken off: it depends on the card and the country.
  */
+import type { SectionStyle } from "./lazy-section"
 import Link from "next/link"
 import { useId, useState } from "react"
 import { StoryHeading } from "../story-heading"
-import { COMMERCE_PRO_MONTHLY_CENTS, CommerceKindPicker, CommerceKitStyle, CommerceNumber, CommerceSlider, commerceProduct, commerceSale, commerceUsd, useCommerceLive, type CommerceKind, type CommercePlan } from "./commerce-kit"
+import { COMMERCE_PRO_MONTHLY_CENTS, CommerceKindPicker, COMMERCE_KIT_STYLE, CommerceKitStyle, CommerceNumber, CommerceSlider, commerceProduct, commerceSale, commerceUsd, useCommerceLive, type CommerceKind, type CommercePlan } from "./commerce-kit"
 
 const DAYS = 30
 const SALES_MAX = 100
@@ -252,3 +253,6 @@ const EARN_CSS = `
   .cme-bars span{animation:none!important}
 }
 `
+
+/** This section's stylesheets, as it draws them: put in place while idle, before it mounts (lazy-section.tsx, SectionStyle). */
+export const EARNINGS_STYLES: readonly SectionStyle[] = [COMMERCE_KIT_STYLE, { href: "w12-commerce-earn", precedence: "default", css: EARN_CSS }]

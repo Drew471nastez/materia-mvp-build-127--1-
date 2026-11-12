@@ -20,6 +20,7 @@
  * Nothing here is a claim about a particular seller: every figure drawn from
  * it is labelled as an example where it is shown.
  */
+import type { SectionStyle } from "./lazy-section"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
 import { CURRENCY_FEE_RULES } from "@/lib/payments/fees/currency-rules"
@@ -341,6 +342,9 @@ export const COMMERCE_KIT_CSS = `
 .cmk-title{margin:0;font-size:clamp(34px,5vw,72px);font-weight:500;line-height:1.04;letter-spacing:-.05em;text-wrap:balance}
 .cmk-sub{margin:20px 0 0;max-width:60ch;font-size:clamp(16px,1.35vw,19px);line-height:1.6;text-wrap:pretty}
 `
+
+/** The kit's stylesheet, listed for lazySection's idle style insertion (lazy-section.tsx, SectionStyle). */
+export const COMMERCE_KIT_STYLE: SectionStyle = { href: "w12-commerce-kit", precedence: "default", css: COMMERCE_KIT_CSS }
 
 export function CommerceKitStyle() {
   return (

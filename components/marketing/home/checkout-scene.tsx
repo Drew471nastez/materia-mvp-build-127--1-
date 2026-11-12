@@ -34,8 +34,9 @@
  * the checkout reminder an hour after a checkout that did not finish, only
  * for buyers who ticked the box (lib/automations/abandoned.ts).
  */
+import type { SectionStyle } from "./lazy-section"
 import { useEffect, useRef, useState } from "react"
-import { COMMERCE_CURRENCY_COUNT, CommerceKitStyle, useCommerceLive, useCommerceReducedMotion } from "./commerce-kit"
+import { COMMERCE_CURRENCY_COUNT, COMMERCE_KIT_STYLE, CommerceKitStyle, useCommerceLive, useCommerceReducedMotion } from "./commerce-kit"
 
 const IMG = "/home/commerce"
 
@@ -712,3 +713,6 @@ const CHECKOUT_CSS = `
   .cmc-cards{margin-top:-24svh}
 }
 `
+
+/** This section's stylesheets, as it draws them: put in place while idle, before it mounts (lazy-section.tsx, SectionStyle). */
+export const CHECKOUT_STYLES: readonly SectionStyle[] = [COMMERCE_KIT_STYLE, { href: "w12-commerce-checkout", precedence: "default", css: CHECKOUT_CSS }]

@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react"
+import type { SectionStyle } from "../lazy-section"
 
 /*
   SHOWCASE MOCKS: one design pixel = `--u`.
@@ -97,5 +98,21 @@ export function StatusBar({ color }: { color?: string }) {
         <s />
       </i>
     </div>
+  )
+}
+
+/** The showcase sections' stylesheets share one precedence (React puts them in <head>, after the site's own CSS, once each however many sections draw them). */
+export const SHOWCASE_PRECEDENCE = "w12-showcase"
+
+/** Draws a section's stylesheets as React-managed <style href precedence>: the mocks two sections share are added once, and lazySection can put them in place ahead (SectionStyle). */
+export function ShowcaseStyles({ styles }: { styles: readonly SectionStyle[] }) {
+  return (
+    <>
+      {styles.map((s) => (
+        <style key={s.href} href={s.href} precedence={s.precedence}>
+          {s.css}
+        </style>
+      ))}
+    </>
   )
 }

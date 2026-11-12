@@ -3,7 +3,8 @@
 import { memo } from "react"
 import { Pause, Play } from "lucide-react"
 import { StoryHeading } from "@/components/marketing/story-heading"
-import { FRAME_CSS, MockFrame } from "./showcase-mocks/frame"
+import type { SectionStyle } from "./lazy-section"
+import { FRAME_CSS, MockFrame, SHOWCASE_PRECEDENCE, ShowcaseStyles } from "./showcase-mocks/frame"
 import { ONEPAGE_CSS } from "./showcase-mocks/onepage-mock"
 import { COMMUNITY_CSS } from "./showcase-mocks/community-mock"
 import {
@@ -69,7 +70,7 @@ export function IdeasComeToLife() {
       data-run={t.run || undefined}
       aria-labelledby="ideas-title"
     >
-      <style>{FRAME_CSS + ONEPAGE_CSS + COMMUNITY_CSS + BUILDER_CSS + CSS}</style>
+      <ShowcaseStyles styles={IDEAS_STYLES} />
       <div className="ideas-in">
         <div className="ideas-head">
           <StoryHeading id="ideas-title" text={IDEAS_HEADING} accent={["life"]} dark />
@@ -200,3 +201,12 @@ const CSS = `
 @media(max-width:380px){.ideas-tab{padding:0 13px}}
 @media(prefers-reduced-motion:reduce){.ideas-panel,.ideas-caption{animation:none!important;transition:none!important}}
 `
+
+/** This section's stylesheets (the mocks it shares with the business carousel under their own names): put in place while idle, before it mounts (lazy-section.tsx, SectionStyle). */
+export const IDEAS_STYLES: readonly SectionStyle[] = [
+  { href: "w12-smk-frame", precedence: SHOWCASE_PRECEDENCE, css: FRAME_CSS },
+  { href: "w12-smk-onepage", precedence: SHOWCASE_PRECEDENCE, css: ONEPAGE_CSS },
+  { href: "w12-smk-community", precedence: SHOWCASE_PRECEDENCE, css: COMMUNITY_CSS },
+  { href: "w12-smk-builder", precedence: SHOWCASE_PRECEDENCE, css: BUILDER_CSS },
+  { href: "w12-ideas", precedence: SHOWCASE_PRECEDENCE, css: CSS },
+]

@@ -25,9 +25,10 @@
  * memberships bill in US dollars wherever the member is
  * (lib/money/product-currency PLAN_CURRENCY), and São Paulo pays in dollars.
  */
+import type { SectionStyle } from "./lazy-section"
 import { useEffect, useState } from "react"
 import { StoryHeading } from "../story-heading"
-import { COMMERCE_CURRENCY_COUNT, CommerceKitStyle, useCommerceLive } from "./commerce-kit"
+import { COMMERCE_CURRENCY_COUNT, COMMERCE_KIT_STYLE, CommerceKitStyle, useCommerceLive } from "./commerce-kit"
 
 const IMG = "/home/commerce"
 
@@ -218,3 +219,6 @@ const MAP_CSS = `
   .cmm-ring{opacity:.6}
 }
 `
+
+/** This section's stylesheets, as it draws them: put in place while idle, before it mounts (lazy-section.tsx, SectionStyle). */
+export const SELL_EVERYWHERE_STYLES: readonly SectionStyle[] = [COMMERCE_KIT_STYLE, { href: "w12-commerce-map", precedence: "default", css: MAP_CSS }]

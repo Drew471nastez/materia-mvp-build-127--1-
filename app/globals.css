@@ -9797,7 +9797,8 @@ html[data-editor-drawer-open]::-webkit-scrollbar {
 [data-block-size="tall"] :is([data-visual-link],[data-visual-link-action]) { height:100%; }
 [data-block-size="tall"] [data-visual-link-action] > span { height:100%; min-height:280px; }
 /* Round AP: a link button half the column wide, as the Mixed layout draws every link. Its icon sat 20px in with the label kept 48px clear of it on both sides, which left a word or two of room: "Latest work" broke into four lines. It is a tile now, as Grid's are: the icon over the words, the words the button's whole width, the two halves of a row the same height. */
-[data-mixed-blocks] > [data-block-size="half"]:has(.op-btn) > * { height:100%; }
+/* The button (or the block that holds it) fills its half, as the half next to it does. Written with the :has() on the last part, not `[data-block-size="half"]:has(.op-btn) > *`: a :has() before a combinator whose last part is `*` is tried on every element's parent, so Chromium restyled the whole document on every element added anywhere (the home page's sections, 260 elements, cost 390 ms to add at 4x CPU instead of 50). */
+[data-mixed-blocks] > [data-block-size="half"] > :is(.op-btn, :has(.op-btn)) { height:100%; }
 [data-mixed-blocks] > [data-block-size="half"] .op-btn { height:100%; flex-direction:column; justify-content:center; gap:8px; padding-inline:12px; }
 [data-mixed-blocks] > [data-block-size="half"] .op-btn > :not(div) { position:static; }
 [data-mixed-blocks] > [data-block-size="half"] .op-btn > div { padding-inline:0; align-items:center; text-align:center; }

@@ -21,9 +21,10 @@
  * files are delivered on payment; courses track each student's progress;
  * tips are added at checkout. The fee is lib/payments/fees/calculate's.
  */
+import type { SectionStyle } from "./lazy-section"
 import { useState } from "react"
 import { StoryHeading } from "../story-heading"
-import { COMMERCE_PRODUCTS, CommerceKindIcon, CommerceKindPicker, CommerceKitStyle, CommerceNumber, CommerceSlider, commerceProduct, commerceSale, commerceUsd, useCommerceLive, type CommerceKind } from "./commerce-kit"
+import { COMMERCE_PRODUCTS, CommerceKindIcon, CommerceKindPicker, COMMERCE_KIT_STYLE, CommerceKitStyle, CommerceNumber, CommerceSlider, commerceProduct, commerceSale, commerceUsd, useCommerceLive, type CommerceKind } from "./commerce-kit"
 
 const IMG = "/home/commerce"
 
@@ -392,7 +393,8 @@ const HOW_CSS = `
 .cmh-merch{position:relative;display:flex;align-items:center;gap:clamp(18px,3vw,44px);padding:0 24px}
 .cmh-ed{width:clamp(230px,22vw,300px);background:#fff;border-radius:20px;padding:12px;box-shadow:0 1px 2px rgba(24,24,27,.05),0 20px 50px -20px rgba(76,29,149,.25)}
 .cmh-ed-pic{position:relative;height:clamp(150px,13vw,190px);border-radius:12px;background:#f1f1f3;display:grid;place-items:center;overflow:hidden}
-.cmh-ed-pic>img{height:92%;width:auto}
+/* Sized by its width: the same box before and after the file arrives (a height in % resolved only before it, so the tee jumped from 118px to 254px wide as it loaded) */
+.cmh-ed-pic>img{width:92%;height:auto}
 .cmh-design{position:absolute;left:44%;top:27%;width:28%;aspect-ratio:1;margin-left:-14%;border:1.5px dashed #7c3aed;border-radius:6px;padding:5px;animation:cmh-drop 8s cubic-bezier(.2,.8,.2,1) infinite}
 .cmh-badge{position:relative;display:grid;place-items:center;width:100%;height:100%;border-radius:50%;overflow:hidden}
 .cmh-badge img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -556,3 +558,6 @@ ${TICK_KEYS}
   .cmh-stack span{transition:none}
 }
 `
+
+/** This section's stylesheets, as it draws them: put in place while idle, before it mounts (lazy-section.tsx, SectionStyle). */
+export const HOW_IT_WORKS_STYLES: readonly SectionStyle[] = [COMMERCE_KIT_STYLE, { href: "w12-commerce-how", precedence: "default", css: HOW_CSS }]
