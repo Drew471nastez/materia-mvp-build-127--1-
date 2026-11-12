@@ -18,7 +18,7 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
     wheelUntil = 0
   let timer: ReturnType<typeof setTimeout> | undefined
   const animation = () => ({
-    duration: reduce.matches ? 0 : 600,
+    duration: reduce.matches ? 0 : 780,
     easing: (t: number) => 1 - Math.pow(1 - t, 3),
   })
   const section = el.closest<HTMLElement>("[data-build-showcase]")
@@ -45,7 +45,7 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
           return
         }
         slider.moveToIdx(slider.track.details.abs + 1, true, {
-          duration: 1100,
+          duration: 1400,
           // Start and stop gently during autoplay; direct dragging keeps Keen's
           // velocity-aware release, without imposing this easing on the hand.
           easing: (t: number) => t * t * t * (t * (t * 6 - 15) + 10),
@@ -242,7 +242,7 @@ export function useShowcaseMotion() {
       mode: "snap" as const,
       renderMode: "precision" as const,
       rubberband: false,
-      dragSpeed: 1,
+      dragSpeed: 0.92,
       selector: ".build-showcase-group",
       slides: { perView: 1, spacing: 24 },
       breakpoints: {
@@ -264,7 +264,7 @@ export function useShowcaseMotion() {
         },
       },
       defaultAnimation: {
-        duration: 600,
+        duration: 780,
         easing: (t: number) => 1 - Math.pow(1 - t, 3),
       },
     }),

@@ -108,6 +108,20 @@ export function BuildShowcase() {
                         decoding="async"
                         draggable={false}
                       />
+                      {/* Reuses the same cached source. Only the decorative fill is enlarged;
+                          the foreground keeps the complete, uncropped interface. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        className="build-showcase-fill"
+                        src={example.src!}
+                        alt=""
+                        aria-hidden="true"
+                        width={example.width}
+                        height={example.height}
+                        loading="lazy"
+                        decoding="async"
+                        draggable={false}
+                      />
                     </div>
                     <figcaption>{example.label}</figcaption>
                   </figure>
@@ -139,10 +153,15 @@ const CSS = `
 .build-showcase-track:focus-visible {outline:2px solid #bca3ff;outline-offset:4px}
 .build-showcase-track::-webkit-scrollbar {display:none}
 .build-showcase-track[data-dragging] {cursor:grabbing}
+.build-showcase[data-showcase-browsing] .build-showcase-group {will-change:transform}
+@media(max-width:767px){.build-showcase[data-showcase-browsing] .build-showcase-slide{will-change:transform}}
 .build-showcase-group {display:grid;grid-template-columns:64fr 27fr 64fr;gap:var(--showcase-gap);align-items:center;flex:0 0 100%;width:100%;padding:10px 14px;min-width:0}
-.build-showcase-slide {position:relative;min-width:0;width:100%;height:auto;aspect-ratio:4/3;margin:0;border:1px solid rgba(255,255,255,.12);border-radius:5px;background:radial-gradient(ellipse at center,#252525,#121212);overflow:hidden}
+.build-showcase-slide {position:relative;min-width:0;width:100%;height:auto;aspect-ratio:4/3;margin:0;border:1px solid rgba(255,255,255,.12);border-radius:5px;contain:paint;isolation:isolate;background:radial-gradient(ellipse at center,#252525,#121212);overflow:hidden}
 .build-showcase-slide[data-format="portrait"] {height:auto;aspect-ratio:9/16;background:#171717}
-.build-showcase-media {height:100%;display:flex;align-items:center;justify-content:center}
+.build-showcase-media {position:relative;height:100%;display:flex;align-items:center;justify-content:center;isolation:isolate}
+
+.build-showcase-media img {position:relative;z-index:1}
+.build-showcase-slide img.build-showcase-fill {position:absolute;inset:-16px;width:calc(100% + 32px);height:calc(100% + 32px);max-width:none;object-fit:cover;filter:blur(12px);border-radius:0;z-index:0}
 .build-showcase-slide img {display:block;width:100%;height:100%;object-fit:contain;border-radius:5px;pointer-events:none}
 .build-showcase-slide figcaption {position:absolute;inset:auto 0 0;min-height:80px;display:flex;align-items:flex-end;padding:36px 16px 14px;font-size:14px;line-height:1.35;color:#fff;text-shadow:0 1px 4px #000;background:linear-gradient(transparent,rgba(0,0,0,.55) 50%,rgba(0,0,0,.88))}
 .build-showcase-viewport[data-showcase-entered] .build-showcase-slide {animation:showcase-card-enter 850ms cubic-bezier(.2,.7,.2,1) both}
