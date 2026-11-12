@@ -1,12 +1,14 @@
 "use client"
 
+import { StoryHeading } from "./story-heading"
+
 import Image from "next/image"
 import { AnimateOnScroll } from "./bento-grid"
 
 // Supabase object storage — original full images (no render crop).
 const FEATURES = [
   {
-    title: "Build Your One Page",
+    title: "Your links. Your look. Your OnePage.",
     description:
       "Create a single page for coaching, digital products, courses, music, links, and more.",
     src: "https://storelib.com/media/platform%20images/Visits%20(14).webp",
@@ -14,7 +16,7 @@ const FEATURES = [
     sectionBg: "bg-gray-50",
   },
   {
-    title: "Build Your Online Store",
+    title: "A storefront built around your brand.",
     description:
       "Customize your store with drag-and-drop sections, products, and branding.",
     src: "https://storelib.com/media/platform%20images/collage%20imags/Visits%20(3).webp",
@@ -31,17 +33,9 @@ export function SplitFeaturesSection() {
   */
 
   return (
-    <div className="overflow-x-hidden">
+    <div className="overflow-clip">
       {FEATURES.map((feature, idx) => (
-        <section key={feature.title} className={`relative py-20 ${"reducedTopPadding" in feature && feature.reducedTopPadding ? "sm:pt-10 sm:pb-28" : "sm:py-28"} ${feature.sectionBg}`}>
-          {/* Curved divider at the top of sections transitioning from white to gray */}
-          {idx === 0 && (
-            <div className="absolute top-0 left-0 w-full overflow-hidden leading-[0] -translate-y-[1px]">
-              <svg viewBox="0 0 1440 48" fill="none" preserveAspectRatio="none" className="w-full h-[32px] sm:h-[48px]">
-                <path d="M0 0h1440v8c-240 26-480 40-720 40S240 34 0 8V0z" fill="white" />
-              </svg>
-            </div>
-          )}
+        <section data-story-section="split" key={feature.title} className={`relative py-20 ${"reducedTopPadding" in feature && feature.reducedTopPadding ? "sm:pt-10 sm:pb-28" : "sm:py-28"} ${feature.sectionBg}`}>
           <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
             <AnimateOnScroll variant={idx % 2 === 0 ? "slide-left" : "slide-right"}>
               <div
@@ -50,7 +44,7 @@ export function SplitFeaturesSection() {
                 }`}
               >
                 {/* Image panel — fixed 52% so remaining space is always enough for text */}
-                <div className="w-full md:w-[52%] shrink-0">
+                <div className="w-full md:w-[52%] shrink-0 rounded-[28px] bg-white/70 p-3 sm:p-5 border border-neutral-200/60">
                   <Image
                     src={feature.src}
                     alt={feature.title}
@@ -71,9 +65,7 @@ export function SplitFeaturesSection() {
 
                 {/* Text — flex-1 + min-w-0 so it takes the remaining space and never overflows */}
                 <div className="w-full md:flex-1 md:min-w-0 flex flex-col items-start px-2 md:px-0">
-                  <h3 className="text-[30px] sm:text-[38px] md:text-[42px] lg:text-[46px] font-bold tracking-tight leading-[1.1] mb-4 text-neutral-900">
-                    {feature.title}
-                  </h3>
+                  <StoryHeading as="h3" text={feature.title} accent={["onepage", "brand"]} className="mb-6" />
                   <p className="text-base sm:text-[17px] text-neutral-500 leading-relaxed">
                     {feature.description}
                   </p>

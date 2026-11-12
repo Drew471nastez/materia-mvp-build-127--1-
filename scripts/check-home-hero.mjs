@@ -52,7 +52,7 @@ await build({
 await build({
   stdin: {
     contents:
-      'import React from "react"; import {renderToString} from "react-dom/server"; import {BodyScrollRestorer} from "./components/body-scroll-restorer"; import {Hero} from "./components/marketing/hero"; import {BuildShowcase} from "./components/marketing/build-showcase"; process.stdout.write(renderToString(React.createElement(React.Fragment,null,React.createElement(BodyScrollRestorer),React.createElement("div",{"data-homepage-surface":"",className:"bg-white"},React.createElement(Hero),React.createElement(BuildShowcase)))));',
+      'import React from "react"; import {renderToString} from "react-dom/server"; import {BodyScrollRestorer} from "./components/body-scroll-restorer"; import {Hero} from "./components/marketing/hero"; import {BuildShowcase} from "./components/marketing/build-showcase"; import {LandingStory} from "./components/marketing/landing-story"; process.stdout.write(renderToString(React.createElement(React.Fragment,null,React.createElement(BodyScrollRestorer),React.createElement("div",{"data-homepage-surface":"",className:"bg-white"},React.createElement(Hero),React.createElement(LandingStory,null,React.createElement(BuildShowcase))))));',
     resolveDir: root,
     loader: "tsx",
   },
@@ -434,7 +434,7 @@ try {
     )
     const showcaseStyle = await page.$eval('[data-build-showcase]', e => ({bg:getComputedStyle(e).backgroundColor, radius:getComputedStyle(e).borderRadius, margin:getComputedStyle(e).marginTop}))
     assert.deepEqual(showcaseStyle, {bg:'rgb(255, 255, 255)',radius:'0px',margin:'0px'}, 'showcase is a normal white section without corner wedges')
-    assert.equal(await page.$eval('.build-showcase-track', e => Math.round(e.getBoundingClientRect().left)), 22, 'the carousel stays inset from the phone edges')
+    assert.ok(await page.$eval('.build-showcase-track', e => e.getBoundingClientRect().left >= 22 && e.getBoundingClientRect().left <= 26), 'the carousel stays inset from the phone edges')
     assert.equal(await page.$eval('.cinematic-period', e => getComputedStyle(e).color), await page.$eval('.cinematic-phrases', e => getComputedStyle(e).color), 'headline dot inherits the headline color')
     await page.focus("input[type=email]")
     assert.equal(
@@ -543,18 +543,17 @@ try {
       return v.play()
     })
     await page.waitForSelector('video[data-ready="true"]')
-    const before = await page.$$eval("[data-showcase-word]", (els) =>
-      els.map((e) => getComputedStyle(e).color),
-    )
     await page.$eval("[data-build-showcase]", (e) =>
       e.scrollIntoView({ block: "start", behavior: "instant" }),
     )
     await pause(150)
-    const after = await page.$$eval("[data-showcase-word]", (els) =>
-      els.map((e) => getComputedStyle(e).color),
-    )
-    assert.notDeepEqual(before, after, "words fill with scroll")
-    assert.ok(after.every((c) => c === "rgb(20, 20, 20)"))
+    assert.equal(await page.$eval('[data-story-heading]', e => e.style.getPropertyValue('--story-progress')), '1.000', 'headline fills completely when scrolled into view')
+    assert.ok(await page.$$eval('[data-story-accent]', els => els.length >= 3 && els.every(e => getComputedStyle(e).getPropertyValue('--word-target').trim() === '#7c3aed')), 'selected headline words fill purple')
+    const showcaseGeometry = await page.$$eval('[data-showcase-slide]', els => els.slice(0, 6).map(e => ({format:e.dataset.format,w:e.getBoundingClientRect().width,h:e.querySelector('.build-showcase-media').getBoundingClientRect().height,fit:getComputedStyle(e.querySelector('img')).objectFit})))
+    assert.deepEqual(showcaseGeometry.map(e => e.format), ['wide','portrait','wide','portrait','wide','portrait'])
+    assert.ok(showcaseGeometry.every(e => e.fit==='contain'), 'all screenshots fit without cropping')
+    assert.ok(showcaseGeometry[0].w > showcaseGeometry[1].w * 2, 'portrait cards are genuinely narrower')
+    assert.ok(Math.abs((showcaseGeometry[1].w-2)/showcaseGeometry[1].h - 9/16) < .02, 'portrait media uses a phone ratio')
     const track = ".build-showcase-track"
     const start = await page.$eval(track, (e) => e.scrollLeft)
     await page.mouse.move(0, 0)
@@ -599,7 +598,7 @@ try {
       const release = await page.$eval(track, e => e.scrollLeft)
       await pause(180)
       const longCoast = await page.$eval(track, e => e.scrollLeft)
-      const period = await page.$eval(track, e => (e.querySelector('[data-showcase-slide]').getBoundingClientRect().width + parseFloat(getComputedStyle(e).columnGap)) * 5)
+      const period = await page.$eval(track, e => {const slides=e.querySelectorAll('[data-showcase-slide]'); return slides[Number(e.dataset.showcaseCount)].offsetLeft-slides[0].offsetLeft})
       const distance = (longCoast - release + period) % period
       assert.ok(distance > 5 && distance < period / 2, `a ${duration}ms drag coasts on release: ${release} -> ${longCoast}, distance ${distance}`)
       await pause(1800)

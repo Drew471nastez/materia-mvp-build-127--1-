@@ -1,10 +1,12 @@
 "use client"
 
+import { StoryHeading } from "./story-heading"
+
 import { useRef, useEffect, useState } from "react"
 import Link from "next/link"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 
-export function CtaSection() {
+export function CtaSection({ editorial = false }: { editorial?: boolean } = {}) {
   const cardRef = useRef<HTMLDivElement>(null)
   const glowRef = useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
@@ -14,7 +16,7 @@ export function CtaSection() {
   }, [])
 
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted || matchMedia("(prefers-reduced-motion:reduce)").matches || !matchMedia("(hover:hover) and (pointer:fine)").matches) return
     const card = cardRef.current
     const glow = glowRef.current
     if (!card || !glow) return
@@ -58,11 +60,11 @@ export function CtaSection() {
   }, [mounted])
 
   return (
-    <section className="py-10 sm:py-16 bg-white">
+    <section data-story-section={editorial ? "cta" : undefined} className="py-10 sm:py-16 bg-white">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
         <div
           ref={cardRef}
-          className="bg-neutral-950 rounded-[24px] sm:rounded-[32px] overflow-hidden relative"
+          className="story-cta-panel bg-neutral-950 rounded-[24px] sm:rounded-[32px] overflow-hidden relative"
         >
           {/* Mouse-tracking glow */}
           <div
@@ -83,6 +85,7 @@ export function CtaSection() {
             {[0, 1, 2, 3].map((i) => (
               <div
                 key={i}
+                data-story-continuous=""
                 className="absolute top-1/2 left-1/2 w-full h-full rounded-full border border-white/[0.08]"
                 style={{
                   animation: `cta-pulse 5s cubic-bezier(0.4, 0, 0.2, 1) infinite`,
@@ -100,9 +103,9 @@ export function CtaSection() {
 
             {/* Text content */}
             <div className="text-center max-w-[640px] mx-auto">
-              <h2 className="text-[clamp(30px,5vw,48px)] font-bold tracking-tight mb-3.5 text-white leading-[1.1]">
+              {editorial ? <StoryHeading text="Your next chapter starts here." accent={["chapter"]} dark className="mb-6" /> : (<h2 className="text-[clamp(30px,5vw,48px)] font-bold tracking-tight mb-3.5 text-white leading-[1.1]">
                 Turn your ideas into income
-              </h2>
+              </h2>)}
               <p className="text-base sm:text-lg text-neutral-300 mb-8 font-medium tracking-wide">
                 Set up in 5 minutes. No credit card. No commitment.
               </p>

@@ -13,7 +13,7 @@ export function useShowcaseMotion(
     if (!el) return
     const reduce = matchMedia("(prefers-reduced-motion: reduce)")
     let period = 0,
-      step = 0,
+      offsets: number[] = [],
       position = 0,
       frame = 0,
       lastFrame = 0,
@@ -56,13 +56,18 @@ export function useShowcaseMotion(
     }
     const measure = () => {
       stop()
-      const old = period,
-        first = el.querySelector<HTMLElement>("[data-showcase-slide]")
-      step = first
-        ? first.getBoundingClientRect().width +
-          parseFloat(getComputedStyle(el).columnGap)
-        : 0
-      period = step * count
+      const old = period
+      const slides = Array.from(
+        el.querySelectorAll<HTMLElement>("[data-showcase-slide]"),
+      )
+      const first = slides[0]
+      // A complete repeated group, not first-card width * count: portrait
+      // and landscape cards have different widths, including across wrap.
+      period =
+        first && slides[count] ? slides[count].offsetLeft - first.offsetLeft : 0
+      offsets = slides
+        .slice(0, count)
+        .map((slide) => slide.offsetLeft - first.offsetLeft)
       position = old ? period + ((el.scrollLeft % old) / old) * period : period
       ownUntil = performance.now() + 60
       el.scrollLeft = position
@@ -186,9 +191,20 @@ export function useShowcaseMotion(
       }, 180)
     }
     const wheel = () => {
+      keyboardActive = false
       stop()
       interact()
       position = el.scrollLeft
+    }
+    const nextPosition = (direction: 1 | -1) => {
+      if (!period) return position
+      const relative = ((position % period) + period) % period
+      const target =
+        direction === 1
+          ? (offsets.find((offset) => offset > relative + 2) ?? period)
+          : ([...offsets].reverse().find((offset) => offset < relative - 2) ??
+            offsets[offsets.length - 1] - period)
+      return position + target - relative
     }
     const key = (event: KeyboardEvent) => {
       keyboardActive = true
@@ -204,7 +220,7 @@ export function useShowcaseMotion(
         position = el.scrollLeft
         normalize()
         el.scrollTo({
-          left: position + (event.key === "ArrowRight" ? step : -step),
+          left: nextPosition(event.key === "ArrowRight" ? 1 : -1),
           behavior: reduce.matches ? "auto" : "smooth",
         })
       }
@@ -243,7 +259,7 @@ export function useShowcaseMotion(
         return
       position = el.scrollLeft
       normalize()
-      el.scrollTo({ left: position + step, behavior: "smooth" })
+      el.scrollTo({ left: nextPosition(1), behavior: "smooth" })
     }, 4000)
     measure()
     el.addEventListener("pointerdown", down)

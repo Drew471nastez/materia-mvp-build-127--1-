@@ -98,7 +98,6 @@ const HERO_CSS = `
 .cinematic-motion { position: absolute; z-index: 5; bottom: max(58px, calc(env(safe-area-inset-bottom, 0px) + 38px)); right: max(20px, env(safe-area-inset-right, 0px)); display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; color: #fff; background: rgba(0,0,0,.25); cursor: pointer; }
 .cinematic-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 body:has([data-home-hero="cinematic"]) { --home-header-height:70.35px; }
-body:has([data-home-hero="cinematic"]) [data-guest-divider] {display:none}
 body:has([data-home-hero="cinematic"]) #platform-header-root { --bar-depth-dark:0 1px 2px rgba(0,0,0,.21),0 5px 14px -14px rgba(0,0,0,.33); --bar-depth-dark-raised:0 1px 2px rgba(0,0,0,.26),0 8px 21px -10px rgba(0,0,0,.44); transition:background-color 320ms ease,box-shadow 320ms ease,backdrop-filter 320ms ease; }
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-header-tone="dark"] { background-color:transparent; }
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-header-tone="dark"] > header { background-color:transparent; border-bottom-color:transparent; transition:border-color 320ms ease; }
@@ -138,7 +137,7 @@ body:has([data-home-hero="cinematic"]) #platform-header-root[data-scrolled] > he
 @media (hover: none) and (pointer: coarse) {
   [data-home-hero="cinematic"] { min-height: 0; }
 }
-[data-home-hero="cinematic"] { margin-top:calc(-1 * var(--home-header-height)); padding-top:calc(clamp(96px,8vw,152px) + var(--home-header-height)); }
+[data-home-hero="cinematic"] { border-radius:0 0 clamp(28px,4vw,64px) clamp(28px,4vw,64px); margin-top:calc(-1 * var(--home-header-height)); padding-top:calc(clamp(96px,8vw,152px) + var(--home-header-height)); }
 @media(max-width:767px){body:has([data-home-hero="cinematic"]){--home-header-height:max(64.6px,calc(env(safe-area-inset-top,0px) + 53.3px))}[data-home-hero="cinematic"]{padding-top:calc(40px + var(--home-header-height))}}
 @media(max-width:1023px) and (hover:none) and (pointer:coarse) and (orientation:landscape){[data-home-hero="cinematic"]{padding-top:calc(44px + var(--home-header-height))}}
 @media (prefers-reduced-motion: reduce) {

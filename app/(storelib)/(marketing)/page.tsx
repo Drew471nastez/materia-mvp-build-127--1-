@@ -1,4 +1,5 @@
 import dynamic from "next/dynamic"
+import { LandingStory } from "@/components/marketing/landing-story"
 import { BuildShowcase } from "@/components/marketing/build-showcase"
 import { Hero } from "@/components/marketing/hero"
 import { BentoGrid } from "@/components/marketing/bento-grid"
@@ -22,11 +23,11 @@ export const metadata: Metadata = {
 const ManageSection = dynamic(() => import("@/components/marketing/manage-section").then(m => ({ default: m.ManageSection })))
 const SplitFeaturesSection = dynamic(() => import("@/components/marketing/split-features-section").then(m => ({ default: m.SplitFeaturesSection })))
 const CarouselSection = dynamic(() => import("@/components/marketing/carousel-section").then(m => ({ default: m.CarouselSection })))
-const ToolStackSection = dynamic(() => import("@/components/marketing/tool-stack-section").then(m => ({ default: m.ToolStackSection })))
-const PricingSection = dynamic(() => import("@/components/marketing/pricing-section").then(m => ({ default: m.PricingSection })))
+const ToolStackSection = dynamic<{ editorial?: boolean }>(() => import("@/components/marketing/tool-stack-section").then(m => ({ default: m.ToolStackSection })))
+const PricingSection = dynamic<{ editorial?: boolean }>(() => import("@/components/marketing/pricing-section").then(m => ({ default: m.PricingSection })))
 const FeaturesBadgesSection = dynamic(() => import("@/components/marketing/features-badges-section").then(m => ({ default: m.FeaturesBadgesSection })))
-const FaqSection = dynamic(() => import("@/components/marketing/faq-section").then(m => ({ default: m.FaqSection })))
-const CtaSection = dynamic(() => import("@/components/marketing/cta-section").then(m => ({ default: m.CtaSection })))
+const FaqSection = dynamic<{ editorial?: boolean }>(() => import("@/components/marketing/faq-section").then(m => ({ default: m.FaqSection })))
+const CtaSection = dynamic<{ editorial?: boolean }>(() => import("@/components/marketing/cta-section").then(m => ({ default: m.CtaSection })))
 const ProductMarquee = dynamic(() => import("@/components/marketing/product-marquee").then(m => ({ default: m.ProductMarquee })))
 
 export default function StorelibLanding() {
@@ -37,40 +38,42 @@ export default function StorelibLanding() {
 
       {/* HERO SECTION */}
       <Hero />
-      <BuildShowcase />
+      <LandingStory>
+        <BuildShowcase />
 
-      {/* BENTO GRID */}
-      <BentoGrid />
+        {/* BENTO GRID */}
+        <BentoGrid />
 
-      {/* STATS BAR */}
-      <StatsBar />
+        {/* STATS BAR */}
+        <StatsBar />
 
-      {/* MANAGE YOUR BUSINESS */}
-      <ManageSection />
+        {/* MANAGE YOUR BUSINESS */}
+        <ManageSection />
 
-      {/* PRODUCT CATEGORIES MARQUEE */}
-      <ProductMarquee />
+        {/* PRODUCT CATEGORIES MARQUEE */}
+        <ProductMarquee />
 
-      {/* SPLIT FEATURE ROWS */}
-      <SplitFeaturesSection />
+        {/* SPLIT FEATURE ROWS */}
+        <SplitFeaturesSection />
 
-      {/* CAROUSEL / ONEPAGE TESTIMONIALS */}
-      {/* <CarouselSection /> */}
+        {/* CAROUSEL / ONEPAGE TESTIMONIALS */}
+        {/* <CarouselSection /> */}
 
-      {/* TOOL STACK COMPARISON */}
-      <ToolStackSection />
+        {/* TOOL STACK COMPARISON */}
+        <ToolStackSection editorial />
 
-      {/* PRICING */}
-      <PricingSection />
+        {/* PRICING */}
+        <PricingSection editorial />
 
-      {/* FEATURE BADGES */}
-      <FeaturesBadgesSection />
+        {/* FEATURE BADGES */}
+        <FeaturesBadgesSection />
 
-      {/* FAQ */}
-      <FaqSection />
+        {/* FAQ */}
+        <FaqSection editorial />
 
-      {/* CTA */}
-      <CtaSection />
+        {/* CTA */}
+        <CtaSection editorial />
+      </LandingStory>
     </div>
   )
 }

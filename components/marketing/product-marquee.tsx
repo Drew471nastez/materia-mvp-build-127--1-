@@ -1,3 +1,4 @@
+import { StoryHeading } from "./story-heading"
 import { AnimateOnScroll } from "./bento-grid"
 
 const PRODUCTS_ROW1 = [
@@ -34,6 +35,7 @@ function MarqueeRow({ items, direction = "left", duration = 30 }: { items: typeo
   return (
     <div className="overflow-hidden py-2">
       <div
+        data-story-continuous=""
         className="flex gap-3 w-max"
         style={{
           animation: `${animName} ${duration}s linear infinite`,
@@ -58,7 +60,7 @@ function MarqueeRow({ items, direction = "left", duration = 30 }: { items: typeo
 
 export function ProductMarquee() {
   return (
-    <section className="py-14 sm:py-18 bg-white overflow-hidden">
+    <section data-story-section="categories" className="py-14 sm:py-18 bg-white overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes marquee-left {
           0% { transform: translate3d(0, 0, 0); }
@@ -72,9 +74,7 @@ export function ProductMarquee() {
 
       <AnimateOnScroll variant="blur-in">
         <div className="max-w-[1200px] mx-auto px-6 mb-10 text-center">
-          <h2 className="text-[clamp(26px,3.5vw,40px)] font-semibold tracking-tight leading-[1.15] mb-3">
-            Unlimited possibilities
-          </h2>
+          <StoryHeading text="Made for what you make." accent={["make"]} />
           <p className="text-[15px] text-neutral-500 max-w-[460px] mx-auto">
             Whatever you create, there&apos;s a place for it on Storelib.
           </p>

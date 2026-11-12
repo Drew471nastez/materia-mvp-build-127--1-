@@ -244,7 +244,7 @@ if(process.env.HEADER_ONLY==='marketing'){
     const p=await open(DESK(1440),path,'guest')
     if(path==='/'){
       const top=await p.evaluate(()=>({heroTop:document.querySelector('[data-home-hero]').getBoundingClientRect().top,bg:getComputedStyle(document.querySelector('#platform-header-root')).backgroundColor,sell:!!document.querySelector('a[href="/sell"]'),divider:getComputedStyle(document.querySelector('[data-guest-divider]')).display}))
-      expect(Math.abs(top.heroTop)<1 && top.bg==='rgba(0, 0, 0, 0)' && top.sell && top.divider==='none','desktop header overlays video transparently and keeps Sell on Storelib',top)
+      expect(Math.abs(top.heroTop)<1 && top.bg==='rgba(0, 0, 0, 0)' && top.sell && top.divider!=='none','desktop header overlays video transparently and keeps Sell on Storelib',top)
       await p.evaluate(()=>scrollTo(0,160));await sleep(400)
       expect(await p.$eval('#platform-header-root',e=>getComputedStyle(e).backgroundColor)==='rgb(16, 16, 18)','desktop header becomes solid after scrolling')
       await p.evaluate(()=>scrollTo(0,0));await sleep(400)

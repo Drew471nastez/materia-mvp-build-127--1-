@@ -1,5 +1,7 @@
 "use client"
 
+import { StoryHeading } from "./story-heading"
+
 import { useRef, useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 
@@ -102,13 +104,17 @@ function AnimateOnScroll({
   delay?: number
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [visible, setVisible] = useState(false)
+  const [visible, setVisible] = useState(true)
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
+    if (typeof IntersectionObserver !== "function" || matchMedia("(prefers-reduced-motion:reduce)").matches) { setVisible(true); return }
+    // Keep server-rendered/in-view content readable, even before hydration.
+    if (el.getBoundingClientRect().top < innerHeight + 80) return
+    setVisible(false)
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setVisible(true) },
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect() } },
       { threshold: 0.05, rootMargin: "0px 0px 80px 0px" },
     )
     obs.observe(el)
@@ -118,6 +124,8 @@ function AnimateOnScroll({
   return (
     <div
       ref={ref}
+      data-story-reveal=""
+      data-story-visible={visible}
       className={className}
       style={{
         ...(visible ? VISIBLE[variant] : HIDDEN[variant]),
@@ -309,13 +317,12 @@ function CountUpRevenue() {
 
 export function BentoGrid() {
   return (
-    <section data-home-after-hero="" className="pt-12 pb-20 sm:py-24 bg-white">
+    <section data-story-section="bento" data-home-after-hero="" className="pt-12 pb-20 sm:py-24 bg-white">
       <div className="max-w-[1200px] mx-auto px-6">
         <AnimateOnScroll variant="blur-in">
-          <div className="text-center max-w-[640px] mx-auto mb-14">
-            <h2 className="text-[clamp(30px,4vw,44px)] font-semibold leading-[1.15] tracking-tight mb-3.5">
-              Everything in one place
-            </h2>
+          <div className="story-section-heading text-center max-w-[640px] mx-auto mb-14">
+            <p className="story-eyebrow">One connected workspace</p>
+            <StoryHeading text="Everything in one place" accent={["everything", "place"]} />
             <p className="text-base text-neutral-500 leading-relaxed">
               <span className="hidden sm:inline">
                 Storelib is the easiest way to make money online. Run your entire creative business from one place, sell products, build your online store and grow your brand!

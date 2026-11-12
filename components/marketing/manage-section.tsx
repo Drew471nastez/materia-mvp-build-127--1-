@@ -1,5 +1,7 @@
 "use client"
 
+import { StoryHeading } from "./story-heading"
+
 import { useState, useEffect, useRef, useCallback } from "react"
 import { AnimateOnScroll } from "./bento-grid"
 import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
@@ -244,7 +246,7 @@ export function ManageSection() {
   */
 
   return (
-    <section className="pt-20 pb-[68px] sm:py-24 text-center relative overflow-hidden bg-white">
+    <section data-story-section="manage" className="pt-20 pb-[68px] sm:py-24 text-center relative overflow-hidden bg-white">
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes manage-float {
           0%, 100% { transform: translateY(0); }
@@ -254,12 +256,11 @@ export function ManageSection() {
       `}} />
       <div className="max-w-[1200px] mx-auto px-6">
         <AnimateOnScroll variant="blur-in">
-          <h2 className="text-[27px] md:text-[clamp(32px,4.5vw,48px)] font-bold tracking-tight mb-3">
-            Manage your business 🚀
-          </h2>
-          <p className="text-base text-neutral-500 mb-14 max-w-[520px] mx-auto">
-            Storelib has everything you need to run your digital business. All-in-one place.
-          </p>
+          <div className="story-section-heading">
+            <p className="story-eyebrow">Behind the scenes</p>
+            <StoryHeading text="Run your business. Keep your focus." accent={["business", "focus"]} />
+            <p className="text-neutral-500">Products, payments, orders, and audience insights. Your daily work, connected in one dashboard.</p>
+          </div>
         </AnimateOnScroll>
 
         <AnimateOnScroll variant="zoom-in" delay={100}>
@@ -268,6 +269,7 @@ export function ManageSection() {
             {FLOATING_ICONS.map((icon) => (
               <div
                 key={icon.label}
+                data-story-continuous=""
                 className={`absolute flex-col items-center gap-2 ${icon.zClass} manage-float-anim ${icon.pos} ${"hideMobile" in icon && icon.hideMobile ? "hidden md:flex" : "flex"}`}
                 style={{ animationDelay: icon.delay }}
               >

@@ -1,88 +1,67 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useRef } from "react"
 import { useShowcaseMotion } from "./use-showcase-motion"
+import { StoryHeading } from "./story-heading"
 import { HERO_SLIDES } from "@/lib/marketing/hero-media"
 
 const EXAMPLES = [
-  HERO_SLIDES[0],
-  HERO_SLIDES[4],
-  HERO_SLIDES[3],
-  HERO_SLIDES[7],
-  HERO_SLIDES[5],
+  {
+    ...HERO_SLIDES[0],
+    label: "Your online store",
+    format: "wide",
+    width: 1200,
+    height: 750,
+  },
+  {
+    src: "/marketing/hero/tile-onepage-noor.webp",
+    alt: "Noor's Storelib OnePage, with products and booking links",
+    label: "OnePage, your way",
+    format: "portrait",
+    width: 360,
+    height: 450,
+  },
+  {
+    ...HERO_SLIDES[3],
+    label: "Bring your community together",
+    format: "wide",
+    width: 1200,
+    height: 750,
+  },
+  {
+    src: "/marketing/hero/tile-onepage-theo.webp",
+    alt: "Theo's Storelib OnePage, with presets and courses",
+    label: "Share what you create",
+    format: "portrait",
+    width: 360,
+    height: 450,
+  },
+  {
+    ...HERO_SLIDES[7],
+    label: "Build a website that feels like you",
+    format: "wide",
+    width: 1200,
+    height: 750,
+  },
+  {
+    src: "/marketing/hero/tile-onepage-ana.webp",
+    alt: "Ana's Storelib OnePage, with pottery and community links",
+    label: "Give every link a home",
+    format: "portrait",
+    width: 360,
+    height: 450,
+  },
 ]
-const LABELS = [
-  "Websites",
-  "OnePages",
-  "Communities",
-  "Website builder",
-  "Creator pages",
-]
-const WORDS = ["Build", "anything.", "Make", "it", "yours."]
+export const SHOWCASE_HEADING =
+  "Build your website, sell your products, and bring your community together in one connected place."
 
 /** Native scrolling for touch/trackpads; mouse dragging and quiet autoplay use
  * the same scroll position. Neighboring copies make wrapping in both directions visually continuous. */
 export function BuildShowcase() {
-  const outer = useRef<HTMLElement>(null)
   const track = useRef<HTMLDivElement>(null)
   useShowcaseMotion(track, EXAMPLES.length)
-  useEffect(() => {
-    const section = outer.current,
-      el = track.current
-    if (!section || !el) return
-    const reduce = matchMedia("(prefers-reduced-motion:reduce)")
-    let frame = 0
-    const paint = () => {
-      frame = 0
-      const rect = section.getBoundingClientRect()
-      const progress = reduce.matches
-        ? 1
-        : Math.max(
-            0,
-            Math.min(1, (innerHeight - rect.top) / (innerHeight * 0.85)),
-          )
-      section.style.setProperty(
-        "--showcase-enter",
-        String(Math.min(1, progress * 2.5)),
-      )
-      section
-        .querySelectorAll<HTMLElement>("[data-showcase-word]")
-        .forEach((word, i) => {
-          const fill = reduce.matches
-            ? 1
-            : Math.max(0, Math.min(1, progress * WORDS.length - i))
-          const tone = Math.round(145 - fill * 125)
-          word.style.color = `rgb(${tone},${tone},${tone})`
-        })
-    }
-    const requestPaint = () => {
-      if (!frame) frame = requestAnimationFrame(paint)
-    }
-    const observer =
-      typeof IntersectionObserver === "function"
-        ? new IntersectionObserver(
-            ([entry]) => {
-              requestPaint()
-            },
-            { threshold: 0.12 },
-          )
-        : null
-    observer?.observe(section)
-    addEventListener("scroll", requestPaint, { passive: true })
-    addEventListener("resize", requestPaint)
-    reduce.addEventListener("change", requestPaint)
-    paint()
-    return () => {
-      cancelAnimationFrame(frame)
-      observer?.disconnect()
-      removeEventListener("scroll", requestPaint)
-      removeEventListener("resize", requestPaint)
-      reduce.removeEventListener("change", requestPaint)
-    }
-  }, [])
   return (
     <section
-      ref={outer}
       className="build-showcase"
       aria-labelledby="build-showcase-title"
       data-build-showcase=""
@@ -95,22 +74,18 @@ export function BuildShowcase() {
       </p>
       <div className="build-showcase-card">
         <div className="build-showcase-top">
-          <h2 id="build-showcase-title">
-            {WORDS.map((word, i) => (
-              <span
-                key={word}
-                data-showcase-word=""
-                style={{ color: i === 0 ? "#141414" : "#919191" }}
-              >
-                {word}
-                {i < WORDS.length - 1 ? " " : ""}
-              </span>
-            ))}
-          </h2>
+          <p className="story-eyebrow">Built around your business</p>
+          <StoryHeading
+            id="build-showcase-title"
+            text={SHOWCASE_HEADING}
+            accent={["website", "products", "community"]}
+            showcase
+          />
         </div>
         <div
           ref={track}
           className="build-showcase-track"
+          data-showcase-count={EXAMPLES.length}
           role="region"
           aria-roledescription="carousel"
           aria-label="What you can build with Storelib"
@@ -121,22 +96,25 @@ export function BuildShowcase() {
             EXAMPLES.map((example, i) => (
               <figure
                 className="build-showcase-slide"
+                data-format={example.format}
                 data-showcase-slide=""
                 key={`${copy}-${i}`}
                 aria-hidden={copy !== 1 || undefined}
               >
-                {/* Original optimized Storelib demo screenshots; no full-size third-party downloads. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={example.src!}
-                  alt={copy === 1 ? example.alt : ""}
-                  width={1200}
-                  height={750}
-                  loading="lazy"
-                  decoding="async"
-                  draggable={false}
-                />
-                <figcaption>{LABELS[i]}</figcaption>
+                <div className="build-showcase-media">
+                  {/* Original optimized Storelib demo screenshots; no full-size third-party downloads. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={example.src!}
+                    alt={copy === 1 ? example.alt : ""}
+                    width={example.width}
+                    height={example.height}
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                  />
+                </div>
+                <figcaption>{example.label}</figcaption>
               </figure>
             )),
           )}
@@ -147,20 +125,20 @@ export function BuildShowcase() {
 }
 
 const CSS = `
-.build-showcase { position:relative; z-index:2; margin-top:0; padding:0; color:#141414; background:#fff; }
-.build-showcase-card { width:100%; margin:0; overflow:hidden; background:#fff; padding:64px 0 48px; }
-.build-showcase-top { padding:0; margin-inline:clamp(24px,6vw,96px); display:flex; align-items:flex-end; justify-content:space-between; gap:32px; margin-bottom:34px; }
-.build-showcase h2 { max-width:760px; margin:0; font-size:clamp(36px,4.3vw,64px); line-height:1.08; font-weight:500; letter-spacing:-.05em; }
+.build-showcase {container-type:inline-size;position:relative;z-index:2;margin:0;padding:0;color:#18181b;background:#fff}
+.build-showcase-card {width:100%;margin:0;background:#fff;padding:clamp(52px,7vw,104px) 0 clamp(52px,6vw,88px)}
+.build-showcase-top {margin:0 clamp(22px,6vw,96px) clamp(32px,4vw,56px)}
+.build-showcase h2 {max-width:1150px;margin:0;font-size:clamp(38px,5.4vw,82px)}
 .build-showcase-help {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-.build-showcase-track:focus-visible {outline:none;box-shadow:inset 0 0 0 1px rgba(185,160,255,.4)}
-.build-showcase-top, .build-showcase-track { transition:transform 320ms ease-out; transform:translate3d(0,calc((1 - var(--showcase-enter,0))*24px),0); }
-.build-showcase-track { margin-inline:clamp(24px,6vw,96px); display:flex; gap:20px; padding:0 0 14px; overflow-x:auto; scrollbar-width:none; overscroll-behavior-x:contain; cursor:grab; touch-action:pan-x pan-y; user-select:none;-webkit-user-select:none;-webkit-overflow-scrolling:touch; }
-.build-showcase-track::-webkit-scrollbar { display:none; }
-.build-showcase-track[data-dragging] { cursor:grabbing; user-select:none; }
-.build-showcase-slide { position:relative; flex:0 0 min(56vw,680px); margin:0; overflow:hidden; border-radius:20px; background:#17191a; }
-.build-showcase-slide img { display:block; width:100%; height:auto; aspect-ratio:16/10; object-fit:cover; pointer-events:none; }
-.build-showcase-slide figcaption { padding:16px 20px; font-size:14px; color:#fff; }
-@media(max-width:767px){.build-showcase{padding:0;margin-top:0}.build-showcase-card{padding:36px 0 28px}.build-showcase-top{padding:0;margin-inline:22px;gap:22px;margin-bottom:24px;align-items:start;flex-direction:column}.build-showcase h2{font-size:clamp(32px,8vw,45px);max-width:520px}.build-showcase-track{margin-inline:22px;padding-inline:0;gap:14px}.build-showcase-slide{flex-basis:calc(100vw - 70px);border-radius:16px}}
-@media(min-width:1024px){.build-showcase h2{font-size:clamp(34px,4.15vw,61px)}.build-showcase-slide figcaption{font-size:13.3px}}
-@media(prefers-reduced-motion:reduce){.build-showcase-top,.build-showcase-track{transform:none;transition:none}.build-showcase h2 span{color:#141414!important}}
+.build-showcase-track {--showcase-height:clamp(240px,32vw,460px);position:relative;margin-inline:clamp(22px,6vw,96px);display:flex;gap:24px;padding:0 0 8px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain;cursor:grab;touch-action:pan-x pan-y;user-select:none;-webkit-user-select:none;-webkit-overflow-scrolling:touch}
+.build-showcase-track:focus-visible {outline:2px solid #7c3aed;outline-offset:5px;border-radius:24px}
+.build-showcase-track::-webkit-scrollbar {display:none}
+.build-showcase-track[data-dragging] {cursor:grabbing}
+.build-showcase-slide {position:relative;flex:0 0 calc(var(--showcase-height)*1.6);margin:0;border:1px solid #e9e7ee;border-radius:24px;background:#f4f1f7;overflow:hidden}
+.build-showcase-slide[data-format="portrait"] {flex-basis:calc(var(--showcase-height)*.5625);background:linear-gradient(160deg,#f4ecff,#f8f6ef)}
+.build-showcase-media {height:var(--showcase-height);display:flex;align-items:center;justify-content:center}
+.build-showcase-slide img {display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.build-showcase-slide figcaption {min-height:62px;display:flex;align-items:center;padding:16px 20px;font-size:14px;line-height:1.4;color:#343039;background:#faf9fc;border-top:1px solid #e9e7ee}
+@media(min-width:1024px){.build-showcase-track{--showcase-height:clamp(210px,calc((100cqw - 2*clamp(22px,6vw,96px) - 54px)/3.7625),460px)}}
+@media(max-width:767px){.build-showcase h2{font-size:clamp(38px,9.5vw,50px)}.build-showcase-track{--showcase-height:min(340px,calc((100cqw - 2*clamp(22px,6vw,96px) - 22px)/1.6));gap:16px}.build-showcase-slide{border-radius:18px}.build-showcase-slide figcaption{min-height:76px;padding:12px;font-size:12px}}
 `
