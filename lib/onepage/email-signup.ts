@@ -32,6 +32,8 @@
  * "pro" keeps its stored name, so a page saved with it before is unchanged.
  */
 
+import { TEXT_MIN, fadeThatReads, type Rgba } from "./contrast"
+
 export const EMAIL_SIGNUP_LAYOUT_IDS = ["default", "pro", "cover", "bold", "minimal", "connect", "letter", "bar"] as const
 export type EmailSignupLayout = (typeof EMAIL_SIGNUP_LAYOUT_IDS)[number]
 
@@ -124,7 +126,23 @@ export function signupEmailReady(raw: unknown): boolean {
  * The page's own button (.op-btn) waiting for an address: faded by a filter,
  * eased with the button's own timing (app/globals.css .op-btn, which drops to
  * no time under reduced motion), and back to itself once `ready`.
+ *
+ * Round 3, the owner: invisible words on buttons "in every state", disabled
+ * among them. A fixed 45% took a theme's 5:1 button to 2:1 (Default's
+ * Subscribe read at 3.7:1 while it waited, Renaissance's at 4.4:1). Given the
+ * button's words, its fill (none for words alone) and what it sits on, the
+ * fade is only as deep as keeps the words at 4.5:1 with a step to spare
+ * (waitFade): a button with room to spare still fades to 45%, one with none
+ * does not fade, and the cursor says it waits.
  */
-export function signupWait(ready: boolean): { filter?: string; transitionProperty: string } {
-  return { ...(ready ? {} : { filter: "opacity(0.45)" }), transitionProperty: "translate, scale, opacity, color, filter" }
+export function signupWait(ready: boolean, look?: WaitLook): { filter?: string; transitionProperty: string } {
+  const fade = ready ? 1 : look ? waitFade(look) : 0.45
+  return { ...(fade < 0.999 ? { filter: `opacity(${fade})` } : {}), transitionProperty: "translate, scale, opacity, color, filter" }
+}
+
+export type WaitLook = { words: unknown; fill?: unknown; grounds: readonly Rgba[] }
+
+/** The deepest fade (45% at the most) at which the waiting button's words still read at 4.5:1 plus one (lib/onepage/contrast fadeThatReads). */
+export function waitFade({ words, fill, grounds }: WaitLook): number {
+  return fadeThatReads(words, fill, grounds, TEXT_MIN + 1, 0.45)
 }

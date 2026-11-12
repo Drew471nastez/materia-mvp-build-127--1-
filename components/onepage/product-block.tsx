@@ -573,7 +573,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         body = shell(
           <span className="relative block aspect-[4/3] w-full @max-[18rem]:aspect-[4/5]">
             {picture("absolute inset-0 h-full w-full", undefined)}
-            <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_35%,rgba(0,0,0,0.72)_100%)]" />
+            {/* Round 3: the shade reaches 60% where the words start, so white words read on any picture, a white one too. */}
+            <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_26%,rgba(0,0,0,0.6)_60%,rgba(0,0,0,0.8)_100%)]" />
             <span className={cn("absolute inset-x-0 bottom-0 flex items-end gap-3 p-4 @max-[18rem]:gap-2 @max-[18rem]:p-3", NARROW_COLUMN)}>
               <span className="min-w-0 flex-1">
                 <ProductTitle block={block}>

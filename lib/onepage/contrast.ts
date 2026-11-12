@@ -43,6 +43,40 @@
 export const TEXT_MIN = 4.5
 /** WCAG 2.x: large text (the page's name) and marks (icons). */
 export const LARGE_MIN = 3
+/**
+ * Round 3: words on a see-through fill (Soft, Glass, a tint laid on a tint). What such a fill shows is more than
+ * the colours worked out here: the page's grain or pattern, the blur of whatever is behind it, a third surface (a
+ * card in a Mixed tile). Measured on pixels, Graphite's glass button on its glass card read at 4.1:1 where the sum
+ * said 5.1:1. A see-through fill is held to this, a step over the minimum.
+ */
+export const SEE_THROUGH_MIN = 5.5
+
+/**
+ * The deepest fade (no deeper than `deepest`) at which `words` on `fill` over each of `grounds` still read at `min`:
+ * the whole of the button laid at that opacity over its ground, as an opacity or an opacity() filter draws it. 1 when
+ * no fade keeps them (a button with no room to spare does not fade).
+ */
+export function fadeThatReads(words: unknown, fill: unknown, grounds: readonly Rgba[], min = TEXT_MIN + 1, deepest = 0.45): number {
+  const w = parseColor(words)
+  const f = parseColor(fill)
+  if (!w || !grounds.length) return 1
+  const reads = (a: number) =>
+    grounds.every((g) => {
+      const fillFull = f ? over(f, g) : g
+      const wordsFull = over(w, fillFull)
+      return ratioOf(over({ ...wordsFull, a }, g), over({ ...fillFull, a }, g)) >= min
+    })
+  if (reads(deepest)) return deepest
+  if (!reads(1)) return 1
+  let lo = deepest
+  let hi = 1
+  for (let i = 0; i < 12; i++) {
+    const mid = (lo + hi) / 2
+    if (reads(mid)) hi = mid
+    else lo = mid
+  }
+  return Math.ceil(hi * 100) / 100
+}
 
 export interface Rgba {
   r: number
@@ -251,7 +285,10 @@ export function readableTheme<T extends ContrastThemeLike>(theme: T): T {
   if (theme.title_color) keep("title_color", readableInk(theme.title_color, grounds, TEXT_MIN))
   if (theme.social_icon_color) keep("social_icon_color", readableInk(theme.social_icon_color, grounds, LARGE_MIN))
   const onButton = buttonGrounds(theme, grounds)
-  const buttonText = readableInk(theme.button_text_color ?? text, onButton, TEXT_MIN)
+  /* Round 3: on a see-through fill the words keep a step to spare (SEE_THROUGH_MIN). */
+  const colour = parseColor(theme.button_color)
+  const seeThrough = fillOf(theme) === "soft" || fillOf(theme) === "glass" || (fillOf(theme) === "filled" && !!colour && colour.a < 1)
+  const buttonText = readableInk(theme.button_text_color ?? text, onButton, seeThrough ? SEE_THROUGH_MIN : TEXT_MIN)
   keep("button_text_color", buttonText)
   /* A hover that fills the button: its words must read on that fill too. */
   const hoverFill = parseColor(theme.button_hover_fill)

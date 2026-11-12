@@ -143,7 +143,7 @@ async function main() {
   check("a valid address and nothing less", signupEmailReady("anna@site.co") && signupEmailReady("  a.b+c@mail.example.org ") && !signupEmailReady("") && !signupEmailReady("anna@") && !signupEmailReady("anna@site") && !signupEmailReady("anna@site.c") && !signupEmailReady("an na@site.co") && !signupEmailReady(`${"a".repeat(250)}@x.co`) && !signupEmailReady(null))
   check("waiting is a filter, eased with the button's own timing", signupWait(false).filter === "opacity(0.45)" && signupWait(true).filter === undefined && /filter/.test(signupWait(true).transitionProperty))
   const live = read("components/onepage/public-onepage.tsx")
-  check("the email block's three shapes wait for an address", (live.match(/!emailReady/g) ?? []).length >= 3 && /signupWait\(emailReady \|\| isSubmitting\)/.test(live))
+  check("the email block's three shapes wait for an address", (live.match(/!emailReady/g) ?? []).length >= 3 && /signupWait\(emailReady \|\| isSubmitting(, \{[^}]*\})?\)/.test(live))
   check("the Subscribe sheet and a free gift's form too", /disabled=\{busy \|\| done \|\| !signupEmailReady\(email\)\}/.test(read("components/onepage/subscribe-sheet.tsx")) && /disabled=\{sending \|\| !signupEmailReady\(email\)\}/.test(read("components/onepage/storelib-blocks.tsx")))
 
   section("SQL part 442")

@@ -2862,6 +2862,9 @@ html.capacitor .subscribe-bar-spacer {
     0 0 0 3px color-mix(in srgb, var(--op-accent, #1a1a2e) 16%, transparent),
     0 8px 28px -6px color-mix(in srgb, var(--op-accent, #1a1a2e) 45%, transparent);
 }
+/* Lift's slight tint. ROUND 3: it was the words' own colour (currentColor) at 5%, which moves the fill toward the
+   words, always against them: Graphite's light words on its glass read 4.4:1 at rest and 3.6:1 under the pointer.
+   It is the words' opposite now (relative colour syntax), so the tint can only part them further. */
 .op-btn:not(.animate-onepage-swipe)::after {
   content: "";
   position: absolute;
@@ -2871,6 +2874,7 @@ html.capacitor .subscribe-bar-spacer {
   z-index: -1;
   opacity: 0;
   background: currentColor;
+  background: rgb(from currentColor calc(255 - r) calc(255 - g) calc(255 - b));
   transition-property: opacity;
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -2933,7 +2937,7 @@ html.capacitor .subscribe-bar-spacer {
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"][data-shadow="hard"] { translate: -2px -2px; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"]::before { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"]:not(.animate-onepage-swipe)::after { opacity: 0.05; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fade"] { opacity: 0.8; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fade"] { opacity: var(--op-fade, 0.8); }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="zoom"] { scale: 1.03; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="glow"]::before { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fill"] { color: var(--op-fill-text, inherit) !important; }

@@ -500,6 +500,52 @@ export function haloOf(textShadow: string | null | undefined): Rgba | null {
   return c && c.a >= 0.35 ? c : null
 }
 
+/** Does a box hold a picture: an image, a video, a canvas, or a background that is a picture (not a drawn svg)? */
+function holdsPicture(box: Element): boolean {
+  if (box.matches("img, video, canvas, picture")) return true
+  if (box.querySelector("img, video, canvas, picture")) return true
+  for (const b of [box, ...box.querySelectorAll("*")].slice(0, 40)) {
+    const image = getComputedStyle(b).backgroundImage
+    if (image && image !== "none" && splitLayers(image).some((l) => /^url\(/i.test(l) && !/^url\(["']?data:image\/svg\+xml/i.test(l))) return true
+  }
+  return false
+}
+
+/* Per pass (keyed by the pass's GroundCache): where each positioned box is, and whether it holds a picture. */
+const POSITIONED = new WeakMap<GroundCache, Map<Element, { at: DOMRect | null; photo: boolean }>>()
+/* The page's own wallpaper (a photo theme's picture, its video, drift, pattern): the theme's own darkening carries words there, as before. */
+const WALLPAPER = "[data-wallpaper-photo], [data-wallpaper-video], [data-wallpaper-effect], [data-wallpaper-drift], [data-wallpaper-pattern], [data-wallpaper-noise]"
+
+/**
+ * The layers `parent` paints between its own background and its child `child` under the rect `r`, top first: each
+ * positioned (absolute or fixed) child of `parent` that comes before `child` and lies under the middle of the words.
+ * "photo" for one that holds a picture, else the colours it shows.
+ */
+function layersUnder(parent: Element, child: Element, r: DOMRect, cache: GroundCache): ("photo" | Rgba[])[] {
+  const out: ("photo" | Rgba[])[] = []
+  const x = r.left + r.width / 2
+  const y = r.top + r.height / 2
+  let memo = POSITIONED.get(cache)
+  if (!memo) POSITIONED.set(cache, (memo = new Map()))
+  for (let sib = child.previousElementSibling; sib; sib = sib.previousElementSibling) {
+    let known = memo.get(sib)
+    if (!known) {
+      const cs = getComputedStyle(sib)
+      const placed = (cs.position === "absolute" || cs.position === "fixed") && cs.display !== "none" && cs.visibility === "visible" && parseFloat(cs.opacity) > 0.05 && !sib.matches(SKIP) && !sib.matches(WALLPAPER)
+      known = { at: placed ? sib.getBoundingClientRect() : null, photo: placed && holdsPicture(sib) }
+      memo.set(sib, known)
+    }
+    const at = known.at
+    if (!at || x < at.left || x > at.right || y < at.top || y > at.bottom) continue
+    if (known.photo) {
+      out.push("photo")
+      break
+    }
+    for (const e of entriesOf(sib, cache).entries) out.push("photo" in e ? "photo" : e.colors)
+  }
+  return out
+}
+
 /**
  * What is painted under `el`'s words: the backgrounds of `el` and its ancestors, top down, until an opaque one,
  * composited. `photo` when a picture (a url other than a drawn svg) is reached first: no colour can be promised there.
@@ -513,8 +559,33 @@ export function groundUnder(el: Element, cache: GroundCache = new Map()): Ground
   let photo = false
   let done = false
   let owner: Element | null = null
-  for (let node: Element | null = el; node && !done; node = node.parentElement) {
+  let child: Element | null = null
+  for (let node: Element | null = el; node && !done; child = node, node = node.parentElement) {
     owner = node
+    /*
+      ROUND 3: WHAT IS LAID UNDER THE WORDS BESIDE THEM IN THE TREE. A product drawn over its own picture
+      (product-block Overlay) puts the picture and a dark shade in boxes positioned under the words, siblings of the
+      words' box, not its ancestors. Walking only the ancestors, the guard read the white card behind the picture,
+      found the white words unreadable there and turned them dark: dark words on a dark photo. A positioned box
+      painted before the branch the words are in, and under their middle, is part of their ground: a picture in it
+      makes the ground a photo (no colour can be promised there), a colour or a shade in it is laid on.
+    */
+    if (child) {
+      for (const layer of layersUnder(node, child, r, cache)) {
+        if (layer === "photo") {
+          photo = true
+          done = true
+          break
+        }
+        full.push(layer)
+        stack.push(layer)
+        if (layer.every((c) => c.a >= 0.999)) {
+          done = true
+          break
+        }
+      }
+      if (done) break
+    }
     const info = entriesOf(node, cache)
     for (const e of info.entries) {
       if ("photo" in e) {
