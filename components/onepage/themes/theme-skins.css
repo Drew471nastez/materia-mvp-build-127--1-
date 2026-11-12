@@ -2345,113 +2345,121 @@
 }
 
 /* ===========================================================================
-   RENAISSANCE: an old master's canvas, ivory panels in gilt frames, lapis and madder (lib/onepage/theme-skin)
+   RENAISSANCE: Titian's sky behind ink panels, white hairlines and a modern grotesk (lib/onepage/theme-skin)
    =========================================================================== */
+[data-skin-scene="renaissance"] {
+  container-type: inline-size; background-color: #0e1220;
+}
 [data-skin-scene="renaissance"] [data-sk="sky"] {
-  position: absolute; left: 0; right: 0; top: 0; height: 520px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 700 260' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cfilter id='b' x='-20%25' y='-50%25' width='140%25' height='200%25'%3E%3CfeGaussianBlur stdDeviation='14'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23b)' fill='%23fbf3df'%3E%3Cellipse cx='90' cy='120' rx='120' ry='26' fill-opacity='.55'/%3E%3Cellipse cx='330' cy='80' rx='150' ry='30' fill-opacity='.5'/%3E%3Cellipse cx='560' cy='140' rx='130' ry='22' fill-opacity='.45'/%3E%3Cellipse cx='250' cy='200' rx='170' ry='20' fill-opacity='.35'/%3E%3C/g%3E%3C/svg%3E") center 40px / 150% 240px no-repeat, radial-gradient(110% 70% at 24% 0%, rgba(255,240,206,.7) 0%, rgba(255,240,206,0) 60%), linear-gradient(180deg, rgba(122,152,176,.55) 0%, rgba(152,174,186,.36) 32%, rgba(200,200,190,.16) 62%, rgba(236,225,200,0) 100%);
+  position: absolute; inset: 0; background: linear-gradient(180deg, #2b3d6b 0, #3a507f calc(min(72cqw, 300px) + 40px), #3a507f calc(min(72cqw, 300px) + 120px), #0e1220 calc(min(72cqw, 300px) + min(250cqw, 1120px)));
 }
-[data-skin-scene="renaissance"] [data-sk="varnish"] {
-  position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 900'%3E%3Cfilter id='v' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0024 .0032' numOctaves='3' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .50  0 0 0 0 .33  0 0 0 0 .14  0 0 0 1.1 -.4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23v)'/%3E%3C/svg%3E") 0 0 / 1100px 1100px; opacity: .32; mix-blend-mode: multiply;
+[data-skin-scene="renaissance"] [data-sk="painting"] {
+  position: absolute; left: 0; right: 0; top: min(72cqw, 300px); height: min(250cqw, 1120px);
+  background: image-set(url("/images/onepage-themes/renaissance/portrait.avif") type("image/avif"), url("/images/onepage-themes/renaissance/portrait.webp") type("image/webp")) center top / cover no-repeat;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 72px, #000 62%, transparent 100%); mask-image: linear-gradient(180deg, transparent 0, #000 72px, #000 62%, transparent 100%);
 }
-[data-skin-scene="renaissance"] [data-sk="canvas"] {
-  position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .25  0 0 0 0 .16  0 0 0 0 .07  0 0 0 .1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E") 0 0 / 160px 160px, repeating-linear-gradient(0deg, rgba(90,60,28,.035) 0 1px, rgba(90,60,28,0) 1px 3px), repeating-linear-gradient(90deg, rgba(90,60,28,.025) 0 1px, rgba(90,60,28,0) 1px 3px); mix-blend-mode: multiply;
+[data-skin-scene="renaissance"] [data-sk="scrim"] {
+  position: absolute; left: 0; right: 0; top: 0; height: calc(min(72cqw, 300px) + min(250cqw, 1120px));
+  background: linear-gradient(180deg, rgba(9,12,24,.28) 0, rgba(9,12,24,.1) min(72cqw, 300px), rgba(9,12,24,.3) calc(min(72cqw, 300px) + 10%), rgba(9,12,24,.24) calc(min(72cqw, 300px) + 45%), rgba(9,12,24,.24) calc(min(72cqw, 300px) + 60%), rgba(14,18,32,.86) 94%, #0e1220 100%);
 }
-[data-skin-scene="renaissance"] [data-sk="hills"] {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 220px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 200' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cfilter id='s' x='-5%25' y='-20%25' width='110%25' height='140%25'%3E%3CfeGaussianBlur stdDeviation='1.1'/%3E%3C/filter%3E%3ClinearGradient id='f' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%238aa3b6'/%3E%3Cstop offset='1' stop-color='%23b3bfbd'/%3E%3C/linearGradient%3E%3ClinearGradient id='m' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%237c9690'/%3E%3Cstop offset='1' stop-color='%23a2ab92'/%3E%3C/linearGradient%3E%3ClinearGradient id='n' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23948a5e'/%3E%3Cstop offset='1' stop-color='%23c2b58a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg filter='url(%23s)'%3E%3Cpath d='M0 70 C 30 52 52 40 78 46 C 104 52 118 30 146 26 C 176 22 196 44 226 40 C 258 36 276 18 306 22 C 340 26 366 46 400 40 V200 H0Z' fill='url(%23f)' fill-opacity='.75'/%3E%3Cpath d='M0 104 C 46 88 88 80 132 90 C 170 98 200 84 238 80 C 286 76 330 96 400 86 V200 H0Z' fill='url(%23m)' fill-opacity='.8'/%3E%3Cpath d='M150 118 C 190 112 230 116 262 112 C 236 122 198 126 168 130Z' fill='%23e9e3cf' fill-opacity='.8'/%3E%3Cpath d='M0 140 C 60 124 120 128 170 138 C 230 150 300 132 400 128 V200 H0Z' fill='url(%23n)' fill-opacity='.75'/%3E%3C/g%3E%3C/svg%3E") center bottom / 100% 100% no-repeat; opacity: .55;
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 34%); mask-image: linear-gradient(180deg, transparent 0%, #000 34%);
+[data-skin-scene="renaissance"] [data-sk="frame"] {
+  position: absolute; left: 14px; right: 14px; top: 14px; height: calc((min(72cqw, 300px) + min(250cqw, 1120px)) * .72);
+  border: 1px solid rgba(255,255,255,.42); border-bottom: 0;
+  -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent 100%); mask-image: linear-gradient(180deg, #000 70%, transparent 100%);
 }
-[data-skin-scene="renaissance"] [data-sk="vignette"] {
-  position: absolute; inset: 0; background: radial-gradient(140% 100% at 50% 30%, rgba(74,47,23,0) 58%, rgba(74,47,23,.2) 100%);
+[data-skin-scene="renaissance"][class*="rounded-[40px]"] [data-sk="frame"] {
+  display: none;
+}
+@container (min-width: 720px) {
+  [data-skin-scene="renaissance"] [data-sk="sky"] { display: none; }
+  [data-skin-scene="renaissance"] [data-sk="painting"] { top: 0; height: min(100%, 110cqw, 1400px); background-image: image-set(url("/images/onepage-themes/renaissance/wide.avif") type("image/avif"), url("/images/onepage-themes/renaissance/wide.webp") type("image/webp")); background-position: center 30%; -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 100%); mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 100%); }
+  [data-skin-scene="renaissance"] [data-sk="scrim"] { height: min(100%, 110cqw, 1400px); background: radial-gradient(60% 80% at 50% 45%, rgba(9,12,24,.5) 0%, rgba(9,12,24,.16) 70%), linear-gradient(180deg, rgba(9,12,24,.2) 0%, rgba(9,12,24,.1) 50%, rgba(14,18,32,.8) 90%, #0e1220 100%); }
+  [data-skin-scene="renaissance"] [data-sk="frame"] { left: 28px; right: 28px; top: 28px; height: calc(min(100%, 110cqw, 1400px) * .78); }
 }
 
-/* renaissance: ivory panels in a gilt frame, lapis for what is bought or sent; the words on a link stay the theme's, so the madder hover wins. */
+/* renaissance: panels of the night in a white hairline; the product's button the one white thing; a link's words stay the theme's, so its white Fill hover wins. */
 [data-op-skin="renaissance"] :is(a.op-btn, [data-tp-link]) {
-  background-color: color-mix(in srgb, var(--sk-surface) 94%, transparent) !important; background-image: linear-gradient(180deg, rgba(255,252,242,.55) 0%, rgba(255,252,242,0) 60%);
-  border-color: #a8843f !important;
-  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--sk-surface) 94%, transparent), inset 0 0 0 4px rgba(168,132,63,.5), 0 1px 0 rgba(255,250,236,.7), 0 8px 18px -12px rgba(74,47,23,.42) !important;
-  font-weight: 500; letter-spacing: .01em; font-size: 1.04em;
+  background-color: rgba(11,14,26,.6) !important; background-image: none;
+  border: 1px solid rgba(255,255,255,.72) !important; border-radius: 2px !important;
+  box-shadow: none !important;
+  font-weight: 500; letter-spacing: -.005em;
 }
 [data-op-skin="renaissance"] .op-btn[data-hover]:not(.animate-onepage-swipe)::after {
-  background-image: linear-gradient(180deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,0) 60%);
+  background-image: none;
 }
 [data-op-skin="renaissance"] :is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]) {
-  background-color: #22396b !important; background-image: linear-gradient(180deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,0) 55%);
-  color: #f7f0de !important; border: 1px solid #a8843f !important; border-radius: 3px !important; font-weight: 600; letter-spacing: .03em;
-  box-shadow: inset 0 0 0 2px #22396b, inset 0 0 0 3px rgba(217,191,122,.55), 0 6px 14px -8px rgba(26,44,85,.6) !important;
+  background-color: #ffffff !important; background-image: none;
+  color: #0e1220 !important; border: 1px solid #ffffff !important; border-radius: 999px !important;
+  font-weight: 600; letter-spacing: -.005em; box-shadow: none !important;
+  --op-fill: #0e1220 !important; --op-fill-text: #ffffff !important;
 }
 [data-op-skin="renaissance"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card, [data-onepage-countdown] .grid > div, :where([style*="background-clip: padding-box"]:not(.op-btn, button, [data-product-block], [data-tp-product], .op-card, [data-tp-card], [data-tp-link], [data-onepage-code], figure, [data-onepage-countdown] .grid > div))) {
-  background-color: #f6eedb !important; background-image: none;
-  border-color: #a8843f !important; border-radius: 3px !important;
-  box-shadow: inset 0 0 0 3px #f6eedb, inset 0 0 0 4px rgba(168,132,63,.5), 0 10px 22px -16px rgba(74,47,23,.42) !important;
+  background-color: rgba(11,14,26,.6) !important; background-image: none;
+  border-color: rgba(255,255,255,.42) !important; border-radius: 2px !important;
+  box-shadow: none !important;
 }
 [data-op-skin="renaissance"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card) {
-  color: #2a1d13 !important;
+  color: #ffffff !important;
 }
 [data-op-skin="renaissance"] :is(:is([data-product-block], [data-tp-product], a.op-card, [data-tp-card], [data-onepage-code], [data-onepage-testimonials] figure), [data-onepage-faq] .op-card) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
-  color: #2a1d13 !important;
+  color: #ffffff !important;
 }
 [data-op-skin="renaissance"] [data-onepage-countdown] .grid > div {
-  color: #2a1d13 !important;
+  color: #ffffff !important;
 }
 [data-op-skin="renaissance"] [data-onepage-countdown] .grid > div :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
-  color: #2a1d13 !important;
+  color: #ffffff !important;
 }
 [data-op-skin="renaissance"] .op-card > div:last-child {
-  background-color: transparent !important; border-top: 1px solid rgba(168,132,63,.5);
+  background-color: transparent !important; border-top: 1px solid rgba(255,255,255,.42);
 }
 [data-op-skin="renaissance"] :is([data-email-layout], [data-onepage-contact]) {
-  background-color: #f2e8cf !important; border: 1px solid #a8843f; border-radius: 3px !important;
-  background-image: radial-gradient(120% 90% at 50% 0%, rgba(255,250,236,.7) 0%, rgba(255,250,236,0) 70%);
-  box-shadow: inset 0 0 0 5px #f2e8cf, inset 0 0 0 6px rgba(168,132,63,.5), 0 12px 26px -18px rgba(74,47,23,.42);
+  background-color: rgba(11,14,26,.6) !important; background-image: none;
+  border: 1px solid rgba(255,255,255,.72); border-radius: 2px !important; box-shadow: none;
 }
 [data-op-skin="renaissance"] :is([data-email-layout], [data-onepage-contact]) {
-  color: #2a1d13 !important;
+  color: #ffffff !important;
 }
 [data-op-skin="renaissance"] :is([data-email-layout], [data-onepage-contact]) :is([style^="color:"], [style*=" color:"]):not(input, textarea, :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]), :is(:is([data-product-cta], [data-email-form] button[type=submit], [data-onepage-contact] button[type=submit]), a.op-btn, [data-tp-link], [data-hover]) *) {
-  color: #2a1d13 !important;
+  color: #ffffff !important;
 }
 [data-op-skin="renaissance"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea) {
-  background: #fffaf0 !important; border: 1px solid #c4ae82 !important; border-radius: 2px !important; color: #2a1d13 !important; box-shadow: inset 0 1px 2px rgba(74,47,23,.1) !important;
+  background: #151b2e !important; border: 1px solid rgba(255,255,255,.42) !important; border-radius: 2px !important; color: #ffffff !important; box-shadow: none !important;
 }
 [data-op-skin="renaissance"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea):focus {
-  border-color: #a8843f !important; box-shadow: inset 0 1px 2px rgba(74,47,23,.1), 0 0 0 3px rgba(168,132,63,.25) !important;
+  border-color: #ffffff !important; box-shadow: 0 0 0 1px #ffffff !important;
 }
 [data-op-skin="renaissance"] :is([data-op-header] h1, [data-tp-title]) {
-  letter-spacing: .005em; line-height: 1.05; text-shadow: 0 1px 0 rgba(255,248,230,.55);
+  letter-spacing: -.035em; line-height: .98; text-shadow: 0 2px 28px rgba(6,9,20,.45);
 }
 [data-op-skin="renaissance"] :is([data-op-header] > p, [data-op-block] > p.whitespace-pre-line) {
-  text-shadow: 0 1px 0 rgba(255,248,230,.45);
+  text-shadow: 0 1px 14px rgba(6,9,20,.55);
 }
 [data-op-skin="renaissance"] :is([data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title]) {
-  font-style: italic; letter-spacing: .01em;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 14'%3E%3Cg fill='%23a8843f'%3E%3Crect x='0' y='6.5' width='48' height='1'/%3E%3Crect x='72' y='6.5' width='48' height='1'/%3E%3Cpath d='M60 2 L 65 7 L 60 12 L 55 7Z'/%3E%3Ccircle cx='51' cy='7' r='1.3'/%3E%3Ccircle cx='69' cy='7' r='1.3'/%3E%3C/g%3E%3C/svg%3E") center bottom / 120px 14px no-repeat; padding-bottom: 16px;
+  font-size: .8rem !important; font-weight: 600 !important; letter-spacing: .14em; text-transform: uppercase;
+  border-top: 1px solid rgba(255,255,255,.72); padding-top: 12px; text-shadow: 0 1px 2px rgba(6,9,20,.7), 0 0 14px rgba(6,9,20,.55);
 }
 [data-op-skin="renaissance"] :is([data-page-avatar] [data-slot=avatar], [data-tp-avatar]) {
-  box-shadow: 0 0 0 3px #f7f0de, 0 0 0 4px #a8843f, 0 0 0 8px rgba(168,132,63,.14), 0 16px 32px -14px rgba(60,35,15,.6) !important;
-}
-[data-op-skin="renaissance"] :is([data-page-avatar], [data-tp-avatar])::after {
-  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(90% 70% at 35% 25%, rgba(255,240,210,.18), rgba(255,240,210,0) 60%);
+  box-shadow: 0 0 0 4px rgba(11,14,26,.35), 0 0 0 5px rgba(255,255,255,.72) !important;
 }
 [data-op-skin="renaissance"] :is([data-op-social-icon], [data-tp-socials] > span) {
   width: 42px; height: 42px; padding: 0; border-radius: 50% !important;
-  background-color: #f7f0de !important; border: 1px solid #a8843f !important;
-  box-shadow: inset 0 0 0 2px #f7f0de, inset 0 0 0 3px rgba(168,132,63,.35), 0 4px 10px -6px rgba(74,47,23,.42);
+  background-color: rgba(11,14,26,.6) !important; border: 1px solid rgba(255,255,255,.72) !important; box-shadow: none;
 }
 [data-op-skin="renaissance"] [data-op-block] > .flex.items-center > .h-px:only-child {
-  height: 14px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 14'%3E%3Cg fill='%23a8843f'%3E%3Crect x='0' y='6.5' width='108' height='1'/%3E%3Crect x='132' y='6.5' width='108' height='1'/%3E%3Cpath d='M120 2 L 125 7 L 120 12 L 115 7Z'/%3E%3Ccircle cx='111' cy='7' r='1.3'/%3E%3Ccircle cx='129' cy='7' r='1.3'/%3E%3C/g%3E%3C/svg%3E") center / 240px 14px no-repeat !important;
+  height: 1px; background: rgba(255,255,255,.72) !important;
 }
 [data-op-skin="renaissance"] [data-op-block] div[class*='aspect-']:has(> img):not(.op-card div) {
-  border-radius: 2px !important; box-shadow: 0 0 0 1px #a8843f, 0 0 0 4px #f7f0de, 0 0 0 5px rgba(168,132,63,.5), 0 14px 24px -16px rgba(60,35,15,.6);
+  border-radius: 2px !important; box-shadow: 0 0 0 1px rgba(255,255,255,.72);
 }
 [data-op-skin="renaissance"] [data-framed-picture] {
-  border-radius: 2px; box-shadow: 0 0 0 1px rgba(168,132,63,.5);
+  border-radius: 2px; box-shadow: 0 0 0 1px rgba(255,255,255,.42);
 }
 [data-op-skin="renaissance"] [data-code-copy] {
-  background-color: #22396b !important; background-image: none; color: #f7f0de !important; border: 1px solid #a8843f !important; box-shadow: inset 0 0 0 2px #22396b, inset 0 0 0 3px rgba(217,191,122,.55) !important;
+  background-color: #ffffff !important; background-image: none; color: #0e1220 !important; border: 1px solid #ffffff !important; border-radius: 999px !important; box-shadow: none !important;
 }
 [data-op-skin="renaissance"] [data-onepage-legal] {
-  background: rgba(246,238,219,.92); color: #2a1d13 !important; width: fit-content; margin-inline: auto; padding: 4px 14px; border-radius: 999px; border: 1px solid rgba(168,132,63,.5);
+  background: rgba(11,14,26,.6); color: #ffffff !important; width: fit-content; margin-inline: auto; padding: 4px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.42);
 }
 
 /* ===========================================================================
