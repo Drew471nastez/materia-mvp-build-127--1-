@@ -65,6 +65,7 @@ const sheet = read("components/onepage/block-sheet.tsx")
 check("the sheet's weights of the page's typeface are read while the page is idle", /const SHEET_WEIGHTS = \[400, 500, 600, 700\] as const/.test(sheet) && /useEffect\(\(\) => whenIdle\(warmSheetFaces\), \[\]\)/.test(sheet) && /document\.fonts\.load\(`\$\{weight\} 16px \$\{stack\}`\)/.test(sheet))
 check("from the variables the sheet itself draws with, the title's family too", /getPropertyValue\("--opk-font"\), root\.getPropertyValue\("--opk-title-font"\)/.test(sheet) && /fontFamily: "var\(--opk-font, inherit\)"/.test(read("components/onepage/onepage-dialog.tsx")))
 check("the sheet's weights are the ones it draws in", /font-medium text-\[var\(--sheet-ink\)\]/.test(sheet) && /font-semibold text-\[var\(--sheet-on-ink\)\]/.test(sheet))
+check("a list item's picture in its sheet has its height before it loads, so nothing under it moves", /data-sheet-picture="" className="h-\[min\(50vh,360px\)\] w-auto/.test(read("components/onepage/app-block.tsx")) && !/className="max-h-\[50vh\] w-auto max-w-full rounded-2xl object-contain"/.test(read("components/onepage/app-block.tsx")))
 check("the probe for it is registered beside the shell's", /scripts\/render-onepage-sheet-first-frame\.tsx/.test(read("scripts/check-onepage-sheet-first-frame.mjs")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
