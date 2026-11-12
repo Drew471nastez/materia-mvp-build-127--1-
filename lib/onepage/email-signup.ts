@@ -140,9 +140,12 @@ export function signupWait(ready: boolean, look?: WaitLook): { filter?: string; 
   return { ...(fade < 0.999 ? { filter: `opacity(${fade})` } : {}), transitionProperty: "translate, scale, opacity, color, filter" }
 }
 
-export type WaitLook = { words: unknown; fill?: unknown; grounds: readonly Rgba[] }
+/** `painted`: a theme's skin paints the button in colours of its own (lib/onepage/theme-skin), which these are not: it does not fade. */
+export type WaitLook = { words: unknown; fill?: unknown; grounds: readonly Rgba[]; painted?: unknown }
 
 /** The deepest fade (45% at the most) at which the waiting button's words still read at 4.5:1 plus one (lib/onepage/contrast fadeThatReads). */
-export function waitFade({ words, fill, grounds }: WaitLook): number {
+export function waitFade({ words, fill, grounds, painted }: WaitLook): number {
+  /* Round 3: Vaporwave's and Grunge Zine's painted Subscribe faded to 3.2:1 by colours worked out for a button they do not draw. */
+  if (painted) return 1
   return fadeThatReads(words, fill, grounds, TEXT_MIN + 1, 0.45)
 }

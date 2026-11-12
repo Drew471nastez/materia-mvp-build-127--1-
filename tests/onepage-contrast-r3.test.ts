@@ -108,6 +108,7 @@ check(`fadeThatReads: the deepest that reads (${deep} for black words on white a
   const a = waitFade(grey)
   check(`a waiting Subscribe fades only to ${a} on a mid-tone fill, and still reads`, a > 0.45 && ratioOf(over({ ...parseColor("#ffffff")!, a }, grey.grounds[0]), over({ ...parseColor("#2d6a4f")!, a }, grey.grounds[0])) >= TEXT_MIN)
   check("the signup's three shapes hand their colours to the wait", (code("components/onepage/public-onepage.tsx").match(/signupWait\([^)]*, \{ words: /g) || []).length >= 2)
+  check("a button a skin paints in its own colours does not fade (those colours are not the ones measured)", waitFade({ ...grey, painted: "vaporwave" }) === 1 && (code("components/onepage/public-onepage.tsx").match(/painted: \(theme as \{ theme_skin\?: unknown \}\)\.theme_skin/g) || []).length === 2)
   check("with nothing known it waits at 45% as before", signupWait(false).filter === "opacity(0.45)" && signupWait(true).filter === undefined)
   check("the Fade hover reads its depth from the button", /\[data-hover="fade"\] \{ opacity: var\(--op-fade, 0\.8\); \}/.test(read("app/globals.css")))
 }
@@ -156,12 +157,12 @@ console.log("\n5. Disabled and waiting buttons keep their words")
   check("the product sheet's Choose an option and Sold out are not faded", !/blocker === "sold out"\) && "opacity-50"/.test(sheet) && !/"pointer-events-none opacity-60"/.test(sheet) && /blocker && "cursor-default/.test(sheet))
 }
 
-console.log("\n5b. Small print on a page with a pattern keeps half a step")
+console.log("\n5b. Small print on a page with a pattern keeps a step and a half")
 {
   const plain = { background_type: "solid", background_color: "#1d4f86", text_color: "#ffffff", button_color: "#ffffff", button_text_color: "#111111" }
   const grid = { ...plain, background_pattern: "grid" }
   const a = smallPrintAlpha(grid as never)
-  check(`a page with a grid lifts its small print (${smallPrintAlpha(plain as never)} plain, ${a} with the grid) until it reads at 5:1`, a >= smallPrintAlpha(plain as never) && contrastOn({ ...parseColor("#ffffff")!, a }, parseColor("#1d4f86")!) >= TEXT_MIN + 0.5)
+  check(`a page with a grid lifts its small print (${smallPrintAlpha(plain as never)} plain, ${a} with the grid) until it reads at 6:1`, a >= smallPrintAlpha(plain as never) && contrastOn({ ...parseColor("#ffffff")!, a }, parseColor("#1d4f86")!) >= TEXT_MIN + 1.5)
 }
 
 console.log("\n6. The guard reads what is laid under words beside them in the tree")

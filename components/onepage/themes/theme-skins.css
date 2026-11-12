@@ -684,6 +684,9 @@
   width: 44px; height: 44px; padding: 0; border-radius: 12px !important; color: #161412 !important;
   background-color: var(--sk-fill, #ffe066) !important; border: 3px solid #161412 !important; box-shadow: 3px 3px 0 #161412;
 }
+[data-op-skin="playful"] :is([data-op-social-icon], [data-tp-socials] > span) svg:not([data-tone="brand"]) {
+  color: #161412 !important;
+}
 [data-op-skin="playful"] :is([data-op-social-icon], [data-tp-socials] > span):nth-child(5n+1) {
   --sk-fill: #c5a8ff;
 }
@@ -1624,6 +1627,9 @@
 [data-op-skin="playful2"] :is([data-op-social-icon], [data-tp-socials] > span) {
   width: 44px; height: 44px; padding: 0; border-radius: 12px !important; color: #0e0e0e !important;
   background-color: var(--sk-fill, #ffd23f) !important; border: 3px solid #0e0e0e !important; box-shadow: 3px 3px 0 #f4ecd8;
+}
+[data-op-skin="playful2"] :is([data-op-social-icon], [data-tp-socials] > span) svg:not([data-tone="brand"]) {
+  color: #0e0e0e !important;
 }
 [data-op-skin="playful2"] :is([data-op-social-icon], [data-tp-socials] > span):nth-child(5n+1) {
   --sk-fill: #b8a2ff;

@@ -376,11 +376,11 @@ export function smallPrintAlpha(theme: ContrastThemeLike): number {
     [parseColor(theme.button_text_color), buttonGrounds(theme, grounds)],
   ]
   /*
-    Round 3: on a page with a pattern or a skin's scene, half a step to spare. The grid or grain is drawn beside
+    Round 3: on a page with a pattern or a skin's scene, a step and a half to spare. The grid or grain is drawn beside
     the words, not in `grounds` (Blueprint's description at 70% read 4.3:1 over its grid lines).
   */
   const textured = (typeof theme.background_pattern === "string" && theme.background_pattern !== "none" && theme.background_pattern !== "") || !!theme.theme_skin
-  const min = textured ? TEXT_MIN + 0.5 : TEXT_MIN
+  const min = textured ? TEXT_MIN + 1.5 : TEXT_MIN
   let need = SMALL_PRINT_ALPHA
   for (const [ink, on] of pairs) {
     if (!ink || !on.length) continue

@@ -148,7 +148,8 @@ const COLLECT = ({ scope, only, sel }) => {
         if (a === el.closest(sel)) break
       }
       if (filtered) {
-        if (/^brightness\(0\)/.test(filtered)) color = { r: 0, g: 0, b: 0, a: color.a }
+        if (/^brightness\(0\) invert\(1\)/.test(filtered)) color = { r: 255, g: 255, b: 255, a: color.a }
+        else if (/^brightness\(0\)/.test(filtered)) color = { r: 0, g: 0, b: 0, a: color.a }
         else continue
       }
       const r = el.getBoundingClientRect()
