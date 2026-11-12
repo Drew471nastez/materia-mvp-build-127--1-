@@ -59,6 +59,7 @@ import { SendStatus } from "./send-status"
 import { afterLayerMove } from "@/components/app/page-layer"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, appTimeZone, instantAt, wallClockIn, zoned } from "@/lib/i18n/format"
+import { slowingPoll } from "@/lib/ui/slowing-poll"
 
 /**
  * A new email that starts with something chosen (round 51): people picked in
@@ -595,10 +596,11 @@ export function EmailComposer({ campaignId, onExit, preset }: ComposerProps) {
       const r = await api<{ campaign: Record<string, unknown>; counts: RecipientCounts | null }>(`/api/email/campaigns/${loaded.id}`)
       if (r.ok) applyCampaign(r.data.campaign, r.data.counts)
     }
-    const t = window.setInterval(ask, 5000)
+    /* Every 5 s, slower if a send waits a long time (round 54, lib/ui/slowing-poll.ts). */
+    const stopPoll = slowingPoll(() => void ask(), 5000)
     document.addEventListener("visibilitychange", ask)
     return () => {
-      window.clearInterval(t)
+      stopPoll()
       document.removeEventListener("visibilitychange", ask)
     }
   }, [loaded, applyCampaign])

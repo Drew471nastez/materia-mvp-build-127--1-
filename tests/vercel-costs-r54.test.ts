@@ -37,7 +37,7 @@ check("the CDN header is only on a stranger's shared answer, keyed apart by Sec-
 /* /media through the CDN */
 const vercel = JSON.parse(read("vercel.json")) as { headers: { source: string; headers: { key: string; value: string }[] }[] }
 check("the CDN may hold /media files as Supabase says", vercel.headers.some((h) => h.source === "/media/:path*" && h.headers.some((x) => x.key === "x-vercel-enable-rewrite-caching" && x.value === "1")))
-check("no cache lifetime is forced on /media (each file's own Cache-Control is kept)", !vercel.headers.some((h) => h.source === "/media/:path*" && h.headers.some((x) => /cdn-cache-control/i.test(x.key))))
+check("browsers keep each /media file's own Cache-Control (only the CDN gets a rule)", !vercel.headers.some((h) => h.source === "/media/:path*" && h.headers.some((x) => x.key === "Cache-Control")))
 check("the proxy no longer runs for /media files", /matcher: \["\/\(\(\?!_next\/static\|_next\/image\|media\/\|/.test(read("proxy.ts")))
 check("the rewrite to public storage is unchanged", /source: "\/media\/:path\*", destination: `\$\{storage\}\/storage\/v1\/object\/public\/:path\*`/.test(read("next.config.mjs")))
 
@@ -59,6 +59,17 @@ check("Publish expires that tag", /revalidateTag\(creatorSiteTag\(creatorId\), \
 check("the store currency is held an hour, cleared by its tag", /tags: \[storeCurrencyTag\(creatorId\)\],[\s\S]{0,200}revalidate: 3600/.test(read("lib/store/selling-currency-server.ts")))
 check("a site's shared copy is rewritten hourly at most", /revalidate: SHARED_ENTRY_S/.test(read("lib/website-builder/shared-copy.ts")) && /export const SHARED_ENTRY_S = 3600/.test(read("lib/website-builder/shared-copy.ts")))
 check("blog list pages are cleared on publish too", /revalidatePath\("\/blog\/page", "layout"\)/.test(read("lib/blog/admin-http.ts")) && /revalidatePath\("\/blog\/page", "layout"\)/.test(read("lib/blog/went-live.ts")))
+
+/* Round 54, second pass */
+check("the CDN keeps /media for an hour at most before asking again (the shortest lifetime any upload says)", vercel.headers.some((h) => h.source === "/media/:path*" && h.headers.some((x) => x.key === "Vercel-CDN-Cache-Control" && x.value === "max-age=3600, stale-while-revalidate=604800")))
+const cspAt = vercel.headers.filter((h) => h.headers.some((x) => x.key === "Content-Security-Policy-Report-Only")) as { source: string; has?: { type: string; value: string }[] }[]
+check("the report-only policy is sent on storelib.com only, so creator sites do not post reports to a function", cspAt.length === 1 && cspAt[0].source === "/(.*)" && JSON.stringify(cspAt[0].has) === JSON.stringify([{ type: "host", value: "^(www\\.)?storelib\\.com$" }]))
+const part = read("supabase/sql/run-now/444_cache_ping_real_changes.sql")
+check("part 444 skips an UPDATE that changes nothing but updated_at, before anything else", /BEGIN IF TG_OP = 'UPDATE' AND \(to_jsonb\(OLD\) - 'updated_at'\) = \(to_jsonb\(NEW\) - 'updated_at'\) THEN RETURN NULL; END IF;/.test(part))
+check("and is otherwise part 179's function, triggers untouched", part.includes("PERFORM net.http_post(url := v_url") && !/CREATE TRIGGER/.test(part) && part === read("supabase/migrations/20271444_cache_ping_real_changes.sql"))
+check("the check after has its column", / as p444_cache_ping_real_changes;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+check("an email being sent is checked every 5 s at first, slower if it waits", /slowingPoll\(\(\) => void ask\(\), 5000\)/.test(read("components/email/compose/composer.tsx")) && /slowingPoll\(\(\) => \{\s*if \(!document\.hidden\) refresh/.test(read("app/(storelib)/app/emails/email-detail.tsx")))
+check("Settings is warmed at most every four minutes, on a computer too", /if \(Date\.now\(\) - settingsWarmedAt < 4 \* 60_000\) return/.test(read("components/app/sidebar.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {

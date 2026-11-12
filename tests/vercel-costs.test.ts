@@ -86,7 +86,8 @@ console.log("\n3. Polling")
 const detail = readCode("app/(storelib)/app/emails/email-detail.tsx")
 check("an email that is sending is read every 5s, not while the tab is hidden, and at once when it comes back", /if \(!document\.hidden\) refresh\(reportKey\(seed\.id\)\)\s*\}, 5000\)/.test(detail) && /addEventListener\("visibilitychange", back\)/.test(detail))
 const composer = readCode("components/email/compose/composer.tsx")
-check("the composer's send progress the same way", /if \(document\.hidden\) return/.test(composer) && /setInterval\(ask, 5000\)/.test(composer) && /addEventListener\("visibilitychange", ask\)/.test(composer))
+/* Changed on purpose (round 54): 5 s at first, slower if a send waits long (lib/ui/slowing-poll.ts). */
+check("the composer's send progress the same way", /if \(document\.hidden\) return/.test(composer) && /slowingPoll\(\(\) => void ask\(\), 5000\)/.test(composer) && /addEventListener\("visibilitychange", ask\)/.test(composer))
 const links = readCode("components/onepage/tabs/links-tab.tsx")
 check("a music link's missing picture is asked a few times, not every 4s forever, and not while hidden", /const THUMBNAIL_RETRIES = 5/.test(links) && /if \(tries >= THUMBNAIL_RETRIES\) return/.test(links) && /!onepage\?\.draft_blocks \|\| document\.hidden/.test(links))
 
