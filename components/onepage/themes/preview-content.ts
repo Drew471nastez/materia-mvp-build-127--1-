@@ -451,6 +451,14 @@ const CREATORS: Record<string, PreviewCreator> = {
     cta: "Buy", link: { label: "Music for your game", art: "pixel" }, link2: "Play my jam games",
     news: { headline: "Player two", desc: "New tracks and jam results.", button: "Join" },
   },
+  renaissance: {
+    name: "Beatrice Valli", bio: "Oil painter. Portraits from life, in the old way.",
+    face: { skin: S.a, hair: H.chestnut, cut: "curly", bg: "#3a2a1c", top: "#7a1f1a" },
+    socials: ["instagram", "youtube", "website"], palette: ["#f3ead6", "#7a1f1a", "#b08a3e"],
+    products: [{ title: "Portrait commission", price: "€900.00", art: "print" }, { title: "Glazing workshop", price: "€120.00", art: "star" }],
+    cta: "Enquire", link: { label: "Sit for a portrait", art: "print" }, link2: "Works in progress",
+    news: { headline: "From the easel", desc: "One painting a month, layer by layer.", button: "Subscribe" },
+  },
   plaster: {
     name: "Livia Conti", bio: "Sculptor. Figure drawing in plaster and charcoal.",
     face: { skin: S.b, hair: H.black, cut: "bun", bg: "#2a2926", top: "#ece8df" },
