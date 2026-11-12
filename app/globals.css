@@ -5308,9 +5308,7 @@ html.capacitor.with-page-checkout::before,
 html.capacitor.with-page-login::before,
 html.capacitor.with-page-signup::before,
 html.capacitor.with-page-reset-password::before,
-html.capacitor.with-page-auth::before,
-/* From the first HTML, before the page's script adds its class (round 3: the form is in that HTML now). */
-html.capacitor:has(main[data-page="auth"])::before {
+html.capacitor.with-page-auth::before {
   background-color: #ffffff;
 }
 

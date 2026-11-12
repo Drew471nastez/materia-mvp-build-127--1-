@@ -156,7 +156,8 @@ async function main() {
     check("  a signed in one still reads every tab", worthReadingAhead("/account/library", true) && worthReadingAhead("/account", true))
     const bar = code("components/nav/buyer-tab-bar.tsx")
     check("  both of the tab bar's read aheads filter by it", (bar.match(/\.filter\(\(href\) => worthReadingAhead\(href, signedIn\)\)/g) ?? []).length === 2)
-    check("Log in and Sign up in the platform header are read on press", /const READ_ON_PRESS = /.test(code("components/platform/platform-header-client.tsx")) && /READ_ON_PRESS\.test\(path\) \? \{ prefetch: false as const \}/.test(code("components/platform/platform-header-client.tsx")))
+    /* Changed on purpose: round 3 also warms the sign in photo while a pointer rests on them (components/auth/auth-photo.tsx warmAuthPhoto); still no page prefetch. */
+    check("Log in and Sign up in the platform header are read on press", /const READ_ON_PRESS = /.test(code("components/platform/platform-header-client.tsx")) && /READ_ON_PRESS\.test\(path\) \? \{ prefetch: false as const(, onPointerEnter: \(\) => warmAuthPhoto\(path\))? \}/.test(code("components/platform/platform-header-client.tsx")))
     check("  and in the marketing headers", /<Link href="\/login" prefetch=\{false\}>/.test(code("components/marketing/header-client.tsx")) && /<Link href="\/signup" prefetch=\{false\}/.test(code("components/marketing/header.tsx")))
     check("Storelib's tab icon is cacheable (its query names its picture)", /source: '\/:icon\(icon\|apple-icon\)-:hash\(\[a-z0-9\]\+\)\.png'/.test(read("next.config.mjs")))
   }

@@ -64,7 +64,6 @@ console.log("\nARRIVAL: the form on the first frame")
   const shell = readCode(`${AUTH}/layout.tsx`)
   check("every sign in step: no fade on the page itself", /<main className="min-h-svh bg-white" data-page="auth">/.test(shell) && !/animate-in|fade-in/.test(shell))
   check("the handover and invite pages (AuthSplit) do not slide in either", !/animate-fade-in-up/.test(readCode("components/auth/auth-split.tsx")))
-  check("in the apps, the band under the clock is white from the first HTML", /html\.capacitor:has\(main\[data-page="auth"\]\)::before \{\s*background-color: #ffffff;/.test(readCode("app/globals.css")))
 }
 
 console.log("\nSELL: straight to sign up for selling")
