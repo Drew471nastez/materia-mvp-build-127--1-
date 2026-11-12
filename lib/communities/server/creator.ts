@@ -341,7 +341,8 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
   const [owned, staff, plan] = await Promise.all([
     db.from("communities").select(LIST_COLUMNS).eq("creator_id", creatorId).is("deleted_at", null).order("created_at", { ascending: false }).limit(100),
     opts.team ? Promise.resolve({ data: [] }) : db.from("community_members").select("community_id, role").eq("user_id", userId).eq("status", "active").in("role", ["admin", "moderator"]).limit(100),
-    creatorSitePlan(creatorId),
+    /* The caller's service role client, as the community gates hand theirs in (lib/sites/plan-server). */
+    creatorSitePlan(creatorId, db),
   ])
   const limit: CommunityLimitView = { max: communityLimitFor(plan), owned: 0 }
   if (owned.error) {

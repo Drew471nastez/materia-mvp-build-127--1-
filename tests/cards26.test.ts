@@ -112,6 +112,8 @@ function world(o: { part202?: boolean } = {}) {
     community_tiers: [],
     memberships: [],
     products: [],
+    /* Changed on purpose (merge of rel2-auth and rel2-db): the site plan is read through this client now (a free store). */
+    creators: [],
     ...(o.part202 === false
       ? {}
       : {

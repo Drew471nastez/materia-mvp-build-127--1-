@@ -378,11 +378,12 @@ for (const t of CLOSED) {
 }
 check("auth_recovery_requests is never written by the app at all, only cleared by the account deletion", source.every((f) => !/from\(["']auth_recovery_requests["']\)\s*\.(insert|upsert)/.test(texts.get(f)!)))
 const track = code("app/api/onepage/track/route.ts")
+/* Changed on purpose (merge with rel2-public): app/api/onepage/track writes with the service role only and no longer writes these two tables; part 443 still leaves their policies alone. */
 check(
-  "onepage_views and onepage_clicks keep their policies: app/api/onepage/track writes them with the visitor's client",
-  /const supabase = await createClient\(\)/.test(track) &&
-    /await supabase\.from\("onepage_views"\)\.insert\(/.test(track) &&
-    /await supabase\.from\("onepage_clicks"\)\.insert\(/.test(track) &&
+  "onepage_views and onepage_clicks keep their policies, and the track route never writes them with the visitor's client",
+  !/await createClient\(\)/.test(track) &&
+    /createAdminClient\(\)/.test(track) &&
+    !/supabase\.from\("onepage_(views|clicks)"\)\.insert\(/.test(track) &&
     !/onepage_views|onepage_clicks/.test(lines2.slice(1).join("\n")),
 )
 

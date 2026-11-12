@@ -150,7 +150,7 @@ async function main() {
   const sql = read("supabase/sql/run-now/442_onepage_tip_source.sql")
   check("guarded, nullable, idempotent, schema reloaded", /IF to_regclass\('public\.onepage_tips'\) IS NOT NULL/.test(sql) && /ADD COLUMN IF NOT EXISTS source text/.test(sql) && /ADD COLUMN IF NOT EXISTS source_detail jsonb/.test(sql) && /CREATE INDEX IF NOT EXISTS onepage_tips_creator_source_idx/.test(sql) && /notify pgrst, 'reload schema';/.test(sql))
   check("the migration is the same text", read("supabase/migrations/20271442_onepage_tip_source.sql") === sql)
-  check("README row, check-after column, parts list", /\| `442_onepage_tip_source\.sql` \|/.test(read("supabase/sql/run-now/README.md")) && /as p442_onepage_tip_source;/.test(read("supabase/sql/run-now/99_check_after.sql")) && /part: "442", file: "442_onepage_tip_source\.sql"/.test(read("lib/admin/sql-parts.generated.ts")))
+  check("README row, check-after column, parts list", /\| `442_onepage_tip_source\.sql` \|/.test(read("supabase/sql/run-now/README.md")) && /* Changed on purpose (merge with rel2-db): part 443 now follows it in the check. */ /as p442_onepage_tip_source[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")) && /part: "442", file: "442_onepage_tip_source\.sql"/.test(read("lib/admin/sql-parts.generated.ts")))
   check("in the bundles", read("supabase/sql/run-four/3_of_4_latest.sql").includes("onepage_tips_creator_source_idx") && read("supabase/sql/all-in-two/1_of_2_everything.sql").includes("onepage_tips_creator_source_idx"))
 
   console.log(`\n${passed} passed, ${failed} failed`)
