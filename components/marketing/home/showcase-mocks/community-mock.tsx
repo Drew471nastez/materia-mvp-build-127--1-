@@ -304,9 +304,9 @@ export function CommunityDesktop({ brand }: { brand: CommunityBrand }) {
 export function CommunityMobile({ brand }: { brand: CommunityBrand }) {
   const c = C[brand]
   return (
-    <div className="cm cmm" style={{ "--acc": c.accent, "--tint": c.tint } as CSSProperties}>
+    <div className="cm cqm" style={{ "--acc": c.accent, "--tint": c.tint } as CSSProperties}>
       <StatusBar />
-      <div className="cmm-head">
+      <div className="cqm-head">
         <span className="cm-logo">
           <i>{c.mark}</i>
           <span>
@@ -318,20 +318,20 @@ export function CommunityMobile({ brand }: { brand: CommunityBrand }) {
         </span>
         <Bell />
       </div>
-      <div className="cmm-tabs">
+      <div className="cqm-tabs">
         <b>Feed</b>
         <span>Learn</span>
         <span>Calendar</span>
         <span>Members</span>
       </div>
-      <div className="cmm-chips">
+      <div className="cqm-chips">
         {c.spaces.slice(0, 4).map(([s], i) => (
           <span key={s} className={i === 0 ? "on" : ""}>
             #{s}
           </span>
         ))}
       </div>
-      <div className="cmm-feed">
+      <div className="cqm-feed">
         <div className="cm-pinned">
           <span className="cm-date">
             <b>{c.event.day}</b>
@@ -372,7 +372,7 @@ export const COMMUNITY_CSS = u(`
 .cm-spaces>span.on{background:#fff;font-weight:600;box-shadow:0 1u 2u rgba(0,0,0,.05),inset 0 0 0 1u #ececef}
 .cm-spaces em{margin-left:auto;min-width:20u;padding:1u 6u;border-radius:999u;background:var(--acc);color:#fff;font-size:10.5u;font-style:normal;font-weight:700;text-align:center}
 .cm-spaces .cm-h:nth-of-type(2){margin-top:16u!important}
-.cm-feed,.cmm-feed{display:flex;flex-direction:column;gap:12u;min-width:0}
+.cm-feed,.cqm-feed{display:flex;flex-direction:column;gap:12u;min-width:0}
 .cm-compose{display:flex;align-items:center;gap:10u;padding:10u 14u;border-radius:14u;background:#fff;box-shadow:inset 0 0 0 1u #ececef;font-size:13u;color:#8b8b94}
 .cm-compose svg{margin-left:auto;width:17u;height:17u}
 .cm-av{width:34u!important;height:34u!important;border-radius:50%}
@@ -418,18 +418,18 @@ export const COMMUNITY_CSS = u(`
 .cm-board img{width:24u;height:24u;border-radius:50%}
 .cm-board em{margin-left:auto;font-style:normal;font-weight:600;color:var(--acc)}
 
-.cmm{background:#f6f6f7}
-.cmm-head{display:flex;align-items:center;justify-content:space-between;padding:6u 18u 10u;background:#fff}
-.cmm-head>svg{width:20u;height:20u}
-.cmm-head .cm-logo>span{display:grid;font-size:15.5u}
-.cmm-head small{font-size:11.5u;font-weight:500;color:#6b6b74}
-.cmm-head .cm-logo>i{width:38u;height:38u;border-radius:11u;font-size:12u}
-.cmm-tabs{display:flex;gap:4u;padding:0 14u 10u;background:#fff;border-bottom:1u solid #ececef;font-size:13u;color:#6b6b74}
-.cmm-tabs>*{padding:7u 11u;border-radius:8u}
-.cmm-tabs b{background:var(--tint);color:var(--acc);font-weight:600}
-.cmm-chips{display:flex;gap:6u;padding:12u 14u 2u;overflow:hidden;white-space:nowrap}
-.cmm-chips span{padding:6u 11u;border-radius:999u;background:#fff;box-shadow:inset 0 0 0 1u #e4e4e7;font-size:12u;color:#52525b}
-.cmm-chips span.on{background:#18181b;color:#fff;box-shadow:none}
-.cmm-feed{padding:10u 12u}
-.cmm .cm-pics{height:150u}
+.cqm{background:#f6f6f7}
+.cqm-head{display:flex;align-items:center;justify-content:space-between;padding:6u 18u 10u;background:#fff}
+.cqm-head>svg{width:20u;height:20u}
+.cqm-head .cm-logo>span{display:grid;font-size:15.5u}
+.cqm-head small{font-size:11.5u;font-weight:500;color:#6b6b74}
+.cqm-head .cm-logo>i{width:38u;height:38u;border-radius:11u;font-size:12u}
+.cqm-tabs{display:flex;gap:4u;padding:0 14u 10u;background:#fff;border-bottom:1u solid #ececef;font-size:13u;color:#6b6b74}
+.cqm-tabs>*{padding:7u 11u;border-radius:8u}
+.cqm-tabs b{background:var(--tint);color:var(--acc);font-weight:600}
+.cqm-chips{display:flex;gap:6u;padding:12u 14u 2u;overflow:hidden;white-space:nowrap}
+.cqm-chips span{padding:6u 11u;border-radius:999u;background:#fff;box-shadow:inset 0 0 0 1u #e4e4e7;font-size:12u;color:#52525b}
+.cqm-chips span.on{background:#18181b;color:#fff;box-shadow:none}
+.cqm-feed{padding:10u 12u}
+.cqm .cm-pics{height:150u}
 `)
