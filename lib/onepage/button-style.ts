@@ -248,7 +248,7 @@ export function buttonHoverVars(theme: ButtonThemeLike): CSSProperties {
     Fade (the hover that lays the whole button at 80%) fades only as far as keeps its words at 4.5:1 and a step
     (lib/onepage/contrast fadeThatReads): on a button with no room to spare it does not fade.
   */
-  const fade = buttonHover(theme) === "fade" ? fadeThatReads(theme.button_text_color, buttonBackground(theme), pageGrounds(theme as never), TEXT_MIN + 1, 0.8) : 0.8
+  const fade = buttonHover(theme) === "fade" ? Math.max(...pageGrounds(theme as never).map((g) => fadeThatReads(theme.button_text_color, toHex(buttonGrounds(theme as never, [g])[0] ?? g), [g], TEXT_MIN + 1, 0.8))) : 0.8
   return {
     ["--op-bw" as string]: `${width}px`,
     ["--op-accent" as string]: accent,
@@ -316,7 +316,10 @@ export function cardButtonTheme(
     const onButtonColour = !o.ownBackground || sameColor(o.ownBackground, theme.button_color)
     /* Round AR: the pair turned round must still read: a see-through button colour (a glass theme saved as Solid) as words on its own text colour was white on white. */
     t = onButtonColour ? { ...theme, button_color: theme.button_text_color, button_text_color: wordsOn(theme.button_text_color, theme.button_color, theme) } : { ...theme }
-  } else if (buttonFill(theme) !== "outline" && !o.ownBackground && !readsOnDoubleTint(theme, (theme.button_text_color as string) || o.cardText) && readsOnDoubleTint(theme, deeperInk(theme, (theme.button_text_color as string) || o.cardText))) {
+  } else if (buttonFill(theme) !== "outline" && !o.ownBackground && readsOnDoubleTint(theme, (theme.button_text_color as string) || o.cardText)) {
+    /* Round 3: the words read on the tint where the card draws it: kept, not measured again on the page's colour (Classic 98's ink on its grey Soft read 5.5:1 there, and was swapped for white, 3.4:1). */
+    t = { ...theme, button_text_color: (theme.button_text_color as string) || o.cardText }
+  } else if (buttonFill(theme) !== "outline" && !o.ownBackground && readsOnDoubleTint(theme, deeperInk(theme, (theme.button_text_color as string) || o.cardText))) {
     /* Round AR: the words, deepened just enough to read on the tint laid twice; the button keeps the page's Soft or Glass. */
     t = { ...theme, button_text_color: deeperInk(theme, (theme.button_text_color as string) || o.cardText) }
   } else if (buttonFill(theme) !== "outline" && !o.ownBackground && !readsOnDoubleTint(theme, (theme.button_text_color as string) || o.cardText)) {
