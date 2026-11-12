@@ -255,8 +255,9 @@ function seo() {
 function wiring() {
   console.log("\nThe routes and the page")
   const track = read("app/api/onepage/track/route.ts")
-  check("a click goes to Analytics first, and the older table only counts what it kept",
-    track.indexOf("await recordLinkClick(request, body)") < track.indexOf('from("onepage_clicks").insert(') && /legacyClickAllowed\(outcome\)/.test(track) && /clickCountable\(request\)/.test(track))
+  /* Changed on purpose (round rel2-public): the older table is not written any more; Analytics' link_click is the one record, and the rows already there are still folded in before the first event. */
+  check("a click goes to Analytics, and nothing is written to the older table",
+    /await recordLinkClick\(request, body\)/.test(track) && !/from\("onepage_clicks"\)/.test(track) && !/createClient\(\)/.test(track))
   check("  a page id that is not a uuid is refused", /UUID\.test\(onepage_id\)/.test(track))
   const stats = read("app/api/onepage/stats/route.ts")
   /* Round 40 (team areas): the page's owner is the signed in owner, or for a team member with OnePage the store owner (lib/team/onepage), so the check compares with actor.pageOwnerId. Pin changed on purpose. */

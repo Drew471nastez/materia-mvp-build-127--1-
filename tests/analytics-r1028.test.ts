@@ -270,7 +270,8 @@ function speed() {
 function onePageRepeats() {
   console.log("\nOnePage: one view an address a day, one tap a visitor, block and day, even after a race")
   const route = read("app/api/onepage/track/route.ts")
-  check("the repeat checks read one row (limit 1), so two rows from a race are not an error read as none, which wrote a third", (route.match(/\.limit\(1\)/g) ?? []).length >= 2 && !/\.maybeSingle\(\)\s*\n\s*\n\s*if \(!existing/.test(route) && /if \(!existingView\?\.length\)/.test(route) && /if \(!existingClick\?\.length\)/.test(route))
+  /* Changed on purpose (round rel2-public): the route writes neither older table now, so there is no repeat check to race; the pipeline keeps one click a visit and link (lib/analytics/collect). */
+  check("the route writes no row of its own, so no race can write a second", !/from\("onepage_views"\)|from\("onepage_clicks"\)/.test(route) && /await recordLinkClick\(request, body\)/.test(route))
 }
 
 async function main() {

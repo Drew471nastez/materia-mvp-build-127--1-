@@ -53,8 +53,9 @@ import { communitiesEnabled } from "../flag"
 import { communityOpen, loadCommunity, viewerContext, type Viewer } from "./context"
 import { admin, missing, reasonOf, type Db } from "./db"
 import { storefrontsOf } from "./directory"
-import { communityStats } from "./presence"
+import { communityStats, type CommunityStats } from "./presence"
 import { readCommunitySummary } from "./community-summary"
+import { communityCardsTag, communityCreatorTags, communityTags, heldCommunityRead, noteHeldReadFailure } from "./public-cache"
 
 /** What a card needs, and nothing as heavy as the description. */
 /* Round 33: `onboarding` for the cover's focus (lib/communities/page-look.ts), so a card crops the cover where the creator set it. */
@@ -119,12 +120,17 @@ async function rows<T>(what: string, run: () => PromiseLike<{ data: unknown; err
   try {
     const { data, error } = await run()
     if (error) {
-      if (!missing(error as { code?: string })) console.error(`[communities] ${what}: ${reasonOf(error)}`)
+      if (!missing(error as { code?: string })) {
+        console.error(`[communities] ${what}: ${reasonOf(error)}`)
+        /* "None" because the read failed: never held for the next visitor (./public-cache.ts). */
+        noteHeldReadFailure()
+      }
       return []
     }
     return (data as T[] | null) ?? []
   } catch (e) {
     console.error(`[communities] ${what}: ${reasonOf(e)}`)
+    noteHeldReadFailure()
     return []
   }
 }
@@ -240,6 +246,26 @@ function creatorView(entry: { creator: CreatorLite; profile: ProfileLite | null 
   /* Their page, by the one rule every name follows: the storefront once onboarding is done, the profile before. */
   return { name, username, avatarUrl: profile?.avatar_url || creator.avatar_url || null, href: username ? personHref({ username, hasStorefront: !!creator.onboarding_completed }) : null }
 }
+
+/** What every page of a community shows about its creator, and whether they can be paid for a plan. No private column. */
+interface CreatorFacts {
+  view: PublicCreatorView | null
+  takesPayments: boolean
+}
+
+async function readCreatorFacts(db: Db, creatorId: string | null | undefined): Promise<CreatorFacts> {
+  if (!creatorId) return { view: null, takesPayments: false }
+  const entry = (await readCreators(db, [creatorId])).get(creatorId)
+  return { view: creatorView(entry), takesPayments: creatorTakesPayments(entry?.creator) }
+}
+
+/**
+ * The creator's public face, held for every visitor (./public-cache.ts: a new name or photo clears it) and read once
+ * per request however many parts of the page ask (the sales page, the top bar).
+ */
+const heldCreatorFacts = cache(
+  (creatorId: string): Promise<CreatorFacts> => heldCommunityRead(() => readCreatorFacts(admin(), creatorId), ["community-creator", "v1", creatorId], communityCreatorTags(creatorId)),
+)
 
 /* ── Cards ──────────────────────────────────────────────────────────────── */
 
@@ -374,6 +400,7 @@ async function readReviews(db: Db, communityId: string, products: ProductLite[],
     rated.map((p) =>
       readPublishedReviews(db, { productId: p.id }, { limit: 6, offset: 0 }).catch((e: unknown) => {
         console.error(`[communities] reviews of ${p.id}: ${reasonOf(e)}`)
+        noteHeldReadFailure()
         return { reviews: [], total: 0 }
       }),
     ),
@@ -452,13 +479,17 @@ async function readGalleryColumn(db: Db, communityId: string): Promise<unknown[]
     const { data, error } = await db.from("communities").select("gallery").eq("id", communityId).maybeSingle()
     if (error) {
       const code = (error as { code?: string }).code
-      if (code !== "42703" && code !== "PGRST204" && !missing(error)) console.error(`[communities] gallery read: ${reasonOf(error)}`)
+      if (code !== "42703" && code !== "PGRST204" && !missing(error)) {
+        console.error(`[communities] gallery read: ${reasonOf(error)}`)
+        noteHeldReadFailure()
+      }
       return null
     }
     const v = (data as { gallery?: unknown } | null)?.gallery
     return Array.isArray(v) ? v : []
   } catch (e) {
     console.error(`[communities] gallery read: ${reasonOf(e)}`)
+    noteHeldReadFailure()
     return null
   }
 }
@@ -580,6 +611,53 @@ export type LoadSalesPageOpts = {
   known?: { community: CommunityRow; viewer: Viewer }
 }
 
+/** What the sales page draws that is the same for every visitor: plain rows, so it can be held as JSON. */
+interface SalesFacts {
+  tiers: TierRow[]
+  summary: string | null
+  products: ProductLite[]
+  plans: PlanLite[]
+  /** The linked products that are not a tier's own, in order. */
+  accessIds: string[]
+  accessCurrency: string | null
+  reviews: PublicCommunityView["reviews"]
+  gallery: GalleryItemView[]
+  stats: CommunityStats
+}
+
+async function readSalesFacts(db: Db, community: CommunityRow, light: boolean): Promise<SalesFacts> {
+  /*
+    THE GALLERY AND THE LIVE NUMBERS NEED ONLY THE COMMUNITY, so they are
+    asked beside the tiers rather than after the products: two round trips
+    fewer before the sales page can be drawn (lib/perf/optimizations.ts).
+  */
+  const galleryAndStats = light ? null : Promise.all([communityGallery(db, community), communityStats(db, community)])
+  /* Awaited below; a failure while the reads beside it are out is not left unhandled. */
+  galleryAndStats?.catch(() => undefined)
+
+  const [tiers, links, summary] = await Promise.all([
+    readTiers(db, [community.id]),
+    community.access === "product" || community.access === "custom"
+      ? rows<{ tier_id: string; product_id: string }>("access products", () => db.from("community_access_products").select("tier_id, product_id").eq("community_id", community.id))
+      : Promise.resolve([] as { tier_id: string; product_id: string }[]),
+    /* Round 26: the short description for the info card, read softly before part 220 (W6's ./community-summary.ts). */
+    readCommunitySummary(db, community.id),
+  ])
+  const tierProductIds = uniq(tiers.map((t) => t.product_id))
+  const accessIds = uniq(links.map((l) => l.product_id)).filter((id) => !tierProductIds.includes(id))
+  const allIds = [...tierProductIds, ...accessIds]
+  const [products, plans] = await Promise.all([readProducts(db, allIds), readPlans(db, allIds)])
+  const accessCurrency = accessIds.length && community.creator_id ? (await readStoreCurrency(db, community.creator_id)).currency : null
+  const [reviews, gallery, stats] = light
+    ? ([null, [] as GalleryItemView[], { members: Math.max(0, community.member_count ?? 0), online: null, admins: null }] as const)
+    : await Promise.all([
+        readReviews(db, community.id, tierProductIds.map((id) => products.get(id)).filter((p): p is ProductLite => !!p && p.status === "published")),
+        galleryAndStats!.then(([gallery]) => gallery),
+        galleryAndStats!.then(([, stats]) => stats),
+      ])
+  return { tiers, summary, products: [...products.values()], plans: [...plans.values()], accessIds, accessCurrency, reviews, gallery, stats }
+}
+
 export async function loadSalesPage(slug: string, userId: string | null, given?: Db, opts?: LoadSalesPageOpts): Promise<SalesPageLoad | null> {
   /* The page's own read is shared with its metadata (communityBySlug); a caller with its own database reads its own. */
   const db: Db = given ?? admin()
@@ -593,37 +671,31 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
   if (community.status === "draft" && !staff) return null
 
   /*
-    THE GALLERY AND THE LIVE NUMBERS NEED ONLY THE COMMUNITY, so they are
-    asked beside the tiers and the creator rather than after the products:
-    two round trips fewer before the sales page can be drawn, for every
-    visitor (lib/perf/optimizations.ts). The same reads, awaited below.
+    WHAT EVERY VISITOR IS SHOWN ALIKE (round rel2-public): the tiers and their prices, the creator, the gallery, the
+    reviews and the figures. Held for a minute at most for a community anybody may see, keyed by the row's updated_at
+    and cleared by every staff write (./public-cache.ts); read here for a draft or a suspended community (its staff's
+    only), and for a caller with its own database. Who is looking is never part of it: the join and the notice below
+    are worked out for this viewer from it on every request.
   */
-  const galleryAndStats = opts?.light ? null : Promise.all([communityGallery(db, community), communityStats(db, community)])
-  /* Awaited below; a failure while the reads beside it are out is not left unhandled. */
-  galleryAndStats?.catch(() => undefined)
-
-  const [tiers, links, creators, summary, deleteAt] = await Promise.all([
-    readTiers(db, [community.id]),
-    community.access === "product" || community.access === "custom"
-      ? rows<{ tier_id: string; product_id: string }>("access products", () => db.from("community_access_products").select("tier_id, product_id").eq("community_id", community.id))
-      : Promise.resolve([] as { tier_id: string; product_id: string }[]),
-    readCreators(db, [community.creator_id ?? ""]),
-    /* Round 26: the short description for the info card, read softly before part 220 (W6's ./community-summary.ts). */
-    readCommunitySummary(db, community.id),
+  const held = !given && sharePreviewable(community)
+  const light = Boolean(opts?.light)
+  const [facts, creatorFacts, deleteAt] = await Promise.all([
+    held
+      ? heldCommunityRead(() => readSalesFacts(admin(), community, light), ["community-sales", "v1", community.id, String(community.updated_at ?? ""), light ? "light" : "full"], communityTags(community))
+      : readSalesFacts(db, community, light),
+    held && community.creator_id ? heldCreatorFacts(community.creator_id) : readCreatorFacts(db, community.creator_id),
     /* Only for its staff: a visitor never learns a community is on its way out from its page. */
     staff ? scheduledDeletionAt(db, community.id) : Promise.resolve(null),
   ])
-  const tierProductIds = uniq(tiers.map((t) => t.product_id))
-  const accessIds = uniq(links.map((l) => l.product_id)).filter((id) => !tierProductIds.includes(id))
-  const allIds = [...tierProductIds, ...accessIds]
-  const [products, plans] = await Promise.all([readProducts(db, allIds), readPlans(db, allIds)])
-  const entry = community.creator_id ? creators.get(community.creator_id) : undefined
-  const creator = creatorView(entry)
-  const recurringOk = creatorTakesPayments(entry?.creator)
-  const options = optionsFor(community.slug, tiers, products, plans, recurringOk)
+  const { tiers, summary, accessIds, accessCurrency, reviews, gallery } = facts
+  const products = new Map(facts.products.map((p) => [p.id, p]))
+  const plans = new Map(facts.plans.map((p) => [p.product_id, p]))
+  /* The member count is the live row's: a held figure never says fewer members than the page above it. */
+  const stats = { ...facts.stats, members: Math.max(0, community.member_count ?? 0) }
+  const creator = creatorFacts.view
+  const options = optionsFor(community.slug, tiers, products, plans, creatorFacts.takesPayments)
 
   /* A linked product is priced in its store's currency (or dollars for a plan, lib/money/product-currency), the one its checkout charges: never drawn as dollars by default. */
-  const accessCurrency = accessIds.length && community.creator_id ? (await readStoreCurrency(db, community.creator_id)).currency : null
   const accessProducts: AccessProductLink[] = accessIds
     .map((id) => products.get(id))
     /* Never a product that ships: it is sold on its store's website only, not on a community's page. */
@@ -634,14 +706,6 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
       const line = p.type === "membership" ? priceLine({ billing: "recurring", monthlyCents: plan?.monthly_price_cents, yearlyCents: plan?.yearly_price_cents, currency: plan?.currency }) : p.price_cents && p.price_cents > 0 ? money(p.price_cents, productPriceCurrency(p, accessCurrency)) : "Free"
       return { productId: p.id, title: p.title || "Product", href: getProductInternalPath(p.slug as string, creator?.username ?? undefined), priceLine: line }
     })
-
-  const [reviews, gallery, stats] = opts?.light
-    ? ([null, [] as GalleryItemView[], { members: Math.max(0, community.member_count ?? 0), online: null, admins: null }] as const)
-    : await Promise.all([
-        readReviews(db, community.id, tierProductIds.map((id) => products.get(id)).filter((p): p is ProductLite => !!p && p.status === "published")),
-        galleryAndStats!.then(([gallery]) => gallery),
-        galleryAndStats!.then(([, stats]) => stats),
-      ])
 
   const raw = community.description ?? ""
   const view: PublicCommunityView = {
@@ -741,9 +805,10 @@ export function communityIndexable(c: Pick<CommunityRow, "status" | "visibility"
  * server.mjs); now the community's page asks them the moment it knows the community and the person (components/
  * community/member/data.ts memberPage, warmTopBar), beside the standing, and the bar takes the same answer here.
  */
-async function readTopBar(db: Db, community: Pick<CommunityRow, "creator_id">, userId: string | null) {
-  const [creators, me, stores, mine, sellerRows] = await Promise.all([
-    readCreators(db, [community.creator_id ?? ""]),
+async function readTopBar(db: Db, community: Pick<CommunityRow, "creator_id">, userId: string | null, held = false) {
+  const [creatorFacts, me, stores, mine, sellerRows] = await Promise.all([
+    /* Whose community it is: the same held answer the sales page reads (round rel2-public), for every visitor alike. */
+    held && community.creator_id ? heldCreatorFacts(community.creator_id) : readCreatorFacts(db, community.creator_id),
     userId ? rows<ProfileLite>("top bar profile", () => db.from("profiles").select("id, username, display_name, avatar_url").eq("id", userId).limit(1)) : Promise.resolve([] as ProfileLite[]),
     userId ? storefrontsOf(db, [userId]) : Promise.resolve(new Set<string>()),
     userId
@@ -760,11 +825,11 @@ async function readTopBar(db: Db, community: Pick<CommunityRow, "creator_id">, u
         db.from("communities").select("id, slug, name, logo_url, status, suspended_at").in("id", ids).is("deleted_at", null),
       )
     : []
-  return { creators, me, stores, mine, sellerRows, found }
+  return { creator: creatorFacts.view, me, stores, mine, sellerRows, found }
 }
 
 /** One per request (React's cache): the community's page starts it, the bar ends it. */
-const topBarReads = cache((communityId: string, creatorId: string | null, userId: string | null) => readTopBar(admin(), { creator_id: creatorId }, userId))
+const topBarReads = cache((communityId: string, creatorId: string | null, userId: string | null) => readTopBar(admin(), { creator_id: creatorId }, userId, true))
 
 /** Starts the top bar's reads for this request, before anything else about the viewer is known. */
 export function warmTopBar(community: Pick<CommunityRow, "id" | "creator_id">, userId: string | null): void {
@@ -780,7 +845,7 @@ export function warmTopBar(community: Pick<CommunityRow, "id" | "creator_id">, u
  */
 export async function topBarData(community: CommunityRow, viewer: Viewer | null, db?: Db): Promise<TopBarData> {
   const userId = viewer?.userId ?? null
-  const { creators, me, stores, mine, sellerRows, found } = db ? await readTopBar(db, community, userId) : await topBarReads(community.id, community.creator_id ?? null, userId)
+  const { creator, me, stores, mine, sellerRows, found } = db ? await readTopBar(db, community, userId) : await topBarReads(community.id, community.creator_id ?? null, userId)
   const byId = new Map(found.map((c) => [c.id, c]))
   const communities: TopBarCommunity[] = []
   for (const m of mine) {
@@ -789,7 +854,6 @@ export async function topBarData(community: CommunityRow, viewer: Viewer | null,
     if (!c || c.suspended_at || c.status === "suspended" || (c.status === "draft" && !meetsRole(m.role, "moderator"))) continue
     communities.push({ id: c.id, slug: c.slug, name: c.name, logoUrl: c.logo_url })
   }
-  const creator = community.creator_id ? creatorView(creators.get(community.creator_id)) : null
   const profile = me[0] ?? null
   const role = viewer?.active ? viewer.role : null
   const staffAccount = !!viewer && (viewer.isOwner || viewer.isCreatorAccount)
@@ -818,8 +882,19 @@ export async function topBarData(community: CommunityRow, viewer: Viewer | null,
  * public, open and not hidden by Storelib, biggest first. Unlisted and
  * private ones are reachable by link only, so they are not listed here.
  */
-export async function creatorCommunityCards(creatorId: string, db: Db = admin()): Promise<CommunityCard[]> {
+export async function creatorCommunityCards(creatorId: string, db?: Db): Promise<CommunityCard[]> {
   if (!creatorId) return []
+  if (db) return readCreatorCommunityCards(creatorId, db)
+  /*
+    HELD FOR EVERY VISITOR of the creator's page (round rel2-public, ./public-cache.ts): only published, public, open
+    communities are listed, the same cards for everybody. Cleared by every staff write to one of them and a Storelib
+    suspension or hiding (communityCardsTag), a new name or photo and a product change (the creator's tags), and a
+    minute at most otherwise. A read that failed is not held.
+  */
+  return heldCommunityRead(() => readCreatorCommunityCards(creatorId, admin()), ["community-cards", "v1", creatorId], [communityCardsTag(creatorId), ...communityCreatorTags(creatorId)])
+}
+
+async function readCreatorCommunityCards(creatorId: string, db: Db): Promise<CommunityCard[]> {
   const found = await rows<CardRow>("creator communities", () =>
     db
       .from("communities")

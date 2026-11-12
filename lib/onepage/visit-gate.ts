@@ -25,6 +25,11 @@ import "server-only"
  * These tables are only read for the time before a OnePage's first event in
  * analytics_events (lib/analytics/report-read readLegacyOnePage), so this is
  * about the record staying honest for a database that has not run part 61.
+ *
+ * Since round rel2-public app/api/onepage/track writes neither table: a click
+ * is Analytics' link_click alone, and a row written now would never be read
+ * (after the first event) or would be counted twice (before it). These rules
+ * stay for the rows already there and the suites that hold them.
  */
 import { isCrossSite, isPrefetch, type CollectOutcome } from "@/lib/analytics/collect"
 import { isBotAgent } from "@/lib/analytics/user-agent"

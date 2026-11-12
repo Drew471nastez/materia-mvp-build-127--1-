@@ -165,6 +165,38 @@ for (const [label, path, body] of BEACONS) {
 }
 
 /*
+  WHAT IS HELD NEVER OUTLIVES WHO MAY SEE IT (round rel2-public). The stub
+  reads `tables` on every request, so a row changed here is what the next
+  request finds, with no purge at all, as a change made by any writer would
+  be: a community made a draft is a 404 at once (its row is read live,
+  lib/communities/server/public-cache.ts), and a name its account gave up
+  never shows that account's page (the profile by name is read live,
+  lib/commerce/creator-page-held.ts).
+*/
+const fresh = []
+{
+  const community = tables.communities[0]
+  community.status = "draft"
+  const drafted = await visit("/community/loop-club")
+  const draftedAbout = await visit("/community/loop-club/about")
+  community.status = "published"
+  const back = await visit("/community/loop-club")
+  fresh.push({ label: "community made a draft: 404 at the next visit", ok: drafted.status === 404 && draftedAbout.status === 404 && back.status === 200, got: [drafted.status, draftedAbout.status, back.status] })
+  community.suspended_at = at
+  const suspended = await visit("/community/loop-club")
+  community.suspended_at = null
+  fresh.push({ label: "community suspended: 404 at the next visit", ok: suspended.status === 404, got: [suspended.status] })
+  const profile = tables.profiles[0]
+  const publicProfile = tables.profiles_public[0]
+  profile.username = publicProfile.username = "satori-renamed"
+  const oldName = await visit(`/${HANDLE}`)
+  const newName = await visit("/satori-renamed")
+  profile.username = publicProfile.username = HANDLE
+  const restored = await visit(`/${HANDLE}`)
+  fresh.push({ label: "account renamed: the old name shows no page, the new one does", ok: oldName.status === 404 && !oldName.body.includes("Loop Pack 1") && newName.status === 200 && restored.status === 200, got: [oldName.status, newName.status, restored.status] })
+}
+
+/*
   SIGNED IN: the same pages for somebody with a session. Whatever they are
   drawn with (an owner's Edit, a buyer's Download, their interests), the
   answer must never carry a header a shared cache would keep.
@@ -182,10 +214,16 @@ for (const [label, path] of SURFACES) {
 const pad = (s, n) => String(s).padEnd(n)
 console.log(`\n${pad("surface", 40)}${pad("status", 8)}${pad("db 1st", 8)}${pad("db 4th", 8)}${pad("writes", 8)}cache (4th)`)
 for (const r of rows) console.log(`${pad(r.label, 40)}${pad(r.status, 8)}${pad(r.first, 8)}${pad(r.warm, 8)}${pad(r.writesWarm, 8)}${r.cache}`)
+console.log(`\n${pad("held answers vs who may see them", 60)}result`)
+for (const r of fresh) console.log(`${pad(r.label, 60)}${r.ok ? "ok" : `FAILED ${JSON.stringify(r.got)}`}`)
 console.log(`\n${pad("signed in", 40)}${pad("status", 8)}cache`)
 for (const r of signedIn) console.log(`${pad(r.label, 40)}${pad(r.status, 8)}${r.cache}${r.shared ? (r.drawnForThem ? "   <- SHARED CACHE HEADER ON AN ANSWER DRAWN FOR THEM" : "   (shared, and the same page a stranger gets)") : ""}`)
 if (process.env.VERBOSE) for (const r of rows) console.log(`\n${r.label} (4th visit):\n  ${r.warmWhat.join("\n  ") || "(nothing)"}`)
-if (JSON_OUT) writeFileSync(JSON_OUT, JSON.stringify({ measuredAt: new Date().toISOString(), rows: rows.map(({ warmWhat, ...r }) => ({ ...r, warmWhat })), signedIn }, null, 2))
+if (JSON_OUT) writeFileSync(JSON_OUT, JSON.stringify({ measuredAt: new Date().toISOString(), rows: rows.map(({ warmWhat, ...r }) => ({ ...r, warmWhat })), fresh, signedIn }, null, 2))
+if (fresh.some((r) => !r.ok)) {
+  console.log(`\n${fresh.filter((r) => !r.ok).length} held answer(s) outlived who may see them`)
+  process.exit(1)
+}
 const faults = signedIn.filter((r) => r.shared && r.drawnForThem)
 if (faults.length) {
   console.log(`\n${faults.length} signed in answer(s) drawn for the person carry a shared cache header`)
