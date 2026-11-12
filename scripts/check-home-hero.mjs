@@ -439,7 +439,8 @@ try {
       388,
     )
     const showcaseStyle = await page.$eval('[data-build-showcase]', e => ({bg:getComputedStyle(e).backgroundColor, radius:getComputedStyle(e).borderRadius, margin:getComputedStyle(e).marginTop}))
-    assert.deepEqual(showcaseStyle, {bg:'rgb(7, 16, 17)',radius:'28px',margin:'-12px'}, 'rounded showcase overlaps the square hero')
+    assert.deepEqual(showcaseStyle, {bg:'rgb(9, 9, 9)',radius:'28px',margin:'-12px'}, 'rounded showcase overlaps the square hero')
+    assert.ok(await page.$eval('[data-landing-story]', e => getComputedStyle(e).backgroundImage.includes('rgb(9, 9, 9)')), 'rounded top corners have a matching black backing')
     assert.ok(await page.$eval('.build-showcase-viewport', e => e.getBoundingClientRect().left >= 0 && e.getBoundingClientRect().left <= 2), 'the mobile carousel spans the section width')
     assert.equal(await page.$eval('.cinematic-period', e => getComputedStyle(e).color), await page.$eval('.cinematic-phrases', e => getComputedStyle(e).color), 'headline dot inherits the headline color')
     await page.focus("input[type=email]")
@@ -560,7 +561,7 @@ try {
     )
     await pause(150)
     assert.equal(await page.$eval('[data-story-heading]', e => e.style.getPropertyValue('--story-progress')), '1.000', 'headline fills completely when scrolled into view')
-    assert.ok(await page.$$eval('[data-story-accent]', els => els.length === 1 && els.every(e => getComputedStyle(e).getPropertyValue('--word-target').trim() === '#bca3ff')), 'selected headline words fill purple')
+    assert.ok(await page.$$eval('[data-story-accent]', els => els.length === 1 && els[0].textContent === 'create,'), 'showcase has one scroll-filled purple accent')
     const formats=await page.$$eval('[data-showcase-group]',es=>es.map(e=>[...e.querySelectorAll('[data-showcase-slide]')].map(c=>c.dataset.format)))
     assert.deepEqual(formats,Array.from({length:3},()=>['wide','portrait','wide']),'each desktop page contains one complete composition')
     const track='.build-showcase-track'
@@ -570,11 +571,14 @@ try {
     assert.equal(await index(),start,'gallery rests initially')
     await pause(5300)
     assert.equal(await index(),(start+1)%9,'autoplay advances one mobile page')
+    assert.ok(await page.$eval('[data-build-showcase]', e => !e.hasAttribute('data-showcase-pristine')), 'initial left cover releases after browsing begins')
+    assert.ok(await page.$eval(track, e => e.querySelector('[data-showcase-slide]').getBoundingClientRect().left < e.getBoundingClientRect().left), 'cards move through the full left edge after the initial inset')
     const settled=await index();await pause(900);assert.equal(await index(),settled,'autoplay rests between pages')
     await page.mouse.move(box.x+260,box.y+90);await page.mouse.down();await page.mouse.move(box.x+240,box.y+90,{steps:5});await page.mouse.up();await pause(1100)
-    assert.equal(await index(),settled,'a small grab returns to the same slide')
-    await page.mouse.move(box.x+280,box.y+90);await page.mouse.down();await page.mouse.move(box.x+60,box.y+90,{steps:12});await page.mouse.up();await pause(1100)
-    assert.equal(await index(),(settled+1)%9,'a drag advances exactly one complete mobile slide')
+    assert.ok([settled,(settled+1)%9].includes(await index()),'a small flick settles without racing through slides')
+    const beforeDrag=await index()
+    await page.mouse.move(box.x+280,box.y+90);await page.mouse.down();await page.mouse.move(box.x+60,box.y+90,{steps:12});assert.ok(await page.$eval('[data-build-showcase]',e=>e.hasAttribute('data-showcase-browsing')),'heading softens while dragging');await page.mouse.up();await pause(1100)
+    assert.equal(await index(),(beforeDrag+1)%9,'a drag advances exactly one complete mobile slide')
     const resumeStart=await index();await page.focus(track);await pause(10000)
     assert.equal(await index(),(resumeStart+1)%9,'autoplay resumes with one settled page after interaction')
     await page.keyboard.press('Space');assert.equal(await page.$eval(track,e=>e.dataset.autoplayPaused),'true')
@@ -593,7 +597,7 @@ try {
     await pause(1200)
     assert.ok(await page.$eval(track, e => {
       const active = e.querySelectorAll('[data-showcase-slide]')[Number(e.dataset.showcaseIndex)]
-      return Math.abs(active.getBoundingClientRect().left - e.getBoundingClientRect().left) < 2
+      return Math.abs(active.getBoundingClientRect().left - document.querySelector('#build-showcase-title').getBoundingClientRect().left) < 2
     }), 'returning to an interrupted gallery settles to a complete page')
     if (shots)
       await page.screenshot({ path: join(shots, "showcase-mobile.png") })

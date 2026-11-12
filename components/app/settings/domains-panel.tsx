@@ -61,6 +61,7 @@ import { RegistrarMark } from "@/components/app/settings/registrar-mark"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { slowingPoll } from "@/lib/ui/slowing-poll"
 
 export interface DomainItem {
   id: string
@@ -521,8 +522,8 @@ export function DomainsPanel({
       if (document.visibilityState !== "visible") return
       for (const d of dataRef.current?.domains ?? []) if (d.status === "ssl_provisioning") void check(d, true)
     }
-    const id = window.setInterval(tick, 12000)
-    return () => window.clearInterval(id)
+    /* Slower the longer it waits (round 54, lib/ui/slowing-poll.ts): a certificate that never comes is not asked about every 12 seconds all day. */
+    return slowingPoll(tick, 12000)
   }, [securing, check])
 
   /* ── What it connects to, primary, remove ───────────────────────────── */

@@ -25,7 +25,7 @@
  */
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { FLAG_SRC_PREFIX, openedAsDocument, readierFirstLoad } from "../lib/storelib-theme/compat/first-load"
+import { FLAG_SRC_PREFIX, openedAsDocument, readierFirstLoad, sharedAtCdn } from "../lib/storelib-theme/compat/first-load"
 import { flagImage } from "../lib/storelib-theme/compat/objects"
 import { PUBLIC_PAGE_CACHE, SHAREABLE_HEADER, publicAnswer } from "../lib/storelib-theme/compat/anonymous-cache"
 import { SITE_PREFETCH_RULES } from "../lib/website-builder/prefetch-rules"
@@ -126,6 +126,7 @@ function flags() {
 function documentOnly() {
   section("Only a page opened as a page is prepared")
   check("Sec-Fetch-Dest: document is a page", openedAsDocument(new Headers({ "sec-fetch-dest": "document" })))
+  check("the CDN keeps a page and a client that says nothing (a crawler), never a script's fetch or a frame (round 54)", sharedAtCdn(new Headers({ "sec-fetch-dest": "document" })) && sharedAtCdn(new Headers()) && !sharedAtCdn(new Headers({ "sec-fetch-dest": "empty" })) && !sharedAtCdn(new Headers({ "sec-fetch-dest": "iframe" })))
   check("a script's fetch (empty), a frame, or a browser that says nothing is not", !openedAsDocument(new Headers({ "sec-fetch-dest": "empty" })) && !openedAsDocument(new Headers({ "sec-fetch-dest": "iframe" })) && !openedAsDocument(new Headers()))
   const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
   const block = route.slice(route.indexOf("if (html && !token && page && out.status === 200"), route.indexOf("const body = html ??"))

@@ -20,5 +20,6 @@ export function revalidateBlogPages(...slugs: Array<string | null | undefined>) 
   revalidatePath("/blog/rss.xml")
   revalidatePath("/blog/category", "layout")
   revalidatePath("/blog/author", "layout")
+  revalidatePath("/blog/page", "layout")
   for (const s of new Set(slugs.filter(Boolean) as string[])) revalidatePath(`/blog/${s}`)
 }

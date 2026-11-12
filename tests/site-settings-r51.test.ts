@@ -138,7 +138,7 @@ async function main() {
     check("Team: What they can do only while inviting", /const choosing = !full && !!cleanEmail && !emailProblem/.test(team) && /<Reveal open=\{choosing\}/.test(team))
     check("  and the invite still needs at least one", /access\.length === 0/.test(team))
     const domains = read("components/website-builder/website-settings/domains.tsx")
-    check("Domains: a certificate being issued is checked again every 12 seconds while in front", /window\.setInterval\(tick, 12000\)/.test(domains) && /document\.visibilityState !== "visible"/.test(domains) && /checkRef\.current\(d, true\)/.test(domains))
+    /* Changed on purpose (round 54): 12 seconds at first, slower the longer it waits (lib/ui/slowing-poll.ts). */ check("Domains: a certificate being issued is checked again every 12 seconds at first while in front", /slowingPoll\(tick, 12000\)/.test(domains) && /document\.visibilityState !== "visible"/.test(domains) && /checkRef\.current\(d, true\)/.test(domains))
     check("  in the push suite", read("scripts/run-push-tests.mjs").includes('"tests/site-settings-r51.test.ts"'))
   }
 

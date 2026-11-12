@@ -8,7 +8,8 @@ import { readBlogPosts } from "@/lib/blog/read"
   minute, like the pages; next.config's /blog/:path* rule gives the CDN the
   same minute.
 */
-export const revalidate = 60
+/* An hour (round 54, Vercel cost): saving, publishing and a post going live clear these at once (lib/blog/admin-http.ts, went-live.ts; the platform switch clears /help). */
+export const revalidate = 3600
 
 export async function GET() {
   return new Response(blogRssXml(await readBlogPosts()), {

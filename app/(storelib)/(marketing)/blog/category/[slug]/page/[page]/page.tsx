@@ -4,7 +4,8 @@ import { blogPageParam } from "@/lib/blog/listing"
 import { BlogCategoryView, blogCategoryMetadata, blogCategoryPage } from "../../../../_blog-category"
 
 /* A category's older posts: its own canonical, indexable, linked from the page before it with a real <a href>. */
-export const revalidate = 60
+/* An hour (round 54, Vercel cost): saving, publishing and a post going live clear these at once (lib/blog/admin-http.ts, went-live.ts; the platform switch clears /help). */
+export const revalidate = 3600
 
 export function generateStaticParams() {
   return [] as { slug: string; page: string }[]

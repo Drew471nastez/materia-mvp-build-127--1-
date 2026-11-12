@@ -3088,5 +3088,13 @@ export const config = {
     proxy can send there. On storelib.com it is passed straight on, before
     any session is read (routeRequest).
   */
-  matcher: ["/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  /*
+    /media/ IS LEFT OUT TOO (round 54, Vercel cost): every public file (a
+    video, a PDF, a font, an .avif) was a middleware run that only passed it
+    on to next.config's rewrite (routeRequest's /media/ line), and the answer
+    could pick up a cookie on the way out (forgetStaleCountry), which keeps
+    the CDN from holding it. vercel.json lets the CDN hold the rewrite's
+    answer as Supabase says (x-vercel-enable-rewrite-caching).
+  */
+  matcher: ["/((?!_next/static|_next/image|media/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 }

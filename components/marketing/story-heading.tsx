@@ -26,12 +26,38 @@ function createHeadingMotion() {
                 (viewportHeight * 0.68 + rect.height * 0.25),
             ),
           )
-      return { node, progress: progress.toFixed(3) }
+      const section = node.hasAttribute("data-story-showcase")
+        ? node.closest<HTMLElement>("[data-build-showcase]")
+        : null
+      const gallery = section?.querySelector(".build-showcase-viewport")
+      const reveal = gallery
+        ? motion.matches
+          ? 1
+          : Math.max(
+              0,
+              Math.min(
+                1,
+                (viewportHeight - gallery.getBoundingClientRect().top) /
+                  Math.min(260, viewportHeight * 0.55),
+              ),
+            )
+        : 1
+      return {
+        node,
+        section,
+        reveal: reveal.toFixed(3),
+        progress: progress.toFixed(3),
+      }
     })
     // Read all geometry before any writes, avoiding layout thrashing.
-    for (const { node, progress } of updates) {
+    for (const { node, section, reveal, progress } of updates) {
       if (node.style.getPropertyValue("--story-progress") !== progress)
         node.style.setProperty("--story-progress", progress)
+      if (
+        section &&
+        section.style.getPropertyValue("--showcase-reveal") !== reveal
+      )
+        section.style.setProperty("--showcase-reveal", reveal)
     }
   }
   const schedule = () => {
@@ -126,6 +152,7 @@ export function StoryHeading({
       id={id}
       className={`story-heading ${className}`}
       data-story-heading=""
+      data-story-showcase={showcase || undefined}
       data-story-dark={dark || undefined}
       aria-label={text}
     >
@@ -150,6 +177,9 @@ export function StoryHeading({
               {word}
             </span>
             {i < words.length - 1 ? " " : ""}
+            {showcase && i === 5 ? (
+              <br className="showcase-heading-break" />
+            ) : null}
           </span>
         ))}
       </span>

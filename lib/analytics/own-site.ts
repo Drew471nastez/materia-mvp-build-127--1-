@@ -138,7 +138,10 @@ export function useOwnMarker(): void {
     waiting.add(draw)
     primeOwnMarker()
     /* A new token before the last one runs out, and on coming back to the tab: the links are drawn again with it. */
-    const timer = window.setInterval(primeOwnMarker, 15_000)
+    /* Only while the tab is shown (round 54, Vercel cost): a hidden tab kept minting a token about once a minute all day; coming back primes one at once (below). */
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") primeOwnMarker()
+    }, 15_000)
     const back = () => {
       if (document.visibilityState === "visible") primeOwnMarker()
     }

@@ -25,6 +25,7 @@ export const storeCurrencyTag = (creatorId: string) => `store-currency:${creator
 export const cachedStoreCurrency = cache(function cachedStoreCurrency(creatorId: string): Promise<SellingCurrency> {
   return unstable_cache(async () => (await readStoreCurrency(createAdminClient(), creatorId)).currency, ["store-currency", creatorId], {
     tags: [storeCurrencyTag(creatorId)],
-    revalidate: 300,
+    /* An hour (round 54): saving the currency clears it at once (app/api/store/currency storeCurrencyTag). At 300 it set every website page's own lifetime to five minutes. */
+    revalidate: 3600,
   })()
 })

@@ -71,7 +71,8 @@ check("the heading the upgrade mode renames is inside a scroll-in that starts hi
 console.log("\nThe blog is rebuilt at most once a minute")
 for (const p of ["app/(storelib)/(marketing)/blog/page.tsx", "app/(storelib)/(marketing)/blog/[slug]/page.tsx", "app/(storelib)/(marketing)/blog/category/[slug]/page.tsx"]) {
   const src = code(p)
-  check(`${p}: revalidate 60, not force-dynamic`, /export const revalidate = 60/.test(src) && !/force-dynamic/.test(src))
+  /* Changed on purpose (round 54): an hour; publishing and saving clear it at once (lib/blog/admin-http.ts, went-live.ts). */
+  check(`${p}: revalidate 3600, not force-dynamic`, /export const revalidate = 3600/.test(src) && !/force-dynamic/.test(src))
   check(`${p}: posts from the admin client, which reads no cookie`, !/from "@\/lib\/supabase\/server"/.test(src) && !/next\/headers/.test(src))
 }
 check("next.config gives the CDN the same minute for /blog", /source: '\/blog\/:path\*',\s*headers: \[\s*\{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' \}/.test(read("next.config.mjs")))

@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react"
 import { useKeenSlider } from "keen-slider/react.js"
 import type { KeenSliderPlugin } from "keen-slider"
 
-/** Settled, one-page navigation. A flick advances one group, never free-flings. */
+/** Native drag and snap; autoplay advances complete desktop compositions. */
 const showcaseActivity: KeenSliderPlugin = (slider) => {
   const el = slider.container
   const reduce = matchMedia("(prefers-reduced-motion: reduce)")
@@ -14,15 +14,18 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
     keyboard = false,
     disposed = false
   let resumeAt = 0,
-    dragStart = 0,
-    dragIndex = 0,
     wheelTotal = 0,
     wheelUntil = 0
   let timer: ReturnType<typeof setTimeout> | undefined
   const animation = () => ({
-    duration: reduce.matches ? 0 : 950,
-    easing: (t: number) => (1 - Math.cos(Math.PI * t)) / 2,
+    duration: reduce.matches ? 0 : 600,
+    easing: (t: number) => 1 - Math.pow(1 - t, 3),
   })
+  const section = el.closest<HTMLElement>("[data-build-showcase]")
+  const browsing = (active: boolean) => {
+    section?.toggleAttribute("data-showcase-browsing", active)
+    if (active) section?.removeAttribute("data-showcase-pristine")
+  }
   const eligible = () =>
     !disposed &&
     visible &&
@@ -41,7 +44,12 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
           schedule()
           return
         }
-        slider.moveToIdx(slider.track.details.abs + 1, true, animation())
+        slider.moveToIdx(slider.track.details.abs + 1, true, {
+          duration: 1100,
+          // Start and stop gently during autoplay; direct dragging keeps Keen's
+          // velocity-aware release, without imposing this easing on the hand.
+          easing: (t: number) => t * t * t * (t * (t * 6 - 15) + 10),
+        })
       },
       Math.max(5000, resumeAt - performance.now()),
     )
@@ -61,11 +69,13 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
     keyboard = false
     el.dataset.dragging = "true"
     interact()
+    browsing(true)
   }
   const release = () => {
     if (!dragging) {
       delete el.dataset.dragging
       settle()
+      browsing(false)
       schedule()
     }
   }
@@ -172,31 +182,30 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
   })
   slider.on("dragStarted", () => {
     dragging = true
-    dragStart = slider.track.details.position
-    dragIndex = slider.track.details.abs
     interact()
     el.dataset.dragging = "true"
+    browsing(true)
   })
   slider.on("dragEnded", () => {
     dragging = false
     delete el.dataset.dragging
     resumeAt = performance.now() + 8000
-    const distance = slider.track.details.position - dragStart
-    const target =
-      dragIndex + (Math.abs(distance) > 0.08 ? Math.sign(distance) : 0)
-    // Override the built-in velocity projection: at most one complete slide.
-    queueMicrotask(() => {
-      if (!disposed) {
-        slider.animator.stop()
-        slider.moveToIdx(target, true, animation())
-        schedule()
-      }
-    })
+    if (!slider.animator.active) browsing(false)
+    // Keen retains its measured release velocity and settles without a second
+    // stop/restart animation or a forced slow-start easing curve.
+    schedule()
   })
   slider.on("slideChanged", () => {
     el.dataset.showcaseIndex = String(slider.track.details.rel)
   })
-  slider.on("animationEnded", schedule)
+  slider.on("animationStarted", () => browsing(true))
+  slider.on("animationEnded", () => {
+    browsing(false)
+    schedule()
+  })
+  slider.on("animationStopped", () => {
+    if (!dragging) browsing(false)
+  })
   slider.on("beforeOptionsChanged", () => {
     for (const node of el.querySelectorAll<HTMLElement>(
       ".build-showcase-group,.build-showcase-slide",
@@ -211,6 +220,7 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
   })
   slider.on("destroyed", () => {
     disposed = true
+    browsing(false)
     clearTimeout(timer)
     observe?.disconnect()
     window.removeEventListener("scroll", fallback)
@@ -232,18 +242,30 @@ export function useShowcaseMotion() {
       mode: "snap" as const,
       renderMode: "precision" as const,
       rubberband: false,
-      dragSpeed: 0.65,
+      dragSpeed: 1,
       selector: ".build-showcase-group",
       slides: { perView: 1, spacing: 24 },
       breakpoints: {
         "(max-width: 767px)": {
           selector: ".build-showcase-slide",
-          slides: { perView: 1, spacing: 12 },
+          slides: (size: number, slides: HTMLElement[]) => {
+            // Preserve the same wide/portrait ratio at a common measured height.
+            const cardHeight = slides[0]?.getBoundingClientRect().height || 220
+            const gutter = Math.min(96, Math.max(22, innerWidth * 0.06))
+            return slides.map((slide) => ({
+              origin: gutter / size,
+              size:
+                (cardHeight *
+                  (slide.dataset.format === "portrait" ? 9 / 16 : 4 / 3)) /
+                size,
+              spacing: 12 / size,
+            }))
+          },
         },
       },
       defaultAnimation: {
-        duration: 950,
-        easing: (t: number) => (1 - Math.cos(Math.PI * t)) / 2,
+        duration: 600,
+        easing: (t: number) => 1 - Math.pow(1 - t, 3),
       },
     }),
     [],
