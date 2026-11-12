@@ -178,6 +178,9 @@ export interface ContrastThemeLike {
   wallpaper_tint?: unknown
   wallpaper_tint_strength?: unknown
   wallpaper_effect?: unknown
+  /* Round 3: a pattern or a skin's scene drawn beside the page's words (smallPrintAlpha keeps a margin over them). */
+  background_pattern?: unknown
+  theme_skin?: unknown
 }
 
 /**
@@ -372,11 +375,17 @@ export function smallPrintAlpha(theme: ContrastThemeLike): number {
     [parseColor(theme.secondary_text_color), grounds],
     [parseColor(theme.button_text_color), buttonGrounds(theme, grounds)],
   ]
+  /*
+    Round 3: on a page with a pattern or a skin's scene, half a step to spare. The grid or grain is drawn beside
+    the words, not in `grounds` (Blueprint's description at 70% read 4.3:1 over its grid lines).
+  */
+  const textured = (typeof theme.background_pattern === "string" && theme.background_pattern !== "none" && theme.background_pattern !== "") || !!theme.theme_skin
+  const min = textured ? TEXT_MIN + 0.5 : TEXT_MIN
   let need = SMALL_PRINT_ALPHA
   for (const [ink, on] of pairs) {
     if (!ink || !on.length) continue
     let a = SMALL_PRINT_ALPHA
-    while (a < 1 && worstContrast({ ...ink, a: ink.a * a }, on) < TEXT_MIN) a = Math.round((a + 0.05) * 100) / 100
+    while (a < 1 && worstContrast({ ...ink, a: ink.a * a }, on) < min) a = Math.round((a + 0.05) * 100) / 100
     need = Math.max(need, Math.min(1, a))
   }
   return need

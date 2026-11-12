@@ -33,7 +33,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { THEME_TEMPLATES } from "@/components/onepage/tabs/design-tab"
-import { SEE_THROUGH_MIN, TEXT_MIN, buttonGrounds, contrastOn, fadeThatReads, over, pageGrounds, parseColor, ratioOf, readableTheme, type Rgba } from "@/lib/onepage/contrast"
+import { SEE_THROUGH_MIN, TEXT_MIN, buttonGrounds, contrastOn, fadeThatReads, over, pageGrounds, parseColor, ratioOf, readableTheme, smallPrintAlpha, type Rgba } from "@/lib/onepage/contrast"
 import { buttonHoverVars, cardButtonTheme, onCardButtonTheme, buttonThemeOn, type ButtonThemeLike } from "@/lib/onepage/button-style"
 import { signupWait, waitFade } from "@/lib/onepage/email-signup"
 
@@ -154,6 +154,14 @@ console.log("\n5. Disabled and waiting buttons keep their words")
   const css = read("app/globals.css")
   check("a press sinks and never fades the words (Neon's title read 3.1:1 under a finger); standing still it is a ring", /html\[data-op-press\] \[data-op-pressing\]:not\(#op\) \{\s*scale: 0\.965;\s*opacity: 1;/.test(css) && /\[data-op-pressing\]:not\(#op\) \{ scale: none; opacity: 1; outline: 2px solid/.test(css))
   check("the product sheet's Choose an option and Sold out are not faded", !/blocker === "sold out"\) && "opacity-50"/.test(sheet) && !/"pointer-events-none opacity-60"/.test(sheet) && /blocker && "cursor-default/.test(sheet))
+}
+
+console.log("\n5b. Small print on a page with a pattern keeps half a step")
+{
+  const plain = { background_type: "solid", background_color: "#1d4f86", text_color: "#ffffff", button_color: "#ffffff", button_text_color: "#111111" }
+  const grid = { ...plain, background_pattern: "grid" }
+  const a = smallPrintAlpha(grid as never)
+  check(`a page with a grid lifts its small print (${smallPrintAlpha(plain as never)} plain, ${a} with the grid) until it reads at 5:1`, a >= smallPrintAlpha(plain as never) && contrastOn({ ...parseColor("#ffffff")!, a }, parseColor("#1d4f86")!) >= TEXT_MIN + 0.5)
 }
 
 console.log("\n6. The guard reads what is laid under words beside them in the tree")
