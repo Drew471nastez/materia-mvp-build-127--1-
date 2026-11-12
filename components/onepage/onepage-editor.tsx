@@ -68,7 +68,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { AvatarMark } from "@/components/app/app-avatar"
 import { tt } from "@/lib/i18n/text"
 import { SocialIcon } from "./brand-icons"
-import { shareBandBackground, shareBandInk } from "./share-sheet"
+import { shareBandBackground } from "./share-sheet"
 import { useStoryShare } from "./use-story-share"
 import { fetchBillingSubscription, planIdOf } from "@/lib/billing/plan-client"
 import { OnePageTeamProvider, useOnePageTeam, useTeamProductsStore, type OnePageTeam } from "@/lib/onepage/team-context"
@@ -341,7 +341,7 @@ function ShareOnePage({
   const hasPro = userPlan === "growth" || userPlan === "pro"
   const address = pageUrl.replace(/^https?:\/\//, "")
   const storyGround = shareBandBackground({ backgroundType: theme.background_type, backgroundColor: theme.background_color, backgroundGradient: theme.background_gradient, accentColor: theme.button_color })
-  const story = useStoryShare({ open, name: onepage.title || "", address, avatarUrl: onepage.avatar_url, ground: storyGround, ink: shareBandInk(storyGround), fontFamily: theme.font_family })
+  const story = useStoryShare({ open, name: onepage.title || "", address, avatarUrl: onepage.avatar_url, ground: storyGround, fontFamily: theme.font_family })
   const row = "flex h-12 w-full cursor-pointer items-center gap-3 rounded-xl border border-[#e5e7eb] bg-white px-4 text-left text-[14px] font-medium text-[#1a1a2e] transition-colors duration-150 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
 
   const body = (

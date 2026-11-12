@@ -14,15 +14,15 @@
 import * as React from "react"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { onePageImageSrc } from "@/lib/onepage/display-image"
-import { renderStoryImage, shareStoryImage, type StoryInput } from "@/lib/onepage/story-image"
+import { renderStoryImage, shareStoryImage, storyInk, type StoryInput } from "@/lib/onepage/story-image"
 
-export function useStoryShare({ open, name, address, avatarUrl, ground, ink, fontFamily }: { open: boolean; name: string; address: string; avatarUrl?: string | null; ground: string; ink: "light" | "dark"; fontFamily?: string | null }) {
+export function useStoryShare({ open, name, address, avatarUrl, ground, fontFamily }: { open: boolean; name: string; address: string; avatarUrl?: string | null; ground: string; fontFamily?: string | null }) {
   const [busy, setBusy] = React.useState(false)
   const [saved, setSaved] = React.useState(false)
   const slug = address.split("/").filter(Boolean).pop() || ""
   const input: StoryInput = React.useMemo(
-    () => ({ name, handle: slug && slug !== address ? `@${slug}` : "", address, avatarSrc: avatarUrl ? onePageImageSrc(avatarUrl, 640) || avatarUrl : null, ground, ink, fontFamily }),
-    [name, slug, address, avatarUrl, ground, ink, fontFamily],
+    () => ({ name, handle: slug && slug !== address ? `@${slug}` : "", address, avatarSrc: avatarUrl ? onePageImageSrc(avatarUrl, 640) || avatarUrl : null, ground, ink: storyInk(ground), fontFamily }),
+    [name, slug, address, avatarUrl, ground, fontFamily],
   )
   const key = JSON.stringify(input)
   const ready = React.useRef<{ key: string; image: Promise<Blob> } | null>(null)

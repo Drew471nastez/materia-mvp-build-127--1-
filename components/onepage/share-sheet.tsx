@@ -225,7 +225,6 @@ export function OnePageShareSheet({
     address: shown,
     avatarUrl,
     ground: band,
-    ink: shareBandInk(band),
     fontFamily: storyFont,
   })
 

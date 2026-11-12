@@ -329,3 +329,37 @@ export async function shareStoryImage(image: Blob, { fileName, address }: { file
   }
   return "saved"
 }
+
+/* ─── The words' colour ───────────────────────────────────────────────── */
+
+function luminance(color: string): number | null {
+  let r: number, g: number, b: number
+  const hex = /^#([0-9a-f]{6}|[0-9a-f]{3})\b/i.exec(color.trim())
+  const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(color.trim())
+  if (hex) {
+    const h = hex[1].length === 3 ? hex[1].split("").map((c) => c + c).join("") : hex[1]
+    ;[r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16))
+  } else if (rgb) [r, g, b] = [rgb[1], rgb[2], rgb[3]].map(Number)
+  else if (/^white$/i.test(color)) return 1
+  else if (/^black$/i.test(color)) return 0
+  else return null
+  const lin = (c: number) => {
+    const v = c / 255
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+
+/**
+ * White or ink words on the story's ground: whichever has more contrast with
+ * the ground's average, every stop of a gradient counted (the share sheet's
+ * band reads only the first stop, which sits under the close button).
+ */
+export function storyInk(ground: string): "light" | "dark" {
+  const paint = parseCssPaint(ground)
+  const colors = paint.kind === "solid" ? [paint.color] : paint.stops.map((s) => s.color)
+  const ls = colors.map(luminance).filter((l): l is number => l !== null)
+  if (!ls.length) return "light"
+  const L = ls.reduce((a, b) => a + b, 0) / ls.length
+  return (1.05) / (L + 0.05) >= (L + 0.05) / 0.05 ? "light" : "dark"
+}
