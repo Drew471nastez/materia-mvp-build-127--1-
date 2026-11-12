@@ -494,6 +494,8 @@ const SUITES = [
   "tests/header-buttons.test.ts",
   /* Cinematic homepage: fixed first line, reserved rotating phrases, one deferred video, native signup. scripts/check-home-hero.mjs measures real SSR/hydration and media fallbacks. */
   "tests/home-hero.test.ts",
+  /* W12 creators: section 7, the creators carousel (endless transform-only rail, bubble morph on hover/centre/tap, drag, reduced-motion grid) and the motion primitives in components/marketing/home/motion (morphing pill cluster, orbit badge, sale pop). */
+  "tests/home-w12-creators.test.ts",
   /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */
   "tests/library-courses-ad5.test.ts",
   "tests/header-flex.test.ts",
