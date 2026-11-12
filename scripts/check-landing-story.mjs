@@ -161,6 +161,10 @@ try {
     await wait(1200)
     await p.keyboard.press("Space")
     await p.$eval(".build-showcase-track", (e) => e.blur())
+    /* Lazy pictures off screen report no size until they load; load the three measured ones first. */
+    await p.$$eval('[data-showcase-slide]:not([aria-hidden="true"]) img', (is) =>
+      Promise.all(is.slice(0, 3).map((i) => ((i.loading = "eager"), i.decode().catch(() => {})))),
+    )
     const cards = await p.$$eval(
       '[data-showcase-slide]:not([aria-hidden="true"])',
       (es) =>
@@ -170,11 +174,33 @@ try {
           w: e.getBoundingClientRect().width,
           h: e.querySelector("img").getBoundingClientRect().height,
           fit: getComputedStyle(e.querySelector("img")).objectFit,
+          /* Round 60: the picture's own shape, so cover crops nothing; there is no second, blurred copy behind it. */
+          natural: e.querySelector("img").naturalWidth / e.querySelector("img").naturalHeight,
+          imgW: e.querySelector("img").getBoundingClientRect().width,
+          fills: e.querySelectorAll("img").length,
         })),
     )
     assert.ok(
-      cards.every((c) => c.fit === "contain"),
-      "screenshots are never cover-cropped",
+      cards.every((c) => c.fills === 1),
+      "one picture per card: no blurred copy painted behind it",
+    )
+    assert.ok(
+      cards.every((c) => Math.abs(c.imgW / c.h - c.natural) < 0.015),
+      "each card is its picture's own shape, so the picture fills it with no bars and nothing cropped",
+    )
+    assert.ok(
+      Math.abs(cards[0].imgW / cards[0].h - 16 / 10) < 0.02,
+      "wide cards are 16:10, the screenshots' own shape",
+    )
+    assert.ok(
+      Math.abs(cards[1].imgW / cards[1].h - 4 / 5) < 0.02,
+      "OnePage cards are 4:5, the OnePages' own shape",
+    )
+    assert.ok(
+      await p.$$eval('[data-format="portrait"] figcaption', (es) =>
+        es.every((e) => e.textContent === "OnePage"),
+      ),
+      "portrait captions consistently say OnePage",
     )
     if (width >= 1024) {
       assert.ok(
@@ -188,14 +214,24 @@ try {
     }
     if (width < 768) {
       assert.ok(
-        cards[0].w > cards[1].w * 2.4,
-        "mobile retains distinct desktop and portrait proportions",
-      )
-      assert.ok(
         cards.every((c) => Math.abs(c.h - cards[0].h) < 2),
         "mobile card heights align",
       )
-      assert.ok(Math.abs(cards[0].x) <= 2, "mobile gallery has no inset gutter")
+      const headingX = await p.$eval(
+        "#build-showcase-title",
+        (e) => e.getBoundingClientRect().left,
+      )
+      assert.ok(
+        Math.abs(cards[0].x - headingX) <= 2,
+        "initial mobile card aligns with heading",
+      )
+      assert.ok(
+        await p.$eval(
+          ".build-showcase-viewport",
+          (e) => innerWidth - e.getBoundingClientRect().right <= 2,
+        ),
+        "mobile rail extends to right edge",
+      )
     }
     for (const heading of await p.$$("[data-story-heading]")) {
       await heading.evaluate((e) =>

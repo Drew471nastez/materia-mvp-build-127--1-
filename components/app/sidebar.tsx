@@ -206,7 +206,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   */
   useEffect(() => {
     if (pathname.startsWith("/app/settings")) return
-    if (isPhoneShell() && Date.now() - settingsWarmedAt < 4 * 60_000) return
+    /* At most once every four minutes on a computer too (round 54, Vercel cost): the router keeps it five, and each warm was a whole server render after every page change. */
+    if (Date.now() - settingsWarmedAt < 4 * 60_000) return
     const t = window.setTimeout(() => {
       settingsWarmedAt = Date.now()
       prefetchAppPage(router, "/app/settings")

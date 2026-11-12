@@ -7,6 +7,15 @@ import { useEffect, useRef, type CSSProperties } from "react"
 function createHeadingMotion() {
   const nodes = new Set<HTMLElement>()
   const active = new Set<HTMLElement>()
+  const details = new WeakMap<
+    HTMLElement,
+    {
+      section: HTMLElement | null
+      gallery: Element | null
+      progress: string
+      reveal: string
+    }
+  >()
   const motion = matchMedia("(prefers-reduced-motion: reduce)")
   let frame = 0
   let viewportWidth = document.documentElement.clientWidth
@@ -26,10 +35,8 @@ function createHeadingMotion() {
                 (viewportHeight * 0.68 + rect.height * 0.25),
             ),
           )
-      const section = node.hasAttribute("data-story-showcase")
-        ? node.closest<HTMLElement>("[data-build-showcase]")
-        : null
-      const gallery = section?.querySelector(".build-showcase-viewport")
+      const entry = details.get(node)!
+      const { section, gallery } = entry
       const reveal = gallery
         ? motion.matches
           ? 1
@@ -44,20 +51,27 @@ function createHeadingMotion() {
         : 1
       return {
         node,
+        entry,
         section,
         reveal: reveal.toFixed(3),
         progress: progress.toFixed(3),
       }
     })
     // Read all geometry before any writes, avoiding layout thrashing.
-    for (const { node, section, reveal, progress } of updates) {
-      if (node.style.getPropertyValue("--story-progress") !== progress)
+    for (const { node, entry, section, reveal, progress } of updates) {
+      if (entry.progress !== progress) {
         node.style.setProperty("--story-progress", progress)
-      if (
-        section &&
-        section.style.getPropertyValue("--showcase-reveal") !== reveal
-      )
-        section.style.setProperty("--showcase-reveal", reveal)
+        entry.progress = progress
+      }
+      /*
+        On the gallery itself, the only thing that reads it. Set on the whole
+        section it was inherited by every card, picture and caption in it, so
+        each scroll frame restyled all of them to fade one box.
+      */
+      if (section && entry.gallery && entry.reveal !== reveal) {
+        ;(entry.gallery as HTMLElement).style.setProperty("--showcase-reveal", reveal)
+        entry.reveal = reveal
+      }
     }
   }
   const schedule = () => {
@@ -83,8 +97,11 @@ function createHeadingMotion() {
               if (entry.isIntersecting) active.add(node)
               else {
                 active.delete(node)
-                if (entry.boundingClientRect.bottom < 0)
+                if (entry.boundingClientRect.bottom < 0) {
                   node.style.setProperty("--story-progress", "1")
+                  const cached = details.get(node)
+                  if (cached) cached.progress = "1"
+                }
               }
             }
             schedule()
@@ -98,6 +115,15 @@ function createHeadingMotion() {
   motion.addEventListener("change", schedule)
   return {
     add(node: HTMLElement) {
+      const section = node.hasAttribute("data-story-showcase")
+        ? node.closest<HTMLElement>("[data-build-showcase]")
+        : null
+      details.set(node, {
+        section,
+        gallery: section?.querySelector(".build-showcase-viewport") || null,
+        progress: "",
+        reveal: "",
+      })
       nodes.add(node)
       active.add(node)
       observer?.observe(node)

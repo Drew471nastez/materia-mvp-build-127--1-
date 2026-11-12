@@ -12436,6 +12436,7 @@ const words: Record<string, string> = {
  "theme::Olive": "Oliva",
  "theme::Paper": "Papel",
  "theme::Peach": "Pêssego",
+ "theme::Plaster": "Gesso",
  "theme::Playful": "Divertido",
  "theme::Playful Night": "Playful Noite",
  "theme::Renaissance": "Renascença",

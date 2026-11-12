@@ -101,7 +101,11 @@ body:has([data-home-hero="cinematic"]) #platform-header-root { --bar-depth-dark:
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-header-tone="dark"] { background-color:transparent; }
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-header-tone="dark"] > header { background-color:transparent; border-bottom-color:transparent; transition:border-color 320ms ease; }
 body:has([data-home-hero="cinematic"]) #platform-header-root:not([data-scrolled]) { box-shadow:none; backdrop-filter:none; -webkit-backdrop-filter:none; }
-body:has([data-home-hero="cinematic"]) #platform-header-root[data-header-tone="dark"][data-scrolled] { background-color:#101012; }
+body:has([data-home-hero="cinematic"]) #platform-header-root[data-header-tone="dark"][data-scrolled] { background-color:#0d0d0f; }
+body:has([data-home-hero="cinematic"]) #platform-header-root[data-header-tone="dark"]::before { content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(180deg,rgba(0,0,0,.22),rgba(0,0,0,.07) 70%,rgba(0,0,0,0)); transition:opacity 320ms ease; }
+body:has([data-home-hero="cinematic"]) #platform-header-root[data-scrolled]::before { opacity:0; }
+/* Scrolled, the bar is opaque: a backdrop blur behind an opaque colour shows nothing and is still re-rendered on every scroll frame. */
+body:has([data-home-hero="cinematic"]) #platform-header-root[data-scrolled] { backdrop-filter:none; -webkit-backdrop-filter:none; }
 body:has([data-home-hero="cinematic"]) #platform-header-root[data-scrolled] > header { border-bottom-color:rgba(0,0,0,.096); }
 @media (min-width:1024px) {
   [data-home-hero="cinematic"] { --hero-tint-opacity:.57; min-height:min(886.83px,calc((100svh - 70.35px)*1.0815)); }

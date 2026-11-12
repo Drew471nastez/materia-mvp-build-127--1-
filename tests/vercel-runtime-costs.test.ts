@@ -106,7 +106,8 @@ console.log("\n2. CSP reports: a sample reaches a function")
   check("and still cuts the query and always answers 204", /const cut = raw\.split\(\/\[\?#\]\/\)\[0\]/.test(route) && (route.match(/status: 204/g) ?? []).length >= 2)
   const vercel = JSON.parse(read("vercel.json")) as { headers: Array<{ source: string; headers: Array<{ key: string; value: string }> }> }
   const csp = vercel.headers.flatMap((h) => h.headers.map((x) => ({ source: h.source, ...x }))).find((x) => x.key === "Content-Security-Policy-Report-Only")
-  check("the policy and its report address are unchanged, on every path", !!csp && csp.source === "/(.*)" && csp.value.includes(`report-uri ${CSP_REPORT_PATH}`) && CONTENT_SECURITY_POLICY.includes(`report-uri ${CSP_REPORT_PATH}`))
+  /* Changed on purpose (round 54): sent on storelib.com only (vercel.json has a host), so a creator's theme does not post reports to a function. */
+  check("the policy and its report address are unchanged, on every path of storelib.com", !!csp && csp.source === "/(.*)" && csp.value.includes(`report-uri ${CSP_REPORT_PATH}`) && CONTENT_SECURITY_POLICY.includes(`report-uri ${CSP_REPORT_PATH}`))
 }
 
 console.log("\n3. Speed beacons: one in four, counts scaled back up")

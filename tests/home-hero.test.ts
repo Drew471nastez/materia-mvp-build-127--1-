@@ -119,7 +119,9 @@ assert.ok(HERO_VIDEO.src.includes("1794426925775466.mp4"))
 const showcase = read("components/marketing/build-showcase.tsx")
 assert.equal(SHOWCASE_HEADING, "Everything you need to create, sell, and manage your business online.")
 assert.ok(
-  read("components/marketing/use-showcase-motion.ts").includes('mode: "snap"') &&
+  /* Round 60: the showcase's own rail motion (lib/ui/rail-motion, tests/rail-motion.test.ts), no slider library. */
+  read("components/marketing/use-showcase-motion.ts").includes("new RailMotion(") &&
+    !read("components/marketing/use-showcase-motion.ts").includes("keen-slider") &&
     showcase.includes('loading="lazy"'),
 )
 

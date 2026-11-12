@@ -799,12 +799,20 @@ function inkAround(el: Element, grounds: Rgba[], aim: number): Rgba | null {
   return null
 }
 
-/** A soft outline under words: the ground's side of them (dark under light words, light under dark), or `color`. */
+/**
+ * A soft outline under words: the ground's side of them (dark under light words, light under dark), or `color`.
+ *
+ * Round AS, the owner: "I don't understand why certain buttons, texts are glowing white". This was most of it: on
+ * Aqua, Messenger, Playful and Y2K Kawaii the bio, the links' words and the small print got three layers out to
+ * 6px in the page's own (pale) colour, a white cloud round every word nobody had asked for
+ * (scripts/check-onepage-glow-as1.mjs). It is a hairline now, 1px out and 1px soft, tight to the letters: it still
+ * parts small words from a skin's grain and dots, and it reads as the letters' edge, not as a glow.
+ */
 function outline(h: HTMLElement, words: Rgba, ground: GroundRead, color?: string): void {
   const dark = luminance(ground.grounds[Math.floor(ground.grounds.length / 2)]) < luminance(words)
   h.style.setProperty(
     "text-shadow",
-    color ? `0 0 2px ${color}, 0 0 4px ${color}, 0 0 6px ${color}` : dark ? "0 0 1px rgba(0,0,0,.7), 0 1px 3px rgba(0,0,0,.6)" : "0 0 1px rgba(255,255,255,.8), 0 1px 3px rgba(255,255,255,.7)",
+    color ? `0 0 1px ${color}, 0 0 1px ${color}` : dark ? "0 0 1px rgba(0,0,0,.7), 0 1px 2px rgba(0,0,0,.45)" : "0 0 1px rgba(255,255,255,.8), 0 1px 2px rgba(255,255,255,.5)",
     "important",
   )
 }

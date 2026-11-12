@@ -34,6 +34,7 @@ import { GUTTER, ORDER_WIDTH, OrderBarFrame, StatusBadge, buttonPrimary, buttonS
 import { loadReport, reportKey, type EmailReport } from "./emails-data"
 import { tt, ttx } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { slowingPoll } from "@/lib/ui/slowing-poll"
 
 export interface EmailSeed {
   id: string
@@ -106,7 +107,8 @@ export function EmailDetail({
   /* While it sends, the numbers are read again every few seconds: not while the tab is hidden, and once more the moment it comes back. */
   React.useEffect(() => {
     if (!running) return
-    const t = window.setInterval(() => {
+    /* Every 5 s, slower if a send waits a long time (round 54, lib/ui/slowing-poll.ts). */
+    const stopPoll = slowingPoll(() => {
       if (!document.hidden) refresh(reportKey(seed.id))
     }, 5000)
     const back = () => {
@@ -114,7 +116,7 @@ export function EmailDetail({
     }
     document.addEventListener("visibilitychange", back)
     return () => {
-      window.clearInterval(t)
+      stopPoll()
       document.removeEventListener("visibilitychange", back)
     }
   }, [running, seed.id])

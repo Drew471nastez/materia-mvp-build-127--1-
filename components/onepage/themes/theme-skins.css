@@ -126,13 +126,13 @@
   box-shadow: inset 0 2px 4px rgba(8,60,120,.12), 0 0 0 3px rgba(80,170,240,.45) !important;
 }
 [data-op-skin="aero"] :is([data-op-header] h1, [data-tp-title]) {
-  text-shadow: 0 1px 0 rgba(255,255,255,.85), 0 0 22px rgba(255,255,255,.85); letter-spacing: -.01em;
+  text-shadow: 0 1px 0 rgba(255,255,255,.85), 0 0 6px rgba(255,255,255,.45); letter-spacing: -.01em;
 }
 [data-op-skin="aero"] :is([data-op-header] > p, [data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title], [data-op-block] > p.whitespace-pre-line) {
-  text-shadow: 0 1px 0 rgba(255,255,255,.7), 0 0 14px rgba(255,255,255,.8);
+  text-shadow: 0 1px 0 rgba(255,255,255,.7), 0 0 4px rgba(255,255,255,.4);
 }
 [data-op-skin="aero"] :is([data-page-avatar] [data-slot=avatar], [data-tp-avatar]) {
-  box-shadow: 0 0 0 1px rgba(120,190,240,.5), 0 10px 28px -8px rgba(0,80,160,.55), 0 0 34px rgba(255,255,255,.75) !important;
+  box-shadow: 0 0 0 1px rgba(120,190,240,.5), 0 10px 28px -8px rgba(0,80,160,.55), 0 0 14px rgba(255,255,255,.45) !important;
 }
 [data-op-skin="aero"] :is([data-page-avatar], [data-tp-avatar])::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,.6) 0%, rgba(255,255,255,.12) 44%, rgba(255,255,255,0) 46%);
@@ -825,7 +825,7 @@
 [data-op-skin="grunge"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea):focus {
   box-shadow: 4px 4px 0 #0d0d0d !important;
 }
-[data-op-skin="grunge"] [data-op-header] {
+[data-op-skin="grunge"] :is([data-op-header], [data-tp-header]) {
   padding-right: 16px;
 }
 [data-op-skin="grunge"] :is([data-op-header] h1, [data-tp-title]) {
@@ -837,9 +837,6 @@
 }
 [data-op-skin="grunge"] [data-op-block] > p.whitespace-pre-line {
   margin-inline: auto;
-}
-[data-op-skin="grunge"] [data-tp-title] + span {
-  box-sizing: content-box;
 }
 [data-op-skin="grunge"] :is([data-op-header] > p, [data-op-block] > p.whitespace-pre-line):not([data-product-block="overlay"]) {
   color: #0d0d0d !important;
@@ -1017,13 +1014,13 @@
   box-shadow: inset 0 2px 4px rgba(8,60,120,.12), 0 0 0 3px rgba(80,170,240,.45) !important;
 }
 [data-op-skin="aero2"] :is([data-op-header] h1, [data-tp-title]) {
-  text-shadow: 0 0 28px rgba(90,220,255,.3), 0 1px 2px rgba(0,20,40,.5); letter-spacing: -.01em;
+  text-shadow: 0 0 6px rgba(90,220,255,.22), 0 1px 2px rgba(0,20,40,.5); letter-spacing: -.01em;
 }
 [data-op-skin="aero2"] :is([data-op-header] > p, [data-onepage-heading], :is([data-onepage-faq], [data-onepage-countdown], [data-onepage-testimonials]) > [data-block-title], [data-op-block] > p.whitespace-pre-line) {
   text-shadow: 0 1px 2px rgba(0,20,40,.55);
 }
 [data-op-skin="aero2"] :is([data-page-avatar] [data-slot=avatar], [data-tp-avatar]) {
-  box-shadow: 0 0 0 1px rgba(120,190,240,.5), 0 10px 28px -8px rgba(0,80,160,.55), 0 0 34px rgba(90,220,255,.45) !important;
+  box-shadow: 0 0 0 1px rgba(120,190,240,.5), 0 10px 28px -8px rgba(0,80,160,.55), 0 0 14px rgba(90,220,255,.3) !important;
 }
 [data-op-skin="aero2"] :is([data-page-avatar], [data-tp-avatar])::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,.6) 0%, rgba(255,255,255,.12) 44%, rgba(255,255,255,0) 46%);
@@ -1786,7 +1783,7 @@
 [data-op-skin="grunge2"] :is([data-email-form], [data-onepage-contact] form) :is(input:not([type=checkbox]):not([type=radio]):not(.absolute), textarea):focus {
   box-shadow: 4px 4px 0 #0d0d0d !important;
 }
-[data-op-skin="grunge2"] [data-op-header] {
+[data-op-skin="grunge2"] :is([data-op-header], [data-tp-header]) {
   padding-right: 16px;
 }
 [data-op-skin="grunge2"] :is([data-op-header] h1, [data-tp-title]) {
@@ -1798,9 +1795,6 @@
 }
 [data-op-skin="grunge2"] [data-op-block] > p.whitespace-pre-line {
   margin-inline: auto;
-}
-[data-op-skin="grunge2"] [data-tp-title] + span {
-  box-sizing: content-box;
 }
 [data-op-skin="grunge2"] :is([data-op-header] > p, [data-op-block] > p.whitespace-pre-line):not([data-product-block="overlay"]) {
   color: #0d0d0d !important;

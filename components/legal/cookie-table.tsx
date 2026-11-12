@@ -47,6 +47,8 @@ export function CookieTable() {
       <button
         type="button"
         onClick={() => openCookiePreferences()}
+        /* A OnePage's legal sheet catches this press and shows its own Cookies tab instead (components/onepage/onepage-legal-links). */
+        data-cookie-choices=""
         className="inline-flex h-10 items-center rounded-xl bg-[var(--legal-ink,#1a1a2e)] px-4 text-[14px] font-medium text-[var(--legal-on-ink,#ffffff)] transition-opacity hover:opacity-90"
       >
         Change your cookie choices
