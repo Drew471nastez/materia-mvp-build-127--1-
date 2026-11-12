@@ -138,4 +138,7 @@ for (const f of ["ideas-come-to-life.tsx", "business-carousel.tsx"]) {
 assert.ok(!/react-icons/.test(source))
 assert.ok(!/\b(Shopify|Nike|Notion Labs|Figma Inc)\b/.test(source))
 
+/* A slide put away keeps the height it last drew (contain-intrinsic-block-size: auto, set on every slide since the browser only records the size while the rule is already there), so the business stage never shrinks when a shorter slide comes up (it scored a 0.02 layout shift on phones). */
+assert.ok(read("components/marketing/home/business-carousel.tsx").includes('.biz-slide{grid-area:1/1;contain-intrinsic-block-size:auto 0px;'))
+
 console.log("home-w12-showcase: ok")

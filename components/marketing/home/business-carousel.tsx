@@ -251,7 +251,7 @@ const CSS = `
 .biz-round .biz-icon-play,.biz-round[data-playing] .biz-icon-pause{display:block}
 .biz-round .biz-icon-pause,.biz-round[data-playing] .biz-icon-play{display:none}
 .biz-stage{position:relative;display:grid;border-radius:clamp(22px,2.6vw,32px);overflow:hidden;background:#f6f6f7}
-.biz-slide{grid-area:1/1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.29fr);gap:clamp(20px,3vw,48px);align-items:start;padding:clamp(24px,4vw,64px)}
+.biz-slide{grid-area:1/1;contain-intrinsic-block-size:auto 0px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.29fr);gap:clamp(20px,3vw,48px);align-items:start;padding:clamp(24px,4vw,64px)}
 .biz-slide[data-pane="active"]{z-index:2;animation:biz-in .4s cubic-bezier(.2,.7,.2,1) both}
 .biz-slide[data-pane="leaving"]{z-index:1}
 .biz-slide[data-pane="next"]{z-index:0;opacity:0;pointer-events:none}
