@@ -177,7 +177,7 @@ console.log("\n7. the logo, a touch smaller in headers only")
   const m = header.match(/HEADER_LOGO = \{ desktop: ([\d.]+), marketingPhone: ([\d.]+), phone: ([\d.]+) \}/)
   const [d, mp, p] = (m?.slice(1) ?? []).map(Number)
   const five = (was: number, now: number) => Math.abs(now - was * 0.95) < 0.02
-  check("the site header: another ~5% under the last header sizes", !!m && five(41.8, d) && five(39.9, mp) && five(36.1, p), m?.slice(1))
+  check("the site header: another ~5% under the last header sizes", !!m && five(39.71, d) && five(37.91, mp) && five(34.3, p), m?.slice(1))
   check("every logo in the site header draws at one of them", (header.match(/<StorelibLogo size=\{HEADER_LOGO\.(desktop|marketingPhone|phone)\}/g) ?? []).length === 4 && !/<StorelibLogo size=\{\d/.test(header))
   check("the /app top bar: 27 becomes 25.65", /<StorelibLogo size=\{25\.65\} priority \/>/.test(readCode("components/app/sidebar.tsx")) && five(27, 25.65))
   check("and its still copy matches it", /<StorelibLogo size=\{25\.65\} alt="" \/>/.test(readCode("components/app/shell-header-still.tsx")))
