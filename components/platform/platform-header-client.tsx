@@ -182,7 +182,28 @@ function MobileBottomSheet({
   it is drawn. Latest pass: ~5% under 41.8 / 39.9 / 36.1. Footers and sign-in
   keep their sizes.
 */
-export const HEADER_LOGO = { desktop: 39.71, marketingPhone: 37.91, phone: 34.3 } as const
+/* Round 60, the owner: "reduce the size of the Storelib logo next to the Storelib text a little bit,
+   extremely just a little bit". About 5% off each, and the wordmark beside it is left as it is. */
+export const HEADER_LOGO = { desktop: 37.72, marketingPhone: 36.01, phone: 32.59 } as const
+
+/**
+ * HOME, PRESSED ON THE HOME PAGE, GOES TO ITS TOP. It used to reload the
+ * page (window.location.href = "/"), which threw the reader back to a blank
+ * screen and a fresh hero to read the page they were already on. Now it is
+ * the browser's own smooth scroll, which runs on the compositor in Chrome and
+ * Safari rather than in a JavaScript loop, so it stays smooth while the page
+ * is still drawing, stops the moment the reader scrolls themselves, and
+ * becomes an instant jump for anybody who asked for less motion. A press with
+ * a modifier (a new tab, a new window) is left to the link.
+ */
+export function scrollHomeToTop(e: React.MouseEvent<HTMLElement>, targetPath: string, pathname: string | null): boolean {
+  if (targetPath !== "/" || pathname !== "/") return false
+  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return false
+  e.preventDefault()
+  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  window.scrollTo({ top: 0, left: 0, behavior: still ? "auto" : "smooth" })
+  return true
+}
 
 /** A focus ring that reads on the black bar. */
 const DARK_FOCUS =
@@ -2043,6 +2064,7 @@ export function PlatformHeaderClient({
 
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
+      if (scrollHomeToTop(e, targetPath, pathname)) return
       if (targetPath !== pathname) startNavigationLoading()
       // When on a seller subdomain (e.g. sellername.storelib.com), ALL navigation
       // to non-seller routes (/library, /app, /explore, /signup, etc.) MUST use
@@ -2218,7 +2240,8 @@ export function PlatformHeaderClient({
             drawn the band is its colour, from the server's HTML on. */}
         {buyerHeaderLight ? null : <style>{`:root{--native-band:${BUYER_HEADER_DARK_BG}}`}</style>}
     <header className={cn(chrome.header, !(isNativePlatform() && isSellerOrProductPage) && chrome.headerBorder)}>
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+      {/* data-landing-width: on the home page the row takes the showcase's own width (app/globals.css, --landing-*). */}
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8" data-landing-width={pathname === "/" ? "" : undefined}>
         <div
           /*
             THREE PERCENT OFF, MEASURED ON THE DEPLOYED PAGE RATHER THAN
@@ -2250,7 +2273,7 @@ export function PlatformHeaderClient({
               {/* Homepage Desktop Header */}
               <div className="hidden md:flex items-center justify-between w-full">
                 {/* Left - Logo - refreshes main page */}
-                <Link href="/" onClick={(e) => { e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-2">
+                <Link href="/" onClick={(e) => { if (scrollHomeToTop(e, "/", pathname)) return; e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-2">
                   <StorelibLogo size={HEADER_LOGO.desktop} priority />
                   <span className={chrome.wordmark}>Storelib</span>
                 </Link>
@@ -2342,7 +2365,7 @@ export function PlatformHeaderClient({
               <div className="md:hidden flex min-h-[42px] items-center justify-between w-full">
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
-                  <Link href="/" onClick={(e) => { e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-1.5">
+                  <Link href="/" onClick={(e) => { if (scrollHomeToTop(e, "/", pathname)) return; e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-1.5">
                     <StorelibLogo size={HEADER_LOGO.marketingPhone} priority />
                     <span className={chrome.wordmarkPhone}>Storelib</span>
                   </Link>

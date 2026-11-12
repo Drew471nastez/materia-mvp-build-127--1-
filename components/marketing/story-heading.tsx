@@ -63,8 +63,13 @@ function createHeadingMotion() {
         node.style.setProperty("--story-progress", progress)
         entry.progress = progress
       }
-      if (section && entry.reveal !== reveal) {
-        section.style.setProperty("--showcase-reveal", reveal)
+      /*
+        On the gallery itself, the only thing that reads it. Set on the whole
+        section it was inherited by every card, picture and caption in it, so
+        each scroll frame restyled all of them to fade one box.
+      */
+      if (section && gallery && entry.reveal !== reveal) {
+        ;(gallery as HTMLElement).style.setProperty("--showcase-reveal", reveal)
         entry.reveal = reveal
       }
     }

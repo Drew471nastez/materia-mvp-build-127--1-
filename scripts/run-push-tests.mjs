@@ -494,6 +494,8 @@ const SUITES = [
   "tests/header-buttons.test.ts",
   /* Cinematic homepage: fixed first line, reserved rotating phrases, one deferred video, native signup. scripts/check-home-hero.mjs measures real SSR/hydration and media fallbacks. */
   "tests/home-hero.test.ts",
+  /* Round 60: the showcase rail's motion as numbers: drag, flick, settle, wheel, loop, any frame rate. */
+  "tests/rail-motion.test.ts",
   /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */
   "tests/library-courses-ad5.test.ts",
   "tests/header-flex.test.ts",
