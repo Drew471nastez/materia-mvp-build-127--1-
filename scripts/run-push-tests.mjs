@@ -822,6 +822,8 @@ const SUITES = [
   "tests/round-u.test.ts",
   "tests/compat-resilience.test.ts",
   "tests/physical-setup-t.test.ts",
+  /* Round AS (track 2): Home's "Selling physical products" card only for a store that has started selling things it ships (a physical product, how it fulfils, a location, a rate, pickup or a package), read off the same facts, never for a digital only store. */
+  "tests/app-home-physical-as2.test.ts",
   "tests/physical-readiness.test.ts",
   "tests/emails-t.test.ts",
   /* Emails › Customer emails in three families, the language and the signature by where it was bought, previews that are the sent email; scripts/check-emails-families.mjs measures the switch and the lists. */
@@ -881,6 +883,8 @@ const SUITES = [
   /* Round AQ: the onboarding draws the theme preview, Layout pictures draw the block's own content, a form's row is named, the sheet kit's slow pull is slow; scripts/check-onepage-real-preview.mjs reads the preview in next dev. */
   "tests/onepage-aq2.test.ts",
   "tests/onepage-ar5.test.ts",
+  /* Round AS (track 1): every theme card is a fictional creator's page drawn with the page's own helpers (no grey bars, its own chunk), Plaster (its structure, colours, cover and names), and no glow nobody chose (the guard's hairline, no theme's ring, a faint Glow). scripts/check-onepage-theme-previews-as1.mjs and scripts/check-onepage-glow-as1.mjs measure them. */
+  "tests/onepage-as1.test.ts",
   "tests/onepage-themes-w8.test.ts",
   /* Round W9: six themes with a skin (Aero, Aqua, Messenger, Y2K, Playful, Grunge): every text and button pair and every colour the skin paints read at 4.5:1, the skin carried by both roots and the theme card, the generated stylesheet current and styling every kind of block, motion by transform and opacity only and still for reduced motion and in cards, the skin laid on and taken off with the theme. scripts/shot-onepage-skins.mjs photographs them. */
   "tests/onepage-themes-w9.test.ts",
@@ -1464,6 +1468,8 @@ const STRICT_SUITES = [
   "tests/onepage-ar1.test.ts",
   /* Round AS: the OnePage shell. The profile bar forms over the name as it scrolls under (every header layout, the verified badge in it, floating inside the computer's card), Share and Subscribe from one listener after real travel, faded on the button while the box only moves, the fade layout's large melting picture from the top of a phone's page, the own cover's fade and its switch, the 550px card, every sideways row out to the column's edge. scripts/check-onepage-header-as.mjs measures them frame by frame at 390 and 1440 and in the preview. */
   "tests/onepage-header-as.test.ts",
+  /* Round AS (track 2): Share and Subscribe clear of the editor phone's rounded screen (its own radius, concentric) and of a notch (safe area, no device check); Terms, Privacy and Cookies as tabs of one fixed height sheet with a sliding thumb and a fade through; cookie choices saved as pressed (never in the preview); Report as a checked form with a thanks in the same place; Back and Tab. scripts/check-onepage-as2.mjs measures them at 390 and 1440. */
+  "tests/onepage-as2.test.ts",
   "tests/onepage-w8.test.ts",
   /* Round AR3: every block type's settings panel drawn and visible (image 137), music and video layouts with Storelib's own player, Cover, Fit and Full, links shown in place (Calendly, Typeform, Canva, Google Maps, podcasts), oEmbed cards from recorded answers, Fourthwall and Bonfire retired, followers from one field, more links in one block. scripts/check-onepage-ar3.mjs measures the layout matrix, the embeds and the settings at 390 and 1440. */
   "tests/onepage-ar3.test.ts",

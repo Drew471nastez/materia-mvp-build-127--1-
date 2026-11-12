@@ -12429,6 +12429,7 @@ const words: Record<string, string> = {
  "theme::Olive": "Olive",
  "theme::Paper": "Papier",
  "theme::Peach": "Pfirsich",
+ "theme::Plaster": "Gips",
  "theme::Playful": "Verspielt",
  "theme::Playful Night": "Playful Nacht",
  "theme::Renaissance": "Renaissance",

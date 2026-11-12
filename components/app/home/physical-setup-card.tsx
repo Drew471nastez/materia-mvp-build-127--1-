@@ -3,7 +3,8 @@
 /**
  * HOME'S "SELLING PHYSICAL PRODUCTS" CARD: the five steps a store needs to
  * ship anything (lib/home/physical-setup.ts), read off the store each time
- * Home is landed on. Only while physical commerce is on in /admin, and gone
+ * Home is landed on. Only while physical commerce is on in /admin and the
+ * store has started selling physical products itself (round AS), and gone
  * once every step is done. What is left comes first; the next step carries
  * the arrow. Each row goes to where the step is done.
  */
@@ -33,10 +34,11 @@ export function PhysicalSetupCard() {
       once more by itself; after that, twice more, 3s and 8s later.
     */
     const load = async (attempt: number) => {
-      const r = await requestJson<{ steps?: PhysicalStep[]; blockers?: PhysicalStep[] }>("/api/home/physical-setup", { cache: "no-store", credentials: "same-origin" })
+      const r = await requestJson<{ started?: boolean; steps?: PhysicalStep[]; blockers?: PhysicalStep[] }>("/api/home/physical-setup", { cache: "no-store", credentials: "same-origin" })
       if (!live) return
       if (r.ok && Array.isArray(r.data.steps)) {
-        setSteps(r.data.steps)
+        /* A store that has not started selling things it ships gets no card at all (round AS, lib/home/physical-setup physicalSetupStarted). */
+        setSteps(r.data.started === false ? null : r.data.steps)
         setBlockers(Array.isArray(r.data.blockers) ? r.data.blockers : [])
       } else if (attempt < 2 && r.kind !== "auth" && r.kind !== "refused") {
         again = window.setTimeout(() => void load(attempt + 1), attempt === 0 ? 3_000 : 8_000)

@@ -76,7 +76,7 @@ const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", categor
 /* Changed on purpose (round 42): Folio (light) and Ledger (dark) join after round 40's, each in its kind. */
 /* Changed on purpose (round AP): Notebook (light) and Cobalt (gradient) join at the end of their kinds. */
 /* Changed on purpose (round W8): Gazette (light), Halo (gradient) and Acid (dark) join at the end of their kinds. */
-check("each lands in its own kind, after that kind's old ones", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,gazette,aqua,messenger,playful,grunge,aqua2,messenger2,grunge2,b,lagoon,cobalt,halo,aero,y2k2,vaporwave,c,ember,ledger,acid,y2k,aero2,playful2,classic98,arcade,d,atlas" /* Changed on purpose (round W9): Aqua, Messenger, Playful, Grunge, Aero and Y2K, each at the end of its kind. Changed on purpose (round W10): the nine W10 themes after them. */)
+check("each lands in its own kind, after that kind's old ones", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,notebook,gazette,aqua,messenger,playful,grunge,aqua2,messenger2,grunge2,b,lagoon,cobalt,halo,aero,y2k2,vaporwave,c,ember,ledger,acid,y2k,aero2,playful2,classic98,arcade,plaster,d,atlas" /* Changed on purpose (round AS): Plaster at the end of the dark themes. */ /* Changed on purpose (round W9): Aqua, Messenger, Playful, Grunge, Aero and Y2K, each at the end of its kind. Changed on purpose (round W10): the nine W10 themes after them. */)
 
 /* ─── Block layouts ───────────────────────────────────────────────────── */
 console.log("\nBlocks can be laid out four ways")
@@ -166,7 +166,7 @@ check("the preview is the live page's own component", /PublicOnePage/.test(read(
 check("the product sheet and the checkout window are themed", /className=\{cn\(\s*"op-sheet /.test(read("components/onepage/product-sheet.tsx")) /* round 43: two columns on a computer, so the classes are joined */ && /themed && "op-sheet"/.test(read("components/checkout/checkout-window.tsx")) && /themed\b/.test(read("components/onepage/product-block.tsx")))
 check("the Design tab has a Layout panel and the themes", /<NavRow dataKey="layout"/.test(design) && /<LayoutSection \/>/.test(design) && /withR40Themes\(\[\.\.\.BASE_THEME_TEMPLATES/.test(design)) /* Renaissance joins the base, and the picker orders them (components/onepage/themes/theme-order) */
 /* Changed on purpose (round AP): a card is the page itself at a card's scale (components/onepage/themes/theme-preview), which lays the blocks out as the page does. */
-check("the theme cards draw each theme's layout", /<ThemePreview c=\{look\} name=\{name\} thumb=\{themeThumbSrc\} \/>/.test(design) && /blockLayoutOf\(c\)/.test(read("components/onepage/themes/theme-preview.tsx")))
+check("the theme cards draw each theme's layout", /<ThemePreview c=\{look\} id=\{template\.id\} kind=\{template\.category\} thumb=\{themeThumbSrc\} \/>/ /* Changed on purpose (round AS): each card names its theme, whose creator it draws. */.test(design) && /blockLayoutOf\(c\)/.test(read("components/onepage/themes/theme-preview.tsx")))
 const layoutSrc = read("components/onepage/themes/layout-section.tsx")
 check("Share and Subscribe styles are set in Design, the same fields", /updateSettings\(\{ share_style: id \}\)/.test(layoutSrc) && /updateSettings\(\{ subscribe_style: id \}\)/.test(layoutSrc))
 const settingsSrc = read("components/onepage/tabs/settings-tab.tsx")

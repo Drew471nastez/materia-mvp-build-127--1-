@@ -23,7 +23,7 @@
 
 export const THEME_GROUPS = [
   { id: "clean", ids: ["default", "air", "gallery", "studio", "paper", "swiss", "folio", "cream", "notebook"] },
-  { id: "dark", ids: ["graphite", "night", "midnight", "ember", "ledger", "olive", "astrid", "space", "blueprint"] },
+  { id: "dark", ids: ["graphite", "night", "midnight", "ember", "ledger", "olive", "astrid", "space", "blueprint", "plaster"] },
   { id: "colour", ids: ["sunset", "peach", "sage", "lagoon", "ocean", "aurora", "cobalt", "halo", "terrazzo", "riso", "blocks", "neon", "acid"] },
   { id: "photo", ids: ["nature", "atlas", "haze", "darkroom", "fusion"] },
   {
