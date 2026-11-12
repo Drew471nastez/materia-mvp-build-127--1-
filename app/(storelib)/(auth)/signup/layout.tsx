@@ -1,5 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
+import { AuthArrival } from "@/components/auth/auth-arrival-server"
 import { pageMetadata } from "@/lib/seo/page-metadata"
 
 /*
@@ -16,5 +17,5 @@ export const metadata: Metadata = pageMetadata({
 })
 
 export default function SignupLayout({ children }: { children: React.ReactNode }) {
-  return children
+  return <AuthArrival>{children}</AuthArrival>
 }

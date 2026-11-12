@@ -10,9 +10,10 @@ import { isAbsoluteTarget } from "@/lib/auth/return-to"
 import { getMainDomain } from "@/lib/url-helpers"
 import { useState, useEffect, Suspense, useRef, useMemo } from "react"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
-import Image from "next/image"
+import { AuthPhoto, LOGIN_PHOTO } from "@/components/auth/auth-photo"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
+import { useMaybeSignedIn } from "@/components/auth/auth-arrival"
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button"
 import { useAuthGate } from "@/lib/use-auth-gate"
 import { nativeAuthStart, nativeAppReady } from "@/lib/native-bridge"
@@ -117,6 +118,7 @@ function LoginFormContent() {
   /** Set when a retryable failure came back and this tab has a go left. */
   const [retryingProvider, setRetryingProvider] = useState<OAuthProvider | null>(null)
   const { loading: authGateLoading, session: gateSession, nativeAuthInProgress } = useAuthGate()
+  const maybeSignedIn = useMaybeSignedIn()
   const redirectTimeoutRef = useRef<number | null>(null)
   // Prevent elastic / rubber-band body scroll in the native WebView.
   // No-op in a regular browser — does not affect desktop behaviour.
@@ -764,9 +766,13 @@ function LoginFormContent() {
     setIsAppleLoading(false)
   }
 
-  // Block rendering while auth state is resolving or redirect is in progress.
-  // This guarantees the login form is never shown after auth succeeds.
-  if (authGateLoading || nativeAuthInProgress) {
+  /*
+    The form is drawn at once for a stranger, in the first HTML (round 3,
+    components/auth/auth-arrival.tsx). The spinner is only for a request
+    that carried a session cookie, while the check that would send them on
+    runs, and for the app finishing a sign in it started itself.
+  */
+  if (nativeAuthInProgress || (authGateLoading && maybeSignedIn)) {
     return <AuthResolvingScreen message={nativeAuthInProgress ? "Signing you in..." : undefined} />
   }
 
@@ -790,7 +796,7 @@ function LoginFormContent() {
     <div data-page="login" className="flex min-h-svh w-full bg-white lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
       <HtmlClass name="with-page-login" />
       <div className="flex w-full flex-col justify-start px-6 py-8 sm:py-10 lg:w-1/2 lg:h-[100dvh] lg:overflow-y-auto page-scroll lg:px-16 lg:py-10 xl:px-24 auth-stack auth-shell">
-        <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4 animate-fade-in-up auth-card">
+        <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4 auth-card">
           <AuthLogo />
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">{cameFromSignUp && !inviteEmail ? tt("Sign in") : "Welcome back"}</h1>
@@ -951,19 +957,7 @@ function LoginFormContent() {
         </div>
       </div>
 
-      <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden bg-neutral-900">
-        <Image
-          src="https://storelib.com/media/platform%20images/collage%20imags/eemo.png"
-          alt="Login banner"
-          fill
-          className="object-cover object-center"
-          sizes="(min-width: 1024px) 50vw, 0px"
-          quality={75}
-          priority
-          fetchPriority="high"
-          decoding="async"
-        />
-      </div>
+      <AuthPhoto src={LOGIN_PHOTO} />
     </div>
   )
 }
