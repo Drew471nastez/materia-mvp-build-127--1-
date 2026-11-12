@@ -72,7 +72,8 @@ import { HeroTopBar, useCornerButtonsShown } from "@/components/onepage/hero-scr
 import { usePressFeel } from "@/components/onepage/press-feel"
 import { useLookStill } from "@/components/onepage/look-still"
 import { useBlockEntrance } from "@/components/onepage/block-entrance"
-import { pageGroundIsLight, socialIconColorOf, socialIconStyleOf, socialIconToneOf, socialTileStyle } from "@/lib/onepage/social-look"
+import { SocialRowScroller } from "@/components/onepage/social-row-scroller"
+import { pageGroundIsLight, socialMarkColorOf, socialIconStyleOf, socialIconToneOf, socialTileStyle } from "@/lib/onepage/social-look"
 import { leavingProps, useLeavingBlocks } from "@/components/onepage/leaving-block"
 import { heroScrollEffect } from "@/lib/onepage/feel"
 import { PosterVideo } from "@/components/onepage/poster-video"
@@ -2770,7 +2771,7 @@ function CoreBlockRenderer({
   const pageSheet = useBlockSheet()
 
   /* Design › Social icons (lib/onepage/social-look): Solid, Outline or Glass; each mark in its brand's colour, or all in the icon colour. */
-  const socialColor = socialIconColorOf(theme as never)
+  const socialColor = socialMarkColorOf(theme as never)
   const socialTone = socialIconToneOf(theme as never)
 
   // Button hover animation - based on theme setting, disabled inside carousel or group
@@ -3313,20 +3314,23 @@ function CoreBlockRenderer({
       const paddingBottom = data.padding_bottom ?? (isHeroLayout ? 20 : 3)
 
       return (
-        <div
+        /*
+          Round 3: centred while they fit, and past that the full width of the column, sliding sideways with the
+          platform's own momentum (components/onepage/social-row-scroller). It carries data-op-social-row, which the
+          wallpaper's pattern keeps out from behind (components/onepage/wallpaper-layers useHeaderClearance).
+        */
+        <SocialRowScroller
           className={cn(
-            "flex items-center justify-center gap-2.5 flex-wrap",
             /* Pulled up onto the hero, so it is drawn (and pressed) above the hero's box, not under it. */
             isHeroLayout && "relative z-[1]",
             !hasCustomPadding && isHeroLayout && "md:mt-[-20px] md:mb-7"
           )}
           /* Under a classic header set flush left, the icons are too (app/globals.css [data-op-socials]). */
-          data-op-socials={isHeroLayout ? undefined : ""}
-          /* The wallpaper's pattern keeps out from behind a social row right under the header (components/onepage/wallpaper-layers useHeaderClearance). */
-          data-op-social-row=""
+          trackProps={{ "data-op-socials": isHeroLayout ? undefined : "" }}
+          /* Less the track's 4px above and below (room for a tile's ring inside the clip), so the row sits where it did. */
           style={{
-            marginTop: `${paddingTop}px`,
-            marginBottom: `${paddingBottom}px`
+            marginTop: `${paddingTop - 4}px`,
+            marginBottom: `${paddingBottom - 4}px`
           }}
         >
           {data.platforms.map(({ platform, url }) => {
@@ -3356,7 +3360,7 @@ function CoreBlockRenderer({
                   changes: nothing about its box, or anything beside it, moves.
                 */
                 className={cn(
-                  "flex w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] items-center justify-center transition-opacity duration-150 ease-out",
+                  "flex shrink-0 w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] items-center justify-center transition-opacity duration-150 ease-out",
                   !isInsideCarousel && "hover:opacity-70",
                 )}
                 /* Every value inline, so a skin's tile gives way to the creator's choice once it is theirs (lib/onepage/skin-own). */
@@ -3370,7 +3374,7 @@ function CoreBlockRenderer({
               </a>
             )
           })}
-        </div>
+        </SocialRowScroller>
       )
     }
 

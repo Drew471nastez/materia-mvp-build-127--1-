@@ -62,6 +62,23 @@ export function pageGroundIsLight(theme: { background_type?: string | null; back
   return lum.reduce((a, b) => a + b, 0) / lum.length > 0.6
 }
 
+/**
+ * BRAND COLOURS ON SOLID IS THE WHITE DISC. Each mark in its own colours (the
+ * Instagram gradient, YouTube's red, TikTok's cyan and red) on a white circle,
+ * as the owner's reference draws them. A mark that is black (X, Threads,
+ * GitHub, TikTok's note) is near black on the disc whatever the icon colour,
+ * since a white icon colour would vanish on white.
+ */
+export function socialIsBrandDisc(theme: SocialThemeLike | null | undefined): boolean {
+  return socialIconToneOf(theme) === "brand" && socialIconStyleOf(theme) === "filled"
+}
+
+/** The ink a mark is drawn in: near black on the white disc, else the icon colour. */
+export const BRAND_DISC_INK = "#111113"
+export function socialMarkColorOf(theme: SocialThemeLike | null | undefined): string {
+  return socialIsBrandDisc(theme) ? BRAND_DISC_INK : socialIconColorOf(theme)
+}
+
 /** `colour` at `percent`, whatever form it was saved in. */
 const tint = (colour: string, percent: number) => `color-mix(in srgb, ${colour} ${percent}%, transparent)`
 
@@ -71,6 +88,8 @@ const tint = (colour: string, percent: number) => `color-mix(in srgb, ${colour} 
  *   Solid    a 12.5% tint of the icon colour (what `${colour}20` drew when it drew at all)
  *   Outline  a 2px ring of the icon colour at 25% (`${colour}40`)
  *   Glass    frosted: white over the page, blurred, with a hairline ring
+ *   Solid in brand colours: the white disc (socialIsBrandDisc), a hairline and
+ *            a soft shadow on a light page so white still reads on white
  */
 export function socialTileStyle(theme: SocialThemeLike | null | undefined, { onLight, size }: { onLight: boolean; size?: number }): CSSProperties {
   const style = socialIconStyleOf(theme)
@@ -82,6 +101,15 @@ export function socialTileStyle(theme: SocialThemeLike | null | undefined, { onL
     color: colour,
     boxShadow: "none",
   }
+  if (style === "filled" && socialIconToneOf(theme) === "brand")
+    return {
+      ...base,
+      color: BRAND_DISC_INK,
+      backgroundColor: "#ffffff",
+      borderWidth: 0,
+      borderColor: "transparent",
+      boxShadow: onLight ? "0 0 0 1px rgba(17, 17, 19, 0.08), 0 1px 3px rgba(17, 17, 19, 0.08)" : "0 1px 3px rgba(0, 0, 0, 0.18)",
+    }
   if (style === "outline") return { ...base, backgroundColor: "transparent", borderWidth: 2, borderColor: tint(colour, 25) }
   if (style === "minimal")
     return {

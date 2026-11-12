@@ -47,7 +47,7 @@ import { blockGapClass, blockLayoutOf, coverAspect, coverImageOf, headerAlignOf,
 import { fontStack } from "@/lib/onepage/fonts"
 import { readableOn } from "@/lib/onepage/theme-apply"
 import { readableTheme } from "@/lib/onepage/contrast"
-import { pageGroundIsLight, socialIconColorOf, socialTileStyle } from "@/lib/onepage/social-look"
+import { pageGroundIsLight, socialMarkColorOf, socialTileStyle } from "@/lib/onepage/social-look"
 import { HERO_FADE_MASK } from "@/lib/onepage/poster-video"
 import { cn } from "@/lib/utils"
 
@@ -120,7 +120,7 @@ export function ThemePreview({ c: given, name, thumb, photo = null }: { c: Look;
   const layout = blockLayoutOf(c)
   const products = themeProductLayoutOf(c)
   /* The social icons as the page draws them (lib/onepage/social-look). */
-  const socialColor: string = socialIconColorOf(c as never)
+  const socialColor: string = socialMarkColorOf(c as never)
   const pageLight = pageGroundIsLight(c as never)
   const titleFace = fontStack(c.title_font || c.font_family)
   const pagePaint = c.background_type === "gradient" && c.background_gradient ? c.background_gradient : bg
