@@ -1,5 +1,6 @@
 import { StoryHeading } from "./story-heading"
 import { AnimateOnScroll } from "./bento-grid"
+import { MarqueeRow } from "./marquee-row"
 
 const PRODUCTS_ROW1 = [
   { emoji: "📚", label: "E-books" },
@@ -28,33 +29,21 @@ const PRODUCTS_ROW2 = [
   { emoji: "🤝", label: "1:1 Coaching" },
 ]
 
-function MarqueeRow({ items, direction = "left", duration = 30 }: { items: typeof PRODUCTS_ROW1; direction?: "left" | "right"; duration?: number }) {
+function ProductRow({ items, direction = "left", duration = 30 }: { items: typeof PRODUCTS_ROW1; direction?: "left" | "right"; duration?: number }) {
   const tripled = [...items, ...items, ...items]
-  const animName = direction === "left" ? "marquee-left" : "marquee-right"
-
   return (
-    <div className="overflow-hidden py-2">
-      <div
-        data-story-continuous=""
-        className="flex gap-3 w-max"
-        style={{
-          animation: `${animName} ${duration}s linear infinite`,
-          willChange: "transform",
-          backfaceVisibility: "hidden",
-          WebkitBackfaceVisibility: "hidden",
-        }}
-      >
-        {tripled.map((item, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border-[1.5px] border-neutral-200 shadow-sm whitespace-nowrap transition-all duration-500 ease-[cubic-bezier(0.22,0.61,0.36,1)] hover:border-violet-300 hover:shadow-[0_4px_16px_rgba(124,58,237,0.12)] hover:bg-violet-50/50 hover:scale-[1.05] hover:-translate-y-0.5"
-          >
-            <span className="text-base">{item.emoji}</span>
-            <span className="text-sm font-medium text-neutral-700">{item.label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
+    <MarqueeRow direction={direction} duration={duration}>
+      {tripled.map((item, i) => (
+        <div
+          key={i}
+          aria-hidden={i >= items.length ? true : undefined}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border-[1.5px] border-neutral-200 shadow-sm whitespace-nowrap transition-all duration-500 ease-[cubic-bezier(0.22,0.61,0.36,1)] hover:border-violet-300 hover:shadow-[0_4px_16px_rgba(124,58,237,0.12)] hover:bg-violet-50/50 hover:scale-[1.05] hover:-translate-y-0.5"
+        >
+          <span className="text-base">{item.emoji}</span>
+          <span className="text-sm font-medium text-neutral-700">{item.label}</span>
+        </div>
+      ))}
+    </MarqueeRow>
   )
 }
 
@@ -83,8 +72,8 @@ export function ProductMarquee() {
 
       <AnimateOnScroll variant="fade-up-scale" delay={100}>
         <div className="flex flex-col gap-1">
-          <MarqueeRow items={PRODUCTS_ROW1} direction="left" duration={54} />
-          <MarqueeRow items={PRODUCTS_ROW2} direction="right" duration={62} />
+          <ProductRow items={PRODUCTS_ROW1} direction="left" duration={54} />
+          <ProductRow items={PRODUCTS_ROW2} direction="right" duration={62} />
         </div>
       </AnimateOnScroll>
     </section>

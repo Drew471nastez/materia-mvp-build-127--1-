@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "keen-slider/keen-slider.min.css";
 @import "tw-animate-css";
 @import "./hover-variant.css";
 
@@ -10102,3 +10101,29 @@ body:has([data-landing-story]) .storelib-footer [role="status"] {color:#047857}
 body:has([data-home-hero="cinematic"]) [data-landing-story] {background:linear-gradient(#090909 0 100px,transparent 100px)}
 
 @media(forced-colors:none){.build-showcase .story-heading [data-story-word]{--word-front:calc(var(--word-fill)*1.24 - 12%);background:linear-gradient(90deg,var(--word-target) calc(var(--word-front) - 6%),var(--story-muted) calc(var(--word-front) + 6%));background-clip:text;-webkit-background-clip:text}}
+
+/*
+  ===========================================================================
+   THE HOME PAGE'S ONE WIDTH
+  ===========================================================================
+  Round 60, the owner, at 33% zoom: "the header is not aligned horizontally
+  in width with the section under the hero". It was not at any zoom. The bar
+  was max-width 1400 with its own padding; the showcase under the hero is
+  max-width 1980 with a 6vw gutter and a 14px inset to the first card, so
+  measured on the page the bar started 49px left of the first card at 1440
+  wide and 212px right of it at 2880. Both read these numbers now, so the
+  logo's left edge is the first card's left edge and the last control's
+  right edge is the last card's right edge, at every width and zoom.
+*/
+:root {
+  --landing-max: 1980px;
+  --landing-gutter: clamp(22px, 6vw, 96px);
+  --landing-card-inset: 14px;
+}
+@media (min-width: 768px) {
+  #platform-header-root [data-landing-width] {
+    max-width: var(--landing-max);
+    padding-inline: calc(var(--landing-gutter) + var(--landing-card-inset));
+  }
+}
+
