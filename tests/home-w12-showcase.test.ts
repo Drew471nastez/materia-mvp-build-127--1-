@@ -66,9 +66,10 @@ const gallery = renderToString(createElement(BuildShowcase))
 assert.equal((gallery.match(/data-showcase-slide=""/g) || []).length, 9)
 assert.equal((gallery.match(/loading="lazy"/g) || []).length, 9)
 assert.equal((gallery.match(/decoding="async"/g) || []).length, 9)
+// Three wide–OnePage–wide pages, each a store, a OnePage and a community.
+assert.deepEqual(SHOWCASE_EXAMPLES.map((e) => e.format), ["wide", "portrait", "wide", "wide", "portrait", "wide", "wide", "portrait", "wide"])
+assert.equal((gallery.match(/data-showcase-group=""/g) || []).length, 3)
 const motion = read("components/marketing/use-showcase-motion.ts")
-assert.ok(motion.includes("RAMP_MS") && motion.includes("t * t"), "autoplay eases in")
-assert.ok(motion.includes('"pointerenter"') && motion.includes("GLIDE_MS"), "a resting mouse glides the gallery to a stop")
 assert.ok(motion.includes("prefers-reduced-motion") && motion.includes("IntersectionObserver") && motion.includes("document.hidden"))
 
 /* ---- section 4: builder previews */
