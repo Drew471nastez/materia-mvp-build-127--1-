@@ -421,10 +421,21 @@ try {
       }
       requestAnimationFrame(tick)
     })
-    const cdp = await page.createCDPSession()
-    await cdp.send("Input.synthesizeScrollGesture", { x: 195, y: 600, yDistance: -1400, speed: 900, gestureSourceType: "touch", repeatCount: 1 })
-    await sleep(300)
-    await cdp.send("Input.synthesizeScrollGesture", { x: 195, y: 300, yDistance: 1400, speed: 900, gestureSourceType: "touch", repeatCount: 1 })
+    /* Headless Chromium's touch gesture did not move this column: it is walked 12px a frame down and back, as a finger's scroll lands. */
+    await page.evaluate(() => new Promise((done) => {
+      const sc = document.querySelector("[data-sticky-back]").closest("[data-scroll-container]")
+      const end = Math.min(1400, sc.scrollHeight - sc.clientHeight)
+      let y = 0
+      let dir = 12
+      const step = () => {
+        y += dir
+        if (y >= end) dir = -12
+        sc.scrollTop = Math.max(0, Math.min(end, y))
+        if (y <= 0 && dir < 0) return done()
+        requestAnimationFrame(step)
+      }
+      requestAnimationFrame(step)
+    }))
     await sleep(300)
     const frames = await page.evaluate(() => { window.__stick.on = false; return window.__stick.frames })
     const slow = frames.filter((f) => f.dt > 25)
@@ -432,7 +443,7 @@ try {
     const tops = [...new Set(stuck.map((f) => f.top))]
     const heights = [...new Set(frames.map((f) => f.h))]
     console.log(`   ${frames.length} frames, max scroll ${Math.max(...frames.map((f) => f.y))}, slow ${JSON.stringify(slow.map((f) => f.dt))}, heights ${JSON.stringify(heights)}, tops while shown ${JSON.stringify(tops)}`)
-    check(slow.length === 0, `390: ${slow.length} frames over 25ms of ${frames.length} while a panel scrolls by touch`)
+    check(slow.length === 0, `390: ${slow.length} frames over 25ms of ${frames.length} while a panel is scrolled 12px a frame`)
     check(heights.length === 1 && heights[0] === 56, `the sticky bar is ${heights.join("/")}px every frame (56 wanted)`)
     check(stuck.length > 10 && tops.length === 1 && tops[0] === 0, `shown, it is at the column's top every frame (${stuck.length} frames, tops ${JSON.stringify(tops)})`)
     await page.evaluate(() => { document.querySelector("[data-sticky-back]").closest("[data-scroll-container]").scrollTop = 700 })
