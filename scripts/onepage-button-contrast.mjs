@@ -334,13 +334,14 @@ async function statesOf(page, where, { scope = null, states = ["rest", "hover", 
  * The contrast pass for one theme: the page at 390 (every pressable, every state), and its sheets.
  * `open(path, opts)` opens a probe page ({ page }); `id` the theme.
  */
-export async function contrastPass(open, id, { width = 390, sheets = true } = {}) {
+export async function contrastPass(open, id, { width = 390, sheets = true, style = null } = {}) {
+  const bs = style ? `&bs=${style}` : ""
   const failures = []
   const opened = []
   let readings = 0
   let buttons = 0
   {
-    const { page } = await open(`/app?live&all=1&t=${encodeURIComponent(id)}`, { width, height: 900 })
+    const { page } = await open(`/app?live&all=1${bs}&t=${encodeURIComponent(id)}`, { width, height: 900 })
     await page.waitForFunction(() => document.querySelectorAll(".op-btn").length > 0, { timeout: 15000 })
     await page.evaluate(() => Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 2500))]))
     await sleep(900)
@@ -353,7 +354,7 @@ export async function contrastPass(open, id, { width = 390, sheets = true } = {}
     }
     await still(page)
     await sleep(350)
-    const r = await statesOf(page, `${id} ${width}`)
+    const r = await statesOf(page, `${id}${style ? `/${style}` : ""} ${width}`)
     readings += r.readings
     buttons += r.buttons
     failures.push(...r.failures)
@@ -368,7 +369,7 @@ export async function contrastPass(open, id, { width = 390, sheets = true } = {}
       ["tip", () => document.querySelector('[data-tip-amount="other"]')?.click()],
     ]
     for (const [name, how] of opens) {
-      const { page } = await open(`/app?live&all=1&t=${encodeURIComponent(id)}`, { width, height: 844 })
+      const { page } = await open(`/app?live&all=1${bs}&t=${encodeURIComponent(id)}`, { width, height: 844 })
       await page.waitForFunction(() => document.querySelectorAll(".op-btn").length > 0, { timeout: 15000 })
       await page.evaluate(() => Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 2500))]))
       await sleep(700)
@@ -385,7 +386,7 @@ export async function contrastPass(open, id, { width = 390, sheets = true } = {}
         continue
       }
       await still(page)
-      const r = await statesOf(page, `${id} ${name} sheet`, { scope, states: ["rest", "hover", "focus"] })
+      const r = await statesOf(page, `${id}${style ? `/${style}` : ""} ${name} sheet`, { scope, states: ["rest", "hover", "focus"] })
       opened.push(`${name} ${r.buttons}`)
       readings += r.readings
       buttons += r.buttons

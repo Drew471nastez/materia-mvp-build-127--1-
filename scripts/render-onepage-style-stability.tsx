@@ -8,6 +8,7 @@
  *                             as components/onepage/live-preview does, so a theme switch arrives the way it does there
  *   &anim=<pulse|...|swipe>   the blocks that can move, moving
  *   &icons=<style>/<tone>     Design › Social icons over the theme (filled|outline|minimal|glass, brand|mono)
+ *   &bs=<style>               Design › Buttons' style over the theme (filled|soft|outline|glass)
  *   &all=1                    every other block that draws a button or a choice as well (tips, a poll, events, the
  *                             contact card, the menu, booking, a map, a course, the social row as buttons), for the
  *                             contrast pass (scripts/onepage-button-contrast.mjs)
@@ -146,6 +147,9 @@ function pageFor(themeId: string | null): OnePage {
     const hero = (template as { profile_layout?: string }).profile_layout === "hero" || config.header_layout === "hero"
     onepage = lookFromTemplate(onepage, template as never, hero ? "hero" : (template as { profile_layout?: string }).profile_layout === "classic" ? "classic" : undefined, null)
   }
+  /* &bs=<filled|soft|outline|glass>: the button style chosen in Design › Buttons over the theme (the contrast pass's STYLES). */
+  const bs = params.get("bs")
+  if (bs) onepage = { ...onepage, theme: { ...onepage.theme, ...withSkinOwn(onepage.theme as never, { button_style: bs }) } as never }
   const icons = params.get("icons")
   if (icons) {
     const [style, tone] = icons.split("/")

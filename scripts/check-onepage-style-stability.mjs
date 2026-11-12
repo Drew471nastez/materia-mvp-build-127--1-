@@ -40,6 +40,7 @@
  *   node scripts/check-onepage-style-stability.mjs
  *   THEMES=a,b   only these        QUICK=1   live page only, no switch pass
  *   ONLY=load,hover,switch,overlap,icons,motion,contrast
+ *   STYLES=filled,soft,outline,glass  the contrast pass per button style      WIDTH=1280  at a computer's width
  *   SHOW=n      how many problems to print     CONTRAST_JSON=<file>  every contrast failure, as JSON
  */
 import { existsSync, readFileSync } from "node:fs"
@@ -258,8 +259,21 @@ async function loadPass(path, editor, where, extra = {}) {
   return { page, frame }
 }
 
-for (const id of ONLY.has("contrast") ? themeIds : []) {
-  const r = await contrastPass(open, id)
+/* STYLES=filled,soft,...: the contrast pass again with each button style a creator can pick over every theme; WIDTH=1280 at a computer's width. */
+const STYLES = process.env.STYLES ? process.env.STYLES.split(",") : [null]
+const CONTRAST_WIDTH = Number(process.env.WIDTH || 390)
+for (const [id, style] of ONLY.has("contrast") ? themeIds.flatMap((t) => STYLES.map((st) => [t, st])) : []) {
+  /* A page's renderer that goes down (memory shared with other probes) is opened again once; twice is a failure. */
+  let r = null
+  for (let attempt = 0; attempt < 2 && !r; attempt++) {
+    try {
+      r = await contrastPass(open, id, { style, width: CONTRAST_WIDTH, sheets: !style })
+    } catch (e) {
+      if (attempt) fail(`${id} contrast`, `the pass could not read the page: ${String(e.message || e).slice(0, 160)}`)
+      for (const p of await browser.pages()) if (p.url() !== "about:blank") await p.close().catch(() => {})
+    }
+  }
+  if (!r) continue
   counts.contrastButtons += r.buttons
   counts.contrastReadings += r.readings
   counts.contrastBad += r.failures.length
@@ -268,7 +282,7 @@ for (const id of ONLY.has("contrast") ? themeIds : []) {
     contrastAll.push({ theme: id, where: f.where, state: f.state, block: f.block, kind: f.kind, text: f.text, ratio: f.ratio, min: f.min, color: f.color, ground: f.ground })
     fail(`${f.where} ${f.state}`, `${f.block || "page"} ${f.kind} "${f.text}" reads at ${f.ratio}:1 (needs ${f.min}) on ${f.ground}`)
   }
-  if (process.env.PROGRESS) console.log(`  ${id}: ${r.buttons} buttons, ${r.readings} readings, ${r.failures.length} under the minimum (sheets: ${r.opened.join(", ") || "none"})`)
+  if (process.env.PROGRESS) console.log(`  ${id}${style ? `/${style}` : ""}: ${r.buttons} buttons, ${r.readings} readings, ${r.failures.length} under the minimum (sheets: ${r.opened.join(", ") || "none"})`)
 }
 if (process.env.CONTRAST_JSON) (await import("node:fs")).writeFileSync(process.env.CONTRAST_JSON, JSON.stringify(contrastAll, null, 1))
 
