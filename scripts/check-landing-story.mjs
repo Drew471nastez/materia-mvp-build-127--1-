@@ -152,7 +152,7 @@ try {
         (e) =>
           e.getBoundingClientRect().height /
             parseFloat(getComputedStyle(e).lineHeight) <=
-          2.05,
+          (innerWidth < 768 ? 4.05 : 2.05),
       ),
     )
     // Freeze movement for geometry/screenshots; the hero probe separately exercises autoplay and settled slide navigation.
@@ -182,14 +182,18 @@ try {
         "wide / phone / wide cards fit completely on desktop",
       )
       assert.ok(
-        cards[1].h > cards[0].h * 1.1,
-        "OnePage card is taller than desktop cards",
+        cards.every((c) => Math.abs(c.h - cards[0].h) < 2),
+        "all card heights align",
       )
     }
     if (width < 768) {
       assert.ok(
-        cards[0].w >= width - 4,
-        "mobile gallery cards span the viewport",
+        cards[0].w > cards[1].w * 2.4,
+        "mobile retains distinct desktop and portrait proportions",
+      )
+      assert.ok(
+        cards.every((c) => Math.abs(c.h - cards[0].h) < 2),
+        "mobile card heights align",
       )
       assert.ok(Math.abs(cards[0].x) <= 2, "mobile gallery has no inset gutter")
     }

@@ -93,6 +93,9 @@ export function HeroVideo() {
         video.src = HERO_VIDEO.src
         video.load()
       }
+      // An intersection/focus/pageshow update need not issue another play()
+      // promise while the existing decoder is already playing.
+      if (!video.paused && !video.ended) return
       // Autoplay policies may reject even a muted video. Keep the poster and form.
       const ticket = ++attempt
       video.play()?.catch((error: unknown) => {
@@ -223,8 +226,12 @@ export function HeroVideo() {
     // discard its buffer and make the connection problem worse.
     const watchdog = setInterval(() => {
       if (disposed || document.hidden || !allowed() || autoplayBlocked) return
-      const rect = hero.getBoundingClientRect()
-      visible = rect.bottom > 0 && rect.top < innerHeight
+      // IntersectionObserver already tracks visibility. Only measure geometry
+      // in its fallback, avoiding periodic forced layout during page scrolling.
+      if (!observer) {
+        const rect = hero.getBoundingClientRect()
+        visible = rect.bottom > 0 && rect.top < innerHeight
+      }
       if (!visible || hero.getAttribute("data-motion-paused") === "true") {
         lastProgress = performance.now()
         return

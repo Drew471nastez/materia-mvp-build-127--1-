@@ -117,7 +117,7 @@ assert.ok(
 )
 assert.ok(HERO_VIDEO.src.includes("1794426925775466.mp4"))
 const showcase = read("components/marketing/build-showcase.tsx")
-assert.ok(SHOWCASE_HEADING.split(/\s+/).length <= 8)
+assert.equal(SHOWCASE_HEADING, "Everything you need to create, sell, and manage your business online.")
 assert.ok(
   read("components/marketing/use-showcase-motion.ts").includes('mode: "snap"') &&
     showcase.includes('loading="lazy"'),
