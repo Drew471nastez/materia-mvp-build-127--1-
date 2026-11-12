@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "keen-slider/keen-slider.min.css";
 @import "tw-animate-css";
 @import "./hover-variant.css";
 
@@ -10085,3 +10086,8 @@ body:has([data-landing-story]) .storelib-footer [role="status"] {color:#047857}
     left: max(32px, calc(env(safe-area-inset-left, 0px) + 8px));
   }
 }
+
+/* The rounded showcase overlaps the video, rather than rounding the hero. */
+body:has([data-home-hero="cinematic"]) [data-landing-story] {background:transparent}
+
+@media(forced-colors:none){.build-showcase .story-heading [data-story-word]{--word-front:calc(var(--word-fill)*1.24 - 12%);background:linear-gradient(90deg,var(--word-target) calc(var(--word-front) - 6%),var(--story-muted) calc(var(--word-front) + 6%));background-clip:text;-webkit-background-clip:text}}

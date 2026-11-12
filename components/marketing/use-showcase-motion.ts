@@ -1,297 +1,263 @@
 "use client"
 
-import { useEffect, type RefObject } from "react"
+import { useCallback, useMemo } from "react"
+import { useKeenSlider } from "keen-slider/react.js"
+import type { KeenSliderPlugin } from "keen-slider"
 
-/** Mouse drag/inertia share native scrollLeft with touch and trackpads. No snap
- * points compete with the pointer, and no React state updates run per frame. */
-export function useShowcaseMotion(
-  ref: RefObject<HTMLDivElement | null>,
-  count: number,
-) {
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const reduce = matchMedia("(prefers-reduced-motion: reduce)")
-    let period = 0,
-      offsets: number[] = [],
-      position = 0,
-      frame = 0,
-      lastFrame = 0,
-      velocity = 0
-    let visible = true,
-      keyboardActive = false,
-      touching = false,
-      paused = false,
-      ownUntil = 0,
-      resumeAt = 0
-    let idle: ReturnType<typeof setTimeout> | undefined
-    let drag: {
-      id: number
-      x: number
-      left: number
-      samples: { x: number; t: number }[]
-    } | null = null
-    const normalize = () => {
-      if (!period || touching) return
-      let shift = 0
-      while (position < period) {
-        position += period
-        shift += period
-      }
-      while (position >= period * 2) {
-        position -= period
-        shift -= period
-      }
-      if (drag) drag.left += shift
-      if (shift) {
-        ownUntil = performance.now() + 60
-        el.scrollLeft = position
-      }
-    }
-    const stop = () => {
-      cancelAnimationFrame(frame)
-      frame = 0
-      velocity = 0
-      lastFrame = 0
-    }
-    const measure = () => {
-      stop()
-      const old = period
-      const slides = Array.from(
-        el.querySelectorAll<HTMLElement>("[data-showcase-slide]"),
-      )
-      const first = slides[0]
-      // A complete repeated group, not first-card width * count: portrait
-      // and landscape cards have different widths, including across wrap.
-      period =
-        first && slides[count] ? slides[count].offsetLeft - first.offsetLeft : 0
-      offsets = slides
-        .slice(0, count)
-        .map((slide) => slide.offsetLeft - first.offsetLeft)
-      position = old ? period + ((el.scrollLeft % old) / old) * period : period
-      ownUntil = performance.now() + 60
-      el.scrollLeft = position
-      if (drag) {
-        drag = null
-        delete el.dataset.dragging
-      }
-    }
-    const write = () => {
-      normalize()
-      ownUntil = performance.now() + 60
-      el.scrollLeft = position
-    }
-    const tick = (now: number) => {
-      frame = 0
-      const dt = lastFrame ? Math.min(32, now - lastFrame) : 16
-      lastFrame = now
-      if (!drag) {
-        const decay = Math.exp(-dt / 310)
-        position += velocity * 310 * (1 - decay)
-        velocity *= decay
-      }
-      write()
-      if (!drag && Math.abs(velocity) > 0.018)
-        frame = requestAnimationFrame(tick)
-      else lastFrame = 0
-    }
-    const interact = () => {
-      resumeAt = performance.now() + 8000
-    }
-    const end = (event: PointerEvent) => {
-      if (event.pointerType !== "mouse") {
-        touching = false
-        interact()
-        return
-      }
-      if (!drag || event.pointerId !== drag.id) return
-      const d = drag
-      drag = null
-      if (frame) {
-        cancelAnimationFrame(frame)
-        frame = 0
-        write()
-      }
-      delete el.dataset.dragging
-      if (el.hasPointerCapture(event.pointerId))
-        el.releasePointerCapture(event.pointerId)
-      const samples = d.samples,
-        last = samples[samples.length - 1],
-        first = samples.find((s) => s.t >= last.t - 160) || samples[0]
-      velocity =
-        event.type === "pointerup" &&
-        !reduce.matches &&
-        event.timeStamp - last.t < 180
-          ? Math.max(
-              -2.5,
-              Math.min(
-                2.5,
-                -(last.x - first.x) / Math.max(16, event.timeStamp - first.t),
-              ),
-            )
-          : 0
-      lastFrame = 0
-      if (Math.abs(velocity) > 0.018) frame = requestAnimationFrame(tick)
-      else normalize()
-      interact()
-    }
-    const down = (event: PointerEvent) => {
-      keyboardActive = false
-      interact()
-      stop()
-      if (event.pointerType !== "mouse") {
-        touching = true
-        return
-      }
-      if (event.button !== 0) return
-      event.preventDefault()
-      position = el.scrollLeft
-      normalize()
-      drag = {
-        id: event.pointerId,
-        x: event.clientX,
-        left: position,
-        samples: [{ x: event.clientX, t: event.timeStamp }],
-      }
-      el.dataset.dragging = "true"
-      el.setPointerCapture(event.pointerId)
-    }
-    const move = (event: PointerEvent) => {
-      if (!drag || event.pointerId !== drag.id) return
-      if (!(event.buttons & 1)) {
-        end(event)
-        return
-      }
-      event.preventDefault()
-      position = drag.left - (event.clientX - drag.x)
-      drag.samples.push({ x: event.clientX, t: event.timeStamp })
-      while (
-        drag.samples.length > 2 &&
-        drag.samples[1].t < event.timeStamp - 180
-      )
-        drag.samples.shift()
-      if (!frame) frame = requestAnimationFrame(tick)
-    }
-    const lost = () => {
-      if (drag) {
-        drag = null
-        stop()
-        delete el.dataset.dragging
-      }
-    }
-    const scroll = () => {
-      if (!drag && !frame && performance.now() > ownUntil)
-        position = el.scrollLeft
-      clearTimeout(idle)
-      idle = setTimeout(() => {
-        if (!drag && !frame && !touching) {
-          position = el.scrollLeft
-          normalize()
+/** Settled, one-page navigation. A flick advances one group, never free-flings. */
+const showcaseActivity: KeenSliderPlugin = (slider) => {
+  const el = slider.container
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)")
+  let visible = false,
+    dragging = false,
+    paused = false,
+    keyboard = false,
+    disposed = false
+  let resumeAt = 0,
+    dragStart = 0,
+    dragIndex = 0,
+    wheelTotal = 0,
+    wheelUntil = 0
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const animation = () => ({
+    duration: reduce.matches ? 0 : 950,
+    easing: (t: number) => (1 - Math.cos(Math.PI * t)) / 2,
+  })
+  const eligible = () =>
+    !disposed &&
+    visible &&
+    !document.hidden &&
+    !reduce.matches &&
+    !dragging &&
+    !paused &&
+    !(keyboard && el.matches(":focus-within"))
+  const schedule = () => {
+    clearTimeout(timer)
+    if (!eligible()) return
+    timer = setTimeout(
+      () => {
+        if (!eligible()) return
+        if (slider.animator.active) {
+          schedule()
+          return
         }
-      }, 180)
+        slider.moveToIdx(slider.track.details.abs + 1, true, animation())
+      },
+      Math.max(5000, resumeAt - performance.now()),
+    )
+  }
+  const stop = () => {
+    clearTimeout(timer)
+    slider.animator.stop()
+  }
+  const settle = () => {
+    slider.moveToIdx(slider.track.details.abs, true, animation())
+  }
+  const interact = () => {
+    resumeAt = performance.now() + 8000
+    stop()
+  }
+  const pointer = () => {
+    keyboard = false
+    el.dataset.dragging = "true"
+    interact()
+  }
+  const release = () => {
+    if (!dragging) {
+      delete el.dataset.dragging
+      settle()
+      schedule()
     }
-    const wheel = () => {
-      keyboardActive = false
-      stop()
-      interact()
-      position = el.scrollLeft
+  }
+  const wheel = (event: WheelEvent) => {
+    const x = event.shiftKey && !event.deltaX ? event.deltaY : event.deltaX
+    if (!event.shiftKey && Math.abs(x) <= Math.abs(event.deltaY)) return
+    event.preventDefault()
+    keyboard = false
+    if (performance.now() < wheelUntil) {
+      wheelUntil = performance.now() + 250
+      return
     }
-    const nextPosition = (direction: 1 | -1) => {
-      if (!period) return position
-      const relative = ((position % period) + period) % period
-      const target =
-        direction === 1
-          ? (offsets.find((offset) => offset > relative + 2) ?? period)
-          : ([...offsets].reverse().find((offset) => offset < relative - 2) ??
-            offsets[offsets.length - 1] - period)
-      return position + target - relative
-    }
-    const key = (event: KeyboardEvent) => {
-      keyboardActive = true
-      interact()
-      stop()
-      if (event.key === " ") {
-        event.preventDefault()
-        paused = !paused
-        el.dataset.autoplayPaused = String(paused)
-      }
-      if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-        event.preventDefault()
-        position = el.scrollLeft
-        normalize()
-        el.scrollTo({
-          left: nextPosition(event.key === "ArrowRight" ? 1 : -1),
-          behavior: reduce.matches ? "auto" : "smooth",
-        })
-      }
-    }
-    const suspend = () => {
-      lost()
-      stop()
-      touching = false
-    }
-    const observer =
-      typeof IntersectionObserver === "function"
-        ? new IntersectionObserver(
-            ([entry]) => {
-              visible = entry.isIntersecting
-              if (!visible) suspend()
-            },
-            { threshold: 0.1 },
-          )
-        : null
-    observer?.observe(el)
-    const resize =
-      typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null
-    resize?.observe(el)
-    const timer = setInterval(() => {
-      if (
-        !visible ||
-        paused ||
-        touching ||
-        drag ||
-        frame ||
-        document.hidden ||
-        reduce.matches ||
-        (keyboardActive && el.matches(":focus-within")) ||
-        performance.now() < resumeAt
+    wheelTotal += x * (event.deltaMode === 1 ? 16 : 1)
+    if (Math.abs(wheelTotal) < 45) return
+    interact()
+    slider.moveToIdx(
+      slider.track.details.abs + (wheelTotal > 0 ? 1 : -1),
+      true,
+      animation(),
+    )
+    wheelTotal = 0
+    wheelUntil = performance.now() + 250
+    schedule()
+  }
+  const key = (event: KeyboardEvent) => {
+    if (![" ", "ArrowLeft", "ArrowRight", "Home"].includes(event.key)) return
+    event.preventDefault()
+    keyboard = true
+    interact()
+    if (event.key === " ") {
+      paused = !paused
+      el.dataset.autoplayPaused = String(paused)
+    } else
+      slider.moveToIdx(
+        event.key === "Home"
+          ? 0
+          : slider.track.details.abs + (event.key === "ArrowRight" ? 1 : -1),
+        true,
+        animation(),
       )
-        return
-      position = el.scrollLeft
-      normalize()
-      el.scrollTo({ left: nextPosition(1), behavior: "smooth" })
-    }, 4000)
-    measure()
-    el.addEventListener("pointerdown", down)
-    el.addEventListener("pointermove", move)
-    el.addEventListener("pointerup", end)
-    el.addEventListener("pointercancel", end)
-    el.addEventListener("lostpointercapture", lost)
-    el.addEventListener("scroll", scroll, { passive: true })
-    el.addEventListener("wheel", wheel, { passive: true })
-    el.addEventListener("keydown", key)
-    window.addEventListener("blur", suspend)
-    document.addEventListener("visibilitychange", suspend)
-    reduce.addEventListener("change", suspend)
-    if (!resize) window.addEventListener("resize", measure)
-    return () => {
-      stop()
-      clearTimeout(idle)
-      clearInterval(timer)
-      resize?.disconnect()
-      observer?.disconnect()
-      el.removeEventListener("pointerdown", down)
-      el.removeEventListener("pointermove", move)
-      el.removeEventListener("pointerup", end)
-      el.removeEventListener("pointercancel", end)
-      el.removeEventListener("lostpointercapture", lost)
-      el.removeEventListener("scroll", scroll)
-      el.removeEventListener("wheel", wheel)
-      el.removeEventListener("keydown", key)
-      window.removeEventListener("blur", suspend)
-      document.removeEventListener("visibilitychange", suspend)
-      reduce.removeEventListener("change", suspend)
-      window.removeEventListener("resize", measure)
+    schedule()
+  }
+  const blur = () => {
+    keyboard = false
+    schedule()
+  }
+  const sync = () => {
+    if (!eligible()) stop()
+    else {
+      settle()
+      schedule()
     }
-  }, [ref, count])
+  }
+  const observe =
+    typeof IntersectionObserver === "function"
+      ? new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.target !== el) {
+                if (entry.isIntersecting)
+                  el.closest("[data-build-showcase]")?.setAttribute(
+                    "data-showcase-entered",
+                    "",
+                  )
+                continue
+              }
+              const wasVisible = visible
+              visible = entry.intersectionRatio >= 0.5
+              if (entry.isIntersecting)
+                el.parentElement?.setAttribute("data-showcase-entered", "")
+              if (visible) {
+                if (!wasVisible) settle()
+                schedule()
+              } else stop()
+            }
+          },
+          { threshold: [0.1, 0.5] },
+        )
+      : null
+  const fallback = () => {
+    const rect = el.getBoundingClientRect()
+    visible = rect.bottom > 0 && rect.top < innerHeight
+    sync()
+  }
+  slider.on("created", () => {
+    observe?.observe(el)
+    const heading = el
+      .closest("[data-build-showcase]")
+      ?.querySelector(".build-showcase-top")
+    if (heading) observe?.observe(heading)
+    if (!observe) {
+      fallback()
+      window.addEventListener("scroll", fallback, { passive: true })
+    }
+    el.addEventListener("pointerdown", pointer, { passive: true })
+    el.addEventListener("pointerup", release, { passive: true })
+    el.addEventListener("pointercancel", release, { passive: true })
+    el.addEventListener("wheel", wheel, { passive: false })
+    el.addEventListener("keydown", key)
+    el.addEventListener("blur", blur)
+    document.addEventListener("visibilitychange", sync)
+    reduce.addEventListener("change", sync)
+    el.dataset.showcaseIndex = String(slider.track.details.rel)
+  })
+  slider.on("dragStarted", () => {
+    dragging = true
+    dragStart = slider.track.details.position
+    dragIndex = slider.track.details.abs
+    interact()
+    el.dataset.dragging = "true"
+  })
+  slider.on("dragEnded", () => {
+    dragging = false
+    delete el.dataset.dragging
+    resumeAt = performance.now() + 8000
+    const distance = slider.track.details.position - dragStart
+    const target =
+      dragIndex + (Math.abs(distance) > 0.08 ? Math.sign(distance) : 0)
+    // Override the built-in velocity projection: at most one complete slide.
+    queueMicrotask(() => {
+      if (!disposed) {
+        slider.animator.stop()
+        slider.moveToIdx(target, true, animation())
+        schedule()
+      }
+    })
+  })
+  slider.on("slideChanged", () => {
+    el.dataset.showcaseIndex = String(slider.track.details.rel)
+  })
+  slider.on("animationEnded", schedule)
+  slider.on("beforeOptionsChanged", () => {
+    for (const node of el.querySelectorAll<HTMLElement>(
+      ".build-showcase-group,.build-showcase-slide",
+    )) {
+      for (const name of ["min-width", "max-width", "transform"])
+        node.style.removeProperty(name)
+    }
+  })
+  slider.on("updated", () => {
+    stop()
+    schedule()
+  })
+  slider.on("destroyed", () => {
+    disposed = true
+    clearTimeout(timer)
+    observe?.disconnect()
+    window.removeEventListener("scroll", fallback)
+    el.removeEventListener("pointerdown", pointer)
+    el.removeEventListener("pointerup", release)
+    el.removeEventListener("pointercancel", release)
+    el.removeEventListener("wheel", wheel)
+    el.removeEventListener("keydown", key)
+    el.removeEventListener("blur", blur)
+    document.removeEventListener("visibilitychange", sync)
+    reduce.removeEventListener("change", sync)
+  })
+}
+
+export function useShowcaseMotion() {
+  const options = useMemo(
+    () => ({
+      loop: true,
+      mode: "snap" as const,
+      renderMode: "precision" as const,
+      rubberband: false,
+      dragSpeed: 0.65,
+      selector: ".build-showcase-group",
+      slides: { perView: 1, spacing: 24 },
+      breakpoints: {
+        "(max-width: 767px)": {
+          selector: ".build-showcase-slide",
+          slides: { perView: 1, spacing: 12 },
+        },
+      },
+      defaultAnimation: {
+        duration: 950,
+        easing: (t: number) => (1 - Math.cos(Math.PI * t)) / 2,
+      },
+    }),
+    [],
+  )
+  const [attach] = useKeenSlider<HTMLDivElement>(options, [showcaseActivity])
+  return useCallback(
+    (node: HTMLDivElement | null) => {
+      if (node) {
+        node.scrollLeft = 0
+        node.removeAttribute("data-keen-slider-disabled")
+        node.dataset.keenReady = "true"
+      }
+      attach(node)
+    },
+    [attach],
+  )
 }

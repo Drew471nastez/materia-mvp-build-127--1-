@@ -20,6 +20,12 @@ import { tmpdir } from "node:os"
 import { appCss } from "./probe-css.mjs"
 const root = process.cwd(),
   out = mkdtempSync(join(tmpdir(), "storelib-cinematic-"))
+const carouselPosition = el => {
+  const slides = [...el.querySelectorAll('[data-showcase-slide]')]
+  const period = slides.reduce((sum,e)=>sum+e.getBoundingClientRect().width,0) + (parseFloat(getComputedStyle(el).getPropertyValue('--showcase-gap'))||0)*slides.length
+  const position = el.getBoundingClientRect().left - slides[0].getBoundingClientRect().left
+  return ((position % period) + period) % period
+}
 const pause = (ms) => new Promise((r) => setTimeout(r, ms))
 const shots = process.env.HERO_SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
@@ -142,7 +148,7 @@ async function pageFor(mode = "video") {
         return r.abort()
       return r.continue()
     }
-    if (r.url().includes("1794404095596918.mp4")) {
+    if (r.url().includes("1794426925775466.mp4")) {
       page.videoRequests++
       if (
         mode === "failure" ||
@@ -430,11 +436,11 @@ try {
       await page.$eval(".build-showcase-card", (e) =>
         Math.round(e.getBoundingClientRect().width),
       ),
-      390,
+      388,
     )
     const showcaseStyle = await page.$eval('[data-build-showcase]', e => ({bg:getComputedStyle(e).backgroundColor, radius:getComputedStyle(e).borderRadius, margin:getComputedStyle(e).marginTop}))
-    assert.deepEqual(showcaseStyle, {bg:'rgb(255, 255, 255)',radius:'0px',margin:'0px'}, 'showcase is a normal white section without corner wedges')
-    assert.ok(await page.$eval('.build-showcase-track', e => e.getBoundingClientRect().left >= 22 && e.getBoundingClientRect().left <= 26), 'the carousel stays inset from the phone edges')
+    assert.deepEqual(showcaseStyle, {bg:'rgb(7, 16, 17)',radius:'28px',margin:'-12px'}, 'rounded showcase overlaps the square hero')
+    assert.ok(await page.$eval('.build-showcase-viewport', e => e.getBoundingClientRect().left >= 0 && e.getBoundingClientRect().left <= 2), 'the mobile carousel spans the section width')
     assert.equal(await page.$eval('.cinematic-period', e => getComputedStyle(e).color), await page.$eval('.cinematic-phrases', e => getComputedStyle(e).color), 'headline dot inherits the headline color')
     await page.focus("input[type=email]")
     assert.equal(
@@ -463,6 +469,12 @@ try {
         "stable height while mobile toolbar changes",
       )
     }
+    const stableGalleryHeight=await page.$eval('[data-build-showcase]',e=>e.getBoundingClientRect().height)
+    await page.evaluate(()=>{document.body.style.setProperty('--home-env-bottom','34px');document.body.style.setProperty('--home-env-top','44px');dispatchEvent(new Event('resize'))})
+    await pause(150)
+    assert.equal((await page.evaluate(metrics)).hero.h,initial,'toolbar safe-area changes do not resize the hero')
+    assert.equal(await page.$eval('[data-build-showcase]',e=>e.getBoundingClientRect().height),stableGalleryHeight,'toolbar safe-area changes do not resize the showcase')
+    await page.evaluate(()=>{document.body.style.removeProperty('--home-env-bottom');document.body.style.removeProperty('--home-env-top')})
     assert.equal(
       await page.$eval(
         "#platform-header-root",
@@ -548,80 +560,55 @@ try {
     )
     await pause(150)
     assert.equal(await page.$eval('[data-story-heading]', e => e.style.getPropertyValue('--story-progress')), '1.000', 'headline fills completely when scrolled into view')
-    assert.ok(await page.$$eval('[data-story-accent]', els => els.length >= 3 && els.every(e => getComputedStyle(e).getPropertyValue('--word-target').trim() === '#7c3aed')), 'selected headline words fill purple')
-    const showcaseGeometry = await page.$$eval('[data-showcase-slide]', els => els.slice(0, 6).map(e => ({format:e.dataset.format,w:e.getBoundingClientRect().width,h:e.querySelector('.build-showcase-media').getBoundingClientRect().height,fit:getComputedStyle(e.querySelector('img')).objectFit})))
-    assert.deepEqual(showcaseGeometry.map(e => e.format), ['wide','portrait','wide','portrait','wide','portrait'])
-    assert.ok(showcaseGeometry.every(e => e.fit==='contain'), 'all screenshots fit without cropping')
-    assert.ok(showcaseGeometry[0].w > showcaseGeometry[1].w * 2, 'portrait cards are genuinely narrower')
-    assert.ok(Math.abs((showcaseGeometry[1].w-2)/showcaseGeometry[1].h - 9/16) < .02, 'portrait media uses a phone ratio')
-    const track = ".build-showcase-track"
-    const start = await page.$eval(track, (e) => e.scrollLeft)
-    await page.mouse.move(0, 0)
-    await pause(4400)
-    assert.ok(
-      await page.$eval(track, (e, start) => e.scrollLeft > start + 20, start),
-      "showcase advances automatically",
-    )
-    const box = await (await page.$(track)).boundingBox()
-    const prior = await page.$eval(track, (e) => e.scrollLeft)
-    await page.mouse.move(box.x + 280, box.y + 80)
-    await page.mouse.down()
-    assert.equal(
-      await page.$eval(track, (e) => getComputedStyle(e).cursor),
-      "grabbing",
-    )
-    await page.mouse.move(box.x + 70, box.y + 80, { steps: 12 })
-    assert.ok(
-      await page.$eval(track, (e, prior) => e.scrollLeft > prior + 150, prior),
-      "mouse drag follows the pointer",
-    )
-    await page.mouse.up()
-    const released = await page.$eval(track, (e) => e.scrollLeft)
-    await pause(160)
-    const coast = await page.$eval(track, (e) => e.scrollLeft)
-    assert.ok(coast > released + 5, "release continues with inertia")
-    await pause(1500)
-    const settled = await page.$eval(track, (e) => e.scrollLeft)
-    await pause(300)
-    assert.ok(
-      Math.abs((await page.$eval(track, (e) => e.scrollLeft)) - settled) < 2,
-      "inertia gently settles",
-    )
-    for (const duration of [1000, 2000]) {
-      await page.mouse.move(box.x + 280, box.y + 80)
-      await page.mouse.down()
-      for (let i = 1; i <= 20; i++) {
-        await pause(duration / 20)
-        await page.mouse.move(box.x + 280 - i * 10, box.y + 80)
-      }
-      await page.mouse.up()
-      const release = await page.$eval(track, e => e.scrollLeft)
-      await pause(180)
-      const longCoast = await page.$eval(track, e => e.scrollLeft)
-      const period = await page.$eval(track, e => {const slides=e.querySelectorAll('[data-showcase-slide]'); return slides[Number(e.dataset.showcaseCount)].offsetLeft-slides[0].offsetLeft})
-      const distance = (longCoast - release + period) % period
-      assert.ok(distance > 5 && distance < period / 2, `a ${duration}ms drag coasts on release: ${release} -> ${longCoast}, distance ${distance}`)
-      await pause(1800)
-    }
-    const resumeStart = await page.$eval(track, e => e.scrollLeft)
-    await page.focus(track) // Pointer focus must not indefinitely disable autoplay.
-    await pause(12500)
-    assert.ok(await page.$eval(track, (e, start) => Math.abs(e.scrollLeft - start) > 20, resumeStart), "autoplay resumes after interaction with the pointer still over the rail")
+    assert.ok(await page.$$eval('[data-story-accent]', els => els.length === 1 && els.every(e => getComputedStyle(e).getPropertyValue('--word-target').trim() === '#bca3ff')), 'selected headline words fill purple')
+    const formats=await page.$$eval('[data-showcase-group]',es=>es.map(e=>[...e.querySelectorAll('[data-showcase-slide]')].map(c=>c.dataset.format)))
+    assert.deepEqual(formats,Array.from({length:3},()=>['wide','portrait','wide']),'each desktop page contains one complete composition')
+    const track='.build-showcase-track'
+    const index=()=>page.$eval(track,e=>Number(e.dataset.showcaseIndex))
+    const box=await(await page.$(track)).boundingBox()
+    const start=await index();await pause(1100)
+    assert.equal(await index(),start,'gallery rests initially')
+    await pause(5300)
+    assert.equal(await index(),(start+1)%9,'autoplay advances one mobile page')
+    const settled=await index();await pause(900);assert.equal(await index(),settled,'autoplay rests between pages')
+    await page.mouse.move(box.x+260,box.y+90);await page.mouse.down();await page.mouse.move(box.x+240,box.y+90,{steps:5});await page.mouse.up();await pause(1100)
+    assert.equal(await index(),settled,'a small grab returns to the same slide')
+    await page.mouse.move(box.x+280,box.y+90);await page.mouse.down();await page.mouse.move(box.x+60,box.y+90,{steps:12});await page.mouse.up();await pause(1100)
+    assert.equal(await index(),(settled+1)%9,'a drag advances exactly one complete mobile slide')
+    const resumeStart=await index();await page.focus(track);await pause(10000)
+    assert.equal(await index(),(resumeStart+1)%9,'autoplay resumes with one settled page after interaction')
+    await page.keyboard.press('Space');assert.equal(await page.$eval(track,e=>e.dataset.autoplayPaused),'true')
+    await page.$eval(track,e=>e.blur());const held=await index();await pause(5300);assert.equal(await index(),held,'Space pauses autoplay')
+    await page.mouse.move(box.x+100,box.y+90);await page.mouse.wheel({deltaX:120,deltaY:0});await pause(1100)
+    assert.equal(await index(),(held+1)%9,'horizontal wheel advances one complete slide')
+    const verticalBefore=await page.evaluate(()=>scrollY);await page.mouse.wheel({deltaX:0,deltaY:120});await pause(350)
+    assert.ok(await page.evaluate(y=>scrollY>y+40,verticalBefore),'vertical wheel scrolling stays native')
+    // Leaving during a transition must not leave a half-page frozen on return.
     await page.focus(track)
-    await page.keyboard.press("Space")
-    assert.equal(
-      await page.$eval(track, (e) => e.dataset.autoplayPaused),
-      "true",
-    )
-    await page.$eval(track, (e) => e.blur())
-    const held = await page.$eval(track, (e) => e.scrollLeft)
-    await pause(4200)
-    assert.equal(await page.$eval(track, (e) => e.scrollLeft), held)
+    await page.keyboard.press("ArrowRight")
+    await pause(250)
+    await page.evaluate(() => scrollTo(0, 0))
+    await pause(180)
+    await page.$eval('[data-build-showcase]', e => e.scrollIntoView({block: 'start', behavior: 'instant'}))
+    await pause(1200)
+    assert.ok(await page.$eval(track, e => {
+      const active = e.querySelectorAll('[data-showcase-slide]')[Number(e.dataset.showcaseIndex)]
+      return Math.abs(active.getBoundingClientRect().left - e.getBoundingClientRect().left) < 2
+    }), 'returning to an interrupted gallery settles to a complete page')
     if (shots)
       await page.screenshot({ path: join(shots, "showcase-mobile.png") })
     await page.setViewport({ width: 1440, height: 900 })
     await page.evaluate(() => scrollTo(0, 0))
     await pause(200)
+    await page.$eval('[data-build-showcase]',e=>e.scrollIntoView({block:'start',behavior:'instant'}))
+    await page.focus('.build-showcase-track');await page.keyboard.press('Home');await pause(1200)
+    const desktop=await page.$$eval('[data-showcase-group]',es=>es[0].querySelectorAll('[data-showcase-slide]').length)
+    assert.equal(desktop,3)
+    const desktopStart=await page.$eval('.build-showcase-track',e=>Number(e.dataset.showcaseIndex))
+    const desktopBox=await(await page.$('.build-showcase-track')).boundingBox()
+    await page.mouse.move(desktopBox.x+400,desktopBox.y+100);await page.mouse.down();await page.mouse.move(desktopBox.x+180,desktopBox.y+100,{steps:15});await page.mouse.up();await pause(1200)
+    assert.equal(await page.$eval('.build-showcase-track',e=>Number(e.dataset.showcaseIndex)),(desktopStart+1)%3,'desktop dragging snaps to the next entire group')
+    await page.evaluate(()=>scrollTo(0,0))
     await setViewer("creator")
     assert.equal(
       await page.$eval(".cinematic-account", (e) => e.textContent),
@@ -864,7 +851,7 @@ try {
     await pause(200)
     const track = ".build-showcase-track",
       box = await (await page.$(track)).boundingBox(),
-      before = await page.$eval(track, (e) => e.scrollLeft),
+      before = await page.$eval(track, carouselPosition),
       client = await page.createCDPSession()
     await client.send("Input.dispatchTouchEvent", {
       type: "touchStart",
@@ -882,11 +869,16 @@ try {
       touchPoints: [],
     })
     await pause(400)
-    const touchAfter = await page.$eval(track, (e) => e.scrollLeft)
+    const touchAfter = await page.$eval(track, carouselPosition)
     assert.ok(
       Math.abs(touchAfter - before) > 60,
       "native finger swipe moves the carousel",
     )
+    const verticalStart=await page.evaluate(()=>scrollY)
+    await client.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:200,y:box.y+100}]})
+    for(let i=1;i<=10;i++){await client.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[{x:200,y:box.y+100-i*14}]});await pause(16)}
+    await client.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});await pause(300)
+    assert.ok(await page.evaluate(y=>scrollY>y+40,verticalStart),'vertical finger swipes remain native over Keen Free Mode')
     assert.deepEqual(page.errors, [])
     await page.close()
     console.log(
@@ -937,11 +929,9 @@ try {
     await pause(mode === "slow" ? 400 : mode === "failure" ? 6400 : 2400)
     assert.equal(
       await page.$eval("video", (v) => v.dataset.ready),
-      mode === "no-intersection-observer" ||
-        mode === "no-hydration" ||
-        mode === "recover"
-        ? "true"
-        : "false",
+      mode === "autoplay-denied"
+        ? await page.$eval("video", v => v.readyState >= 2 && !v.error ? "true" : "false")
+        : mode === "no-intersection-observer" || mode === "no-hydration" || mode === "recover" ? "true" : "false",
       `${mode} poster`,
     )
     assert.ok(
@@ -982,7 +972,7 @@ try {
       }
     })
     await page.goto(origin, { waitUntil: "networkidle0" })
-    assert.equal(await page.$eval("video", (v) => v.dataset.ready), "false")
+    assert.equal(await page.$eval("video", (v) => v.paused), true)
     await page.evaluate(() => {
       window.__allowResume()
       dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }))

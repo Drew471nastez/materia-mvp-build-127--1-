@@ -4631,7 +4631,7 @@ function CoreBlockRenderer({
                   disabled={!done && (isSubmitting || emailSubmitted || !emailReady)}
                   data-email-ready={emailReady ? "" : undefined}
                   className="group/send inline-flex h-12 shrink-0 items-center gap-1.5 text-[14.5px] font-semibold duration-200 ease-out disabled:cursor-not-allowed motion-reduce:transition-none"
-                  style={{ color: pageInk, ...signupWait(done || emailReady || isSubmitting) }}
+                  style={{ color: pageInk, ...signupWait(Boolean(done || emailReady || isSubmitting)) }}
                   data-email-send=""
                 >
                   {done ? "Download" : isSubmitting ? "..." : buttonText}
