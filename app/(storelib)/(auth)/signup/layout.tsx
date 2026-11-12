@@ -16,6 +16,9 @@ export const metadata: Metadata = pageMetadata({
   robots: { index: true, follow: true },
 })
 
+/* Drawn per request, with the form and the address's own ?intent= and ?next= in the first HTML (components/auth/auth-arrival-server.tsx). */
+export const dynamic = "force-dynamic"
+
 export default function SignupLayout({ children }: { children: React.ReactNode }) {
   return <AuthArrival>{children}</AuthArrival>
 }

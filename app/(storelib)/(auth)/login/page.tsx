@@ -8,7 +8,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { isAbsoluteTarget } from "@/lib/auth/return-to"
 import { getMainDomain } from "@/lib/url-helpers"
-import { useState, useEffect, Suspense, useRef, useMemo } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { AuthPhoto, LOGIN_PHOTO } from "@/components/auth/auth-photo"
 import { AuthLogo } from "@/components/auth/auth-logo"
@@ -962,14 +962,14 @@ function LoginFormContent() {
   )
 }
 
-function LoginFormFallback() {
-  return <AuthResolvingScreen />
-}
-
+/*
+  NO SUSPENSE BOUNDARY HERE ANY MORE (round 3). It was only for the static
+  build, which drew the boundary's spinner as the whole page; the layout now
+  reads the request (components/auth/auth-arrival-server.tsx), so this is
+  drawn per request with the form in it. A boundary would let the server
+  send its spinner first and swap the form in after it: on a slow phone that
+  spinner painted, and was the flash this page is not to have.
+*/
 export default function LoginPage() {
-  return (
-    <Suspense fallback={<LoginFormFallback />}>
-      <LoginFormContent />
-    </Suspense>
-  )
+  return <LoginFormContent />
 }

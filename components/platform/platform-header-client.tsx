@@ -37,6 +37,7 @@ import "@/lib/i18n/locale-words-shell"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { headerAuthBack } from "@/lib/auth/return-to"
 import { SELL_INTENT, withCarry } from "@/lib/auth/continue"
+import { warmAuthPhoto } from "@/components/auth/auth-photo"
 import { hasStoredSessionToken, signedOutForSure, storedSessionKey } from "@/lib/auth/session-read"
 import { hasSellerAccess, sellerAccessFrom, type SellerState } from "@/lib/account/seller-access"
 import { useShellAvatar } from "@/lib/account/avatar-store"
@@ -190,7 +191,7 @@ const DARK_FOCUS =
   "outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113]"
 
 /** Where a header link goes, and the click that gets it there (canonical host, native shell). */
-export type HeaderLink = (path: string) => { href: string; onClick: (e: React.MouseEvent<HTMLElement>) => void; prefetch?: false }
+export type HeaderLink = (path: string) => { href: string; onClick: (e: React.MouseEvent<HTMLElement>) => void; prefetch?: false; onPointerEnter?: () => void }
 
 /* Log in and Sign up are read when pressed, not on sight: on a stranger's Explore every copy of each asked the server for its page, five Sign ups at once (round 54, scripts/check-cdn-r54.mjs). */
 const READ_ON_PRESS = /^\/(?:login|signup)(?:[/?#]|$)/
@@ -2097,7 +2098,7 @@ export function PlatformHeaderClient({
 
   /* The href and the click for one path, in the form the buttons above take. */
   const headerLink: HeaderLink = useCallback(
-    (path: string) => ({ href: getCanonicalOrRelativePath(path), onClick: (e: React.MouseEvent<HTMLElement>) => onCanonicalNav(e, path), ...(READ_ON_PRESS.test(path) ? { prefetch: false as const } : {}) }),
+    (path: string) => ({ href: getCanonicalOrRelativePath(path), onClick: (e: React.MouseEvent<HTMLElement>) => onCanonicalNav(e, path), ...(READ_ON_PRESS.test(path) ? { prefetch: false as const, onPointerEnter: () => warmAuthPhoto(path) } : {}) }),
     [getCanonicalOrRelativePath, onCanonicalNav],
   )
   /*

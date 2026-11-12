@@ -61,3 +61,34 @@ export function AuthPhoto({ src, className }: { src: string; className?: string 
     </div>
   )
 }
+
+/**
+ * Asks for the photo a moment early: a pointer resting on Log in, Sign up or
+ * Sell on Storelib in the header, on a screen wide enough to show it. The
+ * press then lands on a page whose photo is already in the cache. A phone
+ * never calls it, and a narrow window asks for nothing.
+ */
+export function warmAuthPhoto(href: string): void {
+  if (typeof window === "undefined" || !window.matchMedia(WIDE).matches) return
+  const src = /^\/login(?:[?#]|$)/.test(href) ? LOGIN_PHOTO : /^\/signup(?:[?#]|$)/.test(href) ? SIGNUP_PHOTO : null
+  if (!src) return
+  const { props } = getImageProps({ src, alt: "", fill: true, sizes: SIZES, quality: 75 })
+  const { props: soft } = getImageProps({ src, alt: "", width: 32, height: 32, quality: 75 })
+  for (const [key, attrs] of [
+    [soft.src, { href: soft.src }],
+    [props.srcSet ?? props.src, { imageSrcset: props.srcSet ?? "", imageSizes: SIZES }],
+  ] as const) {
+    if (document.head.querySelector(`link[data-auth-photo-warm="${CSS.escape(key)}"]`)) continue
+    const link = document.createElement("link")
+    link.rel = "preload"
+    link.as = "image"
+    link.media = WIDE
+    link.dataset.authPhotoWarm = key
+    if ("href" in attrs) link.href = attrs.href
+    else {
+      link.setAttribute("imagesrcset", attrs.imageSrcset)
+      link.setAttribute("imagesizes", attrs.imageSizes)
+    }
+    document.head.appendChild(link)
+  }
+}

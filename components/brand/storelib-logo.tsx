@@ -1,6 +1,6 @@
 import Image from "next/image"
 import type { CSSProperties } from "react"
-import { STORELIB_LOGO, STORELIB_LOGO_SHADOW, storelibLogoRadius } from "@/lib/brand/logo"
+import { STORELIB_LOGO, STORELIB_LOGO_GROUND, STORELIB_LOGO_SHADOW, storelibLogoRadius } from "@/lib/brand/logo"
 
 /**
  * ===========================================================================
@@ -67,6 +67,8 @@ export function StorelibLogo({
         objectFit: "cover",
         borderRadius: `var(--storelib-logo-radius, ${storelibLogoRadius(size)}px)`,
         boxShadow: STORELIB_LOGO_SHADOW,
+        /* The logo's own violet under it, so the square is there from the first frame and the S lands on it (round 3: a cold Log in drew "Storelib" with an empty space beside it first). */
+        backgroundColor: STORELIB_LOGO_GROUND,
         ...style,
       }}
     />

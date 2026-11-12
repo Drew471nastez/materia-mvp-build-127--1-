@@ -71,6 +71,11 @@ const SAMPLER = `(() => {
     return Math.round(o * 1000) / 1000
   }
   const tick = () => {
+    /* Before the document's first contentful paint nothing of it is on screen (the tab still shows what it had), so nothing is read. */
+    if (!performance.getEntriesByType("paint").some((e) => e.name === "first-contentful-paint")) {
+      samples.push({ t: Math.round(performance.now() - t0), path: location.pathname, state: "unpainted" })
+      return void requestAnimationFrame(tick)
+    }
     const form = document.querySelector('[data-page="login"],[data-page="signup"]')
     const h1 = form && form.querySelector("h1")
     const spinner = [...document.querySelectorAll(".animate-spin,.auth-spinner")].find((s) => {
@@ -158,9 +163,11 @@ async function film(page, out) {
   return { stop: async () => { await cdp.send("Page.stopScreencast").catch(() => {}); return n } }
 }
 
-function summarise(samples, from) {
+function summarise(all, from) {
+  let samples = all
   const seq = []
   for (const s of samples) if (!seq.length || seq[seq.length - 1].state !== s.state) seq.push({ state: s.state, t: s.t })
+  samples = samples.filter((s) => s.state !== "unpainted")
   const start = samples.findIndex((s) => s.state !== "old")
   const after = start < 0 ? [] : samples.slice(start)
   const firstForm = after.find((s) => s.state === "form" || s.state === "entering")
@@ -243,7 +250,8 @@ async function press(browser, view, from, which) {
   const samples = await page.evaluate(() => window.__arrival || []).catch(() => [])
   const frames = await cam.stop()
   const sum = summarise(samples, from)
-  const photoAskedMs = images.length ? images[0].at - pressedAt : null
+  const full = images.find((i) => !/[?&]w=(16|32|48|64)&/.test(i.url))
+  const photoAskedMs = full ? full.at - pressedAt : null
   const row = { kind: "press", view: view.name, from, link: which.name, frames, photoAskedMs, landed: samples.at(-1)?.path, ...sum }
   results.push(row)
   if (sum.blankFrames) failures.push(`${view.name} ${from} ${which.name}: ${sum.blankFrames} blank/spinner frame(s) (${sum.sequence})`)
@@ -271,14 +279,23 @@ async function cold(browser, view, path) {
   const samples = await page.evaluate(() => window.__arrival || [])
   const timing = await page.evaluate(() => {
     const fp = performance.getEntriesByType("paint").find((e) => e.name === "first-contentful-paint")
-    const img = performance.getEntriesByType("resource").find((e) => e.name.includes("/_next/image") && e.name.includes("collage"))
-    return { lcp: Math.round(window.__lcp), cls: Math.round(window.__cls * 10000) / 10000, fcp: fp ? Math.round(fp.startTime) : null, imgStart: img ? Math.round(img.startTime) : null, imgEnd: img ? Math.round(img.responseEnd) : null }
+    const nav = performance.getEntriesByType("navigation")[0]
+    const photos = performance.getEntriesByType("resource").filter((e) => e.name.includes("/_next/image") && e.name.includes("collage"))
+    /* The photo at the panel's width, not the 32px copy drawn under it. */
+    const img = photos.find((e) => !/[?&]w=(16|32|48|64)&/.test(e.name)) ?? null
+    const soft = photos.find((e) => /[?&]w=(16|32|48|64)&/.test(e.name)) ?? null
+    return {
+      ttfb: nav ? Math.round(nav.responseStart) : null,
+      lcp: Math.round(window.__lcp), cls: Math.round(window.__cls * 10000) / 10000, fcp: fp ? Math.round(fp.startTime) : null,
+      imgStart: img ? Math.round(img.startTime) : null, imgEnd: img ? Math.round(img.responseEnd) : null,
+      softEnd: soft ? Math.round(soft.responseEnd) : null,
+    }
   })
   const frames = await cam.stop()
   const sum = summarise(samples, "__none__")
   const row = { kind: "cold", view: view.name, path, frames, ...timing, photoRequests: images.length, ...sum }
   results.push(row)
-  const first = samples.find((s) => s.state !== "old")
+  const first = samples.find((s) => s.state !== "old" && s.state !== "unpainted")
   if (first && first.state !== "form") failures.push(`cold ${view.name} ${path}: the first drawn frame is "${first.state}" (${sum.sequence})`)
   if (sum.jumpPx > 1) failures.push(`cold ${view.name} ${path}: the heading moved ${sum.jumpPx}px`)
   if (timing.cls > 0.01) failures.push(`cold ${view.name} ${path}: layout shift ${timing.cls}`)
@@ -306,7 +323,7 @@ try {
 
 for (const r of results) {
   if (r.kind === "press") console.log(`press ${r.view.padEnd(7)} ${r.from.padEnd(8)} ${r.link.padEnd(6)} -> ${String(r.landed).padEnd(8)} ${r.sequence} | blank ${r.blankFrames} entering ${r.enteringFrames} jump ${r.jumpPx}px form ${r.firstFormMs}ms settled ${r.settledMs}ms photo asked ${r.photoAskedMs}ms drawn ${r.photoMs}ms | frames ${r.frames}`)
-  else console.log(`cold  ${r.view.padEnd(7)} ${r.path.padEnd(20)} ${r.sequence} | fcp ${r.fcp} lcp ${r.lcp} cls ${r.cls} photo ${r.imgStart}-${r.imgEnd}ms (${r.photoRequests} req) jump ${r.jumpPx}px | frames ${r.frames}`)
+  else console.log(`cold  ${r.view.padEnd(7)} ${r.path.padEnd(20)} ${r.sequence} | ttfb ${r.ttfb} fcp ${r.fcp} (+${r.fcp - r.ttfb}) lcp ${r.lcp} (+${r.lcp - r.ttfb}) cls ${r.cls} photo ${r.imgStart}-${r.imgEnd}ms soft ${r.softEnd}ms (${r.photoRequests} req) jump ${r.jumpPx}px | frames ${r.frames}`)
 }
 if (OUT) writeFileSync(join(OUT, "results.json"), JSON.stringify(results, null, 2))
 if (failures.length) {
