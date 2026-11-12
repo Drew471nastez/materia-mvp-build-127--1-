@@ -10,8 +10,13 @@
  *   - the card keeps its corners at the top of the window as it scrolls, so
  *     the wallpaper shows round the bar's corners, not the content
  *   - the fade layout's picture is shorter: 8/9 on a phone, 5/4 on a computer
+ *   - a block sheet is drawn whole on its first frame: the weights of the
+ *     page's typeface it draws in are read while the page is idle, so its
+ *     title and button never arrive in a fallback face and swap
  *
- * scripts/check-onepage-header-as.mjs measures them frame by frame in Chromium.
+ * scripts/check-onepage-header-as.mjs measures the shell frame by frame in
+ * Chromium, and scripts/check-onepage-sheet-first-frame.mjs every part of a
+ * sheet from the press.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -54,6 +59,13 @@ check("its shadow is drawn by the box around it, which the cut leaves alone", /<
 
 /* ── The fade layout's picture ── */
 check("8/9 on a phone and 5/4 on a computer", /const aspectRatio = isDesktop \? "5\/4" : "8\/9"/.test(page))
+
+/* ── A sheet whole on its first frame ── */
+const sheet = read("components/onepage/block-sheet.tsx")
+check("the sheet's weights of the page's typeface are read while the page is idle", /const SHEET_WEIGHTS = \[400, 500, 600, 700\] as const/.test(sheet) && /useEffect\(\(\) => whenIdle\(warmSheetFaces\), \[\]\)/.test(sheet) && /document\.fonts\.load\(`\$\{weight\} 16px \$\{stack\}`\)/.test(sheet))
+check("from the variables the sheet itself draws with, the title's family too", /getPropertyValue\("--opk-font"\), root\.getPropertyValue\("--opk-title-font"\)/.test(sheet) && /fontFamily: "var\(--opk-font, inherit\)"/.test(read("components/onepage/onepage-dialog.tsx")))
+check("the sheet's weights are the ones it draws in", /font-medium text-\[var\(--sheet-ink\)\]/.test(sheet) && /font-semibold text-\[var\(--sheet-on-ink\)\]/.test(sheet))
+check("the probe for it is registered beside the shell's", /scripts\/render-onepage-sheet-first-frame\.tsx/.test(read("scripts/check-onepage-sheet-first-frame.mjs")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) {

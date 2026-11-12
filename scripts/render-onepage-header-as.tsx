@@ -8,6 +8,8 @@
  *   &dark                 a dark page
  *   &verified             the verified badge beside the name
  *   &nofade               the cover's fade switched off
+ *   &sheets               Spotify, YouTube, a map and a contact form, each opening in the
+ *                         block sheet (scripts/check-onepage-sheet-first-frame.mjs)
  *   &rows                 the rows that slide sideways: a group carousel of products, a
  *                         group carousel of links, a shelf of product cards, a shelf of
  *                         simple cards
@@ -57,6 +59,15 @@ const blocks = [
         block("g-links", "group", { title: "Links", layout: "carousel", carousel_view: "1.5", children: [block("c1", "link_button", { label: "Podcast", url: "https://example.com/1" }, 0), block("c2", "link_button", { label: "Newsletter", url: "https://example.com/2" }, 1), block("c3", "link_button", { label: "Tour dates", url: "https://example.com/3" }, 2)] }, n++),
         block("shelf-cards", "storelib_shelf", { title: "Products", source: "all", layout: "carousel", limit: 4, product_settings: { show_price: true }, card_style: "product" }, n++),
         block("shelf-simple", "storelib_shelf", { title: "More", source: "all", layout: "carousel", limit: 4, card_style: "simple" }, n++),
+      ]
+    : []),
+  /* &sheets (scripts/check-onepage-sheet-first-frame.mjs): blocks that open in the block sheet, on the real page. */
+  ...(params.has("sheets")
+    ? [
+        block("sp", "music", { url: "https://open.spotify.com/album/1DFixLWuPkv3KT3TnV35m3", title: "", open_mode: "sheet", layout: "button" }, n++),
+        block("yt", "video", { url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "", open_mode: "sheet", layout: "button" }, n++),
+        block("mp", "map", { address: "Rua Augusta 1, Lisbon", title: "", open_mode: "sheet" }, n++),
+        block("cf", "contact_form", { title: "Write to me", description: "Questions about prints and commissions", open_mode: "sheet" }, n++),
       ]
     : []),
   ...Array.from({ length: 12 }, (_, i) => block(`t${i}`, "text", { content: `Paragraph ${i + 1}. Prints, posters and notes from the studio, written long enough to wrap onto a second line.` }, n++)),
