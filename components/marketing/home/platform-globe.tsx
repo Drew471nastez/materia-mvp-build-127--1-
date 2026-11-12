@@ -10,6 +10,12 @@
   batched paths by depth (three fill calls, no per-dot state changes). The
   shaded sphere behind is painted once per size into an offscreen canvas.
 
+  Where the browser can, the canvas is handed to a worker that turns and
+  draws it (platform-globe-worker.ts, shipped as a string built by
+  scripts/build-globe-worker.mjs), so the page's own thread does nothing
+  per frame; elsewhere it is drawn here, with the same drawing
+  (platform-globe-draw.ts).
+
   It draws only while `running` (the section on screen, the tab visible).
   Under reduced motion it draws one still frame. Device pixels are capped at
   1.5x (dots this small look the same at 2x and cost 78% more to upload each
@@ -18,6 +24,8 @@
 
 import { useEffect, useRef, useState } from "react"
 import { PLATFORM_LAND_B64, PLATFORM_LAND_H, PLATFORM_LAND_W } from "./platform-globe-land"
+import { drawGlobe, paintGlobeBackdrop, stepGlobe, stillPulses, type GlobePulse } from "./platform-globe-draw"
+import { GLOBE_WORKER_SOURCE } from "./platform-globe-worker-source"
 
 /** Places visits pulse from: lat, lng. */
 export const PLATFORM_GLOBE_SPOTS: Array<[number, number]> = [
@@ -60,6 +68,41 @@ const toXYZ = ([lat, lng]: [number, number]) => {
   const lam = lng * DEG
   return [Math.cos(phi) * Math.sin(lam), Math.sin(phi), Math.cos(phi) * Math.cos(lam)] as const
 }
+const SPOTS_XYZ = PLATFORM_GLOBE_SPOTS.map(toXYZ)
+
+/** Worker messages out: a pulse started (its spot), or the first frame is drawn. */
+type FromWorker = { type: "pulse"; s: number } | { type: "drawn" }
+
+/** The worker drawing a canvas, if this browser can hand a canvas to one. Kept per canvas: a canvas is handed over once. */
+const workers = new WeakMap<HTMLCanvasElement, { worker: Worker; users: number; stop?: ReturnType<typeof setTimeout> }>()
+function globeWorker(canvas: HTMLCanvasElement, pts: Float32Array, angle: number) {
+  const held = workers.get(canvas)
+  if (held) {
+    clearTimeout(held.stop)
+    held.users++
+    return held
+  }
+  if (typeof Worker !== "function" || typeof OffscreenCanvas !== "function" || typeof canvas.transferControlToOffscreen !== "function") return null
+  let worker: Worker
+  try {
+    /* The worker's code ships inside this chunk (scripts/build-globe-worker.mjs): no file to fetch. */
+    const url = URL.createObjectURL(new Blob([GLOBE_WORKER_SOURCE], { type: "text/javascript" }))
+    worker = new Worker(url)
+    setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  } catch {
+    return null
+  }
+  try {
+    const off = canvas.transferControlToOffscreen()
+    worker.postMessage({ type: "init", canvas: off, pts, spots: SPOTS_XYZ, angle }, [off])
+    const entry = { worker, users: 1 } as { worker: Worker; users: number; stop?: ReturnType<typeof setTimeout> }
+    workers.set(canvas, entry)
+    return entry
+  } catch {
+    worker.terminate()
+    return null
+  }
+}
 
 export function PlatformGlobe({
   running,
@@ -77,12 +120,13 @@ export function PlatformGlobe({
   const state = useRef<{
     pts: Float32Array | null
     angle: number
-    pulses: Array<{ s: number; t0: number }>
+    pulses: GlobePulse[]
     nextPulse: number
     bg: HTMLCanvasElement | null
     size: number
     dpr: number
-  }>({ pts: null, angle: -1.2, pulses: [], nextPulse: 0, bg: null, size: 0, dpr: 1 })
+    worker: Worker | null
+  }>({ pts: null, angle: -1.2, pulses: [], nextPulse: 0, bg: null, size: 0, dpr: 1, worker: null })
   const onPulseRef = useRef(onPulse)
   onPulseRef.current = onPulse
 
@@ -92,45 +136,51 @@ export function PlatformGlobe({
     if (!canvas) return
     const st = state.current
     st.pts ??= landPoints()
+    const held = globeWorker(canvas, st.pts, st.angle)
+    if (held) {
+      st.worker = held.worker
+      held.worker.onmessage = (e: MessageEvent<FromWorker>) => {
+        if (e.data.type === "pulse") onPulseRef.current?.(e.data.s)
+        else if (e.data.type === "drawn" && !canvas.hasAttribute("data-drawn")) canvas.setAttribute("data-drawn", "")
+      }
+    }
     const fit = () => {
       const size = Math.round(canvas.getBoundingClientRect().width)
       const dpr = Math.min(1.5, window.devicePixelRatio || 1)
       if (!size || (size === st.size && dpr === st.dpr)) return
       st.size = size
       st.dpr = dpr
+      if (st.worker) {
+        st.worker.postMessage({ type: "size", size, dpr })
+        return
+      }
       canvas.width = Math.round(size * dpr)
       canvas.height = Math.round(size * dpr)
       const bg = document.createElement("canvas")
       bg.width = canvas.width
       bg.height = canvas.height
       const g = bg.getContext("2d")
-      if (g) {
-        const W = bg.width
-        const R = W * 0.44
-        const halo = g.createRadialGradient(W / 2, W / 2, R * 0.9, W / 2, W / 2, R * 1.22)
-        halo.addColorStop(0, "rgba(139,92,246,0.28)")
-        halo.addColorStop(1, "rgba(139,92,246,0)")
-        g.fillStyle = halo
-        g.fillRect(0, 0, W, W)
-        const body = g.createRadialGradient(W * 0.4, W * 0.36, R * 0.1, W / 2, W / 2, R)
-        body.addColorStop(0, "#1d1830")
-        body.addColorStop(0.7, "#100e19")
-        body.addColorStop(1, "#08070c")
-        g.fillStyle = body
-        g.beginPath()
-        g.arc(W / 2, W / 2, R, 0, Math.PI * 2)
-        g.fill()
-        g.strokeStyle = "rgba(196,181,253,0.18)"
-        g.lineWidth = Math.max(1, W * 0.0015)
-        g.stroke()
-      }
+      if (g) paintGlobeBackdrop(g, bg.width)
       st.bg = bg
       draw(performance.now())
     }
     const ro = typeof ResizeObserver === "function" ? new ResizeObserver(fit) : null
     ro?.observe(canvas)
     fit()
-    return () => ro?.disconnect()
+    return () => {
+      ro?.disconnect()
+      if (held) {
+        /* Ended for good unless the same canvas comes straight back (a remount in development). */
+        held.users--
+        held.stop = setTimeout(() => {
+          if (held.users > 0) return
+          held.worker.terminate()
+          workers.delete(canvas)
+        }, 0)
+        st.worker = null
+        st.size = 0
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -139,65 +189,7 @@ export function PlatformGlobe({
     const st = state.current
     const ctx = canvas?.getContext("2d")
     if (!canvas || !ctx || !st.pts || !st.bg) return
-    const W = canvas.width
-    const R = W * 0.44
-    const cx = W / 2
-    const cy = W / 2
-    ctx.clearRect(0, 0, W, W)
-    ctx.drawImage(st.bg, 0, 0)
-    const ca = Math.cos(st.angle)
-    const sa = Math.sin(st.angle)
-    const tilt = 0.32
-    const ct = Math.cos(tilt)
-    const sinT = Math.sin(tilt)
-    const pts = st.pts
-    const dot = Math.max(1, W * 0.0042)
-    const paths = [new Path2D(), new Path2D(), new Path2D()]
-    for (let i = 0; i < pts.length; i += 3) {
-      const x = pts[i]
-      const y = pts[i + 1]
-      const z = pts[i + 2]
-      const x1 = x * ca + z * sa
-      const z1 = -x * sa + z * ca
-      const y2 = y * ct - z1 * sinT
-      const z2 = y * sinT + z1 * ct
-      if (z2 <= 0.02) continue
-      const b = z2 > 0.62 ? 2 : z2 > 0.3 ? 1 : 0
-      const r = dot * (0.55 + 0.45 * z2)
-      paths[b].rect(cx + x1 * R - r / 2, cy - y2 * R - r / 2, r, r)
-    }
-    ctx.fillStyle = "rgba(226,220,255,0.22)"
-    ctx.fill(paths[0])
-    ctx.fillStyle = "rgba(226,220,255,0.48)"
-    ctx.fill(paths[1])
-    ctx.fillStyle = "rgba(236,232,255,0.82)"
-    ctx.fill(paths[2])
-
-    /* Pulses: a bright core and a ring that widens and fades over 2.2s. */
-    const life = 2200
-    st.pulses = st.pulses.filter((p) => now - p.t0 < life)
-    for (const p of st.pulses) {
-      const [x, y, z] = toXYZ(PLATFORM_GLOBE_SPOTS[p.s])
-      const x1 = x * ca + z * sa
-      const z1 = -x * sa + z * ca
-      const y2 = y * ct - z1 * sinT
-      const z2 = y * sinT + z1 * ct
-      if (z2 <= 0.05) continue
-      const k = (now - p.t0) / life
-      const px = cx + x1 * R
-      const py = cy - y2 * R
-      ctx.globalAlpha = (1 - k) * Math.min(1, z2 * 1.6)
-      ctx.strokeStyle = "#a78bfa"
-      ctx.lineWidth = W * 0.0028
-      ctx.beginPath()
-      ctx.arc(px, py, W * (0.006 + 0.045 * k), 0, Math.PI * 2)
-      ctx.stroke()
-      ctx.fillStyle = "#ede9fe"
-      ctx.beginPath()
-      ctx.arc(px, py, W * 0.0055, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.globalAlpha = 1
-    }
+    st.pulses = drawGlobe(ctx, canvas.width, st.bg, st.pts, st.angle, st.pulses, SPOTS_XYZ, now)
     if (!canvas.hasAttribute("data-drawn")) canvas.setAttribute("data-drawn", "")
   }
 
@@ -217,31 +209,27 @@ export function PlatformGlobe({
   /* The loop: only while running and the globe itself is on screen. */
   useEffect(() => {
     const st = state.current
+    const worker = st.worker
     if (reduced) {
-      const now = performance.now()
-      st.pulses = [3, 9, 13, 21, 25].map((s, i) => ({ s, t0: now - 300 - i * 120 }))
-      draw(now)
+      if (worker) worker.postMessage({ type: "still" })
+      else {
+        st.pulses = stillPulses(performance.now())
+        draw(performance.now())
+      }
       return
     }
     if (!running || !inView) return
+    if (worker) {
+      worker.postMessage({ type: "run", running: true })
+      return () => worker.postMessage({ type: "run", running: false })
+    }
     let frame = 0
     let last = performance.now()
     const tick = (now: number) => {
       const dt = Math.min(64, now - last)
       last = now
-      st.angle += dt * 0.00011
-      if (now >= st.nextPulse) {
-        /* Prefer a spot on the near side, so most pulses are seen. */
-        let s = Math.floor(Math.random() * PLATFORM_GLOBE_SPOTS.length)
-        for (let tries = 0; tries < 6; tries++) {
-          const [x, , z] = toXYZ(PLATFORM_GLOBE_SPOTS[s])
-          if (-x * Math.sin(st.angle) + z * Math.cos(st.angle) > 0.25) break
-          s = Math.floor(Math.random() * PLATFORM_GLOBE_SPOTS.length)
-        }
-        st.pulses.push({ s, t0: now })
-        st.nextPulse = now + 380 + Math.random() * 520
-        onPulseRef.current?.(s)
-      }
+      const s = stepGlobe(st, SPOTS_XYZ, now, dt)
+      if (s !== null) onPulseRef.current?.(s)
       draw(now)
       frame = requestAnimationFrame(tick)
     }

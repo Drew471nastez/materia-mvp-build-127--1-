@@ -56,7 +56,7 @@ export const LAZY_AHEAD = "150% 0px 150% 0px"
  */
 export const LAZY_IDLE_AHEAD = "300% 0px 300% 0px"
 /** How long after the load event the idle prefetch starts, so it never competes with the hero or a first tap. */
-export const LAZY_PREFETCH_AFTER_MS = 3000
+export const LAZY_PREFETCH_AFTER_MS = 1000
 /** An idle slot shorter than this is passed over: fetching and running a section's code needs room. */
 const IDLE_ROOM_MS = 12
 
@@ -101,6 +101,8 @@ type Options = {
   rootMargin?: string
   /** The section's own stylesheets (see SectionStyle), put in place while idle, before it mounts. */
   styles?: () => Promise<readonly SectionStyle[]>
+  /** false: the mounted section is never skipped off screen (one with a fixed child, which containment would trap). */
+  contain?: boolean
 }
 
 type Idle = (cb: (deadline?: IdleDeadline) => void, timeout?: number) => void
@@ -256,7 +258,43 @@ export function lazySection<P extends object>(load: () => Promise<ComponentType<
       }
     }, [Section])
 
-    if (Section) return <Section {...props} />
+    /*
+     * Mounted: the same box stays around the section, now letting the
+     * browser skip it while it is off screen (content-visibility: auto, as
+     * LazySection does). A skipped section costs a frame nothing: no style,
+     * no layout, no paint and no compositor layers, which is what kept every
+     * frame of a scroll busy once a dozen sections had mounted. Right after
+     * it mounts, in the next idle slot, it is laid out once while still
+     * skipped (a size read forces that) and its real height is kept as the
+     * box's size, so the page below it is in its final place and the frame
+     * that brings it on screen only has to paint it.
+     */
+    useEffect(() => {
+      const el = ref.current
+      if (!Section || !el || options.contain === false) return
+      let live = true
+      idle(() => {
+        const inner = live ? el.firstElementChild : null
+        if (!inner) return
+        const height = inner.getBoundingClientRect().height
+        if (height > 0) el.style.containIntrinsicSize = `auto ${Math.round(height)}px`
+      })
+      return () => {
+        live = false
+      }
+    }, [Section])
+
+    if (Section)
+      return (
+        <div
+          ref={ref}
+          data-lazy-section={options.name}
+          data-lazy-mounted=""
+          style={options.contain === false ? undefined : { contentVisibility: "auto", containIntrinsicSize: `auto ${options.minHeight}` }}
+        >
+          <Section {...props} />
+        </div>
+      )
     return <div ref={ref} data-lazy-section={options.name} aria-hidden="true" style={{ minHeight: options.minHeight }} />
   }
   LazySectionMount.displayName = `LazySection(${options.name})`

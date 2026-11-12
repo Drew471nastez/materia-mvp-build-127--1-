@@ -142,6 +142,28 @@ function createHeadingMotion() {
 }
 let headingMotion: ReturnType<typeof createHeadingMotion> | undefined
 
+/*
+ * Where the browser has scroll-driven animations, a heading inks and rises by
+ * itself (app/globals.css, "story-heading-rise" and "story-heading-ink"): the
+ * same progress, from the same positions, with no script on each frame. The
+ * rise then runs on the compositor; set from script, a transform that changes
+ * every frame of a scroll made Chromium re-layer the whole page each frame
+ * (5 to 15 ms at 4x CPU). The script keeps the showcase heading (it also
+ * reveals the gallery under it), browsers without scroll-driven animations,
+ * and a heading inside a box that clips by scrolling (overflow: hidden or
+ * auto), whose view timeline would follow that box instead of the page;
+ * those are marked data-story-js, which the stylesheet leaves alone.
+ */
+function inkedByCss(node: HTMLElement) {
+  if (node.hasAttribute("data-story-showcase")) return false
+  if (typeof CSS === "undefined" || !CSS.supports("animation-timeline: view()")) return false
+  for (let el = node.parentElement; el && el !== document.body; el = el.parentElement) {
+    const { overflowX, overflowY } = getComputedStyle(el)
+    if (/hidden|auto|scroll/.test(overflowX + overflowY)) return false
+  }
+  return true
+}
+
 /** Server-rendered, readable copy; scroll progressively inks each word. */
 export function StoryHeading({
   text,
@@ -162,9 +184,11 @@ export function StoryHeading({
 }) {
   const ref = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
-    if (!ref.current) return
+    const node = ref.current
+    if (!node || inkedByCss(node)) return
+    node.setAttribute("data-story-js", "")
     headingMotion ??= createHeadingMotion()
-    return headingMotion.add(ref.current)
+    return headingMotion.add(node)
   }, [])
   const words = text.trim().split(/\s+/)
   return (

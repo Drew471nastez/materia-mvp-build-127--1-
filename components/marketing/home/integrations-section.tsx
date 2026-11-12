@@ -157,7 +157,7 @@ export function IntegrationsSection() {
       ref={ref}
       id="integrations"
       aria-labelledby="integrations-title"
-      className={`${m.root} overflow-hidden bg-[#0b0b0c] py-[clamp(72px,9vw,128px)] text-white`}
+      className={`${m.root} ${s.clip} bg-[#0b0b0c] py-[clamp(72px,9vw,128px)] text-white`}
     >
       <div className="mx-auto max-w-[1400px] px-[var(--landing-gutter,22px)]">
         <div className="mb-10 grid gap-6 sm:mb-14 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">

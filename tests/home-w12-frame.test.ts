@@ -169,6 +169,25 @@ async function main() {
     check("no rule keyed on data-story-in-view ends in * (each section scrolling in or out restyled all of itself)", !/data-story-in-view[^{}]*\*\s*[,{]/.test(creators) && !/data-story-in-view[^{}]*\s\*\s*[,{]/.test(css))
   }
 
+  /* Added on purpose (home page scroll pass 2). */
+  console.log("\nScrolling without building, pass 2")
+  {
+    const src = code("components/marketing/home/lazy-section.tsx")
+    check("a mounted lazy section stays in its box, which the browser skips off screen", /data-lazy-mounted=""/.test(src) && /contentVisibility: "auto"/.test(src) && /containIntrinsicSize: `auto \$\{options\.minHeight\}`/.test(src))
+    check("right after mounting it is laid out once in an idle slot and its real height kept", /getBoundingClientRect\(\)\.height/.test(src) && /el\.style\.containIntrinsicSize = `auto \$\{Math\.round\(height\)\}px`/.test(src))
+    const css = read("app/globals.css")
+    const heading = code("components/marketing/story-heading.tsx")
+    check("headings ink and rise from scroll-driven animations where the browser has them (no script per frame)", /@property --story-progress/.test(css) && /animation-timeline:--story-heading/.test(css) && /@keyframes story-heading-rise \{from\{transform:translate3d\(0,12px,0\)\}to\{transform:translate3d\(0,0,0\)\}\}/.test(css) && /function inkedByCss/.test(heading) && /data-story-js/.test(heading))
+    check("the script keeps the showcase heading and headings inside a scrolling box", /hasAttribute\("data-story-showcase"\)\) return false/.test(heading) && /hidden\|auto\|scroll/.test(heading))
+    const creators = code("components/marketing/home/creators-carousel.tsx")
+    check("the creators rail cruises on the compositor (a Web Animation), not a transform set every frame", /track\.animate\(/.test(creators) && /const stopCruise/.test(creators) && /startCruise\(goal\)/.test(creators))
+    check("the sale dot's ping is paused off screen", /\[data-story-in-view="false"\] \.cc-card \.cc-sale-dot::after/.test(creators))
+    for (const f of ["how-it-works", "earnings-calculator"]) {
+      const own = read(`components/marketing/home/${f}.tsx`)
+      check(`${f}: rules keyed on data-commerce-live end in a class, not a tag`, !/\[data-commerce-live\][^{},]*\s(span|li|div|b|i|img|svg|path)\s*[,{]/.test(own) && !/\[data-commerce-live\][^{},]*>\s*(span|li)\s*[,{]/.test(own))
+    }
+  }
+
   console.log("\nNo hotlinked pictures")
   {
     const files = ["components/marketing/product-marquee.tsx", "components/marketing/home/final-cta.tsx", "components/marketing/home/lazy-section.tsx", "components/marketing/footer.tsx"]

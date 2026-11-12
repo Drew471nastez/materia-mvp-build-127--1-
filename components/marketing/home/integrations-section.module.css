@@ -1,5 +1,13 @@
 /* Section 13, integrations: three marquee rows of tiles that flip in 3D. */
 
+/* The section clips its rows without being a scroll box (clip, not hidden;
+   hidden first for browsers without clip), so its heading's scroll-driven
+   inking follows the page (story-heading.tsx, inkedByCss). */
+.clip {
+  overflow: hidden;
+  overflow: clip;
+}
+
 .rows {
   position: relative;
   display: grid;

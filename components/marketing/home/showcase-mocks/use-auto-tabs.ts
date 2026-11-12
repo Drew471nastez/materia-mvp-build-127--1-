@@ -48,7 +48,7 @@ export function useAutoTabs(count: number) {
     document.addEventListener("visibilitychange", syncHidden)
     const io =
       root && typeof IntersectionObserver === "function"
-        ? new IntersectionObserver(([e]) => setInView(e.isIntersecting), { threshold: 0.2 })
+        ? new IntersectionObserver(([e]) => startTransition(() => setInView(e.isIntersecting)), { threshold: 0.2 })
         : null
     if (root && io) io.observe(root)
     else setInView(true)

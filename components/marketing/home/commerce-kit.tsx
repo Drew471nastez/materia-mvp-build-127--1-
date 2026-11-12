@@ -21,7 +21,7 @@
  * it is labelled as an example where it is shown.
  */
 import type { SectionStyle } from "./lazy-section"
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { startTransition, useEffect, useRef, useState, type ReactNode } from "react"
 import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
 import { CURRENCY_FEE_RULES } from "@/lib/payments/fees/currency-rules"
 
@@ -109,7 +109,8 @@ export function useCommerceLive<T extends HTMLElement>(margin = "120px 0px", wit
     const apply = () => {
       const on = seen && !document.hidden
       node.toggleAttribute("data-commerce-live", on)
-      if (withState) setLive(on)
+      /* As a transition, so the section re-renders in slices between frames (the attribute above already runs or pauses its CSS loops). */
+      if (withState) startTransition(() => setLive(on))
     }
     const io =
       typeof IntersectionObserver === "function"

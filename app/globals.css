@@ -10023,6 +10023,21 @@ html[data-op-press] [data-op-letgo] {
 @media(prefers-reduced-motion:reduce){
   .story-heading {transform:none;--story-progress:1!important}
 }
+/* Scroll-driven inking (components/marketing/story-heading.tsx, inkedByCss): the
+   heading rises 12px and its words ink over the same stretch of scroll the
+   script uses, from 76px after its top enters (64px, plus the 12px it still
+   sits lower) to 64px + 68% of the screen + a quarter of its own height. The
+   rise is its own animation so the compositor runs it; the ink (a number the
+   words read) is on the inner span. */
+@property --story-progress {syntax:"<number>";inherits:true;initial-value:0}
+@supports (animation-timeline:view()) {
+  @media (prefers-reduced-motion:no-preference) {
+    .story-heading:not([data-story-showcase]):not([data-story-js]) {view-timeline:--story-heading block;animation:story-heading-rise linear both;animation-timeline:--story-heading;animation-range:cover 76px entry calc(25% + 64px + 68svh)}
+    .story-heading:not([data-story-showcase]):not([data-story-js]) > span {animation:story-heading-ink linear both;animation-timeline:--story-heading;animation-range:cover 76px entry calc(25% + 64px + 68svh)}
+  }
+}
+@keyframes story-heading-rise {from{transform:translate3d(0,12px,0)}to{transform:translate3d(0,0,0)}}
+@keyframes story-heading-ink {from{--story-progress:0}to{--story-progress:1}}
 @media(forced-colors:active){.story-heading [data-story-word]{background:none;color:CanvasText}}
 [data-landing-story] [data-story-section][data-story-in-view="false"] [data-story-continuous],
 [data-landing-story][data-story-paused] [data-story-continuous] {animation-play-state:paused!important;will-change:auto!important}

@@ -13,7 +13,7 @@
   - prefers-reduced-motion: reveals are instant and loops never start.
 */
 
-import { useEffect, useRef, useState, type RefObject } from "react"
+import { startTransition, useEffect, useRef, useState, type RefObject } from "react"
 
 export const platformReducedMotion = () =>
   typeof window !== "undefined" &&
@@ -44,7 +44,8 @@ export function usePlatformSection(
       const live = onScreen && !document.hidden && !reduced
       const value = String(live)
       if (el.dataset.platformLive !== value) el.dataset.platformLive = value
-      setState((p) => (p.seen === seen && p.live === live && p.reduced === reduced ? p : { seen, live, reduced }))
+      /* As a transition: the section re-renders in slices between frames, not as one task of up to 100 ms at 4x CPU in the middle of a scroll. The attributes above, which the CSS reads, are already written. */
+      startTransition(() => setState((p) => (p.seen === seen && p.live === live && p.reduced === reduced ? p : { seen, live, reduced })))
     }
     if (typeof IntersectionObserver !== "function") {
       el.setAttribute("data-platform-in", "")

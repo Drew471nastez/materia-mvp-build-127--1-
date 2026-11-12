@@ -175,6 +175,21 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     let pinned: { idx: number; until: number } | null = null
     let drag: { id: number; lastX: number; lastT: number; moved: number; vel: number; captured: boolean } | null = null
     let suppressClick = false
+    /*
+     * The steady drift runs on the compositor. Once the rail has eased up to
+     * its cruising speed, the motion is handed to a Web Animation (the same
+     * straight line, one copy of the cards per lap), and the frame loop
+     * stops: a transform set from script on every frame made Chromium
+     * re-layer the whole page each frame (5 to 9 ms at 4x CPU) for as long as
+     * the section was on screen. Anything that changes the speed (a pointer,
+     * a drag, the arrows, the pause button, a resize) takes the motion back
+     * from where the animation has got to, so nothing jumps.
+     */
+    let drift: Animation | null = null
+    let cruiseFrom = 0
+    let cruiseSpeed = 0
+    let cruiseTimer = 0
+    const cruiseX = () => (drift ? cruiseFrom + ((Number(drift.currentTime) || 0) / 1000) * cruiseSpeed : x)
 
     const measure = () => {
       cards = Array.from(track.querySelectorAll<HTMLElement>("[data-idx]"))
@@ -204,6 +219,41 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       const centre = Math.round((x + viewW / 2 - lead - cardW / 2) / step)
       setActive(pinned ? pinned.idx : ((centre % count) + count) % count)
     }
+    /* On touch the card nearest the centre is the active one: while cruising, update it when the next one reaches the centre. */
+    const followCruise = () => {
+      clearTimeout(cruiseTimer)
+      if (!drift || !live()) return
+      const now = performance.now()
+      x = cruiseX()
+      paint(now)
+      if (!touch.matches) return
+      const u = (x + viewW / 2 - lead - cardW / 2) / step
+      let wait = (((Math.floor(u - 0.5) + 1.5 - u) * step) / cruiseSpeed) * 1000 + 20
+      if (pinned) wait = Math.min(wait, Math.max(0, pinned.until - now) + 20)
+      cruiseTimer = window.setTimeout(followCruise, Math.max(30, wait))
+    }
+    const startCruise = (speed: number) => {
+      if (loop <= 0 || speed <= 0 || typeof track.animate !== "function") return false
+      x = ((x % loop) + loop) % loop
+      cruiseFrom = x
+      cruiseSpeed = speed
+      drift = track.animate(
+        [{ transform: `translate3d(${(-x).toFixed(2)}px,0,0)` }, { transform: `translate3d(${(-(x + loop)).toFixed(2)}px,0,0)` }],
+        { duration: (loop / speed) * 1000, iterations: Infinity, easing: "linear" },
+      )
+      followCruise()
+      return true
+    }
+    const stopCruise = () => {
+      if (!drift) return
+      clearTimeout(cruiseTimer)
+      x = cruiseX()
+      v = cruiseSpeed
+      paint(performance.now())
+      drift.cancel()
+      drift = null
+      last = 0
+    }
     const frame = (t: number) => {
       raf = 0
       const dt = last ? Math.min(0.05, (t - last) / 1000) : 0.016
@@ -223,32 +273,50 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
         x += move
       }
       paint(t)
-      if (live() && (drag || glide || goal || Math.abs(v) > 0.4)) schedule()
+      if (live() && !drag && !glide && goal && Math.abs(v - goal) < 0.5 && startCruise(goal)) last = 0
+      else if (live() && (drag || glide || goal || Math.abs(v) > 0.4)) schedule()
       else last = 0
     }
     const schedule = () => {
-      if (!raf && live()) raf = requestAnimationFrame(frame)
+      if (!raf && !drift && live()) raf = requestAnimationFrame(frame)
+    }
+    /* Something changes the speed: take the motion back from the compositor first. */
+    const wake = () => {
+      stopCruise()
+      schedule()
+    }
+    /* Shown or hidden (scrolled away, another tab): a cruising rail just pauses where it is. */
+    const resume = () => {
+      if (!drift) return schedule()
+      if (live()) {
+        drift.play()
+        followCruise()
+      } else {
+        drift.pause()
+        clearTimeout(cruiseTimer)
+      }
     }
 
     nudgeRef.current = (dir) => {
       if (dir) glide += dir * step
-      schedule()
+      wake()
     }
 
     const onEnter = (e: PointerEvent) => {
       if (e.pointerType === "mouse") {
         hovering = true
-        schedule()
+        wake()
       }
     }
     const onLeave = (e: PointerEvent) => {
       if (e.pointerType === "mouse") {
         hovering = false
-        schedule()
+        wake()
       }
     }
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 || reduce.matches) return
+      stopCruise()
       drag = { id: e.pointerId, lastX: e.clientX, lastT: e.timeStamp, moved: 0, vel: 0, captured: false }
       suppressClick = false
     }
@@ -299,6 +367,7 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       }
     }
     const sync = () => {
+      stopCruise()
       measure()
       paint(performance.now())
       schedule()
@@ -309,7 +378,7 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
         ? new IntersectionObserver(
             ([entry]) => {
               visible = entry.isIntersecting
-              schedule()
+              resume()
             },
             { rootMargin: "80px 0px" },
           )
@@ -325,11 +394,13 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
     viewport.addEventListener("pointercancel", onUp)
     viewport.addEventListener("click", onClick, true)
     viewport.addEventListener("keydown", onKey)
-    document.addEventListener("visibilitychange", schedule)
+    document.addEventListener("visibilitychange", resume)
     reduce.addEventListener("change", sync)
     sync()
     return () => {
       cancelAnimationFrame(raf)
+      clearTimeout(cruiseTimer)
+      drift?.cancel()
       io?.disconnect()
       ro?.disconnect()
       viewport.removeEventListener("pointerenter", onEnter)
@@ -340,7 +411,7 @@ export function CreatorsCarousel({ tone = "light" }: { tone?: "light" | "dark" }
       viewport.removeEventListener("pointercancel", onUp)
       viewport.removeEventListener("click", onClick, true)
       viewport.removeEventListener("keydown", onKey)
-      document.removeEventListener("visibilitychange", schedule)
+      document.removeEventListener("visibilitychange", resume)
       reduce.removeEventListener("change", sync)
       nudgeRef.current = () => {}
     }
@@ -524,8 +595,8 @@ export const CREATORS_CSS = `
 .cc-ctl:active{transform:scale(.94)}
 @media(max-width:480px){.cc-ctas{width:100%}.cc-ctas .cc-btn{flex:1 1 100%}.cc-foot{flex-wrap:wrap}.cc-salepop{flex-basis:100%;max-width:none;order:2}.cc-controls{margin-left:auto}}
 
-/* The cards' loops, named (not .cc-card *): a rule ending in * makes every section's data-story-in-view change restyle that whole section in Chromium (300 to 800 elements, 30 to 130 ms at 4x CPU, each time one scrolls in or out). */
-[data-landing-story] [data-story-section][data-story-in-view="false"] .cc-card :is(.cc-eq span,.ob-ring,.ob-orbit,.mp-sat),[data-landing-story][data-story-paused] .cc-card :is(.cc-eq span,.ob-ring,.ob-orbit,.mp-sat){animation-play-state:paused!important}
+/* The cards' loops, named by class (not .cc-card *, nor a tag such as span): Chromium restyles everything a rule's last part names whenever data-story-in-view changes on any section, so a rule ending in * or span restyled 300 to 800 elements (30 to 130 ms at 4x CPU) each time a section scrolled in or out. The equaliser bars carry data-story-continuous, which globals.css pauses. The sale dot's ping is paused too: left running off screen it kept every frame of the page busy (a running transform animation makes Chromium redo its intersection checks each frame). */
+[data-landing-story] [data-story-section][data-story-in-view="false"] .cc-card :is(.ob-ring,.ob-orbit,.mp-sat),[data-landing-story][data-story-paused] .cc-card :is(.ob-ring,.ob-orbit,.mp-sat),[data-landing-story] [data-story-section][data-story-in-view="false"] .cc-card .cc-sale-dot::after,[data-landing-story][data-story-paused] .cc-card .cc-sale-dot::after{animation-play-state:paused!important}
 
 /* Reduced motion: the same cards, standing still in a grid. */
 @media(prefers-reduced-motion:reduce){

@@ -104,15 +104,15 @@ function MerchScene() {
         <div className="cmh-ed-rows">
           <div className="cmh-ed-name">Golden Hour heavyweight tee</div>
           <div className="cmh-ed-grid">
-            <span>
+            <span className="cmh-ed-cell">
               <small>Your price</small>
               <b>{commerceUsd(sale.priceCents)}</b>
             </span>
-            <span>
+            <span className="cmh-ed-cell">
               <small>Production cost</small>
               <b>{commerceUsd(sale.baseCents)}</b>
             </span>
-            <span className="cmh-ed-profit">
+            <span className="cmh-ed-cell cmh-ed-profit">
               <small>Your profit</small>
               <b>{commerceUsd(sale.profitCents)}</b>
             </span>
@@ -121,7 +121,7 @@ function MerchScene() {
       </div>
       <ol className="cmh-steps">
         {["Design", "Set a price", "Printed", "Shipped"].map((s, i) => (
-          <li key={s} style={{ "--i": i } as React.CSSProperties}>
+          <li key={s} className="cmh-step" style={{ "--i": i } as React.CSSProperties}>
             <span className="cmh-step-dot">
               <Check />
             </span>
@@ -246,7 +246,7 @@ function CourseScene() {
         ))}
       </div>
       <div className="cmh-c-bar">
-        <span />
+        <span className="cmh-c-fill" />
       </div>
     </div>
   )
@@ -385,9 +385,9 @@ const HOW_CSS = `
 .cmh-stage[data-tone=warm]{background:linear-gradient(160deg,#f7efff,#ffe9f1)}
 .cmh-cap{margin:16px 4px 0;font-size:15.5px;line-height:1.55;color:#71717a;max-width:52ch;text-wrap:pretty}
 .cmh-cap b{color:#18181b;font-weight:600}
-/* Named, not *, so going live restyles only the moving parts. */
+/* Named, not *, so going live restyles only the moving parts; and by class, not by tag (span, li), in the rule keyed on data-commerce-live: Chromium restyles every element a rule's last part names when that attribute changes, so a tag there restyled every span of the section. */
 .cmh-design,.cmh-ed-grid>span,.cmh-steps li,.cmh-step-dot::before,.cmh-drop::after,.cmh-ship,.cmh-tap,.cmh-op-sheet,.cmh-drop-ok,.cmh-file,.cmh-mail,.cmh-lesson,.cmh-l-dot,.cmh-c-bar span,.cmh-amt-on,.cmh-pop{animation-play-state:paused!important}
-[data-commerce-live] .cmh-design,[data-commerce-live] .cmh-ed-grid>span,[data-commerce-live] .cmh-steps li,[data-commerce-live] .cmh-step-dot::before,[data-commerce-live] .cmh-drop::after,[data-commerce-live] .cmh-ship,[data-commerce-live] .cmh-tap,[data-commerce-live] .cmh-op-sheet,[data-commerce-live] .cmh-drop-ok,[data-commerce-live] .cmh-file,[data-commerce-live] .cmh-mail,[data-commerce-live] .cmh-lesson,[data-commerce-live] .cmh-l-dot,[data-commerce-live] .cmh-c-bar span,[data-commerce-live] .cmh-amt-on,[data-commerce-live] .cmh-pop{animation-play-state:running!important}
+[data-commerce-live] .cmh-design,[data-commerce-live] .cmh-ed-cell,[data-commerce-live] .cmh-step,[data-commerce-live] .cmh-step-dot::before,[data-commerce-live] .cmh-drop::after,[data-commerce-live] .cmh-ship,[data-commerce-live] .cmh-tap,[data-commerce-live] .cmh-op-sheet,[data-commerce-live] .cmh-drop-ok,[data-commerce-live] .cmh-file,[data-commerce-live] .cmh-mail,[data-commerce-live] .cmh-lesson,[data-commerce-live] .cmh-l-dot,[data-commerce-live] .cmh-c-fill,[data-commerce-live] .cmh-amt-on,[data-commerce-live] .cmh-pop{animation-play-state:running!important}
 
 /* merch */
 .cmh-merch{position:relative;display:flex;align-items:center;gap:clamp(18px,3vw,44px);padding:0 24px}

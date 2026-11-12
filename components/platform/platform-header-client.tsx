@@ -1861,8 +1861,26 @@ export function PlatformHeaderClient({
       else el.removeAttribute("data-scrolled")
     }
     read()
-    window.addEventListener("scroll", read, { passive: true })
-    return () => window.removeEventListener("scroll", read)
+    /* Read after the frame, not in the scroll event: scrollY there made the
+       browser restyle and lay out on the spot, before the frame did the same
+       again (2 to 5 ms of each frame of a scroll at 4x CPU on the home page).
+       After the frame the layout is fresh and the read is free; the shadow
+       comes a frame later, which nobody can see. */
+    let frame = 0
+    let later: ReturnType<typeof setTimeout> | undefined
+    const onScroll = () => {
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        later = setTimeout(read, 0)
+      })
+    }
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => {
+      window.removeEventListener("scroll", onScroll)
+      cancelAnimationFrame(frame)
+      clearTimeout(later)
+    }
   }, [])
   /*
     THE DESKTOP FIELD'S LINE IS THE BOTTOM OF THIS BAR. "It needs to appear

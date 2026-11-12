@@ -26,6 +26,7 @@
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 import { createElement, type ComponentType } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { EverythingInOnePlace } from "@/components/marketing/home/everything-in-one-place"
@@ -174,6 +175,10 @@ check("subscriber rows and visitor toasts are fixed slots, never inserted", /key
 const globe = read(`${DIR}/platform-globe.tsx`)
 check("the globe runs only while on screen, and draws once under reduced motion", /if \(!running \|\| !inView\) return/.test(globe) && /if \(reduced\)/.test(globe) && /cancelAnimationFrame/.test(globe))
 check("the globe caps device pixels", /Math\.min\(1\.5, window\.devicePixelRatio/.test(globe))
+/* Added on purpose (home page scroll pass 2): the globe is drawn in a worker, from a string the script builds. */
+check("the globe is drawn off the page's thread where the browser can hand it a canvas", /transferControlToOffscreen\(\)/.test(globe) && /new Worker\(url\)/.test(globe) && /GLOBE_WORKER_SOURCE/.test(globe))
+const globeWorker = await import(pathToFileURL(join(process.cwd(), "scripts/build-globe-worker.mjs")).href)
+check("the worker's string is up to date (node scripts/build-globe-worker.mjs)", read(`${DIR}/platform-globe-worker-source.ts`) === globeWorker.globeWorkerModule(await globeWorker.globeWorkerSource()))
 check("no scroll listeners in the track's code", !/addEventListener\(\s*["']scroll/.test(strip(allSrc + motion)))
 check("integration tiles have no 3D layer at rest", /\.back \{[\s\S]*?visibility: hidden;[\s\S]*?transform: none;/.test(read(`${DIR}/integrations-section.module.css`)))
 check("no new dependency", !/three|lottie|framer-motion|gsap/.test(strip(allSrc)))

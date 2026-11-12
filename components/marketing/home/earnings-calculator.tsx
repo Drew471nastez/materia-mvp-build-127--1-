@@ -128,7 +128,7 @@ export function EarningsCalculator() {
             </div>
             <div className="cme-bars" aria-hidden="true">
               {bars.map((b, i) => (
-                <span key={i} style={{ "--b": b, "--i": i } as React.CSSProperties} />
+                <span key={i} className="cme-bar" style={{ "--b": b, "--i": i } as React.CSSProperties} />
               ))}
             </div>
             <dl className="cme-rows">
@@ -228,7 +228,7 @@ const EARN_CSS = `
 .cme-year-n{color:#fff;font-weight:500;font-variant-numeric:tabular-nums}
 .cme-bars{position:relative;display:flex;align-items:flex-end;gap:5px;height:64px;margin-top:22px}
 .cme-bars span{flex:1;height:100%;border-radius:5px 5px 2px 2px;background:linear-gradient(180deg,#a78bfa,#4f46e5);transform-origin:50% 100%;transform:scaleY(var(--b));opacity:calc(.35 + var(--b) * .65)}
-[data-commerce-live] .cme-bars span{animation:cme-grow .9s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i) * 45ms)}
+[data-commerce-live] .cme-bar{animation:cme-grow .9s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i) * 45ms)}
 @keyframes cme-grow{from{transform:scaleY(.04)}to{transform:scaleY(var(--b))}}
 .cme-rows{position:relative;margin:22px 0 0;display:grid;gap:9px;padding-top:18px;border-top:1px solid rgba(255,255,255,.1)}
 .cme-rows div{display:flex;justify-content:space-between;gap:12px;font-size:14.5px}
