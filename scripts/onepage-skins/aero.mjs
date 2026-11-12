@@ -66,8 +66,9 @@ const DAY = {
   gel: { color: "#7fdc56", art: "linear-gradient(180deg, rgba(255,255,255,.85) 0%, rgba(255,255,255,.3) 46%, rgba(255,255,255,0) 50%), linear-gradient(180deg, #a3ec74 0%, #6fcf45 50%, #58bd33 51%, #8ee05e 100%)", stops: ["#a3ec74", "#6fcf45", "#58bd33", "#8ee05e"], ink: "#08325a", edge: "#3f9a2a", glow: "rgba(40,120,30,.55)" },
   box: { fill: "rgba(255,255,255,.62)", top: "rgba(255,255,255,.7)", ink: "#042c52", under: ["#d9effb", "#e9f6fd"], border: "rgba(255,255,255,.9)" },
   field: { ink: "#063a6b", border: "rgba(120,180,230,.7)" },
-  titleShadow: "0 1px 0 rgba(255,255,255,.85), 0 0 22px rgba(255,255,255,.85)",
-  textShadow: "0 1px 0 rgba(255,255,255,.7), 0 0 14px rgba(255,255,255,.8)",
+  /* Round AS: the emboss and a close soft light, not a 22px white cloud round the name (scripts/check-onepage-glow-as1.mjs). */
+  titleShadow: "0 1px 0 rgba(255,255,255,.85), 0 0 6px rgba(255,255,255,.45)",
+  textShadow: "0 1px 0 rgba(255,255,255,.7), 0 0 4px rgba(255,255,255,.4)",
   social: "rgba(255,255,255,.55)",
   divider: "#fff",
 }
@@ -88,7 +89,7 @@ const NIGHT = {
   gel: { color: "#ffad66", art: "linear-gradient(180deg, rgba(255,255,255,.3) 0%, rgba(255,255,255,0) 55%), linear-gradient(180deg, #ffc685 0%, #ff9f58 100%)", stops: ["#ffc685", "#ff9f58"], ink: "#2e1300", edge: "rgba(255,200,150,.85)", glow: "rgba(255,140,60,.32)" },
   box: { fill: "rgba(6,48,78,.7)", top: "rgba(160,230,255,.07)", ink: "#eafaff", under: ["#0a3552", "#0b3d5c"], border: "rgba(150,225,255,.32)" },
   field: { ink: "#06324a", border: "rgba(150,225,255,.6)" },
-  titleShadow: "0 0 28px rgba(90,220,255,.3), 0 1px 2px rgba(0,20,40,.5)",
+  titleShadow: "0 0 6px rgba(90,220,255,.22), 0 1px 2px rgba(0,20,40,.5)",
   textShadow: "0 1px 2px rgba(0,20,40,.55)",
   social: "rgba(20,90,130,.38)",
   divider: "#7fd6f5",
@@ -128,7 +129,7 @@ function material(skin, p) {
   rule(`${A} ${INPUT}:focus`, `box-shadow: inset 0 2px 4px rgba(8,60,120,.12), 0 0 0 3px rgba(80,170,240,.45) !important;`)
   rule(`${A} ${TITLE}`, `text-shadow: ${p.titleShadow}; letter-spacing: -.01em;`)
   rule(`${A} :is(${BIO}, ${HEADING}, ${BLOCK_TITLE}, ${TEXT})`, `text-shadow: ${p.textShadow};`)
-  rule(`${A} ${AVATAR}`, `box-shadow: 0 0 0 1px rgba(120,190,240,.5), 0 10px 28px -8px rgba(0,80,160,.55), 0 0 34px ${p === DAY ? "rgba(255,255,255,.75)" : "rgba(90,220,255,.45)"} !important;`)
+  rule(`${A} ${AVATAR}`, `box-shadow: 0 0 0 1px rgba(120,190,240,.5), 0 10px 28px -8px rgba(0,80,160,.55), 0 0 14px ${p === DAY ? "rgba(255,255,255,.45)" : "rgba(90,220,255,.3)"} !important;`)
   rule(`${A} ${AVATAR_BOX}::after`, `content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,.6) 0%, rgba(255,255,255,.12) 44%, rgba(255,255,255,0) 46%);`)
   rule(`${A} ${SOCIAL}`, `
     width: 44px; height: 44px; padding: 0; border-radius: 50% !important;

@@ -58,6 +58,19 @@ export function physicalBlockers(f: PhysicalSetupFacts): PhysicalStep[] {
   return f.paymentsReady === false ? [{ id: "payments" as PhysicalStep["id"], label: tt("Set up payments to get paid"), line: tt("Buyers can't pay for anything until this is done."), done: false, href: "/app/payouts" }] : []
 }
 
+/**
+ * WHETHER THE STORE HAS STARTED SELLING THINGS IT SHIPS (round AS). Physical
+ * commerce being on for the platform is not a reason to show a creator who
+ * sells only digital products a shipping checklist. The card appears once the
+ * store itself has done something physical: made a physical product, chosen
+ * how it fulfils, added a location (made by the physical product editor or
+ * shipping onboarding, never at sign up), a shipping rate, local pickup or a
+ * package. Read off the same facts the steps use, so it costs no extra query.
+ */
+export function physicalSetupStarted(f: PhysicalSetupFacts): boolean {
+  return f.physicalProducts > 0 || f.fulfilmentChosen || f.locations > 0 || f.rates > 0 || f.pickupLocations > 0 || f.packages > 0
+}
+
 export function physicalSetupDone(f: PhysicalSetupFacts): boolean {
   return physicalSteps(f).every((s) => s.done) && physicalBlockers(f).length === 0
 }

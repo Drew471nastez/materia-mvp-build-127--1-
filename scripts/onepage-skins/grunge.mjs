@@ -101,14 +101,13 @@ function material(skin, p) {
   rule(`${G} ${BOX} h3`, `padding-right: 64px; padding-left: 64px;`)
   rule(`${G} ${INPUT}`, `background: #fff !important; border: 2px solid ${BLACK} !important; border-radius: 0 !important; color: ${BLACK} !important; font-family: 'JetBrains Mono', ui-monospace, monospace;`)
   rule(`${G} ${INPUT}:focus`, `box-shadow: 4px 4px 0 ${BLACK} !important;`)
-  rule(`${G} [data-op-header]`, `padding-right: 16px;`)
+  rule(`${G} :is([data-op-header], [data-tp-header])`, `padding-right: 16px;`)
   rule(`${G} ${TITLE}`, `
     -webkit-mask-image: ${HOLES}; mask-image: ${HOLES}; -webkit-mask-size: 160px 160px; mask-size: 160px 160px;
     letter-spacing: .01em; text-shadow: ${p.second === BLACK ? "2px 1px 0 rgba(13,13,13,.28)" : `3px 2px 0 ${p.second}`};`)
   /* The bio and a text block typed on paper labels, so the toner never sits under a word. */
   rule(`${G} :is(${BIO}, ${TEXT}, [data-tp-title] + span)`, `background: ${p.label}; padding: 6px 10px; box-shadow: 3px 3px 0 rgba(13,13,13,.2); width: fit-content; max-width: 100%;`)
   rule(`${G} ${TEXT}`, `margin-inline: auto;`)
-  rule(`${G} [data-tp-title] + span`, `box-sizing: content-box;`)
   onSurface(skin, "a paper label", `:is(${BIO}, ${TEXT})`, BLACK, [p.label])
   rule(`${G} :is(${HEADING}, ${BLOCK_TITLE})`, `
     display: block; background: ${p.second}; padding: 6px 10px 5px !important; text-transform: uppercase;
