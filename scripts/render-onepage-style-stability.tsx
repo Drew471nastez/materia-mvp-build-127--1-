@@ -8,6 +8,9 @@
  *                             as components/onepage/live-preview does, so a theme switch arrives the way it does there
  *   &anim=<pulse|...|swipe>   the blocks that can move, moving
  *   &icons=<style>/<tone>     Design › Social icons over the theme (filled|outline|minimal|glass, brand|mono)
+ *   &all=1                    every other block that draws a button or a choice as well (tips, a poll, events, the
+ *                             contact card, the menu, booking, a map, a course, the social row as buttons), for the
+ *                             contrast pass (scripts/onepage-button-contrast.mjs)
  *
  * window.__setTheme(id) picks another theme on the page that is already drawn (a rerender on the live page, a new
  * "page" message in the editor's frame), so a probe can watch a switch.
@@ -21,6 +24,7 @@ import { lookFromTemplate } from "@/lib/onepage/theme-apply"
 import { withSkinOwn } from "@/lib/onepage/skin-own"
 import { publicOnePageFromDraft } from "@/lib/onepage/public-shape"
 import { ONEPAGE_PREVIEW_CHANNEL } from "@/lib/onepage/preview-channel"
+import { appBlockDefaults, type AppProviderId } from "@/lib/onepage/app-blocks"
 import { createDefaultBlock, defaultTheme, defaultSettings, type OnePage, type OnePageBlock, type OnePageBlockType } from "@/lib/onepage/types"
 
 try { localStorage.setItem("onepage-onboarding-completed", "true") } catch {}
@@ -63,6 +67,29 @@ const blocks: OnePageBlock[] = [
   make("divider", "d1", {}),
   make("link_button", "l6", { label: "Read the blog", url: "https://example.com/blog" }),
 ]
+
+/* Every other block with a button, a chip or a choice in it, for the contrast pass (&all=1). */
+const PDF = "https://files.example.com/guide.pdf"
+const appBlock = (p: AppProviderId, extra: Record<string, unknown> = {}): OnePageBlock => {
+  const b = createDefaultBlock("app")
+  return { ...b, id: `app-${p}`, sort_order: order++, enabled: true, data: { ...appBlockDefaults(p), ...extra } as never }
+}
+if (params.get("all") === "1")
+  blocks.push(
+    appBlock("tips", { title: "Buy me a coffee", subtitle: "Every tip goes to paper and ink", tip_ready: true, tip_currency: "usd" }),
+    appBlock("poll", { poll_question: "Next print?", poll_options: [{ id: "a", label: "Waves" }, { id: "b", label: "Hills" }, { id: "c", label: "Harbour" }] }),
+    appBlock("events", { title: "Shows", items: [{ id: "e1", title: "Lisbon show", date: "2030-03-02", url: "https://tickets.example.com/1" }] }),
+    appBlock("event", { title: "Open studio", event_start: "2030-05-02T18:00:00.000Z", venue: "Rua da Prata 12" }),
+    appBlock("contact", { title: "Studio", contact: { email: "hi@satori.example", phone: "+351 210 000 000" } }),
+    appBlock("email", { title: "Write to me", url: "mailto:hi@satori.example" }),
+    appBlock("discord", { url: "https://discord.gg/satori" }),
+    appBlock("mobile_app", { title: "Satori app", ios_url: "https://apps.apple.com/app/id123", android_url: "https://play.google.com/store/apps/details?id=x" }),
+    make("social_row", "s-buttons", { platforms: [{ platform: "instagram", url: "https://instagram.com/satori" }, { platform: "spotify", url: "https://open.spotify.com/artist/1" }], style: "buttons" }),
+    make("food_menu", "menu1", { pdf_file_url: PDF, title: "Menu", description: "Cafe hours 9 to 5", button_text: "View menu" }),
+    make("calendly", "cal1", { calendly_url: "https://calendly.com/probe/30min", title: "Book a call", description: "Thirty minutes", button_text: "Book", embed_mode: "direct_link" }),
+    make("map", "map1", { address: "Lisbon", title: "Studio", show_button: true }),
+    make("course", "course1", {}),
+  )
 
 const header = { id: "hdr", type: "header", enabled: true, sort_order: -1, data: { show_avatar: true, show_name: true, show_bio: true } } as unknown as OnePageBlock
 const base = {

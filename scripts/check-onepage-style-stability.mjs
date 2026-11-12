@@ -31,23 +31,32 @@
  *             same way, Glass a frosted tile, One colour one colour.
  *   motion    with a block animation chosen, the block runs it; with
  *             reduced motion it stands still.
+ *   contrast  (round 3) every button, chip, radio, product button, social
+ *             icon and sheet button, at rest (selected and disabled among
+ *             them), hovered, focused and held down: its words read on what
+ *             is painted under them, 4.5:1 (3:1 large words and icon marks),
+ *             from pixels (scripts/onepage-button-contrast.mjs).
  *
  *   node scripts/check-onepage-style-stability.mjs
  *   THEMES=a,b   only these        QUICK=1   live page only, no switch pass
- *   ONLY=load,hover,switch,overlap,icons,motion
+ *   ONLY=load,hover,switch,overlap,icons,motion,contrast
+ *   SHOW=n      how many problems to print     CONTRAST_JSON=<file>  every contrast failure, as JSON
  */
 import { existsSync, readFileSync } from "node:fs"
 import puppeteer from "puppeteer-core"
 import { serveEditorProbe } from "./onepage-probe-server.mjs"
+import { contrastPass } from "./onepage-button-contrast.mjs"
 
 const CHROMIUM = process.env.CHROMIUM || ["/opt/pw-browsers/chromium-1243/chrome-linux64/chrome", "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", "/opt/pw-browsers/chromium"].find((p) => existsSync(p))
 const QUICK = process.env.QUICK === "1"
-const ONLY = new Set((process.env.ONLY || "load,hover,switch,overlap,icons,motion").split(","))
+const ONLY = new Set((process.env.ONLY || "load,hover,switch,overlap,icons,motion,contrast").split(","))
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const OBSERVE = readFileSync(new URL("./onepage-style-observe.js", import.meta.url), "utf8")
 
 const problems = []
-const counts = { pages: 0, boxes: 0, loadChanges: 0, hovered: 0, hoverBad: 0, hoverUnreadable: 0, switchBad: 0, overlaps: 0, iconBad: 0, motionBad: 0, entranceFlashes: 0 }
+const counts = { pages: 0, boxes: 0, loadChanges: 0, hovered: 0, hoverBad: 0, hoverUnreadable: 0, switchBad: 0, overlaps: 0, iconBad: 0, motionBad: 0, entranceFlashes: 0, contrastButtons: 0, contrastReadings: 0, contrastBad: 0 }
+const contrastByState = {}
+const contrastAll = []
 const fail = (where, what) => problems.push(`${where}: ${what}`)
 
 const { base, server } = await serveEditorProbe({ entry: "scripts/render-onepage-style-stability.tsx" })
@@ -238,7 +247,22 @@ async function loadPass(path, editor, where, extra = {}) {
   return { page, frame }
 }
 
-for (const id of themeIds) {
+for (const id of ONLY.has("contrast") ? themeIds : []) {
+  const r = await contrastPass(open, id)
+  counts.contrastButtons += r.buttons
+  counts.contrastReadings += r.readings
+  counts.contrastBad += r.failures.length
+  for (const f of r.failures) {
+    contrastByState[f.state] = (contrastByState[f.state] || 0) + 1
+    contrastAll.push({ theme: id, where: f.where, state: f.state, block: f.block, kind: f.kind, text: f.text, ratio: f.ratio, min: f.min, color: f.color, ground: f.ground })
+    fail(`${f.where} ${f.state}`, `${f.block || "page"} ${f.kind} "${f.text}" reads at ${f.ratio}:1 (needs ${f.min}) on ${f.ground}`)
+  }
+  if (process.env.PROGRESS) console.log(`  ${id}: ${r.buttons} buttons, ${r.readings} readings, ${r.failures.length} under the minimum (sheets: ${r.opened.join(", ") || "none"})`)
+}
+if (process.env.CONTRAST_JSON) (await import("node:fs")).writeFileSync(process.env.CONTRAST_JSON, JSON.stringify(contrastAll, null, 1))
+
+const STATE_PASSES = ["load", "hover", "switch", "overlap"].some((p) => ONLY.has(p))
+for (const id of STATE_PASSES ? themeIds : []) {
   if (process.env.PROGRESS) console.log(`  ${id}: ${problems.length} problems so far`)
   /* The published page. */
   {
@@ -453,6 +477,11 @@ console.log(`  product overlaps          ${counts.overlaps}`)
 console.log(`  social icon rows wrong    ${counts.iconBad}`)
 console.log(`  block animations wrong    ${counts.motionBad}`)
 console.log(`  entrance flashes          ${counts.entranceFlashes}`)
+if (ONLY.has("contrast")) {
+  console.log(`  contrast: buttons read    ${counts.contrastButtons}`)
+  console.log(`  contrast: words measured  ${counts.contrastReadings}`)
+  console.log(`  contrast: under minimum   ${counts.contrastBad}${counts.contrastBad ? `  (${Object.entries(contrastByState).map(([k, v]) => `${k} ${v}`).join(", ")})` : ""}`)
+}
 if (problems.length) {
   const shown = problems.slice(0, Number(process.env.SHOW || 60))
   console.error(`\n${problems.length} problems${problems.length > shown.length ? ` (first ${shown.length})` : ""}:\n${shown.map((p) => `  - ${p}`).join("\n")}\n`)
