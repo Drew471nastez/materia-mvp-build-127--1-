@@ -345,7 +345,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 911 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 914 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -980,6 +980,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#15803d\]:not([data-own-look], [data-own-look] *) { color: hsla(142,72%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#166534\]:not([data-own-look], [data-own-look] *) { color: hsla(143,64%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#16a34a\]:not([data-own-look], [data-own-look] *) { color: hsla(142,75%,72%,1); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#18181b\]:not([data-own-look], [data-own-look] *) { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *) { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#1a1a2e\]\/70:not([data-own-look], [data-own-look] *) { color: rgba(236,236,238,0.7); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#1a1a2e\]\/80:not([data-own-look], [data-own-look] *) { color: rgba(236,236,238,0.8); }
@@ -999,6 +1000,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#3a8a62\]:not([data-own-look], [data-own-look] *) { color: hsla(150,41%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#3b2bb8\]:not([data-own-look], [data-own-look] *) { color: hsla(247,62%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#3b6aa8\]:not([data-own-look], [data-own-look] *) { color: hsla(214,48%,72%,1); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#3f3f46\]:not([data-own-look], [data-own-look] *) { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#3f4652\]:not([data-own-look], [data-own-look] *) { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#4b5260\]:not([data-own-look], [data-own-look] *) { color: hsla(220,12%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#4b5563\]:not([data-own-look], [data-own-look] *) { color: hsla(215,14%,72%,1); }
@@ -1017,6 +1019,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#8a1c0f\]:not([data-own-look], [data-own-look] *) { color: hsla(6,75%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#8a5212\]:not([data-own-look], [data-own-look] *) { color: hsla(32,75%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#8a5a00\]:not([data-own-look], [data-own-look] *) { color: hsla(39,75%,72%,1); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#8b8b94\]:not([data-own-look], [data-own-look] *) { color: #9c9da4; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#912018\]:not([data-own-look], [data-own-look] *) { color: hsla(4,72%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#92400e\]:not([data-own-look], [data-own-look] *) { color: hsla(23,75%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#93370d\]:not([data-own-look], [data-own-look] *) { color: hsla(19,75%,72%,1); }

@@ -500,6 +500,8 @@ const SUITES = [
   "tests/home-w12-showcase.test.ts",
   /* W12 creators: section 7, the creators carousel (endless transform-only rail, bubble morph on hover/centre/tap, drag, reduced-motion grid) and the motion primitives in components/marketing/home/motion (morphing pill cluster, orbit badge, sale pop). */
   "tests/home-w12-creators.test.ts",
+  /* Wave 12, commerce: the home page's How it works tiles and profit picker, the checkout scroll scene, the dotted world map and the earnings calculator (components/marketing/home). Fees from lib/payments/fees, Pro's price from lib/billing/plans, server rendered roles and copy, reduced motion, compositor-only motion, local webp under budget. */
+  "tests/home-w12-commerce.test.ts",
   /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */
   "tests/library-courses-ad5.test.ts",
   "tests/header-flex.test.ts",
