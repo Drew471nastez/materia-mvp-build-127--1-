@@ -2,40 +2,47 @@
 
 import { useShowcaseMotion } from "./use-showcase-motion"
 import { StoryHeading } from "./story-heading"
-import { HERO_SLIDES } from "@/lib/marketing/hero-media"
-
-const portrait = (name: string, label: string) => ({
-  src: `/marketing/hero/tile-onepage-${name}.webp`,
-  alt: `${label}, a Storelib OnePage with products and links`,
-  label: "OnePage",
-  format: "portrait",
-  width: 360,
-  height: 450,
-})
-const wide = (index: number, label: string) => ({
-  ...HERO_SLIDES[index],
+/*
+  Nine fictional Storelib businesses, as three wide–OnePage–wide pages:
+  storefronts, OnePages and communities, each with its own name, palette and
+  type. Every picture is rendered from the live mockups in
+  components/marketing/home/showcase-mocks (the same brands sections 4 and 6
+  use) as one small webp, so the moving gallery composites flat images.
+*/
+const wide = (brand: string, label: string, alt: string) => ({
+  src: `/home/showcase/a-${brand}.webp`,
+  alt,
   label,
   format: "wide",
-  width: 1200,
-  height: 750,
+  width: 1440,
+  height: 900,
+})
+const portrait = (brand: string, label: string, alt: string) => ({
+  src: `/home/showcase/a-${brand}.webp`,
+  alt,
+  label,
+  format: "portrait",
+  width: 540,
+  height: 960,
 })
 const GROUPS = [
   [
-    wide(0, "Your online store"),
-    portrait("noor", "OnePage, your way"),
-    wide(7, "Your website builder"),
+    wide("hollow", "Sell merch your fans wear", "Hollow Pines, a band's merch store with hoodies, tees and caps"),
+    portrait("maya", "A link in bio that sells", "Maya Okafor's OnePage with a marathon plan, run club and coaching links"),
+    wide("darkroom", "Bring your community together", "The Darkroom Club, a film photography community feed with spaces and events"),
   ],
   [
-    wide(3, "Your community"),
-    portrait("theo", "Share what you create"),
-    wide(5, "Your creator page"),
+    wide("gridline", "Sell templates and downloads", "Gridline Studio's storefront for Notion and Figma templates"),
+    portrait("lio", "Share what you create", "Lio Tanaka's dark OnePage with photos, presets and print links"),
+    wide("founders", "A members' club for founders", "Founders After Five, a community where a member shares a $10k MRR milestone"),
   ],
   [
-    wide(2, "Your storefront"),
-    portrait("ana", "Give every link a home"),
-    wide(6, "Your digital products"),
+    wide("bloom", "Teach what you know", "Brush & Bloom's watercolor course site with modules and reviews"),
+    portrait("priya", "Give every link a home", "Sol & Sage's OnePage with a cookbook, recipes and a cooking class"),
+    wide("kiln", "Gather people around a craft", "Kiln & Clay Collective, a pottery community sharing glaze recipes"),
   ],
 ]
+export const SHOWCASE_EXAMPLES = GROUPS.flat()
 export const SHOWCASE_HEADING =
   "Everything you need to create, sell, and manage your business online."
 
