@@ -880,6 +880,8 @@ const SUITES = [
   /* Round AQ: the onboarding draws the theme preview, Layout pictures draw the block's own content, a form's row is named, the sheet kit's slow pull is slow; scripts/check-onepage-real-preview.mjs reads the preview in next dev. */
   "tests/onepage-aq2.test.ts",
   "tests/onepage-ar5.test.ts",
+  /* Round AS (track 1): every theme card is a fictional creator's page drawn with the page's own helpers (no grey bars, its own chunk), Plaster (its structure, colours, cover and names), and no glow nobody chose (the guard's hairline, no theme's ring, a faint Glow). scripts/check-onepage-theme-previews-as1.mjs and scripts/check-onepage-glow-as1.mjs measure them. */
+  "tests/onepage-as1.test.ts",
   "tests/onepage-themes-w8.test.ts",
   /* Round W9: six themes with a skin (Aero, Aqua, Messenger, Y2K, Playful, Grunge): every text and button pair and every colour the skin paints read at 4.5:1, the skin carried by both roots and the theme card, the generated stylesheet current and styling every kind of block, motion by transform and opacity only and still for reduced motion and in cards, the skin laid on and taken off with the theme. scripts/shot-onepage-skins.mjs photographs them. */
   "tests/onepage-themes-w9.test.ts",

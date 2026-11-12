@@ -91,6 +91,7 @@ import { Rich } from "@/lib/i18n/rich"
 import { withR40Themes } from "@/components/onepage/themes/r40-themes"
 import { ThemePreview } from "@/components/onepage/themes/theme-preview"
 import { useThemePreviewScale } from "@/components/onepage/themes/preview-scale"
+import { loadPreviewContent } from "@/components/onepage/themes/preview-content-loader"
 import { themeLabel } from "@/components/onepage/themes/theme-names"
 import { LayoutSection } from "@/components/onepage/themes/layout-section"
 import { FontPairs } from "@/components/onepage/themes/font-pairs"
@@ -305,7 +306,7 @@ const BASE_THEME_TEMPLATES = [
       social_icon_color: "#374151",
       spacing: "comfortable" as const,
       card_width: "standard" as const,
-      laser_glow_enabled: true,
+      laser_glow_enabled: false, /* Round AS: a ring is the creator's to turn on (Header), never a theme's: Air drew a white glow round every photo. */
       laser_glow_color: "#dbdbdb",
       laser_glow_intensity: "medium",
       button_size: "large",
@@ -851,7 +852,7 @@ const BASE_THEME_TEMPLATES = [
       social_icon_color: "#a1a1aa",
       spacing: "normal" as const,
       card_width: "standard" as const,
-      laser_glow_enabled: true,
+      laser_glow_enabled: false,
       laser_glow_color: "#303030",
       laser_glow_intensity: "medium",
       block_layout: "compact",
@@ -886,7 +887,7 @@ const BASE_THEME_TEMPLATES = [
       social_icon_color: "#c9c4b8",
       spacing: "normal" as const,
       card_width: "standard" as const,
-      laser_glow_enabled: true,
+      laser_glow_enabled: false,
       laser_glow_color: "#2b3542",
       laser_glow_intensity: "medium",
       cover_image_url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1600&q=80",
@@ -2485,9 +2486,12 @@ function HeaderSection() {
 }
 
 /* The theme names, each drawn in its theme's title face: one request cut to the letters of the names, as the language spells them (round AP). */
-const THEME_NAME_FAMILIES = [...new Set(THEME_TEMPLATES.map((t) => familyOf(t.theme_config.title_font || t.theme_config.font_family)).filter((f): f is string => !!f))]
+/* Round AS: and the body faces, since each card now sets a creator's line, links and prices in them (./themes/preview-content). */
+const THEME_NAME_FAMILIES = [...new Set(THEME_TEMPLATES.flatMap((t) => [familyOf(t.theme_config.title_font || t.theme_config.font_family), familyOf(t.theme_config.font_family)]).filter((f): f is string => !!f))]
+/* The letters the cards' words use: the alphabet both ways, the accents the creators' names carry, figures and the price signs. */
+const PREVIEW_LETTERS = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i, 97 + i)).join("") + "áéêíóú0123456789$€£&.,:'/ "
 /* In capitals too (round W8): Gazette, Halo and Acid set their names in capitals, and a letter missing from the cut is drawn in another face. */
-export const themeNameFontsHref = () => { const names = THEME_TEMPLATES.map((t) => themeLabel(t)).join(""); return onePageFontSampleHref(THEME_NAME_FAMILIES, names + names.toUpperCase()) }
+export const themeNameFontsHref = () => { const names = THEME_TEMPLATES.map((t) => themeLabel(t)).join(""); return onePageFontSampleHref(THEME_NAME_FAMILIES, names + names.toUpperCase() + PREVIEW_LETTERS) }
 
 /**
  * A THEME, AS A SMALL PAGE. The cards were one grey skeleton in eighteen
@@ -2511,7 +2515,8 @@ export const themeNameFontsHref = () => { const names = THEME_TEMPLATES.map((t) 
 const THEME_THUMB_WIDTH = 320
 
 /** A photo theme's card picture: the optimizer's 640px copy, the same address the card asks for. */
-export const themeThumbSrc = (url: string) => optimizedImageUrl(url, THEME_THUMB_WIDTH, 75)
+/* Round AS: a drawn SVG (Plaster's cover) is drawn as it is: the optimizer refuses SVG (lib/onepage/display-image). */
+export const themeThumbSrc = (url: string) => (/\.svg(?:[?#]|$)/i.test(url) ? url : optimizedImageUrl(url, THEME_THUMB_WIDTH, 75))
 
 /*
   EVERY CARD'S PHOTO IS IN AND DECODED BEFORE THE THEME PAGE IS OPENED. The
@@ -2530,6 +2535,8 @@ const keptThemeThumbs: HTMLImageElement[] = []
 let themeThumbHolders = 0
 export function preloadThemeThumbs(): () => void {
   if (typeof window === "undefined") return () => {}
+  /* Round AS: the cards' creators and drawings, their own small chunk, asked for with the pictures. */
+  void loadPreviewContent()
   themeThumbHolders++
   let held = true
   const release = () => {
@@ -2595,7 +2602,7 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onP
         paint, so nothing inside it is worked out again for the rest of the grid.
       */}
       <span data-theme-frame="" className="relative block aspect-[5/7] overflow-hidden rounded-xl [contain:layout_paint]" style={{ background: c.background_color }}>
-        <ThemePreview c={look} name={name} thumb={themeThumbSrc} />
+        <ThemePreview c={look} id={template.id} kind={template.category} thumb={themeThumbSrc} />
         <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
         <CheckMark on={selected} className="right-1.5 top-1.5" />
       </span>

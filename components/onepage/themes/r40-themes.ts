@@ -1458,12 +1458,80 @@ export const W10_THEMES = [
   },
 ]
 
+/**
+ * ===========================================================================
+ *  PLASTER (ROUND AS): A CAST STUDY ON A BLACK GROUND
+ * ===========================================================================
+ * The owner's two pictures: a chalk drawing of a classical head on black,
+ * half shaded and half construction lines, and a dark editorial page with a
+ * big serif and thin ruled columns. Plaster is its own take: a black ground,
+ * a head in profile drawn in SVG (public/images/onepage-themes/plaster.svg,
+ * 4KB, our own drawing) as the cover, half modelled in a plaster white and
+ * half left as line work over a ruled grid and a construction circle; a
+ * large Instrument Serif for the name, set tight; thin chalk rules for every
+ * button (Outline, one pixel, square ends) that fill with chalk under the
+ * pointer; products as ruled rows; the header set flush left so the photo
+ * sits under the empty half of the drawing.
+ */
+export const AS_THEMES = [
+  {
+    id: "plaster",
+    name: "Plaster",
+    category: "dark",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#0b0b0a",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#ece8df",
+      secondary_text_color: "#a9a49a",
+      button_color: "#ece8df",
+      button_text_color: "#ece8df",
+      button_style: "outline" as const,
+      button_border_radius: 0,
+      button_border_width: 1,
+      button_border_color: "#ece8df",
+      button_shadow: "none",
+      button_hover_animation: "fill",
+      button_hover_fill: "#ece8df",
+      button_hover_text: "#0b0b0a",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Instrument Serif', serif",
+      title_color: "#f4f1ea",
+      title_size: "large",
+      title_weight: 400,
+      title_tracking: "tight",
+      social_icon_color: "#ece8df",
+      social_icon_style: "minimal",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "none",
+      block_layout: "list",
+      product_layout: "rows",
+      header_align: "left",
+      avatar_size: "small",
+      avatar_border_width: 1,
+      avatar_border_color: "#ece8df",
+      cover_image_url: "https://storelib.com/images/onepage-themes/plaster.svg",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#ece8df",
+    solid_button_text_color: "#0b0b0a",
+    outline_button_text_color: "#ece8df",
+    glass_button_text_color: "#ece8df",
+    share_style: "black",
+    subscribe_style: "black",
+  },
+]
+
 /** The order the kinds are listed in, in All: light, gradient, dark, then pictures, as the catalogue always was. */
 export const THEME_KIND_ORDER = ["light", "gradient", "dark", "image"] as const
 
 /** The catalogue with these (and round 42's) laid into their kinds, each kind keeping its own order and the new ones at its end. */
 export function withR40Themes<T extends { category: string }>(base: readonly T[]): T[] {
-  const all = [...base, ...(R40_THEMES as unknown as T[]), ...(R42_THEMES as unknown as T[]), ...(AP_THEMES as unknown as T[]), ...(W8_THEMES as unknown as T[]), ...(W9_THEMES as unknown as T[]), ...(W10_THEMES as unknown as T[])]
+  const all = [...base, ...(R40_THEMES as unknown as T[]), ...(R42_THEMES as unknown as T[]), ...(AP_THEMES as unknown as T[]), ...(W8_THEMES as unknown as T[]), ...(W9_THEMES as unknown as T[]), ...(W10_THEMES as unknown as T[]), ...(AS_THEMES as unknown as T[])]
   const rank = (c: string) => {
     const i = (THEME_KIND_ORDER as readonly string[]).indexOf(c)
     return i < 0 ? THEME_KIND_ORDER.length : i

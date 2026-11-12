@@ -91,21 +91,22 @@ for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
 }
 check("the card and its label show the name in the reader's language", /const name = themeLabel\(template\)/.test(design) && /aria-label=\{tt\("\{name\} theme", \{ name \}\)\}/.test(design))
 /* Changed on purpose (round W8): the cut carries the names in capitals too, for the themes that set their name in capitals. */
-check("the names' faces are cut to the letters of the names as the language spells them", /const names = THEME_TEMPLATES\.map\(\(t\) => themeLabel\(t\)\)\.join\(""\); return onePageFontSampleHref\(THEME_NAME_FAMILIES, names \+ names\.toUpperCase\(\)\)/.test(design))
+check("the names' faces are cut to the letters of the names as the language spells them", /const names = THEME_TEMPLATES\.map\(\(t\) => themeLabel\(t\)\)\.join\(""\); return onePageFontSampleHref\(THEME_NAME_FAMILIES, names \+ names\.toUpperCase\(\) \+ PREVIEW_LETTERS\)/.test(design) /* Changed on purpose (round AS): and the letters the cards' creators, links and prices use. */)
 
 console.log("\nA theme card is the page, at a card's scale")
 const preview = read("components/onepage/themes/theme-preview.tsx")
 check("drawn from the live page's own helpers", ["avatarLook", "titleSizeClass", "titleTypeStyle", "themeButtonStyle", "BUTTON_SIZE_CLASS", "blockGapClass", "blockLayoutOf", "coverImageOf", "coverAspect", "themeProductLayoutOf", "cardButtonTheme", "WallpaperPattern", "SocialIcon"].every((h) => preview.includes(h)))
 check("laid out at the phone's 390px and scaled by one number", /export const PREVIEW_WIDTH = 390/.test(preview) && /transform: "scale\(var\(--tp-scale, 0\.42\)\)"/.test(preview))
 check("the phone's classes, never a computer's sm: steps", /const phone = \(cls: string\) => cls\.split/.test(preview) && /phone\(BUTTON_SIZE_CLASS\[size\]\)/.test(preview) && /phone\(titleSizeClass\(/.test(preview))
-check("the name never shrinks: one line, its own height", /data-tp-title=""[\s\S]{0,80}whitespace-nowrap font-bold leading-\[1\.5\]/.test(preview) && !/truncate/.test(preview))
+/* Changed on purpose (round AS): the name is a creator's now and wraps where the page wraps it (The Static Hours on Grunge), its own height, never cut. */
+check("the name never shrinks: its own lines, its own height", /data-tp-title=""\s*className=\{cn\("block max-w-full font-bold leading-\[1\.5\]"/.test(preview) && !/data-tp-title=""[\s\S]{0,120}truncate/.test(preview))
 /* Changed on purpose (round AQ): the measuring is one helper beside the preview (themes/preview-scale), shared by the Design tab and the onboarding. */
 const scaleFile = readFileSync(join(process.cwd(), "components/onepage/themes/preview-scale.ts"), "utf8")
 check("the Design tab measures one card for the whole grid", /grid\.style\.setProperty\("--tp-scale", String\(w \/ PREVIEW_WIDTH\)\)/.test(scaleFile) && /new ResizeObserver\(measure\)/.test(scaleFile) && /useThemePreviewScale\(gridRef, "\[data-theme-kind-shown\] \[data-theme-frame\]"\)/.test(design))
 {
   /* Round AQ: the onboarding's template step draws the same preview, at one scale for its grid, with no webfonts. */
   const onboarding = readFileSync(join(process.cwd(), "components/onepage/onboarding-modal.tsx"), "utf8")
-  check("the onboarding's template cards are the Design tab's preview", /<ThemePreview c=\{look\} name=\{name\} thumb=\{themeThumbSrc\} photo=\{photo\} \/>/.test(onboarding) && /scaleThemePreviews\(grid, "\[data-template-frame\]"\)/.test(onboarding) && /aspect-\[4\/5\]/.test(onboarding))
+  check("the onboarding's template cards are the Design tab's preview", /<ThemePreview c=\{look\} id=\{template\.id\} kind=\{template\.category\} name=\{name\} thumb=\{themeThumbSrc\} photo=\{photo\} \/>/ /* Changed on purpose (round AS): the card names its theme, whose creator it draws around the person's own name and photo. */.test(onboarding) && /scaleThemePreviews\(grid, "\[data-template-frame\]"\)/.test(onboarding) && /aspect-\[4\/5\]/.test(onboarding))
   check("the onboarding draws no hand made template card and loads no name faces", !/TEMPLATE_THUMBS/.test(onboarding) && !/themeNameFontsHref/.test(onboarding) && !/<WallpaperPattern/.test(onboarding))
 }
 check("no state and no effects inside a card", !/use(State|Effect|LayoutEffect|Ref)\(/.test(preview))
