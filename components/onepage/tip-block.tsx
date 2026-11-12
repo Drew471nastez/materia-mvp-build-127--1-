@@ -324,8 +324,9 @@ function TipSheet({ blockId, look, data, currency, start }: { blockId: string; l
   const label = cents ? tipLabel(cents, currency, locale) : tipLabel(0, currency, locale)
   /* Long amounts step down a size rather than wrap. */
   const size = label.length > 9 ? 40 : label.length > 6 ? 48 : 56
+  /* Round 3: a step that cannot go further shows it in the sheet's small print (5:1 on the sheet), not faded to a third. */
   const round =
-    "grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[var(--sheet-field)] text-[var(--sheet-ink)] outline-none transition-[scale,opacity] duration-150 [-webkit-tap-highlight-color:transparent] active:scale-95 disabled:opacity-35 focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink)]"
+    "grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[var(--sheet-field)] text-[var(--sheet-ink)] outline-none transition-[scale,opacity] duration-150 [-webkit-tap-highlight-color:transparent] active:scale-95 disabled:text-[var(--sheet-muted)] disabled:active:scale-100 focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink)]"
 
   return (
     <div data-tip-sheet="" className="mx-auto flex w-full max-w-[400px] flex-col items-stretch px-1 pb-1 pt-2">
@@ -361,7 +362,7 @@ function TipSheet({ blockId, look, data, currency, start }: { blockId: string; l
         type="button"
         aria-expanded={keypad}
         onClick={() => setKeypad((k) => !k)}
-        className="mx-auto mt-1 rounded-full px-3 py-1.5 text-[14px] font-medium text-[var(--sheet-ink)] underline decoration-[color-mix(in_srgb,var(--sheet-ink)_30%,transparent)] underline-offset-4 outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink)]"
+        className="mx-auto mt-1 rounded-full px-3 py-1.5 text-[14px] font-medium text-[var(--sheet-ink)] underline decoration-[color-mix(in_srgb,var(--sheet-ink)_30%,transparent)] underline-offset-4 outline-none transition-[text-decoration-color] [@media(hover:hover)]:hover:decoration-[var(--sheet-ink)] focus-visible:ring-2 focus-visible:ring-[var(--sheet-ink)]"
         data-tip-keypad-toggle=""
       >
         {keypad ? tt("Hide keypad") : tt("Show keypad")}

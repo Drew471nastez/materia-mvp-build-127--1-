@@ -22,8 +22,8 @@
  * For each state: the words' own colour is read (faded by their ancestors'
  * opacity), then every word on the page is made clear (-webkit-text-fill-color,
  * which leaves currentColor alone, so a chip filled with its words' colour
- * keeps its fill) and the button is photographed. The pixels under the words'
- * glyph boxes are what the words sit on: 80% of them must reach 4.5:1 (3:1 for
+ * keeps its fill) and the button is photographed again. The pixels under the
+ * glyphs (where the two pictures differ) are what the words sit on: 80% of them must reach 4.5:1 (3:1 for
  * large words, and for an icon's mark). States whose button looks the same at
  * rest share one reading (same classes, same computed look, same block).
  *
@@ -40,7 +40,9 @@ export const PRESSABLE =
 
 const FREEZE = "*,*::before,*::after{transition:none !important;caret-color:transparent !important}"
 /* Words made clear: only the glyphs' own fill, so currentColor (a chip's fill, a border) stays as it is. */
-const HIDE = `*,*::before,*::after{-webkit-text-fill-color:transparent !important;text-shadow:none !important;text-decoration-color:transparent !important}:is(${PRESSABLE}) svg,:is(${PRESSABLE}) [data-cg-icon]{visibility:hidden !important}`
+/* Weighted over any skin's own !important (three ids that never match): a skin's text-shadow or stroke must not leave a copy of the words behind. */
+const W = "html:not(#cg-a#cg-b#cg-c)"
+const HIDE = `${W} *,${W} *::before,${W} *::after{-webkit-text-fill-color:transparent !important;-webkit-text-stroke:0 transparent !important;text-shadow:none !important;text-decoration-color:transparent !important}${W} :is(${PRESSABLE}) svg,${W} :is(${PRESSABLE}) [data-cg-icon]{visibility:hidden !important}`
 
 /* In the page: the words (and icon marks) of every visible pressable in `scope`, or of the one marked data-cg-only. */
 const COLLECT = ({ scope, only, sel }) => {
@@ -67,8 +69,9 @@ const COLLECT = ({ scope, only, sel }) => {
     }
     return fade
   }
+  /* Clipped by the words' own box too: a truncated title's text runs on, unseen, under whatever is beside it. */
   const clipRects = (el, rects) => {
-    for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+    for (let a = el; a && a !== document.body; a = a.parentElement) {
       const s = getComputedStyle(a)
       if (s.overflowX === "visible" && s.overflowY === "visible") continue
       const b = a.getBoundingClientRect()
@@ -137,6 +140,17 @@ const COLLECT = ({ scope, only, sel }) => {
       const ss = getComputedStyle(shape)
       color = parse(ss.fill !== "none" ? ss.fill : ss.stroke)
       if (!color) continue
+      /* A filter drawn over the mark (Arcade's black marks on its coins: brightness(0)) is what is seen; any other, unknown. */
+      let filtered = null
+      for (let a = el; a && a !== targets[ti] && a !== document.body; a = a.parentElement) {
+        const f = getComputedStyle(a).filter
+        if (f && f !== "none") filtered = f
+        if (a === el.closest(sel)) break
+      }
+      if (filtered) {
+        if (/^brightness\(0\)/.test(filtered)) color = { r: 0, g: 0, b: 0, a: color.a }
+        else continue
+      }
       const r = el.getBoundingClientRect()
       rects = [{ left: r.left, top: r.top, width: r.width, height: r.height }]
       min = 3
@@ -192,24 +206,41 @@ export const ratio = (a, b) => {
 }
 const mix = (c, g) => ({ r: c.r * c.a + g.r * (1 - c.a), g: c.g * c.a + g.g * (1 - c.a), b: c.b * c.a + g.b * (1 - c.a) })
 
-/** The words against the pixels under them in `shot` (raw RGBA, `origin` its top left in the page). Failures only. */
-function judge(words, shot, origin) {
+/**
+ * The words against the pixels under them in `shot` (raw RGBA, `origin` its top left in the page). Failures only.
+ * `seen` is the same area with the words drawn: where it differs from `shot` is where the glyphs are, and only the
+ * ground under those counts (a line box is taller and wider than its glyphs, and can reach past a pill's clipped
+ * corners). Words that change nothing at all were drawn in the colour of what is under them: every sample counts.
+ */
+function judge(words, shot, origin, seen) {
   const bad = []
   for (const w of words) {
-    const ratios = []
-    const grounds = []
+    let ratios = []
+    let grounds = []
+    const inked = []
+    const inkedGrounds = []
     for (const r of w.rects) {
-      const steps = w.kind === "icon" ? 6 : 8
-      for (let i = 0; i < steps; i++)
-        for (let j = 0; j < (w.kind === "icon" ? 6 : 3); j++) {
-          const x = Math.floor(r.left - origin.x + ((i + 0.5) / steps) * r.width)
-          const y = Math.floor(r.top - origin.y + ((j + 0.5) / (w.kind === "icon" ? 6 : 3)) * r.height)
+      const cols = w.kind === "icon" ? 8 : Math.max(8, Math.min(40, Math.round(r.width / 3)))
+      const rows = w.kind === "icon" ? 8 : 6
+      for (let i = 0; i < cols; i++)
+        for (let j = 0; j < rows; j++) {
+          const x = Math.floor(r.left - origin.x + ((i + 0.5) / cols) * r.width)
+          const y = Math.floor(r.top - origin.y + ((j + 0.5) / rows) * r.height)
           if (x < 0 || y < 0 || x >= shot.width || y >= shot.height) continue
           const k = (y * shot.width + x) * shot.channels
           const g = { r: shot.data[k], g: shot.data[k + 1], b: shot.data[k + 2] }
+          const q = ratio(mix(w.color, g), g)
           grounds.push(g)
-          ratios.push(ratio(mix(w.color, g), g))
+          ratios.push(q)
+          if (seen && Math.max(Math.abs(seen.data[k] - g.r), Math.abs(seen.data[k + 1] - g.g), Math.abs(seen.data[k + 2] - g.b)) > 28) {
+            inked.push(q)
+            inkedGrounds.push(g)
+          }
         }
+    }
+    if (inked.length >= 4) {
+      ratios = inked
+      grounds = inkedGrounds
     }
     if (!ratios.length) continue
     ratios.sort((p, q) => p - q)
@@ -234,16 +265,32 @@ async function shoot(page, clip) {
 
 /** One reading: collect the words as they are now, hide them, photograph `clip`, judge. */
 async function reading(page, { scope = null, only = null, clip = null }) {
+  /* An entrance that began after the page was stilled (a block that came into view late) is finished first: read as it is seen. */
+  await page.evaluate(() => {
+    for (const a of document.getAnimations()) {
+      try {
+        if (a.playState === "running" && a.effect?.getComputedTiming().endTime !== Infinity) a.finish()
+      } catch {}
+    }
+  })
   const { words, targets } = await page.evaluate(COLLECT, { scope, only, sel: PRESSABLE })
   if (!words.length) return { words, targets, bad: [] }
-  const hide = await page.addStyleTag({ content: HIDE })
-  await page.evaluate(CLEAR_INLINE)
   const vp = page.viewport()
   const area = clip || { x: 0, y: 0, width: vp.width, height: vp.height }
+  /* The words as drawn, then the same area with every word made clear. */
+  const seen = await shoot(page, area)
+  const hide = await page.addStyleTag({ content: HIDE })
+  await page.evaluate(CLEAR_INLINE)
   const shot = await shoot(page, area)
   await page.evaluate(RESTORE_INLINE)
   await hide.evaluate((n) => n.remove())
-  return { words, targets, bad: judge(words, shot, area) }
+  const bad = judge(words, shot, area, seen)
+  if (process.env.CG_DUMP && bad.length && !clip) {
+    const b = bad[0].rects[0]
+    const x = Math.max(0, Math.floor(b.left - 20)), y = Math.max(0, Math.floor(b.top - 20))
+    await sharp(shot.data, { raw: { width: shot.width, height: shot.height, channels: shot.channels } }).extract({ left: x, top: y, width: Math.min(shot.width - x, Math.ceil(b.width + 40)), height: Math.min(shot.height - y, Math.ceil(b.height + 40)) }).png().toFile(`${process.env.CG_DUMP}/${bad[0].text.slice(0, 12).replace(/\W/g, "_")}.png`)
+  }
+  return { words, targets, bad }
 }
 
 /** The page still: entrances finished, endless motion paused, no transitions (a state is read as it ends up). */
