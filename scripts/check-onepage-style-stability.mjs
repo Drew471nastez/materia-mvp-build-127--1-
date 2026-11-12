@@ -60,7 +60,13 @@ const contrastAll = []
 const fail = (where, what) => problems.push(`${where}: ${what}`)
 
 const { base, server } = await serveEditorProbe({ entry: "scripts/render-onepage-style-stability.tsx" })
-const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--disable-gpu", "--font-render-hinting=none"] })
+/*
+  A mouse, as far as CSS can tell. Headless Chromium reports no hover and no fine pointer, so every rule under
+  @media (hover: hover) and (pointer: fine) (every button's hover, app/globals.css .op-btn) never applied, and the
+  hover pass read buttons at rest under the pointer. These settings make it the desktop browser the rules are for.
+*/
+const MOUSE = "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4"
+const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--disable-gpu", "--font-render-hinting=none", MOUSE] })
 
 async function open(path, { width = 390, height = 900, reduced = false } = {}) {
   const page = await browser.newPage()
@@ -93,6 +99,11 @@ const themeIds = await (async () => {
   return only ? ids.filter((id) => only.includes(id)) : ids
 })()
 console.log(`\n${themeIds.length} themes\n`)
+{
+  const { page } = await open("/app?live")
+  if (!(await page.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches))) fail("setup", "the browser reports no mouse: hover rules would never apply")
+  await page.close()
+}
 
 /* Rest → hover → rest, read every frame: does it move once, on one line, and come back? */
 const HOVER_READ = () => {
