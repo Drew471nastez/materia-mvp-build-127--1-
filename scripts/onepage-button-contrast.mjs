@@ -362,9 +362,9 @@ export async function contrastPass(open, id, { width = 390, sheets = true } = {}
   if (sheets) {
     /* Each sheet a visitor opens: a product's, Share, Subscribe, the tip amounts. */
     const opens = [
-      ["product", () => [...document.querySelectorAll("[data-product-cta]")].find((e) => e.getClientRects().length && !e.closest("[data-mixed-blocks]"))?.click()],
+      ["product", () => document.querySelector('[data-op-block="p-sheet"] [data-product-cta]')?.click()],
       ["share", () => [...document.querySelectorAll("[data-onepage-share-button]")].find((e) => e.getClientRects().length)?.click()],
-      ["subscribe", () => [...document.querySelectorAll("button, a")].find((e) => e.getClientRects().length && /^subscribe$/i.test((e.getAttribute("aria-label") || e.textContent || "").trim()))?.click()],
+      ["subscribe", () => [...document.querySelectorAll("[data-onepage-bell]")].find((e) => e.getClientRects().length)?.click()],
       ["tip", () => document.querySelector('[data-tip-amount="other"]')?.click()],
     ]
     for (const [name, how] of opens) {

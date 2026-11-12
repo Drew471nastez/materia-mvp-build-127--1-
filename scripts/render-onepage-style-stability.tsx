@@ -89,6 +89,8 @@ if (params.get("all") === "1")
     make("calendly", "cal1", { calendly_url: "https://calendly.com/probe/30min", title: "Book a call", description: "Thirty minutes", button_text: "Book", embed_mode: "direct_link" }),
     make("map", "map1", { address: "Lisbon", title: "Studio", show_button: true }),
     make("course", "course1", {}),
+    /* A product that opens its sheet (no instant checkout), for the sheet's buttons. */
+    ((b) => ({ ...b, data: { ...(b.data as object), instant_checkout: false, tap_action: "sheet" } as never }))(product("p-sheet", "callout", 21, "Sketchbook, the first year")),
   )
 
 const header = { id: "hdr", type: "header", enabled: true, sort_order: -1, data: { show_avatar: true, show_name: true, show_bio: true } } as unknown as OnePageBlock
