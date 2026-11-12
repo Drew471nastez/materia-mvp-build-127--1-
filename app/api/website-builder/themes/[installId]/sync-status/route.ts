@@ -15,6 +15,7 @@ import { ownInstall } from "@/lib/github-sync/own-install"
 import { editorReport, readPending } from "@/lib/github-sync/editor-status"
 import type { GitHubLink } from "@/lib/github-sync/sync"
 import { rateLimit } from "@/lib/api/rate-limit"
+import { storeUnavailableResponse } from "@/lib/team/server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -26,6 +27,7 @@ const NO_STORE = { "Cache-Control": "no-store" }
 export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
   const own = await ownInstall(installId)
+  if (own === "unavailable") return storeUnavailableResponse()
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   /* Generous: the builder asks a few times a minute at most, two tabs included. */

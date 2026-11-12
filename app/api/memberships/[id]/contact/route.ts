@@ -9,6 +9,7 @@ import { orderNumberOf } from "@/lib/receipts/rules"
 import { viewerMembership } from "@/lib/memberships/access"
 import { requestViewer } from "@/lib/memberships/viewer"
 import { NOT_SET_UP, siteUrl } from "@/lib/memberships/server"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -24,7 +25,7 @@ export const runtime = "nodejs"
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const viewer = await requestViewer()
-  if (!viewer) return NextResponse.json({ error: "Sign in to write to the creator." }, { status: 401 })
+  if (!viewer) return signedOutOrRetry(NextResponse.json({ error: "Sign in to write to the creator." }, { status: 401 }), { fresh: true })
   let body: { message?: unknown }
   try {
     body = await request.json()

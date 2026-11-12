@@ -21,6 +21,7 @@ import { productSectionData, type ProductSectionRow } from "@/lib/products/produ
 import { storeOriginFor } from "@/lib/physical/order-link-server"
 import { getMainDomain } from "@/lib/url-helpers"
 import { readLadder } from "@/lib/supabase/missing-memory"
+import { routeUser } from "@/lib/auth/route-user"
 
 /**
  * GET /api/onepage/product?id=<productId>
@@ -61,7 +62,8 @@ export async function GET(request: Request) {
 
   const supabase = await createClient()
   const [userRead, variantsRead, creatorRead, store, config, taxSetup, storeName, standing, sizeChart, section, storeOrigin] = await Promise.all([
-    supabase.auth.getUser().catch(() => ({ data: { user: null } })),
+    /* Supabase Auth itself, as the getUser() this replaced (round rel2-auth): for who is looking only; Auth not answering shows the sheet as to a visitor. */
+    routeUser({ fresh: true }).then((who) => ({ data: { user: who.kind === "user" ? who.user : null } })),
     /* Round 41: with `active`, so an option taken off a product that ships is not offered in the sheet; without it where the column is missing. */
     /* Without it only when the column is missing, remembered ten minutes (lib/supabase/missing-memory.ts). */
     readLadder("product_variants:onepage", [

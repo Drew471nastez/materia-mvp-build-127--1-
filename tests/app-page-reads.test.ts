@@ -126,7 +126,7 @@ section("The layout: everything that needs only the user, together")
   const first = batchAfter(layout, /const shellReads = /)
   /* Changed on purpose (r53): the two gate rows are their own promise (gateReads) with a ceiling, raced inside the same batch. */
   check("the gates, the creator row and the OnePage are one batch",
-    /const gateReads = Promise\.all\(\[profileOrThrowForRequest\(user\.id\), creatorOrThrowForRequest\(user\.id\)\]\)/.test(layout) && /gateAnswer/.test(first) && /\.from\("onepages"\)/.test(first) && /teamStoreForRequest\(user\.id\)/.test(first))
+    /const gateReads = Promise\.all\(\[profileOrThrowForRequest\(user\.id\), creatorOrThrowForRequest\(user\.id\)\]\)/.test(layout) && /gateAnswer/.test(first) && /\.from\("onepages"\)/.test(first) && /teamStoreReadForRequest\(user\.id\)/.test(first)) /* Changed on purpose (rel2-auth): the read that says when it failed, so no gate is decided from it. */
   /* The header's photo is the profile's own (lib/account/avatar): the store
      header was read only to fall back to its photo, so it is not read at all. */
   check("and the store header is not read for a photo any more", !/store_builder_configs/.test(layout) && /profileAvatar\(profile\?\.avatar_url\)/.test(layout))

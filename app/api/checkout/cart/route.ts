@@ -9,7 +9,6 @@ import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-
 import { priceCart } from "@/lib/checkout/pricing"
 import { stripe } from "@/lib/stripe"
 import { accountGoneFromPlatform, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
@@ -39,6 +38,7 @@ import { servingSiteOrigin } from "@/lib/checkout/site-checkout-server"
 import { CLAIM_HOLD_SECONDS, SALE_HOLDER_KEY, holdBasket, releaseSales, saleHolderForEmail } from "@/lib/checkout/sales-limit"
 import { soldOutMessage } from "@/lib/products/sales-limit"
 import { stripeIdempotencyKey } from "@/lib/stripe/resilience"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -133,7 +133,6 @@ async function safeReturnOrigin(origin: string | null, creatorId: string): Promi
 }
 
 async function handlePOST(request: Request) {
-  const supabase = await createClient()
   const admin = createAdminClient()
 
   let body: {
@@ -167,9 +166,9 @@ async function handlePOST(request: Request) {
     : null
   if (limited) return limited
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
 
   /* Every price, every line left out, and the code, from the database (lib/checkout/pricing). */
   const handOff = await isPhysicalCommerceEnabled().catch(() => false)

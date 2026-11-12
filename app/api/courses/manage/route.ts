@@ -7,6 +7,7 @@ import { uploadRateLimit } from "@/lib/storage/upload-guard"
 import { ManageError, applyAction, completeUpload, editorTree, ownerOf, prepareUpload } from "@/lib/courses/manage"
 import { PRIVATE, sessionUserId } from "@/lib/courses/route-auth"
 import { teamStoreIdFor } from "@/lib/team/server"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -27,7 +28,7 @@ export const dynamic = "force-dynamic"
  */
 export async function GET(request: Request) {
   const userId = await sessionUserId()
-  if (!userId) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: PRIVATE })
+  if (!userId) return signedOutOrRetry(NextResponse.json({ error: "Sign in first." }, { status: 401, headers: PRIVATE }))
   try {
     const db = createAdminClient()
     const owner = await ownerOf(db, userId, new URL(request.url).searchParams.get("productId"), await teamStoreIdFor(userId, "products"))
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const userId = await sessionUserId()
-  if (!userId) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: PRIVATE })
+  if (!userId) return signedOutOrRetry(NextResponse.json({ error: "Sign in first." }, { status: 401, headers: PRIVATE }))
   let body: Record<string, unknown>
   try {
     body = (await request.json()) as Record<string, unknown>

@@ -12,8 +12,8 @@ import { NextResponse } from "next/server"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { contributionsFor } from "@/lib/profile/contributions"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -29,10 +29,9 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams
   const targetId = params.get("userId") || ""
   if (!UUID.test(targetId)) return NextResponse.json({ error: "not_found" }, { status: 404, headers: NO_STORE })
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   if (!user?.id) return NextResponse.json({ sections: [] }, { headers: NO_STORE })
   const only = (params.get("only") || "")
     .split(",")

@@ -18,6 +18,7 @@ import "server-only"
  * and every decision is can() (lib/communities/permissions.ts).
  */
 import { NextResponse } from "next/server"
+import { signedOutOrRetry } from "@/lib/auth/route-user"
 import { requireCreator, type CreatorContext } from "@/lib/email-campaigns/route-auth"
 import { parseAccessRule } from "../access"
 import { allowedActions, can, type CommunityAction, type RolePermissions } from "../permissions"
@@ -235,7 +236,8 @@ export async function requireMember(db: Db, communityId: string, userId: string 
   const community = await loadCommunity(db, { id: communityId })
   if (!community) return answer(404, "not_found")
   if (!communityOpen(community)) return answer(403, "suspended")
-  if (!userId) return answer(401, "sign_in")
+  /* No id: "sign_in" only when Auth said nobody; when it could not say, 503 Try again (round rel2-auth, lib/auth/route-user signedOutOrRetry). */
+  if (!userId) return signedOutOrRetry(answer(401, "sign_in"))
   const viewer = await viewerContext(db, community, userId)
   if (!viewer.active) return answer(403, viewer.banned ? "banned" : viewer.status === "pending" ? "pending" : "not_member")
   if (viewer.mutedUntil && MUTED_ACTIONS.includes(action)) return answer(403, "muted", { until: viewer.mutedUntil })
@@ -264,7 +266,8 @@ const SUSPENDED_REFUSES: readonly CommunityAction[] = ["invite", "post", "announ
 export async function requireCreatorCommunity(communityId: string, action: CommunityAction): Promise<CreatorCommunityGate | NextResponse> {
   const ctx = await requireCreator("community")
   /* requireCreator's own words are about email; a community route answers in its own codes. */
-  if (ctx instanceof NextResponse) return ctx.status === 401 ? answer(401, "sign_in") : answer(403, "not_creator")
+  /* A 503 (Auth or the store could not be read) passes through as itself: it was "not_creator" before, a false refusal (round rel2-auth). */
+  if (ctx instanceof NextResponse) return ctx.status === 401 ? answer(401, "sign_in") : ctx.status === 503 ? ctx : answer(403, "not_creator")
   const db = ctx.admin ?? admin()
   const community = await loadCommunity(db, { id: communityId })
   if (!community) return answer(404, "not_found")

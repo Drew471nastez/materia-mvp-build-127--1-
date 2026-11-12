@@ -677,7 +677,12 @@ export async function undoDeletion(db: Db, a: { community: CommunityRow; actorId
       sees it too, and over the plan the claim is given back and nothing else changes.
     */
     const owner = c.creator_id
-    const room = owner ? await communityRoom(db, owner, deps.plan ? await deps.plan(owner) : undefined) : null
+    /* The plan could not be read: the claim goes back and it says Try again, never kept past a plan nobody could check (round rel2-auth). */
+    const room = owner ? await Promise.resolve(deps.plan ? deps.plan(owner) : undefined).then((plan) => communityRoom(db, owner, plan)).catch(() => "failed" as const) : null
+    if (room === "failed") {
+      await db.from("community_deletions").update({ state: "scheduled", undone_by: null, undone_at: null, updated_at: nowIso(now) }).eq("community_id", c.id).eq("state", "undone")
+      return no(503, "Storelib is not answering right now. Try again.")
+    }
     if (room && room.limit.max !== null && room.limit.owned > room.limit.max) {
       await db.from("community_deletions").update({ state: "scheduled", undone_by: null, undone_at: null, updated_at: nowIso(now) }).eq("community_id", c.id).eq("state", "undone")
       return no(402, KEEP_LIMIT_TEXT)

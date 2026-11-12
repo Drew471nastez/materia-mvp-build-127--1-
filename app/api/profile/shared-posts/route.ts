@@ -8,8 +8,8 @@
 import { NextResponse } from "next/server"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { sharedPostsPage } from "@/lib/profile/shared-posts"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -19,10 +19,9 @@ const NO_STORE = { "Cache-Control": "no-store" }
 export async function GET(request: Request) {
   const off = await requireCommunitiesOn()
   if (off) return off
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   const viewerId = user?.id ?? null
   if (!viewerId) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })
   const params = new URL(request.url).searchParams

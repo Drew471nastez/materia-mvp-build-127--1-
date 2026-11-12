@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { onePageActor } from "@/lib/team/onepage"
-import { readUserForRoute } from "@/lib/auth/route-user"
+import { authUnavailableResponse, readUserForRoute } from "@/lib/auth/route-user"
 import { pollOptions, type AppBlockData } from "@/lib/onepage/app-blocks"
 import { findPageBlock } from "@/lib/onepage/page-block"
 import { tallyFor } from "@/lib/onepage/poll-server"
@@ -31,7 +31,9 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient()
   const {
     data: { user },
+    unavailable,
   } = await readUserForRoute()
+  if (unavailable) return authUnavailableResponse()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: noStore })
   const actor = await onePageActor(supabase, user.id)
   if (actor instanceof NextResponse) return actor

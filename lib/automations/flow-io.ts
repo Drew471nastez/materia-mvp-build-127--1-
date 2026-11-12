@@ -138,11 +138,16 @@ export function cleanTrigger(v: unknown): TriggerType | null {
  * member given Marketing works in (lib/team), through the service role, and
  * every route filters by this creator id.
  */
-export async function signedInCreator(): Promise<{ supabase: Awaited<ReturnType<typeof createClient>>; creatorId: string; userEmail: string | null } | null> {
+/*
+  Round rel2-auth: a refusal is handed back as the gate gave it. Every refusal was null, and every route said 401
+  "Sign in again." to it, a 503 (Supabase Auth or the store not answering) and a 403 (no Marketing) included.
+  Only a 401 still reads "Sign in again."
+*/
+export async function signedInCreator(): Promise<{ supabase: Awaited<ReturnType<typeof createClient>>; creatorId: string; userEmail: string | null } | Response> {
   const { requireTeamPermission } = await import("@/lib/team/server")
   const { NextResponse } = await import("next/server")
   const gate = await requireTeamPermission("marketing")
-  if (gate instanceof NextResponse) return null
+  if (gate instanceof NextResponse) return gate.status === 401 ? NextResponse.json({ error: "Sign in again." }, { status: 401 }) : gate
   const supabase = gate.isOwner ? await createClient() : (gate.db as Awaited<ReturnType<typeof createClient>>)
   return { supabase, creatorId: gate.creatorId, userEmail: gate.userEmail }
 }

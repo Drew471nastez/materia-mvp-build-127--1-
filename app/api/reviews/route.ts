@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse, after } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkGuestReviewEligibility, checkReviewEligibility } from "@/lib/reviews/eligibility"
 import { resolveSellerEmail, sendReviewNotificationEmail } from "@/lib/email"
@@ -9,6 +8,7 @@ import { readPublishedReviews, refreshReviewStats, missingColumn } from "@/lib/r
 import { accountForOrder, existingReview, orderByReceipt } from "@/lib/reviews/access"
 import { loadReviewsApp } from "@/lib/reviews/app-server"
 import { startingStatus } from "@/lib/reviews/app-settings"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 const ALREADY_REVIEWED = "You already reviewed this product."
 
@@ -53,12 +53,11 @@ export async function GET(request: NextRequest) {
 type Body = { productId?: unknown; rating?: unknown; content?: unknown; orderId?: unknown; receiptToken?: unknown }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
   const admin = createAdminClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
 
   /* What arrives is whatever a browser sent: shape is checked, not trusted. */
   let body: Body

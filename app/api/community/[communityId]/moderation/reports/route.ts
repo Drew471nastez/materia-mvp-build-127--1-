@@ -2,10 +2,10 @@ import { NextResponse } from "next/server"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
-import { createClient } from "@/lib/supabase/server"
 import { readJson } from "@/lib/email-campaigns/route-auth"
 import { manageLimit } from "@/lib/communities/server/creator"
 import { listReports, updateReport } from "@/lib/communities/server/moderation"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -13,9 +13,9 @@ export const dynamic = "force-dynamic"
 const noStore = { "Cache-Control": "no-store" }
 
 async function signedIn(): Promise<string | null> {
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser()
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   return user?.id ?? null
 }
 

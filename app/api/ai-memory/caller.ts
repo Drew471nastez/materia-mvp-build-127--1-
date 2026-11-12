@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import type { MemoryDb } from "@/lib/ai-memory/store"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -18,10 +19,11 @@ export async function memoryCaller(
   supabase: Client,
   installId: string | null,
 ): Promise<{ db: MemoryDb; creatorId: string; installId: string | null } | NextResponse> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Sign in to continue." }, { status: 401 })
+  /* Supabase Auth itself, as before; Auth not answering is 503 Try again, never "Sign in" (round rel2-auth). */
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  if (who.kind !== "user") return NextResponse.json({ error: "Sign in to continue." }, { status: 401 })
+  const user = who.user
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator?.id) return NextResponse.json({ error: "Set up your store first." }, { status: 403 })
   if (installId) {

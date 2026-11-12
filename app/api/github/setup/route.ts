@@ -37,6 +37,8 @@ export async function GET(req: Request) {
   if (handBack) return handBack
 
   const own = await ownInstall(state.installId)
+  /* Could not tell (Auth or the site read did not answer): "try again", never "expired" (round rel2-auth). */
+  if (own === "unavailable") return back(req, state.installId, "error")
   if (!own || own.creatorId !== state.creatorId) return back(req, null, "expired")
 
   const installationId = Number(q.get("installation_id"))

@@ -4,7 +4,9 @@ import { randomBytes } from "node:crypto"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { mediaFetch } from "@/lib/storage/media-url"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
+import { classifyAuthError } from "@/lib/auth/auth-error"
+import type { NextResponse } from "next/server"
 import { profileAvatar } from "@/lib/account/avatar"
 import { businessAlias } from "./email-alias"
 import {
@@ -67,20 +69,55 @@ export interface MintedSession {
   user: unknown
 }
 
-/** The signed in user, from the cookie on the web or the bearer token the app sends. */
+/*
+  A request whose cookie session Supabase Auth could not check (a timeout, a
+  5xx), and that no bearer token settled either (round rel2-auth). Kept on
+  the Request object itself, so it lives exactly as long as the request.
+*/
+const couldNotTell = new WeakSet<Request>()
+
+/**
+ * The signed in user, from the cookie on the web or the bearer token the app sends.
+ *
+ * Round rel2-auth: the cookie is checked by Supabase Auth itself, with retries
+ * (lib/auth/route-user routeUser `fresh: true`, as before a session ended
+ * within the token's life must not act here: team roles, invites, business
+ * switches). null for signed out and could not tell alike, so every caller's
+ * `if (!user)` still refuses; signedOutAnswer below says which, so a slow
+ * Auth is a 503 Try again and not "Sign in again".
+ */
 export async function requestUser(request: Request): Promise<{ id: string; email: string | null } | null> {
+  let unsure = false
   try {
-    const supabase = await createClient()
-    const { data } = await supabase.auth.getUser()
-    if (data.user) return { id: data.user.id, email: data.user.email ?? null }
+    const who = await routeUser({ fresh: true })
+    if (who.kind === "user") return { id: who.user.id, email: who.user.email ?? null }
+    unsure = who.kind === "unavailable"
   } catch {
-    /* no cookie session: the bearer token below */
+    unsure = true
   }
   const header = request.headers.get("authorization")
   const token = header?.startsWith("Bearer ") ? header.slice(7).trim() : ""
-  if (!token) return null
-  const { data } = await createAdminClient().auth.getUser(token)
-  return data.user ? { id: data.user.id, email: data.user.email ?? null } : null
+  if (token) {
+    const { data, error } = await createAdminClient()
+      .auth.getUser(token)
+      .catch((e: unknown) => ({ data: { user: null }, error: e }))
+    if (data.user) return { id: data.user.id, email: data.user.email ?? null }
+    /* The app's token: refused by Auth is nobody; Auth not answering is "could not tell". */
+    if (error && !classifyAuthError(error).signedOut) unsure = true
+    else if (!unsure) return null
+  }
+  if (unsure) couldNotTell.add(request)
+  return null
+}
+
+/** Whether requestUser(request) came back null because nobody could check the session, rather than because there is none. */
+export function requestUserUnavailable(request: Request): boolean {
+  return couldNotTell.has(request)
+}
+
+/** A route's refusal when requestUser(request) found nobody: its own 401 when signed out, 503 Try again when Auth could not say. */
+export function signedOutAnswer(request: Request, signedOut: NextResponse): NextResponse {
+  return couldNotTell.has(request) ? authUnavailableResponse() : signedOut
 }
 
 type LinkRow = { owner_id: string; member_id: string }

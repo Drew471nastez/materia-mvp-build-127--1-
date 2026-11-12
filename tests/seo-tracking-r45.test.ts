@@ -102,7 +102,7 @@ async function main() {
     check("a new account with no known source still gets a row, with no source", accountAttributionRow({ id: "u2" }, null).first_touch === null && accountAttributionRow({ id: "u2" }, null).first_ai_source === null)
     check("only a new account (made in the last fifteen minutes) is given a source", isNewAccount("2026-10-31T11:50:00Z", now) && !isNewAccount("2026-10-30T11:50:00Z", now) && !isNewAccount(null, now))
     const route = code("app/api/auth/signup-attribution/route.ts")
-    check("the route reads the signed in account, never an id from the body", /supabase\.auth\.getUser\(\)/.test(route) && !/body\.(user|id|userId)/.test(route))
+    /* Changed on purpose (rel2-auth): still Supabase Auth itself, through routeUser({ fresh: true }). */ check("the route reads the signed in account, never an id from the body", /routeUser\(\{ fresh: true \}\)/.test(route) && !/body\.(user|id|userId)/.test(route))
     check("  writes once (ignoreDuplicates on user_id) and always answers 204", /onConflict: "user_id", ignoreDuplicates: true/.test(route) && /status: 204/.test(route))
     check("the arrival note sends it for a new account only", /if \(note\.arrival === "new"\) recordSignupTouches\(\)/.test(code("components/auth/arrival-note.tsx")))
     const browser = code("lib/attribution/browser.ts")

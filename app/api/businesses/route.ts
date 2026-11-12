@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
-import { canAddBusiness, createBusinessAccount, listBusinesses, recordSwitch, requestUser, sessionFor } from "@/lib/businesses/server"
+import { canAddBusiness, createBusinessAccount, listBusinesses, recordSwitch, requestUser, sessionFor, signedOutAnswer } from "@/lib/businesses/server"
 import { setSessionCookies } from "@/lib/businesses/session-cookies"
 
 /**
@@ -19,7 +19,7 @@ const NO_STORE = { "Cache-Control": "no-store" }
 
 export async function GET(request: Request) {
   const user = await requestUser(request)
-  if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE })
+  if (!user) return signedOutAnswer(request, NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE }))
   const businesses = await listBusinesses(user.id)
   const me = businesses.find((b) => b.current)
   return NextResponse.json(
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const user = await requestUser(request)
-  if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE })
+  if (!user) return signedOutAnswer(request, NextResponse.json({ error: "Sign in first." }, { status: 401, headers: NO_STORE }))
 
   const limited = await rateLimit({
     bucket: "business-create",

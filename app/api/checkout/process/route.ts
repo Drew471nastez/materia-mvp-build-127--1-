@@ -1,7 +1,6 @@
 import { loadCheckoutConfig } from "@/lib/store/settings-server"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
 import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
@@ -19,6 +18,7 @@ import { communityAccessAfterEntitlement } from "@/lib/communities/server/paymen
 import { CLAIM_HOLD_SECONDS, holdSale, limitOf, releaseSale, saleHolderForEmail } from "@/lib/checkout/sales-limit"
 import { soldOutMessage } from "@/lib/products/sales-limit"
 import { timed } from "@/lib/perf/server-timing"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 
@@ -63,12 +63,11 @@ async function handlePOST(request: Request) {
   if (limited) return limited
 
   try {
-    const supabase = await createClient()
     const admin = createAdminClient()
     const cookieStore = await cookies()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const who = await routeUser({ fresh: true })
+    if (who.kind === "unavailable") return authUnavailableResponse()
+    const user = who.kind === "user" ? who.user : null
 
     const priced = await priceOrder(
       admin,

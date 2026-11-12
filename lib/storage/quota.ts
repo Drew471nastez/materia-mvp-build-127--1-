@@ -5,6 +5,7 @@
 
 import { type SupabaseClient } from "@supabase/supabase-js"
 import { getPlanLimits } from "./plans"
+import { ServiceUnavailable } from "@/lib/net/service-error"
 
 export interface QuotaInfo {
   usedBytes: number
@@ -59,11 +60,13 @@ export async function getCreatorQuota(
   creatorId: string,
 ): Promise<QuotaInfo> {
   // Get creator plan
-  const { data: creator } = await admin
+  const { data: creator, error } = await admin
     .from("creators")
     .select("subscription_plan_id")
     .eq("id", creatorId)
     .single()
+  /* A plan read that failed is not Free's quota (round rel2-auth): thrown, so nobody is shown a smaller plan than they pay for. */
+  if (error && error.code !== "PGRST116") throw new ServiceUnavailable("creator plan", "upstream")
 
   const planLimits = getPlanLimits(creator?.subscription_plan_id)
   const usedBytes = await getCreatorStorageUsage(admin, creatorId)
@@ -96,11 +99,13 @@ export async function checkUploadAllowed(
     return { allowed: false, reason: "That file is empty." }
   }
 
-  const { data: creator } = await admin
+  const { data: creator, error } = await admin
     .from("creators")
     .select("subscription_plan_id")
     .eq("id", creatorId)
     .single()
+  /* A plan read that failed is refused with a true reason, never measured against Free's limits (round rel2-auth). */
+  if (error && error.code !== "PGRST116") return { allowed: false, reason: "Storelib is not answering right now. Try again." }
 
   const planLimits = getPlanLimits(creator?.subscription_plan_id)
 

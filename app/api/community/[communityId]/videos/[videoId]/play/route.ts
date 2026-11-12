@@ -7,6 +7,7 @@ import { inPublicGallery } from "@/lib/communities/server/public"
 import { readCommunityVideo, videoAccess, videoPlayback } from "@/lib/communities/server/videos"
 import { sessionUserId } from "@/lib/courses/route-auth"
 import { playbackQuality } from "@/lib/video/provider"
+import { authUnavailableForRequest, authUnavailableResponse } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -36,6 +37,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ comm
   /* ?q=low: the lighter file, where the video's service keeps one (Save Data, a slow network, a preview). */
   const quality = playbackQuality(new URL(request.url).searchParams.get("q"))
   const userId = await sessionUserId()
+  /* A visitor sees the preview; a signed in person Auth could not check is asked to try again, not shown the locked view (round rel2-auth). */
+  if (!userId && (await authUnavailableForRequest())) return authUnavailableResponse()
   const limited = await rateLimit({
     bucket: "community-video-play",
     subjects: [addressSubject(request), userId ? `user:${userId}` : null],

@@ -1,5 +1,4 @@
 import { rateLimit, addressSubject, LIMITS } from "@/lib/api/rate-limit"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { physicalApiGate } from "@/lib/physical/gate"
 import { physicalJson, readBody } from "@/lib/physical/auth"
@@ -10,6 +9,7 @@ import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { suggestionCards } from "@/lib/offers/offers-server"
 import { variantChoices } from "@/lib/checkout/variant-choices-server"
 import { codFeeFor } from "@/lib/checkout/site-quote-server"
+import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -29,10 +29,9 @@ export async function POST(request: Request) {
   const limited = await rateLimit({ bucket: "coupon", subjects: [addressSubject(request)], windows: [{ limit: 120, seconds: 600 }], message: "Too many requests. Wait a moment and try again." })
   if (limited) return limited
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const who = await routeUser({ fresh: true })
+  if (who.kind === "unavailable") return authUnavailableResponse()
+  const user = who.kind === "user" ? who.user : null
   const db = createAdminClient()
   const items = readItems(body.items)
   const shopId = typeof body.shopId === "string" ? body.shopId : null
