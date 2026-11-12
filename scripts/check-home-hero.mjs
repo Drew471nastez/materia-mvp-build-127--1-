@@ -562,7 +562,7 @@ try {
     assert.equal(await page.$eval('[data-story-heading]', e => e.style.getPropertyValue('--story-progress')), '1.000', 'headline fills completely when scrolled into view')
     assert.ok(await page.$$eval('[data-story-accent]', els => els.length === 1 && els.every(e => getComputedStyle(e).getPropertyValue('--word-target').trim() === '#bca3ff')), 'selected headline words fill purple')
     const showcaseGeometry = await page.$$eval('[data-showcase-slide]', els => els.slice(0, 6).map(e => ({format:e.dataset.format,w:e.getBoundingClientRect().width,h:e.querySelector('.build-showcase-media').getBoundingClientRect().height,fit:getComputedStyle(e.querySelector('img')).objectFit})))
-    assert.deepEqual(showcaseGeometry.map(e => e.format), ['wide','portrait','wide','portrait','wide','portrait'])
+    assert.deepEqual(showcaseGeometry.map(e => e.format), ['wide','portrait','wide','wide','portrait','wide'])
     assert.ok(showcaseGeometry.every(e => e.fit==='contain'), 'all screenshots fit without cropping')
     assert.ok(showcaseGeometry[0].w > showcaseGeometry[1].w * 2, 'portrait cards are genuinely narrower')
     assert.ok(Math.abs((showcaseGeometry[1].w-2)/showcaseGeometry[1].h - 9/16) < .02, 'portrait media uses a phone ratio')

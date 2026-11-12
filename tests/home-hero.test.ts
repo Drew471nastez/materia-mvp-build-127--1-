@@ -124,7 +124,7 @@ assert.ok(
 )
 
 const showcaseMarkup = renderToString(createElement(BuildShowcase))
-assert.equal((showcaseMarkup.match(/data-showcase-slide=""/g) || []).length, 6)
+assert.equal((showcaseMarkup.match(/data-showcase-slide=""/g) || []).length, 9)
 assert.equal((showcaseMarkup.match(/data-showcase-word=""/g) || []).length, SHOWCASE_HEADING.split(/\s+/).length)
 assert.ok(!showcaseMarkup.includes("<button"))
 assert.ok(

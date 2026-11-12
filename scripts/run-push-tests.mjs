@@ -494,6 +494,8 @@ const SUITES = [
   "tests/header-buttons.test.ts",
   /* Cinematic homepage: fixed first line, reserved rotating phrases, one deferred video, native signup. scripts/check-home-hero.mjs measures real SSR/hydration and media fallbacks. */
   "tests/home-hero.test.ts",
+  /* Wave 12 showcase: nine branded examples in the build gallery, live builder previews (section 4) and the business carousel (section 6), with lazy local images and timer-free autoplay. */
+  "tests/home-w12-showcase.test.ts",
   /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */
   "tests/library-courses-ad5.test.ts",
   "tests/header-flex.test.ts",

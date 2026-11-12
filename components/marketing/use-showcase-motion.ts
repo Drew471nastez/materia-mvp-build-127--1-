@@ -4,6 +4,14 @@ import { useCallback, useMemo } from "react"
 import { useKeenSlider } from "keen-slider/react.js"
 import type { KeenSliderPlugin } from "keen-slider"
 
+/* Cruise speed of the quiet autoplay, in slider widths per millisecond. */
+const CRUISE = 0.9 / 16000
+/* Autoplay eases in over RAMP_MS (t² reaches cruise speed exactly at its end,
+   so the join into the linear cruise has no velocity step), and a resting
+   mouse eases it out over GLIDE_MS (1-(1-t)² leaves at cruise speed). */
+const RAMP_MS = 5200
+const GLIDE_MS = 1100
+
 /** Keen's native free-mode drag/inertia, with quiet continuous autoplay. */
 const showcaseActivity: KeenSliderPlugin = (slider) => {
   const el = slider.container
@@ -13,12 +21,15 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
     paused = false,
     keyboard = false
   let automatic = false,
+    cruising = false,
+    hovering = false,
     resumeAt = 0,
     disposed = false
   let timer: ReturnType<typeof setTimeout> | undefined
   const stop = () => {
     clearTimeout(timer)
     automatic = false
+    cruising = false
     slider.animator.stop()
   }
   const eligible = () =>
@@ -28,6 +39,7 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
     !reduce.matches &&
     !dragging &&
     !paused &&
+    !hovering &&
     !(keyboard && el.matches(":focus-within"))
   const schedule = (delay = 0) => {
     clearTimeout(timer)
@@ -43,14 +55,38 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
           schedule(250)
           return
         }
+        const resume = !cruising
         automatic = true
-        // Linear drift joins at identical velocity; Free Mode owns release physics.
+        cruising = true
+        // A gentle start, then a long linear drift (one restart every ~3 min
+        // instead of every 16 s); Free Mode owns release physics.
         slider.animator.start([
-          { distance: 0.9, duration: 16000, easing: (t) => t },
+          ...(resume
+            ? [{ distance: (CRUISE * RAMP_MS) / 2, duration: RAMP_MS, easing: (t: number) => t * t }]
+            : []),
+          { distance: CRUISE * 180000, duration: 180000, easing: (t: number) => t },
         ])
       },
       Math.max(delay, resumeAt - performance.now(), 0),
     )
+  }
+  /* A mouse resting on the gallery glides it to a stop instead of halting. */
+  const enter = (event: PointerEvent) => {
+    if (event.pointerType !== "mouse") return
+    hovering = true
+    clearTimeout(timer)
+    if (automatic && cruising && !reduce.matches) {
+      automatic = false
+      cruising = false
+      slider.animator.start([
+        { distance: (CRUISE * GLIDE_MS) / 2, duration: GLIDE_MS, easing: (t) => 1 - (1 - t) * (1 - t) },
+      ])
+    }
+  }
+  const leave = (event: PointerEvent) => {
+    if (event.pointerType !== "mouse") return
+    hovering = false
+    schedule(450)
   }
   const interact = () => {
     resumeAt = performance.now() + 8000
@@ -136,6 +172,8 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
       window.addEventListener("scroll", fallbackVisibility, { passive: true })
     }
     el.addEventListener("pointerdown", pointer, { passive: true })
+    el.addEventListener("pointerenter", enter, { passive: true })
+    el.addEventListener("pointerleave", leave, { passive: true })
     el.addEventListener("pointerup", release, { passive: true })
     el.addEventListener("pointercancel", release, { passive: true })
     el.addEventListener("wheel", wheel, { passive: false })
@@ -162,10 +200,12 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
   slider.on("animationEnded", () => {
     const wasAutomatic = automatic
     automatic = false
+    if (!wasAutomatic) cruising = false
     schedule(wasAutomatic ? 0 : Math.max(0, resumeAt - performance.now()))
   })
   slider.on("animationStopped", () => {
     automatic = false
+    cruising = false
   })
   slider.on("updated", () => {
     stop()
@@ -177,6 +217,8 @@ const showcaseActivity: KeenSliderPlugin = (slider) => {
     observer?.disconnect()
     window.removeEventListener("scroll", fallbackVisibility)
     el.removeEventListener("pointerdown", pointer)
+    el.removeEventListener("pointerenter", enter)
+    el.removeEventListener("pointerleave", leave)
     el.removeEventListener("pointerup", release)
     el.removeEventListener("pointercancel", release)
     el.removeEventListener("wheel", wheel)

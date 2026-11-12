@@ -2,55 +2,40 @@
 
 import { useShowcaseMotion } from "./use-showcase-motion"
 import { StoryHeading } from "./story-heading"
-import { HERO_SLIDES } from "@/lib/marketing/hero-media"
-
-const EXAMPLES = [
-  {
-    ...HERO_SLIDES[0],
-    label: "Your online store",
-    format: "wide",
-    width: 1200,
-    height: 750,
-  },
-  {
-    src: "/marketing/hero/tile-onepage-noor.webp",
-    alt: "Noor's Storelib OnePage, with products and booking links",
-    label: "OnePage, your way",
-    format: "portrait",
-    width: 360,
-    height: 450,
-  },
-  {
-    ...HERO_SLIDES[3],
-    label: "Bring your community together",
-    format: "wide",
-    width: 1200,
-    height: 750,
-  },
-  {
-    src: "/marketing/hero/tile-onepage-theo.webp",
-    alt: "Theo's Storelib OnePage, with presets and courses",
-    label: "Share what you create",
-    format: "portrait",
-    width: 360,
-    height: 450,
-  },
-  {
-    ...HERO_SLIDES[7],
-    label: "Build a website that feels like you",
-    format: "wide",
-    width: 1200,
-    height: 750,
-  },
-  {
-    src: "/marketing/hero/tile-onepage-ana.webp",
-    alt: "Ana's Storelib OnePage, with pottery and community links",
-    label: "Give every link a home",
-    format: "portrait",
-    width: 360,
-    height: 450,
-  },
+/*
+  Nine fictional Storelib businesses, three of each kind: storefronts,
+  OnePages and communities. Each picture is rendered from the live mockups in
+  components/marketing/home/showcase-mocks (the same brands sections 4 and 6
+  use), as one small webp, so the moving gallery composites flat images.
+*/
+const wide = (brand: string, label: string, alt: string) => ({
+  src: `/home/showcase/a-${brand}.webp`,
+  alt,
+  label,
+  format: "wide",
+  width: 1440,
+  height: 900,
+})
+const portrait = (brand: string, label: string, alt: string) => ({
+  src: `/home/showcase/a-${brand}.webp`,
+  alt,
+  label,
+  format: "portrait",
+  width: 540,
+  height: 960,
+})
+export const SHOWCASE_EXAMPLES = [
+  wide("hollow", "Sell merch your fans wear", "Hollow Pines, a band's merch store with hoodies, tees and caps"),
+  portrait("maya", "A link in bio that sells", "Maya Okafor's OnePage with a marathon plan, run club and coaching links"),
+  wide("darkroom", "Bring your community together", "The Darkroom Club, a film photography community feed with spaces and events"),
+  wide("gridline", "Sell templates and downloads", "Gridline Studio's storefront for Notion and Figma templates"),
+  portrait("lio", "Share what you create", "Lio Tanaka's dark OnePage with photos, presets and print links"),
+  wide("founders", "A members' club for founders", "Founders After Five, a community where a member shares a $10k MRR milestone"),
+  wide("bloom", "Teach what you know", "Brush & Bloom's watercolor course site with modules and reviews"),
+  portrait("priya", "Give every link a home", "Sol & Sage's OnePage with a cookbook, recipes and a cooking class"),
+  wide("kiln", "Gather people around a craft", "Kiln & Clay Collective, a pottery community sharing glaze recipes"),
 ]
+const EXAMPLES = SHOWCASE_EXAMPLES
 export const SHOWCASE_HEADING = "Create your page. Grow your business."
 
 /** Native scrolling for touch/trackpads; mouse dragging and quiet autoplay use
