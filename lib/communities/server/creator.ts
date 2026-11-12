@@ -1043,15 +1043,50 @@ async function ownRule(db: Db, communityId: string, rule: AccessRuleJson): Promi
   return r
 }
 
-export async function loadSpaces(db: Db, communityId: string): Promise<SpaceView[]> {
-  const { data, error } = await db.from("community_spaces").select(SPACE_COLUMNS).eq("community_id", communityId).order("position", { ascending: true }).limit(MAX_SPACES + 10)
-  if (error) return []
-  const rows = (data as SpaceRow[] | null) ?? []
+/** The function this database does not have yet (run-now part 443 not run): PostgREST says PGRST202, Postgres 42883. */
+function noCountsFunction(error: { code?: string; message?: string } | null | undefined): boolean {
+  const c = String(error?.code ?? "")
+  return c === "PGRST202" || c === "42883" || /could not find the function/i.test(error?.message ?? "")
+}
+
+/**
+ * HOW MANY POSTS EACH SPACE HOLDS, IN ONE READ (round rel2-db). It was two
+ * exact counts per space, side by side: a community with 30 spaces sent 60
+ * counts for one page of its admin. public.community_space_counts (run-now
+ * part 443) answers every space of the community in one grouped read with the
+ * same rule: a space's feed posts, and a chat space's messages beside them.
+ * Where the part has not run, the counts are asked as before. Any other
+ * failure reads as 0 for every space, which is what each old count answered
+ * when it failed: the page still opens, and no second burst of counts goes to
+ * a database that is already not answering.
+ */
+async function spaceCounts(db: Db, communityId: string, rows: SpaceRow[]): Promise<{ posts: number[]; chats: number[] }> {
+  if (rows.length === 0) return { posts: [], chats: [] }
+  const { data, error } = await db.rpc("community_space_counts", { p_community_id: communityId })
+  if (!error && Array.isArray(data)) {
+    const by = new Map((data as Array<{ space_id: string; posts: number | string | null; messages: number | string | null }>).map((r) => [r.space_id, r]))
+    return {
+      posts: rows.map((s) => Number(by.get(s.id)?.posts ?? 0) || 0),
+      chats: rows.map((s) => (s.kind === "chat" ? Number(by.get(s.id)?.messages ?? 0) || 0 : 0)),
+    }
+  }
+  if (error && !noCountsFunction(error)) {
+    console.error("[communities] space counts not read:", error.code ?? "", error.message ?? "")
+    return { posts: rows.map(() => 0), chats: rows.map(() => 0) }
+  }
   /* A chat space's messages are counted beside its posts, not in a round after them (round 32), and used when it has no posts. */
   const [posts, chats] = await Promise.all([
     Promise.all(rows.map((s) => count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("space_id", s.id)))),
     Promise.all(rows.map((s) => (s.kind === "chat" ? count(db.from("community_messages").select("id", { count: "exact", head: true }).eq("space_id", s.id)) : Promise.resolve(0)))),
   ])
+  return { posts, chats }
+}
+
+export async function loadSpaces(db: Db, communityId: string): Promise<SpaceView[]> {
+  const { data, error } = await db.from("community_spaces").select(SPACE_COLUMNS).eq("community_id", communityId).order("position", { ascending: true }).limit(MAX_SPACES + 10)
+  if (error) return []
+  const rows = (data as SpaceRow[] | null) ?? []
+  const { posts, chats } = await spaceCounts(db, communityId, rows)
   const messages = rows.map((_, i) => (posts[i] === 0 ? chats[i] : 0))
   return rows.map((s, i) => ({
     id: s.id,
