@@ -1322,6 +1322,8 @@ const SUITES = [
   "tests/ai-visual-critic-o4.test.ts",
   /* Round P (P5): the website agent's own quality. A placement with no blocks gets its schema's filled preset items (fresh ids); a section whose item types have no filled preset is refused at write; finish refuses too few items (min_blocks, 3 for a repeating list, fewer when the store has fewer), placeholder items and copies; template first with a scripted model and a stub template (applied in the brief phase, its components as few-shot, untouched copy and imagery refused, adapting clears it); every picture slot filled when pictures can be made, text-forward otherwise, an empty frame refused; the critic's hard gates for empty slots, empty item lists, empty sections and an empty <img>; models by phase (plan, build on opus high, repair on sonnet) and the cost estimate inside the raised cap. */
   "tests/ai-agent-quality-p5.test.ts",
+  /* Wave 12, platform track: the home page's Everything in one place, Your audience belongs to you, analytics (dotted globe), integrations (flipping tiles) and the app sections (components/marketing/home). Server render, truth against the catalog, the Analytics page and the app's Home, no hotlinked pictures and the photo budget, keyframes on transform and opacity only, loops paused off screen and under reduced motion, nothing inserted per frame. */
+  "tests/home-w12-platform.test.ts",
 ]
 
 /**
