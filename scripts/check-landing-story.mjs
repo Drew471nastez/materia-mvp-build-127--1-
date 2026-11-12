@@ -155,10 +155,10 @@ try {
           2.05,
       ),
     )
-    // Freeze movement for geometry/screenshots; the hero probe separately exercises autoplay and Free Mode inertia.
+    // Freeze movement for geometry/screenshots; the hero probe separately exercises autoplay and settled slide navigation.
     await p.focus(".build-showcase-track")
     await p.keyboard.press("Home")
-    await wait(750)
+    await wait(1200)
     await p.keyboard.press("Space")
     await p.$eval(".build-showcase-track", (e) => e.blur())
     const cards = await p.$$eval(
@@ -176,11 +176,23 @@ try {
       cards.every((c) => c.fit === "contain"),
       "screenshots are never cover-cropped",
     )
-    if (width >= 1024)
+    if (width >= 1024) {
       assert.ok(
         cards[0].x >= 20 && cards[2].right <= width - 20,
         "wide / phone / wide cards fit completely on desktop",
       )
+      assert.ok(
+        cards[1].h > cards[0].h * 1.1,
+        "OnePage card is taller than desktop cards",
+      )
+    }
+    if (width < 768) {
+      assert.ok(
+        cards[0].w >= width - 4,
+        "mobile gallery cards span the viewport",
+      )
+      assert.ok(Math.abs(cards[0].x) <= 2, "mobile gallery has no inset gutter")
+    }
     for (const heading of await p.$$("[data-story-heading]")) {
       await heading.evaluate((e) =>
         e.scrollIntoView({ block: "center", behavior: "instant" }),

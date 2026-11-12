@@ -119,12 +119,12 @@ assert.ok(HERO_VIDEO.src.includes("1794426925775466.mp4"))
 const showcase = read("components/marketing/build-showcase.tsx")
 assert.ok(SHOWCASE_HEADING.split(/\s+/).length <= 8)
 assert.ok(
-  read("components/marketing/use-showcase-motion.ts").includes('mode: "free"') &&
+  read("components/marketing/use-showcase-motion.ts").includes('mode: "snap"') &&
     showcase.includes('loading="lazy"'),
 )
 
 const showcaseMarkup = renderToString(createElement(BuildShowcase))
-assert.equal((showcaseMarkup.match(/data-showcase-slide=""/g) || []).length, 6)
+assert.equal((showcaseMarkup.match(/data-showcase-slide=""/g) || []).length, 9)
 assert.equal((showcaseMarkup.match(/data-showcase-word=""/g) || []).length, SHOWCASE_HEADING.split(/\s+/).length)
 assert.ok(!showcaseMarkup.includes("<button"))
 assert.ok(
