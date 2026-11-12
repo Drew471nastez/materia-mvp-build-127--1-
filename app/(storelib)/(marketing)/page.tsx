@@ -3,6 +3,20 @@ import { LandingStory } from "@/components/marketing/landing-story"
 import { BuildShowcase } from "@/components/marketing/build-showcase"
 import { Hero } from "@/components/marketing/hero"
 import { LazySection } from "@/components/marketing/home/lazy-section"
+import {
+  LazyEverythingInOnePlace,
+  LazyIdeasComeToLife,
+  LazyBusinessCarousel,
+  LazyCreatorsCarousel,
+  LazyHowItWorks,
+  LazyCheckoutScene,
+  LazyAudienceOwnership,
+  LazyAnalyticsShowcase,
+  LazySellEverywhereMap,
+  LazyIntegrationsSection,
+  LazyEarningsCalculator,
+  LazyAppAnywhere,
+} from "@/components/marketing/home/lazy-sections"
 import { storelibHomeJsonLd } from "@/lib/seo/structured-data"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import type { Metadata } from "next"
@@ -49,34 +63,46 @@ export default function StorelibLanding() {
         {/* 2 BUILD SHOWCASE (its content: track showcase) */}
         <BuildShowcase />
 
-        {/* W12 SLOT 3: EverythingInOnePlace, four cards (platform) */}
+        {/* 3 EverythingInOnePlace */}
+        <LazyEverythingInOnePlace />
 
-        {/* W12 SLOT 4: IdeasToLife, pill tabs with builder previews (showcase) */}
+        {/* 4 IdeasToLife */}
+        <LazyIdeasComeToLife />
 
         {/* 5 UNLIMITED POSSIBILITIES (frame) */}
         <LazySection name="possibilities" minHeight="560px">
           <ProductMarquee />
         </LazySection>
 
-        {/* W12 SLOT 6: EveryKindOfBusiness carousel (showcase) */}
+        {/* 6 EveryKindOfBusiness carousel */}
+        <LazyBusinessCarousel />
 
-        {/* W12 SLOT 7: CreatorsCarousel (creators) */}
+        {/* 7 CreatorsCarousel */}
+        <LazyCreatorsCarousel />
 
-        {/* W12 SLOT 8: HowItWorks motion graphics + earnings picker (commerce) */}
+        {/* 8 HowItWorks motion graphics + earnings picker */}
+        <LazyHowItWorks />
 
-        {/* W12 SLOT 9: CheckoutScene, the checkout scroll scene (commerce; sticky inside: wrap in lazySection(), never <LazySection> without `sticky`) */}
+        {/* 9 CheckoutScene */}
+        <LazyCheckoutScene />
 
-        {/* W12 SLOT 10: AudienceOwnership, "Your audience belongs to you" (platform) */}
+        {/* 10 AudienceOwnership */}
+        <LazyAudienceOwnership />
 
-        {/* W12 SLOT 11: AnalyticsShowcase (platform) */}
+        {/* 11 AnalyticsShowcase */}
+        <LazyAnalyticsShowcase />
 
-        {/* W12 SLOT 12: SellEverywhere world map (commerce) */}
+        {/* 12 SellEverywhere world map */}
+        <LazySellEverywhereMap />
 
-        {/* W12 SLOT 13: Integrations (platform) */}
+        {/* 13 Integrations */}
+        <LazyIntegrationsSection />
 
-        {/* W12 SLOT 14: EarningsCalculator (commerce) */}
+        {/* 14 EarningsCalculator */}
+        <LazyEarningsCalculator />
 
-        {/* W12 SLOT 15: RunFromAnywhere, app badges (platform) */}
+        {/* 15 RunFromAnywhere */}
+        <LazyAppAnywhere />
 
         {/* 16 PRICING (kept as it was, without its See full pricing button here) */}
         <LazySection name="pricing" minHeight="1300px">
